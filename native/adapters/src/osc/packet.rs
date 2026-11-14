@@ -231,53 +231,83 @@ pub fn decode_packet(data: &[u8]) -> Result<Vec<OscMessage>, ParseError> {
 }
 
 /// Whether an OSC address pattern (`?`, `*`, `[...]`, `{a,b}`) matches `address`.
+/// Each (pattern position, address position) pair is decided once, so a pattern with
+/// many `*` takes polynomial, not exponential, time.
 pub fn pattern_matches(pattern: &str, address: &str) -> bool {
     let pattern: Vec<char> = pattern.chars().collect();
     let address: Vec<char> = address.chars().collect();
-    matches(&pattern, &address)
+    let mut memo = std::collections::HashMap::new();
+    Matcher { pattern: &pattern, address: &address, memo: &mut memo }.at(0, 0)
 }
 
-fn matches(pattern: &[char], address: &[char]) -> bool {
-    let Some((&first, rest)) = pattern.split_first() else { return address.is_empty() };
-    match first {
-        '*' => {
-            (0..=address.len()).take_while(|&n| n == 0 || address[n - 1] != '/').any(|n| matches(rest, &address[n..]))
+struct Matcher<'a> {
+    pattern: &'a [char],
+    address: &'a [char],
+    memo: &'a mut std::collections::HashMap<(usize, usize), bool>,
+}
+
+impl Matcher<'_> {
+    fn at(&mut self, p: usize, a: usize) -> bool {
+        if let Some(&known) = self.memo.get(&(p, a)) {
+            return known;
         }
-        '?' => address.first().is_some_and(|&c| c != '/') && matches(rest, &address[1..]),
-        '[' => {
-            let Some(close) = rest.iter().position(|&c| c == ']') else {
-                return address.first() == Some(&'[') && matches(rest, &address[1..]);
-            };
-            let Some(&c) = address.first() else { return false };
-            let mut set = &rest[..close];
-            let negate = set.first() == Some(&'!');
-            if negate {
-                set = &set[1..];
-            }
-            let mut found = false;
-            let mut i = 0;
-            while i < set.len() {
-                if i + 2 < set.len() && set[i + 1] == '-' {
-                    found |= set[i] <= c && c <= set[i + 2];
-                    i += 3;
-                } else {
-                    found |= set[i] == c;
-                    i += 1;
+        let result = self.decide(p, a);
+        self.memo.insert((p, a), result);
+        result
+    }
+
+    fn decide(&mut self, p: usize, a: usize) -> bool {
+        let (pattern, address) = (self.pattern, self.address);
+        let Some(&first) = pattern.get(p) else { return a == address.len() };
+        match first {
+            '*' => {
+                let mut n = a;
+                loop {
+                    if self.at(p + 1, n) {
+                        return true;
+                    }
+                    if n == address.len() || address[n] == '/' {
+                        return false;
+                    }
+                    n += 1;
                 }
             }
-            found != negate && c != '/' && matches(&rest[close + 1..], &address[1..])
+            '?' => address.get(a).is_some_and(|&c| c != '/') && self.at(p + 1, a + 1),
+            '[' => {
+                let Some(close) = pattern[p + 1..].iter().position(|&c| c == ']').map(|i| p + 1 + i) else {
+                    return address.get(a) == Some(&'[') && self.at(p + 1, a + 1);
+                };
+                let Some(&c) = address.get(a) else { return false };
+                let mut set = &pattern[p + 1..close];
+                let negate = set.first() == Some(&'!');
+                if negate {
+                    set = &set[1..];
+                }
+                let mut found = false;
+                let mut i = 0;
+                while i < set.len() {
+                    if i + 2 < set.len() && set[i + 1] == '-' {
+                        found |= set[i] <= c && c <= set[i + 2];
+                        i += 3;
+                    } else {
+                        found |= set[i] == c;
+                        i += 1;
+                    }
+                }
+                found != negate && c != '/' && self.at(close + 1, a + 1)
+            }
+            '{' => {
+                let Some(close) = pattern[p + 1..].iter().position(|&c| c == '}').map(|i| p + 1 + i) else {
+                    return address.get(a) == Some(&'{') && self.at(p + 1, a + 1);
+                };
+                let choices: Vec<&[char]> = pattern[p + 1..close].split(|&c| c == ',').collect();
+                choices.into_iter().any(|choice| {
+                    address.len() >= a + choice.len()
+                        && address[a..a + choice.len()] == *choice
+                        && self.at(close + 1, a + choice.len())
+                })
+            }
+            c => address.get(a) == Some(&c) && self.at(p + 1, a + 1),
         }
-        '{' => {
-            let Some(close) = rest.iter().position(|&c| c == '}') else {
-                return address.first() == Some(&'{') && matches(rest, &address[1..]);
-            };
-            let after = &rest[close + 1..];
-            rest[..close].split(|&c| c == ',').any(|choice| {
-                address.len() >= choice.len()
-                    && address[..choice.len()] == *choice
-                    && matches(after, &address[choice.len()..])
-            })
-        }
-        c => address.first() == Some(&c) && matches(rest, &address[1..]),
     }
 }

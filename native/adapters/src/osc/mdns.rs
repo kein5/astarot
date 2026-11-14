@@ -42,6 +42,8 @@ const GOODBYE_GAP: Duration = Duration::from_millis(125);
 const BROWSE_FIRST: Duration = Duration::from_secs(1);
 const BROWSE_LIMIT: Duration = Duration::from_secs(3600);
 const MAX_PACKET: usize = 9000;
+const RESOLVE_FIRST: Duration = Duration::from_secs(1);
+const RESOLVE_LIMIT: Duration = Duration::from_secs(60);
 
 // ---------------------------------------------------------------- DNS messages
 
@@ -340,6 +342,10 @@ struct State {
     browsing: Vec<Browse>,
     cache: Vec<Cached>,
     pending: Vec<Pending>,
+    /// When each resolving question was last asked, and how often: asked again after
+    /// 1, 2, 4, ... seconds up to a minute, so an unresolvable service does not make
+    /// every response on the network trigger a query.
+    asked: Vec<(Question, Instant, u32)>,
 }
 
 impl State {
@@ -538,8 +544,23 @@ impl Shared {
                 }
             }
         }
-        drop(state);
         questions.dedup();
+        questions.retain(|question| match state.asked.iter_mut().find(|(asked, _, _)| asked == question) {
+            Some((_, last, count)) => {
+                let wait = RESOLVE_FIRST * 2u32.saturating_pow((*count).min(6));
+                if now.saturating_duration_since(*last) < wait.min(RESOLVE_LIMIT) {
+                    return false;
+                }
+                *last = now;
+                *count += 1;
+                true
+            }
+            None => {
+                state.asked.push((question.clone(), now, 0));
+                true
+            }
+        });
+        drop(state);
         if !questions.is_empty() {
             self.sockets.multicast(&Message { questions, ..Default::default() });
         }
@@ -598,6 +619,7 @@ impl Shared {
         {
             let mut state = self.state();
             state.cache.retain(|c| c.expires > now);
+            state.asked.retain(|(_, last, _)| now.saturating_duration_since(*last) < BROWSE_LIMIT);
             let mut index = 0;
             while index < state.pending.len() {
                 if state.pending[index].due <= now {

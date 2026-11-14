@@ -509,7 +509,8 @@ impl Worker {
         *cancelled.borrow() || Instant::now() >= self.run.deadline
     }
 
-    async fn bind(&self) -> Result<Vec<TcpListener>, StartError> {
+    /// Bind every address of the host without listening yet.
+    async fn bind(&self) -> Result<Vec<TcpSocket>, StartError> {
         let addresses: Vec<SocketAddr> = match self.host.parse::<std::net::IpAddr>() {
             Ok(ip) => vec![SocketAddr::new(ip, self.port)],
             Err(_) => tokio::net::lookup_host((self.host.as_str(), self.port))
@@ -531,11 +532,7 @@ impl Worker {
             socket.bind(address).map_err(|e| StartError::Io(e.kind()))?;
             sockets.push(socket);
         }
-        sockets
-            .into_iter()
-            .map(|s| s.listen(LISTEN_BACKLOG))
-            .collect::<io::Result<_>>()
-            .map_err(|e| StartError::Io(e.kind()))
+        Ok(sockets)
     }
 
     async fn serve(self, mut cancelled: watch::Receiver<bool>) -> Result<(), StartError> {
@@ -628,11 +625,16 @@ impl Worker {
     }
 
     async fn bind_checked(&self, cancelled: &watch::Receiver<bool>) -> Result<Vec<TcpListener>, StartError> {
-        let listeners = self.bind().await?;
+        let sockets = self.bind().await?;
+        // Listen only when the attempt is still current: a late bind never accepts.
         if self.past_deadline(cancelled) {
             return Err(StartError::Timeout);
         }
-        Ok(listeners)
+        sockets
+            .into_iter()
+            .map(|s| s.listen(LISTEN_BACKLOG))
+            .collect::<io::Result<_>>()
+            .map_err(|e| StartError::Io(e.kind()))
     }
 
     fn fan_out(&self, message: &Arc<str>, size: usize) {
@@ -722,12 +724,15 @@ where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let check = shared.clone();
+    let accepted_with = Arc::new(Mutex::new(None::<String>));
+    let remember = accepted_with.clone();
     #[allow(clippy::result_large_err)] // The library's callback type fixes the error type.
     let authenticate = move |request: &Request, response: Response| -> Result<Response, ErrorResponse> {
         let expected = check.token.read().unwrap_or_else(|e| e.into_inner()).clone();
         let supplied = request.uri().path_and_query().map(|p| p.as_str()).and_then(query_token);
         match (expected, supplied) {
             (Some(expected), Some(supplied)) if !expected.trim().is_empty() && tokens_match(&supplied, &expected) => {
+                *remember.lock().unwrap_or_else(|e| e.into_inner()) = Some(expected);
                 Ok(response)
             }
             _ => Err(forbidden()),
@@ -743,7 +748,16 @@ where
     let (tx, mut rx) = mpsc::unbounded_channel::<Outgoing>();
     let queued = Arc::new(AtomicUsize::new(0));
     let kill = Arc::new(Notify::new());
-    shared.clients.lock().insert(id, Client { tx: tx.clone(), queued: queued.clone(), kill: kill.clone() });
+    {
+        let mut clients = shared.clients.lock();
+        // A token that changed during the handshake shuts this client out too. The
+        // check runs under the clients lock, which set_token's eviction also takes.
+        let current = shared.token.read().unwrap_or_else(|e| e.into_inner()).clone();
+        if current != *accepted_with.lock().unwrap_or_else(|e| e.into_inner()) {
+            return;
+        }
+        clients.insert(id, Client { tx: tx.clone(), queued: queued.clone(), kill: kill.clone() });
+    }
 
     let (mut sink, mut stream) = socket.split();
     let writer_queued = queued.clone();

@@ -139,16 +139,21 @@ pub fn host_info_json(name: &str, osc_port: u16) -> String {
 }
 
 /// Read a request head before `deadline`, never more than 64 KiB.
-fn read_head(stream: &mut TcpStream, deadline: Instant) -> io::Result<Vec<u8>> {
+fn read_head(stream: &mut TcpStream, deadline: Instant, stopping: &AtomicBool) -> io::Result<Vec<u8>> {
     let mut head = Vec::new();
     let mut buffer = [0u8; 2048];
     while !head.windows(4).any(|w| w == b"\r\n\r\n") && !head.windows(2).any(|w| w == b"\n\n") {
         let left = deadline.saturating_duration_since(Instant::now());
-        if left.is_zero() || head.len() > MAX_HEAD {
+        if left.is_zero() || head.len() > MAX_HEAD || stopping.load(Ordering::SeqCst) {
             return Err(io::ErrorKind::TimedOut.into());
         }
-        stream.set_read_timeout(Some(left))?;
-        let read = stream.read(&mut buffer)?;
+        // Short reads, so that stopping the service does not wait for a slow peer.
+        stream.set_read_timeout(Some(left.min(POLL_INTERVAL)))?;
+        let read = match stream.read(&mut buffer) {
+            Ok(read) => read,
+            Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => continue,
+            Err(e) => return Err(e),
+        };
         if read == 0 {
             break;
         }
@@ -163,12 +168,12 @@ struct ServiceState {
     root: Node,
 }
 
-fn serve_one(mut stream: TcpStream, state: &RwLock<ServiceState>) {
+fn serve_one(mut stream: TcpStream, state: &RwLock<ServiceState>, stopping: &AtomicBool) {
     // An absolute deadline also stops a peer that drips partial headers.
     let deadline = Instant::now() + HTTP_REQUEST_TIMEOUT;
     let _ = stream.set_nonblocking(false);
     let _ = stream.set_write_timeout(Some(HTTP_REQUEST_TIMEOUT));
-    let Ok(head) = read_head(&mut stream, deadline) else {
+    let Ok(head) = read_head(&mut stream, deadline, stopping) else {
         let _ = stream.shutdown(Shutdown::Both);
         return;
     };
@@ -221,7 +226,7 @@ impl QueryService {
         let http_thread = thread::Builder::new().name("osc_query_http".into()).spawn(move || {
             while !serving_stop.load(Ordering::SeqCst) {
                 match listener.accept() {
-                    Ok((stream, _)) => serve_one(stream, &serving_state),
+                    Ok((stream, _)) => serve_one(stream, &serving_state, &serving_stop),
                     Err(_) => thread::sleep(POLL_INTERVAL),
                 }
             }
@@ -262,10 +267,10 @@ impl QueryService {
     }
 
     fn shutdown(&mut self) {
+        self.stopping.store(true, Ordering::SeqCst);
         if let Some(mdns) = self.mdns.take() {
             mdns.close();
         }
-        self.stopping.store(true, Ordering::SeqCst);
         if let Some(thread) = self.http_thread.take() {
             let _ = thread.join();
         }
@@ -350,15 +355,16 @@ fn complete_body(raw: &[u8]) -> Option<Vec<u8>> {
         let mut out = Vec::new();
         let mut at = 0;
         loop {
-            let line_end = body[at..].windows(2).position(|w| w == b"\r\n")? + at;
+            let line_end = body.get(at..)?.windows(2).position(|w| w == b"\r\n")? + at;
             let size = std::str::from_utf8(&body[at..line_end]).ok()?.split(';').next()?.trim().to_string();
             let size = usize::from_str_radix(&size, 16).ok()?;
             at = line_end + 2;
             if size == 0 {
                 return Some(out);
             }
-            out.extend_from_slice(body.get(at..at + size)?);
-            at += size + 2;
+            let end = at.checked_add(size)?;
+            out.extend_from_slice(body.get(at..end)?);
+            at = end.checked_add(2)?;
         }
     }
     let length: usize = header("content-length")?.parse().ok()?;

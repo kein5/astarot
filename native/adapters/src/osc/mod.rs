@@ -610,6 +610,14 @@ impl OscHandler {
         let running = self.query_running.clone();
         let address = address.to_string();
         let spawned = thread::Builder::new().name("osc_parameter_query".into()).spawn(move || {
+            // Released however the query ends, a panic included.
+            struct Release(Arc<AtomicBool>);
+            impl Drop for Release {
+                fn drop(&mut self) {
+                    self.0.store(false, Ordering::SeqCst);
+                }
+            }
+            let release = Release(running);
             let result = match &browser {
                 // The browser belongs to receive startup. A query can never create it.
                 None => Ok(None),
@@ -618,7 +626,7 @@ impl OscHandler {
             if result.is_err() {
                 log::line("OSCQuery: parameter query failed");
             }
-            running.store(false, Ordering::SeqCst);
+            drop(release);
             let _ = sender.send(result.ok().flatten());
         });
         if spawned.is_err() {

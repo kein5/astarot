@@ -614,3 +614,27 @@ fn nothing_logged_holds_the_text() {
     handler.osc_server_stop().unwrap();
     assert!(lines.lock().unwrap().iter().all(|line| !line.contains("private words")));
 }
+
+#[test]
+fn a_pattern_with_many_wildcards_is_decided_quickly() {
+    let pattern = format!("/avatar/parameters/{}z", "*".repeat(60));
+    let started = Instant::now();
+    assert!(!pattern_matches(&pattern, "/avatar/parameters/MuteSelf"));
+    assert!(pattern_matches(&format!("/avatar/parameters/{}f", "*".repeat(60)), "/avatar/parameters/MuteSelf"));
+    assert!(started.elapsed() < Duration::from_secs(1));
+}
+
+#[test]
+fn a_chunked_reply_cut_after_a_chunk_is_read_without_failing() {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let port = listener.local_addr().unwrap().port();
+    thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut head = [0u8; 1024];
+        let _ = stream.read(&mut head);
+        stream.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\n{\"a\":").unwrap();
+        thread::sleep(Duration::from_millis(100));
+        stream.write_all(b"\r\n2\r\n1}\r\n0\r\n\r\n").unwrap();
+    });
+    assert_eq!(get_json(Ipv4Addr::LOCALHOST.into(), port, "/x"), Ok(Some(json!({"a": 1}))));
+}
