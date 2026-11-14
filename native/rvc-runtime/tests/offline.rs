@@ -53,6 +53,33 @@ fn synthesizer_reproduces_the_reference_for_tiny_models() {
 }
 
 #[test]
+fn synthesizer_window_reproduces_the_reference_for_tiny_models() {
+    // Specification section 9.3: left context, then only `return_length` frames of audio.
+    for name in ["tiny_v2_f0_40k", "tiny_v1_nof0_32k"] {
+        let model = VoiceModel::load(&data(&format!("{name}.pth"))).unwrap();
+        let mut synthesizer = Synthesizer::new(&model, Device::Cpu).unwrap();
+        let array = |kind: &str| npy(&data(&format!("{name}_window_{kind}.npy")));
+        let features = array("features").f32();
+        let tracks = model.f0.then(|| (array("coarse").i64(), array("hz").f32()));
+        let tracks = tracks.as_ref().map(|(coarse, hz)| (&coarse[..], &hz[..]));
+        // The first window keeps all frames in the flow, the second starts the flow 24 frames early.
+        for (skip_head, return_length) in [(3, 12), (30, 8)] {
+            let expected = array(&format!("{skip_head}_{return_length}_audio")).f32();
+            let found = synthesizer.synthesize_window(&features, tracks, 1, &mut Generator::new(NoiseMode::Zero), skip_head, return_length).unwrap();
+            assert_eq!(found.len(), return_length * model.config.samples_per_frame());
+            let error = relative_error(&found, &expected);
+            assert!(error < 1e-4, "{name} window {skip_head}+{return_length}: relative error {error}");
+        }
+        // The whole range is the plain synthesis, sample for sample.
+        let frames = features.len() / model.version.feature_dim();
+        let whole = synthesizer.synthesize_window(&features, tracks, 1, &mut Generator::new(NoiseMode::Seeded(2)), 0, frames).unwrap();
+        assert_eq!(whole, synthesizer.synthesize(&features, tracks, 1, &mut Generator::new(NoiseMode::Seeded(2))).unwrap());
+        // A window past the end is refused.
+        assert!(matches!(synthesizer.synthesize_window(&features, tracks, 1, &mut Generator::new(NoiseMode::Zero), 35, 6), Err(Error::Invalid(_))));
+    }
+}
+
+#[test]
 fn synthesizer_is_reproducible_with_a_seed_and_checks_its_inputs() {
     let model = VoiceModel::load(&data("tiny_v2_f0_40k.pth")).unwrap();
     let mut synthesizer = Synthesizer::new(&model, Device::Cpu).unwrap();

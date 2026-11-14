@@ -14,6 +14,8 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
+import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
+import { extensionOf } from "../../../../../../logics/common/fileDrop";
 
 const defaults = { mode: "passthrough", runtime: "", reference: "", engine: "seed-vc",
     rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0 };
@@ -142,6 +144,13 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
             {converted && <fieldset className={styles.fields} disabled={saving}>
                 {/* The RVC page already opens with the RVC hint. */}
                 {variant !== "rvc" && <Description text={t(rvc ? "voice.vc_rvc_hint" : "voice.vc_hint")} />}
+                {/* Dropped files fill the model and index fields like typing them; saving stays with the save bar. */}
+                {rvc && <FileDropZone accept={[".pth", ".index"]} disabled={busy || saving} hint={t("voice_ui.rvc_drop_hint")}
+                    onFiles={paths => {
+                        const model = paths.find(path => extensionOf(path) === ".pth");
+                        const index = paths.find(path => extensionOf(path) === ".index");
+                        setDraft(current => ({ ...current, ...(model && { rvc_model: model }), ...(index && { rvc_index: index }) }));
+                    }} />}
                 {(rvc ? ["rvc_runtime", "rvc_model", "rvc_index"] : ["runtime", "reference"]).map(name => <label key={name}>{t(`voice.vc_${name}`)}
                     <input type="text" value={draft[name]} disabled={busy} maxLength={4096}
                         onChange={e => setDraft({ ...draft, [name]: e.target.value })} />

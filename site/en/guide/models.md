@@ -54,7 +54,7 @@ To translate on an AMD or Intel GPU, use a [local LLM](../features/translation#u
 
 ## Where models are saved
 
-Downloaded models go to `downloaded_models` in the same folder as the settings file (`config.json`). On Linux that is `~/.config/vrct-vox/downloaded_models`; on Windows it is `downloaded_models` in the folder the app is in. Translation and Whisper models are kept elsewhere: in `weights` in the app's folder on Windows, and under `~/.local/share/vrct-vox` on Linux.
+Downloaded models go to `downloaded_models` in the same folder as the settings file (`config.json`). On Linux that is <CopyText>~/.config/vrct-vox/downloaded_models</CopyText>; on Windows it is `downloaded_models` in the folder the app is in. Translation and Whisper models are kept elsewhere: in `weights` in the app's folder on Windows, and under <CopyText>~/.local/share/vrct-vox</CopyText> on Linux.
 
 ## Downloading at startup
 

@@ -48,6 +48,28 @@ ${StrLoc}
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 
+; The SHA-256 of the two packages this installer was released with, written into
+; nsis\package-hashes.nsh by tools/installer_package_hashes.py once both ZIPs exist
+; (release.yml). They make the installer refuse a package that was replaced on the release
+; page, even together with its .sha256 file. A release build sets VRCT_REQUIRE_PACKAGE_HASHES=1
+; so a missing file stops the build; other builds fall back to the published .sha256 files.
+!if "$%VRCT_REQUIRE_PACKAGE_HASHES%" == "1"
+  !include "..\..\..\..\nsis\package-hashes.nsh"
+  !ifndef PACKAGE_SHA256_CPU
+    !error "nsis\package-hashes.nsh must define PACKAGE_SHA256_CPU"
+  !endif
+  !ifndef PACKAGE_SHA256_GPU
+    !error "nsis\package-hashes.nsh must define PACKAGE_SHA256_GPU"
+  !endif
+!else
+  !include /NONFATAL "..\..\..\..\nsis\package-hashes.nsh"
+!endif
+!ifdef PACKAGE_SHA256_CPU
+  !echo "VRCT-VOX package checksums built in: CPU ${PACKAGE_SHA256_CPU}, GPU ${PACKAGE_SHA256_GPU}"
+!else
+  !echo "VRCT-VOX package checksums not built in; the installer checks the published .sha256 files"
+!endif
+
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
 OutFile "${OUTFILE}"
@@ -892,13 +914,32 @@ Section Install
   StrCpy $cmder_dl "https://github.com/kein5/VRCT-VOX/releases/download/$release_revision/$file_name"
   DetailPrint "Got URL : $cmder_dl"
 
-  ; Every VRCT-VOX release publishes a SHA-256 sidecar next to each package.
+  StrCpy $package_hash_path ""
+  StrCpy $package_hash_available "0"
+
+  ; Installing the release this installer came from: check the package against the
+  ; hash built into the installer (see package-hashes.nsh at the top), not against a
+  ; file on the same release page, which whoever can replace the package can replace too.
+  !ifdef PACKAGE_SHA256_CPU
+    ${If} $effective_version == "${VERSION}"
+      ${If} $SelectedEdition == "gpu"
+        StrCpy $expected_package_hash "${PACKAGE_SHA256_GPU}"
+      ${Else}
+        StrCpy $expected_package_hash "${PACKAGE_SHA256_CPU}"
+      ${EndIf}
+      StrCpy $package_hash_available "1"
+      DetailPrint "Using the package checksum built into this installer"
+      Goto package_hash_ready
+    ${EndIf}
+  !endif
+
+  ; Another version (/VERSION), or a build without built-in hashes: every VRCT-VOX
+  ; release publishes a SHA-256 sidecar next to each package.
   ; Download it before the large archive so a package can be rejected before
   ; extraction. Any failure, including a missing sidecar (HTTP 404), is fatal:
   ; continuing without it would skip the integrity check.
   StrCpy $package_hash_path "$TEMP\$file_name.sha256"
   Delete "$package_hash_path"
-  StrCpy $package_hash_available "0"
   DetailPrint "Downloading package checksum..."
   NScurl::http GET "$cmder_dl.sha256" "$package_hash_path" /TAG "package" /BACKGROUND /COMPLETETIMEOUT 30s /END
   Pop $package_hash_id
@@ -1216,13 +1257,13 @@ Section Install
         Call StopPackageTransfers
         DetailPrint "Package SHA-256 mismatch"
         Delete "$TEMP\$file_name"
-        Delete "$package_hash_path"
+        ${IfThen} $package_hash_path != "" ${|} Delete "$package_hash_path" ${|}
         MessageBox MB_OK|MB_ICONSTOP "The downloaded package failed SHA-256 verification. Installation was aborted." /SD IDOK
         Abort
       ${EndIf}
       DetailPrint "Package SHA-256 verified"
     ${EndIf}
-    Delete "$package_hash_path"
+    ${IfThen} $package_hash_path != "" ${|} Delete "$package_hash_path" ${|}
 
     DetailPrint "Extracting $file_name ..."
     ; NSIS unzip plugins (nsisunz, and Nsis7z regardless of its embedded 7-Zip

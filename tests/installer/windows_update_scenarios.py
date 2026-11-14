@@ -31,6 +31,10 @@ PRODUCT_KEY = r"Software\kein5\VRCT-VOX"
 # No single ANSI code page holds all of these characters.
 NON_ANSI_FOLDER = "ユーザー 한글 😀"
 ARCHIVE_TIME = (2026, 1, 1, 0, 0, 0)
+# The installer's own version. Installing it checks the package against the hashes built into
+# the installer (src-tauri/nsis/package-hashes.nsh, written by prepare); other versions check
+# the .sha256 file served next to the package.
+OWN = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"]
 
 
 def payload_files(version):
@@ -71,6 +75,7 @@ def payloads():
         "no-exe": archive_bytes({k: v for k, v in new.items() if k != APP}),
         "no-internal": archive_bytes({k: v for k, v in new.items() if not k.startswith("_internal/")}),
         "range-fallback": good,
+        OWN: good,
     }
 
 
@@ -180,6 +185,10 @@ def prepare(port):
     source = template.read_text(encoding="utf-8")
     assert source.count(RELEASE_URL) == 1, "Run prepare exactly once in a disposable checkout"
     template.write_text(source.replace(RELEASE_URL, f"http://127.0.0.1:{port}/$release_revision"), encoding="utf-8")
+    # The hash of the package served for the installer's own version, as release.yml builds in.
+    released = sha256(payloads()[OWN]).hexdigest()
+    (ROOT / "src-tauri/nsis/package-hashes.nsh").write_text(
+        f'!define PACKAGE_SHA256_CPU "{released}"\n!define PACKAGE_SHA256_GPU "{released}"\n', encoding="ascii")
     for name, data in {
         "dist/index.html": b"<!doctype html><title>Installer test stub</title>",
         "src-tauri/bin/vrct-vox-sidecar-x86_64-pc-windows-msvc.exe": b"sidecar build stub",
@@ -308,6 +317,28 @@ def silent_scenarios(installer, work, server):
     run_install(installer, updated, "new", work / "temp-success", True)
     expect_updated(updated, before)
     print("PASS update success and user data retention", flush=True)
+
+    # The installer's own version: the package is checked against the built-in hash, and the
+    # .sha256 file next to it is not even fetched.
+    directory = clone("built-in hash")
+    run_install(installer, directory, OWN, work / "temp-built-in", True)
+    expect_updated(directory, before)
+    with server.request_lock:
+        fetched = [request["path"] for request in server.requests if request["path"].startswith(f"/v{OWN}/")]
+    assert fetched and not any(path.endswith(".sha256") for path in fetched), fetched
+    print("PASS own version checked against the built-in hash", flush=True)
+
+    # Someone who can replace release files swaps the package and its .sha256 together. The
+    # published checksum matches the swapped package; the built-in hash does not.
+    released = server.payloads[OWN]
+    server.payloads[OWN] = archive_bytes(payload_files("old"))
+    try:
+        directory = clone("replaced package and checksum")
+        run_install(installer, directory, OWN, work / "temp-replaced", False)
+        assert_tree(directory, before)
+    finally:
+        server.payloads[OWN] = released
+    print("PASS a package replaced with its checksum is refused", flush=True)
 
     non_ansi = work / NON_ANSI_FOLDER
     non_ansi.mkdir()
