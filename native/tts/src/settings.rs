@@ -1,0 +1,577 @@
+//! Validated speech settings. Chat and microphone speech are separately opt-in.
+//!
+//! The saved format is the Python `VoiceSettings` dictionary: every field is a
+//! string, unknown keys are rejected and missing keys take the defaults below.
+
+use serde::Serialize;
+use serde_json::{Map, Value};
+
+use crate::error::TtsError;
+use crate::events::{Source, SpeechMessageEvent};
+use crate::model_options::{SynthesisOptions, SAFE_SEED_MAX};
+
+/// A settings or request problem. The message is for developers only; it never
+/// reaches status, logs or the UI, because a caller may have put input in it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SettingsError(pub &'static str);
+
+impl std::fmt::Display for SettingsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0)
+    }
+}
+
+impl std::error::Error for SettingsError {}
+
+impl From<SettingsError> for TtsError {
+    fn from(error: SettingsError) -> Self {
+        TtsError::Unavailable(error.0)
+    }
+}
+
+/// Python's `str.isspace()`: Unicode White_Space plus the four ASCII separators.
+pub(crate) fn py_is_space(c: char) -> bool {
+    c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
+}
+
+/// Python's `str.strip()` emptiness test.
+pub(crate) fn is_blank(value: &str) -> bool {
+    value.chars().all(py_is_space)
+}
+
+/// Control characters other than line breaks and tabs, or DEL.
+pub(crate) fn has_unsafe_control(value: &str) -> bool {
+    value.chars().any(|c| ((c as u32) < 32 && !matches!(c, '\r' | '\n' | '\t')) || c as u32 == 127)
+}
+
+fn has_control(value: &str) -> bool {
+    value.chars().any(|c| (c as u32) < 32)
+}
+
+/// Accept only a plain local HTTP server and return its canonical base URL,
+/// `http://127.0.0.1:PORT` or `http://[::1]:PORT`.
+///
+/// This follows Python's `urllib.parse.urlsplit` for the inputs that matter:
+/// leading control characters and spaces are ignored, tabs and line breaks are
+/// removed, and a missing port is 80.
+pub fn local_url(value: &str) -> Result<String, SettingsError> {
+    const INVALID: SettingsError = SettingsError("Use http://127.0.0.1:PORT (local server only)");
+    let cleaned: String = value.trim_start_matches(|c: char| (c as u32) <= 32).chars().filter(|c| !matches!(c, '\t' | '\r' | '\n')).collect();
+    let (scheme, rest) = split_scheme(&cleaned).ok_or(INVALID)?;
+    if scheme != "http" {
+        return Err(INVALID);
+    }
+    let rest = rest.strip_prefix("//").ok_or(INVALID)?;
+    let netloc_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let (netloc, tail) = rest.split_at(netloc_end);
+    let (tail, fragment) = tail.split_once('#').unwrap_or((tail, ""));
+    let (path, query) = tail.split_once('?').unwrap_or((tail, ""));
+    if !query.is_empty() || !fragment.is_empty() || !matches!(path, "" | "/") {
+        return Err(INVALID);
+    }
+    if netloc.contains('[') != netloc.contains(']') {
+        return Err(INVALID);
+    }
+    let (userinfo, hostinfo) = match netloc.rsplit_once('@') {
+        Some((userinfo, hostinfo)) => (Some(userinfo), hostinfo),
+        None => (None, netloc),
+    };
+    if let Some(userinfo) = userinfo {
+        let (username, password) = userinfo.split_once(':').unwrap_or((userinfo, ""));
+        if !username.is_empty() || !password.is_empty() {
+            return Err(INVALID);
+        }
+    }
+    let (hostname, port) = match hostinfo.split_once('[') {
+        Some((_, bracketed)) => {
+            let (hostname, after) = bracketed.split_once(']').unwrap_or((bracketed, ""));
+            (hostname, after.split_once(':').map(|(_, port)| port).unwrap_or(""))
+        }
+        None => hostinfo.split_once(':').unwrap_or((hostinfo, "")),
+    };
+    let hostname = hostname.to_ascii_lowercase();
+    if !matches!(hostname.as_str(), "127.0.0.1" | "localhost" | "::1") {
+        return Err(INVALID);
+    }
+    let port: u32 = if port.is_empty() {
+        80
+    } else if port.bytes().all(|b| b.is_ascii_digit()) {
+        port.parse().map_err(|_| SettingsError("Invalid port"))?
+    } else {
+        return Err(SettingsError("Invalid port"));
+    };
+    if !(1..=65535).contains(&port) {
+        return Err(SettingsError("Invalid port"));
+    }
+    let host = if hostname == "::1" { "[::1]" } else { "127.0.0.1" };
+    Ok(format!("http://{host}:{port}"))
+}
+
+fn split_scheme(url: &str) -> Option<(String, &str)> {
+    let colon = url.find(':')?;
+    let scheme = &url[..colon];
+    let mut chars = scheme.chars();
+    let first = chars.next()?;
+    if !first.is_ascii_alphabetic() || !scheme.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')) {
+        return None;
+    }
+    Some((scheme.to_ascii_lowercase(), &url[colon + 1..]))
+}
+
+/// Explicit language selection; never guessed from a script, never `auto`.
+const LANGUAGES: &[(&str, &str)] = &[
+    ("Japanese", "ja"),
+    ("English", "en"),
+    ("Chinese", "zh"),
+    ("Korean", "ko"),
+    ("Chinese Simplified", "zh"),
+    ("Chinese Traditional", "zh"),
+    ("German", "de"),
+    ("French", "fr"),
+    ("Russian", "ru"),
+    ("Portuguese", "pt"),
+    ("Spanish", "es"),
+    ("Italian", "it"),
+];
+
+/// The speech.cpp language tag for a UI language name or a tag.
+pub fn language_tag(language: &str) -> Result<&'static str, SettingsError> {
+    LANGUAGES.iter().find(|(name, tag)| *tag == language || *name == language).map(|(_, tag)| *tag).ok_or(SettingsError("Unsupported or unknown speech language"))
+}
+
+/// Which platform's rules apply. Windows has no managed route.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Platform {
+    Windows,
+    Other,
+}
+
+impl Platform {
+    pub fn current() -> Self {
+        if cfg!(windows) {
+            Platform::Windows
+        } else {
+            Platform::Other
+        }
+    }
+}
+
+/// Gives a running bundled server's base URL for a role.
+pub type ServerResolver<'a> = &'a dyn Fn(&str) -> Result<String, TtsError>;
+
+/// One speech request chosen from the settings for one message.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpeechRequest {
+    pub url: String,
+    pub voice: String,
+    pub language: &'static str,
+    pub text: String,
+}
+
+macro_rules! voice_settings {
+    ($($field:ident = $default:literal,)*) => {
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+        pub struct VoiceSettings {
+            $(pub $field: String,)*
+        }
+
+        impl Default for VoiceSettings {
+            fn default() -> Self {
+                Self { $($field: $default.to_owned(),)* }
+            }
+        }
+
+        impl VoiceSettings {
+            const FIELDS: &'static [&'static str] = &[$(stringify!($field),)*];
+
+            fn set(&mut self, key: &str, value: String) {
+                match key {
+                    $(stringify!($field) => self.$field = value,)*
+                    _ => unreachable!("checked against FIELDS"),
+                }
+            }
+        }
+    };
+}
+
+voice_settings! {
+    mode = "off",                  // off | original | translated (chat only)
+    mic_mode = "off",              // off | translated (Realtime microphone finals only)
+    direct_policy = "suppress",    // suppress the managed direct voice | mix explicitly
+    target_slot = "1",
+    japanese_server = "external",  // external | bundled
+    japanese_url = "http://127.0.0.1:8080",
+    japanese_voice = "none",
+    multilingual_url = "",
+    multilingual_voice = "ryan",
+    multilingual_server = "external",
+    japanese_seed = "",
+    multilingual_seed = "",
+    japanese_instructions = "",
+    multilingual_instructions = "",
+    output_device = "",
+    routing = "external",          // external | managed (Linux daemon-owned route)
+    monitor = "off",               // off | on: an optional local copy of the speech
+    monitor_device = "",           // "" is the OS default output
+    monitor_volume = "100",        // 0-100 percent, attenuation only
+    conversion = "off",            // off | on: speak through the running voice conversion (ADR-007)
+}
+
+impl VoiceSettings {
+    /// The output that carries speech: the managed route or the chosen device.
+    pub fn playback_device(&self) -> &str {
+        if self.routing == "managed" {
+            "vrct.managed.tts"
+        } else {
+            &self.output_device
+        }
+    }
+
+    /// `(device, volume)` when the monitor is enabled.
+    pub fn monitor_choice(&self) -> Option<(&str, u8)> {
+        (self.monitor == "on").then(|| (self.monitor_device.as_str(), self.monitor_volume.parse().unwrap_or(100)))
+    }
+
+    /// Validate a saved settings object with the current platform's rules.
+    pub fn from_value(value: &Value) -> Result<Self, SettingsError> {
+        Self::from_value_on(value, Platform::current())
+    }
+
+    pub fn from_value_on(value: &Value, platform: Platform) -> Result<Self, SettingsError> {
+        let object = value.as_object().ok_or(SettingsError("Invalid voice settings"))?;
+        if object.keys().any(|key| !Self::FIELDS.contains(&key.as_str())) {
+            return Err(SettingsError("Invalid voice settings"));
+        }
+        let mut settings = Self::default();
+        for (key, value) in object {
+            let value = value.as_str().ok_or(SettingsError("Voice settings must be strings"))?;
+            settings.set(key, value.to_owned());
+        }
+        settings.validate(platform)?;
+        Ok(settings)
+    }
+
+    pub fn to_value(&self) -> Value {
+        serde_json::to_value(self).expect("strings always serialize")
+    }
+
+    fn validate(&self, platform: Platform) -> Result<(), SettingsError> {
+        for (seed, instruction) in [(&self.japanese_seed, &self.japanese_instructions), (&self.multilingual_seed, &self.multilingual_instructions)] {
+            if !seed.is_empty() && (!(1..=16).contains(&seed.len()) || !seed.bytes().all(|b| b.is_ascii_digit()) || seed.parse::<u64>().map_or(true, |seed| seed > SAFE_SEED_MAX)) {
+                return Err(SettingsError("Invalid seed"));
+            }
+            if instruction.chars().count() > 4000 || has_unsafe_control(instruction) {
+                return Err(SettingsError("Invalid instructions"));
+            }
+        }
+        if !matches!(self.mode.as_str(), "off" | "original" | "translated") || !matches!(self.target_slot.as_str(), "1" | "2" | "3") {
+            return Err(SettingsError("Invalid speech mode or translation slot"));
+        }
+        if !matches!(self.mic_mode.as_str(), "off" | "translated") || !matches!(self.direct_policy.as_str(), "suppress" | "mix") {
+            return Err(SettingsError("Invalid microphone speech mode or direct voice policy"));
+        }
+        if !matches!(self.routing.as_str(), "external" | "managed") {
+            return Err(SettingsError("Invalid routing mode"));
+        }
+        // The conversion has one input: speech replaces the microphone, it cannot mix with it.
+        if !matches!(self.conversion.as_str(), "off" | "on") || (self.conversion == "on" && self.direct_policy == "mix") {
+            return Err(SettingsError("Invalid speech-through-conversion choice"));
+        }
+        if [&self.japanese_server, &self.multilingual_server].iter().any(|server| !matches!(server.as_str(), "external" | "bundled")) {
+            return Err(SettingsError("Invalid speech server selection"));
+        }
+        local_url(&self.japanese_url)?;
+        if !self.multilingual_url.is_empty() {
+            local_url(&self.multilingual_url)?;
+        }
+        for voice in [&self.japanese_voice, &self.multilingual_voice] {
+            if is_blank(voice) || voice.chars().count() > 128 || has_control(voice) {
+                return Err(SettingsError("Invalid voice name"));
+            }
+        }
+        if self.output_device.chars().count() > 512 || has_control(&self.output_device) {
+            return Err(SettingsError("Invalid output device"));
+        }
+        let volume_ok = (1..=3).contains(&self.monitor_volume.len()) && self.monitor_volume.bytes().all(|b| b.is_ascii_digit()) && self.monitor_volume.parse::<u32>().is_ok_and(|volume| volume <= 100);
+        if !matches!(self.monitor.as_str(), "off" | "on") || self.monitor_device.chars().count() > 512 || has_control(&self.monitor_device) || !volume_ok {
+            return Err(SettingsError("Invalid monitor output"));
+        }
+        // The monitor must never be (or feed) the virtual microphone itself.
+        let monitor_device = self.monitor_device.as_str();
+        if self.monitor == "on"
+            && !monitor_device.is_empty()
+            && (monitor_device.starts_with("vrct.managed.") || monitor_device.starts_with("vrct.source-bridge.") || monitor_device == self.playback_device())
+        {
+            return Err(SettingsError("Monitor output must differ from the virtual microphone output"));
+        }
+        if (self.mode != "off" || self.mic_mode != "off") && is_blank(self.playback_device()) {
+            return Err(SettingsError("Select a virtual microphone output before enabling TTS"));
+        }
+        // Windows has no managed route: its output device silences the voice itself.
+        if self.mic_mode != "off" && self.direct_policy == "suppress" && self.routing != "managed" && platform != Platform::Windows {
+            return Err(SettingsError("Direct voice suppression requires managed routing"));
+        }
+        Ok(())
+    }
+
+    /// The seed and instructions for the server that speaks `language`.
+    pub fn options_for(&self, language: &str) -> Result<SynthesisOptions, SettingsError> {
+        let japanese = language_tag(language)? == "ja";
+        let (seed, instructions) = if japanese { (&self.japanese_seed, &self.japanese_instructions) } else { (&self.multilingual_seed, &self.multilingual_instructions) };
+        Ok(SynthesisOptions {
+            // Validated: at most 16 ASCII digits and not above SAFE_SEED_MAX.
+            seed: if seed.is_empty() { None } else { Some(seed.parse().map_err(|_| SettingsError("Invalid seed"))?) },
+            instructions: if is_blank(instructions) { String::new() } else { instructions.clone() },
+        })
+    }
+
+    /// The server, voice, language and text for one message.
+    ///
+    /// Never falls back to the other text: translated mode without a
+    /// translation, or microphone speech without one, is an error.
+    /// `resolve_server` gives a running bundled server's base URL for a role
+    /// (`japanese` or `multilingual`).
+    pub fn request_for(&self, event: &SpeechMessageEvent, resolve_server: Option<ServerResolver<'_>>) -> Result<SpeechRequest, TtsError> {
+        let (text, language) = if event.source == Source::Mic {
+            if self.mic_mode != "translated" {
+                return Err(SettingsError("Microphone speech is disabled").into());
+            }
+            (&event.translated_text, &event.target_language)
+        } else if self.mode == "translated" {
+            (&event.translated_text, &event.target_language)
+        } else {
+            (&Some(event.original_text.clone()), &event.source_language)
+        };
+        let text = match text {
+            Some(text) if !is_blank(text) => text.clone(),
+            _ => return Err(SettingsError("No text in the selected speech mode").into()),
+        };
+        let language = language_tag(language.as_deref().unwrap_or(""))?;
+        let japanese = language == "ja";
+        let (server, voice) = if japanese { (&self.japanese_server, &self.japanese_voice) } else { (&self.multilingual_server, &self.multilingual_voice) };
+        if server == "bundled" {
+            let resolve = resolve_server.ok_or(SettingsError("speech_server_not_ready"))?;
+            let url = local_url(&resolve(if japanese { "japanese" } else { "multilingual" })?)?;
+            return Ok(SpeechRequest { url, voice: voice.clone(), language, text });
+        }
+        if japanese {
+            return Ok(SpeechRequest { url: self.japanese_url.clone(), voice: voice.clone(), language, text });
+        }
+        if self.multilingual_url.is_empty() {
+            return Err(SettingsError("Configure a separate Qwen3-TTS server for this language").into());
+        }
+        if self.japanese_server == "external" && local_url(&self.multilingual_url)? == local_url(&self.japanese_url)? {
+            return Err(SettingsError("Japanese and multilingual TTS require separate servers").into());
+        }
+        Ok(SpeechRequest { url: self.multilingual_url.clone(), voice: voice.clone(), language, text })
+    }
+}
+
+/// The saved form of valid settings, or `None` (Python's `normalize_settings`).
+pub fn normalize_settings(value: &Value) -> Option<Map<String, Value>> {
+    match VoiceSettings::from_value(value).ok()?.to_value() {
+        Value::Object(map) => Some(map),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn chat(text: &str, language: &str) -> SpeechMessageEvent {
+        SpeechMessageEvent { source_language: Some(language.into()), ..SpeechMessageEvent::new("1", Source::Chat, text) }
+    }
+
+    fn mic(translated: Option<&str>, target: &str) -> SpeechMessageEvent {
+        SpeechMessageEvent {
+            translated_text: translated.map(Into::into),
+            source_language: Some("ja".into()),
+            target_language: Some(target.into()),
+            utterance_id: Some("session:utterance".into()),
+            ..SpeechMessageEvent::new("session:utterance", Source::Mic, "こんにちは")
+        }
+    }
+
+    fn settings(value: Value) -> VoiceSettings {
+        VoiceSettings::from_value_on(&value, Platform::Other).unwrap()
+    }
+
+    #[test]
+    fn local_only() {
+        for url in [
+            "http://example.com",
+            "http://192.168.1.1:8080",
+            "https://127.0.0.1",
+            "http://user:pass@127.0.0.1",
+            "http://127.0.0.1/a",
+            "http://127.0.0.1?x=y",
+            "http://0.0.0.0",
+            "http://127.0.0.1:70000",
+            "http://127.0.0.1:0",
+            "http://127.0.0.1#fragment",
+            "file:///tmp/audio",
+            "127.0.0.1:8080",
+            "http://127.0.0.1:８０",
+            "http://[::1",
+        ] {
+            assert!(local_url(url).is_err(), "{url}");
+        }
+        assert_eq!(local_url("http://127.0.0.1:8080").unwrap(), "http://127.0.0.1:8080");
+        assert_eq!(local_url("http://localhost").unwrap(), "http://127.0.0.1:80");
+        assert_eq!(local_url("HTTP://LocalHost:9/").unwrap(), "http://127.0.0.1:9");
+        assert_eq!(local_url("http://[::1]:8081").unwrap(), "http://[::1]:8081");
+        assert_eq!(local_url(" http://127.0.0.1:80\n80").unwrap(), "http://127.0.0.1:8080");
+        assert_eq!(local_url("http://127.0.0.1:").unwrap(), "http://127.0.0.1:80");
+        assert_eq!(local_url("http://127.0.0.1?#").unwrap(), "http://127.0.0.1:80");
+    }
+
+    #[test]
+    fn defaults_and_language_routing() {
+        assert_eq!(settings(json!({})).mode, "off");
+        let original = settings(json!({"mode": "original", "output_device": "cable"}));
+        let ja = chat("こんにちは", "Japanese");
+        let request = original.request_for(&ja, None).unwrap();
+        assert_eq!((request.voice.as_str(), request.language), ("none", "ja"));
+        let en = chat("hello", "English");
+        assert!(matches!(original.request_for(&en, None), Err(TtsError::Unavailable(_))));
+        let mut value = original.to_value();
+        value["multilingual_url"] = json!("http://127.0.0.1:8081");
+        let multilingual = settings(value.clone());
+        assert_eq!(multilingual.request_for(&en, None).unwrap(), SpeechRequest { url: "http://127.0.0.1:8081".into(), voice: "ryan".into(), language: "en", text: "hello".into() });
+        value["mode"] = json!("translated");
+        // No fallback to the original text.
+        assert!(settings(value).request_for(&ja, None).is_err());
+    }
+
+    #[test]
+    fn same_external_server_for_both_roles_is_rejected() {
+        let both = settings(json!({"mode": "original", "output_device": "c", "multilingual_url": "http://localhost:8080"}));
+        assert_eq!(both.request_for(&chat("hi", "en"), None), Err(TtsError::Unavailable("Japanese and multilingual TTS require separate servers")));
+    }
+
+    #[test]
+    fn bundled_server_is_resolved_and_must_be_local() {
+        let bundled = settings(json!({"mode": "original", "output_device": "c", "japanese_server": "bundled"}));
+        assert!(bundled.request_for(&chat("x", "ja"), None).is_err());
+        let resolve = |role: &str| -> Result<String, TtsError> {
+            assert_eq!(role, "japanese");
+            Ok("http://localhost:9000".into())
+        };
+        assert_eq!(bundled.request_for(&chat("x", "ja"), Some(&resolve)).unwrap().url, "http://127.0.0.1:9000");
+        let remote = |_: &str| -> Result<String, TtsError> { Ok("http://example.com".into()) };
+        assert!(matches!(bundled.request_for(&chat("x", "ja"), Some(&remote)), Err(TtsError::Unavailable(_))));
+        let stopped = |_: &str| -> Result<String, TtsError> { Err(crate::SpeechError::new("speech_server_not_ready").into()) };
+        assert_eq!(bundled.request_for(&chat("x", "ja"), Some(&stopped)).unwrap_err().failure_code(), "speech_server_not_ready");
+    }
+
+    #[test]
+    fn settings_validation() {
+        for value in [
+            json!({"mode": true}),
+            json!({"mode": "original"}),
+            json!({"target_slot": "4"}),
+            json!({"japanese_url": "http://remote"}),
+            json!({"japanese_voice": ""}),
+            json!({"japanese_voice": "\u{3000}"}),
+            json!({"output_device": "bad\n"}),
+            json!({"unknown": 1}),
+            json!(null),
+            json!([]),
+            json!({"routing": "other"}),
+            json!({"monitor": "on", "monitor_device": "vrct.managed.x"}),
+            json!({"monitor": "on", "monitor_device": "cable", "output_device": "cable"}),
+            json!({"monitor_volume": "101"}),
+            json!({"monitor_volume": "0100"}),
+            json!({"monitor_volume": ""}),
+            json!({"japanese_server": "remote"}),
+        ] {
+            assert!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), "{value}");
+        }
+    }
+
+    #[test]
+    fn mic_mode_is_independent_and_never_falls_back_to_original() {
+        let mic_settings = settings(json!({"mic_mode": "translated", "routing": "managed", "multilingual_url": "http://127.0.0.1:8081"}));
+        assert_eq!(mic_settings.mode, "off");
+        assert_eq!(mic_settings.direct_policy, "suppress");
+        assert_eq!(settings(mic_settings.to_value()), mic_settings);
+        assert_eq!(
+            mic_settings.request_for(&mic(Some("Hello"), "en"), None).unwrap(),
+            SpeechRequest { url: "http://127.0.0.1:8081".into(), voice: "ryan".into(), language: "en", text: "Hello".into() }
+        );
+        assert!(mic_settings.request_for(&mic(None, "en"), None).is_err());
+        assert!(VoiceSettings::default().request_for(&mic(Some("Hello"), "en"), None).is_err());
+    }
+
+    #[test]
+    fn mic_settings_require_valid_mode_and_explicit_routing() {
+        for value in [
+            json!({"mic_mode": "original"}),
+            json!({"mic_mode": true}),
+            json!({"direct_policy": "duck"}),
+            json!({"mic_mode": "translated", "output_device": "cable"}),
+            json!({"mic_mode": "translated", "direct_policy": "mix"}),
+        ] {
+            assert!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), "{value}");
+        }
+        // Windows has no managed route; its output device silences the direct voice.
+        assert!(VoiceSettings::from_value_on(&json!({"mic_mode": "translated", "output_device": "cable"}), Platform::Windows).is_ok());
+        let external = settings(json!({"mic_mode": "translated", "direct_policy": "mix", "output_device": "cable"}));
+        assert_eq!(external.playback_device(), "cable");
+    }
+
+    #[test]
+    fn conversion_is_off_by_default_and_cannot_mix_with_the_voice() {
+        assert_eq!(VoiceSettings::default().conversion, "off");
+        assert_eq!(settings(json!({"conversion": "on"})).conversion, "on");
+        for bad in [json!({"conversion": "yes"}), json!({"conversion": "on", "direct_policy": "mix"})] {
+            assert!(VoiceSettings::from_value_on(&bad, Platform::Other).is_err());
+        }
+    }
+
+    #[test]
+    fn invalid_seed_settings_rejected() {
+        for bad in [json!("-1"), json!("1.5"), json!("1e2"), json!("9007199254740992"), json!(true), json!(42), json!("１２"), json!("1\u{0}")] {
+            assert!(VoiceSettings::from_value_on(&json!({"japanese_seed": bad}), Platform::Other).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn options_roundtrip_zero_maximum_and_language_selection() {
+        let value = settings(json!({
+            "japanese_seed": "0",
+            "multilingual_seed": "9007199254740991",
+            "japanese_instructions": "やさしく\n落ち着いて。",
+            "multilingual_instructions": "Speak clearly.",
+        }));
+        assert_eq!(settings(value.to_value()), value);
+        assert_eq!(value.options_for("Japanese").unwrap(), SynthesisOptions { seed: Some(0), instructions: "やさしく\n落ち着いて。".into() });
+        assert_eq!(value.options_for("en").unwrap(), SynthesisOptions { seed: Some(9007199254740991), instructions: "Speak clearly.".into() });
+        assert_eq!(VoiceSettings::default().options_for("ja").unwrap(), SynthesisOptions::default());
+        assert!(VoiceSettings::default().options_for("auto").is_err());
+    }
+
+    #[test]
+    fn invalid_instruction_rejected() {
+        for bad in [json!("x".repeat(4001)), json!("\u{0}"), json!("private\u{1b}text"), json!("\u{7f}"), json!(true)] {
+            assert!(VoiceSettings::from_value_on(&json!({"multilingual_instructions": bad}), Platform::Other).is_err());
+        }
+    }
+
+    #[test]
+    fn instruction_limit_and_newlines_are_preserved() {
+        let value = "声\n".repeat(2000);
+        assert_eq!(settings(json!({"japanese_instructions": value})).options_for("ja").unwrap().instructions, value);
+        assert_eq!(settings(json!({"japanese_instructions": " \n"})).options_for("ja").unwrap().instructions, "");
+    }
+
+    #[test]
+    fn normalize_returns_the_saved_form_or_none() {
+        let saved = normalize_settings(&json!({"mode": "original", "output_device": "cable"})).unwrap();
+        assert_eq!(saved.len(), VoiceSettings::FIELDS.len());
+        assert_eq!(saved["mode"], "original");
+        assert!(normalize_settings(&json!({"mode": "loud"})).is_none());
+    }
+}
