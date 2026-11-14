@@ -1,5 +1,6 @@
 import { useTranscriptionConsent } from "./transcription/useTranscriptionConsent";
 import { useTranslationSetup } from "./translation/useTranslationSetup";
+import { useOcrSetup } from "./ocr/useOcrSetup";
 import { createElement } from "react";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -71,6 +72,7 @@ export const _useBackendErrorHandling = () => {
     const transcription = useTranscription();
     const transcriptionConsent = useTranscriptionConsent();
     const translationSetup = useTranslationSetup();
+    const ocrSetup = useOcrSetup();
     const {
         updateMicRecordTimeout,
         updateMicPhraseTimeout,
@@ -280,6 +282,13 @@ export const _useBackendErrorHandling = () => {
                     updateOcrSourceLanguage(data);
                 } else {
                     updateOcrCaptureStatus(data);
+                }
+                // The user pressed the switch: say what is missing where they are and lead to
+                // the models section, whose review asks before downloading. A language change
+                // made in the OCR settings already shows that section, so a notice is enough there.
+                if (error_code === "OCR_DISABLED_MODEL_MISSING" && endpoint === "/set/enable/ocr_capture") {
+                    ocrSetup.show();
+                    return;
                 }
                 // On a Wayland desktop the window may exist and still not be found by name: that notice says how to share it.
                 const notify = () => showNotification_Error(t(ocrStartErrorKey(error_code) ?? OCR_ERROR_KEYS[error_code], { defaultValue: message }), { category_id: error_code });

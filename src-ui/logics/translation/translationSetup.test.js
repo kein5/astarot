@@ -47,6 +47,7 @@ async function fixture(context) {
         "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./transcription/useTranscriptionConsent": { useTranscriptionConsent: () => ({ setRequest: noop }) },
         "./translation/useTranslationSetup": setup,
+        "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
     });
     const error = errors._useBackendErrorHandling().errorHandling_Backend;
     let selector = false;

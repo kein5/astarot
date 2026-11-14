@@ -1707,6 +1707,12 @@ transcription_consent:
     settings: "Open engine settings"
     selected: "Selected engine: {{engine}}"
     unselected: "Not selected"
+ocr_setup:
+    title: "Chat reading needs its recognition models"
+    body: "The recognition models for the selected language have not been downloaded yet, so Chat reading (OCR) stays off."
+    next: "Open the models section in Chat reading (OCR) settings, check the provider, license and size, and download them. Then turn Chat reading (OCR) on again."
+    close: "Close"
+    review: "Go to the models"
 network_privacy:
     http_warning: "This connection is not encrypted. Text, audio and API keys may be visible to others on the network."
     save_notice: "The URL is checked when you save. If you enter an API key, it is sent to this address for verification."
