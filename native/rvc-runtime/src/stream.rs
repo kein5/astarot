@@ -101,6 +101,9 @@ impl Layout {
         if self.block == 0 || self.crossfade == 0 {
             return Err(Error::invalid("the block and the crossfade need at least one frame each"));
         }
+        if self.crossfade > self.block {
+            return Err(Error::invalid("the crossfade cannot be longer than the block"));
+        }
         if self.window() * HOP < MIN_FEATURE_SAMPLES {
             return Err(Error::invalid("the streaming window is too short for feature extraction"));
         }
@@ -164,7 +167,7 @@ pub struct Sola {
 }
 
 impl Sola {
-    /// Lengths in output samples.
+    /// Lengths in output samples; `crossfade` must not exceed `block`.
     pub fn new(crossfade: usize, search: usize, block: usize) -> Self {
         // Squared-sine fade in, from 0 to 1 inclusive; the fade out is its complement.
         let fade_in = (0..crossfade)
@@ -212,9 +215,8 @@ impl Sola {
             let fade = self.fade_in[index];
             *sample = *sample * fade + self.tail[index] * (1.0 - fade);
         }
+        // The next block starts where this one ends; keep what follows for its crossfade.
         let crossfade = self.fade_in.len();
-        // The tail continues right after the returned block. A block shorter than the
-        // crossfade has its overlap already mixed in, so keep the raw continuation.
         self.tail.copy_from_slice(&aligned[self.block..self.block + crossfade]);
         (output, offset)
     }
@@ -395,6 +397,7 @@ mod tests {
         assert_eq!(long.pitch_samples(), 10_080);
         // Never more than the window.
         let short = Layout { block: 4, crossfade: 1, search: 0, extra: 2 };
+        assert!(Layout { crossfade: 30, ..layout }.validate().is_err());
         assert_eq!(short.pitch_samples(), 7 * HOP);
         assert!(short.validate().is_ok());
         assert!(Layout { block: 0, ..layout }.validate().is_err());
