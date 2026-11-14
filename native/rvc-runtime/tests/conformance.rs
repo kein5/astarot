@@ -9,7 +9,7 @@ mod common;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
-use common::{case, case_json, cosine, max_abs_error, npy, relative_error};
+use common::{case, case_json, cosine, log_spectral_distance, max_abs_error, npy, relative_error};
 use rvc_runtime::f0::{prepare_pitch, F0Estimator};
 use rvc_runtime::noise::Generator;
 use rvc_runtime::{audio, Chunking, Converter, Device, FeatureExtractor, FeatureIndex, NoiseMode, Options, Rmvpe, Synthesizer, Trace, Version, VoiceModel};
@@ -342,27 +342,6 @@ fn loudness_mix_and_resampling_match() {
 
 /// Mean log-spectral distance in dB between two signals (1024-point frames, hop 256),
 /// over frames where the reference is not silent.
-fn log_spectral_distance(found: &[f32], expected: &[f32]) -> f64 {
-    use rustfft::num_complex::Complex32;
-    let fft = rustfft::FftPlanner::<f32>::new().plan_fft_forward(1024);
-    let spectrum = |signal: &[f32]| -> Vec<f64> {
-        let mut buffer: Vec<Complex32> = signal.iter().enumerate().map(|(n, &x)| Complex32::new(x * (0.5 - 0.5 * (2.0 * std::f32::consts::PI * n as f32 / 1024.0).cos()), 0.0)).collect();
-        fft.process(&mut buffer);
-        buffer[..513].iter().map(|bin| (bin.norm_sqr() as f64).max(1e-10).log10() * 10.0).collect()
-    };
-    let (mut total, mut frames) = (0.0, 0);
-    for start in (0..found.len().min(expected.len()).saturating_sub(1024)).step_by(256) {
-        let reference = &expected[start..start + 1024];
-        if reference.iter().map(|x| x * x).sum::<f32>() / 1024.0 < 1e-6 {
-            continue;
-        }
-        let (a, b) = (spectrum(&found[start..start + 1024]), spectrum(reference));
-        total += (a.iter().zip(&b).map(|(x, y)| (x - y).powi(2)).sum::<f64>() / 513.0).sqrt();
-        frames += 1;
-    }
-    total / frames.max(1) as f64
-}
-
 #[test]
 fn seeded_noise_is_reproducible_and_close_to_the_reference() {
     let _guard = serial();

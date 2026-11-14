@@ -15,6 +15,11 @@
 //!
 //! Everything random (`noise`, and the noise inside `excitation`) is a graph input, so
 //! the graph itself is deterministic.
+//!
+//! The graph also takes the window of specification section 9.3, for streaming: the
+//! prior encoder sees every frame, but only its output from `flow_start` on goes through
+//! the flow, and only the flow output from `decode_start` to `decode_end` (counted from
+//! `flow_start`) reaches the decoder. Offline conversion passes the whole range.
 
 use crate::error::{Error, Result};
 use crate::model::VoiceModel;
@@ -33,13 +38,19 @@ pub mod io {
     pub const FEATURES: &str = "features";
     /// `[1, frames]` quantised pitch (pitch-enabled models only).
     pub const PITCH: &str = "pitch";
-    /// `[1, frames, inter_channels]` standard normal noise for the prior.
+    /// `[1, frames - flow_start, inter_channels]` standard normal noise for the prior.
     pub const NOISE: &str = "noise";
-    /// `[1, 1, frames * samples_per_frame]` source excitation (pitch-enabled models only).
+    /// `[1]` first frame of the prior encoder's output that enters the flow.
+    pub const FLOW_START: &str = "flow_start";
+    /// `[1]` first frame of the flow output that is decoded, counted from `flow_start`.
+    pub const DECODE_START: &str = "decode_start";
+    /// `[1]` end (exclusive) of the decoded frames, counted from `flow_start`.
+    pub const DECODE_END: &str = "decode_end";
+    /// `[1, 1, decoded frames * samples_per_frame]` source excitation (pitch-enabled models only).
     pub const EXCITATION: &str = "excitation";
     /// `[1]` speaker number.
     pub const SPEAKER: &str = "speaker";
-    /// `[1, 1, frames * samples_per_frame]` waveform.
+    /// `[1, 1, decoded frames * samples_per_frame]` waveform.
     pub const AUDIO: &str = "audio";
 }
 
@@ -136,7 +147,10 @@ impl Builder<'_> {
         let frames = Dim::Named("frames");
         let features = self.graph.input_f32(io::FEATURES, &[Dim::Fixed(1), frames, Dim::Fixed(feature_dim)]);
         let pitch = self.model.f0.then(|| self.graph.input_i64(io::PITCH, &[Dim::Fixed(1), frames]));
-        let noise = self.graph.input_f32(io::NOISE, &[Dim::Fixed(1), frames, Dim::Fixed(config.inter_channels)]);
+        let noise = self.graph.input_f32(io::NOISE, &[Dim::Fixed(1), Dim::Named("flow_frames"), Dim::Fixed(config.inter_channels)]);
+        let flow_start = self.graph.input_i64(io::FLOW_START, &[Dim::Fixed(1)]);
+        let decode_start = self.graph.input_i64(io::DECODE_START, &[Dim::Fixed(1)]);
+        let decode_end = self.graph.input_i64(io::DECODE_END, &[Dim::Fixed(1)]);
         let excitation = self.model.f0.then(|| self.graph.input_f32(io::EXCITATION, &[Dim::Fixed(1), Dim::Fixed(1), Dim::Named("samples")]));
         let speaker = self.graph.input_i64(io::SPEAKER, &[Dim::Fixed(1)]);
 
@@ -147,6 +161,10 @@ impl Builder<'_> {
         let g = self.graph.op("Unsqueeze", &[&embedding, &axis], vec![]);
 
         let stats = self.prior_encoder(&features, pitch.as_deref())?;
+        // The encoder attends over every frame; the flow starts at `flow_start`.
+        let to_end = self.graph.i64s(&[i64::MAX]);
+        let frame_axis = self.graph.i64s(&[1]);
+        let stats = self.graph.op("Slice", &[&stats, &flow_start, &to_end, &frame_axis], vec![]);
         let inter = config.inter_channels as i64;
         let mean = self.graph.slice(&stats, &[0], &[inter], &[2]);
         let log_scale = self.graph.slice(&stats, &[inter], &[2 * inter], &[2]);
@@ -158,6 +176,8 @@ impl Builder<'_> {
         let z_p = self.graph.transpose(&z_p, &[0, 2, 1]);
 
         let z = self.inverse_flow(&z_p, &g)?;
+        let time_axis = self.graph.i64s(&[2]);
+        let z = self.graph.op("Slice", &[&z, &decode_start, &decode_end, &time_axis], vec![]);
         let audio = self.decoder(&z, excitation.as_deref(), &g)?;
         self.graph.output_f32(io::AUDIO, &audio, &[Dim::Fixed(1), Dim::Fixed(1), Dim::Named("samples")]);
         Ok(())

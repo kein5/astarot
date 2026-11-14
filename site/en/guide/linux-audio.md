@@ -18,7 +18,7 @@ You do not need administrator rights. You need PipeWire and systemd user service
 
 ### What the app does
 
-- Creates and enables three user services, `vrct-managed-source`, `vrct-managed-tts` and `vrct-managed-vc`, in `~/.config/systemd/user/`.
+- Creates and enables three user services, `vrct-managed-source`, `vrct-managed-tts` and `vrct-managed-vc`, in <CopyText>~/.config/systemd/user/</CopyText>.
 - Keeps the virtual microphone after VRCT-VOX exits. At your next login it is created again, muted.
 - If a working virtual microphone already exists, it uses that one instead of making a new one.
 

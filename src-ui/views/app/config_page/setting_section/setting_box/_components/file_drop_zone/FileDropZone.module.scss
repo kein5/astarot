@@ -1,0 +1,114 @@
+// A drop place in a settings form (DESIGN.md "Motion"). Quiet at rest like a field; while files
+// are dragged over the window it wakes (blue rule, the arrow bobs), and under the pointer its
+// fill lifts. A drop that fills a field turns the circle into a check.
+.zone {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 1.2rem;
+    padding: 1.2rem 1.4rem;
+    border: .1rem solid var(--dark_650_color);
+    border-radius: var(--vox_radius);
+    background: var(--vox_surface);
+    color: var(--dark_200_color);
+    transition:
+        border-color var(--vox_motion_fast) var(--vox_ease),
+        background-color var(--vox_motion_fast) var(--vox_ease);
+}
+
+.icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 3.6rem;
+    height: 3.6rem;
+    border-radius: 50%;
+    background: var(--dark_850_color);
+    color: var(--vox_secondary_text);
+    transition:
+        transform var(--vox_motion) var(--vox_ease_settle),
+        background-color var(--vox_motion_fast) var(--vox_ease),
+        color var(--vox_motion_fast) var(--vox_ease);
+    svg {
+        position: absolute;
+        width: 2rem;
+        height: 2rem;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+}
+
+.check {
+    opacity: 0;
+    circle { fill: var(--vox_state_active); stroke: none; }
+    path { stroke: var(--vox_canvas); stroke-width: 2.4; stroke-dasharray: 1; stroke-dashoffset: 1; }
+}
+
+.words { display: grid; gap: .2rem; min-width: 0; overflow: hidden; }
+
+.title {
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    animation: file_drop_line var(--vox_motion) var(--vox_ease);
+}
+
+.hint {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: var(--vox_description_text);
+    overflow-wrap: anywhere;
+}
+
+// Read by screen readers only.
+.announce {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+// Files are being dragged over the window.
+.awake {
+    border-color: var(--vox_state_active);
+    .icon { color: var(--vox_state_active); }
+    .arrow { animation: file_drop_bob 1s var(--vox_ease) infinite; }
+}
+
+// Over this zone with a file it takes.
+.over {
+    border-color: var(--vox_state_active);
+    background: color-mix(in srgb, var(--vox_highlight_tint), var(--vox_surface));
+    .icon { transform: scale(1.08); background: var(--primary_600_color); color: var(--dark_50_color); }
+}
+
+// Over this zone, or dropped on it, with only files it does not take.
+.wrong, .rejected {
+    border-color: var(--vox_state_warning);
+    .title { color: var(--vox_state_warning); }
+    .icon { color: var(--vox_state_warning); }
+}
+
+// The paths went into their fields.
+.done {
+    border-color: var(--vox_state_active);
+    .title { color: var(--vox_state_active); }
+    // The whole circle fills, with the check's own disc in the same blue.
+    .icon { background: var(--vox_state_active); }
+    .arrow { opacity: 0; transform: scale(.6); transition: opacity var(--vox_motion_fast) var(--vox_ease), transform var(--vox_motion_fast) var(--vox_ease); }
+    .check { opacity: 1; animation: file_drop_check var(--vox_motion) var(--vox_ease_settle) both; }
+    .check path { animation: file_drop_tick var(--vox_motion) var(--vox_ease) var(--vox_motion_fast) both; }
+}
+
+.disabled { opacity: .6; }
+
+@keyframes file_drop_bob { 50% { transform: translateY(-.25rem); } }
+@keyframes file_drop_line { from { opacity: 0; transform: translateY(.6rem); } }
+@keyframes file_drop_check { from { opacity: 0; transform: scale(.4); } }
+@keyframes file_drop_tick { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }

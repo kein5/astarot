@@ -1311,11 +1311,22 @@ fork_distribution:
     update_policy: "アプリ内更新は無効です。VRCT-VOXを導入した配布元から更新してください。"
     releases: "VRCT-VOXの配布ページ"
 
+# A place in a settings form to drop files from the desktop (FileDropZone).
+file_drop:
+    title: "{{kinds}} のファイルをここにドロップ"
+    drop_here: "ここにドロップ（{{kinds}}）"
+    release: "放すとパスが入ります"
+    wrong_kind: "ここに入れられるのは {{kinds}} のファイルだけです"
+    done: "{{names}} を入れました"
+    save_hint: "保存すると使えます。"
+    done_skipped: "ほかのファイルは入れていません。保存すると使えます。"
+
 voice_ui:
     check_needs_url: "サーバーURLを入力して保存すると確認できます"
     check_needs_server: "同梱サーバーが起動すると確認できます"
     setup_rvc: "モデルと実行環境"
     setup_input: "入力の転送の準備"
+    rvc_drop_hint: ".pth はモデルの欄に、.index は検索インデックスの欄に入ります。"
     runtime_set: "実行環境設定済み"
     runtime_unset: "実行環境未設定"
     mic_ready: "仮想マイク準備済み"

@@ -39,8 +39,20 @@ route: voice-conversion
    ![「設定」→「ボイスチェンジャー（RVC）」の画面](/screenshots/ja/rvc.webp)
 
 2. 変えた声をVRChatに届ける仮想マイクを用意します。
-   - Linuxでは「仮想マイクを準備して使用」を押し、準備が終わったら「音声を再開」を押します。VRChatのマイクには「VRCT Managed Virtual Microphone」を選びます。
-   - WindowsではVB-CABLEなどの仮想ケーブルを別に入れます。「設定」→「テキスト読み上げ（TTS）」の「出力デバイス」でケーブルの再生側（「CABLE Input」）を選び、VRChatのマイクには録音側（「CABLE Output」）を選びます（[Windowsの音声経路](../guide/windows-audio)）。
+
+   <OsTabs>
+   <template v-slot:windows>
+
+   WindowsではVB-CABLEなどの仮想ケーブルを別に入れます。「設定」→「テキスト読み上げ（TTS）」の「出力デバイス」でケーブルの再生側（「CABLE Input」）を選び、VRChatのマイクには録音側（「CABLE Output」）を選びます（[Windowsの音声経路](../guide/windows-audio)）。
+
+   </template>
+   <template v-slot:linux>
+
+   Linuxでは「仮想マイクを準備して使用」を押し、準備が終わったら「音声を再開」を押します。VRChatのマイクには「VRCT Managed Virtual Microphone」を選びます。
+
+   </template>
+   </OsTabs>
+
 3. 「転送する入力」で自分が話すマイクを選びます。初期値は「デバイス」の「マイク」で選んだマイクです。
 4. メイン画面の「ボイスチェンジャー（RVC）」をオンにします。
 

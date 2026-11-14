@@ -29,6 +29,10 @@ MODELS = {
 }
 # Frame counts on both sides of the relative-attention window (10 frames either side).
 LENGTHS = (5, 24)
+# The streaming window (specification section 9.3): frames in, then (skip_head,
+# return_length) pairs with the flow starting at the first frame and after it.
+WINDOW_FRAMES = 40
+WINDOWS = ((3, 12), (30, 8))
 
 
 def main():
@@ -67,6 +71,22 @@ def main():
                 audio = net.infer(torch.from_numpy(features), torch.tensor([frames]), speaker)[0]
             np.save(DATA / f'{name}_{frames}_features.npy', features[0])
             np.save(DATA / f'{name}_{frames}_audio.npy', audio.numpy().reshape(-1))
+        # Window inputs come from their own generator so the fixtures above stay as they were.
+        window_rng = np.random.default_rng(20261116 + len(name))
+        features = window_rng.standard_normal((1, WINDOW_FRAMES, width)).astype(np.float32)
+        inputs = [torch.from_numpy(features), torch.tensor([WINDOW_FRAMES])]
+        if f0:
+            hz = window_rng.uniform(80, 400, WINDOW_FRAMES).astype(np.float32)
+            hz[WINDOW_FRAMES // 2] = 0.0
+            coarse = window_rng.integers(1, 256, WINDOW_FRAMES).astype(np.int64)
+            inputs += [torch.from_numpy(coarse)[None], torch.from_numpy(hz)[None]]
+            np.save(DATA / f'{name}_window_coarse.npy', coarse)
+            np.save(DATA / f'{name}_window_hz.npy', hz)
+        np.save(DATA / f'{name}_window_features.npy', features[0])
+        for skip_head, return_length in WINDOWS:
+            head, length = torch.tensor([skip_head]), torch.tensor([return_length])
+            audio = net.infer(*inputs, torch.tensor([1]), head, length, length)[0]
+            np.save(DATA / f'{name}_window_{skip_head}_{return_length}_audio.npy', audio.numpy().reshape(-1))
 
     # A small inverted-file index like the ones voice model training writes.
     vectors = rng.standard_normal((600, 16)).astype(np.float32)

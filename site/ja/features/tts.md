@@ -15,7 +15,7 @@ route: tts
 
 ## はじめて使う
 
-1. 「設定」→「テキスト読み上げ（TTS）」の下のほうにある「モデルとサーバー」で、「既定モデルのダウンロード」からモデルを取得します。すでに持っているGGUFファイルを使うときは、そのパスを入力します。
+1. 「設定」→「テキスト読み上げ（TTS）」の下のほうにある「モデルとサーバー」で、「既定モデルのダウンロード」からモデルを取得します。すでに持っている<Term tip="AIのモデルを1つのファイルに収める形式です。speech.cppが読み込みます。拡張子は.ggufです。">GGUF</Term>ファイルを使うときは、そのパスを入力します。
 2. 上の「変更を保存」で保存してから、「サーバーを起動」を押します。保存しただけではモデルは読み込まれません。
 
    ![「設定」→「テキスト読み上げ（TTS）」の画面](/screenshots/ja/tts.webp)
@@ -30,8 +30,18 @@ route: tts
 
 「出力デバイス」で仮想マイクを選び、VRChatのマイクの設定でも同じ仮想マイクを選びます。
 
-- Windowsでは「出力デバイス」に「CABLE Input」を、VRChatのマイクに「CABLE Output」を選びます（[Windowsの音声経路](../guide/windows-audio)）。
-- Linuxでは「VRCT Managed Virtual Microphone」を使います（[Linuxの音声経路](../guide/linux-audio)）。
+<OsTabs>
+<template v-slot:windows>
+
+Windowsでは「出力デバイス」に「CABLE Input」を、VRChatのマイクに「CABLE Output」を選びます（[Windowsの音声経路](../guide/windows-audio)）。
+
+</template>
+<template v-slot:linux>
+
+Linuxでは「VRCT Managed Virtual Microphone」を使います（[Linuxの音声経路](../guide/linux-audio)）。
+
+</template>
+</OsTabs>
 
 仮想マイクが必要な理由は[声と文字の流れ](../guide/how-it-works#仮想マイクが必要な理由)にあります。
 

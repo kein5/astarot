@@ -1,0 +1,29 @@
+[package]
+name = "vrct-tts"
+version = "0.1.0"
+description = "Speech synthesis requests, speech scheduling and PCM hand-off for VRCT-VOX"
+edition = "2021"
+rust-version = "1.92"
+license = "MIT"
+publish = false
+
+[lib]
+name = "vrct_tts"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# arbitrary_precision keeps integer literals beyond u64 as integers, as Python's json does.
+serde_json = { version = "1", features = ["arbitrary_precision"] }
+uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock", "Win32_System_Performance"] }
+
+[profile.dev]
+opt-level = 1
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]

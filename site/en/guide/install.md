@@ -31,13 +31,13 @@ The settings (`config.json`), logs and downloaded models are inside the folder t
 
 | Installed with | Location |
 |---|---|
-| Installer | `%LOCALAPPDATA%\VRCT-VOX` (unless you changed the folder) |
+| Installer | <CopyText>%LOCALAPPDATA%\VRCT-VOX</CopyText> (unless you changed the folder) |
 | ZIP | The folder you unpacked it to |
 :::
 
 ## Linux
 
-There is an x64 Vulkan build in four formats: deb, rpm, AppImage and tar.gz (deb and rpm from 0.3.0). To check that a download is intact, see [Check your download](#check-your-download).
+There is an x64 <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> build in four formats: deb, rpm, AppImage and tar.gz (deb and rpm from 0.3.0). To check that a download is intact, see [Check your download](#check-your-download).
 
 ### deb (Ubuntu, Debian)
 
@@ -64,7 +64,7 @@ chmod +x VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
 ./VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
 ```
 
-Without FUSE, start it with `APPIMAGE_EXTRACT_AND_RUN=1`. This needs extra free disk space while the app is unpacked (about 1.7 GB for the version we tested).
+Without <Term tip="Lets a Linux app provide a file system without changing the kernel. An AppImage uses it to start.">FUSE</Term>, start it with <CopyText>APPIMAGE_EXTRACT_AND_RUN=1</CopyText>. This needs extra free disk space while the app is unpacked (about 1.7 GB for the version we tested).
 
 ### tar.gz
 
@@ -78,9 +78,9 @@ Keep the contents of the unpacked `VRCT-VOX` folder together, as they are. WebKi
 ::: details Where settings and data are stored (Linux)
 | Content | Location |
 |---|---|
-| Settings and logs | `~/.config/vrct-vox` (under `$XDG_CONFIG_HOME` if set) |
-| Data | `~/.local/share/vrct-vox` |
-| Cache | `~/.cache/vrct-vox` |
+| Settings and logs | <CopyText>~/.config/vrct-vox</CopyText> (under `$XDG_CONFIG_HOME` if set) |
+| Data | <CopyText>~/.local/share/vrct-vox</CopyText> |
+| Cache | <CopyText>~/.cache/vrct-vox</CopyText> |
 
 The deb, rpm, AppImage and tar.gz all use the same locations.
 :::
@@ -88,6 +88,8 @@ The deb, rpm, AppImage and tar.gz all use the same locations.
 ## Check your download
 
 Every file has a `.sha256`, and `SHA256SUMS-*` lists them all. These check that a file is intact; they are not signatures.
+
+The Windows installer checks the ZIP it downloads by itself. From 0.3.0 it carries the SHA-256 of the ZIPs released with it, so it does not unpack a different ZIP even if files on the release page were replaced.
 
 On Linux, put `SHA256SUMS-linux` in the folder with your download and run:
 

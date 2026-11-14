@@ -141,6 +141,10 @@ impl F0Estimator for Rmvpe {
     }
 }
 
+/// Frames of flow context kept before a streaming window (specification section 9.3:
+/// `flow_head = max(skip_head - 24, 0)`).
+pub const FLOW_CONTEXT: usize = 24;
+
 /// A voice model ready to synthesize.
 pub struct Synthesizer {
     session: Session,
@@ -183,17 +187,39 @@ impl Synthesizer {
     /// The generator supplies the prior noise first and the excitation noise second.
     pub fn synthesize(&mut self, features: &[f32], pitch: Option<(&[i64], &[f32])>, speaker: usize, generator: &mut Generator) -> Result<Vec<f32>> {
         let frames = features.len() / self.feature_dim;
+        self.synthesize_window(features, pitch, speaker, generator, 0, frames)
+    }
+
+    /// The window form of specification section 9.3, for streaming: the first `skip_head`
+    /// frames are left context only, and `return_length * samples_per_frame` samples are
+    /// produced for the frames after them.
+    ///
+    /// The prior encoder sees all frames; the flow starts `FLOW_CONTEXT` frames before
+    /// `skip_head` (or at the first frame), so it has some context of its own, and the
+    /// pitch tracks are taken from `skip_head` on.
+    pub fn synthesize_window(&mut self, features: &[f32], pitch: Option<(&[i64], &[f32])>, speaker: usize, generator: &mut Generator, skip_head: usize, return_length: usize) -> Result<Vec<f32>> {
+        let frames = features.len() / self.feature_dim;
         if frames == 0 || features.len() != frames * self.feature_dim {
             return Err(Error::invalid("features are empty or not a whole number of frames"));
+        }
+        if return_length == 0 || skip_head + return_length > frames {
+            return Err(Error::invalid("the window to synthesize does not lie within the features"));
         }
         if speaker >= self.speakers {
             return Err(Error::invalid(format!("speaker {speaker} does not exist (the model has {})", self.speakers)));
         }
-        let noise = generator.normals(frames * self.inter_channels);
+        let flow_start = skip_head.saturating_sub(FLOW_CONTEXT);
+        let decode_start = skip_head - flow_start;
+        let flow_frames = frames - flow_start;
+        let noise = generator.normals(flow_frames * self.inter_channels);
+        let index = |value: usize| Tensor::from_array(([1usize], vec![value as i64])).map_err(backend);
         let mut inputs = ort::inputs![
             io::FEATURES => Tensor::from_array(([1, frames, self.feature_dim], features.to_vec())).map_err(backend)?,
-            io::NOISE => Tensor::from_array(([1, frames, self.inter_channels], noise)).map_err(backend)?,
+            io::NOISE => Tensor::from_array(([1, flow_frames, self.inter_channels], noise)).map_err(backend)?,
             io::SPEAKER => Tensor::from_array(([1usize], vec![speaker as i64])).map_err(backend)?,
+            io::FLOW_START => index(flow_start)?,
+            io::DECODE_START => index(decode_start)?,
+            io::DECODE_END => index(decode_start + return_length)?,
         ];
         match (self.f0, pitch) {
             (true, Some((coarse, continuous))) => {
@@ -203,7 +229,8 @@ impl Synthesizer {
                 if coarse.iter().any(|value| !(0..256).contains(value)) {
                     return Err(Error::invalid("quantised pitch out of range"));
                 }
-                let excitation = noise::excitation(continuous, self.samples_per_frame, self.sample_rate, generator);
+                let decoded = &continuous[skip_head..skip_head + return_length];
+                let excitation = noise::excitation(decoded, self.samples_per_frame, self.sample_rate, generator);
                 inputs.push((io::PITCH.into(), Tensor::from_array(([1, frames], coarse.to_vec())).map_err(backend)?.into()));
                 inputs.push((io::EXCITATION.into(), Tensor::from_array(([1, 1, excitation.len()], excitation)).map_err(backend)?.into()));
             }

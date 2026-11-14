@@ -162,6 +162,8 @@ def test_save_only_explicit_start_pending_stop_and_stale_ready(ui):
     start.click()
     expect(start).to_be_disabled()
     assert ('/run/start_speech_server', dict(profile='japanese', generation=0)) in peer.sent
+    # The readout spins from the press, before the server reports anything.
+    expect(group.locator('[data-progress=working]')).to_have_count(1)
     group.get_by_role('button', name='Stop server', exact=True).click()
     expect(start).to_be_enabled()
     # A delayed success for an older Start cannot resurrect the UI.
@@ -170,6 +172,7 @@ def test_save_only_explicit_start_pending_stop_and_stale_ready(ui):
     received = reply('/run/start_speech_server', old)
     page.wait_for_function('id => window.received.includes(id)', arg=received)
     expect(group.get_by_role('status')).to_have_text('Stopped')
+    expect(group.locator('[data-progress]')).to_have_count(0)
     peer.hold_start = False
     start.click()
     expect(group.get_by_role('status')).to_have_text('Loading model')
@@ -177,6 +180,8 @@ def test_save_only_explicit_start_pending_stop_and_stale_ready(ui):
     peer.state['japanese'].update(state='ready', base_url='http://127.0.0.1:12345')
     reply('/get/data/speech_server_state', peer.state)
     expect(group.get_by_role('status')).to_have_text('Ready')
+    # Ready while the page is open: the spinner becomes a check that draws itself.
+    expect(group.locator('[data-progress=done][data-arrived]')).to_have_count(1)
     late = copy.deepcopy(peer.state)
     late['japanese']['state'] = 'preparing'
     received = reply('/get/data/speech_server_state', late)
@@ -186,6 +191,7 @@ def test_save_only_explicit_start_pending_stop_and_stale_ready(ui):
     reply('/get/data/speech_server_state', peer.state)
     expect(group.get_by_role('alert')).to_contain_text('speech_server_exited')
     expect(start).to_be_enabled()
+    expect(group.locator('[data-progress]')).to_have_count(0)
 
 
 def test_memory_error_explains_cpu_retry_and_preserves_saved_device(ui):
@@ -215,7 +221,7 @@ def test_a_named_gpu_can_be_chosen_when_the_pc_reports_one(ui):
     page, peer, reply = ui
     group = page.get_by_role('group', name='Japanese TTS', exact=True)
     device = group.get_by_label('Inference device', exact=True)
-    help_text = group.get_by_text('Auto and GPU may use either one', exact=False)
+    help_text = group.get_by_text('Auto and GPU use a dedicated GPU before integrated graphics', exact=False)
     expect(device.locator('option')).to_have_count(3)
     expect(help_text).to_have_count(0)
     reply('/get/data/speech_server_devices', dict(devices=[dict(name='Vulkan1', kind='gpu', label='Example GPU')]))
