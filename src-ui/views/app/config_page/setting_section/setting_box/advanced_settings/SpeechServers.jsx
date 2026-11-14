@@ -11,6 +11,10 @@ import { FormRow } from "../_components/form_row/FormRow";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 
 // Readout tone for a server state; the state text itself always says it.
+// The start, as work that ends in success: it runs while the server prepares and is done once ready.
+// A stop asked of a ready server is not a start, so it does not spin.
+const serverProgress = (owner, pending) => owner?.state === "ready" ? "done" :
+    owner?.state === "preparing" || (pending && !["stopping", "failed"].includes(owner?.state)) ? "working" : undefined;
 const serverTone = (owner, pending) => pending || ["preparing", "stopping"].includes(owner?.state) ? "warning" :
     owner?.error_code || owner?.state === "failed" ? "failed" : owner?.state === "ready" ? "active" : "neutral";
 
@@ -96,7 +100,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                         (name === "asr" && !row.vad_model.trim()) || owner?.error_code === "speech_server_cleanup_unconfirmed"}
                         onClick={() => send("/run/start_speech_server", { profile: name, generation: owner.generation })}>{t("speech_servers.start")}</button>
                     <button type="button" className={styles.quiet} onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</button></div>
-                    <EnvReadout tone={serverTone(owner, pending[name])}>
+                    <EnvReadout tone={serverTone(owner, pending[name])} progress={serverProgress(owner, pending[name])}>
                         <p>{stateText(name)}</p>
                         {owner?.low_latency && <p>{t(`speech_servers.low_latency_${owner.low_latency.state}`)}</p>}
                     </EnvReadout>
