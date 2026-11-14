@@ -5,6 +5,27 @@
   </picture>
 </h1>
 
+<!-- バッジは値をGitHub（Actions、Releases、リポジトリ）かリンク先のファイルから読む。License、Platform、
+     Rust toolchainだけは固定で、LICENSE、配布物、CIの`dtolnay/rust-toolchain … # stable`に合わせる。README.mdと同じにする。 -->
+<p align="center">
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="LinuxとWindowsでの試験（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/voice-tests.yml?branch=develop&event=push&label=tests"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のLinuxビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のWindowsビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/github-code-scanning/codeql"><img alt="CodeQLの解析（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/kein5/VRCT-VOX/releases/latest"><img alt="最新の正式版" src="https://img.shields.io/github/v/release/kein5/VRCT-VOX?label=release"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/releases"><img alt="GitHub Releasesからのダウンロード数" src="https://img.shields.io/github/downloads/kein5/VRCT-VOX/total?label=downloads"></a>
+  <a href="/LICENSE"><img alt="ライセンス: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <a href="https://github.com/kein5/VRCT-VOX"><img alt="GitHubのスター数" src="https://img.shields.io/github/stars/kein5/VRCT-VOX?label=stars&style=flat"></a>
+</p>
+<p align="center">
+  <a href="https://kein5.github.io/VRCT-VOX/ja/guide/requirements"><img alt="対応OS: WindowsとLinux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
+  <a href="/src-tauri/Cargo.toml"><img alt="アプリのRustのedition" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
+  <a href="/.github/workflows/build-linux.yml"><img alt="Rustのツールチェーン: stable" src="https://img.shields.io/badge/Rust%20toolchain-stable-blue"></a>
+  <a href="/pyproject.toml"><img alt="バックエンドのPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
+</p>
+
 [English](/README.md)
 
 VRCT-VOXは音声認識（ASR）、読み上げ（TTS）、ボイスチェンジ（RVC）、チャット読み取り（OCR）、翻訳をまとめたVRChat向けのデスクトップアプリです。[VRCT](https://github.com/misyaguziya/VRCT)をもとに[kein5](https://github.com/kein5)が開発しています。**VRCTの公式版ではなく、VRCTの開発者やVRChatが承認したものでもありません。**
@@ -23,7 +44,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 
 ## 配布状況
 
-現在のバージョンは **[0.1.0](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0)** です。バージョン番号は本家VRCT（3.x）とは別に0.1.0から数えます。ベータ版は`develop`から、正式版は`main`から公開します。
+最新の版は **[GitHub Releases](https://github.com/kein5/VRCT-VOX/releases/latest)** にあります（上のreleaseのバッジに番号が出ます）。バージョン番号は本家VRCT（3.x）とは別に0.1.0から数えます。ベータ版は`develop`から、正式版は`main`から公開します。
 
 - **Linux**: AppImageとtar.gz（x64、Vulkan）。CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しています。
 - **Windows**: インストーラーとzip（CPU版）、CUDA版のzip。Windows 11の実機で実際のモデルを使って試験しています（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
