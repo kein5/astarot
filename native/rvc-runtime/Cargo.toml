@@ -14,6 +14,10 @@ name = "rvc_runtime"
 name = "rvc-infer"
 path = "src/bin/rvc_infer.rs"
 
+[[bin]]
+name = "rvc-stream"
+path = "src/bin/rvc_stream.rs"
+
 [features]
 default = []
 # Run the ONNX graphs on CUDA when the ONNX Runtime build provides it.
