@@ -25,6 +25,13 @@ def reference():
 
     downloads = Downloads(FIXED_ROOT)
     catalog = downloads.catalog()
+    # The destination is an OS path ("D:\\vrct-ops-reference\\..." on Windows). Written with "/"
+    # from the fixed root, the file is the same on every OS; the check below keeps it the
+    # backend's own <root>/<id>/<revision>.
+    for row in catalog["models"]:
+        expected = Path(FIXED_ROOT).absolute() / row["id"] / row["revision"]
+        assert Path(row["destination"]) == expected, row["id"]
+        row["destination"] = f"{FIXED_ROOT}/{row['id']}/{row['revision']}"
     receipts, owners, urls = {}, {}, {}
     for model in CATALOG:
         receipts[model.id] = json.dumps(asdict(model), ensure_ascii=False, indent=2)
