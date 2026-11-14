@@ -221,7 +221,7 @@ def test_a_named_gpu_can_be_chosen_when_the_pc_reports_one(ui):
     page, peer, reply = ui
     group = page.get_by_role('group', name='Japanese TTS', exact=True)
     device = group.get_by_label('Inference device', exact=True)
-    help_text = group.get_by_text('Auto and GPU may use either one', exact=False)
+    help_text = group.get_by_text('Auto and GPU use a dedicated GPU before integrated graphics', exact=False)
     expect(device.locator('option')).to_have_count(3)
     expect(help_text).to_have_count(0)
     reply('/get/data/speech_server_devices', dict(devices=[dict(name='Vulkan1', kind='gpu', label='Example GPU')]))
