@@ -194,6 +194,10 @@ impl Default for Launcher {
 }
 
 impl Launcher {
+    pub fn new(auto_hide: bool) -> Self {
+        Self { auto_hide, ..Self::default() }
+    }
+
     /// The overlays were made (`init`): hidden until looked at, unless auto-hide is off.
     pub fn start(&mut self, intro_idle: bool) {
         self.shown = !self.auto_hide;

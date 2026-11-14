@@ -17,3 +17,5 @@ pub mod placement;
 pub mod pose;
 pub mod timing;
 pub mod tooltip;
+#[cfg(test)]
+mod reference_tests;
