@@ -1326,6 +1326,9 @@ voice_ui:
     check_needs_server: "同梱サーバーが起動すると確認できます"
     setup_rvc: "モデルと実行環境"
     setup_input: "入力の転送の準備"
+    # A placeholder: a sample value in an empty field.
+    example: "例: {{value}}"
+    instruction_example: "落ち着いた声で、少しゆっくり話す"
     rvc_drop_hint: ".pth はモデルの欄に、.index は検索インデックスの欄に入ります。"
     runtime_set: "実行環境設定済み"
     runtime_unset: "実行環境未設定"

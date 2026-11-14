@@ -9,6 +9,10 @@ import { SetupSection } from "../_components/setup_section/SetupSection";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
+import { pathExample } from "../../../../../../logics/common/pathExample";
+
+// The file name in each path field's example.
+const exampleFiles = { model: "model.gguf", voice_file: "voice.gguf", vad_model: "vad.gguf", diarization_model: "diarization.gguf" };
 
 // Readout tone for a server state; the state text itself always says it.
 // The start, as work that ends in success: it runs while the server prepares and is done once ready.
@@ -67,6 +71,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                 const busy = saving || !!pending[name] || !owner || ["preparing", "ready", "stopping"].includes(owner.state);
                 const input = key => <label key={key}>{t(`speech_servers.${key}`)}
                     <input value={row[key] ?? ""} disabled={busy} maxLength={4096} spellCheck={false}
+                        placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[key]) })}
                         onChange={event => field(name, key, event.target.value)} />
                 </label>;
                 return <fieldset key={name}>

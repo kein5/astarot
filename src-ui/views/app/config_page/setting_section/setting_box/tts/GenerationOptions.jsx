@@ -46,12 +46,13 @@ export const GenerationOptions = ({ role, draft, field, errorId }) => {
             onChange={e => field(seedKey, e.target.value === "fixed" ? "0" : "")}>
             <option value="random">{t("voice_ui.seed_random")}</option><option value="fixed">{t("voice_ui.seed_fixed")}</option>
         </select></label>
-        {fixed && <label>{t("voice_ui.seed_value")}<input type="text" inputMode="numeric" value={seed}
+        {fixed && <label>{t("voice_ui.seed_value")}<input type="text" inputMode="numeric" value={seed} placeholder={t("voice_ui.example", { value: "12345" })}
             aria-invalid={invalidSeed || !!outsideSeedRange}
             aria-describedby={[invalidSeed ? errorId : null, outsideSeedRange ? seedRangeId : null].filter(Boolean).join(" ") || undefined}
             onChange={e => field(seedKey, e.target.value)} /></label>}
         <FormRow label={t("voice_ui.instruction")} description={t("voice_ui.instruction_hint", { count: Array.from(instructions).length })} fold={false}>
             <textarea aria-invalid={invalidInstructions} aria-describedby={invalidInstructions ? errorId : undefined} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
+                placeholder={t("voice_ui.example", { value: t("voice_ui.instruction_example") })}
                 onChange={e => field(instructionKey, e.target.value)} />
         </FormRow>
         <EnvReadout><p>{t("voice_ui.option_support", { seed: support(options?.seed), instruction: support(options?.instructions) })}{options?.model ? ` · ${options.model}` : ""}</p></EnvReadout>
