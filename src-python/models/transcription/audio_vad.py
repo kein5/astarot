@@ -41,9 +41,11 @@ silero-vad 公式ライブラリのデフォルト (threshold=0.5, min_silence=1
 """
 
 import audioop
+import hashlib
 import itertools
 from collections import deque
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Deque, Literal, Optional, Protocol
 
 import numpy as np
@@ -103,15 +105,52 @@ class VadEngine(Protocol):
     def reset(self) -> None: ...
 
 
-class SileroFrameProbability:
-    """faster-whisper に同梱される Silero VAD ONNX モデルで1フレームの発話確率を計算する。
+# The Silero VAD v5 model as faster-whisper 1.1.1 ships it, split into an encoder and a
+# decoder (licenses/silero-vad/NOTICE.md). It is part of this app, not of a dependency, so
+# that the VAD does not need faster-whisper.
+SILERO_DIRECTORY = Path(__file__).resolve().parent / "silero_vad"
+SILERO_FILES = {
+    "silero_encoder_v5.onnx": (713415, "0e9fc8f56407693d283f99045fb95c2b90fdca3433ce5f83e2c121fb4e615075"),
+    "silero_decoder_v5.onnx": (532505, "8c20344f509846a07ccd85827e8857017fae67fabd58689bec1af79e1d488307"),
+}
 
-    faster-whisper は既存依存であり、追加のモデルバンドルやネットワーク
-    アクセスなしにオフラインで動作する (PyInstaller 配布物にも同梱済み)。
+
+def load_silero_sessions(directory: Path = SILERO_DIRECTORY):
+    """The encoder and decoder sessions, after checking each file's size and SHA-256.
+
+    The session options are the ones faster-whisper used, so the probabilities are the same.
+    """
+    import onnxruntime
+
+    paths = []
+    for name, (size, digest) in SILERO_FILES.items():
+        path = Path(directory) / name
+        try:
+            data = path.read_bytes() if path.stat().st_size == size else b""
+        except OSError:
+            data = b""
+        if len(data) != size or hashlib.sha256(data).hexdigest() != digest:
+            raise RuntimeError("vad_model_missing_or_invalid")
+        paths.append(str(path))
+    options = onnxruntime.SessionOptions()
+    options.inter_op_num_threads = 1
+    options.intra_op_num_threads = 1
+    options.enable_cpu_mem_arena = False
+    options.log_severity_level = 4
+    return tuple(onnxruntime.InferenceSession(path, providers=["CPUExecutionProvider"], sess_options=options)
+                 for path in paths)
+
+
+class SileroFrameProbability:
+    """アプリに同梱した Silero VAD (v5) の ONNX モデルで1フレームの発話確率を計算する。
+
+    モデルは faster-whisper 1.1.1 が同梱していたものと同じファイル (エンコーダと
+    デコーダに分割済み) で、追加の取得やネットワークアクセスなしに動作する。
     """
 
-    def __init__(self) -> None:
-        self._model = None
+    def __init__(self, directory: Path = SILERO_DIRECTORY) -> None:
+        self._directory = directory
+        self._sessions = None
         self._state = np.zeros((2, 1, 128), dtype=np.float32)
         self._context = np.zeros((1, 64), dtype=np.float32)
 
@@ -122,15 +161,14 @@ class SileroFrameProbability:
     def __call__(self, frame: np.ndarray) -> float:
         if frame.shape != (FRAME_SAMPLES,):
             raise ValueError(f"Expected {(FRAME_SAMPLES,)} audio frame, got {frame.shape}")
-        if self._model is None:
-            from faster_whisper.vad import get_vad_model
-
-            self._model = get_vad_model()
+        if self._sessions is None:
+            self._sessions = load_silero_sessions(self._directory)
+        encoder, decoder = self._sessions
 
         model_input = np.concatenate((self._context, frame.reshape(1, -1)), axis=1)
-        encoder_output = self._model.encoder_session.run(None, {"input": model_input})[0]
+        encoder_output = encoder.run(None, {"input": model_input})[0]
         decoder_input = encoder_output.reshape(1, 128)
-        output, self._state = self._model.decoder_session.run(
+        output, self._state = decoder.run(
             None,
             {"input": decoder_input, "state": self._state},
         )

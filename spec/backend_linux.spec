@@ -14,6 +14,9 @@ datas = [(str(resources), '.')]
 for source, destination in (
     ('LICENSE', 'licenses/VRCT'), ('NOTICE.md', 'licenses/VRCT'),
     ('src-python/models/overlay/fonts', 'fonts'),
+    # The Silero VAD model the app ships (licenses/silero-vad); audio_vad.py reads it next to itself.
+    ('src-python/models/transcription/silero_vad', 'models/transcription/silero_vad'),
+    ('licenses/silero-vad', 'licenses/silero-vad'),
     ('src-python/models/translation/translation_settings/prompt', 'translation_settings/prompt'),
     ('src-python/models/translation/translation_settings/languages', 'translation_settings/languages'),
 ):
@@ -35,7 +38,7 @@ for package in ('ctranslate2', 'transformers', 'faster-whisper', 'huggingface-hu
 a = Analysis([str(root / 'src-python/mainloop.py')], pathex=[str(root / 'packaging/pyinstaller-stubs'), str(root / 'src-python')],
     binaries=binaries, datas=datas,
     hiddenimports=['models.voice_conversion.router_worker',
-                   'faster_whisper.vad', 'cv2', 'models.ocr',
+                   'cv2', 'models.ocr',
                    'rapidocr', 'rapidocr.inference_engine.onnxruntime'],
     hookspath=[], hooksconfig={}, runtime_hooks=[],
     excludes=['pandas', 'matplotlib', 'PyQt5', 'torch', 'tensorflow',

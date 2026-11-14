@@ -54,6 +54,14 @@ MIT at [kein5/vrct-vox-chatbox-detector](https://huggingface.co/kein5/vrct-vox-c
 It is not derived from the upstream model or its outputs. It is not shipped either; it is downloaded only after the
 user agrees in Config → Chat Transcribe (catalog entry `vrct-vox-chatbox-detector`).
 
+## Bundled Silero VAD model
+
+The microphone and speaker transcription finds speech with the Silero VAD v5
+model (MIT, Silero Team), as split into two ONNX graphs by faster-whisper (MIT,
+SYSTRAN). VRCT-VOX ships those two files (about 1.2 MB in all) and their
+license texts in `licenses/silero-vad/`, which also lists their sizes, SHA-256
+and sources.
+
 ## Downloadable Whisper weights
 
 Whisper weights are not bundled. Config → Transcription shows the model,

@@ -1,9 +1,16 @@
+import shutil
+import sys
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 import numpy as np
 
 from models.transcription.audio_vad import (
     FRAME_SAMPLES,
+    SILERO_DIRECTORY,
+    SILERO_FILES,
     Pcm16MonoNormalizer,
     SileroFrameProbability,
     VadRecognizerAdapter,
@@ -50,6 +57,49 @@ class TestSileroFrameProbability(unittest.TestCase):
     def test_rejects_invalid_frame_shape(self) -> None:
         with self.assertRaisesRegex(ValueError, "Expected"):
             SileroFrameProbability()(np.zeros(128, dtype=np.float32))
+
+    def test_the_bundled_model_runs_without_faster_whisper(self) -> None:
+        # The app's own copy is read; an import of faster_whisper would fail here.
+        with mock.patch.dict(sys.modules, {"faster_whisper": None, "faster_whisper.vad": None}):
+            probability = SileroFrameProbability()
+            values = [probability(np.zeros(FRAME_SAMPLES, dtype=np.float32)) for _ in range(20)]
+        self.assertTrue(all(0.0 <= value < 0.1 for value in values), values)
+
+    def test_a_missing_or_changed_model_file_is_refused(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            with self.assertRaisesRegex(RuntimeError, "vad_model_missing_or_invalid"):
+                SileroFrameProbability(directory)(np.zeros(FRAME_SAMPLES, dtype=np.float32))
+            for name in SILERO_FILES:
+                shutil.copyfile(SILERO_DIRECTORY / name, directory / name)
+            SileroFrameProbability(directory)(np.zeros(FRAME_SAMPLES, dtype=np.float32))
+            changed = bytearray((directory / "silero_decoder_v5.onnx").read_bytes())
+            changed[-1] ^= 1
+            (directory / "silero_decoder_v5.onnx").write_bytes(bytes(changed))
+            with self.assertRaisesRegex(RuntimeError, "vad_model_missing_or_invalid"):
+                SileroFrameProbability(directory)(np.zeros(FRAME_SAMPLES, dtype=np.float32))
+
+    def test_the_probabilities_are_those_of_faster_whisper(self) -> None:
+        """While faster-whisper is still installed, the two give the same numbers."""
+        try:
+            from faster_whisper.vad import get_vad_model
+        except ImportError:
+            self.skipTest("faster-whisper is not installed")
+        reference = get_vad_model()
+        ours = SileroFrameProbability()
+        state = np.zeros((2, 1, 128), dtype=np.float32)
+        context = np.zeros((1, 64), dtype=np.float32)
+        rng = np.random.default_rng(0)
+        for index in range(60):
+            # Quiet noise, then a loud tone with noise: both low and high probabilities.
+            tone = 0.5 * np.sin(np.arange(FRAME_SAMPLES) * 0.12 * (1 + index % 5)) if index >= 30 else 0
+            frame = (tone + rng.normal(0, 0.01, FRAME_SAMPLES)).astype(np.float32)
+            encoded = reference.encoder_session.run(
+                None, {"input": np.concatenate((context, frame.reshape(1, -1)), axis=1)})[0]
+            expected, state = reference.decoder_session.run(
+                None, {"input": encoded.reshape(1, 128), "state": state})
+            context = frame[-64:].reshape(1, -1)
+            self.assertEqual(ours(frame), float(np.asarray(expected).reshape(-1)[0]))
 
 
 class TestVadSegmenterBasics(unittest.TestCase):
