@@ -9,7 +9,7 @@
 | OS | 条件 |
 |---|---|
 | Windows | 64ビットのWindows 11で確かめています。Windows 10では確かめていません。WebView2 Runtimeが必要です。入っていなければ、インストーラーが取得します。 |
-| Linux | x86-64のPCで、glibc 2.39以降、GTK 3、WebKitGTK 4.1が必要です。debとrpmは、Ubuntu 24.04、Debian 13、Fedora 44に入れられることを確かめています。実際のモデルを使った動作は、CachyOS（KDE Plasma、Wayland）で確かめています。 |
+| Linux | x86-64のPCで、<Term tip="多くのLinuxのアプリが使う基本のライブラリ（GNU Cライブラリ）です。版はldd --versionで確かめられます。">glibc</Term> 2.39以降、GTK 3、WebKitGTK 4.1が必要です。debとrpmは、Ubuntu 24.04、Debian 13、Fedora 44に入れられることを確かめています。実際のモデルを使った動作は、CachyOS（KDE Plasma、Wayland）で確かめています。 |
 
 macOS版はありません。
 
@@ -29,7 +29,7 @@ Linuxでアプリが管理する音声経路を使うには、Linux 6.9以降、
 | 機能 | 必要なGPU |
 |---|---|
 | 翻訳、音声認識（Whisper）、チャット読み取り | 必要ありません。CPUで動きます |
-| 読み上げ、リアルタイム字幕、話した人を見分ける機能（アプリに入っているspeech.cpp） | Vulkanに対応したGPU。NVIDIA、AMD、Intelのどれでも、内蔵GPUでも動きます。GPUがなければCPUで動きますが、遅くなります |
+| 読み上げ、リアルタイム字幕、話した人を見分ける機能（アプリに入っているspeech.cpp） | <Term tip="GPUで描画や計算をするための仕組みです。NVIDIA、AMD、IntelのGPUのドライバーが対応しています。">Vulkan</Term>に対応したGPU。NVIDIA、AMD、Intelのどれでも、内蔵GPUでも動きます。GPUがなければCPUで動きますが、遅くなります |
 | ボイスチェンジャー（RVC、Seed-VC） | NVIDIAのGPUと、CUDA 12.8に対応したドライバー |
 | Whisperの音声認識とローカルの翻訳をGPUで（WindowsのCUDA版） | NVIDIAのGPU |
 

@@ -1,9 +1,28 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, type DefaultTheme } from 'vitepress'
 import { tokenize } from './searchTokenize.mjs'
 import { slugify } from './slugify.mjs'
+import { LOCALE_KEY } from './theme/locale'
 
 const repo = 'https://github.com/kein5/VRCT-VOX'
 const site = 'https://kein5.github.io/VRCT-VOX/'
+const base = '/VRCT-VOX/'
+
+// / only picks a language. Its head sends the reader on before the page is drawn, so the picker
+// does not show while the site's scripts load; it stays for readers without JavaScript, and
+// index.md sends them on as well once the scripts run. Same choice as preferredLocale() in
+// theme/locale.ts: the language picked in the menu, else the browser's languages.
+const pickLanguage = `(function () {
+  var locale
+  try { locale = localStorage.getItem(${JSON.stringify(LOCALE_KEY)}) } catch (e) {}
+  if (locale !== 'ja' && locale !== 'en') {
+    var languages = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]
+    locale = languages.some(function (language) { return language && language.toLowerCase().indexOf('ja') === 0 }) ? 'ja' : 'en'
+  }
+  var root = document.documentElement
+  root.style.visibility = 'hidden'
+  try { location.replace(${JSON.stringify(base)} + locale + '/') } catch (e) { root.style.visibility = '' }
+})()`
 
 // hreflang pairs: /ja/<page> and /en/<page> share a path; / is the language picker.
 function alternates(relativePath: string): [string, Record<string, string>][] {
@@ -123,7 +142,7 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
 }
 
 export default defineConfig({
-  base: '/VRCT-VOX/',
+  base,
   title: 'VRCT-VOX',
   // Only the / language picker uses this; each locale sets its own lang.
   lang: 'en',
@@ -139,12 +158,29 @@ export default defineConfig({
     ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/VRCT-VOX/favicon.png' }],
     ['link', { rel: 'apple-touch-icon', href: '/VRCT-VOX/apple-touch-icon.png' }],
   ],
-  transformHead: ({ pageData }) => alternates(pageData.relativePath),
+  transformHead: ({ pageData }) => [
+    ...(pageData.relativePath === 'index.md' ? [['script', {}, pickLanguage] as [string, Record<string, string>, string]] : []),
+    ...alternates(pageData.relativePath),
+  ],
+  vite: {
+    resolve: {
+      // The search box is this guide's command palette (theme/components/LocalSearchBox.vue).
+      alias: [
+        {
+          find: /^.*\/VPLocalSearchBox\.vue$/,
+          replacement: fileURLToPath(new URL('./theme/components/LocalSearchBox.vue', import.meta.url)),
+        },
+      ],
+    },
+  },
   markdown: {
     image: { lazyLoading: true },
     // Japanese ids stay composed, so links to headings with voiced marks find them (slugify.mjs).
     anchor: { slugify },
     toc: { slugify },
+    // The h2 headings in each page's data, so <StepProgress /> is in the built page and does not
+    // push the text down when the script starts.
+    headers: { level: [2], slugify },
     config(md) {
       // Every picture in a page is a screenshot: it can take focus and opens larger (theme/index.ts).
       const image = md.renderer.rules.image!

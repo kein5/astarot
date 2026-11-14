@@ -18,7 +18,7 @@ route: linux-audio
 
 ### アプリがすること
 
-- `vrct-managed-source`、`vrct-managed-tts`、`vrct-managed-vc`の3つのユーザーサービスを作り、有効にします。保存先は`~/.config/systemd/user/`です。
+- `vrct-managed-source`、`vrct-managed-tts`、`vrct-managed-vc`の3つのユーザーサービスを作り、有効にします。保存先は<CopyText>~/.config/systemd/user/</CopyText>です。
 - 仮想マイクはVRCT-VOXを終了しても残します。次にログインしたときはミュートした状態で作り直します。
 - 正しく動く仮想マイクがすでにあれば、新しく作らずにそれを使います。
 

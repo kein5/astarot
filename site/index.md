@@ -9,7 +9,8 @@ import { onMounted } from 'vue'
 import { withBase } from 'vitepress'
 import { preferredLocale } from './.vitepress/theme/locale'
 
-// Only this page redirects, so deep links such as /ja/guide/install stay put.
+// Only this page redirects, so deep links such as /ja/guide/install stay put. A script in this
+// page's head (config.mts) already does it before anything is drawn; this is the fallback.
 onMounted(() => location.replace(withBase(`/${preferredLocale()}/`)))
 </script>
 

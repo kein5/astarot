@@ -9,7 +9,7 @@ The values on this page were measured on one test PC or worked out from model si
 | OS | Requirements |
 |---|---|
 | Windows | Tested on 64-bit Windows 11. Not tested on Windows 10. Needs the WebView2 Runtime; the installer fetches it if it is missing. |
-| Linux | An x86-64 PC with glibc 2.39 or later, GTK 3 and WebKitGTK 4.1. The deb and rpm are tested to install on Ubuntu 24.04, Debian 13 and Fedora 44. Real models are tested on CachyOS (KDE Plasma, Wayland). |
+| Linux | An x86-64 PC with <Term tip="The GNU C Library, the basic library most Linux apps use. ldd --version shows its version.">glibc</Term> 2.39 or later, GTK 3 and WebKitGTK 4.1. The deb and rpm are tested to install on Ubuntu 24.04, Debian 13 and Fedora 44. Real models are tested on CachyOS (KDE Plasma, Wayland). |
 
 There is no macOS version.
 
@@ -29,7 +29,7 @@ On Linux, the audio route the app manages needs Linux 6.9 or later, PipeWire and
 | Feature | GPU needed |
 |---|---|
 | Translation, speech recognition (Whisper), chat reading | None; they run on the CPU |
-| Speech, realtime captions and telling speakers apart (speech.cpp, included in the app) | A GPU with Vulkan support: NVIDIA, AMD or Intel, integrated GPUs included. Without one they run on the CPU, more slowly |
+| Speech, realtime captions and telling speakers apart (speech.cpp, included in the app) | A GPU with <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> support: NVIDIA, AMD or Intel, integrated GPUs included. Without one they run on the CPU, more slowly |
 | Voice changer (RVC, Seed-VC) | An NVIDIA GPU with a driver that supports CUDA 12.8 |
 | Whisper and local translation on the GPU (the Windows CUDA version) | An NVIDIA GPU |
 
