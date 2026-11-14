@@ -20,7 +20,7 @@ HANDLER = next(node for node in MAIN.body if isinstance(node, ast.FunctionDef) a
 
 
 @pytest.mark.parametrize("status", [404, 423, 500])
-@pytest.mark.parametrize("endpoint", ["/run/download_ctranslate2_weight", "/run/download_whisper_weight"])
+@pytest.mark.parametrize("endpoint", ["/run/download_ctranslate2_weight"])
 @pytest.mark.parametrize("data", ["small", {"weight_type": "small", "accept_non_commercial_license": True}])
 def test_legacy_download_errors_identify_only_the_failed_weight(status, endpoint, data):
     assert error_result(endpoint, data, "Internal error", status) == {
@@ -35,12 +35,14 @@ def test_success_and_specific_errors_keep_their_existing_contract(status):
 
 
 def test_unrelated_requests_never_echo_secrets_or_messages():
-    for endpoint in ["/set/data/deepl_auth_key", "/run/send_message_box", "/run/start_model_download"]:
+    # The Whisper download endpoint is gone (#288): a request for it is an ordinary unknown one.
+    for endpoint in ["/set/data/deepl_auth_key", "/run/send_message_box", "/run/start_model_download",
+                     "/run/download_whisper_weight"]:
         assert error_result(endpoint, {"secret": "not for stdout"}, "Internal error", 500) == "Internal error"
 
 
 def test_invalid_weight_identifier_does_not_echo_other_fields():
-    assert error_result("/run/download_whisper_weight", {"other": "secret"}, None, 500) is None
+    assert error_result("/run/download_ctranslate2_weight", {"other": "secret"}, None, 500) is None
 
 
 def test_every_worker_terminal_response_uses_failure_correlation():
@@ -55,7 +57,7 @@ def test_every_worker_terminal_response_uses_failure_correlation():
         assert [arg.id for arg in response.args[2].args] == ["endpoint", "data", "result", "status"]
 
 
-@pytest.mark.parametrize("endpoint", ["/run/download_ctranslate2_weight", "/run/download_whisper_weight"])
+@pytest.mark.parametrize("endpoint", ["/run/download_ctranslate2_weight"])
 @pytest.mark.parametrize("path,status,result", [
     ("busy", 423, "Locked endpoint (busy)"),
     ("initialization", 423, None),

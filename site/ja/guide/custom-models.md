@@ -76,7 +76,7 @@
 
 ## Whisper のサーバー {#whisper-server}
 
-アプリに入っている Whisper のモデルは、一覧にあるものだけです。ほかの Whisper のモデルを使いたいときは、OpenAI 互換の Whisper のサーバー（`/v1/audio/transcriptions`）を自分で動かし、そこにつなぎます。
+アプリの中では Whisper は動きません（[以前の版でWhisperを使っていた場合](../features/transcription#whisper)）。Whisper のモデルを使いたいときは、OpenAI 互換の Whisper のサーバー（`/v1/audio/transcriptions`）を自分で動かし、そこにつなぎます。
 
 1. 「設定」→「音声認識（ASR）」→「クラウド音声認識」で「カスタムWhisperサーバー」を開きます。
 2. URL とキーを入れて保存します。キーが必要ないサーバーでも、キーの欄には何か文字を入れます。キーが空のままだと URL だけを覚え、つながるかの確認もモデルの一覧の読み込みもしません。

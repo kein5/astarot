@@ -133,8 +133,9 @@ command-line audio tools remain requirements. Owned audio helpers currently need
 Linux >=6.9. AppImage does not remove these requirements.
 
 OCR weights and Mia2026 are rejected by the package policy. No speech.cpp, RVC or
-Seed-VC model is acquired or bundled by this builder. The existing faster-whisper
-dependency's two Silero v5 ONNX assets remain explicitly inventoried. RVC/Seed-VC
+Seed-VC model is acquired or bundled by this builder. The two Silero v5 VAD ONNX
+files are shipped as part of the app (`models/transcription/silero_vad/`, MIT,
+notices in `licenses/silero-vad/`); faster-whisper is no longer a dependency (#288). RVC/Seed-VC
 Python environments and user models stay external. Original licenses are retained;
 GTK/WebKit, runtime static dependencies and the complete native/frontend/Rust
 license/SBOM review remain publication gates. A build-tool license does not cover

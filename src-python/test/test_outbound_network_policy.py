@@ -348,7 +348,7 @@ def test_asr_sdk_does_not_replay_audio(status, monkeypatch):
     try:
         with pytest.raises(TranscriptionApiError):
             provider.transcribe(audio, "Japanese", "Japan", avg_logprob=-1, no_speech_prob=1,
-                                no_repeat_ngram_size=0, force_language=True)
+                                force_language=True)
         assert len(seen) == 1 and seen[0].url.host == "api.openai.com"
         assert b"PRIVATE_AUDIO" in seen[0].read()
     finally:

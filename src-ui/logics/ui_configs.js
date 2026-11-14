@@ -94,18 +94,6 @@ export const ctranslate2_weight_type_status = [
     { id: "nllb-200-3.3B-ct2-int8", capacity: "3.3GB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-3.3B" },
 ].map(item => ({ is_default: false, ...item, is_downloaded: false, progress: null }));
 
-export const whisper_weight_type_status = [
-    { id: "tiny", capacity: "74.5MB"},
-    { id: "base", capacity: "141MB", is_default: true},
-    { id: "small", capacity: "463MB"},
-    { id: "medium", capacity: "1.42GB"},
-    { id: "large-v1", capacity: "2.87GB"},
-    { id: "large-v2", capacity: "2.87GB"},
-    { id: "large-v3", capacity: "2.87GB"},
-    { id: "large-v3-turbo-int8", capacity: "794MB"},
-    { id: "large-v3-turbo", capacity: "1.58GB"},
-].map(item => ({ is_default: false, ...item, is_downloaded: false, progress: null }));
-
 
 export const deepl_auth_key_url = "https://www.deepl.com/ja/your-account/keys";
 export const plamo_auth_key_url = "https://plamo.preferredai.jp/api";

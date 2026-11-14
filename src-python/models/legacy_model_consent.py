@@ -8,18 +8,15 @@ import json
 from threading import Lock
 
 from models.builtin_model_pins import MODEL_PINS, tokenizerFilePins
-from models.transcription.transcription_whisper import _MODELS
 from models.translation.translation_utils import ctranslate2_weights
 
 _CONSENT_LOCK = Lock()
 
 
 def legacyModelReview(kind: str, weight_type: str) -> dict:
-    if kind == "whisper":
-        repo = _MODELS[weight_type]
-        license_name, restricted, tokenizer = "MIT", False, None
-        name = f"Whisper {weight_type}"
-    elif kind == "ctranslate2":
+    # The built-in Whisper weights were the other kind until the local Whisper engine was
+    # removed (#288); speech.cpp models go through models/model_downloads instead.
+    if kind == "ctranslate2":
         weight = ctranslate2_weights[weight_type]
         repo = weight["hf_repo"]
         license_name = weight["license"]
@@ -48,8 +45,7 @@ def legacyModelReview(kind: str, weight_type: str) -> dict:
 
 
 def legacyModelCatalog() -> list:
-    return [legacyModelReview(kind, weight) for kind, weights in
-            (("whisper", _MODELS), ("ctranslate2", ctranslate2_weights)) for weight in weights]
+    return [legacyModelReview("ctranslate2", weight) for weight in ctranslate2_weights]
 
 
 def consentedLegacyRequest(config, kind: str, weight_type: str):

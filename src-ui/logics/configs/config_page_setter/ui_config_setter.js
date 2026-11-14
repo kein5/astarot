@@ -5,7 +5,6 @@ import vr_layout from "../../../views/vr/vr_layout.json";
 
 import {
     ctranslate2_weight_type_status,
-    whisper_weight_type_status,
     ui_configs,
 } from "@ui_configs";
 
@@ -720,49 +719,8 @@ export const SETTINGS_ARRAY = [
         add_endpoint_run_array: ["from_backend"],
         base_endpoint_name: "selected_deepgram_model",
     },
-    {
-        Category: "Transcription",
-        Base_Name: "WhisperWeightTypeStatus",
-        default_value: whisper_weight_type_status,
-        ui_template_id: "list",
-        logics_template_id: "weight_download_status",
-        base_endpoint_name: "whisper_weight",
-    },
-    {
-        Category: "Transcription",
-        Base_Name: "SelectedWhisperWeightType",
-        default_value: "",
-        ui_template_id: "select",
-        logics_template_id: "get_set",
-        base_endpoint_name: "selected_whisper_weight_type",
-    },
-    {
-        Category: "Transcription",
-        Base_Name: "SelectedTranscriptionComputeType",
-        default_value: "",
-        ui_template_id: "select",
-        logics_template_id: "get_set",
-        add_endpoint_run_array: ["from_backend"],
-        base_endpoint_name: "selected_transcription_compute_type",
-    },
-    {
-        Category: "Transcription",
-        Base_Name: "SelectableTranscriptionComputeDeviceList",
-        default_value: [],
-        ui_template_id: "list",
-        logics_template_id: "get_set",
-        base_endpoint_name: "selectable_transcription_compute_device_list",
-        response_transform: "transformToIndexedArray",
-    },
-    {
-        Category: "Transcription",
-        Base_Name: "SelectedTranscriptionComputeDevice",
-        default_value: "",
-        ui_template_id: "select",
-        logics_template_id: "get_set",
-        base_endpoint_name: "selected_transcription_compute_device",
-    },
-    // Advanced
+    // The OpenAI-compatible cloud engines drop segments below these thresholds. The
+    // settings no longer show them: they were sliders for the removed local Whisper (#288).
     {
         Category: "Transcription",
         Base_Name: "MicAvgLogprob",

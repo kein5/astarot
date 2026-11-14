@@ -30,7 +30,6 @@ a = Analysis(
         ('./../.venv_cuda/Lib/site-packages/zeroconf', 'zeroconf/'),
         ('./../.venv_cuda/Lib/site-packages/openvr', 'openvr/'),
         ('./../.venv_cuda/Lib/site-packages/glfw', 'glfw/'),  # glfw3.dll (VR UI overlay texture) is loaded via ctypes, not found by analysis
-        ('./../.venv_cuda/Lib/site-packages/faster_whisper', 'faster_whisper/'),
         ('./../.venv_cuda/Lib/site-packages/hf_xet', 'hf_xet/'),
         # RapidOCR reads these at start-up; nothing else in the package is data we ship
         # (its bundled weights are dropped by filter_toc and never used).

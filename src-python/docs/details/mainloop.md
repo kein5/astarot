@@ -113,6 +113,12 @@ class Main:
 - `/set/enable/transcription_send`: 送信音声認識の有効化
 - `/set/enable/transcription_receive`: 受信音声認識の有効化
 - `/set/data/selected_transcription_engine`: 音声認識エンジン選択
+- `/get/data/local_asr_notice`: Whisper から speech.cpp に移ったことのお知らせをまだ表示するか（bool）
+- `/set/disable/local_asr_notice`: 利用者がお知らせを閉じた（`false` を返す）
+- `/get/data/old_whisper_weights`: 以前の版がダウンロードした Whisper の重み（`{"total_bytes", "folders"}`）
+- `/run/delete_old_whisper_weights`: 利用者の操作で古い Whisper の重みを削除（`"freed_bytes"` と `"failed"` を加えて返す）。失敗は status 500 と `error_code`（`old_whisper_weights_unreadable` / `old_whisper_weights_delete_failed`）
+
+#288 でローカルの Whisper を削除し、Whisper の重みと音声認識の処理デバイス・計算タイプのエンドポイント（`/get|set/data/selected_whisper_weight_type`、`/get/data/selectable_whisper_weight_type_dict`、`/get|set/data/selected_transcription_compute_type`、`/get/data/selectable_transcription_compute_device_list`、`/get|set/data/selected_transcription_compute_device`、`/run/download_whisper_weight`）と、それに伴う通知（`/run/download_progress_whisper_weight`、`/run/downloaded_whisper_weight`、`/run/error_whisper_weight`、`/run/selected_transcription_compute_type`、`/run/error_transcription_mic_vram_overflow`、`/run/error_transcription_speaker_vram_overflow`）を削除した。
 
 ### VR機能
 
@@ -155,7 +161,6 @@ class Main:
 
 - `/run/update_software`: ソフトウェアアップデート
 - `/run/download_ctranslate2_weight`: 翻訳モデルダウンロード
-- `/run/download_whisper_weight`: 音声認識モデルダウンロード
 
 ## 主要メソッド
 

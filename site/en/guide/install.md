@@ -15,7 +15,7 @@ Windows comes first below; Linux is in [its own section](#linux).
 The Windows build is not code-signed. When "Windows protected your PC" appears, press "More info" and then "Run anyway".
 :::
 
-The CPU version runs on any PC. The GPU (CUDA) version is for PCs with an NVIDIA GPU: Whisper speech recognition and local translation can run on the GPU, and the download is larger. Speech and realtime captions (speech.cpp, which comes with the app) can use a GPU in either version.
+The CPU version runs on any PC. The GPU (CUDA) version is for PCs with an NVIDIA GPU: local translation can run on the GPU, and the download is larger. Speech and realtime captions (speech.cpp, which comes with the app) can use a GPU in either version.
 
 For VRChat to hear your speech, you also need a virtual cable ([Windows audio route](./windows-audio)).
 

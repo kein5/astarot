@@ -95,7 +95,7 @@ class StdoutBacklogTests(_StdoutWriterTestCase):
                     (CAPTION, caption(index + 1, state="discarded"), 200),
                     (CAPTION, caption(index + 1, state="outcome", outcome="delivered"), 200),
                     ("/run/transcription_send_mic_message", {"text": str(index)}, 200),
-                    ("/run/downloaded_whisper_weight", "tiny", 200),
+                    ("/run/downloaded_ctranslate2_weight", "tiny", 200),
                     ("/run/initialization_complete", {}, 200),
                     ("/run/unknown", index, 200),
                     ("/run/check_mic_volume", index, 500),
@@ -176,8 +176,8 @@ class StdoutBacklogTests(_StdoutWriterTestCase):
             self.notify("/run/check_mic_volume", 2)
             utils.printResponse(200, "/set/disable/check_mic_threshold", False)
             for value in (0.1, 0.2, 1):
-                self.notify("/run/download_progress_whisper_weight", {"weight_type": "tiny", "progress": value})
-            self.notify("/run/downloaded_whisper_weight", "tiny")
+                self.notify("/run/download_progress_ctranslate2_weight", {"weight_type": "tiny", "progress": value})
+            self.notify("/run/downloaded_ctranslate2_weight", "tiny")
         rows = self.drain()
         self.assertEqual([row["result"] for row in rows], [True, 2, False, {"weight_type": "tiny", "progress": 1}, "tiny"])
 
@@ -187,9 +187,8 @@ class StdoutBacklogTests(_StdoutWriterTestCase):
                 self.notify("/run/vr_panel_pointer", {"x": index, "y": index})
                 self.notify("/run/check_mic_volume", index)
                 self.notify("/run/check_speaker_volume", index)
-                for model in ("whisper", "ctranslate2"):
-                    for weight in ("tiny", "small"):
-                        self.notify(f"/run/download_progress_{model}_weight", {"weight_type": weight, "progress": index / 1000})
+                for weight in ("tiny", "small", "base", "medium"):
+                    self.notify("/run/download_progress_ctranslate2_weight", {"weight_type": weight, "progress": index / 1000})
             self.notify("/run/vr_panel_pointer", None)
         self.assertEqual(utils._stdout_response_queue.qsize(), 7)
         rows = self.drain()
@@ -203,7 +202,7 @@ class StdoutBacklogTests(_StdoutWriterTestCase):
                 self.notify(CAPTION, {"source": "mic", "state": "partial", "text": "no identity"})
                 self.notify(CAPTION, caption(text=""))
                 self.notify("/run/check_mic_volume", {"error": "ambiguous"})
-                self.notify("/run/download_progress_whisper_weight", {"progress": 0.5})
+                self.notify("/run/download_progress_ctranslate2_weight", {"progress": 0.5})
             for index in range(utils._STDOUT_REPLACEABLE_MAX_KEYS + 10):
                 self.notify(CAPTION, caption(item_id=str(index)))
         self.assertEqual(len(utils._stdout_response_queue._replaceable), 64)

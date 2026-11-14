@@ -13,33 +13,33 @@ from models.legacy_model_downloads import LegacyDownloads
 @pytest.fixture
 def app(monkeypatch):
     backend = Mock()
-    config = SimpleNamespace(LEGACY_MODEL_DOWNLOAD_CONSENTS={},
-        SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT={}, SELECTABLE_WHISPER_WEIGHT_TYPE_DICT={})
+    config = SimpleNamespace(LEGACY_MODEL_DOWNLOAD_CONSENTS={}, SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT={})
     monkeypatch.setattr(module, "model", backend)
     monkeypatch.setattr(module, "config", config)
     controller = module.Controller.__new__(module.Controller)
     controller.legacy_downloads = LegacyDownloads()
-    controller.run_mapping = {f"{event}_{kind}_weight": f"/run/{event}_{kind}_weight"
-        for kind in ("whisper", "ctranslate2") for event in ("downloaded", "error", "download_progress")}
+    # The built-in downloads are the translation weights; Whisper's went with the engine (#288).
+    controller.run_mapping = {f"{event}_ctranslate2_weight": f"/run/{event}_ctranslate2_weight"
+        for event in ("downloaded", "error", "download_progress")}
     controller.run_mapping["connected_network"] = "/run/connected_network"
     controller.run = Mock()
     yield controller, config, backend
     assert controller.legacy_downloads.close()
 
 
-@pytest.mark.parametrize("kind,weight", [("whisper", "base"), ("ctranslate2", "m2m100_418M-ct2-int8")])
+@pytest.mark.parametrize("kind,weight", [("ctranslate2", "m2m100_418M-ct2-int8")])
 @pytest.mark.parametrize("outcome", ["ready", "already_present", "false", "exception", "verification_exception", "tokenizer_missing"])
 def test_every_terminal_path_has_one_weight_and_job_identity(app, kind, weight, outcome):
     controller, config, backend = app
-    download = backend.downloadWhisperModelWeight if kind == "whisper" else backend.downloadCTranslate2ModelWeight
-    verify = backend.checkTranscriptionWhisperModelWeight if kind == "whisper" else backend.checkTranslatorCTranslate2ModelWeight
+    download = backend.downloadCTranslate2ModelWeight
+    verify = backend.checkTranslatorCTranslate2ModelWeight
     download.return_value = outcome != "false"
     verify.return_value = outcome != "tokenizer_missing"
     if outcome == "exception":
         download.side_effect = OSError("failed transport")
     if outcome == "verification_exception":
         verify.side_effect = ValueError("parser failed")
-    method = controller.downloadWhisperWeight if kind == "whisper" else controller.downloadCtranslate2Weight
+    method = controller.downloadCtranslate2Weight
     response = method({"weight_type": weight, "consent": True,
         "manifest_version": legacyModelReview(kind, weight)["manifest_version"]}, asynchronous=False)
     assert response["status"] == 200
@@ -52,7 +52,7 @@ def test_every_terminal_path_has_one_weight_and_job_identity(app, kind, weight, 
     assert data["weight_type"] == weight
     assert data["job_id"] == response["result"]["job_id"]
     assert data["downloaded"] is ready
-    states = config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT if kind == "whisper" else config.SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT
+    states = config.SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT
     assert states[weight] is ready
     backend.downloadCTranslate2ModelTokenizer.assert_not_called()
 
@@ -89,17 +89,18 @@ def test_duplicate_request_returns_identified_busy_and_cannot_start_second_worke
         assert control.event.wait(2)
         control.checkpoint()
 
-    backend.downloadWhisperModelWeight.side_effect = operation
-    request = {"weight_type": "base", "consent": True,
-               "manifest_version": legacyModelReview("whisper", "base")["manifest_version"]}
-    first = controller.downloadWhisperWeight(request)
+    backend.downloadCTranslate2ModelWeight.side_effect = operation
+    weight = "m2m100_418M-ct2-int8"
+    request = {"weight_type": weight, "consent": True,
+               "manifest_version": legacyModelReview("ctranslate2", weight)["manifest_version"]}
+    first = controller.downloadCtranslate2Weight(request)
     assert entered.wait(1)
-    second = controller.downloadWhisperWeight(request)
+    second = controller.downloadCtranslate2Weight(request)
     assert second["status"] == 400
     assert second["result"]["data"]["reason"] == "download_busy"
-    assert second["result"]["data"]["weight_type"] == "base"
+    assert second["result"]["data"]["weight_type"] == weight
     assert second["result"]["data"]["active_job_id"] == first["result"]["job_id"]
-    assert backend.downloadWhisperModelWeight.call_count == 1
+    assert backend.downloadCTranslate2ModelWeight.call_count == 1
     assert controller.legacy_downloads.close()
     controller.run.assert_called_once()
 
@@ -109,22 +110,18 @@ def test_startup_retry_requires_previous_attempt_to_stop_and_join(app, monkeypat
     from models.legacy_model_consent import recordLegacyConsent
     controller, config, backend = app
     config.AUTO_DOWNLOAD_MODELS = True
-    config.WHISPER_WEIGHT_TYPE = "base"
     config.CTRANSLATE2_WEIGHT_TYPE = "m2m100_418M-ct2-int8"
     config.SELECTED_TAB_NO, config.SELECTED_TRANSLATION_ENGINES = "1", {"1": "CTranslate2"}
-    config.SELECTED_TRANSCRIPTION_ENGINE = "Whisper"
-    for kind, weight in [("whisper", config.WHISPER_WEIGHT_TYPE), ("ctranslate2", config.CTRANSLATE2_WEIGHT_TYPE)]:
-        recordLegacyConsent(config, kind, {"weight_type": weight, "consent": True,
-            "manifest_version": legacyModelReview(kind, weight)["manifest_version"]})
+    config.SELECTED_TRANSCRIPTION_ENGINE = "SpeechCpp"
+    recordLegacyConsent(config, "ctranslate2", {"weight_type": config.CTRANSLATE2_WEIGHT_TYPE, "consent": True,
+        "manifest_version": legacyModelReview("ctranslate2", config.CTRANSLATE2_WEIGHT_TYPE)["manifest_version"]})
     monkeypatch.setattr(module, "isConnectedNetwork", lambda: True)
     monkeypatch.setattr(module, "removeLog", lambda: None)
     controller._model = backend
     controller.startWatchdog = controller.connectedNetwork = lambda: None
     controller.initializationProgress = lambda _: None
-    backend.checkTranscriptionWhisperModelWeight.return_value = False
     backend.checkTranslatorCTranslate2ModelWeight.return_value = False
     order = []
-    controller.downloadWhisperWeight = lambda *_: order.append("start:whisper")
     controller.downloadCtranslate2Weight = lambda *_: order.append("start:ctranslate2")
 
     def stop(key):
@@ -140,9 +137,9 @@ def test_startup_retry_requires_previous_attempt_to_stop_and_join(app, monkeypat
     controller.disableAiModels = controller.enableAiModels = Mock(side_effect=ReachedAvailability)
     with pytest.raises(ReachedAvailability):
         controller.init()
-    assert order == (["start:ctranslate2", "start:whisper", "stop:ctranslate2"] +
-                     (["start:ctranslate2"] if joined else []) +
-                     ["stop:whisper"] + (["start:whisper"] if joined else []))
+    assert order == ["start:ctranslate2", "stop:ctranslate2"] + (["start:ctranslate2"] if joined else [])
+    # Startup no longer looks at, or fetches, any Whisper weight (#288).
+    assert not any("Whisper" in str(call) for call in backend.mock_calls)
 
 
 def test_shutdown_revokes_then_signals_both_owners_before_any_join(app):

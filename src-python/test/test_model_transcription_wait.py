@@ -84,7 +84,8 @@ class TestTranscriptionWait(unittest.TestCase):
                     self.assertIsNone(queue.waits.get(timeout=1))
                 key = "SELECTED_YOUR_LANGUAGES" if cls is MicSession else "SELECTED_TARGET_LANGUAGES"
                 self.assertEqual(self.config.reads[key], 30)
-                self.assertEqual(sum(self.config.reads.values()), 150)
+                # Per round: the languages, the tab and the two thresholds (no n-gram setting since #288).
+                self.assertEqual(sum(self.config.reads.values()), 120)
                 self.assertLess(median(latencies), 0.25)
                 print(f"{cls.__name__}: enqueue-to-finalize median_ms={median(latencies) * 1000:.3f}, n=30")
                 session._stop()

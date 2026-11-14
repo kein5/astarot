@@ -25,7 +25,11 @@ RETIRED_UI_LANGUAGES = frozenset(("ko", "zh-Hant", "zh-Hans"))
 # The transcription engine that listens through the bundled or an external speech.cpp
 # server; on Windows choosing it is what routes the main switches to speech.cpp.
 LOCAL_SPEECH_ENGINE = "SpeechCpp"
-LOCAL_ASR_MIGRATION_LATEST = 1
+# The local faster-whisper engine, removed in #288. A saved choice of it moves to
+# LOCAL_SPEECH_ENGINE (see Config._migrateLocalASR). The "Whisper" column of the
+# transcription language table stays: the cloud Whisper engines read its codes.
+RETIRED_WHISPER_ENGINE = "Whisper"
+LOCAL_ASR_MIGRATION_LATEST = 2
 
 # Guard optional, potentially heavy or platform-specific imports so importing
 # config.py doesn't raise in environments missing those packages.
@@ -51,11 +55,6 @@ try:
     from models.transcription.transcription_languages import transcription_lang
 except Exception:  # pragma: no cover - optional runtime
     transcription_lang = {}  # type: ignore
-
-try:
-    from models.transcription.transcription_whisper import _MODELS as whisper_models
-except Exception:  # pragma: no cover - optional runtime
-    whisper_models = {}  # type: ignore
 
 try:
     from models.ocr.ocr_languages import SELECTABLE_LANGUAGES as ocr_selectable_languages
@@ -554,10 +553,6 @@ def _selected_compute_type_validator(val, inst, device_attr):
     if val in device.get("compute_types", []):
         return val
     return None
-
-
-def _selected_transcription_compute_type_validator(val, inst):
-    return _selected_compute_type_validator(val, inst, 'SELECTED_TRANSCRIPTION_COMPUTE_DEVICE')
 
 
 def _asr_timeout_allowed(value, inst, source, kind):
@@ -1132,7 +1127,6 @@ class Config:
     SELECTABLE_TAB_NO_LIST = ManagedProperty('SELECTABLE_TAB_NO_LIST', readonly=True, serialize=False)
     SELECTED_TAB_TARGET_LANGUAGES_NO_LIST = ManagedProperty('SELECTED_TAB_TARGET_LANGUAGES_NO_LIST', readonly=True, serialize=False)
     SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST = ManagedProperty('SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST', readonly=True, serialize=False)
-    SELECTABLE_WHISPER_WEIGHT_TYPE_LIST = ManagedProperty('SELECTABLE_WHISPER_WEIGHT_TYPE_LIST', readonly=True, serialize=False)
     SELECTABLE_TRANSLATION_ENGINE_LIST = ManagedProperty('SELECTABLE_TRANSLATION_ENGINE_LIST', readonly=True, serialize=False)
     SELECTABLE_TRANSCRIPTION_ENGINE_LIST = ManagedProperty('SELECTABLE_TRANSCRIPTION_ENGINE_LIST', readonly=True, serialize=False)
     SELECTABLE_UI_LANGUAGE_LIST = ManagedProperty('SELECTABLE_UI_LANGUAGE_LIST', readonly=True, serialize=False)
@@ -1155,7 +1149,6 @@ class Config:
     # --- Selectable dict/list properties (managed by descriptor, not serialized) ---
     # These are dynamically generated in init_config() based on installed packages/APIs
     SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT = ManagedProperty('SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT', type_=dict, serialize=False, mutable_tracking=True)
-    SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = ManagedProperty('SELECTABLE_WHISPER_WEIGHT_TYPE_DICT', type_=dict, serialize=False, mutable_tracking=True)
     SELECTABLE_TRANSLATION_ENGINE_STATUS = ManagedProperty('SELECTABLE_TRANSLATION_ENGINE_STATUS', type_=dict, serialize=False, mutable_tracking=True)
     SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = ManagedProperty('SELECTABLE_TRANSCRIPTION_ENGINE_STATUS', type_=dict, serialize=False, mutable_tracking=True)
     SELECTABLE_PLAMO_MODEL_LIST = ManagedProperty('SELECTABLE_PLAMO_MODEL_LIST', type_=list, serialize=False, mutable_tracking=True)
@@ -1201,7 +1194,6 @@ class Config:
     MIC_MAX_PHRASES = ManagedProperty('MIC_MAX_PHRASES', type_=int, allowed=lambda v, inst: 0 <= v <= 30)
     MIC_AVG_LOGPROB = ManagedProperty('MIC_AVG_LOGPROB', type_=(int, float), allowed=lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and -2 <= v <= 0)
     MIC_NO_SPEECH_PROB = ManagedProperty('MIC_NO_SPEECH_PROB', type_=(int, float), allowed=lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and 0 <= v <= 1)
-    MIC_NO_REPEAT_NGRAM_SIZE = ManagedProperty('MIC_NO_REPEAT_NGRAM_SIZE', type_=int, allowed=lambda v, inst: v >= 0)
     HOTKEYS = ValidatedProperty('HOTKEYS',
         validator=lambda val, inst: (
             {**inst.HOTKEYS, **{k: (v if (isinstance(v, list) or v is None) else inst.HOTKEYS.get(k))
@@ -1218,7 +1210,6 @@ class Config:
     SPEAKER_MAX_PHRASES = ManagedProperty('SPEAKER_MAX_PHRASES', type_=int, allowed=lambda v, inst: 0 <= v <= 60)
     SPEAKER_AVG_LOGPROB = ManagedProperty('SPEAKER_AVG_LOGPROB', type_=(int, float), allowed=lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and -2 <= v <= 0)
     SPEAKER_NO_SPEECH_PROB = ManagedProperty('SPEAKER_NO_SPEECH_PROB', type_=(int, float), allowed=lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and 0 <= v <= 1)
-    SPEAKER_NO_REPEAT_NGRAM_SIZE = ManagedProperty('SPEAKER_NO_REPEAT_NGRAM_SIZE', type_=int, allowed=lambda v, inst: v >= 0)
 
     # -- VAD (Silero) によるマイク/スピーカーの発話区間検出 ---
     # 既定は False (従来通りのエネルギー閾値方式)。過去に2度、この領域
@@ -1257,9 +1248,6 @@ class Config:
         )
     )
     TRANSCRIPTION_CUSTOM_URL = ManagedProperty('TRANSCRIPTION_CUSTOM_URL', type_=str, allowed=lambda value, inst: valid_saved_api_url(value))
-
-    # --- Transcription settings ---
-    SELECTED_TRANSCRIPTION_COMPUTE_TYPE = ValidatedProperty('SELECTED_TRANSCRIPTION_COMPUTE_TYPE', _selected_transcription_compute_type_validator)
 
     # --- Overlay settings ---
     OVERLAY_SMALL_LOG_SETTINGS = ValidatedProperty('OVERLAY_SMALL_LOG_SETTINGS', _overlay_small_validator)
@@ -1373,7 +1361,9 @@ class Config:
     # config.json has had; see _migrateLocalASR. A new install starts at the latest.
     LOCAL_ASR_MIGRATION = ManagedProperty('LOCAL_ASR_MIGRATION', type_=int,
                                           allowed=lambda v, inst: not isinstance(v, bool) and 0 <= v <= LOCAL_ASR_MIGRATION_LATEST)
-    WHISPER_WEIGHT_TYPE = ManagedProperty('WHISPER_WEIGHT_TYPE', type_=str, allowed=lambda v, inst: v in inst.SELECTABLE_WHISPER_WEIGHT_TYPE_LIST)
+    # True after a migration moved a choice of the removed Whisper engine to speech.cpp, until
+    # the user closes the notice that says what that needs (LocalAsrNoticeController).
+    LOCAL_ASR_NOTICE_PENDING = ManagedProperty('LOCAL_ASR_NOTICE_PENDING', type_=bool)
     SELECTED_PLAMO_MODEL = ManagedProperty('SELECTED_PLAMO_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST'), allow_none=True)
     SELECTED_GEMINI_MODEL = ManagedProperty('SELECTED_GEMINI_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST'), allow_none=True)
     SELECTED_OPENAI_MODEL = ManagedProperty('SELECTED_OPENAI_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_OPENAI_MODEL_LIST'), allow_none=True)
@@ -1403,7 +1393,6 @@ class Config:
     SELECTED_SPEAKER_DEVICE_ID = ValidatedProperty('SELECTED_SPEAKER_DEVICE_ID', lambda v, _: v if isinstance(v, str) else None)
     SELECTED_SPEAKER_DEVICE = ValidatedProperty('SELECTED_SPEAKER_DEVICE', _speaker_device_validator)
     SELECTED_TRANSLATION_COMPUTE_DEVICE = ValidatedProperty('SELECTED_TRANSLATION_COMPUTE_DEVICE', _compute_device_validator)
-    SELECTED_TRANSCRIPTION_COMPUTE_DEVICE = ValidatedProperty('SELECTED_TRANSCRIPTION_COMPUTE_DEVICE', _compute_device_validator)
 
     # -- Clipboard control ---
     ENABLE_CLIPBOARD = ManagedProperty('ENABLE_CLIPBOARD', type_=bool)
@@ -1465,12 +1454,12 @@ class Config:
         self._SELECTABLE_TAB_NO_LIST = ["1", "2", "3"]
         # these external mappings may be empty dicts if the optional modules failed to import
         self._SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST = getattr(ctranslate2_weights, 'keys', lambda: [])()
-        self._SELECTABLE_WHISPER_WEIGHT_TYPE_LIST = getattr(whisper_models, 'keys', lambda: [])()
         self._SELECTABLE_TRANSLATION_ENGINE_LIST = getattr(translation_lang, 'keys', lambda: [])()
         try:
             # transcription_lang is nested dict; attempt to extract keys defensively
             first_key = next(iter(transcription_lang))
-            engines = list(list(transcription_lang[first_key].values())[0].keys())
+            engines = [engine for engine in list(transcription_lang[first_key].values())[0].keys()
+                       if engine != RETIRED_WHISPER_ENGINE]
             # The local recognition through speech.cpp has no column of its own: the
             # language comes from the realtime settings and the model's own list.
             engines.insert(engines.index("Google") + 1 if "Google" in engines else 0, LOCAL_SPEECH_ENGINE)
@@ -1497,9 +1486,6 @@ class Config:
         self._SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT = {}
         for weight_type in self.SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST:
             self._SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT[weight_type] = False
-        self._SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
-        for weight_type in self.SELECTABLE_WHISPER_WEIGHT_TYPE_LIST:
-            self._SELECTABLE_WHISPER_WEIGHT_TYPE_DICT[weight_type] = False
         self._SELECTABLE_TRANSLATION_ENGINE_STATUS = {}
         self._SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {}
         for engine in self.SELECTABLE_TRANSCRIPTION_ENGINE_LIST:
@@ -1599,7 +1585,6 @@ class Config:
         }
         self._MIC_AVG_LOGPROB = -0.8
         self._MIC_NO_SPEECH_PROB = 0.6
-        self._MIC_NO_REPEAT_NGRAM_SIZE = 0
         self._AUTO_SPEAKER_SELECT = True
         try:
             if device_manager is not None:
@@ -1617,7 +1602,6 @@ class Config:
         self._SPEAKER_MAX_PHRASES = 10
         self._SPEAKER_AVG_LOGPROB = -0.8
         self._SPEAKER_NO_SPEECH_PROB = 0.6
-        self._SPEAKER_NO_REPEAT_NGRAM_SIZE = 0
         self._MIC_ENABLE_VAD = False
         self._SPEAKER_ENABLE_VAD = False
         self._OSC_IP_ADDRESS = "127.0.0.1"
@@ -1639,13 +1623,13 @@ class Config:
         }
         self._TRANSCRIPTION_CUSTOM_URL = ""
         self._SELECTED_TRANSLATION_COMPUTE_DEVICE = copy.deepcopy(self.SELECTABLE_COMPUTE_DEVICE_LIST[0])
-        self._SELECTED_TRANSCRIPTION_COMPUTE_DEVICE = copy.deepcopy(self.SELECTABLE_COMPUTE_DEVICE_LIST[0])
         # MIT-licensed. Configs saved by older versions keep their stored
         # value (load_config() overwrites this default), including the
         # previous non-commercial default nllb-200-distilled-600M-ct2-int8.
         self._CTRANSLATE2_WEIGHT_TYPE = DEFAULT_CTRANSLATE2_WEIGHT_TYPE
         self._CTRANSLATE2_LICENSE_NOTICE_SHOWN = False
         self._LOCAL_ASR_MIGRATION = LOCAL_ASR_MIGRATION_LATEST
+        self._LOCAL_ASR_NOTICE_PENDING = False
         self._SELECTED_PLAMO_MODEL = None
         self._SELECTED_GEMINI_MODEL = None
         self._SELECTED_OPENAI_MODEL = None
@@ -1661,8 +1645,6 @@ class Config:
         self._SELECTED_CUSTOM_WHISPER_MODEL = None
         self._SELECTED_DEEPGRAM_MODEL = None
         self._SELECTED_TRANSLATION_COMPUTE_TYPE = "auto"
-        self._WHISPER_WEIGHT_TYPE = "base"
-        self._SELECTED_TRANSCRIPTION_COMPUTE_TYPE = "auto"
         self._AUTO_CLEAR_MESSAGE_BOX = True
         self._SEND_ONLY_TRANSLATED_MESSAGES = False
         self._OVERLAY_SMALL_LOG = False
@@ -1867,12 +1849,23 @@ class Config:
         1: On Windows the main switches used to follow the realtime server choice ("bundled"
            meant speech.cpp). They now follow the transcription engine, so a saved "bundled"
            selects the speech.cpp engine and the switches keep doing what they did.
+        2: The local Whisper engine is gone. A saved choice of it selects the speech.cpp engine,
+           and the notice that says which models that needs is shown once; nothing is
+           downloaded without the user's consent. On Windows, where choosing Whisper meant
+           recognizing on this PC through the recorder, the realtime server becomes the bundled
+           one. Linux switches always used the realtime server, so its choice stays as it was.
+           The raw saved value is read, as "Whisper" is no longer a valid engine.
         """
         step = saved.get("LOCAL_ASR_MIGRATION", 0) if saved else LOCAL_ASR_MIGRATION_LATEST
         if isinstance(step, bool) or not isinstance(step, int) or not 0 <= step <= LOCAL_ASR_MIGRATION_LATEST:
             step = 0
         if step < 1 and self.REALTIME_ASR_SETTINGS.get("server") == "bundled":
             self.SELECTED_TRANSCRIPTION_ENGINE = LOCAL_SPEECH_ENGINE
+        if step < 2 and saved.get("SELECTED_TRANSCRIPTION_ENGINE") == RETIRED_WHISPER_ENGINE:
+            self.SELECTED_TRANSCRIPTION_ENGINE = LOCAL_SPEECH_ENGINE
+            if sys.platform == "win32":
+                self.REALTIME_ASR_SETTINGS = {**self.REALTIME_ASR_SETTINGS, "server": "bundled"}
+            self.LOCAL_ASR_NOTICE_PENDING = True
         self.LOCAL_ASR_MIGRATION = LOCAL_ASR_MIGRATION_LATEST
 
     def _loadConfig(self):
@@ -1908,6 +1901,9 @@ class Config:
             # Korean and Chinese were UI languages until 0.1.0. A setting that names one
             # falls back to English quietly: it is not a broken file.
             if key == "UI_LANGUAGE" and value in RETIRED_UI_LANGUAGES:
+                continue
+            # Likewise the removed local Whisper engine: _migrateLocalASR below moves it on.
+            if key == "SELECTED_TRANSCRIPTION_ENGINE" and value == RETIRED_WHISPER_ENGINE:
                 continue
             # 読み込み時: serialize=True かつ readonlyでない Descriptor のみ反映。
             # 未知キー（Descriptorなし）は無視して注入を防止。

@@ -195,7 +195,6 @@ common_error:
     copy_to_clipboard_failed: "Failed to copy to the clipboard."
     threshold_invalid_value: "You can set it with a value between {{min}} to {{max}}."
     failed_download_weight_ctranslate2: "CTranslate2 weight download error."
-    failed_download_weight_whisper: "Whisper weight download error."
     failed_update_software: "Failed to download the installer. Please try again later."
     failed_update_software_verify: "The downloaded installer did not match its published checksum, so the update was cancelled."
     translation_limit: "Translation engine limit reached or temporarily restricted."
@@ -225,7 +224,6 @@ common_error:
 # Messages for the sidecar's error codes (see docs/spec/reference/error-codes.md).
 backend_errors:
     TRANSCRIPTION_ENGINE_NOT_SELECTED: "Choose a speech recognition engine before turning transcription on."
-    TRANSCRIPTION_MODEL_MISSING: "Whisper model files are missing or could not be verified. Review the model download, then turn transcription on again."
     TRANSCRIPTION_ENGINE_UNAVAILABLE: "The selected speech recognition engine could not start. Check the engine settings, then turn transcription on again."
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} was not downloaded. Review its license and size in Settings > Translation or Speech recognition (ASR) and agree before downloading. If the model version changed, review it again."
     OVERLAY_RUNTIME_FAILED: "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then turn the overlay on again."
@@ -235,10 +233,6 @@ backend_errors:
     TRANSLATION_DISABLED_VRAM: "Translation was turned off because GPU memory ran out."
     TRANSLATION_MODEL_MISSING: "Translation could not start because the translation model or its tokenizer files are missing. Download it in Settings > Translation, or choose another translation engine on the main screen."
     TRANSLATION_MODEL_LOAD_FAILED: "Translation could not start because the translation model could not be loaded. Download it again in Settings > Translation, or change the compute device."
-    TRANSCRIPTION_VRAM_MIC: "Not enough GPU memory to keep recognising the microphone. Choose CPU as the device under Settings → Speech recognition (ASR), or close other GPU apps."
-    TRANSCRIPTION_VRAM_SPEAKER: "Not enough GPU memory to keep recognising the speaker. Choose CPU as the device under Settings → Speech recognition (ASR), or close other GPU apps."
-    TRANSCRIPTION_SEND_DISABLED_VRAM: "Mic input was turned off because GPU memory ran out."
-    TRANSCRIPTION_RECEIVE_DISABLED_VRAM: "Listening was turned off because GPU memory ran out."
     # Recognition failures shown in the message log. A _mic or _speaker key is used for that source.
     AUDIO_OPEN_ERROR: "The audio device could not be opened. Check that it is connected and that no other app holds it, then try again."
     AUDIO_OPEN_ERROR_mic: "The microphone could not be opened. Check that it is connected and that no other app holds it. On Windows, a question on the desktop may be asking whether VRCT-VOX can use the microphone. Allow it, then try again. If there is no question, check Settings → Privacy & security → Microphone."
@@ -634,8 +628,6 @@ config_page:
         section_label_transcription_engines: "Transcription Engines"
         timing_title: "Segmenting and queue"
         timing_status: "ends after {{silence}} s of silence · processed every {{length}} s · up to {{queue}} waiting"
-        thresholds_title: "Recognition thresholds"
-        thresholds_status: "mic {{mic}} · speaker {{speaker}}"
         mic_record_timeout:
             label: "Mic Record Timeout"
             desc: "Detects silence and, when the specified number of seconds passes, the system considers the voice input to have ended. (Second(s))"
@@ -698,24 +690,6 @@ config_page:
             label: "Custom Whisper server model"
         select_deepgram_model:
             label: "Deepgram model"
-        whisper_weight_type:
-            label: "Whisper Model"
-            desc: "Larger models have higher accuracy, but they also consume more CPU or GPU resources.\nEspecially for models larger than medium, it may be difficult or even impossible to use them depending on the performance of your CPU/GPU."
-        transcription_compute_device:
-            label: "Processing Device Used For AI transcription"
-        mic_avg_logprob:
-            label: "Mic Avg Logprob"
-            desc: "Threshold for transcription confidence (avg_logprob). Closer to 0 means only high-confidence speech is accepted, suppressing hallucinations. (Default: -0.8)"
-        mic_no_speech_prob:
-            label: "Mic No Speech Prob"
-            desc: "Threshold for the probability that no speech is present (no_speech_prob). Segments exceeding this are treated as silence. Closer to 0 is stricter: more segments count as silence, so quiet speech is dropped more easily. (Default: 0.6)"
-        speaker_avg_logprob:
-            label: "Speaker Avg Logprob"
-            desc: "Threshold for transcription confidence (avg_logprob). Closer to 0 means only high-confidence speech is accepted, suppressing hallucinations. (Default: -0.8)"
-        speaker_no_speech_prob:
-            label: "Speaker No Speech Prob"
-            desc: "Threshold for the probability that no speech is present (no_speech_prob). Segments exceeding this are treated as silence. Closer to 0 is stricter: more segments count as silence, so quiet speech is dropped more easily. (Default: 0.6)"
-
     vr:
         single_line: "Single line"
         multi_lines: "Multiple Lines"
@@ -831,8 +805,8 @@ config_page:
         convert_message_to_hiragana:
             label: "Show Hiragana"
         auto_download_models:
-            label: "Download translation and transcription models at startup"
-            desc: "When enabled, startup downloads missing built-in models only if you already agreed to that model and version in its download dialog. This switch alone does not grant consent. Existing files remain usable when disabled."
+            label: "Download the translation model at startup"
+            desc: "When enabled, startup downloads the missing files of the built-in translation model only if you already agreed to that model and version in its download dialog. This switch alone does not grant consent. Existing files remain usable when disabled. Speech recognition and voice models are managed separately."
 
     vrchat:
         section_label_chatbox: "Chatbox"
@@ -1604,7 +1578,8 @@ studio:
     empty_vrchat_hint: "If nothing appears in VRChat, open VRChat's Action Menu and set Options → OSC to Enabled."
     setup_label: "Before you start"
     setup_translation: "Translation needs its model downloaded first."
-    setup_transcription: "Microphone and listening need the speech recognition model downloaded first."
+    setup_transcription: "Local speech recognition (speech.cpp) needs a speech recognition model and a VAD model. Review and download them in Settings → Speech recognition (ASR) → Models and servers."
+    setup_open_settings: "Open Speech recognition (ASR) settings"
     setup_preparing: "Preparing the download"
     setup_downloading: "Downloading {{progress}}%"
     setup_translation_ready: "The translation model is here. Turning Translation on."
@@ -1704,15 +1679,34 @@ telemetry_contents:
 transcription_consent:
     title: "Choose speech recognition"
     google_notice: "Google sends microphone or speaker audio to Google’s speech service. No API key is needed."
-    whisper_notice: "Whisper recognizes audio locally. Review the model download first, then turn transcription on again when the model is ready."
     google: "Use Google and continue"
-    whisper: "Choose local Whisper"
     speechcpp_notice: "Local (speech.cpp) recognizes audio with a speech.cpp server on this PC. If the recognition model or the VAD model is missing, review and download them in Settings → Speech recognition (ASR) → Models and servers."
     speechcpp: "Start transcription with Local (speech.cpp)"
     cancel: "Cancel"
     settings: "Open engine settings"
     selected: "Selected engine: {{engine}}"
     unselected: "Not selected"
+local_asr_notice:
+    title: "Local speech recognition now uses speech.cpp"
+    removed: "Whisper is no longer part of VRCT-VOX. Your speech recognition engine was Whisper, so it is now Local (speech.cpp)."
+    needs: "With the bundled ASR server, Local (speech.cpp) needs these two models. Nothing is downloaded until you check a model's license and size in Settings → Speech recognition (ASR) → Models and servers and agree."
+    asr_model: "Speech recognition model"
+    vad_model: "VAD model (finds where speech starts and ends)"
+    set: "Set"
+    unset: "Not set"
+    open_settings: "Open Speech recognition (ASR) settings"
+    close: "Close"
+old_whisper_weights:
+    label: "Old Whisper models"
+    desc: "Whisper models that an earlier version downloaded take {{size}} on this PC. They are no longer used, so you can delete them."
+    delete: "Delete old Whisper models"
+    confirm: "Delete {{size}} of Whisper models? This cannot be undone. This version no longer uses them."
+    confirm_delete: "Delete"
+    cancel: "Cancel"
+    deleting: "Deleting…"
+    deleted: "Deleted the old Whisper models ({{size}})."
+    failed: "{{size}} could not be deleted. Close any program that may be using these files, then try again."
+    unavailable: "The old Whisper models could not be checked or deleted."
 network_privacy:
     http_warning: "This connection is not encrypted. Text, audio and API keys may be visible to others on the network."
     save_notice: "The URL is checked when you save. If you enter an API key, it is sent to this address for verification."

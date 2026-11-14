@@ -95,7 +95,7 @@ def isolated(tmp_path, monkeypatch):
 
     ns = dict(
         __file__=str(tmp_path / "config.py"), device_manager=None,
-        transcription_lang=languages, translation_lang={}, ctranslate2_weights={}, whisper_models={},
+        transcription_lang=languages, translation_lang={}, ctranslate2_weights={},
         ocr_selectable_languages=(), DEFAULT_CTRANSLATE2_WEIGHT_TYPE="fake-weight",
         loadTranslationLanguages=lambda _: {"CTranslate2": {}, "OpenAI_API": {}},
         getComputeDeviceList=lambda: [{"device": "cpu", "compute_types": ["auto"]}],

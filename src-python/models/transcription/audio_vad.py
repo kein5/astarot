@@ -105,9 +105,9 @@ class VadEngine(Protocol):
     def reset(self) -> None: ...
 
 
-# The Silero VAD v5 model as faster-whisper 1.1.1 ships it, split into an encoder and a
-# decoder (licenses/silero-vad/NOTICE.md). It is part of this app, not of a dependency, so
-# that the VAD does not need faster-whisper.
+# The Silero VAD v5 model as faster-whisper 1.1.1 shipped it, split into an encoder and a
+# decoder (licenses/silero-vad/NOTICE.md). It is part of this app, not of a dependency:
+# faster-whisper itself is no longer installed (#288).
 SILERO_DIRECTORY = Path(__file__).resolve().parent / "silero_vad"
 SILERO_FILES = {
     "silero_encoder_v5.onnx": (713415, "0e9fc8f56407693d283f99045fb95c2b90fdca3433ce5f83e2c121fb4e615075"),

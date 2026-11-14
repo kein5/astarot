@@ -1,9 +1,9 @@
-"""Run one prepared utterance through VRCT's VAD-to-Whisper path.
+"""Run one prepared utterance through VRCT's VAD-to-recognition path (the classic recorder).
 
-This is an integration smoke test for the VRCT transcription feature. It does
-not call ``WhisperModel.transcribe`` directly; audio is segmented by the VRCT
-VAD adapter, placed on the same queue shape used by the recorder, and then
-processed by ``AudioTranscriber``.
+This is an integration smoke test for the VRCT transcription feature. Audio is
+segmented by the VRCT VAD adapter, placed on the same queue shape used by the
+recorder, and then processed by ``AudioTranscriber``. The recorder serves Google
+and the cloud engines; the local Whisper engine it also ran was removed (#288).
 """
 
 from __future__ import annotations
@@ -90,19 +90,16 @@ def _segment_audio(raw_audio: bytes) -> list[Any]:
 
 def run_vrct_transcription_test(
     *,
-    repo_root: Path,
     dataset_dir: Path,
     output_path: Path,
     condition: str = "clean",
     item_id: str | None = None,
-    engine: str = "Whisper",
-    model: str = "base",
-    compute_type: str = "int8",
+    engine: str = "Google",
 ) -> dict[str, object]:
     """Run one clip through VRCT VAD, transcription, and transcript storage."""
 
     dataset_dir = dataset_dir.resolve()
-    if engine not in {"Whisper", "Google"}:
+    if engine != "Google":
         raise ValueError(f"unsupported integration test engine: {engine}")
     row = _load_row(dataset_dir, condition, item_id)
     source_path = _resolve_dataset_path(dataset_dir, row["audio_path"])
@@ -114,20 +111,17 @@ def run_vrct_transcription_test(
     if not segments:
         raise RuntimeError(f"VAD emitted no speech segment for {source_path}")
 
-    load_started = time.perf_counter()
+    setup_started = time.perf_counter()
     transcriber = AudioTranscriber(
         speaker=False,
         source=EvaluationAudioSource(),
         phrase_timeout=3,
         max_phrases=10,
         transcription_engine=engine,
-        root=str(repo_root.resolve()),
-        whisper_weight_type=model if engine == "Whisper" else None,
-        compute_type=compute_type,
         vad_segmented=True,
         source_label="mic",
     )
-    model_load_seconds = time.perf_counter() - load_started
+    setup_seconds = time.perf_counter() - setup_started
 
     audio_queue: Queue = Queue()
     timestamp = datetime.now()
@@ -148,8 +142,6 @@ def run_vrct_transcription_test(
     result = {
         "test": "vrct_vad_to_transcription",
         "engine": engine,
-        "model": model if engine == "Whisper" else None,
-        "compute_type": compute_type if engine == "Whisper" else None,
         "condition": condition,
         "id": row["id"],
         "audio_path": row["audio_path"],
@@ -166,7 +158,7 @@ def run_vrct_transcription_test(
         "last_recognition_error": transcriber.last_recognition_error,
         "confidence": transcript.get("confidence", 0.0),
         "vad_seconds": vad_seconds,
-        "model_load_seconds": model_load_seconds,
+        "setup_seconds": setup_seconds,
         "asr_seconds": asr_seconds,
         "passed": bool(
             hypothesis
@@ -185,14 +177,11 @@ def run_vrct_transcription_test(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--dataset-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--condition", default="clean")
     parser.add_argument("--id", dest="item_id")
-    parser.add_argument("--engine", choices=("Whisper", "Google"), default="Whisper")
-    parser.add_argument("--model", default="base")
-    parser.add_argument("--compute-type", default="int8")
+    parser.add_argument("--engine", choices=("Google",), default="Google")
     return parser
 
 
@@ -200,14 +189,11 @@ def main() -> None:
     args = build_parser().parse_args()
     try:
         result = run_vrct_transcription_test(
-            repo_root=args.repo_root,
             dataset_dir=args.dataset_dir,
             output_path=args.output,
             condition=args.condition,
             item_id=args.item_id,
             engine=args.engine,
-            model=args.model,
-            compute_type=args.compute_type,
         )
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as error:
         raise SystemExit(f"error: {error}") from error

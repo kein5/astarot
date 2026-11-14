@@ -25,7 +25,9 @@ def test_the_checks_cover_what_translation_and_recognition_import_lazily():
     names = [name for name, _ in subject.CHECKS]
     assert any("transformers" in name for name in names)
     assert any("ctranslate2" in name for name in names)
-    assert any("faster-whisper" in name for name in names)
+    # The bundled Silero VAD; faster-whisper and its check are gone (#288).
+    assert any("onnxruntime" in name for name in names)
+    assert not any("whisper" in name for name in names)
     # In a source checkout with the app's dependencies, they all load.
     out = io.StringIO()
     assert subject.run(out=out) == [], out.getvalue()

@@ -23,13 +23,13 @@ for source, destination in (
     datas.append((str(root / source), destination))
 
 # These packages load data/native libraries dynamically, outside static imports.
-for package in ('faster_whisper', 'openvr', 'glfw', 'sudachipy', 'sudachidict_core', 'sudachidict_full'):
+for package in ('openvr', 'glfw', 'sudachipy', 'sudachidict_core', 'sudachidict_full'):
     datas += collect_data_files(package)
 # RapidOCR reads its YAML config at start-up. Only that is collected: its bundled
 # weights are never shipped (filter_toc) and never loaded (explicit model paths).
 datas += collect_data_files('rapidocr', includes=['*.yaml'])
 binaries = collect_dynamic_libs('openvr') + collect_dynamic_libs('glfw')
-for package in ('ctranslate2', 'transformers', 'faster-whisper', 'huggingface-hub',
+for package in ('ctranslate2', 'transformers', 'huggingface-hub',
                 'tokenizers', 'safetensors', 'regex', 'requests', 'numpy',
                 'packaging', 'filelock', 'tqdm', 'pyyaml'):
     datas += copy_metadata(package)

@@ -195,7 +195,6 @@ common_error:
     copy_to_clipboard_failed: "クリップボードへのコピーに失敗しました。"
     threshold_invalid_value: "{{min}}から{{max}}までの数値で設定できます。"
     failed_download_weight_ctranslate2: "CTranslate2モデルのダウンロードに失敗しました。"
-    failed_download_weight_whisper: "Whisperモデルのダウンロードに失敗しました。"
     failed_update_software: "インストーラのダウンロードに失敗しました。しばらくしてからもう一度お試しください。"
     failed_update_software_verify: "ダウンロードしたインストーラが、公開されているチェックサムと一致しなかったため、更新を中止しました。"
     translation_limit: "翻訳エンジンの使用制限に達したか、一時的に利用制限がかけられています。"
@@ -225,7 +224,6 @@ common_error:
 # Messages for the sidecar's error codes (see docs/spec/reference/error-codes.md).
 backend_errors:
     TRANSCRIPTION_ENGINE_NOT_SELECTED: "文字起こしをオンにする前に音声認識エンジンを選んでください。"
-    TRANSCRIPTION_MODEL_MISSING: "Whisper のモデルが見つからないか、検証に失敗しました。ダウンロード内容を確認し、準備ができてから文字起こしをもう一度オンにしてください。"
     TRANSCRIPTION_ENGINE_UNAVAILABLE: "選択した音声認識エンジンを起動できませんでした。エンジンの設定を確認してから、文字起こしをもう一度オンにしてください。"
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} はダウンロードしていません。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認し、同意してからダウンロードしてください。モデルの版が変わったときはもう一度確認してください。"
     OVERLAY_RUNTIME_FAILED: "VRオーバーレイの描画または画面の取り込みに失敗したため、表示を止めました。SteamVRとVR画面の状態を確かめてから、もう一度オンにしてください。"
@@ -235,10 +233,6 @@ backend_errors:
     TRANSLATION_DISABLED_VRAM: "GPUのメモリーが足りないため、翻訳をオフにしました。"
     TRANSLATION_MODEL_MISSING: "翻訳モデルまたはトークナイザーがないため、翻訳を開始できませんでした。設定の「翻訳」でモデルをダウンロードするか、メイン画面でほかの翻訳エンジンを選んでください。"
     TRANSLATION_MODEL_LOAD_FAILED: "翻訳モデルを読み込めないため、翻訳を開始できませんでした。設定の「翻訳」でモデルをダウンロードし直すか、処理デバイスを変えてください。"
-    TRANSCRIPTION_VRAM_MIC: "GPUのメモリーが足りず、マイクの音声認識を続けられませんでした。設定の「音声認識（ASR）」で処理デバイスをCPUにするか、ほかのGPUアプリを止めてください。"
-    TRANSCRIPTION_VRAM_SPEAKER: "GPUのメモリーが足りず、スピーカーの音声認識を続けられませんでした。設定の「音声認識（ASR）」で処理デバイスをCPUにするか、ほかのGPUアプリを止めてください。"
-    TRANSCRIPTION_SEND_DISABLED_VRAM: "GPUのメモリーが足りないため、マイク入力をオフにしました。"
-    TRANSCRIPTION_RECEIVE_DISABLED_VRAM: "GPUのメモリーが足りないため、聞き取りをオフにしました。"
     # 会話ログに出す音声認識の失敗。_mic や _speaker のキーがあれば、その入力ではそちらを使う。
     AUDIO_OPEN_ERROR: "音声デバイスを開けませんでした。デバイスがつながっているか、ほかのアプリが占有していないかを確かめてから、もう一度試してください。"
     AUDIO_OPEN_ERROR_mic: "マイクを開けませんでした。マイクがつながっているか、ほかのアプリが占有していないかを確かめてください。Windowsでは、VRCT-VOXにマイクの使用を許可するかどうかの確認が、デスクトップに出ていることがあります。許可してからもう一度試してください。確認が出ていなければ、設定の「プライバシーとセキュリティ」→「マイク」を確かめてください。"
@@ -634,8 +628,6 @@ config_page:
         section_label_transcription_engines: "音声認識エンジン"
         timing_title: "区切りと待機の調整"
         timing_status: "無音{{silence}}秒で区切る · {{length}}秒ごとに処理 · 待機は{{queue}}件まで"
-        thresholds_title: "認識のしきい値"
-        thresholds_status: "マイク {{mic}} · スピーカー {{speaker}}"
         mic_record_timeout:
             label: "入力が終了したとみなす無音時間"
             desc: "無音を検出し、設定された秒数が経過すると、音声入力が終了したとみなします。"
@@ -698,24 +690,6 @@ config_page:
             label: "カスタムWhisperサーバーのモデル"
         select_deepgram_model:
             label: "Deepgramのモデル"
-        whisper_weight_type:
-            label: "Whisperモデルのタイプ"
-            desc: "容量が大きいモデルほど精度は高いですが、その分CPUやGPUを占有します。\n※特にmediumより容量の大きいモデルは、CPU/GPUの性能によっては使用すらも困難です。"
-        transcription_compute_device:
-            label: "AI音声認識で使用する処理デバイス"
-        mic_avg_logprob:
-            label: "マイクの信頼度のしきい値（avg_logprob）"
-            desc: "文字起こしの信頼度（有音らしさ）のしきい値です。0に近いほど確信度が高い発話のみを採用し、誤認識を抑えます。（初期値: -0.8）"
-        mic_no_speech_prob:
-            label: "マイクの無音判定のしきい値（no_speech_prob）"
-            desc: "発話が含まれていない確率（無音らしさ）のしきい値です。この確率を超えた区間を無音として無視し、ノイズからの誤認識を抑えます。0に近いほど厳しくなり、小さな声の発話も無音として無視されやすくなります。（初期値: 0.6）"
-        speaker_avg_logprob:
-            label: "スピーカーの信頼度のしきい値（avg_logprob）"
-            desc: "文字起こしの信頼度（有音らしさ）のしきい値です。0に近いほど確信度が高い発話のみを採用し、誤認識を抑えます。（初期値: -0.8）"
-        speaker_no_speech_prob:
-            label: "スピーカーの無音判定のしきい値（no_speech_prob）"
-            desc: "発話が含まれていない確率（無音らしさ）のしきい値です。この確率を超えた区間を無音として無視し、ノイズからの誤認識を抑えます。0に近いほど厳しくなり、小さな声の発話も無音として無視されやすくなります。（初期値: 0.6）"
-
     vr:
         single_line: "一行"
         multi_lines: "複数行"
@@ -831,8 +805,8 @@ config_page:
         convert_message_to_hiragana:
             label: "ひらがなを表示"
         auto_download_models:
-            label: "起動時に翻訳・文字起こしモデルをダウンロード"
-            desc: "オンにすると、ダウンロードの画面で同意したモデルと版に限り、足りないファイルを起動時にダウンロードします。このスイッチだけではダウンロードに同意したことになりません。オフでも取得済みのモデルは使えます。外部の音声エンジンのモデルは別に管理します。"
+            label: "起動時に翻訳モデルをダウンロード"
+            desc: "オンにすると、ダウンロードの画面で同意した翻訳モデルと版に限り、足りないファイルを起動時にダウンロードします。このスイッチだけではダウンロードに同意したことになりません。オフでも取得済みのモデルは使えます。音声認識と音声のモデルは別に管理します。"
 
     vrchat:
         section_label_chatbox: "チャットボックスへの送信"
@@ -1604,7 +1578,8 @@ studio:
     empty_vrchat_hint: "VRChatに表示されないときは、VRChatのアクションメニューで「Options」→「OSC」を「Enabled」にしてください。"
     setup_label: "使う前の準備"
     setup_translation: "翻訳を使うには翻訳モデルの取得が必要です。"
-    setup_transcription: "マイク入力と聞き取りを使うには音声認識モデルの取得が必要です。"
+    setup_transcription: "ローカル（speech.cpp）の音声認識には、音声認識モデルと VAD モデルが要ります。設定 → 音声認識（ASR） → モデルとサーバーで内容を確認して取得してください。"
+    setup_open_settings: "音声認識（ASR）の設定を開く"
     setup_preparing: "取得を準備しています"
     setup_downloading: "取得中 {{progress}}%"
     setup_translation_ready: "翻訳モデルを取得しました。翻訳をオンにします。"
@@ -1704,15 +1679,34 @@ telemetry_contents:
 transcription_consent:
     title: "音声認識エンジンを選ぶ"
     google_notice: "Google を使うと、マイクやスピーカーの音声が Google の音声認識サービスに送られます。API キーは不要です。"
-    whisper_notice: "Whisper はこの PC で音声を認識します。モデルのダウンロード内容を確認し、準備ができてから文字起こしをもう一度オンにしてください。"
     google: "Google で文字起こしを始める"
-    whisper: "ローカルの Whisper を選ぶ"
     speechcpp_notice: "ローカル（speech.cpp）はこの PC の speech.cpp サーバーで音声を認識します。認識モデルと VAD モデルがないときは、設定 → 音声認識（ASR） → モデルとサーバーで内容を確認して取得してください。"
     speechcpp: "ローカル（speech.cpp）で文字起こしを始める"
     cancel: "キャンセル"
     settings: "エンジンの設定を開く"
     selected: "選択中のエンジン：{{engine}}"
     unselected: "未選択"
+local_asr_notice:
+    title: "ローカルの音声認識は speech.cpp に変わりました"
+    removed: "Whisper は VRCT-VOX に含まれなくなりました。音声認識エンジンに Whisper を選んでいたので、ローカル（speech.cpp）に切り替えました。"
+    needs: "同梱の ASR サーバーで使うには、次の2つのモデルが要ります。設定 → 音声認識（ASR） → モデルとサーバーでライセンスとサイズを確認して同意するまで、何もダウンロードしません。"
+    asr_model: "音声認識モデル"
+    vad_model: "VAD モデル（発話の始まりと終わりを見つける）"
+    set: "設定済み"
+    unset: "未設定"
+    open_settings: "音声認識（ASR）の設定を開く"
+    close: "閉じる"
+old_whisper_weights:
+    label: "古い Whisper モデル"
+    desc: "以前の版がダウンロードした Whisper モデルが、この PC で {{size}} を使っています。もう使わないので削除できます。"
+    delete: "古い Whisper モデルを削除"
+    confirm: "Whisper モデル（{{size}}）を削除しますか？元には戻せません。この版ではもう使いません。"
+    confirm_delete: "削除する"
+    cancel: "キャンセル"
+    deleting: "削除しています…"
+    deleted: "古い Whisper モデルを削除しました（{{size}}）。"
+    failed: "{{size}} を削除できませんでした。このファイルを使っていそうなプログラムを閉じてから、もう一度試してください。"
+    unavailable: "古い Whisper モデルを確認または削除できませんでした。"
 network_privacy:
     http_warning: "この接続は暗号化されません。文章・音声・APIキーをネットワーク上の第三者に読み取られる可能性があります。"
     save_notice: "URLは保存時に確認します。APIキーを入力して保存するとこのURLに送信して認証します。"

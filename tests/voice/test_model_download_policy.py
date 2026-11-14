@@ -28,7 +28,7 @@ def test_policy_can_be_read_enabled_and_disabled_without_downloading(controller_
     (False, "absent", False, True, []),
     (False, "absent", True, True, []),
     (True, "absent", False, True, []),
-    (True, "matching", False, True, ["translation", "whisper", "translation", "whisper"]),
+    (True, "matching", False, True, ["translation", "translation"]),
     (True, "matching", True, True, []),
     (False, "matching", False, True, []),
     (True, "stale", False, True, []),
@@ -39,33 +39,31 @@ def test_startup_download_requires_explicit_consent(controller_module, monkeypat
     module = controller_module
     monkeypatch.setattr(module, "config", SimpleNamespace(
         AUTO_DOWNLOAD_MODELS=enabled, CTRANSLATE2_WEIGHT_TYPE="m2m100_418M-ct2-int8",
-        WHISPER_WEIGHT_TYPE="base", LEGACY_MODEL_DOWNLOAD_CONSENTS={},
+        LEGACY_MODEL_DOWNLOAD_CONSENTS={},
         SELECTED_TAB_NO="1", SELECTED_TRANSLATION_ENGINES={"1": "CTranslate2"},
-        SELECTED_TRANSCRIPTION_ENGINE="Whisper"))
+        SELECTED_TRANSCRIPTION_ENGINE="SpeechCpp"))
     if consent != "absent":
-        for kind, weight in [("whisper", "base"), ("ctranslate2", "m2m100_418M-ct2-int8")]:
-            recordLegacyConsent(module.config, kind, {"weight_type": weight, "consent": True,
-                "manifest_version": legacyModelReview(kind, weight)["manifest_version"]})
+        weight = "m2m100_418M-ct2-int8"
+        recordLegacyConsent(module.config, "ctranslate2", {"weight_type": weight, "consent": True,
+            "manifest_version": legacyModelReview("ctranslate2", weight)["manifest_version"]})
         if consent == "stale":
             module.config.LEGACY_MODEL_DOWNLOAD_CONSENTS = {
                 key: "stale" for key in module.config.LEGACY_MODEL_DOWNLOAD_CONSENTS}
     external = MagicMock()
     external.checkTranslatorCTranslate2ModelWeight.return_value = available
-    external.checkTranscriptionWhisperModelWeight.return_value = available
     monkeypatch.setattr(module, "model", external)
     probe = MagicMock(return_value=reachable)
     monkeypatch.setattr(module, "isConnectedNetwork", probe)
     monkeypatch.setattr(module, "removeLog", lambda: None)
     controller = module.Controller.__new__(module.Controller)
     controller._model = external
-    controller.run_mapping = {f"error_{kind}_weight": f"/run/error_{kind}_weight" for kind in ("whisper", "ctranslate2")}
+    controller.run_mapping = {"error_ctranslate2_weight": "/run/error_ctranslate2_weight"}
     controller.run_mapping["connected_network"] = "/run/connected_network"
     controller.run = MagicMock()
     controller.startWatchdog = lambda: None
     controller.initializationProgress = lambda progress: None
     requests = []
     controller.downloadCtranslate2Weight = lambda *args: requests.append("translation")
-    controller.downloadWhisperWeight = lambda *args: requests.append("whisper")
 
     def finished():
         raise ReachedEngineSetup()
@@ -73,8 +71,9 @@ def test_startup_download_requires_explicit_consent(controller_module, monkeypat
     controller.disableAiModels = controller.enableAiModels = finished
     with pytest.raises(ReachedEngineSetup):
         controller.init()
-    # Independent models may download in either order in the initial threads.
-    assert sorted(requests) == sorted(expected)
+    # The translation model is the only built-in download; local speech recognition models
+    # (speech.cpp) are never fetched at startup (#288).
+    assert requests == expected
     should_probe = enabled and consent == "matching" and not available
     if should_probe:
         probe.assert_called_once_with()
@@ -84,4 +83,5 @@ def test_startup_download_requires_explicit_consent(controller_module, monkeypat
                       if call.args[1] == "/run/connected_network"]
     assert network_states == ([None, reachable] if should_probe else [None])
     assert controller._ctranslate2_available_cache is available
-    assert controller._whisper_available_cache is available
+    assert not hasattr(controller, "_whisper_available_cache")
+    assert not any("Whisper" in str(call) for call in external.mock_calls)

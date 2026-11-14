@@ -735,11 +735,14 @@ transcription_lang = {
 }
 
 # Whisper系のAPIエンジン (Groq_Whisper/OpenAI_Whisper/Custom_Whisper) は、
-# ローカルの "Whisper" (faster-whisper/CTranslate2) と全く同じ ISO 639-1
-# 言語コード規約 (ロケール非依存の "en"/"ja" 等) を使う。ホストが違う
-# だけでモデル自体は同じ Whisper なので、既存の "Whisper" エントリを
-# 手作業で複製する代わりにここで機械的にコピーする
+# "Whisper" 列と全く同じ ISO 639-1 言語コード規約 (ロケール非依存の
+# "en"/"ja" 等) を使う。ホストが違うだけでモデル自体は同じ Whisper なので、
+# "Whisper" 列を手作業で複製する代わりにここで機械的にコピーする
 # (700行超のテーブルを4倍に手打ちすると更新漏れの温床になるため)。
+# "Whisper" 列はかつてのローカル Whisper エンジン (faster-whisper、#288 で
+# 削除) の列だが、この複製元と言語コードの照合 (resolveDetectedLanguage、
+# Controller._realtimeLanguage) のために残している。エンジンの選択肢には
+# 出さない (config.RETIRED_WHISPER_ENGINE)。
 _WHISPER_API_ENGINES = ("Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper")
 
 for _country_map in transcription_lang.values():

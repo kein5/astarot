@@ -82,7 +82,6 @@ config.MESSAGE_BOX_RATIO = 15  # 即座にファイル書き込み
 - `models.translation.translation_languages`: 翻訳言語リスト
 - `models.translation.translation_utils`: CTranslate2 重みリスト
 - `models.transcription.transcription_languages`: 音声認識言語リスト
-- `models.transcription.transcription_whisper`: Whisper モデルリスト
 
 ### プロジェクト内依存
 - `utils`: エラーロギング、辞書構造検証、計算デバイスリスト取得
@@ -113,7 +112,7 @@ _debounce_time: int = 2  # デバウンス時間（秒）
 
 ### 設定プロパティ一覧
 
-#### 読み取り専用設定（23項目）
+#### 読み取り専用設定（22項目）
 
 | プロパティ名 | 型 | 説明 | デフォルト値 |
 |------------|----|----|------------|
@@ -133,15 +132,14 @@ _debounce_time: int = 2  # デバウンス時間（秒）
 | `SELECTABLE_TAB_NO_LIST` | List[str] | 選択可能タブ番号 | ["1", "2", "3"] |
 | `SELECTED_TAB_TARGET_LANGUAGES_NO_LIST` | List[str] | ターゲット言語タブ番号 | ["1", "2", "3"] |
 | `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST` | List[str] | CTranslate2重みタイプリスト | 動的取得 |
-| `SELECTABLE_WHISPER_WEIGHT_TYPE_LIST` | List[str] | Whisper重みタイプリスト | 動的取得 |
 | `SELECTABLE_TRANSLATION_ENGINE_LIST` | List[str] | 翻訳エンジンリスト | 動的取得 |
-| `SELECTABLE_TRANSCRIPTION_ENGINE_LIST` | List[str] | 音声認識エンジンリスト | 動的取得 |
+| `SELECTABLE_TRANSCRIPTION_ENGINE_LIST` | List[str] | 音声認識エンジンリスト（`"Whisper"` は含まない。ローカルは `"SpeechCpp"`） | 動的取得 |
 | `SELECTABLE_UI_LANGUAGE_LIST` | List[str] | UI言語リスト | ["en", "ja"] |
 | `COMPUTE_MODE` | str | 計算モード | "cuda" or "cpu" |
 | `SELECTABLE_COMPUTE_DEVICE_LIST` | List[Dict] | 選択可能な計算デバイスリスト | 動的取得 |
 | `SEND_MESSAGE_BUTTON_TYPE_LIST` | List[str] | 送信ボタンタイプリスト | ["show", "hide", "show_and_disable_enter_key"] |
 
-#### ランタイム設定（10項目）
+#### ランタイム設定（9項目）
 
 | プロパティ名 | 型 | 説明 | デフォルト値 | JSON保存 |
 |------------|----|----|-----------|---------|
@@ -152,7 +150,6 @@ _debounce_time: int = 2  # デバウンス時間（秒）
 | `ENABLE_CHECK_ENERGY_SEND` | bool | 送信エネルギーチェック有効 | False | なし |
 | `ENABLE_CHECK_ENERGY_RECEIVE` | bool | 受信エネルギーチェック有効 | False | なし |
 | `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT` | Dict[str, bool] | CTranslate2重み状態辞書 | {} | なし |
-| `SELECTABLE_WHISPER_WEIGHT_TYPE_DICT` | Dict[str, bool] | Whisper重み状態辞書 | {} | なし |
 | `SELECTABLE_TRANSLATION_ENGINE_STATUS` | Dict[str, bool] | 翻訳エンジン状態辞書 | {} | なし |
 | `SELECTABLE_TRANSCRIPTION_ENGINE_STATUS` | Dict[str, bool] | 音声認識エンジン状態辞書 | {} | なし |
 
@@ -191,8 +188,8 @@ _debounce_time: int = 2  # デバウンス時間（秒）
 - `MIC_PHRASE_TIMEOUT`: フレーズタイムアウト（秒）
 - `MIC_MAX_PHRASES`: 最大フレーズ数
 - `MIC_WORD_FILTER`: ワードフィルターリスト
-- `MIC_AVG_LOGPROB`: 平均対数確率しきい値
-- `MIC_NO_SPEECH_PROB`: 無音確率しきい値
+- `MIC_AVG_LOGPROB`: 平均対数確率しきい値（OpenAI 互換のクラウドエンジンがセグメントのふるい分けに使う。UI のスライダーはない）
+- `MIC_NO_SPEECH_PROB`: 無音確率しきい値（同上）
 
 **スピーカー設定**
 - `AUTO_SPEAKER_SELECT`: 自動スピーカー選択
@@ -202,16 +199,17 @@ _debounce_time: int = 2  # デバウンス時間（秒）
 - `SPEAKER_RECORD_TIMEOUT`: 録音タイムアウト（秒）
 - `SPEAKER_PHRASE_TIMEOUT`: フレーズタイムアウト（秒）
 - `SPEAKER_MAX_PHRASES`: 最大フレーズ数
-- `SPEAKER_AVG_LOGPROB`: 平均対数確率しきい値
-- `SPEAKER_NO_SPEECH_PROB`: 無音確率しきい値
+- `SPEAKER_AVG_LOGPROB`: 平均対数確率しきい値（OpenAI 互換のクラウドエンジンがセグメントのふるい分けに使う。UI のスライダーはない）
+- `SPEAKER_NO_SPEECH_PROB`: 無音確率しきい値（同上）
 
 **モデル設定**
 - `SELECTED_TRANSLATION_COMPUTE_DEVICE`: 翻訳計算デバイス
-- `SELECTED_TRANSCRIPTION_COMPUTE_DEVICE`: 音声認識計算デバイス
 - `CTRANSLATE2_WEIGHT_TYPE`: CTranslate2重みタイプ
 - `SELECTED_TRANSLATION_COMPUTE_TYPE`: 翻訳計算タイプ
-- `WHISPER_WEIGHT_TYPE`: Whisper重みタイプ
-- `SELECTED_TRANSCRIPTION_COMPUTE_TYPE`: 音声認識計算タイプ
+- `LOCAL_ASR_MIGRATION`: ローカル音声認識の設定移行をどこまで済ませたか（最新は 2）。手順 2 は、保存された `SELECTED_TRANSCRIPTION_ENGINE` の `"Whisper"` を `"SpeechCpp"` に移し、Windows では `REALTIME_ASR_SETTINGS.server` を `"bundled"` にし、`LOCAL_ASR_NOTICE_PENDING` を True にする。新規インストールは最新の手順から始まる
+- `LOCAL_ASR_NOTICE_PENDING`: Whisper から speech.cpp に移ったことを知らせるお知らせをまだ表示するか（bool、既定 False）。利用者が閉じると False になる
+
+#288 で削除したキー: `WHISPER_WEIGHT_TYPE`、`SELECTED_TRANSCRIPTION_COMPUTE_DEVICE`、`SELECTED_TRANSCRIPTION_COMPUTE_TYPE`、`MIC_NO_REPEAT_NGRAM_SIZE`、`SPEAKER_NO_REPEAT_NGRAM_SIZE`（読み取り専用の `SELECTABLE_WHISPER_WEIGHT_TYPE_LIST` / `SELECTABLE_WHISPER_WEIGHT_TYPE_DICT` も削除）。古い `config.json` にあっても無視する。
 
 **通信設定**
 - `OSC_IP_ADDRESS`: OSC IPアドレス（デフォルト: "127.0.0.1"）

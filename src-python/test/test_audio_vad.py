@@ -1,9 +1,7 @@
 import shutil
-import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 import numpy as np
 
@@ -58,11 +56,10 @@ class TestSileroFrameProbability(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Expected"):
             SileroFrameProbability()(np.zeros(128, dtype=np.float32))
 
-    def test_the_bundled_model_runs_without_faster_whisper(self) -> None:
-        # The app's own copy is read; an import of faster_whisper would fail here.
-        with mock.patch.dict(sys.modules, {"faster_whisper": None, "faster_whisper.vad": None}):
-            probability = SileroFrameProbability()
-            values = [probability(np.zeros(FRAME_SAMPLES, dtype=np.float32)) for _ in range(20)]
+    def test_the_bundled_model_runs(self) -> None:
+        # The app's own copy is read; no other package provides it (#288).
+        probability = SileroFrameProbability()
+        values = [probability(np.zeros(FRAME_SAMPLES, dtype=np.float32)) for _ in range(20)]
         self.assertTrue(all(0.0 <= value < 0.1 for value in values), values)
 
     def test_a_missing_or_changed_model_file_is_refused(self) -> None:
@@ -79,27 +76,21 @@ class TestSileroFrameProbability(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "vad_model_missing_or_invalid"):
                 SileroFrameProbability(directory)(np.zeros(FRAME_SAMPLES, dtype=np.float32))
 
-    def test_the_probabilities_are_those_of_faster_whisper(self) -> None:
-        """While faster-whisper is still installed, the two give the same numbers."""
-        try:
-            from faster_whisper.vad import get_vad_model
-        except ImportError:
-            self.skipTest("faster-whisper is not installed")
-        reference = get_vad_model()
-        ours = SileroFrameProbability()
-        state = np.zeros((2, 1, 128), dtype=np.float32)
-        context = np.zeros((1, 64), dtype=np.float32)
+    def test_the_probabilities_stay_those_faster_whisper_gave(self) -> None:
+        """Fixed values from this input, recorded when the bundled files and session options
+        gave exactly faster-whisper 1.1.1's numbers (#288). A change of model file or options
+        shows here."""
+        expected = [0.057177, 0.023186, 0.011203, 0.002127, 0.001617,
+                    0.920739, 0.559978, 0.295011, 0.070994, 0.051387]
+        probability = SileroFrameProbability()
         rng = np.random.default_rng(0)
+        values = []
         for index in range(60):
             # Quiet noise, then a loud tone with noise: both low and high probabilities.
             tone = 0.5 * np.sin(np.arange(FRAME_SAMPLES) * 0.12 * (1 + index % 5)) if index >= 30 else 0
-            frame = (tone + rng.normal(0, 0.01, FRAME_SAMPLES)).astype(np.float32)
-            encoded = reference.encoder_session.run(
-                None, {"input": np.concatenate((context, frame.reshape(1, -1)), axis=1)})[0]
-            expected, state = reference.decoder_session.run(
-                None, {"input": encoded.reshape(1, 128), "state": state})
-            context = frame[-64:].reshape(1, -1)
-            self.assertEqual(ours(frame), float(np.asarray(expected).reshape(-1)[0]))
+            values.append(probability((tone + rng.normal(0, 0.01, FRAME_SAMPLES)).astype(np.float32)))
+        for got, want in zip(values[::6], expected):
+            self.assertAlmostEqual(got, want, delta=1e-4)
 
 
 class TestVadSegmenterBasics(unittest.TestCase):

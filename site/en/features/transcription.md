@@ -40,7 +40,7 @@ The bundled server uses one recognition model for both microphone captions and g
 
    ![Settings → Speech recognition (ASR)](/screenshots/en/transcription.webp)
 
-3. On the main screen, the "Mic input" switch starts and stops microphone captions, and the "Listening" switch does the same for game audio captions. If you chose the bundled server, turning a switch on also starts the server.
+3. On the main screen, the "Mic input" switch starts and stops microphone captions, and the "Listening" switch does the same for game audio captions. If you chose the bundled server, turning a switch on also starts the server. On Windows these switches run realtime captions while "Local (speech.cpp)" is the engine chosen under "Transcription Engine Used For Speech Recognition" ([Choose the speech recognition engine](#engines)).
 
 After a restart, captions start off.
 
@@ -75,16 +75,29 @@ With "Voice Typing Mode" on under Settings → "VR", what you say is transcribed
 
 On Linux it pastes into apps that run as X11/XWayland windows, such as VRChat under Proton. On KDE, the desktop asks once whether VRCT-VOX may control input devices when it first pastes. It cannot paste into a native Wayland window; the text is copied to the clipboard only.
 
-## Use upstream VRCT's speech recognition on Windows
+## Choose the speech recognition engine (Windows) {#engines}
 
-On Windows you can choose the speech recognition inherited from upstream VRCT (Google, Whisper) under "Transcription Engines". If you turn transcription on before choosing an engine, a "Choose speech recognition" screen opens.
+On Windows, the speech recognition used by the main screen's "Mic input" and "Listening" switches is chosen under Settings → "Speech recognition (ASR)" → "Transcription Engine Used For Speech Recognition". If you turn transcription on before choosing an engine, a "Choose speech recognition" screen opens.
 
-- With Google, your microphone or speaker audio is sent to Google's speech service to be turned into text.
-- With Whisper, audio is turned into text on this PC. A Whisper server of your own works too ([Use your own models](../guide/custom-models#whisper-server)).
+- With "Local (speech.cpp)", audio is turned into text by a speech.cpp server on this PC, and the switches run realtime captions. It needs a recognition model and Silero VAD ([What you need](#what-you-need)).
+- With "Google", your microphone or speaker audio is sent to Google's speech service to be turned into text. No API key is needed.
+- Groq Whisper, OpenAI Whisper, Custom Whisper server and Deepgram can be chosen once you register an API key under "Cloud speech recognition". A Whisper server of your own works too ([Use your own models](../guide/custom-models#whisper-server)).
 
-The app never switches from the engine you chose to another one on its own.
+The app never switches from the engine you chose to another one on its own. Switching between "Local (speech.cpp)" and another engine turns "Mic input" and "Listening" off if they were on. Turn them on again to start with the new engine.
 
-Realtime captions work on Windows too. Choose "Bundled server" for "ASR server" under "Realtime captions", and the main screen's "Mic input" and "Listening" switches run realtime captions instead of Google or Whisper.
+Local (speech.cpp) transcribes the languages its recognition model supports (30 languages with Qwen3-ASR, Japanese only with Haas-ja). For other languages, use Google or a cloud engine.
+
+On Linux, "Mic input" and "Listening" always run realtime captions, whatever engine is chosen.
+
+## If you used Whisper in an earlier version {#whisper}
+
+The Whisper that ran inside the app is gone. Speech is now turned into text on this PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
+
+- If Whisper was your engine under "Transcription Engine Used For Speech Recognition", the first start after the update switches it to "Local (speech.cpp)". On Windows, "ASR server" under "Realtime captions" also becomes "Bundled server".
+- The main screen then shows the notice "Local speech recognition now uses speech.cpp", once. It shows whether the two models it needs (a speech recognition model and a VAD model) are set, with a button "Open Speech recognition (ASR) settings". The notice never downloads a model. Models are downloaded only after you check their license and size under "Models and servers" and agree.
+- The Whisper model type, the recognition thresholds and the processing device settings are gone.
+
+Whisper models downloaded by an earlier version are no longer used. While any remain on the PC, "Old Whisper models" appears at the bottom of Settings → "Speech recognition (ASR)" with the space they take. Press "Delete old Whisper models", then "Delete" in the confirmation, to remove them. This cannot be undone. Only the folders an earlier version made for Whisper models are removed; other files stay. The notice has the same delete button.
 
 ::: details What was checked
 Telling speakers apart was checked on Windows 11 with conversations of two to six synthetic voices, not with human voices. The results are in the developers' [record](https://github.com/kein5/VRCT-VOX/blob/develop/docs/voice-stack/speaker-diarization-2026-11-13.md) (in Japanese).
