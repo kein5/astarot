@@ -4,10 +4,15 @@
 //! `vocab.json` gives the model's id of each piece. For M2M100 the two differ: 390 pieces
 //! SentencePiece can produce are not in the model's vocabulary, and become the unknown token,
 //! as in the app's `M2M100Tokenizer`. For NLLB they are the same.
+//!
+//! A character SentencePiece does not know comes out of it as itself, and the app looks that
+//! up in `vocab.json`, which has 394 entries SentencePiece lacks (some Chinese characters
+//! among them). `tokenizers` writes `<unk>` there instead, so for M2M100 such a piece is
+//! turned back into its normalized text before the lookup.
 
 use std::collections::{HashMap, HashSet};
 
-use tokenizers::Tokenizer;
+use tokenizers::{NormalizedString, Normalizer, Tokenizer};
 
 use crate::bundle::{Bundle, TOKENIZER, VOCABULARY};
 use crate::{codes, Error, Result};
@@ -57,8 +62,29 @@ impl Tokens {
 
     /// The ids of the pieces of `text`, without the language and end tokens.
     pub fn encode(&self, text: &str) -> Result<Vec<u32>> {
-        let encoding = self.tokenizer.encode(text, false).map_err(|_| Error::new(codes::TOKENIZER_FAILED))?;
-        Ok(encoding.get_tokens().iter().map(|piece| self.id(piece).unwrap_or(self.unknown)).collect())
+        let failed = || Error::new(codes::TOKENIZER_FAILED);
+        let encoding = self.tokenizer.encode(text, false).map_err(|_| failed())?;
+        let unknown = self.piece(self.unknown).to_owned();
+        let mut ids = Vec::with_capacity(encoding.get_tokens().len());
+        for (piece, &(start, end)) in encoding.get_tokens().iter().zip(encoding.get_offsets()) {
+            let id = if self.m2m100 && *piece == unknown {
+                // The text this unknown piece stands for, as SentencePiece would give it.
+                let surface = self.normalized(text.get(start..end).ok_or_else(failed)?)?;
+                self.id(&surface)
+            } else {
+                self.id(piece)
+            };
+            ids.push(id.unwrap_or(self.unknown));
+        }
+        Ok(ids)
+    }
+
+    fn normalized(&self, text: &str) -> Result<String> {
+        let mut normalized = NormalizedString::from(text);
+        if let Some(normalizer) = self.tokenizer.get_normalizer() {
+            normalizer.normalize(&mut normalized).map_err(|_| Error::new(codes::TOKENIZER_FAILED))?;
+        }
+        Ok(normalized.get().to_owned())
     }
 
     /// The text of model ids, special tokens written as they are.

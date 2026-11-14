@@ -32,6 +32,10 @@ fn check(translator: &mut Translator, english: &str, japanese: &str) {
 fn m2m100_translates_both_ways() {
     let Some(mut translator) = translator("VRCT_TRANSLATE_M2M100") else { return };
     check(&mut translator, "en", "ja");
+    // A character SentencePiece does not know keeps the id the app's tokenizer gives it
+    // through vocab.json ("跻" is one), not the unknown token.
+    let ids = translator.source_ids("官仲跻法", "zh").unwrap();
+    assert!(!ids.contains(&3), "{ids:?}");
 }
 
 #[test]

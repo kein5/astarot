@@ -75,6 +75,8 @@ SAMPLES = [
     "ＦＵＬＬＷＩＤＴＨ ＡＢＣ　１２３ ｶﾀｶﾅ",
     "emoji 🙂🎉 and symbols ©®™ ½",
     "https://example.com/path?query=1&b=2",
+    # Characters SentencePiece does not know: they come out as themselves, in a run.
+    "官仲跻法、提炼铀。x 铀铀 y",
 ]
 
 
@@ -163,12 +165,15 @@ def m2m100_tokenizer(source, target):
     converted.add_special_tokens([AddedToken(token, special=True, normalized=False) for token in specials])
     converted.save(str(target / "tokenizer.json"))
 
-    # The segmentation has to be SentencePiece's own.
+    # The segmentation has to be SentencePiece's own. An unknown character is <unk> in the
+    # tokenizer and itself in SentencePiece; native/translate-onnx turns it back the same way.
     reloaded = Tokenizer.from_file(str(target / "tokenizer.json"))
     processor = sentencepiece.SentencePieceProcessor(model_file=spm_file)
     for text in SAMPLES:
         expected = processor.encode(text, out_type=str)
-        got = reloaded.encode(text, add_special_tokens=False).tokens
+        encoding = reloaded.encode(text, add_special_tokens=False)
+        got = [reloaded.normalizer.normalize_str(text[start:end]) if token == "<unk>" else token
+               for token, (start, end) in zip(encoding.tokens, encoding.offsets)]
         if got != expected:
             raise SystemExit(f"the generated tokenizer splits a sample differently: {got} != {expected}")
     return vocabulary, [code for code in FAIRSEQ_LANGUAGE_CODES["m2m100"]]
