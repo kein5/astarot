@@ -22,6 +22,10 @@ from typing import Optional, Dict, Any, Callable
 
 # UI languages that 0.1.0 offered and 0.2.0 dropped. Translation to and from them is unchanged.
 RETIRED_UI_LANGUAGES = frozenset(("ko", "zh-Hant", "zh-Hans"))
+# The transcription engine that listens through the bundled or an external speech.cpp
+# server; on Windows choosing it is what routes the main switches to speech.cpp.
+LOCAL_SPEECH_ENGINE = "SpeechCpp"
+LOCAL_ASR_MIGRATION_LATEST = 1
 
 # Guard optional, potentially heavy or platform-specific imports so importing
 # config.py doesn't raise in environments missing those packages.
@@ -1365,6 +1369,10 @@ class Config:
     # notice for an NLLB weight saved by an older version (where NLLB was the
     # default, so the saved value is usually not a deliberate choice).
     CTRANSLATE2_LICENSE_NOTICE_SHOWN = ManagedProperty('CTRANSLATE2_LICENSE_NOTICE_SHOWN', type_=bool)
+    # The one-time migrations of the local speech recognition settings (#288) a saved
+    # config.json has had; see _migrateLocalASR. A new install starts at the latest.
+    LOCAL_ASR_MIGRATION = ManagedProperty('LOCAL_ASR_MIGRATION', type_=int,
+                                          allowed=lambda v, inst: not isinstance(v, bool) and 0 <= v <= LOCAL_ASR_MIGRATION_LATEST)
     WHISPER_WEIGHT_TYPE = ManagedProperty('WHISPER_WEIGHT_TYPE', type_=str, allowed=lambda v, inst: v in inst.SELECTABLE_WHISPER_WEIGHT_TYPE_LIST)
     SELECTED_PLAMO_MODEL = ManagedProperty('SELECTED_PLAMO_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST'), allow_none=True)
     SELECTED_GEMINI_MODEL = ManagedProperty('SELECTED_GEMINI_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST'), allow_none=True)
@@ -1462,7 +1470,11 @@ class Config:
         try:
             # transcription_lang is nested dict; attempt to extract keys defensively
             first_key = next(iter(transcription_lang))
-            self._SELECTABLE_TRANSCRIPTION_ENGINE_LIST = list(transcription_lang[first_key].values())[0].keys()
+            engines = list(list(transcription_lang[first_key].values())[0].keys())
+            # The local recognition through speech.cpp has no column of its own: the
+            # language comes from the realtime settings and the model's own list.
+            engines.insert(engines.index("Google") + 1 if "Google" in engines else 0, LOCAL_SPEECH_ENGINE)
+            self._SELECTABLE_TRANSCRIPTION_ENGINE_LIST = engines
         except Exception:
             self._SELECTABLE_TRANSCRIPTION_ENGINE_LIST = []
         self._SELECTABLE_UI_LANGUAGE_LIST = ["en", "ja"]
@@ -1633,6 +1645,7 @@ class Config:
         # previous non-commercial default nllb-200-distilled-600M-ct2-int8.
         self._CTRANSLATE2_WEIGHT_TYPE = DEFAULT_CTRANSLATE2_WEIGHT_TYPE
         self._CTRANSLATE2_LICENSE_NOTICE_SHOWN = False
+        self._LOCAL_ASR_MIGRATION = LOCAL_ASR_MIGRATION_LATEST
         self._SELECTED_PLAMO_MODEL = None
         self._SELECTED_GEMINI_MODEL = None
         self._SELECTED_OPENAI_MODEL = None
@@ -1848,6 +1861,20 @@ class Config:
             self._config_loaded = True
         self.saveConfigToFile()
 
+    def _migrateLocalASR(self, saved):
+        """Bring settings saved by an older version to the current local recognition, once.
+
+        1: On Windows the main switches used to follow the realtime server choice ("bundled"
+           meant speech.cpp). They now follow the transcription engine, so a saved "bundled"
+           selects the speech.cpp engine and the switches keep doing what they did.
+        """
+        step = saved.get("LOCAL_ASR_MIGRATION", 0) if saved else LOCAL_ASR_MIGRATION_LATEST
+        if isinstance(step, bool) or not isinstance(step, int) or not 0 <= step <= LOCAL_ASR_MIGRATION_LATEST:
+            step = 0
+        if step < 1 and self.REALTIME_ASR_SETTINGS.get("server") == "bundled":
+            self.SELECTED_TRANSCRIPTION_ENGINE = LOCAL_SPEECH_ENGINE
+        self.LOCAL_ASR_MIGRATION = LOCAL_ASR_MIGRATION_LATEST
+
     def _loadConfig(self):
         self._config_data = {}
         # Set when config.json could not be read and was moved aside, so the
@@ -1865,6 +1892,8 @@ class Config:
             errorLogging()
             self.UNREADABLE_CONFIG_BACKUP = self._moveUnreadableConfigAside()
             self._config_data = {}
+        # What the file held, before any default below is added to it.
+        saved = dict(self._config_data)
         # Old single-region configs already use OCR_CAPTURE_REGION. Retain
         # that window region and migrate VR to the full view, never a copy.
         self._config_data.setdefault("OCR_VR_CAPTURE_REGION",
@@ -1897,6 +1926,7 @@ class Config:
                     continue
             except ConfigValidationError:
                 errorLogging()
+        self._migrateLocalASR(saved)
 
         # config.json から読み込んだ SELECTED_RELEASE_CHANNEL は、前回起動時に
         # UI でチャンネルを切り替えた「つもり」の値をそのまま引き継いでいる

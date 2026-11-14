@@ -6,7 +6,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（130件）
+## config.jsonに保存するキー（131件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -102,6 +102,7 @@
 | `SELECTED_RELEASE_CHANNEL` | str、許可値 lambda v, inst: v in inst.SELECTABLE_RELEASE_CHANNEL_LIST | `'stable'` | 2秒後にまとめて |
 | `CTRANSLATE2_WEIGHT_TYPE` | str、許可値 lambda v, inst: v in inst.SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST | `DEFAULT_CTRANSLATE2_WEIGHT_TYPE` | 2秒後にまとめて |
 | `CTRANSLATE2_LICENSE_NOTICE_SHOWN` | bool | `False` | 2秒後にまとめて |
+| `LOCAL_ASR_MIGRATION` | int、許可値 lambda v, inst: not isinstance(v, bool) and 0 <= v <= LOCAL_ASR_MIGRATION_LATEST | `LOCAL_ASR_MIGRATION_LATEST` | 2秒後にまとめて |
 | `WHISPER_WEIGHT_TYPE` | str、許可値 lambda v, inst: v in inst.SELECTABLE_WHISPER_WEIGHT_TYPE_LIST | `'base'` | 2秒後にまとめて |
 | `SELECTED_PLAMO_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_GEMINI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST') | `None` | 2秒後にまとめて |
@@ -166,7 +167,7 @@
 | `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST` |  | `getattr(ctranslate2_weights, 'keys', lambda: [])()` | 読み取り専用 |
 | `SELECTABLE_WHISPER_WEIGHT_TYPE_LIST` |  | `getattr(whisper_models, 'keys', lambda: [])()` | 読み取り専用 |
 | `SELECTABLE_TRANSLATION_ENGINE_LIST` |  | `getattr(translation_lang, 'keys', lambda: [])()` | 読み取り専用 |
-| `SELECTABLE_TRANSCRIPTION_ENGINE_LIST` |  | `list(transcription_lang[first_key].values())[0].keys()` | 読み取り専用 |
+| `SELECTABLE_TRANSCRIPTION_ENGINE_LIST` |  | `engines` | 読み取り専用 |
 | `SELECTABLE_UI_LANGUAGE_LIST` |  | `['en', 'ja']` | 読み取り専用 |
 | `SELECTABLE_OCR_SOURCE_LANGUAGE_LIST` |  | `list(ocr_selectable_languages)` | 読み取り専用 |
 | `COMPUTE_MODE` |  | `'cuda' if any((device.get('device') == 'cuda' for device in self._SELECTABLE_COMPUTE_DE…` | 読み取り専用 |

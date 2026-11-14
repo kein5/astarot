@@ -17,7 +17,7 @@ from os import environ as os_environ
 from pathlib import Path
 from audio_device_identity import capture_key, device_id, device_options, resolve_device
 from device_manager import device_manager
-from config import config, ConfigValidationError, DEFAULT_OVERLAY_VR_LAUNCHER_SETTINGS
+from config import config, ConfigValidationError, DEFAULT_OVERLAY_VR_LAUNCHER_SETTINGS, LOCAL_SPEECH_ENGINE
 from model import model, SETUP_LAUNCHED, SETUP_DOWNLOAD_FAILED, SETUP_VERIFY_FAILED
 from utils import removeLog, printLog, errorLogging, isConnectedNetwork, isValidIpAddress, isValidPort, isValidWebSocketHost, isAvailableWebSocketServer
 from errors import TranscriptionStartError, ErrorCode, OcrStartError, VRCTError
@@ -939,9 +939,9 @@ class Controller:
     def _realtimeToggles(self):
         if sys.platform == "linux":
             return True
-        # Windows keeps the legacy recorder until the user picks the bundled server.
-        settings = getattr(self, "_realtime_settings", None) or {}
-        return sys.platform == "win32" and settings.get("server") == "bundled"
+        # Windows keeps the legacy recorder for Google and the cloud engines; the local
+        # engine listens through speech.cpp, bundled or external (realtime settings).
+        return sys.platform == "win32" and config.SELECTED_TRANSCRIPTION_ENGINE == LOCAL_SPEECH_ENGINE
 
     def _realtimeActiveLocked(self, source):
         owner = self._realtime_owners[source]
@@ -1001,14 +1001,17 @@ class Controller:
         with self._realtime_lock:
             return not self._realtime_closed and expected == self._realtime_generation[source]
 
-    def _awaitAsrServer(self, source, expected):
-        """Start the bundled ASR server if it is stopped, then wait until it is ready."""
+    def _awaitAsrServer(self, source, expected, start=True):
+        """Start the bundled ASR server if it is stopped and `start` allows it, then wait until it is ready."""
         if not self._realtimeStartCurrent(source, expected):
             return "realtime_stale_start"
         row = self.speech_servers.state()["asr"]
         if row["state"] == "stopping":
             return "speech_server_busy"
         run = row["generation"]
+        if row["state"] not in ("ready", "preparing") and not start:
+            # The user chose to start the server from Settings only.
+            return "speech_server_autostart_off"
         if row["state"] not in ("ready", "preparing"):
             with self._speech_settings_lock:
                 settings = copy.deepcopy(self._speech_settings)
@@ -1061,7 +1064,7 @@ class Controller:
         if not self._realtimeStartCurrent(source, expected):
             return "realtime_stale_start", None
         if settings["server"] == "bundled":
-            code = self._awaitAsrServer(source, expected)
+            code = self._awaitAsrServer(source, expected, settings["start_server"])
             if code:
                 return code, None
             try:
@@ -5904,12 +5907,35 @@ class Controller:
     def updateTranscriptionEngine(self, requested_engine: Optional[str] = None) -> None:
         """Apply explicit selections only; availability never changes consent."""
         previous_engine = config.SELECTED_TRANSCRIPTION_ENGINE
+        previous_realtime = self._realtimeToggles()
         if requested_engine is not None:
             config.SELECTED_TRANSCRIPTION_ENGINE = requested_engine
+        if self._realtimeToggles() != previous_realtime:
+            self._leaveTranscriptionRoute(previous_realtime)
 
         if config.SELECTED_TRANSCRIPTION_ENGINE != previous_engine:
             self.fallbackUnsupportedLanguagesForTranscriptionEngine(config.SELECTED_TRANSCRIPTION_ENGINE)
             self.run(200, self.run_mapping["selectable_language_list"], model.getListLanguageAndCountry())
+
+    def _leaveTranscriptionRoute(self, realtime):
+        """Turn off what listens through the route the engine no longer selects (Windows).
+
+        The switches then show off; turning one on again starts the newly selected route.
+        """
+        if realtime:
+            for source in ("mic", "speaker"):
+                with self._realtime_lock:
+                    self._invalidateRealtimeLocked(source)
+                model.message_delivery.revoke(source)
+                self._publishRealtimeToggle(source)
+            return
+        for enabled, disable, direction in (
+                (config.ENABLE_TRANSCRIPTION_SEND, self.setDisableTranscriptionSend, "send"),
+                (config.ENABLE_TRANSCRIPTION_RECEIVE, self.setDisableTranscriptionReceive, "receive")):
+            if enabled:
+                # The legacy recorder stops as one, whatever the engine now is.
+                disable()
+                self.run(200, "/set/disable/transcription_" + direction, False)
 
     def startCheckMicEnergy(self) -> bool:
         with self.mic_lifecycle_lock:

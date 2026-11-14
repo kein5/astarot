@@ -100,6 +100,7 @@ def normalize_settings(value):
     if not isinstance(value, dict) or set(value) - {
         "version",
         "server",
+        "start_server",
         "base_url",
         "model",
         "mic",
@@ -113,9 +114,15 @@ def normalize_settings(value):
     server = value.get("server", "external")
     if server not in ("external", "bundled"):
         raise ValueError("realtime_server_invalid")
+    # Whether turning a main switch on starts the bundled ASR server when it is stopped.
+    # It is the user's choice (#288); settings saved before it existed keep starting it.
+    start_server = value.get("start_server", True)
+    if type(start_server) is not bool:
+        raise ValueError("realtime_settings_invalid")
     result = dict(
         version=1,
         server=server,
+        start_server=start_server,
         base_url=local_url(value.get("base_url", "http://127.0.0.1:8080")),
         model=_model(value.get("model", "")),
         vocabulary=normalize_vocabulary(value.get("vocabulary")),

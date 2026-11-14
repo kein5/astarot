@@ -284,7 +284,9 @@ export const TranscriptionEngine_Box = () => {
             desc={<span className={styles.engine_help}>
                 <span>{t("config_page.transcription.select_transcription_engine.desc")}</span>
                 <span role="status">{t("transcription_consent.selected", {
-                    engine: currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
+                    engine: currentSelectedTranscriptionEngine.data === "SpeechCpp"
+                        ? t("config_page.transcription.select_transcription_engine.engines.speechcpp")
+                        : currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
                 })}</span>
                 {currentSelectedTranscriptionEngine.data === "Google" && <span>{t("transcription_consent.google_notice")}</span>}
             </span>}
@@ -292,6 +294,7 @@ export const TranscriptionEngine_Box = () => {
             name="select_transcription_engine"
             options={[
                 { id: "Google", label: "Google" },
+                { id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
                 { id: "Whisper", label: "Whisper" },
                 ...cloud_options,
             ]}

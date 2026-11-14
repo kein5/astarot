@@ -34,7 +34,9 @@ export const TranscriptionConsentController = () => {
         }
         selection.current = null;
         close();
-        if (waiting.engine === "Google") {
+        // Google and the local speech.cpp engine start at once; a missing speech.cpp model is
+        // reported by the switch itself, with the way to download it after consent.
+        if (waiting.engine === "Google" || waiting.engine === "SpeechCpp") {
             setRequest(null);
             (request.endpoint.endsWith("_send") ? setTranscriptionSend : setTranscriptionReceive)(true);
         } else {
@@ -63,10 +65,12 @@ export const TranscriptionConsentController = () => {
             <h3>{t("transcription_consent.title")}</h3>
             {request.mode === "choose" ? <>
                 <p>{t("transcription_consent.google_notice")}</p>
+                <p>{t("transcription_consent.speechcpp_notice")}</p>
                 <p>{t("transcription_consent.whisper_notice")}</p>
                 <div className={styles.actions}>
                     <button type="button" autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</button>
                     <button type="button" disabled={pending} onClick={() => choose("Google")}>{t("transcription_consent.google")}</button>
+                    <button type="button" disabled={pending} onClick={() => choose("SpeechCpp")}>{t("transcription_consent.speechcpp")}</button>
                     <button type="button" disabled={pending} onClick={() => choose("Whisper")}>{t("transcription_consent.whisper")}</button>
                 </div>
             </> : <>

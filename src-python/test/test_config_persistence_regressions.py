@@ -440,6 +440,37 @@ def test_a_retired_ui_language_starts_in_english_without_an_error(isolated, monk
     isolated.ns["errorLogging"].assert_not_called()
 
 
+@pytest.mark.parametrize("saved,engine", [
+    # On Windows "bundled" used to route the switches to speech.cpp: the engine now does.
+    ({"REALTIME_ASR_SETTINGS": {"server": "bundled"}, "SELECTED_TRANSCRIPTION_ENGINE": "Google"}, "SpeechCpp"),
+    ({"REALTIME_ASR_SETTINGS": {"server": "bundled"}}, "SpeechCpp"),
+    ({"REALTIME_ASR_SETTINGS": {"server": "external"}, "SELECTED_TRANSCRIPTION_ENGINE": "Google"}, "Google"),
+    # Migrated once already: a later choice of another engine stays.
+    ({"REALTIME_ASR_SETTINGS": {"server": "bundled"}, "SELECTED_TRANSCRIPTION_ENGINE": "Google",
+      "LOCAL_ASR_MIGRATION": 1}, "Google"),
+])
+def test_a_saved_bundled_server_selects_the_speech_cpp_engine_once(isolated, monkeypatch, tmp_path, saved, engine):
+    state = tmp_path / "local-asr"
+    state.mkdir()
+    (state / "config.json").write_text(json.dumps(saved))
+    monkeypatch.setenv("VRCT_CONFIG_DIR", str(state))
+    config = isolated.ns["Config"]()
+    assert config.SELECTED_TRANSCRIPTION_ENGINE == engine
+    written = strict_json((state / "config.json").read_text())
+    assert written["SELECTED_TRANSCRIPTION_ENGINE"] == engine
+    assert written["LOCAL_ASR_MIGRATION"] == isolated.ns["LOCAL_ASR_MIGRATION_LATEST"]
+
+
+def test_a_new_install_has_nothing_to_migrate(isolated, monkeypatch, tmp_path):
+    state = tmp_path / "fresh"
+    state.mkdir()
+    monkeypatch.setenv("VRCT_CONFIG_DIR", str(state))
+    config = isolated.ns["Config"]()
+    assert config.SELECTED_TRANSCRIPTION_ENGINE is None
+    assert config.LOCAL_ASR_MIGRATION == isolated.ns["LOCAL_ASR_MIGRATION_LATEST"]
+    assert "SpeechCpp" in config.SELECTABLE_TRANSCRIPTION_ENGINE_LIST
+
+
 def test_incomplete_initialization_never_loads_or_publishes_singleton(isolated, monkeypatch):
     cls = isolated.ns["Config"]
     load = Mock()
