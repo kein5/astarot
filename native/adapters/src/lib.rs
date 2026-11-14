@@ -11,5 +11,6 @@
 //! Log lines are fixed strings sent to the sink set with [`log::set_sink`].
 
 pub mod log;
+pub mod obs;
 pub mod tls;
 pub mod websocket;
