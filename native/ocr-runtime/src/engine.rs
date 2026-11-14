@@ -38,7 +38,7 @@ fn backend(error: impl std::fmt::Display) -> Error {
     Error::Backend(error.to_string())
 }
 
-fn environment() -> Result<&'static Environment> {
+pub(crate) fn environment() -> Result<&'static Environment> {
     static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
     ENVIRONMENT.get_or_init(|| ort::init().with_name("ocr-runtime").build().map_err(|error| error.to_string())).as_ref().map_err(backend)
 }

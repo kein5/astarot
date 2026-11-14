@@ -25,11 +25,44 @@ pub fn py_round(x: f64, ndigits: usize) -> f64 {
     format!("{x:.ndigits$}").parse().unwrap_or(x)
 }
 
+/// NumPy's pairwise summation of `float32` (`pairwise_sum_FLOAT`): the same blocks as
+/// for doubles, with `float` accumulators.
+pub fn pairwise_sum_f32(a: &[f32]) -> f32 {
+    let n = a.len();
+    if n < 8 {
+        let mut res = -0.0f32;
+        for &v in a {
+            res += v;
+        }
+        res
+    } else if n <= 128 {
+        let mut r = [0f32; 8];
+        r.copy_from_slice(&a[..8]);
+        let mut i = 8;
+        while i < n - (n % 8) {
+            for j in 0..8 {
+                r[j] += a[i + j];
+            }
+            i += 8;
+        }
+        let mut res = ((r[0] + r[1]) + (r[2] + r[3])) + ((r[4] + r[5]) + (r[6] + r[7]));
+        while i < n {
+            res += a[i];
+            i += 1;
+        }
+        res
+    } else {
+        let mut n2 = n / 2;
+        n2 -= n2 % 8;
+        pairwise_sum_f32(&a[..n2]) + pairwise_sum_f32(&a[n2..])
+    }
+}
+
 /// NumPy's pairwise summation of `float64` (`pairwise_sum_DOUBLE`, block size 128).
 fn pairwise_sum(a: &[f64]) -> f64 {
     let n = a.len();
     if n < 8 {
-        let mut res = 0.0;
+        let mut res = -0.0;
         for &v in a {
             res += v;
         }
