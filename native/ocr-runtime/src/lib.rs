@@ -1,6 +1,7 @@
 //! Chat-bubble OCR for VRCT-VOX (issue #281): the reading engine, the bubble pipeline
 //! and the VRChat frame capture paths, replacing `src-python/models/ocr`.
 
+pub mod capture;
 pub mod chatbox;
 pub mod cv;
 pub mod det;

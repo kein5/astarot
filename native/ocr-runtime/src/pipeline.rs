@@ -425,14 +425,7 @@ impl Default for PipelineOptions {
 
 impl PipelineCore {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        options: PipelineOptions,
-        callback: Callback,
-        detector: Option<Box<dyn Detector>>,
-        capture_factory: CaptureFactory,
-        clock: Arc<dyn Clock>,
-        log: Arc<dyn Log>,
-    ) -> PipelineCore {
+    pub fn new(options: PipelineOptions, callback: Callback, detector: Option<Box<dyn Detector>>, capture_factory: CaptureFactory, clock: Arc<dyn Clock>, log: Arc<dyn Log>) -> PipelineCore {
         let poll_interval = (options.poll_interval_ms as f64 / 1000.0).max(0.1);
         let failure_log = |origin: &str| FailureLog::new(origin, log.clone(), clock.clone());
         let source_language = if options.source_language.is_empty() { "auto".to_string() } else { options.source_language };
