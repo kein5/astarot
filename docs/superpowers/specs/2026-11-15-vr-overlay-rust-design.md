@@ -85,6 +85,13 @@ Phase 1 に含めないもの: OpenVR の呼び出し、撮影、画像の加工
 `reference.json` を比べる。Python 側を直したのに基準値を作り直していないと、ここで落ちる。
 Python 実装が残っている間（Phase 3 まで）、両者がずれないようにするためのもの。
 
+突き合わせていないもの: 吹き出しのマスク（Python は Pillow で塗り、Rust は形の座標だけを返す。
+塗るのは Phase 3）、`updateLauncherVisibility` のうち起動演出の開始（頭の姿勢と撮影の状態に
+よる）。ランチャーの出し入れは、向きの判定の結果を台本として与えて比べている。
+
+Rust の試験は `cd src-tauri && cargo test --locked --offline --lib vr_overlay` で実行する。
+`python tools/dev.py check --scope rust` は `cargo check` だけで、試験は実行しない。
+
 ## 4. 表示時間とフェード（踏襲する仕様）
 
 | 対象 | 振る舞い |
