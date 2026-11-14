@@ -1,0 +1,51 @@
+[package]
+name = "ocr-runtime"
+version = "0.1.0"
+description = "Chat-bubble OCR and VRChat frame capture for VRCT-VOX"
+edition = "2021"
+rust-version = "1.92"
+license = "MIT"
+publish = false
+
+[lib]
+name = "ocr_runtime"
+
+[[bin]]
+name = "ocr-read"
+path = "src/bin/ocr_read.rs"
+
+[dependencies]
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-native", "copy-dylibs", "api-17"] }
+png = "0.18"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+sha2 = "0.10"
+thiserror = "2"
+# python-bidi 0.6.11 (what RapidOCR reorders Arabic with) wraps this exact version.
+unicode-bidi = "=0.3.15"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = { version = "0.13", default-features = false }
+libloading = "0.8"
+
+[target.'cfg(windows)'.dependencies]
+libloading = "0.8"
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.dev]
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]
