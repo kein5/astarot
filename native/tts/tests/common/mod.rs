@@ -9,7 +9,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
-use vrct_tts::{Source, SpeechMessageEvent};
+use vrct_tts::playback::{AudioRouter, OutputSink};
+use vrct_tts::{CancelToken, Source, SpeechMessageEvent, TtsError};
 
 pub type Hook = Arc<dyn Fn() + Send + Sync>;
 pub type ChunkHook = Arc<dyn Fn(usize) + Send + Sync>;
@@ -243,6 +244,50 @@ pub fn until(predicate: impl Fn() -> bool, timeout: Duration) {
 
 pub fn until2(predicate: impl Fn() -> bool) {
     until(predicate, Duration::from_secs(2));
+}
+
+/// A recording output: the blocks written and each close's `drain`.
+#[derive(Clone, Default)]
+pub struct Sink {
+    pub data: Arc<Mutex<Vec<Vec<u8>>>>,
+    pub closed: Arc<Mutex<Vec<bool>>>,
+}
+
+impl Sink {
+    pub fn bytes(&self) -> Vec<u8> {
+        self.data.lock().unwrap().concat()
+    }
+
+    pub fn writes(&self) -> usize {
+        self.data.lock().unwrap().len()
+    }
+}
+
+impl OutputSink for Sink {
+    fn write(&mut self, pcm: &[u8], token: &CancelToken) -> Result<(), TtsError> {
+        token.check()?;
+        self.data.lock().unwrap().push(pcm.to_vec());
+        Ok(())
+    }
+
+    fn close(&mut self, drain: bool, _token: &CancelToken) -> Result<(), TtsError> {
+        self.closed.lock().unwrap().push(drain);
+        Ok(())
+    }
+}
+
+/// `(device, rate, channels)` of each output opened.
+pub type Opens = Arc<Mutex<Vec<(String, u32, u16)>>>;
+
+/// A router writing into `sink`, recording each open.
+pub fn router(sink: &Sink) -> (Arc<AudioRouter>, Opens) {
+    let opens: Opens = Arc::default();
+    let (sink, record) = (sink.clone(), opens.clone());
+    let factory = move |device: &str, rate: u32, channels: u16| -> Result<Box<dyn OutputSink>, TtsError> {
+        record.lock().unwrap().push((device.to_owned(), rate, channels));
+        Ok(Box::new(sink.clone()))
+    };
+    (Arc::new(AudioRouter::new(Arc::new(factory))), opens)
 }
 
 pub fn chat(id: &str) -> SpeechMessageEvent {
