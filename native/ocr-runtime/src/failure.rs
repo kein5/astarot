@@ -172,3 +172,18 @@ impl Retry {
         self.retry_at = 0.0;
     }
 }
+
+/// `readtext_bgr`: a read that never fails. A failure is logged (boundedly) and gives
+/// no words; a success ends the streak. The pipeline uses the failing variant instead.
+pub fn read_or_empty<T>(read: impl FnOnce() -> Result<Vec<T>, Failure>, log: &mut FailureLog) -> Vec<T> {
+    match read() {
+        Ok(words) => {
+            log.success();
+            words
+        }
+        Err(failure) => {
+            log.failure(&failure);
+            Vec::new()
+        }
+    }
+}
