@@ -15,7 +15,7 @@ You can turn speech on and off separately from sending text to the chatbox.
 
 ## First steps
 
-1. Under Settings → "Text to speech (TTS)" → "Models and servers", download a model with "Download a default model", or enter the path of a GGUF file you have.
+1. Under Settings → "Text to speech (TTS)" → "Models and servers", download a model with "Download a default model", or enter the path of a <Term tip="A file format that holds an AI model in one file. speech.cpp reads it; the file name ends in .gguf.">GGUF</Term> file you have.
 2. Save with "Save changes" at the top, then press "Start server". Saving alone does not load the model.
 
    ![Settings → Text to speech (TTS)](/screenshots/en/tts.webp)
@@ -30,8 +30,18 @@ With a bundled server selected, turning it on from the main screen also starts t
 
 Choose the virtual microphone under "Output device", and choose the same one as your microphone in VRChat.
 
-- On Windows, choose "CABLE Input" as the output device and "CABLE Output" as VRChat's microphone ([Windows audio route](../guide/windows-audio)).
-- On Linux, use "VRCT Managed Virtual Microphone" ([Linux audio route](../guide/linux-audio)).
+<OsTabs>
+<template v-slot:windows>
+
+On Windows, choose "CABLE Input" as the output device and "CABLE Output" as VRChat's microphone ([Windows audio route](../guide/windows-audio)).
+
+</template>
+<template v-slot:linux>
+
+On Linux, use "VRCT Managed Virtual Microphone" ([Linux audio route](../guide/linux-audio)).
+
+</template>
+</OsTabs>
 
 Why a virtual microphone is needed is in [How voice and text flow](../guide/how-it-works#why-a-virtual-microphone-is-needed).
 

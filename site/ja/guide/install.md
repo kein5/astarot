@@ -31,13 +31,13 @@ VRChatへ声を届けるには、仮想ケーブルも必要です（[Windowsの
 
 | 入れ方 | 場所 |
 |---|---|
-| インストーラー | `%LOCALAPPDATA%\VRCT-VOX`（インストール先を変えていない場合） |
+| インストーラー | <CopyText>%LOCALAPPDATA%\VRCT-VOX</CopyText>（インストール先を変えていない場合） |
 | ZIP | 展開したフォルダー |
 :::
 
 ## Linux
 
-x64向けのVulkan版を、deb、rpm、AppImage、tar.gzの4つの形で配布しています（debとrpmは0.3.0から）。ファイルが壊れていないかは、[ダウンロードを確かめる](#ダウンロードを確かめる)の方法で確かめられます。
+x64向けの<Term tip="GPUで描画や計算をするための仕組みです。NVIDIA、AMD、IntelのGPUのドライバーが対応しています。">Vulkan</Term>版を、deb、rpm、AppImage、tar.gzの4つの形で配布しています（debとrpmは0.3.0から）。ファイルが壊れていないかは、[ダウンロードを確かめる](#ダウンロードを確かめる)の方法で確かめられます。
 
 ### deb（Ubuntu、Debian）
 
@@ -64,7 +64,7 @@ chmod +x VRCT-VOX-<バージョン>-linux-x64-vulkan-release.AppImage
 ./VRCT-VOX-<バージョン>-linux-x64-vulkan-release.AppImage
 ```
 
-FUSEを使えない環境では、`APPIMAGE_EXTRACT_AND_RUN=1`を付けて起動します。このときは、展開のための一時的な空き容量が別に必要です（確かめたバージョンでは約1.7 GB）。
+<Term tip="アプリがカーネルを変えずにファイルシステムを用意できる、Linuxの仕組みです。AppImageは起動するときに使います。">FUSE</Term>を使えない環境では、<CopyText>APPIMAGE_EXTRACT_AND_RUN=1</CopyText>を付けて起動します。このときは、展開のための一時的な空き容量が別に必要です（確かめたバージョンでは約1.7 GB）。
 
 ### tar.gz
 
@@ -78,9 +78,9 @@ tar -xzf VRCT-VOX-<バージョン>-linux-x64-vulkan-release.tar.gz
 ::: details 設定とデータの場所（Linux）
 | 内容 | 場所 |
 |---|---|
-| 設定とログ | `~/.config/vrct-vox`（`$XDG_CONFIG_HOME`があればその下） |
-| データ | `~/.local/share/vrct-vox` |
-| キャッシュ | `~/.cache/vrct-vox` |
+| 設定とログ | <CopyText>~/.config/vrct-vox</CopyText>（`$XDG_CONFIG_HOME`があればその下） |
+| データ | <CopyText>~/.local/share/vrct-vox</CopyText> |
+| キャッシュ | <CopyText>~/.cache/vrct-vox</CopyText> |
 
 deb、rpm、AppImage、tar.gzのどれで起動しても、同じ場所を使います。
 :::

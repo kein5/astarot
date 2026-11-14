@@ -43,6 +43,21 @@
   --vox-failed: #f08a85;
   --vox-surface: #18253b;
   --vox-hairline: #2b3b55;
+  /* Motion for the guide's parts (step progress, OS tabs, copy, terms, the search palette):
+     short, and settling with at most a 2% overshoot. */
+  --vox-ease: cubic-bezier(0.2, 0, 0, 1);
+  --vox-ease-settle: cubic-bezier(0.3, 1.25, 0.4, 1);
+  --vox-motion-fast: 140ms;
+  --vox-motion: 240ms;
+}
+
+/* A reader who asks for less motion gets the end state at once. */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  .dark {
+    --vox-motion-fast: 0ms;
+    --vox-motion: 0ms;
+  }
 }
 
 /* No remote or bundled web font: Latin from the system UI face, Japanese from the reader's
@@ -268,6 +283,39 @@
 .vp-doc div[class*='language-'] {
   border: 1px solid var(--vox-hairline);
   border-radius: 8px;
+}
+
+/* The code copy button says so in the page's language, and its word slides out of the button. */
+html[lang='ja'] {
+  --vp-code-copy-copied-text-content: 'コピーしました';
+}
+
+.vp-doc [class*='language-'] > button.copy {
+  border-radius: 8px;
+}
+
+.vp-doc [class*='language-'] > button.copy.copied,
+.vp-doc [class*='language-'] > button.copy:hover.copied {
+  border-radius: 0 8px 8px 0;
+}
+
+.vp-doc [class*='language-'] > button.copy.copied::before {
+  border-radius: 8px 0 0 8px;
+  animation: vox-copied var(--vox-motion) var(--vox-ease-settle);
+}
+
+@keyframes vox-copied {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-100% + 8px));
+  }
+}
+
+/* Without hover (a phone), the button stays in sight. */
+@media (hover: none) {
+  .vp-doc [class*='language-'] > button.copy {
+    opacity: 1;
+  }
 }
 
 /* ---------- Pictures ---------- */

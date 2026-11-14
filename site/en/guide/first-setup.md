@@ -6,6 +6,8 @@ This page sets up translating text and sending it to the VRChat chatbox. Set up 
 
 The switches and languages are on the left, the conversation log is on the right, and the message box is at the bottom.
 
+<StepProgress />
+
 ## 1. Choose whether to send usage data
 
 On the first start, a screen asks whether to send usage data. Choose "Send", "Don't send" or "Decide later". The app works the same whichever you choose. [Privacy](./privacy) lists what is sent.
@@ -18,7 +20,7 @@ VRCT-VOX sends text to the VRChat chatbox over OSC. In VRChat, open the Action M
 
 !["Quick settings" open, saying that VRChat was found](/screenshots/en/quick-settings.webp)
 
-By default VRCT-VOX sends to `127.0.0.1` on port `9000`, which is also VRChat's default, so you usually don't need to change it. To change it, use "OSC" under Settings → "VRChat".
+By default VRCT-VOX sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>9000</CopyText>, which is also VRChat's default, so you usually don't need to change it. To change it, use "OSC" under Settings → "VRChat".
 
 ## 3. Choose your languages
 

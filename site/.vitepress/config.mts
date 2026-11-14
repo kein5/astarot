@@ -1,3 +1,4 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, type DefaultTheme } from 'vitepress'
 import { tokenize } from './searchTokenize.mjs'
 import { slugify } from './slugify.mjs'
@@ -140,11 +141,25 @@ export default defineConfig({
     ['link', { rel: 'apple-touch-icon', href: '/VRCT-VOX/apple-touch-icon.png' }],
   ],
   transformHead: ({ pageData }) => alternates(pageData.relativePath),
+  vite: {
+    resolve: {
+      // The search box is this guide's command palette (theme/components/LocalSearchBox.vue).
+      alias: [
+        {
+          find: /^.*\/VPLocalSearchBox\.vue$/,
+          replacement: fileURLToPath(new URL('./theme/components/LocalSearchBox.vue', import.meta.url)),
+        },
+      ],
+    },
+  },
   markdown: {
     image: { lazyLoading: true },
     // Japanese ids stay composed, so links to headings with voiced marks find them (slugify.mjs).
     anchor: { slugify },
     toc: { slugify },
+    // The h2 headings in each page's data, so <StepProgress /> is in the built page and does not
+    // push the text down when the script starts.
+    headers: { level: [2], slugify },
     config(md) {
       // Every picture in a page is a screenshot: it can take focus and opens larger (theme/index.ts).
       const image = md.renderer.rules.image!

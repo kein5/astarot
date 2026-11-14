@@ -13,7 +13,7 @@ Find the heading closest to what you see. If your voice or text does not reach V
 - Open Settings → "VRChat". The top of the page says whether a VRChat with OSC enabled was found on this PC. The same line is in "Quick settings" on the main screen.
 - If it says none was found, start VRChat, then open its Action Menu and set "Options" → "OSC" to "Enabled". The line changes shortly after.
 - A message marked "Not sent to VRChat (off in settings)" in the log was held back because "Send Message To VRChat" is off. Turn it on under Settings → "VRChat".
-- Whether VRChat was found is checked with OSCQuery, on this PC only. So when the destination is another PC, it says VRChat cannot be checked, and messages are still sent. If a firewall blocks discovery on this PC (mDNS), it can say none was found while messages still arrive.
+- Whether VRChat was found is checked with <Term tip="A way for OSC apps to find each other's ports and the values they accept.">OSCQuery</Term>, on this PC only. So when the destination is another PC, it says VRChat cannot be checked, and messages are still sent. If a firewall blocks discovery on this PC (<Term tip="Finds devices and services on the same computer or local network by name, without a server.">mDNS</Term>), it can say none was found while messages still arrive.
 
 ### VRChat does not hear the speech
 
@@ -80,7 +80,7 @@ This was a bug in the Windows builds up to 0.1.0-beta.6: the download review kep
 | OS | Location |
 |---|---|
 | Windows | `logs` in the app's folder |
-| Linux | `~/.config/vrct-vox/logs` |
+| Linux | <CopyText>~/.config/vrct-vox/logs</CopyText> |
 
 ### Reporting a problem
 
