@@ -6,7 +6,7 @@ What you can use depends on the feature.
 
 | Feature | What you can use | Where to set it |
 |---|---|---|
-| Text to speech (TTS) | A GGUF model, and a voice GGUF (optional). Or a server you run on this computer | "Text to speech (TTS)" → "Models and servers" |
+| Text to speech (TTS) | A <Term tip="A file format that holds an AI model in one file. speech.cpp reads it; the file name ends in .gguf.">GGUF</Term> model, and a voice GGUF (optional). Or a server you run on this computer | "Text to speech (TTS)" → "Models and servers" |
 | Speech recognition (ASR) | A GGUF recognition model, VAD and diarization (optional). Or a server you run on this computer | "Speech recognition (ASR)" → "Models and servers" → "ASR + VAD" |
 | Whisper | A Whisper server of your own (OpenAI compatible) | "Speech recognition (ASR)" → "Cloud speech recognition" → "Custom Whisper server" |
 | Voice changer (RVC) | A `.pth` model and a `.index` (optional) | "Voice changer (RVC)" |

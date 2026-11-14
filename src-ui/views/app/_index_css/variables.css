@@ -83,6 +83,12 @@
     --vox_readout_rule: #5b92ff;
     /* Overlays (menus, popovers) float above the page; routine forms stay flat. */
     --vox_shadow_overlay: 0 .8rem 2.4rem #0009;
+    /* Motion (DESIGN.md "Motion"): short, and settling with at most a 2% overshoot.
+       root.css removes it for prefers-reduced-motion. */
+    --vox_ease: cubic-bezier(.2, 0, 0, 1);
+    --vox_ease_settle: cubic-bezier(.3, 1.25, .4, 1);
+    --vox_motion_fast: 120ms;
+    --vox_motion: 220ms;
     --vox_highlight_tint: #5b92ff29;
     --vox_warning_tint: #cb944f26;
     /* VRChat's own chatbox colour, for the message format preview only. */

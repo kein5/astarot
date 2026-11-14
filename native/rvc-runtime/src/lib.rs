@@ -18,6 +18,7 @@ pub mod noise;
 pub mod onnx;
 pub mod pipeline;
 pub mod pth;
+pub mod stream;
 pub mod synth;
 
 pub use backend::{Device, FeatureExtractor, Rmvpe, Synthesizer};
@@ -26,3 +27,4 @@ pub use index::FeatureIndex;
 pub use model::{Version, VoiceModel};
 pub use noise::NoiseMode;
 pub use pipeline::{Chunking, Converted, Converter, Options, Trace};
+pub use stream::{Layout, Stream, StreamOptions};

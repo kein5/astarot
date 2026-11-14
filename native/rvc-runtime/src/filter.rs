@@ -122,6 +122,41 @@ pub fn filtfilt(coefficients: &Coefficients, signal: &[f64]) -> Vec<f64> {
     extended[pad..pad + signal.len()].to_vec()
 }
 
+/// The streaming stand-in for [`filtfilt`] (specification section 12): the same filter
+/// run forward twice in cascade, keeping its memory from one block to the next.
+///
+/// Running a filter forward and then backward gives the magnitude response `|H|^2` with
+/// no phase shift. Two forward passes give the same magnitude response, so the amount
+/// removed at every frequency is the same; what differs is the phase, which is shifted
+/// below a few hundred hertz instead of kept. Blocks can be of any length: filtering a
+/// signal block by block gives the same samples as filtering it in one go.
+#[derive(Debug, Clone)]
+pub struct CausalFilter {
+    coefficients: Coefficients,
+    states: [Vec<f64>; 2],
+}
+
+impl CausalFilter {
+    /// Starts at rest, as if the signal had been silent before.
+    pub fn new(coefficients: Coefficients) -> Self {
+        let order = coefficients.a.len() - 1;
+        CausalFilter { coefficients, states: [vec![0.0; order], vec![0.0; order]] }
+    }
+
+    pub fn process(&mut self, signal: &mut [f64]) {
+        for state in self.states.iter_mut() {
+            filter_in_place(&self.coefficients, signal, state);
+        }
+    }
+
+    /// Back to rest.
+    pub fn reset(&mut self) {
+        for state in self.states.iter_mut() {
+            state.fill(0.0);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,5 +191,36 @@ mod tests {
     fn short_inputs_pass_through() {
         let signal = vec![0.25; 18];
         assert_eq!(filtfilt(&input_highpass(), &signal), signal);
+    }
+
+    #[test]
+    fn causal_filter_keeps_the_magnitude_of_the_zero_phase_one() {
+        // A sine well inside the stop band and one well inside the pass band, after the
+        // start-up transient: the cascade removes and keeps as much as filtfilt does.
+        for (hz, expected_gain) in [(20.0f64, None), (1000.0, Some(1.0))] {
+            let signal: Vec<f64> = (0..32_000).map(|n| (2.0 * std::f64::consts::PI * hz * n as f64 / 16_000.0).sin()).collect();
+            let reference = filtfilt(&input_highpass(), &signal);
+            let mut causal = signal.clone();
+            CausalFilter::new(input_highpass()).process(&mut causal);
+            let rms = |x: &[f64]| (x.iter().map(|v| v * v).sum::<f64>() / x.len() as f64).sqrt();
+            let (found, wanted) = (rms(&causal[16_000..24_000]), rms(&reference[16_000..24_000]));
+            assert!((found / wanted - 1.0).abs() < 1e-3, "{hz} Hz: {found} vs {wanted}");
+            if let Some(gain) = expected_gain {
+                assert!((found / rms(&signal[16_000..24_000]) - gain).abs() < 1e-3);
+            }
+        }
+    }
+
+    #[test]
+    fn causal_filter_gives_the_same_samples_in_blocks() {
+        let signal: Vec<f64> = (0..5_000).map(|n| ((n * 7919) % 101) as f64 / 50.0 - 1.0).collect();
+        let mut whole = signal.clone();
+        CausalFilter::new(input_highpass()).process(&mut whole);
+        let mut filter = CausalFilter::new(input_highpass());
+        let mut blocks = signal.clone();
+        for block in blocks.chunks_mut(777) {
+            filter.process(block);
+        }
+        assert_eq!(whole, blocks);
     }
 }

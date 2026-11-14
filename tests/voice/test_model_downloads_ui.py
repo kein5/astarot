@@ -180,8 +180,11 @@ def test_warning_consent_progress_cancel_and_no_activation(ui):
     dialog.get_by_role("checkbox").check()
     start.click()
     expect(page.get_by_role("progressbar")).to_be_visible()
+    # The readout spins while it downloads; a cancelled download ends without a check.
+    expect(page.locator("[data-model-download] [data-progress=working]")).to_have_count(1)
     page.get_by_role("button", name="Cancel download", exact=True).click()
     expect(page.get_by_text("Download cancelled.", exact=True)).to_be_visible()
+    expect(page.locator("[data-model-download] [data-progress]")).to_have_count(0)
     assert not any(
         ep in ("/run/start_speech_server", "/run/start_direct_voice", "/run/enable_tts")
         for ep, _ in peer.sent
@@ -202,6 +205,8 @@ def test_apply_requires_verified_completion_and_clean_draft(ui):
     reply("/get/data/model_download_state", state())
     apply = page.get_by_role("button", name="Apply model path", exact=True)
     expect(apply).to_be_enabled()
+    # Finishing while the page is open turns the spinner into a check that draws itself.
+    expect(page.locator("[data-model-download] [data-progress=done][data-arrived]")).to_have_count(1)
     field = page.get_by_label("Model GGUF path", exact=True)
     field.fill("/unsaved.gguf")
     expect(apply).to_be_disabled()

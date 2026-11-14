@@ -83,3 +83,6 @@ src-python/telemetry_keys.py
 
 # Fork release archives (including legacy candidates)
 /VRCT-VOX*.zip*
+
+# Written for one release build by tools/installer_package_hashes.py
+src-tauri/nsis/package-hashes.nsh
