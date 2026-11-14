@@ -89,6 +89,8 @@ The deb, rpm, AppImage and tar.gz all use the same locations.
 
 Every file has a `.sha256`, and `SHA256SUMS-*` lists them all. These check that a file is intact; they are not signatures.
 
+The Windows installer checks the ZIP it downloads by itself. From 0.3.0 it carries the SHA-256 of the ZIPs released with it, so it does not unpack a different ZIP even if files on the release page were replaced.
+
 On Linux, put `SHA256SUMS-linux` in the folder with your download and run:
 
 ```sh
