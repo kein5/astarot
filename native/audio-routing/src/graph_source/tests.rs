@@ -124,7 +124,13 @@ fn unavailable_observation_fails_readers() {
                 backend.set(Mode::Fail);
                 until(|| source.observation().data.is_none());
             }
-            "stale" => source.set_clock(Arc::new(move || first.captured + MAX_AGE)),
+            "stale" => {
+                // No new snapshot arrives, and time moves past the last one.
+                backend.set(Mode::Stall);
+                until(|| backend.stalled.load(Ordering::SeqCst) >= 1);
+                let offset = first.captured + MAX_AGE - monotonic();
+                source.set_clock(Arc::new(move || monotonic() + offset.max(0.0) + 0.01));
+            }
             _ => {
                 lock(&source.state).stop.set();
                 until(|| !source.is_running());
@@ -132,6 +138,7 @@ fn unavailable_observation_fails_readers() {
         }
         assert_eq!(source.read(false, None).unwrap_err(), GraphUnavailable, "{fault}");
         assert_eq!(source.read(true, None).unwrap_err(), GraphUnavailable, "{fault}");
+        backend.release.set();
         source.close();
     }
 }

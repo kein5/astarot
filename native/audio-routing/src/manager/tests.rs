@@ -167,6 +167,12 @@ fn concurrent_enable_does_not_start_two_monitoring_threads() {
         thread.join().unwrap();
     }
     gate.set();
+    // The monitoring thread registers asynchronously; give a second one time to appear.
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while backend.registered.load(Ordering::SeqCst) == 0 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    std::thread::sleep(Duration::from_millis(100));
     assert_eq!(backend.registered.load(Ordering::SeqCst), 1, "two monitoring threads started");
     shutdown(&manager);
 }
