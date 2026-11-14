@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use vrct_ops::downloads::hardware::HardwareProbe;
 use vrct_ops::json::Json;
+use vrct_ops::telemetry::hardware;
 
 /// The stand-in under a name that selects its behaviour. All copies are made once, before any
 /// test starts a child: a copy still open for writing while another thread forks would be
@@ -117,4 +118,19 @@ fn shutdown_escalates_if_owned_probe_ignores_termination() {
     assert!(ready.exists());
     assert!(probe.close(Duration::from_millis(500)));
     assert!(!probe.child_running());
+}
+
+#[test]
+fn telemetry_reads_the_same_list_and_gives_up_quietly() {
+    let rows = hardware::devices(&fake("ok"), Duration::from_secs(5)).unwrap();
+    assert_eq!(rows.iter().map(|r| r.kind.as_str()).collect::<Vec<_>>(), ["cpu", "gpu"]);
+    let summary = hardware::collect(Some(&fake("ok")), Duration::from_secs(5));
+    assert_eq!(summary.cpu.as_deref(), Some("host CPU"));
+    assert_eq!(summary.ram_gb, None);
+    let gpus = summary.gpus.unwrap();
+    assert_eq!((gpus[0].name.as_str(), gpus[0].kind.as_str(), gpus[0].vram_gb), ("test GPU", "gpu", Some(8)));
+    // A stalled or broken speech.cpp leaves only what the system itself tells.
+    let stalled = hardware::collect(Some(&fake("sleep")), Duration::from_millis(100));
+    assert!(stalled.cpu.is_none() && stalled.gpus.is_none());
+    assert!(hardware::collect(Some(&fake("fail")), Duration::from_secs(5)).gpus.is_none());
 }
