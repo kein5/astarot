@@ -130,15 +130,20 @@ pub trait MeterSource {
     fn poll(&mut self) -> Vec<Reading>;
 }
 
+/// An endpoint or its meter could not be read. The cause is not kept: the next
+/// poll simply tries again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EndpointFailed;
+
 /// The OS endpoints a [`MeterCache`] reads.
 pub trait Endpoints {
     type Device;
     type Meter;
     /// `(id, device)` of every active endpoint of the flow.
-    fn enumerate(&mut self) -> Result<Vec<(String, Self::Device)>, ()>;
+    fn enumerate(&mut self) -> Result<Vec<(String, Self::Device)>, EndpointFailed>;
     /// A meter and the friendly name of a newly seen endpoint.
-    fn activate(&mut self, device: &Self::Device) -> Result<(String, Self::Meter), ()>;
-    fn peak(&mut self, meter: &Self::Meter) -> Result<f32, ()>;
+    fn activate(&mut self, device: &Self::Device) -> Result<(String, Self::Meter), EndpointFailed>;
+    fn peak(&mut self, meter: &Self::Meter) -> Result<f32, EndpointFailed>;
 }
 
 /// Activates each endpoint's meter once and reuses it across polls.
@@ -181,7 +186,7 @@ impl<E: Endpoints> MeterSource for MeterCache<E> {
             let (name, meter) = &self.cache[&id];
             match self.endpoints.peak(meter) {
                 Ok(peak) => readings.push(Reading { id: id.clone(), name: name.clone(), peak }),
-                Err(()) => {
+                Err(EndpointFailed) => {
                     self.cache.remove(&id);
                 }
             }
@@ -434,22 +439,22 @@ mod tests {
 
     #[derive(Default)]
     struct FakeEndpoints {
-        devices: Vec<(&'static str, &'static str, Result<f32, ()>)>,
+        devices: Vec<(&'static str, &'static str, Result<f32, EndpointFailed>)>,
         activations: Vec<String>,
     }
 
     impl Endpoints for FakeEndpoints {
         type Device = usize;
         type Meter = &'static str;
-        fn enumerate(&mut self) -> Result<Vec<(String, usize)>, ()> {
+        fn enumerate(&mut self) -> Result<Vec<(String, usize)>, EndpointFailed> {
             Ok(self.devices.iter().enumerate().map(|(i, d)| (d.0.to_owned(), i)).collect())
         }
-        fn activate(&mut self, device: &usize) -> Result<(String, &'static str), ()> {
+        fn activate(&mut self, device: &usize) -> Result<(String, &'static str), EndpointFailed> {
             self.activations.push(self.devices[*device].0.to_owned());
             Ok((self.devices[*device].1.to_owned(), self.devices[*device].0))
         }
-        fn peak(&mut self, meter: &&'static str) -> Result<f32, ()> {
-            self.devices.iter().find(|d| d.0 == *meter).map_or(Err(()), |d| d.2)
+        fn peak(&mut self, meter: &&'static str) -> Result<f32, EndpointFailed> {
+            self.devices.iter().find(|d| d.0 == *meter).map_or(Err(EndpointFailed), |d| d.2)
         }
     }
 
@@ -473,7 +478,7 @@ mod tests {
 
     #[test]
     fn peak_failure_invalidates_the_entry() {
-        let mut cache = MeterCache::new(FakeEndpoints { devices: vec![("a", "A", Err(()))], ..Default::default() });
+        let mut cache = MeterCache::new(FakeEndpoints { devices: vec![("a", "A", Err(EndpointFailed))], ..Default::default() });
         assert!(cache.poll().is_empty());
         assert!(cache.cached_ids().is_empty());
         cache.endpoints.devices[0].2 = Ok(0.3);

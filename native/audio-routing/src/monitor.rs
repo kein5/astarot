@@ -69,7 +69,9 @@ pub fn scale_pcm(pcm: &[u8], volume: u8) -> Vec<u8> {
         return pcm.to_vec();
     }
     let volume = i32::from(volume);
-    pcm.chunks_exact(2)
+    pcm.as_chunks::<2>()
+        .0
+        .iter()
         .flat_map(|pair| {
             let sample = i32::from(i16::from_le_bytes([pair[0], pair[1]]));
             // Truncation toward zero, as Python's int() does.

@@ -636,5 +636,50 @@ fn random_hex() -> String {
     out
 }
 
+/// The device lists of this platform: WASAPI on Windows, PipeWire on Linux, and
+/// only the placeholders elsewhere.
+pub fn platform_backend(reporter: Arc<dyn Reporter>) -> Arc<dyn DeviceBackend> {
+    #[cfg(windows)]
+    {
+        Arc::new(crate::wasapi::WasapiBackend::new(reporter))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = reporter;
+        Arc::new(crate::pipewire::devices::PipeWireBackend)
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
+    {
+        let _ = reporter;
+        Arc::new(NullBackend)
+    }
+}
+
+/// No devices and no notifications.
+pub struct NullBackend;
+
+struct NoMeters;
+
+impl MeterFactory for NoMeters {
+    fn available(&self) -> bool {
+        false
+    }
+    fn open(&self, _: Flow) -> Option<Box<dyn crate::tracker::MeterSource>> {
+        None
+    }
+}
+
+impl DeviceBackend for NullBackend {
+    fn enumerate(&self) -> RawLists {
+        RawLists::none()
+    }
+    fn watch(&self, _: Arc<dyn Fn(Topology) + Send + Sync>) -> Option<Box<dyn Watch>> {
+        None
+    }
+    fn meters(&self) -> Arc<dyn MeterFactory> {
+        Arc::new(NoMeters)
+    }
+}
+
 #[cfg(test)]
 mod tests;

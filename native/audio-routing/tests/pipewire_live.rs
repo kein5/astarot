@@ -1,6 +1,7 @@
 //! Checks against the running PipeWire session. Ignored by default; run with
 //! `cargo test --test pipewire_live -- --ignored` on a Linux desktop.
 #![cfg(target_os = "linux")]
+#![allow(clippy::type_complexity)]
 
 use std::collections::BTreeMap;
 use std::process::Command;
@@ -138,4 +139,25 @@ fn stream_plays_to_an_explicit_sink_and_reports_its_loss() {
     };
     assert_eq!(error, Error::speech("output_disconnected"));
     output.close(false, &token).unwrap();
+}
+
+#[test]
+#[ignore = "needs a running PipeWire session"]
+fn device_manager_lists_the_same_inputs_as_the_graph() {
+    use std::sync::Arc;
+    use vrct_audio_routing::manager::{platform_backend, DeviceManager};
+    use vrct_audio_routing::report::StderrReporter;
+
+    let manager = DeviceManager::new(platform_backend(Arc::new(StderrReporter)), Arc::new(StderrReporter));
+    let data = read_graph(true, None).unwrap().data.unwrap();
+    let (devices, default) = graph::microphone_devices(&data);
+    let snapshot = manager.snapshot();
+    if devices.is_empty() {
+        assert_eq!(snapshot.mic_hosts(), ["NoHost"]);
+        return;
+    }
+    let listed = snapshot.mics("PipeWire").expect("PipeWire host");
+    assert_eq!(listed.iter().map(|d| d.name.clone()).collect::<Vec<_>>(), devices.iter().map(|d| d.name.clone()).collect::<Vec<_>>());
+    assert!(listed.iter().all(|d| d.id.as_deref() == Some(format!("pipewire:{}", d.node_name.as_deref().unwrap()).as_str())));
+    assert_eq!(snapshot.default_mic_device.device.node_name, default.unwrap().node_name);
 }

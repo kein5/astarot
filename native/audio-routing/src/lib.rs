@@ -6,20 +6,26 @@
 //! uses PipeWire, both through their native APIs. The crate never logs audio samples,
 //! text or device payloads.
 
+// Callbacks and factories are spelled out where they are used.
+#![allow(clippy::type_complexity)]
+
 pub mod error;
 pub mod graph;
 pub mod graph_source;
 pub mod identity;
 pub mod manager;
 pub mod monitor;
+pub mod mute_state;
 pub mod naming;
 #[cfg(target_os = "linux")]
 pub mod pipewire;
+pub mod process;
 pub mod report;
 pub mod router;
 pub mod snapshot;
 pub mod sync;
 pub mod tracker;
+pub mod voice_route;
 #[cfg(windows)]
 pub mod wasapi;
 pub mod windows_route;

@@ -31,7 +31,7 @@ use crate::naming::{crc32, is_virtual_cable, output_identity, WASAPI_HOST};
 use crate::report::Reporter;
 use crate::snapshot::{DefaultMic, Host, RawLists, LOOPBACK_SUFFIX};
 use crate::sync::audio_op_lock;
-use crate::tracker::{Endpoints, Flow, MeterCache, MeterFactory, MeterSource, Reading};
+use crate::tracker::{EndpointFailed, Endpoints, Flow, MeterCache, MeterFactory, MeterSource, Reading};
 
 /// PortAudio's index of the WASAPI host in PyAudioWPatch builds (MME, DirectSound,
 /// WASAPI, WDM-KS). Speaker identities carry it, so it must stay the same.
@@ -267,18 +267,18 @@ impl Endpoints for WasapiEndpoints {
     type Device = IMMDevice;
     type Meter = IAudioMeterInformation;
 
-    fn enumerate(&mut self) -> std::result::Result<Vec<(String, IMMDevice)>, ()> {
-        endpoints(&self.enumerator, self.flow).map_err(|_| ())
+    fn enumerate(&mut self) -> std::result::Result<Vec<(String, IMMDevice)>, EndpointFailed> {
+        endpoints(&self.enumerator, self.flow).map_err(|_| EndpointFailed)
     }
 
-    fn activate(&mut self, device: &IMMDevice) -> std::result::Result<(String, IAudioMeterInformation), ()> {
+    fn activate(&mut self, device: &IMMDevice) -> std::result::Result<(String, IAudioMeterInformation), EndpointFailed> {
         // An owned interface reference: the cached meter stays valid on this thread.
-        let meter: IAudioMeterInformation = unsafe { device.Activate(CLSCTX_ALL, None) }.map_err(|_| ())?;
-        Ok((friendly_name(device).map_err(|_| ())?, meter))
+        let meter: IAudioMeterInformation = unsafe { device.Activate(CLSCTX_ALL, None) }.map_err(|_| EndpointFailed)?;
+        Ok((friendly_name(device).map_err(|_| EndpointFailed)?, meter))
     }
 
-    fn peak(&mut self, meter: &IAudioMeterInformation) -> std::result::Result<f32, ()> {
-        unsafe { meter.GetPeakValue() }.map_err(|_| ())
+    fn peak(&mut self, meter: &IAudioMeterInformation) -> std::result::Result<f32, EndpointFailed> {
+        unsafe { meter.GetPeakValue() }.map_err(|_| EndpointFailed)
     }
 }
 
