@@ -43,5 +43,99 @@ fn native_snapshot_agrees_with_pw_dump() {
     assert_eq!(Some(cores[0]["info"]["cookie"].clone()), dumped_cookie);
     assert_eq!(graph::default_output(&native).ok(), graph::default_output(&dumped).ok());
     assert_eq!(graph::microphone_devices(&native), graph::microphone_devices(&dumped));
-    assert_eq!(graph::enumerate_outputs(&native), graph::enumerate_outputs(&dumped));
+    // Another test may add its temporary sink between the two reads.
+    let outputs = |data: &[Value]| graph::enumerate_outputs(data).unwrap().into_iter().filter(|o| !o.id.starts_with("vrct.test.")).collect::<Vec<_>>();
+    assert_eq!(outputs(&native), outputs(&dumped));
+}
+
+/// A temporary silent sink, owned by a connection on its own thread. It disappears
+/// when the returned sender is dropped.
+fn null_sink(name: &str) -> std::sync::mpsc::Sender<()> {
+    use pipewire as pw;
+    let (stop, stopped) = std::sync::mpsc::channel::<()>();
+    let (ready, started) = std::sync::mpsc::channel();
+    let name = name.to_owned();
+    std::thread::spawn(move || {
+        pw::init();
+        let mainloop = pw::main_loop::MainLoopRc::new(None).unwrap();
+        let context = pw::context::ContextRc::new(&mainloop, None).unwrap();
+        let core = context.connect_rc(None).unwrap();
+        let _node: pw::node::Node = core
+            .create_object(
+                "adapter",
+                &pw::properties::properties! {
+                    "factory.name" => "support.null-audio-sink",
+                    "node.name" => name.as_str(),
+                    "media.class" => "Audio/Sink",
+                    "audio.channels" => "1",
+                    "object.linger" => "false",
+                },
+            )
+            .unwrap();
+        let mut announced = false;
+        loop {
+            mainloop.loop_().iterate(pw::loop_::Timeout::Finite(std::time::Duration::from_millis(10)));
+            if !announced {
+                announced = true;
+                ready.send(()).unwrap();
+            }
+            if !matches!(stopped.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)) {
+                break;
+            }
+        }
+    });
+    started.recv().unwrap();
+    stop
+}
+
+fn wait_for_sink(name: &str) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while std::time::Instant::now() < deadline {
+        if let Ok(outputs) = vrct_audio_routing::pipewire::output::enumerate_outputs() {
+            if outputs.iter().any(|o| o.id == name) {
+                return;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    panic!("test sink did not appear");
+}
+
+#[test]
+#[ignore = "needs a running PipeWire session"]
+fn stream_plays_to_an_explicit_sink_and_reports_its_loss() {
+    use vrct_audio_routing::pipewire::output::PipeWireOutput;
+    use vrct_audio_routing::router::{CancelToken, Output};
+    use vrct_audio_routing::Error;
+
+    let missing = PipeWireOutput::open("vrct.test.absent", 24000, 1, None, "vrct.tts");
+    assert_eq!(missing.err(), Some(Error::speech("output_missing")));
+
+    let name = format!("vrct.test.sink.{}", std::process::id());
+    let sink = null_sink(&name);
+    wait_for_sink(&name);
+    let token = CancelToken::default();
+    let mut output = PipeWireOutput::open(&name, 24000, 1, None, "vrct.tts").expect("open");
+    let silence = vec![0u8; 480];
+    let started = std::time::Instant::now();
+    for _ in 0..25 {
+        output.write(&silence, &token).expect("write");
+    }
+    // 250 ms of audio through an 85 ms buffer: the writes waited for playback.
+    assert!(started.elapsed() >= std::time::Duration::from_millis(100), "{:?}", started.elapsed());
+    output.close(true, &token).expect("drain");
+
+    let mut output = PipeWireOutput::open(&name, 24000, 1, None, "vrct.tts").expect("open");
+    output.write(&silence, &token).expect("write");
+    drop(sink);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    let error = loop {
+        match output.write(&silence, &token) {
+            Err(error) => break error,
+            Ok(()) if std::time::Instant::now() < deadline => continue,
+            Ok(()) => panic!("loss not reported"),
+        }
+    };
+    assert_eq!(error, Error::speech("output_disconnected"));
+    output.close(false, &token).unwrap();
 }

@@ -1,6 +1,7 @@
 //! Linux: the PipeWire session through its native client API.
 
 pub mod observer;
+pub mod output;
 
 use std::sync::{Arc, OnceLock};
 

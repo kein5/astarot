@@ -18,6 +18,10 @@ pub trait Reporter: Send + Sync {
     fn report_error_code(&self, code: &str) {
         let _ = code;
     }
+    /// A user-visible feature failed (`report_failure`): feature and code only.
+    fn report_failure(&self, feature: &str, code: &str) {
+        let _ = (feature, code);
+    }
 }
 
 /// Writes log lines to standard error.

@@ -11,12 +11,17 @@ pub mod graph;
 pub mod graph_source;
 pub mod identity;
 pub mod manager;
+pub mod monitor;
 pub mod naming;
 #[cfg(target_os = "linux")]
 pub mod pipewire;
 pub mod report;
+pub mod router;
 pub mod snapshot;
 pub mod sync;
 pub mod tracker;
+#[cfg(windows)]
+pub mod wasapi;
+pub mod windows_route;
 
 pub use error::{Error, Kind, Result};
