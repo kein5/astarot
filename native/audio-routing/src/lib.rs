@@ -7,8 +7,13 @@
 //! text or device payloads.
 
 pub mod error;
+pub mod graph;
+pub mod graph_source;
 pub mod identity;
 pub mod manager;
+pub mod naming;
+#[cfg(target_os = "linux")]
+pub mod pipewire;
 pub mod report;
 pub mod snapshot;
 pub mod sync;

@@ -153,6 +153,11 @@ impl Worker {
         !self.done.is_set()
     }
 
+    /// Whether both handles refer to one thread.
+    pub fn same(&self, other: &Worker) -> bool {
+        Arc::ptr_eq(&self.done, &other.done)
+    }
+
     /// Whether the thread ended within `timeout`.
     pub fn join(&self, timeout: Duration) -> bool {
         self.done.wait(timeout)
