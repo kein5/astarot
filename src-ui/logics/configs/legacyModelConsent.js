@@ -23,3 +23,21 @@ export const clearLegacyDownloadFailure = (rows, data) => rows.map(item =>
         && (!item.job_id || !data?.job_id || item.job_id === data.job_id)
         ? { ...item, is_pending: false, is_downloaded: false, progress: null }
         : item);
+
+// Why a legacy download failed, as the backend reports it (a fixed code, never a
+// path or an exception text), and whether trying again can help. Codes shared with
+// the catalog downloads reuse their text; the rest are legacy only.
+const SHARED_REASONS = new Set(["download_busy", "download_failed", "downloads_closed", "hash_mismatch",
+    "insufficient_space", "size_mismatch", "unsafe_destination"]);
+const LEGACY_REASONS = new Set(["cancelled", "download_deadline", "verification_failed"]);
+// Another download of the same model is running, or the backend is closing: a retry now would be refused.
+const NOT_RETRYABLE = new Set(["download_busy", "downloads_closed"]);
+export const legacyDownloadFailure = data => {
+    const reason = typeof data?.reason === "string" ? data.reason : "";
+    const reasonKey = SHARED_REASONS.has(reason) ? `model_downloads.errors.${reason}`
+        : LEGACY_REASONS.has(reason) ? `legacy_model_downloads.errors.${reason}`
+            : "model_downloads.errors.download_failed";
+    const retryable = typeof data?.weight_type === "string" && data.weight_type !== ""
+        && !data?.active_job_id && !NOT_RETRYABLE.has(reason);
+    return { reasonKey, retryable };
+};

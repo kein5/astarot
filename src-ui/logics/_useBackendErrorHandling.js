@@ -31,7 +31,8 @@ import {
     useAdvancedSettings,
 } from "@logics_configs";
 import { ui_configs } from "./ui_configs";
-import { clearLegacyConsentPending, clearLegacyDownloadFailure } from "./configs/legacyModelConsent";
+import { clearLegacyConsentPending, clearLegacyDownloadFailure, legacyDownloadFailure } from "./configs/legacyModelConsent";
+import noticeStyles from "./common/noticeAction.module.scss";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "./configs/cloudTranscription";
 
 const OCR_ERROR_KEYS = {
@@ -62,9 +63,18 @@ const EndpointUrlErrorNotice = ({ translationKey, fallback }) => {
     return i18n.exists(translationKey) ? t(translationKey) : fallback;
 };
 
+// A failed download says why and offers to try again where the user is. Retrying
+// reopens the review for that model, so the download still starts from consent.
+const DownloadFailureNotice = ({ titleKey, reasonKey, onRetry }) => {
+    const { t } = useI18n();
+    return createElement("span", { className: noticeStyles.notice },
+        createElement("span", null, `${t(titleKey)} ${t(reasonKey)}`),
+        onRetry && createElement("button", { type: "button", className: noticeStyles.action, onClick: onRetry }, t("common_error.retry_download")));
+};
+
 export const _useBackendErrorHandling = () => {
     const { t, i18n } = useI18n();
-    const { showNotification_Error, showNotification_Warning } = useNotificationStatus();
+    const { showNotification_Error, showNotification_Warning, dismissNotification } = useNotificationStatus();
     const { asyncStdoutToPython } = useStdoutToPython();
     const { updateIsSoftwareUpdating } = useIsSoftwareUpdating();
 
@@ -316,10 +326,19 @@ export const _useBackendErrorHandling = () => {
                 showNotification_Warning(t(data?.startup ? "legacy_model_downloads.startup_skipped" : "backend_errors.WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
                     { model: data?.weight_type }), { category_id: `${error_code}:${data?.kind}:${data?.weight_type}`, hide_duration: null });
                 return;
-            case "WEIGHT_CTRANSLATE2_DOWNLOAD":
+            case "WEIGHT_CTRANSLATE2_DOWNLOAD": {
                 updateCTranslate2WeightTypeStatus(old => clearLegacyDownloadFailure(old.data, data));
-                showNotification_Error(t("common_error.failed_download_weight_ctranslate2"), { category_id: error_code });
+                // CTranslate2 goes away with #288; this only keeps today's users from a dead end.
+                const { reasonKey, retryable } = legacyDownloadFailure(data);
+                const category_id = `${error_code}:${data?.weight_type}`;
+                const onRetry = retryable ? () => { dismissNotification(category_id); translationSetup.open(false, data.weight_type); } : null;
+                // A notice that never hides keeps its id; close an older one so this one shows its reason.
+                dismissNotification(category_id);
+                showNotification_Error(createElement(DownloadFailureNotice, {
+                    titleKey: "common_error.failed_download_weight_ctranslate2", reasonKey, onRetry,
+                }), { category_id, hide_duration: onRetry ? null : undefined });
                 return;
+            }
             case "WEIGHT_WHISPER_DOWNLOAD":
                 transcription.updateWhisperWeightTypeStatus(old => clearLegacyDownloadFailure(old.data, data));
                 showNotification_Error(t("common_error.failed_download_weight_whisper"), { category_id: error_code });

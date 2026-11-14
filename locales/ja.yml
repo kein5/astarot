@@ -195,6 +195,7 @@ common_error:
     copy_to_clipboard_failed: "クリップボードへのコピーに失敗しました。"
     threshold_invalid_value: "{{min}}から{{max}}までの数値で設定できます。"
     failed_download_weight_ctranslate2: "CTranslate2モデルのダウンロードに失敗しました。"
+    retry_download: "確認して再試行"
     failed_download_weight_whisper: "Whisperモデルのダウンロードに失敗しました。"
     failed_update_software: "インストーラのダウンロードに失敗しました。しばらくしてからもう一度お試しください。"
     failed_update_software_verify: "ダウンロードしたインストーラが、公開されているチェックサムと一致しなかったため、更新を中止しました。"
@@ -1617,6 +1618,10 @@ studio:
     close: "アプリを閉じる"
 
 legacy_model_downloads:
+    errors:
+        cancelled: "取得を中止しました。設定は変更していません。"
+        download_deadline: "時間内に取得を完了できませんでした。設定は変更していません。接続を確認して再試行してください。"
+        verification_failed: "取得したファイルを確かめられませんでした。設定は変更していません。再試行してください。"
     progress_name: "{{model}} のダウンロード"
     progress_pending: "{{model}} のダウンロードを準備しています。"
     progress_downloading: "{{model}} をダウンロード中です（{{progress}}%）。"

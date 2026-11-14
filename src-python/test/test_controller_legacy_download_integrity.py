@@ -175,3 +175,18 @@ def test_shutdown_revokes_then_signals_both_owners_before_any_join(app):
         assert order == ["close", "signal:catalog", "signal:legacy", "join:catalog", "join:legacy"]
     finally:
         controller.legacy_downloads = original
+
+
+@pytest.mark.parametrize("kind", ["whisper", "ctranslate2"])
+def test_rejected_request_reports_only_a_fixed_reason(app, monkeypatch, kind):
+    # Issue #305: the UI shows the reason; an unexpected exception text (it may name a path) is not sent.
+    controller, _, _ = app
+    weight = "base" if kind == "whisper" else "m2m100_418M-ct2-int8"
+    monkeypatch.setattr(controller.legacy_downloads, "start",
+        Mock(side_effect=RuntimeError("can't start new thread in C:\\Users\\someone")))
+    method = controller.downloadWhisperWeight if kind == "whisper" else controller.downloadCtranslate2Weight
+    response = method({"weight_type": weight, "consent": True,
+        "manifest_version": legacyModelReview(kind, weight)["manifest_version"]})
+    assert response["status"] == 400
+    assert response["result"]["data"]["reason"] == "download_failed"
+    controller.run.assert_not_called()

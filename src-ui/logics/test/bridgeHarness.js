@@ -112,5 +112,5 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./common/settingsWriteResponses.js": settingsResponses,
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
-    return { ...subject, notices, reads, ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), ...runtime.render(routes.useReceiveRoutes) };
+    return { ...subject, notices, reads, ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup), ...runtime.render(routes.useReceiveRoutes) };
 };
