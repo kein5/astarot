@@ -138,7 +138,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {entry.target === "asr" && <p>{t("model_downloads.asr_requirements")}</p>}
                 {entry.target === "vad" && <p>{t("model_downloads.vad_requirements")}</p>}
                 {entry.target === "diarization" && <p>{t("model_downloads.diarization_requirements")}</p>}
-                {job && <EnvReadout tone={job.phase === "ready" ? "active" : job.phase === "failed" ? "failed" : "neutral"}>
+                {job && <EnvReadout tone={job.phase === "ready" ? "active" : job.phase === "failed" ? "failed" : "neutral"}
+                    progress={active && job.phase !== "cancelling" ? "working" : ["ready", "applied"].includes(job.phase) ? "done" : undefined}>
                     <p>{t(`model_downloads.phase_${job.phase}`)}{active && ` · ${gib(job.received_bytes)} / ${gib(job.total_bytes)}`}</p>
                 </EnvReadout>}
                 {/* The bar spans the entry under its readout; the actions share one row below. */}

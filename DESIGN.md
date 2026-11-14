@@ -142,6 +142,12 @@ Controls have gently curved edges; the composer has a slightly larger radius. Pr
 
 Native buttons carry actions and accessible names. Focus rings remain visible, native checkbox state remains recognizable, and select menus use the dark scheme. Settings transfer focus into their navigation and back to the settings trigger. Transitions are short (about 120 ms) and disabled under reduced-motion preferences; a pressed control changes color at once, without a transition. An action that waits on the engine shows its pending state as soon as it is pressed and ignores repeat presses until it settles.
 
+Motion uses the tokens in `variables.css`: `--vox_motion_fast` (120 ms), `--vox_motion` (220 ms), `--vox_ease`, and `--vox_ease_settle`, which overshoots by at most 2%. It shows where something comes from or that it worked, never decoration:
+
+- A dropdown's list drops from its field and settles, with its first rows following one another. On engines that can style a select's list (WebView2), the forms' native selects open the same way and still open below the field when it fits; WebKitGTK keeps its system list.
+- Work that ends in success (a model download, a runtime setup, a server start) has a mark before its readout's words: an arc that spins while it runs, then a blue disc with a check that draws itself if it finished while the page was open.
+- A path field that takes files can have a drop place above it (`FileDropZone`). It wakes while files are dragged over the window, lifts under the pointer, and on a drop fills the fields and says what went where. The fields stay the way to type a path, and the save bar stays the way to save.
+
 Quick Chat and the VR panel inherit shared colors without changing input/audio contracts. TTS/RVC/download forms share field, action and status styling. A persistent saved compact-mode preference remains separate from the temporary narrow-window layout.
 
 ## The user guide (site/)

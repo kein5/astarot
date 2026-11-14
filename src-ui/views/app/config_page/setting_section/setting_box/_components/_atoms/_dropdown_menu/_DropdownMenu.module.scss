@@ -46,15 +46,24 @@
     &.open_below {
         top: calc(100% + 0.4rem);
         bottom: auto;
+        transform-origin: top;
     }
 
     &.open_above {
         bottom: calc(100% + 0.4rem);
         top: auto;
+        transform-origin: bottom;
     }
 
+    // The menu drops from the field and settles; its rows follow one after another.
     &.is_opened {
         display: block;
+        animation: dropdown_open var(--vox_motion) var(--vox_ease_settle);
+        &.open_above { animation-name: dropdown_open_above; }
+        .value_button { animation: dropdown_row var(--vox_motion) var(--vox_ease) both; }
+        @for $row from 2 through 8 {
+            .value_button:nth-child(#{$row}) { animation-delay: ($row - 1) * 15ms; }
+        }
     }
     &.is_disabled {
         pointer-events: none;
@@ -112,8 +121,13 @@
     top: 50%;
     right: 0;
     transform: translate(-50%, -50%) rotate(-90deg);
+    transition: transform var(--vox_motion) var(--vox_ease_settle);
     width: 1.4rem;
     &.is_opened {
         transform: translate(-50%, -50%) rotate(90deg);
     }
 }
+
+@keyframes dropdown_open { from { opacity: 0; transform: translateY(-0.6rem) scaleY(0.94); } }
+@keyframes dropdown_open_above { from { opacity: 0; transform: translateY(0.6rem) scaleY(0.94); } }
+@keyframes dropdown_row { from { opacity: 0; transform: translateY(-0.4rem); } }

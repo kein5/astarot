@@ -1311,11 +1311,22 @@ fork_distribution:
     update_policy: "Built-in updates are disabled. Update through the channel from which you installed VRCT-VOX."
     releases: "VRCT-VOX releases"
 
+# A place in a settings form to drop files from the desktop (FileDropZone).
+file_drop:
+    title: "Drop a {{kinds}} file here"
+    drop_here: "Drop it here ({{kinds}})"
+    release: "Release to enter the path"
+    wrong_kind: "Only {{kinds}} files go here"
+    done: "Entered {{names}}"
+    save_hint: "Save to use it."
+    done_skipped: "Other files were left out. Save to use it."
+
 voice_ui:
     check_needs_url: "Enter and save the server URL to check"
     check_needs_server: "Start the bundled server to check"
     setup_rvc: "Models and runtime"
     setup_input: "Input forwarding setup"
+    rvc_drop_hint: "A .pth file goes into the model field and an .index file into the index field."
     runtime_set: "Runtime set"
     runtime_unset: "No runtime set"
     mic_ready: "Virtual mic ready"
