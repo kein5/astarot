@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use common::*;
 use vrct_tts::playback::{Frames, Monitor};
 use vrct_tts::scheduler::{BusOptions, MonitorFactory, MonitorRequest, Synthesizer};
-use vrct_tts::settings::VoiceSettings;
+use vrct_tts::settings::{SpeechRequest, VoiceSettings};
 use vrct_tts::sync::Event;
 use vrct_tts::{AudioFrame, CancelToken, Source, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
 
@@ -131,7 +131,7 @@ impl Monitor for Tee {
 struct Ten;
 
 impl Synthesizer for Ten {
-    fn synthesize_stream(&self, _: &str, _: &str, _: &str, _: &CancelToken, _: &SynthesisOptions) -> Result<Frames, TtsError> {
+    fn synthesize_stream(&self, _: &SpeechRequest, _: &CancelToken, _: &SynthesisOptions) -> Result<Frames, TtsError> {
         // 100 ms: ten 10 ms blocks.
         Ok(Box::new(std::iter::once(Ok(AudioFrame::mono([1u8, 0].repeat(4800), 48000).unwrap()))))
     }
@@ -437,5 +437,66 @@ fn a_failing_monitor_is_a_notice_not_a_speech_error() {
     assert!(bus.publish(chat("two"), None, None));
     until2(|| bus.status().completed == 2);
     assert_eq!(*reports.lock().unwrap(), vec!["monitor_output_error", "monitor_device_lost", "monitor_output_error"]);
+    assert!(bus.close(Duration::from_secs(2)));
+}
+
+/// A monitor that reports from inside `close`, as a device failing to close
+/// might, and keeps its device until `released`.
+struct ReportingMonitor {
+    on_error: Arc<dyn Fn(&str) + Send + Sync>,
+    released: Event,
+}
+
+impl Monitor for ReportingMonitor {
+    fn offer(&self, _pcm: &[u8], _rate: u32, _channels: u16) {}
+
+    fn close(&self, drain: bool) {
+        if !drain {
+            (self.on_error)("monitor_output_error");
+        }
+    }
+
+    fn join(&self, _timeout: Duration) -> bool {
+        self.released.is_set()
+    }
+}
+
+#[test]
+fn a_monitor_may_report_while_it_is_being_silenced() {
+    let released = Event::new();
+    let reports: Arc<Mutex<Vec<String>>> = Arc::default();
+    let mut options = BusOptions::new(router(&Sink::default()).0);
+    options.provider_factory = Arc::new(|_: &str| -> Result<Box<dyn Synthesizer>, TtsError> { Ok(Box::new(Ten)) });
+    let factory_released = released.clone();
+    options.monitor_factory =
+        Some(Arc::new(move |request: MonitorRequest| -> Result<Arc<dyn Monitor>, TtsError> { Ok(Arc::new(ReportingMonitor { on_error: request.on_error, released: factory_released.clone() })) }));
+    let record = reports.clone();
+    options.on_monitor_error = Some(Arc::new(move |code: &str| record.lock().unwrap().push(code.to_owned())));
+    let settings = VoiceSettings { mode: "original".into(), output_device: "cable".into(), monitor: "on".into(), ..Default::default() };
+    let bus = Arc::new(VoiceEventBus::new(settings, options));
+    for (index, action) in ["cancel_source", "stop", "configure", "close"].into_iter().enumerate() {
+        if action != "close" {
+            assert!(bus.publish(chat_event(action), None, None));
+            until2(|| bus.status().completed == index as u64 + 1 && !bus.status().active);
+        }
+        assert!(bus.monitor_count() > 0, "the monitor is still owned");
+        let worker = {
+            let bus = bus.clone();
+            thread::spawn(move || match action {
+                "cancel_source" => bus.cancel_source(&Source::Chat),
+                "stop" => bus.cancel(),
+                "configure" => bus.configure((*bus.settings()).clone()),
+                _ => assert!(!bus.close(Duration::from_millis(50))),
+            })
+        };
+        let started = Instant::now();
+        while !worker.is_finished() {
+            assert!(started.elapsed() < Duration::from_secs(2), "{action} blocked on the monitor's report");
+            thread::sleep(Duration::from_millis(5));
+        }
+        worker.join().unwrap();
+    }
+    assert!(reports.lock().unwrap().len() >= 4);
+    released.set();
     assert!(bus.close(Duration::from_secs(2)));
 }

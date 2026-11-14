@@ -159,13 +159,49 @@ impl Platform {
 /// Gives a running bundled server's base URL for a role.
 pub type ServerResolver<'a> = &'a dyn Fn(&str) -> Result<String, TtsError>;
 
+/// Engines that can read Japanese (ADR-008). The app only connects to an
+/// installed engine on this PC; it never installs, starts or bundles one.
+pub const ENGINES: &[&str] = &["speechcpp", "voicevox", "coeiroink", "aivis", "sharevox"];
+
+/// The speech.cpp engine.
+pub const SPEECHCPP: &str = "speechcpp";
+
+/// `[0-9]{1,9}` or `[0-9A-Fa-f-]{1,64}:[0-9]{1,9}`: a style id, or a speaker UUID and style id.
+fn valid_engine_voice_id(id: &str) -> bool {
+    let digits = |part: &str| (1..=9).contains(&part.len()) && part.bytes().all(|b| b.is_ascii_digit());
+    match id.split_once(':') {
+        None => digits(id),
+        Some((speaker, style)) => (1..=64).contains(&speaker.len()) && speaker.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-') && digits(style),
+    }
+}
+
+/// A voice saved for an installed engine: its id plus the names it had, to
+/// find it again if an engine update changes the id.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EngineVoice {
+    pub id: String,
+    pub speaker: String,
+    pub style: String,
+}
+
 /// One speech request chosen from the settings for one message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpeechRequest {
     pub url: String,
+    /// The speech.cpp voice, or the installed engine's voice id.
     pub voice: String,
     pub language: &'static str,
     pub text: String,
+    /// `speechcpp`, or the installed engine that reads this Japanese text.
+    pub engine: &'static str,
+    /// The saved voice, for an installed engine.
+    pub engine_voice: Option<EngineVoice>,
+}
+
+impl SpeechRequest {
+    fn speechcpp(url: String, voice: &str, language: &'static str, text: String) -> Self {
+        Self { url, voice: voice.to_owned(), language, text, engine: SPEECHCPP, engine_voice: None }
+    }
 }
 
 macro_rules! voice_settings {
@@ -215,6 +251,15 @@ voice_settings! {
     monitor_device = "",           // "" is the OS default output
     monitor_volume = "100",        // 0-100 percent, attenuation only
     conversion = "off",            // off | on: speak through the running voice conversion (ADR-007)
+    // Which engine reads Japanese, its URL, and the voice chosen in it (ADR-008).
+    japanese_engine = "speechcpp", // speechcpp | voicevox | coeiroink | aivis | sharevox
+    voicevox_url = "http://127.0.0.1:50021",
+    coeiroink_url = "http://127.0.0.1:50032",
+    aivis_url = "http://127.0.0.1:10101",
+    sharevox_url = "http://127.0.0.1:50025",
+    engine_voice_id = "",
+    engine_voice_speaker = "",
+    engine_voice_style = "",
 }
 
 impl VoiceSettings {
@@ -284,6 +329,20 @@ impl VoiceSettings {
         if !self.multilingual_url.is_empty() {
             local_url(&self.multilingual_url)?;
         }
+        if !ENGINES.contains(&self.japanese_engine.as_str()) {
+            return Err(SettingsError("Unknown speech engine"));
+        }
+        for url in [&self.voicevox_url, &self.coeiroink_url, &self.aivis_url, &self.sharevox_url] {
+            local_url(url)?;
+        }
+        if !self.engine_voice_id.is_empty() && !valid_engine_voice_id(&self.engine_voice_id) {
+            return Err(SettingsError("Invalid engine voice"));
+        }
+        for name in [&self.engine_voice_speaker, &self.engine_voice_style] {
+            if name.chars().count() > 128 || name.chars().any(|c| (c as u32) < 32 || c as u32 == 127) {
+                return Err(SettingsError("Invalid engine voice name"));
+            }
+        }
         for voice in [&self.japanese_voice, &self.multilingual_voice] {
             if is_blank(voice) || voice.chars().count() > 128 || has_control(voice) {
                 return Err(SettingsError("Invalid voice name"));
@@ -314,9 +373,30 @@ impl VoiceSettings {
         Ok(())
     }
 
+    /// The engine that reads `language`: an installed engine for Japanese, else speech.cpp.
+    pub fn engine_for(&self, language: &str) -> Result<&'static str, SettingsError> {
+        if language_tag(language)? != "ja" {
+            return Ok(SPEECHCPP);
+        }
+        ENGINES.iter().copied().find(|engine| *engine == self.japanese_engine).ok_or(SettingsError("Unknown speech engine"))
+    }
+
+    fn engine_url(&self, engine: &str) -> &str {
+        match engine {
+            "voicevox" => &self.voicevox_url,
+            "coeiroink" => &self.coeiroink_url,
+            "aivis" => &self.aivis_url,
+            _ => &self.sharevox_url,
+        }
+    }
+
     /// The seed and instructions for the server that speaks `language`.
+    /// None for an installed engine: they are speech.cpp's.
     pub fn options_for(&self, language: &str) -> Result<SynthesisOptions, SettingsError> {
         let japanese = language_tag(language)? == "ja";
+        if self.engine_for(language)? != SPEECHCPP {
+            return Ok(SynthesisOptions::default());
+        }
         let (seed, instructions) = if japanese { (&self.japanese_seed, &self.japanese_instructions) } else { (&self.multilingual_seed, &self.multilingual_instructions) };
         Ok(SynthesisOptions {
             // Validated: at most 16 ASCII digits and not above SAFE_SEED_MAX.
@@ -348,22 +428,31 @@ impl VoiceSettings {
         };
         let language = language_tag(language.as_deref().unwrap_or(""))?;
         let japanese = language == "ja";
+        let engine = self.engine_for(language)?;
+        if engine != SPEECHCPP {
+            if self.engine_voice_id.is_empty() {
+                // A safe code the user can act on.
+                return Err(crate::error::SpeechError::new("tts_engine_voice_unset").into());
+            }
+            let voice = EngineVoice { id: self.engine_voice_id.clone(), speaker: self.engine_voice_speaker.clone(), style: self.engine_voice_style.clone() };
+            return Ok(SpeechRequest { url: local_url(self.engine_url(engine))?, voice: voice.id.clone(), language, text, engine, engine_voice: Some(voice) });
+        }
         let (server, voice) = if japanese { (&self.japanese_server, &self.japanese_voice) } else { (&self.multilingual_server, &self.multilingual_voice) };
         if server == "bundled" {
             let resolve = resolve_server.ok_or(SettingsError("speech_server_not_ready"))?;
             let url = local_url(&resolve(if japanese { "japanese" } else { "multilingual" })?)?;
-            return Ok(SpeechRequest { url, voice: voice.clone(), language, text });
+            return Ok(SpeechRequest::speechcpp(url, voice, language, text));
         }
         if japanese {
-            return Ok(SpeechRequest { url: self.japanese_url.clone(), voice: voice.clone(), language, text });
+            return Ok(SpeechRequest::speechcpp(self.japanese_url.clone(), voice, language, text));
         }
         if self.multilingual_url.is_empty() {
             return Err(SettingsError("Configure a separate Qwen3-TTS server for this language").into());
         }
-        if self.japanese_server == "external" && local_url(&self.multilingual_url)? == local_url(&self.japanese_url)? {
+        if self.japanese_engine == SPEECHCPP && self.japanese_server == "external" && local_url(&self.multilingual_url)? == local_url(&self.japanese_url)? {
             return Err(SettingsError("Japanese and multilingual TTS require separate servers").into());
         }
-        Ok(SpeechRequest { url: self.multilingual_url.clone(), voice: voice.clone(), language, text })
+        Ok(SpeechRequest::speechcpp(self.multilingual_url.clone(), voice, language, text))
     }
 }
 
@@ -439,7 +528,7 @@ mod tests {
         let mut value = original.to_value();
         value["multilingual_url"] = json!("http://127.0.0.1:8081");
         let multilingual = settings(value.clone());
-        assert_eq!(multilingual.request_for(&en, None).unwrap(), SpeechRequest { url: "http://127.0.0.1:8081".into(), voice: "ryan".into(), language: "en", text: "hello".into() });
+        assert_eq!(multilingual.request_for(&en, None).unwrap(), SpeechRequest::speechcpp("http://127.0.0.1:8081".into(), "ryan", "en", "hello".into()));
         value["mode"] = json!("translated");
         // No fallback to the original text.
         assert!(settings(value).request_for(&ja, None).is_err());
@@ -497,10 +586,7 @@ mod tests {
         assert_eq!(mic_settings.mode, "off");
         assert_eq!(mic_settings.direct_policy, "suppress");
         assert_eq!(settings(mic_settings.to_value()), mic_settings);
-        assert_eq!(
-            mic_settings.request_for(&mic(Some("Hello"), "en"), None).unwrap(),
-            SpeechRequest { url: "http://127.0.0.1:8081".into(), voice: "ryan".into(), language: "en", text: "Hello".into() }
-        );
+        assert_eq!(mic_settings.request_for(&mic(Some("Hello"), "en"), None).unwrap(), SpeechRequest::speechcpp("http://127.0.0.1:8081".into(), "ryan", "en", "Hello".into()));
         assert!(mic_settings.request_for(&mic(None, "en"), None).is_err());
         assert!(VoiceSettings::default().request_for(&mic(Some("Hello"), "en"), None).is_err());
     }
@@ -565,6 +651,55 @@ mod tests {
         let value = "声\n".repeat(2000);
         assert_eq!(settings(json!({"japanese_instructions": value})).options_for("ja").unwrap().instructions, value);
         assert_eq!(settings(json!({"japanese_instructions": " \n"})).options_for("ja").unwrap().instructions, "");
+    }
+
+    #[test]
+    fn engine_settings_default_to_speechcpp_and_keep_older_files_readable() {
+        let value = settings(json!({"mode": "original", "output_device": "cable"}));
+        assert_eq!((value.japanese_engine.as_str(), value.engine_voice_id.as_str()), ("speechcpp", ""));
+        assert_eq!((value.voicevox_url.as_str(), value.coeiroink_url.as_str()), ("http://127.0.0.1:50021", "http://127.0.0.1:50032"));
+    }
+
+    #[test]
+    fn japanese_goes_to_the_chosen_engine_and_other_languages_stay_on_speechcpp() {
+        let value = settings(json!({"mode": "original", "output_device": "cable", "japanese_engine": "voicevox",
+            "engine_voice_id": "3", "engine_voice_speaker": "ずんだもん", "engine_voice_style": "ノーマル",
+            "japanese_seed": "7", "multilingual_url": "http://localhost:8080"}));
+        let request = value.request_for(&chat("こんにちは", "Japanese"), None).unwrap();
+        assert_eq!((request.url.as_str(), request.language, request.engine), ("http://127.0.0.1:50021", "ja", "voicevox"));
+        assert_eq!(request.engine_voice, Some(EngineVoice { id: "3".into(), speaker: "ずんだもん".into(), style: "ノーマル".into() }));
+        assert_eq!((value.engine_for("Japanese").unwrap(), value.engine_for("English").unwrap()), ("voicevox", "speechcpp"));
+        assert_eq!(value.options_for("Japanese").unwrap(), SynthesisOptions::default(), "the seed is speech.cpp's");
+        // The Japanese speech.cpp URL is unused, so sharing it with the multilingual one is allowed.
+        let english = value.request_for(&chat("hello", "English"), None).unwrap();
+        assert_eq!(english, SpeechRequest::speechcpp("http://localhost:8080".into(), "ryan", "en", "hello".into()));
+    }
+
+    #[test]
+    fn an_engine_without_a_chosen_voice_fails_with_a_code_the_ui_can_explain() {
+        let value = settings(json!({"mode": "original", "output_device": "cable", "japanese_engine": "coeiroink"}));
+        assert_eq!(value.request_for(&chat("x", "ja"), None).unwrap_err().failure_code(), "tts_engine_voice_unset");
+    }
+
+    #[test]
+    fn engine_settings_are_validated() {
+        for value in [
+            json!({"japanese_engine": "unknown"}),
+            json!({"japanese_engine": "multilingual"}),
+            json!({"voicevox_url": "http://192.168.1.5:50021"}),
+            json!({"coeiroink_url": "https://127.0.0.1:50032"}),
+            json!({"aivis_url": "http://127.0.0.1:10101/path"}),
+            json!({"engine_voice_id": "1 or 1"}),
+            json!({"engine_voice_id": "x".repeat(80)}),
+            json!({"engine_voice_id": "1234567890"}),
+            json!({"engine_voice_speaker": "bad\nname"}),
+            json!({"engine_voice_style": "y".repeat(200)}),
+        ] {
+            assert!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), "{value}");
+        }
+        for id in ["0", "123456789", "7ffcb7ce-00ec-4bdc-82cd-45a8889e43ff:0", "ABC-def:12"] {
+            assert!(VoiceSettings::from_value_on(&json!({"engine_voice_id": id}), Platform::Other).is_ok(), "{id}");
+        }
     }
 
     #[test]

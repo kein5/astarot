@@ -14,11 +14,11 @@ on the Rust side first; see "Not in this crate" below.
 
 | Python | Rust | What |
 |---|---|---|
-| `settings.py` | `src/settings.rs` | `VoiceSettings` (same keys, all strings, unknown keys refused), `local_url`, language tags, `options_for`, `request_for` |
+| `settings.py` | `src/settings.rs` | `VoiceSettings` (same keys, all strings, unknown keys refused, including the installed-engine fields of ADR-008), `local_url`, language tags, `engine_for`, `options_for`, `request_for` |
 | `model_options.py` | `src/model_options.rs` | `/v1/models` capabilities: exactly one synthesis model, seed range, instructions |
 | `speechcpp_tts.py` | `src/client.rs`, `src/cancel.rs`, `src/http.rs` | Health check, model options, `POST /v1/audio/speech` with PCM streaming; `CancelToken` with the start deadline |
 | `listener_monitor.py`, `listener_table.py` | `src/listener.rs` | Notices a speech server that went away while its PCM is still being played: process exit for servers this app started, a shared 20 ms probe otherwise (Windows TCP table, then a refused connect) |
-| `tts_scheduler.py` | `src/scheduler.rs` | `VoiceEventBus`: capacity, chat before microphone, expiry, generations, stop/mute/enable, speech monitors, request timeout |
+| `tts_scheduler.py` | `src/scheduler.rs` | `VoiceEventBus`: capacity, chat before microphone, expiry, generations, stop/mute/enable, speech monitors, request timeout, Japanese to an installed engine |
 | `AudioRouter.play` (in `audio_routing/`) | `src/playback.rs` | The device-independent part: 10 ms blocks, first audible write, monitor copy, drain or discard |
 | `converted_router.py` | `src/converted.rs`, `src/resample.rs` | Speech through the running voice conversion (ADR-007): 48 kHz mono, one resampler per stream |
 | `message_hook.py` | `src/message_hook.rs` | Chat and microphone speech events from pipeline values |
@@ -38,10 +38,12 @@ These stay where they are and plug in through traits:
 | The running voice conversion | `converted::ConversionSpeaker` | Voice conversion (`DirectVoice`) |
 | A started speech.cpp process | `listener::ProcessExit`, `ListenerMonitors::own`/`forget` | The speech.cpp server owner (#276) |
 | Bundled server URL | `scheduler::ResolveServer` | The speech.cpp server owner (#276) |
+| Installed engine clients (VOICEVOX-family, COEIROINK; ADR-008) | `scheduler::Synthesizer`, `scheduler::EngineFactory` | Still Python (`voicevox_tts.py`, `coeiroink_tts.py`, `external_engine.py`) |
 | Failure reports, flow panel | `BusOptions::on_failure`, `on_first_audio`, `on_monitor_error` | The application core |
 
-External speech engines (VOICEVOX-family, COEIROINK; ADR-008) are a separate Python
-path and are not part of this crate.
+The installed engines' clients (ADR-008) are a separate Python path and are not part of
+this crate. Their settings and the choice of engine for Japanese are, so that saved
+settings stay readable and Japanese goes where the user chose.
 
 ## Differences from the Python version
 
@@ -60,6 +62,9 @@ path and are not part of this crate.
   20 ms before checking for cancellation, as Python's `InterruptibleSocket` did.
   The request body is UTF-8 JSON (Python escaped non-ASCII as `\uXXXX`); the parsed
   values are the same.
+- **Monitor callbacks.** Python closed speech monitors while holding its (re-entrant)
+  lock. Here they are closed after the lock is released, so a monitor may report its
+  error from inside `close`.
 - **Typing.** Inputs that Python checked at run time (`set_enabled(True)`, integer
   generations) are typed in Rust, so those checks belong to the IPC layer that parses
   requests.
@@ -76,6 +81,7 @@ The tests port the Python tests that exercise this module: `tests/voice/test_tts
 `test_scheduler.py`, `test_spoken_scheduler.py`, `test_tts_toggle.py` (the bus and the
 health check), `test_tts_model_options.py` (the client and the bus),
 `test_tts_listener_failure.py`, `test_tts_playback_ownership.py`,
+`test_external_speech_engines.py` (the settings and the scheduler),
 `test_voice_trace.py`, `test_listener_table_probe.py`, `test_speech_through_conversion.py`
 (the router and the bus) and `src-python/test/test_tts_listener_monitor.py`. They run a
 fake speech.cpp server on localhost; no model, GPU or audio device is needed.

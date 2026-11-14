@@ -35,23 +35,29 @@ use crate::error::{SpeechError, TtsError};
 use crate::events::{Source, SpeechMessageEvent};
 use crate::model_options::SynthesisOptions;
 use crate::playback::{Frames, Monitor, SpeechRouter};
-use crate::settings::{is_blank, VoiceSettings};
+use crate::settings::{is_blank, SpeechRequest, VoiceSettings, SPEECHCPP};
 use crate::sync::{lock, Event};
 use crate::trace::write_voice_trace;
 
-/// Makes speech for one utterance.
+/// Makes speech for one utterance. `request.engine_voice` is set for an
+/// installed engine.
 pub trait Synthesizer: Send {
-    fn synthesize_stream(&self, text: &str, voice: &str, language: &str, token: &CancelToken, options: &SynthesisOptions) -> Result<Frames, TtsError>;
+    fn synthesize_stream(&self, request: &SpeechRequest, token: &CancelToken, options: &SynthesisOptions) -> Result<Frames, TtsError>;
 }
 
 impl Synthesizer for SpeechCppTts {
-    fn synthesize_stream(&self, text: &str, voice: &str, language: &str, token: &CancelToken, options: &SynthesisOptions) -> Result<Frames, TtsError> {
-        Ok(Box::new(SpeechCppTts::synthesize_stream(self, text, voice, language, token, options)))
+    fn synthesize_stream(&self, request: &SpeechRequest, token: &CancelToken, options: &SynthesisOptions) -> Result<Frames, TtsError> {
+        Ok(Box::new(SpeechCppTts::synthesize_stream(self, &request.text, &request.voice, request.language, token, options)))
     }
 }
 
-/// A synthesizer for a server's base URL.
+/// A speech.cpp synthesizer for a server's base URL.
 pub type ProviderFactory = Arc<dyn Fn(&str) -> Result<Box<dyn Synthesizer>, TtsError> + Send + Sync>;
+
+/// A client for an installed engine (ADR-008): `(engine, base URL)`, such as
+/// `("voicevox", "http://127.0.0.1:50021")`. The engine clients are not in
+/// this crate.
+pub type EngineFactory = Arc<dyn Fn(&str, &str) -> Result<Box<dyn Synthesizer>, TtsError> + Send + Sync>;
 
 /// The base URL of a running bundled server for a role (`japanese` or `multilingual`).
 pub type ResolveServer = Arc<dyn Fn(&str) -> Result<String, TtsError> + Send + Sync>;
@@ -80,6 +86,9 @@ pub type FirstAudioHook = Arc<dyn Fn(&SpeechMessageEvent, i64, bool) + Send + Sy
 /// Construction options. The defaults are the application's.
 pub struct BusOptions {
     pub provider_factory: ProviderFactory,
+    /// Japanese from an installed engine. Without one, choosing an engine
+    /// fails like an unknown engine does.
+    pub engine_factory: Option<EngineFactory>,
     pub router: Arc<dyn SpeechRouter>,
     pub capacity: usize,
     pub max_age: Duration,
@@ -100,6 +109,7 @@ impl BusOptions {
     pub fn new(router: Arc<dyn SpeechRouter>) -> Self {
         Self {
             provider_factory: Arc::new(|url: &str| -> Result<Box<dyn Synthesizer>, TtsError> { Ok(Box::new(SpeechCppTts::new(url)?)) }),
+            engine_factory: None,
             router,
             capacity: 4,
             max_age: Duration::from_secs(5),
@@ -196,6 +206,7 @@ struct Inner {
     changed: Condvar,
     hooks: RwLock<Hooks>,
     provider_factory: ProviderFactory,
+    engine_factory: Option<EngineFactory>,
     router: Arc<dyn SpeechRouter>,
     capacity: usize,
     max_age: Duration,
@@ -215,17 +226,30 @@ impl Inner {
         lock(&self.state)
     }
 
-    fn cancel_locked(&self, state: &mut State) {
+    /// Returns the monitors to silence once the state lock is released: a
+    /// monitor may report from inside `close`, and its report takes the lock.
+    #[must_use]
+    fn cancel_locked(&self, state: &mut State) -> Silence {
         state.epoch += 1;
         state.stats.dropped += state.queue.len() as u64;
         state.queue.clear();
         if let Some(active) = &state.active {
+            // Token closers only wake sockets and detach server watches.
             active.cancel();
         }
-        for (monitor, _) in &state.monitors {
+        self.changed.notify_all();
+        Silence(state.monitors.iter().map(|(monitor, _)| monitor.clone()).collect())
+    }
+}
+
+/// Monitors to close without draining, after the state lock is released.
+struct Silence(Vec<Arc<dyn Monitor>>);
+
+impl Silence {
+    fn run(self) {
+        for monitor in self.0 {
             monitor.close(false);
         }
-        self.changed.notify_all();
     }
 }
 
@@ -253,6 +277,7 @@ impl VoiceEventBus {
                 changed: Condvar::new(),
                 hooks: RwLock::new(Hooks { converted_router: options.converted_router, on_first_audio: options.on_first_audio, monitor_factory: options.monitor_factory }),
                 provider_factory: options.provider_factory,
+                engine_factory: options.engine_factory,
                 router: options.router,
                 capacity: options.capacity,
                 max_age: options.max_age,
@@ -284,17 +309,21 @@ impl VoiceEventBus {
 
     /// Apply new settings. Cancels everything and clears the last errors.
     pub fn configure(&self, settings: VoiceSettings) {
-        let mut state = self.inner.state();
-        state.settings = Arc::new(settings);
-        self.inner.cancel_locked(&mut state);
-        state.stats.last_error = None;
-        state.stats.monitor_error = None;
+        let silence = {
+            let mut state = self.inner.state();
+            state.settings = Arc::new(settings);
+            let silence = self.inner.cancel_locked(&mut state);
+            state.stats.last_error = None;
+            state.stats.monitor_error = None;
+            silence
+        };
+        silence.run();
     }
 
     /// Stop speaking and empty the queue.
     pub fn cancel(&self) {
-        let mut state = self.inner.state();
-        self.inner.cancel_locked(&mut state);
+        let silence = self.inner.cancel_locked(&mut self.inner.state());
+        silence.run();
     }
 
     /// Turn speech on or off. Turning on fails while muted, after close, or
@@ -302,39 +331,48 @@ impl VoiceEventBus {
     /// off always cancels, even when already off, so it also revokes enables
     /// still on their way.
     pub fn set_enabled(&self, enabled: bool, expected_generation: Option<u64>) -> bool {
-        let mut state = self.inner.state();
-        if state.closed || expected_generation.is_some_and(|generation| generation != state.epoch) {
-            return false;
-        }
-        if enabled && state.muted {
-            return false;
-        }
-        if !enabled || state.tts_enabled != enabled {
+        let silence = {
+            let mut state = self.inner.state();
+            if state.closed || expected_generation.is_some_and(|generation| generation != state.epoch) {
+                return false;
+            }
+            if enabled && state.muted {
+                return false;
+            }
+            if enabled && state.tts_enabled {
+                return true;
+            }
             state.tts_enabled = enabled;
             // The same epoch invalidates pending finals, saves and late enables.
-            self.inner.cancel_locked(&mut state);
-        }
+            self.inner.cancel_locked(&mut state)
+        };
+        silence.run();
         true
     }
 
     /// Mute or unmute. Both edges invalidate messages accepted before them.
     pub fn set_muted(&self, muted: bool) {
-        let mut state = self.inner.state();
-        if state.muted != muted {
+        let silence = {
+            let mut state = self.inner.state();
+            if state.muted == muted {
+                return;
+            }
             state.muted = muted;
-            self.inner.cancel_locked(&mut state);
-        }
+            self.inner.cancel_locked(&mut state)
+        };
+        silence.run();
     }
 
     /// Cancel all output. The worker exits only after its monitors are
     /// released. Returns whether it exited within `timeout`.
     pub fn close(&self, timeout: Duration) -> bool {
-        let worker = {
+        let (worker, silence) = {
             let mut state = self.inner.state();
             state.closed = true;
-            self.inner.cancel_locked(&mut state);
-            state.worker.clone()
+            let silence = self.inner.cancel_locked(&mut state);
+            (state.worker.clone(), silence)
         };
+        silence.run();
         worker.is_none_or(|finished| finished.wait(Some(timeout)))
     }
 
@@ -348,22 +386,21 @@ impl VoiceEventBus {
 
     /// Cancel one source's queued, active and monitored speech.
     pub fn cancel_source(&self, source: &Source) {
-        let mut state = self.inner.state();
-        *state.source_epochs.entry(source.clone()).or_insert(0) += 1;
-        let before = state.queue.len();
-        state.queue.retain(|job| job.event.source != *source);
-        state.stats.dropped += (before - state.queue.len()) as u64;
-        if state.active_source.as_ref() == Some(source) {
-            if let Some(active) = &state.active {
-                active.cancel();
+        let silence = {
+            let mut state = self.inner.state();
+            *state.source_epochs.entry(source.clone()).or_insert(0) += 1;
+            let before = state.queue.len();
+            state.queue.retain(|job| job.event.source != *source);
+            state.stats.dropped += (before - state.queue.len()) as u64;
+            if state.active_source.as_ref() == Some(source) {
+                if let Some(active) = &state.active {
+                    active.cancel();
+                }
             }
-        }
-        for (monitor, monitor_source) in &state.monitors {
-            if monitor_source == source {
-                monitor.close(false);
-            }
-        }
-        self.inner.changed.notify_all();
+            self.inner.changed.notify_all();
+            Silence(state.monitors.iter().filter(|(_, monitor_source)| monitor_source == source).map(|(monitor, _)| monitor.clone()).collect())
+        };
+        silence.run();
     }
 
     /// Offer a message. Returns whether it was queued.
@@ -434,7 +471,15 @@ impl VoiceEventBus {
             thread::Builder::new()
                 .name("vrct-vox".into())
                 .spawn(move || {
-                    work(&inner);
+                    // A panic outside one utterance must not leave a dead
+                    // worker that close() waits for and publish() never replaces.
+                    if catch_unwind(AssertUnwindSafe(|| work(&inner))).is_err() {
+                        let mut state = inner.state();
+                        state.worker = None;
+                        state.active = None;
+                        state.active_source = None;
+                        inner.changed.notify_all();
+                    }
                     finished.set();
                 })
                 .expect("spawn the speech worker");
@@ -688,9 +733,14 @@ fn speak(inner: &Arc<Inner>, job: &Job, token: &CancelToken, first_write: &mut O
     let resolve = inner.resolve_server.clone();
     let resolver = resolve.as_ref().map(|resolve| &**resolve as &dyn Fn(&str) -> Result<String, TtsError>);
     let request = settings.request_for(event, resolver)?;
-    let provider = (inner.provider_factory)(&request.url)?;
+    let provider = if request.engine == SPEECHCPP {
+        (inner.provider_factory)(&request.url)?
+    } else {
+        let factory = inner.engine_factory.as_ref().ok_or(TtsError::Unavailable("Unknown speech engine"))?;
+        factory(request.engine, &request.url)?
+    };
     let options = settings.options_for(request.language)?;
-    let frames = provider.synthesize_stream(&request.text, &request.voice, request.language, token, &options)?;
+    let frames = provider.synthesize_stream(&request, token, &options)?;
     let (converted_router, on_first_audio) = {
         let hooks = inner.hooks.read().unwrap_or_else(|p| p.into_inner());
         (hooks.converted_router.clone(), hooks.on_first_audio.clone())
@@ -718,10 +768,13 @@ fn speak(inner: &Arc<Inner>, job: &Job, token: &CancelToken, first_write: &mut O
     } else {
         let monitor = open_monitor(inner, settings, job.epoch);
         if let Some(monitor) = &monitor {
-            let state = &mut inner.state();
-            state.monitors.push((monitor.clone(), event.source.clone()));
+            let raced = {
+                let mut state = inner.state();
+                state.monitors.push((monitor.clone(), event.source.clone()));
+                token.is_set() || job.epoch != state.epoch
+            };
             // Stop may have raced the factory before registration.
-            if token.is_set() || job.epoch != state.epoch {
+            if raced {
                 monitor.close(false);
             }
         }

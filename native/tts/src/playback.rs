@@ -49,6 +49,8 @@ pub trait Monitor: Send + Sync {
     /// Queue a block. Never blocks the speech output.
     fn offer(&self, pcm: &[u8], sample_rate: u32, channels: u16);
     /// Stop taking blocks. Drain what is queued, or drop it. Idempotent, never waits.
+    /// The scheduler never holds its own lock here, so `close` may report
+    /// through the monitor's error or ready callback.
     fn close(&self, drain: bool);
     /// Whether the monitor's device has been released, waiting up to `timeout`.
     fn join(&self, timeout: Duration) -> bool;
@@ -82,7 +84,8 @@ impl SpeechRouter for AudioRouter {
             Some(sink) => sink.close(success, token),
             None => Ok(()),
         };
-        result.and(closed)
+        // As in Python, where the close ran in `finally`: its failure wins.
+        closed.and(result)
     }
 }
 

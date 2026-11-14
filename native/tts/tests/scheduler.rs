@@ -13,7 +13,7 @@ use vrct_tts::clock::monotonic_ns;
 use vrct_tts::converted::ConvertedRouter;
 use vrct_tts::playback::{FirstAudio, Frames, Monitor, OutputSink, SpeechRouter};
 use vrct_tts::scheduler::{BusOptions, ProviderFactory, Synthesizer};
-use vrct_tts::settings::VoiceSettings;
+use vrct_tts::settings::{EngineVoice, SpeechRequest, VoiceSettings};
 use vrct_tts::sync::Event;
 use vrct_tts::{AudioFrame, CancelToken, Source, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
 
@@ -22,8 +22,8 @@ type Speak = Arc<dyn Fn(&str, &CancelToken, &SynthesisOptions) -> Result<Frames,
 struct FnSynth(Speak);
 
 impl Synthesizer for FnSynth {
-    fn synthesize_stream(&self, text: &str, _voice: &str, _language: &str, token: &CancelToken, options: &SynthesisOptions) -> Result<Frames, TtsError> {
-        (self.0)(text, token, options)
+    fn synthesize_stream(&self, request: &SpeechRequest, token: &CancelToken, options: &SynthesisOptions) -> Result<Frames, TtsError> {
+        (self.0)(&request.text, token, options)
     }
 }
 
@@ -680,5 +680,86 @@ fn a_panicking_first_audio_readout_never_stops_speech() {
     assert!(bus.publish(chat("one"), None, None));
     until2(|| bus.status().completed == 1);
     assert_eq!(sink.bytes(), [1, 0]);
+    close(&bus);
+}
+
+#[test]
+fn japanese_plays_through_the_engine_and_speechcpp_keeps_the_rest() {
+    let used: Arc<Mutex<Vec<(String, String)>>> = Arc::default();
+    let sink = Sink::default();
+    let (speechcpp_used, engine_used) = (used.clone(), used.clone());
+    let bus = bus(
+        VoiceSettings {
+            japanese_engine: "voicevox".into(),
+            engine_voice_id: "3".into(),
+            engine_voice_speaker: "ずんだもん".into(),
+            engine_voice_style: "ノーマル".into(),
+            japanese_seed: "7".into(),
+            ..original()
+        },
+        &sink,
+        |o| {
+            o.provider_factory = Arc::new(move |url: &str| -> Result<Box<dyn Synthesizer>, TtsError> {
+                speechcpp_used.lock().unwrap().push(("speechcpp".into(), url.into()));
+                Ok(Box::new(FnSynth(Arc::new(|_, _, _| Ok(frames(vec![1, 0]))))))
+            });
+            o.engine_factory = Some(Arc::new(move |engine: &str, url: &str| -> Result<Box<dyn Synthesizer>, TtsError> {
+                engine_used.lock().unwrap().push((engine.into(), url.into()));
+                Ok(Box::new(EngineSynth))
+            }));
+        },
+    );
+    assert!(bus.publish(chat("ja"), None, None));
+    until2(|| bus.status().completed == 1);
+    close(&bus);
+    assert_eq!(*used.lock().unwrap(), vec![("voicevox".to_string(), "http://127.0.0.1:50021".to_string())]);
+    assert_eq!(sink.bytes(), [2, 0]);
+}
+
+struct EngineSynth;
+
+impl Synthesizer for EngineSynth {
+    fn synthesize_stream(&self, request: &SpeechRequest, _token: &CancelToken, options: &SynthesisOptions) -> Result<Frames, TtsError> {
+        assert_eq!(request.engine_voice, Some(EngineVoice { id: "3".into(), speaker: "ずんだもん".into(), style: "ノーマル".into() }));
+        assert_eq!(*options, SynthesisOptions::default(), "the seed is speech.cpp's");
+        Ok(Box::new(std::iter::once(Ok(AudioFrame::mono(vec![2, 0], 24000).unwrap()))))
+    }
+}
+
+#[test]
+fn an_engine_without_a_client_or_voice_is_a_safe_error() {
+    let bus = bus(VoiceSettings { japanese_engine: "voicevox".into(), engine_voice_id: "3".into(), ..original() }, &Sink::default(), |_| {});
+    assert!(bus.publish(chat("one"), None, None));
+    until2(|| bus.status().errors == 1);
+    assert_eq!(bus.status().last_error.as_deref(), Some("language_or_text_unavailable"));
+    bus.configure(VoiceSettings { japanese_engine: "coeiroink".into(), ..original() });
+    assert!(bus.publish(chat("two"), None, None));
+    until2(|| bus.status().errors == 2);
+    assert_eq!(bus.status().last_error.as_deref(), Some("tts_engine_voice_unset"));
+    close(&bus);
+}
+
+#[test]
+fn a_panic_outside_an_utterance_leaves_the_bus_usable() {
+    let sink = Sink::default();
+    let attempts = Arc::new(Mutex::new(0));
+    let counter = attempts.clone();
+    let bus = bus(original(), &sink, |o| {
+        o.provider_factory = provider(move |_, _, _| {
+            let mut count = counter.lock().unwrap();
+            *count += 1;
+            if *count == 1 {
+                return Err(TtsError::Output);
+            }
+            Ok(frames(vec![1, 0]))
+        });
+        // The failure report runs outside the utterance's own guard.
+        o.on_failure = Some(Arc::new(|_: &str| panic!("report failure")));
+    });
+    assert!(bus.publish(chat("first"), None, None));
+    until2(|| bus.status().errors == 1 && !bus.worker_started());
+    assert!(!bus.status().active);
+    assert!(bus.publish(chat("second"), None, None), "a new worker takes over");
+    until2(|| bus.status().completed == 1);
     close(&bus);
 }
