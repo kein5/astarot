@@ -10,6 +10,7 @@
 //! Nothing in this crate logs text, translations, tokens, paths or file contents.
 //! Log lines are fixed strings sent to the sink set with [`log::set_sink`].
 
+pub mod clipboard;
 pub mod log;
 pub mod obs;
 pub mod osc;
