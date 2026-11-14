@@ -12,3 +12,4 @@
 
 pub mod log;
 pub mod tls;
+pub mod websocket;
