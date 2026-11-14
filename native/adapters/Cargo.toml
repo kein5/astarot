@@ -7,14 +7,14 @@ publish = false
 
 [dependencies]
 if-addrs = "=0.15.0"
-rustls = { version = "=0.23.38", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde_json = "=1.0.154"
 socket2 = { version = "=0.6.5", features = ["all"] }
 subtle = "=2.6.1"
-tokio = { version = "=1.52.3", features = ["rt", "net", "time", "sync", "macros", "io-util"] }
+tokio = { version = "=1.54.1", features = ["rt", "net", "time", "sync", "macros", "io-util"] }
 tokio-rustls = { version = "=0.26.4", default-features = false, features = ["ring", "tls12"] }
 tokio-tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
-futures-util = { version = "=0.3.31", default-features = false, features = ["sink", "std"] }
+futures-util = { version = "=0.3.34", default-features = false, features = ["sink", "std"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 x11rb = { version = "=0.13.2", default-features = false, features = ["xtest", "res"] }
@@ -32,7 +32,7 @@ windows-sys = { version = "=0.61.2", features = [
 
 [dev-dependencies]
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "pem"] }
-tokio = { version = "=1.52.3", features = ["rt-multi-thread"] }
+tokio = { version = "=1.54.1", features = ["rt-multi-thread"] }
 
 # This crate is not part of any workspace (the application crate lives in src-tauri).
 [workspace]
