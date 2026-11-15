@@ -82,6 +82,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         try { await openUrl(url); setLinkError(null); }
         catch { setLinkError(url); }
     };
+    // A file in the model's repository is named by its file name (GEMMA_TERMS_OF_USE.md,
+    // LICENSE-MIT…), so several terms of one model can be told apart.
+    const linkLabel = (url, i) => i === 0 ? t("model_downloads.model_card")
+        : url.startsWith("https://huggingface.co/") ? url.split("/").pop() : `${selected.license} (${i})`;
     const request = (endpoint, entry, job) => send(endpoint, { id: entry.id, job_id: job.job_id });
     const failure = code => t(`model_downloads.errors.${code}`, { defaultValue: t("model_downloads.errors.download_failed") });
     const matching = catalog?.models.filter(entry => targets.includes(entry.target)) ?? [];
@@ -113,6 +117,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                         onChange={event => setChoices(previous => ({ ...previous, [target]: event.target.value }))}>
                         {rows.map(entry => <option key={entry.id} value={entry.id}>{entry.name} · {memory(entry.total_bytes)}</option>)}
                     </select></label>}
+                    {rows.length > 1 && <p>{t(`model_downloads.choice_${target}`)}</p>}
                     {hint.recommended && <p><strong>{t('model_downloads.recommended')}</strong>: {rows.find(entry => entry.id === hint.recommended)?.name}</p>}
                     {hint.recommended && choice(target) !== hint.recommended && <p>{t('model_downloads.manual_choice')}</p>}
                 </div>;
@@ -169,7 +174,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t("model_downloads.connection_notice")}</p>
             <p>{t("model_downloads.no_start")}</p>
             <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
-            <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{i === 0 ? t("model_downloads.model_card") : `${selected.license} (${i})`}</a> </span>)}</p>
+            <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(url, i)}</a> </span>)}</p>
             {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
             <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
             <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size)}</li>)}</ul>
