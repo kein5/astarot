@@ -1,7 +1,7 @@
 """Files the Windows sidecar ships for speech.cpp and the voice workers.
 
 The fixed speech.cpp bundle comes from speechcpp_bundle.py, the RVC worker from
-build_rvc_worker.py. The Seed-VC worker runs in its own Python, which cannot read the
+build_rvc_worker.py, the Rust crates' license texts from rust_licenses.py. The Seed-VC worker runs in its own Python, which cannot read the
 frozen sidecar's PYZ, so its adapter and the small, dependency-free contract modules ship
 as ordinary files. They get their own folder: the worker runs from it, and _internal holds
 the sidecar's Python 3.11 extension modules, which would shadow the standard library of
@@ -22,7 +22,10 @@ SETUP_FILES = {'seed_vc': ('requirements-windows.lock', 'offline-loader.patch')}
 SEED_SUPPORT = ('tools/seedvc_artifacts.py', 'docs/voice-stack/seed-vc-poc-artifacts.json')
 REQUIRED = ('build/speechcpp/speech.exe', 'build/speechcpp/bundle.json', 'build/vrct-rvc-worker.exe',
             f'{WORKER}/integrations/seed_vc/live_worker.py', f'{WORKER}/tools/seedvc_artifacts.py',
-            f'{WORKER}/src-python/models/voice_conversion/protocol.py', 'licenses/VRCT/NOTICE.md')
+            f'{WORKER}/src-python/models/voice_conversion/protocol.py', 'licenses/VRCT/NOTICE.md',
+            'licenses/rust/crates.json')
+# The Rust crates' license texts, collected by rust_licenses.py (the build scripts run it).
+RUST_LICENSES = 'build/licenses/rust'
 
 
 def voice_toc(root):
@@ -38,6 +41,10 @@ def voice_datas(root):
     worker = root / 'build/vrct-rvc-worker.exe'
     if worker.is_file():
         pairs.append((str(worker), 'build'))
+    rust = root / RUST_LICENSES
+    if rust.is_dir():
+        pairs += [(str(file), Path('licenses/rust', file.parent.relative_to(rust)).as_posix())
+                  for file in sorted(rust.rglob('*')) if file.is_file()]
     if bundle.is_dir():
         pairs += [(str(file), 'build/speechcpp') for file in bundle.iterdir() if file.is_file()]
         pairs += [(str(file), 'build/speechcpp/notices') for file in (bundle / 'notices').iterdir() if file.is_file()]

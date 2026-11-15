@@ -574,15 +574,23 @@ def test_pinned_files_match_the_reviewed_records(platform):
     reviewed = {item['rfilename']: item for item in record['files']}
     # The conformance tests ran on the same files (native/rvc-runtime/reference).
     reference = (ROOT / 'native/rvc-runtime/reference/setup_reference.py').read_text(encoding='utf-8')
+    assert {item['revision'] for item in record['files']} == {rs.RVC_REVISION}
+    names = set()
     for asset in rvc.assets:
         name = asset.url.split(f'/resolve/{rs.RVC_REVISION}/', 1)[1]
-        assert name in reviewed or name == 'rmvpe.onnx', name
-        if name in reviewed:
-            assert asset.size == reviewed[name]['size']
-            if 'lfs' in reviewed[name]:
-                assert asset.sha256 == reviewed[name]['lfs']['sha256']
+        names.add(name)
+        assert name in reviewed, name
+        assert asset.size == reviewed[name]['size']
+        assert asset.sha256 == reviewed[name].get('lfs', reviewed[name])['sha256']
         assert f"'{name}', 'assets/{asset.path}', {asset.size}," in reference.replace("WEIGHTS + '", "'")
         assert asset.sha256 in reference
+    # The record lists what the app fetches now, and what the earlier setup fetched and the
+    # app still recognizes in order to remove it.
+    assert names == set(reviewed)
+    assert record['total_bytes'] == sum(item['size'] for item in record['files'])
+    earlier = {f"assets/{'rmvpe/' if item['rfilename'] == 'rmvpe.pt' else ''}{item['rfilename']}":
+               (item['size'], item.get('lfs', item)['sha256']) for item in record['earlier_files']}
+    assert earlier == {path: (size, sha) for path, size, sha in rs.EARLIER_RVC_FILES if size}
 
 
 def test_requests_for_other_hosts_stay_refused():

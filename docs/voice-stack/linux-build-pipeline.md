@@ -156,6 +156,11 @@ These are path/type checks, not a detector for deliberately renamed weights.
 Original licenses and notices are retained. Available Python package notices and
 the environment inventory are in `_internal/licenses/python` and
 `_internal/python-environment.json`; some packages do not supply license text.
+The Rust crates built into `vrct-vox` and `vrct-rvc-worker` are listed with their
+license texts in `_internal/licenses/rust/` (`tools/rust_licenses.py`, which needs
+the Cargo registry sources, so `--offline` builds need them cached). The build
+stops if a crate publishes no license text and has no reviewed entry in
+`licenses/rust/supplements.json`.
 The two Silero v5 VAD ONNX files are shipped as part of the app
 (`models/transcription/silero_vad/`, MIT, notices in `licenses/silero-vad/`); they
 are not speech.cpp/RVC/Seed-VC models. faster-whisper, which used to carry them, is
