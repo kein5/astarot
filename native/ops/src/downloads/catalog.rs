@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 
 use crate::net::quote;
 
-pub const CATALOG_VERSION: &str = "2026-11-13.1";
+pub const CATALOG_VERSION: &str = "2026-11-16.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Artifact {
@@ -68,6 +68,11 @@ pub const QWEN_ASR_REV: &str = "ee78f8709547f39bea3b924a16c72403826cac92";
 pub const SILERO_REV: &str = "7fcb7aa2a70c312f8579fc987b3e1cdecf9321ca";
 /// The files speech.cpp 0.10.0 names nemotron-3-diarization (docs/models/sortformer.md).
 pub const NEMOTRON_DIARIZATION_REV: &str = "9096d41cb78bba7ac882b96d453e25239eac692b";
+/// The revisions speech.cpp 0.10.0's own catalog pins for irodori-tts, irodori-tts-large and
+/// qwen3-tts-1.7b.
+pub const IRODORI_SMALL_REV: &str = "66fe2cde1973fd44e7202fbe36df722103958188";
+pub const IRODORI_LARGE_REV: &str = "79cae5947a97e941c62912749e1387c8b35ec16b";
+pub const QWEN_17B_REV: &str = "a72e6c6575d67652488cdffc1c863215a9899978";
 
 // OCR (chat reading): official PaddleOCR ONNX exports, Apache-2.0. det and rec live in separate
 // upstream repositories, so their files carry remote pins and are stored under local names.
@@ -253,6 +258,54 @@ pub fn catalog() -> Vec<Model> {
             &[&format!("https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/blob/{QWEN_REV}/README.md"), "https://www.apache.org/licenses/LICENSE-2.0"],
             "qwen",
             vec![artifact("Qwen3-TTS-12Hz-0.6B-CustomVoice-Q5_K.gguf", 873894144, "4bb9ba9e822ab614798c416c7f0187994f349be41221966fa911aca24f237930", "model")],
+        ),
+        // More speech.cpp TTS models (TTS_CATALOG in catalog.py): what speech.cpp 0.10.0 fetches
+        // for irodori-tts, irodori-tts-large and qwen3-tts-1.7b. drama-3 is left out.
+        model(
+            "irodori-v41-small-f16",
+            "japanese",
+            "Irodori-TTS v4.1 Small · F16",
+            "Aratako / sakasegawa",
+            "sakasegawa/Irodori-TTS-v4.1-Small-GGUF",
+            IRODORI_SMALL_REV,
+            "MIT + Apache-2.0",
+            &[
+                &format!("https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/{IRODORI_SMALL_REV}/README.md"),
+                &format!("https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/{IRODORI_SMALL_REV}/LICENSE-MIT"),
+                &format!("https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/{IRODORI_SMALL_REV}/LICENSE-APACHE-2.0"),
+            ],
+            "irodori",
+            vec![artifact("Irodori-TTS-859M-v4.1-F16.gguf", 1905903936, "f334932bdf166579bada0a3c8bdabb7199af85682fdcefb6f1cb7e444f5c75b3", "model")],
+        ),
+        model(
+            "irodori-v4-large-q8",
+            "japanese",
+            "Irodori-TTS v4 Large · Q8_0",
+            "Aratako / sakasegawa",
+            "sakasegawa/Irodori-TTS-v4-Large-GGUF",
+            IRODORI_LARGE_REV,
+            "Gemma Terms of Use + MIT + Apache-2.0",
+            &[
+                &format!("https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/README.md"),
+                &format!("https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/GEMMA_TERMS_OF_USE.md"),
+                &format!("https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/GEMMA_PROHIBITED_USE_POLICY.md"),
+                &format!("https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/LICENSE-MIT"),
+                &format!("https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/LICENSE-APACHE-2.0"),
+            ],
+            "irodori_large",
+            vec![artifact("Irodori-TTS-3.4B-v4-Q8_0.gguf", 3875154272, "836a2deda5115e4400d25674612ff30d704a358d0b16cf96a3eb510dc416bc4e", "model")],
+        ),
+        model(
+            "qwen3-17b-q8",
+            "multilingual",
+            "Qwen3-TTS 12Hz 1.7B CustomVoice · Q8_0",
+            "Qwen / sakasegawa",
+            "sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF",
+            QWEN_17B_REV,
+            "Apache-2.0",
+            &[&format!("https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/blob/{QWEN_17B_REV}/README.md"), "https://www.apache.org/licenses/LICENSE-2.0"],
+            "qwen",
+            vec![artifact("Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf", 2287780352, "1bc0ef69547c003507b6536639a6080c8856382f4d0963b15d4475528330592d", "model")],
         ),
         model(
             "ppocrv6-small",
