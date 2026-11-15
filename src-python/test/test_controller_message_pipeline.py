@@ -1,6 +1,6 @@
 """特性テスト(characterization tests): `micMessage`/`speakerMessage`/`chatMessage`/`ocrMessage`。
 
-バックエンドレビュー(`docs/backend_review_2026-08-27.md`)フェーズ3項目25
+バックエンドレビュー(2026-08-27)フェーズ3項目25
 「`MessagePipeline`への3メソッド統合」に着手する前に、現状の挙動
 (翻訳・transliteration・OSC送信・オーバーレイ更新・クリップボード・
 WebSocket送信・ロガー・エラーハンドリング)を固定化するためのテスト。

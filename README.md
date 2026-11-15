@@ -95,4 +95,3 @@ VRChat and its associated properties are trademarks or registered trademarks of 
 - [Linux build pipeline](/docs/voice-stack/linux-build-pipeline.md) and [AppImage](/docs/voice-stack/appimage.md)
 - [Release candidate and draft workflow](docs/voice-stack/release-candidates.md)
 - [Voice licenses and distribution boundaries](/docs/voice-stack/licensing.md)
-- [Implementation and validation ledger](/docs/voice-stack/completion-ledger.md)

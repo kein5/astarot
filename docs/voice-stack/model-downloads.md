@@ -58,7 +58,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 RVCのmetadataはv2/48 kHz/f0=1。初期の短時間試験後、長めのミュート入力試験 `native-guidance-rvc-strict-2` で `vc_capture_overrun` による停止を検出した。先行する検索例外を追跡し、IVFインデックスの狭い探索範囲による近傍候補の欠落が原因と判明。RVCアダプターで探索範囲を初期化時に調整し、待ち行列・鮮度制限・不正検索結果の拒否は維持した。失敗記録も保持している。
 
-修正版AppImage `b8050d10c7243da5d57dda92d09784912947ad6516eccde152d11e4ef3bb4fe0` の `native-rvc-fixed-strict-3` は1 PASS（45.82秒）。ミュート中の全合成音声入力（非ゼロ138フレーム）に対し出力増分0、入力完了後の新鮮な稼働状態と同じgenerationを確認。解除後にも別の全入力を完了し、第三の入力中の停止と再起動OFFを確認した。無音判定はS16絶対値64以下、停止後2秒継続であり、全バイトゼロや知覚的な音質を確認した試験とは区別する。詳細は[実機検証記録](model-downloads-integration-report.md)を参照。
+修正版AppImage `b8050d10c7243da5d57dda92d09784912947ad6516eccde152d11e4ef3bb4fe0` の `native-rvc-fixed-strict-3` は1 PASS（45.82秒）。ミュート中の全合成音声入力（非ゼロ138フレーム）に対し出力増分0、入力完了後の新鮮な稼働状態と同じgenerationを確認。解除後にも別の全入力を完了し、第三の入力中の停止と再起動OFFを確認した。無音判定はS16絶対値64以下、停止後2秒継続であり、全バイトゼロや知覚的な音質を確認した試験とは区別する。詳細は実機検証記録を参照。
 
 RVC音声モデル/indexだけでは動作しない。別途runtime（2026-11-15からはONNX Runtime、CUDA・cuDNNのライブラリ、HuBERT設定/重み、RMVPEのONNX。変換は同梱の`vrct-rvc-worker`）が必要。この取得機能はruntimeを入れず、pickleも読まない。WindowsとLinux（x86-64）では別の同意画面からruntimeを取得できる（`models/voice_conversion/runtime_setup.py`、[Windowsの音声機能](local-setup-windows.md)、[Linuxの手順](local-setup-linux.md#rvcとseed-vcの実行環境)）。
 
@@ -86,9 +86,9 @@ TTS設定を開くと、整合性確認済みの同梱speech.cpp（現在は0.11
 
 軽量2候補は親担当が実HF全取得と固定size/hashを検証済み。Irodori Q8、Qwen Q5、Qwen Q8は実GPUで合成・取消・停止・再起動し、各モデル3回のPCM一致を確認した。別の実GUI経由でも各2回、独立参照との全PCM一致と前後の無音を確認。Irodoriは48 kHz、Qwenは24 kHzのモデル固有rateでの照合であり、ホスト側の48 kHzへの再サンプリングや知覚音質まで確認した結果ではない。観測ピークVRAMはそれぞれ1,499 / 1,000 / 1,332 MiB（100 ms間隔の所有PID測定）で、測定間のピークを取り逃す可能性がある。
 
-新しい案内UIを含むAppImage `3c034035748633fa4e11d56c09379bd8dfe751dbf86b62aee0d1c3945a33036a` でも、実GPU表示→軽量2候補の選択→既取得cacheの製品検証→Apply→同梱日本語/多言語サーバーの起動・停止→再起動時OFF・パス保持を確認した。これはcache検証であり、新UIで全ファイルを再転送した試験ではない。条件・保存先・失敗記録は[親担当の実機検証記録](model-downloads-integration-report.md)を参照。
+新しい案内UIを含むAppImage `3c034035748633fa4e11d56c09379bd8dfe751dbf86b62aee0d1c3945a33036a` でも、実GPU表示→軽量2候補の選択→既取得cacheの製品検証→Apply→同梱日本語/多言語サーバーの起動・停止→再起動時OFF・パス保持を確認した。これはcache検証であり、新UIで全ファイルを再転送した試験ではない。
 
-同じAppImageのIrodori F16・低遅延待機ONでは、固定短文のwarm 30回がp95上限50.054284 ms、p50上限46.018233 ms。測定は信頼されたGUIクリックから最初の非ゼロPCM書込み完了まで。warmupを含む31発声の全S16 PCM一致・前後ゼロ、OFF時2.304秒ゼロ、各送信のOSC1回を保存記録から独立再計算した。これは軽量モデルの速度保証ではない。試行間隔は約10.18〜10.24秒で、任意長文・ゲームとの競合・物理聴感へ一般化しない。独立確認は `tmp/tts-latency-100/guidance-independent-review/`、測定詳細は[低遅延試験記録](tts-low-latency-report.md)を参照。
+同じAppImageのIrodori F16・低遅延待機ONでは、固定短文のwarm 30回がp95上限50.054284 ms、p50上限46.018233 ms。測定は信頼されたGUIクリックから最初の非ゼロPCM書込み完了まで。warmupを含む31発声の全S16 PCM一致・前後ゼロ、OFF時2.304秒ゼロ、各送信のOSC1回を保存記録から独立再計算した。これは軽量モデルの速度保証ではない。試行間隔は約10.18〜10.24秒で、任意長文・ゲームとの競合・物理聴感へ一般化しない。
 
 RVC検索修正を含む最新版は `build/gpu-model-guidance-rvc-fixed-2026-10-30-artifacts/` のAppImage（SHA256は上記b8050d10…）。30回の性能値は旧3c034035…版の測定として保持する。新しい入力hash記録はRVC等のコピー対象も含む575件。親担当の展開検査でアダプター・ライセンス18件が元ファイルと一致し、本担当も記録と現sourceのhashを照合した。旧543件の一致記録にはintegrations以下は含まれていなかった。
 
@@ -115,16 +115,3 @@ overlay relayは新しいcatalog/state/start/cancel/applyとhardware取得/更�
 - `modelHardwareAdvice.js`で取得値と候補から案内を算出。CPU・共有メモリ・容量不明/ゼロ・複数GPU・測定期限を区別する。
 - IPC送信関数を安定させ、再描画に伴うcatalog/state再取得ループを修正。idle時の取得回数不変をブラウザで確認。
 - Apply後の確認済み保存値がcleanフォームへ反映されない問題は、`useSettingsDraft.jsx`で直前の保存値とdraftを比較する形に修正。未保存の編集は保持する。
-- 初期3候補版の関連backend **92 PASS**（所有するloopbackサーバー、HTTP停止body、SIGKILL回収、RVC/TTS Apply、既存speech/controller/consent回帰）。`/tmp/vrct-model-download-backend-final.log`。
-- 初期3候補版のブラウザ新機能7件＋speech server5件 **12 PASS**。先行の全フォーム25件ではstatus locator競合1件を検出し修正、他24件成功。修正後の対象を再試験。`/tmp/vrct-model-download-browser-final.log`。
-- relay/既存翻訳3言語同意 **8 PASS**。Vite本番build成功（出力は `/tmp/vrct-model-download-ui-dist`、通常dist不変更）。
-- 既定pytest suiteはsandbox内で **1218 PASS / 6 SKIP / 4 FAIL**。失敗はchatboxのloopback UDP、OSC単一受信thread、TelemetryFacadeのapp_started/error重複抑止2件。4件を所有loopback許可付きで単独再試験すると **4 PASS**。suite全体の同条件再実行ではないため全体GREENとは記載しない。ログは `/tmp/vrct-model-download-default-{suite,recheck}.log`。
-
-GPU案内追加後の担当試験は次のとおり。上の初期結果へ足し合わせない。
-
-- backend **58 PASS**：取得manager、controller、hardware probe。SIGTERMに応答しない所有fake子プロセスのkill・回収も含む。`/tmp/vrct-model-hardware-final-unit.log`。その1件追加前のHTTPを含む実行は59 PASS（対象の組合せが異なる）。
-- ブラウザ **14 PASS**：取得UI9件と既存speech serverフォーム5件。軽量候補の案内・選択・同意、取得中の候補切替と取消、GPU取得失敗時の手動選択を確認。`/tmp/vrct-model-hardware-ui-green.log`。
-- Node **12 PASS**：容量案内・overlay拒否・既存翻訳同意。`/tmp/vrct-model-hardware-node.log`。Vite本番buildも成功、出力は `/tmp/vrct-model-hardware-ui-dist`。
-- 親担当の新source統合回帰は既定 **1,222 PASS / 6 SKIP**、音声 **1,170 PASS / 51 SKIP**。`tmp/tts-latency-100/guidance-regression.log`。skipは成功に含めない。
-
-imozuru原典は `tmp/model-download-research/` のmap/log/manifest、原文22件、照合済みextracts/report.html/digest.html。GPU・音声・SteamVR・通常アプリの操作は親担当が実施し、本担当は実装・オフライン/ブラウザ試験と保存結果の独立照合を担当した。

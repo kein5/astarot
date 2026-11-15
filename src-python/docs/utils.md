@@ -922,7 +922,6 @@ def recordMetric(metric_name: str, value: float, tags: dict = None):
 - `controller.md`: Controller での utils 関数使用例
 - `config.md`: Config での計算デバイス管理
 - `model.md`: Model でのエラーハンドリング
-- `コーディングルール.md`: ロギングとエラーハンドリングの規約
 
 ---
 

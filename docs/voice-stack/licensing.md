@@ -28,7 +28,7 @@ forkの公開に使える状態とは主張しない。この作業ではタグ�
 ## 2026-10-29 fork配布境界の追加検証
 
 冒頭の「P5未完了」記述のうちfork identity/公開先分離は今回実装。
-[配布境界報告](fork-distribution-isolation.md)参照。CPU/CUDA specのOCR/rapidocr全体収集を廃止し、
+CPU/CUDA specのOCR/rapidocr全体収集を廃止し、
 OCR重みを展開済みdatas/binariesのsource/destination両方で除外する。
 元LICENSE/NOTICE、OCRモデル通知を明示収集。ZIP/NSIS検査は失敗時に配布処理を止める。
 Windows最終実物、Linux製品package、全同梱依存の最終ライセンス監査は未完了。
@@ -243,7 +243,7 @@ RVC-Project/Retrieval-based-Voice-Conversion-WebUI固定commit
 Mia2026.pth/.index/.zip/.pngの除外・拒否を追加した。試験は偽データで実施。
 
 HuBERT/RMVPEの固定4ファイルは今回明示承認され、370,392,700 bytesを取得してhash照合した。
-[実機結果と利用境界](rvc-mia-validation-2026-10-29.md)。新しい録音・モデル/音声の公開は行っていない。
+新しい録音・モデル/音声の公開は行っていない。
 
 実際に導入した`praat-parselmouth==0.4.6`のwheel metadataはGPLv3。RVCソースのMITだけを
 実行環境全体へ一般化しない。Torch/torchaudio、FAISS、Transformers、NumPy/SciPy、

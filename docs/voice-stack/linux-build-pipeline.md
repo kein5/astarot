@@ -191,5 +191,3 @@ attribution audit. OCR weights are excluded regardless.
 - [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux) define the
   native WebKitGTK build boundary; [official WebDriver CI](https://v2.tauri.app/develop/tests/webdriver/ci/)
   uses a virtual display on Linux.
-- Local imozuru source map/log: `tmp/voice-resume/research/linux-build-pipeline/`.
-  Behavioral evidence and unresolved platform limits are recorded separately from documentation claims.
