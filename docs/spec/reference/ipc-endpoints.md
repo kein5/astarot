@@ -345,6 +345,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/data/voice_settings` | 設定 | `setVoiceSettings` | 可 | useVoice.updateSettings | ログで伏せる |
 | `/get/data/voice_status` | 取得 | `getVoiceStatus` | 可 | useVoice.updateStatus |  |
 | `/get/data/tts_model_options` | 取得 | `getTtsModelOptions` | 可 | useVoice.updateModelOptions |  |
+| `/get/data/tts_engine_voices` | 取得 | `getTtsEngineVoices` | 可 | useVoice.updateEngineVoices |  |
 | `/get/data/voice_output_devices` | 取得 | `getVoiceOutputDevices` | 可 | useVoice.updateDevices |  |
 | `/run/stop_voice` | 実行 | `stopVoice` | 可 | useVoice.updateStatus | 即時（キューを通らない） |
 | `/run/enable_tts` | 実行 | `enableTts` | 可 | useVoice.updateStatus |  |

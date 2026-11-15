@@ -40,7 +40,8 @@ from models.transcription.capture_pipewire import enumerate_endpoints, default_e
 from models.transcription.speechcpp_asr import SpeechCppASR
 from models.transcription.asr_vocabulary import merged_terms
 from models.transcription.transcription_languages import transcription_lang
-from models.tts.settings import VoiceSettings
+from models.tts.settings import ENGINE_URL_FIELDS, ENGINE_VOICE_ID, VoiceSettings, local_url
+from models.tts.engines import engine_client
 from models.tts.tts_scheduler import VoiceEventBus
 from models.tts.converted_router import ConvertedSpeechRouter
 from models.io_flow import describe as describe_io_flow
@@ -659,7 +660,7 @@ class Controller:
             settings = self.voice_events.settings
             try:
                 for role in roles:
-                    if getattr(settings, role + '_server') == 'bundled':
+                    if settings.uses_speechcpp(role) and getattr(settings, role + '_server') == 'bundled':
                         self.speech_servers.binding(role)
             except RuntimeError:
                 return 'speech_server_not_ready'
@@ -675,7 +676,9 @@ class Controller:
             state = self.voice_events.status()
             if (not state['tts_enabled'] or state['closed']
                     or self.speech_servers.current_run(profile) != run
-                    or getattr(self.voice_events.settings, profile + '_server') != 'bundled'):
+                    or getattr(self.voice_events.settings, profile + '_server') != 'bundled'
+                    # Japanese read by an installed engine does not use this server.
+                    or not self.voice_events.settings.uses_speechcpp(profile)):
                 return None
             # Saves/language changes can alter the selected roles while TTS
             # stays on. Stop/Mute can advance its epoch without ending it.
@@ -2723,6 +2726,50 @@ class Controller:
             result['error_code'] = str(exc) if isinstance(exc, SpeechError) else 'tts_model_options_unavailable'
         return {'status': 200, 'result': result}
 
+    _ENGINE_VOICE_LIMIT = 500
+
+    def getTtsEngineVoices(self, data, *args, **kwargs) -> dict:
+        """Ask an engine the user installed whether it runs, and which voices it has (ADR-008).
+
+        Uses the engine and URL being edited, so the page can check them before saving. Only
+        the engine's version and voice list come back: no text is sent, nothing is synthesized,
+        and an engine that does not answer is reported as not connected, never started.
+        """
+        request_id = data.get('request_id') if isinstance(data, dict) else None
+        if (not isinstance(data, dict) or set(data) != {'engine', 'url', 'request_id'}
+                or data['engine'] not in ENGINE_URL_FIELDS or not isinstance(data['url'], str)
+                or not isinstance(request_id, str) or not 1 <= len(request_id) <= 64
+                or not all(c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_' for c in request_id)):
+            return {'status': 400, 'result': {'error_code': 'tts_engine_request_invalid'}}
+        result = dict(request_id=request_id, engine=data['engine'], url=None, connected=False,
+                      version=None, voices=[], error_code=None)
+        try:
+            result['url'] = local_url(data['url'])
+        except ValueError:
+            result['error_code'] = 'tts_engine_url_invalid'
+            return {'status': 200, 'result': result}
+        try:
+            client = engine_client(data['engine'], result['url'])
+            version = client.check_health()
+            result['connected'] = True
+            result['version'] = version if isinstance(version, str) and len(version) <= 64 else None
+            voices = []
+            for voice in client.list_voices():
+                # The same limits as the saved voice, so any voice offered here can be saved.
+                names = (voice.get('speaker'), voice.get('style'))
+                if (ENGINE_VOICE_ID.fullmatch(voice.get('id', ''))
+                        and all(isinstance(name, str) and 0 < len(name) <= 128
+                                and not any(ord(c) < 32 or ord(c) == 127 for c in name) for name in names)):
+                    voices.append({'id': voice['id'], 'speaker': names[0], 'style': names[1]})
+                if len(voices) >= self._ENGINE_VOICE_LIMIT:
+                    break
+            result['voices'] = voices
+        except SpeechError as exc:
+            result['error_code'] = str(exc) or 'tts_engine_not_ready'
+        except (ValueError, KeyError, TypeError, AttributeError):
+            result['error_code'] = 'tts_engine_not_ready'
+        return {'status': 200, 'result': result}
+
     # A started server enforces its own START_TIMEOUT; this only bounds the
     # toggle's wait if that end state is somehow never published.
     _TTS_SERVER_WAIT = SPEECH_START_TIMEOUT + 5
@@ -2756,7 +2803,8 @@ class Controller:
             if code:
                 return code
             settings = self.voice_events.settings
-            bundled = sorted(role for role in roles if getattr(settings, role + '_server') == 'bundled')
+            bundled = sorted(role for role in roles
+                             if settings.uses_speechcpp(role) and getattr(settings, role + '_server') == 'bundled')
         if bundled:
             # Loading a model takes seconds. Wait without the settings lock so
             # saves and status polls are not blocked; OFF cancels the wait.
@@ -2768,9 +2816,21 @@ class Controller:
             if code:
                 return code
             settings = self.voice_events.settings
+            if not all(settings.uses_speechcpp(role) for role in roles):
+                # Japanese is read by an engine the user installed and runs (ADR-008): it must
+                # answer and have a voice chosen. The app never starts it.
+                if not settings.engine_voice_id:
+                    return 'tts_engine_voice_unset'
+                try:
+                    engine = settings.japanese_engine
+                    engine_client(engine, local_url(getattr(settings, ENGINE_URL_FIELDS[engine]))).check_health()
+                except SpeechError:
+                    return 'tts_engine_not_ready'
+                except (ValueError, KeyError):
+                    return 'speech_server_or_settings_not_ready'
             try:
                 urls = {self._ttsSpeechServer(role) if getattr(settings, role + '_server') == 'bundled'
-                        else getattr(settings, role + '_url') for role in roles}
+                        else getattr(settings, role + '_url') for role in roles if settings.uses_speechcpp(role)}
                 for url in urls:
                     SpeechCppTTS(url).check_health()
             except SpeechError:

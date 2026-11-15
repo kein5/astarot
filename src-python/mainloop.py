@@ -661,6 +661,7 @@ mapping = {
     "/set/data/voice_settings": {"status": True, "variable":controller.setVoiceSettings},
     "/get/data/voice_status": {"status": True, "variable":controller.getVoiceStatus},
     "/get/data/tts_model_options": {"status": True, "variable":controller.getTtsModelOptions},
+    "/get/data/tts_engine_voices": {"status": True, "variable":controller.getTtsEngineVoices},
     "/get/data/voice_output_devices": {"status": True, "variable":controller.getVoiceOutputDevices},
     "/run/stop_voice": {"status": True, "variable":controller.stopVoice},
     "/run/enable_tts": {"status": True, "variable":controller.enableTts},
@@ -782,6 +783,9 @@ _INIT_MAPPING_EXCLUDED_ENDPOINTS = frozenset({
     # Asks the bundled speech.cpp for the PC's devices (a child process, up to 3 s). The
     # notice and the settings ask for it when the user opens what is sent.
     "/get/data/telemetry_preview",
+    # Asks a speech engine the user installed (VOICEVOX and others) over HTTP, for the engine
+    # and URL the TTS page is editing. The page asks when it shows an engine.
+    "/get/data/tts_engine_voices",
 })
 
 init_mapping = {
