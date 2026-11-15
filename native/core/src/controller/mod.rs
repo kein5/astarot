@@ -8,6 +8,7 @@ mod languages;
 mod lifecycle;
 mod routes;
 mod settings;
+pub mod speech;
 
 pub use routes::routes;
 
@@ -121,11 +122,16 @@ pub fn run_endpoint(name: &str) -> &'static str {
 pub struct Services {
     /// Whether the local translation model of a weight is present and complete.
     pub translation_weight_available: Arc<dyn Fn(&str) -> bool + Send + Sync>,
+    /// How the speech.cpp servers are launched: the app's checked bundle, or a stand-in in tests.
+    pub speech_server_launch: Arc<dyn Fn(&crate::config::Environment) -> vrct_speech_server::server::Launch + Send + Sync>,
 }
 
 impl Default for Services {
     fn default() -> Self {
-        Self { translation_weight_available: Arc::new(|_| false) }
+        Self {
+            translation_weight_available: Arc::new(|_| false),
+            speech_server_launch: Arc::new(speech::bundled_launch),
+        }
     }
 }
 
@@ -141,10 +147,12 @@ pub struct Core {
     /// The language and engine settings change together under this lock.
     pub(crate) language_lock: Mutex<()>,
     translation_available: Mutex<Option<bool>>,
+    speech: speech::SpeechServers,
 }
 
 impl Core {
     pub fn new(config: Arc<Config>, log: Arc<Log>, output: Arc<dyn Output>, services: Services) -> Arc<Self> {
+        let speech = speech::SpeechServers::new((services.speech_server_launch)(config.environment()));
         Arc::new(Self {
             config,
             log,
@@ -155,6 +163,7 @@ impl Core {
             shut_down: Mutex::new(false),
             language_lock: Mutex::new(()),
             translation_available: Mutex::new(None),
+            speech,
         })
     }
 
@@ -224,6 +233,7 @@ impl Core {
         }
         *done = true;
         self.step("Shutdown");
+        self.close_speech_servers();
         self.config.save_now();
     }
 

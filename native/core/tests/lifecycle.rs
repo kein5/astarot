@@ -41,7 +41,10 @@ fn without_the_local_translation_model_ai_models_are_reported_off() {
     assert_eq!(ui.on(0, "/run/translation_engines").last().unwrap()["result"], json!([]), "no engine is offered");
     ui.stop();
 
-    let services = Services { translation_weight_available: Arc::new(|weight| weight == "m2m100_418M-ct2-int8") };
+    let services = Services {
+        translation_weight_available: Arc::new(|weight| weight == "m2m100_418M-ct2-int8"),
+        ..Services::default()
+    };
     let ui = Ui::with(Setup { services, ..Setup::default() });
     let snapshot = ui.ready();
     assert_eq!(ui.on(0, "/run/enable_ai_models")[0]["result"], true);

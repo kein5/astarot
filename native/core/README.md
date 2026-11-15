@@ -23,6 +23,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 | `models/voice_conversion/settings.py` の `DirectSettings` | `voice_settings` |
 | `languages.yml`、`transcription_languages.py` | `data/*.json`、`languages` |
 | `controller.py` の `init`、`shutdown`、各エンドポイント | `controller`、`backend` |
+| `controller.py` の `getSpeechServer*`、`startSpeechServer`、`stopSpeechServer`、`_speechServerEnded` | `controller::speech`（サーバのプロセスは `vrct-speech-server`） |
 
 ## 変わらないこと
 
@@ -48,5 +49,6 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/error_codes.rs`: エラーコードが仕様書（`docs/spec/reference/error-codes.md`）と一致すること。
 - `tests/dispatch.rs`: ロック、初期化前の待機、423、404、500、即時処理、VR パネルの制限。
 - `tests/lifecycle.rs`: 起動の通知の順序、初期化の完了、終了、watchdog、入力が閉じたときの終了、設定の移行と通知、保存の失敗と回復。
+- `tests/speech_servers.rs`: speech.cpp サーバの設定、起動、停止、自然終了、終了時の後始末、デバイスの一覧。speech.cpp の代わりに小さな実行ファイル（`tests/fixture/fake_speech.rs`）を起動します。モデルも GPU も使わず、アプリのビルドにも含まれません。
 
 利用者の文章、音声、API キーは、ログにも試験の出力にも入れません。

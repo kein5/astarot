@@ -319,4 +319,4 @@ pub fn routes(core: &Arc<Core>) -> Routes {
 }
 
 /// The areas wired to their crates, each with an `add(&mut Builder)`.
-const AREAS: &[fn(&mut Builder<'_>)] = &[];
+const AREAS: &[fn(&mut Builder<'_>)] = &[super::speech::add];
