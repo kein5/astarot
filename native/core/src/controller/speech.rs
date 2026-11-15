@@ -34,9 +34,13 @@ const CLOSE_TIMEOUT: Duration = Duration::from_secs(3);
 /// resources (`_internal/build/speechcpp`, PyInstaller's resource folder), a source checkout in
 /// `build/speechcpp`.
 pub fn bundled_launch(env: &Environment) -> Launch {
+    Launch::bundled(bundle_folder(env))
+}
+
+/// The folder of the bundled speech.cpp, for the servers and for the hardware probe.
+pub fn bundle_folder(env: &Environment) -> std::path::PathBuf {
     let packaged = env.app_dir.join("_internal").join("build").join("speechcpp");
-    let folder = if packaged.is_dir() { packaged } else { env.app_dir.join("build").join("speechcpp") };
-    Launch::bundled(folder)
+    if packaged.is_dir() { packaged } else { env.app_dir.join("build").join("speechcpp") }
 }
 
 /// A server ended. `run` names the start that ended (`None` when a Stop found none); `stopped`

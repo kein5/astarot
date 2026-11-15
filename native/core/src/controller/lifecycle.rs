@@ -82,6 +82,9 @@ impl Core {
         self.step("Revalidate Selected Models");
         config.revalidate_selected_models();
 
+        // Not before the user has answered the notice.
+        self.start_telemetry();
+
         self.step("Update settings");
         self.notify("initialization_complete", Value::Object(self.snapshot(dispatcher)));
         self.notify_after_start();

@@ -4,11 +4,13 @@
 //! the services that reach outside the process. Each submodule adds the endpoints of one area;
 //! [`routes`] adds them in the order of Python's `mapping`.
 
+mod downloads;
 mod languages;
 mod lifecycle;
 mod routes;
 mod settings;
 pub mod speech;
+mod telemetry;
 
 pub use routes::routes;
 
@@ -129,6 +131,21 @@ pub struct Services {
     pub translation_weight_available: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// How the speech.cpp servers are launched: the app's checked bundle, or a stand-in in tests.
     pub speech_server_launch: Arc<dyn Fn(&crate::config::Environment) -> vrct_speech_server::server::Launch + Send + Sync>,
+    /// The model download manager of a root: the reviewed catalog over the public transport.
+    /// Tests give a catalog and a transport of their own.
+    pub model_downloads: downloads::DownloadsSource,
+    /// Where the checked speech.cpp of the bundle is (`bundled_binary()`), for the hardware
+    /// probe of the downloads and for the hardware in the usage events.
+    pub speech_binary: downloads::SpeechBinary,
+    /// Whether nothing runs on a download's target ("japanese", "multilingual", "asr": the
+    /// speech server profile is stopped or failed; "rvc": the voice conversion is not
+    /// requested, pending or stopping). An apply is refused with `model_target_busy` otherwise.
+    /// The default says idle: neither runs in the core yet.
+    pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
+    /// The usage-event sender, to VRCT-VOX's own receiver by default.
+    pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
+    /// `VRCT_TELEMETRY=off` by default.
+    pub telemetry_forced_off: Arc<dyn Fn() -> bool + Send + Sync>,
 }
 
 impl Default for Services {
@@ -136,6 +153,11 @@ impl Default for Services {
         Self {
             translation_weight_available: Arc::new(|_| false),
             speech_server_launch: Arc::new(speech::bundled_launch),
+            model_downloads: Arc::new(downloads::default_downloads),
+            speech_binary: Arc::new(downloads::default_speech_binary),
+            model_target_idle: Arc::new(|_| true),
+            telemetry: Arc::new(vrct_ops::telemetry::Telemetry::default),
+            telemetry_forced_off: Arc::new(telemetry::forced_off_from_environment),
         }
     }
 }
@@ -153,6 +175,8 @@ pub struct Core {
     pub(crate) language_lock: Mutex<()>,
     translation_available: Mutex<Option<bool>>,
     speech: speech::SpeechServers,
+    /// The model downloads and the usage events, made on first use.
+    ops: std::sync::OnceLock<downloads::Ops>,
 }
 
 impl Core {
@@ -169,6 +193,7 @@ impl Core {
             language_lock: Mutex::new(()),
             translation_available: Mutex::new(None),
             speech,
+            ops: std::sync::OnceLock::new(),
         })
     }
 
@@ -239,7 +264,9 @@ impl Core {
         *done = true;
         self.step("Shutdown");
         self.close_speech_servers();
+        self.close_model_downloads();
         self.config.save_now();
+        self.stop_telemetry();
     }
 
     /// The end of the run: the watchdog and the settings saver stop.

@@ -24,6 +24,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 | `languages.yml`、`transcription_languages.py` | `data/*.json`、`languages` |
 | `controller.py` の `init`、`shutdown`、各エンドポイント | `controller`、`backend` |
 | `controller.py` の `getSpeechServer*`、`startSpeechServer`、`stopSpeechServer`、`_speechServerEnded` | `controller::speech`（サーバのプロセスは `vrct-speech-server`） |
+| `controller.py` のモデル取得（`getModelDownload*`、`start`/`cancel`/`applyModelDownload`）とテレメトリ（`*Telemetry*`） | `controller::downloads`、`controller::telemetry`（処理は `vrct-ops`） |
 
 ## 変わらないこと
 
@@ -50,5 +51,7 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/dispatch.rs`: ロック、初期化前の待機、423、404、500、即時処理、VR パネルの制限。
 - `tests/lifecycle.rs`: 起動の通知の順序、初期化の完了、終了、watchdog、入力が閉じたときの終了、設定の移行と通知、保存の失敗と回復。
 - `tests/speech_servers.rs`: speech.cpp サーバの設定、起動、停止、自然終了、終了時の後始末、デバイスの一覧。speech.cpp の代わりに小さな実行ファイル（`tests/fixture/fake_speech.rs`）を起動します。モデルも GPU も使わず、アプリのビルドにも含まれません。
+- `tests/downloads.rs`: モデル取得の同意とカタログの版の確認、状態の取得、取り消し、設定への適用とその拒否、ハードウェアの確認、終了時の停止。通信は試験用の偽の経路で、ネットワークに出ません。
+- `tests/telemetry.rs`: 通知に答えるまで何も送らないこと、答えの検査、`VRCT_TELEMETRY=off`、送る内容の表示、エラーコードの送信、終了後に送らないこと。送り先はこの PC のループバックに立てた受け側です。
 
 利用者の文章、音声、API キーは、ログにも試験の出力にも入れません。
