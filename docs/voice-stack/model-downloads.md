@@ -34,9 +34,22 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 各ファイルの転送全体には1800秒の期限があり、最大3回の試行と待機もその期限に含む。本文のread timeoutは従来どおり60秒。期限・取消ではカタログと同じsocket中断を使う。DNS・接続・headersが返る前やOSのディスクI/OをPythonのthreadから強制終了する保証はない。shutdownは最初に全入力元のメッセージ配送を失効させ、カタログ取得・Applyと内蔵モデル取得の両方へ取消を通知してから待機に入る。内蔵モデル側はロック取得・本文の中断・全workerのjoinを合計2秒まで待ち、残ればログへ記録する。取消後の公開は禁止する。起動時は各試行を1800秒まで待ち、前回を取消・joinできた場合だけ1回再試行する。
 - 成功・失敗・取消・既存ファイルの利用・例外のどの終了経路も、weight_typeとjob_idを持つ結果を1回だけ返す。取得要求の200は受付であり、成功確定ではない。全ファイルの照合とtokenizerのローカル読込みまで通ったときだけdownloaded=trueになる。失敗のUI処理は該当する重みのpending・progressだけを解除し、他の重みは維持する。同じプロセス内で重複した要求の拒否にはactive_job_idを付け、既に進行中の表示を解除しない。
 
+## speech.cppの音声認識モデル（2026-11-16）
+
+カタログ版 `2026-11-16.1` から、同梱のspeech.cpp（0.11.0）が扱う認識モデル7種を、量子化の種類ごとにすべて取得できる（31件）。対象はqwen3-asr-0.6b、qwen3-asr-1.7b、reazonspeech-v2、parakeet-tdt_ctc-0.6b-ja、parakeet-tdt-0.6b-v3、haas-ja-v1.0、nemotron-3.5-transcribeである。
+
+- revision、ファイル、容量、SHA-256、対応言語、既定のファイルはspeech.cppのカタログ（`speech models --json`）を正とする。`tools/speechcpp_models.py`が同梱するバージョンの出力を`src-python/models/model_downloads/speechcpp_models.py`へ写す。手で書き写さない。speech.cppのバージョンを上げたら、同梱するバージョンでこのツールを実行し直して`CATALOG_VERSION`も上げる。
+- アプリ側に書くのは、どの名前を出すかとライセンスの審査（`speechcpp_asr.py`の`OFFERS`）だけである。審査の記録は[licensing.md](licensing.md#speechcppの音声認識モデル2026-11-16)と`licenses/speechcpp-models/NOTICE.md`にある。
+- `native/ops`も同じ2つのファイルの文字列を読む（`downloads/speechcpp.rs`）。`python_reference.json`との照合は従来どおり。
+- エントリのidは`<名前>-<種類>`（例：`reazonspeech-v2-q8`、`nemotron-35-transcribe-iq4nl`）。以前からある`haas-ja-q8`と`qwen3-asr-06b-q8`は同じidのままなので、取得済みのフォルダーをそのまま使える。
+- 画面では「認識モデル」と「ファイルの種類（量子化）」を選ぶ。最初はspeech.cppが名前で取得するファイルを選んだ状態になり、対応言語とspeech.cppの推奨言語を表示する。取得には従来どおり確認画面での同意が要る。選んだだけでは何も取得しない。
+- 実行時の扱いは変わらない。認識サーバーは選んだファイルを読み込み、言語や語彙のオプションは`/v1/models`の申告に従う。VAD（silero-vad）と話者分離のエントリも変えていない。2つのファイルがspeech.cppのカタログと一致することは試験で確かめている。
+
+新しく加えたモデルを実機のサーバーで動かす試験は、まだしていない（取得に同意が要るため）。
+
 ## 固定カタログ
 
-版 `2026-10-31.1`。TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補。
+版 `2026-10-31.1`。TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補（ASRは2026-11-16から上の節のとおり）。
 
 | ID | リポジトリと固定revision | ファイル / bytes | SHA256 |
 |---|---|---|---|
