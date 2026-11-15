@@ -36,9 +36,9 @@ showcase:
     linkText: テキスト読み上げ（TTS）の使い方
   - id: voice-changer
     title: 声を変える
-    details: ボイスチェンジャー（RVC・Seed-VC）でマイクの声を変えて、VRChatに届けます。自分で用意したモデルも使えます。
+    details: ボイスチェンジャー（RVC）でマイクの声を変えて、VRChatに届けます。自分で用意したモデルも使えます。
     link: /ja/features/voice-conversion
-    linkText: ボイスチェンジャー（RVC・Seed-VC）の使い方
+    linkText: ボイスチェンジャー（RVC）の使い方
   - id: chat-reading
     title: 相手のチャットを読む
     details: チャット読み取り（OCR）で、画面に出た相手のチャットボックスの文字を読み取って訳します。

@@ -11,7 +11,7 @@ VRCT-VOXはVRCTの開発者やVRChatが承認したものではありません�
 ## VRCTから増えたこと
 
 - [テキスト読み上げ（TTS）](../features/tts) 入力した文や訳文を読み上げて、VRChatのマイクに流します。同じ声を自分のスピーカーでも聞けます。
-- [ボイスチェンジャー（RVC）](../features/voice-conversion) マイクの声をRVCかSeed-VCで別の声に変えて、VRChatに届けます。
+- [ボイスチェンジャー（RVC）](../features/voice-conversion) マイクの声をRVCで別の声に変えて、VRChatに届けます。
 - [リアルタイム字幕](../features/transcription) 自分の声とほかのプレイヤーの声を、アプリに入っている音声認識サーバーで文字にします。
 - [チャット読み取り（OCR）](../features/chat-reading) VRChatの画面に出たチャットボックスの文字を読み取ります。
 - [Linux版](./install#linux) Waylandのグローバルショートカット、PipeWireの仮想マイク、日本語入力（fcitx/Mozc、ibus）に対応しています。

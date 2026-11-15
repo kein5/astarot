@@ -47,7 +47,7 @@ VRCT-VOXの配布物にはテキスト読み上げ・音声認識・ボイスチ
 |---|---|
 | 読み上げ、リアルタイム字幕、話した人の見分け（アプリに入っているspeech.cpp） | AMD、Intel、NVIDIA（Vulkan） |
 | ローカルの翻訳 | NVIDIA（WindowsのGPU版）。ほかのGPUではCPUで動きます |
-| ボイスチェンジャー（RVC、Seed-VC） | NVIDIA |
+| ボイスチェンジャー（RVC） | NVIDIA（GeForce GTX 16・RTX 20シリーズ以降とドライバー580以降）。それ以外ではCPUで動きます（[動作環境](requirements#nvidiaのgpuでrvcを使うとき)） |
 | チャット読み取り | CPUで動きます |
 
 アプリに入っているspeech.cppのサーバーは、推論デバイスが「自動」か「GPU」のとき、内蔵GPUより独立GPU（グラフィックボード）を優先して使います。独立GPUが複数あればメモリの多いほうを使います。使うGPUは「モデルとサーバー」の「推論デバイス」で指定もできます。

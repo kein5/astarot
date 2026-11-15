@@ -65,7 +65,7 @@ You need: the RVC runtime and a model, an NVIDIA GPU, and a virtual microphone {
 2. Set up a virtual microphone that carries the changed voice to VRChat.
 3. Turn on "Voice changer (RVC)" on the main screen.
 
-See [Voice changer (RVC, Seed-VC)](../features/voice-conversion).
+See [Voice changer (RVC)](../features/voice-conversion).
 
 ## Say the translation of your words in your changed voice
 
@@ -75,7 +75,7 @@ You need: both text to speech (TTS) and the voice changer (RVC) set up {.needs}
 2. Under Settings → "Text to speech (TTS)", set "Realtime microphone speech" to "Speak final translations" and "Speak through voice conversion" to "On".
 3. On the main screen, turn on "Translation", "Mic input", "Text to speech (TTS)" and "Voice changer (RVC)", and speak. Your microphone is captioned by realtime captions.
 
-See [Voice changer (RVC, Seed-VC)](../features/voice-conversion).
+See [Voice changer (RVC)](../features/voice-conversion).
 
 ## Show captions in a stream (OBS)
 

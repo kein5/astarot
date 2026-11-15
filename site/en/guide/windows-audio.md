@@ -10,6 +10,8 @@ VB-CABLE is a VB-Audio product and has nothing to do with VRCT-VOX. Check its te
 
 ## Install the virtual cable
 
+From 0.4.0, if no virtual cable is found when the app starts, the app shows how to install one. Later you can open the same guide with "Check the virtual microphone" under Settings → "Text to speech (TTS)". It finds the cable once it is installed, checks it with a test sound and shows which microphone to choose in VRChat. If you only use translation and captions, you do not need a virtual cable.
+
 1. Download VB-CABLE from its page and install it as the page describes.
 2. Restart your PC after installing it.
 
@@ -34,6 +36,14 @@ If "Input to forward" for the voice changer is "CABLE Output", it does not start
 ## Mute
 
 "Mute" at the top of the main screen stops speech and the voice changer together. While it is on, the app plays silence into the cable.
+
+## Check with a test sound
+
+Under Settings → "Text to speech (TTS)", press "Check the virtual microphone" and then "Play the test sound". A short sound is played into "CABLE Input", and a meter shows how loud it comes out of "CABLE Output". The guide also says whether it arrived.
+
+- If VRChat already uses "CABLE Output" as your microphone, other players hear the test sound too.
+- No test sound plays while the voice is muted.
+- The sound recorded for the check is only measured for its level, never kept.
 
 ## When it does not work
 

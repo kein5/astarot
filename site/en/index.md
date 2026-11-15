@@ -35,9 +35,9 @@ showcase:
     linkText: Using text to speech (TTS)
   - id: voice-changer
     title: Change your voice
-    details: Changes your microphone's voice with the voice changer (RVC, Seed-VC) and gets it to VRChat. Models you bring yourself work too.
+    details: Changes your microphone's voice with the voice changer (RVC) and gets it to VRChat. Models you bring yourself work too.
     link: /en/features/voice-conversion
-    linkText: Using the voice changer (RVC, Seed-VC)
+    linkText: Using the voice changer (RVC)
   - id: chat-reading
     title: Read their chat
     details: Chat reading (OCR) reads the other players' chatbox text on your screen and translates it.
