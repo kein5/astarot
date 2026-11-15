@@ -26,7 +26,7 @@ SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "backend", "rust", 
 GROUPS = {"quick": ("tooling", "node", "lint"),
           "all": ("tooling", "node", "ui", "voice", "lint", "backend", "rust")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
-NATIVE_CRATES = ("native/speech-server", "native/ops", "native/audio-routing", "native/adapters")
+NATIVE_CRATES = ("native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/core")
 SETUP_SCOPES = ("headless", "ui", "browser", "backend", "rust", "sidecar")
 OWNER_FILE = ".vrct-vox-dev-env"
 OWNER = "VRCT-VOX developer environment v1\n"
