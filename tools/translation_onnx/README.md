@@ -13,6 +13,14 @@ build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_4
 
 `<出力先>/m2m100_418M-onnx-int8/` に、エンコーダとデコーダの ONNX、`tokenizer.json`、`vocab.json`、`manifest.json` ができます。`manifest.json` には、各ファイルの SHA-256、元のモデルのコミット、使ったパッケージの版が入ります。
 
+グラフは `torch.onnx.export` で書き出します（`graphs.py`）。
+
+- 各層の重みはモデルのものをそのまま使い、つなぎ方だけを `graphs.py` に書いています。デコーダのキャッシュは、テンソルで受け渡します。
+- 量子化の前に、transformers 本来の計算と照合します。対象は、エンコーダの出力と、デコーダの初回とキャッシュ付きの各ステップの logits です。最大の誤差は `manifest.json` の `verified_max_difference` に入ります。
+- 2つのデコーダ（初回とキャッシュ付き）は量子化してから、`use_cache_branch` で切り替える1つのグラフにまとめます。両方にある重みは1つにします。
+- 以前は optimum を使っていましたが、やめました。optimum-onnx のどの版も、既知の脆弱性が直った transformers（5.10 以上）に対応していないためです。
+- M2M100 の `tokenizer.json` は、SentencePiece のモデルから直接組み立てます。transformers 5 系の変換器は、BPE 型のモデルで失敗するためです。結果は、transformers 4.57 の変換器で作ったものとバイト単位で同じです。
+
 - 元のモデルは `export.py` の中でコミットを固定しています。
 - 必要なメモリの目安は、418M・600M が 15GB、1.2B・1.3B が 30GB、3.3B が 55GB 程度です。中間ファイルも元のモデルの数倍の大きさになります（3.3B では約 27GB）。tmpfs の `/tmp` ではなく、ディスク上を `--work` に指定してください。
 - `--float32` を付けると、量子化しないモデルを作ります。これはデコードの検証用で、アプリでは使いません。

@@ -2,16 +2,18 @@
 #   uv venv --python 3.11 venv
 #   uv pip install --python venv/bin/python --index-strategy unsafe-best-match \
 #       --extra-index-url https://download.pytorch.org/whl/cpu -r tools/translation_onnx/requirements.txt
+# The graphs are written with torch.onnx.export (graphs.py); optimum is not used, as no
+# optimum-onnx release supports a transformers without its known vulnerabilities (>= 5.10).
+# ctranslate2 converts a model to float32 for the decoding check (compare.py --ct2-model).
 # compare.py runs instead with the app's own pins from uv.lock (ctranslate2 4.8.4,
 # transformers 5.22.1, tokenizers 0.23.3, sentencepiece 0.2.1) plus sacrebleu 2.6.0.
 torch==2.15.0+cpu
-transformers==4.57.6
-optimum[onnxruntime]==2.1.0
-optimum-onnx==0.1.0
+transformers==5.22.1
 onnx==1.23.2
+onnxscript==0.7.2
 onnxruntime==1.32.0
-tokenizers==0.22.2
+tokenizers==0.23.3
 sentencepiece==0.2.3
-huggingface_hub==0.36.2
+huggingface_hub==2.4.0
 ctranslate2==4.9.0
 sacrebleu==2.6.0
