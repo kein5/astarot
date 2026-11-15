@@ -13,6 +13,7 @@ from test_controller_integration import controller_module  # noqa: F401
 from test_realtime_controls import app  # noqa: F401
 from test_scheduler import until
 from test_speech_server_controls import OwnedProcess, owned, run_server  # noqa: F401
+from test_external_speech_engines import engine_server
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -230,11 +231,87 @@ def test_stop_with_a_generation_never_stops_a_newer_run(owned):
     assert made[0].health()['state'] == 'stopping'
 
 
+def engine_settings(c, **values):
+    """Japanese read by an installed engine (ADR-008), with the bundled speech.cpp server still selected."""
+    voice = dict(engine_voice_id='3', engine_voice_speaker='ずんだもん', engine_voice_style='ノーマル')
+    assert c.setVoiceSettings(dict(mode='original', output_device='cable', japanese_server='bundled',
+                                   japanese_engine='voicevox', **{**voice, **values}))['status'] == 200
+
+
+def test_japanese_from_an_installed_engine_never_starts_the_bundled_server(toggle, monkeypatch):
+    c, m, made, checked = toggle
+    with engine_server('voicevox') as (url, requests):
+        engine_settings(c, voicevox_url=url)
+        response = enable(c)
+        assert response['status'] == 200, response
+        assert response['result']['tts_enabled']
+    # The engine answered its health check; no speech.cpp server was started or asked.
+    assert not made and not checked
+    assert [path for _, path, _ in requests] == ['/version']
+    # Its run is not the Japanese speech.cpp server's: stopping that server cannot end TTS.
+    assert c._speechTtsDependency('japanese', None) is None
+
+
+@pytest.mark.parametrize('values,code', [
+    (dict(engine_voice_id='', engine_voice_speaker='', engine_voice_style=''), 'tts_engine_voice_unset'),
+    (dict(voicevox_url='http://127.0.0.1:9'), 'tts_engine_not_ready'),
+])
+def test_an_engine_without_a_voice_or_not_running_leaves_tts_off_and_says_why(toggle, values, code):
+    c, _, made, checked = toggle
+    engine_settings(c, **values)
+    assert enable(c) == {'status': 409, 'result': {'error_code': code}}
+    assert not c.voice_events.status()['tts_enabled'] and not made and not checked
+
+
+def test_the_tts_page_lists_an_engine_s_voices_without_saving_or_synthesizing(toggle):
+    c, _, made, _ = toggle
+    before = c.getVoiceSettings()['result']
+    with engine_server('voicevox') as (url, requests):
+        result = c.getTtsEngineVoices(dict(engine='voicevox', url=url + '/', request_id='ui-1'))['result']
+    assert result['request_id'] == 'ui-1' and result['connected'] and result['version'] == '0.26.1'
+    assert result['url'] == url and result['error_code'] is None
+    # Singing styles are left out; the names come with each id so the choice can be saved.
+    assert [(v['id'], v['speaker'], v['style']) for v in result['voices']] == [
+        ('2', '四国めたん', 'ノーマル'), ('0', '四国めたん', 'あまあま'), ('3', 'ずんだもん', 'ノーマル')]
+    assert {path for _, path, _ in requests} == {'/version', '/speakers'}
+    assert c.getVoiceSettings()['result'] == before and not made
+
+
+def test_engine_voice_names_the_settings_cannot_hold_are_left_out(toggle):
+    c, _, _, _ = toggle
+    speakers = [{"name": "ok", "styles": [{"name": "a", "id": 1}, {"name": "b\nc", "id": 2}]},
+                {"name": "x" * 129, "styles": [{"name": "d", "id": 3}]}]
+    with engine_server('voicevox', speakers=speakers) as (url, _):
+        result = c.getTtsEngineVoices(dict(engine='voicevox', url=url, request_id='r'))['result']
+    assert result['voices'] == [{'id': '1', 'speaker': 'ok', 'style': 'a'}]
+
+
+@pytest.mark.parametrize('data,status,code', [
+    (dict(engine='voicevox', url='http://127.0.0.1:9', request_id='r'), 200, 'tts_engine_not_ready'),
+    (dict(engine='voicevox', url='http://192.168.1.5:50021', request_id='r'), 200, 'tts_engine_url_invalid'),
+    (dict(engine='voicevox', url='http://example.com', request_id='r'), 200, 'tts_engine_url_invalid'),
+    (dict(engine='speechcpp', url='http://127.0.0.1:50021', request_id='r'), 400, 'tts_engine_request_invalid'),
+    (dict(engine='voicevox', url='http://127.0.0.1:50021', request_id='bad id'), 400, 'tts_engine_request_invalid'),
+    (dict(engine='voicevox', url='http://127.0.0.1:50021'), 400, 'tts_engine_request_invalid'),
+    (None, 400, 'tts_engine_request_invalid'),
+])
+def test_an_engine_check_never_leaves_this_pc_and_reports_a_safe_code(toggle, data, status, code):
+    c, _, _, _ = toggle
+    response = c.getTtsEngineVoices(data)
+    assert response['status'] == status
+    assert response['result']['error_code'] == code
+    if status == 200:
+        assert not response['result']['connected'] and response['result']['voices'] == []
+
+
 def test_every_code_on_can_report_has_an_english_and_japanese_next_step(controller_module):
     codes = {'tts_state_changed', 'voice_route_closed', 'voice_route_muted', 'tts_source_not_selected',
              'tts_translation_not_ready', 'tts_language_unsupported', 'tts_output_missing',
              'speech_server_not_ready', 'speech_server_or_settings_not_ready', 'speech_server_model_invalid',
-             'speech_server_start_failed', 'speech_server_busy', *controller_module.Controller._TTS_START_FAILURES}
+             'speech_server_start_failed', 'speech_server_busy', *controller_module.Controller._TTS_START_FAILURES,
+             # An installed engine (ADR-008) at ON and while speaking.
+             'tts_engine_voice_unset', 'tts_engine_not_ready', 'tts_engine_voice_missing',
+             'tts_engine_query_failed', 'tts_engine_synthesis_failed', 'tts_engine_url_invalid'}
     for language in ('en', 'ja'):
         text = yaml.safe_load((ROOT / 'locales' / f'{language}.yml').read_text(encoding='utf-8'))['voice_ui']
         assert codes <= set(text['errors']), (language, codes - set(text['errors']))

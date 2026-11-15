@@ -63,6 +63,15 @@ class TestInitMappingExcludesNetworkEndpoints(unittest.TestCase):
         self.assertIn("/get/data/telemetry_preview", mapping)
         self.assertNotIn("/get/data/telemetry_preview", init_mapping)
 
+    def test_engine_voices_are_not_collected_at_startup(self) -> None:
+        """利用者が入れた読み上げエンジンへ HTTP で問い合わせるので、起動時には集めない。
+
+        要求には編集中のエンジンと URL が要る。UI 側は、TTS の設定でエンジンを選んだときと
+        「再確認」を押したときに自分で要求する。
+        """
+        self.assertIn("/get/data/tts_engine_voices", mapping)
+        self.assertNotIn("/get/data/tts_engine_voices", init_mapping)
+
     def test_other_get_data_endpoints_are_still_collected(self) -> None:
         """除外は次のものだけで、他は従来どおり集められること。
 
@@ -72,7 +81,7 @@ class TestInitMappingExcludesNetworkEndpoints(unittest.TestCase):
         self.assertEqual(get_data_keys - set(init_mapping),
                          {"/get/data/available_releases", "/get/data/ocr_readiness", "/get/data/ocr_capture_status",
                           "/get/data/realtime_asr_models", "/get/data/vrchat_osc_presence",
-                          "/get/data/telemetry_preview"})
+                          "/get/data/telemetry_preview", "/get/data/tts_engine_voices"})
 
 
 class TestUpdateConfigSettingsIsolatesFailures(unittest.TestCase):

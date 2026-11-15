@@ -93,7 +93,8 @@ export function useSettingsDraft(saved, error, updateError, { write, canSave = t
     };
     const saveState = error || (!saving && awaitingResponse) ? "save_failed" : saving ? "saving" : dirty ? "unsaved" : "saved";
     const id = useId();
-    const changes = draft === null ? [] : [...changedPaths(saved, draft).map(label), ...(typeof pending === "function" ? pending(draft) : pending)];
+    // Fields saved together under one name (an engine voice's id and names) count as one change.
+    const changes = draft === null ? [] : [...new Set([...changedPaths(saved, draft).map(label), ...(typeof pending === "function" ? pending(draft) : pending)])];
     // `edited`: the draft differs or its write is unconfirmed. A `pending` change alone (e.g. the RVC
     // page selecting RVC) is not an edit the user would lose by leaving.
     const entry = { dirty: dirty || changes.length > 0, edited: dirty, saving, saveState, changes, canSave: !!write && draft !== null && !!(typeof canSave === "function" ? canSave(draft) : canSave),
