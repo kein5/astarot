@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
 import * as legacyConsent from "../configs/legacyModelConsent.js";
 import * as endpointPrivacy from "./endpointPrivacy.js";
+import * as languageNames from "./languageNames.js";
 
 const boxes = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
 const entry = { id: "reviewed-model", name: "Reviewed model", target: "rvc", total_bytes: 100,
@@ -38,6 +39,7 @@ async function fixture(context, kind, openerState) {
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },
         "../../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },
         "../../../../../../logics/voice/modelHardwareAdvice": { modelAdvice: () => ({}) },
+        "../../../../../../logics/common/languageNames": languageNames,
         "../../../../../../../logics/configs/legacyModelConsent": legacyConsent,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../../../../../../logics/configs/ctranslate2License": {},

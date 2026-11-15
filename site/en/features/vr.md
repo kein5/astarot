@@ -34,7 +34,10 @@ The background is a drawing for this page. In use, the captions sit above whatev
 - When [telling speakers apart](transcription#tell-speakers-apart) is in use, a game audio caption starts with a letter for who spoke (A, B, …) and each person gets their own colour (purple, amber, green, rose, then the same colours again from the fifth person).
 - You can click through the captions to the window underneath, and they never take keyboard input away from it.
 - You can change where they appear (bottom or top of the screen), the text size, the display duration and how dark the background is.
-- They appear on the monitor that holds VRCT-VOX's main window.
+- Hold Ctrl and drag the captions to move them anywhere. While Ctrl is held, a frame shows the area of the captions. They stay where you put them the next time you start the app.
+- Point at the captions, hold Ctrl and press "+" or "-" to change the text size. At other times Ctrl and "+" or "-" go to your other apps as usual.
+- "Reset the caption position and text size" puts both back. Choosing an edge again in "Where the captions appear" also moves them back to that edge.
+- Until you move them, they appear on the monitor that holds VRCT-VOX's main window.
 - "Show Only Translated Messages" applies to these captions too.
 - Next to the captions, you can also show where your inputs went and how long they took. See [Inputs and outputs](io-flow#show-it-on-the-desktop).
 - They do not appear above an app in exclusive full screen (a mode in which the app takes over the whole display). VRChat's full screen is a borderless window, so they do appear there.

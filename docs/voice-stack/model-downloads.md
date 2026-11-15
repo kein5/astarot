@@ -34,9 +34,46 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 各ファイルの転送全体には1800秒の期限があり、最大3回の試行と待機もその期限に含む。本文のread timeoutは従来どおり60秒。期限・取消ではカタログと同じsocket中断を使う。DNS・接続・headersが返る前やOSのディスクI/OをPythonのthreadから強制終了する保証はない。shutdownは最初に全入力元のメッセージ配送を失効させ、カタログ取得・Applyと内蔵モデル取得の両方へ取消を通知してから待機に入る。内蔵モデル側はロック取得・本文の中断・全workerのjoinを合計2秒まで待ち、残ればログへ記録する。取消後の公開は禁止する。起動時は各試行を1800秒まで待ち、前回を取消・joinできた場合だけ1回再試行する。
 - 成功・失敗・取消・既存ファイルの利用・例外のどの終了経路も、weight_typeとjob_idを持つ結果を1回だけ返す。取得要求の200は受付であり、成功確定ではない。全ファイルの照合とtokenizerのローカル読込みまで通ったときだけdownloaded=trueになる。失敗のUI処理は該当する重みのpending・progressだけを解除し、他の重みは維持する。同じプロセス内で重複した要求の拒否にはactive_job_idを付け、既に進行中の表示を解除しない。
 
+## speech.cppの音声認識モデル（2026-11-16）
+
+カタログ版 `2026-11-16.1` から、同梱のspeech.cpp（0.11.0）が扱う認識モデル7種を、量子化の種類ごとにすべて取得できる（31件）。対象はqwen3-asr-0.6b、qwen3-asr-1.7b、reazonspeech-v2、parakeet-tdt_ctc-0.6b-ja、parakeet-tdt-0.6b-v3、haas-ja-v1.0、nemotron-3.5-transcribeである。
+
+- revision、ファイル、容量、SHA-256、対応言語、既定のファイルはspeech.cppのカタログ（`speech models --json`）を正とする。`tools/speechcpp_models.py`が同梱するバージョンの出力を`src-python/models/model_downloads/speechcpp_models.py`へ写す。手で書き写さない。speech.cppのバージョンを上げたら、同梱するバージョンでこのツールを実行し直して`CATALOG_VERSION`も上げる。
+- アプリ側に書くのは、どの名前を出すかとライセンスの審査（`speechcpp_asr.py`の`OFFERS`）だけである。審査の記録は[licensing.md](licensing.md#speechcppの音声認識モデル2026-11-16)と`licenses/speechcpp-models/NOTICE.md`にある。
+- `native/ops`も同じ2つのファイルの文字列を読む（`downloads/speechcpp.rs`）。`python_reference.json`との照合は従来どおり。
+- エントリのidは`<名前>-<種類>`（例：`reazonspeech-v2-q8`、`nemotron-35-transcribe-iq4nl`）。以前からある`haas-ja-q8`と`qwen3-asr-06b-q8`は同じidのままなので、取得済みのフォルダーをそのまま使える。
+- 画面では「認識モデル」と「ファイルの種類（量子化）」を選ぶ。最初はspeech.cppが名前で取得するファイルを選んだ状態になり、対応言語とspeech.cppの推奨言語を表示する。取得には従来どおり確認画面での同意が要る。選んだだけでは何も取得しない。
+- 実行時の扱いは変わらない。認識サーバーは選んだファイルを読み込み、言語や語彙のオプションは`/v1/models`の申告に従う。VAD（silero-vad）と話者分離のエントリも変えていない。2つのファイルがspeech.cppのカタログと一致することは試験で確かめている。
+
+新しく加えたモデルを実機のサーバーで動かす試験は、まだしていない（取得に同意が要るため）。
+
+### 選ぶための情報（profile）
+
+0.5.0の画面で、初めての人が比べて選べるように、カタログの各行に利用者向けの情報を持たせた。音声認識、VAD、話者分離、読み上げ（TTS）の行にある。RVCとOCRの行は`null`である。
+
+| 知りたいこと | 行の項目 | 出どころ |
+|---|---|---|
+| 表示名 | `name`（ファイルの種類まで）、`speech.label`（モデル名だけ） | 既存。`OFFERS` |
+| 短い説明 | `profile.summary`（`model_downloads.summary.<key>`の文言キー） | `PROFILES`と`locales/` |
+| 対応言語 | `profile.languages` | speech.cppのカタログ |
+| ダウンロードサイズ | `total_bytes`（ファイルは`artifacts[].size`） | 既存。speech.cppのカタログ |
+| ハードウェアの目安 | `profile.memory_bytes`と`memory_measured_on`、`tier`（light／medium／heavy）、`cpu`、`gpu` | モデルカードの実測値。`tier`はそこから計算する |
+| おすすめ | `profile.recommended_for` | speech.cppのカタログの`start`。読み上げは`PROFILES`の`recommended_for` |
+
+- おすすめは、speech.cppが言語ごとに「最初に使うモデル」として示すものを使う。アプリでは別に決めない。2026-11-16時点では、日本語がreazonspeech-v2、ウクライナ語などヨーロッパの9言語がparakeet-tdt-0.6b-v3、ほかの言語がqwen3-asr-0.6bである。名前が取得するファイル（既定の種類）の行にだけ付く。
+- `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーである。測った機器は`memory_measured_on`に書く（Nemotron 3.5 TranscribeはH100、ほかはApple M5）。このPCでの値でも、必要量の保証でもない。`tier`は1.5 GiB以下をlight、4 GiB以下をmedium、それより大きいものをheavyとする。
+- `cpu`は、CPUで動かして確かめたものだけを書く。`slow`はVRCT-VOXが測ったもの、`practical`はspeech.cppがCPUで動かす作りのもの（VAD）、ほかは`unverified`である。`gpu`はVAD以外を`recommended`にした。モデルカードの測定はどれもGPUで、下の測定でもGPUのほうがずっと速かった。
+- 2026-11-16の測定。Windows 11、Intel Core i7-1255U、NVIDIA RTX 3060 Ti（Thunderbolt接続、Vulkan1）、speech.cpp 0.11.0、Qwen3-ASR 0.6B Q8_0、言語は`ja`。Windowsの合成音声（10.2秒の日本語1文）を`speech asr`で認識させ、1ファイルと6ファイルの所要時間の差から1発話あたりを出した。各2回で、CPUは2.95秒と4.26秒、GPUは0.08秒と0.16秒だった。CPUでも動くが、字幕は発話の後に数秒遅れる。合成音声1文での測定で、精度の評価ではない。
+
+読み上げの行（2026-11-16に追加）：
+
+- `catalog.py`で手で固定した行なので、`PROFILES`の`ids`で、ファイルの種類ごとにカタログのIDを指す（Irodori MFのF16は`irodori-v41-f16`など）。
+- おすすめは`PROFILES`の`recommended_for`で、speech.cppの`start`を置き換える。speech.cppは日本語にもQwen3-TTS 0.6Bを勧めるが、VRCT-VOXは日本語をIrodori（japaneseプロファイル）で、ほかの言語をQwen3-TTS（multilingualプロファイル）で読むためである。日本語はIrodori MFのF16、ほかの9言語はQwen3-TTS 0.6BのQ8_0で、どちらもアプリが最初から選ぶファイルである。ほかの読み上げの行は空。Irodori LargeはGemmaの利用規約に従うので、おすすめにしない。
+- `cpu`は`impractical`。i7-1255UのCPUでspeech.cpp 0.10.0を動かした（2026-11-16、短い日本語5文）。Irodori MF F16は最初の音まで3〜7秒で、生成は実時間の約4倍遅く、再生が途切れる。Qwen3-TTS 1.7B Q8_0は最初の音まで約1秒だが、生成は約3倍遅い。Irodori Small F16は最初の音まで20〜100秒だった。LargeとQwen3-TTS 0.6BはCPUで測っていないが、大きさから同じ扱いにした。`gpu`は`recommended`。
+- `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーで、どれもApple M5（Metal）での値である。
 ## 固定カタログ
 
-版 `2026-10-31.1`。TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補。
+版 `2026-10-31.1`。TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補（ASRは2026-11-16から上の節のとおり）。
 
 | ID | リポジトリと固定revision | ファイル / bytes | SHA256 |
 |---|---|---|---|
@@ -93,32 +130,6 @@ TTS設定を開くと、整合性確認済みの同梱speech.cpp（現在は0.11
 RVC検索修正を含む最新版は `build/gpu-model-guidance-rvc-fixed-2026-10-30-artifacts/` のAppImage（SHA256は上記b8050d10…）。30回の性能値は旧3c034035…版の測定として保持する。新しい入力hash記録はRVC等のコピー対象も含む575件。親担当の展開検査でアダプター・ライセンス18件が元ファイルと一致し、本担当も記録と現sourceのhashを照合した。旧543件の一致記録にはintegrations以下は含まれていなかった。
 
 b8050d10…版のTTS再確認 `native-rvc-fixed-tts-smoke` は1 PASS（72.01秒）。warmup＋warm2件の全PCM一致・前後ゼロ、OFF時2.266666秒の全バイトゼロ、各送信のOSC1回を保存PCMから独立確認した。warm2件は性能の再認証には足りず、`summary.verdict=insufficient_samples` のまま保持している。
-
-## 選ぶための情報
-
-0.5.0の画面で、初めて選ぶ人がモデルを比べて決められるように、カタログの各行に`info`を持たせた（2026-11-16）。データは`models/model_downloads/model_info.py`の`DATA`にあるJSONで、`native/ops`も同じファイルを読む。表示する文言は`locales/`の`model_catalog`にある。0.4系の画面はまだ`info`を使わない。
-
-| 利用者が比べること | カタログの行のどこにあるか | 以前からあったか |
-|---|---|---|
-| 表示名 | `info.title`（平易な名前）と`info.variant`（標準・軽量）。正式な名前は`name` | `name`はあった。`title`と`variant`は新規 |
-| 何が得意か | `info.summary` | 新規 |
-| 対応言語 | `info.languages`（BCP 47。文字だけは`und-Latn`など、言語を問わないものは`*`） | 新規 |
-| ダウンロードサイズ | `total_bytes`（ファイルごとは`artifacts[].size`） | あった |
-| 必要なハードウェア | `info.device`（`gpu`、`gpu_preferred`、`cpu`）。メモリの例は`guidance.reference_memory_bytes` | `guidance`はあった。`device`は新規 |
-| おすすめか | `info.recommended`（用途ごとの既定のおすすめ） | 新規。空きメモリに応じた推奨は`guidance`と画面の計算で、以前からある |
-| ライセンス | `license`と`licenses` | あった |
-
-`recommended`は用途ごとに1つで、アプリが最初から選ぶモデルと同じにした。チャット読み取りだけは文字の認識と吹き出しの検出の両方が要るので2つ、話者分離は任意なので0。読み上げのページの空きメモリによる推奨は、同じモデルの軽量版を勧めることがある。
-
-`device`の根拠：
-
-- 読み上げ（Irodori、Qwen3-TTS）は`gpu`。2026-11-16にi7-1255UのCPUでspeech.cpp 0.10.0を動かした。Irodori MFは最初の音まで3〜7秒で生成は実時間の約4倍遅く、Qwen3-TTS 1.7Bは最初の音まで約1秒だが生成は約3倍遅く、Irodori Smallは最初の音まで20〜100秒だった。Largeと0.6Bは測っていない。
-- 音声認識（Haas-ja、Qwen3-ASR）は`gpu_preferred`。字幕はCPUでも動き、遅れの中央値は2.7秒だった（[Windowsの音声機能](local-setup-windows.md)）。
-- 話者分離は`gpu`。CPUだと字幕が大きく遅れるので、CPUのサーバーでは話者分離を求めない（[Windowsの実機試験](windows-voice-report.md)）。
-- RVCは`gpu_preferred`。CPUでも変換するが、声が約1.3秒遅れて届く。
-- VAD、文字認識、吹き出しの検出は`cpu`。
-
-カタログに項目を足すときは`model_info.py`にも足す。`tests/voice/test_model_info.py`が、すべての項目に説明があることと、文言が英語と日本語の両方にあることを確かめる。
 
 ## 取消・失敗・終了の境界
 

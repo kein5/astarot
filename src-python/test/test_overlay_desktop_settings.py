@@ -75,6 +75,49 @@ def test_a_malformed_object_is_refused_without_changing_anything(isolated, contr
 
 
 @pytest.fixture
+def placement_controller(isolated):  # noqa: F811 - imported pytest fixture
+    ns = dict(config=isolated.config, ConfigValidationError=isolated.ns["ConfigValidationError"],
+              ErrorCode=ErrorCode, VRCTError=VRCTError, functools=functools, printLog=Mock())
+    path = SOURCE / "controller.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    tree.body = [node for node in tree.body if isinstance(node, ast.FunctionDef)
+                 and node.name == "_configValidationErrorResponse"]
+    exec(compile(tree, str(path), "exec"), ns)
+    definitions("controller.py", ns, class_methods={"setOverlayDesktopPlacement"})
+    return ns["Controller"]()
+
+
+UNPLACED = {"x": None, "y": None}
+
+
+def test_a_dragged_place_is_saved_survives_a_reload_and_can_be_cleared(isolated, placement_controller):  # noqa: F811
+    config = isolated.config
+    assert config.OVERLAY_DESKTOP_PLACEMENT == UNPLACED
+    # A monitor left of or above the primary one has negative coordinates.
+    wanted = {"x": -1700, "y": 640}
+    assert placement_controller.setOverlayDesktopPlacement(wanted) == {"status": 200, "result": wanted}
+    config.saveConfigToFile()
+    assert json.loads(isolated.path.read_text(encoding="utf-8"))["OVERLAY_DESKTOP_PLACEMENT"] == wanted
+    config._OVERLAY_DESKTOP_PLACEMENT = dict(UNPLACED)
+    config.load_config()
+    assert config.OVERLAY_DESKTOP_PLACEMENT == wanted
+    assert placement_controller.setOverlayDesktopPlacement(UNPLACED) == {"status": 200, "result": UNPLACED}
+    assert config.OVERLAY_DESKTOP_PLACEMENT == UNPLACED
+
+
+@pytest.mark.parametrize("damage", [
+    None, [], {}, {"x": 1}, {"x": 1, "y": None}, {"x": None, "y": 2}, {"x": 1.5, "y": 2},
+    {"x": True, "y": 2}, {"x": "1", "y": 2}, {"x": 100_001, "y": 0}, {"x": 0, "y": -100_001},
+    {"x": 1, "y": 2, "monitor": 0},
+])
+def test_a_malformed_place_is_refused_without_changing_anything(isolated, placement_controller, damage):  # noqa: F811
+    response = placement_controller.setOverlayDesktopPlacement(damage)
+    assert response["status"] == 400
+    assert response["result"]["error_code"] == "VALIDATION_CONFIG_VALUE_INVALID"
+    assert isolated.config.OVERLAY_DESKTOP_PLACEMENT == UNPLACED
+
+
+@pytest.fixture
 def flow_controller(isolated):  # noqa: F811 - imported pytest fixture
     ns = dict(config=isolated.config, ConfigValidationError=isolated.ns["ConfigValidationError"],
               ErrorCode=ErrorCode, VRCTError=VRCTError, functools=functools, printLog=Mock())

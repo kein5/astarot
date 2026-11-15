@@ -454,20 +454,38 @@ def test_failed_hardware_probe_does_not_invent_capacity_or_disable_manual_choice
     assert not any(ep == "/run/start_model_download" for ep, _ in peer.sent)
 
 
-def test_asr_profile_offers_haas_without_hardware_advice(ui):
+def test_asr_profile_offers_every_speechcpp_recognizer_without_hardware_advice(ui):
     from playwright.sync_api import expect
 
     page, peer, _, _ = ui
     page.goto(page.url + "?view=asr")
     open_engine_settings(page)
-    expect(page.get_by_text("Haas-ja v1.0 · Q8_0", exact=True)).to_be_visible()
+    model, kind = page.get_by_label("Recognition model", exact=True), page.get_by_label("File type (quantization)", exact=True)
+    # speech.cpp's catalog decides the recognizers, their order and the file each name fetches.
+    assert model.locator("option").evaluate_all("rows => rows.map(row => row.value)") == [
+        "qwen3-asr-0.6b", "qwen3-asr-1.7b", "reazonspeech-v2", "parakeet-tdt_ctc-0.6b-ja",
+        "parakeet-tdt-0.6b-v3", "haas-ja-v1.0", "nemotron-3.5-transcribe"]
+    expect(model).to_have_value("qwen3-asr-0.6b")
+    expect(kind).to_have_value("qwen3-asr-06b-q8")
+    expect(page.get_by_text("Qwen3-ASR 0.6B · Q8_0", exact=True)).to_be_visible()
+    expect(page.get_by_text("Languages: ", exact=False)).to_contain_text("Japanese")
     expect(page.get_by_text("Irodori-TTS v4.1 Small MF · F16", exact=True)).to_have_count(0)
     expect(page.get_by_label("Memory headroom", exact=True)).to_have_count(0)
     expect(page.get_by_text("also needs a VAD model", exact=False).first).to_be_visible()
-    # Different recognition models are listed side by side, with the VAD they need.
-    expect(page.get_by_text("Qwen3-ASR 0.6B · Q8_0 (30 languages)", exact=True)).to_be_visible()
+    expect(page.get_by_text("The models are the ones speech.cpp offers.", exact=False)).to_be_visible()
+    # One recognizer file is listed at a time, next to the VAD it needs.
     expect(page.get_by_text("Silero VAD v6.2 · F32", exact=True)).to_be_visible()
-    expect(page.get_by_text("Haas-ja recognizes Japanese only.", exact=False)).to_be_visible()
+    model.select_option("parakeet-tdt-0.6b-v3")
+    expect(kind).to_have_value("parakeet-tdt-06b-v3-f16")  # speech.cpp fetches F16 for this name
+    expect(page.get_by_text("Languages: ", exact=False)).not_to_contain_text("Japanese")
+    expect(page.get_by_text("Qwen3-ASR 0.6B · Q8_0", exact=True)).to_have_count(0)
+    model.select_option("haas-ja-v1.0")
+    assert kind.locator("option").evaluate_all("rows => rows.map(row => row.value)") == [
+        "haas-ja-q8", "haas-ja-f16", "haas-ja-q6", "haas-ja-q5", "haas-ja-q4"]
+    kind.select_option("haas-ja-q4")
+    expect(page.get_by_text("Haas-ja v1.0 · Q4_K", exact=True)).to_be_visible()
+    kind.select_option("haas-ja-q8")
+    expect(page.get_by_text("Haas-ja v1.0 · Q8_0", exact=True)).to_be_visible()
     page.get_by_role("button", name="Review download", exact=True).first.click()
     dialog = page.get_by_role("dialog")
     expect(dialog).to_contain_text("Third Intelligence / sakasegawa")
@@ -477,3 +495,20 @@ def test_asr_profile_offers_haas_without_hardware_advice(ui):
     dialog.get_by_role("button", name="Agree and download", exact=True).click()
     expect(page.get_by_role("progressbar")).to_be_visible()
     assert next(data for ep, data in peer.sent if ep == "/run/start_model_download")["id"] == "haas-ja-q8"
+
+
+def test_large_recognizer_shows_its_exact_size_and_license_before_consent(ui):
+    from playwright.sync_api import expect
+
+    page, peer, _, _ = ui
+    page.goto(page.url + "?view=asr")
+    open_engine_settings(page)
+    page.get_by_label("Recognition model", exact=True).select_option("nemotron-3.5-transcribe")
+    expect(page.get_by_label("File type (quantization)", exact=True)).to_have_value("nemotron-35-transcribe-iq4nl")
+    page.get_by_role("button", name="Review download", exact=True).first.click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("18,997,225,856")
+    expect(dialog).to_contain_text("OpenMDW-1.1")
+    expect(dialog).to_contain_text("about 19 GB")
+    dialog.get_by_role("button", name="Back", exact=True).click()
+    assert not any(ep == "/run/start_model_download" for ep, _ in peer.sent)

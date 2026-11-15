@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useStore_MessageLogs } from "@store";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady } from "@logics_common";
 import { useAppearance, useVr } from "@logics_configs";
 import { captionLines, stampLines } from "../../../logics/captionOverlay/lines";
+import { placementOf, steppedFontSize } from "../../../logics/captionOverlay/adjust";
 import { useIoFlow } from "../../../logics/flow/useIoFlow";
 import { overlayCount } from "../../../logics/flow/ioFlow.js";
 import { flowNote, stripItems } from "../../../logics/flow/flowText.js";
@@ -13,10 +15,13 @@ import { flowNote, stripItems } from "../../../logics/flow/flowText.js";
 // and hands it the last rows of the message log. The window only draws; what
 // it shows and for how long is decided here. The flow strip (where the user's
 // latest inputs went, in ms) shares the window and can be on without captions.
+// With Ctrl held the user drags the window and changes its text size; the
+// native side reports both and they are saved here.
 export const CaptionOverlayController = () => {
     const { t } = useI18n();
     const { currentIsEnabledOverlayDesktop, currentOverlayDesktopSettings, currentOverlayShowOnlyTranslatedMessages,
-        currentIoFlowOverlaySettings } = useVr();
+        currentIoFlowOverlaySettings, currentOverlayDesktopPlacement, setOverlayDesktopSettings,
+        setOverlayDesktopPlacement } = useVr();
     const { currentMessageLogs } = useStore_MessageLogs();
     const { currentSelectedFontFamily } = useAppearance();
     const { currentIsBackendReady } = useIsBackendReady();
@@ -36,12 +41,42 @@ export const CaptionOverlayController = () => {
     const enabled = captions || flowShown;
     const settings = currentOverlayDesktopSettings.data;
     const count = overlayCount(currentIoFlowOverlaySettings.data);
+    const placement = placementOf(currentOverlayDesktopPlacement?.data);
 
     useEffect(() => {
         if (!supported) return;
-        invoke("caption_overlay_set", { open: enabled, position: settings.position })
+        invoke("caption_overlay_set", { open: enabled, position: settings.position, placement })
             .catch(error => console.error("Caption overlay window could not be changed", error));
-    }, [supported, enabled, settings.position]);
+    }, [supported, enabled, settings.position, placement?.x, placement?.y]);
+
+    // A step starts from the last size asked for while the backend has not confirmed it, so
+    // quick presses each count. A confirmed size drops the requests up to it; a size changed
+    // some other way (the slider, a reset) drops them all.
+    const latest = useRef(null);
+    const asked = useRef({ seen: settings.font_size, sizes: [] });
+    if (asked.current.seen !== settings.font_size) {
+        const confirmed = asked.current.sizes.indexOf(settings.font_size);
+        asked.current = { seen: settings.font_size, sizes: confirmed < 0 ? [] : asked.current.sizes.slice(confirmed + 1) };
+    }
+    latest.current = { settings, setOverlayDesktopSettings, setOverlayDesktopPlacement };
+    useEffect(() => {
+        if (!supported) return undefined;
+        const offs = [
+            listen("caption-overlay-moved", ({ payload }) => {
+                const dropped = placementOf(payload);
+                if (dropped) latest.current.setOverlayDesktopPlacement(dropped);
+            }),
+            listen("caption-overlay-font-step", ({ payload }) => {
+                const { settings: current, setOverlayDesktopSettings: save } = latest.current;
+                const from = asked.current.sizes.at(-1) ?? current.font_size;
+                const next = steppedFontSize(from, payload);
+                if (next === from) return;
+                asked.current.sizes.push(next);
+                save({ ...current, font_size: next });
+            }),
+        ];
+        return () => offs.forEach(off => off.then(stop => stop(), () => {}));
+    }, [supported]);
 
     useEffect(() => {
         if (!enabled) {

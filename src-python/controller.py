@@ -317,6 +317,7 @@ _SIMPLE_CONFIG_GETTERS = {
     "getOverlayLargeLogSettings": "OVERLAY_LARGE_LOG_SETTINGS",
     "getOverlayDesktop": "OVERLAY_DESKTOP",
     "getOverlayDesktopSettings": "OVERLAY_DESKTOP_SETTINGS",
+    "getOverlayDesktopPlacement": "OVERLAY_DESKTOP_PLACEMENT",
     "getIoFlowOverlaySettings": "IO_FLOW_OVERLAY_SETTINGS",
     "getOverlayShowOnlyTranslatedMessages": "OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES",
     "getSendMessageToVrc": "SEND_MESSAGE_TO_VRC",
@@ -4910,6 +4911,12 @@ class Controller:
     def setOverlayDesktopSettings(data, *args, **kwargs) -> dict:
         config.OVERLAY_DESKTOP_SETTINGS = data
         return {"status":200, "result":config.OVERLAY_DESKTOP_SETTINGS}
+
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setOverlayDesktopPlacement(data, *args, **kwargs) -> dict:
+        config.OVERLAY_DESKTOP_PLACEMENT = data
+        return {"status":200, "result":config.OVERLAY_DESKTOP_PLACEMENT}
 
     @staticmethod
     @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)

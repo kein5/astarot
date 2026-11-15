@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
 import * as polledState from "../common/polledState.js";
+import * as languageNames from "../common/languageNames.js";
 
 const apply = "/run/apply_model_download", cancel = "/run/cancel_model_download";
 const request = { id: "model", job_id: "job" };
@@ -85,6 +86,7 @@ test("the production model card enables matching Cancel during Apply verificatio
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: s.render },
         "../../../../../../logics/voice/modelHardwareAdvice": { modelAdvice: () => ({}) },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null } }) },
+        "../../../../../../logics/common/languageNames": languageNames,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
     });
     s.render().updateCatalog({ models: [{ id: "model", target: "rvc", name: "Model", total_bytes: 10 }] });
@@ -100,4 +102,50 @@ test("the production model card enables matching Cancel during Apply verificatio
     assert.deepEqual(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/")), [
         [apply, { ...request, expected: {} }], [cancel, request],
     ]);
+});
+
+test("the ASR card lists one file of the chosen recognizer with speech.cpp's languages", async t => {
+    const s = await setup(t), ui = hooks();
+    t.after(() => ui.unmount());
+    const { ModelDownloads } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.jsx", import.meta.url), ui, {
+        "@tauri-apps/api/core": { isTauri: () => false },
+        "@tauri-apps/plugin-opener": {},
+        "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: s.render },
+        "../../../../../../logics/voice/modelHardwareAdvice": { modelAdvice: () => ({}) },
+        "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null } }) },
+        "../../../../../../logics/common/languageNames": languageNames,
+        "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
+    });
+    const row = (id, name, type, isDefault, languages) => ({ id, target: "asr", name: `${name} · ${type}`, total_bytes: 1,
+        speech: { name, label: name, type: type.toLowerCase(), default: isDefault, languages, start: [] } });
+    s.render().updateCatalog({ models: [
+        row("qwen-q8", "qwen", "Q8_0", true, ["en", "ja"]), row("qwen-q4", "qwen", "Q4_K", false, ["en", "ja"]),
+        row("v3-f16", "v3", "F16", true, ["de"]), row("v3-q8", "v3", "Q8_0", false, ["de"]),
+        { id: "vad", target: "vad", name: "VAD", total_bytes: 1 },
+    ] });
+    const render = () => ui.render(ModelDownloads, { targets: ["asr", "vad"], expected: {} });
+    // The choice is a component of its own; it uses no state, so it is expanded by calling it.
+    const choice = () => { const node = find(render(), node => node.type?.name === "AsrChoice"); return node.type(node.props); };
+    const select = label => find(choice(), node => node.type === "select" && node.props["aria-label"] === `model_downloads.${label}`);
+    const listed = () => {
+        const names = [];
+        const walk = node => {
+            if (!node || typeof node !== "object") return;
+            if (Array.isArray(node)) return node.forEach(walk);
+            if (node.props?.["data-model-download"] !== undefined) names.push(node.props["aria-label"]);
+            walk(node.props?.children);
+        };
+        walk(render());
+        return names;
+    };
+    const values = node => [node.props.children].flat(2).filter(Boolean).map(option => option.props.value);
+    assert.deepEqual(values(select("asr_model")), ["qwen", "v3"]);
+    assert.equal(select("asr_type").props.value, "qwen-q8");
+    assert.deepEqual(listed(), ["qwen · Q8_0", "VAD"]);
+    select("asr_model").props.onChange({ target: { value: "v3" } });
+    assert.equal(select("asr_type").props.value, "v3-f16", "a recognizer starts at the file speech.cpp fetches");
+    assert.deepEqual(values(select("asr_type")), ["v3-f16", "v3-q8"]);
+    select("asr_type").props.onChange({ target: { value: "v3-q8" } });
+    assert.deepEqual(listed(), ["v3 · Q8_0", "VAD"]);
+    assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/")).length, 0, "choosing starts nothing");
 });

@@ -118,6 +118,11 @@ def copy_adapters(resources):
 # crates it uses. tests/devtools/test_build_linux.py keeps this list equal to the path
 # dependencies of those Cargo.toml files.
 APP_CRATES = ('core', 'adapters', 'ops', 'speech-server', 'tts')
+# Files outside those crates that they read at compile time (include_str!), at the same path in
+# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text.
+# tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
+CRATE_INPUTS = ('src-python/models/model_downloads/speechcpp_models.py',
+                'src-python/models/model_downloads/speechcpp_asr.py')
 
 
 def tauri_workspace(work, frozen):
@@ -136,6 +141,9 @@ def tauri_workspace(work, frozen):
         if crate.exists():
             shutil.rmtree(crate)
         shutil.copytree(ROOT / 'native' / name, crate, ignore=shutil.ignore_patterns('target'))
+    for name in CRATE_INPUTS:
+        (workspace / name).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, workspace / name)
     shutil.copyfile(ROOT / 'LICENSE', workspace / 'LICENSE')
     (workspace / 'tools').mkdir(exist_ok=True)
     for name in ('check_voice_distribution.py', 'distribution_policy.py', 'linux_package.py'):
