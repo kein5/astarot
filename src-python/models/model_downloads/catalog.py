@@ -3,7 +3,9 @@ from dataclasses import dataclass, replace
 import re
 from urllib.parse import quote
 
-CATALOG_VERSION = '2026-11-13.1'
+from . import speechcpp_asr
+
+CATALOG_VERSION = '2026-11-16.1'
 
 
 @dataclass(frozen=True)
@@ -34,10 +36,7 @@ class Model:
 IRODORI_REV = '9db7da1bec3d1069ef8e29732e0497be60c7b047'
 QWEN_REV = 'fd9df9364613a92a86b4137074bc281204823033'
 RVC_REV = '7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a'
-# Files before this revision hold no custom vocabulary; needs speech.cpp 0.9.4 or later.
-HAAS_REV = '6b965d5007ba780585de51549d57a8c1c0d67c7e'
-# The revision speech.cpp 0.10.0's own catalog pins for qwen3-asr-0.6b and silero-vad.
-QWEN_ASR_REV = 'ee78f8709547f39bea3b924a16c72403826cac92'
+# The revision speech.cpp 0.10.0's own catalog pins for silero-vad.
 SILERO_REV = '7fcb7aa2a70c312f8579fc987b3e1cdecf9321ca'
 # The files speech.cpp 0.10.0 names nemotron-3-diarization (docs/models/sortformer.md).
 NEMOTRON_DIARIZATION_REV = '9096d41cb78bba7ac882b96d453e25239eac692b'
@@ -62,20 +61,10 @@ CATALOG = (
           'rvc', (
               Artifact('model.pth', 57577658, '82312a29a3996a451aaa3d3776566cec85b47b5414fce53da82b2d66b04f3d35', 'model'),
               Artifact('model.index', 278065619, 'e9f7396e5db3077274c720d055e43abb8f1eac5609cbdf48b198ca4f4a35cad5', 'index'))),
-    Model('haas-ja-q8', 'asr', 'Haas-ja v1.0 · Q8_0', 'Third Intelligence / sakasegawa',
-          'sakasegawa/Haas-ja-v1.0-GGUF', HAAS_REV, 'Apache-2.0', (
-              f'https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/blob/{HAAS_REV}/README.md',
-              f'https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/blob/{HAAS_REV}/LICENSE'),
-          'haas', (Artifact('Haas-616M-ja-v1.0-Q8_0.gguf', 656381472,
-                           'cd5f60b2f1c411404b83fca4a65e3ce30a26d9e951b6a346529e65f22758afeb', 'model'),)),
-    # Q8_0 is the file speech.cpp fetches for this name. On Common Voice 8.0 ja its
-    # CER is 11.89% against 12.49% for Q5_K, for 0.25 GB more; it detects the language.
-    Model('qwen3-asr-06b-q8', 'asr', 'Qwen3-ASR 0.6B · Q8_0 (30 languages)', 'Qwen / sakasegawa',
-          'sakasegawa/Qwen3-ASR-0.6B-GGUF', QWEN_ASR_REV, 'Apache-2.0', (
-              f'https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/blob/{QWEN_ASR_REV}/README.md',
-              'https://www.apache.org/licenses/LICENSE-2.0'),
-          'qwen_asr', (Artifact('Qwen3-ASR-0.6B-Q8_0.gguf', 841502336,
-                               '416e10c15b4a3d9002bd337d18fc450233fdf68502b6e10d1379d2789838afd0', 'model'),)),
+    # Recognizers: every file of each offered speech.cpp name (speechcpp_asr.py), the file
+    # speech.cpp fetches for the name first. Ids made before keep their folders.
+    *(Model(**{k: v for k, v in row.items() if k != 'artifact'}, artifacts=(Artifact(**row['artifact']),))
+      for row in speechcpp_asr.entries()),
     # Applies to the asr profile's vad_model, not to its recognition model.
     Model('silero-vad-v62', 'vad', 'Silero VAD v6.2 · F32', 'Silero Team / sakasegawa',
           'sakasegawa/silero-vad-GGUF', SILERO_REV, 'MIT', (

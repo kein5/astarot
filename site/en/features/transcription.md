@@ -19,9 +19,15 @@ Neither comes with the app: download them, or point to files you have ([Model do
 
 | Model | Languages | Size | License |
 |---|---|---|---|
-| Haas-ja v1.0 · Q8_0 | Japanese only | 0.61 GiB | Apache-2.0 |
-| Qwen3-ASR 0.6B · Q8_0 | 30 languages, detects the language | 0.78 GiB | Apache-2.0 |
+| Qwen3-ASR 0.6B / 1.7B | 30 languages, detects the language | 0.78 / 2.03 GiB | Apache-2.0 |
+| ReazonSpeech v2 | Japanese only | 0.62 GiB | Apache-2.0 |
+| Parakeet TDT-CTC 0.6B ja | Japanese only | 0.62 GiB | CC BY 4.0 |
+| Parakeet TDT 0.6B v3 | 25 European languages, detects the language (no Japanese) | 1.17 GiB | CC BY 4.0 |
+| Haas-ja v1.0 | Japanese only | 0.61 GiB | Apache-2.0 |
+| Nemotron 3.5 Transcribe 30B-A4B | 40 languages (a large model) | 17.69 GiB | OpenMDW-1.1 |
 | Silero VAD v6.2 · F32 | (finds where speech starts and ends) | about 1.2 MB | MIT |
+
+The sizes are those of the file speech.cpp fetches by default. Each recognition model also comes in other file types (quantizations), which you choose when you download it ([Downloading models](../guide/models)).
 
 The bundled server uses one recognition model for both microphone captions and game audio captions.
 
@@ -85,7 +91,7 @@ On Windows, the speech recognition used by the main screen's "Mic input" and "Li
 
 The app never switches from the engine you chose to another one on its own. Switching between "Local (speech.cpp)" and another engine turns "Mic input" and "Listening" off if they were on. Turn them on again to start with the new engine.
 
-Local (speech.cpp) transcribes the languages its recognition model supports (30 languages with Qwen3-ASR, Japanese only with Haas-ja). For other languages, use Google or a cloud engine.
+Local (speech.cpp) transcribes the languages its recognition model supports (30 languages with Qwen3-ASR, Japanese only with Haas-ja, ReazonSpeech and Parakeet ja). For other languages, use Google or a cloud engine.
 
 On Linux, "Mic input" and "Listening" always run realtime captions, whatever engine is chosen.
 

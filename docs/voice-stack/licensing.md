@@ -306,3 +306,18 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 元のモデルカードは学習データに日本語を挙げていない。日本語での精度は提供元も変換者も公表していない。この条件と手元での試験の結果は[話者分離の選定と試験](speaker-diarization-2026-11-13.md)に記録した。
 
 候補のうち、Streaming Sortformer v2.1（NVIDIA Open Model License）とMultitalker Parakeet（同）は採用していない。Sortformer v1（CC-BY-NC-4.0）は非商用なので候補から外した。pyannoteのモデルは取得にログインと利用規約への同意が要るので、カタログに載せられない。
+
+## speech.cppの音声認識モデル（2026-11-16）
+
+同梱のspeech.cpp 0.11.0が扱う認識モデル7種を、取得できるモデルに加えた（量子化の種類ごとに31件）。配布物には含めない。利用者が同意画面で確認してから、Hugging Faceの固定revisionからこのPCへ取得する。revision・容量・SHA-256はspeech.cppのカタログの値で、モデルごとの表は[licenses/speechcpp-models/NOTICE.md](../../licenses/speechcpp-models/NOTICE.md)にある。
+
+| モデル | ライセンス | 確認したこと |
+|---|---|---|
+| Qwen3-ASR 0.6B / 1.7B | Apache-2.0 | GGUF版と元のモデル（Qwen）のカードが一致 |
+| ReazonSpeech v2 | Apache-2.0 | 元のモデル（reazon-research）と一致。学習に使ったコーパスには別の条件があるが、取得も提供もしない |
+| Parakeet TDT-CTC 0.6B ja | CC BY 4.0 | 元のモデル（NVIDIA）と一致。モデルを共有するときはクレジットとライセンスへのリンクが要る。同意画面の注意書きで伝える |
+| Parakeet TDT 0.6B v3 | CC BY 4.0 | 同上 |
+| Haas-ja v1.0 | Apache-2.0 | 以前から取得できたQ8_0と同じrevision。ほかの種類も同じリポジトリ |
+| Nemotron 3.5 Transcribe 30B-A4B | OpenMDW-1.1 | 話者分離モデルと同じ契約（上の節）。リポジトリの`LICENSE`がNVIDIAの著作権表示を含む |
+
+2026-11-16に、固定revisionのモデルカードと元のモデルのカードで確かめた。どれもHugging Faceのアクセス制限（gated）がなく、ログインや利用規約への同意は要らない。非商用の制限もない。ライセンスを理由に外したモデルはない。Nemotron 3.5 Transcribeはいちばん小さいファイルでも約19 GBある。同意画面の注意書きで容量とメモリーの大きさを示し、既定では選ばない。

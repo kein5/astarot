@@ -80,6 +80,18 @@ large-v3), Zoont (large-v3-turbo-int8), and deepdml (large-v3-turbo). Files
 left by those versions can be deleted in Settings → Speech recognition (ASR)
 → Old Whisper models.
 
+## Downloadable speech recognition models (speech.cpp)
+
+The speech recognition models are not shipped. Each file is downloaded from a
+pinned Hugging Face revision only after the user agrees in Settings → Speech
+recognition (ASR). The catalog offers every file that the bundled speech.cpp
+lists for Qwen3-ASR 0.6B and 1.7B (Qwen, Apache-2.0), ReazonSpeech v2 (Reazon
+Research, Apache-2.0), Parakeet TDT-CTC 0.6B ja and Parakeet TDT 0.6B v3
+(NVIDIA, CC BY 4.0), Haas-ja v1.0 (Third Intelligence, Apache-2.0) and
+Nemotron 3.5 Transcribe 30B-A4B (NVIDIA, OpenMDW-1.1), all converted to GGUF by
+sakasegawa. `licenses/speechcpp-models/NOTICE.md` lists the sources, revisions
+and the license review.
+
 ## Downloadable CTranslate2 translation weights
 
 None of these weights ship with VRCT-VOX. The app downloads the selected one

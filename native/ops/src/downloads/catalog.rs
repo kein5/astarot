@@ -6,9 +6,10 @@
 
 use serde::{Serialize, Serializer};
 
+use super::speechcpp;
 use crate::net::quote;
 
-pub const CATALOG_VERSION: &str = "2026-11-13.1";
+pub const CATALOG_VERSION: &str = "2026-11-16.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Artifact {
@@ -61,10 +62,7 @@ impl Model {
 pub const IRODORI_REV: &str = "9db7da1bec3d1069ef8e29732e0497be60c7b047";
 pub const QWEN_REV: &str = "fd9df9364613a92a86b4137074bc281204823033";
 pub const RVC_REV: &str = "7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a";
-/// Files before this revision hold no custom vocabulary; needs speech.cpp 0.9.4 or later.
-pub const HAAS_REV: &str = "6b965d5007ba780585de51549d57a8c1c0d67c7e";
-/// The revision speech.cpp 0.10.0's own catalog pins for qwen3-asr-0.6b and silero-vad.
-pub const QWEN_ASR_REV: &str = "ee78f8709547f39bea3b924a16c72403826cac92";
+/// The revision speech.cpp 0.10.0's own catalog pins for silero-vad.
 pub const SILERO_REV: &str = "7fcb7aa2a70c312f8579fc987b3e1cdecf9321ca";
 /// The files speech.cpp 0.10.0 names nemotron-3-diarization (docs/models/sortformer.md).
 pub const NEMOTRON_DIARIZATION_REV: &str = "9096d41cb78bba7ac882b96d453e25239eac692b";
@@ -131,7 +129,7 @@ fn remote(filename: &str, size: u64, sha256: &str, role: &str, (repo, revision, 
 /// `catalog.py`: Q8_0 for Qwen3-ASR and Nemotron is the file speech.cpp fetches for that name;
 /// the VAD and diarization entries apply to fields of the asr profile, not to its recognizer.
 pub fn catalog() -> Vec<Model> {
-    vec![
+    let mut models = vec![
         model(
             "irodori-v41-f16",
             "japanese",
@@ -175,30 +173,11 @@ pub fn catalog() -> Vec<Model> {
                 artifact("model.index", 278065619, "e9f7396e5db3077274c720d055e43abb8f1eac5609cbdf48b198ca4f4a35cad5", "index"),
             ],
         ),
-        model(
-            "haas-ja-q8",
-            "asr",
-            "Haas-ja v1.0 · Q8_0",
-            "Third Intelligence / sakasegawa",
-            "sakasegawa/Haas-ja-v1.0-GGUF",
-            HAAS_REV,
-            "Apache-2.0",
-            &[&format!("https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/blob/{HAAS_REV}/README.md"), &format!("https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/blob/{HAAS_REV}/LICENSE")],
-            "haas",
-            vec![artifact("Haas-616M-ja-v1.0-Q8_0.gguf", 656381472, "cd5f60b2f1c411404b83fca4a65e3ce30a26d9e951b6a346529e65f22758afeb", "model")],
-        ),
-        model(
-            "qwen3-asr-06b-q8",
-            "asr",
-            "Qwen3-ASR 0.6B · Q8_0 (30 languages)",
-            "Qwen / sakasegawa",
-            "sakasegawa/Qwen3-ASR-0.6B-GGUF",
-            QWEN_ASR_REV,
-            "Apache-2.0",
-            &[&format!("https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/blob/{QWEN_ASR_REV}/README.md"), "https://www.apache.org/licenses/LICENSE-2.0"],
-            "qwen_asr",
-            vec![artifact("Qwen3-ASR-0.6B-Q8_0.gguf", 841502336, "416e10c15b4a3d9002bd337d18fc450233fdf68502b6e10d1379d2789838afd0", "model")],
-        ),
+    ];
+    // Recognizers: every file of each offered speech.cpp name, read from the same text as
+    // speechcpp_asr.py (speechcpp.rs). Ids made before keep their folders.
+    models.extend(speechcpp::asr_models());
+    models.extend(vec![
         model(
             "silero-vad-v62",
             "vad",
@@ -424,7 +403,8 @@ pub fn catalog() -> Vec<Model> {
             "chatbox",
             vec![artifact("vrct_vox_chatbox_yolox_tiny.onnx", 20184371, "160c4a505bee87d101564c569dff7f0bacd416b9006ec5aa70f8c9d221470ffd", "detector")],
         ),
-    ]
+    ]);
+    models
 }
 
 /// `https://huggingface.co/<repo>/resolve/<revision>/<path>`, the path quoted.

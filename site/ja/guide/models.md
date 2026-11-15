@@ -25,13 +25,20 @@ VRCT-VOXの配布物にはテキスト読み上げ・音声認識・ボイスチ
 | 日本語の読み上げ（軽量） | Irodori-TTS v4.1 Small MF · Q8_0 | 1.12 GiB | MIT + Apache-2.0 |
 | ほかの言語の読み上げ | Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0 | 1.13 GiB | Apache-2.0 |
 | ほかの言語の読み上げ（軽量） | Qwen3-TTS 12Hz 0.6B CustomVoice · Q5_K | 0.81 GiB | Apache-2.0 |
-| 音声認識（日本語） | Haas-ja v1.0 · Q8_0 | 0.61 GiB | Apache-2.0 |
 | 音声認識（30言語） | Qwen3-ASR 0.6B · Q8_0 | 0.78 GiB | Apache-2.0 |
+| 音声認識（30言語） | Qwen3-ASR 1.7B · Q8_0 | 2.03 GiB | Apache-2.0 |
+| 音声認識（日本語） | ReazonSpeech v2 · Q8_0 | 0.62 GiB | Apache-2.0 |
+| 音声認識（日本語） | Parakeet TDT-CTC 0.6B ja · Q8_0 | 0.62 GiB | CC BY 4.0 |
+| 音声認識（ヨーロッパの25言語） | Parakeet TDT 0.6B v3 · F16 | 1.17 GiB | CC BY 4.0 |
+| 音声認識（日本語） | Haas-ja v1.0 · Q8_0 | 0.61 GiB | Apache-2.0 |
+| 音声認識（40言語。大きなモデル） | Nemotron 3.5 Transcribe 30B-A4B · IQ4_NL | 17.69 GiB | OpenMDW-1.1 |
 | 話している区間の検出 | Silero VAD v6.2 · F32 | 1.2 MB | MIT |
 | 話した人の見分け（任意） | Nemotron 3 Diarization · Q8_0 | 約106 MB | OpenMDW-1.1 |
 | ボイスチェンジャー（RVC） | Saisho Utane · RVC v2 | 0.31 GiB | CC BY 4.0（クレジット表示が必要） |
 | 文字認識 | PP-OCRv6 small（日本語・英語・中国語・ラテン文字） | 約30 MB | Apache-2.0 |
 | 文字認識 | PP-OCRv5 mobile（韓国語・キリル文字・タイ文字・アラビア文字・デーヴァナーガリー） | 各8〜14 MB | Apache-2.0 |
+
+音声認識のモデルはアプリに入っているspeech.cppが扱うものをすべて選べます。表の容量はspeech.cppが既定で取得するファイルのものです。「ファイルの種類（量子化）」ではほかの種類（Q4_Kなど）も選べます。小さい種類ほど容量とメモリーが少なく済みますが、誤りが少し増えることがあります。
 
 翻訳のモデルは「設定」→「翻訳」で取得します（[翻訳](../features/translation)）。「ダウンロード」を押すと、提供元・ライセンス・容量を確かめる画面が開きます。同意のチェックを入れるまで取得は始まりません。
 
