@@ -315,6 +315,21 @@ main_page:
     quick_settings_on: "{{count}}件オン"
     quick_settings_all_off: "すべてオフ"
 
+    # Under a main switch that cannot be turned on yet: why, and where to provide it.
+    # Shown as the switch's tooltip and read as its description.
+    switch_blocked:
+        translation_model: "翻訳モデルをまだ取得していません。設定の「翻訳」で取得するか、「翻訳エンジン」でほかのエンジンを選んでください。"
+        translation_downloading: "翻訳モデルを取得しています。取得が終わるとオンにできます。"
+        asr_models: "ローカルの音声認識に使うモデルがありません。設定の「音声認識（ASR）」→「モデルとサーバー」で、認識モデルとVADモデルを取得してください。"
+        ocr_models: "チャット読み取りの認識モデルをまだ取得していません。設定の「チャット読み取り（OCR）」→「認識モデル」で取得してください。"
+        ocr_language: "チャット読み取りは、選んでいる言語に対応していません。設定の「チャット読み取り（OCR）」で言語を変えてください。"
+        tts_source: "読み上げる内容が選ばれていません。設定の「テキスト読み上げ（TTS）」で「読み上げ」か「Realtimeマイクの発声」をOFF以外にして保存してください。"
+        rvc_model: "変換に使うモデルと実行環境が保存されていません。設定の「ボイスチェンジャー（RVC）」→「モデルと実行環境」で設定して保存してください。"
+        rvc_output_device: "変換した声の出力先が選ばれていません。設定の「テキスト読み上げ（TTS）」で「出力デバイス」を選んで保存してください。"
+        rvc_route: "音声経路が「管理対象の仮想マイク」になっていません。設定の「デバイス」→「音声経路」で選んで保存してください。"
+        open_settings: "設定を開く"
+        prepare_label: "{{feature}}: {{action}}"
+
     language_settings: "言語設定"
     language_pair: "{{from}} → {{to}}"
     your_language: "あなたの言語"

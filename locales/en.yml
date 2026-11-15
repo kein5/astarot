@@ -315,6 +315,21 @@ main_page:
     quick_settings_on: "{{count}} on"
     quick_settings_all_off: "All off"
 
+    # Under a main switch that cannot be turned on yet: why, and where to provide it.
+    # Shown as the switch's tooltip and read as its description.
+    switch_blocked:
+        translation_model: "The translation model is not downloaded yet. Download it in Settings → Translation, or pick another engine under Translator."
+        translation_downloading: "The translation model is downloading. You can turn translation on when it finishes."
+        asr_models: "Local speech recognition has no models. In Settings → Speech recognition (ASR) → Models and servers, download the recognition model and the VAD model."
+        ocr_models: "The chat reading models are not downloaded yet. Download them in Settings → Chat reading (OCR) → Recognition models."
+        ocr_language: "Chat reading does not support the selected language. Choose another language in Settings → Chat reading (OCR)."
+        tts_source: "Nothing is chosen to read aloud. In Settings → Text to speech (TTS), set Chat voice or Realtime microphone speech to something other than Off, then save."
+        rvc_model: "No conversion model and runtime are saved. Set them in Settings → Voice changer (RVC) → Models and runtime, then save."
+        rvc_output_device: "No output is chosen for the converted voice. Choose an Output device in Settings → Text to speech (TTS), then save."
+        rvc_route: "The audio route is not the managed virtual microphone. Choose it in Settings → Device → Audio route, then save."
+        open_settings: "Open settings"
+        prepare_label: "{{feature}}: {{action}}"
+
     language_settings: "Language Settings"
     language_pair: "{{from}} → {{to}}"
     your_language: "Your Language"

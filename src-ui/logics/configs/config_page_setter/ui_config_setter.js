@@ -865,6 +865,16 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_only",
         base_endpoint_name: "ocr_readiness",
     },
+    {
+        // Only whether the language's models are here (files, no window probe):
+        // collected at start-up for the main screen's chat reading switch.
+        Category: "Ocr",
+        Base_Name: "OcrModelReadiness",
+        default_value: null,
+        ui_template_id: "custom",
+        logics_template_id: "get_only",
+        base_endpoint_name: "ocr_model_readiness",
+    },
 
     // Vr
     {
