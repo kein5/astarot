@@ -283,8 +283,18 @@ def require_version(version):
 def cog_command():
     if shutil.which("cog"):
         return ["cog"]
-    if shutil.which("mise"):
-        return ["mise", "exec", "--", "cog"]
+    # mise being on PATH does not mean it has Cocogitto: ask for the binary mise.toml pins, here
+    # in the repository, and run it by its path (cog runs in another folder, without mise.toml).
+    mise = shutil.which("mise")
+    if mise:
+        try:
+            found = subprocess.run([mise, "which", "cog"], cwd=ROOT, capture_output=True, text=True,
+                                   encoding="utf-8", timeout=30, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+        path = found.stdout.strip()
+        if found.returncode == 0 and path and Path(path).is_file():
+            return [path]
     return None
 
 

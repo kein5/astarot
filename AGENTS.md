@@ -33,7 +33,7 @@ VRCT-VOX は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、�
 
 ## 開発と検証の入口
 
-入口は `python tools/dev.py` です。npm からも呼べます（`npm run doctor`、`npm run check` など）。スコープの一覧、準備の手順、終了コードは `docs/development.md` と `--help` で確かめてください。
+入口は `python tools/dev.py` です。Node、Rust、Python、uv、Cocogitto の版は `mise.toml` で固定していて、`mise install` で入ります。よく使う手順は mise のタスクにしてあり（`mise run doctor`、`mise run check`、`mise run check:voice` など。一覧は `mise tasks`）、中身は同じ `tools/dev.py` です。npm からも呼べます（`npm run doctor`、`npm run check` など）。スコープの一覧、準備の手順、終了コードは `docs/development.md` と `--help` で確かめてください。
 
 ```sh
 python tools/dev.py doctor                  # 足りない道具や依存を表示する

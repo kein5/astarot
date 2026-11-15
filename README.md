@@ -6,8 +6,7 @@
 </h1>
 
 <!-- Badges read their values from GitHub (Actions, Releases, the repository) or from the files
-     they link to, except License, Platform and Rust toolchain: those follow LICENSE, the release
-     files and the CI workflows' `dtolnay/rust-toolchain … # stable`. Keep docs/readmes/README.ja.md the same. -->
+     they link to, except License and Platform: those follow LICENSE and the release files. Keep docs/readmes/README.ja.md the same. -->
 <p align="center">
   <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="Tests on Linux and Windows (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/voice-tests.yml?branch=develop&event=push&label=tests"></a>
   <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Linux build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
@@ -23,7 +22,7 @@
 <p align="center">
   <a href="https://kein5.github.io/VRCT-VOX/en/guide/requirements"><img alt="Platforms: Windows and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
   <a href="/src-tauri/Cargo.toml"><img alt="Rust edition of the app" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
-  <a href="/.github/workflows/build-linux.yml"><img alt="Rust toolchain: stable" src="https://img.shields.io/badge/Rust%20toolchain-stable-blue"></a>
+  <a href="/mise.toml"><img alt="Rust toolchain pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
   <a href="/pyproject.toml"><img alt="Python version of the backend" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
 </p>
 
@@ -90,7 +89,7 @@ VRChat and its associated properties are trademarks or registered trademarks of 
 
 ## Development
 
-Python work uses `uv`. Start with `npm run doctor`, install the headless checks with `npm run setup:headless`, and install the UI dependencies with `python tools/dev.py setup --scope ui`. `npm run check` runs the developer-tool, Node and lint checks. The [developer guide](docs/development.md) covers the voice, backend and Rust checks, browser tests and Cocogitto. See [CONTRIBUTING.md](CONTRIBUTING.md) for branches, commit messages and pull requests. What each stable release changed is in [CHANGELOG.md](CHANGELOG.md), from 0.2.0 on; betas and earlier releases are described on [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases).
+[mise](https://mise.jdx.dev/) installs the pinned Node, Rust, Python, uv and Cocogitto from `mise.toml` (`mise install`) and runs the routine tasks (`mise tasks` lists them). Start with `mise run doctor`, install the headless checks with `mise run setup:headless`, and install the UI dependencies with `mise run setup:ui`. `mise run check` runs the developer-tool, Node and lint checks. The [developer guide](docs/development.md) covers the voice, backend and Rust checks, browser tests and Cocogitto. See [CONTRIBUTING.md](CONTRIBUTING.md) for branches, commit messages and pull requests. What each stable release changed is in [CHANGELOG.md](CHANGELOG.md), from 0.2.0 on; betas and earlier releases are described on [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases).
 
 - [Build and CI guide (Japanese)](/docs/readme_build.md)
 - [Linux build pipeline](/docs/voice-stack/linux-build-pipeline.md) and [AppImage](/docs/voice-stack/appimage.md)

@@ -5,8 +5,8 @@
   </picture>
 </h1>
 
-<!-- バッジは値をGitHub（Actions、Releases、リポジトリ）かリンク先のファイルから読む。License、Platform、
-     Rust toolchainだけは固定で、LICENSE、配布物、CIの`dtolnay/rust-toolchain … # stable`に合わせる。README.mdと同じにする。 -->
+<!-- バッジは値をGitHub（Actions、Releases、リポジトリ）かリンク先のファイルから読む。LicenseとPlatformだけは固定で、
+     LICENSEと配布物に合わせる。README.mdと同じにする。 -->
 <p align="center">
   <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="LinuxとWindowsでの試験（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/voice-tests.yml?branch=develop&event=push&label=tests"></a>
   <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のLinuxビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
@@ -22,7 +22,7 @@
 <p align="center">
   <a href="https://kein5.github.io/VRCT-VOX/ja/guide/requirements"><img alt="対応OS: WindowsとLinux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
   <a href="/src-tauri/Cargo.toml"><img alt="アプリのRustのedition" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
-  <a href="/.github/workflows/build-linux.yml"><img alt="Rustのツールチェーン: stable" src="https://img.shields.io/badge/Rust%20toolchain-stable-blue"></a>
+  <a href="/mise.toml"><img alt="mise.tomlで固定したRustのツールチェーン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
   <a href="/pyproject.toml"><img alt="バックエンドのPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
 </p>
 
@@ -86,7 +86,7 @@ VRChatおよび関連する名称はVRChat Inc.の商標または登録商標で
 
 ## 開発
 
-Pythonの環境には`uv`を使います。`npm run doctor`で開発環境を確認し、検査用の依存を`npm run setup:headless`、UIの依存を`python tools/dev.py setup --scope ui`で入れます。`npm run check`で開発ツール・Nodeのテスト・lintを実行します。音声・バックエンド・Rustの検査、ブラウザでのテスト、Cocogittoは[開発ガイド](/docs/development.md)を、ブランチ、コミットメッセージ、PRの決まりは[CONTRIBUTING.md](/CONTRIBUTING.md)を参照してください。
+開発に使うNode、Rust、Python、uv、Cocogittoの版は`mise.toml`で固定していて、[mise](https://mise.jdx.dev/)で入れます（`mise install`）。よく使う手順もmiseのタスクにしてあり、`mise tasks`で一覧を見られます。`mise run doctor`で開発環境を確認し、検査用の依存を`mise run setup:headless`、UIの依存を`mise run setup:ui`で入れます。`mise run check`で開発ツールとNodeのテスト、lintを実行します。音声・バックエンド・Rustの検査、ブラウザでのテスト、Cocogittoは[開発ガイド](/docs/development.md)を、ブランチ、コミットメッセージ、PRの決まりは[CONTRIBUTING.md](/CONTRIBUTING.md)を参照してください。
 
 正式版ごとの変更は[CHANGELOG.md](/CHANGELOG.md)にあります（0.2.0から）。ベータ版と、それより前のリリースは[GitHub Releases](https://github.com/kein5/VRCT-VOX/releases)にあります。
 

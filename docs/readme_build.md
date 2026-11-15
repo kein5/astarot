@@ -4,16 +4,20 @@ Windows向けのビルド手順と、現在のCIを説明します。Linuxでは
 
 ## Windowsの準備
 
-Node.jsとnpm、Python 3.11、Rust、Git、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。CIのNode.jsは22.15.0です。Pythonの依存関係は[uv](https://docs.astral.sh/uv/getting-started/installation/)で管理するため、uvも用意します。依存関係は`package-lock.json`、`pyproject.toml`と`uv.lock`、`src-tauri/Cargo.lock`で管理しています。
+Git、[mise](https://mise.jdx.dev/getting-started.html)、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。Node.js、Rust、Python 3.11、uvは、`mise.toml`で固定した版をmiseが入れます。CIも同じ版を使います（[開発ガイド](development.md#用意するツール)）。依存関係は`package-lock.json`、`pyproject.toml`と`uv.lock`、`src-tauri/Cargo.lock`で管理しています。
 
 ```sh
 git clone https://github.com/kein5/VRCT-VOX.git
 cd VRCT-VOX
-npm ci
-npm run setup-python
+mise trust
+mise install
+mise exec -- npm ci
+mise run setup:app
 ```
 
-`setup-python`は`uv sync --frozen`で`.venv`（標準版）と`.venv_cuda`（`cuda`のextra付き）を`uv.lock`のとおりに同期します。ロックにないパッケージは削除されるため、個別に追加した依存関係があれば先に記録してください。
+`npm`のスクリプトでビルドや起動をするときは、miseを有効にしたシェル（`mise activate`）から呼ぶか、`mise exec -- npm run build`のように呼びます。そうしないと、PATHにある別の版のツールで動きます。
+
+`setup:app`（`npm run setup-python`と同じbat）は`uv sync --frozen`で`.venv`（標準版）と`.venv_cuda`（`cuda`のextra付き）を`uv.lock`のとおりに同期します。ロックにないパッケージは削除されるため、個別に追加した依存関係があれば先に記録してください。
 
 Windowsの同期とLinux候補のビルドでは、uvが`uv.lock`のハッシュを使って取得したPythonパッケージを照合します。Linuxでは同期前に、各アーカイブのSHA-256とGit依存の完全なcommit SHAがあることも検査し、不足していれば停止します。詳しくは[Linuxビルドパイプライン](voice-stack/linux-build-pipeline.md)を参照してください。音声契約のCIはハッシュ付きの一覧を書き出し、`uv pip sync --require-hashes`で同期します。
 

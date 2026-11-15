@@ -72,7 +72,7 @@ Changelog: user
 
 The hook rejects a message that is not a Conventional Commit before the commit is made. It is defined in [`cog.toml`](cog.toml) and installed per clone:
 
-1. Install [Cocogitto](https://docs.cocogitto.io/) 7 (`cargo install cocogitto --version 7.0.0 --locked`, or your package manager), so that `cog --version` prints `cog 7.x`.
+1. Install [Cocogitto](https://docs.cocogitto.io/) 7 (`mise install` installs the version in `mise.toml`; `cargo install cocogitto --version 7.0.0 --locked` or your package manager also work), so that `cog --version` prints `cog 7.x`.
 2. In the repository, run `cog install-hook commit-msg`. It writes `.git/hooks/commit-msg`, which every worktree of the clone shares.
 3. After `cog.toml` changes the hook, run `cog install-hook commit-msg --overwrite`.
 
@@ -136,12 +136,13 @@ The CHANGELOG section is the full list of a stable release; the GitHub release h
 
 ## Local setup and checks
 
-See [docs/development.md](docs/development.md):
+The tool versions are pinned in `mise.toml`, and the routine steps are [mise](https://mise.jdx.dev/) tasks that run `tools/dev.py`. See [docs/development.md](docs/development.md):
 
 ```sh
-python tools/dev.py doctor
-python tools/dev.py setup --scope headless
-python tools/dev.py check --scope voice
+mise install
+mise run doctor
+mise run setup:headless
+mise run check:voice
 ```
 
 ## Relationship to VRCT

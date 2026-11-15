@@ -29,7 +29,10 @@ are candidates from this workflow, published through the
 
 ## Build locally
 
-Use Linux x86_64, Python 3.11 via uv, Node/npm, Rust/Cargo, a C compiler and pkg-config.
+Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python 3.11 and uv come from
+`mise install` at the versions pinned in `mise.toml`, the same versions the workflow uses.
+Run the build from a shell where mise is active (`mise activate`), or through
+`mise run build:linux -- <options>`, so that uv freezes the backend from mise's Python.
 Ubuntu build/runtime prerequisites (see the workflow for GUI-test dependencies):
 
 ```sh
@@ -75,15 +78,16 @@ against its SHA-256 hashes; a mismatch aborts the build. Before invoking uv,
 have a SHA-256 hash, and each Git source must have matching full 40-character commit
 SHAs in its requested revision and resolved commit. Missing/malformed hashes,
 unpinned Git sources and local path dependencies stop the build, even on a cache hit.
-Only the uninstalled virtual root project is exempt. This uses the existing uv 0.13.5
-toolchain and keeps the same project, `dev` and `linux-build` dependency set.
+Only the uninstalled virtual root project is exempt. This uses the uv pinned in
+`mise.toml` and keeps the same project, `dev` and `linux-build` dependency set.
 
 The builder also uses `npm ci --ignore-scripts` and builds Cargo with `--locked` in a copied workspace.
 It does not replace `src-tauri/bin` or reuse its development Python wrapper.
 Hash verification covers the locked distribution archives; Git sources are verified
 by commit rather than archive hashes. Extra dependencies fetched by isolated source
 build backends are outside `uv.lock`. This is **not** a claim of bit-for-bit reproducible builds.
-Rust, system libraries and actual ELF version requirements remain host dependent.
+The Rust, Node, Python and uv versions are pinned in `mise.toml`; system libraries and
+actual ELF version requirements remain host dependent.
 The inventory records the build commit, tracked dirty state, host, hashes and ELF versions.
 
 Default outputs:

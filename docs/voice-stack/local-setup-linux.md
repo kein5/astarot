@@ -24,13 +24,16 @@ Tauri画面・音声入出力はこの試験の範囲外。[継続記録](comple
 ### 本番バックエンド用の開発環境
 
 固定SpeechRecognition forkが使う`aifc`/`audioop`、既存NumPy/Pillowの版に合わせてPython 3.11を使う。
-既存の`.venv`と`.venv_cuda`を変更せず、Linux用環境を明示選択する。確認したuvは0.13.5。
+既存の`.venv`と`.venv_cuda`を変更せず、Linux用環境を明示選択する。
+Python、uv、Rustの版は`mise.toml`で固定している（[開発ガイド](../development.md#用意するツール)）。
 
 ```sh
-uv venv --python 3.11 .venv_linux
-UV_PROJECT_ENVIRONMENT=.venv_linux uv sync --frozen --python 3.11
-python tools/dev.py setup --scope sidecar
+mise install
+mise run setup:app      # .venv_linux を uv.lock に合わせる（uv sync --frozen）
+mise run setup:sidecar
 ```
+
+`setup:app`は`UV_PROJECT_ENVIRONMENT=.venv_linux uv sync --frozen --python 3.11`を、miseのPythonで実行する。
 
 sidecarは `src-tauri/bin/vrct-vox-sidecar-x86_64-unknown-linux-gnu` に作られる。詳しくは[開発ガイド](../development.md#tauri開発用sidecarを準備する)を参照。
 
@@ -40,7 +43,7 @@ sidecarは `src-tauri/bin/vrct-vox-sidecar-x86_64-unknown-linux-gnu` に作ら�
 新しいcheckoutやworktreeには`build/`がないので、用意しないと設定の「TTS」や「音声認識」で「サーバーを起動」を押しても失敗する。
 
 ```sh
-python tools/build_voice_gate.py
+mise run build:voice-gate
 python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/speech-0.11.0-linux-x64-vulkan.zip --output build/speechcpp
 ```
 
