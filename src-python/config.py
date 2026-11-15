@@ -1273,6 +1273,8 @@ class Config:
     OSC_IP_ADDRESS = ManagedProperty('OSC_IP_ADDRESS', type_=str)
     OSC_PORT = ManagedProperty('OSC_PORT', type_=int, allowed=lambda v, inst: isValidPort(v))
     AUTO_CLEAR_MESSAGE_BOX = ManagedProperty('AUTO_CLEAR_MESSAGE_BOX', type_=bool)
+    # Whether the UI asks the Tauri updater for a new version at start (src-tauri/src/app_update.rs).
+    CHECK_SOFTWARE_UPDATES = ManagedProperty('CHECK_SOFTWARE_UPDATES', type_=bool)
     SEND_ONLY_TRANSLATED_MESSAGES = ManagedProperty('SEND_ONLY_TRANSLATED_MESSAGES', type_=bool)
     OVERLAY_SMALL_LOG = ManagedProperty('OVERLAY_SMALL_LOG', type_=bool)
     OVERLAY_LARGE_LOG = ManagedProperty('OVERLAY_LARGE_LOG', type_=bool)
@@ -1646,6 +1648,7 @@ class Config:
         self._SELECTED_DEEPGRAM_MODEL = None
         self._SELECTED_TRANSLATION_COMPUTE_TYPE = "auto"
         self._AUTO_CLEAR_MESSAGE_BOX = True
+        self._CHECK_SOFTWARE_UPDATES = True
         self._SEND_ONLY_TRANSLATED_MESSAGES = False
         self._OVERLAY_SMALL_LOG = False
         self._OVERLAY_SMALL_LOG_SETTINGS = {

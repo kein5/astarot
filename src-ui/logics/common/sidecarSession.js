@@ -28,7 +28,7 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
         }
         return await session.retirement;
     };
-    const finish = (session, phase) => {
+    const finish = (session, phase, detail) => {
         if (!isLive(session)) return false;
         session.phase = phase;
         session.expectedExits.clear();
@@ -36,11 +36,12 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
         store.backend_subprocess = null;
         store.backend_stopped = true;
         handlers()?.backendStopped();
-        handlers()?.setStartupState(phase);
+        // The failure detail is what the startup failure dialog explains.
+        handlers()?.setStartupState(phase, detail);
         return true;
     };
     const fail = (session, error) => {
-        if (!finish(session, "failed")) return;
+        if (!finish(session, "failed", error ?? null)) return;
         console.error("Sidecar startup failed", error);
         // If spawn is still pending, its completion retires the late child.
         if (session.child) void retireChild(session);

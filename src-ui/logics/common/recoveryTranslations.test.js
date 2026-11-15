@@ -11,19 +11,21 @@ const resources = Object.fromEntries(["en", "ja"].map(language => [language, {
 }]));
 const icon = () => null;
 
-for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr and splash use the selected locale with unchanged diagnostics`, async context => {
+for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr and startup use the selected locale with unchanged diagnostics`, async context => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, fallbackLng: "en", resources });
     const t = i18n.t.bind(i18n), translations = { useI18n: () => ({ t, i18n }) };
     for (const key of ["common_error.recovery_instructions", "common_error.copy_error_log", "common_error.updating",
-        "common_error.update_now", "common_error.check_issues", "common_error.last_error_line", "common.check_latest_status",
-        "main_page.backend_disconnected"]) {
+        "common_error.update_now", "common_error.check_issues", "common_error.last_error_line",
+        "main_page.backend_disconnected", "common_error.backend_startup_title", "common_error.backend_startup_reason_spawn",
+        "common_error.backend_startup_reason_exit", "common_error.backend_startup_detail", "common_error.backend_startup_next",
+        "common_error.backend_startup_retry", "common_error.backend_startup_quit", "studio.startup_label", "studio.startup_status",
+        "studio.startup_step", "studio.startup_download_translation"]) {
         assert.equal(i18n.exists(key), true, key);
         assert.notEqual(t(key), key);
     }
     const runtime = hooks(), copies = [];
     stubGlobals(context, { window: { location: { origin: "http://localhost" } } });
-    context.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
     let updating = false;
     const errorModule = await loadModule(new URL("../../views/app/others/error_boundary/AppErrorBoundary.jsx", import.meta.url), runtime, {
         "@useI18n": translations, "react-error-boundary": { ErrorBoundary: icon },
@@ -50,20 +52,6 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     updating = true;
     assert.ok(find(actions.type(), node => node.props.children === t("common_error.updating")));
 
-    const splashRuntime = hooks();
-    const splash = await loadModule(new URL("../../views/app/others/splash_component/SplashComponent.jsx", import.meta.url), splashRuntime, {
-        "@useI18n": translations, "@logics_common": { useWindow: () => ({}) }, "@common_components": { CloseButton: icon },
-        "@ui_configs": { generateLocalizedDocumentUrl: () => ({ vrct_document_faq_url: "https://example.invalid/" }) },
-        "./start_up_progress_container/StartUpProgressContainer": { StartUpProgressContainer: icon },
-        "./download_models_container/DownloadModelsContainer": { DownloadModelsContainer: icon },
-    });
-    const announcement = find(splash.SplashComponent(), node => node.type?.name === "AnnouncementsContainer");
-    for (const delay of [0, 15500, 4000, 4000]) {
-        context.mock.timers.tick(delay);
-        const node = splashRuntime.render(announcement.type);
-        assert.ok(find(node, node => node.props.children === t("common.check_latest_status")));
-    }
-
     const b = await loadBridgeStore(), notices = [];
     let handlers;
     b.stores.store.backend_session_owner = { attach: get => { handlers = get(); return () => {}; } };
@@ -72,6 +60,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
         "@tauri-apps/api/core": {}, "@tauri-apps/plugin-shell": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
         "../../../logics/common/sidecarSession.js": {},
         "../../../logics/common/backendCommand.js": {},
+        "../../../logics/common/startupPhase.js": { describeStartupFailure: detail => detail },
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady,
             useNotificationStatus: () => ({ showNotification_Error: text => notices.push(text) }) },
     });
@@ -85,5 +74,5 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
         handlers.setStartupState(phase);
         assert.equal(b.runtime.store.get(b.stores.Atom_IsBackendReady).data, false);
     }
-    runtime.unmount(); splashRuntime.unmount(); b.runtime.unmount();
+    runtime.unmount(); b.runtime.unmount();
 });

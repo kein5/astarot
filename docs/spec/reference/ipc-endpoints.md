@@ -10,7 +10,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（414件: 削除 11、取得 186、実行 38、有効化 39、無効化 40、設定 100）
+## 要求（417件: 削除 11、取得 187、実行 38、有効化 40、無効化 41、設定 100）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -301,6 +301,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/auto_clear_message_box` | 取得 | `getAutoClearMessageBox` | 可 | useOthers.updateFromBackendEnableAutoClearMessageInputBox |  |
 | `/set/enable/auto_clear_message_box` | 有効化 | `setEnableAutoClearMessageBox` | 可 | useOthers.setSuccessEnableAutoClearMessageInputBox |  |
 | `/set/disable/auto_clear_message_box` | 無効化 | `setDisableAutoClearMessageBox` | 可 | useOthers.setSuccessEnableAutoClearMessageInputBox |  |
+| `/get/data/check_software_updates` | 取得 | `getCheckSoftwareUpdates` | 可 | useOthers.updateFromBackendEnableCheckSoftwareUpdates |  |
+| `/set/enable/check_software_updates` | 有効化 | `setEnableCheckSoftwareUpdates` | 可 | useOthers.setSuccessEnableCheckSoftwareUpdates |  |
+| `/set/disable/check_software_updates` | 無効化 | `setDisableCheckSoftwareUpdates` | 可 | useOthers.setSuccessEnableCheckSoftwareUpdates |  |
 | `/get/data/send_only_translated_messages` | 取得 | `getSendOnlyTranslatedMessages` | 可 | useOthers.updateFromBackendEnableSendOnlyTranslatedMessages |  |
 | `/set/enable/send_only_translated_messages` | 有効化 | `setEnableSendOnlyTranslatedMessages` | 可 | useOthers.setSuccessEnableSendOnlyTranslatedMessages |  |
 | `/set/disable/send_only_translated_messages` | 無効化 | `setDisableSendOnlyTranslatedMessages` | 可 | useOthers.setSuccessEnableSendOnlyTranslatedMessages |  |
@@ -546,7 +549,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/translation_language_unsupported`
 
 
-## UIだけにあるルート（57件）
+## UIだけにあるルート（58件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
 
@@ -559,6 +562,7 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/auto_download_models`
 - `/set/data/auto_mic_select`
 - `/set/data/auto_speaker_select`
+- `/set/data/check_software_updates`
 - `/set/data/clipboard`
 - `/set/data/convert_message_to_hiragana`
 - `/set/data/convert_message_to_romaji`

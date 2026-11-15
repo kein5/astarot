@@ -156,7 +156,6 @@ voice:
     error: "Voice unavailable (check server, language and output)"
 
 common:
-    check_latest_status: "Check the latest status"
     close_button_label: "Close"
     dismiss_notification: "Dismiss notification"
     go_back_button_label: "Go Back"
@@ -172,8 +171,13 @@ common_error:
     updating: "Updating…"
     update_now: "Update available — update now"
     check_issues: "Check VRCT-VOX issues"
-    backend_startup_failed: "The VRCT-VOX engine could not start. Try again. If this continues, reinstall VRCT-VOX."
+    backend_startup_title: "VRCT-VOX could not start"
+    backend_startup_reason_spawn: "The VRCT-VOX engine program could not be started."
+    backend_startup_reason_exit: "The VRCT-VOX engine stopped while it was getting ready (code {{code}})."
+    backend_startup_detail: "Details: {{message}}"
+    backend_startup_next: "Try starting again. If this keeps happening, reinstall VRCT-VOX. If any error notices appeared, include their text when you report it in the VRCT-VOX issues."
     backend_startup_retry: "Try starting again"
+    backend_startup_quit: "Quit VRCT-VOX"
     request_404: "This operation is not available. Restart VRCT-VOX and try again."
     request_423: "The operation could not run because the backend was busy. Wait for the current operation to finish, then try again."
     request_send_failed: "The request could not be sent. Check the displayed value and try again. If this continues, restart VRCT-VOX."
@@ -1310,8 +1314,39 @@ speech_servers:
         speech_server_cleanup_unconfirmed: "Stopping the previous server could not be confirmed. Restart VRCT-VOX."
         speech_server_notification_failed: "The app was not told that the server stopped. Restart VRCT-VOX."
 
+app_update:
+    beta_channel: "(beta)"
+    check: "Check for updates"
+    install: "Update to {{version}} and restart"
+    release_page: "Release notes for {{version}}"
+    check_at_start: "Check for updates at start"
+    check_at_start_desc: "Each start asks GitHub Releases for a new version. This sends what any download sends; no conversation or voice."
+    status:
+        checking: "Checking for updates…"
+        up_to_date: "You have the latest version."
+        available: "Version {{version}} is available."
+        downloading: "Downloading the update…"
+        downloading_percent: "Downloading the update… {{percent}}%"
+        installing: "Installing the update. VRCT-VOX restarts when it is done."
+    policy:
+        install: "New versions come from GitHub Releases and are installed after their signature is checked. Updating restarts VRCT-VOX. Your settings and downloaded models stay."
+        windows_portable: "The ZIP version cannot update itself. Get the new version from the releases page. The installer version updates from within the app."
+        linux_archive: "The tar.gz version cannot update itself. Get the new version from the releases page. The AppImage version updates from within the app."
+        appimage_read_only: "This AppImage is in a folder you cannot write to, so it cannot update itself. Update it the way it was installed (for example its package)."
+        package_manager: "This VRCT-VOX was installed by a package manager (deb or rpm), which also updates it. The app does not check for updates."
+        disabled: "This build does not use in-app updates."
+    errors:
+        update_check_failed: "Could not check for updates. Check your network connection and try again later."
+        update_metadata_missing: "The releases page has no update information for this version yet."
+        update_download_failed: "Could not download the update. The current version keeps working."
+        update_signature_invalid: "The downloaded update's signature could not be verified, so it was not installed. The current version keeps working."
+        update_install_failed: "Could not install the update. The current version keeps working."
+        update_not_checked: "Check for updates first."
+        update_busy: "An update check or download is in progress. Wait for it to finish."
+        update_unsupported: "This VRCT-VOX cannot update itself."
+        update_forbidden: "This VRCT-VOX cannot update itself."
+
 fork_distribution:
-    update_policy: "Built-in updates are disabled. Update through the channel from which you installed VRCT-VOX."
     releases: "VRCT-VOX releases"
 
 # A place in a settings form to drop files from the desktop (FileDropZone).
@@ -1664,6 +1699,10 @@ studio:
     setup_open_settings: "Open Speech recognition (ASR) settings"
     setup_preparing: "Preparing the download"
     setup_downloading: "Downloading {{progress}}%"
+    startup_label: "Starting up"
+    startup_status: "Starting VRCT-VOX. You can use it once it is ready."
+    startup_step: "Step {{step}} of {{total}}"
+    startup_download_translation: "Downloading the translation model ({{id}})"
     setup_translation_ready: "The translation model is here. Turning Translation on."
     setup_translation_resume: "When the download finishes, Translation is turned on. The selected model and the microphone do not change."
     setup_other_translator: "Choose another translator"

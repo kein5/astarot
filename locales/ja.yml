@@ -156,7 +156,6 @@ voice:
     error: "発声できません（サーバー・言語・出力先を確認）"
 
 common:
-    check_latest_status: "最新の状況を確認"
     close_button_label: "閉じる"
     dismiss_notification: "通知を閉じる"
     go_back_button_label: "戻る"
@@ -172,8 +171,13 @@ common_error:
     updating: "更新中…"
     update_now: "新しいバージョンに更新する"
     check_issues: "VRCT-VOXのIssuesを開く"
-    backend_startup_failed: "VRCT-VOXの処理部分を起動できませんでした。もう一度お試しください。繰り返し起きる場合はVRCT-VOXをインストールし直してください。"
+    backend_startup_title: "VRCT-VOXを起動できませんでした"
+    backend_startup_reason_spawn: "VRCT-VOXの処理部分のプログラムを起動できませんでした。"
+    backend_startup_reason_exit: "VRCT-VOXの処理部分が準備の途中で終了しました（コード{{code}}）。"
+    backend_startup_detail: "詳細: {{message}}"
+    backend_startup_next: "もう一度起動してください。繰り返し起きる場合は、VRCT-VOXをインストールし直してください。エラーの通知が出ていれば、その内容を添えてVRCT-VOXのIssuesで報告してください。"
     backend_startup_retry: "もう一度起動する"
+    backend_startup_quit: "VRCT-VOXを終了"
     request_404: "この操作は利用できません。VRCT-VOXを再起動してもう一度お試しください。"
     request_423: "別の処理が続いているため、操作できませんでした。処理が終わってからもう一度お試しください。"
     request_send_failed: "要求を送信できませんでした。表示されている値を確認してもう一度お試しください。繰り返し起きる場合はVRCT-VOXを再起動してください。"
@@ -1310,8 +1314,39 @@ speech_servers:
         speech_server_cleanup_unconfirmed: "前回のサーバーの停止を確認できません。VRCT-VOXを再起動してください。"
         speech_server_notification_failed: "サーバーの停止をアプリに伝えられませんでした。VRCT-VOXを再起動してください。"
 
+app_update:
+    beta_channel: "（ベータ版）"
+    check: "更新を確認"
+    install: "{{version}}に更新して再起動"
+    release_page: "{{version}}のリリースノート"
+    check_at_start: "起動時に更新を確認する"
+    check_at_start_desc: "起動のたびにGitHubのリリースに新しい版を問い合わせます。送るのは通常のダウンロードと同じ情報で、会話や音声は送りません。"
+    status:
+        checking: "更新を確認しています…"
+        up_to_date: "最新の版です。"
+        available: "新しい版{{version}}があります。"
+        downloading: "更新をダウンロードしています…"
+        downloading_percent: "更新をダウンロードしています…{{percent}}%"
+        installing: "更新を入れています。終わるとVRCT-VOXが再起動します。"
+    policy:
+        install: "新しい版はGitHubのリリースから取得し、署名を確かめてから入れます。更新するとVRCT-VOXは再起動します。設定とダウンロードしたモデルはそのまま残ります。"
+        windows_portable: "ZIP版はアプリ内では更新できません。新しい版はリリースのページから入手してください。インストーラー版なら、アプリ内で更新できます。"
+        linux_archive: "tar.gz版はアプリ内では更新できません。新しい版はリリースのページから入手してください。AppImage版なら、アプリ内で更新できます。"
+        appimage_read_only: "このAppImageは書き込めない場所にあるため、アプリ内では更新できません。AppImageを置いた方法（パッケージなど）で更新してください。"
+        package_manager: "パッケージマネージャー（deb・rpm）で入れたVRCT-VOXです。更新もパッケージマネージャーで行います。アプリは更新を確認しません。"
+        disabled: "この版では、アプリ内の更新を使いません。"
+    errors:
+        update_check_failed: "更新を確認できませんでした。ネットワークの接続を確かめて、あとでもう一度確認してください。"
+        update_metadata_missing: "リリースのページに、この版向けの更新の情報がまだありません。"
+        update_download_failed: "更新をダウンロードできませんでした。今の版はそのまま使えます。"
+        update_signature_invalid: "ダウンロードした更新の署名を確かめられなかったため、入れませんでした。今の版はそのまま使えます。"
+        update_install_failed: "更新を入れられませんでした。今の版はそのまま使えます。"
+        update_not_checked: "先に更新を確認してください。"
+        update_busy: "更新の確認かダウンロードが進んでいます。終わるまでお待ちください。"
+        update_unsupported: "このVRCT-VOXはアプリ内では更新できません。"
+        update_forbidden: "このVRCT-VOXはアプリ内では更新できません。"
+
 fork_distribution:
-    update_policy: "アプリ内更新は無効です。VRCT-VOXを導入した配布元から更新してください。"
     releases: "VRCT-VOXの配布ページ"
 
 # A place in a settings form to drop files from the desktop (FileDropZone).
@@ -1664,6 +1699,10 @@ studio:
     setup_open_settings: "音声認識（ASR）の設定を開く"
     setup_preparing: "取得を準備しています"
     setup_downloading: "取得中 {{progress}}%"
+    startup_label: "起動の状況"
+    startup_status: "VRCT-VOXを起動しています。準備ができると操作できます。"
+    startup_step: "手順 {{step}}/{{total}}"
+    startup_download_translation: "翻訳モデル（{{id}}）を取得しています"
     setup_translation_ready: "翻訳モデルを取得しました。翻訳をオンにします。"
     setup_translation_resume: "ダウンロードが終わると翻訳をオンにします。モデルの選択やマイクのオン／オフは変わりません。"
     setup_other_translator: "ほかの翻訳エンジンを選ぶ"

@@ -27,7 +27,7 @@ sequenceDiagram
   S-->>UI: /run/enable_osc_query（OSCQueryが使えないとき）
   S-->>UI: /run/initialization_complete {"/get/data/…": 値}
   Note over S: 全エンドポイントのロックを外す
-  UI->>UI: 受信先へ配り、起動画面を閉じる
+  UI->>UI: 受信先へ配り、メイン画面の仮の表示を実際の値に替えて操作を有効にする
   UI->>S: 音声・音声サーバー・モデル取得の状態を取得
   loop 20秒ごと
     UI->>S: /run/feed_watchdog

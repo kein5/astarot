@@ -9,6 +9,7 @@ import { useSwitchBlocks } from "../../../../../logics/main/useSwitchBlocks";
 import { activeSwitchBlock } from "../../../../../logics/main/switchBlocks";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady } from "@logics_common";
+import { useIsStartingUp } from "../../startupContext";
 import { store } from "@store";
 import clsx from "clsx";
 import styles from "./MainFunctionSwitch.module.scss";
@@ -27,6 +28,8 @@ import { ToggleSwitch } from "../../../../common_components/toggle_switch/Toggle
 export const MainFunctionSwitch = () => {
     const { t, i18n } = useI18n();
     const { currentIsBackendReady } = useIsBackendReady();
+    // While starting, the switches have no state yet: placeholders, not "disconnected".
+    const starting = useIsStartingUp();
 
     const {
         toggleTranslation, currentTranslationStatus,
@@ -131,10 +134,11 @@ export const MainFunctionSwitch = () => {
                     cancellable={item.cancellable}
                     disabled={item.disabled}
                     unavailable={!ready}
+                    starting={starting}
                     blockedReason={blockedReason}
                     switchLabel={item.label}
                     currentState={item.currentState}
-                    statusText={ready ? item.statusText : t("main_page.backend_disconnected")}
+                    statusText={ready ? item.statusText : starting ? null : t("main_page.backend_disconnected")}
                     toggleFunction={item.toggleFunction}
                     SvgComponent={item.SvgComponent}
                 />;
@@ -157,7 +161,8 @@ export const MainFunctionSwitch = () => {
 // blockedReason: why the switch cannot be turned on yet and where to provide it. The switch is
 // then disabled and says so in its tooltip and to screen readers; it keeps its place in the
 // tab order so that the reason can be heard.
-export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, statusText = null, blockedReason = null }) => {
+// starting: the engine has not sent the switch's state yet; the toggle is a placeholder.
+export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, blockedReason = null }) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
     const reasonId = `main_switch_${switch_id}_reason`;
     // A long name breaks before its short name in brackets, never in the middle of a word.
@@ -180,7 +185,7 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
     return (
         <div
             className={getClassNames(styles.switch_container)}
-            role="switch" aria-label={unavailable ? `${switchLabel}: ${statusText}` : switchLabel} aria-checked={active}
+            role="switch" aria-label={unavailable && statusText ? `${switchLabel}: ${statusText}` : switchLabel} aria-checked={active}
             aria-busy={pending} aria-disabled={blocked} tabIndex={0}
             aria-describedby={blockedReason ? reasonId : undefined}
             title={blockedTitle ?? statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined)}
@@ -206,6 +211,7 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
             <ToggleSwitch
                 isActive={active}
                 isPending={pending}
+                skeleton={starting}
                 className={getClassNames(styles.toggle_control)}
             />
 

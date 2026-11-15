@@ -236,6 +236,7 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
+        "../../startupContext": { useIsStartingUp: () => false },
         "@logics_main": { useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: false } }) },
         "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
     });
@@ -428,6 +429,37 @@ test("the window geometry controller keeps its listeners and only sends layout c
     assert.deepEqual(disposed, ["resized", "moved"]);
 });
 
+test("while the engine starts, resizing updates the layout but does not save the window geometry", async t => {
+    const runtime = hooks(), handlers = {}, sent = [], updates = [];
+    const appWindow = { innerSize: async () => ({ width: 700 }), isMinimized: async () => false,
+        outerPosition: async () => ({ x: 1, y: 2 }), outerSize: async () => ({ width: 700, height: 500 }),
+        onResized: handler => { handlers.resized = handler; return Promise.resolve(() => {}); },
+        onMoved: handler => { handlers.moved = handler; return Promise.resolve(() => {}); } };
+    const attributes = new Set();
+    globalThis.document = { documentElement: { hasAttribute: name => attributes.has(name),
+        toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); } } };
+    t.after(() => { delete globalThis.document; });
+    const { WindowGeometryController } = await load("../logics/common/useWindow.js", runtime, {
+        "@tauri-apps/api/window": {},
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => sent.push([endpoint, data]) }) },
+        "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
+        "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
+        "./windowGeometry.js": await import("./windowGeometry.js"),
+    });
+    const settle = () => new Promise(resolve => setTimeout(resolve, 250));
+    runtime.render(WindowGeometryController, { saveGeometry: false });
+    await settle();
+    assert.deepEqual(updates, [true], "the narrow layout applies from the first frame");
+    handlers.resized(); handlers.moved();
+    await settle();
+    assert.deepEqual(sent, []);
+    runtime.render(WindowGeometryController, { saveGeometry: true });
+    handlers.moved();
+    await settle();
+    assert.deepEqual(sent, [["/set/data/main_window_geometry", { x_pos: 1, y_pos: 2, width: 700, height: 500 }]]);
+    runtime.unmount();
+});
+
 test("opening and closing settings keeps the same MainSection type and key mounted", async () => {
     const runtime = hooks();
     let open = false;
@@ -436,6 +468,8 @@ test("opening and closing settings keeps the same MainSection type and key mount
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
         "./sidebar_section/SidebarSection": { SidebarSection: icon },
         "./main_section/MainSection": { MainSection },
+        "./startupContext": { StartupContext: { Provider: "startup-provider" } },
+        "./main_section/message_container/log_box/StartupProgress": { StartupProgress: icon },
     });
     const focusFallback = { current: null };
     const initial = find(runtime.render(MainPage, { focusFallback }), node => node.type === MainSection);

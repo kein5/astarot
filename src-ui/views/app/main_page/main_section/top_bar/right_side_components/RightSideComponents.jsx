@@ -9,9 +9,9 @@ import FlowSvg from "@images/io_flow.svg?react";
 
 import { useStore_OpenedQuickSetting } from "@store";
 import {
-    useSoftwareVersion,
     useIsOscAvailable,
 } from "@logics_common";
+import { useAppUpdate } from "../../../../../../logics/common/useAppUpdate";
 
 import {
     useAppearance,
@@ -145,12 +145,13 @@ const IoFlowButton = () => {
     );
 };
 
+// Shown once a check (at start or on the update page) found a new version; opens the update page.
 const SoftwareUpdateAvailableButton = () => {
     const { t } = useI18n();
-    const { currentLatestSoftwareVersionInfo } = useSoftwareVersion();
+    const { appUpdate } = useAppUpdate();
     const { updateOpenedQuickSetting } = useStore_OpenedQuickSetting();
 
-    if (currentLatestSoftwareVersionInfo.data.is_update_available === false) return null;
+    if (!["available", "downloading", "installing"].includes(appUpdate.status)) return null;
 
     return (
         <button className={styles.software_update_button} onClick={()=>updateOpenedQuickSetting("update_software")}>

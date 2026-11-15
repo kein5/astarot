@@ -92,7 +92,7 @@ def test_shortcut_raises_input_above_fullscreen_without_restoring_main(tmp_path)
                             toggle_transcription_send=None, toggle_transcription_receive=None)
     config.write_text(json.dumps(values))
     with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state), 'GDK_BACKEND': 'x11'}) as ui:
-        ui.wait("return document.querySelector('textarea[class*=message_box_input_area]') !== null")
+        ui.wait_main_ready()
         ui.open_voice_page('Hotkeys', '[data-setting-id="open_quick_chat"] input')
         ui.wait("return document.querySelector('[data-setting-id=\"open_quick_chat\"] input').value !== ''")
         ui.close_settings()
@@ -172,7 +172,7 @@ def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
         # The current shortcut plugin is X11-only. Test explicitly under KDE's
         # XWayland, without changing the desktop/session configuration.
         with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state), 'GDK_BACKEND': 'x11'}) as ui:
-            ui.wait("return document.querySelector('textarea[class*=message_box_input_area]') !== null")
+            ui.wait_main_ready()
             ui.open_voice_page('Hotkeys', '[data-setting-id="open_quick_chat"] input')
             shortcut = ui.control('Open quick chat')
             assert ui.evaluate('return arguments[0].value', shortcut) == ''
@@ -247,7 +247,7 @@ def test_wayland_explains_shortcut_limit_and_opens_from_button(tmp_path, monkeyp
     monkeypatch.delenv('VRCT_TEST_APPIMAGE', raising=False)
     state = initial_state(tmp_path)
     with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state), 'GDK_BACKEND': 'wayland'}) as ui:
-        ui.wait("return document.querySelector('textarea[class*=message_box_input_area]') !== null")
+        ui.wait_main_ready()
         main = ui.command('GET', '/window')
         ui.open_voice_page('Hotkeys', '[data-setting-id="open_quick_chat"] input')
         ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent.includes('unavailable in native Wayland'))")
