@@ -29,10 +29,14 @@ const START_FAILED: &str = "speech_server_start_failed";
 /// How long the shutdown waits for every owned server to end (`speech_servers.close(timeout=3)`).
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(3);
 
-/// Where the bundled servers come from: the app's `build/speechcpp`, checked against the pinned
-/// hashes at each start (`runtime.py`, `BUNDLE` and `bundled_binary`).
+/// Where the bundled servers come from, checked against the pinned hashes at each start
+/// (`runtime.py`, `BUNDLE` and `bundled_binary`): the packaged app keeps them with the sidecar's
+/// resources (`_internal/build/speechcpp`, PyInstaller's resource folder), a source checkout in
+/// `build/speechcpp`.
 pub fn bundled_launch(env: &Environment) -> Launch {
-    Launch::bundled(env.app_dir.join("build").join("speechcpp"))
+    let packaged = env.app_dir.join("_internal").join("build").join("speechcpp");
+    let folder = if packaged.is_dir() { packaged } else { env.app_dir.join("build").join("speechcpp") };
+    Launch::bundled(folder)
 }
 
 /// A server ended. `run` names the start that ended (`None` when a Stop found none); `stopped`

@@ -12,6 +12,11 @@ pub mod speech;
 
 pub use routes::routes;
 
+/// Launches the bundled speech.cpp servers from `folder` (a development checkout's bundle).
+pub fn speech_launch_from(folder: std::path::PathBuf) -> vrct_speech_server::server::Launch {
+    vrct_speech_server::server::Launch::bundled(folder)
+}
+
 use crate::config::Config;
 use crate::dispatch::Output;
 use crate::errors::ErrorReply;

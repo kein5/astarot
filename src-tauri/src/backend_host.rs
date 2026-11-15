@@ -93,7 +93,15 @@ pub fn backend_start(
             let _ = exit.send(code);
         }),
     };
-    let backend = Backend::start(Options::new(environment(&executable, app.package_info().version.to_string())), sink);
+    let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
+    if cfg!(debug_assertions) {
+        // A development build runs from src-tauri/target; the speech.cpp bundle is staged in the
+        // checkout's build/speechcpp, where the Python sidecar found it too.
+        let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("build").join("speechcpp");
+        options.services.speech_server_launch =
+            std::sync::Arc::new(move |_| vrct_core::controller::speech_launch_from(checkout.clone()));
+    }
+    let backend = Backend::start(options, sink);
     *current = Some((session, backend));
     Ok(())
 }
