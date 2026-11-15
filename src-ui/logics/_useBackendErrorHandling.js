@@ -329,7 +329,8 @@ export const _useBackendErrorHandling = () => {
             case "WEIGHT_CTRANSLATE2_DOWNLOAD": {
                 updateCTranslate2WeightTypeStatus(old => clearLegacyDownloadFailure(old.data, data));
                 // CTranslate2 goes away with #288; this only keeps today's users from a dead end.
-                const { reasonKey, retryable } = legacyDownloadFailure(data);
+                const { notify, reasonKey, retryable } = legacyDownloadFailure(data);
+                if (!notify) return;
                 const category_id = `${error_code}:${data?.weight_type}`;
                 const onRetry = retryable ? () => { dismissNotification(category_id); translationSetup.open(false, data.weight_type); } : null;
                 // A notice that never hides keeps its id; close an older one so this one shows its reason.

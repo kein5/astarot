@@ -29,15 +29,18 @@ export const clearLegacyDownloadFailure = (rows, data) => rows.map(item =>
 // the catalog downloads reuse their text; the rest are legacy only.
 const SHARED_REASONS = new Set(["download_busy", "download_failed", "downloads_closed", "hash_mismatch",
     "insufficient_space", "size_mismatch", "unsafe_destination"]);
-const LEGACY_REASONS = new Set(["cancelled", "download_deadline", "verification_failed"]);
+const LEGACY_REASONS = new Set(["download_deadline", "verification_failed"]);
 // Another download of the same model is running, or the backend is closing: a retry now would be refused.
 const NOT_RETRYABLE = new Set(["download_busy", "downloads_closed"]);
+// A stopped download is not a failure: nothing is reported (`notify` false). Today the
+// backend stops one only when the app closes or before it retries at startup.
 export const legacyDownloadFailure = data => {
     const reason = typeof data?.reason === "string" ? data.reason : "";
+    if (reason === "cancelled") return { notify: false, reasonKey: null, retryable: false };
     const reasonKey = SHARED_REASONS.has(reason) ? `model_downloads.errors.${reason}`
         : LEGACY_REASONS.has(reason) ? `legacy_model_downloads.errors.${reason}`
             : "model_downloads.errors.download_failed";
     const retryable = typeof data?.weight_type === "string" && data.weight_type !== ""
         && !data?.active_job_id && !NOT_RETRYABLE.has(reason);
-    return { reasonKey, retryable };
+    return { notify: true, reasonKey, retryable };
 };

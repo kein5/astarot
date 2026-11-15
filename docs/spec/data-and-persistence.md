@@ -148,7 +148,7 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 
 起動時の取得では、保存された値と現在のモデル一覧の値が一致するか確認する。版、ファイルの容量・SHA-256、ライセンス、tokenizerの版が変わると再確認が必要になる。古い値はファイルを削除する根拠にはしない。旧版からの移行時は記録なしとして扱い、`AUTO_DOWNLOAD_MODELS=True`や既存のNLLB選択から同意を推測しない。既に取得したファイルとモデルの選択は保持する。
 
-CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`data.reason`は`download_failed`、`insufficient_space`、`hash_mismatch`、`size_mismatch`、`verification_failed`、`download_deadline`、`cancelled`、`download_busy`、`downloads_closed`、`unsafe_destination`の固定のコードで、パスや例外の文は入れない。UIはこのコードに対応する理由を通知に出し、知らないコードは一般的な失敗として扱う（#305）。同じモデルの取得が動いている（`active_job_id`がある、`download_busy`）か終了中（`downloads_closed`）でなければ、通知に「確認して再試行」を付け、閉じるまで消さない。押すとそのモデルの確認画面を開き直し、取得は改めて同意を得てから送る。通知から直接は取得しない。CTranslate2は#288で廃止する予定のため、これは現行版の利用者が行き止まりにならないための最小限の対応である。
+CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`data.reason`は`download_failed`、`insufficient_space`、`hash_mismatch`、`size_mismatch`、`verification_failed`、`download_deadline`、`cancelled`、`download_busy`、`downloads_closed`、`unsafe_destination`の固定のコードで、パスや例外の文は入れない。UIはこのコードに対応する理由を通知に出し、知らないコードは一般的な失敗として扱う（#305）。`cancelled`（取得を止めた）は失敗として知らせず、一覧の取得中の表示だけを戻す。現在、旧形式の取得を止めるのは、アプリの終了時と、起動時に再取得する前だけである。同じモデルの取得が動いている（`active_job_id`がある、`download_busy`）か終了中（`downloads_closed`）でなければ、通知に「確認して再試行」を付け、閉じるまで消さない。押すとそのモデルの確認画面を開き直し、取得は改めて同意を得てから送る。通知から直接は取得しない。CTranslate2は#288で廃止する予定のため、これは現行版の利用者が行き止まりにならないための最小限の対応である。
 
 ### チャット読み取りの範囲
 

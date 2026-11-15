@@ -1619,7 +1619,6 @@ studio:
 
 legacy_model_downloads:
     errors:
-        cancelled: "The download was stopped. Settings were not changed."
         download_deadline: "The download did not finish in time. Settings were not changed. Check the connection and retry."
         verification_failed: "The downloaded files could not be verified. Settings were not changed. Retry the download."
     progress_name: "{{model}} download"

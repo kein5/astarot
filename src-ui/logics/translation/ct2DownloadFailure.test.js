@@ -33,13 +33,23 @@ test("a download refused because another is running offers no retry", async () =
     assert.equal(s.notices[0].options.hide_duration, undefined);
 });
 
+test("a stopped download is not reported as a failure, but the row still settles", async () => {
+    const s = await loadBridgeRoutes();
+    const rows = s.stores.dynamicStoreRegistry.Atom_CTranslate2WeightTypeStatus;
+    s.runtime.store.set(rows, { state: "ok", data: [{ id: "small", is_pending: true, is_downloaded: false, progress: 40, job_id: "job" }] });
+    fail(s, { reason: "cancelled" });
+    assert.deepEqual(s.notices, []);
+    assert.deepEqual(s.runtime.store.get(rows).data[0], { id: "small", is_pending: false, is_downloaded: false, progress: null, job_id: "job" });
+    assert.deepEqual(legacyDownloadFailure({ weight_type: "small", reason: "cancelled" }), { notify: false, reasonKey: null, retryable: false });
+});
+
 test("reasons map to fixed text; unknown ones fall back to the generic failure", () => {
     assert.deepEqual(legacyDownloadFailure({ weight_type: "small", reason: "hash_mismatch" }),
-        { reasonKey: "model_downloads.errors.hash_mismatch", retryable: true });
+        { notify: true, reasonKey: "model_downloads.errors.hash_mismatch", retryable: true });
     assert.deepEqual(legacyDownloadFailure({ weight_type: "small", reason: "verification_failed" }),
-        { reasonKey: "legacy_model_downloads.errors.verification_failed", retryable: true });
+        { notify: true, reasonKey: "legacy_model_downloads.errors.verification_failed", retryable: true });
     assert.deepEqual(legacyDownloadFailure({ weight_type: "small", reason: "C:\\Users\\name\\x: boom" }),
-        { reasonKey: "model_downloads.errors.download_failed", retryable: true }, "free text is never shown");
+        { notify: true, reasonKey: "model_downloads.errors.download_failed", retryable: true }, "free text is never shown");
     assert.equal(legacyDownloadFailure({ reason: "download_failed" }).retryable, false, "no model, nothing to retry");
     assert.equal(legacyDownloadFailure({ weight_type: "small", reason: "downloads_closed" }).retryable, false);
 });
@@ -47,7 +57,7 @@ test("reasons map to fixed text; unknown ones fall back to the generic failure",
 for (const language of ["en", "ja"]) test(`${language}: every reason and the retry have text`, async () => {
     const messages = yaml.load(await readFile(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
     for (const reason of ["download_busy", "download_failed", "downloads_closed", "hash_mismatch", "insufficient_space",
-        "size_mismatch", "unsafe_destination", "cancelled", "download_deadline", "verification_failed"]) {
+        "size_mismatch", "unsafe_destination", "download_deadline", "verification_failed"]) {
         const [namespace, , key] = legacyDownloadFailure({ reason }).reasonKey.split(".");
         assert.ok(messages[namespace].errors[key], reason);
     }
