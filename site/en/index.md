@@ -4,13 +4,14 @@ hero:
   name: VRCT-VOX
   text: Translation, captions and speech for your VRChat conversations
   tagline: One desktop app for translation, captions, speech, a voice changer and chat reading. It is an unofficial derivative of VRCT.
-  actions:
-    - theme: brand
-      text: Install
-      link: /en/guide/install
-    - theme: alt
-      text: Find what you want to do
-      link: /en/guide/tasks
+# The hero's buttons (theme/HomeActions.vue). The download button offers the latest release's
+# file for the reader's OS, with every other file in its menu; `link` is the install page.
+heroActions:
+  - download: true
+    link: /en/guide/install
+  - theme: alt
+    text: Find what you want to do
+    link: /en/guide/tasks
 shot:
   src: /screenshots/en/main.webp
   alt: The VRCT-VOX main window. A message sent in Japanese has its English translation, and the other player's English reply has its Japanese translation

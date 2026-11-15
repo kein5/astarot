@@ -2,6 +2,7 @@ import { h } from 'vue'
 // Without VitePress's bundled Inter: the guide uses the reader's own fonts (custom.css).
 import DefaultTheme from 'vitepress/theme-without-fonts'
 import type { Theme } from 'vitepress'
+import HomeActions from './HomeActions.vue'
 import HomeShot from './HomeShot.vue'
 import HomeShowcase from './HomeShowcase.vue'
 import RouteStrip from './RouteStrip.vue'
@@ -36,6 +37,8 @@ export default {
   extends: DefaultTheme,
   Layout: () =>
     h(DefaultTheme.Layout, null, {
+      // The hero's buttons, the download button first (front matter `heroActions`).
+      'home-hero-info-after': () => h(HomeActions),
       'home-hero-after': () => h(HomeShot),
       // The features, each beside a short loop of what it does (front matter `showcase`).
       'home-features-before': () => h(HomeShowcase),

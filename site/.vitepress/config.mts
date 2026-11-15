@@ -202,8 +202,8 @@ export default defineConfig({
       link: '/ja/',
       description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリVRCT-VOXの使い方',
       themeConfig: {
-        // The top bar points at the three pages a reader looks for first; downloads start
-        // from the install page, which says which file to take.
+        // The top bar points at the three pages a reader looks for first. The home page's download
+        // button offers the file for the reader's OS; the install page says how to set each one up.
         nav: [
           { text: 'ガイド', link: '/ja/guide/introduction' },
           { text: 'インストール', link: '/ja/guide/install' },
