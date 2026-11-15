@@ -131,6 +131,7 @@ Tauri本体に`tauri-plugin-updater` 2.14.1を加えた。Windows（x86_64-pc-wi
 `webpki-root-certs`（CDLA-Permissive-2.0）はロックファイルに載るが、WindowsとLinuxのビルドには入らない。
 同梱するのはプログラムだけで、証明書のデータやモデルは加えていない。配布物へのライセンス文書の同梱方法は、
 Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の「#322」の節で整備した。
+2026-11-16時点では、#344で`webpki-roots`の証明書データがTauri本体に入った（下の「#344」の節）。
 
 ## Rust依存のライセンス文と基礎モデルの記録（2026-11-15、#322）
 
@@ -138,7 +139,7 @@ Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の�
 
 配布物に入るRust製の実行ファイルは、Tauri本体の`vrct-vox`とRVCワーカーの`vrct-rvc-worker`の2つ。
 `native/`の他のクレートは2026-11-15のdevelopではまだどの実行ファイルにも組み込んでいない
-（`asr-capture`など`main.c`だけのものはC）。
+（`asr-capture`など`main.c`だけのものはC）。→ #344で`native/core`などが`vrct-vox`に入った（下の「#344」の節）。
 
 `tools/rust_licenses.py`がパッケージを作るときに2つの実行ファイルの依存をロックファイルから求める。
 対象の環境（`x86_64-pc-windows-msvc`、`x86_64-unknown-linux-gnu`）で`cargo metadata --filter-platform`を使い、
@@ -181,6 +182,29 @@ Mozillaが公開しているMPL-2.0の本文を使った。補いのないクレ
 
 どちらも配布物に含めず、利用者の同意を得てから提供元から直接取得するので、取得の形は変えない。
 NOTICEに「RVC base models」の節を足して、出所を示した。
+
+## 中核統合（#344）後のRust依存の突き合わせ（2026-11-16）
+
+#322の残課題へのオーナーの決定を受けて、台帳と#344で増えた依存を突き合わせた。#344をマージした後のdevelop（`6fe7bd36`）で`tools/rust_licenses.py`を実行し、マージ直前のdevelop（`131bbc3a`）の一覧と比べた。
+
+配布物に入るRust製の実行ファイルは、引き続き`vrct-vox`と`vrct-rvc-worker`の2つ。#344で`vrct-vox`がバックエンドの中核（`native/core`）を取り込み、中核が使う`native/adapters`、`native/ops`、`native/speech-server`、`native/tts`も一緒に入った。どれもリポジトリ内のクレートで、一覧ではVRCT-VOXのコードとして扱う。アプリの依存は`src-tauri/Cargo.lock`で決まり、中核を単独で試験するための`native/core/Cargo.lock`は使わない。2つのロックファイルで同じクレートの版が食い違う例はなかった。中核のクレートは機能フラグを持たず、配布物に入る新しい実行ファイルもない（`fake-speech`などの`[[bin]]`は試験用）。
+
+| 項目 | Windows | Linux |
+|---|---|---|
+| クレートの数（マージ前 → 後） | 313 → 335 | 385 → 407 |
+| 新しく入ったクレート | 17（外部12、リポジトリ内5） | 同じ17 |
+| なくなったクレート | 0 | 0 |
+| ライセンス文が欠けたクレート | 0 | 0 |
+
+新しく入った外部のクレートは`chacha20`、`const-oid`、`data-encoding`、`hybrid-array`、`if-addrs`、`rand`、`rand_core`、`sha1`、`tokio-macros`、`tokio-tungstenite`、`tungstenite`、`webpki-roots`。`if-addrs`はMIT OR BSD-3-Clause、`webpki-roots`はCDLA-Permissive-2.0で、ほかはMIT、またはMITとApache-2.0のいずれか。どれも公開パッケージにライセンス文があり、補い（`licenses/rust/supplements.json`）は要らなかった。`supplements.json`の11件は、すべて今もどちらかのビルドで使われている。
+
+すでにあった`base64`、`block-buffer`、`cpufeatures`、`crypto-common`、`digest`には別の版が加わった。`tokio-rustls`は0.26.6から0.26.4へ、`uuid`は1.29.2から1.29.0へ下がった。`native/adapters`が`tokio-rustls = "=0.26.4"`、`native/ops`が`uuid = "=1.29.0"`と版を完全一致で指定していて、Cargoがアプリ全体をこの版にそろえた。ライセンスは変わらない。版の指定を直すかは未決。
+
+#300の残課題に挙がった依存（tokio、rustls、ring、tokio-tungstenite、x11rb、windows-sys、if-addrs、socket2、serde_json、subtle、futures-util）は、対象の環境のものがすべて一覧に載る（`x11rb`はLinuxだけ、`windows-sys`はWindowsだけ）。
+
+`webpki-roots`はMozillaのルート証明書のデータで、`native/ops`がTLSの証明書の検証に使う。そのため、上の#330の節の「証明書のデータは加えていない」は当てはまらなくなった（`webpki-root-certs`は今もビルドに入らない）。このデータはCCADB（Common CA Database）のデータの派生物で、[CCADBのデータ利用条件](https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms)に従う。条件はCDLA-Permissive-2.0で、データを配るときは契約の本文を添えることを求める。利用条件はさらに、再配布や派生物での利用のときにCCADBへの帰属を示すことを求める。本文は`_internal/licenses/rust/webpki-roots-1.0.11/LICENSE`として同梱されていたが、帰属の表示はどこにもなかった。そこでNOTICEの「Rust crates in VRCT-VOX builds」に表示を足し、`tools/rust_licenses.py`が書く一覧（`README.md`）にも、このクレートが入るビルドでは表示を書くようにした。ロックファイルに`webpki-roots`があるかぎりNOTICEに表示があることは、試験（`tests/devtools/test_rust_licenses.py`）で確かめる。
+
+中核のクレートが`include_str!`で取り込むファイルは、OBSのブラウザーソースのページ（`native/adapters/src/obs/page.html`）と言語の表（`native/core/data/*.json`）だけ。どちらもリポジトリのコードとデータから作ったもので、第三者のデータではない。中核のクレートには`build.rs`もない。
 
 ## RVC追加分（2026-10-29、モデル未取得）
 

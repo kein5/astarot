@@ -131,13 +131,24 @@ executables for its platform, with each crate's license, in
 carries the license texts each crate publishes in
 `_internal/licenses/rust/<crate>-<version>/`. `tools/rust_licenses.py` makes
 the list from the lock files (`src-tauri/Cargo.lock`,
-`native/rvc-runtime/Cargo.lock`) when the package is built.
+`native/rvc-runtime/Cargo.lock`) when the package is built. The application
+also contains the backend core and the crates it uses (`native/core`,
+`native/adapters`, `native/ops`, `native/speech-server`, `native/tts`); they
+are VRCT-VOX's own code under `LICENSE`, and the list marks them so.
 
 The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
 Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,
 `selectors` and `dwrote`, under the Mozilla Public License 2.0. VRCT-VOX does
 not modify them. The source code of every listed crate, these included, is on
 crates.io at the version listed (`https://crates.io/crates/<crate>/<version>`).
+
+The application checks TLS certificates against Mozilla's root CA
+certificates in the `webpki-roots` crate. That data is derived from the
+[Common CA Database (CCADB)](https://www.ccadb.org/) and is used under the
+[CCADB Data Usage Terms](https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms),
+that is, the Community Data License Agreement – Permissive, Version 2.0
+(CDLA-Permissive-2.0), whose text is in
+`_internal/licenses/rust/webpki-roots-<version>/LICENSE`.
 
 A few crates publish no license text in their package. For those, the texts
 come from the crate's own repository or from the license's canonical text, as
