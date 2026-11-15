@@ -173,9 +173,12 @@ fn a_failed_save_is_reported_once_and_its_recovery_too() {
     assert!(failed["result"]["path"].as_str().unwrap().ends_with("config.json"));
     ui.ok("/set/data/main_window_geometry", Some(json!({ "x_pos": 2, "y_pos": 1, "width": 900, "height": 700 })));
     assert_eq!(ui.on(mark, "/run/config_save_failed").len(), 1, "reported once while it keeps failing");
+    // A delayed save started earlier may recover first; watch from before the folder goes.
+    let before = ui.lines().len();
     std::fs::remove_dir(dir.path().join("config.json")).unwrap();
-    let mark = ui.send("/set/data/main_window_geometry", Some(json!({ "x_pos": 3, "y_pos": 1, "width": 900, "height": 700 })));
-    ui.wait_endpoint(mark, "/run/config_save_recovered");
+    ui.send("/set/data/main_window_geometry", Some(json!({ "x_pos": 3, "y_pos": 1, "width": 900, "height": 700 })));
+    ui.wait_endpoint(before, "/run/config_save_recovered");
+    ui.ok("/run/shutdown", None);
     assert_eq!(ui.saved()["MAIN_WINDOW_GEOMETRY"]["x_pos"], 3);
     ui.stop();
 }
