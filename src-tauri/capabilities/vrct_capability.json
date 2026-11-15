@@ -56,7 +56,13 @@
                 { "url": "https://github.com/RVC-Project/**" },
                 { "url": "https://github.com/jiaheguo521/**" },
                 { "url": "https://github.com/pytorch/**" },
-                { "url": "https://docs.nvidia.com/cuda/eula/**" }
+                { "url": "https://docs.nvidia.com/cuda/eula/**" },
+                { "url": "https://voicevox.hiroshiba.jp/" },
+                { "url": "https://voicevox.hiroshiba.jp/term/" },
+                { "url": "https://coeiroink.com/" },
+                { "url": "https://coeiroink.com/terms" },
+                { "url": "https://aivis-project.com/" },
+                { "url": "https://www.sharevox.app/" }
             ],
             "deny": [
                 { "url": "*/..*" },

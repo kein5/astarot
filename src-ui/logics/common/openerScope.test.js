@@ -21,9 +21,10 @@ const allow = scope.allow.map(item => toRegExp(item.url));
 const deny = (scope.deny ?? []).map(item => toRegExp(item.url));
 const opens = url => !deny.some(pattern => pattern.test(url)) && allow.some(pattern => pattern.test(url));
 
-// Written in the UI but never opened as a link.
-// Values shown in fields (a default, a placeholder's example), never opened.
-const NOT_LINKS = new Set(["https://api.openai.com/v1", "http://127.0.0.1:8080"]);
+// Written in the UI but never opened as a link: values shown in fields (a default, a placeholder's example).
+const NOT_LINKS = new Set(["https://api.openai.com/v1", "http://127.0.0.1:8080",
+    // The installed speech engines' own addresses (TtsEngine.jsx).
+    "http://127.0.0.1:50021", "http://127.0.0.1:50032", "http://127.0.0.1:10101", "http://127.0.0.1:50025"]);
 
 const sources = (folder, found = []) => {
     for (const name of readdirSync(folder)) {
