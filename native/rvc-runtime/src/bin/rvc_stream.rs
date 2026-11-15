@@ -11,7 +11,7 @@ use std::time::Instant;
 use rvc_runtime::{audio, Converter, Device, FeatureExtractor, FeatureIndex, Layout, NoiseMode, Rmvpe, Stream, StreamOptions, Synthesizer, VoiceModel};
 
 const USAGE: &str = "\
-Usage: rvc-stream --model <voice.pth> --hubert <hubert.onnx> --rmvpe <rmvpe.onnx>
+Usage: rvc-stream --model <voice.pth> --hubert <hubert.onnx | hubert_base folder> --rmvpe <rmvpe.onnx>
                   --input <in.wav> [--output <out.wav>] [options]
 
 Options:
@@ -27,6 +27,7 @@ Options:
   --extra-ms <ms>          left context (default 2500)
   --highpass <on|off>      causal input high-pass (default on)
   --warmup <n>             blocks of silence processed and not timed first (default 3)
+  --threads <n>            CPU threads per network (default: ONNX Runtime's, one per core)
 
 All lengths are rounded to whole 10 ms frames.
 ";
@@ -41,6 +42,7 @@ struct Arguments {
     device: Device,
     options: StreamOptions,
     warmup: usize,
+    threads: Option<usize>,
 }
 
 fn parse() -> Result<Arguments, String> {
@@ -90,17 +92,20 @@ fn parse() -> Result<Arguments, String> {
         Some(_) => return Err("`--device` must be cpu or cuda".into()),
     };
     let warmup = number(&mut values, "warmup", 3)?;
+    let threads = values.remove("threads").map(|text| text.parse::<usize>().map_err(|_| "`--threads` has an invalid value".to_string())).transpose()?;
     if let Some(unknown) = values.keys().next() {
         return Err(format!("unknown option `--{unknown}`"));
     }
-    Ok(Arguments { model, hubert, rmvpe, input, output, index, device, options, warmup })
+    Ok(Arguments { model, hubert, rmvpe, input, output, index, device, options, warmup, threads })
 }
 
 fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
+    rvc_runtime::backend::set_intra_threads(arguments.threads);
     let model = VoiceModel::load(&arguments.model)?;
     let index = arguments.index.as_deref().map(FeatureIndex::load).transpose()?;
     let converter = Converter {
-        features: FeatureExtractor::load(&arguments.hubert, arguments.device)?,
+        // A folder is the hubert_base checkpoint the application uses; a file an exported graph.
+        features: if arguments.hubert.is_dir() { FeatureExtractor::from_checkpoint(&arguments.hubert, arguments.device)? } else { FeatureExtractor::load(&arguments.hubert, arguments.device)? },
         pitch: Box::new(Rmvpe::load(&arguments.rmvpe, arguments.device)?),
         synthesizer: Synthesizer::new(&model, arguments.device)?,
         index,
