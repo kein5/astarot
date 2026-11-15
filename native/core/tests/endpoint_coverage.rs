@@ -46,10 +46,11 @@ fn routes() -> Routes {
     vrct_core::controller::routes(&core)
 }
 
-/// The endpoints still to wire, from the migration document.
-fn listed_as_remaining() -> BTreeSet<String> {
+/// The endpoints listed between `<!-- {name}:begin -->` and `<!-- {name}:end -->` in the
+/// migration document: those still to wire, and those retired with the Python backend.
+fn listed(name: &str) -> BTreeSet<String> {
     let text = include_str!("../../../docs/voice-stack/core-integration.md");
-    let section = text.split("<!-- remaining-endpoints:begin -->").nth(1).unwrap().split("<!-- remaining-endpoints:end -->").next().unwrap();
+    let section = text.split(&format!("<!-- {name}:begin -->")).nth(1).unwrap().split(&format!("<!-- {name}:end -->")).next().unwrap();
     section
         .split('`')
         .skip(1)
@@ -80,7 +81,9 @@ fn the_remaining_endpoints_are_listed_in_the_migration_document() {
     let routes = routes();
     let wired: BTreeSet<String> = routes.endpoints().map(str::to_string).collect();
     let remaining: BTreeSet<String> = spec.difference(&wired).cloned().collect();
-    let listed = listed_as_remaining();
+    let retired = listed("retired-endpoints");
+    assert!(retired.is_disjoint(&wired), "a retired endpoint is wired: {:?}", retired.intersection(&wired).collect::<Vec<_>>());
+    let listed: BTreeSet<String> = listed("remaining-endpoints").union(&retired).cloned().collect();
     let missing: Vec<_> = remaining.difference(&listed).collect();
     let stale: Vec<_> = listed.difference(&remaining).collect();
     assert!(
