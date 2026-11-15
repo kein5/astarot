@@ -7,6 +7,7 @@
 mod downloads;
 pub mod adapters;
 mod languages;
+pub mod legacy_weights;
 mod lifecycle;
 mod routes;
 mod settings;
@@ -156,6 +157,10 @@ pub struct Services {
     pub vrc_mic_mute: Arc<dyn Fn(bool) + Send + Sync>,
     /// Turns the microphone's recognition off when mute sync is lost (`setDisableTranscriptionSend`).
     pub stop_mic_transcription: Arc<dyn Fn() + Send + Sync>,
+    /// Remove the Python backend's CTranslate2 weights after start-up ([`legacy_weights`]).
+    /// Only the host running the core as the default backend sets it: while the Python sidecar
+    /// is the default, its local translation keeps its weights.
+    pub retire_legacy_translation_weights: bool,
 }
 
 impl Default for Services {
@@ -171,6 +176,7 @@ impl Default for Services {
             osc: Arc::new(adapters::open_osc),
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
+            retire_legacy_translation_weights: false,
         }
     }
 }
