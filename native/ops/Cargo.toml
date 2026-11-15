@@ -2,7 +2,7 @@
 name = "vrct-ops"
 version = "0.0.0"
 description = "Model downloads, usage events and the backend watchdog of VRCT-VOX"
-edition = "2021"
+edition = "2024"
 publish = false
 
 # Versions are pinned to the ones src-tauri/Cargo.lock already holds, so linking this crate into

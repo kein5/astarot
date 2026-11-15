@@ -90,7 +90,8 @@ fn trace_cases() {
     trace_disabled_by_default();
     trace_does_not_record_arbitrary_event_id();
     bad_trace_destination_leaves_worker_healthy();
-    std::env::remove_var("VRCT_VOICE_TRACE");
+    // SAFETY: this binary's only test holds ENVIRONMENT; other threads read the environment only through std.
+    unsafe { std::env::remove_var("VRCT_VOICE_TRACE") };
 }
 
 fn opt_in_trace_records_first_nonzero_write_after_playback() {
@@ -101,7 +102,8 @@ fn opt_in_trace_records_first_nonzero_write_after_playback() {
     {
         let dir = scratch(&format!("{behavior}-{outcome}-{}", pcm.len()));
         let path = dir.join("trace.jsonl");
-        std::env::set_var("VRCT_VOICE_TRACE", &path);
+        // SAFETY: called from trace_cases, which holds ENVIRONMENT.
+        unsafe { std::env::set_var("VRCT_VOICE_TRACE", &path) };
         let sink = ObservedSink::new(&path, behavior);
         let server = PcmServer::start(ServerOptions { chunks: vec![pcm], ..Default::default() });
         let (event, _) = run_message(&server.url, &sink, &uuid());
@@ -135,7 +137,8 @@ fn opt_in_trace_records_first_nonzero_write_after_playback() {
 }
 
 fn trace_disabled_by_default() {
-    std::env::remove_var("VRCT_VOICE_TRACE");
+    // SAFETY: called from trace_cases, which holds ENVIRONMENT.
+    unsafe { std::env::remove_var("VRCT_VOICE_TRACE") };
     let dir = scratch("disabled");
     let path = dir.join("trace.jsonl");
     let server = PcmServer::start(ServerOptions::default());
@@ -147,7 +150,8 @@ fn trace_disabled_by_default() {
 fn trace_does_not_record_arbitrary_event_id() {
     let dir = scratch("arbitrary");
     let path = dir.join("trace.jsonl");
-    std::env::set_var("VRCT_VOICE_TRACE", &path);
+    // SAFETY: called from trace_cases, which holds ENVIRONMENT.
+    unsafe { std::env::set_var("VRCT_VOICE_TRACE", &path) };
     let server = PcmServer::start(ServerOptions::default());
     run_message(&server.url, &ObservedSink::new(&path, "normal"), "PRIVATE USER SUPPLIED ID");
     let text = std::fs::read_to_string(&path).expect("opt-in trace missing");
@@ -170,7 +174,8 @@ fn bad_trace_destination_leaves_worker_healthy() {
                 }
             }
         }
-        std::env::set_var("VRCT_VOICE_TRACE", &path);
+        // SAFETY: called from trace_cases, which holds ENVIRONMENT.
+        unsafe { std::env::set_var("VRCT_VOICE_TRACE", &path) };
         // The sentinel differs from the invalid destination; playback may proceed.
         let server = PcmServer::start(ServerOptions::default());
         let (_, status) = run_message(&server.url, &ObservedSink::new(&dir.join("absent"), "normal"), &uuid());

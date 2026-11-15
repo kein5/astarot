@@ -211,7 +211,7 @@ fn band(work: (i32, i32, u32, u32), position: &str) -> (i32, i32, u32, u32) {
 #[cfg(windows)]
 fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
     #[link(name = "user32")]
-    extern "system" {
+    unsafe extern "system" {
         fn ShowWindow(window: *mut std::ffi::c_void, command: i32) -> i32;
     }
     const SW_SHOWNOACTIVATE: i32 = 4;

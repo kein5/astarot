@@ -103,7 +103,8 @@ fn stale_directories(parent: &Path, alive: impl Fn(u32) -> bool) -> Vec<PathBuf>
 /// the backend starts; without a runtime directory the VR UI stays unavailable.
 pub fn prepare() -> Option<PathBuf> {
     // A value inherited from elsewhere would point the backend at someone else's files.
-    std::env::remove_var(DIRECTORY_ENV);
+    // SAFETY: run() calls this first, before Tauri or the backend start any other thread.
+    unsafe { std::env::remove_var(DIRECTORY_ENV) };
     let runtime = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).filter(|path| path.is_absolute())?;
     let directory = directory_for(&runtime, std::process::id());
     let parent = directory.parent()?;
@@ -113,7 +114,8 @@ pub fn prepare() -> Option<PathBuf> {
     }
     let _ = std::fs::remove_dir_all(&directory);
     DirBuilder::new().mode(0o700).create(&directory).ok()?;
-    std::env::set_var(DIRECTORY_ENV, &directory);
+    // SAFETY: run() calls this first, before Tauri or the backend start any other thread.
+    unsafe { std::env::set_var(DIRECTORY_ENV, &directory) };
     Some(directory)
 }
 

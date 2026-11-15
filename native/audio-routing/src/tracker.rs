@@ -74,7 +74,7 @@ impl Selector {
         let rolling: HashMap<&String, f32> = self.history.iter().map(|(name, h)| (name, h.iter().map(|&(_, p)| p).fold(0.0, f32::max))).collect();
         let selected = self.current.clone();
         // Exact ties go to the smallest ID, so the choice never depends on hash order.
-        let mut active: Vec<(&String, f32)> = rolling.iter().filter(|(_, &peak)| peak > SILENT_THRESHOLD).map(|(n, &p)| (*n, p)).collect();
+        let mut active: Vec<(&String, f32)> = rolling.iter().filter(|&(_, &peak)| peak > SILENT_THRESHOLD).map(|(n, &p)| (*n, p)).collect();
         if active.is_empty() {
             self.candidate = None;
             return selected;
