@@ -14,6 +14,11 @@ edition = "2024"
 name = "vrct_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Experimental tray-resident companion form (Issue #355). Off in every ordinary build;
+# a build with it still starts as usual unless launched with --companion.
+companion = ["tauri/tray-icon"]
+
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
 
