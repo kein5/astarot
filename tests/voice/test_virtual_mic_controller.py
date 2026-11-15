@@ -116,6 +116,7 @@ def test_stop_and_mute_end_a_check_under_way(controller_module):  # noqa: F811
                            voice_events=SimpleNamespace(cancel=lambda: None),
                            voice_route=SimpleNamespace(mute=lambda: None),
                            getVoiceStatus=lambda: {'status': 200}, getVoiceRoute=lambda: {'status': 200})
+    stub._stopVirtualMicCheck = lambda: controller_module.Controller._stopVirtualMicCheck(stub)
     controller_module.Controller.stopVoice(stub)
     controller_module.Controller.muteVoice(stub)
     assert stopped == [True, True]

@@ -3083,8 +3083,8 @@ class Controller:
                                               covers_direct=self._directUsesOutputDevice())}
 
     def muteVoice(self, *args, **kwargs) -> dict:
-        self.virtual_mic_check.stop()
         self.voice_route.mute()
+        self._stopVirtualMicCheck()
         return self.getVoiceRoute()
 
     def resumeVoice(self, *args, **kwargs) -> dict:
@@ -3103,8 +3103,8 @@ class Controller:
             return {"status": 200, "result": {"devices": [], "error": "audio_devices_unavailable"}}
 
     def stopVoice(self, *args, **kwargs) -> dict:
-        self.virtual_mic_check.stop()
         self.voice_events.cancel()
+        self._stopVirtualMicCheck()
         return self.getVoiceStatus()
 
     def chatMessage(self, data) -> dict:
@@ -5905,6 +5905,12 @@ class Controller:
         """The user finished the guide or asked not to see it again. It stays in the TTS settings."""
         config.VIRTUAL_MIC_NOTICE_PENDING = False
         return {"status": 200, "result": config.VIRTUAL_MIC_NOTICE_PENDING}
+
+    def _stopVirtualMicCheck(self):
+        # After the voice itself is stopped or muted: this must never keep those from working.
+        check = getattr(self, 'virtual_mic_check', None)
+        if check is not None:
+            check.stop()
 
     def getVirtualMicStatus(self, *args, **kwargs) -> dict:
         """The virtual cables found, and whether TTS already plays into one of them.
