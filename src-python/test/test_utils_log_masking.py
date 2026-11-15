@@ -196,5 +196,70 @@ class PrintResponseMaskingTests(unittest.TestCase):
         self.assertEqual(sent["result"], "sk-or-REALSECRET")
 
 
+class IoTraceLogTests(unittest.TestCase):
+    """The flow panel's traces carry the message and its translation; they stay in memory
+    (UC-16, CT-30). 0.2.0 and 0.3.0 wrote both to process.log."""
+
+    def setUp(self):
+        import controller as controller_module
+        from models.io_trace import IoTraces
+
+        self._original_logger = utils.process_logger
+        logger = logging.getLogger("test_process_logger_io_trace")
+        logger.handlers.clear()
+        logger.addHandler(logging.Handler())
+        utils.process_logger = logger
+        self.addCleanup(setattr, utils, "process_logger", self._original_logger)
+        self.logged, self.written = [], []
+        logger.info = self.logged.append
+        logger.error = self.logged.append
+        patcher = patch.object(utils, "_enqueueResponseLine", self.written.append)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        # The real path: IoTraces -> Controller._ioTraceEmit -> printResponse.
+        self.app = controller_module.Controller.__new__(controller_module.Controller)
+        self.app.run = utils.printResponse
+        self.traces = IoTraces(self.app._ioTraceEmit)
+
+    def send(self, text, translation):
+        trace = self.traces.begin("trace-1", "chat", text, "send", origin_ns=0)
+        trace.translation = translation
+        trace.stage("translate", 335)
+        trace.speech_queued(True)
+        self.traces.publish(trace)
+        self.traces.speech_started("trace-1", 2_000_000_000, converted=False)
+
+    def test_traces_are_not_logged(self):
+        self.send("PRIVATE_CHAT_TEXT", "PRIVATE_TRANSLATION")
+        self.assertEqual(self.logged, [])
+
+    def test_untranslated_message_is_not_logged_either(self):
+        self.send("PRIVATE_CHAT_TEXT", "")
+        self.assertEqual(self.logged, [])
+
+    def test_flow_panel_still_receives_the_text_and_times(self):
+        self.send("PRIVATE_CHAT_TEXT", "PRIVATE_TRANSLATION")
+        sent = [json.loads(line)["result"] for line in self.written]
+        self.assertEqual(len(sent), 2)
+        self.assertTrue(all(item["text"] == "PRIVATE_CHAT_TEXT" for item in sent))
+        self.assertTrue(all(item["translation"] == "PRIVATE_TRANSLATION" for item in sent))
+        self.assertEqual(sent[-1]["stages"], {"translate": 335})
+        self.assertEqual(sent[-1]["outputs"]["speech"], {"state": "playing", "at_ms": 2000, "converted": False})
+
+    def test_a_failing_trace_is_still_not_logged(self):
+        # A trace that cannot be serialized falls back to an error payload; the log gets its shape only.
+        with patch.object(utils, "errorLogging"):
+            utils.printResponse(200, "/run/io_trace", {"text": "PRIVATE_CHAT_TEXT", "stages": {"bad": object()}})
+        self.assertTrue(self.logged)
+        self.assertNotIn("PRIVATE_CHAT_TEXT", repr(self.logged))
+        self.assertNotIn("PRIVATE_CHAT_TEXT", repr(self.written))
+
+    def test_error_text_of_other_endpoints_is_still_logged(self):
+        # Only conversation endpoints are masked; an error message stays readable for diagnosis.
+        utils.printResponse(400, "/set/enable/translation", {
+            "error_code": "TRANSLATION_MODEL_MISSING", "message": "The CTranslate2 model is not downloaded"})
+        self.assertEqual(self.logged[-1]["result"]["message"], "The CTranslate2 model is not downloaded")
+
+
 if __name__ == "__main__":
     unittest.main()
