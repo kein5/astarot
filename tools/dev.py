@@ -26,7 +26,7 @@ SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "backend", "rust", 
 GROUPS = {"quick": ("tooling", "node", "lint"),
           "all": ("tooling", "node", "ui", "voice", "lint", "backend", "rust")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
-NATIVE_CRATES = ("native/speech-server", "native/adapters")
+NATIVE_CRATES = ("native/speech-server", "native/ops", "native/audio-routing", "native/adapters")
 SETUP_SCOPES = ("headless", "ui", "browser", "backend", "rust", "sidecar")
 OWNER_FILE = ".vrct-vox-dev-env"
 OWNER = "VRCT-VOX developer environment v1\n"
@@ -360,7 +360,9 @@ def doctor(args, root, *, preflight=False):
             else:
                 for alternatives in (("webkit2gtk-4.1",),
                                      ("ayatana-appindicator3-0.1", "appindicator3-0.1"),
-                                     ("openssl",)):
+                                     ("openssl",),
+                                     # native/audio-routing binds libpipewire (headers and libclang).
+                                     ("libpipewire-0.3",)):
                     found = next((library for library in alternatives
                         if probe(["pkg-config", "--exists", library], root).returncode == 0), None)
                     row(" or ".join(alternatives), "ok" if found else "missing",
