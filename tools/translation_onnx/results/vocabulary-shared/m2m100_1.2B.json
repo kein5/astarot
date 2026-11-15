@@ -1,0 +1,188 @@
+{
+  "before": {
+    "name": "m2m100_1.2B-onnx-int8",
+    "bytes": 1527115295,
+    "files": {
+      "decoder_model_merged_quantized.onnx": "6ba73c1125e2ce01df55b72dd5e916ba9fccf629042ae71161be15e2eec28db1",
+      "encoder_model_quantized.onnx": "9bcf5e9789ea54e6ca0a758083abc3f35e7382e4f0e9ca7da5dbd9444cdf5e11",
+      "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
+      "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a"
+    }
+  },
+  "after": {
+    "name": "m2m100_1.2B-onnx-int8",
+    "bytes": 1264742156,
+    "files": {
+      "decoder_model_merged_quantized.onnx": "e7bd11df9f1f83f1b842303cd3f2f91221830111a18b3974993e44fe56b4a7a1",
+      "encoder_model_quantized.onnx": "c2ad02c43e64788d379a9c05242a927e2371cfb7bdca6a5881d6947790b530ee",
+      "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
+      "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a",
+      "vocabulary.data": "ad02d2373e9e957289da714d59e8421a7d19642fb7502bb76074d641b5ddb728"
+    }
+  },
+  "source": {
+    "repository": "facebook/m2m100_1.2B",
+    "revision": "7b36184180524c1a1bbfa37f120a608046250b98"
+  },
+  "sentences_per_direction": 50,
+  "test_set": "wmt20 (sacrebleu), first sentences of each direction",
+  "environment": {
+    "processor": "AMD Ryzen 9 9900X 12-Core Processor"
+  },
+  "directions": {
+    "en-ja": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 33.7,
+        "chrf": 29.24
+      },
+      "after": {
+        "bleu": 33.7,
+        "chrf": 29.24
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 109.7,
+      "after_seconds": 101.2,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "ja-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 12.83,
+        "chrf": 37.06
+      },
+      "after": {
+        "bleu": 12.83,
+        "chrf": 37.06
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 43.0,
+      "after_seconds": 42.9,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-zh": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 28.89,
+        "chrf": 24.62
+      },
+      "after": {
+        "bleu": 28.89,
+        "chrf": 24.62
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 61.1,
+      "after_seconds": 60.9,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "zh-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 26.07,
+        "chrf": 57.68
+      },
+      "after": {
+        "bleu": 26.07,
+        "chrf": 57.68
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 91.4,
+      "after_seconds": 91.6,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-de": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 32.04,
+        "chrf": 58.27
+      },
+      "after": {
+        "bleu": 32.04,
+        "chrf": 58.27
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 78.6,
+      "after_seconds": 78.6,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "de-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 36.08,
+        "chrf": 59.46
+      },
+      "after": {
+        "bleu": 36.08,
+        "chrf": 59.46
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 88.2,
+      "after_seconds": 88.2,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-ru": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 10.74,
+        "chrf": 42.07
+      },
+      "after": {
+        "bleu": 10.74,
+        "chrf": 42.07
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 90.5,
+      "after_seconds": 90.5,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "ru-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 34.48,
+        "chrf": 62.69
+      },
+      "after": {
+        "bleu": 34.48,
+        "chrf": 62.69
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 37.4,
+      "after_seconds": 37.4,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    }
+  },
+  "totals": {
+    "sentences": 400,
+    "same_ids": 400,
+    "before_failed": 0,
+    "after_failed": 0,
+    "before_seconds": 599.9,
+    "after_seconds": 591.3,
+    "mean_bleu_difference": 0.0,
+    "mean_chrf_difference": 0.0
+  }
+}
