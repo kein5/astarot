@@ -104,7 +104,7 @@ RVCの変換は、本家の推論を再実装した`native/rvc-runtime`（MIT、
 |---|---|---|
 | ONNX Runtime 1.31.0（NVIDIAのドライバーがあるPCはCUDA 13版、ないPCはCPU版） | GitHubのMicrosoft公式リリース | MIT |
 | CUDA runtime、cuBLAS、cuRAND、NVRTC（CUDA 13.4 Update 1）、cuDNN 9.26（GPU用だけ） | PyPIのNVIDIA公式wheel（`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`）から必要なファイルだけ | NVIDIAのCUDA EULA、cuDNN SLA |
-| HuBERT（`hubert_base`の`config.json`と`pytorch_model.bin`）、`rmvpe.onnx` | Hugging Faceの`lj1995/VoiceConversionWebUI`（以前と同じ固定revision） | モデルカードの表示はMIT（本文は空）。HuBERT/ContentVecの上流条件は未確認のまま（同梱しないので取得の形を保つ） |
+| HuBERT（`hubert_base`の`config.json`と`pytorch_model.bin`）、`rmvpe.onnx` | Hugging Faceの`lj1995/VoiceConversionWebUI`（以前と同じ固定revision） | モデルカードの表示はMIT（本文は空）。HuBERT/ContentVecの上流条件は未確認のまま（同梱しないので取得の形を保つ）。2026-11-15に確認した（下の「#322」の節） |
 
 `rmvpe.onnx`はこの取得で新しく加わったファイルで、同じrevisionの`rmvpe.pt`の代わり。2026-11-15の追加の判断で、
 CUDA 12（PyTorch実行環境と同じ12.8系）からCUDA 13へ移し（ドライバー580以降が必要）、NVIDIAのドライバーがないPC向けに
@@ -113,7 +113,7 @@ CPU版の実行環境を加えた。CPU版にはNVIDIAのファイルを含ま�
 変換した物を配らず、取得した`pytorch_model.bin`からワーカーが読み込み時にグラフを組み立てる。
 ワーカーのRust依存（`ort`、`ort-sys`、`libloading`、`prost`、`rustfft`、`serde_json`、`thiserror`、`hound`など）は
 MIT、Apache-2.0、ISCなどの許容型ライセンス。配布物へのライセンス文書の同梱方法は、Tauri本体のRust依存と同じく
-未整理（残課題）。
+未整理（残課題）。→ 下の「#322」の節で整備した。
 
 ## アプリ内の更新（2026-11-15、#330）
 
@@ -130,7 +130,57 @@ Tauri本体に`tauri-plugin-updater` 2.14.1を加えた。Windows（x86_64-pc-wi
 
 `webpki-root-certs`（CDLA-Permissive-2.0）はロックファイルに載るが、WindowsとLinuxのビルドには入らない。
 同梱するのはプログラムだけで、証明書のデータやモデルは加えていない。配布物へのライセンス文書の同梱方法は、
-Tauri本体の他のRust依存と同じく未整理（残課題）。
+Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の「#322」の節で整備した。
+
+## Rust依存のライセンス文と基礎モデルの記録（2026-11-15、#322）
+
+### Rust依存のライセンス文
+
+配布物に入るRust製の実行ファイルは、Tauri本体の`vrct-vox`とRVCワーカーの`vrct-rvc-worker`の2つ。
+`native/`の他のクレートは2026-11-15のdevelopではまだどの実行ファイルにも組み込んでいない
+（`asr-capture`など`main.c`だけのものはC）。
+
+`tools/rust_licenses.py`がパッケージを作るときに2つの実行ファイルの依存をロックファイルから求める。
+対象の環境（`x86_64-pc-windows-msvc`、`x86_64-unknown-linux-gnu`）で`cargo metadata --filter-platform`を使い、
+通常の依存をたどる。手続きマクロは含め、ビルドスクリプトだけの依存と開発用の依存は含めない。
+各クレートの公開パッケージの先頭にあるLICENSE・COPYING・NOTICEなどの文書を
+`_internal/licenses/rust/<クレート>-<版>/`に写し、一覧を`README.md`と`crates.json`に書く。
+写した文書と一覧は、WindowsではPyInstallerのデータとして（`bat/build.bat`、`bat/build_cuda.bat`、`tools/windows_voice_resources.py`）、
+Linuxではリソースとして（`tools/build_linux.py`）、どちらもPyInstallerの`_internal`に入る。
+どちらの検査も`crates.json`がないと失敗する。リポジトリ内のクレート（パス依存）はVRCT-VOX自身のコードで、
+`LICENSE`に従うので文書を写さない。
+
+2026-11-15のロックファイルでは、Windowsが313クレート、Linuxが385クレート（リポジトリ内のクレートを含む）。
+ライセンスはMIT、Apache-2.0、BSD、ISC、Zlib、Unicode-3.0、CC0-1.0、Unlicenseなどの許容型と、
+MPL-2.0の数件（`cssparser`、`cssparser-macros`、`dtoa-short`、`option-ext`、`selectors`、Windowsだけ`dwrote`）。
+GPLとLGPLのクレートはない。MPL-2.0のクレートは改変していない。ソースはcrates.ioの同じ版にあり、
+そのことを一覧とNOTICEに書いた。
+
+公開パッケージにライセンス文がないクレートが11件あった。上流の対応するコミットの文書か、ライセンスの公式の本文で補い、
+出典を`licenses/rust/supplements.json`に記録した（文書は同じフォルダー）。
+`pathfinder_geometry` 0.5.1は、パッケージが指すコミットが上流にないので、同じプロジェクトの文書を使った。
+`dwrote`と`selectors`は上流にライセンス文のファイルがなく、ソースの各ファイルにMPL-2.0の表示があるので、
+Mozillaが公開しているMPL-2.0の本文を使った。補いのないクレートでライセンス文がないものが加わると、ツールが失敗してビルドが止まる。
+一覧に載るのはライセンスの表示で、各条件を満たしたことの監査の代わりではない。
+
+### RVCの基礎モデル
+
+承認記録の[rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json)を今の取得に合わせた。
+`files`は今アプリが取得する3つ（`hubert_base/config.json`、`hubert_base/pytorch_model.bin`、`rmvpe.onnx`）、
+`earlier_files`は以前のPyTorch実行環境が取得し、今は削除のためだけに見分ける2つ（`rmvpe.pt`、
+`hubert_base/preprocessor_config.json`）。`rmvpe.onnx`のサイズとSHA-256は、2026-11-15にHugging FaceのAPIで
+固定revisionの値と一致することを確かめた。試験（`tests/voice/test_vc_runtime_setup.py`）は、取得の固定値と
+記録が過不足なく一致することを確かめる。
+
+上流の条件は次のとおり（2026-11-15確認）。
+
+| モデル | 確認したこと | 残ること |
+|---|---|---|
+| HuBERT（`hubert_base`） | RVC本家のREADMEが[ContentVec](https://github.com/auspicious3000/contentvec)を参考に挙げる。ContentVecのリポジトリはMIT（Copyright (c) 2019、名義なし）で、fairseqのHuBERT（[MIT](https://github.com/facebookresearch/fairseq/blob/main/LICENSE)）をもとにする | lj1995にもRVC本家にも、`hubert_base`がどのContentVecの重みで、どう変換したかの記載がない。ContentVecのREADMEは重みの配布先を示すだけで、重みの条件を別に定めていない。学習データの条件は見ていない |
+| RMVPE（`rmvpe.onnx`） | [RMVPE](https://github.com/Dream-High/RMVPE)のコードはApache-2.0。RVC本家のREADMEによると、学習済みの重みはyxlllcとRVC-Bossが学習した | 重みに別の条件は見つからない。`yxlllc/RMVPE`はもうない |
+
+どちらも配布物に含めず、利用者の同意を得てから提供元から直接取得するので、取得の形は変えない。
+NOTICEに「RVC base models」の節を足して、出所を示した。
 
 ## RVC追加分（2026-10-29、モデル未取得）
 
