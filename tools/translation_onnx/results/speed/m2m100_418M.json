@@ -1,0 +1,87 @@
+{
+  "model": "m2m100_418M",
+  "app_weight": "m2m100_418M-ct2-int8",
+  "app_repository": "jncraton/m2m100_418M-ct2-int8",
+  "onnx": "m2m100_418M-onnx-int8",
+  "ct2_model": "the app's pinned model",
+  "onnx_files": {
+    "decoder_model_merged_quantized.onnx": "180771bd4e366b2c262747df430fd65bacc39ac84dfeac8dba876ae3a0a50e61",
+    "encoder_model_quantized.onnx": "8c2a3e2037f7632dcfcc5bd8582830396cb6cccbce266ffa63d0694ec003b2df",
+    "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
+    "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a"
+  },
+  "sentences_per_direction": 30,
+  "test_set": "wmt20 (sacrebleu), first sentences of each direction",
+  "environment": {
+    "machine": "x86_64",
+    "system": "Linux",
+    "processor": "AMD Ryzen 9 9900X 12-Core Processor",
+    "ctranslate2_compute_type": "int8",
+    "threads": 4,
+    "packages": {
+      "ctranslate2": "4.8.4",
+      "transformers": "5.22.1",
+      "tokenizers": "0.23.3",
+      "sentencepiece": "0.2.1",
+      "sacrebleu": "2.6.0"
+    }
+  },
+  "directions": {
+    "en-ja": {
+      "app": {
+        "bleu": 28.08,
+        "chrf": 24.4
+      },
+      "onnx": {
+        "bleu": 27.55,
+        "chrf": 24.12
+      },
+      "same_translation": 15,
+      "chrf_onnx_against_app": 87.45,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 27.4,
+      "onnx_seconds": 44.5,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": -0.53,
+      "chrf_difference": -0.28
+    },
+    "ja-en": {
+      "app": {
+        "bleu": 10.24,
+        "chrf": 34.35
+      },
+      "onnx": {
+        "bleu": 10.33,
+        "chrf": 35.05
+      },
+      "same_translation": 16,
+      "chrf_onnx_against_app": 91.19,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 9.9,
+      "onnx_seconds": 12.9,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.09,
+      "chrf_difference": 0.7
+    }
+  },
+  "totals": {
+    "sentences": 60,
+    "same": 31,
+    "source_ids_differ": 0,
+    "decode_differs": 0,
+    "app_failed": 0,
+    "onnx_failed": 0,
+    "app_seconds": 37.4,
+    "onnx_seconds": 57.4,
+    "mean_bleu_difference": -0.22,
+    "mean_chrf_difference": 0.21
+  }
+}

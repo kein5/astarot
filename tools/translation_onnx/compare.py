@@ -160,6 +160,8 @@ def main():
     parser.add_argument("--onnx", required=True, help="the folder export.py wrote")
     parser.add_argument("--cli", required=True, help="native/translate-onnx's vrct-translate, a release build")
     parser.add_argument("--sentences", type=int, default=100, help="sentences per direction")
+    parser.add_argument("--directions", default=",".join(DIRECTIONS),
+                        help="comma-separated WMT20 directions, all eight unless given")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--ct2-model", type=Path,
                         help="a CTranslate2 model folder in place of the app's, such as a float32 conversion")
@@ -167,6 +169,9 @@ def main():
     args = parser.parse_args()
     check_app_constants()
 
+    directions = [d for d in args.directions.split(",") if d]
+    if not directions or any(d not in DIRECTIONS for d in directions):
+        raise SystemExit(f"directions must be among {','.join(DIRECTIONS)}")
     weight_type, repo = MODELS[args.model]
     app = AppTranslator(weight_type, repo, args.ct2_model, args.compute_type)
     family = "m2m100" if app.m2m100 else "nllb"
@@ -181,7 +186,7 @@ def main():
         directions={}, totals={})
     totals = dict(sentences=0, same=0, source_ids_differ=0, decode_differs=0, app_failed=0, onnx_failed=0,
                   app_seconds=0.0, onnx_seconds=0.0)
-    for direction in DIRECTIONS:
+    for direction in directions:
         source_language, target_language = direction.split("-")
         source_code, target_code = CODES[family][source_language], CODES[family][target_language]
         sources, references = wmt20(direction, args.sentences)
@@ -222,8 +227,8 @@ def main():
     totals["app_seconds"] = round(totals["app_seconds"], 1)
     totals["onnx_seconds"] = round(totals["onnx_seconds"], 1)
     rows = report["directions"].values()
-    totals["mean_bleu_difference"] = round(sum(r["bleu_difference"] for r in rows) / len(DIRECTIONS), 2)
-    totals["mean_chrf_difference"] = round(sum(r["chrf_difference"] for r in rows) / len(DIRECTIONS), 2)
+    totals["mean_bleu_difference"] = round(sum(r["bleu_difference"] for r in rows) / len(directions), 2)
+    totals["mean_chrf_difference"] = round(sum(r["chrf_difference"] for r in rows) / len(directions), 2)
     report["totals"] = totals
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
