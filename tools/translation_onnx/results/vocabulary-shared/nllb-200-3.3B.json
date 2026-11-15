@@ -1,0 +1,189 @@
+{
+  "before": {
+    "name": "nllb-200-3.3B-onnx-int8",
+    "bytes": 4429498874,
+    "files": {
+      "decoder_model_merged_quantized.onnx": "9f5ffafc2265b55d4590bd80358733e7f6587e768d8bf4ae8442bdca62e261bf",
+      "decoder_model_merged_quantized.onnx_data": "f038c3519e34408e171f69d1dfbbebb0ca5003aa8adad5024a9740fee761527d",
+      "encoder_model_quantized.onnx": "fd025a017af6e7a333be1414673466fd253ebf1e215658c92b34e467a933f1c2",
+      "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+      "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd"
+    }
+  },
+  "after": {
+    "name": "nllb-200-3.3B-onnx-int8",
+    "bytes": 3380024921,
+    "files": {
+      "decoder_model_merged_quantized.onnx": "af3cad74979e62172d0db22923a921fc7188f03dd25735f453922c8875d9505a",
+      "encoder_model_quantized.onnx": "431fa515edd7e0835ff0fd86dd1c2bd07567d4287e47ee424bfb5e2fdc7c6595",
+      "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+      "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+      "vocabulary.data": "7309d027b45189108b64010d6ed9c432e973957e5174ed798cb4483cc6bdae31"
+    }
+  },
+  "source": {
+    "repository": "facebook/nllb-200-3.3B",
+    "revision": "1a07f7d195896b2114afcb79b7b57ab512e7b43e"
+  },
+  "sentences_per_direction": 50,
+  "test_set": "wmt20 (sacrebleu), first sentences of each direction",
+  "environment": {
+    "processor": "AMD Ryzen 9 9900X 12-Core Processor"
+  },
+  "directions": {
+    "en-ja": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 29.12,
+        "chrf": 25.85
+      },
+      "after": {
+        "bleu": 29.12,
+        "chrf": 25.85
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 118.8,
+      "after_seconds": 118.2,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "ja-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 16.57,
+        "chrf": 41.62
+      },
+      "after": {
+        "bleu": 16.57,
+        "chrf": 41.62
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 74.8,
+      "after_seconds": 75.2,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-zh": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 27.59,
+        "chrf": 24.8
+      },
+      "after": {
+        "bleu": 27.59,
+        "chrf": 24.8
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 97.7,
+      "after_seconds": 98.1,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "zh-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 24.22,
+        "chrf": 55.28
+      },
+      "after": {
+        "bleu": 24.22,
+        "chrf": 55.28
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 142.8,
+      "after_seconds": 143.5,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-de": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 33.87,
+        "chrf": 60.17
+      },
+      "after": {
+        "bleu": 33.87,
+        "chrf": 60.17
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 132.5,
+      "after_seconds": 133.0,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "de-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 39.96,
+        "chrf": 64.39
+      },
+      "after": {
+        "bleu": 39.96,
+        "chrf": 64.39
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 140.6,
+      "after_seconds": 141.2,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-ru": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 12.51,
+        "chrf": 43.15
+      },
+      "after": {
+        "bleu": 12.51,
+        "chrf": 43.15
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 148.7,
+      "after_seconds": 148.9,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "ru-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 35.41,
+        "chrf": 63.61
+      },
+      "after": {
+        "bleu": 35.41,
+        "chrf": 63.61
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 65.9,
+      "after_seconds": 66.4,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    }
+  },
+  "totals": {
+    "sentences": 400,
+    "same_ids": 400,
+    "before_failed": 0,
+    "after_failed": 0,
+    "before_seconds": 921.8,
+    "after_seconds": 924.5,
+    "mean_bleu_difference": 0.0,
+    "mean_chrf_difference": 0.0
+  }
+}

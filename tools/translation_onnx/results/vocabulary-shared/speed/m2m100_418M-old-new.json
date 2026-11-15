@@ -1,0 +1,80 @@
+{
+  "before": {
+    "name": "m2m100_418M-onnx-int8",
+    "bytes": 768294475,
+    "files": {
+      "decoder_model_merged_quantized.onnx": "191aa5c365f02cdb722a1edc8bbef5a0d0a18c068cfbbd2b4fe0ca445cc256c1",
+      "encoder_model_quantized.onnx": "c3e0645528885f2c7094a2028499142d405d7d5ae0fa05ea85f2bcd3b2cddd98",
+      "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
+      "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a"
+    }
+  },
+  "after": {
+    "name": "m2m100_418M-onnx-int8",
+    "bytes": 505921334,
+    "files": {
+      "decoder_model_merged_quantized.onnx": "9c98eff067ceb9ce27402eed955b610f8ad7ae348ed5c86a20b1f789b31e1d6e",
+      "encoder_model_quantized.onnx": "e0a11faa815d563f50457d3ebfad4570272976c8e7bd55b3f99df5825c04e19a",
+      "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
+      "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a",
+      "vocabulary.data": "9b005d492b924caa229f01b946a396453da0c18a3a0177957d781a49077ba5a1"
+    }
+  },
+  "source": {
+    "repository": "facebook/m2m100_418M",
+    "revision": "55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636"
+  },
+  "sentences_per_direction": 30,
+  "test_set": "wmt20 (sacrebleu), first sentences of each direction",
+  "environment": {
+    "processor": "AMD Ryzen 9 9900X 12-Core Processor"
+  },
+  "directions": {
+    "en-ja": {
+      "same_ids": 30,
+      "before": {
+        "bleu": 27.97,
+        "chrf": 24.49
+      },
+      "after": {
+        "bleu": 27.97,
+        "chrf": 24.49
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 42.6,
+      "after_seconds": 42.8,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "ja-en": {
+      "same_ids": 30,
+      "before": {
+        "bleu": 10.51,
+        "chrf": 35.09
+      },
+      "after": {
+        "bleu": 10.51,
+        "chrf": 35.09
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 12.0,
+      "after_seconds": 12.0,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    }
+  },
+  "totals": {
+    "sentences": 60,
+    "same_ids": 60,
+    "before_failed": 0,
+    "after_failed": 0,
+    "before_seconds": 54.6,
+    "after_seconds": 54.8,
+    "mean_bleu_difference": 0.0,
+    "mean_chrf_difference": 0.0
+  }
+}

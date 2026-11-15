@@ -1,0 +1,87 @@
+{
+  "model": "nllb-200-distilled-600M",
+  "app_weight": "nllb-200-distilled-600M-ct2-int8",
+  "app_repository": "JustFrederik/nllb-200-distilled-600M-ct2-int8",
+  "onnx": "nllb-200-distilled-600M-onnx-int8",
+  "ct2_model": "the app's pinned model",
+  "onnx_files": {
+    "decoder_model_merged_quantized.onnx": "950a5aa6662d2b6cc23b426149e0c93ee5b3c0be35cea2b211ade5b43ce00995",
+    "encoder_model_quantized.onnx": "50effce30f114f47768191c0147cb8b0daed11abd4ef259d3b42748455c04cc9",
+    "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+    "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd"
+  },
+  "sentences_per_direction": 30,
+  "test_set": "wmt20 (sacrebleu), first sentences of each direction",
+  "environment": {
+    "machine": "x86_64",
+    "system": "Linux",
+    "processor": "AMD Ryzen 9 9900X 12-Core Processor",
+    "ctranslate2_compute_type": "int8",
+    "threads": 4,
+    "packages": {
+      "ctranslate2": "4.8.4",
+      "transformers": "5.22.1",
+      "tokenizers": "0.23.3",
+      "sentencepiece": "0.2.1",
+      "sacrebleu": "2.6.0"
+    }
+  },
+  "directions": {
+    "en-ja": {
+      "app": {
+        "bleu": 22.22,
+        "chrf": 21.53
+      },
+      "onnx": {
+        "bleu": 22.47,
+        "chrf": 21.61
+      },
+      "same_translation": 4,
+      "chrf_onnx_against_app": 76.88,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 18.3,
+      "onnx_seconds": 20.4,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.25,
+      "chrf_difference": 0.08
+    },
+    "ja-en": {
+      "app": {
+        "bleu": 9.88,
+        "chrf": 32.55
+      },
+      "onnx": {
+        "bleu": 10.88,
+        "chrf": 33.66
+      },
+      "same_translation": 11,
+      "chrf_onnx_against_app": 79.92,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 10.5,
+      "onnx_seconds": 11.0,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 1.0,
+      "chrf_difference": 1.11
+    }
+  },
+  "totals": {
+    "sentences": 60,
+    "same": 15,
+    "source_ids_differ": 0,
+    "decode_differs": 0,
+    "app_failed": 0,
+    "onnx_failed": 0,
+    "app_seconds": 28.8,
+    "onnx_seconds": 31.4,
+    "mean_bleu_difference": 0.62,
+    "mean_chrf_difference": 0.6
+  }
+}
