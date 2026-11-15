@@ -1,29 +1,29 @@
 {
   "schema": 1,
   "component": "speech.cpp",
-  "version": "0.10.0",
-  "source_commit": "06590811a90041f935a470ba0e2b85346d2fc041",
+  "version": "0.11.0",
+  "source_commit": "8d18924cd238b87c0297df112f7ff40783a6414f",
   "assets": {
     "linux-x64-cpu": {
       "id": "linux-x64-cpu",
-      "name": "speech-0.10.0-linux-x64-cpu.zip",
-      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.10.0/speech-0.10.0-linux-x64-cpu.zip",
-      "size": 6058408,
-      "sha256": "0194c2a9a7285429c5b363b9a35853967c31fbbe9ad470432fe266aa48d2608e"
+      "name": "speech-0.11.0-linux-x64-cpu.zip",
+      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.0/speech-0.11.0-linux-x64-cpu.zip",
+      "size": 6487592,
+      "sha256": "9acb8becee605c7bb190d7f56d4d9212232ec311df63735b1938cc86bc4257a1"
     },
     "linux-x64-vulkan": {
       "id": "linux-x64-vulkan",
-      "name": "speech-0.10.0-linux-x64-vulkan.zip",
-      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.10.0/speech-0.10.0-linux-x64-vulkan.zip",
-      "size": 32277366,
-      "sha256": "5f52ac8afbfb3502634b1ef71c5dd86628bf9631393748ef50e7c65277af4af4"
+      "name": "speech-0.11.0-linux-x64-vulkan.zip",
+      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.0/speech-0.11.0-linux-x64-vulkan.zip",
+      "size": 32715767,
+      "sha256": "9c01a35a0c79d36ca29abe379029c71b0cfb950cbc9da835863f5f7d28c81ae8"
     },
     "windows-x64-vulkan": {
       "id": "windows-x64-vulkan",
-      "name": "speech-0.10.0-windows-x64-vulkan.zip",
-      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.10.0/speech-0.10.0-windows-x64-vulkan.zip",
-      "size": 29413279,
-      "sha256": "2f88eb9e29242f1846a80bd2d418553bb0b17637254092b66b73803380a94ab4"
+      "name": "speech-0.11.0-windows-x64-vulkan.zip",
+      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.0/speech-0.11.0-windows-x64-vulkan.zip",
+      "size": 29718214,
+      "sha256": "b64f498179fc46d08149317eaea9fe6f24e6fa0cd194557b374c97e76ccc9c67"
     }
   },
   "notices": [
@@ -31,25 +31,25 @@
       "path": "speech.cpp-LICENSE",
       "size": 1067,
       "sha256": "688f8aca0abe167966d277ed00bd594a5a51b028a4fbc1516ff9de7ef05c521a",
-      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/06590811a90041f935a470ba0e2b85346d2fc041/LICENSE"
+      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/8d18924cd238b87c0297df112f7ff40783a6414f/LICENSE"
     },
     {
       "path": "ggml-LICENSE",
       "size": 1078,
       "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d",
-      "source_url": "https://github.com/ggml-org/ggml/blob/700c9d743ed7cc583c0f1b6507afebb6c0e88bc0/LICENSE"
+      "source_url": "https://github.com/nyosegawa/ggml/blob/79b50d239d0b88852814c873db0d85d43ed66d9b/LICENSE"
     },
     {
       "path": "cpp-httplib-LICENSE",
       "size": 1075,
       "sha256": "4b45cbe16d7b71b89ae6127e26e0d90a029198ca5e958ad8e3d0b8bbed364d8b",
-      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/06590811a90041f935a470ba0e2b85346d2fc041/vendor/cpp-httplib/LICENSE"
+      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/8d18924cd238b87c0297df112f7ff40783a6414f/vendor/cpp-httplib/LICENSE"
     },
     {
       "path": "miniaudio-LICENSE",
       "size": 2598,
       "sha256": "bde09ed161fef45da2194cba70601aab33ca6fdfe6eed2e3d95efd15b48561f9",
-      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/06590811a90041f935a470ba0e2b85346d2fc041/vendor/miniaudio/LICENSE"
+      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/8d18924cd238b87c0297df112f7ff40783a6414f/vendor/miniaudio/LICENSE"
     },
     {
       "path": "GCC-COPYING3",
@@ -65,8 +65,8 @@
     },
     {
       "path": "NOTICE.md",
-      "size": 2347,
-      "sha256": "1ff4339459e5aecc0bc2f911ba0fab92b3c3c8804d3b4a35854b445903af06ef",
+      "size": 2411,
+      "sha256": "aed0878091df1aa21329b7abe2e8bde52ac7bd2d232f7371ae71a5536c404f6d",
       "source_url": "local packaging attribution"
     }
   ]
