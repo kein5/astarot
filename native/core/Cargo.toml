@@ -1,0 +1,38 @@
+[package]
+name = "vrct-core"
+version = "0.0.0"
+description = "The VRCT-VOX backend core: the UI request protocol, settings and their migration, start-up and shut-down"
+edition = "2024"
+publish = false
+
+[lib]
+name = "vrct_core"
+
+[dependencies]
+base64 = "=0.22.1"
+getrandom = "=0.3.4"
+serde = { version = "=1.0.229", features = ["derive"] }
+# The backend answered with Python dicts, whose keys keep their order; the UI shows some of
+# them in that order (the translation weights, the initialization snapshot). See README.md.
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+vrct-adapters = { path = "../adapters" }
+vrct-ops = { path = "../ops" }
+vrct-speech-server = { path = "../speech-server" }
+vrct-tts = { path = "../tts" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.191"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_IO",
+    "Win32_UI_Shell",
+] }
+
+[dev-dependencies]
+tempfile = "=3.27.0"
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]
