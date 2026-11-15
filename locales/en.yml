@@ -1326,6 +1326,9 @@ voice_ui:
     check_needs_server: "Start the bundled server to check"
     setup_rvc: "Models and runtime"
     setup_input: "Input forwarding setup"
+    # A placeholder: a sample value in an empty field.
+    example: "e.g. {{value}}"
+    instruction_example: "Speak calmly and a little slowly"
     rvc_drop_hint: "A .pth file goes into the model field and an .index file into the index field."
     runtime_set: "Runtime set"
     runtime_unset: "No runtime set"

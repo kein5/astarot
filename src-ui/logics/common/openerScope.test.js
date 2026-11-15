@@ -22,7 +22,8 @@ const deny = (scope.deny ?? []).map(item => toRegExp(item.url));
 const opens = url => !deny.some(pattern => pattern.test(url)) && allow.some(pattern => pattern.test(url));
 
 // Written in the UI but never opened as a link.
-const NOT_LINKS = new Set(["https://api.openai.com/v1"]);
+// Values shown in fields (a default, a placeholder's example), never opened.
+const NOT_LINKS = new Set(["https://api.openai.com/v1", "http://127.0.0.1:8080"]);
 
 const sources = (folder, found = []) => {
     for (const name of readdirSync(folder)) {
