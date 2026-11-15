@@ -45,7 +45,7 @@ def test_native_converted_controls_stop_replacement_and_restart(tmp_path):
                 source = select_source(graph_snapshot(), 'vrct.native.caption.source')
                 return json.dumps([str(source.cookie), str(source.serial), source.name, source.media_class], separators=(',', ':'))
             with NativeWebDriver(tmp_path/'first', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 # The route is on the Device page, the direct voice on the Advanced page.
                 ui.open_route_settings()
                 ui.select('Audio route', 'managed')
@@ -113,7 +113,7 @@ def test_native_converted_controls_stop_replacement_and_restart(tmp_path):
                 ui.assert_rendered()
                 ui.close_app()
             with NativeWebDriver(tmp_path/'restart', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_original_voice_settings()
                 assert ui.evaluate('return arguments[0].value', ui.control('Direct voice mode')) == 'converted'
                 assert ui.evaluate('return arguments[0].value', ui.control('Seed runtime folder')) == str(runtime)

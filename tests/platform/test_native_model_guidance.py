@@ -51,7 +51,7 @@ def test_native_gpu_choices_apply_and_owned_server_lifecycle(tmp_path):
     try:
         with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'):
             with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_voice_settings()
                 # The validation notice also names this GPU. Require the actual
                 # device row, not merely that historical validation text.
@@ -88,7 +88,7 @@ def test_native_gpu_choices_apply_and_owned_server_lifecycle(tmp_path):
                 ui.assert_rendered()
                 ui.close_app()
             with NativeWebDriver(tmp_path / 'restart', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_voice_settings()
                 for profile, target, _ in choices:
                     assert ui.evaluate('return arguments[0].value', control(ui, profile, 'Model GGUF path')) == paths[target]

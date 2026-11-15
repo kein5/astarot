@@ -109,7 +109,7 @@ def test_native_osc_once_with_voice_and_ui_to_write_measurement(tmp_path):
 
             with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state),
                                                    "VRCT_VOICE_TRACE": str(trace)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_route_settings()
                 ui.select('Audio route', 'managed')
                 ui.click_text('button', 'Save changes')
