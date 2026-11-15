@@ -282,7 +282,7 @@ mod tests {
         ]
     }
 
-    fn drivers_of(pairs: &[(&str, &str)]) -> impl FnOnce(&[String]) -> Vec<(String, String)> {
+    fn drivers_of(pairs: &[(&str, &str)]) -> impl FnOnce(&[String]) -> Vec<(String, String)> + use<> {
         let pairs: Vec<(String, String)> = pairs.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
         move |_| pairs
     }

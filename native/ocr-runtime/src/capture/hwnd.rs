@@ -42,28 +42,30 @@ struct Search {
 }
 
 unsafe extern "system" fn visit(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let search = &mut *(lparam.0 as *mut Search);
-    if !IsWindowVisible(hwnd).as_bool() {
-        return BOOL(1);
-    }
-    let length = GetWindowTextLengthW(hwnd);
-    if length > 0 {
-        let mut buffer = vec![0u16; length as usize + 1];
-        let copied = GetWindowTextW(hwnd, &mut buffer);
-        let title = String::from_utf16_lossy(&buffer[..copied.max(0) as usize]);
-        if title == search.title {
-            search.exact.push(hwnd);
+    unsafe {
+        let search = &mut *(lparam.0 as *mut Search);
+        if !IsWindowVisible(hwnd).as_bool() {
             return BOOL(1);
         }
-        if title.to_lowercase().contains(&search.needle) {
-            search.partial.push(hwnd);
-            return BOOL(1);
+        let length = GetWindowTextLengthW(hwnd);
+        if length > 0 {
+            let mut buffer = vec![0u16; length as usize + 1];
+            let copied = GetWindowTextW(hwnd, &mut buffer);
+            let title = String::from_utf16_lossy(&buffer[..copied.max(0) as usize]);
+            if title == search.title {
+                search.exact.push(hwnd);
+                return BOOL(1);
+            }
+            if title.to_lowercase().contains(&search.needle) {
+                search.partial.push(hwnd);
+                return BOOL(1);
+            }
         }
+        if process_name(hwnd) == search.needle_no_exe {
+            search.by_process.push(hwnd);
+        }
+        BOOL(1)
     }
-    if process_name(hwnd) == search.needle_no_exe {
-        search.by_process.push(hwnd);
-    }
-    BOOL(1)
 }
 
 /// The first visible window by exact title, then substring, then executable name.

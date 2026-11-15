@@ -2,7 +2,7 @@
 name = "vrct-translate-onnx"
 version = "0.0.0"
 description = "Local translation for VRCT-VOX: M2M100 and NLLB-200 on ONNX Runtime, with their SentencePiece tokenizers"
-edition = "2021"
+edition = "2024"
 publish = false
 
 [lib]

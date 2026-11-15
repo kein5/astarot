@@ -366,7 +366,7 @@ impl State {
         }
     }
 
-    fn lookup(&self, name: &str, rtype: u16) -> impl Iterator<Item = &Record> {
+    fn lookup(&self, name: &str, rtype: u16) -> impl Iterator<Item = &Record> + use<'_> {
         let name = name.to_string();
         self.cache.iter().map(|c| &c.record).filter(move |r| r.rtype == rtype && same(&r.name, &name))
     }

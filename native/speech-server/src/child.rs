@@ -96,7 +96,7 @@ mod windows {
     };
 
     #[link(name = "ntdll")]
-    extern "system" {
+    unsafe extern "system" {
         fn NtResumeProcess(process: HANDLE) -> i32;
     }
 
