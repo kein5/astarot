@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { test } from "node:test";
 import { createSidecarSessionOwner } from "./sidecarSession.js";
+import { createSelectedBackendCommand } from "./backendCommand.js";
 import { expectBackendExit } from "./sidecarExitExpectation.js";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { deferred, flush, loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.js";
@@ -245,6 +246,7 @@ test("production controller publishes startup failure and the persistent screen 
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => ({ receiveRoutes: () => {}, backendStopped: () => {} }) },
         "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
+        "../../../logics/common/backendCommand.js": { createSelectedBackendCommand },
     });
     b.runtime.render(module.StartPythonController);
     await flush();
@@ -287,6 +289,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => b },
         "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
+        "../../../logics/common/backendCommand.js": { createSelectedBackendCommand },
     });
     b.runtime.render(controller.StartPythonController);
     await flush();

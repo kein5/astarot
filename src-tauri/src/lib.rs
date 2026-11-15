@@ -5,6 +5,7 @@ use std::fs::{create_dir_all, OpenOptions};
 use std::io::{Error, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+mod backend_host;
 mod caption_overlay;
 mod quick_chat;
 mod single_instance;
@@ -202,7 +203,10 @@ pub fn run() {
         .manage(portal_shortcuts::PortalShortcuts::default())
         .manage(portal_screencast::Screencast::default())
         .manage(vr_panel_state::VrPanelState::default())
+        .manage(backend_host::BackendHost::default())
         .invoke_handler(tauri::generate_handler![get_font_list, set_vr_panel_window, main_window_restore,
+            backend_host::backend_kind, backend_host::backend_start, backend_host::backend_write,
+            backend_host::backend_kill,
             quick_chat::quick_chat_context, quick_chat::quick_chat_configure, quick_chat::quick_chat_submit,
             quick_chat::quick_chat_take, quick_chat::quick_chat_finish, quick_chat::quick_chat_hide,
             quick_chat::quick_chat_show, quick_chat::quick_chat_shortcut_platform,
@@ -217,6 +221,7 @@ pub fn run() {
             // A shared window must not stay shared after the app is gone.
             if let RunEvent::Exit = event {
                 portal_screencast::shutdown(app);
+                app.state::<backend_host::BackendHost>().shutdown();
             }
         }));
     #[cfg(target_os = "linux")]
