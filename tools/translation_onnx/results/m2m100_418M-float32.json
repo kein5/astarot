@@ -5,8 +5,8 @@
   "onnx": "m2m100_418M-onnx-float32",
   "ct2_model": "a local conversion (ct2-m2m100_418M-float32)",
   "onnx_files": {
-    "decoder_model_merged.onnx": "d4f3d3e9fcdd3f5f48bade3f4cad5768e86eeb8b65f5274545ccdbc1a68482ee",
-    "encoder_model.onnx": "dc4e334ce34204ca3c2cb91cb2f5c816d100a0488bfa57add01300fff03fb723",
+    "decoder_model_merged.onnx": "81c2a8f0850535ce148b2335db8d8740c164e2c2dc8480316e4f5c4f9f4c627a",
+    "encoder_model.onnx": "66da9561e4efe96f957f4d30d9b25eaa309a79708d5dc4b6043fe00b7ff2f650",
     "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
     "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a"
   },
@@ -43,8 +43,8 @@
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 522.9,
-      "onnx_seconds": 479.5,
+      "app_seconds": 563.3,
+      "onnx_seconds": 609.7,
       "onnx_backend": "{\"backend\":\"cpu\"}",
       "bleu_difference": 0.0,
       "chrf_difference": 0.0
@@ -65,8 +65,8 @@
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 210.5,
-      "onnx_seconds": 193.0,
+      "app_seconds": 259.2,
+      "onnx_seconds": 273.4,
       "onnx_backend": "{\"backend\":\"cpu\"}",
       "bleu_difference": 0.0,
       "chrf_difference": 0.0
@@ -87,8 +87,8 @@
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 293.2,
-      "onnx_seconds": 289.8,
+      "app_seconds": 390.4,
+      "onnx_seconds": 392.1,
       "onnx_backend": "{\"backend\":\"cpu\"}",
       "bleu_difference": 0.0,
       "chrf_difference": 0.0
@@ -109,8 +109,8 @@
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 404.3,
-      "onnx_seconds": 382.2,
+      "app_seconds": 489.4,
+      "onnx_seconds": 507.9,
       "onnx_backend": "{\"backend\":\"cpu\"}",
       "bleu_difference": 0.0,
       "chrf_difference": 0.0
@@ -131,8 +131,8 @@
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 355.0,
-      "onnx_seconds": 340.8,
+      "app_seconds": 486.9,
+      "onnx_seconds": 442.5,
       "onnx_backend": "{\"backend\":\"cpu\"}",
       "bleu_difference": 0.0,
       "chrf_difference": 0.0
@@ -153,8 +153,8 @@
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 308.3,
-      "onnx_seconds": 276.5,
+      "app_seconds": 478.7,
+      "onnx_seconds": 541.2,
       "onnx_backend": "{\"backend\":\"cpu\"}",
       "bleu_difference": 0.16,
       "chrf_difference": 0.03
@@ -175,8 +175,8 @@
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 322.2,
-      "onnx_seconds": 296.4,
+      "app_seconds": 484.2,
+      "onnx_seconds": 522.4,
       "onnx_backend": "{\"backend\":\"cpu\"}",
       "bleu_difference": 0.0,
       "chrf_difference": 0.0
@@ -197,8 +197,8 @@
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 128.5,
-      "onnx_seconds": 98.4,
+      "app_seconds": 268.4,
+      "onnx_seconds": 229.9,
       "onnx_backend": "{\"backend\":\"cpu\"}",
       "bleu_difference": 0.0,
       "chrf_difference": 0.0
@@ -211,9 +211,10 @@
     "decode_differs": 0,
     "app_failed": 0,
     "onnx_failed": 0,
-    "app_seconds": 2544.9,
-    "onnx_seconds": 2356.8,
+    "app_seconds": 3420.5,
+    "onnx_seconds": 3519.1,
     "mean_bleu_difference": 0.02,
     "mean_chrf_difference": 0.0
-  }
+  },
+  "runs": "The directions were run in parts, in separate runs of compare.py with the same model, options and packages; the rows are joined here."
 }

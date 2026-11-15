@@ -5,8 +5,8 @@
   "onnx": "m2m100_418M-onnx-int8",
   "ct2_model": "the app's pinned model",
   "onnx_files": {
-    "decoder_model_merged_quantized.onnx": "180771bd4e366b2c262747df430fd65bacc39ac84dfeac8dba876ae3a0a50e61",
-    "encoder_model_quantized.onnx": "8c2a3e2037f7632dcfcc5bd8582830396cb6cccbce266ffa63d0694ec003b2df",
+    "decoder_model_merged_quantized.onnx": "191aa5c365f02cdb722a1edc8bbef5a0d0a18c068cfbbd2b4fe0ca445cc256c1",
+    "encoder_model_quantized.onnx": "c3e0645528885f2c7094a2028499142d405d7d5ae0fa05ea85f2bcd3b2cddd98",
     "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
     "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a"
   },
@@ -33,21 +33,21 @@
         "chrf": 26.65
       },
       "onnx": {
-        "bleu": 30.78,
-        "chrf": 26.52
+        "bleu": 31.09,
+        "chrf": 26.82
       },
-      "same_translation": 45,
-      "chrf_onnx_against_app": 87.3,
+      "same_translation": 41,
+      "chrf_onnx_against_app": 87.56,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 333.2,
-      "onnx_seconds": 477.6,
+      "app_seconds": 335.3,
+      "onnx_seconds": 534.5,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": -0.14,
-      "chrf_difference": -0.13
+      "bleu_difference": 0.17,
+      "chrf_difference": 0.17
     },
     "ja-en": {
       "app": {
@@ -55,21 +55,21 @@
         "chrf": 37.8
       },
       "onnx": {
-        "bleu": 10.99,
-        "chrf": 38.26
+        "bleu": 10.79,
+        "chrf": 36.9
       },
-      "same_translation": 44,
-      "chrf_onnx_against_app": 87.49,
+      "same_translation": 41,
+      "chrf_onnx_against_app": 85.16,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 182.2,
-      "onnx_seconds": 268.2,
+      "app_seconds": 230.1,
+      "onnx_seconds": 361.6,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": 0.15,
-      "chrf_difference": 0.46
+      "bleu_difference": -0.05,
+      "chrf_difference": -0.9
     },
     "en-zh": {
       "app": {
@@ -77,21 +77,21 @@
         "chrf": 25.26
       },
       "onnx": {
-        "bleu": 29.13,
-        "chrf": 24.99
+        "bleu": 29.44,
+        "chrf": 25.29
       },
-      "same_translation": 42,
-      "chrf_onnx_against_app": 89.52,
+      "same_translation": 39,
+      "chrf_onnx_against_app": 89.58,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 187.5,
-      "onnx_seconds": 288.7,
+      "app_seconds": 241.3,
+      "onnx_seconds": 394.9,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": -0.29,
-      "chrf_difference": -0.27
+      "bleu_difference": 0.02,
+      "chrf_difference": 0.03
     },
     "zh-en": {
       "app": {
@@ -99,21 +99,21 @@
         "chrf": 49.29
       },
       "onnx": {
-        "bleu": 18.24,
-        "chrf": 49.89
+        "bleu": 18.23,
+        "chrf": 49.88
       },
-      "same_translation": 39,
-      "chrf_onnx_against_app": 91.25,
+      "same_translation": 30,
+      "chrf_onnx_against_app": 91.47,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 291.6,
-      "onnx_seconds": 506.4,
+      "app_seconds": 367.4,
+      "onnx_seconds": 665.7,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": 0.46,
-      "chrf_difference": 0.6
+      "bleu_difference": 0.45,
+      "chrf_difference": 0.59
     },
     "en-de": {
       "app": {
@@ -121,21 +121,21 @@
         "chrf": 53.15
       },
       "onnx": {
-        "bleu": 23.63,
-        "chrf": 53.49
+        "bleu": 23.49,
+        "chrf": 53.38
       },
       "same_translation": 35,
-      "chrf_onnx_against_app": 93.31,
+      "chrf_onnx_against_app": 93.23,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 246.1,
-      "onnx_seconds": 374.9,
+      "app_seconds": 326.3,
+      "onnx_seconds": 457.7,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": 0.29,
-      "chrf_difference": 0.34
+      "bleu_difference": 0.15,
+      "chrf_difference": 0.23
     },
     "de-en": {
       "app": {
@@ -143,21 +143,21 @@
         "chrf": 57.27
       },
       "onnx": {
-        "bleu": 30.64,
-        "chrf": 57.11
+        "bleu": 31.12,
+        "chrf": 57.64
       },
-      "same_translation": 34,
-      "chrf_onnx_against_app": 95.32,
+      "same_translation": 31,
+      "chrf_onnx_against_app": 94.36,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 302.2,
-      "onnx_seconds": 488.9,
+      "app_seconds": 403.6,
+      "onnx_seconds": 829.4,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": 0.17,
-      "chrf_difference": -0.16
+      "bleu_difference": 0.65,
+      "chrf_difference": 0.37
     },
     "en-ru": {
       "app": {
@@ -165,21 +165,21 @@
         "chrf": 41.63
       },
       "onnx": {
-        "bleu": 13.16,
-        "chrf": 42.08
+        "bleu": 12.91,
+        "chrf": 41.95
       },
-      "same_translation": 51,
-      "chrf_onnx_against_app": 93.48,
+      "same_translation": 48,
+      "chrf_onnx_against_app": 92.15,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 186.3,
-      "onnx_seconds": 294.6,
+      "app_seconds": 273.7,
+      "onnx_seconds": 490.6,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": 0.28,
-      "chrf_difference": 0.45
+      "bleu_difference": 0.03,
+      "chrf_difference": 0.32
     },
     "ru-en": {
       "app": {
@@ -187,33 +187,34 @@
         "chrf": 60.8
       },
       "onnx": {
-        "bleu": 29.71,
-        "chrf": 60.55
+        "bleu": 29.8,
+        "chrf": 60.5
       },
-      "same_translation": 63,
-      "chrf_onnx_against_app": 95.35,
+      "same_translation": 61,
+      "chrf_onnx_against_app": 95.7,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 105.8,
-      "onnx_seconds": 150.5,
+      "app_seconds": 182.1,
+      "onnx_seconds": 271.6,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": -0.36,
-      "chrf_difference": -0.25
+      "bleu_difference": -0.27,
+      "chrf_difference": -0.3
     }
   },
   "totals": {
     "sentences": 800,
-    "same": 353,
+    "same": 326,
     "source_ids_differ": 0,
     "decode_differs": 0,
     "app_failed": 0,
     "onnx_failed": 0,
-    "app_seconds": 1834.8,
-    "onnx_seconds": 2849.8,
-    "mean_bleu_difference": 0.07,
-    "mean_chrf_difference": 0.13
-  }
+    "app_seconds": 2359.8,
+    "onnx_seconds": 4006.0,
+    "mean_bleu_difference": 0.14,
+    "mean_chrf_difference": 0.06
+  },
+  "runs": "The directions were run in parts, in separate runs of compare.py with the same model, options and packages; the rows are joined here."
 }

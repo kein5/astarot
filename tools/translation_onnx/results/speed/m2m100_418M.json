@@ -5,8 +5,8 @@
   "onnx": "m2m100_418M-onnx-int8",
   "ct2_model": "the app's pinned model",
   "onnx_files": {
-    "decoder_model_merged_quantized.onnx": "180771bd4e366b2c262747df430fd65bacc39ac84dfeac8dba876ae3a0a50e61",
-    "encoder_model_quantized.onnx": "8c2a3e2037f7632dcfcc5bd8582830396cb6cccbce266ffa63d0694ec003b2df",
+    "decoder_model_merged_quantized.onnx": "191aa5c365f02cdb722a1edc8bbef5a0d0a18c068cfbbd2b4fe0ca445cc256c1",
+    "encoder_model_quantized.onnx": "c3e0645528885f2c7094a2028499142d405d7d5ae0fa05ea85f2bcd3b2cddd98",
     "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
     "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a"
   },
@@ -33,21 +33,21 @@
         "chrf": 24.4
       },
       "onnx": {
-        "bleu": 27.55,
-        "chrf": 24.12
+        "bleu": 27.97,
+        "chrf": 24.49
       },
-      "same_translation": 15,
-      "chrf_onnx_against_app": 87.45,
+      "same_translation": 13,
+      "chrf_onnx_against_app": 86.53,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 27.4,
-      "onnx_seconds": 44.5,
+      "app_seconds": 27.5,
+      "onnx_seconds": 40.5,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": -0.53,
-      "chrf_difference": -0.28
+      "bleu_difference": -0.11,
+      "chrf_difference": 0.09
     },
     "ja-en": {
       "app": {
@@ -55,33 +55,33 @@
         "chrf": 34.35
       },
       "onnx": {
-        "bleu": 10.33,
-        "chrf": 35.05
+        "bleu": 10.51,
+        "chrf": 35.09
       },
-      "same_translation": 16,
-      "chrf_onnx_against_app": 91.19,
+      "same_translation": 17,
+      "chrf_onnx_against_app": 87.92,
       "source_ids_differ": 0,
       "decode_differs": 0,
       "app_failed": 0,
       "onnx_failed": 0,
       "onnx_errors": [],
-      "app_seconds": 9.9,
-      "onnx_seconds": 12.9,
+      "app_seconds": 10.0,
+      "onnx_seconds": 12.1,
       "onnx_backend": "{\"backend\":\"cpu\"}",
-      "bleu_difference": 0.09,
-      "chrf_difference": 0.7
+      "bleu_difference": 0.27,
+      "chrf_difference": 0.74
     }
   },
   "totals": {
     "sentences": 60,
-    "same": 31,
+    "same": 30,
     "source_ids_differ": 0,
     "decode_differs": 0,
     "app_failed": 0,
     "onnx_failed": 0,
-    "app_seconds": 37.4,
-    "onnx_seconds": 57.4,
-    "mean_bleu_difference": -0.22,
-    "mean_chrf_difference": 0.21
+    "app_seconds": 37.5,
+    "onnx_seconds": 52.6,
+    "mean_bleu_difference": 0.08,
+    "mean_chrf_difference": 0.41
   }
 }
