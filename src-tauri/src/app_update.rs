@@ -7,9 +7,10 @@
 //! its package manager owns the files. So does an AppImage in a folder the user cannot write.
 //!
 //! The update metadata (`latest.json`) and the signed files are assets of the GitHub release.
-//! The stable channel reads the latest release (prereleases are never "latest"); the beta
-//! channel, which a `-beta` version is on, reads the newest release of either kind through the
-//! GitHub API. The download is verified against the public key in tauri.conf.json, and the
+//! The stable channel asks the project's Cloudflare Worker, which forwards to the latest.json of
+//! the latest release (prereleases are never "latest"); the beta channel, which a `-beta` version
+//! is on, reads the newest release of either kind through the GitHub API and falls back to the
+//! stable address. The download is verified against the public key in tauri.conf.json, and the
 //! signature has to name the announced version (`requireSignedVersion`).
 //!
 //! Nothing here sees the user's text or voice. The log gets error kinds and URLs only.
@@ -23,7 +24,7 @@ use tauri::{AppHandle, Manager, Runtime, Url, WebviewWindow};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 const REPOSITORY: &str = "kein5/VRCT-VOX";
-const STABLE_MANIFEST: &str = "https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json";
+const STABLE_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/latest.json";
 const RELEASES_API: &str = "https://api.github.com/repos/kein5/VRCT-VOX/releases?per_page=30";
 const MANIFEST_NAME: &str = "latest.json";
 

@@ -161,7 +161,7 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 | deb、rpm | 実行ファイルの隣に`package-manager`がある（`tools/linux_packages.py`が置く） | 確認しない（`package_manager`） |
 | 開発用のビルド | debugビルド | 確認しない（`disabled`） |
 
-- 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json`を読む。プレリリースは「latest」にならない。ベータ版は`GET https://api.github.com/repos/kein5/VRCT-VOX/releases`から、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）を選び、取れなければ安定版の`latest.json`を読む。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
+- 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`を読む。この宛先はプロジェクトのCloudflare Workersで、最新のリリース（`https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json`）へ転送する。プレリリースは「latest」にならない。ベータ版は`GET https://api.github.com/repos/kein5/VRCT-VOX/releases`から、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）を選び、取れなければ安定版の`latest.json`を読む。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
 - `latest.json`の`platforms`は`windows-x86_64`（`VRCT-VOX_setup.exe`）と`linux-x86_64`（AppImage）を持つ。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
 - インストーラーは`/UPDATE`のとき、言語とエディションのページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
