@@ -105,9 +105,12 @@ runtime\
 
 ## モデル不要のテスト
 
+開発に使うツールの版は`mise.toml`で固定しています（[開発ガイド](../development.md#用意するツール)）。先に`mise install`で入れておきます。
+
 ```powershell
-python tools/dev.py setup --scope headless
-python tools/dev.py check --scope voice
+mise install
+mise run setup:headless
+mise run check:voice
 ```
 
-Windowsの実デバイスへ接続する場合はPyAudioWPatchが必要です。`npm run setup-python`（`uv sync`）で作る`.venv`には入りますが、`headless`のvenvには入りません。
+Windowsの実デバイスへ接続する場合はPyAudioWPatchが必要です。`mise run setup:app`（`npm run setup-python`と同じ`uv sync`）で作る`.venv`には入りますが、`headless`のvenvには入りません。
