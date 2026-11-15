@@ -233,6 +233,7 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "../../../../../logics/voice/routeState": {},
         "../../../../../logics/common/featureLabel.js": featureLabel,
         "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
+        "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
         "@logics_main": { useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: false } }) },
         "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
     });

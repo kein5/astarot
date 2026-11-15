@@ -5,6 +5,7 @@ import { useNotificationStatus } from "../../../../../logics/common/useNotificat
 import { voiceActions } from "../../../../../logics/voice/voiceActions.js";
 import { splitFeatureLabel } from "../../../../../logics/common/featureLabel.js";
 import { voiceErrorText } from "../../../../../logics/voice/voiceErrorText.js";
+import { useSwitchBlocks } from "../../../../../logics/main/useSwitchBlocks";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady } from "@logics_common";
 import { store } from "@store";
@@ -35,6 +36,8 @@ export const MainFunctionSwitch = () => {
 
 
     const voice = useVoice();
+    const { blocks, prepare } = useSwitchBlocks();
+    const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
     const { showNotification_Error } = useNotificationStatus();
     // Known codes get their next step; the code stays visible for support.
     const notify = (code, page) => {
@@ -116,38 +119,62 @@ export const MainFunctionSwitch = () => {
 
     return (
         <div className={styles.container}>
-            {switch_items.map(item => (
-                <SwitchContainer
+            {switch_items.flatMap(item => {
+                // A switch that is off and waits for nothing stays off while its setup is
+                // missing. One that is on, or on its way, stays as it is so it can be turned off.
+                const ready = currentIsBackendReady.data === true;
+                const block = ready && item.currentState.data !== true && item.currentState.state !== "pending"
+                    ? blocks[item.switch_id] : undefined;
+                const blockedReason = block ? t(`main_page.switch_blocked.${block.reason}`) : null;
+                const control = <SwitchContainer
                     key={item.switch_id}
                     switch_id={item.switch_id}
                     cancellable={item.cancellable}
                     disabled={item.disabled}
-                    unavailable={!currentIsBackendReady.data}
+                    unavailable={!ready}
+                    blockedReason={blockedReason}
                     switchLabel={item.label}
                     currentState={item.currentState}
-                    statusText={currentIsBackendReady.data ? item.statusText : t("main_page.backend_disconnected")}
+                    statusText={ready ? item.statusText : t("main_page.backend_disconnected")}
                     toggleFunction={item.toggleFunction}
                     SvgComponent={item.SvgComponent}
-                >
-                </SwitchContainer>
-            ))}
+                />;
+                // The way to the missing setup sits under the switch, not in it: a disabled switch
+                // does nothing when pressed, and a switch cannot hold a button. The icon rail has
+                // no room for it; its tooltip still names the page.
+                if (!block?.action || currentIsMainPageCompactMode.data) return [control];
+                const action = t(block.action === "translation" ? "model_downloads.review" : "main_page.switch_blocked.open_settings");
+                return [control,
+                    <button key={`${item.switch_id}_prepare`} type="button" className={styles.prepare_button}
+                        aria-label={t("main_page.switch_blocked.prepare_label", { feature: item.label, action })}
+                        title={blockedReason} onClick={() => prepare(block.action)}>
+                        {action}
+                    </button>];
+            })}
         </div>
     );
 };
 
-export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, statusText = null }) => {
+// blockedReason: why the switch cannot be turned on yet and where to provide it. The switch is
+// then disabled and says so in its tooltip and to screen readers; it keeps its place in the
+// tab order so that the reason can be heard.
+export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, statusText = null, blockedReason = null }) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
+    const reasonId = `main_switch_${switch_id}_reason`;
     // A long name breaks before its short name in brackets, never in the middle of a word.
     const label = splitFeatureLabel(switchLabel);
     const active = !unavailable && currentState.data === true;
     const pending = !unavailable && currentState.state === "pending";
-    const blocked = unavailable || disabled || (!cancellable && pending);
+    const greyed = unavailable || !!blockedReason;
+    // The icon rail has no label: its tooltip names the switch before the reason.
+    const blockedTitle = blockedReason && (currentIsMainPageCompactMode.data ? `${switchLabel}: ${blockedReason}` : blockedReason);
+    const blocked = greyed || disabled || (!cancellable && pending);
 
     const getClassNames = (baseClass) => clsx(baseClass, {
         [styles.is_compact_mode]: currentIsMainPageCompactMode.data,
         [styles.is_active]: active,
         [styles.is_pending]: pending,
-        [styles.is_unavailable]: unavailable,
+        [styles.is_unavailable]: greyed,
         [styles.cancellable]: cancellable,
     });
 
@@ -156,7 +183,8 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
             className={getClassNames(styles.switch_container)}
             role="switch" aria-label={unavailable ? `${switchLabel}: ${statusText}` : switchLabel} aria-checked={active}
             aria-busy={pending} aria-disabled={blocked} tabIndex={0}
-            title={statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined)}
+            aria-describedby={blockedReason ? reasonId : undefined}
+            title={blockedTitle ?? statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined)}
             onClick={() => { if (!blocked) toggleFunction(); }}
             onKeyDown={event => {
                 if (event.key === " " || event.key === "Enter") {
@@ -172,6 +200,7 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                     {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}>{label.abbr}</span>}
                 </p>
                 {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
+                {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}
                 {children}
             </div>
 
