@@ -37,7 +37,8 @@
     "test:ui": "python tools/dev.py check --scope ui",
     "setup:headless": "python tools/dev.py setup --scope headless",
     "setup:browser": "python tools/dev.py setup --scope browser",
-    "dev:web": "vite"
+    "dev:web": "vite",
+    "test:ui:bun": "bun test --parallel --timeout=60000"
   },
   "dependencies": {
     "@babel/standalone": "7.27.0",

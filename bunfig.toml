@@ -1,0 +1,5 @@
+# Bun trial (#333). Only read by Bun; the Node flow (python tools/dev.py check) ignores it.
+# The per-test timeout is passed as a flag in package.json "test:ui:bun": bunfig's [test] timeout
+# was not applied to --parallel workers in Bun 1.4.4.
+[test]
+root = "src-ui"
