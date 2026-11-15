@@ -418,27 +418,45 @@ and the speech-through-conversion path are the same as with the external runtime
 
 ```sh
 python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/vrct-rvc-worker
-vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r]
-vrct-rvc-worker --runtime <dir> --probe   # exit 0 when a CUDA session runs, 3 when the GPU cannot be used
+vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|cpu]
+vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
 ```
 
 - **Runtime folder** (set up by `src-python/models/voice_conversion/runtime_setup.py` after
-  consent): `lib/` holds ONNX Runtime 1.31.0 (CUDA 12 build, Microsoft's release) and the
-  CUDA 12.8 / cuDNN 9.19 libraries (NVIDIA's PyPI wheels; the same versions the PyTorch
-  runtime used, so the driver requirement is unchanged); `assets/` holds `hubert_base` and
-  `rmvpe.onnx`. The worker loads the CUDA libraries from `lib/` itself, then ONNX Runtime,
-  so nothing depends on the system's library path.
-- **Layout**: the external runtime's profile: 80 ms blocks, 40 ms crossfade searched over
-  10 ms, 2 s of context (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`), index
-  blend from the user's index rate, speaker 0, random synthesis noise. The input high-pass
-  of the specification is on (`--highpass off` matches the external runtime, for
-  measurements). 48 kHz is converted to 16 kHz in and from the model's rate out with
+  consent). On a PC with an NVIDIA driver: `lib/` holds ONNX Runtime 1.31.0 (CUDA 13 build,
+  Microsoft's release) with CUDA 13.4 Update 1 and cuDNN 9.26 (NVIDIA's PyPI wheels; driver
+  580 or later; the provider has kernels for sm_75 to sm_120, Turing and later). Without
+  one: only ONNX Runtime's CPU build. `assets/` holds `hubert_base` and `rmvpe.onnx`. The
+  worker loads the CUDA libraries from `lib/` itself, then ONNX Runtime, so nothing depends
+  on the system's library path.
+- **Where it converts** (`--device`, default `auto`): on the GPU when the runtime has the
+  CUDA provider, its libraries load and a CUDA session runs; otherwise on the CPU. The
+  `ready` packet says which (`profile`: `low` for the GPU as before, `cpu`) and the delay
+  the worker adds (`latency_ms`); the application shows both. `--device cuda` keeps the
+  strict form (`vc_gpu_unavailable`). Missing or broken libraries are
+  `vc_runtime_incomplete`.
+- **GPU layout**: the external runtime's profile: 80 ms blocks, 40 ms crossfade searched
+  over 10 ms, 2 s of context (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`),
+  every packet converted before it is answered. Added delay 52 ms (crossfade, search and
+  the two rate conversions).
+- **CPU layout**: 0.5 s blocks, 50 ms crossfade, 10 ms search, 2.5 s of context, the only
+  layout of the Phase 2 measurements in which every CPU block took less time than it lasts.
+  The blocks are converted on a thread of their own; every packet is answered at once from
+  what that thread finished, a fixed 14 packets (1.12 s) later, which leaves a whole block's
+  time for converting each block. Added delay 1182 ms. Until the first converted audio is
+  due, the answers are silence (`vad_silence`). A block that comes after its place was
+  answered is dropped, and when more than three blocks of input wait, the oldest is dropped
+  unconverted. When more than half of the last eight blocks were late or dropped, the
+  worker sends `failed` with `vc_capture_overrun` instead of the next answer and stops, as
+  the owner stops a GPU worker that falls behind.
+- Both: index blend from the user's index rate, speaker 0, random synthesis noise; the
+  input high-pass of the specification is on (`--highpass off` matches the external runtime,
+  for measurements); 48 kHz to 16 kHz in and the model's rate to 48 kHz out with
   `StreamResampler`.
-- **GPU only, as before**: the worker refuses to start when the GPU cannot be used and says
-  so (`vc_gpu_unavailable`); it never converts on the CPU. ONNX Runtime and CUDA libraries
-  that are missing or broken are `vc_runtime_incomplete`.
-- **CPU threads**: with CUDA, one intra-operator thread per session (`--threads` overrides).
-- Before `ready`, three blocks of a test tone are converted and forgotten, as before.
+- **CPU threads** per session (`--threads` overrides): 1 with CUDA; on the CPU half the
+  logical CPUs, from 2 to 6 (measurements below).
+- Before `ready`, three blocks of a test tone (GPU) or one 0.5 s block (CPU) are converted
+  and forgotten.
 
 ### Measurements (2026-11-15)
 
@@ -464,6 +482,34 @@ is from start to the `ready` packet, which includes loading the model and the wa
 | Rust, 1 thread (the worker's default on CUDA) | 36 % | 8 | 2.2 GiB | 23.7 ms |
 | Rust, 2 / 4 threads | 36 % / 38 % | 11 / 17 | 2.2 / 2.1 GiB | 24.3 / 24.9 ms |
 | External runtime | 106 % | 62 | 2.9 GiB | 25.7 ms |
+
+**CUDA 13 and the CPU (2026-11-15, later the same day).** The machine was busy with
+unrelated jobs during all of these (load average 18 – 34 on 24 hardware threads), which made
+every number slower than the ones above; read them against each other, not against those.
+
+| Same load, alternating runs, 48 kHz + index | Round trip mean / p95 / max | Over 80 ms |
+|---|---|---|
+| Worker of the first commit with CUDA 12.8 (2 runs) | 64 – 66 / 102 – 108 / 121 – 144 ms | 70 of 286 |
+| This worker with CUDA 13.4 (2 runs) | 64 – 65 / 106 / 136 – 172 ms | 62 – 76 of 286 |
+
+So CUDA 13 converts as fast as CUDA 12 did; the slower round trip is the load.
+
+CPU threads, the time to convert one 0.5 s block (48 kHz + index, 2.5 s of context) in the
+worker, twelve blocks each, under that load:
+
+| Threads | 2 | 4 | 6 | 8 | 12 | ONNX Runtime's default |
+|---|---|---|---|---|---|---|
+| Per block | 1.0 – 1.4 s | 0.71 – 0.97 s | 0.48 – 0.89 s | 0.70 – 1.00 s | 1.35 – 1.74 s | 2.3 – 3.0 s |
+
+With every logical CPU busy, more threads only wait for each other; six was fastest. Under
+this load no setting converted a block in less than its 0.5 s, so a live CPU conversion on
+this machine at that time stopped with `vc_capture_overrun` after about four seconds. With
+the input fed at 300 ms per packet instead of 80 ms (so the CPU keeps up), the worker
+converted the whole 22.9 s file without a single late block: 14 silent packets at the start,
+then 272 packets of voice, measured 1175 ms behind the input (envelope cross-correlation;
+the `ready` packet said 1182 ms). The GPU worker measured 45 ms the same way (said 52 ms).
+On the screen the delay is shown as the 80 ms block, plus `latency_ms`, plus the round
+trip: about 0.2 s on the GPU and 1.3 s on the CPU.
 
 Through the application's private PipeWire graph (`tests/platform/test_native_rvc_worker.py`,
 20 s of continuous conversion, index rate 0 and 0.5, stop and worker kill): all four cases
@@ -504,7 +550,10 @@ measures show a small systematic difference beyond the noise. What was ruled out
   12.4 dB. The remaining difference is more likely the external runtime's per-block
   resampling of 80 ms pieces than a fault of this runtime, but it has not been pinned down.
 
-Not done: a listening comparison of the two live runtimes; Windows; other GPUs; long runs
+Decided by the maintainer (2026-11-15, PR #312): the live output was checked by ear and
+accepted; Windows is accepted on the CI build without a check on a Windows PC.
+
+Not done: other GPUs; a CPU conversion in real time on a machine that is not busy; long runs
 under the mixed load of VRChat, TTS and captions; the GUI test with the real worker
 (`tests/platform/test_native_rvc_ui.py`).
 

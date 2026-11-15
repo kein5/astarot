@@ -42,11 +42,12 @@ GPUドライバーのキャッシュが空のとき（ドライバーを更新�
 
 RVCの設定画面、または「高度な設定」の入力の転送にある「実行環境」の欄から、実行環境を取得できます。ライセンス、サイズ、保存先を確認して同意すると、次を自動で行います。Gitも開発環境もいりません。
 
-RVCの変換は、配布物に入っている`vrct-rvc-worker.exe`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCの実行環境として取得するのは、次の3つだけです。
+RVCの変換は、配布物に入っている`vrct-rvc-worker.exe`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCの実行環境の準備は、次のとおりです。NVIDIAのドライバー（`nvcuda.dll`）があるPCにはGPU用、ないPCにはCPU用を出します。
 
-1. ONNX Runtime 1.31.0（CUDA 12版、Microsoftの公式リリース）と、NVIDIAのCUDA・cuDNNのライブラリ（PyPIの`nvidia-*-cu12`のwheel）。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込むDLLだけを`lib\`に取り出します。アーカイブは取り出したあとに消します。
+1. GPU用は、ONNX Runtime 1.31.0（CUDA 13版、Microsoftの公式リリース）と、NVIDIAのCUDA 13.4とcuDNN 9.26のライブラリ（PyPIの`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`のwheel）。CPU用は、ONNX Runtime 1.31.0のCPU版だけです。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込むDLLだけを`lib\`に取り出します。アーカイブは取り出したあとに消します。
 2. 基礎モデル（HuBERTの`config.json`と`pytorch_model.bin`、`rmvpe.onnx`）を取得して、ハッシュを検証します。
-3. ワーカーの`--probe`で、取得したライブラリでGPUの計算ができることを確かめます。
+3. ワーカーの`--probe`で、取得したライブラリが読み込めて計算できることを確かめます。GPU用でGPUを使えないとき（ドライバーが580より古い、GPUがTuring＝GTX 16・RTX 20シリーズより前）は、CPUで変換すると表示して完了します。
+4. 同じフォルダーに以前のPyTorch形式の実行環境があれば、そのファイル（`venv`、`python`、`engine`、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`）を削除します。`engine`の中のモデルや音声のファイル（`.pth`、`.index`、`.wav`など）は残します。
 
 Seed-VCは次のとおりです。
 
@@ -58,9 +59,9 @@ Seed-VCは次のとおりです。
 
 | | RVC | Seed-VC |
 |---|---|---|
-| 通信量の目安 | 約2.3 GB | 約5 GB |
-| 必要な空き容量 | 約3.8 GB | 約14 GB |
-| 完了後の大きさ | 未計測（取り出すファイルの合計は約2.8 GB） | 約6.9 GB |
+| 通信量の目安 | GPU用 約1.8 GB、CPU用 約0.6 GB | 約5 GB |
+| 必要な空き容量 | GPU用 約2.7 GB、CPU用 約0.8 GB | 約14 GB |
+| 完了後の大きさ | 未計測（取り出すファイルの合計はGPU用 約2.1 GB、CPU用 約0.6 GB） | 約6.9 GB |
 | 依存のPython | なし | 3.11 |
 
 表はWindowsでの値です。RVCの値は、固定したファイルの大きさから計算した目安で、Windowsで取得して測ってはいません。Linuxでの値は[Linuxの手順](local-setup-linux.md#rvcとseed-vcの実行環境)にあります。
@@ -69,7 +70,7 @@ Seed-VCは次のとおりです。
 
 声のモデルは別です。RVCの設定画面の取得欄から取得するか、権利を確認したものを指定します。Seed-VCには、利用が許可された参照音声（1〜30秒のWAV）を指定します。
 
-Seed-VCの開始にはTorchの読み込みで数十秒から数分かかるので、開始直後は準備中のままになります（上限は180秒です）。RVCの開始は、Linuxの検証PCで2〜5秒でした。
+Seed-VCの開始にはTorchの読み込みで数十秒から数分かかるので、開始直後は準備中のままになります（上限は180秒です）。RVCの開始は、Linuxの検証PCでGPUなら2〜9秒（PCの混み具合で変わります）、CPUなら9〜11秒でした。CPUで変換するときは、0.5秒ずつまとめて別のスレッドで変換し、変換した声は約1.3秒遅れて届きます。CPUが追いつかないと`vc_capture_overrun`で停止します。
 
 RVCを止めている間も声を届けたいときは、入力の転送を使います。マイクの音をそのまま出力デバイスへ送ります。Pythonが音声を運ぶので、PCが一瞬詰まると短く途切れることがあります。出力デバイスが2秒以上音声を受け取らないときは、外れたものとして止めます。
 
@@ -82,8 +83,9 @@ RVCを止めている間も声を届けたいときは、入力の転送を使�
 ```text
 runtime\
   lib\        onnxruntime.dll、onnxruntime_providers_cuda.dll、onnxruntime_providers_shared.dll、
-              cudart64_12.dll、cublas64_12.dll、cublasLt64_12.dll、curand64_10.dll、
-              nvrtc64_120_0.dll、nvrtc-builtins64_128.dll、cudnn*64_9.dll
+              cudart64_13.dll、cublas64_13.dll、cublasLt64_13.dll、curand64_10.dll、
+              nvrtc64_130_0.dll、nvrtc-builtins64_134.dll、cudnn*64_9.dll
+              （CPU用はonnxruntime.dllだけ）
   assets\     hubert_base\config.json、hubert_base\pytorch_model.bin、rmvpe\rmvpe.onnx
 ```
 

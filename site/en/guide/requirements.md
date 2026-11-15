@@ -32,7 +32,8 @@ The first row was measured with an earlier version, which still had the Whisper 
 |---|---|
 | Translation, chat reading | None; they run on the CPU |
 | Speech, local speech recognition and realtime captions, telling speakers apart (speech.cpp, included in the app) | A GPU with <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> support: NVIDIA, AMD or Intel, integrated GPUs included. Without one they run on the CPU, more slowly |
-| Voice changer (RVC, Seed-VC) | An NVIDIA GPU with a driver that supports CUDA 12.8 |
+| Voice changer (RVC) | An NVIDIA GeForce GTX 16 or RTX 20 series GPU or later with driver 580 or later (CUDA 13). Without one it runs on the CPU, but the voice comes about 1.3 s late instead of about 0.2 s |
+| Voice changer (Seed-VC) | An NVIDIA GPU with a driver that supports CUDA 12.8 |
 | Local translation on the GPU (the Windows CUDA version) | An NVIDIA GPU |
 
 The speech models use about this much GPU memory (more in [Getting models](models#gpu-and-memory-guidance)):
@@ -65,10 +66,10 @@ The only CPU tested is an Intel Core i7-1255U (a laptop CPU with 10 cores and 12
 | Translation model (one) | 0.4–3.3 GB |
 | Speech models (one for Japanese, one for other languages) | 0.8–1.8 GiB each |
 | Speech recognition model | 0.6–0.8 GiB |
-| RVC runtime | needs about 3.8 GB free on Windows, 4.2 GB on Linux |
+| RVC runtime | needs about 2.7 GB free on Windows, 3.3 GB on Linux (the CPU runtime of a PC without an NVIDIA driver about 0.8 GB) |
 | Seed-VC runtime | needs about 14 GB free on Windows, 18 GB on Linux |
 
-For every feature on Windows, plan for about 12 GB free with RVC, or about 27 GB with Seed-VC as well. The models and their sizes are listed in [Getting models](models).
+For every feature on Windows, plan for about 11 GB free with RVC, or about 26 GB with Seed-VC as well. The models and their sizes are listed in [Getting models](models).
 
 ## Test PC
 
