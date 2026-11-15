@@ -461,6 +461,43 @@ def test_speechcpp_snapshot_is_the_bundled_release_and_the_tools_render():
             file["file"], file["size"], file["sha256"])
 
 
+def test_each_speechcpp_entry_carries_what_a_user_compares_before_choosing():
+    # Display name and size are the row's name and total_bytes; the rest is its profile.
+    import yaml
+    from models.model_downloads.catalog import CATALOG
+    from models.model_downloads.speechcpp_asr import PROFILES, model_profile, speech_model
+    from models.model_downloads.speechcpp_models import SNAPSHOT
+
+    root = Path(__file__).resolve().parents[2]
+    summaries = [yaml.safe_load((root / "locales" / name).read_text(encoding="utf-8"))["model_downloads"]["summary"]
+                 for name in ("en.yml", "ja.yml")]
+    speech = {m["name"]: m for m in SNAPSHOT["models"]}
+    for m in CATALOG:
+        profile = model_profile(m.id)
+        if m.target not in ("asr", "vad", "diarization"):
+            assert profile is None, m.id
+            continue
+        assert set(profile) == {"summary", "languages", "recommended_for", "memory_bytes", "memory_measured_on",
+                                "tier", "cpu", "gpu"}
+        assert all(profile["summary"] in table and table[profile["summary"]] for table in summaries), m.id
+        assert profile["cpu"] in ("practical", "slow", "unverified") and profile["gpu"] in ("recommended", "not_needed")
+        if m.target != "asr":
+            continue
+        info = speech_model(m.id)
+        # Every file of a recognizer has the peak memory its model card measured, and a tier from it.
+        assert profile["memory_bytes"] > m.artifacts[0].size * 0.9 and profile["memory_measured_on"], m.id
+        assert profile["tier"] == ("light" if profile["memory_bytes"] <= 1.5 * 2**30
+                                   else "medium" if profile["memory_bytes"] <= 4 * 2**30 else "heavy")
+        assert profile["languages"] == speech[info["name"]]["languages"]
+        # speech.cpp's suggestion per language, on the file it fetches for the name only.
+        assert profile["recommended_for"] == (speech[info["name"]]["start"] if info["default"] else [])
+    rows = {m.id: model_profile(m.id) for m in CATALOG}
+    assert {lang: [id for id, p in rows.items() if p and lang in p["recommended_for"]] for lang in ("ja", "en", "uk")} == {
+        "ja": ["reazonspeech-v2-q8"], "en": ["qwen3-asr-06b-q8"], "uk": ["parakeet-tdt-06b-v3-f16"]}
+    assert rows["nemotron-35-transcribe-iq4nl"]["tier"] == "heavy" and rows["silero-vad-v62"]["gpu"] == "not_needed"
+    # Only the model VRCT-VOX ran on a CPU says how it runs there; the rest is not claimed.
+    assert [name for name, p in PROFILES.items() if p["cpu"] == "slow"] == ["qwen3-asr-0.6b"]
+
 def test_vad_is_pinned_to_speechcpp_catalog():
     # Revisions, sizes and SHA-256 match speech.cpp 0.10.0's `speech models --json`
     # and the Hugging Face LFS metadata of these exact revisions.

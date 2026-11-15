@@ -47,6 +47,24 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 新しく加えたモデルを実機のサーバーで動かす試験は、まだしていない（取得に同意が要るため）。
 
+### 選ぶための情報（profile）
+
+0.5.0の画面で、初めての人が比べて選べるように、カタログの各行に利用者向けの情報を持たせた。音声認識、VAD、話者分離の行にある。TTS、RVC、OCRの行は`null`である。
+
+| 知りたいこと | 行の項目 | 出どころ |
+|---|---|---|
+| 表示名 | `name`（ファイルの種類まで）、`speech.label`（モデル名だけ） | 既存。`OFFERS` |
+| 短い説明 | `profile.summary`（`model_downloads.summary.<key>`の文言キー） | `PROFILES`と`locales/` |
+| 対応言語 | `profile.languages` | speech.cppのカタログ |
+| ダウンロードサイズ | `total_bytes`（ファイルは`artifacts[].size`） | 既存。speech.cppのカタログ |
+| ハードウェアの目安 | `profile.memory_bytes`と`memory_measured_on`、`tier`（light／medium／heavy）、`cpu`、`gpu` | モデルカードの実測値。`tier`はそこから計算する |
+| おすすめ | `profile.recommended_for` | speech.cppのカタログの`start` |
+
+- おすすめは、speech.cppが言語ごとに「最初に使うモデル」として示すものを使う。アプリでは別に決めない。2026-11-16時点では、日本語がreazonspeech-v2、ウクライナ語などヨーロッパの9言語がparakeet-tdt-0.6b-v3、ほかの言語がqwen3-asr-0.6bである。名前が取得するファイル（既定の種類）の行にだけ付く。
+- `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーである。測った機器は`memory_measured_on`に書く（Nemotron 3.5 TranscribeはH100、ほかはApple M5）。このPCでの値でも、必要量の保証でもない。`tier`は1.5 GiB以下をlight、4 GiB以下をmedium、それより大きいものをheavyとする。
+- `cpu`は、CPUで動かして確かめたものだけを書く。`slow`はVRCT-VOXが測ったもの、`practical`はspeech.cppがCPUで動かす作りのもの（VAD）、ほかは`unverified`である。`gpu`はVAD以外を`recommended`にした。モデルカードの測定はどれもGPUで、下の測定でもGPUのほうがずっと速かった。
+- 2026-11-16の測定。Windows 11、Intel Core i7-1255U、NVIDIA RTX 3060 Ti（Thunderbolt接続、Vulkan1）、speech.cpp 0.11.0、Qwen3-ASR 0.6B Q8_0、言語は`ja`。Windowsの合成音声（10.2秒の日本語1文）を`speech asr`で認識させ、1ファイルと6ファイルの所要時間の差から1発話あたりを出した。各2回で、CPUは2.95秒と4.26秒、GPUは0.08秒と0.16秒だった。CPUでも動くが、字幕は発話の後に数秒遅れる。合成音声1文での測定で、精度の評価ではない。
+
 ## 固定カタログ
 
 版 `2026-10-31.1`。TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補（ASRは2026-11-16から上の節のとおり）。

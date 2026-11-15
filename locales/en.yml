@@ -1628,6 +1628,17 @@ model_downloads:
     notice_silero: "Voice activity detection that finds where someone speaks, in any language, for speech.cpp 0.8.0 or later. MIT, by the Silero Team, converted by sakasegawa."
     asr_requirements: "This downloads only the recognition model. The bundled ASR server also needs a VAD model: download Silero VAD below, or enter a VAD path. Download completion does not start recognition."
     asr_choice: "The models are the ones speech.cpp offers. Each recognizes different languages, listed under the choice. If other players speak languages other than Japanese, choose one that recognizes them, such as Qwen3-ASR. Smaller file types (Q4_K and so on) take less space and memory and may make a few more mistakes; the default is the file speech.cpp itself fetches. The bundled ASR server loads one recognition model for both Mic and Speaker."
+    # A short plain description per catalog model (catalog row profile.summary).
+    summary:
+        qwen3_asr_06b: "Writes speech in 30 languages, Japanese included, and tells which language is spoken. A light model for places where players speak several languages."
+        qwen3_asr_17b: "The larger Qwen3-ASR. The same 30 languages with fewer mistakes, for more space and memory."
+        reazonspeech: "Japanese only. Writes Japanese speech with punctuation, long recordings included."
+        parakeet_ja: "Japanese only. A light model that writes Japanese speech with punctuation."
+        parakeet_v3: "For 25 European languages, such as English and German, and tells which one is spoken. It does not recognize Japanese."
+        haas: "Japanese only. Writes Japanese speech with punctuation, and can be given words to recognize, such as VRChat terms."
+        nemotron_asr: "A large model for 40 languages. It uses more than 18 GiB of memory, so it is for PCs with a large GPU."
+        silero_vad: "A small model that finds where someone speaks. Every recognition model needs it; it runs on the CPU."
+        nemotron_diarization: "Tells voices apart, up to 8. Needed only to label the speakers in game audio captions."
     asr_model: "Recognition model"
     asr_type: "File type (quantization)"
     asr_type_default: "speech.cpp default"

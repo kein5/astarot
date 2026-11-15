@@ -39,6 +39,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/tree/9db7da1bec3d1069ef8e29732e0497be60c7b047"
     ]
@@ -79,6 +80,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/tree/fd9df9364613a92a86b4137074bc281204823033"
     ]
@@ -125,6 +127,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/Saisho-Utane/Saisho-Model-RVC/tree/7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a"
     ]
@@ -232,6 +235,77 @@
       "zh"
      ],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "qwen3_asr_06b",
+     "languages": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "recommended_for": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "memory_bytes": 1000000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "slow",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/tree/ee78f8709547f39bea3b924a16c72403826cac92"
@@ -341,6 +415,47 @@
      ],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "qwen3_asr_06b",
+     "languages": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 840000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "slow",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/tree/ee78f8709547f39bea3b924a16c72403826cac92"
     ]
@@ -448,6 +563,47 @@
       "zh"
      ],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "qwen3_asr_06b",
+     "languages": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 750000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "slow",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/tree/ee78f8709547f39bea3b924a16c72403826cac92"
@@ -557,6 +713,47 @@
      ],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "qwen3_asr_06b",
+     "languages": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 670000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "slow",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/tree/ee78f8709547f39bea3b924a16c72403826cac92"
     ]
@@ -634,6 +831,47 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "qwen3_asr_17b",
+     "languages": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 2340000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "medium",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF/tree/81e2423d24073cdeeccb5951df16accc89e075a2"
@@ -713,6 +951,47 @@
      "start": [],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "qwen3_asr_17b",
+     "languages": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 1850000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "medium",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF/tree/81e2423d24073cdeeccb5951df16accc89e075a2"
     ]
@@ -790,6 +1069,47 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "qwen3_asr_17b",
+     "languages": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 1580000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF/tree/81e2423d24073cdeeccb5951df16accc89e075a2"
@@ -869,6 +1189,47 @@
      "start": [],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "qwen3_asr_17b",
+     "languages": [
+      "ar",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "fa",
+      "fi",
+      "fil",
+      "fr",
+      "hi",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "mk",
+      "ms",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sv",
+      "th",
+      "tr",
+      "vi",
+      "yue",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 1320000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF/tree/81e2423d24073cdeeccb5951df16accc89e075a2"
     ]
@@ -919,6 +1280,20 @@
       "ja"
      ],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "reazonspeech",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [
+      "ja"
+     ],
+     "memory_bytes": 790000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
@@ -971,6 +1346,18 @@
      ],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "reazonspeech",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 1380000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
     ]
@@ -1021,6 +1408,18 @@
       "ja"
      ],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "reazonspeech",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 640000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
@@ -1073,6 +1472,18 @@
      ],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "reazonspeech",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 560000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
     ]
@@ -1124,6 +1535,18 @@
      ],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "reazonspeech",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 480000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
     ]
@@ -1172,6 +1595,18 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "parakeet_ja",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 770000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
@@ -1222,6 +1657,18 @@
      "start": [],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "parakeet_ja",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 1350000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
     ]
@@ -1270,6 +1717,18 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "parakeet_ja",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 620000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
@@ -1320,6 +1779,18 @@
      "start": [],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "parakeet_ja",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 530000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
     ]
@@ -1368,6 +1839,18 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "parakeet_ja",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 460000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
@@ -1452,6 +1935,52 @@
      ],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "parakeet_v3",
+     "languages": [
+      "bg",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "hr",
+      "hu",
+      "it",
+      "lt",
+      "lv",
+      "mt",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "uk"
+     ],
+     "recommended_for": [
+      "bg",
+      "et",
+      "hr",
+      "lt",
+      "lv",
+      "mt",
+      "sk",
+      "sl",
+      "uk"
+     ],
+     "memory_bytes": 1370000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
     ]
@@ -1534,6 +2063,42 @@
       "uk"
      ],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "parakeet_v3",
+     "languages": [
+      "bg",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "hr",
+      "hu",
+      "it",
+      "lt",
+      "lv",
+      "mt",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "uk"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 780000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
@@ -1618,6 +2183,42 @@
      ],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "parakeet_v3",
+     "languages": [
+      "bg",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "hr",
+      "hu",
+      "it",
+      "lt",
+      "lv",
+      "mt",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "uk"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 630000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
     ]
@@ -1700,6 +2301,42 @@
       "uk"
      ],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "parakeet_v3",
+     "languages": [
+      "bg",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "hr",
+      "hu",
+      "it",
+      "lt",
+      "lv",
+      "mt",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "uk"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 540000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
@@ -1784,6 +2421,42 @@
      ],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "parakeet_v3",
+     "languages": [
+      "bg",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "hr",
+      "hu",
+      "it",
+      "lt",
+      "lv",
+      "mt",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "uk"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 470000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
     ]
@@ -1832,6 +2505,18 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "haas",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 794568950,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
@@ -1882,6 +2567,18 @@
      "start": [],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "haas",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 1385126953,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
     ]
@@ -1930,6 +2627,18 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "haas",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 654982513,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
@@ -1980,6 +2689,18 @@
      "start": [],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "haas",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 569083167,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
     ]
@@ -2028,6 +2749,18 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "haas",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 493921239,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
@@ -2117,6 +2850,57 @@
      "start": [],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "nemotron_asr",
+     "languages": [
+      "ar",
+      "bg",
+      "bn",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "he",
+      "hi",
+      "hr",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "lt",
+      "lv",
+      "mr",
+      "mt",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "ta",
+      "te",
+      "th",
+      "tl",
+      "tr",
+      "uk",
+      "vi",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 19756849562,
+     "memory_measured_on": "NVIDIA H100 (Vulkan)",
+     "tier": "heavy",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF/tree/55d289085ed6b1acd1cfd2e6cf279fdeb32fee5f"
     ]
@@ -2204,6 +2988,57 @@
      ],
      "start": [],
      "version": "0.11.0"
+    },
+    "profile": {
+     "summary": "nemotron_asr",
+     "languages": [
+      "ar",
+      "bg",
+      "bn",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "he",
+      "hi",
+      "hr",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "lt",
+      "lv",
+      "mr",
+      "mt",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "ta",
+      "te",
+      "th",
+      "tl",
+      "tr",
+      "uk",
+      "vi",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 66142496358,
+     "memory_measured_on": "NVIDIA H100 (Vulkan)",
+     "tier": "heavy",
+     "cpu": "unverified",
+     "gpu": "recommended"
     },
     "sources": [
      "https://huggingface.co/sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF/tree/55d289085ed6b1acd1cfd2e6cf279fdeb32fee5f"
@@ -2293,6 +3128,57 @@
      "start": [],
      "version": "0.11.0"
     },
+    "profile": {
+     "summary": "nemotron_asr",
+     "languages": [
+      "ar",
+      "bg",
+      "bn",
+      "cs",
+      "da",
+      "de",
+      "el",
+      "en",
+      "es",
+      "et",
+      "fi",
+      "fr",
+      "he",
+      "hi",
+      "hr",
+      "hu",
+      "id",
+      "it",
+      "ja",
+      "ko",
+      "lt",
+      "lv",
+      "mr",
+      "mt",
+      "nl",
+      "pl",
+      "pt",
+      "ro",
+      "ru",
+      "sk",
+      "sl",
+      "sv",
+      "ta",
+      "te",
+      "th",
+      "tl",
+      "tr",
+      "uk",
+      "vi",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 35862976922,
+     "memory_measured_on": "NVIDIA H100 (Vulkan)",
+     "tier": "heavy",
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF/tree/55d289085ed6b1acd1cfd2e6cf279fdeb32fee5f"
     ]
@@ -2332,6 +3218,16 @@
      }
     },
     "speech": null,
+    "profile": {
+     "summary": "silero_vad",
+     "languages": [],
+     "recommended_for": [],
+     "memory_bytes": null,
+     "memory_measured_on": null,
+     "tier": null,
+     "cpu": "practical",
+     "gpu": "not_needed"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/silero-vad-GGUF/tree/7fcb7aa2a70c312f8579fc987b3e1cdecf9321ca"
     ]
@@ -2371,6 +3267,16 @@
      }
     },
     "speech": null,
+    "profile": {
+     "summary": "nemotron_diarization",
+     "languages": [],
+     "recommended_for": [],
+     "memory_bytes": null,
+     "memory_measured_on": null,
+     "tier": null,
+     "cpu": "unverified",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Nemotron-3-Diarization-GGUF/tree/9096d41cb78bba7ac882b96d453e25239eac692b"
     ]
@@ -2412,6 +3318,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/tree/9db7da1bec3d1069ef8e29732e0497be60c7b047"
     ]
@@ -2452,6 +3359,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/tree/fd9df9364613a92a86b4137074bc281204823033"
     ]
@@ -2518,6 +3426,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/tree/28fe5895c24fd108c19eb3e8479f4ab385fbfc62",
      "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/tree/b8f84f0b80c529de40b4fbb3544b84fa7233a513"
@@ -2573,6 +3482,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/korean_PP-OCRv5_mobile_rec_onnx/tree/5c6f574b8e2230adf4287b33e736d71b9fabd28e"
     ]
@@ -2627,6 +3537,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec_onnx/tree/2cef88145434beb8afa9dd82d77d799eb1ad7b29"
     ]
@@ -2681,6 +3592,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/th_PP-OCRv5_mobile_rec_onnx/tree/1d4adbbafb1034a2fd6618498575b81ea7b69f69"
     ]
@@ -2735,6 +3647,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/arabic_PP-OCRv5_mobile_rec_onnx/tree/14aaedcd75825982689ecf5cd64ab33ee083215a"
     ]
@@ -2789,6 +3702,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/devanagari_PP-OCRv5_mobile_rec_onnx/tree/251aec19e36739540d35e2cc943f6aa7503b98e5"
     ]
@@ -2828,6 +3742,7 @@
      }
     },
     "speech": null,
+    "profile": null,
     "sources": [
      "https://huggingface.co/kein5/vrct-vox-chatbox-detector/tree/3febea9f3ad213738730177c7907cc434dca2267"
     ]

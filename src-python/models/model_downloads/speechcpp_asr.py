@@ -31,6 +31,41 @@ OFFERS = [
   "license": "OpenMDW-1.1", "licenses": ["README.md", "LICENSE"], "notice": "nemotron_asr"}
 ]
 
+# What a user compares before choosing (catalog row "profile"). Not in speech.cpp's catalog:
+# - summary: the key of a short plain description, model_downloads.summary.<key> in locales/.
+# - memory: peak memory per file type, as the model card at the pinned revision measured it
+#   (README.md, "Memory"), on memory_measured_on. GB there are decimal, GiB binary.
+# - cpu: "slow" when VRCT-VOX measured it on a CPU and it runs, seconds behind (see
+#   docs/voice-stack/model-downloads.md, 2026-11-16), "practical" when speech.cpp itself runs it
+#   on the CPU, "unverified" otherwise. gpu: "recommended" or "not_needed".
+# Keys are speech.cpp names; the VAD and diarization entries are pinned in catalog.py by id.
+PROFILES = {
+ "qwen3-asr-0.6b": {"summary": "qwen3_asr_06b", "memory_measured_on": "Apple M5 (Metal)", "cpu": "slow",
+  "gpu": "recommended", "memory": {"q8_0": 1000000000, "q6_k": 840000000, "q5_k": 750000000, "q4_k": 670000000}},
+ "qwen3-asr-1.7b": {"summary": "qwen3_asr_17b", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified",
+  "gpu": "recommended", "memory": {"q8_0": 2340000000, "q6_k": 1850000000, "q5_k": 1580000000, "q4_k": 1320000000}},
+ "reazonspeech-v2": {"summary": "reazonspeech", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified",
+  "gpu": "recommended", "memory": {"f16": 1380000000, "q8_0": 790000000, "q6_k": 640000000, "q5_k": 560000000,
+                                   "q4_k": 480000000}},
+ "parakeet-tdt_ctc-0.6b-ja": {"summary": "parakeet_ja", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified",
+  "gpu": "recommended", "memory": {"f16": 1350000000, "q8_0": 770000000, "q6_k": 620000000, "q5_k": 530000000,
+                                   "q4_k": 460000000}},
+ "parakeet-tdt-0.6b-v3": {"summary": "parakeet_v3", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified",
+  "gpu": "recommended", "memory": {"f16": 1370000000, "q8_0": 780000000, "q6_k": 630000000, "q5_k": 540000000,
+                                   "q4_k": 470000000}},
+ "haas-ja-v1.0": {"summary": "haas", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified",
+  "gpu": "recommended", "memory": {"f16": 1385126953, "q8_0": 794568950, "q6_k": 654982513, "q5_k": 569083167,
+                                   "q4_k": 493921239}},
+ "nemotron-3.5-transcribe": {"summary": "nemotron_asr", "memory_measured_on": "NVIDIA H100 (Vulkan)", "cpu": "unverified",
+  "gpu": "recommended", "memory": {"iq4_nl": 19756849562, "q8_0": 35862976922, "f16": 66142496358}},
+ "silero-vad": {"summary": "silero_vad", "id": "silero-vad-v62", "cpu": "practical", "gpu": "not_needed"},
+ "nemotron-3-diarization": {"summary": "nemotron_diarization", "id": "nemotron-3-diarization-q8", "cpu": "unverified",
+  "gpu": "recommended"}
+}
+# Sizes of the profile's "tier", from the measured peak memory (bytes): light up to 1.5 GiB,
+# medium up to 4 GiB, heavy above.
+TIERS = [["light", 1610612736], ["medium", 4294967296]]
+
 # The id prefix of a name whose entry existed before this table ("haas-ja-q8"), so a download
 # made then is found again in <root>/<id>/<revision>/. Other names derive it (qwen3-asr-06b).
 ID_PREFIXES = {"haas-ja-v1.0": "haas-ja"}
@@ -88,6 +123,42 @@ def _speech_rows():
 
 
 _SPEECH = _speech_rows()
+
+
+def _tier(memory):
+    if memory is None:
+        return None
+    return next((name for name, limit in TIERS if memory <= limit), 'heavy')
+
+
+def _profile_rows():
+    by_name = {model['name']: model for model in SNAPSHOT['models']}
+    rows = {}
+    for name, profile in PROFILES.items():
+        model = by_name.get(name)
+        if model is None:
+            raise ValueError('catalog_invalid')
+        files = [file for file in model['files'] if profile.get('id') is None or file['type'] == model['type']]
+        for file in files:
+            id = profile.get('id') or entry_id(name, file['type'])
+            memory = profile.get('memory', {}).get(file['type'])
+            rows[id] = dict(
+                summary=profile['summary'], languages=list(model['languages']),
+                # The languages speech.cpp suggests this model for first, on the file it fetches.
+                recommended_for=list(model['start']) if file['type'] == model['type'] else [],
+                memory_bytes=memory, memory_measured_on=profile.get('memory_measured_on') if memory else None,
+                tier=_tier(memory), cpu=profile['cpu'], gpu=profile['gpu'])
+    return rows
+
+
+_PROFILES = _profile_rows()
+
+
+def model_profile(id):
+    """What a user compares before choosing an entry, or None for entries outside speech.cpp."""
+    row = _PROFILES.get(id)
+    return None if row is None else dict(row, languages=list(row['languages']),
+                                         recommended_for=list(row['recommended_for']))
 
 
 def speech_model(id):

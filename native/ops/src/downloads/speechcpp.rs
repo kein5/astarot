@@ -53,6 +53,27 @@ struct Offer {
     notice: String,
 }
 
+/// What a user compares before choosing (`PROFILES` in `speechcpp_asr.py`).
+#[derive(Deserialize)]
+struct Profile {
+    summary: String,
+    id: Option<String>,
+    memory_measured_on: Option<String>,
+    cpu: String,
+    gpu: String,
+    memory: Option<std::collections::BTreeMap<String, u64>>,
+}
+
+fn profiles() -> &'static std::collections::BTreeMap<String, Profile> {
+    static PROFILES: OnceLock<std::collections::BTreeMap<String, Profile>> = OnceLock::new();
+    PROFILES.get_or_init(|| literal(OFFERS_TEXT, "PROFILES"))
+}
+
+fn tiers() -> &'static [(String, u64)] {
+    static TIERS: OnceLock<Vec<(String, u64)>> = OnceLock::new();
+    TIERS.get_or_init(|| literal(OFFERS_TEXT, "TIERS"))
+}
+
 /// The JSON value assigned to `name` in a Python module (`NAME = <json>`).
 fn literal<T: for<'de> Deserialize<'de>>(text: &str, name: &str) -> T {
     let marker = format!("\n{name} = ");
@@ -142,6 +163,34 @@ pub fn asr_models() -> Vec<Model> {
         }
     }
     rows
+}
+
+/// What a user compares before choosing an entry, or null for entries outside speech.cpp.
+pub fn model_profile(id: &str) -> Json {
+    for (name, profile) in profiles() {
+        let model = snapshot().models.iter().find(|m| &m.name == name).expect("a profiled name is in speech.cpp's catalog");
+        for file in model.files.iter().filter(|f| profile.id.is_none() || f.kind == model.kind) {
+            let entry = profile.id.clone().unwrap_or_else(|| entry_id(name, &file.kind));
+            if entry != id {
+                continue;
+            }
+            let words = |list: &[String]| list.iter().map(|w| Json::from(w.as_str())).collect::<Vec<_>>();
+            let memory = profile.memory.as_ref().and_then(|m| m.get(&file.kind)).copied();
+            let tier = memory.map(|bytes| tiers().iter().find(|(_, limit)| bytes <= *limit).map_or("heavy", |(name, _)| name.as_str()));
+            let start = if file.kind == model.kind { words(&model.start) } else { Vec::new() };
+            return Object::new()
+                .with("summary", profile.summary.as_str())
+                .with("languages", words(&model.languages))
+                .with("recommended_for", start)
+                .with("memory_bytes", memory)
+                .with("memory_measured_on", memory.and(profile.memory_measured_on.as_deref()))
+                .with("tier", tier)
+                .with("cpu", profile.cpu.as_str())
+                .with("gpu", profile.gpu.as_str())
+                .into();
+        }
+    }
+    Json::from(None::<Json>)
 }
 
 /// What speech.cpp's catalog says of an entry (its name, type, languages), or null.
