@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 import re
 from urllib.parse import quote
 
-CATALOG_VERSION = '2026-11-13.1'
+CATALOG_VERSION = '2026-11-16.1'
 
 
 @dataclass(frozen=True)
@@ -101,6 +101,44 @@ CATALOG = (*CATALOG,
     replace(CATALOG[1], id='qwen3-06b-q5', name='Qwen3-TTS 12Hz 0.6B CustomVoice · Q5_K', artifacts=(
         Artifact('Qwen3-TTS-12Hz-0.6B-CustomVoice-Q5_K.gguf', 873894144,
                  '4bb9ba9e822ab614798c416c7f0187994f349be41221966fa911aca24f237930', 'model'),)))
+
+
+# --- More speech.cpp TTS models: begin ----------------------------------------
+# The file speech.cpp 0.10.0 fetches for irodori-tts, irodori-tts-large and qwen3-tts-1.7b
+# (`speech models --json`). They go after the entries above, so the first choice of each
+# list stays as it was. drama-3 is left out: its Fish Audio Community License limits
+# commercial use by revenue and binds whoever makes it available (docs/voice-stack/licensing.md).
+IRODORI_SMALL_REV = '66fe2cde1973fd44e7202fbe36df722103958188'
+IRODORI_LARGE_REV = '79cae5947a97e941c62912749e1387c8b35ec16b'
+QWEN_17B_REV = 'a72e6c6575d67652488cdffc1c863215a9899978'
+TTS_CATALOG = (
+    # The base v4.1 Small: 40 sampling steps, slower to its first audio than MF.
+    Model('irodori-v41-small-f16', 'japanese', 'Irodori-TTS v4.1 Small · F16', 'Aratako / sakasegawa',
+          'sakasegawa/Irodori-TTS-v4.1-Small-GGUF', IRODORI_SMALL_REV, 'MIT + Apache-2.0', (
+              f'https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/{IRODORI_SMALL_REV}/README.md',
+              f'https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/{IRODORI_SMALL_REV}/LICENSE-MIT',
+              f'https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/{IRODORI_SMALL_REV}/LICENSE-APACHE-2.0'),
+          'irodori', (Artifact('Irodori-TTS-859M-v4.1-F16.gguf', 1905903936,
+                              'f334932bdf166579bada0a3c8bdabb7199af85682fdcefb6f1cb7e444f5c75b3', 'model'),)),
+    # Its text encoder comes from Gemma, so the Gemma Terms of Use and its Prohibited Use Policy apply.
+    Model('irodori-v4-large-q8', 'japanese', 'Irodori-TTS v4 Large · Q8_0', 'Aratako / sakasegawa',
+          'sakasegawa/Irodori-TTS-v4-Large-GGUF', IRODORI_LARGE_REV, 'Gemma Terms of Use + MIT + Apache-2.0', (
+              f'https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/README.md',
+              f'https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/GEMMA_TERMS_OF_USE.md',
+              f'https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/GEMMA_PROHIBITED_USE_POLICY.md',
+              f'https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/LICENSE-MIT',
+              f'https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/{IRODORI_LARGE_REV}/LICENSE-APACHE-2.0'),
+          'irodori_large', (Artifact('Irodori-TTS-3.4B-v4-Q8_0.gguf', 3875154272,
+                                    '836a2deda5115e4400d25674612ff30d704a358d0b16cf96a3eb510dc416bc4e', 'model'),)),
+    Model('qwen3-17b-q8', 'multilingual', 'Qwen3-TTS 12Hz 1.7B CustomVoice · Q8_0', 'Qwen / sakasegawa',
+          'sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF', QWEN_17B_REV, 'Apache-2.0', (
+              f'https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/blob/{QWEN_17B_REV}/README.md',
+              'https://www.apache.org/licenses/LICENSE-2.0'),
+          'qwen', (Artifact('Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf', 2287780352,
+                           '1bc0ef69547c003507b6536639a6080c8856382f4d0963b15d4475528330592d', 'model'),)),
+)
+CATALOG = (*CATALOG, *TTS_CATALOG)
+# --- More speech.cpp TTS models: end ------------------------------------------
 
 
 TARGETS = ('japanese', 'multilingual', 'asr', 'vad', 'diarization', 'rvc', 'ocr')
