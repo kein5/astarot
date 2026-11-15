@@ -135,3 +135,28 @@
     content: ""; position: absolute; right: -0.1em; top: -0.22em;
     border-left: 0.35em solid #7f93b3; border-top: 0.28em solid transparent; border-bottom: 0.28em solid transparent;
 }.flow_note { margin: 0; padding: 0.2em 0.6em; border-radius: 0.3em; background: rgba(8, 12, 22, 0.6); color: #dce7fb; align-self: flex-start; }
+
+// Ctrl held over the window: the area a drag moves, and the text size beside it. It never takes
+// the mouse; the native side does the drag. A fixed size in px, so a large caption size does not
+// make the frame cover the captions.
+.adjust {
+    position: fixed;
+    inset: 0;
+    box-sizing: border-box;
+    border: 2px dashed #58b0ee;
+    border-radius: 6px;
+    background: rgba(88, 176, 238, 0.12);
+    pointer-events: none;
+}
+.adjust_size {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(8, 12, 22, 0.85);
+    color: #c2e3ff;
+    font-size: 14px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}

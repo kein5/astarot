@@ -80,6 +80,18 @@ large-v3), Zoont (large-v3-turbo-int8), and deepdml (large-v3-turbo). Files
 left by those versions can be deleted in Settings → Speech recognition (ASR)
 → Old Whisper models.
 
+## Downloadable speech recognition models (speech.cpp)
+
+The speech recognition models are not shipped. Each file is downloaded from a
+pinned Hugging Face revision only after the user agrees in Settings → Speech
+recognition (ASR). The catalog offers every file that the bundled speech.cpp
+lists for Qwen3-ASR 0.6B and 1.7B (Qwen, Apache-2.0), ReazonSpeech v2 (Reazon
+Research, Apache-2.0), Parakeet TDT-CTC 0.6B ja and Parakeet TDT 0.6B v3
+(NVIDIA, CC BY 4.0), Haas-ja v1.0 (Third Intelligence, Apache-2.0) and
+Nemotron 3.5 Transcribe 30B-A4B (NVIDIA, OpenMDW-1.1), all converted to GGUF by
+sakasegawa. `licenses/speechcpp-models/NOTICE.md` lists the sources, revisions
+and the license review.
+
 ## Downloadable CTranslate2 translation weights
 
 None of these weights ship with VRCT-VOX. The app downloads the selected one
@@ -131,13 +143,24 @@ executables for its platform, with each crate's license, in
 carries the license texts each crate publishes in
 `_internal/licenses/rust/<crate>-<version>/`. `tools/rust_licenses.py` makes
 the list from the lock files (`src-tauri/Cargo.lock`,
-`native/rvc-runtime/Cargo.lock`) when the package is built.
+`native/rvc-runtime/Cargo.lock`) when the package is built. The application
+also contains the backend core and the crates it uses (`native/core`,
+`native/adapters`, `native/ops`, `native/speech-server`, `native/tts`); they
+are VRCT-VOX's own code under `LICENSE`, and the list marks them so.
 
 The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
 Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,
 `selectors` and `dwrote`, under the Mozilla Public License 2.0. VRCT-VOX does
 not modify them. The source code of every listed crate, these included, is on
 crates.io at the version listed (`https://crates.io/crates/<crate>/<version>`).
+
+The application checks TLS certificates against Mozilla's root CA
+certificates in the `webpki-roots` crate. That data is derived from the
+[Common CA Database (CCADB)](https://www.ccadb.org/) and is used under the
+[CCADB Data Usage Terms](https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms),
+that is, the Community Data License Agreement – Permissive, Version 2.0
+(CDLA-Permissive-2.0), whose text is in
+`_internal/licenses/rust/webpki-roots-<version>/LICENSE`.
 
 A few crates publish no license text in their package. For those, the texts
 come from the crate's own repository or from the license's canonical text, as

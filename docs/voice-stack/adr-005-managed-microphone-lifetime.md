@@ -5,7 +5,7 @@ Status: ソースcheckout向けLinux実装を採用。host一時導入とVRChat�
 Date: 2026-10-27
 Related: [ADR-004](adr-004-audio-integration-boundaries.md)
 
-2026-10-30追記: [自動作成](../superpowers/specs/2026-10-30-auto-virtual-microphone-design.md)では、
+2026-10-30追記: 自動作成では、
 同じv1経路をsystemdユーザーサービス3件の`pw-loopback`で保持する。GUI/推論workerの子として所有しないため、
 アプリ終了時にendpointを削除しないという決定は維持する。手動のdaemon設定も再利用する。
 選択時の作成は非同期で、初期muteと明示再開を維持する。ログイン時の再生成もmuteから始める。
@@ -52,8 +52,8 @@ UIはmonotonicな観測IDで古いstatus応答を拒否する。通常shutdown�
 
 CLIはVRCT停止中の一回の診断操作専用で、常駐監視は提供しない。
 追加SDKはLinuxのsystem PipeWire headers/compilerのみ。モデルとpip依存は追加しない。
-実測境界・30回試験・未検証事項は [managed-route-report.md](managed-route-report.md) に記録する。
+実測境界・30回試験・未検証事項の記録（managed-route-report.md）は2026-11-16に削除した。git の履歴に残る。
 
-後続の[ホスト試験](managed-vrchat-report.md)では、engine終了とmute中の実音声制御process再起動後も
+後続のホスト試験では、engine終了とmute中の実音声制御process再起動後も
 VRChatの入力先が同じであることを確認した。ノイズ抑制OFF・モデル代替の1シーケンスであり、
 上のSIGKILL制限やdaemon停止時のfallbackを解消する結果ではない。

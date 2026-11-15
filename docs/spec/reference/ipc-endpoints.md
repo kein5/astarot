@@ -10,7 +10,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（421件: 削除 11、取得 189、実行 39、有効化 40、無効化 42、設定 100）
+## 要求（423件: 削除 11、取得 190、実行 39、有効化 40、無効化 42、設定 101）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -293,6 +293,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/overlay_desktop` | 無効化 | `setDisableOverlayDesktop` | 可 | useVr.setSuccessIsEnabledOverlayDesktop |  |
 | `/get/data/overlay_desktop_settings` | 取得 | `getOverlayDesktopSettings` | 可 | useVr.updateFromBackendOverlayDesktopSettings |  |
 | `/set/data/overlay_desktop_settings` | 設定 | `setOverlayDesktopSettings` | 可 | useVr.setSuccessOverlayDesktopSettings |  |
+| `/get/data/overlay_desktop_placement` | 取得 | `getOverlayDesktopPlacement` | 可 | useVr.updateFromBackendOverlayDesktopPlacement |  |
+| `/set/data/overlay_desktop_placement` | 設定 | `setOverlayDesktopPlacement` | 可 | useVr.setSuccessOverlayDesktopPlacement |  |
 | `/get/data/io_flow_overlay_settings` | 取得 | `getIoFlowOverlaySettings` | 可 | useVr.updateFromBackendIoFlowOverlaySettings |  |
 | `/set/data/io_flow_overlay_settings` | 設定 | `setIoFlowOverlaySettings` | 可 | useVr.setSuccessIoFlowOverlaySettings |  |
 | `/get/data/overlay_show_only_translated_messages` | 取得 | `getOverlayShowOnlyTranslatedMessages` | 可 | useVr.updateFromBackendOverlayShowOnlyTranslatedMessages |  |

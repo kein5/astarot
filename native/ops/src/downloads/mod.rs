@@ -10,6 +10,7 @@ pub mod catalog;
 pub mod guidance;
 pub mod hardware;
 mod manager;
+pub mod speechcpp;
 pub mod staging;
 pub mod transport;
 pub mod verification;

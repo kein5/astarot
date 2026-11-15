@@ -28,7 +28,7 @@ forkの公開に使える状態とは主張しない。この作業ではタグ�
 ## 2026-10-29 fork配布境界の追加検証
 
 冒頭の「P5未完了」記述のうちfork identity/公開先分離は今回実装。
-[配布境界報告](fork-distribution-isolation.md)参照。CPU/CUDA specのOCR/rapidocr全体収集を廃止し、
+CPU/CUDA specのOCR/rapidocr全体収集を廃止し、
 OCR重みを展開済みdatas/binariesのsource/destination両方で除外する。
 元LICENSE/NOTICE、OCRモデル通知を明示収集。ZIP/NSIS検査は失敗時に配布処理を止める。
 Windows最終実物、Linux製品package、全同梱依存の最終ライセンス監査は未完了。
@@ -131,6 +131,7 @@ Tauri本体に`tauri-plugin-updater` 2.14.1を加えた。Windows（x86_64-pc-wi
 `webpki-root-certs`（CDLA-Permissive-2.0）はロックファイルに載るが、WindowsとLinuxのビルドには入らない。
 同梱するのはプログラムだけで、証明書のデータやモデルは加えていない。配布物へのライセンス文書の同梱方法は、
 Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の「#322」の節で整備した。
+2026-11-16時点では、#344で`webpki-roots`の証明書データがTauri本体に入った（下の「#344」の節）。
 
 ## Rust依存のライセンス文と基礎モデルの記録（2026-11-15、#322）
 
@@ -138,7 +139,7 @@ Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の�
 
 配布物に入るRust製の実行ファイルは、Tauri本体の`vrct-vox`とRVCワーカーの`vrct-rvc-worker`の2つ。
 `native/`の他のクレートは2026-11-15のdevelopではまだどの実行ファイルにも組み込んでいない
-（`asr-capture`など`main.c`だけのものはC）。
+（`asr-capture`など`main.c`だけのものはC）。→ #344で`native/core`などが`vrct-vox`に入った（下の「#344」の節）。
 
 `tools/rust_licenses.py`がパッケージを作るときに2つの実行ファイルの依存をロックファイルから求める。
 対象の環境（`x86_64-pc-windows-msvc`、`x86_64-unknown-linux-gnu`）で`cargo metadata --filter-platform`を使い、
@@ -182,6 +183,37 @@ Mozillaが公開しているMPL-2.0の本文を使った。補いのないクレ
 どちらも配布物に含めず、利用者の同意を得てから提供元から直接取得するので、取得の形は変えない。
 NOTICEに「RVC base models」の節を足して、出所を示した。
 
+## 中核統合（#344）後のRust依存の突き合わせ（2026-11-16）
+
+#322の残課題へのオーナーの決定を受けて、台帳と#344で増えた依存を突き合わせた。#344をマージした後のdevelop（`6fe7bd36`）で`tools/rust_licenses.py`を実行し、マージ直前のdevelop（`131bbc3a`）の一覧と比べた。
+
+配布物に入るRust製の実行ファイルは、引き続き`vrct-vox`と`vrct-rvc-worker`の2つ。#344で`vrct-vox`がバックエンドの中核（`native/core`）を取り込み、中核が使う`native/adapters`、`native/ops`、`native/speech-server`、`native/tts`も一緒に入った。どれもリポジトリ内のクレートで、一覧ではVRCT-VOXのコードとして扱う。アプリの依存は`src-tauri/Cargo.lock`で決まり、中核を単独で試験するための`native/core/Cargo.lock`は使わない。2つのロックファイルで同じクレートの版が食い違う例はなかった。中核のクレートは機能フラグを持たず、配布物に入る新しい実行ファイルもない（`fake-speech`などの`[[bin]]`は試験用）。
+
+| 項目 | Windows | Linux |
+|---|---|---|
+| クレートの数（マージ前 → 後） | 313 → 335 | 385 → 407 |
+| 新しく入ったクレート | 17（外部12、リポジトリ内5） | 同じ17 |
+| なくなったクレート | 0 | 0 |
+| ライセンス文が欠けたクレート | 0 | 0 |
+
+新しく入った外部のクレートは`chacha20`、`const-oid`、`data-encoding`、`hybrid-array`、`if-addrs`、`rand`、`rand_core`、`sha1`、`tokio-macros`、`tokio-tungstenite`、`tungstenite`、`webpki-roots`。`if-addrs`はMIT OR BSD-3-Clause、`webpki-roots`はCDLA-Permissive-2.0で、ほかはMIT、またはMITとApache-2.0のいずれか。どれも公開パッケージにライセンス文があり、補い（`licenses/rust/supplements.json`）は要らなかった。`supplements.json`の11件は、すべて今もどちらかのビルドで使われている。
+
+すでにあった`base64`、`block-buffer`、`cpufeatures`、`crypto-common`、`digest`には別の版が加わった。`tokio-rustls`は0.26.6から0.26.4へ、`uuid`は1.29.2から1.29.0へ下がった。`native/adapters`が`tokio-rustls = "=0.26.4"`、`native/ops`が`uuid = "=1.29.0"`と版を完全一致で指定していて、Cargoがアプリ全体をこの版にそろえた。ライセンスは変わらない。版の指定を直すかは未決。
+
+#300の残課題に挙がった依存（tokio、rustls、ring、tokio-tungstenite、x11rb、windows-sys、if-addrs、socket2、serde_json、subtle、futures-util）は、対象の環境のものがすべて一覧に載る（`x11rb`はLinuxだけ、`windows-sys`はWindowsだけ）。
+
+`webpki-roots`はMozillaのルート証明書のデータで、`native/ops`がTLSの証明書の検証に使う。そのため、上の#330の節の「証明書のデータは加えていない」は当てはまらなくなった（`webpki-root-certs`は今もビルドに入らない）。このデータはCCADB（Common CA Database）のデータの派生物で、[CCADBのデータ利用条件](https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms)に従う。条件はCDLA-Permissive-2.0で、データを配るときは契約の本文を添えることを求める。利用条件はさらに、再配布や派生物での利用のときにCCADBへの帰属を示すことを求める。本文は`_internal/licenses/rust/webpki-roots-1.0.11/LICENSE`として同梱されていたが、帰属の表示はどこにもなかった。そこでNOTICEの「Rust crates in VRCT-VOX builds」に表示を足し、`tools/rust_licenses.py`が書く一覧（`README.md`）にも、このクレートが入るビルドでは表示を書くようにした。ロックファイルに`webpki-roots`があるかぎりNOTICEに表示があることは、試験（`tests/devtools/test_rust_licenses.py`）で確かめる。
+
+中核のクレートが`include_str!`で取り込むファイルは、OBSのブラウザーソースのページ（`native/adapters/src/obs/page.html`）と言語の表（`native/core/data/*.json`）だけ。どちらもリポジトリのコードとデータから作ったもので、第三者のデータではない。中核のクレートには`build.rs`もない。
+
+## rmvpe.onnxの承認（2026-11-16、#322）
+
+#322の残課題へのオーナーの決定で、`rmvpe.onnx`は使い続けることになった。承認記録の[rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json)では、`status`を`approved_for_app_fetch_after_user_consent`に変え、`consent`にこの決定を足した。取得の形は変わらない。固定revisionから利用者の同意を得てから取得し、配布物には含めない。再配布の承認ではない。
+
+2026-11-16にHugging FaceのAPIで、記録の5ファイル（今取得する3つと以前の2つ）のサイズとblob IDが記録と一致することを確かめた。LFSのファイルはSHA-256も一致した。
+
+取得するのは、今も既定の経路のPythonのサイドカー（`src-python/models/voice_conversion/runtime_setup.py`）。#344で入ったRustの中核は、まだ実行環境を準備しない（[core-integration.md](core-integration.md)の未決事項6）。中核に移すときも同じ固定値で取得する必要がある。Pythonの固定値と記録の一致は、試験（`tests/voice/test_vc_runtime_setup.py`）が確かめている。
+
 ## RVC追加分（2026-10-29、モデル未取得）
 
 > 2026-11-15以降、この節とMia2026の節の外部Python実行環境は使っていない（上の節）。記録として残す。
@@ -211,7 +243,7 @@ RVC-Project/Retrieval-based-Voice-Conversion-WebUI固定commit
 Mia2026.pth/.index/.zip/.pngの除外・拒否を追加した。試験は偽データで実施。
 
 HuBERT/RMVPEの固定4ファイルは今回明示承認され、370,392,700 bytesを取得してhash照合した。
-[実機結果と利用境界](rvc-mia-validation-2026-10-29.md)。新しい録音・モデル/音声の公開は行っていない。
+新しい録音・モデル/音声の公開は行っていない。
 
 実際に導入した`praat-parselmouth==0.4.6`のwheel metadataはGPLv3。RVCソースのMITだけを
 実行環境全体へ一般化しない。Torch/torchaudio、FAISS、Transformers、NumPy/SciPy、
@@ -274,3 +306,18 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 元のモデルカードは学習データに日本語を挙げていない。日本語での精度は提供元も変換者も公表していない。この条件と手元での試験の結果は[話者分離の選定と試験](speaker-diarization-2026-11-13.md)に記録した。
 
 候補のうち、Streaming Sortformer v2.1（NVIDIA Open Model License）とMultitalker Parakeet（同）は採用していない。Sortformer v1（CC-BY-NC-4.0）は非商用なので候補から外した。pyannoteのモデルは取得にログインと利用規約への同意が要るので、カタログに載せられない。
+
+## speech.cppの音声認識モデル（2026-11-16）
+
+同梱のspeech.cpp 0.11.0が扱う認識モデル7種を、取得できるモデルに加えた（量子化の種類ごとに31件）。配布物には含めない。利用者が同意画面で確認してから、Hugging Faceの固定revisionからこのPCへ取得する。revision・容量・SHA-256はspeech.cppのカタログの値で、モデルごとの表は[licenses/speechcpp-models/NOTICE.md](../../licenses/speechcpp-models/NOTICE.md)にある。
+
+| モデル | ライセンス | 確認したこと |
+|---|---|---|
+| Qwen3-ASR 0.6B / 1.7B | Apache-2.0 | GGUF版と元のモデル（Qwen）のカードが一致 |
+| ReazonSpeech v2 | Apache-2.0 | 元のモデル（reazon-research）と一致。学習に使ったコーパスには別の条件があるが、取得も提供もしない |
+| Parakeet TDT-CTC 0.6B ja | CC BY 4.0 | 元のモデル（NVIDIA）と一致。モデルを共有するときはクレジットとライセンスへのリンクが要る。同意画面の注意書きで伝える |
+| Parakeet TDT 0.6B v3 | CC BY 4.0 | 同上 |
+| Haas-ja v1.0 | Apache-2.0 | 以前から取得できたQ8_0と同じrevision。ほかの種類も同じリポジトリ |
+| Nemotron 3.5 Transcribe 30B-A4B | OpenMDW-1.1 | 話者分離モデルと同じ契約（上の節）。リポジトリの`LICENSE`がNVIDIAの著作権表示を含む |
+
+2026-11-16に、固定revisionのモデルカードと元のモデルのカードで確かめた。どれもHugging Faceのアクセス制限（gated）がなく、ログインや利用規約への同意は要らない。非商用の制限もない。ライセンスを理由に外したモデルはない。Nemotron 3.5 Transcribeはいちばん小さいファイルでも約19 GBある。同意画面の注意書きで容量とメモリーの大きさを示し、既定では選ばない。

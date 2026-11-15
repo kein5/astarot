@@ -74,6 +74,7 @@ CASES = {
                                                                 "tracker": "Elbow"},
                                  "OVERLAY_DESKTOP_SETTINGS": {"position": "top", "font_size": 100, "display_duration": 10,
                                                               "opacity": 0.3},
+                                 "OVERLAY_DESKTOP_PLACEMENT": {"x": -1700, "y": 640},
                                  "IO_FLOW_OVERLAY_SETTINGS": {"desktop": True, "count": 4},
                                  "OVERLAY_VR_PANEL_SETTINGS": {"width": 1000, "tracker": "Playspace", "x_pos": 1},
                                  "OVERLAY_VR_LAUNCHER_SETTINGS": {"tracker": "RightHand", "unknown": 1}},

@@ -178,6 +178,20 @@ class LinuxWorkspaceTests(unittest.TestCase):
                     pending.append(crate / 'Cargo.toml')
         self.assertEqual(set(build_linux.APP_CRATES), needed)
 
+    def test_the_workspace_copies_every_file_a_crate_includes_from_outside_itself(self):
+        import re
+        root = Path(build_linux.ROOT)
+        outside = set()
+        for name in build_linux.APP_CRATES:
+            crate = root / 'native' / name
+            for source in (crate / 'src').rglob('*.rs'):
+                for path in re.findall(r'include_(?:str|bytes)!\(\s*"([^"]+)"', source.read_text(encoding='utf-8')):
+                    target = (source.parent / path).resolve()
+                    if not target.is_relative_to(crate.resolve()):
+                        self.assertTrue(target.is_file(), path)
+                        outside.add(target.relative_to(root.resolve()).as_posix())
+        self.assertEqual(set(build_linux.CRATE_INPUTS), outside)
+
 
 if __name__ == '__main__':
     unittest.main()

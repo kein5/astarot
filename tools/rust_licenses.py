@@ -10,7 +10,8 @@ Each crate's texts are the LICENSE, COPYING, NOTICE and similar files at the top
 published package. A crate that publishes none needs a reviewed entry in
 licenses/rust/supplements.json; without one this tool fails, so a new dependency cannot
 ship without its license text. The crates of this repository (path dependencies) are
-VRCT-VOX's own code under its LICENSE and get no folder.
+VRCT-VOX's own code under its LICENSE and get no folder. A crate whose terms ask for an
+attribution beyond its license files (ATTRIBUTIONS) gets it in the list as well.
 """
 import argparse
 import json
@@ -30,6 +31,14 @@ SHIPPED = (
 )
 PREFIXES = ('LICENSE', 'LICENCE', 'COPYING', 'COPYRIGHT', 'NOTICE', 'UNLICENSE', 'AUTHORS')
 MARKER = 'crates.json'
+# Crates whose terms ask for an attribution that their license files do not carry. The list
+# repeats it for each one in the build; NOTICE.md carries it too (tests/devtools checks both).
+ATTRIBUTIONS = {
+    'webpki-roots': ("Mozilla's root CA certificates in `webpki-roots` are derived from the "
+                     'Common CA Database (CCADB) data (https://www.ccadb.org/), used under the '
+                     'CCADB Data Usage Terms (https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms): '
+                     'CDLA-Permissive-2.0, whose text is in its folder.'),
+}
 
 
 def metadata(manifest, target, features=(), *, offline=False, cargo='cargo'):
@@ -142,6 +151,9 @@ def readme(rows, target):
     for row in rows:
         license_text = 'VRCT-VOX' if row['local'] else (row['license'] or 'see the folder')
         lines.append(f"| {row['name']} | {row['version']} | {license_text} | {', '.join(row['binaries'])} |")
+    attributions = [ATTRIBUTIONS[name] for name in sorted({row['name'] for row in rows} & set(ATTRIBUTIONS))]
+    if attributions:
+        lines += ['', '## Attributions', '', *(f'- {text}' for text in attributions)]
     return '\n'.join(lines) + '\n'
 
 

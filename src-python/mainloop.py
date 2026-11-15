@@ -599,6 +599,8 @@ mapping = {
     "/set/disable/overlay_desktop": {"status": True, "variable":controller.setDisableOverlayDesktop},
     "/get/data/overlay_desktop_settings": {"status": True, "variable":controller.getOverlayDesktopSettings},
     "/set/data/overlay_desktop_settings": {"status": True, "variable":controller.setOverlayDesktopSettings},
+    "/get/data/overlay_desktop_placement": {"status": True, "variable":controller.getOverlayDesktopPlacement},
+    "/set/data/overlay_desktop_placement": {"status": True, "variable":controller.setOverlayDesktopPlacement},
     "/get/data/io_flow_overlay_settings": {"status": True, "variable":controller.getIoFlowOverlaySettings},
     "/set/data/io_flow_overlay_settings": {"status": True, "variable":controller.setIoFlowOverlaySettings},
 

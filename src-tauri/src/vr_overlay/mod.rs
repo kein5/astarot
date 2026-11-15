@@ -1,5 +1,5 @@
 //! The SteamVR overlay, moving here from the Python sidecar (`src-python/models/overlay/`,
-//! issue #282; design in `docs/superpowers/specs/2026-11-15-vr-overlay-rust-design.md`).
+//! issue #282).
 //!
 //! Phase 1 holds what does not need SteamVR: the VR page's arrangement, the pose math for
 //! pointing, grabbing and placing windows, the timing of fades and of showing and hiding,

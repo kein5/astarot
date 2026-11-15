@@ -152,6 +152,10 @@
     "display_duration": 10,
     "opacity": 0.3
    },
+   "OVERLAY_DESKTOP_PLACEMENT": {
+    "x": -1700,
+    "y": 640
+   },
    "IO_FLOW_OVERLAY_SETTINGS": {
     "desktop": true,
     "count": 4
@@ -520,6 +524,10 @@
      "font_size": 28,
      "display_duration": 6,
      "opacity": 0.6
+    },
+    "OVERLAY_DESKTOP_PLACEMENT": {
+     "x": null,
+     "y": null
     },
     "IO_FLOW_OVERLAY_SETTINGS": {
      "desktop": false,
@@ -1263,6 +1271,10 @@
        "font_size": 28,
        "display_duration": 10,
        "opacity": 0.3
+      },
+      "OVERLAY_DESKTOP_PLACEMENT": {
+       "x": -1700,
+       "y": 640
       },
       "OVERLAY_VR_PANEL_SETTINGS": {
        "width": 1000,
@@ -1793,6 +1805,10 @@
      "display_duration": 6,
      "opacity": 0.6
     },
+    "OVERLAY_DESKTOP_PLACEMENT": {
+     "x": null,
+     "y": null
+    },
     "IO_FLOW_OVERLAY_SETTINGS": {
      "desktop": false,
      "count": 1
@@ -2472,6 +2488,10 @@
        "font_size": 28,
        "display_duration": 10,
        "opacity": 0.3
+      },
+      "OVERLAY_DESKTOP_PLACEMENT": {
+       "x": -1700,
+       "y": 640
       },
       "OVERLAY_VR_PANEL_SETTINGS": {
        "width": 1000,

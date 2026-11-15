@@ -605,6 +605,21 @@ def _overlay_desktop_validator(val, inst):
             new[key] = float(v)
     return new
 
+OVERLAY_DESKTOP_PLACEMENT_LIMIT = 100_000
+
+
+def _overlay_desktop_placement_validator(val, inst):
+    """Where the user dragged the desktop caption window: its top-left corner in physical pixels
+    of the virtual desktop, or both None for the band the "position" setting picks."""
+    if not (isinstance(val, dict) and set(val.keys()) == {"x", "y"}):
+        return None
+    x, y = val["x"], val["y"]
+    if x is None and y is None:
+        return {"x": None, "y": None}
+    if all(type(v) is int and -OVERLAY_DESKTOP_PLACEMENT_LIMIT <= v <= OVERLAY_DESKTOP_PLACEMENT_LIMIT for v in (x, y)):
+        return {"x": x, "y": y}
+    return None
+
 def _io_flow_overlay_validator(val, inst):
     """The flow overlay: the desktop strip on or off, and how many recent inputs it shows (1 to 3)."""
     base = inst.IO_FLOW_OVERLAY_SETTINGS
@@ -1254,6 +1269,8 @@ class Config:
     OVERLAY_LARGE_LOG_SETTINGS = ValidatedProperty('OVERLAY_LARGE_LOG_SETTINGS', _overlay_large_validator)
     # Captions over the desktop, for VRChat without a headset. The UI draws them in its own window.
     OVERLAY_DESKTOP_SETTINGS = ValidatedProperty('OVERLAY_DESKTOP_SETTINGS', _overlay_desktop_validator)
+    # Where the caption window was dragged with Ctrl held; None keeps it on the band of "position".
+    OVERLAY_DESKTOP_PLACEMENT = ValidatedProperty('OVERLAY_DESKTOP_PLACEMENT', _overlay_desktop_placement_validator)
     IO_FLOW_OVERLAY_SETTINGS = ValidatedProperty('IO_FLOW_OVERLAY_SETTINGS', _io_flow_overlay_validator)
     # VRパネルの位置。UIからは設定せず、VR内で掴んで動かした位置だけが保存される。
     OVERLAY_VR_PANEL_SETTINGS = ValidatedProperty('OVERLAY_VR_PANEL_SETTINGS', _make_overlay_vr_window_validator('OVERLAY_VR_PANEL_SETTINGS'))
@@ -1689,6 +1706,7 @@ class Config:
             "display_duration": 6,
             "opacity": 0.6,
         }
+        self._OVERLAY_DESKTOP_PLACEMENT = {"x": None, "y": None}
         # Where the user's voice and chat go, with stage times, over the desktop (one input by default).
         self._IO_FLOW_OVERLAY_SETTINGS = {"desktop": False, "count": 1}
         self._OVERLAY_VR_LAUNCHER_SETTINGS = dict(DEFAULT_OVERLAY_VR_LAUNCHER_SETTINGS)

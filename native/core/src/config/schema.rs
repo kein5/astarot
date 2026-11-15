@@ -198,6 +198,23 @@ fn overlay_desktop() -> Check {
     })
 }
 
+/// `_overlay_desktop_placement_validator`: where the caption window was dragged, as whole
+/// physical pixels within ±100000, or both null for the band of the position setting.
+fn overlay_desktop_placement() -> Check {
+    validated(|value, _| {
+        let value = value.as_object()?;
+        if value.len() != 2 {
+            return None;
+        }
+        let (x, y) = (value.get("x")?, value.get("y")?);
+        if x.is_null() && y.is_null() {
+            return Some(json!({ "x": null, "y": null }));
+        }
+        let place = |v: &Value| v.as_i64().filter(|n| is_int(v) && (-100_000..=100_000).contains(n));
+        Some(json!({ "x": place(x)?, "y": place(y)? }))
+    })
+}
+
 fn io_flow_overlay() -> Check {
     validated(|value, ctx| {
         let value = value.as_object()?;
@@ -538,6 +555,7 @@ pub fn keys() -> Vec<Key> {
         key("OVERLAY_SMALL_LOG_SETTINGS", overlay_log("OVERLAY_SMALL_LOG_SETTINGS")),
         key("OVERLAY_LARGE_LOG_SETTINGS", overlay_log("OVERLAY_LARGE_LOG_SETTINGS")),
         key("OVERLAY_DESKTOP_SETTINGS", overlay_desktop()),
+        key("OVERLAY_DESKTOP_PLACEMENT", overlay_desktop_placement()),
         key("IO_FLOW_OVERLAY_SETTINGS", io_flow_overlay()),
         key("OVERLAY_VR_PANEL_SETTINGS", overlay_vr_window("OVERLAY_VR_PANEL_SETTINGS")),
         key("OVERLAY_VR_LAUNCHER_SETTINGS", overlay_vr_window("OVERLAY_VR_LAUNCHER_SETTINGS")),
@@ -766,6 +784,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("OVERLAY_SMALL_LOG_SETTINGS", overlay("HMD")),
         ("OVERLAY_LARGE_LOG_SETTINGS", overlay("LeftHand")),
         ("OVERLAY_DESKTOP_SETTINGS", json!({ "position": "bottom", "font_size": 28, "display_duration": 6, "opacity": 0.6 })),
+        ("OVERLAY_DESKTOP_PLACEMENT", json!({ "x": null, "y": null })),
         ("IO_FLOW_OVERLAY_SETTINGS", json!({ "desktop": false, "count": 1 })),
         ("OVERLAY_VR_PANEL_SETTINGS", json!({
             "width": 900, "height": 700, "x_pos": 0.5209, "y_pos": 0.6442, "z_pos": -0.9509,

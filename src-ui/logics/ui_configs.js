@@ -40,6 +40,10 @@ export const ui_configs = {
     get overlay_desktop_default_settings() {
         return { position: "bottom", font_size: 28, display_duration: 6, opacity: 0.6 };
     },
+    // OVERLAY_DESKTOP_PLACEMENT: null until the user drags the caption window.
+    get overlay_desktop_default_placement() {
+        return { x: null, y: null };
+    },
 
     // Shared message format parts base
     _default_message_format_parts: {

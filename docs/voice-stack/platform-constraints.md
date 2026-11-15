@@ -37,7 +37,7 @@ VRChat などのアプリにアプリの音声を届けるには、相手のア�
   - Microsoft が提供していないドライバや NT サービスへの依存は、原則として認められない。例外の扱いを受ける必要があり、WHCP（Windows Hardware Compatibility Program）の認定を受けたドライバであれば、個別に判断される。
   - ドライバや NT サービスに依存するときは、Partner Center の認証ノートに申告する。審査担当者が依存を認めるかを判断し、認められなければ認証に失敗する。一度認められれば、依存を増やさない限り、更新のたびに申告し直す必要はない。
 
-Linux では、PipeWire のループバック（`pw-loopback`）で、ドライバなしに仮想マイクを作れる。VRCT-VOX はこれを自動で作る機能を持っている（[仮想マイク自動作成の試験](auto-virtual-microphone-report.md)）。この節の制約は Windows に固有のものである。
+Linux では、PipeWire のループバック（`pw-loopback`）で、ドライバなしに仮想マイクを作れる。VRCT-VOX はこれを自動で作る機能を持っている。この節の制約は Windows に固有のものである。
 
 出典: [Microsoft Store Policies 10.2.4](https://learn.microsoft.com/windows/apps/publish/store-policies)、[Store ポリシーの変更履歴](https://learn.microsoft.com/windows/apps/publish/store-policies-change-history)
 

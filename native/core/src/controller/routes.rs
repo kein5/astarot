@@ -250,6 +250,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/overlay_desktop_settings", OPEN, "OVERLAY_DESKTOP_SETTINGS");
     let desktop = store(core, "OVERLAY_DESKTOP_SETTINGS", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/overlay_desktop_settings", OPEN, desktop);
+    b.get("/get/data/overlay_desktop_placement", OPEN, "OVERLAY_DESKTOP_PLACEMENT");
+    let placement = store(core, "OVERLAY_DESKTOP_PLACEMENT", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/overlay_desktop_placement", OPEN, placement);
     b.get("/get/data/io_flow_overlay_settings", OPEN, "IO_FLOW_OVERLAY_SETTINGS");
     let io_flow = store(core, "IO_FLOW_OVERLAY_SETTINGS", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/io_flow_overlay_settings", OPEN, io_flow);

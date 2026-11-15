@@ -22,14 +22,14 @@
 | CT-11 | 取得できるモデルは版、サイズ、SHA-256、ライセンスを固定してカタログに載せる。非商用など制限のあるライセンスのモデルは既定にしない | `AGENTS.md`「配布物とライセンス」 | `tests/voice/test_model_downloads.py`、`tests/voice/test_ocr_model_catalog.py`、`src-ui/logics/configs/ctranslate2License.test.js` |
 | CT-12 | 画面の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きない | `AGENTS.md`「ユーザーの操作と同意」 | 手動 |
 | CT-13 | ホットキーは既定で割り当てない。設定画面を開いている間は無効にする | `docs/voice-stack/quick-chat-design.md` | `tests/voice/test_quick_chat_config.py`（既存の割り当ての引き継ぎ）、手動 |
-| CT-14 | クラウドへ送るのは、利用者がキーを登録してエンジンを選んだときだけ | `docs/transcription_stt_api_integration_plan.md` | `src-ui/logics/configs/cloudTranscription.test.js`、手動 |
+| CT-14 | クラウドへ送るのは、利用者がキーを登録してエンジンを選んだときだけ | `docs/spec/cross-cutting.md` | `src-ui/logics/configs/cloudTranscription.test.js`、手動 |
 
 ## 停止と独立した制御
 
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
 | CT-20 | 停止の要求（`stop_voice`、`mute_voice`など）は、ほかの処理を待たずにすぐ処理する | `PRODUCT.md`、`DESIGN.md` | `tests/voice/test_priority_cancel.py` |
-| CT-21 | 「読み上げ停止」は読み上げだけを止め、読み上げのオンオフとミュートは変えない。停止の前に積まれた音声はあとで鳴らない | `docs/superpowers/specs/2026-10-27-managed-voice-route-design.md` | `tests/voice/test_managed_route.py`、`tests/voice/test_tts_toggle.py` |
+| CT-21 | 「読み上げ停止」は読み上げだけを止め、読み上げのオンオフとミュートは変えない。停止の前に積まれた音声はあとで鳴らない | `DESIGN.md` | `tests/voice/test_managed_route.py`、`tests/voice/test_tts_toggle.py` |
 | CT-22 | 読み上げ（TTS）とRVCは独立したスイッチで、片方の操作がもう片方を止めない | `AGENTS.md`「停止と独立した制御」 | `tests/voice/test_direct_voice_controller.py` |
 | CT-23 | ミュートは再開の確認が済むまで解除しない。管理対象の経路とWindowsの出力デバイスでは読み上げと変換音声、そのスピーカーモニターを止め、再起動後もミュートを保つ。モニターの待機音声は捨て、解除後に古い音声を鳴らさない。TTS・RVCのスイッチと変換ワーカーはミュートで変えない | `docs/voice-stack/adr-005-managed-microphone-lifetime.md`、[停止とミュート](cross-cutting.md#停止とミュート) | `tests/voice/test_managed_route.py`、`tests/voice/test_mute_state.py`、`tests/voice/test_pipewire_gate.py`、`tests/voice/test_vc_monitor_mute.py`、`src-python/test/test_voice_route_monitor_mute.py` |
 | CT-24 | Quick Chat、VRパネル、ホットキーの振る舞いを保つ | `AGENTS.md`、`PRODUCT.md` | `tests/voice/test_quick_chat_ui.py`、`src-ui/logics/common/vrPanelWire.test.js`、手動 |

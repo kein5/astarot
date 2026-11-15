@@ -2,8 +2,12 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useI18n } from "@useI18n";
 import { useVr } from "@logics_configs";
+import { ui_configs } from "@ui_configs";
 import { SectionLabelComponent } from "../_components";
-import { CheckboxContainer, RadioButtonContainer, SliderContainer } from "../_templates/Templates";
+import { ActionButtonContainer, CheckboxContainer, RadioButtonContainer, SliderContainer } from "../_templates/Templates";
+import { placementOf } from "../../../../../../logics/captionOverlay/adjust";
+import RedoSvg from "@images/redo.svg?react";
+import CheckMarkSvg from "@images/check_mark.svg?react";
 import styles from "./Vr.module.scss";
 
 // Captions over the desktop, for VRChat without a headset. The section is
@@ -16,6 +20,8 @@ export const DesktopCaptionOverlay = () => {
         toggleIsEnabledOverlayDesktop,
         currentOverlayDesktopSettings,
         setOverlayDesktopSettings,
+        currentOverlayDesktopPlacement,
+        setOverlayDesktopPlacement,
         currentIoFlowOverlaySettings,
         setIoFlowOverlaySettings,
     } = useVr();
@@ -30,6 +36,21 @@ export const DesktopCaptionOverlay = () => {
     const settings = currentOverlayDesktopSettings.data;
     const state = currentOverlayDesktopSettings.state;
     const change = (key, value) => setOverlayDesktopSettings({ ...settings, [key]: value });
+    const moved = placementOf(currentOverlayDesktopPlacement?.data) !== null;
+    const unplace = () => setOverlayDesktopPlacement(ui_configs.overlay_desktop_default_placement);
+    // Choosing an edge puts a dragged window back on it, so the choice is seen to work.
+    const choosePosition = value => {
+        change("position", value);
+        if (moved) unplace();
+    };
+    // Undoes what Ctrl and a drag or + / - changed; the edge and the other settings stay.
+    const resetAdjustment = async () => {
+        const size = ui_configs.overlay_desktop_default_settings.font_size;
+        await Promise.all([
+            moved ? unplace() : null,
+            settings.font_size !== size ? setOverlayDesktopSettings({ ...settings, font_size: size }) : null,
+        ]);
+    };
     // The flow strip shares the caption window; it can be on while captions are off.
     const flow = currentIoFlowOverlaySettings.data;
     const flowState = currentIoFlowOverlaySettings.state;
@@ -47,7 +68,8 @@ export const DesktopCaptionOverlay = () => {
             <RadioButtonContainer
                 setting_id="desktop_overlay_position"
                 label={t("config_page.vr.desktop_overlay_position.label")}
-                selectFunction={value => change("position", value)}
+                desc={t("config_page.vr.desktop_overlay_position.desc")}
+                selectFunction={choosePosition}
                 name="desktop_overlay_position"
                 options={[
                     { id: "bottom", label: t("config_page.vr.desktop_overlay_position.bottom") },
@@ -58,6 +80,7 @@ export const DesktopCaptionOverlay = () => {
             <SliderContainer
                 setting_id="desktop_overlay_font_size"
                 label={t("config_page.vr.desktop_overlay_font_size.label")}
+                desc={t("config_page.vr.desktop_overlay_font_size.desc")}
                 valueLabelFormat="value px"
                 state={state}
                 variable={settings.font_size}
@@ -66,6 +89,15 @@ export const DesktopCaptionOverlay = () => {
                 max={72}
                 step={2}
                 show_label_values={[16, 28, 40, 56, 72]}
+            />
+            <ActionButtonContainer
+                setting_id="desktop_overlay_reset_adjustment"
+                label={t("config_page.vr.desktop_overlay_reset_adjustment.label")}
+                desc={t("config_page.vr.desktop_overlay_reset_adjustment.desc")}
+                IconComponent={RedoSvg}
+                ClickedIconComponent={CheckMarkSvg}
+                clicked_duration={1000}
+                onclickFunction={resetAdjustment}
             />
             <SliderContainer
                 setting_id="desktop_overlay_display_duration"
