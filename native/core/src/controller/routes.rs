@@ -222,6 +222,13 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         ok(core.config().get("LOCAL_ASR_NOTICE_PENDING"))
     });
 
+    // The virtual microphone guide (#321). Finding the cables and the check are not wired yet.
+    b.get("/get/data/virtual_mic_notice", OPEN, "VIRTUAL_MIC_NOTICE_PENDING");
+    b.with("/set/disable/virtual_mic_notice", OPEN, |core, _| {
+        let _ = core.config().set("VIRTUAL_MIC_NOTICE_PENDING", json!(false));
+        ok(core.config().get("VIRTUAL_MIC_NOTICE_PENDING"))
+    });
+
     // VR: the values the VR UI reads; the overlay itself is not wired yet (#282)
     b.with("/get/data/overlay_vr_panel_opacity", OPEN, |core, _| ok(core.config().get("OVERLAY_VR_PANEL_SETTINGS")["opacity"].clone()));
     b.with("/get/data/overlay_vr_panel_anchor", OPEN, |core, _| ok(core.config().get("OVERLAY_VR_PANEL_SETTINGS")["tracker"].clone()));

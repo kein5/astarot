@@ -61,6 +61,7 @@ from models.audio_routing.devices_windows import carries_own_voice, same_output
 from models.audio_routing.managed_route import VoiceRoute
 from models.audio_routing.monitor_output import monitor_spec
 from models.audio_routing.mute_state import MuteState
+from models.audio_routing import virtual_mic
 from models.audio_routing.pipewire_gate import PipeWireGate
 from models.audio_routing.source_bridge import PIPEWIRE_MIC_HOST, enumerate_sources, microphone_names, parse_source
 from models.voice_conversion.direct_voice import DirectVoice, create_converted_process
@@ -460,6 +461,7 @@ class Controller:
         self.io_traces = IoTraces(self._ioTraceEmit)
         self.voice_events.on_first_audio = self._ioSpeechStarted
         self._direct_engine = None
+        self.virtual_mic_check = virtual_mic.VirtualMicCheck()
         self.voice_route = VoiceRoute(self.voice_events, gate=PipeWireGate(),
                                      store=MuteState(Path(config_path).with_name('voice_mute_state.json')),
                                      on_muted=self.direct_voice.set_monitor_muted)
@@ -3083,6 +3085,7 @@ class Controller:
 
     def muteVoice(self, *args, **kwargs) -> dict:
         self.voice_route.mute()
+        self._stopVirtualMicCheck()
         return self.getVoiceRoute()
 
     def resumeVoice(self, *args, **kwargs) -> dict:
@@ -3102,6 +3105,7 @@ class Controller:
 
     def stopVoice(self, *args, **kwargs) -> dict:
         self.voice_events.cancel()
+        self._stopVirtualMicCheck()
         return self.getVoiceStatus()
 
     def chatMessage(self, data) -> dict:
@@ -5894,6 +5898,72 @@ class Controller:
         """The user closed the notice: it is not shown again."""
         config.LOCAL_ASR_NOTICE_PENDING = False
         return {"status": 200, "result": config.LOCAL_ASR_NOTICE_PENDING}
+
+    @staticmethod
+    def getVirtualMicNotice(*args, **kwargs) -> dict:
+        """Whether the virtual microphone guide may still open by itself (#321).
+
+        The UI opens it at start-up only on Windows and only when no virtual cable is found.
+        """
+        return {"status": 200, "result": config.VIRTUAL_MIC_NOTICE_PENDING}
+
+    @staticmethod
+    def setDisableVirtualMicNotice(*args, **kwargs) -> dict:
+        """The user finished the guide or asked not to see it again. It stays in the TTS settings."""
+        config.VIRTUAL_MIC_NOTICE_PENDING = False
+        return {"status": 200, "result": config.VIRTUAL_MIC_NOTICE_PENDING}
+
+    def _stopVirtualMicCheck(self):
+        # After the voice itself is stopped or muted: this must never keep those from working.
+        check = getattr(self, 'virtual_mic_check', None)
+        if check is not None:
+            check.stop()
+
+    def getVirtualMicStatus(self, *args, **kwargs) -> dict:
+        """The virtual cables found, and whether TTS already plays into one of them.
+
+        Only reads the device list: no device is opened and no choice is changed.
+        """
+        output = self.voice_events.settings.output_device
+        result = {'supported': virtual_mic.supported(), 'cables': [], 'error': None,
+                  'tts_output': output or None, 'tts_output_is_cable': False}
+        if not result['supported']:
+            return {'status': 200, 'result': result}
+        try:
+            result['cables'] = virtual_mic.find_cables()
+        except Exception:
+            result['error'] = 'audio_devices_unavailable'
+        result['tts_output_is_cable'] = bool(output) and any(
+            same_output(output, cable['playback']) for cable in result['cables'])
+        return {'status': 200, 'result': result}
+
+    def runVirtualMicTest(self, data=None, *args, **kwargs) -> dict:
+        """Play the test tone into a virtual cable and measure its other end (#321).
+
+        Runs only when the user asks. It is refused while the voice is muted, and a stop or
+        mute request ends it at once. The level is sent as /run/virtual_mic_level while it
+        runs; nothing recorded is kept.
+        """
+        if not virtual_mic.supported():
+            return {'status': 409, 'result': {'error_code': 'virtual_mic_unsupported'}}
+        playback = data.get('playback') if isinstance(data, dict) else None
+        try:
+            cables = virtual_mic.find_cables()
+        except Exception:
+            return {'status': 409, 'result': {'error_code': 'audio_devices_unavailable'}}
+        pair = next((cable for cable in cables if cable['playback'] == playback), None)
+        if pair is None:
+            return {'status': 409, 'result': {'error_code': 'virtual_mic_missing'}}
+        if self.voice_route.status()['requested_muted']:
+            return {'status': 409, 'result': {'error_code': 'virtual_mic_voice_muted'}}
+
+        def report(level):
+            self.run(200, self.run_mapping['virtual_mic_level'], {'playback': pair['playback'], 'level': level})
+        try:
+            outcome = self.virtual_mic_check.run(pair, report)
+        except RuntimeError as exc:
+            return {'status': 409, 'result': {'error_code': str(exc)}}
+        return {'status': 200, 'result': dict(outcome, playback=pair['playback'], recording=pair['recording'])}
 
     @staticmethod
     def getOldWhisperWeights(*args, **kwargs) -> dict:

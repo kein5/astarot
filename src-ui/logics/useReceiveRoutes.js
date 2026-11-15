@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useI18n } from "@useI18n";
 import * as realtime from "./transcription/useRealtimeASR";
 import * as localAsr from "./transcription/useLocalAsrMigration";
+import * as virtualMic from "./voice/useVirtualMic";
 import * as common from "@logics_common";
 import * as main from "@logics_main";
 import * as configs from "@logics_configs";
@@ -55,6 +56,12 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/set/disable/local_asr_notice", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateNotice" },
     { endpoint: "/get/data/old_whisper_weights", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateWeights" },
     { endpoint: "/run/delete_old_whisper_weights", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateDeleted" },
+    // The virtual microphone guide and its check on Windows (#321).
+    { endpoint: "/get/data/virtual_mic_notice", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateNotice" },
+    { endpoint: "/set/disable/virtual_mic_notice", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateNotice" },
+    { endpoint: "/get/data/virtual_mic_status", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateStatus" },
+    { endpoint: "/run/virtual_mic_test", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateResult" },
+    { endpoint: "/run/virtual_mic_level", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateLevel" },
     { endpoint: "/get/data/io_flow", ns: flow, hook_name: "useIoFlow", method_name: "updateIoFlow" },
     { endpoint: "/run/io_trace", ns: flow, hook_name: "useIoFlow", method_name: "addIoTrace" },
     { endpoint: "/get/data/tts_model_options", ns: voice, hook_name: "useVoice", method_name: "updateModelOptions" },
@@ -267,6 +274,7 @@ export const useReceiveRoutes = () => {
     }, [runtimeActive, sendRuntime]);
     const { state: realtimeState, send: sendRealtime, updateError: updateRealtimeError, reset: resetRealtime, backendStopped: stopRealtimePending } = realtime.useRealtimeASR();
     const { failRequest: failOldWhisperWeights, reset: resetLocalAsr, backendStopped: stopLocalAsrPending } = localAsr.useLocalAsrMigration();
+    const { failCheck: failVirtualMicCheck, reset: resetVirtualMic, backendStopped: stopVirtualMicCheck } = virtualMic.useVirtualMic();
     const realtimeActive = Object.values(realtimeState).some(value => value.requested);
     useEffect(() => {
         if (!realtimeActive) return;
@@ -378,6 +386,10 @@ export const useReceiveRoutes = () => {
             failOldWhisperWeights(result?.error_code);
             return;
         }
+        if (status !== 200 && endpoint === "/run/virtual_mic_test") {
+            failVirtualMicCheck(result?.error_code);
+            return;
+        }
         if (status !== 200 && endpoint.includes("realtime_asr")) {
             updateRealtimeError(result?.error_code || "realtime_request_failed");
             return;
@@ -406,6 +418,7 @@ export const useReceiveRoutes = () => {
             resetRealtime();
             // The notice and the old weights come in this same result (init_mapping).
             resetLocalAsr();
+            resetVirtualMic();
             sendRealtime("/get/data/realtime_asr_settings");
             sendRealtime("/get/data/realtime_asr_state");
             sendRealtime("/get/data/realtime_asr_models");
@@ -514,6 +527,7 @@ export const useReceiveRoutes = () => {
         stopRuntimePending();
         stopRealtimePending();
         stopLocalAsrPending();
+        stopVirtualMicCheck();
     };
     return { receiveRoutes, backendStopped };
 };

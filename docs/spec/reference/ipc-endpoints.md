@@ -10,7 +10,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（419件: 削除 11、取得 188、実行 38、有効化 40、無効化 41、設定 101）
+## 要求（423件: 削除 11、取得 190、実行 39、有効化 40、無効化 42、設定 101）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -248,6 +248,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/local_asr_notice` | 無効化 | `setDisableLocalAsrNotice` | 可 | useLocalAsrMigration.updateNotice |  |
 | `/get/data/old_whisper_weights` | 取得 | `getOldWhisperWeights` | 可 | useLocalAsrMigration.updateWeights |  |
 | `/run/delete_old_whisper_weights` | 実行 | `deleteOldWhisperWeights` | 可 | useLocalAsrMigration.updateDeleted |  |
+| `/get/data/virtual_mic_notice` | 取得 | `getVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
+| `/set/disable/virtual_mic_notice` | 無効化 | `setDisableVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
+| `/get/data/virtual_mic_status` | 取得 | `getVirtualMicStatus` | 可 | useVirtualMic.updateStatus |  |
+| `/run/virtual_mic_test` | 実行 | `runVirtualMicTest` | 可 | useVirtualMic.updateResult |  |
 | `/get/data/overlay_small_log` | 取得 | `getOverlaySmallLog` | 可 | useVr.updateFromBackendIsEnabledOverlaySmallLog |  |
 | `/set/enable/overlay_small_log` | 有効化 | `setEnableOverlaySmallLog` | 可 | useVr.setSuccessIsEnabledOverlaySmallLog |  |
 | `/set/disable/overlay_small_log` | 無効化 | `setDisableOverlaySmallLog` | 可 | useVr.setSuccessIsEnabledOverlaySmallLog |  |
@@ -435,7 +439,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/feed_watchdog` | 実行 | `feedWatchdog` | 可 | （受け取るだけ） |  |
 
 
-## 通知（サイドカーからUIへ、87件）
+## 通知（サイドカーからUIへ、88件）
 
 要求への応答とは別に、サイドカーが自分から送るメッセージ。`controller.run(status, run_mapping[名前], result)`で送る。
 
@@ -522,6 +526,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `selectable_mic_device_list` | `/run/selectable_mic_device_list` | useDevice.updateFromBackendMicDeviceList |
 | `selectable_speaker_device_list` | `/run/selectable_speaker_device_list` | useDevice.updateFromBackendSpeakerDeviceList |
 | `software_update_info` | `/run/software_update_info` | useSoftwareVersion.updateSoftwareVersionInfo |
+| `virtual_mic_level` | `/run/virtual_mic_level` | useVirtualMic.updateLevel |
 | `initialization_progress` | `/run/initialization_progress` | useInitProgress.updateInitProgress |
 | `initialization_complete` | `/run/initialization_complete` | — |
 | `config_file_unreadable` | `/run/config_file_unreadable` | （受け取るだけ） |

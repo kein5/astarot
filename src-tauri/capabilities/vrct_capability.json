@@ -64,7 +64,8 @@
                 { "url": "https://coeiroink.com/" },
                 { "url": "https://coeiroink.com/terms" },
                 { "url": "https://aivis-project.com/" },
-                { "url": "https://www.sharevox.app/" }
+                { "url": "https://www.sharevox.app/" },
+                { "url": "https://vb-audio.com/Cable/" }
             ],
             "deny": [
                 { "url": "*/..*" },

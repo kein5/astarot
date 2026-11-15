@@ -9,6 +9,7 @@ import * as settingsResponses from "../common/settingsWriteResponses.js";
 import * as meterValue from "../common/meterValue.js";
 import * as utils from "../utils.js";
 import * as localAsrMigration from "../transcription/localAsrMigration.js";
+import * as virtualMicShapes from "../voice/virtualMic.js";
 
 const messageFormat = { message: { prefix: "", suffix: "" }, separator: "\n",
     translation: { prefix: "", separator: "\n", suffix: "" }, translation_first: false };
@@ -106,10 +107,14 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./localAsrMigration.js": localAsrMigration,
     });
+    const virtualMic = await loadModule(new URL("../voice/useVirtualMic.js", import.meta.url), localRuntime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
+        "./virtualMic.js": virtualMicShapes,
+    });
     const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key } },
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
-        "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVoice": voice,
+        "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
         "./_useBackendErrorHandling": errors,
@@ -121,7 +126,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./common/settingsWriteResponses.js": settingsResponses,
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
-    return { ...subject, notices, reads, localAsr: () => localRuntime.render(localAsr.useLocalAsrMigration),
+    return { ...subject, notices, reads, localAsr: () => localRuntime.render(localAsr.useLocalAsrMigration), virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
         ...runtime.render(routes.useReceiveRoutes) };
 };

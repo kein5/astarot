@@ -20,6 +20,7 @@
 | UC-14 | ゲームから離れずに入力する（Quick Chat） | — |
 | UC-15 | 配信に字幕を出す | — |
 | UC-16 | 入力が届く先と時間を見る | — |
+| UC-17 | 仮想マイクを用意して確かめる（Windows） | — |
 
 ## UC-01 起動して使える状態にする
 
@@ -168,3 +169,12 @@
 - デスクトップ: デスクトップの字幕と同じウィンドウに、字幕の左に並べて出す。入力、音声認識と翻訳、届いた先を矢印でつないだ道として描く。字幕がオフでも出せる。出す入力は直近の1〜3件（`IO_FLOW_OVERLAY_SETTINGS.count`、既定1件）で、文言はメイン画面が作り、ウィンドウは渡された文字列を描くだけである。スナップショットの`flow`は最大3件、各8行までで、Tauriが長さと値の範囲を確かめる。
 - VR: VRパネルのウィンドウとして開く。状態はメイン画面のatomから同期する（`IoFlow`、`IoTraces`）。VRではスクロールできないため、同じ図の箱には名前と時間だけを出し、両方の入力のうちいちばん新しい入力の時間だけを示す。
 - 関係: `/get/data/io_flow`、`/run/io_trace`、`/get/data/io_flow_overlay_settings`、`/set/data/io_flow_overlay_settings`、`caption_overlay_update`の`flow`と`flow_note`、`src-ui/logics/flow/`、`src-ui/views/app/io_flow/`。
+
+## UC-17 仮想マイクを用意して確かめる（Windows）
+
+- きっかけ: 起動時、Windowsで仮想ケーブルが1つも見つからず、案内をまだ終えていないとき（`VIRTUAL_MIC_NOTICE_PENDING`）。使用状況の送信のお知らせとローカルの音声認識のお知らせが出ている間は、それが閉じるまで待つ。いつでも「テキスト読み上げ（TTS）」の設定（出力デバイスの下の「仮想マイク」）から開ける。
+- 主な流れ: 読み上げとボイスチェンジャーの声をVRChatへ届けるには仮想マイクが要ること、翻訳と字幕だけなら要らないことを先に示す。ケーブルがなければ、VB-CABLEの配布ページへの導線と入れ方（展開、管理者として実行、再起動）を示し、開いている間は3秒ごとに一覧を読み直して、見つかったら次へ進む。ケーブルがあれば、再生側と録音側の名前と、読み上げの出力デバイスがその再生側かどうかを示す（違うときは設定を開くボタンを出し、設定は変えない）。「テスト音を流す」で、短い音（-12 dBFS、0.8秒）を再生側へ流し、録音側の音量をメーターで示す。最大の音量が -30 dBFS 以上なら届いたとする。最後にVRChatのマイクに録音側を選ぶよう案内する。
+- 見つけ方: WASAPIの出力と入力のうち、同じ仮想ドライバーの両端を組にする（`models/audio_routing/virtual_mic.py`）。Steam Streaming Microphone は帰還の判定では仮想ケーブルとして扱うが、Remote Play のものなので案内には出さない。Linuxでは案内を出さない（アプリが仮想マイクを作る）。
+- 守ること: テスト音は押したときだけ流す。ミュート中は流さず（`virtual_mic_voice_muted`）、読み上げ停止とミュートで止める。録音側の音はその場で音量にするだけで、保存、ログ、テレメトリーに出さない。デバイスの選択と設定は変えない。VRChatで同じマイクをすでに使っていれば、テスト音はほかの人にも聞こえることを案内に書く。
+- 閉じ方: 「後で」とEscapeは、この起動の間だけ閉じる。「完了」と「今後は自動で表示しない」は`/set/disable/virtual_mic_notice`を送り、以後は自分では開かない。テストの間は閉じられない。
+- 関係: `/get/data/virtual_mic_notice`、`/set/disable/virtual_mic_notice`、`/get/data/virtual_mic_status`、`/run/virtual_mic_test`、`/run/virtual_mic_level`、`src-ui/views/app/_app_controllers/VirtualMicGuideController.jsx`。Rustの中核は案内の状態の2つだけを持ち、一覧とテストはまだ持たない（[中核の統合](../voice-stack/core-integration.md)）。

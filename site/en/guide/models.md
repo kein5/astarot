@@ -54,7 +54,7 @@ The "Text to speech (TTS)" page shows your GPU's name and its total and free mem
 |---|---|
 | Speech, realtime captions and telling speakers apart (speech.cpp, which comes with the app) | AMD, Intel and NVIDIA (Vulkan) |
 | Local translation | NVIDIA (the Windows GPU version). Other GPUs run it on the CPU |
-| Voice changer (RVC, Seed-VC) | NVIDIA |
+| Voice changer (RVC) | NVIDIA (GeForce GTX 16 or RTX 20 series or later, driver 580 or later). Otherwise it runs on the CPU ([System requirements](requirements#rvc-on-an-nvidia-gpu)) |
 | Chat reading | Runs on the CPU |
 
 With the inference device set to Automatic or GPU, the speech.cpp servers that come with the app use a dedicated GPU (a graphics card) before integrated graphics, and of several dedicated GPUs the one with the most memory. You can also pick one under "Inference device" in "Models and servers".
