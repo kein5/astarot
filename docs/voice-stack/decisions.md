@@ -38,3 +38,5 @@ VC本体やモデルは同梱しない。P1終了前にVC/ASRの大改造を行�
 [ADR-007: 訳文の読み上げを声の変換に通す](adr-007-translated-speech-through-voice-conversion.md)は2026-11-14の提案で、同じ日に採用して実装した。RVCとSeed-VCの入力へ読み上げの音声を流し、訳文を変換後の声で届ける設計と、ミュートと直接音声の抑制を分ける理由を書いた。
 
 [ADR-008: 外部の合成音声エンジンを読み上げに使う](adr-008-external-speech-engines.md)は2026-11-15に採用し、0.3.0に入れる。利用者が入れたVOICEVOX、SHAREVOX、AivisSpeech、COEIROINK v2に、ループバックのHTTPで接続して日本語を読み上げる。エンジンと声は同梱も取得もしない。実装はまだ。
+
+[ADR-010: フロントエンドのスタック（React と Vite を維持し、TypeScript と vanilla-extract を採用する）](adr-010-frontend-stack.md)は2026-11-15に採用し、0.5.0に向けて段階的に移行する。React と Vite はそのまま使い、Vite+ は見送って再評価の条件を残した。TypeScript は logics から型を付け、スタイルは SCSS Modules から vanilla-extract へ移し、UI 部品の土台に Radix UI を使う。0.4.0 の UI 変更は現行のスタックで行う。
