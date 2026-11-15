@@ -486,7 +486,7 @@ def test_memory_variants_have_independent_pinned_artifacts_and_guidance(tmp_path
 
 
 def test_speechcpp_tts_models_are_pinned_to_speechcpp_catalog(tmp_path):
-    # Revisions, sizes and SHA-256 match speech.cpp 0.10.0's `speech models --json`: the file it
+    # Revisions, sizes and SHA-256 match `speech models --json` of speech.cpp 0.10.0 and 0.11.0: the file it
     # fetches for irodori-tts-mf, irodori-tts, irodori-tts-large, qwen3-tts-0.6b and qwen3-tts-1.7b.
     from models.model_downloads.catalog import CATALOG, CATALOG_VERSION, SPEECH_FIELDS
     from models.model_downloads.manager import Downloads
@@ -521,7 +521,7 @@ def test_speechcpp_tts_models_are_pinned_to_speechcpp_catalog(tmp_path):
     # drama-3 (Fish Audio Community License) is not offered.
     assert not any("drama" in m.id or "drama" in m.repo.lower() for m in CATALOG)
     assert SPEECH_FIELDS["japanese"] == ("japanese", "model") and SPEECH_FIELDS["multilingual"] == ("multilingual", "model")
-    assert CATALOG_VERSION not in ("2026-11-13.1",)
+    assert CATALOG_VERSION not in ("2026-11-13.1", "2026-11-16.1")
     # New entries are never recommended over the checked ones: their check is pending.
     models = {row["id"]: row for row in Downloads(tmp_path / "models").catalog()["models"]}
     for id in pinned:

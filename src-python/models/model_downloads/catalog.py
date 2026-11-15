@@ -3,7 +3,7 @@ from dataclasses import dataclass, replace
 import re
 from urllib.parse import quote
 
-CATALOG_VERSION = '2026-11-16.1'
+CATALOG_VERSION = '2026-11-16.2'
 
 
 @dataclass(frozen=True)
@@ -104,7 +104,7 @@ CATALOG = (*CATALOG,
 
 
 # --- More speech.cpp TTS models: begin ----------------------------------------
-# The file speech.cpp 0.10.0 fetches for irodori-tts, irodori-tts-large and qwen3-tts-1.7b
+# The file speech.cpp 0.10.0 and the bundled 0.11.0 fetch for irodori-tts, irodori-tts-large and qwen3-tts-1.7b
 # (`speech models --json`). They go after the entries above, so the first choice of each
 # list stays as it was. drama-3 is left out: its Fish Audio Community License limits
 # commercial use by revenue and binds whoever makes it available (docs/voice-stack/licensing.md).

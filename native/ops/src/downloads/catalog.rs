@@ -8,7 +8,7 @@ use serde::{Serialize, Serializer};
 
 use crate::net::quote;
 
-pub const CATALOG_VERSION: &str = "2026-11-16.1";
+pub const CATALOG_VERSION: &str = "2026-11-16.2";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Artifact {
@@ -68,7 +68,7 @@ pub const QWEN_ASR_REV: &str = "ee78f8709547f39bea3b924a16c72403826cac92";
 pub const SILERO_REV: &str = "7fcb7aa2a70c312f8579fc987b3e1cdecf9321ca";
 /// The files speech.cpp 0.10.0 names nemotron-3-diarization (docs/models/sortformer.md).
 pub const NEMOTRON_DIARIZATION_REV: &str = "9096d41cb78bba7ac882b96d453e25239eac692b";
-/// The revisions speech.cpp 0.10.0's own catalog pins for irodori-tts, irodori-tts-large and
+/// The revisions speech.cpp 0.10.0 and 0.11.0 both pin for irodori-tts, irodori-tts-large and
 /// qwen3-tts-1.7b.
 pub const IRODORI_SMALL_REV: &str = "66fe2cde1973fd44e7202fbe36df722103958188";
 pub const IRODORI_LARGE_REV: &str = "79cae5947a97e941c62912749e1387c8b35ec16b";
@@ -259,7 +259,7 @@ pub fn catalog() -> Vec<Model> {
             "qwen",
             vec![artifact("Qwen3-TTS-12Hz-0.6B-CustomVoice-Q5_K.gguf", 873894144, "4bb9ba9e822ab614798c416c7f0187994f349be41221966fa911aca24f237930", "model")],
         ),
-        // More speech.cpp TTS models (TTS_CATALOG in catalog.py): what speech.cpp 0.10.0 fetches
+        // More speech.cpp TTS models (TTS_CATALOG in catalog.py): what speech.cpp 0.10.0 and 0.11.0 fetch
         // for irodori-tts, irodori-tts-large and qwen3-tts-1.7b. drama-3 is left out.
         model(
             "irodori-v41-small-f16",

@@ -1,7 +1,7 @@
 {
  "root": "/vrct-ops-reference/downloaded_models",
  "catalog": {
-  "catalog_version": "2026-11-16.1",
+  "catalog_version": "2026-11-16.2",
   "models": [
    {
     "id": "irodori-v41-f16",
