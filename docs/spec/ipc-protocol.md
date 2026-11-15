@@ -22,7 +22,7 @@ flowchart LR
 ```
 
 - サイドカーと話すのは`main`ウィンドウだけである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
-- 起動は`Command.sidecar("bin/vrct-vox-sidecar")`（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。
+- 起動は`Command.sidecar("bin/vrct-vox-sidecar")`（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。アプリを`VRCT_BACKEND=core`で起動したときは、代わりにRustの中核（`native/core`）を同じプロセスの中で動かす。UIは`backendCommand.js`を通して同じ形で扱い、行の形式と規則は変わらない（[中核の統合](../voice-stack/core-integration.md)）。
 
 ## メッセージの形
 

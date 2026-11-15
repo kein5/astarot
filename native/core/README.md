@@ -5,8 +5,8 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 ## 現在の状態
 
 - 要求の受け口（形式、ロック、初期化前の待機、即時に処理する要求、watchdog の知らせ）、エラーコード、設定（読み込み、Python 時代の設定からの移行、保存）、起動と終了ができています。試験も通ります。
-- エンドポイントは、設定の読み書きで完結するもの、言語と翻訳エンジンの選択、表示の設定などを実装しました。どれが実装済みで何が残っているかは [docs/voice-stack/core-integration.md](../../docs/voice-stack/core-integration.md) にあります。実装していないエンドポイントへの要求には 404 を返します。
-- アプリはまだ Python のサイドカーで動いています。Tauri から動かす経路は、#285 の続きで用意します。
+- エンドポイントは、設定の読み書きで完結するもの、言語と翻訳エンジンの選択、表示の設定、speech.cpp サーバ、モデル取得、テレメトリ、OSC、WebSocket と OBS のサーバを実装しました。どれが実装済みで何が残っているかは [docs/voice-stack/core-integration.md](../../docs/voice-stack/core-integration.md) にあります。実装していないエンドポイントへの要求には 404 を返します。
+- アプリは `src-tauri/src/backend_host.rs` からこのクレートを同じプロセスの中で動かせます。ただし使うのは環境変数 `VRCT_BACKEND=core` で起動したときだけで、既定は今も Python のサイドカーです。
 
 ## Python 版との対応
 
