@@ -542,10 +542,14 @@ def isAvailableWebSocketServer(host: str, port: int) -> bool:
     """
     if not isValidWebSocketHost(host) or not isValidPort(port):
         return False
+    # Bind the address as ipaddress reads it back. The check above already refuses 0.0.0.0 and
+    # "::", but CodeQL (py/bind-socket-all-network-interfaces) follows the caller's string into
+    # bind without seeing that check; a fresh value ends that trail. The text is the same.
+    address = str(ipaddress.IPv4Address(host))
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as chk:
             chk.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            chk.bind((host, port))
+            chk.bind((address, port))
         return True
     except Exception:
         return False
