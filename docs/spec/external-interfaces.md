@@ -123,7 +123,7 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 - 自動取得を予定していない起動では接続確認を送らない。`/run/connected_network`の`null`は未確認、真偽値は取得ホストへの確認結果を表す。UIは`false`のときだけ接続エラーを表示する。この値だけでGoogle音声認識などを使えない状態にはせず、各要求の成否で判定する。
 - 公式APIの接続先はコードで固定する。環境変数によるOpenAI・GeminiのURL変更、LangSmith gateway、OllamaのAPIキーは使わない。クラウドHTTPSではシステムのプロキシを使える。Requestsの認証は登録済みヘッダーを保ち、netrcの認証情報へ置き換えない。localhostとローカルIPアドレスへのAPI接続ではプロキシを使わない。APIのリダイレクトは追わず、モデル取得だけは既存のHTTPSホスト許可リストに従う。
 - カスタムURLの許可範囲と保存時の扱いは[ネットワーク設定](data-and-persistence.md#ネットワーク設定)を参照する。
-- 更新の確認は送信しない（[横断的な振る舞い](cross-cutting.md#同意と外部への送信)）。
+- 更新の確認と取得はRust側（Tauriのupdater）が行う（[アプリの更新](#アプリの更新)）。
 
 ### 利用状況の通知
 
@@ -146,6 +146,26 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 - 環境変数`VRCT_TELEMETRY_URL`は、開発者が自分のPCに立てた代わりの受け側を指すためのもので、ループバックのHTTPのアドレスだけを受け付ける。ほかの値は無視する。
 - 受け側は送信元のIPアドレスや端末の識別子を保存しない設計である（受け側の担当の説明による）。通信の相手として、Cloudflareは送信元のアドレスを扱う。
 - 受け側は通知ごとに、受信した時刻と接続元の国を記録する。国はクライアントが送る値ではなく、Cloudflareが接続元のアドレスから出す値である（2026-11-14に受け側の読み取り用のビューで確認した）。利用者に見せる説明にもこの2つを含める。
+
+### アプリの更新
+
+Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update.rs`、#330）。UIは`app_update_*`のコマンド（[Tauriのコマンド](#tauriのコマンド)）だけを使い、updaterのプラグインのコマンドの権限はどのウィンドウにも与えない。
+
+| 入れ方 | 判定 | 更新でできること（`mode`） |
+|---|---|---|
+| Windowsのインストーラー | 実行ファイルの隣に`uninstall.exe`がある。`_internal/nvidia`があればCUDA版 | 確認して入れる（`install`）。インストーラーを`/P /UPDATE /R /ARGS …`と`/EDITION=cpu`または`/EDITION=gpu`で起動し、アプリは終了する |
+| WindowsのZIP | 上のどれでもない | 確認して知らせるだけ（`manual`） |
+| AppImage | `APPIMAGE`があり、そのフォルダーに書き込める | 確認して入れる（`install`）。AppImageを置き換えて再起動する |
+| 書き込めない場所のAppImage | `APPIMAGE`のフォルダーに書き込めない | `manual` |
+| Linuxのtar.gz | 上のどれでもない | `manual` |
+| deb、rpm | 実行ファイルの隣に`package-manager`がある（`tools/linux_packages.py`が置く） | 確認しない（`package_manager`） |
+| 開発用のビルド | debugビルド | 確認しない（`disabled`） |
+
+- 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json`を読む。プレリリースは「latest」にならない。ベータ版は`GET https://api.github.com/repos/kein5/VRCT-VOX/releases`から、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）を選び、取れなければ安定版の`latest.json`を読む。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
+- `latest.json`の`platforms`は`windows-x86_64`（`VRCT-VOX_setup.exe`）と`linux-x86_64`（AppImage）を持つ。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
+- 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
+- インストーラーは`/UPDATE`のとき、言語とエディションのページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
+- 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
 
 ### LLMでの翻訳
 
@@ -247,6 +267,9 @@ Python sidecarはshell pluginのstdin/stdoutでつなぐ。UIはPythonのHTTPサ
 | `screencast_support` | `main` | `{supported, active}`。ウィンドウを共有できるデスクトップか（LinuxのWaylandセッション）、いま共有中か。何も始めない |
 | `screencast_start` | `main` | デスクトップにウィンドウの共有を頼む（[ウィンドウの共有](#ウィンドウの共有linux)）。引数は保存済みの`restoreToken`（なければ`null`）。成功すると`{restore_token}`を返す。共有中に呼ぶと、前の共有を終えてから頼む。選択画面の待ち時間は180秒 |
 | `screencast_stop` | `main` | 共有を終え、ヘルパーを止め、ポータルのセッションを閉じる |
+| `app_update_info` | `main` | `{kind, mode, channel, current_version, package_manager}`。このコピーの入れ方と、更新でできること（[アプリの更新](#アプリの更新)）。通信しない |
+| `app_update_check` | `main` | 新しい版を問い合わせ、`{available, version, release_url}`を返す。失敗は`update_check_failed`、`update_metadata_missing`などのコード |
+| `app_update_install` | `main` | 直前の確認で見つけた版を取得し、署名を確かめて入れる。進み具合は引数のチャンネル（`{phase: "download", downloaded, total}`、`{phase: "install"}`）で知らせる。Windowsではインストーラーに引き継いで終了し、Linuxでは再起動する。失敗したときは今の版のまま、コードを返す |
 
 Quick Chatのコンテキストは、`ready`、`language`、`enter_to_send`、`clear_on_send`に加え、保存済みの`ui_scaling`（整数、40〜200%）と`font_family`（空白だけではなく、制御文字を含まない256文字以内のローカルフォント名）を持つ。Rustは呼び出し元と値を検証してから置き換える。新しい2項目を省略した要求は100%と`Yu Gothic UI`を使う。小窓はフォント名をCSSの文字列として扱い、既存のNoto／システムフォントへのフォールバックを保つ。設定ファイルのキーやPython側のIPC形式は変更しない。
 

@@ -115,6 +115,23 @@ CPU版の実行環境を加えた。CPU版にはNVIDIAのファイルを含ま�
 MIT、Apache-2.0、ISCなどの許容型ライセンス。配布物へのライセンス文書の同梱方法は、Tauri本体のRust依存と同じく
 未整理（残課題）。
 
+## アプリ内の更新（2026-11-15、#330）
+
+Tauri本体に`tauri-plugin-updater` 2.14.1を加えた。Windows（x86_64-pc-windows-msvc）とLinux（x86_64-unknown-linux-gnu）のビルドに
+新しく入るRustクレートと、その`Cargo.toml`のライセンスは次のとおり（`cargo tree -e normal --target …`で確認）。
+
+| ライセンス | クレート |
+|---|---|
+| Apache-2.0 OR MIT（いずれか） | `tauri-plugin-updater`、`rustls`、`rustls-pki-types`、`rustls-platform-verifier`、`rustls-native-certs`、`hyper-rustls`、`tokio-rustls`、`getrandom`、`zeroize`、`zeroize_derive`、`openssl-probe`、`filetime`、`tar`、`xattr`、`typed-path`、`windows-registry`、`constant_time_eq`（CC0-1.0／MIT-0／Apache-2.0） |
+| MIT | `minisign-verify`、`zip` |
+| ISC | `rustls-webpki`、`untrusted` |
+| Apache-2.0 AND ISC | `ring` |
+| BSD-3-Clause | `subtle` |
+
+`webpki-root-certs`（CDLA-Permissive-2.0）はロックファイルに載るが、WindowsとLinuxのビルドには入らない。
+同梱するのはプログラムだけで、証明書のデータやモデルは加えていない。配布物へのライセンス文書の同梱方法は、
+Tauri本体の他のRust依存と同じく未整理（残課題）。
+
 ## RVC追加分（2026-10-29、モデル未取得）
 
 > 2026-11-15以降、この節とMia2026の節の外部Python実行環境は使っていない（上の節）。記録として残す。
