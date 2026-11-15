@@ -41,7 +41,7 @@ sidecarは `src-tauri/bin/vrct-vox-sidecar-x86_64-unknown-linux-gnu` に作ら�
 
 ```sh
 python tools/build_voice_gate.py
-python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/speech-0.10.0-linux-x64-vulkan.zip --output build/speechcpp
+python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/speech-0.11.0-linux-x64-vulkan.zip --output build/speechcpp
 ```
 
 `build_voice_gate.py`は、`build/vrct-voice-gate`、`vrct-source-bridge`、`vrct-vc-worker`、`vrct-asr-capture`、`vrct-screen-capture`をビルドする。`libpipewire-0.3-dev`が必要。

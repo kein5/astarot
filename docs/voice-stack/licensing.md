@@ -9,7 +9,7 @@
 |---|---|---|
 | VRCTコード | [LICENSE](../../LICENSE), [NOTICE](../../NOTICE.md) | MIT帰属を維持 |
 | upstream OCR検出重み | [モデルライセンス](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt) | fork成果物から除外。0.2.0でリポジトリからも削除（0.1.0までのコミットには残る） |
-| speech.cpp | [検証済みv0.10.0のMIT](https://github.com/nyosegawa/speech.cpp/blob/v0.10.0/LICENSE) | 2026-10-29承認後、固定CPU/Vulkan実行ファイルと依存通知の配布部品を作成・検証。Linux配布物に同梱し、0.1.0-beta.1で公開。下記追記参照 |
+| speech.cpp | [検証済みv0.11.0のMIT](https://github.com/nyosegawa/speech.cpp/blob/v0.11.0/LICENSE) | 2026-10-29承認後、固定CPU/Vulkan実行ファイルと依存通知の配布部品を作成・検証。Linux配布物に同梱し、0.1.0-beta.1で公開。2026-11-15に0.11.0へ更新。下記追記参照 |
 | Irodori v4.1 Small MF | [モデルカード](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small-MF) | 日本語のみ。MIT表示に加え、声の本人の明示同意・なりすまし/誤情報禁止の記載を確認。ユーザー管理のvoiceだけ利用 |
 | Irodori Large | [モデル説明](https://github.com/nyosegawa/speech.cpp/blob/main/docs/models/irodori-tts.md) | Smallと条件を混同しない。今回は同梱・検証なし |
 | Qwen3-TTS | [モデル説明](https://github.com/nyosegawa/speech.cpp/tree/main/docs/models) | ユーザーが選んだ重みの条件・hashを実機導入時に記録。モデル取得なし |
@@ -169,6 +169,8 @@ miniaudioの二重ライセンス、静的GCCランタイムのGPLv3＋Runtime L
 この部品の確認をアプリ全体・別VCランタイムの配布監査完了とは扱わない。未公開。
 
 2026-10-31に固定版を0.10.0（commit 06590811a90041f935a470ba0e2b85346d2fc041）へ更新。speech.cpp/cpp-httplib/miniaudio/GGMLのライセンス文は0.9.0と同一で、vendorは無変更、GGMLはsubmodule 700c9d743ed7cc583c0f1b6507afebb6c0e88bc0へ更新。公式Vulkan実行ファイルのGCCは同じUbuntu 11.4.0-1ubuntu1~22.04.3。新規に同梱する第三者コードはない。
+
+2026-11-15に固定版を0.11.0（commit 8d18924cd238b87c0297df112f7ff40783a6414f）へ更新。3種の公式ZIP（Linux CPU、Linux Vulkan、Windows Vulkan）は、リリースの`SHA256SUMS`とGitHubが示すダイジェストの両方と一致した。speech.cpp/cpp-httplib/miniaudioのライセンス文は0.10.0と同一で、vendorは無変更。GGMLはspeech.cppのfork（[nyosegawa/ggml](https://github.com/nyosegawa/ggml)）のsubmodule 79b50d239d0b88852814c873db0d85d43ed66d9bへ更新し、ライセンス文は同一。forkは0.10.0の時点から使われていたので、通知と台帳の原典URLもforkに直した。Linuxの実行ファイルのGCCは同じUbuntu 11.4.0-1ubuntu1~22.04.3で、必要なglibcは2.34のまま、動的に読むのはlibc・libm・（Vulkan版は）libvulkanだけ。Windowsの`speech.exe`はMSVCのビルド情報を持ち、読み込むDLLはWindows標準のものと`vulkan-1.dll`だけで、Cランタイムの動的ライブラリは読まない。新規に同梱する第三者コードはない。0.11.0で増えた音声強調（RE-USE）と対話（Haru-4B）のモデルはアプリから使わず、取得の候補にも入れない。
 
 ## 内蔵CTranslate2の取得条件
 

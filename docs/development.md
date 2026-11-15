@@ -64,7 +64,7 @@ python tools/dev.py doctor --scope rust
 python tools/dev.py check --scope rust
 ```
 
-`rustc -vV` でhost tripleを調べ、既存の `utils/dev_sidecar/src/main.rs` を `rustc --edition=2021` でコンパイルします。外部crateの取得はありません。出力は `src-tauri/bin/vrct-vox-sidecar-<host triple>` です。既存のAppImageビルドは別workspaceを使うため、この開発用出力を用意していなくても成功することがあります。
+`rustc -vV` でhost tripleを調べ、既存の `utils/dev_sidecar/src/main.rs` を `rustc --edition=2024` でコンパイルします。外部crateの取得はありません。出力は `src-tauri/bin/vrct-vox-sidecar-<host triple>` です。既存のAppImageビルドは別workspaceを使うため、この開発用出力を用意していなくても成功することがあります。
 
 出力が未存在なら新規作成します。既存ファイルを置き換えられるのは、このCLIの `.dev-owner.json` と現在のバイナリのSHA-256が一致する場合だけです。不明な既存バイナリ、変更されたハッシュ、出力先のシンボリックリンクは拒否します。コンパイルは同じファイルシステムの一時ディレクトリで行い、成功後に `os.replace` で配布します。コンパイル失敗時は元のバイナリと所有記録を保持します。
 

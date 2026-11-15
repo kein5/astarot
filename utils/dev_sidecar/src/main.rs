@@ -149,51 +149,53 @@ fn find_project_root(start: &Path) -> Option<PathBuf> {
 
 #[cfg(windows)]
 unsafe fn install_kill_on_close_job() {
-    use std::mem::{size_of, zeroed};
-    use std::ptr::null;
-    use windows_sys::Win32::Foundation::{CloseHandle, GetLastError};
-    use windows_sys::Win32::System::JobObjects::{
-        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
-        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-    };
-    use windows_sys::Win32::System::Threading::GetCurrentProcess;
+    unsafe {
+        use std::mem::{size_of, zeroed};
+        use std::ptr::null;
+        use windows_sys::Win32::Foundation::{CloseHandle, GetLastError};
+        use windows_sys::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        };
+        use windows_sys::Win32::System::Threading::GetCurrentProcess;
 
-    let job = CreateJobObjectW(null(), null());
-    if job.is_null() {
-        eprintln!(
-            "dev-sidecar: CreateJobObjectW failed (error {})",
-            GetLastError()
+        let job = CreateJobObjectW(null(), null());
+        if job.is_null() {
+            eprintln!(
+                "dev-sidecar: CreateJobObjectW failed (error {})",
+                GetLastError()
+            );
+            return;
+        }
+
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        let ok = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const _,
+            size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
         );
-        return;
-    }
+        if ok == 0 {
+            eprintln!(
+                "dev-sidecar: SetInformationJobObject failed (error {})",
+                GetLastError()
+            );
+            CloseHandle(job);
+            return;
+        }
 
-    let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = zeroed();
-    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-
-    let ok = SetInformationJobObject(
-        job,
-        JobObjectExtendedLimitInformation,
-        &info as *const _ as *const _,
-        size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
-    );
-    if ok == 0 {
-        eprintln!(
-            "dev-sidecar: SetInformationJobObject failed (error {})",
-            GetLastError()
-        );
-        CloseHandle(job);
-        return;
+        if AssignProcessToJobObject(job, GetCurrentProcess()) == 0 {
+            eprintln!(
+                "dev-sidecar: AssignProcessToJobObject failed (error {})",
+                GetLastError()
+            );
+            CloseHandle(job);
+            return;
+        }
+        // Intentionally leak the job handle: the OS closes it on process exit,
+        // which is exactly when we want the KILL_ON_JOB_CLOSE to fire.
     }
-
-    if AssignProcessToJobObject(job, GetCurrentProcess()) == 0 {
-        eprintln!(
-            "dev-sidecar: AssignProcessToJobObject failed (error {})",
-            GetLastError()
-        );
-        CloseHandle(job);
-        return;
-    }
-    // Intentionally leak the job handle: the OS closes it on process exit,
-    // which is exactly when we want the KILL_ON_JOB_CLOSE to fire.
 }

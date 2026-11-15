@@ -6,6 +6,7 @@ import { voiceActions } from "../../../../../logics/voice/voiceActions.js";
 import { splitFeatureLabel } from "../../../../../logics/common/featureLabel.js";
 import { voiceErrorText } from "../../../../../logics/voice/voiceErrorText.js";
 import { useSwitchBlocks } from "../../../../../logics/main/useSwitchBlocks";
+import { activeSwitchBlock } from "../../../../../logics/main/switchBlocks";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady } from "@logics_common";
 import { store } from "@store";
@@ -120,11 +121,9 @@ export const MainFunctionSwitch = () => {
     return (
         <div className={styles.container}>
             {switch_items.flatMap(item => {
-                // A switch that is off and waits for nothing stays off while its setup is
-                // missing. One that is on, or on its way, stays as it is so it can be turned off.
+                // Only a switch that is off and waits for nothing is held off (activeSwitchBlock).
                 const ready = currentIsBackendReady.data === true;
-                const block = ready && item.currentState.data !== true && item.currentState.state !== "pending"
-                    ? blocks[item.switch_id] : undefined;
+                const block = ready ? activeSwitchBlock(blocks, item.switch_id, item.currentState) : undefined;
                 const blockedReason = block ? t(`main_page.switch_blocked.${block.reason}`) : null;
                 const control = <SwitchContainer
                     key={item.switch_id}
