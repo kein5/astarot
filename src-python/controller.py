@@ -304,6 +304,7 @@ _SIMPLE_CONFIG_GETTERS = {
     "getSendMessageFormatParts": "SEND_MESSAGE_FORMAT_PARTS",
     "getReceivedMessageFormatParts": "RECEIVED_MESSAGE_FORMAT_PARTS",
     "getAutoClearMessageBox": "AUTO_CLEAR_MESSAGE_BOX",
+    "getCheckSoftwareUpdates": "CHECK_SOFTWARE_UPDATES",
     "getSendOnlyTranslatedMessages": "SEND_ONLY_TRANSLATED_MESSAGES",
     "getOverlaySmallLog": "OVERLAY_SMALL_LOG",
     "getOverlaySmallLogSettings": "OVERLAY_SMALL_LOG_SETTINGS",
@@ -4835,6 +4836,16 @@ class Controller:
         if config.AUTO_CLEAR_MESSAGE_BOX is True:
             config.AUTO_CLEAR_MESSAGE_BOX = False
         return {"status":200, "result":config.AUTO_CLEAR_MESSAGE_BOX}
+
+    @staticmethod
+    def setEnableCheckSoftwareUpdates(*args, **kwargs) -> dict:
+        config.CHECK_SOFTWARE_UPDATES = True
+        return {"status":200, "result":config.CHECK_SOFTWARE_UPDATES}
+
+    @staticmethod
+    def setDisableCheckSoftwareUpdates(*args, **kwargs) -> dict:
+        config.CHECK_SOFTWARE_UPDATES = False
+        return {"status":200, "result":config.CHECK_SOFTWARE_UPDATES}
 
 
     @staticmethod

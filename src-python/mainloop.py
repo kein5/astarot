@@ -610,6 +610,10 @@ mapping = {
     "/set/enable/auto_clear_message_box": {"status": True, "variable":controller.setEnableAutoClearMessageBox},
     "/set/disable/auto_clear_message_box": {"status": True, "variable":controller.setDisableAutoClearMessageBox},
 
+    "/get/data/check_software_updates": {"status": True, "variable":controller.getCheckSoftwareUpdates},
+    "/set/enable/check_software_updates": {"status": True, "variable":controller.setEnableCheckSoftwareUpdates},
+    "/set/disable/check_software_updates": {"status": True, "variable":controller.setDisableCheckSoftwareUpdates},
+
     "/get/data/send_only_translated_messages": {"status": True, "variable":controller.getSendOnlyTranslatedMessages},
     "/set/enable/send_only_translated_messages": {"status": True, "variable":controller.setEnableSendOnlyTranslatedMessages},
     "/set/disable/send_only_translated_messages": {"status": True, "variable":controller.setDisableSendOnlyTranslatedMessages},
