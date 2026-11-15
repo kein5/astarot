@@ -1,0 +1,188 @@
+{
+  "before": {
+    "name": "nllb-200-distilled-1.3B-onnx-int8",
+    "bytes": 1926621419,
+    "files": {
+      "decoder_model_merged_quantized.onnx": "39096118084cc1a4559b5c7d898f81163735ddf3efaa03f0266c764449a9103b",
+      "encoder_model_quantized.onnx": "56b319393320bff0b6fd6fb86b3e9d92226d2daf6af583507910bc0e0fe6cd28",
+      "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+      "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd"
+    }
+  },
+  "after": {
+    "name": "nllb-200-distilled-1.3B-onnx-int8",
+    "bytes": 1401911768,
+    "files": {
+      "decoder_model_merged_quantized.onnx": "7763083e9dc0f34a9917e5ba88e5088bf02f6dcc3cc75efbd5e84a77f7343656",
+      "encoder_model_quantized.onnx": "d387352b125efcc15ceb1e23b96af5b8b2fcc942af8cf4eb56feec81c21a57e7",
+      "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+      "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+      "vocabulary.data": "f1ebdaf5ae7eaf8839da5aaa691952b8dbcf3925e3ca78bffc0112e9bc514b7f"
+    }
+  },
+  "source": {
+    "repository": "facebook/nllb-200-distilled-1.3B",
+    "revision": "7be3e24664b38ce1cac29b8aeed6911aa0cf0576"
+  },
+  "sentences_per_direction": 50,
+  "test_set": "wmt20 (sacrebleu), first sentences of each direction",
+  "environment": {
+    "processor": "AMD Ryzen 9 9900X 12-Core Processor"
+  },
+  "directions": {
+    "en-ja": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 28.3,
+        "chrf": 25.58
+      },
+      "after": {
+        "bleu": 28.3,
+        "chrf": 25.58
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 53.7,
+      "after_seconds": 53.3,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "ja-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 16.93,
+        "chrf": 40.0
+      },
+      "after": {
+        "bleu": 16.93,
+        "chrf": 40.0
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 34.1,
+      "after_seconds": 34.0,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-zh": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 20.93,
+        "chrf": 19.99
+      },
+      "after": {
+        "bleu": 20.93,
+        "chrf": 19.99
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 43.0,
+      "after_seconds": 43.0,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "zh-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 23.6,
+        "chrf": 53.99
+      },
+      "after": {
+        "bleu": 23.6,
+        "chrf": 53.99
+      },
+      "before_failed": 1,
+      "after_failed": 1,
+      "before_seconds": 74.9,
+      "after_seconds": 75.0,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-de": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 34.57,
+        "chrf": 59.88
+      },
+      "after": {
+        "bleu": 34.57,
+        "chrf": 59.88
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 63.5,
+      "after_seconds": 63.5,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "de-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 35.12,
+        "chrf": 60.26
+      },
+      "after": {
+        "bleu": 35.12,
+        "chrf": 60.26
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 64.7,
+      "after_seconds": 64.7,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "en-ru": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 12.63,
+        "chrf": 43.8
+      },
+      "after": {
+        "bleu": 12.63,
+        "chrf": 43.8
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 72.0,
+      "after_seconds": 71.8,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    },
+    "ru-en": {
+      "same_ids": 50,
+      "before": {
+        "bleu": 34.24,
+        "chrf": 61.8
+      },
+      "after": {
+        "bleu": 34.24,
+        "chrf": 61.8
+      },
+      "before_failed": 0,
+      "after_failed": 0,
+      "before_seconds": 32.4,
+      "after_seconds": 32.5,
+      "backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.0,
+      "chrf_difference": 0.0
+    }
+  },
+  "totals": {
+    "sentences": 400,
+    "same_ids": 400,
+    "before_failed": 1,
+    "after_failed": 1,
+    "before_seconds": 438.3,
+    "after_seconds": 437.8,
+    "mean_bleu_difference": 0.0,
+    "mean_chrf_difference": 0.0
+  }
+}

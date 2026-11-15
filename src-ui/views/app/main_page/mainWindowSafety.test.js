@@ -7,6 +7,7 @@ import * as routeState from "../../../logics/voice/routeState.js";
 import { voiceActions } from "../../../logics/voice/voiceActions.js";
 import * as voiceErrorText from "../../../logics/voice/voiceErrorText.js";
 import * as featureLabel from "../../../logics/common/featureLabel.js";
+import * as switchBlocksModule from "../../../logics/main/switchBlocks.js";
 
 const icon = () => null;
 const keydown = (control, key, repeat = false) => {
@@ -29,6 +30,7 @@ const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false 
         "../../../../../logics/voice/routeState": routeState,
         "../../../../../logics/common/featureLabel.js": featureLabel,
         "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
+        "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: setup.blocks, prepare: action => setup.prepared?.push(action) }) },
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: setup.compact } }) },
         "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },

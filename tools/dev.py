@@ -199,7 +199,7 @@ def setup_sidecar(args, root):
     if not source.is_file():
         raise DevError(f"Sidecar Rust source is missing: {source}")
     if args.dry_run:
-        print(f"Compile {source} with rustc --edition=2021, then atomically install {binary}.")
+        print(f"Compile {source} with rustc --edition=2024, then atomically install {binary}.")
         print("Preserve existing _internal; add a placeholder only if absent or empty. Plan only.")
         return 0
     binary.parent.mkdir(parents=True, exist_ok=True)
@@ -212,7 +212,7 @@ def setup_sidecar(args, root):
     try:
         with tempfile.TemporaryDirectory(prefix=".vox-sidecar-build-", dir=binary.parent) as temp:
             output = Path(temp) / "wrapper"
-            argv = [shutil.which("rustc"), "--edition=2021", "--crate-name", "vrct_vox_dev_sidecar",
+            argv = [shutil.which("rustc"), "--edition=2024", "--crate-name", "vrct_vox_dev_sidecar",
                     str(source), "-o", str(output)]
             print("[compile sidecar] " + shlex.join(argv), flush=True)
             result = subprocess.run(argv, cwd=root, env=child_environment(), check=False,

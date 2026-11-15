@@ -1,7 +1,7 @@
 [package]
 name = "vrct-dev-sidecar"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Development-time sidecar wrapper for VRCT: launches the venv Python interpreter against src-python/mainloop.py so Tauri dev doesn't require a PyInstaller build."
 publish = false
 

@@ -28,7 +28,7 @@ class SingleInstanceTests(unittest.TestCase):
             binary = Path(directory) / ("policy.exe" if os.name == "nt" else "policy")
             # The limits catch hangs, not slow builds: a cold Windows runner can
             # spend over a minute locating the MSVC linker and scanning new files.
-            subprocess.run([shutil.which("rustc"), "--edition=2021", "--test", "-C", "debuginfo=0",
+            subprocess.run([shutil.which("rustc"), "--edition=2024", "--test", "-C", "debuginfo=0",
                             str(ROOT / "src-tauri/src/single_instance.rs"), "-o", str(binary)],
                            check=True, timeout=300)
             subprocess.run([str(binary)], check=True, timeout=60)

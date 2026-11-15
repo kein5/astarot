@@ -9,6 +9,7 @@ import * as chatboxLength from "./chatboxLength.js";
 import * as voiceErrorText from "../voice/voiceErrorText.js";
 import * as featureLabel from "./featureLabel.js";
 import { nextLogView, rowsBetween } from "./messageLogView.js";
+import * as switchBlocksModule from "../main/switchBlocks.js";
 
 // Exercise the production JSX handlers without a WebView or a new test runtime.
 // Hooks retain state across explicit renders; IPC promises are controlled by tests.
@@ -233,6 +234,7 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "../../../../../logics/voice/routeState": {},
         "../../../../../logics/common/featureLabel.js": featureLabel,
         "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
+        "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
         "@logics_main": { useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: false } }) },
         "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
