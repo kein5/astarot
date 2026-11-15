@@ -1061,6 +1061,14 @@ vr_panel:
     tooltip_enabled: "Button tooltips"
     tooltip_enabled_desc: "Show the name and state of a button while you point at it"
     locked_by_config_page: "Close settings to use these controls"
+    # Buttons of functions whose setup is missing. Keep each tooltip to two lines (over 104 px it is not shown).
+    switch_blocked:
+        state: "Needs setup"
+        translation_model: "No translation model yet. Download it in PC settings → Translation."
+        translation_downloading: "The translation model is downloading. Turn it on when it is done."
+        asr_models: "No speech recognition models. Download them in PC settings → ASR."
+        ocr_models: "No chat reading models yet. Download them in PC settings → OCR."
+        ocr_language: "Chat reading does not support this language. Change it in PC settings → OCR."
     log_opacity: "Log opacity"
     mic_threshold: "Mic sensitivity"
     speaker_threshold: "Speaker sensitivity"

@@ -1061,6 +1061,14 @@ vr_panel:
     tooltip_enabled: "操作の吹き出し"
     tooltip_enabled_desc: "ボタンを指したときに操作名と状態を表示します"
     locked_by_config_page: "設定を閉じると操作できます"
+    # 前提が足りない機能のボタン。吹き出しは2行に収める (高さ104pxを超えると出せない)
+    switch_blocked:
+        state: "未準備"
+        translation_model: "翻訳モデルが未取得です。PCの設定「翻訳」で取得してください。"
+        translation_downloading: "翻訳モデルを取得中です。終わるとONにできます。"
+        asr_models: "認識モデルがありません。PCの設定「音声認識（ASR）」で取得してください。"
+        ocr_models: "モデルが未取得です。PCの設定「チャット読み取り（OCR）」で取得してください。"
+        ocr_language: "この言語は未対応です。PCの設定「チャット読み取り（OCR）」で変えてください。"
     log_opacity: "ログの不透明度"
     mic_threshold: "マイクの入力感度"
     speaker_threshold: "スピーカーの入力感度"

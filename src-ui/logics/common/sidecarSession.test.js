@@ -333,6 +333,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},
         "./_app_controllers/TelemetryNoticeController": {},
         "./_app_controllers/LocalAsrNoticeController": {},
+        "./_app_controllers/SwitchBlocksController": {},
         "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/IoFlowController": {},
         "./main_page/MainPage": {}, "./config_page/ConfigPage": {},
         "./others": { SplashComponent }, "@logics_common": common,
