@@ -42,6 +42,14 @@ GPUドライバーのキャッシュが空のとき（ドライバーを更新�
 
 RVCの設定画面、または「高度な設定」の入力の転送にある「実行環境」の欄から、実行環境を取得できます。ライセンス、サイズ、保存先を確認して同意すると、次を自動で行います。Gitも開発環境もいりません。
 
+RVCの変換は、配布物に入っている`vrct-rvc-worker.exe`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCの実行環境として取得するのは、次の3つだけです。
+
+1. ONNX Runtime 1.31.0（CUDA 12版、Microsoftの公式リリース）と、NVIDIAのCUDA・cuDNNのライブラリ（PyPIの`nvidia-*-cu12`のwheel）。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込むDLLだけを`lib\`に取り出します。アーカイブは取り出したあとに消します。
+2. 基礎モデル（HuBERTの`config.json`と`pytorch_model.bin`、`rmvpe.onnx`）を取得して、ハッシュを検証します。
+3. ワーカーの`--probe`で、取得したライブラリでGPUの計算ができることを確かめます。
+
+Seed-VCは次のとおりです。
+
 1. 固定版の`uv`を取得します。
 2. Pythonと、ハッシュを固定した依存を入れます。
 3. エンジン本体（GitHubのアーカイブ）を取得して、内容を検証します。展開する前に、項目の数と展開後の容量、圧縮率、パス、種類（通常のファイルとフォルダーだけ）を確かめます。展開して、Seed-VCには同梱のパッチを当てたあと、全ファイルの名前と中身から作ったダイジェストを固定値と照合します。合わなければ、展開したものを消してインストールしません（セキュリティ監査 SEC-04）。
@@ -50,18 +58,18 @@ RVCの設定画面、または「高度な設定」の入力の転送にある�
 
 | | RVC | Seed-VC |
 |---|---|---|
-| 通信量の目安 | 約3.6 GB | 約5 GB |
-| 必要な空き容量 | 約12 GB | 約14 GB |
-| 完了後の大きさ | 約5.5 GB | 約6.9 GB |
-| 依存のPython | 3.12 | 3.11 |
+| 通信量の目安 | 約2.3 GB | 約5 GB |
+| 必要な空き容量 | 約3.8 GB | 約14 GB |
+| 完了後の大きさ | 未計測（取り出すファイルの合計は約2.8 GB） | 約6.9 GB |
+| 依存のPython | なし | 3.11 |
 
-表はWindowsでの値です。Linuxでの値は[Linuxの手順](local-setup-linux.md#rvcとseed-vcの実行環境)にあります。
+表はWindowsでの値です。RVCの値は、固定したファイルの大きさから計算した目安で、Windowsで取得して測ってはいません。Linuxでの値は[Linuxの手順](local-setup-linux.md#rvcとseed-vcの実行環境)にあります。
 
 保存先はアプリのデータフォルダーの`vc_runtimes`です。途中で失敗したり中止したりしても、終わった手順は次回に飛ばします。終わったら「この実行環境を使う」を押して保存します。消したいときはこのフォルダーを削除します。アンインストーラーの「データを削除」でも消えます。
 
 声のモデルは別です。RVCの設定画面の取得欄から取得するか、権利を確認したものを指定します。Seed-VCには、利用が許可された参照音声（1〜30秒のWAV）を指定します。
 
-開始にはTorchの読み込みで数十秒から数分かかるので、開始直後は準備中のままになります（上限は180秒です）。
+Seed-VCの開始にはTorchの読み込みで数十秒から数分かかるので、開始直後は準備中のままになります（上限は180秒です）。RVCの開始は、Linuxの検証PCで2〜5秒でした。
 
 RVCを止めている間も声を届けたいときは、入力の転送を使います。マイクの音をそのまま出力デバイスへ送ります。Pythonが音声を運ぶので、PCが一瞬詰まると短く途切れることがあります。出力デバイスが2秒以上音声を受け取らないときは、外れたものとして止めます。
 
@@ -69,24 +77,17 @@ RVCを止めている間も声を届けたいときは、入力の転送を使�
 
 ### 手動で用意する場合
 
-開発者向けです。次の構成のフォルダーを用意して、設定で指定します。
+開発者向けです。RVCは次の構成のフォルダーを用意して、設定で指定します。中身は`src-python/models/voice_conversion/runtime_setup.py`の`RVC_LIBRARIES`と`RVC_ASSETS`に固定したファイルです。ワーカーは`build\vrct-rvc-worker.exe`で、`python tools/build_rvc_worker.py`でビルドします（Rustが必要です）。
 
 ```text
 runtime\
-  venv\Scripts\python.exe
-  engine\                 エンジン本体（コミット固定）
-  assets\                 RVC: hubert_base\、rmvpe\rmvpe.pt
+  lib\        onnxruntime.dll、onnxruntime_providers_cuda.dll、onnxruntime_providers_shared.dll、
+              cudart64_12.dll、cublas64_12.dll、cublasLt64_12.dll、curand64_10.dll、
+              nvrtc64_120_0.dll、nvrtc-builtins64_128.dll、cudnn*64_9.dll
+  assets\     hubert_base\config.json、hubert_base\pytorch_model.bin、rmvpe\rmvpe.onnx
 ```
 
-```powershell
-uv venv --python 3.12 runtime\venv
-uv pip install --python runtime\venv\Scripts\python.exe --require-hashes `
-  --index-url https://download.pytorch.org/whl/cu128 -r integrations\rvc\requirements-cuda-windows.lock
-uv pip install --python runtime\venv\Scripts\python.exe --require-hashes `
-  -r integrations\rvc\requirements-windows.lock
-```
-
-RVC本体は[README](../../integrations/rvc/README.md)のコミットのものを使います。GitHubのアーカイブを展開するだけで検証に通ります。Gitで取得して改行が変わった場合だけ、検証に`git`が必要です。
+以前のPyTorchを使う実行環境（`venv`、`engine`）は、RVCでは使えなくなりました。
 
 ## マイクが開けないとき
 

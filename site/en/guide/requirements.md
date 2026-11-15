@@ -63,10 +63,10 @@ The only CPU tested is an Intel Core i7-1255U (a laptop CPU with 10 cores and 12
 | Translation model (one) | 0.4–3.3 GB |
 | Speech models (one for Japanese, one for other languages) | 0.8–1.8 GiB each |
 | Speech recognition model | 0.6–0.8 GiB |
-| RVC runtime | needs about 12 GB free on Windows, 16 GB on Linux |
+| RVC runtime | needs about 3.8 GB free on Windows, 4.2 GB on Linux |
 | Seed-VC runtime | needs about 14 GB free on Windows, 18 GB on Linux |
 
-For every feature on Windows, plan for about 20 GB free with RVC, or about 35 GB with Seed-VC as well. The models and their sizes are listed in [Getting models](models).
+For every feature on Windows, plan for about 12 GB free with RVC, or about 27 GB with Seed-VC as well. The models and their sizes are listed in [Getting models](models).
 
 ## Test PC
 

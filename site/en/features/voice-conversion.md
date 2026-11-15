@@ -4,7 +4,7 @@ route: voice-conversion
 
 # Voice changer (RVC, Seed-VC)
 
-Changes your microphone's voice into another voice and gets it to VRChat through a virtual microphone. The voice is changed by an RVC or Seed-VC runtime that you set up separately. The settings are under Settings → "Voice changer (RVC)".
+Changes your microphone's voice into another voice and gets it to VRChat through a virtual microphone. RVC conversion is part of VRCT-VOX; the libraries it needs to run on the GPU and its base models are fetched separately as its runtime. Seed-VC runs in a runtime that you set up separately. The settings are under Settings → "Voice changer (RVC)".
 
 Both are experimental. Before relying on them, check in your own setup how they sound and how long the changed voice takes to come through.
 
@@ -13,7 +13,7 @@ Both are experimental. Before relying on them, check in your own setup how they 
 - An NVIDIA GPU and its driver
 - A virtual microphone that carries the changed voice to VRChat ([How voice and text flow](../guide/how-it-works#why-a-virtual-microphone-is-needed))
 - For RVC:
-  - an RVC runtime (the RVC-Project engine and a Python environment)
+  - an RVC runtime (ONNX Runtime and NVIDIA's CUDA and cuDNN libraries)
   - HuBERT and RMVPE (models RVC uses to read what is said and the pitch)
   - a trained model you are allowed to use (`.pth`) and, if needed, its retrieval index (`.index`)
 - For Seed-VC, a Seed-VC runtime and a reference WAV: a sample of the target voice that you are allowed to use
@@ -28,7 +28,9 @@ The settings page can fetch the runtime, HuBERT and RMVPE.
 2. Under "RVC runtime", press "Review download". Check the license, size and destination, and agree. Nothing is downloaded before you agree.
 3. When it finishes, press "Use this runtime" and save.
 
-Expect a download of about 3.6 GB on Windows and 4.9 GB on Linux. It needs about 12 GB of free disk space on Windows and 16 GB on Linux. To build the runtime yourself, see [integrations/rvc/README.md](https://github.com/kein5/VRCT-VOX/blob/develop/integrations/rvc/README.md) in the repository.
+Expect a download of about 2.3 GB on Windows and 2.4 GB on Linux. It needs about 3.8 GB of free disk space on Windows and 4.2 GB on Linux.
+
+An RVC runtime fetched by an earlier version (the kind that uses PyTorch) can no longer be used. If the page says "The runtime in this folder is of an earlier kind and can no longer be used", fetch it again the same way. It goes into the same folder, so your saved settings keep working. The files of the earlier kind (`venv`, `python`, `engine` and so on) are not deleted automatically; once you no longer need them, you can delete them after closing VRCT-VOX.
 
 As a default model, you can get Saisho Utane's RVC v2 model (CC BY 4.0, about 0.31 GiB) with "Download a default model". Credit the author when you use it in published work or streams.
 
