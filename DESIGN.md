@@ -148,6 +148,8 @@ Motion uses the tokens in `variables.css`: `--vox_motion_fast` (120 ms), `--vox_
 - Work that ends in success (a model download, a runtime setup, a server start) has a mark before its readout's words: an arc that spins while it runs, then a blue disc with a check that draws itself if it finished while the page was open.
 - A path field that takes files can have a drop place above it (`FileDropZone`). It wakes while files are dragged over the window, lifts under the pointer, and on a drop fills the fields and says what went where. The fields stay the way to type a path, and the save bar stays the way to save.
 
+There is no splash screen. While the engine starts, the main page is drawn at its real layout but is inert and busy: values the engine has not sent yet are flat placeholders of their own size (`[data-skeleton]`, `--vox_skeleton`), so nothing moves when they arrive. Their pulse is slow and faint and stops under reduced motion. The first screen's setup list says how far the start has come and which models it is fetching. A failed start is a dialog over that page with the reason, the next step, a retry and a quit action; it is not modal, so the title bar stays usable.
+
 Quick Chat and the VR panel inherit shared colors without changing input/audio contracts. TTS/RVC/download forms share field, action and status styling. A persistent saved compact-mode preference remains separate from the temporary narrow-window layout.
 
 ## The user guide (site/)

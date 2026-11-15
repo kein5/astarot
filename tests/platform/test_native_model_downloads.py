@@ -24,7 +24,7 @@ def test_native_download_consent_apply_and_restart(tmp_path):
     try:
         with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'):
             with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_voice_settings()
                 # Both TTS cards must be visible and independently require consent.
                 for model in ('Irodori', 'Qwen'):
@@ -70,7 +70,7 @@ def test_native_download_consent_apply_and_restart(tmp_path):
                 ui.assert_rendered()
                 ui.close_app()
             with NativeWebDriver(tmp_path / 'restart', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_rvc_settings()
                 assert ui.evaluate('return arguments[0].value', ui.control('Permitted RVC model (.pth)')) == str(destination / 'model.pth')
                 # The list may offer the Device page's microphone as the default; what

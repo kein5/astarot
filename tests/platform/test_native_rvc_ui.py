@@ -63,7 +63,7 @@ def test_native_rvc_selection_real_conversion_stop_and_restart(tmp_path):
             source = select_source(graph_snapshot(), 'vrct.native.caption.source')
             selected = json.dumps([str(source.cookie), str(source.serial), source.name, source.media_class], separators=(',', ':'))
             with NativeWebDriver(tmp_path/'first', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_rvc_settings()
                 ui.click_text('button', 'Prepare and use virtual microphone')
                 wait_for(lambda: json.loads((state/'config.json').read_text())['VOICE_SETTINGS']['routing'] == 'managed')
@@ -141,7 +141,7 @@ def test_native_rvc_selection_real_conversion_stop_and_restart(tmp_path):
                 ui.assert_rendered()
                 ui.close_app()
             with NativeWebDriver(tmp_path/'restart', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_rvc_settings()
                 assert ui.evaluate('return arguments[0].value', ui.control('Permitted RVC model (.pth)')) == model
                 # The list may offer the Device page's microphone as the default; what

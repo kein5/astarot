@@ -76,7 +76,7 @@ def test_native_text_to_virtual_microphone_and_recovery(tmp_path):
             report["reference_samples"] = len(pcm) // 2
             state = initial_state(tmp_path)
             with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_voice_settings()
 
                 def status(text):

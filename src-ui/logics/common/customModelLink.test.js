@@ -4,7 +4,6 @@ import { hooks, loadModule, find } from "../test/hookHarness.js";
 import * as uiConfigs from "../ui_configs.js";
 
 const HOME = "https://kein5.github.io/VRCT-VOX";
-const icon = () => null;
 const translations = language => ({ useI18n: () => ({ t: key => key, i18n: { language } }) });
 
 test("the guide to your own models opens in the display language", () => {
@@ -42,18 +41,4 @@ test("when the browser cannot be opened, the link says so and shows the address"
     const alert = find(runtime.render(CustomModelLink, { section: "tts" }), node => node.props?.role === "alert");
     assert.ok(find(alert, node => node.props?.children === "model_downloads.link_error"));
     assert.ok(find(alert, node => node.props?.children === `${HOME}/en/guide/custom-models#tts`));
-});
-
-test("the splash screen opens troubleshooting in the display language", async () => {
-    const runtime = hooks();
-    const splash = await loadModule(new URL("../../views/app/others/splash_component/SplashComponent.jsx", import.meta.url), runtime, {
-        "@useI18n": translations("ja"), "@logics_common": { useWindow: () => ({}) }, "@common_components": { CloseButton: icon },
-        "@ui_configs": uiConfigs,
-        "./start_up_progress_container/StartUpProgressContainer": { StartUpProgressContainer: icon },
-        "./download_models_container/DownloadModelsContainer": { DownloadModelsContainer: icon },
-    });
-    const announcement = find(splash.SplashComponent(), node => node.type?.name === "AnnouncementsContainer");
-    const anchor = find(runtime.render(announcement.type), node => node.type === "a");
-    assert.equal(anchor.props.href, `${HOME}/ja/guide/troubleshooting`);
-    runtime.unmount();
 });

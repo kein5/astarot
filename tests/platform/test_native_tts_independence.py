@@ -98,7 +98,7 @@ def test_tts_off_keeps_asr_translation_and_osc(tmp_path):
                                       'multilingual_url': tts.url})
         config.write_text(json.dumps(values))
         with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-            ui.wait("return document.querySelector('textarea[class*=message_box_input_area]') !== null")
+            ui.wait_main_ready()
             ui.open_route_settings()
             ui.click_text('button', 'Resume voice')
             ui.open_voice_page('Speech recognition (ASR)', 'section[aria-label="Realtime captions"] select')

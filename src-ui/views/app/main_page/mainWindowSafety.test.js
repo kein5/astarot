@@ -15,7 +15,7 @@ const keydown = (control, key, repeat = false) => {
     control.props.onKeyDown({ key, repeat, preventDefault() { prevented = true; } });
     assert.equal(prevented, true);
 };
-const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false }) => {
+const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false }, starting = false) => {
     const requests = [];
     const main = await loadModule(new URL("../../../logics/main/useMainFunction.js", import.meta.url), b.runtime, {
         "@store": b.stores,
@@ -32,6 +32,7 @@ const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false 
         "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: setup.blocks, prepare: action => setup.prepared?.push(action) }) },
+        "../../startupContext": { useIsStartingUp: () => starting },
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: setup.compact } }) },
         "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
     });
@@ -135,6 +136,26 @@ test("disconnected main switches hide retained activity and reject clicks, keys 
         control.props.onClick();
         keydown(control, "Enter");
         keydown(control, " ");
+    }
+    assert.deepEqual(s.requests, []);
+    assert.deepEqual(sent, []);
+});
+
+test("while the engine starts, the switches are locked placeholders, not disconnected", async () => {
+    const b = await loadBridgeStore(), sent = [];
+    const voice = { status: { tts_generation: 1 }, directState: { observation_id: "one" }, send: endpoint => sent.push(endpoint) };
+    const s = await loadSwitches(b, voice, undefined, true);
+    const starting = b.runtime.render(s.MainFunctionSwitch);
+    for (const item of starting.props.children) {
+        assert.equal(item.props.statusText, null);
+        const control = s.SwitchContainer(item.props);
+        assert.equal(control.props["aria-disabled"], true);
+        assert.equal(control.props["aria-checked"], false);
+        assert.equal(control.props["aria-label"], item.props.switchLabel);
+        assert.equal(find(control, node => node.props.children === "main_page.backend_disconnected"), null);
+        // The toggle's state comes from the engine: a placeholder of the same size until then.
+        assert.equal(find(control, node => node.type === icon).props.skeleton, true);
+        control.props.onClick();
     }
     assert.deepEqual(s.requests, []);
     assert.deepEqual(sent, []);

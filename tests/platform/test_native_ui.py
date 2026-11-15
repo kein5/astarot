@@ -31,7 +31,7 @@ def initial_state(tmp_path):
 def test_model_free_native_app_renders_text_input_without_fatal_warning(tmp_path):
     state = initial_state(tmp_path)
     with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-        ui.wait("return document.querySelector('textarea') !== null")
+        ui.wait_main_ready()
         assert ui.evaluate("return document.title") == "VRCT-VOX"
         assert "VRCT-VOX" in ui.evaluate("return document.body.innerText")
         assert "An error occurred" not in ui.evaluate("return document.body.innerText")
@@ -60,7 +60,7 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
     just sent. Xvfb has no window manager; KWin's stacking is checked by hand."""
     state = initial_state(tmp_path)
     with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-        ui.wait("return document.querySelector('textarea') !== null")
+        ui.wait_main_ready()
         ui.open_voice_page("VR", '[data-setting-id="desktop_overlay"] input[type=checkbox]')
         assert ui.evaluate("return document.querySelector('[data-setting-id=\"desktop_overlay\"] input').checked") is False
         ui.evaluate("document.querySelector('[data-setting-id=\"desktop_overlay\"] input').click(); return true;")
@@ -97,7 +97,7 @@ def test_native_settings_navigation_observes_open_and_close(tmp_path):
     state = initial_state(tmp_path)
     with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'):
         with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-            ui.wait("return document.querySelector('textarea') !== null")
+            ui.wait_main_ready()
             for _ in range(20):
                 open_voice(ui)
                 ui.close_settings()
@@ -117,7 +117,7 @@ def test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path
     with private_graph(config_fragment=ROOT / "config/pipewire/90-vrct-managed.conf"):
         gate = PipeWireGate()
         with NativeWebDriver(tmp_path / "first", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-            ui.wait("return document.querySelector('textarea') !== null")
+            ui.wait_main_ready()
             ui.open_route_settings()
             ui.select("Audio route", "managed")
             ui.click_text("button", "Save changes")
@@ -141,7 +141,7 @@ def test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path
             ui.close_app()
         assert gate.inspect()["muted"] is True
         with NativeWebDriver(tmp_path / "second", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-            ui.wait("return document.querySelector('textarea') !== null")
+            ui.wait_main_ready()
             ui.open_voice_settings()
             for label, value in [("Chat voice", "original"), ("Translation slot", "2"), ("Japanese voice name", "保存テスト"),
                                  ("Seed value", "0"), ("Instruction", "設定復元の試験")]:

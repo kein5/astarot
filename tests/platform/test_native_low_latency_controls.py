@@ -43,7 +43,7 @@ def test_standby_active_stop_toggle_mute_and_restart(tmp_path):
             monitor = ToneCapture(stack, SOURCE)
             gate = PipeWireGate()
             with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state), 'VRCT_VOICE_TRACE': str(trace)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_route_settings()
                 ui.select('Audio route', 'managed')
                 ui.click_text('button', 'Save changes')
@@ -130,7 +130,7 @@ def test_standby_active_stop_toggle_mute_and_restart(tmp_path):
                 ui.close_app()
             assert gate.inspect()['muted']
             with NativeWebDriver(tmp_path / 'restart', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 assert ui.evaluate("return document.querySelector('[role=switch][aria-label=TTS]').getAttribute('aria-checked')") == 'false'
                 ui.open_voice_settings()
                 assert json.loads(path.read_text())['SPEECH_SERVER_SETTINGS']['profiles']['japanese']['low_latency'] is True

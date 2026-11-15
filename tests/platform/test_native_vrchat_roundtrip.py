@@ -61,7 +61,7 @@ def test_typed_message_is_shown_by_vrchat_and_read_back(tmp_path):
               "speaker_osc_port": speaker["osc_in"], "wait_seconds": WAIT, "messages": []}
     try:
         with lab.OnlyCameraNamedVRChat(), NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-            ui.wait("return document.querySelector('textarea[class*=message_box_input_area]') !== null")
+            ui.wait_main_ready()
             ui.set_switch("Chat reading (OCR)")
             for index, base in enumerate(MESSAGES):
                 text = f"{base} {stamp}{index}"

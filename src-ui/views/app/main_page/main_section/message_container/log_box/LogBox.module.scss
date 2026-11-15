@@ -23,7 +23,7 @@
 .setup button:hover { background: var(--dark_800_color); }
 .setup button:active { background: var(--dark_900_color); }
 .setup button:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
-.setup [role=status] { flex-shrink: 0; font-size: 1.3rem; font-variant-numeric: tabular-nums; color: var(--primary_300_color); }
+.setup [role=status], .setup .progress { flex-shrink: 0; font-size: 1.3rem; font-variant-numeric: tabular-nums; color: var(--primary_300_color); }
 // Help for the moment nothing shows up in VRChat; quieter than the description above it.
 .empty .hint { max-width: 46rem; margin-top: .6rem; font-size: 1.2rem; line-height: 1.6; color: var(--vox_description_text); }
 

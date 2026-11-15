@@ -32,20 +32,15 @@ for (const language of ["en", "ja"]) {
     });
 }
 
-test("splash, startup failure and error fallback name the close-application action", async () => {
-    for (const name of ["SplashComponent", "StartupFailedComponent", "AppErrorBoundary"]) {
+test("the error fallback names the close-application action", async () => {
+    for (const name of ["AppErrorBoundary"]) {
         const runtime = hooks();
         let closed = 0;
         const common = { useWindow: () => ({ asyncCloseApp: () => closed++ }),
             useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }),
             useCopyToClipboard: () => ({ is_copied: false }) };
-        const directory = name === "AppErrorBoundary" ? "error_boundary" : "splash_component";
-        const exports = await loadModule(new URL(`../../app/others/${directory}/${name}.jsx`, import.meta.url), runtime, {
+        const exports = await loadModule(new URL(`../../app/others/error_boundary/${name}.jsx`, import.meta.url), runtime, {
             "@common_components": { CloseButton: "close-button" }, "@logics_common": common,
-            "@ui_configs": {},
-            "./start_up_progress_container/StartUpProgressContainer": { StartUpProgressContainer: "progress" },
-            "./download_models_container/DownloadModelsContainer": { DownloadModelsContainer: "downloads" },
-            "../../../../logics/common/useBackendStartup": { useBackendStartup: () => ({ retryStartup: () => {} }) },
             "react-error-boundary": { ErrorBoundary: "error-boundary" },
             "./contacts_container/ContactsContainer": { ContactsContainer: "contacts" },
         });
