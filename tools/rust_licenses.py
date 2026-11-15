@@ -35,7 +35,8 @@ MARKER = 'crates.json'
 def metadata(manifest, target, features=(), *, offline=False, cargo='cargo'):
     command = [cargo, 'metadata', '--format-version', '1', '--locked', '--manifest-path', str(ROOT / manifest),
                '--filter-platform', target, *features, *(['--offline'] if offline else [])]
-    return json.loads(subprocess.run(command, check=True, capture_output=True, text=True, encoding='utf-8').stdout)
+    # stderr stays on the console: a failure (a lock file out of date, no network) shows cargo's reason.
+    return json.loads(subprocess.run(command, check=True, stdout=subprocess.PIPE, text=True, encoding='utf-8').stdout)
 
 
 def shipped_packages(meta):
