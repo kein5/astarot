@@ -180,6 +180,9 @@ def main():
     run([sys.executable, ROOT / 'tools/build_voice_gate.py', '--output-dir', resources / 'build'])
     run([sys.executable, ROOT / 'tools/build_rvc_worker.py', '--output-dir', resources / 'build',
          '--target-dir', work / 'cargo-rvc', *(['--offline'] if args.offline else [])])
+    # The license texts of the Rust crates in vrct-vox and the worker (NOTICE.md).
+    run([sys.executable, ROOT / 'tools/rust_licenses.py', '--output', resources / 'licenses/rust',
+         '--platform', 'linux', *(['--offline'] if args.offline else [])])
     archive = args.speech_archive.resolve() if args.speech_archive else work / f'speech-{args.variant}.zip'
     manifest = load_manifest()
     if args.download_speech and not archive.exists():
