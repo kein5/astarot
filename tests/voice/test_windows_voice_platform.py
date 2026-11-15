@@ -204,15 +204,18 @@ def test_windows_resources_carry_the_engine_and_the_worker_contract(tmp_path):
     (bundle / 'speech.exe').write_bytes(b'x')
     (bundle / 'bundle.json').write_text('{}')
     (bundle / 'notices/NOTICE.md').write_text('n')
-    (tmp_path / 'integrations/rvc').mkdir(parents=True)
+    (tmp_path / 'build/vrct-rvc-worker.exe').write_bytes(b'x')
+    (tmp_path / 'integrations/seed_vc').mkdir(parents=True)
     for name in ('live_worker.py', 'LICENSE.upstream', 'requirements.lock'):
-        (tmp_path / 'integrations/rvc' / name).write_text('x')
+        (tmp_path / 'integrations/seed_vc' / name).write_text('x')
     pairs = {(Path(source).name, target) for source, target in m.voice_datas(tmp_path)}
     assert ('speech.exe', 'build/speechcpp') in pairs
     assert ('NOTICE.md', 'build/speechcpp/notices') in pairs
-    assert ('live_worker.py', 'voice_worker/integrations/rvc') in pairs
-    assert ('LICENSE.upstream', 'voice_worker/integrations/rvc') in pairs
-    assert ('requirements.lock', 'voice_worker/integrations/rvc') not in pairs
+    assert ('vrct-rvc-worker.exe', 'build') in pairs
+    assert ('live_worker.py', 'voice_worker/integrations/seed_vc') in pairs
+    assert ('LICENSE.upstream', 'voice_worker/integrations/seed_vc') in pairs
+    assert ('requirements.lock', 'voice_worker/integrations/seed_vc') not in pairs
+    assert not any('integrations/rvc' in target for _, target in pairs)
     assert ('owned_child.py', 'voice_worker/src-python/models') in pairs
     assert ('protocol.py', 'voice_worker/src-python/models/voice_conversion') in pairs
 
@@ -220,8 +223,6 @@ def test_windows_resources_carry_the_engine_and_the_worker_contract(tmp_path):
 def test_windows_resources_carry_what_the_runtime_setup_and_seed_worker_read():
     m = importlib.import_module('tools.windows_voice_resources')
     pairs = {(Path(source).name, target) for source, target in m.voice_datas(ROOT)}
-    assert ('requirements-cuda-windows.lock', 'voice_worker/integrations/rvc') in pairs
-    assert ('requirements-windows.lock', 'voice_worker/integrations/rvc') in pairs
     assert ('requirements-windows.lock', 'voice_worker/integrations/seed_vc') in pairs
     assert ('offline-loader.patch', 'voice_worker/integrations/seed_vc') in pairs
     assert ('graphs.py', 'voice_worker/integrations/seed_vc') in pairs
@@ -251,10 +252,11 @@ def test_the_build_collects_the_license_texts_notice_md_promises():
 
 def test_a_frozen_worker_does_not_start_inside_the_sidecars_python(tmp_path, monkeypatch):
     """-m puts the working directory first, and _internal holds 3.11 extension modules."""
-    monkeypatch.setattr(rvc_process, 'ROOT', tmp_path)
-    assert rvc_process.worker_root() == tmp_path
+    from models.voice_conversion import seed_process
+    monkeypatch.setattr(seed_process, 'ROOT', tmp_path)
+    assert seed_process.worker_root() == tmp_path
     (tmp_path / 'voice_worker').mkdir()
-    assert rvc_process.worker_root() == tmp_path / 'voice_worker'
+    assert seed_process.worker_root() == tmp_path / 'voice_worker'
 
 
 def test_every_module_the_worker_imports_ships_with_it():
@@ -267,12 +269,13 @@ def test_every_module_the_worker_imports_ships_with_it():
             assert name.removeprefix('models.').replace('.', '/') + '.py' in resources.CONTRACT
 
 
-def test_rvc_runtime_python_follows_the_platform(monkeypatch):
+def test_seed_runtime_python_follows_the_platform(monkeypatch):
+    from models.voice_conversion import seed_process
     runtime = Path('runtime')
-    monkeypatch.setattr(rvc_process.sys, 'platform', 'win32')
-    assert rvc_process.runtime_python(runtime) == runtime / 'venv/Scripts/python.exe'
-    monkeypatch.setattr(rvc_process.sys, 'platform', 'linux')
-    assert rvc_process.runtime_python(runtime) == runtime / 'venv/bin/python'
+    monkeypatch.setattr(seed_process.sys, 'platform', 'win32')
+    assert seed_process.runtime_python(runtime) == runtime / 'venv/Scripts/python.exe'
+    monkeypatch.setattr(seed_process.sys, 'platform', 'linux')
+    assert seed_process.runtime_python(runtime) == runtime / 'venv/bin/python'
 
 
 def test_rvc_worker_arguments_match_the_linux_helper(monkeypatch):
@@ -281,22 +284,14 @@ def test_rvc_worker_arguments_match_the_linux_helper(monkeypatch):
     monkeypatch.setattr(rvc_process.sys, 'platform', 'win32')
     rvc_process._launch(Path('R'), dict(model='m.pth', index='m.index', pitch=-2, index_rate=.5), 'a' * 32)
     args, kwargs = calls[0]
-    assert args[1:5] == ['-u', '-m', 'integrations.rvc.live_worker', '--engine']
-    assert args[args.index('--pitch') + 1] == '-2' and args[args.index('--index-rate') + 1] == '0.5'
+    assert args[0].endswith('vrct-rvc-worker.exe')
+    # The same flags the Linux helper writes for "rvc-native" (native/vc-worker/main.c).
+    assert args[1:] == ['--runtime', 'R', '--model', 'm.pth', '--session', 'a' * 32, '--index', 'm.index',
+                        '--pitch', '-2', '--index-rate', '0.5']
+    helper = (ROOT / 'native/vc-worker/main.c').read_text(encoding='utf-8')
+    for flag in args[1::2]:
+        assert f'"{flag}"' in helper
     assert kwargs['realtime'] is True and kwargs['stderr'] == subprocess.DEVNULL
-    assert {'KMP_BLOCKTIME', 'KMP_USE_YIELD'} <= set(kwargs['env'])
-
-
-def test_source_check_compares_git_paths_on_every_platform(tmp_path, monkeypatch):
-    loader = importlib.import_module('integrations.rvc.loader')
-    (tmp_path / 'infer').mkdir()
-    (tmp_path / 'infer/module.py').write_text('')
-
-    def git(command, **kwargs):
-        return {'rev-parse': loader.COMMIT.encode(), 'diff': b'', 'ls-files': b'infer/module.py\n'}[command[3]]
-
-    monkeypatch.setattr(loader.subprocess, 'check_output', git)
-    loader.require_source(tmp_path)
 
 
 def test_direct_voice_hands_the_device_to_both_producers_and_forwards_mute():
@@ -524,7 +519,7 @@ def test_seed_worker_arguments_match_its_parser(monkeypatch):
 
 def test_seed_process_takes_the_output_device(tmp_path):
     from models.voice_conversion import seed_process
-    python = rvc_process.runtime_python(tmp_path)
+    python = seed_process.runtime_python(tmp_path)
     python.parent.mkdir(parents=True)
     python.write_text('')
     (tmp_path / 'engine').mkdir()

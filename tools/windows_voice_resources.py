@@ -1,10 +1,11 @@
-"""Files the Windows sidecar ships for speech.cpp and the external voice workers.
+"""Files the Windows sidecar ships for speech.cpp and the voice workers.
 
-The fixed speech.cpp bundle comes from speechcpp_bundle.py. External inference
-interpreters cannot read the frozen sidecar's PYZ, so the engine adapters and their
-small, dependency-free contract modules ship as ordinary files. They get their own
-folder: the worker runs from it, and _internal holds the sidecar's Python 3.11 extension
-modules, which would shadow the standard library of the worker's own Python.
+The fixed speech.cpp bundle comes from speechcpp_bundle.py, the RVC worker from
+build_rvc_worker.py. The Seed-VC worker runs in its own Python, which cannot read the
+frozen sidecar's PYZ, so its adapter and the small, dependency-free contract modules ship
+as ordinary files. They get their own folder: the worker runs from it, and _internal holds
+the sidecar's Python 3.11 extension modules, which would shadow the standard library of
+the worker's own Python.
 """
 import importlib.metadata
 import json
@@ -14,14 +15,12 @@ import re
 CONTRACT =('__init__.py', 'owned_child.py', 'voice_conversion/__init__.py',
             'voice_conversion/protocol.py', 'voice_conversion/settings.py')
 WORKER = 'voice_worker'
-ENGINES = ('rvc', 'seed_vc')
+ENGINES = ('seed_vc',)
 # The sidecar sets a runtime up from these; the requirements for Linux stay out.
-SETUP_FILES = {'rvc': ('requirements-cuda-windows.lock', 'requirements-windows.lock'),
-               'seed_vc': ('requirements-windows.lock', 'offline-loader.patch')}
+SETUP_FILES = {'seed_vc': ('requirements-windows.lock', 'offline-loader.patch')}
 # integrations/seed_vc reads these through ROOT relative paths.
 SEED_SUPPORT = ('tools/seedvc_artifacts.py', 'docs/voice-stack/seed-vc-poc-artifacts.json')
-REQUIRED = ('build/speechcpp/speech.exe', 'build/speechcpp/bundle.json',
-            f'{WORKER}/integrations/rvc/live_worker.py', f'{WORKER}/integrations/rvc/requirements-windows.lock',
+REQUIRED = ('build/speechcpp/speech.exe', 'build/speechcpp/bundle.json', 'build/vrct-rvc-worker.exe',
             f'{WORKER}/integrations/seed_vc/live_worker.py', f'{WORKER}/tools/seedvc_artifacts.py',
             f'{WORKER}/src-python/models/voice_conversion/protocol.py', 'licenses/VRCT/NOTICE.md')
 
@@ -36,6 +35,9 @@ def voice_datas(root):
     root = Path(root)
     bundle = root / 'build/speechcpp'
     pairs = []
+    worker = root / 'build/vrct-rvc-worker.exe'
+    if worker.is_file():
+        pairs.append((str(worker), 'build'))
     if bundle.is_dir():
         pairs += [(str(file), 'build/speechcpp') for file in bundle.iterdir() if file.is_file()]
         pairs += [(str(file), 'build/speechcpp/notices') for file in (bundle / 'notices').iterdir() if file.is_file()]

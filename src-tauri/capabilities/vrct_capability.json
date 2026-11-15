@@ -56,7 +56,9 @@
                 { "url": "https://github.com/RVC-Project/**" },
                 { "url": "https://github.com/jiaheguo521/**" },
                 { "url": "https://github.com/pytorch/**" },
-                { "url": "https://docs.nvidia.com/cuda/eula/**" }
+                { "url": "https://docs.nvidia.com/cuda/eula/**" },
+                { "url": "https://github.com/microsoft/onnxruntime/**" },
+                { "url": "https://docs.nvidia.com/deeplearning/cudnn/**" }
             ],
             "deny": [
                 { "url": "*/..*" },

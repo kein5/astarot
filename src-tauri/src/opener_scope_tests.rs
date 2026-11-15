@@ -84,6 +84,8 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/81eed5e8/LICENSE",
         "https://github.com/pytorch/pytorch/blob/main/LICENSE",
         "https://docs.nvidia.com/cuda/eula/index.html",
+        "https://github.com/microsoft/onnxruntime/blob/v1.31.0/LICENSE",
+        "https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html",
     ] {
         assert!(allowed(url), "{url} should open");
     }

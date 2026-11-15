@@ -57,6 +57,14 @@ def fixture(
     captures, children, sent, closed = [], [], [], []
     binding = [SINK]
     runtime = tmp_path / "runtime"
+    if engine == "rvc":
+        # The files the bundled worker needs; the fake below stands in for it.
+        for name in ["lib/" + m.ORT_LIBRARY, *("assets/" + asset for asset in m.ASSETS)]:
+            (runtime / name).parent.mkdir(parents=True, exist_ok=True)
+            (runtime / name).touch()
+        worker = tmp_path / "vrct-rvc-worker"
+        worker.touch()
+        monkeypatch.setattr(m, "worker_binary", lambda: worker)
     for name in ["venv/bin", "engine", "assets"]:
         (runtime / name).mkdir(parents=True, exist_ok=True)
     (runtime / "venv/bin/python").touch()

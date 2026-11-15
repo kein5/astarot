@@ -8,7 +8,7 @@ import pytest
 from tools.linux_package import check_tree, inspect_tar, pack, normalize_modes
 
 
-@pytest.mark.parametrize('engine', ['rvc', 'seed_vc'])
+@pytest.mark.parametrize('engine', ['seed_vc'])
 def test_packaged_vc_worker_can_start_outside_source_checkout(tmp_path, engine):
     import subprocess
     import sys

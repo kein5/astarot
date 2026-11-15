@@ -34,7 +34,9 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
     };
     return <section ref={section} tabIndex={-1} className={styles.download_entry} aria-label={t("vc_runtime.title", { name: entry.name })}>
         <strong>{t("vc_runtime.title", { name: entry.name })}</strong>
-        <p>{t("vc_runtime.help")}</p>
+        <p>{t(`vc_runtime.help_${entry.notice}`)}</p>
+        {/* The saved folder holds a runtime this version cannot use (the earlier PyTorch RVC runtime). */}
+        {!installed && !active && current && current === entry.destination && <p role="alert">{t("vc_runtime.outdated")}</p>}
         {!installed && <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })} · {entry.license}</p>}
         {!entry.gpu_ready && !installed && <p role="alert">{t("vc_runtime.gpu_missing")}</p>}
         {job && <EnvReadout tone={job.phase === "ready" ? "active" : job.phase === "failed" ? "failed" : "neutral"}
@@ -57,7 +59,7 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
             <h3>{t("vc_runtime.warning_title")}</h3>
             <p>{t(`vc_runtime.notice_${entry.notice}`)}</p>
             <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })}</p>
-            <p>{t("vc_runtime.connection_notice")}</p>
+            <p>{t(`vc_runtime.connection_notice_${entry.notice}`)}</p>
             <p>{t("vc_runtime.no_start")}</p>
             <p>{t("model_downloads.license_links")}: {entry.licenses.map(url => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{url}</a> </span>)}</p>
             {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}

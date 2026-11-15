@@ -34,8 +34,29 @@ static bool device_allowed(const char *text) {
     size_t digits = strspn(text + 6, "0123456789");
     return digits >= 1 && digits <= 2 && !text[6 + digits];
 }
+/* A decimal whole number within the given range, as the RVC worker's pitch. */
+static bool integer_in(const char *text, long low, long high) {
+    char *end;
+    errno = 0;
+    long value = strtol(text, &end, 10);
+    return text[0] && !errno && !*end && value >= low && value <= high;
+}
+/* 0..1 as the owner formats it (Python str of an int or a float). */
+static bool fraction(const char *text) {
+    char *end;
+    errno = 0;
+    double value = strtod(text, &end);
+    return text[0] && !errno && !*end && value >= 0 && value <= 1;
+}
+static bool session_id(const char *text) {
+    return strlen(text) == 32 && strspn(text, "0123456789abcdef") == 32;
+}
 int main(int argc, char **argv) {
-    bool rvc = argc == 12 && strcmp(argv[8], "rvc") == 0;
+    /* The bundled Rust RVC worker: worker, "rvc-native", runtime, model, session, index,
+     * pitch, index rate. */
+    bool native = argc == 11 && strcmp(argv[4], "rvc-native") == 0;
+    if (native && (argv[3][0] != '/' || argv[5][0] != '/' || argv[6][0] != '/' || !session_id(argv[7]) ||
+        (argv[8][0] && argv[8][0] != '/') || !integer_in(argv[9], -24, 24) || !fraction(argv[10]))) return 2;
     bool router = argc == 5 && (strcmp(argv[4], "router") == 0 || strcmp(argv[4], "router-frozen") == 0);
     bool speech = (argc == 9 || argc == 10) && strcmp(argv[4], "speech-server") == 0;
     /* A tenth argument is a diarization model for the server to load as well. */
@@ -43,11 +64,10 @@ int main(int argc, char **argv) {
     if (speech && (argv[5][0] != '/' || (argv[6][0] && argv[6][0] != '/') ||
         (argv[7][0] && argv[7][0] != '/') || strlen(argv[7]) >= PATH_MAX ||
         (argc == 10 && diarization[0] != '/') || !device_allowed(argv[8]))) return 2;
-    if (!router && !speech && ((argc != 8 && !rvc) || argv[3][0] != '/' || argv[4][0] != '/' || argv[5][0] != '/' ||
+    if (!native && !router && !speech && (argc != 8 || argv[3][0] != '/' || argv[4][0] != '/' || argv[5][0] != '/' ||
         argv[6][0] != '/' || strlen(argv[7]) != 32 ||
         strspn(argv[7], "0123456789abcdef") != 32)) return 2;
     if (argv[3][0] != '/') return 2;
-    if (rvc && argv[9][0] && argv[9][0] != '/') return 2;
     long expected_parent = number(argv[1]), descriptor = number(argv[2]);
     if (expected_parent <= 1 || descriptor < 3) return 2;
     int owner_fd = (int)descriptor;
@@ -89,6 +109,13 @@ int main(int argc, char **argv) {
             execv(argv[3], args);
             _exit(1);
         }
+        if (native) {
+            char *native_args[] = {argv[3], "--runtime", argv[5], "--model", argv[6],
+                "--session", argv[7], "--index", argv[8], "--pitch", argv[9],
+                "--index-rate", argv[10], NULL};
+            execv(argv[3], native_args);
+            _exit(1);
+        }
         if (router) {
             char *module_args[] = {argv[3], "-u", "-m", "models.voice_conversion.router_worker", NULL};
             char *frozen_args[] = {argv[3], "--voice-router-worker", NULL};
@@ -98,11 +125,7 @@ int main(int argc, char **argv) {
         char *args[] = {argv[3], "-u", "-m", "integrations.seed_vc.live_worker",
             "--engine", argv[4], "--assets", argv[5], "--reference", argv[6],
             "--session", argv[7], NULL};
-        char *rvc_args[] = {argv[3], "-u", "-m", "integrations.rvc.live_worker",
-            "--engine", argv[4], "--assets", argv[5], "--model", argv[6],
-            "--session", argv[7], "--index", rvc ? argv[9] : "",
-            "--pitch", rvc ? argv[10] : "0", "--index-rate", rvc ? argv[11] : "0", NULL};
-        execv(argv[3], rvc ? rvc_args : args);
+        execv(argv[3], args);
         _exit(1);
     }
     /* Only the worker owns these protocol pipes; do not keep EOF alive. */

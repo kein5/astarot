@@ -95,10 +95,40 @@ def test_factory_selects_rvc_without_loading_seed(monkeypatch):
     assert direct_voice.create_worker_process(OPTIONS) is marker
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="Linux worker")
-def test_missing_rvc_runtime_fails_before_capture():
+def test_missing_rvc_runtime_fails_before_capture(tmp_path, monkeypatch):
+    from models.voice_conversion import rvc_process
+
+    worker = tmp_path / "vrct-rvc-worker"
+    monkeypatch.setattr(rvc_process, "worker_binary", lambda: worker)
+    # A build without the worker says so rather than pointing at the runtime.
+    with pytest.raises(ValueError, match="vc_engine_unavailable"):
+        direct_voice.create_converted_process(OPTIONS)
+    worker.touch()
     with pytest.raises(ValueError, match="vc_runtime_missing"):
         direct_voice.create_converted_process(OPTIONS)
+
+
+def test_a_runtime_of_the_earlier_python_kind_is_refused_before_capture(tmp_path, monkeypatch):
+    """A saved runtime folder from the PyTorch runtime has no lib/: set it up again."""
+    from models.voice_conversion import rvc_process
+
+    worker = tmp_path / "vrct-rvc-worker"
+    worker.touch()
+    monkeypatch.setattr(rvc_process, "worker_binary", lambda: worker)
+    runtime = tmp_path / "rvc"
+    for name in ("venv/bin/python", "engine/infer.py", "assets/hubert_base/pytorch_model.bin",
+                 "assets/hubert_base/config.json", "assets/rmvpe/rmvpe.pt"):
+        (runtime / name).parent.mkdir(parents=True, exist_ok=True)
+        (runtime / name).touch()
+    model = tmp_path / "voice.pth"
+    model.touch()
+    options = dict(OPTIONS, runtime=str(runtime), model=str(model))
+    with pytest.raises(ValueError, match="vc_runtime_missing"):
+        rvc_process.RVCProcess(options)
+    for name in ("lib/" + rvc_process.ORT_LIBRARY, "assets/rmvpe/rmvpe.onnx"):
+        (runtime / name).parent.mkdir(parents=True, exist_ok=True)
+        (runtime / name).touch()
+    assert rvc_process.runtime_complete(runtime)
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux worker")

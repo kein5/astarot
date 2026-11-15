@@ -173,7 +173,7 @@ def fetch_models(args):
 
 
 def fetch_runtimes(args):
-    """Set up the RVC and Seed-VC runtimes with the product's own consent-gated installer (about 11 GB)."""
+    """Set up the RVC and Seed-VC runtimes with the product's own consent-gated installer (about 9 GB)."""
     sys.path.insert(0, str(ROOT / "src-python"))
     from models.voice_conversion.runtime_setup import ACTIVE, RuntimeSetup
 
@@ -310,7 +310,7 @@ def main(argv=None):
     parser.add_argument("--vrchat", action="store_true", help="start two local VRChat clients and run the round trip")
     parser.add_argument("--downloads", action="store_true", help="run the real 336 MB model download test")
     parser.add_argument("--fetch-runtimes", action="store_true",
-                        help="set up the RVC and Seed-VC runtimes (about 11 GB of downloads, 17 GB on disk) into the cache")
+                        help="set up the RVC and Seed-VC runtimes (about 9 GB of downloads, 22 GB on disk) into the cache")
     parser.add_argument("--vrchat-voice", action="store_true",
                         help="run the two tests on the PC's real audio route (see tools/vrchat_voice_host.py)")
     parser.add_argument("--cache", type=Path, default=CACHE)
