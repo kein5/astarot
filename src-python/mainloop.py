@@ -197,6 +197,7 @@ run_mapping = {
     "selectable_speaker_device_list":"/run/selectable_speaker_device_list",
 
     "software_update_info":"/run/software_update_info",
+    "virtual_mic_level":"/run/virtual_mic_level",
 
     "initialization_progress":"/run/initialization_progress",
     "initialization_complete":"/run/initialization_complete",
@@ -538,6 +539,11 @@ mapping = {
     "/set/disable/local_asr_notice": {"status": True, "variable":controller.setDisableLocalAsrNotice},
     "/get/data/old_whisper_weights": {"status": True, "variable":controller.getOldWhisperWeights},
     "/run/delete_old_whisper_weights": {"status": True, "variable":controller.deleteOldWhisperWeights},
+    # The virtual microphone guide and its check on Windows (#321).
+    "/get/data/virtual_mic_notice": {"status": True, "variable":controller.getVirtualMicNotice},
+    "/set/disable/virtual_mic_notice": {"status": True, "variable":controller.setDisableVirtualMicNotice},
+    "/get/data/virtual_mic_status": {"status": True, "variable":controller.getVirtualMicStatus},
+    "/run/virtual_mic_test": {"status": True, "variable":controller.runVirtualMicTest},
 
     # VR
     "/get/data/overlay_small_log": {"status": True, "variable":controller.getOverlaySmallLog},

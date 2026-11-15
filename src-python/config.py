@@ -1366,6 +1366,9 @@ class Config:
     # True after a migration moved a choice of the removed Whisper engine to speech.cpp, until
     # the user closes the notice that says what that needs (LocalAsrNoticeController).
     LOCAL_ASR_NOTICE_PENDING = ManagedProperty('LOCAL_ASR_NOTICE_PENDING', type_=bool)
+    # True until the user finishes the virtual microphone guide or asks not to see it again (#321).
+    # The guide opens by itself only on Windows and only while no virtual cable is found.
+    VIRTUAL_MIC_NOTICE_PENDING = ManagedProperty('VIRTUAL_MIC_NOTICE_PENDING', type_=bool)
     SELECTED_PLAMO_MODEL = ManagedProperty('SELECTED_PLAMO_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST'), allow_none=True)
     SELECTED_GEMINI_MODEL = ManagedProperty('SELECTED_GEMINI_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST'), allow_none=True)
     SELECTED_OPENAI_MODEL = ManagedProperty('SELECTED_OPENAI_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_OPENAI_MODEL_LIST'), allow_none=True)
@@ -1632,6 +1635,7 @@ class Config:
         self._CTRANSLATE2_LICENSE_NOTICE_SHOWN = False
         self._LOCAL_ASR_MIGRATION = LOCAL_ASR_MIGRATION_LATEST
         self._LOCAL_ASR_NOTICE_PENDING = False
+        self._VIRTUAL_MIC_NOTICE_PENDING = True
         self._SELECTED_PLAMO_MODEL = None
         self._SELECTED_GEMINI_MODEL = None
         self._SELECTED_OPENAI_MODEL = None

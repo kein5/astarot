@@ -11,6 +11,7 @@ import styles from "./VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
+import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 
 export const VoiceSettings = () => {
     const { t } = useI18n();
@@ -81,6 +82,7 @@ export const VoiceSettings = () => {
                         {deviceList.map(device => <option key={device.id} value={device.id}>{device.label}</option>)}
                     </select>
                 </FormRow>
+                <VirtualMicEntry />
                 <fieldset className={styles.group} aria-label={t("voice_ui.monitor_heading")}>
                     <legend>{t("voice_ui.monitor_heading")}</legend>
                     <Description text={t("voice.monitor_hint")} />
@@ -163,6 +165,7 @@ export const TtsOutputDeviceSettings = ({ title }) => {
                         {deviceList.map(device => <option key={device.id} value={device.id}>{device.label}</option>)}
                     </select>
                 </FormRow>
+                <VirtualMicEntry />
             </fieldset>}
         {form.navigationDialog}
     </section>;

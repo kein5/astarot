@@ -46,6 +46,8 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 `LOCAL_ASR_NOTICE_PENDING`（真偽値、既定は`false`、保存する）は、移行のお知らせをまだ出していないことを表す。真の間、メイン画面は「ローカルの音声認識は speech.cpp に変わりました」のお知らせを出す（`LocalAsrNoticeController.jsx`）。お知らせは、Whisper が含まれなくなりローカル（speech.cpp）へ移したこと、同梱の ASR サーバーには認識モデルと VAD モデルが要ることと、それぞれが`asr`プロファイルに設定済みかどうか、設定でライセンスとサイズを確かめて同意するまで何も取得しないことを伝える。「音声認識（ASR）」の設定を開くボタンがあり、古い Whisper の重みが残っていれば、その合計の容量と、確認してから削除するボタンを出す。閉じる、Escape、設定を開くのどれで閉じても`/set/disable/local_asr_notice`を送り、以後は出さない。UIは`/get/data/local_asr_notice`で状態を読む。
 
+`VIRTUAL_MIC_NOTICE_PENDING`（真偽値、既定は`true`、保存する）は、仮想マイクの案内（#321）を起動時に自分で開いてよいことを表す。Windowsで仮想ケーブルが1つも見つからないときだけ開く。「完了」か「今後は自動で表示しない」で`/set/disable/virtual_mic_notice`を送り、偽にする。偽でも「テキスト読み上げ（TTS）」の設定から開ける。流れは[UC-17](use-cases.md#uc-17-仮想マイクを用意して確かめるwindows)にある。
+
 ### 古い Whisper の重み
 
 以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（`models/transcription/old_whisper_weights.py`の`WHISPER_WEIGHT_NAMES`）。いまの版は読まない。
