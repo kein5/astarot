@@ -58,6 +58,8 @@ export default defineConfig(() => {
                     vr: path.resolve(__dirname, "src-ui/vr.html"),
                     quick_chat: path.resolve(__dirname, "src-ui/quick-chat.html"),
                     caption_overlay: path.resolve(__dirname, "src-ui/caption-overlay.html"),
+                    companion_panel: path.resolve(__dirname, "src-ui/companion-panel.html"),
+                    companion_handle: path.resolve(__dirname, "src-ui/companion-handle.html"),
                 },
             },
             sourcemap: true,

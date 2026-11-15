@@ -1,0 +1,42 @@
+.panel {
+    display: flex; flex-direction: column; gap: 1.2rem; height: 100%; box-sizing: border-box; padding: 1.4rem 1.6rem;
+    background: var(--vox_canvas); color: var(--dark_basic_text_color); font-size: 1.4rem;
+    border: .1rem solid var(--dark_750_color); border-radius: 10px;
+    :focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
+}
+.header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .4rem 1rem; }
+.title { margin: 0; font-size: 1.5rem; font-weight: 600; }
+.state { display: inline-flex; align-items: center; gap: .6rem; margin: 0; font-size: 1.3rem; color: var(--dark_400_color); }
+.dot { width: .8rem; height: .8rem; border-radius: 50%; background: var(--dark_600_color); flex-shrink: 0; }
+.state_listening { color: var(--dark_basic_text_color); .dot { background: var(--primary_400_color); } }
+.switches { display: flex; flex-direction: column; gap: .6rem; }
+.switch_row {
+    display: flex; align-items: center; gap: 1rem; width: 100%; min-height: 4.4rem; padding: .6rem 1.2rem;
+    font: inherit; color: inherit; text-align: start; cursor: pointer;
+    background: var(--dark_900_color); border: .1rem solid var(--dark_800_color); border-radius: var(--vox_radius);
+    &:hover:not(:disabled) { background: var(--dark_850_color); }
+    &:disabled { opacity: .55; cursor: default; }
+    &[aria-busy="true"] { opacity: .75; }
+}
+.switch_label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.switch_value { font-size: 1.2rem; color: var(--dark_400_color); white-space: nowrap; }
+.track {
+    position: relative; flex-shrink: 0; width: 3.6rem; height: 2rem; border-radius: 1rem;
+    background: var(--dark_750_color); transition: background-color .15s;
+}
+.thumb {
+    position: absolute; top: .2rem; left: .2rem; width: 1.6rem; height: 1.6rem; border-radius: 50%;
+    background: var(--dark_200_color); transition: transform .15s;
+}
+.is_on {
+    .track { background: var(--primary_600_color); }
+    .thumb { transform: translateX(1.6rem); }
+    .switch_value { color: var(--dark_basic_text_color); }
+}
+.footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .6rem; margin-top: auto; }
+.link_button {
+    font: inherit; font-size: 1.3rem; min-height: 3.2rem; padding: .4rem .8rem; cursor: pointer;
+    color: var(--primary_200_color); background: none; border: none; border-radius: var(--vox_radius);
+    &:hover { background: var(--dark_900_color); }
+}
+@media (prefers-reduced-motion: reduce) { .track, .thumb { transition: none; } }

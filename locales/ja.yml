@@ -1967,3 +1967,21 @@ io_flow:
         desktop_description: "直近の入力が届いた先と、かかった時間を字幕の窓に表示します。VR では VR パネルの「入力と出力」から見られます。"
         count: "デスクトップに表示する入力の数"
         count_value: "{{count}} 件"
+
+# 実験中のコンパニオン形態（トレイ、字幕、コントロールパネル）。Issue #355
+companion:
+    state_starting: "起動中"
+    state_listening: "認識中"
+    state_idle: "停止中"
+    mic: "マイク"
+    translation: "翻訳"
+    "on": "オン"
+    "off": "オフ"
+    open_main: "VRCT-VOX を開く"
+    close: "閉じる"
+    handle: "コントロールパネルを開く"
+    menu_start: "認識を開始"
+    menu_stop: "認識を停止"
+    menu_panel: "コントロールパネルを開く"
+    menu_main: "VRCT-VOX を開く"
+    menu_quit: "終了"

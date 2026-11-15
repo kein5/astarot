@@ -1967,3 +1967,21 @@ io_flow:
         desktop_description: "Shows where your latest inputs went and how long each took, in the caption window. In VR, open \"Inputs and outputs\" from the VR panel."
         count: "Inputs shown on the desktop"
         count_value: "{{count}}"
+
+# Experimental companion form (tray, captions, control panel); Issue #355.
+companion:
+    state_starting: "Starting"
+    state_listening: "Listening"
+    state_idle: "Not listening"
+    mic: "Microphone"
+    translation: "Translation"
+    "on": "On"
+    "off": "Off"
+    open_main: "Open VRCT-VOX"
+    close: "Close"
+    handle: "Open the control panel"
+    menu_start: "Start recognition"
+    menu_stop: "Stop recognition"
+    menu_panel: "Open the control panel"
+    menu_main: "Open VRCT-VOX"
+    menu_quit: "Quit"
