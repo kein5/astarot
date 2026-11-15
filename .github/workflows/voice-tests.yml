@@ -19,10 +19,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # Cocogitto too: the tooling scope runs tools/changelog.py against real commits.
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           version: 2026.11.8
-          install_args: node python uv
+          install_args: node python uv cocogitto
       - run: uv venv --python 3.11
       - run: uv export --frozen --no-header --no-annotate --format requirements-txt --no-emit-project --only-group voice-test --output-file voice-test-requirements.txt
       - run: uv pip sync --require-hashes voice-test-requirements.txt
