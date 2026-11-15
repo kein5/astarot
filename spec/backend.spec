@@ -26,19 +26,21 @@ a = Analysis(
         ("./../NOTICE.md", "licenses/VRCT/"),
         ("./../src-tauri/nsis/licenses/nscurl", "licenses/nscurl/"),
         ('./../src-python/models/overlay/fonts', 'fonts/'),
+        # The Silero VAD model the app ships (licenses/silero-vad); audio_vad.py reads it next to itself.
+        ('./../src-python/models/transcription/silero_vad', 'models/transcription/silero_vad/'),
+        ('./../licenses/silero-vad', 'licenses/silero-vad/'),
         ('./../src-python/models/translation/translation_settings/prompt', 'translation_settings/prompt/'),
         ('./../src-python/models/translation/translation_settings/languages', 'translation_settings/languages/'),
         ('./../.venv/Lib/site-packages/zeroconf', 'zeroconf/'),
         ('./../.venv/Lib/site-packages/openvr', 'openvr/'),
         ('./../.venv/Lib/site-packages/glfw', 'glfw/'),  # glfw3.dll (VR UI overlay texture) is loaded via ctypes, not found by analysis
-        ('./../.venv/Lib/site-packages/faster_whisper', 'faster_whisper/'),
         ('./../.venv/Lib/site-packages/hf_xet', 'hf_xet/'),
         # RapidOCR reads these at start-up; nothing else in the package is data we ship
         # (its bundled weights are dropped by filter_toc and never used).
         ('./../.venv/Lib/site-packages/rapidocr/config.yaml', 'rapidocr/'),
         ('./../.venv/Lib/site-packages/rapidocr/default_models.yaml', 'rapidocr/'),
         ],
-    hiddenimports=['faster_whisper.vad', 'rapidocr', 'rapidocr.inference_engine.onnxruntime', 'cv2', 'models.ocr', 'windows_capture',
+    hiddenimports=['rapidocr', 'rapidocr.inference_engine.onnxruntime', 'cv2', 'models.ocr', 'windows_capture',
                    'soxr', 'pyaudiowpatch', 'models.transcription.capture_windows', 'models.audio_routing.windows_route',
                    'models.voice_conversion.router_worker', 'models.voice_conversion.rvc_process',
                    'models.voice_conversion.seed_process'],

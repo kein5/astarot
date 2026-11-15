@@ -1,7 +1,8 @@
-"""Runtime transcriber that wraps Google SpeechRecognition and faster-whisper.
+"""Runtime transcriber for the recorder route: Google SpeechRecognition and the cloud engines.
 
-This class focuses on converting incoming raw audio buffers into text using
-either the Google web recognizer (online) or a local Whisper model (offline).
+This class converts incoming raw audio buffers into text with the Google web
+recognizer or a cloud engine (OpenAI-compatible APIs, Deepgram). Local
+recognition runs on speech.cpp through the realtime route instead (#288).
 
 キューには常に (raw_bytes, recorded_at) タプルが積まれる。エネルギー
 閾値方式 (既定) では、フレーズ境界は
@@ -29,10 +30,8 @@ from typing import Any, Dict, List, Optional
 from speech_recognition import Recognizer, AudioData
 from speech_recognition.exceptions import UnknownValueError
 from datetime import datetime, timedelta
-from .transcription_whisper import getWhisperModel, checkWhisperWeight
 from .transcription_providers import (
     GoogleProvider,
-    LocalWhisperProvider,
     OpenAICompatibleTranscriptionProvider,
     DeepgramProvider,
     TranscriptionApiError,
@@ -110,11 +109,6 @@ class AudioTranscriber:
         phrase_timeout: int,
         max_phrases: int,
         transcription_engine: str,
-        root: Optional[str] = None,
-        whisper_weight_type: Optional[str] = None,
-        device: str = "cpu",
-        device_index: int = 0,
-        compute_type: str = "auto",
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         api_model: Optional[str] = None,
@@ -147,8 +141,6 @@ class AudioTranscriber:
         self.audio_recognizer = Recognizer()
         self.audio_recognizer.operation_timeout = GOOGLE_RECOGNIZE_TIMEOUT_SECONDS
         self.transcription_engine = transcription_engine
-        self.whisper_model = None
-        self.whisper_weight_type = whisper_weight_type
         self._api_provider: Optional[OpenAICompatibleTranscriptionProvider] = None
         self.audio_sources: Dict[str, Any] = {}
         if source is not None:
@@ -156,21 +148,7 @@ class AudioTranscriber:
 
         if transcription_engine is None:
             raise TranscriptionStartError(ErrorCode.TRANSCRIPTION_ENGINE_NOT_SELECTED)
-        if transcription_engine == "Whisper":
-            try:
-                verified = checkWhisperWeight(root, whisper_weight_type)
-            except Exception:
-                verified = False
-            if verified is not True:
-                raise TranscriptionStartError(ErrorCode.TRANSCRIPTION_MODEL_MISSING)
-            try:
-                self.whisper_model = getWhisperModel(
-                    root, whisper_weight_type, device=device, device_index=device_index, compute_type=compute_type
-                )
-            except FileNotFoundError:
-                # The loader verifies again; files may change after the first check.
-                raise TranscriptionStartError(ErrorCode.TRANSCRIPTION_MODEL_MISSING) from None
-        elif transcription_engine in _API_TRANSCRIPTION_ENGINES:
+        if transcription_engine in _API_TRANSCRIPTION_ENGINES:
             self.transcription_engine = transcription_engine
             try:
                 self._api_provider = OpenAICompatibleTranscriptionProvider(
@@ -192,11 +170,8 @@ class AudioTranscriber:
             except Exception:
                 raise TranscriptionStartError(ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE) from None
         elif transcription_engine != "Google":
+            # The local engine (speech.cpp) listens through the realtime route, not this recorder.
             raise TranscriptionStartError(ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE)
-
-    def releaseModel(self) -> None:
-        """Drop the Whisper model once no worker will transcribe with this object."""
-        self.whisper_model = None
 
     def setAudioSource(self, source: Any) -> None:
         """Bind PCM format after the recognizer is ready, before listening."""
@@ -212,16 +187,11 @@ class AudioTranscriber:
         }
 
     def _resolve_provider(self):
-        """`self.transcription_engine`/`self.whisper_model` の"現在の"値を見て
-        対応するプロバイダを返す。既存テストが構築後に直接
-        `transcriber.transcription_engine`/`transcriber.whisper_model` を
+        """`self.transcription_engine` の"現在の"値を見て対応するプロバイダを
+        返す。既存テストが構築後に直接 `transcriber.transcription_engine` を
         書き換える運用になっているため、`__init__` 時点で1回だけ決め打つ
         のではなく、呼び出しの都度その場で解決する。
         """
-        if self.transcription_engine == "Whisper":
-            if self.whisper_model is None:
-                return None
-            return LocalWhisperProvider(self.whisper_model)
         if self.transcription_engine in _CLOUD_TRANSCRIPTION_ENGINES:
             return self._api_provider
         if self.transcription_engine == "Google":
@@ -251,7 +221,6 @@ class AudioTranscriber:
         countries: List[str],
         avg_logprob: float = -0.8,
         no_speech_prob: float = 0.6,
-        no_repeat_ngram_size: int = 0,
     ) -> bool:
         """キューを非ブロッキングで drain し、フレーズが完成したと判断
         できた時だけ実際に文字起こしを実行する。
@@ -335,9 +304,7 @@ class AudioTranscriber:
             if self.vad_segmented:
                 source_info["last_sample"] = self._padWithSilenceForVad(original)
             try:
-                return self._finalizeAndTranscribe(
-                    languages, countries, avg_logprob, no_speech_prob, no_repeat_ngram_size
-                )
+                return self._finalizeAndTranscribe(languages, countries, avg_logprob, no_speech_prob)
             finally:
                 source_info["last_sample"] = original
 
@@ -553,18 +520,14 @@ class AudioTranscriber:
         countries: List[str],
         avg_logprob: float,
         no_speech_prob: float,
-        no_repeat_ngram_size: int,
     ) -> bool:
         """確定した audio_sources['last_sample'] を実際に文字起こしする。
         last_sample のクリアは呼び出し元 (transcribeAudioQueue) が行う。
         """
         # Google/API系はネットワーク経由のためエラーが一時的なことが多く、
         # 呼び出しの都度エラー状態をクリアして UI に古いエラーを残さない。
-        # ローカル Whisper は従来からこのリセットを行っておらず、その挙動は
-        # 変更しない (エラーが決定的である= リトライしても意味が薄いため)。
-        if self.transcription_engine == "Google" or self.transcription_engine in _CLOUD_TRANSCRIPTION_ENGINES:
-            self.last_recognition_error = False
-            self.last_api_error_code = None
+        self.last_recognition_error = False
+        self.last_api_error_code = None
 
         best: Dict[str, Any] = {"confidence": 0, "text": "", "language": None}
         provider_error: Optional[Exception] = None
@@ -599,7 +562,6 @@ class AudioTranscriber:
                             country,
                             avg_logprob=avg_logprob,
                             no_speech_prob=no_speech_prob,
-                            no_repeat_ngram_size=no_repeat_ngram_size,
                             force_language=force_language,
                         )
                     except UnknownValueError:

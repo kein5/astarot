@@ -10,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.skipif(
-    sys.platform != "linux" or importlib.util.find_spec("faster_whisper") is None,
+    sys.platform != "linux" or importlib.util.find_spec("speech_recognition") is None,
     reason="requires the optional Linux runtime dependencies",
 )
 

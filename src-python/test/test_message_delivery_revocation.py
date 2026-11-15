@@ -770,7 +770,7 @@ def test_user_off_while_settings_paused_revokes_inflight_delivery(app, source):
 
 
 @pytest.mark.parametrize("source", ["mic", "speaker"])
-@pytest.mark.parametrize("reason", ["device_loss", "pipeline_error", "vram", "start_error", "start_refused"])
+@pytest.mark.parametrize("reason", ["device_loss", "pipeline_error", "start_error", "start_refused"])
 def test_error_disable_revokes_before_cleanup(app, monkeypatch, source, reason):
     direction = "Send" if source == "mic" else "Receive"
     title = "Mic" if source == "mic" else "Speaker"
@@ -778,7 +778,6 @@ def test_error_disable_revokes_before_cleanup(app, monkeypatch, source, reason):
     translator = app.m.getInputTranslate if source == "mic" else app.m.getOutputTranslate
     session = getattr(app.m, "_" + source + "_session")
     monkeypatch.setattr(module, "errorLogging", Mock())
-    app.c.run_mapping["error_transcription_" + source + "_vram_overflow"] = "/run/vram"
 
     if reason == "device_loss":
         session = configure_device_reconciliation(app, monkeypatch, source, available=False)
@@ -807,7 +806,7 @@ def test_error_disable_revokes_before_cleanup(app, monkeypatch, source, reason):
         else:
             start_capture = Mock(return_value=False)
             if reason != "start_refused":
-                start_capture.side_effect = ValueError("VRAM_OUT_OF_MEMORY") if reason == "vram" else RuntimeError("failed")
+                start_capture.side_effect = RuntimeError("failed")
             monkeypatch.setattr(app.m, "start" + title + "Transcript", start_capture)
             assert getattr(app.c, "startTranscription" + direction + "Message")() is False
         assert not current()
@@ -1062,7 +1061,7 @@ def test_shutdown_closes_new_message_admission_before_cleanup(app, monkeypatch, 
     app.c._stopServiceForShutdown = Mock()
     app.c._stopWorkerForShutdown = Mock()
     app.c._stopLockedForShutdown = Mock()
-    app.c.run_mapping["downloaded_whisper_weight"] = "/run/downloaded_whisper_weight"
+    app.c.run_mapping["downloaded_ctranslate2_weight"] = "/run/downloaded_ctranslate2_weight"
 
     def close():
         assert not any(current() for current in old)
@@ -1077,12 +1076,12 @@ def test_shutdown_closes_new_message_admission_before_cleanup(app, monkeypatch, 
         app.m.getInputTranslate.assert_not_called()
         assert_no_outputs(app)
         # Required terminal notices are independent of ordinary message guards.
-        download = app.c.DownloadWhisper(app.c.run_mapping, "tiny", app.c.run)
+        download = app.c.DownloadCTranslate2(app.c.run_mapping, "m2m100_418M-ct2-int8", app.c.run)
         download.downloaded(ready=True)
         return True
 
-    app.cfg.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
+    app.cfg.SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT = {}
     app.c.model_downloads = Mock(close=close)
     assert app.c.shutdown() == {"status": 200, "result": True}
-    assert app.c.run.call_args.args[1] == "/run/downloaded_whisper_weight"
+    assert app.c.run.call_args.args[1] == "/run/downloaded_ctranslate2_weight"
     assert not any(app.c._messagePublicationGuard(source)() for source in sources)

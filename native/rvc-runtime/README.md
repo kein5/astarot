@@ -1,12 +1,13 @@
 # rvc-runtime
 
-Inference-only RVC voice conversion in Rust (issue #275, Phase 1: offline conversion).
+Inference-only RVC voice conversion in Rust (issue #275; Phase 1: offline conversion,
+Phase 2: streaming conversion).
 The processing follows the specification in
 [`docs/superpowers/specs/2026-11-15-rvc-inference-runtime-design.md`](../../docs/superpowers/specs/2026-11-15-rvc-inference-runtime-design.md).
 
 This crate stands alone. The application does not use it yet: nothing under `src-tauri`
 or `src-python` refers to it, and the existing external RVC runtime is unchanged.
-Integration is Phase 3; streaming is Phase 2.
+Integration is Phase 3.
 
 ## What it does
 
@@ -22,9 +23,11 @@ Integration is Phase 3; streaming is Phase 2.
 | Synthesizer (9) | `src/synth.rs`, `src/onnx.rs` | The VITS + NSF network is built as an ONNX graph from the model's own weights at load time, for v1/v2, with or without F0, at any upsampling layout. |
 | Noise and seed (9.2, 13.2) | `src/noise.rs` | All randomness is generated here and fed to the graph, so a seed fixes the output. |
 | Loudness mix, resampling, peak limit (10) | `src/audio.rs` | |
+| Synthesizer window (9.3) | `src/synth.rs`, `src/backend.rs` | `Synthesizer::synthesize_window`: the prior encoder sees the whole window, the flow starts 24 frames before `skip_head`, and only `return_length` frames are decoded. Offline conversion uses the same graph over the whole range. |
+| Streaming (12) | `src/stream.rs` | `Stream`: fixed blocks of 16 kHz input, one block of output at the model's rate per call. See [Streaming](#streaming-spec-section-12). |
+| Causal input filter (12) | `src/filter.rs` | `CausalFilter`: the same Butterworth run forward twice, keeping its memory between blocks. |
 
-Not implemented in Phase 1: the streaming window interface (9.3, 12), formant shift, and
-F0 extractors other than RMVPE.
+Not implemented: formant shift, and F0 extractors other than RMVPE.
 
 ## Assets
 
@@ -51,18 +54,35 @@ cargo run --release --bin rvc-infer -- \
 reference. `rvc-infer` prints timings only. The library reports errors without audio or
 text content, and nothing in it logs samples.
 
+Streaming conversion of a file, block by block, with the processing time of every block:
+
+```sh
+cargo run --release --bin rvc-stream -- \
+  --model voice.pth --index voice.index \
+  --hubert hubert.onnx --rmvpe rmvpe.onnx \
+  --input in.wav --output out.wav --block-ms 250 --extra-ms 2500
+```
+
+It feeds the blocks back to back rather than at the pace of a live input and prints the
+per-block time, the real-time factor and how many blocks took longer than they last.
+
 ONNX Runtime is downloaded by the `ort` crate at build time. `--features cuda` selects the
-CUDA provider (not measured yet).
+CUDA provider. The provider needs cuDNN 9 at run time, found through the library path; if
+the provider cannot start, ONNX Runtime falls back to the CPU without an error, so check
+GPU use (for example with `nvidia-smi`) when measuring.
 
 ## Verification
 
-`cargo test` runs two groups:
+`cargo test` runs three groups:
 
 - **Unit and offline tests** need nothing but the repository. `tests/data` holds tiny
   voice models with random weights, the reference's output for them and a small FAISS
   index (written by `reference/make_test_data.py`; no trained weights, no recordings).
 - **Conformance tests** (`tests/conformance.rs`) compare against the reference
   implementation and report themselves as skipped until the fixtures exist.
+- **Streaming conformance tests** (`tests/streaming.rs`) compare block by block against
+  the reference's real-time engine, with fixtures from `reference/dump_streaming.py`, and
+  are skipped the same way.
 
 To reproduce the conformance run (about 2.6 GB under `~/.cache/vrct-vox/rvc-reference`,
 or `RVC_REFERENCE_DIR`; needs `uv`):
@@ -72,6 +92,7 @@ python native/rvc-runtime/reference/setup_reference.py          # pinned engine,
 REF=~/.cache/vrct-vox/rvc-reference
 $REF/venv/bin/python native/rvc-runtime/reference/export_hubert_onnx.py
 $REF/venv/bin/python native/rvc-runtime/reference/dump_reference.py
+$REF/venv/bin/python native/rvc-runtime/reference/dump_streaming.py   # after dump_reference.py
 cd native/rvc-runtime && RVC_REQUIRE_REFERENCE=1 cargo test -- --nocapture   # METRIC lines
 ```
 
@@ -236,6 +257,136 @@ Memory grows with the square of the piece length (self-attention at 100 frames p
 second). `Chunking` defaults to the reference's values for a capable GPU (3 / 10 / 60 /
 65 s); smaller `center` and `max` bound the memory.
 
+## Streaming (spec section 12)
+
+`Stream` converts fixed blocks of 16 kHz audio. Lengths are whole 10 ms frames (`Layout`):
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `block` | 25 (0.25 s) | audio per call |
+| `crossfade` | 5 (0.05 s) | crossfade between consecutive blocks |
+| `search` | 1 (0.01 s) | how far the crossfade position is searched |
+| `extra` | 250 (2.5 s) | left context the synthesizer sees but does not return |
+
+The defaults are the reference real-time GUI's. Each call moves a window of
+`extra + crossfade + search + block` frames by one block and then:
+
+1. filters the new block with the causal high-pass (`highpass`, on by default);
+2. takes content features over the whole window, repeats the last frame, blends with the
+   index from frame `extra / 2` on, and doubles to 100 fps;
+3. extracts pitch from the newest `block + 800` samples (rounded up to 5120 − 160 for
+   RMVPE), interpolates, transposes and quantises it, moves the pitch history by one block
+   and writes the extractor's frames `[3, n − 1)` over its last `n − 4` frames;
+4. synthesizes `block + crossfade + search` frames after `extra` frames of context;
+5. joins the result to the previous block: the start of the new audio is compared with the
+   kept tail at every offset within `search`, the offset with the highest normalised
+   cross-correlation is taken, and the two are crossfaded with a squared-sine curve.
+
+All buffers and the pitch history start at zero, as in the reference. Output appears
+`block + crossfade + search` after the input (0.31 s with the defaults), plus the
+processing time.
+
+### Against the reference's real-time engine
+
+`reference/dump_streaming.py` drives the reference's real-time engine (`infer.rtrvc.RVC`)
+block by block with all noise zero, and records each block's window, features, pitch
+history, synthesizer inputs and output. The synthesizer window is also checked on its own
+against the reference synthesizer's `infer(…, skip_head, return_length)`.
+Measured on 2026-11-15, same machine and setup as above (CPU, fp32):
+
+| Check | Result |
+|---|---|
+| Synthesizer window, reference inputs (trained 48 / 40 kHz; random v1 F0, v2 F0-less; flow starting inside and after the context) | SNR 102 – 114 dB trained, 130 – 132 dB random |
+| Same, tiny committed models (no download) | relative error < 1e-4 |
+| Window contents, 13 blocks × 3 models | identical |
+| Content features | relative error ≤ 5.9e-6 |
+| Synthesizer input features (after repeat, blend, doubling) | relative error ≤ 6.1e-6 |
+| Quantised pitch history | identical (0 of 1703 frames differ); continuous pitch 0.015 cents mean, 0.05 max |
+| Synthesizer output per block, F0-less random model | SNR ≥ 131 dB |
+| Synthesizer output per block, trained models | worst block SNR 38.3 dB (40 kHz) and 40.6 dB (48 kHz); 102 dB and 100 dB with the reference's synthesizer inputs (the remaining difference is the pitch difference explained above) |
+
+### Against offline conversion
+
+The stream's output, delayed by `crossfade + search`, compared with offline conversion of
+the same 3.4 s clip (48 kHz model with index, protect off, noise zero, the first second
+left out). Log-spectral distance is dominated by the quiet parts of the spectrum, so the
+reference's own real-time output (its per-block output joined with the same crossfade) is
+the yardstick:
+
+| Stream | Log-spectral distance to offline |
+|---|---|
+| Reference real-time engine, 0.25 s blocks, 1 s context, no filter | 7.50 dB |
+| Runtime, same layout, no filter | 7.50 dB |
+| Runtime, same layout, causal filter | 7.65 dB |
+| Runtime, 0.25 s blocks, 2.5 s context, causal filter | 7.34 dB |
+| Runtime, 0.5 s blocks, 2.5 s context, causal filter | 7.29 dB |
+
+The causal filter has the same magnitude response as the zero-phase one; on the clip the
+filtered signals differ by 0.83 dB log-spectral distance, while their waveforms do not line
+up (SNR 0.2 dB), because two forward passes still turn the phase by about a radian at
+500 Hz.
+
+### Speed
+
+`rvc-stream` on a 31 s speech file (the two public clips, three times over), seed 1,
+blocks fed back to back after three untimed warm-up blocks. The real-time factor is a
+block's processing time over its duration; it must stay below 1 for every block.
+
+Measured 2026-11-15 on the same machine (AMD Ryzen 9 9900X, 12 cores / 24 threads;
+NVIDIA GeForce RTX 4080 SUPER, driver 620.70, CUDA 13, cuDNN 9.26 from the library path).
+**The machine was heavily loaded by unrelated work during the run: load average 23 – 30
+on 24 hardware threads**, from other jobs using several cores each. The CPU figures are
+therefore pessimistic and are not this machine's unloaded speed; the CUDA figures are less
+affected but not free of it either. Repeat on an idle machine before drawing conclusions.
+
+| Device | Model | Block / extra | Per block mean / p95 / max | RTF mean / p95 / max | Blocks over time |
+|---|---|---|---|---|---|
+| CPU | 48 kHz + index | 0.25 s / 2.5 s | 290 / 340 / 393 ms | 1.16 / 1.36 / 1.57 | 122 of 125 |
+| CPU | 48 kHz + index | 0.25 s / 1.0 s | 203 / 229 / 266 ms | 0.81 / 0.92 / 1.06 | 2 of 125 |
+| CPU | 48 kHz + index | 0.5 s / 2.5 s | 347 / 393 / 417 ms | 0.69 / 0.79 / 0.83 | 0 of 62 |
+| CPU | 40 kHz | 0.25 s / 2.5 s | 253 / 304 / 342 ms | 1.01 / 1.22 / 1.37 | 62 of 125 |
+| CUDA | 48 kHz + index | 0.25 s / 2.5 s | 37 / 56 / 64 ms | 0.15 / 0.23 / 0.26 | 0 of 125 |
+| CUDA | 48 kHz + index | 0.1 s / 2.5 s | 34 / 52 / 96 ms | 0.34 / 0.52 / 0.96 | 0 of 313 |
+| CUDA | 48 kHz + index | 0.1 s / 1.0 s | 34 / 55 / 81 ms | 0.34 / 0.55 / 0.81 | 0 of 313 |
+| CUDA | 40 kHz | 0.25 s / 2.5 s | 25 / 48 / 64 ms | 0.10 / 0.19 / 0.26 | 0 of 125 |
+
+Under this load, CUDA stays within real time in every layout tried, down to 0.1 s blocks
+(0.16 s latency plus processing). The CPU meets RTF < 1 for every block only with 0.5 s
+blocks; with the reference GUI's defaults it does not. A stage-by-stage timing on the same
+loaded machine put the cost of a 0.25 s block at about 100 ms for content features over the
+2.8 s window, 20 ms for pitch, 80 – 100 ms for the synthesizer (almost all of it the decoder
+for 0.31 s of 48 kHz audio) and 3 ms for the index.
+
+Not measured: an idle machine, weaker CPUs, and CPU thread limits. ONNX Runtime ignores
+the process's CPU affinity (it started 70 threads under `taskset -c 0-3`), so restricting
+cores with `taskset` would over-subscribe them and say little about a smaller CPU; a
+measurement on weaker hardware needs a thread-count setting, which the runtime does not
+expose yet. The CUDA output was not compared against the CPU output.
+
+### Where streaming differs from the reference's real-time GUI
+
+These follow the specification's wording or are left to it; each is a setting or a
+small change if the specification decides otherwise.
+
+- **Crossfade length.** The specification says 0.05 s. The reference GUI sizes its window
+  with the crossfade setting but caps the fade itself at 0.04 s. The runtime fades over the
+  whole `crossfade`.
+- **Search range.** The specification says "one block"; the reference searches one 10 ms
+  frame, which is what the runtime does by default (`search: 1`). Searching a whole block
+  (0.25 s) would let a block start up to 0.25 s early or late.
+- **Sample rate of the crossfade.** The reference crossfades at the sound device's rate,
+  after resampling; the runtime at the model's rate. Device rates belong to Phase 3.
+- **Input filter.** The reference's real-time path has no high-pass; the specification
+  asks for one, so the causal filter is on by default (`highpass: false` matches the
+  reference).
+- **Protect.** The reference's real-time engine has no protect, and neither has `Stream`.
+- **Index lookups with missing neighbours.** The reference skips the blend for the whole
+  block when any frame gets fewer than eight neighbours; the runtime blends each frame
+  with the neighbours it found, as offline conversion does. This only happens with very
+  small index lists.
+- **Not included:** the GUI's input gate, loudness mix, noise reduction, phase vocoder,
+  formant shift, and device input and output.
+
 ## Decisions on the specification's open questions (section 15)
 
 1. **Reading `.pth`**: read directly, no import step. The reader is about 600 lines, runs
@@ -250,7 +401,8 @@ second). `Chunking` defaults to the reference's values for a capable GPU (3 / 10
 4. **v1**: supported in the code (features, synthesizer, model reader) and verified with
    random weights; verification with a real v1 model is open.
 5. **CPU**: offline conversion runs several times faster than real time on the test
-   machine. Whether CPU streaming is viable needs Phase 2 measurements on weaker CPUs.
+   machine. Streaming on the test machine's CPU: see [Streaming](#streaming-spec-section-12).
+   Weaker CPUs have not been measured (below).
 6. **Formant shift**: not included.
 
 Where the specification leaves a detail open, the behaviour was taken from black-box

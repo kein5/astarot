@@ -60,9 +60,8 @@ def test_url_setters_reject_before_old_key_can_leave(monkeypatch, method, key, c
 def test_startup_probes_only_when_consented_download_will_run(monkeypatch, enabled, missing, consent, probe_result, expected):
     backend = Mock()
     backend.checkTranslatorCTranslate2ModelWeight.return_value = not missing
-    backend.checkTranscriptionWhisperModelWeight.return_value = True
     config = SimpleNamespace(AUTO_DOWNLOAD_MODELS=enabled, CTRANSLATE2_WEIGHT_TYPE="m2m100_418M-ct2-int8",
-                             WHISPER_WEIGHT_TYPE="base", LEGACY_MODEL_DOWNLOAD_CONSENTS={},
+                             LEGACY_MODEL_DOWNLOAD_CONSENTS={},
                              SELECTED_TAB_NO="1", SELECTED_TRANSLATION_ENGINES={"1": "CTranslate2"},
                              SELECTED_TRANSCRIPTION_ENGINE=None)
     if consent != "absent":

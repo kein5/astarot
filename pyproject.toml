@@ -17,7 +17,11 @@ dependencies = [
     # ctranslate2 and the CUDA driver API can do by themselves (see
     # src-python/utils.py). The GPU build gets its cuBLAS/cuDNN from the
     # nvidia-*-cu12 wheels of the `cuda` extra instead.
-    "faster-whisper==1.1.1",
+    # NOTE: faster-whisper was dropped on 2026-11-15 (#288): local speech
+    # recognition runs on speech.cpp. It used to bring in onnxruntime, which
+    # the bundled Silero VAD (models/transcription/audio_vad.py) and the OCR
+    # (RapidOCR and the chat bubble detector) load, so it is declared here.
+    "onnxruntime==1.31.1",
     "ctranslate2==4.8.4",
     "transformers==5.22.1",
     "pillow==13.0.0",

@@ -15,7 +15,7 @@ Windowsはこのすぐ下、Linuxは[Linuxの節](#linux)にあります。
 Windows版はコード署名をしていません。「WindowsによってPCが保護されました」と出たら、「詳細情報」を押してから「実行」を押します。
 :::
 
-CPU版はどのPCでも動きます。GPU版（CUDA版）はNVIDIAのGPUがあるPC向けで、Whisperの音声認識とローカルの翻訳をGPUで動かせます。その分ダウンロードが大きくなります。読み上げとリアルタイム字幕（アプリに入っているspeech.cpp）は、どちらの版でもGPUを使えます。
+CPU版はどのPCでも動きます。GPU版（CUDA版）はNVIDIAのGPUがあるPC向けで、ローカルの翻訳をGPUで動かせます。その分ダウンロードが大きくなります。読み上げとリアルタイム字幕（アプリに入っているspeech.cpp）は、どちらの版でもGPUを使えます。
 
 VRChatへ声を届けるには、仮想ケーブルも必要です（[Windowsの音声経路](./windows-audio)）。
 

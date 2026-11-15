@@ -2,6 +2,7 @@ import { TranscriptionConsentController } from "./_app_controllers/Transcription
 import { OcrSetupController } from "./_app_controllers/OcrSetupController";
 import { TranslationSetupController } from "./_app_controllers/TranslationSetupController";
 import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeController";
+import { LocalAsrNoticeController } from "./_app_controllers/LocalAsrNoticeController";
 import { useI18n } from "@useI18n";
 import { useRef } from "react";
 
@@ -95,6 +96,7 @@ const Contents = () => {
                 <TranslationSetupController />
                 <OcrSetupController />
                 <TelemetryNoticeController />
+                <LocalAsrNoticeController />
             </div>
             :
             <UpdatingComponent />

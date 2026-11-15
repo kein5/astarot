@@ -20,7 +20,6 @@ import math
 from urllib.request import HTTPRedirectHandler, build_opener
 from typing import List, Optional, Protocol, Tuple
 
-import numpy as np
 import requests
 from httpx import Timeout
 import speech_recognition as _speech_recognition
@@ -121,7 +120,6 @@ class TranscriptionProvider(Protocol):
         *,
         avg_logprob: float,
         no_speech_prob: float,
-        no_repeat_ngram_size: int,
         force_language: bool,
     ) -> Tuple[str, float, bool, Optional[str]]:
         """1つの言語候補に対して1回だけ試行する。
@@ -158,7 +156,6 @@ class GoogleProvider:
         *,
         avg_logprob: float,
         no_speech_prob: float,
-        no_repeat_ngram_size: int,
         force_language: bool,
     ) -> Tuple[str, float, bool, Optional[str]]:
         # 2026-09-07: クリップ前後の無音パディングやクリップ分割を
@@ -186,50 +183,6 @@ class GoogleProvider:
         except UnknownValueError:
             return "", 0.0, False, None
         return text, confidence, False, transcription_lang[language][country]["Google"]
-
-
-class LocalWhisperProvider:
-    """既存のローカル (faster-whisper/CTranslate2) 呼び出しをそのまま包む。"""
-
-    def __init__(self, whisper_model) -> None:
-        self._whisper_model = whisper_model
-
-    def transcribe(
-        self,
-        audio_data: AudioData,
-        language: str,
-        country: str,
-        *,
-        avg_logprob: float,
-        no_speech_prob: float,
-        no_repeat_ngram_size: int,
-        force_language: bool,
-    ) -> Tuple[str, float, bool, Optional[str]]:
-        raw = np.frombuffer(
-            audio_data.get_raw_data(convert_rate=16000, convert_width=2), np.int16
-        ).flatten().astype(np.float32) / 32768.0
-
-        source_language = transcription_lang[language][country]["Whisper"] if force_language else None
-        segments, info = self._whisper_model.transcribe(
-            raw,
-            beam_size=5,
-            temperature=0.0,
-            log_prob_threshold=avg_logprob,
-            no_speech_threshold=no_speech_prob,
-            language=source_language,
-            word_timestamps=False,
-            without_timestamps=True,
-            task="transcribe",
-            no_repeat_ngram_size=no_repeat_ngram_size,
-        )
-        text = ""
-        for s in segments:
-            if s.avg_logprob < avg_logprob or s.no_speech_prob > no_speech_prob:
-                continue
-            text += s.text
-
-        # Whisper のセグメントは先頭に空白が付く。チャットボックスや翻訳へそのまま渡さない
-        return text.strip(), info.language_probability, True, source_language or getattr(info, "language", None)
 
 
 def _map_openai_exception(exc: Exception) -> ErrorCode:
@@ -279,7 +232,6 @@ class OpenAICompatibleTranscriptionProvider:
         *,
         avg_logprob: float,
         no_speech_prob: float,
-        no_repeat_ngram_size: int,
         force_language: bool,
     ) -> Tuple[str, float, bool, Optional[str]]:
         wav_bytes = audio_data.get_wav_data(convert_rate=16000, convert_width=2)
@@ -318,7 +270,7 @@ class OpenAICompatibleTranscriptionProvider:
             return "", 0.0, False, None
 
         # avg_logprob (対数確率、概ね負の値) を 0〜1 の疑似的な信頼度に変換する。
-        # ローカル Whisper の info.language_probability に相当するものが
+        # 言語判定の確からしさ (language_probability) に相当するものが
         # verbose_json には無いため、代替の指標として使う。
         confidence = math.exp(sum(accepted_logprobs) / len(accepted_logprobs)) if accepted_logprobs else 0.5
 
@@ -375,7 +327,6 @@ class DeepgramProvider:
         *,
         avg_logprob: float,
         no_speech_prob: float,
-        no_repeat_ngram_size: int,
         force_language: bool,
     ) -> Tuple[str, float, bool, Optional[str]]:
         wav_bytes = audio_data.get_wav_data(convert_rate=16000, convert_width=2)

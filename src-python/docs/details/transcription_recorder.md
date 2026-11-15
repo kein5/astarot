@@ -244,7 +244,7 @@ adjustForNoise() -> None
   受け取り、フレーズを組み立てて認識エンジンに渡す。`vad_segmented=True` (config.MIC_ENABLE_VAD/SPEAKER_ENABLE_VAD)
   では蓄積せず各アイテムを単独で確定・文字起こしする。
 - `models/transcription/audio_vad.py` (`VadSegmenter`/`VadRecognizerAdapter`):
-  `config.MIC_ENABLE_VAD/SPEAKER_ENABLE_VAD` 時の発話区間検出本体。Silero VAD (faster-whisper 同梱 ONNX) による
+  `config.MIC_ENABLE_VAD/SPEAKER_ENABLE_VAD` 時の発話区間検出本体。アプリに同梱した Silero VAD の ONNX (`models/transcription/silero_vad/`、onnxruntime で実行) による
   プリロール・anchor方式ヒステリシス・`max_speech_frames` 安全弁の実装。
 - `device_manager.py`: `pyaudio_op_lock` の定義元、デバイス列挙・監視。
 - `model.py`: `MicSession`/`SpeakerSession` (`_AudioDeviceSession`) が

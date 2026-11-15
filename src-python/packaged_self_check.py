@@ -23,15 +23,16 @@ def _translation_engine():
     return ctranslate2.Translator, sentencepiece.SentencePieceProcessor
 
 
-def _whisper():
-    from faster_whisper import WhisperModel
-    return WhisperModel
+def _voice_activity():
+    # The bundled Silero VAD (models/transcription/audio_vad.py) loads it when a switch turns on.
+    import onnxruntime
+    return onnxruntime.InferenceSession, onnxruntime.SessionOptions
 
 
 CHECKS = (
     ("translation tokenizer (transformers)", _translation_tokenizer),
     ("translation engine (ctranslate2, sentencepiece)", _translation_engine),
-    ("speech recognition (faster-whisper)", _whisper),
+    ("voice activity detection (onnxruntime)", _voice_activity),
 )
 
 

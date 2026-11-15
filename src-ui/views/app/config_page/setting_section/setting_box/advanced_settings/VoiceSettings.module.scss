@@ -27,6 +27,33 @@
     select option { color: var(--dark_200_color, #e5e7eb); background: var(--vox_surface, #18253b); }
     // The reset removes the native arrow; without one a select reads as a text field.
     select { padding-right: 3.6rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%239daec6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1.4rem center; background-size: 1.2rem; cursor: pointer; }
+    // Where the engine can style a select's list (WebView2), the list drops from the field and
+    // settles like the shared dropdown, with the same rows. Elsewhere (WebKitGTK) the system list stays.
+    @supports (appearance: base-select) {
+        select, select::picker(select) { appearance: base-select; }
+        select { display: flex; align-items: center; }
+        // The field keeps its own arrow (the background above).
+        select::picker-icon { display: none; }
+        select::picker(select) {
+            margin-block: .4rem;
+            padding: .4rem;
+            border: .1rem solid var(--dark_600_color);
+            border-radius: var(--vox_radius);
+            background: var(--vox_surface);
+            color: var(--dark_200_color);
+            box-shadow: var(--vox_shadow_overlay);
+            transform-origin: top;
+            // Below the field when it fits, as the system list opens (Chromium's default picks the roomier side).
+            position-try-order: normal;
+        }
+        select:open::picker(select) {
+            transition: opacity var(--vox_motion_fast) var(--vox_ease), transform var(--vox_motion) var(--vox_ease_settle);
+        }
+        option { min-height: 0; padding: .8rem 1.2rem; border-radius: .4rem; }
+        option:hover, option:focus-visible { background: var(--dark_800_color); outline: none; }
+        option:checked { color: var(--primary_200_color); font-weight: 600; }
+        option::checkmark { display: none; }
+    }
     input::placeholder, textarea::placeholder { color: var(--vox_description_text); opacity: 1; }
     textarea { resize: vertical; min-height: 8rem; }
     button { width: fit-content; max-width: 100%; white-space: normal; cursor: pointer; background: var(--dark_850_color, #25364f); border: .1rem solid transparent; font-weight: 600; }
@@ -73,3 +100,9 @@
 .progress::-moz-progress-bar { background: var(--primary_500_color); border-radius: .3rem; }
 // The shared GPU and memory group: space and a subheading, no frame.
 .hardware { display: grid; gap: .8rem; min-width: 0; container-type: inline-size; }
+// The select list's first frame (see the base-select rules in .container).
+@supports (appearance: base-select) {
+    @starting-style {
+        .container select:open::picker(select) { opacity: 0; transform: translateY(-.6rem) scaleY(.94); }
+    }
+}

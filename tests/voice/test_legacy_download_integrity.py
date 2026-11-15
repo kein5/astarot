@@ -159,7 +159,7 @@ def test_slow_trickle_obeys_total_deadline(tmp_path, bundle):
 def test_shutdown_cancels_and_joins_running_download_once(tmp_path, bundle):
     _, pin = bundle
     owner, body, results = downloads.LegacyDownloads(), Stalled(), []
-    thread = owner.start(("whisper", "base"),
+    thread = owner.start(("ctranslate2", "base"),
         lambda control: downloads.download_directory(tmp_path, "model", "owner/model", pin, control,
                                                       transport=lambda _: body),
         lambda *result: results.append(result))

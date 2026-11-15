@@ -13,6 +13,13 @@
 - 音声認識エンジン判定の高速化: Whisperはキャッシュ結果を利用し0.56s→0.00s
 - ソフトウェア更新チェックの非同期化: GitHub APIチェックをバックグラウンド化
 
+## 最近の更新 (#288 ローカル Whisper の削除)
+
+- ローカルの Whisper エンジン（faster-whisper）を削除した。ローカルの音声認識は speech.cpp（エンジン ID `SpeechCpp`）だけになった。上の 2026-01-03 の項目のうち Whisper に関するもの（重みチェックの2並列化、`_whisper_available_cache`）は、もう存在しない。
+- 起動時の重みチェックと自動ダウンロードは CTranslate2 の翻訳モデルだけを扱う。`_missingBuiltInModelInUse(ctranslate2_available)` も翻訳モデルだけを見る。
+- 削除したもの: `DownloadWhisper`、`downloadWhisperWeight()`、`updateDownloadedWhisperModelWeight()`、Whisper の重みタイプと音声認識の処理デバイス・計算タイプの getter/setter、音声認識の VRAM 不足の処理。
+- 追加したもの: `getLocalAsrNotice()`、`setDisableLocalAsrNotice()`、`getOldWhisperWeights()`、`deleteOldWhisperWeights()`（「14. 音声認識エンジン管理」の「ローカル音声認識の移行と古い Whisper モデル」）。
+
 ## アーキテクチャ上の位置づけ
 
 ```
@@ -109,7 +116,7 @@ except Exception:
 #### AI モデル関連
 
 ##### `enableAiModels() -> None`
-AI モデル（CTranslate2/Whisper）が利用可能であることを通知。
+AI モデル（内蔵の CTranslate2 翻訳モデル）が利用可能であることを通知。
 
 ##### `disableAiModels() -> None`
 AI モデルが利用不可（ダウンロード失敗等）であることを通知。
@@ -488,10 +495,10 @@ finally:
     self.device_access_status = True  # ロック解放
 ```
 
-**VRAMエラーハンドリング:**
-- `model.detectVRAMError()` でエラーを検出
-- 音声認識を停止
-- フロントエンドに通知
+**エラーハンドリング:**
+- 開始できない理由が分かるとき（`TranscriptionStartError`）は、そのエラーコードを `/set/enable/transcription_send` に返す
+- それ以外の例外はログに記録し、`ENABLE_TRANSCRIPTION_SEND` を False にする
+- 音声認識の VRAM 不足の処理は、ローカルの Whisper とともに #288 で削除した
 
 ##### `stopTranscriptionSendMessage() -> None`
 マイク音声認識を停止。
@@ -545,10 +552,6 @@ finally:
   - 選択可能モデルリストに追加
   - フロントエンドに通知
 
-#### DownloadWhisper クラス
-
-**責務:** Whisper モデルのダウンロード進捗管理（CTranslate2 と同様の構造）
-
 #### `downloadCtranslate2Weight(data: str, asynchronous: bool = True, *args, **kwargs) -> dict`
 
 **責務:** CTranslate2 モデルのダウンロード開始
@@ -565,9 +568,7 @@ finally:
    - `model.downloadCTranslate2ModelWeight()` で同期実行（初期化時に使用）
 4. トークナイザーのダウンロード
 
-#### `downloadWhisperWeight(data: str, asynchronous: bool = True, *args, **kwargs) -> dict`
-
-**責務:** Whisper モデルのダウンロード開始（CTranslate2 と同様の構造）
+内蔵モデルの取得（`_downloadLegacyWeight()`）は CTranslate2 の翻訳モデルだけを扱う。以前の Whisper のダウンロード（`DownloadWhisper`、`downloadWhisperWeight()`）は #288 で削除した。
 
 ---
 
@@ -653,23 +654,30 @@ restartAccessMicDevices() ← 新しいデバイスで処理を再開
 
 ### 14. 音声認識エンジン管理
 
-#### `updateTranscriptionEngine() -> None`
+#### `updateTranscriptionEngine(requested_engine: Optional[str] = None) -> None`
 
-**責務:** Whisper モデルの利用可能状況に応じて音声認識エンジンを更新
-
-**処理:**
-1. 現在選択されている Whisper モデルの存在確認
-2. 利用可能なエンジンリストを取得
-3. 現在のエンジンが利用不可の場合:
-   - Whisper ⇔ Google で切り替え
-   - どちらも利用不可なら Whisper にフォールバック
-
-#### `updateDownloadedWhisperModelWeight() -> None`
-
-**責務:** ダウンロード済み Whisper モデルの一覧を更新
+**責務:** 利用者が明示的に選んだ音声認識エンジンを適用する。エンジンの利用可否で選択を勝手に変えない
 
 **処理:**
-全てのモデルタイプについて `model.checkTranscriptionWhisperModelWeight()` で存在確認。
+1. `requested_engine` があれば `SELECTED_TRANSCRIPTION_ENGINE` に設定
+2. Windows で、メインのスイッチが使う経路（録音経路と speech.cpp のリアルタイム経路）が変わったら、前の経路で聞いているものを止める（`_leaveTranscriptionRoute()`）
+3. エンジンが変わったら、そのエンジンが対応しない言語をフォールバックし、`selectable_language_list` を通知
+
+#### ローカル音声認識の移行と古い Whisper モデル
+
+#288 でローカルの Whisper エンジンを削除し、ローカルの音声認識を speech.cpp（`SpeechCpp`）に移した。保存された `"Whisper"` の選択は `config.py` の `_migrateLocalASR()`（`LOCAL_ASR_MIGRATION` の手順 2）が `SpeechCpp` に移し、`LOCAL_ASR_NOTICE_PENDING` を True にする。どの処理もモデルをダウンロードしない。
+
+##### `getLocalAsrNotice(*args, **kwargs) -> dict`
+移行のお知らせをまだ表示するか（`config.LOCAL_ASR_NOTICE_PENDING`）を返す。`/get/data/local_asr_notice`。
+
+##### `setDisableLocalAsrNotice(*args, **kwargs) -> dict`
+利用者がお知らせを閉じたときに呼ぶ。`LOCAL_ASR_NOTICE_PENDING` を False にし、`False` を返す。`/set/disable/local_asr_notice`。
+
+##### `getOldWhisperWeights(*args, **kwargs) -> dict`
+以前の版がダウンロードした Whisper の重みを返す。`{"total_bytes": int, "folders": [重みタイプ名, ...]}`。読めなければ status 500、`{"error_code": "old_whisper_weights_unreadable"}`。`/get/data/old_whisper_weights`。
+
+##### `deleteOldWhisperWeights(*args, **kwargs) -> dict`
+利用者が設定で削除を選んだときだけ呼ぶ。`model.deleteOldWhisperWeights()` で既知の重みフォルダーだけを削除し、`{"total_bytes", "folders"（残ったもの）, "freed_bytes", "failed"（削除できなかったもの）}` を返す。失敗したら status 500、`{"error_code": "old_whisper_weights_delete_failed"}`。`/run/delete_old_whisper_weights`。
 
 ---
 
@@ -979,20 +987,20 @@ else:
 **3. モデルウェイトのダウンロード（進捗1/4）**
 ```python
 self.initializationProgress(1)
-if connected_network:
-    # CTranslate2 と Whisper を並列ダウンロード
-    th_download_ctranslate2 = Thread(target=self.downloadCtranslate2Weight, args=(weight_type, False))
-    th_download_whisper = Thread(target=self.downloadWhisperWeight, args=(weight_type, False))
-    th_download_ctranslate2.start()
-    th_download_whisper.start()
-    th_download_ctranslate2.join()
-    th_download_whisper.join()
+if config.AUTO_DOWNLOAD_MODELS is True:
+    # 内蔵の CTranslate2 翻訳モデルだけ。同意済みの版で、足りないときに限る
+    ctranslate2_request = self._startupLegacyDownloadRequest("ctranslate2", config.CTRANSLATE2_WEIGHT_TYPE)
+    if connected_network is True and ctranslate2_request is not None:
+        self.downloadCtranslate2Weight(ctranslate2_request, False)
 ```
+
+Whisper の重みは確認もダウンロードもしない（#288 で削除）。ローカルの音声認識（speech.cpp）のモデルは、利用者が設定で同意して取得する。
 
 **4. AI モデル状態の確認**
 ```python
-if (model.checkTranslatorCTranslate2ModelWeight(...) is False or
-    model.checkTranscriptionWhisperModelWeight(...) is False):
+ctranslate2_available = model.checkTranslatorCTranslate2ModelWeight(config.CTRANSLATE2_WEIGHT_TYPE) is True
+# 選んでいる翻訳エンジンが CTranslate2 で、その重みが無いときだけ
+if self._missingBuiltInModelInUse(ctranslate2_available):
     self.disableAiModels()
 else:
     self.enableAiModels()
@@ -1020,7 +1028,6 @@ for engine in config.SELECTABLE_TRANSCRIPTION_ENGINE_LIST:
 ```python
 self.updateDownloadedCTranslate2ModelWeight()
 self.updateTranslationEngineAndEngineList()
-self.updateDownloadedWhisperModelWeight()
 self.updateTranscriptionEngine()
 
 if config.CONVERT_MESSAGE_TO_ROMAJI or config.CONVERT_MESSAGE_TO_HIRAGANA:
@@ -1084,7 +1091,8 @@ self.startWatchdog()  # 監視開始
 **検出箇所:**
 - 翻訳実行時（`micMessage()`, `speakerMessage()`, `chatMessage()`）
 - 翻訳機能有効化時（`setEnableTranslation()`）
-- 音声認識開始時（`startTranscriptionSendMessage()`, `startTranscriptionReceiveMessage()`）
+
+音声認識の VRAM 不足の処理（`TRANSCRIPTION_VRAM_*`、`/run/error_transcription_*_vram_overflow`）は、GPU で動くローカルの Whisper とともに #288 で削除した。
 
 **処理:**
 1. `model.detectVRAMError(e)` で VRAM エラーを検出
@@ -1094,7 +1102,6 @@ self.startWatchdog()  # 監視開始
 
 **自動リカバリ:**
 - 翻訳機能: 無効化して継続
-- 音声認識: 停止して継続
 
 ### 2. デバイスアクセスエラー
 
@@ -1187,13 +1194,7 @@ th_startTranscriptionSendMessage.start()
 
 ### 2. 並列初期化
 
-CTranslate2 と Whisper のダウンロードを並列実行:
-```python
-th_download_ctranslate2.start()
-th_download_whisper.start()
-th_download_ctranslate2.join()
-th_download_whisper.join()
-```
+翻訳エンジンと音声認識エンジンの利用可否の確認は、`_runEngineChecks()` が同時に走らせ、全体で `_ENGINE_CHECK_BUDGET_SEC` 秒まで待つ。内蔵モデルのダウンロードは CTranslate2 の翻訳モデルだけなので、並列にはしない（以前の CTranslate2 と Whisper の並列ダウンロードは #288 でなくなった）。
 
 ### 3. モデルの遅延ロード
 
@@ -1286,7 +1287,6 @@ from utils import removeLog, printLog, errorLogging, isConnectedNetwork, isValid
 
 **ケース:**
 - デバイス切り替え中に音声認識
-- VRAM不足エラーの発生
 - 重複メッセージのフィルタリング
 
 **確認項目:**

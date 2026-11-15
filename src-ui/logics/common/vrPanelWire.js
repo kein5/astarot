@@ -83,8 +83,7 @@ export const VR_PANEL_RELAY_PATHS = new Set([
     // Translation, speech recognition and chat reading.
     "/set/data/selected_ctranslate2_weight_type", "/set/data/selected_translation_compute_device",
     "/set/data/selected_translation_compute_type",
-    "/set/data/selected_transcription_engine", "/set/data/selected_whisper_weight_type",
-    "/set/data/selected_transcription_compute_device", "/set/data/selected_transcription_compute_type",
+    "/set/data/selected_transcription_engine",
     "/set/data/ocr_source_language", "/set/data/ocr_min_confidence", "/set/data/ocr_poll_interval_ms",
     "/set/data/ocr_bubble_min_text_length",
     // Messages, VR overlays and appearance.
@@ -112,6 +111,8 @@ export const VR_PANEL_STATE_ATOMS = Object.freeze([
     "MessageLogs", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
     "OcrCaptureStatus", "ForegroundStatus", "IsBackendReady", "IsOpenedConfigPage", "NotificationStatus",
     "IsOscAvailable", "OscUnavailableReason", "VrPanelLauncherIntro", "VrPanelLogOutOfView",
+    // The empty log's setup list (main window only) opens a settings page; the shared view reads it.
+    "SelectedConfigTabId",
     // The language window.
     "LanguageMutation", "SelectableLanguageList", "SelectedPresetTabNumber", "SelectedYourLanguages",
     "SelectedTargetLanguages", "SelectedTranslationEngines", "TranslationEngines",

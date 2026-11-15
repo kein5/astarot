@@ -156,9 +156,11 @@ These are path/type checks, not a detector for deliberately renamed weights.
 Original licenses and notices are retained. Available Python package notices and
 the environment inventory are in `_internal/licenses/python` and
 `_internal/python-environment.json`; some packages do not supply license text.
-The existing faster-whisper dependency includes its two Silero v5 VAD ONNX assets;
-they are dependency resources, not new speech.cpp/RVC/Seed-VC models. They remain
-explicitly subject to the final attribution audit. OCR weights are excluded regardless.
+The two Silero v5 VAD ONNX files are shipped as part of the app
+(`models/transcription/silero_vad/`, MIT, notices in `licenses/silero-vad/`); they
+are not speech.cpp/RVC/Seed-VC models. faster-whisper, which used to carry them, is
+no longer a dependency (#288). They remain explicitly subject to the final
+attribution audit. OCR weights are excluded regardless.
 
 ## Remaining release gates
 

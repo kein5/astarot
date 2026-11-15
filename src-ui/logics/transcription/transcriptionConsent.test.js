@@ -30,15 +30,12 @@ async function fixture(context) {
     });
     const transcription = api({
         currentSelectedTranscriptionEngine: { data: null, state: "ok" },
-        currentSelectableTranscriptionEngines: { data: ["Google", "Whisper"] },
-        currentSelectedWhisperWeightType: { data: "base", state: "ok" },
+        currentSelectableTranscriptionEngines: { data: ["Google", "SpeechCpp"] },
         setSelectedTranscriptionEngine: async value => {
             transcription.currentSelectedTranscriptionEngine = { data: null, state: "pending" };
             calls.push(["/set/data/selected_transcription_engine", value]);
             return true;
         },
-        pendingWhisperWeightTypeStatus: value => calls.push(["pending", value]),
-        downloadWhisperWeightTypeStatus: value => calls.push(["/run/download_whisper_weight", value]),
     });
     const configs = { useTranscription: () => transcription, ocrStartErrorKey: () => null, ocrShouldRestoreSharedWindow: () => false };
     for (const name of ["Translation", "Others", "Ocr", "OcrSharedWindow", "AdvancedSettings"]) configs[`use${name}`] = () => api({});
@@ -59,7 +56,6 @@ async function fixture(context) {
             useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: noop }) },
         "../../../logics/transcription/useTranscriptionConsent": consent,
         "../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close: noop }) },
-        "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog": { LegacyModelDownloadDialog: "download-consent" },
     });
     const render = () => runtime.render(TranscriptionConsentController);
     const click = key => find(render(), node => node.type === "button" && node.props.children === `transcription_consent.${key}`).props.onClick();
@@ -94,20 +90,20 @@ for (const direction of ["Send", "Receive"]) test(`${direction}: first enable op
     assert.equal(s.calls.filter(([path]) => path === enable).length, 2, "one continuation only");
 });
 
-test("Whisper saves the selection and opens the existing download consent without restarting capture", async context => {
+test("Local (speech.cpp) saves the selection and continues the original enable without downloading", async context => {
     const s = await fixture(context);
     s.firstEnable("Receive");
-    await s.click("whisper");
-    s.acknowledge("Whisper");
-    const review = find(s.render(), node => node.type === "download-consent");
-    assert.equal(review.props.kind, "whisper");
-    assert.equal(review.props.weightType, "base");
-    assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
-    assert.ok(!s.calls.some(([path]) => path.startsWith("/run/download")), "opening the review does not download");
-    review.props.onDownload({ weight_type: "base", consent: true, manifest_version: "fake" });
-    review.props.onCancel();
-    s.render();
-    assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
+    // The removed local Whisper is no longer offered (#288).
+    const choices = [];
+    find(s.render(), node => { if (node.type === "button") choices.push(node.props.children); return false; });
+    assert.deepEqual(choices, ["transcription_consent.cancel", "transcription_consent.google", "transcription_consent.speechcpp"]);
+    await s.click("speechcpp");
+    assert.deepEqual(s.calls.at(-1), ["/set/data/selected_transcription_engine", "SpeechCpp"]);
+    s.acknowledge("SpeechCpp");
+    assert.equal(s.render(), null);
+    assert.equal(s.calls.filter(([path]) => path === "/set/enable/transcription_receive").length, 2);
+    // A missing speech.cpp model is reported by the switch; nothing is fetched from here.
+    assert.ok(!s.calls.some(([path]) => path.startsWith("/run/")), "choosing the engine does not download");
 });
 
 for (const pending of [false, true]) test(`cancel leaves transcription off (selection pending: ${pending})`, async context => {
@@ -155,10 +151,12 @@ test("failed save and unrelated selection updates never enable capture", async c
     assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
 });
 
-test("mapped missing-model errors open review; unmount drops any continuation", async context => {
+test("an engine that cannot start points at its settings; unmount drops any continuation", async context => {
     const s = await fixture(context);
-    s.error({ error_code: "TRANSCRIPTION_MODEL_MISSING", endpoint: "/set/enable/transcription_send", data: false });
-    assert.ok(find(s.render(), node => node.type === "download-consent"));
+    s.error({ error_code: "TRANSCRIPTION_ENGINE_UNAVAILABLE", endpoint: "/set/enable/transcription_send", data: false });
+    const buttons = [];
+    find(s.render(), node => { if (node.type === "button") buttons.push(node.props.children); return false; });
+    assert.deepEqual(buttons, ["transcription_consent.cancel", "transcription_consent.settings"]);
     s.runtime.unmount();
     assert.equal(s.consent.useTranscriptionConsent().request, null);
     assert.deepEqual(s.calls, []);
@@ -174,19 +172,20 @@ test("settings keep the selected engine and Google notice inside the radio row's
     const s = await fixture(context);
     const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), s.runtime, {
         "@logics_configs": s.configs, "@utils": {},
-        "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {},
+        "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {}, "./OldWhisperWeights": {},
         "../_components/credential_pair/CredentialPair": {},
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
         "../_templates/Templates": { RadioButtonContainer: "radio-options" }, "../_components": {},
-        "../_components/compute_device/ComputeDevice": {}, "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
+        "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
         "../_components/setup_section/SetupSection": {},
-        "../_components/download_models/LegacyModelDownloadDialog": {}, "../shared_items/SharedItems": {},
     });
     s.transcription.currentSelectedTranscriptionEngine = { data: "Google", state: "ok" };
     const tree = s.runtime.render(TranscriptionEngine_Box);
     assert.equal(tree.type, "radio-options", "help belongs inside the row, not after its divider");
     assert.equal(tree.props.checked_variable.data, "Google");
+    // Google, the local speech.cpp engine and the cloud engines; the local Whisper is gone (#288).
+    assert.deepEqual(tree.props.options.map(option => option.id), ["Google", "SpeechCpp"]);
     assert.ok(find(tree.props.desc, node => node.props?.children === "transcription_consent.google_notice"));
     assert.ok(find(tree.props.desc, node => node.props?.role === "status"));
 
@@ -226,7 +225,10 @@ for (const language of ["en", "ja"]) test(`${language}: choice and error text di
     const messages = yaml.load(await readFile(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
     assert.match(messages.transcription_consent.google_notice, /Google/);
     assert.match(messages.transcription_consent.google_notice, language === "ja" ? /送られます/ : /sends/);
-    assert.match(messages.transcription_consent.whisper_notice, language === "ja" ? /もう一度オン/ : /on again/);
-    for (const code of ["ENGINE_NOT_SELECTED", "MODEL_MISSING", "ENGINE_UNAVAILABLE"])
+    assert.match(messages.transcription_consent.speechcpp_notice, /speech\.cpp/);
+    assert.equal(messages.transcription_consent.whisper_notice, undefined);
+    for (const code of ["ENGINE_NOT_SELECTED", "ENGINE_UNAVAILABLE"])
         assert.ok(messages.backend_errors[`TRANSCRIPTION_${code}`]);
+    // Only the removed Whisper engine reported these.
+    for (const code of ["MODEL_MISSING", "VRAM_MIC", "VRAM_SPEAKER"]) assert.equal(messages.backend_errors[`TRANSCRIPTION_${code}`], undefined);
 });

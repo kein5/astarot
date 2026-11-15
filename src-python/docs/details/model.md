@@ -269,10 +269,13 @@ downloadCTranslate2ModelWeight(weight_type, callback=None, end_callback=None)
 - 翻訳モデルのダウンロード
 
 ```python
-downloadWhisperModelWeight(weight_type, callback=None, end_callback=None)
+getOldWhisperWeights() -> dict
+deleteOldWhisperWeights() -> dict
 ```
 
-- 音声認識モデルのダウンロード
+- 以前の版がダウンロードした Whisper の重み（`<config.PATH_DATA>/weights/whisper/<名前>`）の確認と、利用者の操作による削除。`models/transcription/old_whisper_weights.py` の `oldWhisperWeights(root)` / `deleteOldWhisperWeights(root)` を `root=config.PATH_DATA` で呼ぶ
+- 既知の9つの重みフォルダーだけを扱い、リンクやジャンクションはたどらない。ダウンロードはしない
+- ローカルの Whisper は #288 で削除した。`downloadWhisperModelWeight()` / `checkTranscriptionWhisperModelWeight()` はもうない。ローカルの音声認識（speech.cpp）のモデルは、同意を得てから取得するモデル取得のカタログで扱う
 
 ### ウォッチドッグ機能
 

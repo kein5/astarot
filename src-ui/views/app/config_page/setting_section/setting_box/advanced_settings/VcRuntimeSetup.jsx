@@ -37,7 +37,8 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
         <p>{t("vc_runtime.help")}</p>
         {!installed && <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })} · {entry.license}</p>}
         {!entry.gpu_ready && !installed && <p role="alert">{t("vc_runtime.gpu_missing")}</p>}
-        {job && <EnvReadout tone={job.phase === "ready" ? "active" : job.phase === "failed" ? "failed" : "neutral"}>
+        {job && <EnvReadout tone={job.phase === "ready" ? "active" : job.phase === "failed" ? "failed" : "neutral"}
+            progress={active && job.phase !== "cancelling" ? "working" : job.phase === "ready" ? "done" : undefined}>
             <p>{t(`vc_runtime.phase_${job.phase}`)}{active && job.step > 0 && ` · ${job.step} / ${job.steps}`}</p>
         </EnvReadout>}
         {active && <progress className={styles.progress} aria-label={t("vc_runtime.progress")}

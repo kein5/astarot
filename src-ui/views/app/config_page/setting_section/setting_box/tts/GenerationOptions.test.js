@@ -36,6 +36,14 @@ test("invalid TTS seed and instruction point to the shared form error and clear 
     s.runtime.unmount();
 });
 
+test("the seed and instruction fields show an example while they are empty", async () => {
+    const s = await setup({ seed: "", instructions: "" });
+    s.draft.japanese_seed = "0";
+    const tree = s.render();
+    for (const type of ["input", "textarea"]) assert.equal(find(tree, node => node.type === type).props.placeholder, "voice_ui.example");
+    s.runtime.unmount();
+});
+
 test("TTS model-specific seed range error is associated without changing the save contract", async t => {
     t.mock.timers.enable({ apis: ["setInterval"] });
     const s = await setup({ seed: "123", instructions: "", modelOptions: { japanese: {
@@ -87,6 +95,8 @@ for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric 
         "../_components/description/Description": { Description: "description" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
+        "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
+        "../../../../../../logics/common/fileDrop": { extensionOf: path => path.slice(path.lastIndexOf(".")).toLowerCase() },
     });
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });
     const alert = find(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers");
