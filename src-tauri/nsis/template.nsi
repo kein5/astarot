@@ -137,6 +137,12 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 !define MUI_LANGDLL_REGISTRY_KEY "${MANUPRODUCTKEY}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
+; The app's in-app updater (src-tauri/src/app_update.rs, through the Tauri
+; updater) runs this installer with /P /UPDATE /R /ARGS ... /EDITION=cpu|gpu.
+; An update keeps what the user chose at installation: the UI language
+; setting, the edition and the shortcuts. Set in .onInit.
+Var UpdateMode
+
 ; Installer pages, must be ordered as they appear
 ; 1. Welcome Page
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
@@ -160,6 +166,8 @@ Var SelectedLangage
 Var DialogChooseLanguage
 Page custom PageChooseLanguage PageLeaveChooseLanguage
 Function PageChooseLanguage
+    ; An update leaves the app's language setting alone.
+    ${IfThen} $UpdateMode == 1 ${|} Abort ${|}
     !insertmacro MUI_HEADER_TEXT "Initial Settings" "Set the language of the VRCT-VOX UI (can be changed later)."
     nsDialogs::Create 1018
     Pop $DialogChooseLanguage
@@ -209,6 +217,11 @@ Var DialogChooseEdition
 Var SelectedEdition
 Page custom PageChooseEdition PageLeaveChooseEdition
 Function PageChooseEdition
+    ; The app names its own edition (/EDITION=) when it updates itself.
+    ${If} $UpdateMode == 1
+    ${AndIf} $SelectedEdition != ""
+        Abort
+    ${EndIf}
     !insertmacro MUI_HEADER_TEXT "Initial Settings" "Choose the version of VRCT-VOX to install (can be changed later by reinstalling)."
     nsDialogs::Create 1018
     Pop $DialogChooseEdition
@@ -540,6 +553,10 @@ Function .onInit
   IfErrors +2 0
     StrCpy $PassiveMode 1
 
+  ${GetOptions} $CMDLINE "/UPDATE" $UpdateMode
+  IfErrors +2 0
+    StrCpy $UpdateMode 1
+
   ; Preselect the CPU/GPU edition page when launched from within the app
   ; (e.g. "/EDITION=gpu" from the in-app CPU/GPU switch button). The page
   ; is still shown so the user can change their mind before installing.
@@ -595,7 +612,10 @@ Function .onInit
   ${EndIf}
 
   !if "${DISPLAYLANGUAGESELECTOR}" == "true"
-    !insertmacro MUI_LANGDLL_DISPLAY
+    ; A passive update has no one to ask; the chrome keeps the stored language.
+    ${If} $PassiveMode != 1
+      !insertmacro MUI_LANGDLL_DISPLAY
+    ${EndIf}
   !endif
 
   !insertmacro SetContext
@@ -1454,6 +1474,8 @@ Section Install
   ${IfThen} $PassiveMode == 1 ${|} Goto check_ns_flag ${|}
   Goto shortcuts_done
   check_ns_flag:
+    ; An update does not bring back shortcuts the user removed.
+    ${IfThen} $UpdateMode == 1 ${|} Goto shortcuts_done ${|}
     ${GetOptions} $CMDLINE "/NS" $R0
     IfErrors 0 shortcuts_done
       Call CreateDesktopShortcut
@@ -1629,9 +1651,12 @@ Function .onInstSuccess
   ; マーカーファイルを置く。実際の config.json への反映は起動時に Python 側
   ; (config.py の load_config) が行う — 既に動作実績のある json 読み書き
   ; パスをそのまま使えるため、エンコーディング起因の失敗が起こらない。
-  FileOpen $0 "$INSTDIR\installer_language.txt" w
-  FileWrite $0 "$SelectedLangage"
-  FileClose $0
+  ; An update skipped the language page: keep the app's own setting.
+  ${If} $UpdateMode != 1
+    FileOpen $0 "$INSTDIR\installer_language.txt" w
+    FileWrite $0 "$SelectedLangage"
+    FileClose $0
+  ${EndIf}
 FunctionEnd
 
 Function un.onInit
