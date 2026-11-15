@@ -14,7 +14,7 @@ pub const FRAME_RATE: usize = 100;
 pub const HOP: usize = 160;
 
 /// A pitch extractor. RMVPE is the required one; others can stand in behind this trait.
-pub trait F0Estimator {
+pub trait F0Estimator: Send {
     /// F0 in Hz per 10 ms frame of 16 kHz audio, `0.0` where unvoiced.
     /// Returns `audio.len() / 160 + 1` frames.
     fn estimate(&mut self, audio: &[f32]) -> Result<Vec<f32>>;

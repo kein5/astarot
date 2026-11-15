@@ -6,6 +6,7 @@ from contextlib import ExitStack
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
 import time
 
@@ -22,21 +23,23 @@ pytestmark = pytest.mark.skipif(sys.platform != 'linux' or os.environ.get('VRCT_
 
 
 @pytest.mark.parametrize('end', ['stop', 'worker_death', 'parent_pause'])
-def test_rvc_contract_worker_to_private_mic_and_silence(tmp_path, end):
+def test_rvc_contract_worker_to_private_mic_and_silence(tmp_path, monkeypatch, end):
+    from models.voice_conversion import rvc_process
     from models.voice_conversion.rvc_process import RVCProcess
     from models.voice_conversion.direct_voice import create_converted_process
     from test_native_realtime import SyntheticProducer
     runtime = tmp_path / 'runtime'
-    for name in ('venv/bin', 'engine', 'assets'):
-        (runtime / name).mkdir(parents=True)
+    for name in ('lib/' + rvc_process.ORT_LIBRARY, *('assets/' + asset for asset in rvc_process.ASSETS)):
+        (runtime / name).parent.mkdir(parents=True, exist_ok=True)
+        (runtime / name).touch()
     model = tmp_path / 'fake.pth'
-    model.touch()  # Deliberately not an inference model; only the fake interpreter reads it.
-    interpreter = runtime / 'venv/bin/python'
-    interpreter.write_text('#!' + sys.executable + '\n' + '''
+    model.touch()  # Deliberately not an inference model; only the fake worker reads it.
+    worker = tmp_path / 'vrct-rvc-worker'
+    worker.write_text('#!' + sys.executable + '\n' + '''
 import sys,time,struct
 sys.path.insert(0, 'src-python')
 from models.voice_conversion import protocol as p
-assert sys.argv[1:4] == ['-u', '-m', 'integrations.rvc.live_worker']
+assert sys.argv[1::2] == ['--runtime', '--model', '--session', '--index', '--pitch', '--index-rate']
 session = sys.argv[sys.argv.index('--session')+1]
 out = sys.stdout.buffer
 out.write(p.encode_packet(p.ready_info(session, engine='rvc'))); out.flush()
@@ -46,7 +49,29 @@ while True:
     output = struct.pack('<3840h', *(int(x/2) for x in samples))
     out.write(p.encode_packet(dict(info, type='output', state='converted'), output)); out.flush()
 ''')
-    interpreter.chmod(0o700)
+    worker.chmod(0o700)
+    if end == 'parent_pause':
+        # The router is a separate process that finds the worker in build/: put the fake
+        # there for this run and put back whatever was there.
+        installed = rvc_process.worker_binary()
+        kept = installed.with_name(installed.name + '.kept')
+
+        def restore():
+            if kept.exists():
+                kept.replace(installed)
+            elif installed.exists() and installed.read_bytes() == worker.read_bytes():
+                installed.unlink()
+        installed.parent.mkdir(exist_ok=True)
+        if installed.exists():
+            installed.replace(kept)  # Same folder: a rename, never a copy across file systems.
+        try:
+            shutil.copy2(worker, installed)
+        except BaseException:
+            restore()
+            raise
+    else:
+        monkeypatch.setattr(rvc_process, 'worker_binary', lambda: worker)
+        restore = lambda: None  # noqa: E731
     report = dict(real_rvc=False, physical_capture=False, vrchat=False, case=end, status='failed')
     try:
         with private_graph(config_fragment=ROOT/'config/pipewire/90-vrct-managed.conf'), ExitStack() as stack:
@@ -93,4 +118,5 @@ while True:
             report.update(status='passed', after=vc.health(), silence_hold_ms=2000,
                           capture=capture.snapshot())
     finally:
+        restore()
         (tmp_path/'report.json').write_text(json.dumps(report, indent=2)+'\n')

@@ -245,7 +245,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 | `startup.log` | 同上（Tauri側） | ウィンドウの起動記録 |
 | 会話ログ `YYYY-MM-DD_HH-MM-SS.log` | `PATH_LOGS` | 「会話ログを自動的に保存する」がオンのときだけ。行頭は`[SENT]`、`[RECEIVED]`、`[OCR]`、`[CHAT]`。画面は新しい1,000件しか残さないが、ファイルには古いものも残る |
 | `downloaded_models/<id>/<版>/`と`receipt.json` | `config.json`と同じフォルダ | 取得したモデル。取得中は`.partial-<16進>/` |
-| `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCとSeed-VCの実行環境（WindowsとLinux）。`.steps.json`に終わった手順、`setup.log`に`uv`の出力を残す。`.uv-<版>/`に取得用の`uv`を置く |
+| `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCとSeed-VCの実行環境（WindowsとLinux）。`.steps.json`に終わった手順、`setup.log`に`uv`とワーカーの確認の出力を残す。`.uv-<版>/`に取得用の`uv`を置く（Seed-VC）。RVCは`lib/`（ONNX Runtime。GPU用はCUDA 13とcuDNNのライブラリも）と`assets/`だけで、取得中は`lib.part/`と`downloads/`を使う。RVCの取得が終わると、同じフォルダーにある以前のPyTorch形式の`venv/`、`python/`、`engine/`（中のモデルと音声のファイルは残す）、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`を削除する |
 | weights/whisper/… | PATH_DATA | 以前の版が取得した Whisper の重み。いまの版は読まず、取得もしない。利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](#古い-whisper-の重み)） |
 | weights/ctranslate2/… | PATH_DATA | 内蔵の翻訳モデルと検証記録。取得も既存ファイルの利用もbuiltin_model_pins.pyの全容量・SHA-256を照合する。tokenizerも同じ一式に含む。検証記録はschema=2、repo・revision・全ファイルpinのSHA-256識別値、各ファイルのsize・mtime_ns・ctime_ns・device・inode。古い記録は無効。不一致の既存ファイルは残し、同意済みの再取得に成功した場合だけ既存一式を`.preserved-<weight>-<uuid>`へ移してから新しい一式を公開する |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |

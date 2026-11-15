@@ -87,12 +87,11 @@ def environment_resources(destination):
 
 
 # The sidecar sets a runtime up from these; the requirements for Windows stay out.
-SETUP_FILES = {'rvc': ('requirements-cuda.lock', 'requirements.lock'),
-               'seed_vc': ('requirements.lock', 'offline-loader.patch')}
+SETUP_FILES = {'seed_vc': ('requirements.lock', 'offline-loader.patch')}
 
 
 def copy_adapters(resources):
-    for engine in ('rvc', 'seed_vc'):
+    for engine in ('seed_vc',):
         source = ROOT / 'integrations' / engine
         for file in source.iterdir():
             if file.is_file() and (file.suffix == '.py' or file.name.startswith(('LICENSE', 'README'))
@@ -179,6 +178,8 @@ def main():
         shutil.rmtree(resources)
     resources.mkdir()
     run([sys.executable, ROOT / 'tools/build_voice_gate.py', '--output-dir', resources / 'build'])
+    run([sys.executable, ROOT / 'tools/build_rvc_worker.py', '--output-dir', resources / 'build',
+         '--target-dir', work / 'cargo-rvc', *(['--offline'] if args.offline else [])])
     archive = args.speech_archive.resolve() if args.speech_archive else work / f'speech-{args.variant}.zip'
     manifest = load_manifest()
     if args.download_speech and not archive.exists():

@@ -8,8 +8,13 @@ removed in 0.2.0 (see below); **fork binary distributions exclude all OCR
 weights** while retaining their attribution documents.
 
 The fork supports external engines and a fixed speech.cpp binary bundle with
-separate third-party notices. Voice recordings and additional TTS/ASR/VC model
-weights are not bundled. Mia2026 is validation-only. The Seed-VC integration
+separate third-party notices. RVC voice conversion is the fork's own
+reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
+Rust dependencies are listed in `native/rvc-runtime/Cargo.toml`. ONNX Runtime,
+the NVIDIA CUDA and cuDNN libraries and the HuBERT and RMVPE weights it uses are
+not bundled: the app fetches them from their providers after the user's
+consent. Voice recordings and additional TTS/ASR/VC model weights are not
+bundled. Mia2026 is validation-only. The Seed-VC integration
 contains files marked GPL-3.0-only; engine dependencies and weights have their
 own licenses. See [voice licensing](docs/voice-stack/licensing.md) for component
 boundaries, original sources, and unresolved binary distribution obligations.
@@ -114,7 +119,7 @@ files and saved selections are preserved.
 This table and the OCR table above cover **model weights** only. Python package
 dependencies are listed in `pyproject.toml` (resolved in `uv.lock`) and
 carry their own licenses; JavaScript and Rust dependencies are listed in
-`package.json` and `src-tauri/Cargo.toml`.
+`package.json`, `src-tauri/Cargo.toml` and `native/rvc-runtime/Cargo.toml`.
 
 ## Windows installer download component
 

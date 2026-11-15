@@ -3,7 +3,7 @@ import { useCallback, useRef } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { acceptObservation, resetObservations, sameSnapshot } from "../common/polledState.js";
 
-export const activeSetupPhases = ["queued", "tools", "python", "packages", "engine", "assets", "verifying", "cancelling"];
+export const activeSetupPhases = ["queued", "tools", "python", "packages", "engine", "libraries", "assets", "verifying", "cancelling"];
 const emptyState = { observation_id: "0", jobs: {}, installed: {} };
 const catalogAtom = atom(null), stateAtom = atom(emptyState), errorAtom = atom(null), pendingAtom = atom(false);
 

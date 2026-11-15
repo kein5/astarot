@@ -16,6 +16,7 @@ import { FormRow } from "../_components/form_row/FormRow";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
+import { conversionDelaySeconds } from "../../../../../../logics/voice/conversionLatency";
 
 const defaults = { mode: "passthrough", runtime: "", reference: "", engine: "seed-vc",
     rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0 };
@@ -87,13 +88,18 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
             t((rvc ? /\.pth$/i.test(savedPaths.rvc_model || "") : !!savedPaths.reference) ? "speech_servers.model_set" : "speech_servers.model_unset")] : []),
         t(deviceRoute ? (routeReady ? "voice_ui.output_ready" : "voice_ui.output_unready") : managed ? "voice_ui.mic_ready" : "voice_ui.mic_unready"),
     ].join(" · ");
+    const delay = isRvc && directState.mode === "converted" ? conversionDelaySeconds(directState) : null;
     const tone = status === "voice.input_failed" ? "failed" : status === "voice.input_pending" ? "pending" :
         ["voice.input_active", "voice.vc_idle", "voice.vc_active", "voice.vc_ready"].includes(status) ? "active" : "idle";
     return <section className={styles.container} aria-label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} data-setting-id={variant === "rvc" ? "rvc_settings" : "direct_voice_settings"}>
         <SectionLabelComponent label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} />
         <StatusLine tone={tone}>{t(status)}</StatusLine>
+        {/* Where RVC converts and how far behind the voice it is, once it runs. */}
+        {delay && <p>{t(delay.device === "cpu" ? "voice_ui.rvc_running_cpu" : "voice_ui.rvc_running_gpu", { seconds: delay.seconds })}</p>}
         <VoiceRouteSummary />
         <Description text={t(variant === "rvc" ? "voice.vc_rvc_hint" : "voice.input_description")} />
+        {/* Before Start: what to expect on the GPU and, without one, on the CPU. */}
+        {(variant === "rvc" || (converted && rvc)) && <Description text={t("voice_ui.rvc_latency_hint")} />}
         {/* Says what the unsaved change in the save bar is when the page opens. */}
         {variant === "rvc" && needsSelection(draft) && <p>{t("voice_ui.select_rvc_pending")}</p>}
         {busy && !ownsInput && <p role="alert">{t("voice_ui.input_conflict")}</p>}

@@ -169,7 +169,7 @@ def test_native_mic_translation_to_qwen_once_and_source_stop(tmp_path, direct_po
                     ui.click_text('button', 'Start input forwarding')
                     ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => ['VC ready; conversion not yet confirmed','Converting voice'].includes(e.textContent))", timeout=65)
                     workers = [child for child in ui.app_process.children(recursive=True)
-                               if 'integrations.rvc.live_worker' in child.cmdline()]
+                               if child.cmdline()[:1] and Path(child.cmdline()[0]).name == 'vrct-rvc-worker']
                     assert len(workers) == 1
                     worker = workers[0]
                     settled(capture, time.monotonic_ns(), 'rvc_bypassed_mute', silent=True)

@@ -32,7 +32,8 @@ Linuxでアプリが管理する音声経路を使うには、Linux 6.9以降、
 |---|---|
 | 翻訳、チャット読み取り | 必要ありません。CPUで動きます |
 | 読み上げ、ローカルの音声認識とリアルタイム字幕、話した人を見分ける機能（アプリに入っているspeech.cpp） | <Term tip="GPUで描画や計算をするための仕組みです。NVIDIA、AMD、IntelのGPUのドライバーが対応しています。">Vulkan</Term>に対応したGPU。NVIDIA、AMD、Intelのどれでも、内蔵GPUでも動きます。GPUがなければCPUで動きますが、遅くなります |
-| ボイスチェンジャー（RVC、Seed-VC） | NVIDIAのGPUと、CUDA 12.8に対応したドライバー |
+| ボイスチェンジャー（RVC） | GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降（CUDA 13）。GPUがなければCPUで動きますが、声の遅れが約0.2秒から約1.3秒になります |
+| ボイスチェンジャー（Seed-VC） | NVIDIAのGPUと、CUDA 12.8に対応したドライバー |
 | ローカルの翻訳をGPUで（WindowsのCUDA版） | NVIDIAのGPU |
 
 読み上げのモデルが使うGPUメモリの目安は次のとおりです。詳しくは[モデルの取得](models#gpuとメモリの目安)にあります。
@@ -65,10 +66,10 @@ GeForce RTX 3060 Ti（8 GB）で読み上げ、字幕、RVCを同時に動かし
 | 翻訳のモデル（1つ） | 0.4〜3.3 GB |
 | 読み上げのモデル（日本語とほかの言語で1つずつ） | 1つ0.8〜1.8 GiB |
 | 音声認識のモデル | 0.6〜0.8 GiB |
-| RVCの実行環境 | 空きがWindowsで約12 GB、Linuxで約16 GB必要 |
+| RVCの実行環境 | 空きがWindowsで約2.7 GB、Linuxで約3.3 GB必要（NVIDIAのドライバーがないPCのCPU用は約0.8 GB） |
 | Seed-VCの実行環境 | 空きがWindowsで約14 GB、Linuxで約18 GB必要 |
 
-すべての機能をそろえるなら、Windowsでは、RVCまでで約20 GB、Seed-VCも使うと約35 GBの空きが目安です。モデルの一覧と大きさは[モデルの取得](models)にあります。
+すべての機能をそろえるなら、Windowsでは、RVCまでで約11 GB、Seed-VCも使うと約26 GBの空きが目安です。モデルの一覧と大きさは[モデルの取得](models)にあります。
 
 ## 測ったPC
 

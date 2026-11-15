@@ -8,10 +8,20 @@ from threading import get_native_id
 
 from models.owned_child import launch_owned
 from .process import VCProcess
-from .rvc_process import runtime_python, worker_root
 
 ROOT = resource_root()
 HELPER = ROOT / 'build/vrct-vc-worker'
+
+
+def runtime_python(runtime):
+    return runtime / ('venv/Scripts/python.exe' if sys.platform == 'win32' else 'venv/bin/python')
+
+
+def worker_root():
+    """Where -m finds the worker. A frozen _internal has Python 3.11 modules that would
+    shadow the standard library of the runtime's own Python, so it stays off sys.path."""
+    folder = ROOT / 'voice_worker'
+    return folder if folder.is_dir() else ROOT
 
 
 def _launch_owned(runtime, reference, session):

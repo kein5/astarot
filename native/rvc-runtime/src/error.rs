@@ -17,6 +17,9 @@ pub enum Error {
     Invalid(String),
     #[error("inference backend error: {0}")]
     Backend(String),
+    /// The requested device (the GPU) could not be used. Nothing falls back to the CPU.
+    #[error("device unavailable: {0}")]
+    DeviceUnavailable(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

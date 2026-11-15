@@ -12,6 +12,7 @@ pub mod backend;
 pub mod error;
 pub mod f0;
 pub mod filter;
+pub mod hubert;
 pub mod index;
 pub mod model;
 pub mod noise;

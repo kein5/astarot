@@ -12,6 +12,10 @@ if not exist build\speechcpp\speech.exe (
     python tools/speechcpp_bundle.py --variant windows-x64-vulkan --download --output build/speechcpp
     if errorlevel 1 exit /b 1
 )
+REM The RVC worker (cargo rebuilds only what changed); it loads ONNX Runtime from the
+REM runtime the user sets up.
+python tools/build_rvc_worker.py --output-dir build
+if errorlevel 1 exit /b 1
 if "%VRCT_PYINSTALLER_CLEAN%"=="1" (
     pyinstaller spec/backend.spec --distpath src-tauri/bin --clean --noconfirm --log-level ERROR
 ) else (

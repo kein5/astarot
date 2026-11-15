@@ -92,22 +92,31 @@ Linux（x86-64）でも、RVCとSeed-VCの実行環境をアプリから取得�
 - NVIDIAのGPUと、NVIDIAのドライバー。アプリは`/proc/driver/nvidia/version`があるかどうかで、ドライバーが動いているかを確かめます。nouveauなど、このファイルがない環境では「取得内容を確認」を押せません。Torchはアプリに読み込みません。
 - x86-64のPC。それ以外では、取得の欄を表示しません。
 
-同意すると、次を順に行います。Gitも開発環境もいりません。
+RVCの変換は、配布物に入っている`vrct-rvc-worker`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCはドライバーがなくても取得できます。ドライバーがあるPCにはGPU用、ないPCにはCPU用の実行環境を出します。同意すると、次を順に行います。
+
+1. GPU用は、ONNX Runtime 1.31.0（CUDA 13版、Microsoftの公式リリース）と、NVIDIAのCUDA 13.4とcuDNN 9.26のライブラリ（PyPIの`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`のwheel）を取得します。CPU用は、ONNX Runtime 1.31.0のCPU版だけです。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込む`.so`だけを`lib/`に取り出して、アーカイブは消します。
+2. 基礎モデル（HuBERTの`config.json`と`pytorch_model.bin`、`rmvpe.onnx`）を取得して、ハッシュを検証します。
+3. ワーカーの`--probe`で、取得したライブラリが読み込めて計算できることを確かめます。GPU用でGPUを使えないとき（ドライバーが580より古い、GPUがTuring＝GTX 16・RTX 20シリーズより前）は、CPUで変換すると表示して完了します。
+4. 同じフォルダーに以前のPyTorch形式の実行環境があれば、そのファイル（`venv`、`python`、`engine`、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`）を削除します。`engine`の中のモデルや音声のファイル（`.pth`、`.index`、`.wav`など）は残します。
+
+Seed-VCで同意すると、次を順に行います。Gitも開発環境もいりません。
 
 1. 固定版の`uv`を取得します。公式リリースの`uv-x86_64-unknown-linux-gnu.tar.gz`で、サイズとSHA-256を照合します。
-2. Pythonと、ハッシュを固定した依存を入れます。RVCは`integrations/rvc/requirements-cuda.lock`と`requirements.lock`、Seed-VCは`integrations/seed_vc/requirements.lock`を使います。
+2. Pythonと、ハッシュを固定した依存（`integrations/seed_vc/requirements.lock`）を入れます。
 3. エンジン本体（GitHubのアーカイブ）を取得して、内容を検証します。展開する前に、項目の数と展開後の容量、圧縮率、パス、種類（通常のファイルとフォルダーだけ）を確かめます。展開して、Seed-VCには同梱のパッチを当てたあと、全ファイルの名前と中身から作ったダイジェストを固定値と照合します。合わなければ、展開したものを消してインストールしません（セキュリティ監査 SEC-04）。
 4. 基礎モデルを取得して、ハッシュを検証します。
 5. 実行環境のPythonで`torch.cuda.is_available()`を確かめます。
 
 | | RVC | Seed-VC |
 |---|---|---|
-| 通信量の目安 | 約4.9 GB | 約6.4 GB |
-| 必要な空き容量 | 約16 GB | 約18 GB |
-| 完了後の大きさ | 約8.0 GB | 約9.5 GB |
-| 依存のPython | 3.12 | 3.11 |
+| 通信量の目安 | GPU用 約1.9 GB、CPU用 約0.6 GB | 約6.4 GB |
+| 必要な空き容量 | GPU用 約3.3 GB、CPU用 約0.7 GB | 約18 GB |
+| 完了後の大きさ | GPU用 約2.5 GB、CPU用 約0.55 GB | 約9.5 GB |
+| 依存のPython | なし | 3.11 |
 
-この表は、2026-11-11に1台のPCで1回ずつ取得して測った値です（CachyOS、RTX 4080 SUPER、NVIDIAドライバー620.70.06、btrfs、有線の回線）。通信量は、取得中にネットワーク機器が受信したバイト数です（RVCは4.83 GB、Seed-VCは6.28 GB）。必要な空き容量は、取得中のフォルダーの大きさ（`du -sb`）の最大値を切り上げた値で、RVCは15.6 GB、Seed-VCは17.5 GBでした。`uv`のキャッシュと導入先を別々に数えています。`uv`は、ファイルシステムが対応していれば両者でデータを共有するので（reflinkまたはハードリンク）、その場合に実際に使う容量はこれより小さくなります。かかった時間はRVCが62秒、Seed-VCが139秒ですが、回線の速さで大きく変わります。
+RVCの列は、2026-11-15に下と同じPCで1回ずつ取得した値です。通信量はカタログの値（固定したファイルの合計、GPU用1.87 GB、CPU用0.56 GB）で、完了後の大きさは`du -sh`、かかった時間はGPU用260秒、CPU用10秒でした。必要な空き容量は、取り出したファイルと基礎モデルに、いちばん大きいアーカイブ（GPU用はcuDNN、0.52 GB）を足して切り上げた目安で、取得中の最大値は測っていません。
+
+Seed-VCの列は、2026-11-11に1台のPCで1回ずつ取得して測った値です（CachyOS、RTX 4080 SUPER、NVIDIAドライバー620.70.06、btrfs、有線の回線）。通信量は、取得中にネットワーク機器が受信したバイト数です（RVCは4.83 GB、Seed-VCは6.28 GB）。必要な空き容量は、取得中のフォルダーの大きさ（`du -sb`）の最大値を切り上げた値で、RVCは15.6 GB、Seed-VCは17.5 GBでした。`uv`のキャッシュと導入先を別々に数えています。`uv`は、ファイルシステムが対応していれば両者でデータを共有するので（reflinkまたはハードリンク）、その場合に実際に使う容量はこれより小さくなります。かかった時間はRVCが62秒、Seed-VCが139秒ですが、回線の速さで大きく変わります。
 
 保存先は、`config.json`と同じフォルダーの`vc_runtimes`です。配布版では`~/.config/vrct-vox/vc_runtimes`、ソースからの開発起動では`src-python/vc_runtimes`になります（gitの対象外です）。途中で失敗したり中止したりしても、終わった手順は次回に飛ばします。中止すると、`uv`と、`uv`が起動したプロセスをまとめて止めます。アプリが異常終了したときも、`uv`は一緒に終わります。終わったら「この実行環境を使う」を押して保存します。消したいときは、このフォルダーを削除します。
 
@@ -115,7 +124,7 @@ Linux（x86-64）でも、RVCとSeed-VCの実行環境をアプリから取得�
 
 確認できたのは、上のPCでの取得と、取得した実行環境でRVCとSeed-VCのワーカーを起動して、合成した音声を変換するところまでです。音質、ほかのディストリビューション、配布版（AppImage）からの取得は確かめていません。
 
-手動で用意する場合は、[RVCのREADME](../../integrations/rvc/README.md)と[Seed-VCのREADME](../../integrations/seed_vc/README.md)の手順を使います。
+手動で用意する場合、RVCは`lib/`と`assets/`の構成（[Windowsの手順](local-setup-windows.md#手動で用意する場合)と同じで、`.so`の名前は`runtime_setup.py`の`RVC_LIBRARIES`のとおり）、Seed-VCは[Seed-VCのREADME](../../integrations/seed_vc/README.md)の手順を使います。以前のPyTorchを使うRVCの実行環境は使えなくなりました。
 
 ## 一時的な仮想マイク
 

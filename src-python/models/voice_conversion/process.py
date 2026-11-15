@@ -141,6 +141,8 @@ class VCProcess:
         self._error = None
         self._cleanup_ok = True
         self._state = 'off'
+        # Where the worker converts and the delay it adds, from its ready packet (RVC).
+        self._device = self._latency_ms = None
         self._session = uuid4().hex
         self._blocks = 0
         # Speech that replaces the microphone while it lasts, and whether the block
@@ -214,7 +216,8 @@ class VCProcess:
                                                             and not self._requested),
                         conversion_verified=self._verified, error=self._error,
                         state=self._state, converted_blocks=self._blocks,
-                        monitor_error=self._monitor_error, round_trip_ms=_median_ms(tuple(self._rounds)))
+                        monitor_error=self._monitor_error, round_trip_ms=_median_ms(tuple(self._rounds)),
+                        device=self._device, latency_ms=self._latency_ms)
 
     def _monitor_failed(self, code):
         # Monitor thread. A notice only: conversion and the managed sink go on.
@@ -390,7 +393,11 @@ class VCProcess:
             self._stdin = PipeWriter(self._child.stdin)
             info, pcm = p.read_packet(self._child.stdout, timeout=self._route.ready_timeout,
                                       check=self._token.check)
-            p.require_ready(info, pcm, self._session, engine=self.engine)
+            device, latency_ms = p.require_ready(info, pcm, self._session, engine=self.engine)
+            with self._lock:
+                self._device, self._latency_ms = device, latency_ms
+            if device == 'cpu':
+                printLog('voice conversion on the CPU', dict(latency_ms=latency_ms))
             self._token.check()
             if self._route.bind(source) != sink:
                 raise p.ProtocolError('vc_sink_changed')

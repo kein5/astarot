@@ -11,7 +11,7 @@ import yaml from "js-yaml";
 // isolated.py, protocol.py WORKER_FAILURES) and had no message.
 const CODES = ["vc_start_failed", "vc_engine_unavailable", "source_bridge_stopping", "vc_worker_failed",
     "vc_model_missing", "vc_runtime_version_unsupported", "vc_checkpoint_incomplete", "vc_index_failed",
-    "vc_engine_format_invalid", "vc_router_timeout", "vc_router_failed", "vc_cleanup_failed", "vc_ready_invalid"];
+    "vc_engine_format_invalid", "vc_runtime_incomplete", "vc_router_timeout", "vc_router_failed", "vc_cleanup_failed", "vc_ready_invalid"];
 const resources = Object.fromEntries(["en", "ja"].map(language => [language, {
     translation: yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")),
 }]));

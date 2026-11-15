@@ -4,16 +4,17 @@ route: voice-conversion
 
 # Voice changer (RVC, Seed-VC)
 
-Changes your microphone's voice into another voice and gets it to VRChat through a virtual microphone. The voice is changed by an RVC or Seed-VC runtime that you set up separately. The settings are under Settings → "Voice changer (RVC)".
+Changes your microphone's voice into another voice and gets it to VRChat through a virtual microphone. RVC conversion is part of VRCT-VOX; the libraries it runs on and its base models are fetched separately as its runtime. RVC converts on an NVIDIA GPU, and on the CPU on a PC whose GPU cannot be used. Seed-VC runs in a runtime that you set up separately. The settings are under Settings → "Voice changer (RVC)".
 
 Both are experimental. Before relying on them, check in your own setup how they sound and how long the changed voice takes to come through.
 
 ## What you need
 
-- An NVIDIA GPU and its driver
+- To run RVC on the GPU, an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. Without one RVC runs on the CPU, with a longer delay (see "How far behind the voice is" below)
+- For Seed-VC, an NVIDIA GPU and its driver
 - A virtual microphone that carries the changed voice to VRChat ([How voice and text flow](../guide/how-it-works#why-a-virtual-microphone-is-needed))
 - For RVC:
-  - an RVC runtime (the RVC-Project engine and a Python environment)
+  - an RVC runtime (ONNX Runtime, and on a PC with an NVIDIA driver also the CUDA 13 and cuDNN libraries)
   - HuBERT and RMVPE (models RVC uses to read what is said and the pitch)
   - a trained model you are allowed to use (`.pth`) and, if needed, its retrieval index (`.index`)
 - For Seed-VC, a Seed-VC runtime and a reference WAV: a sample of the target voice that you are allowed to use
@@ -28,7 +29,27 @@ The settings page can fetch the runtime, HuBERT and RMVPE.
 2. Under "RVC runtime", press "Review download". Check the license, size and destination, and agree. Nothing is downloaded before you agree.
 3. When it finishes, press "Use this runtime" and save.
 
-Expect a download of about 3.6 GB on Windows and 4.9 GB on Linux. It needs about 12 GB of free disk space on Windows and 16 GB on Linux. To build the runtime yourself, see [integrations/rvc/README.md](https://github.com/kein5/VRCT-VOX/blob/develop/integrations/rvc/README.md) in the repository.
+The runtime that is fetched depends on whether the PC has an NVIDIA driver.
+
+| | PC with an NVIDIA driver (GPU runtime) | Without one (CPU runtime) |
+|---|---|---|
+| Download, about | 1.8 GB on Windows, 1.9 GB on Linux | 0.6 GB on Windows and Linux |
+| Free disk space needed, about | 2.7 GB on Windows, 3.3 GB on Linux | 0.8 GB |
+
+The GPU runtime also converts on the CPU when the GPU cannot be used (a driver older than 580, or a GTX 10 series GPU or older). The setup says so when it finishes.
+
+An RVC runtime fetched by an earlier version (the kind that uses PyTorch) can no longer be used. If the page says "The runtime in this folder is of an earlier kind and can no longer be used", fetch it again the same way. It goes into the same folder, so your saved settings keep working. When it finishes, the files of the earlier kind (`venv`, `python`, `engine`, `rmvpe.pt` and so on) are deleted automatically. Only what the earlier setup put there is deleted; models (`.pth`, `.index` and the like) and audio files you put in `engine` are kept.
+
+### How far behind the voice is
+
+The converted voice comes a little after your own. On the PC this was measured on:
+
+| Converting on | Delay, about |
+|---|---|
+| An NVIDIA GPU | 0.2 s |
+| The CPU | 1.3 s |
+
+Once conversion starts, the settings page shows where it converts and the delay. On the CPU the voice is converted half a second at a time, which makes the delay longer, and it uses a lot of the CPU, so other apps may slow down. If the CPU cannot keep up, conversion stops with "Conversion could not keep up" instead of passing on a broken voice.
 
 As a default model, you can get Saisho Utane's RVC v2 model (CC BY 4.0, about 0.31 GiB) with "Download a default model". Credit the author when you use it in published work or streams.
 

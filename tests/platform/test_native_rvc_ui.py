@@ -56,7 +56,7 @@ def test_native_rvc_selection_real_conversion_stop_and_restart(tmp_path):
                 ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => ['VC ready; conversion not yet confirmed','Converting voice'].includes(e.textContent))", timeout=10)
                 assert not ui.evaluate("return [...document.querySelectorAll('[data-setting-id=rvc_settings] [role=alert]')].map(e => e.textContent).filter(Boolean)")
                 workers = [child.pid for child in ui.app_process.children(recursive=True)
-                           if 'integrations.rvc.live_worker' in ' '.join(child.cmdline())]
+                           if child.cmdline()[:1] and Path(child.cmdline()[0]).name == 'vrct-rvc-worker']
                 assert len(workers) == 1, workers
                 return {'active': True, 'requested': True, 'error': None, 'generation': workers[0]}
 

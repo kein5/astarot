@@ -1,7 +1,13 @@
-"""Consent-gated setup of an external voice conversion runtime (Windows, Linux x86-64).
+"""Consent-gated setup of a voice conversion runtime (Windows, Linux x86-64).
 
-Torch and the engines stay out of the application. This process fetches pinned files,
-runs a pinned uv over the hash-locked requirements, and never imports the result.
+Two kinds, both fetched from pinned sources after consent and never imported here:
+
+- RVC ("native"): ONNX Runtime, on a PC with an NVIDIA GPU with its CUDA provider and the
+  CUDA and cuDNN libraries it needs, and the two fixed networks. The bundled Rust worker
+  (vrct-rvc-worker) runs them, on the CPU when there is no GPU it can use.
+- Seed-VC ("python"): a Python environment set up by a pinned uv over hash-locked
+  requirements, and the engine's source.
+
 A failed or cancelled setup keeps each finished step and continues from there.
 """
 from dataclasses import asdict, dataclass
@@ -21,7 +27,7 @@ import sys
 import tarfile
 from threading import Event, RLock, Thread
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from uuid import uuid4
 import zipfile
 
@@ -31,11 +37,13 @@ from models.owned_child import launch_owned
 from runtime_paths import external_process_env
 
 CHUNK = 1024 * 1024
-ACTIVE = ('queued', 'tools', 'python', 'packages', 'engine', 'assets', 'verifying', 'cancelling')
+ACTIVE = ('queued', 'tools', 'python', 'packages', 'engine', 'libraries', 'assets', 'verifying', 'cancelling')
 STEPS = ('tools', 'python', 'packages', 'engine', 'assets', 'verifying')
+NATIVE_STEPS = ('libraries', 'assets', 'verifying')
 # The step that failed says what the user can do about it.
 STEP_ERRORS = {'tools': 'vc_runtime_tools_failed', 'python': 'vc_runtime_python_failed',
                'packages': 'vc_runtime_packages_failed', 'engine': 'vc_runtime_source_failed',
+               'libraries': 'vc_runtime_libraries_failed',
                'assets': 'vc_runtime_assets_failed', 'verifying': 'vc_runtime_gpu_unusable'}
 
 
@@ -59,23 +67,22 @@ UV = {'win32': Tool(UV_RELEASE + 'uv-x86_64-pc-windows-msvc.zip', 15236317,
                     'uv-x86_64-unknown-linux-gnu/uv')}
 # GitHub serves releases and source archives from these hosts. uv itself fetches Python
 # and packages, and checks them against what it pins and the lock files.
+# The NVIDIA libraries come from their PyPI wheels.
 SOURCE_HOSTS = HOSTS | {'github.com', 'codeload.github.com', 'objects.githubusercontent.com',
-                        'release-assets.githubusercontent.com'}
+                        'release-assets.githubusercontent.com', 'files.pythonhosted.org'}
 SOURCE_LIMIT = 64 * 1024 * 1024
 # What an engine archive may hold before anything is unpacked (security audit SEC-04). The
-# pinned archives are far below: RVC has 335 entries and 2.6 MB unpacked, Seed-VC 111 entries
-# and 27 MB, and no file compresses more than 21 times.
+# pinned Seed-VC archive is far below: 111 entries and 27 MB, and no file compresses more
+# than 21 times.
 SOURCE_MAX_ENTRIES = 4096
 SOURCE_MAX_BYTES = 256 * 1024 * 1024
 SOURCE_MAX_RATIO = 200
 CUDA_INDEX = 'https://download.pytorch.org/whl/cu128'
 CUDA_CHECK = 'import sys, torch; sys.exit(0 if torch.cuda.is_available() else 3)'
 RVC_REPO, RVC_REVISION = 'lj1995/VoiceConversionWebUI', 'e6d0c1a17da07c33557852f9dfa2bd44cc75737d'
-RVC_COMMIT = '81eed5e8f68b6bed1789f682fe78cdd324495afc'
 SEED_COMMIT = '58d0ca372cc76f60a798d9f84611f053f9029f3a'
 SEED_DIGEST = '106613138abf328fd382ba211709675399f11e76f720abfd4ab54eb2bac2b755'  # After the patch.
 SEED_MANIFEST = 'docs/voice-stack/seed-vc-poc-artifacts.json'
-RVC_SOURCE = f'https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/archive/{RVC_COMMIT}.zip'
 SEED_SOURCE = f'https://github.com/jiaheguo521/seed-vc-realtime/archive/{SEED_COMMIT}.zip'
 # tree_digest of every unpacked file (after the patch), per archive (SEC-04). source_digest
 # covers only the .py files the worker checks again at start. GitHub does not promise that an
@@ -83,7 +90,6 @@ SEED_SOURCE = f'https://github.com/jiaheguo521/seed-vc-realtime/archive/{SEED_CO
 # into staging within the limits above and installed only if every file matches. Kept out of
 # Runtime so that an installed runtime keeps its version.
 SOURCE_TREE_DIGESTS = {
-    RVC_SOURCE: 'bb4a032388eaa7aff9148bb2ba94724c4ab5c2c410c719b7251dc84dd4001ec5',
     SEED_SOURCE: '7f1e4b14885d607135c7203408d339d6d4cb2f97ab8935b3af07895f74cd9b1e',
 }
 HUNK = re.compile(r'@@ -(\d+)(?:,\d+)? \+\d+(?:,\d+)? @@')
@@ -99,14 +105,20 @@ def target():
 
 
 def runtime_python(folder):
-    """The same file rvc_process.runtime_python starts."""
+    """The same file seed_process.runtime_python starts."""
     return folder / ('venv/Scripts/python.exe' if target() == 'win32' else 'venv/bin/python')
 
 
 def worker_file(path):
     # Importing the process stack waits until a setup page needs it, not app start.
-    from .rvc_process import worker_root
+    from .seed_process import worker_root
     return worker_root() / path
+
+
+def native_worker():
+    """The bundled RVC worker that runs a native runtime."""
+    from .rvc_process import worker_binary
+    return worker_binary()
 
 
 class Cancelled(Exception):
@@ -137,42 +149,132 @@ class Runtime:
     notice: str
     download_bytes: int
     disk_bytes: int
+    kind: str = 'python'  # or 'native': libraries and assets for the bundled worker
+    libraries: tuple = ()  # Library rows, native only
+    device: str = 'cuda'  # native: what the setup's probe checks, 'cuda' or 'cpu'
+    requires_gpu: bool = True  # whether the setup is offered only with an NVIDIA driver
+
+
+@dataclass(frozen=True)
+class Library:
+    """A pinned archive (zip, wheel or .tgz) and the files taken from it into lib/."""
+    url: str
+    size: int
+    sha256: str
+    members: tuple  # (path inside the archive, file name under lib/)
+
+
+def steps_of(runtime):
+    return NATIVE_STEPS if runtime.kind == 'native' else STEPS
 
 
 def hf_url(repo, revision, path):
     return f'https://huggingface.co/{repo}/resolve/{revision}/{quote(path, safe="/")}'
 
 
-# What differs by platform: the lock files, then the download and free space shown before
-# consent. The sizes are rounded up from one measured setup on each platform.
-RVC_PLATFORM = {
-    'win32': ((('integrations/rvc/requirements-cuda-windows.lock', CUDA_INDEX),
-               ('integrations/rvc/requirements-windows.lock', '')), 3_600_000_000, 12_000_000_000),
-    'linux': ((('integrations/rvc/requirements-cuda.lock', CUDA_INDEX),
-               ('integrations/rvc/requirements.lock', '')), 4_900_000_000, 16_000_000_000)}
+# What differs by platform for Seed-VC: the lock files, then the download and free space
+# shown before consent. The sizes are rounded up from one measured setup on each platform.
 SEED_PLATFORM = {
     'win32': ((('integrations/seed_vc/requirements-windows.lock', ''),), 5_000_000_000, 14_000_000_000),
     'linux': ((('integrations/seed_vc/requirements.lock', ''),), 6_400_000_000, 18_000_000_000)}
 
+# RVC: ONNX Runtime from Microsoft's release and the NVIDIA libraries from their PyPI wheels.
+# With an NVIDIA GPU: the CUDA 13 build of ONNX Runtime, CUDA 13.4 Update 1 and cuDNN 9.26
+# (both released before ONNX Runtime 1.31.0; they need the NVIDIA driver 580 or later).
+# Without one: the CPU build only. Only the files the worker loads are kept.
+ORT_VERSION = '1.31.0'
+ORT_RELEASE = f'https://github.com/microsoft/onnxruntime/releases/download/v{ORT_VERSION}/'
+PYPI = 'https://files.pythonhosted.org/packages/'
 
-def rvc_runtime():
-    locks, download, disk = RVC_PLATFORM[target()]
+
+def _wheel(path, size, sha256, folder, names):
+    return Library(PYPI + path, size, sha256, tuple((f'nvidia/{folder}/{name}', name.rsplit('/', 1)[-1]) for name in names))
+
+
+CUDNN_LINUX = tuple(f'lib/libcudnn{part}.so.9' for part in (
+    '', '_adv', '_cnn', '_engines_precompiled', '_engines_runtime_compiled', '_engines_tensor_ir',
+    '_ext', '_graph', '_heuristic', '_ops'))
+CUDNN_WINDOWS = tuple(f'bin/cudnn{part}64_9.dll' for part in (
+    '', '_adv', '_cnn', '_engines_precompiled', '_engines_runtime_compiled', '_engines_tensor_ir',
+    '_ext', '_graph', '_heuristic', '_ops'))
+
+
+def _ort(name, size, sha256, files):
+    folder = name.rsplit('.', 1)[0].removesuffix('.tar')
+    return Library(ORT_RELEASE + name, size, sha256, tuple((f'{folder}/lib/{source}', target) for source, target in files))
+
+
+# The hashes are the ones GitHub and PyPI publish for each file.
+RVC_LIBRARIES = {
+    'linux': (
+        _ort(f'onnxruntime-linux-x64-gpu_cuda13-{ORT_VERSION}.tgz', 244574938,
+             '2867dec99c6a4926e8142361b9d4d1518c16c85b854b4d41d28d65d3b2c81135',
+             ((f'libonnxruntime.so.{ORT_VERSION}', 'libonnxruntime.so'),
+              ('libonnxruntime_providers_cuda.so', 'libonnxruntime_providers_cuda.so'),
+              ('libonnxruntime_providers_shared.so', 'libonnxruntime_providers_shared.so'))),
+        _wheel('98/8a/3431271f6344874b8f1ac03f16b3d679c91493f8da63f716160403e6d0a0/nvidia_cuda_runtime-13.4.92-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl',
+               2494438, '9641f797da20ce1dd8e779b6e96d08cf9ba564cec8e8225458811ee26423f3a5', 'cu13', ('lib/libcudart.so.13',)),
+        _wheel('7a/38/bdd540bf511d2c9b6f9efc71a81c60cb88e295be0b9312b61d19bbed2212/nvidia_cublas-13.8.0.4-py3-none-manylinux_2_27_x86_64.whl',
+               439317144, '9f17797dfcc048694461f4e47de17d2e3c25adf172ef723d2db0a07cd8744b89', 'cu13', ('lib/libcublas.so.13', 'lib/libcublasLt.so.13')),
+        _wheel('07/73/3ee8e5b4cb891401e603ffd3a59b35c6afe785fd2de123afe7c7029603dc/nvidia_curand-10.4.4.72-py3-none-manylinux_2_27_x86_64.whl',
+               61498332, '25c3457ae7a224fdd484dab90b0fc5dc0e842fab5db3012afa4a5bd2af4eb7e5', 'cu13', ('lib/libcurand.so.10',)),
+        _wheel('56/9c/1342ebb460ce2afd014ec5a002adc99108e3c53a6b70f399cf64dd1f267d/nvidia_cuda_nvrtc-13.4.92-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl',
+               53301733, '5ce8c97b00b232c4f50c8c4b5a3b68cafee08bdb82ea86f2052ff01d03194f4a', 'cu13', ('lib/libnvrtc.so.13', 'lib/libnvrtc-builtins.so.13.4')),
+        _wheel('c6/7d/2e59397de3d8dc9ff80c56f6770e9e21a818dfffc8e07a1b673fa3ef7cf6/nvidia_cudnn_cu13-9.26.1.1-py3-none-manylinux_2_27_x86_64.whl',
+               519150496, 'c709224270fbfb5c51248422b468dc258461a723a8d5a21f50111614b36b8c53', 'cudnn', CUDNN_LINUX)),
+    'win32': (
+        _ort(f'onnxruntime-win-x64-gpu_cuda13-{ORT_VERSION}.zip', 309484217,
+             'd332ccf84acb769a11364cddd4e8d2992a168d16be472d5ba70b279b644552f5',
+             tuple((name, name) for name in ('onnxruntime.dll', 'onnxruntime_providers_cuda.dll', 'onnxruntime_providers_shared.dll'))),
+        _wheel('86/00/d5436004268f049214193659ebc36550b5ef3925c3d13b4cc980e13be6f5/nvidia_cuda_runtime-13.4.92-py3-none-win_amd64.whl',
+               2778543, '08dca5e4aba480c2fd5b55075c0fa71b84ef9dcf0521f2d58baa14a803a7311c', 'cu13', ('bin/x86_64/cudart64_13.dll',)),
+        _wheel('a3/df/f1246959833e2c437db8be3e5b477f66b87f8817821ed40de6c7561c9a36/nvidia_cublas-13.8.0.4-py3-none-win_amd64.whl',
+               423266897, '8c5494423bb8a46822cb6b0cb95d7fa4be2d7b96a31155dff083839ec8297910', 'cu13', ('bin/x86_64/cublas64_13.dll', 'bin/x86_64/cublasLt64_13.dll')),
+        _wheel('e2/d4/f59ab342b82ff05ff27d674acd470ba625d788bf71338f7da6c89669d6b9/nvidia_curand-10.4.4.72-py3-none-win_amd64.whl',
+               56731059, 'e0bce83e083ef25976ee74f59e8f067c15149a74538f1be6c2462e286e7c9c68', 'cu13', ('bin/x86_64/curand64_10.dll',)),
+        _wheel('64/5b/aa91896f64444eff1dd7f189f4db05046c7f0ba08c0f531283c1c1aac581/nvidia_cuda_nvrtc-13.4.92-py3-none-win_amd64.whl',
+               46972283, '6af7ac5372920f6a7a560d0699348560fe44cb52c1d722d6afd3119f8af948c4', 'cu13', ('bin/x86_64/nvrtc64_130_0.dll', 'bin/x86_64/nvrtc-builtins64_134.dll')),
+        _wheel('e6/08/487121df1a5a5935d7619b81fa058925321a5d7b589c100200fda73af2ae/nvidia_cudnn_cu13-9.26.1.1-py3-none-win_amd64.whl',
+               419604428, '8c73be203ea71f9560b062bccfc0df7a5974b9ccf61ba941b926a3237cb76afc', 'cudnn', CUDNN_WINDOWS))}
+# Without an NVIDIA GPU: ONNX Runtime's CPU build, nothing of NVIDIA's.
+RVC_CPU_LIBRARIES = {
+    'linux': (_ort(f'onnxruntime-linux-x64-{ORT_VERSION}.tgz', 11408003,
+                   'cc5c72baf5ae5c8238a6841f0897227be2d02826b9cf98eaf02fdefaeeb03a57',
+                   ((f'libonnxruntime.so.{ORT_VERSION}', 'libonnxruntime.so'),)),),
+    'win32': (_ort(f'onnxruntime-win-x64-{ORT_VERSION}.zip', 82887349,
+                   '3958d8a44984160692c1b4ffd0de3cb48f8c39f9d34bb31e433db06e30b82195',
+                   (('onnxruntime.dll', 'onnxruntime.dll'),)),)}
+# Unpacked libraries and networks, plus the largest archive while it is unpacked, rounded up.
+RVC_DISK = {'linux': 3_300_000_000, 'win32': 2_700_000_000}
+RVC_CPU_DISK = {'linux': 700_000_000, 'win32': 800_000_000}
+# Only what the worker reads: the HuBERT checkpoint (its graph is built from these two files)
+# and the RMVPE network as ONNX, from the same pinned revision as before.
+RVC_ASSETS = (
+    Asset(hf_url(RVC_REPO, RVC_REVISION, 'hubert_base/config.json'), 'hubert_base/config.json', 1492,
+          '0346950779dfb7f9316fa74ed846e2b8a22a08eedfdc5387b73f327cb1a4a7cf'),
+    Asset(hf_url(RVC_REPO, RVC_REVISION, 'hubert_base/pytorch_model.bin'), 'hubert_base/pytorch_model.bin', 189206711,
+          'cc8c20f4b90a520757260197a3ff2505705a7adbd20ad9eeaa4e1a9b38442ef5'),
+    Asset(hf_url(RVC_REPO, RVC_REVISION, 'rmvpe.onnx'), 'rmvpe/rmvpe.onnx', 361688443,
+          '5370e71ac80af8b4b7c793d27efd51fd8bf962de3a7ede0766dac0befa3660fd'))
+
+
+def rvc_runtime(gpu=True):
+    """The GPU runtime on a PC with an NVIDIA driver, else the CPU one. Both live in the
+    same folder; the worker converts on the GPU only when the GPU runtime is there and the
+    GPU can be used."""
+    libraries = (RVC_LIBRARIES if gpu else RVC_CPU_LIBRARIES)[target()]
+    licenses = (f'https://github.com/microsoft/onnxruntime/blob/v{ORT_VERSION}/LICENSE',
+                f'https://huggingface.co/{RVC_REPO}')
+    if gpu:
+        licenses += ('https://docs.nvidia.com/cuda/eula/index.html',
+                     'https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html')
     return Runtime(
-        'rvc', 'RVC', '3.12', locks, RVC_SOURCE,
-        '9778a961cda108fd3145f36ae14d7ba9401308e610920157903bc219231f93fd', '',
-        (Asset(hf_url(RVC_REPO, RVC_REVISION, 'hubert_base/config.json'), 'hubert_base/config.json', 1492,
-               '0346950779dfb7f9316fa74ed846e2b8a22a08eedfdc5387b73f327cb1a4a7cf'),
-         Asset(hf_url(RVC_REPO, RVC_REVISION, 'hubert_base/preprocessor_config.json'), 'hubert_base/preprocessor_config.json', 225,
-               '7c1976a680fb7acc757cd36fb08eef878fa36c70b4c9d2d595df9c608bbbbf0e'),
-         Asset(hf_url(RVC_REPO, RVC_REVISION, 'hubert_base/pytorch_model.bin'), 'hubert_base/pytorch_model.bin', 189206711,
-               'cc8c20f4b90a520757260197a3ff2505705a7adbd20ad9eeaa4e1a9b38442ef5'),
-         Asset(hf_url(RVC_REPO, RVC_REVISION, 'rmvpe.pt'), 'rmvpe/rmvpe.pt', 181184272,
-               '6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193')),
-        'MIT, BSD-3-Clause, GPL-3.0, NVIDIA CUDA EULA',
-        (f'https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/{RVC_COMMIT}/LICENSE',
-         f'https://huggingface.co/{RVC_REPO}', 'https://github.com/pytorch/pytorch/blob/main/LICENSE',
-         'https://docs.nvidia.com/cuda/eula/index.html'),
-        'rvc', download, disk)
+        'rvc', 'RVC', '', (), '', '', '', RVC_ASSETS,
+        'MIT, NVIDIA CUDA/cuDNN EULA' if gpu else 'MIT', licenses,
+        'rvc' if gpu else 'rvc_cpu',
+        sum(item.size for item in libraries) + sum(asset.size for asset in RVC_ASSETS),
+        (RVC_DISK if gpu else RVC_CPU_DISK)[target()], kind='native', libraries=libraries,
+        device='cuda' if gpu else 'cpu', requires_gpu=False)
 
 
 def seed_assets(manifest):
@@ -201,15 +303,15 @@ def seed_runtime():
         'seed', download, disk)
 
 
-def runtimes():
-    """What this platform can set up."""
+def runtimes(gpu=True):
+    """What this platform can set up; `gpu` is whether an NVIDIA driver is there."""
     if not target():
         return ()
-    return (rvc_runtime(), seed_runtime())
+    return (rvc_runtime(gpu), seed_runtime())
 
 
 def source_digest(root):
-    """integrations.rvc.loader.source_digest, which the sidecar cannot import when frozen."""
+    """Every Python file of an engine source in one hash (the Seed-VC worker checks it again)."""
     root = Path(root)
     digest = hashlib.sha256()
     for name in sorted(file.relative_to(root).as_posix() for file in root.rglob('*.py')):
@@ -229,6 +331,8 @@ def tree_digest(root):
 @lru_cache(maxsize=None)
 def version_of(runtime):
     """Changes with anything the user consented to or that changes the install."""
+    if runtime.kind == 'native':
+        return hashlib.sha256(json.dumps(asdict(runtime), sort_keys=True).encode()).hexdigest()[:16]
     digest = hashlib.sha256(json.dumps([asdict(runtime), UV_VERSION, UV[target()].sha256], sort_keys=True).encode())
     for path, _ in runtime.locks:
         digest.update(hashlib.sha256(worker_file(path).read_bytes()).digest())
@@ -236,9 +340,9 @@ def version_of(runtime):
 
 
 def nvidia_driver():
-    """The CUDA builds of Torch need this driver; it is present with any NVIDIA GPU.
+    """CUDA needs this driver; it is present with any NVIDIA GPU.
 
-    Only a file is looked for. Torch answers for itself once the runtime is installed.
+    Only a file is looked for. The runtime answers for itself once it is installed.
     """
     if target() == 'win32':
         return (Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32/nvcuda.dll').is_file()
@@ -326,6 +430,46 @@ def unpack_source(archive, target):
                 shutil.copyfileobj(reader, writer)
 
 
+def unpack_members(archive, members, target):
+    """Only the named regular files of a pinned archive, flat into target (zip, wheel or .tgz).
+
+    The archive's hash is checked before this runs; a name that is missing or not a regular
+    file refuses the whole archive.
+    """
+    def write(reader, name):
+        if not re.fullmatch(r'[A-Za-z0-9_.+-]+', name):
+            raise ValueError('source_path_unsafe')
+        part = target / (name + '.part')
+        with part.open('wb') as writer:
+            shutil.copyfileobj(reader, writer)
+        os.replace(part, target / name)
+
+    target.mkdir(parents=True, exist_ok=True)
+    if zipfile.is_zipfile(archive):
+        with zipfile.ZipFile(archive) as source:
+            for member, name in members:
+                try:
+                    entry = source.getinfo(member)
+                except KeyError:
+                    raise ValueError('source_entry_type') from None
+                kind = (entry.external_attr >> 16) & 0o170000
+                if entry.is_dir() or kind not in (0, stat.S_IFREG) or entry.flag_bits & 0x1:
+                    raise ValueError('source_entry_type')
+                with source.open(entry) as reader:
+                    write(reader, name)
+        return
+    with tarfile.open(archive, 'r:gz') as source:
+        for member, name in members:
+            try:
+                entry = source.getmember(member)
+            except KeyError:
+                raise ValueError('source_entry_type') from None
+            if not entry.isreg():
+                raise ValueError('source_entry_type')
+            with source.extractfile(entry) as reader:
+                write(reader, name)
+
+
 def apply_patch(root, text):
     """A unified diff whose context must match exactly. A Windows PC has no patch tool."""
     rows = text.split('\n')
@@ -377,6 +521,101 @@ def _file_digest(path, asset, check):
     return digest.hexdigest()
 
 
+# What the earlier, PyTorch-based RVC runtime setup put in this same folder. They are
+# removed once the new runtime is installed there (2026-11-15). Only these names are
+# touched; a file is removed only if it is the pinned file the setup placed.
+EARLIER_RVC_FILES = (
+    ('assets/rmvpe/rmvpe.pt', 181184272, '6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193'),
+    ('assets/hubert_base/preprocessor_config.json', 225, '7c1976a680fb7acc757cd36fb08eef878fa36c70b4c9d2d595df9c608bbbbf0e'),
+    ('engine.zip', None, None))
+# Files a user may have put in the engine folder (models, indexes, recordings); kept, with
+# the folders that hold them.
+USER_SUFFIXES = frozenset(('.pth', '.index', '.onnx', '.pt', '.ckpt', '.safetensors', '.bin', '.npy',
+                           '.wav', '.flac', '.mp3', '.ogg', '.m4a', '.zip', '.7z'))
+
+
+def _remove_tree(path, keep=lambda file: False):
+    """Removes a folder without following links, keeping the files `keep` names (and the
+    folders on their way). Returns whether anything was kept."""
+    kept = False
+    for entry in os.scandir(path):
+        child = Path(entry.path)
+        if entry.is_dir(follow_symlinks=False):
+            if _remove_tree(child, keep):
+                kept = True
+                continue
+            child.rmdir()
+        elif keep(child):
+            kept = True
+        else:
+            child.unlink()
+    return kept
+
+
+def remove_earlier_rvc(folder):
+    """Deletes what the earlier PyTorch RVC runtime setup installed in `folder`, the app's
+    own runtime folder: the uv environment (venv), the Python uv installed for it (python),
+    the RVC engine source (engine, engine.part), and its weights that the new runtime does
+    not use. Errors are logged by name only and do not fail the setup.
+
+    venv is only removed when it is a virtual environment (pyvenv.cfg), python only when it
+    holds nothing but uv's interpreters; the engine folder keeps any model or audio file a
+    user may have put there.
+    """
+    folder = Path(folder)
+    removed = []
+
+    def remove(name, keep=lambda file: False):
+        path = folder / name
+        try:
+            if path.is_symlink():
+                return
+            if path.is_dir():
+                if not _remove_tree(path, keep):
+                    path.rmdir()
+                removed.append(name)
+        except OSError:
+            _log_cleanup_failure(name)
+
+    if (folder / 'venv' / 'pyvenv.cfg').is_file():
+        remove('venv')
+    python = folder / 'python'
+    if python.is_dir() and not python.is_symlink():
+        try:
+            names = [entry.name for entry in os.scandir(python)]
+        except OSError:
+            names = None
+        if names is not None and all(name.startswith(('cpython-', '.')) for name in names):
+            remove('python')
+    for name in ('engine', 'engine.part'):
+        remove(name, keep=lambda file: file.suffix.lower() in USER_SUFFIXES)
+    for name, size, sha256 in EARLIER_RVC_FILES:
+        path = folder / name
+        try:
+            if path.is_symlink() or not path.is_file() or (size is not None and path.stat().st_size != size):
+                continue
+            if sha256 is not None:
+                digest = hashlib.sha256()
+                with path.open('rb') as stream:
+                    while block := stream.read(CHUNK):
+                        digest.update(block)
+                if digest.hexdigest() != sha256:
+                    continue
+            path.unlink()
+            removed.append(name)
+        except OSError:
+            _log_cleanup_failure(name)
+    return removed
+
+
+def _log_cleanup_failure(name):
+    try:
+        from utils import printLog
+        printLog('earlier RVC runtime file not removed', dict(name=name))
+    except Exception:
+        pass
+
+
 class RuntimeSetup:
     def __init__(self, root, *, transport=open_public, launcher=launch, entries=None, gpu_check=nvidia_driver):
         self.root = Path(root).expanduser().absolute()
@@ -392,8 +631,17 @@ class RuntimeSetup:
     def entries(self):
         # Reading these needs the worker's files, so it waits until a setup page opens.
         if self._entries is None:
-            self._entries = {runtime.id: runtime for runtime in runtimes()}
+            self._entries = {runtime.id: runtime for runtime in runtimes(bool(self.gpu_check()))}
         return self._entries
+
+    @staticmethod
+    def _variants(runtime):
+        """What counts as installed for this entry: itself, and for RVC on the CPU also the
+        GPU runtime (it runs on the CPU too, so a driver that is missing for a moment does
+        not make it look gone)."""
+        if runtime.kind == 'native' and runtime.id == 'rvc' and runtime.device == 'cpu' and target():
+            return (runtime, rvc_runtime(True))
+        return (runtime,)
 
     def folder(self, runtime):
         return self.root / runtime.id
@@ -404,9 +652,16 @@ class RuntimeSetup:
             receipt = json.loads((folder / 'receipt.json').read_text(encoding='utf-8'))
         except (OSError, ValueError):
             return False
+        if not isinstance(receipt, dict):
+            return False
+        installed = next((item for item in self._variants(runtime) if receipt.get('version') == version_of(item)), None)
+        if installed is None:
+            return False
         # What the worker refuses to start without, so a damaged runtime can be set up again.
-        return (isinstance(receipt, dict) and receipt.get('version') == version_of(runtime)
-                and runtime_python(folder).is_file()
+        if installed.kind == 'native':
+            return (all((folder / 'lib' / name).is_file() for item in installed.libraries for _, name in item.members)
+                    and all((folder / 'assets' / asset.path).is_file() for asset in installed.assets))
+        return (runtime_python(folder).is_file()
                 and (folder / 'engine').is_dir() and (folder / 'assets').is_dir())
 
     def catalog(self):
@@ -415,7 +670,8 @@ class RuntimeSetup:
         for runtime in self.entries.values():
             rows.append(dict(id=runtime.id, name=runtime.name, version=version_of(runtime), license=runtime.license,
                              licenses=list(runtime.licenses), notice=runtime.notice, download_bytes=runtime.download_bytes,
-                             disk_bytes=runtime.disk_bytes, destination=str(self.folder(runtime)), gpu_ready=gpu))
+                             disk_bytes=runtime.disk_bytes, destination=str(self.folder(runtime)), gpu_ready=gpu,
+                             requires_gpu=runtime.requires_gpu, device=runtime.device))
         return {'runtimes': rows}
 
     def state(self):
@@ -438,7 +694,7 @@ class RuntimeSetup:
             if any(job['phase'] in ACTIVE for job in self.jobs.values()):
                 raise ValueError('vc_runtime_busy')
             event = Event()
-            self.jobs[runtime.id] = dict(job_id=uuid4().hex, phase='queued', step=0, steps=len(STEPS), received_bytes=0,
+            self.jobs[runtime.id] = dict(job_id=uuid4().hex, phase='queued', step=0, steps=len(steps_of(runtime)), warning_code=None, received_bytes=0,
                                          total_bytes=0, error_code=None, path=None)
             self.cancel_event = event
             self.thread = Thread(target=self._install, args=(runtime, event, self.thread), daemon=True, name='vc-runtime-setup')
@@ -495,7 +751,8 @@ class RuntimeSetup:
     def _uv(self):
         return self.root / f'.uv-{UV_VERSION}' / ('uv.exe' if target() == 'win32' else 'uv')
 
-    def _run(self, runtime, event, args):
+    def _run(self, runtime, event, args, accept=(0,)):
+        """Runs a setup program; an exit code outside `accept` fails the step. Returns the code."""
         folder = self.folder(runtime)
         env = external_process_env()
         env.pop('VIRTUAL_ENV', None)
@@ -519,8 +776,9 @@ class RuntimeSetup:
                 with self.lock:
                     self.child = None
         self._checkpoint(event)
-        if code:
+        if code not in accept:
             raise ValueError('step_failed')
+        return code
 
     def _tools(self, runtime, event, job):
         uv, tool = self._uv(), UV[target()]
@@ -573,6 +831,44 @@ class RuntimeSetup:
         os.replace(staging, target)
         archive.unlink()
 
+    def _libraries(self, runtime, event, job):
+        """Each pinned archive in turn: fetched, checked, its files taken, then deleted, so
+        only one archive is on disk at a time. A resumed setup skips finished archives."""
+        folder = self.folder(runtime)
+        staging, target, downloads = folder / 'lib.part', folder / 'lib', folder / 'downloads'
+        record = staging / '.archives.json'
+        with self.lock:
+            job['total_bytes'] = sum(item.size for item in runtime.libraries)
+        staging.mkdir(parents=True, exist_ok=True)
+        try:
+            done = json.loads(record.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            done = []
+        if not isinstance(done, list):
+            done = []
+        for item in runtime.libraries:
+            self._checkpoint(event)
+            if item.sha256 in done:
+                with self.lock:
+                    job['received_bytes'] += item.size
+                continue
+            archive = downloads / PurePosixPath(urlsplit(item.url).path).name
+            asset = Asset(item.url, '', item.size, item.sha256)
+            if (archive.is_file() and archive.stat().st_size == item.size
+                    and _file_digest(archive, asset, lambda: self._checkpoint(event)) == item.sha256):
+                with self.lock:
+                    job['received_bytes'] += item.size
+            else:
+                self._fetch(item.url, archive, event, job, size=item.size, sha256=item.sha256)
+            unpack_members(archive, item.members, staging)
+            archive.unlink()
+            done.append(item.sha256)
+            record.write_text(json.dumps(done), encoding='utf-8')
+        record.unlink()
+        shutil.rmtree(target, ignore_errors=True)
+        os.replace(staging, target)
+        shutil.rmtree(downloads, ignore_errors=True)
+
     def _assets(self, runtime, event, job):
         with self.lock:
             job['total_bytes'] = sum(asset.size for asset in runtime.assets)
@@ -586,6 +882,18 @@ class RuntimeSetup:
             self._fetch(asset.url, target, event, job, size=asset.size, sha256=asset.sha256, blob=asset.blob)
 
     def _verifying(self, runtime, event, job):
+        if runtime.kind == 'native':
+            # The worker loads the libraries and runs one operation on the device. The GPU
+            # runtime is still usable on the CPU when the GPU cannot run it (a driver older
+            # than 580, or a GPU before the GeForce GTX 16 and RTX 20 series): exit 3 then.
+            probe = [native_worker(), '--runtime', self.folder(runtime), '--probe']
+            if runtime.device == 'cpu':
+                self._run(runtime, event, probe + ['--device', 'cpu'])
+                return
+            if self._run(runtime, event, probe + ['--device', 'auto'], accept=(0, 3)) == 3:
+                with self.lock:
+                    job['warning_code'] = 'vc_runtime_gpu_unusable_cpu'
+            return
         self._run(runtime, event, [runtime_python(self.folder(runtime)), '-c', CUDA_CHECK])
 
     def _install(self, runtime, event, previous=None):
@@ -596,12 +904,13 @@ class RuntimeSetup:
         marker = folder / '.steps.json'
         version = version_of(runtime)
         lease = RootLease(self.root)
-        terminal, step = None, 'tools'
+        terminal, step = None, steps_of(runtime)[0]
         try:
             self.root.mkdir(parents=True, exist_ok=True)
             lease.acquire()
             folder.mkdir(exist_ok=True)
-            self._uv().parent.mkdir(exist_ok=True)
+            if runtime.kind != 'native':
+                self._uv().parent.mkdir(exist_ok=True)
             try:
                 finished = json.loads(marker.read_text(encoding='utf-8'))
             except (OSError, ValueError):
@@ -610,7 +919,7 @@ class RuntimeSetup:
                 finished = {'version': version, 'steps': []}
             if not finished['steps'] and shutil.disk_usage(self.root).free < runtime.disk_bytes:
                 raise OSError(errno.ENOSPC, 'space')
-            for number, step in enumerate(STEPS, 1):
+            for number, step in enumerate(steps_of(runtime), 1):
                 self._checkpoint(event)
                 with self.lock:
                     if job['phase'] != 'cancelling':
@@ -625,11 +934,16 @@ class RuntimeSetup:
             # Steps resume a setup, not a finished runtime: a repair must run them again.
             marker.unlink(missing_ok=True)
             shutil.rmtree(folder / '.cache', ignore_errors=True)
+            if runtime.kind == 'native' and runtime.id == 'rvc':
+                remove_earlier_rvc(folder)
             terminal = dict(phase='ready', path=str(folder), error_code=None)
         except Cancelled:
             terminal = dict(phase='cancelled')
         except Exception as error:
             code = STEP_ERRORS[step]
+            if runtime.kind == 'native' and step == 'verifying':
+                # The GPU itself is not required (exit 3 passes); the runtime did not load.
+                code = 'vc_runtime_check_failed'
             if str(error) == 'download_busy':
                 code = 'vc_runtime_busy'
             elif isinstance(error, OSError) and error.errno == errno.ENOSPC:
