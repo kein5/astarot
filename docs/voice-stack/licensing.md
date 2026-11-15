@@ -206,6 +206,14 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 中核のクレートが`include_str!`で取り込むファイルは、OBSのブラウザーソースのページ（`native/adapters/src/obs/page.html`）と言語の表（`native/core/data/*.json`）だけ。どちらもリポジトリのコードとデータから作ったもので、第三者のデータではない。中核のクレートには`build.rs`もない。
 
+## rmvpe.onnxの承認（2026-11-16、#322）
+
+#322の残課題へのオーナーの決定で、`rmvpe.onnx`は使い続けることになった。承認記録の[rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json)では、`status`を`approved_for_app_fetch_after_user_consent`に変え、`consent`にこの決定を足した。取得の形は変わらない。固定revisionから利用者の同意を得てから取得し、配布物には含めない。再配布の承認ではない。
+
+2026-11-16にHugging FaceのAPIで、記録の5ファイル（今取得する3つと以前の2つ）のサイズとblob IDが記録と一致することを確かめた。LFSのファイルはSHA-256も一致した。
+
+取得するのは、今も既定の経路のPythonのサイドカー（`src-python/models/voice_conversion/runtime_setup.py`）。#344で入ったRustの中核は、まだ実行環境を準備しない（[core-integration.md](core-integration.md)の未決事項6）。中核に移すときも同じ固定値で取得する必要がある。Pythonの固定値と記録の一致は、試験（`tests/voice/test_vc_runtime_setup.py`）が確かめている。
+
 ## RVC追加分（2026-10-29、モデル未取得）
 
 > 2026-11-15以降、この節とMia2026の節の外部Python実行環境は使っていない（上の節）。記録として残す。
