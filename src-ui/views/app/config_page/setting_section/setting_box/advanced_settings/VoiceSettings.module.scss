@@ -69,6 +69,9 @@
     :disabled { opacity: .6; cursor: not-allowed; }
     // General description role: 1.2rem / 400 in the description color.
     p { font-size: 1.2rem; line-height: 1.6; color: var(--vox_description_text); overflow-wrap: anywhere; text-wrap: pretty; max-width: 72ch; }
+    // Links read as links (the same blue as the translation page's), not as the description around them.
+    a { color: var(--primary_300_color); text-decoration: underline; }
+    a:hover { color: var(--primary_200_color); }
     summary { cursor: pointer; padding: .8rem 0; font-weight: 600; }
     details.more { color: var(--dark_400_color, #adbed6); }
     details.more summary { padding: .4rem 0; font-weight: 400; font-size: 1.3rem; }

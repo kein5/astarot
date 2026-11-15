@@ -10,7 +10,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（412件: 削除 11、取得 184、実行 38、有効化 39、無効化 40、設定 100）
+## 要求（413件: 削除 11、取得 185、実行 38、有効化 39、無効化 40、設定 100）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -345,6 +345,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/data/voice_settings` | 設定 | `setVoiceSettings` | 可 | useVoice.updateSettings | ログで伏せる |
 | `/get/data/voice_status` | 取得 | `getVoiceStatus` | 可 | useVoice.updateStatus |  |
 | `/get/data/tts_model_options` | 取得 | `getTtsModelOptions` | 可 | useVoice.updateModelOptions |  |
+| `/get/data/tts_engine_voices` | 取得 | `getTtsEngineVoices` | 可 | useVoice.updateEngineVoices |  |
 | `/get/data/voice_output_devices` | 取得 | `getVoiceOutputDevices` | 可 | useVoice.updateDevices |  |
 | `/run/stop_voice` | 実行 | `stopVoice` | 可 | useVoice.updateStatus | 即時（キューを通らない） |
 | `/run/enable_tts` | 実行 | `enableTts` | 可 | useVoice.updateStatus |  |

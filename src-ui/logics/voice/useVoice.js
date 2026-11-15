@@ -11,6 +11,9 @@ const directStateAtom = atom({}), directSourcesAtom = atom({ sources: [], error:
 const selectedSourceAtom = atom(""), preferredSourceAtom = atom("");
 const modelOptionsAtom = atom({});
 let optionsSequence = 0;
+// The last check of an installed speech engine (ADR-008): pending until its answer arrives.
+const engineVoicesAtom = atom(null);
+let engineSequence = 0;
 const ttsPendingAtom = atom(null), directPendingAtom = atom(null), ttsErrorAtom = atom(null);
 // Keep the last producer through stopping/health failure, where backend mode is already off.
 const directOwnerAtom = atom(null);
@@ -26,6 +29,11 @@ export const useVoice = () => {
         const previous = atoms.get(modelOptionsAtom);
         if (!value || !["japanese", "multilingual"].includes(value.role) || previous[value.role]?.request_id !== value.request_id) return;
         atoms.set(modelOptionsAtom, { ...previous, [value.role]: value });
+    }, [atoms]);
+    const [engineVoices] = useAtom(engineVoicesAtom);
+    // Only the answer to the newest check counts; an older one may be for another engine or URL.
+    const updateEngineVoices = useCallback(value => {
+        if (value && atoms.get(engineVoicesAtom)?.request_id === value.request_id) atoms.set(engineVoicesAtom, value);
     }, [atoms]);
     const [settings, setSettings] = useAtom(settingsAtom);
     const [status] = useAtom(statusAtom);
@@ -100,6 +108,10 @@ export const useVoice = () => {
             data = { ...data, request_id: `ui-${Date.now()}-${++optionsSequence}` };
             atoms.set(modelOptionsAtom, { ...atoms.get(modelOptionsAtom), [data.role]: { request_id: data.request_id, options: null } });
         }
+        if (endpoint === "/get/data/tts_engine_voices") {
+            data = { ...data, request_id: `ui-${Date.now()}-${++engineSequence}` };
+            atoms.set(engineVoicesAtom, { request_id: data.request_id, engine: data.engine, pending: true, voices: [] });
+        }
         const ttsCommand = ["/run/enable_tts", "/run/disable_tts"].includes(endpoint);
         const directCommand = ["/run/start_direct_voice", "/run/stop_direct_voice"].includes(endpoint);
         const direct = endpoint.includes("direct_voice");
@@ -131,6 +143,8 @@ export const useVoice = () => {
         if (ok === false) {
             // A delayed transport failure must not clear a newer command's owner.
             if (pendingTarget && atoms.get(pendingTarget) === pendingRequest) atoms.set(pendingTarget, null);
+            if (data?.request_id && atoms.get(engineVoicesAtom)?.request_id === data.request_id)
+                atoms.set(engineVoicesAtom, { ...atoms.get(engineVoicesAtom), pending: false, connected: false, error_code: "backend_unavailable" });
             report("backend_unavailable");
         }
         return ok;
@@ -144,13 +158,13 @@ export const useVoice = () => {
     }, [atoms]);
     const reset = useCallback(() => {
         resetObservations(atoms, [statusAtom, routeAtom, directStateAtom]);
-        atoms.set(modelOptionsAtom, {});
+        atoms.set(modelOptionsAtom, {}); atoms.set(engineVoicesAtom, null);
         atoms.set(settingsAtom, null); atoms.set(statusAtom, {}); atoms.set(routeAtom, {}); atoms.set(directStateAtom, {});
         atoms.set(selectedSourceAtom, ""); atoms.set(preferredSourceAtom, ""); atoms.set(directSourcesAtom, { sources: [], error: null });
         atoms.set(directOwnerAtom, null); atoms.set(directDraftBlockedAtom, false);
         for (const target of [errorAtom, directErrorAtom, ttsErrorAtom, ttsPendingAtom, directPendingAtom]) atoms.set(target, null);
     }, [atoms]);
-    return { settings, status, route, devices, error, send, reset, backendStopped, modelOptions, updateModelOptions, selectedSource, setSelectedSource,
+    return { settings, status, route, devices, error, send, reset, backendStopped, modelOptions, updateModelOptions, engineVoices, updateEngineVoices, selectedSource, setSelectedSource,
         ttsPending, directPending, ttsError, updateTtsError, updateStatus, updateRoute, updateDevices, updateError,
         directState, directOwner, directDraftBlocked, setDirectDraftBlocked,
         directSources, directError, updateDirectState, updateDirectSources, updateDirectError, updateSettings };

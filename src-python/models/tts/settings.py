@@ -157,6 +157,10 @@ class VoiceSettings:
         """The engine that reads `language`: an installed engine for Japanese, else speech.cpp."""
         return self.japanese_engine if language_tag(language) == 'ja' else 'speechcpp'
 
+    def uses_speechcpp(self, role):
+        """Whether a role ('japanese' | 'multilingual') speaks through a speech.cpp server."""
+        return role != 'japanese' or self.japanese_engine == 'speechcpp'
+
     def options_for(self, language):
         role = 'japanese' if language_tag(language) == 'ja' else 'multilingual'
         options = {}
