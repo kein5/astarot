@@ -27,6 +27,9 @@ pub fn model_guidance(id: &str) -> Json {
         "irodori-v41-q8" => guidance("compact", Some(1_590_000_000), validation("passed", Some("tts_native_vulkan"), Some(RTX_4080_SUPER), Some(1_571_815_424))),
         "qwen3-06b-q8" => guidance("standard", Some(1_330_000_000), validation("passed", Some("tts_native_vulkan"), Some(RTX_4080_SUPER), Some(1_396_703_232))),
         "qwen3-06b-q5" => guidance("compact", Some(990_000_000), validation("passed", Some("tts_native_vulkan"), Some(RTX_4080_SUPER), Some(1_048_576_000))),
+        // speech.cpp 0.10.0 model cards (RTX 2080, Vulkan); not yet checked here.
+        "irodori-v41-small-f16" => guidance("standard", Some(2_200_000_000), validation("pending", None, None, None)),
+        "irodori-v4-large-q8" => guidance("large", Some(4_445_291_151), validation("pending", None, None, None)),
         "rvc-saisho" => guidance("voice", None, validation("passed", Some("rvc_runtime"), None, None)),
         _ => guidance("unknown", None, validation("pending", None, None, None)),
     }

@@ -1,7 +1,7 @@
 {
  "root": "/vrct-ops-reference/downloaded_models",
  "catalog": {
-  "catalog_version": "2026-11-16.1",
+  "catalog_version": "2026-11-16.3",
   "models": [
    {
     "id": "irodori-v41-f16",
@@ -39,7 +39,20 @@
      }
     },
     "speech": null,
-    "profile": null,
+    "profile": {
+     "summary": "irodori_mf",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [
+      "ja"
+     ],
+     "memory_bytes": 2040000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "medium",
+     "cpu": "impractical",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/tree/9db7da1bec3d1069ef8e29732e0497be60c7b047"
     ]
@@ -80,7 +93,37 @@
      }
     },
     "speech": null,
-    "profile": null,
+    "profile": {
+     "summary": "qwen3_tts_06b",
+     "languages": [
+      "de",
+      "en",
+      "es",
+      "fr",
+      "it",
+      "ja",
+      "ko",
+      "pt",
+      "ru",
+      "zh"
+     ],
+     "recommended_for": [
+      "de",
+      "en",
+      "es",
+      "fr",
+      "it",
+      "ko",
+      "pt",
+      "ru",
+      "zh"
+     ],
+     "memory_bytes": 1370000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "impractical",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/tree/fd9df9364613a92a86b4137074bc281204823033"
     ]
@@ -3318,7 +3361,18 @@
      }
     },
     "speech": null,
-    "profile": null,
+    "profile": {
+     "summary": "irodori_mf",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 1330000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "impractical",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/tree/9db7da1bec3d1069ef8e29732e0497be60c7b047"
     ]
@@ -3359,9 +3413,195 @@
      }
     },
     "speech": null,
-    "profile": null,
+    "profile": {
+     "summary": "qwen3_tts_06b",
+     "languages": [
+      "de",
+      "en",
+      "es",
+      "fr",
+      "it",
+      "ja",
+      "ko",
+      "pt",
+      "ru",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 1030000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "light",
+     "cpu": "impractical",
+     "gpu": "recommended"
+    },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/tree/fd9df9364613a92a86b4137074bc281204823033"
+    ]
+   },
+   {
+    "id": "irodori-v41-small-f16",
+    "target": "japanese",
+    "name": "Irodori-TTS v4.1 Small · F16",
+    "provider": "Aratako / sakasegawa",
+    "repo": "sakasegawa/Irodori-TTS-v4.1-Small-GGUF",
+    "revision": "66fe2cde1973fd44e7202fbe36df722103958188",
+    "license": "MIT + Apache-2.0",
+    "licenses": [
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/66fe2cde1973fd44e7202fbe36df722103958188/README.md",
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/66fe2cde1973fd44e7202fbe36df722103958188/LICENSE-MIT",
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/66fe2cde1973fd44e7202fbe36df722103958188/LICENSE-APACHE-2.0"
+    ],
+    "notice": "irodori",
+    "artifacts": [
+     {
+      "filename": "Irodori-TTS-859M-v4.1-F16.gguf",
+      "size": 1905903936,
+      "sha256": "f334932bdf166579bada0a3c8bdabb7199af85682fdcefb6f1cb7e444f5c75b3",
+      "role": "model",
+      "remote": []
+     }
+    ],
+    "total_bytes": 1905903936,
+    "destination": "/vrct-ops-reference/downloaded_models/irodori-v41-small-f16/66fe2cde1973fd44e7202fbe36df722103958188",
+    "source": "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/tree/66fe2cde1973fd44e7202fbe36df722103958188",
+    "guidance": {
+     "tier": "standard",
+     "reference_memory_bytes": 2200000000,
+     "validation": {
+      "state": "pending",
+      "scope": null,
+      "device": null
+     }
+    },
+    "speech": null,
+    "profile": {
+     "summary": "irodori_small",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 2030000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "medium",
+     "cpu": "impractical",
+     "gpu": "recommended"
+    },
+    "sources": [
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/tree/66fe2cde1973fd44e7202fbe36df722103958188"
+    ]
+   },
+   {
+    "id": "irodori-v4-large-q8",
+    "target": "japanese",
+    "name": "Irodori-TTS v4 Large · Q8_0",
+    "provider": "Aratako / sakasegawa",
+    "repo": "sakasegawa/Irodori-TTS-v4-Large-GGUF",
+    "revision": "79cae5947a97e941c62912749e1387c8b35ec16b",
+    "license": "Gemma Terms of Use + MIT + Apache-2.0",
+    "licenses": [
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/README.md",
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/GEMMA_TERMS_OF_USE.md",
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/GEMMA_PROHIBITED_USE_POLICY.md",
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/LICENSE-MIT",
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/LICENSE-APACHE-2.0"
+    ],
+    "notice": "irodori_large",
+    "artifacts": [
+     {
+      "filename": "Irodori-TTS-3.4B-v4-Q8_0.gguf",
+      "size": 3875154272,
+      "sha256": "836a2deda5115e4400d25674612ff30d704a358d0b16cf96a3eb510dc416bc4e",
+      "role": "model",
+      "remote": []
+     }
+    ],
+    "total_bytes": 3875154272,
+    "destination": "/vrct-ops-reference/downloaded_models/irodori-v4-large-q8/79cae5947a97e941c62912749e1387c8b35ec16b",
+    "source": "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/tree/79cae5947a97e941c62912749e1387c8b35ec16b",
+    "guidance": {
+     "tier": "large",
+     "reference_memory_bytes": 4445291151,
+     "validation": {
+      "state": "pending",
+      "scope": null,
+      "device": null
+     }
+    },
+    "speech": null,
+    "profile": {
+     "summary": "irodori_large",
+     "languages": [
+      "ja"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 4123168604,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "medium",
+     "cpu": "impractical",
+     "gpu": "recommended"
+    },
+    "sources": [
+     "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/tree/79cae5947a97e941c62912749e1387c8b35ec16b"
+    ]
+   },
+   {
+    "id": "qwen3-17b-q8",
+    "target": "multilingual",
+    "name": "Qwen3-TTS 12Hz 1.7B CustomVoice · Q8_0",
+    "provider": "Qwen / sakasegawa",
+    "repo": "sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF",
+    "revision": "a72e6c6575d67652488cdffc1c863215a9899978",
+    "license": "Apache-2.0",
+    "licenses": [
+     "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/blob/a72e6c6575d67652488cdffc1c863215a9899978/README.md",
+     "https://www.apache.org/licenses/LICENSE-2.0"
+    ],
+    "notice": "qwen",
+    "artifacts": [
+     {
+      "filename": "Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf",
+      "size": 2287780352,
+      "sha256": "1bc0ef69547c003507b6536639a6080c8856382f4d0963b15d4475528330592d",
+      "role": "model",
+      "remote": []
+     }
+    ],
+    "total_bytes": 2287780352,
+    "destination": "/vrct-ops-reference/downloaded_models/qwen3-17b-q8/a72e6c6575d67652488cdffc1c863215a9899978",
+    "source": "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/tree/a72e6c6575d67652488cdffc1c863215a9899978",
+    "guidance": {
+     "tier": "unknown",
+     "reference_memory_bytes": null,
+     "validation": {
+      "state": "pending",
+      "scope": null,
+      "device": null
+     }
+    },
+    "speech": null,
+    "profile": {
+     "summary": "qwen3_tts_17b",
+     "languages": [
+      "de",
+      "en",
+      "es",
+      "fr",
+      "it",
+      "ja",
+      "ko",
+      "pt",
+      "ru",
+      "zh"
+     ],
+     "recommended_for": [],
+     "memory_bytes": 2440000000,
+     "memory_measured_on": "Apple M5 (Metal)",
+     "tier": "medium",
+     "cpu": "impractical",
+     "gpu": "recommended"
+    },
+    "sources": [
+     "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/tree/a72e6c6575d67652488cdffc1c863215a9899978"
     ]
    },
    {
@@ -3865,6 +4105,15 @@
   "qwen3-06b-q5": [
    "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/resolve/fd9df9364613a92a86b4137074bc281204823033/Qwen3-TTS-12Hz-0.6B-CustomVoice-Q5_K.gguf"
   ],
+  "irodori-v41-small-f16": [
+   "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/resolve/66fe2cde1973fd44e7202fbe36df722103958188/Irodori-TTS-859M-v4.1-F16.gguf"
+  ],
+  "irodori-v4-large-q8": [
+   "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/resolve/79cae5947a97e941c62912749e1387c8b35ec16b/Irodori-TTS-3.4B-v4-Q8_0.gguf"
+  ],
+  "qwen3-17b-q8": [
+   "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/resolve/a72e6c6575d67652488cdffc1c863215a9899978/Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf"
+  ],
   "ppocrv6-small": [
    "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/28fe5895c24fd108c19eb3e8479f4ab385fbfc62/inference.onnx",
    "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/b8f84f0b80c529de40b4fbb3544b84fa7233a513/inference.onnx",
@@ -3933,6 +4182,9 @@
   "nemotron-3-diarization-q8": "{\n  \"id\": \"nemotron-3-diarization-q8\",\n  \"target\": \"diarization\",\n  \"name\": \"Nemotron 3 Diarization · Q8_0 (up to 8 speakers)\",\n  \"provider\": \"NVIDIA / sakasegawa\",\n  \"repo\": \"sakasegawa/Nemotron-3-Diarization-GGUF\",\n  \"revision\": \"9096d41cb78bba7ac882b96d453e25239eac692b\",\n  \"license\": \"OpenMDW-1.1\",\n  \"licenses\": [\n    \"https://huggingface.co/sakasegawa/Nemotron-3-Diarization-GGUF/blob/9096d41cb78bba7ac882b96d453e25239eac692b/README.md\",\n    \"https://huggingface.co/sakasegawa/Nemotron-3-Diarization-GGUF/blob/9096d41cb78bba7ac882b96d453e25239eac692b/LICENSE.OpenMDW-1.1\"\n  ],\n  \"notice\": \"nemotron_diarization\",\n  \"artifacts\": [\n    {\n      \"filename\": \"Nemotron-3-Diarization-99M-Q8_0.gguf\",\n      \"size\": 106179488,\n      \"sha256\": \"336df6350dce2ea5ff06aa6e2b249d331a859ced13305fbb45c44bdb3c0abe20\",\n      \"role\": \"model\",\n      \"remote\": []\n    }\n  ]\n}",
   "irodori-v41-q8": "{\n  \"id\": \"irodori-v41-q8\",\n  \"target\": \"japanese\",\n  \"name\": \"Irodori-TTS v4.1 Small MF · Q8_0\",\n  \"provider\": \"Aratako / sakasegawa\",\n  \"repo\": \"sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF\",\n  \"revision\": \"9db7da1bec3d1069ef8e29732e0497be60c7b047\",\n  \"license\": \"MIT + Apache-2.0\",\n  \"licenses\": [\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/blob/9db7da1bec3d1069ef8e29732e0497be60c7b047/README.md\",\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/blob/9db7da1bec3d1069ef8e29732e0497be60c7b047/LICENSE-MIT\",\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/blob/9db7da1bec3d1069ef8e29732e0497be60c7b047/LICENSE-APACHE-2.0\"\n  ],\n  \"notice\": \"irodori\",\n  \"artifacts\": [\n    {\n      \"filename\": \"Irodori-TTS-866M-MF-v4.1-Q8_0.gguf\",\n      \"size\": 1207133984,\n      \"sha256\": \"2d161b0bbcd74f906f6b07e03d031075f8ae916db1b8bd4daf16cb37b451086a\",\n      \"role\": \"model\",\n      \"remote\": []\n    }\n  ]\n}",
   "qwen3-06b-q5": "{\n  \"id\": \"qwen3-06b-q5\",\n  \"target\": \"multilingual\",\n  \"name\": \"Qwen3-TTS 12Hz 0.6B CustomVoice · Q5_K\",\n  \"provider\": \"Qwen / sakasegawa\",\n  \"repo\": \"sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF\",\n  \"revision\": \"fd9df9364613a92a86b4137074bc281204823033\",\n  \"license\": \"Apache-2.0\",\n  \"licenses\": [\n    \"https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/blob/fd9df9364613a92a86b4137074bc281204823033/README.md\",\n    \"https://www.apache.org/licenses/LICENSE-2.0\"\n  ],\n  \"notice\": \"qwen\",\n  \"artifacts\": [\n    {\n      \"filename\": \"Qwen3-TTS-12Hz-0.6B-CustomVoice-Q5_K.gguf\",\n      \"size\": 873894144,\n      \"sha256\": \"4bb9ba9e822ab614798c416c7f0187994f349be41221966fa911aca24f237930\",\n      \"role\": \"model\",\n      \"remote\": []\n    }\n  ]\n}",
+  "irodori-v41-small-f16": "{\n  \"id\": \"irodori-v41-small-f16\",\n  \"target\": \"japanese\",\n  \"name\": \"Irodori-TTS v4.1 Small · F16\",\n  \"provider\": \"Aratako / sakasegawa\",\n  \"repo\": \"sakasegawa/Irodori-TTS-v4.1-Small-GGUF\",\n  \"revision\": \"66fe2cde1973fd44e7202fbe36df722103958188\",\n  \"license\": \"MIT + Apache-2.0\",\n  \"licenses\": [\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/66fe2cde1973fd44e7202fbe36df722103958188/README.md\",\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/66fe2cde1973fd44e7202fbe36df722103958188/LICENSE-MIT\",\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/blob/66fe2cde1973fd44e7202fbe36df722103958188/LICENSE-APACHE-2.0\"\n  ],\n  \"notice\": \"irodori\",\n  \"artifacts\": [\n    {\n      \"filename\": \"Irodori-TTS-859M-v4.1-F16.gguf\",\n      \"size\": 1905903936,\n      \"sha256\": \"f334932bdf166579bada0a3c8bdabb7199af85682fdcefb6f1cb7e444f5c75b3\",\n      \"role\": \"model\",\n      \"remote\": []\n    }\n  ]\n}",
+  "irodori-v4-large-q8": "{\n  \"id\": \"irodori-v4-large-q8\",\n  \"target\": \"japanese\",\n  \"name\": \"Irodori-TTS v4 Large · Q8_0\",\n  \"provider\": \"Aratako / sakasegawa\",\n  \"repo\": \"sakasegawa/Irodori-TTS-v4-Large-GGUF\",\n  \"revision\": \"79cae5947a97e941c62912749e1387c8b35ec16b\",\n  \"license\": \"Gemma Terms of Use + MIT + Apache-2.0\",\n  \"licenses\": [\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/README.md\",\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/GEMMA_TERMS_OF_USE.md\",\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/GEMMA_PROHIBITED_USE_POLICY.md\",\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/LICENSE-MIT\",\n    \"https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/blob/79cae5947a97e941c62912749e1387c8b35ec16b/LICENSE-APACHE-2.0\"\n  ],\n  \"notice\": \"irodori_large\",\n  \"artifacts\": [\n    {\n      \"filename\": \"Irodori-TTS-3.4B-v4-Q8_0.gguf\",\n      \"size\": 3875154272,\n      \"sha256\": \"836a2deda5115e4400d25674612ff30d704a358d0b16cf96a3eb510dc416bc4e\",\n      \"role\": \"model\",\n      \"remote\": []\n    }\n  ]\n}",
+  "qwen3-17b-q8": "{\n  \"id\": \"qwen3-17b-q8\",\n  \"target\": \"multilingual\",\n  \"name\": \"Qwen3-TTS 12Hz 1.7B CustomVoice · Q8_0\",\n  \"provider\": \"Qwen / sakasegawa\",\n  \"repo\": \"sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF\",\n  \"revision\": \"a72e6c6575d67652488cdffc1c863215a9899978\",\n  \"license\": \"Apache-2.0\",\n  \"licenses\": [\n    \"https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/blob/a72e6c6575d67652488cdffc1c863215a9899978/README.md\",\n    \"https://www.apache.org/licenses/LICENSE-2.0\"\n  ],\n  \"notice\": \"qwen\",\n  \"artifacts\": [\n    {\n      \"filename\": \"Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf\",\n      \"size\": 2287780352,\n      \"sha256\": \"1bc0ef69547c003507b6536639a6080c8856382f4d0963b15d4475528330592d\",\n      \"role\": \"model\",\n      \"remote\": []\n    }\n  ]\n}",
   "ppocrv6-small": "{\n  \"id\": \"ppocrv6-small\",\n  \"target\": \"ocr\",\n  \"name\": \"PP-OCRv6 small · Japanese, English, Chinese, Latin\",\n  \"provider\": \"PaddlePaddle (PaddleOCR)\",\n  \"repo\": \"PaddlePaddle/PP-OCRv6_small_rec_onnx\",\n  \"revision\": \"b8f84f0b80c529de40b4fbb3544b84fa7233a513\",\n  \"license\": \"Apache-2.0\",\n  \"licenses\": [\n    \"https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/blob/b8f84f0b80c529de40b4fbb3544b84fa7233a513/README.md\",\n    \"https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/blob/28fe5895c24fd108c19eb3e8479f4ab385fbfc62/README.md\",\n    \"https://www.apache.org/licenses/LICENSE-2.0\"\n  ],\n  \"notice\": \"ppocr\",\n  \"artifacts\": [\n    {\n      \"filename\": \"det.onnx\",\n      \"size\": 9880512,\n      \"sha256\": \"d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e\",\n      \"role\": \"det\",\n      \"remote\": [\n        \"PaddlePaddle/PP-OCRv6_small_det_onnx\",\n        \"28fe5895c24fd108c19eb3e8479f4ab385fbfc62\",\n        \"inference.onnx\"\n      ]\n    },\n    {\n      \"filename\": \"rec.onnx\",\n      \"size\": 21159378,\n      \"sha256\": \"5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634\",\n      \"role\": \"rec\",\n      \"remote\": [\n        \"PaddlePaddle/PP-OCRv6_small_rec_onnx\",\n        \"b8f84f0b80c529de40b4fbb3544b84fa7233a513\",\n        \"inference.onnx\"\n      ]\n    },\n    {\n      \"filename\": \"rec.yml\",\n      \"size\": 150579,\n      \"sha256\": \"ab078671bb49f06228eadccd34f1bb501e157f7a047095ffb943ba81512c77d1\",\n      \"role\": \"dict\",\n      \"remote\": [\n        \"PaddlePaddle/PP-OCRv6_small_rec_onnx\",\n        \"b8f84f0b80c529de40b4fbb3544b84fa7233a513\",\n        \"inference.yml\"\n      ]\n    }\n  ]\n}",
   "ppocrv5-korean": "{\n  \"id\": \"ppocrv5-korean\",\n  \"target\": \"ocr\",\n  \"name\": \"PP-OCRv5 mobile · Korean\",\n  \"provider\": \"PaddlePaddle (PaddleOCR)\",\n  \"repo\": \"PaddlePaddle/korean_PP-OCRv5_mobile_rec_onnx\",\n  \"revision\": \"5c6f574b8e2230adf4287b33e736d71b9fabd28e\",\n  \"license\": \"Apache-2.0\",\n  \"licenses\": [\n    \"https://huggingface.co/PaddlePaddle/korean_PP-OCRv5_mobile_rec_onnx/blob/5c6f574b8e2230adf4287b33e736d71b9fabd28e/README.md\",\n    \"https://www.apache.org/licenses/LICENSE-2.0\"\n  ],\n  \"notice\": \"ppocr\",\n  \"artifacts\": [\n    {\n      \"filename\": \"rec.onnx\",\n      \"size\": 13418787,\n      \"sha256\": \"92f0b7785e64fc9090106a241cf4c1eb97472824558272751b88a2a4476d3a08\",\n      \"role\": \"rec\",\n      \"remote\": [\n        \"PaddlePaddle/korean_PP-OCRv5_mobile_rec_onnx\",\n        \"5c6f574b8e2230adf4287b33e736d71b9fabd28e\",\n        \"inference.onnx\"\n      ]\n    },\n    {\n      \"filename\": \"rec.yml\",\n      \"size\": 96039,\n      \"sha256\": \"f757fa1c40e99edcf27e9cce879b93eb2a51fa46f5ef39095689b8c37dd75998\",\n      \"role\": \"dict\",\n      \"remote\": [\n        \"PaddlePaddle/korean_PP-OCRv5_mobile_rec_onnx\",\n        \"5c6f574b8e2230adf4287b33e736d71b9fabd28e\",\n        \"inference.yml\"\n      ]\n    }\n  ]\n}",
   "ppocrv5-cyrillic": "{\n  \"id\": \"ppocrv5-cyrillic\",\n  \"target\": \"ocr\",\n  \"name\": \"PP-OCRv5 mobile · Cyrillic\",\n  \"provider\": \"PaddlePaddle (PaddleOCR)\",\n  \"repo\": \"PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec_onnx\",\n  \"revision\": \"2cef88145434beb8afa9dd82d77d799eb1ad7b29\",\n  \"license\": \"Apache-2.0\",\n  \"licenses\": [\n    \"https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec_onnx/blob/2cef88145434beb8afa9dd82d77d799eb1ad7b29/README.md\",\n    \"https://www.apache.org/licenses/LICENSE-2.0\"\n  ],\n  \"notice\": \"ppocr\",\n  \"artifacts\": [\n    {\n      \"filename\": \"rec.onnx\",\n      \"size\": 8048799,\n      \"sha256\": \"5371ee1ddaa7983cc62d0818d99e982b6804638c85e4f960d59a574094e172e5\",\n      \"role\": \"rec\",\n      \"remote\": [\n        \"PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec_onnx\",\n        \"2cef88145434beb8afa9dd82d77d799eb1ad7b29\",\n        \"inference.onnx\"\n      ]\n    },\n    {\n      \"filename\": \"rec.yml\",\n      \"size\": 6991,\n      \"sha256\": \"5c76cc91fa98410178a09f498db10050d0ec1634a660053d3005ab7be581f501\",\n      \"role\": \"dict\",\n      \"remote\": [\n        \"PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec_onnx\",\n        \"2cef88145434beb8afa9dd82d77d799eb1ad7b29\",\n        \"inference.yml\"\n      ]\n    }\n  ]\n}",
@@ -3980,6 +4232,9 @@
   "nemotron-3-diarization-q8": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"nemotron-3-diarization-q8\", \"revision\": \"9096d41cb78bba7ac882b96d453e25239eac692b\", \"files\": [\"Nemotron-3-Diarization-99M-Q8_0.gguf\"], \"directory\": \".partial-00000000000000000000000000000000\"}",
   "irodori-v41-q8": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"irodori-v41-q8\", \"revision\": \"9db7da1bec3d1069ef8e29732e0497be60c7b047\", \"files\": [\"Irodori-TTS-866M-MF-v4.1-Q8_0.gguf\"], \"directory\": \".partial-00000000000000000000000000000000\"}",
   "qwen3-06b-q5": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"qwen3-06b-q5\", \"revision\": \"fd9df9364613a92a86b4137074bc281204823033\", \"files\": [\"Qwen3-TTS-12Hz-0.6B-CustomVoice-Q5_K.gguf\"], \"directory\": \".partial-00000000000000000000000000000000\"}",
+  "irodori-v41-small-f16": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"irodori-v41-small-f16\", \"revision\": \"66fe2cde1973fd44e7202fbe36df722103958188\", \"files\": [\"Irodori-TTS-859M-v4.1-F16.gguf\"], \"directory\": \".partial-00000000000000000000000000000000\"}",
+  "irodori-v4-large-q8": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"irodori-v4-large-q8\", \"revision\": \"79cae5947a97e941c62912749e1387c8b35ec16b\", \"files\": [\"Irodori-TTS-3.4B-v4-Q8_0.gguf\"], \"directory\": \".partial-00000000000000000000000000000000\"}",
+  "qwen3-17b-q8": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"qwen3-17b-q8\", \"revision\": \"a72e6c6575d67652488cdffc1c863215a9899978\", \"files\": [\"Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf\"], \"directory\": \".partial-00000000000000000000000000000000\"}",
   "ppocrv6-small": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"ppocrv6-small\", \"revision\": \"b8f84f0b80c529de40b4fbb3544b84fa7233a513\", \"files\": [\"det.onnx\", \"rec.onnx\", \"rec.yml\"], \"directory\": \".partial-00000000000000000000000000000000\"}",
   "ppocrv5-korean": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"ppocrv5-korean\", \"revision\": \"5c6f574b8e2230adf4287b33e736d71b9fabd28e\", \"files\": [\"rec.onnx\", \"rec.yml\"], \"directory\": \".partial-00000000000000000000000000000000\"}",
   "ppocrv5-cyrillic": "{\"product\": \"VRCT-VOX-model-download-v1\", \"id\": \"ppocrv5-cyrillic\", \"revision\": \"2cef88145434beb8afa9dd82d77d799eb1ad7b29\", \"files\": [\"rec.onnx\", \"rec.yml\"], \"directory\": \".partial-00000000000000000000000000000000\"}",

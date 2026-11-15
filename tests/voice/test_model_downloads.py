@@ -474,13 +474,19 @@ def test_each_speechcpp_entry_carries_what_a_user_compares_before_choosing():
     speech = {m["name"]: m for m in SNAPSHOT["models"]}
     for m in CATALOG:
         profile = model_profile(m.id)
-        if m.target not in ("asr", "vad", "diarization"):
+        if m.target not in ("asr", "vad", "diarization", "japanese", "multilingual"):
             assert profile is None, m.id
             continue
         assert set(profile) == {"summary", "languages", "recommended_for", "memory_bytes", "memory_measured_on",
                                 "tier", "cpu", "gpu"}
         assert all(profile["summary"] in table and table[profile["summary"]] for table in summaries), m.id
-        assert profile["cpu"] in ("practical", "slow", "unverified") and profile["gpu"] in ("recommended", "not_needed")
+        assert profile["cpu"] in ("practical", "slow", "impractical", "unverified")
+        assert profile["gpu"] in ("recommended", "not_needed")
+        if m.target in ("japanese", "multilingual"):
+            # Speech models: a memory figure for every pinned file, and a GPU (measured on a CPU).
+            assert profile["memory_bytes"] > m.artifacts[0].size * 0.9 and profile["memory_measured_on"], m.id
+            assert (profile["cpu"], profile["gpu"]) == ("impractical", "recommended"), m.id
+            continue
         if m.target != "asr":
             continue
         info = speech_model(m.id)
@@ -492,8 +498,18 @@ def test_each_speechcpp_entry_carries_what_a_user_compares_before_choosing():
         # speech.cpp's suggestion per language, on the file it fetches for the name only.
         assert profile["recommended_for"] == (speech[info["name"]]["start"] if info["default"] else [])
     rows = {m.id: model_profile(m.id) for m in CATALOG}
-    assert {lang: [id for id, p in rows.items() if p and lang in p["recommended_for"]] for lang in ("ja", "en", "uk")} == {
+    targets = {m.id: m.target for m in CATALOG}
+
+    def picks(kinds, lang):
+        return [id for id, p in rows.items() if p and targets[id] in kinds and lang in p["recommended_for"]]
+
+    assert {lang: picks(("asr",), lang) for lang in ("ja", "en", "uk")} == {
         "ja": ["reazonspeech-v2-q8"], "en": ["qwen3-asr-06b-q8"], "uk": ["parakeet-tdt-06b-v3-f16"]}
+    # Speech: the files the app preselects, Irodori for Japanese and Qwen3-TTS for the others.
+    assert {lang: picks(("japanese", "multilingual"), lang) for lang in ("ja", "en", "ko")} == {
+        "ja": ["irodori-v41-f16"], "en": ["qwen3-06b-q8"], "ko": ["qwen3-06b-q8"]}
+    assert rows["irodori-v4-large-q8"]["recommended_for"] == [] and rows["irodori-v4-large-q8"]["tier"] == "medium"
+    assert rows["irodori-v41-q8"]["recommended_for"] == [] and rows["irodori-v41-q8"]["summary"] == "irodori_mf"
     assert rows["nemotron-35-transcribe-iq4nl"]["tier"] == "heavy" and rows["silero-vad-v62"]["gpu"] == "not_needed"
     # Only the model VRCT-VOX ran on a CPU says how it runs there; the rest is not claimed.
     assert [name for name, p in PROFILES.items() if p["cpu"] == "slow"] == ["qwen3-asr-0.6b"]
@@ -598,3 +614,53 @@ def test_memory_variants_have_independent_pinned_artifacts_and_guidance(tmp_path
         > models["irodori-v41-q8"]["guidance"]["reference_memory_bytes"]
     )
     assert models["rvc-saisho"]["guidance"]["reference_memory_bytes"] is None
+
+
+def test_speechcpp_tts_models_are_pinned_to_speechcpp_catalog(tmp_path):
+    # Revisions, sizes and SHA-256 match `speech models --json` of speech.cpp 0.10.0 and 0.11.0: the file it
+    # fetches for irodori-tts-mf, irodori-tts, irodori-tts-large, qwen3-tts-0.6b and qwen3-tts-1.7b.
+    from models.model_downloads.catalog import CATALOG, CATALOG_VERSION, SPEECH_FIELDS
+    from models.model_downloads.manager import Downloads
+
+    rows = {m.id: m for m in CATALOG}
+    # The entries that were there first stay first, so the preselected choice does not change.
+    assert [m.id for m in CATALOG if m.target == "japanese"] == [
+        "irodori-v41-f16", "irodori-v41-q8", "irodori-v41-small-f16", "irodori-v4-large-q8"]
+    assert [m.id for m in CATALOG if m.target == "multilingual"] == [
+        "qwen3-06b-q8", "qwen3-06b-q5", "qwen3-17b-q8"]
+    pinned = {
+        "irodori-v41-small-f16": ("sakasegawa/Irodori-TTS-v4.1-Small-GGUF", "66fe2cde1973fd44e7202fbe36df722103958188",
+                                  "Irodori-TTS-859M-v4.1-F16.gguf", 1905903936,
+                                  "f334932bdf166579bada0a3c8bdabb7199af85682fdcefb6f1cb7e444f5c75b3"),
+        "irodori-v4-large-q8": ("sakasegawa/Irodori-TTS-v4-Large-GGUF", "79cae5947a97e941c62912749e1387c8b35ec16b",
+                                "Irodori-TTS-3.4B-v4-Q8_0.gguf", 3875154272,
+                                "836a2deda5115e4400d25674612ff30d704a358d0b16cf96a3eb510dc416bc4e"),
+        "qwen3-17b-q8": ("sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF", "a72e6c6575d67652488cdffc1c863215a9899978",
+                         "Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf", 2287780352,
+                         "1bc0ef69547c003507b6536639a6080c8856382f4d0963b15d4475528330592d"),
+    }
+    for id, (repo, revision, filename, size, sha256) in pinned.items():
+        model = rows[id]
+        assert (model.repo, model.revision) == (repo, revision)
+        assert [(a.filename, a.size, a.sha256, a.role) for a in model.artifacts] == [(filename, size, sha256, "model")]
+    # Large's text encoder is Gemma's: the review names those terms and links them.
+    large = rows["irodori-v4-large-q8"]
+    assert large.notice == "irodori_large" and large.license.startswith("Gemma Terms of Use")
+    assert any(url.endswith("/GEMMA_TERMS_OF_USE.md") for url in large.licenses)
+    assert any(url.endswith("/GEMMA_PROHIBITED_USE_POLICY.md") for url in large.licenses)
+    assert (rows["irodori-v41-small-f16"].license, rows["qwen3-17b-q8"].license) == ("MIT + Apache-2.0", "Apache-2.0")
+    # drama-3 (Fish Audio Community License) is not offered.
+    assert not any("drama" in m.id or "drama" in m.repo.lower() for m in CATALOG)
+    assert SPEECH_FIELDS["japanese"] == ("japanese", "model") and SPEECH_FIELDS["multilingual"] == ("multilingual", "model")
+    assert CATALOG_VERSION not in ("2026-11-13.1", "2026-11-16.1")
+    # New entries are never recommended over the checked ones: their check is pending.
+    models = {row["id"]: row for row in Downloads(tmp_path / "models").catalog()["models"]}
+    for id in pinned:
+        assert models[id]["guidance"]["validation"]["state"] == "pending"
+    assert models["irodori-v4-large-q8"]["guidance"]["tier"] == "large"
+    # The review dialog, the guidance and the choice line read these keys.
+    root = Path(__file__).resolve().parents[2]
+    for locale in ("en.yml", "ja.yml"):
+        text = (root / "locales" / locale).read_text(encoding="utf-8")
+        for key in ("notice_irodori_large", "tier_large", "choice_japanese", "choice_multilingual"):
+            assert f"\n    {key}: " in text, (locale, key)

@@ -409,6 +409,31 @@ def test_gpu_guidance_selects_compact_model_and_keeps_active_job_visible(ui):
     assert not any(ep == "/run/start_speech_server" for ep, _ in peer.sent)
 
 
+def test_more_speechcpp_models_are_choices_and_large_shows_gemma_terms(ui):
+    from playwright.sync_api import expect
+
+    page, peer, _, _ = ui
+    variant = page.get_by_label("Model variant", exact=True)
+    # The checked model stays preselected; the new ones are there to choose.
+    expect(variant).to_have_value("irodori-v41-f16")
+    assert [option.get_attribute("value") for option in variant.locator("option").all()] == [
+        "irodori-v41-f16", "irodori-v41-q8", "irodori-v41-small-f16", "irodori-v4-large-q8"]
+    expect(page.get_by_text("Small MF gives the first audio soonest.", exact=False)).to_be_visible()
+    variant.select_option("irodori-v4-large-q8")
+    page.get_by_role("button", name="Review download", exact=True).first.click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("Irodori-TTS v4 Large · Q8_0")
+    expect(dialog).to_contain_text("Gemma Terms of Use")
+    expect(dialog).to_contain_text("3,875,154,272 bytes")
+    # Each of its terms is a link of its own, named by the file.
+    for name in ("GEMMA_TERMS_OF_USE.md", "GEMMA_PROHIBITED_USE_POLICY.md", "LICENSE-MIT", "LICENSE-APACHE-2.0"):
+        expect(dialog.get_by_role("link", name=name, exact=True)).to_have_count(1)
+    # Nothing starts until the user agrees.
+    assert not any(ep == "/run/start_model_download" for ep, _ in peer.sent)
+    page.get_by_role("button", name="Back", exact=True).click()
+    assert not peer.errors
+
+
 def test_failed_hardware_probe_does_not_invent_capacity_or_disable_manual_choice(ui):
     from playwright.sync_api import expect
 

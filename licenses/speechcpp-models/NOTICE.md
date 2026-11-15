@@ -55,3 +55,42 @@ None of the seven names was left out for its license. Nemotron 3.5 Transcribe
 is offered although its smallest file is 19.00 GB (18,997,225,856 bytes) and
 it needs memory to match. Its notice says so before consent, and it is never
 chosen by default.
+
+# speech.cpp speech synthesis models (downloadable, not shipped)
+
+The same terms apply: VRCT-VOX does not ship, redistribute, modify or host
+these files. They are pinned by hand in
+`src-python/models/model_downloads/catalog.py`, to the file speech.cpp
+0.10.0 and 0.11.0 fetch for each name (the revisions, sizes and SHA-256 are the
+same in both). The review was made on 2026-11-16 against the pinned revisions;
+the details are in `docs/voice-stack/licensing.md`
+("speech.cppの読み上げモデルの追加").
+
+| speech.cpp name | GGUF repository @ pinned revision | License | Files offered |
+|---|---|---|---|
+| `irodori-tts-mf` | [sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF](https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/tree/9db7da1bec3d1069ef8e29732e0497be60c7b047) @ `9db7da1bec3d1069ef8e29732e0497be60c7b047` | MIT (model, codec) + Apache-2.0 (codec base) | F16 (default), Q8_0 |
+| `irodori-tts` | [sakasegawa/Irodori-TTS-v4.1-Small-GGUF](https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/tree/66fe2cde1973fd44e7202fbe36df722103958188) @ `66fe2cde1973fd44e7202fbe36df722103958188` | MIT (model, codec) + Apache-2.0 (codec base) | F16 (default) |
+| `irodori-tts-large` | [sakasegawa/Irodori-TTS-v4-Large-GGUF](https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/tree/79cae5947a97e941c62912749e1387c8b35ec16b) @ `79cae5947a97e941c62912749e1387c8b35ec16b` | Gemma Terms of Use, with the Gemma Prohibited Use Policy + MIT + Apache-2.0 | Q8_0 (default) |
+| `qwen3-tts-0.6b` | [sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF](https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/tree/fd9df9364613a92a86b4137074bc281204823033) @ `fd9df9364613a92a86b4137074bc281204823033` | Apache-2.0 | Q8_0 (default), Q5_K |
+| `qwen3-tts-1.7b` | [sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF](https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/tree/a72e6c6575d67652488cdffc1c863215a9899978) @ `a72e6c6575d67652488cdffc1c863215a9899978` | Apache-2.0 | Q8_0 (default) |
+
+None is gated or needs a login. Irodori-TTS v4 Large derives its text encoder
+from Google's `t5gemma-2-1b-1b`, so the Gemma Terms of Use apply. They do not
+separate commercial from other use and allow redistribution with conditions
+(a copy of the terms, the use restrictions passed on, a note of changes and the
+"Gemma is provided under and subject to the Gemma Terms of Use" notice).
+VRCT-VOX does not redistribute; the review dialog names the terms and links
+`GEMMA_TERMS_OF_USE.md`, `GEMMA_PROHIBITED_USE_POLICY.md`, `LICENSE-MIT` and
+`LICENSE-APACHE-2.0` one by one, and the model is never the default pick. The
+Irodori model cards also prohibit imitating a voice without consent and
+misleading synthetic speech.
+
+## Left out: drama-3
+
+`drama-3` ([sakasegawa/drama-3-GGUF](https://huggingface.co/sakasegawa/drama-3-GGUF/tree/9a01354d04ab6eb521bc9cdfc56ab6824c474af2))
+is under the Fish Audio Community License 1.0. Commercial use is licensed only
+while annual revenue is under USD 500,000; whoever makes speech generation
+available to third parties must bind them by enforceable terms; and a product
+using it must show "Built with Fish Audio". Who would carry these duties if
+VRCT-VOX offered the download is the maintainer's decision, not this review's.
+Its smallest file is 20.79 GB and it needs about 21 GiB of GPU memory.

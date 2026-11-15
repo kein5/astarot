@@ -37,8 +37,14 @@ OFFERS = [
 #   (README.md, "Memory"), on memory_measured_on. GB there are decimal, GiB binary.
 # - cpu: "slow" when VRCT-VOX measured it on a CPU and it runs, seconds behind (see
 #   docs/voice-stack/model-downloads.md, 2026-11-16), "practical" when speech.cpp itself runs it
-#   on the CPU, "unverified" otherwise. gpu: "recommended" or "not_needed".
+#   on the CPU, "impractical" when it was measured on a CPU and the voice breaks up or starts
+#   many seconds late (the speech models, i7-1255U, 2026-11-16), "unverified" otherwise.
+#   gpu: "recommended" or "not_needed".
 # Keys are speech.cpp names; the VAD and diarization entries are pinned in catalog.py by id.
+# The speech (TTS) entries are pinned in catalog.py too, several files of a name each under its
+# own id: "ids" maps the file type to that id. Their "recommended_for" replaces speech.cpp's
+# start languages, since VRCT-VOX reads Japanese with Irodori and other languages with Qwen3-TTS
+# (the japanese and multilingual profiles); like start, it is on the file speech.cpp fetches.
 PROFILES = {
  "qwen3-asr-0.6b": {"summary": "qwen3_asr_06b", "memory_measured_on": "Apple M5 (Metal)", "cpu": "slow",
   "gpu": "recommended", "memory": {"q8_0": 1000000000, "q6_k": 840000000, "q5_k": 750000000, "q4_k": 670000000}},
@@ -60,7 +66,19 @@ PROFILES = {
   "gpu": "recommended", "memory": {"iq4_nl": 19756849562, "q8_0": 35862976922, "f16": 66142496358}},
  "silero-vad": {"summary": "silero_vad", "id": "silero-vad-v62", "cpu": "practical", "gpu": "not_needed"},
  "nemotron-3-diarization": {"summary": "nemotron_diarization", "id": "nemotron-3-diarization-q8", "cpu": "unverified",
-  "gpu": "recommended"}
+  "gpu": "recommended"},
+ "irodori-tts-mf": {"summary": "irodori_mf", "ids": {"f16": "irodori-v41-f16", "q8_0": "irodori-v41-q8"},
+  "recommended_for": ["ja"], "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended",
+  "memory": {"f16": 2040000000, "q8_0": 1330000000}},
+ "irodori-tts": {"summary": "irodori_small", "ids": {"f16": "irodori-v41-small-f16"}, "recommended_for": [],
+  "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended", "memory": {"f16": 2030000000}},
+ "irodori-tts-large": {"summary": "irodori_large", "ids": {"q8_0": "irodori-v4-large-q8"}, "recommended_for": [],
+  "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended", "memory": {"q8_0": 4123168604}},
+ "qwen3-tts-0.6b": {"summary": "qwen3_tts_06b", "ids": {"q8_0": "qwen3-06b-q8", "q5_k": "qwen3-06b-q5"},
+  "recommended_for": ["de", "en", "es", "fr", "it", "ko", "pt", "ru", "zh"], "memory_measured_on": "Apple M5 (Metal)",
+  "cpu": "impractical", "gpu": "recommended", "memory": {"q8_0": 1370000000, "q5_k": 1030000000}},
+ "qwen3-tts-1.7b": {"summary": "qwen3_tts_17b", "ids": {"q8_0": "qwen3-17b-q8"}, "recommended_for": [],
+  "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended", "memory": {"q8_0": 2440000000}}
 }
 # Sizes of the profile's "tier", from the measured peak memory (bytes): light up to 1.5 GiB,
 # medium up to 4 GiB, heavy above.
@@ -138,14 +156,19 @@ def _profile_rows():
         model = by_name.get(name)
         if model is None:
             raise ValueError('catalog_invalid')
-        files = [file for file in model['files'] if profile.get('id') is None or file['type'] == model['type']]
+        ids = profile.get('ids')
+        files = [file for file in model['files'] if (file['type'] in ids if ids is not None else
+                                                     profile.get('id') is None or file['type'] == model['type'])]
+        if ids is not None and len(files) != len(ids):
+            raise ValueError('catalog_invalid')
+        start = profile.get('recommended_for', model['start'])
         for file in files:
-            id = profile.get('id') or entry_id(name, file['type'])
+            id = ids[file['type']] if ids is not None else profile.get('id') or entry_id(name, file['type'])
             memory = profile.get('memory', {}).get(file['type'])
             rows[id] = dict(
                 summary=profile['summary'], languages=list(model['languages']),
-                # The languages speech.cpp suggests this model for first, on the file it fetches.
-                recommended_for=list(model['start']) if file['type'] == model['type'] else [],
+                # The languages this model is suggested for first, on the file speech.cpp fetches.
+                recommended_for=list(start) if file['type'] == model['type'] else [],
                 memory_bytes=memory, memory_measured_on=profile.get('memory_measured_on') if memory else None,
                 tier=_tier(memory), cpu=profile['cpu'], gpu=profile['gpu'])
     return rows
