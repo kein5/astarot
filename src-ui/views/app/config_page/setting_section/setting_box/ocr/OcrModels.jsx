@@ -15,7 +15,7 @@ const megabytes = value => `${(Number(value) / 1048576).toFixed(1)} MB`;
 // detector). Same consent flow as the other default models: review source, terms,
 // size and destination, then agree. Nothing needs applying afterwards: chat
 // reading finds verified files by id.
-export const OcrModels = ({ ids, missing, onChanged, title, desc, note }) => {
+export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId }) => {
     const { t } = useI18n();
     const { catalog, state, error, pending, send } = useModelDownloads();
     const [selected, setSelected] = useState(null), [consent, setConsent] = useState(false);
@@ -43,7 +43,7 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note }) => {
         catch { setLinkError(url); }
     };
 
-    return <section ref={section} tabIndex={-1} className={`${voiceStyles.container} ${styles.models}`} aria-label={title}>
+    return <section ref={section} tabIndex={-1} className={`${voiceStyles.container} ${styles.models}`} aria-label={title} data-setting-id={settingId}>
         <h3>{title}</h3>
         {desc && <p>{desc}</p>}
         {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}

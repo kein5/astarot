@@ -5319,10 +5319,12 @@ class Controller:
             owner.start((kind, weight_type), acquire, notifier.downloaded, job_id=notifier.job_id)
         except Exception as exc:
             # Rejected requests have one identified endpoint result, no worker notification.
+            # The reason is a fixed code the UI explains; other exception text is not sent.
+            reason = str(exc) if str(exc) in ("download_busy", "downloads_closed") else "download_failed"
             return VRCTError.create_error_response(
                 ErrorCode.WEIGHT_CTRANSLATE2_DOWNLOAD,
                 data={"weight_type": weight_type, "job_id": notifier.job_id,
-                      "downloaded": False, "reason": str(exc),
+                      "downloaded": False, "reason": reason,
                       "active_job_id": owner.active_job((kind, weight_type))},
             )
         if not asynchronous:

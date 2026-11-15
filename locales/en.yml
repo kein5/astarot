@@ -196,6 +196,7 @@ common_error:
     copy_to_clipboard_failed: "Failed to copy to the clipboard."
     threshold_invalid_value: "You can set it with a value between {{min}} to {{max}}."
     failed_download_weight_ctranslate2: "CTranslate2 weight download error."
+    retry_download: "Review and retry"
     failed_update_software: "Failed to download the installer. Please try again later."
     failed_update_software_verify: "The downloaded installer did not match its published checksum, so the update was cancelled."
     translation_limit: "Translation engine limit reached or temporarily restricted."
@@ -1616,6 +1617,9 @@ studio:
     close: "Close application"
 
 legacy_model_downloads:
+    errors:
+        download_deadline: "The download did not finish in time. Settings were not changed. Check the connection and retry."
+        verification_failed: "The downloaded files could not be verified. Settings were not changed. Retry the download."
     progress_name: "{{model}} download"
     progress_pending: "Preparing to download {{model}}."
     progress_downloading: "Downloading {{model}}: {{progress}}%."
@@ -1706,6 +1710,12 @@ transcription_consent:
     settings: "Open engine settings"
     selected: "Selected engine: {{engine}}"
     unselected: "Not selected"
+ocr_setup:
+    title: "Chat reading needs its recognition models"
+    body: "The recognition models for the selected language have not been downloaded yet, so Chat reading (OCR) stays off."
+    next: "Open the models section in Chat reading (OCR) settings, check the provider, license and size, and download them. Then turn Chat reading (OCR) on again."
+    close: "Close"
+    review: "Go to the models"
 local_asr_notice:
     title: "Local speech recognition now uses speech.cpp"
     removed: "Whisper is no longer part of VRCT-VOX. Your speech recognition engine was Whisper, so it is now Local (speech.cpp)."
