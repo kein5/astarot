@@ -6,10 +6,12 @@ import { switchBlocks } from "./switchBlocks";
 import { useVoice } from "../voice/useVoice";
 import { useModelDownloads } from "../voice/useModelDownloads";
 import { useTranslationSetup } from "../translation/useTranslationSetup";
+import { focusOcrModels } from "../ocr/useOcrSetup";
 
 // Main window only. Why each main switch cannot be turned on yet (switchBlocks.js), and how
 // to start providing it: the translation model opens its review (provider, license, size,
-// consent), everything else opens its settings page. Nothing here downloads or turns a
+// consent), the chat reading models their section of the settings (as the dialog shown when
+// chat reading is turned on without them does), everything else its settings page. Nothing here downloads or turns a
 // switch on. A block follows the settings as they change, so a switch comes back as soon
 // as what it needs is there.
 export const useSwitchBlocks = () => {
@@ -36,8 +38,9 @@ export const useSwitchBlocks = () => {
     const prepare = action => {
         if (!action) return;
         if (action === "translation") return translationSetup.open(false);
-        updateSelectedConfigTabId(action);
+        updateSelectedConfigTabId(action === "ocr_models" ? "ocr" : action);
         updateIsOpenedConfigPage(true);
+        if (action === "ocr_models") focusOcrModels();
     };
     return { blocks, prepare };
 };

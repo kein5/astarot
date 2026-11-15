@@ -5,8 +5,8 @@ import { directRouteReady, usesOutputDevice } from "../voice/routeState.js";
 // the setup needs (translation model, local speech recognition models), the chat reading
 // models of the selected language, the saved speech settings and the saved direct voice
 // settings. Each block names its reason and the settings page that provides it
-// (`action`: a config tab id, "translation" opens the model review; null when there is
-// nothing to do but wait).
+// (`action`: a config tab id; "translation" opens the model review, "ocr_models" the chat
+// reading models section; null when there is nothing to do but wait).
 //
 // Only what is known blocks a switch. State that has not arrived yet blocks nothing, so a
 // switch that could start is never greyed out; the switch's own error and the setup
@@ -31,7 +31,7 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
     if (ocr?.language_supported === false) {
         blocks.ocr = { reason: "ocr_language", action: "ocr" };
     } else if (ocr?.language_supported === true && Array.isArray(ocr.missing_models) && ocr.missing_models.length > 0) {
-        blocks.ocr = { reason: "ocr_models", action: "ocr" };
+        blocks.ocr = { reason: "ocr_models", action: "ocr_models" };
     }
 
     // Nothing to read aloud: the engine refuses with tts_source_not_selected.

@@ -207,7 +207,7 @@ test("a switch whose setup is missing is disabled, says why, and offers the way 
     const voice = { status: { tts_generation: 1 }, directState: {}, send: endpoint => sent.push(endpoint) };
     const setup = { compact: false, prepared, blocks: {
         translation: { reason: "translation_model", action: "translation" },
-        ocr: { reason: "ocr_models", action: "ocr" },
+        ocr: { reason: "ocr_models", action: "ocr_models" },
         tts: { reason: "tts_source", action: "tts" },
         transcription_send: { reason: "translation_downloading", action: null },
     } };
@@ -232,7 +232,7 @@ test("a switch whose setup is missing is disabled, says why, and offers the way 
     assert.equal(button("transcription_send"), null);
     button("translation").props.onClick();
     button("ocr").props.onClick();
-    assert.deepEqual(prepared, ["translation", "ocr"]);
+    assert.deepEqual(prepared, ["translation", "ocr_models"]);
     assert.equal(button("translation").props.children, "model_downloads.review");
     assert.equal(button("tts").props.children, "main_page.switch_blocked.open_settings");
     // Switches without a block keep working.

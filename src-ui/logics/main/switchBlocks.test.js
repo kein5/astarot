@@ -34,7 +34,7 @@ test("chat reading follows the start: language first, then its models", () => {
     const ocr = values => switchBlocks({ ocr: { language: "Korean", language_supported: true, required_models: ["a", "b"],
         missing_models: [], ...values } }).ocr;
     assert.equal(ocr(), undefined);
-    assert.deepEqual(ocr({ missing_models: ["b"] }), { reason: "ocr_models", action: "ocr" });
+    assert.deepEqual(ocr({ missing_models: ["b"] }), { reason: "ocr_models", action: "ocr_models" });
     assert.deepEqual(ocr({ language_supported: false, required_models: [], missing_models: [] }), { reason: "ocr_language", action: "ocr" });
     // A reply of another shape is not a reason.
     assert.equal(ocr({ language_supported: undefined, missing_models: ["b"] }), undefined);
