@@ -1,0 +1,79 @@
+"""mise.toml is the one place the development toolchain versions are pinned (issue #332)."""
+from pathlib import Path
+import re
+import tomllib
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[2]
+TOOLS = ("node", "rust", "python", "uv", "cocogitto")
+# Downloaded archives mise.lock checks by SHA-256. Rust comes through rustup, which has no
+# archive checksum in the lock.
+LOCKED_ARCHIVES = ("node", "python", "uv", "cocogitto")
+PLATFORMS = ("linux-x64", "windows-x64")
+
+
+def pinned():
+    tools = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))["tools"]
+    return {name: (value["version"] if isinstance(value, dict) else value) for name, value in tools.items()}
+
+
+def ci_files():
+    github = ROOT / ".github"
+    return sorted([*github.glob("workflows/*.yml"), *github.glob("actions/*/action.yml")])
+
+
+class ToolchainPinTests(unittest.TestCase):
+    def test_every_tool_has_an_exact_version(self):
+        versions = pinned()
+        for name in TOOLS:
+            self.assertRegex(versions.get(name, ""), r"^\d+\.\d+\.\d+$", f"{name} in mise.toml")
+
+    def test_python_satisfies_pyproject(self):
+        requires = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["requires-python"]
+        self.assertEqual(requires, "==3.11.*")
+        self.assertTrue(pinned()["python"].startswith("3.11."))
+
+    def test_rust_is_not_older_than_the_crates_require(self):
+        major_minor = tuple(int(part) for part in pinned()["rust"].split(".")[:2])
+        manifests = [ROOT / "src-tauri/Cargo.toml", *ROOT.glob("native/*/Cargo.toml"), *ROOT.glob("utils/*/Cargo.toml")]
+        for manifest in sorted(path for path in manifests if path.is_file()):
+            match = re.search(r'^rust-version\s*=\s*"(\d+)\.(\d+)', manifest.read_text(encoding="utf-8"), re.M)
+            if match:
+                self.assertGreaterEqual(major_minor, (int(match[1]), int(match[2])), manifest)
+
+    def test_no_second_version_file(self):
+        for name in ("rust-toolchain", "rust-toolchain.toml", ".nvmrc", ".node-version",
+                     ".python-version", ".tool-versions"):
+            self.assertFalse((ROOT / name).exists(), f"{name} would pin a version outside mise.toml")
+
+    def test_lock_matches_the_pins_on_both_platforms(self):
+        lock = tomllib.loads((ROOT / "mise.lock").read_text(encoding="utf-8"))["tools"]
+        versions = pinned()
+        for name in TOOLS:
+            entries = lock.get(name, [])
+            self.assertEqual([entry["version"] for entry in entries], [versions[name]], f"mise.lock {name}")
+            if name in LOCKED_ARCHIVES:
+                for platform in PLATFORMS:
+                    checksum = entries[0].get(f"platforms.{platform}", {}).get("checksum", "")
+                    self.assertRegex(checksum, r"^sha256:[0-9a-f]{64}$", f"{name} {platform}")
+
+    def test_ci_installs_the_toolchains_through_mise(self):
+        uses_mise = False
+        for path in ci_files():
+            text = path.read_text(encoding="utf-8")
+            for retired in ("actions/setup-node", "actions/setup-python", "astral-sh/setup-uv",
+                            "dtolnay/rust-toolchain", "node-version:", "python-version:",
+                            "cargo install cocogitto"):
+                self.assertNotIn(retired, text, f"{path.relative_to(ROOT)} sets a version outside mise.toml")
+            uses_mise = uses_mise or "jdx/mise-action@" in text
+        self.assertTrue(uses_mise)
+
+    def test_mise_action_is_pinned_to_a_commit(self):
+        for path in ci_files():
+            for ref in re.findall(r"jdx/mise-action@(\S+)", path.read_text(encoding="utf-8")):
+                self.assertRegex(ref, r"^[0-9a-f]{40}$", path.relative_to(ROOT))
+
+
+if __name__ == "__main__":
+    unittest.main()

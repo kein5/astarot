@@ -45,9 +45,15 @@ jobs:
       # The in-app updater (issue #330) takes VRCT-VOX_setup.exe and the AppImage from this
       # release, checked against the public key in src-tauri/tauri.conf.json. Sign exactly the
       # files verified above, then write latest.json from the signatures.
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      # Node and Cocogitto at the versions in mise.toml, from the URLs and SHA-256 in mise.lock.
+      # This job's token can write the repository, so the action does not get it, and the tools
+      # are downloaded and checked afresh instead of restored from the Actions cache.
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          node-version: '22.15.0'
+          version: 2026.11.8
+          install_args: node cocogitto
+          github_token: ''
+          cache: false
       # The pinned Tauri CLI from package-lock.json; no package install scripts run.
       - name: Install the Tauri CLI and the signature verifier
         run: |
@@ -73,8 +79,6 @@ jobs:
           # Verifies every signature with the app's key (python3-cryptography), then
           # moves them into latest.json.
           python3 -m tools.updater_manifest --payload "$payload" --version "$version" --require-verification
-      - name: Install pinned commit parser
-        run: cargo install cocogitto --version 7.0.0 --locked
       # A stable release's notes come from its CHANGELOG.md section; a beta's from its commits.
       - name: Require a stable version's CHANGELOG section and write the draft notes
         run: |
