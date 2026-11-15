@@ -588,6 +588,9 @@ def test_pinned_files_match_the_reviewed_records(platform):
     # app still recognizes in order to remove it.
     assert names == set(reviewed)
     assert record['total_bytes'] == sum(item['size'] for item in record['files'])
+    # A file joins the fetch only with an approval on record (rmvpe.onnx waited for one until #322).
+    for name in names:
+        assert any(name in entry for entry in record['consent']), name
     earlier = {f"assets/{'rmvpe/' if item['rfilename'] == 'rmvpe.pt' else ''}{item['rfilename']}":
                (item['size'], item.get('lfs', item)['sha256']) for item in record['earlier_files']}
     assert earlier == {path: (size, sha) for path, size, sha in rs.EARLIER_RVC_FILES if size}

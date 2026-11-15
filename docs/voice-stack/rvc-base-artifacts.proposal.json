@@ -1,7 +1,7 @@
 {
-  "status": "fetched_by_app_after_user_consent",
+  "status": "approved_for_app_fetch_after_user_consent",
   "metadata_only": true,
-  "checked": "2026-11-15",
+  "checked": "2026-11-16",
   "total_bytes": 550896646,
   "files": [
     {
@@ -64,9 +64,10 @@
     "hubert_base": "Presumed to be ContentVec (https://github.com/auspicious3000/contentvec, MIT, Copyright (c) 2019), which RVC's README credits; ContentVec is built on fairseq's HuBERT (https://github.com/facebookresearch/fairseq, MIT). Neither lj1995 nor RVC states which ContentVec checkpoint this is or where the Transformers-format hubert_base folder (added 2026-07-19) comes from; hubert_base.pt in the same repository is a fairseq checkpoint. ContentVec's repository licenses its code; it gives no separate terms for the checkpoints it links to, and the terms of the training data were not checked.",
     "rmvpe": "RMVPE (https://github.com/Dream-High/RMVPE, Apache-2.0 for the code). RVC's README says the pretrained model was trained and tested by yxlllc and RVC-Boss; no separate terms for the weights were found, and yxlllc/RMVPE no longer exists. rmvpe.onnx was uploaded to lj1995 on 2023-10-06."
   },
-  "note": "The app fetches the three files under files from the pinned revision after the user agrees on the RVC runtime setup screen (src-python/models/voice_conversion/runtime_setup.py), and checks size and SHA-256. They are never bundled. earlier_files are what the earlier PyTorch runtime fetched; the app still knows them only to remove them (EARLIER_RVC_FILES). The speaker model is supplied by the user and must never be bundled.",
+  "note": "The app fetches the three files under files from the pinned revision after the user agrees on the RVC runtime setup screen (src-python/models/voice_conversion/runtime_setup.py), and checks size and SHA-256. They are never bundled. earlier_files are what the earlier PyTorch runtime fetched; the app still knows them only to remove them (EARLIER_RVC_FILES). The speaker model is supplied by the user and must never be bundled. As of 2026-11-16 the Python sidecar, the default backend, does this setup; the Rust core (native/core, started only with VRCT_BACKEND=core) does not set the runtime up yet (docs/voice-stack/core-integration.md, open question 6). Whatever sets it up must fetch these files with these pins; tests/voice/test_vc_runtime_setup.py keeps the Python pins equal to this record.",
   "consent": [
     "2026-10-29: explicit user consent for hubert_base/config.json, hubert_base/preprocessor_config.json, hubert_base/pytorch_model.bin and rmvpe.pt (local Mia2026 validation). No redistribution approval.",
-    "2026-11-15: rmvpe.onnx from the same revision added to the app's fetch with the bundled RVC worker (#275 Phase 3, PR #312, merged after the owner's review). Size and SHA-256 rechecked against the Hugging Face API on 2026-11-15. No redistribution approval."
+    "2026-11-15: rmvpe.onnx from the same revision added to the app's fetch with the bundled RVC worker (#275 Phase 3, PR #312, merged after the owner's review). Size and SHA-256 rechecked against the Hugging Face API on 2026-11-15. No redistribution approval.",
+    "2026-11-16: the owner decided (#322) to keep using rmvpe.onnx and to bring this record up to date. The app keeps fetching it as above: from the pinned revision, after the user's consent, never bundled. Sizes, blob ids and SHA-256 of all five files rechecked against the Hugging Face API on 2026-11-16. No redistribution approval."
   ]
 }

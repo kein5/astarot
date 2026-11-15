@@ -114,6 +114,13 @@ class WriteTest(unittest.TestCase):
             rl.write(output, crates, "x86_64-unknown-linux-gnu")
             self.assertEqual(rl.missing_files(output), [])
 
+    def test_the_list_carries_the_attribution_of_a_crate_in_the_build(self):
+        row = {"name": "webpki-roots", "version": "1.0.11", "license": "CDLA-Permissive-2.0", "local": False,
+               "binaries": ["vrct-vox"], "files": ["webpki-roots-1.0.11/LICENSE"]}
+        self.assertIn("Common CA Database (CCADB)", rl.readme([row], "x86_64-pc-windows-msvc"))
+        other = dict(row, name="shared", license="MIT")
+        self.assertNotIn("## Attributions", rl.readme([other], "x86_64-pc-windows-msvc"))
+
     def test_refuses_to_replace_a_folder_it_did_not_write(self):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "keep.txt").write_text("mine")
@@ -138,6 +145,21 @@ class SupplementsTest(unittest.TestCase):
             for name, url in entry["files"].items():
                 self.assertTrue(url.startswith("https://"), (key, name))
                 self.assertGreater((rl.SUPPLEMENTS / key / name).stat().st_size, 500, (key, name))
+
+
+class NoticeTest(unittest.TestCase):
+    # What NOTICE.md must say for each crate in rl.ATTRIBUTIONS.
+    NOTICE_PHRASES = {"webpki-roots": "Common CA Database (CCADB)"}
+
+    def test_notice_carries_the_attributions_of_the_locked_crates(self):
+        self.assertEqual(set(self.NOTICE_PHRASES), set(rl.ATTRIBUTIONS))
+        notice = (ROOT / "NOTICE.md").read_text(encoding="utf-8")
+        locks = "".join((ROOT / manifest).with_name("Cargo.lock").read_text(encoding="utf-8")
+                        for _, manifest, _ in rl.SHIPPED)
+        locked = [name for name in rl.ATTRIBUTIONS if f'name = "{name}"\n' in locks]
+        self.assertTrue(locked, "no crate in ATTRIBUTIONS is locked any more; review the list")
+        for name in locked:
+            self.assertIn(self.NOTICE_PHRASES[name], notice, name)
 
 
 class WindowsResourcesTest(unittest.TestCase):
