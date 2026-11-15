@@ -23,7 +23,7 @@ fn fake_services() -> Services {
             launch.start_timeout = Duration::from_secs(10);
             launch
         }),
-        ..Services::default()
+        ..common::Setup::default().services
     }
 }
 

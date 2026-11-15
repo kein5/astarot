@@ -78,6 +78,7 @@ impl Core {
         self.update_transcription_engine(None);
         self.notify("initialization_progress", json!(3));
         self.notify("initialization_progress", json!(4));
+        self.start_adapters();
 
         self.step("Revalidate Selected Models");
         config.revalidate_selected_models();
@@ -87,6 +88,7 @@ impl Core {
 
         self.step("Update settings");
         self.notify("initialization_complete", Value::Object(self.snapshot(dispatcher)));
+        self.notify_adapters_started();
         self.notify_after_start();
     }
 

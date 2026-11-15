@@ -32,6 +32,8 @@ windows-sys = { version = "=0.61.2", features = [
 ] }
 
 [dev-dependencies]
+# Certificates for the WebSocket TLS settings are made at test time; no key is committed.
+rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "pem"] }
 tempfile = "=3.27.0"
 
 # A stand-in for the speech.cpp executable that tests/speech_servers.rs starts. It is never

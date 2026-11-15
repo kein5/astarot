@@ -5,6 +5,7 @@
 //! [`routes`] adds them in the order of Python's `mapping`.
 
 mod downloads;
+pub mod adapters;
 mod languages;
 mod lifecycle;
 mod routes;
@@ -12,6 +13,7 @@ mod settings;
 pub mod speech;
 mod telemetry;
 
+pub use adapters::Osc;
 pub use routes::routes;
 
 /// Launches the bundled speech.cpp servers from `folder` (a development checkout's bundle).
@@ -146,6 +148,14 @@ pub struct Services {
     pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
     /// `VRCT_TELEMETRY=off` by default.
     pub telemetry_forced_off: Arc<dyn Fn() -> bool + Send + Sync>,
+    /// Opens the OSC link to VRChat for an address and a port ([`adapters::open_osc`]).
+    pub osc: adapters::OpenOsc,
+    /// Hears whether VRChat's mute holds the microphone back (mic mute sync). The microphone's
+    /// recognition follows it once it runs in the core. Called under the mic lock: it must not
+    /// block or call back into the core.
+    pub vrc_mic_mute: Arc<dyn Fn(bool) + Send + Sync>,
+    /// Turns the microphone's recognition off when mute sync is lost (`setDisableTranscriptionSend`).
+    pub stop_mic_transcription: Arc<dyn Fn() + Send + Sync>,
 }
 
 impl Default for Services {
@@ -158,6 +168,9 @@ impl Default for Services {
             model_target_idle: Arc::new(|_| true),
             telemetry: Arc::new(vrct_ops::telemetry::Telemetry::default),
             telemetry_forced_off: Arc::new(telemetry::forced_off_from_environment),
+            osc: Arc::new(adapters::open_osc),
+            vrc_mic_mute: Arc::new(|_| {}),
+            stop_mic_transcription: Arc::new(|| {}),
         }
     }
 }
@@ -177,6 +190,7 @@ pub struct Core {
     speech: speech::SpeechServers,
     /// The model downloads and the usage events, made on first use.
     ops: std::sync::OnceLock<downloads::Ops>,
+    adapters: std::sync::OnceLock<Arc<adapters::Adapters>>,
 }
 
 impl Core {
@@ -194,6 +208,7 @@ impl Core {
             translation_available: Mutex::new(None),
             speech,
             ops: std::sync::OnceLock::new(),
+            adapters: std::sync::OnceLock::new(),
         })
     }
 
@@ -265,6 +280,7 @@ impl Core {
         self.step("Shutdown");
         self.close_speech_servers();
         self.close_model_downloads();
+        self.stop_adapters();
         self.config.save_now();
         self.stop_telemetry();
     }

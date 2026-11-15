@@ -122,7 +122,7 @@ impl World {
             }),
             model_target_idle: Arc::new(move |target| !busy.lock().unwrap().iter().any(|t| t == target)),
             telemetry_forced_off: Arc::new(|| true),
-            ..Services::default()
+            ..common::Setup::default().services
         }
     }
 

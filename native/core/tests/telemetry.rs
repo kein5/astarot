@@ -101,7 +101,7 @@ fn start(saved: Value, forced_off: bool) -> Run {
         telemetry: Arc::new(move || Telemetry::new(IngestClient::with(&url, INGEST_KEY, Duration::from_secs(5)))),
         telemetry_forced_off: Arc::new(move || forced.load(Ordering::SeqCst)),
         speech_binary: Arc::new(|_| Err("no speech.cpp in the tests".into())),
-        ..Services::default()
+        ..common::Setup::default().services
     };
     let ui = Ui::with(Setup { saved: Some(saved), services, ..Setup::default() });
     ui.ready();

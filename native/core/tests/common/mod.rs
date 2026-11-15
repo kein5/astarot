@@ -2,6 +2,9 @@
 //! out, with the settings in a temporary folder.
 #![allow(dead_code)]
 
+pub mod fake_osc;
+pub mod net;
+
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
@@ -42,7 +45,8 @@ impl Default for Setup {
         Self {
             saved: None,
             raw: None,
-            services: Services::default(),
+            // The OSC link without mDNS: no test joins UDP 5353 on every interface.
+            services: Services { osc: fake_osc::factory(false).0, ..Services::default() },
             watchdog: None,
             grace: Duration::from_secs(5),
             platform: Platform::current(),
