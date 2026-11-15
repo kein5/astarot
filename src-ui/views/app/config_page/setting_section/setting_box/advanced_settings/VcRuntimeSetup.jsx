@@ -38,7 +38,9 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
         {/* The saved folder holds a runtime this version cannot use (the earlier PyTorch RVC runtime). */}
         {!installed && !active && current && current === entry.destination && <p role="alert">{t("vc_runtime.outdated")}</p>}
         {!installed && <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })} · {entry.license}</p>}
-        {!entry.gpu_ready && !installed && <p role="alert">{t("vc_runtime.gpu_missing")}</p>}
+        {/* Seed-VC needs the NVIDIA GPU; RVC sets up its CPU runtime instead and says what that means. */}
+        {entry.requires_gpu !== false && !entry.gpu_ready && !installed && <p role="alert">{t("vc_runtime.gpu_missing")}</p>}
+        {entry.device === "cpu" && !installed && <p>{t("vc_runtime.cpu_only")}</p>}
         {job && <EnvReadout tone={job.phase === "ready" ? "active" : job.phase === "failed" ? "failed" : "neutral"}
             progress={active && job.phase !== "cancelling" ? "working" : job.phase === "ready" ? "done" : undefined}>
             <p>{t(`vc_runtime.phase_${job.phase}`)}{active && job.step > 0 && ` · ${job.step} / ${job.steps}`}</p>
@@ -46,13 +48,15 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
         {active && <progress className={styles.progress} aria-label={t("vc_runtime.progress")}
             value={job.total_bytes ? job.received_bytes : job.step} max={job.total_bytes || job.steps} />}
         {job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
+        {/* Installed, but its GPU check failed: it converts on the CPU. */}
+        {job?.warning_code && <p role="status">{t(`vc_runtime.warnings.${job.warning_code}`)}</p>}
         {error && <p role="alert">{failure(error)}</p>}
         {installed && <p>{t("vc_runtime.installed")}: <code style={{ overflowWrap: "anywhere" }}>{installed}</code></p>}
         <div className={styles.actions}>
             {active && <button type="button" disabled={job.phase === "cancelling" || !!pending}
                 onClick={() => send("/run/cancel_vc_runtime_setup", { id: engine, job_id: job.job_id })}>{t("vc_runtime.cancel")}</button>}
             {installed && installed !== current && <button type="button" disabled={disabled} onClick={() => onUse(installed)}>{t("vc_runtime.use")}</button>}
-            {!installed && !active && <button type="button" disabled={busy || !entry.gpu_ready}
+            {!installed && !active && <button type="button" disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
                 onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</button>}
         </div>
         {open && <dialog ref={dialog} aria-label={t("vc_runtime.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>

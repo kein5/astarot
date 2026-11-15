@@ -247,7 +247,7 @@ def test_both_engines_have_their_files_pinned():
     assert re.fullmatch(r'[0-9a-f]{64}', rs.SOURCE_TREE_DIGESTS[seed.source_url])
     rvc = rs.rvc_runtime()
     assert rvc.kind == 'native' and not rvc.locks and not rvc.source_url
-    for item in (*rvc.libraries, *rvc.assets):
+    for item in (*rvc.libraries, *rs.rvc_runtime(gpu=False).libraries, *rvc.assets):
         assert re.fullmatch(r'[0-9a-f]{64}', item.sha256) and item.size > 0, item.url
         assert transport.validate_url(item.url, rs.SOURCE_HOSTS)
 
@@ -354,17 +354,17 @@ def test_setup_is_offered_where_the_locked_wheels_fit(monkeypatch, system, machi
 LOCKS = {'win32': {'rvc': [], 'seed-vc': ['integrations/seed_vc/requirements-windows.lock']},
          'linux': {'rvc': [], 'seed-vc': ['integrations/seed_vc/requirements.lock']}}
 # What the RVC worker loads from lib/ on each platform (vrct-rvc-worker GPU_LIBRARIES and ORT).
+CUDNN = ('', '_adv', '_cnn', '_engines_precompiled', '_engines_runtime_compiled', '_engines_tensor_ir',
+         '_ext', '_graph', '_heuristic', '_ops')
 LIBRARIES = {
     'linux': {'libonnxruntime.so', 'libonnxruntime_providers_cuda.so', 'libonnxruntime_providers_shared.so',
-              'libcudart.so.12', 'libcublas.so.12', 'libcublasLt.so.12', 'libcurand.so.10', 'libnvrtc.so.12',
-              'libnvrtc-builtins.so.12.8', 'libcudnn.so.9', 'libcudnn_adv.so.9', 'libcudnn_cnn.so.9',
-              'libcudnn_engines_precompiled.so.9', 'libcudnn_engines_runtime_compiled.so.9', 'libcudnn_graph.so.9',
-              'libcudnn_heuristic.so.9', 'libcudnn_ops.so.9'},
+              'libcudart.so.13', 'libcublas.so.13', 'libcublasLt.so.13', 'libcurand.so.10', 'libnvrtc.so.13',
+              'libnvrtc-builtins.so.13.4', *(f'libcudnn{part}.so.9' for part in CUDNN)},
     'win32': {'onnxruntime.dll', 'onnxruntime_providers_cuda.dll', 'onnxruntime_providers_shared.dll',
-              'cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll', 'curand64_10.dll', 'nvrtc64_120_0.dll',
-              'nvrtc-builtins64_128.dll', 'cudnn64_9.dll', 'cudnn_adv64_9.dll', 'cudnn_cnn64_9.dll',
-              'cudnn_engines_precompiled64_9.dll', 'cudnn_engines_runtime_compiled64_9.dll', 'cudnn_graph64_9.dll',
-              'cudnn_heuristic64_9.dll', 'cudnn_ops64_9.dll'}}
+              'cudart64_13.dll', 'cublas64_13.dll', 'cublasLt64_13.dll', 'curand64_10.dll', 'nvrtc64_130_0.dll',
+              'nvrtc-builtins64_134.dll', *(f'cudnn{part}64_9.dll' for part in CUDNN)}}
+# Without an NVIDIA driver: ONNX Runtime's CPU build only.
+CPU_LIBRARIES = {'linux': {'libonnxruntime.so'}, 'win32': {'onnxruntime.dll'}}
 
 
 @pytest.fixture(params=['win32', 'linux'])
@@ -381,12 +381,17 @@ def test_each_platform_installs_from_its_own_hash_locked_files(platform):
     names = [name for item in offered['rvc'].libraries for _, name in item.members]
     assert sorted(names) == sorted(LIBRARIES[platform])
     worker = (ROOT / 'native/rvc-runtime/src/bin/rvc_worker.rs').read_text(encoding='utf-8')
-    # The worker loads every CUDA library by name, and ONNX Runtime by its main file.
+    # The worker loads every CUDA library by name, and ONNX Runtime and the provider by file.
     for name in LIBRARIES[platform]:
-        if 'onnxruntime_providers' not in name:
+        if 'onnxruntime_providers_shared' not in name:
             assert f'"{name}"' in worker, name
+    cpu = rs.rvc_runtime(gpu=False)
+    assert {name for item in cpu.libraries for _, name in item.members} == CPU_LIBRARIES[platform]
+    assert (cpu.device, cpu.notice, cpu.requires_gpu) == ('cpu', 'rvc_cpu', False)
+    assert (offered['rvc'].device, offered['rvc'].requires_gpu, offered['seed-vc'].requires_gpu) == ('cuda', False, True)
+    assert 300_000_000 < cpu.download_bytes < cpu.disk_bytes < 1_000_000_000
     for runtime in offered.values():
-        assert runtime.download_bytes > 2_000_000_000 and runtime.disk_bytes > runtime.download_bytes
+        assert runtime.download_bytes > 1_500_000_000 and runtime.disk_bytes > runtime.download_bytes
         for path, _ in runtime.locks:
             # Every requirement names its hashes, or uv refuses the whole file.
             entries = re.split(r'\n(?=[A-Za-z0-9])', (ROOT / path).read_text(encoding='utf-8'))
@@ -407,6 +412,7 @@ def test_one_platforms_pins_do_not_change_what_the_other_consented_to(platform, 
     before = {runtime.id: rs.version_of(runtime) for runtime in rs.runtimes()}
     monkeypatch.setitem(rs.UV, other, replace(rs.UV[other], sha256='0' * 64))
     monkeypatch.setitem(rs.RVC_LIBRARIES, other, rs.RVC_LIBRARIES[other][:1])
+    monkeypatch.setitem(rs.RVC_CPU_LIBRARIES, other, ())
     monkeypatch.setitem(rs.SEED_PLATFORM, other, (rs.SEED_PLATFORM[other][0], 1, 2))
     rs.version_of.cache_clear()
     assert {runtime.id: rs.version_of(runtime) for runtime in rs.runtimes()} == before
@@ -772,15 +778,31 @@ def test_a_native_setup_keeps_only_the_listed_files_and_checks_the_gpu_with_the_
     assert (folder / 'assets/base/model.bin').read_bytes() == native.asset
     assert not (folder / 'downloads').exists() and not (folder / 'lib.part').exists()
     # No uv, no Python: the only program run is the bundled worker's probe.
-    assert native.commands == [[str(native.worker), '--runtime', str(folder), '--probe']]
+    assert native.commands == [[str(native.worker), '--runtime', str(folder), '--probe', '--device', 'auto']]
+    assert job['warning_code'] is None
     assert not (native.setup.root / f'.uv-{rs.UV_VERSION}').exists()
 
 
-def test_a_native_runtime_the_gpu_cannot_run_is_not_installed(native):
+def test_a_gpu_runtime_the_gpu_cannot_run_still_converts_on_the_cpu(native):
+    """A driver older than 580, or a GPU before Turing: the worker's probe says 3."""
     native.probe_code = 3
     native.start()
     state = native.finish()
-    assert state['jobs']['rvc']['error_code'] == 'vc_runtime_gpu_unusable' and state['installed'] == {}
+    folder = native.setup.folder(native.runtime)
+    assert state['installed'] == {'rvc': str(folder)}
+    assert state['jobs']['rvc']['warning_code'] == 'vc_runtime_gpu_unusable_cpu'
+
+
+@pytest.mark.parametrize('device, code', [('cuda', 4), ('cpu', 3), ('cpu', 4)])
+def test_a_runtime_the_probe_refuses_is_not_installed(native, monkeypatch, device, code):
+    monkeypatch.setattr(native.setup, '_entries', {'rvc': replace(native.runtime, device=device)})
+    native.runtime = native.setup._entries['rvc']
+    rs.version_of.cache_clear()
+    native.probe_code = code
+    native.start()
+    state = native.finish()
+    assert state['jobs']['rvc']['error_code'] == 'vc_runtime_check_failed' and state['installed'] == {}
+    assert native.commands[-1][-2:] == ['--device', 'auto' if device == 'cuda' else 'cpu']
 
 
 def test_a_library_archive_that_differs_from_its_pin_is_never_unpacked(native):
@@ -847,3 +869,99 @@ def test_a_native_runtime_of_the_earlier_python_kind_is_not_taken_for_installed(
     (folder / 'receipt.json').write_text(json.dumps({'version': 'earlier', 'id': 'rvc'}))
     assert setup.state()['installed'] == {}
     rs.version_of.cache_clear()
+
+
+def test_without_an_nvidia_driver_rvc_offers_its_cpu_runtime(tmp_path, monkeypatch):
+    monkeypatch.setattr(rs, 'target', lambda: 'linux')
+    rs.version_of.cache_clear()
+    setup = rs.RuntimeSetup(tmp_path, gpu_check=lambda: False)
+    rows = {row['id']: row for row in setup.catalog()['runtimes']}
+    assert rows['rvc']['device'] == 'cpu' and rows['rvc']['requires_gpu'] is False and rows['rvc']['notice'] == 'rvc_cpu'
+    assert rows['seed-vc']['requires_gpu'] is True and rows['rvc']['gpu_ready'] is False
+    assert 'nvidia' not in ' '.join(rows['rvc']['licenses'])
+    rs.version_of.cache_clear()
+
+
+def test_a_gpu_runtime_still_counts_when_the_driver_is_not_seen(tmp_path, monkeypatch):
+    """The GPU runtime converts on the CPU too; a driver missing for a moment does not hide it."""
+    monkeypatch.setattr(rs, 'target', lambda: 'linux')
+    rs.version_of.cache_clear()
+    gpu = rs.rvc_runtime(gpu=True)
+    folder = tmp_path / 'rvc'
+    for item in gpu.libraries:
+        for _, name in item.members:
+            (folder / 'lib').mkdir(parents=True, exist_ok=True)
+            (folder / 'lib' / name).write_bytes(b'')
+    for asset in gpu.assets:
+        (folder / 'assets' / asset.path).parent.mkdir(parents=True, exist_ok=True)
+        (folder / 'assets' / asset.path).write_bytes(b'')
+    (folder / 'receipt.json').write_text(json.dumps({'version': rs.version_of(gpu), 'id': 'rvc'}))
+    for driver in (True, False):
+        assert rs.RuntimeSetup(tmp_path, gpu_check=lambda: driver).state()['installed'] == {'rvc': str(folder)}
+    # A CPU runtime is not taken for a GPU one once the driver is there: that offers the GPU setup.
+    cpu = rs.rvc_runtime(gpu=False)
+    (folder / 'receipt.json').write_text(json.dumps({'version': rs.version_of(cpu), 'id': 'rvc'}))
+    assert rs.RuntimeSetup(tmp_path, gpu_check=lambda: False).state()['installed'] == {'rvc': str(folder)}
+    assert rs.RuntimeSetup(tmp_path, gpu_check=lambda: True).state()['installed'] == {}
+    rs.version_of.cache_clear()
+
+
+def earlier_rvc_folder(folder):
+    """What the PyTorch RVC runtime setup left in its folder, plus a user's own files."""
+    pinned = {name: size for name, size, _ in rs.EARLIER_RVC_FILES}
+    files = {
+        'venv/pyvenv.cfg': b'home = x', 'venv/lib/python3.12/site-packages/torch/__init__.py': b'',
+        'venv/lib/python3.12/site-packages/distutils-precedence.pth': b'',
+        'python/cpython-3.12.14-linux-x86_64-gnu/bin/python3': b'', 'python/.lock': b'',
+        'engine/infer/lib/rtrvc.py': b'', 'engine/assets/weights/my_voice.pth': b'mine',
+        'engine/logs/my_voice/added.index': b'mine', 'engine.zip': b'archive',
+        'assets/hubert_base/config.json': b'kept', 'assets/hubert_base/pytorch_model.bin': b'kept',
+        'assets/rmvpe/rmvpe.onnx': b'kept', 'setup.log': b'log', 'my_notes.txt': b'mine'}
+    for name, data in files.items():
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(data)
+    return pinned
+
+
+def test_the_earlier_rvc_runtime_files_go_and_nothing_else(tmp_path, monkeypatch):
+    folder = tmp_path / 'rvc'
+    earlier_rvc_folder(folder)
+    # The two pinned weights are removed only when they are the pinned files.
+    rmvpe = folder / 'assets/rmvpe/rmvpe.pt'
+    rmvpe.write_bytes(b'a different file the user put here')
+    monkeypatch.setattr(rs, 'EARLIER_RVC_FILES', rs.EARLIER_RVC_FILES + (
+        ('assets/hubert_base/old.bin', 3, hashlib.sha256(b'old').hexdigest()),))
+    (folder / 'assets/hubert_base/old.bin').write_bytes(b'old')
+    removed = rs.remove_earlier_rvc(folder)
+    assert set(removed) == {'venv', 'python', 'engine', 'engine.zip', 'assets/hubert_base/old.bin'}
+    left = {path.relative_to(folder).as_posix() for path in folder.rglob('*') if path.is_file()}
+    assert left == {'engine/assets/weights/my_voice.pth', 'engine/logs/my_voice/added.index',
+                    'assets/hubert_base/config.json', 'assets/hubert_base/pytorch_model.bin',
+                    'assets/rmvpe/rmvpe.onnx', 'assets/rmvpe/rmvpe.pt', 'setup.log', 'my_notes.txt'}
+    # Nothing left in the engine but the user's files and the folders on their way.
+    assert not (folder / 'engine/infer').exists() and not (folder / 'venv').exists()
+
+
+def test_folders_that_are_not_what_the_earlier_setup_made_are_left(tmp_path):
+    folder = tmp_path / 'rvc'
+    (folder / 'venv').mkdir(parents=True)
+    (folder / 'venv/something.txt').write_text('no pyvenv.cfg: not a virtual environment')
+    (folder / 'python').mkdir()
+    (folder / 'python/my-script.py').write_text('not one of uv\'s interpreters')
+    outside = tmp_path / 'outside'
+    (outside / 'infer').mkdir(parents=True)
+    (outside / 'infer/x.py').write_text('')
+    (folder / 'engine').symlink_to(outside, target_is_directory=True)
+    assert rs.remove_earlier_rvc(folder) == []
+    assert (folder / 'venv/something.txt').is_file() and (folder / 'python/my-script.py').is_file()
+    assert (outside / 'infer/x.py').is_file()
+
+
+def test_a_finished_rvc_setup_removes_the_earlier_runtime(native):
+    folder = native.setup.folder(native.runtime)
+    earlier_rvc_folder(folder)
+    native.start()
+    assert native.finish()['jobs']['rvc']['phase'] == 'ready'
+    assert not (folder / 'venv').exists() and not (folder / 'python').exists() and not (folder / 'engine.zip').exists()
+    assert (folder / 'engine/assets/weights/my_voice.pth').read_bytes() == b'mine'
+    assert (folder / 'my_notes.txt').is_file() and (folder / 'lib/libx.so.1').is_file()

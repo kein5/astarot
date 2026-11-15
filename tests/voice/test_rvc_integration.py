@@ -80,6 +80,29 @@ def test_ready_handshake_binds_engine_to_session():
         p.ready_info("a" * 32, engine="arbitrary-module")
 
 
+def test_rvc_ready_says_where_it_converts_and_the_delay_it_adds():
+    """What vrct-rvc-worker writes (src/bin/rvc_worker.rs, serve)."""
+    session = "a" * 32
+    gpu = dict(type="ready", protocol=1, session=session, engine="rvc", profile="low", rate=48000,
+               channels=1, block_frames=3840, latency_ms=52, pcm_bytes=0)
+    assert p.require_ready(gpu, b"", session, engine="rvc") == ("gpu", 52)
+    cpu = dict(gpu, profile="cpu", latency_ms=1183)
+    assert p.require_ready(cpu, b"", session, engine="rvc") == ("cpu", 1183)
+    for change in (dict(profile="npu"), dict(latency_ms=-1), dict(latency_ms=10_001), dict(latency_ms=1.0),
+                   dict(latency_ms=True), dict(latency_ms=None)):
+        with pytest.raises(p.ProtocolError, match="vc_ready_invalid"):
+            p.require_ready(dict(gpu, **change), b"", session, engine="rvc")
+    missing = dict(gpu)
+    del missing["latency_ms"]
+    with pytest.raises(p.ProtocolError, match="vc_ready_invalid"):
+        p.require_ready(missing, b"", session, engine="rvc")
+    # Seed-VC's ready packet is unchanged and says nothing of either.
+    seed = dict(p.ready_info(session), pcm_bytes=0)
+    assert "latency_ms" not in seed and p.require_ready(seed, b"", session) == (None, None)
+    with pytest.raises(p.ProtocolError, match="vc_ready_invalid"):
+        p.require_ready(dict(seed, latency_ms=0), b"", session)
+
+
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux worker")
 def test_factory_selects_rvc_without_loading_seed(monkeypatch):
     from models.voice_conversion import rvc_process
@@ -175,9 +198,26 @@ def test_rvc_uses_same_bounded_stop_and_output_contract(
             assert sent == []
         elif fault == "converted":
             assert vc.health()["conversion_verified"] and len(sent) == 1
+            # The fake's ready packet is the GPU one with no added delay.
+            assert (vc.health()["device"], vc.health()["latency_ms"]) == ("gpu", 0)
         vc.stop()
         before = list(sent)
         if captures:
             send(captures[-1])
         assert vc.close(3)
         assert sent == before and not vc.health()["active"]
+
+
+def test_a_worker_that_cannot_keep_up_stops_with_that_reason():
+    """The RVC worker on the CPU answers at once, so it says when it falls behind."""
+    session = "a" * 32
+    source = dict(p.input_info(session, 0, 1_000), pcm_bytes=p.PCM_BYTES)
+    original = b"\1\0" * p.FRAMES
+    failed = dict(type="failed", protocol=1, session=session, code="vc_capture_overrun", pcm_bytes=0)
+    with pytest.raises(p.ProtocolError, match="vc_capture_overrun"):
+        p.require_output(failed, b"", source, original, source["end_ns"])
+    for change in (dict(code="vc_model_missing"), dict(session="b" * 32), dict(extra=1)):
+        with pytest.raises(p.ProtocolError, match="vc_output_invalid"):
+            p.require_output(dict(failed, **change), b"", source, original, source["end_ns"])
+    with pytest.raises(p.ProtocolError, match="vc_output_invalid"):
+        p.require_output(failed, b"\0\0", source, original, source["end_ns"])

@@ -2,8 +2,9 @@
 
 Two kinds, both fetched from pinned sources after consent and never imported here:
 
-- RVC ("native"): ONNX Runtime with its CUDA provider, the CUDA and cuDNN libraries it
-  needs, and the two fixed networks. The bundled Rust worker (vrct-rvc-worker) runs them.
+- RVC ("native"): ONNX Runtime, on a PC with an NVIDIA GPU with its CUDA provider and the
+  CUDA and cuDNN libraries it needs, and the two fixed networks. The bundled Rust worker
+  (vrct-rvc-worker) runs them, on the CPU when there is no GPU it can use.
 - Seed-VC ("python"): a Python environment set up by a pinned uv over hash-locked
   requirements, and the engine's source.
 
@@ -150,6 +151,8 @@ class Runtime:
     disk_bytes: int
     kind: str = 'python'  # or 'native': libraries and assets for the bundled worker
     libraries: tuple = ()  # Library rows, native only
+    device: str = 'cuda'  # native: what the setup's probe checks, 'cuda' or 'cpu'
+    requires_gpu: bool = True  # whether the setup is offered only with an NVIDIA driver
 
 
 @dataclass(frozen=True)
@@ -175,9 +178,10 @@ SEED_PLATFORM = {
     'win32': ((('integrations/seed_vc/requirements-windows.lock', ''),), 5_000_000_000, 14_000_000_000),
     'linux': ((('integrations/seed_vc/requirements.lock', ''),), 6_400_000_000, 18_000_000_000)}
 
-# RVC: ONNX Runtime from Microsoft's release and the NVIDIA libraries from their PyPI wheels,
-# CUDA 12, the same CUDA and cuDNN versions the previous PyTorch runtime used (so the NVIDIA
-# driver it needs is unchanged). Only the files the CUDA provider loads are kept.
+# RVC: ONNX Runtime from Microsoft's release and the NVIDIA libraries from their PyPI wheels.
+# With an NVIDIA GPU: the CUDA 13 build of ONNX Runtime, CUDA 13.4 Update 1 and cuDNN 9.26
+# (both released before ONNX Runtime 1.31.0; they need the NVIDIA driver 580 or later).
+# Without one: the CPU build only. Only the files the worker loads are kept.
 ORT_VERSION = '1.31.0'
 ORT_RELEASE = f'https://github.com/microsoft/onnxruntime/releases/download/v{ORT_VERSION}/'
 PYPI = 'https://files.pythonhosted.org/packages/'
@@ -187,48 +191,62 @@ def _wheel(path, size, sha256, folder, names):
     return Library(PYPI + path, size, sha256, tuple((f'nvidia/{folder}/{name}', name.rsplit('/', 1)[-1]) for name in names))
 
 
-CUDNN_LINUX = ('lib/libcudnn.so.9', 'lib/libcudnn_adv.so.9', 'lib/libcudnn_cnn.so.9',
-               'lib/libcudnn_engines_precompiled.so.9', 'lib/libcudnn_engines_runtime_compiled.so.9',
-               'lib/libcudnn_graph.so.9', 'lib/libcudnn_heuristic.so.9', 'lib/libcudnn_ops.so.9')
-CUDNN_WINDOWS = ('bin/cudnn64_9.dll', 'bin/cudnn_adv64_9.dll', 'bin/cudnn_cnn64_9.dll',
-                 'bin/cudnn_engines_precompiled64_9.dll', 'bin/cudnn_engines_runtime_compiled64_9.dll',
-                 'bin/cudnn_graph64_9.dll', 'bin/cudnn_heuristic64_9.dll', 'bin/cudnn_ops64_9.dll')
+CUDNN_LINUX = tuple(f'lib/libcudnn{part}.so.9' for part in (
+    '', '_adv', '_cnn', '_engines_precompiled', '_engines_runtime_compiled', '_engines_tensor_ir',
+    '_ext', '_graph', '_heuristic', '_ops'))
+CUDNN_WINDOWS = tuple(f'bin/cudnn{part}64_9.dll' for part in (
+    '', '_adv', '_cnn', '_engines_precompiled', '_engines_runtime_compiled', '_engines_tensor_ir',
+    '_ext', '_graph', '_heuristic', '_ops'))
+
+
+def _ort(name, size, sha256, files):
+    folder = name.rsplit('.', 1)[0].removesuffix('.tar')
+    return Library(ORT_RELEASE + name, size, sha256, tuple((f'{folder}/lib/{source}', target) for source, target in files))
+
+
 # The hashes are the ones GitHub and PyPI publish for each file.
 RVC_LIBRARIES = {
     'linux': (
-        Library(ORT_RELEASE + f'onnxruntime-linux-x64-gpu_cuda12-{ORT_VERSION}.tgz', 450228883,
-                '62d3af5269af2143b5d37494337573f1ffb8885f3ad7477ae0cb1cc79c8dedfd',
-                tuple((f'onnxruntime-linux-x64-gpu_cuda12-{ORT_VERSION}/lib/{source}', name) for source, name in (
-                    (f'libonnxruntime.so.{ORT_VERSION}', 'libonnxruntime.so'),
-                    ('libonnxruntime_providers_cuda.so', 'libonnxruntime_providers_cuda.so'),
-                    ('libonnxruntime_providers_shared.so', 'libonnxruntime_providers_shared.so')))),
-        _wheel('0d/9b/a997b638fcd068ad6e4d53b8551a7d30fe8b404d6f1804abf1df69838932/nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl',
-               954765, 'adade8dcbd0edf427b7204d480d6066d33902cab2a4707dcfc48a2d0fd44ab90', 'cuda_runtime', ('lib/libcudart.so.12',)),
-        _wheel('dc/61/e24b560ab2e2eaeb3c839129175fb330dfcfc29e5203196e5541a4c44682/nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_x86_64.whl',
-               594346921, '8ac4e771d5a348c551b2a426eda6193c19aa630236b418086020df5ba9667142', 'cublas', ('lib/libcublas.so.12', 'lib/libcublasLt.so.12')),
-        _wheel('fb/aa/6584b56dc84ebe9cf93226a5cde4d99080c8e90ab40f0c27bda7a0f29aa1/nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_x86_64.whl',
-               63619976, 'b32331d4f4df5d6eefa0554c565b626c7216f87a06a4f56fab27c3b68a830ec9', 'curand', ('lib/libcurand.so.10',)),
-        _wheel('05/6b/32f747947df2da6994e999492ab306a903659555dddc0fbdeb9d71f75e52/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl',
-               88040029, 'a7756528852ef889772a84c6cd89d41dfa74667e24cca16bb31f8f061e3e9994', 'cuda_nvrtc', ('lib/libnvrtc.so.12', 'lib/libnvrtc-builtins.so.12.8')),
-        _wheel('c5/41/65225d42fba06fb3dd3972485ea258e7dd07a40d6e01c95da6766ad87354/nvidia_cudnn_cu12-9.19.0.56-py3-none-manylinux_2_27_x86_64.whl',
-               657906812, 'ac6ad90a075bb33a94f2b4cf4622eac13dd4dc65cf6dd9c7572a318516a36625', 'cudnn', CUDNN_LINUX)),
+        _ort(f'onnxruntime-linux-x64-gpu_cuda13-{ORT_VERSION}.tgz', 244574938,
+             '2867dec99c6a4926e8142361b9d4d1518c16c85b854b4d41d28d65d3b2c81135',
+             ((f'libonnxruntime.so.{ORT_VERSION}', 'libonnxruntime.so'),
+              ('libonnxruntime_providers_cuda.so', 'libonnxruntime_providers_cuda.so'),
+              ('libonnxruntime_providers_shared.so', 'libonnxruntime_providers_shared.so'))),
+        _wheel('98/8a/3431271f6344874b8f1ac03f16b3d679c91493f8da63f716160403e6d0a0/nvidia_cuda_runtime-13.4.92-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl',
+               2494438, '9641f797da20ce1dd8e779b6e96d08cf9ba564cec8e8225458811ee26423f3a5', 'cu13', ('lib/libcudart.so.13',)),
+        _wheel('7a/38/bdd540bf511d2c9b6f9efc71a81c60cb88e295be0b9312b61d19bbed2212/nvidia_cublas-13.8.0.4-py3-none-manylinux_2_27_x86_64.whl',
+               439317144, '9f17797dfcc048694461f4e47de17d2e3c25adf172ef723d2db0a07cd8744b89', 'cu13', ('lib/libcublas.so.13', 'lib/libcublasLt.so.13')),
+        _wheel('07/73/3ee8e5b4cb891401e603ffd3a59b35c6afe785fd2de123afe7c7029603dc/nvidia_curand-10.4.4.72-py3-none-manylinux_2_27_x86_64.whl',
+               61498332, '25c3457ae7a224fdd484dab90b0fc5dc0e842fab5db3012afa4a5bd2af4eb7e5', 'cu13', ('lib/libcurand.so.10',)),
+        _wheel('56/9c/1342ebb460ce2afd014ec5a002adc99108e3c53a6b70f399cf64dd1f267d/nvidia_cuda_nvrtc-13.4.92-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl',
+               53301733, '5ce8c97b00b232c4f50c8c4b5a3b68cafee08bdb82ea86f2052ff01d03194f4a', 'cu13', ('lib/libnvrtc.so.13', 'lib/libnvrtc-builtins.so.13.4')),
+        _wheel('c6/7d/2e59397de3d8dc9ff80c56f6770e9e21a818dfffc8e07a1b673fa3ef7cf6/nvidia_cudnn_cu13-9.26.1.1-py3-none-manylinux_2_27_x86_64.whl',
+               519150496, 'c709224270fbfb5c51248422b468dc258461a723a8d5a21f50111614b36b8c53', 'cudnn', CUDNN_LINUX)),
     'win32': (
-        Library(ORT_RELEASE + f'onnxruntime-win-x64-gpu_cuda12-{ORT_VERSION}.zip', 392994831,
-                'fa79097fa478961cbd31c297671ac169eb0d3f1dfdc9e8481e091850f8c4810b',
-                tuple((f'onnxruntime-win-x64-gpu_cuda12-{ORT_VERSION}/lib/{name}', name) for name in (
-                    'onnxruntime.dll', 'onnxruntime_providers_cuda.dll', 'onnxruntime_providers_shared.dll'))),
-        _wheel('30/a5/a515b7600ad361ea14bfa13fb4d6687abf500adc270f19e89849c0590492/nvidia_cuda_runtime_cu12-12.8.90-py3-none-win_amd64.whl',
-               944318, 'c0c6027f01505bfed6c3b21ec546f69c687689aad5f1a377554bc6ca4aa993a8', 'cuda_runtime', ('bin/cudart64_12.dll',)),
-        _wheel('70/61/7d7b3c70186fb651d0fbd35b01dbfc8e755f69fd58f817f3d0f642df20c3/nvidia_cublas_cu12-12.8.4.1-py3-none-win_amd64.whl',
-               567544208, '47e9b82132fa8d2b4944e708049229601448aaad7e6f296f630f2d1a32de35af', 'cublas', ('bin/cublas64_12.dll', 'bin/cublasLt64_12.dll')),
-        _wheel('b9/75/70c05b2f3ed5be3bb30b7102b6eb78e100da4bbf6944fd6725c012831cab/nvidia_curand_cu12-10.3.9.90-py3-none-win_amd64.whl',
-               62765309, 'f149a8ca457277da854f89cf282d6ef43176861926c7ac85b2a0fbd237c587ec', 'curand', ('bin/curand64_10.dll',)),
-        _wheel('45/51/52a3d84baa2136cc8df15500ad731d74d3a1114d4c123e043cb608d4a32b/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-win_amd64.whl',
-               73586838, '7a4b6b2904850fe78e0bd179c4b655c404d4bb799ef03ddc60804247099ae909', 'cuda_nvrtc', ('bin/nvrtc64_120_0.dll', 'bin/nvrtc-builtins64_128.dll')),
-        _wheel('a7/a5/48f07449fc9c6cc146dcafe6149fa5d69630137d2ec5b7d9e09f255fadd7/nvidia_cudnn_cu12-9.19.0.56-py3-none-win_amd64.whl',
-               644003014, 'cec70596b9ce878fab83810c3f5a2e606d35f510e5fee579759e4cbc68a23750', 'cudnn', CUDNN_WINDOWS))}
+        _ort(f'onnxruntime-win-x64-gpu_cuda13-{ORT_VERSION}.zip', 309484217,
+             'd332ccf84acb769a11364cddd4e8d2992a168d16be472d5ba70b279b644552f5',
+             tuple((name, name) for name in ('onnxruntime.dll', 'onnxruntime_providers_cuda.dll', 'onnxruntime_providers_shared.dll'))),
+        _wheel('86/00/d5436004268f049214193659ebc36550b5ef3925c3d13b4cc980e13be6f5/nvidia_cuda_runtime-13.4.92-py3-none-win_amd64.whl',
+               2778543, '08dca5e4aba480c2fd5b55075c0fa71b84ef9dcf0521f2d58baa14a803a7311c', 'cu13', ('bin/x86_64/cudart64_13.dll',)),
+        _wheel('a3/df/f1246959833e2c437db8be3e5b477f66b87f8817821ed40de6c7561c9a36/nvidia_cublas-13.8.0.4-py3-none-win_amd64.whl',
+               423266897, '8c5494423bb8a46822cb6b0cb95d7fa4be2d7b96a31155dff083839ec8297910', 'cu13', ('bin/x86_64/cublas64_13.dll', 'bin/x86_64/cublasLt64_13.dll')),
+        _wheel('e2/d4/f59ab342b82ff05ff27d674acd470ba625d788bf71338f7da6c89669d6b9/nvidia_curand-10.4.4.72-py3-none-win_amd64.whl',
+               56731059, 'e0bce83e083ef25976ee74f59e8f067c15149a74538f1be6c2462e286e7c9c68', 'cu13', ('bin/x86_64/curand64_10.dll',)),
+        _wheel('64/5b/aa91896f64444eff1dd7f189f4db05046c7f0ba08c0f531283c1c1aac581/nvidia_cuda_nvrtc-13.4.92-py3-none-win_amd64.whl',
+               46972283, '6af7ac5372920f6a7a560d0699348560fe44cb52c1d722d6afd3119f8af948c4', 'cu13', ('bin/x86_64/nvrtc64_130_0.dll', 'bin/x86_64/nvrtc-builtins64_134.dll')),
+        _wheel('e6/08/487121df1a5a5935d7619b81fa058925321a5d7b589c100200fda73af2ae/nvidia_cudnn_cu13-9.26.1.1-py3-none-win_amd64.whl',
+               419604428, '8c73be203ea71f9560b062bccfc0df7a5974b9ccf61ba941b926a3237cb76afc', 'cudnn', CUDNN_WINDOWS))}
+# Without an NVIDIA GPU: ONNX Runtime's CPU build, nothing of NVIDIA's.
+RVC_CPU_LIBRARIES = {
+    'linux': (_ort(f'onnxruntime-linux-x64-{ORT_VERSION}.tgz', 11408003,
+                   'cc5c72baf5ae5c8238a6841f0897227be2d02826b9cf98eaf02fdefaeeb03a57',
+                   ((f'libonnxruntime.so.{ORT_VERSION}', 'libonnxruntime.so'),)),),
+    'win32': (_ort(f'onnxruntime-win-x64-{ORT_VERSION}.zip', 82887349,
+                   '3958d8a44984160692c1b4ffd0de3cb48f8c39f9d34bb31e433db06e30b82195',
+                   (('onnxruntime.dll', 'onnxruntime.dll'),)),)}
 # Unpacked libraries and networks, plus the largest archive while it is unpacked, rounded up.
-RVC_DISK = {'linux': 4_200_000_000, 'win32': 3_800_000_000}
+RVC_DISK = {'linux': 3_300_000_000, 'win32': 2_700_000_000}
+RVC_CPU_DISK = {'linux': 700_000_000, 'win32': 800_000_000}
 # Only what the worker reads: the HuBERT checkpoint (its graph is built from these two files)
 # and the RMVPE network as ONNX, from the same pinned revision as before.
 RVC_ASSETS = (
@@ -240,16 +258,23 @@ RVC_ASSETS = (
           '5370e71ac80af8b4b7c793d27efd51fd8bf962de3a7ede0766dac0befa3660fd'))
 
 
-def rvc_runtime():
-    libraries = RVC_LIBRARIES[target()]
+def rvc_runtime(gpu=True):
+    """The GPU runtime on a PC with an NVIDIA driver, else the CPU one. Both live in the
+    same folder; the worker converts on the GPU only when the GPU runtime is there and the
+    GPU can be used."""
+    libraries = (RVC_LIBRARIES if gpu else RVC_CPU_LIBRARIES)[target()]
+    licenses = (f'https://github.com/microsoft/onnxruntime/blob/v{ORT_VERSION}/LICENSE',
+                f'https://huggingface.co/{RVC_REPO}')
+    if gpu:
+        licenses += ('https://docs.nvidia.com/cuda/eula/index.html',
+                     'https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html')
     return Runtime(
         'rvc', 'RVC', '', (), '', '', '', RVC_ASSETS,
-        'MIT, NVIDIA CUDA/cuDNN EULA',
-        (f'https://github.com/microsoft/onnxruntime/blob/v{ORT_VERSION}/LICENSE',
-         f'https://huggingface.co/{RVC_REPO}', 'https://docs.nvidia.com/cuda/eula/index.html',
-         'https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html'),
-        'rvc', sum(item.size for item in libraries) + sum(asset.size for asset in RVC_ASSETS),
-        RVC_DISK[target()], kind='native', libraries=libraries)
+        'MIT, NVIDIA CUDA/cuDNN EULA' if gpu else 'MIT', licenses,
+        'rvc' if gpu else 'rvc_cpu',
+        sum(item.size for item in libraries) + sum(asset.size for asset in RVC_ASSETS),
+        (RVC_DISK if gpu else RVC_CPU_DISK)[target()], kind='native', libraries=libraries,
+        device='cuda' if gpu else 'cpu', requires_gpu=False)
 
 
 def seed_assets(manifest):
@@ -278,11 +303,11 @@ def seed_runtime():
         'seed', download, disk)
 
 
-def runtimes():
-    """What this platform can set up."""
+def runtimes(gpu=True):
+    """What this platform can set up; `gpu` is whether an NVIDIA driver is there."""
     if not target():
         return ()
-    return (rvc_runtime(), seed_runtime())
+    return (rvc_runtime(gpu), seed_runtime())
 
 
 def source_digest(root):
@@ -496,6 +521,101 @@ def _file_digest(path, asset, check):
     return digest.hexdigest()
 
 
+# What the earlier, PyTorch-based RVC runtime setup put in this same folder. They are
+# removed once the new runtime is installed there (2026-11-15). Only these names are
+# touched; a file is removed only if it is the pinned file the setup placed.
+EARLIER_RVC_FILES = (
+    ('assets/rmvpe/rmvpe.pt', 181184272, '6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193'),
+    ('assets/hubert_base/preprocessor_config.json', 225, '7c1976a680fb7acc757cd36fb08eef878fa36c70b4c9d2d595df9c608bbbbf0e'),
+    ('engine.zip', None, None))
+# Files a user may have put in the engine folder (models, indexes, recordings); kept, with
+# the folders that hold them.
+USER_SUFFIXES = frozenset(('.pth', '.index', '.onnx', '.pt', '.ckpt', '.safetensors', '.bin', '.npy',
+                           '.wav', '.flac', '.mp3', '.ogg', '.m4a', '.zip', '.7z'))
+
+
+def _remove_tree(path, keep=lambda file: False):
+    """Removes a folder without following links, keeping the files `keep` names (and the
+    folders on their way). Returns whether anything was kept."""
+    kept = False
+    for entry in os.scandir(path):
+        child = Path(entry.path)
+        if entry.is_dir(follow_symlinks=False):
+            if _remove_tree(child, keep):
+                kept = True
+                continue
+            child.rmdir()
+        elif keep(child):
+            kept = True
+        else:
+            child.unlink()
+    return kept
+
+
+def remove_earlier_rvc(folder):
+    """Deletes what the earlier PyTorch RVC runtime setup installed in `folder`, the app's
+    own runtime folder: the uv environment (venv), the Python uv installed for it (python),
+    the RVC engine source (engine, engine.part), and its weights that the new runtime does
+    not use. Errors are logged by name only and do not fail the setup.
+
+    venv is only removed when it is a virtual environment (pyvenv.cfg), python only when it
+    holds nothing but uv's interpreters; the engine folder keeps any model or audio file a
+    user may have put there.
+    """
+    folder = Path(folder)
+    removed = []
+
+    def remove(name, keep=lambda file: False):
+        path = folder / name
+        try:
+            if path.is_symlink():
+                return
+            if path.is_dir():
+                if not _remove_tree(path, keep):
+                    path.rmdir()
+                removed.append(name)
+        except OSError:
+            _log_cleanup_failure(name)
+
+    if (folder / 'venv' / 'pyvenv.cfg').is_file():
+        remove('venv')
+    python = folder / 'python'
+    if python.is_dir() and not python.is_symlink():
+        try:
+            names = [entry.name for entry in os.scandir(python)]
+        except OSError:
+            names = None
+        if names is not None and all(name.startswith(('cpython-', '.')) for name in names):
+            remove('python')
+    for name in ('engine', 'engine.part'):
+        remove(name, keep=lambda file: file.suffix.lower() in USER_SUFFIXES)
+    for name, size, sha256 in EARLIER_RVC_FILES:
+        path = folder / name
+        try:
+            if path.is_symlink() or not path.is_file() or (size is not None and path.stat().st_size != size):
+                continue
+            if sha256 is not None:
+                digest = hashlib.sha256()
+                with path.open('rb') as stream:
+                    while block := stream.read(CHUNK):
+                        digest.update(block)
+                if digest.hexdigest() != sha256:
+                    continue
+            path.unlink()
+            removed.append(name)
+        except OSError:
+            _log_cleanup_failure(name)
+    return removed
+
+
+def _log_cleanup_failure(name):
+    try:
+        from utils import printLog
+        printLog('earlier RVC runtime file not removed', dict(name=name))
+    except Exception:
+        pass
+
+
 class RuntimeSetup:
     def __init__(self, root, *, transport=open_public, launcher=launch, entries=None, gpu_check=nvidia_driver):
         self.root = Path(root).expanduser().absolute()
@@ -511,8 +631,17 @@ class RuntimeSetup:
     def entries(self):
         # Reading these needs the worker's files, so it waits until a setup page opens.
         if self._entries is None:
-            self._entries = {runtime.id: runtime for runtime in runtimes()}
+            self._entries = {runtime.id: runtime for runtime in runtimes(bool(self.gpu_check()))}
         return self._entries
+
+    @staticmethod
+    def _variants(runtime):
+        """What counts as installed for this entry: itself, and for RVC on the CPU also the
+        GPU runtime (it runs on the CPU too, so a driver that is missing for a moment does
+        not make it look gone)."""
+        if runtime.kind == 'native' and runtime.id == 'rvc' and runtime.device == 'cpu' and target():
+            return (runtime, rvc_runtime(True))
+        return (runtime,)
 
     def folder(self, runtime):
         return self.root / runtime.id
@@ -523,12 +652,15 @@ class RuntimeSetup:
             receipt = json.loads((folder / 'receipt.json').read_text(encoding='utf-8'))
         except (OSError, ValueError):
             return False
-        if not isinstance(receipt, dict) or receipt.get('version') != version_of(runtime):
+        if not isinstance(receipt, dict):
+            return False
+        installed = next((item for item in self._variants(runtime) if receipt.get('version') == version_of(item)), None)
+        if installed is None:
             return False
         # What the worker refuses to start without, so a damaged runtime can be set up again.
-        if runtime.kind == 'native':
-            return (all((folder / 'lib' / name).is_file() for item in runtime.libraries for _, name in item.members)
-                    and all((folder / 'assets' / asset.path).is_file() for asset in runtime.assets))
+        if installed.kind == 'native':
+            return (all((folder / 'lib' / name).is_file() for item in installed.libraries for _, name in item.members)
+                    and all((folder / 'assets' / asset.path).is_file() for asset in installed.assets))
         return (runtime_python(folder).is_file()
                 and (folder / 'engine').is_dir() and (folder / 'assets').is_dir())
 
@@ -538,7 +670,8 @@ class RuntimeSetup:
         for runtime in self.entries.values():
             rows.append(dict(id=runtime.id, name=runtime.name, version=version_of(runtime), license=runtime.license,
                              licenses=list(runtime.licenses), notice=runtime.notice, download_bytes=runtime.download_bytes,
-                             disk_bytes=runtime.disk_bytes, destination=str(self.folder(runtime)), gpu_ready=gpu))
+                             disk_bytes=runtime.disk_bytes, destination=str(self.folder(runtime)), gpu_ready=gpu,
+                             requires_gpu=runtime.requires_gpu, device=runtime.device))
         return {'runtimes': rows}
 
     def state(self):
@@ -561,7 +694,7 @@ class RuntimeSetup:
             if any(job['phase'] in ACTIVE for job in self.jobs.values()):
                 raise ValueError('vc_runtime_busy')
             event = Event()
-            self.jobs[runtime.id] = dict(job_id=uuid4().hex, phase='queued', step=0, steps=len(steps_of(runtime)), received_bytes=0,
+            self.jobs[runtime.id] = dict(job_id=uuid4().hex, phase='queued', step=0, steps=len(steps_of(runtime)), warning_code=None, received_bytes=0,
                                          total_bytes=0, error_code=None, path=None)
             self.cancel_event = event
             self.thread = Thread(target=self._install, args=(runtime, event, self.thread), daemon=True, name='vc-runtime-setup')
@@ -618,7 +751,8 @@ class RuntimeSetup:
     def _uv(self):
         return self.root / f'.uv-{UV_VERSION}' / ('uv.exe' if target() == 'win32' else 'uv')
 
-    def _run(self, runtime, event, args):
+    def _run(self, runtime, event, args, accept=(0,)):
+        """Runs a setup program; an exit code outside `accept` fails the step. Returns the code."""
         folder = self.folder(runtime)
         env = external_process_env()
         env.pop('VIRTUAL_ENV', None)
@@ -642,8 +776,9 @@ class RuntimeSetup:
                 with self.lock:
                     self.child = None
         self._checkpoint(event)
-        if code:
+        if code not in accept:
             raise ValueError('step_failed')
+        return code
 
     def _tools(self, runtime, event, job):
         uv, tool = self._uv(), UV[target()]
@@ -748,8 +883,16 @@ class RuntimeSetup:
 
     def _verifying(self, runtime, event, job):
         if runtime.kind == 'native':
-            # The worker loads the libraries and runs one operation on the GPU.
-            self._run(runtime, event, [native_worker(), '--runtime', self.folder(runtime), '--probe'])
+            # The worker loads the libraries and runs one operation on the device. The GPU
+            # runtime is still usable on the CPU when the GPU cannot run it (a driver older
+            # than 580, or a GPU before the GeForce GTX 16 and RTX 20 series): exit 3 then.
+            probe = [native_worker(), '--runtime', self.folder(runtime), '--probe']
+            if runtime.device == 'cpu':
+                self._run(runtime, event, probe + ['--device', 'cpu'])
+                return
+            if self._run(runtime, event, probe + ['--device', 'auto'], accept=(0, 3)) == 3:
+                with self.lock:
+                    job['warning_code'] = 'vc_runtime_gpu_unusable_cpu'
             return
         self._run(runtime, event, [runtime_python(self.folder(runtime)), '-c', CUDA_CHECK])
 
@@ -791,11 +934,16 @@ class RuntimeSetup:
             # Steps resume a setup, not a finished runtime: a repair must run them again.
             marker.unlink(missing_ok=True)
             shutil.rmtree(folder / '.cache', ignore_errors=True)
+            if runtime.kind == 'native' and runtime.id == 'rvc':
+                remove_earlier_rvc(folder)
             terminal = dict(phase='ready', path=str(folder), error_code=None)
         except Cancelled:
             terminal = dict(phase='cancelled')
         except Exception as error:
             code = STEP_ERRORS[step]
+            if runtime.kind == 'native' and step == 'verifying':
+                # The GPU itself is not required (exit 3 passes); the runtime did not load.
+                code = 'vc_runtime_check_failed'
             if str(error) == 'download_busy':
                 code = 'vc_runtime_busy'
             elif isinstance(error, OSError) and error.errno == errno.ENOSPC:
