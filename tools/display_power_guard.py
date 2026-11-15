@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keep the displays awake and verify they are on while a native GUI test runs (Linux, KDE Wayland).
 
-Why this exists (2026-10-28 investigation, docs/linux_native_ui_black_screen_2026-10-28.md):
+Why this exists (2026-10-28 investigation):
 On Wayland the compositor stops presenting outputs that are powered off (DPMS "Off").
 Surfaces on those outputs get no frame callbacks, so GTK / WebKitGTK stop painting,
 requestAnimationFrame never fires, pending window resizes are never committed and a

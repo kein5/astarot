@@ -2,7 +2,7 @@
 //!
 //! Memory: speech.cpp v0.9.0 model docs, RTX 2080/Vulkan, 20 Japanese sentences, seed 1.
 //! Values are decimal GB. Validation is recorded separately per fixed artifact; no model is
-//! executed here. Evidence: docs/voice-stack/model-downloads-integration-report.md.
+//! executed here. Summary: docs/voice-stack/model-downloads.md.
 
 use crate::json::{Json, Object};
 

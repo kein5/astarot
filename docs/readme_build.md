@@ -147,7 +147,7 @@ npm run update-version
 
 Windowsの更新は、インストール先の`.upd`内で取得済みパッケージを検証・展開してから、アプリのファイルだけを置き換えます。取得・展開失敗では旧版を保持し、置き換え失敗では退避した旧ファイルを戻します。設定・モデル・ログは置き換えません。中断からの復旧、復元に失敗したときの扱い、実際のNSISを使うWindows試験は[配布候補の手順](voice-stack/release-candidates.md#windowsのwebview2とインストール時の通信)を参照してください。
 
-公開前に[配布検査](voice-stack/fork-distribution-isolation.md)とライセンス監査を行います。ローカルで作った候補と公開済みリリースは区別します。上流への連絡やPRの扱いは[公開方針](voice-stack/publication-and-upstream.md)を参照してください。
+公開前に配布物の検査とライセンス監査を行います。ローカルで作った候補と公開済みリリースは区別します。上流への連絡やPRの扱いは[公開方針](voice-stack/publication-and-upstream.md)を参照してください。
 
 ## ビルド出力の削除と診断
 

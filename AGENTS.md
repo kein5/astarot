@@ -29,7 +29,6 @@ VRCT-VOX は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、�
 | モデル取得の画面と同意 | `docs/voice-stack/model-downloads.md` |
 | Linux のビルド、AppImage、実機での GUI 試験 | `docs/voice-stack/linux-build-pipeline.md`、`docs/voice-stack/appimage.md` |
 | 音声まわりの設計判断 | `docs/voice-stack/decisions.md` と各 ADR（状態欄で、採用済みか提案かを確認する） |
-| Ait の別セッションとの連絡 | `docs/ait-session-coordination.md` |
 
 ## 開発と検証の入口
 
@@ -90,7 +89,7 @@ python tools/dev.py check                   # 軽量チェック（tooling、nod
 - **ユーザーの操作と同意**: モデルの取得は、ライセンスとサイズを示して同意を得てから行います。UI の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きないようにします。
 - **停止と独立した制御**: 停止・ミュート、TTS と RVC の独立したスイッチ、Quick Chat、VR パネル、ホットキーの振る舞いを保ちます（`PRODUCT.md`、`DESIGN.md`）。
 - **UI**: React 18、CSS Modules、Jotai、i18next の構成を保ちます。フレームワークの移行や、リモートのフォントは入れません。表示する文言は `locales/` に置き、`en.yml` と `ja.yml` は必ず更新します。キーボード操作、フォーカスの表示、長い日本語の表示、狭いウィンドウも確認の対象です。Windows の WebView2 と Linux の WebKitGTK の両方で動くことを前提にします。Baseline Widely available の機能はそのまま使い、それより新しい機能は機能検出と代わりの表示を付けたときだけ使います。
-- **並行作業**: 別のセッションと担当を分けているときは、合意した範囲の外のファイルを編集・コミットしません。連絡の方法は `docs/ait-session-coordination.md` にあります。
+- **並行作業**: 別のセッションと担当を分けているときは、合意した範囲の外のファイルを編集・コミットしません。
 
 ## AGENTS.md 自体の更新
 

@@ -90,7 +90,7 @@
 
 - きっかけ: RVCのページで実行環境とモデルを用意し、「入力の転送を開始」を押す。
 - 主な流れ: 選んだマイクの声をRVCで変換し、仮想マイク（Windowsでは出力デバイス）へ流す。読み上げとは独立して動く。WindowsとLinux（x86-64）では、RVCのページから実行環境を取得できる。
-- 関係: `/run/start_direct_voice`、`/run/stop_direct_voice`、`docs/superpowers/specs/2026-10-29-rvc-integration-design.md`。
+- 関係: `/run/start_direct_voice`、`/run/stop_direct_voice`、`native/rvc-runtime/README.md`。
 
 ## UC-08 声と読み上げをすぐ止める
 
@@ -142,7 +142,7 @@
 - パネルの転送: 前回の画素との比較用データは、転送と表示範囲の反映が成功してから記録する。失敗後は同じ画素でも次の取り込みで再試行し、成功するまで連続失敗数をリセットしない。
 - 字幕の設定: 大きい字幕の実際の幅は保存した倍率の0.25倍とする。新しい画像を受け付けたら表示時間とフェードを戻し、不透明度の変更時も画像の経過時間から濃さを計算する。配送とOFFの順序は[メッセージの受付と出力](cross-cutting.md#メッセージの受付と出力)に従う。
 - デスクトップの字幕: ヘッドセットを使わないときのために、会話ログの最後の行（送信・受信。システムの行は除く）を、ほかのウィンドウの上に字幕として出す。WindowsとLinuxで使える。LinuxではGTKがX11で描くとき（AppImage。Waylandのデスクトップではxwaylandを使う）だけで、字幕のウィンドウはウィンドウマネージャーの管理の外（override-redirect）に置く。フォーカスされたフルスクリーンのゲームは「常に最前面」のウィンドウより上に積まれるためである。ネイティブのWaylandで動くとき（tar.gzを`GDK_BACKEND=x11`なしで起動したときなど）は、この節を出さない。字幕のウィンドウは最前面にあり、クリックを通し、フォーカスを取らない。表示するときも前面のウィンドウを変えない。オンにした時点でログにあった行は出さず、新しい行と書き換わった行だけを表示時間のあいだ出す。認識の途中の行は同じ字幕を書き換える。送信の行（マイク・入力）は青、受信の行（スピーカー・チャット読み取り）は紫の文字で出す。会話ログと同じ色分けである。色帯は送信が右、受信が左に付き、色だけでは区別しない。メイン画面があるモニターの作業領域に、幅8割・高さ3割余りの帯として置く。設定（`OVERLAY_DESKTOP`、`OVERLAY_DESKTOP_SETTINGS`）はバックエンドが保存するだけで、描画はUIが行う。「翻訳後のメッセージのみ表示する」に従う。
-- 関係: `/set/enable/overlay_*`、`vr-panel-*`イベント、`caption_overlay_*`コマンド（`src-tauri/src/caption_overlay.rs`）、`docs/vr_ui_handover.md`。
+- 関係: `/set/enable/overlay_*`、`vr-panel-*`イベント、`caption_overlay_*`コマンド（`src-tauri/src/caption_overlay.rs`）。
 
 ## UC-14 ゲームから離れずに入力する（Quick Chat）
 

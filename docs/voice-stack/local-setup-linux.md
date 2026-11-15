@@ -19,7 +19,7 @@ Windowsの`Scripts/python.exe`選択とJob Objectは維持する。
 実ラッパー＋小さなPythonプログラムによる11件の試験で、stdio、日本語、引数、空白path、終了コード、
 終了時のprocess消失、不正venv拒否、interpreter不在・実行失敗を確認した。
 別の実stdio試験で本番Main/Controller/Modelの初期化と設定保存・再起動を確認した。
-Tauri画面・音声入出力はこの試験の範囲外。[継続記録](completion-ledger.md)を参照。
+Tauri画面・音声入出力はこの試験の範囲外。
 
 ### 本番バックエンド用の開発環境
 
@@ -189,10 +189,9 @@ CLIは`X-Sample-Rate`の実rateを[pw-cat](https://docs.pipewire.org/page_man_pw
 ## 常駐する管理対象の仮想マイク（B検証後の追加）
 
 これはソースcheckout向けの任意機能。上の一時マイクとは名前が異なる。
-実装・独立グラフの結果は [managed-route-report.md](managed-route-report.md) を参照。
-後続の[ホスト・VRChat自動受入](managed-vrchat-report.md)で一時配置と再起動を実施し、
+後続のホスト・VRChat自動受入で一時配置と再起動を実施し、
 試験後に元の設定へ戻した。初期画面の準備と復元はエージェントが確認し、受入シーケンスを自動実行した。
-VRCT全GUIのLinux対応完了を意味しない。後続の[UI部品・stdio統合試験](ui-entry-report.md)では本番入力欄・
+VRCT全GUIのLinux対応完了を意味しない。後続のUI部品・stdio統合試験では本番入力欄・
 音声設定UIと本番Main/Controllerを実TTS・独立PipeWireへ接続した。Tauri接続と周辺サービスは差し替えており、
 アプリ全体の起動・設定永続化・実Model初期化は未検証。
 

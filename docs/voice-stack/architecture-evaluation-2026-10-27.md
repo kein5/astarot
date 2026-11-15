@@ -4,7 +4,7 @@
 
 要求の基準は提供された `codex-implementation-spec.md`、`codex-start.md`、`imozuru-evidence-map.md`。この評価では、それらの実装順序・境界も再検討する。製品コード、依存関係、稼働中の音声経路は変更せず、新しい実機実験も行っていない。
 
-関連成果物: [PoCと判定条件](architecture-evaluation-poc.md)、[ADR 004案](adr-004-audio-integration-boundaries.md)、[出典・調査記録](architecture-evaluation-sources.md)。既存の[実装記録](phase-report.md)と[計測記録](benchmarks.md)は履歴として保持する。
+関連成果物: PoCと判定条件、[ADR 004案](adr-004-audio-integration-boundaries.md)、出典・調査記録。既存の実装記録と[計測記録](benchmarks.md)は履歴として保持する。
 
 ## 1. 結論と判断の範囲
 
@@ -197,7 +197,7 @@ GPUは全processの共有資源。別process数を増やす前に、同時常駐
 | 合成PCM停止試験 | cancel呼出→最後の非ゼロread | 30/30、専用graph、capture buffer込み | 39.943 / 41.885 / 42.184 ms | UI停止押下→VRChat無音、実device故障の上限 |
 | VRChat desktop手動 | CLI→host virtual mic→内蔵録音・再生 | 発声試行3件中、聴取確認1件。初回非聴取、次はtransport error。別に停止観察1件 | E2E percentileなし | ネットワークpeer・VR・反復品質 |
 
-出典: [TTS JSON](measurements/2026-10-27-linux-irodori-090-repeat.json)、[CSV](measurements/2026-10-27-linux-irodori-090-repeat.csv)、[停止JSON](measurements/2026-10-27-linux-routing-repeat.json)、[手動JSON](measurements/2026-10-27-vrchat-desktop-manual.json)。失敗2件を成功値の分布へ混ぜたり、欠測を0msとして扱ったりしない。0.8.11の単発値やtimeout修正後の単発値とも混合しない。
+出典: TTS JSON、CSV、停止JSON、手動JSON。失敗2件を成功値の分布へ混ぜたり、欠測を0msとして扱ったりしない。0.8.11の単発値やtimeout修正後の単発値とも混合しない。
 
 上記の既存計装は非ゼロbyteの検出であり、知覚できる声や最初の意味ある発話の検出ではない。n=30のnearest-rank p99は最大値となり、安定したtail推定ではない。warmupには20.60秒のモデルload/warmupもあり、warm短文の値で起動体験は評価できない。
 
@@ -283,7 +283,7 @@ GNUのFAQも、別プログラムか結合物かの判断では通信方法だ�
 ## 11. 計画への修正提案
 
 1. P0/P1の証拠を保持し、最初に停止経路・原文TTS分岐・全graphの所有を検証する。83 PASSの既存記録は有用だがWindows/VRChat/GPU負荷の代用ではない。
-2. 次の実装を始める前に、[PoC-1とPoC-3](architecture-evaluation-poc.md)で両OSの経路・VC候補・混合契約を確認する。Windowsの製品受入未完了を隠さず、Linuxの読み取り調査や隔離PoCまで一律に止める段階ゲートにはしない。
+2. 次の実装を始める前に、PoC-1とPoC-3で両OSの経路・VC候補・混合契約を確認する。Windowsの製品受入未完了を隠さず、Linuxの読み取り調査や隔離PoCまで一律に止める段階ゲートにはしない。
 3. P2直接VC、P3 final/partial分離を伴うASR、P4翻訳発声の順に機能を増やす。ただし、ASR＋VCのGPU競合と受信音声の分離はP2段階から小さく検証する。
 4. Linux GUIの全面移植は後でもよいが、起動import・設定・device列挙の移植性調査は早める。最終段階で初めて依存関係を発見する計画にはしない。
 5. Bで全契約を満たせればCを作らない。Bの安全性・停止・混合が満たせずCで改善を示せる場合に限り移行する。推論自体が遅い場合、IPC構成を増減する前にモデル・設定・要求を再検討する。

@@ -95,8 +95,7 @@ this host, despite passing the initial WebDriver screenshot tests. Disabling
 transparency alone restored the display in a controlled comparison. Desktop
 transparency/transparent rounded corners are therefore unavailable in this mode;
 the opacity preference may fade content against the window background instead.
-Windows and other rendering paths retain their configured transparency. See the
-[reproduction and correction](appimage-rendering-report.md).
+Windows and other rendering paths retain their configured transparency.
 
 ## Acceptance and limits
 
@@ -144,8 +143,7 @@ shipped in the runtime tree.
 
 The workflow uploads a candidate only after its build and acceptance steps pass.
 It has no release publisher or AUR submission; release drafts are made separately
-as described in [release candidates](release-candidates.md). See
-[the local results](appimage-results.json) for measured results and remaining limits.
+as described in [release candidates](release-candidates.md).
 
 ## Investigation evidence
 
@@ -159,7 +157,3 @@ as described in [release candidates](release-candidates.md). See
   launcher are recorded separately from that unproven causal attribution.
 - [Tauri AppImage baseline guidance](https://v2.tauri.app/distribute/appimage/):
   build on the oldest intended target; bundling does not guarantee old glibc support.
-- Local imozuru records: `tmp/voice-resume/research/appimage/`. During diagnosis,
-  one gdb invocation unintentionally ran the user's shell initialization, causing
-  mise to fetch starship 1.27.0 and atuin 18.24.2. Subsequent probes disabled gdb's
-  startup shell and user configuration. Those user tool installations were not rolled back.

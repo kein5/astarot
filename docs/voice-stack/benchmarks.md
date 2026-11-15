@@ -4,23 +4,23 @@
 UI→VRChatの性能ゲートは未判定。
 fakeサーバーのテスト所要時間はTTS推論速度・VRChat遅延とは異なる。
 
-後続の[UI部品・stdio統合試験](ui-entry-report.md)は、本番入力欄・設定UIから実Main/Controllerを通す
+後続のUI部品・stdio統合試験は、本番入力欄・設定UIから実Main/Controllerを通す
 独立した16ケース。実TTSのstdio書込直前→仮想マイク初音は条件別に294〜627ms、
 取消・ミュートは57ms・72ms。Tauri接続と周辺サービスを試験用に差し替えており、
 単発・異条件の値からp95や仕様§8の達成を主張しない。下記のbackend起点30反復とは集約しない。
 
 ## Linux反復測定（speech.cpp 0.9.0、n=30）
 
-後続の[managed経路＋VRChat実TTS試験](live-tts-vrchat-report.md)では、通常3回の
+後続のmanaged経路＋VRChat実TTS試験では、通常3回の
 event→仮想マイク初音と実cancel/muteを測定した。以下の独立グラフ30回とは統合しない。
 同試験でserver強制終了時の検出遅れも再現しており、停止操作の値を故障時停止へ外挿しない。
-[接続受付監視の修正レポート](tts-listener-failure-report.md)には、監視間隔ごとの実server故障・復旧の
+接続受付監視の修正レポートには、監視間隔ごとの実server故障・復旧の
 独立グラフ試験を記録する。これは下記の通常発声30回やVRChatの受入れとは別群である。
-[修正後ホスト・VRChat再試験](tts-fixed-vrchat-report.md)では、通常3回・復旧3回の各1回再生と、
+修正後ホスト・VRChat再試験では、通常3回・復旧3回の各1回再生と、
 故障3回の79〜84msでの仮想マイク無音化を確認した。UI起点の性能ゲートやp95の判定には使わない。
 
-[実測JSON](measurements/2026-10-27-linux-irodori-090-repeat.json) /
-[timestamp CSV](measurements/2026-10-27-linux-irodori-090-repeat.csv)。
+実測JSON /
+timestamp CSV。
 同じ既存Irodori MF F16、RTX 4080 SUPER / Vulkan0、voice `none`。
 起動時warmup 20.60秒と先行2要求を除外し、同じ日本語のテスト文を30回発声した。
 speech.cppはこの測定前にホスト側で0.9.0へ更新済みだった。0.8.11の単発値とは集約しない。
@@ -41,7 +41,7 @@ n=30のnearest-rank p99は最大値であり、安定したtail推定ではな�
 
 ## 停止・切断・復旧の反復（合成PCM、n=30）
 
-[実測JSON](measurements/2026-10-27-linux-routing-repeat.json)。
+実測JSON。
 推論時間から切り離した持続信号を実PipeWireへ出力。
 各回、待機キュー4件/overflow破棄16件、停止後キュー0件、デバイス削除時のエラー、
 削除中の新規要求拒否、再作成・明示再選択後の再発声を確認。
@@ -56,7 +56,7 @@ n=30のnearest-rank p99は最大値であり、安定したtail推定ではな�
 停止後はreaderが稼働したまま150ms以上の無音も確認。read時刻はcapture bufferを含む上界で、
 Windows、物理USB/Bluetooth抜き差し、VRChatの停止残留時間の代わりではない。
 
-別途、合成PCMを実speech.cpp TTSへ置き換えた[障害smoke](measurements/2026-10-27-linux-tts-fault-smoke.json)
+別途、合成PCMを実speech.cpp TTSへ置き換えた障害smoke
 も1回PASS。HTTPを含む取消、発声中のデバイス削除、デバイス不在の要求拒否、
 再作成・明示再選択後の発声を確認し、その後の通常発声も成功。
 CLIに`--server`を渡すとこの実API障害smokeも反復測定の前に実行する。
@@ -84,7 +84,7 @@ PCMはカウンターと時刻に変換して破棄。本文・生音声はレ�
 
 ## Linux実APIスモーク（n=1）
 
-[測定JSON](measurements/2026-10-27-linux-irodori-smoke.json): CachyOS、RTX 4080 SUPER、
+測定JSON: CachyOS、RTX 4080 SUPER、
 speech.cpp 0.8.11、取得済みIrodori MF F16、Vulkan0、声`none`、48 kHz mono。
 load/warmup 15.67秒の終了後、CLIのテスト文を一時PipeWire sink/sourceへ送った。
 
@@ -124,7 +124,7 @@ PipeWire pipeは4096 bytesまで。
 
 ## VRChatデスクトップ手動試験
 
-[実機記録](measurements/2026-10-27-vrchat-desktop-manual.json)。ユーザーが専用仮想マイクを
+実機記録。ユーザーが専用仮想マイクを
 VRChatの入力に選び、内蔵の録音・再生テストで声が聞こえたと確認した。
 次の要求を約8秒で取消し、待機2件破棄・入力メーター停止・再開なしも確認。
 成功した発声のbackend first writeは93.598ms、取消からworker idleまでは5.152ms。

@@ -6,7 +6,7 @@ Decision authority: リポジトリ保守者／依頼者。モデル不要PoCの
 
 Scope: P1見直しとP2〜P5の音声統合。既存テキスト機能の全面再設計、独自virtual driver開発、クラウドサービス化は含めない。
 
-Related: [評価書](architecture-evaluation-2026-10-27.md)、[確認用PoC・fitness functions](architecture-evaluation-poc.md)、[ADR 001〜003](decisions.md)。本提案だけで既存accepted ADRをsupersededに変更しない。
+Related: [評価書](architecture-evaluation-2026-10-27.md)、確認用PoC・fitness functions、[ADR 001〜003](decisions.md)。本提案だけで既存accepted ADRをsupersededに変更しない。
 
 ## Context
 
@@ -25,22 +25,22 @@ speech.cppはモデルごとに要求を直列化する。VC候補はOS/edition/
 
 この決定はBの製品採用を確定しない。Bで全モードを実証するか、必要な範囲をCに移して再試験した後に、採用範囲を記録する。
 
-2026-10-27追記: [実TTSの受入](live-tts-vrchat-report.md)で、speech.cppをSIGKILLしても
+2026-10-27追記: 実TTSの受入で、speech.cppをSIGKILLしても
 HTTP/TCPの待機データにより通信エラーと無音化が遅れることを再現した。ホストでは約5.1秒、
 別の独立経路では約15.8秒。明示cancel/muteの約80msとは異なる境界であり、故障時無音の契約は未達課題として残す。
 受信と再生の責務・buffer上限・生存監視を最小PoCで再評価する。専用音声processへの全面移行はまだ決定しない。
 
-同日追記: [接続受付監視の修正・検証](tts-listener-failure-report.md)では、発声要求に属する
+同日追記: 接続受付監視の修正・検証では、発声要求に属する
 小さなTCP監視で明示的な接続拒否を検出し、そのTTSだけを取消す。PCM queueは増やさず、
 外部serverの起動所有権も追加しない。有界受信queueのみでは切断検出を保証できないため今回は採用しない。
 listenerが残る停止・即時再起動の識別やWindows出力停止は対象外であり、必要ならheartbeat/identity/
 process所有契約を再検討する。この局所修正をB全体の製品採用決定にはしない。
 
-同日追記: [修正後ホスト・VRChat再試験](tts-fixed-vrchat-report.md)は11ケースPASS。
+同日追記: 修正後ホスト・VRChat再試験は11ケースPASS。
 通常3回・復旧3回はVRChatマイクテスト再生で各1回、故障3回は仮想マイクで79〜84ms後に無音になった。
 故障n=3からp95を主張せず、UI/API起点・Windows・実VC等は未確認のまま。Bの採用状態は変更しない。
 
-同日追記: [UI部品・stdio統合試験](ui-entry-report.md)では、本番入力欄・設定UIと本番Main/Controllerから
+同日追記: UI部品・stdio統合試験では、本番入力欄・設定UIと本番Main/Controllerから
 仮想マイクまで実TTS・モデル不要とも16ケースPASS。テキスト配信と取消・mute・故障復旧の接続を確認した。
 Tauri接続、全Model初期化、config永続化、実翻訳等は差し替えまたは未実行であり、製品E2Eの証拠にはしない。
 新たな製品抽象化は追加せず、Bの採用状態・判断を覆す条件は維持する。
@@ -73,11 +73,11 @@ engineと重みは初期にはユーザー管理を前提とし、追加取得�
 | 複雑さの費用 | PoC-7 | CがBの問題を解かない、またはBが全条件を満たすならCを追加しない |
 | 配布条件 | PoC-6のartifact台帳 | 未確認artifactの配布を保留。外部processだけで許諾を断定しない |
 
-確認の詳細、測定母数・欠測・誤判定対策・担当役割は[PoC設計](architecture-evaluation-poc.md)に置く。次のレビュー時点はPoC-1/3完了時、engine/driver/model更新時、P4の混合採用前、release前。状態をacceptedへ変える際は、担当者・合格した構成・残る制限・生記録へのリンクを追記する。
+確認の詳細、測定母数・欠測・誤判定対策・担当役割はPoC設計に置く。次のレビュー時点はPoC-1/3完了時、engine/driver/model更新時、P4の混合採用前、release前。状態をacceptedへ変える際は、担当者・合格した構成・残る制限・生記録へのリンクを追記する。
 
 ## Current evidence and open items
 
-P1の限定経路は[既存benchmarks](benchmarks.md)、今回の独立PipeWireと合成音による検証は[B検証レポート](b-validation-report.md)に分ける。修正版の30反復で経路別取消・全体muteが成立し、producer終了後もendpointを維持できた。合成音の30分継続は別群で確認した。一方、endpoint自体を削除すると通常設定のpw-cat consumerが30/30回で別の合成入力へ切り替わった。入力固定consumerは終了し、これは無音captureの継続ではない。
+P1の限定経路は[既存benchmarks](benchmarks.md)、今回の独立PipeWireと合成音による検証はB検証レポートに分ける。修正版の30反復で経路別取消・全体muteが成立し、producer終了後もendpointを維持できた。合成音の30分継続は別群で確認した。一方、endpoint自体を削除すると通常設定のpw-cat consumerが30/30回で別の合成入力へ切り替わった。入力固定consumerは終了し、これは無音captureの継続ではない。
 
 したがって、Bを続ける条件は「engineから独立したendpoint寿命」と「endpoint故障時にもconsumerが未変換入力へ切り替わらないこと」。writer側の固定だけで合格にはしない。Cもconsumerのfallbackを自動的には解決しないため、同じ故障試験を要する。
 

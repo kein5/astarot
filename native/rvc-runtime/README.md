@@ -2,8 +2,6 @@
 
 Inference-only RVC voice conversion in Rust (issue #275; Phase 1: offline conversion,
 Phase 2: streaming conversion, Phase 3: the application's voice changer).
-The processing follows the specification in
-[`docs/superpowers/specs/2026-11-15-rvc-inference-runtime-design.md`](../../docs/superpowers/specs/2026-11-15-rvc-inference-runtime-design.md).
 
 The application runs it as `vrct-rvc-worker` (`src/bin/rvc_worker.rs`), a separate
 process that replaces the external PyTorch runtime the voice changer used before. See

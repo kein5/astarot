@@ -4,7 +4,7 @@ This optional external experiment is GPL-3.0-only (see [LICENSE](LICENSE)),
 separate from the application runtime. It is not a bundled production engine.
 Code/model/dependency distribution obligations still require release review;
 using another process does not remove them. No weights or private audio belong
-in Git. See the [consented artifact proposal](../../docs/voice-stack/vc-engine-poc-proposal.md).
+in Git.
 
 The upstream source is
 `jiaheguo521/seed-vc-realtime@58d0ca372cc76f60a798d9f84611f053f9029f3a`.
@@ -30,8 +30,7 @@ platform-specific; it pins the three CUDA wheels by official URL/hash and the
 remaining dependencies by version/hash. Do not subsequently install upstream's
 original requirements, which request torch 2.4 while naming the CUDA 12.8 index.
 The 2026-11-02 refresh (Pillow 13, Transformers 5, huggingface-hub 2) was rechecked
-with `smoke` and `convert`; see the
-[record](../../docs/voice-stack/vc-dependency-refresh-2026-11-02.md).
+with `smoke` and `convert`.
 
 ```bash
 uv venv --python 3.11 tmp/seed-runtime
@@ -103,4 +102,4 @@ enough onset evidence. Both 180ms and 80ms tests were all-silent before removing
 that idle reset, then passed with the same model/input. The 10-second wall-clock
 reset remains; long-duration reset behavior and word-onset quality need further
 tests. Output before VAD opens can be lost, so short latency alone is not quality
-acceptance. Read the [PoC report](../../docs/voice-stack/seed-vc-poc-report.md).
+acceptance.

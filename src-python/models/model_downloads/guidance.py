@@ -3,8 +3,7 @@
 Memory: speech.cpp v0.9.0 model docs, RTX 2080/Vulkan, 20 Japanese sentences,
 seed 1 (Irodori reference voice; Qwen ono_anna). Values are decimal GB.
 Validation is recorded separately per fixed artifact; no model is executed here.
-Evidence: docs/voice-stack/model-downloads-integration-report.md and
-tmp/tts-latency-100/{variant-smoke-1,native-variants-1,native-gc-fixed-30}.
+Summary: docs/voice-stack/model-downloads.md.
 Native comparisons use model-native rates (Qwen 24 kHz, Irodori 48 kHz);
 physical listening and resampling to the host rate are not covered.
 """
