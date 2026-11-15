@@ -65,8 +65,13 @@ fn environment(executable: &Path, version: String) -> Environment {
 /// `"core"` when the UI should start the Rust core, `"sidecar"` for the Python sidecar.
 #[tauri::command]
 pub fn backend_kind() -> &'static str {
-    if std::env::var("VRCT_BACKEND").as_deref() == Ok("core") { "core" } else { "sidecar" }
+    if CORE_IS_DEFAULT || std::env::var("VRCT_BACKEND").as_deref() == Ok("core") { "core" } else { "sidecar" }
 }
+
+/// Whether the Rust core is the default backend. While it is not, the core runs only for
+/// development (`VRCT_BACKEND=core`) and leaves the Python backend's CTranslate2 weights in
+/// place, so that the sidecar's local translation keeps working. Turning this on retires them.
+pub const CORE_IS_DEFAULT: bool = false;
 
 /// Starts a run for the UI session `session`. Its lines go to `lines`, its end to `exit`.
 #[tauri::command]
@@ -94,6 +99,7 @@ pub fn backend_start(
         }),
     };
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
+    options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
     if cfg!(debug_assertions) {
         // A development build runs from src-tauri/target; the speech.cpp bundle is staged in the
         // checkout's build/speechcpp, where the Python sidecar found it too.
