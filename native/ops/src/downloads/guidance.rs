@@ -20,6 +20,25 @@ fn guidance(tier: &str, reference_memory_bytes: Option<u64>, validation: Object)
     Object::new().with("tier", tier).with("reference_memory_bytes", reference_memory_bytes).with("validation", validation).into()
 }
 
+/// The words, languages, hardware and default pick a person compares (`model_info.py`): its
+/// `DATA` text, read from that file so the two cannot differ.
+const MODEL_INFO_PY: &str = include_str!("../../../../src-python/models/model_downloads/model_info.py");
+
+fn model_info_data() -> &'static Json {
+    static DATA: std::sync::OnceLock<Json> = std::sync::OnceLock::new();
+    DATA.get_or_init(|| {
+        const START: &str = "DATA = r'''";
+        let text = &MODEL_INFO_PY[MODEL_INFO_PY.find(START).expect("model_info.py holds DATA") + START.len()..];
+        let text = &text[..text.find("'''").expect("DATA ends")];
+        Json::parse(text).expect("DATA is JSON")
+    })
+}
+
+/// `{title, summary, variant, languages, device, recommended}`, or null for an id not described.
+pub fn model_info(id: &str) -> Json {
+    model_info_data().get("models").and_then(|m| m.get(id)).cloned().unwrap_or(Json::Null)
+}
+
 /// `{tier, reference_memory_bytes, validation: {state, scope, device[, sampled_peak_bytes]}}`.
 pub fn model_guidance(id: &str) -> Json {
     match id {

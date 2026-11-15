@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use sha2::{Digest, Sha256};
 
 use super::catalog::{self, artifact_url, Model, CATALOG_VERSION};
-use super::guidance::model_guidance;
+use super::guidance::{model_guidance, model_info};
 use super::staging::{mark_owned, recover_owned, RootLease};
 use super::transport::{Aborter, Public, Transport};
 use super::verification::{hex, verify_file_chunked};
@@ -251,6 +251,7 @@ impl Downloads {
                 sources.sort();
                 sources.dedup();
                 row.insert("sources", sources.into_iter().map(Json::from).collect::<Vec<_>>());
+                row.insert("info", model_info(&m.id));
                 Json::Object(row)
             })
             .collect::<Vec<_>>();

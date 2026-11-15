@@ -94,6 +94,32 @@ RVC検索修正を含む最新版は `build/gpu-model-guidance-rvc-fixed-2026-10
 
 b8050d10…版のTTS再確認 `native-rvc-fixed-tts-smoke` は1 PASS（72.01秒）。warmup＋warm2件の全PCM一致・前後ゼロ、OFF時2.266666秒の全バイトゼロ、各送信のOSC1回を保存PCMから独立確認した。warm2件は性能の再認証には足りず、`summary.verdict=insufficient_samples` のまま保持している。
 
+## 選ぶための情報
+
+0.5.0の画面で、初めて選ぶ人がモデルを比べて決められるように、カタログの各行に`info`を持たせた（2026-11-16）。データは`models/model_downloads/model_info.py`の`DATA`にあるJSONで、`native/ops`も同じファイルを読む。表示する文言は`locales/`の`model_catalog`にある。0.4系の画面はまだ`info`を使わない。
+
+| 利用者が比べること | カタログの行のどこにあるか | 以前からあったか |
+|---|---|---|
+| 表示名 | `info.title`（平易な名前）と`info.variant`（標準・軽量）。正式な名前は`name` | `name`はあった。`title`と`variant`は新規 |
+| 何が得意か | `info.summary` | 新規 |
+| 対応言語 | `info.languages`（BCP 47。文字だけは`und-Latn`など、言語を問わないものは`*`） | 新規 |
+| ダウンロードサイズ | `total_bytes`（ファイルごとは`artifacts[].size`） | あった |
+| 必要なハードウェア | `info.device`（`gpu`、`gpu_preferred`、`cpu`）。メモリの例は`guidance.reference_memory_bytes` | `guidance`はあった。`device`は新規 |
+| おすすめか | `info.recommended`（用途ごとの既定のおすすめ） | 新規。空きメモリに応じた推奨は`guidance`と画面の計算で、以前からある |
+| ライセンス | `license`と`licenses` | あった |
+
+`recommended`は用途ごとに1つで、アプリが最初から選ぶモデルと同じにした。チャット読み取りだけは文字の認識と吹き出しの検出の両方が要るので2つ、話者分離は任意なので0。読み上げのページの空きメモリによる推奨は、同じモデルの軽量版を勧めることがある。
+
+`device`の根拠：
+
+- 読み上げ（Irodori、Qwen3-TTS）は`gpu`。2026-11-16にi7-1255UのCPUでspeech.cpp 0.10.0を動かした。Irodori MFは最初の音まで3〜7秒で生成は実時間の約4倍遅く、Qwen3-TTS 1.7Bは最初の音まで約1秒だが生成は約3倍遅く、Irodori Smallは最初の音まで20〜100秒だった。Largeと0.6Bは測っていない。
+- 音声認識（Haas-ja、Qwen3-ASR）は`gpu_preferred`。字幕はCPUでも動き、遅れの中央値は2.7秒だった（[Windowsの音声機能](local-setup-windows.md)）。
+- 話者分離は`gpu`。CPUだと字幕が大きく遅れるので、CPUのサーバーでは話者分離を求めない（[Windowsの実機試験](windows-voice-report.md)）。
+- RVCは`gpu_preferred`。CPUでも変換するが、声が約1.3秒遅れて届く。
+- VAD、文字認識、吹き出しの検出は`cpu`。
+
+カタログに項目を足すときは`model_info.py`にも足す。`tests/voice/test_model_info.py`が、すべての項目に説明があることと、文言が英語と日本語の両方にあることを確かめる。
+
 ## 取消・失敗・終了の境界
 
 保存先はconfig.jsonと同じディレクトリの `downloaded_models/<id>/<revision>/`。ネットワークは固定HF URLから、HTTPSと許可された配信先へのリダイレクトだけを許可する。親担当のHEAD確認で3モデルに使われていた `us.aws.cdn.hf.co` を完全一致で追加し、他のサブドメイン/HTTP/認証付きURL拒否を回帰確認した。認証情報・任意URL・任意の展開コマンドは受け取らない。読取りを小分けにし、容量とSHA256を照合。全ファイル成功後に同じファイルシステム上でディレクトリをrenameする。既存の破損cacheを上書きせず、失敗して報告する。空き容量は総ファイル容量+64 MiBを事前確認し、書込み中のENOSPCも失敗扱い。

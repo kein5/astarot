@@ -1692,6 +1692,54 @@ model_downloads:
     scope_tts_http_vulkan: "Linux・speech.cpp 0.9.0 Vulkanで固定文のHTTP合成・取消・再起動を確認済み。再生経路や他GPUは別途確認が必要です。"
     gpu_unverified: "現在のGPUは検証したGPUと異なります。この推奨はメモリ容量に基づくものです。"
 
+# モデルを選ぶための情報（models/model_downloads/model_info.py）。0.5.0の画面で使う。
+model_catalog:
+    recommended: "おすすめ"
+    any_language: "言語を問わない"
+    variant:
+        standard: "標準"
+        compact: "軽量"
+    device:
+        gpu: "GPUが必要"
+        gpu_preferred: "GPU推奨（CPUでも動くが遅れる）"
+        cpu: "CPUで十分"
+    device_help:
+        gpu: "CPUでは声が出るまで数秒以上かかり、途切れます。GPUのあるPCで使ってください。"
+        gpu_preferred: "CPUでも動きますが、GPUより数秒遅れます。"
+        cpu: "GPUがなくても実用の速さで動きます。"
+    title:
+        irodori_mf: "Irodori MF（日本語・速い）"
+        irodori_small: "Irodori Small（日本語）"
+        irodori_large: "Irodori Large（日本語・大型）"
+        qwen3_tts_06b: "Qwen3-TTS 0.6B（10言語）"
+        qwen3_tts_17b: "Qwen3-TTS 1.7B（10言語・大型）"
+        rvc_saisho: "Saisho Utane（声の変換）"
+        haas_ja: "Haas-ja（日本語の聞き取り）"
+        qwen3_asr_06b: "Qwen3-ASR 0.6B（30言語の聞き取り）"
+        silero_vad: "Silero VAD（話している区間の検出）"
+        nemotron_diarization: "Nemotron 3 Diarization（話した人の見分け）"
+        ppocr_v6_small: "PP-OCRv6 small（チャットの文字）"
+        ppocr_v5_korean: "PP-OCRv5（韓国語の文字）"
+        ppocr_v5_cyrillic: "PP-OCRv5（キリル文字）"
+        ppocr_v5_thai: "PP-OCRv5（タイ文字）"
+        ppocr_v5_arabic: "PP-OCRv5（アラビア文字）"
+        ppocr_v5_devanagari: "PP-OCRv5（デーヴァナーガリー）"
+        chatbox_detector: "吹き出しの検出（チャット読み取り）"
+    summary:
+        irodori_mf: "日本語を読み上げます。最初の音がいちばん早く出るので、会話に向いています。"
+        irodori_small: "日本語を読み上げます。MFより時間をかけて作るので、声が出るまで少し待ちます。"
+        irodori_large: "日本語を読み上げる大型のモデルです。GPUのメモリを多く使い、声が出るまで数秒かかります。"
+        qwen3_tts_06b: "英語や中国語など10の言語を、用意された9人の声で読み上げます。翻訳した文を読むのに向いています。"
+        qwen3_tts_17b: "0.6Bと同じ10の言語と9人の声で読み上げる、大きめのモデルです。GPUのメモリを多く使います。"
+        rvc_saisho: "マイクの声を、このモデルの声に変えます。作者本人の声で学習したモデルです。"
+        haas_ja: "日本語の話し言葉を、句読点の付いた文にします。"
+        qwen3_asr_06b: "30の言語を聞き取り、話している言語も自動で見分けます。日本語以外を話す人がいるときに向いています。"
+        silero_vad: "声がある区間を見つけます。音声認識のサーバーを動かすのに必要です。"
+        nemotron_diarization: "ゲームの音声の字幕で、誰が話したかを見分けます。なくても字幕は出ます。"
+        ppocr_v6_small: "チャットの文字を読み取ります。日本語、英語、中国語とラテン文字に対応します。"
+        ppocr_v5_script: "上の標準のモデルが読めない文字のチャットを読み取ります。"
+        chatbox_detector: "画面からチャットの吹き出しを見つけます。文字の読み取りと一緒に使います。"
+
 studio:
     toggle_sidebar: "サイドバーを切り替える"
     empty_title: "ここから会話を始めましょう"

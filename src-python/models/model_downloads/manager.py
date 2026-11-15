@@ -14,6 +14,7 @@ from uuid import uuid4
 
 from .catalog import CATALOG, CATALOG_VERSION, artifact_url, validate_catalog
 from .guidance import model_guidance
+from .model_info import model_info
 from .transport import open_public
 from .staging import RootLease, mark_owned, recover_owned
 from .verification import verify_file
@@ -61,7 +62,8 @@ class Downloads:
                 total_bytes=sum(a.size for a in m.artifacts), destination=str(self.destination(m)),
                 source=f'https://huggingface.co/{m.repo}/tree/{m.revision}', guidance=model_guidance(m.id),
                 sources=sorted({f'https://huggingface.co/{r}/tree/{v}' for r, v, _ in
-                                (a.remote or (m.repo, m.revision, a.filename) for a in m.artifacts)})) for m in self.entries.values()]}
+                                (a.remote or (m.repo, m.revision, a.filename) for a in m.artifacts)}),
+                info=model_info(m.id)) for m in self.entries.values()]}
 
     def state(self):
         with self.lock:

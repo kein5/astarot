@@ -1692,6 +1692,54 @@ model_downloads:
     scope_tts_http_vulkan: "Linux / speech.cpp 0.9.0 Vulkan: fixed-text HTTP synthesis, cancellation and restart checked. Playback and other GPUs need separate checks."
     gpu_unverified: "This GPU differs from the tested GPU. The recommendation describes memory only."
 
+# What a person compares to choose a model (models/model_downloads/model_info.py), for the 0.5.0 screens.
+model_catalog:
+    recommended: "Recommended"
+    any_language: "Any language"
+    variant:
+        standard: "Standard"
+        compact: "Lighter"
+    device:
+        gpu: "Needs a GPU"
+        gpu_preferred: "GPU recommended (slower on the CPU)"
+        cpu: "Runs well on the CPU"
+    device_help:
+        gpu: "On the CPU the voice takes several seconds or more to start and breaks up. Use it on a PC with a GPU."
+        gpu_preferred: "It runs on the CPU too, a few seconds later than on a GPU."
+        cpu: "It runs fast enough without a GPU."
+    title:
+        irodori_mf: "Irodori MF (Japanese, fast)"
+        irodori_small: "Irodori Small (Japanese)"
+        irodori_large: "Irodori Large (Japanese, large)"
+        qwen3_tts_06b: "Qwen3-TTS 0.6B (10 languages)"
+        qwen3_tts_17b: "Qwen3-TTS 1.7B (10 languages, large)"
+        rvc_saisho: "Saisho Utane (voice changer)"
+        haas_ja: "Haas-ja (Japanese recognition)"
+        qwen3_asr_06b: "Qwen3-ASR 0.6B (recognition in 30 languages)"
+        silero_vad: "Silero VAD (finds speech)"
+        nemotron_diarization: "Nemotron 3 Diarization (tells speakers apart)"
+        ppocr_v6_small: "PP-OCRv6 small (chat text)"
+        ppocr_v5_korean: "PP-OCRv5 (Korean text)"
+        ppocr_v5_cyrillic: "PP-OCRv5 (Cyrillic text)"
+        ppocr_v5_thai: "PP-OCRv5 (Thai text)"
+        ppocr_v5_arabic: "PP-OCRv5 (Arabic text)"
+        ppocr_v5_devanagari: "PP-OCRv5 (Devanagari text)"
+        chatbox_detector: "Chat bubble finder (chat reading)"
+    summary:
+        irodori_mf: "Reads Japanese. Its first audio comes soonest, so it suits conversation."
+        irodori_small: "Reads Japanese. It takes longer to generate than MF, so the voice starts a little later."
+        irodori_large: "A large model that reads Japanese. It uses more GPU memory and takes a few seconds before the voice starts."
+        qwen3_tts_06b: "Reads 10 languages, such as English and Chinese, in nine preset voices. Good for reading translations aloud."
+        qwen3_tts_17b: "A bigger model with the same 10 languages and nine voices as 0.6B. It uses more GPU memory."
+        rvc_saisho: "Changes your microphone voice into this model's voice. The author trained it on their own voice."
+        haas_ja: "Turns spoken Japanese into text with punctuation."
+        qwen3_asr_06b: "Recognizes 30 languages and tells which one is spoken. Good when people around you speak other languages than Japanese."
+        silero_vad: "Finds where someone speaks. The speech recognition server needs it."
+        nemotron_diarization: "Tells who spoke in captions of game audio. Captions work without it."
+        ppocr_v6_small: "Reads chat text in Japanese, English, Chinese and Latin script."
+        ppocr_v5_script: "Reads chat in a script the standard model above cannot read."
+        chatbox_detector: "Finds chat bubbles on the screen. It works together with text reading."
+
 studio:
     toggle_sidebar: "Toggle sidebar"
     empty_title: "Your conversation starts here"
