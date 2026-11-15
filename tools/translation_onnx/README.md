@@ -11,13 +11,16 @@ uv pip install --python build/translation-onnx/venv/bin/python --index-strategy 
 build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_418M --output <出力先>
 ```
 
-`<出力先>/m2m100_418M-onnx-int8/` に、エンコーダとデコーダの ONNX、`tokenizer.json`、`vocab.json`、`manifest.json` ができます。`manifest.json` には、各ファイルの SHA-256、元のモデルのコミット、使ったパッケージの版が入ります。
+`<出力先>/m2m100_418M-onnx-int8/` に、エンコーダとデコーダの ONNX、語彙の行列（`vocabulary.data`）、`tokenizer.json`、`vocab.json`、`manifest.json` ができます。`manifest.json` には、各ファイルの SHA-256、元のモデルのコミット、使ったパッケージの版が入ります。
 
 グラフは `torch.onnx.export` で書き出します（`graphs.py`）。
 
 - 各層の重みはモデルのものをそのまま使い、つなぎ方だけを `graphs.py` に書いています。デコーダのキャッシュは、テンソルで受け渡します。
 - 量子化の前に、transformers 本来の計算と照合します。対象は、エンコーダの出力と、デコーダの初回とキャッシュ付きの各ステップの logits です。最大の誤差は `manifest.json` の `verified_max_difference` に入ります。
 - 2つのデコーダ（初回とキャッシュ付き）は量子化してから、`use_cache_branch` で切り替える1つのグラフにまとめます。両方にある重みは1つにします。
+- 語彙の大きさの行列（エンコーダの埋め込み、デコーダの埋め込み、出力層）は、量子化すると同じバイト列になります（出力層は転置）。そこで、`vocabulary.data` に1回だけ置き、両方のグラフから外部データとして読みます（`graphs.share_vocabulary`）。
+  - 出力層は埋め込みの転置（Transpose）です。ONNX Runtime が読み込むときに定数へたたみ込むので、行列積は整数の MatMulInteger のままです。
+  - バイト列が一致しないときは止めます。まとめる前と後で、照合用の入力に対するエンコーダの出力と各ステップの logits が完全に一致することも確かめ、違えば止めます。
 - 以前は optimum を使っていましたが、やめました。optimum-onnx のどの版も、既知の脆弱性が直った transformers（5.10 以上）に対応していないためです。
 - M2M100 の `tokenizer.json` は、SentencePiece のモデルから直接組み立てます。transformers 5 系の変換器は、BPE 型のモデルで失敗するためです。結果は、transformers 4.57 の変換器で作ったものとバイト単位で同じです。
 
@@ -40,6 +43,18 @@ python tools/translation_onnx/compare.py m2m100_418M \
 CTranslate2 の側は、アプリが固定しているモデルを取得し、ピン留めと照合してから、`translation_translator.py` と同じ手順で翻訳します。比べる対象は、WMT20 の8方向（英語と日本語・中国語・ドイツ語・ロシア語の双方向）で、各方向の先頭 N 文です。結果のファイルには点数と件数だけを書き、文章は書きません。
 
 `--directions en-ja,ja-en` のように指定すると、方向を絞れます。
+
+## 保存のしかたを変えたときの回帰確認
+
+モデルの保存のしかた（重みの置き方や圧縮）を変えたときは、変える前のバンドルと訳文が変わらないことを `regression.py` で確かめます。CTranslate2 は使わず、sacrebleu だけで動きます。
+
+```sh
+python tools/translation_onnx/regression.py \
+    --cli native/translate-onnx/target/release/vrct-translate \
+    --before <変える前のバンドル> --after <変えた後のバンドル> --sentences 100 --out <結果>.json
+```
+
+比べる文は `compare.py` と同じ（WMT20 の8方向の先頭 N 文）です。方向ごとに、出力のトークン ID が一致した文の数、それぞれの失敗の数、参照訳に対する BLEU と chrF を書きます。すべての文で ID が一致したときだけ、終了コードが 0 になります。
 
 ## 比較の結果（2026-11-15）
 

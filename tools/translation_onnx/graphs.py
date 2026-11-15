@@ -102,6 +102,7 @@ class _Decoder(nn.Module):
         # The output layer gets its own copy of the weights it shares with the embedding.
         # Shared, the quantizer cannot take them as a constant of the MatMul, and every step
         # turns the whole quantized vocabulary matrix back into floats (about 3 times slower).
+        # Once quantized, share_vocabulary stores the two copies once again.
         head = nn.Linear(model.lm_head.in_features, model.lm_head.out_features, bias=False)
         head.weight = nn.Parameter(model.lm_head.weight.detach().clone(), requires_grad=False)
         self.lm_head = head
@@ -414,3 +415,98 @@ def merge_decoders(first_path, next_path, target):
     else:
         onnx.checker.check_model(merged)
         onnx.save(merged, str(target))
+
+
+VOCABULARY_DATA = "vocabulary.data"
+
+
+def run_graphs(folder, encoder, decoder, source_ids, target_ids, pad_id, layers):
+    """The encoder output and the logits of each decoder step, as ONNX Runtime gives them."""
+    source = np.asarray(source_ids, dtype=np.int64)
+    mask = (source != pad_id).astype(np.int64)
+    target = np.asarray(target_ids, dtype=np.int64)
+    folder = Path(folder)
+    hidden = _session(folder / encoder).run(None, {"input_ids": source, "attention_mask": mask})[0]
+    gc.collect()
+    session = _session(folder / decoder)
+    feeds = {"encoder_attention_mask": mask, "encoder_hidden_states": hidden}
+    names = past_names(layers, "past_key_values")
+    shape = next(info.shape for info in session.get_inputs() if info.name == names[0])
+    # The first step reads no cache; it is given an empty one.
+    empty = np.zeros((source.shape[0], shape[1], 0, shape[3]), dtype=np.float32)
+    results = [hidden]
+    cached = None
+    encoder_cache = None
+    for step in range(target.shape[1]):
+        step_feeds = dict(feeds, input_ids=target[:, step:step + 1], use_cache_branch=np.array([step > 0]))
+        for index, name in enumerate(names):
+            if cached is None:
+                step_feeds[name] = empty
+            elif index % 4 < 2:
+                step_feeds[name] = cached[index]
+            else:
+                step_feeds[name] = encoder_cache[(index // 4) * 2 + index % 4 - 2]
+        out = session.run(None, step_feeds)
+        results.append(out[0])
+        cached = out[1:]
+        if encoder_cache is None:
+            encoder_cache = [cached[i] for i in range(len(cached)) if i % 4 >= 2]
+    return results
+
+
+def share_vocabulary(folder, encoder, decoder, vocabulary_size, hidden_size):
+    """Store the vocabulary matrix once for the encoder's embedding, the decoder's embedding
+    and the output layer, without changing a single weight.
+
+    Quantized the same way, the three hold the same bytes (the output layer transposed).
+    Both graphs then read the embedding from one external file, vocabulary.data, and the
+    output layer is a Transpose of it, which ONNX Runtime folds into a constant when it
+    loads the graph: the products stay MatMulInteger. Fails if the bytes are not the same.
+    """
+    import onnx
+    from onnx import TensorProto, helper, numpy_helper
+    from onnx.external_data_helper import set_external_data
+
+    folder = Path(folder)
+    encoder_model = onnx.load(str(folder / encoder))
+    decoder_model = onnx.load(str(folder / decoder))
+
+    def quantized(graph, dims):
+        return [tensor for tensor in graph.initializer
+                if tensor.data_type == TensorProto.UINT8 and list(tensor.dims) == dims]
+
+    rows, columns = vocabulary_size, hidden_size
+    found = (quantized(encoder_model.graph, [rows, columns]), quantized(decoder_model.graph, [rows, columns]),
+             quantized(decoder_model.graph, [columns, rows]))
+    if [len(tensors) for tensors in found] != [1, 1, 1]:
+        raise SystemExit("the graphs do not hold one quantized embedding each and one output layer")
+    (encoder_tensor,), (embedding,), (head,) = found
+    values = numpy_helper.to_array(encoder_tensor)
+    if not (np.array_equal(values, numpy_helper.to_array(embedding))
+            and np.array_equal(values.T, numpy_helper.to_array(head))):
+        raise SystemExit("the vocabulary matrices differ; they cannot be stored once")
+
+    # The output layer becomes a Transpose of the embedding, ahead of the If node.
+    transposed = head.name + "_from_embedding"
+    _rename_inputs(decoder_model.graph, {head.name: transposed})
+    decoder_model.graph.node.insert(0, helper.make_node(
+        "Transpose", [embedding.name], [transposed], name="output_layer_from_embedding", perm=[1, 0]))
+    decoder_model.graph.initializer.remove(head)
+
+    (folder / VOCABULARY_DATA).write_bytes(values.tobytes())
+    for tensor in (encoder_tensor, embedding):
+        set_external_data(tensor, VOCABULARY_DATA, offset=0, length=values.nbytes)
+        tensor.ClearField("raw_data")
+    for model in (encoder_model, decoder_model):
+        external = [t for t in model.graph.initializer if t.data_location == TensorProto.EXTERNAL]
+        if [t.name for t in external] != [encoder_tensor.name if model is encoder_model else embedding.name]:
+            raise SystemExit("the vocabulary matrix was not moved to its file")
+    for path, model in ((folder / encoder, encoder_model), (folder / decoder, decoder_model)):
+        for extra in (*path.parent.glob(path.name + "_data"), *path.parent.glob(path.name + ".data")):
+            extra.unlink()
+        inline = sum(len(tensor.raw_data) for tensor in model.graph.initializer)
+        if inline > PROTOBUF_LIMIT:
+            onnx.save(model, str(path), save_as_external_data=True, all_tensors_to_one_file=True,
+                      location=path.name + "_data", size_threshold=1024)
+        else:
+            onnx.save(model, str(path))

@@ -7,6 +7,8 @@ The result is OUT/<name>-onnx-int8/ with:
     encoder_model_quantized.onnx          the encoder
     decoder_model_merged_quantized.onnx   the decoder: the first step and the cached steps
                                           in one graph (with a .onnx_data file when over 2 GB)
+    vocabulary.data                       the quantized vocabulary matrix, which both graphs
+                                          read: the embeddings, and the output layer transposed
     tokenizer.json                        SentencePiece's normalization and segmentation
     vocab.json                            each piece and special token, and the model's id for it
     manifest.json                         where it came from, how to decode, each file's SHA-256
@@ -18,7 +20,9 @@ same float32 weights on both sides, where the translations should agree; the app
 The graphs are written with torch.onnx.export from the model's own layers (graphs.py),
 and compared with transformers' forward pass before they are quantized: the encoder output
 and the logits of the first and of every cached decoder step have to agree. manifest.json
-records the largest difference seen.
+records the largest difference seen. The vocabulary matrix is then stored once
+(graphs.share_vocabulary); the quantized graphs have to give exactly the same outputs
+before and after.
 
 Every input is pinned to a commit of the model's own repository, and the Python packages
 are the versions in requirements.txt next to this file, so that the same command gives the
@@ -38,6 +42,7 @@ import sys
 import tempfile
 
 import graphs
+import numpy as np
 
 # The commit of each source repository, recorded 2026-11-15 from its main branch.
 MODELS = {
@@ -258,6 +263,7 @@ def export(name, output, work, quantized=True):
     float_dir = work / (name + "-onnx-float")
     # The decoders are merged after quantization: merged in float they pass 2 GB.
     difference = float_graphs(source, float_dir)
+    config = json.loads((source / "config.json").read_text(encoding="utf-8"))
     kind = "int8" if quantized else "float32"
     encoder, decoder = (ENCODER, DECODER) if quantized else ("encoder_model.onnx", "decoder_model_merged.onnx")
     target = output / f"{name}-onnx-{kind}"
@@ -273,6 +279,15 @@ def export(name, output, work, quantized=True):
             graphs.merge_decoders(temporary / "decoder.onnx", temporary / "decoder_with_past.onnx", target / decoder)
         for graph in (encoder, decoder):
             graphs.check_quantized(target / graph)
+        # The vocabulary matrix once on the disk; the outputs have to stay exactly the same.
+        def run():
+            return graphs.run_graphs(target, encoder, decoder, CHECK_SOURCE, CHECK_TARGET,
+                                     config["pad_token_id"], config["decoder_layers"])
+        before = run()
+        graphs.share_vocabulary(target, encoder, decoder, config["vocab_size"], config["d_model"])
+        after = run()
+        if len(before) != len(after) or not all(np.array_equal(a, b) for a, b in zip(before, after)):
+            raise SystemExit("storing the vocabulary once changed the outputs")
     else:
         save_float(float_dir / "encoder_model.onnx", target / encoder)
         graphs.merge_decoders(float_dir / "decoder_model.onnx", float_dir / "decoder_with_past_model.onnx",
@@ -284,7 +299,6 @@ def export(name, output, work, quantized=True):
         vocabulary, languages = nllb_tokenizer(source, target)
     (target / "vocab.json").write_text(json.dumps(vocabulary, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
-    config = json.loads((source / "config.json").read_text(encoding="utf-8"))
     generation = json.loads((source / "generation_config.json").read_text(encoding="utf-8"))
     inputs, outputs = decoder_io(target / decoder)
     files = {path.name: dict(size=path.stat().st_size, sha256=sha256(path))
