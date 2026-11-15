@@ -51,9 +51,12 @@ impl Core {
         for engine in config.get("SELECTABLE_TRANSLATION_ENGINE_LIST").as_array().into_iter().flatten() {
             let name = engine.as_str().unwrap_or_default();
             // Only the local translation runs in the core so far; the online engines come with
-            // the providers of #277. They are not offered, but their saved keys and models stay
-            // as they are (Python cleared some selections when a check failed).
-            status.insert(name.to_string(), json!(name == "CTranslate2" && available));
+            // the providers of #277. Until then their start-up check counts as failed.
+            let usable = name == "CTranslate2" && available;
+            status.insert(name.to_string(), json!(usable));
+            if !usable {
+                self.forget_failed_engine(name);
+            }
         }
         config.put("SELECTABLE_TRANSLATION_ENGINE_STATUS", Value::Object(status));
 
@@ -61,7 +64,11 @@ impl Core {
         let mut status = Map::new();
         for engine in config.get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST").as_array().into_iter().flatten() {
             let name = engine.as_str().unwrap_or_default();
-            status.insert(name.to_string(), json!(WIRED_TRANSCRIPTION_ENGINES.contains(&name)));
+            let usable = WIRED_TRANSCRIPTION_ENGINES.contains(&name);
+            status.insert(name.to_string(), json!(usable));
+            if !usable {
+                self.forget_failed_engine(name);
+            }
         }
         config.put("SELECTABLE_TRANSCRIPTION_ENGINE_STATUS", Value::Object(status));
         self.notify("initialization_progress", json!(2));
@@ -147,5 +154,53 @@ impl Core {
     }
 
     /// Work after the endpoints opened.
-    pub fn after_init(&self) {}
+    pub fn after_init(&self) {
+        if self.services().retire_legacy_translation_weights {
+            self.retire_legacy_translation_weights();
+        }
+    }
+
+    /// Removes the Python backend's CTranslate2 weights, after start-up and off the request
+    /// threads (they can be several GB). Fixed log lines only.
+    fn retire_legacy_translation_weights(&self) {
+        let data_dir = self.config().environment().data_dir.clone();
+        if super::legacy_weights::present(&data_dir).is_empty() {
+            return;
+        }
+        let log = std::sync::Arc::clone(self.log());
+        std::thread::Builder::new()
+            .name("retire_legacy_weights".into())
+            .spawn(move || {
+                let removed = super::legacy_weights::remove(&data_dir);
+                log.step(if removed.failed == 0 {
+                    "Removed the CTranslate2 weights of the Python backend"
+                } else {
+                    "Some CTranslate2 weights of the Python backend could not be removed"
+                }, None);
+            })
+            .ok();
+    }
+
+    /// What Python's start-up does for an engine whose check failed (`Controller.init`): the
+    /// engines that find their models on a server forget the model list and the selected
+    /// model, so the next successful check selects again. Saved API keys are kept, as in Python:
+    /// a failed check cannot tell a refused key from a network that is down.
+    fn forget_failed_engine(&self, engine: &str) {
+        let (list, selected) = match engine {
+            "LMStudio" => ("SELECTABLE_LMSTUDIO_MODEL_LIST", "SELECTED_LMSTUDIO_MODEL"),
+            "OpenAI_Compatible" => ("SELECTABLE_OPENAI_COMPATIBLE_MODEL_LIST", "SELECTED_OPENAI_COMPATIBLE_MODEL"),
+            "Ollama" => ("SELECTABLE_OLLAMA_MODEL_LIST", "SELECTED_OLLAMA_MODEL"),
+            "Groq_Whisper" => ("SELECTABLE_GROQ_WHISPER_MODEL_LIST", "SELECTED_GROQ_WHISPER_MODEL"),
+            "OpenAI_Whisper" => ("SELECTABLE_OPENAI_WHISPER_MODEL_LIST", "SELECTED_OPENAI_WHISPER_MODEL"),
+            "Custom_Whisper" => ("SELECTABLE_CUSTOM_WHISPER_MODEL_LIST", "SELECTED_CUSTOM_WHISPER_MODEL"),
+            "Deepgram" => ("SELECTABLE_DEEPGRAM_MODEL_LIST", "SELECTED_DEEPGRAM_MODEL"),
+            _ => return,
+        };
+        let config = self.config();
+        config.put(list, json!([]));
+        if engine == "Deepgram" {
+            config.put("DEEPGRAM_MODEL_LANGUAGES", json!({}));
+        }
+        let _ = config.set(selected, Value::Null);
+    }
 }
