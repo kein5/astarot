@@ -4,6 +4,8 @@ import { useI18n } from "@useI18n";
 import { useIsOpenedConfigPage, useVrPanelLogOutOfView, useVrPanelLauncherIntro } from "@logics_common";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useMainFunction } from "@logics_main";
+import { useStore_SwitchBlocks } from "@store";
+import { activeSwitchBlock } from "../../logics/main/switchBlocks";
 import TranslationSvg from "@images/translation.svg?react";
 import MicSvg from "@images/mic.svg?react";
 import HeadphonesSvg from "@images/headphones.svg?react";
@@ -33,6 +35,9 @@ export const VrLauncher = ({ windows, toggleLog, openLog, togglePopup }) => {
     const intro = currentVrPanelLauncherIntro.data;
     const is_log_lost = windows.log && currentVrPanelLogOutOfView.data === true;
     const is_locked = currentIsOpenedConfigPage.data === true;
+    // The same blocks as the main window's switches, worked out there (SwitchBlocksController).
+    const { currentSwitchBlocks } = useStore_SwitchBlocks();
+    const blockOf = (id, state) => activeSwitchBlock(currentSwitchBlocks.data, id, state);
     const recallLog = () => { openLog(); asyncStdoutToPython("/run/vr_panel_recall_log"); };
     return <div className={styles.root} style={{ "--intro-logo": `url("${INTRO_LOGOS[i18n?.language] ?? logo_en}")` }}>
         {intro === "playing" && <>
@@ -42,13 +47,13 @@ export const VrLauncher = ({ windows, toggleLog, openLog, togglePopup }) => {
         <div className={clsx(styles.container, { [styles.is_intro_pending]: intro === "pending", [styles.is_intro_playing]: intro === "playing" })}>
             <div className={styles.group} role="group" aria-label={t("vr_panel.tooltip.functions_group")}>
                 <FunctionButton Svg={TranslationSvg} label={t("vr_panel.tooltip.translate")} name={t("main_page.translation")}
-                    state={currentTranslationStatus} onClick={toggleTranslation} is_locked={is_locked} />
+                    state={currentTranslationStatus} block={blockOf("translation", currentTranslationStatus)} onClick={toggleTranslation} is_locked={is_locked} />
                 <FunctionButton Svg={MicSvg} label={t("vr_panel.tooltip.microphone")} name={t("main_page.transcription_send")}
-                    state={currentTranscriptionSendStatus} onClick={toggleTranscriptionSend} is_locked={is_locked} />
+                    state={currentTranscriptionSendStatus} block={blockOf("transcription_send", currentTranscriptionSendStatus)} onClick={toggleTranscriptionSend} is_locked={is_locked} />
                 <FunctionButton Svg={HeadphonesSvg} label={t("vr_panel.tooltip.listen")} name={t("main_page.transcription_receive")}
-                    state={currentTranscriptionReceiveStatus} onClick={toggleTranscriptionReceive} is_locked={is_locked} />
+                    state={currentTranscriptionReceiveStatus} block={blockOf("transcription_receive", currentTranscriptionReceiveStatus)} onClick={toggleTranscriptionReceive} is_locked={is_locked} />
                 <FunctionButton Svg={ChatTranscribeSvg} label={t("vr_panel.tooltip.chat_detect")} name={t("main_page.ocr")}
-                    state={currentOcrCaptureStatus} onClick={toggleOcrCapture} is_locked={is_locked} />
+                    state={currentOcrCaptureStatus} block={blockOf("ocr", currentOcrCaptureStatus)} onClick={toggleOcrCapture} is_locked={is_locked} />
             </div>
             <span className={styles.divider} aria-hidden="true" />
             <div className={styles.group} role="group" aria-label={t("vr_panel.tooltip.windows_group")}>
@@ -66,24 +71,37 @@ export const VrLauncher = ({ windows, toggleLog, openLog, togglePopup }) => {
     </div>;
 };
 
-const FunctionButton = ({ Svg, label, name, state, onClick, is_locked }) => {
+// A blocked switch (its setup is missing) is greyed out with a mark, does nothing when pressed,
+// and says in its tooltip what is missing and where on the PC to provide it. That tooltip shows
+// even when the tooltips are turned off: there is nowhere else in VR to read it.
+const FunctionButton = ({ Svg, label, name, state, block, onClick, is_locked }) => {
     const { t } = useI18n();
     const is_pending = state.state === "pending";
+    const is_blocked = !is_locked && !!block;
     const status = [state.data === true ? "ON" : "OFF", is_locked ? t("vr_panel.tooltip.config_open") :
-        is_pending ? t("vr_panel.settings.changing_short") : ""].filter(Boolean).join(" · ");
+        is_blocked ? t("vr_panel.switch_blocked.state") : is_pending ? t("vr_panel.settings.changing_short") : ""]
+        .filter(Boolean).join(" · ");
+    const mark = is_locked ? "locked" : is_blocked ? "blocked" : is_pending ? "pending" : null;
     return <VrTooltipButton className={clsx(shared.button, styles.button, {
-        [shared.is_on]: state.data === true, [styles.is_pending]: is_pending, [styles.is_disabled]: is_locked,
-    })} aria-label={name} aria-pressed={state.data === true} aria-disabled={is_pending || is_locked || undefined}
-        aria-busy={is_pending || undefined} tipTitle={label} tipState={status}
-        tipHelp={is_locked ? t("vr_panel.locked_by_config_page") : is_pending ? t("vr_panel.tooltip.busy_help") :
-            t(`vr_panel.tooltip.${state.data === true ? "disable" : "enable"}`)}
-        onClick={() => { if (!is_pending && !is_locked) onClick(); }}>
+        [shared.is_on]: state.data === true, [styles.is_pending]: is_pending,
+        [styles.is_disabled]: is_locked || is_blocked, [styles.is_blocked]: is_blocked,
+    })} aria-label={name} aria-pressed={state.data === true} aria-disabled={is_pending || is_locked || is_blocked || undefined}
+        aria-busy={is_pending || undefined} tipTitle={label} tipState={status} tipForce={is_blocked}
+        tipHelp={is_locked ? t("vr_panel.locked_by_config_page") : is_blocked ? t(`vr_panel.switch_blocked.${block.reason}`) :
+            is_pending ? t("vr_panel.tooltip.busy_help") : t(`vr_panel.tooltip.${state.data === true ? "disable" : "enable"}`)}
+        onClick={() => { if (!is_pending && !is_locked && !is_blocked) onClick(); }}>
         <Svg className={styles.icon} aria-hidden="true" />
-        {(is_locked || is_pending) && <span className={styles.state_mark} aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d={is_locked ? "M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11" :
-                "M6 3h12M6 21h12M7 3v4l5 5-5 5v4M17 3v4l-5 5 5 5v4"} /></svg>
+        {mark && <span className={styles.state_mark} aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d={STATE_MARKS[mark]} /></svg>
         </span>}
     </VrTooltipButton>;
+};
+
+const STATE_MARKS = {
+    locked: "M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11",
+    pending: "M6 3h12M6 21h12M7 3v4l5 5-5 5v4M17 3v4l-5 5 5 5v4",
+    // An exclamation mark in a circle: something has to be set up first.
+    blocked: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7.5v6M12 16.5v.5",
 };
 
 const WindowButton = ({ Svg, label, name = label, is_open, is_attention = false, onClick, onLongPress = null }) => {

@@ -55,3 +55,10 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
 
     return blocks;
 };
+
+// The block a switch shows now. A switch that is off and waits for nothing stays off while its
+// setup is missing. One that is on, or on its way, stays as it is so it can be turned off; losing
+// the setup afterwards is told by the switch's own error. The main window and the VR panel both
+// decide with this.
+export const activeSwitchBlock = (blocks, id, status) =>
+    status?.data !== true && status?.state !== "pending" ? blocks?.[id] : undefined;

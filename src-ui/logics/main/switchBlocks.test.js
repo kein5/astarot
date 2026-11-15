@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { switchBlocks } from "./switchBlocks.js";
+import { activeSwitchBlock, switchBlocks } from "./switchBlocks.js";
 
 const reasons = blocks => Object.fromEntries(Object.entries(blocks).map(([id, block]) => [id, block.reason]));
 const rvc = values => ({ mode: "converted", engine: "rvc", rvc_runtime: "/r/python", rvc_model: "/m/voice.pth", ...values });
@@ -64,4 +64,13 @@ test("voice conversion needs its saved model and runtime, then its route", () =>
 test("voice conversion is not judged before the engine has reported its state", () => {
     assert.equal(switchBlocks({ voiceSettings: speech(), directState: { settings: rvc({ rvc_model: "" }) } }).rvc, undefined);
     assert.equal(switchBlocks({ voiceSettings: speech(), directState: { observation_id: "1" } }).rvc, undefined);
+});
+
+test("only a switch that is off and waits for nothing is held off", () => {
+    const blocks = { ocr: { reason: "ocr_models", action: "ocr_models" } };
+    assert.deepEqual(activeSwitchBlock(blocks, "ocr", { state: "ok", data: false }), blocks.ocr);
+    assert.equal(activeSwitchBlock(blocks, "ocr", { state: "ok", data: true }), undefined);
+    assert.equal(activeSwitchBlock(blocks, "ocr", { state: "pending", data: false }), undefined);
+    assert.equal(activeSwitchBlock(blocks, "translation", { state: "ok", data: false }), undefined);
+    assert.equal(activeSwitchBlock(undefined, "ocr", { state: "ok", data: false }), undefined);
 });

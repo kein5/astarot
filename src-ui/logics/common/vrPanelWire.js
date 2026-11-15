@@ -111,6 +111,8 @@ export const VR_PANEL_STATE_ATOMS = Object.freeze([
     "MessageLogs", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
     "OcrCaptureStatus", "ForegroundStatus", "IsBackendReady", "IsOpenedConfigPage", "NotificationStatus",
     "IsOscAvailable", "OscUnavailableReason", "VrPanelLauncherIntro", "VrPanelLogOutOfView",
+    // Which switches cannot be turned on yet and why (reason codes only; worked out in the main window).
+    "SwitchBlocks",
     // The empty log's setup list (main window only) opens a settings page; the shared view reads it.
     "SelectedConfigTabId",
     // The language window.

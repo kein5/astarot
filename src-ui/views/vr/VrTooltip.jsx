@@ -7,10 +7,13 @@ import styles from "./VrTooltip.module.scss";
 const TARGET = "button[data-tooltip-title]";
 const REQUEST = "/run/vr_panel_tooltip";
 
-export const VrTooltipButton = ({ tipTitle, tipState, tipHelp, children, ...props }) => {
+// tipForce: show this button's tooltip even when the tooltips are turned off (what it says
+// cannot be read anywhere else in VR).
+export const VrTooltipButton = ({ tipTitle, tipState, tipHelp, tipForce = false, children, ...props }) => {
     const id = useId();
     return <button {...props} type="button" data-tooltip-title={tipTitle}
-        data-tooltip-state={tipState} data-tooltip-help={tipHelp} aria-describedby={id}>
+        data-tooltip-state={tipState} data-tooltip-help={tipHelp} data-tooltip-force={tipForce ? "true" : undefined}
+        aria-describedby={id}>
         {children}<span id={id} className={styles.sr_only}>{[tipState, tipHelp].filter(Boolean).join(". ")}</span>
     </button>;
 };
@@ -25,12 +28,13 @@ export const VrTooltip = ({ atlasRef, layout }) => {
     send.current = useStdoutToPython().asyncStdoutToPython;
     const epoch = layout.tooltip_epoch ?? 0;
     const regionKey = JSON.stringify([layout.regions.launcher, layout.regions.toolbar]);
-    // 設定でOFFのときは出さない (出ている途中でOFFにすると、下の cleanup が消す)
+    // 設定でOFFのときは、data-tooltip-force の付いたボタンのものだけを出す (出ている途中でOFFにすると、下の cleanup が消す)
     const enabled = useVr().currentOverlayVrTooltip.data !== false;
 
     useEffect(() => {
         const atlas = atlasRef.current;
-        if (!atlas || !epoch || !enabled) { setTip(null); return; }
+        if (!atlas || !epoch) { setTip(null); return; }
+        const shown = element => element && (enabled || element.dataset.tooltipForce === "true") ? element : null;
         if (sequence.current.epoch !== epoch) sequence.current = { epoch, revision: 0 };
         let target = null;
         let mode = "hover";
@@ -63,8 +67,8 @@ export const VrTooltip = ({ atlasRef, layout }) => {
             if (disposed) return;
             if (records.some(record => record.attributeName === "data-vr-hover")) preferFocus = false;
             const active = atlas.contains(document.activeElement) && document.activeElement.matches(":focus-visible")
-                ? document.activeElement.closest(TARGET) : null;
-            const hovered = atlas.querySelector(`${TARGET}[data-vr-hover]`);
+                ? shown(document.activeElement.closest(TARGET)) : null;
+            const hovered = shown(atlas.querySelector(`${TARGET}[data-vr-hover]`));
             const candidate = preferFocus ? active : hovered;
             const nextMode = preferFocus ? "focus" : "hover";
             const content = candidate ? [candidate.dataset.tooltipTitle, candidate.dataset.tooltipState,
@@ -92,7 +96,7 @@ export const VrTooltip = ({ atlasRef, layout }) => {
         };
         const observer = new MutationObserver(update);
         observer.observe(atlas, { subtree: true, attributes: true, childList: true,
-            attributeFilter: ["data-vr-hover", "data-tooltip-title", "data-tooltip-state", "data-tooltip-help"] });
+            attributeFilter: ["data-vr-hover", "data-tooltip-title", "data-tooltip-state", "data-tooltip-help", "data-tooltip-force"] });
         atlas.addEventListener("focusin", focus);
         atlas.addEventListener("focusout", blur);
         document.addEventListener("keydown", keydown);
