@@ -4,9 +4,10 @@ import { useEffect, useRef } from "react";
 
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useReceiveRoutes } from "@useReceiveRoutes";
-import { store, useStore_SelectableFontFamilyList, useStore_BackendStartupState, useStore_InitProgress } from "@store";
+import { store, useStore_SelectableFontFamilyList, useStore_BackendStartupState, useStore_BackendStartupFailure, useStore_InitProgress } from "@store";
 import { arrayToObject } from "@utils";
 import { createSidecarSessionOwner } from "../../../logics/common/sidecarSession.js";
+import { describeStartupFailure } from "../../../logics/common/startupPhase.js";
 import { useI18n } from "@useI18n";
 import { useNotificationStatus, useIsBackendReady } from "@logics_common";
 
@@ -16,6 +17,7 @@ export const StartPythonController = () => {
     const { showNotification_Error } = useNotificationStatus();
     const { updateIsBackendReady } = useIsBackendReady();
     const { updateBackendStartupState } = useStore_BackendStartupState();
+    const { updateBackendStartupFailure } = useStore_BackendStartupFailure();
     const { updateInitProgress } = useStore_InitProgress();
     const { asyncFetchFonts } = useAsyncFetchFonts();
     const { asyncStdoutToPython } = useStdoutToPython();
@@ -28,7 +30,9 @@ export const StartPythonController = () => {
             updateIsBackendReady(false);
             updateInitProgress(0);
         },
-        setStartupState: phase => {
+        setStartupState: (phase, detail) => {
+            // A failed retry that could not stop the old attempt keeps the earlier reason.
+            if (phase === "failed" && detail !== undefined) updateBackendStartupFailure(describeStartupFailure(detail));
             updateBackendStartupState(phase);
             if (phase === "failed" || phase === "stopped") updateIsBackendReady(false);
         },

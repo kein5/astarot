@@ -174,6 +174,8 @@ export const registerMany = (settingsArray = []) => {
 // Common
 export const { atomInstance: Atom_IsBackendReady, useHook: useStore_IsBackendReady } = createAtomWithHook(false, "IsBackendReady");
 export const { atomInstance: Atom_BackendStartupState, useHook: useStore_BackendStartupState } = createAtomWithHook("starting", "BackendStartupState");
+// Why the last start failed ({ kind: "spawn" | "exit", ... }, see startupPhase.js); read only while BackendStartupState is "failed".
+export const { atomInstance: Atom_BackendStartupFailure, useHook: useStore_BackendStartupFailure } = createAtomWithHook(null, "BackendStartupFailure");
 export const { atomInstance: Atom_IsVrctAvailable, useHook: useStore_IsVrctAvailable } = createAtomWithHook(true, "IsVrctAvailable");
 export const { atomInstance: Atom_IsOscAvailable, useHook: useStore_IsOscAvailable } = createAtomWithHook(false, "IsOscAvailable");
 // Why it is unavailable: "remote_destination" (VRChat is on another machine) or "setup_failed". null while available or unknown.

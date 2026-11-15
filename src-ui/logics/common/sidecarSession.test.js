@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { test } from "node:test";
 import { createSidecarSessionOwner } from "./sidecarSession.js";
+import * as startupPhase from "./startupPhase.js";
 import { expectBackendExit } from "./sidecarExitExpectation.js";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { deferred, flush, loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.js";
@@ -245,6 +246,7 @@ test("production controller publishes startup failure and the persistent screen 
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => ({ receiveRoutes: () => {}, backendStopped: () => {} }) },
         "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
+        "../../../logics/common/startupPhase.js": startupPhase,
     });
     b.runtime.render(module.StartPythonController);
     await flush();
@@ -252,7 +254,9 @@ test("production controller publishes startup failure and the persistent screen 
     await b.stores.store.backend_session.completion;
     assert.equal(b.runtime.store.get(b.stores.Atom_BackendStartupState).data, "failed");
     assert.equal(b.runtime.store.get(b.stores.Atom_IsBackendReady).data, false);
-    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores });
+    // The failure dialog says why: here the program never started.
+    assert.deepEqual(b.runtime.store.get(b.stores.Atom_BackendStartupFailure).data, { kind: "spawn", message: "not found" });
+    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.js": startupPhase });
     const screen = await loadModule(new URL("../../views/app/others/splash_component/StartupFailedComponent.jsx", import.meta.url), b.runtime, {
         "@logics_common": common, "@common_components": { CloseButton: () => null },
         "../../../../logics/common/useBackendStartup": startup,
@@ -287,6 +291,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => b },
         "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
+        "../../../logics/common/startupPhase.js": startupPhase,
     });
     b.runtime.render(controller.StartPythonController);
     await flush();
@@ -317,6 +322,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     attempt.events.close({ code: 1 });
     assert.equal(b.runtime.store.get(b.stores.Atom_IsBackendReady).data, false);
     assert.equal(b.runtime.store.get(b.stores.Atom_BackendStartupState).data, initialized ? "stopped" : "failed");
+    assert.deepEqual(b.runtime.store.get(b.stores.Atom_BackendStartupFailure).data, initialized ? null : { kind: "exit", code: 1 });
     hotRuntime.render(hot.GlobalHotKeyController);
     quickRuntime.render(quick.QuickChatController);
     await flush();
@@ -327,7 +333,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     assert.deepEqual(sent, []);
     assert.deepEqual(quickCalls.at(-1), ["quick_chat_finish", { id: "after-exit", accepted: false }]);
 
-    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores });
+    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.js": startupPhase });
     const SplashComponent = () => null, StartupFailedComponent = () => null;
     const app = await loadModule(new URL("../../views/app/App.jsx", import.meta.url), b.runtime, {
         "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},
