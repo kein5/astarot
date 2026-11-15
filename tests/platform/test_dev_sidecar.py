@@ -23,7 +23,7 @@ def compiled_launcher(tmp_path_factory):
     if shutil.which("rustc") is None:
         pytest.skip("rustc required to test the real dev sidecar")
     binary = tmp_path_factory.mktemp("sidecar-build") / "launcher"
-    subprocess.run(["rustc", "--edition=2021", str(ROOT / "utils/dev_sidecar/src/main.rs"),
+    subprocess.run(["rustc", "--edition=2024", str(ROOT / "utils/dev_sidecar/src/main.rs"),
                     "-o", str(binary)], check=True, capture_output=True, text=True, timeout=60)
     return binary
 

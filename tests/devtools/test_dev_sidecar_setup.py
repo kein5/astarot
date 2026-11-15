@@ -36,7 +36,7 @@ class SidecarSetupTests(unittest.TestCase):
     def compiler(self, argv, **kwargs):
         if "-vV" in argv:
             return subprocess.CompletedProcess(argv, 0, "rustc version\nhost: " + self.host + "\n", "")
-        self.assertEqual(argv[1:3], ["--edition=2021", "--crate-name"])
+        self.assertEqual(argv[1:3], ["--edition=2024", "--crate-name"])
         self.assertIn(str(self.source), argv)
         self.assertFalse(kwargs.get("shell", False))
         Path(argv[argv.index("-o") + 1]).write_bytes(self.payload)
