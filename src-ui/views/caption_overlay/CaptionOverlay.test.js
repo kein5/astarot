@@ -135,3 +135,28 @@ test("a notice makes the overlay read again; the notice itself carries nothing",
     await flush();
     assert.deepEqual(s.removed, ["changed"]);
 });
+
+
+test("while Ctrl is held over it the overlay outlines itself and shows the text size, and not otherwise", async context => {
+    const line = { id: "a", kind: "sent", text: "こんにちは", translations: [], pending: false, until: 9000 };
+    const s = await setup(context, { ...base, lines: [line] });
+    const frame = () => findAll(s.render(), node => node.type === "div" && /adjust/.test(node.props?.className ?? ""));
+    assert.deepEqual(frame(), []);
+    s.set({ ...base, lines: [line], adjusting: true });
+    s.callbacks.changed();
+    await flush();
+    const [outline] = frame();
+    assert.equal(outline.props["aria-hidden"], "true");
+    assert.deepEqual(find(outline, node => node.type === "span").props.children, [32, " px"]);
+    // The captions stay as they were under the outline.
+    assert.deepEqual(s.texts(), ["こんにちは"]);
+    s.set({ ...base, lines: [line] });
+    s.callbacks.changed();
+    await flush();
+    assert.deepEqual(frame(), []);
+});
+
+test("the outline never takes the mouse: the native side does the drag", async () => {
+    const scss = await readFile(new URL("./CaptionOverlay.module.scss", import.meta.url), "utf8");
+    assert.match(scss, /^\.adjust \{[^}]*pointer-events: none;/m);
+});
