@@ -1,0 +1,112 @@
+# audio-routing
+
+Audio device enumeration, device identity, following the OS default devices, and
+voice routing, in Rust (issue #280). Windows uses WASAPI and the MMDevice API; Linux
+uses PipeWire through its native client API.
+
+This crate stands alone. The application does not use it yet: nothing under
+`src-tauri` or `src-python` refers to it, and the Python modules it replaces are
+unchanged. Connecting it to the application (and then deleting the Python modules)
+needs a decision on how the Python backend and Rust talk while the migration lasts
+(#285); see "Open questions" below.
+
+## What replaces what
+
+| Python | Rust | Notes |
+|---|---|---|
+| `audio_device_identity.py` | `src/identity.rs` | Same rules: the placeholder has no identity, a saved ID matches only itself, a legacy name migrates only when unique. |
+| `device_manager.py` | `src/manager.rs`, `src/snapshot.rs` | One snapshot swapped as a whole; the same change flags and callbacks; the same monitor timing (below); Auto Speaker Select through the peak tracker, Auto Microphone Select through the OS default only. |
+| `active_endpoint_tracker.py` | `src/tracker.rs` | Same 250 ms poll, 3 s window, ×2 ratio held 1 s, silence keeps the choice, meters activated once per endpoint, 2 s stop limit with the restart deferred until cleanup ends. |
+| `audio_routing/audio_router.py` | `src/router.rs` | Includes the cancellation token with the start deadline (`CancelToken` of `speechcpp_tts.py`). |
+| `audio_routing/monitor_output.py` | `src/monitor.rs` | |
+| `audio_routing/mute_state.py` | `src/mute_state.rs` | Same file and format. |
+| `audio_routing/managed_route.py` | `src/voice_route.rs` | |
+| `audio_routing/windows_route.py` | `src/windows_route.rs` | Device access behind a trait, so the queue, stall and mute rules are tested on every OS. |
+| `audio_routing/devices_windows.py` | `src/naming.rs` (rules), `src/wasapi/` (devices) | |
+| `audio_routing/devices_pipewire.py` | `src/pipewire/output.rs`, `src/graph.rs` | A native playback stream instead of `pw-cat`. |
+| `audio_routing/pipewire_graph.py` | `src/graph_source.rs`, `src/pipewire/observer.rs` | A registry connection with server round trips instead of running `pw-dump`. |
+| `audio_routing/pipewire_graph_pipe.py` | `src/pipewire/feed.rs` | Same wire format. |
+| `audio_routing/pipewire_gate.py` | `src/graph.rs` (`parse_managed`), `src/pipewire/gate.rs` | Still changes mute through `vrct-voice-gate`. |
+| `audio_routing/managed_microphone.py` | `src/pipewire/managed.rs` | Unit files byte for byte the same (checked against Python's output in `tests/data/managed_units.json`). |
+| `audio_routing/source_bridge.py` | `src/graph.rs` (selection, links), `src/pipewire/bridge.rs` | Still supervises `vrct-source-bridge`. |
+| `audio_routing/gc_guard.py` | — | Python's cyclic garbage collector paused playback; Rust has none. |
+
+Timing kept from Python: the monitoring thread waits for an OS notification for at
+most 2 s; without notifications (Linux, or a failed registration) every 2 s timeout
+refreshes; with them, a notification refreshes at once and one idle refresh a minute
+covers a missed event. A stop wakes the thread at once.
+
+## Differences from the Python implementation
+
+These follow from using the native APIs. The ones marked **needs a decision** are not
+settled and are listed again under "Open questions".
+
+- **Windows microphone hosts (needs a decision).** PortAudio listed every microphone
+  under each of its hosts (MME, DirectSound, WASAPI, WDM-KS), and the default
+  microphone came from MME. WASAPI lists each endpoint once, so the list has only the
+  `Windows WASAPI` host. IDs of WASAPI rows are unchanged
+  (`mic:Windows WASAPI:<endpoint id>`); a saved selection from another host no longer
+  resolves.
+- **Windows speaker IDs (needs a decision).** Python's loopback rows carried
+  PortAudio's host index, so their IDs read `speaker:<index>:<endpoint id>`. The
+  index is fixed at 2 (`PORTAUDIO_WASAPI_INDEX`, MME, DirectSound, WASAPI, WDM-KS
+  in PyAudioWPatch builds) so saved IDs keep matching; this has not been checked
+  against settings saved on a real PC.
+- **Windows outputs saved under another host (needs a decision).** Python kept them
+  listed while PortAudio showed them, and opened that host. Here such an entry stays
+  listed while one WASAPI output has the same name (allowing for MME's 31-character
+  cut), and opens that WASAPI output.
+- **Windows rate and channel conversion.** WASAPI converts (`AUTOCONVERTPCM`) instead
+  of PortAudio plus soxr and the mono-to-stereo widening.
+- **Windows underflow (needs measurement).** The virtual microphone path reports a
+  render buffer that ran dry after playback started (`output_underflow`), as
+  PortAudio's `exception_on_underflow` did; how often this fires with a 60 ms buffer
+  on real hardware is unmeasured.
+- **Windows direct bridge capture.** The Python bridge borrowed the transcription
+  capture (`capture_windows.py`, outside this issue); here a small WASAPI capture of
+  its own delivers 48 kHz mono.
+- **Rows without native IDs on Windows.** Every WASAPI row now has its endpoint ID, so
+  rows that Python could only identify by slot get stable IDs.
+- **`getOpenedDevice`** (resolving a PortAudio slot for the transcription recorder) is
+  not ported: it belongs to the PortAudio recorder, which the speech recognition
+  migration (#278) replaces.
+- **Linux first list.** Python's manager listed Linux inputs only after the first
+  monitoring pass; here the constructor enumerates once on every OS.
+- **Linux output buffering.** About 85 ms per stream at any format (the pipe to
+  `pw-cat` held 4 KiB, which is 85 ms only at 24 kHz mono). The stream requires
+  PipeWire 0.3.49 or later for per-cycle sizing; supported distributions ship 1.0+.
+- **Diagnostics.** Messages and codes go to a `Reporter` the host supplies; no device
+  payload, text or audio is passed to it.
+
+## Open questions
+
+1. How the Python backend uses this crate until #285 removes the sidecar (a Python
+   extension module, a helper process with a JSON protocol, or Tauri commands). This
+   decides when the Python modules can be deleted.
+2. The Windows microphone host list and default (above): accept WASAPI only, or keep
+   showing other hosts.
+3. Whether to migrate saved selections from other Windows hosts, and the speaker ID
+   prefix (above).
+4. Whether the C helpers `vrct-voice-gate` and `vrct-source-bridge` should move to Rust
+   too. They are outside #280 and already use libpipewire directly.
+
+## Build
+
+Linux needs the `libpipewire-0.3` development files and libclang (for the bindings);
+Windows needs nothing beyond the MSVC toolchain.
+
+## Verification
+
+`cargo test` runs the ports of the Python tests (identity, reconciliation and monitor
+timing with a substitute clock, tracker hysteresis and meter cache, router and
+monitor, managed route, managed microphone provisioning with real files, source bridge
+failure cases, graph feed over a real pipe). OS access is behind traits, so these run
+on every OS.
+
+On a Linux desktop, `cargo test --test pipewire_live -- --ignored --test-threads=1`
+compares the native graph with `pw-dump`, plays silence to a temporary null sink and
+checks that its removal is reported, and compares the device manager's list with the
+graph.
+
+The Windows code type-checks with `cargo check --target x86_64-pc-windows-msvc`; it
+has not been run on Windows yet.
