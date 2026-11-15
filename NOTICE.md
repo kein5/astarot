@@ -59,15 +59,25 @@ MIT at [kein5/vrct-vox-chatbox-detector](https://huggingface.co/kein5/vrct-vox-c
 It is not derived from the upstream model or its outputs. It is not shipped either; it is downloaded only after the
 user agrees in Config → Chat Transcribe (catalog entry `vrct-vox-chatbox-detector`).
 
-## Downloadable Whisper weights
+## Bundled Silero VAD model
 
-Whisper weights are not bundled. Config → Transcription shows the model,
-provider, MIT license and exact pinned file total before checkbox consent and
-Download. The models derive from [OpenAI Whisper](https://github.com/openai/whisper/blob/main/LICENSE)
-(MIT); the pinned CTranslate2 conversions come from Systran (tiny through
-large-v3), Zoont (large-v3-turbo-int8), and deepdml (large-v3-turbo).
-Repositories, revisions, file sizes and SHA-256 are in
-`src-python/models/builtin_model_pins.py`.
+The microphone and speaker transcription finds speech with the Silero VAD v5
+model (MIT, Silero Team), as split into two ONNX graphs by faster-whisper (MIT,
+SYSTRAN). VRCT-VOX ships those two files (about 1.2 MB in all) and their
+license texts in `licenses/silero-vad/`, which also lists their sizes, SHA-256
+and sources.
+
+## Whisper weights from earlier versions
+
+VRCT-VOX no longer uses or downloads Whisper weights. Local speech
+recognition runs on speech.cpp, with models that are downloaded only after
+consent from the model download catalog. Earlier versions downloaded Whisper
+weights into `weights/whisper/` after checkbox consent. Those models derive
+from [OpenAI Whisper](https://github.com/openai/whisper/blob/main/LICENSE)
+(MIT); the pinned CTranslate2 conversions came from Systran (tiny through
+large-v3), Zoont (large-v3-turbo-int8), and deepdml (large-v3-turbo). Files
+left by those versions can be deleted in Settings → Speech recognition (ASR)
+→ Old Whisper models.
 
 ## Downloadable CTranslate2 translation weights
 
@@ -146,8 +156,8 @@ corresponding source code of the LGPL and GPL components above, as used in a
 given release, for at least three years after that release.
 
 PyAV is deliberately **not** included: its binary wheels bundle FFmpeg together
-with the GPL-licensed x264 and x265 encoders. faster-whisper imports it only to
-decode audio files, and VRCT-VOX always passes decoded audio, so builds use a
-stand-in module (`packaging/pyinstaller-stubs/av`). The distribution policy
-(`tools/distribution_policy.py`) rejects PyAV libraries and x264/x265 in any
-build.
+with the GPL-licensed x264 and x265 encoders. faster-whisper, which imported it,
+is no longer a dependency, and no other dependency needs it. As a guard,
+builds still provide a stand-in module (`packaging/pyinstaller-stubs/av`), and
+the distribution policy (`tools/distribution_policy.py`) rejects PyAV libraries
+and x264/x265 in any build.

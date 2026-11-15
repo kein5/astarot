@@ -36,6 +36,14 @@ test("invalid TTS seed and instruction point to the shared form error and clear 
     s.runtime.unmount();
 });
 
+test("the seed and instruction fields show an example while they are empty", async () => {
+    const s = await setup({ seed: "", instructions: "" });
+    s.draft.japanese_seed = "0";
+    const tree = s.render();
+    for (const type of ["input", "textarea"]) assert.equal(find(tree, node => node.type === type).props.placeholder, "voice_ui.example");
+    s.runtime.unmount();
+});
+
 test("TTS model-specific seed range error is associated without changing the save contract", async t => {
     t.mock.timers.enable({ apis: ["setInterval"] });
     const s = await setup({ seed: "123", instructions: "", modelOptions: { japanese: {

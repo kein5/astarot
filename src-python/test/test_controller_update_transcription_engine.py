@@ -31,22 +31,19 @@ class UpdateTranscriptionEngineApiEnginesTests(unittest.TestCase):
 
         self._original_engine = config._SELECTED_TRANSCRIPTION_ENGINE
         self._original_status = dict(config._SELECTABLE_TRANSCRIPTION_ENGINE_STATUS)
-        self._original_weight_dict = dict(config._SELECTABLE_WHISPER_WEIGHT_TYPE_DICT)
         self._original_your_languages = config.SELECTED_YOUR_LANGUAGES
         self._original_target_languages = config.SELECTED_TARGET_LANGUAGES
 
     def tearDown(self) -> None:
         config._SELECTED_TRANSCRIPTION_ENGINE = self._original_engine
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = self._original_status
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = self._original_weight_dict
         config.SELECTED_YOUR_LANGUAGES = self._original_your_languages
         config.SELECTED_TARGET_LANGUAGES = self._original_target_languages
 
     def test_keeps_api_engine_selected_while_still_available(self) -> None:
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
         config._SELECTED_TRANSCRIPTION_ENGINE = "Groq_Whisper"
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": True, "Whisper": False, "Groq_Whisper": True,
+            "Google": True, "SpeechCpp": False, "Groq_Whisper": True,
             "OpenAI_Whisper": False, "Custom_Whisper": False,
         }
 
@@ -57,10 +54,9 @@ class UpdateTranscriptionEngineApiEnginesTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
     def test_keeps_api_selection_when_unavailable(self) -> None:
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
         config._SELECTED_TRANSCRIPTION_ENGINE = "Groq_Whisper"
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": True, "Whisper": False, "Groq_Whisper": False,
+            "Google": True, "SpeechCpp": False, "Groq_Whisper": False,
             "OpenAI_Whisper": False, "Custom_Whisper": False,
         }
 
@@ -71,10 +67,9 @@ class UpdateTranscriptionEngineApiEnginesTests(unittest.TestCase):
 
     def test_keeps_saved_google_when_unavailable(self) -> None:
         # Availability changes must never silently change the selected service.
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {"base": True}
         config._SELECTED_TRANSCRIPTION_ENGINE = "Google"
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": False, "Whisper": True, "Groq_Whisper": False,
+            "Google": False, "SpeechCpp": True, "Groq_Whisper": False,
             "OpenAI_Whisper": False, "Custom_Whisper": False,
         }
 
@@ -83,10 +78,9 @@ class UpdateTranscriptionEngineApiEnginesTests(unittest.TestCase):
         self.assertEqual(config.SELECTED_TRANSCRIPTION_ENGINE, "Google")
 
     def test_keeps_deepgram_selected_while_still_available(self) -> None:
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
         config._SELECTED_TRANSCRIPTION_ENGINE = "Deepgram"
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": True, "Whisper": False, "Deepgram": True,
+            "Google": True, "SpeechCpp": False, "Deepgram": True,
         }
 
         self.controller.updateTranscriptionEngine()
@@ -95,10 +89,9 @@ class UpdateTranscriptionEngineApiEnginesTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
     def test_keeps_deepgram_selection_when_unavailable(self) -> None:
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
         config._SELECTED_TRANSCRIPTION_ENGINE = "Deepgram"
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": True, "Whisper": False, "Deepgram": False,
+            "Google": True, "SpeechCpp": False, "Deepgram": False,
         }
 
         self.controller.updateTranscriptionEngine()
@@ -109,10 +102,9 @@ class UpdateTranscriptionEngineApiEnginesTests(unittest.TestCase):
     def test_requested_engine_is_applied_before_validation(self) -> None:
         """setSelectedTranscriptionEngine() は requested_engine を渡して
         呼び出す (setSelectedTranslationEngines() と同じパターン)。"""
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
         config._SELECTED_TRANSCRIPTION_ENGINE = "Google"
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": True, "Whisper": False, "Deepgram": True,
+            "Google": True, "SpeechCpp": False, "Deepgram": True,
         }
 
         self.controller.updateTranscriptionEngine(requested_engine="Deepgram")
@@ -120,10 +112,9 @@ class UpdateTranscriptionEngineApiEnginesTests(unittest.TestCase):
         self.assertEqual(config.SELECTED_TRANSCRIPTION_ENGINE, "Deepgram")
 
     def test_requesting_an_unavailable_engine_keeps_the_request(self) -> None:
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
         config._SELECTED_TRANSCRIPTION_ENGINE = "Google"
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": True, "Whisper": False, "Deepgram": False,
+            "Google": True, "SpeechCpp": False, "Deepgram": False,
         }
 
         self.controller.updateTranscriptionEngine(requested_engine="Deepgram")
@@ -131,10 +122,9 @@ class UpdateTranscriptionEngineApiEnginesTests(unittest.TestCase):
         self.assertEqual(config.SELECTED_TRANSCRIPTION_ENGINE, "Deepgram")
 
     def test_engine_change_resets_now_unsupported_language_and_pushes_list(self) -> None:
-        config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT = {}
-        config._SELECTED_TRANSCRIPTION_ENGINE = "Whisper"
+        config._SELECTED_TRANSCRIPTION_ENGINE = "Google"
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": True, "Whisper": True, "Deepgram": True,
+            "Google": True, "SpeechCpp": True, "Deepgram": True,
         }
         config.SELECTED_YOUR_LANGUAGES = {
             **config.SELECTED_YOUR_LANGUAGES,

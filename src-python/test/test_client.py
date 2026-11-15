@@ -396,7 +396,6 @@ class AutomatedEndpointTester:
             "/set/data/ui_language",
             "/set/data/main_window_geometry",
             "/set/data/selected_translation_compute_device",
-            "/set/data/selected_transcription_compute_device",
             "/set/data/selected_ctranslate2_weight_type",
             "/set/data/selected_plamo_model",
             "/set/data/plamo_auth_key",
@@ -425,7 +424,6 @@ class AutomatedEndpointTester:
             "/set/data/speaker_max_phrases",
             "/set/data/speaker_avg_logprob",
             "/set/data/speaker_no_speech_prob",
-            "/set/data/selected_whisper_weight_type",
             "/set/data/overlay_small_log_settings",
             "/set/data/overlay_large_log_settings",
             "/set/data/send_message_format_parts",
@@ -435,7 +433,6 @@ class AutomatedEndpointTester:
             "/set/data/osc_ip_address",
             "/set/data/osc_port",
             "/set/data/selected_translation_compute_type",
-            "/set/data/selected_transcription_compute_type",
         ]
         self.run_endpoints = [
             "/run/send_message_box",
@@ -446,7 +443,6 @@ class AutomatedEndpointTester:
             "/run/update_software",
             "/run/update_cuda_software",
             "/run/download_ctranslate2_weight",
-            "/run/download_whisper_weight",
             "/run/open_filepath_logs",
             "/run/open_filepath_config_file",
             "/run/feed_watchdog",
@@ -527,10 +523,6 @@ class AutomatedEndpointTester:
             }
         elif endpoint == "/set/data/selected_translation_compute_device":
             lst = self._get("/get/data/selectable_translation_compute_device_list") or []
-            import random
-            data = random.choice(lst) if lst else None
-        elif endpoint == "/set/data/selected_transcription_compute_device":
-            lst = self._get("/get/data/selectable_transcription_compute_device_list") or []
             import random
             data = random.choice(lst) if lst else None
         elif endpoint == "/set/data/selected_ctranslate2_weight_type":
@@ -652,11 +644,6 @@ class AutomatedEndpointTester:
         elif endpoint == "/set/data/speaker_no_speech_prob":
             import random
             data = random.uniform(0,1)
-        elif endpoint == "/set/data/selected_whisper_weight_type":
-            dct = self._get("/get/data/selectable_whisper_weight_type_dict") or {}
-            import random
-            keys=[k for k,v in dct.items() if v]
-            data = random.choice(keys) if keys else None
         elif endpoint == "/set/data/overlay_small_log_settings" or endpoint == "/set/data/overlay_large_log_settings":
             import random
             data = {
@@ -700,11 +687,6 @@ class AutomatedEndpointTester:
             if device and isinstance(device, dict):
                 import random
                 data = random.choice(device.get("compute_types", [])) if device.get("compute_types") else None
-        elif endpoint == "/set/data/selected_transcription_compute_type":
-            device = self.cache.get("selected_transcription_compute_device") or self._get("/get/data/selected_transcription_compute_device")
-            if device and isinstance(device, dict):
-                import random
-                data = random.choice(device.get("compute_types", [])) if device.get("compute_types") else None
         return data, expected
 
     def _gen_run_data(self, endpoint: str):
@@ -722,7 +704,7 @@ class AutomatedEndpointTester:
             expected = choice["status"]
         elif endpoint in ["/run/typing_message_box","/run/stop_typing_message_box","/run/send_text_overlay","/run/swap_your_language_and_target_language"]:
             data = "test_overlay" if endpoint == "/run/send_text_overlay" else None
-        elif endpoint in ["/run/update_software","/run/update_cuda_software","/run/download_ctranslate2_weight","/run/download_whisper_weight","/run/open_filepath_logs","/run/open_filepath_config_file","/run/feed_watchdog"]:
+        elif endpoint in ["/run/update_software","/run/update_cuda_software","/run/download_ctranslate2_weight","/run/open_filepath_logs","/run/open_filepath_config_file","/run/feed_watchdog"]:
             expected=[401]
         elif endpoint in ["/run/lmstudio_connection","/run/ollama_connection"]:
             expected=[200,400]

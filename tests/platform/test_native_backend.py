@@ -121,4 +121,3 @@ def test_real_startup_settings_and_restart_without_models(tmp_path):
         log = (state / f"stdout-{attempt}.log").read_text()
         assert "End Initialization" in log
         assert "Download CTranslate2 Model Weight" not in log
-        assert "Download Whisper Model Weight" not in log

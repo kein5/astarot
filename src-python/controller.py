@@ -17,7 +17,7 @@ from os import environ as os_environ
 from pathlib import Path
 from audio_device_identity import capture_key, device_id, device_options, resolve_device
 from device_manager import device_manager
-from config import config, ConfigValidationError, DEFAULT_OVERLAY_VR_LAUNCHER_SETTINGS
+from config import config, ConfigValidationError, DEFAULT_OVERLAY_VR_LAUNCHER_SETTINGS, LOCAL_SPEECH_ENGINE
 from model import model, SETUP_LAUNCHED, SETUP_DOWNLOAD_FAILED, SETUP_VERIFY_FAILED
 from utils import removeLog, printLog, errorLogging, isConnectedNetwork, isValidIpAddress, isValidPort, isValidWebSocketHost, isAvailableWebSocketServer
 from errors import TranscriptionStartError, ErrorCode, OcrStartError, VRCTError
@@ -69,12 +69,11 @@ from models.overlay.overlay import PANEL_ANCHORS, computeVrLayout, clampPanelSiz
 
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 
-# モデルダウンロード進捗の間引きしきい値。translation_utils.downloadFile /
-# transcription_whisper.downloadFile は 2MB チャンクごとに progressBar を
-# 呼ぶため、~2GB の重みで 900+ 回の logging バーストが発生する。
-# CTranslate2 と Whisper が同時にダウンロードされると process.log の
-# ハンドラロック競合で feedWatchdog が 35s 遅延するのを freeze_trace.log で
-# 2026-08-20 に観測した。前回報告から MIN_DELTA 以上進んだ、または
+# モデルダウンロード進捗の間引きしきい値。translation_utils.downloadFile は
+# 2MB チャンクごとに progressBar を呼ぶため、~2GB の重みで 900+ 回の
+# logging バーストが発生する。CTranslate2 と (当時の) Whisper が同時に
+# ダウンロードされると process.log のハンドラロック競合で feedWatchdog が
+# 35s 遅延するのを freeze_trace.log で 2026-08-20 に観測した。前回報告から MIN_DELTA 以上進んだ、または
 # MIN_INTERVAL_SEC 以上経過した場合のみ forward する (0% / 100% は必ず送る)。
 _DOWNLOAD_PROGRESS_MIN_DELTA = 0.01
 _DOWNLOAD_PROGRESS_MIN_INTERVAL_SEC = 0.5
@@ -213,7 +212,7 @@ def _configValidationErrorResponse(error_code: ErrorCode):
 
 
 def _shouldEmitDownloadProgress(handler: Any, progress: float) -> bool:
-    """DownloadCTranslate2 / DownloadWhisper の progressBar 用スロットル。
+    """DownloadCTranslate2 の progressBar 用スロットル。
 
     handler は `_last_progress: float` と `_last_time: float` 属性を持つ
     インスタンス。100% 到達時は必ず True を返す (完了通知が抜けないよう)。
@@ -240,7 +239,6 @@ _SIMPLE_CONFIG_GETTERS = {
     "getComputeDeviceList": "SELECTABLE_COMPUTE_DEVICE_LIST",
     "getSelectedTranslationComputeDevice": "SELECTED_TRANSLATION_COMPUTE_DEVICE",
     "getSelectableCtranslate2WeightTypeDict": "SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT",
-    "getSelectedTranscriptionComputeDevice": "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE",
     "getSelectedTabNo": "SELECTED_TAB_NO",
     "getSelectedTranslationEngines": "SELECTED_TRANSLATION_ENGINES",
     "getSelectedYourLanguages": "SELECTED_YOUR_LANGUAGES",
@@ -302,8 +300,6 @@ _SIMPLE_CONFIG_GETTERS = {
     "getOpenAICompatibleModel": "SELECTED_OPENAI_COMPATIBLE_MODEL",
     "getCtranslate2WeightType": "CTRANSLATE2_WEIGHT_TYPE",
     "getSelectedTranslationComputeType": "SELECTED_TRANSLATION_COMPUTE_TYPE",
-    "getWhisperWeightType": "WHISPER_WEIGHT_TYPE",
-    "getSelectedTranscriptionComputeType": "SELECTED_TRANSCRIPTION_COMPUTE_TYPE",
     "getSendMessageFormatParts": "SEND_MESSAGE_FORMAT_PARTS",
     "getReceivedMessageFormatParts": "RECEIVED_MESSAGE_FORMAT_PARTS",
     "getAutoClearMessageBox": "AUTO_CLEAR_MESSAGE_BOX",
@@ -484,11 +480,9 @@ class Controller:
         # マイク/スピーカーそれぞれの文字起こし・エナジー計測の start/stop を
         # 直列化するロック。mic/speaker で分離しているのは、片方の重い
         # open/close 中にもう片方が待たされないようにするため。
-        # 非再入の Lock を使う。VRAM エラー発生時に start*Message の except節
-        # が同一スレッド上で停止処理を行う必要があるが、そこでは
+        # ロックを保持したまま停止処理が要る箇所は、
         # _stopTranscriptionSendMessageLocked のようなロック不要の内部版を
-        # 呼ぶことで再入を避けている (公開の stop*Message は自前でロックを
-        # 取るため、start*Message の中から呼ぶとデッドロックする)。
+        # 呼ぶ (公開の stop*Message は自前でロックを取る)。
         self.mic_lifecycle_lock = RLock()
         self.speaker_lifecycle_lock = RLock()
 
@@ -939,9 +933,9 @@ class Controller:
     def _realtimeToggles(self):
         if sys.platform == "linux":
             return True
-        # Windows keeps the legacy recorder until the user picks the bundled server.
-        settings = getattr(self, "_realtime_settings", None) or {}
-        return sys.platform == "win32" and settings.get("server") == "bundled"
+        # Windows keeps the legacy recorder for Google and the cloud engines; the local
+        # engine listens through speech.cpp, bundled or external (realtime settings).
+        return sys.platform == "win32" and config.SELECTED_TRANSCRIPTION_ENGINE == LOCAL_SPEECH_ENGINE
 
     def _realtimeActiveLocked(self, source):
         owner = self._realtime_owners[source]
@@ -1001,14 +995,17 @@ class Controller:
         with self._realtime_lock:
             return not self._realtime_closed and expected == self._realtime_generation[source]
 
-    def _awaitAsrServer(self, source, expected):
-        """Start the bundled ASR server if it is stopped, then wait until it is ready."""
+    def _awaitAsrServer(self, source, expected, start=True):
+        """Start the bundled ASR server if it is stopped and `start` allows it, then wait until it is ready."""
         if not self._realtimeStartCurrent(source, expected):
             return "realtime_stale_start"
         row = self.speech_servers.state()["asr"]
         if row["state"] == "stopping":
             return "speech_server_busy"
         run = row["generation"]
+        if row["state"] not in ("ready", "preparing") and not start:
+            # The user chose to start the server from Settings only.
+            return "speech_server_autostart_off"
         if row["state"] not in ("ready", "preparing"):
             with self._speech_settings_lock:
                 settings = copy.deepcopy(self._speech_settings)
@@ -1061,7 +1058,7 @@ class Controller:
         if not self._realtimeStartCurrent(source, expected):
             return "realtime_stale_start", None
         if settings["server"] == "bundled":
-            code = self._awaitAsrServer(source, expected)
+            code = self._awaitAsrServer(source, expected, settings["start_server"])
             if code:
                 return code, None
             try:
@@ -1593,16 +1590,16 @@ class Controller:
         )
 
     @staticmethod
-    def _missingBuiltInModelInUse(ctranslate2_available: bool, whisper_available: bool) -> bool:
+    def _missingBuiltInModelInUse(ctranslate2_available: bool) -> bool:
         """いま選んでいるエンジンが、取得していない内蔵モデルを必要としているか。
 
-        以前は、どちらか一方でも無ければ起動のたびに警告していた。そのため、翻訳モデルを取得して
-        文字起こしは Google を選んでいる人や、どちらも外部のサービスを使う人にも、使わないモデルに
-        ついての警告が毎回出ていた。選んでいないエンジンのモデルは、選んだときに取得を案内する。
+        以前は、内蔵モデルがどれか一つでも無ければ起動のたびに警告していた。そのため、使わない
+        モデルについての警告が毎回出ていた。選んでいないエンジンのモデルは、選んだときに取得を
+        案内する。ローカルの音声認識 (speech.cpp) のモデルは、メイン画面の準備の一覧と
+        設定 → 音声認識が案内する (#288)。
         """
         translation = config.SELECTED_TRANSLATION_ENGINES.get(config.SELECTED_TAB_NO) == "CTranslate2"
-        transcription = config.SELECTED_TRANSCRIPTION_ENGINE == "Whisper"
-        return (translation and not ctranslate2_available) or (transcription and not whisper_available)
+        return translation and not ctranslate2_available
 
     def enableAiModels(self) -> None:
         self.run(
@@ -1995,42 +1992,6 @@ class Controller:
                     ErrorCode.WEIGHT_CTRANSLATE2_DOWNLOAD, data={**data, "reason": error},
                 )
                 self.run(error_response["status"], self.run_mapping["error_ctranslate2_weight"], error_response["result"])
-
-    class DownloadWhisper:
-        def __init__(self, run_mapping:dict, weight_type:str, run:Callable[[int, str, Any], None]) -> None:
-            self.run_mapping = run_mapping
-            self.weight_type = weight_type
-            self.run = run
-            self._last_progress = -1.0
-            self._last_time = 0.0
-            self.job_id = uuid4().hex
-            self._terminal_lock = Lock()
-            self._terminal_sent = False
-
-        def progressBar(self, progress) -> None:
-            if not _shouldEmitDownloadProgress(self, progress):
-                return
-            printLog("Whisper Weight Download Progress", progress)
-            self.run(
-                200,
-                self.run_mapping["download_progress_whisper_weight"],
-                {"weight_type": self.weight_type, "job_id": self.job_id, "progress": progress},
-            )
-
-        def downloaded(self, ready=False, error=None) -> None:
-            with self._terminal_lock:
-                if self._terminal_sent:
-                    return
-                self._terminal_sent = True
-            config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT[self.weight_type] = ready is True
-            data = {"weight_type": self.weight_type, "job_id": self.job_id, "downloaded": ready is True}
-            if ready is True:
-                self.run(200, self.run_mapping["downloaded_whisper_weight"], data)
-            else:
-                error_response = VRCTError.create_error_response(
-                    ErrorCode.WEIGHT_WHISPER_DOWNLOAD, data={**data, "reason": error},
-                )
-                self.run(error_response["status"], self.run_mapping["error_whisper_weight"], error_response["result"])
 
     def _messagePublicationGuard(self, source, publication_guard=None):
         def muted():
@@ -3125,17 +3086,6 @@ class Controller:
         return {"status":200,"result":config.SELECTED_TRANSLATION_COMPUTE_DEVICE}
 
 
-
-    def setSelectedTranscriptionComputeDevice(self, device:str, *args, **kwargs) -> dict:
-        printLog("setSelectedTranscriptionComputeDevice", device)
-        config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE = device
-        config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE = "auto"
-        self.run(200, self.run_mapping["selected_transcription_compute_type"], config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE)
-        return {"status":200,"result":config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE}
-
-    @staticmethod
-    def getSelectableWhisperWeightTypeDict(*args, **kwargs) -> dict:
-        return {"status":200, "result":config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT}
 
     # @staticmethod
     # def getMaxMicThreshold(*args, **kwargs) -> dict:
@@ -4802,20 +4752,6 @@ class Controller:
 
     @staticmethod
     @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
-    def setWhisperWeightType(data, *args, **kwargs) -> dict:
-        config.WHISPER_WEIGHT_TYPE = str(data)
-        return {"status":200, "result": config.WHISPER_WEIGHT_TYPE}
-
-
-    @staticmethod
-    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
-    def setSelectedTranscriptionComputeType(data, *args, **kwargs) -> dict:
-        config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE = str(data)
-        return {"status":200, "result":config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE}
-
-
-    @staticmethod
-    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
     def setSendMessageFormatParts(data, *args, **kwargs) -> dict:
         config.SEND_MESSAGE_FORMAT_PARTS = dict(data)
         return {"status":200, "result":config.SEND_MESSAGE_FORMAT_PARTS}
@@ -5372,14 +5308,10 @@ class Controller:
         if consent_error is not None:
             return consent_error
         weight_type = data["weight_type"]
-        notifier = (self.DownloadWhisper if kind == "whisper" else self.DownloadCTranslate2)(
-            self.run_mapping, weight_type, self.run)
+        notifier = self.DownloadCTranslate2(self.run_mapping, weight_type, self.run)
         owner = self._legacyDownloads()
 
         def acquire(control):
-            if kind == "whisper":
-                downloaded = model.downloadWhisperModelWeight(weight_type, notifier.progressBar, control=control)
-                return downloaded is True and model.checkTranscriptionWhisperModelWeight(weight_type) is True
             downloaded = model.downloadCTranslate2ModelWeight(weight_type, notifier.progressBar, control=control)
             return downloaded is True and model.checkTranslatorCTranslate2ModelWeight(weight_type) is True
 
@@ -5388,7 +5320,7 @@ class Controller:
         except Exception as exc:
             # Rejected requests have one identified endpoint result, no worker notification.
             return VRCTError.create_error_response(
-                ErrorCode.WEIGHT_WHISPER_DOWNLOAD if kind == "whisper" else ErrorCode.WEIGHT_CTRANSLATE2_DOWNLOAD,
+                ErrorCode.WEIGHT_CTRANSLATE2_DOWNLOAD,
                 data={"weight_type": weight_type, "job_id": notifier.job_id,
                       "downloaded": False, "reason": str(exc),
                       "active_job_id": owner.active_job((kind, weight_type))},
@@ -5399,9 +5331,6 @@ class Controller:
 
     def downloadCtranslate2Weight(self, data:Any, asynchronous:bool=True, *args, **kwargs) -> dict:
         return self._downloadLegacyWeight("ctranslate2", data, asynchronous)
-
-    def downloadWhisperWeight(self, data:Any, asynchronous:bool=True, *args, **kwargs) -> dict:
-        return self._downloadLegacyWeight("whisper", data, asynchronous)
 
     @staticmethod
     def messageFormatter(format_type:str, translation:list, message:str, format_parts=None) -> str:
@@ -5480,44 +5409,11 @@ class Controller:
             response = VRCTError.create_error_response(error.error_code, data=False)
             self.run(response["status"], "/set/enable/transcription_send", response["result"])
             return False
-        except Exception as e:
+        except Exception:
             model.message_delivery.revoke("mic")
-            # VRAM不足エラーの検出
-            is_vram_error, error_message = model.detectVRAMError(e)
-            if is_vram_error:
-                response = VRCTError.create_error_response(
-                    ErrorCode.TRANSCRIPTION_VRAM_MIC,
-                    data=error_message
-                )
-                self.run(
-                    response["status"],
-                    self.run_mapping["error_transcription_mic_vram_overflow"],
-                    response["result"],
-                )
-                # ここでマイクの音声認識を停止。mic_lifecycle_lock を既に
-                # 保持しているため、ロックを取り直す公開版
-                # (stopTranscriptionSendMessage) ではなく内部版を呼ぶ。
-                self._stopTranscriptionSendMessageLocked()
-                # UI の状態同期は enable 通知ではなく、状態更新用の
-                # disable endpoint へ送る。_start() が先に構造化 pipeline
-                # error を通知していた場合は、micMessage() が既に config
-                # を False にしているため重複通知しない。
-                if config.ENABLE_TRANSCRIPTION_SEND is True:
-                    self.run(
-                        200,
-                        self.run_mapping.get(
-                            "disable_transcription_send",
-                            "/set/disable/transcription_send",
-                        ),
-                        False,
-                    )
-                config.ENABLE_TRANSCRIPTION_SEND = False
-                return False
-            else:
-                # その他のエラーは通常通り処理
-                errorLogging()
-                config.ENABLE_TRANSCRIPTION_SEND = False
-                return False
+            errorLogging()
+            config.ENABLE_TRANSCRIPTION_SEND = False
+            return False
 
     def _stopTranscriptionSendMessageLocked(self) -> None:
         """mic_lifecycle_lock を既に保持している呼び出し元専用。"""
@@ -5551,41 +5447,11 @@ class Controller:
             response = VRCTError.create_error_response(error.error_code, data=False)
             self.run(response["status"], "/set/enable/transcription_receive", response["result"])
             return False
-        except Exception as e:
+        except Exception:
             model.message_delivery.revoke("speaker")
-            # VRAM不足エラーの検出
-            is_vram_error, error_message = model.detectVRAMError(e)
-            if is_vram_error:
-                response = VRCTError.create_error_response(
-                    ErrorCode.TRANSCRIPTION_VRAM_SPEAKER,
-                    data=error_message
-                )
-                self.run(
-                    response["status"],
-                    self.run_mapping["error_transcription_speaker_vram_overflow"],
-                    response["result"],
-                )
-                # ここでスピーカーの音声認識を停止 (内部版、詳細は
-                # startTranscriptionSendMessage 側のコメント参照)
-                self._stopTranscriptionReceiveMessageLocked()
-                # Mic と同様、UI の状態同期は disable endpoint に送る。
-                # pipeline error 経由で既に同期済みなら重複通知しない。
-                if config.ENABLE_TRANSCRIPTION_RECEIVE is True:
-                    self.run(
-                        200,
-                        self.run_mapping.get(
-                            "disable_transcription_receive",
-                            "/set/disable/transcription_receive",
-                        ),
-                        False,
-                    )
-                config.ENABLE_TRANSCRIPTION_RECEIVE = False
-                return False
-            else:
-                # その他のエラーは通常通り処理
-                errorLogging()
-                config.ENABLE_TRANSCRIPTION_RECEIVE = False
-                return False
+            errorLogging()
+            config.ENABLE_TRANSCRIPTION_RECEIVE = False
+            return False
 
     def _stopTranscriptionReceiveMessageLocked(self) -> None:
         """speaker_lifecycle_lock を既に保持している呼び出し元専用。"""
@@ -5888,28 +5754,79 @@ class Controller:
         self.run(error_response["status"], self.run_mapping["ctranslate2_license_notice"], error_response["result"])
         config.CTRANSLATE2_LICENSE_NOTICE_SHOWN = True
 
-    def updateDownloadedWhisperModelWeight(self) -> None:
-        # キャッシュされた結果を使用（起動時の重複チェックを回避）
-        if hasattr(self, '_whisper_available_cache'):
-            # 起動時のキャッシュを使用: 選択中の重みタイプのみ設定
-            config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT[config.WHISPER_WEIGHT_TYPE] = self._whisper_available_cache
-        
-        # すべての重みタイプをチェック（キャッシュされていないものだけ）
-        for weight_type in config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT.keys():
-            # 選択中のウェイトはキャッシュで設定済みなのでスキップ
-            if hasattr(self, '_whisper_available_cache') and weight_type == config.WHISPER_WEIGHT_TYPE:
-                continue
-            config.SELECTABLE_WHISPER_WEIGHT_TYPE_DICT[weight_type] = model.checkTranscriptionWhisperModelWeight(weight_type)
-
     def updateTranscriptionEngine(self, requested_engine: Optional[str] = None) -> None:
         """Apply explicit selections only; availability never changes consent."""
         previous_engine = config.SELECTED_TRANSCRIPTION_ENGINE
+        previous_realtime = self._realtimeToggles()
         if requested_engine is not None:
             config.SELECTED_TRANSCRIPTION_ENGINE = requested_engine
+        if self._realtimeToggles() != previous_realtime:
+            self._leaveTranscriptionRoute(previous_realtime)
 
         if config.SELECTED_TRANSCRIPTION_ENGINE != previous_engine:
             self.fallbackUnsupportedLanguagesForTranscriptionEngine(config.SELECTED_TRANSCRIPTION_ENGINE)
             self.run(200, self.run_mapping["selectable_language_list"], model.getListLanguageAndCountry())
+
+    def _leaveTranscriptionRoute(self, realtime):
+        """Turn off what listens through the route the engine no longer selects (Windows).
+
+        The switches then show off; turning one on again starts the newly selected route.
+        """
+        if realtime:
+            for source in ("mic", "speaker"):
+                with self._realtime_lock:
+                    self._invalidateRealtimeLocked(source)
+                model.message_delivery.revoke(source)
+                self._publishRealtimeToggle(source)
+            return
+        for enabled, disable, direction in (
+                (config.ENABLE_TRANSCRIPTION_SEND, self.setDisableTranscriptionSend, "send"),
+                (config.ENABLE_TRANSCRIPTION_RECEIVE, self.setDisableTranscriptionReceive, "receive")):
+            if enabled:
+                # The legacy recorder stops as one, whatever the engine now is.
+                disable()
+                self.run(200, "/set/disable/transcription_" + direction, False)
+
+    @staticmethod
+    def getLocalAsrNotice(*args, **kwargs) -> dict:
+        """Whether the one-time notice about the move from Whisper to speech.cpp is still to be shown.
+
+        Config._migrateLocalASR sets it for a saved choice of the removed Whisper engine. The
+        notice only says what local recognition needs and where to get it; it never downloads.
+        """
+        return {"status": 200, "result": config.LOCAL_ASR_NOTICE_PENDING}
+
+    @staticmethod
+    def setDisableLocalAsrNotice(*args, **kwargs) -> dict:
+        """The user closed the notice: it is not shown again."""
+        config.LOCAL_ASR_NOTICE_PENDING = False
+        return {"status": 200, "result": config.LOCAL_ASR_NOTICE_PENDING}
+
+    @staticmethod
+    def getOldWhisperWeights(*args, **kwargs) -> dict:
+        """The Whisper weights older versions downloaded: {"total_bytes", "folders"}."""
+        try:
+            return {"status": 200, "result": model.getOldWhisperWeights()}
+        except Exception:
+            errorLogging()
+            return {"status": 500, "result": {"error_code": "old_whisper_weights_unreadable"}}
+
+    @staticmethod
+    def deleteOldWhisperWeights(*args, **kwargs) -> dict:
+        """Delete them, at the user's request only: {"total_bytes", "folders", "freed_bytes", "failed"}.
+
+        Only the known weight folders are removed and no link is followed
+        (models/transcription/old_whisper_weights.py). What remains is returned, so the
+        settings can show it.
+        """
+        try:
+            result = model.deleteOldWhisperWeights()
+        except Exception:
+            errorLogging()
+            return {"status": 500, "result": {"error_code": "old_whisper_weights_delete_failed"}}
+        printLog("Deleted old Whisper weights", {"freed_bytes": result["freed_bytes"],
+                                                 "remaining": len(result["folders"]), "failed": len(result["failed"])})
+        return {"status": 200, "result": result}
 
     def startCheckMicEnergy(self) -> bool:
         with self.mic_lifecycle_lock:
@@ -6969,30 +6886,21 @@ class Controller:
         # ダウンロードが発生しなかった場合はこの結果をそのまま使い、後続の
         # availabilityチェックで同じ重みを二重にロードして検証するのを避ける。
         ctranslate2_pre_available: Optional[bool] = None
-        whisper_pre_available: Optional[bool] = None
         ctranslate2_request = None
-        whisper_request = None
         # Migration is local and preserves conflicts, including offline startup.
         model.backwardCompatibleTranslatorCTranslate2ModelRenameWeightsDir()
         if config.AUTO_DOWNLOAD_MODELS is True:
             ctranslate2_pre_available = model.checkTranslatorCTranslate2ModelWeight(config.CTRANSLATE2_WEIGHT_TYPE)
-            whisper_pre_available = model.checkTranscriptionWhisperModelWeight(config.WHISPER_WEIGHT_TYPE)
             if ctranslate2_pre_available is False:
                 ctranslate2_request = self._startupLegacyDownloadRequest("ctranslate2", config.CTRANSLATE2_WEIGHT_TYPE)
-            if whisper_pre_available is False:
-                whisper_request = self._startupLegacyDownloadRequest("whisper", config.WHISPER_WEIGHT_TYPE)
-            if ctranslate2_request is not None or whisper_request is not None:
+            if ctranslate2_request is not None:
                 connected_network = isConnectedNetwork()
                 self.run(200, self.run_mapping["connected_network"], connected_network)
-            if connected_network is True:
-                if ctranslate2_request is not None:
-                    self.downloadCtranslate2Weight(ctranslate2_request, False)
-                    ctranslate2_pre_available = None
-                if whisper_request is not None:
-                    self.downloadWhisperWeight(whisper_request, False)
-                    whisper_pre_available = None
+            if connected_network is True and ctranslate2_request is not None:
+                self.downloadCtranslate2Weight(ctranslate2_request, False)
+                ctranslate2_pre_available = None
 
-        # Check and disable/enable AI models (parallel)
+        # Check and disable/enable AI models
         # 上の事前チェックで「ロード検証済みかつダウンロード不要」と分かっている場合は
         # 同じ重みファイルをもう一度ロードして検証するのを避け、その結果を再利用する。
 
@@ -7001,45 +6909,21 @@ class Controller:
                 return True
             return model.checkTranslatorCTranslate2ModelWeight(config.CTRANSLATE2_WEIGHT_TYPE) is True
 
-        def check_whisper() -> bool:
-            if whisper_pre_available is True:
-                return True
-            return model.checkTranscriptionWhisperModelWeight(config.WHISPER_WEIGHT_TYPE) is True
-
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_ctranslate2 = executor.submit(check_ctranslate2)
-            future_whisper = executor.submit(check_whisper)
-            ctranslate2_available = future_ctranslate2.result()
-            whisper_available = future_whisper.result()
+        ctranslate2_available = check_ctranslate2()
 
         # 同意済みで、前回のworkerを停止・joinできた重みだけ1回再試行する。
         # 取消がまだ完了していなければ重ねて取得せず、取得済みとは扱わない。
-        if (connected_network is True and config.AUTO_DOWNLOAD_MODELS is True
-                and (not ctranslate2_available or not whisper_available)):
-            if (not ctranslate2_available and ctranslate2_request is not None
+        if connected_network is True and config.AUTO_DOWNLOAD_MODELS is True and not ctranslate2_available:
+            if (ctranslate2_request is not None
                     and self._legacyDownloads().stop(("ctranslate2", config.CTRANSLATE2_WEIGHT_TYPE))):
                 printLog("CTranslate2 weight unavailable after first download; retrying once")
                 self.downloadCtranslate2Weight(ctranslate2_request, False)
-            if (not whisper_available and whisper_request is not None
-                    and self._legacyDownloads().stop(("whisper", config.WHISPER_WEIGHT_TYPE))):
-                printLog("Whisper weight unavailable after first download; retrying once")
-                self.downloadWhisperWeight(whisper_request, False)
-
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                future_ctranslate2 = executor.submit(
-                    lambda: ctranslate2_available or model.checkTranslatorCTranslate2ModelWeight(config.CTRANSLATE2_WEIGHT_TYPE) is True
-                )
-                future_whisper = executor.submit(
-                    lambda: whisper_available or model.checkTranscriptionWhisperModelWeight(config.WHISPER_WEIGHT_TYPE) is True
-                )
-                ctranslate2_available = future_ctranslate2.result()
-                whisper_available = future_whisper.result()
+            ctranslate2_available = model.checkTranslatorCTranslate2ModelWeight(config.CTRANSLATE2_WEIGHT_TYPE) is True
 
         # インスタンス変数にキャッシュ（後続の処理で再利用）
         self._ctranslate2_available_cache = ctranslate2_available
-        self._whisper_available_cache = whisper_available
 
-        if self._missingBuiltInModelInUse(ctranslate2_available, whisper_available):
+        if self._missingBuiltInModelInUse(ctranslate2_available):
             self.disableAiModels()
         else:
             self.enableAiModels()
@@ -7273,9 +7157,6 @@ class Controller:
 
             try:
                 match engine:
-                    case "Whisper":
-                        # キャッシュされた結果を使用（重複チェックを回避）
-                        status = self._whisper_available_cache
                     case "Groq_Whisper":
                         api_key = config.TRANSCRIPTION_AUTH_KEYS.get(engine)
                         if not api_key:
@@ -7410,7 +7291,6 @@ class Controller:
 
         # Set Transcription Engine
         printLog("Set Transcription Engine")
-        self.updateDownloadedWhisperModelWeight()
         self.updateTranscriptionEngine()
 
         # Set Transliteration

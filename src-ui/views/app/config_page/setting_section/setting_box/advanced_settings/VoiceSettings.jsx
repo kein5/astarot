@@ -37,7 +37,8 @@ export const VoiceSettings = () => {
     const input = key => {
         const voice = key.endsWith("_voice");
         return <label>{t(`voice.${key}`)}
-            <input value={voice && draft[key] === "none" ? "" : draft[key]} placeholder={voice ? t("voice_ui.voice_unset") : undefined}
+            <input value={voice && draft[key] === "none" ? "" : draft[key]}
+                placeholder={voice ? t("voice_ui.voice_unset") : t("voice_ui.example", { value: "http://127.0.0.1:8080" })}
                 onChange={e => field(key, voice && e.target.value === "" ? "none" : e.target.value)} maxLength={voice ? 128 : 512} />
         </label>;
     };

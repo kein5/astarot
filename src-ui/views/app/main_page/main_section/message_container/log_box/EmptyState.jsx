@@ -6,7 +6,8 @@ import { downloadProgress } from "../../../../../../logics/main/setupNeeds";
 import styles from "./LogBox.module.scss";
 
 // The first screen of a session. It says where to type and, in the main window,
-// what the selected engines still need, each with the step that provides it.
+// what the selected engines still need, each with the step that provides it: the
+// download review, or the settings where the local speech recognition models are set.
 export const EmptyState = () => {
     const { t } = useI18n();
     return <div className={styles.empty}>
@@ -22,12 +23,13 @@ const Setup = () => {
     const sends = useSettingValue("EnableSendMessageToVrc");
     return <>
         {needs.length > 0 && <ul className={styles.setup} aria-label={t("studio.setup_label")}>
-            {needs.map(({ id, weight }) => {
+            {needs.map(({ id, weight, action }) => {
                 const progress = downloadProgress(weight);
                 return <li key={id}>
                     <span>{t(`studio.setup_${id}`)}</span>
                     {progress === null
-                        ? <button type="button" onClick={() => start(id)}>{t("model_downloads.review")}</button>
+                        ? <button type="button" onClick={() => start(id)}>
+                            {t(action === "settings" ? "studio.setup_open_settings" : "model_downloads.review")}</button>
                         : <span role="status">{t(progress === "pending" ? "studio.setup_preparing" : "studio.setup_downloading", { progress })}</span>}
                 </li>;
             })}

@@ -226,7 +226,7 @@ def test_asr_provider_failures_include_malformed_responses(engine, monkeypatch, 
             create=Mock(side_effect=failure))))
     try:
         client.transcribe(Mock(), "English", "United States", avg_logprob=-1,
-                          no_speech_prob=0.6, no_repeat_ngram_size=3, force_language=False)
+                          no_speech_prob=0.6, force_language=False)
     except Exception as error:
         utils.errorLogging()
         assert VRCTError.create_exception_error_response(error)["result"]["message"] == "Error: " + type(error).__name__

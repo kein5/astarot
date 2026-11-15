@@ -4,8 +4,9 @@ import { SpeechServers } from "../advanced_settings/SpeechServers";
 import { useI18n } from "@useI18n";
 import styles from "./Transcription.module.scss";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
+import { OldWhisperWeights } from "./OldWhisperWeights";
 import { genNumObjArray } from "@utils";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import {
     useTranscription,
@@ -16,11 +17,8 @@ import { CLOUD_TRANSCRIPTION_ENGINES } from "../../../../../../logics/configs/cl
 
 import {
     WordFilterContainer,
-    DownloadModelsContainer,
     RadioButtonContainer,
     DropdownMenuContainer,
-    SliderContainer,
-    SwitchBoxContainer,
     AuthKeyContainer,
 } from "../_templates/Templates";
 
@@ -28,11 +26,8 @@ import {
     SectionLabelComponent,
 } from "../_components";
 
-import { ComputeDevice } from "../_components/compute_device/ComputeDevice";
 import { Description } from "../_components/description/Description";
 import { SetupSection } from "../_components/setup_section/SetupSection";
-import { LegacyModelDownloadDialog } from "../_components/download_models/LegacyModelDownloadDialog";
-import { AutoDownloadModelsContainer } from "../shared_items/SharedItems";
 
 export const Transcription = () => {
     return (
@@ -45,6 +40,8 @@ export const Transcription = () => {
             <Speaker_Container />
             <RealtimeASRSettings />
             <SpeechServers profiles={["asr"]} />
+            {/* Only while Whisper weights from an earlier version are on this PC (#288). */}
+            <OldWhisperWeights />
         </div>
     );
 };
@@ -233,32 +230,11 @@ const SpeakerMaxWords_Box = () => {
 
 const TranscriptionEngine_Container = () => {
     const { t } = useI18n();
-    const { currentSelectedTranscriptionEngine, currentMicAvgLogprob, currentMicNoSpeechProb,
-        currentSpeakerAvgLogprob, currentSpeakerNoSpeechProb } = useTranscription();
-    const pair = (confidence, silence) => `${confidence.data ?? "-"} / ${silence.data ?? "-"}`;
 
     return (
         <div>
             <SectionLabelComponent label={t("config_page.transcription.section_label_transcription_engines")} />
             <TranscriptionEngine_Box />
-            {/* Also on the translation page: one switch fetches both models. */}
-            <AutoDownloadModelsContainer />
-            {currentSelectedTranscriptionEngine.data === "Whisper" && (
-                <>
-                    <WhisperWeightType_Box />
-                    <TranscriptionComputeDevice_Box />
-                    {/* Whisper's own thresholds: the defaults suit most voices, so they are folded too. */}
-                    <SetupSection title={t("config_page.transcription.thresholds_title")}
-                        status={t("config_page.transcription.thresholds_status", {
-                            mic: pair(currentMicAvgLogprob, currentMicNoSpeechProb),
-                            speaker: pair(currentSpeakerAvgLogprob, currentSpeakerNoSpeechProb) })}>
-                        <MicAvgLogprobContainer />
-                        <MicNoSpeechProbContainer />
-                        <SpeakerAvgLogprobContainer />
-                        <SpeakerNoSpeechProbContainer />
-                    </SetupSection>
-                </>
-            )}
         </div>
     );
 };
@@ -284,7 +260,9 @@ export const TranscriptionEngine_Box = () => {
             desc={<span className={styles.engine_help}>
                 <span>{t("config_page.transcription.select_transcription_engine.desc")}</span>
                 <span role="status">{t("transcription_consent.selected", {
-                    engine: currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
+                    engine: currentSelectedTranscriptionEngine.data === "SpeechCpp"
+                        ? t("config_page.transcription.select_transcription_engine.engines.speechcpp")
+                        : currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
                 })}</span>
                 {currentSelectedTranscriptionEngine.data === "Google" && <span>{t("transcription_consent.google_notice")}</span>}
             </span>}
@@ -292,7 +270,7 @@ export const TranscriptionEngine_Box = () => {
             name="select_transcription_engine"
             options={[
                 { id: "Google", label: "Google" },
-                { id: "Whisper", label: "Whisper" },
+                { id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
                 ...cloud_options,
             ]}
             checked_variable={currentSelectedTranscriptionEngine}
@@ -387,160 +365,6 @@ const CloudModel_Box = ({ engine }) => {
             selectFunction={selected_data => setSelected(selected_data.selected_id)}
             state={selected.state}
             is_disabled={!auth_key.data}
-        />
-    );
-};
-
-const WhisperWeightType_Box = () => {
-    const { t } = useI18n();
-    const {
-        currentWhisperWeightTypeStatus,
-        pendingWhisperWeightTypeStatus,
-        downloadWhisperWeightTypeStatus,
-    } = useTranscription();
-    const { currentSelectedWhisperWeightType, setSelectedWhisperWeightType } = useTranscription();
-
-    const selectFunction = (id) => {
-        setSelectedWhisperWeightType(id);
-    };
-
-    const [downloadReview, setDownloadReview] = useState(null);
-    const downloadStartFunction = (id) => setDownloadReview(id);
-    const download = (request) => {
-        pendingWhisperWeightTypeStatus(request.weight_type);
-        downloadWhisperWeightTypeStatus(request);
-    };
-
-    const whisper_weight_types = currentWhisperWeightTypeStatus.data.map(item => {
-        return {
-            ...item,
-            label: item.id,
-        };
-    });
-
-    return (
-        <>
-            {downloadReview && <LegacyModelDownloadDialog kind="whisper" weightType={downloadReview}
-                onCancel={() => setDownloadReview(null)} onDownload={download} />}
-            <DownloadModelsContainer
-                label={t("config_page.transcription.whisper_weight_type.label")}
-                desc={t(
-                    "config_page.transcription.whisper_weight_type.desc",
-                    { translator: t("main_page.translator") }
-                )}
-                name="whisper_weight_type"
-                options={whisper_weight_types}
-                checked_variable={currentSelectedWhisperWeightType}
-                selectFunction={selectFunction}
-                downloadStartFunction={downloadStartFunction}
-            />
-        </>
-    );
-};
-
-const TranscriptionComputeDevice_Box = () => {
-    const { t } = useI18n();
-    const {
-        currentSelectableTranscriptionComputeDeviceList,
-        currentSelectedTranscriptionComputeDevice,
-        setSelectedTranscriptionComputeDevice,
-        currentSelectedTranscriptionComputeType,
-        setSelectedTranscriptionComputeType,
-    } = useTranscription();
-
-    return (
-        <ComputeDevice
-            label={t("config_page.transcription.transcription_compute_device.label")}
-            dropdownIdPrefix="transcription"
-            currentDeviceList={currentSelectableTranscriptionComputeDeviceList}
-            currentSelectedDevice={currentSelectedTranscriptionComputeDevice}
-            setSelectedDevice={setSelectedTranscriptionComputeDevice}
-            currentSelectedComputeType={currentSelectedTranscriptionComputeType}
-            setSelectedComputeType={setSelectedTranscriptionComputeType}
-        />
-    );
-};
-
-
-
-
-
-
-const MicAvgLogprobContainer = () => {
-    const { t } = useI18n();
-    const { currentMicAvgLogprob, setMicAvgLogprob } = useTranscription();
-    return (
-        <SliderContainer
-            label={t("config_page.transcription.mic_avg_logprob.label")}
-            desc={t("config_page.transcription.mic_avg_logprob.desc")}
-            state={currentMicAvgLogprob.state}
-            variable={currentMicAvgLogprob.data}
-            setterFunction={setMicAvgLogprob}
-            min={-2}
-            max={0}
-            step={0.1}
-            marks_step={0.1}
-            show_label_values={[-2, -1.8, -1.6, -1.4, -1.2, -1, -0.8, -0.6, -0.4, -0.2, 0]}
-        />
-    );
-};
-
-const MicNoSpeechProbContainer = () => {
-    const { t } = useI18n();
-    const { currentMicNoSpeechProb, setMicNoSpeechProb } = useTranscription();
-
-    return (
-        <SliderContainer
-            label={t("config_page.transcription.mic_no_speech_prob.label")}
-            desc={t("config_page.transcription.mic_no_speech_prob.desc")}
-            state={currentMicNoSpeechProb.state}
-            variable={currentMicNoSpeechProb.data}
-            setterFunction={setMicNoSpeechProb}
-            min={0}
-            max={1}
-            step={0.1}
-            marks_step={0.1}
-            show_label_values={[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]}
-        />
-    );
-};
-
-const SpeakerAvgLogprobContainer = () => {
-    const { t } = useI18n();
-    const { currentSpeakerAvgLogprob, setSpeakerAvgLogprob } = useTranscription();
-
-    return (
-        <SliderContainer
-            label={t("config_page.transcription.speaker_avg_logprob.label")}
-            desc={t("config_page.transcription.speaker_avg_logprob.desc")}
-            state={currentSpeakerAvgLogprob.state}
-            variable={currentSpeakerAvgLogprob.data}
-            setterFunction={setSpeakerAvgLogprob}
-            min={-2}
-            max={0}
-            step={0.1}
-            marks_step={0.1}
-            show_label_values={[-2, -1.8, -1.6, -1.4, -1.2, -1, -0.8, -0.6, -0.4, -0.2, 0]}
-        />
-    );
-};
-
-const SpeakerNoSpeechProbContainer = () => {
-    const { t } = useI18n();
-    const { currentSpeakerNoSpeechProb, setSpeakerNoSpeechProb } = useTranscription();
-
-    return (
-        <SliderContainer
-            label={t("config_page.transcription.speaker_no_speech_prob.label")}
-            desc={t("config_page.transcription.speaker_no_speech_prob.desc")}
-            state={currentSpeakerNoSpeechProb.state}
-            variable={currentSpeakerNoSpeechProb.data}
-            setterFunction={setSpeakerNoSpeechProb}
-            min={0}
-            max={1}
-            step={0.1}
-            marks_step={0.1}
-            show_label_values={[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]}
         />
     );
 };

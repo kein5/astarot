@@ -21,8 +21,7 @@ ASR_INTEGERS = [
     (f"{source}_{suffix}", upper)
     for source in ("MIC", "SPEAKER")
     for suffix, upper in (("THRESHOLD", 2000), ("RECORD_TIMEOUT", 30),
-                          ("PHRASE_TIMEOUT", 30), ("MAX_PHRASES", 30 if source == "MIC" else 60),
-                          ("NO_REPEAT_NGRAM_SIZE", None))
+                          ("PHRASE_TIMEOUT", 30), ("MAX_PHRASES", 30 if source == "MIC" else 60))
 ]
 NULLABLE = ("SELECTED_TRANSCRIPTION_ENGINE",) + tuple(
     f"SELECTED_{provider}_MODEL" for provider in
@@ -36,7 +35,6 @@ def settings(isolated):  # noqa: F811 - imported pytest fixture
     config = isolated.config
     config._SELECTABLE_COMPUTE_DEVICE_LIST = copy.deepcopy([CPU, GPU])
     config._SELECTED_TRANSLATION_COMPUTE_DEVICE = copy.deepcopy(CPU)
-    config._SELECTED_TRANSCRIPTION_COMPUTE_DEVICE = copy.deepcopy(CPU)
     return isolated
 
 
@@ -60,7 +58,7 @@ def ipc(settings):
 @pytest.mark.parametrize("order", ["serialized", "type_first", "device_first"])
 def test_gpu_compute_types_survive_save_load(settings, order):
     config = settings.config
-    for source in ("TRANSLATION", "TRANSCRIPTION"):
+    for source in ("TRANSLATION",):
         setattr(config, f"SELECTED_{source}_COMPUTE_DEVICE", GPU)
         setattr(config, f"SELECTED_{source}_COMPUTE_TYPE", "float16")
     config.saveConfigToFile()
@@ -69,18 +67,18 @@ def test_gpu_compute_types_survive_save_load(settings, order):
         first = "TYPE" if order == "type_first" else "DEVICE"
         saved = dict(sorted(saved.items(), key=lambda item: not item[0].endswith(f"COMPUTE_{first}")))
         settings.path.write_text(json.dumps(saved), encoding="utf-8")
-    for source in ("TRANSLATION", "TRANSCRIPTION"):
+    for source in ("TRANSLATION",):
         setattr(config, f"_SELECTED_{source}_COMPUTE_DEVICE", copy.deepcopy(CPU))
         setattr(config, f"_SELECTED_{source}_COMPUTE_TYPE", "auto")
     config.load_config()
     saved = strict_json(settings.path.read_text())
-    for source in ("TRANSLATION", "TRANSCRIPTION"):
+    for source in ("TRANSLATION",):
         assert getattr(config, f"SELECTED_{source}_COMPUTE_DEVICE") == GPU
         assert saved[f"SELECTED_{source}_COMPUTE_TYPE"] == "float16"
     config.on_save_failed.assert_not_called()
 
 
-@pytest.mark.parametrize("source", ["TRANSLATION", "TRANSCRIPTION"])
+@pytest.mark.parametrize("source", ["TRANSLATION"])
 @pytest.mark.parametrize("capabilities,expected_type", [
     (["float32", "float16", "auto", "bfloat16"], "float16"), (["auto", "float32"], "auto"),
 ])
@@ -108,20 +106,20 @@ def test_gpu_identity_mismatch_falls_back_and_rejects_setter(settings, damage):
         key, value = {"name": ("device_name", "Other RTX"), "index": ("device_index", 1),
                       "kind": ("device", "other"), "bool_index": ("device_index", False)}[damage]
         invalid[key] = value
-    key = "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE"
-    settings.path.write_text(json.dumps({"SELECTED_TRANSCRIPTION_COMPUTE_TYPE": "float16", key: invalid}), encoding="utf-8")
+    key = "SELECTED_TRANSLATION_COMPUTE_DEVICE"
+    settings.path.write_text(json.dumps({"SELECTED_TRANSLATION_COMPUTE_TYPE": "float16", key: invalid}), encoding="utf-8")
     settings.config.load_config()
     assert getattr(settings.config, key) == CPU
-    assert settings.config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE == "auto"
+    assert settings.config.SELECTED_TRANSLATION_COMPUTE_TYPE == "auto"
     with pytest.raises(settings.ns["ConfigValidationError"]):
         setattr(settings.config, key, invalid)
 
 
 def test_runtime_compute_type_validation_uses_current_device(settings):
-    settings.config._config_data = {"SELECTED_TRANSCRIPTION_COMPUTE_DEVICE": GPU}
+    settings.config._config_data = {"SELECTED_TRANSLATION_COMPUTE_DEVICE": GPU}
     with pytest.raises(settings.ns["ConfigValidationError"]):
-        settings.config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE = "float16"
-    assert settings.config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE == "auto"
+        settings.config.SELECTED_TRANSLATION_COMPUTE_TYPE = "float16"
+    assert settings.config.SELECTED_TRANSLATION_COMPUTE_TYPE == "auto"
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf"), json.loads("1e999")])

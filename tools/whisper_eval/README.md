@@ -1,7 +1,12 @@
-# Whisper評価ツール
+# 音声認識の評価ツール（旧 Whisper 評価ツール）
 
-Common Voice日本語の音声と正解テキストから、再現可能なローカルWhisper評価セットを作成し、
-CPU上のCER・推論時間・リアルタイム倍率を比較するためのツールです。
+Common Voice日本語の音声と正解テキストから、再現可能な音声認識の評価セットを作成し、
+CER・推論時間・リアルタイム倍率を比較するためのツールです。
+
+もとはローカルWhisperの評価用に作りました。ローカルWhisperは #288 で削除し、ローカルの
+音声認識は speech.cpp に一本化しました。評価セットの作成とCERの計算はエンジンに依らないので
+そのまま使えます。VRCTの統合確認（下記）は、従来の経路（Googleとクラウドのエンジン）だけを
+対象にします。speech.cpp はリアルタイムの経路で動くため、このツールの対象外です。
 
 ## 方針
 
@@ -11,7 +16,7 @@ CPU上のCER・推論時間・リアルタイム倍率を比較するための�
 - 16kHz・モノラル・16-bit PCM WAVへ統一する
 - クリーン音声に、固定seedのホワイトノイズ／環境音をSNR 10dB・20dBで重ねる
 - `metadata.csv` は発話ごとの入力、`manifest.json` は取得元と生成条件を記録する
-- 音声の変換・雑音生成はこのツールで行うが、Whisperモデルはダウンロードしない
+- 音声の変換・雑音生成はこのツールで行うが、音声認識のモデルはダウンロードしない
 
 Common Voiceの日本語データセットは、Mozillaのデータカタログでライセンスとバージョンを確認して取得してください。
 取得時のバージョンを `--dataset-version` に記録します。
@@ -61,35 +66,21 @@ tmp/whisper_eval/dataset/
 ## VRCT文字起こし機能の統合確認
 
 VRCTとしての確認では、準備済み音声をVRCTの `VadRecognizerAdapter` で区切り、実際の
-`AudioTranscriber.transcribeAudioQueue()` のキューへ投入し、Whisper結果がVRCTの
-`transcript_data` に格納されるところまで確認します。
+`AudioTranscriber.transcribeAudioQueue()` のキューへ投入し、認識結果がVRCTの
+`transcript_data` に格納されるところまで確認します。エンジンはGoogleです。実際に音声を
+Googleへ送信するため、ネットワークやサービス状態に依存します。
 
 ```powershell
 $env:PYTHONPATH = (Join-Path (Get-Location) 'src-python')
 .\.venv\Scripts\python.exe -m tools.whisper_eval.run_vrct_transcription_test `
-  --repo-root . `
-  --dataset-dir .\tmp\whisper_eval\dataset_cv26 `
-  --output .\tmp\whisper_eval\vrct_transcription_test.json `
-  --engine Whisper `
-  --condition clean `
-  --model base `
-  --compute-type int8
-```
-
-このテストは実機のマイクデバイスオープンやUI通知までは行わず、VAD出力からVRCTの
-文字起こし結果格納までを対象にします。実機マイク・UI・Controllerを含む確認は別途行います。
-
-Google経路も同じVRCT統合テストで1発話だけ確認できます。これは実際に音声をGoogleへ
-送信するため、ネットワークやサービス状態に依存します。
-
-```powershell
-.\.venv\Scripts\python.exe -m tools.whisper_eval.run_vrct_transcription_test `
-  --repo-root . `
   --dataset-dir .\tmp\whisper_eval\dataset_cv26 `
   --output .\tmp\whisper_eval\vrct_google_transcription_test.json `
   --engine Google `
   --condition clean
 ```
+
+このテストは実機のマイクデバイスオープンやUI通知までは行わず、VAD出力からVRCTの
+文字起こし結果格納までを対象にします。実機マイク・UI・Controllerを含む確認は別途行います。
 
 ## 実機VAD評価との分離
 

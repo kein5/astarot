@@ -69,8 +69,8 @@ ANSWERS = {
     "/get/data/vrchat_osc_presence": "found",
     "/get/data/selectable_translation_engines": ["CTranslate2"],
     "/get/data/selected_translation_engines": {"1": "CTranslate2", "2": "CTranslate2", "3": "CTranslate2"},
-    "/get/data/selectable_transcription_engines": ["Google", "Whisper"],
-    "/get/data/selected_transcription_engine": "Whisper",
+    "/get/data/selectable_transcription_engines": ["Google", "SpeechCpp"],
+    "/get/data/selected_transcription_engine": "SpeechCpp",
 }
 
 

@@ -75,7 +75,7 @@ def test_nested_zip_preserves_ocr_context(tmp_path, container, levels):
 def test_inspection_ignores_host_ocr_directory(tmp_path, container):
     host = tmp_path / "ocr"
     host.mkdir()
-    _inspect_payload(host, container, "_internal/faster_whisper/assets/silero_vad_v6.onnx", b"VAD")
+    _inspect_payload(host, container, "_internal/models/transcription/silero_vad/silero_encoder_v5.onnx", b"VAD")
 
 
 @pytest.mark.parametrize("container", ["zip", "tar"])
@@ -120,7 +120,7 @@ def test_nested_zip_depth_is_bounded(tmp_path, container):
 
 @pytest.mark.parametrize("container", ["zip", "tar"])
 def test_allowed_prefixed_nested_zip_remains_allowed(tmp_path, container):
-    payload = _zip_bytes("faster_whisper/assets/silero_vad_v6.onnx", prefix=b"MZ")
+    payload = _zip_bytes("models/transcription/silero_vad/silero_encoder_v5.onnx", prefix=b"MZ")
     _inspect_payload(tmp_path, container, "_internal/payload.dat", payload)
 
 
@@ -212,7 +212,7 @@ def test_guard_rejects_unreadable_zip(tmp_path):
 
 def test_non_ocr_vad_and_notices_remain_allowed(tmp_path):
     with zipfile.ZipFile(tmp_path / "package.zip", "w") as archive:
-        archive.writestr("faster_whisper/assets/silero_vad_v6.onnx", b"fake VAD")
+        archive.writestr("models/transcription/silero_vad/silero_encoder_v5.onnx", b"fake VAD")
         archive.writestr("ocr_onnx/LICENSE.txt", "attribution")
     guard.check([tmp_path])
 

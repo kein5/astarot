@@ -332,6 +332,19 @@ def test_bundled_server_that_cannot_start_is_not_ready(app, monkeypatch, tmp_pat
     assert bool(servers.started) == (fail is not None)
 
 
+def test_a_switch_does_not_start_the_server_when_the_user_turned_that_off(app, monkeypatch, tmp_path):
+    """#288: starting the bundled server from a switch is the user's choice."""
+    c, servers = bundled(app, monkeypatch, tmp_path)
+    configure(c, start_server=False)
+    result = c.setEnableTranscriptionSend()["result"]
+    assert result["details"] == {"reason": "speech_server_autostart_off"}
+    assert not servers.started
+    # A server the user started from Settings is used as before.
+    servers.row.update(state="ready", base_url="http://127.0.0.1:9911")
+    servers.run = 0
+    assert c.setEnableTranscriptionSend()["result"] is True and not servers.started
+
+
 def test_asr_server_crash_turns_bundled_toggles_off_with_the_server_code(app, monkeypatch, tmp_path):
     c, m, made = app
     recognizers(m, monkeypatch, QWEN)

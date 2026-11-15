@@ -36,8 +36,7 @@ VR_PANEL_ENDPOINTS = frozenset({
     # Translation, speech recognition and chat reading.
     "/set/data/selected_ctranslate2_weight_type", "/set/data/selected_translation_compute_device",
     "/set/data/selected_translation_compute_type",
-    "/set/data/selected_transcription_engine", "/set/data/selected_whisper_weight_type",
-    "/set/data/selected_transcription_compute_device", "/set/data/selected_transcription_compute_type",
+    "/set/data/selected_transcription_engine",
     "/set/data/ocr_source_language", "/set/data/ocr_min_confidence", "/set/data/ocr_poll_interval_ms",
     "/set/data/ocr_bubble_min_text_length",
     # Messages, VR overlays and appearance.

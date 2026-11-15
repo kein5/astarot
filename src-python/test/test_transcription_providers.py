@@ -27,7 +27,6 @@ from errors import ErrorCode
 from models.transcription.transcription_providers import (
     DeepgramProvider,
     GoogleProvider,
-    LocalWhisperProvider,
     OpenAICompatibleTranscriptionProvider,
     TranscriptionApiError,
 )
@@ -50,7 +49,7 @@ class TestGoogleProvider(unittest.TestCase):
 
         text, confidence, is_definitive, detected_language = provider.transcribe(
             _audio_data(1.0), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
         )
 
         self.assertEqual(text, "hello")
@@ -73,7 +72,7 @@ class TestGoogleProvider(unittest.TestCase):
 
         text, confidence, is_definitive, detected_language = provider.transcribe(
             _audio_data(1.0), "Japanese", "Japan",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
         )
 
         self.assertEqual(text, "")
@@ -92,94 +91,10 @@ class TestGoogleProvider(unittest.TestCase):
 
         provider.transcribe(
             _audio_data(20.0), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
         )
 
         recognizer.recognize_google.assert_called_once()
-
-
-class TestLocalWhisperProvider(unittest.TestCase):
-    def _make_audio_data(self) -> MagicMock:
-        audio_data = MagicMock()
-        audio_data.get_raw_data.return_value = b"\x00\x00" * 8
-        return audio_data
-
-    def test_filters_low_confidence_segments(self) -> None:
-        whisper_model = MagicMock()
-        whisper_model.transcribe.return_value = (
-            [
-                _segment("good ", avg_logprob=-0.1, no_speech_prob=0.1),
-                _segment("bad ", avg_logprob=-5.0, no_speech_prob=0.1),  # avg_logprob 閾値割れ
-            ],
-            SimpleNamespace(language="ja", language_probability=0.95),
-        )
-        provider = LocalWhisperProvider(whisper_model)
-
-        text, confidence, is_definitive, detected_language = provider.transcribe(
-            self._make_audio_data(), "Japanese", "Japan",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
-        )
-
-        self.assertEqual(text, "good")
-        self.assertEqual(confidence, 0.95)
-        self.assertTrue(is_definitive)  # force_language=True なので常に definitive
-
-    def test_segment_spacing_does_not_reach_the_message(self) -> None:
-        """Whisper のセグメントは " Hello" のように始まる。実機で先頭の空白がチャットボックスまで届いた。"""
-        for segments, expected in (([" Hello everyone.", " Nice day."], "Hello everyone. Nice day."), ([" "], "")):
-            with self.subTest(expected=expected):
-                whisper_model = MagicMock()
-                whisper_model.transcribe.return_value = (
-                    [_segment(text) for text in segments], SimpleNamespace(language="en", language_probability=0.9))
-                text, *_ = LocalWhisperProvider(whisper_model).transcribe(
-                    self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
-                )
-                self.assertEqual(text, expected)
-
-    def test_forces_language_only_when_single_candidate(self) -> None:
-        whisper_model = MagicMock()
-        whisper_model.transcribe.return_value = ([], SimpleNamespace(language="en", language_probability=0.5))
-        provider = LocalWhisperProvider(whisper_model)
-
-        provider.transcribe(
-            self._make_audio_data(), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=False,
-        )
-
-        _, kwargs = whisper_model.transcribe.call_args
-        self.assertIsNone(kwargs["language"])
-
-    def test_is_definitive_when_detected_language_matches_candidate(self) -> None:
-        whisper_model = MagicMock()
-        whisper_model.transcribe.return_value = (
-            [_segment("bonjour")],
-            SimpleNamespace(language="fr", language_probability=0.8),
-        )
-        provider = LocalWhisperProvider(whisper_model)
-
-        _, _, is_definitive, detected_language = provider.transcribe(
-            self._make_audio_data(), "French", "France",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=False,
-        )
-
-        self.assertTrue(is_definitive)  # transcription_lang["French"]["France"]["Whisper"] == "fr"
-
-    def test_returns_detected_language_even_when_candidate_does_not_match(self) -> None:
-        whisper_model = MagicMock()
-        whisper_model.transcribe.return_value = (
-            [_segment("hola")],
-            SimpleNamespace(language="es", language_probability=0.8),
-        )
-        provider = LocalWhisperProvider(whisper_model)
-
-        _, _, is_definitive, detected_language = provider.transcribe(
-            self._make_audio_data(), "French", "France",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=False,
-        )
-
-        self.assertTrue(is_definitive)
-        self.assertEqual(detected_language, "es")
 
 
 class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
@@ -205,7 +120,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
 
         provider.transcribe(
             self._make_audio_data(), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
         )
 
         _, kwargs = provider._client.audio.transcriptions.create.call_args
@@ -224,7 +139,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
                 provider._client.audio.transcriptions.create.return_value = response
                 text, *_ = provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
                 self.assertEqual(text, expected)
 
@@ -236,7 +151,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
 
         text, confidence, is_definitive, detected_language = provider.transcribe(
             self._make_audio_data(), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=False,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=False,
         )
 
         _, kwargs = provider._client.audio.transcriptions.create.call_args
@@ -254,7 +169,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
 
         provider.transcribe(
             self._make_audio_data(), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
         )
 
         _, kwargs = provider._client.audio.transcriptions.create.call_args
@@ -268,7 +183,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
 
         provider.transcribe(
             self._make_audio_data(), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=False,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=False,
         )
 
         _, kwargs = provider._client.audio.transcriptions.create.call_args
@@ -289,7 +204,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
 
         text, confidence, is_definitive, detected_language = provider.transcribe(
             self._make_audio_data(), "Japanese", "Japan",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
         )
 
         self.assertEqual(text, "good")
@@ -305,7 +220,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
 
         text, confidence, is_definitive, detected_language = provider.transcribe(
             self._make_audio_data(), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
         )
 
         self.assertEqual(text, "plain text result")
@@ -319,7 +234,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
 
         text, confidence, is_definitive, detected_language = provider.transcribe(
             self._make_audio_data(), "English", "United States",
-            avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+            avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
         )
 
         self.assertEqual(text, "")
@@ -340,7 +255,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_AUTH_FAILED)
 
@@ -355,7 +270,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_RATE_LIMITED)
 
@@ -367,7 +282,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_TIMEOUT)
 
@@ -382,7 +297,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_SERVER_ERROR)
 
@@ -396,7 +311,7 @@ class TestOpenAICompatibleTranscriptionProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_SERVER_ERROR)
 
@@ -425,7 +340,7 @@ class TestDeepgramProvider(unittest.TestCase):
             mock_requests.exceptions = requests.exceptions
             text, confidence, is_definitive, detected_language = provider.transcribe(
                 self._make_audio_data(), "English", "United States",
-                avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
             )
 
         self.assertEqual(text, "hello")
@@ -456,7 +371,7 @@ class TestDeepgramProvider(unittest.TestCase):
             mock_requests.exceptions = requests.exceptions
             _, _, is_definitive, detected_language = provider.transcribe(
                 self._make_audio_data(), "Japanese", "Japan",
-                avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=False,
+                avg_logprob=-0.8, no_speech_prob=0.6, force_language=False,
             )
 
         self.assertTrue(is_definitive)
@@ -478,7 +393,7 @@ class TestDeepgramProvider(unittest.TestCase):
             mock_requests.exceptions = requests.exceptions
             provider.transcribe(
                 self._make_audio_data(), "English", "Australia",
-                avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
             )
 
         _, kwargs = mock_requests.post.call_args
@@ -499,7 +414,7 @@ class TestDeepgramProvider(unittest.TestCase):
             mock_requests.exceptions = requests.exceptions
             provider.transcribe(
                 self._make_audio_data(), "English", "United States",
-                avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
             )
 
         _, kwargs = mock_requests.post.call_args
@@ -522,7 +437,7 @@ class TestDeepgramProvider(unittest.TestCase):
             mock_requests.exceptions = requests.exceptions
             provider.transcribe(
                 self._make_audio_data(), "Japanese", "Japan",
-                avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=False,
+                avg_logprob=-0.8, no_speech_prob=0.6, force_language=False,
             )
 
         _, kwargs = mock_requests.post.call_args
@@ -540,7 +455,7 @@ class TestDeepgramProvider(unittest.TestCase):
             mock_requests.exceptions = requests.exceptions
             text, confidence, is_definitive, detected_language = provider.transcribe(
                 self._make_audio_data(), "English", "United States",
-                avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
             )
 
         self.assertEqual(text, "")
@@ -557,7 +472,7 @@ class TestDeepgramProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
 
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_SERVER_ERROR)
@@ -573,7 +488,7 @@ class TestDeepgramProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_AUTH_FAILED)
 
@@ -588,7 +503,7 @@ class TestDeepgramProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_RATE_LIMITED)
 
@@ -603,7 +518,7 @@ class TestDeepgramProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_SERVER_ERROR)
 
@@ -617,7 +532,7 @@ class TestDeepgramProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_TIMEOUT)
 
@@ -631,7 +546,7 @@ class TestDeepgramProvider(unittest.TestCase):
             with self.assertRaises(TranscriptionApiError) as ctx:
                 provider.transcribe(
                     self._make_audio_data(), "English", "United States",
-                    avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=True,
+                    avg_logprob=-0.8, no_speech_prob=0.6, force_language=True,
                 )
         self.assertEqual(ctx.exception.error_code, ErrorCode.TRANSCRIPTION_API_SERVER_ERROR)
 

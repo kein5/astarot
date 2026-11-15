@@ -39,7 +39,7 @@ const SETTING_TABS = {
     "others.common_convert_message_hiragana_romaji": ["appearance"],
     "others.convert_message_to_romaji": ["appearance"],
     "others.convert_message_to_hiragana": ["appearance"],
-    "others.auto_download_models": ["translation", "transcription"],
+    "others.auto_download_models": ["translation"],
     "advanced_settings.section_label_osc": ["vrchat"],
     "advanced_settings.osc_ip_address": ["vrchat"],
     "advanced_settings.osc_port": ["vrchat"],
@@ -62,17 +62,9 @@ const TAB_LABEL_KEYS = {
     advanced_settings: "config_page.side_menu_labels.advanced_settings",
 };
 
-// 親項目（前提条件）の依存関係
-const PREREQUISITES = {
-    whisper_weight_type: {
-        parent_id: "select_transcription_engine",
-        required_label: "Whisper",
-    },
-    transcription_compute_device: {
-        parent_id: "select_transcription_engine",
-        required_label: "Whisper",
-    },
-};
+// 親項目（前提条件）の依存関係。{ 項目: { parent_id, required_label } }。
+// 今はない（Whisper のモデルと処理デバイスの項目は #288 で削除した）。
+const PREREQUISITES = {};
 
 // オブジェクト内のすべての文字列値を再帰的に収集
 const collectStrings = (obj) => {

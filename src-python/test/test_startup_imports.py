@@ -13,11 +13,10 @@ import pytest
 
 from models import sdk_clients
 from models.ocr import ocr_engine_rapidocr as ocr_engine
-from models.transcription import transcription_whisper as whisper
 from models.translation import translation_utils as utils
 
 DEFERRED = ("openai", "langchain_openai", "langchain_ollama", "langchain_google_genai",
-            "google.genai", "pydantic", "transformers", "faster_whisper", "rapidocr")
+            "google.genai", "pydantic", "transformers", "rapidocr")
 
 
 def test_importing_the_controller_leaves_heavy_libraries_unloaded(tmp_path):
@@ -98,21 +97,6 @@ def test_transformers_loads_once_and_a_missing_package_is_remembered(monkeypatch
     # Already answered: installing it later in this process changes nothing.
     monkeypatch.setitem(sys.modules, "transformers", module_with("transformers"))
     assert utils.loadTransformers() is None
-
-
-def test_whisper_class_loads_on_first_model(monkeypatch):
-    model_class = Mock()
-    monkeypatch.setattr(whisper, "WhisperModel", whisper._UNLOADED)
-    monkeypatch.setitem(sys.modules, "faster_whisper", module_with("faster_whisper", WhisperModel=model_class))
-    assert whisper._loadWhisperModelClass() is model_class
-    assert whisper.WhisperModel is model_class
-
-
-def test_missing_whisper_package_keeps_the_existing_error(monkeypatch):
-    monkeypatch.setattr(whisper, "WhisperModel", whisper._UNLOADED)
-    monkeypatch.setitem(sys.modules, "faster_whisper", None)
-    with pytest.raises(RuntimeError, match="faster_whisper is not installed"):
-        whisper.getWhisperModel("root", "tiny")
 
 
 def test_rapidocr_is_blocked_from_downloading_before_it_is_used(monkeypatch):

@@ -230,31 +230,17 @@ export const _useBackendErrorHandling = () => {
             // ============================================================================
             // 音声認識関連エラー (TRANSCRIPTION_*)
             // ============================================================================
-            case "TRANSCRIPTION_VRAM_MIC":
-            case "TRANSCRIPTION_VRAM_SPEAKER":
-                showNotification_Error(localized, { category_id: error_code });
-                return;
-            case "TRANSCRIPTION_SEND_DISABLED_VRAM":
-                updateTranscriptionSendStatus(data);
-                showNotification_Error(localized, { category_id: error_code });
-                return;
-            case "TRANSCRIPTION_RECEIVE_DISABLED_VRAM":
-                updateTranscriptionReceiveStatus(data);
-                showNotification_Error(localized, { category_id: error_code });
-                return;
-            // Linux: the Mic/Speaker switch drives realtime ASR, which is not
-            // configured or has stopped. details.reason names the next step.
             case "TRANSCRIPTION_ENGINE_NOT_SELECTED":
-            case "TRANSCRIPTION_MODEL_MISSING":
             case "TRANSCRIPTION_ENGINE_UNAVAILABLE": {
                 if (endpoint === "/set/enable/transcription_send") updateTranscriptionSendStatus(false);
                 if (endpoint === "/set/enable/transcription_receive") updateTranscriptionReceiveStatus(false);
-                const mode = error_code === "TRANSCRIPTION_ENGINE_NOT_SELECTED" ? "choose"
-                    : error_code === "TRANSCRIPTION_MODEL_MISSING" ? "download" : "settings";
+                const mode = error_code === "TRANSCRIPTION_ENGINE_NOT_SELECTED" ? "choose" : "settings";
                 transcriptionConsent.open(endpoint, mode);
                 if (mode !== "choose") showNotification_Error(localized, { category_id: error_code });
                 return;
             }
+            // Linux, and Windows with the local engine: the Mic/Speaker switch drives realtime
+            // ASR, which is not configured or has stopped. details.reason names the next step.
             case "TRANSCRIPTION_SEND_NOT_READY":
             case "TRANSCRIPTION_RECEIVE_NOT_READY": {
                 (error_code === "TRANSCRIPTION_SEND_NOT_READY" ? updateTranscriptionSendStatus : updateTranscriptionReceiveStatus)(false);
@@ -299,9 +285,7 @@ export const _useBackendErrorHandling = () => {
             // ウェイトダウンロード関連エラー (WEIGHT_*)
             // ============================================================================
             case "WEIGHT_DOWNLOAD_CONSENT_REQUIRED":
-                if (endpoint === "/run/download_whisper_weight") {
-                    transcription.updateWhisperWeightTypeStatus(old => clearLegacyConsentPending(old.data, data?.weight_type));
-                } else if (endpoint === "/run/download_ctranslate2_weight") {
+                if (endpoint === "/run/download_ctranslate2_weight") {
                     updateCTranslate2WeightTypeStatus(old => clearLegacyConsentPending(old.data, data?.weight_type));
                 }
                 showNotification_Warning(t(data?.startup ? "legacy_model_downloads.startup_skipped" : "backend_errors.WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
@@ -310,10 +294,6 @@ export const _useBackendErrorHandling = () => {
             case "WEIGHT_CTRANSLATE2_DOWNLOAD":
                 updateCTranslate2WeightTypeStatus(old => clearLegacyDownloadFailure(old.data, data));
                 showNotification_Error(t("common_error.failed_download_weight_ctranslate2"), { category_id: error_code });
-                return;
-            case "WEIGHT_WHISPER_DOWNLOAD":
-                transcription.updateWhisperWeightTypeStatus(old => clearLegacyDownloadFailure(old.data, data));
-                showNotification_Error(t("common_error.failed_download_weight_whisper"), { category_id: error_code });
                 return;
             case "WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED":
                 // Normally unreachable: Config -> Translation asks before sending.

@@ -16,10 +16,11 @@ const entry = { kind: "ctranslate2", weight_type: "nllb-200-distilled-600M-ct2-i
     revision: "pinned-weight-commit", manifest_version: "reviewed-manifest",
     tokenizer: { repo: "facebook/nllb-200-distilled-600M", revision: "pinned-tokenizer-commit" } };
 
-const whisper = { kind: "whisper", weight_type: "base", name: "Whisper base", provider: "Systran",
-    repo: "Systran/faster-whisper-base", license: "MIT", non_commercial: false,
+// The review also works for a model without extra files (the removed Whisper weights were one).
+const untokenized = { kind: "ctranslate2", weight_type: "plain", name: "A model without extra files", provider: "Example",
+    repo: "Example/plain-model", license: "MIT", non_commercial: false,
     total_bytes: 147882941, tokenizer: null, tokenizer_size_unknown: false,
-    revision: "c".repeat(40), manifest_version: "reviewed-whisper-manifest" };
+    revision: "c".repeat(40), manifest_version: "reviewed-plain-manifest" };
 
 async function dialogFixture(context, language, reviewedEntry) {
     const translations = i18next.createInstance();
@@ -51,8 +52,8 @@ async function dialogFixture(context, language, reviewedEntry) {
 }
 
 for (const language of ["en", "ja"]) {
-    for (const reviewedEntry of [entry, whisper]) {
-        test(`${language} ${reviewedEntry.kind}: labelled facts, size, revisions and consent remain distinct`, async context => {
+    for (const reviewedEntry of [entry, untokenized]) {
+        test(`${language} ${reviewedEntry.weight_type}: labelled facts, size, revisions and consent remain distinct`, async context => {
             const s = await dialogFixture(context, language, reviewedEntry);
             let tree = s.render();
             const rows = Children.toArray(find(tree, node => node.type === "dl").props.children);
@@ -138,7 +139,8 @@ test("large sizes use the list's GB convention and three significant digits", ()
     assert.equal(consentLogic.legacyReviewSize({ total_bytes: 1529008357 }, t), "1,529,008,357 bytes (about 1.42 GB)");
 });
 
-for (const [kind, base] of [["whisper", "Whisper"], ["ctranslate2", "CTranslate2"]]) {
+// The CTranslate2 weights are the built-in downloads left; Whisper's went with the engine (#288).
+for (const [kind, base] of [["ctranslate2", "CTranslate2"]]) {
     test(`${kind}: the settings download handler sends the reviewed consent unchanged`, async () => {
         const runtime = hooks(), sent = [];
         const name = `${base}WeightTypeStatus`;
@@ -177,7 +179,8 @@ for (const [kind, base] of [["whisper", "Whisper"], ["ctranslate2", "CTranslate2
     });
 }
 
-for (const [kind, base] of [["whisper", "Whisper"], ["ctranslate2", "CTranslate2"]]) {
+// The CTranslate2 weights are the built-in downloads left; Whisper's went with the engine (#288).
+for (const [kind, base] of [["ctranslate2", "CTranslate2"]]) {
     test(`${kind}: asynchronous failure clears only the failed weight and ignores a stale job`, async () => {
         const subject = await loadBridgeRoutes();
         const atom = subject.stores.dynamicStoreRegistry[`Atom_${base}WeightTypeStatus`];

@@ -10,7 +10,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（417件: 削除 11、取得 187、実行 38、有効化 39、無効化 39、設定 103）
+## 要求（412件: 削除 11、取得 184、実行 38、有効化 39、無効化 40、設定 100）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -113,9 +113,6 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/selectable_translation_compute_device_list` | 取得 | `getComputeDeviceList` | 可 | useTranslation.updateFromBackendSelectableTranslationComputeDeviceList |  |
 | `/get/data/selected_translation_compute_device` | 取得 | `getSelectedTranslationComputeDevice` | 可 | useTranslation.updateFromBackendSelectedTranslationComputeDevice |  |
 | `/set/data/selected_translation_compute_device` | 設定 | `setSelectedTranslationComputeDevice` | 可 | useTranslation.setSuccessSelectedTranslationComputeDevice |  |
-| `/get/data/selectable_transcription_compute_device_list` | 取得 | `getComputeDeviceList` | 可 | useTranscription.updateFromBackendSelectableTranscriptionComputeDeviceList |  |
-| `/get/data/selected_transcription_compute_device` | 取得 | `getSelectedTranscriptionComputeDevice` | 可 | useTranscription.updateFromBackendSelectedTranscriptionComputeDevice |  |
-| `/set/data/selected_transcription_compute_device` | 設定 | `setSelectedTranscriptionComputeDevice` | 可 | useTranscription.setSuccessSelectedTranscriptionComputeDevice |  |
 | `/get/data/selectable_ctranslate2_weight_type_dict` | 取得 | `getSelectableCtranslate2WeightTypeDict` | 可 | useTranslation.updateDownloadedCTranslate2WeightTypeStatus |  |
 | `/get/data/selected_ctranslate2_weight_type` | 取得 | `getCtranslate2WeightType` | 可 | useTranslation.updateFromBackendSelectedCTranslate2WeightType |  |
 | `/set/data/selected_ctranslate2_weight_type` | 設定 | `setCtranslate2WeightType` | 可 | useTranslation.setSuccessSelectedCTranslate2WeightType |  |
@@ -247,12 +244,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/speaker_vad_filter` | 無効化 | `setDisableSpeakerVadFilter` | 可 | useDevice.setSuccessSpeakerVadFilter |  |
 | `/set/enable/check_speaker_threshold` | 有効化 | `setEnableCheckSpeakerThreshold` | 可 | useVolume.updateSpeakerThresholdCheckStatus |  |
 | `/set/disable/check_speaker_threshold` | 無効化 | `setDisableCheckSpeakerThreshold` | 可 | useVolume.updateSpeakerThresholdCheckStatus |  |
-| `/get/data/selectable_whisper_weight_type_dict` | 取得 | `getSelectableWhisperWeightTypeDict` | 可 | useTranscription.updateDownloadedWhisperWeightTypeStatus |  |
-| `/get/data/selected_whisper_weight_type` | 取得 | `getWhisperWeightType` | 可 | useTranscription.updateFromBackendSelectedWhisperWeightType |  |
-| `/set/data/selected_whisper_weight_type` | 設定 | `setWhisperWeightType` | 可 | useTranscription.setSuccessSelectedWhisperWeightType |  |
-| `/get/data/selected_transcription_compute_type` | 取得 | `getSelectedTranscriptionComputeType` | 可 | useTranscription.updateFromBackendSelectedTranscriptionComputeType |  |
-| `/set/data/selected_transcription_compute_type` | 設定 | `setSelectedTranscriptionComputeType` | 可 | useTranscription.setSuccessSelectedTranscriptionComputeType |  |
-| `/run/download_whisper_weight` | 実行 | `downloadWhisperWeight` | 可 | useTranscription.downloadedWhisperWeightTypeStatus |  |
+| `/get/data/local_asr_notice` | 取得 | `getLocalAsrNotice` | 可 | useLocalAsrMigration.updateNotice |  |
+| `/set/disable/local_asr_notice` | 無効化 | `setDisableLocalAsrNotice` | 可 | useLocalAsrMigration.updateNotice |  |
+| `/get/data/old_whisper_weights` | 取得 | `getOldWhisperWeights` | 可 | useLocalAsrMigration.updateWeights |  |
+| `/run/delete_old_whisper_weights` | 実行 | `deleteOldWhisperWeights` | 可 | useLocalAsrMigration.updateDeleted |  |
 | `/get/data/overlay_small_log` | 取得 | `getOverlaySmallLog` | 可 | useVr.updateFromBackendIsEnabledOverlaySmallLog |  |
 | `/set/enable/overlay_small_log` | 有効化 | `setEnableOverlaySmallLog` | 可 | useVr.setSuccessIsEnabledOverlaySmallLog |  |
 | `/set/disable/overlay_small_log` | 無効化 | `setDisableOverlaySmallLog` | 可 | useVr.setSuccessIsEnabledOverlaySmallLog |  |
@@ -433,7 +428,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/feed_watchdog` | 実行 | `feedWatchdog` | 可 | （受け取るだけ） |  |
 
 
-## 通知（サイドカーからUIへ、93件）
+## 通知（サイドカーからUIへ、87件）
 
 要求への応答とは別に、サイドカーが自分から送るメッセージ。`controller.run(status, run_mapping[名前], result)`で送る。
 
@@ -464,8 +459,6 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `error_translation_chat_vram_overflow` | `/run/error_translation_chat_vram_overflow` | — |
 | `error_translation_mic_vram_overflow` | `/run/error_translation_mic_vram_overflow` | — |
 | `error_translation_speaker_vram_overflow` | `/run/error_translation_speaker_vram_overflow` | — |
-| `error_transcription_mic_vram_overflow` | `/run/error_transcription_mic_vram_overflow` | — |
-| `error_transcription_speaker_vram_overflow` | `/run/error_transcription_speaker_vram_overflow` | — |
 | `word_filter` | `/run/word_filter` | useMessage.addSystemMessageLog_FromBackend |
 | `transcription_recognition_error` | `/run/transcription_recognition_error` | useMessage.addSystemMessageLog_FromBackend |
 | `download_progress_ctranslate2_weight` | `/run/download_progress_ctranslate2_weight` | useTranslation.updateDownloadProgressCTranslate2WeightTypeStatus |
@@ -473,9 +466,6 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `error_ctranslate2_weight` | `/run/error_ctranslate2_weight` | — |
 | `ctranslate2_license_notice` | `/run/ctranslate2_license_notice` | — |
 | `translation_language_unsupported` | `/run/translation_language_unsupported` | — |
-| `download_progress_whisper_weight` | `/run/download_progress_whisper_weight` | useTranscription.updateDownloadProgressWhisperWeightTypeStatus |
-| `downloaded_whisper_weight` | `/run/downloaded_whisper_weight` | useTranscription.downloadedWhisperWeightTypeStatus |
-| `error_whisper_weight` | `/run/error_whisper_weight` | — |
 | `selected_mic_host` | `/run/selected_mic_host` | useDevice.updateFromBackendSelectedMicHost |
 | `selected_mic_device_id` | `/run/selected_mic_device_id` | useDevice.updateFromBackendSelectedMicDeviceId |
 | `selectable_mic_device_options` | `/run/selectable_mic_device_options` | useDevice.updateFromBackendMicDeviceOptions |
@@ -489,7 +479,6 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `selected_target_languages` | `/run/selected_target_languages` | useLanguageSettings.updateSelectedTargetLanguages |
 | `selectable_language_list` | `/run/selectable_language_list` | useLanguageSettings.updateSelectableLanguageList |
 | `selected_translation_compute_type` | `/run/selected_translation_compute_type` | useTranslation.updateFromBackendSelectedTranslationComputeType |
-| `selected_transcription_compute_type` | `/run/selected_transcription_compute_type` | useTranscription.updateFromBackendSelectedTranscriptionComputeType |
 | `selectable_plamo_model_list` | `/run/selectable_plamo_model_list` | useTranslation.updateFromBackendSelectablePlamoModelList |
 | `selected_plamo_model` | `/run/selected_plamo_model` | useTranslation.updateFromBackendSelectedPlamoModel |
 | `selectable_gemini_model_list` | `/run/selectable_gemini_model_list` | useTranslation.updateFromBackendSelectableGeminiModelList |
@@ -534,7 +523,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（18件）
+## UIに受信先がないエンドポイント（15件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
@@ -545,29 +534,24 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/enable_translation`
 - `/run/error_ctranslate2_weight`
 - `/run/error_device`
-- `/run/error_transcription_mic_vram_overflow`
-- `/run/error_transcription_speaker_vram_overflow`
 - `/run/error_translation_chat_vram_overflow`
 - `/run/error_translation_enable_vram_overflow`
 - `/run/error_translation_engine`
 - `/run/error_translation_mic_vram_overflow`
 - `/run/error_translation_speaker_vram_overflow`
-- `/run/error_whisper_weight`
 - `/run/initialization_complete`
 - `/run/message_output_error`
 - `/run/translation_language_unsupported`
 
 
-## UIだけにあるルート（61件）
+## UIだけにあるルート（57件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
 
 - `/get/data/ctranslate2_weight`
 - `/get/data/ollama_url`
-- `/get/data/whisper_weight`
 - `/run/io_trace`
 - `/run/pending_ctranslate2_weight`
-- `/run/pending_whisper_weight`
 - `/run/realtime_caption`
 - `/set/data/auto_clear_message_box`
 - `/set/data/auto_download_models`
@@ -611,7 +595,6 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/selectable_plamo_model_list`
 - `/set/data/selectable_speaker_device_list`
 - `/set/data/selectable_speaker_device_options`
-- `/set/data/selectable_transcription_compute_device_list`
 - `/set/data/selectable_translation_compute_device_list`
 - `/set/data/send_message_to_vrc`
 - `/set/data/send_only_translated_messages`
@@ -622,4 +605,3 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/telemetry`
 - `/set/data/vrc_mic_mute_sync`
 - `/set/data/websocket_server`
-- `/set/data/whisper_weight`
