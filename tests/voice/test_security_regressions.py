@@ -1,4 +1,5 @@
 """Security boundaries exercised without starting Explorer or using the network."""
+import json
 from pathlib import Path
 import http.client
 import re
@@ -107,6 +108,13 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         assert "tools.prepare_release" in commands
         assert "'--draft'" in commands
         assert "release', 'edit'" not in commands
+        # The updater signing key (issue #330) reaches one step, which signs the verified files
+        # for this version and writes latest.json, and nothing else.
+        signing = [step for step in draft["steps"] if "TAURI_SIGNING_PRIVATE_KEY" in step.get("env", {})]
+        assert len(signing) == 1
+        assert "--app-version" in signing[0]["run"]
+        assert "tools.updater_manifest" in signing[0]["run"]
+        assert "--require-verification" in signing[0]["run"]
     elif workflow.name == "pages.yml":
         # Deploying to GitHub Pages needs pages:write and id-token:write. Only the
         # deploy job gets them, only on develop in this repository, never for a PR.
@@ -140,3 +148,7 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
             if "uses" in step and not step["uses"].startswith("./"):
                 assert re.fullmatch(r"[\w-]+/[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
             assert "${{" not in step.get("run", ""), step.get("name", workflow.name)
+            # Repository secrets: only the updater signing step of the release draft uses any.
+            if "secrets." in json.dumps(step):
+                assert workflow.name == "prepare-release.yml", step.get("name")
+                assert set(step["env"]) == {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"}

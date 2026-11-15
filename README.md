@@ -50,7 +50,7 @@ The latest release is on **[GitHub Releases](https://github.com/kein5/VRCT-VOX/r
 - **Linux:** AppImage and tar.gz (x64, Vulkan). These have been tested with real models on CachyOS (KDE Plasma Wayland).
 - **Windows:** installer and zip (CPU), and a CUDA zip. These have been tested with real models on a Windows 11 PC ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
 
-Every file has a `.sha256` and `SHA256SUMS-*` for checking downloads; these are not signatures. The in-app updater is disabled. An AUR package is planned but not submitted.
+Every file has a `.sha256` and `SHA256SUMS-*` for checking downloads; these are not signatures. Installer and AppImage copies update themselves after checking the update's signature; ZIP and tar.gz copies are told about new versions; deb and rpm installs update through the package manager. An AUR package is planned but not submitted.
 
 Known limitations:
 - Chat reading (OCR) needs its models, which are not shipped: download them in Config → Chat Transcribe after agreeing to their terms. On Linux it reads the VRChat window through XWayland. A native Wayland window (VRChat inside gamescope, for example) is read after you share it: Config → Chat Transcribe → "Share a window…" opens your desktop's own window dialog.

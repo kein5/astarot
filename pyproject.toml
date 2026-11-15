@@ -132,6 +132,8 @@ voice-test = [
     "pillow==13.0.0",
     "websockets==15.0.1",
     "tqdm==4.70.1",
+    # Verifies updater signatures in the release-draft tests (tools/updater_manifest.py).
+    "cryptography==50.0.2",
 ]
 # Optional browser/stdio fixtures, never bundled with VRCT-VOX.
 voice-ui-test = [

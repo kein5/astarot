@@ -19,6 +19,7 @@ import {
     CornerRadiusController,
     VrPanelSyncController,
     OcrSharedWindowController,
+    AppUpdateController,
 } from "./_app_controllers";
 
 import styles from "./App.module.scss";
@@ -65,6 +66,7 @@ export const App = () => {
                 <CornerRadiusController />
                 <VrPanelSyncController />
                 <OcrSharedWindowController />
+                <AppUpdateController />
 
                 {/* The main page is drawn from the first frame. Until the engine is
                     ready it is locked, with placeholders where its settings go. */}

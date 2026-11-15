@@ -1051,6 +1051,15 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "auto_clear_message_box",
     },
     {
+        // Whether the app asks for a new version at start (AppUpdateController).
+        Category: "Others",
+        Base_Name: "EnableCheckSoftwareUpdates",
+        default_value: true,
+        ui_template_id: "toggle",
+        logics_template_id: "toggle_enable_disable",
+        base_endpoint_name: "check_software_updates",
+    },
+    {
         Category: "Others",
         Base_Name: "EnableSendOnlyTranslatedMessages",
         default_value: false,

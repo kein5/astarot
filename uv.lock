@@ -1551,6 +1551,7 @@ linux-build = [
     { name = "pyinstaller-hooks-contrib" },
 ]
 voice-test = [
+    { name = "cryptography" },
     { name = "numpy" },
     { name = "pillow" },
     { name = "psutil" },
@@ -1563,6 +1564,7 @@ voice-test = [
     { name = "websockets" },
 ]
 voice-ui-test = [
+    { name = "cryptography" },
     { name = "numpy" },
     { name = "pillow" },
     { name = "playwright" },
@@ -1639,6 +1641,7 @@ dev = [
 ]
 linux-build = [{ name = "pyinstaller-hooks-contrib", specifier = "==2026.9" }]
 voice-test = [
+    { name = "cryptography", specifier = "==50.0.2" },
     { name = "numpy", specifier = "==1.26.4" },
     { name = "pillow", specifier = "==13.0.0" },
     { name = "psutil", specifier = "==5.9.8" },
@@ -1651,6 +1654,7 @@ voice-test = [
     { name = "websockets", specifier = "==15.0.1" },
 ]
 voice-ui-test = [
+    { name = "cryptography", specifier = "==50.0.2" },
     { name = "numpy", specifier = "==1.26.4" },
     { name = "pillow", specifier = "==13.0.0" },
     { name = "playwright", specifier = "==1.64.1" },

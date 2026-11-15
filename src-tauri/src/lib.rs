@@ -5,6 +5,7 @@ use std::fs::{create_dir_all, OpenOptions};
 use std::io::{Error, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+mod app_update;
 mod caption_overlay;
 mod quick_chat;
 mod single_instance;
@@ -197,6 +198,10 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
+        // In-app updates (app_update.rs). The window gets no updater permission: the UI goes
+        // through the app_update_* commands, which only the main window may call.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(app_update::AppUpdateState::default())
         .manage(quick_chat::QuickChatState::default())
         .manage(caption_overlay::CaptionOverlayState::default())
         .manage(portal_shortcuts::PortalShortcuts::default())
@@ -211,7 +216,8 @@ pub fn run() {
             portal_shortcuts::portal_shortcuts_bind,
             portal_screencast::screencast_support, portal_screencast::screencast_start,
             portal_screencast::screencast_stop,
-            vr_panel_state::vr_panel_state_subscribe, vr_panel_state::vr_panel_state_push])
+            vr_panel_state::vr_panel_state_subscribe, vr_panel_state::vr_panel_state_push,
+            app_update::app_update_info, app_update::app_update_check, app_update::app_update_install])
         .build(context)
         .map(|app| app.run(|app, event| {
             // A shared window must not stay shared after the app is gone.
