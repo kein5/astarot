@@ -1,0 +1,116 @@
+# Development tool versions and routine tasks (https://mise.jdx.dev/).
+#
+# This file is the one place the toolchain versions are pinned, for developers and for CI
+# (jdx/mise-action). There is no rust-toolchain.toml or .nvmrc. Python packages, npm packages
+# and crates stay pinned in uv.lock, package-lock.json and the Cargo.lock files.
+# docs/development.md explains the tasks; `mise tasks` lists them.
+min_version = "2026.11.0"
+
+[tools]
+node = "22.15.0"
+# Installed through rustup. Cargo.toml's rust-version (1.92) is the oldest that builds;
+# this is the version development and CI use.
+rust = { version = "1.100.0", profile = "minimal", components = "clippy,rustfmt" }
+# pyproject.toml requires 3.11.*; the packaged backend is frozen from this Python.
+python = "3.11.18"
+uv = "0.13.5"
+cocogitto = "7.0.0"
+
+# No uv settings in [env]: mise exports [env] to every program it starts, and the app passes
+# its environment on to the uv that installs the Seed-VC runtime, which must fetch its own
+# Python. Tasks that create environments set them for themselves instead.
+
+# Every task forwards extra arguments to its command, e.g. `mise run check -- --dry-run`.
+
+[tasks.doctor]
+description = "Show missing tools and dependencies (no downloads)"
+run = "python tools/dev.py doctor"
+
+[tasks.check]
+description = "Quick checks: developer tools, Node tests and Ruff"
+run = "python tools/dev.py check"
+
+[tasks."check:all"]
+description = "Every check scope (slow; before merging work that spans areas)"
+run = "python tools/dev.py check --scope all"
+
+[tasks."check:voice"]
+description = "Voice contract tests without models"
+run = "python tools/dev.py check --scope voice"
+
+[tasks."check:ui"]
+description = "Node tests and the Vite build"
+run = "python tools/dev.py check --scope ui"
+
+[tasks."check:backend"]
+description = "Backend tests (pass --python for a venv with the app dependencies)"
+run = "python tools/dev.py check --scope backend"
+
+[tasks."check:rust"]
+description = "cargo check and cargo test of the Tauri app and the native crates"
+run = "python tools/dev.py check --scope rust"
+
+[tasks."check:commits"]
+description = "Commit messages since origin/develop (fetch it first)"
+run = "python tools/dev.py check --scope commits --base origin/develop"
+
+[tasks."setup:headless"]
+description = "Python packages for the model-free tests (build/dev/headless-venv)"
+run = "python tools/dev.py setup --scope headless"
+env = { UV_PYTHON_PREFERENCE = "only-system" }
+
+[tasks."setup:ui"]
+description = "npm ci for the UI"
+run = "python tools/dev.py setup --scope ui"
+
+[tasks."setup:browser"]
+description = "Python packages for the browser tests (build/dev/browser-venv)"
+run = "python tools/dev.py setup --scope browser"
+env = { UV_PYTHON_PREFERENCE = "only-system" }
+
+[tasks."setup:backend"]
+description = "Python packages for the backend tests on Linux (build/dev/backend-venv)"
+run = "python tools/dev.py setup --scope backend"
+env = { UV_PYTHON_PREFERENCE = "only-system" }
+
+[tasks."setup:rust"]
+description = "cargo fetch --locked for the Tauri app and the native crates"
+run = "python tools/dev.py setup --scope rust"
+
+[tasks."setup:sidecar"]
+description = "Development sidecar wrapper for Tauri (Unix)"
+run = "python tools/dev.py setup --scope sidecar"
+
+[tasks."setup:app"]
+description = "App Python environments from uv.lock: .venv and .venv_cuda on Windows, .venv_linux on Linux"
+run = "uv sync --frozen --python 3.11"
+run_windows = "bat\\install.bat"
+env = { UV_PROJECT_ENVIRONMENT = ".venv_linux", UV_PYTHON_PREFERENCE = "only-system" }
+
+[tasks.spec]
+description = "Regenerate the spec reference (docs/spec/reference/) from the code"
+run = "python tools/spec_catalog.py --write"
+
+[tasks."build:voice-gate"]
+description = "Linux audio helpers in build/ (needs the PipeWire development files)"
+run = "python tools/build_voice_gate.py"
+
+[tasks."build:rvc-worker"]
+description = "RVC worker in build/ (downloads nothing)"
+run = "python tools/build_rvc_worker.py"
+
+[tasks."build:windows"]
+description = "Windows app build (npm run build: stops a running app and cleans first)"
+run = "npm run build"
+
+[tasks."build:linux"]
+description = "Linux candidate build (tools/build_linux.py; see docs/voice-stack/linux-build-pipeline.md)"
+run = "python tools/build_linux.py"
+
+[tasks."changelog:print"]
+description = "Show the next release's changes without writing anything"
+run = "python tools/changelog.py print"
+
+[tasks."dev:web"]
+description = "Web UI development server (Vite)"
+run = "npm run dev:web"

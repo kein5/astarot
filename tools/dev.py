@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -310,6 +311,21 @@ def checks_plan(args, root):
     return steps
 
 
+def pinned_versions(root):
+    """Tool versions pinned in mise.toml, keyed by the name doctor looks up on PATH."""
+    try:
+        tools = tomllib.loads((root / "mise.toml").read_text(encoding="utf-8")).get("tools", {})
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return {}
+    versions = {}
+    for mise_name, command in (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv")):
+        value = tools.get(mise_name)
+        version = value.get("version") if isinstance(value, dict) else value
+        if isinstance(version, str):
+            versions[command] = version
+    return versions
+
+
 def doctor(args, root, *, preflight=False):
     rows = []
 
@@ -319,7 +335,9 @@ def doctor(args, root, *, preflight=False):
     def tool(name, expected=None):
         path = shutil.which(name)
         if not path:
-            row(name, "missing", "Not on PATH", "Install the tool explicitly; see docs/development.md.")
+            row(name, "missing", "Not on PATH",
+                f"mise install (mise.toml pins {expected}); see docs/development.md." if expected
+                else "Install the tool explicitly; see docs/development.md.")
             return
         result = probe([path, "--version"], root)
         value = (result.stdout or result.stderr).strip().splitlines()
@@ -331,7 +349,7 @@ def doctor(args, root, *, preflight=False):
         if name == "cog":
             compatible = compatible and version.startswith("cog 7.")
         row(name, "ok" if compatible else "missing", version,
-            f"Reference toolchain: {expected}" if expected else "")
+            f"Pinned in mise.toml: {expected} (mise install)" if expected else "")
 
     row("Python CLI", "ok", sys.version.split()[0])
     selected = scopes(args)
@@ -370,8 +388,9 @@ def doctor(args, root, *, preflight=False):
                         "Install native prerequisites explicitly; setup does not install system packages.")
     if "commits" in selected:
         needed_tools.update(("cog", "git"))
+    pinned = pinned_versions(root)
     for tool_name in sorted(needed_tools):
-        tool(tool_name, {"node": "22.15.0", "cog": "7.0.0"}.get(tool_name))
+        tool(tool_name, pinned.get(tool_name))
     python_scopes = set(selected) & {"voice", "lint", "backend", "browser"}
     for scope in sorted(python_scopes):
         python = choose_python(root, args.python, profile=scope if scope in ("backend", "browser") else "headless")
