@@ -60,7 +60,7 @@ WindowsのデスクトップウィンドウとSteamVRのヘッドセット映像
 ### ocr_bubble_detector.py — 吹き出し検出（YOLOX-Tiny / ONNX）
 - 推論に失敗したら `OcrDetectorError` を投げる。候補がない場合の空リストとは区別し、パイプライン側でログの重複抑止、再試行、UIの失敗表示を行う。
 - 収集したVRChatのスクリーンショットで学習した検出モデルで、吹き出しの矩形を直接得る
-- 推論は onnxruntime のみ（faster-whisper が Silero VAD 用に既に依存しているので追加依存なし）。
+- 推論は onnxruntime のみ（同梱の Silero VAD も使う直接の依存なので追加依存なし）。
   YOLOX も torch も推論には不要。grid/stride のデコードはエクスポート時にグラフへ
   入れてあるので、このモジュールがやるのは letterbox・閾値・NMS・元画像座標への戻しだけ
 - モデルは `src-python/models/ocr/onnx/chatbox_yolox_tiny.onnx`（約5.5MB、INT8）を同梱。
@@ -111,7 +111,7 @@ WindowsのデスクトップウィンドウとSteamVRのヘッドセット映像
   `[{"text", "confidence"}, ...]` を返し、例外は投げない (失敗時は空リスト)
 - パイプラインは `readtext_bgr_or_raise` を使い、推論・結果の変換の例外を
   「読める文字がない」と区別する。文字だけを使う既存の呼び出し元には空リストを返す契約を保つ。
-- **onnxruntimeのみで動く**。faster-whisper が Silero VAD 用に既に依存しているので、
+- **onnxruntimeのみで動く**。同梱の Silero VAD も使う直接の依存なので、
   実行時依存は増えない。PaddlePaddle も torch も要らない
 - `Det.limit_side_len=320`。RapidOCRの既定は短辺を736pxまで**拡大**する設定
   (`limit_type="min"`) で、吹き出しの切り出しは小さい(短辺100px前後のこともある)ため
@@ -298,7 +298,7 @@ OCRは吹き出し内の各行を別々に返す。そこには「送信者が�
 
 ## 1 tick あたりの処理量制限
 
-混雑したワールドや文字の多い UI では候補矩形が数十件になることがあり、全件 OCR するとループが数秒止まって Whisper と GPU を奪い合います。そのため:
+混雑したワールドや文字の多い UI では候補矩形が数十件になることがあり、全件 OCR するとループが数秒止まり、音声認識や翻訳と CPU・GPU を奪い合います。そのため:
 
 - `MAX_CANDIDATES_PER_TICK`（既定6）で検出器の信頼度上位の候補に絞る。前回の矩形との重なり（IoUが0.5以上）で候補を対応付け、まだ試していない候補、最後に試した順が古い候補を先に読む。信頼度順が変わったり少し移動したりしても順番を引き継ぐ。保持するのは矩形と試した順だけで、読む画像は現在のフレームから選ぶ
 - `TICK_OCR_BUDGET_RATIO`（既定 0.8）× poll interval を時間予算とし、超過した時点でその tick を打ち切り

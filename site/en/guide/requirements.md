@@ -19,19 +19,21 @@ On Linux, the audio route the app manages needs Linux 6.9 or later, PipeWire and
 
 | Use | Memory the app used (measured) | Suggested PC memory |
 |---|---|---|
-| Translation and captions of other people's voices (Whisper tiny for recognition, both on the CPU) | about 3.6 GB | 16 GB or more |
+| Translation and captions of other people's voices (earlier version, Whisper tiny for recognition, both on the CPU) | about 3.6 GB | 16 GB or more |
 | Speech, captions, the voice changer (RVC), translation and VR captions at once | about 11.5–13.1 GB | 32 GB or more |
 
 "Memory the app used" is the total private memory of the VRCT-VOX processes, measured over runs of 30 minutes to 2 hours. "Suggested PC memory" adds the operating system and VRChat to that. VRChat's own memory was not measured.
+
+The first row was measured with an earlier version, which still had the Whisper that ran inside the app. Speech recognition on this PC is now done by Local (speech.cpp), and that setup has not been measured again.
 
 ## GPU
 
 | Feature | GPU needed |
 |---|---|
-| Translation, speech recognition (Whisper), chat reading | None; they run on the CPU |
-| Speech, realtime captions and telling speakers apart (speech.cpp, included in the app) | A GPU with <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> support: NVIDIA, AMD or Intel, integrated GPUs included. Without one they run on the CPU, more slowly |
+| Translation, chat reading | None; they run on the CPU |
+| Speech, local speech recognition and realtime captions, telling speakers apart (speech.cpp, included in the app) | A GPU with <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> support: NVIDIA, AMD or Intel, integrated GPUs included. Without one they run on the CPU, more slowly |
 | Voice changer (RVC, Seed-VC) | An NVIDIA GPU with a driver that supports CUDA 12.8 |
-| Whisper and local translation on the GPU (the Windows CUDA version) | An NVIDIA GPU |
+| Local translation on the GPU (the Windows CUDA version) | An NVIDIA GPU |
 
 The speech models use about this much GPU memory (more in [Getting models](models#gpu-and-memory-guidance)):
 
@@ -50,7 +52,7 @@ The only CPU tested is an Intel Core i7-1255U (a laptop CPU with 10 cores and 12
 
 | Use | CPU use (100% = one logical core) |
 |---|---|
-| Translation and captions of other people's voices (both on the CPU) | 21–34% |
+| Translation and captions of other people's voices (earlier version, Whisper tiny for recognition, both on the CPU) | 21–34% |
 | Speech, captions and RVC on the GPU, translation on the CPU | 63–137% |
 
 ## Free disk space

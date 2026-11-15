@@ -29,7 +29,7 @@ class TestIsLanguageSupportedByTranscriptionEngine(unittest.TestCase):
         self.assertTrue(model.isLanguageSupportedByTranscriptionEngine("Google", "Korean", "South Korea"))
 
     def test_whisper_api_engines_support_every_entry_too(self) -> None:
-        for engine in ("Whisper", "Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper"):
+        for engine in ("Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper"):
             with self.subTest(engine=engine):
                 self.assertTrue(model.isLanguageSupportedByTranscriptionEngine(engine, "Korean", "South Korea"))
 
@@ -57,9 +57,9 @@ class TestGetTranscriptionLanguagesForEngine(unittest.TestCase):
         languages = {entry["language"] for entry in result}
         self.assertEqual(languages, {"English", "Japanese"})
 
-    def test_whisper_list_covers_far_more_languages(self) -> None:
+    def test_whisper_api_list_covers_far_more_languages(self) -> None:
         deepgram_count = len(model.getTranscriptionLanguagesForEngine("Deepgram"))
-        whisper_count = len(model.getTranscriptionLanguagesForEngine("Whisper"))
+        whisper_count = len(model.getTranscriptionLanguagesForEngine("OpenAI_Whisper"))
         self.assertGreater(whisper_count, deepgram_count)
 
 

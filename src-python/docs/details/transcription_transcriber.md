@@ -2,14 +2,16 @@
 
 ## 概要
 
-音声データを文字テキストに変換する音声認識エンジンのメインクラスです。Google Speech RecognitionとOpenAI Whisper（faster-whisper）の両方をサポートし、オンライン・オフラインの音声認識を統合的に管理します。キューベースの非同期処理により、リアルタイム音声認識を実現します。
+音声データを文字テキストに変換する音声認識エンジンのメインクラスです。録音経路（レコーダー → キュー → `AudioTranscriber`）で、Google Speech Recognition とクラウドの音声認識エンジン（Groq Whisper、OpenAI Whisper、カスタム Whisper サーバー、Deepgram）を扱います。キューベースの非同期処理により、リアルタイム音声認識を実現します。
+
+ローカルの音声認識は speech.cpp（エンジン ID `SpeechCpp`）のリアルタイム経路で動き、このクラスは使いません。以前のローカル Whisper（faster-whisper）は #288 で削除しました。`transcription_engine` に `"SpeechCpp"` などこのクラスが扱わないエンジンを渡すと、`TranscriptionStartError(TRANSCRIPTION_ENGINE_UNAVAILABLE)` を送出します。
 
 ## 主要機能
 
 ### 音声認識エンジン
 - Google Speech Recognition（オンライン）
-- OpenAI Whisper（faster-whisper、オフライン）
-- エンジン自動切り替え機能
+- OpenAI 互換のクラウド API（Groq Whisper、OpenAI Whisper、カスタム Whisper サーバー。`OpenAICompatibleTranscriptionProvider`）
+- Deepgram（`DeepgramProvider`）
 
 ### リアルタイム処理
 - 音声キューからの継続的データ処理
@@ -32,9 +34,10 @@
 ```python
 class AudioTranscriber:
     def __init__(self, speaker: bool, source: Any, phrase_timeout: int, max_phrases: int,
-                 transcription_engine: str, root: Optional[str] = None,
-                 whisper_weight_type: Optional[str] = None, device: str = "cpu",
-                 device_index: int = 0, compute_type: str = "auto")
+                 transcription_engine: str, api_key: Optional[str] = None,
+                 base_url: Optional[str] = None, api_model: Optional[str] = None,
+                 api_model_languages: Optional[List[str]] = None,
+                 vad_segmented: bool = False, source_label: Optional[str] = None)
 ```
 
 音声認識の中核クラス
@@ -44,11 +47,9 @@ class AudioTranscriber:
 - **source**: 音声ソース
 - **phrase_timeout**: フレーズタイムアウト（秒）
 - **max_phrases**: 最大フレーズ数
-- **transcription_engine**: 認識エンジン（"Google"/"Whisper"）
-- **whisper_weight_type**: Whisperモデル種類
-- **device**: 計算デバイス（"cpu"/"cuda"）
-- **device_index**: デバイスインデックス
-- **compute_type**: 計算精度タイプ
+- **transcription_engine**: 認識エンジン（"Google"、"Groq_Whisper"、"OpenAI_Whisper"、"Custom_Whisper"、"Deepgram"）
+- **api_key** / **base_url** / **api_model** / **api_model_languages**: クラウドエンジンの認証キー、接続先、モデル、モデルが対応する言語（`model.py` の `_resolve_api_transcription_kwargs()` が config から解決する）
+- **source_label**: ログに出す入力名（"mic"/"speaker"）
 - **vad_segmented**: `config.MIC_ENABLE_VAD/SPEAKER_ENABLE_VAD` 連動 (既定 False)。True の場合、audio_queue の
   各アイテムは `(raw_bytes, recorded_at, reason)` の3要素タプルで、`reason` が
   `"silence"`/`"flush"` (自然な区切り) の場合は蓄積分をまとめて即座に確定・
@@ -102,8 +103,8 @@ transcribeAudioQueue(audio_queue: Queue, languages: List[str], countries: List[s
 - **audio_queue**: 音声データキュー
 - **languages**: 認識対象言語リスト
 - **countries**: 地域コードリスト  
-- **avg_logprob**: Whisper平均対数確率しきい値
-- **no_speech_prob**: Whisper無音判定しきい値
+- **avg_logprob**: 平均対数確率しきい値。OpenAI 互換のクラウドエンジン（Groq / OpenAI / カスタム）が、返ってきたセグメントをふるい分けるのに使う（`MIC_AVG_LOGPROB` / `SPEAKER_AVG_LOGPROB`）
+- **no_speech_prob**: 無音判定しきい値。同じくクラウドエンジンのセグメントのふるい分けに使う（`MIC_NO_SPEECH_PROB` / `SPEAKER_NO_SPEECH_PROB`）
 
 ### 結果管理
 
@@ -154,7 +155,6 @@ transcriber = AudioTranscriber(
     phrase_timeout=3,           # 3秒のフレーズタイムアウト
     max_phrases=10,             # 最大10フレーズ
     transcription_engine="Google",  # Google音声認識
-    device="cpu"
 )
 
 # 音声キューの準備
@@ -182,24 +182,22 @@ thread.daemon = True
 thread.start()
 ```
 
-### Whisperエンジンの使用
+### クラウドエンジンの使用
 
 ```python
-# Whisper音声認識の初期化
-whisper_transcriber = AudioTranscriber(
+# OpenAI 互換のクラウドエンジン（ここでは Groq）の初期化
+cloud_transcriber = AudioTranscriber(
     speaker=True,               # スピーカー音声
     source=speaker_source,
     phrase_timeout=5,
     max_phrases=5,
-    transcription_engine="Whisper",
-    whisper_weight_type="base",     # Whisperモデル
-    device="cuda",                  # CUDA使用
-    device_index=0,
-    compute_type="float16"          # 半精度浮動小数点
+    transcription_engine="Groq_Whisper",
+    api_key=groq_api_key,
+    api_model=groq_model,
 )
 
-# Whisper固有パラメータでの認識
-success = whisper_transcriber.transcribeAudioQueue(
+# セグメントのふるい分けのしきい値を指定して認識
+success = cloud_transcriber.transcribeAudioQueue(
     audio_queue, languages, countries,
     avg_logprob=-0.5,          # より厳しい品質しきい値
     no_speech_prob=0.4         # より敏感な無音検出
@@ -259,19 +257,17 @@ def safe_transcription(transcriber, audio_queue, languages, countries):
 - プライバシー懸念
 - レイテンシ
 
-### OpenAI Whisper（faster-whisper）
+### クラウドエンジン（Groq / OpenAI / カスタムサーバー / Deepgram）
 
 #### 利点
-- オフライン動作
-- プライバシー保護
 - 高精度
 - 多言語対応
+- この PC の GPU を使わない
 
 #### 制限
-- 初回起動時間
-- メモリ使用量
-- CUDA推奨
-- モデルファイル必要
+- インターネット接続と API キーが必要（カスタムサーバーは接続先が必要）
+- 音声が外部のサービスに送られる
+- レイテンシ
 
 ## 設定パラメータ
 
@@ -279,13 +275,11 @@ def safe_transcription(transcriber, audio_queue, languages, countries):
 - **phrase_timeout**: フレーズ間無音時間（秒）
 - **max_phrases**: バッファ内最大フレーズ数
 
-### Whisper品質設定
-- **avg_logprob**: 平均対数確率しきい値（-1.0〜0.0）
-- **no_speech_prob**: 無音判定しきい値（0.0〜1.0）
+### クラウドエンジンの品質設定
+- **avg_logprob**: 平均対数確率しきい値（-2〜0）。OpenAI 互換のクラウドエンジンだけが使う
+- **no_speech_prob**: 無音判定しきい値（0〜1）。OpenAI 互換のクラウドエンジンだけが使う
 
-### 計算設定
-- **device**: "cpu" または "cuda"
-- **compute_type**: "float32", "float16", "int8" など
+設定画面のスライダーは #288 で削除しました。設定キーとエンドポイントは残っています。
 
 ## 音声データフォーマット
 
@@ -307,12 +301,6 @@ def safe_transcription(transcriber, audio_queue, languages, countries):
 ### メモリ管理
 - 音声バッファの適切なサイズ設定
 - 不要な音声データの早期解放
-- Whisperモデルのメモリ効率化
-
-### 計算最適化
-- CUDA使用による高速化
-- 適切な計算精度選択
-- バッチ処理の活用
 
 ### レイテンシ削減
 - 音声バッファサイズの最適化
@@ -322,41 +310,34 @@ def safe_transcription(transcriber, audio_queue, languages, countries):
 ## エラーハンドリング
 
 ### ネットワークエラー
-- Google API接続失敗の検出
-- 自動Whisperエンジン切り替え
+- Google API とクラウド API の接続失敗の検出
 
 ### 音声品質エラー
 - 低品質音声の検出・フィルタリング
 - ノイズレベル監視
 
-### リソースエラー
-- VRAM不足の検出
-- メモリ不足時の対応
-
 ## 依存関係
 
 ### 必須依存関係
 - `speech_recognition`: Google音声認識
-- `faster_whisper`: Whisper音声認識
+- `openai`: OpenAI 互換のクラウドエンジン
 - `pyaudiowpatch`: 音声入力
 - `pydub`: 音声処理
 
 ### オプション依存関係
-- `nvidia-cublas-cu12` / `nvidia-cudnn-cu12`: CUDA計算（ctranslate2 が実行時にロードする）
 - `utils`: エラーログ機能
 
 ## 注意事項
 
 - Google APIは使用制限あり
-- Whisperは初回起動に時間要
-- CUDA使用時はVRAM消費に注意
 - 音声品質が認識精度に大きく影響
 - 多言語認識時は処理負荷増加
 
 ## 関連モジュール
 
 - `transcription_recorder.py`: 音声録音
-- `transcription_whisper.py`: Whisperモデル管理
+- `transcription_providers.py`: エンジンごとの呼び出し（Google、OpenAI 互換、Deepgram）
+- `old_whisper_weights.py`: 以前の版がダウンロードした Whisper の重みの確認と、利用者の操作による削除（`WHISPER_WEIGHT_NAMES`、`oldWhisperWeights(root)`、`deleteOldWhisperWeights(root)`）。このクラスからは使わない
 - `transcription_languages.py`: 言語コード管理
 - `config.py`: 認識設定管理
 - `model.py`: 音声認識統合制御

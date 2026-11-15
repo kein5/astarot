@@ -123,7 +123,13 @@ def ENABLE_TRANSCRIPTION_SEND(self) -> bool
 @property
 def SELECTED_TRANSCRIPTION_ENGINE(self) -> str
 ```
-- 音声認識エンジン
+- 音声認識エンジン（"Google"、"SpeechCpp"、クラウドの "Groq_Whisper" / "OpenAI_Whisper" / "Custom_Whisper" / "Deepgram"）。ローカルの "Whisper" は #288 で削除し、保存された "Whisper" は読み込み時に "SpeechCpp" へ移す（`LOCAL_ASR_MIGRATION` の手順 2）
+
+```python
+@property
+def LOCAL_ASR_NOTICE_PENDING(self) -> bool
+```
+- Whisper から speech.cpp に移ったことを知らせるお知らせをまだ表示するか（既定 False、保存する）。手順 2 の移行で True になり、利用者がお知らせを閉じると False になる
 
 ```python
 @property
@@ -215,11 +221,7 @@ def SELECTED_TRANSLATION_COMPUTE_DEVICE(self) -> Dict[str, Any]
 ```
 - 翻訳用計算デバイス
 
-```python
-@property
-def SELECTED_TRANSCRIPTION_COMPUTE_DEVICE(self) -> Dict[str, Any]
-```
-- 音声認識用計算デバイス
+音声認識用の計算デバイス（`SELECTED_TRANSCRIPTION_COMPUTE_DEVICE`）と計算タイプ（`SELECTED_TRANSCRIPTION_COMPUTE_TYPE`）は、ローカルの Whisper とともに #288 で削除した。
 
 ## 主要メソッド
 

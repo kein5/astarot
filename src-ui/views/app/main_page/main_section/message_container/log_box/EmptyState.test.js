@@ -22,7 +22,8 @@ async function setup({ needs = [], sends = true, vr = false } = {}) {
 }
 
 test("the empty conversation lists what the selected engines still need, each with the step that provides it", async () => {
-    const s = await setup({ needs: [{ id: "translation", weight: { id: "small" } }, { id: "transcription", weight: { id: "base" } }] });
+    const s = await setup({ needs: [{ id: "translation", weight: { id: "small" }, action: "review" },
+        { id: "transcription", weight: { id: "base" }, action: "review" }] });
     const list = find(s.tree, node => node.type === "ul");
     assert.equal(list.props["aria-label"], "studio.setup_label");
     assert.deepEqual(s.texts.filter(text => text.startsWith("studio.setup_")), ["studio.setup_translation", "studio.setup_transcription"]);
@@ -31,6 +32,15 @@ test("the empty conversation lists what the selected engines still need, each wi
     assert.deepEqual(buttons.map(button => button.props.children), ["model_downloads.review", "model_downloads.review"]);
     buttons[1].props.onClick();
     assert.deepEqual(s.started, ["transcription"], "the button opens the review; it does not download");
+});
+
+test("the local speech recognition's models are set in its settings: the button opens them, it does not download", async () => {
+    const s = await setup({ needs: [{ id: "transcription", weight: null, action: "settings" }] });
+    assert.deepEqual(s.texts.filter(text => text.startsWith("studio.setup_")), ["studio.setup_transcription", "studio.setup_open_settings"]);
+    const button = find(s.tree, node => node.type === "button");
+    assert.equal(button.props.children, "studio.setup_open_settings");
+    button.props.onClick();
+    assert.deepEqual(s.started, ["transcription"]);
 });
 
 test("a model on its way shows its progress instead of the button", async () => {

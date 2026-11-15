@@ -14,6 +14,7 @@ def test_default_settings_have_no_recording_intent_and_roundtrip():
     assert value == {
         "version": 1,
         "server": "external",
+        "start_server": True,
         "base_url": "http://127.0.0.1:8080",
         "model": "",
         "mic": {"language": "ja", "endpoint": None, "follow_default": True},
@@ -24,6 +25,16 @@ def test_default_settings_have_no_recording_intent_and_roundtrip():
     assert m.normalize_settings(value) is not value
     with pytest.raises(ValueError):
         m.session_options(value, "mic")
+
+
+def test_the_switches_start_the_bundled_server_unless_the_user_turns_that_off():
+    m = module()
+    # Saved before the choice existed: the switches keep starting the server.
+    assert m.normalize_settings({"server": "bundled"})["start_server"] is True
+    assert m.normalize_settings({"server": "bundled", "start_server": False})["start_server"] is False
+    for value in (None, 0, "false"):
+        with pytest.raises(ValueError):
+            m.normalize_settings({"start_server": value})
 
 
 def test_settings_saved_before_auto_and_follow_default_keep_their_meaning():

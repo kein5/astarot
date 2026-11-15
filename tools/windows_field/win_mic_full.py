@@ -1,6 +1,9 @@
 """With the user at the PC: the frozen sidecar on the built-in microphone. No audio is kept.
 
-1. Classic path (Whisper tiny): the message while Windows' question is unanswered, then recognition.
+1. Classic path (Google), only with the argument 'google': the message while Windows' question
+   is unanswered, then recognition. The classic recorder serves Google and the cloud engines only
+   since the local Whisper engine was removed (#288), so this step sends the microphone audio to
+   Google's speech service; without 'google' it is skipped.
 2. Realtime captions (Qwen3-ASR, device auto) on the microphone.
 3. RVC on the same microphone while the captions keep running.
 """
@@ -91,11 +94,9 @@ def choose_mic(app):
 
 
 def classic(app):
-    app.call('/set/data/selected_transcription_engine', 'Whisper')
-    app.call('/set/data/selected_whisper_weight_type', 'tiny')
-    settings = e.result(app.call('/get/data/realtime_asr_settings'))
-    settings['server'] = 'external'  # The saved settings of an earlier run would pick the realtime path.
-    app.record('classic: path selected', app.call('/set/data/realtime_asr_settings', settings)['status'] == 200, settings['server'])
+    # On Windows the engine picks the path: Google listens through the classic recorder.
+    event = app.call('/set/data/selected_transcription_engine', 'Google')
+    app.record('classic: path selected', event['status'] == 200, event.get('result'))
     choose_mic(app)
     # Always set it: the saved settings of an earlier 'low' run would carry over.
     event = app.call('/set/data/mic_threshold', 40 if 'low' in sys.argv else DEFAULT_THRESHOLD)
@@ -230,7 +231,11 @@ def main():
         your[init['/get/data/selected_tab_no']]['1'].update(language='Japanese', country='Japan', enable=True)
         app.call('/set/data/selected_your_languages', your)
         app.call('/set/disable/translation')
-        classic(app)
+        # The classic recorder now means a cloud service: run it only when asked for.
+        if 'google' in sys.argv:
+            classic(app)
+        else:
+            app.record('classic: skipped (sends audio to Google; pass "google" to run it)', True)
         if 'low' in sys.argv:
             pass
         elif 'classic' in sys.argv:

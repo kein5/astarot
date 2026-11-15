@@ -13,8 +13,8 @@ from models.legacy_model_consent import (
     legacyModelReview, legacyModelCatalog, recordLegacyConsent, consentedLegacyRequest,
 )
 
-MODELS = [("whisper", "base"), ("ctranslate2", "m2m100_418M-ct2-int8"),
-          ("ctranslate2", "nllb-200-distilled-600M-ct2-int8")]
+# The built-in downloads are the translation weights; the Whisper ones went with the engine (#288).
+MODELS = [("ctranslate2", "m2m100_418M-ct2-int8"), ("ctranslate2", "nllb-200-distilled-600M-ct2-int8")]
 
 
 def request(kind, weight):
@@ -25,14 +25,14 @@ def request(kind, weight):
 @pytest.fixture
 def app(monkeypatch):
     config = SimpleNamespace(LEGACY_MODEL_DOWNLOAD_CONSENTS={},
-        CTRANSLATE2_WEIGHT_TYPE=MODELS[2][1], WHISPER_WEIGHT_TYPE="base", AUTO_DOWNLOAD_MODELS=True,
-        SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT={}, SELECTABLE_WHISPER_WEIGHT_TYPE_DICT={})
+        CTRANSLATE2_WEIGHT_TYPE=MODELS[1][1], AUTO_DOWNLOAD_MODELS=True,
+        SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT={})
     monkeypatch.setattr(module, "config", config)
     backend = MagicMock()
     monkeypatch.setattr(module, "model", backend)
     controller = module.Controller.__new__(module.Controller)
     controller._model = backend
-    controller.run_mapping = {f"error_{kind}_weight": f"/run/error_{kind}_weight" for kind in ("whisper", "ctranslate2")}
+    controller.run_mapping = {"error_ctranslate2_weight": "/run/error_ctranslate2_weight"}
     controller.run_mapping["connected_network"] = "/run/connected_network"
     controller.run = MagicMock()
     return controller, config, backend
@@ -48,9 +48,9 @@ def test_rejects_before_any_acquisition_or_recording(app, kind, weight, invalid)
     elif invalid == "false": data["consent"] = False
     elif invalid == "truthy": data["consent"] = "true"
     elif invalid == "stale": data["manifest_version"] = "old"
-    elif invalid == "other_model": data["manifest_version"] = legacyModelReview("whisper", "tiny")["manifest_version"]
+    elif invalid == "other_model": data["manifest_version"] = legacyModelReview("ctranslate2", "m2m100_1.2B-ct2-int8")["manifest_version"]
     else: data = {"weight_type": weight, "accept_non_commercial_license": True}
-    method = controller.downloadWhisperWeight if kind == "whisper" else controller.downloadCtranslate2Weight
+    method = controller.downloadCtranslate2Weight
     response = method(data)
     assert response["status"] == 400
     assert response["result"]["error_code"] == "WEIGHT_DOWNLOAD_CONSENT_REQUIRED"
@@ -65,12 +65,12 @@ def test_rejects_before_any_acquisition_or_recording(app, kind, weight, invalid)
 def test_exact_manifest_consent_starts_and_records_without_selecting(app, kind, weight, asynchronous):
     controller, config, backend = app
     selected = config.CTRANSLATE2_WEIGHT_TYPE
-    method = controller.downloadWhisperWeight if kind == "whisper" else controller.downloadCtranslate2Weight
+    method = controller.downloadCtranslate2Weight
     response = method(request(kind, weight), asynchronous=asynchronous)
     assert response["status"] == 200 and response["result"]["weight_type"] == weight
     assert response["result"]["job_id"]
     assert controller._legacyDownloads().wait((kind, weight), timeout=1)
-    worker = backend.downloadWhisperModelWeight if kind == "whisper" else backend.downloadCTranslate2ModelWeight
+    worker = backend.downloadCTranslate2ModelWeight
     assert worker.call_args.args[0] == weight
     assert worker.call_args.kwargs["control"] is not None
     backend.downloadCTranslate2ModelTokenizer.assert_not_called()
@@ -88,11 +88,21 @@ def test_review_totals_and_restrictions_match_manifest():
         if "nllb" in entry["weight_type"]:
             assert entry["non_commercial"] is True
             assert entry["license"] == "CC-BY-NC-4.0"
-    assert legacyModelReview(*MODELS[1])["total_bytes"] == 499602144
+    assert legacyModelReview(*MODELS[0])["total_bytes"] == 499602144
+
+
+def test_whisper_weights_are_no_longer_reviewed_or_consented():
+    # The local Whisper engine was removed (#288): its weights have no review and no consent.
+    assert all(entry["kind"] == "ctranslate2" for entry in legacyModelCatalog())
+    with pytest.raises(KeyError):
+        legacyModelReview("whisper", "base")
+    config = SimpleNamespace(LEGACY_MODEL_DOWNLOAD_CONSENTS={})
+    assert recordLegacyConsent(config, "whisper", {"weight_type": "base", "consent": True, "manifest_version": "x"}) is False
+    assert config.LEGACY_MODEL_DOWNLOAD_CONSENTS == {}
 
 
 def test_tokenizer_files_are_in_the_reviewed_bundle_without_double_counting():
-    entry = legacyModelReview(*MODELS[1])
+    entry = legacyModelReview(*MODELS[0])
     tokenizer = entry["tokenizer"]
     assert tokenizer["repo"] == entry["repo"]
     assert tokenizer["revision"] == entry["revision"]
@@ -113,7 +123,7 @@ def isolated_config(path):
 @pytest.mark.parametrize("kind,weight", MODELS)
 def test_consent_survives_restart_and_manifest_changes_require_review(tmp_path, monkeypatch, kind, weight):
     path = tmp_path / "config.json"
-    path.write_text(json.dumps({"CTRANSLATE2_WEIGHT_TYPE": MODELS[2][1], "AUTO_DOWNLOAD_MODELS": True}))
+    path.write_text(json.dumps({"CTRANSLATE2_WEIGHT_TYPE": MODELS[1][1], "AUTO_DOWNLOAD_MODELS": True}))
     config = isolated_config(path)
     assert config.LEGACY_MODEL_DOWNLOAD_CONSENTS == {}
     assert consentedLegacyRequest(config, kind, weight) is None
@@ -121,7 +131,7 @@ def test_consent_survives_restart_and_manifest_changes_require_review(tmp_path, 
     saved = json.loads(path.read_text())["LEGACY_MODEL_DOWNLOAD_CONSENTS"]
     restarted = isolated_config(path)
     assert restarted.LEGACY_MODEL_DOWNLOAD_CONSENTS == saved
-    assert restarted.CTRANSLATE2_WEIGHT_TYPE == MODELS[2][1]
+    assert restarted.CTRANSLATE2_WEIGHT_TYPE == MODELS[1][1]
     assert consentedLegacyRequest(restarted, kind, weight) == request(kind, weight)
     repo = legacyModelReview(kind, weight)["repo"]
     changed = copy.deepcopy(MODEL_PINS[repo])
@@ -133,7 +143,7 @@ def test_consent_survives_restart_and_manifest_changes_require_review(tmp_path, 
 
 def test_tokenizer_revision_and_file_pins_invalidate_consent(monkeypatch):
     config = SimpleNamespace(LEGACY_MODEL_DOWNLOAD_CONSENTS={})
-    kind, weight = MODELS[1]
+    kind, weight = MODELS[0]
     assert recordLegacyConsent(config, kind, request(kind, weight))
     entry = legacyModelReview(kind, weight)
     changed = copy.deepcopy(MODEL_PINS[entry["repo"]])
@@ -153,15 +163,13 @@ def test_real_startup_skips_or_fetches_including_retry(app, monkeypatch, auto, r
     controller, config, backend = app
     config.AUTO_DOWNLOAD_MODELS = auto
     config.SELECTED_TAB_NO, config.SELECTED_TRANSLATION_ENGINES = "1", {"1": "CTranslate2"}
-    config.SELECTED_TRANSCRIPTION_ENGINE = "Whisper"
-    for kind, weight in [("whisper", config.WHISPER_WEIGHT_TYPE), ("ctranslate2", config.CTRANSLATE2_WEIGHT_TYPE)]:
-        if recorded: recordLegacyConsent(config, kind, request(kind, weight))
+    config.SELECTED_TRANSCRIPTION_ENGINE = "SpeechCpp"
+    if recorded: recordLegacyConsent(config, "ctranslate2", request("ctranslate2", config.CTRANSLATE2_WEIGHT_TYPE))
     monkeypatch.setattr(module, "isConnectedNetwork", lambda: True)
     monkeypatch.setattr(module, "removeLog", lambda: None)
     controller.startWatchdog = controller.connectedNetwork = lambda: None
     controller.initializationProgress = lambda _: None
     backend.checkTranslatorCTranslate2ModelWeight.return_value = available
-    backend.checkTranscriptionWhisperModelWeight.return_value = available
     class ReachedAvailability(Exception): pass
     def stop(): raise ReachedAvailability()
     controller.disableAiModels = controller.enableAiModels = stop
@@ -169,10 +177,11 @@ def test_real_startup_skips_or_fetches_including_retry(app, monkeypatch, auto, r
     expected = 2 if auto and recorded and not available else 0
     assert backend.downloadCTranslate2ModelWeight.call_count == expected
     backend.downloadCTranslate2ModelTokenizer.assert_not_called()
-    assert backend.downloadWhisperModelWeight.call_count == expected
+    # Startup never looks at, or fetches, a Whisper weight any more (#288).
+    assert not any("Whisper" in str(call) for call in backend.mock_calls)
     notices = [call for call in controller.run.call_args_list
                if isinstance(call.args[2], dict) and call.args[2].get("error_code") == "WEIGHT_DOWNLOAD_CONSENT_REQUIRED"]
-    assert len(notices) == (2 if auto and not recorded and not available else 0)
+    assert len(notices) == (1 if auto and not recorded and not available else 0)
     for notice in notices:
         assert notice.args[2]["error_code"] == "WEIGHT_DOWNLOAD_CONSENT_REQUIRED"
         assert notice.args[2]["data"]["startup"] is True

@@ -40,9 +40,9 @@ Turning off usage reporting does not make every feature offline. Services you ch
 | Sending to the chatbox | VRChat (OSC on this PC) | The text you send |
 | Usage data (can be turned off) | The developers of VRCT-VOX (Cloudflare) | That the app started, the kind of an error, and the PC's hardware |
 
-Local translation models, the bundled speech.cpp servers (speech and realtime captions) and chat reading run on this PC. The picture of a window you share for chat reading stays on this PC too.
+Local translation models, the bundled speech.cpp servers (speech, local speech recognition and realtime captions) and chat reading run on this PC. The picture of a window you share for chat reading stays on this PC too.
 
-You choose the speech recognition engine yourself the first time you turn transcription on. Audio is never sent to a service you did not choose, and the app does not switch to Google on its own when a Whisper model is missing.
+You choose the speech recognition engine yourself the first time you turn transcription on. Audio is never sent to a service you did not choose, and the app does not switch to Google on its own when a Local (speech.cpp) model is missing.
 
 When you change the URL of an OpenAI-compatible endpoint or Custom Whisper, you enter the API key again. A saved key is never sent to the new URL on its own.
 

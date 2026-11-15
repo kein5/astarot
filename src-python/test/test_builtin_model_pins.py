@@ -9,7 +9,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from models.builtin_model_pins import MODEL_PINS, tokenizerFilePins, verifyPinnedFile
-from models.transcription import transcription_whisper
 from models.translation import translation_utils
 
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -19,7 +18,6 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 class PinTableTests(unittest.TestCase):
     def test_every_downloadable_model_and_tokenizer_is_pinned(self) -> None:
         repos = [w["hf_repo"] for w in translation_utils.ctranslate2_weights.values()]
-        repos += list(transcription_whisper._MODELS.values())
         for repo in repos:
             with self.subTest(repo=repo):
                 pin = MODEL_PINS[repo]
@@ -34,6 +32,12 @@ class PinTableTests(unittest.TestCase):
             self.assertIn("special_tokens_map.json", files)
             self.assertTrue("tokenizer.json" in files or
                             {"vocab.json", "sentencepiece.bpe.model"} <= files.keys())
+
+    def test_only_the_translation_weights_are_pinned(self) -> None:
+        # The Whisper weights went with the local Whisper engine (#288); nothing downloads them.
+        repos = {w["hf_repo"] for w in translation_utils.ctranslate2_weights.values()}
+        self.assertEqual(set(MODEL_PINS), repos)
+        self.assertFalse(any("whisper" in repo.lower() for repo in MODEL_PINS))
 
     def test_verify_checks_size_and_hash(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

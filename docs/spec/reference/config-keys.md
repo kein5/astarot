@@ -6,7 +6,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（130件）
+## config.jsonに保存するキー（127件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -30,7 +30,6 @@
 | `MIC_MAX_PHRASES` | int、許可値 lambda v, inst: 0 <= v <= 30 | `10` | 2秒後にまとめて |
 | `MIC_AVG_LOGPROB` | (int, float)、許可値 lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and (-2 <= v <= 0) | `-0.8` | 2秒後にまとめて |
 | `MIC_NO_SPEECH_PROB` | (int, float)、許可値 lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and (0 <= v <= 1) | `0.6` | 2秒後にまとめて |
-| `MIC_NO_REPEAT_NGRAM_SIZE` | int、許可値 lambda v, inst: v >= 0 | `0` | 2秒後にまとめて |
 | `HOTKEYS` | 検証 lambda val, inst: {**inst.HOTKEYS, **{k: v if isinstance(v, list) or v is None else inst.HOTKEYS.get(k) for k, v in val.items()}} if isinstance(val, dict) and set(val.keys()) <= set(inst.HOTKEYS.keys()) else None | `{'open_quick_chat': None, 'toggle_vrct_visibility': None, 'toggle_translation': None, '…` | 即時 |
 | `SPEAKER_THRESHOLD` | int、許可値 lambda v, inst: 0 <= v <= inst.MAX_SPEAKER_THRESHOLD | `300` | 2秒後にまとめて |
 | `SPEAKER_AUTOMATIC_THRESHOLD` | bool | `False` | 2秒後にまとめて |
@@ -39,7 +38,6 @@
 | `SPEAKER_MAX_PHRASES` | int、許可値 lambda v, inst: 0 <= v <= 60 | `10` | 2秒後にまとめて |
 | `SPEAKER_AVG_LOGPROB` | (int, float)、許可値 lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and (-2 <= v <= 0) | `-0.8` | 2秒後にまとめて |
 | `SPEAKER_NO_SPEECH_PROB` | (int, float)、許可値 lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and (0 <= v <= 1) | `0.6` | 2秒後にまとめて |
-| `SPEAKER_NO_REPEAT_NGRAM_SIZE` | int、許可値 lambda v, inst: v >= 0 | `0` | 2秒後にまとめて |
 | `MIC_ENABLE_VAD` | bool | `False` | 2秒後にまとめて |
 | `SPEAKER_ENABLE_VAD` | bool | `False` | 2秒後にまとめて |
 | `AUTH_KEYS` | 検証 lambda val, inst: {k: val[k] if k in val and isinstance(val[k], (str, type(None))) else inst.AUTH_KEYS.get(k) for k in inst.AUTH_KEYS.keys()} if isinstance(val, dict) else None | `{'DeepL_API': None, 'Plamo_API': None, 'Gemini_API': None, 'OpenAI_API': None, 'OpenAI_…` | 2秒後にまとめて |
@@ -47,7 +45,6 @@
 | `OPENAI_COMPATIBLE_URL` | str、許可値 lambda value, inst: valid_saved_api_url(value) | `'https://api.openai.com/v1'` | 2秒後にまとめて |
 | `TRANSCRIPTION_AUTH_KEYS` | 検証 lambda val, inst: {k: val[k] if k in val and isinstance(val[k], (str, type(None))) else inst.TRANSCRIPTION_AUTH_KEYS.get(k) for k in inst.TRANSCRIPTION_AUTH_KEYS.keys()} if isinstance(val, dict) else None | `{'Groq_Whisper': None, 'OpenAI_Whisper': None, 'Custom_Whisper': None, 'Deepgram': None}` | 2秒後にまとめて |
 | `TRANSCRIPTION_CUSTOM_URL` | str、許可値 lambda value, inst: valid_saved_api_url(value) | `''` | 2秒後にまとめて |
-| `SELECTED_TRANSCRIPTION_COMPUTE_TYPE` | 検証 _selected_transcription_compute_type_validator | `'auto'` | 2秒後にまとめて |
 | `OVERLAY_SMALL_LOG_SETTINGS` | 検証 _overlay_small_validator | `{'x_pos': 0.0, 'y_pos': 0.0, 'z_pos': 0.0, 'x_rotation': 0.0, 'y_rotation': 0.0, 'z_rot…` | 2秒後にまとめて |
 | `OVERLAY_LARGE_LOG_SETTINGS` | 検証 _overlay_large_validator | `{'x_pos': 0.0, 'y_pos': 0.0, 'z_pos': 0.0, 'x_rotation': 0.0, 'y_rotation': 0.0, 'z_rot…` | 2秒後にまとめて |
 | `OVERLAY_DESKTOP_SETTINGS` | 検証 _overlay_desktop_validator | `{'position': 'bottom', 'font_size': 28, 'display_duration': 6, 'opacity': 0.6}` | 2秒後にまとめて |
@@ -102,7 +99,8 @@
 | `SELECTED_RELEASE_CHANNEL` | str、許可値 lambda v, inst: v in inst.SELECTABLE_RELEASE_CHANNEL_LIST | `'stable'` | 2秒後にまとめて |
 | `CTRANSLATE2_WEIGHT_TYPE` | str、許可値 lambda v, inst: v in inst.SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST | `DEFAULT_CTRANSLATE2_WEIGHT_TYPE` | 2秒後にまとめて |
 | `CTRANSLATE2_LICENSE_NOTICE_SHOWN` | bool | `False` | 2秒後にまとめて |
-| `WHISPER_WEIGHT_TYPE` | str、許可値 lambda v, inst: v in inst.SELECTABLE_WHISPER_WEIGHT_TYPE_LIST | `'base'` | 2秒後にまとめて |
+| `LOCAL_ASR_MIGRATION` | int、許可値 lambda v, inst: not isinstance(v, bool) and 0 <= v <= LOCAL_ASR_MIGRATION_LATEST | `LOCAL_ASR_MIGRATION_LATEST` | 2秒後にまとめて |
+| `LOCAL_ASR_NOTICE_PENDING` | bool | `False` | 2秒後にまとめて |
 | `SELECTED_PLAMO_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_GEMINI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_OPENAI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_OPENAI_MODEL_LIST') | `None` | 2秒後にまとめて |
@@ -128,7 +126,6 @@
 | `SELECTED_SPEAKER_DEVICE_ID` | 検証 lambda v, _: v if isinstance(v, str) else None | `''` | 2秒後にまとめて |
 | `SELECTED_SPEAKER_DEVICE` | 検証 _speaker_device_validator | `sp_def.get('device', {}).get('name', 'NoDevice')` | 2秒後にまとめて |
 | `SELECTED_TRANSLATION_COMPUTE_DEVICE` | 検証 _compute_device_validator | `copy.deepcopy(self.SELECTABLE_COMPUTE_DEVICE_LIST[0])` | 2秒後にまとめて |
-| `SELECTED_TRANSCRIPTION_COMPUTE_DEVICE` | 検証 _compute_device_validator | `copy.deepcopy(self.SELECTABLE_COMPUTE_DEVICE_LIST[0])` | 2秒後にまとめて |
 | `ENABLE_CLIPBOARD` | bool | `False` | 2秒後にまとめて |
 | `OCR_SOURCE_LANGUAGE` | str、許可値 lambda v, inst: v in inst.SELECTABLE_OCR_SOURCE_LANGUAGE_LIST | `'auto'` | 2秒後にまとめて |
 | `OCR_WINDOW_TITLE` | str、許可値 lambda v, inst: len(v) > 0 | `'VRChat'` | 2秒後にまとめて |
@@ -142,7 +139,7 @@
 | `OCR_PORTAL_RESTORE_TOKEN` | str、許可値 _ocr_portal_restore_token_validator | `''` | 即時 |
 
 
-## 保存しないキー（47件）
+## 保存しないキー（45件）
 
 実行中だけの状態、選択肢の一覧、読み取り専用の値。起動のたびに既定値や検出結果から作り直す。
 
@@ -164,9 +161,8 @@
 | `SELECTABLE_TAB_NO_LIST` |  | `['1', '2', '3']` | 読み取り専用 |
 | `SELECTED_TAB_TARGET_LANGUAGES_NO_LIST` |  | `['1', '2', '3']` | 読み取り専用 |
 | `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST` |  | `getattr(ctranslate2_weights, 'keys', lambda: [])()` | 読み取り専用 |
-| `SELECTABLE_WHISPER_WEIGHT_TYPE_LIST` |  | `getattr(whisper_models, 'keys', lambda: [])()` | 読み取り専用 |
 | `SELECTABLE_TRANSLATION_ENGINE_LIST` |  | `getattr(translation_lang, 'keys', lambda: [])()` | 読み取り専用 |
-| `SELECTABLE_TRANSCRIPTION_ENGINE_LIST` |  | `list(transcription_lang[first_key].values())[0].keys()` | 読み取り専用 |
+| `SELECTABLE_TRANSCRIPTION_ENGINE_LIST` |  | `engines` | 読み取り専用 |
 | `SELECTABLE_UI_LANGUAGE_LIST` |  | `['en', 'ja']` | 読み取り専用 |
 | `SELECTABLE_OCR_SOURCE_LANGUAGE_LIST` |  | `list(ocr_selectable_languages)` | 読み取り専用 |
 | `COMPUTE_MODE` |  | `'cuda' if any((device.get('device') == 'cuda' for device in self._SELECTABLE_COMPUTE_DE…` | 読み取り専用 |
@@ -179,7 +175,6 @@
 | `ENABLE_CHECK_ENERGY_SEND` | bool | `False` | 保存しない |
 | `ENABLE_CHECK_ENERGY_RECEIVE` | bool | `False` | 保存しない |
 | `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT` | dict | `{}` | 保存しない |
-| `SELECTABLE_WHISPER_WEIGHT_TYPE_DICT` | dict | `{}` | 保存しない |
 | `SELECTABLE_TRANSLATION_ENGINE_STATUS` | dict | `{}` | 保存しない |
 | `SELECTABLE_TRANSCRIPTION_ENGINE_STATUS` | dict | `{}` | 保存しない |
 | `SELECTABLE_PLAMO_MODEL_LIST` | list | `[]` | 保存しない |

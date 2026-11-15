@@ -4,6 +4,13 @@
 
 VRCTアプリケーションのビジネスロジックを制御するコントローラークラスです。UI層とモデル層の間に位置し、ユーザーの入力を適切な処理に変換し、結果を UI に返す役割を担います。全ての機能制御、設定管理、状態管理を一元的に行います。
 
+## 最近の更新 (#288 ローカル Whisper の削除)
+
+- ローカルの Whisper エンジン（faster-whisper）を削除し、ローカルの音声認識を speech.cpp（`SpeechCpp`）だけにしました。下の 2026-01-03 と 2025-10-20 の項目のうち、Whisper の重みチェック・キャッシュ（`_whisper_available_cache`）とダウンロード（`DownloadWhisper`、`SELECTABLE_WHISPER_WEIGHT_TYPE_DICT`）はもうありません。
+- 起動時の重みチェックと自動ダウンロード（`AUTO_DOWNLOAD_MODELS`）は CTranslate2 の翻訳モデルだけを扱います。`_missingBuiltInModelInUse(ctranslate2_available)` も翻訳モデルだけを見ます。
+- 移行のお知らせと古い Whisper モデルのために、`getLocalAsrNotice` / `setDisableLocalAsrNotice` / `getOldWhisperWeights` / `deleteOldWhisperWeights` を追加しました（「音声認識機能制御」）。
+- 音声認識の VRAM 不足の処理（`TRANSCRIPTION_VRAM_*`、`/run/error_transcription_*_vram_overflow`）と、音声認識の処理デバイス・計算タイプの設定を削除しました。
+
 ## 最近の更新 (2026-01-03)
 
 ### 起動高速化・非同期化
@@ -133,16 +140,6 @@ class DownloadCTranslate2:
 
 - 翻訳モデルのダウンロード進捗管理
 
-#### DownloadWhisper クラス
-
-```python
-class DownloadWhisper:
-    def progressBar(self, progress) -> None
-    def downloaded(self) -> None
-```
-
-- 音声認識モデルのダウンロード進捗管理
-
 ## 主要メソッド
 
 ### 初期化・設定
@@ -222,6 +219,22 @@ setSpeakerThreshold(data) -> dict
 
 - 音声しきい値の設定
 
+```python
+getLocalAsrNotice() -> dict
+setDisableLocalAsrNotice() -> dict
+```
+
+- Whisper から speech.cpp に移ったことを知らせるお知らせ（`LOCAL_ASR_NOTICE_PENDING`）の取得と、利用者が閉じたときの解除
+
+```python
+getOldWhisperWeights() -> dict
+deleteOldWhisperWeights() -> dict
+```
+
+- 以前の版がダウンロードした Whisper の重みの合計サイズと残っているフォルダー（`{"total_bytes", "folders"}`）の取得と、利用者の操作による削除（`"freed_bytes"` と `"failed"` を加えて返す）
+- 失敗すると status 500 と `error_code`（`old_whisper_weights_unreadable` / `old_whisper_weights_delete_failed`）を返す
+- どれもモデルをダウンロードしない
+
 ### VRオーバーレイ制御
 
 ```python
@@ -292,10 +305,9 @@ updateCudaSoftware(data) -> dict
 
 ```python
 downloadCtranslate2Weight(data) -> dict
-downloadWhisperWeight(data) -> dict
 ```
 
-- AIモデルのダウンロード
+- 内蔵の翻訳モデル（CTranslate2）のダウンロード
 
 ```python
 feedWatchdog(data) -> dict

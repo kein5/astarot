@@ -233,10 +233,6 @@ class TestMainloop():
                 self.config_dict["translation_compute_device_list"], _ = self.main._call_handler("/get/data/selectable_translation_compute_device_list", None)
                 translation_compute_device_list = self.config_dict.get("translation_compute_device_list", None)
                 data = random.choice(translation_compute_device_list)
-            case "/set/data/selected_transcription_compute_device":
-                self.config_dict["transcription_compute_device_list"], _ = self.main._call_handler("/get/data/selectable_transcription_compute_device_list", None)
-                transcription_compute_device_list = self.config_dict.get("transcription_compute_device_list", None)
-                data = random.choice(transcription_compute_device_list)
             case "/set/data/selected_ctranslate2_weight_type":
                 self.config_dict["selectable_ctranslate2_weight_type_dict"], _ = self.main._call_handler("/get/data/selectable_ctranslate2_weight_type_dict", None)
                 selectable_ctranslate2_weight_type_dict = self.config_dict.get("selectable_ctranslate2_weight_type_dict", None)
@@ -398,10 +394,6 @@ class TestMainloop():
                 data = random.uniform(-5, 0)
             case "/set/data/speaker_no_speech_prob":
                 data = random.uniform(0, 1)
-            case "/set/data/selected_whisper_weight_type":
-                self.config_dict["selectable_whisper_weight_type_dict"], _ = self.main._call_handler("/get/data/selectable_whisper_weight_type_dict", None)
-                selectable_whisper_weight_type_dict = self.config_dict.get("selectable_whisper_weight_type_dict", None)
-                data = random.choice([key for key, value in selectable_whisper_weight_type_dict.items() if value is True])
             case "/set/data/overlay_small_log_settings":
                 data = {
                     "x_pos": random.random(),
@@ -457,8 +449,6 @@ class TestMainloop():
                 data = random.randint(1024, 65535)
             case "/set/data/selected_translation_compute_type":
                 data = random.choice(self.config_dict["selected_translation_compute_device"]["compute_types"])
-            case "/set/data/selected_transcription_compute_type":
-                data = random.choice(self.config_dict["selected_transcription_compute_device"]["compute_types"])
             # 言語変換設定（新規 transliteration 機能 ON/OFF テスト補助）
             case "/set/enable/convert_message_to_romaji":
                 data = None
@@ -559,14 +549,9 @@ class TestMainloop():
                 data_list = random.choice(["small", "large"])
                 data = random.choice(data_list)
                 expected_status = [401] # !!!Cant be tested here!!!
-            case "/run/download_whisper_weight":
-                data_list = [
-                    "tiny", "base", "small", "medium",
-                    "large-v1", "large-v2", "large-v3",
-                    "large-v3-turbo-int8", "large-v3-turbo"
-                ]
-                data = random.choice(data_list)
-                expected_status = [401] # !!!Cant be tested here!!!
+            case "/run/delete_old_whisper_weights":
+                data = None
+                expected_status = [401] # !!!Cant be tested here!!! (deletes files)
             case "/run/open_filepath_logs":
                 data = None
                 expected_status = [401] # !!!Cant be tested here!!!

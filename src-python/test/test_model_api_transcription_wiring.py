@@ -54,8 +54,9 @@ class TestResolveApiTranscriptionKwargs(unittest.TestCase):
 
         self.assertEqual(MicSession._resolve_api_transcription_kwargs(), {})
 
-    def test_local_whisper_returns_empty_kwargs(self) -> None:
-        config._SELECTED_TRANSCRIPTION_ENGINE = "Whisper"
+    def test_local_speech_cpp_returns_empty_kwargs(self) -> None:
+        # The local engine listens through speech.cpp; the recorder route needs nothing from it.
+        config._SELECTED_TRANSCRIPTION_ENGINE = "SpeechCpp"
 
         self.assertEqual(MicSession._resolve_api_transcription_kwargs(), {})
 

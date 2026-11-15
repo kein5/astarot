@@ -5,19 +5,17 @@ import { useMainFunction } from "@logics_main";
 import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
-import { LegacyModelDownloadDialog } from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
 
 export const TranscriptionConsentController = () => {
     const { t } = useI18n();
     const { request, setRequest } = useTranscriptionConsent();
-    const { currentSelectedTranscriptionEngine, setSelectedTranscriptionEngine,
-        currentSelectedWhisperWeightType, pendingWhisperWeightTypeStatus, downloadWhisperWeightTypeStatus } = useTranscription();
+    const { currentSelectedTranscriptionEngine, setSelectedTranscriptionEngine } = useTranscription();
     const { setTranscriptionSend, setTranscriptionReceive } = useMainFunction();
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
-    const { dialog, close } = useConsentDialog(!!request && request.mode !== "download");
+    const { dialog, close } = useConsentDialog(!!request);
     const selection = useRef(null);
     const [choice, setChoice] = useState(null);
     const cancel = () => { selection.current = null; setChoice(null); close(); setRequest(null); };
@@ -34,12 +32,10 @@ export const TranscriptionConsentController = () => {
         }
         selection.current = null;
         close();
-        if (waiting.engine === "Google") {
-            setRequest(null);
-            (request.endpoint.endsWith("_send") ? setTranscriptionSend : setTranscriptionReceive)(true);
-        } else {
-            setRequest({ ...request, mode: "download" });
-        }
+        // Both choices start at once; a missing speech.cpp model is reported by the switch
+        // itself, with the way to download it after consent.
+        setRequest(null);
+        (request.endpoint.endsWith("_send") ? setTranscriptionSend : setTranscriptionReceive)(true);
     }, [request, choice, currentSelectedTranscriptionEngine.data, currentSelectedTranscriptionEngine.state]);
 
     if (!request) return null;
@@ -51,11 +47,6 @@ export const TranscriptionConsentController = () => {
         const sent = await setSelectedTranscriptionEngine(engine);
         if (sent === false && selection.current === waiting) selection.current = null;
     };
-    if (request.mode === "download") return <LegacyModelDownloadDialog kind="whisper"
-        weightType={currentSelectedWhisperWeightType.data} onCancel={cancel} onDownload={payload => {
-            pendingWhisperWeightTypeStatus(payload.weight_type);
-            downloadWhisperWeightTypeStatus(payload);
-        }} />;
     const pending = currentSelectedTranscriptionEngine.state === "pending";
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("transcription_consent.title")}
@@ -63,11 +54,11 @@ export const TranscriptionConsentController = () => {
             <h3>{t("transcription_consent.title")}</h3>
             {request.mode === "choose" ? <>
                 <p>{t("transcription_consent.google_notice")}</p>
-                <p>{t("transcription_consent.whisper_notice")}</p>
+                <p>{t("transcription_consent.speechcpp_notice")}</p>
                 <div className={styles.actions}>
                     <button type="button" autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</button>
                     <button type="button" disabled={pending} onClick={() => choose("Google")}>{t("transcription_consent.google")}</button>
-                    <button type="button" disabled={pending} onClick={() => choose("Whisper")}>{t("transcription_consent.whisper")}</button>
+                    <button type="button" disabled={pending} onClick={() => choose("SpeechCpp")}>{t("transcription_consent.speechcpp")}</button>
                 </div>
             </> : <>
                 <p>{t("backend_errors.TRANSCRIPTION_ENGINE_UNAVAILABLE")}</p>

@@ -544,13 +544,65 @@ def test_linux_start_still_needs_the_managed_route(stub, monkeypatch):
     assert module.Controller._directOutput(controller, 'converted', {'engine': 'rvc'}) is None
 
 
-@pytest.mark.parametrize('platform,server,expected', [
-    ('linux', 'external', True), ('linux', 'bundled', True),
-    ('win32', 'external', False), ('win32', 'bundled', True), ('darwin', 'bundled', False)])
-def test_main_toggles_follow_the_server_choice_on_windows(controller_module, monkeypatch, platform, server, expected):  # noqa: F811
+@pytest.mark.parametrize('platform,engine,expected', [
+    ('linux', 'Google', True), ('linux', 'SpeechCpp', True),
+    ('win32', 'Google', False), ('win32', None, False), ('win32', 'Groq_Whisper', False),
+    ('win32', 'SpeechCpp', True), ('darwin', 'SpeechCpp', False)])
+def test_main_toggles_follow_the_engine_choice_on_windows(controller_module, monkeypatch, platform, engine, expected):  # noqa: F811
+    """The local engine listens through speech.cpp; the server choice no longer decides it (#288)."""
     monkeypatch.setattr(controller_module.sys, 'platform', platform)
-    controller = SimpleNamespace(_realtime_settings=dict(server=server))
-    assert controller_module.Controller._realtimeToggles(controller) is expected
+    monkeypatch.setattr(controller_module, 'config', SimpleNamespace(SELECTED_TRANSCRIPTION_ENGINE=engine))
+    for server in ('external', 'bundled'):
+        controller = SimpleNamespace(_realtime_settings=dict(server=server))
+        assert controller_module.Controller._realtimeToggles(controller) is expected
+
+
+def route_controller(controller_module, monkeypatch, engine):  # noqa: F811
+    from threading import Lock
+    monkeypatch.setattr(controller_module.sys, 'platform', 'win32')
+    settings = SimpleNamespace(SELECTED_TRANSCRIPTION_ENGINE=engine, ENABLE_TRANSCRIPTION_SEND=False,
+                               ENABLE_TRANSCRIPTION_RECEIVE=False)
+    monkeypatch.setattr(controller_module, 'config', settings)
+    revoked = []
+    monkeypatch.setattr(controller_module, 'model', SimpleNamespace(
+        message_delivery=SimpleNamespace(revoke=revoked.append)))
+    events = []
+    controller = SimpleNamespace(
+        _realtime_lock=Lock(), events=events, revoked=revoked,
+        _invalidateRealtimeLocked=lambda source: events.append(('invalidated', source)),
+        _publishRealtimeToggle=lambda source: events.append(('published', source)),
+        setDisableTranscriptionSend=lambda: events.append('legacy mic stopped'),
+        setDisableTranscriptionReceive=lambda: events.append('legacy speaker stopped'),
+        run=lambda status, endpoint, result: events.append((endpoint, result)),
+        fallbackUnsupportedLanguagesForTranscriptionEngine=lambda engine: False,
+        run_mapping={'selectable_language_list': '/get/data/selectable_language_list'})
+    monkeypatch.setattr(controller_module.model, 'getListLanguageAndCountry', lambda: [], raising=False)
+    for name in ('_realtimeToggles', '_leaveTranscriptionRoute', 'updateTranscriptionEngine'):
+        setattr(controller, name, getattr(controller_module.Controller, name).__get__(controller))
+    return controller, settings
+
+
+def test_leaving_the_speech_cpp_engine_stops_its_realtime_inputs(controller_module, monkeypatch):  # noqa: F811
+    controller, settings = route_controller(controller_module, monkeypatch, 'SpeechCpp')
+    controller.updateTranscriptionEngine('Google')
+    assert settings.SELECTED_TRANSCRIPTION_ENGINE == 'Google'
+    assert controller.events[:4] == [('invalidated', 'mic'), ('published', 'mic'),
+                                     ('invalidated', 'speaker'), ('published', 'speaker')]
+    assert controller.revoked == ['mic', 'speaker']
+
+
+def test_choosing_the_speech_cpp_engine_stops_the_running_legacy_recorder(controller_module, monkeypatch):  # noqa: F811
+    controller, settings = route_controller(controller_module, monkeypatch, 'Google')
+    settings.ENABLE_TRANSCRIPTION_SEND = True
+    controller.updateTranscriptionEngine('SpeechCpp')
+    assert controller.events[:2] == ['legacy mic stopped', ('/set/disable/transcription_send', False)]
+    assert 'legacy speaker stopped' not in controller.events
+    # Between cloud engines the route stays: nothing is stopped.
+    controller.events.clear()
+    controller.updateTranscriptionEngine('SpeechCpp')
+    settings.SELECTED_TRANSCRIPTION_ENGINE = 'Google'
+    controller.updateTranscriptionEngine('Groq_Whisper')
+    assert not [event for event in controller.events if 'stopped' in str(event) or 'invalidated' in str(event)]
 
 
 @pytest.mark.parametrize('platform,allowed', [('win32', True), ('linux', False)])

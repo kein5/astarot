@@ -251,14 +251,12 @@ const TranscriptionSettings = ({ t, openPicker }) => {
     const tr = useTranscription();
     // Cloud engines appear once their key is registered in the settings page.
     const available = tr.currentSelectableTranscriptionEngines.data || [];
-    const engines = [{ id: "Google", label: "Google" }, { id: "Whisper", label: "Whisper" },
+    // The local engine's models and server are set on the PC (Settings → Speech recognition).
+    const engines = [{ id: "Google", label: "Google" },
+        { id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
         ...CLOUD_TRANSCRIPTION_ENGINES.filter(engine => available.includes(engine.id))
             .map(engine => ({ id: engine.id, label: t(`config_page.transcription.select_transcription_engine.engines.${engine.key}`) }))];
     const engine_label = t("config_page.transcription.select_transcription_engine.label");
-    const whisper_label = t("config_page.transcription.whisper_weight_type.label");
-    const weights = (tr.currentWhisperWeightTypeStatus.data ?? [])
-        .filter(w => w.is_downloaded)
-        .map(w => ({ id: w.id, label: `${w.id} (${w.capacity})` }));
     // 区切りの秒数は「記録の上限 ≦ 無音で区切る秒数」でないとバックエンドが受け付けない
     const timeoutRows = (prefix, max_words) => {
         const record = tr[`current${prefix}RecordTimeout`];
@@ -282,20 +280,7 @@ const TranscriptionSettings = ({ t, openPicker }) => {
                 value={engines.find(engine => engine.id === tr.currentSelectedTranscriptionEngine.data)?.label ?? tr.currentSelectedTranscriptionEngine.data}
                 is_pending={tr.currentSelectedTranscriptionEngine.state === "pending"}
                 onOpen={() => openPicker(engine_label, engines, tr.currentSelectedTranscriptionEngine.data, tr.setSelectedTranscriptionEngine)} />
-            {tr.currentSelectedTranscriptionEngine.data === "Whisper" && (
-                <SelectRow label={whisper_label} value={tr.currentSelectedWhisperWeightType.data}
-                    is_pending={tr.currentSelectedWhisperWeightType.state === "pending" || tr.currentSelectedTranscriptionEngine.state === "pending"}
-                    is_disabled={weights.length === 0} disabled_reason={t("vr_panel.settings.prepare_model")}
-                    onOpen={() => openPicker(whisper_label, weights, tr.currentSelectedWhisperWeightType.data, tr.setSelectedWhisperWeightType)} />
-            )}
             {timeoutRows("Mic", 30)}
-            {tr.currentSelectedTranscriptionEngine.data === "Whisper" && (
-                <ComputeSettings t={t} openPicker={openPicker}
-                    device_list={tr.currentSelectableTranscriptionComputeDeviceList}
-                    device={tr.currentSelectedTranscriptionComputeDevice} setDevice={tr.setSelectedTranscriptionComputeDevice}
-                    compute_type={tr.currentSelectedTranscriptionComputeType} setComputeType={tr.setSelectedTranscriptionComputeType}
-                    is_pending={tr.currentSelectedTranscriptionEngine.state === "pending"} />
-            )}
             <Disclosure label={t("config_page.transcription.section_label_speaker")} summary={t("vr_panel.settings.speaker_adjustments")}>
                 {timeoutRows("Speaker", 60)}
             </Disclosure>

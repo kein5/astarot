@@ -30,14 +30,15 @@ async function fixture(context, language = "en", name = "ctranslate2_weight_type
         status: tree => find(tree, node => node.props?.role === "status").props };
 }
 
-for (const language of ["en", "ja"]) for (const kind of ["ctranslate2", "whisper"]) {
+// The built-in downloads are the CTranslate2 weights; the Whisper ones went with the engine (#288).
+for (const language of ["en", "ja"]) for (const kind of ["ctranslate2"]) {
     test(`${language} ${kind}: named progress exposes exact values and keeps pending/finalizing indeterminate`, async context => {
         const s = await fixture(context, language, `${kind}_weight_type`);
         assert.equal(s.status(s.render()).children, "");
         s.option.is_pending = true;
         let tree = s.render();
         let bar = s.progress(tree);
-        const model = `${kind === "ctranslate2" ? "CTranslate2" : "Whisper"} base`;
+        const model = "CTranslate2 base";
         assert.equal(bar["aria-label"], language === "en" ? `${model} download` : `${model} のダウンロード`);
         assert.equal(bar["aria-valuenow"], undefined);
         assert.equal(bar["aria-valuemin"], undefined);

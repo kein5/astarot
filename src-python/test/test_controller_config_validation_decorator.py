@@ -159,30 +159,6 @@ class SetUiLanguageTests(_SimpleConfigSetterTestMixin, unittest.TestCase):
         return "xx-not-a-real-language"
 
 
-class SetWhisperWeightTypeTests(_SimpleConfigSetterTestMixin, unittest.TestCase):
-    METHOD_NAME = "setWhisperWeightType"
-    ATTR_NAME = "WHISPER_WEIGHT_TYPE"
-
-    def get_valid_value(self, current):
-        choices = list(config.SELECTABLE_WHISPER_WEIGHT_TYPE_LIST)
-        return next((c for c in choices if c != current), current)
-
-    def get_invalid_value(self, current):
-        return "definitely-not-a-real-weight-type"
-
-
-class SetSelectedTranscriptionComputeTypeTests(_SimpleConfigSetterTestMixin, unittest.TestCase):
-    METHOD_NAME = "setSelectedTranscriptionComputeType"
-    ATTR_NAME = "SELECTED_TRANSCRIPTION_COMPUTE_TYPE"
-
-    def get_valid_value(self, current):
-        choices = config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE.get("compute_types", [])
-        return next((c for c in choices if c != current), current)
-
-    def get_invalid_value(self, current):
-        return "definitely-not-a-real-compute-type"
-
-
 class SetMainWindowGeometryTests(_SimpleConfigSetterTestMixin, unittest.TestCase):
     METHOD_NAME = "setMainWindowGeometry"
     ATTR_NAME = "MAIN_WINDOW_GEOMETRY"

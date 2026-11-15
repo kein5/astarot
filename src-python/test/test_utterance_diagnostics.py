@@ -252,12 +252,12 @@ class PipelineDiagnosticsTests(unittest.TestCase):
         with patch.object(module.time, "perf_counter", return_value=0), \
                 patch.object(module, "printLog", side_effect=self.logs.append), \
                 patch.object(module, "errorLogging") as errors:
-            transcriber._finalizeAndTranscribe(["English"], ["United States"], -.8, .6, 0)
+            transcriber._finalizeAndTranscribe(["English"], ["United States"], -.8, .6)
             self.assertIn("this_call=failure", self.logs[-1])
             self.assertIn("English=nomatch(0ms)", self.logs[-1])
             provider.transcribe.side_effect = RuntimeError("fake failure")
             with self.assertRaises(AudioPipelineError):
-                transcriber._finalizeAndTranscribe(["English"], ["United States"], -.8, .6, 0)
+                transcriber._finalizeAndTranscribe(["English"], ["United States"], -.8, .6)
             errors.assert_called_once()
             self.assertEqual(self.logs[-1], "[ASR-error][mic][Google] error_type=RuntimeError asr=0ms calls=1/1 [English=error]")
 
