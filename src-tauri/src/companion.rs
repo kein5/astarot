@@ -234,8 +234,12 @@ pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, anchor: Anchor) -> Re
     let size = ((PANEL_SIZE.0 * scale).round() as u32, (PANEL_SIZE.1 * scale).round() as u32);
     let work = monitor.work_area();
     let (x, y) = place(anchor, size, (work.position.x, work.position.y, work.size.width, work.size.height));
+    // Move first: a move to a monitor with another scale makes Windows rescale the window,
+    // which would undo a size set before it. Then size it, and place it again at that size.
+    let at = PhysicalPosition::new(x, y);
+    panel.set_position(at).map_err(|error| error.to_string())?;
     panel.set_size(PhysicalSize::new(size.0, size.1)).map_err(|error| error.to_string())?;
-    panel.set_position(PhysicalPosition::new(x, y)).map_err(|error| error.to_string())?;
+    panel.set_position(at).map_err(|error| error.to_string())?;
     panel.set_always_on_top(true).map_err(|error| error.to_string())?;
     panel.show().map_err(|error| error.to_string())?;
     panel.set_focus().map_err(|error| error.to_string())?;
