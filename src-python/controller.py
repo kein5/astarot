@@ -5533,6 +5533,26 @@ class Controller:
         """
         return {"status": 200, "result": model.getVrchatOscPresence()}
 
+    def _ocrModelReadiness(self) -> dict:
+        language = config.OCR_SOURCE_LANGUAGE
+        spec = ocr_languages.resolveModelSpec(language)
+        root = self._ocrModelRoot()
+        return {
+            "language": language,
+            "language_supported": spec is not None,
+            "required_models": list(spec.model_ids) if spec is not None else [],
+            "missing_models": ocr_models.missingModels(root, spec) if spec is not None else [],
+        }
+
+    def getOcrModelReadiness(self, *args, **kwargs) -> dict:
+        """Whether the chat reading models for the selected language are here.
+
+        The main screen greys out the chat reading switch while they are not.
+        It only looks at files (no hashing), so it is collected at start-up;
+        unlike getOcrReadiness it never probes the window or loads the engine.
+        """
+        return {"status": 200, "result": self._ocrModelReadiness()}
+
     def getOcrReadiness(self, *args, **kwargs) -> dict:
         """What chat reading still needs before it can start (models, window).
 
@@ -5541,11 +5561,7 @@ class Controller:
         Probing the window opens and closes the X11 connection / finds the
         HWND; it never captures a frame.
         """
-        language = config.OCR_SOURCE_LANGUAGE
-        spec = ocr_languages.resolveModelSpec(language)
-        root = self._ocrModelRoot()
-        required = list(spec.model_ids) if spec is not None else []
-        missing = ocr_models.missingModels(root, spec) if spec is not None else []
+        models = self._ocrModelReadiness()
         try:
             capture = ocr_capture.probeCapture(config.OCR_WINDOW_TITLE)
         except Exception:
@@ -5553,15 +5569,12 @@ class Controller:
             capture = ocr_capture.CAPTURE_UNAVAILABLE
         return {"status": 200, "result": {
             "engine": ocr_engine.isAvailable(),
-            "language": language,
-            "language_supported": spec is not None,
-            "required_models": required,
-            "missing_models": missing,
+            **models,
             "capture": capture,
             "window_title": config.OCR_WINDOW_TITLE,
             # Optional: VRCT-VOX's chatbox detector. Never a blocker for reading.
             "detector_model": ocr_chatbox_detector.DETECTOR_MODEL_ID,
-            "detector_installed": ocr_chatbox_detector.isDetectorInstalled(root),
+            "detector_installed": ocr_chatbox_detector.isDetectorInstalled(self._ocrModelRoot()),
             "detector_enabled": config.OCR_USE_CHATBOX_DETECTOR is True,
             "runtime": model.getOCRRuntime(),
         }}
