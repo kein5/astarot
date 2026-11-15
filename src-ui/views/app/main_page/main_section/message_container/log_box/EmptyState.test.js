@@ -1,15 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { createElement } from "react";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 import * as needsLogic from "../../../../../../logics/main/setupNeeds.js";
 
-async function setup({ needs = [], sends = true, vr = false } = {}) {
+async function setup({ needs = [], sends = true, vr = false, startup = null } = {}) {
     const runtime = hooks(), started = [];
     const { EmptyState } = await loadModule(new URL("./EmptyState.jsx", import.meta.url), runtime, {
         "@store": { store: { is_vr_panel: vr } },
         "@logics_configs": { useSettingValue: name => ({ data: name === "EnableSendMessageToVrc" ? sends : undefined }) },
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs, start: id => started.push(id) }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
+        "../../../startupContext": { useStartupPlaceholder: () => startup },
     });
     // Draw the nested component too, so the whole screen can be searched.
     const draw = node => !node || typeof node !== "object" ? node : Array.isArray(node) ? node.map(draw)
@@ -66,4 +68,14 @@ test("the VRChat hint is shown only while messages are sent to VRChat", async ()
 test("the VR panel keeps the greeting alone", async () => {
     const s = await setup({ vr: true, needs: [{ id: "translation", weight: { id: "small" } }] });
     assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_description"]);
+});
+
+test("while the engine starts, the main page's startup list takes the setup list's place", async () => {
+    const StartupProgress = () => createElement("p", null, "startup");
+    const s = await setup({ startup: createElement(StartupProgress), needs: [{ id: "translation", weight: { id: "small" } }] });
+    assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_description", "startup"]);
+    assert.equal(find(s.tree, node => node.type === "button"), null);
+    // The VR panel never shows it.
+    assert.deepEqual((await setup({ vr: true, startup: createElement(StartupProgress) })).texts,
+        ["studio.empty_title", "studio.empty_description"]);
 });

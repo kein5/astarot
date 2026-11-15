@@ -28,10 +28,9 @@ export const describeStartupFailure = detail => {
     return { kind: "spawn", message: typeof message === "string" && message.trim() ? message.trim().slice(0, 200) : null };
 };
 
-// Models the engine fetches before it is ready (AUTO_DOWNLOAD_MODELS at startup).
-// Same "pending" / percentage reading as the first screen's setup list.
-export const startupDownloads = ({ translationWeights, whisperWeights }) => [
-    ...(translationWeights || []).map(weight => ({ kind: "translation", weight })),
-    ...(whisperWeights || []).map(weight => ({ kind: "transcription", weight })),
-].map(({ kind, weight }) => ({ kind, id: weight?.id, progress: downloadProgress(weight) }))
+// Models the engine fetches before it is ready: the translation model, when
+// AUTO_DOWNLOAD_MODELS is on. Same "pending" / percentage reading as the first
+// screen's setup list. "kind" names the model in the startup list.
+export const startupDownloads = ({ translationWeights }) => (translationWeights || [])
+    .map(weight => ({ kind: "translation", id: weight?.id, progress: downloadProgress(weight) }))
     .filter(item => item.progress !== null);

@@ -233,7 +233,7 @@ for (const beforeSpawn of [false, true]) test(`acknowledged initialization (${be
     detach();
 });
 
-test("production controller publishes startup failure and the persistent screen offers a working retry", async context => {
+test("production controller publishes startup failure and the failure dialog says why and offers a working retry", async context => {
     context.mock.method(console, "error", () => {});
     const s = setup(), b = await loadBridgeStore();
     context.mock.method(globalThis, "setInterval", s.timerTools.setInterval);
@@ -257,15 +257,20 @@ test("production controller publishes startup failure and the persistent screen 
     // The failure dialog says why: here the program never started.
     assert.deepEqual(b.runtime.store.get(b.stores.Atom_BackendStartupFailure).data, { kind: "spawn", message: "not found" });
     const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.js": startupPhase });
-    const screen = await loadModule(new URL("../../views/app/others/splash_component/StartupFailedComponent.jsx", import.meta.url), b.runtime, {
-        "@logics_common": common, "@common_components": { CloseButton: () => null },
+    const screen = await loadModule(new URL("../../views/app/others/startup/StartupFailedDialog.jsx", import.meta.url), b.runtime, {
+        "@logics_common": common,
         "../../../../logics/common/useBackendStartup": startup,
     });
-    const tree = screen.StartupFailedComponent();
-    assert.ok(find(tree, node => node.props.role === "alert"));
-    assert.ok(find(tree, node => node.props.children === "common_error.backend_startup_failed"));
+    const tree = screen.StartupFailedDialog();
+    assert.equal(tree.type, "dialog");
+    assert.equal(tree.props.role, "alertdialog");
+    assert.equal(tree.props.open, true, "not modal: the title bar stays usable");
+    assert.ok(find(tree, node => node.props.children === "common_error.backend_startup_reason_spawn"));
+    assert.ok(find(tree, node => node.props.children === "common_error.backend_startup_detail"));
+    assert.ok(find(tree, node => node.props.children === "common_error.backend_startup_next"));
     const button = find(tree, node => node.type === "button");
     assert.equal(button.props.children, "common_error.backend_startup_retry");
+    assert.equal(button.props.autoFocus, true);
     const retry = button.props.onClick();
     button.props.onClick();
     await flush();
@@ -277,7 +282,7 @@ test("production controller publishes startup failure and the persistent screen 
     assert.equal(s.timers.size, 0);
 });
 
-for (const initialized of [false, true]) test(`production exit ${initialized ? "after" : "before"} initialization clears readiness and chooses a recoverable screen`, async context => {
+for (const initialized of [false, true]) test(`production exit ${initialized ? "after" : "before"} initialization clears readiness and keeps the main page, locked only before`, async context => {
     context.mock.method(console, "error", () => {});
     const s = setup(), b = await loadBridgeRoutes();
     context.mock.method(globalThis, "setInterval", s.timerTools.setInterval);
@@ -334,7 +339,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     assert.deepEqual(quickCalls.at(-1), ["quick_chat_finish", { id: "after-exit", accepted: false }]);
 
     const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.js": startupPhase });
-    const SplashComponent = () => null, StartupFailedComponent = () => null;
+    const StartupFailedDialog = () => null, StartupAnnouncer = () => null;
     const app = await loadModule(new URL("../../views/app/App.jsx", import.meta.url), b.runtime, {
         "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},
         "./_app_controllers/TelemetryNoticeController": {},
@@ -342,14 +347,17 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "./_app_controllers/SwitchBlocksController": {},
         "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/IoFlowController": {},
         "./main_page/MainPage": {}, "./config_page/ConfigPage": {},
-        "./others": { SplashComponent }, "@logics_common": common,
+        "./others": {}, "@logics_common": common,
         "@useI18n": { useI18n: () => ({ i18n: { language: "en" } }) },
-        "../../logics/common/useBackendStartup": startup, "./others/splash_component/StartupFailedComponent": { StartupFailedComponent },
+        "../../logics/common/useBackendStartup": startup, "../../logics/common/startupPhase": startupPhase,
+        "./others/startup/StartupFailedDialog": { StartupFailedDialog }, "./others/startup/StartupAnnouncer": { StartupAnnouncer },
     });
     const tree = app.App();
-    assert.equal(find(tree, node => node.type === SplashComponent), null);
-    assert.equal(!!find(tree, node => node.type === StartupFailedComponent), !initialized);
-    if (initialized) assert.ok(find(tree, node => node.type?.name === "Contents"));
+    // The main page is always there: locked under the failure dialog, live after a later exit.
+    const contents = find(tree, node => node.type?.name === "Contents");
+    assert.equal(contents.props.locked, !initialized);
+    assert.equal(!!find(tree, node => node.type === StartupFailedDialog), !initialized);
+    assert.equal(find(tree, node => node.type === StartupAnnouncer), null);
     assert.equal(s.attempts.length, 1);
     hotRuntime.unmount(); quickRuntime.unmount(); b.runtime.unmount();
 });

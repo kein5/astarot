@@ -93,6 +93,8 @@
     --vox_warning_tint: #cb944f26;
     /* VRChat's own chatbox colour, for the message format preview only. */
     --vox_chatbox_preview: #3a4554;
+    /* Startup placeholders for values the engine has not sent yet (MainPage [data-skeleton]). */
+    --vox_skeleton: var(--dark_850_color);
     --dark_50_color: #ffffff;
     --font_family: "Yu Gothic UI";
 }

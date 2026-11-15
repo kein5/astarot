@@ -23,9 +23,9 @@ export const LanguageReadout = () => {
     return (
         <button type="button" className={styles.container} title={pair}
             aria-label={`${t("main_page.language_settings")}: ${pair}`} onClick={toggleIsMainPageCompactMode}>
-            <span className={styles.name}>{from}</span>
+            <span className={styles.name} data-skeleton="">{from}</span>
             <ArrowDownSvg className={styles.arrow} aria-hidden="true" />
-            <span className={styles.name}>{to}</span>
+            <span className={styles.name} data-skeleton="">{to}</span>
             {more > 0 && <span className={styles.more}>+{more}</span>}
         </button>
     );

@@ -31,20 +31,20 @@ import { ConfigPage } from "./config_page/ConfigPage";
 
 import {
     WindowTitleBar,
-    SplashComponent,
     UpdatingComponent,
     ModalController,
     SnackbarController,
     AppErrorBoundary,
 } from "./others";
 
-import { useIsBackendReady, useIsSoftwareUpdating, WindowGeometryController, WindowCloseController } from "@logics_common";
+import { useIsSoftwareUpdating, WindowGeometryController, WindowCloseController } from "@logics_common";
 import { useBackendStartup } from "../../logics/common/useBackendStartup";
-import { StartupFailedComponent } from "./others/splash_component/StartupFailedComponent";
+import { isStartupLocked } from "../../logics/common/startupPhase";
+import { StartupFailedDialog } from "./others/startup/StartupFailedDialog";
+import { StartupAnnouncer } from "./others/startup/StartupAnnouncer";
 
 export const App = () => {
-    const { currentIsBackendReady } = useIsBackendReady();
-    const { startupState } = useBackendStartup();
+    const { phase } = useBackendStartup();
     const { i18n } = useI18n();
 
     return (
@@ -66,12 +66,11 @@ export const App = () => {
                 <VrPanelSyncController />
                 <OcrSharedWindowController />
 
-                {startupState === "failed"
-                    ? <StartupFailedComponent />
-                    : startupState !== "stopped" && currentIsBackendReady.data === false
-                    ? <SplashComponent />
-                    : <Contents key={i18n.language} />
-                }
+                {/* The main page is drawn from the first frame. Until the engine is
+                    ready it is locked, with placeholders where its settings go. */}
+                <Contents key={i18n.language} locked={isStartupLocked(phase)} />
+                {phase === "starting" && <StartupAnnouncer />}
+                {phase === "failed" && <StartupFailedDialog />}
 
                 <SnackbarController />
             </AppErrorBoundary>
@@ -79,26 +78,33 @@ export const App = () => {
     );
 };
 
-const Contents = () => {
+// While locked, only the main page and the title bar are drawn: the settings
+// page, dialogs and notices that act on the engine's settings wait for them,
+// and the window geometry is not saved over the one the engine will restore.
+const Contents = ({ locked }) => {
     const { currentIsSoftwareUpdating } = useIsSoftwareUpdating();
     const mainPage = useRef(null);
     return (
         <>
-            <WindowGeometryController />
+            <WindowGeometryController saveGeometry={!locked} />
 
             <WindowTitleBar />
             {currentIsSoftwareUpdating.data === false
             ?
             <div className={styles.pages_wrapper}>
-                <SwitchBlocksController />
-                <ConfigPage />
-                <MainPage focusFallback={mainPage} />
-                <ModalController fallback={mainPage} />
-                <TranscriptionConsentController />
-                <TranslationSetupController />
-                <OcrSetupController />
-                <TelemetryNoticeController />
-                <LocalAsrNoticeController />
+                {!locked && <>
+                    <SwitchBlocksController />
+                    <ConfigPage />
+                </>}
+                <MainPage focusFallback={mainPage} locked={locked} />
+                {!locked && <>
+                    <ModalController fallback={mainPage} />
+                    <TranscriptionConsentController />
+                    <TranslationSetupController />
+                    <OcrSetupController />
+                    <TelemetryNoticeController />
+                    <LocalAsrNoticeController />
+                </>}
             </div>
             :
             <UpdatingComponent />

@@ -24,15 +24,13 @@ test("a startup failure keeps whether it never started or ended early, and a sho
     assert.equal(describeStartupFailure(new Error("x".repeat(500))).message.length, 200);
 });
 
-test("startup downloads list only the models being fetched, translation first", () => {
-    const downloads = startupDownloads({
-        translationWeights: [{ id: "small", progress: null }, { id: "large", progress: 42.7 }],
-        whisperWeights: [{ id: "base", progress: null, is_pending: true }, { id: "tiny", progress: 120 }],
-    });
+test("startup downloads list only the models being fetched", () => {
+    const downloads = startupDownloads({ translationWeights: [{ id: "small", progress: null },
+        { id: "large", progress: 42.7 }, { id: "base", progress: null, is_pending: true }, { id: "tiny", progress: 120 }] });
     assert.deepEqual(downloads, [
         { kind: "translation", id: "large", progress: 42 },
-        { kind: "transcription", id: "base", progress: "pending" },
-        { kind: "transcription", id: "tiny", progress: 100 },
+        { kind: "translation", id: "base", progress: "pending" },
+        { kind: "translation", id: "tiny", progress: 100 },
     ]);
-    assert.deepEqual(startupDownloads({ translationWeights: undefined, whisperWeights: [] }), []);
+    assert.deepEqual(startupDownloads({ translationWeights: undefined }), []);
 });
