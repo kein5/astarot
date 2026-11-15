@@ -172,3 +172,16 @@ def test_shutdown_revokes_then_signals_both_owners_before_any_join(app):
         assert order == ["close", "signal:catalog", "signal:legacy", "join:catalog", "join:legacy"]
     finally:
         controller.legacy_downloads = original
+
+
+def test_rejected_request_reports_only_a_fixed_reason(app, monkeypatch):
+    # Issue #305: the UI shows the reason; an unexpected exception text (it may name a path) is not sent.
+    controller, _, _ = app
+    weight = "m2m100_418M-ct2-int8"
+    monkeypatch.setattr(controller.legacy_downloads, "start",
+        Mock(side_effect=RuntimeError("can't start new thread in C:\\Users\\someone")))
+    response = controller.downloadCtranslate2Weight({"weight_type": weight, "consent": True,
+        "manifest_version": legacyModelReview("ctranslate2", weight)["manifest_version"]})
+    assert response["status"] == 400
+    assert response["result"]["data"]["reason"] == "download_failed"
+    controller.run.assert_not_called()

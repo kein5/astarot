@@ -41,7 +41,7 @@ export const TranslationSetupController = () => {
 
     if (!request) return null;
     const close = () => setRequest(null);
-    return <LegacyModelDownloadDialog kind="ctranslate2" weightType={currentSelectedCTranslate2WeightType.data}
+    return <LegacyModelDownloadDialog kind="ctranslate2" weightType={request.weightType ?? currentSelectedCTranslate2WeightType.data}
         onCancel={close}
         onDownload={payload => {
             waiting.current = request.resume ? payload.weight_type : null;

@@ -91,3 +91,23 @@ test("nothing is shared again when there is no remembered window, or for a langu
     assert.deepEqual(language.enabled, []);
     assert.equal(language.s.notices.length, 1);
 });
+
+// Issue #305: the switch used to end in a notice that vanished. Now it leads to the models section.
+test("turning chat reading on without its models opens the setup guide instead of a notice", async () => {
+    const s = await loadBridgeRoutes();
+    assert.equal(s.ocrSetup().open, false);
+    s.receiveRoutes({ endpoint: "/set/enable/ocr_capture", status: 400,
+        result: { error_code: "OCR_DISABLED_MODEL_MISSING", data: false } });
+    assert.equal(s.ocrSetup().open, true);
+    assert.deepEqual(s.notices, []);
+    assert.equal(s.runtime.store.get(s.stores.Atom_OcrCaptureStatus).data, false, "the switch settles off");
+    assert.deepEqual(s.reads, [], "nothing is downloaded or asked for");
+});
+
+test("a missing model after a language change stays a notice and opens no guide", async () => {
+    const s = await loadBridgeRoutes();
+    s.receiveRoutes({ endpoint: "/set/data/ocr_source_language", status: 400,
+        result: { error_code: "OCR_DISABLED_MODEL_MISSING", data: "auto" } });
+    assert.equal(s.ocrSetup().open, false);
+    assert.equal(s.notices.length, 1);
+});

@@ -17,6 +17,7 @@ import {
 import { SectionLabelComponent } from "../_components";
 import { OcrRegions } from "./OcrRegions";
 import { OcrModels } from "./OcrModels";
+import { OCR_MODELS_SETTING_ID } from "../../../../../../logics/ocr/useOcrSetup";
 import { OcrStatus } from "./OcrStatus";
 import { OcrSharedWindow } from "./OcrSharedWindow";
 
@@ -51,6 +52,7 @@ const Main_Container = () => {
             <OcrSourceLanguage_Box />
             {readiness && readiness.required_models.length > 0 &&
                 <OcrModels ids={readiness.required_models} missing={readiness.missing_models} onChanged={refresh}
+                    settingId={OCR_MODELS_SETTING_ID}
                     title={t("config_page.ocr.models.title")} desc={t("config_page.ocr.models.desc")}
                     note={t("config_page.ocr.models.required")} />}
         </div>
