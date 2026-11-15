@@ -91,5 +91,5 @@ def test_only_limits_the_run_and_every_test_file_exists():
     sys.path.insert(0, str(ROOT / "src-python"))
     from models.model_downloads.catalog import CATALOG
     assert set(subject.MODELS.values()) <= {entry.id for entry in CATALOG}
-    from models.voice_conversion.runtime_setup import RVC_COMMIT, SEED_COMMIT  # the runtimes are the product's own too
-    assert set(subject.RUNTIMES.values()) == {"rvc", "seed-vc"} and RVC_COMMIT and SEED_COMMIT
+    from models.voice_conversion.runtime_setup import ORT_VERSION, SEED_COMMIT  # the runtimes are the product's own too
+    assert set(subject.RUNTIMES.values()) == {"rvc", "seed-vc"} and ORT_VERSION and SEED_COMMIT
