@@ -162,7 +162,7 @@ def test_a_missing_vulkan_library_is_named(tmp_path, monkeypatch):
 def test_an_engine_failure_with_a_next_step_is_named(monkeypatch, line, code):
     real = rt.launch_owned
     monkeypatch.setattr(rt, 'launch_owned', lambda args, **kwargs: real(
-        [sys.executable, '-c', f"import sys; sys.stderr.write('speech.cpp 0.10.0 - serve\\n{line}\\n'); sys.exit(1)"],
+        [sys.executable, '-c', f"import sys; sys.stderr.write('speech.cpp 0.11.0 - serve\\n{line}\\n'); sys.exit(1)"],
         **kwargs))
     reported = []
     monkeypatch.setattr(rt, 'report_failure', lambda area, failure: reported.append((area, failure)))
