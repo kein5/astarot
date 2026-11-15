@@ -114,6 +114,12 @@ def copy_adapters(resources):
         shutil.copyfile(source, target)
 
 
+# The crates under native/ that src-tauri depends on by path: the backend core (#285) and the
+# crates it uses. tests/devtools/test_build_linux.py keeps this list equal to the path
+# dependencies of those Cargo.toml files.
+APP_CRATES = ('core', 'adapters', 'ops', 'speech-server', 'tts')
+
+
 def tauri_workspace(work, frozen):
     workspace = work / 'workspace'
     tauri = workspace / 'src-tauri'
@@ -124,6 +130,12 @@ def tauri_workspace(work, frozen):
         if (tauri / name).exists():
             shutil.rmtree(tauri / name)
         shutil.copytree(ROOT / 'src-tauri' / name, tauri / name)
+    # The app links the backend core and the crates it uses by path (src-tauri/Cargo.toml).
+    for name in APP_CRATES:
+        crate = workspace / 'native' / name
+        if crate.exists():
+            shutil.rmtree(crate)
+        shutil.copytree(ROOT / 'native' / name, crate, ignore=shutil.ignore_patterns('target'))
     shutil.copyfile(ROOT / 'LICENSE', workspace / 'LICENSE')
     (workspace / 'tools').mkdir(exist_ok=True)
     for name in ('check_voice_distribution.py', 'distribution_policy.py', 'linux_package.py'):
