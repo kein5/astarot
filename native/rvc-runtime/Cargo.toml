@@ -18,20 +18,30 @@ path = "src/bin/rvc_infer.rs"
 name = "rvc-stream"
 path = "src/bin/rvc_stream.rs"
 
+# The application's live voice conversion process (VVC1 pipes, see src/bin/rvc_worker.rs).
+[[bin]]
+name = "vrct-rvc-worker"
+path = "src/bin/rvc_worker.rs"
+required-features = ["worker"]
+
 [features]
-default = []
+default = ["download-binaries"]
+# Link the ONNX Runtime build that `ort` downloads at build time (tests and tools).
+download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs"]
 # Run the ONNX graphs on CUDA when the ONNX Runtime build provides it.
 cuda = ["ort/cuda"]
+# Load ONNX Runtime from a library file at run time (`backend::load_runtime`) instead.
+load-dynamic = ["ort/load-dynamic"]
+# The application worker: no ONNX Runtime of its own, it loads the one set up with consent.
+worker = ["load-dynamic", "cuda"]
 
 [dependencies]
 hound = "3.5"
-ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-native", "copy-dylibs", "api-17"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
 prost = "0.14"
 rustfft = "6.4"
-thiserror = "2"
-
-[dev-dependencies]
 serde_json = "1"
+thiserror = "2"
 
 [profile.dev]
 opt-level = 2
