@@ -223,6 +223,7 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 | `main` | `src-ui/index.html` | メイン画面と設定画面。閉じるとアプリが終わる |
 | `quick_chat` | `src-ui/quick-chat.html` | チャット入力の小窓。ホットキーかボタンで開き、閉じても隠すだけで下書きは残る |
 | `vr_panel` | `src-ui/vr.html` | VR UI。画面の外（-10000, -10000）に置いて描画し、オーバーレイが取り込む。VR UIがオンの間だけ作る |
+| `caption_overlay` | `src-ui/caption-overlay.html` | デスクトップの字幕。最前面に置き、クリックを通し、フォーカスを取らない。Ctrlキーを押している間だけマウスを受け取る（[デスクトップの字幕](use-cases.md)）。字幕か入力と出力の表示がオンの間だけ作る |
 
 設定画面は別ウィンドウではなく、`main`の中のページである。
 
@@ -270,6 +271,8 @@ Python sidecarはshell pluginのstdin/stdoutでつなぐ。UIはPythonのHTTPサ
 | `app_update_info` | `main` | `{kind, mode, channel, current_version, package_manager}`。このコピーの入れ方と、更新でできること（[アプリの更新](#アプリの更新)）。通信しない |
 | `app_update_check` | `main` | 新しい版を問い合わせ、`{available, version, release_url}`を返す。失敗は`update_check_failed`、`update_metadata_missing`などのコード |
 | `app_update_install` | `main` | 直前の確認で見つけた版を取得し、署名を確かめて入れる。進み具合は引数のチャンネル（`{phase: "download", downloaded, total}`、`{phase: "install"}`）で知らせる。Windowsではインストーラーに引き継いで終了し、Linuxでは再起動する。失敗したときは今の版のまま、コードを返す |
+| `caption_overlay_supported`、`caption_overlay_set`、`caption_overlay_update` | `main` | 字幕のウィンドウを使えるか調べる、開く・閉じる、描く内容を渡す。`caption_overlay_set`は`{open, position, placement}`を取る。`placement`は保存した左上の位置（物理ピクセル、`{x, y}`、各±100000以内）か`null`で、その位置の一部（縦横64ピクセル以上）がどれかのモニターの作業領域に残っていればそこに出し、残っていなければ`position`の帯に出す |
+| `caption_overlay_snapshot` | `caption_overlay` | 描く内容を読む。Ctrlキーで調整している間は`adjusting: true`が付く。`main`が渡した`adjusting`は捨てる |
 
 Quick Chatのコンテキストは、`ready`、`language`、`enter_to_send`、`clear_on_send`に加え、保存済みの`ui_scaling`（整数、40〜200%）と`font_family`（空白だけではなく、制御文字を含まない256文字以内のローカルフォント名）を持つ。Rustは呼び出し元と値を検証してから置き換える。新しい2項目を省略した要求は100%と`Yu Gothic UI`を使う。小窓はフォント名をCSSの文字列として扱い、既存のNoto／システムフォントへのフォールバックを保つ。設定ファイルのキーやPython側のIPC形式は変更しない。
 
@@ -288,6 +291,9 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 | `vr-panel-stdout` | `vr_panel` → `main` | VRパネルからの要求。`main`が許可したものだけをサイドカーへ渡す |
 | `vr-panel-config-page` | `vr_panel` → `main` | VR内の設定を開いた・閉じた |
 | `vr-panel-pointer` | `main` → 全体 | VR内のポインタの位置 |
+| `caption-overlay-changed` | Rust → `caption_overlay` | 描く内容か調整中の状態が変わった。ペイロードは使わず、`caption_overlay_snapshot`で読み直す |
+| `caption-overlay-moved` | Rust → `main` | Ctrlキーを押したままのドラッグが終わった。`{x, y}`はウィンドウの左上（物理ピクセル）。`main`は`/set/data/overlay_desktop_placement`で保存する |
+| `caption-overlay-font-step` | Rust → `main` | 字幕の上でCtrlキーと「+」か「-」が押された。`1`か`-1`。`main`は文字の大きさを2pxずつ16〜72pxの範囲で変え、`/set/data/overlay_desktop_settings`で保存する |
 
 #### VRパネルへ写す状態
 
@@ -326,6 +332,7 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 - 読み上げの停止、ミュート、TTS、RVCのホットキーは、メイン画面の同じボタンとスイッチを押したのと同じ処理を通る。押した時点の状態で判断し、同じ確認とお知らせが出る。ミュート中に経路の準備ができていなければ、再開はしない。
 - X11とXWaylandではTauriのグローバルショートカット、ネイティブのWaylandではXDG GlobalShortcuts portalで登録する。KDEでは設定したキーをデスクトップ側にも反映し、反映できなかったときはお知らせを出す。
 - 設定画面を開いている間と、サイドカーの準備ができるまでは無効にする。
+- デスクトップの字幕の文字の大きさを変えるキー（Ctrlと`=`、Ctrl+Shiftと`=`、Ctrlとテンキーの`+`、Ctrlと`-`、Ctrlとテンキーの`-`）は、Ctrlキーを押したまま字幕のウィンドウの上にマウスがあるか、ドラッグしている間だけ、Rustがグローバルショートカットとして登録する。それ以外のときはほかのアプリに届く。利用者がホットキーに割り当て済みのキーは登録しない。
 
 ### 権限
 
