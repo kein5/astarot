@@ -1,7 +1,15 @@
 import { h } from 'vue'
-import DefaultTheme from 'vitepress/theme'
+// Without VitePress's bundled Inter: the guide uses the reader's own fonts (custom.css).
+import DefaultTheme from 'vitepress/theme-without-fonts'
 import type { Theme } from 'vitepress'
 import HomeShot from './HomeShot.vue'
+import HomeShowcase from './HomeShowcase.vue'
+import RouteStrip from './RouteStrip.vue'
+import CopyText from './components/CopyText.vue'
+import OsTabs from './components/OsTabs.vue'
+import StepProgress from './components/StepProgress.vue'
+import Term from './components/Term.vue'
+import TermTooltip from './components/TermTooltip.vue'
 import { LOCALE_KEY } from './locale'
 import './custom.css'
 
@@ -26,8 +34,22 @@ function zoom(image: HTMLImageElement) {
 
 export default {
   extends: DefaultTheme,
-  Layout: () => h(DefaultTheme.Layout, null, { 'home-hero-after': () => h(HomeShot) }),
-  enhanceApp() {
+  Layout: () =>
+    h(DefaultTheme.Layout, null, {
+      'home-hero-after': () => h(HomeShot),
+      // The features, each beside a short loop of what it does (front matter `showcase`).
+      'home-features-before': () => h(HomeShowcase),
+      // Feature pages open with their part of the voice and text route (front matter `route`).
+      'doc-before': () => h(RouteStrip),
+      // The one bubble that every <Term> in the page shares.
+      'layout-bottom': () => h(TermTooltip),
+    }),
+  enhanceApp({ app }) {
+    // Parts the Markdown pages use: <StepProgress />, <OsTabs>, <CopyText>, <Term>.
+    app.component('StepProgress', StepProgress)
+    app.component('OsTabs', OsTabs)
+    app.component('CopyText', CopyText)
+    app.component('Term', Term)
     if (typeof document === 'undefined') return
     document.addEventListener('click', (event) => {
       const target = event.target as Element | null

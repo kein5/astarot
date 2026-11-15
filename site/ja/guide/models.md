@@ -33,7 +33,9 @@ VRCT-VOXの配布物にはテキスト読み上げ・音声認識・ボイスチ
 | 文字認識 | PP-OCRv6 small（日本語・英語・中国語・ラテン文字） | 約30 MB | Apache-2.0 |
 | 文字認識 | PP-OCRv5 mobile（韓国語・キリル文字・タイ文字・アラビア文字・デーヴァナーガリー） | 各8〜14 MB | Apache-2.0 |
 
-翻訳のモデルは「設定」→「翻訳」で、Whisperのモデルは「設定」→「音声認識（ASR）」で取得します（[翻訳](../features/translation)）。どちらも「ダウンロード」を押すと、提供元・ライセンス・容量を確かめる画面が開きます。同意のチェックを入れるまで取得は始まりません。
+翻訳のモデルは「設定」→「翻訳」で取得します（[翻訳](../features/translation)）。「ダウンロード」を押すと、提供元・ライセンス・容量を確かめる画面が開きます。同意のチェックを入れるまで取得は始まりません。
+
+以前の版にあったWhisperのモデルは、もう取得できません。このPCの中での音声認識は、上の表の音声認識のモデルとSilero VADを使います（[以前の版でWhisperを使っていた場合](../features/transcription#whisper)）。PCに残っている古いWhisperのモデルは、「設定」→「音声認識（ASR）」の「古い Whisper モデル」で削除できます。
 
 ## GPUとメモリの目安
 
@@ -44,7 +46,7 @@ VRCT-VOXの配布物にはテキスト読み上げ・音声認識・ボイスチ
 | 機能 | GPU |
 |---|---|
 | 読み上げ、リアルタイム字幕、話した人の見分け（アプリに入っているspeech.cpp） | AMD、Intel、NVIDIA（Vulkan） |
-| ローカルの翻訳、Whisperの音声認識 | NVIDIA（WindowsのGPU版）。ほかのGPUではCPUで動きます |
+| ローカルの翻訳 | NVIDIA（WindowsのGPU版）。ほかのGPUではCPUで動きます |
 | ボイスチェンジャー（RVC、Seed-VC） | NVIDIA |
 | チャット読み取り | CPUで動きます |
 
@@ -54,8 +56,8 @@ AMDやIntelのGPUで翻訳したいときは、[ローカルLLM](../features/tra
 
 ## 保存先
 
-取得したモデルは設定ファイル（`config.json`）と同じフォルダーの`downloaded_models`に保存します。Linuxでは`~/.config/vrct-vox/downloaded_models`、Windowsではアプリを入れたフォルダーの`downloaded_models`です。翻訳とWhisperのモデルは別の場所で、Windowsではアプリのフォルダーの`weights`に、Linuxでは`~/.local/share/vrct-vox`の中に入ります。
+取得したモデルは設定ファイル（`config.json`）と同じフォルダーの`downloaded_models`に保存します。Linuxでは<CopyText>~/.config/vrct-vox/downloaded_models</CopyText>、Windowsではアプリを入れたフォルダーの`downloaded_models`です。翻訳のモデルは別の場所で、Windowsではアプリのフォルダーの`weights`に、Linuxでは<CopyText>~/.local/share/vrct-vox</CopyText>の中に入ります。以前の版が取得したWhisperのモデルが残っていれば、同じ場所の`weights/whisper`にあります。
 
 ## 起動時の自動取得
 
-「設定」→「翻訳」か「音声認識（ASR）」の「起動時に翻訳・文字起こしモデルをダウンロード」をオンにすると、次に起動したときに、標準の翻訳・文字起こしモデルのうち、まだダウンロードしていないものを取得します。取得するのは、そのバージョンに一度同意したことのあるモデルだけです。同意していないモデルは取得せず、お知らせを出します。初期設定はオフです。オフでも取得済みのモデルは使えます。
+「設定」→「翻訳」の「起動時に翻訳モデルをダウンロード」をオンにすると、次に起動したときに、選んでいる翻訳モデルをまだダウンロードしていなければ取得します。取得するのは、そのバージョンに一度同意したことのあるモデルだけです。同意していないモデルは取得せず、お知らせを出します。音声認識や読み上げのモデルは、起動時に取得しません。初期設定はオフです。オフでも取得済みのモデルは使えます。

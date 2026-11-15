@@ -1,3 +1,7 @@
+---
+route: tts
+---
+
 # Text to speech (TTS)
 
 Speaks your text or its translation into VRChat's microphone, through a virtual microphone. The settings are under Settings → "Text to speech (TTS)".
@@ -6,12 +10,12 @@ You can turn speech on and off separately from sending text to the chatbox.
 
 ## What you need
 
-- A speech model, run by the [speech.cpp](https://github.com/nyosegawa/speech.cpp) servers that come with the app. Japanese is spoken with Irodori-TTS and other languages with Qwen3-TTS. Neither model comes with the app: download one, or point to a file you have ([Model downloads](../guide/models), [Use your own models](../guide/custom-models#tts)).
-- A virtual microphone, for VRChat to hear the speech. On Linux you can use "Managed virtual microphone (Linux)" ([Linux audio route](../guide/linux-audio)). On Windows, install a virtual cable such as VB-CABLE.
+- A speech model, run by the [speech.cpp](https://github.com/nyosegawa/speech.cpp) servers that come with the app. Japanese is spoken with Irodori-TTS and other languages with Qwen3-TTS. Neither model comes with the app: download one, or point to a file you have ([Model downloads](../guide/models), [Use your own models](../guide/custom-models#tts)). Japanese can also come from VOICEVOX or another engine you install instead ([Read Japanese with VOICEVOX or another engine](#read-japanese-with-voicevox-or-another-engine)).
+- A virtual microphone, for VRChat to hear the speech. On Windows, install a virtual cable ([Windows audio route](../guide/windows-audio)). On Linux you can use "Managed virtual microphone (Linux)" ([Linux audio route](../guide/linux-audio)).
 
 ## First steps
 
-1. Under Settings → "Text to speech (TTS)" → "Models and servers", download a model with "Download a default model", or enter the path of a GGUF file you have.
+1. Under Settings → "Text to speech (TTS)" → "Models and servers", download a model with "Download a default model", or enter the path of a <Term tip="A file format that holds an AI model in one file. speech.cpp reads it; the file name ends in .gguf.">GGUF</Term> file you have.
 2. Save with "Save changes" at the top, then press "Start server". Saving alone does not load the model.
 
    ![Settings → Text to speech (TTS)](/screenshots/en/tts.webp)
@@ -22,9 +26,39 @@ You can turn speech on and off separately from sending text to the chatbox.
 
 With a bundled server selected, turning it on from the main screen also starts the server.
 
+## Read Japanese with VOICEVOX or another engine
+
+Japanese can also be read in the voices of a speech engine you install and run yourself: VOICEVOX, COEIROINK, AivisSpeech or SHAREVOX. The app does not install or start the engine.
+
+1. Install the engine and start it.
+2. Under Settings → "Text to speech (TTS)" → "Japanese TTS", choose the engine in "Engine that reads Japanese".
+3. When it says "Connected", choose a voice in "Voice". If it says "Not connected", check that the engine is running and check "Engine URL", then press "Check again". The engine's default URL usually works. Only addresses on this computer (`127.0.0.1`, `localhost`, `::1`) can be used.
+4. Save with "Save changes" at the top, then turn on "Text to speech (TTS)" on the main screen.
+
+While an engine is chosen, Japanese speech uses neither the speech.cpp server nor its model. Other languages are read by speech.cpp as before.
+
+::: warning Voice terms and credits
+Each voice has its own terms of use. In videos or streams, credit the voice as its terms say (for example `VOICEVOX:ずんだもん`). COEIROINK voices need the credit "COEIROINK:voice name".
+:::
+
 ## Get your voice into VRChat
 
-Choose the virtual microphone under "Output device", and choose the same one as your microphone in VRChat. Why a virtual microphone is needed is in [How voice and text flow](../guide/how-it-works#why-a-virtual-microphone-is-needed).
+Choose the virtual microphone under "Output device", and choose the same one as your microphone in VRChat.
+
+<OsTabs>
+<template v-slot:windows>
+
+On Windows, choose "CABLE Input" as the output device and "CABLE Output" as VRChat's microphone ([Windows audio route](../guide/windows-audio)).
+
+</template>
+<template v-slot:linux>
+
+On Linux, use "VRCT Managed Virtual Microphone" ([Linux audio route](../guide/linux-audio)).
+
+</template>
+</OsTabs>
+
+Why a virtual microphone is needed is in [How voice and text flow](../guide/how-it-works#why-a-virtual-microphone-is-needed).
 
 ## Hear it yourself
 

@@ -132,8 +132,6 @@ run_mapping = {
     "error_translation_chat_vram_overflow":"/run/error_translation_chat_vram_overflow",
     "error_translation_mic_vram_overflow":"/run/error_translation_mic_vram_overflow",
     "error_translation_speaker_vram_overflow":"/run/error_translation_speaker_vram_overflow",
-    "error_transcription_mic_vram_overflow":"/run/error_transcription_mic_vram_overflow",
-    "error_transcription_speaker_vram_overflow":"/run/error_transcription_speaker_vram_overflow",
 
     "word_filter":"/run/word_filter",
     "transcription_recognition_error":"/run/transcription_recognition_error",
@@ -143,9 +141,6 @@ run_mapping = {
     "error_ctranslate2_weight":"/run/error_ctranslate2_weight",
     "ctranslate2_license_notice":"/run/ctranslate2_license_notice",
     "translation_language_unsupported":"/run/translation_language_unsupported",
-    "download_progress_whisper_weight":"/run/download_progress_whisper_weight",
-    "downloaded_whisper_weight":"/run/downloaded_whisper_weight",
-    "error_whisper_weight":"/run/error_whisper_weight",
 
     "selected_mic_host":"/run/selected_mic_host",
     "selected_mic_device_id":"/run/selected_mic_device_id",
@@ -162,7 +157,6 @@ run_mapping = {
     "selectable_language_list":"/run/selectable_language_list",
 
     "selected_translation_compute_type":"/run/selected_translation_compute_type",
-    "selected_transcription_compute_type":"/run/selected_transcription_compute_type",
 
     "selectable_plamo_model_list":"/run/selectable_plamo_model_list",
     "selected_plamo_model":"/run/selected_plamo_model",
@@ -357,9 +351,6 @@ mapping = {
     "/get/data/selectable_translation_compute_device_list": {"status": True, "variable":controller.getComputeDeviceList},
     "/get/data/selected_translation_compute_device": {"status": True, "variable":controller.getSelectedTranslationComputeDevice},
     "/set/data/selected_translation_compute_device": {"status": True, "variable":controller.setSelectedTranslationComputeDevice},
-    "/get/data/selectable_transcription_compute_device_list": {"status": True, "variable":controller.getComputeDeviceList},
-    "/get/data/selected_transcription_compute_device": {"status": True, "variable":controller.getSelectedTranscriptionComputeDevice},
-    "/set/data/selected_transcription_compute_device": {"status": True, "variable":controller.setSelectedTranscriptionComputeDevice},
 
     # Translation
     "/get/data/selectable_ctranslate2_weight_type_dict": {"status": True, "variable":controller.getSelectableCtranslate2WeightTypeDict},
@@ -541,15 +532,12 @@ mapping = {
     "/set/enable/check_speaker_threshold": {"status": True, "variable":controller.setEnableCheckSpeakerThreshold},
     "/set/disable/check_speaker_threshold": {"status": True, "variable":controller.setDisableCheckSpeakerThreshold},
 
-    "/get/data/selectable_whisper_weight_type_dict": {"status": True, "variable":controller.getSelectableWhisperWeightTypeDict},
-
-    "/get/data/selected_whisper_weight_type": {"status": True, "variable":controller.getWhisperWeightType},
-    "/set/data/selected_whisper_weight_type": {"status": True, "variable":controller.setWhisperWeightType},
-
-    "/get/data/selected_transcription_compute_type": {"status": True, "variable":controller.getSelectedTranscriptionComputeType},
-    "/set/data/selected_transcription_compute_type": {"status": True, "variable":controller.setSelectedTranscriptionComputeType},
-
-    "/run/download_whisper_weight": {"status": True, "variable":controller.downloadWhisperWeight},
+    # The move from the removed Whisper engine to speech.cpp (#288): the one-time notice, and
+    # the old Whisper weights, which are deleted only when the user asks.
+    "/get/data/local_asr_notice": {"status": True, "variable":controller.getLocalAsrNotice},
+    "/set/disable/local_asr_notice": {"status": True, "variable":controller.setDisableLocalAsrNotice},
+    "/get/data/old_whisper_weights": {"status": True, "variable":controller.getOldWhisperWeights},
+    "/run/delete_old_whisper_weights": {"status": True, "variable":controller.deleteOldWhisperWeights},
 
     # VR
     "/get/data/overlay_small_log": {"status": True, "variable":controller.getOverlaySmallLog},
@@ -673,6 +661,7 @@ mapping = {
     "/set/data/voice_settings": {"status": True, "variable":controller.setVoiceSettings},
     "/get/data/voice_status": {"status": True, "variable":controller.getVoiceStatus},
     "/get/data/tts_model_options": {"status": True, "variable":controller.getTtsModelOptions},
+    "/get/data/tts_engine_voices": {"status": True, "variable":controller.getTtsEngineVoices},
     "/get/data/voice_output_devices": {"status": True, "variable":controller.getVoiceOutputDevices},
     "/run/stop_voice": {"status": True, "variable":controller.stopVoice},
     "/run/enable_tts": {"status": True, "variable":controller.enableTts},
@@ -793,6 +782,9 @@ _INIT_MAPPING_EXCLUDED_ENDPOINTS = frozenset({
     # Asks the bundled speech.cpp for the PC's devices (a child process, up to 3 s). The
     # notice and the settings ask for it when the user opens what is sent.
     "/get/data/telemetry_preview",
+    # Asks a speech engine the user installed (VOICEVOX and others) over HTTP, for the engine
+    # and URL the TTS page is editing. The page asks when it shows an engine.
+    "/get/data/tts_engine_voices",
 })
 
 init_mapping = {
@@ -829,9 +821,7 @@ def _request_error_result(endpoint: str, data: Any, result: Any, status: int) ->
     Different weights can be requested concurrently on the same endpoint, so
     the UI cannot match a generic failure by endpoint alone.
     """
-    if status not in {404, 423, 500} or endpoint not in {
-        "/run/download_ctranslate2_weight", "/run/download_whisper_weight"
-    }:
+    if status not in {404, 423, 500} or endpoint != "/run/download_ctranslate2_weight":
         return result
     weight_type = data.get("weight_type") if isinstance(data, dict) else data
     if not isinstance(weight_type, str):

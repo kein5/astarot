@@ -43,7 +43,7 @@ from models.transcription.utterance_diagnostics import utterance_diagnostics
 from models.translation.translation_languages import translation_lang
 from models.transcription.transcription_languages import transcription_lang
 from models.translation.translation_utils import checkCTranslate2Weight, hasCTranslate2WeightFile, downloadCTranslate2Weight, downloadCTranslate2Tokenizer, backwardCompatibleRenameWeightsDir
-from models.transcription.transcription_whisper import checkWhisperWeight, downloadWhisperWeight
+from models.transcription import old_whisper_weights
 from models.transcription.transcription_openai_compatible import checkTranscriptionApiKey, getAvailableTranscriptionModels
 from models.transcription.transcription_deepgram import (
     checkDeepgramApiKey,
@@ -76,7 +76,7 @@ TRANSCRIPT_STOP_JOIN_TIMEOUT = 15
 # 無指定だと「接続はするが応答しない」相手に requests が無期限にブロック
 # しうる。checkSoftwareUpdated()/listAvailableReleases() は
 # Controller.init() から呼ばれるため、これが起きると初期化そのものが
-# 固まる。translation_utils.py/transcription_whisper.py の
+# 固まる。translation_utils.py の
 # _DOWNLOAD_TIMEOUT と同じ値を使う (大きめの read 側はモデル重みと同様、
 # setup.exe のダウンロードにも余裕を持たせるため)。
 _HTTP_TIMEOUT = (10, 60)
@@ -150,7 +150,7 @@ SETUP_VERIFY_FAILED = "verify_failed"
 
 
 # audio_queue の有界化 (フェーズ3項目20)。文字起こしが実時間に追いつけ
-# ない状況 (例: CPUでWhisper large-v3) で無制限に溜まると、drain時に
+# ない状況 (例: クラウドエンジンの応答が遅い) で無制限に溜まると、drain時に
 # last_sample がまとめて連結されて音声が長くなり、推論がさらに遅くなって
 # もっと溜まる、という正のフィードバックループになる
 # (transcription_transcriber.py 側の last_sample 長上限とあわせて対応)。
@@ -432,7 +432,7 @@ class _AudioDeviceSession:
     def _resolve_api_transcription_kwargs() -> dict:
         """Groq/OpenAI/カスタムサーバー選択時のみ、対応する認証キー/URL/
         モデルを config から解決して `AudioTranscriber` へ渡す kwargs を
-        作る。Google/ローカル Whisper 選択時は空の dict を返す (それらの
+        作る。Google 選択時は空の dict を返す (それらの
         引数は `AudioTranscriber` 側で None がデフォルトのため無視される)。
         """
         engine = config.SELECTED_TRANSCRIPTION_ENGINE
@@ -830,10 +830,6 @@ class _AudioDeviceSession:
                 # the new transcription pipeline fail with None.
                 if self._transcriber is transcriber:
                     self._transcriber = None
-                # sendTranscript and this function keep the transcriber in a
-                # reference cycle, so without this each mic toggle left a whole
-                # Whisper model and its threads behind until the next full GC.
-                transcriber.releaseModel()
                 # 明示 gc.collect() は呼ばない: ActiveEndpointTracker が別スレッド
                 # (CoInitialize 済み apartment) で保持している comtypes の COM
                 # ポインタが、この _print_transcript スレッド (CoInitialize
@@ -1001,11 +997,6 @@ class MicSession(_AudioDeviceSession):
             phrase_timeout=phrase_timeout,
             max_phrases=config.MIC_MAX_PHRASES,
             transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
-            root=config.PATH_DATA,
-            whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
-            device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
-            device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
-            compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
             vad_segmented=config.MIC_ENABLE_VAD is True,
             source_label="mic",
             **self._resolve_api_transcription_kwargs(),
@@ -1021,7 +1012,6 @@ class MicSession(_AudioDeviceSession):
             countries,
             config.MIC_AVG_LOGPROB,
             config.MIC_NO_SPEECH_PROB,
-            config.MIC_NO_REPEAT_NGRAM_SIZE,
         )
 
 
@@ -1059,11 +1049,6 @@ class SpeakerSession(_AudioDeviceSession):
             phrase_timeout=phrase_timeout,
             max_phrases=config.SPEAKER_MAX_PHRASES,
             transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
-            root=config.PATH_DATA,
-            whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
-            device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
-            device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
-            compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
             vad_segmented=config.SPEAKER_ENABLE_VAD is True,
             source_label="speaker",
             **self._resolve_api_transcription_kwargs(),
@@ -1079,7 +1064,6 @@ class SpeakerSession(_AudioDeviceSession):
             countries,
             config.SPEAKER_AVG_LOGPROB,
             config.SPEAKER_NO_SPEECH_PROB,
-            config.SPEAKER_NO_REPEAT_NGRAM_SIZE,
         )
 
 
@@ -1282,11 +1266,15 @@ class Model:
         self.ensure_initialized()
         self.translator.setChangedTranslatorParameters(is_changed)
 
-    def checkTranscriptionWhisperModelWeight(self, weight_type:str):
-        return checkWhisperWeight(config.PATH_DATA, weight_type)
+    @staticmethod
+    def getOldWhisperWeights() -> dict:
+        """The Whisper weights older versions downloaded and nothing reads any more (#288)."""
+        return old_whisper_weights.oldWhisperWeights(config.PATH_DATA)
 
-    def downloadWhisperModelWeight(self, weight_type, callback=None, end_callback=None, *, control=None):
-        return downloadWhisperWeight(config.PATH_DATA, weight_type, callback, end_callback, control=control)
+    @staticmethod
+    def deleteOldWhisperWeights() -> dict:
+        """Delete only those folders; never follows a link (models/transcription/old_whisper_weights.py)."""
+        return old_whisper_weights.deleteOldWhisperWeights(config.PATH_DATA)
 
     def authenticationTranscriptionApiKey(self, api_key: str, base_url: str) -> bool:
         return checkTranscriptionApiKey(api_key, base_url)
@@ -1525,10 +1513,11 @@ class Model:
         """VRCT の (Language, Country) を、指定した文字起こしエンジンが
         対応しているかどうかを返す。
 
-        Google/Whisper/Groq_Whisper/OpenAI_Whisper/Custom_Whisper は
+        Google/Groq_Whisper/OpenAI_Whisper/Custom_Whisper は
         transcription_lang の全エントリを網羅しているため常に True
-        (Groq/OpenAI/カスタムサーバーはローカルWhisperと同じ言語コードを
-        使うため)。Deepgram だけは選択中のモデルが実際に申告する対応言語
+        (Groq/OpenAI/カスタムサーバーは "Whisper" 列と同じ言語コードを
+        使うため)。ローカル (SpeechCpp) もここでは絞らない (言語は
+        リアルタイム設定とモデル側の一覧で決まる)。Deepgram だけは選択中のモデルが実際に申告する対応言語
         一覧と動的に突き合わせる (isLanguageSupportedByDeepgramModel 参照)。
         """
         if language not in transcription_lang or country not in transcription_lang[language]:
@@ -3137,10 +3126,6 @@ class Model:
                     return
                 self.th_watchdog = None
 
-    def message_handler(self, server, websocket, message):
-        """WebSocketメッセージ受信時の処理"""
-        pass
-
     @staticmethod
     def _listenerTlsContext(host, tls_files=None):
         """None on loopback; beyond this PC the user's certificate, or None plus False to refuse.
@@ -3165,9 +3150,10 @@ class Model:
         with self._websocket_lifecycle_lock:
             server = self.websocket_server
             if server is None or server.is_stopped:
+                # No message handler: the app only pushes, so the server drops what clients send
+                # on its loop, within the incoming limits (SEC-06).
                 server = WebSocketServer(host=host, port=port, token=config.WEBSOCKET_AUTH_TOKEN,
                                          ssl_context=context)
-                server.set_message_handler(self.message_handler)
                 self.websocket_server = server
             try:
                 attempt = server.begin_start(timeout=_WEBSOCKET_START_TIMEOUT)

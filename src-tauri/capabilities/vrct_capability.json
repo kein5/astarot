@@ -23,44 +23,61 @@
         "global-shortcut:allow-unregister",
         "global-shortcut:allow-unregister-all",
 
-        "fs:default",
-        "fs:allow-write-file",
-        "fs:allow-remove",
-        "fs:allow-resource-read-recursive",
-        "fs:allow-resource-meta-recursive",
-        {
-            "identifier": "http:default",
-            "allow": [
-                { "url": "https://api.github.com/repos/**" },
-                { "url": "https://github.com/**" }
-            ]
-        },
-
         {
             "identifier": "opener:allow-open-url",
             "allow": [
+                { "url": "https://kein5.github.io/VRCT-VOX" },
+                { "url": "https://kein5.github.io/VRCT-VOX/**" },
+                { "url": "https://github.com/kein5/VRCT-VOX" },
+                { "url": "https://github.com/kein5/VRCT-VOX/**" },
+                { "url": "https://misyaguziya.github.io/VRCT-Docs/**" },
+                { "url": "https://github.com/misyaguziya" },
+                { "url": "https://github.com/misyaguziya/VRCT" },
+                { "url": "https://github.com/soumt-r" },
+                { "url": "https://twitter.com/misya_ai" },
+                { "url": "https://twitter.com/Shiina_12siy" },
+                { "url": "https://twitter.com/done_vrc" },
+                { "url": "https://twitter.com/IYAA_HHHH" },
+                { "url": "https://twitter.com/rerassi" },
+                { "url": "https://twitter.com/sig_popo" },
+                { "url": "https://twitter.com/K_kumaguma_A" },
+                { "url": "https://twitter.com/Riku7302" },
+                { "url": "https://www.deepl.com/ja/your-account/keys" },
+                { "url": "https://plamo.preferredai.jp/api" },
+                { "url": "https://aistudio.google.com/api-keys" },
+                { "url": "https://platform.openai.com/api-keys" },
+                { "url": "https://console.groq.com/keys" },
+                { "url": "https://console.deepgram.com/" },
+                { "url": "https://openrouter.ai/keys" },
                 { "url": "https://huggingface.co/**" },
                 { "url": "https://creativecommons.org/licenses/by/4.0/" },
+                { "url": "https://creativecommons.org/licenses/by-nc/4.0/" },
                 { "url": "https://www.apache.org/licenses/LICENSE-2.0" },
                 { "url": "https://github.com/RVC-Project/**" },
                 { "url": "https://github.com/jiaheguo521/**" },
                 { "url": "https://github.com/pytorch/**" },
-                { "url": "https://docs.nvidia.com/cuda/eula/**" }
+                { "url": "https://docs.nvidia.com/cuda/eula/**" },
+                { "url": "https://voicevox.hiroshiba.jp/" },
+                { "url": "https://voicevox.hiroshiba.jp/term/" },
+                { "url": "https://coeiroink.com/" },
+                { "url": "https://coeiroink.com/terms" },
+                { "url": "https://aivis-project.com/" },
+                { "url": "https://www.sharevox.app/" }
+            ],
+            "deny": [
+                { "url": "*/..*" },
+                { "url": "*\\..*" },
+                { "url": "*%2[eE]*" },
+                { "url": "*%5[cC]*" },
+                { "url": "*@*" }
             ]
         },
-        "shell:allow-open",
         "shell:allow-stdin-write",
         "shell:allow-kill",
         {
             "identifier": "shell:allow-spawn",
             "allow": [
-                { "name": "bin/vrct-vox-sidecar", "sidecar": true, "args": true }
-            ]
-        },
-        {
-            "identifier": "shell:allow-execute",
-            "allow": [
-                { "name": "bin/vrct-vox-sidecar", "sidecar": true, "args": true }
+                { "name": "bin/vrct-vox-sidecar", "sidecar": true, "args": false }
             ]
         }
     ]

@@ -14,8 +14,8 @@ removed from this repository in 0.2.0, together with the lookup that found it.
 いたが、事前学習重みが AGPL-3.0 で成果物もその派生になるため載せ替えた。
 経緯は docs/ocr_model_license.md。
 
-推論は onnxruntime だけで動く。faster-whisper が Silero VAD 用にすでに
-依存しているので、配布物に追加される依存はモデルファイル1つだけ。
+推論は onnxruntime だけで動く。同梱の Silero VAD も使う直接の依存なので、
+配布物に追加される依存はモデルファイル1つだけ。
 デコード(grid/stride の復元)はエクスポート時にグラフへ入れてあるので、
 ここでやるのは前処理(letterbox)・閾値・NMS・元画像座標への戻しだけになる。
 

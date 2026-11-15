@@ -78,13 +78,15 @@ test("speech recognition opens on the engine choice; the timing numbers follow, 
     const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), "utf8");
     const page = source.split("export const Transcription = () => {")[1].split("\n};")[0];
     const order = [...page.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1]);
+    // The old Whisper models come last, and only while some are on this PC (#288).
     assert.deepEqual(order, ["TranscriptionEngine_Container", "CloudTranscription_Container", "Mic_Container", "Speaker_Container",
-        "RealtimeASRSettings", "SpeechServers"]);
+        "RealtimeASRSettings", "SpeechServers", "OldWhisperWeights"]);
     const section = name => source.split(`const ${name} = () => {`)[1].split("\n};")[0];
     // The word filter is a list people edit; it stays in sight. The three numbers are folded.
     assert.match(section("Mic_Container"), /<MicWordFilter_Box \/>\s*<TimingFold silence=\{currentMicRecordTimeout\.data\} length=\{currentMicPhraseTimeout\.data\} queue=\{currentMicMaxWords\.data\}>\s*<MicRecordTimeout_Box \/>\s*<MicPhraseTimeout_Box \/>\s*<MicMaxWords_Box \/>\s*<\/TimingFold>/);
     assert.match(section("Speaker_Container"), /<TimingFold silence=\{currentSpeakerRecordTimeout\.data\} length=\{currentSpeakerPhraseTimeout\.data\} queue=\{currentSpeakerMaxWords\.data\}>\s*<SpeakerRecordTimeout_Box \/>\s*<SpeakerPhraseTimeout_Box \/>\s*<SpeakerMaxWords_Box \/>\s*<\/TimingFold>/);
-    assert.match(section("TranscriptionEngine_Container"), /thresholds_title[\s\S]*<MicAvgLogprobContainer \/>\s*<MicNoSpeechProbContainer \/>\s*<SpeakerAvgLogprobContainer \/>\s*<SpeakerNoSpeechProbContainer \/>\s*<\/SetupSection>/);
+    // Whisper's thresholds and model choice went with the engine (#288): the engine choice stands alone.
+    assert.doesNotMatch(section("TranscriptionEngine_Container"), /thresholds_title|AvgLogprob|NoSpeechProb|WhisperWeightType|ComputeDevice/);
 
     const runtime = hooks();
     const SetupSection = () => null;
@@ -145,7 +147,7 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8")).config_page;
         for (const key of ["chat_reading_moved", "open_chat_reading"]) assert.equal(typeof strings.vrchat[key], "string");
-        for (const key of ["timing_title", "timing_status", "thresholds_title", "thresholds_status"]) assert.equal(typeof strings.transcription[key], "string");
+        for (const key of ["timing_title", "timing_status"]) assert.equal(typeof strings.transcription[key], "string");
     }
 });
 

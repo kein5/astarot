@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import shutil
 import subprocess
 
@@ -50,6 +51,8 @@ def test_prepare_preserves_installer_checksums(candidate, tmp_path, monkeypatch)
     monkeypatch.setattr(subprocess, "check_output", lambda *a, **kw: json.dumps(run))
 
     def download(argv, **_kwargs):
+        if argv[:3] == ["gh", "attestation", "verify"]:
+            return
         shutil.copytree(candidate, argv[argv.index("--dir") + 1])
 
     monkeypatch.setattr(subprocess, "run", download)
@@ -60,6 +63,52 @@ def test_prepare_preserves_installer_checksums(candidate, tmp_path, monkeypatch)
         ).read_bytes()
         assert len((payload / (name + ".sha256")).read_bytes()) == 64
 
+
+def _draft(candidate, tmp_path, monkeypatch, attestation):
+    run = dict(
+        conclusion="success", status="completed", event="workflow_dispatch", head_branch="develop",
+        head_sha=SHA, path=".github/workflows/release.yml",
+        repository={"full_name": "kein5/VRCT-VOX"}, head_repository={"full_name": "kein5/VRCT-VOX"},
+    )
+    monkeypatch.setattr(subprocess, "check_output", lambda *a, **kw: json.dumps(run))
+    checked = []
+
+    def fake_run(argv, **kwargs):
+        if argv[:3] == ["gh", "attestation", "verify"]:
+            checked.append(argv)
+            attestation(argv)
+            return
+        shutil.copytree(candidate, argv[argv.index("--dir") + 1])
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    return checked, lambda: prepare(tmp_path / "draft", {"windows": "123"}, SHA, VERSION, "develop")
+
+
+def test_every_candidate_file_needs_provenance_from_its_workflow_and_commit(candidate, tmp_path, monkeypatch):
+    """Second security audit SEC-04: signed build provenance, not only checksums."""
+    checked, run_prepare = _draft(candidate, tmp_path, monkeypatch, lambda argv: None)
+    payload = run_prepare()
+    files = sorted(path.name for path in candidate.iterdir())
+    assert sorted(Path(argv[3]).name for argv in checked) == files
+    for argv in checked:
+        options = dict(zip(argv[4::2], argv[5::2]))
+        assert options["--repo"] == "kein5/VRCT-VOX"
+        assert options["--signer-workflow"] == "kein5/VRCT-VOX/.github/workflows/release.yml"
+        assert options["--source-digest"] == SHA
+        assert options["--source-ref"] == "refs/heads/develop"
+        assert "--deny-self-hosted-runners" in argv
+    assert (payload / "VRCT-VOX.zip").is_file()
+
+
+def test_a_file_without_valid_provenance_stops_the_draft(candidate, tmp_path, monkeypatch):
+    def refuse(argv):
+        if argv[3].endswith("VRCT-VOX_cuda.zip"):
+            raise subprocess.CalledProcessError(1, argv, stderr="no attestations found")
+
+    _, run_prepare = _draft(candidate, tmp_path, monkeypatch, refuse)
+    with pytest.raises(subprocess.CalledProcessError):
+        run_prepare()
+    assert not any((tmp_path / "draft" / "payload").iterdir())
 
 def test_checksum_newline_is_rejected(candidate):
     path = candidate / "VRCT-VOX.zip.sha256"
@@ -124,13 +173,40 @@ def test_rejects_modified_or_misidentified_candidate(candidate, mutation):
         verify(candidate, "windows", SHA, VERSION)
 
 
-def test_linux_variant_pair_required(tmp_path):
+def _linux_assets(tmp_path, suffixes):
     assets = []
-    for suffix in ("vulkan-release.AppImage", "cpu-release.tar.gz"):
+    for suffix in suffixes:
         path = tmp_path / f"VRCT-VOX-{VERSION}-linux-x64-{suffix}"
         path.write_bytes(b"candidate")
         assets.append(path)
+    return assets
+
+
+def test_linux_candidate_carries_archive_appimage_deb_and_rpm(tmp_path):
+    assets = _linux_assets(tmp_path, ("vulkan-release.tar.gz", "vulkan-release.AppImage",
+                                      "vulkan-release.deb", "vulkan-release.rpm"))
+    stage(tmp_path / "out", assets, "linux", SHA, VERSION)
+    names = {entry["name"] for entry in verify(tmp_path / "out", "linux", SHA, VERSION)["assets"]}
+    assert {name.rsplit(".", 1)[-1] for name in names} == {"gz", "AppImage", "deb", "rpm"}
+
+
+def test_linux_candidate_without_its_packages_is_refused(tmp_path):
+    assets = _linux_assets(tmp_path, ("vulkan-release.tar.gz", "vulkan-release.AppImage"))
+    with pytest.raises(ValueError, match="deb and rpm"):
+        stage(tmp_path / "out", assets, "linux", SHA, VERSION)
+
+
+def test_linux_variant_pair_required(tmp_path):
+    assets = _linux_assets(tmp_path, ("vulkan-release.AppImage", "cpu-release.tar.gz",
+                                      "vulkan-release.deb", "vulkan-release.rpm"))
     with pytest.raises(ValueError, match="same engine"):
+        stage(tmp_path / "out", assets, "linux", SHA, VERSION)
+
+
+def test_linux_candidate_needs_one_of_each_format(tmp_path):
+    assets = _linux_assets(tmp_path, ("vulkan-release.tar.gz", "vulkan-release.AppImage",
+                                      "vulkan-release.deb", "cpu-release.deb"))
+    with pytest.raises(ValueError):
         stage(tmp_path / "out", assets, "linux", SHA, VERSION)
 
 

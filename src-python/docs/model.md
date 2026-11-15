@@ -364,13 +364,17 @@ else:
 
 ### 5. 音声認識機能
 
-#### Whisper モデル管理
+ローカルの音声認識は speech.cpp のリアルタイム経路で動く。ここで扱う録音経路（`AudioTranscriber`）は Google とクラウドのエンジン（Groq / OpenAI / カスタムサーバー / Deepgram）だけを使う。ローカルの Whisper（faster-whisper）は #288 で削除した。
 
-##### `checkTranscriptionWhisperModelWeight(weight_type: str) -> bool`
-Whisper モデルウェイトの存在確認。
+#### 古い Whisper モデル
 
-##### `downloadWhisperModelWeight(weight_type, callback=None, end_callback=None) -> bool`
-Whisper モデルウェイトのダウンロード。
+以前の版がダウンロードした Whisper の重み（`<config.PATH_DATA>/weights/whisper/<名前>`）はもう読まない。設定から利用者が削除するためにだけ扱う。処理は `models/transcription/old_whisper_weights.py` にある。
+
+##### `getOldWhisperWeights() -> dict`
+残っている重みを返す。`{"total_bytes": int, "folders": [重みタイプ名, ...]}`。`old_whisper_weights.oldWhisperWeights(config.PATH_DATA)` を呼ぶ。
+
+##### `deleteOldWhisperWeights() -> dict`
+既知の9つの重みフォルダー（`WHISPER_WEIGHT_NAMES`）だけを削除する。シンボリックリンクやジャンクションはたどらず、知らないファイルは残し、`whisper` フォルダーは空になったときだけ削除する。`getOldWhisperWeights()` と同じ形に `"freed_bytes"` と `"failed"`（削除できなかった重みタイプ）を加えて返す。`old_whisper_weights.deleteOldWhisperWeights(config.PATH_DATA)` を呼ぶ。利用者の操作でだけ呼ばれる。
 
 #### マイク音声認識
 
@@ -413,11 +417,9 @@ Whisper モデルウェイトのダウンロード。
        phrase_timeout=config.MIC_PHRASE_TIMEOUT,
        max_phrases=config.MIC_MAX_PHRASES,
        transcription_engine=config.SELECTED_TRANSCRIPTION_ENGINE,
-       root=config.PATH_LOCAL,
-       whisper_weight_type=config.WHISPER_WEIGHT_TYPE,
-       device=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device"],
-       device_index=config.SELECTED_TRANSCRIPTION_COMPUTE_DEVICE["device_index"],
-       compute_type=config.SELECTED_TRANSCRIPTION_COMPUTE_TYPE,
+       vad_segmented=config.MIC_ENABLE_VAD is True,
+       source_label="mic",
+       **self._resolve_api_transcription_kwargs(),  # クラウドエンジンの認証キー・URL・モデル
    )
    ```
 6. **文字起こしスレッドの起動:**
@@ -497,7 +499,9 @@ return False, None
 
 **使用箇所:**
 - 翻訳実行時
-- 音声認識開始時
+- 翻訳の有効化時（CTranslate2 モデルの読み込み）
+
+音声認識の開始時には使わない（GPU で動くローカルの Whisper は #288 で削除した）。
 
 #### スピーカー音声認識
 
@@ -1094,7 +1098,7 @@ from models.transcription.transcription_transcriber import AudioTranscriber
 from models.translation.translation_languages import translation_lang
 from models.transcription.transcription_languages import transcription_lang
 from models.translation.translation_utils import checkCTranslate2Weight, downloadCTranslate2Weight, downloadCTranslate2Tokenizer
-from models.transcription.transcription_whisper import checkWhisperWeight, downloadWhisperWeight
+from models.transcription import old_whisper_weights
 from models.transliteration.transliteration_transliterator import Transliterator
 from models.overlay.overlay import Overlay
 from models.overlay.overlay_image import OverlayImage
@@ -1217,7 +1221,6 @@ Model クラスはアプリケーション全体で1つのインスタンスの�
 **ケース:**
 - デバイスがない場合
 - 音声認識開始・停止・一時停止・再開
-- VRAMエラーの発生
 
 **確認項目:**
 - コールバックが正しく呼び出されているか

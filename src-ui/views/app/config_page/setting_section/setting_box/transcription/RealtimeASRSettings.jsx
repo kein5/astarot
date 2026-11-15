@@ -64,6 +64,12 @@ export const RealtimeASRSettings = () => {
                 onChange={event => setDraft({ ...draft, server: event.target.value })}>
                 {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
             </select></label>
+            {/* Whether a main switch may start the bundled server, or only Settings' Start button (#288). */}
+            {draft.server === "bundled" && <>
+                <label className={styles.checkLabel}><input type="checkbox" disabled={saving} checked={draft.start_server !== false}
+                    onChange={event => setDraft({ ...draft, start_server: event.target.checked })} />{t("realtime.start_server")}</label>
+                <Description text={t("realtime.start_server_help")} />
+            </>}
             {draft.server !== "bundled" && <label>{t("realtime.url")}<input readOnly={saving} aria-label={t("realtime.url")} value={draft.base_url}
                 onChange={event => setDraft({ ...draft, base_url: event.target.value })} /></label>}
             <label>{t("realtime.model")}<select disabled={saving} aria-label={t("realtime.model")} value={draft.model}

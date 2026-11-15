@@ -65,7 +65,7 @@ flowchart LR
 | `/run/vr_panel_pointer` | エンドポイント。座標または`null` | VRのhover表示用の現在位置。クリック操作は含まない |
 | `/run/check_mic_volume`、`/run/check_speaker_volume` | エンドポイントごと。数値のみ | 音量メーターの現在値を置き換える |
 | `/run/realtime_caption` | `source`・`generation`・`namespace`・`item_id`が同じ、空でない`partial` | 同じ字幕行の全文を置き換える。別の発話は別の行なので集約しない。空文字は行を退役させる操作なので保持する |
-| `/run/download_progress_ctranslate2_weight`、`/run/download_progress_whisper_weight` | エンドポイントと`weight_type`。数値の進捗のみ | 対応する進捗バーを置き換える。完了・失敗・pending通知は別に保持する |
+| `/run/download_progress_ctranslate2_weight` | エンドポイントと`weight_type`。数値の進捗のみ | 対応する進捗バーを置き換える。完了・失敗・pending通知は別に保持する |
 
 - 集約した値は新しい投入位置に置く。残った行同士の順序を保ち、開始応答より後の状態をその応答より先に送らない。字幕の`final`・`translated`・`discarded`・`outcome`は同じキーの待機中のpartialを取り除く。配送結果の`outcome`は本文を持たず、集約しない確定通知として保持する（[データ形式](data-and-persistence.md#リアルタイム字幕と配送結果)）。確定行が待機中のキーと、取り出した直近256キーへの遅いpartialも無視する。書き込み中のpartialは1本のwriterで確定行より先に処理する。
 - 集約用のキーは最大64件。不明な形、未知の通知、枠がない新規キーは通常の行として保持し、別の字幕行などを捨てない。このため、保持が必要な行の総数・総バイト数に上限はない。
@@ -97,7 +97,7 @@ OpenAI互換とCustom WhisperのURL単独の設定要求（`/set/data/openai_com
 - 再取得の失敗で読み取りを繰り返さない。再取得を待つ間に新しい書き込みを送った場合、古い読み取り応答でその書き込みの待機や値を上書きしない。書き込みを自動で再送することはない。時間の経過だけでも待機を解除しない。
 - 送信が`false`を返す、または例外になった場合も、通常の制御は最後に確認した値へ戻す。送信失敗の通知を出すが、サイドカー停止の通知が出ている場合は重ねない。読み取りだけの再取得失敗でも、元の500通知に送信失敗通知を重ねない。
 - 言語変更は後述の専用の対応づけを使う。TTS/RVCの世代番号、モデル取得の観測番号、400/409の個別エラー処理も維持する。TTS/RVCの404・423・500は応答のオン・オフ方向が現在の要求と一致するときだけ待機を解除し、状態を再取得する。送信失敗はその送信がまだ持っている待機だけを解除する。
-- 旧CTranslate2/Whisperダウンロードでは、同じエンドポイントで別の重みを同時に要求できる。404・423・500の`result.data.weight_type`に失敗した重みだけを返し、その項目の待機・進捗を解除する。500の再取得先は`/get/data/selectable_<名前>_type_dict`である。`is_downloaded`を成功と推測して書き換えない。他の要求の値や秘密情報はエラーへ転記しない。
+- 旧CTranslate2ダウンロードでは、同じエンドポイントで別の重みを同時に要求できる。404・423・500の`result.data.weight_type`に失敗した重みだけを返し、その項目の待機・進捗を解除する。500の再取得先は`/get/data/selectable_<名前>_type_dict`である。`is_downloaded`を成功と推測して書き換えない。他の要求の値や秘密情報はエラーへ転記しない。
 
 ### エラーの本体
 
@@ -170,6 +170,8 @@ spawnの拒否、子プロセスができる前のコマンドのerror、初期�
 `failed`と`stopped`のどちらでも`IsBackendReady`を偽にし、グローバルホットキーとQuick Chatの送信を無効にする。初期化後に終了した場合はメイン画面を残し、通常の起動待ち画面には戻さない。メインの機能スイッチは最後に確認した値を保持するが、動作中とは表示せず、接続が切れたことを文言とアクセシブル名で示して操作を無効にする。サイドカーがない間は、これらのスイッチから要求を送らない。
 
 起動失敗の後にspawnが完了した子プロセスを終了できるよう、`main`ウィンドウだけに`shell:allow-kill`を許可する。対象はshellプラグイン自身が起動した子プロセスに限られる。
+
+shellプラグインの権限は`main`ウィンドウの起動・入力・終了の3つだけにする（`shell:allow-spawn`、`shell:allow-stdin-write`、`shell:allow-kill`）。spawnできるのはサイドカーだけで、範囲は`args: false`にする。この範囲では、ウィンドウが引数の配列を渡しても捨てて、サイドカーは引数なしで起動する（1つの文字列を渡すと拒否する）。そのため、ウィンドウからサイドカーを`--voice-router-worker`や`--self-check`の動作で起動することはできない。`execute`と`open`は許可しない。shellプラグインの`open`は、範囲を設定しないと任意のhttp(s)のURLを開けるので、リンクはopenerプラグインの一覧だけで開く。UIはファイルの読み書きとHTTPの要求を自分でしないので、fsとhttpのプラグインはアプリに入れない（セキュリティ監査SEC-05）。`src-ui/logics/common/appPermissions.test.js`が、権限の一覧とUIの呼び出し方を照合する。
 
 これらは`src-ui/logics/useReceiveRoutes.test.js`、`src-ui/logics/common/sidecarSession.test.js`、`useStdoutToPython.test.js`で、spawnと子プロセスのイベントを模擬して検証する。
 

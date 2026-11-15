@@ -8,6 +8,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 mod caption_overlay;
 mod quick_chat;
 mod single_instance;
+mod vr_panel_state;
+mod vr_overlay;
+#[cfg(test)]
+mod opener_scope_tests;
 #[cfg(target_os = "linux")]
 mod portal_shortcuts;
 #[cfg(target_os = "linux")]
@@ -45,9 +49,10 @@ mod portal_shortcuts {
 }
 
 // WebView2は同じプロセス内の全ウィンドウで起動引数が一致している必要があるため、
-// tauri.conf.json の main ウィンドウと同じ値にする。Tauri既定の --disable-features に加えて、
-// 隠れたウィンドウの描画停止を無効にする (VRパネルは画面外に置いて撮影するため)。
-const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding";
+// tauri.conf.json の main ウィンドウと同じ値にする (テストで確かめる)。Tauri既定の --disable-features
+// から msSmartScreenProtection を外し、WebView2 の SmartScreen を既定どおり動かす (第2回セキュリティ監査
+// SEC-03)。隠れたウィンドウの描画停止は無効にする (VRパネルは画面外に置いて撮影するため)。
+const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding";
 
 // VRオーバーレイに映す画面。Python側 (models/overlay) が撮影・入力する (Windows はタイトルで見つける)。
 // VR UI が ON の間だけ作る (set_vr_panel_window)。OFF の間も動かしておくと、使わない人にも負荷がかかる
@@ -187,15 +192,16 @@ pub fn run() {
                 window.app_handle().exit(0);
             }
         })
+        // Only the plugins the windows use. The UI reads and writes no files and makes no HTTP
+        // requests of its own, so the fs and http plugins are gone (security audit SEC-05).
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_http::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .manage(quick_chat::QuickChatState::default())
         .manage(caption_overlay::CaptionOverlayState::default())
         .manage(portal_shortcuts::PortalShortcuts::default())
         .manage(portal_screencast::Screencast::default())
+        .manage(vr_panel_state::VrPanelState::default())
         .invoke_handler(tauri::generate_handler![get_font_list, set_vr_panel_window, main_window_restore,
             quick_chat::quick_chat_context, quick_chat::quick_chat_configure, quick_chat::quick_chat_submit,
             quick_chat::quick_chat_take, quick_chat::quick_chat_finish, quick_chat::quick_chat_hide,
@@ -204,7 +210,8 @@ pub fn run() {
             caption_overlay::caption_overlay_update, caption_overlay::caption_overlay_snapshot,
             portal_shortcuts::portal_shortcuts_bind,
             portal_screencast::screencast_support, portal_screencast::screencast_start,
-            portal_screencast::screencast_stop])
+            portal_screencast::screencast_stop,
+            vr_panel_state::vr_panel_state_subscribe, vr_panel_state::vr_panel_state_push])
         .build(context)
         .map(|app| app.run(|app, event| {
             // A shared window must not stay shared after the app is gone.
@@ -276,6 +283,8 @@ async fn set_vr_panel_window(window: tauri::WebviewWindow, app: tauri::AppHandle
             Ok(())
         }
         (false, Some(window)) => {
+            // The closed panel's channel must not keep receiving the state.
+            app.state::<vr_panel_state::VrPanelState>().clear();
             #[cfg(target_os = "linux")]
             vr_panel_surface::detach(&app).await;
             window.destroy().map_err(|error| error.to_string())?;
@@ -317,8 +326,28 @@ async fn get_font_list() -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::startup_log_path;
+    use super::{startup_log_path, BROWSER_ARGS};
     use std::path::Path;
+
+    #[test]
+    fn every_window_starts_webview2_with_the_main_windows_arguments() {
+        let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        // A window without a label is "main".
+        let main = config["app"]["windows"].as_array().unwrap().iter()
+            .find(|window| window.get("label").map_or(true, |label| label == "main")).expect("the main window");
+        assert_eq!(main["additionalBrowserArgs"], BROWSER_ARGS);
+    }
+
+    #[test]
+    fn smartscreen_stays_on() {
+        // Second security audit SEC-03: WebView2's SmartScreen must not be switched off.
+        let disabled = BROWSER_ARGS.split_whitespace()
+            .filter_map(|argument| argument.strip_prefix("--disable-features="))
+            .flat_map(|features| features.split(','));
+        for feature in disabled {
+            assert!(!feature.contains("SmartScreen"), "{feature} is disabled");
+        }
+    }
 
     #[test]
     #[cfg(windows)]

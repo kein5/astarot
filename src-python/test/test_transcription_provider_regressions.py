@@ -22,7 +22,7 @@ from models.transcription.transcription_transcriber import AudioTranscriber
 
 
 AUDIO = AudioData(b"\x00\x00" * 160, 16000, 2)
-OPTIONS = dict(avg_logprob=-0.8, no_speech_prob=0.6, no_repeat_ngram_size=0, force_language=False)
+OPTIONS = dict(avg_logprob=-0.8, no_speech_prob=0.6, force_language=False)
 SECRET = "private-provider-response"
 
 
@@ -44,15 +44,8 @@ def _deepgram_payload(language="en", text="hello", confidence=0.9):
 
 @contextmanager
 def _provider(engine, detected_language, *, model="whisper-1"):
-    """Use real adapters with a fake model or an in-memory HTTP response."""
-    if engine == "Whisper":
-        model_stub = MagicMock()
-        model_stub.transcribe.return_value = (
-            [SimpleNamespace(text="hello", avg_logprob=-0.1, no_speech_prob=0.1)],
-            SimpleNamespace(language=detected_language, language_probability=0.9),
-        )
-        yield providers.LocalWhisperProvider(model_stub), model_stub.transcribe
-    elif engine == "Deepgram":
+    """Use real adapters with an in-memory HTTP response."""
+    if engine == "Deepgram":
         response = requests.Response()
         response.status_code = 200
         response.json = lambda: _deepgram_payload(detected_language)
@@ -80,12 +73,12 @@ def _transcribe(provider, engine, languages=None, countries=None):
     with patch.object(transcriber, "_resolve_provider", return_value=provider):
         transcriber._finalizeAndTranscribe(
             languages or ["Japanese", "English"], countries or ["Japan", "United States"],
-            -0.8, 0.6, 0,
+            -0.8, 0.6,
         )
     return transcriber
 
 
-@pytest.mark.parametrize("engine", ["Whisper", "Deepgram", "OpenAI_Whisper", "Groq_Whisper", "Custom_Whisper"])
+@pytest.mark.parametrize("engine", ["Deepgram", "OpenAI_Whisper", "Groq_Whisper", "Custom_Whisper"])
 @pytest.mark.parametrize("detected_language", ["en", " English ", "EN_us"])
 def test_detected_english_maps_to_second_candidate(engine, detected_language):
     with _provider(engine, detected_language) as (provider, call):
@@ -94,7 +87,7 @@ def test_detected_english_maps_to_second_candidate(engine, detected_language):
     assert call.call_count == 1
 
 
-@pytest.mark.parametrize("engine", ["Whisper", "Deepgram", "OpenAI_Whisper"])
+@pytest.mark.parametrize("engine", ["Deepgram", "OpenAI_Whisper"])
 @pytest.mark.parametrize("detected_language", [None, "", "unrecognized-code", "fr"])
 def test_unavailable_or_unselected_detection_does_not_label_first_candidate(engine, detected_language):
     with _provider(engine, detected_language) as (provider, call):
@@ -133,7 +126,7 @@ def test_message_language_selection_preserves_unknown_batch_asr_language(spec, e
     assert MessageSnapshot.capture(config, spec, "English").source_language == "English"
 
 
-@pytest.mark.parametrize("engine", ["Whisper", "Deepgram", "OpenAI_Whisper"])
+@pytest.mark.parametrize("engine", ["Deepgram", "OpenAI_Whisper"])
 def test_explicit_single_language_survives_missing_detection(engine):
     with _provider(engine, None) as (provider, call):
         result = _transcribe(provider, engine, ["Japanese"], ["Japan"]).getTranscript()
@@ -162,7 +155,7 @@ def test_detected_language_uses_selected_country_and_normalized_names(detected_l
 def test_definitive_result_replaces_previous_candidate_even_with_lower_confidence(confidence):
     provider = MagicMock()
     provider.transcribe.side_effect = [("wrong", 0.9, False, "ja"), ("hello", confidence, True, "en")]
-    result = _transcribe(provider, "Whisper").getTranscript()
+    result = _transcribe(provider, "OpenAI_Whisper").getTranscript()
     assert result["text"] == "hello"
     assert result["language"] == "English"
 
@@ -262,7 +255,7 @@ def test_malformed_deepgram_success_reaches_pipeline_error_state():
     with patch.object(providers.requests, "post", return_value=response), \
          patch("utils.error_logger") as logger:
         with pytest.raises(AudioPipelineError):
-            transcriber._finalizeAndTranscribe(["Japanese"], ["Japan"], -0.8, 0.6, 0)
+            transcriber._finalizeAndTranscribe(["Japanese"], ["Japan"], -0.8, 0.6)
     assert transcriber.last_recognition_error
     assert transcriber.last_api_error_code == ErrorCode.TRANSCRIPTION_API_SERVER_ERROR
     assert not transcriber.hasTranscript()

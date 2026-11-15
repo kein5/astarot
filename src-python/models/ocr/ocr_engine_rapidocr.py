@@ -6,8 +6,8 @@ EasyOCRラッパーと同じ形を返すので、パイプライン側の扱い�
 例外と「読める文字が無い」を区別して再試行の間隔を調整する。
 
 EasyOCRから乗り換えた理由と実測は ocr_languages.py と
-docs/details/ocr.md を参照。onnxruntime は faster-whisper が
-Silero VAD 用に既に依存しているので、追加される実行時依存はない。
+docs/details/ocr.md を参照。onnxruntime は同梱の Silero VAD も使う
+直接の依存なので、追加される実行時依存はない。
 """
 
 from __future__ import annotations

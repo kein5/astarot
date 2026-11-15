@@ -147,7 +147,7 @@ class TestFallbackUnsupportedLanguagesForTranscriptionEngine(unittest.TestCase):
         self.assertFalse(changed)
         self.assertEqual(self.calls, [])
 
-    def test_whisper_supports_everything_so_nothing_is_reset(self) -> None:
+    def test_google_supports_everything_so_nothing_is_reset(self) -> None:
         config.SELECTED_YOUR_LANGUAGES = {
             **config.SELECTED_YOUR_LANGUAGES,
             "1": {"1": {"language": "Korean", "country": "South Korea", "enable": True}},
@@ -157,7 +157,7 @@ class TestFallbackUnsupportedLanguagesForTranscriptionEngine(unittest.TestCase):
             "1": {**config.SELECTED_TARGET_LANGUAGES["1"], "1": {"language": "English", "country": "United States", "enable": True}},
         }
 
-        changed = self.controller.fallbackUnsupportedLanguagesForTranscriptionEngine("Whisper")
+        changed = self.controller.fallbackUnsupportedLanguagesForTranscriptionEngine("Google")
 
         self.assertFalse(changed)
 
@@ -182,9 +182,9 @@ class TestSetSelectedTranscriptionEnginePushesLanguageListAndFallback(unittest.T
         config._SELECTED_DEEPGRAM_MODEL = "nova-3"
         config.DEEPGRAM_MODEL_LANGUAGES = {"nova-3": ["en", "ja"]}
         # updateTranscriptionEngine() が可用性チェックで巻き戻さないよう、
-        # Whisper/Deepgram の両方を利用可能扱いにしておく。
+        # Groq/Deepgram の両方を利用可能扱いにしておく。
         config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {
-            "Google": True, "Whisper": True, "Deepgram": True,
+            "Google": True, "Groq_Whisper": True, "Deepgram": True,
         }
 
     def tearDown(self) -> None:
@@ -213,9 +213,9 @@ class TestSetSelectedTranscriptionEnginePushesLanguageListAndFallback(unittest.T
         self.assertIn("selectable_language_list", pushed_endpoints)
         self.assertIn("selected_your_languages", pushed_endpoints)
 
-    def test_switching_to_whisper_does_not_touch_languages(self) -> None:
+    def test_switching_to_an_engine_with_every_language_does_not_touch_languages(self) -> None:
         # 実際にエンジンが変化するケースを試すため、起点を明示的に
-        # "Whisper" 以外にしておく (でないと変化なし=pushされずテストの
+        # "Groq_Whisper" 以外にしておく (でないと変化なし=pushされずテストの
         # 意図が成立しない)。
         config._SELECTED_TRANSCRIPTION_ENGINE = "Google"
         config.SELECTED_YOUR_LANGUAGES = {
@@ -223,7 +223,7 @@ class TestSetSelectedTranscriptionEnginePushesLanguageListAndFallback(unittest.T
             "1": {"1": {"language": "Korean", "country": "South Korea", "enable": True}},
         }
 
-        response = self.controller.setSelectedTranscriptionEngine("Whisper")
+        response = self.controller.setSelectedTranscriptionEngine("Groq_Whisper")
 
         self.assertEqual(response["status"], 200)
         self.assertEqual(config.SELECTED_YOUR_LANGUAGES["1"]["1"]["language"], "Korean")
@@ -285,7 +285,7 @@ class TestSetDeepgramModelPushesLanguageListOnlyWhenActiveEngine(unittest.TestCa
         self.assertEqual(config.SELECTED_YOUR_LANGUAGES["1"]["1"]["language"], "English")
 
     def test_does_not_push_when_deepgram_is_not_the_active_engine(self) -> None:
-        config._SELECTED_TRANSCRIPTION_ENGINE = "Whisper"
+        config._SELECTED_TRANSCRIPTION_ENGINE = "Google"
         config.SELECTED_YOUR_LANGUAGES = {
             **config.SELECTED_YOUR_LANGUAGES,
             "1": {"1": {"language": "Japanese", "country": "Japan", "enable": True}},

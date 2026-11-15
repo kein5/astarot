@@ -8,6 +8,7 @@ import * as exitExpectation from "../common/sidecarExitExpectation.js";
 import * as settingsResponses from "../common/settingsWriteResponses.js";
 import * as meterValue from "../common/meterValue.js";
 import * as utils from "../utils.js";
+import * as localAsrMigration from "../transcription/localAsrMigration.js";
 
 const messageFormat = { message: { prefix: "", suffix: "" }, separator: "\n",
     translation: { prefix: "", separator: "\n", suffix: "" }, translation_first: false };
@@ -66,7 +67,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         jotai, "@store": stores, "../../common/pendingRequestRecovery.js": recovery,
         "../../../views/vr/vr_layout.json": {},
         "@ui_configs": { ui_configs: { send_message_format_parts: messageFormat, received_message_format_parts: messageFormat },
-            ctranslate2_weight_type_status: [], whisper_weight_type_status: [] },
+            ctranslate2_weight_type_status: [] },
         "./useSettingsLogics": settingsLogics,
     });
     const configs = stubApi({ ...Object.fromEntries([...new Set(settings.SETTINGS_ARRAY.map(setting => setting.Category))]
@@ -80,6 +81,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     const main = stubApi({ ...languages, ...overrides.main });
     const transcriptionConsent = await loadModule(new URL("../transcription/useTranscriptionConsent.js", import.meta.url), runtime);
     const translationSetup = await loadModule(new URL("../translation/useTranslationSetup.js", import.meta.url), runtime);
+    const ocrSetup = await loadModule(new URL("../ocr/useOcrSetup.js", import.meta.url), runtime);
     const errors = await loadModule(new URL("../_useBackendErrorHandling.js", import.meta.url), runtime, {
         "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key, i18n: { exists: () => false } } },
@@ -88,6 +90,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./configs/legacyModelConsent": legacyModelConsent,
         "./transcription/useTranscriptionConsent": transcriptionConsent,
         "./translation/useTranslationSetup": translationSetup,
+        "./ocr/useOcrSetup": ocrSetup,
     });
     const feature = values => stubApi({ send, reset: noop, backendStopped: noop, ...values });
     const voice = { useVoice: () => feature({ settings: null, status: {} }) };
@@ -95,10 +98,18 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     const downloads = modelDownloads ?? { useModelDownloads: () => feature({ state: { jobs: {} }, hardware: {}, pending: null }) };
     const realtime = { useRealtimeASR: () => feature({ state: {} }) };
     const runtimes = { activeSetupPhases: [], useVcRuntimes: () => feature({ state: { jobs: {} }, pending: false }) };
+    // The real hook: its routes are the notice and the old Whisper weights (#288). Its own
+    // hook slots, on the same store, so a test can read it without disturbing the routes' render.
+    const localRuntime = hooks();
+    localRuntime.store = runtime.store;
+    const localAsr = await loadModule(new URL("../transcription/useLocalAsrMigration.js", import.meta.url), localRuntime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
+        "./localAsrMigration.js": localAsrMigration,
+    });
     const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key } },
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
-        "./transcription/useRealtimeASR": realtime, "./voice/useVoice": voice,
+        "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVoice": voice,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
         "./_useBackendErrorHandling": errors,
@@ -110,5 +121,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./common/settingsWriteResponses.js": settingsResponses,
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
-    return { ...subject, notices, reads, ...runtime.render(routes.useReceiveRoutes) };
+    return { ...subject, notices, reads, localAsr: () => localRuntime.render(localAsr.useLocalAsrMigration),
+        ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
+        ...runtime.render(routes.useReceiveRoutes) };
 };

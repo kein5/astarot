@@ -3,6 +3,7 @@ import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { GenerationOptions, validGenerationOptions } from "../tts/GenerationOptions";
+import { TtsEngine, TTS_ENGINES } from "../tts/TtsEngine";
 import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { StatusLine } from "./StatusLine";
@@ -16,6 +17,9 @@ export const VoiceSettings = () => {
     const optionsErrorId = useId();
     const { settings, status, devices, error, send, updateError } = useVoice();
     const label = ([key]) => {
+        if (key === "japanese_engine") return t("voice_ui.engine.label");
+        if (Object.values(TTS_ENGINES).some(engine => engine.url === key)) return t("voice_ui.engine.url");
+        if (key.startsWith("engine_voice_")) return t("voice_ui.engine.voice");
         const role = ["japanese", "multilingual"].find(name => key.startsWith(`${name}_`));
         if (key === `${role}_server`) return t(`speech_servers.${role}_selection`);
         if (key === `${role}_seed`) return `${t(`speech_servers.${role}`)}: ${t("voice_ui.seed_mode")}`;
@@ -37,7 +41,8 @@ export const VoiceSettings = () => {
     const input = key => {
         const voice = key.endsWith("_voice");
         return <label>{t(`voice.${key}`)}
-            <input value={voice && draft[key] === "none" ? "" : draft[key]} placeholder={voice ? t("voice_ui.voice_unset") : undefined}
+            <input value={voice && draft[key] === "none" ? "" : draft[key]}
+                placeholder={voice ? t("voice_ui.voice_unset") : t("voice_ui.example", { value: "http://127.0.0.1:8080" })}
                 onChange={e => field(key, voice && e.target.value === "" ? "none" : e.target.value)} maxLength={voice ? 128 : 512} />
         </label>;
     };
@@ -95,8 +100,12 @@ export const VoiceSettings = () => {
                 </fieldset>
                 {["japanese", "multilingual"].map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
                     <legend>{t(`speech_servers.${role}`)}</legend>
-                    {server(role)}{draft[`${role}_server`] !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}
-                    <GenerationOptions errorId={optionsErrorId} role={role} draft={draft} field={field} />
+                    {/* Japanese can also come from an engine the user installed (ADR-008); its fields replace speech.cpp's. */}
+                    {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} saved={settings} />}
+                    {(role !== "japanese" || (draft.japanese_engine || "speechcpp") === "speechcpp") && <>
+                        {server(role)}{draft[`${role}_server`] !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}
+                        <GenerationOptions errorId={optionsErrorId} role={role} draft={draft} field={field} />
+                    </>}
                 </fieldset>)}
                 <details><summary>{t("voice.mic_mode")}</summary>
                     <FormRow label={t("voice.mic_mode")} description={t("voice.mic_hint")}>

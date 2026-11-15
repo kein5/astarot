@@ -1,9 +1,28 @@
+import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, type DefaultTheme } from 'vitepress'
 import { tokenize } from './searchTokenize.mjs'
 import { slugify } from './slugify.mjs'
+import { LOCALE_KEY } from './theme/locale'
 
 const repo = 'https://github.com/kein5/VRCT-VOX'
 const site = 'https://kein5.github.io/VRCT-VOX/'
+const base = '/VRCT-VOX/'
+
+// / only picks a language. Its head sends the reader on before the page is drawn, so the picker
+// does not show while the site's scripts load; it stays for readers without JavaScript, and
+// index.md sends them on as well once the scripts run. Same choice as preferredLocale() in
+// theme/locale.ts: the language picked in the menu, else the browser's languages.
+const pickLanguage = `(function () {
+  var locale
+  try { locale = localStorage.getItem(${JSON.stringify(LOCALE_KEY)}) } catch (e) {}
+  if (locale !== 'ja' && locale !== 'en') {
+    var languages = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]
+    locale = languages.some(function (language) { return language && language.toLowerCase().indexOf('ja') === 0 }) ? 'ja' : 'en'
+  }
+  var root = document.documentElement
+  root.style.visibility = 'hidden'
+  try { location.replace(${JSON.stringify(base)} + locale + '/') } catch (e) { root.style.visibility = '' }
+})()`
 
 // hreflang pairs: /ja/<page> and /en/<page> share a path; / is the language picker.
 function alternates(relativePath: string): [string, Record<string, string>][] {
@@ -16,7 +35,8 @@ function alternates(relativePath: string): [string, Record<string, string>][] {
 }
 
 // Pages are grouped by what a reader comes to do: start, find a task, look a feature up, fix
-// something. The feature pages keep the order of the app's settings menu.
+// something. The voice and text features keep the order of the app's main switches; the
+// screens and integrations follow them.
 function sidebarJa(): DefaultTheme.SidebarItem[] {
   return [
     {
@@ -24,6 +44,7 @@ function sidebarJa(): DefaultTheme.SidebarItem[] {
       items: [
         { text: 'VRCT-VOXとは', link: '/ja/guide/introduction' },
         { text: 'インストール', link: '/ja/guide/install' },
+        { text: '動作環境と推奨スペック', link: '/ja/guide/requirements' },
         { text: '最初の設定', link: '/ja/guide/first-setup' },
         { text: '声と文字の流れ', link: '/ja/guide/how-it-works' },
       ],
@@ -36,13 +57,18 @@ function sidebarJa(): DefaultTheme.SidebarItem[] {
       ],
     },
     {
-      text: '機能の詳細',
+      text: '声と文字の機能',
       items: [
         { text: '翻訳', link: '/ja/features/translation' },
         { text: '音声認識（ASR）とリアルタイム字幕', link: '/ja/features/transcription' },
         { text: 'テキスト読み上げ（TTS）', link: '/ja/features/tts' },
         { text: 'ボイスチェンジャー（RVC・Seed-VC）', link: '/ja/features/voice-conversion' },
         { text: 'チャット読み取り（OCR）', link: '/ja/features/chat-reading' },
+      ],
+    },
+    {
+      text: '画面と連携',
+      items: [
         { text: 'VRとオーバーレイ', link: '/ja/features/vr' },
         { text: '入力と出力', link: '/ja/features/io-flow' },
         { text: '入力の小窓とホットキー', link: '/ja/features/quick-chat' },
@@ -53,6 +79,7 @@ function sidebarJa(): DefaultTheme.SidebarItem[] {
       text: '設定と運用',
       items: [
         { text: 'モデルの取得', link: '/ja/guide/models' },
+        { text: 'Windowsの音声経路', link: '/ja/guide/windows-audio' },
         { text: 'Linuxの音声経路', link: '/ja/guide/linux-audio' },
         { text: '困ったとき', link: '/ja/guide/troubleshooting' },
         { text: 'プライバシー', link: '/ja/guide/privacy' },
@@ -69,6 +96,7 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
       items: [
         { text: 'What is VRCT-VOX', link: '/en/guide/introduction' },
         { text: 'Install', link: '/en/guide/install' },
+        { text: 'System requirements', link: '/en/guide/requirements' },
         { text: 'First setup', link: '/en/guide/first-setup' },
         { text: 'How voice and text flow', link: '/en/guide/how-it-works' },
       ],
@@ -81,13 +109,18 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
       ],
     },
     {
-      text: 'Features',
+      text: 'Voice and text',
       items: [
         { text: 'Translation', link: '/en/features/translation' },
         { text: 'Speech recognition (ASR) and realtime captions', link: '/en/features/transcription' },
         { text: 'Text to speech (TTS)', link: '/en/features/tts' },
         { text: 'Voice changer (RVC, Seed-VC)', link: '/en/features/voice-conversion' },
         { text: 'Chat reading (OCR)', link: '/en/features/chat-reading' },
+      ],
+    },
+    {
+      text: 'Screens and integrations',
+      items: [
         { text: 'VR and overlay', link: '/en/features/vr' },
         { text: 'Inputs and outputs', link: '/en/features/io-flow' },
         { text: 'Quick Chat and hotkeys', link: '/en/features/quick-chat' },
@@ -98,6 +131,7 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
       text: 'Setup and operation',
       items: [
         { text: 'Model downloads', link: '/en/guide/models' },
+        { text: 'Windows audio route', link: '/en/guide/windows-audio' },
         { text: 'Linux audio route', link: '/en/guide/linux-audio' },
         { text: 'Troubleshooting', link: '/en/guide/troubleshooting' },
         { text: 'Privacy', link: '/en/guide/privacy' },
@@ -108,21 +142,45 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
 }
 
 export default defineConfig({
-  base: '/VRCT-VOX/',
+  base,
   title: 'VRCT-VOX',
   // Only the / language picker uses this; each locale sets its own lang.
   lang: 'en',
   cleanUrls: true,
+  // The Remotion project that renders the home page's loops is not part of the site.
+  srcExclude: ['motion/**'],
   lastUpdated: false,
   // Dark Studio (DESIGN.md) only; no light theme to keep in sync.
   appearance: 'force-dark',
-  head: [['meta', { name: 'theme-color', content: '#111b2c' }]],
-  transformHead: ({ pageData }) => alternates(pageData.relativePath),
+  head: [
+    ['meta', { name: 'theme-color', content: '#111b2c' }],
+    // The app's own icon. Head links are not prefixed with base, so the path carries it.
+    ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/VRCT-VOX/favicon.png' }],
+    ['link', { rel: 'apple-touch-icon', href: '/VRCT-VOX/apple-touch-icon.png' }],
+  ],
+  transformHead: ({ pageData }) => [
+    ...(pageData.relativePath === 'index.md' ? [['script', {}, pickLanguage] as [string, Record<string, string>, string]] : []),
+    ...alternates(pageData.relativePath),
+  ],
+  vite: {
+    resolve: {
+      // The search box is this guide's command palette (theme/components/LocalSearchBox.vue).
+      alias: [
+        {
+          find: /^.*\/VPLocalSearchBox\.vue$/,
+          replacement: fileURLToPath(new URL('./theme/components/LocalSearchBox.vue', import.meta.url)),
+        },
+      ],
+    },
+  },
   markdown: {
     image: { lazyLoading: true },
     // Japanese ids stay composed, so links to headings with voiced marks find them (slugify.mjs).
     anchor: { slugify },
     toc: { slugify },
+    // The h2 headings in each page's data, so <StepProgress /> is in the built page and does not
+    // push the text down when the script starts.
+    headers: { level: [2], slugify },
     config(md) {
       // Every picture in a page is a screenshot: it can take focus and opens larger (theme/index.ts).
       const image = md.renderer.rules.image!
@@ -144,9 +202,12 @@ export default defineConfig({
       link: '/ja/',
       description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリVRCT-VOXの使い方',
       themeConfig: {
+        // The top bar points at the three pages a reader looks for first; downloads start
+        // from the install page, which says which file to take.
         nav: [
           { text: 'ガイド', link: '/ja/guide/introduction' },
-          { text: 'ダウンロード', link: `${repo}/releases` },
+          { text: 'インストール', link: '/ja/guide/install' },
+          { text: '困ったとき', link: '/ja/guide/troubleshooting' },
         ],
         sidebar: sidebarJa(),
         outline: { label: 'このページの内容' },
@@ -173,7 +234,8 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/en/guide/introduction' },
-          { text: 'Download', link: `${repo}/releases` },
+          { text: 'Install', link: '/en/guide/install' },
+          { text: 'Troubleshooting', link: '/en/guide/troubleshooting' },
         ],
         sidebar: sidebarEn(),
         footer: {

@@ -7,7 +7,7 @@ from models.io_trace import IoTraces
 
 def state(**changes):
     base = dict(
-        mic_on=True, realtime=True, engine="Whisper", translation=True,
+        mic_on=True, realtime=True, engine="Google", translation=True,
         source_language="Japanese", targets=["English"], speech_language="English",
         send_to_vrc=True, only_translated=False, desktop=True, large_log=False,
         clipboard=False, websocket=False,

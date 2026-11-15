@@ -23,8 +23,6 @@ class CountingConfig:
             return -0.8
         if name.endswith("NO_SPEECH_PROB"):
             return 0.6
-        if name.endswith("NO_REPEAT_NGRAM_SIZE"):
-            return 0
         raise AttributeError(name)
 
 

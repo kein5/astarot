@@ -247,7 +247,7 @@ def _stdoutDeliveryKeys(status, endpoint, result):
         if result is None or (isinstance(result, dict)
                 and all(type(result.get(axis)) in (int, float) for axis in ("x", "y"))):
             return (endpoint,), None  # hover 表示の座標。クリックは別経路。
-    elif endpoint in ("/run/download_progress_ctranslate2_weight", "/run/download_progress_whisper_weight"):
+    elif endpoint == "/run/download_progress_ctranslate2_weight":
         if (isinstance(result, dict) and isinstance(result.get("weight_type"), str)
                 and 0 < len(result["weight_type"]) <= 256
                 and type(result.get("progress")) in (int, float) and 0 <= result["progress"] <= 1):

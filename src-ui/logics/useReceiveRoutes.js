@@ -2,6 +2,7 @@ import { store } from "@store";
 import { useEffect } from "react";
 import { useI18n } from "@useI18n";
 import * as realtime from "./transcription/useRealtimeASR";
+import * as localAsr from "./transcription/useLocalAsrMigration";
 import * as common from "@logics_common";
 import * as main from "@logics_main";
 import * as configs from "@logics_configs";
@@ -49,9 +50,15 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/start_realtime_asr", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
     { endpoint: "/run/stop_realtime_asr", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
     { endpoint: "/run/realtime_caption", ns: common, hook_name: "useMessage", method_name: "updateRealtimeCaption" },
+    // The move from the removed Whisper engine to speech.cpp (#288).
+    { endpoint: "/get/data/local_asr_notice", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateNotice" },
+    { endpoint: "/set/disable/local_asr_notice", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateNotice" },
+    { endpoint: "/get/data/old_whisper_weights", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateWeights" },
+    { endpoint: "/run/delete_old_whisper_weights", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateDeleted" },
     { endpoint: "/get/data/io_flow", ns: flow, hook_name: "useIoFlow", method_name: "updateIoFlow" },
     { endpoint: "/run/io_trace", ns: flow, hook_name: "useIoFlow", method_name: "addIoTrace" },
     { endpoint: "/get/data/tts_model_options", ns: voice, hook_name: "useVoice", method_name: "updateModelOptions" },
+    { endpoint: "/get/data/tts_engine_voices", ns: voice, hook_name: "useVoice", method_name: "updateEngineVoices" },
     { endpoint: "/get/data/voice_settings", ns: voice, hook_name: "useVoice", method_name: "updateSettings" },
     { endpoint: "/set/data/voice_settings", ns: voice, hook_name: "useVoice", method_name: "updateSettings" },
     { endpoint: "/get/data/voice_status", ns: voice, hook_name: "useVoice", method_name: "updateStatus" },
@@ -259,6 +266,7 @@ export const useReceiveRoutes = () => {
         return () => clearInterval(timer);
     }, [runtimeActive, sendRuntime]);
     const { state: realtimeState, send: sendRealtime, updateError: updateRealtimeError, reset: resetRealtime, backendStopped: stopRealtimePending } = realtime.useRealtimeASR();
+    const { failRequest: failOldWhisperWeights, reset: resetLocalAsr, backendStopped: stopLocalAsrPending } = localAsr.useLocalAsrMigration();
     const realtimeActive = Object.values(realtimeState).some(value => value.requested);
     useEffect(() => {
         if (!realtimeActive) return;
@@ -366,6 +374,10 @@ export const useReceiveRoutes = () => {
             sendSpeech("/get/data/speech_server_state");
             sendRealtime("/get/data/realtime_asr_state");
         }
+        if (status !== 200 && endpoint.includes("old_whisper_weights")) {
+            failOldWhisperWeights(result?.error_code);
+            return;
+        }
         if (status !== 200 && endpoint.includes("realtime_asr")) {
             updateRealtimeError(result?.error_code || "realtime_request_failed");
             return;
@@ -392,6 +404,8 @@ export const useReceiveRoutes = () => {
             sendSpeech("/get/data/speech_server_settings");
             sendSpeech("/get/data/speech_server_state");
             resetRealtime();
+            // The notice and the old weights come in this same result (init_mapping).
+            resetLocalAsr();
             sendRealtime("/get/data/realtime_asr_settings");
             sendRealtime("/get/data/realtime_asr_state");
             sendRealtime("/get/data/realtime_asr_models");
@@ -499,6 +513,7 @@ export const useReceiveRoutes = () => {
         stopDownloadPending();
         stopRuntimePending();
         stopRealtimePending();
+        stopLocalAsrPending();
     };
     return { receiveRoutes, backendStopped };
 };

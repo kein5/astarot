@@ -17,12 +17,12 @@ from test_config_persistence_regressions import definitions, isolated  # noqa: F
 @pytest.fixture(autouse=True)
 def engine_catalog(isolated):
     isolated.config._SELECTABLE_TRANSCRIPTION_ENGINE_LIST = [
-        "Google", "Whisper", "Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper", "Deepgram"]
+        "Google", "SpeechCpp", "Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper", "Deepgram"]
 
 
 @pytest.mark.parametrize("saved", [{}, {"SELECTED_TRANSCRIPTION_ENGINE": None},
                                    {"SELECTED_TRANSCRIPTION_ENGINE": "Google"},
-                                   {"SELECTED_TRANSCRIPTION_ENGINE": "Whisper"}])
+                                   {"SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp"}])
 def test_config_selection_round_trip(isolated, saved):
     config = isolated.config
     isolated.path.write_text(json.dumps(saved))
@@ -76,7 +76,7 @@ def test_fresh_config_enable_returns_not_selected_without_capture(isolated, dire
     assert not isolated.config.ENABLE_TRANSCRIPTION_RECEIVE
 
 
-@pytest.mark.parametrize("engine", [None, "Google", "Whisper", "Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper", "Deepgram"])
+@pytest.mark.parametrize("engine", [None, "Google", "SpeechCpp", "Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper", "Deepgram"])
 def test_unavailable_engine_selection_is_kept(isolated, engine):
     isolated.config.SELECTED_TRANSCRIPTION_ENGINE = engine
     isolated.config.SELECTABLE_TRANSCRIPTION_ENGINE_STATUS = {}
@@ -98,8 +98,7 @@ def fake_session(engine):
     session.features = {"transcript"}
     session._pipeline_error_lock = RLock()
     session._capture_revision = 0
-    session._create_transcriber = lambda: transcriber_module.AudioTranscriber(
-        False, None, 3, 10, engine, root="unused", whisper_weight_type="base")
+    session._create_transcriber = lambda: transcriber_module.AudioTranscriber(False, None, 3, 10, engine)
     session._create_recorder = Mock(side_effect=AssertionError("capture must not open"))
     session.terminal_failure_fnc = Mock()
     session._stop = Mock()
@@ -107,23 +106,17 @@ def fake_session(engine):
 
 
 @pytest.mark.parametrize("direction,source", [("Send", "mic"), ("Receive", "speaker")])
-@pytest.mark.parametrize("engine,check,error", [
-    ("Whisper", False, ErrorCode.TRANSCRIPTION_MODEL_MISSING),
-    ("Whisper", True, ErrorCode.TRANSCRIPTION_MODEL_MISSING),
-    ("Whisper", OSError("verification failed"), ErrorCode.TRANSCRIPTION_MODEL_MISSING),
-    ("Groq_Whisper", True, ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
-    ("OpenAI_Whisper", True, ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
-    ("Custom_Whisper", True, ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
-    ("Deepgram", True, ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
+@pytest.mark.parametrize("engine,error", [
+    # The local engine listens through speech.cpp (the realtime route), never this recorder.
+    ("SpeechCpp", ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
+    ("Groq_Whisper", ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
+    ("OpenAI_Whisper", ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
+    ("Custom_Whisper", ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
+    ("Deepgram", ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE),
 ])
-def test_failed_selected_engine_reports_error_before_capture(isolated, monkeypatch, direction, source, engine, check, error):
+def test_failed_selected_engine_reports_error_before_capture(isolated, monkeypatch, direction, source, engine, error):
     google = Mock(side_effect=AssertionError("Google was not selected"))
     monkeypatch.setattr(transcriber_module, "GoogleProvider", google)
-    monkeypatch.setattr(transcriber_module, "checkWhisperWeight",
-                        Mock(side_effect=check) if isinstance(check, Exception) else Mock(return_value=check))
-    model_loader = Mock(side_effect=FileNotFoundError("loader verification failed")
-                        if engine == "Whisper" and check is True else AssertionError("unverified weights must not load"))
-    monkeypatch.setattr(transcriber_module, "getWhisperModel", model_loader)
     for name in ("OpenAICompatibleTranscriptionProvider", "DeepgramProvider"):
         monkeypatch.setattr(transcriber_module, name, Mock(side_effect=ValueError("invalid provider")))
     isolated.config.SELECTED_TRANSCRIPTION_ENGINE = engine
@@ -143,13 +136,9 @@ def test_failed_selected_engine_reports_error_before_capture(isolated, monkeypat
     session._create_recorder.assert_not_called()
     session._stop.assert_called_once()
     google.assert_not_called()
-    if engine == "Whisper" and check is True:
-        model_loader.assert_called_once()
-    else:
-        model_loader.assert_not_called()
 
 
-@pytest.mark.parametrize("engine", [None, "unknown", ""])
+@pytest.mark.parametrize("engine", [None, "unknown", "", "Whisper", "SpeechCpp"])
 def test_transcriber_has_no_implicit_provider(monkeypatch, engine):
     google = Mock()
     monkeypatch.setattr(transcriber_module, "GoogleProvider", google)

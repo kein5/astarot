@@ -133,16 +133,11 @@ class ErrorCode(str, Enum):
     # ============================================================================
     # 音声認識関連エラー (TRANSCRIPTION_*)
     # ============================================================================
-    TRANSCRIPTION_VRAM_MIC = "TRANSCRIPTION_VRAM_MIC"
-    TRANSCRIPTION_VRAM_SPEAKER = "TRANSCRIPTION_VRAM_SPEAKER"
-    TRANSCRIPTION_SEND_DISABLED_VRAM = "TRANSCRIPTION_SEND_DISABLED_VRAM"
-    TRANSCRIPTION_RECEIVE_DISABLED_VRAM = "TRANSCRIPTION_RECEIVE_DISABLED_VRAM"
     # Linux の Mic/Speaker トグルが使う realtime 認識の準備ができていない、
     # または動作中に止まった。details.reason に不足している項目のコードが入る。
     TRANSCRIPTION_SEND_NOT_READY = "TRANSCRIPTION_SEND_NOT_READY"
     TRANSCRIPTION_RECEIVE_NOT_READY = "TRANSCRIPTION_RECEIVE_NOT_READY"
     TRANSCRIPTION_ENGINE_NOT_SELECTED = "TRANSCRIPTION_ENGINE_NOT_SELECTED"
-    TRANSCRIPTION_MODEL_MISSING = "TRANSCRIPTION_MODEL_MISSING"
     TRANSCRIPTION_ENGINE_UNAVAILABLE = "TRANSCRIPTION_ENGINE_UNAVAILABLE"
     TRANSCRIPTION_API_AUTH_FAILED = "TRANSCRIPTION_API_AUTH_FAILED"
     TRANSCRIPTION_API_RATE_LIMITED = "TRANSCRIPTION_API_RATE_LIMITED"
@@ -153,7 +148,6 @@ class ErrorCode(str, Enum):
     # ウェイトダウンロード関連エラー (WEIGHT_*)
     # ============================================================================
     WEIGHT_CTRANSLATE2_DOWNLOAD = "WEIGHT_CTRANSLATE2_DOWNLOAD"
-    WEIGHT_WHISPER_DOWNLOAD = "WEIGHT_WHISPER_DOWNLOAD"
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED = "WEIGHT_DOWNLOAD_CONSENT_REQUIRED"
     # A non-commercial (CC-BY-NC-4.0) CTranslate2 weight was requested
     # without the explicit license opt-in. data = {"weight_type", "selected"}.
@@ -496,30 +490,6 @@ ERROR_METADATA: Dict[ErrorCode, Dict[str, Any]] = {
     },
     
     # 音声認識エラー
-    ErrorCode.TRANSCRIPTION_VRAM_MIC: {
-        "category": ErrorCategory.TRANSCRIPTION,
-        "message": "VRAM out of memory during mic transcription",
-        "severity": "critical",
-        "user_action_required": True,
-    },
-    ErrorCode.TRANSCRIPTION_VRAM_SPEAKER: {
-        "category": ErrorCategory.TRANSCRIPTION,
-        "message": "VRAM out of memory during speaker transcription",
-        "severity": "critical",
-        "user_action_required": True,
-    },
-    ErrorCode.TRANSCRIPTION_SEND_DISABLED_VRAM: {
-        "category": ErrorCategory.TRANSCRIPTION,
-        "message": "Transcription send disabled due to VRAM overflow",
-        "severity": "critical",
-        "user_action_required": True,
-    },
-    ErrorCode.TRANSCRIPTION_RECEIVE_DISABLED_VRAM: {
-        "category": ErrorCategory.TRANSCRIPTION,
-        "message": "Transcription receive disabled due to VRAM overflow",
-        "severity": "critical",
-        "user_action_required": True,
-    },
     ErrorCode.TRANSCRIPTION_SEND_NOT_READY: {
         "category": ErrorCategory.TRANSCRIPTION,
         "message": "Realtime microphone recognition is not ready",
@@ -536,12 +506,6 @@ ERROR_METADATA: Dict[ErrorCode, Dict[str, Any]] = {
         "category": ErrorCategory.TRANSCRIPTION,
         "message": "Choose a speech recognition engine before enabling transcription.",
         "severity": "warning",
-        "user_action_required": True,
-    },
-    ErrorCode.TRANSCRIPTION_MODEL_MISSING: {
-        "category": ErrorCategory.TRANSCRIPTION,
-        "message": "Whisper model files are missing or invalid. Review the model download before trying again.",
-        "severity": "error",
         "user_action_required": True,
     },
     ErrorCode.TRANSCRIPTION_ENGINE_UNAVAILABLE: {
@@ -579,12 +543,6 @@ ERROR_METADATA: Dict[ErrorCode, Dict[str, Any]] = {
     ErrorCode.WEIGHT_CTRANSLATE2_DOWNLOAD: {
         "category": ErrorCategory.WEIGHT,
         "message": "CTranslate2 weight download error",
-        "severity": "error",
-        "user_action_required": True,
-    },
-    ErrorCode.WEIGHT_WHISPER_DOWNLOAD: {
-        "category": ErrorCategory.WEIGHT,
-        "message": "Whisper weight download error",
         "severity": "error",
         "user_action_required": True,
     },

@@ -9,8 +9,16 @@ import { SetupSection } from "../_components/setup_section/SetupSection";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
+import { pathExample } from "../../../../../../logics/common/pathExample";
+
+// The file name in each path field's example.
+const exampleFiles = { model: "model.gguf", voice_file: "voice.gguf", vad_model: "vad.gguf", diarization_model: "diarization.gguf" };
 
 // Readout tone for a server state; the state text itself always says it.
+// The start, as work that ends in success: it runs while the server prepares and is done once ready.
+// A stop asked of a ready server is not a start, so it does not spin.
+const serverProgress = (owner, pending) => owner?.state === "ready" ? "done" :
+    owner?.state === "preparing" || (pending && !["stopping", "failed"].includes(owner?.state)) ? "working" : undefined;
 const serverTone = (owner, pending) => pending || ["preparing", "stopping"].includes(owner?.state) ? "warning" :
     owner?.error_code || owner?.state === "failed" ? "failed" : owner?.state === "ready" ? "active" : "neutral";
 
@@ -63,6 +71,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                 const busy = saving || !!pending[name] || !owner || ["preparing", "ready", "stopping"].includes(owner.state);
                 const input = key => <label key={key}>{t(`speech_servers.${key}`)}
                     <input value={row[key] ?? ""} disabled={busy} maxLength={4096} spellCheck={false}
+                        placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[key]) })}
                         onChange={event => field(name, key, event.target.value)} />
                 </label>;
                 return <fieldset key={name}>
@@ -96,7 +105,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                         (name === "asr" && !row.vad_model.trim()) || owner?.error_code === "speech_server_cleanup_unconfirmed"}
                         onClick={() => send("/run/start_speech_server", { profile: name, generation: owner.generation })}>{t("speech_servers.start")}</button>
                     <button type="button" className={styles.quiet} onClick={() => send("/run/stop_speech_server", { profile: name })}>{t("speech_servers.stop")}</button></div>
-                    <EnvReadout tone={serverTone(owner, pending[name])}>
+                    <EnvReadout tone={serverTone(owner, pending[name])} progress={serverProgress(owner, pending[name])}>
                         <p>{stateText(name)}</p>
                         {owner?.low_latency && <p>{t(`speech_servers.low_latency_${owner.low_latency.state}`)}</p>}
                     </EnvReadout>

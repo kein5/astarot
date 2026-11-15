@@ -472,9 +472,9 @@ if not any(isinstance(h, RotatingFileHandler) and getattr(h, 'baseFilename', Non
 
 **使用例:**
 ```python
-printLog("Model loading started", {"model_type": "whisper", "weight": "medium"})
+printLog("Model loading started", {"model_type": "ctranslate2", "weight": "m2m100_418M-ct2-int8"})
 # 出力（stdout）:
-# {"status": 348, "log": "Model loading started", "data": "{'model_type': 'whisper', 'weight': 'medium'}"}
+# {"status": 348, "log": "Model loading started", "data": "{'model_type': 'ctranslate2', 'weight': 'm2m100_418M-ct2-int8'}"}
 ```
 
 **実装の詳細:**

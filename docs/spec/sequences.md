@@ -16,7 +16,7 @@ sequenceDiagram
   S-->>UI: /run/connected_network
   S-->>UI: /run/initialization_progress = 1
   opt オンラインで AUTO_DOWNLOAD_MODELS がオン
-    S->>Net: 内蔵モデルの取得
+    S->>Net: 内蔵の翻訳モデル（CTranslate2）の取得
   end
   S-->>UI: /run/enable_ai_models（真偽）
   S->>Net: 各エンジンのキーとモデル一覧の確認
@@ -35,7 +35,7 @@ sequenceDiagram
 ```
 
 - サイドカーのstderrに警告以外の行が出たら、UIは消えない通知を出す。
-- `/run/enable_ai_models`が偽になるのは、いま選んでいるエンジンが必要とする内蔵モデルがないときだけである。UIはこのとき通知を出さない。足りないモデルは、会話が空のあいだ、取得の入口と一緒に会話欄へ表示する。
+- `/run/enable_ai_models`が偽になるのは、選択中のタブの翻訳エンジンがCTranslate2で、その内蔵モデルがないときだけである。UIはこのとき通知を出さない。足りないものは、会話が空のあいだ、用意する入口と一緒に会話欄へ表示する（[初期化中、オフライン、能力の不足](cross-cutting.md#初期化中オフライン能力の不足)）。
 - spawn失敗と初期化項目の失敗の分岐、再マウントと手動再試行の扱いは[起動と初期化](ipc-protocol.md#起動と初期化)を参照する。
 
 ## 設定の変更

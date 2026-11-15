@@ -142,11 +142,24 @@ miniaudioの二重ライセンス、静的GCCランタイムのGPLv3＋Runtime L
 
 2026-10-31に固定版を0.10.0（commit 06590811a90041f935a470ba0e2b85346d2fc041）へ更新。speech.cpp/cpp-httplib/miniaudio/GGMLのライセンス文は0.9.0と同一で、vendorは無変更、GGMLはsubmodule 700c9d743ed7cc583c0f1b6507afebb6c0e88bc0へ更新。公式Vulkan実行ファイルのGCCは同じUbuntu 11.4.0-1ubuntu1~22.04.3。新規に同梱する第三者コードはない。
 
-## 内蔵Whisper・CTranslate2の取得条件
+## 内蔵CTranslate2の取得条件
 
-WhisperはOpenAIのMITモデルを元にしたSystran・Zoont・deepdmlのCTranslate2変換版で、同梱しない。[NOTICE](../../NOTICE.md#downloadable-whisper-weights)に提供元を記載し、取得画面でMITと固定ファイルの正確な合計容量を表示する。CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとその文章分割ファイルがCC-BY-NC-4.0（非商用）。[NOTICEの一覧](../../NOTICE.md#downloadable-ctranslate2-translation-weights)を正本とする。非商用モデルは既定にしない。
+ローカルの Whisper（faster-whisper）は #288 で削除し、Whisper の重み（OpenAIのMITモデルを元にしたSystran・Zoont・deepdmlのCTranslate2変換版）の取得もやめた。以前の版が取得した重みは読まず、設定の「音声認識（ASR）」から利用者が削除できる。提供元は[NOTICE](../../NOTICE.md#whisper-weights-from-earlier-versions)に残す。faster-whisperは依存から外し（`pyproject.toml`、`uv.lock`。PyAVも一緒に外れた）、発話区間の検出（同梱のSilero VAD）とOCRが使う`onnxruntime`を直接の依存にした。PyAVを必要とする依存はなくなったが、`packaging/pyinstaller-stubs/av`の代用モジュールと配布ポリシーによるPyAV・x264/x265の拒否は、防御として残す。CTranslate2と、そのCUDA用の追加依存は、ローカルの翻訳が使うので残す。
 
-内蔵モデルの取得は、選択済みのNLLBや同じ一式に含まれるtokenizerも含め、モデルと固定した一覧への明示的な同意を必要とする。起動時の取得は、その同意の記録がある版だけに限る。tokenizerはCTranslate2変換リポジトリ内の固定済みファイルを使い、容量・SHA-256を検証する。確認画面の合計容量に含め、取得元の変更によりmanifestの再同意が必要になる。ライセンスの条件は変えない。この追記で配布許可や完全性の検証完了を主張しない。取得画面と移行の詳細は[モデル取得](model-downloads.md#内蔵whisperctranslate2と文章分割ファイル)を参照する。
+CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとその文章分割ファイルがCC-BY-NC-4.0（非商用）。[NOTICEの一覧](../../NOTICE.md#downloadable-ctranslate2-translation-weights)を正本とする。非商用モデルは既定にしない。
+
+内蔵モデルの取得は、選択済みのNLLBや同じ一式に含まれるtokenizerも含め、モデルと固定した一覧への明示的な同意を必要とする。起動時の取得は、その同意の記録がある版だけに限る。tokenizerはCTranslate2変換リポジトリ内の固定済みファイルを使い、容量・SHA-256を検証する。確認画面の合計容量に含め、取得元の変更によりmanifestの再同意が必要になる。ライセンスの条件は変えない。この追記で配布許可や完全性の検証完了を主張しない。取得画面と移行の詳細は[モデル取得](model-downloads.md#内蔵ctranslate2と文章分割ファイル)を参照する。
+
+## Silero VADの同梱（2026-11-15）
+
+マイクとスピーカーの文字起こしで発話区間を見つけるSilero VADのモデルは、これまでfaster-whisper 1.1.1のパッケージに入っていたものを読み込んでいた。faster-whisperをやめる前提作業として（#288）、同じ2ファイルをアプリの一部として同梱する。確率の計算は変わらない。
+
+| 項目 | 内容 |
+|---|---|
+| モデル | [Silero VAD](https://github.com/snakers4/silero-vad) v5。MIT、Copyright (c) 2020-present Silero Team。ライセンス文はタグv5.1.2のもの |
+| 2グラフへの分割 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper)。MIT、Copyright (c) 2023 SYSTRAN。v1.1.1（commit `9e657b47cb71ed7aa32ce115ef0dca953ca39ae5`）のファイルを無加工で使う。PyPIのwheel（SHA-256 `5808dc33…`）と照合した |
+| ファイル | `silero_encoder_v5.onnx` 713,415 bytes、`silero_decoder_v5.onnx` 532,505 bytes。SHA-256は[通知](../../licenses/silero-vad/NOTICE.md)にあり、読み込むたびに照合する |
+| 置き場所 | リポジトリは`src-python/models/transcription/silero_vad/`、配布物は`_internal/models/transcription/silero_vad/`。ライセンス文と通知は`licenses/silero-vad/` |
 
 ## 話者分離モデル（2026-11-13）
 

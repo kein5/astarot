@@ -3,7 +3,8 @@
 The "person" is a silent virtual output (CABLE). Its loopback stands in for the microphone of RVC
 and is what the captions hear; the voice (RVC and TTS) comes out on another (SPEAKERS), so nothing
 feeds back. The real microphone is never opened (see site/sitecustomize.py and site_router).
-Usage: win_soak_full.py [seconds] [out-name] [realtime|whisper]
+Usage: win_soak_full.py [seconds] [out-name] [realtime] [speech device]
+The "whisper" mode (the classic recorder with local Whisper on the GPU) went with that engine (#288).
 """
 import collections
 import copy
@@ -35,6 +36,8 @@ from models.tts.speechcpp_tts import CancelToken  # noqa: E402
 SECONDS = int(sys.argv[1]) if len(sys.argv) > 1 else 1800
 OUT = ROOT / 'build/model-test' / (sys.argv[2] if len(sys.argv) > 2 else 'win-soak-full')
 ASR = sys.argv[3] if len(sys.argv) > 3 else 'realtime'
+if ASR != 'realtime':
+    raise SystemExit('Only the realtime path remains: the local Whisper engine was removed (#288).')
 if len(sys.argv) > 4:
     os.environ['VOX_SPEECH_DEVICE'] = sys.argv[4]
 WARMUP = min(300, SECONDS / 3)
@@ -290,25 +293,14 @@ def start_conversion(app):
 
 
 def start_asr(app):
-    if ASR == 'realtime':
-        settings = result(app.call('/get/data/realtime_asr_settings'))
-        endpoints = result(app.call('/get/data/realtime_asr_endpoints', {'source': 'speaker'}))
-        target = next(row for row in endpoints['endpoints'] if 'Steam Streaming Microphone' in row['label'])
-        settings['server'] = 'bundled'
-        settings['speaker'].update(endpoint=target['endpoint'], follow_default=False, language='auto')
-        app.record('realtime settings', app.call('/set/data/realtime_asr_settings', settings)['status'] == 200)
-    else:
-        app.call('/set/data/selected_transcription_engine', 'Whisper')
-        app.call('/set/data/selected_whisper_weight_type', 'tiny')
-        devices = result(app.call('/get/data/selectable_transcription_compute_device_list'))
-        cuda = next(d for d in devices if d.get('device') == 'cuda')
-        event = app.call('/set/data/selected_transcription_compute_device', cuda)
-        app.record('whisper on the gpu', event['status'] == 200, cuda.get('device_name'))
-        app.call('/set/disable/auto_speaker_select')
-        names = result(app.call('/get/data/selectable_speaker_device_list'))
-        rendered = names if isinstance(names, list) else list(names.values())
-        name = next(str(n.get('name') if isinstance(n, dict) else n) for n in rendered if 'Steam Streaming Microphone' in str(n))
-        app.record('virtual speaker selected', app.call('/set/data/selected_speaker_device', name)['status'] == 200, name)
+    settings = result(app.call('/get/data/realtime_asr_settings'))
+    endpoints = result(app.call('/get/data/realtime_asr_endpoints', {'source': 'speaker'}))
+    target = next(row for row in endpoints['endpoints'] if 'Steam Streaming Microphone' in row['label'])
+    settings['server'] = 'bundled'
+    settings['speaker'].update(endpoint=target['endpoint'], follow_default=False, language='auto')
+    app.record('realtime settings', app.call('/set/data/realtime_asr_settings', settings)['status'] == 200)
+    # On Windows the engine picks the path: the local engine listens through speech.cpp.
+    app.record('local engine', app.call('/set/data/selected_transcription_engine', 'SpeechCpp')['status'] == 200)
     started = time.monotonic()
     event = app.call('/set/enable/transcription_receive', timeout=180)
     app.record('recognition on', event['status'] == 200 and event.get('result') is True,
@@ -322,7 +314,7 @@ def main():
     guard.write_text('', encoding='utf-8')
     os.environ['VOX_BLOCK_MIC'] = str(guard)
     english = [load16('en-1'), load16('en-2')]
-    voices = english if ASR == 'whisper' else [load48(ROOT / 'build/model-test/win-e2e/tts.wav')] + english
+    voices = [load48(ROOT / 'build/model-test/win-e2e/tts.wav')] + english
     print('steamvr', steamvr_null.processes(), flush=True)
     steamvr_null.start()
     speaker = monitor = None

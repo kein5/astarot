@@ -33,7 +33,9 @@ Downloaded files are checked by size and SHA-256 before use. They come only from
 | Text recognition | PP-OCRv6 small (Japanese, English, Chinese, Latin) | about 30 MB | Apache-2.0 |
 | Text recognition | PP-OCRv5 mobile (Korean, Cyrillic, Thai, Arabic, Devanagari) | 8–14 MB each | Apache-2.0 |
 
-Translation models are downloaded under Settings → "Translation", and Whisper models under Settings → "Speech recognition (ASR)" (see [Translation](../features/translation)). In both places "Download" opens a screen showing the source, license and size. Nothing is downloaded until you tick the consent box.
+Translation models are downloaded under Settings → "Translation" (see [Translation](../features/translation)). "Download" opens a screen showing the source, license and size. Nothing is downloaded until you tick the consent box.
+
+The Whisper models of earlier versions can no longer be downloaded. Speech recognition on this PC uses the speech recognition models and Silero VAD in the table above ([If you used Whisper in an earlier version](../features/transcription#whisper)). Old Whisper models still on the PC can be deleted under "Old Whisper models" in Settings → "Speech recognition (ASR)".
 
 ## GPU and memory guidance
 
@@ -44,7 +46,7 @@ The "Text to speech (TTS)" page shows your GPU's name and its total and free mem
 | Feature | GPU |
 |---|---|
 | Speech, realtime captions and telling speakers apart (speech.cpp, which comes with the app) | AMD, Intel and NVIDIA (Vulkan) |
-| Local translation and Whisper speech recognition | NVIDIA (the Windows GPU version). Other GPUs run them on the CPU |
+| Local translation | NVIDIA (the Windows GPU version). Other GPUs run it on the CPU |
 | Voice changer (RVC, Seed-VC) | NVIDIA |
 | Chat reading | Runs on the CPU |
 
@@ -54,8 +56,8 @@ To translate on an AMD or Intel GPU, use a [local LLM](../features/translation#u
 
 ## Where models are saved
 
-Downloaded models go to `downloaded_models` in the same folder as the settings file (`config.json`). On Linux that is `~/.config/vrct-vox/downloaded_models`; on Windows it is `downloaded_models` in the folder the app is in. Translation and Whisper models are kept elsewhere: in `weights` in the app's folder on Windows, and under `~/.local/share/vrct-vox` on Linux.
+Downloaded models go to `downloaded_models` in the same folder as the settings file (`config.json`). On Linux that is <CopyText>~/.config/vrct-vox/downloaded_models</CopyText>; on Windows it is `downloaded_models` in the folder the app is in. Translation models are kept elsewhere: in `weights` in the app's folder on Windows, and under <CopyText>~/.local/share/vrct-vox</CopyText> on Linux. Whisper models left by an earlier version, if any, are in `weights/whisper` in the same place.
 
 ## Downloading at startup
 
-"Download translation and transcription models at startup" under Settings → "Translation" or "Speech recognition (ASR)" downloads, at the next start, the standard translation and transcription models you have not downloaded yet. It only downloads models whose version you have agreed to before; for the others it shows a notice and downloads nothing. It is off by default. Models you already have work either way.
+"Download the translation model at startup" under Settings → "Translation" downloads, at the next start, the translation model you chose if you have not downloaded it yet. It only downloads a model whose version you have agreed to before; otherwise it shows a notice and downloads nothing. Speech recognition and speech models are never downloaded at startup. It is off by default. Models you already have work either way.

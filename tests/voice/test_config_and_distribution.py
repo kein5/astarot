@@ -57,7 +57,7 @@ def test_pyinstaller_filters_restricted_weight_from_expanded_toc(spec_name):
         ("ocr_onnx/ppocr.onnx", "excluded-model", "DATA"),
         ("rapidocr/models/text_rec.onnx", "dependency-model", "DATA"),
         ("renamed/model.onnx", "src-python/models/ocr/onnx/renamed.onnx", "DATA"),
-        ("faster_whisper/assets/silero_vad_v6.onnx", "vad-model", "DATA"),
+        ("models/transcription/silero_vad/silero_encoder_v5.onnx", "vad-model", "DATA"),
         ("voice/Mia2026.pth", "private-checkpoint", "DATA"),
         ("voice/Mia2026.index", "private-index", "DATA"),
         ("voice/Mia2026.zip", "private-package", "DATA"),
@@ -70,7 +70,7 @@ def test_pyinstaller_filters_restricted_weight_from_expanded_toc(spec_name):
     # Added by the voice resources and the license collection; no weights.
     voice = ("build/speechcpp/", "voice_worker/", "licenses/python/")
     assert [entry[0] for entry in analysis.datas if not entry[0].startswith(voice)] == [
-        "ocr_onnx/LICENSE.txt", "faster_whisper/assets/silero_vad_v6.onnx"]
+        "ocr_onnx/LICENSE.txt", "models/transcription/silero_vad/silero_encoder_v5.onnx"]
     # The upstream model's own license files are no longer collected: neither is the model.
     for source, _ in analyze.call_args.kwargs["datas"]:
         assert "models/ocr/onnx" not in source.replace("\\", "/")

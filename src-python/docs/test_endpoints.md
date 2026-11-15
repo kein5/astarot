@@ -98,7 +98,6 @@ test.test_endpoints_specific_random()
 - `selected_transcription_engine` → `/get/data/selectable_transcription_engines`
 - `selected_translation_compute_device` → `/get/data/selectable_translation_compute_device_list`
 - `ctranslate2_weight_type` → `/get/data/selectable_ctranslate2_weight_type_dict`
-- `whisper_weight_type` → `/get/data/selectable_whisper_weight_type_dict`
 - `selected_mic_host` / `selected_mic_device` → `/get/data/selectable_mic_host_list` / `/get/data/selectable_mic_device_list`
 - `selected_speaker_device` → `/get/data/selectable_speaker_device_list`
 

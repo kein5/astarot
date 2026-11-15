@@ -13,8 +13,10 @@
 
 ### 対応エンジン
 - Google Speech Recognition
-- OpenAI Whisper（faster-whisper）
+- "Whisper" 列: Whisper API 形式の言語コード。クラウドの Groq Whisper / OpenAI Whisper / カスタム Whisper サーバーが使う（ローカルの faster-whisper は #288 で削除したが、この列は残す）
 - その他の音声認識エンジン
+
+ローカルの音声認識（speech.cpp、`SpeechCpp`）はこの表に列を持たない。言語はリアルタイム設定とモデル側の一覧で決まる。
 
 ## データ構造
 
@@ -123,7 +125,7 @@ supported_langs = list(filter(lambda x: x in transcription_langs, translation_la
 - RFC 5646準拠の言語タグ形式
 - 例: "ja-JP", "en-US", "zh-CN"
 
-### OpenAI Whisper
+### Whisper 形式（クラウドの Groq / OpenAI / カスタムサーバー）
 - ISO 639-1言語コード（2文字）
 - 例: "ja", "en", "zh"
 
