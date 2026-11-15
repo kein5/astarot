@@ -6,7 +6,7 @@ import * as status from "../../../logics/companion/status.js";
 
 async function setup(context, { companion }) {
     const runtime = hooks(), calls = [], listeners = new Map(), toggles = [];
-    const state = { ready: false, mic: { state: "ok", data: false }, request: null, mode: false, queue: [], quits: 0 };
+    const state = { ready: false, mic: { state: "ok", data: false }, request: null, setup: null, mode: false, queue: [], quits: 0 };
     const store = {};
     const invoke = async (command, args) => {
         calls.push([command, args]);
@@ -27,6 +27,7 @@ async function setup(context, { companion }) {
             currentTranslationStatus: { state: "ok", data: false },
             toggleTranscriptionSend: () => toggles.push("mic"), toggleTranslation: () => toggles.push("translation") }) },
         "../../../logics/transcription/useTranscriptionConsent": { useTranscriptionConsent: () => ({ request: state.request }) },
+        "../../../logics/translation/useTranslationSetup": { useTranslationSetup: () => ({ request: state.setup }) },
         "../../../logics/companion/status.js": status,
     });
     const render = async () => { runtime.render(CompanionController); await flush(); };
@@ -39,13 +40,14 @@ test("outside the companion form it only asks once and changes nothing", async c
     const s = await setup(context, { companion: false });
     await s.render();
     assert.deepEqual(s.calls.map(([command]) => command), ["companion_mode"]);
-    assert.equal(s.store.companion_mode, undefined);
+    assert.equal(s.store.companion_hide, undefined);
     assert.equal(s.listeners.size, 0);
 });
 
 test("in the companion form it reports the switches and runs what the tray and the panel ask", async context => {
     const s = await setup(context, { companion: true });
-    assert.equal(s.store.companion_mode, true);
+    await s.store.companion_hide();
+    assert.equal(s.of("companion_hide_main").length, 1);
     assert.equal(s.of("companion_publish").at(-1).status.ready, false);
     s.state.ready = true; s.state.mic = { state: "ok", data: true };
     await s.render();
@@ -58,6 +60,13 @@ test("in the companion form it reports the switches and runs what the tray and t
     assert.deepEqual(s.toggles, ["mic", "translation"]);
     s.listeners.get("companion-quit")();
     assert.equal(s.state.quits, 1);
+});
+
+test("the translation model's review brings the hidden main window forward", async context => {
+    const s = await setup(context, { companion: true });
+    s.state.setup = { resume: true, weightType: null };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 1);
 });
 
 test("a consent the user must answer brings the hidden main window forward", async context => {

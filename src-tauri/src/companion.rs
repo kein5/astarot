@@ -28,7 +28,7 @@ pub const HANDLE: &str = "companion_handle";
 const PANEL_TITLE: &str = "VRCT-VOX Control Panel";
 const HANDLE_TITLE: &str = "VRCT-VOX Captions Handle";
 /// The panel, in logical px.
-const PANEL_SIZE: (f64, f64) = (300.0, 232.0);
+const PANEL_SIZE: (f64, f64) = (300.0, 208.0);
 /// The handle's square side and its distance from the caption band, in logical px.
 const HANDLE_SIZE: f64 = 28.0;
 const HANDLE_GAP: f64 = 6.0;
@@ -471,6 +471,14 @@ pub fn companion_take(window: WebviewWindow, state: State<CompanionState>) -> Re
 pub fn companion_show_main(window: WebviewWindow) -> Result<(), String> {
     sender(window.label(), &["main"])?;
     show_main(window.app_handle())
+}
+
+/// Closing the main window only hides it: the app stays in the tray. The main
+/// window has no hide permission of its own, and ordinary launches keep it so.
+#[tauri::command]
+pub fn companion_hide_main(window: WebviewWindow) -> Result<(), String> {
+    sender(window.label(), &["main"])?;
+    window.hide().map_err(|error| error.to_string())
 }
 
 #[tauri::command]

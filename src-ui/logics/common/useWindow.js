@@ -155,8 +155,8 @@ export const useWindow = () => {
     };
 
     // In the experimental companion form the app lives in the tray: closing the window only hides it,
-    // and the tray's Quit ends the app (asyncQuitApp).
-    const asyncCloseApp = () => store.companion_mode ? appWindow.hide() : closeAfterShutdown(appWindow, asyncStdoutToPython);
+    // and the tray's Quit ends the app (asyncQuitApp). CompanionController sets store.companion_hide.
+    const asyncCloseApp = () => store.companion_hide ? store.companion_hide() : closeAfterShutdown(appWindow, asyncStdoutToPython);
     const asyncQuitApp = () => closeAfterShutdown(appWindow, asyncStdoutToPython);
 
     return {
@@ -238,7 +238,7 @@ export const WindowCloseController = () => {
         };
         appWindow.onCloseRequested(event => {
             event.preventDefault();
-            if (store.companion_mode) appWindow.hide();
+            if (store.companion_hide) store.companion_hide();
             else closeAfterShutdown(appWindow, (...args) => latest.current(...args));
         }).then(unlisten => {
             dispose = unlisten;

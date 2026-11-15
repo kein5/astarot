@@ -244,7 +244,7 @@ pub fn run() {
             vr_panel_state::vr_panel_state_subscribe, vr_panel_state::vr_panel_state_push,
             app_update::app_update_info, app_update::app_update_check, app_update::app_update_install,
             companion::companion_mode, companion::companion_publish, companion::companion_take,
-            companion::companion_show_main, companion::companion_status, companion::companion_request,
+            companion::companion_show_main, companion::companion_hide_main, companion::companion_status, companion::companion_request,
             companion::companion_panel_hide, companion::companion_panel_toggle])
         .build(context)
         .map(|app| app.run(|app, event| {

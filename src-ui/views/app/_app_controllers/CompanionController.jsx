@@ -6,19 +6,22 @@ import { store, useStore_CompanionMode } from "@store";
 import { useIsBackendReady, useWindow } from "@logics_common";
 import { useMainFunction } from "@logics_main";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
+import { useTranslationSetup } from "../../../logics/translation/useTranslationSetup";
 import { companionStatus, runAction } from "../../../logics/companion/status.js";
 
 // The experimental companion form (Issue #355). Outside it this asks once and does nothing.
 // In it, the hidden main window keeps doing what it always does (the backend, the captions)
 // and also: reports the switches to the tray and the panel, runs what they ask for, and
-// comes forward when it needs the user, such as for the recognition consent.
+// comes forward when it needs the user: the recognition consent, or the translation model's review.
 export const CompanionController = () => {
     const { t, i18n } = useI18n();
     const { currentCompanionMode, updateCompanionMode } = useStore_CompanionMode();
     const { currentIsBackendReady } = useIsBackendReady();
     const main = useMainFunction();
     const { asyncQuitApp } = useWindow();
-    const { request } = useTranscriptionConsent();
+    const { request: consent } = useTranscriptionConsent();
+    const { request: translationSetup } = useTranslationSetup();
+    const needsUser = !!consent || !!translationSetup;
     const latest = useRef(null);
     latest.current = { main, asyncQuitApp };
     const on = currentCompanionMode.data === true;
@@ -27,7 +30,8 @@ export const CompanionController = () => {
         let live = true;
         invoke("companion_mode").then(value => {
             if (!live || value !== true) return;
-            store.companion_mode = true;
+            store.companion_hide = () => invoke("companion_hide_main")
+                .catch(error => console.error("Main window could not be hidden", error));
             updateCompanionMode(true);
         }, () => {});
         return () => { live = false; };
@@ -59,8 +63,8 @@ export const CompanionController = () => {
     }, [on, currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, i18n.language, t]);
 
     useEffect(() => {
-        if (on && request) invoke("companion_show_main").catch(error => console.error("Main window could not be shown", error));
-    }, [on, request]);
+        if (on && needsUser) invoke("companion_show_main").catch(error => console.error("Main window could not be shown", error));
+    }, [on, needsUser]);
 
     return null;
 };
