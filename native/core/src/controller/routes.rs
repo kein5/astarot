@@ -12,32 +12,35 @@ use crate::protocol::Reply;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
-const WAIT: bool = true;
-const OPEN: bool = false;
+/// The endpoint waits for start-up to end (`"status": False` in Python's `mapping`).
+pub(crate) const WAIT: bool = true;
+/// The endpoint answers from the start.
+pub(crate) const OPEN: bool = false;
 
-struct Builder<'a> {
-    routes: Routes,
-    core: &'a Arc<Core>,
+/// Adds endpoints; each area of the controller adds its own through it.
+pub(crate) struct Builder<'a> {
+    pub(crate) routes: Routes,
+    pub(crate) core: &'a Arc<Core>,
 }
 
 impl Builder<'_> {
-    fn add(&mut self, endpoint: &str, wait: bool, handler: impl Fn(&Value) -> Reply + Send + Sync + 'static) {
+    pub(crate) fn add(&mut self, endpoint: &str, wait: bool, handler: impl Fn(&Value) -> Reply + Send + Sync + 'static) {
         self.routes.add(endpoint, wait, handler);
     }
 
     /// A handler that needs the core.
-    fn with(&mut self, endpoint: &str, wait: bool, handler: impl Fn(&Arc<Core>, &Value) -> Reply + Send + Sync + 'static) {
+    pub(crate) fn with(&mut self, endpoint: &str, wait: bool, handler: impl Fn(&Arc<Core>, &Value) -> Reply + Send + Sync + 'static) {
         let core = Arc::clone(self.core);
         self.routes.add(endpoint, wait, move |data| handler(&core, data));
     }
 
-    fn get(&mut self, endpoint: &str, wait: bool, key: &'static str) {
+    pub(crate) fn get(&mut self, endpoint: &str, wait: bool, key: &'static str) {
         let handler = get(self.core, key);
         self.add(endpoint, wait, handler);
     }
 
     /// `/get/data/x`, `/set/enable/x` and `/set/disable/x` of a plain switch.
-    fn switch(&mut self, name: &str, key: &'static str, with_get: bool) {
+    pub(crate) fn switch(&mut self, name: &str, key: &'static str, with_get: bool) {
         if with_get {
             self.get(&format!("/get/data/{name}"), OPEN, key);
         }
@@ -308,5 +311,12 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         ok_true()
     });
 
+    // Each wired area adds its endpoints here, in its own module.
+    for add in AREAS {
+        add(&mut b);
+    }
     b.routes
 }
+
+/// The areas wired to their crates, each with an `add(&mut Builder)`.
+const AREAS: &[fn(&mut Builder<'_>)] = &[];
