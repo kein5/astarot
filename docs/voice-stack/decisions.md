@@ -38,3 +38,5 @@ VC本体やモデルは同梱しない。P1終了前にVC/ASRの大改造を行�
 [ADR-007: 訳文の読み上げを声の変換に通す](adr-007-translated-speech-through-voice-conversion.md)は2026-11-14の提案で、同じ日に採用して実装した。RVCとSeed-VCの入力へ読み上げの音声を流し、訳文を変換後の声で届ける設計と、ミュートと直接音声の抑制を分ける理由を書いた。
 
 [ADR-008: 外部の合成音声エンジンを読み上げに使う](adr-008-external-speech-engines.md)は2026-11-15に採用し、0.3.0に入れる。利用者が入れたVOICEVOX、SHAREVOX、AivisSpeech、COEIROINK v2に、ループバックのHTTPで接続して日本語を読み上げる。エンジンと声は同梱も取得もしない。実装はまだ。
+
+[ADR-009: Windowsの仮想マイクは外部のドライバに頼り、Microsoft Storeでは依存を開示する](adr-009-virtual-microphone-and-store.md)は2026-11-15に採用した。MSIXはドライバを入れられず、自前のドライバの署名や既存のドライバの再配布にも条件があるので、VB-CABLEなどは同梱しない。Storeではポリシー10.2.4に従って説明文の冒頭と認証ノートで依存を開示し、アプリは初回起動での検出、案内、再検出、自己診断で導入を支える（0.4.0で実装予定）。前提の制約は[プラットフォームの制約](platform-constraints.md)にまとめた。
