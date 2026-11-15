@@ -1,0 +1,2907 @@
+{
+ "version": "0.4.0-beta.1",
+ "websocket_token": "fixed-websocket-token-for-the-reference",
+ "cpu_device": {
+  "device": "cpu",
+  "device_index": 0,
+  "device_name": "cpu",
+  "compute_types": [
+   "auto",
+   "float32",
+   "int8",
+   "int8_float32"
+  ]
+ },
+ "inputs": {
+  "no_file": null,
+  "empty_object": {},
+  "ui_language_only": {
+   "UI_LANGUAGE": "ja"
+  },
+  "retired_ui_language": {
+   "UI_LANGUAGE": "ko",
+   "TRANSPARENCY": 80
+  },
+  "not_json": {
+   "raw": "{\"UI_LANGUAGE\": \"ja\","
+  },
+  "json_list": {
+   "raw": "[1, 2, 3]"
+  },
+  "not_utf8": {
+   "raw_bytes": "ff fe 00 7b"
+  },
+  "retired_whisper_engine": {
+   "SELECTED_TRANSCRIPTION_ENGINE": "Whisper",
+   "LOCAL_ASR_MIGRATION": 1
+  },
+  "retired_whisper_engine_no_step": {
+   "SELECTED_TRANSCRIPTION_ENGINE": "Whisper"
+  },
+  "bundled_realtime_server_step_0": {
+   "REALTIME_ASR_SETTINGS": {
+    "server": "bundled"
+   },
+   "LOCAL_ASR_MIGRATION": 0
+  },
+  "bundled_realtime_server_done": {
+   "REALTIME_ASR_SETTINGS": {
+    "server": "bundled"
+   },
+   "LOCAL_ASR_MIGRATION": 2,
+   "SELECTED_TRANSCRIPTION_ENGINE": "Google"
+  },
+  "migration_step_out_of_range": {
+   "LOCAL_ASR_MIGRATION": 7,
+   "SELECTED_TRANSCRIPTION_ENGINE": "Whisper"
+  },
+  "invalid_saved_urls": {
+   "LMSTUDIO_URL": "http://example.com/v1",
+   "OPENAI_COMPATIBLE_URL": "https://user:pw@api.example.com/v1",
+   "TRANSCRIPTION_CUSTOM_URL": "https://api.example.com/v1?api_key=x"
+  },
+  "valid_saved_urls": {
+   "LMSTUDIO_URL": "http://192.168.1.20:1234/v1",
+   "OPENAI_COMPATIBLE_URL": "https://api.example.com/v1",
+   "TRANSCRIPTION_CUSTOM_URL": "http://localhost:9000/v1"
+  },
+  "old_hotkeys": {
+   "HOTKEYS": {
+    "toggle_vrct_visibility": [
+     "Ctrl",
+     "F1"
+    ],
+    "toggle_translation": null
+   }
+  },
+  "hotkeys_unknown_action": {
+   "HOTKEYS": {
+    "toggle_translation": [
+     "F2"
+    ],
+    "launch_rockets": [
+     "F3"
+    ]
+   }
+  },
+  "hotkeys_bad_value": {
+   "HOTKEYS": {
+    "toggle_translation": "F2",
+    "stop_voice": [
+     "F4"
+    ]
+   }
+  },
+  "unknown_and_readonly_keys": {
+   "VERSION": "9.9.9",
+   "ENABLE_TRANSLATION": true,
+   "SOME_OLD_KEY": 1,
+   "SELECTABLE_TAB_NO_LIST": [
+    "9"
+   ],
+   "PATH_LOGS": "/tmp/x"
+  },
+  "wrong_types": {
+   "TRANSPARENCY": "100",
+   "UI_SCALING": 90.0,
+   "MIC_THRESHOLD": 5000,
+   "OSC_PORT": true,
+   "SEND_MESSAGE_TO_VRC": 1,
+   "FONT_FAMILY": null,
+   "MESSAGE_BOX_RATIO": 12.5,
+   "SPEAKER_THRESHOLD": 1999,
+   "OSC_IP_ADDRESS": "10.0.0.5"
+  },
+  "numbers_at_bounds": {
+   "MIC_AVG_LOGPROB": -2,
+   "MIC_NO_SPEECH_PROB": 1,
+   "SPEAKER_AVG_LOGPROB": 0.5,
+   "MIC_MAX_PHRASES": 30,
+   "SPEAKER_MAX_PHRASES": 61,
+   "OCR_MIN_CONFIDENCE": 0.99,
+   "OCR_POLL_INTERVAL_MS": 99,
+   "OCR_BUBBLE_MIN_TEXT_LENGTH": 50,
+   "TELEMETRY_NOTICE": 1
+  },
+  "asr_timeouts_saved_order": {
+   "MIC_RECORD_TIMEOUT": 5,
+   "MIC_PHRASE_TIMEOUT": 8,
+   "SPEAKER_RECORD_TIMEOUT": 9,
+   "SPEAKER_PHRASE_TIMEOUT": 4
+  },
+  "overlay_settings_partial": {
+   "OVERLAY_SMALL_LOG_SETTINGS": {
+    "x_pos": 1.0
+   },
+   "OVERLAY_LARGE_LOG_SETTINGS": {
+    "x_pos": 1,
+    "y_pos": 2.5,
+    "z_pos": 0,
+    "x_rotation": 0,
+    "y_rotation": 0,
+    "z_rotation": 0,
+    "display_duration": 7,
+    "fadeout_duration": 1.5,
+    "opacity": 1,
+    "ui_scaling": 2,
+    "tracker": "Elbow"
+   },
+   "OVERLAY_DESKTOP_SETTINGS": {
+    "position": "top",
+    "font_size": 100,
+    "display_duration": 10,
+    "opacity": 0.3
+   },
+   "IO_FLOW_OVERLAY_SETTINGS": {
+    "desktop": true,
+    "count": 4
+   },
+   "OVERLAY_VR_PANEL_SETTINGS": {
+    "width": 1000,
+    "tracker": "Playspace",
+    "x_pos": 1
+   },
+   "OVERLAY_VR_LAUNCHER_SETTINGS": {
+    "tracker": "RightHand",
+    "unknown": 1
+   }
+  },
+  "languages_damaged": {
+   "SELECTED_TAB_NO": "2",
+   "SELECTED_TRANSLATION_ENGINES": {
+    "1": "DeepL_API",
+    "2": "NoSuchEngine",
+    "4": "CTranslate2"
+   },
+   "SELECTED_YOUR_LANGUAGES": {
+    "1": {
+     "1": {
+      "language": "English",
+      "country": "United States",
+      "enable": true
+     }
+    },
+    "2": {
+     "1": {
+      "language": "Klingon",
+      "country": "Qo'noS",
+      "enable": true
+     }
+    },
+    "3": "broken"
+   },
+   "SELECTED_TARGET_LANGUAGES": {
+    "1": {
+     "1": {
+      "language": "French",
+      "country": "France",
+      "enable": true
+     },
+     "2": {
+      "language": "German",
+      "country": "Germany",
+      "enable": "yes"
+     }
+    }
+   }
+  },
+  "compute_type_before_device": {
+   "SELECTED_TRANSLATION_COMPUTE_TYPE": "int8",
+   "SELECTED_TRANSLATION_COMPUTE_DEVICE": {
+    "device": "cpu",
+    "device_index": 0,
+    "device_name": "cpu",
+    "compute_types": [
+     "auto"
+    ]
+   }
+  },
+  "compute_device_unknown": {
+   "SELECTED_TRANSLATION_COMPUTE_DEVICE": {
+    "device": "cuda",
+    "device_index": 0,
+    "device_name": "RTX"
+   },
+   "SELECTED_TRANSLATION_COMPUTE_TYPE": "float16"
+  },
+  "websocket_and_obs": {
+   "WEBSOCKET_HOST": "0.0.0.0",
+   "WEBSOCKET_PORT": 70000,
+   "WEBSOCKET_AUTH_TOKEN": "  ",
+   "OBS_BROWSER_SOURCE_PORT": 8080,
+   "OBS_BROWSER_SOURCE_FONT_SIZE": 0,
+   "OBS_BROWSER_SOURCE_MAX_MESSAGES": 30,
+   "OBS_BROWSER_SOURCE_FONT_COLOR": "red"
+  },
+  "websocket_token_kept": {
+   "WEBSOCKET_AUTH_TOKEN": "a-token-saved-by-an-older-version",
+   "WEBSOCKET_HOST": "192.168.1.2"
+  },
+  "auth_keys": {
+   "AUTH_KEYS": {
+    "DeepL_API": "abc:fx",
+    "Gemini_API": 5,
+    "Removed_API": "x"
+   },
+   "TRANSCRIPTION_AUTH_KEYS": {
+    "Deepgram": "dg"
+   },
+   "SELECTED_GEMINI_MODEL": "gemini-x",
+   "SELECTED_DEEPGRAM_MODEL": null
+  },
+  "ctranslate2_weights": {
+   "CTRANSLATE2_WEIGHT_TYPE": "nllb-200-distilled-600M-ct2-int8",
+   "CTRANSLATE2_LICENSE_NOTICE_SHOWN": false
+  },
+  "ctranslate2_unknown_weight": {
+   "CTRANSLATE2_WEIGHT_TYPE": "large"
+  },
+  "message_formats": {
+   "SEND_MESSAGE_FORMAT_PARTS": {
+    "message": {
+     "prefix": "[",
+     "suffix": "]"
+    },
+    "separator": " ",
+    "translation": {
+     "prefix": "(",
+     "separator": "/",
+     "suffix": ")"
+    },
+    "translation_first": true
+   },
+   "RECEIVED_MESSAGE_FORMAT_PARTS": {
+    "message": {
+     "prefix": "["
+    },
+    "separator": " "
+   }
+  },
+  "word_filter": {
+   "MIC_WORD_FILTER": [
+    "a",
+    "b",
+    "a",
+    3,
+    null,
+    "c"
+   ]
+  },
+  "ocr_regions": {
+   "OCR_CAPTURE_REGION": {
+    "x": 0.1,
+    "y": 0.2,
+    "width": 0.5,
+    "height": 0.5
+   },
+   "OCR_SOURCE_LANGUAGE": "ja",
+   "OCR_WINDOW_TITLE": "",
+   "OCR_PORTAL_RESTORE_TOKEN": "abc\u0001"
+  },
+  "ocr_region_out_of_window": {
+   "OCR_CAPTURE_REGION": {
+    "x": 0.9,
+    "y": 0.0,
+    "width": 0.5,
+    "height": 0.5
+   },
+   "OCR_VR_CAPTURE_REGION": {
+    "x": 0.0,
+    "y": 0.0,
+    "width": 0.01,
+    "height": 0.5
+   }
+  },
+  "voice_settings_old": {
+   "VOICE_SETTINGS": {
+    "mode": "original"
+   },
+   "DIRECT_VOICE_SETTINGS": {
+    "mode": "passthrough"
+   },
+   "SPEECH_SERVER_SETTINGS": {
+    "version": 1
+   },
+   "REALTIME_ASR_SETTINGS": {
+    "version": 1
+   }
+  },
+  "voice_settings_invalid": {
+   "VOICE_SETTINGS": {
+    "mode": "shout"
+   },
+   "DIRECT_VOICE_SETTINGS": {
+    "mode": "x"
+   },
+   "SPEECH_SERVER_SETTINGS": {
+    "version": 2
+   },
+   "REALTIME_ASR_SETTINGS": {
+    "server": "cloud"
+   }
+  },
+  "realtime_settings_full": {
+   "REALTIME_ASR_SETTINGS": {
+    "version": 1,
+    "server": "external",
+    "start_server": false,
+    "base_url": "http://localhost:8080",
+    "model": "qwen3-asr",
+    "vocabulary": {
+     "builtin": false,
+     "terms": [
+      "VRChat=ぶいあーるちゃっと",
+      "vrchat",
+      " Avatar  Name "
+     ]
+    },
+    "mic": {
+     "language": "en",
+     "endpoint": null,
+     "follow_default": false
+    },
+    "speaker": {
+     "language": "auto"
+    }
+   }
+  },
+  "rvc_settings": {
+   "DIRECT_VOICE_SETTINGS": {
+    "mode": "converted",
+    "engine": "rvc",
+    "rvc_model": "a.pth",
+    "rvc_pitch": 3,
+    "rvc_index_rate": 0.5
+   }
+  },
+  "telemetry_old": {
+   "ENABLE_TELEMETRY": false
+  },
+  "release_channel": {
+   "SELECTED_RELEASE_CHANNEL": "stable"
+  },
+  "legacy_consents": {
+   "LEGACY_MODEL_DOWNLOAD_CONSENTS": {
+    "ctranslate2:m2m100_418M-ct2-int8": "sha"
+   },
+   "AUTO_DOWNLOAD_MODELS": true
+  },
+  "legacy_consents_bad": {
+   "LEGACY_MODEL_DOWNLOAD_CONSENTS": {
+    "a": 1
+   }
+  },
+  "devices_saved": {
+   "SELECTED_MIC_HOST": "Windows WASAPI",
+   "SELECTED_MIC_DEVICE": "Mic (USB)",
+   "SELECTED_SPEAKER_DEVICE": "Speakers",
+   "SELECTED_MIC_DEVICE_ID": "{0.0.1}",
+   "SELECTED_SPEAKER_DEVICE_ID": 5,
+   "AUTO_MIC_SELECT": false
+  },
+  "main_window_geometry": {
+   "MAIN_WINDOW_GEOMETRY": {
+    "x_pos": 10,
+    "y_pos": "20",
+    "width": 900,
+    "height": 700.0
+   }
+  },
+  "main_window_geometry_bad": {
+   "MAIN_WINDOW_GEOMETRY": {
+    "x_pos": 10
+   }
+  },
+  "selected_models": {
+   "SELECTED_PLAMO_MODEL": "plamo-2.0-prime",
+   "SELECTED_OPENAI_MODEL": 3,
+   "SELECTED_TRANSCRIPTION_ENGINE": null
+  },
+  "unicode_values": {
+   "FONT_FAMILY": "游ゴシック 😀",
+   "OCR_WINDOW_TITLE": "VRChat é"
+  },
+  "round_trip_of_no_file": "the file no_file saved"
+ },
+ "platforms": {
+  "win32": {
+   "defaults": {
+    "ENABLE_FOREGROUND": false,
+    "CONVERT_MESSAGE_TO_ROMAJI": false,
+    "CONVERT_MESSAGE_TO_HIRAGANA": false,
+    "MAIN_WINDOW_SIDEBAR_COMPACT_MODE": false,
+    "TRANSPARENCY": 100,
+    "UI_SCALING": 100,
+    "TEXTBOX_UI_SCALING": 100,
+    "MESSAGE_BOX_RATIO": 10,
+    "SEND_MESSAGE_BUTTON_TYPE": "show",
+    "SHOW_RESEND_BUTTON": false,
+    "FONT_FAMILY": "Yu Gothic UI",
+    "UI_LANGUAGE": "en",
+    "MAIN_WINDOW_GEOMETRY": {
+     "x_pos": 0,
+     "y_pos": 0,
+     "width": 870,
+     "height": 654
+    },
+    "MIC_THRESHOLD": 300,
+    "MIC_AUTOMATIC_THRESHOLD": false,
+    "MIC_RECORD_TIMEOUT": 3,
+    "MIC_PHRASE_TIMEOUT": 3,
+    "MIC_MAX_PHRASES": 10,
+    "MIC_AVG_LOGPROB": -0.8,
+    "MIC_NO_SPEECH_PROB": 0.6,
+    "HOTKEYS": {
+     "open_quick_chat": null,
+     "toggle_vrct_visibility": null,
+     "toggle_translation": null,
+     "toggle_transcription_send": null,
+     "toggle_transcription_receive": null,
+     "stop_voice": null,
+     "toggle_voice_mute": null,
+     "toggle_tts": null,
+     "toggle_rvc": null
+    },
+    "SPEAKER_THRESHOLD": 300,
+    "SPEAKER_AUTOMATIC_THRESHOLD": false,
+    "SPEAKER_RECORD_TIMEOUT": 3,
+    "SPEAKER_PHRASE_TIMEOUT": 3,
+    "SPEAKER_MAX_PHRASES": 10,
+    "SPEAKER_AVG_LOGPROB": -0.8,
+    "SPEAKER_NO_SPEECH_PROB": 0.6,
+    "MIC_ENABLE_VAD": false,
+    "SPEAKER_ENABLE_VAD": false,
+    "AUTH_KEYS": {
+     "DeepL_API": null,
+     "Plamo_API": null,
+     "Gemini_API": null,
+     "OpenAI_API": null,
+     "OpenAI_Compatible": null,
+     "Groq_API": null,
+     "OpenRouter_API": null
+    },
+    "LMSTUDIO_URL": "http://127.0.0.1:1234/v1",
+    "OPENAI_COMPATIBLE_URL": "https://api.openai.com/v1",
+    "TRANSCRIPTION_AUTH_KEYS": {
+     "Groq_Whisper": null,
+     "OpenAI_Whisper": null,
+     "Custom_Whisper": null,
+     "Deepgram": null
+    },
+    "TRANSCRIPTION_CUSTOM_URL": "",
+    "OVERLAY_SMALL_LOG_SETTINGS": {
+     "x_pos": 0.0,
+     "y_pos": 0.0,
+     "z_pos": 0.0,
+     "x_rotation": 0.0,
+     "y_rotation": 0.0,
+     "z_rotation": 0.0,
+     "display_duration": 5,
+     "fadeout_duration": 2,
+     "opacity": 1.0,
+     "ui_scaling": 1.0,
+     "tracker": "HMD"
+    },
+    "OVERLAY_LARGE_LOG_SETTINGS": {
+     "x_pos": 0.0,
+     "y_pos": 0.0,
+     "z_pos": 0.0,
+     "x_rotation": 0.0,
+     "y_rotation": 0.0,
+     "z_rotation": 0.0,
+     "display_duration": 5,
+     "fadeout_duration": 2,
+     "opacity": 1.0,
+     "ui_scaling": 1.0,
+     "tracker": "LeftHand"
+    },
+    "OVERLAY_DESKTOP_SETTINGS": {
+     "position": "bottom",
+     "font_size": 28,
+     "display_duration": 6,
+     "opacity": 0.6
+    },
+    "IO_FLOW_OVERLAY_SETTINGS": {
+     "desktop": false,
+     "count": 1
+    },
+    "OVERLAY_VR_PANEL_SETTINGS": {
+     "width": 900,
+     "height": 700,
+     "x_pos": 0.5209,
+     "y_pos": 0.6442,
+     "z_pos": -0.9509,
+     "x_rotation": 95.0133,
+     "y_rotation": 44.0232,
+     "z_rotation": 42.6138,
+     "display_duration": 5,
+     "fadeout_duration": 0,
+     "opacity": 1.0,
+     "ui_scaling": 0.4,
+     "tracker": "Playspace"
+    },
+    "OVERLAY_VR_LAUNCHER_SETTINGS": {
+     "x_pos": 0.0641,
+     "y_pos": -0.0416,
+     "z_pos": -0.0063,
+     "x_rotation": 9.3648,
+     "y_rotation": -22.0338,
+     "z_rotation": -17.1646,
+     "display_duration": 5,
+     "fadeout_duration": 0,
+     "opacity": 1.0,
+     "ui_scaling": 0.1984,
+     "tracker": "LeftHand"
+    },
+    "SEND_MESSAGE_FORMAT_PARTS": {
+     "message": {
+      "prefix": "",
+      "suffix": ""
+     },
+     "separator": "\n",
+     "translation": {
+      "prefix": "",
+      "separator": "\n",
+      "suffix": ""
+     },
+     "translation_first": false
+    },
+    "RECEIVED_MESSAGE_FORMAT_PARTS": {
+     "message": {
+      "prefix": "",
+      "suffix": ""
+     },
+     "separator": "\n",
+     "translation": {
+      "prefix": "",
+      "separator": "\n",
+      "suffix": ""
+     },
+     "translation_first": false
+    },
+    "VOICE_SETTINGS": {
+     "mode": "off",
+     "mic_mode": "off",
+     "direct_policy": "suppress",
+     "target_slot": "1",
+     "japanese_server": "external",
+     "japanese_url": "http://127.0.0.1:8080",
+     "japanese_voice": "none",
+     "multilingual_url": "",
+     "multilingual_voice": "ryan",
+     "multilingual_server": "external",
+     "japanese_seed": "",
+     "multilingual_seed": "",
+     "japanese_instructions": "",
+     "multilingual_instructions": "",
+     "output_device": "",
+     "routing": "external",
+     "monitor": "off",
+     "monitor_device": "",
+     "monitor_volume": "100",
+     "conversion": "off",
+     "japanese_engine": "speechcpp",
+     "voicevox_url": "http://127.0.0.1:50021",
+     "coeiroink_url": "http://127.0.0.1:50032",
+     "aivis_url": "http://127.0.0.1:10101",
+     "sharevox_url": "http://127.0.0.1:50025",
+     "engine_voice_id": "",
+     "engine_voice_speaker": "",
+     "engine_voice_style": ""
+    },
+    "DIRECT_VOICE_SETTINGS": {
+     "mode": "passthrough",
+     "runtime": "",
+     "reference": "",
+     "engine": "seed-vc",
+     "rvc_runtime": "",
+     "rvc_model": "",
+     "rvc_index": "",
+     "rvc_pitch": 0,
+     "rvc_index_rate": 0.0
+    },
+    "REALTIME_ASR_SETTINGS": {
+     "version": 1,
+     "server": "external",
+     "start_server": true,
+     "base_url": "http://127.0.0.1:8080",
+     "model": "",
+     "vocabulary": {
+      "builtin": true,
+      "terms": []
+     },
+     "mic": {
+      "language": "ja",
+      "endpoint": null,
+      "follow_default": true
+     },
+     "speaker": {
+      "language": "auto",
+      "endpoint": null,
+      "follow_default": true
+     }
+    },
+    "SPEECH_SERVER_SETTINGS": {
+     "version": 1,
+     "profiles": {
+      "japanese": {
+       "model": "",
+       "vad_model": "",
+       "diarization_model": "",
+       "voice_file": "",
+       "device": "auto",
+       "low_latency": false
+      },
+      "multilingual": {
+       "model": "",
+       "vad_model": "",
+       "diarization_model": "",
+       "voice_file": "",
+       "device": "auto",
+       "low_latency": false
+      },
+      "asr": {
+       "model": "",
+       "vad_model": "",
+       "diarization_model": "",
+       "voice_file": "",
+       "device": "auto",
+       "low_latency": false
+      }
+     }
+    },
+    "WEBSOCKET_SERVER": false,
+    "OSC_IP_ADDRESS": "127.0.0.1",
+    "OSC_PORT": 9000,
+    "AUTO_CLEAR_MESSAGE_BOX": true,
+    "CHECK_SOFTWARE_UPDATES": true,
+    "SEND_ONLY_TRANSLATED_MESSAGES": false,
+    "OVERLAY_SMALL_LOG": false,
+    "OVERLAY_LARGE_LOG": false,
+    "OVERLAY_DESKTOP": false,
+    "OVERLAY_VR_PANEL": false,
+    "OVERLAY_VR_PANEL_LOCKED": false,
+    "OVERLAY_VR_PANEL_FONT_SIZE": 17,
+    "OVERLAY_VR_LAUNCHER_AUTO_HIDE": true,
+    "OVERLAY_VR_TOOLTIP": true,
+    "OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES": false,
+    "SEND_MESSAGE_TO_VRC": true,
+    "SEND_RECEIVED_MESSAGE_TO_VRC": false,
+    "LOGGER_FEATURE": false,
+    "VRC_MIC_MUTE_SYNC": false,
+    "NOTIFICATION_VRC_SFX": true,
+    "WEBSOCKET_HOST": "127.0.0.1",
+    "WEBSOCKET_PORT": 2231,
+    "WEBSOCKET_AUTH_TOKEN": "fixed-websocket-token-for-the-reference",
+    "WEBSOCKET_TLS_CERT_FILE": "",
+    "WEBSOCKET_TLS_KEY_FILE": "",
+    "OBS_BROWSER_SOURCE": false,
+    "OBS_BROWSER_SOURCE_PORT": 2232,
+    "OBS_BROWSER_SOURCE_MAX_MESSAGES": 14,
+    "OBS_BROWSER_SOURCE_DISPLAY_DURATION": 60,
+    "OBS_BROWSER_SOURCE_FADEOUT_DURATION": 12,
+    "OBS_BROWSER_SOURCE_FONT_SIZE": 40,
+    "OBS_BROWSER_SOURCE_FONT_COLOR": "#FFFFFF",
+    "OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS": 3,
+    "OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR": "#000000",
+    "ENABLE_TELEMETRY": true,
+    "TELEMETRY_NOTICE": 0,
+    "AUTO_DOWNLOAD_MODELS": false,
+    "LEGACY_MODEL_DOWNLOAD_CONSENTS": {},
+    "SELECTED_TAB_NO": "1",
+    "SELECTED_TRANSCRIPTION_ENGINE": null,
+    "SELECTED_RELEASE_CHANNEL": "beta",
+    "CTRANSLATE2_WEIGHT_TYPE": "m2m100_418M-ct2-int8",
+    "CTRANSLATE2_LICENSE_NOTICE_SHOWN": false,
+    "LOCAL_ASR_MIGRATION": 2,
+    "LOCAL_ASR_NOTICE_PENDING": false,
+    "SELECTED_PLAMO_MODEL": null,
+    "SELECTED_GEMINI_MODEL": null,
+    "SELECTED_OPENAI_MODEL": null,
+    "SELECTED_GROQ_MODEL": null,
+    "SELECTED_OPENROUTER_MODEL": null,
+    "SELECTED_LMSTUDIO_MODEL": null,
+    "SELECTED_OPENAI_COMPATIBLE_MODEL": null,
+    "SELECTED_OLLAMA_MODEL": null,
+    "SELECTED_GROQ_WHISPER_MODEL": null,
+    "SELECTED_OPENAI_WHISPER_MODEL": null,
+    "SELECTED_CUSTOM_WHISPER_MODEL": null,
+    "SELECTED_DEEPGRAM_MODEL": null,
+    "MIC_WORD_FILTER": [],
+    "SELECTED_TRANSLATION_ENGINES": {
+     "1": "CTranslate2",
+     "2": "CTranslate2",
+     "3": "CTranslate2"
+    },
+    "SELECTED_YOUR_LANGUAGES": {
+     "1": {
+      "1": {
+       "language": "Japanese",
+       "country": "Japan",
+       "enable": true
+      }
+     },
+     "2": {
+      "1": {
+       "language": "Japanese",
+       "country": "Japan",
+       "enable": true
+      }
+     },
+     "3": {
+      "1": {
+       "language": "Japanese",
+       "country": "Japan",
+       "enable": true
+      }
+     }
+    },
+    "SELECTED_TARGET_LANGUAGES": {
+     "1": {
+      "1": {
+       "language": "English",
+       "country": "United States",
+       "enable": true
+      },
+      "2": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      },
+      "3": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      }
+     },
+     "2": {
+      "1": {
+       "language": "English",
+       "country": "United States",
+       "enable": true
+      },
+      "2": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      },
+      "3": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      }
+     },
+     "3": {
+      "1": {
+       "language": "English",
+       "country": "United States",
+       "enable": true
+      },
+      "2": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      },
+      "3": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      }
+     }
+    },
+    "SELECTED_TRANSLATION_COMPUTE_TYPE": "auto",
+    "AUTO_MIC_SELECT": true,
+    "AUTO_SPEAKER_SELECT": true,
+    "SELECTED_MIC_HOST": "NoHost",
+    "SELECTED_MIC_DEVICE": "NoDevice",
+    "SELECTED_MIC_DEVICE_ID": "",
+    "SELECTED_SPEAKER_DEVICE_ID": "",
+    "SELECTED_SPEAKER_DEVICE": "NoDevice",
+    "SELECTED_TRANSLATION_COMPUTE_DEVICE": {
+     "device": "cpu",
+     "device_index": 0,
+     "device_name": "cpu",
+     "compute_types": [
+      "auto",
+      "float32",
+      "int8",
+      "int8_float32"
+     ]
+    },
+    "ENABLE_CLIPBOARD": false,
+    "OCR_SOURCE_LANGUAGE": "auto",
+    "OCR_WINDOW_TITLE": "VRChat",
+    "OCR_POLL_INTERVAL_MS": 750,
+    "OCR_MIN_CONFIDENCE": 0.85,
+    "OCR_BUBBLE_MIN_TEXT_LENGTH": 2,
+    "OCR_CAPTURE_REGION": {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 1.0,
+     "height": 1.0
+    },
+    "OCR_VR_CAPTURE_REGION": {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 1.0,
+     "height": 1.0
+    },
+    "OCR_CHATBOX_FILTER": true,
+    "OCR_USE_CHATBOX_DETECTOR": true,
+    "OCR_PORTAL_RESTORE_TOKEN": ""
+   },
+   "lists": {
+    "selectable_transcription_engines": [
+     "Google",
+     "SpeechCpp",
+     "Groq_Whisper",
+     "OpenAI_Whisper",
+     "Custom_Whisper",
+     "Deepgram"
+    ],
+    "selectable_translation_engines": [
+     "DeepL_API",
+     "Google",
+     "Bing",
+     "Papago",
+     "CTranslate2",
+     "Plamo_API",
+     "Gemini_API",
+     "OpenAI_API",
+     "LMStudio",
+     "OpenAI_Compatible",
+     "Ollama",
+     "Groq_API",
+     "OpenRouter_API"
+    ],
+    "selectable_ocr_source_languages": [
+     "auto",
+     "Arabic",
+     "Hindi",
+     "Korean",
+     "Russian",
+     "Thai",
+     "Ukrainian"
+    ],
+    "selectable_ctranslate2_weight_types": [
+     "m2m100_418M-ct2-int8",
+     "m2m100_1.2B-ct2-int8",
+     "nllb-200-distilled-600M-ct2-int8",
+     "nllb-200-distilled-1.3B-ct2-int8",
+     "nllb-200-3.3B-ct2-int8"
+    ]
+   },
+   "cases": {
+    "no_file": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "empty_object": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ui_language_only": {
+     "changed": {
+      "UI_LANGUAGE": "ja"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "retired_ui_language": {
+     "changed": {
+      "TRANSPARENCY": 80
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "not_json": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [
+      "config.json"
+     ],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "json_list": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [
+      "config.json"
+     ],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "not_utf8": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [
+      "config.json"
+     ],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "retired_whisper_engine": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "bundled",
+       "start_server": true,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "",
+       "vocabulary": {
+        "builtin": true,
+        "terms": []
+       },
+       "mic": {
+        "language": "ja",
+        "endpoint": null,
+        "follow_default": true
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      },
+      "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp",
+      "LOCAL_ASR_NOTICE_PENDING": true
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": true
+    },
+    "retired_whisper_engine_no_step": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "bundled",
+       "start_server": true,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "",
+       "vocabulary": {
+        "builtin": true,
+        "terms": []
+       },
+       "mic": {
+        "language": "ja",
+        "endpoint": null,
+        "follow_default": true
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      },
+      "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp",
+      "LOCAL_ASR_NOTICE_PENDING": true
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": true
+    },
+    "bundled_realtime_server_step_0": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "bundled",
+       "start_server": true,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "",
+       "vocabulary": {
+        "builtin": true,
+        "terms": []
+       },
+       "mic": {
+        "language": "ja",
+        "endpoint": null,
+        "follow_default": true
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      },
+      "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "bundled_realtime_server_done": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "bundled",
+       "start_server": true,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "",
+       "vocabulary": {
+        "builtin": true,
+        "terms": []
+       },
+       "mic": {
+        "language": "ja",
+        "endpoint": null,
+        "follow_default": true
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      },
+      "SELECTED_TRANSCRIPTION_ENGINE": "Google"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "migration_step_out_of_range": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "bundled",
+       "start_server": true,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "",
+       "vocabulary": {
+        "builtin": true,
+        "terms": []
+       },
+       "mic": {
+        "language": "ja",
+        "endpoint": null,
+        "follow_default": true
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      },
+      "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp",
+      "LOCAL_ASR_NOTICE_PENDING": true
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": true
+    },
+    "invalid_saved_urls": {
+     "changed": {
+      "LMSTUDIO_URL": "",
+      "OPENAI_COMPATIBLE_URL": ""
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [
+      "LMSTUDIO_URL",
+      "OPENAI_COMPATIBLE_URL",
+      "TRANSCRIPTION_CUSTOM_URL"
+     ],
+     "local_asr_notice_pending": false
+    },
+    "valid_saved_urls": {
+     "changed": {
+      "LMSTUDIO_URL": "http://192.168.1.20:1234/v1",
+      "OPENAI_COMPATIBLE_URL": "https://api.example.com/v1",
+      "TRANSCRIPTION_CUSTOM_URL": "http://localhost:9000/v1"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "old_hotkeys": {
+     "changed": {
+      "HOTKEYS": {
+       "open_quick_chat": null,
+       "toggle_vrct_visibility": [
+        "Ctrl",
+        "F1"
+       ],
+       "toggle_translation": null,
+       "toggle_transcription_send": null,
+       "toggle_transcription_receive": null,
+       "stop_voice": null,
+       "toggle_voice_mute": null,
+       "toggle_tts": null,
+       "toggle_rvc": null
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "hotkeys_unknown_action": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "hotkeys_bad_value": {
+     "changed": {
+      "HOTKEYS": {
+       "open_quick_chat": null,
+       "toggle_vrct_visibility": null,
+       "toggle_translation": null,
+       "toggle_transcription_send": null,
+       "toggle_transcription_receive": null,
+       "stop_voice": [
+        "F4"
+       ],
+       "toggle_voice_mute": null,
+       "toggle_tts": null,
+       "toggle_rvc": null
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "unknown_and_readonly_keys": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "wrong_types": {
+     "changed": {
+      "MESSAGE_BOX_RATIO": 12.5,
+      "SPEAKER_THRESHOLD": 1999,
+      "OSC_IP_ADDRESS": "10.0.0.5"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "numbers_at_bounds": {
+     "changed": {
+      "MIC_MAX_PHRASES": 30,
+      "MIC_AVG_LOGPROB": -2,
+      "MIC_NO_SPEECH_PROB": 1,
+      "TELEMETRY_NOTICE": 1,
+      "OCR_MIN_CONFIDENCE": 0.99,
+      "OCR_BUBBLE_MIN_TEXT_LENGTH": 50
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "asr_timeouts_saved_order": {
+     "changed": {
+      "MIC_RECORD_TIMEOUT": 5,
+      "MIC_PHRASE_TIMEOUT": 8
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "overlay_settings_partial": {
+     "changed": {
+      "OVERLAY_LARGE_LOG_SETTINGS": {
+       "x_pos": 1.0,
+       "y_pos": 2.5,
+       "z_pos": 0.0,
+       "x_rotation": 0.0,
+       "y_rotation": 0.0,
+       "z_rotation": 0.0,
+       "display_duration": 7,
+       "fadeout_duration": 2,
+       "opacity": 1.0,
+       "ui_scaling": 2.0,
+       "tracker": "LeftHand"
+      },
+      "OVERLAY_DESKTOP_SETTINGS": {
+       "position": "top",
+       "font_size": 28,
+       "display_duration": 10,
+       "opacity": 0.3
+      },
+      "OVERLAY_VR_PANEL_SETTINGS": {
+       "width": 1000,
+       "height": 700,
+       "x_pos": 1.0,
+       "y_pos": 0.6442,
+       "z_pos": -0.9509,
+       "x_rotation": 95.0133,
+       "y_rotation": 44.0232,
+       "z_rotation": 42.6138,
+       "display_duration": 5,
+       "fadeout_duration": 0,
+       "opacity": 1.0,
+       "ui_scaling": 0.4,
+       "tracker": "Playspace"
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "languages_damaged": {
+     "changed": {
+      "SELECTED_TAB_NO": "2",
+      "SELECTED_TRANSLATION_ENGINES": {
+       "1": "DeepL_API",
+       "2": "CTranslate2",
+       "3": "CTranslate2"
+      },
+      "SELECTED_YOUR_LANGUAGES": {
+       "1": {
+        "1": {
+         "language": "English",
+         "country": "United States",
+         "enable": true
+        }
+       },
+       "2": {
+        "1": {
+         "language": "Japanese",
+         "country": "Japan",
+         "enable": true
+        }
+       },
+       "3": {
+        "1": {
+         "language": "Japanese",
+         "country": "Japan",
+         "enable": true
+        }
+       }
+      },
+      "SELECTED_TARGET_LANGUAGES": {
+       "1": {
+        "1": {
+         "language": "French",
+         "country": "France",
+         "enable": true
+        },
+        "2": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        },
+        "3": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        }
+       },
+       "2": {
+        "1": {
+         "language": "English",
+         "country": "United States",
+         "enable": true
+        },
+        "2": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        },
+        "3": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        }
+       },
+       "3": {
+        "1": {
+         "language": "English",
+         "country": "United States",
+         "enable": true
+        },
+        "2": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        },
+        "3": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        }
+       }
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "compute_type_before_device": {
+     "changed": {
+      "SELECTED_TRANSLATION_COMPUTE_TYPE": "int8"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "compute_device_unknown": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "websocket_and_obs": {
+     "changed": {
+      "OBS_BROWSER_SOURCE_PORT": 8080,
+      "OBS_BROWSER_SOURCE_MAX_MESSAGES": 30,
+      "OBS_BROWSER_SOURCE_FONT_COLOR": "red"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "websocket_token_kept": {
+     "changed": {
+      "WEBSOCKET_HOST": "192.168.1.2",
+      "WEBSOCKET_AUTH_TOKEN": "a-token-saved-by-an-older-version"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "auth_keys": {
+     "changed": {
+      "AUTH_KEYS": {
+       "DeepL_API": "abc:fx",
+       "Plamo_API": null,
+       "Gemini_API": null,
+       "OpenAI_API": null,
+       "OpenAI_Compatible": null,
+       "Groq_API": null,
+       "OpenRouter_API": null
+      },
+      "TRANSCRIPTION_AUTH_KEYS": {
+       "Groq_Whisper": null,
+       "OpenAI_Whisper": null,
+       "Custom_Whisper": null,
+       "Deepgram": "dg"
+      },
+      "SELECTED_GEMINI_MODEL": "gemini-x"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ctranslate2_weights": {
+     "changed": {
+      "CTRANSLATE2_WEIGHT_TYPE": "nllb-200-distilled-600M-ct2-int8"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ctranslate2_unknown_weight": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "message_formats": {
+     "changed": {
+      "SEND_MESSAGE_FORMAT_PARTS": {
+       "message": {
+        "prefix": "[",
+        "suffix": "]"
+       },
+       "separator": " ",
+       "translation": {
+        "prefix": "(",
+        "separator": "/",
+        "suffix": ")"
+       },
+       "translation_first": true
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "word_filter": {
+     "changed": {
+      "MIC_WORD_FILTER": [
+       "a",
+       "b",
+       "c"
+      ]
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ocr_regions": {
+     "changed": {
+      "OCR_CAPTURE_REGION": {
+       "x": 0.1,
+       "y": 0.2,
+       "width": 0.5,
+       "height": 0.5
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ocr_region_out_of_window": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "voice_settings_old": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "voice_settings_invalid": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "realtime_settings_full": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "external",
+       "start_server": false,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "qwen3-asr",
+       "vocabulary": {
+        "builtin": false,
+        "terms": [
+         "VRChat=ぶいあーるちゃっと",
+         "Avatar Name"
+        ]
+       },
+       "mic": {
+        "language": "en",
+        "endpoint": null,
+        "follow_default": false
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "rvc_settings": {
+     "changed": {
+      "DIRECT_VOICE_SETTINGS": {
+       "mode": "converted",
+       "runtime": "",
+       "reference": "",
+       "engine": "rvc",
+       "rvc_runtime": "",
+       "rvc_model": "a.pth",
+       "rvc_index": "",
+       "rvc_pitch": 3,
+       "rvc_index_rate": 0.5
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "telemetry_old": {
+     "changed": {
+      "ENABLE_TELEMETRY": false
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "release_channel": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "legacy_consents": {
+     "changed": {
+      "AUTO_DOWNLOAD_MODELS": true,
+      "LEGACY_MODEL_DOWNLOAD_CONSENTS": {
+       "ctranslate2:m2m100_418M-ct2-int8": "sha"
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "legacy_consents_bad": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "devices_saved": {
+     "changed": {
+      "AUTO_MIC_SELECT": false,
+      "SELECTED_MIC_HOST": "Windows WASAPI",
+      "SELECTED_MIC_DEVICE": "Mic (USB)",
+      "SELECTED_MIC_DEVICE_ID": "{0.0.1}",
+      "SELECTED_SPEAKER_DEVICE": "Speakers"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "main_window_geometry": {
+     "changed": {
+      "MAIN_WINDOW_GEOMETRY": {
+       "x_pos": 10,
+       "y_pos": 0,
+       "width": 900,
+       "height": 654
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "main_window_geometry_bad": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "selected_models": {
+     "changed": {
+      "SELECTED_PLAMO_MODEL": "plamo-2.0-prime"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "unicode_values": {
+     "changed": {
+      "FONT_FAMILY": "游ゴシック 😀",
+      "OCR_WINDOW_TITLE": "VRChat é"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "round_trip_of_no_file": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    }
+   }
+  },
+  "linux": {
+   "defaults": {
+    "ENABLE_FOREGROUND": false,
+    "CONVERT_MESSAGE_TO_ROMAJI": false,
+    "CONVERT_MESSAGE_TO_HIRAGANA": false,
+    "MAIN_WINDOW_SIDEBAR_COMPACT_MODE": false,
+    "TRANSPARENCY": 100,
+    "UI_SCALING": 100,
+    "TEXTBOX_UI_SCALING": 100,
+    "MESSAGE_BOX_RATIO": 10,
+    "SEND_MESSAGE_BUTTON_TYPE": "show",
+    "SHOW_RESEND_BUTTON": false,
+    "FONT_FAMILY": "Yu Gothic UI",
+    "UI_LANGUAGE": "en",
+    "MAIN_WINDOW_GEOMETRY": {
+     "x_pos": 0,
+     "y_pos": 0,
+     "width": 870,
+     "height": 654
+    },
+    "MIC_THRESHOLD": 300,
+    "MIC_AUTOMATIC_THRESHOLD": false,
+    "MIC_RECORD_TIMEOUT": 3,
+    "MIC_PHRASE_TIMEOUT": 3,
+    "MIC_MAX_PHRASES": 10,
+    "MIC_AVG_LOGPROB": -0.8,
+    "MIC_NO_SPEECH_PROB": 0.6,
+    "HOTKEYS": {
+     "open_quick_chat": null,
+     "toggle_vrct_visibility": null,
+     "toggle_translation": null,
+     "toggle_transcription_send": null,
+     "toggle_transcription_receive": null,
+     "stop_voice": null,
+     "toggle_voice_mute": null,
+     "toggle_tts": null,
+     "toggle_rvc": null
+    },
+    "SPEAKER_THRESHOLD": 300,
+    "SPEAKER_AUTOMATIC_THRESHOLD": false,
+    "SPEAKER_RECORD_TIMEOUT": 3,
+    "SPEAKER_PHRASE_TIMEOUT": 3,
+    "SPEAKER_MAX_PHRASES": 10,
+    "SPEAKER_AVG_LOGPROB": -0.8,
+    "SPEAKER_NO_SPEECH_PROB": 0.6,
+    "MIC_ENABLE_VAD": false,
+    "SPEAKER_ENABLE_VAD": false,
+    "AUTH_KEYS": {
+     "DeepL_API": null,
+     "Plamo_API": null,
+     "Gemini_API": null,
+     "OpenAI_API": null,
+     "OpenAI_Compatible": null,
+     "Groq_API": null,
+     "OpenRouter_API": null
+    },
+    "LMSTUDIO_URL": "http://127.0.0.1:1234/v1",
+    "OPENAI_COMPATIBLE_URL": "https://api.openai.com/v1",
+    "TRANSCRIPTION_AUTH_KEYS": {
+     "Groq_Whisper": null,
+     "OpenAI_Whisper": null,
+     "Custom_Whisper": null,
+     "Deepgram": null
+    },
+    "TRANSCRIPTION_CUSTOM_URL": "",
+    "OVERLAY_SMALL_LOG_SETTINGS": {
+     "x_pos": 0.0,
+     "y_pos": 0.0,
+     "z_pos": 0.0,
+     "x_rotation": 0.0,
+     "y_rotation": 0.0,
+     "z_rotation": 0.0,
+     "display_duration": 5,
+     "fadeout_duration": 2,
+     "opacity": 1.0,
+     "ui_scaling": 1.0,
+     "tracker": "HMD"
+    },
+    "OVERLAY_LARGE_LOG_SETTINGS": {
+     "x_pos": 0.0,
+     "y_pos": 0.0,
+     "z_pos": 0.0,
+     "x_rotation": 0.0,
+     "y_rotation": 0.0,
+     "z_rotation": 0.0,
+     "display_duration": 5,
+     "fadeout_duration": 2,
+     "opacity": 1.0,
+     "ui_scaling": 1.0,
+     "tracker": "LeftHand"
+    },
+    "OVERLAY_DESKTOP_SETTINGS": {
+     "position": "bottom",
+     "font_size": 28,
+     "display_duration": 6,
+     "opacity": 0.6
+    },
+    "IO_FLOW_OVERLAY_SETTINGS": {
+     "desktop": false,
+     "count": 1
+    },
+    "OVERLAY_VR_PANEL_SETTINGS": {
+     "width": 900,
+     "height": 700,
+     "x_pos": 0.5209,
+     "y_pos": 0.6442,
+     "z_pos": -0.9509,
+     "x_rotation": 95.0133,
+     "y_rotation": 44.0232,
+     "z_rotation": 42.6138,
+     "display_duration": 5,
+     "fadeout_duration": 0,
+     "opacity": 1.0,
+     "ui_scaling": 0.4,
+     "tracker": "Playspace"
+    },
+    "OVERLAY_VR_LAUNCHER_SETTINGS": {
+     "x_pos": 0.0641,
+     "y_pos": -0.0416,
+     "z_pos": -0.0063,
+     "x_rotation": 9.3648,
+     "y_rotation": -22.0338,
+     "z_rotation": -17.1646,
+     "display_duration": 5,
+     "fadeout_duration": 0,
+     "opacity": 1.0,
+     "ui_scaling": 0.1984,
+     "tracker": "LeftHand"
+    },
+    "SEND_MESSAGE_FORMAT_PARTS": {
+     "message": {
+      "prefix": "",
+      "suffix": ""
+     },
+     "separator": "\n",
+     "translation": {
+      "prefix": "",
+      "separator": "\n",
+      "suffix": ""
+     },
+     "translation_first": false
+    },
+    "RECEIVED_MESSAGE_FORMAT_PARTS": {
+     "message": {
+      "prefix": "",
+      "suffix": ""
+     },
+     "separator": "\n",
+     "translation": {
+      "prefix": "",
+      "separator": "\n",
+      "suffix": ""
+     },
+     "translation_first": false
+    },
+    "VOICE_SETTINGS": {
+     "mode": "off",
+     "mic_mode": "off",
+     "direct_policy": "suppress",
+     "target_slot": "1",
+     "japanese_server": "external",
+     "japanese_url": "http://127.0.0.1:8080",
+     "japanese_voice": "none",
+     "multilingual_url": "",
+     "multilingual_voice": "ryan",
+     "multilingual_server": "external",
+     "japanese_seed": "",
+     "multilingual_seed": "",
+     "japanese_instructions": "",
+     "multilingual_instructions": "",
+     "output_device": "",
+     "routing": "external",
+     "monitor": "off",
+     "monitor_device": "",
+     "monitor_volume": "100",
+     "conversion": "off",
+     "japanese_engine": "speechcpp",
+     "voicevox_url": "http://127.0.0.1:50021",
+     "coeiroink_url": "http://127.0.0.1:50032",
+     "aivis_url": "http://127.0.0.1:10101",
+     "sharevox_url": "http://127.0.0.1:50025",
+     "engine_voice_id": "",
+     "engine_voice_speaker": "",
+     "engine_voice_style": ""
+    },
+    "DIRECT_VOICE_SETTINGS": {
+     "mode": "passthrough",
+     "runtime": "",
+     "reference": "",
+     "engine": "seed-vc",
+     "rvc_runtime": "",
+     "rvc_model": "",
+     "rvc_index": "",
+     "rvc_pitch": 0,
+     "rvc_index_rate": 0.0
+    },
+    "REALTIME_ASR_SETTINGS": {
+     "version": 1,
+     "server": "external",
+     "start_server": true,
+     "base_url": "http://127.0.0.1:8080",
+     "model": "",
+     "vocabulary": {
+      "builtin": true,
+      "terms": []
+     },
+     "mic": {
+      "language": "ja",
+      "endpoint": null,
+      "follow_default": true
+     },
+     "speaker": {
+      "language": "auto",
+      "endpoint": null,
+      "follow_default": true
+     }
+    },
+    "SPEECH_SERVER_SETTINGS": {
+     "version": 1,
+     "profiles": {
+      "japanese": {
+       "model": "",
+       "vad_model": "",
+       "diarization_model": "",
+       "voice_file": "",
+       "device": "auto",
+       "low_latency": false
+      },
+      "multilingual": {
+       "model": "",
+       "vad_model": "",
+       "diarization_model": "",
+       "voice_file": "",
+       "device": "auto",
+       "low_latency": false
+      },
+      "asr": {
+       "model": "",
+       "vad_model": "",
+       "diarization_model": "",
+       "voice_file": "",
+       "device": "auto",
+       "low_latency": false
+      }
+     }
+    },
+    "WEBSOCKET_SERVER": false,
+    "OSC_IP_ADDRESS": "127.0.0.1",
+    "OSC_PORT": 9000,
+    "AUTO_CLEAR_MESSAGE_BOX": true,
+    "CHECK_SOFTWARE_UPDATES": true,
+    "SEND_ONLY_TRANSLATED_MESSAGES": false,
+    "OVERLAY_SMALL_LOG": false,
+    "OVERLAY_LARGE_LOG": false,
+    "OVERLAY_DESKTOP": false,
+    "OVERLAY_VR_PANEL": false,
+    "OVERLAY_VR_PANEL_LOCKED": false,
+    "OVERLAY_VR_PANEL_FONT_SIZE": 17,
+    "OVERLAY_VR_LAUNCHER_AUTO_HIDE": true,
+    "OVERLAY_VR_TOOLTIP": true,
+    "OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES": false,
+    "SEND_MESSAGE_TO_VRC": true,
+    "SEND_RECEIVED_MESSAGE_TO_VRC": false,
+    "LOGGER_FEATURE": false,
+    "VRC_MIC_MUTE_SYNC": false,
+    "NOTIFICATION_VRC_SFX": true,
+    "WEBSOCKET_HOST": "127.0.0.1",
+    "WEBSOCKET_PORT": 2231,
+    "WEBSOCKET_AUTH_TOKEN": "fixed-websocket-token-for-the-reference",
+    "WEBSOCKET_TLS_CERT_FILE": "",
+    "WEBSOCKET_TLS_KEY_FILE": "",
+    "OBS_BROWSER_SOURCE": false,
+    "OBS_BROWSER_SOURCE_PORT": 2232,
+    "OBS_BROWSER_SOURCE_MAX_MESSAGES": 14,
+    "OBS_BROWSER_SOURCE_DISPLAY_DURATION": 60,
+    "OBS_BROWSER_SOURCE_FADEOUT_DURATION": 12,
+    "OBS_BROWSER_SOURCE_FONT_SIZE": 40,
+    "OBS_BROWSER_SOURCE_FONT_COLOR": "#FFFFFF",
+    "OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS": 3,
+    "OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR": "#000000",
+    "ENABLE_TELEMETRY": true,
+    "TELEMETRY_NOTICE": 0,
+    "AUTO_DOWNLOAD_MODELS": false,
+    "LEGACY_MODEL_DOWNLOAD_CONSENTS": {},
+    "SELECTED_TAB_NO": "1",
+    "SELECTED_TRANSCRIPTION_ENGINE": null,
+    "SELECTED_RELEASE_CHANNEL": "beta",
+    "CTRANSLATE2_WEIGHT_TYPE": "m2m100_418M-ct2-int8",
+    "CTRANSLATE2_LICENSE_NOTICE_SHOWN": false,
+    "LOCAL_ASR_MIGRATION": 2,
+    "LOCAL_ASR_NOTICE_PENDING": false,
+    "SELECTED_PLAMO_MODEL": null,
+    "SELECTED_GEMINI_MODEL": null,
+    "SELECTED_OPENAI_MODEL": null,
+    "SELECTED_GROQ_MODEL": null,
+    "SELECTED_OPENROUTER_MODEL": null,
+    "SELECTED_LMSTUDIO_MODEL": null,
+    "SELECTED_OPENAI_COMPATIBLE_MODEL": null,
+    "SELECTED_OLLAMA_MODEL": null,
+    "SELECTED_GROQ_WHISPER_MODEL": null,
+    "SELECTED_OPENAI_WHISPER_MODEL": null,
+    "SELECTED_CUSTOM_WHISPER_MODEL": null,
+    "SELECTED_DEEPGRAM_MODEL": null,
+    "MIC_WORD_FILTER": [],
+    "SELECTED_TRANSLATION_ENGINES": {
+     "1": "CTranslate2",
+     "2": "CTranslate2",
+     "3": "CTranslate2"
+    },
+    "SELECTED_YOUR_LANGUAGES": {
+     "1": {
+      "1": {
+       "language": "Japanese",
+       "country": "Japan",
+       "enable": true
+      }
+     },
+     "2": {
+      "1": {
+       "language": "Japanese",
+       "country": "Japan",
+       "enable": true
+      }
+     },
+     "3": {
+      "1": {
+       "language": "Japanese",
+       "country": "Japan",
+       "enable": true
+      }
+     }
+    },
+    "SELECTED_TARGET_LANGUAGES": {
+     "1": {
+      "1": {
+       "language": "English",
+       "country": "United States",
+       "enable": true
+      },
+      "2": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      },
+      "3": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      }
+     },
+     "2": {
+      "1": {
+       "language": "English",
+       "country": "United States",
+       "enable": true
+      },
+      "2": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      },
+      "3": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      }
+     },
+     "3": {
+      "1": {
+       "language": "English",
+       "country": "United States",
+       "enable": true
+      },
+      "2": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      },
+      "3": {
+       "language": "English",
+       "country": "United States",
+       "enable": false
+      }
+     }
+    },
+    "SELECTED_TRANSLATION_COMPUTE_TYPE": "auto",
+    "AUTO_MIC_SELECT": true,
+    "AUTO_SPEAKER_SELECT": true,
+    "SELECTED_MIC_HOST": "NoHost",
+    "SELECTED_MIC_DEVICE": "NoDevice",
+    "SELECTED_MIC_DEVICE_ID": "",
+    "SELECTED_SPEAKER_DEVICE_ID": "",
+    "SELECTED_SPEAKER_DEVICE": "NoDevice",
+    "SELECTED_TRANSLATION_COMPUTE_DEVICE": {
+     "device": "cpu",
+     "device_index": 0,
+     "device_name": "cpu",
+     "compute_types": [
+      "auto",
+      "float32",
+      "int8",
+      "int8_float32"
+     ]
+    },
+    "ENABLE_CLIPBOARD": false,
+    "OCR_SOURCE_LANGUAGE": "auto",
+    "OCR_WINDOW_TITLE": "VRChat",
+    "OCR_POLL_INTERVAL_MS": 750,
+    "OCR_MIN_CONFIDENCE": 0.85,
+    "OCR_BUBBLE_MIN_TEXT_LENGTH": 2,
+    "OCR_CAPTURE_REGION": {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 1.0,
+     "height": 1.0
+    },
+    "OCR_VR_CAPTURE_REGION": {
+     "x": 0.0,
+     "y": 0.0,
+     "width": 1.0,
+     "height": 1.0
+    },
+    "OCR_CHATBOX_FILTER": true,
+    "OCR_USE_CHATBOX_DETECTOR": true,
+    "OCR_PORTAL_RESTORE_TOKEN": ""
+   },
+   "lists": {
+    "selectable_transcription_engines": [
+     "Google",
+     "SpeechCpp",
+     "Groq_Whisper",
+     "OpenAI_Whisper",
+     "Custom_Whisper",
+     "Deepgram"
+    ],
+    "selectable_translation_engines": [
+     "DeepL_API",
+     "Google",
+     "Bing",
+     "Papago",
+     "CTranslate2",
+     "Plamo_API",
+     "Gemini_API",
+     "OpenAI_API",
+     "LMStudio",
+     "OpenAI_Compatible",
+     "Ollama",
+     "Groq_API",
+     "OpenRouter_API"
+    ],
+    "selectable_ocr_source_languages": [
+     "auto",
+     "Arabic",
+     "Hindi",
+     "Korean",
+     "Russian",
+     "Thai",
+     "Ukrainian"
+    ],
+    "selectable_ctranslate2_weight_types": [
+     "m2m100_418M-ct2-int8",
+     "m2m100_1.2B-ct2-int8",
+     "nllb-200-distilled-600M-ct2-int8",
+     "nllb-200-distilled-1.3B-ct2-int8",
+     "nllb-200-3.3B-ct2-int8"
+    ]
+   },
+   "cases": {
+    "no_file": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "empty_object": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ui_language_only": {
+     "changed": {
+      "UI_LANGUAGE": "ja"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "retired_ui_language": {
+     "changed": {
+      "TRANSPARENCY": 80
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "not_json": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [
+      "config.json"
+     ],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "json_list": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [
+      "config.json"
+     ],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "not_utf8": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [
+      "config.json"
+     ],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "retired_whisper_engine": {
+     "changed": {
+      "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp",
+      "LOCAL_ASR_NOTICE_PENDING": true
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": true
+    },
+    "retired_whisper_engine_no_step": {
+     "changed": {
+      "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp",
+      "LOCAL_ASR_NOTICE_PENDING": true
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": true
+    },
+    "bundled_realtime_server_step_0": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "bundled",
+       "start_server": true,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "",
+       "vocabulary": {
+        "builtin": true,
+        "terms": []
+       },
+       "mic": {
+        "language": "ja",
+        "endpoint": null,
+        "follow_default": true
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      },
+      "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "bundled_realtime_server_done": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "bundled",
+       "start_server": true,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "",
+       "vocabulary": {
+        "builtin": true,
+        "terms": []
+       },
+       "mic": {
+        "language": "ja",
+        "endpoint": null,
+        "follow_default": true
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      },
+      "SELECTED_TRANSCRIPTION_ENGINE": "Google"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "migration_step_out_of_range": {
+     "changed": {
+      "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp",
+      "LOCAL_ASR_NOTICE_PENDING": true
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": true
+    },
+    "invalid_saved_urls": {
+     "changed": {
+      "LMSTUDIO_URL": "",
+      "OPENAI_COMPATIBLE_URL": ""
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [
+      "LMSTUDIO_URL",
+      "OPENAI_COMPATIBLE_URL",
+      "TRANSCRIPTION_CUSTOM_URL"
+     ],
+     "local_asr_notice_pending": false
+    },
+    "valid_saved_urls": {
+     "changed": {
+      "LMSTUDIO_URL": "http://192.168.1.20:1234/v1",
+      "OPENAI_COMPATIBLE_URL": "https://api.example.com/v1",
+      "TRANSCRIPTION_CUSTOM_URL": "http://localhost:9000/v1"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "old_hotkeys": {
+     "changed": {
+      "HOTKEYS": {
+       "open_quick_chat": null,
+       "toggle_vrct_visibility": [
+        "Ctrl",
+        "F1"
+       ],
+       "toggle_translation": null,
+       "toggle_transcription_send": null,
+       "toggle_transcription_receive": null,
+       "stop_voice": null,
+       "toggle_voice_mute": null,
+       "toggle_tts": null,
+       "toggle_rvc": null
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "hotkeys_unknown_action": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "hotkeys_bad_value": {
+     "changed": {
+      "HOTKEYS": {
+       "open_quick_chat": null,
+       "toggle_vrct_visibility": null,
+       "toggle_translation": null,
+       "toggle_transcription_send": null,
+       "toggle_transcription_receive": null,
+       "stop_voice": [
+        "F4"
+       ],
+       "toggle_voice_mute": null,
+       "toggle_tts": null,
+       "toggle_rvc": null
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "unknown_and_readonly_keys": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "wrong_types": {
+     "changed": {
+      "MESSAGE_BOX_RATIO": 12.5,
+      "SPEAKER_THRESHOLD": 1999,
+      "OSC_IP_ADDRESS": "10.0.0.5"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "numbers_at_bounds": {
+     "changed": {
+      "MIC_MAX_PHRASES": 30,
+      "MIC_AVG_LOGPROB": -2,
+      "MIC_NO_SPEECH_PROB": 1,
+      "TELEMETRY_NOTICE": 1,
+      "OCR_MIN_CONFIDENCE": 0.99,
+      "OCR_BUBBLE_MIN_TEXT_LENGTH": 50
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "asr_timeouts_saved_order": {
+     "changed": {
+      "MIC_RECORD_TIMEOUT": 5,
+      "MIC_PHRASE_TIMEOUT": 8
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "overlay_settings_partial": {
+     "changed": {
+      "OVERLAY_LARGE_LOG_SETTINGS": {
+       "x_pos": 1.0,
+       "y_pos": 2.5,
+       "z_pos": 0.0,
+       "x_rotation": 0.0,
+       "y_rotation": 0.0,
+       "z_rotation": 0.0,
+       "display_duration": 7,
+       "fadeout_duration": 2,
+       "opacity": 1.0,
+       "ui_scaling": 2.0,
+       "tracker": "LeftHand"
+      },
+      "OVERLAY_DESKTOP_SETTINGS": {
+       "position": "top",
+       "font_size": 28,
+       "display_duration": 10,
+       "opacity": 0.3
+      },
+      "OVERLAY_VR_PANEL_SETTINGS": {
+       "width": 1000,
+       "height": 700,
+       "x_pos": 1.0,
+       "y_pos": 0.6442,
+       "z_pos": -0.9509,
+       "x_rotation": 95.0133,
+       "y_rotation": 44.0232,
+       "z_rotation": 42.6138,
+       "display_duration": 5,
+       "fadeout_duration": 0,
+       "opacity": 1.0,
+       "ui_scaling": 0.4,
+       "tracker": "Playspace"
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "languages_damaged": {
+     "changed": {
+      "SELECTED_TAB_NO": "2",
+      "SELECTED_TRANSLATION_ENGINES": {
+       "1": "DeepL_API",
+       "2": "CTranslate2",
+       "3": "CTranslate2"
+      },
+      "SELECTED_YOUR_LANGUAGES": {
+       "1": {
+        "1": {
+         "language": "English",
+         "country": "United States",
+         "enable": true
+        }
+       },
+       "2": {
+        "1": {
+         "language": "Japanese",
+         "country": "Japan",
+         "enable": true
+        }
+       },
+       "3": {
+        "1": {
+         "language": "Japanese",
+         "country": "Japan",
+         "enable": true
+        }
+       }
+      },
+      "SELECTED_TARGET_LANGUAGES": {
+       "1": {
+        "1": {
+         "language": "French",
+         "country": "France",
+         "enable": true
+        },
+        "2": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        },
+        "3": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        }
+       },
+       "2": {
+        "1": {
+         "language": "English",
+         "country": "United States",
+         "enable": true
+        },
+        "2": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        },
+        "3": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        }
+       },
+       "3": {
+        "1": {
+         "language": "English",
+         "country": "United States",
+         "enable": true
+        },
+        "2": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        },
+        "3": {
+         "language": "English",
+         "country": "United States",
+         "enable": false
+        }
+       }
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "compute_type_before_device": {
+     "changed": {
+      "SELECTED_TRANSLATION_COMPUTE_TYPE": "int8"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "compute_device_unknown": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "websocket_and_obs": {
+     "changed": {
+      "OBS_BROWSER_SOURCE_PORT": 8080,
+      "OBS_BROWSER_SOURCE_MAX_MESSAGES": 30,
+      "OBS_BROWSER_SOURCE_FONT_COLOR": "red"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "websocket_token_kept": {
+     "changed": {
+      "WEBSOCKET_HOST": "192.168.1.2",
+      "WEBSOCKET_AUTH_TOKEN": "a-token-saved-by-an-older-version"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "auth_keys": {
+     "changed": {
+      "AUTH_KEYS": {
+       "DeepL_API": "abc:fx",
+       "Plamo_API": null,
+       "Gemini_API": null,
+       "OpenAI_API": null,
+       "OpenAI_Compatible": null,
+       "Groq_API": null,
+       "OpenRouter_API": null
+      },
+      "TRANSCRIPTION_AUTH_KEYS": {
+       "Groq_Whisper": null,
+       "OpenAI_Whisper": null,
+       "Custom_Whisper": null,
+       "Deepgram": "dg"
+      },
+      "SELECTED_GEMINI_MODEL": "gemini-x"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ctranslate2_weights": {
+     "changed": {
+      "CTRANSLATE2_WEIGHT_TYPE": "nllb-200-distilled-600M-ct2-int8"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ctranslate2_unknown_weight": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "message_formats": {
+     "changed": {
+      "SEND_MESSAGE_FORMAT_PARTS": {
+       "message": {
+        "prefix": "[",
+        "suffix": "]"
+       },
+       "separator": " ",
+       "translation": {
+        "prefix": "(",
+        "separator": "/",
+        "suffix": ")"
+       },
+       "translation_first": true
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "word_filter": {
+     "changed": {
+      "MIC_WORD_FILTER": [
+       "a",
+       "b",
+       "c"
+      ]
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ocr_regions": {
+     "changed": {
+      "OCR_CAPTURE_REGION": {
+       "x": 0.1,
+       "y": 0.2,
+       "width": 0.5,
+       "height": 0.5
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "ocr_region_out_of_window": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "voice_settings_old": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "voice_settings_invalid": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "realtime_settings_full": {
+     "changed": {
+      "REALTIME_ASR_SETTINGS": {
+       "version": 1,
+       "server": "external",
+       "start_server": false,
+       "base_url": "http://127.0.0.1:8080",
+       "model": "qwen3-asr",
+       "vocabulary": {
+        "builtin": false,
+        "terms": [
+         "VRChat=ぶいあーるちゃっと",
+         "Avatar Name"
+        ]
+       },
+       "mic": {
+        "language": "en",
+        "endpoint": null,
+        "follow_default": false
+       },
+       "speaker": {
+        "language": "auto",
+        "endpoint": null,
+        "follow_default": true
+       }
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "rvc_settings": {
+     "changed": {
+      "DIRECT_VOICE_SETTINGS": {
+       "mode": "converted",
+       "runtime": "",
+       "reference": "",
+       "engine": "rvc",
+       "rvc_runtime": "",
+       "rvc_model": "a.pth",
+       "rvc_index": "",
+       "rvc_pitch": 3,
+       "rvc_index_rate": 0.5
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "telemetry_old": {
+     "changed": {
+      "ENABLE_TELEMETRY": false
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "release_channel": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "legacy_consents": {
+     "changed": {
+      "AUTO_DOWNLOAD_MODELS": true,
+      "LEGACY_MODEL_DOWNLOAD_CONSENTS": {
+       "ctranslate2:m2m100_418M-ct2-int8": "sha"
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "legacy_consents_bad": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "devices_saved": {
+     "changed": {
+      "AUTO_MIC_SELECT": false,
+      "SELECTED_MIC_HOST": "Windows WASAPI",
+      "SELECTED_MIC_DEVICE": "Mic (USB)",
+      "SELECTED_MIC_DEVICE_ID": "{0.0.1}",
+      "SELECTED_SPEAKER_DEVICE": "Speakers"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "main_window_geometry": {
+     "changed": {
+      "MAIN_WINDOW_GEOMETRY": {
+       "x_pos": 10,
+       "y_pos": 0,
+       "width": 900,
+       "height": 654
+      }
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "main_window_geometry_bad": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "selected_models": {
+     "changed": {
+      "SELECTED_PLAMO_MODEL": "plamo-2.0-prime"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "unicode_values": {
+     "changed": {
+      "FONT_FAMILY": "游ゴシック 😀",
+      "OCR_WINDOW_TITLE": "VRChat é"
+     },
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    },
+    "round_trip_of_no_file": {
+     "changed": {},
+     "missing": [],
+     "order_kept": true,
+     "unreadable_backup": [],
+     "invalid_saved_api_urls": [],
+     "local_asr_notice_pending": false
+    }
+   }
+  }
+ }
+}

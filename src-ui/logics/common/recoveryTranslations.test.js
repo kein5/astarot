@@ -59,6 +59,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
         "@useI18n": translations, "@store": b.stores, "@utils": {},
         "@tauri-apps/api/core": {}, "@tauri-apps/plugin-shell": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
         "../../../logics/common/sidecarSession.js": {},
+        "../../../logics/common/backendCommand.js": {},
         "../../../logics/common/startupPhase.js": { describeStartupFailure: detail => detail },
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady,
             useNotificationStatus: () => ({ showNotification_Error: text => notices.push(text) }) },

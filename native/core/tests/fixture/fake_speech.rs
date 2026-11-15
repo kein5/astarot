@@ -1,0 +1,99 @@
+//! Stands in for the speech.cpp executable in tests/speech_servers.rs. No model, GPU or audio.
+//!
+//! `fake-speech-core devices` lists one GPU. `fake-speech-core serve MODEL ...` serves the
+//! readiness the owner checks; the stem of MODEL's file name picks what it does:
+//!
+//! - `asr...` serves recognition and detection, anything else synthesis;
+//! - `...crash...` exits at once with an error;
+//! - `...gate...` prints its ready line only once `MODEL.go` exists;
+//! - `...die...` exits with an error once `MODEL.die` exists.
+//!
+//! Each `serve` leaves `MODEL.started` with its process id, so a test can tell that a server
+//! was launched and whether it is gone.
+
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+fn respond(stream: &mut TcpStream, status: &str, body: &[u8]) {
+    let head = format!(
+        "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    let _ = stream.write_all(head.as_bytes());
+    let _ = stream.write_all(body);
+}
+
+fn handle(mut stream: TcpStream, asr: bool) {
+    let mut request = Vec::new();
+    let mut block = [0u8; 8192];
+    while !request.windows(4).any(|four| four == b"\r\n\r\n") {
+        match stream.read(&mut block) {
+            Ok(0) | Err(_) => return,
+            Ok(read) => request.extend_from_slice(&block[..read]),
+        }
+    }
+    let line = String::from_utf8_lossy(&request).lines().next().unwrap_or("").to_owned();
+    if line.starts_with("GET /health ") {
+        return respond(&mut stream, "200 OK", br#"{"status":"ok"}"#);
+    }
+    if line.starts_with("GET /v1/models ") {
+        // On the CPU: the owner warms up only a GPU model, so readiness comes at once.
+        let tasks: &[&str] = if asr { &["recognition", "detection"] } else { &["synthesis"] };
+        let rows: Vec<String> = tasks
+            .iter()
+            .map(|task| format!(r#"{{"id":"{task}","speech":{{"task":"{task}","architecture":"other","device":"CPU"}}}}"#))
+            .collect();
+        return respond(&mut stream, "200 OK", format!(r#"{{"data":[{}]}}"#, rows.join(",")).as_bytes());
+    }
+    respond(&mut stream, "404 Not Found", b"{}");
+}
+
+fn marker(model: &Path, suffix: &str) -> PathBuf {
+    let mut name = model.as_os_str().to_owned();
+    name.push(suffix);
+    PathBuf::from(name)
+}
+
+fn wait_for(path: &Path) {
+    while !path.exists() {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    match args.get(1).map(String::as_str) {
+        Some("devices") => {
+            println!("Vulkan0    gpu   Fake GPU, 8.0 GB, 7.5 GB free");
+            println!("CPU        cpu   Fake CPU, 16.0 GB, 8.0 GB free");
+            return;
+        }
+        Some("serve") => {}
+        _ => std::process::exit(2),
+    }
+    let model = PathBuf::from(args.get(2).cloned().unwrap_or_default());
+    let stem = model.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default();
+    let _ = std::fs::write(marker(&model, ".started"), std::process::id().to_string());
+    if stem.contains("crash") {
+        std::process::exit(1);
+    }
+    if stem.contains("gate") {
+        wait_for(&marker(&model, ".go"));
+    }
+    if stem.contains("die") {
+        let trigger = marker(&model, ".die");
+        std::thread::spawn(move || {
+            wait_for(&trigger);
+            std::process::exit(1);
+        });
+    }
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+    let port = listener.local_addr().expect("address").port();
+    eprintln!("    API at http://127.0.0.1:{port}/v1; Ctrl-C stops the server");
+    let asr = stem.starts_with("asr");
+    for stream in listener.incoming().flatten() {
+        std::thread::spawn(move || handle(stream, asr));
+    }
+}

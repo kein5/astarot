@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { test } from "node:test";
 import { createSidecarSessionOwner } from "./sidecarSession.js";
+import { createSelectedBackendCommand } from "./backendCommand.js";
 import * as startupPhase from "./startupPhase.js";
 import { expectBackendExit } from "./sidecarExitExpectation.js";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
@@ -246,6 +247,7 @@ test("production controller publishes startup failure and the failure dialog say
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => ({ receiveRoutes: () => {}, backendStopped: () => {} }) },
         "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
+        "../../../logics/common/backendCommand.js": { createSelectedBackendCommand },
         "../../../logics/common/startupPhase.js": startupPhase,
     });
     b.runtime.render(module.StartPythonController);
@@ -296,6 +298,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => b },
         "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
+        "../../../logics/common/backendCommand.js": { createSelectedBackendCommand },
         "../../../logics/common/startupPhase.js": startupPhase,
     });
     b.runtime.render(controller.StartPythonController);
