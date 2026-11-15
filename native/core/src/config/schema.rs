@@ -551,6 +551,8 @@ pub fn keys() -> Vec<Key> {
         key("OSC_IP_ADDRESS", plain(Ty::Str)),
         key("OSC_PORT", managed(Ty::Int, false, |v, _| is_valid_port(v))),
         key("AUTO_CLEAR_MESSAGE_BOX", b()),
+        // Whether the app looks for a new version at start (#343; the UI reads it).
+        key("CHECK_SOFTWARE_UPDATES", b()),
         key("SEND_ONLY_TRANSLATED_MESSAGES", b()),
         key("OVERLAY_SMALL_LOG", b()),
         key("OVERLAY_LARGE_LOG", b()),
@@ -780,6 +782,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("OSC_IP_ADDRESS", json!("127.0.0.1")),
         ("OSC_PORT", json!(9000)),
         ("AUTO_CLEAR_MESSAGE_BOX", json!(true)),
+        ("CHECK_SOFTWARE_UPDATES", json!(true)),
         ("SEND_ONLY_TRANSLATED_MESSAGES", json!(false)),
         ("OVERLAY_SMALL_LOG", json!(false)),
         ("OVERLAY_LARGE_LOG", json!(false)),
