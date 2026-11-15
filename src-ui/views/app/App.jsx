@@ -57,7 +57,7 @@ export const App = () => {
                 <QuickChatController />
                 <CaptionOverlayController />
                 <IoFlowController />
-                <UiLanguageController />
+                <UiLanguageController waitForEngine />
                 <ConfigPageCloseTriggerController />
                 <UiSizeController />
                 <FontFamilyController />

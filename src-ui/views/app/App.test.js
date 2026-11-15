@@ -52,5 +52,6 @@ test("from the first frame the main page and title bar are drawn, locked until t
             parts.TranslationSetupController, parts.OcrSetupController, parts.TelemetryNoticeController,
             parts.LocalAsrNoticeController, parts.SwitchBlocksController]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
         assert.equal(find(inner, node => node.type === parts.WindowGeometryController).props.saveGeometry, !locked);
+        assert.equal(find(tree, node => node.type === parts.UiLanguageController).props.waitForEngine, true);
     }
 });

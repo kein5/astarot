@@ -14,11 +14,19 @@ const resources = {
     ja: { translation: translation_ja },
 };
 
+// The saved display language arrives with the engine's settings. Until then the
+// main page is drawn in the system's language when it is one of ours, so that
+// for most people the text does not change (and move) when the settings arrive.
+const systemLanguage = () => {
+    const language = typeof navigator !== "undefined" ? String(navigator.language || "") : "";
+    return /^ja(-|$)/i.test(language) ? "ja" : "en";
+};
+
 i18n
     .use(initReactI18next) // passes i18n down to react-i18next
     .init({
         resources,
-        lng: "en",
+        lng: systemLanguage(),
         fallbackLng: "en",
         // debug: true,
         interpolation: {
