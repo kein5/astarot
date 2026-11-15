@@ -290,6 +290,27 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 | ファイル | `silero_encoder_v5.onnx` 713,415 bytes、`silero_decoder_v5.onnx` 532,505 bytes。SHA-256は[通知](../../licenses/silero-vad/NOTICE.md)にあり、読み込むたびに照合する |
 | 置き場所 | リポジトリは`src-python/models/transcription/silero_vad/`、配布物は`_internal/models/transcription/silero_vad/`。ライセンス文と通知は`licenses/silero-vad/` |
 
+## speech.cppの読み上げモデルの追加（2026-11-16）
+
+speech.cppの読み上げで選べるモデルを増やした。どれも配布物には含めない。利用者が同意画面でライセンスとサイズを確認してから、Hugging Faceの固定revisionからこのPCへ取得する。取得するファイルは、speech.cpp 0.10.0がそのモデル名で取得するもの（`speech models --json`の既定の型）と同じで、サイズとSHA-256もそれと一致させた。
+
+| speech.cppの名前 | カタログのID | 取得元とrevision | ファイル | ライセンス | 扱い |
+|---|---|---|---|---|---|
+| `irodori-tts-mf` | `irodori-v41-f16`、`irodori-v41-q8` | 既存 | 既存 | MIT + Apache-2.0 | 変更なし |
+| `qwen3-tts-0.6b` | `qwen3-06b-q8`、`qwen3-06b-q5` | 既存 | 既存 | Apache-2.0 | 変更なし |
+| `irodori-tts` | `irodori-v41-small-f16` | [sakasegawa/Irodori-TTS-v4.1-Small-GGUF](https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/tree/66fe2cde1973fd44e7202fbe36df722103958188) @ `66fe2cde1973fd44e7202fbe36df722103958188` | `Irodori-TTS-859M-v4.1-F16.gguf`、1,905,903,936 bytes、SHA-256 `f334932bdf166579bada0a3c8bdabb7199af85682fdcefb6f1cb7e444f5c75b3` | MIT（モデル、codec）+ Apache-2.0（codecの基盤） | 追加 |
+| `irodori-tts-large` | `irodori-v4-large-q8` | [sakasegawa/Irodori-TTS-v4-Large-GGUF](https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/tree/79cae5947a97e941c62912749e1387c8b35ec16b) @ `79cae5947a97e941c62912749e1387c8b35ec16b` | `Irodori-TTS-3.4B-v4-Q8_0.gguf`、3,875,154,272 bytes、SHA-256 `836a2deda5115e4400d25674612ff30d704a358d0b16cf96a3eb510dc416bc4e` | Gemma Terms of Use（禁止用途のポリシーを含む）+ MIT + Apache-2.0 | 追加。既定にしない |
+| `qwen3-tts-1.7b` | `qwen3-17b-q8` | [sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF](https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/tree/a72e6c6575d67652488cdffc1c863215a9899978) @ `a72e6c6575d67652488cdffc1c863215a9899978` | `Qwen3-TTS-12Hz-1.7B-CustomVoice-Q8_0.gguf`、2,287,780,352 bytes、SHA-256 `1bc0ef69547c003507b6536639a6080c8856382f4d0963b15d4475528330592d` | Apache-2.0 | 追加 |
+| `drama-3` | なし | [sakasegawa/drama-3-GGUF](https://huggingface.co/sakasegawa/drama-3-GGUF/tree/9a01354d04ab6eb521bc9cdfc56ab6824c474af2) @ `9a01354d04ab6eb521bc9cdfc56ab6824c474af2` | 既定の`Drama-35B-A3B-v3-Q4_K.gguf`で20,787,264,352 bytes | Fish Audio Community License 1.0 | 対象外 |
+
+どのリポジトリも取得にログインは要らない（2026-11-16にHugging FaceのAPIで`gated: false`を確認）。
+
+**Irodori-TTS v4 Large**：文章と説明を読むエンコーダーがGoogleの`google/t5gemma-2-1b-1b`に由来するので、モデルとGGUFはGemma Terms of Useに従って配布されている。2026-11-16にリポジトリ内の`GEMMA_TERMS_OF_USE.md`と`NOTICE`を確認した。この規約は利用を商用と非商用で分けておらず、再配布も認める。再配布するときは、規約の写しを渡し、禁止用途の制限を受け手にも拘束力のある条件として課し、変更したファイルにその旨を示し、`NOTICE`の表示を添える条件がある（3.1節）。Googleは規約違反と考える利用を制限できる（3.2節）。VRCT-VOXはファイルを再配布せず、利用者が提供元から直接取得するので、再配布の条件は当てはまらない。ただし禁止用途のポリシーは利用者の使い方に及ぶ。そこで同意画面に、Gemmaの規約と禁止用途のポリシーに従うことを書き、`GEMMA_TERMS_OF_USE.md`、`GEMMA_PROHIBITED_USE_POLICY.md`、`LICENSE-MIT`、`LICENSE-APACHE-2.0`へのリンクを個別に示す。OSIのライセンスではないので既定にはせず、一覧の最後に置いた。モデルカードには、無断の声の模倣やなりすまし、誤情報の生成の禁止も書かれている。公式の実行環境は聞こえない透かし（SilentCipher）を入れるが、speech.cppは入れない、とモデルカードにある。
+
+**drama-3を対象外にした理由**：Fish Audio Community License 1.0（2026-10-13版）を2026-11-16に読んだ。研究と非商用の利用は無料だが、商用の利用は年間売上が50万米ドル未満の間だけ認められる。さらに、音声合成を第三者に使わせる場合は、規約と同等以上の制限を拘束力のある条件で相手に課す義務があり、製品や説明に「Built with Fish Audio」を目立つように示す義務もある。VRCT-VOXが取得を案内すると、この義務を誰が負うのかを判断する必要がある。その判断は独断でしない。既定の型でも20.79 GB、上流の測定でGPUメモリを約21 GiB使い、VRChatと並べて動かす前提にも合わない。条件を確認したうえで載せるかどうかは、保守担当者が決める。
+
+同意画面で、Hugging Face上のライセンスファイルへのリンクをファイル名で示すようにした。1つのモデルに複数の条件があっても、どれがどの文書か区別できる。
+
 ## 話者分離モデル（2026-11-13）
 
 ゲーム音声の字幕で話者を区別するために、取得できるモデルへNemotron 3 Diarization（Q8_0）を足した。配布物には含めない。利用者が同意画面で確認してから、Hugging Faceの固定revisionからこのPCへ取得する。
