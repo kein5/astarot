@@ -5,6 +5,7 @@ import { flush } from "../../../logics/test/bridgeHarness.js";
 import * as lines from "../../../logics/captionOverlay/lines.js";
 import * as ioFlow from "../../../logics/flow/ioFlow.js";
 import * as flowText from "../../../logics/flow/flowText.js";
+import * as adjust from "../../../logics/captionOverlay/adjust.js";
 
 const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
 
@@ -17,13 +18,21 @@ async function setup(context, { supported = true } = {}) {
     const runtime = hooks(), calls = [];
     const state = { ready: true, enabled: false, rows: [], onlyTranslated: false,
         settings: { position: "bottom", font_size: 28, display_duration: 6, opacity: 0.6 },
+        placement: { x: null, y: null },
         flow: { desktop: false, count: 1 }, traces: [], map: null };
     const invoke = async (command, args) => {
         calls.push([command, args]);
         return command === "caption_overlay_supported" ? supported : undefined;
     };
+    const listeners = new Map(), saved = [];
+    const listen = async (name, callback) => {
+        listeners.set(name, callback);
+        return () => listeners.delete(name);
+    };
     const { CaptionOverlayController } = await loadModule(new URL("./CaptionOverlayController.jsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke },
+        "@tauri-apps/api/event": { listen },
+        "../../../logics/captionOverlay/adjust": adjust,
         "@store": { useStore_MessageLogs: () => ({ currentMessageLogs: { data: state.rows } }) },
         "@useI18n": { useI18n: () => ({ t }) },
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }) },
@@ -34,6 +43,9 @@ async function setup(context, { supported = true } = {}) {
                 currentOverlayDesktopSettings: { data: state.settings },
                 currentOverlayShowOnlyTranslatedMessages: { data: state.onlyTranslated },
                 currentIoFlowOverlaySettings: { data: state.flow },
+                currentOverlayDesktopPlacement: { data: state.placement },
+                setOverlayDesktopSettings: value => saved.push(["settings", value]),
+                setOverlayDesktopPlacement: value => saved.push(["placement", value]),
             }),
         },
         "../../../logics/captionOverlay/lines": lines,
@@ -47,23 +59,23 @@ async function setup(context, { supported = true } = {}) {
     };
     await render();
     context.after(() => runtime.unmount());
-    return { state, calls, render, tick: ms => context.mock.timers.tick(ms),
+    return { state, calls, render, listeners, saved, runtime, tick: ms => context.mock.timers.tick(ms),
         of: name => calls.filter(([command]) => command === name).map(([, args]) => args) };
 }
 
 test("the window opens only while the setting is on, and closes when it is turned off", async context => {
     const s = await setup(context);
-    assert.deepEqual(s.of("caption_overlay_set"), [{ open: false, position: "bottom" }]);
+    assert.deepEqual(s.of("caption_overlay_set"), [{ open: false, position: "bottom", placement: null }]);
     assert.deepEqual(s.of("caption_overlay_update"), []);
     s.state.enabled = true;
     await s.render();
-    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "bottom" });
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "bottom", placement: null });
     s.state.settings = { ...s.state.settings, position: "top" };
     await s.render();
-    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "top" });
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "top", placement: null });
     s.state.enabled = false;
     await s.render();
-    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: false, position: "top" });
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: false, position: "top", placement: null });
 });
 
 test("the backend not being ready keeps the window closed", async context => {
@@ -115,7 +127,7 @@ test("the flow strip opens the window without captions, and lists the newest inp
     s.state.map = { conversion_round_trip_ms: 31 };
     s.state.flow = { desktop: true, count: 1 };
     await s.render();
-    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "bottom" });
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "bottom", placement: null });
     let snapshot = s.of("caption_overlay_update").at(-1).snapshot;
     assert.deepEqual(snapshot.lines, [], "captions stay off");
     assert.deepEqual(snapshot.flow.map(item => [item.id, item.input, item.rows[0].value]), [["b", "chat", "120 ms"]]);
@@ -130,4 +142,48 @@ test("the flow strip opens the window without captions, and lists the newest inp
     await s.render();
     snapshot = s.of("caption_overlay_update").at(-1).snapshot;
     assert.equal("flow" in snapshot, false);
+});
+
+
+test("a saved place goes to the window; a drag that ends is saved, and a malformed one is not", async context => {
+    const s = await setup(context);
+    s.state.enabled = true;
+    s.state.placement = { x: -1700, y: 640 };
+    await s.render();
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "bottom", placement: { x: -1700, y: 640 } });
+    s.listeners.get("caption-overlay-moved")({ payload: { x: 300, y: 200 } });
+    s.listeners.get("caption-overlay-moved")({ payload: { x: 1.5, y: 200 } });
+    s.listeners.get("caption-overlay-moved")({ payload: null });
+    assert.deepEqual(s.saved, [["placement", { x: 300, y: 200 }]]);
+});
+
+test("Ctrl and + or - step the size within the slider's range, and quick presses each count", async context => {
+    const s = await setup(context);
+    const step = change => s.listeners.get("caption-overlay-font-step")({ payload: change });
+    step(1); step(1);
+    // The backend has not answered yet: the second press starts from the first one's size.
+    assert.deepEqual(s.saved.map(([, value]) => value.font_size), [30, 32]);
+    // The first answer arrives: the next press still starts from the second request.
+    s.state.settings = { ...s.state.settings, font_size: 30 };
+    await s.render();
+    step(1);
+    assert.equal(s.saved.at(-1)[1].font_size, 34);
+    s.state.settings = { ...s.state.settings, font_size: 34 };
+    await s.render();
+    step(-1);
+    assert.deepEqual(s.saved.at(-1), ["settings", { position: "bottom", font_size: 32, display_duration: 6, opacity: 0.6 }]);
+    // At either end nothing more is sent, and a payload that is not a step is ignored.
+    s.saved.length = 0;
+    s.state.settings = { ...s.state.settings, font_size: 72 };
+    await s.render();
+    step(1); step(2); step("1");
+    assert.deepEqual(s.saved, []);
+});
+
+test("the listeners go when the controller does", async context => {
+    const s = await setup(context);
+    assert.deepEqual([...s.listeners.keys()].sort(), ["caption-overlay-font-step", "caption-overlay-moved"]);
+    s.runtime.unmount();
+    await flush();
+    assert.equal(s.listeners.size, 0);
 });

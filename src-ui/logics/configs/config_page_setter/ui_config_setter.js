@@ -930,6 +930,16 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "overlay_desktop_settings",
     },
     {
+        // Where the caption window was dragged with Ctrl held; x and y are null on the band
+        // the "position" setting picks.
+        Category: "Vr",
+        Base_Name: "OverlayDesktopPlacement",
+        default_value: ui_configs.overlay_desktop_default_placement,
+        ui_template_id: "object",
+        logics_template_id: "get_set",
+        base_endpoint_name: "overlay_desktop_placement",
+    },
+    {
         // The flow overlay: the desktop strip on or off, and how many recent inputs it and the
         // VR window list (1 by default, up to 3).
         Category: "Vr",
