@@ -301,9 +301,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/auto_clear_message_box` | 取得 | `getAutoClearMessageBox` | 可 | useOthers.updateFromBackendEnableAutoClearMessageInputBox |  |
 | `/set/enable/auto_clear_message_box` | 有効化 | `setEnableAutoClearMessageBox` | 可 | useOthers.setSuccessEnableAutoClearMessageInputBox |  |
 | `/set/disable/auto_clear_message_box` | 無効化 | `setDisableAutoClearMessageBox` | 可 | useOthers.setSuccessEnableAutoClearMessageInputBox |  |
-| `/get/data/check_software_updates` | 取得 | `getCheckSoftwareUpdates` | 可 | — |  |
-| `/set/enable/check_software_updates` | 有効化 | `setEnableCheckSoftwareUpdates` | 可 | — |  |
-| `/set/disable/check_software_updates` | 無効化 | `setDisableCheckSoftwareUpdates` | 可 | — |  |
+| `/get/data/check_software_updates` | 取得 | `getCheckSoftwareUpdates` | 可 | useOthers.updateFromBackendEnableCheckSoftwareUpdates |  |
+| `/set/enable/check_software_updates` | 有効化 | `setEnableCheckSoftwareUpdates` | 可 | useOthers.setSuccessEnableCheckSoftwareUpdates |  |
+| `/set/disable/check_software_updates` | 無効化 | `setDisableCheckSoftwareUpdates` | 可 | useOthers.setSuccessEnableCheckSoftwareUpdates |  |
 | `/get/data/send_only_translated_messages` | 取得 | `getSendOnlyTranslatedMessages` | 可 | useOthers.updateFromBackendEnableSendOnlyTranslatedMessages |  |
 | `/set/enable/send_only_translated_messages` | 有効化 | `setEnableSendOnlyTranslatedMessages` | 可 | useOthers.setSuccessEnableSendOnlyTranslatedMessages |  |
 | `/set/disable/send_only_translated_messages` | 無効化 | `setDisableSendOnlyTranslatedMessages` | 可 | useOthers.setSuccessEnableSendOnlyTranslatedMessages |  |
@@ -528,11 +528,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（18件）
+## UIに受信先がないエンドポイント（15件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
-- `/get/data/check_software_updates`
 - `/run/ctranslate2_license_notice`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
@@ -548,11 +547,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/initialization_complete`
 - `/run/message_output_error`
 - `/run/translation_language_unsupported`
-- `/set/disable/check_software_updates`
-- `/set/enable/check_software_updates`
 
 
-## UIだけにあるルート（57件）
+## UIだけにあるルート（58件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
 
@@ -565,6 +562,7 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/auto_download_models`
 - `/set/data/auto_mic_select`
 - `/set/data/auto_speaker_select`
+- `/set/data/check_software_updates`
 - `/set/data/clipboard`
 - `/set/data/convert_message_to_hiragana`
 - `/set/data/convert_message_to_romaji`

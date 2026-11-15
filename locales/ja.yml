@@ -1302,8 +1302,39 @@ speech_servers:
         speech_server_cleanup_unconfirmed: "前回のサーバーの停止を確認できません。VRCT-VOXを再起動してください。"
         speech_server_notification_failed: "サーバーの停止をアプリに伝えられませんでした。VRCT-VOXを再起動してください。"
 
+app_update:
+    beta_channel: "（ベータ版）"
+    check: "更新を確認"
+    install: "{{version}}に更新して再起動"
+    release_page: "{{version}}のリリースノート"
+    check_at_start: "起動時に更新を確認する"
+    check_at_start_desc: "起動のたびにGitHubのリリースに新しい版を問い合わせます。送るのは通常のダウンロードと同じ情報で、会話や音声は送りません。"
+    status:
+        checking: "更新を確認しています…"
+        up_to_date: "最新の版です。"
+        available: "新しい版{{version}}があります。"
+        downloading: "更新をダウンロードしています…"
+        downloading_percent: "更新をダウンロードしています…{{percent}}%"
+        installing: "更新を入れています。終わるとVRCT-VOXが再起動します。"
+    policy:
+        install: "新しい版はGitHubのリリースから取得し、署名を確かめてから入れます。更新するとVRCT-VOXは再起動します。設定とダウンロードしたモデルはそのまま残ります。"
+        windows_portable: "ZIP版はアプリ内では更新できません。新しい版はリリースのページから入手してください。インストーラー版なら、アプリ内で更新できます。"
+        linux_archive: "tar.gz版はアプリ内では更新できません。新しい版はリリースのページから入手してください。AppImage版なら、アプリ内で更新できます。"
+        appimage_read_only: "このAppImageは書き込めない場所にあるため、アプリ内では更新できません。AppImageを置いた方法（パッケージなど）で更新してください。"
+        package_manager: "パッケージマネージャー（deb・rpm）で入れたVRCT-VOXです。更新もパッケージマネージャーで行います。アプリは更新を確認しません。"
+        disabled: "この版では、アプリ内の更新を使いません。"
+    errors:
+        update_check_failed: "更新を確認できませんでした。ネットワークの接続を確かめて、あとでもう一度確認してください。"
+        update_metadata_missing: "リリースのページに、この版向けの更新の情報がまだありません。"
+        update_download_failed: "更新をダウンロードできませんでした。今の版はそのまま使えます。"
+        update_signature_invalid: "ダウンロードした更新の署名を確かめられなかったため、入れませんでした。今の版はそのまま使えます。"
+        update_install_failed: "更新を入れられませんでした。今の版はそのまま使えます。"
+        update_not_checked: "先に更新を確認してください。"
+        update_busy: "更新の確認かダウンロードが進んでいます。終わるまでお待ちください。"
+        update_unsupported: "このVRCT-VOXはアプリ内では更新できません。"
+        update_forbidden: "このVRCT-VOXはアプリ内では更新できません。"
+
 fork_distribution:
-    update_policy: "アプリ内更新は無効です。VRCT-VOXを導入した配布元から更新してください。"
     releases: "VRCT-VOXの配布ページ"
 
 # A place in a settings form to drop files from the desktop (FileDropZone).

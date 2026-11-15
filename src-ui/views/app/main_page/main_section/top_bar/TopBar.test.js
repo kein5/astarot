@@ -21,7 +21,6 @@ async function menu(context, values = {}) {
         "@useI18n": { useI18n: () => ({ t }) },
         "@store": { useStore_OpenedQuickSetting: () => ({ updateOpenedQuickSetting: value => calls.push(["open", value]) }) },
         "@logics_common": {
-            useSoftwareVersion: () => ({ currentLatestSoftwareVersionInfo: { data: { is_update_available: false } } }),
             useIsOscAvailable: () => ({ currentIsOscAvailable: { data: state.osc }, oscUnavailableLabelKey: "why_unavailable" }),
         },
         "@logics_configs": {
@@ -32,6 +31,7 @@ async function menu(context, values = {}) {
         "@logics_main": { useMainFunction: () => ({ currentForegroundStatus: { data: state.foreground, state: state.pending ? "pending" : "ok" },
             toggleForeground: () => calls.push(["foreground"]) }) },
         "./_buttons/OpenQuickSettingButton": button,
+        "../../../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate: { status: state.update ?? "idle" } }) },
         "../../../../others/vrchat_presence/VrchatPresence": { VrchatPresence: "vrchat-presence" },
         "@ui_configs": { generateLocalizedDocumentUrl: () => ({ vrct_document_ui_guide_url: "https://example.invalid/guide" }) },
         "../../../../../../logics/flow/useIoFlow": { useIoFlow: () => ({ isPanelOpen: state.flow,
