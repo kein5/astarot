@@ -275,7 +275,9 @@ fn a_server_that_ends_on_its_own_shows_its_failure_and_is_reported() {
     assert_eq!(start(&ui, "japanese", &json!(0))["status"], 200);
     wait_state(&ui, "ready server", |s| s["japanese"]["state"] == "ready");
     models.trigger("tts_die", ".die");
-    let failed = wait_state(&ui, "failed server", |s| s["japanese"]["state"] == "failed");
+    // The server shows failed first and the end advances the generation just after; a poll
+    // in between sees the old generation, so wait for both.
+    let failed = wait_state(&ui, "failed server", |s| s["japanese"]["state"] == "failed" && s["japanese"]["generation"] == 2);
     assert_eq!(failed["japanese"], json!({ "state": "failed", "base_url": null, "error_code": "speech_server_exited", "generation": 2 }));
     let deadline = Instant::now() + common::TIMEOUT;
     while ends.lock().unwrap().is_empty() {
@@ -287,7 +289,14 @@ fn a_server_that_ends_on_its_own_shows_its_failure_and_is_reported() {
 
     // A server that cannot start fails the same way; a failed one can be started again.
     assert_eq!(start(&ui, "asr", &json!(0))["status"], 200);
-    let failed = wait_state(&ui, "failed start", |s| s["asr"]["state"] == "failed");
+    wait_state(&ui, "failed start", |s| s["asr"]["state"] == "failed");
+    // The end is told after the generation moves; only then is the generation final.
+    let deadline = Instant::now() + common::TIMEOUT;
+    while ends.lock().unwrap().len() < 2 {
+        assert!(Instant::now() < deadline, "the failed start's end was not told");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let failed = state(&ui);
     assert_eq!(failed["asr"]["error_code"], "speech_server_exited");
     ui.ok("/set/data/speech_server_settings", Some(models.settings("tts", "asr")));
     assert_eq!(start(&ui, "asr", &failed["asr"]["generation"])["status"], 200);
