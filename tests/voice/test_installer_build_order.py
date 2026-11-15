@@ -17,6 +17,9 @@ def test_the_installer_is_built_after_both_packages_and_checked_against_them():
     bundle = next(step for step in steps if "installer_package_hashes.py write" in step.get("run", ""))
     assert bundle["env"]["VRCT_REQUIRE_PACKAGE_HASHES"] == "1"
     assert bundle["run"].index("installer_package_hashes.py write") < bundle["run"].index("bundle --bundles nsis")
+    # In pwsh, "npm run tauri -- …" loses the "--" (npm.ps1), so npm eats --bundles: call the CLI directly.
+    assert bundle["shell"] == "pwsh" and "npm run tauri" not in bundle["run"]
+    assert "node node_modules/@tauri-apps/cli/tauri.js bundle --bundles nsis" in bundle["run"]
     names = [step.get("name", "") for step in steps]
     assert names.index("Build and inspect VRCT-VOX.zip") < names.index(bundle["name"])
     received = next(step for step in steps if step.get("with", {}).get("name") == "windows-cuda-hash")

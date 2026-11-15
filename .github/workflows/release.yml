@@ -115,7 +115,9 @@ jobs:
         run: |
           python tools/installer_package_hashes.py write --cpu VRCT-VOX.zip --gpu build/cuda-hash/VRCT-VOX_cuda.zip.sha256
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run tauri -- bundle --bundles nsis
+          # The Tauri CLI directly: through npm, pwsh runs npm.ps1 and drops the "--", so npm
+          # takes --bundles as its own option and Tauri gets "bundle nsis".
+          node node_modules/@tauri-apps/cli/tauri.js bundle --bundles nsis
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Collect build outputs
