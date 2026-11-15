@@ -24,7 +24,8 @@ async function setup() {
         export const failLanguageMutationBeforeSend = id => events.push(['before-send', id]);
         export const languageMutationWriteUnconfirmed = id => events.push(['unconfirmed', id]);
         export const failLanguageRead = endpoint => events.push(['read-failed', endpoint]);
-    `) + `#${crypto.randomUUID()}`;
+        // ${crypto.randomUUID()} keeps each import a fresh module; Bun rejects a #fragment on data: URLs.
+    `);
     const deps = await import(dependencies);
     let source = await readFile(new URL("./useStdoutToPython.js", import.meta.url), "utf8");
     for (const name of ["@store", "js-base64", "./useNotificationStatus", "@useI18n", "@tauri-apps/api/event", "../main/languageMutations"])

@@ -56,14 +56,15 @@ async function setup() {
         };
         export const unregister = async key => { state.removed.push(key); state.registered.delete(key); };
         export const unregisterAll = async () => { await state.unregisterGate; state.removed.push(...state.registered.keys()); state.registered.clear(); };
-    `) + `#${crypto.randomUUID()}`;
+        // ${crypto.randomUUID()} keeps each import a fresh module; Bun rejects a #fragment on data: URLs.
+    `);
     const { state, hot } = await import(dependencies);
     let instance = 0;
     const load = async () => {
         let source = await readFile(new URL("./useHotkeys.js", import.meta.url), "utf8");
         source = source.replace(/from "[^"]+"/g, `from ${JSON.stringify(dependencies)}`);
         source = `import { hot } from ${JSON.stringify(dependencies)};\n` + source.replaceAll("import.meta.hot", "hot");
-        const module = await import(moduleUrl(source) + `#${instance++}`);
+        const module = await import(moduleUrl(source + `\n// instance ${instance++}`));
         return state.runtime ? module.useHotkeys : module.useHotkeys();
     };
     return { state, load, dispose: index => state.disposers[index](hot.data),

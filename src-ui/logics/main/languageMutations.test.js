@@ -21,7 +21,8 @@ async function setup() {
                 history.push({name, value:structuredClone(values[name])});
             },
         });
-    `) + `#${crypto.randomUUID()}`;
+        // ${crypto.randomUUID()} keeps each import a fresh module; Bun rejects a #fragment on data: URLs.
+    `);
     const storage = await import(storageUrl);
     for (const name of atomNames) storage.values[name] = { state: "ok", data: {} };
     storage.values.SelectedPresetTabNumber.data = "1";
