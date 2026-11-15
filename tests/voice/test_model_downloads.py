@@ -372,25 +372,102 @@ def test_catalog_contains_pinned_artifacts_and_no_private_model():
 
 
 
-def test_haas_recognizer_is_pinned_for_the_asr_profile():
+ASR_NAMES = ["qwen3-asr-0.6b", "qwen3-asr-1.7b", "reazonspeech-v2", "parakeet-tdt_ctc-0.6b-ja",
+             "parakeet-tdt-0.6b-v3", "haas-ja-v1.0", "nemotron-3.5-transcribe"]
+
+
+def test_every_file_of_each_offered_recognizer_comes_from_speechcpp_catalog():
+    # No pin is typed here or in catalog.py: each entry is a file speech.cpp's catalog names.
+    from models.model_downloads.catalog import CATALOG, SPEECH_FIELDS
+    from models.model_downloads.speechcpp_asr import OFFERS, speech_model
+    from models.model_downloads.speechcpp_models import SNAPSHOT
+
+    assert [offer["name"] for offer in OFFERS] == ASR_NAMES
+    speech = {m["name"]: m for m in SNAPSHOT["models"]}
+    rows = [m for m in CATALOG if m.target == "asr"]
+    expected = [(name, file["type"]) for name in ASR_NAMES
+                for file in sorted(speech[name]["files"], key=lambda f: f["type"] != speech[name]["type"])]
+    assert [(speech_model(m.id)["name"], speech_model(m.id)["type"]) for m in rows] == expected
+    for m in rows:
+        info, offer = speech_model(m.id), next(o for o in OFFERS if o["name"] == speech_model(m.id)["name"])
+        model = speech[info["name"]]
+        file = next(f for f in model["files"] if f["type"] == info["type"])
+        assert (m.repo, m.revision) == (model["repository"], model["revision"])
+        assert [(a.filename, a.size, a.sha256, a.role, a.remote) for a in m.artifacts] == [
+            (file["file"], file["size"], file["sha256"], "model", ())]
+        assert (m.license, m.notice, m.provider) == (offer["license"], offer["notice"], offer["provider"])
+        assert info["languages"] == model["languages"] and info["default"] == (file["type"] == model["type"])
+        assert m.name == f"{offer['label']} · {file['type'].upper()}"
+    assert SPEECH_FIELDS["asr"] == ("asr", "model")
+    assert speech_model("silero-vad-v62") is None and speech_model("irodori-v41-f16") is None
+
+
+def test_recognizer_ids_keep_the_folders_of_earlier_downloads():
     from models.model_downloads.catalog import CATALOG
 
-    haas = [m for m in CATALOG if m.target == "asr" and m.id.startswith("haas")]
-    assert [m.id for m in haas] == ["haas-ja-q8"]
-    assert haas[0].license == "Apache-2.0" and haas[0].notice == "haas"
-    assert [(a.filename, a.size, a.role) for a in haas[0].artifacts] == [
-        ("Haas-616M-ja-v1.0-Q8_0.gguf", 656381472, "model")
-    ]
+    rows = {m.id: m for m in CATALOG if m.target == "asr"}
+    haas, qwen = rows["haas-ja-q8"], rows["qwen3-asr-06b-q8"]
+    assert (haas.repo, haas.revision, haas.license, haas.notice) == (
+        "sakasegawa/Haas-ja-v1.0-GGUF", "6b965d5007ba780585de51549d57a8c1c0d67c7e", "Apache-2.0", "haas")
+    assert [(a.filename, a.size, a.sha256) for a in haas.artifacts] == [(
+        "Haas-616M-ja-v1.0-Q8_0.gguf", 656381472, "cd5f60b2f1c411404b83fca4a65e3ce30a26d9e951b6a346529e65f22758afeb")]
+    assert haas.licenses == (
+        "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/blob/6b965d5007ba780585de51549d57a8c1c0d67c7e/README.md",
+        "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/blob/6b965d5007ba780585de51549d57a8c1c0d67c7e/LICENSE")
+    assert qwen.licenses == (
+        "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/blob/ee78f8709547f39bea3b924a16c72403826cac92/README.md",
+        "https://www.apache.org/licenses/LICENSE-2.0")
+    assert {"haas-ja-f16", "haas-ja-q4", "qwen3-asr-17b-q8", "reazonspeech-v2-q8", "parakeet-tdt-ctc-06b-ja-q8",
+            "parakeet-tdt-06b-v3-f16", "nemotron-35-transcribe-iq4nl"} <= set(rows)
 
 
-def test_multilingual_recognizer_and_vad_are_pinned_to_speechcpp_catalog():
+def test_offered_recognizers_carry_only_permissive_reviewed_licenses():
+    # docs/voice-stack/licensing.md and licenses/speechcpp-models/NOTICE.md hold the review.
+    from models.model_downloads.catalog import CATALOG
+
+    licenses = {m.license for m in CATALOG if m.target == "asr"}
+    assert licenses == {"Apache-2.0", "CC BY 4.0", "OpenMDW-1.1"}
+    for m in CATALOG:
+        if m.license == "CC BY 4.0" and m.target == "asr":
+            assert "https://creativecommons.org/licenses/by/4.0/" in m.licenses
+        if m.license == "OpenMDW-1.1":
+            assert any(url.endswith("/LICENSE") or url.endswith("/LICENSE.OpenMDW-1.1") for url in m.licenses)
+    notice = (Path(__file__).resolve().parents[2] / "licenses/speechcpp-models/NOTICE.md").read_text(encoding="utf-8")
+    for m in CATALOG:
+        if m.target == "asr":
+            assert m.repo in notice and m.revision in notice, m.id
+
+
+def test_speechcpp_snapshot_is_the_bundled_release_and_the_tools_render():
+    import json
+    import subprocess
+    import sys
+    from models.model_downloads.speechcpp_models import SNAPSHOT
+
+    root = Path(__file__).resolve().parents[2]
+    bundle = json.loads((root / "docs/voice-stack/speechcpp-bundle-artifacts.json").read_text(encoding="utf-8"))
+    assert SNAPSHOT["version"] == bundle["version"]
+    check = subprocess.run([sys.executable, str(root / "tools/speechcpp_models.py"), "--check"],
+                           capture_output=True, text=True)
+    assert check.returncode == 0, check.stderr
+    # The VAD and diarization entries are speech.cpp's files for those names as well.
+    from models.model_downloads.catalog import CATALOG
+    speech = {m["name"]: m for m in SNAPSHOT["models"]}
+    for id, name in (("silero-vad-v62", "silero-vad"), ("nemotron-3-diarization-q8", "nemotron-3-diarization")):
+        entry = next(m for m in CATALOG if m.id == id)
+        file = next(f for f in speech[name]["files"] if f["type"] == speech[name]["type"])
+        assert (entry.repo, entry.revision) == (speech[name]["repository"], speech[name]["revision"])
+        assert (entry.artifacts[0].filename, entry.artifacts[0].size, entry.artifacts[0].sha256) == (
+            file["file"], file["size"], file["sha256"])
+
+
+def test_vad_is_pinned_to_speechcpp_catalog():
     # Revisions, sizes and SHA-256 match speech.cpp 0.10.0's `speech models --json`
     # and the Hugging Face LFS metadata of these exact revisions.
     from models.model_downloads.catalog import CATALOG, CATALOG_VERSION, SPEECH_FIELDS
 
     rows = {m.id: m for m in CATALOG}
     qwen, vad = rows["qwen3-asr-06b-q8"], rows["silero-vad-v62"]
-    assert [m.id for m in CATALOG if m.target == "asr"] == ["haas-ja-q8", "qwen3-asr-06b-q8"]
     assert (qwen.repo, qwen.revision, qwen.license, qwen.notice) == (
         "sakasegawa/Qwen3-ASR-0.6B-GGUF", "ee78f8709547f39bea3b924a16c72403826cac92", "Apache-2.0", "qwen_asr")
     assert [(a.filename, a.size, a.sha256, a.role) for a in qwen.artifacts] == [(
@@ -403,7 +480,8 @@ def test_multilingual_recognizer_and_vad_are_pinned_to_speechcpp_catalog():
         "2fc312514e5fc4fa4ffd02b25c76a4853fa4130e8fb9777d01502183b01238cb", "model")]
     assert any(url.endswith("/LICENSE") for url in vad.licenses)
     assert SPEECH_FIELDS["vad"] == ("asr", "vad_model") and SPEECH_FIELDS["asr"] == ("asr", "model")
-    assert CATALOG_VERSION != "2026-10-31.1"  # Reviewed entries changed: stale consent must fail.
+    # Reviewed entries changed (the recognizers on 2026-11-16): stale consent must fail.
+    assert CATALOG_VERSION not in ("2026-10-31.1", "2026-11-13.1")
 
 
 def test_diarization_model_is_pinned_and_goes_to_its_own_field_of_the_asr_profile():
