@@ -3,6 +3,7 @@ import { OcrSetupController } from "./_app_controllers/OcrSetupController";
 import { TranslationSetupController } from "./_app_controllers/TranslationSetupController";
 import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeController";
 import { LocalAsrNoticeController } from "./_app_controllers/LocalAsrNoticeController";
+import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
 import { useI18n } from "@useI18n";
 import { useRef } from "react";
 
@@ -89,6 +90,7 @@ const Contents = () => {
             {currentIsSoftwareUpdating.data === false
             ?
             <div className={styles.pages_wrapper}>
+                <SwitchBlocksController />
                 <ConfigPage />
                 <MainPage focusFallback={mainPage} />
                 <ModalController fallback={mainPage} />
