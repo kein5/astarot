@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useStore_MessageLogs } from "@store";
+import { useStore_CompanionMode, useStore_MessageLogs } from "@store";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady } from "@logics_common";
 import { useAppearance, useVr } from "@logics_configs";
@@ -23,6 +23,7 @@ export const CaptionOverlayController = () => {
         currentIoFlowOverlaySettings, currentOverlayDesktopPlacement, setOverlayDesktopSettings,
         setOverlayDesktopPlacement } = useVr();
     const { currentMessageLogs } = useStore_MessageLogs();
+    const { currentCompanionMode } = useStore_CompanionMode();
     const { currentSelectedFontFamily } = useAppearance();
     const { currentIsBackendReady } = useIsBackendReady();
     const { currentIoFlow, currentIoTraces } = useIoFlow();
@@ -36,7 +37,9 @@ export const CaptionOverlayController = () => {
     }, []);
 
     const ready = supported && currentIsBackendReady.data === true;
-    const captions = ready && currentIsEnabledOverlayDesktop.data === true;
+    // The experimental companion form has no window of its own: the captions are always on there,
+    // without changing the saved setting.
+    const captions = ready && (currentIsEnabledOverlayDesktop.data === true || currentCompanionMode.data === true);
     const flowShown = ready && currentIoFlowOverlaySettings.data?.desktop === true;
     const enabled = captions || flowShown;
     const settings = currentOverlayDesktopSettings.data;

@@ -348,7 +348,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "./_app_controllers/TelemetryNoticeController": {},
         "./_app_controllers/LocalAsrNoticeController": {},
         "./_app_controllers/SwitchBlocksController": {},
-        "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/IoFlowController": {},
+        "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/CompanionController": {}, "./_app_controllers/IoFlowController": {},
         "./main_page/MainPage": {}, "./config_page/ConfigPage": {},
         "./others": {}, "@logics_common": common,
         "@useI18n": { useI18n: () => ({ i18n: { language: "en" } }) },

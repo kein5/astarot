@@ -173,6 +173,8 @@ export const registerMany = (settingsArray = []) => {
 
 // Common
 export const { atomInstance: Atom_IsBackendReady, useHook: useStore_IsBackendReady } = createAtomWithHook(false, "IsBackendReady");
+// The experimental companion form (Issue #355): the main window stays hidden and the app lives in the tray.
+export const { atomInstance: Atom_CompanionMode, useHook: useStore_CompanionMode } = createAtomWithHook(false, "CompanionMode");
 export const { atomInstance: Atom_BackendStartupState, useHook: useStore_BackendStartupState } = createAtomWithHook("starting", "BackendStartupState");
 // Why the last start failed ({ kind: "spawn" | "exit", ... }, see startupPhase.js); read only while BackendStartupState is "failed".
 export const { atomInstance: Atom_BackendStartupFailure, useHook: useStore_BackendStartupFailure } = createAtomWithHook(null, "BackendStartupFailure");
