@@ -258,8 +258,14 @@ fn a_failure_turns_the_overlays_off_and_is_reported() {
     // Turning it on again tries again (and may fail first again, as above).
     let mark = ui.send("/set/enable/overlay_small_log", None);
     let again = ui.wait_endpoint(mark, "/set/enable/overlay_small_log");
-    assert!(again["result"] == true || error_code(&again) == "OVERLAY_RUNTIME_FAILED", "{again}");
-    assert!(ui.wait_endpoint(mark, "/run/message_output_error")["result"]["error_code"] == "OVERLAY_RUNTIME_FAILED", "it tried again");
+    // It tried again: either the answer carries the failure, or the answer came first and the
+    // failure follows as a notification.
+    if again["result"] == true {
+        let failure = ui.wait_endpoint(mark, "/run/message_output_error");
+        assert_eq!(failure["result"]["error_code"], "OVERLAY_RUNTIME_FAILED");
+    } else {
+        assert_eq!(error_code(&again), "OVERLAY_RUNTIME_FAILED", "{again}");
+    }
     ui.stop();
 
     // An upload that keeps failing after the reconnect.
