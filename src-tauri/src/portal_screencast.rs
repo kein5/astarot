@@ -30,9 +30,11 @@ use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 use zbus::{Connection, MatchRule, MessageStream, Proxy};
 
 use crate::portal_shortcuts::worker::wait_until;
-use crate::portal_shortcuts::{ensure_desktop_file, failure, next, portal_owner_lost, APP_ID, BACKENDS, DESKTOP, DESTINATION};
+use crate::portal_shortcuts::{backends_with, ensure_desktop_file, failure, next, portal_owner_lost, APP_ID, BACKENDS, DESKTOP,
+    DESTINATION, HOLDERS_TIMEOUT};
 
 const INTERFACE: &str = "org.freedesktop.portal.ScreenCast";
+const IMPL_INTERFACE: &str = "org.freedesktop.impl.portal.ScreenCast";
 const HELPER: &str = "vrct-screen-capture";
 /// The backend reads this file in the directory `vr_panel_surface` prepared.
 const FRAME_NAME: &str = "screen-frame";
@@ -338,6 +340,8 @@ struct Portal {
     signals: MessageStream,
     owners: MessageStream,
     backends: MessageStream,
+    /// The backends that serve ScreenCast, read once the sharing starts (see portal_owner_lost).
+    holders: Vec<String>,
 }
 
 /// A match for `NameOwnerChanged`; the caller narrows it to the names it watches.
@@ -382,7 +386,8 @@ impl Portal {
         let signals = wait_until(deadline, check, MessageStream::for_match_rule(rule, &connection, Some(8)))?
             .map_err(failure("portal_unavailable"))?;
         let sender = connection.unique_name().ok_or("portal_unavailable")?.trim_start_matches(':').replace('.', "_");
-        Ok(Self { connection, destination, sender, counter: 0, request_path: None, session: None, signals, owners, backends })
+        Ok(Self { connection, destination, sender, counter: 0, request_path: None, session: None, signals, owners, backends,
+            holders: Vec::new() })
     }
 
     fn property(&self, deadline: Instant, check: &dyn Fn() -> Result<(), String>, name: &str) -> Result<Option<u32>, String> {
@@ -465,6 +470,9 @@ impl Portal {
             &(&session, HashMap::<&str, Value>::new()),
         ))?.map_err(failure("portal_request_failed"))?;
         let remote: zbus::zvariant::OwnedFd = reply.body().deserialize().map_err(failure("portal_request_failed"))?;
+        // The backend that shares the window is running now; a slow answer leaves every backend counting.
+        self.holders = wait_until(Instant::now() + HOLDERS_TIMEOUT, || Ok(()), backends_with(&self.connection, IMPL_INTERFACE))
+            .unwrap_or_default();
         Ok((node, remote.into(), started))
     }
 
@@ -484,7 +492,7 @@ impl Portal {
         let header = message.header();
         if header.member().map(|name| name.as_str()) == Some("NameOwnerChanged") {
             return match message.body().deserialize::<(String, String, String)>() {
-                Ok((name, old, _new)) if portal_owner_lost(&name, &old) => Signal::Lost,
+                Ok((name, old, _new)) if portal_owner_lost(&name, &old, &self.holders) => Signal::Lost,
                 _ => Signal::Nothing,
             };
         }
