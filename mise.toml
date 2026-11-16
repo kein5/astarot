@@ -7,7 +7,7 @@
 min_version = "2026.11.0"
 
 [tools]
-node = "22.15.0"
+node = "26.13.1"
 # Installed through rustup. Cargo.toml's rust-version (1.92) is the oldest that builds;
 # this is the version development and CI use.
 rust = { version = "1.100.0", profile = "minimal", components = "clippy,rustfmt" }
