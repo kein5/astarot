@@ -306,6 +306,12 @@ impl Config {
         self.state.lock().unwrap().invalid_saved_api_urls.clone()
     }
 
+    /// A value as `config.json` held it when the app started, before any check or move;
+    /// `null` when the file did not have it.
+    pub fn saved_at_start(&self, name: &str) -> Value {
+        self.state.lock().unwrap().saved.get(name).cloned().unwrap_or(Value::Null)
+    }
+
     fn check(&self, state: &State, name: &str, value: &Value) -> Result<Value, Invalid> {
         let invalid = || Invalid { key: name.to_string() };
         let key = self.key(name).ok_or_else(invalid)?;

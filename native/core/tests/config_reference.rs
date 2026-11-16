@@ -5,9 +5,10 @@
 //! notice the same things (a file moved aside, URLs dropped, the local ASR notice). The expected
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
 //!
-//! One difference is intended: API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
-//! `config.json` for the key store (`vrct_core::config::secrets`). The settings are compared
-//! without them, and the keys Python kept in the file must be in the store instead.
+//! Two differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
+//! `config.json` for the key store (`vrct_core::config::secrets`): the settings are compared
+//! without them, and the keys Python kept in the file must be in the store instead. And the
+//! direct voice engine is RVC where Python saved Seed-VC, which ended with Python (#391).
 
 use serde_json::{json, Map, Value};
 use std::path::Path;
@@ -93,6 +94,9 @@ fn check_platform(name: &str, platform: Platform) {
     let expected = &reference["platforms"][name];
     let mut defaults = expected["defaults"].as_object().unwrap().clone();
     defaults.retain(|key, _| !SECRET_SETTINGS.contains(&key.as_str()));
+    // Intended (#391): Seed-VC, Python's default engine of direct voice, ended with Python, so
+    // the core's default is RVC and a saved Seed-VC loads as RVC.
+    defaults.get_mut("DIRECT_VOICE_SETTINGS").unwrap()["engine"] = json!("rvc");
     let defaults = &defaults;
     let mut failures = Vec::new();
     let mut moved = 0;
