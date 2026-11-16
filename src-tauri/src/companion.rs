@@ -33,7 +33,11 @@ const HANDLE_TITLE: &str = "VRCT-VOX Captions Handle";
 /// The panel, in logical px.
 const PANEL_SIZE: (f64, f64) = (300.0, 208.0);
 /// The handle's square side and its distance from the caption band, in logical px.
-const HANDLE_SIZE: f64 = 28.0;
+const HANDLE_SIZE: f64 = 40.0;
+/// The handle opened under the pointer: the hexagram grows and its six features dock out around
+/// it, so the window becomes this size (logical px, wide for the labels docked left and right),
+/// with the hexagram in its middle.
+const HANDLE_OPEN_SIZE: (f64, f64) = (560.0, 360.0);
 const HANDLE_GAP: f64 = 6.0;
 /// A click on the tray icon first takes the focus from the open panel, which hides
 /// it; the click that follows must not open it again.
@@ -42,7 +46,9 @@ const MAX_ACTIONS: usize = 8;
 const MAX_LABEL: usize = 80;
 const LANGUAGES: [&str; 5] = ["en", "ja", "ko", "zh-Hans", "zh-Hant"];
 /// What the panel and the tray may ask the main window to do.
-const ACTIONS: [&str; 2] = ["toggle_mic", "toggle_translation"];
+const ACTIONS: [&str; 6] = [
+    "toggle_mic", "toggle_translation", "toggle_listening", "toggle_ocr", "toggle_tts", "toggle_rvc",
+];
 
 /// The id in the experimental features list (src-ui/logics/configs/experimentalFeatures.ts,
 /// src-python/models/experimental_features.py, native/core/src/config/schema.rs).
@@ -95,6 +101,15 @@ pub struct Status {
     ready: bool,
     mic: Switch,
     translation: Switch,
+    /// The other four main switches, which the handle's hexagram also shows.
+    #[serde(default)]
+    listening: Switch,
+    #[serde(default)]
+    ocr: Switch,
+    #[serde(default)]
+    tts: Switch,
+    #[serde(default)]
+    rvc: Switch,
     language: String,
     menu: MenuLabels,
 }
@@ -105,6 +120,10 @@ impl Default for Status {
             ready: false,
             mic: Switch::default(),
             translation: Switch::default(),
+            listening: Switch::default(),
+            ocr: Switch::default(),
+            tts: Switch::default(),
+            rvc: Switch::default(),
             language: "en".into(),
             menu: MenuLabels {
                 start: "Start recognition".into(),
@@ -139,6 +158,8 @@ struct Inner {
     tray: Option<tray::Items>,
     /// Where the caption overlay is, and whether at the top of the screen.
     band: Option<((i32, i32, u32, u32), bool)>,
+    /// The handle at rest: its top-left corner and side, in physical px.
+    handle_rest: Option<(i32, i32, u32)>,
 }
 
 #[derive(Default)]
@@ -285,6 +306,7 @@ async fn show_handle(app: &AppHandle, overlay: &WebviewWindow, band: (i32, i32, 
     let size = (HANDLE_SIZE * scale).round() as u32;
     let gap = (HANDLE_GAP * scale).round() as i32;
     let (x, y) = handle_position(band, at_top, size, gap);
+    app.state::<CompanionState>().lock()?.handle_rest = Some((x, y, size));
     let handle = match app.get_webview_window(HANDLE) {
         Some(handle) => handle,
         None => WebviewWindowBuilder::new(app, HANDLE, WebviewUrl::App("companion-handle.html".into()))
@@ -558,10 +580,10 @@ pub fn companion_status(window: WebviewWindow, state: State<CompanionState>) -> 
     Ok(state.lock()?.status.clone())
 }
 
-/// The panel asks for a switch to change, or for the main window.
+/// The panel or the handle asks for a switch to change, or for the main window.
 #[tauri::command]
 pub fn companion_request(window: WebviewWindow, action: String) -> Result<(), String> {
-    sender(window.label(), &[PANEL])?;
+    sender(window.label(), &[PANEL, HANDLE])?;
     if action == "open_main" {
         let _ = window.hide();
         return show_main(window.app_handle());
@@ -575,21 +597,70 @@ pub fn companion_panel_hide(window: WebviewWindow) -> Result<(), String> {
     window.hide().map_err(|error| error.to_string())
 }
 
-/// The handle beside the captions opens the panel next to itself.
+/// The handle beside the captions opens the panel next to itself, wherever the handle
+/// rests (it may be open, grown around the pointer, when it is clicked).
 #[tauri::command]
 pub async fn companion_panel_toggle(window: WebviewWindow) -> Result<(), String> {
     sender(window.label(), &[HANDLE])?;
-    let at = window.outer_position().map_err(|error| error.to_string())?;
-    let size = window.outer_size().map_err(|error| error.to_string())?;
+    let app = window.app_handle();
+    let (x, y, size) = app.state::<CompanionState>().lock()?.handle_rest.ok_or("companion_no_handle")?;
     let gap = HANDLE_GAP * window.scale_factor().map_err(|error| error.to_string())?;
     let anchor = Anchor {
-        right: f64::from(at.x) + f64::from(size.width),
-        top: f64::from(at.y) - gap,
-        bottom: f64::from(at.y) + f64::from(size.height) + gap,
+        right: f64::from(x) + f64::from(size),
+        top: f64::from(y) - gap,
+        bottom: f64::from(y) + f64::from(size) + gap,
     };
-    toggle_panel(window.app_handle(), anchor)
+    toggle_panel(app, anchor)
 }
 
+/// Where the hexagram's centre is inside the handle window, in CSS px.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+pub struct HandleCentre {
+    x: f64,
+    y: f64,
+}
+
+/// The top-left corner of the open handle: a `size` rectangle centred on `centre`, moved back
+/// inside the work area where the centre is too near its edge (the hexagram, in the middle of
+/// the window, then moves inwards with it).
+fn open_corner(centre: (i32, i32), size: (u32, u32), work: (i32, i32, u32, u32)) -> (i32, i32) {
+    let clamp = |value: i32, start: i32, length: u32, side: u32| value.clamp(start, (start + length as i32 - side as i32).max(start));
+    (
+        clamp(centre.0 - size.0 as i32 / 2, work.0, work.2, size.0),
+        clamp(centre.1 - size.1 as i32 / 2, work.1, work.3, size.1),
+    )
+}
+/// The handle grows around the pointer (`open`) so that the hexagram's six features can dock out
+/// around it, or goes back to rest. The answer says where the hexagram's centre is inside the
+/// window. Open, the window takes the clicks in its rectangle, so the page closes it as soon as
+/// the pointer leaves.
+#[tauri::command]
+pub async fn companion_handle_open(window: WebviewWindow, open: bool) -> Result<HandleCentre, String> {
+    sender(window.label(), &[HANDLE])?;
+    let app = window.app_handle();
+    let (x, y, size) = app.state::<CompanionState>().lock()?.handle_rest.ok_or("companion_no_handle")?;
+    let scale = window.scale_factor().map_err(|error| error.to_string())?;
+    let centre = (x + size as i32 / 2, y + size as i32 / 2);
+    let (corner, size) = if open {
+        let size = ((HANDLE_OPEN_SIZE.0 * scale).round() as u32, (HANDLE_OPEN_SIZE.1 * scale).round() as u32);
+        let monitor = app
+            .monitor_from_point(f64::from(centre.0), f64::from(centre.1))
+            .map_err(|error| error.to_string())?
+            .or(window.current_monitor().map_err(|error| error.to_string())?)
+            .ok_or("companion_no_monitor")?;
+        let work = monitor.work_area();
+        (open_corner(centre, size, (work.position.x, work.position.y, work.size.width, work.size.height)), size)
+    } else {
+        ((x, y), (size, size))
+    };
+    // Move, size, then move again: a move to a monitor with another scale rescales the window.
+    let at = PhysicalPosition::new(corner.0, corner.1);
+    window.set_position(at).map_err(|error| error.to_string())?;
+    window.set_size(PhysicalSize::new(size.0, size.1)).map_err(|error| error.to_string())?;
+    window.set_position(at).map_err(|error| error.to_string())?;
+    // At rest the hexagram is the whole window; open, it is in the middle.
+    Ok(HandleCentre { x: f64::from(size.0) / 2.0 / scale, y: f64::from(size.1) / 2.0 / scale })
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -653,6 +724,18 @@ mod tests {
         // A second monitor left of the first one has a negative origin.
         let (x, y) = place(Anchor { right: -100.0, top: 500.0, bottom: 520.0 }, (300, 232), (-1920, 0, 1920, 1080));
         assert!(x >= -1920 && x + 300 <= 0 && (0..=1080 - 232).contains(&y));
+    }
+
+    #[test]
+    fn the_open_handle_keeps_its_centre_and_stays_in_the_work_area() {
+        let work = (0, 0, 1920, 1032);
+        // Room all round: the rectangle is centred on the handle.
+        assert_eq!(open_corner((900, 500), (560, 360), work), (620, 320));
+        // Near the bottom right corner it moves back inside the work area.
+        assert_eq!(open_corner((1900, 1020), (560, 360), work), (1360, 672));
+        // A second monitor left of the first one.
+        let (x, y) = open_corner((-10, 5), (560, 360), (-1920, 0, 1920, 1080));
+        assert!(x >= -1920 && x + 560 <= 0 && y >= 0);
     }
 
     #[test]
