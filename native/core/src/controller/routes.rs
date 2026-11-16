@@ -372,4 +372,5 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::ocr::add,
     super::overlay::add,
     super::files::add,
+    super::updates::add,
 ];

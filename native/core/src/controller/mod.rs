@@ -17,6 +17,7 @@ mod routes;
 mod settings;
 pub mod speech;
 mod telemetry;
+pub mod updates;
 
 pub use adapters::Osc;
 pub use routes::routes;
@@ -165,6 +166,9 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
+    /// The app's own updater behind the old update endpoints ([`updates`]). Switched off by
+    /// default, as Python shipped it; the app updates through the host's updater.
+    pub software_updates: Arc<dyn updates::SoftwareUpdates>,
 }
 
 impl Default for Services {
@@ -181,6 +185,7 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
+            software_updates: Arc::new(updates::Disabled),
         }
     }
 }

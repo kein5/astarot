@@ -84,6 +84,7 @@ impl Core {
         self.step("Set Transcription Engine");
         self.update_transcription_engine(None);
         self.notify("initialization_progress", json!(3));
+        self.check_software_update_in_background();
         self.notify("initialization_progress", json!(4));
         self.start_adapters();
 
