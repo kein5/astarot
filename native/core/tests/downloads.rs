@@ -215,6 +215,7 @@ fn the_state_is_polled_without_starting_anything() {
     let first = ui.ok("/get/data/model_download_state", None);
     let second = ui.ok("/get/data/model_download_state", None);
     assert_eq!(first["jobs"], json!({}));
+    assert_eq!(first["downloaded"], json!({}), "nothing on disk yet");
     assert_ne!(first["observation_id"], second["observation_id"], "each answer is a new observation");
     assert!(world.opened().is_empty() && !root(&ui).exists());
     ui.stop();
