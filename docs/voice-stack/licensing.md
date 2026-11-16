@@ -381,6 +381,7 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 | パス | 内容 | ライセンス |
 |---|---|---|
 | `_internal/build/speechcpp/` | 固定版のspeech.cppと依存の通知 | MITと通知の各ライセンス（上の各節） |
+| `_internal/build/sudachi/`（版が決まってから） | 読みの辞書SudachiDictと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
 | `_internal/build/vrct-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
 | Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`vrct-voice-gate`など） | VRCT-VOX自身のコード |
 | `_internal/licenses/VRCT/` | `LICENSE`と`NOTICE.md` | |
@@ -394,7 +395,7 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 - Silero VADの同梱（上の節の`_internal/models/transcription/silero_vad/`）。Rustの音声認識がSilero VADを使うことになったら、`tools/app_resources.py`に足し、`licenses/silero-vad/`の通知も同梱する。
 - RapidOCRの設定ファイル（`rapidocr/*.yaml`）。Rustの`ocr-runtime`は読まない。
 - フォント（`*.ttf`）。VRのオーバーレイをRustで描くときに要るかは、その作業で決める（Outfitの節も同じ）。
-- Sudachiの辞書。Rustで翻字をするときの辞書は未決。
+- Sudachiの辞書（SudachiPyの`sudachidict_core`と`sudachidict_full`）。Rustの中核は同じ辞書をsudachi.rsで読む。入れる版は下の「読みの解析器と辞書」の節。
 
 まだ決まっていないもの（[中核の統合](core-integration.md)の「判断が要ること」）:
 
@@ -402,3 +403,22 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 - CUDA版（20）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
 
 Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。
+
+## 読みの解析器と辞書（2026-11-16）
+
+メッセージの読み（ひらがな・ローマ字）は、Pythonと同じくSudachiで解析する。中核は解析器にsudachi.rsを使い、辞書は`_internal/build/sudachi/system.dic`を読む。候補の比較は[中核の統合](core-integration.md)の「判断が要ること」の3にある。
+
+| 部品 | 入れ方 | ライセンス | 確認したこと |
+|---|---|---|---|
+| sudachi.rs 0.6.11（クレート`sudachi`） | アプリに組み込む。crates.ioにないので、GitHubのタグv0.6.11のコミット（`90fd6068`）をgitの依存で固定 | Apache-2.0（Works Applications） | パッケージのフォルダにライセンス文がないので、リポジトリの`LICENSE`を`licenses/rust/sudachi-0.6.11/`に置いた（`supplements.json`）。NOTICEファイルはない。組み込む設定と文字の定義（`resources/`）も同じライセンス |
+| sudachi.rsの依存（`fancy-regex`、`nom`、`yada`、`csv`、`memmap2`など） | アプリに組み込む | MIT、Apache-2.0、Unlicense/MITなど | `tools/rust_licenses.py`がWindowsとLinuxの両方で、ライセンス文の欠けなしに集められた |
+| SudachiDict 20250825（full、core、small） | 公式の配布（`d2ej7fkh96fzlu.cloudfront.net/sudachidict/`）から`tools/sudachi_dictionary.py`が固定の大きさとSHA-256で取得し、`_internal/build/sudachi/`に置く。版は未決 | Apache-2.0。語彙の一部はUniDic（BSD-3-Clause、UniDic Consortium）とmecab-unidic-NEologd（Apache-2.0）に由来し、配布の`LEGAL`がその表示を持つ | 配布の`LEGAL`と`LICENSE-2.0.txt`を辞書と一緒に置く。辞書はSudachiPyの`sudachidict_*` 20250825と同じバイト列 |
+
+比べた候補のライセンス:
+
+- lindera（MIT）とvibrato（MITかApache-2.0）は問題ない。読みの質で外した。
+- IPADIC（mecab-ipadic 2.7.0）は独自の許諾で、再配布できるが著作権の表示が要る。NAIST-JDICはBSD-3-Clause。どちらも読みの質で外した。
+- UniDic（unidic-mecab 2.1.2、UniDic-cwj 3.1.1）はBSD・GPL・LGPLの三つから選ぶ形で、BSDを選べば配布できる。読みの質で外した。
+- linderaのSudachiDictの埋め込み（`lindera-sudachidict`）は、ビルドのたびに配布元ではないlindera.devから辞書を取得する。ライセンスはSudachiDictと同じ。読みの質と実行ファイルの大きさ（+593 MB）で外した。
+
+ライセンスを理由に外した候補はない。
