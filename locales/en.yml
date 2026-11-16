@@ -1825,6 +1825,7 @@ model_catalog:
         vad: "Voice activity detection (VAD)"
         diarization: "Telling speakers apart (optional)"
         rvc: "Voice changer voices"
+        translation: "Translation"
         engines: "Speech engines you install"
     group_help:
         japanese: "Models that read Japanese text. A downloaded model runs in the bundled speech.cpp server."
@@ -1833,6 +1834,7 @@ model_catalog:
         vad: "A model that finds where someone speaks. Every recognition model needs it."
         diarization: "Needed only to label who speaks in the game audio captions."
         rvc: "RVC voice models that change your voice."
+        translation: "Models that translate text. A downloaded model runs on your own computer."
         engines: "Text-to-speech programs you install and start on your own PC. This app neither downloads nor installs them. Get one from its official site, start it, then choose it in \"Engine that reads Japanese\" above."
     languages: "Languages"
     languages_more: "{{languages}} and {{count}} more"
