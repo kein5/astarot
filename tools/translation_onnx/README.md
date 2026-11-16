@@ -11,7 +11,7 @@ uv pip install --python build/translation-onnx/venv/bin/python --index-strategy 
 build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_418M --output <出力先>
 ```
 
-`<出力先>/m2m100_418M-onnx-int8/` に、エンコーダとデコーダの ONNX、語彙の行列（`vocabulary.data`）、`tokenizer.json`、`vocab.json`、`manifest.json` ができます。`manifest.json` には、各ファイルの SHA-256、元のモデルのコミット、使ったパッケージの版が入ります。
+`<出力先>/m2m100_418M-onnx-int8/` に（`--variant` を付けたときは `-onnx-<形>/` に）、エンコーダとデコーダの ONNX、語彙の行列（`vocabulary.data`）、`tokenizer.json`、`vocab.json`、`manifest.json` ができます。`manifest.json` には、各ファイルの SHA-256、元のモデルのコミット、使ったパッケージの版が入ります。
 
 グラフは `torch.onnx.export` で書き出します（`graphs.py`）。
 
@@ -26,7 +26,16 @@ build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_4
 
 - 元のモデルは `export.py` の中でコミットを固定しています。
 - 必要なメモリの目安は、418M・600M が 15GB、1.2B・1.3B が 30GB、3.3B が 55GB 程度です。中間ファイルも元のモデルの数倍の大きさになります（3.3B では約 27GB）。tmpfs の `/tmp` ではなく、ディスク上を `--work` に指定してください。量子化も数 GB の一時ファイルを作るので、大きいモデルでは環境変数 `TMPDIR` もディスク上に向けてください。
-- `--float32` を付けると、量子化しないモデルを作ります。これはデコードの検証用で、アプリでは使いません。
+- `--variant` で量子化の形を選びます。1つの形が1つのフォルダ（`<名前>-onnx-<形>/`）になり、`manifest.json`（schema 2）の `variant` に形の名前が入ります。どの形も、上で照合した同じ float32 のグラフから作ります。
+
+  | 形 | 作り方 | グラフのファイル | 向く実行プロバイダ |
+  |---|---|---|---|
+  | `int8`（既定） | 各 MatMul の重みを動的に int8 へ量子化（`quantize_dynamic`）。語彙の行列は1つにまとめる | `encoder_model_quantized.onnx`、`decoder_model_merged_quantized.onnx` | CPU |
+  | `float32` | 量子化しない。2 GB を超えると重みを `_data` に分ける | `encoder_model.onnx`、`decoder_model_merged.onnx` | GPU。デコードの検証にも使う（`--float32` は同じ意味の古い書き方） |
+  | `float16` | ONNX Runtime の `convert_float_to_float16`（`keep_io_types=True`）。入出力は float32 のまま | `encoder_model_fp16.onnx`、`decoder_model_merged_fp16.onnx` | GPU。CPU の実行プロバイダにはほとんどの float16 の演算がないので、ここでは動かさない |
+  | `int4` | ONNX Runtime の `MatMulNBitsQuantizer`（32 個ずつの区切り、対称）。重みだけを int4 にする | `encoder_model_int4.onnx`、`decoder_model_merged_int4.onnx` | CPU と CUDA。float32 のグラフとの最大の差を `manifest.json` の `variant_max_difference` に書く |
+
+  実際のモデルで作って計ったのは int8 だけです（下の「比較の結果」）。float32、float16、int4 は同じ手順で書けるようにしましたが、まだ作っていません。作ったら、CTranslate2 との比較（`compare.py`）と、各実行プロバイダでの速さを計ってから使います。各形がどの実行プロバイダで動くかの表は `native/translate-onnx/README.md` にあります。
 
 ## 現行の CTranslate2 と比べる
 
