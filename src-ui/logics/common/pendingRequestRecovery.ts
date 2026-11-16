@@ -58,7 +58,6 @@ export const staticPendingControls = {
     IsLMStudioConnected: { endpoints: ["/run/lmstudio_connection", "/get/data/connected_lmstudio"], read: "/get/data/connected_lmstudio" },
     IsOllamaConnected: { endpoints: ["/run/ollama_connection", "/get/data/connected_ollama"], read: "/get/data/connected_ollama" },
     Hotkeys: { endpoints: ["/get/data/hotkeys", "/set/data/hotkeys"], read: "/get/data/hotkeys" },
-    AvailableReleases: { endpoints: ["/get/data/available_releases"] },
     SoftwareVersion: { endpoints: ["/get/data/version"] },
 } satisfies Record<string, PendingControlSpec>;
 

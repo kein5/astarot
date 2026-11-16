@@ -408,31 +408,6 @@ main_page:
     update_available: "新しいバージョンが出ました！"
     updating: "アップデート中..."
 
-update_modal:
-    title: "アップデート"
-    summary_up_to_date_desc: "最新版を使用中です。アップデートの必要はありません。"
-    channel_stable: "安定版"
-    channel_beta: "Beta版"
-    compute_mode_cpu: "CPU版"
-    compute_mode_cuda: "GPU版(CUDA)"
-    latest_label: "最新"
-    install_latest_button: "最新バージョンへ更新"
-    install_button: "この設定で再インストール"
-    section_pick_variant: "別のバージョン・構成を選ぶ"
-    refresh_button: "更新を確認"
-    channel_label: "リリースチャンネル"
-    channel_desc: "Beta版は新機能を先取りできますが、動作が不安定な場合があります。"
-    compute_mode_label: "デバイス構成"
-    compute_mode_desc: "GPU版はNVIDIA GPUで高速に動作しますが、約5GBのディスク容量が必要です。"
-    version_label: "インストールするバージョン"
-    version_desc: "選択したチャンネルで公開されているリリースから選べます。"
-    no_versions_available: "選択中のチャンネルには利用可能なバージョンがありません。"
-    change_col_current: "現在"
-    change_col_after: "インストール後"
-    warn_downgrade: "{{from}}から{{to}}へのダウングレードになります。設定ファイルの互換性は保証されません。"
-    warn_cuda_extra_size: "GPU版は約5GBの追加ダウンロードが必要です。"
-    warn_switch_channel: "{{channel}}チャンネルに切り替わります。次回以降のアップデート通知も{{channel}}が対象になります。"
-
 config_page:
     custom_model_link: "自分のモデルを使う方法"
     about_vrct:
@@ -992,25 +967,6 @@ config_page:
             error_failed: "ウィンドウを共有できませんでした（{{code}}）。"
             notice_ended: "チャット読み取りに共有していたウィンドウがなくなりました。ウィンドウが閉じたか、共有が止められています。読み取りを続けるには、設定の「チャット読み取り（OCR）」でもう一度共有してください。"
             notice_failed: "エラーのため、チャット読み取りへのウィンドウの共有が止まりました。設定の「チャット読み取り（OCR）」でもう一度共有してください。"
-
-    updater:
-        install_panel:
-            section_label: "バージョン・構成の選択"
-            current_summary_label: "現在の状態"
-            current_summary_value: "{{version}} / {{compute_mode}} / {{channel}}"
-            channel_label: "リリースチャンネル"
-            channel_stable: "安定版"
-            channel_beta: "β版"
-            compute_mode_label: "デバイス構成"
-            compute_mode_cpu: "CPU版"
-            compute_mode_gpu: "GPU版(CUDA)"
-            version_label: "インストールするバージョン"
-            version_desc: "過去のバージョンを選ぶとダウングレードできます。リストは選択中のチャンネルで絞り込まれます。"
-            no_versions_available: "選択中のチャンネルには利用可能なバージョンがありません。"
-            beta_suffix: "β版"
-            latest_suffix: "最新"
-            install_button: "この設定でインストール"
-            reinstall_button: "この設定で再インストール"
 
     hotkeys:
         input_placeholder: "キーの組み合わせを入力"

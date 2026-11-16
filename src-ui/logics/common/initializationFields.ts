@@ -82,7 +82,6 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
         // ({x: null, y: null}) would only let the nulls through and drop a saved place.
         overlay_desktop_placement: value => record(value)
             && ((value.x === null && value.y === null) || (Number.isInteger(value.x) && Number.isInteger(value.y))),
-        available_releases: Array.isArray,
     };
     for (const name of ["voice_settings", "voice_status", "voice_route", "voice_output_devices", "tts_model_options",
         "direct_voice_state", "direct_voice_sources", "speech_server_settings", "speech_server_state",

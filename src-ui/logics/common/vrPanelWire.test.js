@@ -143,7 +143,7 @@ test("the VR panel is not sent credentials, advanced settings, updates or hotkey
     const advanced = settings.filter(setting => ["AdvancedSettings", "Updater"].includes(setting.Category)).map(setting => setting.Base_Name);
     assert.ok(advanced.length > 5, "the advanced settings were not found");
     for (const name of [...advanced, "WebsocketAuthToken", "DeepLAuthKey", "OcrPortalRestoreToken", "Hotkeys",
-        "AvailableReleases", "LatestSoftwareVersionInfo", "SoftwareVersion", "ComputeMode"]) {
+        "LatestSoftwareVersionInfo", "SoftwareVersion", "ComputeMode"]) {
         assert.equal(allowed.has(name), false, name);
     }
     for (const name of allowed) assert.equal(isSecretAtomName(name), false, name);

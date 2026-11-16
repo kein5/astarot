@@ -132,7 +132,6 @@ export const STATIC_ROUTE_META_LIST = [
 
     // Software Version
     { endpoint: "/get/data/version", ns: common, hook_name: "useSoftwareVersion", method_name: "updateSoftwareVersion" },
-    { endpoint: "/get/data/available_releases", ns: common, hook_name: "useAvailableReleases", method_name: "updateAvailableReleasesFromBackend" },
     // Latest Software Version Info
     { endpoint: "/run/software_update_info", ns: common, hook_name: "useSoftwareVersion", method_name: "updateSoftwareVersionInfo" },
 
@@ -224,7 +223,11 @@ export const STATIC_ROUTE_META_LIST = [
 
     // // Not Implemented.
     { endpoint: "/run/shutdown", ns: null, hook_name: null, method_name: null }, // Not implemented on UI.
-    { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null }, // Not implemented on UI yet; release_channel options are hardcoded in Updater.jsx for now.
+    // The release channel follows the installed build (the core decides it at start from the
+    // version), so there is nothing to choose; the app updater reads it from the install.
+    { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null },
+    // The app updater (src-tauri/src/app_update.rs) lists releases itself; nothing asks the backend.
+    { endpoint: "/get/data/available_releases", ns: null, hook_name: null, method_name: null },
 ];
 
 // The top bar's stop and mute (StopActions.jsx), which hotkeys press as well.
