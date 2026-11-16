@@ -1,13 +1,12 @@
 //! Runs the Rust backend core (`native/core`) inside the application process (Issue #285).
 //!
-//! The UI talks to it the way it talked to the Python sidecar: it writes request lines and reads
-//! answer and notification lines (`docs/spec/ipc-protocol.md`). Only the main window may start,
-//! write to or stop it, as only the main window could spawn the sidecar. The lines reach the UI
-//! through a channel, in order; the end of a run is sent as its exit code.
+//! The UI talks to it the way it talked to the Python sidecar before 0.5.0: it writes request
+//! lines and reads answer and notification lines (`docs/spec/ipc-protocol.md`). Only the main
+//! window may start, write to or stop it, as only the main window could spawn the sidecar. The
+//! lines reach the UI through a channel, in order; the end of a run is sent as its exit code.
 //!
-//! Which backend the UI starts is `backend_kind`: the Python sidecar unless `VRCT_BACKEND=core`.
-//! The core becomes the only backend once every endpoint is wired (see
-//! `docs/voice-stack/core-integration.md`).
+//! The core is the only backend: the packages carry no Python
+//! (`docs/voice-stack/core-integration.md`).
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -61,22 +60,17 @@ fn environment(executable: &Path, version: String) -> Environment {
         app_dir,
         data_dir,
         platform: Platform::current(),
-        compute_devices: vec![Environment::cpu_device()],
+        // The CPU, and the GPU execution providers of the ONNX Runtime library beside the app
+        // (none loaded when no library is there).
+        compute_devices: vrct_core::controller::translation::compute_devices(),
         devices: None,
         websocket_token: None,
     }
 }
 
-/// `"core"` when the UI should start the Rust core, `"sidecar"` for the Python sidecar.
-#[tauri::command]
-pub fn backend_kind() -> &'static str {
-    if CORE_IS_DEFAULT || std::env::var("VRCT_BACKEND").as_deref() == Ok("core") { "core" } else { "sidecar" }
-}
-
-/// Whether the Rust core is the default backend. While it is not, the core runs only for
-/// development (`VRCT_BACKEND=core`) and leaves the Python backend's CTranslate2 weights in
-/// place, so that the sidecar's local translation keeps working. Turning this on retires them.
-pub const CORE_IS_DEFAULT: bool = false;
+/// The Rust core is the app's backend; the Python sidecar's local translation is gone with it,
+/// so the core retires the CTranslate2 weights that backend downloaded (decision 5).
+pub const CORE_IS_DEFAULT: bool = true;
 
 /// Starts a run for the UI session `session`. Its lines go to `lines`, its end to `exit`.
 #[tauri::command]
@@ -105,12 +99,12 @@ pub fn backend_start(
     };
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
+    // The update endpoints use the update page's updater (app_update.rs; decision 20).
+    options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));
     if cfg!(debug_assertions) {
-        // A development build runs from src-tauri/target; the speech.cpp bundle is staged in the
-        // checkout's build/speechcpp, where the Python sidecar found it too.
-        let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("build").join("speechcpp");
-        options.services.speech_server_launch =
-            std::sync::Arc::new(move |_| vrct_core::controller::speech_launch_from(checkout.clone()));
+        // A development build runs from src-tauri/target; the files a package ships in
+        // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.
+        vrct_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
     }
     let backend = Backend::start(options, sink);
     *current = Some((session, backend));

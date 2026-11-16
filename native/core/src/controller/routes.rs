@@ -4,7 +4,7 @@
 
 use super::settings::{
     compute_device, get, integer, integer_or_message, store, store_text, switch, threshold, transcription_model,
-    vr_panel_font_size,
+    vad_switch, vr_panel_font_size,
 };
 use super::{Core, languages, ok, ok_true};
 use crate::dispatch::Routes;
@@ -46,6 +46,15 @@ impl Builder<'_> {
         }
         let on = switch(self.core, key, true);
         let off = switch(self.core, key, false);
+        self.add(&format!("/set/enable/{name}"), OPEN, on);
+        self.add(&format!("/set/disable/{name}"), OPEN, off);
+    }
+
+    /// The VAD switch of a source: [`vad_switch`].
+    fn vad_switch(&mut self, name: &str, key: &'static str) {
+        self.get(&format!("/get/data/{name}"), OPEN, key);
+        let on = vad_switch(self.core, key, true);
+        let off = vad_switch(self.core, key, false);
         self.add(&format!("/set/enable/{name}"), OPEN, on);
         self.add(&format!("/set/disable/{name}"), OPEN, off);
     }
@@ -106,14 +115,14 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     });
     b.with("/run/swap_your_language_and_target_language", OPEN, |core, _| languages::swap_languages(core));
     // Turning translation on loads the local model and waits for the translation pipeline;
-    // turning it off only clears the switch (no spoken translation runs in the core yet).
+    // turning it off clears the switch and the microphone's queued speech of translations.
     b.with("/set/disable/translation", WAIT, |core, _| {
+        core.cancel_mic_voice();
         let _ = core.config().set("ENABLE_TRANSLATION", json!(false));
         ok(core.config().get("ENABLE_TRANSLATION"))
     });
 
-    // Audio devices: the saved choices (listing and following the devices wait for the
-    // audio routing to be wired)
+    // Audio devices: the saved choices (the lists and the changes are in `audio_devices`)
     for (name, key) in [
         ("auto_mic_select", "AUTO_MIC_SELECT"),
         ("auto_speaker_select", "AUTO_SPEAKER_SELECT"),
@@ -214,7 +223,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/mic_no_speech_prob", OPEN, "MIC_NO_SPEECH_PROB");
     let no_speech = threshold(core, "MIC_NO_SPEECH_PROB", "Mic no-speech probability must be finite and between 0 and 1");
     b.add("/set/data/mic_no_speech_prob", OPEN, no_speech);
-    b.switch("mic_vad_filter", "MIC_ENABLE_VAD", true);
+    b.vad_switch("mic_vad_filter", "MIC_ENABLE_VAD");
     b.get("/get/data/mic_word_filter", OPEN, "MIC_WORD_FILTER");
     // The filter is applied by the recognition, which reads the stored words when it starts.
     b.with("/set/data/mic_word_filter", OPEN, |core, data| {
@@ -254,7 +263,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     let speaker_no_speech =
         threshold(core, "SPEAKER_NO_SPEECH_PROB", "Speaker no-speech probability must be finite and between 0 and 1");
     b.add("/set/data/speaker_no_speech_prob", OPEN, speaker_no_speech);
-    b.switch("speaker_vad_filter", "SPEAKER_ENABLE_VAD", true);
+    b.vad_switch("speaker_vad_filter", "SPEAKER_ENABLE_VAD");
+    // Whether the VAD switches can be turned on: a VAD engine is in this build (decision 13).
+    b.with("/get/data/vad_available", OPEN, |core, _| ok(json!(core.services().vad.is_some())));
 
     // The move from the removed Whisper engine to speech.cpp (#288)
     b.get("/get/data/local_asr_notice", OPEN, "LOCAL_ASR_NOTICE_PENDING");
@@ -263,7 +274,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         ok(core.config().get("LOCAL_ASR_NOTICE_PENDING"))
     });
 
-    // The virtual microphone guide (#321). Finding the cables and the check are not wired yet.
+    // The virtual microphone guide (#321); finding the cables and the check are in `audio_devices`.
     b.get("/get/data/virtual_mic_notice", OPEN, "VIRTUAL_MIC_NOTICE_PENDING");
     b.with("/set/disable/virtual_mic_notice", OPEN, |core, _| {
         let _ = core.config().set("VIRTUAL_MIC_NOTICE_PENDING", json!(false));
@@ -308,8 +319,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.add("/set/data/received_message_format_parts", OPEN, received_format);
     b.switch("auto_clear_message_box", "AUTO_CLEAR_MESSAGE_BOX", true);
     b.switch("send_only_translated_messages", "SEND_ONLY_TRANSLATED_MESSAGES", true);
-    // The message log is written by the message pipeline, which reads this switch.
-    b.switch("logger_feature", "LOGGER_FEATURE", true);
+    // The conversation log switch opens and closes the log file: `messages::add`.
     b.switch("check_software_updates", "CHECK_SOFTWARE_UPDATES", true);
     b.get("/get/data/vrc_mic_mute_sync", OPEN, "VRC_MIC_MUTE_SYNC");
     b.get("/get/data/send_message_to_vrc", OPEN, "SEND_MESSAGE_TO_VRC");
@@ -381,4 +391,10 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::ocr::add,
     super::overlay::add,
     super::files::add,
+    super::translation::add,
+    super::messages::add,
+    super::audio_devices::add,
+    super::updates::add,
+    super::transcription::add,
+    super::voice::add,
 ];

@@ -1,6 +1,7 @@
 //! An engine whose start-up check fails is handled as Python's `Controller.init` handles it
-//! (#285, decided: no kept selections for engines the core cannot run yet). In the core every
-//! online engine still fails its check, as its provider is not in Rust yet.
+//! (#285, decided: no kept selections for engines the core cannot run yet). Here every check
+//! that asks a service fails: the providers cannot be reached (tests stay on loopback). speech.cpp
+//! is not probed: its server shows whether it works.
 
 mod common;
 
@@ -41,14 +42,14 @@ fn a_failed_check_clears_the_models_found_on_a_server_and_keeps_every_key() {
         assert_eq!(snapshot[format!("/get/data/selected_{name}_model")], Value::Null, "{name}");
         assert_eq!(snapshot[format!("/get/data/selectable_{name}_model_list")], json!([]), "{name}");
     }
-    // None of them is offered.
+    // None of them is offered; speech.cpp is.
     assert_eq!(snapshot["/get/data/selectable_transcription_engines"], json!(["SpeechCpp"]));
 
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
     // A failed check cannot tell a refused key from a network that is down: the keys stay.
-    assert_eq!(file["AUTH_KEYS"], saved()["AUTH_KEYS"]);
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"], saved()["TRANSCRIPTION_AUTH_KEYS"]);
+    assert_eq!(ui.kept_keys("AUTH_KEYS"), saved()["AUTH_KEYS"]);
+    assert_eq!(ui.kept_keys("TRANSCRIPTION_AUTH_KEYS"), saved()["TRANSCRIPTION_AUTH_KEYS"]);
     assert_eq!(file["LMSTUDIO_URL"], "http://127.0.0.1:1234/v1");
     assert_eq!(file["TRANSCRIPTION_CUSTOM_URL"], "http://127.0.0.1:9000/v1");
     // The cleared selections are saved as Python saved them.

@@ -24,7 +24,7 @@ const serverTone = (owner, pending) => pending || ["preparing", "stopping"].incl
 
 export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }) => {
     const { t } = useI18n();
-    const { settings, state, devices, pending, error, send, updateError } = useSpeechServers();
+    const { settings, state, devices, builds, pending, error, send, updateError } = useSpeechServers();
     // Paths are ["profiles", name, key]; a page shows only its own profiles.
     const label = ([, name, key]) => `${t(`speech_servers.${name}`)}: ${t(`speech_servers.${key}`, { defaultValue: key })}`;
     const form = useSettingsDraft(settings, error, updateError, { label,
@@ -95,6 +95,12 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                         {namedDevices(row.device).map(([value, text]) => <option key={value} value={value}>{text}</option>)}
                     </select></label>
                     {devices.length > 0 && <Description text={t("speech_servers.device_help")} />}
+                    {/* What the CPU choice runs on differs by platform: a CPU build of its own on Linux,
+                        the one Vulkan build on Windows. */}
+                    {["separate", "shared"].includes(builds.cpu_build) && <Description text={t(`speech_servers.cpu_build_${builds.cpu_build}`)} />}
+                    {/* The Vulkan build is bundled but does not start here (Linux without libvulkan.so.1).
+                        The GPU choices stay selectable, so a saved one never changes silently. */}
+                    {builds.gpu_build === "unavailable" && <EnvReadout tone="warning"><p>{t("speech_servers.gpu_build_unavailable")}</p></EnvReadout>}
                     {name === "japanese" && <>
                         <FormRow label={t("speech_servers.low_latency")} description={t("speech_servers.low_latency_help")}>
                             <input type="checkbox" checked={!!row.low_latency} disabled={busy}
@@ -108,6 +114,8 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                     <EnvReadout tone={serverTone(owner, pending[name])} progress={serverProgress(owner, pending[name])}>
                         <p>{stateText(name)}</p>
                         {owner?.low_latency && <p>{t(`speech_servers.low_latency_${owner.low_latency.state}`)}</p>}
+                        {/* Runs other than asked: "auto" on the CPU build after the Vulkan build did not start. */}
+                        {owner?.notice && <p>{t(`speech_servers.notices.${owner.notice}`, { defaultValue: "" })}</p>}
                     </EnvReadout>
                     {owner?.low_latency?.error_code && <p role="alert">{t("speech_servers.low_latency_failed")}</p>}
                     {/* The message says what to do; the code stays for reports. */}

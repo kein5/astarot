@@ -359,3 +359,57 @@ def test_special_metadata_is_rejected_instead_of_blocking(tmp_path):
         timeout=2,
     )
     assert result.returncode != 0 and "speech_bundle_inventory" in result.stderr
+
+
+def _windows_archive(tmp_path, monkeypatch):
+    """A stand-in release of the Windows build, pinned in place of the real one."""
+    m = module()
+    target = tmp_path / "release.zip"
+    with zipfile.ZipFile(target, "w") as out:
+        out.writestr("speech.exe", b"fake executable")
+    asset = copy.deepcopy(m.load_manifest()["assets"]["windows-x64-vulkan"])
+    asset["size"] = target.stat().st_size
+    asset["sha256"] = hashlib.sha256(target.read_bytes()).hexdigest()
+    manifest = m.load_manifest()
+    manifest["assets"]["windows-x64-vulkan"] = asset
+    monkeypatch.setattr(m, "load_manifest", lambda *a, **kw: manifest)
+    monkeypatch.setattr(m, "fetch_archive", lambda *a, **kw: pytest.fail("unexpected network"))
+    return target
+
+
+def test_replace_keeps_a_current_bundle_and_replaces_one_of_another_release(tmp_path, monkeypatch):
+    # bat/build.bat: a stale bundle of an older release made the core refuse speech.cpp silently.
+    m = module()
+    source = _windows_archive(tmp_path, monkeypatch)
+    output = tmp_path / "build/speechcpp"
+    neighbour = tmp_path / "build/vrct-rvc-worker.exe"
+    neighbour.parent.mkdir()
+    neighbour.write_bytes(b"other build output")
+    args = ["--variant", "windows-x64-vulkan", "--archive", str(source), "--replace", "--output", str(output)]
+    m.main(args)
+    staged = (output / "bundle.json").read_bytes()
+    stage = m.stage_bundle
+    monkeypatch.setattr(m, "stage_bundle", lambda *a, **kw: pytest.fail("an up-to-date bundle is kept"))
+    m.main(args)
+    assert (output / "bundle.json").read_bytes() == staged
+    monkeypatch.setattr(m, "stage_bundle", stage)
+    stale = json.loads(staged)
+    stale["version"] = "0.10.0"
+    (output / "bundle.json").write_text(json.dumps(stale))
+    m.main(args)
+    assert m.verify_bundle(output)["version"] == m.VERSION
+    assert neighbour.read_bytes() == b"other build output", "nothing else under build/ is touched"
+
+
+def test_replace_never_removes_a_folder_that_is_not_a_bundle(tmp_path, monkeypatch):
+    m = module()
+    source = _windows_archive(tmp_path, monkeypatch)
+    output = tmp_path / "speechcpp"
+    output.mkdir()
+    (output / "bundle.json").write_text(json.dumps({"component": "speech.cpp"}))
+    (output / "notes.txt").write_text("mine")
+    with pytest.raises(SystemExit) as exc:
+        m.main(["--variant", "windows-x64-vulkan", "--archive", str(source), "--replace", "--output", str(output)])
+    assert exc.value.code == 1
+    assert (output / "notes.txt").read_text() == "mine"
+    assert not m.replaceable(tmp_path / "absent")

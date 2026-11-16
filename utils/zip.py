@@ -10,6 +10,11 @@ from tqdm import tqdm # tqdmをインポート
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from check_voice_distribution import check
 
+# ONNX Runtime and DirectML, when a crate in vrct-vox.exe links them dynamically: ort's
+# copy-dylibs puts them beside the binary in target/release, and Windows loads them from there
+# (decision 2 in docs/voice-stack/core-integration.md).
+ONNX_RUNTIME_LIBRARIES = ("onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll")
+
 def zip_files_and_directory(zip_name, file_paths, dir_paths, verbose=False):
     # Reject missing inputs and stale forbidden resources before touching a
     # previous candidate. A partial ZIP must never masquerade as a release.
@@ -54,8 +59,15 @@ if __name__ == "__main__":
         "--file_paths",
         type=str,
         nargs="*",
-        default=["src-tauri/target/release/vrct-vox.exe", "src-tauri/target/release/vrct-vox-sidecar.exe"],
+        default=["src-tauri/target/release/vrct-vox.exe"],
         help="List of file paths to include in the zip."
+    )
+    parser.add_argument(
+        "--beside_exe",
+        type=str,
+        nargs="*",
+        default=[f"src-tauri/target/release/{name}" for name in ONNX_RUNTIME_LIBRARIES],
+        help="Libraries that sit beside vrct-vox.exe when the build put them there."
     )
     parser.add_argument(
         "--dir_paths",
@@ -71,7 +83,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    zip_files_and_directory(args.zip_name, args.file_paths, args.dir_paths, args.verbose)
+    beside = [path for path in args.beside_exe if Path(path).is_file()]
+    zip_files_and_directory(args.zip_name, [*args.file_paths, *beside], args.dir_paths, args.verbose)
     end_time = time.time()
     processing_time = end_time - start_time
     print(f"Complete! Processing time: {processing_time:.2f} seconds")

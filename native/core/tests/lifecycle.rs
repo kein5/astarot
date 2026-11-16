@@ -90,14 +90,16 @@ fn a_change_is_saved_two_seconds_after_the_last_one() {
 
 #[test]
 fn the_backend_stops_itself_when_the_watchdog_is_not_fed() {
-    let ui = Ui::with(Setup { watchdog: Some((Duration::from_millis(600), Duration::from_millis(100))), ..Setup::default() });
+    // The timeout is far above the feeding interval: a loaded machine may answer a feed late,
+    // and the test is about stopping when no feed comes at all.
+    let ui = Ui::with(Setup { watchdog: Some((Duration::from_secs(6), Duration::from_millis(100))), ..Setup::default() });
     ui.ready();
-    for _ in 0..6 {
+    for _ in 0..8 {
         ui.ok("/run/feed_watchdog", None);
-        std::thread::sleep(Duration::from_millis(200));
+        std::thread::sleep(Duration::from_millis(300));
     }
     assert_eq!(ui.wait_exit(Duration::from_millis(100)), None, "fed: still running");
-    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(0), "not fed: a graceful stop");
+    assert_eq!(ui.wait_exit(Duration::from_secs(20)), Some(0), "not fed: a graceful stop");
 }
 
 #[test]
@@ -153,7 +155,7 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
     assert_eq!(license["result"]["data"], json!({ "weight_type": "nllb-200-distilled-600M-ct2-int8", "license": "CC-BY-NC-4.0" }));
     ui.ok("/run/shutdown", None);
     let saved = ui.saved();
-    assert_eq!(saved["AUTH_KEYS"]["DeepL_API"], "kept-key", "a saved key is kept even while its engine is unavailable");
+    assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), "kept-key", "a saved key is kept even while its engine is unavailable");
     assert_eq!(saved["CTRANSLATE2_LICENSE_NOTICE_SHOWN"], true, "the notice is shown once");
     assert_eq!(saved["LOCAL_ASR_MIGRATION"], 2);
     ui.stop();

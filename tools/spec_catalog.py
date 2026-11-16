@@ -9,12 +9,16 @@ the UI route definitions), so they cannot drift from it unnoticed:
     python tools/spec_catalog.py --check   # exit 1 when they are out of date
 
 The parsing is static (ast and regular expressions); nothing is imported or run.
+
+What only the Rust core has (native/core; Python never had it) is listed in
+tools/spec_core_additions.json and appended after the rows read from Python.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -23,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "spec" / "reference"
 PY = ROOT / "src-python"
 UI = ROOT / "src-ui" / "logics"
+CORE_ADDITIONS = ROOT / "tools" / "spec_core_additions.json"
 
 HEADER = (
     "<!-- 自動生成。手で編集しない。`python tools/spec_catalog.py --write`で更新する。 -->\n"
@@ -43,6 +48,11 @@ def table(head: list[str], rows: list[list[str]]) -> str:
     lines = ["| " + " | ".join(head) + " |", "|" + "|".join("---" for _ in head) + "|"]
     lines += ["| " + " | ".join(row) + " |" for row in rows]
     return "\n".join(lines) + "\n"
+
+
+def core_additions() -> dict:
+    """Endpoints, error codes and config keys only the Rust core has."""
+    return json.loads(CORE_ADDITIONS.read_text(encoding="utf-8"))
 
 
 def module_dict(tree: ast.Module, name: str) -> ast.Dict:
@@ -108,7 +118,7 @@ def sensitive_markers() -> tuple[str, ...]:
     tree = ast.parse((PY / "utils.py").read_text(encoding="utf-8"))
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "SENSITIVE_ENDPOINT_MARKERS" for t in node.targets):
-            return tuple(ast.literal_eval(node.value))
+            return tuple(ast.literal_eval(node.value)) + tuple(core_additions().get("sensitive_markers", []))
     raise SystemExit("SENSITIVE_ENDPOINT_MARKERS not found")
 
 
@@ -145,12 +155,21 @@ def render_endpoints() -> str:
         requests.append([code(endpoint), kind_of(endpoint), code(handler_name), before_init,
                          cell(routes.get(endpoint, "—")), cell("、".join(notes))])
 
+    core = core_additions()["endpoints"]
+    for entry in core:
+        endpoint = entry["endpoint"]
+        notes = ["中核のみ"]
+        if any(m in endpoint.lower() for m in markers):
+            notes.append("ログで伏せる")
+        requests.append([code(endpoint), kind_of(endpoint), code(entry["handler"]), "可" if entry["before_init"] else "待つ",
+                         cell(routes.get(endpoint, "—")), cell("、".join(notes))])
+
     pushes = []
     for key, value in zip(run_mapping.keys, run_mapping.values):
         endpoint = value.value
         pushes.append([code(key.value), code(endpoint), cell(routes.get(endpoint, "—"))])
 
-    request_set = {k.value for k in mapping.keys}
+    request_set = {k.value for k in mapping.keys} | {entry["endpoint"] for entry in core}
     push_set = {v.value for v in run_mapping.values}
     unrouted = sorted((request_set | push_set) - set(routes))
     ui_only = sorted(e for e in routes if e not in request_set | push_set)
@@ -166,7 +185,8 @@ def render_endpoints() -> str:
            "列の意味:\n",
            "- 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。",
            "- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。",
-           "- ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。\n",
+           "- ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。",
+           "- 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。\n",
            f"## 要求（{len(requests)}件: {summary}）\n",
            table(["エンドポイント", "種別", "処理（controller）", "初期化前", "UIの受信先", "備考"], requests),
            f"\n## 通知（サイドカーからUIへ、{len(pushes)}件）\n",
@@ -210,10 +230,14 @@ def render_errors() -> str:
         literal = lambda f: fields[f].value if f in fields and isinstance(fields[f], ast.Constant) else ""
         rows.append([code(codes.get(name, name)), cell(category), cell(literal("message")), cell(literal("severity")),
                      "要" if literal("user_action_required") is True else "", "あり" if codes.get(name, name) in handled else ""])
+    for entry in core_additions()["errors"]:
+        rows.append([code(entry["code"]), cell(entry["category"]), cell(entry["message"]), cell(entry["severity"]),
+                     "要" if entry["user_action_required"] else "", "あり" if entry["code"] in handled else ""])
     missing = sorted(set(codes) - described)
 
     out = [HEADER, "# エラーコード一覧\n",
            "`src-python/errors.py`の`ErrorCode`と`ERROR_METADATA`から生成した。"
+           "中核（`native/core`）だけにあるコードは`tools/spec_core_additions.json`から表の末尾に足した。"
            "応答の形とUIでの見せ方は[横断的な振る舞い](../cross-cutting.md#エラーの扱い)にある。\n",
            "- 既定メッセージ: サイドカーが返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。",
            "- UIの個別処理: `_useBackendErrorHandling.js`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。"
@@ -269,8 +293,12 @@ def render_config() -> str:
         else:
             runtime.append(row + ["保存しない"])
 
+    for entry in core_additions()["config"]:
+        persisted.append([code(entry["key"]), cell(entry["check"] + "（中核のみ）"), code(entry["default"]), cell(entry["save"])])
+
     out = [HEADER, "# 設定キー一覧\n",
            "`src-python/config.py`の`Config`クラス（`ManagedProperty`と`ValidatedProperty`）と`init_config()`の既定値から生成した。"
+           "中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。"
            "保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。\n",
            "チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。"
            "旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。"

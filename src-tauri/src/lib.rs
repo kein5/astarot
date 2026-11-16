@@ -12,7 +12,6 @@ mod companion;
 mod quick_chat;
 mod single_instance;
 mod vr_panel_state;
-mod vr_overlay;
 #[cfg(test)]
 mod opener_scope_tests;
 #[cfg(target_os = "linux")]
@@ -226,8 +225,9 @@ pub fn run() {
             }
         })
         // Only the plugins the windows use. The UI reads and writes no files and makes no HTTP
-        // requests of its own, so the fs and http plugins are gone (security audit SEC-05).
-        .plugin(tauri_plugin_shell::init())
+        // requests of its own, so the fs and http plugins are gone (security audit SEC-05). It starts
+        // no programs either: the backend runs inside the app (backend_host.rs), so the shell plugin
+        // went with the Python sidecar.
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         // In-app updates (app_update.rs). The window gets no updater permission: the UI goes
@@ -242,7 +242,7 @@ pub fn run() {
         .manage(backend_host::BackendHost::default())
         .manage(companion::CompanionState::default())
         .invoke_handler(tauri::generate_handler![get_font_list, set_vr_panel_window, main_window_restore,
-            backend_host::backend_kind, backend_host::backend_start, backend_host::backend_write,
+            backend_host::backend_start, backend_host::backend_write,
             backend_host::backend_kill,
             quick_chat::quick_chat_context, quick_chat::quick_chat_configure, quick_chat::quick_chat_submit,
             quick_chat::quick_chat_take, quick_chat::quick_chat_finish, quick_chat::quick_chat_hide,

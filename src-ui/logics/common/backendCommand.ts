@@ -1,7 +1,7 @@
-// The backend the UI starts: the Python sidecar, or the Rust core run inside the app (#285).
-// Both are given to sidecarSession.js through the shell plugin's Command interface (on("error"),
-// on("close"), stdout/stderr on("data"), spawn() giving a child with write() and kill()), so
-// the session rules stay one. The app answers backend_kind: "core" when VRCT_BACKEND=core.
+// The backend the UI starts: the Rust core run inside the app (#285). It is given to
+// sidecarSession.js in the shape of the shell plugin's Command interface that the Python sidecar
+// used (on("error"), on("close"), stdout/stderr on("data"), spawn() giving a child with write()
+// and kill()), so the session rules stayed the same when the sidecar went.
 
 // How the run ended, as the shell plugin's "close" event reports it.
 export interface BackendExit {
@@ -36,8 +36,6 @@ export interface BackendCommand {
     spawn(): Promise<BackendChild>;
 }
 
-// What the app answers to backend_kind.
-export type BackendKind = "core" | "sidecar";
 
 // Tauri's invoke and Channel, given by the caller.
 export type BackendInvoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -55,7 +53,7 @@ export interface CoreBackendCommandOptions {
     newSessionId: () => string;
 }
 
-// The Rust core: lines arrive through a Tauri channel in order; the end of the run as its code.
+// Lines arrive through a Tauri channel in order; the end of the run as its code.
 export const createCoreBackendCommand = ({ invoke, Channel, newSessionId }: CoreBackendCommandOptions): BackendCommand => {
     const own: ListenerLists<BackendCommandEvents> = {};
     const out: ListenerLists<BackendStreamEvents> = {};
@@ -90,40 +88,3 @@ export const createCoreBackendCommand = ({ invoke, Channel, newSessionId }: Core
     return command;
 };
 
-export interface SelectedBackendCommandOptions extends CoreBackendCommandOptions {
-    createSidecar: () => BackendCommand;
-}
-
-// A listener kept before the backend is known: its stream (null for the command itself), event and function.
-type RegisteredListener = [null | "stdout" | "stderr", string, (value: never) => void];
-type ListenerTarget = { on(event: string, listener: (value: unknown) => void): unknown };
-
-// Listeners are kept until spawn() knows which backend to start, then handed to it.
-export const createSelectedBackendCommand = ({ invoke, Channel, createSidecar, newSessionId }: SelectedBackendCommandOptions): BackendCommand => {
-    const registered: RegisteredListener[] = [];
-    const proxy: BackendCommand = {
-        on(event, listener) {
-            registered.push([null, event, listener]);
-            return proxy;
-        },
-        stdout: { on: (event, listener) => registered.push(["stdout", event, listener]) },
-        stderr: { on: (event, listener) => registered.push(["stderr", event, listener]) },
-        async spawn() {
-            let kind: BackendKind = "sidecar";
-            try {
-                kind = await invoke<BackendKind>("backend_kind");
-            } catch (error) {
-                console.error("backend_kind failed; starting the sidecar", error);
-            }
-            const command = kind === "core"
-                ? createCoreBackendCommand({ invoke, Channel, newSessionId })
-                : createSidecar();
-            for (const [stream, event, listener] of registered) {
-                // Each listener goes back under the event it was registered for, so its value type matches.
-                ((stream === null ? command : command[stream]) as ListenerTarget).on(event, listener as (value: unknown) => void);
-            }
-            return command.spawn();
-        },
-    };
-    return proxy;
-};

@@ -31,7 +31,7 @@ voice:
     vc_idle: "VC稼働中・発話なし"
     vc_hint: "導入済みのSeed-VC実行環境と、利用許可のある参照音声を指定してください。試験的なGPL-3.0エンジンで、対応するNVIDIA GPUが必要です。モード変更前に停止してください。"
     input_title: "入力音声の転送"
-    input_description: "選んだ入力を原音のまま送るか、Seed-VCで変換します。ASRや翻訳発声とは独立して使えます。"
+    input_description: "選んだ入力をそのまま送ります。声を変えるときは「ボイスチェンジャー（RVC）」のページを使います。ASRや翻訳発声とは独立して使えます。"
     input_source: "転送する入力"
     select_input: "入力を選択"
     refresh_inputs: "入力一覧を更新"
@@ -68,7 +68,7 @@ voice:
         vc_output_missing: "出力デバイスが見つかりません。「テキスト読み上げ（TTS）」の設定で選び直してください。"
         vc_output_failed: "出力デバイスへ書き込めませんでした。デバイスを確認してもう一度開始してください。"
         vc_feedback_blocked: "入力と出力が同じ仮想ケーブルの両端です。音声が自分に戻ってしまうので、入力には実際のマイクを選んでください。"
-        vc_gpu_unavailable: "声の変換に使うNVIDIAのGPUが見つかりません。GPUのドライバーと、外付けのGPUが外れていないかを確かめてから、もう一度開始してください。Seed-VCはいまNVIDIAのGPUだけで動きます。"
+        vc_gpu_unavailable: "声の変換に使うNVIDIAのGPUが見つかりません。GPUのドライバーと、外付けのGPUが外れていないかを確かめてから、もう一度開始してください。"
         vc_capture_overrun: "変換が追いつかず停止しました。検索結果の混合率を0にするか、GPUやCPUを使う他のアプリを閉じてから、もう一度開始してください。"
         vc_block_expired: "変換が大きく遅れたため停止しました。GPUやCPUを使う他のアプリを閉じてから、もう一度開始してください。"
         vc_start_failed: "入力の転送を開始できませんでした。設定した実行環境のフォルダとモデルのファイルがあるかを確かめてから、もう一度開始してください。"
@@ -114,7 +114,7 @@ voice:
     conversion: "読み上げを声の変換に通す"
     conversion_off: "通さない"
     conversion_on: "通す"
-    conversion_hint: "RVCかSeed-VCで声を変換しているあいだ、読み上げも変換して、変換後の声で届けます。読み上げているあいだはマイクの代わりに読み上げを変換し、終わるとマイクに戻ります。そのため「直接音声と読み上げを混ぜる」とは一緒に使えません。声の変換が動いていないときは、これまでどおり読み上げをそのまま出します。変換の分だけ、聞こえるまでが少し遅れます。"
+    conversion_hint: "RVCで声を変換しているあいだ、読み上げも変換して、変換後の声で届けます。読み上げているあいだはマイクの代わりに読み上げを変換し、終わるとマイクに戻ります。そのため「直接音声と読み上げを混ぜる」とは一緒に使えません。声の変換が動いていないときは、これまでどおり読み上げをそのまま出します。変換の分だけ、聞こえるまでが少し遅れます。"
     mic_hint: "翻訳を有効にし、Realtimeのマイク字幕を別途開始してください。設定の保存では録音を開始しません。Linuxで直接音声を止めるには管理対象の経路が必要で、その経路の入力だけに適用されます。外部ケーブルでは「混ぜる」を選択してください。管理対象の方針を変更した後は音声を明示的に再開してください。Windowsでは、ASTAROTが出力デバイスへ送る声を無音にします。"
     off: "OFF・無音送信"
     original: "原文"
@@ -130,7 +130,7 @@ voice:
     monitor_device: "モニター出力先"
     monitor_default: "システム既定の出力"
     monitor_volume: "モニター音量"
-    monitor_hint: "VRChatへ送る読み上げ音声とRVC/Seed-VCの変換音声を、自分のスピーカーやヘッドホンでも再生します。VRChatへ送る音声は変わりません。マイクが拾わないようヘッドホンを使ってください。同じデバイスをスピーカー文字起こしに使うと、この音声も文字起こしされます。"
+    monitor_hint: "VRChatへ送る読み上げ音声とRVCの変換音声を、自分のスピーカーやヘッドホンでも再生します。VRChatへ送る音声は変わりません。マイクが拾わないようヘッドホンを使ってください。同じデバイスをスピーカー文字起こしに使うと、この音声も文字起こしされます。"
     monitor_error: "モニター出力を使えません。VRChatへ送る音声は続いています。"
     vc_monitor_on: "変換音声はモニター出力（「テキスト読み上げ（TTS）」の設定）でも再生されます。変更は次回の開始時に反映されます。"
     vc_monitor_off: "変換音声を自分でも聞くには、「テキスト読み上げ（TTS）」の設定でモニター出力をONにしてください。"
@@ -234,6 +234,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} はダウンロードしていません。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認し、同意してからダウンロードしてください。モデルの版が変わったときはもう一度確認してください。"
     OVERLAY_RUNTIME_FAILED: "VRオーバーレイの描画または画面の取り込みに失敗したため、表示を止めました。SteamVRとVR画面の状態を確かめてから、もう一度オンにしてください。"
     OVERLAY_VR_PANEL_UNSUPPORTED: "この環境ではVR UIを使えません。字幕オーバーレイには影響しません。"
+    OVERLAY_FONT_NOT_FOUND: "その書体はこのPCに入っていません。字幕は前の書体のままです。"
     MESSAGE_OUTPUT_FAILED: "{{output}}にメッセージを送れませんでした。ほかの出力先には送っています。再送するとほかの出力先に同じメッセージが重ねて届くことがあります。"
     TRANSLATION_VRAM_ENABLE: "GPUのメモリーが足りず、AI翻訳を開始できませんでした。設定の「翻訳」で処理デバイスをCPUにするか、ほかのGPUアプリを止めてください。"
     TRANSLATION_DISABLED_VRAM: "GPUのメモリーが足りないため、翻訳をオフにしました。"
@@ -245,6 +246,7 @@ backend_errors:
     AUDIO_OPEN_ERROR_speaker: "スピーカーの音を取り込めませんでした。スピーカーがつながっているかを確かめてからもう一度試してください。"
     AUDIO_READ_ERROR: "デバイスのエラーで、音声の取り込みが止まりました。デバイスがつながっているかを確かめてからもう一度試してください。"
     VAD_INFERENCE_ERROR: "発話の検出に失敗したため、音声認識を止めました。もう一度試してください。繰り返し起きるときはASTAROTを再起動してください。"
+    VAD_UNAVAILABLE: "この版ではVADを使えないため、オンにしませんでした。音声は音量で区切ります。"
     TRANSCRIBER_INIT_ERROR: "音声認識を開始できませんでした。設定の「音声認識（ASR）」でエンジンとモデルを確かめてから、もう一度試してください。"
     ASR_ERROR: "音声認識に失敗したため、認識を止めました。設定の「音声認識（ASR）」でエンジンを確かめてください。オンラインのエンジンなら、ネットワークの接続も確かめてから、もう一度試してください。"
     CLEANUP_TIMEOUT: "音声の取り込みが時間内に止まりませんでした。少し待ってからもう一度試してください。繰り返し起きるときはASTAROTを再起動してください。"
@@ -264,6 +266,7 @@ backend_errors:
     AUTH_OPENAI_COMPATIBLE_INVALID: "OpenAI互換APIキーの形式が正しくありません。"
     AUTH_OPENAI_COMPATIBLE_FAILED: "OpenAI互換エンドポイントに接続できないか、APIキーが受け付けられませんでした。URLとAPIキーを確認してください。"
     CREDENTIAL_REENTRY_REQUIRED: "URLが変わったため、保存済みのキーが別のサーバーへ送られないよう、新しいURLで使うキーを入力してください。キーが不要なサーバーを使う場合は、先に保存済みのキーを削除してからURLを変更してください。"
+    SECRET_STORE_FAILED: "APIキーを保護されたファイルに保存できませんでした。入力したキーはアプリを閉じるまで使えます。設定のフォルダに書き込めるか確かめてから、足りないキーを入れ直してください。"
     MODEL_PLAMO_INVALID: "そのPlamoのモデルは使えません。"
     MODEL_GEMINI_INVALID: "そのGeminiのモデルは使えません。"
     MODEL_OPENAI_INVALID: "そのOpenAIのモデルは使えません。"
@@ -277,6 +280,11 @@ backend_errors:
     CONNECTION_LMSTUDIO_URL_INVALID: "URLが無効か、サーバーに接続できませんでした。HTTPSを使ってください。HTTPはlocalhostまたはローカルネットワークのIPアドレスでのみ使えます。URLからユーザー名・パスワード・キーなどのクエリを除き、確認して保存し直してください。"
     CONNECTION_OPENAI_COMPATIBLE_URL_INVALID: "URLが無効か、サーバーに接続できませんでした。HTTPSを使ってください。HTTPはlocalhostまたはローカルネットワークのIPアドレスでのみ使えます。URLからユーザー名・パスワード・キーなどのクエリを除き、確認して保存し直してください。"
     CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID: "URLが無効か、サーバーに接続できませんでした。HTTPSを使ってください。HTTPはlocalhostまたはローカルネットワークのIPアドレスでのみ使えます。URLからユーザー名・パスワード・キーなどのクエリを除き、確認して保存し直してください。"
+    CONNECTION_OLLAMA_URL_INVALID: "URLが無効か、そのURLでOllamaに接続できませんでした。HTTPSを使ってください。HTTPはlocalhost、ローカルネットワークのIPアドレス、.localの名前でだけ使えます。URLからユーザー名・パスワード・キーなどのクエリを除いてください。Ollamaがモデルを入れて起動しているか確かめてから、保存し直してください。"
+    AUTH_GOOGLE_CLOUD_INVALID: "Google CloudのAPIキーを空白なしで入力してください。"
+    AUTH_GOOGLE_CLOUD_FAILED: "Google CloudのAPIキーを確認できませんでした。キーと、そのプロジェクトでCloud Translation APIと課金が有効になっているかを確かめてください。"
+    AUTH_PAPAGO_INVALID: "先にPapagoのClient IDを保存してから、Client Secretを入力してください。どちらも空白なしで入力します。"
+    AUTH_PAPAGO_FAILED: "PapagoのClient IDとClient Secretを確認できませんでした。両方の値と、NAVER Cloud PlatformのアプリケーションでPapago Translationが有効かを確かめてください。"
     WEBSOCKET_HOST_INVALID: "WebSocketサーバーにこのホストは使えません。"
     WEBSOCKET_PORT_UNAVAILABLE: "WebSocketサーバーのポートがほかのアプリで使われています。別のポートを指定してください。"
     WEBSOCKET_PORT_INVALID: "WebSocketのポートは1〜65535の整数で入力してください。"
@@ -300,6 +308,7 @@ common_warning:
         mic: 'マイクを「{{old}}」から「{{new}}」に切り替え、録音を続けています。'
         speaker: 'スピーカーの録音元を「{{old}}」から「{{new}}」に切り替え、録音を続けています。'
     startup_degraded: "一部の設定を読み込めなかったため、その項目を初期値にして起動しました。使う前に設定を確認してください。繰り返し起きる場合はASTAROTを再起動してください。"
+    translation_device_fallback: "翻訳はオンにしましたが、{{device}}を使えなかったので翻訳モデルはCPUで動いています。翻訳に時間がかかることがあります。GPUを使うときは、設定の「翻訳」で処理デバイスを確認してください。"
     config_file_unreadable: "設定ファイル（config.json）を読み込めなかったため、既定の設定で起動しました。元のファイルは{{file}}として残しています。"
     osc_query_remote: "送信先が別のマシンのときは「{{sync}}」を使えません。VRChatのミュート状態を確認できるのは、VRChatが同じPCで動いているときだけです。"
     osc_query_remote_mic_stopped: "送信先が別のマシンなので、VRChatのミュート状態を確認できません。「{{sync}}」をオフにして、「{{microphone}}」を止めました。必要なときに、「{{microphone}}」をオンにし直してください。"
@@ -538,6 +547,7 @@ config_page:
             option_auto: "自動"
             option_manual: "手動"
             desc_for_vad: "AI（Silero VAD）を用いて人の声を検出し、話し終わるごとに音声認識へ送信します。BGMやゲーム音の誤認識を抑えやすくなります。"
+        desc_vad_unavailable: "この版では使えません。発話を検出するモデルをまだ同梱していないためです。音声は「自動」か「手動」の設定で音量から区切ります。"
 
     appearance:
         section_label_display: "表示"
@@ -583,6 +593,7 @@ config_page:
             large: "高精度モデル（{{capacity}}）"
             license_commercial: "ライセンス: {{license}}（商用利用可）"
             license_non_commercial: "非商用ライセンス（{{license}}）"
+            custom_model: "自分で追加したモデル（translation-modelsフォルダ）です。ライセンスは自分で確認してください。"
             confirm_title: "非商用ライセンス"
             confirm_body: "{{weight_type}}のライセンスは{{license}}です。商用目的では使用できません。M2M100モデル（MITライセンス）にはこの制限はありません。"
             confirm_check: "ライセンスを確認し、非商用目的でのみ使用します。"
@@ -598,6 +609,17 @@ config_page:
         deepl_auth_key:
             label: "DeepL APIキー"
             desc: "使うときは、メイン画面の{{translator}}を「DeepL API」にしてください。\n※対応していない言語もあります。"
+
+        google_cloud_auth_key:
+            label: "Google Cloud APIキー"
+            desc: "自分のGoogle CloudプロジェクトでCloud Translation（Basic）を使います。プロジェクトでCloud Translation APIと課金を有効にしてから、APIキーを貼り付けてください。訳した文字数の料金はGoogleからプロジェクトに請求されます。"
+
+        papago_client_id:
+            label: "Papago Client ID"
+            desc: "自分のNAVER Cloud PlatformのアカウントでPapago Translationを使います。先にClient IDを保存し、次にClient Secretを保存します。Papagoが訳せるのは韓国語・英語・日本語・中国語などの決まった組み合わせだけで、ほかの組み合わせは代わりの翻訳を使います。"
+            reentry_required: "Client IDを変えるときは、先に保存済みのClient Secretを削除してから、新しいClient IDとそのSecretを保存してください。"
+        papago_auth_key:
+            label: "Papago Client Secret"
 
         plamo_auth_key:
             label: "Plamo APIキー"
@@ -640,6 +662,9 @@ config_page:
 
         ollama_connection_check:
             label: "Ollamaとの接続確認"
+        ollama_url:
+            label: "Ollama URL"
+            desc: "このPCのOllamaか、同じLANにある別のPCのOllamaを使えます（例: http://192.168.1.20:11434、http://studio.local:11434）。別のPCでは、Ollamaがネットワークから受け付けるように設定してください（OLLAMA_HOST=0.0.0.0）。"
         select_ollama_model:
             label: "Ollamaモデルを選択"
             connection_required: "Ollamaとの接続が必要"
@@ -649,13 +674,13 @@ config_page:
         section_label_speaker: "スピーカー"
         section_label_transcription_engines: "音声認識エンジン"
         timing_title: "区切りと待機の調整"
-        timing_status: "無音{{silence}}秒で区切る · {{length}}秒ごとに処理 · 待機は{{queue}}件まで"
+        timing_status: "1回の録音は{{record}}秒まで · {{phrase}}秒声がないと1つのメッセージにする · 待機は{{queue}}件まで"
         mic_record_timeout:
-            label: "入力が終了したとみなす無音時間"
-            desc: "無音を検出し、設定された秒数が経過すると、音声入力が終了したとみなします。"
+            label: "1回の録音の長さの上限"
+            desc: "1回に録音する長さの上限を秒数で決めます。これより長く話し続けると途中で区切りますが、続いているあいだは1つのメッセージにまとめます。0にすると上限はありません。「発話を区切るまでの待ち時間」より長くはできません。"
         mic_phrase_timeout:
-            label: "一度に文字起こしする時間の長さ"
-            desc: "設定された秒数ごとに文字起こし処理が行われます。"
+            label: "発話を区切るまでの待ち時間"
+            desc: "最後に話してからこの秒数が過ぎると、それまでの音声を1つのメッセージにします。短くすると早く送れます。長くすると少し間があいても1つのメッセージになります。15秒続けて話したときも区切ります。"
         mic_max_phrase:
             label: "マイクの最大待機メッセージ数"
             desc: "文字起こしされたメッセージが送信されるまでに溜められる最大数です。これを超えると古いものからVRChatに送信されずに破棄されます。"
@@ -669,11 +694,11 @@ config_page:
             label: "マイクのVADフィルター"
             desc: "無音区間を検出してから音声を認識処理に送ります。会話の途中で文字起こしが止まってしまう場合は、この設定を無効にしてください。"
         speaker_record_timeout:
-            label: "入力が終了したとみなす無音時間"
-            desc: "無音を検出し、設定された秒数が経過すると、音声入力が終了したとみなします。"
+            label: "1回の録音の長さの上限"
+            desc: "1回に録音する長さの上限を秒数で決めます。これより長く音声が続くと途中で区切りますが、続いているあいだは1つのメッセージにまとめます。0にすると上限はありません。「発話を区切るまでの待ち時間」より長くはできません。"
         speaker_phrase_timeout:
-            label: "一度に文字起こしする時間の長さ"
-            desc: "設定された秒数ごとに文字起こし処理が行われます。"
+            label: "発話を区切るまでの待ち時間"
+            desc: "最後に声が聞こえてからこの秒数が過ぎると、それまでの音声を1つのメッセージにします。短くすると早く表示されます。長くすると少し間があいても1つのメッセージになります。声が15秒続いたときも区切ります。"
         speaker_max_phrase:
             label: "スピーカーの最大待機メッセージ数"
             desc: "文字起こしされたメッセージがログに表示されるまでに溜められる最大数です。これを超えると古いものから表示されずに破棄されます。"
@@ -682,7 +707,7 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "Google は API キーなしで使えます。ほかのクラウドエンジンは、下の「クラウド音声認識」で API キーを登録すると選べます。「ローカル（speech.cpp）」は、この PC の speech.cpp サーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
+            desc: "クラウドエンジンは、下の「クラウド音声認識」で API キーを登録すると選べます。「ローカル（speech.cpp）」は、この PC の speech.cpp サーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
@@ -771,6 +796,12 @@ config_page:
         voice_typing_mode:
             label: "音声タイピングモード"
             desc: "文字起こしされたテキストをアクティブな入力欄へと自動的に貼り付けます。\n※クリップボードを使います。LinuxではX11／XWaylandのウィンドウ（Protonで動くVRChatなど）に貼り付けます。入力デバイスの操作を許可するか、デスクトップが最初に確認することがあります。"
+        overlay_font_family:
+            label: "字幕の書体"
+            desc: "字幕オーバーレイの書体を、このPCに入っている書体から選びます。選んだ書体にない文字は、このPCにあるその言語の標準の書体で出します。"
+            auto: "自動（このPCの標準の書体）"
+            not_installed: "{{name}}（このPCにありません）"
+            missing: "このPCには{{languages}}を表示できる書体がありません。その文字は字幕に出ません。Noto Sans CJKなどの書体を入れて、アプリを起動し直してください。"
 
     others:
         section_label_message_formats: "メッセージフォーマット"
@@ -1304,6 +1335,9 @@ speech_servers:
     device_named: "{{label}}（{{name}}）"
     device_missing: "{{name}}（見つかりません）"
     device_help: "「自動」と「GPU」は内蔵GPUより独立GPUを先に使い、独立GPUが複数あればメモリの多いほうを使います。AMD、Intel、NVIDIAのどれでも同じです。ここで指定もできます。RVCと同じGPUで動かすとRVCが止まりやすくなることがあります。"
+    cpu_build_separate: "「CPU」はVulkanを使わないCPU用のspeech.cppで動きます。「自動」もGPUを使えないときはこれで動きます。"
+    cpu_build_shared: "「CPU」は同じspeech.cppをプロセッサーで動かします。このときもGPUドライバーのVulkanライブラリ（vulkan-1.dll）が要ります。"
+    gpu_build_unavailable: "GPU用のspeech.cppがこのPCでは起動しません。Vulkanローダー（libvulkan.so.1）がないのかもしれません。「自動」と「CPU」はCPU用のspeech.cppで動きます。GPUを使うにはVulkanローダーのパッケージ（libvulkan1かvulkan-loader）とGPUのVulkanドライバーを入れてから、このページを開き直してください。"
     low_latency: "低遅延待機（Irodori・GPU）"
     low_latency_help: "サーバーの起動中は、TTSがオフでもGPUで無音の待機計算を続け、最初の読み上げを速くします。消費電力が増え、ゲームとGPUを取り合うことがあります。変更する前にサーバーを止めてください。遅延を保証する設定ではありません。"
     low_latency_warming: "低遅延待機を準備中"
@@ -1329,12 +1363,14 @@ speech_servers:
     japanese_selection: "日本語のサーバー"
     multilingual_selection: "その他の言語のサーバー"
     asr_selection: "ASRサーバー"
+    notices:
+        speech_server_cpu_fallback: "CPUで動いています。GPU用のspeech.cppがこのPCで起動しなかったので「自動」はCPU用で動かしています。GPUを使うにはVulkanローダー（libvulkan.so.1）を入れてからサーバーを起動し直してください。"
     errors:
         speech_bundle_missing_or_invalid: "同梱のspeech.cppが見つからないか、検査に通りません。配布版を入れ直してください。開発環境ではbuild/speechcppを用意してください。"
         speech_server_launch_failed: "サーバーを起動できませんでした。モデルファイルと「推論デバイス」を確認してから、もう一度起動してください。"
         speech_server_exited: "サーバーが予期せず停止しました。モデルファイルと「推論デバイス」を確認してから、もう一度起動してください。"
         speech_server_out_of_memory: "メモリーが不足しています。他のGPUアプリを停止するか、CPUを選択して保存し、サーバーを再起動してください。"
-        speech_server_vulkan_missing: "GPUドライバーのVulkanライブラリ（vulkan-1.dll）が見つかりません。GPUドライバーを入れるか更新してからもう一度起動してください。"
+        speech_server_vulkan_missing: "Vulkanのライブラリが見つかりません（Windowsはvulkan-1.dll、Linuxはlibvulkan.so.1）。GPUドライバーを入れるか更新してください。LinuxではVulkanローダーのパッケージ（libvulkan1かvulkan-loader）を入れるか「CPU」を選んでも動きます。そのあとでもう一度起動してください。"
         speech_server_device_failed: "この「推論デバイス」ではモデルを動かせませんでした。GPUドライバーを更新するか、別のデバイスかCPUを選んで保存してから、もう一度起動してください。"
         speech_server_start_timeout: "モデルの読み込みに時間がかかりすぎました。小さいモデルか別の「推論デバイス」を選んでから、もう一度起動してください。"
         speech_server_readiness: "サーバーが起動しましたが、応答を確認できませんでした。もう一度起動してください。"
@@ -1462,6 +1498,7 @@ voice_ui:
     save_changes: "変更を保存"
     select_rvc: "直接音声でRVCを使う"
     select_rvc_pending: "直接音声はいまRVC以外に設定されています。このページで保存するとRVCに切り替わります。"
+    seed_vc_moved_to_rvc: "Seed-VCは使えなくなったため、声の変換をRVCに切り替えました。開始する前に、このページでRVCのモデルと実行環境を確かめてください。"
     rvc_latency_hint: "変換した声が届くまでの遅れの目安は、NVIDIAのGPUで約0.2秒、CPUで約1.3秒です。GPUを使えないPCでは、CPUで変換します。CPUでの変換はCPUを多く使うので、ほかのアプリが重くなったり、遅いPCでは声が途切れたりすることがあります。"
     rvc_running_gpu: "GPUで変換しています。声の遅れは約{{seconds}}秒です。"
     rvc_running_cpu: "CPUで変換しています。声の遅れは約{{seconds}}秒です。NVIDIAのGPUを使える実行環境にすると、遅れが小さくなります。"
@@ -1649,6 +1686,7 @@ model_downloads:
     notice_rvc: "モデルカードでは作者本人の声で学習したRVC v2音声変換モデルと説明されています。CC BY 4.0の帰属表示が必要です：Voice model created by Saisho Utane — https://huggingface.co/Saisho-Utane — Used under the CC BY 4.0 license. 公開コンテンツやプロジェクトの説明にクレジットとライセンスへのリンクを記載し、変更した場合は明示してください。この実行環境での変換品質はまだ検証していません。"
     notice_ppocr: "チャット読み取り用の文字検出・認識モデルです。PaddleOCR（PaddlePaddle）提供、Apache-2.0です。このPCのCPUで動き、画面の内容を送信することはありません。"
     notice_chatbox: "チャット読み取り用の、ASTAROT独自の吹き出し検出モデル（YOLOX-Tiny）です。ASTAROT自身のスクリーンショットで学習し、MITで公開しています。このPCのCPUで動き、画面の内容を送信することはありません。"
+    notice_translation: "ONNX Runtime用のローカル翻訳モデルです。上に書いた元のモデルから変換しました。このPCで動き、翻訳する文章を送信することはありません。元のモデルのライセンスを確認してください。"
     notice_haas: "speech.cpp 0.9.4以降用の、句読点付きで書き起こす日本語音声認識モデルです。Third Intelligence提供、sakasegawa変換、Apache-2.0です。利用前にモデルカードを確認してください。"
     rvc_requirements: "取得するのはRVC音声モデルとindexだけです。変換にはRVCの実行環境（Python環境・HuBERT・RMVPE）も必要です。取得完了だけでは変換の準備完了になりません。"
     notice_qwen_asr: "30言語を認識し、話している言語も自動で判定する音声認識モデルです。Qwenチーム提供、sakasegawa変換、Apache-2.0です。1.7Bは0.6Bより誤りが少ない一方で容量とメモリーを多く使います（speech.cppによるCommon Voice日本語での測定ではCER 9.49%と11.89%）。利用前にモデルカードを確認してください。"
@@ -1925,6 +1963,9 @@ legacy_model_downloads:
     non_commercial: "非商用の利用に限られます（CC-BY-NC-4.0）。トークナイザーにも同じ制限があります。"
     revision: "モデルの版"
     review_unavailable: "モデルの情報を読み込めませんでした。この画面を閉じてもう一度お試しください。"
+    translation_not_published: "翻訳モデルはまだダウンロードできません。新しい翻訳エンジン用のモデルを公開していないためです。"
+    translation_own_model: "自分で用意したモデルを使うときは、tools/translation_onnx/export.pyで変換したフォルダを下のフォルダに置き、ASTAROTを起動し直します。そのモデルのライセンスは自分で確認してください。"
+    close: "閉じる"
     startup_skipped: "{{model}} のこの版にはまだ同意していないため、起動時にはダウンロードしませんでした。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認してから、ダウンロードしてください。"
     consent: "提供元・ライセンス・容量を確認しました。表示された追加のファイルも含めて、ダウンロードに同意します。"
     no_start: "ダウンロードしても、モデルの選択や、翻訳・マイクのオン／オフは変わりません。"
@@ -1993,8 +2034,7 @@ telemetry_contents:
         igpu: "内蔵GPU"
 transcription_consent:
     title: "音声認識エンジンを選ぶ"
-    google_notice: "Google を使うと、マイクやスピーカーの音声が Google の音声認識サービスに送られます。API キーは不要です。"
-    google: "Google で文字起こしを始める"
+    cloud_notice: "クラウドのエンジン（Groq、OpenAI、Deepgram、自分の Whisper サーバー）を使うときは、エンジンの設定を開いて API キーを登録し、そこで選んでください。音声はそのサービスに送られます。"
     speechcpp_notice: "ローカル（speech.cpp）はこの PC の speech.cpp サーバーで音声を認識します。認識モデルと VAD モデルがないときは、設定 → 音声認識（ASR） → モデルとサーバーで内容を確認して取得してください。"
     speechcpp: "ローカル（speech.cpp）で文字起こしを始める"
     cancel: "キャンセル"

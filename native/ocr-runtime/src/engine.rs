@@ -40,7 +40,29 @@ fn backend(error: impl std::fmt::Display) -> Error {
 
 pub(crate) fn environment() -> Result<&'static Environment> {
     static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
-    ENVIRONMENT.get_or_init(|| ort::init().with_name("ocr-runtime").build().map_err(|error| error.to_string())).as_ref().map_err(backend)
+    ENVIRONMENT.get_or_init(|| builder()?.with_name("ocr-runtime").build().map_err(|error| error.to_string())).as_ref().map_err(backend)
+}
+
+/// With `load-dynamic`, the library is loaded here so that a missing one is an error value
+/// rather than a panic on first use.
+#[cfg(feature = "load-dynamic")]
+fn builder() -> std::result::Result<ort::environment::EnvironmentBuilder, String> {
+    let path = std::env::var_os("ORT_DYLIB_PATH")
+        .filter(|path| !path.is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| format!("{}onnxruntime{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX).into());
+    ort::init_from(path).map_err(|error| error.to_string())
+}
+
+#[cfg(not(feature = "load-dynamic"))]
+fn builder() -> std::result::Result<ort::environment::EnvironmentBuilder, String> {
+    Ok(ort::init())
+}
+
+/// Whether ONNX Runtime can be used in this process (`ocr_engine.isAvailable`). With the
+/// statically linked build this is always true; a dynamically loaded library may be missing.
+pub fn is_available() -> bool {
+    environment().is_ok()
 }
 
 /// A CPU session with the options RapidOCR's ONNX Runtime engine sets: no memory arena,

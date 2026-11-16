@@ -420,7 +420,7 @@ fn an_rvc_apply_sets_both_paths_and_keeps_the_rest_of_the_voice_settings() {
     let voice = ui.backend.core().config().get("DIRECT_VOICE_SETTINGS");
     assert_eq!((voice["rvc_model"].clone(), voice["rvc_index"].clone()), (job["paths"]["model"].clone(), job["paths"]["index"].clone()));
     assert_eq!((voice["rvc_runtime"].clone(), voice["rvc_pitch"].clone(), voice["rvc_index_rate"].clone()), (json!("/owned/runtime"), json!(3), json!(0.2)));
-    assert_eq!((voice["mode"].clone(), voice["engine"].clone()), (json!("passthrough"), json!("seed-vc")), "nothing is switched on");
+    assert_eq!((voice["mode"].clone(), voice["engine"].clone()), (json!("passthrough"), json!("rvc")), "nothing is switched on");
     ui.stop();
 }
 

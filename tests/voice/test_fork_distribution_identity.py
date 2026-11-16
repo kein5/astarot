@@ -10,7 +10,7 @@ from unittest.mock import Mock
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_fork_identity_and_sidecar_contract():
+def test_fork_identity_and_backend_contract():
     conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
     assert conf["productName"] == "VRCT-VOX"
     assert conf["mainBinaryName"] == "vrct-vox"
@@ -20,8 +20,12 @@ def test_fork_identity_and_sidecar_contract():
     assert "m's software" in conf["bundle"]["copyright"]
     # The window title is the display name (ADR-011 P1); productName above stays until P2.
     assert conf["app"]["windows"][0]["title"] == "ASTAROT"
-    assert conf["bundle"]["externalBin"] == ["bin/vrct-vox-sidecar"]
-    assert 'Command.sidecar("bin/vrct-vox-sidecar")' in (ROOT / "src-ui/views/app/_app_controllers/StartPythonController.jsx").read_text(encoding="utf-8")
+    # The backend runs inside the app: no program ships beside it and the UI starts none.
+    assert "externalBin" not in conf["bundle"]
+    assert conf["bundle"]["resources"] == {"bin/_internal": "_internal"}
+    controller = (ROOT / "src-ui/views/app/_app_controllers/StartPythonController.jsx").read_text(encoding="utf-8")
+    assert "Command.sidecar" not in controller and "plugin-shell" not in controller
+    assert "createCoreBackendCommand" in controller
 
 
 def test_build_metadata_and_launchers_agree_on_renamed_binaries():
@@ -35,9 +39,9 @@ def test_build_metadata_and_launchers_agree_on_renamed_binaries():
     # Name is only shown in menus (ADR-011 P1); the file name, Exec, Icon and StartupWMClass identify the app.
     assert "Name=ASTAROT\n" in desktop and "Exec=vrct-vox\n" in desktop
     assert "Icon=vrct-vox\n" in desktop and "StartupWMClass=vrct-vox\n" in desktop
-    assert "usr/lib/vrct-vox/vrct-vox-sidecar" in (ROOT / "packaging/appimage/sidecar").read_text(encoding="utf-8")
-    for spec in ("backend.spec", "backend_cuda.spec", "backend_linux.spec"):
-        assert "name='vrct-vox-sidecar" in (ROOT / "spec" / spec).read_text(encoding="utf-8")
+    # The AppImage starts the GUI only; the backend core runs inside it.
+    assert not (ROOT / "packaging/appimage/sidecar").exists()
+    assert not (ROOT / "spec").exists(), "no PyInstaller build is left"
 
 
 def test_windows_installer_identity_finds_previous_install_location():

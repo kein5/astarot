@@ -146,7 +146,8 @@ def readme(rows, target):
         'Crates marked "VRCT-VOX" are this project\'s own code, under `../VRCT/LICENSE`.',
         'The source code of every other crate is published on crates.io at the version listed',
         '(https://crates.io/crates/<crate>/<version>). That includes the crates under the',
-        'Mozilla Public License 2.0, whose source code form is available there.', '',
+        'Mozilla Public License 2.0, whose source code form is available there. A crate taken from',
+        'a git repository instead (`sudachi`) is published at the repository listed.', '',
         '| Crate | Version | License | Executables |', '|---|---|---|---|']
     for row in rows:
         license_text = 'VRCT-VOX' if row['local'] else (row['license'] or 'see the folder')

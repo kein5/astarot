@@ -1,6 +1,6 @@
 # IPCプロトコル（UIとサイドカー）
 
-UI（Tauri＋React）とPythonのサイドカーの間のメッセージの規則。個々のエンドポイントは[IPCエンドポイント一覧](reference/ipc-endpoints.md)、エラーコードは[エラーコード一覧](reference/error-codes.md)にある。
+UI（Tauri＋React）とバックエンドの間のメッセージの規則。0.5.0からバックエンドはアプリのプロセスの中で動くRustの中核（`native/core`）で、0.4までのPythonのサイドカーと同じ行の形と規則で話す。この文書では、バックエンドを以前の呼び名のまま「サイドカー」と書く。個々のエンドポイントは[IPCエンドポイント一覧](reference/ipc-endpoints.md)、エラーコードは[エラーコード一覧](reference/error-codes.md)にある。
 
 LSPの仕様書が「Base Protocol」と各メッセージの説明を分けているのにならい、この文書は全エンドポイントに共通する規則だけを書く。
 
@@ -13,16 +13,15 @@ flowchart LR
     vr["vr_panel ウィンドウ"]
     qc["quick_chat ウィンドウ"]
   end
-  side["サイドカー（Python, bin/vrct-vox-sidecar）"]
-  main -- "stdin: 要求（1行のJSON）" --> side
-  side -- "stdout: 応答と通知（1行のJSON）" --> main
-  side -- "stderr: 警告とエラー" --> main
+  side["サイドカー（Rustの中核, native/core。アプリのプロセスの中）"]
+  main -- "backend_write: 要求（1行のJSON）" --> side
+  side -- "Channel: 応答と通知（1行のJSON）" --> main
   vr -- "Tauriイベント vr-panel-stdout" --> main
   qc -- "Tauriコマンド quick_chat_submit" --> main
 ```
 
 - サイドカーと話すのは`main`ウィンドウだけである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
-- 起動は`Command.sidecar("bin/vrct-vox-sidecar")`（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。アプリを`VRCT_BACKEND=core`で起動したときは、代わりにRustの中核（`native/core`）を同じプロセスの中で動かす。UIは`backendCommand.ts`を通して同じ形で扱い、行の形式と規則は変わらない（[中核の統合](../voice-stack/core-integration.md)）。
+- 起動は`backend_start`（`src-tauri/src/backend_host.rs`）で、UIは`backendCommand.ts`を通して0.4までの`Command.sidecar`と同じ形で扱う（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。要求は`backend_write`、終了は`backend_kill`で、応答と通知は順序を保つチャネルで届く。行の形式と規則は0.4までと変わらない（[中核の統合](../voice-stack/core-integration.md)）。下で「stdin」「stdout」と書くのは、この要求と応答の向きのことである。
 
 ## メッセージの形
 
@@ -93,7 +92,7 @@ OpenAI互換とCustom WhisperのURL単独の設定要求（`/set/data/openai_com
 
 - 通常の設定とメイン機能は、要求中もatomの`data`に最後に確認した値を保つ。404・423・500ではその値を保ったまま`state`を`ok`へ戻す。成功時のハンドラーは呼ばず、保存成功の通知も出さない。VRだけが待機中の場合も、mainから同じ値を再通知する。
 - 500では書き込みが途中まで適用されている可能性がある。`/set/data/…`、`/delete/data/…`、`/set/enable/…`、`/set/disable/…`には、実在する`/get/data/…`を対応づけて再取得する。接続確認の`/run/lmstudio_connection`と`/run/ollama_connection`には`/get/data/connected_lmstudio`と`/get/data/connected_ollama`を使う。
-- 翻訳・送受信の文字起こし・OCRのメインスイッチと音量テストには、対応する読み取り先がない。失敗時は最後に確認した表示へ戻すだけで、未確認の結果を推測しない。旧UIに残る`ollama_url`にも読み取り先がない。
+- 翻訳・送受信の文字起こし・OCRのメインスイッチと音量テストには、対応する読み取り先がない。失敗時は最後に確認した表示へ戻すだけで、未確認の結果を推測しない。`ollama_url`の読み取り先は中核で足した（`/get/data/ollama_url`）。
 - 再取得の失敗で読み取りを繰り返さない。再取得を待つ間に新しい書き込みを送った場合、古い読み取り応答でその書き込みの待機や値を上書きしない。書き込みを自動で再送することはない。時間の経過だけでも待機を解除しない。
 - 送信が`false`を返す、または例外になった場合も、通常の制御は最後に確認した値へ戻す。送信失敗の通知を出すが、サイドカー停止の通知が出ている場合は重ねない。読み取りだけの再取得失敗でも、元の500通知に送信失敗通知を重ねない。
 - 言語変更は後述の専用の対応づけを使う。TTS/RVCの世代番号、モデル取得の観測番号、400/409の個別エラー処理も維持する。TTS/RVCの404・423・500は応答のオン・オフ方向が現在の要求と一致するときだけ待機を解除し、状態を再取得する。送信失敗はその送信がまだ持っている待機だけを解除する。

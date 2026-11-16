@@ -90,3 +90,48 @@ fn voice_failures_are_reported_only_by_listed_codes() {
     assert_eq!(errors::reported_failure_code("tts", "free text"), None);
     assert_eq!(errors::reported_failure_code("unknown_area", "x"), None);
 }
+
+/// Codes the Python backend answered with outside its `ErrorCode` table; the core keeps them.
+const OUTSIDE_THE_TABLE: &[&str] = &["VOICE_SETTINGS_INVALID"];
+
+fn sources(dir: &std::path::Path, files: &mut Vec<(String, String)>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            sources(&path, files);
+        } else if path.extension().is_some_and(|e| e == "rs") {
+            files.push((path.display().to_string(), std::fs::read_to_string(&path).unwrap()));
+        }
+    }
+}
+
+#[test]
+fn every_code_the_core_answers_with_is_in_the_specification() {
+    let known: std::collections::HashSet<String> = errors::codes().iter().map(|c| c.code.to_string()).collect();
+    let mut files = Vec::new();
+    sources(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut files);
+    // Where an answer or a notification names its code: `ErrorReply::new("…"`, `error("…"`, the
+    // code fields of the tables (`vram_code: "…"`) and bodies written out (`"error_code": "…"`).
+    let prefixes = ["ErrorReply::new(\"", " error(\"", "(error(\"", "_code: \"", " code: \"", "\"error_code\": \""];
+    let mut seen = 0;
+    let mut missing = Vec::new();
+    for (path, text) in &files {
+        for prefix in prefixes {
+            for (at, _) in text.match_indices(prefix) {
+                let rest = &text[at + prefix.len()..];
+                let Some(end) = rest.find('"') else { continue };
+                let code = &rest[..end];
+                let upper = code.contains('_') && code.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_');
+                if !upper {
+                    continue;
+                }
+                seen += 1;
+                if !known.contains(code) && !OUTSIDE_THE_TABLE.contains(&code) {
+                    missing.push(format!("{code} ({path})"));
+                }
+            }
+        }
+    }
+    assert!(seen > 50, "the scan finds the codes ({seen})");
+    assert!(missing.is_empty(), "codes not in docs/spec/reference/error-codes.md: {missing:?}");
+}

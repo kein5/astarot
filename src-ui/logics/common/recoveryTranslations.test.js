@@ -26,10 +26,11 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     }
     const runtime = hooks(), copies = [];
     stubGlobals(context, { window: { location: { origin: "http://localhost" } } });
-    let updating = false;
+    let updating = false, mode = "install";
     const errorModule = await loadModule(new URL("../../views/app/others/error_boundary/AppErrorBoundary.jsx", import.meta.url), runtime, {
         "@useI18n": translations, "react-error-boundary": { ErrorBoundary: icon },
         "./contacts_container/ContactsContainer": { ContactsContainer: icon }, "@common_components": { CloseButton: icon },
+        "../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate: { info: { mode } } }) },
         "@logics_common": { useWindow: () => ({ asyncQuitApp() {} }),
             useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test-version" }, currentLatestSoftwareVersionInfo: { data: { is_update_available: true } } }),
             useCopyToClipboard: () => ({ copyToClipboard: text => copies.push(text) }), useComputeMode: () => ({ currentComputeMode: { data: "cpu" } }),
@@ -51,13 +52,19 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     assert.ok(find(actions.type(), node => node.props.children === t("common_error.update_now")));
     updating = true;
     assert.ok(find(actions.type(), node => node.props.children === t("common_error.updating")));
+    // A copy updated by hand (ZIP, tar.gz) or by a package manager gets no update button.
+    for (const other of ["manual", "package_manager", "disabled"]) {
+        mode = other;
+        assert.equal(find(actions.type(), node => node.type === "button"), null, other);
+    }
+    mode = "install";
 
     const b = await loadBridgeStore(), notices = [];
     let handlers;
     b.stores.store.backend_session_owner = { attach: get => { handlers = get(); return () => {}; } };
     const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
         "@useI18n": translations, "@store": b.stores, "@utils": {},
-        "@tauri-apps/api/core": {}, "@tauri-apps/plugin-shell": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
+        "@tauri-apps/api/core": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
         "../../../logics/common/sidecarSession.ts": {},
         "../../../logics/common/backendCommand.ts": {},
         "../../../logics/common/startupPhase.ts": { describeStartupFailure: detail => detail },

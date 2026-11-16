@@ -587,6 +587,10 @@ pub fn keys() -> Vec<Key> {
         key("SPEAKER_ENABLE_VAD", b()),
         key("AUTH_KEYS", credentials("AUTH_KEYS")),
         key("LMSTUDIO_URL", managed(Ty::Str, false, |v, _| valid_saved_api_url(v))),
+        // Core only (#277): where Ollama runs (Python always used localhost:11434), and the
+        // Client ID of Papago (its secret is in AUTH_KEYS).
+        key("OLLAMA_URL", managed(Ty::Str, false, |v, _| valid_saved_api_url(v))),
+        key("PAPAGO_CLIENT_ID", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(|s| s.chars().count() <= 256 && !s.chars().any(char::is_control)))),
         key("OPENAI_COMPATIBLE_URL", managed(Ty::Str, false, |v, _| valid_saved_api_url(v))),
         key("TRANSCRIPTION_AUTH_KEYS", credentials("TRANSCRIPTION_AUTH_KEYS")),
         key("TRANSCRIPTION_CUSTOM_URL", managed(Ty::Str, false, |v, _| valid_saved_api_url(v))),
@@ -600,7 +604,7 @@ pub fn keys() -> Vec<Key> {
         key("SEND_MESSAGE_FORMAT_PARTS", message_format()),
         key("RECEIVED_MESSAGE_FORMAT_PARTS", message_format()),
         key("VOICE_SETTINGS", validated(tts_settings)),
-        key("DIRECT_VOICE_SETTINGS", validated(|v, _| voice_settings::normalize_direct(v))),
+        key("DIRECT_VOICE_SETTINGS", validated(|v, _| voice_settings::load_direct(v))),
         key("REALTIME_ASR_SETTINGS", validated(|v, _| voice_settings::normalize_realtime(v).ok())),
         key("SPEECH_SERVER_SETTINGS", validated(|v, _| vrct_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
         key("WEBSOCKET_SERVER", b()),
@@ -618,6 +622,8 @@ pub fn keys() -> Vec<Key> {
         key("OVERLAY_VR_PANEL_FONT_SIZE", plain(Ty::Int)),
         key("OVERLAY_VR_LAUNCHER_AUTO_HIDE", b()),
         key("OVERLAY_VR_TOOLTIP", b()),
+        // Core only: the subtitles' font family on this system; "" is automatic (no font is bundled).
+        key("OVERLAY_FONT_FAMILY", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(|s| s.is_empty() || vrct_vr_overlay::fonts::valid_family_name(s)))),
         key("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES", b()),
         key("SEND_MESSAGE_TO_VRC", b()),
         key("SEND_RECEIVED_MESSAGE_TO_VRC", b()),
@@ -717,7 +723,9 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         target.insert(tab.into(), json!({ "1": target_slot("1"), "2": target_slot("2"), "3": target_slot("3") }));
         selected_engines.insert(tab.into(), json!("CTranslate2"));
     }
-    let weight_dict: Map<String, Value> = languages::TRANSLATION_WEIGHTS.iter().map(|w| (w.to_string(), json!(false))).collect();
+    // The built-in weights, then the models the user added (`custom:<folder>`).
+    let weights = crate::controller::translation::weight_ids(env);
+    let weight_dict: Map<String, Value> = weights.iter().map(|w| (w.clone(), json!(false))).collect();
     let engine_status: Map<String, Value> = engines.iter().map(|e| (e.clone(), json!(false))).collect();
     let transcription_status: Map<String, Value> = transcription_engines.iter().map(|e| (e.clone(), json!(false))).collect();
     let overlay = |tracker: &str| json!({
@@ -747,7 +755,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("WATCHDOG_INTERVAL", json!(20)),
         ("SELECTABLE_TAB_NO_LIST", tabs.clone()),
         ("SELECTED_TAB_TARGET_LANGUAGES_NO_LIST", tabs),
-        ("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST", json!(languages::TRANSLATION_WEIGHTS)),
+        ("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST", json!(weights)),
         ("SELECTABLE_TRANSLATION_ENGINE_LIST", json!(engines)),
         ("SELECTABLE_TRANSCRIPTION_ENGINE_LIST", json!(transcription_engines)),
         ("SELECTABLE_UI_LANGUAGE_LIST", json!(["en", "ja"])),
@@ -818,8 +826,11 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("AUTH_KEYS", json!({
             "DeepL_API": null, "Plamo_API": null, "Gemini_API": null, "OpenAI_API": null,
             "OpenAI_Compatible": null, "Groq_API": null, "OpenRouter_API": null,
+            "Google_Cloud_API": null, "Papago_API": null,
         })),
         ("LMSTUDIO_URL", json!("http://127.0.0.1:1234/v1")),
+        ("OLLAMA_URL", json!("http://localhost:11434")),
+        ("PAPAGO_CLIENT_ID", json!("")),
         ("OPENAI_COMPATIBLE_URL", json!("https://api.openai.com/v1")),
         ("TRANSCRIPTION_AUTH_KEYS", json!({ "Groq_Whisper": null, "OpenAI_Whisper": null, "Custom_Whisper": null, "Deepgram": null })),
         ("TRANSCRIPTION_CUSTOM_URL", json!("")),
@@ -854,6 +865,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("OVERLAY_VR_PANEL_FONT_SIZE", json!(17)),
         ("OVERLAY_VR_LAUNCHER_AUTO_HIDE", json!(true)),
         ("OVERLAY_VR_TOOLTIP", json!(true)),
+        ("OVERLAY_FONT_FAMILY", json!("")),
         ("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES", json!(false)),
         ("SEND_MESSAGE_TO_VRC", json!(true)),
         ("SEND_RECEIVED_MESSAGE_TO_VRC", json!(false)),

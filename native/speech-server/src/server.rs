@@ -11,9 +11,10 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
-use crate::bundle::bundled_binary;
+use crate::builds::{choose, Builds};
+use crate::bundle::{pinned, Build, Pins};
 use crate::child;
-use crate::devices::{command, device_rows, resolve_device, Environment};
+use crate::devices::{command, device_rows, Environment};
 use crate::http::{request, Body, Cancel};
 use crate::settings::{Profile, StartOptions};
 use crate::standby::{self, LowLatencyStandby};
@@ -58,19 +59,23 @@ pub struct Health {
     pub base_url: Option<String>,
     pub error_code: Option<Code>,
     pub low_latency: Option<standby::Health>,
+    /// Why this start runs other than asked, for the user ([`codes::CPU_FALLBACK`]).
+    pub notice: Option<Code>,
 }
 
 impl Health {
     pub(crate) fn stopped() -> Health {
-        Health { state: State::Stopped, base_url: None, error_code: None, low_latency: None }
+        Health { state: State::Stopped, base_url: None, error_code: None, low_latency: None, notice: None }
     }
 }
 
 /// Where the executable comes from.
 #[derive(Clone, Debug)]
 pub enum Binary {
-    /// The app's `build/speechcpp` folder, checked against the pinned hashes at each start.
-    Bundled(PathBuf),
+    /// The app's bundle folders (`build/speechcpp`, and on Linux `build/speechcpp-cpu`), each
+    /// checked against the pinned hashes at each start. Which build runs is chosen per start
+    /// ([`crate::builds`]).
+    Bundled(Vec<PathBuf>),
     /// A given executable, unchecked and never asked for its devices. For tests.
     Fixed(PathBuf),
 }
@@ -80,15 +85,31 @@ pub struct Launch {
     pub binary: Binary,
     pub environment: Environment,
     pub start_timeout: Duration,
+    /// What a bundle is checked against: the pinned hashes ([`bundle::pinned`]); tests give the
+    /// hash of a stand-in.
+    pub pins: Pins,
 }
 
 impl Launch {
     pub fn bundled(bundle: impl Into<PathBuf>) -> Launch {
-        Launch { binary: Binary::Bundled(bundle.into()), environment: None, start_timeout: START_TIMEOUT }
+        Launch::bundles(vec![bundle.into()])
+    }
+
+    /// The bundles in `folders`; the first of each build that passes its check is used.
+    pub fn bundles(folders: Vec<PathBuf>) -> Launch {
+        Launch { binary: Binary::Bundled(folders), environment: None, start_timeout: START_TIMEOUT, pins: pinned() }
     }
 
     pub fn fixed(binary: impl Into<PathBuf>) -> Launch {
-        Launch { binary: Binary::Fixed(binary.into()), environment: None, start_timeout: START_TIMEOUT }
+        Launch { binary: Binary::Fixed(binary.into()), environment: None, start_timeout: START_TIMEOUT, pins: pinned() }
+    }
+
+    /// The checked builds of the bundle folders; none for a fixed executable.
+    pub fn builds(&self) -> Builds {
+        match &self.binary {
+            Binary::Bundled(folders) => Builds::find(folders, &self.pins),
+            Binary::Fixed(_) => Builds::default(),
+        }
     }
 }
 
@@ -132,6 +153,8 @@ impl Done {
 struct Shared {
     health: Health,
     options: StartOptions,
+    /// The bundled build this start runs; None for a fixed executable or before the choice.
+    build: Option<Build>,
     started: bool,
     thread: Option<(ThreadId, JoinHandle<()>)>,
     child: Option<Arc<Mutex<Child>>>,
@@ -160,6 +183,7 @@ impl SpeechServer {
         let shared = Shared {
             health: Health::stopped(),
             options,
+            build: None,
             started: false,
             thread: None,
             child: None,
@@ -196,6 +220,11 @@ impl SpeechServer {
     /// The device this start uses, after "auto" and "gpu" were resolved.
     pub fn device(&self) -> String {
         self.inner.shared.lock().unwrap().options.device.clone()
+    }
+
+    /// The bundled build this start runs, once chosen.
+    pub fn build(&self) -> Option<Build> {
+        self.inner.shared.lock().unwrap().build
     }
 
     pub fn start(&self) -> Result<(), Code> {
@@ -283,6 +312,14 @@ fn engine_failure(line: &[u8]) -> Option<Code> {
             let rest = line.strip_prefix(prefix)?;
             (rest.starts_with(b":") || rest.starts_with(b" (")).then_some(code)
         })
+}
+
+/// The Linux dynamic loader could not find the Vulkan loader the Vulkan build links:
+/// "<path>: error while loading shared libraries: libvulkan.so.1: cannot open shared object
+/// file: ...". The same next step as a missing vulkan-1.dll on Windows.
+fn vulkan_loader_missing(line: &[u8]) -> Option<Code> {
+    const MARK: &[u8] = b"error while loading shared libraries: libvulkan.so";
+    line.windows(MARK.len()).any(|window| window == MARK).then_some(codes::VULKAN_MISSING)
 }
 
 /// The port in "API at http://127.0.0.1:<port>/v1", which ends the line or precedes a ";".
@@ -439,27 +476,32 @@ impl Inner {
         let deadline = Instant::now() + self.launch.start_timeout;
         let binary = match &self.launch.binary {
             Binary::Fixed(binary) => binary.clone(),
-            Binary::Bundled(bundle) => bundled_binary(bundle)?,
-        };
-        if self.stopping() {
-            return Ok(());
-        }
-        // Asked here, at each start: an external GPU may have been plugged in or out.
-        if matches!(self.launch.binary, Binary::Bundled(_)) {
-            let asked = self.shared.lock().unwrap().options.device.clone();
-            let rows = if matches!(asked.as_str(), "auto" | "gpu") {
-                device_rows(&binary, &self.launch.environment)
-            } else {
-                None
-            };
-            let device = resolve_device(&asked, rows.as_deref());
-            if device != asked {
-                self.shared.lock().unwrap().options.device = device.clone();
-                if let Some(hook) = &self.hooks.on_device {
-                    hook(device);
+            Binary::Bundled(_) => {
+                let builds = self.launch.builds();
+                if builds.is_empty() {
+                    return Err(codes::BUNDLE);
                 }
+                if self.stopping() {
+                    return Ok(());
+                }
+                // Asked here, at each start: an external GPU may have been plugged in or out,
+                // and a Vulkan loader or driver installed or removed.
+                let asked = self.shared.lock().unwrap().options.device.clone();
+                let choice = choose(&builds, &asked, |binary| device_rows(binary, &self.launch.environment))?;
+                {
+                    let mut shared = self.shared.lock().unwrap();
+                    shared.build = Some(choice.build);
+                    shared.health.notice = choice.notice;
+                    shared.options.device = choice.device.clone();
+                }
+                if choice.device != asked {
+                    if let Some(hook) = &self.hooks.on_device {
+                        hook(choice.device);
+                    }
+                }
+                choice.binary
             }
-        }
+        };
         if self.stopping() {
             return Ok(());
         }
@@ -544,7 +586,7 @@ impl Inner {
                 }
                 // Only the fixed engine's error category is mapped. The line itself, which
                 // can contain local model paths or input, goes nowhere.
-                if let Some(code) = engine_failure(&line) {
+                if let Some(code) = engine_failure(&line).or_else(|| vulkan_loader_missing(&line)) {
                     if exit_error != codes::OUT_OF_MEMORY {
                         exit_error = code;
                     }
@@ -649,6 +691,15 @@ mod tests {
         assert_eq!(engine_failure(b"speech: devices: x"), None);
         assert_eq!(engine_failure(b"note speech: device: x"), None);
         assert_eq!(engine_failure(b"speech: model: x"), None);
+    }
+
+    #[test]
+    fn a_missing_vulkan_loader_on_linux_is_named() {
+        let line = b"/opt/vrct-vox/_internal/build/speechcpp/speech: error while loading shared libraries: \
+                     libvulkan.so.1: cannot open shared object file: No such file or directory";
+        assert_eq!(vulkan_loader_missing(line), Some(codes::VULKAN_MISSING));
+        assert_eq!(vulkan_loader_missing(b"speech: error while loading shared libraries: libstdc++.so.6"), None);
+        assert_eq!(vulkan_loader_missing(b""), None);
     }
 
     #[test]

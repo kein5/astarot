@@ -96,12 +96,14 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/audio_device_switched", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/config_file_unreadable", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
     { endpoint: "/run/config_save_failed", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/secret_store_failed", ns: null, hook_name: null, method_name: null }, // A 400: shown by the error handling.
     // Fire-and-forget actions from the VR settings (sample text, sent repeatedly while
     // started, and launcher reset): the answer needs no handling, but without a route
     // each one was logged as an invalid endpoint.
     { endpoint: "/run/send_text_overlay", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/vr_launcher_reset", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/config_save_recovered", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/translation_compute_device_fallback", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
 
     // VR UI のポインタ位置 (ホバー表示用)。VR ウィンドウへ転送する
     { endpoint: "/run/vr_panel_pointer", ns: common, hook_name: "useVrPanelPointer", method_name: "forwardVrPanelPointer" },
@@ -453,6 +455,12 @@ export const useReceiveRoutes = () => {
                     old: label(result.old_device), new: label(result.new_device),
                 }), { category_id: `audio_device_switched.${result.source}` });
             }
+            return;
+        }
+        if (status === 200 && endpoint === "/run/translation_compute_device_fallback") {
+            // Translation is on, on the CPU: the chosen device could not start the model.
+            showNotification_Warning(t("common_warning.translation_device_fallback", { device: String(result?.requested ?? "") }),
+                { category_id: "translation_device_fallback" });
             return;
         }
         if (endpoint === "/run/config_save_failed") {

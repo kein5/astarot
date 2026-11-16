@@ -1,6 +1,7 @@
 # One Windows package for release.yml: check the version fields, set up the toolchains, build
-# the package with its npm script, inspect it and self-check the packaged backend. The calling
-# job checks out the code first and collects the outputs afterwards.
+# the package with its npm script and inspect it. The calling job checks out the code first and
+# collects the outputs afterwards. Since 0.5.0 both variants hold the same files: the CUDA
+# libraries were for the Python backend (decision 20 in docs/voice-stack/core-integration.md).
 name: Build a Windows package
 description: Build and inspect VRCT-VOX.zip or VRCT-VOX_cuda.zip
 inputs:
@@ -58,8 +59,8 @@ runs:
           exit 1
         }
 
-    # Node, uv, Python and Rust at the versions in mise.toml and mise.lock. The packaged
-    # backend is frozen from that Python: uv takes it and never fetches one of its own.
+    # Node, uv, Python and Rust at the versions in mise.toml and mise.lock. Python runs the build
+    # tools; no Python is packaged.
     - name: Set up the toolchains
       uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       with:
@@ -83,10 +84,6 @@ runs:
       shell: pwsh
       run: npm ci
 
-    - name: Setup Python environments
-      shell: pwsh
-      run: npm run setup-python
-
     - name: Install packaging helper
       shell: pwsh
       run: uv pip install --system tqdm
@@ -97,18 +94,12 @@ runs:
         SCRIPT: ${{ inputs.script }}
       run: npm run $env:SCRIPT
 
-    - name: Inspect the package and its backend
+    - name: Inspect the package and its shipped files
       shell: pwsh
       env:
         PACKAGE: ${{ inputs.package }}
       run: |
         python tools/check_voice_distribution.py $env:PACKAGE src-tauri/bin/_internal
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-    # Starts the packaged backend itself: can it import what a feature imports only
-    # when it turns on? (windows-package.yml says why.)
-    - name: Self-check the packaged backend
-      shell: pwsh
-      run: |
-        & src-tauri/bin/vrct-vox-sidecar-x86_64-pc-windows-msvc.exe --self-check
+        python tools/app_resources.py --platform windows check src-tauri/bin/_internal
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

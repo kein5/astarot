@@ -8,7 +8,9 @@ removed in 0.2.0 (see below); **fork binary distributions exclude all OCR
 weights** while retaining their attribution documents.
 
 The fork supports external engines and a fixed speech.cpp binary bundle with
-separate third-party notices. RVC voice conversion is the fork's own
+separate third-party notices. Windows builds carry its Vulkan build; Linux builds
+carry its CPU build and its Vulkan build of the same release side by side, each
+with the same notices. RVC voice conversion is the fork's own
 reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
 Rust dependencies are listed with the app's (see "Rust crates in VRCT-VOX
 builds" below). ONNX Runtime,
@@ -23,9 +25,9 @@ Do not infer the complete stack's license from the main MIT license alone.
 
 Upstream VRCT's `translator_engines` extension (Google, Bing and Papago web
 translation) is licensed for official VRCT distributions only. VRCT-VOX does
-not include it, so those web translators are unavailable; local CTranslate2
-translation, DeepL and the LLM providers remain. The distribution policy
-rejects it in any build.
+not include it, so those web translators are not offered; DeepL and the LLM
+providers remain. The distribution policy rejects it in any build. For local
+translation see "Downloadable CTranslate2 translation weights" below.
 
 ## Removed: VRCT's chat-bubble detection model
 
@@ -103,8 +105,12 @@ and the license review.
 
 ## Downloadable CTranslate2 translation weights
 
-None of these weights ship with VRCT-VOX. The app downloads the selected one
-from Hugging Face into `weights/ctranslate2/`. The license is shown next to
+None of these weights ship with VRCT-VOX. Up to 0.4 the app downloaded the
+selected one from Hugging Face into `weights/ctranslate2/`. Since 0.5.0 the
+builds contain no CTranslate2: the app neither downloads nor reads these
+weights, and removes those earlier versions downloaded after start-up. Which
+local translation engine replaces it is open
+(`docs/voice-stack/core-integration.md`, item 1). The license is shown next to
 each weight in Config → Translation.
 
 | Weight (setting value) | Downloaded from | Upstream model | License |
@@ -138,10 +144,12 @@ Startup auto-acquisition requires a matching saved consent in addition to the
 auto-download switch; legacy settings have no recorded consent. Existing
 files and saved selections are preserved.
 
-This table and the OCR table above cover **model weights** only. Python package
-dependencies are listed in `pyproject.toml` (resolved in `uv.lock`) and
-carry their own licenses; JavaScript dependencies are listed in
-`package.json`. Rust dependencies are covered in the next section.
+This table and the OCR table above cover **model weights** only. Since 0.5.0
+the builds contain no Python: the Python packages in `pyproject.toml` (resolved
+in `uv.lock`) are used only by the development tools, the tests and the Python
+backend source kept in the repository, and carry their own licenses.
+JavaScript dependencies are listed in `package.json`. Rust dependencies are
+covered in the next section.
 
 ## Rust crates in VRCT-VOX builds
 
@@ -154,14 +162,47 @@ carries the license texts each crate publishes in
 the list from the lock files (`src-tauri/Cargo.lock`,
 `native/rvc-runtime/Cargo.lock`) when the package is built. The application
 also contains the backend core and the crates it uses (`native/core`,
-`native/adapters`, `native/ops`, `native/speech-server`, `native/tts`); they
-are VRCT-VOX's own code under `LICENSE`, and the list marks them so.
+`native/adapters`, `native/ops`, `native/speech-server`, `native/translation`,
+`native/tts`, `native/vr-overlay`, `native/ocr-runtime`, `native/transcription`); they are VRCT-VOX's own
+code under `LICENSE`, and the list marks them so.
+
+`native/ocr-runtime` (chat reading) reimplements, so that its results match
+the earlier Python implementation, the image operations of OpenCV 4.10.0
+(Apache-2.0, OpenCV team), the pre- and post-processing of RapidOCR 3.9.2
+(Apache-2.0, RapidAI) and the polygon offset of Clipper 6.4.2 as bundled by
+pyclipper 1.4.0 (Boost Software License 1.0, Angus Johnson); it follows GEOS's
+order of operations for two area and length formulas. No source file of these
+projects is included. ONNX Runtime is not built into the application: chat
+reading loads the library at run time (see
+`docs/voice-stack/core-integration.md`, item 2).
+
+`native/translate-onnx` (local translation) is the fork's own code (MIT). It
+uses `tokenizers` (Apache-2.0, Hugging Face) for SentencePiece segmentation and
+loads the same ONNX Runtime library as chat reading at run time; ONNX Runtime
+(MIT, Microsoft) and its execution providers (DirectML, CUDA, OpenVINO,
+MIGraphX, WebGPU) are not bundled. No translation model is bundled: the M2M100
+(MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
+consented model catalog once published, and a model the user places in the
+`translation-models` folder is under its own license, which the user is
+responsible for.
+
+`native/transcription` (speech recognition) reimplements, so that phrases are
+cut as before, the energy-based listening of SpeechRecognition 3.10.4
+(BSD-3-Clause, Anthony Zhang) as the fork used by the earlier Python
+implementation ran it, and `audioop`'s `rms` and `ratecv` of CPython
+(PSF-2.0). No source file of these projects is included. It does not send
+Google's web speech requests or carry that library's default key.
 
 The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
 Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,
 `selectors` and `dwrote`, under the Mozilla Public License 2.0. VRCT-VOX does
 not modify them. The source code of every listed crate, these included, is on
-crates.io at the version listed (`https://crates.io/crates/<crate>/<version>`).
+crates.io at the version listed (`https://crates.io/crates/<crate>/<version>`),
+except `sudachi` (sudachi.rs, Apache-2.0, Works Applications), which is taken
+from its GitHub repository at the commit of the tag v0.6.11
+(`https://github.com/WorksApplications/sudachi.rs`). It embeds the
+repository's settings and character definitions (`resources/`) under the same
+license.
 
 The application checks TLS certificates against Mozilla's root CA
 certificates in the `webpki-roots` crate. That data is derived from the
@@ -175,6 +216,19 @@ A few crates publish no license text in their package. For those, the texts
 come from the crate's own repository or from the license's canonical text, as
 recorded with their sources in
 [`licenses/rust/supplements.json`](licenses/rust/supplements.json).
+
+## SudachiDict (hiragana and romaji readings)
+
+The readings shown with messages come from Sudachi (sudachi.rs, above) and a
+SudachiDict system dictionary by Works Applications / the WAP Tokushima
+Laboratory of AI and NLP, licensed under the Apache License 2.0. Parts of the
+dictionary come from UniDic (Copyright (c) 2011-2013, The UniDic Consortium,
+BSD-3-Clause) and from mecab-unidic-NEologd (Toshinori Sato, Apache-2.0). When
+a build includes the dictionary, it is in `_internal/build/sudachi/` with the
+distribution's `LEGAL` and `LICENSE-2.0.txt`, which carry these notices.
+`tools/sudachi_dictionary.py` fetches it from the official release at a pinned
+version, size and SHA-256. Which edition (full, core or small) builds include
+is still open (`docs/voice-stack/core-integration.md`, item 3).
 
 ## RVC base models
 
@@ -203,15 +257,16 @@ The retained source copies are in
 
 ## LGPL and GPL components in VRCT-VOX builds
 
-The frozen backend (`_internal` next to the `vrct-vox-sidecar` executable)
-contains the following components under the GNU LGPL or GPL. Each is a
-separate shared library, Python extension module or Python source directory,
-so you may replace it with your own build of the same component and interface;
-the application loads whatever file is present. Their license texts are
-included under `_internal/licenses/python/` (Python packages) or alongside the
-component.
+Since 0.5.0 the backend runs inside the application (`native/core`) and the
+builds carry no frozen Python backend. The components below were in the frozen
+backend of VRCT-VOX up to 0.4.x (`_internal` next to the `vrct-vox-sidecar`
+executable) and are not in 0.5.0 and later builds. Each was a separate shared
+library, Python extension module or Python source directory, so it could be
+replaced with your own build of the same component and interface. Their license
+texts were included under `_internal/licenses/python/` (Python packages) or
+alongside the component.
 
-| Component | Where in the build | License | Corresponding source |
+| Component | Where in a 0.4.x build | License | Corresponding source |
 |---|---|---|---|
 | libsoxr, statically built into the `soxr` 1.1.0 extension module | `_internal/soxr/` | LGPL-2.1-or-later | [soxr 1.1.0 source distribution](https://pypi.org/project/soxr/1.1.0/#files) (contains libsoxr), [python-soxr](https://github.com/dofuuz/python-soxr) |
 | FFmpeg libraries (libavcodec, libavformat, libavutil, libswresample, libswscale) shipped with `opencv-python-headless` 4.10.0.84 | Linux: `_internal/opencv_python_headless.libs/`; Windows: `_internal/cv2/opencv_videoio_ffmpeg*.dll` | LGPL-2.1-or-later | [FFmpeg](https://ffmpeg.org/download.html); build scripts and version in [opencv-python 84](https://github.com/opencv/opencv-python/tree/84) |
@@ -224,9 +279,7 @@ On request through this repository's Issues, we will provide a copy of the
 corresponding source code of the LGPL and GPL components above, as used in a
 given release, for at least three years after that release.
 
-PyAV is deliberately **not** included: its binary wheels bundle FFmpeg together
-with the GPL-licensed x264 and x265 encoders. faster-whisper, which imported it,
-is no longer a dependency, and no other dependency needs it. As a guard,
-builds still provide a stand-in module (`packaging/pyinstaller-stubs/av`), and
-the distribution policy (`tools/distribution_policy.py`) rejects PyAV libraries
-and x264/x265 in any build.
+PyAV was deliberately **not** included in any build: its binary wheels bundle
+FFmpeg together with the GPL-licensed x264 and x265 encoders. The distribution
+policy (`tools/distribution_policy.py`) still rejects PyAV libraries and
+x264/x265 in any build.

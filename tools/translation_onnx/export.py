@@ -1,8 +1,8 @@
-"""Convert a local translation model to int8 ONNX files for native/translate-onnx.
+"""Convert a local translation model to ONNX files for native/translate-onnx.
 
-    python tools/translation_onnx/export.py m2m100_418M --output OUT
+    python tools/translation_onnx/export.py m2m100_418M --output OUT [--variant int8]
 
-The result is OUT/<name>-onnx-int8/ with:
+The result is OUT/<name>-onnx-<variant>/ with (for int8):
 
     encoder_model_quantized.onnx          the encoder
     decoder_model_merged_quantized.onnx   the decoder: the first step and the cached steps
@@ -13,9 +13,23 @@ The result is OUT/<name>-onnx-int8/ with:
     vocab.json                            each piece and special token, and the model's id for it
     manifest.json                         where it came from, how to decode, each file's SHA-256
 
-With --float32 the graphs are not quantized (<name>-onnx-float32/, encoder_model.onnx and
-decoder_model_merged.onnx). That is for checking the decoding against CTranslate2 with the
-same float32 weights on both sides, where the translations should agree; the app uses int8.
+The variants (--variant; manifest.json names it, schema 2), one folder each:
+
+    int8     dynamic int8 weights of every MatMul (MatMulInteger), activations float. For
+             the CPU; measured against CTranslate2 (README).
+    float32  not quantized (encoder_model.onnx, decoder_model_merged.onnx). For GPUs, and for
+             checking the decoding against CTranslate2 with the same weights on both sides.
+             --float32 is the old spelling of --variant float32.
+    float16  float16 weights and activations, float32 inputs and outputs (keep_io_types), so
+             that the app reads the same tensors (encoder_model_fp16.onnx,
+             decoder_model_merged_fp16.onnx). For GPU execution providers; ONNX Runtime's CPU
+             provider lacks most float16 kernels, so it is not run here.
+    int4     int4 weights in blocks of 32 (MatMulNBits, symmetric), activations float
+             (encoder_model_int4.onnx, decoder_model_merged_int4.onnx). Smaller still; run here
+             on the CPU and its largest difference from float32 recorded.
+
+Only int8 has been made and measured with real models (2026-11-15). The others are written the
+same way from the same checked float32 graphs, but no folder of them has been made yet.
 
 The graphs are written with torch.onnx.export from the model's own layers (graphs.py),
 and compared with transformers' forward pass before they are quantized: the encoder output
@@ -252,7 +266,44 @@ def float_graphs(source, float_dir):
     return difference
 
 
-def export(name, output, work, quantized=True):
+VARIANTS = ("int8", "float32", "float16", "int4")
+GRAPH_NAMES = {
+    "int8": (ENCODER, DECODER),
+    "float32": ("encoder_model.onnx", "decoder_model_merged.onnx"),
+    "float16": ("encoder_model_fp16.onnx", "decoder_model_merged_fp16.onnx"),
+    "int4": ("encoder_model_int4.onnx", "decoder_model_merged_int4.onnx"),
+}
+
+
+def save_model(model, target):
+    """One file, or the weights beside it when over 2 GB."""
+    import onnx
+    large = sum(tensor.ByteSize() for tensor in model.graph.initializer) > PROTOBUF_LIMIT * 0.9
+    onnx.save(model, str(target), save_as_external_data=large, all_tensors_to_one_file=True,
+              location=target.name + "_data")
+
+
+def to_float16(source, target):
+    """float16 weights and computation; the inputs and outputs stay float32."""
+    import onnx
+    from onnxruntime.transformers.float16 import convert_float_to_float16
+    model = onnx.load(str(source), load_external_data=True)
+    # Softmax over the vocabulary and the layer norms keep float32 where ONNX Runtime's
+    # converter keeps them by default.
+    save_model(convert_float_to_float16(model, keep_io_types=True, disable_shape_infer=True), target)
+
+
+def to_int4(source, target):
+    """int4 weights of every MatMul with a constant weight, blocks of 32, symmetric."""
+    import onnx
+    from onnxruntime.quantization.matmul_nbits_quantizer import MatMulNBitsQuantizer
+    model = onnx.load(str(source), load_external_data=True)
+    quantizer = MatMulNBitsQuantizer(model, block_size=32, is_symmetric=True, bits=4)
+    quantizer.process()
+    save_model(quantizer.model.model, target)
+
+
+def export(name, output, work, variant="int8"):
     from huggingface_hub import snapshot_download
     from importlib.metadata import version
 
@@ -264,13 +315,34 @@ def export(name, output, work, quantized=True):
     # The decoders are merged after quantization: merged in float they pass 2 GB.
     difference = float_graphs(source, float_dir)
     config = json.loads((source / "config.json").read_text(encoding="utf-8"))
-    kind = "int8" if quantized else "float32"
-    encoder, decoder = (ENCODER, DECODER) if quantized else ("encoder_model.onnx", "decoder_model_merged.onnx")
+    kind = variant
+    encoder, decoder = GRAPH_NAMES[variant]
     target = output / f"{name}-onnx-{kind}"
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(parents=True)
-    if quantized:
+    variant_difference = None
+    if variant in ("float16", "int4"):
+        convert = to_float16 if variant == "float16" else to_int4
+        convert(float_dir / "encoder_model.onnx", target / encoder)
+        with tempfile.TemporaryDirectory(dir=work) as temporary:
+            temporary = Path(temporary)
+            convert(float_dir / "decoder_model.onnx", temporary / "decoder.onnx")
+            convert(float_dir / "decoder_with_past_model.onnx", temporary / "decoder_with_past.onnx")
+            graphs.merge_decoders(temporary / "decoder.onnx", temporary / "decoder_with_past.onnx", target / decoder)
+        if variant == "int4":
+            # The largest difference from the float32 graphs on the check input, for the record.
+            float_target = work / (name + "-onnx-float32-check")
+            if not (float_target / "decoder_model_merged.onnx").exists():
+                float_target.mkdir(parents=True, exist_ok=True)
+                save_float(float_dir / "encoder_model.onnx", float_target / "encoder_model.onnx")
+                graphs.merge_decoders(float_dir / "decoder_model.onnx", float_dir / "decoder_with_past_model.onnx",
+                                      float_target / "decoder_model_merged.onnx")
+            args = (CHECK_SOURCE, CHECK_TARGET, config["pad_token_id"], config["decoder_layers"])
+            reference = graphs.run_graphs(float_target, "encoder_model.onnx", "decoder_model_merged.onnx", *args)
+            got = graphs.run_graphs(target, encoder, decoder, *args)
+            variant_difference = max(float(np.max(np.abs(a - b))) for a, b in zip(got, reference))
+    elif variant == "int8":
         quantize(float_dir / "encoder_model.onnx", target / encoder)
         with tempfile.TemporaryDirectory(dir=work) as temporary:
             temporary = Path(temporary)
@@ -304,9 +376,10 @@ def export(name, output, work, quantized=True):
     files = {path.name: dict(size=path.stat().st_size, sha256=sha256(path))
              for path in sorted(target.iterdir()) if path.name != "manifest.json"}
     manifest = dict(
-        schema=1,
+        schema=2,
         name=f"{name}-onnx-{kind}",
         family=spec["family"],
+        variant=variant,
         license=spec["license"],
         source=dict(repository=spec["repo"], revision=spec["revision"]),
         encoder=encoder,
@@ -328,6 +401,8 @@ def export(name, output, work, quantized=True):
         files=files,
         # The largest difference from transformers' forward pass of the float32 graphs.
         verified_max_difference=difference,
+        # int4 only: the largest difference of its outputs from the float32 graphs'.
+        variant_max_difference=variant_difference,
         made_with={package: version(package) for package in (
             "torch", "transformers", "onnx", "onnxscript", "onnxruntime", "tokenizers", "sentencepiece")},
     )
@@ -338,14 +413,15 @@ def export(name, output, work, quantized=True):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("model", choices=sorted(MODELS))
-    parser.add_argument("--output", type=Path, required=True, help="folder to write <name>-onnx-int8 into")
-    parser.add_argument("--float32", action="store_true", help="write float32 graphs, for checking the decoding")
+    parser.add_argument("--output", type=Path, required=True, help="folder to write <name>-onnx-<variant> into")
+    parser.add_argument("--variant", choices=VARIANTS, default="int8", help="the quantization (default int8)")
+    parser.add_argument("--float32", action="store_true", help="the same as --variant float32")
     parser.add_argument("--work", type=Path,
                         help="folder for the float export, kept for a second run; OUTPUT/work unless given")
     args = parser.parse_args()
     work = args.work or args.output / "work"
     work.mkdir(parents=True, exist_ok=True)
-    target = export(args.model, args.output, work, quantized=not args.float32)
+    target = export(args.model, args.output, work, variant="float32" if args.float32 else args.variant)
     print(target)
     for name, pin in json.loads((target / "manifest.json").read_text(encoding="utf-8"))["files"].items():
         print(f"  {pin['sha256']}  {pin['size']:>12}  {name}")

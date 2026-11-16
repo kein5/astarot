@@ -50,14 +50,13 @@ pub fn deepgram_code(language: &str, country: &str, model_languages: &[String]) 
 impl Core {
     /// The languages an engine takes as a source (`getTranslationLanguagesForEngine`).
     pub fn translation_languages(&self, engine: &str) -> Vec<String> {
-        let table = languages::translation();
-        let source = if engine == LOCAL_ENGINE {
-            let weight = self.config().get_str("CTRANSLATE2_WEIGHT_TYPE");
-            table.get(engine).and_then(|e| e.get(&weight)).and_then(|w| w.get("source"))
+        let table = if engine == LOCAL_ENGINE {
+            // A built-in weight's table, or that of a model the user added.
+            self.translation.local_table(&self.config().get_str("CTRANSLATE2_WEIGHT_TYPE"))
         } else {
-            table.get(engine).and_then(|e| e.get("source"))
+            languages::translation().get(engine).cloned()
         };
-        source.and_then(Value::as_object).map(|o| o.keys().cloned().collect()).unwrap_or_default()
+        table.as_ref().and_then(|t| t["source"].as_object()).map(|o| o.keys().cloned().collect()).unwrap_or_default()
     }
 
     fn engine_supports(&self, engine: &str, language: &str) -> bool {
@@ -347,6 +346,7 @@ pub fn set_languages(core: &Core, key: &str, value: &Value) -> Reply {
             return super::error("VALIDATION_CONFIG_VALUE_INVALID", core.config().get(key));
         }
     }
+    core.cancel_mic_voice();
     core.update_translation_engine_and_list();
     ok(core.config().get(key))
 }
@@ -359,6 +359,7 @@ pub fn set_tab(core: &Core, value: &Value) -> Reply {
             return Reply::status(500, "Internal error");
         }
     }
+    core.cancel_mic_voice();
     core.update_translation_engine_and_list();
     ok(core.config().get("SELECTED_TAB_NO"))
 }
@@ -377,6 +378,7 @@ pub fn swap_languages(core: &Core) -> Reply {
             return Reply::status(500, "Internal error");
         }
     }
+    core.cancel_mic_voice();
     core.update_translation_engine_and_list();
     let config = core.config();
     let mut result = Map::new();

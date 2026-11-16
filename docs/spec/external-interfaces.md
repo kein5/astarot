@@ -100,6 +100,8 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 | サービス | 接続先 | 認証 | 使う時 |
 |---|---|---|---|
 | DeepL | `https://api.deepl.com`（Freeキーは`https://api-free.deepl.com`） | APIキー | キーの確認と翻訳 |
+| Google Cloud Translation（Basic v2、中核のみ） | `https://translation.googleapis.com/language/translate/v2` | APIキー（`x-goog-api-key`ヘッダー） | キーの確認（`/languages`、訳さない）と翻訳（`format: "text"`） |
+| Papago Translation（NAVER Cloud Platform、中核のみ） | `https://papago.apigw.ntruss.com/nmt/v1/translation` | Client IDとClient Secret（`X-NCP-APIGW-API-KEY-ID`、`X-NCP-APIGW-API-KEY`） | キーの確認（空の文を送り、400の`N2MT…`で認証が通ったと見る）と翻訳。直接訳せる組だけ送る |
 | Plamo | `https://api.platform.preferredai.jp/v1` | APIキー | キーの確認、モデル一覧、翻訳 |
 | Gemini | `https://generativelanguage.googleapis.com`（Developer API） | APIキー | 同上 |
 | OpenAI | `https://api.openai.com/v1` | APIキー | 同上 |
@@ -107,8 +109,7 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 | OpenRouter | `https://openrouter.ai/api/v1` | APIキー | 同上 |
 | OpenAI互換（翻訳） | `OPENAI_COMPATIBLE_URL` | APIキー | 同上 |
 | LM Studio | `LMSTUDIO_URL`（既定`http://127.0.0.1:1234/v1`） | なし | 接続の確認、モデル一覧、翻訳 |
-| Ollama | `http://localhost:11434` | なし | 同上 |
-| Google（音声認識） | `https://www.google.com/speech-api/v2/recognize` | 利用者によるキー登録は不要（speech_recognition同梱の汎用キー） | Google を明示選択して文字起こしをオンにした後、マイク／スピーカーのFLAC音声と言語を送信。候補言語や暫定結果で複数回呼ぶ場合がある。未選択や他エンジンの失敗では使わない |
+| Ollama | `OLLAMA_URL`（中核のみ。既定`http://localhost:11434`、Pythonは固定） | なし | 同上 |
 | Groq Whisper | `https://api.groq.com/openai/v1` | APIキー | キーの確認（`/models`）と発話ごとの`/audio/transcriptions` |
 | OpenAI Whisper | `https://api.openai.com/v1` | APIキー | 同上。`*-transcribe`のモデルには`json`、Whisperには`verbose_json`で要求する |
 | カスタムWhisperサーバー | `TRANSCRIPTION_CUSTOM_URL` | APIキー（不要なサーバーでも任意の文字列） | 同上 |
@@ -117,10 +118,11 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 | 接続の確認 | `https://huggingface.co/`へのHEAD | なし | 起動時の自動取得がオンで、固定版への保存済み同意があり、ファイルが不足している場合だけ1回（3秒）。プロキシ・リダイレクトは使わない |
 
 - クラウドの音声認識の仕様への準拠は各サービスの公式文書で確かめる。
+- Python 版にあった Google の Web 音声認識（非公式の窓口に`speech_recognition`の汎用のキーで FLAC 音声を送るもの）は使わない。中核にはその窓口もキーもない。
 - OpenAI互換の音声認識では、接続と接続プールの待機を10秒、読み取りとアップロードの書き込みを60秒でタイムアウトさせる。通信が進まない時間の上限であり、SDKの再試行を含む要求全体の期限ではない。
 - OpenAI互換、Deepgramの自動検出結果は、返された言語名・コードを選択済みの言語と国に照合する。大文字小文字や`_`と`-`の違いを揃え、地域・文字体系まで一致する候補を優先する。ベース言語しか分からない場合は、その言語に一致する最初の候補を使う。検出言語がない、または選択候補に一致しない場合は、本文を保持し、内部の認識結果の`language`を`None`とする。従来のマイク・スピーカー認識では、配送時の設定スナップショットでもこの不明な値を保ち、先頭の候補言語を推測で付けない。要求で言語を明示した場合は、その指定を使う。
 - Deepgramの成功応答でも、結果の構造、文字列の本文、0〜1の有限な数値の信頼度が揃わなければ`TRANSCRIPTION_API_SERVER_ERROR`として扱い、既存の音声パイプラインのエラー経路に渡す。構造が正しい空の本文は、通常の「認識結果なし」として扱う。応答本文や秘密情報は診断ログに残さない。
-- 自動取得を予定していない起動では接続確認を送らない。`/run/connected_network`の`null`は未確認、真偽値は取得ホストへの確認結果を表す。UIは`false`のときだけ接続エラーを表示する。この値だけでGoogle音声認識などを使えない状態にはせず、各要求の成否で判定する。
+- 自動取得を予定していない起動では接続確認を送らない。`/run/connected_network`の`null`は未確認、真偽値は取得ホストへの確認結果を表す。UIは`false`のときだけ接続エラーを表示する。この値だけでクラウドのエンジンなどを使えない状態にはせず、各要求の成否で判定する。
 - 公式APIの接続先はコードで固定する。環境変数によるOpenAI・GeminiのURL変更、LangSmith gateway、OllamaのAPIキーは使わない。クラウドHTTPSではシステムのプロキシを使える。Requestsの認証は登録済みヘッダーを保ち、netrcの認証情報へ置き換えない。localhostとローカルIPアドレスへのAPI接続ではプロキシを使わない。APIのリダイレクトは追わず、モデル取得だけは既存のHTTPSホスト許可リストに従う。
 - カスタムURLの許可範囲と保存時の扱いは[ネットワーク設定](data-and-persistence.md#ネットワーク設定)を参照する。
 - 更新の確認と取得はRust側（Tauriのupdater）が行う（[アプリの更新](#アプリの更新)）。
@@ -166,6 +168,10 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
 - インストーラーは`/UPDATE`のとき、言語とエディションのページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
 - 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
+- バックエンドの更新のエンドポイントも同じupdaterを使う（`app_update.rs`の`CoreUpdates`を`backend_host.rs`が中核に渡す。[判断20](../voice-stack/core-integration.md#判断が要ること)）。
+  - `/get/data/available_releases`は、上のGitHubのリリースの一覧（新しい30件）から、今の版のチャンネルが取るものを新しい順に`[{tag, version, is_prerelease, published_at}]`で返す。安定版は安定版だけ、ベータ版は両方。下書き、版でないタグ、`latest.json`がないもの、このリポジトリのダウンロードでないものは除く。確認しないコピー（deb、rpm、開発用のビルド）は通信せずに空を返す。
+  - 起動時の`/run/software_update_info`（`{is_update_available, new_version}`）は、`CHECK_SOFTWARE_UPDATES`がオンのときだけupdaterで確かめる。オフなら通信せずに「更新なし」を送る。更新の画面の確認と同時に走るので、走っている確認の結果と、終わってから30秒以内の成功した結果は共有する。
+  - `/run/update_software`と`/run/update_cuda_software`は、今のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。エディションはどちらもそのコピーの入れ方のまま変えない。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
 
 ### LLMでの翻訳
 
@@ -190,6 +196,8 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 | RVCワーカー | `build/vrct-rvc-worker`（Rust、`native/rvc-runtime`）。Linuxでは`build/vrct-vc-worker … rvc-native …`が起動する | stdin・stdoutでPCM（48kHz、3840フレーム単位）。制御はJSON行（32KiBまで）。ONNX RuntimeとCUDAのライブラリは実行環境のフォルダーの`lib/`から読み込む。GPUを使えなければCPUで変換する。readyで変換する場所（`profile`が`low`ならGPU、`cpu`ならCPU）と、加える遅れ（`latency_ms`）を伝える。CPUで追いつかないときは、出力の代わりに`failed`（`vc_capture_overrun`）を送って止まる |
 
 同梱TTSサーバーの停止・異常終了は、起動ごとの識別子と、その実行を使うTTSの世代を照合して処理する。現在のTTSが使うサーバーが終了したときは、TTSをオフにして待機中・再生中の読み上げを取り消し、従来どおり音声の状態取得でUIに伝える。同じ実行の停止直後と後処理後に通知が重なっても、無効化とTTSの世代更新は一度だけ行う。古い実行からの遅れた通知で、別の接続先や新しいサーバー実行を使うTTSをオフにしない。
+
+同梱のspeech.cppは、Windowsでは`_internal/build/speechcpp`のVulkan版だけ、Linuxでは同じ場所のVulkan版と`_internal/build/speechcpp-cpu`のCPU版の2つである。起動のたびに、設定の推論デバイスでどちらを使うかを決める。`cpu`はCPU版（Windowsでは同じVulkan版を`--device cpu`で）、`gpu`とGPUの名前はVulkan版、`auto`はVulkan版の`speech devices --json`が動いて計算に使えるGPUを示せばVulkan版、そうでなければCPU版を使う。Vulkan版が起動しなかった（`libvulkan.so.1`がない）ために`auto`をCPU版で動かしたときは、`/get/data/speech_server_state`のそのプロファイルに`notice: "speech_server_cpu_fallback"`を付ける。`/get/data/speech_server_devices`は、GPUの行（`devices`）に加えて、CPUを何で動かすか（`cpu_build`: `separate`、`shared`、`missing`）とGPUの選択肢が起動できるか（`gpu_build`: `ready`、`unavailable`、`missing`）を返す。細かいところは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の「決まったこと」にある。
 
 同梱ASRサーバーは認識モデルとVADモデルを必ず読み込み、設定に話者分離モデルのパスがあるときだけそれも読み込む。起動の確認では`/v1/models`の内容を設定と照合する。話者分離モデルを指定したのにサーバーがそれを持たないとき、指定していないのに持つときは、`speech_server_model_tasks`で起動を失敗にする。
 
@@ -250,7 +258,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 `dangerousDisableAssetCspModification`は既定の`false`を保つ。TauriによるHTMLのnonce/hash挿入を無効化しない。`script-src-elem`を別に指定してTauriの`script-src`への追加を無効にすることもしない。`freezePrototype`は別のprototype汚染対策であり、CSPを有効にする条件ではない。今回は既定の`false`を保つ。
 
-Python sidecarはshell pluginのstdin/stdoutでつなぐ。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後にPython側で実行する。モデルカード、ライセンス、Aboutの外部リンクはopenerまたは既存のPython側の処理へ渡す。ログの保存もPython側で行う。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
+バックエンド（Rustの中核）はアプリの中で動き、UIとはTauriのコマンドとチャネルでつなぐ（0.4まではPython sidecarをshell pluginのstdin/stdoutでつないでいた）。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後にPython側で実行する。モデルカード、ライセンス、Aboutの外部リンクはopenerまたは既存のPython側の処理へ渡す。ログの保存もPython側で行う。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
 
 `devCsp`だけはViteのReact Refresh用inline script、HMR用style、および`ws://localhost:1420`、`ws://127.0.0.1:1420`、`ws://localhost:1421`、`ws://127.0.0.1:1421`を許す。通常のdev URLは`http://localhost:1420`。`TAURI_DEV_HOST`に別のホストを指定する場合は、開発用のローカルTauri設定で`devCsp.connect-src`にそのホストのHMR URL（ポート1421）を明記する。配布用CSPを広げない。
 
@@ -337,6 +345,6 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 
 ### 権限
 
-`src-tauri/capabilities/`で、`main`にウィンドウ操作、ショートカット、ファイル、GitHubへのHTTP、サイドカーの起動を許す。`quick_chat`にはイベントの受信だけを許し、コマンドは呼び出し元のウィンドウ名をRust側で確かめる。
+`src-tauri/capabilities/`で、`main`にウィンドウ操作、ショートカット、許可したサイトを開くことを許す。ファイル、HTTP、プログラムの起動（shell）のプラグインはアプリに入っていない。バックエンドの`backend_*`コマンドは`main`だけが呼べることをRust側で確かめる。`quick_chat`にはイベントの受信だけを許し、コマンドは呼び出し元のウィンドウ名をRust側で確かめる。
 
 ブラウザーでURLを開けるのは`main`だけで、開けるのは`vrct_capability.json`の`opener:allow-open-url`に挙げたURLだけである（第2回セキュリティ監査 SEC-02）。同じウィンドウに当たる権限は合わさるので、`opener:default`のような広い権限はどのファイルにも入れない。一覧には、アプリが表示するリンクの行き先を挙げる。ユーザー向けドキュメント、このリポジトリ、元のVRCTと貢献者のページ、APIキーを作るページ、Hugging Faceのモデルカード、ライセンスの本文である。`..`を含むパス、パーセントで符号化した`.`と`\`、`@`を含むURLは拒否する。照合はglobで行い、Windowsでは`\`と`/`を同じ文字とみなす。UIに書いたURLと、Pythonのカタログが渡す取得元とライセンスのリンクがどれも一覧に入っていることは、試験で確かめる（`src-ui/logics/common/openerScope.test.js`、`tests/voice/test_url_open_scope.py`、`src-tauri/src/opener_scope_tests.rs`）。新しいリンクを足したら、一覧にも足す。

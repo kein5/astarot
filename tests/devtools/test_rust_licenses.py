@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 import rust_licenses as rl  # noqa: E402
-import windows_voice_resources as wvr  # noqa: E402
+import app_resources  # noqa: E402
 
 NORMAL, BUILD, DEV = [{"kind": None, "target": None}], [{"kind": "build", "target": None}], [{"kind": "dev", "target": None}]
 
@@ -162,18 +162,19 @@ class NoticeTest(unittest.TestCase):
             self.assertIn(self.NOTICE_PHRASES[name], notice, name)
 
 
-class WindowsResourcesTest(unittest.TestCase):
-    def test_the_sidecar_carries_the_collected_texts(self):
+class AppResourcesTest(unittest.TestCase):
+    def test_the_package_carries_the_collected_texts(self):
         with tempfile.TemporaryDirectory() as tmp:
-            rust = Path(tmp) / wvr.RUST_LICENSES
+            rust = Path(tmp) / "build/licenses/rust"
             (rust / "shared-1.0.0").mkdir(parents=True)
             (rust / "crates.json").write_text("{}")
             (rust / "shared-1.0.0/LICENSE").write_text("x")
-            pairs = {(Path(source).name, target) for source, target in wvr.voice_datas(tmp)}
-            self.assertIn(("crates.json", "licenses/rust"), pairs)
-            self.assertIn(("LICENSE", "licenses/rust/shared-1.0.0"), pairs)
-            self.assertIn("licenses/rust/crates.json", wvr.REQUIRED)
-
+            for platform in ("windows", "linux"):
+                pairs = {(Path(source).name, target) for source, target in
+                         app_resources.pairs(platform, Path(tmp) / "build", ROOT)}
+                self.assertIn(("crates.json", "licenses/rust/crates.json"), pairs)
+                self.assertIn(("LICENSE", "licenses/rust/shared-1.0.0/LICENSE"), pairs)
+                self.assertIn("licenses/rust/crates.json", app_resources.required(platform))
 
 if __name__ == "__main__":
     unittest.main()

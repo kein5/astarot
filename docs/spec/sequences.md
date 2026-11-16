@@ -10,7 +10,7 @@ sequenceDiagram
   participant UI as UI（main）
   participant S as サイドカー
   participant Net as ネットワーク
-  UI->>S: spawn（bin/vrct-vox-sidecar）
+  UI->>S: backend_start（0.5.0 からアプリの中の中核。0.4 までは bin/vrct-vox-sidecar）
   Note over S: 受信とワーカー3本が先に動く。<br/>status False の要求は423で待たせる
   S->>Net: GET https://www.google.com（3秒）
   S-->>UI: /run/connected_network

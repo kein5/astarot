@@ -14,7 +14,7 @@ use serde_json::{Map, Value, json};
 
 /// Left out of `/run/initialization_complete`: they reach the network, a device or a server, or
 /// they describe what runs. The UI asks for them itself (`_INIT_MAPPING_EXCLUDED_ENDPOINTS`).
-pub const INIT_EXCLUDED: [&str; 7] = [
+pub const INIT_EXCLUDED: [&str; 8] = [
     "/get/data/available_releases",
     "/get/data/ocr_readiness",
     "/get/data/ocr_capture_status",
@@ -22,11 +22,9 @@ pub const INIT_EXCLUDED: [&str; 7] = [
     "/get/data/realtime_asr_models",
     "/get/data/telemetry_preview",
     "/get/data/tts_engine_voices",
+    // Core only: reads the system's fonts (slow on the first call).
+    "/get/data/overlay_font_missing_languages",
 ];
-
-/// The recognition engines the core can run. The cloud engines (Google, the Whisper APIs,
-/// Deepgram) come with the providers of #278; until then they are not offered.
-const WIRED_TRANSCRIPTION_ENGINES: [&str; 1] = ["SpeechCpp"];
 
 /// The weights under a non-commercial license (CC-BY-NC-4.0).
 pub fn non_commercial(weight: &str) -> bool {
@@ -37,55 +35,67 @@ impl Core {
     /// Runs the start-up sequence; the caller opens the endpoints afterwards.
     pub fn init(&self, dispatcher: &Dispatcher) {
         let config = self.config();
+        self.announce_overlay();
         self.notify("connected_network", Value::Null);
         self.notify("initialization_progress", json!(1));
 
         let weight = config.get_str("CTRANSLATE2_WEIGHT_TYPE");
-        let available = (self.services().translation_weight_available)(&weight);
+        let available = (self.services().translation_weight_available)(&weight)
+            || super::translation::default_weight_available(config.environment(), &weight);
         self.set_translation_available(available);
         let uses_local = config.get("SELECTED_TRANSLATION_ENGINES")[config.get_str("SELECTED_TAB_NO")] == "CTranslate2";
         self.notify("enable_ai_models", json!(!(uses_local && !available)));
 
         self.step("Init Translation Engine Status");
-        let mut status = Map::new();
-        for engine in config.get("SELECTABLE_TRANSLATION_ENGINE_LIST").as_array().into_iter().flatten() {
-            let name = engine.as_str().unwrap_or_default();
-            // Only the local translation runs in the core so far; the online engines come with
-            // the providers of #277. Until then their start-up check counts as failed.
-            let usable = name == "CTranslate2" && available;
-            status.insert(name.to_string(), json!(usable));
-            if !usable {
-                self.forget_failed_engine(name);
-            }
-        }
+        // Every engine is checked as Python checked it (keys, servers, models), at the same time.
+        let status = self.check_translation_engines(available);
         config.put("SELECTABLE_TRANSLATION_ENGINE_STATUS", Value::Object(status));
 
         self.step("Init Transcription Engine Status");
-        let mut status = Map::new();
-        for engine in config.get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST").as_array().into_iter().flatten() {
-            let name = engine.as_str().unwrap_or_default();
-            let usable = WIRED_TRANSCRIPTION_ENGINES.contains(&name);
-            status.insert(name.to_string(), json!(usable));
-            if !usable {
-                self.forget_failed_engine(name);
+        // Checked as Python checked them (keys and model lists), at the same time.
+        let status = self.check_transcription_engines();
+        for (engine, usable) in &status {
+            if usable != &json!(true) {
+                self.forget_failed_engine(engine);
             }
         }
         config.put("SELECTABLE_TRANSCRIPTION_ENGINE_STATUS", Value::Object(status));
         self.notify("initialization_progress", json!(2));
 
         self.step("Set Translation Engine");
+        // A folder in `<data>/translation-models` the local translation refused: its name and
+        // the fixed reason, so that the user can find why a model of theirs is not listed.
+        for (folder, reason) in super::translation::refused_models(config.environment()) {
+            self.step(&format!("Translation model folder refused: {folder} ({reason})"));
+        }
         let mut weights = Map::new();
-        for candidate in TRANSLATION_WEIGHTS {
-            let present = if candidate == weight { available } else { (self.services().translation_weight_available)(candidate) };
-            weights.insert(candidate.to_string(), json!(present));
+        let candidates: Vec<String> = config
+            .get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST")
+            .as_array()
+            .map(|list| list.iter().filter_map(|w| w.as_str().map(str::to_string)).collect())
+            .unwrap_or_else(|| TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect());
+        for candidate in &candidates {
+            let present = if *candidate == weight {
+                available
+            } else {
+                (self.services().translation_weight_available)(candidate)
+                    || super::translation::default_weight_available(config.environment(), candidate)
+            };
+            weights.insert(candidate.clone(), json!(present));
         }
         config.put("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT", Value::Object(weights));
         self.update_translation_engine_and_list();
         self.step("Set Transcription Engine");
         self.update_transcription_engine(None);
         self.notify("initialization_progress", json!(3));
+        self.step("Init Logger");
+        self.start_conversation_log();
+        self.check_software_update_in_background();
         self.notify("initialization_progress", json!(4));
+        self.step("Init Overlay");
+        self.sync_overlay_running();
         self.start_adapters();
+        self.start_audio_devices();
 
         self.step("Revalidate Selected Models");
         config.revalidate_selected_models();
@@ -134,6 +144,7 @@ impl Core {
         for key in config.invalid_saved_api_urls() {
             let (endpoint, code) = match key.as_str() {
                 "LMSTUDIO_URL" => ("/set/data/lmstudio_url", "CONNECTION_LMSTUDIO_URL_INVALID"),
+                "OLLAMA_URL" => ("/set/data/ollama_url", "CONNECTION_OLLAMA_URL_INVALID"),
                 "OPENAI_COMPATIBLE_URL" => ("/set/data/openai_compatible_url", "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID"),
                 _ => ("/set/data/custom_whisper_url", "CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID"),
             };
@@ -150,6 +161,14 @@ impl Core {
             }),
             std::sync::Arc::new(move || recovered("config_save_recovered", json!(true))),
         );
+        // The key store failed: the key stays usable for this run and is tried again.
+        let output = std::sync::Arc::clone(&self.output);
+        let kind = config.secret_store().kind();
+        config.set_secret_callback(std::sync::Arc::new(move |operation, entries, reason| {
+            let data = json!({ "operation": operation, "entries": entries, "reason": reason, "store": kind });
+            let body = ErrorReply::new("SECRET_STORE_FAILED", data).into_body();
+            output.answer(400, Some(super::run_endpoint("secret_store_failed")), &body);
+        }));
         self.step("End Initialization");
     }
 
@@ -181,15 +200,13 @@ impl Core {
             .ok();
     }
 
-    /// What Python's start-up does for an engine whose check failed (`Controller.init`): the
-    /// engines that find their models on a server forget the model list and the selected
-    /// model, so the next successful check selects again. Saved API keys are kept, as in Python:
-    /// a failed check cannot tell a refused key from a network that is down.
+    /// What Python's start-up does for a recognition engine whose check failed
+    /// (`Controller.init`): the engines that find their models on a server forget the model
+    /// list and the selected model, so the next successful check selects again. Saved API keys
+    /// are kept, as in Python: a failed check cannot tell a refused key from a network that is
+    /// down. The translation engines are handled by `check_translation_engines`.
     fn forget_failed_engine(&self, engine: &str) {
         let (list, selected) = match engine {
-            "LMStudio" => ("SELECTABLE_LMSTUDIO_MODEL_LIST", "SELECTED_LMSTUDIO_MODEL"),
-            "OpenAI_Compatible" => ("SELECTABLE_OPENAI_COMPATIBLE_MODEL_LIST", "SELECTED_OPENAI_COMPATIBLE_MODEL"),
-            "Ollama" => ("SELECTABLE_OLLAMA_MODEL_LIST", "SELECTED_OLLAMA_MODEL"),
             "Groq_Whisper" => ("SELECTABLE_GROQ_WHISPER_MODEL_LIST", "SELECTED_GROQ_WHISPER_MODEL"),
             "OpenAI_Whisper" => ("SELECTABLE_OPENAI_WHISPER_MODEL_LIST", "SELECTED_OPENAI_WHISPER_MODEL"),
             "Custom_Whisper" => ("SELECTABLE_CUSTOM_WHISPER_MODEL_LIST", "SELECTED_CUSTOM_WHISPER_MODEL"),

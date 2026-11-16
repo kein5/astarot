@@ -8,23 +8,6 @@ import pytest
 from tools.linux_package import check_tree, inspect_tar, pack, normalize_modes
 
 
-@pytest.mark.parametrize('engine', ['seed_vc'])
-def test_packaged_vc_worker_can_start_outside_source_checkout(tmp_path, engine):
-    import subprocess
-    import sys
-    from tools.build_linux import copy_adapters
-    resources = tmp_path/'relocated-internal'
-    resources.mkdir()
-    copy_adapters(resources)
-    # A real external interpreter cannot import modules hidden in the sidecar PYZ.
-    # --help exercises imports before model loading; no ML packages/downloads needed.
-    result = subprocess.run([sys.executable, '-E', '-s', '-m',
-        f'integrations.{engine}.live_worker', '--help'], cwd=resources,
-        capture_output=True, text=True, timeout=5)
-    assert result.returncode == 0, result.stderr
-    assert '--session' in result.stdout
-
-
 def test_internal_file_link_survives_archive(tmp_path):
     root = tmp_path / 'VRCT-VOX'
     (root / 'lib').mkdir(parents=True)
@@ -56,6 +39,12 @@ def test_forbidden_assets_blocked(tmp_path, name):
     file.write_bytes(b'model')
     with pytest.raises(ValueError):
         check_tree(tmp_path)
+
+
+def test_runtime_has_no_python_backend():
+    from tools.linux_package import RUNTIME
+    assert not any('sidecar' in name or 'base_library' in name or 'seed_vc' in name for name in RUNTIME)
+    assert '_internal/build/speechcpp/speech' in RUNTIME
 
 
 def test_pack_requires_complete_runtime(tmp_path):

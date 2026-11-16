@@ -1,10 +1,13 @@
-"""Build an unpublished Linux x86_64 tar.gz candidate with uv and locked dependencies.
+"""Build an unpublished Linux x86_64 tar.gz candidate: the app and its `_internal` folder.
 
-Never modifies the development sidecar. No models are fetched by this tool.
+The app runs the Rust backend core in its own process; no Python is frozen or shipped.
+`_internal` holds what tools/app_resources.py lists for Linux: both pinned speech.cpp builds
+(the Vulkan build in build/speechcpp, the CPU build in build/speechcpp-cpu; the user chooses in
+the settings which one runs), the RVC worker, the audio and capture helpers, the PipeWire
+configuration and the license texts. No models are fetched by this tool.
 System dependencies are documented in docs/voice-stack/linux-build-pipeline.md.
 """
 import argparse
-import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -14,13 +17,13 @@ import subprocess
 import sys
 
 try:
-    from .check_python_lock import validate_lock
+    from .app_resources import stage as stage_resources
     from .linux_package import check_tree, inventory, normalize_modes, pack
-    from .speechcpp_bundle import LINUX_VARIANTS, stage_bundle, fetch_archive, load_manifest, verify_bundle
+    from .speechcpp_bundle import stage_bundle, fetch_archive, load_manifest, verify_bundle
 except ImportError:
-    from check_python_lock import validate_lock
+    from app_resources import stage as stage_resources
     from linux_package import check_tree, inventory, normalize_modes, pack
-    from speechcpp_bundle import LINUX_VARIANTS, stage_bundle, fetch_archive, load_manifest, verify_bundle
+    from speechcpp_bundle import stage_bundle, fetch_archive, load_manifest, verify_bundle
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,87 +48,23 @@ def run(argv, *, cwd=ROOT, env=None):
     subprocess.run(list(map(str, argv)), cwd=cwd, env=env, check=True)
 
 
-def sync_dependencies(uv, venv, python_selector):
-    # Validate before creating/modifying the environment, including cached builds.
-    validate_lock(ROOT / 'uv.lock')
-    python = venv / 'bin/python'
-    if not python.exists():
-        run([*uv, 'venv', '--python', python_selector, venv])
-    # uv sync checks the lock's archive hashes and preserves pinned Git sources.
-    # --python alone selects an interpreter, not the destination environment.
-    run([*uv, 'sync', '--frozen', '--no-install-project', '--python', python,
-         '--group', 'dev', '--group', 'linux-build'], cwd=ROOT,
-        env=dict(os.environ, UV_PROJECT_ENVIRONMENT=str(venv.resolve())))
-
-
-def environment_resources(destination):
-    """Run inside the build venv. Copy available attribution, record missing notices."""
-    destination = Path(destination)
-    rows = []
-    for package in sorted(importlib.metadata.distributions(), key=lambda p: p.metadata['Name'].lower()):
-        name = package.metadata['Name']
-        row = {'name': name, 'version': package.version,
-               'license': package.metadata.get('License-Expression') or package.metadata.get('License'),
-               'notice_files': []}
-        for file in package.files or []:
-            if '.dist-info/' not in str(file) and '.egg-info/' not in str(file):
-                continue
-            if not any(part.lower().startswith(('license', 'copying', 'notice', 'authors')) for part in file.parts):
-                continue
-            source = Path(package.locate_file(file))
-            if not source.is_file():
-                continue
-            # Preserve relative nested names; wheel RECORDs must stay within the package.
-            if '..' in file.parts or file.is_absolute():
-                raise ValueError(f'Unsafe package metadata path: {file}')
-            target = destination / 'licenses/python' / f'{name}-{package.version}' / file
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, target)
-            row['notice_files'].append(target.relative_to(destination).as_posix())
-        rows.append(row)
-    (destination / 'python-environment.json').write_text(json.dumps(rows, ensure_ascii=False, indent=2) + '\n')
-
-
-# The sidecar sets a runtime up from these; the requirements for Windows stay out.
-SETUP_FILES = {'seed_vc': ('requirements.lock', 'offline-loader.patch')}
-
-
-def copy_adapters(resources):
-    for engine in ('seed_vc',):
-        source = ROOT / 'integrations' / engine
-        for file in source.iterdir():
-            if file.is_file() and (file.suffix == '.py' or file.name.startswith(('LICENSE', 'README'))
-                                   or file.name in SETUP_FILES[engine]):
-                target = resources / 'integrations' / engine / file.name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(file, target)
-    # The Seed-VC adapter reads its reviewed file list through these two paths.
-    for name in ('tools/seedvc_artifacts.py', 'docs/voice-stack/seed-vc-poc-artifacts.json'):
-        target = resources / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(ROOT / name, target)
-    # External inference interpreters cannot read the frozen sidecar's PYZ.
-    # Ship only their small, dependency-free contract modules as ordinary files.
-    for name in ('__init__.py', 'owned_child.py', 'voice_conversion/__init__.py',
-                 'voice_conversion/protocol.py', 'voice_conversion/settings.py'):
-        source = ROOT / 'src-python/models' / name
-        target = resources / 'src-python/models' / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, target)
-
-
 # The crates under native/ that src-tauri depends on by path: the backend core (#285) and the
 # crates it uses. tests/devtools/test_build_linux.py keeps this list equal to the path
 # dependencies of those Cargo.toml files.
-APP_CRATES = ('core', 'adapters', 'ops', 'speech-server', 'tts')
+# translate-onnx is an optional dependency of the core (feature onnx-translation, off), but Cargo
+# reads its manifest to resolve the core, so it is copied too.
+APP_CRATES = ('core', 'adapters', 'audio-routing', 'ocr-runtime', 'ops', 'speech-server', 'transcription', 'translation',
+              'translate-onnx', 'tts', 'voice-conversion', 'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
-# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text.
+# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text, and
+# native/vr-overlay checks its layout against the VR page's.
 # tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
 CRATE_INPUTS = ('src-python/models/model_downloads/speechcpp_models.py',
-                'src-python/models/model_downloads/speechcpp_asr.py')
+                'src-python/models/model_downloads/speechcpp_asr.py',
+                'src-ui/views/vr/vr_layout.json')
 
 
-def tauri_workspace(work, frozen):
+def tauri_workspace(work, internal):
     workspace = work / 'workspace'
     tauri = workspace / 'src-tauri'
     tauri.mkdir(parents=True, exist_ok=True)
@@ -155,79 +94,95 @@ def tauri_workspace(work, frozen):
     if binary.exists():
         shutil.rmtree(binary)
     binary.mkdir()
-    shutil.copy2(frozen / 'vrct-vox-sidecar', binary / 'vrct-vox-sidecar-x86_64-unknown-linux-gnu')
-    shutil.copytree(frozen / '_internal', binary / '_internal', symlinks=True)
+    # tauri.conf.json maps bin/_internal to the app's _internal folder.
+    shutil.copytree(internal, binary / '_internal', symlinks=True)
     config = json.loads((tauri / 'tauri.conf.json').read_text())
     config['bundle']['targets'] = []
+    # Nothing runs beside the app any more; a stale entry would name a missing binary.
+    config['bundle'].pop('externalBin', None)
     config['bundle'].pop('windows', None)
     (tauri / 'tauri.conf.json').write_text(json.dumps(config, indent=2))
     return workspace
+
+
+
+
+# Shipped in _internal/docs for users of the tar.gz, who have no installer to explain the setup.
+SHIPPED_DOCS = ('local-setup-linux.md', 'licensing.md', 'linux-build-pipeline.md')
+
+# Both speech.cpp builds ship in one package, each in its own folder of _internal/build
+# (app_resources.SPEECH_BUNDLES): (pinned variant, folder).
+SPEECH_BUILDS = (('linux-x64-vulkan', 'speechcpp'), ('linux-x64-cpu', 'speechcpp-cpu'))
+# The package's own name part: one package per architecture, with both builds.
+PACKAGE_VARIANT = 'linux-x64'
+
+
+def speech_archives(manifest, directory):
+    """{variant: path of its pinned archive in `directory`} for both builds."""
+    return {variant: Path(directory) / manifest['assets'][variant]['name'] for variant, _ in SPEECH_BUILDS}
+
+
+def stage_internal(work, archives, *, offline=False, download=False):
+    """Builds the helpers and returns the staged `_internal` folder (tools/app_resources.py).
+
+    `archives` maps each variant of SPEECH_BUILDS to its pinned speech.cpp archive."""
+    build = work / 'build'
+    if build.exists():
+        shutil.rmtree(build)
+    build.mkdir()
+    run([sys.executable, ROOT / 'tools/build_voice_gate.py', '--output-dir', build])
+    run([sys.executable, ROOT / 'tools/build_rvc_worker.py', '--output-dir', build,
+         '--target-dir', work / 'cargo-rvc', *(['--offline'] if offline else [])])
+    # The license texts of the Rust crates in vrct-vox and the worker (NOTICE.md).
+    run([sys.executable, ROOT / 'tools/rust_licenses.py', '--output', build / 'licenses/rust',
+         '--platform', 'linux', *(['--offline'] if offline else [])])
+    manifest = load_manifest()
+    for variant, folder in SPEECH_BUILDS:
+        archive = archives[variant]
+        if download and not archive.exists():
+            fetch_archive(manifest['assets'][variant], archive)
+        stage_bundle(archive, build / folder, manifest['assets'][variant])
+        verify_bundle(build / folder)
+    internal = work / 'internal'
+    missing = stage_resources(internal, 'linux', build=build)
+    if missing:
+        raise ValueError(f'Missing from the Linux _internal folder: {", ".join(missing)}')
+    (internal / 'docs').mkdir()
+    for name in SHIPPED_DOCS:
+        shutil.copyfile(ROOT / 'docs/voice-stack' / name, internal / 'docs' / name)
+    check_tree(internal)
+    return internal
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work-dir', type=Path, default=ROOT / 'build/linux')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'build/linux/artifacts')
-    parser.add_argument('--python', default='3.11', help='uv interpreter selector for the isolated build venv')
-    parser.add_argument('--variant', choices=LINUX_VARIANTS, default='linux-x64-vulkan')
     source = parser.add_mutually_exclusive_group()
-    source.add_argument('--speech-archive', type=Path)
-    source.add_argument('--download-speech', action='store_true', help='fetch only the pinned engine binary, never weights')
+    source.add_argument('--speech-archive-dir', type=Path,
+                        help='a folder holding both pinned speech.cpp archives under their release names')
+    source.add_argument('--download-speech', action='store_true', help='fetch only the pinned engine binaries, never weights')
     parser.add_argument('--profile', choices=('debug', 'release'), default='release')
-    parser.add_argument('--backend-only', action='store_true', help='freeze and inspect only; no distributable is produced')
-    parser.add_argument('--offline', action='store_true', help='use cached uv/npm/Cargo dependencies')
+    parser.add_argument('--resources-only', action='store_true',
+                        help='stage and inspect _internal only; no distributable is produced')
+    parser.add_argument('--offline', action='store_true', help='use cached npm/Cargo dependencies')
     parser.add_argument('--appimage', action='store_true', help='also package/inspect an AppImage candidate')
     parser.add_argument('--download-appimage-tools', action='store_true', help='fetch pinned build tools for --appimage')
-    parser.add_argument('--collect-environment', type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if args.collect_environment:
-        environment_resources(args.collect_environment)
-        return
     if sys.platform != 'linux' or platform.machine() not in ('x86_64', 'AMD64'):
         parser.error('Linux x86_64 required (no cross compilation)')
-    if not (args.speech_archive or args.download_speech):
-        parser.error('--speech-archive or explicit --download-speech is required')
+    if not (args.speech_archive_dir or args.download_speech):
+        parser.error('--speech-archive-dir or explicit --download-speech is required')
     work = prepare_work(args.work_dir)
-    venv = work / 'venv'
-    python = venv / 'bin/python'
-    uv = ['uv', '--offline'] if args.offline else ['uv']
-    sync_dependencies(uv, venv, args.python)
-    run([python, '-c', 'import sys; assert sys.version_info[:2] == (3, 11), "Python 3.11 required"'])
-    resources = work / 'resources'
-    if resources.exists():
-        shutil.rmtree(resources)
-    resources.mkdir()
-    run([sys.executable, ROOT / 'tools/build_voice_gate.py', '--output-dir', resources / 'build'])
-    run([sys.executable, ROOT / 'tools/build_rvc_worker.py', '--output-dir', resources / 'build',
-         '--target-dir', work / 'cargo-rvc', *(['--offline'] if args.offline else [])])
-    # The license texts of the Rust crates in vrct-vox and the worker (NOTICE.md).
-    run([sys.executable, ROOT / 'tools/rust_licenses.py', '--output', resources / 'licenses/rust',
-         '--platform', 'linux', *(['--offline'] if args.offline else [])])
-    archive = args.speech_archive.resolve() if args.speech_archive else work / f'speech-{args.variant}.zip'
-    manifest = load_manifest()
-    if args.download_speech and not archive.exists():
-        fetch_archive(manifest['assets'][args.variant], archive)
-    stage_bundle(archive, resources / 'build/speechcpp', manifest['assets'][args.variant])
-    verify_bundle(resources / 'build/speechcpp')
-    copy_adapters(resources)
-    shutil.copytree(ROOT / 'config/pipewire', resources / 'config/pipewire')
-    (resources / 'docs').mkdir(exist_ok=True)  # copy_adapters may have made it.
-    for name in ('local-setup-linux.md', 'licensing.md', 'linux-build-pipeline.md'):
-        shutil.copyfile(ROOT / 'docs/voice-stack' / name, resources / 'docs' / name)
-    run([python, Path(__file__).resolve(), '--collect-environment', resources])
-    env = dict(os.environ, VRCT_LINUX_RESOURCES=str(resources), VRCT_LINUX_BUNDLE='1',
-               VRCT_BUILD_PYTHON=str(python))
-    run([python, '-m', 'PyInstaller', '--noconfirm', '--distpath', work / 'frozen',
-         '--workpath', work / 'pyinstaller', ROOT / 'spec/backend_linux.spec'], env=env)
-    frozen = work / 'frozen/backend'
-    check_tree(frozen)
-    if args.backend_only:
-        print(f'Frozen backend ready: {frozen}')
+    archives = speech_archives(load_manifest(), args.speech_archive_dir.resolve() if args.speech_archive_dir else work)
+    internal = stage_internal(work, archives, offline=args.offline, download=args.download_speech)
+    if args.resources_only:
+        print(f'Staged _internal ready: {internal}')
         return
     run(['npm', 'ci', '--ignore-scripts', *(['--offline'] if args.offline else [])])
     run(['npm', 'run', 'vite-build'])
-    workspace = tauri_workspace(work, frozen)
-    env['CARGO_TARGET_DIR'] = str(work / 'cargo')
+    workspace = tauri_workspace(work, internal)
+    env = dict(os.environ, VRCT_LINUX_BUNDLE='1', CARGO_TARGET_DIR=str(work / 'cargo'))
     env.setdefault('CARGO_BUILD_JOBS', '4')
     if args.offline:
         env['CARGO_NET_OFFLINE'] = 'true'
@@ -238,14 +193,16 @@ def main():
     candidate = work / 'candidate/VRCT-VOX'
     if candidate.exists():
         shutil.rmtree(candidate)
-    candidate.parent.mkdir(exist_ok=True)
-    shutil.copytree(frozen, candidate, symlinks=True)
+    candidate.mkdir(parents=True)
+    shutil.copytree(internal, candidate / '_internal', symlinks=True)
     shutil.copy2(work / 'cargo' / args.profile / 'vrct-vox', candidate / 'vrct-vox')
     normalize_modes(candidate)
     check_tree(candidate, require_runtime=True)
-    verify_bundle(candidate / '_internal/build/speechcpp')
+    for _, folder in SPEECH_BUILDS:
+        verify_bundle(candidate / '_internal/build' / folder)
     version = json.loads((ROOT / 'package.json').read_text())['version']
-    report = {'schema': 1, 'version': version, 'profile': args.profile, 'variant': args.variant,
+    report = {'schema': 1, 'version': version, 'profile': args.profile, 'variant': PACKAGE_VARIANT,
+              'speech_builds': [variant for variant, _ in SPEECH_BUILDS],
               'platform': platform.platform(), 'libc': platform.libc_ver(),
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=ROOT)),
@@ -255,12 +212,12 @@ def main():
     (candidate / 'build-manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
     (candidate / 'build-manifest.json').chmod(0o644)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output = args.output_dir / f'VRCT-VOX-{version}-{args.variant}-{args.profile}.tar.gz'
+    output = args.output_dir / f'VRCT-VOX-{version}-{PACKAGE_VARIANT}-{args.profile}.tar.gz'
     pack(candidate, output)
     shutil.copyfile(candidate / 'build-manifest.json', output.with_suffix('').with_suffix('.manifest.json'))
     print(f'Unpublished candidate: {output.resolve()}')
     if args.appimage:
-        run([python, ROOT / 'tools/build_appimage.py', '--candidate', candidate,
+        run([sys.executable, ROOT / 'tools/build_appimage.py', '--candidate', candidate,
              '--work-dir', work / 'appimage', '--tools-dir', work / 'appimage-tools',
              '--output-dir', args.output_dir,
              *(['--download-tools'] if args.download_appimage_tools else [])])

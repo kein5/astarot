@@ -70,9 +70,9 @@ fn deleting_a_translation_key_forgets_its_models_and_tells_the_ui() {
     assert!(ui.on(mark, "/run/selected_deepl_model").is_empty());
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
-    assert_eq!(file["AUTH_KEYS"]["Gemini_API"], Value::Null);
-    assert_eq!(file["AUTH_KEYS"]["DeepL_API"], Value::Null);
-    assert_eq!(file["AUTH_KEYS"]["OpenAI_API"], "openai-key", "another provider's key stays");
+    assert_eq!(ui.kept_key("AUTH_KEYS", "Gemini_API"), Value::Null);
+    assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), Value::Null);
+    assert_eq!(ui.kept_key("AUTH_KEYS", "OpenAI_API"), "openai-key", "another provider's key stays");
     assert_eq!(file["SELECTED_GEMINI_MODEL"], Value::Null);
     ui.stop();
 }
@@ -87,9 +87,10 @@ fn deleting_a_recognition_key_forgets_its_models() {
     ui.ok("/delete/data/custom_whisper_auth_key", None);
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"]["Deepgram"], Value::Null);
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"]["Custom_Whisper"], Value::Null);
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"]["Groq_Whisper"], "gw-key");
+    assert!(file.get("TRANSCRIPTION_AUTH_KEYS").is_none());
+    assert_eq!(ui.kept_key("TRANSCRIPTION_AUTH_KEYS", "Deepgram"), Value::Null);
+    assert_eq!(ui.kept_key("TRANSCRIPTION_AUTH_KEYS", "Custom_Whisper"), Value::Null);
+    assert_eq!(ui.kept_key("TRANSCRIPTION_AUTH_KEYS", "Groq_Whisper"), "gw-key");
     ui.stop();
 }
 
@@ -202,7 +203,8 @@ fn the_vr_panel_layout_follows_the_saved_log_size() {
     assert_eq!(layout["atlas"], json!([1928, 1036]));
     assert_eq!(layout["regions"]["panel"], json!([0, 0, 1200, 900]));
     assert_eq!(layout["regions"]["launcher"], json!([10, 908, 880, 128]));
-    assert_eq!(layout["tooltip_epoch"], 0);
+    // The overlay's tooltip generation: random, never 0 (`Overlay.__init__`).
+    assert!(layout["tooltip_epoch"].as_u64().is_some_and(|epoch| epoch > 0), "{layout}");
     ui.stop();
 
     // A size outside the range (an older file) is drawn at the nearest allowed size.
@@ -274,7 +276,8 @@ fn the_old_whisper_weights_are_shown_and_removed_on_request_only() {
 
 #[test]
 fn the_remaining_switches_and_choices() {
-    let saved = json!({ "SELECTED_MIC_HOST": "Windows WASAPI", "SELECTED_SPEAKER_DEVICE_ID": "{0.0.0.00000000}.{abc}", "AUTO_MIC_SELECT": false });
+    // Auto Select off: with it on, start-up replaces the saved choice by the OS default.
+    let saved = json!({ "SELECTED_MIC_HOST": "Windows WASAPI", "SELECTED_SPEAKER_DEVICE_ID": "{0.0.0.00000000}.{abc}", "AUTO_MIC_SELECT": false, "AUTO_SPEAKER_SELECT": false });
     let ui = Ui::with(Setup { saved: Some(saved), ..Setup::default() });
     let snapshot = ui.ready();
     assert_eq!(snapshot["/get/data/auto_mic_select"], false);

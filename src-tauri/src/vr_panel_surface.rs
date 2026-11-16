@@ -28,7 +28,7 @@ const MAGIC: &[u8; 8] = b"VRCTVRP1";
 pub const HEADER_SIZE: usize = 64;
 /// The atlas the page draws before the backend asks for another size.
 const DEFAULT_SIZE: (i32, i32) =
-    (crate::vr_overlay::layout::DEFAULT.atlas.0 as i32, crate::vr_overlay::layout::DEFAULT.atlas.1 as i32);
+    (vrct_core::vr_overlay::layout::DEFAULT.atlas.0 as i32, vrct_core::vr_overlay::layout::DEFAULT.atlas.1 as i32);
 const MAX_SIDE: i32 = 8192;
 /// Copying a frame costs a few MB; the overlay does not show more than this.
 const FRAME_INTERVAL: Duration = Duration::from_millis(33);

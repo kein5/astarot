@@ -2,7 +2,12 @@
 //! out, with the settings in a temporary folder.
 #![allow(dead_code)]
 
+pub mod fake_asr;
+pub mod fake_audio;
+pub mod fake_capture;
 pub mod fake_osc;
+pub mod fake_tts;
+pub mod fake_voice;
 pub mod net;
 
 use serde_json::{Value, json};
@@ -45,8 +50,25 @@ impl Default for Setup {
         Self {
             saved: None,
             raw: None,
-            // The OSC link without mDNS: no test joins UDP 5353 on every interface.
-            services: Services { osc: fake_osc::factory(false).0, ..Services::default() },
+            // The OSC link without mDNS: no test joins UDP 5353 on every interface. The
+            // translation providers never leave this PC: a saved key is not sent anywhere. No
+            // audio device is listed or watched. No VR runtime: a SteamVR that does not run, and
+            // no VR panel page.
+            services: Services {
+                osc: fake_osc::factory(false).0,
+                translation_transport: vrct_translation::http::loopback_only(),
+                translation_endpoints: vrct_translation::providers::Endpoints::all_at("http://provider.invalid"),
+                audio: fake_audio::FakeAudio::new().platform(),
+                vr: Arc::new(vrct_core::vr_overlay::runtime::fake::FakeVr::default()),
+                vr_panel_surface: None,
+                steamvr_poll: Duration::from_millis(20),
+                // No real microphone or speaker, and no recognition service beyond this PC.
+                transcription_capture: fake_capture::FakeCapture::new().factory(),
+                transcription_endpoints: vrct_transcription::providers::Endpoints::all_at("http://provider.invalid"),
+                // No speech output, microphone, gate or worker runtime of the PC.
+                voice: fake_voice::FakeVoice::new().platform(),
+                ..Services::default()
+            },
             watchdog: None,
             grace: Duration::from_secs(5),
             platform: Platform::current(),
@@ -183,6 +205,28 @@ impl Ui {
 
     pub fn saved(&self) -> Value {
         serde_json::from_str(&std::fs::read_to_string(self.dir.join("config.json")).unwrap()).unwrap()
+    }
+
+    /// One saved API key, from the key store (`config.json` holds none): `null` if none is kept.
+    pub fn kept_key(&self, map: &str, provider: &str) -> Value {
+        assert!(self.saved().get(map).is_none(), "{map} is not written to config.json");
+        let store = self.backend.core().config().secret_store();
+        store.read(&format!("{map}/{provider}")).expect("the store answers").map_or(Value::Null, Value::String)
+    }
+
+    /// The saved API keys of a map, from the key store: only the providers that have one.
+    pub fn kept_keys(&self, map: &str) -> Value {
+        let providers = self.backend.core().config().get(map);
+        let kept = providers
+            .as_object()
+            .expect("a map of keys")
+            .keys()
+            .filter_map(|provider| match self.kept_key(map, provider) {
+                Value::Null => None,
+                key => Some((provider.clone(), key)),
+            })
+            .collect();
+        Value::Object(kept)
     }
 
     /// Stops the run and waits for it, so that a test leaves no threads behind.

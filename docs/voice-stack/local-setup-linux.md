@@ -13,15 +13,10 @@ Pythonは標準ライブラリだけで発声でき、`pw-cat` / `pw-dump` が�
 
 ## ネイティブ起動の作業状況
 
-開発用Rust sidecarはLinuxで選択したvenvの`bin/python`を使い、UnixのexecでPythonへ置き換わる。
-Tauriが所有するPIDとPythonのPIDが同じなので、wrapper終了後にPythonだけが残る状態を防ぐ。
-Windowsの`Scripts/python.exe`選択とJob Objectは維持する。
-実ラッパー＋小さなPythonプログラムによる11件の試験で、stdio、日本語、引数、空白path、終了コード、
-終了時のprocess消失、不正venv拒否、interpreter不在・実行失敗を確認した。
-別の実stdio試験で本番Main/Controller/Modelの初期化と設定保存・再起動を確認した。
-Tauri画面・音声入出力はこの試験の範囲外。
+0.5.0からアプリのバックエンドはアプリの中で動くRustの中核で、開発用のPython sidecarはなくなった（[中核の統合](core-integration.md)）。
+以下のPython環境は、`src-python/`のPythonバックエンドとそのCLI・試験を動かすときだけ使う。
 
-### 本番バックエンド用の開発環境
+### Pythonバックエンド用の開発環境
 
 固定SpeechRecognition forkが使う`aifc`/`audioop`、既存NumPy/Pillowの版に合わせてPython 3.11を使う。
 既存の`.venv`と`.venv_cuda`を変更せず、Linux用環境を明示選択する。
@@ -29,13 +24,12 @@ Python、uv、Rustの版は`mise.toml`で固定している（[開発ガイド](
 
 ```sh
 mise install
-mise run setup:app      # .venv_linux を uv.lock に合わせる（uv sync --frozen）
-mise run setup:sidecar
+mise run setup:app        # .venv_linux を uv.lock に合わせる（uv sync --frozen）
+mise run setup:resources  # tauri dev と cargo check が読む src-tauri/bin/_internal
 ```
 
 `setup:app`は`UV_PROJECT_ENVIRONMENT=.venv_linux uv sync --frozen --python 3.11`を、miseのPythonで実行する。
-
-sidecarは `src-tauri/bin/vrct-vox-sidecar-x86_64-unknown-linux-gnu` に作られる。詳しくは[開発ガイド](../development.md#tauri開発用sidecarを準備する)を参照。
+`setup:resources`については[開発ガイド](../development.md#tauriが読む資源を用意する)を参照。
 
 ### 同梱サーバーと音声ヘルパーを用意する
 
@@ -45,6 +39,7 @@ sidecarは `src-tauri/bin/vrct-vox-sidecar-x86_64-unknown-linux-gnu` に作ら�
 ```sh
 mise run build:voice-gate
 python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/speech-0.11.0-linux-x64-vulkan.zip --output build/speechcpp
+python tools/speechcpp_bundle.py --variant linux-x64-cpu --archive /path/to/speech-0.11.0-linux-x64-cpu.zip --output build/speechcpp-cpu
 ```
 
 `build_voice_gate.py`は、`build/vrct-voice-gate`、`vrct-source-bridge`、`vrct-vc-worker`、`vrct-asr-capture`、`vrct-screen-capture`をビルドする。`libpipewire-0.3-dev`が必要。
@@ -52,12 +47,12 @@ python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/s
 `vrct-vc-worker`がないと、同梱サーバーの起動は`speech_server_launch_failed`で止まる。
 `vrct-vc-worker`は推論デバイスとして、`auto`、`cpu`、`gpu`と、`speech devices`が表示するGPUの名前（`Vulkan0`など）を受け付ける。設定でGPUを名前で選ぶ機能より前にビルドしたヘルパーは名前を拒否するので、作り直す。
 
-`speechcpp_bundle.py`は、版とSHA-256を固定した書庫から、`speech`本体と同梱のライセンス文書を`build/speechcpp`に置く。
+`speechcpp_bundle.py`は、版とSHA-256を固定した書庫から、`speech`本体と同梱のライセンス文書を出力先に置く。配布物と同じく、Vulkan版は`build/speechcpp`、CPU版は`build/speechcpp-cpu`に置く。どちらのビルドかは`bundle.json`で決まり、フォルダの名前では決まらない。
 書庫が手元になければ、`--archive`の代わりに`--download`を指定すると取得する。通信するのは`--download`を指定したときだけ。
-GPUを使わない場合は`--variant linux-x64-cpu`を選ぶ。出力先がすでにあると、上書きせずに止まる。
-Linux候補をビルド済みなら、`build/linux/resources/build/speechcpp`を`cp -a`でコピーしてもよい。
+片方だけでも動く。CPU版だけなら推論はCPUだけになる。Vulkan版だけでも「CPU」を選べるが、Vulkanローダー（`libvulkan.so.1`）が要る。出力先がすでにあると、上書きせずに止まる。`--replace`を付けると、同じ版はそのまま残し、別の版の部品だけを置き換える。
+Linux候補をビルド済みなら、`build/linux/build/speechcpp`と`build/linux/build/speechcpp-cpu`を`cp -a`でコピーしてもよい。
 アプリは起動のたびに版とハッシュを検査し、シンボリックリンクは受け付けないので、リンクではなくコピーにする。
-`build/speechcpp`がないか検査に合わないと、同梱サーバーの起動は`speech_bundle_missing_or_invalid`で止まる。
+2つとも見つからないか検査に合わないと、同梱サーバーの起動は`speech_bundle_missing_or_invalid`で止まる。
 
 開発起動で取得したモデルは`src-python/downloaded_models/`に保存される。このディレクトリはgitの対象外にしてある。
 

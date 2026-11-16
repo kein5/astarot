@@ -354,6 +354,10 @@ impl FrameSource for OcrCapture {
         self.failures.active() || self.window.failure_active() || self.vr.as_ref().is_some_and(|vr| vr.failure_active())
     }
 
+    fn shared_window(&self) -> Option<SharedState> {
+        self.shared_state
+    }
+
     fn close(&mut self) {
         self.failures.reset();
         self.window.close();

@@ -19,6 +19,9 @@ pub mod languages;
 pub mod log;
 pub mod net_policy;
 pub mod protocol;
+pub mod resources;
 pub mod voice_settings;
 
 pub use backend::{Backend, Options, Sink};
+/// The VR overlay crate, for the app's VR panel surface (its layout).
+pub use vrct_vr_overlay as vr_overlay;

@@ -183,23 +183,24 @@ def _linux_assets(tmp_path, suffixes):
 
 
 def test_linux_candidate_carries_archive_appimage_deb_and_rpm(tmp_path):
-    assets = _linux_assets(tmp_path, ("vulkan-release.tar.gz", "vulkan-release.AppImage",
-                                      "vulkan-release.deb", "vulkan-release.rpm"))
+    assets = _linux_assets(tmp_path, ("release.tar.gz", "release.AppImage",
+                                      "release.deb", "release.rpm"))
     stage(tmp_path / "out", assets, "linux", SHA, VERSION)
     names = {entry["name"] for entry in verify(tmp_path / "out", "linux", SHA, VERSION)["assets"]}
     assert {name.rsplit(".", 1)[-1] for name in names} == {"gz", "AppImage", "deb", "rpm"}
 
 
 def test_linux_candidate_without_its_packages_is_refused(tmp_path):
-    assets = _linux_assets(tmp_path, ("vulkan-release.tar.gz", "vulkan-release.AppImage"))
+    assets = _linux_assets(tmp_path, ("release.tar.gz", "release.AppImage"))
     with pytest.raises(ValueError, match="deb and rpm"):
         stage(tmp_path / "out", assets, "linux", SHA, VERSION)
 
 
-def test_linux_variant_pair_required(tmp_path):
-    assets = _linux_assets(tmp_path, ("vulkan-release.AppImage", "cpu-release.tar.gz",
+def test_linux_packages_of_one_engine_build_are_refused(tmp_path):
+    # Until 0.4 each engine build had packages of its own; one package now carries both.
+    assets = _linux_assets(tmp_path, ("vulkan-release.tar.gz", "vulkan-release.AppImage",
                                       "vulkan-release.deb", "vulkan-release.rpm"))
-    with pytest.raises(ValueError, match="same engine"):
+    with pytest.raises(ValueError, match="deb and rpm"):
         stage(tmp_path / "out", assets, "linux", SHA, VERSION)
 
 

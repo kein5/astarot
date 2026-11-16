@@ -14,11 +14,25 @@ name = "ocr_runtime"
 name = "ocr-read"
 path = "src/bin/ocr_read.rs"
 
+[features]
+default = ["download-binaries"]
+# Link `ort`'s prebuilt ONNX Runtime statically (fetched at build time). The crate's own
+# tests and `ocr-read` use it.
+download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs"]
+# Load the ONNX Runtime library at run time instead: `ORT_DYLIB_PATH`, else
+# `onnxruntime.dll` / `libonnxruntime.so` beside the executable, else by name. A missing
+# library makes the engine unavailable instead of failing the build or the start of the
+# process. The application core uses this (docs/voice-stack/core-integration.md, item 2).
+load-dynamic = ["ort/load-dynamic"]
+
 [dependencies]
-ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "tls-native", "copy-dylibs", "api-17"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
 png = "0.18"
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["float_roundtrip"] }
+# Only `ocr-read` writes JSON. The tests parse the reference floats exactly (below); the
+# feature stays out of normal builds so that an application using this crate keeps its own
+# float parsing.
+serde_json = "1"
 sha2 = "0.10"
 caseless = "0.2"
 thiserror = "2"
@@ -43,6 +57,9 @@ windows = { version = "0.62", features = [
     "Win32_System_Threading",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+[dev-dependencies]
+serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [profile.dev]
 opt-level = 2

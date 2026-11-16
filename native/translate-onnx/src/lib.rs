@@ -4,27 +4,51 @@
 //! same decoding: the input limit of 1024 tokens, the output limit of 256, and the beam size
 //! of each model (5 for M2M100, 2 for NLLB). [`beam`] describes the search.
 //!
-//! A model is a folder that `tools/translation_onnx/export.py` writes: two ONNX graphs, the
-//! tokenizer and a manifest with the SHA-256 of every file. See [`Bundle`].
+//! A model is a folder that `tools/translation_onnx/export.py` writes, or a user puts together
+//! the same way: two ONNX graphs, the tokenizer and a manifest with the SHA-256 of every file.
+//! See [`Bundle`]. Each folder holds one quantization [`Variant`]; [`accelerate`] decides where
+//! it runs (the ONNX Runtime execution provider) and falls back to the CPU, reported.
+//!
+//! ONNX Runtime is loaded at run time ([`runtime`]), shared with the app's chat reading.
 //!
 //! Nothing here logs. An [`Error`] carries a fixed code, never the text being translated.
 
+pub mod accelerate;
 pub mod beam;
 mod bundle;
 mod model;
+pub mod runtime;
 mod tokens;
 
-pub use bundle::{Bundle, Manifest, Pin};
-pub use model::{Backend, Device, Translator};
+pub use accelerate::{Accelerator, Fallback, Provider, Support, Variant};
+pub use bundle::{Bundle, Manifest, Pin, ARCHITECTURES};
+pub use model::Translator;
 
 /// The fixed codes of [`Error`].
 pub mod codes {
+    /// The manifest is there but malformed, names a file outside the folder or lacks one of
+    /// the required files in its list.
     pub const BUNDLE_INVALID: &str = "translation_bundle_invalid";
+    /// A file's size or SHA-256 differs from the manifest.
     pub const BUNDLE_MODIFIED: &str = "translation_bundle_modified";
+    /// No `manifest.json` in the folder (or not a plain file).
+    pub const MANIFEST_MISSING: &str = "translation_manifest_missing";
+    /// The manifest names an architecture this crate cannot run.
+    pub const ARCHITECTURE_UNSUPPORTED: &str = "translation_architecture_unsupported";
+    /// The manifest names a quantization variant this crate does not know.
+    pub const VARIANT_UNSUPPORTED: &str = "translation_variant_unsupported";
+    /// A file the manifest lists is not in the folder.
+    pub const FILE_MISSING: &str = "translation_file_missing";
     pub const LANGUAGE_UNSUPPORTED: &str = "translation_language_unsupported";
     pub const INPUT_TOO_LONG: &str = "translation_input_too_long";
     pub const UNFINISHED: &str = "translation_unfinished";
     pub const TOKENIZER_FAILED: &str = "translation_tokenizer_failed";
+    /// The ONNX Runtime library could not be loaded.
+    pub const RUNTIME_MISSING: &str = "translation_runtime_missing";
+    /// The loaded ONNX Runtime has no such execution provider, or it failed to start.
+    pub const PROVIDER_UNAVAILABLE: &str = "translation_provider_unavailable";
+    /// The device ran out of memory (GPU memory on a GPU provider).
+    pub const OUT_OF_MEMORY: &str = "translation_out_of_memory";
     pub const RUNTIME_FAILED: &str = "translation_runtime_failed";
 }
 

@@ -85,9 +85,6 @@
             "icons/icon.icns",
             "icons/icon.ico"
         ],
-        "externalBin": [
-            "bin/vrct-vox-sidecar"
-        ],
         "resources": {
             "bin/_internal": "_internal"
         },
