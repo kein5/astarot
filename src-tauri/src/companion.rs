@@ -253,6 +253,11 @@ impl CompanionState {
     }
 }
 
+/// The main window, for the commands of the tray icon, which is there in every run.
+fn from_main(label: &str) -> Result<(), String> {
+    if label == "main" { Ok(()) } else { Err("companion_forbidden".into()) }
+}
+
 fn sender(label: &str, expected: &[&str]) -> Result<(), String> {
     if !expected.contains(&label) {
         return Err("companion_forbidden".into());
@@ -681,13 +686,24 @@ pub fn on_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
     }
 }
 
-/// Turns the feature on: the tray icon, and the panel made hidden so that the first click
-/// opens it at once. Doing it twice changes nothing.
-pub(crate) fn install(app: &AppHandle) -> Result<(), String> {
+/// The app's one tray icon, made at start-up whether or not the overlay feature is on: its menu
+/// opens the main window, starts and stops recognition and quits, and while the feature is on it
+/// also opens the control panel and chooses the hexagram's monitor. Doing it twice changes nothing.
+pub(crate) fn install_tray(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<CompanionState>();
     if state.lock()?.tray.is_none() {
         let items = tray::install(app).map_err(|error| error.to_string())?;
         state.lock()?.tray = Some(items);
+    }
+    Ok(())
+}
+
+/// Turns the overlay feature on: the panel and the hexagram's window, made hidden so that the
+/// first use shows them at once, and the pointer watch. Doing it twice changes nothing.
+pub(crate) fn install(app: &AppHandle) -> Result<(), String> {
+    // Without a tray (a desktop with no tray support) the hexagram still works.
+    if let Err(error) = install_tray(app) {
+        crate::startup_log(&format!("Tray icon could not be made: {error}"));
     }
     if app.get_webview_window(PANEL).is_none() {
         build_panel(app).map_err(|error| error.to_string())?;
@@ -698,38 +714,36 @@ pub(crate) fn install(app: &AppHandle) -> Result<(), String> {
     }
     // Only now: a failed start leaves the feature off for every command.
     ENABLED.store(true, Ordering::SeqCst);
+    tray::refresh_feature(app);
     watch(app.clone());
     Ok(())
 }
 
-/// Turns the feature off: the tray icon, the panel and the handle go, and the main window
-/// comes back if it was hidden in the tray.
+/// Turns the overlay feature off: the panel and the hexagram go, the tray icon stays with its
+/// overlay items greyed out, and the main window comes back if it was hidden in the tray.
 pub(crate) fn uninstall(app: &AppHandle) -> Result<(), String> {
     ENABLED.store(false, Ordering::SeqCst);
     let state = app.state::<CompanionState>();
     {
         let mut inner = state.lock()?;
-        inner.tray = None;
-        inner.actions.clear();
         inner.panel_hidden_at = None;
         inner.out = None;
     }
-    let _ = app.remove_tray_by_id(tray::TRAY);
     for label in [PANEL, HANDLE] {
         if let Some(window) = app.get_webview_window(label) {
             let _ = window.destroy();
         }
     }
+    tray::refresh_feature(app);
     show_main(app)
 }
-
 mod tray {
-    use super::{pick, request, show_main, toggle_panel, Anchor, CompanionState, Status};
+    use super::{enabled, pick, request, show_main, toggle_panel, Anchor, CompanionState, Status};
     use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
     use tauri::{AppHandle, Emitter, Manager, Wry};
 
-    pub const TRAY: &str = "companion";
+    pub const TRAY: &str = "vrct-vox";
 
     pub struct Items {
         toggle: MenuItem<Wry>,
@@ -744,7 +758,7 @@ mod tray {
 
     fn log(result: Result<(), String>, what: &str) {
         if let Err(error) = result {
-            crate::startup_log(&format!("Tray companion {what} failed: {error}"));
+            crate::startup_log(&format!("Tray {what} failed: {error}"));
         }
     }
 
@@ -754,26 +768,29 @@ mod tray {
             .unwrap_or_else(|_| Status::default().menu);
         // Until the backend is ready there is nothing to start.
         let toggle = MenuItem::with_id(app, "toggle", &labels.start, false, None::<&str>)?;
-        let panel = MenuItem::with_id(app, "panel", &labels.panel, true, None::<&str>)?;
+        // The overlay's items work only while the overlay feature is on.
+        let panel = MenuItem::with_id(app, "panel", &labels.panel, enabled(), None::<&str>)?;
         let main = MenuItem::with_id(app, "main", &labels.main, true, None::<&str>)?;
         let quit = MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>)?;
-        let monitors = Submenu::with_id(app, "monitors", &labels.monitor, true)?;
+        let monitors = Submenu::with_id(app, "monitors", &labels.monitor, enabled())?;
         let menu = Menu::with_items(
             app,
-            &[&toggle, &PredefinedMenuItem::separator(app)?, &panel, &monitors, &main,
+            &[&main, &toggle, &PredefinedMenuItem::separator(app)?, &panel, &monitors,
               &PredefinedMenuItem::separator(app)?, &quit],
         )?;
         let mut builder = TrayIconBuilder::with_id(TRAY)
             .tooltip("VRCT-VOX")
             .menu(&menu)
-            // Left click opens the panel; the menu is on the right button.
+            // Left click opens the control panel while the overlay is on, else the main window;
+            // the menu is on the right button.
             .show_menu_on_left_click(false)
             .on_menu_event(|app, event| match event.id().as_ref() {
                 "toggle" => log(request(app, "toggle_mic"), "toggle"),
-                "panel" => open_panel_near_cursor(app),
+                "panel" if enabled() => open_panel_near_cursor(app),
                 "main" => log(show_main(app), "main window"),
                 "quit" => quit_app(app),
-                id => choose_monitor(app, id),
+                id if enabled() => choose_monitor(app, id),
+                _ => {}
             })
             .on_tray_icon_event(|tray, event| {
                 if let TrayIconEvent::Click {
@@ -784,6 +801,10 @@ mod tray {
                 } = event
                 {
                     let app = tray.app_handle().clone();
+                    if !enabled() {
+                        log(show_main(&app), "main window");
+                        return;
+                    }
                     let anchor = Anchor { right: position.x, top: position.y, bottom: position.y };
                     // Windows can hang when a window is made or shown from inside an
                     // event handler; let the event return first.
@@ -864,7 +885,7 @@ mod tray {
         let app = app.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(6));
-            crate::startup_log("Tray companion quit: main window did not close in time");
+            crate::startup_log("Tray quit: main window did not close in time");
             app.exit(0);
         });
     }
@@ -881,7 +902,17 @@ mod tray {
         let _ = items.quit.set_text(&menu.quit);
         let _ = items.monitors.set_text(&menu.monitor);
         drop(inner);
+        refresh_feature(app);
         refresh_monitors(app);
+    }
+
+    /// The overlay's items follow the feature: usable while it is on, greyed out while off.
+    pub fn refresh_feature(app: &AppHandle) {
+        let state = app.state::<CompanionState>();
+        let Ok(inner) = state.lock() else { return };
+        let Some(items) = &inner.tray else { return };
+        let _ = items.panel.set_enabled(enabled());
+        let _ = items.monitors.set_enabled(enabled());
     }
 }
 
@@ -895,16 +926,17 @@ pub async fn companion_set(window: WebviewWindow, enabled: bool) -> Result<(), S
     let app = window.app_handle().clone();
     if enabled {
         install(&app).inspect_err(|error| crate::startup_log(&format!("Tray companion could not start: {error}")))
-    } else if self::enabled() || app.state::<CompanionState>().lock()?.tray.is_some() {
+    } else if self::enabled() {
         uninstall(&app)
     } else {
         Ok(())
     }
 }
-/// The main window reports the switches and the words of the panel and the tray.
+/// The main window reports the switches and the words of the panel and the tray. The tray icon is
+/// there whether or not the overlay feature is on, so this is taken either way.
 #[tauri::command]
 pub fn companion_publish(window: WebviewWindow, state: State<CompanionState>, status: Status) -> Result<(), String> {
-    sender(window.label(), &["main"])?;
+    from_main(window.label())?;
     validate(&status)?;
     {
         let mut inner = state.lock()?;
@@ -919,10 +951,11 @@ pub fn companion_publish(window: WebviewWindow, state: State<CompanionState>, st
     Ok(())
 }
 
-/// The main window takes what the panel or the tray asked for.
+/// The main window takes what the panel, the hexagram or the tray asked for (the tray asks
+/// whether or not the overlay feature is on).
 #[tauri::command]
 pub fn companion_take(window: WebviewWindow, state: State<CompanionState>) -> Result<Vec<String>, String> {
-    sender(window.label(), &["main"])?;
+    from_main(window.label())?;
     Ok(state.lock()?.actions.drain(..).collect())
 }
 

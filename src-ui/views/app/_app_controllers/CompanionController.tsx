@@ -30,11 +30,13 @@ type MainFunction = {
 // store.js is untyped; this controller adds the one hook useWindow.js reads.
 type CompanionStore = { companion_hide?: () => Promise<unknown> };
 
-// The tray companion. While the feature is off this does nothing, unless it was just turned
-// off, when it puts the main window back. While it is on, the main window (hidden in the
-// tray) keeps doing what it always does (the backend, the captions) and also reports the
-// switches to the tray and the panel, runs what they ask for, and comes forward when it needs
-// the user: the recognition consent or the translation model's review.
+// The app's tray icon and the overlay feature (tray_companion). The tray icon is there in every
+// run, so whether or not the feature is on this reports the switches and the tray menu's words,
+// and runs what the tray asks for (start or stop recognition, quit). While the feature is on, the
+// main window (hidden in the tray) also starts the overlay, runs what the panel and the hexagram
+// ask for, hides instead of quitting when closed, and comes forward when it needs the user (a
+// dialog, the recognition consent, the translation model's review). Turned off, it puts the main
+// window back.
 export const CompanionController = () => {
     const { t, i18n } = useI18n();
     const on = useExperimentalFeature(TRAY_COMPANION);
@@ -58,10 +60,9 @@ export const CompanionController = () => {
     // The TTS and voice changer switches, as the main page's own switches work them out.
     const [voiceStates, setVoiceStates] = useState<VoiceSwitchStates>(voiceSwitchStates.get());
     useEffect(() => {
-        if (!on) return undefined;
         setVoiceStates(voiceSwitchStates.get());
         return voiceSwitchStates.subscribe(() => setVoiceStates(voiceSwitchStates.get()));
-    }, [on]);
+    }, []);
 
     useEffect(() => {
         const shared = store as CompanionStore;
@@ -77,8 +78,8 @@ export const CompanionController = () => {
         }
     }, [on]);
 
+    // The tray asks in every run; the overlay's requests come only while the feature is on.
     useEffect(() => {
-        if (!on) return undefined;
         const take = async () => {
             try {
                 const actions = await invoke<unknown[]>("companion_take");
@@ -95,17 +96,16 @@ export const CompanionController = () => {
             requested.then(off => off(), () => {});
             quit.then(off => off(), () => {});
         };
-    }, [on]);
+    }, []);
 
     const { currentTranscriptionSendStatus: mic, currentTranslationStatus: translation,
         currentTranscriptionReceiveStatus: listening, currentOcrCaptureStatus: ocr } = main;
     useEffect(() => {
-        if (!on) return;
         invoke("companion_publish", { status: companionStatus({
             ready: currentIsBackendReady.data, mic, translation, listening, ocr, tts: voiceStates.tts, rvc: voiceStates.rvc,
             edge: edge?.data, monitor: monitor?.data, language: i18n.language, t,
         }) }).catch(error => console.error("Companion state could not be reported", error));
-    }, [on, currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
+    }, [currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
         ocr?.data, ocr?.state, voiceStates, edge?.data, monitor?.data, i18n.language, t]);
 
     // Any dialog the main window opens (the start-up notices among them) needs the user too.

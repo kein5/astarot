@@ -47,16 +47,28 @@ async function setup(context, { on = false } = {}) {
         of: name => calls.filter(([command]) => command === name).map(([, args]) => args) };
 }
 
-test("while the experimental feature is off it calls nothing and listens to nothing", async context => {
+test("while the overlay feature is off it only serves the app's tray icon", async context => {
     const s = await setup(context);
-    s.state.ready = true;
+    s.state.ready = true; s.state.mic = { state: "ok", data: true };
     await s.render();
-    assert.deepEqual(s.calls, []);
-    assert.equal(s.listeners.size, 0);
+    // The tray menu's words and the microphone's state, for the tray icon every run has.
+    const reported = s.of("companion_publish").at(-1).status;
+    assert.equal(reported.ready, true);
+    assert.deepEqual(reported.mic, { on: true, pending: false });
+    assert.equal(reported.menu.quit, "companion.menu_quit");
+    // The tray's "start or stop recognition" and "quit" work.
+    s.state.queue.push("toggle_mic");
+    await s.listeners.get("companion-requested")();
+    assert.deepEqual(s.toggles, ["mic"]);
+    s.listeners.get("companion-quit")();
+    assert.equal(s.state.quits, 1);
+    // Nothing of the overlay: it is not started, and closing the window quits as before.
+    assert.deepEqual(s.of("companion_set"), []);
+    assert.deepEqual(s.of("companion_show_main"), []);
     assert.equal(s.store.companion_hide, undefined);
 });
 
-test("turned on, it starts the tray, reports the switches and runs what the tray and the panel ask", async context => {
+test("turned on, it starts the overlay, reports the switches and runs what the tray and the panel ask", async context => {
     const s = await setup(context, { on: true });
     assert.deepEqual(s.of("companion_set"), [{ enabled: true }]);
     await s.store.companion_hide();
@@ -97,14 +109,15 @@ test("turned on, it starts the tray, reports the switches and runs what the tray
     assert.equal(s.state.quits, 1);
 });
 
-test("turned off again, it stops the tray once and closing the window quits as before", async context => {
+test("turned off again, it stops the overlay once and closing the window quits as before", async context => {
     const s = await setup(context, { on: true });
     s.state.on = false;
     await s.render();
     await s.render();
     assert.deepEqual(s.of("companion_set"), [{ enabled: true }, { enabled: false }]);
     assert.equal(s.store.companion_hide, undefined);
-    assert.equal(s.listeners.size, 0);
+    // The tray icon stays, and still asks for its own actions.
+    assert.ok(s.listeners.has("companion-requested") && s.listeners.has("companion-quit"));
 });
 
 test("the recognition consent and the translation model's review bring the hidden main window forward", async context => {

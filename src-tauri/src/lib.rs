@@ -186,6 +186,10 @@ pub fn run() {
             let main_window = app.get_webview_window("main").ok_or_else(|| {
                 Error::other("main webview window was not created")
             })?;
+            // The app's one tray icon, there in every run (the overlay feature adds to its menu).
+            if let Err(error) = companion::install_tray(app.handle()) {
+                startup_log(&format!("Tray icon could not be made: {error}"));
+            }
             if companion {
                 match companion::install(app.handle()) {
                     Ok(()) => {
