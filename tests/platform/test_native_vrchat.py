@@ -208,12 +208,12 @@ def test_native_voice_through_vrchat_local_replay(tmp_path):
                 save("original")
                 route_settings()
                 status("Muted (confirmed)")
-                ui.click_text("button", "Resume voice")
+                ui.click_text("button", "Unmute")
                 status("Voice enabled (confirmed)")
                 home()
                 replay_case("normal_exactly_once")
 
-                for name, button in [("stop", "Stop playback and clear queue"), ("mute", "Mute until resumed")]:
+                for name, button in [("stop", "Stop playback and clear queue"), ("mute", "Mute now")]:
                     native()
                     ui.set_switch("Text to speech (TTS)")
                     start = send(LONG)
@@ -230,7 +230,7 @@ def test_native_voice_through_vrchat_local_replay(tmp_path):
                 replay_case("held_mute_stays_silent", silent=True)
                 save("off")
                 route_settings()
-                ui.click_text("button", "Resume voice")
+                ui.click_text("button", "Unmute")
                 status("Voice enabled (confirmed)")
                 home()
                 replay_case("off_keeps_text_silent", silent=True)

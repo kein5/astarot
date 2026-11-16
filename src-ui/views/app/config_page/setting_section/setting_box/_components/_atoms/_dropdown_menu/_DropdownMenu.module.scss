@@ -4,24 +4,36 @@
     position: relative;
 }
 
+// The same field as the forms' selects (VoiceSettings.module.scss, DESIGN.md "input"):
+// a raised surface with a hairline, so an empty choice (no device found) still shows a field (#436).
 .dropdown_toggle_button {
     position: relative;
-    background-color: var(--dark_950_color);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    background-color: var(--vox_surface, #18253b);
+    border: 0.1rem solid var(--dark_650_color, #5e6570);
     min-width: 20rem;
-    padding: 0.8rem 1.4rem;
+    min-height: 4rem;
+    padding: 0.9rem 1.2rem;
     cursor: pointer;
-    border-radius: 0.4rem;
+    border-radius: var(--vox_radius, 0.8rem);
     &:hover {
-        background-color: var(--dark_925_color);
+        border-color: var(--dark_500_color);
     }
     &:active {
-        background-color: var(--dark_975_color);
+        background-color: var(--dark_900_color);
+    }
+    &:focus-visible {
+        outline: 0.2rem solid var(--primary_200_color);
+        outline-offset: 0.2rem;
     }
     &.is_pending {
         pointer-events: none;
     }
     &.is_disabled {
         pointer-events: none;
+        border-color: var(--dark_800_color);
         .dropdown_selected_text, .arrow_left_svg {
             color: var(--dark_550_color);
         }
@@ -73,21 +85,25 @@
     }
 }
 
+// The open list matches the forms' select list: one surface, rows with a small radius.
 .dropdown_content {
-    background-color: var(--dark_900_color);
+    background-color: var(--vox_surface, #18253b);
     border: 0.1rem solid var(--dark_600_color);
-    border-radius: 0.4rem;
+    border-radius: var(--vox_radius, 0.8rem);
+    box-shadow: var(--vox_shadow_overlay);
+    padding: 0.4rem;
     display: flex;
     flex-direction: column;
     gap: 0.1rem;
     white-space: nowrap;
     max-height: 20rem;
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 
 .value_button {
-    background-color: var(--dark_875_color);
-    padding: 1.2rem;
+    background-color: transparent;
+    border-radius: 0.4rem;
+    padding: 0.8rem 1.2rem;
     cursor: pointer;
     // The keyboard-highlighted option looks like the hovered one.
     &:hover, &.is_active {

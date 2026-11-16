@@ -130,17 +130,28 @@ A readout states its condition in words; its color repeats the words (active blu
 
 The settings top bar, like the main one, always offers the stop actions: stop TTS (clears the queue) and mute VRCT's voice output. They are quiet until there is something to stop. Its save bar is the one place to save: text fields register their edits there instead of carrying their own save buttons, and Enter still saves the field being edited. The bar shows the state and a count; the changed rows carry a short blue rule on their left, and the names are in the bar's tooltip and its screen-reader list.
 
+Settings save in two ways, chosen by the control, not by the page (#436). A form (typed fields, the voice, route and server forms) saves from the save bar. A single checkbox, choice or slider outside a form applies as soon as it changes, since there is nothing to type or review. A page without any form (design, VR, hotkeys) says "このページの変更はすぐに反映されます" where the save bar would be, so the two are told apart before anything is changed. Opening a page never puts a change in the save bar, and saving one field never switches what a feature does: a choice like "use RVC for direct voice" is its own button next to the note that asks for it.
+
+Mute has one name everywhere: 「ミュート」 / "Mute" on both top bars at every width, as the voice route row's label and in the hotkey 「ミュートの切り替え」 / "Mute or unmute". What it silences (TTS, or the whole virtual microphone) is in its tooltip and the row's description, not in its name. The row's buttons are 「ミュートする」 / "Mute now" and 「ミュートを解除」 / "Unmute", and notices that send users there quote 「ミュートを解除」.
+
 ## Elevation & Depth
 
 Group controls with spacing, alignment and quiet borders. A dim backdrop identifies modal scope. Avoid decorative elevation in routine forms.
 
 ## Shapes
 
-Controls have gently curved edges; the composer has a slightly larger radius. Preserve user window-corner preferences.
+Controls have gently curved edges; the composer has a slightly larger radius. Preserve user window-corner preferences. Corners take the `rounded` steps (2, 4, 8 and 12px); the only other radius is a bar's or a track's round end (half its height), and the chat box preview's bubble, which imitates VRChat's.
 
 ## Components
 
-Native buttons carry actions and accessible names. Focus rings remain visible, native checkbox state remains recognizable, and select menus use the dark scheme. Settings transfer focus into their navigation and back to the settings trigger. Transitions are short (about 120 ms) and disabled under reduced-motion preferences; a pressed control changes color at once, without a transition. An action that waits on the engine shows its pending state as soon as it is pressed and ignores repeat presses until it settles.
+Native buttons carry actions and accessible names. Focus rings remain visible, native checkbox state remains recognizable, and select menus use the dark scheme.
+
+One control per job (#436, chosen from what most of the app already used):
+
+- A setting on a settings page is turned on or off with a checkbox (`Checkbox`, `CheckboxContainer`). Inside a row of other controls, such as a device's "自動選択", the checkbox carries its name beside it (`show_label`). Switches (`role="switch"`) are for the main page's features and the VR panel, which turn a function on or off; the quick settings rows say オン／オフ in words, like their button's "すべてオフ".
+- Every choice from a list is the forms' field: the raised surface, a hairline border, the control radius, 40px tall, and the list opens on the same surface. The older `DropdownMenu` draws the same field, so an empty one (no device found) still shows.
+
+Words: English headings, labels and options use sentence case; only names and acronyms keep their capitals (VRChat, OBS Browser Source, API key). Text addressed to the user speaks of their PC as 「お使いのPC」 / "your PC", or leaves the PC out where it adds nothing; never 「このPC」 / "this PC" (#437). Settings transfer focus into their navigation and back to the settings trigger. Transitions are short (about 120 ms) and disabled under reduced-motion preferences; a pressed control changes color at once, without a transition. An action that waits on the engine shows its pending state as soon as it is pressed and ignores repeat presses until it settles.
 
 Motion uses the tokens in `variables.css`: `--vox_motion_fast` (120 ms), `--vox_motion` (220 ms), `--vox_ease`, and `--vox_ease_settle`, which overshoots by at most 2%. It shows where something comes from or that it worked, never decoration:
 

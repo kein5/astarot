@@ -212,23 +212,31 @@ test("an action settling after its settings page closes does not schedule succes
     assert.equal(find(runtime.render(ActionButton, props), node => node.type === props.ClickedIconComponent), null);
 });
 
-test("settings switches reject pointer and keyboard repeats while retaining the confirmed value", async () => {
+test("settings checkboxes reject pointer and keyboard repeats while retaining the confirmed value", async () => {
     const runtime = hooks();
-    const { _SwitchBox } = await load("app/config_page/setting_section/setting_box/_components/_atoms/_switch_box/_SwitchBox.jsx", runtime);
+    const { Checkbox } = await load("common_components/checkbox/Checkbox.jsx", runtime);
     let calls = 0;
-    const props = { variable: { state: "pending", data: false }, toggleFunction: () => calls++ };
+    const props = { label: "Auto select", variable: { state: "pending", data: false }, toggleFunction: () => calls++ };
+    const input = tree => find(tree, node => node.type === "input");
     for (const confirmed of [false, true]) {
         props.variable.data = confirmed;
-        const control = switchNode(runtime.render(_SwitchBox, props));
-        control.props.onClick();
-        for (const key of [" ", "Enter"]) control.props.onKeyDown({ key, preventDefault() {} });
-        assert.equal(control.props["aria-checked"], confirmed);
+        const control = input(runtime.render(Checkbox, props));
+        let prevented = 0;
+        control.props.onClick({ stopPropagation() {}, preventDefault() { prevented++; } });
+        for (const key of [" ", "Enter"]) control.props.onKeyDown({ key, preventDefault() { prevented++; } });
+        control.props.onChange();
+        assert.equal(prevented, 3);
+        assert.equal(control.props.checked, confirmed);
         assert.equal(control.props["aria-disabled"], true);
     }
     assert.equal(calls, 0);
     props.variable.state = "ok";
-    switchNode(runtime.render(_SwitchBox, props)).props.onClick();
+    input(runtime.render(Checkbox, props)).props.onChange();
     assert.equal(calls, 1);
+    // With show_label the label is drawn beside the box and names it, instead of aria-label.
+    const labelled = runtime.render(Checkbox, { ...props, show_label: true });
+    assert.equal(input(labelled).props["aria-label"], undefined);
+    assert.ok(find(labelled, node => node.type === "span" && node.props.children === "Auto select"));
 });
 
 test("main switches block pending repeats but TTS/RVC cancellation remains available", async () => {

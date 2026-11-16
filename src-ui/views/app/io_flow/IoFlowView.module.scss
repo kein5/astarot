@@ -9,7 +9,7 @@
 .unused { display: flex; flex-direction: column; gap: .3rem; margin: 0; padding: 0; list-style: none;
     font-size: 1.2rem; color: var(--vox_description_text); }
 .unused li { display: flex; gap: .6rem; align-items: baseline; overflow-wrap: anywhere; }
-.lane_mark { flex-shrink: 0; padding: 0 .5rem; border-radius: .3rem; font-weight: 600; color: #0b0f18; }
+.lane_mark { flex-shrink: 0; padding: 0 .5rem; border-radius: .4rem; font-weight: 600; color: #0b0f18; }
 .mark_voice { background: #58b0ee; }
 .mark_chat { background: #a58cf0; }
 

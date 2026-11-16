@@ -44,7 +44,7 @@ const ACTIONS: [(&str, &str); 9] = [
     ("toggle_transcription_send", "Turn microphone input on or off"),
     ("toggle_transcription_receive", "Turn listening on or off"),
     ("stop_voice", "Stop speech and clear the queue"),
-    ("toggle_voice_mute", "Mute or resume the ASTAROT voice"),
+    ("toggle_voice_mute", "Mute or unmute the ASTAROT voice"),
     ("toggle_tts", "Turn TTS on or off"),
     ("toggle_rvc", "Turn RVC on or off"),
 ];

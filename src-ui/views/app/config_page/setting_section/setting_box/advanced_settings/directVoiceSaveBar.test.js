@@ -84,11 +84,32 @@ test("input forwarding with RVC saved still shows forwarding, not the conversion
     page.runtime.unmount();
 });
 
-test("the RVC page still lists selecting RVC when forwarding is saved, and nothing when RVC is", async () => {
+const flatten = node => !node || typeof node !== "object" ? [] :
+    Array.isArray(node) ? node.flatMap(flatten) : [node, ...flatten(node.props?.children)];
+const selectButton = tree => flatten(tree).find(node => node.type === "button" && node.props.children === "voice_ui.select_rvc");
+
+test("#436: opening the RVC page with forwarding saved leaves the save bar empty and offers a button", async () => {
     const forwarding = await open("rvc", { ...rvcSettings, mode: "passthrough" });
-    assert.deepEqual(forwarding.entry.changes, ["voice_ui.select_rvc"]);
+    assert.equal(forwarding.entry.dirty, false, "opening the page changes nothing");
+    assert.deepEqual(forwarding.entry.changes, []);
+    const button = selectButton(forwarding.tree);
+    assert.ok(button, "the page offers to switch to RVC");
+    await button.props.onClick();
+    assert.equal(forwarding.writes.length, 1);
+    assert.equal(forwarding.writes[0].mode, "converted");
+    assert.equal(forwarding.writes[0].engine, "rvc");
+    assert.equal(forwarding.writes[0].rvc_model, "voice.pth");
     forwarding.runtime.unmount();
     const converted = await open("rvc", rvcSettings);
     assert.deepEqual(converted.entry.changes, []);
+    assert.equal(selectButton(converted.tree), undefined, "no button once RVC is selected");
     converted.runtime.unmount();
+});
+
+test("#436: saving an RVC field with forwarding saved keeps forwarding", async () => {
+    const page = await open("rvc", { ...rvcSettings, mode: "passthrough" });
+    await page.entry.save();
+    assert.equal(page.writes.length, 1);
+    assert.equal(page.writes[0].mode, "passthrough");
+    page.runtime.unmount();
 });

@@ -154,7 +154,7 @@ def test_gui_owned_tts_asr_stop_and_restart_off(tmp_path):
                 wait_for(lambda: json.loads(config_path.read_text()).get('VOICE_SETTINGS', {}).get('multilingual_server') == 'bundled')
                 ui.open_route_settings()
                 ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Muted (confirmed)')")
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 wait_for(lambda: not gate.inspect()['muted'])
                 ui.close_settings()
                 # Text is spoken only while the main TTS switch is on.

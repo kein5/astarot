@@ -8,7 +8,6 @@ import {
     DropdownMenu,
     MultiDropdownMenu,
     Slider,
-    SwitchBox,
     EntryWithSaveButton,
     ColorEntryWithSaveButton,
     HotkeysEntry,
@@ -139,10 +138,6 @@ export const SliderContainer = (props) => (
 
 export const CheckboxContainer = (props) => (
     <CommonContainer Component={Checkbox} {...props} add_break_point={false} />
-);
-
-export const SwitchBoxContainer = (props) => (
-    <CommonContainer Component={SwitchBox} {...props} add_break_point={false}/>
 );
 
 export const EntryWithSaveButtonContainer = (props) => (

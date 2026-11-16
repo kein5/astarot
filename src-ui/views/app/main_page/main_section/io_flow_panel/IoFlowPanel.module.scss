@@ -5,6 +5,19 @@
     flex: 0 1 auto; min-height: min(12rem, 30%); max-height: 60%; overflow-y: auto; overscroll-behavior: contain;
     margin: 0 1.6rem; padding: 1.2rem 1.6rem 1.6rem;
     border: .1rem solid var(--vox_border); border-radius: var(--vox_radius); background: var(--vox_canvas);
+    // When the panel goes on below its edge (the legend at 850px tall, #437), a shade at the
+    // edge and a visible thumb say so, as in the rail. The covers scroll with the content and
+    // hide each shade at its end; the shades stay put.
+    background:
+        linear-gradient(var(--vox_canvas) 30%, transparent) top / 100% 3.2rem no-repeat local,
+        linear-gradient(transparent, var(--vox_canvas) 70%) bottom / 100% 3.2rem no-repeat local,
+        radial-gradient(farthest-side at 50% 0, #0009, transparent) top / 100% 1.2rem no-repeat scroll,
+        radial-gradient(farthest-side at 50% 100%, #0009, transparent) bottom / 100% 1.2rem no-repeat scroll,
+        var(--vox_canvas);
+    &::-webkit-scrollbar { width: .8rem; }
+    &::-webkit-scrollbar-track { background-color: transparent; }
+    &::-webkit-scrollbar-thumb { background-color: var(--dark_750_color); border: .2rem solid var(--vox_canvas); border-radius: .4rem; }
+    &:hover::-webkit-scrollbar-thumb { background-color: var(--dark_650_color); }
 }
 // A short window has no room for both: the panel lies over the conversation
 // under the top bar until it is closed, and the column itself does not scroll.

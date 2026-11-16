@@ -134,7 +134,7 @@ def test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path
             ui.open_route_settings()
             ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Muted (confirmed)')")
             assert gate.inspect()["muted"] is True
-            ui.click_text("button", "Resume voice")
+            ui.click_text("button", "Unmute")
             wait_for(lambda: gate.inspect()["muted"] is False)
             ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Voice enabled (confirmed)')")
             ui.assert_rendered()

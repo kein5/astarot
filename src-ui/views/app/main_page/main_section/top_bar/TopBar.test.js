@@ -160,8 +160,11 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
         tiny: 'voice_ui.topbar_stop_tiny_count:{"count":2}' });
     assert.equal(stop.props["aria-label"], 'voice_ui.topbar_stop_count:{"count":2}', "the name stays the full words");
     assert.match(stop.props.className, /is_attention/);
-    assert.deepEqual(words(mute), { long: "voice_ui.topbar_mute_mic", short: "voice_ui.topbar_mute_short", tiny: "voice_ui.topbar_muted",
+    // One name at every width and on every route (#436); the tooltip says what it silences.
+    assert.deepEqual(words(mute), { long: "voice_ui.mute_row", short: "voice_ui.mute_row", tiny: "voice_ui.topbar_muted",
         muted_badge: "voice_ui.topbar_muted" });
+    assert.equal(mute.props["aria-label"], "voice_ui.mute_row");
+    assert.equal(mute.props.title, "voice.mute_scope_managed");
     assert.equal(mute.props["aria-pressed"], true);
     stop.props.onClick(); mute.props.onClick();
     assert.deepEqual(sent.slice(-2), ["/run/stop_voice", "/run/resume_voice"]);

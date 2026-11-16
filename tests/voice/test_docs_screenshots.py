@@ -43,7 +43,7 @@ SECTIONS = {
 }
 TITLE = {"ja": "ここから会話を始めましょう", "en": "Your conversation starts here"}
 OPEN_SETTINGS = {"ja": "設定を開く", "en": "Open settings"}
-BACK = {"ja": "戻る", "en": "Go Back"}
+BACK = {"ja": "戻る", "en": "Go back"}
 QUICK_SETTINGS = {"ja": "クイック設定", "en": "Quick settings"}
 REVIEW = {"ja": "取得内容を確認", "en": "Review download"}
 # studio-entry shows a fixture version; the documentation shows the app's own.

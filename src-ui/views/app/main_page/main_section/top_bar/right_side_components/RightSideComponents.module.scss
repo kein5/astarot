@@ -50,7 +50,7 @@
 
 .help_and_info_button {
     padding: 0.6rem;
-    border-radius: 0.6rem;
+    border-radius: var(--vox_radius);
     cursor: pointer;
     &:hover {
         background-color: var(--dark_800_color);

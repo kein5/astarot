@@ -248,7 +248,7 @@ def execute(args, report):
         def resume():
             until('window.entry.state.route?.managed === true && window.entry.state.route.ready && !window.entry.state.route.pending')
             if state()['route']['requested_muted']:
-                page.get_by_role('button', name='Resume voice', exact=True).click()
+                page.get_by_role('button', name='Unmute', exact=True).click()
             until('window.entry.state.route?.ready && !window.entry.state.route.pending && window.entry.state.route.observed_muted===false')
 
         def send(text):
@@ -329,7 +329,7 @@ def execute(args, report):
             resume()
             positive('normal')
             # Further cases use the same real UI controls and wire receiver.
-            for name, button in [('cancel', 'Stop playback and clear queue'), ('mute', 'Mute until resumed')]:
+            for name, button in [('cancel', 'Stop playback and clear queue'), ('mute', 'Mute now')]:
                 before = snapshot()
                 started, id = send(LONG)
                 wait_for(lambda: any(t > started and nz for t, _, nz in capture.history), timeout=12, code='long_audio_missing')

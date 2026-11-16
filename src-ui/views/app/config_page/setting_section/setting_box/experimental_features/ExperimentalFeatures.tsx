@@ -11,7 +11,7 @@ import {
     experimentalFeatureRequest,
 } from "../../../../../../logics/configs/experimentalFeatures.ts";
 import type { ExperimentalFeature, ExperimentalFeatureValues } from "../../../../../../logics/configs/experimentalFeatures.ts";
-import { DropdownMenuContainer, SwitchBoxContainer } from "../_templates/Templates";
+import { CheckboxContainer, DropdownMenuContainer } from "../_templates/Templates";
 import { EDGES } from "../../../../../../logics/companion/hexagram.ts";
 
 type Current = { state?: string; data?: unknown };
@@ -68,7 +68,7 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                     const enabled = isExperimentalFeatureEnabled(current.data, id);
                     return (
                         <div key={id}>
-                            <SwitchBoxContainer
+                            <CheckboxContainer
                                 setting_id={`experimental_features.${id}`}
                                 label={t(experimentalFeatureLabelKey(id))}
                                 desc={t(experimentalFeatureDescKey(id))}
@@ -84,7 +84,7 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
     );
 };
 
-// Where the tray companion's hexagram hides: shown under its switch while it is on.
+// Where the tray companion's hexagram hides: shown under its checkbox while it is on.
 const TrayCompanionEdge = ({ current, set }: NonNullable<ListProps["edge"]>) => {
     const { t } = useI18n();
     const key = "config_page.experimental_features.items.tray_companion.edge";

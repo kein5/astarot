@@ -180,7 +180,7 @@ def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
             xdo('key', '--clearmodifiers', 'ctrl+alt+shift+j')
             wait_for(lambda: json.loads(config.read_text()).get('HOTKEYS', {}).get('open_quick_chat') == ['Ctrl', 'Shift', 'Alt', 'J'])
             ui.open_route_settings()
-            ui.click_text('button', 'Resume voice')
+            ui.click_text('button', 'Unmute')
             ui.close_settings()
             ui.click('[role=switch][aria-label=Translation]')
             ui.wait("return document.querySelector('[role=switch][aria-label=Translation]').getAttribute('aria-checked') === 'true'")

@@ -242,8 +242,6 @@ const InputComponent = ({ variable: local_var, setFunction, saveFunction, format
         if (typeof v === "string") {
             return v.replace(/\n/g, "\\n");
         }
-        console.log("Empty");
-
         return v ?? "";
     };
 

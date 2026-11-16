@@ -13,6 +13,9 @@
 .state { max-width: 100%; overflow-wrap: anywhere; font-size: 1.3rem; color: var(--dark_400_color); }
 .is_dirty .state { color: var(--primary_200_color); }
 .state.is_failed { color: var(--vox_state_failed); }
+// Where the save bar would be, a page without a form says its changes apply at once:
+// the bar's words, without its frame, since there is nothing to save.
+.applies_now { flex: 1; min-width: 0; display: flex; align-items: center; min-height: 4rem; margin: 0; padding: .4rem 1.4rem; overflow-wrap: anywhere; font-size: 1.3rem; color: var(--dark_400_color); }
 .count { flex-shrink: 0; max-width: 100%; overflow-wrap: anywhere; padding: .1rem .7rem; border-radius: .4rem; font-size: 1.2rem; font-variant-numeric: tabular-nums; color: var(--dark_50_color, #fff); background: var(--primary_600_color); }
 // The changed names never fit the bar in every language; they stay readable
 // for screen readers, and the page marks the rows themselves.

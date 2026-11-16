@@ -56,7 +56,9 @@ def studio(ui):
 
 def screenshot(page, name):
     page.evaluate(
-        "async () => { await Promise.all(document.getAnimations().filter(a => a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); }"
+        # An animation that goes idle after it was listed (a transition cancelled by the next
+        # style change) never settles its promise, which hung the run at random; wait at most 3 s.
+        "async () => { const settled = Promise.all(document.getAnimations().filter(a => a.playState !== \"idle\" && a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); await Promise.race([settled, new Promise(resolve => setTimeout(resolve, 3000))]); }"
     )
     if directory := os.environ.get("VRCT_STUDIO_SCREENSHOTS"):
         destination = Path(directory)
@@ -271,8 +273,8 @@ def test_settings_top_bar_stops_speech_and_mutes_without_starting_anything(studi
     page.get_by_role("button", name="翻訳", exact=True).click()
     actions = page.get_by_role("group", name="停止", exact=True)
     stop = actions.get_by_role("button", name="読み上げを停止", exact=True)
-    # The studio peer reports no route state: a plain mute, named for TTS output.
-    mute = actions.get_by_role("button", name="読み上げをミュート", exact=True)
+    # The studio peer reports no route state: a plain mute, with one name everywhere (#436).
+    mute = actions.get_by_role("button", name="ミュート", exact=True)
     expect(mute).not_to_have_attribute("aria-pressed", "true")
     before = len(peer.sent)
     stop.focus()

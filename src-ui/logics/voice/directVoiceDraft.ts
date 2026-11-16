@@ -9,24 +9,28 @@ export interface DirectVoiceSelection {
     [key: string]: unknown;
 }
 
-// The form's saved value. The RVC page edits converted RVC, so it starts from that.
-// Input forwarding keeps the saved mode as it is: the page never edits it, and a
-// save from there must not drop the conversion chosen on the RVC page (#429).
+// The form's saved value, with the mode and engine as saved on every page. A save
+// from the save bar writes them back unchanged, so saving the RVC fields or input
+// forwarding never switches what direct voice does (#429, #436). Switching to RVC
+// is its own button on the RVC page (directRvcSelection).
 export const directSavedDraft = <T extends DirectVoiceSelection>(defaults: T, settings: DirectVoiceSelection | null | undefined,
-    variant: DirectVoiceVariant): T | null => {
+    _variant: DirectVoiceVariant): T | null => {
     if (!settings) return null;
-    const value = { ...defaults, ...settings } as T;
-    if (variant === "rvc") return { ...value, mode: "converted", engine: "rvc" };
-    return value;
+    return { ...defaults, ...settings } as T;
 };
 
 // Whether the page shows and starts a conversion. Input forwarding only forwards;
-// the conversion is the RVC page's.
+// the RVC page always shows the RVC conversion, also before RVC is selected.
 export const directShowsConversion = (draft: DirectVoiceSelection, variant: DirectVoiceVariant): boolean =>
-    variant !== "legacy" && draft.mode === "converted";
+    variant === "rvc" || (variant === "all" && draft.mode === "converted");
 
-// Whether the draft selects a mode or engine the backend has not saved yet. The RVC
-// page selecting RVC is itself a change to save. Input forwarding selects nothing.
-export const directSelectionPending = (draft: DirectVoiceSelection, settings: DirectVoiceSelection | null | undefined,
+// Whether the RVC page still has to select converted RVC. The page says so and offers
+// a button; nothing goes into the save bar until the user edits something.
+export const directSelectionPending = (_draft: DirectVoiceSelection, settings: DirectVoiceSelection | null | undefined,
     variant: DirectVoiceVariant): boolean =>
-    variant !== "legacy" && (draft.mode !== settings?.mode || draft.engine !== settings?.engine);
+    variant === "rvc" && !!settings && (settings.mode !== "converted" || settings.engine !== "rvc");
+
+// What the RVC page's "Use RVC for direct voice" button writes: the saved settings,
+// not the draft, with converted RVC selected. Unsaved edits stay in the draft.
+export const directRvcSelection = <T extends DirectVoiceSelection>(defaults: T, settings: DirectVoiceSelection): T =>
+    ({ ...defaults, ...settings, mode: "converted", engine: "rvc" }) as T;

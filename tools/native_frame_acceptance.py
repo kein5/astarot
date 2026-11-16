@@ -110,7 +110,7 @@ def run(args):
             ui.click_text('button', 'Save voice settings')
             wait_for(lambda: json.loads((state / 'config.json').read_text())['VOICE_SETTINGS']['mode'] == 'original')
             ui.open_route_settings()
-            ui.click_text('button', 'Resume voice')
+            ui.click_text('button', 'Unmute')
             ui.wait("return [...document.querySelectorAll('[role=status]')].some(e=>e.textContent==='Voice enabled (confirmed)')")
             ui.close_settings()
             if ui.evaluate("return document.querySelector('[role=switch][aria-label=TTS]').getAttribute('aria-checked')") == 'false':
@@ -216,7 +216,7 @@ def run(args):
                     wait_checked(lambda: observer.snapshot()['nonzero_frames'] > nonzero_before)
                     ui.open_voice_settings() if name == 'stop' else ui.open_route_settings()
                     stop = time.monotonic_ns()
-                    ui.click_text('button', 'Stop playback and clear queue' if name == 'stop' else 'Mute until resumed')
+                    ui.click_text('button', 'Stop playback and clear queue' if name == 'stop' else 'Mute now')
                     ended = wait_checked(lambda: observer.settled(stop, silent=True, duration_ms=2000), 8)
                     after = wait_checked(lambda: s if (s := backend_status()) and (not s['active']) and (not s['queued']) else None, 8)
                     assert after['cancelled'] == before['cancelled'] + 1 and after['errors'] == before['errors'], after
@@ -226,7 +226,7 @@ def run(args):
                     ui.close_settings()
                 silence('held_mute_new_message', lambda: send(SHORT))
                 ui.open_route_settings()
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 wait_checked(lambda: not gate.inspect()['muted'])
                 ui.close_settings()
                 ui.click('[role=switch][aria-label=TTS]')

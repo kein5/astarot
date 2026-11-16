@@ -5,8 +5,8 @@
 
 vrchat_presence:
     checking: "Looking for VRChat…"
-    found: "A VRChat with OSC enabled was found on this PC."
-    not_found: "No VRChat with OSC enabled was found on this PC."
+    found: "A VRChat with OSC enabled was found on your PC."
+    not_found: "No VRChat with OSC enabled was found on your PC."
     not_found_hint: "Start VRChat, then open its Action Menu and set Options → OSC to Enabled."
     unknown: "VRChat cannot be checked: the destination is another machine, or OSC receiving has not started."
     sending_off: "Sending messages to VRChat is off."
@@ -95,12 +95,12 @@ voice:
     routing: "Audio route"
     routing_external: "Existing external cable"
     routing_managed: "Managed virtual microphone (Linux)"
-    managed_hint: "Saving automatically prepares the virtual microphone on Linux with PipeWire and systemd. It stays available when ASTAROT closes. Select VRCT Managed Virtual Microphone in VRChat, then resume voice."
+    managed_hint: "Saving automatically prepares the virtual microphone on Linux with PipeWire and systemd. It stays available when ASTAROT closes. Select VRCT Managed Virtual Microphone in VRChat, then press \"Unmute\"."
     mute_scope_managed: "Mute applies to TTS and VC sent through this managed microphone."
     mute_scope_external: "Mute applies to ASTAROT text-to-speech only."
     mute_scope_device: "Mute applies to TTS and to the voice sent to the selected output device."
-    mute: "Mute until resumed"
-    resume: "Resume voice"
+    mute: "Mute now"
+    resume: "Unmute"
     gate_pending: "Waiting for mute state confirmation…"
     gate_unknown: "Mute state not confirmed"
     gate_error: "Mute control failed — silence is not confirmed"
@@ -121,7 +121,7 @@ voice:
     conversion_off: "Off"
     conversion_on: "On"
     conversion_hint: "While RVC converts your voice, speech is converted too and reaches others in the converted voice. During speech the conversion takes the speech in place of the microphone, then returns to the microphone, so this cannot go with mixing direct input and speech. When no conversion runs, speech plays as before. Speech is heard a little later, by the time the conversion takes."
-    mic_hint: "Enable translation and start Realtime microphone captions separately. Saving does not start recording. On Linux, suppression requires the managed route and applies only to its direct input; an external cable requires the mix choice. Resume voice after changing the managed policy. On Windows, ASTAROT silences the voice it sends to the output device."
+    mic_hint: "Enable translation and start Realtime microphone captions separately. Saving does not start recording. On Linux, suppression requires the managed route and applies only to its direct input; an external cable requires the mix choice. Press \"Unmute\" after changing the managed policy. On Windows, ASTAROT silences the voice it sends to the output device."
     off: "Off / silent send"
     original: "Original text"
     translated: "Translated text"
@@ -164,7 +164,7 @@ voice:
 common:
     close_button_label: "Close"
     dismiss_notification: "Dismiss notification"
-    go_back_button_label: "Go Back"
+    go_back_button_label: "Go back"
     default_label: "Default"
     reset_to_default: "Reset to default"
     copy_version: "Copy version {{version}}"
@@ -249,7 +249,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} was not downloaded. Review its license and size in Settings > Translation or Speech recognition (ASR) and agree before downloading. If the model version changed, review it again."
     OVERLAY_RUNTIME_FAILED: "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then turn the overlay on again."
     OVERLAY_VR_PANEL_UNSUPPORTED: "The VR UI is not available in this environment. Subtitle overlays are not affected."
-    OVERLAY_FONT_NOT_FOUND: "That font is not installed on this PC. The subtitles keep the font they had."
+    OVERLAY_FONT_NOT_FOUND: "That font is not installed on your PC. The subtitles keep the font they had."
     MESSAGE_OUTPUT_FAILED: "The message could not be sent to {{output}}. It was sent to the other outputs. If you resend it, those outputs may receive it twice."
     TRANSLATION_VRAM_ENABLE: "Not enough GPU memory to start AI translation. Choose CPU as the device under Settings → Translation, or close other GPU apps."
     TRANSLATION_VRAM_CHAT: "Not enough GPU memory to translate your typed message. Choose CPU as the device under Settings → Translation, or close other GPU apps."
@@ -332,7 +332,7 @@ common_warning:
     startup_degraded: "Some settings could not be loaded. ASTAROT has started with default values for those settings. Check them before use. If this continues, restart ASTAROT."
     translation_device_fallback: "Translation is on, but {{device}} could not be used, so the translation model runs on the CPU. Translating may be slower. To use the GPU, check the device in Settings > Translation."
     config_file_unreadable: "config.json could not be read, so ASTAROT started with default settings. The old file was kept as {{file}}."
-    osc_query_remote: "{{sync}} is not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on this PC."
+    osc_query_remote: "{{sync}} is not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
     osc_query_remote_mic_stopped: "Messages go to another machine, so VRChat's mute state cannot be checked. {{sync}} was turned off and {{microphone}} was stopped. Turn {{microphone}} back on when you need it."
     osc_query_failed: "OSC reception could not start, so {{sync}} is not available. Check the OSC settings under Settings → {{settings}} and save them again."
     osc_query_failed_mic_stopped: "OSC reception could not start, so VRChat's mute state cannot be checked. {{sync}} was turned off and {{microphone}} was stopped. Check the OSC settings under Settings → {{settings}} and save them again, then turn {{microphone}} back on."
@@ -345,7 +345,7 @@ main_page:
     ocr: "Chat reading (OCR)"
     tts: "Text to speech (TTS)"
     rvc: "Voice changer (RVC)"
-    foreground: "Always on Top"
+    foreground: "Always on top"
     quick_settings: "Quick settings"
     quick_settings_on: "{{count}} on"
     quick_settings_all_off: "All off"
@@ -365,13 +365,13 @@ main_page:
         open_settings: "Open settings"
         prepare_label: "{{feature}}: {{action}}"
 
-    language_settings: "Language Settings"
+    language_settings: "Language settings"
     language_pair: "{{from}} → {{to}}"
-    your_language: "Your Language"
-    translate_each_other_label: "Translate Both Languages"
-    swap_button_label: "Switch Languages"
+    your_language: "Your language"
+    translate_each_other_label: "Translate both languages"
+    swap_button_label: "Switch languages"
     help_link: "Open the ASTAROT guide"
-    target_language: "Target Language"
+    target_language: "Target language"
     add_target_language: "Add a target language"
     remove_target_language: "Remove the last target language"
     translator: "Translator"
@@ -401,15 +401,15 @@ main_page:
         speakers_separator: ", "
         system: "System"
 
-        resend_button_on_hover_desc: "Press And Hold To Send"
+        resend_button_on_hover_desc: "Press and hold to send"
         resend_button_label: "Edit this message, or press and hold to send it again"
 
     state_text_enabled: "On"
     state_text_disabled: "Off"
 
     language_selector:
-        title_your_language: "Select Your Language"
-        title_target_language: "Select Target Language"
+        title_your_language: "Select your language"
+        title_target_language: "Select target language"
         filter: "Filter by name or code (ja, en)"
         no_results: "No matching languages"
 
@@ -470,25 +470,25 @@ config_page:
         model_download_button_label: "Download"
         save_button_label: "Save"
         edit_button_label: "Edit"
-        correct_auth_key_required: "Correct API Key Required"
-        open_auth_key_webpage: "Open API Key Management Webpage"
+        correct_auth_key_required: "Correct API key required"
+        open_auth_key_webpage: "Open the API key management page"
         auth_key_success: "API key update completed."
         credential_reentry_required: "The URL has changed. To keep your saved key from being sent to a different server, enter the key for the new URL. For a server without a key, delete the saved key first, then change the URL."
         connection_check:
-            button_label: "Connection Check"
+            button_label: "Connection check"
             checking: "Checking..."
             connected: "Connected"
             disconnected: "Disconnected"
         compute_device:
             desc: "The accuracy and speed of each processing type may vary depending on your machine specs, and the compatibility with calculation methods may differ from the displayed order. Please use this as a general guideline."
-            label_device: "Processing Device"
-            label_type: "Processing Type"
+            label_device: "Processing device"
+            label_type: "Processing type"
             type_template_auto: "Automatic"
-            type_template_low: "{{type_name}} (Lower accuracy, faster processing)"
-            type_template_high: "{{type_name}} (Higher accuracy, slower processing)"
+            type_template_low: "{{type_name}} (lower accuracy, faster processing)"
+            type_template_high: "{{type_name}} (higher accuracy, slower processing)"
         warning_labels:
             unable_to_use_osc_query: "OSC reception or OSCQuery advertisement is not ready. Check the local OSC settings and save them again."
-            unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on this PC."
+            unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
 
     side_menu_labels:
         vrchat: "VRChat"
@@ -517,29 +517,29 @@ config_page:
     device:
         section_label_mic: "Mic"
         section_label_speaker: "Speaker"
-        check_volume: "Check Volume"
-        label_auto_select: "Auto Select"
-        label_host: "Host/Driver"
+        check_volume: "Check volume"
+        label_auto_select: "Auto select"
+        label_host: "Host/driver"
         label_device: "Device"
         mic_host_device:
-            label: "Mic Device"
+            label: "Mic device"
             desc: "The mic used for standard transcription. The selected mic is also the default RVC input (Start RVC from the Voice changer (RVC) switch). Realtime transcription uses the mic chosen in the Speech recognition (ASR) settings."
             desc_pipewire: "On Linux this list shows PipeWire inputs. The selected mic is the default RVC input (Start RVC from the Voice changer (RVC) switch). Realtime transcription uses the mic chosen in the Speech recognition (ASR) settings."
         mic_dynamic_energy_threshold:
-            label: "Mic Sensitivity Settings"
+            label: "Mic sensitivity settings"
             desc_for_automatic: "Automatically control mic input sensitivity."
             desc_for_manual: "Input sensitivity can be manually adjusted using the slider. Click the mic icon to test your voice input and adjust the level while monitoring the volume."
-            option_vad: "VAD (Auto)"
+            option_vad: "VAD (auto)"
             option_auto: "Auto"
             option_manual: "Manual"
             desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time you finish speaking. Reduces background music and ambient noise."
         speaker_device:
-            label: "Speaker Device"
+            label: "Speaker device"
         speaker_dynamic_energy_threshold:
-            label: "Speaker Input Sensitivity Adjustment"
+            label: "Speaker input sensitivity adjustment"
             desc_for_automatic: "Automatically control speaker input sensitivity."
             desc_for_manual: "Input sensitivity can be manually adjusted using the slider. Click the headphone icon to listen to the audio and adjust the level while checking the volume."
-            option_vad: "VAD (Auto)"
+            option_vad: "VAD (auto)"
             option_auto: "Auto"
             option_manual: "Manual"
             desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time speech ends. Reduces background music and ambient noise."
@@ -547,28 +547,28 @@ config_page:
 
     appearance:
         section_label_display: "Display"
-        section_label_send_buttons: "Send Buttons"
+        section_label_send_buttons: "Send buttons"
         transparency:
             label: "Transparency"
             desc: "Change the main window's transparency."
         ui_size:
-            label: "UI Size"
+            label: "UI size"
         textbox_ui_size:
-            label: "Message Logs Font Size"
+            label: "Message log font size"
             desc: "You can adjust the log font size by changing the scaling factor relative to the UI size."
         send_message_button_type:
-            label: "Send Message Button"
-            hide: "Hide (Use Enter key to send)"
+            label: "Send message button"
+            hide: "Hide (use the Enter key to send)"
             show: "Show"
             show_and_disable_enter_key: "Show and disable sending using the Enter key."
         show_resend_button:
-            label: "Show Resend Button"
+            label: "Show resend button"
             desc: "When hovering over a sent message log, the resend button appears. Click to edit, long press to resend."
         font_family:
-            label: "Font Family"
+            label: "Font family"
             not_installed: "{{name}} (not installed; a fallback font is shown)"
         ui_language:
-            label: "UI Language"
+            label: "UI language"
 
     translation:
         setup_title: "Model and device"
@@ -577,16 +577,16 @@ config_page:
         provider_in_use: "in use"
         provider_ready: "ready"
         provider_not_set: "not set up"
-        section_label_ai_translation: "AI Translation (Local)"
-        section_label_external_api: "External Translation API"
-        section_label_local_llm: "Local LLM & Compatible Server"
+        section_label_ai_translation: "AI translation (local)"
+        section_label_external_api: "External translation API"
+        section_label_local_llm: "Local LLM and compatible server"
         llm_privacy_desc: "LLM engines send the current text, the prompt and up to five recent chat, microphone or speaker messages to the selected service. SDKs also send OS, architecture and runtime/version metadata. History resets when you change the engine, server or model, or turn translation off."
 
         ctranslate2_weight_type:
-            label: "{{ctranslate2}} Model"
+            label: "{{ctranslate2}} model"
             desc: "You can choose the translation model when using the {{ctranslate2}} translation engine."
-            small: "Basic Model ({{capacity}})"
-            large: "High Accuracy Model ({{capacity}})"
+            small: "Basic model ({{capacity}})"
+            large: "High accuracy model ({{capacity}})"
             license_commercial: "License: {{license}} (commercial use allowed)"
             license_non_commercial: "Non-commercial license ({{license}})"
             custom_model: "Your own model (translation-models folder). Check its license yourself."
@@ -603,107 +603,107 @@ config_page:
             label: "Processing device for AI translation"
 
         deepl_auth_key:
-            label: "DeepL API Key"
+            label: "DeepL API key"
             desc: "To use it, set {{translator}} on the main screen to \"DeepL API\". ※Some languages may not be supported."
 
         google_cloud_auth_key:
-            label: "Google Cloud API Key"
+            label: "Google Cloud API key"
             desc: "Uses Cloud Translation (Basic) with your own Google Cloud project. Enable the Cloud Translation API and billing for the project, then paste an API key. Google charges your project for the characters you translate."
 
         papago_client_id:
-            label: "Papago Client ID"
+            label: "Papago client ID"
             desc: "Uses Papago Translation of NAVER Cloud Platform with your own account. Save the Client ID first, then the Client Secret. Papago translates between Korean, English, Japanese, Chinese and a few other languages; other pairs use the fallback."
             reentry_required: "To change the Client ID, delete the saved Client Secret first, then save the new Client ID and its secret."
         papago_auth_key:
-            label: "Papago Client Secret"
+            label: "Papago client secret"
 
         plamo_auth_key:
-            label: "Plamo API Key"
+            label: "Plamo API key"
         select_plamo_model:
-            label: "Select Plamo Model"
+            label: "Select Plamo model"
 
         gemini_auth_key:
-            label: "Gemini API Key"
+            label: "Gemini API key"
         select_gemini_model:
-            label: "Select Gemini Model"
+            label: "Select Gemini model"
 
         openai_auth_key:
-            label: "OpenAI API Key"
+            label: "OpenAI API key"
         select_openai_model:
-            label: "Select OpenAI Model"
+            label: "Select OpenAI model"
 
         groq_auth_key:
-            label: "Groq API Key"
+            label: "Groq API key"
         select_groq_model:
-            label: "Select Groq Model"
+            label: "Select Groq model"
 
         openrouter_auth_key:
-            label: "OpenRouter API Key"
+            label: "OpenRouter API key"
         select_openrouter_model:
-            label: "Select OpenRouter Model"
+            label: "Select OpenRouter model"
 
         lmstudio_connection_check:
-            label: "Check LM Studio Connection"
+            label: "Check LM Studio connection"
         select_lmstudio_model:
-            label: "Select LM Studio Model"
-            connection_required: "LMStudio Connection Required"
+            label: "Select LM Studio model"
+            connection_required: "LM Studio connection required"
 
         openai_compatible_url:
-            label: "OpenAI-Compatible Endpoint URL"
+            label: "OpenAI-compatible endpoint URL"
             desc: "When pointing at a non-official endpoint, verify pricing, security and model compatibility at your own risk."
         openai_compatible_auth_key:
-            label: "OpenAI-Compatible API Key"
+            label: "OpenAI-compatible API key"
         select_openai_compatible_model:
-            label: "Select OpenAI-Compatible Model"
+            label: "Select OpenAI-compatible model"
 
         ollama_connection_check:
-            label: "Check Ollama Connection"
+            label: "Check Ollama connection"
         ollama_url:
             label: "Ollama URL"
-            desc: "Ollama on this PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
+            desc: "Ollama on your PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
         select_ollama_model:
-            label: "Select Ollama Model"
-            connection_required: "Ollama Connection Required"
+            label: "Select Ollama model"
+            connection_required: "Ollama connection required"
 
     transcription:
         section_label_mic: "Mic"
         section_label_speaker: "Speaker"
-        section_label_transcription_engines: "Transcription Engines"
+        section_label_transcription_engines: "Transcription engines"
         timing_title: "Segmenting and queue"
         timing_status: "recordings up to {{record}} s · a message ends after {{phrase}} s without speech · up to {{queue}} waiting"
         mic_record_timeout:
-            label: "Mic Record Timeout"
+            label: "Mic record timeout"
             desc: "The longest single recording, in seconds. Longer speech is split at this length, and the pieces still become one message while you keep talking. 0 means no limit. It cannot be longer than the phrase timeout."
         mic_phrase_timeout:
-            label: "Mic Phrase Timeout"
+            label: "Mic phrase timeout"
             desc: "How long to wait after your last speech before what was heard becomes one message, in seconds. A shorter time sends sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         mic_max_phrase:
-            label: "Mic Max Queued Messages"
+            label: "Mic max queued messages"
             desc: "Maximum number of transcribed messages that can pile up before being sent. If more pile up, the oldest ones are discarded without being sent to VRChat."
         mic_word_filter:
             remove_word: "Remove {{word}}"
-            label: "Mic Word Filter"
+            label: "Mic word filter"
             desc: "If a registered word is detected, the message will not be sent. To add multiple words at once, separate them with ',' (comma).\n*Duplicate words will not be registered."
             add_button_label: "Add"
-            count_desc: "Words Currently Registered: {{count}}"
+            count_desc: "Words currently registered: {{count}}"
         mic_vad_filter:
-            label: "Mic VAD Filter"
+            label: "Mic VAD filter"
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
         speaker_record_timeout:
-            label: "Speaker Record Timeout"
+            label: "Speaker record timeout"
             desc: "The longest single recording of the speaker audio, in seconds. Longer speech is split at this length, and the pieces still become one message while the speech goes on. 0 means no limit. It cannot be longer than the phrase timeout."
         speaker_phrase_timeout:
-            label: "Speaker Phrase Timeout"
+            label: "Speaker phrase timeout"
             desc: "How long to wait after the last speech before what was heard becomes one message, in seconds. A shorter time shows it sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         speaker_max_phrase:
-            label: "Speaker Max Queued Messages"
+            label: "Speaker max queued messages"
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."
         speaker_vad_filter:
-            label: "Speaker VAD Filter"
+            label: "Speaker VAD filter"
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
-            label: "Transcription Engine Used For Speech Recognition"
-            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on this PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
+            label: "Transcription engine used for speech recognition"
+            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
             engines:
                 speechcpp: "Local (speech.cpp)"
                 groq_whisper: "Groq Whisper"
@@ -751,9 +751,9 @@ config_page:
                 desc: "A segment more likely than this to be silence is dropped. Lower is stricter. The default is 0.6."
     vr:
         single_line: "Single line"
-        multi_lines: "Multiple Lines"
+        multi_lines: "Multiple lines"
         overlay_enable: "Enable"
-        restore_default_settings: "Reset to Default Settings"
+        restore_default_settings: "Reset to default settings"
         position: "Position"
         rotation: "Rotation"
         x_position: "X-axis (left-right)"
@@ -764,21 +764,21 @@ config_page:
         z_rotation: "Z-axis rotation"
         sample_text_button:
             start: "Send Sample Texts\nTo Overlay"
-            stop: "Stop Sending"
-            sample_text: "Sample Text."
+            stop: "Stop sending"
+            sample_text: "Sample text."
         opacity: "Opacity"
-        ui_scaling: "UI Scaling"
-        display_duration: "Display Duration"
-        fadeout_duration: "Fadeout Duration"
-        common_settings: "Common Settings"
-        vr_ui_beta: "VR UI (Beta)"
+        ui_scaling: "UI scaling"
+        display_duration: "Display duration"
+        fadeout_duration: "Fade-out duration"
+        common_settings: "Common settings"
+        vr_ui_beta: "VR UI (beta)"
         section_label_overlay: "Subtitle Overlay"
         tracker: "Tracker"
         hmd: "HMD"
-        left_hand: "Left Hand"
-        right_hand: "Right Hand"
+        left_hand: "Left hand"
+        right_hand: "Right hand"
         overlay_show_only_translated_messages:
-            label: "Show Only Translated Messages"
+            label: "Show only translated messages"
         section_label_desktop_overlay: "Desktop caption overlay"
         desktop_overlay:
             label: "Show captions on the desktop"
@@ -806,54 +806,54 @@ config_page:
             label: "Reset the launcher position and size"
             desc: "Use this if you lose the launcher in VR. It returns to your left wrist at its default position and size."
         voice_typing_mode:
-            label: "Voice Typing Mode"
+            label: "Voice typing mode"
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
         overlay_font_family:
             label: "Subtitle font"
-            desc: "The font of the subtitle overlays, chosen from the fonts on this PC. Characters it does not have use this PC's usual font for their language."
-            auto: "Automatic (this PC's usual fonts)"
+            desc: "The font of the subtitle overlays, chosen from the fonts on your PC. Characters it does not have use the usual font for their language."
+            auto: "Automatic (the system's usual fonts)"
             not_installed: "{{name}} (not installed)"
-            missing: "No font on this PC can show {{languages}}. Those characters are left out of the subtitles. Install a font for them, such as Noto Sans CJK, then restart the app."
+            missing: "No installed font can show {{languages}}. Those characters are left out of the subtitles. Install a font for them, such as Noto Sans CJK, then restart the app."
 
     others:
-        section_label_message_formats: "Message Formats"
-        section_label_reading_aids: "Hiragana & Romaji"
+        section_label_message_formats: "Message formats"
+        section_label_reading_aids: "Hiragana and romaji"
         auto_clear_the_message_box:
-            label: "Auto Clear Message Box"
+            label: "Auto clear message box"
         send_only_translated_messages:
-            label: "Send Only Translated Messages"
+            label: "Send only translated messages"
         auto_export_message_logs:
-            label: "Auto Save Message Logs"
+            label: "Auto save message logs"
             desc: "Automatically saves the conversation messages as text files."
             open_folder: "Open the logs folder"
         vrc_mic_mute_sync:
-            label: "VRC Mic Mute Sync"
+            label: "VRC mic mute sync"
             desc: "Microphone transcription pauses while VRChat's mic is muted. It resumes after VRChat confirms the mic is unmuted. If this cannot be confirmed, transcription stays paused.\n*There may be a slight delay. Push-To-Talk is not supported."
         send_message_to_vrc:
-            label: "Send Message To VRChat"
+            label: "Send message to VRChat"
             desc: "Sends messages to the VRChat chatbox. When this is off, ASTAROT works without sending to VRChat, but that way of using it is not supported."
         notification_vrc_sfx:
-            label: "Enable Notification Sound When Sending Chat"
+            label: "Enable notification sound when sending chat"
             desc: "When this feature is disabled, messages will be sent silently without playing the chatbox notification sound that others can hear."
         send_received_message_to_vrc:
-            label: "Send Received Message To VRChat"
+            label: "Send received message to VRChat"
             desc: "Send the message you received from the speaker's voice to VRChat's chatbox."
         message_format_common:
             example_view:
                 title: "Preview"
                 show_all: "Show all examples"
                 show_fewer: "Show fewer examples"
-                original_translated: "Original + Translation"
-                original_translated_multi: "Original + Translation (Multi-language)"
-                translated_only_multi: "Translation Only (Multi-language)"
-                translated_only: "Translation Only"
-                original_only: "Original Only"
+                original_translated: "Original + translation"
+                original_translated_multi: "Original + translation (multi-language)"
+                translated_only_multi: "Translation only (multi-language)"
+                translated_only: "Translation only"
+                original_only: "Original only"
             settings:
                 title: "Settings"
                 original: "Original"
                 translated: "Translation"
                 swap_order: "Swap the order (now {{first}} first)"
-                for_multi_translation: "For Multi-Translation"
+                for_multi_translation: "For multi-translation"
                 before_original: "Before the original"
                 after_original: "After the original"
                 between: "Between original and translation"
@@ -861,19 +861,19 @@ config_page:
                 after_translation: "After the translation"
                 between_translations: "Between translations"
         send_message_format:
-            label: "Message Format (Send)"
+            label: "Message format (send)"
             desc: "This allows you to change the format of the message that others see in VRChat."
         received_message_format:
-            label: "Message Format (Received)"
+            label: "Message format (received)"
             desc: "Used when received messages are sent to VRChat."
         common_convert_message_hiragana_romaji:
             desc_1: "Supported only when Japanese is selected as the translation language."
             desc_2: "Due to the complexity of Japanese, it has limitations on accuracy."
         convert_message_to_romaji:
-            label: "Show Romaji"
+            label: "Show romaji"
             desc:  "When enabled along with '{{convert_message_to_hiragana}}', romaji will be shown on mouse hover."
         convert_message_to_hiragana:
-            label: "Show Hiragana"
+            label: "Show hiragana"
 
     vrchat:
         section_label_chatbox: "Chatbox"
@@ -940,7 +940,7 @@ config_page:
             status_missing: "Not downloaded. Chat reading works without it; download it below to miss fewer chatboxes and pick up less world text."
         models:
             title: "Recognition models"
-            desc: "Chat reading runs PaddleOCR models on this computer. Nothing is downloaded until you review the terms and agree."
+            desc: "Chat reading runs PaddleOCR models on your PC. Nothing is downloaded until you review the terms and agree."
             installed: "Downloaded"
             missing: "Not downloaded"
             required: "Needed for the current source language"
@@ -981,7 +981,7 @@ config_page:
         unassigned_placeholder: "Not set"
         disabled_notice: "* Hotkeys are temporarily disabled while the settings page is open to prevent unintended actions."
         section_label_quick_chat: "Quick Chat"
-        section_label_toggles: "Window & Feature Toggles"
+        section_label_toggles: "Window and feature toggles"
         section_label_voice: "Speech and voice"
         error_in_use: "The hotkey ({{hotkey}}) for \"{{action_name}}\" cannot be registered because it is already in use elsewhere."
         error_failed_to_register_at_launch: "The hotkey ({{hotkey}}) for \"{{action_name}}\" is unavailable because it is in use by another application."
@@ -996,7 +996,7 @@ config_page:
         stop_voice:
             label: "Stop speech"
         toggle_voice_mute:
-            label: "Mute or resume the voice"
+            label: "Mute or unmute"
         toggle_voice_switch:
             label: "Toggle {{name}}"
 
@@ -1027,23 +1027,23 @@ config_page:
     advanced_settings:
         section_label_osc: "OSC"
         section_label_logs: "Logs"
-        section_label_config_file: "Config File"
+        section_label_config_file: "Config file"
         section_label_telemetry: "Usage data"
         telemetry:
             label: "Send usage data"
-            desc: "Sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and this PC's hardware (CPU, memory, GPUs and their driver versions). The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from. The same thing is sent once a day at most."
+            desc: "Sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and your PC's hardware (CPU, memory, GPUs and their driver versions). The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from. The same thing is sent once a day at most."
         osc_ip_address:
-            label: "OSC IP Address"
+            label: "OSC IP address"
         osc_port:
-            label: "OSC Port"
+            label: "OSC port"
         open_config_filepath:
-            label: "Open Config File"
+            label: "Open config file"
         enable_websocket:
-            label: "Enable WebSocket Server"
+            label: "Enable WebSocket server"
             locked_by_obs_browser_source: "Disable OBS Browser Source to change this"
         websocket_host:
-            label: "WebSocket Host (IPv4)"
-            desc: "With 127.0.0.1 it works on this PC only. To use it from other PCs, enter this PC's LAN IP address, after setting the certificate and key below."
+            label: "WebSocket host (IPv4)"
+            desc: "With 127.0.0.1 it works on your PC only. To use it from other PCs, enter your PC's LAN IP address, after setting the certificate and key below."
         websocket_tls_cert_file:
             label: "Certificate file"
             desc: "Needed only for use from other PCs: the path to a PEM certificate. Traffic to other PCs is then encrypted (wss://, https://). The PCs and OBS that connect must trust this certificate."
@@ -1059,7 +1059,7 @@ config_page:
             confirm_ok: "Make a new key"
             done: "A new connection key was made. Copy the WebSocket and OBS URLs again."
         websocket_port:
-            label: "WebSocket Port"
+            label: "WebSocket port"
         websocket_url:
             label: "WebSocket URL (click to copy)"
         obs_browser_source:
@@ -1071,26 +1071,26 @@ config_page:
             label: "OBS URL (click to copy)"
             desc: "The OBS URL now includes a key. Copy it again and replace the Browser Source URL in OBS."
         obs_browser_source_port:
-            label: "OBS Port"
+            label: "OBS port"
         obs_browser_source_max_messages:
-            label: "Max Messages"
+            label: "Max messages"
             desc: "Enter a whole number from 1 to 50."
         obs_browser_source_display_duration:
-            label: "Display Duration (sec)"
+            label: "Display duration (sec)"
             desc: "Enter a whole number from 1 to 120."
         obs_browser_source_fadeout_duration:
-            label: "Fade-out Duration (sec)"
+            label: "Fade-out duration (sec)"
             desc: "Enter a whole number from 0 to 120."
         obs_browser_source_font_size:
-            label: "Font Size (px)"
+            label: "Font size (px)"
             desc: "Enter a whole number from 10 to 200."
         obs_browser_source_font_color:
-            label: "Font Color (#RRGGBB)"
+            label: "Font color (#RRGGBB)"
         obs_browser_source_font_outline_thickness:
-            label: "Outline Thickness (px)"
+            label: "Outline thickness (px)"
             desc: "Enter a whole number from 0 to 20."
         obs_browser_source_font_outline_color:
-            label: "Outline Color (#RRGGBB)"
+            label: "Outline color (#RRGGBB)"
 
     notifications:
         save_success: "Settings have been saved."
@@ -1328,7 +1328,7 @@ speech_servers:
     device_help: "Auto and GPU use a dedicated GPU before integrated graphics, and of several dedicated GPUs the one with the most memory, for AMD, Intel and NVIDIA alike. You can choose one here. Running this on the GPU that RVC uses can make RVC stop more easily."
     cpu_build_separate: "CPU runs a CPU-only build of speech.cpp that needs no Vulkan. Auto also uses it when no GPU can be used."
     cpu_build_shared: "CPU runs the same speech.cpp on the processor. It still needs the Vulkan library of your GPU driver (vulkan-1.dll)."
-    gpu_build_unavailable: "The GPU build of speech.cpp does not start on this PC. The Vulkan loader (libvulkan.so.1) may be missing. Auto and CPU still work on the CPU build. To use a GPU, install the Vulkan loader package (libvulkan1 or vulkan-loader) and your GPU's Vulkan driver, then open this page again."
+    gpu_build_unavailable: "The GPU build of speech.cpp does not start. The Vulkan loader (libvulkan.so.1) may be missing. Auto and CPU still work on the CPU build. To use a GPU, install the Vulkan loader package (libvulkan1 or vulkan-loader) and your GPU's Vulkan driver, then open this page again."
     low_latency: "Low-latency standby (Irodori GPU)"
     low_latency_help: "While the server runs, it keeps the GPU warm with silent requests, even with TTS off, so the first speech starts sooner. Uses more power and may compete with games. Stop the server before changing this. Latency is not guaranteed."
     low_latency_warming: "Preparing low-latency standby"
@@ -1355,7 +1355,7 @@ speech_servers:
     multilingual_selection: "Other languages server"
     asr_selection: "ASR server"
     notices:
-        speech_server_cpu_fallback: "Running on the CPU: the GPU build of speech.cpp did not start on this PC, so Auto uses the CPU build. To use a GPU, install the Vulkan loader (libvulkan.so.1) and start the server again."
+        speech_server_cpu_fallback: "Running on the CPU: the GPU build of speech.cpp did not start, so Auto uses the CPU build. To use a GPU, install the Vulkan loader (libvulkan.so.1) and start the server again."
     errors:
         speech_bundle_missing_or_invalid: "The bundled speech.cpp is missing or fails its check. Reinstall ASTAROT; in a development checkout, provide build/speechcpp."
         speech_server_launch_failed: "The server could not be started. Check the model files and the inference device, then start it again."
@@ -1435,7 +1435,7 @@ voice_ui:
         description: "Install and start an engine such as VOICEVOX yourself, and Japanese is read in its voices. The app does not install or start the engine."
         speechcpp: "AI voice (speech.cpp, comes with the app)"
         url: "Engine URL"
-        url_hint: "Where the engine runs on this PC. The engine's default usually works."
+        url_hint: "Where the engine runs on your PC. The engine's default usually works."
         recheck: "Check again"
         checking: "Checking the engine…"
         connected: "Connected ({{engine}} {{version}})"
@@ -1485,6 +1485,7 @@ voice_ui:
     start_needs_input: "To start, choose the input to forward"
     start_needs_setup: "To start, set the conversion model and runtime"
     start_needs_save: "To start, save your changes"
+    start_needs_rvc: "To start, press \"Use RVC for direct voice\""
     start_waiting_route: "Checking the voice route"
     start_input_unavailable: "The input list is unavailable; refresh it"
     start_running: "Forwarding"
@@ -1497,9 +1498,6 @@ voice_ui:
     topbar_stop_short_count: "Stop speech ({{count}})"
     topbar_stop_tiny: "Stop"
     topbar_stop_tiny_count: "Stop ({{count}})"
-    topbar_mute_speech: "Mute speech"
-    topbar_mute_mic: "Mute virtual mic"
-    topbar_mute_short: "Mute"
     topbar_muted: "Muted"
     details: "Details"
     voice_unset: "Not set"
@@ -1515,7 +1513,7 @@ voice_ui:
     save_bar: "Save settings"
     save_changes: "Save changes"
     select_rvc: "Use RVC for direct voice"
-    select_rvc_pending: "Direct voice is set to another mode. Saving on this page switches it to RVC."
+    select_rvc_pending: "Direct voice does not use RVC now. Press \"Use RVC for direct voice\" to switch. Saving other settings does not switch it."
     seed_vc_moved_to_rvc: "Seed-VC is no longer available, so voice conversion now uses RVC. Check the RVC model and runtime on this page before you start."
     rvc_latency_hint: "The converted voice comes about 0.2 s after your voice on an NVIDIA GPU and about 1.3 s on the CPU. A PC whose GPU cannot be used converts on the CPU. Converting on the CPU uses a lot of it, so other apps may slow down, and on a slow PC the voice may break up."
     rvc_running_gpu: "Converting on the GPU. The voice is about {{seconds}} s behind."
@@ -1525,6 +1523,7 @@ voice_ui:
     changed_items: "Changed settings"
     unsaved: "Unsaved changes"
     applies_on_save: "Save to apply: {{changes}}"
+    applies_now: "Changes on this page apply at once"
     changes_separator: ", "
     unsaved_count: "{{count}}"
     saved: "Saved"
@@ -1542,7 +1541,7 @@ voice_ui:
         voice_request_unconfirmed: "The request wasn't confirmed. Wait a moment, then check the status."
         save_unconfirmed: "The save could not be confirmed. Check the settings and try saving again."
         source_bridge_request_failed: "The input forwarding request could not be finished. Check its state, then try again."
-        voice_route_muted: "Voice output is muted. In Settings → Device → Voice route, press \"Resume voice\", then turn on Text to speech (TTS) again."
+        voice_route_muted: "Voice output is muted. In Settings → Device → Voice route, press \"Unmute\", then turn on Text to speech (TTS) again."
         voice_route_closed: "The voice route is shutting down. Restart ASTAROT, then turn on Text to speech (TTS) again."
         tts_source_not_selected: "Choose what to speak first: in Settings → Text to speech (TTS), set chat speech or Realtime microphone speech to something other than Off and save."
         tts_translation_not_ready: "Translated speech needs translation. Turn on Translation and enable the target language of the selected slot."
@@ -1564,7 +1563,7 @@ voice_ui:
         tts_engine_voice_missing: "The engine no longer has the chosen voice. Choose a voice again under Settings → \"Text to speech (TTS)\" and save."
         tts_engine_query_failed: "The engine did not accept the text. Restart the engine and send again."
         tts_engine_synthesis_failed: "The engine could not make the voice. Restart the engine and send again."
-        tts_engine_url_invalid: "Enter the engine URL on this PC, in the form http://127.0.0.1:PORT."
+        tts_engine_url_invalid: "Enter the engine URL in the form http://127.0.0.1:PORT."
         VOICE_SETTINGS_INVALID: "The speech settings could not be saved. Choose an output and the server to use, then save."
         voice_request_failed: "The speech request could not be finished. Try again."
         audio_devices_unavailable: "The audio devices could not be listed. Wait a moment and try again."
@@ -1636,10 +1635,10 @@ voice_setup_errors:
 
 vc_runtime:
     title: "{{name}} runtime"
-    help_rvc: "ONNX Runtime, NVIDIA's CUDA and cuDNN libraries (CUDA 13) and the base models (HuBERT and RMVPE) used for conversion. Converting on the GPU needs NVIDIA driver 580 or later. Review what it contains, then fetch it to this PC."
-    help_rvc_cpu: "ONNX Runtime (CPU build) and the base models (HuBERT and RMVPE) used for conversion. Review what it contains, then fetch it to this PC."
+    help_rvc: "ONNX Runtime, NVIDIA's CUDA and cuDNN libraries (CUDA 13) and the base models (HuBERT and RMVPE) used for conversion. Converting on the GPU needs NVIDIA driver 580 or later. Review what it contains, then fetch it."
+    help_rvc_cpu: "ONNX Runtime (CPU build) and the base models (HuBERT and RMVPE) used for conversion. Review what it contains, then fetch it."
     cpu_only: "No NVIDIA driver was found, so this fetches the runtime that converts on the CPU. On the CPU the converted voice comes about 1.3 s after your voice."
-    help_seed: "The Python environment and engine used for conversion. It needs an NVIDIA GPU. Review what it contains, then fetch it to this PC."
+    help_seed: "The Python environment and engine used for conversion. It needs an NVIDIA GPU. Review what it contains, then fetch it."
     outdated: "The runtime in this folder is of an earlier kind and can no longer be used. Review the download and set it up again."
     size: "Download about {{download}} · Free space needed about {{disk}}"
     gpu_missing: "No NVIDIA driver was found. This runtime only works with an NVIDIA GPU."
@@ -1650,9 +1649,9 @@ vc_runtime:
     cancel: "Stop"
     progress: "Runtime setup progress"
     warning_title: "Runtime download and license terms"
-    notice_rvc: "This fetches ONNX Runtime (CUDA 13 build), NVIDIA's CUDA 13 and cuDNN libraries, HuBERT and RMVPE. ONNX Runtime is MIT, and the provider of HuBERT and RMVPE lists MIT. The CUDA and cuDNN libraries are under NVIDIA's license. Converting on the GPU needs NVIDIA driver 580 or later. None of this is part of the ASTAROT distribution: it comes straight from its providers to this PC. The conversion itself is part of ASTAROT. If files of the earlier kind of runtime are in the same folder, they are deleted once this finishes."
-    notice_rvc_cpu: "This fetches ONNX Runtime (CPU build), HuBERT and RMVPE. ONNX Runtime is MIT, and the provider of HuBERT and RMVPE lists MIT. None of this is part of the ASTAROT distribution: it comes straight from its providers to this PC. The conversion itself is part of ASTAROT. If files of the earlier kind of runtime are in the same folder, they are deleted once this finishes."
-    notice_seed: "This fetches Python 3.11, PyTorch (CUDA build), the Seed-VC engine and five models. The Seed-VC engine and model are GPL-3.0, the other models are Apache-2.0, and PyTorch is BSD-3-Clause. The CUDA build of PyTorch contains NVIDIA libraries under NVIDIA's license. None of this is part of the ASTAROT distribution: it comes straight from its providers to this PC. This engine is experimental, and some PCs cannot run it in real time."
+    notice_rvc: "This fetches ONNX Runtime (CUDA 13 build), NVIDIA's CUDA 13 and cuDNN libraries, HuBERT and RMVPE. ONNX Runtime is MIT, and the provider of HuBERT and RMVPE lists MIT. The CUDA and cuDNN libraries are under NVIDIA's license. Converting on the GPU needs NVIDIA driver 580 or later. None of this is part of the ASTAROT distribution: it comes straight from its providers. The conversion itself is part of ASTAROT. If files of the earlier kind of runtime are in the same folder, they are deleted once this finishes."
+    notice_rvc_cpu: "This fetches ONNX Runtime (CPU build), HuBERT and RMVPE. ONNX Runtime is MIT, and the provider of HuBERT and RMVPE lists MIT. None of this is part of the ASTAROT distribution: it comes straight from its providers. The conversion itself is part of ASTAROT. If files of the earlier kind of runtime are in the same folder, they are deleted once this finishes."
+    notice_seed: "This fetches Python 3.11, PyTorch (CUDA build), the Seed-VC engine and five models. The Seed-VC engine and model are GPL-3.0, the other models are Apache-2.0, and PyTorch is BSD-3-Clause. The CUDA build of PyTorch contains NVIDIA libraries under NVIDIA's license. None of this is part of the ASTAROT distribution: it comes straight from its providers. This engine is experimental, and some PCs cannot run it in real time."
     connection_notice_rvc: "This connects to the download servers of GitHub, Hugging Face and PyPI. It is a large transfer and may cost data. Expect minutes to tens of minutes, depending on your connection."
     connection_notice_rvc_cpu: "This connects to the download servers of GitHub and Hugging Face. It may cost data. Expect a few minutes, depending on your connection."
     connection_notice_seed: "This connects to GitHub, Hugging Face, PyPI and PyTorch's download servers. It is a large transfer and may cost data. Expect minutes to tens of minutes, depending on your connection."
@@ -1686,7 +1685,7 @@ vc_runtime:
         vc_runtime_check_failed: "The runtime that was fetched could not be loaded. Fetch it again. If this repeats, setup.log in the destination folder has the details."
         backend_unavailable: "The backend has stopped."
     warnings:
-        vc_runtime_gpu_unusable_cpu: "The GPU could not be used on this PC, so conversion runs on the CPU, about 1.3 s behind your voice. Converting on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. After updating the driver, start again to convert on the GPU."
+        vc_runtime_gpu_unusable_cpu: "The GPU could not be used, so conversion runs on the CPU, about 1.3 s behind your voice. Converting on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. After updating the driver, start again to convert on the GPU."
 
 model_downloads:
     hardware_title: "GPU and memory"
@@ -1716,9 +1715,9 @@ model_downloads:
     notice_irodori_large: "Large Japanese TTS for speech.cpp 0.10.0 or later. Its text encoder comes from Google's Gemma, so the Gemma Terms of Use and the Gemma Prohibited Use Policy apply. The codec is MIT, with an Apache-2.0 base. The provider prohibits impersonation without consent and misleading synthetic speech. It uses about 4 GiB of GPU memory and takes a few seconds to its first audio. Review the model card and the terms."
     notice_qwen: "Multilingual TTS with nine preset speakers for speech.cpp 0.9.0. Apache-2.0. Use the model and generated speech responsibly and respect the rights of others."
     notice_rvc: "RVC v2 voice conversion, trained on the author's own voice according to the model card. CC BY 4.0 requires attribution: Voice model created by Saisho Utane — https://huggingface.co/Saisho-Utane — Used under the CC BY 4.0 license. Include credit in public content and project documentation, link the license, and indicate changes. Voice quality in this runtime has not yet been verified."
-    notice_ppocr: "Text detection and recognition for Chat reading from PaddleOCR (PaddlePaddle), Apache-2.0. Runs on this computer's CPU; screen contents are never uploaded."
-    notice_chatbox: "ASTAROT's own chatbox detector for Chat reading (YOLOX-Tiny), trained on ASTAROT's own screenshots and published under MIT. Runs on this computer's CPU; screen contents are never uploaded."
-    notice_translation: "A local translation model for ONNX Runtime, converted from the model named above. It runs on this computer; the text you translate is never uploaded. Check the license of the original model."
+    notice_ppocr: "Text detection and recognition for Chat reading from PaddleOCR (PaddlePaddle), Apache-2.0. Runs on your PC's CPU; screen contents are never uploaded."
+    notice_chatbox: "ASTAROT's own chatbox detector for Chat reading (YOLOX-Tiny), trained on ASTAROT's own screenshots and published under MIT. Runs on your PC's CPU; screen contents are never uploaded."
+    notice_translation: "A local translation model for ONNX Runtime, converted from the model named above. It runs on your PC; the text you translate is never uploaded. Check the license of the original model."
     notice_haas: "Japanese speech recognition with punctuation for speech.cpp 0.9.4 or later. Apache-2.0, by Third Intelligence, converted by sakasegawa. Review the model card before use."
     rvc_requirements: "This downloads only the RVC voice model and index. Conversion also needs the RVC runtime (Python environment, HuBERT and RMVPE). Download completion does not mean conversion is ready."
     notice_qwen_asr: "Speech recognition in 30 languages that detects the spoken language itself. Apache-2.0, by the Qwen team, converted by sakasegawa. 1.7B makes fewer mistakes than 0.6B (CER 9.49% against 11.89% on Common Voice Japanese in speech.cpp's measurement) but needs more space and memory. Review the model card before use."
@@ -1874,7 +1873,7 @@ model_catalog:
         working: "Downloading"
         ready: "Verified, not applied"
     prepare: "Check the files and get ready to use"
-    prepare_hint: "Already on this PC. To use it, check the files, then apply the model path."
+    prepare_hint: "Already downloaded. To use it, check the files, then apply the model path."
     prepare_notice: "These files are already downloaded. Nothing is downloaded; their sizes and SHA-256 are checked."
     prepare_start: "Agree and check"
     engine:
@@ -2027,7 +2026,7 @@ message_outputs:
 telemetry_notice:
     title: "Help improve ASTAROT"
     purpose: "To fix problems and to learn which features run well on which PCs, we ask you to share usage data with the developers."
-    what: "ASTAROT sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and this PC's hardware (CPU, memory, GPUs and their driver versions)."
+    what: "ASTAROT sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and your PC's hardware (CPU, memory, GPUs and their driver versions)."
     not_sent: "The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from."
     change: "You can change this later under Settings → Advanced → \"Send usage data\". Nothing is sent until you choose."
     send: "Send"
@@ -2037,7 +2036,7 @@ telemetry_contents:
     show: "See what is sent"
     loading: "Checking what would be sent…"
     unavailable: "Could not get what would be sent."
-    intro: "This is what this PC sends. It is sent once a day as the note that the app started. The time will be the moment it is sent."
+    intro: "This is what your PC sends. It is sent once a day as the note that the app started. The time will be the moment it is sent."
     error_note: "When an error happens, the same is sent with the error code added, once a day for each code."
     destination: "Sent to: {{endpoint}}"
     receiver_note: "The receiver also records when the event arrived and the country it came from."
@@ -2069,7 +2068,7 @@ telemetry_contents:
 transcription_consent:
     title: "Choose speech recognition"
     cloud_notice: "To use a cloud engine (Groq, OpenAI, Deepgram or your own Whisper server), open the engine settings, register its API key and choose it there. Audio is then sent to that service."
-    speechcpp_notice: "Local (speech.cpp) recognizes audio with a speech.cpp server on this PC. If the recognition model or the VAD model is missing, review and download them in Settings → Speech recognition (ASR) → Models and servers."
+    speechcpp_notice: "Local (speech.cpp) recognizes audio with a speech.cpp server on your PC. If the recognition model or the VAD model is missing, review and download them in Settings → Speech recognition (ASR) → Models and servers."
     speechcpp: "Start transcription with Local (speech.cpp)"
     cancel: "Cancel"
     settings: "Open engine settings"
@@ -2093,7 +2092,7 @@ local_asr_notice:
     close: "Close"
 old_whisper_weights:
     label: "Old Whisper models"
-    desc: "Whisper models that an earlier version downloaded take {{size}} on this PC. They are no longer used, so you can delete them."
+    desc: "Whisper models that an earlier version downloaded take {{size}} on your PC. They are no longer used, so you can delete them."
     delete: "Delete old Whisper models"
     confirm: "Delete {{size}} of Whisper models? This cannot be undone. This version no longer uses them."
     confirm_delete: "Delete"

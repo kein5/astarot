@@ -17,7 +17,7 @@ export const openConfigPageButton = style({
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: "0.6rem",
+    borderRadius: "0.8rem",
     cursor: "pointer",
     selectors: {
         "&:hover": { backgroundColor: vars.dark_800_color },
