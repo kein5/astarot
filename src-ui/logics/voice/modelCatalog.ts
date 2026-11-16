@@ -58,6 +58,65 @@ export function firstVariant<T extends CatalogEntry>(rows: T[], recommended: str
         ?? rows[0];
 }
 
+// A model the user registered under a name (models/model_downloads/user_models.py, #403).
+// The backend checks the files; `status` is its answer, never computed again here.
+export type UserModel = {
+    id: string;
+    target: string;
+    name: string;
+    paths: Record<string, string>;
+    total_bytes: number;
+    registered_at: string | null;
+    status: "ok" | "missing" | "changed";
+};
+export type UserModelStatus = "in_use" | "registered" | "missing" | "changed";
+
+// The targets a model of one's own may be registered for, and the file kinds each takes:
+// the model file first (required), then the RVC index (optional).
+export const USER_MODEL_FILES: Readonly<Record<string, readonly (readonly [string, string])[]>> = {
+    japanese: [["model", ".gguf"]],
+    multilingual: [["model", ".gguf"]],
+    asr: [["model", ".gguf"]],
+    vad: [["model", ".gguf"]],
+    diarization: [["model", ".gguf"]],
+    rvc: [["model", ".pth"], ["index", ".index"]],
+};
+export const USER_MODEL_NAME_LIMIT = 80;
+
+// What a registered model's card says. "in_use" needs the saved path to be its file, as for
+// a download; a file that is gone or was changed is shown so before anything else.
+export function userModelStatus(model: UserModel, expected: { model?: string } | undefined): UserModelStatus {
+    if (model.status === "missing" || model.status === "changed") return model.status;
+    return expected?.model && model.paths.model === expected.model ? "in_use" : "registered";
+}
+
+// A path as typed or pasted: Windows' "Copy as path" wraps it in double quotes.
+export const cleanPath = (value: string): string => {
+    const text = value.trim();
+    return text.length > 1 && text.startsWith('"') && text.endsWith('"') ? text.slice(1, -1).trim() : text;
+};
+
+// The request for /run/register_user_model, or the reason it cannot be sent yet.
+export function registrationRequest(target: string, name: string, paths: Record<string, string>):
+    { request: { target: string; name: string; paths: Record<string, string> } } | { problem: string } {
+    const kinds = USER_MODEL_FILES[target];
+    if (!kinds) return { problem: "target" };
+    const cleanName = name.trim();
+    if (!cleanName) return { problem: "name_missing" };
+    if ([...cleanName].length > USER_MODEL_NAME_LIMIT) return { problem: "name_long" };
+    const chosen: Record<string, string> = {};
+    for (const [role, suffix] of kinds) {
+        const path = cleanPath(paths[role] ?? "");
+        if (!path) {
+            if (role === "model") return { problem: "model_missing" };
+            continue;
+        }
+        if (!path.toLowerCase().endsWith(suffix)) return { problem: `${role}_kind` };
+        chosen[role] = path;
+    }
+    return { request: { target, name: cleanName, paths: chosen } };
+}
+
 // What the card says about one file. "in_use" needs the saved path (`expected.model`) to be the
 // downloaded file: a file that is on disk but not set anywhere is only "downloaded".
 export function downloadStatus(entry: CatalogEntry, job: DownloadJob | undefined,

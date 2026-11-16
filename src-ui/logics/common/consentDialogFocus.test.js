@@ -44,6 +44,7 @@ async function fixture(context, kind, openerState) {
         "../../../../../../logics/voice/modelCatalog": modelCatalog,
         "../../../../../../logics/voice/modelHardwareWarning": modelHardwareWarning,
         "./EngineCatalog": { EngineCatalog: "engines" },
+        "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "../../../../../../logics/common/languageNames": languageNames,
         "../../../../../../../logics/configs/legacyModelConsent": legacyConsent,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },

@@ -657,3 +657,66 @@ def test_installed_engines_link_to_their_sites_and_show_whether_they_answer(ui):
     assert all(data["request_id"].startswith("catalog-") and set(data) == {"engine", "url", "request_id"} for data in asked)
     # Checking starts, installs, selects and saves nothing (the GPU probe is the page's own).
     assert not any(ep.startswith("/set/") or (ep.startswith("/run/") and "hardware" not in ep) for ep, _ in peer.sent)
+
+
+def test_a_model_of_ones_own_is_registered_listed_and_switched_to(ui, tmp_path):
+    """#403: the registration form, the card next to the catalog's and the switch."""
+    from playwright.sync_api import expect
+    from models.model_downloads.user_models import FILE_NAME, UserModels
+
+    page, peer, reply, _ = ui
+    registry = UserModels(tmp_path / FILE_NAME)
+    own = tmp_path / "own" / "mine.gguf"
+    own.parent.mkdir()
+    own.write_bytes(b"GGUF mine")
+
+    def extra(ep, data):
+        try:
+            if ep == "/get/data/user_models":
+                reply(ep, registry.state())
+            elif ep == "/run/register_user_model":
+                reply(ep, registry.register(data))
+            elif ep == "/run/remove_user_model":
+                reply(ep, registry.remove(data))
+            elif ep == "/run/apply_user_model":
+                target, paths = registry.usable(data["id"])
+                assert target == "japanese" and data["expected"] == {"model": peer.settings["profiles"]["japanese"]["model"]}
+                peer.settings["profiles"]["japanese"]["model"] = paths["model"]
+                reply(ep, registry.state())
+            else:
+                return False
+        except ValueError as error:
+            reply(ep, {"error_code": str(error)}, 400)
+        return True
+
+    peer.extra = extra
+    group = page.get_by_role("region", name="Reading Japanese", exact=True)
+    group.get_by_text("Register a model of your own", exact=True).click()
+    form = group.get_by_role("form")
+    # Nothing is sent until the form can pass.
+    form.get_by_role("button", name="Register", exact=True).click()
+    expect(form.get_by_role("alert")).to_have_text("Enter a name.")
+    form.get_by_label("Display name").fill("My voice")
+    form.get_by_label("Model file (.gguf)").fill(f'"{own}"')
+    form.get_by_role("button", name="Register", exact=True).click()
+    card = page.get_by_role("group", name="My voice", exact=True)
+    expect(card).to_contain_text("Your model")
+    expect(card).to_contain_text("Registered")
+    expect(form.get_by_label("Display name")).to_have_value("")
+    assert next(data for ep, data in peer.sent if ep == "/run/register_user_model") == {
+        "target": "japanese", "name": "My voice", "paths": {"model": str(own)}}
+    # The card sits in the same list as the catalog's cards.
+    expect(group.get_by_role("list").first.locator("[data-user-model]")).to_have_count(1)
+    card.get_by_role("button", name="Use this model", exact=True).click()
+    expect(card).to_contain_text("In use")
+    expect(page.get_by_label("Model GGUF path", exact=True)).to_have_value(str(own))
+    assert not any(ep in ("/run/start_speech_server", "/run/start_model_download") for ep, _ in peer.sent)
+    # A changed file is said on the card and cannot be switched to.
+    own.write_bytes(b"GGUF changed")
+    reply("/get/data/user_models", registry.state())
+    expect(card).to_contain_text("File changed")
+    # Removing asks first and keeps the file.
+    card.get_by_role("button", name="Remove registration", exact=True).click()
+    card.get_by_role("button", name="Remove", exact=True).click()
+    expect(page.locator("[data-user-model]")).to_have_count(0)
+    assert own.exists()
