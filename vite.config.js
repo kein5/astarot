@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
 import yaml from "@rollup/plugin-yaml";
+import { vanillaExtractPlugin } from "@vanilla-extract/vite-plugin";
 import path from "path";
 
 const host = process.env.TAURI_DEV_HOST;
@@ -16,6 +17,8 @@ export default defineConfig(() => {
             yaml({ include: ["**/*.yml", "**/*.yaml"] }),
             react(),
             svgr(),
+            // Styles written in *.css.ts (ADR-010) become static CSS files at build time.
+            vanillaExtractPlugin(),
         ],
 
         // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
