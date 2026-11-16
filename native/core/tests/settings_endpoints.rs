@@ -326,3 +326,18 @@ fn the_tray_companion_edge_is_one_of_the_four_and_starts_at_the_right() {
     assert_eq!(ui.saved()["TRAY_COMPANION_EDGE"], json!("bottom"));
     ui.stop();
 }
+
+#[test]
+fn the_tray_companion_monitor_is_a_name_and_starts_empty_for_the_primary_one() {
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/tray_companion_monitor"], json!(""));
+    assert_eq!(ui.ok("/set/data/tray_companion_monitor", Some(json!("\\\\.\\DISPLAY2"))), json!("\\\\.\\DISPLAY2"));
+    for bad in [json!("a\nb"), json!(1), json!("x".repeat(257))] {
+        let answer = ui.request("/set/data/tray_companion_monitor", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+    }
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["TRAY_COMPANION_MONITOR"], json!("\\\\.\\DISPLAY2"));
+    ui.stop();
+}

@@ -292,6 +292,7 @@ _SIMPLE_CONFIG_GETTERS = {
     "getHotkeys": "HOTKEYS",
     "getExperimentalFeatures": "EXPERIMENTAL_FEATURES",
     "getTrayCompanionEdge": "TRAY_COMPANION_EDGE",
+    "getTrayCompanionMonitor": "TRAY_COMPANION_MONITOR",
     "getSpeakerAvgLogprob": "SPEAKER_AVG_LOGPROB",
     "getSpeakerNoSpeechProb": "SPEAKER_NO_SPEECH_PROB",
     "getSpeakerVadFilter": "SPEAKER_ENABLE_VAD",
@@ -4166,6 +4167,13 @@ class Controller:
         # "right", "left", "top" or "bottom" (TRAY_COMPANION_EDGE_LIST).
         config.TRAY_COMPANION_EDGE = data
         return {"status":200, "result":config.TRAY_COMPANION_EDGE}
+
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setTrayCompanionMonitor(data, *args, **kwargs) -> dict:
+        # A monitor's name, or "" for the primary monitor (TRAY_COMPANION_MONITOR).
+        config.TRAY_COMPANION_MONITOR = data
+        return {"status":200, "result":config.TRAY_COMPANION_MONITOR}
 
 
     @staticmethod

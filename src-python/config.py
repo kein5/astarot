@@ -1226,6 +1226,10 @@ class Config:
     # The screen edge the tray companion's hexagram hides at (experimental feature tray_companion,
     # src-tauri/src/companion.rs). Kept while the feature is off, for the next time it is on.
     TRAY_COMPANION_EDGE = ManagedProperty('TRAY_COMPANION_EDGE', type_=str, allowed=lambda v, inst: v in inst.TRAY_COMPANION_EDGE_LIST)
+    # The monitor the hexagram shows on, by the name the system gives it (such as \\.\DISPLAY2);
+    # empty for the primary monitor. Kept while that monitor is unplugged, so it comes back to it.
+    TRAY_COMPANION_MONITOR = ManagedProperty('TRAY_COMPANION_MONITOR', type_=str,
+        allowed=lambda v, inst: len(v) <= 256 and not any(ord(c) < 32 or 127 <= ord(c) < 160 for c in v))
 
     # --- Speaker-related simple properties ---
     SPEAKER_THRESHOLD = ManagedProperty('SPEAKER_THRESHOLD', type_=int, allowed=lambda v, inst: 0 <= v <= inst.MAX_SPEAKER_THRESHOLD)
@@ -1618,6 +1622,7 @@ class Config:
         }
         self._EXPERIMENTAL_FEATURES = experimental_features.defaults()
         self._TRAY_COMPANION_EDGE = "right"
+        self._TRAY_COMPANION_MONITOR = ""
         self._MIC_AVG_LOGPROB = -0.8
         self._MIC_NO_SPEECH_PROB = 0.6
         self._AUTO_SPEAKER_SELECT = True
