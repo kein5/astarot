@@ -466,7 +466,9 @@
      "toggle_tts": null,
      "toggle_rvc": null
     },
-    "EXPERIMENTAL_FEATURES": {},
+    "EXPERIMENTAL_FEATURES": {
+     "tray_companion": false
+    },
     "SPEAKER_THRESHOLD": 300,
     "SPEAKER_AUTOMATIC_THRESHOLD": false,
     "SPEAKER_RECORD_TIMEOUT": 3,
@@ -1747,7 +1749,9 @@
      "toggle_tts": null,
      "toggle_rvc": null
     },
-    "EXPERIMENTAL_FEATURES": {},
+    "EXPERIMENTAL_FEATURES": {
+     "tray_companion": false
+    },
     "SPEAKER_THRESHOLD": 300,
     "SPEAKER_AUTOMATIC_THRESHOLD": false,
     "SPEAKER_RECORD_TIMEOUT": 3,

@@ -32,8 +32,7 @@ const children = tree => [tree.props.children].flat(Infinity).filter(Boolean);
 
 test("the page says there is nothing to try while no feature is listed", async context => {
     const s = await load(context);
-    const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
-    const list = tree.type(tree.props);
+    const list = s.render({ features: [], current: s.current, setValues: () => {} });
     const [notice, empty] = children(list);
     assert.equal(notice.props.children, "config_page.experimental_features.notice");
     assert.equal(empty.props.children, "config_page.experimental_features.empty");
@@ -84,4 +83,16 @@ test("every listed feature has a name and a description in English and Japanese"
             assert.match(text, new RegExp(`^ {12}${id}:\\n {16}label: ".+"\\n {16}desc: ".+"`, "m"), `${language}: ${id}`);
         }
     }
+});
+
+test("the tray companion is listed and stays off until the user turns it on", async context => {
+    const s = await load(context);
+    const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
+    const list = tree.type(tree.props);
+    const switches = children(list).filter(item => item.type === "switch");
+    assert.deepEqual(switches.map(item => item.props.setting_id), ["experimental_features.tray_companion"]);
+    assert.equal(switches[0].props.label, "config_page.experimental_features.items.tray_companion.label");
+    assert.equal(switches[0].props.variable.data, false);
+    switches[0].props.toggleFunction();
+    assert.deepEqual(s.writes, [{ tray_companion: true }]);
 });

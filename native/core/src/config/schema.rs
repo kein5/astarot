@@ -429,8 +429,7 @@ fn hotkeys() -> Check {
 
 /// Experimental features the user turns on one by one (`src-python/models/experimental_features.py`,
 /// Issue #361). The Python backend and the UI list the same ids; a backend test keeps them equal.
-/// Empty until a feature graduates from the experimental branch.
-pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &[];
+pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion"];
 
 fn experimental_features_default() -> Value {
     Value::Object(EXPERIMENTAL_FEATURE_IDS.iter().map(|id| (id.to_string(), Value::Bool(false))).collect())
