@@ -1977,6 +1977,7 @@ studio:
     maximize: "Maximize or restore window"
     close: "Close application"
     close_to_tray: "Close (keeps running in the tray)"
+    close_window: "Close window"
 
 legacy_model_downloads:
     errors:

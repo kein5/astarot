@@ -1977,6 +1977,7 @@ studio:
     maximize: "ウィンドウを最大化・元に戻す"
     close: "アプリを閉じる"
     close_to_tray: "閉じる（トレイで動き続けます）"
+    close_window: "ウィンドウを閉じる"
 
 legacy_model_downloads:
     errors:

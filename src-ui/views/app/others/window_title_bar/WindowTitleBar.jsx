@@ -1,5 +1,6 @@
 import { useI18n } from "@useI18n";
 import { useWindow } from "@logics_common";
+import { closeButtonLabelKey, useCloseHides } from "../../../../logics/common/closeBehavior.ts";
 // import clsx from "clsx";
 import styles from "./WindowTitleBar.module.scss";
 import XMarkSvg from "@images/cancel.svg?react";
@@ -9,6 +10,8 @@ import LineSvg from "@images/line.svg?react";
 export const WindowTitleBar = () => {
     const { t } = useI18n();
     const { asyncCloseApp, asyncToggleMaximizeApp, asyncMinimizeApp} = useWindow();
+    // Closing keeps the app in the tray only where a tray icon is shown; elsewhere it quits.
+    const closeLabel = t(closeButtonLabelKey(useCloseHides()));
 
     return (
         <div className={styles.container}>
@@ -24,7 +27,7 @@ export const WindowTitleBar = () => {
                     <button type="button" aria-label={t("studio.maximize")} className={styles.maximize_button} onClick={asyncToggleMaximizeApp}>
                         <SquareSvg aria-hidden="true" className={styles.square_svg}/>
                     </button>
-                    <button type="button" aria-label={t("studio.close_to_tray")} className={styles.close_button} onClick={asyncCloseApp}>
+                    <button type="button" aria-label={closeLabel} className={styles.close_button} onClick={asyncCloseApp}>
                         <XMarkSvg aria-hidden="true" className={styles.x_mark_svg}/>
                     </button>
                 </div>
