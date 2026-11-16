@@ -83,7 +83,7 @@ PNGの小さな本文・サブタイトルは利用環境に応じて代替書�
 
 ### 3.4 アセット管理
 
-配置先：`docs/brand/astarot/`。シンボルの正本は均一版の `symbol-light.svg`。`reference-brand-guide.png` と `reference-mark-crop.png` は構図の参照として残す。`tools/astarot_brand_from_reference.py` は参照画像をトレースした旧版を生成するツールで、現在の均一版は再現しない。実行すると均一版を旧版で上書きする。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
+配置先：`docs/brand/astarot/`。シンボルの正本は均一版の `symbol-light.svg`。`reference-brand-guide.png` と `reference-mark-crop.png` は構図の参照として残す。`tools/astarot_brand_from_reference.py` は、Outfit Bold からワードマークを作り、`symbol-light.svg` のシンボルと組んで、ワードマーク、横長・縦長のロゴ、ブランドボードの SVG を生成する。`--check` を付けると、何も書かずに現在のファイルと一致するかを確かめる。シンボル、アイコン、favicon のファイルと PNG は生成しない。使うフォントと実行の方法はツールの先頭に書いてある。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
 
 現行 `docs/brand/` には `VRCT-VOX` のアイコン・ロゴ・生成ツール `tools/brand_assets.py` がある。**移行承認までこれらを上書きしない。** 実装段階で既存パイプラインに ASTAROT 原版を登録して、UI、README、Tauri の OS アイコン、インストーラー、AppImage などを一括生成・検証する。
 
@@ -127,7 +127,7 @@ PNGの小さな本文・サブタイトルは利用環境に応じて代替書�
 
 **画像ベースの受け入れゲート**：均一版のシンボルを `reference-brand-guide.png` と `reference-mark-crop.png` に並べて人が比較し、構図（星と吹き出しの接触、円環、三点、比率）が保たれていることを確認する。線の太さと三角形の形は均一版のSVGを基準にする。
 
-**機械的検証**：共通パスが全SVGで同一であることを確かめる。均一版を生成するツールはリポジトリにまだない。生成ファイルを検査する際は最小16pxから大サイズまで視認性をレビューする。
+**機械的検証**：共通パスが全SVGで同一であることを確かめる。均一版のシンボルを生成するツールはリポジトリにまだない。ワードマーク、ロゴ、ブランドボードは `tools/astarot_brand_from_reference.py --check` で現在のファイルと一致するかを確かめられる。生成ファイルを検査する際は最小16pxから大サイズまで視認性をレビューする。
 
 - 主要画像・SVG に `ASTAROT` の文字列が正しく表記される。
 - 正式サブタイトルが `Speech, Translation, Accessibility, Revoicing & OCR Toolkit` と一致する（HTML/SVG 内の `&amp;` はレンダリング後 `&` となる）。
