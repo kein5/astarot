@@ -14,6 +14,10 @@ let optionsSequence = 0;
 // The last check of an installed speech engine (ADR-008): pending until its answer arrives.
 const engineVoicesAtom = atom(null);
 let engineSequence = 0;
+// The model catalog's own checks, one per engine, with the saved URL. They never replace the
+// check of the engine being edited above, so the two places can be open together.
+const engineChecksAtom = atom({});
+const CATALOG_CHECK = "catalog-";
 const ttsPendingAtom = atom(null), directPendingAtom = atom(null), ttsErrorAtom = atom(null);
 // Keep the last producer through stopping/health failure, where backend mode is already off.
 const directOwnerAtom = atom(null);
@@ -33,8 +37,16 @@ export const useVoice = () => {
     const [engineVoices] = useAtom(engineVoicesAtom);
     // Only the answer to the newest check counts; an older one may be for another engine or URL.
     const updateEngineVoices = useCallback(value => {
+        if (value?.request_id?.startsWith(CATALOG_CHECK)) {
+            const checks = atoms.get(engineChecksAtom);
+            if (checks[value.engine]?.request_id === value.request_id)
+                atoms.set(engineChecksAtom, { ...checks, [value.engine]: { request_id: value.request_id, pending: false,
+                    connected: !!value.connected, version: value.version ?? null, error_code: value.error_code ?? null } });
+            return;
+        }
         if (value && atoms.get(engineVoicesAtom)?.request_id === value.request_id) atoms.set(engineVoicesAtom, value);
     }, [atoms]);
+    const [engineChecks] = useAtom(engineChecksAtom);
     const [settings, setSettings] = useAtom(settingsAtom);
     const [status] = useAtom(statusAtom);
     const [route] = useAtom(routeAtom);
@@ -108,7 +120,10 @@ export const useVoice = () => {
             data = { ...data, request_id: `ui-${Date.now()}-${++optionsSequence}` };
             atoms.set(modelOptionsAtom, { ...atoms.get(modelOptionsAtom), [data.role]: { request_id: data.request_id, options: null } });
         }
-        if (endpoint === "/get/data/tts_engine_voices") {
+        if (endpoint === "/get/data/tts_engine_voices" && data?.catalog) {
+            data = { engine: data.engine, url: data.url, request_id: `${CATALOG_CHECK}${Date.now()}-${++engineSequence}` };
+            atoms.set(engineChecksAtom, { ...atoms.get(engineChecksAtom), [data.engine]: { request_id: data.request_id, pending: true } });
+        } else if (endpoint === "/get/data/tts_engine_voices") {
             data = { ...data, request_id: `ui-${Date.now()}-${++engineSequence}` };
             atoms.set(engineVoicesAtom, { request_id: data.request_id, engine: data.engine, pending: true, voices: [] });
         }
@@ -145,6 +160,9 @@ export const useVoice = () => {
             if (pendingTarget && atoms.get(pendingTarget) === pendingRequest) atoms.set(pendingTarget, null);
             if (data?.request_id && atoms.get(engineVoicesAtom)?.request_id === data.request_id)
                 atoms.set(engineVoicesAtom, { ...atoms.get(engineVoicesAtom), pending: false, connected: false, error_code: "backend_unavailable" });
+            const checks = atoms.get(engineChecksAtom);
+            if (data?.request_id && checks[data.engine]?.request_id === data.request_id)
+                atoms.set(engineChecksAtom, { ...checks, [data.engine]: { request_id: data.request_id, pending: false, connected: false, error_code: "backend_unavailable" } });
             report("backend_unavailable");
         }
         return ok;
@@ -158,13 +176,13 @@ export const useVoice = () => {
     }, [atoms]);
     const reset = useCallback(() => {
         resetObservations(atoms, [statusAtom, routeAtom, directStateAtom]);
-        atoms.set(modelOptionsAtom, {}); atoms.set(engineVoicesAtom, null);
+        atoms.set(modelOptionsAtom, {}); atoms.set(engineVoicesAtom, null); atoms.set(engineChecksAtom, {});
         atoms.set(settingsAtom, null); atoms.set(statusAtom, {}); atoms.set(routeAtom, {}); atoms.set(directStateAtom, {});
         atoms.set(selectedSourceAtom, ""); atoms.set(preferredSourceAtom, ""); atoms.set(directSourcesAtom, { sources: [], error: null });
         atoms.set(directOwnerAtom, null); atoms.set(directDraftBlockedAtom, false);
         for (const target of [errorAtom, directErrorAtom, ttsErrorAtom, ttsPendingAtom, directPendingAtom]) atoms.set(target, null);
     }, [atoms]);
-    return { settings, status, route, devices, error, send, reset, backendStopped, modelOptions, updateModelOptions, engineVoices, updateEngineVoices, selectedSource, setSelectedSource,
+    return { settings, status, route, devices, error, send, reset, backendStopped, modelOptions, updateModelOptions, engineVoices, updateEngineVoices, engineChecks, selectedSource, setSelectedSource,
         ttsPending, directPending, ttsError, updateTtsError, updateStatus, updateRoute, updateDevices, updateError,
         directState, directOwner, directDraftBlocked, setDirectDraftBlocked,
         directSources, directError, updateDirectState, updateDirectSources, updateDirectError, updateSettings };

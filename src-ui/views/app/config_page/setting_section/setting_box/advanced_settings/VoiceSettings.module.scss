@@ -97,6 +97,40 @@
 .error_code { font-size: 1.1rem; color: var(--dark_400_color); overflow-wrap: anywhere; }
 // One downloadable model: name, readout, a full-width progress bar, then its actions.
 .download_entry { display: grid; gap: .8rem; min-width: 0; }
+// The model catalog: one group per use (a subheading and space, no frame), one card per model.
+// A card is a real unit (one model or engine), so it keeps a quiet frame (DESIGN.md, Roles).
+.catalog_group { display: grid; gap: .8rem; min-width: 0; }
+.catalog { display: grid; gap: 1.2rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.card {
+    display: grid; gap: .8rem; min-width: 0; padding: 1.2rem 1.6rem;
+    border: .1rem solid var(--dark_800_color, #344662); border-radius: var(--vox_radius, .8rem);
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .3rem; }
+    > strong, .card_head > strong { font-size: 1.5rem; font-weight: 600; color: var(--dark_200_color); }
+}
+.card_head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; min-width: 0; }
+// A word on a card's head. Its words say the state; the color only repeats them.
+.badge {
+    display: inline-block; padding: .1rem .8rem; border: .1rem solid var(--dark_700_color, #4a5d7c);
+    border-radius: .4rem; font-size: 1.2rem; font-weight: 500; line-height: 1.6; color: var(--vox_secondary_text);
+    white-space: normal; overflow-wrap: anywhere;
+    &[data-tone="recommended"] { border-color: var(--primary_500_color); color: var(--primary_200_color); }
+    &[data-tone="in_use"], &[data-tone="connected"], &[data-tone="ready"] { border-color: var(--vox_state_active, #80acff); color: var(--vox_state_active, #80acff); }
+    &[data-tone="downloaded"] { color: var(--dark_200_color); }
+    &[data-tone="working"], &[data-tone="checking"], &[data-tone="not_connected"] { border-color: var(--vox_state_warning, #cb944f); color: var(--vox_state_warning, #cb944f); }
+    &[data-tone="url_invalid"] { border-color: var(--vox_state_failed, #f08a85); color: var(--vox_state_failed, #f08a85); }
+}
+// What a user compares: a term and its value per row; the rows stack in a narrow card.
+.facts {
+    display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .4rem 1.6rem; margin: 0; min-width: 0;
+    > div { display: contents; }
+    dt { font-size: 1.2rem; color: var(--vox_description_text); }
+    dd { margin: 0; font-size: 1.3rem; color: var(--dark_200_color); overflow-wrap: anywhere; min-width: 0; }
+    code { overflow-wrap: anywhere; }
+    @container (max-width: 35.6rem) { grid-template-columns: minmax(0, 1fr); dd { margin-bottom: .4rem; } }
+}
+.variant { margin: 0; }
+// An official site, opened like the buttons beside it.
+.link_button { display: inline-flex; align-items: center; min-height: 4rem; }
 .progress { width: 100%; height: .6rem; appearance: none; -webkit-appearance: none; border: 0; border-radius: .3rem; overflow: hidden; background: var(--dark_825_color); }
 .progress::-webkit-progress-bar { background: var(--dark_825_color); border-radius: .3rem; }
 .progress::-webkit-progress-value { background: var(--primary_500_color); border-radius: .3rem; }

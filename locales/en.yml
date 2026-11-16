@@ -1730,6 +1730,75 @@ model_downloads:
     scope_tts_http_vulkan: "Linux / speech.cpp 0.9.0 Vulkan: fixed-text HTTP synthesis, cancellation and restart checked. Playback and other GPUs need separate checks."
     gpu_unverified: "This GPU differs from the tested GPU. The recommendation describes memory only."
 
+# The model catalog (where models are chosen): groups by use, one card per model.
+model_catalog:
+    group:
+        japanese: "Reading Japanese"
+        multilingual: "Reading other languages"
+        asr: "Speech recognition"
+        vad: "Voice activity detection (VAD)"
+        diarization: "Telling speakers apart (optional)"
+        rvc: "Voice changer voices"
+        engines: "Speech engines you install"
+    group_help:
+        japanese: "Models that read Japanese text. A downloaded model runs in the bundled speech.cpp server."
+        multilingual: "Models that read text in other languages, such as English and Chinese, and translations."
+        asr: "Models that turn speech into text. Choose one and download it."
+        vad: "A model that finds where someone speaks. Every recognition model needs it."
+        diarization: "Needed only to label who speaks in the game audio captions."
+        rvc: "RVC voice models that change your voice."
+        engines: "Text-to-speech programs you install and start on your own PC. This app neither downloads nor installs them. Get one from its official site, start it, then choose it in \"Engine that reads Japanese\" above."
+    languages: "Languages"
+    languages_more: "{{languages}} and {{count}} more"
+    size: "Download size"
+    hardware: "Hardware"
+    terms: "Provider and license"
+    memory: "about {{memory}} of memory (measured on {{device}})"
+    tier:
+        light: "Light"
+        medium: "Medium"
+        heavy: "Heavy"
+    cpu:
+        slow: "runs on a CPU, seconds behind"
+        practical: "runs on a CPU"
+        impractical: "too slow on a CPU"
+        unverified: "not tried on a CPU"
+    gpu:
+        recommended: "GPU recommended"
+        not_needed: "no GPU needed"
+    recommended_for: "Suggested for {{languages}}"
+    fits_memory: "Fits the free memory"
+    variant: "File type"
+    variant_of: "File type of {{model}}"
+    status:
+        not_downloaded: "Not downloaded"
+        downloaded: "Downloaded"
+        in_use: "In use"
+        working: "Downloading"
+        ready: "Verified, not applied"
+    prepare: "Check the files and get ready to use"
+    prepare_hint: "Already on this PC. To use it, check the files, then apply the model path."
+    prepare_notice: "These files are already downloaded. Nothing is downloaded; their sizes and SHA-256 are checked."
+    prepare_start: "Agree and check"
+    engine:
+        terms_notice: "The engines and their voices (voice libraries) are used under the terms on their official sites. Some voices need a credit. Read the terms before you use them."
+        languages: "Japanese"
+        get: "Get it from"
+        get_value: "The official site (this app downloads nothing)"
+        address: "Address"
+        recheck_of: "Check the connection to {{engine}} again"
+        state:
+            unchecked: "Not checked"
+            checking: "Checking"
+            connected: "Connected"
+            not_connected: "Not connected"
+            url_invalid: "Invalid address"
+        summary:
+            voicevox: "A free Japanese text-to-speech program with many character voices. Each voice has its own terms."
+            coeiroink: "A free Japanese text-to-speech program. Version 2 is supported. Voices need the credit \"COEIROINK:voice name\"."
+            aivis: "A Japanese text-to-speech program. You add voice models to it, and each model has its own license."
+            sharevox: "A free Japanese text-to-speech program, connected the same way as VOICEVOX. Some voices need a credit."
+
 studio:
     toggle_sidebar: "Toggle sidebar"
     close_sidebar: "Close the sidebar"
