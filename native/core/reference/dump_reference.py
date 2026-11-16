@@ -172,6 +172,16 @@ def _child(case_dir, platform):
 
     sys.platform = platform
     os.environ["VRCT_CONFIG_DIR"] = case_dir
+    # Run as the VERSION the reference records (the Rust tests start with it), not the app's
+    # current one: the release channel follows the version, so a version bump would change the
+    # reference otherwise.
+    init_config = config_module.Config.init_config
+
+    def init_config_at_reference_version(self):
+        init_config(self)
+        self._VERSION = VERSION
+
+    config_module.Config.init_config = init_config_at_reference_version
     config_module.Config._instance = None
     instance = config_module.Config()
     path = Path(case_dir) / "config.json"
