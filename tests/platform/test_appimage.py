@@ -1,4 +1,4 @@
-"""Actual Type2 runtime -> AppRun -> Tauri -> frozen sidecar acceptance."""
+"""Actual Type2 runtime -> AppRun -> Tauri with the backend core acceptance."""
 import os
 import json
 from pathlib import Path

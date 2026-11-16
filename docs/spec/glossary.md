@@ -4,7 +4,7 @@
 
 | 用語 | 意味 | コードでの名前 |
 |---|---|---|
-| サイドカー | UIが起動するPythonのプロセス。翻訳、音声認識、OSCなどの処理を受け持つ | `bin/vrct-vox-sidecar`、`src-python/` |
+| サイドカー | バックエンドの以前の呼び名。翻訳、音声認識、OSCなどの処理を受け持つ。0.4まではUIが起動するPythonのプロセス、0.5.0からはアプリの中で動くRustの中核 | `native/core`、`src-tauri/src/backend_host.rs`（0.4まで`bin/vrct-vox-sidecar`、`src-python/`） |
 | エンドポイント | IPCの要求と通知の宛先。`/get/data/…`のような文字列 | `mapping`、`run_mapping` |
 | 要求 | UIからサイドカーへのメッセージ。必ず応答が返る | `asyncStdoutToPython` |
 | 通知 | サイドカーが自分から送るメッセージ。UIは返事をしない | `controller.run`、`/run/…` |

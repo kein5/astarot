@@ -1,12 +1,15 @@
 # Linux AppImage candidate
 
-The Linux builder can also produce an x86_64 AppImage containing the release GUI,
-frozen Python sidecar, four audio helpers and pinned speech.cpp. The
+The Linux builder can also produce an x86_64 AppImage containing the release GUI, which
+runs the Rust backend core in its own process, and the `_internal` folder of the
+[Linux candidate](linux-build-pipeline.md): pinned speech.cpp, the RVC worker and the
+audio and capture helpers. Since 0.5.0 no Python runtime is shipped. The
 [`v0.1.0-beta.1` prerelease](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0-beta.1)
 ships an AppImage built by the hosted Linux candidate workflow; an image you
 build locally is an unpublished candidate.
-It deploys GTK/WebKit dependencies before adding the backend, so GUI library
-rewriting never changes the inference executable or frozen backend bytes.
+It deploys GTK/WebKit dependencies before adding `_internal` under `usr/lib/vrct-vox/`, so
+GUI library rewriting never changes the engine or helper bytes. The core finds them there
+(`native/core/src/resources.rs`).
 
 ## Build
 
@@ -15,15 +18,14 @@ Use the prerequisites in [the Linux build guide](linux-build-pipeline.md), plus
 on Ubuntu. Build both formats:
 
 ```sh
-uv run --no-project --python 3.11 python tools/build_linux.py \
-  --python 3.11 --variant linux-x64-vulkan --download-speech \
+python tools/build_linux.py --variant linux-x64-vulkan --download-speech \
   --appimage --download-appimage-tools
 ```
 
 For an existing inspected Linux candidate:
 
 ```sh
-uv run --no-project --python 3.11 python tools/build_appimage.py --download-tools
+python tools/build_appimage.py --download-tools
 ```
 
 The second command uses `build/linux/candidate/VRCT-VOX`, `build/appimage` and
@@ -65,8 +67,8 @@ FUSE must be available to the desktop user. For machines without FUSE:
 APPIMAGE_EXTRACT_AND_RUN=1 ./VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
 ```
 
-Extraction needs temporary disk space for the uncompressed payload (about 1.7 GB
-for the measured local candidate), in addition to the image. A noexec temporary
+Extraction needs temporary disk space for the uncompressed payload, in addition to the
+image. A noexec temporary
 filesystem cannot run the extracted program. Both modes preserve settings/data
 in the [XDG locations](linux-build-pipeline.md#run-and-inspect); the image is not
 the writable model directory. The bundled PipeWire template is under
@@ -77,7 +79,7 @@ The pinned GTK plugin uses X11, including XWayland on a Wayland desktop. On host
 with the NVIDIA kernel module loaded, the launcher defaults
 `WEBKIT_DISABLE_DMABUF_RENDERER=1` unless the user already set it. This resolves
 the locally reproduced GBM allocation failure at the cost of WebKit's faster
-rendering path; it is scoped to the GUI and restored before the sidecar starts.
+rendering path; it is scoped to the GUI (see below for programs the app starts).
 Other GPUs retain their default. An explicit `WEBKIT_DISABLE_DMABUF_RENDERER=0`
 requests the original path. This is unrelated to the earlier DPMS-off failure.
 See [Tauri's graphics guidance](https://v2.tauri.app/develop/debug/linux-graphics/).
@@ -86,8 +88,15 @@ The image loads only its bundled GTK input method modules, which have no fcitx
 or ibus module. When `XMODIFIERS` is unset and fcitx/fcitx5 or ibus-daemon is
 running, the launcher sets `XMODIFIERS` to that input method and selects GTK's
 XIM module, so Mozc and other host input methods can type into the window.
-A user-set `XMODIFIERS` is kept. The sidecar gets the host's original
-`GTK_IM_MODULE` and `XMODIFIERS` back.
+A user-set `XMODIFIERS` is kept.
+
+The launcher records the host's values of these variables, `LD_LIBRARY_PATH`, `PATH` and the
+GTK/GIO settings as `VRCT_APPIMAGE_HOST_<NAME>` and `VRCT_APPIMAGE_HOST_<NAME>_SET` before it
+changes them. Up to 0.4 a separate launcher gave them back to the Python backend. Now the
+backend runs inside the GUI process, and every program it starts (speech.cpp, the helpers,
+the RVC worker, `xdg-open`) inherits the GUI environment unless the code that starts it
+restores the host values. The screen capture helper does
+(`src-tauri/src/portal_screencast.rs`, `LD_LIBRARY_PATH` only).
 
 With the NVIDIA fallback active, the main window is also made opaque. The
 original transparent window lost its contents during ordinary startup/hover on
@@ -103,7 +112,7 @@ Windows and other rendering paths retain their configured transparency.
 VRCT_TEST_APPIMAGE=/absolute/path/candidate.AppImage \
 VRCT_TEST_APPIMAGE_FUSE=1 VRCT_TEST_NATIVE_GUI=1 VRCT_TEST_NATIVE_ROUTE=1 \
 uv run --no-project --python /usr/bin/python3 tools/display_power_guard.py -- \
-uv run --no-project --python .venv_linux/bin/python python -m pytest \
+build/dev/headless-venv/bin/python -m pytest \
   -c tests/voice/pytest.ini tests/platform/test_appimage.py -q
 ```
 
@@ -131,11 +140,8 @@ workflow; other target machines must be tested separately. Host kernel/glibc, GP
 command-line audio tools remain requirements. Owned audio helpers currently need
 Linux >=6.9. AppImage does not remove these requirements.
 
-OCR weights and Mia2026 are rejected by the package policy. No speech.cpp, RVC or
-Seed-VC model is acquired or bundled by this builder. The two Silero v5 VAD ONNX
-files are shipped as part of the app (`models/transcription/silero_vad/`, MIT,
-notices in `licenses/silero-vad/`); faster-whisper is no longer a dependency (#288). RVC/Seed-VC
-Python environments and user models stay external. Original licenses are retained;
+OCR weights and Mia2026 are rejected by the package policy. No speech.cpp or RVC model
+is acquired or bundled by this builder. User models stay external. Original licenses are retained;
 GTK/WebKit, runtime static dependencies and the complete native/frontend/Rust
 license/SBOM review remain publication gates. A build-tool license does not cover
 all libraries copied into the image. patchelf is a build tool only and is not

@@ -85,7 +85,7 @@ Windowsはartifact検査のみ、実行試験ではない。numpy1.26.4との実
 2026-10-31（0.1.0前）: 配布物のLGPL/GPL部品を[NOTICE](../../NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds)に列挙し、
 対応ソースの入手先、差し替え方法、3年間のソース提供の申し出を記載した。libsoxrは拡張モジュール（別ファイル）として差し替え可能。
 LGPLの純Pythonパッケージ`zeroconf`はPYZへ入れず`.py`のまま同梱する。PyAVの公式wheelは12〜18系のLinux/Windowsいずれも
-GPLのx264/x265を同梱していたため配布せず、`packaging/pyinstaller-stubs/av`の代用モジュールを使う
+GPLのx264/x265を同梱していたため配布せず、`packaging/pyinstaller-stubs/av`の代用モジュールを使う（0.5.0でPyInstallerの工程と一緒に削除。配布ポリシーの拒否は残す）
 （faster-whisperはnumpy配列の入力ではデコードしない）。配布ポリシーがPyAVのネイティブライブラリとx264/x265を拒否する。
 nanobind（BSD-3-Clause）の実ビルド版の特定は未了。
 
@@ -148,6 +148,7 @@ Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の�
 `_internal/licenses/rust/<クレート>-<版>/`に写し、一覧を`README.md`と`crates.json`に書く。
 写した文書と一覧は、WindowsではPyInstallerのデータとして（`bat/build.bat`、`bat/build_cuda.bat`、`tools/windows_voice_resources.py`）、
 Linuxではリソースとして（`tools/build_linux.py`）、どちらもPyInstallerの`_internal`に入る。
+→ 0.5.0からはPyInstallerを使わず、`tools/app_resources.py`が同じ`_internal/licenses/rust/`へ写す（下の「Pythonの同梱の終了」の節）。
 どちらの検査も`crates.json`がないと失敗する。リポジトリ内のクレート（パス依存）はVRCT-VOX自身のコードで、
 `LICENSE`に従うので文書を写さない。
 
@@ -292,7 +293,7 @@ miniaudioの二重ライセンス、静的GCCランタイムのGPLv3＋Runtime L
 
 ## 内蔵CTranslate2の取得条件
 
-ローカルの Whisper（faster-whisper）は #288 で削除し、Whisper の重み（OpenAIのMITモデルを元にしたSystran・Zoont・deepdmlのCTranslate2変換版）の取得もやめた。以前の版が取得した重みは読まず、設定の「音声認識（ASR）」から利用者が削除できる。提供元は[NOTICE](../../NOTICE.md#whisper-weights-from-earlier-versions)に残す。faster-whisperは依存から外し（`pyproject.toml`、`uv.lock`。PyAVも一緒に外れた）、発話区間の検出（同梱のSilero VAD）とOCRが使う`onnxruntime`を直接の依存にした。PyAVを必要とする依存はなくなったが、`packaging/pyinstaller-stubs/av`の代用モジュールと配布ポリシーによるPyAV・x264/x265の拒否は、防御として残す。CTranslate2と、そのCUDA用の追加依存は、ローカルの翻訳が使うので残す。
+ローカルの Whisper（faster-whisper）は #288 で削除し、Whisper の重み（OpenAIのMITモデルを元にしたSystran・Zoont・deepdmlのCTranslate2変換版）の取得もやめた。以前の版が取得した重みは読まず、設定の「音声認識（ASR）」から利用者が削除できる。提供元は[NOTICE](../../NOTICE.md#whisper-weights-from-earlier-versions)に残す。faster-whisperは依存から外し（`pyproject.toml`、`uv.lock`。PyAVも一緒に外れた）、発話区間の検出（同梱のSilero VAD）とOCRが使う`onnxruntime`を直接の依存にした。PyAVを必要とする依存はなくなったが、`packaging/pyinstaller-stubs/av`の代用モジュールと配布ポリシーによるPyAV・x264/x265の拒否は、防御として残す（代用モジュールは0.5.0でPyInstallerの工程と一緒に削除した）。CTranslate2と、そのCUDA用の追加依存は、ローカルの翻訳が使うので残す。
 
 CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとその文章分割ファイルがCC-BY-NC-4.0（非商用）。[NOTICEの一覧](../../NOTICE.md#downloadable-ctranslate2-translation-weights)を正本とする。非商用モデルは既定にしない。
 
@@ -372,3 +373,32 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 | Nemotron 3.5 Transcribe 30B-A4B | OpenMDW-1.1 | 話者分離モデルと同じ契約（上の節）。リポジトリの`LICENSE`がNVIDIAの著作権表示を含む |
 
 2026-11-16に、固定revisionのモデルカードと元のモデルのカードで確かめた。どれもHugging Faceのアクセス制限（gated）がなく、ログインや利用規約への同意は要らない。非商用の制限もない。ライセンスを理由に外したモデルはない。Nemotron 3.5 Transcribeはいちばん小さいファイルでも約19 GBある。同意画面の注意書きで容量とメモリーの大きさを示し、既定では選ばない。
+
+## Pythonの同梱の終了（0.5.0、2026-11-16）
+
+0.5.0から、バックエンドはアプリ（`vrct-vox`）の中で動くRustの中核になり（[中核の統合](core-integration.md)）、配布物にPythonを入れない。PyInstallerの工程（`spec/*.spec`）もやめた。配布物の`_internal`は`tools/app_resources.py`が作り、中身は次のものだけになる。
+
+| パス | 内容 | ライセンス |
+|---|---|---|
+| `_internal/build/speechcpp/` | 固定版のspeech.cppと依存の通知 | MITと通知の各ライセンス（上の各節） |
+| `_internal/build/vrct-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
+| Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`vrct-voice-gate`など） | VRCT-VOX自身のコード |
+| `_internal/licenses/VRCT/` | `LICENSE`と`NOTICE.md` | |
+| `_internal/licenses/rust/` | アプリとワーカーのRustのクレートのライセンス文 | 一覧のとおり |
+| `_internal/licenses/nscurl/`（Windows） | インストーラーのNScurlの通知 | 上の節のとおり |
+| Linuxの`_internal/config/pipewire/` | PipeWireの設定の例 | VRCT-VOX自身のファイル |
+
+配布物から消えるもの:
+
+- Pythonの実行環境とPythonのパッケージ（`_internal/licenses/python/`のライセンス文も）。NOTICEの「LGPL and GPL components」の表の部品（libsoxr、OpenCVのFFmpegとGCCのランタイム、zeroconf、Seed-VCのアダプター、PyInstallerのブートローダー）は0.4.xまでの配布物にだけ入る。ソースの提供の約束は、その版の公開から3年間続く。
+- Silero VADの同梱（上の節の`_internal/models/transcription/silero_vad/`）。Rustの音声認識がSilero VADを使うことになったら、`tools/app_resources.py`に足し、`licenses/silero-vad/`の通知も同梱する。
+- RapidOCRの設定ファイル（`rapidocr/*.yaml`）。Rustの`ocr-runtime`は読まない。
+- フォント（`*.ttf`）。VRのオーバーレイをRustで描くときに要るかは、その作業で決める（Outfitの節も同じ）。
+- Sudachiの辞書。Rustで翻字をするときの辞書は未決。
+
+まだ決まっていないもの（[中核の統合](core-integration.md)の「判断が要ること」）:
+
+- ONNX Runtimeの同梱（13）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`download-binaries`でONNX Runtimeを使う。WindowsでDirectMLを使うと、`onnxruntime.dll`と`DirectML.dll`を`vrct-vox.exe`の隣に置くことになる（`utils/zip.py`はあれば収める）。ONNX Runtime（MIT）とDirectML（Microsoftの再配布の条件）の通知を、そのときNOTICEとこの台帳に足す。
+- CUDA版（17）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
+
+Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。

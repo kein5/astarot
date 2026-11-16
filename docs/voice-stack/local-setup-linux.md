@@ -13,15 +13,10 @@ Pythonは標準ライブラリだけで発声でき、`pw-cat` / `pw-dump` が�
 
 ## ネイティブ起動の作業状況
 
-開発用Rust sidecarはLinuxで選択したvenvの`bin/python`を使い、UnixのexecでPythonへ置き換わる。
-Tauriが所有するPIDとPythonのPIDが同じなので、wrapper終了後にPythonだけが残る状態を防ぐ。
-Windowsの`Scripts/python.exe`選択とJob Objectは維持する。
-実ラッパー＋小さなPythonプログラムによる11件の試験で、stdio、日本語、引数、空白path、終了コード、
-終了時のprocess消失、不正venv拒否、interpreter不在・実行失敗を確認した。
-別の実stdio試験で本番Main/Controller/Modelの初期化と設定保存・再起動を確認した。
-Tauri画面・音声入出力はこの試験の範囲外。
+0.5.0からアプリのバックエンドはアプリの中で動くRustの中核で、開発用のPython sidecarはなくなった（[中核の統合](core-integration.md)）。
+以下のPython環境は、`src-python/`のPythonバックエンドとそのCLI・試験を動かすときだけ使う。
 
-### 本番バックエンド用の開発環境
+### Pythonバックエンド用の開発環境
 
 固定SpeechRecognition forkが使う`aifc`/`audioop`、既存NumPy/Pillowの版に合わせてPython 3.11を使う。
 既存の`.venv`と`.venv_cuda`を変更せず、Linux用環境を明示選択する。
@@ -29,13 +24,12 @@ Python、uv、Rustの版は`mise.toml`で固定している（[開発ガイド](
 
 ```sh
 mise install
-mise run setup:app      # .venv_linux を uv.lock に合わせる（uv sync --frozen）
-mise run setup:sidecar
+mise run setup:app        # .venv_linux を uv.lock に合わせる（uv sync --frozen）
+mise run setup:resources  # tauri dev と cargo check が読む src-tauri/bin/_internal
 ```
 
 `setup:app`は`UV_PROJECT_ENVIRONMENT=.venv_linux uv sync --frozen --python 3.11`を、miseのPythonで実行する。
-
-sidecarは `src-tauri/bin/vrct-vox-sidecar-x86_64-unknown-linux-gnu` に作られる。詳しくは[開発ガイド](../development.md#tauri開発用sidecarを準備する)を参照。
+`setup:resources`については[開発ガイド](../development.md#tauriが読む資源を用意する)を参照。
 
 ### 同梱サーバーと音声ヘルパーを用意する
 

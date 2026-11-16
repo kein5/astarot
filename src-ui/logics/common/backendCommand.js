@@ -1,13 +1,13 @@
-// The backend the UI starts: the Python sidecar, or the Rust core run inside the app (#285).
-// Both are given to sidecarSession.js through the shell plugin's Command interface (on("error"),
-// on("close"), stdout/stderr on("data"), spawn() giving a child with write() and kill()), so
-// the session rules stay one. The app answers backend_kind: "core" when VRCT_BACKEND=core.
+// The backend the UI starts: the Rust core run inside the app (#285). It is given to
+// sidecarSession.js in the shape of the shell plugin's Command interface that the Python sidecar
+// used (on("error"), on("close"), stdout/stderr on("data"), spawn() giving a child with write()
+// and kill()), so the session rules stayed the same when the sidecar went.
 
 const register = (list, event, listener) => {
     (list[event] ??= []).push(listener);
 };
 
-// The Rust core: lines arrive through a Tauri channel in order; the end of the run as its code.
+// Lines arrive through a Tauri channel in order; the end of the run as its code.
 export const createCoreBackendCommand = ({ invoke, Channel, newSessionId }) => {
     const own = {};
     const out = {};
@@ -39,33 +39,4 @@ export const createCoreBackendCommand = ({ invoke, Channel, newSessionId }) => {
         },
     };
     return command;
-};
-
-// Listeners are kept until spawn() knows which backend to start, then handed to it.
-export const createSelectedBackendCommand = ({ invoke, Channel, createSidecar, newSessionId }) => {
-    const registered = [];
-    const proxy = {
-        on(event, listener) {
-            registered.push([null, event, listener]);
-            return proxy;
-        },
-        stdout: { on: (event, listener) => registered.push(["stdout", event, listener]) },
-        stderr: { on: (event, listener) => registered.push(["stderr", event, listener]) },
-        async spawn() {
-            let kind = "sidecar";
-            try {
-                kind = await invoke("backend_kind");
-            } catch (error) {
-                console.error("backend_kind failed; starting the sidecar", error);
-            }
-            const command = kind === "core"
-                ? createCoreBackendCommand({ invoke, Channel, newSessionId })
-                : createSidecar();
-            for (const [stream, event, listener] of registered) {
-                (stream === null ? command : command[stream]).on(event, listener);
-            }
-            return command.spawn();
-        },
-    };
-    return proxy;
 };

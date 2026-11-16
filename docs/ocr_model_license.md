@@ -47,6 +47,7 @@ PP-OCR の重みも同じく Apache-2.0。こちらは制約にならない。
 - `spec/backend.spec` / `spec/backend_cuda.spec` は `src-python/models/ocr/onnx`
   ディレクトリごと `ocr_onnx/` として同梱するので、この2ファイルと `NOTICE.txt` は
   **自動的に配布物へ入る**。モデルを差し替えるときにこれらを消さないこと。
+  （0.4.x までの記述。0.5.0 から PyInstaller の spec はなく、OCR の重みはどの配布物にも入らない）
 
 ## 経緯: なぜ載せ替えたか
 

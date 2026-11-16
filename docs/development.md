@@ -21,8 +21,8 @@ mise run check               # 軽量チェック
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
 | `check:voice`、`check:ui`、`check:backend`、`check:rust` | `python tools/dev.py check --scope <名前>` |
 | `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
-| `setup:headless`、`setup:ui`、`setup:browser`、`setup:backend`、`setup:rust`、`setup:sidecar` | `python tools/dev.py setup --scope <名前>` |
-| `setup:app` | アプリのPython環境を `uv.lock` に合わせる。Windowsは `bat\install.bat`（`.venv` と `.venv_cuda`）、Linuxは `.venv_linux` |
+| `setup:headless`、`setup:ui`、`setup:browser`、`setup:backend`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
+| `setup:app` | Pythonバックエンド（`src-python/`）の環境を `uv.lock` に合わせる。Windowsは `bat\install.bat`（`.venv` と `.venv_cuda`）、Linuxは `.venv_linux`。配布物には使わない |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
@@ -41,7 +41,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 | --- | --- | --- |
 | Node.js | 26.13.1 | npmはNodeに付属するもの |
 | Rust | 1.100.0 | rustupを通して入れる（profileはminimal、clippyとrustfmtを追加）。`rust-toolchain.toml` は置かない |
-| Python | 3.11.18 | `pyproject.toml` の `requires-python`（3.11）に合わせる。配布物のバックエンドもこのPythonから作る |
+| Python | 3.11.18 | `pyproject.toml` の `requires-python`（3.11）に合わせる。ビルドの道具と試験に使う。0.5.0から配布物にPythonは入らない |
 | uv | 0.13.5 | |
 | Cocogitto | 7.0.0 | コマンド名は `cog` |
 
@@ -74,7 +74,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
 | `backend` | `uv.lock` の本体・`dev`・`linux-build` を `build/dev/backend-venv` に同期（Linux） |
 | `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と `native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`） |
-| `sidecar` | Unixで既存Rustソースをコンパイルし、Tauri開発用wrapperと必要なplaceholderを準備 |
+| `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 
 専用venvには所有マーカーを保存します。同じ場所にマーカーのない既存ディレクトリやシンボリックリンクがある場合は停止し、削除しません。Pythonのスコープはいずれも、`tools/check_python_lock.py`でロック全体のアーカイブのSHA-256とGit依存の完全なcommit SHAを検査します。続いて、`uv.lock` からハッシュと間接依存を含む一覧を `uv export` で `build/dev/<scope>-requirements.txt` に書き出し、専用venvへ `uv pip sync` で同期します。uvは一覧にあるハッシュを照合し、不一致なら停止します。Git依存にはアーカイブのハッシュを要求せず、固定commitを使います。`--python` で既存venvを指定した場合（`browser` のみ）は `uv pip install -r` で追加し、ほかのパッケージは削除しません。[uvの環境指定](https://docs.astral.sh/uv/pip/environments/)と[依存の固定・同期](https://docs.astral.sh/uv/pip/compile/)を参照してください。
 
@@ -82,26 +82,20 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 
 Windowsでも `headless`、`ui`、`browser`、`rust` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。Windowsの全体セットアップは `mise run setup:app`（`npm run setup-python` と同じbat）です。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
 
-### Tauri開発用sidecarを準備する
+### Tauriが読む資源を用意する
 
-新しいcheckoutや改名前の開発環境では、Tauriが要求するsidecarが不足する場合があります。Linuxでは次の順に準備して診断します。
+`tauri.conf.json` は `src-tauri/bin/_internal` を配布物の `_internal` として同梱します。このフォルダがないと、`cargo check`、`tauri dev`、`tauri build` が止まります。新しいcheckoutでは次の順に用意して診断します。
 
 ```sh
-python tools/dev.py setup --scope sidecar --dry-run
-python tools/dev.py setup --scope sidecar
+python tools/dev.py setup --scope resources --dry-run
+python tools/dev.py setup --scope resources
 python tools/dev.py doctor --scope rust
 python tools/dev.py check --scope rust
 ```
 
-`rustc -vV` でhost tripleを調べ、既存の `utils/dev_sidecar/src/main.rs` を `rustc --edition=2024` でコンパイルします。外部crateの取得はありません。出力は `src-tauri/bin/vrct-vox-sidecar-<host triple>` です。既存のAppImageビルドは別workspaceを使うため、この開発用出力を用意していなくても成功することがあります。
+`setup --scope resources` はフォルダを作り直し、`build/` にあるspeech.cpp、RVCのworker、Rustのライセンス文と、リポジトリの `LICENSE`、`NOTICE.md` を写します。足りないものは表示しますが、失敗にはしません。開発用のビルド（debug）は、speech.cppなどをチェックアウトの `build/` から直接読みます（`native/core/src/resources.rs`）。配布物の中身をそろえるときは `npm run build-resources`（Windows）を使います。
 
-出力が未存在なら新規作成します。既存ファイルを置き換えられるのは、このCLIの `.dev-owner.json` と現在のバイナリのSHA-256が一致する場合だけです。不明な既存バイナリ、変更されたハッシュ、出力先のシンボリックリンクは拒否します。コンパイルは同じファイルシステムの一時ディレクトリで行い、成功後に `os.replace` で配布します。コンパイル失敗時は元のバイナリと所有記録を保持します。
-
-更新途中の中断に備え、所有記録は置換前後のハッシュを一時的に保持します。完了すると新しいハッシュだけになります。同時setupはlockで拒否します。異常終了で `.vrct-vox-dev-sidecar.lock` が残った場合は、別のsetupが動いていないことを確認してから手動で扱います。CLIは他プロセスを停止しません。
-
-`src-tauri/bin/_internal` が未存在または空なら、所有placeholderファイルだけをexclusive作成します。既存ファイルや非空のresourcesは変更しません。placeholderは配布用runtimeではありません。`doctor --scope rust` は新名のsidecarとresourcesの不足も診断します。
-
-この直rustc方式はUnix向けです。Windowsでは既存ソースのJob Object処理が `windows-sys` を必要とするため、安全に停止して `utils/dev_sidecar` の既存Cargo方式を案内します。Windows実機は未確認です。wrapperを実際に起動するには、従来どおり `.venv`、`.venv_cuda`、Linuxの `.venv_linux` のいずれかへアプリ依存を用意し、必要に応じて `VRCT_DEV_VENV` を指定します。`build/dev/backend-venv` はwrapperの起動対象には自動追加しません。
+0.4までの開発用sidecar（`utils/dev_sidecar`、`setup --scope sidecar`、`npm run dev-fast` のPython起動）は、Pythonの同梱をやめたときに削除しました。Pythonバックエンドを動かして比べたいときは、0.4.xの配布物か、そのタグのcheckoutを使います。
 
 ### 既存Linux環境へUI試験の依存を追加する
 

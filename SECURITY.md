@@ -10,7 +10,7 @@
 
 ## Scope
 
-In scope: the VRCT-VOX application and its Python sidecar, the Windows installer and Linux packages (AppImage, tar.gz) published on [Releases](https://github.com/kein5/VRCT-VOX/releases), the local servers the app opens (for example the OBS browser source and the WebSocket server), model download and verification, and the release workflows in this repository.
+In scope: the VRCT-VOX application (since 0.5.0 its backend runs inside it; 0.4.x and earlier ship a Python sidecar), the Windows installer and Linux packages (AppImage, tar.gz) published on [Releases](https://github.com/kein5/VRCT-VOX/releases), the local servers the app opens (for example the OBS browser source and the WebSocket server), model download and verification, and the release workflows in this repository.
 
 Out of scope: vulnerabilities in third-party engines and models (speech.cpp, RVC, Seed-VC, translation and speech services) that VRCT-VOX does not change. Report those to their projects; tell us too if VRCT-VOX should work around them. VRCT-VOX is derived from [VRCT](https://github.com/misyaguziya/VRCT); if an issue also affects upstream VRCT, report it to its maintainers as well.
 

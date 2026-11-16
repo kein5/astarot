@@ -1,6 +1,6 @@
 # IPCプロトコル（UIとサイドカー）
 
-UI（Tauri＋React）とPythonのサイドカーの間のメッセージの規則。個々のエンドポイントは[IPCエンドポイント一覧](reference/ipc-endpoints.md)、エラーコードは[エラーコード一覧](reference/error-codes.md)にある。
+UI（Tauri＋React）とバックエンドの間のメッセージの規則。0.5.0からバックエンドはアプリのプロセスの中で動くRustの中核（`native/core`）で、0.4までのPythonのサイドカーと同じ行の形と規則で話す。この文書では、バックエンドを以前の呼び名のまま「サイドカー」と書く。個々のエンドポイントは[IPCエンドポイント一覧](reference/ipc-endpoints.md)、エラーコードは[エラーコード一覧](reference/error-codes.md)にある。
 
 LSPの仕様書が「Base Protocol」と各メッセージの説明を分けているのにならい、この文書は全エンドポイントに共通する規則だけを書く。
 
@@ -13,16 +13,15 @@ flowchart LR
     vr["vr_panel ウィンドウ"]
     qc["quick_chat ウィンドウ"]
   end
-  side["サイドカー（Python, bin/vrct-vox-sidecar）"]
-  main -- "stdin: 要求（1行のJSON）" --> side
-  side -- "stdout: 応答と通知（1行のJSON）" --> main
-  side -- "stderr: 警告とエラー" --> main
+  side["サイドカー（Rustの中核, native/core。アプリのプロセスの中）"]
+  main -- "backend_write: 要求（1行のJSON）" --> side
+  side -- "Channel: 応答と通知（1行のJSON）" --> main
   vr -- "Tauriイベント vr-panel-stdout" --> main
   qc -- "Tauriコマンド quick_chat_submit" --> main
 ```
 
 - サイドカーと話すのは`main`ウィンドウだけである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
-- 起動は`Command.sidecar("bin/vrct-vox-sidecar")`（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。アプリを`VRCT_BACKEND=core`で起動したときは、代わりにRustの中核（`native/core`）を同じプロセスの中で動かす。UIは`backendCommand.js`を通して同じ形で扱い、行の形式と規則は変わらない（[中核の統合](../voice-stack/core-integration.md)）。
+- 起動は`backend_start`（`src-tauri/src/backend_host.rs`）で、UIは`backendCommand.js`を通して0.4までの`Command.sidecar`と同じ形で扱う（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。要求は`backend_write`、終了は`backend_kill`で、応答と通知は順序を保つチャネルで届く。行の形式と規則は0.4までと変わらない（[中核の統合](../voice-stack/core-integration.md)）。下で「stdin」「stdout」と書くのは、この要求と応答の向きのことである。
 
 ## メッセージの形
 

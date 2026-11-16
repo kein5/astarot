@@ -1,9 +1,12 @@
 # Linux build pipeline
 
-`tools/build_linux.py` builds an x86_64 candidate: frozen Python sidecar,
-Tauri frontend, four C audio helpers and pinned speech.cpp 0.11.0 CPU or Vulkan.
-The default output is a `tar.gz`, SHA-256 sidecar and JSON file inventory. Use tar with symlink
-preservation; copying only the executable or flattening `_internal` is unsupported.
+`tools/build_linux.py` builds an x86_64 candidate: the `vrct-vox` app, which runs the Rust
+backend core (`native/core`) in its own process, and its `_internal` folder with pinned
+speech.cpp 0.11.0 CPU or Vulkan, the RVC worker, the C audio and capture helpers, the
+PipeWire template and the license texts (`tools/app_resources.py` lists them). Since 0.5.0
+no Python runtime is frozen or shipped. The default output is a `tar.gz`, a SHA-256 file
+and a JSON file inventory. Keep `vrct-vox` and `_internal` together: the core finds
+speech.cpp and the helpers in `_internal` beside the binary.
 Add `--appimage --download-appimage-tools` for an additional inspected AppImage;
 see [AppImage build and acceptance](appimage.md). The CI builds both formats.
 
@@ -16,8 +19,9 @@ They require glibc (the highest version the manifest records), GTK 3, WebKitGTK 
 Vulkan variant, the Vulkan loader, which speech.cpp loads from the system. The PipeWire tools and
 Mesa Vulkan drivers are recommended. `tools/ci/check_linux_package.sh` installs each package in a
 clean Ubuntu 24.04, Debian 13 or Fedora 44 container without recommended packages and checks
-that the GUI binary's libraries resolve, the bundled engine and backend self-check start, and
-removal leaves nothing behind. It does not open the GUI.
+that the GUI binary's libraries resolve, the bundled engine starts, and removal leaves nothing
+behind. It does not open the GUI, so the backend core inside it is tested by the tar.gz and
+AppImage acceptance instead.
 
 The GitHub Actions workflow `VRCT-VOX Linux candidate (no publication)` targets Ubuntu 24.04.
 It runs on relevant pull requests or manual dispatch, tests the relocated package,
@@ -32,7 +36,7 @@ are candidates from this workflow, published through the
 Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python 3.11 and uv come from
 `mise install` at the versions pinned in `mise.toml`, the same versions the workflow uses.
 Run the build from a shell where mise is active (`mise activate`), or through
-`mise run build:linux -- <options>`, so that uv freezes the backend from mise's Python.
+`mise run build:linux -- <options>`. Python runs the build tools only.
 Ubuntu build/runtime prerequisites (see the workflow for GUI-test dependencies):
 
 ```sh
@@ -44,8 +48,7 @@ mkdir -p build
 bash tools/ci/setup_pipewire.sh "$PWD/build/ci-audio"
 while IFS= read -r setting; do export "$setting"; done < build/ci-audio/environment
 export PATH="$PWD/build/ci-audio/prefix/bin:$PATH"
-uv run --no-project --python 3.11 python tools/build_linux.py \
-  --python 3.11 --variant linux-x64-vulkan --download-speech
+python tools/build_linux.py --variant linux-x64-vulkan --download-speech
 ```
 
 The application's backend core lists and watches the audio devices through
@@ -71,26 +74,17 @@ does not relax timestamp/discontinuity checks or validate every newer release.
 Alternatively use `--speech-archive /absolute/path/speech-0.11.0-linux-x64-vulkan.zip`;
 the archive and executable hashes are checked against `speechcpp-bundle-artifacts.json`.
 Choose `--variant linux-x64-cpu` with the corresponding CPU archive for CPU builds.
-`--offline` requires uv, npm and Cargo caches to be populated. No engine models or
-reference recordings are fetched. `--backend-only` is a diagnostic mode and produces
-no distributable. `--profile debug` is also diagnostic; normal output is release.
+`--offline` requires the npm and Cargo caches to be populated. No engine models or
+reference recordings are fetched. `--resources-only` stages and inspects `_internal`
+(in `build/linux/internal`) and produces no distributable. `--profile debug` is also
+diagnostic; normal output is release.
 
-The builder uses `uv sync --frozen --no-install-project --group dev --group linux-build`
-with `UV_PROJECT_ENVIRONMENT` set to the dedicated `build/linux/venv` (or the selected
-work directory). uv reads `uv.lock` directly and verifies downloaded index archives
-against its SHA-256 hashes; a mismatch aborts the build. Before invoking uv,
-`tools/check_python_lock.py` checks every locked package: each non-VCS archive must
-have a SHA-256 hash, and each Git source must have matching full 40-character commit
-SHAs in its requested revision and resolved commit. Missing/malformed hashes,
-unpinned Git sources and local path dependencies stop the build, even on a cache hit.
-Only the uninstalled virtual root project is exempt. This uses the uv pinned in
-`mise.toml` and keeps the same project, `dev` and `linux-build` dependency set.
-
-The builder also uses `npm ci --ignore-scripts` and builds Cargo with `--locked` in a copied workspace.
-It does not replace `src-tauri/bin` or reuse its development Python wrapper.
-Hash verification covers the locked distribution archives; Git sources are verified
-by commit rather than archive hashes. Extra dependencies fetched by isolated source
-build backends are outside `uv.lock`. This is **not** a claim of bit-for-bit reproducible builds.
+The builder installs no Python packages. It uses `npm ci --ignore-scripts` and builds
+Cargo with `--locked` in a copied workspace (`build/linux/workspace`), whose
+`src-tauri/bin/_internal` is the staged folder; it does not replace the checkout's
+`src-tauri/bin`. Two backend files under `src-python/models/model_downloads/` are copied
+too, because `native/ops` reads them at compile time. This is **not** a claim of
+bit-for-bit reproducible builds.
 The Rust, Node, Python and uv versions are pinned in `mise.toml`; system libraries and
 actual ELF version requirements remain host dependent.
 The inventory records the build commit, tracked dirty state, host, hashes and ELF versions.
@@ -119,7 +113,7 @@ ELF dependencies. This is a portable directory layout, **not** an AppImage or a
 promise of compatibility with all distributions. A build made on CachyOS may
 require newer glibc than the Ubuntu CI build; consult its manifest.
 
-Frozen Linux settings/logs go to `$XDG_CONFIG_HOME/vrct-vox` (default `~/.config/vrct-vox`),
+Packaged Linux settings/logs go to `$XDG_CONFIG_HOME/vrct-vox` (default `~/.config/vrct-vox`),
 weights and other writable data to `$XDG_DATA_HOME/vrct-vox` (default `~/.local/share/vrct-vox`),
 and caches to `$XDG_CACHE_HOME/vrct-vox` (default `~/.cache/vrct-vox`). Explicit
 `VRCT_CONFIG_DIR`, `VRCT_DATA_DIR`, `VRCT_CACHE_DIR` override those directories.
@@ -129,19 +123,22 @@ Managed audio still needs the explicit PipeWire setup in `local-setup-linux.md`.
 The package carries the template at `_internal/config/pipewire/90-vrct-managed.conf`;
 it does not install it or restart the user's audio service. Owned audio workers
 require Linux >=6.9 (`PIDFD_THREAD`), in addition to a supported PipeWire runtime.
-RVC/Seed-VC inference environments and user models remain external selections.
+User RVC models remain external selections. The Seed-VC adapter and its Python setup files
+are no longer shipped.
 
 ## Acceptance and exclusions
 
 ```sh
 VRCT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
-  uv run --no-project --python build/linux/venv/bin/python python -m pytest \
+  build/dev/headless-venv/bin/python -m pytest \
   -c tests/voice/pytest.ini tests/platform/test_linux_package.py -q
 ```
 
-This extracts to a path containing spaces, makes the installation read-only,
-checks restart/settings persistence, the frozen router and bundled engine entry,
-and verifies installation hashes did not change. For GUI tests also set
+`python tools/dev.py setup --scope headless` prepares that test environment from `uv.lock`
+(pytest and the other test tools; no app dependencies). The test extracts to a path
+containing spaces, makes the installation read-only, checks that no Python backend is
+present and that the bundled engine starts, and verifies installation hashes did not
+change. For GUI tests also set
 `VRCT_TEST_NATIVE_GUI=1` and `VRCT_TEST_DRIVER` to a tauri-driver 2.1.0 executable.
 The shared `NativeWebDriver` launcher passes `VRCT_CONFIG_DIR` explicitly, defaulting
 to its existing `$XDG_CONFIG_HOME/vrct-vox` location and preserving caller overrides.
@@ -162,25 +159,19 @@ contact VRChat, or load inference models.
 The collector and final tree/tar checks reject OCR weights, Mia2026 assets, unsafe
 links, traversal, duplicate paths, special files and uninspectable nested archives.
 These are path/type checks, not a detector for deliberately renamed weights.
-Original licenses and notices are retained. Available Python package notices and
-the environment inventory are in `_internal/licenses/python` and
-`_internal/python-environment.json`; some packages do not supply license text.
-The Rust crates built into `vrct-vox` and `vrct-rvc-worker` are listed with their
+Original licenses and notices are retained. The Rust crates built into `vrct-vox` and `vrct-rvc-worker` are listed with their
 license texts in `_internal/licenses/rust/` (`tools/rust_licenses.py`, which needs
 the Cargo registry sources, so `--offline` builds need them cached). The build
 stops if a crate publishes no license text and has no reviewed entry in
 `licenses/rust/supplements.json`.
-The two Silero v5 VAD ONNX files are shipped as part of the app
-(`models/transcription/silero_vad/`, MIT, notices in `licenses/silero-vad/`); they
-are not speech.cpp/RVC/Seed-VC models. faster-whisper, which used to carry them, is
-no longer a dependency (#288). They remain explicitly subject to the final
-attribution audit. OCR weights are excluded regardless.
+The Silero v5 VAD files and the Python package notices left with the Python backend.
+OCR weights are excluded regardless.
 
 ## Remaining release gates
 
 - The hosted Ubuntu workflow runs for every candidate. Runtime acceptance on clean
   installations of other distributions remains a release gate.
-- All bundled native/Python/Rust/frontend components need a completed license/SBOM
+- All bundled native/Rust/frontend components need a completed license/SBOM
   audit, including GPL/LGPL corresponding-source/relink obligations, and the
   user-requested Trail of Bits Skills security review. Collected notices alone
   are not redistribution clearance.
@@ -191,8 +182,10 @@ attribution audit. OCR weights are excluded regardless.
 
 ## Primary evidence
 
-- [PyInstaller symlink and external-process requirements](https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html)
-  justify tar.gz and restoration of `LD_LIBRARY_PATH` for system tools/external workers.
+- Inside the AppImage the GUI process runs with the bundled library path
+  (`LD_LIBRARY_PATH`) and GTK settings. The launcher keeps the host values in
+  `VRCT_APPIMAGE_HOST_*`; a program the app starts should get them back, as the screen
+  capture helper does (`src-tauri/src/portal_screencast.rs`). See [AppImage](appimage.md#run).
 - [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux) define the
   native WebKitGTK build boundary; [official WebDriver CI](https://v2.tauri.app/develop/tests/webdriver/ci/)
   uses a virtual display on Linux.

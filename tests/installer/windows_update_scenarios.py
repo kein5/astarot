@@ -24,6 +24,9 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_URL = "https://github.com/kein5/VRCT-VOX/releases/download/$release_revision"
 APP = "vrct-vox.exe"
+# Packages up to 0.4 carried the Python sidecar beside the app; from 0.5.0 they do not. The
+# "old" package is such a package: updating it to "new" removes the stale sidecar, while
+# installing a package that has one (a downgrade) keeps it.
 SIDECAR = "vrct-vox-sidecar.exe"
 PACKAGE = "VRCT-VOX.zip"
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VRCT-VOX"
@@ -38,13 +41,15 @@ OWN = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"
 
 
 def payload_files(version):
-    return {
+    files = {
         APP: f"{version} executable stub".encode(),
-        SIDECAR: f"{version} sidecar stub".encode(),
         "_internal/shared.txt": f"{version} dependency".encode(),
         f"_internal/{version}-only.txt": f"{version} only".encode(),
         "_internal/nested/padding.bin": bytes(range(256)) * 2048,
     }
+    if version == "old":
+        files[SIDECAR] = f"{version} sidecar stub".encode()
+    return files
 
 
 def archive_bytes(files):
@@ -191,7 +196,6 @@ def prepare(port):
         f'!define PACKAGE_SHA256_CPU "{released}"\n!define PACKAGE_SHA256_GPU "{released}"\n', encoding="ascii")
     for name, data in {
         "dist/index.html": b"<!doctype html><title>Installer test stub</title>",
-        "src-tauri/bin/vrct-vox-sidecar-x86_64-pc-windows-msvc.exe": b"sidecar build stub",
         "src-tauri/bin/_internal/stub.txt": b"resource build stub",
     }.items():
         path = ROOT / name

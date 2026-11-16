@@ -30,13 +30,9 @@ if [ -n "$missing" ]; then
     echo "$missing" >&2
     exit 1
 fi
-# The bundled speech engine and the frozen backend start.
+# The bundled speech engine starts. The backend runs inside vrct-vox, whose libraries are
+# checked above; starting the GUI needs a display and is left to the AppImage and tar.gz tests.
 /opt/vrct-vox/_internal/build/speechcpp/speech --help > /dev/null
-result=$(HOME=$(mktemp -d) /opt/vrct-vox/vrct-vox-sidecar --self-check 2>&1 | tail -n 1)
-if [ "$result" != "self-check passed" ]; then
-    echo "self-check: $result" >&2
-    exit 1
-fi
 # The installed tree is the package's: removing it leaves nothing behind.
 case "$kind" in
     deb) apt-get remove -y -qq vrct-vox > /dev/null ;;
