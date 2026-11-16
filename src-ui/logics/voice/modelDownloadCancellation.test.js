@@ -177,3 +177,13 @@ test("a model downloaded before a restart says so, and in use only when its file
     const dialog = find(render(), node => node.type === "dialog");
     assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
 });
+
+test("the time of a GPU reading is written in the display language", async t => {
+    const ui = hooks();
+    t.after(() => ui.unmount());
+    const { measuredTime } = await loadCatalog({ render: () => ({}) }, ui);
+    const at = Date.UTC(2026, 0, 10, 16, 5, 9);
+    assert.equal(measuredTime(at, "ja"), new Date(at).toLocaleTimeString("ja"));
+    assert.equal(measuredTime(at, "en"), new Date(at).toLocaleTimeString("en"));
+    assert.doesNotMatch(measuredTime(at, "ja"), /AM|PM/);
+});

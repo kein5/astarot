@@ -15,6 +15,8 @@ import { UserModelCards, UserModelRegistration } from "./UserModels";
 import { USER_MODEL_FILES } from "../../../../../../logics/voice/modelCatalog";
 
 const activePhases = ["queued", "downloading", "verifying", "cancelling"];
+// The time of a reading in the display language, not the system's (\4:19:57 AM\ in a Japanese UI).
+export const measuredTime = (ms, language) => new Date(ms).toLocaleTimeString(language);
 const bytes = value => `${Number(value).toLocaleString("en-US")} bytes (${(value / 1073741824).toFixed(2)} GiB)`;
 // The page lists sizes in GiB; the consent dialog keeps the exact byte counts.
 const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
@@ -42,7 +44,7 @@ const useLanguageList = () => {
 // choice, the refresh action and the measured device. Each engine's
 // ModelDownloads takes the same reserve and reads the same shared hardware.
 export const HardwareReadout = ({ reserve, setReserve }) => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
     const { hardware, send, ensureHardware } = useModelDownloads();
     const [, setNow] = useState(Date.now());
     useEffect(() => { ensureHardware(); }, [hardware.phase, ensureHardware]);
@@ -66,7 +68,7 @@ export const HardwareReadout = ({ reserve, setReserve }) => {
         </div>
         {(reading.device || hardware.measured_at_ms) && <EnvReadout live={false}>
             {reading.device && <p>{reading.device.name}: {reading.device.description} · {t('model_downloads.hardware_free')}: {memory(reading.device.memory_free)} / {t('model_downloads.hardware_total')}: {memory(reading.device.memory_total)}</p>}
-            {hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {new Date(hardware.measured_at_ms).toLocaleTimeString()}</p>}
+            {hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {measuredTime(hardware.measured_at_ms, i18n?.language)}</p>}
             {reading.multiple && <p>{t('model_downloads.multiple_gpus')}</p>}
         </EnvReadout>}
         <details className={styles.more}><summary>{t('model_downloads.memory_boundary_summary')}</summary>
@@ -125,7 +127,7 @@ const WarningNote = ({ warning }) => {
 // The download, verification and apply steps are the same as before; only the choice is laid out
 // as a catalog. Nothing here starts a download or changes a setting by itself.
 export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false }) => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
     const languages = useLanguageList();
     const { catalog, state, hardware, error, pending, send, ensureHardware } = useModelDownloads();
     const [selected, setSelected] = useState(null), [consent, setConsent] = useState(false);
@@ -272,7 +274,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <p>{t(`model_catalog.group_help.${target}`)}</p>
                 {tts && <>
                     {!shared && hint.device && <p>{hint.device.name}: {hint.device.description} · {t('model_downloads.hardware_free')}: {memory(hint.device.memory_free)} / {t('model_downloads.hardware_total')}: {memory(hint.device.memory_total)}</p>}
-                    {!shared && hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {new Date(hardware.measured_at_ms).toLocaleTimeString()}</p>}
+                    {!shared && hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {measuredTime(hardware.measured_at_ms, i18n?.language)}</p>}
                     <p>{t(`model_downloads.advice_${hint.reason}`)}</p>
                     {!shared && hint.multiple && <p>{t('model_downloads.multiple_gpus')}</p>}
                     {hint.recommended && <p><strong>{t('model_downloads.recommended')}</strong>: {matching.find(entry => entry.id === hint.recommended)?.name}</p>}
