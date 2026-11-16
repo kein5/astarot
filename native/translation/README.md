@@ -29,7 +29,14 @@ Google、Bing、Papago の Web 翻訳は、上流のライセンスにより VRC
 
 ## 読み（transliteration）
 
-形態素解析の辞書はまだ決めていません（`docs/voice-stack/core-integration.md` の「判断が要ること」）。解析器は `transliteration::Tokenizer` として外から渡します。辞書が決まるまで、中核は `NoDictionary` を使い、読みは出しません。解析のあとの処理（読みの分け方、文脈の規則、ひらがなとヘボン式）は Python と同じ結果を返します。
+形態素解析は Python と同じく Sudachi で、分割モード C を使います。Python の SudachiPy の中身にあたる sudachi.rs（Apache-2.0）を、機能 `sudachi` の `transliteration::sudachi` で使います。中核はこの機能を有効にします。プロバイダだけを使うクレート（`native/transcription`）は無効のままです。
+
+- sudachi.rs は crates.io にないので、git の依存としてタグ v0.6.11 のコミットに固定しています。0.6 の系列は SudachiDict 20250825 の形式（V0）を読みます。0.7 は新しい形式（V1）だけを読むので、上げるときは辞書も一緒に替えます。
+- 辞書は `system.dic`（SudachiDict）をファイルのまま読み、メモリーに写像します（`Sudachi::open`）。設定（`sudachi.json`）と文字の定義（`char.def` など）は sudachi.rs に組み込まれたものを使います。SudachiPy が同梱していたものと同じです。
+- `SudachiFile` は最初の文で辞書を開きます。ファイルがない、または読めない（途中で切れたファイルを含む）ときは `Unavailable` を返し、`unavailable_reason` が理由（ファイルの場所だけで、文章は入りません）を返します。アプリをもう一度起動するまで開き直しません。
+- どの辞書（full、core、small）を配布物に入れるかは `docs/voice-stack/core-integration.md` の「判断が要ること」の 3 です。辞書は `tools/sudachi_dictionary.py` が公式の配布から固定の版で取得し、大きさと SHA-256 を確かめます。
+
+解析のあとの処理（読みの分け方、文脈の規則、ひらがなとヘボン式）は Python と同じ結果を返します。152 文で SudachiPy の出力と比べ、SudachiDict full ではすべて一致しました（計測は `core-integration.md`）。
 
 ## ログとデータ
 
@@ -42,3 +49,5 @@ cargo test --locked --manifest-path native/translation/Cargo.toml
 ```
 
 `tests/providers.rs` は、ループバックに立てた偽のプロバイダ（機能 `fake-server` の `fake::FakeProviders`）を相手に、キーの確認、モデルの一覧、翻訳、失敗と再試行を確かめます。外のネットワークには出ません。
+
+`tests/sudachi.rs` は、sudachi.rs の辞書の作成機能で数語の辞書をその場で作り、Sudachi の解析から読みまでを確かめます。ない辞書と壊れた辞書も確かめます。SudachiDict は取得しません。ビルドでは sudachi.rs を GitHub から取得します（C の依存はありません）。

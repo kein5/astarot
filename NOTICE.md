@@ -181,7 +181,12 @@ The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
 Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,
 `selectors` and `dwrote`, under the Mozilla Public License 2.0. VRCT-VOX does
 not modify them. The source code of every listed crate, these included, is on
-crates.io at the version listed (`https://crates.io/crates/<crate>/<version>`).
+crates.io at the version listed (`https://crates.io/crates/<crate>/<version>`),
+except `sudachi` (sudachi.rs, Apache-2.0, Works Applications), which is taken
+from its GitHub repository at the commit of the tag v0.6.11
+(`https://github.com/WorksApplications/sudachi.rs`). It embeds the
+repository's settings and character definitions (`resources/`) under the same
+license.
 
 The application checks TLS certificates against Mozilla's root CA
 certificates in the `webpki-roots` crate. That data is derived from the
@@ -195,6 +200,19 @@ A few crates publish no license text in their package. For those, the texts
 come from the crate's own repository or from the license's canonical text, as
 recorded with their sources in
 [`licenses/rust/supplements.json`](licenses/rust/supplements.json).
+
+## SudachiDict (hiragana and romaji readings)
+
+The readings shown with messages come from Sudachi (sudachi.rs, above) and a
+SudachiDict system dictionary by Works Applications / the WAP Tokushima
+Laboratory of AI and NLP, licensed under the Apache License 2.0. Parts of the
+dictionary come from UniDic (Copyright (c) 2011-2013, The UniDic Consortium,
+BSD-3-Clause) and from mecab-unidic-NEologd (Toshinori Sato, Apache-2.0). When
+a build includes the dictionary, it is in `_internal/build/sudachi/` with the
+distribution's `LEGAL` and `LICENSE-2.0.txt`, which carry these notices.
+`tools/sudachi_dictionary.py` fetches it from the official release at a pinned
+version, size and SHA-256. Which edition (full, core or small) builds include
+is still open (`docs/voice-stack/core-integration.md`, item 3).
 
 ## RVC base models
 

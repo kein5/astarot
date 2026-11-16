@@ -23,8 +23,27 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::Instant;
+use vrct_translation::transliteration::Tokenizer;
+
+// ------------------------------------------------------------------------- readings
+
+/// The analyzer of the readings for the settings' environment.
+pub type ReadingsSource = Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn Tokenizer> + Send + Sync>;
+
+/// The SudachiDict system dictionary inside the shipped files (decision 3 in
+/// `docs/voice-stack/core-integration.md`).
+pub const READINGS_DICTIONARY: &str = "build/sudachi/system.dic";
+
+/// Sudachi with the dictionary shipped beside the app, opened on the first message that asks
+/// for readings. Without it messages go out without readings.
+pub fn shipped_readings(env: &crate::config::Environment) -> Arc<dyn Tokenizer> {
+    Arc::new(vrct_translation::transliteration::sudachi::SudachiFile::new(crate::resources::locate(
+        &env.app_dir,
+        READINGS_DICTIONARY,
+    )))
+}
 
 // ------------------------------------------------------------------------- directions
 
@@ -340,6 +359,7 @@ pub(crate) struct Messages {
     chatbox: Mutex<ChatboxOrder>,
     previous_sent: Mutex<Option<String>>,
     previous_received: Mutex<Option<String>>,
+    readings: OnceLock<Arc<dyn Tokenizer>>,
     no_readings_noted: AtomicBool,
 }
 
@@ -923,15 +943,23 @@ impl Core {
         })
     }
 
-    /// The readings of a text (`convertMessageToTransliteration`). Until a dictionary is
-    /// chosen there are none: the message goes out without them.
+    /// The readings of a text (`convertMessageToTransliteration`). Without the dictionary there
+    /// are none: the message goes out without them (Python failed the whole message).
     fn readings(&self, text: &str, snapshot: &Snapshot) -> Value {
-        let tokenizer = self.services().transliteration.clone();
+        if !snapshot.hiragana && !snapshot.romaji {
+            return Value::Array(Vec::new());
+        }
+        let tokenizer = self
+            .messages()
+            .readings
+            .get_or_init(|| (self.services().transliteration)(self.config().environment()))
+            .clone();
         match vrct_translation::transliteration::convert(tokenizer.as_ref(), text, snapshot.hiragana, snapshot.romaji) {
             Ok(readings) => Value::Array(readings),
             Err(_) => {
                 if !self.messages().no_readings_noted.swap(true, Ordering::SeqCst) {
-                    self.step("Transliteration: no dictionary; messages go out without readings");
+                    let reason = tokenizer.unavailable_reason().map(|r| format!(" ({r})")).unwrap_or_default();
+                    self.step(&format!("Transliteration: no dictionary{reason}; messages go out without readings"));
                 }
                 Value::Array(Vec::new())
             }

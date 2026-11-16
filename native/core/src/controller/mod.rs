@@ -181,8 +181,10 @@ pub struct Services {
     pub translation_endpoints: vrct_translation::providers::Endpoints,
     /// The local translation model ([`translation::default_local_translation`]).
     pub local_translation: translation::LocalTranslationSource,
-    /// The morphological analyzer of the readings; none until a dictionary is chosen.
-    pub transliteration: Arc<dyn vrct_translation::transliteration::Tokenizer>,
+    /// The morphological analyzer of the readings for the settings' environment, made on the
+    /// first message: Sudachi with the dictionary shipped beside the app
+    /// ([`messages::shipped_readings`]). Tests give fixed morphemes.
+    pub transliteration: messages::ReadingsSource,
     /// Copies (and pastes into VRChat when it can) a recognised message.
     pub clipboard: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// The PC's audio devices (`native/audio-routing`): the lists the device manager watches,
@@ -230,7 +232,7 @@ impl Default for Services {
             translation_transport: vrct_translation::http::direct(),
             translation_endpoints: vrct_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
-            transliteration: Arc::new(vrct_translation::transliteration::NoDictionary),
+            transliteration: Arc::new(messages::shipped_readings),
             clipboard: Arc::new(default_clipboard),
             audio: Arc::new(vrct_audio_routing::platform::NativePlatform),
             vr: Arc::new(vrct_vr_overlay::openvr::OpenVr::new(Vec::new())),

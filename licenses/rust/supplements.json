@@ -67,6 +67,13 @@
       },
       "note": "servo/stylo has no license file at the published commit (572ecba2d1600e7c3d490586692a209faf703baa); its source files carry the MPL-2.0 header. The text is Mozilla's canonical MPL-2.0. Source: https://crates.io/crates/selectors/0.38.0"
     },
+    "sudachi-0.6.11": {
+      "license": "Apache-2.0",
+      "files": {
+        "LICENSE": "https://github.com/WorksApplications/sudachi.rs/blob/90fd6068c80c2fc3b63e0dbab0e341475bad4d8f/LICENSE"
+      },
+      "note": "Not on crates.io: a git dependency on the tag v0.6.11 (the commit above). The license file sits at the repository root, outside the sudachi/ package folder; the repository has no NOTICE file. The package embeds the repository's resources/ (sudachi.json, char.def, unk.def, rewrite.def) under the same license."
+    },
     "webview2-com-0.39.1": {
       "license": "MIT",
       "files": {
