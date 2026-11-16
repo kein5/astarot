@@ -10,7 +10,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（429件: 削除 11、取得 193、実行 39、有効化 40、無効化 42、設定 104）
+## 要求（433件: 削除 11、取得 194、実行 42、有効化 40、無効化 42、設定 104）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -339,6 +339,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/start_model_download` | 実行 | `startModelDownload` | 可 | useModelDownloads.acknowledge |  |
 | `/run/cancel_model_download` | 実行 | `cancelModelDownload` | 可 | useModelDownloads.acknowledge |  |
 | `/run/apply_model_download` | 実行 | `applyModelDownload` | 可 | useModelDownloads.acknowledge |  |
+| `/get/data/user_models` | 取得 | `getUserModels` | 可 | useModelDownloads.updateUserModels | ログで伏せる |
+| `/run/register_user_model` | 実行 | `registerUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
+| `/run/remove_user_model` | 実行 | `removeUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
+| `/run/apply_user_model` | 実行 | `applyUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
 | `/get/data/vc_runtime_catalog` | 取得 | `getVcRuntimeCatalog` | 可 | useVcRuntimes.updateCatalog |  |
 | `/get/data/vc_runtime_state` | 取得 | `getVcRuntimeState` | 可 | useVcRuntimes.updateState |  |
 | `/run/start_vc_runtime_setup` | 実行 | `startVcRuntimeSetup` | 可 | useVcRuntimes.acknowledge |  |
