@@ -380,7 +380,7 @@ main_page:
     language_selector:
         title_your_language: "あなたの言語"
         title_target_language: "相手の言語"
-        filter: "言語を絞り込む"
+        filter: "言語名やコード（ja、en）で絞り込む"
         no_results: "一致する言語がありません"
 
     update_available: "新しいバージョンが出ました！"

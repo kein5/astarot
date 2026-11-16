@@ -75,11 +75,38 @@ export function createLanguageNames(uiLanguage?: string | null, intl: typeof Int
         return normalize([localized.label, localized.language, localized.country,
             entry?.language, entry?.country, `${entry?.language ?? ""} (${entry?.country ?? ""})`].join(" "));
     };
+    // The tags a language code can name: the stored tag and its canonical form, in lower
+    // case. The stored tags are the speech engine's, so Chinese is cmn-Hans-CN and Hebrew
+    // iw-IL; their canonical forms zh-Hans-CN and he-IL are what people type.
+    const tagsFor = (entry: LanguageEntry | null | undefined): string[] => {
+        const code = codeFor(entry);
+        if (!code) return [];
+        let canonical: string | undefined;
+        try { canonical = intl.getCanonicalLocales(code)[0]; }
+        catch { /* A tag Intl does not accept is still matched as it is stored. */ }
+        return [...new Set([code, canonical].filter((tag): tag is string => !!tag).map(tag => tag.toLowerCase()))];
+    };
+    // A code names a whole tag or its leading subtags: "ja", "zh-hant", "en-us" (or "en_us").
+    // Only the whole query counts, so "ja" does not also need to be a part of a name.
+    const matchesCode = (entry: LanguageEntry | null | undefined, query: unknown) => {
+        const code = normalize(query).replace(/_/g, "-");
+        if (!/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/.test(code)) return false;
+        return tagsFor(entry).some(tag => tag === code || tag.startsWith(`${code}-`));
+    };
     const matches = (entry: LanguageEntry | null | undefined, query: unknown) => {
+        if (matchesCode(entry, query)) return true;
         const text = searchText(entry);
         return normalize(query).split(/\s+/).every(word => text.includes(word));
     };
     const sorted = <T extends LanguageEntry | null | undefined>(entries: Iterable<T>): T[] => [...entries].sort((a, b) => collator?.compare(name(a).label, name(b).label) ?? 0);
+    // The list a language picker shows for a query, in name order, except that the languages
+    // whose code the query is come first: "ja" lists Japanese before Azerbaijani, whose name
+    // also contains "ja", so Enter picks Japanese.
+    const search = <T extends LanguageEntry | null | undefined>(entries: Iterable<T>, query: unknown): T[] => {
+        const shown = sorted(entries).filter(entry => matches(entry, query));
+        const named = shown.filter(entry => matchesCode(entry, query));
+        return named.length ? [...named, ...shown.filter(entry => !named.includes(entry))] : shown;
+    };
     // Settings with a language-only English identity (OCR), including legacy selections.
     const language = (english: string | null | undefined) => {
         const code = Object.values(languageCodes[english as string] ?? {})[0];
@@ -100,7 +127,7 @@ export function createLanguageNames(uiLanguage?: string | null, intl: typeof Int
         // Keep autonyms so users can recover from choosing an unfamiliar UI language.
         return { ...option, label: label === option.label ? label : `${label} / ${option.label}` };
     });
-    return { name, matches, searchText, sorted, language, fromCode, uiOptions };
+    return { name, matches, matchesCode, searchText, sorted, search, language, fromCode, uiOptions };
 }
 
 // Enter while an IME is committing Japanese text must not select a language.
