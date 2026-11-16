@@ -173,6 +173,66 @@ fn redact_url(url: &str) -> String {
     out
 }
 
+/// The forms of the user's home folder as they appear in paths (`C:\Users\name`, and with `/`),
+/// from `USERPROFILE` on Windows and `HOME` elsewhere. Empty when it is unknown or too short to
+/// replace safely (`/`).
+pub fn home_prefixes() -> Vec<String> {
+    let variable = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+    let Some(home) = std::env::var_os(variable).map(|h| h.to_string_lossy().trim_end_matches(['/', '\\']).to_string()) else {
+        return Vec::new();
+    };
+    if home.chars().filter(|c| !matches!(c, '/' | '\\')).count() < 2 {
+        return Vec::new();
+    }
+    let mut forms = vec![home.clone()];
+    let slashed = home.replace('\\', "/");
+    if slashed != home {
+        forms.push(slashed);
+    }
+    forms
+}
+
+/// Every string of a value with the home folder written `~`: the folder's name is the user's
+/// name on the OS, which a log attached to a bug report must not carry.
+pub fn redact_home(value: &Value, homes: &[String]) -> Value {
+    if homes.is_empty() {
+        return value.clone();
+    }
+    match value {
+        Value::Object(object) => Value::Object(object.iter().map(|(k, v)| (k.clone(), redact_home(v, homes))).collect()),
+        Value::Array(items) => Value::Array(items.iter().map(|v| redact_home(v, homes)).collect()),
+        Value::String(text) => Value::String(redact_home_in(text, homes)),
+        _ => value.clone(),
+    }
+}
+
+/// `text` with each home folder that starts a path (followed by a separator, a quote or the end)
+/// written `~`. Windows paths are matched without regard to ASCII case.
+pub fn redact_home_in(text: &str, homes: &[String]) -> String {
+    let mut out = text.to_string();
+    for home in homes {
+        out = replace_path_prefix(&out, home);
+    }
+    out
+}
+
+fn replace_path_prefix(text: &str, home: &str) -> String {
+    let fold = |s: &str| if cfg!(windows) { s.to_ascii_lowercase() } else { s.to_string() };
+    let (haystack, needle) = (fold(text), fold(home));
+    let mut out = String::with_capacity(text.len());
+    let mut index = 0;
+    while let Some(offset) = haystack[index..].find(&needle) {
+        let begin = index + offset;
+        let end = begin + needle.len();
+        let boundary = text[end..].chars().next().is_none_or(|c| matches!(c, '/' | '\\' | '"' | '\'' | ' ' | ';' | ','));
+        out.push_str(&text[index..begin]);
+        out.push_str(if boundary { "~" } else { &text[begin..end] });
+        index = end;
+    }
+    out.push_str(&text[index..]);
+    out
+}
+
 /// The shape of a value without its contents, for an answer that could not be written.
 pub fn shape_of(value: &Value, depth: usize) -> Value {
     if depth >= 4 {
@@ -242,6 +302,8 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
 pub struct Log {
     process: Mutex<LogFile>,
     error: Mutex<LogFile>,
+    /// The home folder's forms, written `~` ([`redact_home`]).
+    homes: Vec<String>,
 }
 
 impl Log {
@@ -260,6 +322,7 @@ impl Log {
         Self {
             process: Mutex::new(LogFile { path: process, file: None }),
             error: Mutex::new(LogFile { path: directory.join("error.log"), file: None }),
+            homes: home_prefixes(),
         }
     }
 
@@ -268,7 +331,15 @@ impl Log {
         Self {
             process: Mutex::new(LogFile { path: PathBuf::new(), file: None }),
             error: Mutex::new(LogFile { path: PathBuf::new(), file: None }),
+            homes: Vec::new(),
         }
+    }
+
+    /// Writes `home` as `~` instead of the user's home folder (tests).
+    pub fn with_home(mut self, home: &str) -> Self {
+        self.homes = vec![home.to_string(), home.replace('\\', "/")];
+        self.homes.dedup();
+        self
     }
 
     fn enabled(file: &LogFile) -> bool {
@@ -284,8 +355,8 @@ impl Log {
         }
         let mut record = Map::new();
         record.insert("status".into(), 348.into());
-        record.insert("log".into(), Value::String(redact_urls_in(label)));
-        record.insert("data".into(), redact_urls(&logged));
+        record.insert("log".into(), Value::String(redact_home_in(&redact_urls_in(label), &self.homes)));
+        record.insert("data".into(), redact_home(&redact_urls(&logged), &self.homes));
         let mut file = self.process.lock().unwrap();
         if Self::enabled(&file) {
             file.write("INFO", "process", &Value::Object(record).to_string());
@@ -305,7 +376,7 @@ impl Log {
         let mut record = Map::new();
         record.insert("status".into(), status.into());
         record.insert("endpoint".into(), endpoint.map_or(Value::Null, |e| Value::String(e.into())));
-        record.insert("result".into(), redact_urls(&logged));
+        record.insert("result".into(), redact_home(&redact_urls(&logged), &self.homes));
         let mut file = self.process.lock().unwrap();
         if Self::enabled(&file) {
             file.write("INFO", "process", &Value::Object(record).to_string());
@@ -316,7 +387,46 @@ impl Log {
     pub fn error(&self, what: &str) {
         let mut file = self.error.lock().unwrap();
         if Self::enabled(&file) {
-            file.write("ERROR", "error", &redact_urls_in(what));
+            file.write("ERROR", "error", &redact_home_in(&redact_urls_in(what), &self.homes));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn the_home_folder_is_written_as_a_tilde_in_paths_only() {
+        let homes = vec![r"C:\Users\Taro".to_string(), "C:/Users/Taro".to_string()];
+        assert_eq!(redact_home_in(r"C:\Users\Taro\AppData\Local\VRCT-VOX\translation-models", &homes), r"~\AppData\Local\VRCT-VOX\translation-models");
+        assert_eq!(redact_home_in("C:/Users/Taro/certs/key.pem", &homes), "~/certs/key.pem");
+        assert_eq!(redact_home_in(r"\\?\C:\Users\Taro\config.json", &homes), r"\\?\~\config.json");
+        assert_eq!(redact_home_in(r"C:\Users\Taro", &homes), "~");
+        // Another user whose name starts the same keeps the path.
+        assert_eq!(redact_home_in(r"C:\Users\Taro2\file", &homes), r"C:\Users\Taro2\file");
+        if cfg!(windows) {
+            assert_eq!(redact_home_in(r"c:\users\taro\file", &homes), r"~\file");
+        }
+        let value = json!({ "backup": r"C:\Users\Taro\config.json.broken", "list": ["C:/Users/Taro/a"], "n": 1 });
+        assert_eq!(redact_home(&value, &homes), json!({ "backup": r"~\config.json.broken", "list": ["~/a"], "n": 1 }));
+        assert_eq!(redact_home(&value, &[]), value);
+    }
+
+    #[test]
+    fn steps_answers_and_errors_leave_the_home_folder_out_of_the_files() {
+        let dir = std::env::temp_dir().join(format!("vrct-log-test-{}", std::process::id()));
+        let home = "/home/taro";
+        let log = Log::new(&dir).with_home(home);
+        log.step("Loaded /home/taro/.config/vrct-vox", Some(&json!({ "path": "/home/taro/.config/vrct-vox/config.json" })));
+        log.response(200, Some("/get/data/model_download_catalog"), &json!({ "translation_models_folder": "/home/taro/.local/share/vrct-vox/translation-models" }));
+        log.response(200, Some("/run/config_file_unreadable"), &json!({ "backup": "/home/taro/.config/vrct-vox/config.json.unreadable" }));
+        log.error("could not open /home/taro/cert.pem");
+        let process = std::fs::read_to_string(dir.join("process.log")).unwrap();
+        let errors = std::fs::read_to_string(dir.join("error.log")).unwrap();
+        assert!(!process.contains("taro") && !errors.contains("taro"), "{process}\n{errors}");
+        assert!(process.contains("~/.local/share/vrct-vox/translation-models"), "{process}");
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
