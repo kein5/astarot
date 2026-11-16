@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { actionFor, companionStatus, edgeAction, FEATURES, panelState, runAction } from "./status.ts";
+import { actionFor, companionStatus, edgeAction, FEATURES, panelState, runAction, SWITCH_IDS } from "./status.ts";
 
 const t = key => `t:${key}`;
 const off = { on: false, pending: false };
@@ -59,6 +59,13 @@ test("each of the six switches has its action, and only those run", () => {
     // The main page has not rendered its voice switches yet: nothing runs.
     assert.equal(runAction("toggle_tts", { ...toggles, toggleTts: null }), false);
     assert.deepEqual(calls, [...FEATURES]);
+    // A switch the main window holds off is refused before its toggle runs.
+    const asked = [];
+    assert.equal(runAction("toggle_ocr", { ...toggles, refuse: feature => { asked.push(feature); return true; } }), false);
+    assert.equal(runAction("toggle_mic", { ...toggles, refuse: () => false }), true);
+    assert.deepEqual(asked, ["ocr"]);
+    assert.deepEqual(calls, [...FEATURES, "mic"]);
+    assert.deepEqual(Object.keys(SWITCH_IDS).sort(), [...FEATURES].sort());
 });
 
 test("the hexagram's common settings may ask for one of the four edges, and nothing else", () => {
