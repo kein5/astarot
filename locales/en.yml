@@ -5,8 +5,8 @@
 
 vrchat_presence:
     checking: "Looking for VRChat…"
-    found: "A VRChat with OSC enabled was found on this PC."
-    not_found: "No VRChat with OSC enabled was found on this PC."
+    found: "A VRChat with OSC enabled was found on your PC."
+    not_found: "No VRChat with OSC enabled was found on your PC."
     not_found_hint: "Start VRChat, then open its Action Menu and set Options → OSC to Enabled."
     unknown: "VRChat cannot be checked: the destination is another machine, or OSC receiving has not started."
     sending_off: "Sending messages to VRChat is off."
@@ -249,7 +249,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} was not downloaded. Review its license and size in Settings > Translation or Speech recognition (ASR) and agree before downloading. If the model version changed, review it again."
     OVERLAY_RUNTIME_FAILED: "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then turn the overlay on again."
     OVERLAY_VR_PANEL_UNSUPPORTED: "The VR UI is not available in this environment. Subtitle overlays are not affected."
-    OVERLAY_FONT_NOT_FOUND: "That font is not installed on this PC. The subtitles keep the font they had."
+    OVERLAY_FONT_NOT_FOUND: "That font is not installed on your PC. The subtitles keep the font they had."
     MESSAGE_OUTPUT_FAILED: "The message could not be sent to {{output}}. It was sent to the other outputs. If you resend it, those outputs may receive it twice."
     TRANSLATION_VRAM_ENABLE: "Not enough GPU memory to start AI translation. Choose CPU as the device under Settings → Translation, or close other GPU apps."
     TRANSLATION_VRAM_CHAT: "Not enough GPU memory to translate your typed message. Choose CPU as the device under Settings → Translation, or close other GPU apps."
@@ -332,7 +332,7 @@ common_warning:
     startup_degraded: "Some settings could not be loaded. ASTAROT has started with default values for those settings. Check them before use. If this continues, restart ASTAROT."
     translation_device_fallback: "Translation is on, but {{device}} could not be used, so the translation model runs on the CPU. Translating may be slower. To use the GPU, check the device in Settings > Translation."
     config_file_unreadable: "config.json could not be read, so ASTAROT started with default settings. The old file was kept as {{file}}."
-    osc_query_remote: "{{sync}} is not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on this PC."
+    osc_query_remote: "{{sync}} is not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
     osc_query_remote_mic_stopped: "Messages go to another machine, so VRChat's mute state cannot be checked. {{sync}} was turned off and {{microphone}} was stopped. Turn {{microphone}} back on when you need it."
     osc_query_failed: "OSC reception could not start, so {{sync}} is not available. Check the OSC settings under Settings → {{settings}} and save them again."
     osc_query_failed_mic_stopped: "OSC reception could not start, so VRChat's mute state cannot be checked. {{sync}} was turned off and {{microphone}} was stopped. Check the OSC settings under Settings → {{settings}} and save them again, then turn {{microphone}} back on."
@@ -488,7 +488,7 @@ config_page:
             type_template_high: "{{type_name}} (Higher accuracy, slower processing)"
         warning_labels:
             unable_to_use_osc_query: "OSC reception or OSCQuery advertisement is not ready. Check the local OSC settings and save them again."
-            unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on this PC."
+            unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
 
     side_menu_labels:
         vrchat: "VRChat"
@@ -660,7 +660,7 @@ config_page:
             label: "Check Ollama Connection"
         ollama_url:
             label: "Ollama URL"
-            desc: "Ollama on this PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
+            desc: "Ollama on your PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
         select_ollama_model:
             label: "Select Ollama Model"
             connection_required: "Ollama Connection Required"
@@ -703,7 +703,7 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription Engine Used For Speech Recognition"
-            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on this PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
+            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
             engines:
                 speechcpp: "Local (speech.cpp)"
                 groq_whisper: "Groq Whisper"
@@ -810,10 +810,10 @@ config_page:
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
         overlay_font_family:
             label: "Subtitle font"
-            desc: "The font of the subtitle overlays, chosen from the fonts on this PC. Characters it does not have use this PC's usual font for their language."
-            auto: "Automatic (this PC's usual fonts)"
+            desc: "The font of the subtitle overlays, chosen from the fonts on your PC. Characters it does not have use the usual font for their language."
+            auto: "Automatic (the system's usual fonts)"
             not_installed: "{{name}} (not installed)"
-            missing: "No font on this PC can show {{languages}}. Those characters are left out of the subtitles. Install a font for them, such as Noto Sans CJK, then restart the app."
+            missing: "No installed font can show {{languages}}. Those characters are left out of the subtitles. Install a font for them, such as Noto Sans CJK, then restart the app."
 
     others:
         section_label_message_formats: "Message Formats"
@@ -1031,7 +1031,7 @@ config_page:
         section_label_telemetry: "Usage data"
         telemetry:
             label: "Send usage data"
-            desc: "Sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and this PC's hardware (CPU, memory, GPUs and their driver versions). The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from. The same thing is sent once a day at most."
+            desc: "Sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and your PC's hardware (CPU, memory, GPUs and their driver versions). The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from. The same thing is sent once a day at most."
         osc_ip_address:
             label: "OSC IP Address"
         osc_port:
@@ -1043,7 +1043,7 @@ config_page:
             locked_by_obs_browser_source: "Disable OBS Browser Source to change this"
         websocket_host:
             label: "WebSocket Host (IPv4)"
-            desc: "With 127.0.0.1 it works on this PC only. To use it from other PCs, enter this PC's LAN IP address, after setting the certificate and key below."
+            desc: "With 127.0.0.1 it works on your PC only. To use it from other PCs, enter your PC's LAN IP address, after setting the certificate and key below."
         websocket_tls_cert_file:
             label: "Certificate file"
             desc: "Needed only for use from other PCs: the path to a PEM certificate. Traffic to other PCs is then encrypted (wss://, https://). The PCs and OBS that connect must trust this certificate."
@@ -1328,7 +1328,7 @@ speech_servers:
     device_help: "Auto and GPU use a dedicated GPU before integrated graphics, and of several dedicated GPUs the one with the most memory, for AMD, Intel and NVIDIA alike. You can choose one here. Running this on the GPU that RVC uses can make RVC stop more easily."
     cpu_build_separate: "CPU runs a CPU-only build of speech.cpp that needs no Vulkan. Auto also uses it when no GPU can be used."
     cpu_build_shared: "CPU runs the same speech.cpp on the processor. It still needs the Vulkan library of your GPU driver (vulkan-1.dll)."
-    gpu_build_unavailable: "The GPU build of speech.cpp does not start on this PC. The Vulkan loader (libvulkan.so.1) may be missing. Auto and CPU still work on the CPU build. To use a GPU, install the Vulkan loader package (libvulkan1 or vulkan-loader) and your GPU's Vulkan driver, then open this page again."
+    gpu_build_unavailable: "The GPU build of speech.cpp does not start. The Vulkan loader (libvulkan.so.1) may be missing. Auto and CPU still work on the CPU build. To use a GPU, install the Vulkan loader package (libvulkan1 or vulkan-loader) and your GPU's Vulkan driver, then open this page again."
     low_latency: "Low-latency standby (Irodori GPU)"
     low_latency_help: "While the server runs, it keeps the GPU warm with silent requests, even with TTS off, so the first speech starts sooner. Uses more power and may compete with games. Stop the server before changing this. Latency is not guaranteed."
     low_latency_warming: "Preparing low-latency standby"
@@ -1355,7 +1355,7 @@ speech_servers:
     multilingual_selection: "Other languages server"
     asr_selection: "ASR server"
     notices:
-        speech_server_cpu_fallback: "Running on the CPU: the GPU build of speech.cpp did not start on this PC, so Auto uses the CPU build. To use a GPU, install the Vulkan loader (libvulkan.so.1) and start the server again."
+        speech_server_cpu_fallback: "Running on the CPU: the GPU build of speech.cpp did not start, so Auto uses the CPU build. To use a GPU, install the Vulkan loader (libvulkan.so.1) and start the server again."
     errors:
         speech_bundle_missing_or_invalid: "The bundled speech.cpp is missing or fails its check. Reinstall ASTAROT; in a development checkout, provide build/speechcpp."
         speech_server_launch_failed: "The server could not be started. Check the model files and the inference device, then start it again."
@@ -1435,7 +1435,7 @@ voice_ui:
         description: "Install and start an engine such as VOICEVOX yourself, and Japanese is read in its voices. The app does not install or start the engine."
         speechcpp: "AI voice (speech.cpp, comes with the app)"
         url: "Engine URL"
-        url_hint: "Where the engine runs on this PC. The engine's default usually works."
+        url_hint: "Where the engine runs on your PC. The engine's default usually works."
         recheck: "Check again"
         checking: "Checking the engine…"
         connected: "Connected ({{engine}} {{version}})"
@@ -1563,7 +1563,7 @@ voice_ui:
         tts_engine_voice_missing: "The engine no longer has the chosen voice. Choose a voice again under Settings → \"Text to speech (TTS)\" and save."
         tts_engine_query_failed: "The engine did not accept the text. Restart the engine and send again."
         tts_engine_synthesis_failed: "The engine could not make the voice. Restart the engine and send again."
-        tts_engine_url_invalid: "Enter the engine URL on this PC, in the form http://127.0.0.1:PORT."
+        tts_engine_url_invalid: "Enter the engine URL in the form http://127.0.0.1:PORT."
         VOICE_SETTINGS_INVALID: "The speech settings could not be saved. Choose an output and the server to use, then save."
         voice_request_failed: "The speech request could not be finished. Try again."
         audio_devices_unavailable: "The audio devices could not be listed. Wait a moment and try again."
@@ -1635,10 +1635,10 @@ voice_setup_errors:
 
 vc_runtime:
     title: "{{name}} runtime"
-    help_rvc: "ONNX Runtime, NVIDIA's CUDA and cuDNN libraries (CUDA 13) and the base models (HuBERT and RMVPE) used for conversion. Converting on the GPU needs NVIDIA driver 580 or later. Review what it contains, then fetch it to this PC."
-    help_rvc_cpu: "ONNX Runtime (CPU build) and the base models (HuBERT and RMVPE) used for conversion. Review what it contains, then fetch it to this PC."
+    help_rvc: "ONNX Runtime, NVIDIA's CUDA and cuDNN libraries (CUDA 13) and the base models (HuBERT and RMVPE) used for conversion. Converting on the GPU needs NVIDIA driver 580 or later. Review what it contains, then fetch it."
+    help_rvc_cpu: "ONNX Runtime (CPU build) and the base models (HuBERT and RMVPE) used for conversion. Review what it contains, then fetch it."
     cpu_only: "No NVIDIA driver was found, so this fetches the runtime that converts on the CPU. On the CPU the converted voice comes about 1.3 s after your voice."
-    help_seed: "The Python environment and engine used for conversion. It needs an NVIDIA GPU. Review what it contains, then fetch it to this PC."
+    help_seed: "The Python environment and engine used for conversion. It needs an NVIDIA GPU. Review what it contains, then fetch it."
     outdated: "The runtime in this folder is of an earlier kind and can no longer be used. Review the download and set it up again."
     size: "Download about {{download}} · Free space needed about {{disk}}"
     gpu_missing: "No NVIDIA driver was found. This runtime only works with an NVIDIA GPU."
@@ -1649,9 +1649,9 @@ vc_runtime:
     cancel: "Stop"
     progress: "Runtime setup progress"
     warning_title: "Runtime download and license terms"
-    notice_rvc: "This fetches ONNX Runtime (CUDA 13 build), NVIDIA's CUDA 13 and cuDNN libraries, HuBERT and RMVPE. ONNX Runtime is MIT, and the provider of HuBERT and RMVPE lists MIT. The CUDA and cuDNN libraries are under NVIDIA's license. Converting on the GPU needs NVIDIA driver 580 or later. None of this is part of the ASTAROT distribution: it comes straight from its providers to this PC. The conversion itself is part of ASTAROT. If files of the earlier kind of runtime are in the same folder, they are deleted once this finishes."
-    notice_rvc_cpu: "This fetches ONNX Runtime (CPU build), HuBERT and RMVPE. ONNX Runtime is MIT, and the provider of HuBERT and RMVPE lists MIT. None of this is part of the ASTAROT distribution: it comes straight from its providers to this PC. The conversion itself is part of ASTAROT. If files of the earlier kind of runtime are in the same folder, they are deleted once this finishes."
-    notice_seed: "This fetches Python 3.11, PyTorch (CUDA build), the Seed-VC engine and five models. The Seed-VC engine and model are GPL-3.0, the other models are Apache-2.0, and PyTorch is BSD-3-Clause. The CUDA build of PyTorch contains NVIDIA libraries under NVIDIA's license. None of this is part of the ASTAROT distribution: it comes straight from its providers to this PC. This engine is experimental, and some PCs cannot run it in real time."
+    notice_rvc: "This fetches ONNX Runtime (CUDA 13 build), NVIDIA's CUDA 13 and cuDNN libraries, HuBERT and RMVPE. ONNX Runtime is MIT, and the provider of HuBERT and RMVPE lists MIT. The CUDA and cuDNN libraries are under NVIDIA's license. Converting on the GPU needs NVIDIA driver 580 or later. None of this is part of the ASTAROT distribution: it comes straight from its providers. The conversion itself is part of ASTAROT. If files of the earlier kind of runtime are in the same folder, they are deleted once this finishes."
+    notice_rvc_cpu: "This fetches ONNX Runtime (CPU build), HuBERT and RMVPE. ONNX Runtime is MIT, and the provider of HuBERT and RMVPE lists MIT. None of this is part of the ASTAROT distribution: it comes straight from its providers. The conversion itself is part of ASTAROT. If files of the earlier kind of runtime are in the same folder, they are deleted once this finishes."
+    notice_seed: "This fetches Python 3.11, PyTorch (CUDA build), the Seed-VC engine and five models. The Seed-VC engine and model are GPL-3.0, the other models are Apache-2.0, and PyTorch is BSD-3-Clause. The CUDA build of PyTorch contains NVIDIA libraries under NVIDIA's license. None of this is part of the ASTAROT distribution: it comes straight from its providers. This engine is experimental, and some PCs cannot run it in real time."
     connection_notice_rvc: "This connects to the download servers of GitHub, Hugging Face and PyPI. It is a large transfer and may cost data. Expect minutes to tens of minutes, depending on your connection."
     connection_notice_rvc_cpu: "This connects to the download servers of GitHub and Hugging Face. It may cost data. Expect a few minutes, depending on your connection."
     connection_notice_seed: "This connects to GitHub, Hugging Face, PyPI and PyTorch's download servers. It is a large transfer and may cost data. Expect minutes to tens of minutes, depending on your connection."
@@ -1685,7 +1685,7 @@ vc_runtime:
         vc_runtime_check_failed: "The runtime that was fetched could not be loaded. Fetch it again. If this repeats, setup.log in the destination folder has the details."
         backend_unavailable: "The backend has stopped."
     warnings:
-        vc_runtime_gpu_unusable_cpu: "The GPU could not be used on this PC, so conversion runs on the CPU, about 1.3 s behind your voice. Converting on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. After updating the driver, start again to convert on the GPU."
+        vc_runtime_gpu_unusable_cpu: "The GPU could not be used, so conversion runs on the CPU, about 1.3 s behind your voice. Converting on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. After updating the driver, start again to convert on the GPU."
 
 model_downloads:
     hardware_title: "GPU and memory"
@@ -1871,7 +1871,7 @@ model_catalog:
         working: "Downloading"
         ready: "Verified, not applied"
     prepare: "Check the files and get ready to use"
-    prepare_hint: "Already on this PC. To use it, check the files, then apply the model path."
+    prepare_hint: "Already downloaded. To use it, check the files, then apply the model path."
     prepare_notice: "These files are already downloaded. Nothing is downloaded; their sizes and SHA-256 are checked."
     prepare_start: "Agree and check"
     engine:
@@ -2024,7 +2024,7 @@ message_outputs:
 telemetry_notice:
     title: "Help improve ASTAROT"
     purpose: "To fix problems and to learn which features run well on which PCs, we ask you to share usage data with the developers."
-    what: "ASTAROT sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and this PC's hardware (CPU, memory, GPUs and their driver versions)."
+    what: "ASTAROT sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and your PC's hardware (CPU, memory, GPUs and their driver versions)."
     not_sent: "The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from."
     change: "You can change this later under Settings → Advanced → \"Send usage data\". Nothing is sent until you choose."
     send: "Send"
@@ -2034,7 +2034,7 @@ telemetry_contents:
     show: "See what is sent"
     loading: "Checking what would be sent…"
     unavailable: "Could not get what would be sent."
-    intro: "This is what this PC sends. It is sent once a day as the note that the app started. The time will be the moment it is sent."
+    intro: "This is what your PC sends. It is sent once a day as the note that the app started. The time will be the moment it is sent."
     error_note: "When an error happens, the same is sent with the error code added, once a day for each code."
     destination: "Sent to: {{endpoint}}"
     receiver_note: "The receiver also records when the event arrived and the country it came from."
@@ -2066,7 +2066,7 @@ telemetry_contents:
 transcription_consent:
     title: "Choose speech recognition"
     cloud_notice: "To use a cloud engine (Groq, OpenAI, Deepgram or your own Whisper server), open the engine settings, register its API key and choose it there. Audio is then sent to that service."
-    speechcpp_notice: "Local (speech.cpp) recognizes audio with a speech.cpp server on this PC. If the recognition model or the VAD model is missing, review and download them in Settings → Speech recognition (ASR) → Models and servers."
+    speechcpp_notice: "Local (speech.cpp) recognizes audio with a speech.cpp server on your PC. If the recognition model or the VAD model is missing, review and download them in Settings → Speech recognition (ASR) → Models and servers."
     speechcpp: "Start transcription with Local (speech.cpp)"
     cancel: "Cancel"
     settings: "Open engine settings"
@@ -2090,7 +2090,7 @@ local_asr_notice:
     close: "Close"
 old_whisper_weights:
     label: "Old Whisper models"
-    desc: "Whisper models that an earlier version downloaded take {{size}} on this PC. They are no longer used, so you can delete them."
+    desc: "Whisper models that an earlier version downloaded take {{size}} on your PC. They are no longer used, so you can delete them."
     delete: "Delete old Whisper models"
     confirm: "Delete {{size}} of Whisper models? This cannot be undone. This version no longer uses them."
     confirm_delete: "Delete"

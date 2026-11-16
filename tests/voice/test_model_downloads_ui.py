@@ -600,7 +600,7 @@ def test_a_model_downloaded_before_a_restart_is_shown_and_prepared_with_consent(
     expect(mf).to_contain_text("In use")
     small_card = page.get_by_role("group", name="Irodori-TTS v4.1 Small", exact=True)
     expect(small_card).to_contain_text("Downloaded")
-    expect(small_card).to_contain_text("Already on this PC.")
+    expect(small_card).to_contain_text("Already downloaded.")
     expect(page.get_by_role("group", name="Irodori-TTS v4 Large", exact=True)).to_contain_text("Not downloaded")
     # Getting it ready checks the files again, after the same review and consent; nothing is fetched.
     small_card.get_by_role("button", name="Check the files and get ready to use", exact=True).click()

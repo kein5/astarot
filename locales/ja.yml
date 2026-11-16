@@ -5,8 +5,8 @@
 
 vrchat_presence:
     checking: "VRChatを確認しています…"
-    found: "このPCで、OSCが有効なVRChatを検出しました。"
-    not_found: "このPCで、OSCが有効なVRChatを検出できません。"
+    found: "お使いのPCでOSCが有効なVRChatを検出しました。"
+    not_found: "お使いのPCでOSCが有効なVRChatを検出できません。"
     not_found_hint: "VRChatを起動し、アクションメニューで「Options」→「OSC」を「Enabled」にしてください。"
     unknown: "VRChatの状態を確認できません。送信先が別のマシンのとき、またはOSCの受信を開始できていないときは確認できません。"
     sending_off: "VRChatへのメッセージ送信はオフです。"
@@ -249,7 +249,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} はダウンロードしていません。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認し、同意してからダウンロードしてください。モデルの版が変わったときはもう一度確認してください。"
     OVERLAY_RUNTIME_FAILED: "VRオーバーレイの描画または画面の取り込みに失敗したため、表示を止めました。SteamVRとVR画面の状態を確かめてから、もう一度オンにしてください。"
     OVERLAY_VR_PANEL_UNSUPPORTED: "この環境ではVR UIを使えません。字幕オーバーレイには影響しません。"
-    OVERLAY_FONT_NOT_FOUND: "その書体はこのPCに入っていません。字幕は前の書体のままです。"
+    OVERLAY_FONT_NOT_FOUND: "その書体はお使いのPCに入っていません。字幕は前の書体のままです。"
     MESSAGE_OUTPUT_FAILED: "{{output}}にメッセージを送れませんでした。ほかの出力先には送っています。再送するとほかの出力先に同じメッセージが重ねて届くことがあります。"
     TRANSLATION_VRAM_ENABLE: "GPUのメモリーが足りず、AI翻訳を開始できませんでした。設定の「翻訳」で処理デバイスをCPUにするか、ほかのGPUアプリを止めてください。"
     TRANSLATION_VRAM_CHAT: "GPUのメモリーが足りず、入力したメッセージを翻訳できませんでした。設定の「翻訳」で処理デバイスをCPUにするか、ほかのGPUアプリを止めてください。"
@@ -660,7 +660,7 @@ config_page:
             label: "Ollamaとの接続確認"
         ollama_url:
             label: "Ollama URL"
-            desc: "このPCのOllamaか、同じLANにある別のPCのOllamaを使えます（例: http://192.168.1.20:11434、http://studio.local:11434）。別のPCでは、Ollamaがネットワークから受け付けるように設定してください（OLLAMA_HOST=0.0.0.0）。"
+            desc: "お使いのPCのOllamaか、同じLANにある別のPCのOllamaを使えます（例: http://192.168.1.20:11434、http://studio.local:11434）。別のPCでは、Ollamaがネットワークから受け付けるように設定してください（OLLAMA_HOST=0.0.0.0）。"
         select_ollama_model:
             label: "Ollamaモデルを選択"
             connection_required: "Ollamaとの接続が必要"
@@ -810,10 +810,10 @@ config_page:
             desc: "文字起こしされたテキストをアクティブな入力欄へと自動的に貼り付けます。\n※クリップボードを使います。LinuxではX11／XWaylandのウィンドウ（Protonで動くVRChatなど）に貼り付けます。入力デバイスの操作を許可するか、デスクトップが最初に確認することがあります。"
         overlay_font_family:
             label: "字幕の書体"
-            desc: "字幕オーバーレイの書体を、このPCに入っている書体から選びます。選んだ書体にない文字は、このPCにあるその言語の標準の書体で出します。"
-            auto: "自動（このPCの標準の書体）"
-            not_installed: "{{name}}（このPCにありません）"
-            missing: "このPCには{{languages}}を表示できる書体がありません。その文字は字幕に出ません。Noto Sans CJKなどの書体を入れて、アプリを起動し直してください。"
+            desc: "字幕オーバーレイの書体を、お使いのPCに入っている書体から選びます。選んだ書体にない文字は、その言語の標準の書体で出します。"
+            auto: "自動（OSの標準の書体）"
+            not_installed: "{{name}}（入っていません）"
+            missing: "{{languages}}を表示できる書体が入っていません。その文字は字幕に出ません。Noto Sans CJKなどの書体を入れて、アプリを起動し直してください。"
 
     others:
         section_label_message_formats: "メッセージフォーマット"
@@ -940,7 +940,7 @@ config_page:
             status_missing: "未ダウンロードです。なくても読み取れますが、下からダウンロードすると吹き出しの取りこぼしやワールド内の文字の誤読が減ります。"
         models:
             title: "認識モデル"
-            desc: "チャット読み取りはPaddleOCRのモデルをこのPCで動かします。条件を確認して同意するまでダウンロードはしません。"
+            desc: "チャット読み取りはPaddleOCRのモデルをお使いのPCで動かします。条件を確認して同意するまでダウンロードはしません。"
             installed: "ダウンロード済み"
             missing: "未ダウンロード"
             required: "いまの読み取り言語に必要"
@@ -1043,7 +1043,7 @@ config_page:
             locked_by_obs_browser_source: "OBSブラウザソースを無効にしてから変更してください"
         websocket_host:
             label: "WebSocketのホスト（IPv4）"
-            desc: "127.0.0.1ならこのPCの中だけで使います。ほかのPCから使うときは、このPCのLANのIPアドレスを入れます。その前に下の証明書と秘密鍵を指定してください。"
+            desc: "127.0.0.1ならお使いのPCの中だけで使います。ほかのPCから使うときは、お使いのPCのLANのIPアドレスを入れます。その前に下の証明書と秘密鍵を指定してください。"
         websocket_tls_cert_file:
             label: "証明書のファイル"
             desc: "ほかのPCから使うときだけ必要な、PEM形式の証明書のパスです。ほかのPCとの通信を暗号化します（wss://、https://）。接続する側のPCやOBSが、この証明書を信頼している必要があります。"
@@ -1328,7 +1328,7 @@ speech_servers:
     device_help: "「自動」と「GPU」は内蔵GPUより独立GPUを先に使い、独立GPUが複数あればメモリの多いほうを使います。AMD、Intel、NVIDIAのどれでも同じです。ここで指定もできます。RVCと同じGPUで動かすとRVCが止まりやすくなることがあります。"
     cpu_build_separate: "「CPU」はVulkanを使わないCPU用のspeech.cppで動きます。「自動」もGPUを使えないときはこれで動きます。"
     cpu_build_shared: "「CPU」は同じspeech.cppをプロセッサーで動かします。このときもGPUドライバーのVulkanライブラリ（vulkan-1.dll）が要ります。"
-    gpu_build_unavailable: "GPU用のspeech.cppがこのPCでは起動しません。Vulkanローダー（libvulkan.so.1）がないのかもしれません。「自動」と「CPU」はCPU用のspeech.cppで動きます。GPUを使うにはVulkanローダーのパッケージ（libvulkan1かvulkan-loader）とGPUのVulkanドライバーを入れてから、このページを開き直してください。"
+    gpu_build_unavailable: "GPU用のspeech.cppが起動しません。Vulkanローダー（libvulkan.so.1）がないのかもしれません。「自動」と「CPU」はCPU用のspeech.cppで動きます。GPUを使うにはVulkanローダーのパッケージ（libvulkan1かvulkan-loader）とGPUのVulkanドライバーを入れてから、このページを開き直してください。"
     low_latency: "低遅延待機（Irodori・GPU）"
     low_latency_help: "サーバーの起動中は、TTSがオフでもGPUで無音の待機計算を続け、最初の読み上げを速くします。消費電力が増え、ゲームとGPUを取り合うことがあります。変更する前にサーバーを止めてください。遅延を保証する設定ではありません。"
     low_latency_warming: "低遅延待機を準備中"
@@ -1355,7 +1355,7 @@ speech_servers:
     multilingual_selection: "その他の言語のサーバー"
     asr_selection: "ASRサーバー"
     notices:
-        speech_server_cpu_fallback: "CPUで動いています。GPU用のspeech.cppがこのPCで起動しなかったので「自動」はCPU用で動かしています。GPUを使うにはVulkanローダー（libvulkan.so.1）を入れてからサーバーを起動し直してください。"
+        speech_server_cpu_fallback: "CPUで動いています。GPU用のspeech.cppが起動しなかったので「自動」はCPU用で動かしています。GPUを使うにはVulkanローダー（libvulkan.so.1）を入れてからサーバーを起動し直してください。"
     errors:
         speech_bundle_missing_or_invalid: "同梱のspeech.cppが見つからないか、検査に通りません。配布版を入れ直してください。開発環境ではbuild/speechcppを用意してください。"
         speech_server_launch_failed: "サーバーを起動できませんでした。モデルファイルと「推論デバイス」を確認してから、もう一度起動してください。"
@@ -1435,7 +1435,7 @@ voice_ui:
         description: "VOICEVOXなどのエンジンを自分で入れて起動すると、その声で日本語を読み上げられます。アプリはエンジンを入れたり起動したりしません。"
         speechcpp: "AIボイス（アプリに入っているspeech.cpp）"
         url: "エンジンのURL"
-        url_hint: "このPCで動くエンジンのURLです。ふつうはエンジンの既定のままで使えます。"
+        url_hint: "お使いのPCで動くエンジンのURLです。ふつうはエンジンの既定のままで使えます。"
         recheck: "再確認"
         checking: "エンジンを確かめています…"
         connected: "接続しています（{{engine}} {{version}}）"
@@ -1563,7 +1563,7 @@ voice_ui:
         tts_engine_voice_missing: "選んだ声がエンジンに見つかりません。設定の「テキスト読み上げ（TTS）」で声を選び直して保存してください。"
         tts_engine_query_failed: "エンジンが文を受け付けませんでした。エンジンを起動し直してから、もう一度送ってください。"
         tts_engine_synthesis_failed: "エンジンが声を作れませんでした。エンジンを起動し直してから、もう一度送ってください。"
-        tts_engine_url_invalid: "エンジンのURLはこのPCを指す http://127.0.0.1:ポート番号 の形で入れてください。"
+        tts_engine_url_invalid: "エンジンのURLは http://127.0.0.1:ポート番号 の形で入れてください。"
         VOICE_SETTINGS_INVALID: "読み上げの設定を保存できませんでした。出力先と使うサーバーを選んでから保存してください。"
         voice_request_failed: "読み上げの操作を完了できませんでした。もう一度操作してください。"
         audio_devices_unavailable: "音声デバイスの一覧を読めませんでした。少し待ってからもう一度試してください。"
@@ -1635,10 +1635,10 @@ voice_setup_errors:
 
 vc_runtime:
     title: "{{name}}の実行環境"
-    help_rvc: "変換に使うONNX Runtime、NVIDIAのCUDAとcuDNNのライブラリ（CUDA 13）、基礎モデル（HuBERTとRMVPE）です。GPUで変換するには、NVIDIAのドライバー580以降が必要です。内容を確認してからこのPCへ取得します。"
-    help_rvc_cpu: "変換に使うONNX Runtime（CPU版）と、基礎モデル（HuBERTとRMVPE）です。内容を確認してからこのPCへ取得します。"
+    help_rvc: "変換に使うONNX Runtime、NVIDIAのCUDAとcuDNNのライブラリ（CUDA 13）、基礎モデル（HuBERTとRMVPE）です。GPUで変換するには、NVIDIAのドライバー580以降が必要です。内容を確認してから取得します。"
+    help_rvc_cpu: "変換に使うONNX Runtime（CPU版）と、基礎モデル（HuBERTとRMVPE）です。内容を確認してから取得します。"
     cpu_only: "NVIDIAのドライバーが見つからないので、CPUで変換する実行環境を取得します。CPUでは、変換した声が約1.3秒遅れて届きます。"
-    help_seed: "変換に使うPython環境とエンジン本体です。NVIDIAのGPUが必要です。内容を確認してからこのPCへ取得します。"
+    help_seed: "変換に使うPython環境とエンジン本体です。NVIDIAのGPUが必要です。内容を確認してから取得します。"
     outdated: "このフォルダの実行環境は以前の形式のため、もう使えません。内容を確認して取得し直してください。"
     size: "通信量 約{{download}} · 必要な空き容量 約{{disk}}"
     gpu_missing: "NVIDIAのドライバーが見つかりません。この実行環境はNVIDIAのGPUでだけ動きます。"
@@ -1649,9 +1649,9 @@ vc_runtime:
     cancel: "中止"
     progress: "実行環境の準備の進捗"
     warning_title: "実行環境の取得と利用条件"
-    notice_rvc: "ONNX Runtime（CUDA 13版）、NVIDIAのCUDA 13とcuDNNのライブラリ、HuBERT、RMVPEを取得します。ONNX RuntimeはMIT、HuBERTとRMVPEの提供元の表示はMITです。CUDAとcuDNNのライブラリはNVIDIAのライセンスに従います。GPUで変換するにはNVIDIAのドライバー580以降が必要です。これらはASTAROTの配布物ではなく、提供元からこのPCへ直接取得します。変換の処理そのものはASTAROTに含まれています。以前の形式の実行環境のファイルが同じフォルダにあれば、取得が終わったあとに削除します。"
-    notice_rvc_cpu: "ONNX Runtime（CPU版）、HuBERT、RMVPEを取得します。ONNX RuntimeはMIT、HuBERTとRMVPEの提供元の表示はMITです。これらはASTAROTの配布物ではなく、提供元からこのPCへ直接取得します。変換の処理そのものはASTAROTに含まれています。以前の形式の実行環境のファイルが同じフォルダにあれば、取得が終わったあとに削除します。"
-    notice_seed: "Python 3.11、PyTorch（CUDA版）、Seed-VC本体、5種類のモデルを取得します。Seed-VCの本体とモデルはGPL-3.0、ほかのモデルはApache-2.0、PyTorchはBSD-3-Clauseです。PyTorchのCUDA版にはNVIDIAのライブラリが含まれ、NVIDIAのライセンスに従います。これらはASTAROTの配布物ではなく、提供元からこのPCへ直接取得します。試験的なエンジンで、実時間に間に合わないPCがあります。"
+    notice_rvc: "ONNX Runtime（CUDA 13版）、NVIDIAのCUDA 13とcuDNNのライブラリ、HuBERT、RMVPEを取得します。ONNX RuntimeはMIT、HuBERTとRMVPEの提供元の表示はMITです。CUDAとcuDNNのライブラリはNVIDIAのライセンスに従います。GPUで変換するにはNVIDIAのドライバー580以降が必要です。これらはASTAROTの配布物ではなく、提供元から直接取得します。変換の処理そのものはASTAROTに含まれています。以前の形式の実行環境のファイルが同じフォルダにあれば、取得が終わったあとに削除します。"
+    notice_rvc_cpu: "ONNX Runtime（CPU版）、HuBERT、RMVPEを取得します。ONNX RuntimeはMIT、HuBERTとRMVPEの提供元の表示はMITです。これらはASTAROTの配布物ではなく、提供元から直接取得します。変換の処理そのものはASTAROTに含まれています。以前の形式の実行環境のファイルが同じフォルダにあれば、取得が終わったあとに削除します。"
+    notice_seed: "Python 3.11、PyTorch（CUDA版）、Seed-VC本体、5種類のモデルを取得します。Seed-VCの本体とモデルはGPL-3.0、ほかのモデルはApache-2.0、PyTorchはBSD-3-Clauseです。PyTorchのCUDA版にはNVIDIAのライブラリが含まれ、NVIDIAのライセンスに従います。これらはASTAROTの配布物ではなく、提供元から直接取得します。試験的なエンジンで、実時間に間に合わないPCがあります。"
     connection_notice_rvc: "GitHub、Hugging Face、PyPIの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
     connection_notice_rvc_cpu: "GitHubとHugging Faceの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
     connection_notice_seed: "GitHub、Hugging Face、PyPI、PyTorchの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
@@ -1685,7 +1685,7 @@ vc_runtime:
         vc_runtime_check_failed: "取得した実行環境を読み込めませんでした。もう一度取得してください。繰り返すときは、保存先のsetup.logに詳細があります。"
         backend_unavailable: "バックエンドが停止しています。"
     warnings:
-        vc_runtime_gpu_unusable_cpu: "このPCではGPUを使えなかったため、CPUで変換します。声の遅れは約1.3秒です。GPUで変換するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。ドライバーを更新したら、開始し直すとGPUで変換します。"
+        vc_runtime_gpu_unusable_cpu: "GPUを使えなかったため、CPUで変換します。声の遅れは約1.3秒です。GPUで変換するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。ドライバーを更新したら、開始し直すとGPUで変換します。"
 
 model_downloads:
     hardware_title: "GPUとメモリ"
@@ -1715,9 +1715,9 @@ model_downloads:
     notice_irodori_large: "speech.cpp 0.10.0以降用の大型の日本語TTSです。文章を読むエンコーダーがGoogleのGemmaに由来するので、Gemmaの利用規約と禁止用途のポリシーに従います。codecはMITで、その基盤はApache-2.0です。提供元は無断の声の模倣やなりすまし、誤解を招く合成音声の生成を禁止しています。GPUメモリを4 GiB前後使い、最初の音が出るまで数秒かかります。モデルカードと利用規約を確認してください。"
     notice_qwen: "speech.cpp 0.9.0用、9種類の話者を持つ多言語TTSです。Apache-2.0です。モデルと生成音声を適切に利用し、第三者の権利を尊重してください。"
     notice_rvc: "モデルカードでは作者本人の声で学習したRVC v2音声変換モデルと説明されています。CC BY 4.0の帰属表示が必要です：Voice model created by Saisho Utane — https://huggingface.co/Saisho-Utane — Used under the CC BY 4.0 license. 公開コンテンツやプロジェクトの説明にクレジットとライセンスへのリンクを記載し、変更した場合は明示してください。この実行環境での変換品質はまだ検証していません。"
-    notice_ppocr: "チャット読み取り用の文字検出・認識モデルです。PaddleOCR（PaddlePaddle）提供、Apache-2.0です。このPCのCPUで動き、画面の内容を送信することはありません。"
-    notice_chatbox: "チャット読み取り用の、ASTAROT独自の吹き出し検出モデル（YOLOX-Tiny）です。ASTAROT自身のスクリーンショットで学習し、MITで公開しています。このPCのCPUで動き、画面の内容を送信することはありません。"
-    notice_translation: "ONNX Runtime用のローカル翻訳モデルです。上に書いた元のモデルから変換しました。このPCで動き、翻訳する文章を送信することはありません。元のモデルのライセンスを確認してください。"
+    notice_ppocr: "チャット読み取り用の文字検出・認識モデルです。PaddleOCR（PaddlePaddle）提供、Apache-2.0です。お使いのPCのCPUで動き、画面の内容を送信することはありません。"
+    notice_chatbox: "チャット読み取り用の、ASTAROT独自の吹き出し検出モデル（YOLOX-Tiny）です。ASTAROT自身のスクリーンショットで学習し、MITで公開しています。お使いのPCのCPUで動き、画面の内容を送信することはありません。"
+    notice_translation: "ONNX Runtime用のローカル翻訳モデルです。上に書いた元のモデルから変換しました。お使いのPCで動き、翻訳する文章を送信することはありません。元のモデルのライセンスを確認してください。"
     notice_haas: "speech.cpp 0.9.4以降用の、句読点付きで書き起こす日本語音声認識モデルです。Third Intelligence提供、sakasegawa変換、Apache-2.0です。利用前にモデルカードを確認してください。"
     rvc_requirements: "取得するのはRVC音声モデルと検索インデックス（.index）だけです。変換にはRVCの実行環境（Python環境・HuBERT・RMVPE）も必要です。取得完了だけでは変換の準備完了になりません。"
     notice_qwen_asr: "30言語を認識し、話している言語も自動で判定する音声認識モデルです。Qwenチーム提供、sakasegawa変換、Apache-2.0です。1.7Bは0.6Bより誤りが少ない一方で容量とメモリーを多く使います（speech.cppによるCommon Voice日本語での測定ではCER 9.49%と11.89%）。利用前にモデルカードを確認してください。"
@@ -1871,7 +1871,7 @@ model_catalog:
         working: "取得中"
         ready: "検証済み・未適用"
     prepare: "ファイルを確かめて使う準備をする"
-    prepare_hint: "このPCに取得済みです。使うには、ファイルを確かめてからモデルパスを適用します。"
+    prepare_hint: "取得済みです。使うには、ファイルを確かめてからモデルパスを適用します。"
     prepare_notice: "このファイルは取得済みです。ダウンロードはせず、容量とSHA-256を照合します。"
     prepare_start: "同意して照合"
     engine:
@@ -2034,7 +2034,7 @@ telemetry_contents:
     show: "送信される内容を見る"
     loading: "内容を確かめています…"
     unavailable: "内容を取得できませんでした。"
-    intro: "このPCから送られる内容です。起動を知らせる通知として1日に1回送ります。時刻には送信した時点のものが入ります。"
+    intro: "お使いのPCから送られる内容です。起動を知らせる通知として1日に1回送ります。時刻には送信した時点のものが入ります。"
     error_note: "エラーが起きたときは、同じ内容にエラーコードを付けて送ります。同じエラーコードは1日に1回だけです。"
     destination: "送信先: {{endpoint}}"
     receiver_note: "受信サーバーはこのほかに、受信した時刻と接続元の国を記録します。"
