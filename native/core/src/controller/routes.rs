@@ -299,8 +299,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.add("/set/data/received_message_format_parts", OPEN, received_format);
     b.switch("auto_clear_message_box", "AUTO_CLEAR_MESSAGE_BOX", true);
     b.switch("send_only_translated_messages", "SEND_ONLY_TRANSLATED_MESSAGES", true);
-    // The message log is written by the message pipeline, which reads this switch.
-    b.switch("logger_feature", "LOGGER_FEATURE", true);
+    // The conversation log switch opens and closes the log file: `messages::add`.
     b.switch("check_software_updates", "CHECK_SOFTWARE_UPDATES", true);
     b.get("/get/data/vrc_mic_mute_sync", OPEN, "VRC_MIC_MUTE_SYNC");
     b.get("/get/data/send_message_to_vrc", OPEN, "SEND_MESSAGE_TO_VRC");
@@ -372,4 +371,6 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::ocr::add,
     super::overlay::add,
     super::files::add,
+    super::translation::add,
+    super::messages::add,
 ];

@@ -5015,6 +5015,7 @@ name = "vrct-core"
 version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
  "getrandom 0.3.4",
  "libc",
  "serde",
@@ -5022,6 +5023,7 @@ dependencies = [
  "vrct-adapters",
  "vrct-ops",
  "vrct-speech-server",
+ "vrct-translation",
  "vrct-tts",
  "windows-sys 0.61.2",
 ]
@@ -5050,6 +5052,16 @@ dependencies = [
  "serde_json",
  "sha2",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "vrct-translation"
+version = "0.0.0"
+dependencies = [
+ "httparse",
+ "rustls",
+ "serde_json",
+ "webpki-roots",
 ]
 
 [[package]]

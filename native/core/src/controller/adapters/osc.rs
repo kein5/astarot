@@ -352,6 +352,22 @@ impl Adapters {
         result
     }
 
+    /// Whether mic mute sync holds the microphone's messages back now (the message pipeline).
+    pub(crate) fn mic_held_back(&self) -> bool {
+        let state = self.mute.lock().unwrap();
+        self.held_back(&state)
+    }
+
+    /// Sends chatbox text with the notification sound as set (`model.oscSendMessage`). `false`
+    /// when `current` said no or nothing could be opened.
+    pub(crate) fn send_chatbox(&self, text: &str, current: &dyn Fn() -> bool) -> std::io::Result<bool> {
+        if self.shutting_down() {
+            return Ok(false);
+        }
+        let Some(osc) = self.osc() else { return Ok(false) };
+        osc.send_message(text, self.config.get_bool("NOTIFICATION_VRC_SFX"), Some(current))
+    }
+
     fn held_back(&self, state: &MuteState) -> bool {
         self.config.get_bool("VRC_MIC_MUTE_SYNC") && state.muted != Some(false)
     }

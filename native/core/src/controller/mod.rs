@@ -13,10 +13,14 @@ mod overlay;
 mod languages;
 pub mod legacy_weights;
 mod lifecycle;
+pub mod messages;
 mod routes;
 mod settings;
 pub mod speech;
 mod telemetry;
+pub mod translation;
+#[cfg(feature = "onnx-translation")]
+mod translation_onnx;
 
 pub use adapters::Osc;
 pub use routes::routes;
@@ -165,6 +169,16 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
+    /// How the translation providers reach the network ([`vrct_translation::http::direct`]).
+    pub translation_transport: vrct_translation::http::Transport,
+    /// Where the providers with a fixed address are.
+    pub translation_endpoints: vrct_translation::providers::Endpoints,
+    /// The local translation model ([`translation::default_local_translation`]).
+    pub local_translation: translation::LocalTranslationSource,
+    /// The morphological analyzer of the readings; none until a dictionary is chosen.
+    pub transliteration: Arc<dyn vrct_translation::transliteration::Tokenizer>,
+    /// Copies (and pastes into VRChat when it can) a recognised message.
+    pub clipboard: Arc<dyn Fn(&str) -> bool + Send + Sync>,
 }
 
 impl Default for Services {
@@ -181,6 +195,11 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
+            translation_transport: vrct_translation::http::direct(),
+            translation_endpoints: vrct_translation::providers::Endpoints::default(),
+            local_translation: Arc::new(translation::default_local_translation),
+            transliteration: Arc::new(vrct_translation::transliteration::NoDictionary),
+            clipboard: Arc::new(default_clipboard),
         }
     }
 }
@@ -205,11 +224,14 @@ pub struct Core {
     /// The model downloads and the usage events, made on first use.
     ops: std::sync::OnceLock<downloads::Ops>,
     adapters: std::sync::OnceLock<Arc<adapters::Adapters>>,
+    translation: translation::Translators,
+    messages: messages::Messages,
 }
 
 impl Core {
     pub fn new(config: Arc<Config>, log: Arc<Log>, output: Arc<dyn Output>, services: Services) -> Arc<Self> {
         let speech = speech::SpeechServers::new((services.speech_server_launch)(config.environment()));
+        let translation = translation::Translators::new(&services, config.environment());
         Arc::new(Self {
             config,
             log,
@@ -225,6 +247,8 @@ impl Core {
             speech,
             ops: std::sync::OnceLock::new(),
             adapters: std::sync::OnceLock::new(),
+            translation,
+            messages: messages::Messages::default(),
         })
     }
 
@@ -297,6 +321,7 @@ impl Core {
         self.close_speech_servers();
         self.close_model_downloads();
         self.stop_adapters();
+        self.stop_conversation_log();
         self.config.save_now();
         self.stop_telemetry();
     }
@@ -350,6 +375,15 @@ pub fn python_float(value: &Value) -> Option<f64> {
 /// value, as Python rounds it (not `(value * 10^digits).round()`, which differs at some ties).
 pub fn python_round(value: f64, digits: usize) -> f64 {
     format!("{value:.digits$}").parse().unwrap_or(value)
+}
+
+/// The clipboard of this system, made on first use (`Clipboard()` in `model.py`). Without
+/// OpenVR the app's name is unknown, so it copies without pasting.
+fn default_clipboard(text: &str) -> bool {
+    static CLIPBOARD: std::sync::OnceLock<vrct_adapters::clipboard::Clipboard> = std::sync::OnceLock::new();
+    CLIPBOARD
+        .get_or_init(|| vrct_adapters::clipboard::Clipboard::new(Arc::new(vrct_adapters::clipboard::NoVrAppName)))
+        .copy_and_paste(text, None, 0)
 }
 
 /// `{"status": 200, "result": value}`.

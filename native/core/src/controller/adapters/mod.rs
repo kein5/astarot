@@ -196,6 +196,22 @@ impl Core {
         self.adapters.get()
     }
 
+    /// The message pipeline's outputs: the chatbox, the WebSocket clients, mic mute sync.
+    pub(crate) fn chatbox_send(&self, text: &str, current: &dyn Fn() -> bool) -> io::Result<bool> {
+        match self.adapters() {
+            Some(adapters) => adapters.send_chatbox(text, current),
+            None => Ok(false),
+        }
+    }
+
+    pub(crate) fn websocket_send(&self, message: &str) -> Option<Result<(), vrct_adapters::websocket::SendError>> {
+        self.adapters()?.websocket_send(message)
+    }
+
+    pub(crate) fn mic_held_back(&self) -> bool {
+        self.adapters().is_some_and(|adapters| adapters.mic_held_back())
+    }
+
     /// Start-up (`Controller.init`): OSC receive starts in the background, then the WebSocket
     /// and OBS servers start from the saved settings, before the settings snapshot.
     pub(crate) fn start_adapters(&self) {

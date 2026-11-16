@@ -1,6 +1,7 @@
 //! An engine whose start-up check fails is handled as Python's `Controller.init` handles it
-//! (#285, decided: no kept selections for engines the core cannot run yet). In the core every
-//! online engine still fails its check, as its provider is not in Rust yet.
+//! (#285, decided: no kept selections for engines the core cannot run yet). Here every check
+//! fails: the translation providers cannot be reached (tests stay on loopback) and the
+//! recognition providers are not in Rust yet.
 
 mod common;
 

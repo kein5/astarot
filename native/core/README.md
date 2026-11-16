@@ -25,6 +25,8 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 | `controller.py` の `init`、`shutdown`、各エンドポイント | `controller`、`backend` |
 | `controller.py` の `getSpeechServer*`、`startSpeechServer`、`stopSpeechServer`、`_speechServerEnded` | `controller::speech`（サーバのプロセスは `vrct-speech-server`） |
 | `controller.py` のモデル取得（`getModelDownload*`、`start`/`cancel`/`applyModelDownload`）とテレメトリ（`*Telemetry*`） | `controller::downloads`、`controller::telemetry`（処理は `vrct-ops`） |
+| `controller.py` の翻訳のキー・モデル・接続、`setEnableTranslation`、`setCtranslate2WeightType`、`model.py` の `getTranslate` と翻訳の履歴 | `controller::translation`（プロバイダは `vrct-translation`、ローカル翻訳は機能 `onnx-translation` の `vrct-translate-onnx`） |
+| `controller.py` の `_processMessage`、`chatMessage`、ロガー、`model.py` の読み（`convertMessageToTransliteration`） | `controller::messages`（読みの規則は `vrct-translation`） |
 
 ## 変わらないこと
 
@@ -38,7 +40,15 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 - **ステータス 348 のログ行**。UI に送りません。UI は表示せず捨てていました。`process.log` には書きます。
 - **ログの行の形式**。Python の辞書の表記ではなく JSON で書きます。伏せる規則は同じです。
 - **真偽値を数として扱わない**。Python では `True` が整数 1 として通る検査がありました（オーバーレイの表示秒数など）。Rust では数として扱いません。
-- **翻訳エンジンの確認**。外部の翻訳・音声認識のプロバイダ（#277、#278）はまだ移していません。それまでは、ローカル翻訳と speech.cpp 以外を「使えない」と示します。起動時の確認に失敗したものとして Python と同じに扱い、サーバからモデルを探すエンジン（LM Studio、OpenAI 互換、Ollama、Whisper の API、Deepgram）のモデルの選択を消します。API キーは Python と同じく残します。
+- **翻訳エンジンの確認**。翻訳のプロバイダ（#277）は Python と同じに起動時に確かめます。Web 翻訳（Google、Bing、Papago）は配布していないので「使えない」と示します（Python は「使える」と示し、毎回失敗していました）。音声認識のプロバイダ（#278）はまだ移していないので、speech.cpp 以外を「使えない」と示し、サーバからモデルを探すエンジン（Whisper の API、Deepgram）のモデルの選択を消します。API キーは Python と同じく残します。
+- **読み（ひらがな・ローマ字）**。辞書が決まるまで読みは出しません。読みのスイッチが入っていても、メッセージは読みなしで送ります（`docs/voice-stack/core-integration.md` の未決事項 16）。
+- **プロキシ**。翻訳のプロバイダへの通信は `HTTP(S)_PROXY` を使いません（未決事項 18）。
+
+## ほかの領域から使うもの
+
+- `Core::deliver_transcription(Source::{Mic, Speaker, Ocr}, Recognized, guard)`: 音声認識と OCR の結果をメッセージの経路に渡します。ワードフィルタ、繰り返しの確認、翻訳、読み、チャットボックス、UI への通知、WebSocket、会話のログ、履歴まで行います。
+- `Core::process_message(&messages::REALTIME_MIC など, ...)`: 結果を返す向き（リアルタイムの音声認識）に使います。
+- `Core::set_message_hooks(overlay, speech)`: VR のオーバーレイ（`OverlayMessage`）と音声（`SpokenMessage`、翻訳の前後の 2 回）の口です。設定されるまで何もしません。`Err` を返すと出力の失敗として通知します。
 
 ## 試験
 
@@ -55,6 +65,7 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/telemetry.rs`: 通知に答えるまで何も送らないこと、答えの検査、`VRCT_TELEMETRY=off`、送る内容の表示、エラーコードの送信、終了後に送らないこと。送り先はこの PC のループバックに立てた受け側です。
 
 - `tests/engine_checks.rs`: 起動時の確認に失敗したエンジンの扱いが Python と同じこと（サーバからモデルを探すエンジンの選択を消し、API キーは残す）。
+- `tests/translation.rs`、`tests/messages.rs`: 翻訳のプロバイダ（ループバックの偽のサーバ、`vrct_translation::fake`）、ローカル翻訳（偽のモデル）、`/run/send_message_box` からチャットボックス・WebSocket・会話のログまで。試験では、プロバイダへの通信はループバックだけに限ります（`tests/common` の `Setup`）。
 - `tests/legacy_weights.rs`: 旧 CTranslate2 の重みは、中核が既定のバックエンドのときだけ起動の後で消すこと。Python が作ったフォルダだけを消し、リンクをたどらないこと。
 
 利用者の文章、音声、API キーは、ログにも試験の出力にも入れません。

@@ -407,9 +407,17 @@ pub fn direct() -> Transport {
 }
 
 /// Only loopback addresses; anything else fails as if nothing answered, without a lookup. For
-/// tests, so that a saved key never reaches a real provider.
+/// tests, so that a saved key never reaches a real provider. Each read and write may take at
+/// least 2 seconds, so that a busy test machine does not miss the 0.2 seconds a local server has
+/// to answer; connecting keeps its time, so a closed port fails as fast as in the app.
 pub fn loopback_only() -> Transport {
     Arc::new(|request, timeouts| {
+        let floor = Duration::from_secs(2);
+        let timeouts = Timeouts {
+            connect: timeouts.connect,
+            read: timeouts.read.max(floor),
+            write: timeouts.write.max(floor),
+        };
         let url = Url::parse(request.url)?;
         let loopback = url.host == "localhost" || url.host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback());
         if !loopback {

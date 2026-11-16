@@ -5,10 +5,10 @@
 //! `setCustomWhisperURL`).
 //!
 //! What is wired here only reads or forgets what is saved; it never reaches a service. Saving a
-//! key, choosing a model and asking a local server for its models check the key or the model
-//! with the service, and wait for the provider clients (#277, #278): those endpoints still
-//! answer 404. As decided for the engines the core does not have yet, a saved key is kept and
-//! its engine counts as unavailable.
+//! translation key, choosing a model and asking a local server for its models check them with
+//! the service: [`super::translation`]. The recognition services wait for their clients (#278):
+//! those endpoints still answer 404, and a saved key is kept while its engine counts as
+//! unavailable.
 
 use super::routes::{Builder, OPEN, WAIT};
 use super::{Core, error, ok};
@@ -97,7 +97,7 @@ impl Core {
     }
 
     /// `_delTranslationEngineAuthKey` (and `delDeeplAuthKey`, which has no models).
-    fn delete_translation_key(&self, engine: &str, models: Option<(&str, &str)>) -> Reply {
+    pub(crate) fn delete_translation_key(&self, engine: &str, models: Option<(&str, &str)>) -> Reply {
         let _guard = self.credential_lock.lock().unwrap();
         if self.config().update_credential("AUTH_KEYS", engine, None).is_err() {
             return Reply::status(500, "Internal error");
