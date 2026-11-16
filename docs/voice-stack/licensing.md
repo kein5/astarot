@@ -98,7 +98,7 @@ RVCの変換は、本家の推論を再実装した`native/rvc-runtime`（MIT、
 
 ワーカーはONNX Runtimeを自分では持たず、実行時に読み込む。ONNX Runtime、CUDAとcuDNNのライブラリ、
 基礎モデルは配布物に含めず、利用者の同意を得てから提供元から直接取得する（版・サイズ・SHA-256を
-`src-python/models/voice_conversion/runtime_setup.py`に固定）。
+`src-python/models/voice_conversion/runtime_setup.py`と、Rustの中核が使う`native/voice-conversion/src/runtime.rs`に固定。値は同じ）。
 
 | 取得物 | 取得元 | ライセンス |
 |---|---|---|
@@ -227,7 +227,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 2026-11-16にHugging FaceのAPIで、記録の5ファイル（今取得する3つと以前の2つ）のサイズとblob IDが記録と一致することを確かめた。LFSのファイルはSHA-256も一致した。
 
-取得するのは、今も既定の経路のPythonのサイドカー（`src-python/models/voice_conversion/runtime_setup.py`）。#344で入ったRustの中核は、まだ実行環境を準備しない（[core-integration.md](core-integration.md)の未決事項6）。中核に移すときも同じ固定値で取得する必要がある。Pythonの固定値と記録の一致は、試験（`tests/voice/test_vc_runtime_setup.py`）が確かめている。
+取得するのは、既定の経路のPythonのサイドカー（`src-python/models/voice_conversion/runtime_setup.py`）と、Rustの中核（`native/voice-conversion/src/runtime.rs`、[core-integration.md](core-integration.md)の「判断が要ること」の6）。中核はPythonと同じ固定値で取得し、`receipt.json`の版も同じ文字列にする（`native/voice-conversion`の単体の試験が、Pythonで計算した4通りの版と一致することを確かめる）。Pythonの固定値と記録の一致は、試験（`tests/voice/test_vc_runtime_setup.py`）が確かめている。
 
 ## RVC追加分（2026-10-29、モデル未取得）
 
