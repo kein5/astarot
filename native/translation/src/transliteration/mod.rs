@@ -1,12 +1,14 @@
 //! Kana and romaji readings of Japanese text (`src-python/models/transliteration/`).
 //!
-//! The readings come from a morphological analyzer: Python uses SudachiPy with SudachiDict
-//! full in split mode C. Which analyzer and dictionary the Rust side uses is not decided yet
-//! (`docs/voice-stack/core-integration.md`), so the analyzer is a [`Tokenizer`] given from
-//! outside. Everything after it is here and matches Python: the split of a word's reading over
-//! its kanji and kana, the context rule for 何, katakana to hiragana and to Hepburn.
+//! The readings come from a morphological analyzer: Python used SudachiPy with SudachiDict
+//! full in split mode C, and the Rust side uses sudachi.rs the same way (module `sudachi`, feature `sudachi`). The
+//! analyzer is a [`Tokenizer`] given from outside, so tests can give fixed morphemes. Everything
+//! after it is here and matches Python: the split of a word's reading over its kanji and kana,
+//! the context rule for 何, katakana to hiragana and to Hepburn.
 
 mod hepburn;
+#[cfg(feature = "sudachi")]
+pub mod sudachi;
 
 pub use hepburn::katakana_to_hepburn;
 
@@ -35,9 +37,15 @@ impl std::error::Error for Unavailable {}
 /// A morphological analyzer with readings.
 pub trait Tokenizer: Send + Sync {
     fn tokenize(&self, text: &str) -> Result<Vec<Morpheme>, Unavailable>;
+
+    /// Why [`Tokenizer::tokenize`] gave [`Unavailable`], for the process log (a file name,
+    /// never any text).
+    fn unavailable_reason(&self) -> Option<String> {
+        None
+    }
 }
 
-/// The analyzer used until a dictionary is chosen: it never runs.
+/// An analyzer that never runs: no readings.
 pub struct NoDictionary;
 
 impl Tokenizer for NoDictionary {
