@@ -672,10 +672,11 @@ fn translated_chat_and_microphone_finals_speak_the_selected_translation() {
     let target = run.ui.ok("/get/data/selected_target_languages", None);
     run.ui.ok("/set/data/selected_target_languages", Some(target));
     assert!(!core.publish_mic_voice(&snapshot, &update("c"), &tab, Some("Japanese"), &targets, &translated, &[true], &["translated"], &|| true));
-    // So does turning translation off.
-    run.ui.ok("/set/disable/translation", None);
+    // So does turning translation off, and a final that arrives then takes no voice at all.
     let snapshot = core.mic_voice_snapshot().unwrap();
+    run.ui.ok("/set/disable/translation", None);
     assert!(!core.publish_mic_voice(&snapshot, &update("d"), &tab, Some("Japanese"), &targets, &translated, &[true], &["translated"], &|| true), "spoken without translation");
+    assert!(core.mic_voice_snapshot().is_none(), "a final without translation has no voice");
     run.ui.stop();
 }
 
@@ -717,5 +718,68 @@ fn shutdown_stops_speech_direct_voice_and_the_route() {
     let after = run.ui.backend.dispatcher().call(Some("/run/start_direct_voice"), &json!({ "source": mic, "_direct_generation": 0 }));
     assert_eq!(after.result["error_code"], "source_bridge_closed");
     assert_eq!(run.ui.backend.dispatcher().call(Some("/get/data/voice_status"), &Value::Null).result["closed"], true);
+    run.ui.stop();
+}
+
+/// A run that recognises the microphone in realtime, translates to English and speaks.
+fn realtime_speaking(mic_name: &str) -> (Run, common::fake_asr::FakeAsr, common::fake_capture::FakeCapture, vrct_translation::fake::FakeProviders) {
+    use vrct_transcription::capture::Source;
+    let fake = vrct_translation::fake::FakeProviders::start();
+    let key = format!("{}:fx", "d".repeat(36));
+    fake.key("/deepl-free", &key);
+    let asr = common::fake_asr::FakeAsr::start();
+    let capture = common::fake_capture::FakeCapture::new();
+    capture.add_endpoint(Source::Mic, mic_name, "Microphone");
+    capture.set_default(Source::Mic, Some(mic_name));
+    let realtime = json!({
+        "version": 1, "server": "external", "start_server": true, "base_url": asr.base(), "model": "haas-ja",
+        "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+        "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+        "vocabulary": { "builtin": true, "terms": [] },
+    });
+    let saved = json!({ "AUTH_KEYS": { "DeepL_API": key }, "REALTIME_ASR_SETTINGS": realtime, "SEND_MESSAGE_TO_VRC": false });
+    let mut setup = Setup { saved: Some(saved), platform: Platform::Windows, ..Setup::default() };
+    let voice = FakeVoice::new();
+    setup.services.voice = voice.platform();
+    setup.services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&fake.url());
+    setup.services.transcription_capture = capture.factory();
+    let ui = Ui::with(setup);
+    ui.ready();
+    let mut engines = ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("DeepL_API");
+    ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(ui.ok("/set/enable/translation", None), true);
+    (Run { ui, voice }, asr, capture, fake)
+}
+
+#[test]
+fn a_realtime_microphone_final_speaks_its_translation() {
+    use vrct_transcription::capture::Source;
+    let (run, _asr, capture, _fake) = realtime_speaking("usb.mic");
+    let english = FakeTts::speechcpp(0.1);
+    let japanese = FakeTts::speechcpp(0.1);
+    let saved = run.settings(json!({ "mode": "off", "mic_mode": "translated", "direct_policy": "mix", "output_device": OUTPUT, "japanese_url": japanese.url, "multilingual_url": english.url }));
+    assert_eq!(saved["status"], 200, "{saved}");
+    assert_eq!(run.enable()["result"]["tts_enabled"], true);
+    let state = run.ui.ok("/run/start_realtime_asr", Some(json!({ "source": "mic" })));
+    assert_eq!(state["mic"]["requested"], true);
+    eventually("the capture opened", || !capture.opened().is_empty());
+    capture.hear(Source::Mic, &[common::fake_capture::speech(2000)]);
+    eventually("the final's translation is spoken", || english.requests().iter().any(|r| r["language"] == "en"));
+    let request = english.requests().into_iter().find(|r| r["language"] == "en").unwrap();
+    assert!(request["input"].as_str().unwrap().starts_with("deepl-free:EN-US:"), "the translation was spoken");
+    assert!(japanese.requests().is_empty(), "the original was spoken");
+    run.ui.ok("/run/stop_realtime_asr", Some(json!({ "source": "mic" })));
+    run.ui.stop();
+}
+
+#[cfg(windows)]
+#[test]
+fn realtime_recognition_refuses_the_cable_the_voice_plays_into() {
+    let (run, _asr, _capture, _fake) = realtime_speaking("Windows WASAPI: CABLE Output (VB-Audio Virtual Cable)");
+    let saved = run.settings(json!({ "mode": "original", "output_device": OUTPUT, "japanese_url": "http://127.0.0.1:9", "multilingual_url": "http://127.0.0.1:9" }));
+    assert_eq!(saved["status"], 200, "{saved}");
+    let answer = run.ui.request("/run/start_realtime_asr", Some(json!({ "source": "mic" })));
+    assert_eq!((answer["status"].clone(), answer["result"]["error_code"].clone()), (json!(400), json!("realtime_endpoint_feedback")));
     run.ui.stop();
 }

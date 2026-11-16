@@ -1094,8 +1094,14 @@ impl Core {
 
     /// Taken when a microphone final arrives: the speech it may become is refused once the
     /// settings or the microphone's session change.
+    /// `None` unless microphone finals speak translated and translation is on
+    /// (`_snapshotMicVoice`).
     pub fn mic_voice_snapshot(&self) -> Option<MicVoiceSnapshot> {
         let voice = self.voice()?;
+        let _settings = voice.settings_lock.lock().unwrap();
+        if voice.bus.settings().mic_mode != "translated" || !self.config().get_bool("ENABLE_TRANSLATION") {
+            return None;
+        }
         Some(MicVoiceSnapshot { generation: voice.bus.generation(), source_generation: voice.bus.source_generation(&vrct_tts::Source::Mic), settings: voice.bus.settings() })
     }
 
@@ -1130,6 +1136,18 @@ impl Core {
         let translations: Vec<Option<String>> = translations.iter().map(|t| Some(t.clone())).collect();
         let Some(event) = microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot) else { return false };
         voice.bus.publish(event, Some(snapshot.generation), Some(snapshot.source_generation))
+    }
+
+    /// Whether a recognition endpoint is the virtual cable the voice plays into
+    /// (`_carriesOwnVoice`): listening to it would caption the app's own speech. Only Windows
+    /// plays the voice to a chosen output device.
+    pub(crate) fn carries_own_voice(&self, endpoint: &str) -> bool {
+        if !cfg!(windows) {
+            return false;
+        }
+        let Some(voice) = self.voice() else { return false };
+        let output = voice.bus.settings().output_device.clone();
+        vrct_audio_routing::naming::carries_own_voice(endpoint, &output)
     }
 
     /// Tells the flow panel whether the microphone's realtime recognition is requested (the
@@ -1317,6 +1335,11 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     // Speech of typed chat (and the microphone's finals through `publish_mic_voice`).
     let speaker = Arc::downgrade(&voice);
     core.set_message_hooks(None, Some(Arc::new(move |event: &SpokenMessage| speaker.upgrade().map_or(Ok(()), |voice| voice.spoken(event)))));
+    // The flow panel reads whether the microphone's realtime recognition is requested.
+    let realtime = Arc::downgrade(core);
+    core.set_realtime_mic_probe(Arc::new(move || {
+        realtime.upgrade().is_some_and(|core| core.realtime_requested(super::audio_devices::Source::Mic))
+    }));
     // A TTS server that ends turns TTS off.
     let ended = Arc::downgrade(core);
     core.speech_servers().on_end(Arc::new(move |end| {

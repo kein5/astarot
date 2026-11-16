@@ -235,6 +235,13 @@ impl OverlayMessage {
     }
 }
 
+/// What a realtime microphone final needs to become speech after its translation: the voice
+/// settings when it arrived and the final itself.
+pub(crate) struct MicVoice {
+    pub snapshot: super::voice::MicVoiceSnapshot,
+    pub update: vrct_tts::message_hook::TranscriptUpdate,
+}
+
 /// When a message reaches speech.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SpeechStage {
@@ -526,7 +533,21 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None)
+    }
+
+    /// A realtime microphone final: the pipeline, then its translated speech when the voice
+    /// settings let microphone finals speak (`mic_snapshot` and `speech_update` of
+    /// `_processMessage`).
+    pub(crate) fn process_realtime_mic(
+        self: &Arc<Self>,
+        message: &str,
+        language: Option<&str>,
+        id: Option<String>,
+        guard: Option<Guard>,
+        mic_voice: Option<MicVoice>,
+    ) -> Option<Value> {
+        self.process_message_stamped(&REALTIME_MIC, message, language, id, None, guard, None, mic_voice.as_ref())
     }
 
     /// [`Core::process_message`] with the speech generation the receiver stamped.
@@ -540,6 +561,7 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
         voice_generation: Option<u64>,
+        mic_voice: Option<&MicVoice>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
         // A message refused at admission stays refused after unmute.
@@ -819,6 +841,22 @@ impl Core {
             let outcome: Vec<_> = outcomes.clone();
             self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, voice, &current, &mut failures);
         }
+        if let Some(mic_voice) = mic_voice {
+            let translations: Vec<String> = outcomes.iter().map(|o| o.text.clone()).collect();
+            let success: Vec<bool> = outcomes.iter().map(|o| o.success).collect();
+            let provenance: Vec<&str> = outcomes.iter().map(|o| o.provenance).collect();
+            self.publish_mic_voice(
+                &mic_voice.snapshot,
+                &mic_voice.update,
+                &snapshot.tab,
+                snapshot.source_language.as_deref(),
+                &snapshot.target,
+                &translations,
+                &success,
+                &provenance,
+                &current,
+            );
+        }
         if !failures.is_empty() {
             payload.insert("output_failures".into(), Value::Array(failures));
         }
@@ -989,7 +1027,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();

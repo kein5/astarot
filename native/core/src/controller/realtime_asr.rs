@@ -195,11 +195,14 @@ impl Core {
     }
 
     /// `_invalidateRealtimeLocked`.
-    fn invalidate_locked(state: &mut State, source: Source) {
+    fn invalidate_locked(&self, state: &mut State, source: Source) {
         let i = index(source);
         state.generation[i] += 1;
         state.requested[i] = false;
         state.server_runs[i] = None;
+        if source == Source::Mic {
+            self.cancel_mic_voice();
+        }
         if let Some(owner) = &state.owners[i] {
             owner.delivery.request_stop();
         }
@@ -265,7 +268,7 @@ impl Core {
                 let shared = ["server", "base_url", "model", "vocabulary"].iter().any(|key| settings[*key] != old[*key]);
                 for source in [Source::Mic, Source::Speaker] {
                     if shared || settings[source.as_str()] != old[source.as_str()] {
-                        Self::invalidate_locked(&mut state, source);
+                        self.invalidate_locked(&mut state, source);
                     }
                 }
                 state.settings = settings.clone();
@@ -333,14 +336,14 @@ impl Core {
     /// `stopRealtimeASR`.
     fn stop_realtime(self: &Arc<Self>, data: &Value) -> Reply {
         let Ok(source) = source_of(data) else { return refused(400, "realtime_source_invalid") };
-        Self::invalidate_locked(&mut self.realtime().state(), source);
+        self.invalidate_locked(&mut self.realtime().state(), source);
         self.publish_realtime_toggle(source, None);
         ok(self.realtime_state())
     }
 
     /// The recorder takes the source over (`stopRealtimeASR` from `_start*Locked`).
     pub(crate) fn stop_realtime_for_recorder(self: &Arc<Self>, source: Source) {
-        Self::invalidate_locked(&mut self.realtime().state(), source);
+        self.invalidate_locked(&mut self.realtime().state(), source);
         self.publish_realtime_toggle(source, None);
     }
 
@@ -367,7 +370,7 @@ impl Core {
             let mut state = self.realtime().state();
             state.closed = true;
             for source in [Source::Mic, Source::Speaker] {
-                Self::invalidate_locked(&mut state, source);
+                self.invalidate_locked(&mut state, source);
             }
         }
         let mic = self.drain_realtime(Source::Mic);
@@ -526,12 +529,13 @@ impl Core {
         };
         let platform = (self.services().transcription_capture)(self.config().environment());
         // Fail before loading a model for a missing device.
-        match pinned_endpoint(&settings, source) {
-            Ok(Some(_)) => {}
-            Ok(None) => {
-                platform.default_endpoint(source)?;
-            }
+        let endpoint = match pinned_endpoint(&settings, source) {
+            Ok(Some(endpoint)) => endpoint,
+            Ok(None) => platform.default_endpoint(source)?,
             Err(code) => return Err(code.into()),
+        };
+        if self.carries_own_voice(&endpoint.name) {
+            return Err("realtime_endpoint_feedback".into());
         }
         if !self.realtime_start_current(source, expected) {
             return Err("realtime_stale_start".into());
@@ -627,7 +631,7 @@ impl Core {
 
     /// `_disableRealtimeToggle`.
     pub(crate) fn disable_realtime_toggle(self: &Arc<Self>, source: Source) -> Reply {
-        Self::invalidate_locked(&mut self.realtime().state(), source);
+        self.invalidate_locked(&mut self.realtime().state(), source);
         self.publish_realtime_toggle(source, None);
         ok(json!(false))
     }
@@ -675,6 +679,9 @@ impl Core {
                 Ok(None) => default.clone().ok_or("realtime_endpoint_required")?,
                 Err(code) => return Err(code.into()),
             };
+            if self.carries_own_voice(&endpoint.name) {
+                return Err("realtime_endpoint_feedback".into());
+            }
             let mut options = match prepared {
                 Some(options) => options,
                 None => session_options(&state.settings, source)?,
@@ -697,6 +704,11 @@ impl Core {
             } else {
                 Some(Self::realtime_language(&options.language).ok_or("realtime_translation_language_unsupported")?)
             };
+            if source == Source::Mic {
+                // A terminal owner's clean-up may run after this ownership advance: its speech
+                // goes before it turns stale.
+                self.cancel_mic_voice();
+            }
             state.generation[i] += 1;
             let generation = state.generation[i];
             state.requested[i] = true;
@@ -708,7 +720,7 @@ impl Core {
             let mut state = self.realtime().state();
             if state.generation[i] == generation {
                 self.transcription().revoke(source);
-                Self::invalidate_locked(&mut state, source);
+                self.invalidate_locked(&mut state, source);
                 state.errors[i] = Some(code.to_string());
             }
             code.to_string()
@@ -802,8 +814,12 @@ impl Core {
                         core.publish_caption(source, generation, payload, &*current, &*admitted, &session, spoken.as_deref())
                     })
                 };
+                // The voice settings when the final arrived (`snapshot_voice`): its speech is
+                // refused if they change before the translation is done.
+                let voice_snapshot = if source == Source::Mic { core.as_ref().and_then(|core| core.mic_voice_snapshot()) } else { None };
                 let process = {
                     let (weak, current, admitted, spoken) = (weak.clone(), current.clone(), admitted.clone(), spoken.clone());
+                    let voice_snapshot = std::sync::Mutex::new(voice_snapshot);
                     Arc::new(move |update: &Update, valid: vrct_transcription::realtime::delivery::Current| -> Result<Option<Value>, ()> {
                         let Some(core) = weak.upgrade() else { return Ok(None) };
                         if !(current() && valid() && admitted()) {
@@ -812,6 +828,13 @@ impl Core {
                         let (current, admitted) = (current.clone(), admitted.clone());
                         let guard: super::messages::Guard = Arc::new(move || current() && valid() && admitted());
                         let id = format!("{}:{}", update.namespace, update.item_id);
+                        if source == Source::Mic {
+                            let mic_voice = voice_snapshot.lock().unwrap().take().map(|snapshot| super::messages::MicVoice {
+                                snapshot,
+                                update: speech_update(update),
+                            });
+                            return Ok(core.process_realtime_mic(&update.text, spoken.as_deref(), Some(id), Some(guard), mic_voice));
+                        }
                         Ok(core.process_message(spec(source), &update.text, spoken.as_deref(), Some(id), None, Some(guard)))
                     })
                 };
@@ -934,7 +957,7 @@ impl Core {
                 let i = index(source);
                 if state.requested[i] && state.server_runs[i] == Some((state.generation[i], run)) {
                     affected.push(source);
-                    Self::invalidate_locked(&mut state, source);
+                    self.invalidate_locked(&mut state, source);
                 }
             }
             affected
@@ -962,6 +985,7 @@ fn is_bad_request(code: &str) -> bool {
     matches!(
         code,
         "realtime_endpoint_required"
+            | "realtime_endpoint_feedback"
             | "realtime_endpoint_invalid"
             | "realtime_model_invalid"
             | "realtime_translation_language_unsupported"
@@ -986,4 +1010,20 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/start_realtime_asr", OPEN, |core, data| core.start_realtime(data));
     // Answered as it arrives (`IMMEDIATE_ENDPOINTS`).
     b.with("/run/stop_realtime_asr", OPEN, |core, data| core.stop_realtime(data));
+}
+
+/// A realtime final as speech sees it (`TranscriptUpdate`), on speech's clock.
+fn speech_update(update: &Update) -> vrct_tts::message_hook::TranscriptUpdate {
+    let now = vrct_tts::clock::monotonic_ns();
+    let age = update.received.map_or(0, |at| i64::try_from(at.elapsed().as_nanos()).unwrap_or(i64::MAX));
+    vrct_tts::message_hook::TranscriptUpdate {
+        source: update.source.to_string(),
+        is_final: update.is_final,
+        state: update.state.to_string(),
+        namespace: update.namespace.clone(),
+        item_id: update.item_id.clone(),
+        text: update.text.clone(),
+        revision: i64::try_from(update.revision).unwrap_or(i64::MAX),
+        received_ns: now.saturating_sub(age),
+    }
 }
