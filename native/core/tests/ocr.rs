@@ -312,6 +312,36 @@ fn the_source_language_is_checked_and_rolled_back() {
 }
 
 #[test]
+fn a_read_line_is_told_to_the_ui_through_the_message_pipeline() {
+    // The application's delivery: the message pipeline with the OCR direction.
+    let fake = Fake::new();
+    *fake.lines.lock().unwrap() = vec!["line-one"];
+    let services = Services { ocr: Arc::new(Platform(Arc::clone(&fake))), ..Setup::default().services };
+    let saved = json!({ "OCR_POLL_INTERVAL_MS": 100, "OCR_CHATBOX_FILTER": false });
+    let ui = Ui::with(Setup { saved: Some(saved), services, ..Setup::default() });
+    ui.ready();
+    install(&ui.dir, "ppocrv6-small");
+    let mark = ui.lines().len();
+    assert_eq!(enable(&ui).0["result"], true);
+    let deadline = Instant::now() + WORKER_TIMEOUT;
+    let told = loop {
+        let told = ui.on(mark, "/run/transcription_ocr_message");
+        if !told.is_empty() {
+            break told;
+        }
+        assert!(Instant::now() < deadline, "the line was told within {WORKER_TIMEOUT:?}");
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert_eq!(told[0]["result"]["original"]["message"], "line-one");
+    assert_eq!(told[0]["result"]["source"], "ocr");
+    assert!(told[0]["result"]["id"].as_str().unwrap().starts_with("transcription-ocr-"));
+    let log = std::fs::read_to_string(ui.dir.join("logs").join("process.log")).unwrap_or_default();
+    assert!(!log.contains("line-one"), "read text stays out of the log");
+    ui.ok("/set/disable/ocr_capture", None);
+    ui.stop();
+}
+
+#[test]
 fn read_lines_reach_the_message_pipeline_and_settings_reach_the_running_reader() {
     let fake = Fake::new();
     *fake.lines.lock().unwrap() = vec!["line-one"];

@@ -195,8 +195,7 @@ pub struct Services {
     pub steamvr_poll: Duration,
     /// Chat reading's screen, VR runtime, ONNX Runtime and model files ([`ocr::RealOcr`]).
     pub ocr: Arc<dyn ocr::OcrPlatform>,
-    /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]). Dropped
-    /// until the pipeline is wired.
+    /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]).
     pub ocr_message: ocr::OcrDelivery,
     /// The app's own updater behind the old update endpoints ([`updates`]). Switched off by
     /// default, as Python shipped it; the app updates through the host's updater.
@@ -228,7 +227,7 @@ impl Default for Services {
             overlay_fonts: Arc::new(overlay::default_fonts),
             steamvr_poll: Duration::from_secs(10),
             ocr: ocr::real_platform(),
-            ocr_message: Arc::new(ocr::no_delivery),
+            ocr_message: Arc::new(ocr::pipeline_delivery),
             software_updates: Arc::new(updates::Disabled),
         }
     }

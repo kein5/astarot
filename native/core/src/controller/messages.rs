@@ -207,6 +207,34 @@ pub struct OverlayMessage {
     pub transliteration_translations: Value,
 }
 
+impl OverlayMessage {
+    /// What the VR overlay area draws (`createOverlayImage*` reads the enabled destination
+    /// languages as a list, in slot order).
+    pub(crate) fn for_overlay(&self) -> super::overlay::OverlayMessage {
+        let target_languages = self
+            .languages
+            .as_object()
+            .map(|slots| {
+                slots
+                    .values()
+                    .filter(|slot| slot["enable"] == true)
+                    .filter_map(|slot| slot["language"].as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        super::overlay::OverlayMessage {
+            received: self.direction == "receive",
+            small_log: self.log == OverlayLog::Small,
+            message: self.message.clone().unwrap_or_default(),
+            source_language: self.source_language.clone(),
+            translations: self.translations.clone(),
+            target_languages,
+            transliteration_message: self.transliteration_message.clone(),
+            transliteration_translation: self.transliteration_translations.clone(),
+        }
+    }
+}
+
 /// When a message reaches speech.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SpeechStage {
@@ -670,8 +698,19 @@ impl Core {
             }
 
             // The VR overlay
+            // The VR overlay area shows it unless a hook replaces it.
             let overlay_hook = self.messages().hooks.read().unwrap().overlay.clone();
-            if let Some(hook) = overlay_hook.filter(|_| spec.render_overlay) {
+            let overlay_hook: Hook<OverlayMessage> = overlay_hook.unwrap_or_else(|| {
+                let core = Arc::downgrade(self);
+                let current = current.clone();
+                Arc::new(move |event: &OverlayMessage| {
+                    if let Some(core) = core.upgrade() {
+                        core.show_overlay_log(event.log == OverlayLog::Small, &event.for_overlay(), &|| current());
+                    }
+                    Ok(())
+                })
+            });
+            if let Some(hook) = Some(overlay_hook).filter(|_| spec.render_overlay) {
                 let skip = snapshot.overlay_only_translated && translations.is_empty();
                 for (log, on) in [
                     (OverlayLog::Small, spec.small_log && config.get_bool("OVERLAY_SMALL_LOG")),

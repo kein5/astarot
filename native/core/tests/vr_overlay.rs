@@ -298,3 +298,21 @@ fn launcher_and_panel_switches_reach_the_overlay_and_are_saved() {
     assert_eq!(fake.with(|s| s.sessions_open), 0);
     ui.stop();
 }
+
+#[test]
+fn a_sent_message_is_drawn_on_the_running_large_log() {
+    let fake = FakeVr::running();
+    let ui = with_vr(Arc::new(fake.clone()), false, Some(json!({ "OVERLAY_LARGE_LOG": true })));
+    ui.ready();
+    wait("the large log made", || fake.handle("VRCT1").is_some());
+    let large = fake.handle("VRCT1").unwrap();
+    let before = fake.calls_on(large, "raw").len();
+    let small = fake.handle("VRCT0").unwrap();
+    let small_before = fake.calls_on(small, "raw").len();
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
+    assert_eq!(answer["id"], "m1", "{answer}");
+    wait("the message drawn on the large log", || fake.calls_on(large, "raw").len() > before);
+    std::thread::sleep(Duration::from_millis(100));
+    assert_eq!(fake.calls_on(small, "raw").len(), small_before, "a sent message stays off the small log");
+    ui.stop();
+}

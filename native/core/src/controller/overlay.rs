@@ -438,6 +438,16 @@ impl Core {
     /// dropped; a large log not shown keeps the message out of its history.
     #[allow(dead_code)]
     pub(crate) fn show_overlay_message(&self, message: &OverlayMessage, current: &dyn Fn() -> bool) {
+        self.show_overlay_logs(message, true, true, current);
+    }
+
+    /// One log's sink of the message pipeline (`small_overlay` or `large_overlay` in
+    /// `_processMessage`): the pipeline decides per log whether the message goes there.
+    pub(crate) fn show_overlay_log(&self, small: bool, message: &OverlayMessage, current: &dyn Fn() -> bool) {
+        self.show_overlay_logs(message, small, !small, current);
+    }
+
+    fn show_overlay_logs(&self, message: &OverlayMessage, small: bool, large: bool, current: &dyn Fn() -> bool) {
         let Some(vr) = self.vr() else { return };
         let config = self.config();
         let only_translated = config.get_bool("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES");
@@ -445,7 +455,7 @@ impl Core {
             return;
         }
         let subtitle = message.subtitle(only_translated);
-        if message.small_log && config.get_bool("OVERLAY_SMALL_LOG") && vr.engine.initialized() {
+        if small && message.small_log && config.get_bool("OVERLAY_SMALL_LOG") && vr.engine.initialized() {
             let token = vr.engine.publication_token(Surface::Small);
             match vr.subtitles.renderer.small_log(&subtitle) {
                 Ok(picture) => {
@@ -457,7 +467,7 @@ impl Core {
                 Err(_) => self.step("overlay: the small log's picture is too large"),
             }
         }
-        if config.get_bool("OVERLAY_LARGE_LOG") && vr.engine.initialized() && current() {
+        if large && config.get_bool("OVERLAY_LARGE_LOG") && vr.engine.initialized() && current() {
             let direction = if message.received { Direction::Receive } else { Direction::Send };
             let published = vr.subtitles.publish_message(direction, subtitle, &mut |picture| self.publish_large(vr, picture, current));
             if published.is_err() {

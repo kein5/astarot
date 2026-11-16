@@ -111,10 +111,27 @@ impl std::fmt::Debug for OcrMessage {
 /// and overlay copies, and never sends it to VRChat's chatbox. The third argument tells whether
 /// the message may still be published (false once chat reading was turned off or the backend
 /// shuts down); the pipeline asks it before each output.
-pub type OcrDelivery = Arc<dyn Fn(&Core, &OcrMessage, &dyn Fn() -> bool) + Send + Sync>;
+pub type OcrDelivery = Arc<dyn Fn(&Arc<Core>, &OcrMessage, &dyn Fn() -> bool) + Send + Sync>;
 
-/// The default [`OcrDelivery`] until the message pipeline is wired: the line is dropped.
-pub(crate) fn no_delivery(_: &Core, _: &OcrMessage, _: &dyn Fn() -> bool) {}
+/// The default [`OcrDelivery`]: the message pipeline with the OCR direction
+/// ([`Core::deliver_transcription`]). The line stays current while the run that read it does.
+pub(crate) fn pipeline_delivery(core: &Arc<Core>, message: &OcrMessage, current: &dyn Fn() -> bool) {
+    if !current() {
+        return;
+    }
+    let generation = core.ocr.generation.load(Ordering::SeqCst);
+    let weak = Arc::downgrade(core);
+    let guard: super::messages::Guard = Arc::new(move || {
+        weak.upgrade().is_some_and(|core| core.ocr.generation.load(Ordering::SeqCst) == generation && !core.ocr.shutting_down())
+    });
+    let recognized = super::messages::Recognized {
+        text: message.text.clone(),
+        language: message.language.clone(),
+        id: Some(message.id.clone()),
+        asr_ms: None,
+    };
+    core.deliver_transcription(super::messages::Source::Ocr, recognized, Some(guard));
+}
 
 /// The default [`OcrPlatform`].
 pub(crate) fn real_platform() -> Arc<dyn OcrPlatform> {
@@ -230,7 +247,7 @@ impl Core {
     }
 
     /// `Controller.ocrMessage`: a read line goes to the message pipeline while chat reading is on.
-    fn ocr_message(&self, message: &Message) -> bool {
+    fn ocr_message(self: &Arc<Self>, message: &Message) -> bool {
         let generation = self.ocr.generation.load(Ordering::SeqCst);
         let current = || self.ocr.generation.load(Ordering::SeqCst) == generation && !self.ocr.shutting_down();
         if self.ocr.shutting_down() || self.config().get("ENABLE_OCR_CAPTURE") != json!(true) || message.text.is_empty() {
