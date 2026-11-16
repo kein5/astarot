@@ -24,7 +24,7 @@ test("#437: English labels and headings are in sentence case", () => {
 });
 
 test("#437: user-facing strings do not say this PC", () => {
-    for (const [language, phrase] of [["ja", /このPC/], ["en", /\bthis PC\b/i]]) {
+    for (const [language, phrase] of [["ja", /この\s*(PC|パソコン|コンピューター)/], ["en", /\bthis (PC|computer|machine)\b/i]]) {
         const lines = locale(language).split("\n").filter(line => phrase.test(line));
         assert.deepEqual(lines, [], language);
     }

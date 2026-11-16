@@ -703,7 +703,7 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "クラウドエンジンは、下の「クラウド音声認識」で API キーを登録すると選べます。「ローカル（speech.cpp）」は、この PC の speech.cpp サーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
+            desc: "クラウドエンジンは、下の「クラウド音声認識」で API キーを登録すると選べます。「ローカル（speech.cpp）」は、お使いの PC の speech.cpp サーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
@@ -2066,7 +2066,7 @@ telemetry_contents:
 transcription_consent:
     title: "音声認識エンジンを選ぶ"
     cloud_notice: "クラウドのエンジン（Groq、OpenAI、Deepgram、自分の Whisper サーバー）を使うときは、エンジンの設定を開いて API キーを登録し、そこで選んでください。音声はそのサービスに送られます。"
-    speechcpp_notice: "ローカル（speech.cpp）はこの PC の speech.cpp サーバーで音声を認識します。認識モデルと VAD モデルがないときは、設定 → 音声認識（ASR） → モデルとサーバーで内容を確認して取得してください。"
+    speechcpp_notice: "ローカル（speech.cpp）はお使いの PC の speech.cpp サーバーで音声を認識します。認識モデルと VAD モデルがないときは、設定 → 音声認識（ASR） → モデルとサーバーで内容を確認して取得してください。"
     speechcpp: "ローカル（speech.cpp）で文字起こしを始める"
     cancel: "キャンセル"
     settings: "エンジンの設定を開く"
@@ -2090,7 +2090,7 @@ local_asr_notice:
     close: "閉じる"
 old_whisper_weights:
     label: "古い Whisper モデル"
-    desc: "以前の版がダウンロードした Whisper モデルが、この PC で {{size}} を使っています。もう使わないので削除できます。"
+    desc: "以前の版がダウンロードした Whisper モデルが、お使いの PC で {{size}} を使っています。もう使わないので削除できます。"
     delete: "古い Whisper モデルを削除"
     confirm: "Whisper モデル（{{size}}）を削除しますか？元には戻せません。この版ではもう使いません。"
     confirm_delete: "削除する"
