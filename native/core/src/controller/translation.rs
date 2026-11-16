@@ -64,6 +64,19 @@ pub enum LocalError {
     Failed,
 }
 
+/// Where the loaded model runs. Fixed names only.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Placement {
+    /// The execution provider (`cpu`, `directml`, `cuda`, ...).
+    pub device: String,
+    pub device_index: u32,
+    /// The quantization variant (`int8`, `float16`, ...).
+    pub variant: String,
+    /// The device asked for and the fixed reason it could not be used, when the model runs on
+    /// the CPU instead.
+    pub fallback: Option<(String, &'static str)>,
+}
+
 /// The local translation model (`changeCTranslate2Model`, `translateCTranslate2`).
 pub trait LocalTranslation: Send + Sync {
     /// Loads a model, dropping the one loaded before even when this fails.
@@ -72,6 +85,15 @@ pub trait LocalTranslation: Send + Sync {
     fn loaded(&self) -> Option<LocalSetup>;
     /// Translates with the loaded model; codes as the weight's language table gives them.
     fn translate(&self, text: &str, source: &str, target: &str) -> Result<String, LocalError>;
+    /// Where the loaded model runs, if one is loaded.
+    fn placement(&self) -> Option<Placement> {
+        None
+    }
+    /// The language table (`{"source": {name: code}, "target": ...}`) of a weight the built-in
+    /// table does not have: a model the user added.
+    fn languages(&self, _weight: &str) -> Option<Value> {
+        None
+    }
 }
 
 /// No local translation in this build: nothing loads.
@@ -98,7 +120,7 @@ pub type LocalTranslationSource = Arc<dyn Fn(&crate::config::Environment) -> Arc
 pub fn default_local_translation(env: &crate::config::Environment) -> Arc<dyn LocalTranslation> {
     #[cfg(feature = "onnx-translation")]
     {
-        Arc::new(super::translation_onnx::OnnxTranslation::new(env.data_dir.clone()))
+        Arc::new(super::translation_onnx::OnnxTranslation::new(env))
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
@@ -111,12 +133,53 @@ pub fn default_local_translation(env: &crate::config::Environment) -> Arc<dyn Lo
 pub fn default_weight_available(env: &crate::config::Environment, weight: &str) -> bool {
     #[cfg(feature = "onnx-translation")]
     {
-        super::translation_onnx::bundle_present(&env.data_dir, weight)
+        super::translation_onnx::weight_available(env, weight)
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
         let _ = (env, weight);
         false
+    }
+}
+
+/// The weights the settings may name (`SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST`): the built-in
+/// ones, then the models the user added (`custom:<folder>`).
+pub fn weight_ids(env: &crate::config::Environment) -> Vec<String> {
+    #[cfg(feature = "onnx-translation")]
+    {
+        super::translation_onnx::weight_ids(env)
+    }
+    #[cfg(not(feature = "onnx-translation"))]
+    {
+        let _ = env;
+        crate::languages::TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect()
+    }
+}
+
+/// The translation compute devices for [`crate::config::Environment::compute_devices`]: the
+/// CPU, and the GPU execution providers of the ONNX Runtime library beside the app. The host
+/// calls this once at start.
+pub fn compute_devices() -> Vec<Value> {
+    #[cfg(feature = "onnx-translation")]
+    {
+        super::translation_onnx::compute_devices()
+    }
+    #[cfg(not(feature = "onnx-translation"))]
+    {
+        vec![crate::config::Environment::cpu_device()]
+    }
+}
+
+/// The user's model folders that were refused, with the fixed reason, for the log.
+pub fn refused_models(env: &crate::config::Environment) -> Vec<(String, &'static str)> {
+    #[cfg(feature = "onnx-translation")]
+    {
+        super::translation_onnx::discover(&env.data_dir).1
+    }
+    #[cfg(not(feature = "onnx-translation"))]
+    {
+        let _ = env;
+        Vec::new()
     }
 }
 
@@ -425,6 +488,16 @@ impl Translators {
     }
 
     // ------------------------------------------------------------ what is kept
+
+    /// The local translation's language table of a weight: the built-in one, else that of a
+    /// model the user added.
+    pub(crate) fn local_table(&self, weight: &str) -> Option<Value> {
+        crate::languages::translation()
+            .get(LOCAL_ENGINE)
+            .and_then(|engine| engine.get(weight))
+            .cloned()
+            .or_else(|| self.local.languages(weight))
+    }
 
     fn session(&self, provider: Provider) -> Option<Session> {
         self.clients.lock().unwrap().get(&provider).cloned()
@@ -870,6 +943,21 @@ impl Core {
         self.translation.local.load(&self.local_setup())
     }
 
+    /// Writes where the local model runs to the log and, when the chosen device could not be
+    /// used and the model runs on the CPU instead, tells the UI (never silent).
+    fn report_local_placement(&self) {
+        let Some(placement) = self.translation.local.placement() else { return };
+        self.step(&format!("Translation: the local model runs on {} ({})", placement.device, placement.variant));
+        if let Some((requested, reason)) = placement.fallback {
+            self.step(&format!("Translation: {requested} could not be used ({reason}); running on the CPU"));
+            // A notice, not an error: translation is on and works, on the CPU.
+            self.notify(
+                "translation_compute_device_fallback",
+                json!({ "requested": requested, "used": placement.device, "variant": placement.variant, "reason": reason }),
+            );
+        }
+    }
+
     /// `setCtranslate2WeightType`: a weight under a non-commercial licence needs the user's
     /// confirmation, unless it is already the selected one.
     fn set_weight_type(&self, data: &Value) -> Reply {
@@ -921,6 +1009,7 @@ impl Core {
         match self.load_local() {
             Ok(()) => {
                 let _ = config.set("ENABLE_TRANSLATION", json!(true));
+                self.report_local_placement();
             }
             Err(LocalError::OutOfMemory(message)) => {
                 self.step("Translation: the GPU ran out of memory while loading the model");
@@ -981,9 +1070,11 @@ impl Core {
         source: &str,
         target: &str,
     ) -> Option<(String, String)> {
-        let table = crate::languages::translation();
-        let entry = table.get(engine)?;
-        let entry = if engine == LOCAL_ENGINE { entry.get(weight)? } else { entry };
+        let entry = if engine == LOCAL_ENGINE {
+            self.translation.local_table(weight)?
+        } else {
+            crate::languages::translation().get(engine)?.clone()
+        };
         let mut target = target.to_string();
         if engine == "DeepL_API" {
             if target == "English" {

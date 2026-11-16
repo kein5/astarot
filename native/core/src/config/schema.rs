@@ -715,7 +715,9 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         target.insert(tab.into(), json!({ "1": target_slot("1"), "2": target_slot("2"), "3": target_slot("3") }));
         selected_engines.insert(tab.into(), json!("CTranslate2"));
     }
-    let weight_dict: Map<String, Value> = languages::TRANSLATION_WEIGHTS.iter().map(|w| (w.to_string(), json!(false))).collect();
+    // The built-in weights, then the models the user added (`custom:<folder>`).
+    let weights = crate::controller::translation::weight_ids(env);
+    let weight_dict: Map<String, Value> = weights.iter().map(|w| (w.clone(), json!(false))).collect();
     let engine_status: Map<String, Value> = engines.iter().map(|e| (e.clone(), json!(false))).collect();
     let transcription_status: Map<String, Value> = transcription_engines.iter().map(|e| (e.clone(), json!(false))).collect();
     let overlay = |tracker: &str| json!({
@@ -745,7 +747,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("WATCHDOG_INTERVAL", json!(20)),
         ("SELECTABLE_TAB_NO_LIST", tabs.clone()),
         ("SELECTED_TAB_TARGET_LANGUAGES_NO_LIST", tabs),
-        ("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST", json!(languages::TRANSLATION_WEIGHTS)),
+        ("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST", json!(weights)),
         ("SELECTABLE_TRANSLATION_ENGINE_LIST", json!(engines)),
         ("SELECTABLE_TRANSCRIPTION_ENGINE_LIST", json!(transcription_engines)),
         ("SELECTABLE_UI_LANGUAGE_LIST", json!(["en", "ja"])),

@@ -55,7 +55,9 @@ fn environment(executable: &Path, version: String) -> Environment {
         app_dir,
         data_dir,
         platform: Platform::current(),
-        compute_devices: vec![Environment::cpu_device()],
+        // The CPU, and the GPU execution providers of the ONNX Runtime library beside the app
+        // (none loaded when no library is there).
+        compute_devices: vrct_core::controller::translation::compute_devices(),
         devices: None,
         websocket_token: None,
     }

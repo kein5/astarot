@@ -215,7 +215,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 中核が`native/translation`（翻訳のプロバイダ、プロンプト、読みの規則）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`httparse`、`rustls`、`serde_json`、`webpki-roots`）と、中核に足した`chrono`は、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。プロンプトの文面はPythonの`translation_settings/prompt/*.yml`（VRCT-VOXのコード）を移したもの。
 
-中核に機能フラグ`onnx-translation`ができた（既定はオフ）。オンにすると`native/translate-onnx`経由で`ort`（ONNX Runtimeの取得を含む）と`tokenizers`が入る。そのため`native/core/Cargo.lock`にはこれらが載るが、既定のビルドとアプリには入らない。オンにするときは、ONNX Runtimeの同梱（[core-integration.md](core-integration.md)の「判断が要ること」の2）と一緒に、この台帳とNOTICEを見直す。読みの辞書（同じく3）も、決まったら辞書のライセンスをここに足す。
+中核の機能フラグ`onnx-translation`は、2026-11-16から既定でオンで、アプリでも有効（ローカル翻訳のエンジンを`native/translate-onnx`に決めた。[core-integration.md](core-integration.md)の「決まったこと」）。`ort`はチャットの読み取りと同じ`load-dynamic`で、ONNX Runtimeをビルドで取得もリンクもしない。アプリのロックファイルに新しく入った外部のクレートは`tokenizers` 0.23.2（Apache-2.0）とその依存（`esaxx-rs`、`spm_precompiled`、`fancy-regex`、`rayon`、`derive_builder`、`monostate`、`daachorse`、`compact_str`など。どれもMITかApache-2.0、またはそのどちらかを選べる。`zerocopy`はBSD-2-Clause OR Apache-2.0 OR MIT、`macro_rules_attribute`はApache-2.0 OR MIT OR Zlib）。`tools/rust_licenses.py`をWindowsとLinuxの両方の対象で実行し、どれも公開パッケージにライセンス文があることを確かめた。`tokenizers`は`default-features = false`と`fancy-regex`で使うので、C++のコード（`esaxx_fast`、`onig`）はビルドに入らない。ONNX Runtimeのライブラリそのものをどこから配るかは未決（同じ文書の「判断が要ること」の2）。読みの辞書（同じく3）も、決まったら辞書のライセンスをここに足す。
 ## チャットの読み取りを中核に入れたときの依存（2026-11-16、#285）
 
 中核（`native/core`）が`native/ocr-runtime`を使うようになり、`vrct-vox`に次の外部のクレートが加わった。`caseless`（MIT）、`libloading` 0.9.1（ISC）、`ort`と`ort-sys`（MIT OR Apache-2.0）、`ndarray`、`matrixmultiply`、`num-complex`、`num-integer`、`rawpointer`、`unicode-bidi`、`unicode-normalization`（MITとApache-2.0のいずれか）。`tools/rust_licenses.py`をWindowsとLinuxの両方で実行し、どれも公開パッケージにライセンス文があることを確かめた。`ndarray`などは`vrct-rvc-worker`がすでに使っていたもの。
@@ -307,7 +307,7 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 
 | 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
 |---|---|---|---|
-| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | 候補。入れるときはONNX Runtimeの配り方（2）と一緒に台帳を見直す |
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは未公開。利用者が自分で置くモデルのライセンスは利用者が確かめる |
 | `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
 | `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
 | `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
@@ -414,7 +414,7 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 
 まだ決まっていないもの（[中核の統合](core-integration.md)の「判断が要ること」）:
 
-- ONNX Runtimeの配り方（2）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`download-binaries`でONNX Runtimeを使う。WindowsでDirectMLを使うと、`onnxruntime.dll`と`DirectML.dll`を`vrct-vox.exe`の隣に置くことになる（`utils/zip.py`はあれば収める）。ONNX Runtime（MIT）とDirectML（Microsoftの再配布の条件）の通知を、そのときNOTICEとこの台帳に足す。
+- ONNX Runtimeの配り方（2）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`load-dynamic`でONNX Runtimeを実行時に読み込み、どちらも同じライブラリを使う。配布物にはまだ入れていない。同梱するなら公式のCPU版（`onnxruntime.dll` 17.3 MB、MIT）、WindowsでGPUも使うならDirectML版（`onnxruntime.dll` 1.24.4と`DirectML.dll` 18.5 MB）を`vrct-vox.exe`の隣に置く（`utils/zip.py`はあれば収める）。そのときONNX Runtime（MIT）とDirectML（Microsoftの再配布の条件）の通知をNOTICEとこの台帳に足す。CUDA版（NVIDIAのEULA）やOpenVINO版（Apache-2.0）は、声質変換の実行環境と同じく同意を得てから取得する案で、配布物には入れない。
 - CUDA版（20）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
 
 Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。

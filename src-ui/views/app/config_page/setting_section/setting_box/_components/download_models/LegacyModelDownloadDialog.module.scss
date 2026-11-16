@@ -27,6 +27,8 @@
     @media (max-width: 700px) {
         .fact { grid-template-columns: minmax(0, 1fr); }
     }
+    // A long folder path breaks anywhere instead of widening the dialog.
+    .path { overflow-wrap: anywhere; word-break: break-all; user-select: text; }
     // A way forward that skips the download: a text link under the two actions,
     // so Back and Start stay on one row.
     .alternative { margin-top: 1.2rem; }

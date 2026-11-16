@@ -50,14 +50,13 @@ pub fn deepgram_code(language: &str, country: &str, model_languages: &[String]) 
 impl Core {
     /// The languages an engine takes as a source (`getTranslationLanguagesForEngine`).
     pub fn translation_languages(&self, engine: &str) -> Vec<String> {
-        let table = languages::translation();
-        let source = if engine == LOCAL_ENGINE {
-            let weight = self.config().get_str("CTRANSLATE2_WEIGHT_TYPE");
-            table.get(engine).and_then(|e| e.get(&weight)).and_then(|w| w.get("source"))
+        let table = if engine == LOCAL_ENGINE {
+            // A built-in weight's table, or that of a model the user added.
+            self.translation.local_table(&self.config().get_str("CTRANSLATE2_WEIGHT_TYPE"))
         } else {
-            table.get(engine).and_then(|e| e.get("source"))
+            languages::translation().get(engine).cloned()
         };
-        source.and_then(Value::as_object).map(|o| o.keys().cloned().collect()).unwrap_or_default()
+        table.as_ref().and_then(|t| t["source"].as_object()).map(|o| o.keys().cloned().collect()).unwrap_or_default()
     }
 
     fn engine_supports(&self, engine: &str, language: &str) -> bool {

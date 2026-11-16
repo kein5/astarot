@@ -22,7 +22,7 @@ const untokenized = { kind: "ctranslate2", weight_type: "plain", name: "A model 
     total_bytes: 147882941, tokenizer: null, tokenizer_size_unknown: false,
     revision: "c".repeat(40), manifest_version: "reviewed-plain-manifest" };
 
-async function dialogFixture(context, language, reviewedEntry) {
+async function dialogFixture(context, language, reviewedEntry, catalog = { legacy_models: [reviewedEntry] }) {
     const translations = i18next.createInstance();
     const resource = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
@@ -31,7 +31,7 @@ async function dialogFixture(context, language, reviewedEntry) {
         closest: () => null, focus: () => events.focused++ } } });
     const runtime = hooks(), requests = [], reads = [];
     const dialogHooks = await loadModule(new URL("../common/useConsentDialog.js", import.meta.url), runtime);
-    const downloads = { catalog: { legacy_models: [reviewedEntry] }, send: (...args) => reads.push(args) };
+    const downloads = { catalog, send: (...args) => reads.push(args) };
     const { LegacyModelDownloadDialog } = await loadModule(componentURL, runtime, {
         "@useI18n": { useI18n: () => ({ t: translations.t.bind(translations) }) },
         "@tauri-apps/api/core": { isTauri: () => false },
@@ -39,6 +39,7 @@ async function dialogFixture(context, language, reviewedEntry) {
         "../../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },
         "../../../../../../../logics/configs/legacyModelConsent": consentLogic,
         "../../../../../../../logics/common/useConsentDialog": dialogHooks,
+        "../../advanced_settings/ModelDownloads": { ModelDownloads: function ModelDownloads() { return null; } },
     });
     const props = { kind: reviewedEntry.kind, weightType: reviewedEntry.weight_type,
         onCancel: () => events.closed++, onDownload: data => requests.push(data) };
@@ -239,5 +240,35 @@ for (const language of ["en", "ja"]) {
         const html = renderToStaticMarkup(subject.render());
         assert.ok(html.includes(subject.t("legacy_model_downloads.included_tokenizer")));
         assert.ok(!html.includes(subject.t("legacy_model_downloads.plus_tokenizer")));
+    });
+}
+
+// The core offers no CTranslate2 review: the translation models come through the shared
+// catalog (target "translation"). The review must not wait for one that never comes.
+for (const language of ["en", "ja"]) {
+    const folder = "C:\\Data\\translation-models";
+    test(`${language}: without a published translation model the review says so and where one's own goes`, async context => {
+        const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [], translation_models_folder: folder });
+        const tree = s.render();
+        const paragraph = key => find(tree, node => node.type === "p" && node.props.children === s.t(key));
+        assert.notEqual(paragraph("legacy_model_downloads.translation_not_published"), null);
+        assert.notEqual(paragraph("legacy_model_downloads.translation_own_model"), null);
+        assert.equal(find(tree, node => node.type === "code").props.children, folder);
+        assert.equal(paragraph("model_downloads.loading"), null);
+        assert.equal(find(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start")), null);
+        const close = find(tree, node => node.type === "button" && node.props.autoFocus);
+        assert.equal(close.props.children, s.t("legacy_model_downloads.close"));
+        close.props.onClick();
+        assert.equal(s.events.closed, 1);
+        assert.deepEqual(s.requests, []);
+    });
+    test(`${language}: a published translation model is reviewed in the shared download card`, async context => {
+        const model = { id: "m2m100-418m-onnx-int8", target: "translation", name: "M2M100 418M", artifacts: [] };
+        const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [model], translation_models_folder: folder });
+        const tree = s.render();
+        const card = find(tree, node => node.type?.name === "ModelDownloads");
+        assert.deepEqual(card.props.targets, ["translation"]);
+        assert.deepEqual(card.props.expected, { translation: {} });
+        assert.equal(find(tree, node => node.type === "p" && node.props.children === s.t("legacy_model_downloads.translation_not_published")), null);
     });
 }
