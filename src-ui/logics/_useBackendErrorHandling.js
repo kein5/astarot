@@ -191,6 +191,11 @@ export const _useBackendErrorHandling = () => {
                 showNotification_Error(localized, { category_id: error_code });
                 asyncStdoutToPython("/get/data/overlay_vr_panel");
                 break;
+            case "OVERLAY_FONT_NOT_FOUND":
+                // The saved font stays; the list shows it again.
+                showNotification_Warning(localized, { category_id: error_code });
+                asyncStdoutToPython("/get/data/overlay_font_family");
+                break;
             case "MESSAGE_OUTPUT_FAILED": {
                 const outputs = ["osc", "overlay_small", "overlay_large", "clipboard", "ui", "websocket", "logger", "history", "tts"];
                 const output = outputs.includes(data?.output) ? data.output : "unknown";

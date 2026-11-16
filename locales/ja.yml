@@ -234,6 +234,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} はダウンロードしていません。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認し、同意してからダウンロードしてください。モデルの版が変わったときはもう一度確認してください。"
     OVERLAY_RUNTIME_FAILED: "VRオーバーレイの描画または画面の取り込みに失敗したため、表示を止めました。SteamVRとVR画面の状態を確かめてから、もう一度オンにしてください。"
     OVERLAY_VR_PANEL_UNSUPPORTED: "この環境ではVR UIを使えません。字幕オーバーレイには影響しません。"
+    OVERLAY_FONT_NOT_FOUND: "その書体はこのPCに入っていません。字幕は前の書体のままです。"
     MESSAGE_OUTPUT_FAILED: "{{output}}にメッセージを送れませんでした。ほかの出力先には送っています。再送するとほかの出力先に同じメッセージが重ねて届くことがあります。"
     TRANSLATION_VRAM_ENABLE: "GPUのメモリーが足りず、AI翻訳を開始できませんでした。設定の「翻訳」で処理デバイスをCPUにするか、ほかのGPUアプリを止めてください。"
     TRANSLATION_DISABLED_VRAM: "GPUのメモリーが足りないため、翻訳をオフにしました。"
@@ -793,6 +794,12 @@ config_page:
         voice_typing_mode:
             label: "音声タイピングモード"
             desc: "文字起こしされたテキストをアクティブな入力欄へと自動的に貼り付けます。\n※クリップボードを使います。LinuxではX11／XWaylandのウィンドウ（Protonで動くVRChatなど）に貼り付けます。入力デバイスの操作を許可するか、デスクトップが最初に確認することがあります。"
+        overlay_font_family:
+            label: "字幕の書体"
+            desc: "字幕オーバーレイの書体を、このPCに入っている書体から選びます。選んだ書体にない文字は、このPCにあるその言語の標準の書体で出します。"
+            auto: "自動（このPCの標準の書体）"
+            not_installed: "{{name}}（このPCにありません）"
+            missing: "このPCには{{languages}}を表示できる書体がありません。その文字は字幕に出ません。Noto Sans CJKなどの書体を入れて、アプリを起動し直してください。"
 
     others:
         section_label_message_formats: "メッセージフォーマット"

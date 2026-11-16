@@ -386,6 +386,76 @@ fn the_controllers_hover_click_and_move_the_log_and_the_place_is_saved() {
     ui.stop();
 }
 
+/// A font file with only a `name` table naming its family (Windows platform, English).
+fn name_only_font(family: &str) -> Vec<u8> {
+    let records = [(1u16, family), (2u16, "Regular")];
+    let mut strings = Vec::new();
+    let mut table = Vec::new();
+    for value in [0u16, records.len() as u16, (6 + 12 * records.len()) as u16] {
+        table.extend_from_slice(&value.to_be_bytes());
+    }
+    for (id, text) in records {
+        let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_be_bytes).collect();
+        for value in [3u16, 1, 0x409, id, bytes.len() as u16, strings.len() as u16] {
+            table.extend_from_slice(&value.to_be_bytes());
+        }
+        strings.extend(bytes);
+    }
+    table.extend(strings);
+    let mut file = Vec::new();
+    file.extend_from_slice(&0x0001_0000u32.to_be_bytes());
+    file.extend_from_slice(&1u16.to_be_bytes());
+    file.extend_from_slice(&[0; 6]);
+    file.extend_from_slice(b"name");
+    file.extend_from_slice(&0u32.to_be_bytes());
+    file.extend_from_slice(&28u32.to_be_bytes());
+    file.extend_from_slice(&(table.len() as u32).to_be_bytes());
+    file.extend(table);
+    file
+}
+
+#[test]
+fn the_subtitle_font_is_chosen_from_the_system_and_checked() {
+    let folder = tempfile::tempdir().unwrap();
+    std::fs::write(folder.path().join("example.ttf"), name_only_font("Example Sans")).unwrap();
+    let fonts_folder = folder.path().to_path_buf();
+    let base = Setup::default();
+    let services = Services {
+        overlay_fonts: Arc::new(move |_| Arc::new(vrct_core::vr_overlay::fonts::FontLibrary::only(vec![fonts_folder.clone()]))),
+        ..base.services
+    };
+    let ui = Ui::with(Setup { services, ..Setup::default() });
+    let ready = ui.ready();
+    assert_eq!(ready["/get/data/overlay_font_family"], "", "automatic by default");
+    assert!(ready.get("/get/data/overlay_font_missing_languages").is_none(), "asked for by the settings, not at start-up");
+
+    assert_eq!(ui.ok("/set/data/overlay_font_family", Some(json!(" Example Sans "))), "Example Sans");
+    assert_eq!(ui.ok("/set/data/overlay_font_family", Some(json!("example sans"))), "example sans", "any case");
+    // Not on this system: refused, the current family given back.
+    let answer = ui.request("/set/data/overlay_font_family", Some(json!("Missing Sans")));
+    assert_eq!(error_code(&answer), "OVERLAY_FONT_NOT_FOUND");
+    assert_eq!(answer["result"]["data"], "example sans");
+    for bad in [json!("a\nb"), json!(5), json!("x".repeat(257)), json!("   x\u{7}")] {
+        let answer = ui.request("/set/data/overlay_font_family", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+        assert_eq!(answer["result"]["data"], "example sans");
+    }
+    // The stand-in font draws nothing: every checked language is reported missing.
+    assert_eq!(
+        ui.ok("/get/data/overlay_font_missing_languages", None),
+        json!(["Japanese", "Korean", "Chinese Simplified", "Chinese Traditional"])
+    );
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["OVERLAY_FONT_FAMILY"], "example sans");
+    ui.stop();
+
+    // A blank answer goes back to automatic.
+    let ui = Ui::with(Setup { saved: Some(json!({ "OVERLAY_FONT_FAMILY": "Gone Sans" })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/overlay_font_family"], "Gone Sans", "a saved family that is gone stays (drawn automatically)");
+    assert_eq!(ui.ok("/set/data/overlay_font_family", Some(json!(""))), "");
+    ui.stop();
+}
+
 #[test]
 fn a_sent_message_is_drawn_on_the_running_large_log() {
     let fake = FakeVr::running();
