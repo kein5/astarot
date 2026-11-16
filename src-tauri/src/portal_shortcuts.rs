@@ -526,8 +526,17 @@ fn listen(connection: Connection, mut signals: MessageStream, mut owners: Messag
         }
     }
     // Closed, owner loss, connection loss, and stream failure all invalidate cache.
-    alive.store(false, Ordering::Release);
+    // `close` clears `alive` before it waits for this thread, so a flag still set here means the
+    // desktop ended the session or the portal went away: the keys no longer work. The main
+    // window is told, so it can say so and bind again (the next bind opens a new connection).
+    if alive.swap(false, Ordering::AcqRel) {
+        let _ = app.emit_to("main", PORTAL_LOST_EVENT, ());
+    }
 }
+
+/// Sent to the main window when the portal session that holds the shortcuts ends without the
+/// app asking for it. It carries nothing: the main window binds again through the command.
+pub(crate) const PORTAL_LOST_EVENT: &str = "portal-shortcuts-lost";
 
 fn run(app: AppHandle, jobs: Arc<Jobs>) {
     let mut worker = Worker::<Portal>::default();

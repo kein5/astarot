@@ -287,6 +287,7 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 | `quick-chat-opened` | Rust → `quick_chat` | 入力欄にフォーカスを戻す |
 | `quick-chat-context-changed` | Rust → `quick_chat` | 設定が更新された。ペイロードは使わず、`quick_chat_context`で検証済みの設定を読み直す。フォーカスは移動しない |
 | `portal-shortcut` | Rust → `main` | Waylandでホットキーが押された |
+| `portal-shortcuts-lost` | Rust → `main` | Waylandでホットキーを預けたポータルのセッションが、アプリが頼んでいないのに終わった（ポータルの停止や再起動）。ペイロードはない。`main`は通知を出し、3秒後に1回だけ登録し直す。1分以内にまた切れたときは登録し直さず、設定を開いて閉じるよう案内する |
 | `vr-panel-ready` | `vr_panel` → `main` | VRパネルの準備ができた。`main`は状態を送り直す |
 | `vr-panel-stdout` | `vr_panel` → `main` | VRパネルからの要求。`main`が許可したものだけをサイドカーへ渡す |
 | `vr-panel-config-page` | `vr_panel` → `main` | VR内の設定を開いた・閉じた |
