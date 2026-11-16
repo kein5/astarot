@@ -94,6 +94,8 @@ pub fn backend_start(
     };
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
+    // The update endpoints use the update page's updater (app_update.rs; decision 20).
+    options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));
     if cfg!(debug_assertions) {
         // A development build runs from src-tauri/target; the files a package ships in
         // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.

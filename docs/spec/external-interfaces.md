@@ -168,6 +168,10 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
 - インストーラーは`/UPDATE`のとき、言語とエディションのページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
 - 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
+- バックエンドの更新のエンドポイントも同じupdaterを使う（`app_update.rs`の`CoreUpdates`を`backend_host.rs`が中核に渡す。[判断20](../voice-stack/core-integration.md#判断が要ること)）。
+  - `/get/data/available_releases`は、上のGitHubのリリースの一覧（新しい30件）から、今の版のチャンネルが取るものを新しい順に`[{tag, version, is_prerelease, published_at}]`で返す。安定版は安定版だけ、ベータ版は両方。下書き、版でないタグ、`latest.json`がないもの、このリポジトリのダウンロードでないものは除く。確認しないコピー（deb、rpm、開発用のビルド）は通信せずに空を返す。
+  - 起動時の`/run/software_update_info`（`{is_update_available, new_version}`）は、`CHECK_SOFTWARE_UPDATES`がオンのときだけupdaterで確かめる。オフなら通信せずに「更新なし」を送る。更新の画面の確認と同時に走るので、走っている確認の結果と、終わってから30秒以内の成功した結果は共有する。
+  - `/run/update_software`と`/run/update_cuda_software`は、今のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。エディションはどちらもそのコピーの入れ方のまま変えない。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
 
 ### LLMでの翻訳
 
