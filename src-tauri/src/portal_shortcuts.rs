@@ -225,10 +225,13 @@ struct Portal {
     counter: u32,
     request_path: Option<String>,
     session: Arc<Mutex<Option<OwnedObjectPath>>>,
+    /// The backends that serve GlobalShortcuts, read once a bind succeeds (see portal_owner_lost).
+    holders: Arc<Mutex<Vec<String>>>,
     alive: Arc<AtomicBool>,
     listener: Option<std::thread::JoinHandle<()>>,
     retired: bool,
 }
+const IMPL_INTERFACE: &str = "org.freedesktop.impl.portal.GlobalShortcuts";
 
 pub(crate) async fn next<S: Stream + Unpin>(stream: &mut S) -> Option<S::Item> {
     poll_fn(|context| Pin::new(&mut *stream).poll_next(context)).await
@@ -242,7 +245,7 @@ impl Portal {
         // Build the owner before any fallible setup, so failure closes the connection.
         let mut portal = Self {
             connection, destination: DESTINATION.into(), sender: String::new(), counter: 0,
-            request_path: None, session: Arc::new(Mutex::new(None)),
+            request_path: None, session: Arc::new(Mutex::new(None)), holders: Arc::new(Mutex::new(Vec::new())),
             alive: Arc::new(AtomicBool::new(true)), listener: None, retired: false,
         };
         portal.initialize(app, operation)?;
@@ -288,8 +291,9 @@ impl Portal {
         let signals = self.wait(operation, MessageStream::for_match_rule(rule, &self.connection, Some(64)))?
             .map_err(failure("portal_unavailable"))?;
         let (connection, session, alive) = (self.connection.clone(), self.session.clone(), self.alive.clone());
+        let holders = self.holders.clone();
         self.listener = Some(std::thread::Builder::new().name("vrct-portal-signals".into())
-            .spawn(move || listen(connection, signals, owners, backends, session, alive, app))
+            .spawn(move || listen(connection, signals, owners, backends, session, holders, alive, app))
             .map_err(|_| "portal_unavailable")?);
         let version: u32 = self.wait(operation, async {
             Proxy::new(&self.connection, self.destination.as_str(), DESKTOP, INTERFACE).await?
@@ -459,7 +463,15 @@ impl Backend for Portal {
         self.check(operation)?;
         if binding.is_empty() { return Ok(HashMap::new()); }
         let handle = self.create_session(operation)?;
-        self.bind_session(&handle, binding, operation)
+        let assigned = self.bind_session(&handle, binding, operation)?;
+        // The backend that bound the keys is running now; a short budget of its own, so a slow
+        // answer never fails the bind (every backend then counts, as before).
+        let holders = worker::wait_until(Instant::now() + HOLDERS_TIMEOUT, || Ok(()),
+            backends_with(&self.connection, IMPL_INTERFACE)).unwrap_or_default();
+        if let Ok(mut current) = self.holders.lock() {
+            *current = holders;
+        }
+        Ok(assigned)
     }
     fn close(&mut self) {
         if self.retired { return; }
@@ -475,15 +487,45 @@ impl Drop for Portal {
     fn drop(&mut self) { self.close(); }
 }
 
-/// Whether a `NameOwnerChanged` means the portal that holds our shortcuts went away or was
-/// replaced. A name that only appears (no old owner) took nothing with it.
-pub(crate) fn portal_owner_lost(name: &str, old_owner: &str) -> bool {
-    let backend = name.strip_prefix(BACKENDS).is_some_and(|rest| rest.is_empty() || rest.starts_with('.'));
+/// Whether a `NameOwnerChanged` means the portal that holds our session went away or was
+/// replaced. A name that only appears (no old owner) took nothing with it. Of the desktop's
+/// backends only `holders`, those that serve the session's portal, count: another one (the GTK
+/// backend next to GNOME's, say) restarting takes nothing with it (Issue #425). With no holders
+/// known, every backend counts.
+pub(crate) fn portal_owner_lost(name: &str, old_owner: &str, holders: &[String]) -> bool {
+    let backend = is_backend(name) && (holders.is_empty() || holders.iter().any(|holder| holder == name));
     (name == DESTINATION || backend) && !old_owner.is_empty()
 }
 
+fn is_backend(name: &str) -> bool {
+    name.strip_prefix(BACKENDS).is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
+}
+
+/// The running backends that implement `interface` (`org.freedesktop.impl.portal.<name>`), read
+/// from their introspection data. Empty when nothing could be read.
+pub(crate) async fn backends_with(connection: &Connection, interface: &str) -> Vec<String> {
+    let names = connection.call_method(
+        Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"), "ListNames", &(),
+    ).await.ok().and_then(|reply| reply.body().deserialize::<Vec<String>>().ok()).unwrap_or_default();
+    let declared = format!("<interface name=\"{interface}\"");
+    let mut holders = Vec::new();
+    for name in names.into_iter().filter(|name| is_backend(name)) {
+        let data = connection.call_method(
+            Some(name.as_str()), DESKTOP, Some("org.freedesktop.DBus.Introspectable"), "Introspect", &(),
+        ).await.ok().and_then(|reply| reply.body().deserialize::<String>().ok());
+        if data.is_some_and(|data| data.contains(&declared)) {
+            holders.push(name);
+        }
+    }
+    holders
+}
+
+/// How long the backends may take to say what they implement. Past it, every backend counts.
+pub(crate) const HOLDERS_TIMEOUT: Duration = Duration::from_secs(2);
+
+#[allow(clippy::too_many_arguments)]
 fn listen(connection: Connection, mut signals: MessageStream, mut owners: MessageStream, mut backends: MessageStream,
-    session: Arc<Mutex<Option<OwnedObjectPath>>>, alive: Arc<AtomicBool>, app: AppHandle) {
+    session: Arc<Mutex<Option<OwnedObjectPath>>>, holders: Arc<Mutex<Vec<String>>>, alive: Arc<AtomicBool>, app: AppHandle) {
     struct InvalidateOnDrop(Arc<AtomicBool>);
     impl Drop for InvalidateOnDrop {
         fn drop(&mut self) { self.0.store(false, Ordering::Release); }
@@ -510,7 +552,8 @@ fn listen(connection: Connection, mut signals: MessageStream, mut owners: Messag
         let member = header.member().map(|name| name.as_str());
         if interface == Some("org.freedesktop.DBus") && member == Some("NameOwnerChanged") {
             if let Ok((name, old, _new)) = message.body().deserialize::<(String, String, String)>() {
-                if portal_owner_lost(&name, &old) { break; }
+                let holders = holders.lock().map(|holders| holders.clone()).unwrap_or_default();
+                if portal_owner_lost(&name, &old, &holders) { break; }
             }
         } else if interface == Some("org.freedesktop.portal.Session") && member == Some("Closed") {
             if session.lock().is_ok_and(|current| current.as_ref().is_some_and(|path| Some(path.as_str()) == header.path().map(|path| path.as_str()))) {
@@ -667,14 +710,23 @@ mod tests {
 
     #[test]
     fn a_lost_or_replaced_portal_or_backend_ends_the_session() {
-        assert!(portal_owner_lost(DESTINATION, ":1.48"));
-        assert!(portal_owner_lost("org.freedesktop.impl.portal.desktop.kde", ":1.60"));
-        assert!(portal_owner_lost("org.freedesktop.impl.portal.desktop.gnome", ":1.61"));
+        assert!(portal_owner_lost(DESTINATION, ":1.48", &[]));
+        assert!(portal_owner_lost("org.freedesktop.impl.portal.desktop.kde", ":1.60", &[]));
+        assert!(portal_owner_lost("org.freedesktop.impl.portal.desktop.gnome", ":1.61", &[]));
         // A name that appears for the first time took no session with it.
-        assert!(!portal_owner_lost(DESTINATION, ""));
-        assert!(!portal_owner_lost("org.freedesktop.impl.portal.desktop.kde", ""));
-        assert!(!portal_owner_lost("org.freedesktop.impl.portal.desktopx", ":1.62"));
-        assert!(!portal_owner_lost("org.kde.kglobalaccel", ":1.10"));
+        assert!(!portal_owner_lost(DESTINATION, "", &[]));
+        assert!(!portal_owner_lost("org.freedesktop.impl.portal.desktop.kde", "", &[]));
+        assert!(!portal_owner_lost("org.freedesktop.impl.portal.desktopx", ":1.62", &[]));
+        assert!(!portal_owner_lost("org.kde.kglobalaccel", ":1.10", &[]));
+    }
+
+    #[test]
+    fn only_the_backend_that_serves_the_portal_ends_the_session() {
+        let holders = ["org.freedesktop.impl.portal.desktop.gnome".to_owned()];
+        assert!(portal_owner_lost("org.freedesktop.impl.portal.desktop.gnome", ":1.61", &holders));
+        assert!(!portal_owner_lost("org.freedesktop.impl.portal.desktop.gtk", ":1.62", &holders));
+        // The frontend itself always counts.
+        assert!(portal_owner_lost(DESTINATION, ":1.48", &holders));
     }
 
     #[test]

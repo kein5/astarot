@@ -3,22 +3,29 @@
 //! The UI feeds it every 20 seconds (`/run/feed_watchdog`). When no feed has come for longer
 //! than the timeout (60 seconds), the callback runs, and again at every check until fed: the
 //! backend stops itself when its UI is gone.
+//!
+//! Time is measured on the monotonic clock, so a change of the wall clock neither fires it nor
+//! holds it back. A wait between two checks that took far longer than the interval means the
+//! PC slept: the timer then starts again instead of stopping the backend before the woken UI has
+//! had a chance to feed it.
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant};
 
 pub const TIMEOUT: Duration = Duration::from_secs(60);
 pub const INTERVAL: Duration = Duration::from_secs(20);
+/// A wait between checks that overran the interval by more than this was a suspend (sleep or
+/// hibernation), not a slow thread.
+pub const SUSPEND_GAP: Duration = Duration::from_secs(10);
 
 type Callback = Arc<dyn Fn() + Send + Sync>;
 
 struct Shared {
     timeout: Duration,
     interval: Duration,
-    /// Wall-clock time, as the Python module used: time asleep counts as time without a feed.
-    last_feed: Mutex<SystemTime>,
+    last_feed: Mutex<Instant>,
     callback: Mutex<Option<Callback>>,
     stop: Mutex<bool>,
     wake: Condvar,
@@ -38,7 +45,7 @@ impl Default for Watchdog {
 impl Watchdog {
     pub fn new(timeout: Duration, interval: Duration) -> Self {
         Watchdog {
-            shared: Arc::new(Shared { timeout, interval, last_feed: Mutex::new(SystemTime::now()), callback: Mutex::new(None), stop: Mutex::new(false), wake: Condvar::new() }),
+            shared: Arc::new(Shared { timeout, interval, last_feed: Mutex::new(Instant::now()), callback: Mutex::new(None), stop: Mutex::new(false), wake: Condvar::new() }),
             thread: Mutex::new(None),
         }
     }
@@ -53,7 +60,7 @@ impl Watchdog {
 
     /// Restarts the timer.
     pub fn feed(&self) {
-        *self.shared.last_feed.lock().unwrap() = SystemTime::now();
+        *self.shared.last_feed.lock().unwrap() = Instant::now();
     }
 
     /// The callback run on timeout. It runs on the watchdog thread; a panic in it is caught.
@@ -79,11 +86,14 @@ impl Watchdog {
             .name("watchdog".into())
             .spawn(move || loop {
                 shared.check();
+                let waited = Instant::now();
                 let stop = shared.stop.lock().unwrap();
                 let (stop, _) = shared.wake.wait_timeout_while(stop, shared.interval, |stop| !*stop).unwrap();
                 if *stop {
                     break;
                 }
+                drop(stop);
+                shared.after_wait(waited.elapsed());
             })
             .ok();
     }
@@ -111,9 +121,16 @@ impl Watchdog {
 }
 
 impl Shared {
+    /// After the wait between two checks: one that took far longer than the interval spanned a
+    /// suspend, and the time asleep does not count as time without a feed.
+    fn after_wait(&self, waited: Duration) {
+        if waited > self.interval + SUSPEND_GAP {
+            *self.last_feed.lock().unwrap() = Instant::now();
+        }
+    }
+
     fn check(&self) -> bool {
-        let last = *self.last_feed.lock().unwrap();
-        let elapsed = SystemTime::now().duration_since(last).unwrap_or(Duration::ZERO);
+        let elapsed = self.last_feed.lock().unwrap().elapsed();
         if elapsed <= self.timeout {
             return false;
         }
@@ -149,6 +166,27 @@ mod tests {
         assert!(watchdog.check() && fired.load(Ordering::SeqCst) == 1);
         watchdog.feed();
         assert!(!watchdog.check());
+    }
+
+    #[test]
+    fn a_wait_that_spanned_a_suspend_restarts_the_timer() {
+        // #427: after waking from sleep the check could run before the UI fed it, and the time
+        // asleep counted as time without a feed, so the backend stopped.
+        let interval = Duration::from_millis(10);
+        let watchdog = Watchdog::new(Duration::from_millis(50), interval);
+        let fired = Arc::new(AtomicUsize::new(0));
+        let counter = fired.clone();
+        watchdog.set_callback(move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+        });
+        thread::sleep(Duration::from_millis(80));
+        watchdog.shared.after_wait(interval + SUSPEND_GAP + Duration::from_secs(1));
+        assert!(!watchdog.check(), "the time asleep is not time without a feed");
+        // An ordinary wait changes nothing: without a feed it still fires.
+        thread::sleep(Duration::from_millis(80));
+        watchdog.shared.after_wait(interval + Duration::from_millis(5));
+        assert!(watchdog.check());
+        assert_eq!(fired.load(Ordering::SeqCst), 1);
     }
 
     #[test]

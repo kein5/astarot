@@ -11,16 +11,17 @@
 //! - The OpenVR client library (`openvr_api`, BSD-3-Clause, Valve) is loaded at run
 //!   time: `VRCT_OPENVR_API` names it, else it is looked for next to the executable,
 //!   else by name. Without it there is no headset view.
-//! - The session is process-wide and reference-counted ([`acquire`] / [`release`]):
-//!   `VR_Shutdown` ends the connection for the whole process.
+//! - The connection is the process's one, shared with the VR overlay through
+//!   `vrct-openvr-client` ([`acquire`]): `VR_Shutdown` ends it for the whole process, so
+//!   only the last holder calls it.
 //! - The mirror is acquired once and reused; releasing it every frame makes SteamVR
 //!   serve stale frames (ValveSoftware/openvr#1888). Everything is created, read and
 //!   released on the OCR worker thread.
 //! - Only VRChat's frames are read: while another scene app presents, `capture` gives
 //!   nothing so the facade falls back to the desktop window.
 
-use std::ffi::{c_char, c_void, CString};
-use std::sync::{Arc, Mutex};
+use std::ffi::c_void;
+use std::sync::Arc;
 
 use super::VrCapture;
 use crate::failure::{Clock, Failure, FailureLog, Log};
@@ -29,7 +30,6 @@ use crate::image::BgrImage;
 /// The interface versions of OpenVR SDK 2.12.14 (what pyopenvr 2.12.1401 used).
 pub const COMPOSITOR_VERSION: &str = "IVRCompositor_029";
 pub const SYSTEM_VERSION: &str = "IVRSystem_023";
-const APPLICATION_BACKGROUND: i32 = 3;
 pub const EYE_LEFT: i32 = 0;
 /// After a failed start on Linux (an OpenGL context opened and closed) wait this long.
 pub const GL_RETRY_SEC: f64 = 30.0;
@@ -73,94 +73,45 @@ pub fn library_path() -> std::path::PathBuf {
     library_name().into()
 }
 
-type InitFn = unsafe extern "C" fn(*mut i32, i32, *const c_char) -> isize;
-type ShutdownFn = unsafe extern "C" fn();
-type InterfaceFn = unsafe extern "C" fn(*const c_char, *mut i32) -> *const c_void;
-
-struct Api {
-    _library: libloading::Library,
-    init: InitFn,
-    shutdown: ShutdownFn,
-    get_interface: InterfaceFn,
-}
-
-impl Api {
-    fn load() -> Result<Api, Failure> {
-        let fail = |e: libloading::Error| Failure::new("OSError", format!("OpenVR client library: {e}"));
-        unsafe {
-            let library = libloading::Library::new(library_path()).map_err(fail)?;
-            let init = *library.get::<InitFn>(b"VR_InitInternal2\0").map_err(fail)?;
-            let shutdown = *library.get::<ShutdownFn>(b"VR_ShutdownInternal\0").map_err(fail)?;
-            let get_interface = *library.get::<InterfaceFn>(b"VR_GetGenericInterface\0").map_err(fail)?;
-            Ok(Api { _library: library, init, shutdown, get_interface })
-        }
-    }
-
-    fn table(&self, version: &str) -> Result<*const *const c_void, Failure> {
-        let name = CString::new(format!("FnTable:{version}")).expect("no NUL");
-        let mut error = 0i32;
-        let table = unsafe { (self.get_interface)(name.as_ptr(), &mut error) };
-        if table.is_null() || error != 0 {
-            return Err(Failure::new("OpenVRError", format!("{version} unavailable (error {error})")));
-        }
-        Ok(table as *const *const c_void)
-    }
-}
-
-/// The process-wide OpenVR session.
+/// The OCR's hold on the process's OpenVR connection, with the tables it reads.
 pub struct Session {
-    api: Api,
     compositor: *const *const c_void,
     #[cfg_attr(not(windows), allow(dead_code))]
     system: *const *const c_void,
+    lease: vrct_openvr_client::Lease,
 }
 
 // The tables are process-wide and thread-safe in the OpenVR client.
 unsafe impl Send for Session {}
 unsafe impl Sync for Session {}
 
-static SESSION: Mutex<(usize, Option<Arc<Session>>)> = Mutex::new((0, None));
-
-/// A reference to the shared session; the first caller initializes OpenVR as a
-/// background application (never stealing focus from the scene app).
+/// A hold on the process's OpenVR connection ([`vrct_openvr_client`]), which the VR overlay
+/// shares: the first holder initializes OpenVR as a background application (never stealing
+/// focus from the scene app), and the last one to let go shuts it down.
 pub fn acquire() -> Result<Arc<Session>, Failure> {
-    let mut guard = SESSION.lock().map_err(|_| Failure::new("RuntimeError", "OpenVR session lock poisoned"))?;
-    if guard.0 == 0 {
-        let api = Api::load()?;
-        let mut error = 0i32;
-        unsafe { (api.init)(&mut error, APPLICATION_BACKGROUND, std::ptr::null()) };
-        if error != 0 {
-            return Err(Failure::new("OpenVRError", format!("VR_Init failed (error {error})")));
+    let lease = vrct_openvr_client::acquire(&[library_path()]).map_err(|error| match error {
+        vrct_openvr_client::Error::LibraryNotFound | vrct_openvr_client::Error::MissingSymbol(_) => {
+            Failure::new("OSError", format!("OpenVR client library: {error}"))
         }
-        let tables = api.table(COMPOSITOR_VERSION).and_then(|c| api.table(SYSTEM_VERSION).map(|s| (c, s)));
-        let (compositor, system) = match tables {
-            Ok(tables) => tables,
-            Err(failure) => {
-                unsafe { (api.shutdown)() };
-                return Err(failure);
-            }
-        };
-        guard.1 = Some(Arc::new(Session { api, compositor, system }));
-    }
-    guard.0 += 1;
-    Ok(guard.1.clone().expect("set above"))
-}
-
-/// Release a reference; OpenVR shuts down once nobody holds one.
-pub fn release() {
-    let Ok(mut guard) = SESSION.lock() else { return };
-    if guard.0 == 0 {
-        return;
-    }
-    guard.0 -= 1;
-    if guard.0 == 0 {
-        if let Some(session) = guard.1.take() {
-            unsafe { (session.api.shutdown)() };
-        }
-    }
+        error => Failure::new("OpenVRError", format!("VR_Init failed ({error})")),
+    })?;
+    let table = |version: &str| {
+        lease
+            .interface(&format!("FnTable:{version}"))
+            .map_err(|error| Failure::new("OpenVRError", format!("{version} unavailable (error {error})")))
+    };
+    // A failure drops the lease, which leaves the overlay's connection alone.
+    let compositor = table(COMPOSITOR_VERSION)?;
+    let system = table(SYSTEM_VERSION)?;
+    Ok(Arc::new(Session { compositor, system, lease }))
 }
 
 impl Session {
+    /// SteamVR asked applications to quit (the overlay read the event): let go.
+    fn closing(&self) -> bool {
+        self.lease.closing()
+    }
+
     unsafe fn compositor_fn<T: Copy>(&self, index: usize) -> T {
         unsafe {
             let entry = *self.compositor.add(index);
@@ -227,14 +178,13 @@ impl OpenVrMirrorCapture {
         }
     }
 
-    /// Release the mirror (through the compositor, so first), then the session.
+    /// Release the mirror (through the compositor, so first), then the session. The mirror
+    /// holds the session too, so dropping it is what lets go of the connection.
     fn reset(&mut self) {
         if let Some(mut mirror) = self.mirror.take() {
             mirror.close();
         }
-        if self.session.take().is_some() {
-            release();
-        }
+        self.session = None;
     }
 
     /// VRChat is what SteamVR presents: the last frame renderer is the scene focus
@@ -257,6 +207,10 @@ impl VrCapture for OpenVrMirrorCapture {
 
     fn capture(&mut self) -> Option<BgrImage> {
         self.failures.report(self.clock.now());
+        if self.session.as_ref().is_some_and(|session| session.closing()) {
+            // SteamVR is quitting: let go so the next connection is a fresh one.
+            self.reset();
+        }
         if !self.init() {
             return None;
         }

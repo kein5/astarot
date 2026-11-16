@@ -2,7 +2,7 @@
 
 Status: **採用（製品方針・ブランド仕様）／素材再生成済み・リポジトリ実装と識別子移行は未着手**
 Date: 2026-11-16
-Reference: `docs/brand/astarot/symbol-light.svg`（均一な幾何で作り直したシンボルの正本）、`docs/brand/astarot/reference-brand-guide.png`（構図の参照画像）
+Reference: `docs/brand/astarot/symbol-light.svg`（均一な幾何で作り直したシンボルの正本）
 Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`docs/voice-stack/project-rename.md`、`docs/voice-stack/adr-010-frontend-stack.md`、`docs/voice-stack/decisions.md`
 
 ## 1. 背景と目的
@@ -83,7 +83,7 @@ PNGの小さな本文・サブタイトルは利用環境に応じて代替書�
 
 ### 3.4 アセット管理
 
-配置先：`docs/brand/astarot/`。シンボルの正本は均一版の `symbol-light.svg`。`reference-brand-guide.png` と `reference-mark-crop.png` は構図の参照として残す。`tools/astarot_brand_from_reference.py` は、Outfit Bold からワードマークを作り、`symbol-light.svg` のシンボルと組んで、ワードマーク、横長・縦長のロゴ、ブランドボードの SVG を生成する。`--check` を付けると、何も書かずに現在のファイルと一致するかを確かめる。シンボル、アイコン、favicon のファイルと PNG は生成しない。使うフォントと実行の方法はツールの先頭に書いてある。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
+配置先：`docs/brand/astarot/`。シンボルの正本は均一版の `symbol-light.svg`。構図の参照画像（`reference-brand-guide.png` とその切り抜きの `reference-mark-crop.png`）は、ブランドボードのロックアップをそのバランスに合わせたあと、2026-11-17 にリポジトリから削除した。`tools/astarot_brand_from_reference.py` は、Outfit Bold からワードマークを作り、`symbol-light.svg` のシンボルと組んで、ワードマーク、横長・縦長のロゴ、ブランドボードの SVG を生成する。`--check` を付けると、何も書かずに現在のファイルと一致するかを確かめる。シンボル、アイコン、favicon のファイルと PNG は生成しない。使うフォントと実行の方法はツールの先頭に書いてある。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
 
 現行 `docs/brand/` には `VRCT-VOX` のアイコン・ロゴ・生成ツール `tools/brand_assets.py` がある。**移行承認までこれらを上書きしない。** 実装段階で既存パイプラインに ASTAROT 原版を登録して、UI、README、Tauri の OS アイコン、インストーラー、AppImage などを一括生成・検証する。
 

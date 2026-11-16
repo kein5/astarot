@@ -245,11 +245,18 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
 }
 
 fn resolve(path: &Path) -> Option<PathBuf> {
-    std::fs::canonicalize(path).ok().map(|path| {
-        // Windows' canonical form starts with `\\?\`, which the worker does not need.
-        let text = path.to_string_lossy();
-        PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(&text).to_owned())
-    })
+    std::fs::canonicalize(path).ok().map(|path| PathBuf::from(without_verbatim_prefix(&path.to_string_lossy())))
+}
+
+/// Windows' canonical form starts with `\\?\`, which the worker does not need. A share (a NAS,
+/// or a mapped drive, which canonicalizes to its share) is `\\?\UNC\server\share\...`: it goes
+/// back to `\\server\share\...`, as dropping only `\\?\` would leave the relative path
+/// `UNC\server\...`.
+fn without_verbatim_prefix(text: &str) -> String {
+    if let Some(share) = text.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{share}");
+    }
+    text.strip_prefix(r"\\?\").unwrap_or(text).to_owned()
 }
 
 /// A started conversion is single use: start once, stop, close.
@@ -869,5 +876,17 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
             state.blocks += 1;
         }
         state.state = if converted_state == "converted" { "converted" } else { "idle" };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::without_verbatim_prefix;
+
+    #[test]
+    fn a_share_keeps_its_double_backslash_and_a_drive_loses_the_verbatim_prefix() {
+        assert_eq!(without_verbatim_prefix(r"\\?\UNC\nas\voices\model.pth"), r"\\nas\voices\model.pth");
+        assert_eq!(without_verbatim_prefix(r"\\?\C:\voices\model.pth"), r"C:\voices\model.pth");
+        assert_eq!(without_verbatim_prefix("/home/user/voices/model.pth"), "/home/user/voices/model.pth");
     }
 }

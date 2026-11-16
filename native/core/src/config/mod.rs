@@ -615,6 +615,10 @@ impl Config {
                     // Only keys the store has not taken yet; none at all once it has them.
                     return secrets::file_value(k.name, &value, &state.secrets.in_file).map(|v| (k.name.to_string(), v));
                 }
+                if k.name == "DIRECT_VOICE_SETTINGS" {
+                    // Readable by 0.4 while the new choices are unchanged.
+                    return Some((k.name.to_string(), crate::voice_settings::file_direct(&value)));
+                }
                 Some((k.name.to_string(), value))
             })
             .collect()

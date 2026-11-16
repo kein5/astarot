@@ -60,6 +60,8 @@ pub(crate) struct Ops {
     /// Held while an apply checks and writes the settings (Python's `_speech_settings_lock` and
     /// `_voice_settings_lock`).
     apply_lock: Mutex<()>,
+    /// This run's hook in the error reports ([`crate::errors::register_report_hook`]).
+    report_hook: u64,
 }
 
 impl Ops {
@@ -79,9 +81,20 @@ impl Ops {
         // Every reported error code reaches the usage events (`register_error_report_hook`);
         // the telemetry itself sends nothing until it is started, and once a day per code.
         let reporter = telemetry.clone();
-        crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
+        let report_hook = crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
         let user_models = UserModels::new(env.state_dir.join(user_models::FILE_NAME));
-        Ops { downloads, hardware, telemetry, user_models, apply_lock: Mutex::new(()) }
+        Ops { downloads, hardware, telemetry, user_models, apply_lock: Mutex::new(()), report_hook }
+    }
+
+    /// Takes this run's hook away: the error codes of a later run are not counted here.
+    pub(super) fn stop_reporting(&self) {
+        crate::errors::unregister_report_hook(self.report_hook);
+    }
+}
+
+impl Drop for Ops {
+    fn drop(&mut self) {
+        self.stop_reporting();
     }
 }
 

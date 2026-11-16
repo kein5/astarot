@@ -47,6 +47,9 @@ pub struct Options {
     pub startup_limit: Option<Duration>,
     /// Write `process.log` and `error.log` under the settings folder.
     pub logs: bool,
+    /// Write `process.log` after what is there instead of emptying it: for a run started again
+    /// after a failed one, whose record would otherwise be lost.
+    pub continue_logs: bool,
     pub services: Services,
 }
 
@@ -59,6 +62,7 @@ impl Options {
             grace: Duration::from_secs(30),
             startup_limit: Some(STARTUP_LIMIT),
             logs: true,
+            continue_logs: false,
             services: Services::default(),
         }
     }
@@ -108,7 +112,12 @@ pub struct Backend {
 
 impl Backend {
     pub fn start(options: Options, sink: Sink) -> Backend {
-        let log = Arc::new(if options.logs { Log::new(&options.env.state_dir.join("logs")) } else { Log::disabled() });
+        let logs = options.env.state_dir.join("logs");
+        let log = Arc::new(match (options.logs, options.continue_logs) {
+            (false, _) => Log::disabled(),
+            (true, false) => Log::new(&logs),
+            (true, true) => Log::continuing(&logs),
+        });
         log.step("Start Initialization", None);
         let store = (options.services.secret_store)(&options.env);
         let config = Config::open_with(options.env.clone(), store);
@@ -224,6 +233,22 @@ impl Backend {
     /// Stops the run now, as when the host ends the process.
     pub fn kill(&self) {
         self.finish(-1, true);
+    }
+
+    /// [`Backend::kill`], then waits up to `limit` until the core has stopped what it ran and
+    /// saved the settings. A new run on the same settings folder starts only after that, so it
+    /// finds the ports free and its settings are not overwritten by the old run's last save.
+    /// False when the stop took longer.
+    pub fn kill_and_wait(&self, limit: Duration) -> bool {
+        self.kill();
+        let core = Arc::clone(&self.inner.core);
+        let (done, stopped) = std::sync::mpsc::channel();
+        // A second shutdown returns once the first one, already running, has finished.
+        let spawned = std::thread::Builder::new().name("backend_stop_wait".into()).spawn(move || {
+            core.shutdown();
+            let _ = done.send(());
+        });
+        spawned.is_ok() && stopped.recv_timeout(limit).is_ok()
     }
 
     /// The graceful stop with a hard deadline (`escalateShutdown`), once.

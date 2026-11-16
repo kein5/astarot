@@ -15,7 +15,9 @@ import { UserModelCards, UserModelRegistration } from "./UserModels";
 import { USER_MODEL_FILES } from "../../../../../../logics/voice/modelCatalog";
 
 const activePhases = ["queued", "downloading", "verifying", "cancelling"];
-const bytes = value => `${Number(value).toLocaleString("en-US")} bytes (${(value / 1073741824).toFixed(2)} GiB)`;
+// The time of a reading in the display language, not the system's (\4:19:57 AM\ in a Japanese UI).
+export const measuredTime = (ms, language) => new Date(ms).toLocaleTimeString(language);
+const bytes = (value, t) => `${t("model_downloads.exact_bytes", { bytes: Number(value).toLocaleString("en-US") })} (${(value / 1073741824).toFixed(2)} GiB)`;
 // The page lists sizes in GiB; the consent dialog keeps the exact byte counts.
 const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
 
@@ -42,7 +44,7 @@ const useLanguageList = () => {
 // choice, the refresh action and the measured device. Each engine's
 // ModelDownloads takes the same reserve and reads the same shared hardware.
 export const HardwareReadout = ({ reserve, setReserve }) => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
     const { hardware, send, ensureHardware } = useModelDownloads();
     const [, setNow] = useState(Date.now());
     useEffect(() => { ensureHardware(); }, [hardware.phase, ensureHardware]);
@@ -66,7 +68,7 @@ export const HardwareReadout = ({ reserve, setReserve }) => {
         </div>
         {(reading.device || hardware.measured_at_ms) && <EnvReadout live={false}>
             {reading.device && <p>{reading.device.name}: {reading.device.description} · {t('model_downloads.hardware_free')}: {memory(reading.device.memory_free)} / {t('model_downloads.hardware_total')}: {memory(reading.device.memory_total)}</p>}
-            {hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {new Date(hardware.measured_at_ms).toLocaleTimeString()}</p>}
+            {hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {measuredTime(hardware.measured_at_ms, i18n?.language)}</p>}
             {reading.multiple && <p>{t('model_downloads.multiple_gpus')}</p>}
         </EnvReadout>}
         <details className={styles.more}><summary>{t('model_downloads.memory_boundary_summary')}</summary>
@@ -125,7 +127,7 @@ const WarningNote = ({ warning }) => {
 // The download, verification and apply steps are the same as before; only the choice is laid out
 // as a catalog. Nothing here starts a download or changes a setting by itself.
 export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false }) => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
     const languages = useLanguageList();
     const { catalog, state, hardware, error, pending, send, ensureHardware } = useModelDownloads();
     const [selected, setSelected] = useState(null), [consent, setConsent] = useState(false);
@@ -272,7 +274,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <p>{t(`model_catalog.group_help.${target}`)}</p>
                 {tts && <>
                     {!shared && hint.device && <p>{hint.device.name}: {hint.device.description} · {t('model_downloads.hardware_free')}: {memory(hint.device.memory_free)} / {t('model_downloads.hardware_total')}: {memory(hint.device.memory_total)}</p>}
-                    {!shared && hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {new Date(hardware.measured_at_ms).toLocaleTimeString()}</p>}
+                    {!shared && hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {measuredTime(hardware.measured_at_ms, i18n?.language)}</p>}
                     <p>{t(`model_downloads.advice_${hint.reason}`)}</p>
                     {!shared && hint.multiple && <p>{t('model_downloads.multiple_gpus')}</p>}
                     {hint.recommended && <p><strong>{t('model_downloads.recommended')}</strong>: {matching.find(entry => entry.id === hint.recommended)?.name}</p>}
@@ -295,7 +297,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
             <h3>{t("model_downloads.warning_title")}</h3>
             <p>{selected.name} · {selected.provider}</p>
-            <p>{bytes(selected.total_bytes)} · {selected.license}</p>
+            <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
             {selected.downloaded && <p>{t("model_catalog.prepare_notice")}</p>}
             {selectedWarning && <WarningNote warning={selectedWarning} />}
             <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
@@ -309,11 +311,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(url, i)}</a> </span>)}</p>
             {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
             <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-            <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size)}</li>)}</ul>
+            <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             <div className={styles.actions}>
                 <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
-                <button type="button" disabled={!consent || busy} onClick={() => {
+                <button type="button" className="primary" disabled={!consent || busy} onClick={() => {
                     if (!consent || busy) return;
                     send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version }); close();
                 }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</button>

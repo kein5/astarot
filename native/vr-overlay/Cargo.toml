@@ -10,10 +10,11 @@ name = "vrct_vr_overlay"
 
 [dependencies]
 ab_glyph = "=0.2.32"
-# openvr_api is loaded when SteamVR runs, not linked: the build needs no OpenVR SDK.
-libloading = "=0.8.9"
 serde_json = "=1.0.154"
 unicode-segmentation = "=1.13.3"
+# The process's one OpenVR connection, shared with the OCR capture. openvr_api is loaded
+# when SteamVR runs, not linked: the build needs no OpenVR SDK.
+vrct-openvr-client = { path = "../openvr-client" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"

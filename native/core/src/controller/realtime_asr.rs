@@ -489,11 +489,21 @@ impl Core {
                 return Some("speech_server_model_invalid".into());
             };
             let mut toggle = self.realtime().toggle();
-            if let Err(code) = self.speech_servers().hub().start(Profile::Asr, options, run) {
-                return Some(if code == vrct_speech_server::codes::BUSY { "speech_server_busy" } else { "speech_server_start_failed" }.into());
+            // The other source's switch may have started the server while this one checked the
+            // settings (both switches turned on together): read the server again under the lock
+            // and wait for that run instead of starting a second one.
+            let row = self.speech_servers().state()["asr"].clone();
+            if row["state"] == "stopping" {
+                return Some("speech_server_busy".into());
             }
-            run += 1;
-            toggle.asr_owned = Some(run);
+            run = row["generation"].as_u64().unwrap_or(0);
+            if !matches!(row["state"].as_str(), Some("ready" | "preparing")) {
+                if let Err(code) = self.speech_servers().hub().start(Profile::Asr, options, run) {
+                    return Some(if code == vrct_speech_server::codes::BUSY { "speech_server_busy" } else { "speech_server_start_failed" }.into());
+                }
+                run += 1;
+                toggle.asr_owned = Some(run);
+            }
         }
         let deadline = Instant::now() + ASR_SERVER_WAIT;
         loop {

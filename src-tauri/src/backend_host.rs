@@ -23,6 +23,9 @@ pub struct BackendHost {
 /// How long the stop before an update may take. The graceful stop saves the settings first and
 /// then stops the servers; past this the run is ended anyway, which still saves the settings.
 pub const UPDATE_STOP_LIMIT: Duration = Duration::from_secs(10);
+/// How long a new run waits for the failed one it replaces to stop. Past this it starts anyway,
+/// as before.
+const RETRY_STOP_LIMIT: Duration = Duration::from_secs(10);
 
 impl BackendHost {
     /// Stops the run when the application ends.
@@ -50,14 +53,21 @@ fn main_only(window: &tauri::WebviewWindow) -> Result<(), String> {
     if window.label() == "main" { Ok(()) } else { Err("backend_forbidden".into()) }
 }
 
-/// Where settings, logs and models live: the same folders the Python sidecar used, so that a
-/// user's settings carry over (`runtime_paths.py`, `config.py`).
-/// Where the settings live (config.json), as the backend finds it.
+/// Where the settings live (config.json), as the backend finds it. Only the folders: the start-up
+/// reads it before the window shows, and the compute devices would start ONNX Runtime (#425).
 pub(crate) fn state_dir(executable: &Path) -> PathBuf {
-    environment(executable, String::new()).state_dir
+    folders(executable).state_dir
 }
 
-fn environment(executable: &Path, version: String) -> Environment {
+/// Where settings, logs and models live: the same folders the Python sidecar used, so that a
+/// user's settings carry over (`runtime_paths.py`, `config.py`).
+struct Folders {
+    state_dir: PathBuf,
+    app_dir: PathBuf,
+    data_dir: PathBuf,
+}
+
+fn folders(executable: &Path) -> Folders {
     let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     let linux_bundle = cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1");
     let xdg = |variable: &str, override_variable: &str, fallback: &str| {
@@ -72,6 +82,11 @@ fn environment(executable: &Path, version: String) -> Environment {
         if linux_bundle { xdg("XDG_CONFIG_HOME", "VRCT_CONFIG_DIR", ".config") } else { app_dir.clone() }
     });
     let data_dir = if linux_bundle { xdg("XDG_DATA_HOME", "VRCT_DATA_DIR", ".local/share") } else { app_dir.clone() };
+    Folders { state_dir, app_dir, data_dir }
+}
+
+fn environment(executable: &Path, version: String) -> Environment {
+    let Folders { state_dir, app_dir, data_dir } = folders(executable);
     Environment {
         version,
         state_dir,
@@ -102,9 +117,11 @@ pub fn backend_start(
 ) -> Result<(), String> {
     main_only(&window)?;
     let mut current = host.session.lock().unwrap();
-    if let Some((_, previous)) = current.take() {
-        // The UI starts again only after a failed run; that run must not keep its ports.
-        previous.kill();
+    let previous = current.take();
+    if let Some((_, previous)) = &previous {
+        // The UI starts again only after a failed run; that run must not keep its ports, and its
+        // last save must not overwrite the new run's settings, so its stop is waited for.
+        previous.kill_and_wait(RETRY_STOP_LIMIT);
     }
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let sink = Sink {
@@ -116,6 +133,8 @@ pub fn backend_start(
         }),
     };
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
+    // A run started again keeps the failed run's record in process.log.
+    options.continue_logs = previous.is_some();
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
     // The update endpoints use the update page's updater (app_update.rs; decision 20).
     options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));

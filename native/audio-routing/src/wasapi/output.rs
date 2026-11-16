@@ -12,7 +12,7 @@ use windows::Win32::Media::Audio::{
 };
 use windows::Win32::System::Com::CLSCTX_ALL;
 
-use super::{enumerator, friendly_name, named, Com};
+use super::{enumerator, friendly_name, named, Com, MtaUsage};
 use crate::error::{Error, Result};
 use crate::graph::OutputOption;
 use crate::naming::{device_host, device_name, output_identity, same_output, WASAPI_HOST};
@@ -61,7 +61,11 @@ pub struct WindowsOutput {
     block: usize,
     strict_underflow: bool,
     started: bool,
-    _com: Com,
+    /// The output is opened on one thread and often written and dropped on another (the
+    /// virtual microphone's check, the queued route): it keeps the apartment alive by itself
+    /// instead of holding the opening thread's COM, which would be released on the wrong thread.
+    /// Last, so the interfaces above are released while the apartment is still alive.
+    _mta: MtaUsage,
 }
 
 // The interfaces live in the multithreaded apartment, where any thread of it may
@@ -76,7 +80,8 @@ impl WindowsOutput {
     /// `strict_underflow`: report a buffer that ran dry (the virtual microphone does);
     /// a monitor tolerates it.
     pub fn open(identity: &str, rate: u32, channels: u16, strict_underflow: bool) -> Result<Self> {
-        let com = Com::init()?;
+        let _com = Com::init()?;
+        let mta = MtaUsage::new()?;
         let _lock = audio_op_lock().lock();
         let enumerator = enumerator()?;
         let wasapi = device_host(identity).is_none_or(|host| host == WASAPI_HOST);
@@ -103,7 +108,7 @@ impl WindowsOutput {
                 .map_err(|_| Error::speech("output_format_unsupported"))?;
             let buffer_frames = client.GetBufferSize().map_err(lost)?;
             let render: IAudioRenderClient = client.GetService().map_err(lost)?;
-            Ok(Self { client, render, buffer_frames, block, strict_underflow, started: false, _com: com })
+            Ok(Self { client, render, buffer_frames, block, strict_underflow, started: false, _mta: mta })
         }
     }
 
