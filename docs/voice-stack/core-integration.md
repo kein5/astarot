@@ -233,7 +233,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 
 | もの | どこに | いまの状態 | 扱い |
 |---|---|---|---|
-| Google・Bing・Papago の Web 翻訳 | 上流の `translator_engines`（配布しない）、`translation_translator.py` の分岐とタイムアウト、言語の表の列、UI の `translator_status`、仕様のタイムアウトの記述 | どのビルドでも動かない。中核は「使えない」と示していた | **消した**。エンジンの一覧と UI の選択肢と仕様から外した。言語の表の列は残す（17、利用者から見える） |
+| Google・Bing・Papago の Web 翻訳 | 上流の `translator_engines`（配布しない）、`translation_translator.py` の分岐とタイムアウト、言語の表の列、UI の `translator_status`、仕様のタイムアウトの記述 | どのビルドでも動かない。中核は「使えない」と示していた | **消した**（遺産）。エンジンの一覧と UI の選択肢と仕様から外した。言語の表の列は残す（17、利用者から見える）。各社の公式 API は別のもので、追加の候補は 32 |
 | CTranslate2 での推論 | `translation_translator.py` の `changeCTranslate2Model`、`translateCTranslate2` | Python と一緒に配布物から消えた | **置き換える**（1 で決める） |
 | transformers のトークナイザと遅い読み込み | `translation_utils.py` の `loadTransformers`、`UNLOADED`、`CTranslate2TokenizerLoadError` | Python だけ | **消える**。中核に移さない |
 | `native/translate-onnx`、中核の機能 `onnx-translation`、`controller/translation_onnx.rs`、`tools/translation_onnx/` | Rust と道具 | 既定でオフ。モデルは未公開 | **1 の決定まで残す**。(b) なら消す |
@@ -251,7 +251,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 | GPU のメモリー不足（`detectVRAMError`、`LocalError::OutOfMemory`、`TRANSLATION_VRAM_*`、4 つの通知、UI の処理と文言） | Python、中核、UI | CPU だけなので起きない | **1 の決定まで残す**（30） |
 | CUDA 版の配布物（CTranslate2 のための `_internal/nvidia`） | 配布 | 中身は標準版と同じ | 20 で決める |
 | ローカル翻訳の言語の表（重みごとの表） | `translation_languages.json` | 移した | **残す** |
-| オンラインのプロバイダ（DeepL、Plamo、Gemini、OpenAI、Groq、OpenRouter、LM Studio、Ollama、OpenAI 互換）、プロンプト、履歴、モデル一覧の短い保持、タイムアウト | `native/translation`、`controller/translation.rs` | 移した | **残す**。プロキシは 18 |
+| オンラインのプロバイダ（DeepL、Plamo、Gemini、OpenAI、Groq、OpenRouter、LM Studio、Ollama、OpenAI 互換）、プロンプト、履歴、モデル一覧の短い保持、タイムアウト | `native/translation`、`controller/translation.rs` | 中核のクライアントに移した。利用者のキーで中核から呼ぶ | **残す**。取捨は 31、プロキシは 18 |
 | 失敗したときローカル翻訳へ切り替える動き（`changeToCTranslate2Process`） | 中核の `fall_back_to_local` | 移した | **残す**。ローカル翻訳がない間は元の文で送る |
 
 ## 判断が要ること
@@ -365,6 +365,7 @@ PR の残課題と同じものです。決まったら、この節を更新し�
     - 消したもの: 中核のエンジンの一覧（`SELECTABLE_TRANSLATION_ENGINE_LIST`。`languages::RETIRED_WEB_TRANSLATORS` で除く）、UI の翻訳エンジンの選択肢（`ui_configs.js` の `translator_status`）、仕様の Web 翻訳のタイムアウトの記述。言語の表（`translation_languages.json`）の列は Python の表のまま残します。
     - 利用者から見える違い: 翻訳エンジンの選択で、選べない灰色の枠として出ていた Google、Bing、Papago が消えます。選べる言語は変わりません（この 3 つだけが訳せた言語はありませんでした）。設定に Google などが保存されていたタブは、読み込むときにそのタブの前の値（既定は CTranslate2）になります。Python でも起動のあとはローカル翻訳に戻っていたので、翻訳の結果は変わりません。
     - 戻すなら、この 2 か所を戻すだけです。
+    - 各社の公式の翻訳 API（Google Cloud Translation、Azure AI Translator、NAVER Cloud Platform の Papago）は別のもので、利用者のキーで呼ぶ候補として 32 に挙げました。
 18. **プロキシ**。Python はクラウドの翻訳と音声認識のプロバイダへの通信で `HTTP(S)_PROXY` を使っていました。中核（`native/translation` と `native/transcription`）はプロキシを使いません（`native/ops` と同じ）。プロキシの中から使っている人は、オンラインの翻訳と認識が使えなくなります。対応するかを決める必要があります。
 19. **チャットの読み取りのスレッドの優先度（Windows）**。`ocr-runtime` は Python の `background_priority.py` と同じく、モデルを読み込む間と最初の 2 回の読み取りの間にできたプロセスのスレッドを、すべて「通常より低い」優先度にします。ONNX Runtime のスレッドを VRChat や VR パネルより後に回すためです。Python ではサイドカーのプロセスの中だけの話でしたが、中核はアプリのプロセスで動くので、その間にアプリのほかの部分が作ったスレッドも下がります。ONNX Runtime のスレッドだけを下げる方法（スレッドを作るときのフック）に変えるかを決める必要があります。
 20. **古い更新のエンドポイントと CUDA 版**。Python は自前の更新の仕組みを止めて出荷していました（`BUILTIN_UPDATER_ENABLED = False`）。アプリの更新は `src-tauri/src/app_update.rs` が行い、UI はそれを直接呼びます。中核も Python と同じ答えを返します。`/get/data/available_releases` は空の一覧、起動時の `/run/software_update_info` は「更新なし」、`/run/update_software` と `/run/update_cuda_software` は 200 を返してから `UPDATE_SOFTWARE_DOWNLOAD` を通知します。ホストが別の仕組みを渡せるように `Services::software_updates` を用意しましたが、`backend_host.rs` は何も渡していません。UI でこれらを使うのは、エラー画面の「今すぐ更新」（`AppErrorBoundary.jsx`、更新ありと通知されたときだけ出る）だけです。選択肢は (a) このまま残す、(b) 3 つのエンドポイントと通知、UI の古い経路を引退させる、(c) エラー画面のボタンを `app_update` につなぎ直す、です。
@@ -378,5 +379,37 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 26. **旧 CTranslate2 の重みを知らせずに消すか**。古い Whisper の重みは、利用者が設定画面で頼んだときだけ消していました。CTranslate2 の重みは知らせずに消します。知らせるか、頼まれたときだけ消すかを決めてください（1 の「消すのを遅らせるか」と一緒に）。
 27. **`src-python/` を消す時期**。配布物からは外しましたが、ソースと試験は移植の仕様として残しています。消すときに一緒に片付けるものは「Python の削除に伴うもの」にあります。0.5.0 の中で消すか、0.5.0 のあとにするかを決めてください。
 28. **Python と違う内部の形（報告）**。ステータス 348 のログ行を UI へ送りません（UI は捨てていました）。`process.log` の行は JSON で書きます。中核は Python の辞書と同じ順序を保つため `serde_json` の `preserve_order` を使い、tts クレートは `arbitrary_precision` を使います。どちらもアプリ全体の `serde_json` に及びます。src-tauri の試験は通っています。
-29. **翻訳のモデルを取得する画面の行き止まり**。設定の「翻訳」には CTranslate2 の重みごとにダウンロードのボタンがあり、押すと取得の確認（`LegacyModelDownloadDialog`）が開きます。中核はカタログの `legacy_models` を空で返し、`/run/download_ctranslate2_weight` も引退させたので、確認は「読み込み中」のまま進まず、開始のボタンは押せません。起動時の「翻訳のモデルがない」の案内（`TranslationSetupController`、`setupNeeds.js`）も同じ確認を開きます。直し方は 1 の決定で変わります。(a) なら ONNX のモデルをモデル取得のカタログに載せ、この画面をモデル取得の画面へつなぎ直します。(b) なら取得を中核に戻せば画面はそのまま動きます。(d) なら翻訳の重みの選択とボタンを隠すか「使えない」と示します。どれも利用者から見える変更なので、1 と一緒に決めてください。
+29. **翻訳のモデルを取得する画面の行き止まり**。設定の「翻訳」には CTranslate2 の重みごとにダウンロードのボタンがあり、押すと取得の確認（`LegacyModelDownloadDialog`）が開きます。中核はカタログの `legacy_models` を空で返し、`/run/download_ctranslate2_weight` も引退させたので、確認は「読み込み中」のまま進まず、開始のボタンは押せません。起動時の「翻訳のモデルがない」の案内（`TranslationSetupController`、`setupNeeds.js`）も同じ確認を開きます。直し方は 1 の決定で変わります。(a) なら ONNX のモデルをモデル取得のカタログに載せ、この画面をモデル取得の画面へつなぎ直します。(b) なら取得を中核に戻せば画面はそのまま動きます。(d) なら翻訳の重みの選択とボタンを隠すか「使えない」と示します。どれも利用者から見える変更なので、1 と一緒に決めてください。どの形でも、提供元、ライセンス、容量を見せて同意を得てから取得する流れは保ちます（33）。
 30. **GPU のメモリー不足の経路（翻訳）**。Python は CUDA の CTranslate2 が GPU のメモリーを使い切ったときに、翻訳をオフにして知らせていました（`TRANSLATION_VRAM_CHAT`・`_MIC`・`_SPEAKER`・`_ENABLE`、`TRANSLATION_DISABLED_VRAM`、`/run/error_translation_*_vram_overflow` の 4 つの通知、UI の処理と文言）。中核の計算デバイスは CPU だけなので（`backend_host.rs` が `Environment::cpu_device()` だけを渡す）、この経路は起きません。1 で GPU を使わない形（(b) の CPU 版、または (a) の CPU 版）に決まったら、エラーコード、通知、UI の処理と文言を一緒に消せます。(a) で DirectML を使うなら残します。利用者から見える違いはありません（今も出ない）。
+31. **外部のプロバイダとローカル LLM を全部残すか（#277）**。方針（2026-11-16）は「外部の翻訳 API は中核から利用者の API キーで呼ぶ」です。中核には、この PR でクライアントを作りました（`native/translation`）。Python 専用のものは残っていません。キーとモデルの確認、起動時の確認、プロンプトと履歴、時間切れ、もう一度試すこと、途中で切れた答えの扱いは Python と同じです。偽のサーバを相手にした試験も入っています（`native/translation/tests/providers.rs`、`native/core/tests/translation.rs`）。本物のサービスでは確かめていません。取捨の案は次のとおりで、どれも中核に残しています。
+
+    | プロバイダ | 形 | 案 | 理由 |
+    |---|---|---|---|
+    | DeepL | 翻訳の API（無料と有料のキー） | 残す | 機械翻訳の専用 API で、キーの確認と使い方が単純。利用者が多い |
+    | PLaMo | 翻訳の API | 残す | 日本語に強い国内のモデル。クライアントは小さい |
+    | Gemini | LLM の API | 残す | 無料枠があり、利用者が多い |
+    | OpenAI | LLM の API | 残す | 利用者が多い。OpenAI 互換のコードを共有する |
+    | Groq | LLM の API（OpenAI 互換） | 残す | 速さを求める利用者向け。コードは OpenAI 互換と共有で、増える保守は小さい |
+    | OpenRouter | 多くの LLM の窓口（OpenAI 互換） | 残す | 一つのキーで多くのモデルを選べる。コードは共有 |
+    | LM Studio、Ollama | この PC のローカル LLM | 残す | オフラインで動き、キーが要らない。平文の HTTP はこの PC と LAN だけに限る（`net_policy`） |
+    | OpenAI 互換のエンドポイント | 利用者が URL を決める | 残す | 上のどれにもないサービスや自前のサーバを使える |
+
+    外すと、選べていたエンジンが一覧から消え、保存したキーと選択は使われなくなります。共有のコードが多いので、一つ外しても減る保守は小さいです。本物のサービスでの確認（キーの確認、モデルの一覧、翻訳）は、出す前に人の手で行う必要があります。プロキシ（18）もここに関わります。
+32. **公式の翻訳 API を足すか**。17 で外した Google・Bing・Papago のウェブ翻訳は、上流のモジュールが公式の VRCT でしか配れないので、遺産として片付けました。各社の公式 API は別のもので、利用者のキーで中核から呼ぶ候補にできます。候補は次のとおりです。料金、無料枠、規約は変わるので、足す前に公式の最新の案内で確かめます。
+
+    | 候補 | 認証 | 中核での形 | 配布物 | 気をつけること |
+    |---|---|---|---|---|
+    | Google Cloud Translation（Basic、v2） | API キー | `native/translation` に小さなクライアントを足す | 増えない | v3（Advanced）はサービスアカウントか OAuth が要り、キーだけでは使えない。請求の設定が要る |
+    | Microsoft の Azure AI Translator（Bing の公式 API にあたる） | キーとリージョン | 同上 | 増えない | リージョンの欄が要る。無料の段がある |
+    | NAVER Cloud Platform の Papago Translation | クライアント ID とシークレット（2 つの値） | 同上 | 増えない | NAVER Developers の旧 Papago API とは別の、有料の窓口。キーの入力欄が 2 つ要る |
+    | Amazon Translate | AWS のアクセスキー（SigV4 の署名） | 署名の処理が要る | 増えない | 認証が重い。必要になってから検討 |
+
+    どれも利用者が自分のキーで契約するので、ライセンスの台帳に載せるものはありません（クライアントは自前のコード）。足すときは、言語のコードの表、キーの確認、エラーの読み替え、UI のキーの欄と `locales/` の文言（`en.yml` と `ja.yml`）、偽のサーバの試験が要ります。案は (a) 0.5.0 のあとに足す、(b) 足さない、です。0.5.0 には入れていません。
+33. **ローカル翻訳のモデルの同意のフロー**。方針（2026-11-16）は「利用者の意思でダウンロードする今の同意のフロー（提供元・ライセンス・容量の確認）を、中核でも保つ」です。中核には、提供元、ライセンス、容量、版、SHA-256 を見せて同意を得てから取得する仕組みがあります（`native/ops` のカタログと `controller/downloads.rs`。カタログの版が変わると古い同意は通らない）。音声のモデルはこれで取得しています。ローカル翻訳のモデルもこのカタログに載せ、UI の古い取得の画面（`LegacyModelDownloadDialog`）は共通の取得の画面に置き換える形にします。いまは CTranslate2 の重みの取得を引退させたので、翻訳のモデルの取得は中核では行き止まりです（29）。カタログに何を載せるかは 1 の決定によります。(a) なら ONNX のモデルを公開してから載せ、(b) なら今の固定した取得先（`builtin_model_pins.py` の版、サイズ、SHA-256）をそのまま移します。NLLB（CC-BY-NC-4.0）は既定にせず、非商用の確認は今と同じに残します。勝手に取得することはありません（起動時の自動取得は、利用者が同意した記録があるときだけ）。
+34. **ローカル翻訳の速さと使う機器**。論点は ONNX Runtime でどの機器を使うかと、量子化です。どちらも 1 と 2 の決定に関わります。
+    - **CPU だけ**。どの PC でも動き、配布物は ONNX Runtime の CPU 版だけで済みます。int8 の動的量子化で重みが約 4 分の 1 になり（418M は約 506 MB）、CPU では速くなります。`translate-onnx` はこの形で、CTranslate2 の int8 とほぼ同じ質でした（以前の計測）。音声認識や TTS（speech.cpp）と CPU を取り合うので、スレッド数（いまは 4）の決め方も論点です。
+    - **GPU も使う（Windows の DirectML）**。どの GPU でも使えますが、`DirectML.dll`（17.7 MB）が増えます。DirectML の実行プロバイダは int8 の動的量子化の演算に対応が限られるので、GPU 用には fp16 のモデルを別に用意する形になる見込みです（要確認）。GPU のメモリー不足の扱い（30）も要ります。speech.cpp が同じ GPU を使うと取り合います。
+    - **GPU も使う（CUDA）**。NVIDIA だけで、CUDA と cuDNN のライブラリ（1 GB 前後）が要ります。RVC の worker と同じく、同意を得てから取得する形になります。
+    - **量子化**。int8 の動的量子化（CPU 向け、決まった形）、fp16（GPU 向け）、int4 の重みだけの量子化（さらに小さいが、質は計っていない）があります。どの形を配るかで、カタログの項目と取得の大きさが変わります。
+
+    案は、0.5.0 は CPU と int8 だけにし、GPU はあとで計ってから任意の機能として足す、です。ほかの PC での速さはこの PC の値から言えないので、足すときは複数の PC で計ります。`ct2rs`（1 の b）を選ぶ場合は ONNX Runtime を使わず、CTranslate2 の計算型（`int8` など）と oneDNN の CPU になり、GPU は CUDA 版の CTranslate2 のビルドが別に要ります。
