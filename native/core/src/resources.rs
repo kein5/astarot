@@ -13,6 +13,10 @@
 //! - a development checkout keeps them in `build/` at its root; a debug build of the app names
 //!   that root with [`use_development_checkout`].
 //!
+//! speech.cpp is bundled as one folder per build: `build/speechcpp` is the Vulkan build (the
+//! only one on Windows), and the Linux packages add the CPU build in `build/speechcpp-cpu`
+//! (decision 5 in `docs/voice-stack/core-integration.md`).
+//!
 //! Callers ask by the path inside the folder (`"build/speechcpp"`).
 
 use std::path::{Path, PathBuf};

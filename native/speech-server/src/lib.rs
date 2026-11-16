@@ -11,6 +11,7 @@
 mod child;
 mod http;
 
+pub mod builds;
 pub mod bundle;
 pub mod devices;
 pub mod server;
@@ -50,4 +51,7 @@ pub mod codes {
     pub const CLOSED: &str = "speech_server_closed";
     pub const STALE_START: &str = "speech_server_stale_start";
     pub const BUSY: &str = "speech_server_busy";
+    /// A notice, not a failure: "auto" runs on the CPU build because the Vulkan build did not
+    /// start on this PC (Linux, both builds bundled).
+    pub const CPU_FALLBACK: &str = "speech_server_cpu_fallback";
 }

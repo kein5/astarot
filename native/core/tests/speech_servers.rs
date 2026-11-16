@@ -330,7 +330,7 @@ fn devices_are_listed_without_starting_a_model() {
     let models = Models::new();
     let ui = Ui::with(Setup { services: fake_services(), ..Setup::default() });
     let snapshot = ui.ready();
-    let devices = json!({ "devices": [{ "name": "Vulkan0", "kind": "gpu", "label": "Fake GPU" }] });
+    let devices = json!({ "devices": [{ "name": "Vulkan0", "kind": "gpu", "label": "Fake GPU" }], "cpu_build": "shared", "gpu_build": "ready" });
     assert_eq!(snapshot["/get/data/speech_server_devices"], devices);
     ui.ok("/set/data/speech_server_settings", Some(models.settings("tts", "asr")));
     assert_eq!(ui.ok("/get/data/speech_server_devices", None), devices);
@@ -340,7 +340,7 @@ fn devices_are_listed_without_starting_a_model() {
 
     // Without the bundled speech.cpp (it is checked against its pinned hash), nothing is listed.
     let ui = Ui::start();
-    assert_eq!(ui.ready()["/get/data/speech_server_devices"], json!({ "devices": [] }));
+    assert_eq!(ui.ready()["/get/data/speech_server_devices"], json!({ "devices": [], "cpu_build": "missing", "gpu_build": "missing" }));
     let answer = start(&ui, "japanese", &json!(0));
     assert_eq!(answer["status"], 400, "no model is set: {answer}");
     ui.stop();
@@ -367,5 +367,106 @@ fn a_downloaded_model_replaces_a_setting_only_while_its_server_is_stopped() {
     assert_eq!(servers.replace_model_file(core, Profile::Asr, "model", "/another.gguf", &downloaded), Err("settings_changed"));
     assert_eq!(servers.replace_model_file(core, Profile::Asr, "model", model, &downloaded), Ok(()));
     assert_eq!(ui.ok("/get/data/speech_server_settings", None)["profiles"]["asr"]["model"], downloaded);
+    ui.stop();
+}
+
+/// Stand-in bundles laid out as the packages ship them: each `(folder, variant, markers)` is a
+/// copy of the stand-in with a `bundle.json` naming its variant and the marker files that say
+/// how it behaves (`cpu-only`, `no-loader`), pinned by the copy's own hash.
+fn bundled_services(dir: &Path, layout: &[(&str, &str, &[&str])]) -> Services {
+    let mut pins = Vec::new();
+    for (folder, variant, markers) in layout {
+        let folder = dir.join(folder);
+        std::fs::create_dir_all(&folder).unwrap();
+        let binary = folder.join(vrct_speech_server::bundle::EXECUTABLE);
+        std::fs::copy(FAKE, &binary).unwrap();
+        std::fs::write(folder.join("bundle.json"), json!({ "schema": 1, "version": vrct_speech_server::bundle::VERSION, "variant": variant }).to_string()).unwrap();
+        for marker in *markers {
+            std::fs::write(folder.join(marker), b"").unwrap();
+        }
+        pins.push((variant.to_string(), vrct_speech_server::bundle::file_sha256(&binary).unwrap()));
+    }
+    let pins: vrct_speech_server::bundle::Pins = pins.into();
+    // The core's own order: the Vulkan build's folder, then the CPU build's.
+    let folders: Vec<PathBuf> = vrct_core::controller::speech::BUNDLES.iter().map(|relative| dir.join(relative.trim_start_matches("build/"))).collect();
+    Services {
+        speech_server_launch: Arc::new(move |_| {
+            let mut launch = Launch::bundles(folders.clone());
+            launch.pins = Arc::clone(&pins);
+            launch.start_timeout = Duration::from_secs(10);
+            launch
+        }),
+        ..common::Setup::default().services
+    }
+}
+
+/// Starts the Japanese server with `device` saved, waits until it is ready and returns its
+/// state row and what ran (`<folder> <--device>`). The server is stopped again.
+fn run_on(ui: &Ui, models: &Models, device: &str) -> (Value, String) {
+    let mut settings = models.settings("tts", "asr");
+    settings["profiles"]["japanese"]["device"] = json!(device);
+    ui.ok("/set/data/speech_server_settings", Some(settings));
+    let generation = state(ui)["japanese"]["generation"].clone();
+    assert_eq!(start(ui, "japanese", &generation)["status"], 200);
+    let row = wait_state(ui, "ready server", |s| s["japanese"]["state"] == "ready")["japanese"].clone();
+    let ran = std::fs::read_to_string(models.marker("tts", ".ran")).unwrap();
+    ui.ok("/run/stop_speech_server", Some(json!({ "profile": "japanese" })));
+    wait_state(ui, "stopped server", |s| s["japanese"]["state"] == "stopped");
+    (row, ran)
+}
+
+const LINUX: [(&str, &str, &[&str]); 2] = [("speechcpp", "linux-x64-vulkan", &[]), ("speechcpp-cpu", "linux-x64-cpu", &["cpu-only"])];
+
+#[test]
+fn linux_runs_the_cpu_choice_on_the_cpu_build_and_a_gpu_on_the_vulkan_build() {
+    let (models, dir) = (Models::new(), tempfile::tempdir().unwrap());
+    let ui = Ui::with(Setup { services: bundled_services(dir.path(), &LINUX), ..Setup::default() });
+    let snapshot = ui.ready();
+    // The CPU is a choice of its own; the GPUs come from the Vulkan build.
+    let devices = json!({ "devices": [{ "name": "Vulkan0", "kind": "gpu", "label": "Fake GPU" }], "cpu_build": "separate", "gpu_build": "ready" });
+    assert_eq!(snapshot["/get/data/speech_server_devices"], devices);
+    for (device, ran) in [("cpu", "speechcpp-cpu cpu"), ("gpu", "speechcpp Vulkan0"), ("Vulkan0", "speechcpp Vulkan0"), ("auto", "speechcpp Vulkan0")] {
+        let (row, what) = run_on(&ui, &models, device);
+        assert_eq!(what, ran, "{device}");
+        assert_eq!(row.get("notice"), None, "{device}: {row}");
+    }
+    ui.stop();
+}
+
+#[test]
+fn linux_auto_runs_the_cpu_build_with_a_notice_when_the_vulkan_build_does_not_start() {
+    let (models, dir) = (Models::new(), tempfile::tempdir().unwrap());
+    let layout: [(&str, &str, &[&str]); 2] = [("speechcpp", "linux-x64-vulkan", &["no-loader"]), LINUX[1]];
+    let ui = Ui::with(Setup { services: bundled_services(dir.path(), &layout), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/speech_server_devices"], json!({ "devices": [], "cpu_build": "separate", "gpu_build": "unavailable" }));
+    let (row, ran) = run_on(&ui, &models, "auto");
+    assert_eq!((ran.as_str(), &row["notice"]), ("speechcpp-cpu cpu", &json!("speech_server_cpu_fallback")), "{row}");
+    assert_eq!(row["error_code"], Value::Null);
+    // The CPU choice needs nothing of Vulkan and tells nothing.
+    let (row, ran) = run_on(&ui, &models, "cpu");
+    assert_eq!((ran.as_str(), row.get("notice")), ("speechcpp-cpu cpu", None));
+    // A GPU the user chose is not moved to the CPU: it fails and names the missing loader.
+    let mut settings = models.settings("tts", "asr");
+    settings["profiles"]["japanese"]["device"] = json!("gpu");
+    ui.ok("/set/data/speech_server_settings", Some(settings));
+    let generation = state(&ui)["japanese"]["generation"].clone();
+    assert_eq!(start(&ui, "japanese", &generation)["status"], 200);
+    let failed = wait_state(&ui, "failed server", |s| s["japanese"]["state"] == "failed");
+    assert_eq!(failed["japanese"]["error_code"], "speech_server_vulkan_missing", "{failed}");
+    ui.stop();
+}
+
+#[test]
+fn windows_runs_every_choice_on_its_one_vulkan_build() {
+    let (models, dir) = (Models::new(), tempfile::tempdir().unwrap());
+    let layout: [(&str, &str, &[&str]); 1] = [("speechcpp", "windows-x64-vulkan", &[])];
+    let ui = Ui::with(Setup { services: bundled_services(dir.path(), &layout), ..Setup::default() });
+    let devices = ui.ready()["/get/data/speech_server_devices"].clone();
+    assert_eq!((&devices["cpu_build"], &devices["gpu_build"]), (&json!("shared"), &json!("ready")));
+    for (device, ran) in [("cpu", "speechcpp cpu"), ("auto", "speechcpp Vulkan0"), ("gpu", "speechcpp Vulkan0")] {
+        let (row, what) = run_on(&ui, &models, device);
+        assert_eq!(what, ran, "{device}");
+        assert_eq!(row.get("notice"), None);
+    }
     ui.stop();
 }

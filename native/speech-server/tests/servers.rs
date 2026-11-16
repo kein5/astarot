@@ -189,7 +189,8 @@ fn a_server_becomes_ready_then_stops_and_reaps_its_child() {
         let url = server.health().base_url.unwrap();
         assert!(url.starts_with("http://127.0.0.1:"));
         let pid = server.pid().unwrap();
-        assert!(!gone(pid));
+        // Only Linux can tell a running child from a reaped one here.
+        assert!(cfg!(not(target_os = "linux")) || !gone(pid));
         server.stop();
         assert_eq!(server.health().base_url, None);
         assert!(server.close(SECOND));
