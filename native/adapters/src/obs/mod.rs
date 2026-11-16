@@ -39,6 +39,8 @@ pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 pub const MAX_HANDLERS: usize = 16;
 pub const STOP_TIMEOUT: Duration = Duration::from_secs(2);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
+/// How long a request's read or write waits before it tries again.
+const WAIT_STEP: Duration = Duration::from_millis(10);
 /// Python's `http.server` limits: a 64 KiB line and 100 headers.
 const MAX_LINE: usize = 65536;
 const MAX_HEADERS: usize = 100;
@@ -99,8 +101,64 @@ fn parse_python_ip(host: &str) -> bool {
 struct Handler {
     stream: TcpStream,
     deadline: Instant,
+    cut: Arc<AtomicBool>,
     done: Arc<AtomicBool>,
     worker: JoinHandle<()>,
+}
+
+impl Handler {
+    /// End the request: its worker gives up at its next read.
+    fn cut(&self) {
+        self.cut.store(true, Ordering::SeqCst);
+        Listening::interrupt(&self.stream);
+    }
+}
+
+/// The request's socket, in non-blocking mode, so that a cut request ends promptly on
+/// every platform: on Windows, shutting a socket down from another thread does not
+/// wake a read blocked on it. (A socket timeout is no way out there either: after a
+/// timed-out read or write, Windows leaves the socket in an undefined state.) A read
+/// or write that cannot go on waits in short steps and fails after `timeout`.
+struct Watched {
+    stream: TcpStream,
+    cut: Arc<AtomicBool>,
+    timeout: Duration,
+}
+
+impl Watched {
+    fn wait<T>(&self, mut attempt: impl FnMut(&TcpStream) -> io::Result<T>) -> io::Result<T> {
+        let give_up = Instant::now() + self.timeout;
+        loop {
+            if self.cut.load(Ordering::SeqCst) {
+                return Err(io::ErrorKind::ConnectionAborted.into());
+            }
+            match attempt(&self.stream) {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    if Instant::now() >= give_up {
+                        return Err(io::ErrorKind::TimedOut.into());
+                    }
+                    thread::sleep(WAIT_STEP);
+                }
+                result => return result,
+            }
+        }
+    }
+}
+
+impl Read for Watched {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.wait(|mut stream| stream.read(buf))
+    }
+}
+
+impl Write for Watched {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.wait(|mut stream| stream.write(buf))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 struct Listening {
@@ -249,7 +307,7 @@ impl ObsBrowserSourceServer {
         if let Some(listening) = &state.listening {
             listening.stopping.store(true, Ordering::SeqCst);
             for handler in listening.handlers().values() {
-                Listening::interrupt(&handler.stream);
+                handler.cut();
             }
         }
         while !Self::stopped(&state) && Instant::now() < deadline {
@@ -296,13 +354,13 @@ fn serve(listener: TcpListener, listening: Arc<Listening>, shared: Arc<Shared>) 
         let now = Instant::now();
         for handler in handlers.values() {
             if now >= handler.deadline {
-                Listening::interrupt(&handler.stream);
+                handler.cut();
             }
         }
     }
     let handlers = listening.handlers();
     for handler in handlers.values() {
-        Listening::interrupt(&handler.stream);
+        handler.cut();
     }
 }
 
@@ -314,30 +372,32 @@ fn admit(stream: TcpStream, listening: &Arc<Listening>, shared: &Arc<Shared>, id
         return;
     }
     let timeout = *shared.request_timeout.lock().unwrap_or_else(|e| e.into_inner());
-    let ready = stream.set_nonblocking(false).is_ok()
-        && stream.set_read_timeout(Some(timeout)).is_ok()
-        && stream.set_write_timeout(Some(timeout)).is_ok();
+    // Reads and writes wait in short steps (see `Watched`); the request's own timeout
+    // still applies to each of them.
+    let ready = stream.set_nonblocking(true).is_ok();
     let Ok(control) = stream.try_clone() else { return };
     if !ready {
         Listening::interrupt(&stream);
         return;
     }
+    let cut = Arc::new(AtomicBool::new(false));
     let done = Arc::new(AtomicBool::new(false));
     let finished = done.clone();
     let shared = shared.clone();
+    let watched = Watched { stream, cut: cut.clone(), timeout };
     let spawned = thread::Builder::new().name("obs_http_request".into()).spawn(move || {
-        handle(stream, &shared);
+        handle(watched, &shared);
         finished.store(true, Ordering::SeqCst);
     });
     match spawned {
         Ok(worker) => {
-            handlers.insert(id, Handler { stream: control, deadline: Instant::now() + timeout, done, worker });
+            handlers.insert(id, Handler { stream: control, deadline: Instant::now() + timeout, cut, done, worker });
         }
         Err(_) => Listening::interrupt(&control),
     }
 }
 
-fn handle(stream: TcpStream, shared: &Shared) {
+fn handle(stream: Watched, shared: &Shared) {
     let result = match &shared.tls {
         Some(config) => match rustls::ServerConnection::new(config.clone()) {
             Ok(connection) => {
