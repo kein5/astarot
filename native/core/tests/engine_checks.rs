@@ -36,8 +36,7 @@ fn a_failed_check_clears_the_models_found_on_a_server_and_keeps_every_key() {
     let ui = Ui::with(Setup { saved: Some(saved()), ..Setup::default() });
     let snapshot = ui.ready();
     // The engines that list their models from a server forget the list and the selection.
-    // (The translation ones have no getter in the core yet; their saved file is checked below.)
-    for name in ["groq_whisper", "openai_whisper", "custom_whisper", "deepgram"] {
+    for name in ["groq_whisper", "openai_whisper", "custom_whisper", "deepgram", "openai_compatible"] {
         assert!(snapshot.get(format!("/get/data/selected_{name}_model")).is_some(), "{name} is answered");
         assert_eq!(snapshot[format!("/get/data/selected_{name}_model")], Value::Null, "{name}");
         assert_eq!(snapshot[format!("/get/data/selectable_{name}_model_list")], json!([]), "{name}");
