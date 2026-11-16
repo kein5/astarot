@@ -78,6 +78,10 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
         connected_lmstudio: boolean,
         connected_ollama: boolean,
         main_window_geometry: matches({ x_pos: 0, y_pos: 0, width: 0, height: 0 }),
+        // Null on both until the caption window is dragged, then whole px on both. The default
+        // ({x: null, y: null}) would only let the nulls through and drop a saved place.
+        overlay_desktop_placement: value => record(value)
+            && ((value.x === null && value.y === null) || (Number.isInteger(value.x) && Number.isInteger(value.y))),
         available_releases: Array.isArray,
     };
     for (const name of ["voice_settings", "voice_status", "voice_route", "voice_output_devices", "tts_model_options",
