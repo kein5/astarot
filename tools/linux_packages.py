@@ -6,8 +6,8 @@ The packages hold the same files as the release tar.gz. They install them read-o
 /opt/vrct-vox, add /usr/bin/vrct-vox, a desktop entry, an icon and the license notices, and
 declare what the tar.gz needs from the host: glibc, GTK 3 and WebKitGTK 4.1 (with what they pull
 in), and for the Vulkan variant the Vulkan loader: speech.cpp loads libvulkan.so.1 from the system,
-not from _internal. The app runs the backend core in its own process; _internal holds no Python
-runtime and its helpers link the host's libpipewire. The PipeWire tools are recommended: managed audio routing runs them, and so are
+not from _internal. The app runs the backend core in its own process and links the host's
+libpipewire, which is required; _internal holds no Python runtime. The PipeWire tools are recommended: managed audio routing runs them, and so are
 the Mesa Vulkan drivers for the Vulkan variant. The lowest glibc comes from the candidate's
 build-manifest.json. Settings and models stay in the user's XDG folders.
 
@@ -31,9 +31,11 @@ DESCRIPTION = ('VRCT-VOX translates and speaks your chat and voice in VRChat, wi
                'recognition, text to speech, voice conversion and chat reading.')
 HOMEPAGE = 'https://github.com/kein5/VRCT-VOX'
 # Debian and Fedora names of what the tar.gz needs from the host.
-DEB_DEPENDS = ['libwebkit2gtk-4.1-0', 'libgtk-3-0t64 | libgtk-3-0']
+# The app links libpipewire-0.3.so.0 itself (the core's audio devices, #285), so the library is
+# required; the PipeWire tools stay recommended.
+DEB_DEPENDS = ['libwebkit2gtk-4.1-0', 'libgtk-3-0t64 | libgtk-3-0', 'libpipewire-0.3-0t64 | libpipewire-0.3-0']
 DEB_RECOMMENDS = ['pipewire-bin']
-RPM_REQUIRES = ['webkit2gtk4.1', 'gtk3']
+RPM_REQUIRES = ['webkit2gtk4.1', 'gtk3', 'pipewire-libs']
 RPM_RECOMMENDS = ['pipewire-utils']
 # Only the Vulkan variant: the loader is required, a driver for the GPU is recommended.
 VULKAN = {'deb': ('libvulkan1', 'mesa-vulkan-drivers'), 'rpm': ('vulkan-loader', 'mesa-vulkan-drivers')}

@@ -64,7 +64,8 @@ def test_the_deb_declares_glibc_gtk_webkit_and_the_vulkan_loader():
     assert fields["Version"] == "0.3.0~beta.1"
     assert fields["Architecture"] == "amd64"
     assert fields["Installed-Size"] == "1234"
-    assert fields["Depends"] == "libc6 (>= 2.39), libwebkit2gtk-4.1-0, libgtk-3-0t64 | libgtk-3-0, libvulkan1"
+    assert fields["Depends"] == ("libc6 (>= 2.39), libwebkit2gtk-4.1-0, libgtk-3-0t64 | libgtk-3-0, "
+                                  "libpipewire-0.3-0t64 | libpipewire-0.3-0, libvulkan1")
     assert fields["Recommends"] == "pipewire-bin, mesa-vulkan-drivers"
     assert "@" not in fields["Maintainer"]  # No personal address in published metadata.
     assert control.endswith("\n")
@@ -81,7 +82,8 @@ def test_the_rpm_takes_the_files_as_built_and_declares_its_requirements(tmp_path
     assert "Version: 0.3.0~beta.1" in spec
     assert "AutoReqProv: no" in spec  # The bundled libraries are not offered to other packages.
     assert "%global __os_install_post %{nil}" in spec  # Nothing is stripped or rewritten.
-    for line in ("Requires: glibc >= 2.39", "Requires: webkit2gtk4.1", "Requires: gtk3", "Requires: vulkan-loader",
+    for line in ("Requires: glibc >= 2.39", "Requires: webkit2gtk4.1", "Requires: gtk3", "Requires: pipewire-libs",
+                 "Requires: vulkan-loader",
                  "Recommends: pipewire-utils", "Recommends: mesa-vulkan-drivers"):
         assert line in spec.splitlines()
     assert f"cp -al '{tmp_path / 'staged root'}/.'" in spec  # Hard links: no second 1 GB copy.
