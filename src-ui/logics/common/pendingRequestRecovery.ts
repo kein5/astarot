@@ -62,8 +62,8 @@ export const staticPendingControls = {
     SoftwareVersion: { endpoints: ["/get/data/version"] },
 } satisfies Record<string, PendingControlSpec>;
 
-// This legacy UI entry has no GET in mainloop.mapping.
-const settingsWithoutRead = new Set(["ollama_url"]);
+// Settings the backend has no GET for (none now: the core answers /get/data/ollama_url).
+const settingsWithoutRead = new Set<string>([]);
 
 export function settingPendingControl(setting: SettingDefinition): PendingControlSpec {
     const name = setting.base_endpoint_name;
@@ -93,6 +93,9 @@ export const featureResyncReads: Readonly<Record<string, string>> = {
     "/run/cancel_model_download": "/get/data/model_download_state",
     "/run/apply_model_download": "/get/data/model_download_state",
     "/run/refresh_model_download_hardware": "/get/data/model_download_hardware",
+    "/run/register_user_model": "/get/data/user_models",
+    "/run/remove_user_model": "/get/data/user_models",
+    "/run/apply_user_model": "/get/data/user_models",
 };
 
 // An atom with requests to release, or only something to do when the session stops.

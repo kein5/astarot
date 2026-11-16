@@ -9,8 +9,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
+- 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（425件: 削除 11、取得 191、実行 39、有効化 40、無効化 42、設定 102）
+## 要求（447件: 削除 13、取得 201、実行 42、有効化 40、無効化 42、設定 109）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -207,6 +208,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/data/hotkeys` | 設定 | `setHotkeys` | 可 | useHotkeys.setSuccessHotkeys |  |
 | `/get/data/experimental_features` | 取得 | `getExperimentalFeatures` | 可 | useExperimentalFeatures.updateFromBackendExperimentalFeatures |  |
 | `/set/data/experimental_features` | 設定 | `setExperimentalFeatures` | 可 | useExperimentalFeatures.setSuccessExperimentalFeatures |  |
+| `/get/data/tray_companion_edge` | 取得 | `getTrayCompanionEdge` | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionEdge |  |
+| `/set/data/tray_companion_edge` | 設定 | `setTrayCompanionEdge` | 可 | useExperimentalFeatures.setSuccessTrayCompanionEdge |  |
+| `/get/data/tray_companion_monitor` | 取得 | `getTrayCompanionMonitor` | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionMonitor |  |
+| `/set/data/tray_companion_monitor` | 設定 | `setTrayCompanionMonitor` | 可 | useExperimentalFeatures.setSuccessTrayCompanionMonitor |  |
 | `/get/data/mic_avg_logprob` | 取得 | `getMicAvgLogprob` | 可 | useTranscription.updateFromBackendMicAvgLogprob |  |
 | `/set/data/mic_avg_logprob` | 設定 | `setMicAvgLogprob` | 可 | useTranscription.setSuccessMicAvgLogprob |  |
 | `/get/data/mic_no_speech_prob` | 取得 | `getMicNoSpeechProb` | 可 | useTranscription.updateFromBackendMicNoSpeechProb |  |
@@ -335,6 +340,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/start_model_download` | 実行 | `startModelDownload` | 可 | useModelDownloads.acknowledge |  |
 | `/run/cancel_model_download` | 実行 | `cancelModelDownload` | 可 | useModelDownloads.acknowledge |  |
 | `/run/apply_model_download` | 実行 | `applyModelDownload` | 可 | useModelDownloads.acknowledge |  |
+| `/get/data/user_models` | 取得 | `getUserModels` | 可 | useModelDownloads.updateUserModels | ログで伏せる |
+| `/run/register_user_model` | 実行 | `registerUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
+| `/run/remove_user_model` | 実行 | `removeUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
+| `/run/apply_user_model` | 実行 | `applyUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
 | `/get/data/vc_runtime_catalog` | 取得 | `getVcRuntimeCatalog` | 可 | useVcRuntimes.updateCatalog |  |
 | `/get/data/vc_runtime_state` | 取得 | `getVcRuntimeState` | 可 | useVcRuntimes.updateState |  |
 | `/run/start_vc_runtime_setup` | 実行 | `startVcRuntimeSetup` | 可 | useVcRuntimes.acknowledge |  |
@@ -439,9 +448,23 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/notification_vrc_sfx` | 無効化 | `setDisableNotificationVrcSfx` | 可 | useOthers.setSuccessEnableNotificationVrcSfx |  |
 | `/run/open_filepath_config_file` | 実行 | `openFilepathConfigFile` | 可 | useOpenFolder.openedFolder_ConfigFile |  |
 | `/run/feed_watchdog` | 実行 | `feedWatchdog` | 可 | （受け取るだけ） |  |
+| `/get/data/ollama_url` | 取得 | `core: OLLAMA_URL` | 可 | useTranslation.updateFromBackendOllamaURL | 中核のみ |
+| `/set/data/ollama_url` | 設定 | `core: set_server_url` | 可 | useTranslation.setSuccessOllamaURL | 中核のみ |
+| `/get/data/google_cloud_auth_key` | 取得 | `core: AUTH_KEYS[Google_Cloud_API]` | 可 | useTranslation.updateFromBackendGoogleCloudAuthKey | 中核のみ、ログで伏せる |
+| `/set/data/google_cloud_auth_key` | 設定 | `core: set_google_cloud_key` | 可 | useTranslation.setSuccessGoogleCloudAuthKey | 中核のみ、ログで伏せる |
+| `/delete/data/google_cloud_auth_key` | 削除 | `core: delete_translation_key` | 可 | useTranslation.deleteSuccessGoogleCloudAuthKey | 中核のみ、ログで伏せる |
+| `/get/data/papago_client_id` | 取得 | `core: PAPAGO_CLIENT_ID` | 可 | useTranslation.updateFromBackendPapagoClientID | 中核のみ、ログで伏せる |
+| `/set/data/papago_client_id` | 設定 | `core: set_papago_client_id` | 可 | useTranslation.setSuccessPapagoClientID | 中核のみ、ログで伏せる |
+| `/get/data/papago_auth_key` | 取得 | `core: AUTH_KEYS[Papago_API]` | 可 | useTranslation.updateFromBackendPapagoAuthKey | 中核のみ、ログで伏せる |
+| `/set/data/papago_auth_key` | 設定 | `core: set_papago_key` | 可 | useTranslation.setSuccessPapagoAuthKey | 中核のみ、ログで伏せる |
+| `/delete/data/papago_auth_key` | 削除 | `core: delete_translation_key` | 可 | useTranslation.deleteSuccessPapagoAuthKey | 中核のみ、ログで伏せる |
+| `/get/data/overlay_font_family` | 取得 | `core: OVERLAY_FONT_FAMILY` | 可 | useVr.updateFromBackendOverlayFontFamily | 中核のみ |
+| `/set/data/overlay_font_family` | 設定 | `core: set_overlay_font_family` | 可 | useVr.setSuccessOverlayFontFamily | 中核のみ |
+| `/get/data/overlay_font_missing_languages` | 取得 | `core: overlay_font_missing_languages` | 可 | useVr.updateFromBackendOverlayFontMissingLanguages | 中核のみ |
+| `/get/data/vad_available` | 取得 | `core: services.vad` | 可 | useDevice.updateFromBackendVadAvailable | 中核のみ |
 
 
-## 通知（サイドカーからUIへ、88件）
+## 通知（サイドカーからUIへ、89件）
 
 要求への応答とは別に、サイドカーが自分から送るメッセージ。`controller.run(status, run_mapping[名前], result)`で送る。
 
@@ -534,6 +557,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `config_file_unreadable` | `/run/config_file_unreadable` | （受け取るだけ） |
 | `config_save_failed` | `/run/config_save_failed` | （受け取るだけ） |
 | `config_save_recovered` | `/run/config_save_recovered` | （受け取るだけ） |
+| `secret_store_failed` | `/run/secret_store_failed` | （受け取るだけ） |
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
@@ -558,15 +582,15 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/translation_language_unsupported`
 
 
-## UIだけにあるルート（58件）
+## UIだけにあるルート（57件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
 
 - `/get/data/ctranslate2_weight`
-- `/get/data/ollama_url`
 - `/run/io_trace`
 - `/run/pending_ctranslate2_weight`
 - `/run/realtime_caption`
+- `/run/translation_compute_device_fallback`
 - `/set/data/auto_clear_message_box`
 - `/set/data/auto_download_models`
 - `/set/data/auto_mic_select`
@@ -583,7 +607,6 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/obs_browser_source`
 - `/set/data/ocr_chatbox_filter`
 - `/set/data/ocr_use_chatbox_detector`
-- `/set/data/ollama_url`
 - `/set/data/overlay_desktop`
 - `/set/data/overlay_large_log`
 - `/set/data/overlay_show_only_translated_messages`

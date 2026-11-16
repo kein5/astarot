@@ -1,89 +1,81 @@
 //! The two ONNX graphs on ONNX Runtime, and translation with them.
 
 use std::borrow::Cow;
-use std::sync::OnceLock;
+use std::path::Path;
 
-use ort::environment::Environment;
+use ort::ep::ExecutionProviderDispatch;
 use ort::session::{Session, SessionInputValue};
 use ort::value::Tensor;
 
+use crate::accelerate::{self, Accelerator, Fallback, Provider, Variant};
 use crate::beam::{self, Scorer};
 use crate::bundle::Bundle;
+use crate::runtime::environment;
 use crate::tokens::Tokens;
 use crate::{codes, Error, Result};
-
-/// Where to run.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Device {
-    /// The CPU only.
-    Cpu,
-    /// A GPU where this build has one (DirectML on Windows, for NVIDIA, AMD and Intel
-    /// alike), else the CPU. A GPU that cannot load the model also means the CPU.
-    Auto,
-}
-
-/// Where a translator runs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Backend {
-    Cpu,
-    DirectMl,
-}
-
-impl Backend {
-    pub fn name(self) -> &'static str {
-        match self {
-            Backend::Cpu => "cpu",
-            Backend::DirectMl => "directml",
-        }
-    }
-}
 
 /// The CPU threads of one inference, as the app gave CTranslate2 (intra_threads=4).
 const CPU_THREADS: usize = 4;
 
-fn failed<E>(_: E) -> Error {
-    Error::new(codes::RUNTIME_FAILED)
+/// ONNX Runtime's words for running out of memory (CUDA, DirectML's E_OUTOFMEMORY, HIP,
+/// OpenVINO, the CPU allocator). Only the message is looked at; it never holds user text.
+const OUT_OF_MEMORY: [&str; 6] = ["out of memory", "outofmemory", "0x8007000e", "e_outofmemory", "failed to allocate", "bad_alloc"];
+
+/// The fixed code of an ONNX Runtime error: running out of memory, or a failure.
+fn failed<E: std::fmt::Display>(error: E) -> Error {
+    let message = error.to_string().to_ascii_lowercase();
+    if OUT_OF_MEMORY.iter().any(|words| message.contains(words)) {
+        Error::new(codes::OUT_OF_MEMORY)
+    } else {
+        Error::new(codes::RUNTIME_FAILED)
+    }
 }
 
-fn environment() -> Result<&'static Environment> {
-    static ENVIRONMENT: OnceLock<std::result::Result<Environment, ()>> = OnceLock::new();
-    ENVIRONMENT.get_or_init(|| ort::init().with_name("vrct-translate").build().map_err(|_| ())).as_ref().map_err(failed)
+/// The provider's registration, failing instead of quietly running on the CPU.
+fn provider(at: Accelerator) -> Result<ExecutionProviderDispatch> {
+    let device = i32::try_from(at.device).map_err(|_| Error::new(codes::PROVIDER_UNAVAILABLE))?;
+    let dispatch = match at.provider {
+        Provider::Cpu => ort::ep::CPU::default().build(),
+        #[cfg(windows)]
+        Provider::DirectMl => ort::ep::DirectML::default().with_device_id(device).build(),
+        #[cfg(not(windows))]
+        Provider::DirectMl => return Err(Error::new(codes::PROVIDER_UNAVAILABLE)),
+        Provider::Cuda => ort::ep::CUDA::default().with_device_id(device).build(),
+        Provider::TensorRt => ort::ep::TensorRT::default().with_device_id(device).build(),
+        Provider::OpenVino => {
+            let device_type = if device == 0 { "GPU".to_string() } else { format!("GPU.{device}") };
+            ort::ep::OpenVINO::default().with_device_type(device_type).build()
+        }
+        Provider::MiGraphX => ort::ep::MIGraphX::default().with_device_id(device).build(),
+        Provider::WebGpu => ort::ep::WebGPU::default().with_device_id(device).build(),
+    };
+    Ok(dispatch.error_on_failure())
 }
 
-fn cpu_session(path: &std::path::Path) -> Result<Session> {
-    Session::builder(environment()?)
-        .map_err(failed)?
-        .with_intra_threads(CPU_THREADS)
-        .map_err(failed)?
-        .commit_from_file(path)
-        .map_err(failed)
-}
-
-#[cfg(windows)]
-fn gpu_session(path: &std::path::Path) -> Result<Session> {
-    // DirectML needs these two off (ONNX Runtime's DirectML documentation).
-    Session::builder(environment()?)
-        .map_err(failed)?
-        .with_memory_pattern(false)
-        .map_err(failed)?
-        .with_parallel_execution(false)
-        .map_err(failed)?
-        .with_execution_providers([ort::ep::DirectML::default().build().error_on_failure()])
-        .map_err(failed)?
-        .commit_from_file(path)
-        .map_err(failed)
-}
-
-#[cfg(not(windows))]
-fn gpu_session(_path: &std::path::Path) -> Result<Session> {
-    Err(Error::new(codes::RUNTIME_FAILED))
+fn session(path: &Path, at: Accelerator) -> Result<Session> {
+    let mut builder = Session::builder(environment()?).map_err(failed)?;
+    builder = builder.with_log_level(ort::logging::LogLevel::Fatal).map_err(failed)?;
+    if at.provider == Provider::Cpu {
+        builder = builder.with_intra_threads(CPU_THREADS).map_err(failed)?;
+    }
+    if at.provider == Provider::DirectMl {
+        // DirectML needs these two off (ONNX Runtime's DirectML documentation).
+        builder = builder.with_memory_pattern(false).map_err(failed)?;
+        builder = builder.with_parallel_execution(false).map_err(failed)?;
+    }
+    let mut builder = builder
+        .with_execution_providers([provider(at)?])
+        .map_err(|error| if failed(&error).code == codes::OUT_OF_MEMORY { failed(error) } else { Error::new(codes::PROVIDER_UNAVAILABLE) })?;
+    builder.commit_from_file(path).map_err(failed)
 }
 
 pub struct Translator {
     tokens: Tokens,
     encoder: Session,
     decoder: Session,
-    backend: Backend,
+    used: Accelerator,
+    fallback: Option<Fallback>,
+    variant: Variant,
     start: u32,
     end: u32,
     language_token: String,
@@ -97,30 +89,26 @@ pub struct Translator {
 }
 
 impl Translator {
-    /// Load a model checked with [`Bundle::open`]. Call [`Bundle::verify`] first to check
+    /// Load a model checked with [`Bundle::open`] on `at`, or on the CPU when that provider
+    /// cannot start ([`Translator::fallback`] says why). Call [`Bundle::verify`] first to check
     /// the files against their SHA-256.
-    pub fn load(bundle: &Bundle, device: Device) -> Result<Translator> {
+    pub fn load(bundle: &Bundle, at: Accelerator) -> Result<Translator> {
         let manifest = bundle.manifest();
         let tokens = Tokens::load(bundle)?;
         let invalid = || Error::new(codes::BUNDLE_INVALID);
         let start = tokens.id(&manifest.decoder_start_token).ok_or_else(invalid)?;
         let end = tokens.id(&manifest.end_token).ok_or_else(invalid)?;
         let (encoder_path, decoder_path) = (bundle.path(&manifest.encoder), bundle.path(&manifest.decoder));
-        let gpu = match device {
-            Device::Auto => {
-                gpu_session(&encoder_path).and_then(|encoder| Ok((encoder, gpu_session(&decoder_path)?))).ok()
-            }
-            Device::Cpu => None,
-        };
-        let (encoder, decoder, backend) = match gpu {
-            Some((encoder, decoder)) => (encoder, decoder, Backend::DirectMl),
-            None => (cpu_session(&encoder_path)?, cpu_session(&decoder_path)?, Backend::Cpu),
-        };
+        // Both graphs on one provider: the encoder's output feeds the decoder.
+        let opened = accelerate::open_with_fallback(at, |at| Ok((session(&encoder_path, at)?, session(&decoder_path, at)?)))?;
+        let (encoder, decoder) = opened.value;
         Ok(Translator {
             tokens,
             encoder,
             decoder,
-            backend,
+            used: opened.used,
+            fallback: opened.fallback,
+            variant: manifest.variant(),
             start,
             end,
             language_token: manifest.language_token.clone(),
@@ -134,8 +122,19 @@ impl Translator {
         })
     }
 
-    pub fn backend(&self) -> Backend {
-        self.backend
+    /// Where it runs.
+    pub fn backend(&self) -> Accelerator {
+        self.used
+    }
+
+    /// The provider asked for and why it could not start, when the model runs on the CPU
+    /// instead.
+    pub fn fallback(&self) -> Option<&Fallback> {
+        self.fallback.as_ref()
+    }
+
+    pub fn variant(&self) -> Variant {
+        self.variant
     }
 
     fn language(&self, code: &str) -> Result<u32> {
@@ -239,7 +238,7 @@ impl Steps<'_> {
     /// The vocabulary is the logits' width; it is known from the graph's output.
     fn probe_vocabulary(&self) -> Result<usize> {
         let output =
-            self.decoder.outputs().iter().find(|outlet| outlet.name() == "logits").ok_or_else(|| failed(()))?;
+            self.decoder.outputs().iter().find(|outlet| outlet.name() == "logits").ok_or_else(|| Error::new(codes::RUNTIME_FAILED))?;
         let width = output.dtype().tensor_shape().and_then(|shape| shape.last().copied()).unwrap_or(-1);
         usize::try_from(width).map_err(failed)
     }
@@ -295,7 +294,7 @@ impl Steps<'_> {
         let outputs = self.decoder.run(inputs).map_err(failed)?;
         let (shape, logits) = outputs["logits"].try_extract_tensor::<f32>().map_err(failed)?;
         if shape.len() != 3 || shape[0] as usize != beams || shape[1] != 1 || shape[2] as usize != self.vocabulary {
-            return Err(failed(()));
+            return Err(Error::new(codes::RUNTIME_FAILED));
         }
         let logits = logits.to_vec();
         let mut own = Vec::with_capacity(self.layers * 2);

@@ -110,6 +110,9 @@ pub struct Voice {
     runtimes: RuntimeSetup,
     monitor_logged: Mutex<Option<String>>,
     realtime_mic: Mutex<Option<Arc<dyn Fn() -> bool + Send + Sync>>>,
+    /// A Seed-VC conversion saved by an earlier version was moved to RVC at this start; the
+    /// direct voice state says so until the settings are saved again (#391).
+    seed_vc_moved: AtomicBool,
 }
 
 // ---------------------------------------------------------------- devices
@@ -215,6 +218,13 @@ impl Voice {
             let _ = config.set(SETTINGS_KEY, saved.clone());
         }
         let settings = VoiceSettings::from_value_on(&saved, tts_platform).unwrap_or_default();
+        // The settings load moved a saved Seed-VC engine to RVC (`voice_settings::load_direct`).
+        // Only a conversion the user had chosen is worth a word: Seed-VC was also Python's default.
+        let started_direct = config.saved_at_start(DIRECT_KEY);
+        let seed_vc_moved = started_direct["engine"] == crate::voice_settings::RETIRED_ENGINE && started_direct["mode"] == "converted";
+        if seed_vc_moved {
+            core.step("[voice] a saved Seed-VC conversion moved to RVC");
+        }
 
         let weak = Arc::downgrade(core);
         let app_dir = env.app_dir.clone();
@@ -332,6 +342,7 @@ impl Voice {
             runtimes,
             monitor_logged: Mutex::new(None),
             realtime_mic: Mutex::new(None),
+            seed_vc_moved: AtomicBool::new(seed_vc_moved),
         });
         let _ = voice.route.configure(settings.routing == "managed", Duration::from_secs(3), voice.gate_suppresses_direct(&settings));
         voice.apply_direct_policy(&settings);
@@ -407,6 +418,9 @@ impl Voice {
         let settings = self.core().map(|core| core.config().get(DIRECT_KEY)).unwrap_or(Value::Null);
         state.insert("settings".into(), settings);
         state.insert("output_route".into(), json!(if self.windows { "device" } else { "managed" }));
+        if self.seed_vc_moved.load(Ordering::SeqCst) {
+            state.insert("notice".into(), json!("seed_vc_moved_to_rvc"));
+        }
         Value::Object(state)
     }
 }
@@ -899,6 +913,10 @@ impl Voice {
     }
 
     fn set_direct_settings(&self, core: &Core, data: &Value) -> Reply {
+        if data.get("engine").and_then(Value::as_str) == Some(crate::voice_settings::RETIRED_ENGINE) {
+            // Seed-VC ran on Python and ended with it (decision 10): nothing is saved.
+            return Reply::status(400, json!({ "error_code": "vc_engine_unavailable", "settings": core.config().get(DIRECT_KEY) }));
+        }
         let Some(settings) = crate::voice_settings::normalize_direct(data) else { return refused(400, "vc_settings_invalid") };
         {
             let _settings = self.settings_lock.lock().unwrap();
@@ -909,6 +927,7 @@ impl Voice {
             // Saving new intent invalidates any start queued before the change.
             self.direct.stop();
             let _ = core.config().set(DIRECT_KEY, settings);
+            self.seed_vc_moved.store(false, Ordering::SeqCst);
         }
         ok(self.direct_state())
     }

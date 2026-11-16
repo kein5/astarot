@@ -13,6 +13,7 @@ mod manager;
 pub mod speechcpp;
 pub mod staging;
 pub mod transport;
+pub mod user_models;
 pub mod verification;
 
 use std::fmt;

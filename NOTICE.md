@@ -8,7 +8,9 @@ removed in 0.2.0 (see below); **fork binary distributions exclude all OCR
 weights** while retaining their attribution documents.
 
 The fork supports external engines and a fixed speech.cpp binary bundle with
-separate third-party notices. RVC voice conversion is the fork's own
+separate third-party notices. Windows builds carry its Vulkan build; Linux builds
+carry its CPU build and its Vulkan build of the same release side by side, each
+with the same notices. RVC voice conversion is the fork's own
 reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
 Rust dependencies are listed with the app's (see "Rust crates in VRCT-VOX
 builds" below). ONNX Runtime,
@@ -174,12 +176,22 @@ projects is included. ONNX Runtime is not built into the application: chat
 reading loads the library at run time (see
 `docs/voice-stack/core-integration.md`, item 2).
 
+`native/translate-onnx` (local translation) is the fork's own code (MIT). It
+uses `tokenizers` (Apache-2.0, Hugging Face) for SentencePiece segmentation and
+loads the same ONNX Runtime library as chat reading at run time; ONNX Runtime
+(MIT, Microsoft) and its execution providers (DirectML, CUDA, OpenVINO,
+MIGraphX, WebGPU) are not bundled. No translation model is bundled: the M2M100
+(MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
+consented model catalog once published, and a model the user places in the
+`translation-models` folder is under its own license, which the user is
+responsible for.
+
 `native/transcription` (speech recognition) reimplements, so that phrases are
 cut as before, the energy-based listening of SpeechRecognition 3.10.4
 (BSD-3-Clause, Anthony Zhang) as the fork used by the earlier Python
 implementation ran it, and `audioop`'s `rms` and `ratecv` of CPython
-(PSF-2.0). It sends Google's web speech requests as that library did, with its
-default key. No source file of these projects is included.
+(PSF-2.0). No source file of these projects is included. It does not send
+Google's web speech requests or carry that library's default key.
 
 The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
 Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,

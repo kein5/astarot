@@ -20,7 +20,7 @@ use vrct_core::protocol::request_line;
 use vrct_core::{Backend, Options, Sink};
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
-pub const VERSION: &str = "0.4.0-beta.1";
+pub const VERSION: &str = "0.4.0";
 
 #[derive(Default)]
 struct Seen {
@@ -209,6 +209,28 @@ impl Ui {
 
     pub fn saved(&self) -> Value {
         serde_json::from_str(&std::fs::read_to_string(self.dir.join("config.json")).unwrap()).unwrap()
+    }
+
+    /// One saved API key, from the key store (`config.json` holds none): `null` if none is kept.
+    pub fn kept_key(&self, map: &str, provider: &str) -> Value {
+        assert!(self.saved().get(map).is_none(), "{map} is not written to config.json");
+        let store = self.backend.core().config().secret_store();
+        store.read(&format!("{map}/{provider}")).expect("the store answers").map_or(Value::Null, Value::String)
+    }
+
+    /// The saved API keys of a map, from the key store: only the providers that have one.
+    pub fn kept_keys(&self, map: &str) -> Value {
+        let providers = self.backend.core().config().get(map);
+        let kept = providers
+            .as_object()
+            .expect("a map of keys")
+            .keys()
+            .filter_map(|provider| match self.kept_key(map, provider) {
+                Value::Null => None,
+                key => Some((provider.clone(), key)),
+            })
+            .collect();
+        Value::Object(kept)
     }
 
     /// Stops the run and waits for it, so that a test leaves no threads behind.

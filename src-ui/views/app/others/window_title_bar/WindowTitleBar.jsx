@@ -24,7 +24,7 @@ export const WindowTitleBar = () => {
                     <button type="button" aria-label={t("studio.maximize")} className={styles.maximize_button} onClick={asyncToggleMaximizeApp}>
                         <SquareSvg aria-hidden="true" className={styles.square_svg}/>
                     </button>
-                    <button type="button" aria-label={t("studio.close")} className={styles.close_button} onClick={asyncCloseApp}>
+                    <button type="button" aria-label={t("studio.close_to_tray")} className={styles.close_button} onClick={asyncCloseApp}>
                         <XMarkSvg aria-hidden="true" className={styles.x_mark_svg}/>
                     </button>
                 </div>

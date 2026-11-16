@@ -31,7 +31,9 @@ def installation(tmp_path, monkeypatch):
     root = roots[0]
     check_tree(root, require_runtime=True)
     from tools.speechcpp_bundle import verify_bundle
-    verify_bundle(root / '_internal/build/speechcpp')
+    # Both engine builds: the Vulkan build and the CPU build, each pinned.
+    assert verify_bundle(root / '_internal/build/speechcpp')['variant'] == 'linux-x64-vulkan'
+    assert verify_bundle(root / '_internal/build/speechcpp-cpu')['variant'] == 'linux-x64-cpu'
     paths = [root, *root.rglob('*')]
     for path in paths:
         if not path.is_symlink():
@@ -48,14 +50,15 @@ def installation(tmp_path, monkeypatch):
                 path.chmod(path.stat().st_mode | stat.S_IWUSR)
 
 
-def test_no_python_backend_and_the_bundled_engine_starts(installation, tmp_path):
+def test_no_python_backend_and_the_bundled_engines_start(installation, tmp_path):
     # The app runs the backend core in its own process (#285); nothing frozen ships beside it.
     assert not (installation / 'vrct-vox-sidecar').exists()
     assert not (installation / '_internal/base_library.zip').exists()
     assert not list(installation.rglob('libpython*'))
-    result = subprocess.run([str(installation / '_internal/build/speechcpp/speech'), '--help'],
-                            capture_output=True, timeout=10, cwd=tmp_path)
-    assert result.returncode == 0, result.stderr
+    for folder in ('speechcpp', 'speechcpp-cpu'):
+        result = subprocess.run([str(installation / '_internal/build' / folder / 'speech'), '--help'],
+                                capture_output=True, timeout=10, cwd=tmp_path)
+        assert result.returncode == 0, (folder, result.stderr)
 
 
 @pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')

@@ -25,13 +25,13 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ### 音声認識エンジンの選択
 
-`SELECTED_TRANSCRIPTION_ENGINE`は既存のエンジン名の文字列、または未選択を表す`null`を保存する。新規設定でキーがない場合の既定値は`null`。保存済みの`Google`など正常な選択はそのまま読み込み、再同意は求めない。今回保存する`null`も再起動後に未選択として保持する。不正な型・未知のエンジン名は読み込まず未選択の既定値を保つ。空文字列や新しいエンジン識別子への置換は行わない。
+`SELECTED_TRANSCRIPTION_ENGINE`は既存のエンジン名の文字列、または未選択を表す`null`を保存する。新規設定でキーがない場合の既定値は`null`。保存済みの正常な選択はそのまま読み込み、再同意は求めない。外した`Google`（Web 音声認識）の選択は読み込まず、未選択（`null`）にする。利用者は初回と同じ選択画面で選び直す。今回保存する`null`も再起動後に未選択として保持する。不正な型・未知のエンジン名は読み込まず未選択の既定値を保つ。空文字列や新しいエンジン識別子への置換は行わない。
 
 キー名と`/get/data/selected_transcription_engine`、`/set/data/selected_transcription_engine`は維持する。取得応答には未選択なら`null`、選択済みなら従来の文字列を返す。選択の更新要求は従来のエンジン名を使い、不正な値は`VALIDATION_CONFIG_VALUE_INVALID`で拒否する。可用性やAPIキーの削除で選択を上書きしない。
 
 従来の文字起こしの有効化で未選択なら400の`TRANSCRIPTION_ENGINE_NOT_SELECTED`と`data: false`を返す。API認識器の構築失敗は`TRANSCRIPTION_ENGINE_UNAVAILABLE`を`/set/enable/transcription_send`または`/set/enable/transcription_receive`の400通知で知らせ、開始要求の結果は従来どおり`false`となる。初回選択画面の継続操作はUI内の一時状態で、設定には保存せず、キャンセル・画面の破棄で捨てる。[同意の規則](cross-cutting.md#同意と外部への送信)を参照する。
 
-選べるエンジンは`SELECTABLE_TRANSCRIPTION_ENGINE_LIST`のとおり、Google、ローカル（speech.cpp、`SpeechCpp`）、クラウドのGroq Whisper、OpenAI Whisper、カスタムWhisperサーバー、Deepgramである。ローカルの`Whisper`（faster-whisper）は #288 で削除した。言語表の`Whisper`の列は、クラウドのWhisperのエンジンが言語コードに使うので残している。
+選べるエンジンは`SELECTABLE_TRANSCRIPTION_ENGINE_LIST`のとおり、ローカル（speech.cpp、`SpeechCpp`）、クラウドのGroq Whisper、OpenAI Whisper、カスタムWhisperサーバー、Deepgramである。ローカルの`Whisper`（faster-whisper）は #288 で削除した。言語表の`Whisper`の列は、クラウドのWhisperのエンジンが言語コードに使うので残している。キーなしの`Google`（Web 音声認識）は、非公式の窓口と`speech_recognition`の汎用のキーを使っていたので外した。言語表の`Google`の列は地域つきの言語タグに使うので残している。
 
 ### ローカル音声認識の移行
 
@@ -71,7 +71,15 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 保存したタイムアウトはJSONのキー順に関係なく、組として検証する。範囲外や型が不正な値は既定値へ戻す。範囲内でも記録時間がフレーズ時間を超える組は、両方を既定の3秒へ戻す。
 
+2つのタイムアウトの意味は次のとおりである（`native/transcription`の`energy.rs`と`phrases.rs`）。`RECORD_TIMEOUT`は1回の録音（音量で切り出した1つのフレーズ）の長さの上限で、0は上限なしである。上限で切れたフレーズも、間をあけずに続けば同じ発話につながる。`PHRASE_TIMEOUT`は、最後のフレーズからこの秒数が過ぎると、それまでの音声を1つの発話として区切る値である。フレーズの間の無音がこれより長いときも新しい発話になる。発話は音声が15秒になったときも区切る。設定画面のラベルと説明はこの意味で書く（「1回の録音の長さの上限」と「発話を区切るまでの待ち時間」）。
+
+`MIC_ENABLE_VAD`と`SPEAKER_ENABLE_VAD`は、音量の代わりに VAD でフレーズを区切るスイッチである。次に録音を始めたときから効く。VAD で区切るときは`PHRASE_TIMEOUT`を使わず、自然に区切れた区間ごとに1つの発話として認識する。長さの上限で切れた区間は次の区間とつなぐ（15秒まで）。認識に送る音声の前に0.3秒、後に0.5秒の無音を足す。いまの版は VAD のエンジンを持たない（`/get/data/vad_available`が`false`）。この間、`/set/enable/mic_vad_filter`と`/set/enable/speaker_vad_filter`は値を変えず、400の`VAD_UNAVAILABLE`と保存値を返す。オフにする操作は受け付ける。以前の版で保存したオンの値はそのまま残し、録音は音量で区切る。設定画面は VAD の選択肢を選べない状態にして理由を示し、保存値がオンでも「自動」か「手動」の表示にする。
+
 ローカルの Whisper とともに、`MIC_NO_REPEAT_NGRAM_SIZE`と`SPEAKER_NO_REPEAT_NGRAM_SIZE`は削除した。古い`config.json`にあっても読み込まない。
+
+### 直接音声の設定（声の変換）
+
+`DIRECT_VOICE_SETTINGS`の`engine`は`rvc`だけを受け付け、既定も`rvc`である。Seed-VCはPythonのバックエンドで動いていたので、Pythonとともに終わった。`/set/data/direct_voice_settings`に`engine: "seed-vc"`を送ると、何も保存せず400の`{"error_code": "vc_engine_unavailable", "settings": <保存値>}`を返す。そのほかの不正な値は従来どおり`vc_settings_invalid`である。以前の版が保存した`seed-vc`は、読み込むときに`rvc`へ移す。ほかの項目（`mode`、RVCのパス、Seed-VCの`runtime`と`reference`）はそのまま残すので、0.4の版でも読める。`mode`が`converted`だったときだけ、その起動のあいだ`/get/data/direct_voice_state`に`"notice": "seed_vc_moved_to_rvc"`を付け、RVCのページに「Seed-VCは使えなくなったため、声の変換をRVCに切り替えました」と出す。設定を保存し直すと消える。変換は自動では始めない。RVCのモデルが未設定なら、メイン画面のRVCのスイッチは設定を求める。
 
 ### 計算デバイスと計算型
 
@@ -93,9 +101,9 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 `WEBSOCKET_AUTH_TOKEN`は空でない文字列を保存する。null、空文字列、空白だけの文字列、文字列以外の保存値は読み込まず、起動時に生成した新しい秘密値を通常の既定値と同じ処理で保存する。正常な保存値は変えない。設定画面がコピーするWebSocket・OBSのURL、OBSのHTML、WebSocketの認証には同じ設定値を使う。修復された場合は外部アプリのURLをコピーし直す必要がある。設定キー名とIPCエンドポイント名は変えず、別キーへの移行は行わない。利用者は`/run/regenerate_websocket_auth_token`で新しい値に作り直せる。新しい値は`secrets.token_urlsafe(32)`で作って保存し、古い値での接続はすぐに切る。応答のトークンはログで伏せる。
 
-`LMSTUDIO_URL`、`OPENAI_COMPATIBLE_URL`、`TRANSCRIPTION_CUSTOM_URL`は、保存値の読み込み時と変更要求の受付時に同じ規則で検証する。HTTPSは任意のホストを受け付ける。HTTPは`localhost`、127.0.0.0/8、::1、10/8、172.16/12、192.168/16、fc00::/7、IPv4・IPv6のリンクローカルに限る。LANのホスト名をDNSで解決してHTTPを許可することはない。URLのユーザー情報、キー・トークン・パスワード・認証情報・署名などを表すクエリ名、フラグメント、不正なポートは拒否する。
+`LMSTUDIO_URL`、`OLLAMA_URL`（中核のみ）、`OPENAI_COMPATIBLE_URL`、`TRANSCRIPTION_CUSTOM_URL`は、保存値の読み込み時と変更要求の受付時に同じ規則で検証する。HTTPSは任意のホストを受け付ける。HTTPは`localhost`、127.0.0.0/8、::1、10/8、172.16/12、192.168/16、fc00::/7、IPv4・IPv6のリンクローカルと、`.local`で終わるmDNSの名前（中核のみ）に限る。ほかのLANのホスト名をDNSで解決してHTTPを許可することはない。`localhost`と`.local`の名前は、接続するときに解決したアドレスが上の範囲にあることをもう一度確かめ、範囲の外ならHTTPで送らない。100.64.0.0/10（CGNAT）は含めない。URLのユーザー情報、キー・トークン・パスワード・認証情報・署名などを表すクエリ名、フラグメント、不正なポートは拒否する。
 
-HTTPでプライベートLANやリンクローカルのアドレスへ接続する場合は、文章・音声・APIキーが暗号化されない旨を設定欄に表示する。同じPC内で通信するループバックには、この警告を出さない。URLは保存時に検証し、APIキーを入力して保存すると接続先へ送って認証する旨を、すべてのカスタムURLに表示する。URLの入力中は通信しない。OpenAI互換とCustom WhisperのURL単独の変更は、キーが保存済みなら通信せず`CREDENTIAL_REENTRY_REQUIRED`で拒否する。同じURLの再保存は通信も変更もせず成功し、キーが未設定ならURLだけを保存する。URLとキーを一緒に保存するときは入力した組み合わせで接続先を確かめる（[APIキーの変更](cross-cutting.md#apiキーの変更)）。URLの検証で拒否した変更は、既存の`CONNECTION_LMSTUDIO_URL_INVALID`、`CONNECTION_OPENAI_COMPATIBLE_URL_INVALID`、`CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID`を返して元のURLを保つ。
+HTTPでプライベートLANやリンクローカルのアドレスへ接続する場合は、文章・音声・APIキーが暗号化されない旨を設定欄に表示する。同じPC内で通信するループバックには、この警告を出さない。URLは保存時に検証し、APIキーを入力して保存すると接続先へ送って認証する旨を、すべてのカスタムURLに表示する。URLの入力中は通信しない。OpenAI互換とCustom WhisperのURL単独の変更は、キーが保存済みなら通信せず`CREDENTIAL_REENTRY_REQUIRED`で拒否する。同じURLの再保存は通信も変更もせず成功し、キーが未設定ならURLだけを保存する。URLとキーを一緒に保存するときは入力した組み合わせで接続先を確かめる（[APIキーの変更](cross-cutting.md#apiキーの変更)）。URLの検証で拒否した変更は、既存の`CONNECTION_LMSTUDIO_URL_INVALID`、`CONNECTION_OLLAMA_URL_INVALID`（中核のみ）、`CONNECTION_OPENAI_COMPATIBLE_URL_INVALID`、`CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID`を返して元のURLを保つ。
 
 不正な保存済みURLは空文字列にして接続を止め、起動完了時に対応するURLエラーで再設定を促す。この通知は表示時のUI言語で翻訳し、保存済みの言語が後から反映された場合も表示を更新する。保存済みキーを別の既定ホストへ送らないため、既定URLには戻さない。キー自体は残す。空文字列は未設定の状態として保存できる。キー名・IPCエンドポイント名・JSONの形式は変更しない。
 
@@ -221,7 +229,9 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 |---|---|
 | ワードフィルター | 文字列の配列。重複は順を保って除く。一致すると`/run/word_filter`に`{"message": "Detected by word filter: …"}` |
 | ホットキー | `{open_quick_chat, toggle_vrct_visibility, toggle_translation, toggle_transcription_send, toggle_transcription_receive, stop_voice, toggle_voice_mute, toggle_tts, toggle_rvc}`の各値が`["Ctrl","Shift","Q"]`のようなキーの配列か`null`。知らないキーを含むと全体を拒否する |
-| 実験的機能（`EXPERIMENTAL_FEATURES`） | `{機能のID: 真偽値}`。一覧にある機能をすべて持ち、既定はどれも`false`。要求に含めなかった機能は今の値のまま。一覧にないIDは捨てる（卒業や廃止で消えた機能の保存値が残っていても読み込める）。真偽値でない値を含むと全体を拒否する。機能の一覧は`src-python/models/experimental_features.py`、`src-ui/logics/configs/experimentalFeatures.ts`、`native/core/src/config/schema.rs`の3か所にあり、バックエンドの試験で一致を確かめる。今は空である |
+| 実験的機能（`EXPERIMENTAL_FEATURES`） | `{機能のID: 真偽値}`。一覧にある機能をすべて持ち、既定はどれも`false`。要求に含めなかった機能は今の値のまま。一覧にないIDは捨てる（卒業や廃止で消えた機能の保存値が残っていても読み込める）。真偽値でない値を含むと全体を拒否する。機能の一覧は`src-python/models/experimental_features.py`、`src-ui/logics/configs/experimentalFeatures.ts`、`native/core/src/config/schema.rs`の3か所にあり、バックエンドの試験で一致を確かめる。今の機能は	ray_companion（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)）だけ |
+| 六芒星のオーバーレイで六芒星を隠す端（`TRAY_COMPANION_EDGE`） | `right`、`left`、`top`、`bottom` のどれか。既定は`right`。実験的機能の六芒星のオーバーレイがオフの間も値は残す。ほかの値は拒否する（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)） |
+| 六芒星のオーバーレイで六芒星を出すモニター（`TRAY_COMPANION_MONITOR`） | システムがモニターに付けた名前。空はメインのモニター（既定）。256文字までで、制御文字は拒否する。選んだモニターが外されていても値は残し、その間はメインのモニターを使う（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)） |
 | 重みの取得状態 | 一覧は {種類: 取得済みか}。受付は {weight_type, job_id}。進捗は {weight_type, job_id, progress}、成功通知は {weight_type, job_id, downloaded: true}。失敗通知はエラー本体のdataに {weight_type, job_id, downloaded: false, reason} を入れる。進行中の同じ重みへの重複要求を拒否する場合はactive_job_idも付ける |
 | エンジンの状態 | `{エンジン名: 使えるか}`。使えるエンジンの一覧は`selectable_*_engines`で配列として返す |
 | エラー | [IPCプロトコル](ipc-protocol.md#エラーの本体) |
@@ -239,6 +249,19 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 - 書き込みは[横断的な振る舞い](cross-cutting.md#サイドカーでの保存)のとおり、2秒の遅延、0600の一時ファイル、`fsync`、置き換えの順に行う。
 - 起動のたびに直す値がある: `SELECTED_RELEASE_CHANNEL`は版から決め直す。インストーラーが置いた`installer_language.txt`があればUIの言語にして消す。WebSocketのトークンは初回と不正な保存値の修復時に作って保存する（[ネットワーク設定](#ネットワーク設定)）。
 
+### APIキーの保存先
+
+APIキーは`config.json`に書かない（0.5.0から）。`AUTH_KEYS`（翻訳）と`TRANSCRIPTION_AUTH_KEYS`（音声認識）の値は、同じフォルダの`secrets.json`に1件ずつ保存する。項目の名前は`AUTH_KEYS/DeepL_API`のように辞書の名前とプロバイダ名をつないだものである。どちらの辞書に足したプロバイダも同じ扱いになる。キーを持つ設定を新しく足すときは`native/core/src/config/secrets.rs`の`SECRET_SETTINGS`に名前を加える。
+
+- メモリー上の設定はいままでどおりで、`/get/data/*_auth_key`は同じ値を返す。`/run/initialization_complete`の一覧にも同じ値が入る。
+- `secrets.json`は`{"version": 1, "protection": …, "entries": …}`である。Windowsではキーの一覧をDPAPI（そのPCのそのユーザーだけが戻せる暗号化）で包み、Base64にして`entries`に入れる（`"protection": "dpapi"`）。Linuxでは一覧をそのまま入れ、ファイルの権限を0600にする（`"protection": "none"`）。書き込みは`config.json`と同じく、新しい一時ファイル、`fsync`、置き換えの順で行う。
+- 読めない`secrets.json`（別のユーザーやPCのDPAPI、壊れた内容）は、次にキーを書くときに`secrets.json.unreadable-<日時>-<乱数>`へ移して新しく作る。
+- 移行: 起動時、`config.json`にキーがあれば（0.4以前のPythonや以前の中核が書いたもの）、1件ずつ`secrets.json`に書いて読み戻し、同じ値が読めたものだけを`config.json`から除いて書き直す。途中で落ちてもキーはどちらかに残る。
+- 保存先に書けない、読み戻せない、消せないときは、キーをメモリーに残してその起動のあいだ使えるようにし、`/run/secret_store_failed`に400の`SECRET_STORE_FAILED`を送る。`data`は`{operation, entries, reason, store}`で、`operation`は`migrate`、`write`、`delete`、`read`のどれか、`entries`は項目の名前（キーの値は入れない）である。移行できなかったキーは`config.json`に残す。次の保存と30秒ごとにもう一度試し、移せたら`config.json`から除く。同じ項目の失敗は直るまで1回だけ知らせる。
+- 読めないときは、そのキーを空として起動し、保存先の中身には触れない。
+- キーを消す要求（`/delete/data/*_auth_key`など）は`secrets.json`からも消す。
+- 0.4以前の版に戻すと、キーは`config.json`にないので入れ直しが要る。
+
 ## そのほかのファイル
 
 | ファイル | 置き場所 | 内容 |
@@ -248,9 +271,11 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 | `startup.log` | 同上（Tauri側） | ウィンドウの起動記録 |
 | 会話ログ `YYYY-MM-DD_HH-MM-SS.log` | `PATH_LOGS` | 「会話ログを自動的に保存する」がオンのときだけ。行頭は`[SENT]`、`[RECEIVED]`、`[OCR]`、`[CHAT]`。画面は新しい1,000件しか残さないが、ファイルには古いものも残る |
 | `downloaded_models/<id>/<版>/`と`receipt.json` | `config.json`と同じフォルダ | 取得したモデル。取得中は`.partial-<16進>/` |
+| `user_models.json` | `config.json`と同じフォルダ | 利用者が名前を付けて登録したモデル（#403）。`{"version": 1, "models": [{id, target, name, files: {役割: {path, size, mtime_ns}}, registered_at}]}`。ファイルの場所と、登録したときの容量と更新時刻だけを持ち、モデルのファイルはコピーしない。一時ファイルに書いて`fsync`してから置き換える。読めない、または版が違うときは書き換えずに残す。PythonとRustのコアは同じ形式を読み書きする |
 | `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCとSeed-VCの実行環境（WindowsとLinux）。`.steps.json`に終わった手順、`setup.log`に`uv`とワーカーの確認の出力を残す。`.uv-<版>/`に取得用の`uv`を置く（Seed-VC）。RVCは`lib/`（ONNX Runtime。GPU用はCUDA 13とcuDNNのライブラリも）と`assets/`だけで、取得中は`lib.part/`と`downloads/`を使う。RVCの取得が終わると、同じフォルダーにある以前のPyTorch形式の`venv/`、`python/`、`engine/`（中のモデルと音声のファイルは残す）、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`を削除する |
 | weights/whisper/… | PATH_DATA | 以前の版が取得した Whisper の重み。いまの版は読まず、取得もしない。利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](#古い-whisper-の重み)） |
 | weights/ctranslate2/… | PATH_DATA | 内蔵の翻訳モデルと検証記録。取得も既存ファイルの利用もbuiltin_model_pins.pyの全容量・SHA-256を照合する。tokenizerも同じ一式に含む。検証記録はschema=2、repo・revision・全ファイルpinのSHA-256識別値、各ファイルのsize・mtime_ns・ctime_ns・device・inode。古い記録は無効。不一致の既存ファイルは残し、同意済みの再取得に成功した場合だけ既存一式を`.preserved-<weight>-<uuid>`へ移してから新しい一式を公開する |
+| `secrets.json` | `config.json`と同じフォルダ | APIキー（[APIキーの保存先](#apiキーの保存先)）。Windowsでは暗号化、Linuxでは権限0600 |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
 | `telemetry_state.json` | `PATH_DATA` | 利用状況の通知をその日（UTC）に送ったかどうかの記録（起動の通知を送った日付と、その日に送ったエラーコード）と、送った内容そのものの直近20件（`sent`: このPCの時刻、本文、受け付けられたか） |
 | `io.github.kein5.vrct-vox.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル |

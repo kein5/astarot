@@ -1,10 +1,13 @@
 //! The subtitle fonts, grapheme boundaries and the measurement of a line (`overlay_fonts.py`).
 //!
-//! The Python sidecar shipped four Noto Sans CJK fonts (29.6 MB). The core does not bundle
-//! fonts yet (see "判断が要ること" in `docs/voice-stack/core-integration.md`): it looks in the
-//! folders it is given first (a bundle's `fonts`, the Python bundle's `_internal/fonts`), then
-//! in the system's font folders, for the fonts below, and falls back per character to any font
-//! there that has the glyph. A character no font has is left out of the picture.
+//! The Python sidecar shipped four Noto Sans CJK fonts (29.6 MB). The core bundles none: the
+//! subtitles use the fonts on the user's system. The family chosen in the settings
+//! (`OVERLAY_FONT_FAMILY`) is drawn first; each character it lacks falls back to the language's
+//! usual system family (Yu Gothic UI and Meiryo or Noto Sans CJK JP for Japanese, Malgun Gothic or
+//! Noto Sans CJK KR for Korean, and so on, Segoe UI or Noto Sans for Latin), then to any font
+//! that has the glyph. Families are found by the names in the fonts' `name` tables, as the app's
+//! font list (font-kit) names them. A character no font has is left out of the picture;
+//! [`FontLibrary::missing_languages`] tells which scripts that would hit.
 
 use ab_glyph::{Font, FontVec, GlyphId, PxScale, ScaleFont, point};
 use std::collections::HashMap;
@@ -76,89 +79,97 @@ pub fn word_tokens(text: &str) -> Vec<String> {
     tokens
 }
 
-/// The languages the subtitles pick a font for (`OverlayImage.LANGUAGES`); any other language
-/// uses the default (Japanese) font.
-fn preferred(language: &str) -> &'static [(&'static str, u32)] {
+/// The font families tried first for a language, from the fonts Windows and common Linux
+/// systems carry: Japanese (also for times, samples and languages without a list), Korean,
+/// Simplified and Traditional Chinese, and Latin for every other language.
+fn language_families(language: &str) -> &'static [&'static str] {
     match language {
-        "Korean" => &[
-            ("notosanskr-regular.ttf", 0),
-            ("notosanscjkkr-regular.otf", 0),
-            ("notosanscjk-regular.ttc", 1),
-            ("malgun.ttf", 0),
-        ],
-        "Chinese Simplified" => &[
-            ("notosanssc-regular.ttf", 0),
-            ("notosanscjksc-regular.otf", 0),
-            ("notosanscjk-regular.ttc", 2),
-            ("msyh.ttc", 0),
-            ("simsun.ttc", 0),
-        ],
-        "Chinese Traditional" => &[
-            ("notosanstc-regular.ttf", 0),
-            ("notosanscjktc-regular.otf", 0),
-            ("notosanscjk-regular.ttc", 3),
-            ("msjh.ttc", 0),
-            ("mingliu.ttc", 0),
-        ],
-        _ => &[
-            ("notosansjp-regular.ttf", 0),
-            ("notosanscjkjp-regular.otf", 0),
-            ("notosanscjk-regular.ttc", 0),
-            ("yugothm.ttc", 0),
-            ("yugothr.ttc", 0),
-            ("meiryo.ttc", 0),
-            ("msgothic.ttc", 0),
-            ("ipagp.ttf", 0),
-            ("ipaexg.ttf", 0),
-        ],
+        "Korean" => &["Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", "Source Han Sans K", "NanumGothic"],
+        "Chinese Simplified" => {
+            &["Microsoft YaHei", "Microsoft YaHei UI", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", "WenQuanYi Micro Hei", "SimSun"]
+        }
+        "Chinese Traditional" => {
+            &["Microsoft JhengHei", "Microsoft JhengHei UI", "Noto Sans CJK TC", "Noto Sans TC", "Source Han Sans TC", "MingLiU"]
+        }
+        "Latin" => &["Segoe UI", "Noto Sans", "DejaVu Sans", "Arial", "Liberation Sans"],
+        _ => &["Yu Gothic UI", "Meiryo", "Yu Gothic", "Noto Sans CJK JP", "Noto Sans JP", "Source Han Sans", "IPAexGothic", "IPAPGothic", "MS Gothic"],
     }
 }
 
-/// Fonts tried after the language's own, before searching every font file.
-const FALLBACKS: &[(&str, u32)] = &[
-    ("notosansjp-regular.ttf", 0),
-    ("notosanskr-regular.ttf", 0),
-    ("notosanssc-regular.ttf", 0),
-    ("notosanstc-regular.ttf", 0),
-    ("notosanscjk-regular.ttc", 0),
-    ("segoeui.ttf", 0),
-    ("arial.ttf", 0),
-    ("dejavusans.ttf", 0),
-    ("notosans-regular.ttf", 0),
-    ("liberationsans-regular.ttf", 0),
-    ("seguisym.ttf", 0),
-    ("seguiemj.ttf", 0),
-    ("symbola.ttf", 0),
+/// Families tried after the language's own, before searching every font file.
+const FALLBACKS: &[&str] = &[
+    "Segoe UI",
+    "Noto Sans",
+    "DejaVu Sans",
+    "Arial",
+    "Liberation Sans",
+    "Yu Gothic UI",
+    "Meiryo",
+    "Noto Sans CJK JP",
+    "Noto Sans JP",
+    "Malgun Gothic",
+    "Noto Sans CJK KR",
+    "Microsoft YaHei",
+    "Noto Sans CJK SC",
+    "Microsoft JhengHei",
+    "Noto Sans CJK TC",
+    "Segoe UI Symbol",
+    "Noto Sans Symbols",
+    "Noto Sans Symbols 2",
+    "Symbola",
 ];
 
-/// Where fonts are looked for, and the fonts loaded so far.
+/// The scripts the subtitles must be able to draw, with a character of each: when no font on
+/// this system has it, the settings say so ([`FontLibrary::missing_languages`]).
+pub const CHECKED_LANGUAGES: [(&str, &str); 4] = [("Japanese", "あ漢"), ("Korean", "한"), ("Chinese Simplified", "汉"), ("Chinese Traditional", "漢")];
+
+/// The longest font family name taken from the settings.
+pub const MAX_FAMILY_CHARS: usize = 256;
+
+/// A face of a family: the file, its index in a collection, and whether it is the family's
+/// regular style.
+#[derive(Clone, Debug)]
+struct FaceEntry {
+    path: PathBuf,
+    index: u32,
+    regular: bool,
+}
+
+/// Where fonts are looked for, and the fonts loaded so far. No font is bundled with the app:
+/// the system's fonts are used, the family chosen in the settings first.
 pub struct FontLibrary {
     folders: Vec<PathBuf>,
-    files: OnceLock<HashMap<String, PathBuf>>,
+    /// Lower-case family name to its faces, from the fonts' name tables; read on first need.
+    families: OnceLock<HashMap<String, Vec<FaceEntry>>>,
     loaded: Mutex<HashMap<(PathBuf, u32), Option<Arc<FontVec>>>>,
     /// Every font file, for characters the named fonts lack; read on first need.
     every: OnceLock<Vec<PathBuf>>,
+    /// The family chosen in the settings (`OVERLAY_FONT_FAMILY`); `None` is automatic.
+    chosen: Mutex<Option<String>>,
 }
 
 impl FontLibrary {
-    /// `first` folders are searched before the system's.
+    /// The system's fonts, with `first` folders searched before the system's.
     pub fn new(first: Vec<PathBuf>) -> Self {
         let mut folders = first;
         folders.extend(system_font_folders());
-        Self { folders, files: OnceLock::new(), loaded: Mutex::new(HashMap::new()), every: OnceLock::new() }
+        Self::only(folders)
     }
 
     /// Only the given folders (tests).
     pub fn only(folders: Vec<PathBuf>) -> Self {
-        Self { folders, files: OnceLock::new(), loaded: Mutex::new(HashMap::new()), every: OnceLock::new() }
+        Self { folders, families: OnceLock::new(), loaded: Mutex::new(HashMap::new()), every: OnceLock::new(), chosen: Mutex::new(None) }
     }
 
-    fn files(&self) -> &HashMap<String, PathBuf> {
-        self.files.get_or_init(|| {
-            let mut found = HashMap::new();
+    fn families(&self) -> &HashMap<String, Vec<FaceEntry>> {
+        self.families.get_or_init(|| {
+            let mut found: HashMap<String, Vec<FaceEntry>> = HashMap::new();
             for path in self.every().iter() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    found.entry(name.to_lowercase()).or_insert_with(|| path.clone());
+                for (index, names) in names::read(path).into_iter().enumerate() {
+                    for (family, regular) in names.families() {
+                        let entry = FaceEntry { path: path.clone(), index: index as u32, regular };
+                        found.entry(family.to_lowercase()).or_default().push(entry);
+                    }
                 }
             }
             found
@@ -188,16 +199,46 @@ impl FontLibrary {
         font
     }
 
-    fn named(&self, list: &[(&str, u32)]) -> Vec<Arc<FontVec>> {
-        list.iter()
-            .filter_map(|(name, index)| self.files().get(*name).and_then(|path| self.load(path, *index)))
-            .collect()
+    /// The regular face of a family (the first face when none says it is regular).
+    fn family_face(&self, family: &str) -> Option<Arc<FontVec>> {
+        let faces = self.families().get(&family.to_lowercase())?;
+        faces
+            .iter()
+            .filter(|f| f.regular)
+            .chain(faces.iter().filter(|f| !f.regular))
+            .find_map(|face| self.load(&face.path, face.index))
     }
 
-    /// The faces for a language: its own first, then the fallbacks.
+    fn named(&self, families: &[&str]) -> Vec<Arc<FontVec>> {
+        families.iter().filter_map(|family| self.family_face(family)).collect()
+    }
+
+    /// Whether a family by this name is on the system (any language's name in the font counts).
+    pub fn has_family(&self, family: &str) -> bool {
+        self.families().contains_key(&family.to_lowercase())
+    }
+
+    /// The family names found, sorted (each once, as the first file spells it in English).
+    pub fn family_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.every().iter().flat_map(|path| names::read(path)).filter_map(|n| n.display_family()).collect();
+        names.sort_by_key(|n| n.to_lowercase());
+        names.dedup_by_key(|n| n.to_lowercase());
+        names
+    }
+
+    /// Chooses the family drawn first; `None` (or an empty name) goes back to automatic.
+    pub fn set_family(&self, family: Option<&str>) {
+        *self.chosen.lock().unwrap() = family.map(str::trim).filter(|f| !f.is_empty()).map(str::to_string);
+    }
+
+    pub fn family(&self) -> Option<String> {
+        self.chosen.lock().unwrap().clone()
+    }
+
+    /// The faces for a language: the chosen family, the language's own, then the fallbacks.
     pub fn faces(&self, language: &str) -> Vec<Arc<FontVec>> {
-        let mut faces = self.named(preferred(language));
-        for face in self.named(FALLBACKS) {
+        let mut faces: Vec<Arc<FontVec>> = self.family().and_then(|family| self.family_face(&family)).into_iter().collect();
+        for face in self.named(language_families(language)).into_iter().chain(self.named(FALLBACKS)) {
             if !faces.iter().any(|f| Arc::ptr_eq(f, &face)) {
                 faces.push(face);
             }
@@ -225,6 +266,25 @@ impl FontLibrary {
     pub fn any(&self) -> bool {
         !self.faces("Default").is_empty() || self.every().iter().any(|path| self.load(path, 0).is_some())
     }
+
+    /// The languages of [`CHECKED_LANGUAGES`] no font here can draw: their text would be left
+    /// out of the subtitles (on Linux without CJK fonts, for one).
+    pub fn missing_languages(&self) -> Vec<&'static str> {
+        CHECKED_LANGUAGES
+            .iter()
+            .filter(|(language, sample)| {
+                let faces = self.faces(language);
+                !graphemes(sample).all(|c| faces.iter().any(|f| covers(f, c)) || self.covering(c).is_some())
+            })
+            .map(|(language, _)| *language)
+            .collect()
+    }
+}
+
+/// Whether a font family name from the settings is well-formed: not blank, at most
+/// [`MAX_FAMILY_CHARS`] characters, no control characters.
+pub fn valid_family_name(name: &str) -> bool {
+    !name.trim().is_empty() && name.chars().count() <= MAX_FAMILY_CHARS && !name.chars().any(char::is_control)
 }
 
 fn collect_fonts(folder: &Path, depth: u32, out: &mut Vec<PathBuf>) {
@@ -243,7 +303,8 @@ fn collect_fonts(folder: &Path, depth: u32, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// The system's font folders.
+/// The system's font folders: Windows' own and the user's; on Linux the folders fontconfig
+/// reads by default (fontconfig itself is not called).
 pub fn system_font_folders() -> Vec<PathBuf> {
     let mut folders = Vec::new();
     if cfg!(windows) {
@@ -263,6 +324,124 @@ pub fn system_font_folders() -> Vec<PathBuf> {
         folders.push(PathBuf::from("/usr/local/share/fonts"));
     }
     folders
+}
+
+/// The names in a font file's `name` table, read without loading the whole file.
+mod names {
+    use std::fs::File;
+    use std::io::{Read, Seek, SeekFrom};
+    use std::path::Path;
+
+    const MAX_FACES: u32 = 64;
+    const MAX_TABLES: u16 = 512;
+    const MAX_NAME_TABLE: u32 = 1 << 20;
+
+    /// One face's names: (name ID, is English, text).
+    #[derive(Default, Debug)]
+    pub struct Names(Vec<(u16, bool, String)>);
+
+    impl Names {
+        fn all(&self, id: u16) -> impl Iterator<Item = &str> {
+            self.0.iter().filter(move |(i, _, _)| *i == id).map(|(_, _, text)| text.as_str())
+        }
+
+        /// Each family name with whether this face is its regular style. The typographic (16,
+        /// 17), WWS (21, 22) and legacy (1, 2) names all count, in every language.
+        pub fn families(&self) -> Vec<(String, bool)> {
+            let mut out = Vec::new();
+            for (family, style) in [(16, 17), (21, 22), (1, 2)] {
+                let styles: Vec<&str> = if self.all(style).next().is_some() { self.all(style).collect() } else { self.all(2).collect() };
+                let regular = styles.iter().any(|s| matches!(s.trim().to_lowercase().as_str(), "regular" | "normal" | "book" | "roman" | "standard"));
+                for name in self.all(family) {
+                    if !out.iter().any(|(n, _): &(String, bool)| n.eq_ignore_ascii_case(name)) {
+                        out.push((name.to_string(), regular));
+                    }
+                }
+            }
+            out
+        }
+
+        /// The family name to show: the typographic one, else the legacy one, in English first.
+        pub fn display_family(&self) -> Option<String> {
+            for id in [16, 1] {
+                let english = self.0.iter().find(|(i, en, _)| *i == id && *en).map(|(_, _, t)| t.clone());
+                if let Some(name) = english.or_else(|| self.all(id).next().map(str::to_string)) {
+                    return Some(name);
+                }
+            }
+            None
+        }
+    }
+
+    fn u16_at(data: &[u8], at: usize) -> Option<u16> {
+        Some(u16::from_be_bytes(data.get(at..at + 2)?.try_into().ok()?))
+    }
+
+    fn u32_at(data: &[u8], at: usize) -> Option<u32> {
+        Some(u32::from_be_bytes(data.get(at..at + 4)?.try_into().ok()?))
+    }
+
+    fn read_at(file: &mut File, offset: u64, length: usize) -> Option<Vec<u8>> {
+        let mut data = vec![0u8; length];
+        file.seek(SeekFrom::Start(offset)).ok()?;
+        file.read_exact(&mut data).ok()?;
+        Some(data)
+    }
+
+    /// The names of each face in the file (one for a plain font, several for a collection).
+    /// A file that cannot be read gives none.
+    pub fn read(path: &Path) -> Vec<Names> {
+        let Ok(mut file) = File::open(path) else { return Vec::new() };
+        let Some(head) = read_at(&mut file, 0, 12) else { return Vec::new() };
+        let offsets: Vec<u32> = if &head[..4] == b"ttcf" {
+            let count = u32_at(&head, 8).unwrap_or(0).min(MAX_FACES);
+            match read_at(&mut file, 12, count as usize * 4) {
+                Some(table) => (0..count as usize).filter_map(|i| u32_at(&table, i * 4)).collect(),
+                None => Vec::new(),
+            }
+        } else {
+            vec![0]
+        };
+        offsets.into_iter().map(|offset| face_names(&mut file, u64::from(offset)).unwrap_or_default()).collect()
+    }
+
+    fn face_names(file: &mut File, offset: u64) -> Option<Names> {
+        let head = read_at(file, offset, 12)?;
+        let tables = u16_at(&head, 4)?.min(MAX_TABLES);
+        let records = read_at(file, offset + 12, usize::from(tables) * 16)?;
+        let (name_offset, name_length) = (0..usize::from(tables))
+            .map(|i| i * 16)
+            .find(|at| &records[*at..*at + 4] == b"name")
+            .and_then(|at| Some((u32_at(&records, at + 8)?, u32_at(&records, at + 12)?)))?;
+        let table = read_at(file, u64::from(name_offset), name_length.min(MAX_NAME_TABLE) as usize)?;
+        let count = u16_at(&table, 2)?;
+        let strings = usize::from(u16_at(&table, 4)?);
+        let mut names = Names::default();
+        for i in 0..usize::from(count) {
+            let at = 6 + i * 12;
+            let (platform, encoding, language, id) = (u16_at(&table, at)?, u16_at(&table, at + 2)?, u16_at(&table, at + 4)?, u16_at(&table, at + 6)?);
+            if !matches!(id, 1 | 2 | 16 | 17 | 21 | 22) {
+                continue;
+            }
+            let (length, start) = (usize::from(u16_at(&table, at + 8)?), usize::from(u16_at(&table, at + 10)?));
+            let Some(bytes) = table.get(strings + start..strings + start + length) else { continue };
+            let text = match (platform, encoding) {
+                (0, _) | (3, 0 | 1 | 10) => {
+                    let units: Vec<u16> = bytes.chunks_exact(2).map(|c| u16::from_be_bytes([c[0], c[1]])).collect();
+                    String::from_utf16_lossy(&units)
+                }
+                (1, 0) => bytes.iter().map(|b| if b.is_ascii() { char::from(*b) } else { '?' }).collect(),
+                _ => continue,
+            };
+            let text = text.trim_matches(char::from(0)).trim().to_string();
+            if text.is_empty() {
+                continue;
+            }
+            let english = matches!((platform, language), (3, 0x0409) | (1, 0) | (0, _));
+            names.0.push((id, english, text));
+        }
+        Some(names)
+    }
 }
 
 fn covers(face: &FontVec, cluster: &str) -> bool {
@@ -408,6 +587,74 @@ mod tests {
         assert_eq!(word_tokens("Hello world"), ["Hello", " ", "world"]);
         assert_eq!(word_tokens("こんにちは"), ["こ", "ん", "に", "ち", "は"]);
         assert_eq!(word_tokens("don't 2nd"), ["don't", " ", "2nd"]);
+    }
+
+    /// A font file with only a `name` table: (name ID, platform, language, text) records.
+    fn name_only_font(records: &[(u16, u16, u16, &str)]) -> Vec<u8> {
+        let mut strings = Vec::new();
+        let mut table = Vec::new();
+        table.extend_from_slice(&0u16.to_be_bytes());
+        table.extend_from_slice(&(records.len() as u16).to_be_bytes());
+        table.extend_from_slice(&((6 + 12 * records.len()) as u16).to_be_bytes());
+        for (id, platform, language, text) in records {
+            let bytes: Vec<u8> = text.encode_utf16().flat_map(u16::to_be_bytes).collect();
+            let encoding: u16 = if *platform == 3 { 1 } else { 0 };
+            for value in [*platform, encoding, *language, *id, bytes.len() as u16, strings.len() as u16] {
+                table.extend_from_slice(&value.to_be_bytes());
+            }
+            strings.extend(bytes);
+        }
+        table.extend(strings);
+        let mut file = Vec::new();
+        file.extend_from_slice(&0x0001_0000u32.to_be_bytes());
+        file.extend_from_slice(&1u16.to_be_bytes());
+        file.extend_from_slice(&[0; 6]);
+        file.extend_from_slice(b"name");
+        file.extend_from_slice(&0u32.to_be_bytes());
+        file.extend_from_slice(&28u32.to_be_bytes());
+        file.extend_from_slice(&(table.len() as u32).to_be_bytes());
+        file.extend(table);
+        file
+    }
+
+    #[test]
+    fn families_are_found_by_any_of_their_names() {
+        let folder = std::env::temp_dir().join(format!("vrct-fonts-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        let regular = name_only_font(&[(1, 3, 0x409, "Example Sans"), (2, 3, 0x409, "Regular"), (1, 3, 0x411, "例ゴシック")]);
+        let bold = name_only_font(&[(1, 3, 0x409, "Example Sans Bold"), (2, 3, 0x409, "Regular"), (16, 3, 0x409, "Example Sans"), (17, 3, 0x409, "Bold")]);
+        std::fs::write(folder.join("example-regular.ttf"), regular).unwrap();
+        std::fs::write(folder.join("example-bold.ttf"), bold).unwrap();
+        let library = FontLibrary::only(vec![folder.clone()]);
+        assert!(library.has_family("Example Sans"));
+        assert!(library.has_family("example sans"), "any case");
+        assert!(library.has_family("例ゴシック"), "a localised name");
+        assert!(library.has_family("Example Sans Bold"), "the legacy name of a style");
+        assert!(!library.has_family("Missing Sans"));
+        let faces = &library.families()["example sans"];
+        let regular = faces.iter().find(|f| f.regular).unwrap();
+        assert!(regular.path.ends_with("example-regular.ttf"), "the regular face comes first");
+        assert_eq!(library.family_names(), ["Example Sans"]);
+        library.set_family(Some("  "));
+        assert_eq!(library.family(), None, "blank is automatic");
+        library.set_family(Some("Example Sans"));
+        assert_eq!(library.family().as_deref(), Some("Example Sans"));
+        let _ = std::fs::remove_dir_all(folder);
+    }
+
+    #[test]
+    fn family_names_from_the_settings_are_checked() {
+        assert!(valid_family_name("Yu Gothic UI"));
+        assert!(valid_family_name("游ゴシック"));
+        assert!(!valid_family_name("   "));
+        assert!(!valid_family_name("a\nb"));
+        assert!(!valid_family_name(&"x".repeat(MAX_FAMILY_CHARS + 1)));
+    }
+
+    #[test]
+    fn without_fonts_every_checked_language_is_missing() {
+        let library = FontLibrary::only(vec![PathBuf::from("does-not-exist")]);
+        assert_eq!(library.missing_languages(), ["Japanese", "Korean", "Chinese Simplified", "Chinese Traditional"]);
     }
 
     #[test]

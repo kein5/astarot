@@ -25,6 +25,8 @@ pub struct FakeLocal {
     pub fails_with: Mutex<Option<LocalError>>,
     pub loaded: Mutex<Option<LocalSetup>>,
     pub loads: Mutex<usize>,
+    /// A target language whose translation panics (a bug in an engine).
+    pub panics_for: Mutex<Option<String>>,
 }
 
 impl LocalTranslation for FakeLocal {
@@ -43,6 +45,9 @@ impl LocalTranslation for FakeLocal {
     }
 
     fn translate(&self, text: &str, _source: &str, target: &str) -> Result<String, LocalError> {
+        if self.panics_for.lock().unwrap().as_deref() == Some(target) {
+            panic!("a bug in the translation engine");
+        }
         Ok(format!("local:{target}:{text}"))
     }
 }
@@ -100,7 +105,7 @@ fn a_deepl_key_is_saved_only_when_deepl_accepts_it() {
     assert_eq!(refused(&ui, "/set/data/deepl_auth_key", json!(refused_key)), ("AUTH_DEEPL_FAILED".into(), json!(good)));
 
     ui.ok("/run/shutdown", None);
-    assert_eq!(ui.saved()["AUTH_KEYS"]["DeepL_API"], json!(good));
+    assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), json!(good));
     let log = process_log(&ui);
     assert!(!log.contains(&good) && !log.contains(&refused_key), "a key reached the log");
     ui.stop();
@@ -143,7 +148,7 @@ fn a_provider_key_brings_its_models_and_a_model_must_be_one_it_lists() {
 
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
-    assert_eq!(file["AUTH_KEYS"]["OpenAI_API"], json!(key));
+    assert_eq!(ui.kept_key("AUTH_KEYS", "OpenAI_API"), json!(key));
     assert_eq!(file["SELECTED_OPENAI_MODEL"], "gpt-4o");
     assert!(!process_log(&ui).contains(&key));
     ui.stop();
@@ -180,14 +185,129 @@ fn lm_studio_and_ollama_are_connected_and_lost_with_their_models() {
         "CONNECTION_LMSTUDIO_URL_INVALID"
     );
 
-    // Ollama, at its fixed address.
+    // Ollama: the address Python always used, until the user chooses another (core only).
+    assert_eq!(ui.ok("/get/data/ollama_url", None), "http://localhost:11434");
+    for public in ["http://example.com:11434", "http://100.64.0.1:11434", "ftp://192.168.1.2/"] {
+        assert_eq!(
+            refused(&ui, "/set/data/ollama_url", json!(public)),
+            ("CONNECTION_OLLAMA_URL_INVALID".into(), json!("http://localhost:11434")),
+            "{public}"
+        );
+    }
+    let url = fake.url_of("/ollama");
+    let mark = ui.send("/set/data/ollama_url", Some(json!(format!(" {url} "))));
+    assert_eq!(ui.wait_endpoint(mark, "/set/data/ollama_url")["result"], json!(url));
+    assert_eq!(ui.wait_endpoint(mark, "/run/selected_ollama_model")["result"], "gemma3");
     let mark = ui.send("/run/ollama_connection", None);
     assert_eq!(ui.wait_endpoint(mark, "/run/ollama_connection")["result"], true);
-    assert_eq!(ui.wait_endpoint(mark, "/run/selected_ollama_model")["result"], "gemma3");
     assert_eq!(ui.ok("/get/data/connected_ollama", None), true);
     // A server without a model counts as failed.
     fake.models("/ollama", &[]);
     assert_eq!(refused(&ui, "/run/ollama_connection", Value::Null), ("CONNECTION_OLLAMA_FAILED".into(), json!(false)));
+    // An address where nothing answers is not saved.
+    let closed = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port();
+    assert_eq!(
+        refused(&ui, "/set/data/ollama_url", json!(format!("http://127.0.0.1:{closed}"))),
+        ("CONNECTION_OLLAMA_URL_INVALID".into(), json!(url))
+    );
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["OLLAMA_URL"], json!(url));
+    ui.stop();
+}
+
+#[test]
+fn a_saved_ollama_url_is_checked_at_start_up_and_a_public_one_is_dropped() {
+    let fake = FakeProviders::start();
+    fake.models("/ollama", &["qwen"]);
+    let (ui, _) = start(&fake, json!({ "OLLAMA_URL": fake.url_of("/ollama"), "SELECTED_OLLAMA_MODEL": "qwen" }));
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/connected_ollama"], true);
+    assert_eq!(snapshot["/get/data/selected_ollama_model"], "qwen");
+    ui.stop();
+
+    // Plain HTTP to a public host is not kept from a hand-edited file, and the UI is told.
+    let (ui, _) = start(&fake, json!({ "OLLAMA_URL": "http://ollama.example.com:11434" }));
+    assert_eq!(ui.ready()["/get/data/ollama_url"], "");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["OLLAMA_URL"], "");
+    ui.stop();
+}
+
+#[test]
+fn a_google_cloud_key_is_saved_only_when_google_accepts_it() {
+    let fake = FakeProviders::start();
+    let key = format!("AIza{}", "g".repeat(35));
+    fake.key("/google-cloud", &key);
+    let (ui, _) = start(&fake, json!({}));
+
+    for bad in ["", "  ", "two words"] {
+        assert_eq!(refused(&ui, "/set/data/google_cloud_auth_key", json!(bad)), ("AUTH_GOOGLE_CLOUD_INVALID".into(), Value::Null));
+    }
+    assert!(fake.seen_under("/google-cloud").is_empty(), "nothing is sent for a malformed key");
+    let mark = ui.send("/set/data/google_cloud_auth_key", Some(json!(format!(" {key} "))));
+    assert_eq!(ui.wait_endpoint(mark, "/set/data/google_cloud_auth_key")["result"], json!(key));
+    let engines = ui.wait_endpoint(mark, "/run/translation_engines");
+    assert!(engines["result"].as_array().unwrap().contains(&json!("Google_Cloud_API")), "{engines}");
+    let check = fake.seen_under("/google-cloud").pop().unwrap();
+    assert_eq!(check.header("x-goog-api-key"), Some(key.as_str()));
+    assert!(!check.path.contains(&key), "the key is not in the URL");
+
+    let other = format!("AIza{}", "x".repeat(35));
+    assert_eq!(refused(&ui, "/set/data/google_cloud_auth_key", json!(other)), ("AUTH_GOOGLE_CLOUD_FAILED".into(), json!(key)));
+    assert_eq!(ui.ok("/get/data/google_cloud_auth_key", None), json!(key));
+
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.kept_key("AUTH_KEYS", "Google_Cloud_API"), json!(key));
+    let log = process_log(&ui);
+    assert!(!log.contains(&key) && !log.contains(&other), "a key reached the log");
+    ui.stop();
+
+    // At the next start the saved key is checked again; deleting it takes the engine away.
+    let (ui, _) = start(&fake, json!({ "AUTH_KEYS": { "Google_Cloud_API": key } }));
+    let snapshot = ui.ready();
+    assert!(snapshot["/get/data/selectable_translation_engines"].as_array().unwrap().contains(&json!("Google_Cloud_API")));
+    assert_eq!(ui.ok("/delete/data/google_cloud_auth_key", None), Value::Null);
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.kept_key("AUTH_KEYS", "Google_Cloud_API"), Value::Null);
+    ui.stop();
+}
+
+#[test]
+fn papago_needs_the_client_id_before_the_secret_and_checks_them_together() {
+    let fake = FakeProviders::start();
+    fake.key("/papago", "client-1:secret-1");
+    let (ui, _) = start(&fake, json!({}));
+
+    // No Client ID yet: the secret cannot be checked.
+    assert_eq!(refused(&ui, "/set/data/papago_auth_key", json!("secret-1")), ("AUTH_PAPAGO_INVALID".into(), Value::Null));
+    assert_eq!(refused(&ui, "/set/data/papago_client_id", json!(" ")), ("AUTH_PAPAGO_INVALID".into(), json!("")));
+    assert_eq!(ui.ok("/set/data/papago_client_id", Some(json!(" client-1 "))), "client-1");
+    assert_eq!(refused(&ui, "/set/data/papago_auth_key", json!("wrong")), ("AUTH_PAPAGO_FAILED".into(), Value::Null));
+
+    let mark = ui.send("/set/data/papago_auth_key", Some(json!("secret-1")));
+    assert_eq!(ui.wait_endpoint(mark, "/set/data/papago_auth_key")["result"], "secret-1");
+    let engines = ui.wait_endpoint(mark, "/run/translation_engines");
+    assert!(engines["result"].as_array().unwrap().contains(&json!("Papago_API")), "{engines}");
+    // The check translates nothing.
+    assert_eq!(fake.seen_under("/papago").pop().unwrap().body["text"], "");
+
+    // A new Client ID needs the secret again.
+    assert_eq!(
+        refused(&ui, "/set/data/papago_client_id", json!("client-2")),
+        ("CREDENTIAL_REENTRY_REQUIRED".into(), json!("client-1"))
+    );
+    assert_eq!(ui.ok("/delete/data/papago_auth_key", None), Value::Null);
+    assert_eq!(ui.ok("/set/data/papago_client_id", Some(json!("client-2"))), "client-2");
+
+    ui.ok("/run/shutdown", None);
+    let file = ui.saved();
+    // The Client ID is half of the Papago credentials: kept in the key store, not in config.json.
+    assert!(file.get("PAPAGO_CLIENT_ID").is_none());
+    let store = ui.backend.core().config().secret_store();
+    assert_eq!(store.read("PAPAGO_CLIENT_ID").expect("the store answers").as_deref(), Some("client-2"));
+    assert_eq!(ui.kept_key("AUTH_KEYS", "Papago_API"), Value::Null);
+    let log = process_log(&ui);
+    assert!(!log.contains("secret-1") && !log.contains("client-1"), "a credential reached the log");
     ui.stop();
 }
 
@@ -233,7 +353,7 @@ fn the_compatible_endpoint_checks_its_url_and_key_together() {
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
     assert_eq!(file["OPENAI_COMPATIBLE_URL"], json!(url));
-    assert_eq!(file["AUTH_KEYS"]["OpenAI_Compatible"], Value::Null);
+    assert_eq!(ui.kept_key("AUTH_KEYS", "OpenAI_Compatible"), Value::Null);
     ui.stop();
 }
 
@@ -262,7 +382,7 @@ fn start_up_checks_each_saved_key_and_keeps_the_ones_it_cannot_confirm() {
     assert!(offered.contains(&json!("Gemini_API")) && offered.contains(&json!("LMStudio")), "{offered:?}");
     assert!(!offered.contains(&json!("Groq_API")) && !offered.contains(&json!("Google")), "{offered:?}");
     ui.ok("/run/shutdown", None);
-    assert_eq!(ui.saved()["AUTH_KEYS"]["Groq_API"], json!(groq));
+    assert_eq!(ui.kept_key("AUTH_KEYS", "Groq_API"), json!(groq));
     assert!(!process_log(&ui).contains(&gemini));
     ui.stop();
 }
@@ -341,6 +461,43 @@ fn turning_translation_on_loads_the_local_model_or_says_why_it_cannot() {
     assert_eq!(ui.ok("/set/disable/translation", None), false);
     assert_eq!(ui.ok("/set/enable/translation", None), true);
     assert_eq!(*local.loads.lock().unwrap(), loads);
+    ui.stop();
+}
+
+#[test]
+fn a_translation_thread_that_ends_abnormally_fails_that_message_and_keeps_translation_on() {
+    // #394: with several targets, a thread that panicked was taken for the GPU running out of
+    // memory, and translation was turned off.
+    let fake = FakeProviders::start();
+    let (ui, local) = start(&fake, json!({}));
+    assert_eq!(ui.ok("/set/enable/translation", None), true);
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    target["1"]["2"] = json!({ "language": "Korean", "country": "South Korea", "enable": true });
+    ui.ok("/set/data/selected_target_languages", Some(target));
+    let first = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
+    let codes: Vec<String> = first["translations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["message"].as_str().unwrap().split(':').nth(1).unwrap_or("").to_string())
+        .collect();
+    assert_eq!(codes.len(), 2, "{first}");
+
+    // The second destination's engine panics.
+    *local.panics_for.lock().unwrap() = Some(codes[1].clone());
+    let mark = ui.lines().len();
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m2", "message": "hello" })));
+    assert_eq!(answer["translations"][0]["message"], format!("local:{}:hello", codes[0]));
+    assert_eq!(answer["translations"][1]["message"], "hello", "that destination gets the original text");
+    // Reported as a failed translation of this message, not as the GPU's memory.
+    assert_eq!(error_code(&ui.wait_endpoint(mark, "/run/error_translation_engine")), "TRANSLATION_ENGINE_LIMIT");
+    assert!(ui.on(mark, "/run/error_translation_chat_vram_overflow").is_empty());
+    assert!(ui.on(mark, "/run/enable_translation").is_empty());
+
+    // Translation stayed on: the next message translates again.
+    *local.panics_for.lock().unwrap() = None;
+    let again = ui.ok("/run/send_message_box", Some(json!({ "id": "m3", "message": "hello" })));
+    assert_eq!(again["translations"][1]["message"], format!("local:{}:hello", codes[1]));
     ui.stop();
 }
 

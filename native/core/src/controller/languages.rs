@@ -50,14 +50,13 @@ pub fn deepgram_code(language: &str, country: &str, model_languages: &[String]) 
 impl Core {
     /// The languages an engine takes as a source (`getTranslationLanguagesForEngine`).
     pub fn translation_languages(&self, engine: &str) -> Vec<String> {
-        let table = languages::translation();
-        let source = if engine == LOCAL_ENGINE {
-            let weight = self.config().get_str("CTRANSLATE2_WEIGHT_TYPE");
-            table.get(engine).and_then(|e| e.get(&weight)).and_then(|w| w.get("source"))
+        let table = if engine == LOCAL_ENGINE {
+            // A built-in weight's table, or that of a model the user added.
+            self.translation.local_table(&self.config().get_str("CTRANSLATE2_WEIGHT_TYPE"))
         } else {
-            table.get(engine).and_then(|e| e.get("source"))
+            languages::translation().get(engine).cloned()
         };
-        source.and_then(Value::as_object).map(|o| o.keys().cloned().collect()).unwrap_or_default()
+        table.as_ref().and_then(|t| t["source"].as_object()).map(|o| o.keys().cloned().collect()).unwrap_or_default()
     }
 
     fn engine_supports(&self, engine: &str, language: &str) -> bool {
@@ -319,10 +318,16 @@ impl Core {
     pub fn update_transcription_engine(&self, requested: Option<Value>) {
         let config = self.config();
         let previous = config.get("SELECTED_TRANSCRIPTION_ENGINE");
+        let previous_realtime = self.realtime_toggles();
         if let Some(requested) = requested {
             let _ = config.set("SELECTED_TRANSCRIPTION_ENGINE", requested);
         }
         let current = config.get("SELECTED_TRANSCRIPTION_ENGINE");
+        // What listens through the engine that is no longer selected stops (#394). Python
+        // stopped it only when the route changed; the recorder also kept its old engine.
+        if self.realtime_toggles() != previous_realtime || (current != previous && !previous_realtime) {
+            self.leave_transcription_route(previous_realtime);
+        }
         if current != previous {
             self.fallback_unsupported_transcription_languages(current.as_str().unwrap_or(""));
             self.notify("selectable_language_list", json!(self.language_and_country_list()));

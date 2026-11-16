@@ -1,36 +1,50 @@
 //! Translate JSON lines with a model folder: the tool behind the comparison with the app's
 //! CTranslate2 translator (tools/translation_onnx/compare.py). Not used by the app.
 //!
-//!     vrct-translate MODEL_FOLDER [--device cpu|auto] [--verify] < requests > results
+//!     vrct-translate MODEL_FOLDER [--device PROVIDER[:INDEX]] [--verify] < requests > results
+//!     vrct-translate --providers
 //!
 //! Each request is `{"text": ..., "from": ..., "to": ...}` with the language codes the app
 //! gives the tokenizer. Each result is `{"text": ..., "source_ids": [...], "target_ids": [...]}`
-//! or `{"error": CODE}`. The backend used is written to stderr as `{"backend": ...}`.
+//! or `{"error": CODE}`. Where it runs is written to stderr as
+//! `{"backend": ..., "variant": ..., "fallback": ...}`; a provider that cannot start falls
+//! back to the CPU and names why.
 
 use std::io::{BufRead, Write};
 
 use serde_json::{json, Value};
-use vrct_translate_onnx::{Bundle, Device, Translator};
+use vrct_translate_onnx::{Accelerator, Bundle, Provider, Translator};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let usage = || -> ! {
-        eprintln!("usage: vrct-translate MODEL_FOLDER [--device cpu|auto] [--verify]");
+        eprintln!("usage: vrct-translate MODEL_FOLDER [--device PROVIDER[:INDEX]] [--verify] | --providers");
         std::process::exit(2);
     };
     let Some(folder) = args.get(1) else { usage() };
-    let mut device = Device::Cpu;
+    if folder == "--providers" {
+        // The execution providers of the ONNX Runtime library this process loads.
+        match vrct_translate_onnx::runtime::available_providers() {
+            Ok(providers) => println!("{}", json!(providers.iter().map(|p| p.name()).collect::<Vec<_>>())),
+            Err(error) => {
+                eprintln!("{}", json!({"error": error.code}));
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+    let mut device = Accelerator::CPU;
     let mut verify = false;
     let mut rest = args[2..].iter();
     while let Some(arg) = rest.next() {
         match arg.as_str() {
             "--verify" => verify = true,
             "--device" => {
-                device = match rest.next().map(String::as_str) {
-                    Some("cpu") => Device::Cpu,
-                    Some("auto") => Device::Auto,
-                    _ => usage(),
-                }
+                // cpu, directml, cuda, openvino, migraphx, webgpu, tensorrt; optionally ":1".
+                let value = rest.next().map(String::as_str).unwrap_or_else(|| usage());
+                let (name, index) = value.split_once(':').unwrap_or((value, "0"));
+                let provider = Provider::from_name(name).unwrap_or_else(|| usage());
+                device = Accelerator::new(provider, index.parse().unwrap_or_else(|_| usage()));
             }
             _ => usage(),
         }
@@ -44,7 +58,8 @@ fn main() {
         bundle.verify().unwrap_or_else(|error| fail(error.code));
     }
     let mut translator = Translator::load(&bundle, device).unwrap_or_else(|error| fail(error.code));
-    eprintln!("{}", json!({"backend": translator.backend().name()}));
+    let fallback = translator.fallback().map(|f| f.code);
+    eprintln!("{}", json!({"backend": translator.backend().provider.name(), "variant": translator.variant().name(), "fallback": fallback}));
 
     let stdout = std::io::stdout();
     let mut out = stdout.lock();

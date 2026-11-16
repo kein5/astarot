@@ -15,9 +15,7 @@ sequenceDiagram
   S->>Net: GET https://www.google.com（3秒）
   S-->>UI: /run/connected_network
   S-->>UI: /run/initialization_progress = 1
-  opt オンラインで AUTO_DOWNLOAD_MODELS がオン
-    S->>Net: 内蔵の翻訳モデル（CTranslate2）の取得
-  end
+  Note over S: モデルは自動では取得しない（0.5.0 で起動時の取得を引退）
   S-->>UI: /run/enable_ai_models（真偽）
   S->>Net: 各エンジンのキーとモデル一覧の確認
   Note over S: 確認できないキーも保存したままにする

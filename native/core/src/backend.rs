@@ -110,7 +110,8 @@ impl Backend {
     pub fn start(options: Options, sink: Sink) -> Backend {
         let log = Arc::new(if options.logs { Log::new(&options.env.state_dir.join("logs")) } else { Log::disabled() });
         log.step("Start Initialization", None);
-        let config = Config::open(options.env.clone());
+        let store = (options.services.secret_store)(&options.env);
+        let config = Config::open_with(options.env.clone(), store);
         let output = Arc::new(LineOutput { sink: sink.clone(), log: Arc::clone(&log) });
         let core = Core::new(config, Arc::clone(&log), output.clone(), options.services);
         let routes = controller::routes(&core);

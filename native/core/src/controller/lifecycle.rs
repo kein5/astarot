@@ -14,7 +14,7 @@ use serde_json::{Map, Value, json};
 
 /// Left out of `/run/initialization_complete`: they reach the network, a device or a server, or
 /// they describe what runs. The UI asks for them itself (`_INIT_MAPPING_EXCLUDED_ENDPOINTS`).
-pub const INIT_EXCLUDED: [&str; 7] = [
+pub const INIT_EXCLUDED: [&str; 8] = [
     "/get/data/available_releases",
     "/get/data/ocr_readiness",
     "/get/data/ocr_capture_status",
@@ -22,6 +22,8 @@ pub const INIT_EXCLUDED: [&str; 7] = [
     "/get/data/realtime_asr_models",
     "/get/data/telemetry_preview",
     "/get/data/tts_engine_voices",
+    // Core only: reads the system's fonts (slow on the first call).
+    "/get/data/overlay_font_missing_languages",
 ];
 
 /// The weights under a non-commercial license (CC-BY-NC-4.0).
@@ -61,10 +63,25 @@ impl Core {
         self.notify("initialization_progress", json!(2));
 
         self.step("Set Translation Engine");
+        // A folder in `<data>/translation-models` the local translation refused: its name and
+        // the fixed reason, so that the user can find why a model of theirs is not listed.
+        for (folder, reason) in super::translation::refused_models(config.environment()) {
+            self.step(&format!("Translation model folder refused: {folder} ({reason})"));
+        }
         let mut weights = Map::new();
-        for candidate in TRANSLATION_WEIGHTS {
-            let present = if candidate == weight { available } else { (self.services().translation_weight_available)(candidate) };
-            weights.insert(candidate.to_string(), json!(present));
+        let candidates: Vec<String> = config
+            .get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST")
+            .as_array()
+            .map(|list| list.iter().filter_map(|w| w.as_str().map(str::to_string)).collect())
+            .unwrap_or_else(|| TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect());
+        for candidate in &candidates {
+            let present = if *candidate == weight {
+                available
+            } else {
+                (self.services().translation_weight_available)(candidate)
+                    || super::translation::default_weight_available(config.environment(), candidate)
+            };
+            weights.insert(candidate.clone(), json!(present));
         }
         config.put("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT", Value::Object(weights));
         self.update_translation_engine_and_list();
@@ -127,6 +144,7 @@ impl Core {
         for key in config.invalid_saved_api_urls() {
             let (endpoint, code) = match key.as_str() {
                 "LMSTUDIO_URL" => ("/set/data/lmstudio_url", "CONNECTION_LMSTUDIO_URL_INVALID"),
+                "OLLAMA_URL" => ("/set/data/ollama_url", "CONNECTION_OLLAMA_URL_INVALID"),
                 "OPENAI_COMPATIBLE_URL" => ("/set/data/openai_compatible_url", "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID"),
                 _ => ("/set/data/custom_whisper_url", "CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID"),
             };
@@ -143,6 +161,14 @@ impl Core {
             }),
             std::sync::Arc::new(move || recovered("config_save_recovered", json!(true))),
         );
+        // The key store failed: the key stays usable for this run and is tried again.
+        let output = std::sync::Arc::clone(&self.output);
+        let kind = config.secret_store().kind();
+        config.set_secret_callback(std::sync::Arc::new(move |operation, entries, reason| {
+            let data = json!({ "operation": operation, "entries": entries, "reason": reason, "store": kind });
+            let body = ErrorReply::new("SECRET_STORE_FAILED", data).into_body();
+            output.answer(400, Some(super::run_endpoint("secret_store_failed")), &body);
+        }));
         self.step("End Initialization");
     }
 

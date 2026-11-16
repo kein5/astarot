@@ -190,3 +190,23 @@ test("speech servers preserve rows and pending objects while retaining generatio
     assert.equal(render().state, ready);
     subscription.unsubscribe();
 });
+
+test("speech server devices keep what the CPU and GPU choices run on, and nothing unknown", async () => {
+    const { render } = await setup("./useSpeechServers.js", "useSpeechServers");
+    assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
+    // Linux: the CPU build of its own, and a Vulkan build that does not start on this PC.
+    render().updateDevices({ devices: [], cpu_build: "separate", gpu_build: "unavailable" });
+    assert.deepEqual(render().builds, { cpu_build: "separate", gpu_build: "unavailable" });
+    // Windows: the CPU runs on the one Vulkan build.
+    render().updateDevices({ devices: [{ name: "Vulkan0", kind: "gpu", label: "GPU" }], cpu_build: "shared", gpu_build: "ready" });
+    assert.deepEqual(render().builds, { cpu_build: "shared", gpu_build: "ready" });
+    assert.equal(render().devices.length, 1);
+    // An answer without the fields (an older backend) or with unknown values shows nothing extra.
+    render().updateDevices({ devices: [], cpu_build: "other", gpu_build: 3 });
+    assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
+    render().updateDevices({ devices: [], cpu_build: "separate" });
+    render().updateDevices(null);
+    assert.deepEqual(render().builds, { cpu_build: "separate", gpu_build: null });
+    render().reset();
+    assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
+});

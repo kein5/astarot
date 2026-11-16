@@ -1,13 +1,17 @@
 //! The update endpoints of the Python backend (`controller.py`: `listAvailableReleases`,
 //! `updateSoftware`, `updateCudaSoftware`, `checkSoftwareUpdated`; `model.py`).
 //!
-//! Python kept its own updater switched off (`BUILTIN_UPDATER_ENABLED = False`): no release is
-//! listed, the start-up check reports no update, and asking to update fails with
-//! `UPDATE_SOFTWARE_DOWNLOAD`. The app's updates go through the host instead
-//! (`src-tauri/src/app_update.rs`, which the UI calls directly). The core keeps these endpoints
-//! and notifications so that the UI's old paths still get Python's answers, and takes the
-//! updater from [`super::Services::software_updates`], which is [`Disabled`] unless the host
-//! gives another.
+//! The updater itself belongs to the host: the core cannot reach Tauri's updater, so it takes
+//! one from [`super::Services::software_updates`]. The app (`src-tauri/src/app_update.rs`)
+//! gives the same updater its own update page uses: GitHub releases of the project, the
+//! channel of the running version, signed downloads. Without a host the updater is
+//! [`Disabled`], which answers as Python shipped it (`BUILTIN_UPDATER_ENABLED = False`): no
+//! release is listed, the start-up check reports no update, and asking to update fails with
+//! `UPDATE_SOFTWARE_DOWNLOAD`.
+//!
+//! The start-up check only reaches the network while `CHECK_SOFTWARE_UPDATES` is on; with the
+//! switch off it reports no update without asking the updater. (Python checked at every start,
+//! but its updater never reached the network.)
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok, ok_true};
@@ -30,13 +34,20 @@ pub enum UpdateOutcome {
 /// The app's own updater, as the Python backend's `model.py` saw it.
 pub trait SoftwareUpdates: Send + Sync {
     /// `checkSoftwareUpdated`: `{"is_update_available": bool, "new_version": str}`. May reach
-    /// the network; it runs off the start-up path.
+    /// the network; it runs off the start-up path, and only while `CHECK_SOFTWARE_UPDATES` is on.
     fn check(&self) -> Value;
-    /// `listAvailableReleases`: `[{"tag", "version", "is_prerelease", "published_at"}, ...]`.
+    /// `listAvailableReleases`: `[{"tag", "version", "is_prerelease", "published_at"}, ...]`,
+    /// newest first. May reach the network; the UI asks for it.
     fn releases(&self) -> Vec<Value>;
     /// `updateSoftware` (`edition` "cpu") and `updateCudaSoftware` ("gpu"), to the latest
-    /// release of the channel or to `target_version`. Runs on its own thread.
+    /// release of the channel or to `target_version`. Runs on its own thread. Downloads,
+    /// verifies and starts the installer; the app then ends or restarts.
     fn install(&self, edition: &str, target_version: Option<&str>) -> UpdateOutcome;
+}
+
+/// The start-up answer when nothing was asked: no update.
+pub fn no_update() -> Value {
+    json!({ "is_update_available": false, "new_version": "" })
 }
 
 /// Python's updater as shipped: switched off.
@@ -44,7 +55,7 @@ pub struct Disabled;
 
 impl SoftwareUpdates for Disabled {
     fn check(&self) -> Value {
-        json!({ "is_update_available": false, "new_version": "" })
+        no_update()
     }
 
     fn releases(&self) -> Vec<Value> {
@@ -58,9 +69,14 @@ impl SoftwareUpdates for Disabled {
 
 impl Core {
     /// "Check Software Updated (Background)": the result goes to `/run/software_update_info`.
-    /// Python checked at every start, whatever `CHECK_SOFTWARE_UPDATES` said.
+    /// Python sent it at every start; with `CHECK_SOFTWARE_UPDATES` off the answer is "no
+    /// update" and nothing reaches the network.
     pub(crate) fn check_software_update_in_background(&self) {
         self.step("Check Software Updated (Background)");
+        if !self.config().get_bool("CHECK_SOFTWARE_UPDATES") {
+            self.notify("software_update_info", no_update());
+            return;
+        }
         let updates = Arc::clone(&self.services().software_updates);
         let notify = self.notifier();
         let log = Arc::clone(self.log());

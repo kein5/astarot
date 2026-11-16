@@ -33,6 +33,11 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/start_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/cancel_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/apply_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
+    // Models the user registers under a name (#403).
+    { endpoint: "/get/data/user_models", ns: downloads, hook_name: "useModelDownloads", method_name: "updateUserModels" },
+    { endpoint: "/run/register_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    { endpoint: "/run/remove_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    { endpoint: "/run/apply_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
     { endpoint: "/get/data/vc_runtime_catalog", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateCatalog" },
     { endpoint: "/get/data/vc_runtime_state", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateState" },
     { endpoint: "/run/start_vc_runtime_setup", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "acknowledge" },
@@ -91,12 +96,14 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/audio_device_switched", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/config_file_unreadable", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
     { endpoint: "/run/config_save_failed", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/secret_store_failed", ns: null, hook_name: null, method_name: null }, // A 400: shown by the error handling.
     // Fire-and-forget actions from the VR settings (sample text, sent repeatedly while
     // started, and launcher reset): the answer needs no handling, but without a route
     // each one was logged as an invalid endpoint.
     { endpoint: "/run/send_text_overlay", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/vr_launcher_reset", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/config_save_recovered", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/translation_compute_device_fallback", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
 
     // VR UI のポインタ位置 (ホバー表示用)。VR ウィンドウへ転送する
     { endpoint: "/run/vr_panel_pointer", ns: common, hook_name: "useVrPanelPointer", method_name: "forwardVrPanelPointer" },
@@ -316,7 +323,7 @@ export const useReceiveRoutes = () => {
                 console.error("Method not found.", { endpoint, hook_name, method_name, result_obj, fn });
             }
             return [endpoint, typeof fn === "function"
-                ? (hook_name === "useModelDownloads" && method_name === "acknowledge" ? value => fn(value, endpoint) : fn)
+                ? (hook_name === "useModelDownloads" && method_name.startsWith("acknowledge") ? value => fn(value, endpoint) : fn)
                 : noop];
         })
     );
@@ -349,7 +356,7 @@ export const useReceiveRoutes = () => {
             updateRuntimeError(result?.error_code || "vc_runtime_failed");
             return;
         }
-        if (status !== 200 && endpoint.includes("model_download")) {
+        if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
             updateDownloadError(result?.error_code || "download_failed", endpoint);
             return;
         }
@@ -360,7 +367,7 @@ export const useReceiveRoutes = () => {
             "/run/selected_mic_host", "/run/selected_mic_device"].includes(endpoint)) {
             sendVoice("/get/data/direct_voice_sources");
         }
-        if (status === 200 && endpoint === "/run/apply_model_download") {
+        if (status === 200 && ["/run/apply_model_download", "/run/apply_user_model"].includes(endpoint)) {
             sendSpeech("/get/data/speech_server_settings");
             sendVoice("/get/data/direct_voice_state");
         }
@@ -408,6 +415,7 @@ export const useReceiveRoutes = () => {
             resetDownloads();
             sendDownload("/get/data/model_download_catalog");
             sendDownload("/get/data/model_download_state");
+            sendDownload("/get/data/user_models");
             resetRuntimes();
             resetVoice();
             sendVoice("/get/data/voice_settings");
@@ -447,6 +455,12 @@ export const useReceiveRoutes = () => {
                     old: label(result.old_device), new: label(result.new_device),
                 }), { category_id: `audio_device_switched.${result.source}` });
             }
+            return;
+        }
+        if (status === 200 && endpoint === "/run/translation_compute_device_fallback") {
+            // Translation is on, on the CPU: the chosen device could not start the model.
+            showNotification_Warning(t("common_warning.translation_device_fallback", { device: String(result?.requested ?? "") }),
+                { category_id: "translation_device_fallback" });
             return;
         }
         if (endpoint === "/run/config_save_failed") {

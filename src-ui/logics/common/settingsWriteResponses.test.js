@@ -10,6 +10,7 @@ for (const name of ["voice_settings", "direct_voice_settings", "speech_server_se
     "obs_browser_source_font_size", "obs_browser_source_font_color", "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color",
     "deepl_auth_key", "plamo_auth_key", "gemini_auth_key", "openai_auth_key", "groq_auth_key", "openrouter_auth_key",
     "lmstudio_url", "openai_compatible_url", "openai_compatible_auth_key", "ollama_url", "groq_whisper_auth_key",
+    "google_cloud_auth_key", "papago_client_id", "papago_auth_key",
     "openai_whisper_auth_key", "custom_whisper_url", "custom_whisper_auth_key", "deepgram_auth_key"]) {
     test(`${name} matches write responses in order and ignores polls`, async () => {
         const requests = createSettingsWriteResponses(), endpoint = `/set/data/${name}`;

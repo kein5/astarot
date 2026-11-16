@@ -1,0 +1,307 @@
+//! The local translation on ONNX Runtime through the IPC surface, with model folders made of
+//! tiny fake files (no real model, no ONNX Runtime needed): which folder a weight and a compute
+//! type choose, the user's own models in `<data>/translation-models`, the reasons a folder is
+//! refused, the compute device list, and a translation model that comes through the consent
+//! catalog. Loading a fake graph fails by design: reaching that failure shows the folder was
+//! found and verified.
+
+mod common;
+
+use common::{error_code, Setup, Ui};
+use serde_json::{json, Value};
+use std::path::Path;
+use std::sync::Arc;
+use vrct_core::controller::Services;
+use vrct_ops::downloads::catalog::{Artifact, Model, CATALOG_VERSION, TRANSLATION_TARGET};
+use vrct_ops::downloads::transport::{Body, Transport};
+use vrct_ops::downloads::{Downloads, Error, Options};
+
+const FILES: [(&str, &str); 4] = [("encoder.onnx", "a"), ("decoder.onnx", "b"), ("tokenizer.json", "c"), ("vocab.json", "d")];
+
+fn sha(data: &[u8]) -> String {
+    vrct_voice_conversion::runtime::sha256_hex(data)
+}
+
+/// A manifest of the fake files, as `export.py` writes it.
+fn manifest(family: &str, variant: Option<&str>, languages: &[&str]) -> Value {
+    let files: serde_json::Map<String, Value> =
+        FILES.iter().map(|(name, content)| (name.to_string(), json!({"size": content.len(), "sha256": sha(content.as_bytes())}))).collect();
+    let mut manifest = json!({
+        "schema": if variant.is_some() { 2 } else { 1 }, "name": "test", "family": family, "license": "MIT",
+        "encoder": "encoder.onnx", "decoder": "decoder.onnx",
+        "decoder_layers": 2, "decoder_attention_heads": 4, "hidden_size": 16,
+        "decoder_start_token": "</s>", "end_token": "</s>", "unknown_token": "<unk>",
+        "language_token": if family == "m2m100" { "__{}__" } else { "{}" }, "languages": languages,
+        "beam_size": 2, "max_input_length": 1024, "max_decoding_length": 256,
+        "files": files,
+    });
+    if let Some(variant) = variant {
+        manifest["variant"] = json!(variant);
+    }
+    manifest
+}
+
+fn write_folder(dir: &Path, manifest: &Value) {
+    std::fs::create_dir_all(dir).unwrap();
+    for (name, content) in FILES {
+        std::fs::write(dir.join(name), content).unwrap();
+    }
+    std::fs::write(dir.join("manifest.json"), manifest.to_string()).unwrap();
+}
+
+fn start_in(dir: &Path, saved: Option<Value>, services: Services) -> Ui {
+    let ui = Ui::with(Setup { saved, services, dir: Some(dir.to_path_buf()), ..Setup::default() });
+    ui.ready();
+    ui
+}
+
+fn services() -> Services {
+    Services { telemetry_forced_off: Arc::new(|| true), ..Setup::default().services }
+}
+
+fn process_log(ui: &Ui) -> String {
+    std::fs::read_to_string(ui.dir.join("logs").join("process.log")).unwrap_or_default()
+}
+
+fn enable(ui: &Ui) -> (String, Value) {
+    let answer = ui.request("/set/enable/translation", None);
+    (error_code(&answer).to_string(), answer["result"].clone())
+}
+
+#[test]
+fn the_cpu_is_listed_with_its_saved_name_and_the_onnx_compute_types() {
+    // No ONNX Runtime beside the test executable: only the CPU, and nothing is loaded.
+    let devices = vrct_core::controller::translation::compute_devices();
+    assert_eq!(devices[0]["device"], "cpu");
+    assert_eq!(devices[0]["device_index"], 0);
+    assert_eq!(devices[0]["device_name"], "cpu");
+    assert_eq!(devices[0]["compute_types"], json!(["auto", "float32", "int8", "int8_float32", "int4"]));
+}
+
+#[test]
+fn a_built_in_weight_finds_its_hand_placed_folder_by_compute_type() {
+    let temp = tempfile::tempdir().unwrap();
+    let folder = temp.path().join("data").join("weights").join("translate-onnx").join("m2m100_418M-onnx-int8");
+    write_folder(&folder, &manifest("m2m100", None, &["en", "ja"]));
+    // A folder whose manifest says another variant than its name is not used.
+    let wrong = temp.path().join("data").join("weights").join("translate-onnx").join("m2m100_418M-onnx-float32");
+    write_folder(&wrong, &manifest("m2m100", Some("int8"), &["en", "ja"]));
+    let ui = start_in(temp.path(), None, services());
+    let weights = ui.ok("/get/data/selectable_ctranslate2_weight_type_dict", None);
+    assert_eq!(weights["m2m100_418M-ct2-int8"], true);
+    assert_eq!(weights["nllb-200-distilled-600M-ct2-int8"], false);
+
+    // `auto` on the CPU takes int8: the folder is verified and its fake graph fails to load.
+    assert_eq!(enable(&ui), ("TRANSLATION_MODEL_LOAD_FAILED".to_string(), json!({
+        "error_code": "TRANSLATION_MODEL_LOAD_FAILED",
+        "message": "The CTranslate2 model could not be loaded; translation was not enabled",
+        "data": false, "details": {}, "category": "translation", "severity": "error",
+    })));
+    // float32 is not installed (the float32 folder holds int8): the model is missing.
+    ui.ok("/set/data/selected_translation_compute_type", Some(json!("float32")));
+    assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_MISSING");
+    ui.ok("/set/data/selected_translation_compute_type", Some(json!("int8_float32")));
+    assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_LOAD_FAILED");
+    assert!(!process_log(&ui).contains("panicked"));
+
+    // The same size, other bytes: the folder no longer verifies.
+    std::fs::write(folder.join("decoder.onnx"), "x").unwrap();
+    assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_MISSING");
+    ui.stop();
+}
+
+#[test]
+fn the_users_models_are_listed_validated_and_selectable() {
+    let temp = tempfile::tempdir().unwrap();
+    let models = temp.path().join("data").join("translation-models");
+    let mut named = manifest("nllb", Some("float16"), &["eng_Latn", "jpn_Jpan"]);
+    named["language_names"] = json!({"English": "eng_Latn", "Japanese": "jpn_Jpan"});
+    write_folder(&models.join("mine"), &named);
+    // No names: the codes are looked up in the table of its architecture.
+    write_folder(&models.join("derived"), &manifest("m2m100", Some("int8"), &["en", "ja", "ko"]));
+    // Refused, each with its reason in the log.
+    std::fs::create_dir_all(models.join("empty")).unwrap();
+    write_folder(&models.join("marian"), &manifest("marian", Some("int8"), &["en"]));
+    write_folder(&models.join("unknown"), &manifest("m2m100", Some("int8"), &["xx"]));
+    let mut gone = manifest("m2m100", Some("int8"), &["en"]);
+    gone["files"]["extra.bin"] = json!({"size": 1, "sha256": sha(b"e")});
+    write_folder(&models.join("gone"), &gone);
+    write_folder(&models.join("bad name"), &manifest("m2m100", Some("int8"), &["en"]));
+
+    let ui = start_in(temp.path(), None, services());
+    let weights = ui.ok("/get/data/selectable_ctranslate2_weight_type_dict", None);
+    let custom: Vec<&String> = weights.as_object().unwrap().keys().filter(|k| k.starts_with("custom:")).collect();
+    assert_eq!(custom, ["custom:derived", "custom:mine"]);
+    assert_eq!((weights["custom:mine"].clone(), weights["custom:derived"].clone()), (json!(true), json!(true)));
+    let log = process_log(&ui);
+    for (folder, reason) in [
+        ("empty", "translation_manifest_missing"),
+        ("marian", "translation_architecture_unsupported"),
+        ("unknown", "translation_languages_unknown"),
+        ("gone", "translation_file_missing"),
+        ("bad name", "translation_model_name_invalid"),
+    ] {
+        assert!(log.contains(&format!("Translation model folder refused: {folder} ({reason})")), "{folder}: {log}");
+    }
+
+    // A user's model is not gated by the non-commercial confirmation, and its language table
+    // is its own: Korean is reset when the model lacks it.
+    let tab_target = |language: &str| json!({ "1": { "1": { "language": language, "country": "South Korea", "enable": true },
+        "2": { "language": "English", "country": "United States", "enable": false },
+        "3": { "language": "English", "country": "United States", "enable": false } } });
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    target["1"] = tab_target("Korean")["1"].clone();
+    ui.ok("/set/data/selected_target_languages", Some(target));
+    let mark = ui.send("/set/data/selected_ctranslate2_weight_type", Some(json!("custom:mine")));
+    let answer = ui.wait_endpoint(mark, "/set/data/selected_ctranslate2_weight_type");
+    assert_eq!(answer["result"], "custom:mine", "{answer}");
+    let reset = ui.wait_endpoint(mark, "/run/translation_language_unsupported");
+    assert_eq!(reset["result"]["data"]["weight_type"], "custom:mine");
+    assert_eq!(reset["result"]["data"]["languages"], json!(["Korean"]));
+    assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), "custom:mine");
+
+    // The derived table keeps Korean (`ko` is among its codes).
+    ui.ok("/set/data/selected_ctranslate2_weight_type", Some(json!("custom:derived")));
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    target["1"] = tab_target("Korean")["1"].clone();
+    let mark = ui.send("/set/data/selected_target_languages", Some(target));
+    ui.wait_endpoint(mark, "/set/data/selected_target_languages");
+    assert!(ui.on(mark, "/run/translation_language_unsupported").is_empty());
+    assert_eq!(ui.ok("/get/data/selected_target_languages", None)["1"]["1"]["language"], "Korean");
+
+    // Its files verify; the fake graph does not load. A user's model has one variant and
+    // runs it whatever the compute type says.
+    assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_LOAD_FAILED");
+    ui.stop();
+
+    // Saved and listed again on the next start; once the folder is gone, the setting falls
+    // back to the default weight.
+    let ui = start_in(temp.path(), None, services());
+    assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), "custom:derived");
+    ui.stop();
+    std::fs::remove_dir_all(models.join("derived")).unwrap();
+    let ui = start_in(temp.path(), None, services());
+    assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), "m2m100_418M-ct2-int8");
+    ui.stop();
+}
+
+/// Serves each file of a translation entry by name.
+fn translation_services(manifest_bytes: Vec<u8>) -> (Services, Model) {
+    let mut artifacts = vec![Artifact {
+        filename: "manifest.json".into(),
+        size: manifest_bytes.len() as u64,
+        sha256: sha(&manifest_bytes),
+        role: "manifest".into(),
+        remote: None,
+    }];
+    let roles = ["encoder", "decoder", "tokenizer", "vocabulary"];
+    for ((name, content), role) in FILES.iter().zip(roles) {
+        artifacts.push(Artifact { filename: name.to_string(), size: content.len() as u64, sha256: sha(content.as_bytes()), role: role.into(), remote: None });
+    }
+    let entry = Model {
+        id: "m2m100-418m-onnx-int8".into(),
+        target: TRANSLATION_TARGET.into(),
+        name: "M2M100 418M · int8".into(),
+        provider: "Test".into(),
+        repo: "test/models".into(),
+        revision: "0123456789abcdef0123456789abcdef01234567".into(),
+        license: "MIT".into(),
+        licenses: vec!["https://example.invalid/LICENSE".into()],
+        notice: "test".into(),
+        artifacts,
+    };
+    let transport: Arc<dyn Transport> = Arc::new(move |url: &str| -> Result<Box<dyn Body>, Error> {
+        let name = url.rsplit('/').next().unwrap_or_default();
+        let bytes = if name == "manifest.json" {
+            manifest_bytes.clone()
+        } else {
+            FILES.iter().find(|(file, _)| *file == name).map(|(_, c)| c.as_bytes().to_vec()).unwrap_or_default()
+        };
+        Ok(Box::new(std::io::Cursor::new(bytes)))
+    });
+    let options = Options { reserve_bytes: 0, free_space: Arc::new(|_| Ok(1 << 40)) };
+    let catalog = vec![entry.clone()];
+    let services = Services {
+        model_downloads: Arc::new(move |root: &Path| Downloads::with(root, catalog.clone(), Arc::clone(&transport), options.clone())),
+        speech_binary: Arc::new(|_| Err("no speech.cpp in the tests".into())),
+        ..services()
+    };
+    (services, entry)
+}
+
+#[test]
+fn a_translation_model_comes_only_through_the_consent_catalog_and_is_then_found() {
+    let manifest_bytes = manifest("m2m100", Some("int8"), &["en", "ja"]).to_string().into_bytes();
+    let (services, entry) = translation_services(manifest_bytes);
+    let temp = tempfile::tempdir().unwrap();
+    let ui = start_in(temp.path(), None, services);
+    assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_MISSING");
+    let catalog = ui.ok("/get/data/model_download_catalog", None);
+    assert_eq!(catalog["models"][0]["target"], "translation");
+    assert!(catalog["translation_models_folder"].as_str().unwrap().ends_with("translation-models"));
+
+    // Nothing starts without consent to this catalog.
+    let refused = ui.request("/run/start_model_download", Some(json!({ "id": entry.id, "consent": false, "catalog_version": CATALOG_VERSION })));
+    assert_eq!(refused["status"], 400, "{refused}");
+    let answer = ui.request("/run/start_model_download", Some(json!({ "id": entry.id, "consent": true, "catalog_version": CATALOG_VERSION })));
+    assert_eq!(answer["status"], 200, "{answer}");
+    let deadline = std::time::Instant::now() + common::TIMEOUT;
+    let job = loop {
+        let job = ui.ok("/get/data/model_download_state", None)["jobs"][&entry.id].clone();
+        if job["phase"] == "ready" || job["phase"] == "failed" {
+            break job;
+        }
+        assert!(std::time::Instant::now() < deadline, "{job}");
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    assert_eq!(job["phase"], "ready", "{job}");
+    // A translation entry writes no setting: `expected` is empty, as for chat reading.
+    let bad = ui.request("/run/apply_model_download", Some(json!({ "id": entry.id, "job_id": job["job_id"], "expected": {"model": ""} })));
+    assert_eq!(bad["result"]["error_code"], "download_request_invalid");
+    let mark = ui.send("/run/apply_model_download", Some(json!({ "id": entry.id, "job_id": job["job_id"], "expected": {} })));
+    assert_eq!(ui.wait_endpoint(mark, "/run/apply_model_download")["status"], 200);
+    let told = ui.wait_endpoint(mark, "/run/downloaded_ctranslate2_weight");
+    assert_eq!(told["result"], json!({ "weight_type": "m2m100_418M-ct2-int8", "downloaded": true }));
+    assert_eq!(ui.ok("/get/data/selectable_ctranslate2_weight_type_dict", None)["m2m100_418M-ct2-int8"], true);
+    // Found in downloaded_models and verified; the fake graph does not load.
+    assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_LOAD_FAILED");
+    ui.stop();
+}
+
+/// A model that loads and says it runs on the CPU because the GPU it was given failed.
+struct FellBack;
+
+impl vrct_core::controller::translation::LocalTranslation for FellBack {
+    fn load(&self, _setup: &vrct_core::controller::translation::LocalSetup) -> Result<(), vrct_core::controller::translation::LocalError> {
+        Ok(())
+    }
+    fn loaded(&self) -> Option<vrct_core::controller::translation::LocalSetup> {
+        None
+    }
+    fn translate(&self, text: &str, _source: &str, _target: &str) -> Result<String, vrct_core::controller::translation::LocalError> {
+        Ok(text.to_string())
+    }
+    fn placement(&self) -> Option<vrct_core::controller::translation::Placement> {
+        Some(vrct_core::controller::translation::Placement {
+            device: "cpu".into(),
+            device_index: 0,
+            variant: "int8".into(),
+            fallback: Some(("directml".into(), "translation_provider_unavailable")),
+        })
+    }
+}
+
+#[test]
+fn a_device_that_cannot_start_is_reported_and_translation_still_turns_on() {
+    let temp = tempfile::tempdir().unwrap();
+    let services = Services { local_translation: Arc::new(|_| Arc::new(FellBack)), ..services() };
+    let ui = start_in(temp.path(), None, services);
+    let mark = ui.send("/set/enable/translation", None);
+    assert_eq!(ui.wait_endpoint(mark, "/set/enable/translation")["result"], true);
+    let told = ui.wait_endpoint(mark, "/run/translation_compute_device_fallback");
+    assert_eq!(told["status"], 200);
+    assert_eq!(told["result"], json!({ "requested": "directml", "used": "cpu", "variant": "int8", "reason": "translation_provider_unavailable" }));
+    let log = process_log(&ui);
+    assert!(log.contains("directml could not be used (translation_provider_unavailable); running on the CPU"), "{log}");
+    ui.stop();
+}

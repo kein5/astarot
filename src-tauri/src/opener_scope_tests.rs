@@ -6,12 +6,13 @@
 //! (tauri-plugin-opener 2.7.2, src/scope.rs); these tests use the same matcher.
 use serde_json::Value;
 
-const CAPABILITIES: [(&str, &str); 5] = [
+const CAPABILITIES: [(&str, &str); 6] = [
     ("default.json", include_str!("../capabilities/default.json")),
     ("vrct_capability.json", include_str!("../capabilities/vrct_capability.json")),
     ("quick-chat.json", include_str!("../capabilities/quick-chat.json")),
     ("caption-overlay.json", include_str!("../capabilities/caption-overlay.json")),
     ("vr-panel.json", include_str!("../capabilities/vr-panel.json")),
+    ("companion.json", include_str!("../capabilities/companion.json")),
 ];
 
 fn parse(text: &str) -> Value {
@@ -77,6 +78,9 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://twitter.com/misya_ai",
         "https://www.deepl.com/ja/your-account/keys",
         "https://console.deepgram.com/",
+        // The key pages of the official translation APIs (#277).
+        "https://console.cloud.google.com/apis/credentials",
+        "https://www.ncloud.com/product/aiService/papagoTranslation",
         "https://huggingface.co/facebook/m2m100_418M",
         "https://huggingface.co/sakasegawa/silero-vad-GGUF/blob/0123abc/LICENSE",
         "https://huggingface.co/Plachta/Seed-VC/tree/main?x=1",

@@ -23,6 +23,22 @@ pub fn switch(core: &Arc<Core>, key: &'static str, on: bool) -> impl Fn(&Value) 
     }
 }
 
+/// The VAD switch of a source (`setEnableMicVadFilter`). Turning it on needs a VAD engine;
+/// without one it answers `VAD_UNAVAILABLE` with the saved value, which stays as it was.
+/// Turning it off always works.
+pub fn vad_switch(core: &Arc<Core>, key: &'static str, on: bool) -> impl Fn(&Value) -> Reply + Send + Sync + 'static {
+    let core = Arc::clone(core);
+    move |_| {
+        if on && core.services().vad.is_none() {
+            return error("VAD_UNAVAILABLE", core.config().get(key));
+        }
+        if core.config().get_bool(key) != on {
+            let _ = core.config().set(key, json!(on));
+        }
+        ok(core.config().get(key))
+    }
+}
+
 /// A value stored through its check; a refusal answers `code` with the current value
 /// (`_configValidationErrorResponse`).
 pub fn store(core: &Arc<Core>, key: &'static str, code: &'static str) -> impl Fn(&Value) -> Reply + Send + Sync + 'static {

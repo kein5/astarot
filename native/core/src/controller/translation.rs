@@ -6,7 +6,13 @@
 //! `setEnableTranslation`, `changeToCTranslate2Process` and the engine part of `init`;
 //! `model.py`: `getTranslate`, `getInputTranslate`, `getOutputTranslate` and the history).
 //!
-//! The provider clients are in `native/translation`. The local translation is a
+//! The provider clients are in `native/translation`: one unit struct per provider implementing
+//! the `Api` trait, with the shared requests written once as default methods (zero-cost
+//! abstraction: generics and static dispatch, no `dyn`). [`Translators::check`],
+//! [`Translators::models`] and [`Translators::translate`] pass the engine named in the settings
+//! to `Provider::check` and the others, which reach the provider's type with one `match` (as
+//! `translation_translator.py` chose the client). Google Cloud Translation and Papago (NAVER Cloud Platform) are core additions
+//! (#277); the Ollama URL is a core addition (`OLLAMA_URL`). The local translation is a
 //! [`LocalTranslation`] given by [`super::Services::local_translation`]: ONNX Runtime
 //! (`native/translate-onnx`) when the core is built with the `onnx-translation` feature, else
 //! nothing (see "判断が要ること" 1 and 2 in `docs/voice-stack/core-integration.md`).
@@ -27,7 +33,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use vrct_translation::http::Transport;
 use vrct_translation::prompt::HistoryItem;
-use vrct_translation::providers::{self as providers, Client, Endpoints, Prepared, Provider};
+use vrct_translation::providers::{self as providers, deepl, Access, Endpoints, Provider};
 
 // ------------------------------------------------------------------------- local translation
 
@@ -57,6 +63,19 @@ pub enum LocalError {
     Failed,
 }
 
+/// Where the loaded model runs. Fixed names only.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Placement {
+    /// The execution provider (`cpu`, `directml`, `cuda`, ...).
+    pub device: String,
+    pub device_index: u32,
+    /// The quantization variant (`int8`, `float16`, ...).
+    pub variant: String,
+    /// The device asked for and the fixed reason it could not be used, when the model runs on
+    /// the CPU instead.
+    pub fallback: Option<(String, &'static str)>,
+}
+
 /// The local translation model (`changeCTranslate2Model`, `translateCTranslate2`).
 pub trait LocalTranslation: Send + Sync {
     /// Loads a model, dropping the one loaded before even when this fails.
@@ -65,6 +84,15 @@ pub trait LocalTranslation: Send + Sync {
     fn loaded(&self) -> Option<LocalSetup>;
     /// Translates with the loaded model; codes as the weight's language table gives them.
     fn translate(&self, text: &str, source: &str, target: &str) -> Result<String, LocalError>;
+    /// Where the loaded model runs, if one is loaded.
+    fn placement(&self) -> Option<Placement> {
+        None
+    }
+    /// The language table (`{"source": {name: code}, "target": ...}`) of a weight the built-in
+    /// table does not have: a model the user added.
+    fn languages(&self, _weight: &str) -> Option<Value> {
+        None
+    }
 }
 
 /// No local translation in this build: nothing loads.
@@ -91,7 +119,7 @@ pub type LocalTranslationSource = Arc<dyn Fn(&crate::config::Environment) -> Arc
 pub fn default_local_translation(env: &crate::config::Environment) -> Arc<dyn LocalTranslation> {
     #[cfg(feature = "onnx-translation")]
     {
-        Arc::new(super::translation_onnx::OnnxTranslation::new(env.data_dir.clone()))
+        Arc::new(super::translation_onnx::OnnxTranslation::new(env))
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
@@ -104,12 +132,53 @@ pub fn default_local_translation(env: &crate::config::Environment) -> Arc<dyn Lo
 pub fn default_weight_available(env: &crate::config::Environment, weight: &str) -> bool {
     #[cfg(feature = "onnx-translation")]
     {
-        super::translation_onnx::bundle_present(&env.data_dir, weight)
+        super::translation_onnx::weight_available(env, weight)
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
         let _ = (env, weight);
         false
+    }
+}
+
+/// The weights the settings may name (`SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST`): the built-in
+/// ones, then the models the user added (`custom:<folder>`).
+pub fn weight_ids(env: &crate::config::Environment) -> Vec<String> {
+    #[cfg(feature = "onnx-translation")]
+    {
+        super::translation_onnx::weight_ids(env)
+    }
+    #[cfg(not(feature = "onnx-translation"))]
+    {
+        let _ = env;
+        crate::languages::TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect()
+    }
+}
+
+/// The translation compute devices for [`crate::config::Environment::compute_devices`]: the
+/// CPU, and the GPU execution providers of the ONNX Runtime library beside the app. The host
+/// calls this once at start.
+pub fn compute_devices() -> Vec<Value> {
+    #[cfg(feature = "onnx-translation")]
+    {
+        super::translation_onnx::compute_devices()
+    }
+    #[cfg(not(feature = "onnx-translation"))]
+    {
+        vec![crate::config::Environment::cpu_device()]
+    }
+}
+
+/// The user's model folders that were refused, with the fixed reason, for the log.
+pub fn refused_models(env: &crate::config::Environment) -> Vec<(String, &'static str)> {
+    #[cfg(feature = "onnx-translation")]
+    {
+        super::translation_onnx::discover(&env.data_dir).1
+    }
+    #[cfg(not(feature = "onnx-translation"))]
+    {
+        let _ = env;
+        Vec::new()
     }
 }
 
@@ -212,10 +281,74 @@ fn model_keys(provider: Provider) -> Option<(&'static str, &'static str, &'stati
     }
 }
 
+/// The setting that holds the address of a provider the user runs or chooses.
+fn url_key(provider: Provider) -> Option<&'static str> {
+    match provider {
+        Provider::LmStudio => Some("LMSTUDIO_URL"),
+        Provider::Ollama => Some("OLLAMA_URL"),
+        Provider::OpenAiCompatible => Some("OPENAI_COMPATIBLE_URL"),
+        _ => None,
+    }
+}
+
+/// The fixed address of a cloud provider (DeepL: by its key); empty for those the user places.
+fn fixed_url(endpoints: &Endpoints, provider: Provider, key: &str) -> String {
+    match provider {
+        Provider::DeepL => deepl::base_url(&endpoints.deepl, &endpoints.deepl_free, key).to_string(),
+        Provider::GoogleCloud => endpoints.google_cloud.clone(),
+        Provider::Papago => endpoints.papago.clone(),
+        Provider::Plamo => endpoints.plamo.clone(),
+        Provider::Gemini => endpoints.gemini.clone(),
+        Provider::OpenAi => endpoints.openai.clone(),
+        Provider::Groq => endpoints.groq.clone(),
+        Provider::OpenRouter => endpoints.openrouter.clone(),
+        Provider::OpenAiCompatible | Provider::LmStudio | Provider::Ollama => String::new(),
+    }
+}
+
 /// How long a listed model list is used again instead of asking (`_RECENT_SEC`).
 const RECENT: Duration = Duration::from_secs(30);
 /// The history kept for the chat providers (`translation_history_max_items`).
 const HISTORY_ITEMS: usize = 20;
+
+/// A provider ready to translate with: its address, its credentials and the chosen model
+/// (Python's client object). The key and the Client ID are never printed.
+#[derive(Clone)]
+pub(crate) struct Session {
+    base: String,
+    key: Option<String>,
+    /// Papago's Client ID.
+    client_id: Option<String>,
+    model: Option<String>,
+}
+
+impl Session {
+    fn access(&self) -> Access<'_> {
+        Access {
+            base: &self.base,
+            key: self.key.as_deref().unwrap_or(""),
+            client_id: self.client_id.as_deref().unwrap_or(""),
+            model: self.model.as_deref(),
+        }
+    }
+}
+
+impl std::fmt::Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Session")
+            .field("key", &self.key.as_ref().map(|_| "<hidden>"))
+            .field("client_id", &self.client_id.as_ref().map(|_| "<hidden>"))
+            .field("model", &self.model)
+            .finish()
+    }
+}
+
+/// A provider that answered: the session and the models it listed (empty for the machine
+/// translation APIs).
+struct Connected {
+    session: Session,
+    models: Vec<String>,
+}
 
 /// One message of the conversation, kept for the context of the chat providers.
 #[derive(Clone)]
@@ -235,7 +368,7 @@ struct History {
 pub(crate) struct Translators {
     transport: Transport,
     endpoints: Endpoints,
-    clients: Mutex<HashMap<Provider, Client>>,
+    clients: Mutex<HashMap<Provider, Session>>,
     recent: Mutex<HashMap<Provider, (Instant, Vec<String>)>>,
     lmstudio_connected: AtomicBool,
     ollama_connected: AtomicBool,
@@ -260,14 +393,86 @@ impl Translators {
         }
     }
 
-    fn client(&self, provider: Provider) -> Option<Client> {
+    // ------------------------------------------------------------ the provider calls
+
+    // The provider is named at run time (the settings); `Provider::check` and the others turn
+    // the name into the provider's static type with one `match` in `vrct_translation` and call
+    // its `Api` methods directly (static dispatch, no `dyn`).
+
+    /// Checks the key (or that the server answers) and lists the models: `setAuthKey` and the
+    /// first `getModelList` of each Python client. The machine translation APIs list nothing.
+    fn check(&self, provider: Provider, access: &Access<'_>) -> Result<Vec<String>, providers::Error> {
+        provider.check(&self.transport, access)
+    }
+
+    /// Whether LM Studio or Ollama answers at an address.
+    fn server_answers(&self, provider: Provider, base: &str) -> bool {
+        provider.local() && provider.reach(&self.transport, &Access::at(base)).is_ok()
+    }
+
+    /// The models of a live session, asked again (`getModelList`); none when they cannot be read.
+    fn models(&self, provider: Provider, session: &Session) -> Vec<String> {
+        provider.models(&self.transport, &session.access())
+    }
+
+    /// Translates one text (`Translator.translate`). Codes as the engine's language table gives
+    /// them.
+    fn translate(
+        &self,
+        provider: Provider,
+        session: &Session,
+        chat: &providers::Translation<'_>,
+    ) -> Result<String, providers::Error> {
+        provider.translate(&self.transport, &session.access(), chat)
+    }
+
+    /// A provider checked and ready (`Translator.prepareCredential`): the saved model when the
+    /// provider lists it, else the first one.
+    fn connect(
+        &self,
+        provider: Provider,
+        base: &str,
+        key: Option<&str>,
+        client_id: Option<&str>,
+        selected: Option<&str>,
+    ) -> Result<Connected, providers::Error> {
+        let access = Access {
+            base,
+            key: key.unwrap_or(""),
+            client_id: client_id.unwrap_or(""),
+            model: None,
+        };
+        let models = self.check(provider, &access)?;
+        let model = if provider.without_models() { None } else { Some(providers::choose_model(&models, selected)?) };
+        let session = Session {
+            base: base.to_string(),
+            key: key.map(str::to_string),
+            client_id: client_id.map(str::to_string),
+            model,
+        };
+        Ok(Connected { session, models })
+    }
+
+    // ------------------------------------------------------------ what is kept
+
+    /// The local translation's language table of a weight: the built-in one, else that of a
+    /// model the user added.
+    pub(crate) fn local_table(&self, weight: &str) -> Option<Value> {
+        crate::languages::translation()
+            .get(LOCAL_ENGINE)
+            .and_then(|engine| engine.get(weight))
+            .cloned()
+            .or_else(|| self.local.languages(weight))
+    }
+
+    fn session(&self, provider: Provider) -> Option<Session> {
         self.clients.lock().unwrap().get(&provider).cloned()
     }
 
-    fn commit(&self, provider: Provider, prepared: &Prepared) {
-        self.clients.lock().unwrap().insert(provider, prepared.client.clone());
-        if !prepared.models.is_empty() {
-            self.recent.lock().unwrap().insert(provider, (Instant::now(), prepared.models.clone()));
+    fn commit(&self, provider: Provider, connected: &Connected) {
+        self.clients.lock().unwrap().insert(provider, connected.session.clone());
+        if !connected.models.is_empty() {
+            self.recent.lock().unwrap().insert(provider, (Instant::now(), connected.models.clone()));
         }
     }
 
@@ -277,28 +482,20 @@ impl Translators {
     }
 
     fn connected(&self, provider: Provider) -> &AtomicBool {
-        if provider == Provider::LmStudio {
-            &self.lmstudio_connected
-        } else {
-            &self.ollama_connected
-        }
+        if provider == Provider::LmStudio { &self.lmstudio_connected } else { &self.ollama_connected }
     }
 
-    /// The models of a live client: the recent list, else asked again (`RecentModelList.setModel`).
-    fn models_of(&self, client: &Client) -> Vec<String> {
-        if let Some((_, models)) = self.recent.lock().unwrap().get(&client.provider).filter(|(at, _)| at.elapsed() <= RECENT) {
+    /// The models of a live session: the recent list, else asked again (`RecentModelList.setModel`).
+    fn models_of(&self, provider: Provider, session: &Session) -> Vec<String> {
+        if let Some((_, models)) = self.recent.lock().unwrap().get(&provider).filter(|(at, _)| at.elapsed() <= RECENT) {
             return models.clone();
         }
-        let models = client.models().unwrap_or_default();
+        let models = self.models(provider, session);
         if !models.is_empty() {
-            self.recent.lock().unwrap().insert(client.provider, (Instant::now(), models.clone()));
+            self.recent.lock().unwrap().insert(provider, (Instant::now(), models.clone()));
         }
         models
     }
-}
-
-fn fixed_url(endpoints: &Endpoints, provider: Provider, key: &str) -> String {
-    endpoints.fixed(provider, key).unwrap_or_default()
 }
 
 impl Core {
@@ -323,14 +520,14 @@ impl Core {
         self.notify(&selected.to_lowercase(), self.config().get(selected));
     }
 
-    fn prepare(
+    fn connect(
         &self,
         provider: Provider,
         base: &str,
         key: Option<&str>,
         selected: Option<&str>,
-    ) -> Result<Prepared, providers::Error> {
-        providers::prepare(&self.translation.transport, provider, base, key, selected)
+    ) -> Result<Connected, providers::Error> {
+        self.translation.connect(provider, base, key, None, selected)
     }
 
     // ------------------------------------------------------------ keys and models
@@ -344,7 +541,7 @@ impl Core {
             return error("AUTH_DEEPL_LENGTH", current());
         }
         let base = fixed_url(&self.translation.endpoints, Provider::DeepL, &key);
-        let Ok(prepared) = self.prepare(Provider::DeepL, &base, Some(&key), None) else {
+        let Ok(connected) = self.connect(Provider::DeepL, &base, Some(&key), None) else {
             self.step("DeepL: the key was not accepted");
             return error("AUTH_DEEPL_FAILED", current());
         };
@@ -352,10 +549,86 @@ impl Core {
         if self.config().update_credential("AUTH_KEYS", engine, Some(&key)).is_err() {
             return Reply::status(500, "Internal error");
         }
-        self.translation.commit(Provider::DeepL, &prepared);
+        self.translation.commit(Provider::DeepL, &connected);
         self.set_engine_status(engine, true);
         self.update_translation_engine_and_list();
         ok(json!(key))
+    }
+
+    /// Google Cloud Translation (core only): checked like DeepL's key, saved when accepted. A key
+    /// is any text without spaces; its format is Google's to change.
+    fn set_google_cloud_key(&self, data: &Value) -> Reply {
+        let engine = Provider::GoogleCloud.engine();
+        let key = python_str(data).trim().to_string();
+        let current = || self.config().get("AUTH_KEYS")[engine].clone();
+        if key.is_empty() || key.chars().any(char::is_whitespace) {
+            return error("AUTH_GOOGLE_CLOUD_INVALID", current());
+        }
+        let base = fixed_url(&self.translation.endpoints, Provider::GoogleCloud, &key);
+        let Ok(connected) = self.connect(Provider::GoogleCloud, &base, Some(&key), None) else {
+            self.step("Google Cloud Translation: the key was not accepted");
+            return error("AUTH_GOOGLE_CLOUD_FAILED", current());
+        };
+        let _guard = self.credential_lock.lock().unwrap();
+        if self.config().update_credential("AUTH_KEYS", engine, Some(&key)).is_err() {
+            return Reply::status(500, "Internal error");
+        }
+        self.translation.commit(Provider::GoogleCloud, &connected);
+        self.set_engine_status(engine, true);
+        self.update_translation_engine_and_list();
+        ok(json!(key))
+    }
+
+    /// Papago's Client ID (core only). Like the URL of the OpenAI-compatible endpoint, it
+    /// changes only while no secret is saved: the secret is checked with the ID.
+    fn set_papago_client_id(&self, data: &Value) -> Reply {
+        let current = || self.config().get("PAPAGO_CLIENT_ID");
+        let id = match data {
+            Value::String(text) => text.trim().to_string(),
+            _ => return error("AUTH_PAPAGO_INVALID", current()),
+        };
+        if id.is_empty() || id.chars().any(char::is_whitespace) {
+            return error("AUTH_PAPAGO_INVALID", current());
+        }
+        let _guard = self.credential_lock.lock().unwrap();
+        if current() == json!(id) {
+            return ok(current());
+        }
+        let secret = &self.config().get("AUTH_KEYS")[Provider::Papago.engine()];
+        if secret.as_str().is_some_and(|s| !s.is_empty()) {
+            return error("CREDENTIAL_REENTRY_REQUIRED", current());
+        }
+        if self.config().set("PAPAGO_CLIENT_ID", json!(id)).is_err() {
+            return error("AUTH_PAPAGO_INVALID", current());
+        }
+        ok(current())
+    }
+
+    /// Papago's Client Secret (core only), checked with the saved Client ID.
+    fn set_papago_key(&self, data: &Value) -> Reply {
+        let engine = Provider::Papago.engine();
+        let secret = python_str(data).trim().to_string();
+        let current = || self.config().get("AUTH_KEYS")[engine].clone();
+        let client_id = self.config().get_str("PAPAGO_CLIENT_ID");
+        if secret.is_empty() || secret.chars().any(char::is_whitespace) || client_id.is_empty() {
+            return error("AUTH_PAPAGO_INVALID", current());
+        }
+        let base = fixed_url(&self.translation.endpoints, Provider::Papago, &secret);
+        let Ok(connected) = self.translation.connect(Provider::Papago, &base, Some(&secret), Some(&client_id), None) else {
+            self.step("Papago: the Client ID and secret were not accepted");
+            return error("AUTH_PAPAGO_FAILED", current());
+        };
+        let _guard = self.credential_lock.lock().unwrap();
+        if self.config().get_str("PAPAGO_CLIENT_ID") != client_id {
+            return error("AUTH_PAPAGO_FAILED", current());
+        }
+        if self.config().update_credential("AUTH_KEYS", engine, Some(&secret)).is_err() {
+            return Reply::status(500, "Internal error");
+        }
+        self.translation.commit(Provider::Papago, &connected);
+        self.set_engine_status(engine, true);
+        self.update_translation_engine_and_list();
+        ok(json!(secret))
     }
 
     /// `_setTranslationEngineAuthKey`.
@@ -368,8 +641,8 @@ impl Core {
         }
         let previous = self.config().get(spec.selected);
         let base = fixed_url(&self.translation.endpoints, spec.provider, &key);
-        let prepared = match self.prepare(spec.provider, &base, Some(&key), previous.as_str()) {
-            Ok(prepared) => prepared,
+        let connected = match self.connect(spec.provider, &base, Some(&key), previous.as_str()) {
+            Ok(connected) => connected,
             Err(_) => {
                 self.step("Translation provider: the key was not accepted");
                 return error(spec.failed, current());
@@ -382,9 +655,9 @@ impl Core {
         if self.config().update_credential("AUTH_KEYS", engine, Some(&key)).is_err() {
             return Reply::status(500, "Internal error");
         }
-        self.translation.commit(spec.provider, &prepared);
+        self.translation.commit(spec.provider, &connected);
         self.set_engine_status(engine, true);
-        self.publish_models(spec.list, spec.selected, &prepared.models, prepared.selected.as_deref());
+        self.publish_models(spec.list, spec.selected, &connected.models, connected.session.model.as_deref());
         self.update_translation_engine_and_list();
         ok(json!(key))
     }
@@ -393,15 +666,15 @@ impl Core {
     fn set_model(&self, provider: Provider, data: &Value) -> Reply {
         let (_, selected, invalid) = model_keys(provider).expect("a provider with models");
         let model = python_str(data);
-        let Some(mut client) = self.translation.client(provider) else {
+        let Some(mut session) = self.translation.session(provider) else {
             return error(invalid, self.config().get(selected));
         };
-        let models = self.translation.models_of(&client);
-        if client.set_model(&model, &models).is_err() {
+        if !self.translation.models_of(provider, &session).contains(&model) {
             return error(invalid, self.config().get(selected));
         }
+        session.model = Some(model.clone());
         self.config().put(selected, json!(model));
-        self.translation.clients.lock().unwrap().insert(provider, client);
+        self.translation.clients.lock().unwrap().insert(provider, session);
         ok(self.config().get(selected))
     }
 
@@ -415,7 +688,7 @@ impl Core {
         }
         let url = self.config().get_str("OPENAI_COMPATIBLE_URL");
         let previous = self.config().get("SELECTED_OPENAI_COMPATIBLE_MODEL");
-        let Ok(prepared) = self.prepare(Provider::OpenAiCompatible, &url, Some(&key), previous.as_str()) else {
+        let Ok(connected) = self.connect(Provider::OpenAiCompatible, &url, Some(&key), previous.as_str()) else {
             self.step("OpenAI-compatible endpoint: the key was not accepted");
             return error("AUTH_OPENAI_COMPATIBLE_FAILED", current());
         };
@@ -428,19 +701,19 @@ impl Core {
         if self.config().update_credential("AUTH_KEYS", engine, Some(&key)).is_err() {
             return Reply::status(500, "Internal error");
         }
-        self.commit_compatible(&prepared);
+        self.commit_compatible(&connected);
         ok(json!(key))
     }
 
     /// `_commitOpenAICompatibleCandidate`, under the credential lock.
-    fn commit_compatible(&self, prepared: &Prepared) {
-        self.translation.commit(Provider::OpenAiCompatible, prepared);
+    fn commit_compatible(&self, connected: &Connected) {
+        self.translation.commit(Provider::OpenAiCompatible, connected);
         self.set_engine_status("OpenAI_Compatible", true);
         self.publish_models(
             "SELECTABLE_OPENAI_COMPATIBLE_MODEL_LIST",
             "SELECTED_OPENAI_COMPATIBLE_MODEL",
-            &prepared.models,
-            prepared.selected.as_deref(),
+            &connected.models,
+            connected.session.model.as_deref(),
         );
         self.update_translation_engine_and_list();
     }
@@ -479,9 +752,9 @@ impl Core {
             let _guard = self.credential_lock.lock().unwrap();
             snapshot()
         };
-        let prepared = match &key {
-            Some(key) => match self.prepare(Provider::OpenAiCompatible, &url, Some(key), previous.2.as_str()) {
-                Ok(prepared) => Some(prepared),
+        let connected = match &key {
+            Some(key) => match self.connect(Provider::OpenAiCompatible, &url, Some(key), previous.2.as_str()) {
+                Ok(connected) => Some(connected),
                 Err(_) => {
                     self.step("OpenAI-compatible endpoint: the key was not accepted");
                     return failed();
@@ -497,11 +770,11 @@ impl Core {
             if self.config().set("OPENAI_COMPATIBLE_URL", json!(url)).is_err() {
                 return Reply::status(500, "Internal error");
             }
-            if let (Some(key), Some(prepared)) = (&key, &prepared) {
+            if let (Some(key), Some(connected)) = (&key, &connected) {
                 if self.config().update_credential("AUTH_KEYS", engine, Some(key)).is_err() {
                     return Reply::status(500, "Internal error");
                 }
-                self.commit_compatible(prepared);
+                self.commit_compatible(connected);
             }
         }
         if key.is_none() {
@@ -517,12 +790,13 @@ impl Core {
 
     // ------------------------------------------------------------ LM Studio and Ollama
 
-    /// `setLMStudioClientURL` / `checkOllamaClient`: a client for the server, kept only when it answers.
+    /// `setLMStudioClientURL` / `checkOllamaClient`: a session for the server, kept only when it
+    /// answers.
     fn connect_local_server(&self, provider: Provider, base: &str) -> bool {
-        let client = Client::new(provider, base, None, self.translation.transport.clone());
-        let answered = client.check().is_ok();
+        let answered = self.translation.server_answers(provider, base);
         if answered {
-            self.translation.clients.lock().unwrap().insert(provider, client);
+            let session = Session { base: base.to_string(), key: None, client_id: None, model: None };
+            self.translation.clients.lock().unwrap().insert(provider, session);
         } else {
             self.translation.forget(provider);
         }
@@ -531,9 +805,9 @@ impl Core {
     }
 
     fn local_server_models(&self, provider: Provider) -> Vec<String> {
-        match self.translation.client(provider) {
-            Some(client) => {
-                let models = client.models().unwrap_or_default();
+        match self.translation.session(provider) {
+            Some(session) => {
+                let models = self.translation.models(provider, &session);
                 if !models.is_empty() {
                     self.translation.recent.lock().unwrap().insert(provider, (Instant::now(), models.clone()));
                 }
@@ -551,6 +825,18 @@ impl Core {
         self.update_translation_engine_and_list();
     }
 
+    /// Chooses the saved model when the server lists it, else the first, for the live session.
+    fn choose_server_model(&self, provider: Provider, models: &[String]) -> String {
+        let (_, selected, _) = model_keys(provider).expect("a provider with models");
+        let saved = self.config().get_str(selected);
+        let choice = if models.contains(&saved) { saved } else { models[0].clone() };
+        if let Some(mut session) = self.translation.session(provider) {
+            session.model = Some(choice.clone());
+            self.translation.clients.lock().unwrap().insert(provider, session);
+        }
+        choice
+    }
+
     /// After a server answered: its models, a selection, the engine list. `false` when it has
     /// no model.
     fn local_server_connected(&self, provider: Provider) -> bool {
@@ -562,27 +848,18 @@ impl Core {
         if models.is_empty() {
             return false;
         }
-        let saved = self.config().get_str(selected);
-        let choice = if models.contains(&saved) { saved } else { models[0].clone() };
+        let choice = self.choose_server_model(provider, &models);
         self.config().put(selected, json!(choice));
-        if let Some(mut client) = self.translation.client(provider) {
-            let _ = client.set_model(&choice, &models);
-            self.translation.clients.lock().unwrap().insert(provider, client);
-        }
         self.notify(&selected.to_lowercase(), self.config().get(selected));
         self.update_translation_engine_and_list();
         true
     }
 
-    /// `_checkTranslationEngineConnection`.
+    /// `_checkTranslationEngineConnection`, at the saved address.
     fn check_local_server(&self, provider: Provider) -> Reply {
         let code =
             if provider == Provider::LmStudio { "CONNECTION_LMSTUDIO_FAILED" } else { "CONNECTION_OLLAMA_FAILED" };
-        let base = if provider == Provider::LmStudio {
-            self.config().get_str("LMSTUDIO_URL")
-        } else {
-            fixed_url(&self.translation.endpoints, Provider::Ollama, "")
-        };
+        let base = self.config().get_str(url_key(provider).expect("a server the user runs"));
         if self.connect_local_server(provider, &base) && self.local_server_connected(provider) {
             return ok(json!(true));
         }
@@ -590,9 +867,13 @@ impl Core {
         error(code, json!(false))
     }
 
-    /// `setTranslatorLMStudioURL`.
-    fn set_lmstudio_url(&self, data: &Value) -> Reply {
-        let invalid = |core: &Core| error("CONNECTION_LMSTUDIO_URL_INVALID", core.config().get("LMSTUDIO_URL"));
+    /// `setTranslatorLMStudioURL`, and the same for Ollama (core only): the address is saved only
+    /// when a server answers there with a model. Plain HTTP only to this PC and the LAN.
+    fn set_server_url(&self, provider: Provider, data: &Value) -> Reply {
+        let key = url_key(provider).expect("a server the user runs");
+        let code =
+            if provider == Provider::LmStudio { "CONNECTION_LMSTUDIO_URL_INVALID" } else { "CONNECTION_OLLAMA_URL_INVALID" };
+        let invalid = |core: &Core| error(code, core.config().get(key));
         let url = match data {
             Value::String(text) => text.trim().to_string(),
             _ => return invalid(self),
@@ -600,15 +881,15 @@ impl Core {
         if validate_api_url(&url, false).is_err() {
             return invalid(self);
         }
-        if !self.connect_local_server(Provider::LmStudio, &url) {
-            self.local_server_failed(Provider::LmStudio);
+        if !self.connect_local_server(provider, &url) {
+            self.local_server_failed(provider);
             return invalid(self);
         }
-        if self.config().set("LMSTUDIO_URL", json!(url)).is_err() || !self.local_server_connected(Provider::LmStudio) {
-            self.local_server_failed(Provider::LmStudio);
+        if self.config().set(key, json!(url)).is_err() || !self.local_server_connected(provider) {
+            self.local_server_failed(provider);
             return invalid(self);
         }
-        ok(self.config().get("LMSTUDIO_URL"))
+        ok(self.config().get(key))
     }
 
     // ------------------------------------------------------------ the local translation
@@ -624,8 +905,23 @@ impl Core {
     }
 
     fn load_local(&self) -> Result<(), LocalError> {
-        let _guard = self.translation.local_lock.lock().unwrap();
+        let _guard = self.translation.local_lock.lock().unwrap_or_else(|e| e.into_inner());
         self.translation.local.load(&self.local_setup())
+    }
+
+    /// Writes where the local model runs to the log and, when the chosen device could not be
+    /// used and the model runs on the CPU instead, tells the UI (never silent).
+    fn report_local_placement(&self) {
+        let Some(placement) = self.translation.local.placement() else { return };
+        self.step(&format!("Translation: the local model runs on {} ({})", placement.device, placement.variant));
+        if let Some((requested, reason)) = placement.fallback {
+            self.step(&format!("Translation: {requested} could not be used ({reason}); running on the CPU"));
+            // A notice, not an error: translation is on and works, on the CPU.
+            self.notify(
+                "translation_compute_device_fallback",
+                json!({ "requested": requested, "used": placement.device, "variant": placement.variant, "reason": reason }),
+            );
+        }
     }
 
     /// `setCtranslate2WeightType`: a weight under a non-commercial licence needs the user's
@@ -679,6 +975,7 @@ impl Core {
         match self.load_local() {
             Ok(()) => {
                 let _ = config.set("ENABLE_TRANSLATION", json!(true));
+                self.report_local_placement();
             }
             Err(LocalError::OutOfMemory(message)) => {
                 self.step("Translation: the GPU ran out of memory while loading the model");
@@ -739,9 +1036,11 @@ impl Core {
         source: &str,
         target: &str,
     ) -> Option<(String, String)> {
-        let table = crate::languages::translation();
-        let entry = table.get(engine)?;
-        let entry = if engine == LOCAL_ENGINE { entry.get(weight)? } else { entry };
+        let entry = if engine == LOCAL_ENGINE {
+            self.translation.local_table(weight)?
+        } else {
+            crate::languages::translation().get(engine)?.clone()
+        };
         let mut target = target.to_string();
         if engine == "DeepL_API" {
             if target == "English" {
@@ -785,7 +1084,8 @@ impl Core {
             return Attempt::Unsupported;
         };
         if engine == LOCAL_ENGINE {
-            let _guard = self.translation.local_lock.lock().unwrap();
+            // A translation that panicked must not keep the next ones from running.
+            let _guard = self.translation.local_lock.lock().unwrap_or_else(|e| e.into_inner());
             let Some(mut setup) = self.translation.local.loaded() else { return Attempt::Failed };
             if setup.weight != weight {
                 // The message's weight, even if a newer one is selected already.
@@ -802,12 +1102,14 @@ impl Core {
             };
         }
         let Some(provider) = Provider::from_engine(engine) else { return Attempt::Failed };
-        let Some(client) = self.translation.client(provider) else { return Attempt::Failed };
+        let Some(session) = self.translation.session(provider) else { return Attempt::Failed };
         let supported = Self::supported_languages(engine);
         let request =
             providers::Translation { text, source: &source, target: &target, supported_languages: &supported, history };
-        match client.translate(&request) {
+        match self.translation.translate(provider, &session, &request) {
             Ok(text) => Attempt::Text(text),
+            // Papago translates only some pairs of its languages directly.
+            Err(providers::Error::UnsupportedPair) => Attempt::Unsupported,
             Err(_) => {
                 self.step("Translation: the provider failed");
                 Attempt::Failed
@@ -933,7 +1235,7 @@ pub struct Translated {
 struct Checked {
     available: bool,
     models: Option<(Vec<String>, Option<String>)>,
-    prepared: Option<Prepared>,
+    connected: Option<Connected>,
 }
 
 impl Core {
@@ -967,9 +1269,9 @@ impl Core {
             status.insert(engine.clone(), json!(available));
             let provider = Provider::from_engine(engine);
             match (checked, provider) {
-                (Some(Checked { available: true, models, prepared }), Some(provider)) => {
-                    if let Some(prepared) = prepared {
-                        self.translation.commit(provider, prepared);
+                (Some(Checked { available: true, models, connected }), Some(provider)) => {
+                    if let Some(connected) = connected {
+                        self.translation.commit(provider, connected);
                     }
                     if let (Some((models, choice)), Some((list, selected, _))) = (models, model_keys(provider)) {
                         config.put(list, json!(models));
@@ -990,7 +1292,7 @@ impl Core {
     }
 
     fn check_engine(&self, engine: &str, keys: &Value, local_available: bool) -> Checked {
-        let none = Checked { available: false, models: None, prepared: None };
+        let none = Checked { available: false, models: None, connected: None };
         if engine == LOCAL_ENGINE {
             return Checked { available: local_available, ..none };
         }
@@ -999,17 +1301,10 @@ impl Core {
         let Some(provider) = Provider::from_engine(engine) else { return none };
         let config = self.config();
         let key = keys[engine].as_str().filter(|k| !k.is_empty()).map(str::to_string);
-        let prepared = match provider {
-            Provider::LmStudio => {
-                let url = config.get_str("LMSTUDIO_URL");
+        let connected = match provider {
+            Provider::LmStudio | Provider::Ollama => {
+                let url = config.get_str(url_key(provider).expect("a server the user runs"));
                 if url.is_empty() || !self.connect_local_server(provider, &url) {
-                    return none;
-                }
-                return self.local_server_checked(provider);
-            }
-            Provider::Ollama => {
-                let base = fixed_url(&self.translation.endpoints, provider, "");
-                if !self.connect_local_server(provider, &base) {
                     return none;
                 }
                 return self.local_server_checked(provider);
@@ -1018,20 +1313,26 @@ impl Core {
                 let url = config.get_str("OPENAI_COMPATIBLE_URL");
                 let Some(key) = key.filter(|_| !url.is_empty()) else { return none };
                 let selected = config.get("SELECTED_OPENAI_COMPATIBLE_MODEL");
-                self.prepare(provider, &url, Some(&key), selected.as_str())
+                self.connect(provider, &url, Some(&key), selected.as_str())
+            }
+            Provider::Papago => {
+                let client_id = config.get_str("PAPAGO_CLIENT_ID");
+                let Some(key) = key.filter(|_| !client_id.is_empty()) else { return none };
+                let base = fixed_url(&self.translation.endpoints, provider, &key);
+                self.translation.connect(provider, &base, Some(&key), Some(&client_id), None)
             }
             _ => {
                 let Some(key) = key else { return none };
                 let selected = model_keys(provider).map(|(_, selected, _)| config.get(selected)).unwrap_or(Value::Null);
                 let base = fixed_url(&self.translation.endpoints, provider, &key);
-                self.prepare(provider, &base, Some(&key), selected.as_str())
+                self.connect(provider, &base, Some(&key), selected.as_str())
             }
         };
-        match prepared {
-            Ok(prepared) => {
-                let models =
-                    (provider != Provider::DeepL).then(|| (prepared.models.clone(), prepared.selected.clone()));
-                Checked { available: true, models, prepared: Some(prepared) }
+        match connected {
+            Ok(connected) => {
+                let models = (!provider.without_models())
+                    .then(|| (connected.models.clone(), connected.session.model.clone()));
+                Checked { available: true, models, connected: Some(connected) }
             }
             Err(_) => {
                 self.step("Translation engine check failed; the saved key is kept");
@@ -1044,16 +1345,10 @@ impl Core {
     fn local_server_checked(&self, provider: Provider) -> Checked {
         let models = self.local_server_models(provider);
         if models.is_empty() {
-            return Checked { available: false, models: None, prepared: None };
+            return Checked { available: false, models: None, connected: None };
         }
-        let (_, selected, _) = model_keys(provider).expect("a provider with models");
-        let saved = self.config().get_str(selected);
-        let choice = if models.contains(&saved) { saved } else { models[0].clone() };
-        if let Some(mut client) = self.translation.client(provider) {
-            let _ = client.set_model(&choice, &models);
-            self.translation.clients.lock().unwrap().insert(provider, client);
-        }
-        Checked { available: true, models: Some((models, Some(choice))), prepared: None }
+        let choice = self.choose_server_model(provider, &models);
+        Checked { available: true, models: Some((models, Some(choice))), connected: None }
     }
 }
 
@@ -1071,6 +1366,11 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         });
     }
 
+    // The official machine translation APIs (core only, #277).
+    b.with("/set/data/google_cloud_auth_key", OPEN, |core, data| core.set_google_cloud_key(data));
+    b.with("/set/data/papago_client_id", OPEN, |core, data| core.set_papago_client_id(data));
+    b.with("/set/data/papago_auth_key", OPEN, |core, data| core.set_papago_key(data));
+
     b.with("/get/data/connected_lmstudio", OPEN, |core, _| {
         ok(json!(core.translation.lmstudio_connected.load(Ordering::SeqCst)))
     });
@@ -1079,7 +1379,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         ok(json!(core.local_server_models(Provider::LmStudio)))
     });
     b.with("/set/data/selected_lmstudio_model", OPEN, |core, data| core.set_model(Provider::LmStudio, data));
-    b.with("/set/data/lmstudio_url", OPEN, |core, data| core.set_lmstudio_url(data));
+    b.with("/set/data/lmstudio_url", OPEN, |core, data| core.set_server_url(Provider::LmStudio, data));
 
     b.with("/set/data/openai_compatible_auth_key", OPEN, |core, data| core.set_compatible_key(data));
     b.with("/set/data/openai_compatible_auth_key_and_url", OPEN, |core, data| core.set_compatible_key_and_url(data));
@@ -1095,6 +1395,8 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         ok(json!(core.local_server_models(Provider::Ollama)))
     });
     b.with("/set/data/selected_ollama_model", OPEN, |core, data| core.set_model(Provider::Ollama, data));
+    // Core only: where Ollama runs (Python always used localhost:11434).
+    b.with("/set/data/ollama_url", OPEN, |core, data| core.set_server_url(Provider::Ollama, data));
 
     b.with("/set/data/selected_ctranslate2_weight_type", OPEN, |core, data| core.set_weight_type(data));
     b.with("/set/enable/translation", WAIT, |core, _| core.enable_translation());

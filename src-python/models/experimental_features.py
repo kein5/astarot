@@ -17,9 +17,12 @@ the next time the settings are read.
 """
 from typing import Any, Mapping
 
-# Ids are lowercase snake_case, like the endpoint names. Empty until a feature graduates from the
-# experimental branch.
-FEATURE_IDS: tuple[str, ...] = ()
+# Ids are lowercase snake_case, like the endpoint names.
+FEATURE_IDS: tuple[str, ...] = (
+    # The app lives in the system tray, with a small control panel and a handle beside the
+    # desktop captions (src-tauri/src/companion.rs, Issue #355).
+    "tray_companion",
+)
 
 
 def defaults() -> dict[str, bool]:

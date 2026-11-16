@@ -9,7 +9,8 @@
 //! 0.3 s of sound is dropped (`phrase_threshold`). While waiting, the automatic threshold
 //! (`dynamic_energy_threshold`) follows the quiet: damping 0.15 per second, ratio 1.5. Waiting
 //! starts over every second (`phrase_timeout=1` in the background listener), which forgets the
-//! quiet kept before the phrase.
+//! quiet kept before the phrase. It is the recorder's [`crate::vad::Segmenter`] unless a VAD
+//! engine is in use.
 
 use crate::pcm::rms;
 use std::collections::VecDeque;

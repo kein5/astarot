@@ -31,7 +31,7 @@ voice:
     vc_idle: "VC active; no speech detected"
     vc_hint: "Use a separately installed Seed-VC runtime and a reference voice you have permission to use. This experimental GPL-3.0 engine needs a compatible NVIDIA GPU. Stop before changing mode."
     input_title: "Input forwarding"
-    input_description: "Send the selected original input, or convert it with Seed-VC. ASR and translated speech can run independently."
+    input_description: "Send the selected input as it is. To convert your voice, use the Voice changer (RVC) page. ASR and translated speech can run independently."
     input_source: "Input to forward"
     select_input: "Select an input"
     refresh_inputs: "Refresh inputs"
@@ -68,7 +68,7 @@ voice:
         vc_output_missing: "The output device was not found. Choose it again on the Text to speech (TTS) page."
         vc_output_failed: "Writing to the output device failed. Check the device and start again."
         vc_feedback_blocked: "The input and output are the two ends of one virtual cable, which would feed the voice back into itself. Choose your real microphone as the input."
-        vc_gpu_unavailable: "No NVIDIA GPU is available for voice conversion. Check the GPU driver, and that an external GPU is still connected, then start again. Seed-VC currently runs on NVIDIA GPUs only."
+        vc_gpu_unavailable: "No NVIDIA GPU is available for voice conversion. Check the GPU driver, and that an external GPU is still connected, then start again."
         vc_capture_overrun: "Conversion could not keep up and stopped. Set the retrieval blend to 0, or close other apps that use the GPU or CPU, then start again."
         vc_block_expired: "Conversion fell too far behind and stopped. Close other apps that use the GPU or CPU, then start again."
         vc_start_failed: "Input forwarding could not start. Check that the runtime folder and the model files you set exist, then start again."
@@ -114,7 +114,7 @@ voice:
     conversion: "Speak through voice conversion"
     conversion_off: "Off"
     conversion_on: "On"
-    conversion_hint: "While RVC or Seed-VC converts your voice, speech is converted too and reaches others in the converted voice. During speech the conversion takes the speech in place of the microphone, then returns to the microphone, so this cannot go with mixing direct input and speech. When no conversion runs, speech plays as before. Speech is heard a little later, by the time the conversion takes."
+    conversion_hint: "While RVC converts your voice, speech is converted too and reaches others in the converted voice. During speech the conversion takes the speech in place of the microphone, then returns to the microphone, so this cannot go with mixing direct input and speech. When no conversion runs, speech plays as before. Speech is heard a little later, by the time the conversion takes."
     mic_hint: "Enable translation and start Realtime microphone captions separately. Saving does not start recording. On Linux, suppression requires the managed route and applies only to its direct input; an external cable requires the mix choice. Resume voice after changing the managed policy. On Windows, ASTAROT silences the voice it sends to the output device."
     off: "Off / silent send"
     original: "Original text"
@@ -130,7 +130,7 @@ voice:
     monitor_device: "Monitor output"
     monitor_default: "System default output"
     monitor_volume: "Monitor volume"
-    monitor_hint: "Plays the same speech and RVC/Seed-VC converted voice on your own speakers or headphones as well as sending it to VRChat. It never changes what VRChat receives. Use headphones so your microphone does not pick it up; speaker transcription of the same device will also hear it."
+    monitor_hint: "Plays the same speech and RVC converted voice on your own speakers or headphones as well as sending it to VRChat. It never changes what VRChat receives. Use headphones so your microphone does not pick it up; speaker transcription of the same device will also hear it."
     monitor_error: "Monitor output unavailable. Audio still goes to VRChat."
     vc_monitor_on: "The converted voice also plays on your monitor output, set on the Text to speech (TTS) page. Changes apply at the next Start."
     vc_monitor_off: "To also hear the converted voice yourself, turn on the monitor output on the Text to speech (TTS) page."
@@ -243,6 +243,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} was not downloaded. Review its license and size in Settings > Translation or Speech recognition (ASR) and agree before downloading. If the model version changed, review it again."
     OVERLAY_RUNTIME_FAILED: "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then turn the overlay on again."
     OVERLAY_VR_PANEL_UNSUPPORTED: "The VR UI is not available in this environment. Subtitle overlays are not affected."
+    OVERLAY_FONT_NOT_FOUND: "That font is not installed on this PC. The subtitles keep the font they had."
     MESSAGE_OUTPUT_FAILED: "The message could not be sent to {{output}}. It was sent to the other outputs. If you resend it, those outputs may receive it twice."
     TRANSLATION_VRAM_ENABLE: "Not enough GPU memory to start AI translation. Choose CPU as the device under Settings → Translation, or close other GPU apps."
     TRANSLATION_DISABLED_VRAM: "Translation was turned off because GPU memory ran out."
@@ -254,6 +255,7 @@ backend_errors:
     AUDIO_OPEN_ERROR_speaker: "The speaker's audio could not be captured. Check that the speaker is connected, then try again."
     AUDIO_READ_ERROR: "Audio capture stopped after a device error. Check that the device is still connected, then try again."
     VAD_INFERENCE_ERROR: "Speech detection failed, so recognition stopped. Try again. If this keeps happening, restart ASTAROT."
+    VAD_UNAVAILABLE: "VAD is not available in this version, so it was not turned on. Speech is cut by volume."
     TRANSCRIBER_INIT_ERROR: "The speech recognizer could not start. Check the engine and model under Settings → Speech recognition (ASR), then try again."
     ASR_ERROR: "Speech recognition failed, so recognition stopped. Check the engine under Settings → Speech recognition (ASR) and, for an online engine, the network connection, then try again."
     CLEANUP_TIMEOUT: "Audio capture did not stop in time. Wait a moment, then try again. If this keeps happening, restart ASTAROT."
@@ -273,6 +275,7 @@ backend_errors:
     AUTH_OPENAI_COMPATIBLE_INVALID: "The OpenAI-compatible API key is not in a valid format."
     AUTH_OPENAI_COMPATIBLE_FAILED: "Could not reach the OpenAI-compatible endpoint, or it rejected the API key. Check the URL and the key."
     CREDENTIAL_REENTRY_REQUIRED: "The URL has changed. To keep your saved key from being sent to a different server, enter the key for the new URL. For a server without a key, delete the saved key first, then change the URL."
+    SECRET_STORE_FAILED: "Your API keys could not be saved to their protected file. The keys work until you close the app. Check that the settings folder can be written, then enter any missing key again."
     MODEL_PLAMO_INVALID: "That Plamo model cannot be used."
     MODEL_GEMINI_INVALID: "That Gemini model cannot be used."
     MODEL_OPENAI_INVALID: "That OpenAI model cannot be used."
@@ -286,6 +289,11 @@ backend_errors:
     CONNECTION_LMSTUDIO_URL_INVALID: "The URL is invalid or the server could not be reached. Use HTTPS, or HTTP for localhost or a private LAN IP address. Remove usernames, passwords and secret query parameters. Check and save the URL again."
     CONNECTION_OPENAI_COMPATIBLE_URL_INVALID: "The URL is invalid or the server could not be reached. Use HTTPS, or HTTP for localhost or a private LAN IP address. Remove usernames, passwords and secret query parameters. Check and save the URL again."
     CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID: "The URL is invalid or the server could not be reached. Use HTTPS, or HTTP for localhost or a private LAN IP address. Remove usernames, passwords and secret query parameters. Check and save the URL again."
+    CONNECTION_OLLAMA_URL_INVALID: "The URL is invalid or Ollama could not be reached there. Use HTTPS, or HTTP for localhost, a private LAN IP address or a .local name. Remove usernames, passwords and secret query parameters. Check that Ollama is running with a model, then save the URL again."
+    AUTH_GOOGLE_CLOUD_INVALID: "Enter the Google Cloud API key without spaces."
+    AUTH_GOOGLE_CLOUD_FAILED: "The Google Cloud API key could not be verified. Check the key, and that Cloud Translation API and billing are enabled for its project."
+    AUTH_PAPAGO_INVALID: "Enter the Papago Client ID first, then the Client Secret, both without spaces."
+    AUTH_PAPAGO_FAILED: "The Papago Client ID and Client Secret could not be verified. Check both values, and that Papago Translation is enabled for the application in NAVER Cloud Platform."
     WEBSOCKET_HOST_INVALID: "That host cannot be used for the WebSocket server."
     WEBSOCKET_PORT_UNAVAILABLE: "Another app is using the WebSocket port. Choose a different port."
     WEBSOCKET_PORT_INVALID: "Enter a WebSocket port from 1 to 65535 using whole numbers."
@@ -309,6 +317,7 @@ common_warning:
         mic: 'Microphone switched from “{{old}}” to “{{new}}”. Capture is continuing.'
         speaker: 'Speaker capture switched from “{{old}}” to “{{new}}”. Capture is continuing.'
     startup_degraded: "Some settings could not be loaded. ASTAROT has started with default values for those settings. Check them before use. If this continues, restart ASTAROT."
+    translation_device_fallback: "Translation is on, but {{device}} could not be used, so the translation model runs on the CPU. Translating may be slower. To use the GPU, check the device in Settings > Translation."
     config_file_unreadable: "config.json could not be read, so ASTAROT started with default settings. The old file was kept as {{file}}."
     osc_query_remote: "{{sync}} is not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on this PC."
     osc_query_remote_mic_stopped: "Messages go to another machine, so VRChat's mute state cannot be checked. {{sync}} was turned off and {{microphone}} was stopped. Turn {{microphone}} back on when you need it."
@@ -547,6 +556,7 @@ config_page:
             option_auto: "Auto"
             option_manual: "Manual"
             desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time speech ends. Reduces background music and ambient noise."
+        desc_vad_unavailable: "Not available in this version: the speech detection model is not included yet. Speech is cut by volume, with the Auto or Manual setting."
 
     appearance:
         section_label_display: "Display"
@@ -592,6 +602,7 @@ config_page:
             large: "High Accuracy Model ({{capacity}})"
             license_commercial: "License: {{license}} (commercial use allowed)"
             license_non_commercial: "Non-commercial license ({{license}})"
+            custom_model: "Your own model (translation-models folder). Check its license yourself."
             confirm_title: "Non-commercial license"
             confirm_body: "{{weight_type}} is licensed under {{license}}. It may not be used for commercial purposes. The M2M100 models (MIT license) have no such restriction."
             confirm_check: "I have read the license and will use this model only for non-commercial purposes."
@@ -607,6 +618,17 @@ config_page:
         deepl_auth_key:
             label: "DeepL API Key"
             desc: "To use it, set {{translator}} on the main screen to \"DeepL API\". ※Some languages may not be supported."
+
+        google_cloud_auth_key:
+            label: "Google Cloud API Key"
+            desc: "Uses Cloud Translation (Basic) with your own Google Cloud project. Enable the Cloud Translation API and billing for the project, then paste an API key. Google charges your project for the characters you translate."
+
+        papago_client_id:
+            label: "Papago Client ID"
+            desc: "Uses Papago Translation of NAVER Cloud Platform with your own account. Save the Client ID first, then the Client Secret. Papago translates between Korean, English, Japanese, Chinese and a few other languages; other pairs use the fallback."
+            reentry_required: "To change the Client ID, delete the saved Client Secret first, then save the new Client ID and its secret."
+        papago_auth_key:
+            label: "Papago Client Secret"
 
         plamo_auth_key:
             label: "Plamo API Key"
@@ -649,6 +671,9 @@ config_page:
 
         ollama_connection_check:
             label: "Check Ollama Connection"
+        ollama_url:
+            label: "Ollama URL"
+            desc: "Ollama on this PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
         select_ollama_model:
             label: "Select Ollama Model"
             connection_required: "Ollama Connection Required"
@@ -658,13 +683,13 @@ config_page:
         section_label_speaker: "Speaker"
         section_label_transcription_engines: "Transcription Engines"
         timing_title: "Segmenting and queue"
-        timing_status: "ends after {{silence}} s of silence · processed every {{length}} s · up to {{queue}} waiting"
+        timing_status: "recordings up to {{record}} s · a message ends after {{phrase}} s without speech · up to {{queue}} waiting"
         mic_record_timeout:
             label: "Mic Record Timeout"
-            desc: "Detects silence and, when the specified number of seconds passes, the system considers the voice input to have ended. (Second(s))"
+            desc: "The longest single recording, in seconds. Longer speech is split at this length, and the pieces still become one message while you keep talking. 0 means no limit. It cannot be longer than the phrase timeout."
         mic_phrase_timeout:
             label: "Mic Phrase Timeout"
-            desc: "Transcription processing is performed at intervals of the specified number of seconds."
+            desc: "How long to wait after your last speech before what was heard becomes one message, in seconds. A shorter time sends sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         mic_max_phrase:
             label: "Mic Max Queued Messages"
             desc: "Maximum number of transcribed messages that can pile up before being sent. If more pile up, the oldest ones are discarded without being sent to VRChat."
@@ -679,10 +704,10 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
         speaker_record_timeout:
             label: "Speaker Record Timeout"
-            desc: "Detects silence and, when the specified number of seconds has passed, considers the speaker input to have ended. (Second(s))"
+            desc: "The longest single recording of the speaker audio, in seconds. Longer speech is split at this length, and the pieces still become one message while the speech goes on. 0 means no limit. It cannot be longer than the phrase timeout."
         speaker_phrase_timeout:
             label: "Speaker Phrase Timeout"
-            desc: "Transcription processing is performed at intervals of the specified number of seconds."
+            desc: "How long to wait after the last speech before what was heard becomes one message, in seconds. A shorter time shows it sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         speaker_max_phrase:
             label: "Speaker Max Queued Messages"
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."
@@ -691,7 +716,7 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription Engine Used For Speech Recognition"
-            desc: "Google needs no API key. For other cloud engines, register a key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on this PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
+            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on this PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
             engines:
                 speechcpp: "Local (speech.cpp)"
                 groq_whisper: "Groq Whisper"
@@ -780,6 +805,12 @@ config_page:
         voice_typing_mode:
             label: "Voice Typing Mode"
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
+        overlay_font_family:
+            label: "Subtitle font"
+            desc: "The font of the subtitle overlays, chosen from the fonts on this PC. Characters it does not have use this PC's usual font for their language."
+            auto: "Automatic (this PC's usual fonts)"
+            not_installed: "{{name}} (not installed)"
+            missing: "No font on this PC can show {{languages}}. Those characters are left out of the subtitles. Install a font for them, such as Noto Sans CJK, then restart the app."
 
     others:
         section_label_message_formats: "Message Formats"
@@ -840,9 +871,6 @@ config_page:
             desc:  "When enabled along with '{{convert_message_to_hiragana}}', romaji will be shown on mouse hover."
         convert_message_to_hiragana:
             label: "Show Hiragana"
-        auto_download_models:
-            label: "Download the translation model at startup"
-            desc: "When enabled, startup downloads the missing files of the built-in translation model only if you already agreed to that model and version in its download dialog. This switch alone does not grant consent. Existing files remain usable when disabled. Speech recognition and voice models are managed separately."
 
     vrchat:
         section_label_chatbox: "Chatbox"
@@ -994,7 +1022,24 @@ config_page:
         empty: "There are no features to try right now. New ones will appear here when they are added."
         # One entry per feature in src-ui/logics/configs/experimentalFeatures.ts:
         # <id>: { label: "...", desc: "What it does. Experimental: ..." }
-        items: {}
+        items:
+            tray_companion:
+                label: "Hexagram overlay"
+                desc: "Works VRCT-VOX through a hexagram hidden at the edge of the screen and the desktop captions. From the next start the app opens in the tray without its main window. Bring the mouse to the edge and half of the hexagram comes out. Turn it with the wheel, hover a triangle, and press the label that comes out to switch that feature. This feature is still being tested."
+                edge:
+                    label: "Screen edge for the hexagram"
+                    desc: "Bring the mouse to the middle of this edge and the hexagram comes out."
+                    right: "Right"
+                    left: "Left"
+                    top: "Top"
+                    bottom: "Bottom"
+                monitor:
+                    label: "Monitor for the hexagram"
+                    desc: "Choose one when there are several monitors. While the chosen monitor is unplugged, the hexagram uses the primary one."
+                    primary: "Primary monitor (default)"
+                    display: "Display {{number}} ({{width}}×{{height}})"
+                    is_primary: "(primary)"
+                    missing: "Monitor not connected (chosen before)"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1296,6 +1341,9 @@ speech_servers:
     device_named: "{{label}} ({{name}})"
     device_missing: "{{name}} (not found)"
     device_help: "Auto and GPU use a dedicated GPU before integrated graphics, and of several dedicated GPUs the one with the most memory, for AMD, Intel and NVIDIA alike. You can choose one here. Running this on the GPU that RVC uses can make RVC stop more easily."
+    cpu_build_separate: "CPU runs a CPU-only build of speech.cpp that needs no Vulkan. Auto also uses it when no GPU can be used."
+    cpu_build_shared: "CPU runs the same speech.cpp on the processor. It still needs the Vulkan library of your GPU driver (vulkan-1.dll)."
+    gpu_build_unavailable: "The GPU build of speech.cpp does not start on this PC. The Vulkan loader (libvulkan.so.1) may be missing. Auto and CPU still work on the CPU build. To use a GPU, install the Vulkan loader package (libvulkan1 or vulkan-loader) and your GPU's Vulkan driver, then open this page again."
     low_latency: "Low-latency standby (Irodori GPU)"
     low_latency_help: "While the server runs, it keeps the GPU warm with silent requests, even with TTS off, so the first speech starts sooner. Uses more power and may compete with games. Stop the server before changing this. Latency is not guaranteed."
     low_latency_warming: "Preparing low-latency standby"
@@ -1321,12 +1369,14 @@ speech_servers:
     japanese_selection: "Japanese server"
     multilingual_selection: "Other languages server"
     asr_selection: "ASR server"
+    notices:
+        speech_server_cpu_fallback: "Running on the CPU: the GPU build of speech.cpp did not start on this PC, so Auto uses the CPU build. To use a GPU, install the Vulkan loader (libvulkan.so.1) and start the server again."
     errors:
         speech_bundle_missing_or_invalid: "The bundled speech.cpp is missing or fails its check. Reinstall ASTAROT; in a development checkout, provide build/speechcpp."
         speech_server_launch_failed: "The server could not be started. Check the model files and the inference device, then start it again."
         speech_server_exited: "The server stopped unexpectedly. Check the model files and the inference device, then start it again."
         speech_server_out_of_memory: "Not enough memory. Stop other GPU applications or select CPU, save, and start the server again."
-        speech_server_vulkan_missing: "The GPU driver's Vulkan library (vulkan-1.dll) was not found. Install or update your GPU driver, then start the server again."
+        speech_server_vulkan_missing: "The Vulkan library was not found (vulkan-1.dll on Windows, libvulkan.so.1 on Linux). Install or update your GPU driver. On Linux, install the Vulkan loader package (libvulkan1 or vulkan-loader), or choose CPU. Then start the server again."
         speech_server_device_failed: "This inference device could not run the model. Update your GPU driver, or choose another device or CPU, save, and start the server again."
         speech_server_start_timeout: "The model took too long to load. Choose a smaller model or another inference device, then start it again."
         speech_server_readiness: "The server started but did not answer its health check. Start it again."
@@ -1454,6 +1504,7 @@ voice_ui:
     save_changes: "Save changes"
     select_rvc: "Use RVC for direct voice"
     select_rvc_pending: "Direct voice is set to another mode. Saving on this page switches it to RVC."
+    seed_vc_moved_to_rvc: "Seed-VC is no longer available, so voice conversion now uses RVC. Check the RVC model and runtime on this page before you start."
     rvc_latency_hint: "The converted voice comes about 0.2 s after your voice on an NVIDIA GPU and about 1.3 s on the CPU. A PC whose GPU cannot be used converts on the CPU. Converting on the CPU uses a lot of it, so other apps may slow down, and on a slow PC the voice may break up."
     rvc_running_gpu: "Converting on the GPU. The voice is about {{seconds}} s behind."
     rvc_running_cpu: "Converting on the CPU. The voice is about {{seconds}} s behind. A runtime that can use an NVIDIA GPU makes the delay smaller."
@@ -1643,6 +1694,7 @@ model_downloads:
     notice_rvc: "RVC v2 voice conversion, trained on the author's own voice according to the model card. CC BY 4.0 requires attribution: Voice model created by Saisho Utane — https://huggingface.co/Saisho-Utane — Used under the CC BY 4.0 license. Include credit in public content and project documentation, link the license, and indicate changes. Voice quality in this runtime has not yet been verified."
     notice_ppocr: "Text detection and recognition for Chat reading from PaddleOCR (PaddlePaddle), Apache-2.0. Runs on this computer's CPU; screen contents are never uploaded."
     notice_chatbox: "ASTAROT's own chatbox detector for Chat reading (YOLOX-Tiny), trained on ASTAROT's own screenshots and published under MIT. Runs on this computer's CPU; screen contents are never uploaded."
+    notice_translation: "A local translation model for ONNX Runtime, converted from the model named above. It runs on this computer; the text you translate is never uploaded. Check the license of the original model."
     notice_haas: "Japanese speech recognition with punctuation for speech.cpp 0.9.4 or later. Apache-2.0, by Third Intelligence, converted by sakasegawa. Review the model card before use."
     rvc_requirements: "This downloads only the RVC voice model and index. Conversion also needs the RVC runtime (Python environment, HuBERT and RMVPE). Download completion does not mean conversion is ready."
     notice_qwen_asr: "Speech recognition in 30 languages that detects the spoken language itself. Apache-2.0, by the Qwen team, converted by sakasegawa. 1.7B makes fewer mistakes than 0.6B (CER 9.49% against 11.89% on Common Voice Japanese in speech.cpp's measurement) but needs more space and memory. Review the model card before use."
@@ -1741,6 +1793,136 @@ model_downloads:
     scope_tts_http_vulkan: "Linux / speech.cpp 0.9.0 Vulkan: fixed-text HTTP synthesis, cancellation and restart checked. Playback and other GPUs need separate checks."
     gpu_unverified: "This GPU differs from the tested GPU. The recommendation describes memory only."
 
+# The model catalog (where models are chosen): groups by use, one card per model.
+model_catalog:
+    group:
+        japanese: "Reading Japanese"
+        multilingual: "Reading other languages"
+        asr: "Speech recognition"
+        vad: "Voice activity detection (VAD)"
+        diarization: "Telling speakers apart (optional)"
+        rvc: "Voice changer voices"
+        engines: "Speech engines you install"
+    group_help:
+        japanese: "Models that read Japanese text. A downloaded model runs in the bundled speech.cpp server."
+        multilingual: "Models that read text in other languages, such as English and Chinese, and translations."
+        asr: "Models that turn speech into text. Choose one and download it."
+        vad: "A model that finds where someone speaks. Every recognition model needs it."
+        diarization: "Needed only to label who speaks in the game audio captions."
+        rvc: "RVC voice models that change your voice."
+        engines: "Text-to-speech programs you install and start on your own PC. This app neither downloads nor installs them. Get one from its official site, start it, then choose it in \"Engine that reads Japanese\" above."
+    languages: "Languages"
+    languages_more: "{{languages}} and {{count}} more"
+    size: "Download size"
+    hardware: "Hardware"
+    terms: "Provider and license"
+    memory: "about {{memory}} of memory (measured on {{device}})"
+    tier:
+        light: "Light"
+        medium: "Medium"
+        heavy: "Heavy"
+    cpu:
+        slow: "runs on a CPU, seconds behind"
+        practical: "runs on a CPU"
+        impractical: "too slow on a CPU"
+        unverified: "not tried on a CPU"
+    gpu:
+        recommended: "GPU recommended"
+        not_needed: "no GPU needed"
+    recommended_for: "Suggested for {{languages}}"
+    fits_memory: "Fits the free memory"
+    hardware_warning:
+        badge: "May be too heavy"
+        option: "may be too heavy"
+        note: "Your PC may not be powerful enough for this model. {{reason}} This is only a guide. You can still choose and try it."
+        low_memory_gpu: "It uses about {{required}} of memory, which leaves little room on a GPU with {{available}} in total."
+        low_memory_cpu: "It uses about {{required}} of memory, which leaves little room in the {{available}} found in total."
+        no_gpu: "No GPU was found. On a CPU alone, this model may lag or break up."
+        cpu_setting: "The engine is set to run on the CPU. On a CPU alone, this model may lag or break up."
+    variant: "File type"
+    variant_of: "File type of {{model}}"
+    status:
+        not_downloaded: "Not downloaded"
+        downloaded: "Downloaded"
+        in_use: "In use"
+        working: "Downloading"
+        ready: "Verified, not applied"
+    prepare: "Check the files and get ready to use"
+    prepare_hint: "Already on this PC. To use it, check the files, then apply the model path."
+    prepare_notice: "These files are already downloaded. Nothing is downloaded; their sizes and SHA-256 are checked."
+    prepare_start: "Agree and check"
+    engine:
+        terms_notice: "The engines and their voices (voice libraries) are used under the terms on their official sites. Some voices need a credit. Read the terms before you use them."
+        languages: "Japanese"
+        get: "Get it from"
+        get_value: "The official site (this app downloads nothing)"
+        address: "Address"
+        recheck_of: "Check the connection to {{engine}} again"
+        state:
+            unchecked: "Not checked"
+            checking: "Checking"
+            connected: "Connected"
+            not_connected: "Not connected"
+            url_invalid: "Invalid address"
+        summary:
+            voicevox: "A free Japanese text-to-speech program with many character voices. Each voice has its own terms."
+            coeiroink: "A free Japanese text-to-speech program. Version 2 is supported. Voices need the credit \"COEIROINK:voice name\"."
+            aivis: "A Japanese text-to-speech program. You add voice models to it, and each model has its own license."
+            sharevox: "A free Japanese text-to-speech program, connected the same way as VOICEVOX. Some voices need a credit."
+
+# Models the user brings (#403), listed with the catalog's cards.
+user_models:
+    badge: "Your model"
+    status:
+        registered: "Registered"
+        in_use: "In use"
+        missing: "File not found"
+        changed: "File changed"
+    status_help:
+        missing: "The registered file cannot be found. If you moved or deleted it, remove the registration and register it again."
+        changed: "The file's size or modification time changed after you registered it. Check the file, then register it again."
+    file:
+        model: "Model file"
+        index: "Index file"
+    size: "File size"
+    use: "Use this model"
+    remove: "Remove registration"
+    remove_confirm: "Only the registration is removed. The files are not deleted."
+    remove_confirm_label: "Remove the registration of {{name}}"
+    remove_do: "Remove"
+    blocked_edited: "The path this model replaces has unsaved edits. Save or discard them before switching."
+    register_title: "Register a model of your own"
+    register_label: "Register a model of your own for {{group}}"
+    register_help: "Register a model file on your computer under a name to choose it next to the models above. The file is not copied or moved; only its location is remembered."
+    terms_help: "This app has not checked where a registered model comes from or its license. Check its terms yourself."
+    name: "Display name"
+    name_placeholder: "e.g. My voice"
+    drop_hint: "Drop files here to fill the fields below."
+    file_field:
+        model: "Model file ({{kind}})"
+        index: "Index file ({{kind}}, optional)"
+    register: "Register"
+    problem:
+        name_missing: "Enter a name."
+        name_long: "Names can be up to 80 characters."
+        model_missing: "Enter the path of the model file."
+        model_kind: "Choose a {{kind}} file for the model."
+        index_kind: "Choose a {{kind}} file for the index."
+        target: "Models cannot be registered for this use."
+    errors:
+        user_model_invalid: "The registration is not valid. Check what you entered."
+        user_model_name_invalid: "The name has characters that cannot be used. Remove leading or trailing spaces and line breaks."
+        user_model_path_invalid: "Enter the file's full path, starting with the drive or the root folder."
+        user_model_file_type: "This kind of file cannot be used here."
+        user_model_file_missing: "The file cannot be found. Check the path."
+        user_model_exists: "A model with the same name or the same file is already registered."
+        user_model_limit: "Up to 200 models can be registered. Remove the registrations you no longer use."
+        user_model_unknown: "This registration cannot be found. Open the page again."
+        user_model_missing: "The registered file cannot be found. Register it again."
+        user_model_changed: "The file changed after it was registered. Register it again."
+        user_models_unreadable: "The list of registrations (user_models.json) cannot be read. The file was left as it is."
+        user_models_write_failed: "The list of registrations could not be saved. Check the permissions of its folder."
+
 studio:
     toggle_sidebar: "Toggle sidebar"
     close_sidebar: "Close the sidebar"
@@ -1769,6 +1951,7 @@ studio:
     minimize: "Minimize window"
     maximize: "Maximize or restore window"
     close: "Close application"
+    close_to_tray: "Close (keeps running in the tray)"
 
 legacy_model_downloads:
     errors:
@@ -1788,6 +1971,9 @@ legacy_model_downloads:
     non_commercial: "Non-commercial use only (CC-BY-NC-4.0). This restriction also applies to the tokenizer."
     revision: "Model revision"
     review_unavailable: "Model details could not be loaded. Close this dialog and try again."
+    translation_not_published: "No translation model can be downloaded yet. The models for the new translation engine have not been published."
+    translation_own_model: "To use a model of your own, put a folder converted with tools/translation_onnx/export.py into the folder below, then restart ASTAROT. You are responsible for that model's license."
+    close: "Close"
     startup_skipped: "{{model}} was not downloaded at startup because consent for this model version is missing. Review its license and size in Settings > Translation or Speech recognition (ASR) to download it."
     consent: "I have reviewed the provider, license and size information and agree to download, including the additional files shown."
     no_start: "Downloading does not change the selected model or turn on translation or the microphone."
@@ -1856,8 +2042,7 @@ telemetry_contents:
         igpu: "integrated"
 transcription_consent:
     title: "Choose speech recognition"
-    google_notice: "Google sends microphone or speaker audio to Google’s speech service. No API key is needed."
-    google: "Use Google and continue"
+    cloud_notice: "To use a cloud engine (Groq, OpenAI, Deepgram or your own Whisper server), open the engine settings, register its API key and choose it there. Audio is then sent to that service."
     speechcpp_notice: "Local (speech.cpp) recognizes audio with a speech.cpp server on this PC. If the recognition model or the VAD model is missing, review and download them in Settings → Speech recognition (ASR) → Models and servers."
     speechcpp: "Start transcription with Local (speech.cpp)"
     cancel: "Cancel"
@@ -2050,3 +2235,28 @@ virtual_mic:
         found: "Check with a test sound that the virtual cable carries your voice to VRChat."
         missing: "No virtual cable was found. The guide shows how to install one."
         open: "Check the virtual microphone"
+
+# Experimental companion form (tray, captions, control panel); Issue #355.
+companion:
+    state_starting: "Starting"
+    state_listening: "Listening"
+    state_idle: "Not listening"
+    mic: "Microphone"
+    translation: "Translation"
+    "on": "On"
+    "off": "Off"
+    open_main: "Open VRCT-VOX"
+    close: "Close"
+    handle: "Open the control panel"
+    menu_start: "Start recognition"
+    menu_stop: "Stop recognition"
+    menu_panel: "Open the control panel"
+    menu_main: "Open VRCT-VOX"
+    menu_quit: "Quit"
+    menu_monitor: "Monitor"
+    menu_monitor_primary: "Primary monitor"
+    menu_monitor_display: "Display"
+    menu_monitor_missing: "Monitor not connected"
+    common:
+        title: "Common settings"
+        edge: "Hide at"

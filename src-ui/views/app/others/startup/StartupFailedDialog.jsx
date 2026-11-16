@@ -25,7 +25,8 @@ const exitReason = (t, code) => {
 export const StartupFailedDialog = () => {
     const { t } = useI18n();
     const { failure, retryStartup } = useBackendStartup();
-    const { asyncCloseApp } = useWindow();
+    // Quit means quit: a failed start is not put away in the tray.
+    const { asyncQuitApp } = useWindow();
 
     const reason = failure?.kind === "exit"
         ? exitReason(t, failure.code)
@@ -45,7 +46,7 @@ export const StartupFailedDialog = () => {
                 <button type="button" className={styles.retry} autoFocus onClick={retryStartup}>
                     {t("common_error.backend_startup_retry")}
                 </button>
-                <button type="button" className={styles.quit} onClick={asyncCloseApp}>
+                <button type="button" className={styles.quit} onClick={asyncQuitApp}>
                     {t("common_error.backend_startup_quit")}
                 </button>
             </div>

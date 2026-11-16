@@ -1,31 +1,18 @@
 //! Which API URLs the user may save (`src-python/models/network_policy.py`).
 //!
-//! The check is local: no DNS and no request. Plain HTTP is allowed only to a literal local
-//! address (`localhost`, loopback, private networks, link-local); everything else needs HTTPS.
-//! A URL may not carry user info, a fragment, a backslash, port 0 or a query parameter whose
-//! name looks like a secret.
-
-use std::net::IpAddr;
+//! The check is local: no DNS and no request. Plain HTTP is allowed only to this PC and the LAN
+//! ([`is_local_host`]: `localhost`, loopback, the private IPv4 ranges, link-local, IPv6 unique
+//! local addresses and `.local` names); everything else needs HTTPS. A URL may not carry user
+//! info, a fragment, a backslash, port 0 or a query parameter whose name looks like a secret.
+//! When it connects, the HTTP client of `vrct_translation` also refuses plain HTTP to a name
+//! that resolves outside this PC and the LAN.
 
 /// The saved URLs checked when the settings are read.
-pub const CUSTOM_URL_KEYS: [&str; 3] = ["LMSTUDIO_URL", "OPENAI_COMPATIBLE_URL", "TRANSCRIPTION_CUSTOM_URL"];
+pub const CUSTOM_URL_KEYS: [&str; 4] = ["LMSTUDIO_URL", "OLLAMA_URL", "OPENAI_COMPATIBLE_URL", "TRANSCRIPTION_CUSTOM_URL"];
 
+/// The rule of the HTTP client, so that a URL saved here is one it will use.
 pub fn is_local_host(host: &str) -> bool {
-    if host.to_lowercase().trim_end_matches('.') == "localhost" {
-        return true;
-    }
-    match host.parse::<IpAddr>() {
-        Ok(IpAddr::V4(v4)) => {
-            let o = v4.octets();
-            o[0] == 127 || o[0] == 10 || (o[0] == 172 && (16..=31).contains(&o[1])) || (o[0] == 192 && o[1] == 168)
-                || (o[0] == 169 && o[1] == 254)
-        }
-        Ok(IpAddr::V6(v6)) => {
-            let s = v6.segments();
-            v6.is_loopback() || (s[0] & 0xfe00) == 0xfc00 || (s[0] & 0xffc0) == 0xfe80
-        }
-        Err(_) => false,
-    }
+    vrct_translation::http::is_local_host(host)
 }
 
 /// The parts of a URL as `urllib.parse.urlsplit` gives them.
@@ -155,6 +142,7 @@ mod tests {
         for ok in [
             "", "https://api.openai.com/v1", "http://127.0.0.1:1234/v1", "http://localhost:11434", "http://192.168.1.20:1234/v1",
             "http://[::1]:8080/v1", "https://api.example.com/v1?model=x", "http://LOCALHOST./v1", "http://10.1.2.3",
+            "http://studio.local:1234/v1", "http://[fd00::5]:11434", "http://169.254.10.2:8080",
         ] {
             assert!(validate_api_url(ok, true).is_ok(), "{ok}");
         }
@@ -163,6 +151,7 @@ mod tests {
             "https://api.example.com/v1#frag", "ftp://x", "https://api.example.com:0/v1", "https://a b", "https://a\\b",
             "https://api.example.com/v1?Access-Token=1", "https://x/?sig=1", "https://x/?code=1", "https:///v1",
             "https://[::1/v1", "https://api.example.com:99999/", "https://api.example.com:12a/", "http://172.32.0.1",
+            "http://100.64.0.1:11434", "http://studio.local.example.com/v1", "http://[2001:db8::1]:1234",
         ] {
             assert!(validate_api_url(bad, true).is_err(), "{bad}");
         }
