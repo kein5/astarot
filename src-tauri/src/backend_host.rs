@@ -50,14 +50,21 @@ fn main_only(window: &tauri::WebviewWindow) -> Result<(), String> {
     if window.label() == "main" { Ok(()) } else { Err("backend_forbidden".into()) }
 }
 
-/// Where settings, logs and models live: the same folders the Python sidecar used, so that a
-/// user's settings carry over (`runtime_paths.py`, `config.py`).
-/// Where the settings live (config.json), as the backend finds it.
+/// Where the settings live (config.json), as the backend finds it. Only the folders: the start-up
+/// reads it before the window shows, and the compute devices would start ONNX Runtime (#425).
 pub(crate) fn state_dir(executable: &Path) -> PathBuf {
-    environment(executable, String::new()).state_dir
+    folders(executable).state_dir
 }
 
-fn environment(executable: &Path, version: String) -> Environment {
+/// Where settings, logs and models live: the same folders the Python sidecar used, so that a
+/// user's settings carry over (`runtime_paths.py`, `config.py`).
+struct Folders {
+    state_dir: PathBuf,
+    app_dir: PathBuf,
+    data_dir: PathBuf,
+}
+
+fn folders(executable: &Path) -> Folders {
     let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     let linux_bundle = cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1");
     let xdg = |variable: &str, override_variable: &str, fallback: &str| {
@@ -72,6 +79,11 @@ fn environment(executable: &Path, version: String) -> Environment {
         if linux_bundle { xdg("XDG_CONFIG_HOME", "VRCT_CONFIG_DIR", ".config") } else { app_dir.clone() }
     });
     let data_dir = if linux_bundle { xdg("XDG_DATA_HOME", "VRCT_DATA_DIR", ".local/share") } else { app_dir.clone() };
+    Folders { state_dir, app_dir, data_dir }
+}
+
+fn environment(executable: &Path, version: String) -> Environment {
+    let Folders { state_dir, app_dir, data_dir } = folders(executable);
     Environment {
         version,
         state_dir,
