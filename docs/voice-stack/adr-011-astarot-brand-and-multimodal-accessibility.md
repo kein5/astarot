@@ -56,16 +56,18 @@ Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`do
 
 | 用途 | 仕様 |
 | --- | --- |
-| ロゴタイプ | `ASTAROT`、**Space Grotesk Bold (700)**、大文字、字間は調整値を使用（目安 `0.04em`） |
-| 英語 UI／見出し | Space Grotesk Medium / SemiBold |
+| ロゴタイプ | `ASTAROT`、**Outfit Bold (700)**、大文字、字間はキャップハイト 130 単位で字間あたり約 7.26 単位（約 `0.04em`） |
+| 英語 UI／見出し | Outfit Medium / SemiBold |
 | 日本語 UI | Zen Kaku Gothic New を第一候補とし、フォールバックと既存ユーザーの書体設定を維持する |
 | コード・ログ | 設定可能な等幅フォント。ブランド用書体を強制しない |
 | サブタイトル | 上記の正式英文を一字一句維持し、狭い画面では折り返しまたは省略してアイコンだけを用いる |
 
-**Wordmark のパスは Space Grotesk Bold (700) の実フォントをアウトライン化したものである。** 参照画像のトレースではない。`wordmark-reference-outline.svg` と横長・縦長のロゴはこのアウトラインを使う。
+**Wordmark のパスは Outfit Bold (700) の実フォントの輪郭をアウトライン化したものである。** 参照画像のトレースではない。`wordmark-reference-outline.svg` と横長・縦長のロゴはこのアウトラインを使う。ロゴタイプと英語 UI・見出しの書体は 2026-11-16 に Space Grotesk から Outfit に変えた。11節の Space Grotesk の記述は、変える前の記録である。
+ワードマークの作り方と、ワードマークとサブタイトルを組むときのサイズの要件（ロックアップ）は `docs/brand/astarot/typography-and-lockup.md` にある。
 参照画像に描かれた `ASTAROT` の輪郭をトレースして整えたものは、比較用の別案として `wordmark-alt-traced.svg` に残す。ロゴには使わない。
 PNGの小さな本文・サブタイトルは利用環境に応じて代替書体でレンダリングされうる。
 
+サブタイトルなどを Outfit で表示するため、Outfit のフォントファイル（SIL Open Font License 1.1）をアプリに同梱する。同梱の実装は P1 の UI の作業で行う。ライセンスは `NOTICE.md` と `licenses/outfit/` に記録した。
 フォントファイルをアセットに埋め込む場合はライセンス・配布物・表示崩れを別途検証する。**リモートフォントの自動読み込みはしない。** リポジトリの既存 UI フォント設定を勝手に置換しない。
 
 ### 3.3 カラートークン
@@ -81,7 +83,7 @@ PNGの小さな本文・サブタイトルは利用環境に応じて代替書�
 
 ### 3.4 アセット管理
 
-配置先：`docs/brand/astarot/`。シンボルの正本は均一版の `symbol-light.svg`。`reference-brand-guide.png` と `reference-mark-crop.png` は構図の参照として残す。`tools/astarot_brand_from_reference.py` は参照画像をトレースした旧版を生成するツールで、現在の均一版は再現しない。実行すると均一版を旧版で上書きする。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
+配置先：`docs/brand/astarot/`。シンボルの正本は均一版の `symbol-light.svg`。`reference-brand-guide.png` と `reference-mark-crop.png` は構図の参照として残す。`tools/astarot_brand_from_reference.py` は、Outfit Bold からワードマークを作り、`symbol-light.svg` のシンボルと組んで、ワードマーク、横長・縦長のロゴ、ブランドボードの SVG を生成する。`--check` を付けると、何も書かずに現在のファイルと一致するかを確かめる。シンボル、アイコン、favicon のファイルと PNG は生成しない。使うフォントと実行の方法はツールの先頭に書いてある。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
 
 現行 `docs/brand/` には `VRCT-VOX` のアイコン・ロゴ・生成ツール `tools/brand_assets.py` がある。**移行承認までこれらを上書きしない。** 実装段階で既存パイプラインに ASTAROT 原版を登録して、UI、README、Tauri の OS アイコン、インストーラー、AppImage などを一括生成・検証する。
 
@@ -125,13 +127,13 @@ PNGの小さな本文・サブタイトルは利用環境に応じて代替書�
 
 **画像ベースの受け入れゲート**：均一版のシンボルを `reference-brand-guide.png` と `reference-mark-crop.png` に並べて人が比較し、構図（星と吹き出しの接触、円環、三点、比率）が保たれていることを確認する。線の太さと三角形の形は均一版のSVGを基準にする。
 
-**機械的検証**：共通パスが全SVGで同一であることを確かめる。均一版を生成するツールはリポジトリにまだない。生成ファイルを検査する際は最小16pxから大サイズまで視認性をレビューする。
+**機械的検証**：共通パスが全SVGで同一であることを確かめる。均一版のシンボルを生成するツールはリポジトリにまだない。ワードマーク、ロゴ、ブランドボードは `tools/astarot_brand_from_reference.py --check` で現在のファイルと一致するかを確かめられる。生成ファイルを検査する際は最小16pxから大サイズまで視認性をレビューする。
 
 - 主要画像・SVG に `ASTAROT` の文字列が正しく表記される。
 - 正式サブタイトルが `Speech, Translation, Accessibility, Revoicing & OCR Toolkit` と一致する（HTML/SVG 内の `&amp;` はレンダリング後 `&` となる）。
 - 通常ロゴ・反転ロゴ・アプリアイコン・favicon のシンボルは同じ円環、同じ六芒星、同じ接する吹き出し、同じ三点を用いる。
 - 16/32/64/128/512px でシンボルが認識でき、縮小時に線・点が接触して潰れないことを目視で評価する。必要なら光学補正し、統一モチーフは変えない。
-- ロゴタイプは Space Grotesk Bold (700) を指定し、実配布環境で使用可能なライセンス済みフォントまたはアウトライン化済み字形で表示する。
+- ロゴタイプは Outfit Bold (700) を指定し、実配布環境で使用可能なライセンス済みフォントまたはアウトライン化済み字形で表示する。
 - ライト・ダークの単色版を備える。アクセント色だけに意味を依存しない。
 - 既存ユーザーのデータ・設定・音声経路を変更しない。ブランド画像作成のみで機能や識別子を移行しない。
 
