@@ -234,23 +234,23 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 | もの | どこに | いまの状態 | 扱い |
 |---|---|---|---|
 | Google・Bing・Papago の Web 翻訳 | 上流の `translator_engines`（配布しない）、`translation_translator.py` の分岐とタイムアウト、言語の表の列、UI の `translator_status`、仕様のタイムアウトの記述 | どのビルドでも動かない。中核は「使えない」と示していた | **消した**（遺産）。エンジンの一覧と UI の選択肢と仕様から外した。言語の表の列は残す（17、利用者から見える）。各社の公式 API は別のもので、追加の候補は 32 |
-| CTranslate2 での推論 | `translation_translator.py` の `changeCTranslate2Model`、`translateCTranslate2` | Python と一緒に配布物から消えた | **置き換える**（1 で決める） |
+| CTranslate2 での推論 | `translation_translator.py` の `changeCTranslate2Model`、`translateCTranslate2` | Python と一緒に配布物から消えた | **置き換えた**。`native/translate-onnx`（「決まったこと」） |
 | transformers のトークナイザと遅い読み込み | `translation_utils.py` の `loadTransformers`、`UNLOADED`、`CTranslate2TokenizerLoadError` | Python だけ | **消える**。中核に移さない |
-| `native/translate-onnx`、中核の機能 `onnx-translation`、`controller/translation_onnx.rs`、`tools/translation_onnx/` | Rust と道具 | 既定でオフ。モデルは未公開 | **1 の決定まで残す**。(b) なら消す |
+| `native/translate-onnx`、中核の機能 `onnx-translation`、`controller/translation_onnx.rs`、`tools/translation_onnx/` | Rust と道具 | 既定でオン。アプリでも有効。モデルは未公開 | **使う**（「決まったこと」） |
 | ローカル翻訳の継ぎ目 `LocalTranslation`（`Services::local_translation`） | 中核 | 偽のエンジンで試験済み | **残す** |
-| CTranslate2 の重みの取得（`/run/download_ctranslate2_weight`、起動時の自動取得、カタログの `legacy_models`、`LEGACY_MODEL_DOWNLOAD_CONSENTS`） | Python | 引退させた | **1 の決定で置き換える**。(b) なら中核に戻す |
-| 取得の通知（`download_progress_ctranslate2_weight`、`downloaded_ctranslate2_weight`、`error_ctranslate2_weight`）、`WEIGHT_CTRANSLATE2_DOWNLOAD`、`dispatch.rs` の `request_error_result` | 中核の `RUN_MAPPING` とエラーの表 | 中核は送らない | **1 の決定まで残す**。(b) なら使う。(a) か (d) なら消す |
-| UI の重みの取得（設定の翻訳のダウンロードのボタン、`LegacyModelDownloadDialog`、`TranslationSetupController`、`legacyModelConsent.js`、起動時の取得の表示） | UI と `locales/` | 中核では確認が進まない行き止まり | **置き換える**（29、利用者から見える） |
-| 重みの固定（版、サイズ、SHA-256）と確認の記録（`.weight_verified.json`） | `builtin_model_pins.py`、`legacy_model_downloads.py` | 中核にない | (b) なら Rust に移す。(a) ならカタログが置き換える |
+| CTranslate2 の重みの取得（`/run/download_ctranslate2_weight`、起動時の自動取得、カタログの `legacy_models`、`LEGACY_MODEL_DOWNLOAD_CONSENTS`） | Python | 引退させた | **置き換えた**。モデル取得のカタログの対象 `translation`（項目はモデルの公開待ち、1） |
+| 取得の通知（`download_progress_ctranslate2_weight`、`downloaded_ctranslate2_weight`、`error_ctranslate2_weight`）、`WEIGHT_CTRANSLATE2_DOWNLOAD`、`dispatch.rs` の `request_error_result` | 中核の `RUN_MAPPING` とエラーの表 | `downloaded_ctranslate2_weight` だけを、カタログから取得したときに送る | 残りは**消せる**（37） |
+| UI の重みの取得（設定の翻訳のダウンロードのボタン、`LegacyModelDownloadDialog`、`TranslationSetupController`、`legacyModelConsent.js`、起動時の取得の表示） | UI と `locales/` | 行き止まりを直した。共通の取得の画面を出すか、未公開と自分のモデルの置き場所を示す | **置き換えた**（29） |
+| 重みの固定（版、サイズ、SHA-256）と確認の記録（`.weight_verified.json`） | `builtin_model_pins.py`、`legacy_model_downloads.py` | 中核にない | **消える**。カタログが置き換える |
 | 旧フォルダ名（`m2m100_418M`、`m2m100_12b`）の付け替え | `translation_utils.py` の `backwardCompatibleRenameWeightsDir` | 中核に移していない | **消える**。移さない |
-| 旧 CTranslate2 の重みを消す処理 | `legacy_weights.rs`、`Services::retire_legacy_translation_weights`、`tests/legacy_weights.rs` | 0.5.0 で有効 | 決まったこと。(b) か (c) なら出す前に止める（1） |
-| 重みの選択と非商用の同意（`CTRANSLATE2_WEIGHT_TYPE`、`SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST`・`_DICT`、`CTRANSLATE2_LICENSE_NOTICE_SHOWN`、`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`、`WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE`）とエンジンの ID `CTranslate2` | 中核と UI | 移した | **残す**。設定と IPC の契約なので名前は変えない。(a) でも同じ値でモデルを選ぶ |
+| 旧 CTranslate2 の重みを消す処理 | `legacy_weights.rs`、`Services::retire_legacy_translation_weights`、`tests/legacy_weights.rs` | 0.5.0 で有効 | 決まったこと |
+| 重みの選択と非商用の同意（`CTRANSLATE2_WEIGHT_TYPE`、`SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST`・`_DICT`、`CTRANSLATE2_LICENSE_NOTICE_SHOWN`、`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`、`WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE`）とエンジンの ID `CTranslate2` | 中核と UI | 移した | **残す**。設定と IPC の契約なので名前は変えない。同じ値で ONNX のモデルを選び、自分で用意したモデルは `custom:<フォルダ名>` として一覧に足す（35） |
 | NLLB を既定にしていた古い設定の知らせ | `config.py`、中核の `notify_after_start` | 移した | **残す** |
-| 計算デバイスと計算型（`SELECTED_TRANSLATION_COMPUTE_DEVICE`・`_TYPE`、`SELECTABLE_COMPUTE_DEVICE_LIST`、UI の ComputeDevice） | 中核と UI | 中核の一覧は CPU だけ | **残す**。(b) なら値をそのまま使う。(a) なら読み替える（1） |
-| `getBestComputeType`（`auto` の解き方）と CUDA の機器の一覧 | `utils.py` | 中核は CPU の固定の一覧 | **消える**。(b) なら CTranslate2 の `auto` に任せる |
-| GPU のメモリー不足（`detectVRAMError`、`LocalError::OutOfMemory`、`TRANSLATION_VRAM_*`、4 つの通知、UI の処理と文言） | Python、中核、UI | CPU だけなので起きない | **1 の決定まで残す**（30） |
+| 計算デバイスと計算型（`SELECTED_TRANSLATION_COMPUTE_DEVICE`・`_TYPE`、`SELECTABLE_COMPUTE_DEVICE_LIST`、UI の ComputeDevice） | 中核と UI | 中核の一覧は CPU と、読み込んだ ONNX Runtime の GPU の実行プロバイダ | **残して読み替えた**（「決まったこと」） |
+| `getBestComputeType`（`auto` の解き方）と CUDA の機器の一覧 | `utils.py` | 中核は実行プロバイダから一覧を作る | **消える** |
+| GPU のメモリー不足（`detectVRAMError`、`LocalError::OutOfMemory`、`TRANSLATION_VRAM_*`、4 つの通知、UI の処理と文言） | Python、中核、UI | GPU の実行プロバイダで起こりうる | **残す**（「決まったこと」、30） |
 | CUDA 版の配布物（CTranslate2 のための `_internal/nvidia`） | 配布 | 中身は標準版と同じ | 20 で決める |
-| ローカル翻訳の言語の表（重みごとの表） | `translation_languages.json` | 移した | **残す** |
+| ローカル翻訳の言語の表（重みごとの表） | `translation_languages.json` | 移した | **残す**。自分で用意したモデルは自分の表か、同じアーキテクチャの表から作る（35） |
 | オンラインのプロバイダ（DeepL、Plamo、Gemini、OpenAI、Groq、OpenRouter、LM Studio、Ollama、OpenAI 互換）、プロンプト、履歴、モデル一覧の短い保持、タイムアウト | `native/translation`、`controller/translation.rs` | 中核のクライアントに移した。利用者のキーで中核から呼ぶ | **残す**。取捨は 31、プロキシは 18 |
 | 失敗したときローカル翻訳へ切り替える動き（`changeToCTranslate2Process`） | 中核の `fall_back_to_local` | 移した | **残す**。ローカル翻訳がない間は元の文で送る |
 
@@ -265,12 +265,22 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 - **使えないエンジンの選択（2026-11-16）**。起動時の確認に失敗したエンジンは Python と同じに扱います。LM Studio、OpenAI 互換、Ollama、Groq・OpenAI・カスタムの Whisper、Deepgram は、モデルの一覧と選択を消します（Deepgram は言語の表も）。ほかのエンジンの選択は残します。翻訳と音声認識のプロバイダは Rust に移り、起動時に Python と同じ確認をします。キーの扱いは 25 です。
 - **旧 CTranslate2 の重み（2026-11-16: 消す）**。`/run/download_ctranslate2_weight`、起動時の自動取得、カタログの `legacy_models` は中核に移さず、引退させました。重みのフォルダ（`<データ>/weights/ctranslate2/` の、Python が作った 7 つの名前）は起動の後で消します（`CORE_IS_DEFAULT`、0.5.0 で有効）。リンクやジャンクションはたどらず、ほかのファイルには触れません。ローカル翻訳との関係は 1、知らせ方は 26 です。
 - **読みの解析器（2026-11-16: sudachi.rs）**。読み（ひらがな・ローマ字）の形態素解析は、Python の SudachiPy の中身にあたる sudachi.rs（Apache-2.0）で、Python と同じ分割モード C と SudachiDict を使います。152 文で比べ、SudachiDict full では Python とすべて同じ読みになりました。lindera と vibrato（IPADIC、NAIST-JDIC、UniDic）は 17〜88 文で読みが違ったので外しました。比較の表と外した理由は 3 にあります。sudachi.rs は crates.io にないので、git の依存としてタグ v0.6.11 のコミットに固定しました（`native/translation` の機能 `sudachi`）。配布物に入れる辞書の版は 3 で決めます。
+- **ローカル翻訳のエンジン（2026-11-16: ONNX Runtime）**。1 の (a) の `native/translate-onnx` にしました。旧 CTranslate2 の重みは引退のままです。オーナーの決定は次のとおりで、どれも中核とアプリにつなぎました。比較の表は 1、実行プロバイダと量子化の表は `native/translate-onnx/README.md` にあります。
+    - **CPU と、AMD・NVIDIA・Intel の GPU**。実行プロバイダは CPU、DirectML（Windows。3社の GPU）、CUDA（NVIDIA）、OpenVINO（Intel）、MIGraphX（Linux の AMD）、WebGPU を扱います。ROCm は ONNX Runtime から消えたので扱わず、TensorRT は入力の形ごとにエンジンを作るので一覧に出しません。どれがあるかは読み込んだ ONNX Runtime のライブラリで決まり、設定の計算デバイスの一覧（`SELECTABLE_COMPUTE_DEVICE_LIST`）に `device` を `directml`、`cuda` などとして出します（CPU は今までどおり `cpu`）。設定の名前と IPC の契約は変えていません。選んだ実行プロバイダが始められないときは CPU で動かし、ログと通知で知らせます（36）。
+    - **選べる量子化**。float32、float16、int8、int4 の4つの形を `export.py` で作れるようにし（実際に作って計ったのは int8 と float32）、設定の計算型（`SELECTED_TRANSLATION_COMPUTE_TYPE`）を形に読み替えます（`auto` は CPU なら int8、GPU なら float16 を先に選ぶ。`int8_float32` は int8。`int4` を CPU と CUDA の一覧に足した）。
+    - **自分で用意したモデル**。`<データ>/translation-models/<フォルダ名>/` に M2M100 か NLLB を置けます。検査して重みの一覧と言語の表に足します。細かいところは 35。
+    - **同意のフロー（33 の方針）**。翻訳のモデルも共通のモデル取得のカタログ（`native/ops`、対象 `translation`）から、提供元、ライセンス、容量、SHA-256 を見せて同意を得てから取得します。モデルはまだ公開していないので、出荷するカタログに項目はありません（1）。設定の画面の行き止まりは直しました（29）。
+    - **ビルド**。中核の機能 `onnx-translation` を既定でオンにし、アプリでも有効にしました。ONNX Runtime は OCR と同じく実行時に読み込むので（`load-dynamic`）、ビルドで何も取得もリンクもしません。試験はモデルなしで動く形です（Windows で通しました。Linux ではまだ動かしていません）。アプリの実行ファイルが増えるのは `tokenizers` などの分で、単体のコマンド（`vrct-translate`、release）で 4.4 MB が上限の目安です。どの ONNX Runtime のライブラリを配るかは 2 です。
+- **GPU のメモリー不足の経路（2026-11-16: 残す）**。GPU の実行プロバイダを使うので、`TRANSLATION_VRAM_*`、`TRANSLATION_DISABLED_VRAM`、4つの通知、UI の処理と文言を残しました（30）。
 
 ### 決めてほしいこと
 
-1. **ローカル翻訳のエンジン（0.5.0）**。Python の CTranslate2 は配布物から消えました。いまの中核にはローカル翻訳がありません。翻訳を有効にすると `TRANSLATION_MODEL_MISSING` になり、オンラインのプロバイダの翻訳と、失敗したときに元の文で送る動きだけが残ります。2026-11-16 に、アプリに組み込める OSS と `native/translate-onnx` を比べました（下の表）。一つに決めきれなかったので、どれもつないでいません。
+1. **ローカル翻訳の残り**。エンジンは ONNX Runtime（`native/translate-onnx`）に決まりました（「決まったこと」）。中核とアプリでつなぎ、偽のモデルの試験も入れました。残っているのは次のとおりです。
+    - **モデルの公開**。`export.py` で作ったフォルダを公開し、モデル取得のカタログ（`native/ops` の `catalog.rs`、対象 `translation`）に載せるまで、利用者は組み込みのモデルを取得できません。公開は外部への操作なので、保守担当者が確かめてから行います。載せるには、公開先のリポジトリと固定したコミット、各ファイルの大きさと SHA-256、元のモデルのライセンスのリンク、`notice` に `translation`、ID に `<モデル>-onnx-<形>`（小文字、`_` と `.` は `-`。`m2m100-418m-onnx-int8`）を書き、`CATALOG_VERSION` を上げます。NLLB（CC-BY-NC-4.0）は既定にしません。どのモデルとどの形を公開するか（少なくとも M2M100 418M の int8、GPU 用に float16 か）を決めてください。418M の int8 は約 506 MB です。
+    - **CPU と GPU での計測**。形と実行プロバイダの組み合わせのうち、実際のモデルで計ったのは CPU の int8 と float32 だけです（34）。
+    - **0.4 からの利用者**。旧 CTranslate2 の重みは消すので（「決まったこと」）、ローカル翻訳を使っていた利用者は、モデルが公開されるまでローカル翻訳を使えません。その間、翻訳を有効にすると「モデルがない」と出て、取得の画面は「まだ公開していない」と自分のモデルの置き場所を示します（29）。
 
-    **先に決めてほしいこと**。旧 CTranslate2 の重みは 0.5.0 で起動の後に消します（「決まったこと」）。下の (b) か (c) を選ぶなら、その重みを読むので、0.5.0 を出す前に消す処理を止める必要があります（`backend_host.rs` の `retire_legacy_translation_weights` を `false` にする 1 行）。消した重みは戻せません。消さずにおけば、あとで消すことはできます。今回は決まったことに従い、消す処理はそのままにしました。
+    **エンジンを選んだときの比較（2026-11-16）**。アプリに組み込める OSS と `native/translate-onnx` を比べました。
 
     | 候補 | ライセンス（エンジン） | 配布の形 | ビルドへの影響 | 配布物の増え方 | モデル | 速さ（30 文、この PC） | Python との一致（30 文） |
     |---|---|---|---|---|---|---|---|
@@ -285,21 +295,17 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 
     計測は Windows 11、Intel Core i7-1255U のノート PC で、ほかのビルドを止めて 1〜2 回ずつ行いました。モデルは手元の `m2m100_418M-ct2-int8`、スレッドは 4、計算型は int8 です。Python 側はアプリと同じ手順（`translateCTranslate2` と同じトークナイザ、ビーム 5、256 トークン、終了トークンの確認）です。Rust 側は同じ手順を `ct2rs-sys` と SentencePiece で書きました。文は VRChat の会話を想定した日本語 30 文と英語 30 文です。時間はモデルの読み込みを含みません（読み込みは Python が 1.6〜5.5 秒、`ct2rs` が 0.7〜2.5 秒）。違った訳はどれも言い換えの範囲でした（「少しゆっくり」と「もう少しゆっくり」、「かわいい」と「かわいいです」など）。Python も oneDNN 版も、計算ライブラリが違うと int8 の丸めが変わって訳が少し変わります。
 
-    技術の面では a が先です。CPU で Python との差が小さく、C++ のビルドがなく、ONNX Runtime を OCR と共有し、Windows では DirectML で GPU も使えます。b は今の重みとダウンロードの仕組みをそのまま使える点が先です。ただし Python の 1.8〜3.2 倍の時間がかかり、アプリ全体の CRT を変え、両方の OS の CI に C++ のビルドを足します。選べる形は次のとおりです。
-    - (a) `translate-onnx` にする。モデルを公開してカタログに載せ（公開は外部への操作なので保守担当者の確認が要る。NLLB は CC-BY-NC-4.0 なので既定にしない）、2 を決めて `onnx-translation` を有効にする。利用者は 418M なら約 500 MB を取り直す。計算型は使わず CPU か DirectML で動かすので、設定の計算デバイスと計算型を読み替える（`controller/translation_onnx.rs` は今どの値でも CPU）。モデルの置き場所（いまは仮に `<データ>/weights/translate-onnx/<モデル>-onnx-int8/`）も決める。
-    - (b) `ct2rs` にする。消す処理を止め、`ct2rs-sys` と SentencePiece と `tokenizers` を包むクレートを作る。CTranslate2 の重みの取得（`/run/download_ctranslate2_weight` とカタログの `legacy_models`）を中核に戻すと、UI はそのまま動く。計算型の設定（`auto`、`float32`、`int8`、`int8_float32`）はそのまま CTranslate2 に渡せる。引退させたエンドポイントを戻すので、ここで決める必要がある。
-    - (c) 0.5.0 は (b) で今の重みを使い続け、あとで (a) に移る。作業は二重になる。
-    - (d) 0.5.0 はローカル翻訳なしで出す（いまの状態）。
+    (a) を選んだ理由は、CPU で Python との差が小さく、C++ のビルドがなく、ONNX Runtime を OCR と共有でき、実行プロバイダで AMD、NVIDIA、Intel の GPU を使えることです。
+2. **ONNX Runtime の配り方**。OCR（`ocr-runtime`）とローカル翻訳（`translate-onnx`）は、どちらも `ort`（2.0.0-rc.15）の `load-dynamic` で ONNX Runtime を実行時に読み込みます（「決まったこと」）。ビルドでは何も取得もリンクもしません。`ORT_DYLIB_PATH`、実行ファイルの隣の `onnxruntime.dll`（Linux は `libonnxruntime.so`）、名前だけでの検索の順で探し、プロセスで最初に読み込んだ1つを両方が使います。いまは何も配っていないので、ライブラリを手で置くか `ORT_DYLIB_PATH` を指定したときだけ動きます。翻訳の計算デバイスの一覧は、起動の時に実行ファイルの隣にライブラリがあればそれを読み込み、入っている実行プロバイダから作ります（`compute_devices()`。なければ CPU だけで、何も読み込みません）。決めてほしいのは、どのライブラリをどこから配るかです。
 
-    どれでも `native/translate-onnx` か `ct2rs` のどちらか一方は消せます。棚卸しは「翻訳の棚卸し」にあります。
-2. **ONNX Runtime の配り方**。OCR（`ocr-runtime`）、ローカル翻訳（`translate-onnx`）、Silero VAD（13）は `ort`（2.0.0-rc.15）で ONNX Runtime を使います。`ort` の features はアプリ全体で 1 つにまとまるので、配り方は 1 つに決める必要があります。選べる形は次の 3 つです。
-    - **静的リンク（`download-binaries`）**。`ocr-runtime` 単体の既定です。ビルドのときに `ort` の作者（pyke）が配る ONNX Runtime 1.31.0 を取得してアプリの実行ファイルに入れます。ビルドにネットワークが要ります。Windows 版は DirectML の実行プロバイダを含み、`DirectML.dll`（17.7 MB）にリンクするので、これを実行ファイルの隣に置かないとアプリそのものが起動しない恐れがあります。取得した静的ライブラリは 343 MB で、実行ファイルがどれだけ大きくなるかは計っていません。MSVC 14.43 ではリンクできませんでした（`__std_find_first_of_trivial_pos_1` が無い）。README のとおり、公式の 1.31.1 より推論が遅く、スコアが 1e-5 ずれることがあります。
-    - **実行時の読み込み（`load-dynamic`）**。中核はいまこれを使います（`native/core/Cargo.toml` の `ocr-runtime` の features。静的リンクに戻すのはこの 1 行です）。ビルドでは何も取得もリンクもしません。チャットの読み取りを始めるときに、`ORT_DYLIB_PATH`、実行ファイルの隣の `onnxruntime.dll`（Linux は `libonnxruntime.so`）、名前だけでの検索の順でライブラリを読みます。見つからなければ読み取りの準備で `engine: false`、オンにすると `OCR_DISABLED_ENGINE_UNAVAILABLE` になり、アプリのほかの機能には響きません。配るときは公式の ONNX Runtime（1.31.x、MIT）を実行ファイルの隣に置くか、声質変換の worker と同じく同意を得て公式のリリースから取得します。`utils/zip.py` は `onnxruntime.dll`、`onnxruntime_providers_shared.dll`、`DirectML.dll` があれば `vrct-vox.exe` の隣に収めます。いまはまだ何も置いていないので、中核のチャットの読み取りは、ライブラリを手で置くか `ORT_DYLIB_PATH` を指定したときだけ動きます。Python の配布物の `onnxruntime` は 39.3 MB でした。
-    - **システムのライブラリ（`pkg-config` や `ORT_LIB_LOCATION`）**。Linux のパッケージで配布先の ONNX Runtime を使う形です。版をそろえられないことがあります。
+    | 案 | 置くもの（Windows x64） | 増える大きさ | 使える GPU | 気をつけること |
+    |---|---|---|---|---|
+    | (a) CPU 版を同梱 | 公式の `onnxruntime.dll` 1.31.0 | 17.3 MB（Linux の `libonnxruntime.so` は tgz で 11.4 MB） | なし | いちばん小さい。OCR が試験した版と同じ |
+    | (b) DirectML 版を同梱（Windows） | NuGet の `onnxruntime.dll` 1.24.4 と `DirectML.dll` 1.15.4 | 35.8 MB | NVIDIA、AMD、Intel（DirectX 12） | DirectML は維持のみで、DirectML 版の ONNX Runtime は 1.24.4 で止まっている。OCR も同じ 1.24.4 を使うことになるので、OCR の結果を確かめ直す。`DirectML.dll` の再配布の条件を NOTICE に書く |
+    | (c) 同意を得てから取得 | 声質変換の実行環境（`native/voice-conversion` の `runtime.rs`）と同じ仕組みで、CUDA 版（309.5 MB と NVIDIA のライブラリ 1 GB 前後）、OpenVINO 版（41.0 MB と OpenVINO のランタイム）、DirectML 版（NuGet の包みで 12.5 MB と、全アーキテクチャの入った DirectML の包み 202.3 MB）などを公式の配布元から取る | 配布物は増えない | 選んだもの | 取得したライブラリを読み込むには、探す場所に取得先のフォルダを足す（いまは `ORT_DYLIB_PATH` と実行ファイルの隣だけ）。読み込みはプロセスで1回なので、取得の後は起動し直す |
+    | (d) Linux はシステムのもの | ディストリビューションの ONNX Runtime | 増えない | ビルドによる（MIGraphX は ROCm の入った環境） | 版をそろえられない |
 
-    CPU 版と DirectML 版のどちらを置くか、Linux での置き場所、NOTICE とライセンス台帳への記載も、ここで一緒に決めます。
-
-    ローカル翻訳との関係（1）: (a) の `translate-onnx` を選ぶと、その `Cargo.toml` は `download-binaries`、`copy-dylibs`、Windows では `directml` を求めます。中核の `load-dynamic` と同じビルドに入れると機能がまとまるので、有効にする前にどちらかへそろえます。(b) の `ct2rs` は ONNX Runtime を使いません。その場合 ONNX Runtime を使うのは OCR と VAD（13）だけです。
+    おすすめは、(a) を同梱して既定は CPU にし、GPU は (c) で選んだ人だけが取る形です。どの形でも、ONNX Runtime（MIT）を NOTICE とライセンス台帳に載せます（同梱するとき）。実行プロバイダごとの比べた表は `native/translate-onnx/README.md` にあります。
 3. **読み（ひらがな・ローマ字）の辞書の版と配り方**。解析器は sudachi.rs に決めて、中核につなぎました（「決まったこと」）。中核は `_internal/build/sudachi/system.dic`（開発の checkout では `build/sudachi/system.dic`）を、読みを求める最初のメッセージで開きます。決まっていないのは、配布物に入れる SudachiDict の版と、それを配布物に入れる工程です。`tools/sudachi_dictionary.py fetch --edition <版>` が公式の配布（20250825）を取得し、大きさと SHA-256 を確かめて `build/sudachi` に置きます。`tools/app_resources.py` はそれがあれば `_internal` に収めます。CI とリリースの工程（`windows-package.yml`、`build-linux.yml`、`release.yml`）にはまだこの取得を入れていません。このままでは配布物に辞書がなく、読みは出ません。読みのスイッチを入れてもメッセージは読みなしで送り、`process.log` に理由を一度だけ書きます（Python は辞書を読めないと送信ごと失敗していました）。版が決まったら、取得を各工程に足し、`app_resources.py` の `required` に `build/sudachi/system.dic` を足します。
 
     | 版 | 辞書（展開） | zip（Deflate） | xz | Python の出力と違う文（152 文中） | 開いたあとの専用メモリーの増加 |
@@ -379,8 +385,8 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 26. **旧 CTranslate2 の重みを知らせずに消すか**。古い Whisper の重みは、利用者が設定画面で頼んだときだけ消していました。CTranslate2 の重みは知らせずに消します。知らせるか、頼まれたときだけ消すかを決めてください（1 の「消すのを遅らせるか」と一緒に）。
 27. **`src-python/` を消す時期**。配布物からは外しましたが、ソースと試験は移植の仕様として残しています。消すときに一緒に片付けるものは「Python の削除に伴うもの」にあります。0.5.0 の中で消すか、0.5.0 のあとにするかを決めてください。
 28. **Python と違う内部の形（報告）**。ステータス 348 のログ行を UI へ送りません（UI は捨てていました）。`process.log` の行は JSON で書きます。中核は Python の辞書と同じ順序を保つため `serde_json` の `preserve_order` を使い、tts クレートは `arbitrary_precision` を使います。どちらもアプリ全体の `serde_json` に及びます。src-tauri の試験は通っています。
-29. **翻訳のモデルを取得する画面の行き止まり**。設定の「翻訳」には CTranslate2 の重みごとにダウンロードのボタンがあり、押すと取得の確認（`LegacyModelDownloadDialog`）が開きます。中核はカタログの `legacy_models` を空で返し、`/run/download_ctranslate2_weight` も引退させたので、確認は「読み込み中」のまま進まず、開始のボタンは押せません。起動時の「翻訳のモデルがない」の案内（`TranslationSetupController`、`setupNeeds.js`）も同じ確認を開きます。直し方は 1 の決定で変わります。(a) なら ONNX のモデルをモデル取得のカタログに載せ、この画面をモデル取得の画面へつなぎ直します。(b) なら取得を中核に戻せば画面はそのまま動きます。(d) なら翻訳の重みの選択とボタンを隠すか「使えない」と示します。どれも利用者から見える変更なので、1 と一緒に決めてください。どの形でも、提供元、ライセンス、容量を見せて同意を得てから取得する流れは保ちます（33）。
-30. **GPU のメモリー不足の経路（翻訳）**。Python は CUDA の CTranslate2 が GPU のメモリーを使い切ったときに、翻訳をオフにして知らせていました（`TRANSLATION_VRAM_CHAT`・`_MIC`・`_SPEAKER`・`_ENABLE`、`TRANSLATION_DISABLED_VRAM`、`/run/error_translation_*_vram_overflow` の 4 つの通知、UI の処理と文言）。中核の計算デバイスは CPU だけなので（`backend_host.rs` が `Environment::cpu_device()` だけを渡す）、この経路は起きません。1 で GPU を使わない形（(b) の CPU 版、または (a) の CPU 版）に決まったら、エラーコード、通知、UI の処理と文言を一緒に消せます。(a) で DirectML を使うなら残します。利用者から見える違いはありません（今も出ない）。
+29. **翻訳のモデルを取得する画面（残り）**。行き止まりは直しました（「決まったこと」）。設定の「翻訳」のダウンロードのボタンと、起動時の「翻訳のモデルがない」の案内（`TranslationSetupController`）は、同じ確認（`LegacyModelDownloadDialog`）を開きます。中核のカタログに対象 `translation` の項目があれば、その中で共通のモデル取得の画面（`ModelDownloads`。提供元、ライセンス、容量、版、SHA-256 を見せ、同意を得てから取得し、適用する）を出します。項目がないいまは、「まだ公開していない」ことと、自分のモデルを置くフォルダ（`translation_models_folder`。中核がカタログの答えに足した欄）を示し、閉じるボタンだけを出します。残っているのは、モデルを公開した後の見え方（項目の名前、どの重みの行から開いたかに合わせて絞るか）を実際の項目で確かめることです。ボタンは重みの行ごとにありますが、出す一覧は対象 `translation` の項目すべてです。
+30. **GPU のメモリー不足（残り）**。経路は残すことに決まりました（「決まったこと」）。`translate-onnx` は ONNX Runtime のエラーの文面（`out of memory`、`E_OUTOFMEMORY`、`0x8007000E`、`failed to allocate` など）から `translation_out_of_memory` を作り、中核は Python と同じ `LocalError::OutOfMemory` として `TRANSLATION_VRAM_*` と4つの通知を出します。残っているのは、実際の GPU（DirectML、CUDA）でメモリーを使い切ったときに、この文面で見分けられるかを確かめることです。見分けられないと、ふつうの読み込みの失敗（`TRANSLATION_MODEL_LOAD_FAILED`）か翻訳の失敗として扱われます。
 31. **外部のプロバイダとローカル LLM を全部残すか（#277）**。方針（2026-11-16）は「外部の翻訳 API は中核から利用者の API キーで呼ぶ」です。中核には、この PR でクライアントを作りました（`native/translation`）。Python 専用のものは残っていません。キーとモデルの確認、起動時の確認、プロンプトと履歴、時間切れ、もう一度試すこと、途中で切れた答えの扱いは Python と同じです。偽のサーバを相手にした試験も入っています（`native/translation/tests/providers.rs`、`native/core/tests/translation.rs`）。本物のサービスでは確かめていません。取捨の案は次のとおりで、どれも中核に残しています。
 
     | プロバイダ | 形 | 案 | 理由 |
@@ -405,11 +411,16 @@ PR の残課題と同じものです。決まったら、この節を更新し�
     | Amazon Translate | AWS のアクセスキー（SigV4 の署名） | 署名の処理が要る | 増えない | 認証が重い。必要になってから検討 |
 
     どれも利用者が自分のキーで契約するので、ライセンスの台帳に載せるものはありません（クライアントは自前のコード）。足すときは、言語のコードの表、キーの確認、エラーの読み替え、UI のキーの欄と `locales/` の文言（`en.yml` と `ja.yml`）、偽のサーバの試験が要ります。案は (a) 0.5.0 のあとに足す、(b) 足さない、です。0.5.0 には入れていません。
-33. **ローカル翻訳のモデルの同意のフロー**。方針（2026-11-16）は「利用者の意思でダウンロードする今の同意のフロー（提供元・ライセンス・容量の確認）を、中核でも保つ」です。中核には、提供元、ライセンス、容量、版、SHA-256 を見せて同意を得てから取得する仕組みがあります（`native/ops` のカタログと `controller/downloads.rs`。カタログの版が変わると古い同意は通らない）。音声のモデルはこれで取得しています。ローカル翻訳のモデルもこのカタログに載せ、UI の古い取得の画面（`LegacyModelDownloadDialog`）は共通の取得の画面に置き換える形にします。いまは CTranslate2 の重みの取得を引退させたので、翻訳のモデルの取得は中核では行き止まりです（29）。カタログに何を載せるかは 1 の決定によります。(a) なら ONNX のモデルを公開してから載せ、(b) なら今の固定した取得先（`builtin_model_pins.py` の版、サイズ、SHA-256）をそのまま移します。NLLB（CC-BY-NC-4.0）は既定にせず、非商用の確認は今と同じに残します。勝手に取得することはありません（起動時の自動取得は、利用者が同意した記録があるときだけ）。
-34. **ローカル翻訳の速さと使う機器**。論点は ONNX Runtime でどの機器を使うかと、量子化です。どちらも 1 と 2 の決定に関わります。
-    - **CPU だけ**。どの PC でも動き、配布物は ONNX Runtime の CPU 版だけで済みます。int8 の動的量子化で重みが約 4 分の 1 になり（418M は約 506 MB）、CPU では速くなります。`translate-onnx` はこの形で、CTranslate2 の int8 とほぼ同じ質でした（以前の計測）。音声認識や TTS（speech.cpp）と CPU を取り合うので、スレッド数（いまは 4）の決め方も論点です。
-    - **GPU も使う（Windows の DirectML）**。どの GPU でも使えますが、`DirectML.dll`（17.7 MB）が増えます。DirectML の実行プロバイダは int8 の動的量子化の演算に対応が限られるので、GPU 用には fp16 のモデルを別に用意する形になる見込みです（要確認）。GPU のメモリー不足の扱い（30）も要ります。speech.cpp が同じ GPU を使うと取り合います。
-    - **GPU も使う（CUDA）**。NVIDIA だけで、CUDA と cuDNN のライブラリ（1 GB 前後）が要ります。RVC の worker と同じく、同意を得てから取得する形になります。
-    - **量子化**。int8 の動的量子化（CPU 向け、決まった形）、fp16（GPU 向け）、int4 の重みだけの量子化（さらに小さいが、質は計っていない）があります。どの形を配るかで、カタログの項目と取得の大きさが変わります。
-
-    案は、0.5.0 は CPU と int8 だけにし、GPU はあとで計ってから任意の機能として足す、です。ほかの PC での速さはこの PC の値から言えないので、足すときは複数の PC で計ります。`ct2rs`（1 の b）を選ぶ場合は ONNX Runtime を使わず、CTranslate2 の計算型（`int8` など）と oneDNN の CPU になり、GPU は CUDA 版の CTranslate2 のビルドが別に要ります。
+33. **翻訳のモデルのカタログの項目（残り）**。同意の流れは保つことに決まり、中核のカタログで扱えるようにしました（「決まったこと」）。項目を載せるのに要るものは 1 の「モデルの公開」にあります。載せた後に確かめることは、ダウンロードの確認の文面（`model_downloads.notice_translation`）と、適用したときに重みの一覧が「取得済み」に変わること（`/run/downloaded_ctranslate2_weight`）です。後者は偽のカタログで試験しました（`tests/translation_models.rs`）。
+34. **ローカル翻訳の速さと使う機器（残り）**。実行プロバイダと量子化の形を選べるようにしました（「決まったこと」。表は `native/translate-onnx/README.md`）。残っているのは計測です。
+    - 実際のモデルで計ったのは CPU の int8 と float32 だけです（Linux の Ryzen 9 9900X と、この Windows のノート PC）。DirectML、CUDA、OpenVINO、MIGraphX、WebGPU と、float16 と int4 は、複数の PC で速さと訳の質（`compare.py`）を計ってから、既定の選び方（`auto` の順番）を決めます。ある PC での値を一般の保証にはしません。
+    - CPU のスレッド数はいまも 4 です。音声認識や TTS（speech.cpp）と CPU を取り合うので、決め方は計測と一緒に決めます。
+    - GPU では speech.cpp や RVC の worker と同じ GPU を取り合います。
+35. **自分で用意した翻訳のモデル**。`<データ>/translation-models/<フォルダ名>/` に `export.py` と同じ形のフォルダを置くと、起動の時に検査して一覧に `custom:<フォルダ名>` として出します（要件と断る理由の表は `native/translate-onnx/README.md`）。決めたのは最も控えめな形で、変えやすくしてあります。決めてほしいことは次のとおりです。
+    - 置いたモデルは起動し直すまで一覧に出ません。設定の画面から読み直すボタンを足すか。
+    - ライセンスは利用者が確かめるものとし、アプリは表示も確認もしません（重みの行に「自分で追加したモデル。ライセンスは自分で確認」と出すだけ）。`manifest.json` の `license` を表示するか、非商用のライセンスなら NLLB と同じ確認を出すか。
+    - 計算型は使わず、フォルダの形のまま動かします。GPU を選んでいて、その形が GPU に合わないときは CPU で動かして知らせます。
+    - 起動の時はファイルの大きさだけを確かめ、SHA-256 は読み込むときに確かめます（大きなモデルで起動を遅らせないため）。
+36. **計算デバイスから CPU への切り替えの知らせ**。選んだ実行プロバイダが始められず CPU で動かすとき、翻訳を有効にした時に `process.log` に理由を書き、通知 `/run/translation_compute_device_fallback`（`{requested, used, variant, reason}`。状態 200）で UI に知らせます。UI は警告の通知を出します（`common_warning.translation_device_fallback`）。エラーコードにはしませんでした。エラーコードの表（`docs/spec/reference/error-codes.md`）と IPC の一覧はまだ Python から作っているためで、この通知とカタログの欄 `translation_models_folder` は仕様の一覧に載っていません。翻訳が有効なまま重みや言語を変えて読み込み直したときは、ログには書きますが UI には知らせません。仕様の一覧を中核から作るようにするとき、一緒に載せます。
+37. **使わなくなった CTranslate2 の取得の残り**。(a) に決まったので、`/run/download_progress_ctranslate2_weight`、`/run/error_ctranslate2_weight`、`WEIGHT_CTRANSLATE2_DOWNLOAD`、`dispatch.rs` の `request_error_result`、UI の `legacyModelConsent.js` の取得の部分は使われません（`/run/downloaded_ctranslate2_weight` はカタログから取得したときに使います）。仕様と Python の試験に関わるので、この作業では消していません。`src-python/` を消すとき（27）に一緒に片付けるか決めてください。
+38. **OCR と翻訳で ONNX Runtime を共有すること**。1つのプロセスで読み込めるライブラリは1つなので、GPU 用のライブラリ（2 の (b) や (c)）を置くと、OCR もそれを使います。OCR は CPU の実行プロバイダを明示しているので動き方は変わりませんが、版が変わると（DirectML 版は 1.24.4）、OCR の結果を確かめ直す必要があります。読み込みは起動の後で最初に使ったときに1回なので、取得したライブラリに替えるには起動し直します。
