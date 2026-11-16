@@ -69,10 +69,9 @@ export const ui_configs = {
 };
 
 export const translator_status = [
+    // Upstream VRCT's web translators (Google, Bing, Papago) are not listed: their module is
+    // licensed for the official VRCT only, so VRCT-VOX could never run them.
     { id: "CTranslate2", label: `AI\nCTranslate2`, is_available: false, is_default: true },
-    { id: "Google", label: "Google", is_available: false },
-    { id: "Bing", label: "Bing", is_available: false },
-    { id: "Papago", label: "Papago", is_available: false },
     { id: "DeepL_API", label: `DeepL API`, is_available: false },
     { id: "Plamo_API", label: `Plamo API`, is_available: false },
     { id: "Gemini_API", label: `Gemini API`, is_available: false },

@@ -5,7 +5,7 @@
 //! notice the same things (a file moved aside, URLs dropped, the local ASR notice). The expected
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
 
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use std::path::Path;
 use vrct_core::config::{Config, Environment, Platform};
 
@@ -108,7 +108,14 @@ fn the_lists_the_settings_are_checked_against_are_pythons() {
     let config = Config::open(environment(dir.path(), Platform::current(), &reference));
     let lists = &reference["platforms"]["win32"]["lists"];
     assert_eq!(config.get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST"), lists["selectable_transcription_engines"]);
-    assert_eq!(config.get("SELECTABLE_TRANSLATION_ENGINE_LIST"), lists["selectable_translation_engines"]);
+    // Python's list without the web translators no build could run ("判断が要ること" 17).
+    let engines: Vec<&Value> = lists["selectable_translation_engines"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| !["Google", "Bing", "Papago"].contains(&e.as_str().unwrap()))
+        .collect();
+    assert_eq!(config.get("SELECTABLE_TRANSLATION_ENGINE_LIST"), json!(engines));
     assert_eq!(config.get("SELECTABLE_OCR_SOURCE_LANGUAGE_LIST"), lists["selectable_ocr_source_languages"]);
     assert_eq!(config.get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST"), lists["selectable_ctranslate2_weight_types"]);
     config.close();

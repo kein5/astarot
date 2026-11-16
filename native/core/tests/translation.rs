@@ -268,6 +268,23 @@ fn start_up_checks_each_saved_key_and_keeps_the_ones_it_cannot_confirm() {
 }
 
 #[test]
+fn the_web_translators_no_build_can_run_are_not_engines() {
+    // Upstream VRCT's Google, Bing and Papago module is licensed for the official VRCT only.
+    let fake = FakeProviders::start();
+    let (ui, _) = start(&fake, json!({ "SELECTED_TRANSLATION_ENGINES": { "1": "Google", "2": "Papago", "3": "CTranslate2" } }));
+    let snapshot = ui.ready();
+    // A tab saved with one of them reads as the default engine.
+    assert_eq!(snapshot["/get/data/selected_translation_engines"], json!({ "1": "CTranslate2", "2": "CTranslate2", "3": "CTranslate2" }));
+    let offered = snapshot["/get/data/selectable_translation_engines"].as_array().unwrap().clone();
+    for web in ["Google", "Bing", "Papago"] {
+        assert!(!offered.contains(&json!(web)), "{offered:?}");
+    }
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["SELECTED_TRANSLATION_ENGINES"]["1"], "CTranslate2");
+    ui.stop();
+}
+
+#[test]
 fn a_non_commercial_weight_needs_the_users_confirmation() {
     let fake = FakeProviders::start();
     let (ui, _) = start(&fake, json!({}));

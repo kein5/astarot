@@ -994,8 +994,8 @@ impl Core {
         if engine == LOCAL_ENGINE {
             return Checked { available: local_available, ..none };
         }
-        // Google, Bing and Papago are not shipped in VRCT-VOX (their licence allows them only
-        // in the official VRCT); Python's check let them through and every request failed.
+        // An engine without a client. The web translators Python let through (every request
+        // failed) are not in the list any more (`languages::RETIRED_WEB_TRANSLATORS`).
         let Some(provider) = Provider::from_engine(engine) else { return none };
         let config = self.config();
         let key = keys[engine].as_str().filter(|k| !k.is_empty()).map(str::to_string);
