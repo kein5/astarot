@@ -6,7 +6,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（131件）
+## config.jsonに保存するキー（132件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -32,6 +32,7 @@
 | `MIC_NO_SPEECH_PROB` | (int, float)、許可値 lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and (0 <= v <= 1) | `0.6` | 2秒後にまとめて |
 | `HOTKEYS` | 検証 lambda val, inst: {**inst.HOTKEYS, **{k: v if isinstance(v, list) or v is None else inst.HOTKEYS.get(k) for k, v in val.items()}} if isinstance(val, dict) and set(val.keys()) <= set(inst.HOTKEYS.keys()) else None | `{'open_quick_chat': None, 'toggle_vrct_visibility': None, 'toggle_translation': None, '…` | 即時 |
 | `EXPERIMENTAL_FEATURES` | 検証 lambda val, inst: experimental_features.normalize(val, inst.EXPERIMENTAL_FEATURES) | `experimental_features.defaults()` | 即時 |
+| `TRAY_COMPANION_EDGE` | str、許可値 lambda v, inst: v in inst.TRAY_COMPANION_EDGE_LIST | `'right'` | 2秒後にまとめて |
 | `SPEAKER_THRESHOLD` | int、許可値 lambda v, inst: 0 <= v <= inst.MAX_SPEAKER_THRESHOLD | `300` | 2秒後にまとめて |
 | `SPEAKER_AUTOMATIC_THRESHOLD` | bool | `False` | 2秒後にまとめて |
 | `SPEAKER_RECORD_TIMEOUT` | int、許可値 lambda v, inst: _asr_timeout_allowed(v, inst, 'SPEAKER', 'RECORD') | `3` | 2秒後にまとめて |
@@ -143,7 +144,7 @@
 | `OCR_PORTAL_RESTORE_TOKEN` | str、許可値 _ocr_portal_restore_token_validator | `''` | 即時 |
 
 
-## 保存しないキー（45件）
+## 保存しないキー（46件）
 
 実行中だけの状態、選択肢の一覧、読み取り専用の値。起動のたびに既定値や検出結果から作り直す。
 
@@ -172,6 +173,7 @@
 | `COMPUTE_MODE` |  | `'cuda' if any((device.get('device') == 'cuda' for device in self._SELECTABLE_COMPUTE_DE…` | 読み取り専用 |
 | `SELECTABLE_COMPUTE_DEVICE_LIST` |  | `getComputeDeviceList()` | 読み取り専用 |
 | `SEND_MESSAGE_BUTTON_TYPE_LIST` |  | `['show', 'hide', 'show_and_disable_enter_key']` | 読み取り専用 |
+| `TRAY_COMPANION_EDGE_LIST` |  | `['right', 'left', 'top', 'bottom']` | 読み取り専用 |
 | `ENABLE_TRANSLATION` | bool | `False` | 保存しない |
 | `ENABLE_TRANSCRIPTION_SEND` | bool | `False` | 保存しない |
 | `ENABLE_TRANSCRIPTION_RECEIVE` | bool | `False` | 保存しない |

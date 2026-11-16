@@ -1150,6 +1150,7 @@ class Config:
     COMPUTE_MODE = ManagedProperty('COMPUTE_MODE', readonly=True, serialize=False)
     SELECTABLE_COMPUTE_DEVICE_LIST = ManagedProperty('SELECTABLE_COMPUTE_DEVICE_LIST', readonly=True, serialize=False)
     SEND_MESSAGE_BUTTON_TYPE_LIST = ManagedProperty('SEND_MESSAGE_BUTTON_TYPE_LIST', readonly=True, serialize=False)
+    TRAY_COMPANION_EDGE_LIST = ManagedProperty('TRAY_COMPANION_EDGE_LIST', readonly=True, serialize=False)
 
     # Read Write
     # --- Simple boolean flags (managed by descriptor) ---
@@ -1222,6 +1223,9 @@ class Config:
         validator=lambda val, inst: experimental_features.normalize(val, inst.EXPERIMENTAL_FEATURES),
         immediate_save=True
     )
+    # The screen edge the tray companion's hexagram hides at (experimental feature tray_companion,
+    # src-tauri/src/companion.rs). Kept while the feature is off, for the next time it is on.
+    TRAY_COMPANION_EDGE = ManagedProperty('TRAY_COMPANION_EDGE', type_=str, allowed=lambda v, inst: v in inst.TRAY_COMPANION_EDGE_LIST)
 
     # --- Speaker-related simple properties ---
     SPEAKER_THRESHOLD = ManagedProperty('SPEAKER_THRESHOLD', type_=int, allowed=lambda v, inst: 0 <= v <= inst.MAX_SPEAKER_THRESHOLD)
@@ -1502,6 +1506,7 @@ class Config:
             device.get("device") == "cuda" for device in self._SELECTABLE_COMPUTE_DEVICE_LIST
         ) else "cpu"
         self._SEND_MESSAGE_BUTTON_TYPE_LIST = ["show", "hide", "show_and_disable_enter_key"]
+        self._TRAY_COMPANION_EDGE_LIST = ["right", "left", "top", "bottom"]
 
         # Read Write
         self._ENABLE_TRANSLATION = False
@@ -1612,6 +1617,7 @@ class Config:
             "toggle_rvc": None,
         }
         self._EXPERIMENTAL_FEATURES = experimental_features.defaults()
+        self._TRAY_COMPANION_EDGE = "right"
         self._MIC_AVG_LOGPROB = -0.8
         self._MIC_NO_SPEECH_PROB = 0.6
         self._AUTO_SPEAKER_SELECT = True
