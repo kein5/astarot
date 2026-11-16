@@ -31,21 +31,13 @@ def names(platform, version, files):
                 "Windows candidate must include CPU/CUDA ZIPs and the stable setup asset"
             )
     elif platform == "linux":
-        pattern = rf"VRCT-VOX-{re.escape(version)}-linux-x64-(?:cpu|vulkan)-release"
-        suffixes = (".tar.gz", ".AppImage", ".deb", ".rpm")
-        if len(files) != len(suffixes) or not all(
-            re.fullmatch(pattern + r"\.(?:tar\.gz|AppImage|deb|rpm)", name) for name in files
-        ):
+        # One package per architecture carries both speech.cpp builds (CPU and Vulkan), so the
+        # names no longer name an engine variant.
+        stem = f"VRCT-VOX-{version}-linux-x64-release"
+        if set(files) != {stem + suffix for suffix in (".tar.gz", ".AppImage", ".deb", ".rpm")}:
             raise ValueError(
                 "Linux candidate must include the versioned archive, AppImage, deb and rpm"
             )
-        stems = set()
-        for name in files:
-            for suffix in suffixes:
-                name = name.removesuffix(suffix)
-            stems.add(name)
-        if len(stems) != 1 or {name[len(next(iter(stems))):] for name in files} != set(suffixes):
-            raise ValueError("Linux candidates must use the same engine variant")
     else:
         raise ValueError("Unsupported candidate platform")
 

@@ -13,10 +13,11 @@ import app_resources  # noqa: E402
 def _build(base, platform):
     build = base / "build"
     exe = ".exe" if platform == "windows" else ""
-    (build / "speechcpp/notices").mkdir(parents=True)
-    (build / f"speechcpp/speech{exe}").write_bytes(b"engine")
-    (build / "speechcpp/bundle.json").write_text("{}")
-    (build / "speechcpp/notices/LICENSE.txt").write_text("notice")
+    for bundle in app_resources.SPEECH_BUNDLES[platform]:
+        (build / bundle / "notices").mkdir(parents=True)
+        (build / bundle / f"speech{exe}").write_bytes(b"engine")
+        (build / bundle / "bundle.json").write_text("{}")
+        (build / bundle / "notices/LICENSE.txt").write_text("notice")
     (build / f"vrct-rvc-worker{exe}").write_bytes(b"worker")
     (build / "licenses/rust").mkdir(parents=True)
     (build / "licenses/rust/crates.json").write_text("[]")
@@ -48,6 +49,28 @@ class AppResourcesTests(unittest.TestCase):
         for name in app_resources.LINUX_HELPERS:
             self.assertTrue((self.output / "build" / name).is_file(), name)
         self.assertFalse((self.output / "licenses/nscurl").exists())
+
+    def test_linux_ships_both_engine_builds_and_windows_the_vulkan_build_only(self):
+        self.assertEqual(app_resources.stage(self.output, "linux", _build(self.base, "linux"), ROOT), [])
+        for bundle in ("speechcpp", "speechcpp-cpu"):
+            self.assertTrue((self.output / "build" / bundle / "notices/LICENSE.txt").is_file(), bundle)
+        self.assertIn("build/speechcpp-cpu/speech", app_resources.required("linux"))
+        self.assertFalse([name for name in app_resources.required("windows") if "speechcpp-cpu" in name])
+        # A CPU build left in a Windows build folder is not shipped.
+        build = _build(self.base / "windows", "windows")
+        (build / "speechcpp-cpu").mkdir()
+        (build / "speechcpp-cpu/speech.exe").write_bytes(b"engine")
+        output = self.base / "windows_internal"
+        app_resources.stage(output, "windows", build, ROOT)
+        self.assertFalse((output / "build/speechcpp-cpu").exists())
+
+    def test_a_linux_package_without_the_cpu_build_is_incomplete(self):
+        build = _build(self.base, "linux")
+        for file in (build / "speechcpp-cpu").rglob("*"):
+            if file.is_file():
+                file.unlink()
+        absent = app_resources.stage(self.output, "linux", build, ROOT)
+        self.assertEqual(absent, ["build/speechcpp-cpu/speech", "build/speechcpp-cpu/bundle.json"])
 
     def test_a_missing_engine_is_reported(self):
         build = self.base / "build"

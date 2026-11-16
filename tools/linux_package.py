@@ -23,6 +23,7 @@ RUNTIME = ('vrct-vox',
            '_internal/build/vrct-vc-worker', '_internal/build/vrct-asr-capture',
            '_internal/build/vrct-screen-capture', '_internal/build/vrct-rvc-worker',
            '_internal/build/speechcpp/speech', '_internal/build/speechcpp/bundle.json',
+           '_internal/build/speechcpp-cpu/speech', '_internal/build/speechcpp-cpu/bundle.json',
            '_internal/licenses/VRCT/LICENSE', '_internal/licenses/VRCT/NOTICE.md',
            '_internal/licenses/rust/crates.json', '_internal/licenses/rust/README.md')
 
