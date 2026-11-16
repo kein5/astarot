@@ -21,6 +21,14 @@ const shortcutPlatform = () => {
     return platformRequest;
 };
 let portalHandler = null;
+// Rust says "portal-shortcuts-lost" when the desktop ended the session or its portal went away
+// (a crash or an update): the keys stop working without a word otherwise (#397).
+let portalLostHandler = null;
+// One automatic bind per this long; a portal that keeps going away is left to the user.
+const PORTAL_RECONNECT_DELAY_MS = 3000;
+const PORTAL_RECONNECT_GAP_MS = 60000;
+let lastPortalReconnect = -Infinity;
+let portalReconnectTimer = null;
 let portalPaused = true; // Like the plugin's unregisterAll while settings are open.
 // A Wayland client is never told that it is minimized, so isMinimized() stays false there.
 // Remember that the hotkey minimized the window; getting the focus back means it is up again.
@@ -51,6 +59,10 @@ const pauseShortcuts = () => {
     registrationGeneration++;
     portalPaused = true;
     portalHandler = null;
+    // A loss while paused needs nothing: the next bind (closing settings) opens a new session.
+    portalLostHandler = null;
+    clearTimeout(portalReconnectTimer);
+    portalReconnectTimer = null;
 };
 const disposePortalListener = () => {
     pauseShortcuts();
@@ -63,16 +75,26 @@ const ensurePortalListener = () => {
     if (!portalListener) {
         const listener = { unlisten: null, ready: null };
         portalListener = listener;
-        listener.ready = listen("portal-shortcut", ({ payload }) => {
-            if (portalListener === listener && !portalPaused && shortcutsEnabled() && portalHandler) {
-                portalHandler(payload.id, payload.activation_token ?? null);
+        listener.ready = Promise.allSettled([
+            listen("portal-shortcut", ({ payload }) => {
+                if (portalListener === listener && !portalPaused && shortcutsEnabled() && portalHandler) {
+                    portalHandler(payload.id, payload.activation_token ?? null);
+                }
+            }),
+            listen("portal-shortcuts-lost", () => {
+                if (portalListener === listener && !portalPaused && portalLostHandler) portalLostHandler();
+            }),
+        ]).then(results => {
+            const stops = results.filter(result => result.status === "fulfilled").map(result => result.value);
+            const unlisten = () => stops.forEach(stop => stop());
+            const failed = results.find(result => result.status === "rejected");
+            if (failed) {
+                unlisten();
+                if (portalListener === listener) portalListener = null;
+                throw failed.reason;
             }
-        }).then(unlisten => {
             if (portalListener !== listener) unlisten();
             else listener.unlisten = unlisten;
-        }).catch(error => {
-            if (portalListener === listener) portalListener = null;
-            throw error;
         });
     }
     return portalListener.ready;
@@ -107,7 +129,26 @@ export const useHotkeys = () => {
         pendingHotkeys();
         asyncStdoutToPython("/get/data/hotkeys");
     };
-    const { showNotification_SaveSuccess, showNotification_Error, closeNotification } = useNotificationStatus();
+    const { showNotification_SaveSuccess, showNotification_Error, showNotification_Warning, closeNotification } = useNotificationStatus();
+
+    // The desktop's portal ended the session that holds the keys. Say so and bind once more after
+    // a moment, when a restarted portal is back; a second loss within a minute is left to the
+    // user, so a portal that keeps failing does not bring up the desktop's dialog again and again.
+    const portalLost = () => {
+        portalLostHandler = null;
+        const now = Date.now();
+        if (now - lastPortalReconnect < PORTAL_RECONNECT_GAP_MS) {
+            showNotification_Error(t("quick_chat.portal_lost"), { hide_duration: 10000 });
+            return;
+        }
+        lastPortalReconnect = now;
+        showNotification_Warning(t("quick_chat.portal_lost_reconnecting"), { hide_duration: 8000 });
+        clearTimeout(portalReconnectTimer);
+        portalReconnectTimer = setTimeout(() => {
+            portalReconnectTimer = null;
+            void registerShortcuts();
+        }, PORTAL_RECONNECT_DELAY_MS);
+    };
 
     const openQuickChat = async (activationToken = null) => {
         try { await invoke("quick_chat_show", { activationToken }); }
@@ -203,6 +244,7 @@ export const useHotkeys = () => {
             const assigned = await invoke("portal_shortcuts_bind", { shortcuts });
             if (!isCurrent()) return;
             portalPaused = false;
+            if (Object.keys(shortcuts).length) portalLostHandler = portalLost;
             // The desktop may keep another key, e.g. when VRCT's is taken.
             for (const [actionKey, row] of Object.entries(assigned ?? {})) {
                 if (row?.applied !== false) continue;

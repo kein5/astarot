@@ -10,6 +10,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri::ipc::Channel;
 use vrct_core::config::{Environment, Platform};
 use vrct_core::{Backend, Options, Sink};
@@ -19,11 +20,28 @@ pub struct BackendHost {
     session: Mutex<Option<(String, Backend)>>,
 }
 
+/// How long the stop before an update may take. The graceful stop saves the settings first and
+/// then stops the servers; past this the run is ended anyway, which still saves the settings.
+pub const UPDATE_STOP_LIMIT: Duration = Duration::from_secs(10);
+
 impl BackendHost {
     /// Stops the run when the application ends.
     pub fn shutdown(&self) {
-        if let Some((_, backend)) = self.session.lock().unwrap().take() {
+        if let Some((_, backend)) = self.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take() {
             backend.kill();
+        }
+    }
+
+    /// Stops the run the way `/run/shutdown` does and waits for it, up to `limit`: for an exit
+    /// that skips RunEvent::Exit (the Windows updater).
+    pub fn stop_and_wait(&self, why: &str, limit: Duration) {
+        let Some((_, backend)) = self.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take() else {
+            return;
+        };
+        backend.escalate(why);
+        if backend.wait(limit).is_none() {
+            backend.kill();
+            let _ = backend.wait(Duration::from_secs(3));
         }
     }
 }

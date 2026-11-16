@@ -31,6 +31,15 @@ for (const language of ["en", "ja"]) test(`${language}: an engine that ended ear
     assert.ok(find(tree, node => node.props?.id === tree.props["aria-labelledby"]));
 });
 
+for (const language of ["en", "ja"]) test(`${language}: a start-up that stopped on an internal error or ran out of time says so`, async () => {
+    const internal = await load({ kind: "exit", code: 101 }, language);
+    assert.equal(internal.texts[1], internal.t("common_error.backend_startup_reason_internal"));
+    const timeout = await load({ kind: "exit", code: 124 }, language);
+    assert.equal(timeout.texts[1], timeout.t("common_error.backend_startup_reason_timeout"));
+    // Both are worded, not left as their keys.
+    for (const text of [internal.texts[1], timeout.texts[1]]) assert.doesNotMatch(text, /common_error\./);
+});
+
 test("a program that never ran gets its short message as a detail; with no message, none", async () => {
     const withMessage = await load({ kind: "spawn", message: "program not found" });
     assert.ok(withMessage.texts.includes("Details: program not found"));

@@ -6,11 +6,12 @@
 //! (tauri-plugin-opener 2.7.2, src/scope.rs); these tests use the same matcher.
 use serde_json::Value;
 
-const CAPABILITIES: [(&str, &str); 5] = [
+const CAPABILITIES: [(&str, &str); 6] = [
     ("default.json", include_str!("../capabilities/default.json")),
     ("vrct_capability.json", include_str!("../capabilities/vrct_capability.json")),
     ("quick-chat.json", include_str!("../capabilities/quick-chat.json")),
     ("caption-overlay.json", include_str!("../capabilities/caption-overlay.json")),
+    ("vr-panel.json", include_str!("../capabilities/vr-panel.json")),
     ("companion.json", include_str!("../capabilities/companion.json")),
 ];
 

@@ -11,6 +11,17 @@ import styles from "./StartupFailedDialog.module.scss";
 // inert, so the dialog's two buttons are the only things that take focus.
 // "Try starting again" turns the phase back to "starting", which removes the
 // dialog; another failure brings it back with the new reason.
+// The codes the engine ends with when its start-up stopped on an internal error or did not end
+// in time (STARTUP_FAILED_EXIT and STARTUP_TIMEOUT_EXIT in native/core/src/backend.rs).
+const STARTUP_FAILED_EXIT = 101;
+const STARTUP_TIMEOUT_EXIT = 124;
+
+const exitReason = (t, code) => {
+    if (code === STARTUP_FAILED_EXIT) return t("common_error.backend_startup_reason_internal");
+    if (code === STARTUP_TIMEOUT_EXIT) return t("common_error.backend_startup_reason_timeout");
+    return t("common_error.backend_startup_reason_exit", { code: code ?? "?" });
+};
+
 export const StartupFailedDialog = () => {
     const { t } = useI18n();
     const { failure, retryStartup } = useBackendStartup();
@@ -18,7 +29,7 @@ export const StartupFailedDialog = () => {
     const { asyncQuitApp } = useWindow();
 
     const reason = failure?.kind === "exit"
-        ? t("common_error.backend_startup_reason_exit", { code: failure.code ?? "?" })
+        ? exitReason(t, failure.code)
         : t("common_error.backend_startup_reason_spawn");
     const detail = failure?.kind === "spawn" && failure.message
         ? t("common_error.backend_startup_detail", { message: failure.message })

@@ -22,6 +22,6 @@ pub mod protocol;
 pub mod resources;
 pub mod voice_settings;
 
-pub use backend::{Backend, Options, Sink};
+pub use backend::{Backend, Options, STARTUP_FAILED_EXIT, STARTUP_LIMIT, STARTUP_TIMEOUT_EXIT, Sink};
 /// The VR overlay crate, for the app's VR panel surface (its layout).
 pub use vrct_vr_overlay as vr_overlay;

@@ -113,21 +113,29 @@ export const timelineRows = (trace: Trace | null | undefined, t: Translate): Tim
     return rows;
 };
 
+// One line of at most `limit` characters, counted as the native side counts them (code points),
+// so an emoji at the limit is never cut in half. The native side refuses control characters in
+// the strip, and a line break from speech or a pasted message would take the whole snapshot with
+// it, so each run of them becomes one space. A lone surrogate is dropped: it cannot be sent.
+export const oneLine = (text: string, limit: number): string => [...String(text ?? "").replace(/\p{Cc}+/gu, " ").trim()]
+    .filter(char => char.length > 1 || char < "\uD800" || char > "\uDFFF")
+    .slice(0, limit).join("");
+
 // The desktop strip: the newest `count` inputs, worded and ready to draw.
 export const stripItems = (traces: Trace[] | null | undefined, count: number, t: Translate): StripItem[] => latestTraces(traces, count).map((trace): StripItem => {
     const total = traceTotal(trace);
     return {
         id: trace.id, input: trace.input,
-        label: t(`io_flow.${trace.input}`),
-        text: (trace.translation ? `${trace.text} → ${trace.translation}` : trace.text).slice(0, 200),
+        label: oneLine(t(`io_flow.${trace.input}`), 120),
+        text: oneLine(trace.translation ? `${trace.text} → ${trace.translation}` : trace.text, 200),
         scale: Math.min(timelineScale(total ?? 0), 600000),
         rows: timelineRows(trace, t).filter(row => row.kind !== "stage" || (["recognition", "translate"] as readonly (string | undefined)[]).includes(row.stage))
             .slice(0, 8).map(({ kind, label, value, start, end, off }) => ({
-            kind, label: label.slice(0, 120), value: value.slice(0, 120),
+            kind, label: oneLine(label, 120), value: oneLine(value, 120),
             start: Math.min(start, 600000), end: Math.min(end, 600000), off })),
     };
 }).map(item => ({ ...item, rows: item.rows.map(row => ({ ...row, end: Math.min(row.end, item.scale), start: Math.min(row.start, item.scale) })) }));
 
 // The live reading under the strip: the conversion's recent round trip, while it runs.
 export const flowNote = (flow: IoFlow | null | undefined, t: Translate): string => Number.isInteger(flow?.conversion_round_trip_ms)
-    ? t("io_flow.conversion_live", { ms: flow!.conversion_round_trip_ms }) : "";
+    ? oneLine(t("io_flow.conversion_live", { ms: flow!.conversion_round_trip_ms }), 120) : "";

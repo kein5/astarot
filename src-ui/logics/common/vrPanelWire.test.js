@@ -45,16 +45,24 @@ test("the VR panel cannot change where saved keys are sent or what runs", () => 
         "/run/regenerate_websocket_auth_token"]) assert.equal(isRelayAllowed(path), false, path);
 });
 
-// SEC-02: the main window relays "vr-panel-stdout" events. Only windows allowed to emit events
-// can send one, and those must be the main window and the VR panel.
-test("only the main window and the VR panel may emit the relayed events", () => {
+// SEC-02: the main window relays "vr-panel-stdout". #397: only the main window may send events at
+// all. The VR panel hands its three events to vr_panel_send, which checks its label and the event
+// (src-tauri/src/vr_panel_state.rs), so it cannot pass for Rust ("portal-shortcut" and the like).
+test("only the main window may emit events; the VR panel only listens", () => {
     const dir = new URL("../../../src-tauri/capabilities/", import.meta.url);
     const emitting = ["core:default", "core:event:default", "core:event:allow-emit", "core:event:allow-emit-to"];
+    const granted = new Map();
     for (const file of readdirSync(dir).filter(name => name.endsWith(".json"))) {
         const capability = JSON.parse(readFileSync(new URL(file, dir), "utf8"));
         const permissions = (capability.permissions ?? []).map(item => typeof item === "string" ? item : item.identifier);
+        for (const window of capability.windows ?? []) granted.set(window, [...(granted.get(window) ?? []), ...permissions]);
         if (!permissions.some(permission => emitting.includes(permission))) continue;
-        for (const window of capability.windows ?? []) assert.ok(["main", "vr_panel"].includes(window), `${file}: ${window} may emit events`);
+        for (const window of capability.windows ?? []) assert.equal(window, "main", `${file}: ${window} may emit events`);
+    }
+    assert.deepEqual(granted.get("vr_panel")?.sort(), ["core:event:allow-listen", "core:event:allow-unlisten"]);
+    for (const file of ["../../views/vr/VrApp.jsx", "./useStdoutToPython.js"]) {
+        const source = readFileSync(new URL(file, import.meta.url), "utf8");
+        assert.doesNotMatch(source, /\bemit\s*\(/, `${file} sends an event`);
     }
 });
 

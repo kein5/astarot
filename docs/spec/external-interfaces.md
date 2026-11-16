@@ -283,7 +283,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 | コマンド | 呼べるウィンドウ | 働き |
 |---|---|---|
 | `get_font_list` | `main` | システムのフォント名の一覧 |
-| `set_vr_panel_window` | `main` | VRパネルのウィンドウを作る・消す。Linuxでは、作ったウィンドウを表示せず、中のページをデスクトップに出ない場所へ移してバックエンドへ渡す（[VR画面の受け渡し](use-cases.md)） |
+| `vr_panel_send` | `vr_panel` | VRパネルから`main`への知らせ（`vr-panel-ready`、`vr-panel-config-page`、`vr-panel-stdout`）を`main`へ送る。呼び出し元が`vr_panel`であること、イベント名がこの3つであること、ペイロードの形（`null`、真偽値、`path`が文字列のオブジェクト）を確かめ、合わなければ`vr_panel_state_forbidden`か`vr_panel_event_invalid`を返す。VRパネルはイベントを送る権限を持たないので、Rustや別のウィンドウが送るイベントを装えない |Linuxでは、作ったウィンドウを表示せず、中のページをデスクトップに出ない場所へ移してバックエンドへ渡す（[VR画面の受け渡し](use-cases.md)） |
 | `main_window_restore` | `main` | 最小化したメイン画面を戻して前面に出す。Waylandでは最小化の状態をアプリが知れず、ポータルのホットキーには前面に出す権利もないため、UIが最小化したことを覚えておき、戻すときはKWinに頼む |
 | `quick_chat_show`、`quick_chat_configure`、`quick_chat_take`、`quick_chat_finish`、`quick_chat_shortcut_platform` | `main` | 小窓を開く、設定を渡す、送信要求を受け取る、結果を返す、ホットキーの登録方法を調べる |
 | `quick_chat_context`、`quick_chat_submit`、`quick_chat_hide` | `quick_chat` | 設定を読む、送信を頼む、隠す |
@@ -299,7 +299,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 Quick Chatのコンテキストは、`ready`、`language`、`enter_to_send`、`clear_on_send`に加え、保存済みの`ui_scaling`（整数、40〜200%）と`font_family`（空白だけではなく、制御文字を含まない256文字以内のローカルフォント名）を持つ。Rustは呼び出し元と値を検証してから置き換える。新しい2項目を省略した要求は100%と`Yu Gothic UI`を使う。小窓はフォント名をCSSの文字列として扱い、既存のNoto／システムフォントへのフォールバックを保つ。設定ファイルのキーやPython側のIPC形式は変更しない。
 
-VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02）。中継するのは、VRパネルが実際に送る操作として`VR_PANEL_RELAY_PATHS`（`src-ui/logics/common/vrPanelWire.ts`）に載せたものだけで、載っていない操作は新しいエンドポイントも含めて中継しない。載せているのは、VRパネル自身の窓と操作バー、ランチャーの4つのスイッチ、言語の窓、VRの設定の窓が変える設定（デバイスとしきい値、翻訳・音声認識・チャット読み取りの選択、AI翻訳のモデルの選択、音声認識の区切りの秒数と最大語数、VRChatのチャットボックスのスイッチ、メッセージの変換、VRの字幕、表示言語とフォント）である。アプリの終了と更新、ファイルを開く操作、モデルや実行環境の取得、認証キーとトークン、接続先（URL、WebSocket・OBS・OSCのホストとポート、証明書）、音声の設定、テレメトリの有効化と同意は載せない。`main`は中継する要求に`"origin": "vr_panel"`を付け、バックエンドも同じ一覧（core は`native/core/src/dispatch.rs`の`vr_panel_endpoints`、Python は`src-python/models/vr_panel_policy.py`）で確かめる。一覧にない要求は解釈せず、403と`vr_panel_request_refused`を返す。`origin`のない要求は`main`自身のもので、`vr_panel`以外の`origin`は拒否する。3つの一覧が同じことは試験で確かめる。`vr-panel-stdout`のイベントを送れるのは、イベントの送信権限を持つ`main`と`vr_panel`のウィンドウだけである（`src-tauri/capabilities`）。VRパネルへ写す状態にも、認証キーとトークンは入れない（[VRパネルへ写す状態](#vrパネルへ写す状態)）。ウィンドウの共有を戻すトークン（`ocr_portal_restore_token`）も、中継と写しの対象から外す。
+VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02）。中継するのは、VRパネルが実際に送る操作として`VR_PANEL_RELAY_PATHS`（`src-ui/logics/common/vrPanelWire.ts`）に載せたものだけで、載っていない操作は新しいエンドポイントも含めて中継しない。載せているのは、VRパネル自身の窓と操作バー、ランチャーの4つのスイッチ、言語の窓、VRの設定の窓が変える設定（デバイスとしきい値、翻訳・音声認識・チャット読み取りの選択、AI翻訳のモデルの選択、音声認識の区切りの秒数と最大語数、VRChatのチャットボックスのスイッチ、メッセージの変換、VRの字幕、表示言語とフォント）である。アプリの終了と更新、ファイルを開く操作、モデルや実行環境の取得、認証キーとトークン、接続先（URL、WebSocket・OBS・OSCのホストとポート、証明書）、音声の設定、テレメトリの有効化と同意は載せない。`main`は中継する要求に`"origin": "vr_panel"`を付け、バックエンドも同じ一覧（core は`native/core/src/dispatch.rs`の`vr_panel_endpoints`、Python は`src-python/models/vr_panel_policy.py`）で確かめる。一覧にない要求は解釈せず、403と`vr_panel_request_refused`を返す。`origin`のない要求は`main`自身のもので、`vr_panel`以外の`origin`は拒否する。3つの一覧が同じことは試験で確かめる。イベントを送る権限を持つのは`main`のウィンドウだけである（`src-tauri/capabilities`）。VRパネルが持つのはイベントを聞く権限だけで、`vr-panel-stdout`などの3つのイベントは`vr_panel_send`に渡し、Rustが`main`へ送る（[ウィンドウ間の連携](#ウィンドウ間の連携)）。VRパネルへ写す状態にも、認証キーとトークンは入れない（[VRパネルへ写す状態](#vrパネルへ写す状態)）。ウィンドウの共有を戻すトークン（`ocr_portal_restore_token`）も、中継と写しの対象から外す。
 
 ### ウィンドウ間の連携
 
@@ -310,9 +310,10 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 | `quick-chat-opened` | Rust → `quick_chat` | 入力欄にフォーカスを戻す |
 | `quick-chat-context-changed` | Rust → `quick_chat` | 設定が更新された。ペイロードは使わず、`quick_chat_context`で検証済みの設定を読み直す。フォーカスは移動しない |
 | `portal-shortcut` | Rust → `main` | Waylandでホットキーが押された |
-| `vr-panel-ready` | `vr_panel` → `main` | VRパネルの準備ができた。`main`は状態を送り直す |
-| `vr-panel-stdout` | `vr_panel` → `main` | VRパネルからの要求。`main`が許可したものだけをサイドカーへ渡す |
-| `vr-panel-config-page` | `vr_panel` → `main` | VR内の設定を開いた・閉じた |
+| `portal-shortcuts-lost` | Rust → `main` | Waylandでホットキーを預けたポータルのセッションが、アプリが頼んでいないのに終わった（ポータルの停止や再起動）。ペイロードはない。`main`は通知を出し、3秒後に1回だけ登録し直す。1分以内にまた切れたときは登録し直さず、設定を開いて閉じるよう案内する |
+| `vr-panel-ready` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VRパネルの準備ができた。`main`は状態を送り直す |
+| `vr-panel-stdout` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VRパネルからの要求。`main`が許可したものだけをサイドカーへ渡す |
+| `vr-panel-config-page` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VR内の設定を開いた・閉じた |
 | `vr-panel-pointer` | `main` → 全体 | VR内のポインタの位置 |
 | `caption-overlay-changed` | Rust → `caption_overlay` | 描く内容か調整中の状態が変わった。ペイロードは使わず、`caption_overlay_snapshot`で読み直す |
 | `caption-overlay-moved` | Rust → `main` | Ctrlキーを押したままのドラッグが終わった。`{x, y}`はウィンドウの左上（物理ピクセル）。`main`は`/set/data/overlay_desktop_placement`で保存する |

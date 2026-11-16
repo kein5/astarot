@@ -5,7 +5,7 @@ import { useI18n } from "@useI18n";
 import { pendingRequestRecovery, sendWithRecovery } from "./pendingRequestRecovery.ts";
 import { expectBackendExit, undoExpectedExit } from "./sidecarExitExpectation.ts";
 import { settingsWriteResponses } from "./settingsWriteResponses.ts";
-import { emit } from "@tauri-apps/api/event";
+import { sendToMain } from "./vrPanelSend.ts";
 import { isLanguageMutation, beginLanguageMutation, createLanguageRequestId, getLanguageSnapshot,
     failLanguageMutationBeforeSend, failLanguageRead, languageMutationWriteUnconfirmed } from "../main/languageMutations";
 
@@ -30,7 +30,7 @@ export const useStdoutToPython = () => {
             if (settingsRequest === false) return false;
             // The main window owns the sidecar and restores mirrored atoms on failure.
             if (store.is_vr_panel) {
-                await emit("vr-panel-stdout", { path, value, languageRequest: request });
+                await sendToMain("vr-panel-stdout", { path, value, languageRequest: request });
                 return true;
             }
             if (is_language_write && !beginLanguageMutation(request)) {
