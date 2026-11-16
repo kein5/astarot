@@ -496,6 +496,7 @@ config_page:
         tts: "テキスト読み上げ（TTS）"
         rvc: "ボイスチェンジャー（RVC）"
         advanced_settings: "高度な設定"
+        experimental_features: "実験的機能"
         updater: "アップデート"
         about_vrct: "ASTAROTについて"
         ocr: "チャット読み取り（OCR）"
@@ -978,6 +979,13 @@ config_page:
             label: "音声のミュート/再開の切り替え"
         toggle_voice_switch:
             label: "「{{name}}」オン/オフの切り替え"
+
+    experimental_features:
+        notice: "ここにあるのは試験中の機能です。どれも最初はオフで、オンにした機能だけが動きます。今後の版で変わることや、なくなることもあります。調子が悪いときはオフに戻してください。"
+        empty: "いま試せる機能はありません。新しい機能が加わるとここに並びます。"
+        # src-ui/logics/configs/experimentalFeatures.ts の機能ごとに1つ:
+        # <id>: { label: "...", desc: "何をするか。実験中であること…" }
+        items: {}
 
     advanced_settings:
         section_label_osc: "OSC"

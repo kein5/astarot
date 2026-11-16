@@ -496,6 +496,7 @@ config_page:
         tts: "Text to speech (TTS)"
         rvc: "Voice changer (RVC)"
         advanced_settings: "Advanced"
+        experimental_features: "Experimental features"
         updater: "Updater"
         about_vrct: "About ASTAROT"
         ocr: "Chat reading (OCR)"
@@ -978,6 +979,13 @@ config_page:
             label: "Mute or resume the voice"
         toggle_voice_switch:
             label: "Toggle {{name}}"
+
+    experimental_features:
+        notice: "These features are still being tried out. Each one is off until you turn it on here, and only the ones you turn on run. They may change or go away in a later version. If something goes wrong, turn the feature off again."
+        empty: "There are no features to try right now. New ones will appear here when they are added."
+        # One entry per feature in src-ui/logics/configs/experimentalFeatures.ts:
+        # <id>: { label: "...", desc: "What it does. Experimental: ..." }
+        items: {}
 
     advanced_settings:
         section_label_osc: "OSC"

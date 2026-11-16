@@ -1,5 +1,6 @@
 from models.network_policy import CUSTOM_URL_KEYS, valid_saved_api_url
 from models.obs.settings import is_valid_numeric_setting
+import models.experimental_features as experimental_features
 import sys
 import copy
 import errno
@@ -1216,6 +1217,11 @@ class Config:
         ),
         immediate_save=True
     )
+    # Experimental features the user turned on (models/experimental_features.py).
+    EXPERIMENTAL_FEATURES = ValidatedProperty('EXPERIMENTAL_FEATURES',
+        validator=lambda val, inst: experimental_features.normalize(val, inst.EXPERIMENTAL_FEATURES),
+        immediate_save=True
+    )
 
     # --- Speaker-related simple properties ---
     SPEAKER_THRESHOLD = ManagedProperty('SPEAKER_THRESHOLD', type_=int, allowed=lambda v, inst: 0 <= v <= inst.MAX_SPEAKER_THRESHOLD)
@@ -1605,6 +1611,7 @@ class Config:
             "toggle_tts": None,
             "toggle_rvc": None,
         }
+        self._EXPERIMENTAL_FEATURES = experimental_features.defaults()
         self._MIC_AVG_LOGPROB = -0.8
         self._MIC_NO_SPEECH_PROB = 0.6
         self._AUTO_SPEAKER_SELECT = True

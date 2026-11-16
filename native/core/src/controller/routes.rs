@@ -199,6 +199,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/hotkeys", OPEN, "HOTKEYS");
     let hotkeys = store(core, "HOTKEYS", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/hotkeys", OPEN, hotkeys);
+    b.get("/get/data/experimental_features", OPEN, "EXPERIMENTAL_FEATURES");
+    let experimental = store(core, "EXPERIMENTAL_FEATURES", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/experimental_features", OPEN, experimental);
     b.get("/get/data/mic_avg_logprob", OPEN, "MIC_AVG_LOGPROB");
     let logprob = threshold(core, "MIC_AVG_LOGPROB", "Mic average logprob must be finite and between -2 and 0");
     b.add("/set/data/mic_avg_logprob", OPEN, logprob);
