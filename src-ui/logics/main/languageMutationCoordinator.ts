@@ -57,6 +57,9 @@ const canonical = (value: unknown): string => JSON.stringify(value, (_key: strin
         : v);
 export const sameSnapshot = (a: unknown, b: unknown): boolean => canonical(a) === canonical(b);
 
+// A success or an error ends a write; a log line (348) or anything else below 400 does not.
+const isFinalStatus = (status: unknown) => typeof status === "number" && (status === 200 || (status >= 400 && status < 600));
+
 // The backend has no request IDs. Admit only one language write across PC and VR,
 // and retain its ownership until a final response, even after a timeout.
 export function createLanguageMutationCoordinator(
@@ -89,7 +92,9 @@ export function createLanguageMutationCoordinator(
         },
         complete(response) {
             const request = state.inFlight;
-            if (!request || response.endpoint !== request.endpoint || ![200, 400, 404, 423, 500].includes(response.status)) return null;
+            // Every error answers the write, not only the listed ones: a 403 (a relay refused
+            // by the VR panel's list) or 409 must not keep the write in flight forever.
+            if (!request || response.endpoint !== request.endpoint || !isFinalStatus(response.status)) return null;
             state = { ...state, inFlight: null };
             if (response.status !== 200) console.warn("[language] failed", response.status, response.endpoint);
             result(request, response.status === 200 ? "success" : "failure", { status: response.status });
