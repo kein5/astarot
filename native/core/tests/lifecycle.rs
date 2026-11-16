@@ -139,6 +139,35 @@ fn a_start_up_that_does_not_end_in_time_ends_the_run_and_never_opens() {
 }
 
 #[test]
+fn a_start_up_past_its_deadline_starts_nothing_once_it_goes_on() {
+    // #427: the stop ran first; the start-up then went on and started the servers, the overlay
+    // and the usage events, which nothing stopped any more.
+    let slow = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let services = Services {
+        translation_weight_available: Arc::new(move |_| {
+            if slow.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(1000));
+            }
+            false
+        }),
+        ..Setup::default().services
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let ui = Ui::with(Setup { services, startup_limit: Some(Duration::from_millis(200)), dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_TIMEOUT_EXIT));
+    let log = || std::fs::read_to_string(dir.path().join("logs").join("process.log")).unwrap_or_default();
+    common::net::eventually("the start-up ended", || {
+        let log = log();
+        log.contains("The run was stopped during the start-up") || log.contains("End Initialization")
+    });
+    let log = log();
+    for started in ["Init Logger", "Init WebSocket Server", "Init Device Manager", "Telemetry Init"] {
+        assert!(!log.contains(started), "{started} after the stop");
+    }
+    assert!(!ui.backend.dispatcher().is_open());
+}
+
+#[test]
 fn a_start_up_within_its_limit_is_not_ended() {
     let ui = Ui::with(Setup { startup_limit: Some(Duration::from_secs(30)), ..Setup::default() });
     ui.ready();

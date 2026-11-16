@@ -88,10 +88,18 @@ impl Core {
         self.step("Set Transcription Engine");
         self.update_transcription_engine(None);
         self.notify("initialization_progress", json!(3));
+        // The engine checks above are what can hang. Past the start-up's deadline the run has
+        // been stopped meanwhile; nothing below may start after that.
+        if self.startup_abandoned() {
+            return;
+        }
         self.step("Init Logger");
         self.start_conversation_log();
         self.check_software_update_in_background();
         self.notify("initialization_progress", json!(4));
+        if self.startup_abandoned() {
+            return;
+        }
         self.step("Init Overlay");
         self.sync_overlay_running();
         self.start_adapters();
@@ -102,11 +110,33 @@ impl Core {
 
         // Not before the user has answered the notice.
         self.start_telemetry();
+        if self.startup_abandoned() {
+            return;
+        }
 
         self.step("Update settings");
         self.notify("initialization_complete", Value::Object(self.snapshot(dispatcher)));
         self.notify_adapters_started();
         self.notify_after_start();
+    }
+
+    /// Whether the run was stopped while the start-up went on (its deadline passed, or the host
+    /// ended it). Then what the start-up may have started after the stop is stopped again, once
+    /// the stop itself has finished: the overlay, the servers, the device watch and the usage
+    /// events would otherwise run until the process ends, holding their ports and SteamVR.
+    fn startup_abandoned(&self) -> bool {
+        if !self.shutdown_requested() {
+            return false;
+        }
+        // Waits for a shutdown still running on another thread.
+        let _done = self.shut_down.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        self.step("The run was stopped during the start-up; stopping what it started");
+        self.stop_conversation_log();
+        self.stop_overlay();
+        self.stop_adapters();
+        self.stop_audio_devices();
+        self.stop_telemetry();
+        true
     }
 
     /// The answers of the `/get/data/...` endpoints the UI needs at start (`updateConfigSettings`).
