@@ -56,17 +56,18 @@ Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`do
 
 | 用途 | 仕様 |
 | --- | --- |
-| ロゴタイプ | `ASTAROT`、**Outfit Bold (700)**、大文字、字間は調整値を使用（目安 `0.04em`） |
-| 英語 UI／見出し | Space Grotesk Medium / SemiBold |
+| ロゴタイプ | `ASTAROT`、**Outfit Bold (700)**、大文字、字間はキャップハイト 130 単位で字間あたり約 7.26 単位（約 `0.04em`） |
+| 英語 UI／見出し | Outfit Medium / SemiBold |
 | 日本語 UI | Zen Kaku Gothic New を第一候補とし、フォールバックと既存ユーザーの書体設定を維持する |
 | コード・ログ | 設定可能な等幅フォント。ブランド用書体を強制しない |
 | サブタイトル | 上記の正式英文を一字一句維持し、狭い画面では折り返しまたは省略してアイコンだけを用いる |
 
-**Wordmark のパスは Outfit Bold (700) の実フォントの輪郭をアウトライン化したものである。** 参照画像のトレースではない。`wordmark-reference-outline.svg` と横長・縦長のロゴはこのアウトラインを使う。ロゴタイプの書体は 2026-11-16 に Space Grotesk から Outfit に変えた。11節の Space Grotesk の記述は、変える前の記録である。
+**Wordmark のパスは Outfit Bold (700) の実フォントの輪郭をアウトライン化したものである。** 参照画像のトレースではない。`wordmark-reference-outline.svg` と横長・縦長のロゴはこのアウトラインを使う。ロゴタイプと英語 UI・見出しの書体は 2026-11-16 に Space Grotesk から Outfit に変えた。11節の Space Grotesk の記述は、変える前の記録である。
 ワードマークの作り方と、ワードマークとサブタイトルを組むときのサイズの要件（ロックアップ）は `docs/brand/astarot/typography-and-lockup.md` にある。
 参照画像に描かれた `ASTAROT` の輪郭をトレースして整えたものは、比較用の別案として `wordmark-alt-traced.svg` に残す。ロゴには使わない。
 PNGの小さな本文・サブタイトルは利用環境に応じて代替書体でレンダリングされうる。
 
+サブタイトルなどを Outfit で表示するため、Outfit のフォントファイル（SIL Open Font License 1.1）をアプリに同梱する。同梱の実装は P1 の UI の作業で行う。ライセンスは `NOTICE.md` と `licenses/outfit/` に記録した。
 フォントファイルをアセットに埋め込む場合はライセンス・配布物・表示崩れを別途検証する。**リモートフォントの自動読み込みはしない。** リポジトリの既存 UI フォント設定を勝手に置換しない。
 
 ### 3.3 カラートークン

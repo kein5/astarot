@@ -290,6 +290,17 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 | ファイル | `silero_encoder_v5.onnx` 713,415 bytes、`silero_decoder_v5.onnx` 532,505 bytes。SHA-256は[通知](../../licenses/silero-vad/NOTICE.md)にあり、読み込むたびに照合する |
 | 置き場所 | リポジトリは`src-python/models/transcription/silero_vad/`、配布物は`_internal/models/transcription/silero_vad/`。ライセンス文と通知は`licenses/silero-vad/` |
 
+## Outfit（ASTAROTのブランド書体、2026-11-16）
+
+ASTAROTのブランド書体をSpace GroteskからOutfitに変えた。ワードマークはOutfit Boldの字形の輪郭で、ロゴのサブタイトルもOutfitで組む。サブタイトルなどの表示のため、Outfitのフォントファイルをアプリに同梱する（ADR-011の3.2節）。同梱の実装はP1のUIの作業で行い、この時点では配布物にもリポジトリにもフォントファイルはない。
+
+| 項目 | 内容 |
+|---|---|
+| 書体 | [Outfit](https://github.com/Outfitio/Outfit-Fonts)。SIL Open Font License 1.1、Copyright 2021 The Outfit Project Authors。Reserved Font Nameはない |
+| ライセンス文 | 上流のcommit `902773808eb372f70fb34e8946dd1ffe604efc79`の`OFL.txt`を無加工で`licenses/outfit/OFL.txt`に置いた。Google Fontsもこのcommitを取り込んでいる |
+| ワードマークに使ったフォント | Google Fontsが配る静的なOutfit Bold（Version 1.100）。SHA-256 `cc3235ab6d698be85a2735d1fd59ba8f73b144cb763c00aaf173b68f0471a9c7`。上流の静的な`Outfit-Bold.ttf`とは輪郭が少し違う |
+| 同梱するとき | フォントファイルに`OFL.txt`を添え、`licenses/outfit/NOTICE.md`にファイル名、版、サイズ、SHA-256を足す。OFLはフォント単体での販売を認めないが、ソフトウェアに同梱して再配布することは認める。同梱するときは、著作権表示とライセンス文を添える |
+
 ## speech.cppの読み上げモデルの追加（2026-11-16）
 
 speech.cppの読み上げで選べるモデルを増やした。どれも配布物には含めない。利用者が同意画面でライセンスとサイズを確認してから、Hugging Faceの固定revisionからこのPCへ取得する。取得するファイルは、speech.cppがそのモデル名で取得するもの（`speech models --json`の既定の型）と同じで、サイズとSHA-256もそれと一致させた。revision、サイズ、SHA-256は0.10.0と同梱の0.11.0で変わらない。

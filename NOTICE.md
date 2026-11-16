@@ -68,6 +68,15 @@ SYSTRAN). VRCT-VOX ships those two files (about 1.2 MB in all) and their
 license texts in `licenses/silero-vad/`, which also lists their sizes, SHA-256
 and sources.
 
+## Outfit typeface (ASTAROT brand)
+
+The ASTAROT wordmark in `docs/brand/astarot/` is outlined from Outfit Bold, and
+the logos set their subtitle in Outfit. Outfit is licensed under the SIL Open
+Font License 1.1, Copyright 2021 The Outfit Project Authors. VRCT-VOX will
+bundle Outfit font files for the subtitle and other brand text; that is part
+of the P1 UI work, and no build ships them yet. The license text and the
+sources are in `licenses/outfit/`.
+
 ## Whisper weights from earlier versions
 
 VRCT-VOX no longer uses or downloads Whisper weights. Local speech
