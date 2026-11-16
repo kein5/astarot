@@ -61,10 +61,25 @@ impl Core {
         self.notify("initialization_progress", json!(2));
 
         self.step("Set Translation Engine");
+        // A folder in `<data>/translation-models` the local translation refused: its name and
+        // the fixed reason, so that the user can find why a model of theirs is not listed.
+        for (folder, reason) in super::translation::refused_models(config.environment()) {
+            self.step(&format!("Translation model folder refused: {folder} ({reason})"));
+        }
         let mut weights = Map::new();
-        for candidate in TRANSLATION_WEIGHTS {
-            let present = if candidate == weight { available } else { (self.services().translation_weight_available)(candidate) };
-            weights.insert(candidate.to_string(), json!(present));
+        let candidates: Vec<String> = config
+            .get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST")
+            .as_array()
+            .map(|list| list.iter().filter_map(|w| w.as_str().map(str::to_string)).collect())
+            .unwrap_or_else(|| TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect());
+        for candidate in &candidates {
+            let present = if *candidate == weight {
+                available
+            } else {
+                (self.services().translation_weight_available)(candidate)
+                    || super::translation::default_weight_available(config.environment(), candidate)
+            };
+            weights.insert(candidate.clone(), json!(present));
         }
         config.put("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT", Value::Object(weights));
         self.update_translation_engine_and_list();

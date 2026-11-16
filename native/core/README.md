@@ -25,7 +25,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 | `controller.py` の `init`、`shutdown`、各エンドポイント | `controller`、`backend` |
 | `controller.py` の `getSpeechServer*`、`startSpeechServer`、`stopSpeechServer`、`_speechServerEnded` | `controller::speech`（サーバのプロセスは `vrct-speech-server`） |
 | `controller.py` のモデル取得（`getModelDownload*`、`start`/`cancel`/`applyModelDownload`）とテレメトリ（`*Telemetry*`） | `controller::downloads`、`controller::telemetry`（処理は `vrct-ops`） |
-| `controller.py` の翻訳のキー・モデル・接続、`setEnableTranslation`、`setCtranslate2WeightType`、`model.py` の `getTranslate` と翻訳の履歴 | `controller::translation`（プロバイダは `vrct-translation`、ローカル翻訳は機能 `onnx-translation` の `vrct-translate-onnx`。既定はオフで、エンジンは未決。`docs/voice-stack/core-integration.md` の「判断が要ること」の 1） |
+| `controller.py` の翻訳のキー・モデル・接続、`setEnableTranslation`、`setCtranslate2WeightType`、`model.py` の `getTranslate` と翻訳の履歴 | `controller::translation`（プロバイダは `vrct-translation`、ローカル翻訳は機能 `onnx-translation`（既定でオン）の `vrct-translate-onnx` と `controller::translation_onnx`。ONNX Runtime は実行時に読み込む。`docs/voice-stack/core-integration.md` の「決まったこと」） |
 | `controller.py` の `_processMessage`、`chatMessage`、ロガー、`model.py` の読み（`convertMessageToTransliteration`） | `controller::messages`（読みの規則は `vrct-translation`） |
 | `device_manager.py`、`controller.py` のデバイスの選択（`_audioTarget`、`_publishAudioDeviceLocked`、`applyAuto*Select`、`setSelected*`）、`getVirtualMicStatus`、`runVirtualMicTest` | `controller::audio_devices`（一覧、識別、監視、選択の規則、仮想マイクの確認は `vrct-audio-routing`） |
 | `controller.py` と `model.py` のチャットの読み取り（`*Ocr*`、`ocrMessage`、`startOCRCapture`、`updateOCRCaptureSettings`） | `controller::ocr`（撮影、エンジン、パイプラインは `ocr-runtime`） |
@@ -75,7 +75,8 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/downloads.rs`: モデル取得の同意とカタログの版の確認、状態の取得、取り消し、設定への適用とその拒否、ハードウェアの確認、終了時の停止。通信は試験用の偽の経路で、ネットワークに出ません。
 - `tests/telemetry.rs`: 通知に答えるまで何も送らないこと、答えの検査、`VRCT_TELEMETRY=off`、送る内容の表示、エラーコードの送信、終了後に送らないこと。送り先はこの PC のループバックに立てた受け側です。
 - `tests/engine_checks.rs`: 起動時の確認に失敗したエンジンの扱いが Python と同じこと（サーバからモデルを探すエンジンの選択を消し、API キーは残す）。
-- `tests/translation.rs`、`tests/messages.rs`: 翻訳のプロバイダ（ループバックの偽のサーバ、`vrct_translation::fake`）、ローカル翻訳（偽のモデル）、`/run/send_message_box` からチャットボックス・WebSocket・会話のログまで。試験では、プロバイダへの通信はループバックだけに限ります（`tests/common` の `Setup`）。
+- `tests/translation.rs`、`tests/messages.rs`: 翻訳のプロバイダ（ループバックの偽のサーバ、`vrct_translation::fake`）、ローカル翻訳（偽のモデル）、`/run/send_message_box` からチャットボックス・WebSocket・会話のログまで。
+- `tests/translation_models.rs`: ONNX のローカル翻訳のモデルのフォルダ（小さな偽のファイル）。計算型で選ぶ形、自分で用意したモデルの一覧と断る理由と言語の表、計算デバイスの一覧、CPU への切り替えの知らせ、同意を得てカタログから取得したモデルが見つかること。試験では、プロバイダへの通信はループバックだけに限ります（`tests/common` の `Setup`）。
 - `tests/audio_devices.rs`: 音声デバイスの一覧と選択肢、名前・ID・ホストでの選択と拒否したときに戻す値、Auto Select が OS の既定に従うこと、抜き差しで一覧が変わること、通知の順序、保存、Python が保存した選択、起動時の一覧、仮想マイクの案内と確認。デバイスはメモリの中の偽物（`tests/common/fake_audio.rs`）で、本物のデバイスには触れません。
 - `tests/transcription.rs`、`tests/realtime_asr.rs`: 音声認識。マイクとスピーカーは 44.1 kHz と 48 kHz の PCM をデバイスと同じ間隔で渡す偽物（`tests/common/fake_capture.rs`）で、Google、Whisper の API、Deepgram、speech.cpp（モデルの一覧と Realtime の WebSocket）は 127.0.0.1 の偽のサーバ（`tests/common/fake_asr.rs`）です。
 - `tests/legacy_weights.rs`: 旧 CTranslate2 の重みは、中核が既定のバックエンドのときだけ起動の後で消すこと。Python が作ったフォルダだけを消し、リンクをたどらないこと。

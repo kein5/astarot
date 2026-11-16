@@ -72,6 +72,8 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("error_translation_chat_vram_overflow", "/run/error_translation_chat_vram_overflow"),
     ("error_translation_mic_vram_overflow", "/run/error_translation_mic_vram_overflow"),
     ("error_translation_speaker_vram_overflow", "/run/error_translation_speaker_vram_overflow"),
+    // The core's own: the chosen ONNX Runtime device could not start; the model runs on the CPU.
+    ("translation_compute_device_fallback", "/run/translation_compute_device_fallback"),
     ("word_filter", "/run/word_filter"),
     ("transcription_recognition_error", "/run/transcription_recognition_error"),
     ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),

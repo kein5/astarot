@@ -9,12 +9,13 @@ publish = false
 name = "vrct_core"
 
 [features]
+default = ["onnx-translation"]
 # Linux: list and watch the PipeWire devices (links libpipewire-0.3; building needs its
 # development files and libclang). No effect on Windows.
 pipewire = ["vrct-audio-routing/pipewire", "vrct-transcription/pipewire"]
-# Local translation with ONNX Runtime (native/translate-onnx). Off until bundling ONNX Runtime
-# with the app is decided (docs/voice-stack/core-integration.md, decisions 1 and 2): without it the
-# local translation reports its model as missing.
+# Local translation with ONNX Runtime (native/translate-onnx), loaded at run time like chat
+# reading's (docs/voice-stack/core-integration.md, decisions 1 and 2). Nothing is linked or
+# fetched at build time. Without the feature the local translation reports its model as missing.
 onnx-translation = ["dep:vrct-translate-onnx"]
 
 [dependencies]
@@ -37,7 +38,7 @@ vrct-speech-server = { path = "../speech-server" }
 # Speech recognition: the recorder, the cloud engines and realtime recognition on speech.cpp.
 vrct-transcription = { path = "../transcription" }
 # The local translation on ONNX Runtime; see the onnx-translation feature below.
-vrct-translate-onnx = { path = "../translate-onnx", optional = true }
+vrct-translate-onnx = { path = "../translate-onnx", optional = true, default-features = false, features = ["load-dynamic"] }
 vrct-translation = { path = "../translation", features = ["sudachi"] }
 vrct-tts = { path = "../tts" }
 # Direct voice, the RVC worker's owner and its runtime setup.

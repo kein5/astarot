@@ -100,10 +100,14 @@ impl Core {
     /// download ready.
     fn apply_download_paths(&self, entry: &Model, paths: &[(String, String)], expected: &Value) -> Result<(), Error> {
         let path = |role: &str| paths.iter().find(|(r, _)| r == role).map(|(_, p)| p.clone());
-        if entry.target == "ocr" {
-            // Chat reading finds verified downloads by catalog id; no setting holds a path.
+        if entry.target == "ocr" || entry.target == catalog::TRANSLATION_TARGET {
+            // Chat reading and the local translation find verified downloads by catalog id;
+            // no setting holds a path.
             if !(expected.is_null() || *expected == json!({})) {
                 return Err(Error::Code("download_request_invalid"));
+            }
+            if entry.target == catalog::TRANSLATION_TARGET {
+                self.translation_model_downloaded(&entry.id);
             }
             return Ok(());
         }
@@ -145,6 +149,29 @@ impl Core {
     }
 }
 
+impl Core {
+    /// A translation model of the catalog was applied: its weight is marked as downloaded, as
+    /// the CTranslate2 download told the UI (`downloaded_ctranslate2_weight`). The manager has
+    /// verified every file in its folder before this runs.
+    fn translation_model_downloaded(&self, id: &str) {
+        #[cfg(feature = "onnx-translation")]
+        if let Some((weight, _)) = super::translation_onnx::weight_of_catalog_id(id) {
+            let config = self.config();
+            let mut weights = config.get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT");
+            if let Some(map) = weights.as_object_mut() {
+                map.insert(weight.to_string(), json!(true));
+            }
+            config.put("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT", weights);
+            if config.get_str("CTRANSLATE2_WEIGHT_TYPE") == weight {
+                self.set_translation_available(true);
+            }
+            self.notify("downloaded_ctranslate2_weight", json!({ "weight_type": weight, "downloaded": true }));
+        }
+        #[cfg(not(feature = "onnx-translation"))]
+        let _ = id;
+    }
+}
+
 fn to_value(json: vrct_ops::json::Json) -> Value {
     serde_json::to_value(json).expect("plain JSON converts")
 }
@@ -181,6 +208,9 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         // The reviews of the built-in CTranslate2 downloads (`legacyModelCatalog`) come with
         // that download, which the core does not run yet: none is offered.
         catalog["legacy_models"] = json!([]);
+        // Where a user puts a translation model of their own (the core's addition).
+        let folder = core.config().environment().data_dir.join("translation-models");
+        catalog["translation_models_folder"] = json!(folder.to_string_lossy());
         ok(catalog)
     });
     b.with("/get/data/model_download_hardware", OPEN, |core, _| ok(to_value(core.ops().hardware.state())));
