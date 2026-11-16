@@ -691,7 +691,6 @@ pub async fn caption_overlay_set(
                 .map_err(|error| error.to_string())?;
             }
         }
-        crate::companion::overlay_hidden(&app);
         return Ok(());
     }
     if !platform_supported() {
@@ -737,11 +736,13 @@ pub async fn caption_overlay_set(
         watch(app.clone());
     }
     #[cfg(target_os = "linux")]
-    show_without_focus(&overlay).await?;
+    {
+        show_without_focus(&overlay).await
+    }
     #[cfg(not(target_os = "linux"))]
-    show_without_focus(&overlay)?;
-    // The experimental companion form puts its handle beside the band; elsewhere a no-op.
-    crate::companion::overlay_shown(&app, &overlay, (x, y, width, height), &position).await
+    {
+        show_without_focus(&overlay)
+    }
 }
 
 /// The main window hands over what to draw.

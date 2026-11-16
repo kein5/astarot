@@ -29,17 +29,25 @@ use tauri::{
 pub const PANEL: &str = "companion_panel";
 pub const HANDLE: &str = "companion_handle";
 const PANEL_TITLE: &str = "VRCT-VOX Control Panel";
-const HANDLE_TITLE: &str = "VRCT-VOX Captions Handle";
+const HANDLE_TITLE: &str = "VRCT-VOX Hexagram";
 /// The panel, in logical px.
 const PANEL_SIZE: (f64, f64) = (300.0, 208.0);
-/// The handle's square side and its distance from the caption band, in logical px.
-const HANDLE_SIZE: f64 = 40.0;
-/// The handle opened under the pointer: the hexagram grows and its six features dock out around
-/// it, so the window becomes this size (logical px, wide for the labels docked left and right),
-/// with the hexagram in its middle.
-const HANDLE_OPEN_SIZE: (f64, f64) = (560.0, 360.0);
-const HANDLE_GAP: f64 = 6.0;
-/// A click on the tray icon first takes the focus from the open panel, which hides
+/// The hexagram's plate (its outer circle) as the handle page draws it, radius in logical px
+/// (views/companion_handle: OPEN_RADIUS × 1.22).
+const STAR_PLATE: f64 = 71.0;
+/// The window while the hexagram is out, in logical px: beside a left or right edge, and along
+/// a top or bottom edge. Half the hexagram shows; the rest is room for a docked label.
+const OUT_BESIDE: (f64, f64) = (330.0, 240.0);
+const OUT_ALONG: (f64, f64) = (580.0, 190.0);
+/// How near the edge the pointer must come to bring the hexagram out, how far beyond its
+/// window it may stray, and for how long, before it hides again (logical px).
+const HOT_DEPTH: f64 = 14.0;
+const STAY_MARGIN: f64 = 18.0;
+const HIDE_AFTER: Duration = Duration::from_millis(450);
+/// How often the pointer is looked at while the feature is on.
+const WATCH_EVERY: Duration = Duration::from_millis(80);
+/// The panel's distance from the hexagram's plate.
+const PANEL_GAP: f64 = 10.0;/// A click on the tray icon first takes the focus from the open panel, which hides
 /// it; the click that follows must not open it again.
 const REOPEN_GUARD: Duration = Duration::from_millis(400);
 const MAX_ACTIONS: usize = 8;
@@ -112,6 +120,13 @@ pub struct Status {
     rvc: Switch,
     language: String,
     menu: MenuLabels,
+    /// The screen edge the hexagram hides at (TRAY_COMPANION_EDGE).
+    #[serde(default = "default_edge")]
+    edge: String,
+}
+
+fn default_edge() -> String {
+    "right".into()
 }
 
 impl Default for Status {
@@ -125,6 +140,7 @@ impl Default for Status {
             tts: Switch::default(),
             rvc: Switch::default(),
             language: "en".into(),
+            edge: default_edge(),
             menu: MenuLabels {
                 start: "Start recognition".into(),
                 stop: "Stop recognition".into(),
@@ -143,6 +159,7 @@ fn valid_label(value: &str) -> bool {
 fn validate(status: &Status) -> Result<(), String> {
     let menu = &status.menu;
     if !LANGUAGES.contains(&status.language.as_str())
+        || Edge::parse(&status.edge).is_none()
         || ![&menu.start, &menu.stop, &menu.panel, &menu.main, &menu.quit].iter().all(|label| valid_label(label))
     {
         return Err("companion_invalid".into());
@@ -156,10 +173,19 @@ struct Inner {
     actions: VecDeque<String>,
     panel_hidden_at: Option<Instant>,
     tray: Option<tray::Items>,
-    /// Where the caption overlay is, and whether at the top of the screen.
-    band: Option<((i32, i32, u32, u32), bool)>,
-    /// The handle at rest: its top-left corner and side, in physical px.
-    handle_rest: Option<(i32, i32, u32)>,
+    /// The hexagram is out: the window's rectangle and the hexagram's centre on the screen,
+    /// in physical px, and the centre inside the window in CSS px.
+    out: Option<Out>,
+    /// Where the hexagram hides, as the main window last reported it.
+    edge: Edge,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Out {
+    edge: Edge,
+    rect: Rect,
+    centre: (i32, i32),
+    local: (f64, f64),
 }
 
 #[derive(Default)]
@@ -223,15 +249,6 @@ fn place(anchor: Anchor, size: (u32, u32), work: (i32, i32, u32, u32)) -> (i32, 
     (x.round() as i32, y.round() as i32)
 }
 
-/// The handle sits just right of the caption band, level with its last line:
-/// outside the band, so it never covers a caption.
-fn handle_position(band: (i32, i32, u32, u32), at_top: bool, size: u32, gap: i32) -> (i32, i32) {
-    let (x, y, width, height) = band;
-    let left = x + width as i32 + gap;
-    let top = if at_top { y } else { y + height as i32 - size as i32 };
-    (left, top)
-}
-
 fn build_panel<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewWindow<R>> {
     WebviewWindowBuilder::new(manager, PANEL, WebviewUrl::App("companion-panel.html".into()))
         .title(PANEL_TITLE)
@@ -249,13 +266,20 @@ fn build_panel<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewW
 
 /// Opens the panel at `anchor`, or closes it when it is open.
 pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, anchor: Anchor) -> Result<(), String> {
+    toggle_panel_by(app, (anchor.right, anchor.top), move |size, work, _| place(anchor, size, work))
+}
+
+/// Opens the panel where `position` puts it on the monitor at `point`, or closes it when it is open.
+fn toggle_panel_by<R: Runtime>(
+    app: &AppHandle<R>,
+    point: (f64, f64),
+    position: impl FnOnce((u32, u32), Rect, f64) -> (i32, i32),
+) -> Result<(), String> {
     let state = app.state::<CompanionState>();
     let existing = app.get_webview_window(PANEL);
-    if let Some(panel) = &existing {
-        if panel.is_visible().unwrap_or(false) {
-            state.lock()?.panel_hidden_at = Some(Instant::now());
-            return panel.hide().map_err(|error| error.to_string());
-        }
+    if let Some(panel) = existing.as_ref().filter(|panel| panel.is_visible().unwrap_or(false)) {
+        state.lock()?.panel_hidden_at = Some(Instant::now());
+        return panel.hide().map_err(|error| error.to_string());
     }
     if state.lock()?.panel_hidden_at.take().is_some_and(|at| at.elapsed() < REOPEN_GUARD) {
         return Ok(());
@@ -265,14 +289,14 @@ pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, anchor: Anchor) -> Re
         None => build_panel(app).map_err(|error| error.to_string())?,
     };
     let monitor = app
-        .monitor_from_point(anchor.right, anchor.top)
+        .monitor_from_point(point.0, point.1)
         .map_err(|error| error.to_string())?
         .or(app.primary_monitor().map_err(|error| error.to_string())?)
         .ok_or("companion_no_monitor")?;
     let scale = monitor.scale_factor();
     let size = ((PANEL_SIZE.0 * scale).round() as u32, (PANEL_SIZE.1 * scale).round() as u32);
     let work = monitor.work_area();
-    let (x, y) = place(anchor, size, (work.position.x, work.position.y, work.size.width, work.size.height));
+    let (x, y) = position(size, (work.position.x, work.position.y, work.size.width, work.size.height), scale);
     // Move first: a move to a monitor with another scale makes Windows rescale the window,
     // which would undo a size set before it. Then size it, and place it again at that size.
     let at = PhysicalPosition::new(x, y);
@@ -285,69 +309,251 @@ pub(crate) fn toggle_panel<R: Runtime>(app: &AppHandle<R>, anchor: Anchor) -> Re
     panel.emit("companion-opened", ()).map_err(|error| error.to_string())
 }
 
-/// The caption overlay was placed over `band`: put the handle beside it.
-pub(crate) async fn overlay_shown(
-    app: &AppHandle,
-    overlay: &WebviewWindow,
-    band: (i32, i32, u32, u32),
-    position: &str,
-) -> Result<(), String> {
-    let at_top = position == "top";
-    // Kept even while the feature is off: turned on later, it puts the handle here.
-    app.state::<CompanionState>().lock()?.band = Some((band, at_top));
-    if !enabled() {
-        return Ok(());
-    }
-    show_handle(app, overlay, band, at_top).await
+/// A rectangle as (x, y, width, height), in physical px.
+type Rect = (i32, i32, u32, u32);
+
+/// The screen edge the hexagram hides at (TRAY_COMPANION_EDGE; the main window reports it).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+enum Edge {
+    #[default]
+    Right,
+    Left,
+    Top,
+    Bottom,
 }
 
-async fn show_handle(app: &AppHandle, overlay: &WebviewWindow, band: (i32, i32, u32, u32), at_top: bool) -> Result<(), String> {
-    let scale = overlay.scale_factor().map_err(|error| error.to_string())?;
-    let size = (HANDLE_SIZE * scale).round() as u32;
-    let gap = (HANDLE_GAP * scale).round() as i32;
-    let (x, y) = handle_position(band, at_top, size, gap);
-    app.state::<CompanionState>().lock()?.handle_rest = Some((x, y, size));
-    let handle = match app.get_webview_window(HANDLE) {
-        Some(handle) => handle,
-        None => WebviewWindowBuilder::new(app, HANDLE, WebviewUrl::App("companion-handle.html".into()))
-            .title(HANDLE_TITLE)
-            .decorations(false)
-            .transparent(true)
-            .shadow(false)
-            .resizable(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .focused(false)
-            // Clicked, never focused: the game under the captions keeps the keyboard.
-            .focusable(false)
-            .visible(false)
-            .additional_browser_args(crate::BROWSER_ARGS)
-            .build()
-            .map_err(|error| error.to_string())?,
+impl Edge {
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "right" => Some(Self::Right),
+            "left" => Some(Self::Left),
+            "top" => Some(Self::Top),
+            "bottom" => Some(Self::Bottom),
+            _ => None,
+        }
+    }
+}
+
+/// The hexagram's centre while it is out: the middle of the edge of the work area.
+fn edge_centre(edge: Edge, work: Rect) -> (i32, i32) {
+    let (x, y, width, height) = work;
+    let (mid_x, mid_y) = (x + width as i32 / 2, y + height as i32 / 2);
+    match edge {
+        Edge::Right => (x + width as i32, mid_y),
+        Edge::Left => (x, mid_y),
+        Edge::Top => (mid_x, y),
+        Edge::Bottom => (mid_x, y + height as i32),
+    }
+}
+
+/// The window while the hexagram is out, and the hexagram's centre inside it (physical px). The
+/// centre is on the edge, so half the hexagram shows; the window lies on the screen's side.
+fn out_rect(edge: Edge, work: Rect, scale: f64) -> (Rect, (i32, i32)) {
+    let (logical_width, logical_height) = match edge {
+        Edge::Right | Edge::Left => OUT_BESIDE,
+        Edge::Top | Edge::Bottom => OUT_ALONG,
     };
-    #[cfg(target_os = "linux")]
-    crate::caption_overlay::prepare(&handle).await?;
-    handle.set_position(PhysicalPosition::new(x, y)).map_err(|error| error.to_string())?;
-    handle.set_size(PhysicalSize::new(size, size)).map_err(|error| error.to_string())?;
-    handle.set_always_on_top(true).map_err(|error| error.to_string())?;
-    #[cfg(target_os = "linux")]
-    {
-        crate::caption_overlay::show_without_focus(&handle).await
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        crate::caption_overlay::show_without_focus(&handle)
+    let (width, height) = ((logical_width * scale).round() as u32, (logical_height * scale).round() as u32);
+    let (cx, cy) = edge_centre(edge, work);
+    let clamp = |value: i32, start: i32, length: u32, side: u32| value.clamp(start, (start + length as i32 - side as i32).max(start));
+    let (x, y) = match edge {
+        Edge::Right => (cx - width as i32, clamp(cy - height as i32 / 2, work.1, work.3, height)),
+        Edge::Left => (cx, clamp(cy - height as i32 / 2, work.1, work.3, height)),
+        Edge::Top => (clamp(cx - width as i32 / 2, work.0, work.2, width), cy),
+        Edge::Bottom => (clamp(cx - width as i32 / 2, work.0, work.2, width), cy - height as i32),
+    };
+    ((x, y, width, height), (cx - x, cy - y))
+}
+
+/// The pointer is near enough to the hidden hexagram to bring it out: within a strip along
+/// the edge, as wide as the hexagram, a few px deep.
+fn near_edge(edge: Edge, work: Rect, scale: f64, cursor: (f64, f64)) -> bool {
+    let (cx, cy) = edge_centre(edge, work);
+    let (depth, half) = (HOT_DEPTH * scale, (STAR_PLATE + 8.0) * scale);
+    let (x, y) = cursor;
+    let (left, top) = (f64::from(work.0), f64::from(work.1));
+    let (right, bottom) = (left + f64::from(work.2), top + f64::from(work.3));
+    match edge {
+        Edge::Right => x >= right - depth && x <= right + 1.0 && (y - f64::from(cy)).abs() <= half,
+        Edge::Left => x <= left + depth && x >= left - 1.0 && (y - f64::from(cy)).abs() <= half,
+        Edge::Top => y <= top + depth && y >= top - 1.0 && (x - f64::from(cx)).abs() <= half,
+        Edge::Bottom => y >= bottom - depth && y <= bottom + 1.0 && (x - f64::from(cx)).abs() <= half,
     }
 }
 
-/// The caption overlay was removed: the handle goes with it.
-pub(crate) fn overlay_hidden<R: Runtime>(app: &AppHandle<R>) {
-    if let Ok(mut inner) = app.state::<CompanionState>().lock() {
-        inner.band = None;
+fn inside(rect: Rect, cursor: (f64, f64), margin: f64) -> bool {
+    let (x, y, width, height) = rect;
+    let (left, top) = (f64::from(x) - margin, f64::from(y) - margin);
+    let (right, bottom) = (f64::from(x) + f64::from(width) + margin, f64::from(y) + f64::from(height) + margin);
+    (left..=right).contains(&cursor.0) && (top..=bottom).contains(&cursor.1)
+}
+
+/// The panel beside the hexagram, on the screen's side of it, inside the work area.
+fn panel_beside(edge: Edge, centre: (i32, i32), plate: f64, size: (u32, u32), work: Rect) -> (i32, i32) {
+    let (width, height) = (f64::from(size.0), f64::from(size.1));
+    let (cx, cy) = (f64::from(centre.0), f64::from(centre.1));
+    let (x, y) = match edge {
+        Edge::Right => (cx - plate - width, cy - height / 2.0),
+        Edge::Left => (cx + plate, cy - height / 2.0),
+        Edge::Top => (cx - width / 2.0, cy + plate),
+        Edge::Bottom => (cx - width / 2.0, cy - plate - height),
+    };
+    let (left, top) = (f64::from(work.0), f64::from(work.1));
+    let (right, bottom) = (left + f64::from(work.2), top + f64::from(work.3));
+    (
+        x.clamp(left, (right - width).max(left)).round() as i32,
+        y.clamp(top, (bottom - height).max(top)).round() as i32,
+    )
+}
+
+fn build_handle<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewWindow<R>> {
+    WebviewWindowBuilder::new(manager, HANDLE, WebviewUrl::App("companion-handle.html".into()))
+        .title(HANDLE_TITLE)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .resizable(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(false)
+        // Clicked, never focused: the game keeps the keyboard.
+        .focusable(false)
+        .visible(false)
+        .additional_browser_args(crate::BROWSER_ARGS)
+        .build()
+}
+
+/// The work area the hexagram lives on: the primary monitor's.
+fn primary_work(app: &AppHandle) -> Result<(Rect, f64), String> {
+    let monitor = app.primary_monitor().map_err(|error| error.to_string())?.ok_or("companion_no_monitor")?;
+    let work = monitor.work_area();
+    Ok(((work.position.x, work.position.y, work.size.width, work.size.height), monitor.scale_factor()))
+}
+
+/// Brings the hexagram out at `edge`: half of it shows over the edge of the screen. The window
+/// work is handed to the main thread without waiting for it: a window call made from the
+/// watching thread that waits for the main thread could hang there (hiding did).
+fn come_out(app: &AppHandle, edge: Edge) -> Result<(), String> {
+    let (work, scale) = primary_work(app)?;
+    let ((x, y, width, height), (cx, cy)) = out_rect(edge, work, scale);
+    let out = Out { edge, rect: (x, y, width, height), centre: (x + cx, y + cy),
+        local: (f64::from(cx) / scale, f64::from(cy) / scale) };
+    app.state::<CompanionState>().lock()?.out = Some(out);
+    let target = app.clone();
+    app.run_on_main_thread(move || {
+        let Some(handle) = target.get_webview_window(HANDLE) else { return };
+        // Move, size, then move again: a move to a monitor with another scale rescales the window.
+        let at = PhysicalPosition::new(x, y);
+        let _ = handle.set_position(at);
+        let _ = handle.set_size(PhysicalSize::new(width, height));
+        let _ = handle.set_position(at);
+        let _ = handle.set_always_on_top(true);
+        let _ = handle.emit("companion-handle-changed", ());
+        #[cfg(target_os = "linux")]
+        tauri::async_runtime::spawn(async move {
+            if crate::caption_overlay::prepare(&handle).await.is_ok() {
+                let _ = crate::caption_overlay::show_without_focus(&handle).await;
+            }
+        });
+        #[cfg(not(target_os = "linux"))]
+        let _ = crate::caption_overlay::show_without_focus(&handle);
+    })
+    .map_err(|error| error.to_string())
+}
+
+/// Hides the hexagram at its edge again.
+fn go_in(app: &AppHandle) -> Result<(), String> {
+    app.state::<CompanionState>().lock()?.out = None;
+    let target = app.clone();
+    app.run_on_main_thread(move || {
+        if let Some(handle) = target.get_webview_window(HANDLE) {
+            hide_window(&handle);
+            let _ = handle.emit("companion-handle-changed", ());
+        }
+    })
+    .map_err(|error| error.to_string())
+}
+/// Hides the hexagram's window the way it was shown (caption_overlay::show_without_focus, past
+/// Tauri): Tauri's own hide skips a window it does not know is shown.
+#[cfg(windows)]
+fn hide_window(handle: &WebviewWindow) {
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn ShowWindow(window: *mut std::ffi::c_void, command: i32) -> i32;
     }
-    if let Some(handle) = app.get_webview_window(HANDLE) {
-        let _ = handle.destroy();
+    const SW_HIDE: i32 = 0;
+    if let Ok(window) = handle.hwnd() {
+        // SAFETY: the handle is this process's own live window; ShowWindow has no other precondition.
+        unsafe { ShowWindow(window.0 as *mut std::ffi::c_void, SW_HIDE) };
     }
+}
+
+#[cfg(target_os = "linux")]
+fn hide_window(handle: &WebviewWindow) {
+    use gtk::prelude::*;
+    if let Ok(window) = handle.gtk_window() {
+        window.hide();
+    }
+}
+
+#[cfg(not(any(windows, target_os = "linux")))]
+fn hide_window(handle: &WebviewWindow) {
+    let _ = handle.hide();
+}
+
+static WATCHING: AtomicBool = AtomicBool::new(false);
+
+/// While the feature is on, looks at the pointer a dozen times a second: near the hexagram's
+/// edge it brings the hexagram out; away from it for a moment, it hides it again. Hidden, the
+/// hexagram has no window on the screen, so it takes no click from the game.
+fn watch(app: AppHandle) {
+    if WATCHING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    std::thread::spawn(move || {
+        let mut away_since: Option<Instant> = None;
+        while enabled() {
+            std::thread::sleep(WATCH_EVERY);
+            let Ok(cursor) = app.cursor_position() else { continue };
+            let Ok((work, scale)) = primary_work(&app) else { continue };
+            let Ok(inner) = app.state::<CompanionState>().lock().map(|inner| (inner.edge, inner.out)) else { continue };
+            let (edge, out) = inner;
+            let cursor = (cursor.x, cursor.y);
+            let result = match out {
+                None if near_edge(edge, work, scale, cursor) => {
+                    away_since = None;
+                    come_out(&app, edge)
+                }
+                None => Ok(()),
+                // The edge was changed while it was out: put it back, to come out at the new one.
+                Some(out) if out.edge != edge => go_in(&app),
+                Some(out) if inside(out.rect, cursor, STAY_MARGIN * scale) => {
+                    away_since = None;
+                    Ok(())
+                }
+                Some(_) => match away_since {
+                    Some(since) if since.elapsed() >= HIDE_AFTER => {
+                        away_since = None;
+                        go_in(&app)
+                    }
+                    Some(_) => Ok(()),
+                    None => {
+                        away_since = Some(Instant::now());
+                        Ok(())
+                    }
+                },
+            };
+            if let Err(error) = result {
+                crate::startup_log(&format!("Tray companion hexagram failed: {error}"));
+            }
+        }
+        let _ = go_in(&app);
+        WATCHING.store(false, Ordering::SeqCst);
+        // Turned off and on again before this loop saw it: keep watching.
+        if enabled() {
+            watch(app);
+        }
+    });
 }
 
 /// The panel closes like a popover: when it loses the focus, or is asked to close.
@@ -383,8 +589,13 @@ pub(crate) fn install(app: &AppHandle) -> Result<(), String> {
     if app.get_webview_window(PANEL).is_none() {
         build_panel(app).map_err(|error| error.to_string())?;
     }
+    // The hexagram's window is made hidden too; it shows only while the hexagram is out.
+    if app.get_webview_window(HANDLE).is_none() {
+        build_handle(app).map_err(|error| error.to_string())?;
+    }
     // Only now: a failed start leaves the feature off for every command.
     ENABLED.store(true, Ordering::SeqCst);
+    watch(app.clone());
     Ok(())
 }
 
@@ -398,6 +609,7 @@ pub(crate) fn uninstall(app: &AppHandle) -> Result<(), String> {
         inner.tray = None;
         inner.actions.clear();
         inner.panel_hidden_at = None;
+        inner.out = None;
     }
     let _ = app.remove_tray_by_id(tray::TRAY);
     for label in [PANEL, HANDLE] {
@@ -525,13 +737,7 @@ pub async fn companion_set(window: WebviewWindow, enabled: bool) -> Result<(), S
     }
     let app = window.app_handle().clone();
     if enabled {
-        install(&app).inspect_err(|error| crate::startup_log(&format!("Tray companion could not start: {error}")))?;
-        // The captions may already be up, opened before the feature was on.
-        let band = app.state::<CompanionState>().lock()?.band;
-        match (band, app.get_webview_window(crate::caption_overlay::LABEL)) {
-            (Some((band, at_top)), Some(overlay)) => show_handle(&app, &overlay, band, at_top).await,
-            _ => Ok(()),
-        }
+        install(&app).inspect_err(|error| crate::startup_log(&format!("Tray companion could not start: {error}")))
     } else if self::enabled() || app.state::<CompanionState>().lock()?.tray.is_some() {
         uninstall(&app)
     } else {
@@ -543,7 +749,11 @@ pub async fn companion_set(window: WebviewWindow, enabled: bool) -> Result<(), S
 pub fn companion_publish(window: WebviewWindow, state: State<CompanionState>, status: Status) -> Result<(), String> {
     sender(window.label(), &["main"])?;
     validate(&status)?;
-    state.lock()?.status = status.clone();
+    {
+        let mut inner = state.lock()?;
+        inner.edge = Edge::parse(&status.edge).unwrap_or_default();
+        inner.status = status.clone();
+    }
     let app = window.app_handle();
     tray::refresh(app, &status);
     // The panel or the handle may not exist yet: they read the state when they open.
@@ -597,69 +807,42 @@ pub fn companion_panel_hide(window: WebviewWindow) -> Result<(), String> {
     window.hide().map_err(|error| error.to_string())
 }
 
-/// The handle beside the captions opens the panel next to itself, wherever the handle
-/// rests (it may be open, grown around the pointer, when it is clicked).
+/// The hexagram's middle opens the panel beside it, on the screen's side.
 #[tauri::command]
 pub async fn companion_panel_toggle(window: WebviewWindow) -> Result<(), String> {
     sender(window.label(), &[HANDLE])?;
     let app = window.app_handle();
-    let (x, y, size) = app.state::<CompanionState>().lock()?.handle_rest.ok_or("companion_no_handle")?;
-    let gap = HANDLE_GAP * window.scale_factor().map_err(|error| error.to_string())?;
-    let anchor = Anchor {
-        right: f64::from(x) + f64::from(size),
-        top: f64::from(y) - gap,
-        bottom: f64::from(y) + f64::from(size) + gap,
-    };
-    toggle_panel(app, anchor)
+    let out = app.state::<CompanionState>().lock()?.out.ok_or("companion_no_handle")?;
+    let point = (f64::from(out.centre.0), f64::from(out.centre.1));
+    toggle_panel_by(app, point, move |size, work, scale| {
+        panel_beside(out.edge, out.centre, (STAR_PLATE + PANEL_GAP) * scale, size, work)
+    })
 }
 
-/// Where the hexagram's centre is inside the handle window, in CSS px.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
-pub struct HandleCentre {
+/// What the hexagram page draws: whether it is out, at which edge, and where its centre is
+/// inside the window (CSS px).
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct HandleLayout {
+    out: bool,
+    edge: &'static str,
     x: f64,
     y: f64,
 }
 
-/// The top-left corner of the open handle: a `size` rectangle centred on `centre`, moved back
-/// inside the work area where the centre is too near its edge (the hexagram, in the middle of
-/// the window, then moves inwards with it).
-fn open_corner(centre: (i32, i32), size: (u32, u32), work: (i32, i32, u32, u32)) -> (i32, i32) {
-    let clamp = |value: i32, start: i32, length: u32, side: u32| value.clamp(start, (start + length as i32 - side as i32).max(start));
-    (
-        clamp(centre.0 - size.0 as i32 / 2, work.0, work.2, size.0),
-        clamp(centre.1 - size.1 as i32 / 2, work.1, work.3, size.1),
-    )
-}
-/// The handle grows around the pointer (`open`) so that the hexagram's six features can dock out
-/// around it, or goes back to rest. The answer says where the hexagram's centre is inside the
-/// window. Open, the window takes the clicks in its rectangle, so the page closes it as soon as
-/// the pointer leaves.
 #[tauri::command]
-pub async fn companion_handle_open(window: WebviewWindow, open: bool) -> Result<HandleCentre, String> {
+pub fn companion_handle_layout(window: WebviewWindow, state: State<CompanionState>) -> Result<HandleLayout, String> {
     sender(window.label(), &[HANDLE])?;
-    let app = window.app_handle();
-    let (x, y, size) = app.state::<CompanionState>().lock()?.handle_rest.ok_or("companion_no_handle")?;
-    let scale = window.scale_factor().map_err(|error| error.to_string())?;
-    let centre = (x + size as i32 / 2, y + size as i32 / 2);
-    let (corner, size) = if open {
-        let size = ((HANDLE_OPEN_SIZE.0 * scale).round() as u32, (HANDLE_OPEN_SIZE.1 * scale).round() as u32);
-        let monitor = app
-            .monitor_from_point(f64::from(centre.0), f64::from(centre.1))
-            .map_err(|error| error.to_string())?
-            .or(window.current_monitor().map_err(|error| error.to_string())?)
-            .ok_or("companion_no_monitor")?;
-        let work = monitor.work_area();
-        (open_corner(centre, size, (work.position.x, work.position.y, work.size.width, work.size.height)), size)
-    } else {
-        ((x, y), (size, size))
+    let inner = state.lock()?;
+    let name = |edge: Edge| match edge {
+        Edge::Right => "right",
+        Edge::Left => "left",
+        Edge::Top => "top",
+        Edge::Bottom => "bottom",
     };
-    // Move, size, then move again: a move to a monitor with another scale rescales the window.
-    let at = PhysicalPosition::new(corner.0, corner.1);
-    window.set_position(at).map_err(|error| error.to_string())?;
-    window.set_size(PhysicalSize::new(size.0, size.1)).map_err(|error| error.to_string())?;
-    window.set_position(at).map_err(|error| error.to_string())?;
-    // At rest the hexagram is the whole window; open, it is in the middle.
-    Ok(HandleCentre { x: f64::from(size.0) / 2.0 / scale, y: f64::from(size.1) / 2.0 / scale })
+    Ok(match inner.out {
+        Some(out) => HandleLayout { out: true, edge: name(out.edge), x: out.local.0, y: out.local.1 },
+        None => HandleLayout { out: false, edge: name(inner.edge), x: 0.0, y: 0.0 },
+    })
 }
 #[cfg(test)]
 mod tests {
@@ -726,22 +909,78 @@ mod tests {
         assert!(x >= -1920 && x + 300 <= 0 && (0..=1080 - 232).contains(&y));
     }
 
+    // A 1920x1080 monitor with a 48px taskbar at the bottom, at 125 %.
+    const WORK: Rect = (0, 0, 1920, 1032);
+
     #[test]
-    fn the_open_handle_keeps_its_centre_and_stays_in_the_work_area() {
-        let work = (0, 0, 1920, 1032);
-        // Room all round: the rectangle is centred on the handle.
-        assert_eq!(open_corner((900, 500), (560, 360), work), (620, 320));
-        // Near the bottom right corner it moves back inside the work area.
-        assert_eq!(open_corner((1900, 1020), (560, 360), work), (1360, 672));
-        // A second monitor left of the first one.
-        let (x, y) = open_corner((-10, 5), (560, 360), (-1920, 0, 1920, 1080));
-        assert!(x >= -1920 && x + 560 <= 0 && y >= 0);
+    fn the_hexagram_comes_out_half_over_the_middle_of_its_edge() {
+        for (edge, centre) in [
+            (Edge::Right, (1920, 516)),
+            (Edge::Left, (0, 516)),
+            (Edge::Top, (960, 0)),
+            (Edge::Bottom, (960, 1032)),
+        ] {
+            assert_eq!(edge_centre(edge, WORK), centre, "{edge:?}");
+            let ((x, y, width, height), (cx, cy)) = out_rect(edge, WORK, 1.25);
+            // The window lies on the screen, inside the work area, with the centre on its edge.
+            assert!(x >= 0 && y >= 0 && x + width as i32 <= 1920 && y + height as i32 <= 1032, "{edge:?}");
+            assert_eq!((x + cx, y + cy), centre, "{edge:?}");
+        }
+        // Beside a side edge the window is the narrow one; along a top or bottom edge, the wide one.
+        assert_eq!(out_rect(Edge::Right, WORK, 1.0).0, (1920 - 330, 516 - 120, 330, 240));
+        assert_eq!(out_rect(Edge::Bottom, WORK, 1.0).0, (960 - 290, 1032 - 190, 580, 190));
     }
 
     #[test]
-    fn the_handle_sits_outside_the_band_level_with_the_last_line() {
-        let band = (192, 650, 1536, 351);
-        assert_eq!(handle_position(band, false, 28, 6), (192 + 1536 + 6, 650 + 351 - 28));
-        assert_eq!(handle_position(band, true, 28, 6), (1734, 650));
+    fn only_the_pointer_at_the_edge_near_the_hexagram_brings_it_out() {
+        assert!(near_edge(Edge::Right, WORK, 1.0, (1919.0, 516.0)));
+        assert!(near_edge(Edge::Right, WORK, 1.0, (1910.0, 560.0)));
+        // Too far from the edge, or along it too far from the hexagram.
+        assert!(!near_edge(Edge::Right, WORK, 1.0, (1890.0, 516.0)));
+        assert!(!near_edge(Edge::Right, WORK, 1.0, (1919.0, 700.0)));
+        // The other edges, and the taskbar below the work area does not count as the bottom edge.
+        assert!(near_edge(Edge::Left, WORK, 1.0, (0.0, 500.0)));
+        assert!(near_edge(Edge::Top, WORK, 1.0, (970.0, 3.0)));
+        assert!(near_edge(Edge::Bottom, WORK, 1.0, (960.0, 1030.0)));
+        assert!(!near_edge(Edge::Bottom, WORK, 1.0, (960.0, 1060.0)));
+        // At 150 % the strip is deeper in physical px.
+        assert!(near_edge(Edge::Right, WORK, 1.5, (1900.0, 516.0)));
+    }
+
+    #[test]
+    fn it_stays_out_while_the_pointer_is_on_its_window_or_just_beside() {
+        let rect = (1590, 396, 330, 240);
+        assert!(inside(rect, (1700.0, 500.0), 18.0));
+        assert!(inside(rect, (1580.0, 390.0), 18.0));
+        assert!(!inside(rect, (1560.0, 500.0), 18.0));
+    }
+
+    #[test]
+    fn the_panel_opens_beside_the_hexagram_on_the_screens_side() {
+        let size = (375, 260);
+        assert_eq!(panel_beside(Edge::Right, (1920, 516), 100.0, size, WORK), (1920 - 100 - 375, 516 - 130));
+        assert_eq!(panel_beside(Edge::Left, (0, 516), 100.0, size, WORK), (100, 386));
+        assert_eq!(panel_beside(Edge::Bottom, (960, 1032), 100.0, size, WORK), (773, 1032 - 100 - 260));
+        // Near a corner it stays inside the work area.
+        let (x, y) = panel_beside(Edge::Top, (10, 0), 100.0, size, WORK);
+        assert!(x >= 0 && y >= 0);
+    }
+
+    #[test]
+    fn a_status_names_one_of_the_four_edges() {
+        for edge in ["right", "left", "top", "bottom"] {
+            let mut status = Status::default();
+            status.edge = edge.into();
+            assert!(validate(&status).is_ok(), "{edge}");
+        }
+        let mut status = Status::default();
+        status.edge = "middle".into();
+        assert_eq!(validate(&status), Err("companion_invalid".into()));
+        // A main window that reports no edge yet means the default, the right one.
+        let value = serde_json::to_value(Status::default()).unwrap();
+        let mut older = value.as_object().unwrap().clone();
+        older.remove("edge");
+        let read: Status = serde_json::from_value(serde_json::Value::Object(older)).unwrap();
+        assert_eq!(read.edge, "right");
     }
 }
