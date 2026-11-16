@@ -266,12 +266,10 @@ export const TranscriptionEngine_Box = () => {
                         ? t("config_page.transcription.select_transcription_engine.engines.speechcpp")
                         : currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
                 })}</span>
-                {currentSelectedTranscriptionEngine.data === "Google" && <span>{t("transcription_consent.google_notice")}</span>}
             </span>}
             selectFunction={setSelectedTranscriptionEngine}
             name="select_transcription_engine"
             options={[
-                { id: "Google", label: "Google" },
                 { id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
                 ...cloud_options,
             ]}

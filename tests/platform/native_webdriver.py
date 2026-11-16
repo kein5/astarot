@@ -231,8 +231,16 @@ class NativeWebDriver:
         self.open_voice_page("Advanced", '[data-setting-id="direct_voice_settings"] select')
 
     def close_app(self):
-        """Use the app's real shutdown action and verify exit before driver cleanup."""
-        self.click('[class*="window_control_wrapper"] [class*="close_button"]')
+        """Quit the way the tray menu's Quit does, and verify exit before driver cleanup.
+
+        The window's close button only puts the app away in the tray; it keeps
+        running (src-tauri/src/companion.rs). The tray menu's Quit sends
+        companion-quit to the main window, which saves the settings and ends the
+        app (CompanionController). A native tray menu cannot be pressed through
+        WebDriver, so this sends that same event from the page.
+        """
+        self.evaluate("window.__TAURI_INTERNALS__.invoke('plugin:event|emit',"
+                      " { event: 'companion-quit', payload: null }); return true;")
         self.app_process.wait(timeout=10)
         # The app has closed its own automation target; don't ask WebKit to close
         # it a second time. The owned driver group is still reaped by __exit__.

@@ -211,7 +211,7 @@ pub struct Services {
     /// The microphone and speaker captures of speech recognition (WASAPI, or the Linux helper
     /// `vrct-asr-capture`); tests feed PCM of their own.
     pub transcription_capture: TranscriptionCapture,
-    /// Where the cloud recognition engines are (Google, Groq, OpenAI, Deepgram).
+    /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
     pub transcription_endpoints: vrct_transcription::providers::Endpoints,
     /// The VAD engine the recorders use while `*_ENABLE_VAD` is on: none in this build
     /// ([`vrct_transcription::vad::bundled`], decision 13). Tests give a fake.

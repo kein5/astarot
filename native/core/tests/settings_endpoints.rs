@@ -300,17 +300,47 @@ fn the_remaining_switches_and_choices() {
 
 #[test]
 fn experimental_features_are_all_off_and_a_bad_value_is_refused() {
-    // The list is empty until a feature graduates from the experimental branch; the check itself
-    // is tested with made-up ids in src/config/schema.rs.
+    // The listed features (only tray_companion now) start off; the check itself is also tested
+    // with made-up ids in src/config/schema.rs.
+    let off = json!({ "tray_companion": false });
     let ui = Ui::with(Setup { saved: Some(json!({ "EXPERIMENTAL_FEATURES": { "graduated_long_ago": true } })), ..Setup::default() });
     let snapshot = ui.ready();
-    assert_eq!(snapshot["/get/data/experimental_features"], json!({}), "an id no longer listed is dropped");
-    assert_eq!(ui.ok("/get/data/experimental_features", None), json!({}));
-    assert_eq!(ui.ok("/set/data/experimental_features", Some(json!({ "unknown": true }))), json!({}));
+    assert_eq!(snapshot["/get/data/experimental_features"], off, "an id no longer listed is dropped");
+    assert_eq!(ui.ok("/get/data/experimental_features", None), off);
+    assert_eq!(ui.ok("/set/data/experimental_features", Some(json!({ "unknown": true }))), off);
     let answer = ui.request("/set/data/experimental_features", Some(json!("on")));
     assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
-    assert_eq!(answer["result"]["data"], json!({}));
+    assert_eq!(answer["result"]["data"], off);
+    assert_eq!(ui.ok("/set/data/experimental_features", Some(json!({ "tray_companion": true }))), json!({ "tray_companion": true }));
     ui.ok("/run/shutdown", None);
-    assert_eq!(ui.saved()["EXPERIMENTAL_FEATURES"], json!({}));
+    assert_eq!(ui.saved()["EXPERIMENTAL_FEATURES"], json!({ "tray_companion": true }));
+    ui.stop();
+}
+
+#[test]
+fn the_tray_companion_edge_is_one_of_the_four_and_starts_at_the_right() {
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/tray_companion_edge"], json!("right"));
+    assert_eq!(ui.ok("/set/data/tray_companion_edge", Some(json!("bottom"))), json!("bottom"));
+    let answer = ui.request("/set/data/tray_companion_edge", Some(json!("middle")));
+    assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["TRAY_COMPANION_EDGE"], json!("bottom"));
+    ui.stop();
+}
+
+#[test]
+fn the_tray_companion_monitor_is_a_name_and_starts_empty_for_the_primary_one() {
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/tray_companion_monitor"], json!(""));
+    assert_eq!(ui.ok("/set/data/tray_companion_monitor", Some(json!("\\\\.\\DISPLAY2"))), json!("\\\\.\\DISPLAY2"));
+    for bad in [json!("a\nb"), json!(1), json!("x".repeat(257))] {
+        let answer = ui.request("/set/data/tray_companion_monitor", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+    }
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["TRAY_COMPANION_MONITOR"], json!("\\\\.\\DISPLAY2"));
     ui.stop();
 }

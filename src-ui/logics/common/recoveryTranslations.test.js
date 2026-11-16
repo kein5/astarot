@@ -31,7 +31,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
         "@useI18n": translations, "react-error-boundary": { ErrorBoundary: icon },
         "./contacts_container/ContactsContainer": { ContactsContainer: icon }, "@common_components": { CloseButton: icon },
         "../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate: { info: { mode } } }) },
-        "@logics_common": { useWindow: () => ({ asyncCloseApp() {} }),
+        "@logics_common": { useWindow: () => ({ asyncQuitApp() {} }),
             useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test-version" }, currentLatestSoftwareVersionInfo: { data: { is_update_available: true } } }),
             useCopyToClipboard: () => ({ copyToClipboard: text => copies.push(text) }), useComputeMode: () => ({ currentComputeMode: { data: "cpu" } }),
             useUpdateSoftware: () => ({}), useIsSoftwareUpdating: () => ({ currentIsSoftwareUpdating: { data: updating } }) },

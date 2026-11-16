@@ -26,7 +26,7 @@ CRATE = Path(__file__).resolve().parents[1]
 OUTPUT = CRATE / "tests" / "data" / "python_config_reference.json"
 TRANSLATION_LANGUAGES = CRATE / "data" / "translation_languages.json"
 TRANSCRIPTION_LANGUAGES = CRATE / "data" / "transcription_languages.json"
-VERSION = "0.4.0-beta.1"
+VERSION = "0.4.0"
 TOKEN = "fixed-websocket-token-for-the-reference"
 # What the CTranslate2 CPU build answers on every supported PC (int8 needs no AVX-512).
 CPU_DEVICE = {"device": "cpu", "device_index": 0, "device_name": "cpu",

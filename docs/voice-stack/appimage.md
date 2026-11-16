@@ -2,7 +2,7 @@
 
 The Linux builder can also produce an x86_64 AppImage containing the release GUI, which
 runs the Rust backend core in its own process, and the `_internal` folder of the
-[Linux candidate](linux-build-pipeline.md): pinned speech.cpp, the RVC worker and the
+[Linux candidate](linux-build-pipeline.md): both pinned speech.cpp builds (CPU and Vulkan), the RVC worker and the
 audio and capture helpers. Since 0.5.0 no Python runtime is shipped. The
 [`v0.1.0-beta.1` prerelease](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0-beta.1)
 ships an AppImage built by the hosted Linux candidate workflow; an image you
@@ -18,7 +18,7 @@ Use the prerequisites in [the Linux build guide](linux-build-pipeline.md), plus
 on Ubuntu. Build both formats:
 
 ```sh
-python tools/build_linux.py --variant linux-x64-vulkan --download-speech \
+python tools/build_linux.py --download-speech \
   --appimage --download-appimage-tools
 ```
 
@@ -41,9 +41,9 @@ requires deliberate review and repinning, never a hash bypass.
 Default outputs alongside tar.gz:
 
 ```text
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage.sha256
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage.manifest.json
+build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.AppImage
+build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.AppImage.sha256
+build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.AppImage.manifest.json
 ```
 
 The builder checks the fixed runtime prefix, allowing only appimagetool's 16-byte
@@ -57,14 +57,14 @@ sandbox for arbitrary downloaded executables.
 ```sh
 cd build/linux/artifacts
 sha256sum -c ./*.AppImage.sha256
-chmod +x VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
-./VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
+chmod +x VRCT-VOX-<version>-linux-x64-release.AppImage
+./VRCT-VOX-<version>-linux-x64-release.AppImage
 ```
 
 FUSE must be available to the desktop user. For machines without FUSE:
 
 ```sh
-APPIMAGE_EXTRACT_AND_RUN=1 ./VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
+APPIMAGE_EXTRACT_AND_RUN=1 ./VRCT-VOX-<version>-linux-x64-release.AppImage
 ```
 
 Extraction needs temporary disk space for the uncompressed payload, in addition to the

@@ -801,6 +801,10 @@ impl Config {
             if key == "SELECTED_TRANSCRIPTION_ENGINE" && value.as_str() == Some(crate::languages::RETIRED_WHISPER_ENGINE) {
                 continue;
             }
+            // The retired Google engine loads as none: the user chooses again, as on a first start.
+            if key == "SELECTED_TRANSCRIPTION_ENGINE" && value.as_str() == Some(crate::languages::RETIRED_GOOGLE_ENGINE) {
+                continue;
+            }
             let Some(definition) = self.key(key) else { continue };
             if definition.readonly || !definition.serialize {
                 continue;
