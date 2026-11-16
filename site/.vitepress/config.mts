@@ -3,6 +3,7 @@ import { defineConfig, type DefaultTheme } from 'vitepress'
 import { tokenize } from './searchTokenize.mjs'
 import { slugify } from './slugify.mjs'
 import { LOCALE_KEY } from './theme/locale'
+import { CHAPTERS, WORDS } from './theme/manual/content.mjs'
 
 const repo = 'https://github.com/kein5/VRCT-VOX'
 const site = 'https://kein5.github.io/VRCT-VOX/'
@@ -158,6 +159,21 @@ export default defineConfig({
     ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/VRCT-VOX/favicon.png' }],
     ['link', { rel: 'apple-touch-icon', href: '/VRCT-VOX/apple-touch-icon.png' }],
   ],
+  // The ASTAROT manual (theme/manual/) is built in Japanese and switches language in place; its
+  // pages carry the ASTAROT icon and their own title, without the guide's " | VRCT-VOX".
+  transformPageData(pageData) {
+    if (!pageData.relativePath.startsWith('manual/')) return
+    const slug = pageData.params?.chapter as string | undefined
+    const chapter = slug ? CHAPTERS.find((entry) => entry.slug === slug) : undefined
+    const words = WORDS.ja
+    pageData.title = chapter ? `${chapter.title.ja} | ${words.meta.title}` : words.meta.title
+    pageData.titleTemplate = ':title'
+    pageData.description = chapter ? chapter.summary.ja : words.meta.description
+    pageData.frontmatter.head = [
+      ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}manual/brand/favicon.svg` }],
+      ['meta', { name: 'theme-color', content: '#261633' }],
+    ]
+  },
   transformHead: ({ pageData }) => [
     ...(pageData.relativePath === 'index.md' ? [['script', {}, pickLanguage] as [string, Record<string, string>, string]] : []),
     ...alternates(pageData.relativePath),
