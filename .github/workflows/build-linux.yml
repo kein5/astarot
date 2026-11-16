@@ -1,13 +1,8 @@
 name: VRCT-VOX Linux candidate (no publication)
 
 on:
+  # One candidate per architecture carries both pinned speech.cpp builds (CPU and Vulkan).
   workflow_dispatch:
-    inputs:
-      speech_variant:
-        description: Fixed speech.cpp engine (no models)
-        type: choice
-        options: [linux-x64-vulkan, linux-x64-cpu]
-        default: linux-x64-vulkan
   pull_request:
     paths:
       - '.github/workflows/build-linux.yml'
@@ -55,7 +50,6 @@ jobs:
       attestations: write
     env:
       CARGO_BUILD_JOBS: '4'
-      SPEECH_VARIANT: ${{ inputs.speech_variant || 'linux-x64-vulkan' }}
       # The build and test tools run on the Python in mise.toml; uv never fetches its own.
       UV_PYTHON_PREFERENCE: only-system
       UV_PYTHON_DOWNLOADS: never
@@ -93,10 +87,10 @@ jobs:
           bash tools/ci/setup_pipewire.sh "$RUNNER_TEMP/vrct-pipewire"
           cat "$RUNNER_TEMP/vrct-pipewire/environment" >> "$GITHUB_ENV"
           echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
-      - name: Build isolated candidate with pinned speech.cpp
+      - name: Build isolated candidate with both pinned speech.cpp builds
         run: |
           python tools/build_linux.py \
-            --variant "$SPEECH_VARIANT" --download-speech \
+            --download-speech \
             --appimage --download-appimage-tools \
             > linux-build.log 2>&1
       # The test tools only (pytest, requests), checked against uv.lock; no app dependencies.

@@ -8,7 +8,9 @@ removed in 0.2.0 (see below); **fork binary distributions exclude all OCR
 weights** while retaining their attribution documents.
 
 The fork supports external engines and a fixed speech.cpp binary bundle with
-separate third-party notices. RVC voice conversion is the fork's own
+separate third-party notices. Windows builds carry its Vulkan build; Linux builds
+carry its CPU build and its Vulkan build of the same release side by side, each
+with the same notices. RVC voice conversion is the fork's own
 reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
 Rust dependencies are listed with the app's (see "Rust crates in VRCT-VOX
 builds" below). ONNX Runtime,

@@ -291,6 +291,10 @@ miniaudioの二重ライセンス、静的GCCランタイムのGPLv3＋Runtime L
 
 2026-11-15に固定版を0.11.0（commit 8d18924cd238b87c0297df112f7ff40783a6414f）へ更新。3種の公式ZIP（Linux CPU、Linux Vulkan、Windows Vulkan）は、リリースの`SHA256SUMS`とGitHubが示すダイジェストの両方と一致した。speech.cpp/cpp-httplib/miniaudioのライセンス文は0.10.0と同一で、vendorは無変更。GGMLはspeech.cppのfork（[nyosegawa/ggml](https://github.com/nyosegawa/ggml)）のsubmodule 79b50d239d0b88852814c873db0d85d43ed66d9bへ更新し、ライセンス文は同一。forkは0.10.0の時点から使われていたので、通知と台帳の原典URLもforkに直した。Linuxの実行ファイルのGCCは同じUbuntu 11.4.0-1ubuntu1~22.04.3で、必要なglibcは2.34のまま、動的に読むのはlibc・libm・（Vulkan版は）libvulkanだけ。Windowsの`speech.exe`はMSVCのビルド情報を持ち、読み込むDLLはWindows標準のものと`vulkan-1.dll`だけで、Cランタイムの動的ライブラリは読まない。新規に同梱する第三者コードはない。0.11.0で増えた音声強調（RE-USE）と対話（Haru-4B）のモデルはアプリから使わず、取得の候補にも入れない。
 
+## Linuxの2つのspeech.cpp（0.5.0、2026-11-16）
+
+0.5.0から、Linuxの配布物（tar.gz、AppImage、deb、rpm）はアーキテクチャごとに1つになり、speech.cppのCPU版とVulkan版の両方を入れる。Vulkan版は`_internal/build/speechcpp/`、CPU版は`_internal/build/speechcpp-cpu/`にあり、それぞれが固定台帳のZIPから作った自分の`bundle.json`と通知一式を持つ。どちらを使うかは設定の推論デバイスで決まる（[中核の統合](core-integration.md)の「判断が要ること」の5）。2つの実行ファイルは同じリリース（0.11.0、commit 8d18924cd238b87c0297df112f7ff40783a6414f）の公式ZIPで、通知の文面は同じ。新規に同梱する第三者コードはない。CPU版が動的に読むのはlibcとlibmだけで、Vulkanローダーは読まない。Vulkan版はlibvulkanを読むが、ローダーとドライバーは今までどおり配布物に含めない。debとrpmではVulkanローダーを必須から推奨に移した（「判断が要ること」の48）。Windowsは公式のWindows版がVulkan版だけなので、今までどおりVulkan版だけを入れる。
+
 ## 内蔵CTranslate2の取得条件
 
 ローカルの Whisper（faster-whisper）は #288 で削除し、Whisper の重み（OpenAIのMITモデルを元にしたSystran・Zoont・deepdmlのCTranslate2変換版）の取得もやめた。以前の版が取得した重みは読まず、設定の「音声認識（ASR）」から利用者が削除できる。提供元は[NOTICE](../../NOTICE.md#whisper-weights-from-earlier-versions)に残す。faster-whisperは依存から外し（`pyproject.toml`、`uv.lock`。PyAVも一緒に外れた）、発話区間の検出（同梱のSilero VAD）とOCRが使う`onnxruntime`を直接の依存にした。PyAVを必要とする依存はなくなったが、`packaging/pyinstaller-stubs/av`の代用モジュールと配布ポリシーによるPyAV・x264/x265の拒否は、防御として残す（代用モジュールは0.5.0でPyInstallerの工程と一緒に削除した）。CTranslate2と、そのCUDA用の追加依存は、ローカルの翻訳が使うので残す。
@@ -395,7 +399,8 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 
 | パス | 内容 | ライセンス |
 |---|---|---|
-| `_internal/build/speechcpp/` | 固定版のspeech.cppと依存の通知 | MITと通知の各ライセンス（上の各節） |
+| `_internal/build/speechcpp/` | 固定版のspeech.cpp（Vulkan版）と依存の通知 | MITと通知の各ライセンス（上の各節） |
+| Linuxの`_internal/build/speechcpp-cpu/` | 固定版のspeech.cpp（CPU版）と依存の通知 | 同上（下の「Linuxの2つのspeech.cpp」） |
 | `_internal/build/sudachi/`（版が決まってから） | 読みの辞書SudachiDictと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
 | `_internal/build/vrct-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
 | Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`vrct-voice-gate`など） | VRCT-VOX自身のコード |

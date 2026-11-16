@@ -39,9 +39,14 @@ pub(crate) fn default_downloads(root: &Path) -> Result<Downloads, Error> {
 }
 
 /// The default [`Services::speech_binary`]: the checked speech.cpp of the app's bundle
-/// (`runtime.bundled_binary`, `<resources>/build/speechcpp`).
+/// (`runtime.bundled_binary`, `<resources>/build/speechcpp`). With both Linux builds it is the
+/// Vulkan build when it lists its devices on this PC, else the CPU build, so that the probe
+/// sees the devices a server can use.
 pub(crate) fn default_speech_binary(env: &Environment) -> Result<PathBuf, String> {
-    vrct_speech_server::bundle::bundled_binary(&super::speech::bundle_folder(env)).map_err(str::to_string)
+    let builds = vrct_speech_server::builds::Builds::find(&super::speech::bundle_folders(env), &vrct_speech_server::bundle::pinned());
+    builds
+        .for_listing(|binary| vrct_speech_server::devices::device_rows(binary, &None).is_some())
+        .ok_or_else(|| vrct_speech_server::codes::BUNDLE.to_string())
 }
 
 /// What the download and usage-event endpoints keep for the run.
