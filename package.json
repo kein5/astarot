@@ -37,7 +37,8 @@
     "test:ui": "python tools/dev.py check --scope ui",
     "setup:headless": "python tools/dev.py setup --scope headless",
     "setup:browser": "python tools/dev.py setup --scope browser",
-    "dev:web": "vite"
+    "dev:web": "vite",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@babel/standalone": "7.27.0",

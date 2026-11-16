@@ -55,16 +55,27 @@ export function hooks() {
     };
 }
 
+// Sources moving to TypeScript (ADR-010) lose their types first; the JSX and module
+// transforms then run as for JavaScript.
+export function typeScriptAware(url, options) {
+    const name = String(url);
+    if (!/\.tsx?$/.test(name)) return options;
+    return { ...options, filename: name.endsWith(".tsx") ? "module.tsx" : "module.ts",
+        presets: [...options.presets ?? [], ["typescript", { onlyRemoveTypeImports: false }]] };
+}
+
 export async function loadModule(url, runtime, imports = {}) {
     const source = await readFile(url, "utf8");
-    const { code } = Babel.transform(source, {
+    const { code } = Babel.transform(source, typeScriptAware(url, {
         presets: [["react", { runtime: "automatic" }]], plugins: ["transform-modules-commonjs"],
-    });
+    }));
     const dependencies = { react: runtime.api, "react/jsx-runtime": jsx, clsx, jotai: runtime.jotai,
         "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, ...imports };
     const require = name => {
         if (name.endsWith(".module.scss")) return new Proxy({}, { get: (_, key) => key === "__esModule" ? false : key });
+        // vanilla-extract style modules: each export is its class name.
+        if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return () => null;
         if (name in dependencies) return dependencies[name];
         throw new Error(`Unexpected dependency: ${name}`);
