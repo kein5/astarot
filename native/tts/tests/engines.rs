@@ -61,7 +61,17 @@ fn serve(route: Route) -> (String, Seen) {
 fn wav(samples: usize) -> Vec<u8> {
     let pcm: Vec<u8> = (0..samples).flat_map(|i| ((i % 100) as i16 + 1).to_le_bytes()).collect();
     let mut data = b"RIFF\0\0\0\0WAVEfmt ".to_vec();
-    for part in [&16u32.to_le_bytes()[..], &1u16.to_le_bytes(), &1u16.to_le_bytes(), &24000u32.to_le_bytes(), &48000u32.to_le_bytes(), &2u16.to_le_bytes(), &16u16.to_le_bytes(), b"data", &(pcm.len() as u32).to_le_bytes()] {
+    for part in [
+        &16u32.to_le_bytes()[..],
+        &1u16.to_le_bytes(),
+        &1u16.to_le_bytes(),
+        &24000u32.to_le_bytes(),
+        &48000u32.to_le_bytes(),
+        &2u16.to_le_bytes(),
+        &16u16.to_le_bytes(),
+        b"data",
+        &(pcm.len() as u32).to_le_bytes(),
+    ] {
         data.extend_from_slice(part);
     }
     data.extend(pcm);
@@ -96,10 +106,7 @@ fn voicevox_lists_talking_styles_and_reads_sentence_by_sentence() {
     let voices = client.list_voices(None).unwrap();
     assert_eq!(
         voices,
-        vec![
-            VoiceRow { id: "2".into(), speaker: "四国めたん".into(), style: "ノーマル".into() },
-            VoiceRow { id: "3".into(), speaker: "ずんだもん".into(), style: "ノーマル".into() },
-        ],
+        vec![VoiceRow { id: "2".into(), speaker: "四国めたん".into(), style: "ノーマル".into() }, VoiceRow { id: "3".into(), speaker: "ずんだもん".into(), style: "ノーマル".into() },],
         "singing styles and nameless speakers are left out"
     );
     let token = CancelToken::new();
@@ -119,11 +126,9 @@ fn voicevox_lists_talking_styles_and_reads_sentence_by_sentence() {
 fn coeiroink_sends_its_synthesis_parameters() {
     let route: Route = Arc::new(|method, path, _| match (method, path) {
         ("GET", "/v1/engine_info") => (200, "application/json", br#"{"version":"2.13.0"}"#.to_vec()),
-        ("GET", "/v1/speakers_path_variant") => (
-            200,
-            "application/json",
-            serde_json::to_vec(&json!([{"speakerName": "つくよみちゃん", "speakerUuid": "3c37646f-3881", "styles": [{"styleId": 0, "styleName": "れいせい"}]}])).unwrap(),
-        ),
+        ("GET", "/v1/speakers_path_variant") => {
+            (200, "application/json", serde_json::to_vec(&json!([{"speakerName": "つくよみちゃん", "speakerUuid": "3c37646f-3881", "styles": [{"styleId": 0, "styleName": "れいせい"}]}])).unwrap())
+        }
         ("POST", "/v1/synthesis") => (200, "audio/wav; charset=binary", wav(480)),
         _ => (404, "text/plain", Vec::new()),
     });

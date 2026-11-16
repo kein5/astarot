@@ -261,13 +261,7 @@ impl EngineClient {
         let base_url = local_url(base_url)?;
         let authority = base_url.trim_start_matches("http://");
         let (host, port) = authority.rsplit_once(':').expect("local_url always has a port");
-        Ok(Self {
-            api,
-            host: host.trim_start_matches('[').trim_end_matches(']').to_owned(),
-            port: port.parse().expect("local_url ports are valid"),
-            timeout,
-            synthesis_timeout,
-        })
+        Ok(Self { api, host: host.trim_start_matches('[').trim_end_matches(']').to_owned(), port: port.parse().expect("local_url ports are valid"), timeout, synthesis_timeout })
     }
 
     pub fn api(&self) -> EngineApi {
@@ -275,7 +269,17 @@ impl EngineClient {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn request(&self, method: &str, path: &str, token: &CancelToken, body: Option<&[u8]>, limit: usize, error_code: &'static str, timeout: Option<Duration>, expect: Option<&str>) -> Result<Vec<u8>, SpeechError> {
+    fn request(
+        &self,
+        method: &str,
+        path: &str,
+        token: &CancelToken,
+        body: Option<&[u8]>,
+        limit: usize,
+        error_code: &'static str,
+        timeout: Option<Duration>,
+        expect: Option<&str>,
+    ) -> Result<Vec<u8>, SpeechError> {
         // A timeout, a refused connection or a broken answer: the step's code, never the OS's.
         let fail = |token: &CancelToken, _: HttpError| -> SpeechError {
             match token.check() {
