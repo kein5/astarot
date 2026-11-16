@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 /// The settings whose values are keys: kept in the store, never in `config.json`.
-pub const SECRET_SETTINGS: [&str; 2] = ["AUTH_KEYS", "TRANSCRIPTION_AUTH_KEYS"];
+pub const SECRET_SETTINGS: [&str; 3] = ["AUTH_KEYS", "TRANSCRIPTION_AUTH_KEYS", "PAPAGO_CLIENT_ID"];
 
 /// Why the store failed. Never carries a key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -76,7 +76,8 @@ pub fn write_verified(store: &dyn SecretStore, entry: &str, value: &str) -> Resu
 pub fn entries(name: &str, value: &Value) -> Vec<(String, Option<String>)> {
     match value {
         Value::Object(map) => map.iter().map(|(provider, v)| (format!("{name}/{provider}"), v.as_str().map(str::to_string))).collect(),
-        Value::String(s) => vec![(name.to_string(), Some(s.clone()))],
+        // An empty string is "no key", like null in a map: nothing to keep.
+        Value::String(s) => vec![(name.to_string(), (!s.is_empty()).then(|| s.clone()))],
         _ => vec![(name.to_string(), None)],
     }
 }
@@ -94,6 +95,8 @@ pub fn with_entry(name: &str, value: &Value, entry: &str, new: Option<&str>) -> 
             }
             Value::Object(map)
         }
+        // A single string setting keeps its type: no key is the empty string.
+        Value::String(_) | Value::Null if entry == name => if new.is_null() { Value::String(String::new()) } else { new },
         _ if entry == name => new,
         _ => value.clone(),
     }

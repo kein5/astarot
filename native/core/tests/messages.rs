@@ -201,6 +201,37 @@ fn a_translated_message_follows_the_format_and_the_only_translated_switch() {
 }
 
 #[test]
+fn the_official_apis_translate_a_message_with_the_users_keys() {
+    let run = start(json!({}), None);
+    let google = format!("AIza{}", "k".repeat(35));
+    run.fake.key("/google-cloud", &google).key("/papago", "client-1:secret-1");
+    let use_engine = |engine: &str| {
+        let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+        engines["1"] = json!(engine);
+        assert_eq!(run.ui.ok("/set/data/selected_translation_engines", Some(engines))["1"], engine);
+    };
+
+    assert_eq!(run.ui.ok("/set/data/google_cloud_auth_key", Some(json!(google))), json!(google));
+    use_engine("Google_Cloud_API");
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    let result = run.chat("m-1", "こんにちは");
+    assert_eq!(result["translations"], json!([{ "message": "google-cloud:en:こんにちは", "transliteration": [] }]));
+    let sent = run.fake.seen_under("/google-cloud/language/translate/v2").pop().unwrap();
+    assert_eq!((sent.body["source"].as_str(), sent.body["format"].as_str()), (Some("ja"), Some("text")));
+
+    assert_eq!(run.ui.ok("/set/data/papago_client_id", Some(json!("client-1"))), "client-1");
+    assert_eq!(run.ui.ok("/set/data/papago_auth_key", Some(json!("secret-1"))), "secret-1");
+    use_engine("Papago_API");
+    let result = run.chat("m-2", "こんにちは");
+    assert_eq!(result["translations"], json!([{ "message": "papago:en:こんにちは", "transliteration": [] }]));
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは\ngoogle-cloud:en:こんにちは"));
+
+    let log = run.process_log();
+    assert!(!log.contains(&google) && !log.contains("secret-1") && !log.contains("こんにちは"), "the log has a key or text");
+    run.ui.stop();
+}
+
+#[test]
 fn a_failing_provider_falls_back_reports_and_sends_the_original() {
     let run = start(json!({}), None);
     run.translate_with_deepl();

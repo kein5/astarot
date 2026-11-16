@@ -101,14 +101,12 @@ pub struct Url {
     pub target: String,
 }
 
-/// Whether a host is this PC or a private network (`network_policy.is_local_host`).
-pub fn is_local_host(host: &str) -> bool {
-    let host = host.trim_start_matches('[').trim_end_matches(']');
-    if host.to_ascii_lowercase().trim_end_matches('.') == "localhost" {
-        return true;
-    }
-    match host.parse::<IpAddr>() {
-        Ok(IpAddr::V4(v4)) => {
+/// Whether an address is this PC or the LAN: loopback (`127.0.0.0/8`, `::1`), the private IPv4
+/// ranges (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local (`169.254.0.0/16`,
+/// `fe80::/10`) and IPv6 unique local addresses (`fc00::/7`).
+pub fn is_local_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
             let o = v4.octets();
             o[0] == 127
                 || o[0] == 10
@@ -116,11 +114,41 @@ pub fn is_local_host(host: &str) -> bool {
                 || (o[0] == 192 && o[1] == 168)
                 || (o[0] == 169 && o[1] == 254)
         }
-        Ok(IpAddr::V6(v6)) => {
+        IpAddr::V6(v6) => {
             let s = v6.segments();
             v6.is_loopback() || (s[0] & 0xfe00) == 0xfc00 || (s[0] & 0xffc0) == 0xfe80
         }
-        Err(_) => false,
+    }
+}
+
+/// A multicast DNS name of the LAN (`name.local`, RFC 6762): one or more labels of letters,
+/// digits and hyphens before `.local`.
+fn is_mdns_name(host: &str) -> bool {
+    let host = host.to_ascii_lowercase();
+    let host = host.trim_end_matches('.');
+    let Some(name) = host.strip_suffix(".local") else { return false };
+    !name.is_empty()
+        && name.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
+}
+
+/// Whether a host is this PC or the LAN (`network_policy.is_local_host`, plus `.local` names):
+/// `localhost`, an address of [`is_local_ip`], or a `.local` name. Plain HTTP goes only to these.
+/// A `.local` name is checked again when it is looked up: [`send`] connects over plain HTTP only
+/// to the addresses of [`is_local_ip`].
+pub fn is_local_host(host: &str) -> bool {
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    if host.to_ascii_lowercase().trim_end_matches('.') == "localhost" {
+        return true;
+    }
+    match host.parse::<IpAddr>() {
+        Ok(ip) => is_local_ip(ip),
+        Err(_) => is_mdns_name(host),
     }
 }
 
@@ -258,6 +286,12 @@ impl Write for Stream {
 
 fn connect(url: &Url, timeouts: Timeouts) -> Result<Stream, HttpError> {
     let addresses = (url.host.as_str(), url.port).to_socket_addrs().map_err(|_| HttpError::Unreachable)?;
+    // Plain HTTP stays on this PC and the LAN even when a name (`localhost`, `.local`) is looked
+    // up to somewhere else.
+    let addresses: Vec<_> = addresses.filter(|a| url.tls || is_local_ip(a.ip())).collect();
+    if addresses.is_empty() && !url.tls {
+        return Err(HttpError::Url);
+    }
     // A refused connection and one that timed out both mean nothing answered (requests'
     // ConnectTimeout is a ConnectionError too). Windows answers a closed loopback port only
     // after its retries, so a short wait ends as a timeout there.
@@ -469,6 +503,23 @@ mod tests {
         assert_eq!(Url::parse("ftp://example.com/"), Err(HttpError::Url));
         assert_eq!(Url::parse("https://example.com:0/"), Err(HttpError::Url));
         assert_eq!(Url::parse("https://example.com/#x"), Err(HttpError::Url));
+    }
+
+    #[test]
+    fn the_lan_is_private_ranges_link_local_unique_local_and_local_names() {
+        for local in [
+            "localhost", "127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.20", "169.254.1.1", "::1",
+            "[fd12::1]", "fe80::1", "studio.local", "Studio-PC.local.", "a.b.local",
+        ] {
+            assert!(is_local_host(local), "{local}");
+        }
+        for public in [
+            "example.com", "172.32.0.1", "100.64.0.1", "8.8.8.8", "2001:db8::1", "local", ".local", "-x.local", "a..local",
+            "evil.local.example.com", "a_b.local",
+        ] {
+            assert!(!is_local_host(public), "{public}");
+        }
+        assert!(Url::parse("http://studio.local:1234/v1").is_ok());
     }
 
     #[test]

@@ -41,6 +41,8 @@ import {
     openai_auth_key_url,
     groq_auth_key_url,
     openrouter_auth_key_url,
+    google_cloud_auth_key_url,
+    papago_auth_key_url,
 } from "@ui_configs";
 
 import { useLLMConnection } from "@logics_common";
@@ -106,6 +108,13 @@ const ExternalTranslationAPI_Container = () => {
             <Provider id="DeepL_API">
                 <DeepLAuthKey_Box />
             </Provider>
+            <Provider id="Google_Cloud_API">
+                <GoogleCloudAuthKey_Box />
+            </Provider>
+            <Provider id="Papago_API">
+                <PapagoClientID_Box />
+                <PapagoAuthKey_Box />
+            </Provider>
             <Provider id="Plamo_API">
                 <PlamoAuthKey_Box />
                 <PlamoModelContainer />
@@ -146,6 +155,7 @@ const LocalLLM_Container = () => {
             </Provider>
             <Provider id="Ollama">
                 <OllamaConnectionCheck_Box />
+                <OllamaURL_Box />
                 <OllamaModelContainer />
             </Provider>
             <Provider id="OpenAI_Compatible">
@@ -336,6 +346,81 @@ const DeepLAuthKey_Box = () => {
                 saveFunction={saveFunction}
             />
         </>
+    );
+};
+
+// The official Google and NAVER APIs, called with the user's own keys.
+const GoogleCloudAuthKey_Box = () => {
+    const { t } = useI18n();
+    const { currentGoogleCloudAuthKey, setGoogleCloudAuthKey, deleteGoogleCloudAuthKey } = useTranslation();
+
+    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+        variable: currentGoogleCloudAuthKey.data,
+        state: currentGoogleCloudAuthKey.state,
+        setFunction: setGoogleCloudAuthKey,
+        deleteFunction: deleteGoogleCloudAuthKey,
+        label: t("config_page.translation.google_cloud_auth_key.label"),
+    });
+
+    return (
+        <AuthKeyContainer
+            label={t("config_page.translation.google_cloud_auth_key.label")}
+            desc={t("config_page.translation.google_cloud_auth_key.desc")}
+            webpage_url={google_cloud_auth_key_url}
+            variable={variable}
+            state={currentGoogleCloudAuthKey.state}
+            onChangeFunction={onChangeFunction}
+            saveFunction={saveFunction}
+        />
+    );
+};
+
+// Papago needs two values. The Client ID is saved first; the secret is checked with it.
+const PapagoClientID_Box = () => {
+    const { t } = useI18n();
+    const { currentPapagoClientID, setPapagoClientID } = useTranslation();
+
+    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+        variable: currentPapagoClientID.data,
+        state: currentPapagoClientID.state,
+        setFunction: setPapagoClientID,
+        label: t("config_page.translation.papago_client_id.label"),
+    });
+
+    return (
+        <EntryWithSaveButtonContainer
+            label={t("config_page.translation.papago_client_id.label")}
+            desc={t("config_page.translation.papago_client_id.desc")}
+            variable={variable}
+            saveFunction={saveFunction}
+            onChangeFunction={onChangeFunction}
+            state={currentPapagoClientID.state}
+            remove_border_bottom={true}
+            width="24rem"
+        />
+    );
+};
+const PapagoAuthKey_Box = () => {
+    const { t } = useI18n();
+    const { currentPapagoAuthKey, setPapagoAuthKey, deletePapagoAuthKey } = useTranslation();
+
+    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+        variable: currentPapagoAuthKey.data,
+        state: currentPapagoAuthKey.state,
+        setFunction: setPapagoAuthKey,
+        deleteFunction: deletePapagoAuthKey,
+        label: t("config_page.translation.papago_auth_key.label"),
+    });
+
+    return (
+        <AuthKeyContainer
+            label={t("config_page.translation.papago_auth_key.label")}
+            webpage_url={papago_auth_key_url}
+            variable={variable}
+            state={currentPapagoAuthKey.state}
+            onChangeFunction={onChangeFunction}
+            saveFunction={saveFunction}
+        />
     );
 };
 
@@ -736,6 +821,31 @@ const OllamaConnectionCheck_Box = () => {
                 // width="10rem"
             />
         </>
+    );
+};
+// Where Ollama runs: this PC (the default, localhost:11434) or another PC in the LAN.
+const OllamaURL_Box = () => {
+    const { t } = useI18n();
+    const { currentOllamaURL, setOllamaURL } = useTranslation();
+
+    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+        variable: currentOllamaURL.data,
+        state: currentOllamaURL.state,
+        setFunction: setOllamaURL,
+        label: t("config_page.translation.ollama_url.label"),
+    });
+
+    return (
+        <EntryWithSaveButtonContainer
+            label={t("config_page.translation.ollama_url.label")}
+            desc={endpointDescription(variable, t("config_page.translation.ollama_url.desc"), t)}
+            variable={variable}
+            saveFunction={saveFunction}
+            onChangeFunction={onChangeFunction}
+            state={currentOllamaURL.state}
+            remove_border_bottom={true}
+            width="24rem"
+        />
     );
 };
 const OllamaModelContainer = () => {

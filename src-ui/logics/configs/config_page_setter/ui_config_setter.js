@@ -291,6 +291,32 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set_delete",
         base_endpoint_name: "deepl_auth_key",
     },
+    // Google Cloud Translation (official API, core only)
+    {
+        Category: "Translation",
+        Base_Name: "GoogleCloudAuthKey",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set_delete",
+        base_endpoint_name: "google_cloud_auth_key",
+    },
+    // Papago Translation of NAVER Cloud Platform (official API, core only)
+    {
+        Category: "Translation",
+        Base_Name: "PapagoClientID",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set",
+        base_endpoint_name: "papago_client_id",
+    },
+    {
+        Category: "Translation",
+        Base_Name: "PapagoAuthKey",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set_delete",
+        base_endpoint_name: "papago_auth_key",
+    },
     // Plamo
     {
         Category: "Translation",

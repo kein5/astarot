@@ -278,6 +278,11 @@ backend_errors:
     CONNECTION_LMSTUDIO_URL_INVALID: "URLが無効か、サーバーに接続できませんでした。HTTPSを使ってください。HTTPはlocalhostまたはローカルネットワークのIPアドレスでのみ使えます。URLからユーザー名・パスワード・キーなどのクエリを除き、確認して保存し直してください。"
     CONNECTION_OPENAI_COMPATIBLE_URL_INVALID: "URLが無効か、サーバーに接続できませんでした。HTTPSを使ってください。HTTPはlocalhostまたはローカルネットワークのIPアドレスでのみ使えます。URLからユーザー名・パスワード・キーなどのクエリを除き、確認して保存し直してください。"
     CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID: "URLが無効か、サーバーに接続できませんでした。HTTPSを使ってください。HTTPはlocalhostまたはローカルネットワークのIPアドレスでのみ使えます。URLからユーザー名・パスワード・キーなどのクエリを除き、確認して保存し直してください。"
+    CONNECTION_OLLAMA_URL_INVALID: "URLが無効か、そのURLでOllamaに接続できませんでした。HTTPSを使ってください。HTTPはlocalhost、ローカルネットワークのIPアドレス、.localの名前でだけ使えます。URLからユーザー名・パスワード・キーなどのクエリを除いてください。Ollamaがモデルを入れて起動しているか確かめてから、保存し直してください。"
+    AUTH_GOOGLE_CLOUD_INVALID: "Google CloudのAPIキーを空白なしで入力してください。"
+    AUTH_GOOGLE_CLOUD_FAILED: "Google CloudのAPIキーを確認できませんでした。キーと、そのプロジェクトでCloud Translation APIと課金が有効になっているかを確かめてください。"
+    AUTH_PAPAGO_INVALID: "先にPapagoのClient IDを保存してから、Client Secretを入力してください。どちらも空白なしで入力します。"
+    AUTH_PAPAGO_FAILED: "PapagoのClient IDとClient Secretを確認できませんでした。両方の値と、NAVER Cloud PlatformのアプリケーションでPapago Translationが有効かを確かめてください。"
     WEBSOCKET_HOST_INVALID: "WebSocketサーバーにこのホストは使えません。"
     WEBSOCKET_PORT_UNAVAILABLE: "WebSocketサーバーのポートがほかのアプリで使われています。別のポートを指定してください。"
     WEBSOCKET_PORT_INVALID: "WebSocketのポートは1〜65535の整数で入力してください。"
@@ -600,6 +605,17 @@ config_page:
             label: "DeepL APIキー"
             desc: "使うときは、メイン画面の{{translator}}を「DeepL API」にしてください。\n※対応していない言語もあります。"
 
+        google_cloud_auth_key:
+            label: "Google Cloud APIキー"
+            desc: "自分のGoogle CloudプロジェクトでCloud Translation（Basic）を使います。プロジェクトでCloud Translation APIと課金を有効にしてから、APIキーを貼り付けてください。訳した文字数の料金はGoogleからプロジェクトに請求されます。"
+
+        papago_client_id:
+            label: "Papago Client ID"
+            desc: "自分のNAVER Cloud PlatformのアカウントでPapago Translationを使います。先にClient IDを保存し、次にClient Secretを保存します。Papagoが訳せるのは韓国語・英語・日本語・中国語などの決まった組み合わせだけで、ほかの組み合わせは代わりの翻訳を使います。"
+            reentry_required: "Client IDを変えるときは、先に保存済みのClient Secretを削除してから、新しいClient IDとそのSecretを保存してください。"
+        papago_auth_key:
+            label: "Papago Client Secret"
+
         plamo_auth_key:
             label: "Plamo APIキー"
         select_plamo_model:
@@ -641,6 +657,9 @@ config_page:
 
         ollama_connection_check:
             label: "Ollamaとの接続確認"
+        ollama_url:
+            label: "Ollama URL"
+            desc: "このPCのOllamaか、同じLANにある別のPCのOllamaを使えます（例: http://192.168.1.20:11434、http://studio.local:11434）。別のPCでは、Ollamaがネットワークから受け付けるように設定してください（OLLAMA_HOST=0.0.0.0）。"
         select_ollama_model:
             label: "Ollamaモデルを選択"
             connection_required: "Ollamaとの接続が必要"

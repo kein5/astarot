@@ -62,8 +62,8 @@ export const staticPendingControls = {
     SoftwareVersion: { endpoints: ["/get/data/version"] },
 } satisfies Record<string, PendingControlSpec>;
 
-// This legacy UI entry has no GET in mainloop.mapping.
-const settingsWithoutRead = new Set(["ollama_url"]);
+// Settings the backend has no GET for (none now: the core answers /get/data/ollama_url).
+const settingsWithoutRead = new Set<string>([]);
 
 export function settingPendingControl(setting: SettingDefinition): PendingControlSpec {
     const name = setting.base_endpoint_name;

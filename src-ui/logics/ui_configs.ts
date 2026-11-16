@@ -80,6 +80,9 @@ export const translator_status: TranslatorStatus[] = [
     // licensed for the official VRCT only, so VRCT-VOX could never run them.
     { id: "CTranslate2", label: `AI\nCTranslate2`, is_available: false, is_default: true },
     { id: "DeepL_API", label: `DeepL API`, is_available: false },
+    // The official APIs of Google and NAVER, called with the user's own keys (not the web translators).
+    { id: "Google_Cloud_API", label: `Google Cloud Translation`, is_available: false },
+    { id: "Papago_API", label: `Papago (NAVER Cloud)`, is_available: false },
     { id: "Plamo_API", label: `Plamo API`, is_available: false },
     { id: "Gemini_API", label: `Gemini API`, is_available: false },
     { id: "OpenAI_API", label: `OpenAI API`, is_available: false },
@@ -125,6 +128,8 @@ export const openai_auth_key_url = "https://platform.openai.com/api-keys";
 export const groq_auth_key_url = "https://console.groq.com/keys";
 export const deepgram_auth_key_url = "https://console.deepgram.com/";
 export const openrouter_auth_key_url = "https://openrouter.ai/keys";
+export const google_cloud_auth_key_url = "https://console.cloud.google.com/apis/credentials";
+export const papago_auth_key_url = "https://www.ncloud.com/product/aiService/papagoTranslation";
 
 
 

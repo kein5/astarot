@@ -2,11 +2,11 @@
 
 # 設定キー一覧
 
-`src-python/config.py`の`Config`クラス（`ManagedProperty`と`ValidatedProperty`）と`init_config()`の既定値から生成した。保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。
+`src-python/config.py`の`Config`クラス（`ManagedProperty`と`ValidatedProperty`）と`init_config()`の既定値から生成した。中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（131件）
+## config.jsonに保存するキー（133件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -141,6 +141,8 @@
 | `OCR_CHATBOX_FILTER` | bool | `True` | 2秒後にまとめて |
 | `OCR_USE_CHATBOX_DETECTOR` | bool | `True` | 2秒後にまとめて |
 | `OCR_PORTAL_RESTORE_TOKEN` | str、許可値 _ocr_portal_restore_token_validator | `''` | 即時 |
+| `OLLAMA_URL` | 検証 valid_saved_api_url（中核のみ） | `'http://localhost:11434'` | 2秒後にまとめて |
+| `PAPAGO_CLIENT_ID` | str（256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
 
 
 ## 保存しないキー（45件）

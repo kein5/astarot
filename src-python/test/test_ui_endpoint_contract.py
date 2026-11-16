@@ -13,11 +13,20 @@ UI 側の 1 エントリは `base_endpoint_name` と `logics_template_id` の組
 本番コードは変更しない。検出器だけを足す。
 """
 
+import json
 import re
 import unittest
 from pathlib import Path
 
 from mainloop import mapping
+
+# Endpoints only the Rust core (native/core) has; the UI may use them although Python never did.
+_CORE_ONLY_ENDPOINTS = {
+    entry["endpoint"]
+    for entry in json.loads(
+        (Path(__file__).resolve().parents[2] / "tools" / "spec_core_additions.json").read_text(encoding="utf-8")
+    )["endpoints"]
+}
 
 _UI_CONFIG_SETTER = (
     Path(__file__).resolve().parents[2]
@@ -36,7 +45,8 @@ _KNOWN_FRONTEND_MISMATCHES = {
     # バックエンドに /get/data/ollama_url も /set/data/ollama_url も
     # config.OLLAMA_URL も無く、src-ui 全体でもこの宣言以外から参照されて
     # いない。UI に入力欄が出るのに入力しても何も起きない。
-    # -> src-ui 側で宣言を削除するのが正しい対応 (フロント担当タスク)。
+    # -> 中核 (native/core) が /get/data/ollama_url と /set/data/ollama_url を持つようになった
+    #    (_CORE_ONLY_ENDPOINTS)。Python には無いままなので、ここにも残す。
     "/get/data/ollama_url",
 }
 
@@ -92,6 +102,7 @@ class TestUiEndpointContract(unittest.TestCase):
             for template, name in self.entries
             if template in templates
             and prefix + name not in mapping
+            and prefix + name not in _CORE_ONLY_ENDPOINTS
             and prefix + name not in _KNOWN_FRONTEND_MISMATCHES
         ]
         self.assertEqual(

@@ -109,4 +109,11 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "OCR_DISABLED_UNKNOWN", category: Category::Ocr, message: "OCR disabled due to an unknown error", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "GENERAL_EXCEPTION", category: Category::General, message: "An error occurred", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "GENERAL_UNKNOWN", category: Category::General, message: "Unknown error", severity: Severity::Error, user_action_required: false, reported: true },
+    // Core only (#277): the official translation APIs and the Ollama URL. tools/spec_core_additions.json
+    // adds them to the generated specification, after Python's codes.
+    CodeInfo { code: "AUTH_GOOGLE_CLOUD_INVALID", category: Category::Auth, message: "Google Cloud Translation API key is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
+    CodeInfo { code: "AUTH_GOOGLE_CLOUD_FAILED", category: Category::Auth, message: "Authentication failure of Google Cloud Translation API key", severity: Severity::Error, user_action_required: true, reported: true },
+    CodeInfo { code: "AUTH_PAPAGO_INVALID", category: Category::Auth, message: "Papago Client ID or Client Secret is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
+    CodeInfo { code: "AUTH_PAPAGO_FAILED", category: Category::Auth, message: "Authentication failure of Papago Client ID and Client Secret", severity: Severity::Error, user_action_required: true, reported: true },
+    CodeInfo { code: "CONNECTION_OLLAMA_URL_INVALID", category: Category::Connection, message: "Ollama URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
 ];

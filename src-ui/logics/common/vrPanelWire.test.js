@@ -115,7 +115,7 @@ test("everything the VR windows send is relayed", () => {
 
 test("credentials are not mirrored to the VR panel", () => {
     for (const name of ["DeepLAuthKey", "OpenAICompatibleAuthKey", "DeepgramAuthKey", "WebsocketAuthToken",
-        "OcrPortalRestoreToken"]) assert.equal(isSecretAtomName(name), true, name);
+        "OcrPortalRestoreToken", "GoogleCloudAuthKey", "PapagoAuthKey", "PapagoClientID"]) assert.equal(isSecretAtomName(name), true, name);
     for (const name of ["SelectedFontFamily", "MessageLogs", "OpenAICompatibleUrl", "SelectedTranslationEngines"]) assert.equal(isSecretAtomName(name), false, name);
 });
 

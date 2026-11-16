@@ -280,6 +280,8 @@ fn a_device_that_does_not_open_falls_back_to_another() {
 #[test]
 fn mute_sync_holds_the_microphone_back_and_losing_it_stops_recognition() {
     let run = start(google());
+    // Mute sync needs OSCQuery, which starts in the background: wait until it says it runs.
+    assert_eq!(run.ui.wait_endpoint(0, "/run/enable_osc_query")["result"]["data"], true);
     assert_eq!(run.ui.ok("/set/enable/vrc_mic_mute_sync", None), true);
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
     let osc = run.osc.last();
