@@ -692,7 +692,7 @@ def test_a_model_of_ones_own_is_registered_listed_and_switched_to(ui, tmp_path):
     peer.extra = extra
     group = page.get_by_role("region", name="Reading Japanese", exact=True)
     group.get_by_text("Register a model of your own", exact=True).click()
-    form = group.get_by_role("form")
+    form = group.get_by_role("group", name="Register a model of your own for Reading Japanese", exact=True)
     # Nothing is sent until the form can pass.
     form.get_by_role("button", name="Register", exact=True).click()
     expect(form.get_by_role("alert")).to_have_text("Enter a name.")
@@ -705,6 +705,8 @@ def test_a_model_of_ones_own_is_registered_listed_and_switched_to(ui, tmp_path):
     expect(form.get_by_label("Display name")).to_have_value("")
     assert next(data for ep, data in peer.sent if ep == "/run/register_user_model") == {
         "target": "japanese", "name": "My voice", "paths": {"model": str(own)}}
+    # Registering is not a save of the speech server settings around it.
+    assert not any(ep == "/set/data/speech_server_settings" for ep, _ in peer.sent)
     # The card sits in the same list as the catalog's cards.
     expect(group.get_by_role("list").first.locator("[data-user-model]")).to_have_count(1)
     card.get_by_role("button", name="Use this model", exact=True).click()

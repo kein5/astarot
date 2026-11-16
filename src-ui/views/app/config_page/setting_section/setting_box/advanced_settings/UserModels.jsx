@@ -67,8 +67,7 @@ export const UserModelRegistration = ({ target, busy }) => {
         if (!registered) return;
         setSentFor(null); setName(""); setPaths({}); setProblem(null);
     }, [registered]);
-    const submit = event => {
-        event.preventDefault();
+    const submit = () => {
         const checked = registrationRequest(target, name, paths);
         if ("problem" in checked) { setProblem(checked.problem); return; }
         setProblem(null); setSentFor(checked.request.name);
@@ -76,7 +75,12 @@ export const UserModelRegistration = ({ target, busy }) => {
     };
     return <details className={styles.more} data-user-model-register>
         <summary>{t("user_models.register_title")}</summary>
-        <form onSubmit={submit} aria-label={t("user_models.register_label", { group: t(`model_catalog.group.${target}`) })}>
+        {/* Not a <form>: the catalog sits inside the speech server settings form, and a nested
+            form would submit (save) that one too. Enter in a field registers, as a form would. */}
+        <div role="group" aria-label={t("user_models.register_label", { group: t(`model_catalog.group.${target}`) })}
+            onKeyDown={event => {
+                if (event.key === "Enter" && event.target.tagName === "INPUT") { event.preventDefault(); if (!busy) submit(); }
+            }}>
             <p>{t("user_models.register_help")}</p>
             <p>{t("user_models.terms_help")}</p>
             <label>{t("user_models.name")}
@@ -99,8 +103,8 @@ export const UserModelRegistration = ({ target, busy }) => {
             </label>)}
             {problem && <p id={`${id}-problem`} role="alert">{t(`user_models.problem.${problem}`, { kind: kinds.find(([role]) => problem.startsWith(role))?.[1] ?? "" })}</p>}
             <div className={styles.actions}>
-                <button type="submit" disabled={busy}>{t("user_models.register")}</button>
+                <button type="button" disabled={busy} onClick={submit}>{t("user_models.register")}</button>
             </div>
-        </form>
+        </div>
     </details>;
 };

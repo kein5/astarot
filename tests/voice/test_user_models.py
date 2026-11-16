@@ -111,7 +111,8 @@ def test_an_unreadable_list_is_reported_and_never_overwritten(files):
 def test_rvc_takes_a_model_and_an_optional_index(files):
     root, _ = files
     pth, index = root / 'voice.pth', root / 'voice.index'
-    pth.write_bytes(b'pth'); index.write_bytes(b'index')
+    pth.write_bytes(b'pth')
+    index.write_bytes(b'index')
     models = UserModels(root / FILE_NAME)
     row = models.register({'target': 'rvc', 'name': 'A', 'paths': {'model': str(pth), 'index': str(index)}})['models'][0]
     assert row['paths'] == {'model': str(pth), 'index': str(index)} and row['total_bytes'] == 8
