@@ -26,9 +26,13 @@ pub fn transcription() -> &'static Map<String, Value> {
     TRANSCRIPTION.get_or_init(|| parse(include_str!("../data/transcription_languages.json")))
 }
 
-/// The translation engines, in the order of `languages.yml`.
+/// Upstream VRCT's web translators. Their module is licensed for the official VRCT only, so no
+/// VRCT-VOX build could ever run them; they are not offered (`languages.yml` keeps their columns).
+pub const RETIRED_WEB_TRANSLATORS: [&str; 3] = ["Google", "Bing", "Papago"];
+
+/// The translation engines, in the order of `languages.yml`, without the retired web translators.
 pub fn translation_engines() -> Vec<String> {
-    translation().keys().cloned().collect()
+    translation().keys().filter(|e| !RETIRED_WEB_TRANSLATORS.contains(&e.as_str())).cloned().collect()
 }
 
 /// The removed local Whisper engine; its column stays for the cloud Whisper engines.

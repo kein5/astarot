@@ -4,7 +4,8 @@
 
 ## 現在の状態
 
-- ライブラリと、比較用のコマンド `vrct-translate` が動きます。**アプリにはまだ組み込んでいません。** アプリのローカル翻訳は、今も Python 側の CTranslate2 で動いています。
+- ライブラリと、比較用のコマンド `vrct-translate` が動きます。中核（`native/core`）の機能 `onnx-translation` の裏につないでありますが、既定ではオフで、アプリには入っていません。0.5.0 で Python がなくなったので、いまのアプリにはローカル翻訳がありません。
+- このクレートを使うか、`ct2rs`（CTranslate2 の Rust バインディング）などにするかは決まっていません。比べた結果は [core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 1 にあります。
 - モデルは `tools/translation_onnx/export.py` で作ります。作ったモデルの配布先（Hugging Face など）とモデル取得カタログへの登録は、まだしていません。
 
 ## 対象モデル

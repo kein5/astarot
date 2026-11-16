@@ -215,7 +215,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 中核が`native/translation`（翻訳のプロバイダ、プロンプト、読みの規則）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`httparse`、`rustls`、`serde_json`、`webpki-roots`）と、中核に足した`chrono`は、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。プロンプトの文面はPythonの`translation_settings/prompt/*.yml`（VRCT-VOXのコード）を移したもの。
 
-中核に機能フラグ`onnx-translation`ができた（既定はオフ）。オンにすると`native/translate-onnx`経由で`ort`（ONNX Runtimeの取得を含む）と`tokenizers`が入る。そのため`native/core/Cargo.lock`にはこれらが載るが、既定のビルドとアプリには入らない。オンにするときは、ONNX Runtimeの同梱（[core-integration.md](core-integration.md)の未決事項13）と一緒に、この台帳とNOTICEを見直す。読みの辞書（未決事項16）も、決まったら辞書のライセンスをここに足す。
+中核に機能フラグ`onnx-translation`ができた（既定はオフ）。オンにすると`native/translate-onnx`経由で`ort`（ONNX Runtimeの取得を含む）と`tokenizers`が入る。そのため`native/core/Cargo.lock`にはこれらが載るが、既定のビルドとアプリには入らない。オンにするときは、ONNX Runtimeの同梱（[core-integration.md](core-integration.md)の「判断が要ること」の2）と一緒に、この台帳とNOTICEを見直す。読みの辞書（同じく3）も、決まったら辞書のライセンスをここに足す。
 ## チャットの読み取りを中核に入れたときの依存（2026-11-16、#285）
 
 中核（`native/core`）が`native/ocr-runtime`を使うようになり、`vrct-vox`に次の外部のクレートが加わった。`caseless`（MIT）、`libloading` 0.9.1（ISC）、`ort`と`ort-sys`（MIT OR Apache-2.0）、`ndarray`、`matrixmultiply`、`num-complex`、`num-integer`、`rawpointer`、`unicode-bidi`、`unicode-normalization`（MITとApache-2.0のいずれか）。`tools/rust_licenses.py`をWindowsとLinuxの両方で実行し、どれも公開パッケージにライセンス文があることを確かめた。`ndarray`などは`vrct-rvc-worker`がすでに使っていたもの。
@@ -298,6 +298,21 @@ miniaudioの二重ライセンス、静的GCCランタイムのGPLv3＋Runtime L
 CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとその文章分割ファイルがCC-BY-NC-4.0（非商用）。[NOTICEの一覧](../../NOTICE.md#downloadable-ctranslate2-translation-weights)を正本とする。非商用モデルは既定にしない。
 
 内蔵モデルの取得は、選択済みのNLLBや同じ一式に含まれるtokenizerも含め、モデルと固定した一覧への明示的な同意を必要とする。起動時の取得は、その同意の記録がある版だけに限る。tokenizerはCTranslate2変換リポジトリ内の固定済みファイルを使い、容量・SHA-256を検証する。確認画面の合計容量に含め、取得元の変更によりmanifestの再同意が必要になる。ライセンスの条件は変えない。この追記で配布許可や完全性の検証完了を主張しない。取得画面と移行の詳細は[モデル取得](model-downloads.md#内蔵ctranslate2と文章分割ファイル)を参照する。
+
+0.5.0でPythonを同梱しなくなったので、`ctranslate2`のホイール（Intel MKLとoneDNNを含む）も配布物から消えた。中核は以前の版が取得した重みを読まず、起動の後で消す（[core-integration.md](core-integration.md)の「決まったこと」）。
+
+### ローカル翻訳のエンジンの候補（2026-11-16）
+
+中核のローカル翻訳に使えるOSSを比べた（[core-integration.md](core-integration.md)の「判断が要ること」の1）。どれもアプリにはまだ入れていない。依存とライセンスの台帳、NOTICE、`tools/rust_licenses.py`の一覧は変わらない。
+
+| 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
+|---|---|---|---|
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | 候補。入れるときはONNX Runtimeの配り方（2）と一緒に台帳を見直す |
+| `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
+| `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
+| `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
+| `fxtranslate` 0.5.0 | MPL-2.0 | Firefoxの翻訳モデル（作者は自分で配り直すよう求めている） | 英語との組だけで、配り直しが要るので候補から外した |
+| Bergamot（translateLocally、`marek_translate_locally` 1.0.1） | AGPL-3.0-or-later | ― | **除外**。AGPLはアプリ全体の配布の条件に及ぶため |
 
 ## Silero VADの同梱（2026-11-15）
 
