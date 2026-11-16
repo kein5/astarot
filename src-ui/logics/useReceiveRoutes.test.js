@@ -45,7 +45,7 @@ test("failed required initialization maps and scalars retain renderable defaults
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: value => value }) },
         "@logics_main": { useLanguageSettings: () => ({
             ...s.stores.useStore_SelectedPresetTabNumber(), ...s.stores.useStore_SelectedYourLanguages(), ...s.stores.useStore_SelectedTargetLanguages(),
-        }) },
+        }), useIsMainPageCompactMode: () => ({ closeOverlay: () => {} }) },
     });
     for (const selector_key of ["your_language", "target_language"]) {
         assert.doesNotThrow(() => s.runtime.render(LanguageSelectorOpenButton, { selector_key, target_key: "1", TurnedOnSvgComponent: "svg" }));
