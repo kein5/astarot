@@ -101,8 +101,11 @@ export function createLanguageNames(uiLanguage?: string | null, intl: typeof Int
     // The list a language picker shows for a query, in name order, except that the languages
     // whose code begins with the query come first: "j" and "ja" list Japanese before
     // Azerbaijani, whose name also contains them, so Enter picks Japanese.
-    const search = <T extends LanguageEntry | null | undefined>(entries: Iterable<T>, query: unknown): T[] => {
-        const shown = sorted(entries).filter(entry => matches(entry, query));
+    const search = <T extends LanguageEntry | null | undefined>(entries: Iterable<T>, query: unknown): T[] =>
+        narrow(sorted(entries), query);
+    // The same, for a list already in name order (a picker that keeps its sort between queries).
+    const narrow = <T extends LanguageEntry | null | undefined>(sortedEntries: readonly T[], query: unknown): T[] => {
+        const shown = sortedEntries.filter(entry => matches(entry, query));
         const named = shown.filter(entry => matchesCode(entry, query));
         return named.length ? [...named, ...shown.filter(entry => !named.includes(entry))] : shown;
     };
@@ -126,7 +129,7 @@ export function createLanguageNames(uiLanguage?: string | null, intl: typeof Int
         // Keep autonyms so users can recover from choosing an unfamiliar UI language.
         return { ...option, label: label === option.label ? label : `${label} / ${option.label}` };
     });
-    return { name, matches, matchesCode, searchText, sorted, search, language, fromCode, uiOptions };
+    return { name, matches, matchesCode, searchText, sorted, search, narrow, language, fromCode, uiOptions };
 }
 
 // Enter while an IME is committing Japanese text must not select a language.

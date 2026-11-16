@@ -411,6 +411,20 @@ test("search keeps lazy windowing, sorts only when its inputs change, and uses o
     assert.equal(w.sorts.length, initialSorts + 2);
 });
 
+test("a language code typed in the VR filter lists that language first, and Enter picks it", async context => {
+    const h = await pickerHarness(context, { margin: 38 });
+    const w = await languageWindow(context, h);
+    w.open();
+    await h.settle(w.list.props);
+    find(w.tree, node => node.type === "input").props.onChange({ target: { value: "ja" } });
+    w.render();
+    // Azerbaijani's name also contains "ja" and comes first by name.
+    assert.ok(w.list.props.options.some(entry => entry.language === "Azerbaijani"));
+    assert.equal(w.list.props.options[0].language, "Japanese");
+    find(w.tree, node => node.type === "input").props.onKeyDown({ key: "Enter", preventDefault() {} });
+    assert.equal(w.picked[0].language, "Japanese");
+});
+
 test("grid jumps to disabled selections keep focus; Tab skips disabled options and preserves columns", async context => {
     const h = await pickerHarness(context, { margin: 38 });
     const options = fonts.slice(0, 100), isDisabled = option => Number(option.id.slice(5)) % 2 === 0;
