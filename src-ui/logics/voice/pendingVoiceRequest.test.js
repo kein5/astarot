@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { pendingAfterVoiceFailure, stoppedVoiceStatus, stoppedDirectState } from "./pendingVoiceRequest.js";
+import { pendingAfterVoiceFailure, stoppedVoiceStatus, stoppedDirectState } from "./pendingVoiceRequest.ts";
 
 for (const [endpoint, intent] of [["/run/enable_tts", true], ["/run/disable_tts", false],
     ["/run/start_direct_voice", true], ["/run/stop_direct_voice", false]]) {

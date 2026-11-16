@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import { loadBridgeStore } from "../../../logics/test/bridgeHarness.js";
-import { chunkArray } from "../../../logics/utils.js";
-import * as routeState from "../../../logics/voice/routeState.js";
-import { voiceActions } from "../../../logics/voice/voiceActions.js";
-import * as voiceErrorText from "../../../logics/voice/voiceErrorText.js";
-import * as featureLabel from "../../../logics/common/featureLabel.js";
-import * as switchBlocksModule from "../../../logics/main/switchBlocks.js";
+import { chunkArray } from "../../../logics/utils.ts";
+import * as routeState from "../../../logics/voice/routeState.ts";
+import { voiceActions } from "../../../logics/voice/voiceActions.ts";
+import * as voiceErrorText from "../../../logics/voice/voiceErrorText.ts";
+import * as featureLabel from "../../../logics/common/featureLabel.ts";
+import * as switchBlocksModule from "../../../logics/main/switchBlocks.ts";
 
 const icon = () => null;
 const keydown = (control, key, repeat = false) => {
@@ -26,10 +26,10 @@ const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false 
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady },
         "../../../../../logics/common/useNotificationStatus": { useNotificationStatus: () => ({ showNotification_Error() {} }) },
         "../../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../../logics/voice/voiceActions.js": { voiceActions },
+        "../../../../../logics/voice/voiceActions.ts": { voiceActions },
         "../../../../../logics/voice/routeState": routeState,
-        "../../../../../logics/common/featureLabel.js": featureLabel,
-        "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
+        "../../../../../logics/common/featureLabel.ts": featureLabel,
+        "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: setup.blocks, prepare: action => setup.prepared?.push(action) }) },
         "../../startupContext": { useIsStartingUp: () => starting },

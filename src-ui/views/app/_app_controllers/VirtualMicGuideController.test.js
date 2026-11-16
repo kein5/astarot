@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
-import * as shapes from "../../../logics/voice/virtualMic.js";
+import * as shapes from "../../../logics/voice/virtualMic.ts";
 
 const id = name => JSON.stringify(["Windows WASAPI", name]);
 const CABLE = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording: id("CABLE Output (VB-Audio Virtual Cable)"),
@@ -28,7 +28,7 @@ async function setup(context, { notice = true, current = status(), opened = fals
         "../../../logics/common/useConsentDialog": { useConsentDialog: open => ({ dialog: { current: null, open }, close: () => calls.push("closed") }) },
         "../../../logics/transcription/useLocalAsrMigration": { useLocalAsrMigration: () => ({ notice: localAsr }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => state },
-        "../../../logics/voice/virtualMic.js": shapes,
+        "../../../logics/voice/virtualMic.ts": shapes,
     });
     context.after(() => runtime.unmount());
     // The first render decides; the second shows what that decision opened.

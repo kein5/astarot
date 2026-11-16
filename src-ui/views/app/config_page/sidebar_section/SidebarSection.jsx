@@ -23,7 +23,7 @@ import DocumentScannerSvg from "@images/mui_document_scanner.svg?react";
 import vrct_vox_icon from "@images/brand/icon-small.svg";
 
 import { VersionLabel } from "../version_label/VersionLabel.jsx";
-import { splitFeatureLabel } from "../../../../logics/common/featureLabel.js";
+import { splitFeatureLabel } from "../../../../logics/common/featureLabel.ts";
 
 // Keyboard focus expands the rail; focus from a click or from opening the page does
 // not, or the rail would stay over the page after the pointer left. A focus counts as

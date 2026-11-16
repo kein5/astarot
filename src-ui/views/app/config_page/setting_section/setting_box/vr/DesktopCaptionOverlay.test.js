@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 import { flush } from "../../../../../../logics/test/bridgeHarness.js";
-import * as adjust from "../../../../../../logics/captionOverlay/adjust.js";
+import * as adjust from "../../../../../../logics/captionOverlay/adjust.ts";
 
 const DEFAULT_SETTINGS = { position: "bottom", font_size: 28, display_duration: 6, opacity: 0.6 };
 

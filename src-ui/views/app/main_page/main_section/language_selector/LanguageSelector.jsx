@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 
 import { useLanguageSettings } from "@logics_main";
-import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.js";
+import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.ts";
 import styles from "./LanguageSelector.module.scss";
 
 import { LanguageSelectorTopBar } from "./language_selector_top_bar/LanguageSelectorTopBar";

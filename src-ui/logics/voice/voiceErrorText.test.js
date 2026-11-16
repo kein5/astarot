@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { voiceErrorText } from "./voiceErrorText.js";
+import { voiceErrorText } from "./voiceErrorText.ts";
 
 const resources = Object.fromEntries(["en", "ja"].map(language => [language, {
     translation: yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")),

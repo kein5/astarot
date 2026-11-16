@@ -1,15 +1,15 @@
-import * as legacyModelConsent from "../configs/legacyModelConsent.js";
-import * as sharedWindow from "../configs/ocrSharedWindow.js";
+import * as legacyModelConsent from "../configs/legacyModelConsent.ts";
+import * as sharedWindow from "../configs/ocrSharedWindow.ts";
 import { atom } from "jotai/vanilla";
 import { hooks, loadModule } from "./hookHarness.js";
-import * as recovery from "../common/pendingRequestRecovery.js";
-import * as initialization from "../common/initializationFields.js";
-import * as exitExpectation from "../common/sidecarExitExpectation.js";
-import * as settingsResponses from "../common/settingsWriteResponses.js";
-import * as meterValue from "../common/meterValue.js";
-import * as utils from "../utils.js";
-import * as localAsrMigration from "../transcription/localAsrMigration.js";
-import * as virtualMicShapes from "../voice/virtualMic.js";
+import * as recovery from "../common/pendingRequestRecovery.ts";
+import * as initialization from "../common/initializationFields.ts";
+import * as exitExpectation from "../common/sidecarExitExpectation.ts";
+import * as settingsResponses from "../common/settingsWriteResponses.ts";
+import * as meterValue from "../common/meterValue.ts";
+import * as utils from "../utils.ts";
+import * as localAsrMigration from "../transcription/localAsrMigration.ts";
+import * as virtualMicShapes from "../voice/virtualMic.ts";
 
 const messageFormat = { message: { prefix: "", suffix: "" }, separator: "\n",
     translation: { prefix: "", separator: "\n", suffix: "" }, translation_first: false };
@@ -29,12 +29,12 @@ export const loadBridgeStore = async (runtime = hooks()) => {
     };
     const stores = await loadModule(new URL("../store.js", import.meta.url), runtime, {
         jotai,
-        "./_test_data.js": {}, "@ui_configs": {},
+        "./_test_data.ts": {}, "@ui_configs": {},
         "./common/vrPanelTooltip": { keepNewestVrLayout: (_, next) => next },
         "./voice/settingsNavigation": { requestSettingsNavigation: action => action() },
-        "./common/pendingRequestRecovery.js": recovery,
-        "./common/meterValue.js": meterValue,
-        "./common/initializationFields.js": initialization,
+        "./common/pendingRequestRecovery.ts": recovery,
+        "./common/meterValue.ts": meterValue,
+        "./common/initializationFields.ts": initialization,
     });
     return { runtime, stores, jotai, subscriptions };
 };
@@ -65,7 +65,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "../../voice/saveBar": { setSaveBarEntry: noop },
     });
     const settings = await loadModule(new URL("../configs/config_page_setter/ui_config_setter.js", import.meta.url), runtime, {
-        jotai, "@store": stores, "../../common/pendingRequestRecovery.js": recovery,
+        jotai, "@store": stores, "../../common/pendingRequestRecovery.ts": recovery,
         "../../../views/vr/vr_layout.json": {},
         "@ui_configs": { ui_configs: { send_message_format_parts: messageFormat, received_message_format_parts: messageFormat },
             ctranslate2_weight_type_status: [] },
@@ -105,11 +105,11 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     localRuntime.store = runtime.store;
     const localAsr = await loadModule(new URL("../transcription/useLocalAsrMigration.js", import.meta.url), localRuntime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
-        "./localAsrMigration.js": localAsrMigration,
+        "./localAsrMigration.ts": localAsrMigration,
     });
     const virtualMic = await loadModule(new URL("../voice/useVirtualMic.js", import.meta.url), localRuntime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
-        "./virtualMic.js": virtualMicShapes,
+        "./virtualMic.ts": virtualMicShapes,
     });
     const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key } },
@@ -120,10 +120,10 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./_useBackendErrorHandling": errors,
         "./configs/config_page_setter/ui_config_setter": settings,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
-        "./common/pendingRequestRecovery.js": recovery,
-        "./common/initializationFields.js": initialization,
-        "./common/sidecarExitExpectation.js": exitExpectation,
-        "./common/settingsWriteResponses.js": settingsResponses,
+        "./common/pendingRequestRecovery.ts": recovery,
+        "./common/initializationFields.ts": initialization,
+        "./common/sidecarExitExpectation.ts": exitExpectation,
+        "./common/settingsWriteResponses.ts": settingsResponses,
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
     return { ...subject, notices, reads, localAsr: () => localRuntime.render(localAsr.useLocalAsrMigration), virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, stubGlobals, eventTarget } from "../test/hookHarness.js";
-import { rebaseDraft } from "./draftRebase.js";
+import { rebaseDraft } from "./draftRebase.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 async function setup(context, savedFromResponse) {

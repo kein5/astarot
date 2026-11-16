@@ -14,18 +14,16 @@ import CopyThinSvg from "@images/copy_thin.svg?react";
 import ConfigurationSvg from "@images/configuration.svg?react";
 import LanguageSvg from "@images/mui_language.svg?react";
 import FlowSvg from "@images/io_flow.svg?react";
-// The intro shows VRCT-VOX's own mark, like the About page: this is not the official VRCT.
+// The intro shows ASTAROT's own mark, like the About page: this is not the official VRCT.
 import intro_icon from "@images/brand/icon-small.svg";
-import logo_en from "@images/brand/logo-en.svg";
-import logo_ja from "@images/brand/logo-ja.svg";
+import intro_logo from "@images/brand/logo.svg";
 import { VrTooltipButton } from "./VrTooltip";
 import shared from "./VrSettingsWindow.module.scss";
 import styles from "./VrLauncher.module.scss";
 
 const LONG_PRESS_MS = 600;
-const INTRO_LOGOS = { en: logo_en, ja: logo_ja };
 export const VrLauncher = ({ windows, toggleLog, openLog, togglePopup }) => {
-    const { t, i18n } = useI18n();
+    const { t } = useI18n();
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
     const { toggleTranslation, currentTranslationStatus, toggleTranscriptionSend, currentTranscriptionSendStatus,
         toggleTranscriptionReceive, currentTranscriptionReceiveStatus, toggleOcrCapture, currentOcrCaptureStatus } = useMainFunction();
@@ -39,7 +37,7 @@ export const VrLauncher = ({ windows, toggleLog, openLog, togglePopup }) => {
     const { currentSwitchBlocks } = useStore_SwitchBlocks();
     const blockOf = (id, state) => activeSwitchBlock(currentSwitchBlocks.data, id, state);
     const recallLog = () => { openLog(); asyncStdoutToPython("/run/vr_panel_recall_log"); };
-    return <div className={styles.root} style={{ "--intro-logo": `url("${INTRO_LOGOS[i18n?.language] ?? logo_en}")` }}>
+    return <div className={styles.root} style={{ "--intro-logo": `url("${intro_logo}")` }}>
         {intro === "playing" && <>
             <img className={styles.intro_icon} src={intro_icon} alt="" aria-hidden="true" />
             <div className={styles.intro_logo} aria-hidden="true" />

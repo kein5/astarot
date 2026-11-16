@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find, stubGlobals } from "../../../../../../logics/test/hookHarness.js";
-import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.js";
+import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 
 async function fixture(context) {
     context.mock.timers.enable({ apis: ["setTimeout"] });
@@ -34,7 +34,7 @@ async function fixture(context) {
     const speech = { state: {}, send: () => {} };
     const { RealtimeASRSettings } = await loadModule(new URL("./RealtimeASRSettings.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "ja" } }) },
-        "../../../../../../logics/common/languageNames.js": { createLanguageNames: () => ({ fromCode: code => code }) },
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: code => code }) },
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => speech },
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,

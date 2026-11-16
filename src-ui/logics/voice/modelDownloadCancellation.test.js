@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
-import * as polledState from "../common/polledState.js";
-import * as languageNames from "../common/languageNames.js";
+import * as polledState from "../common/polledState.ts";
+import * as languageNames from "../common/languageNames.ts";
 
 const apply = "/run/apply_model_download", cancel = "/run/cancel_model_download";
 const request = { id: "model", job_id: "job" };
@@ -11,7 +11,7 @@ const request = { id: "model", job_id: "job" };
 async function setup(t, transport = async () => true) {
     const runtime = hooks(), calls = [];
     const { useModelDownloads } = await loadModule(new URL("./useModelDownloads.js", import.meta.url), runtime, {
-        "../common/polledState.js": polledState,
+        "../common/polledState.ts": polledState,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args) => {
             calls.push(args); return transport(...args);
         } }) },

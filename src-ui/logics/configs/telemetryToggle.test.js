@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { toggleTelemetryOrAnswer } from "./telemetryToggle.js";
+import { toggleTelemetryOrAnswer } from "./telemetryToggle.ts";
 
 const switchWith = (enabled, pending) => {
     const calls = [];

@@ -15,11 +15,11 @@ import * as flow from "./flow/useIoFlow";
 import { _useBackendErrorHandling } from "./_useBackendErrorHandling";
 import { SETTINGS_ARRAY } from "./configs/config_page_setter/ui_config_setter";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { pendingRequestRecovery, featureResyncReads } from "./common/pendingRequestRecovery.js";
+import { pendingRequestRecovery, featureResyncReads } from "./common/pendingRequestRecovery.ts";
 import { receiveLanguageMutation, resetLanguageMutations, isLanguageMutation } from "./main/languageMutations";
-import { applyInitializationFields, createInitializationValidators } from "./common/initializationFields.js";
-import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.js";
-import { settingsWriteResponses } from "./common/settingsWriteResponses.js";
+import { applyInitializationFields, createInitializationValidators } from "./common/initializationFields.ts";
+import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.ts";
+import { settingsWriteResponses } from "./common/settingsWriteResponses.ts";
 
 const INIT_FIELD_VALIDATORS = createInitializationValidators(SETTINGS_ARRAY);
 

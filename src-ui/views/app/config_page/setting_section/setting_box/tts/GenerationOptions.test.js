@@ -1,4 +1,4 @@
-import * as routeState from "../../../../../../logics/voice/routeState.js";
+import * as routeState from "../../../../../../logics/voice/routeState.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";

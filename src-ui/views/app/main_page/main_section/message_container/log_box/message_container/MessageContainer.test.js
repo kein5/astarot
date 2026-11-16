@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.js";
-import { applyRealtimeCaption } from "../../../../../../../logics/transcription/realtimeCaptionState.js";
-import { encodeLogUpdate, decodeLogUpdate } from "../../../../../../../logics/common/vrPanelWire.js";
+import { applyRealtimeCaption } from "../../../../../../../logics/transcription/realtimeCaptionState.ts";
+import { encodeLogUpdate, decodeLogUpdate } from "../../../../../../../logics/common/vrPanelWire.ts";
 
 test("realtime outcomes render the same row and labels in desktop and VR log mirrors", async () => {
     const runtime = hooks(), store = { is_vr_panel: false };

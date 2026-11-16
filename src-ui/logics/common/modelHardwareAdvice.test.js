@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { modelAdvice } from '../voice/modelHardwareAdvice.js';
+import { modelAdvice } from '../voice/modelHardwareAdvice.ts';
 const GiB=1024**3;
 const models=[{id:'standard',guidance:{reference_memory_bytes:2*GiB,validation:{state:'passed'}}},
               {id:'small',guidance:{reference_memory_bytes:GiB,validation:{state:'passed'}}}];

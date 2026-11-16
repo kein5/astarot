@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.js";
-import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.js";
+import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.js";
 
 const draftPath = "../../../../../../logics/voice/useSettingsDraft.jsx";

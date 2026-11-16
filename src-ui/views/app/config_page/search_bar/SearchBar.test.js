@@ -32,7 +32,7 @@ async function setup(t, { reducedMotion = false, control = true, delayed = false
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "appearance" }, updateSelectedConfigTabId: tab => tabs.push(tab) }) },
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
         "../../../transcription/useRealtimeASR": { useRealtimeASR: () => ({ models: {}, settings: {} }) },
-        "../../../common/languageNames.js": { createLanguageNames: () => ({ fromCode: name => name }) },
+        "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: name => name }) },
         "../../../voice/settingsNavigation": { requestSettingsNavigation: fn => { if (guarded) proceed = fn; else fn(); } },
         "@ui_configs": { ui_configs: {} },
         "@root/locales/config.js": { getResource: () => ({ config_page: { advanced_settings: { osc: { label: "OSC", desc: "OSC port" } } } }) },

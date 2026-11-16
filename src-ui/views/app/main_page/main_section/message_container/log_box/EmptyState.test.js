@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createElement } from "react";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
-import * as needsLogic from "../../../../../../logics/main/setupNeeds.js";
+import * as needsLogic from "../../../../../../logics/main/setupNeeds.ts";
 
 async function setup({ needs = [], sends = true, vr = false, startup = null } = {}) {
     const runtime = hooks(), started = [];

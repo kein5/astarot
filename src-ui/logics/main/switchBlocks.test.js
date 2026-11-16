@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { activeSwitchBlock, switchBlocks } from "./switchBlocks.js";
+import { activeSwitchBlock, switchBlocks } from "./switchBlocks.ts";
 
 const reasons = blocks => Object.fromEntries(Object.entries(blocks).map(([id, block]) => [id, block.reason]));
 const rvc = values => ({ mode: "converted", engine: "rvc", rvc_runtime: "/r/python", rvc_model: "/m/voice.pth", ...values });

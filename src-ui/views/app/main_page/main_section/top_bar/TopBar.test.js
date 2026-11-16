@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../logics/test/hookHarness.js";
-import { voiceActions } from "../../../../../logics/voice/voiceActions.js";
+import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
@@ -140,7 +140,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     const voice = { status: { queued: 2, active: true }, route: { requested_muted: true, ready: true, pending: false, managed: true }, send: path => sent.push(path) };
     const actions = await loadModule(new URL("../../../others/stop_actions/StopActions.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.js": { voiceActions },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
     const { TopBar } = await loadModule(new URL("./TopBar.jsx", import.meta.url), runtime, {
         "./sidebar_compact_mode_button/SidebarCompactModeButton": { SidebarCompactModeButton: "compact" },
@@ -186,7 +186,7 @@ test("the settings bar draws the same actions without the shortest words", async
     const voice = { status: {}, route: {}, send() {} };
     const { StopActions } = await loadModule(new URL("../../../others/stop_actions/StopActions.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.js": { voiceActions },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
     const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", is_attention: "is_attention",
         is_pressed: "is_pressed", muted_badge: "muted_badge" };

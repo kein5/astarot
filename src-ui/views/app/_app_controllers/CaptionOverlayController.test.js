@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import { flush } from "../../../logics/test/bridgeHarness.js";
-import * as lines from "../../../logics/captionOverlay/lines.js";
-import * as ioFlow from "../../../logics/flow/ioFlow.js";
-import * as flowText from "../../../logics/flow/flowText.js";
-import * as adjust from "../../../logics/captionOverlay/adjust.js";
+import * as lines from "../../../logics/captionOverlay/lines.ts";
+import * as ioFlow from "../../../logics/flow/ioFlow.ts";
+import * as flowText from "../../../logics/flow/flowText.ts";
+import * as adjust from "../../../logics/captionOverlay/adjust.ts";
 
 const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
 
@@ -50,8 +50,8 @@ async function setup(context, { supported = true } = {}) {
         },
         "../../../logics/captionOverlay/lines": lines,
         "../../../logics/flow/useIoFlow": { useIoFlow: () => ({ currentIoFlow: { data: state.map }, currentIoTraces: { data: state.traces } }) },
-        "../../../logics/flow/ioFlow.js": ioFlow,
-        "../../../logics/flow/flowText.js": flowText,
+        "../../../logics/flow/ioFlow.ts": ioFlow,
+        "../../../logics/flow/flowText.ts": flowText,
     });
     const render = async () => {
         runtime.render(CaptionOverlayController); await flush();

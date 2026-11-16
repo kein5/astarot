@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../test/hookHarness.js";
-import { downloadProgress } from "../main/setupNeeds.js";
+import { downloadProgress } from "../main/setupNeeds.ts";
 
 const noop = () => {};
 const api = values => new Proxy(values, { get: (object, name) => object[name] ?? noop });

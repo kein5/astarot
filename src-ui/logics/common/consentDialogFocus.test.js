@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
-import * as legacyConsent from "../configs/legacyModelConsent.js";
-import * as endpointPrivacy from "./endpointPrivacy.js";
-import * as languageNames from "./languageNames.js";
+import * as legacyConsent from "../configs/legacyModelConsent.ts";
+import * as endpointPrivacy from "./endpointPrivacy.ts";
+import * as languageNames from "./languageNames.ts";
 
 const boxes = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
 const entry = { id: "reviewed-model", name: "Reviewed model", target: "rvc", total_bytes: 100,

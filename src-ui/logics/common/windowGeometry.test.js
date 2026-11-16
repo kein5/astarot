@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { BUILT_IN_GEOMETRY, isBuiltInGeometry, sizeToRestore } from "./windowGeometry.js";
+import { BUILT_IN_GEOMETRY, isBuiltInGeometry, sizeToRestore } from "./windowGeometry.ts";
 
 test("the first window keeps its size in CSS pixels on a scaled display", () => {
     // 870x654 physical pixels at 125% are 696x523 CSS pixels: under the 800px breakpoint.

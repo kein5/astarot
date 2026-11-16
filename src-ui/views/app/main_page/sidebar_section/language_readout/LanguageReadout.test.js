@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { hooks, loadModule, find } from "../../../../../logics/test/hookHarness.js";
-import * as languageNames from "../../../../../logics/common/languageNames.js";
+import * as languageNames from "../../../../../logics/common/languageNames.ts";
 
 const entry = (language, country, enable = true) => ({ language, country, enable });
 const t = (key, options) => options ? `${options.from} → ${options.to}` : key;
@@ -11,7 +11,7 @@ async function setup({ ui = "ja", yours = entry("Japanese", "Japan"), targets = 
     const runtime = hooks(), toggled = [];
     const { LanguageReadout } = await loadModule(new URL("./LanguageReadout.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t, i18n: { language: ui } }) },
-        "../../../../../logics/common/languageNames.js": languageNames,
+        "../../../../../logics/common/languageNames.ts": languageNames,
         "@logics_main": {
             useIsMainPageCompactMode: () => ({ toggleIsMainPageCompactMode: () => toggled.push(true) }),
             useLanguageSettings: () => ({ currentSelectedPresetTabNumber: { data: preset },

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../../logics/test/hookHarness.js";
-import * as startupPhase from "../../logics/common/startupPhase.js";
+import * as startupPhase from "../../logics/common/startupPhase.ts";
 
 const named = name => Object.defineProperty(() => null, "name", { value: name });
 const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "TranscriptionConsentController",

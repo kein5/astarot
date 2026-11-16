@@ -39,12 +39,12 @@ const MARKER: &str = "X-VRCT-VOX-Generated=true";
 const BIND_TIMEOUT: Duration = Duration::from_secs(180);
 const ACTIONS: [(&str, &str); 9] = [
     ("open_quick_chat", "Open the quick chat window"),
-    ("toggle_vrct_visibility", "Minimize or restore VRCT-VOX"),
+    ("toggle_vrct_visibility", "Minimize or restore ASTAROT"),
     ("toggle_translation", "Turn translation on or off"),
     ("toggle_transcription_send", "Turn microphone input on or off"),
     ("toggle_transcription_receive", "Turn listening on or off"),
     ("stop_voice", "Stop speech and clear the queue"),
-    ("toggle_voice_mute", "Mute or resume the VRCT-VOX voice"),
+    ("toggle_voice_mute", "Mute or resume the ASTAROT voice"),
     ("toggle_tts", "Turn TTS on or off"),
     ("toggle_rvc", "Turn RVC on or off"),
 ];
@@ -197,7 +197,7 @@ pub(crate) fn ensure_desktop_file() -> Result<(), String> {
         .unwrap_or(current);
     let executable = executable.to_str().ok_or("portal_desktop_file_failed")?;
     let content = format!(
-        "[Desktop Entry]\nType=Application\nName=VRCT-VOX\n\
+        "[Desktop Entry]\nType=Application\nName=ASTAROT\n\
          Comment=Speech, voice conversion and translated chat\nExec={}\nIcon=vrct-vox\n\
          Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=vrct-vox\n{MARKER}\n",
         quote(executable)
@@ -413,7 +413,8 @@ impl Portal {
     /// read back what KDE kept (it refuses keys taken by other components).
     fn apply_on_kde(&self, id: &str, key: i32, operation: &Operation) -> Result<Option<Assigned>, String> {
         let description = ACTIONS.iter().find(|(action, _)| *action == id).map_or("", |(_, text)| *text);
-        let action = [APP_ID, id, "VRCT-VOX", description];
+        // The first two entries identify the shortcut to KDE; the last two are only shown.
+        let action = [APP_ID, id, "ASTAROT", description];
         self.wait(operation, async {
             let accel = Proxy::new(&self.connection, "org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel").await.ok()?;
             let first = |keys: Vec<(Vec<i32>,)>| keys.into_iter().next().and_then(|(codes,)| codes.into_iter().next());
