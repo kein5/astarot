@@ -25,6 +25,9 @@ serde = { version = "=1.0.229", features = ["derive"] }
 # The backend answered with Python dicts, whose keys keep their order; the UI shows some of
 # them in that order (the translation weights, the initialization snapshot). See README.md.
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+# Chat reading. ONNX Runtime is loaded when chat reading starts, not linked: see
+# docs/voice-stack/core-integration.md, item 13 of "判断が要ること".
+ocr-runtime = { path = "../ocr-runtime", default-features = false, features = ["load-dynamic"] }
 vrct-adapters = { path = "../adapters" }
 # The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
 # build that way and need no PipeWire; the application turns it on.

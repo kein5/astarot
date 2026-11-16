@@ -4,11 +4,21 @@ Chat-bubble OCR and VRChat frame capture in Rust (issue #281): a port of
 `src-python/models/ocr` (about 3,600 lines). Recognition runs PP-OCR on ONNX Runtime
 through `ort`, with RapidOCR's pre- and post-processing reproduced exactly.
 
-This crate stands alone. The application does not use it yet: nothing under `src-tauri`
-or `src-python` refers to it, and the Python module is unchanged. Connecting it to the
-application, and then removing the Python module, depends on how the Rust side hands
-its messages to the translation pipeline, which is still in Python (see "Open
-questions").
+The backend core (`native/core`, `controller::ocr`) runs it in the application process
+when the core is the backend: the chat reading endpoints, the start checks, the status
+and the settings of a running pipeline. Read lines go to the core's message pipeline.
+The Python module is unchanged and is still what the Python sidecar uses.
+
+ONNX Runtime is linked in one of two ways, chosen by a feature:
+
+- `download-binaries` (default): `ort`'s prebuilt ONNX Runtime 1.31.0, fetched at build
+  time and linked statically. This crate's tests and `ocr-read` use it. On Windows the
+  build links `DirectML.dll`, which is copied next to the binaries.
+- `load-dynamic`: the library is loaded when the engine is first used, from
+  `ORT_DYLIB_PATH`, else `onnxruntime.dll` / `libonnxruntime.so` beside the executable,
+  else by name. A missing library is an error value (`engine::is_available()` is false),
+  not a panic. The core uses this; which ONNX Runtime the application ships is open
+  (`docs/voice-stack/core-integration.md`, item 13).
 
 ## What it does
 
@@ -140,16 +150,16 @@ file. Which ONNX Runtime build ships is open (below).
 
 ## Open questions
 
-1. **Bridge to the application.** OCR results go to the translation pipeline, which
-   stays in Python until #285. Whether the Rust pipeline runs in the Tauri process and
-   sends messages to the sidecar, or the sidecar starts it, decides the IPC contract and
-   when `src-python/models/ocr` can be removed. The chatbox lab's `label.py` also uses
-   the Python reader.
-2. **ONNX Runtime build.** `ort` links its own ONNX Runtime 1.31.0; with it, detection
-   took 19 % and recognition 73 % longer than with the official 1.31.1 library on this
-   machine, and some scores differ by 1e-5. Loading the official library dynamically
-   gives identical results and is faster, but changes what is shipped (and the RVC
-   runtime uses `ort`'s build too).
+1. **Bridge to the application.** The core runs the pipeline in the application process
+   (#285); `src-python/models/ocr` goes with the Python sidecar. The chatbox lab's
+   `label.py` still uses the Python reader.
+2. **ONNX Runtime build.** `ort`'s own ONNX Runtime 1.31.0 made detection 19 % and
+   recognition 73 % slower than the official 1.31.1 library on this machine, and some
+   scores differ by 1e-5. The core loads the library at run time (`load-dynamic`), so
+   the official library gives identical results; which one ships, and where, is
+   item 13 of `docs/voice-stack/core-integration.md`. The static build also failed to
+   link with MSVC 14.43 (it needs a newer C++ library), and the Windows test
+   `a_file_left_by_a_killed_helper_is_not_a_stream` relies on `/proc` and fails there.
 3. **OpenVR client library.** pyopenvr shipped `openvr_api`; something must ship it next
    to the application (BSD-3-Clause, Valve) and be listed in `NOTICE.md`.
 4. **Linux headset view.** EGL instead of GLFW for the OpenGL context: equivalent on paper,

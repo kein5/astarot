@@ -9,7 +9,7 @@ pub mod adapters;
 pub mod audio_devices;
 mod credentials;
 mod files;
-mod ocr;
+pub mod ocr;
 mod overlay;
 mod languages;
 pub mod legacy_weights;
@@ -192,6 +192,11 @@ pub struct Services {
     pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<vrct_vr_overlay::fonts::FontLibrary> + Send + Sync>,
     /// How often the overlay looks for SteamVR while it does not run (10 seconds).
     pub steamvr_poll: Duration,
+    /// Chat reading's screen, VR runtime, ONNX Runtime and model files ([`ocr::RealOcr`]).
+    pub ocr: Arc<dyn ocr::OcrPlatform>,
+    /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]). Dropped
+    /// until the pipeline is wired.
+    pub ocr_message: ocr::OcrDelivery,
 }
 
 impl Default for Services {
@@ -218,6 +223,8 @@ impl Default for Services {
             vr_panel_surface: Some(vrct_vr_overlay::surface::platform()),
             overlay_fonts: Arc::new(overlay::default_fonts),
             steamvr_poll: Duration::from_secs(10),
+            ocr: ocr::real_platform(),
+            ocr_message: Arc::new(ocr::no_delivery),
         }
     }
 }
@@ -247,6 +254,8 @@ pub struct Core {
     audio: Arc<audio_devices::AudioDevices>,
     /// The VR overlays and the subtitles, made with the routes ([`overlay`]).
     pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
+    /// Chat reading's pipeline and switch.
+    ocr: Arc<ocr::Ocr>,
 }
 
 impl Core {
@@ -273,6 +282,7 @@ impl Core {
             messages: messages::Messages::default(),
             audio,
             vr: std::sync::OnceLock::new(),
+            ocr: Arc::default(),
         })
     }
 
@@ -345,6 +355,7 @@ impl Core {
         self.close_speech_servers();
         self.close_model_downloads();
         self.stop_audio_devices();
+        self.stop_ocr();
         self.stop_adapters();
         self.stop_conversation_log();
         self.stop_overlay();
