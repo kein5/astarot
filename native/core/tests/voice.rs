@@ -622,6 +622,63 @@ fn a_failed_runtime_setup_names_its_step() {
     run.ui.stop();
 }
 
+/// Translation through DeepL at a fake provider: Japanese to English (`deepl-free:EN-US:<text>`).
+fn translating(voice: FakeVoice) -> (Run, vrct_translation::fake::FakeProviders) {
+    let fake = vrct_translation::fake::FakeProviders::start();
+    let key = format!("{}:fx", "d".repeat(36));
+    fake.key("/deepl-free", &key);
+    let mut setup = Setup { saved: Some(json!({ "AUTH_KEYS": { "DeepL_API": key } })), platform: Platform::Windows, ..Setup::default() };
+    setup.services.voice = voice.platform();
+    setup.services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&fake.url());
+    let ui = Ui::with(setup);
+    ui.ready();
+    let mut engines = ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("DeepL_API");
+    ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(ui.ok("/set/enable/translation", None), true);
+    (Run { ui, voice }, fake)
+}
+
+#[test]
+fn translated_chat_and_microphone_finals_speak_the_selected_translation() {
+    let (run, _fake) = translating(FakeVoice::new());
+    let japanese = FakeTts::speechcpp(0.1);
+    let english = FakeTts::speechcpp(0.1);
+    let saved = run.settings(json!({ "mode": "translated", "mic_mode": "translated", "direct_policy": "mix", "output_device": OUTPUT, "japanese_url": japanese.url, "multilingual_url": english.url }));
+    assert_eq!(saved["status"], 200, "{saved}");
+    assert_eq!(run.enable()["result"]["tts_enabled"], true);
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "t-1", "message": "konnichiwa" })));
+    eventually("the translation is spoken", || english.requests().len() == 1);
+    let request = english.requests().pop().unwrap();
+    assert_eq!((request["input"].as_str(), request["language"].as_str()), (Some("deepl-free:EN-US:konnichiwa"), Some("en")));
+    assert!(japanese.requests().is_empty(), "the original was spoken in translated mode");
+
+    // A realtime microphone final (the recognition area hands it over): only a successful
+    // translation of the selected target speaks.
+    let core = run.ui.backend.core().clone();
+    let config = core.config();
+    let tab = config.get_str("SELECTED_TAB_NO");
+    let targets = config.get("SELECTED_TARGET_LANGUAGES")[&tab].clone();
+    let update = |item: &str| vrct_tts::message_hook::TranscriptUpdate {
+        source: "mic".into(), is_final: true, state: "final".into(), namespace: "session".into(), item_id: item.into(), text: "ohayou".into(), revision: 1, received_ns: vrct_tts::clock::monotonic_ns(),
+    };
+    let snapshot = core.mic_voice_snapshot().unwrap();
+    let translated = vec!["good morning".to_owned()];
+    assert!(!core.publish_mic_voice(&snapshot, &update("a"), &tab, Some("Japanese"), &targets, &translated, &[true], &["failed"], &|| true), "a failed translation spoke");
+    assert!(core.publish_mic_voice(&snapshot, &update("b"), &tab, Some("Japanese"), &targets, &translated, &[true], &["translated"], &|| true));
+    eventually("the final is spoken", || english.requests().iter().any(|r| r["input"] == "good morning"));
+    // A change of the languages cancels the microphone's speech: an older final is refused.
+    let snapshot = core.mic_voice_snapshot().unwrap();
+    let target = run.ui.ok("/get/data/selected_target_languages", None);
+    run.ui.ok("/set/data/selected_target_languages", Some(target));
+    assert!(!core.publish_mic_voice(&snapshot, &update("c"), &tab, Some("Japanese"), &targets, &translated, &[true], &["translated"], &|| true));
+    // So does turning translation off.
+    run.ui.ok("/set/disable/translation", None);
+    let snapshot = core.mic_voice_snapshot().unwrap();
+    assert!(!core.publish_mic_voice(&snapshot, &update("d"), &tab, Some("Japanese"), &targets, &translated, &[true], &["translated"], &|| true), "spoken without translation");
+    run.ui.stop();
+}
+
 #[test]
 fn the_flow_panel_describes_where_voice_and_chat_go() {
     let run = start(json!({}), Platform::Windows);
