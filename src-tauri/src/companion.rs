@@ -137,6 +137,8 @@ struct Inner {
     actions: VecDeque<String>,
     panel_hidden_at: Option<Instant>,
     tray: Option<tray::Items>,
+    /// Where the caption overlay is, and whether at the top of the screen.
+    band: Option<((i32, i32, u32, u32), bool)>,
 }
 
 #[derive(Default)]
@@ -217,6 +219,8 @@ fn build_panel<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewW
         .resizable(false)
         .skip_taskbar(true)
         .always_on_top(true)
+        // Made hidden ahead of time; it must not take the focus from the window in use.
+        .focused(false)
         .visible(false)
         .additional_browser_args(crate::BROWSER_ARGS)
         .build()
@@ -267,13 +271,20 @@ pub(crate) async fn overlay_shown(
     band: (i32, i32, u32, u32),
     position: &str,
 ) -> Result<(), String> {
+    let at_top = position == "top";
+    // Kept even while the feature is off: turned on later, it puts the handle here.
+    app.state::<CompanionState>().lock()?.band = Some((band, at_top));
     if !enabled() {
         return Ok(());
     }
+    show_handle(app, overlay, band, at_top).await
+}
+
+async fn show_handle(app: &AppHandle, overlay: &WebviewWindow, band: (i32, i32, u32, u32), at_top: bool) -> Result<(), String> {
     let scale = overlay.scale_factor().map_err(|error| error.to_string())?;
     let size = (HANDLE_SIZE * scale).round() as u32;
     let gap = (HANDLE_GAP * scale).round() as i32;
-    let (x, y) = handle_position(band, position == "top", size, gap);
+    let (x, y) = handle_position(band, at_top, size, gap);
     let handle = match app.get_webview_window(HANDLE) {
         Some(handle) => handle,
         None => WebviewWindowBuilder::new(app, HANDLE, WebviewUrl::App("companion-handle.html".into()))
@@ -309,6 +320,9 @@ pub(crate) async fn overlay_shown(
 
 /// The caption overlay was removed: the handle goes with it.
 pub(crate) fn overlay_hidden<R: Runtime>(app: &AppHandle<R>) {
+    if let Ok(mut inner) = app.state::<CompanionState>().lock() {
+        inner.band = None;
+    }
     if let Some(handle) = app.get_webview_window(HANDLE) {
         let _ = handle.destroy();
     }
@@ -489,7 +503,13 @@ pub async fn companion_set(window: WebviewWindow, enabled: bool) -> Result<(), S
     }
     let app = window.app_handle().clone();
     if enabled {
-        install(&app).inspect_err(|error| crate::startup_log(&format!("Tray companion could not start: {error}")))
+        install(&app).inspect_err(|error| crate::startup_log(&format!("Tray companion could not start: {error}")))?;
+        // The captions may already be up, opened before the feature was on.
+        let band = app.state::<CompanionState>().lock()?.band;
+        match (band, app.get_webview_window(crate::caption_overlay::LABEL)) {
+            (Some((band, at_top)), Some(overlay)) => show_handle(&app, &overlay, band, at_top).await,
+            _ => Ok(()),
+        }
     } else if self::enabled() || app.state::<CompanionState>().lock()?.tray.is_some() {
         uninstall(&app)
     } else {

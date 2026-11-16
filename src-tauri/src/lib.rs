@@ -153,6 +153,8 @@ pub fn run() {
         let mut context = context;
         if let Some(main) = context.config_mut().app.windows.iter_mut().find(|w| w.label == "main") {
             main.visible = false;
+            // Hidden, it must not hold the focus either.
+            main.focus = false;
         }
         context
     } else {
