@@ -39,6 +39,9 @@ flowchart LR
 | `tests/adapters_servers.rs` | WebSocket サーバとトークン（101 と 403）、ホスト・ポート・証明書の変更と巻き戻し、OBS のページとトークン、起動時の再開と失敗の通知、`WEBSOCKET_*` と `OBS_BROWSER_SOURCE_*` のエラーコード |
 | `tests/settings_endpoints.rs` | 動いていない機能の設定を読み書きするエンドポイント（翻訳・音声認識のキーの取得と削除、URL の変更とキーの入れ直し、OCR とオーバーレイの設定、古い Whisper の重み）。拒否したときのエラーコードと戻す値、`config.json` への保存、キーがログに出ないこと |
 | `tests/adapters_osc.rs` | OSC の送り先の検査、入力中の表示の送信、VRChat のミュートとの同期、OSCQuery を失ったときの順序、VRChat の有無、終了後に何も変えないこと |
+| `tests/engine_checks.rs` | 起動時の確認に失敗したエンジンの扱い（サーバからモデルを探すエンジンの選択を消し、API キーは残す） |
+| `tests/translation.rs` | 翻訳のプロバイダのキーの確認と保存、モデルの一覧と選択、LM Studio と Ollama の接続と切断、OpenAI 互換の URL とキー、起動時の確認、非商用の重みの同意、翻訳のオンとローカルのモデルの読み込み（足りない、読めない、VRAM 不足）。キーがログに出ないこと |
+| `tests/messages.rs` | `/run/send_message_box` からチャットボックス（OSC）、WebSocket、会話のログまで。翻訳のオンとオフ、翻訳後のみの送信、VRChat へ送らない設定、プロバイダの失敗と切り替え、読み、認識の結果の受け渡し（ワードフィルタ、繰り返し、OCR、話し相手）、オーバーレイと音声の口、会話の履歴。文章がログに出ないこと |
 
 Python の `src-python/test/test_native_core_reference.py` は、Python 側の設定の規則が変わったのに基準データを作り直していないとき失敗します。
 
@@ -70,7 +73,10 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `src-python/test/test_old_whisper_weights.py` | `settings_endpoints.rs`、`src/controller/files.rs` の単体の試験 |
 | `src-python/test/test_controller_vr_panel_opacity.py`、`test_credential_commits.py` と `test_controller_transcription_api_endpoints.py`（キーの削除と URL の変更の部分） | `settings_endpoints.rs` |
 
-残りの区分 A（TTS、声質変換、リアルタイム音声認識、メッセージの送信）は、それぞれの機能をつなぐときに再カバーします。
+| `src-python/test/test_controller_message_pipeline.py`、`test_message_snapshot_and_sinks.py`（送信、翻訳、読み、出力の失敗の部分） | `messages.rs`、`src/controller/messages.rs` の単体の試験 |
+| `src-python/test/test_controller_translation_enable.py`、`test_translation_providers.py` と `test_endpoints.py` の翻訳のキーとモデルの部分 | `translation.rs`、`native/translation` の試験 |
+
+残りの区分 A（TTS、声質変換、リアルタイム音声認識）は、それぞれの機能をつなぐときに再カバーします。メッセージの経路のうち、音声と VR のオーバーレイへの受け渡しは口（フック）までを試験し、その先はそれぞれの機能の試験で確かめます。
 
 ## 切り替え前の基準値
 
@@ -122,7 +128,7 @@ Python の実行環境とライブラリの中で大きいのは `cv2`（100.6 M
 
 Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の往復を統合テストで確かめるよう求めています。この PR の時点では、どれもまだ中核につながっていません。往復の試験は、次の形で用意する予定です。どれも headless の CI で動き、モデルを使いません。
 
-- 翻訳: ローカル翻訳は偽のエンジン、オンラインのプロバイダは 127.0.0.1 の偽のサーバを相手に、`/run/send_message_box` から OSC・WebSocket・履歴までを確かめる
+- 翻訳: ローカル翻訳は偽のエンジン、オンラインのプロバイダは 127.0.0.1 の偽のサーバを相手に、`/run/send_message_box` から OSC・WebSocket・履歴までを確かめる（`tests/translation.rs`、`tests/messages.rs` で済み）
 - TTS と音声認識: speech.cpp の偽のサーバ（`tests/fixture/fake_speech.rs` を広げる）を相手に、合成の要求と再生への受け渡し、認識結果の通知までを確かめる
 - 声質変換: `vrct-rvc-worker` の代わりの小さな実行ファイルを相手に、起動と停止、失敗の扱いを確かめる
 - OCR: 撮影を差し替えて画像を与え、偽の認識エンジンを相手に通知までを確かめる
@@ -137,25 +143,21 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 
 | 領域 | 残っている理由 |
 |---|---|
-| 翻訳のプロバイダ | キーとモデルをサービスで確かめるクライアントが Rust にない（#277）。`/set/enable/translation` は翻訳の流れ（ONNX の翻訳とメッセージの送信）を、`/set/data/selected_ctranslate2_weight_type` は「判断が要ること」の 4 を待つ |
 | 音声認識 | リアルタイムの音声認識、録音と音量の確認、クラウドの認識のクライアントが Rust にない（#278、`asr-capture` は空） |
 | 音声デバイス | `audio-routing` はあるが、README の未決事項（Windows のマイクのホスト、保存したスピーカーの ID）と、Linux で中核が PipeWire に依存することを決める必要がある（「判断が要ること」の 12） |
 | TTS・声質変換・音声の経路 | 出力先と音声の経路が音声デバイスと同じ判断を待つ。声質変換の実行環境の準備は「判断が要ること」の 6 を待つ |
 | OCR | `ocr-runtime` を中核に入れると ONNX Runtime をアプリに同梱することになる（「判断が要ること」の 7 と 13） |
 | オーバーレイと VR パネル | VR のオーバーレイの描画が Rust にない（#282） |
-| メッセージの送信 | 翻訳・音字変換・OSC・履歴をつなぐ流れが Rust にない |
 | 更新 | 更新の取得と入れ替えを Rust のどこで行うかが決まっていない（自己更新の作業と一緒に決める） |
 
 <!-- remaining-endpoints:begin -->
-100 件。
+74 件。
 
-- 翻訳のプロバイダ（#277）と翻字（25 件）: `/get/data/connected_lmstudio`、`/get/data/connected_ollama`、`/get/data/selectable_lmstudio_model_list`、`/get/data/selectable_ollama_model_list`、`/run/lmstudio_connection`、`/run/ollama_connection`、`/set/data/deepl_auth_key`、`/set/data/gemini_auth_key`、`/set/data/groq_auth_key`、`/set/data/lmstudio_url`、`/set/data/openai_auth_key`、`/set/data/openai_compatible_auth_key`、`/set/data/openai_compatible_auth_key_and_url`、`/set/data/openrouter_auth_key`、`/set/data/plamo_auth_key`、`/set/data/selected_ctranslate2_weight_type`、`/set/data/selected_gemini_model`、`/set/data/selected_groq_model`、`/set/data/selected_lmstudio_model`、`/set/data/selected_ollama_model`、`/set/data/selected_openai_compatible_model`、`/set/data/selected_openai_model`、`/set/data/selected_openrouter_model`、`/set/data/selected_plamo_model`、`/set/enable/translation`
 - 音声認識（#278）とクラウドの認識（20 件）: `/get/data/realtime_asr_endpoints`、`/get/data/realtime_asr_models`、`/get/data/realtime_asr_settings`、`/get/data/realtime_asr_state`、`/run/start_realtime_asr`、`/run/stop_realtime_asr`、`/set/data/custom_whisper_auth_key`、`/set/data/custom_whisper_auth_key_and_url`、`/set/data/deepgram_auth_key`、`/set/data/groq_whisper_auth_key`、`/set/data/openai_whisper_auth_key`、`/set/data/realtime_asr_settings`、`/set/disable/check_mic_threshold`、`/set/disable/check_speaker_threshold`、`/set/disable/transcription_receive`、`/set/disable/transcription_send`、`/set/enable/check_mic_threshold`、`/set/enable/check_speaker_threshold`、`/set/enable/transcription_receive`、`/set/enable/transcription_send`
 - 音声デバイス（audio-routing）（16 件）: `/get/data/selectable_mic_device_list`、`/get/data/selectable_mic_device_options`、`/get/data/selectable_mic_host_list`、`/get/data/selectable_speaker_device_list`、`/get/data/selectable_speaker_device_options`、`/get/data/virtual_mic_status`、`/run/virtual_mic_test`、`/set/data/selected_mic_device`、`/set/data/selected_mic_device_id`、`/set/data/selected_mic_host`、`/set/data/selected_speaker_device`、`/set/data/selected_speaker_device_id`、`/set/disable/auto_mic_select`、`/set/disable/auto_speaker_select`、`/set/enable/auto_mic_select`、`/set/enable/auto_speaker_select`
 - TTS・声質変換・音声の経路（21 件）: `/get/data/direct_voice_sources`、`/get/data/direct_voice_state`、`/get/data/io_flow`、`/get/data/tts_engine_voices`、`/get/data/tts_model_options`、`/get/data/vc_runtime_catalog`、`/get/data/vc_runtime_state`、`/get/data/voice_output_devices`、`/get/data/voice_route`、`/get/data/voice_status`、`/run/cancel_vc_runtime_setup`、`/run/disable_tts`、`/run/enable_tts`、`/run/mute_voice`、`/run/resume_voice`、`/run/start_direct_voice`、`/run/start_vc_runtime_setup`、`/run/stop_direct_voice`、`/run/stop_voice`、`/set/data/direct_voice_settings`、`/set/data/voice_settings`
 - OCR（5 件）: `/get/data/ocr_capture_status`、`/get/data/ocr_model_readiness`、`/get/data/ocr_readiness`、`/set/data/ocr_source_language`、`/set/enable/ocr_capture`
 - オーバーレイと VR パネル（#282）（9 件）: `/run/send_text_overlay`、`/run/vr_panel_layout_rendered`、`/run/vr_panel_recall_log`、`/run/vr_panel_tooltip`、`/run/vr_panel_windows`、`/set/data/overlay_vr_panel_anchor`、`/set/enable/overlay_large_log`、`/set/enable/overlay_small_log`、`/set/enable/overlay_vr_panel`
-- メッセージの送信と記録（1 件）: `/run/send_message_box`
 - 更新とその他（3 件）: `/get/data/available_releases`、`/run/update_cuda_software`、`/run/update_software`
 <!-- remaining-endpoints:end -->
 
@@ -171,8 +173,8 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 
 1. **移植されていない機能の扱い**。#277（翻訳・翻字のプロバイダ）、#278（音声認識の流れとクラウドの認識）、#282（オーバーレイの Phase 2〜4）の Rust 版がまだありません。Python 同梱を終えるには、これらも移す必要があります。#285 の中で進めるか、各 Issue で先に進めるかを決めてください。
 2. **既定の切り替えの時期（決定済み、2026-11-16）**。0.4.0 の間は既定を切り替えず、中核は `VRCT_BACKEND=core` を指定したときだけの試用とします。Python から中核への切り替えは 0.5.0 で行います。`src-python/` と PyInstaller の工程を消すのも、その切り替えと一緒です。旧 CTranslate2 の重みを消す処理（5）も、そのとき `CORE_IS_DEFAULT` を有効にするまで動きません。
-3. **使えないエンジンの選択とキー（決定済み、2026-11-16）**。Rust にまだ無いエンジンは、起動時の確認に失敗したものとして Python と同じに扱います。LM Studio、OpenAI 互換、Ollama、Groq・OpenAI・カスタムの Whisper、Deepgram は、モデルの一覧と選択を消します（Deepgram は言語の表も）。ほかのエンジンの選択は残します。API キーは、Python と同じく残します。Python は「確認の失敗は、キーが拒まれたのか通信できないだけなのかを区別できない」ため、起動時にキーを消しません。オーナーの決定の文面は「キーも消す」と読めるので、キーの扱いは PR で確認を求めています。
-4. **ONNX 翻訳での計算デバイスと計算型**。設定の `SELECTED_TRANSLATION_COMPUTE_DEVICE` と `SELECTED_TRANSLATION_COMPUTE_TYPE` は CTranslate2 の考え方のままです。中核は CPU だけを、CTranslate2 と同じ計算型の一覧で示します。ONNX（CPU と DirectML）でこの設定をどう読み替えるか。
+3. **使えないエンジンの選択とキー（決定済み、2026-11-16。翻訳は #277 で解消）**。翻訳のプロバイダは `native/translation` で Rust に移り、起動時に Python と同じ確認（キー、サーバ、モデルの一覧）をします。確認に失敗したときの扱いは下の決定のとおりで、Web 翻訳（Google、Bing、Papago）だけは配布していないので使えないままです（17）。音声認識のエンジンは、まだ下のとおりです。Rust にまだ無いエンジンは、起動時の確認に失敗したものとして Python と同じに扱います。LM Studio、OpenAI 互換、Ollama、Groq・OpenAI・カスタムの Whisper、Deepgram は、モデルの一覧と選択を消します（Deepgram は言語の表も）。ほかのエンジンの選択は残します。API キーは、Python と同じく残します。Python は「確認の失敗は、キーが拒まれたのか通信できないだけなのかを区別できない」ため、起動時にキーを消しません。オーナーの決定の文面は「キーも消す」と読めるので、キーの扱いは PR で確認を求めています。
+4. **ONNX 翻訳での計算デバイスと計算型**。設定の `SELECTED_TRANSLATION_COMPUTE_DEVICE` と `SELECTED_TRANSLATION_COMPUTE_TYPE` は CTranslate2 の考え方のままです。中核は CPU だけを、CTranslate2 と同じ計算型の一覧で示します。ONNX（CPU と DirectML）でこの設定をどう読み替えるか。いまの実装（`controller/translation_onnx.rs`）は設定の形を変えず、どの値でも CPU で動かし、計算型は使いません。設定が変わったかどうか（読み込み直すか）は、重み・デバイス・計算型の 3 つを読み込んだときの値と比べて決めます。モデルの置き場所も仮で、`<データ>/weights/translate-onnx/<モデル>-onnx-int8/` を見ます（モデルはまだ取得のカタログにありません）。
 5. **旧 CTranslate2 の重み（決定済み、2026-11-16: 消す）**。`/run/download_ctranslate2_weight`、起動時の自動取得、カタログの `legacy_models` は中核に移さず、引退させます。重みのフォルダ（`<データ>/weights/ctranslate2/` の、Python が作った 7 つの名前）は、中核が既定のバックエンドになったときに、起動の後で消します（`src-tauri/src/backend_host.rs` の `CORE_IS_DEFAULT`）。Python のサイドカーが既定の間と、開発用に `VRCT_BACKEND=core` で動かしたときは消さないので、サイドカーのローカル翻訳は今まで通り動きます。リンクやジャンクションはたどらず、ほかのファイルには触れません。利用者に知らせず消すかどうかは PR で確認を求めています（古い Whisper の重みは、利用者が設定画面で頼んだときだけ消していました）。
 6. **声質変換の実行環境の準備**。`/get/data/vc_runtime_*` と `/run/*_vc_runtime_setup`（Python の実行環境を用意するもの）は、RVC が Rust の worker になった今も要るか。
 7. **配布物のレイアウト**。中核は speech.cpp を `_internal/build/speechcpp`（PyInstaller の資源フォルダ）で探します。Python を同梱しなくなった後の置き場所を決める必要があります。
@@ -181,6 +183,20 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 10. **`serde_json` の機能**。中核は Python の辞書と同じ順序を保つため `preserve_order` を使い、tts クレートは `arbitrary_precision` を使います。どちらもアプリ全体の `serde_json` に及びます。src-tauri の試験は通っています。
 11. **受け入れ条件の計測**。「起動時間と配布サイズが現行より改善している」の切り替え前の値は「切り替え前の基準値」に書きました。Python 同梱をやめた段階で、同じ方法で計り直して比べます。
 12. **音声デバイスを中核につなぐ前の判断**。`native/audio-routing/README.md` の未決事項がそのまま利用者の設定に効きます。Windows のマイクは `Windows WASAPI` のホストだけになり、MME などで保存したマイクの選択は解決しなくなります。保存したスピーカーの ID（`speaker:2:<endpoint id>`）が一致するかは実機の設定で確かめていません。ほかのホストで保存した出力の扱いも未決です。さらに、つなぐと Linux の中核（と src-tauri）が PipeWire のライブラリに依存し、ビルドの環境と CI の準備が変わります。TTS の出力先と音声の経路もこの判断を待ちます。
-13. **ONNX Runtime の同梱**。OCR（`ocr-runtime`）とローカル翻訳（`translate-onnx`）は `ort` で ONNX Runtime を使います。中核に入れると、ONNX Runtime の取得（`download-binaries`）と DLL・共有ライブラリの置き場所が配布物の形に入ります（7 と一緒に決める）。
+13. **ONNX Runtime の同梱**。OCR（`ocr-runtime`）とローカル翻訳（`translate-onnx`）は `ort` で ONNX Runtime を使います。中核に入れると、ONNX Runtime の取得（`download-binaries`）と DLL・共有ライブラリの置き場所が配布物の形に入ります（7 と一緒に決める）。ローカル翻訳は中核の機能 `onnx-translation` の裏につないであり、既定ではオフです。オフの間は、ローカル翻訳のモデルは「ない」と答え（`TRANSLATION_MODEL_MISSING`）、オンラインのプロバイダの翻訳と、失敗したときの元の文での送信は動きます。決まったら src-tauri から機能を有効にします。機能を足したため、中核の `Cargo.lock` には `ort` と `tokenizers` が載っています（ビルドはされません）。
 14. **設定だけをつないだエンドポイント**。機能が動いていない間も、設定を保存するエンドポイントは 200 を返します（「残っているエンドポイント」の前の説明）。機能を動かすエンドポイントは 404 のままなので、たとえば VR のオーバーレイは中核ではオフにはできてもオンにはできません。この分け方でよいか。
 15. **フォルダを開く操作の Linux での動き**。Python は Windows の `explorer` だけを起動していたので、Linux では失敗していました。中核は Linux で `xdg-open` を使います。
+16. **読み（ひらがな・ローマ字）の辞書**。Python は SudachiPy と SudachiDict full（分割モード C）で読みを出していました。Rust でどの形態素解析器と辞書を使うかは決まっていません。解析器は `vrct_translation::transliteration::Tokenizer` として差し替えられるようにしてあり、決まるまでは辞書なし（`NoDictionary`）です。辞書がない間は、読みのスイッチを入れても読みは空（`transliteration: []`）で、メッセージはそのまま送ります。`process.log` に一度だけ「Transliteration: no dictionary」と書きます。Python では辞書を読めないと送信の処理ごと失敗していたので、そこは変えています。解析のあとの処理（読みの分け方、何の読み分け、カタカナからひらがなとヘボン式）は移植と試験が済んでいて、辞書が決まれば解析器を 1 つ書くだけでつながります。
+
+    | 候補 | 配布物の大きさ | ライセンス | ビルドへの影響 | 起動とメモリ | 読みの質（Python の出力との比較） |
+    |---|---|---|---|---|---|
+    | a. sudachi.rs と SudachiDict full | 辞書 359.7 MB（今の配布物は core と full の両方で 576.9 MB） | sudachi.rs と SudachiDict は Apache-2.0 | crates.io に `sudachi` の名前では出ていない（2026-11-16 に確認）。git の依存か、同梱のコピーが要る | 辞書の読み込み 0.51 秒、常駐の増加 147.7 MB（SudachiPy での計測） | Python と同じ辞書なので同じになる見込み（Rust 版は未計測） |
+    | b. sudachi.rs と SudachiDict core | 辞書 217.2 MB | 同上 | 同上 | 0.19 秒、57.1 MB（SudachiPy での計測） | 40 文のうち、ひらがなは 40 文とも full と同じ。区切りが違ったのは 1 文（生麦生米生卵）で、読みは同じ |
+    | b'. sudachi.rs と SudachiDict small | 未計測（手元になく、取得していない） | 同上 | 同上 | 未計測 | 未計測。small は core より語彙が少ない |
+    | c. lindera と IPADIC か UniDic を埋め込み | 未計測（埋め込みは実行ファイルが大きくなる） | lindera は MIT。IPADIC は独自の許諾、UniDic は BSD・GPL・LGPL の三つから選ぶ形 | crates.io の `lindera`（6.2.0）、機能 `embed-ipadic`、`embed-unidic` | 未計測 | 未計測。読みの体系が Sudachi と違う（長音、固有名詞）ので、出力が変わる |
+    | d. 辞書を同意を得てから取得 | 配布物には入らない。取得の大きさは選んだ辞書による | 辞書による | モデル取得のカタログに辞書を足す。取得前は読みなし | 取得の後は選んだ辞書と同じ | 選んだ辞書による |
+    | e. lindera の `embed-sudachidict` | 未計測 | MIT と Apache-2.0 | crates.io の `lindera` の機能 | 未計測 | 未計測。Sudachi の辞書を lindera の形で使う |
+
+    計測は SudachiPy 0.6.10、SudachiDict 20250825、分割モード C で、Python の `Transliterator.analyze` と同じ処理に 40 文を通して比べました。日常の会話、VRChat でよく出る語、読み分けが要る語（何、上がる、行う、日本橋）を含みます。時間とメモリは Windows 11 のノート PC で、別のビルドが動いている間に 1 回だけ計ったので、目安です。大きさは pip で入れたパッケージのフォルダの合計（1 MB は 10^6 バイト）です。
+17. **Web 翻訳（Google、Bing、Papago）**。上流の翻訳モジュールは公式の VRCT でしか配布できないため、VRCT-VOX は同梱していません。Python の起動時の確認はこれらを「使える」と示し、選ぶと毎回失敗してローカル翻訳へ切り替わっていました。中核は「使えない」と示します。選べなくなるので、利用者から見える違いです。
+18. **翻訳のプロバイダとプロキシ**。Python はクラウドのプロバイダへの通信で `HTTP(S)_PROXY` を使っていました。中核（`native/translation`）はプロキシを使いません（`native/ops` と同じ）。プロキシの中から使っている人は、オンラインの翻訳が使えなくなります。対応するかを決める必要があります。

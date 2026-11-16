@@ -206,6 +206,12 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 中核のクレートが`include_str!`で取り込むファイルは、OBSのブラウザーソースのページ（`native/adapters/src/obs/page.html`）と言語の表（`native/core/data/*.json`）だけ。どちらもリポジトリのコードとデータから作ったもので、第三者のデータではない。中核のクレートには`build.rs`もない。
 
+### 翻訳のプロバイダと読み（#277）
+
+中核が`native/translation`（翻訳のプロバイダ、プロンプト、読みの規則）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`httparse`、`rustls`、`serde_json`、`webpki-roots`）と、中核に足した`chrono`は、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。プロンプトの文面はPythonの`translation_settings/prompt/*.yml`（VRCT-VOXのコード）を移したもの。
+
+中核に機能フラグ`onnx-translation`ができた（既定はオフ）。オンにすると`native/translate-onnx`経由で`ort`（ONNX Runtimeの取得を含む）と`tokenizers`が入る。そのため`native/core/Cargo.lock`にはこれらが載るが、既定のビルドとアプリには入らない。オンにするときは、ONNX Runtimeの同梱（[core-integration.md](core-integration.md)の未決事項13）と一緒に、この台帳とNOTICEを見直す。読みの辞書（未決事項16）も、決まったら辞書のライセンスをここに足す。
+
 ## rmvpe.onnxの承認（2026-11-16、#322）
 
 #322の残課題へのオーナーの決定で、`rmvpe.onnx`は使い続けることになった。承認記録の[rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json)では、`status`を`approved_for_app_fetch_after_user_consent`に変え、`consent`にこの決定を足した。取得の形は変わらない。固定revisionから利用者の同意を得てから取得し、配布物には含めない。再配布の承認ではない。
