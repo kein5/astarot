@@ -75,7 +75,7 @@ export const Updater = () => {
             <SectionLabelComponent label={t("config_page.side_menu_labels.updater")} />
             <EnvReadout tone={toneOf(appUpdate)} progress={busy ? "working" : undefined}>
                 <p>
-                    VRCT-VOX {version}
+                    ASTAROT {version}
                     {info?.channel === "beta" && <span className={styles.channel}> {t("app_update.beta_channel")}</span>}
                 </p>
                 {status && <p>{status}</p>}

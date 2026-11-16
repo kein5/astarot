@@ -28,7 +28,7 @@ async function launcher(context) {
         "../../logics/main/switchBlocks": switchBlocks,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: path => calls.push(path) }) },
         "@images/brand/icon-small.svg": "icon",
-        "@images/brand/logo-en.svg": "logo-en", "@images/brand/logo-ja.svg": "logo-ja",
+        "@images/brand/logo.svg": "logo",
         "./VrTooltip": { VrTooltipButton: "button" },
     });
     const tree = runtime.render(VrLauncher, { windows: { log: false, popup: null },
@@ -123,7 +123,7 @@ async function functionButtons({ blocks = {}, statuses = {}, configOpen = false 
         "../../logics/main/switchBlocks": switchBlocks,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: path => calls.push(path) }) },
         "@images/brand/icon-small.svg": "icon",
-        "@images/brand/logo-en.svg": "logo-en", "@images/brand/logo-ja.svg": "logo-ja",
+        "@images/brand/logo.svg": "logo",
         "./VrTooltip": { VrTooltipButton: "button" },
     });
     const tree = runtime.render(VrLauncher, { windows: { log: false, popup: null }, toggleLog() {}, openLog() {}, togglePopup() {} });

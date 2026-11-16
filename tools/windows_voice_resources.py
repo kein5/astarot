@@ -89,13 +89,15 @@ def sidecar_version(root):
 
     With no version resource the question reads "Allow   to access your microphone?".
     Someone who leaves that unanswered is refused from then on, with no further question.
-    Returns the path of a PyInstaller version file.
+    The names are the display name the app's messages use (ADR-011 P1). Windows keeps the
+    answer per exe path, so changing them does not ask again. Returns the path of a
+    PyInstaller version file.
     """
     root = Path(root)
     version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
     numbers = tuple(int(part) for part in re.findall(r'\d+', version)[:4])
     numbers += (0,) * (4 - len(numbers))
-    strings = (('FileDescription', 'VRCT-VOX'), ('ProductName', 'VRCT-VOX'), ('FileVersion', version),
+    strings = (('FileDescription', 'ASTAROT'), ('ProductName', 'ASTAROT'), ('FileVersion', version),
                ('ProductVersion', version), ('OriginalFilename', 'vrct-vox-sidecar.exe'))
     rows = ', '.join(f'StringStruct({name!r}, {value!r})' for name, value in strings)
     path = root / 'build/sidecar-version.txt'

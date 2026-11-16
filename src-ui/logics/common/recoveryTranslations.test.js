@@ -40,7 +40,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     const fallback = boundary.props.fallbackRender({ error });
     const tree = fallback.type(fallback.props);
     assert.ok(find(tree, node => node.props.children === t("common_error.recovery_instructions")));
-    assert.match(t("common_error.recovery_instructions"), /VRCT-VOX/);
+    assert.match(t("common_error.recovery_instructions"), /ASTAROT/);
     const copy = find(tree, node => node.type === "button");
     assert.ok(find(copy, node => node.props.children === t("common_error.copy_error_log")));
     copy.props.onClick();
