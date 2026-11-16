@@ -2104,6 +2104,7 @@ old_whisper_weights:
 network_privacy:
     http_warning: "This connection is not encrypted. Text, audio and API keys may be visible to others on the network."
     save_notice: "The URL is checked when you save. If you enter an API key, it is sent to this address for verification."
+    disconnected: "There is no network connection. Features that use the internet will not work until it is back."
 io_flow:
     open: "Inputs and outputs"
     open_hint: "Show where your voice and chat go, and how long each step took"

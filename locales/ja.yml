@@ -2104,6 +2104,7 @@ old_whisper_weights:
 network_privacy:
     http_warning: "この接続は暗号化されません。文章・音声・APIキーをネットワーク上の第三者に読み取られる可能性があります。"
     save_notice: "URLは保存時に確認します。APIキーを入力して保存するとこのURLに送信して認証します。"
+    disconnected: "ネットワークにつながっていません。つながるまで、インターネットを使う機能は使えません。"
 io_flow:
     open: "入力と出力"
     open_hint: "自分の声とチャットがどこへ出るかと、かかった時間を表示します"
