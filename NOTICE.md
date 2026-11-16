@@ -138,10 +138,12 @@ Startup auto-acquisition requires a matching saved consent in addition to the
 auto-download switch; legacy settings have no recorded consent. Existing
 files and saved selections are preserved.
 
-This table and the OCR table above cover **model weights** only. Python package
-dependencies are listed in `pyproject.toml` (resolved in `uv.lock`) and
-carry their own licenses; JavaScript dependencies are listed in
-`package.json`. Rust dependencies are covered in the next section.
+This table and the OCR table above cover **model weights** only. Since 0.5.0
+the builds contain no Python: the Python packages in `pyproject.toml` (resolved
+in `uv.lock`) are used only by the development tools, the tests and the Python
+backend source kept in the repository, and carry their own licenses.
+JavaScript dependencies are listed in `package.json`. Rust dependencies are
+covered in the next section.
 
 ## Rust crates in VRCT-VOX builds
 
@@ -203,15 +205,16 @@ The retained source copies are in
 
 ## LGPL and GPL components in VRCT-VOX builds
 
-The frozen backend (`_internal` next to the `vrct-vox-sidecar` executable)
-contains the following components under the GNU LGPL or GPL. Each is a
-separate shared library, Python extension module or Python source directory,
-so you may replace it with your own build of the same component and interface;
-the application loads whatever file is present. Their license texts are
-included under `_internal/licenses/python/` (Python packages) or alongside the
-component.
+Since 0.5.0 the backend runs inside the application (`native/core`) and the
+builds carry no frozen Python backend. The components below were in the frozen
+backend of VRCT-VOX up to 0.4.x (`_internal` next to the `vrct-vox-sidecar`
+executable) and are not in 0.5.0 and later builds. Each was a separate shared
+library, Python extension module or Python source directory, so it could be
+replaced with your own build of the same component and interface. Their license
+texts were included under `_internal/licenses/python/` (Python packages) or
+alongside the component.
 
-| Component | Where in the build | License | Corresponding source |
+| Component | Where in a 0.4.x build | License | Corresponding source |
 |---|---|---|---|
 | libsoxr, statically built into the `soxr` 1.1.0 extension module | `_internal/soxr/` | LGPL-2.1-or-later | [soxr 1.1.0 source distribution](https://pypi.org/project/soxr/1.1.0/#files) (contains libsoxr), [python-soxr](https://github.com/dofuuz/python-soxr) |
 | FFmpeg libraries (libavcodec, libavformat, libavutil, libswresample, libswscale) shipped with `opencv-python-headless` 4.10.0.84 | Linux: `_internal/opencv_python_headless.libs/`; Windows: `_internal/cv2/opencv_videoio_ffmpeg*.dll` | LGPL-2.1-or-later | [FFmpeg](https://ffmpeg.org/download.html); build scripts and version in [opencv-python 84](https://github.com/opencv/opencv-python/tree/84) |
@@ -224,9 +227,7 @@ On request through this repository's Issues, we will provide a copy of the
 corresponding source code of the LGPL and GPL components above, as used in a
 given release, for at least three years after that release.
 
-PyAV is deliberately **not** included: its binary wheels bundle FFmpeg together
-with the GPL-licensed x264 and x265 encoders. faster-whisper, which imported it,
-is no longer a dependency, and no other dependency needs it. As a guard,
-builds still provide a stand-in module (`packaging/pyinstaller-stubs/av`), and
-the distribution policy (`tools/distribution_policy.py`) rejects PyAV libraries
-and x264/x265 in any build.
+PyAV was deliberately **not** included in any build: its binary wheels bundle
+FFmpeg together with the GPL-licensed x264 and x265 encoders. The distribution
+policy (`tools/distribution_policy.py`) still rejects PyAV libraries and
+x264/x265 in any build.

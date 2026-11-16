@@ -2,22 +2,26 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { test } from "node:test";
 import { createSidecarSessionOwner } from "./sidecarSession.js";
-import { createSelectedBackendCommand } from "./backendCommand.js";
 import * as startupPhase from "./startupPhase.js";
 import { expectBackendExit } from "./sidecarExitExpectation.js";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { deferred, flush, loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.js";
 import * as utils from "../utils.js";
 
-test("only the main window can retire a spawned sidecar through shell kill", async () => {
+test("only the main window can start, feed or retire the backend", async () => {
     const directory = new URL("../../../src-tauri/capabilities/", import.meta.url);
     const capabilities = await Promise.all((await readdir(directory)).filter(name => name.endsWith(".json"))
         .map(async name => JSON.parse(await readFile(new URL(name, directory), "utf8"))));
-    const grants = capabilities.filter(capability => capability.permissions.some(permission =>
-        (typeof permission === "string" ? permission : permission.identifier) === "shell:allow-kill"));
-    assert.equal(grants.length, 1);
-    assert.equal(grants[0].identifier, "vrct-capability");
-    assert.deepEqual(grants[0].windows, ["main"]);
+    // No window may start or stop a program; the backend runs inside the app (#285).
+    const shell = capabilities.flatMap(capability => capability.permissions).filter(permission =>
+        (typeof permission === "string" ? permission : permission.identifier).startsWith("shell:"));
+    assert.deepEqual(shell, []);
+    // The app's own commands refuse every window but main.
+    const host = await readFile(new URL("../../../src-tauri/src/backend_host.rs", import.meta.url), "utf8");
+    for (const command of ["backend_start", "backend_write", "backend_kill"]) {
+        const body = host.split(`pub fn ${command}(`)[1].split("\n}\n")[0];
+        assert.match(body, /main_only\(&window\)\?/, command);
+    }
 });
 
 const setup = () => {
@@ -243,11 +247,10 @@ test("production controller publishes startup failure and the failure dialog say
         useIsBackendReady: b.stores.useStore_IsBackendReady, useWindow: () => ({ asyncCloseApp: () => {} }) };
     const module = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
         "@tauri-apps/api/core": { invoke: async () => [] },
-        "@tauri-apps/plugin-shell": { Command: { sidecar: s.createCommand } },
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => ({ receiveRoutes: () => {}, backendStopped: () => {} }) },
         "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
-        "../../../logics/common/backendCommand.js": { createSelectedBackendCommand },
+        "../../../logics/common/backendCommand.js": { createCoreBackendCommand: () => s.createCommand() },
         "../../../logics/common/startupPhase.js": startupPhase,
     });
     b.runtime.render(module.StartPythonController);
@@ -294,11 +297,11 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         useIsSoftwareUpdating: b.stores.useStore_IsSoftwareUpdating,
         useIsOpenedConfigPage: b.stores.useStore_IsOpenedConfigPage };
     const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
-        "@tauri-apps/api/core": { invoke: async () => [] }, "@tauri-apps/plugin-shell": { Command: { sidecar: s.createCommand } },
+        "@tauri-apps/api/core": { invoke: async () => [] },
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => b },
         "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
-        "../../../logics/common/backendCommand.js": { createSelectedBackendCommand },
+        "../../../logics/common/backendCommand.js": { createCoreBackendCommand: () => s.createCommand() },
         "../../../logics/common/startupPhase.js": startupPhase,
     });
     b.runtime.render(controller.StartPythonController);

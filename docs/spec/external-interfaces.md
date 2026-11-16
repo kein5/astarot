@@ -249,7 +249,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 `dangerousDisableAssetCspModification`は既定の`false`を保つ。TauriによるHTMLのnonce/hash挿入を無効化しない。`script-src-elem`を別に指定してTauriの`script-src`への追加を無効にすることもしない。`freezePrototype`は別のprototype汚染対策であり、CSPを有効にする条件ではない。今回は既定の`false`を保つ。
 
-Python sidecarはshell pluginのstdin/stdoutでつなぐ。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後にPython側で実行する。モデルカード、ライセンス、Aboutの外部リンクはopenerまたは既存のPython側の処理へ渡す。ログの保存もPython側で行う。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
+バックエンド（Rustの中核）はアプリの中で動き、UIとはTauriのコマンドとチャネルでつなぐ（0.4まではPython sidecarをshell pluginのstdin/stdoutでつないでいた）。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後にPython側で実行する。モデルカード、ライセンス、Aboutの外部リンクはopenerまたは既存のPython側の処理へ渡す。ログの保存もPython側で行う。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
 
 `devCsp`だけはViteのReact Refresh用inline script、HMR用style、および`ws://localhost:1420`、`ws://127.0.0.1:1420`、`ws://localhost:1421`、`ws://127.0.0.1:1421`を許す。通常のdev URLは`http://localhost:1420`。`TAURI_DEV_HOST`に別のホストを指定する場合は、開発用のローカルTauri設定で`devCsp.connect-src`にそのホストのHMR URL（ポート1421）を明記する。配布用CSPを広げない。
 
@@ -336,6 +336,6 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 
 ### 権限
 
-`src-tauri/capabilities/`で、`main`にウィンドウ操作、ショートカット、ファイル、GitHubへのHTTP、サイドカーの起動を許す。`quick_chat`にはイベントの受信だけを許し、コマンドは呼び出し元のウィンドウ名をRust側で確かめる。
+`src-tauri/capabilities/`で、`main`にウィンドウ操作、ショートカット、許可したサイトを開くことを許す。ファイル、HTTP、プログラムの起動（shell）のプラグインはアプリに入っていない。バックエンドの`backend_*`コマンドは`main`だけが呼べることをRust側で確かめる。`quick_chat`にはイベントの受信だけを許し、コマンドは呼び出し元のウィンドウ名をRust側で確かめる。
 
 ブラウザーでURLを開けるのは`main`だけで、開けるのは`vrct_capability.json`の`opener:allow-open-url`に挙げたURLだけである（第2回セキュリティ監査 SEC-02）。同じウィンドウに当たる権限は合わさるので、`opener:default`のような広い権限はどのファイルにも入れない。一覧には、アプリが表示するリンクの行き先を挙げる。ユーザー向けドキュメント、このリポジトリ、元のVRCTと貢献者のページ、APIキーを作るページ、Hugging Faceのモデルカード、ライセンスの本文である。`..`を含むパス、パーセントで符号化した`.`と`\`、`@`を含むURLは拒否する。照合はglobで行い、Windowsでは`\`と`/`を同じ文字とみなす。UIに書いたURLと、Pythonのカタログが渡す取得元とライセンスのリンクがどれも一覧に入っていることは、試験で確かめる（`src-ui/logics/common/openerScope.test.js`、`tests/voice/test_url_open_scope.py`、`src-tauri/src/opener_scope_tests.rs`）。新しいリンクを足したら、一覧にも足す。

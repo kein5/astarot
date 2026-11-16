@@ -27,30 +27,6 @@ SOURCE = Endpoint(1, 0, '["Windows WASAPI", "Microphone (USB)"]', 'Audio/Source'
 windows = pytest.mark.skipif(sys.platform != 'win32', reason='Windows process behaviour')
 
 
-@pytest.mark.parametrize('spec', ['backend.spec', 'backend_cuda.spec'])
-def test_both_windows_builds_name_the_sidecar_for_the_microphone_question(spec):
-    assert 'version=sidecar_version(ROOT)' in (ROOT / 'spec' / spec).read_text(encoding='utf-8')
-
-
-def test_the_sidecar_version_carries_the_app_name(tmp_path):
-    resources = importlib.import_module('tools.windows_voice_resources')
-    (tmp_path / 'package.json').write_text('{"version": "1.2.3-beta.4"}', encoding='utf-8')
-    path = resources.sidecar_version(tmp_path)
-    text = Path(path).read_text(encoding='utf-8')
-    assert 'filevers=(1, 2, 3, 4)' in text
-    assert "StringStruct('FileDescription', 'VRCT-VOX')" in text
-    assert "StringStruct('FileVersion', '1.2.3-beta.4')" in text
-
-
-def test_pyinstaller_reads_the_sidecar_version_file(tmp_path):
-    versioninfo = pytest.importorskip('PyInstaller.utils.win32.versioninfo')
-    resources = importlib.import_module('tools.windows_voice_resources')
-    (tmp_path / 'package.json').write_text('{"version": "1.2.3"}', encoding='utf-8')
-    info = versioninfo.load_version_info_from_text_file(resources.sidecar_version(tmp_path))
-    assert info.ffi.fileVersionMS == (1 << 16) | 2 and info.ffi.fileVersionLS == 3 << 16
-    assert 'VRCT-VOX' in str(info)
-
-
 def test_a_rejected_seed_setting_gives_its_graphs_back(monkeypatch):
     monkeypatch.setitem(sys.modules, 'torch', SimpleNamespace(cuda=SimpleNamespace(empty_cache=lambda: None)))
     try:
@@ -197,57 +173,29 @@ def test_windows_bundle_keeps_only_the_executable_and_the_notices(tmp_path):
     assert m.verify_bundle(output) == result
 
 
-def test_windows_resources_carry_the_engine_and_the_worker_contract(tmp_path):
-    m = importlib.import_module('tools.windows_voice_resources')
+def test_windows_resources_carry_the_engine_and_the_worker(tmp_path):
+    from tools import app_resources
     bundle = tmp_path / 'build/speechcpp'
     (bundle / 'notices').mkdir(parents=True)
     (bundle / 'speech.exe').write_bytes(b'x')
     (bundle / 'bundle.json').write_text('{}')
     (bundle / 'notices/NOTICE.md').write_text('n')
     (tmp_path / 'build/vrct-rvc-worker.exe').write_bytes(b'x')
-    (tmp_path / 'integrations/seed_vc').mkdir(parents=True)
-    for name in ('live_worker.py', 'LICENSE.upstream', 'requirements.lock'):
-        (tmp_path / 'integrations/seed_vc' / name).write_text('x')
-    pairs = {(Path(source).name, target) for source, target in m.voice_datas(tmp_path)}
-    assert ('speech.exe', 'build/speechcpp') in pairs
-    assert ('NOTICE.md', 'build/speechcpp/notices') in pairs
-    assert ('vrct-rvc-worker.exe', 'build') in pairs
-    assert ('live_worker.py', 'voice_worker/integrations/seed_vc') in pairs
-    assert ('LICENSE.upstream', 'voice_worker/integrations/seed_vc') in pairs
-    assert ('requirements.lock', 'voice_worker/integrations/seed_vc') not in pairs
-    assert not any('integrations/rvc' in target for _, target in pairs)
-    assert ('owned_child.py', 'voice_worker/src-python/models') in pairs
-    assert ('protocol.py', 'voice_worker/src-python/models/voice_conversion') in pairs
-
-
-def test_windows_resources_carry_what_the_runtime_setup_and_seed_worker_read():
-    m = importlib.import_module('tools.windows_voice_resources')
-    pairs = {(Path(source).name, target) for source, target in m.voice_datas(ROOT)}
-    assert ('requirements-windows.lock', 'voice_worker/integrations/seed_vc') in pairs
-    assert ('offline-loader.patch', 'voice_worker/integrations/seed_vc') in pairs
-    assert ('graphs.py', 'voice_worker/integrations/seed_vc') in pairs
-    assert ('seedvc_artifacts.py', 'voice_worker/tools') in pairs
-    assert ('seed-vc-poc-artifacts.json', 'voice_worker/docs/voice-stack') in pairs
-    assert ('requirements.lock', 'voice_worker/integrations/seed_vc') not in pairs
+    pairs = {(Path(source).name, target) for source, target in app_resources.pairs('windows', tmp_path / 'build', ROOT)}
+    assert ('speech.exe', 'build/speechcpp/speech.exe') in pairs
+    assert ('NOTICE.md', 'build/speechcpp/notices/NOTICE.md') in pairs
+    assert ('vrct-rvc-worker.exe', 'build/vrct-rvc-worker.exe') in pairs
+    # No Python worker or interpreter files travel with the app any more.
+    assert not any(target.endswith(('.py', '.lock', '.patch')) or 'voice_worker' in target for _, target in pairs)
 
 
 def test_the_build_check_names_what_a_windows_tree_lacks(tmp_path):
-    m = importlib.import_module('tools.windows_voice_resources')
-    assert 'build/speechcpp/speech.exe' in m.missing_files(tmp_path)
-    assert 'licenses/python' in m.missing_files(tmp_path)
-    for name in m.REQUIRED:
+    from tools import app_resources
+    assert 'build/speechcpp/speech.exe' in app_resources.missing(tmp_path, 'windows')
+    for name in app_resources.required('windows'):
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_text('x')
-    (tmp_path / 'licenses/python/soxr-1.1.0').mkdir(parents=True)
-    (tmp_path / 'licenses/python/soxr-1.1.0/COPYING').write_text('x')
-    assert m.missing_files(tmp_path) == []
-
-
-def test_the_build_collects_the_license_texts_notice_md_promises():
-    m = importlib.import_module('tools.windows_voice_resources')
-    rows = m.notice_toc()
-    assert all(target.startswith('licenses/python/') and kind == 'DATA' for target, _, kind in rows)
-    assert all(Path(source).is_file() for _, source, _ in rows)
+    assert app_resources.missing(tmp_path, 'windows') == []
 
 
 def test_a_frozen_worker_does_not_start_inside_the_sidecars_python(tmp_path, monkeypatch):
@@ -257,16 +205,6 @@ def test_a_frozen_worker_does_not_start_inside_the_sidecars_python(tmp_path, mon
     assert seed_process.worker_root() == tmp_path
     (tmp_path / 'voice_worker').mkdir()
     assert seed_process.worker_root() == tmp_path / 'voice_worker'
-
-
-def test_every_module_the_worker_imports_ships_with_it():
-    """External interpreters cannot read the frozen PYZ, so a new import must be listed."""
-    resources = importlib.import_module('tools.windows_voice_resources')
-    for source in ('owned_child.py', 'voice_conversion/protocol.py', 'voice_conversion/settings.py'):
-        text = (ROOT / 'src-python/models' / source).read_text(encoding='utf-8')
-        imports = [line.split()[1] for line in text.splitlines() if line.startswith('from models.')]
-        for name in imports:
-            assert name.removeprefix('models.').replace('.', '/') + '.py' in resources.CONTRACT
 
 
 def test_seed_runtime_python_follows_the_platform(monkeypatch):

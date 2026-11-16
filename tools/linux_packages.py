@@ -6,8 +6,8 @@ The packages hold the same files as the release tar.gz. They install them read-o
 /opt/vrct-vox, add /usr/bin/vrct-vox, a desktop entry, an icon and the license notices, and
 declare what the tar.gz needs from the host: glibc, GTK 3 and WebKitGTK 4.1 (with what they pull
 in), and for the Vulkan variant the Vulkan loader: speech.cpp loads libvulkan.so.1 from the system,
-not the copy in _internal. The bundle carries libpipewire and OpenSSL itself (checked with readelf on
-the 0.2.0 tar.gz). The PipeWire tools are recommended: managed audio routing runs them, and so are
+not from _internal. The app runs the backend core in its own process; _internal holds no Python
+runtime and its helpers link the host's libpipewire. The PipeWire tools are recommended: managed audio routing runs them, and so are
 the Mesa Vulkan drivers for the Vulkan variant. The lowest glibc comes from the candidate's
 build-manifest.json. Settings and models stay in the user's XDG folders.
 

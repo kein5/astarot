@@ -28,7 +28,8 @@ ${StrLoc}
 !define HEADERIMAGE "{{header_image}}"
 !define MAINBINARYNAME "{{main_binary_name}}"
 !define MAINBINARYSRCPATH "{{main_binary_path}}"
-; The Python sidecar from tauri.conf.json bundle.externalBin ("bin/vrct-vox-sidecar").
+; The Python sidecar that packages up to 0.4 carried beside the app. 0.5.0 has none; the
+; installer still stops and removes the one an older install left behind.
 !define SIDECARBINARYNAME "vrct-vox-sidecar"
 !define BUNDLEID "{{bundle_id}}"
 !define COPYRIGHT "{{copyright}}"
@@ -767,8 +768,9 @@ SectionEnd
         Abort "$(appRunning)"
   ${EndIf}
   app_check_done:
-  ; Killing the main process skips the shell plugin's exit handler, so the
-  ; Python sidecar keeps running until its own watchdog stops it (1-2 min).
+  ; Updating an install from before 0.5.0: killing its main process skipped the
+  ; shell plugin's exit handler, so its Python sidecar keeps running until its own
+  ; watchdog stops it (1-2 min).
   ; Meanwhile its exe and loaded libraries cannot be deleted, and its final
   ; save can write config.json again. The main app is gone at this point:
   ; it was not running, or the user agreed to stop it above.
@@ -807,6 +809,8 @@ Var /GLOBAL existing_install
 Var install_started
 Var upd_dir
 Var upd_entry
+; 1 when the staged package has no Python sidecar (0.5.0 and later) and an old one is left.
+Var stale_sidecar
 Var upd_find
 Var upd_failed
 
@@ -1358,6 +1362,12 @@ Section Install
     ${EndIf}
   ${EndIf}
 
+  ; A package from 0.5.0 on has no sidecar; an older one (the version picker) still ships it.
+  StrCpy $stale_sidecar "0"
+  ${IfNot} ${FileExists} "$INSTDIR\.upd\new\${SIDECARBINARYNAME}.exe"
+    StrCpy $stale_sidecar "1"
+  ${EndIf}
+
   ClearErrors
   CreateDirectory "$INSTDIR\.upd\old"
   CreateDirectory "$INSTDIR\.upd\add"
@@ -1412,6 +1422,11 @@ Section Install
   Delete "$INSTDIR\.upd\committing"
   IfErrors commit_failed
   RMDir /r "$INSTDIR\.upd"
+  ; Up to 0.4 the package carried the Python sidecar beside the app. A package without it
+  ; leaves the old one in place through the commit above; it is no longer used.
+  ${If} $stale_sidecar == "1"
+    Delete "$INSTDIR\${SIDECARBINARYNAME}.exe"
+  ${EndIf}
 
   ; An in-place NSIS uninstall would delete the newly committed app. When
   ; moving locations, uninstall only after the replacement is ready, and
@@ -1746,6 +1761,9 @@ Section Uninstall
 
   ; Remove abandoned update work files too.
   RmDir /r "$INSTDIR\.upd"
+
+  ; The Python sidecar of an install from before 0.5.0 that was updated in place.
+  Delete "$INSTDIR\${SIDECARBINARYNAME}.exe"
 
   ; Delete _internal folder (アプリ本体の一部なので常に削除)
   RmDir /r "$INSTDIR\_internal"

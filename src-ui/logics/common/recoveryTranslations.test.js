@@ -57,7 +57,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     b.stores.store.backend_session_owner = { attach: get => { handlers = get(); return () => {}; } };
     const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
         "@useI18n": translations, "@store": b.stores, "@utils": {},
-        "@tauri-apps/api/core": {}, "@tauri-apps/plugin-shell": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
+        "@tauri-apps/api/core": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
         "../../../logics/common/sidecarSession.js": {},
         "../../../logics/common/backendCommand.js": {},
         "../../../logics/common/startupPhase.js": { describeStartupFailure: detail => detail },

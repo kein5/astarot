@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,7 +17,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tempfile
 import tomllib
 
 
@@ -28,7 +26,7 @@ GROUPS = {"quick": ("tooling", "node", "lint"),
           "all": ("tooling", "node", "ui", "voice", "lint", "backend", "rust")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/core")
-SETUP_SCOPES = ("headless", "ui", "browser", "backend", "rust", "sidecar")
+SETUP_SCOPES = ("headless", "ui", "browser", "backend", "rust", "resources")
 OWNER_FILE = ".vrct-vox-dev-env"
 OWNER = "VRCT-VOX developer environment v1\n"
 # Plain unit tests that live in tests/platform next to the helpers they test; the rest of
@@ -48,7 +46,8 @@ LINT_PATHS = [
     "tools/voice_route.py", "tools/voice_route_acceptance.py", "tools/build_voice_gate.py",
     "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py", "tools/vrchat_voice_host.py",
     "tools/prepare_release.py", "tools/changelog.py", "tools/dev.py", "tools/build_linux.py",
-    "tools/check_python_lock.py", "tools/rust_licenses.py", "tests/devtools",
+    "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/app_resources.py",
+    "tools/measure_backend_startup.py", "tests/devtools",
 ]
 
 
@@ -129,132 +128,12 @@ def reject_links(path, root):
             raise DevError(f"Refusing symlink in setup destination: {part}")
 
 
-def sidecar_path(root):
-    rustc = shutil.which("rustc")
-    if not rustc:
-        raise DevError("rustc is missing; install the Rust toolchain explicitly.")
-    result = probe([rustc, "-vV"], root)
-    hosts = [line.removeprefix("host: ") for line in result.stdout.splitlines() if line.startswith("host: ")]
-    if result.returncode or len(hosts) != 1 or not re.fullmatch(
-            r"[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+){2,4}", hosts[0]):
-        raise DevError("Cannot determine a safe rustc host triple.")
-    suffix = ".exe" if "windows" in hosts[0].split("-") else ""
-    return root / "src-tauri/bin" / f"vrct-vox-sidecar-{hosts[0]}{suffix}"
+def setup_resources(args, root):
+    # tauri.conf.json bundles src-tauri/bin/_internal; tauri dev and cargo check need the folder.
+    # A debug build reads speech.cpp and the helpers from build/ in the checkout itself.
+    return execute([Step("development _internal", [sys.executable, str(root / "tools/app_resources.py"),
+        "stage", "--allow-missing"])], root, dry_run=args.dry_run)
 
-
-def file_hash(path):
-    with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
-
-
-def sidecar_state(binary, marker):
-    data = marker.read_bytes() if marker.exists() else None
-    hashes = []
-    if data is not None:
-        try:
-            record = json.loads(data)
-            hashes = record["hashes"]
-            valid = (record["owner"] == "VRCT-VOX dev sidecar v1"
-                     and record["binary"] == binary.name
-                     and isinstance(hashes, list) and 1 <= len(hashes) <= 2
-                     and all(isinstance(h, str) and re.fullmatch(r"[0-9a-f]{64}", h) for h in hashes))
-        except (KeyError, ValueError, TypeError):
-            valid = False
-        if not valid:
-            raise DevError(f"Unknown sidecar ownership record: {marker}")
-    checksum = None
-    if binary.exists():
-        if not binary.is_file() or not hashes:
-            raise DevError(f"Refusing a sidecar that is not owned or whose hash changed: {binary}")
-        checksum = file_hash(binary)
-        if checksum not in hashes:
-            raise DevError(f"Refusing a sidecar whose hash changed: {binary}")
-    return checksum, data
-
-
-def write_owner(marker, binary, hashes):
-    fd, name = tempfile.mkstemp(prefix=".vox-owner-", dir=marker.parent)
-    temporary = Path(name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf8") as stream:
-            json.dump(dict(owner="VRCT-VOX dev sidecar v1", binary=binary.name, hashes=hashes), stream)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, marker)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
-def setup_sidecar(args, root):
-    if sys.platform not in ("linux", "darwin"):
-        raise DevError("Direct rustc sidecar setup is Unix-only. Windows needs the existing utils/dev_sidecar Cargo build with windows-sys; no existing payload was changed.")
-    binary = sidecar_path(root)
-    marker = binary.with_name(binary.name + ".dev-owner.json")
-    resources = binary.parent / "_internal"
-    for path in (binary, marker, resources):
-        reject_links(path, root)
-    initial = sidecar_state(binary, marker)
-    if resources.exists() and not resources.is_dir():
-        raise DevError(f"Resources is not a directory: {resources}")
-    source = root / "utils/dev_sidecar/src/main.rs"
-    if not source.is_file():
-        raise DevError(f"Sidecar Rust source is missing: {source}")
-    if args.dry_run:
-        print(f"Compile {source} with rustc --edition=2024, then atomically install {binary}.")
-        print("Preserve existing _internal; add a placeholder only if absent or empty. Plan only.")
-        return 0
-    binary.parent.mkdir(parents=True, exist_ok=True)
-    lock = binary.parent / ".vrct-vox-dev-sidecar.lock"
-    try:
-        lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    except FileExistsError as exc:
-        raise DevError(f"Sidecar setup lock exists: {lock}. Inspect the other setup before removing a stale lock manually.") from exc
-    lock_stat = os.fstat(lock_fd)
-    try:
-        with tempfile.TemporaryDirectory(prefix=".vox-sidecar-build-", dir=binary.parent) as temp:
-            output = Path(temp) / "wrapper"
-            argv = [shutil.which("rustc"), "--edition=2024", "--crate-name", "vrct_vox_dev_sidecar",
-                    str(source), "-o", str(output)]
-            print("[compile sidecar] " + shlex.join(argv), flush=True)
-            result = subprocess.run(argv, cwd=root, env=child_environment(), check=False,
-                                    capture_output=True, text=True, timeout=60)
-            if result.returncode:
-                print(result.stderr, file=sys.stderr)
-                print(f"FAILED: rustc (child exit {result.returncode}); existing wrapper preserved.")
-                return 1
-            if not output.is_file() or output.is_symlink() or output.stat().st_size == 0:
-                raise DevError("rustc produced no regular nonempty sidecar.")
-            for path in (binary, marker, resources):
-                reject_links(path, root)
-            if sidecar_state(binary, marker) != initial:
-                raise DevError("Sidecar changed during compilation; refusing to replace it.")
-            if not resources.exists():
-                # mkdir without exist_ok also refuses a competing creator.
-                resources.mkdir()
-            elif not resources.is_dir():
-                raise DevError("Resources changed during compilation; refusing to continue.")
-            if not any(resources.iterdir()):
-                # Existing empty resource directories are common in old dev
-                # checkouts. Never overwrite a marker or any real payload.
-                with (resources / ".vrct-vox-dev-placeholder").open("x", encoding="utf8") as stream:
-                    stream.write("Development placeholder only; contains no frozen backend resources.\n")
-            checksum = file_hash(output)
-            # Record both transition states before the atomic binary replacement.
-            # Interrupted publication remains recognizable as ours on retry.
-            hashes = list(dict.fromkeys([h for h in (initial[0], checksum) if h]))
-            write_owner(marker, binary, hashes)
-            os.replace(output, binary)
-            write_owner(marker, binary, [checksum])
-        print(f"Prepared development sidecar: {binary}. No application started.")
-        return 0
-    except subprocess.TimeoutExpired as exc:
-        raise DevError("rustc timed out; existing wrapper preserved.") from exc
-    finally:
-        os.close(lock_fd)
-        if lock.exists():
-            current = lock.lstat()
-            if (current.st_dev, current.st_ino) == (lock_stat.st_dev, lock_stat.st_ino):
-                lock.unlink()
 
 
 def scopes(args):
@@ -362,16 +241,9 @@ def doctor(args, root, *, preflight=False):
         needed_tools.add("npm")
     if "rust" in selected:
         needed_tools.add("cargo")
-        try:
-            binary = sidecar_path(root)
-            resources = root / "src-tauri/bin/_internal"
-            valid_binary = binary.is_file() and not binary.is_symlink() and binary.stat().st_size > 0
-            row("Tauri external sidecar", "ok" if valid_binary else "missing", str(binary),
-                "python tools/dev.py setup --scope sidecar (Unix); Windows: existing utils/dev_sidecar Cargo wrapper.")
-            row("Tauri resources", "ok" if resources.is_dir() and not resources.is_symlink() and any(resources.iterdir()) else "missing",
-                str(resources), "python tools/dev.py setup --scope sidecar adds a development placeholder if absent or empty.")
-        except DevError as exc:
-            row("Tauri external sidecar", "missing", str(exc), "Prepare Rust and the sidecar explicitly; see docs/development.md.")
+        resources = root / "src-tauri/bin/_internal"
+        row("Tauri resources", "ok" if resources.is_dir() and not resources.is_symlink() else "missing",
+            str(resources), "python tools/dev.py setup --scope resources stages what build/ has.")
         if sys.platform == "linux":
             if not shutil.which("pkg-config"):
                 row("native libraries", "missing", "pkg-config not found", "See Linux prerequisites in docs/development.md.")
@@ -442,8 +314,8 @@ def owned_environment(target, root):
 def setup(args, root):
     if args.python and args.scope != "browser":
         raise DevError("setup --python is supported only with --scope browser (additive install). Other scopes use owned environments.")
-    if args.scope == "sidecar":
-        return setup_sidecar(args, root)
+    if args.scope == "resources":
+        return setup_resources(args, root)
     if args.scope == "ui":
         return execute([Step("locked UI packages", ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund",
             *(["--offline"] if args.offline else [])])], root, dry_run=args.dry_run)

@@ -21,10 +21,11 @@ spec.loader.exec_module(scenarios)
 
 class WindowsUpdateFixtureTests(unittest.TestCase):
     def test_valid_archives_have_exact_app_owned_top_level(self):
-        for version in ("old", "new"):
+        # The old package carries the Python sidecar as packages up to 0.4 did; the new one not.
+        for version, top in (("old", {scenarios.APP, scenarios.SIDECAR, "_internal"}),
+                             ("new", {scenarios.APP, "_internal"})):
             with self.subTest(version=version), zipfile.ZipFile(io.BytesIO(scenarios.payloads()[version])) as archive:
-                self.assertEqual({name.split("/")[0] for name in archive.namelist()},
-                                 {scenarios.APP, scenarios.SIDECAR, "_internal"})
+                self.assertEqual({name.split("/")[0] for name in archive.namelist()}, top)
                 self.assertIsNone(archive.testzip())
 
     def test_archive_bytes_do_not_depend_on_the_clock(self):

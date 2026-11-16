@@ -175,11 +175,8 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 0, output)
 
     def test_linux_tray_library_accepts_either_provider_but_not_neither(self):
-        binary = self.root / "src-tauri/bin/vrct-vox-sidecar-x86_64-unknown-linux-gnu"
-        binary.parent.mkdir(parents=True)
-        binary.write_bytes(b"existing sidecar")
-        resources = binary.parent / "_internal"
-        resources.mkdir()
+        resources = self.root / "src-tauri/bin/_internal"
+        resources.mkdir(parents=True)
         (resources / "resource").write_text("existing")
         for available in ("appindicator3-0.1", "ayatana-appindicator3-0.1", None):
             with self.subTest(available=available):

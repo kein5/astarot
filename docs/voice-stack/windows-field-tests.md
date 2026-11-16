@@ -40,7 +40,9 @@ GPUのキャッシュが空の状態を試すときは、`VOX_SHADER_CACHE`に�
 
 ## 実マイク
 
-利用者がPCの前にいるときだけ行います。凍結したサイドカーを`build/frozen-mic2/`に置いてから実行します。
+利用者がPCの前にいるときだけ行います。
+
+0.4までは凍結したサイドカーを使う`tools/windows_field/win_mic_full.py`で試していました。0.5.0で配布物からサイドカーをなくしたので、この道具も削除しました。中核で同じ試験をする道具は、音声認識を中核につなぐ作業で用意します。以下は0.4までの手順の記録です。
 
 ```powershell
 .venv\Scripts\python.exe tools\windows_field\win_mic_full.py

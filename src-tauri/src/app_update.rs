@@ -98,7 +98,8 @@ pub fn detect_install(executable: &Path, appimage: Option<&Path>, debug: bool) -
     };
     if cfg!(windows) {
         if directory.join("uninstall.exe").is_file() {
-            // Only the CUDA package carries the NVIDIA libraries (spec/backend_cuda.spec).
+            // The CUDA packages up to 0.4 carried the NVIDIA libraries in _internal/nvidia; from
+            // 0.5.0 both packages are the same and an updated CUDA install counts as CPU.
             let gpu = directory.join("_internal").join("nvidia").is_dir();
             return InstallKind::WindowsInstaller { gpu };
         }

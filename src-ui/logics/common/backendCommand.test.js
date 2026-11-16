@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCoreBackendCommand, createSelectedBackendCommand } from "./backendCommand.js";
+import { createCoreBackendCommand } from "./backendCommand.js";
 import { createSidecarSessionOwner } from "./sidecarSession.js";
 
 class FakeChannel {
@@ -13,7 +13,6 @@ const fakeCore = () => {
     let channels = null;
     const invoke = async (command, args) => {
         calls.push([command, args]);
-        if (command === "backend_kind") return "core";
         if (command === "backend_start") channels = args;
         return null;
     };
@@ -40,27 +39,6 @@ test("the core command starts a session, writes lines without the newline and ki
     assert.deepEqual(closes, [{ code: 0, signal: null }]);
 });
 
-test("the selected command starts the sidecar unless the app asks for the core", async () => {
-    const started = [];
-    const sidecar = () => {
-        const command = {
-            on: () => command,
-            stdout: { on: () => {} },
-            stderr: { on: () => {} },
-            spawn: async () => {
-                started.push("sidecar");
-                return { write: async () => true, kill: async () => {} };
-            },
-        };
-        return command;
-    };
-    const invoke = async command => (command === "backend_kind" ? "sidecar" : null);
-    await createSelectedBackendCommand({ invoke, Channel: FakeChannel, createSidecar: sidecar, newSessionId: () => "x" }).spawn();
-    const failing = async () => { throw new Error("no command"); };
-    await createSelectedBackendCommand({ invoke: failing, Channel: FakeChannel, createSidecar: sidecar, newSessionId: () => "x" }).spawn();
-    assert.deepEqual(started, ["sidecar", "sidecar"]);
-});
-
 test("a session over the core reaches initialization and reports an unexpected end", async () => {
     const core = fakeCore();
     const store = {};
@@ -69,9 +47,7 @@ test("a session over the core reaches initialization and reports an unexpected e
     const exits = [];
     const owner = createSidecarSessionOwner({
         store,
-        createCommand: () => createSelectedBackendCommand({
-            invoke: core.invoke, Channel: FakeChannel, createSidecar: () => { throw new Error("not used"); }, newSessionId: () => "s2",
-        }),
+        createCommand: () => createCoreBackendCommand({ invoke: core.invoke, Channel: FakeChannel, newSessionId: () => "s2" }),
         setInterval: () => 1,
         clearInterval: () => {},
     });

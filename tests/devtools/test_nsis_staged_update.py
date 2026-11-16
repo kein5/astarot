@@ -141,19 +141,23 @@ class NsisStagedUpdateTests(unittest.TestCase):
 
 
 class NsisAppProcessAndDataTests(unittest.TestCase):
-    def test_running_check_also_stops_the_sidecar(self):
+    def test_running_check_also_stops_the_sidecar_of_an_older_install(self):
+        # Packages up to 0.4 carried the Python sidecar; 0.5.0 has none (tauri.conf.json lists no
+        # externalBin), but an install being updated may still run one.
         conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
-        sidecar = Path(conf["bundle"]["externalBin"][0]).name
-        self.assertIn(f'!define SIDECARBINARYNAME "{sidecar}"', SOURCE)
+        self.assertNotIn("externalBin", conf["bundle"])
+        self.assertIn('!define SIDECARBINARYNAME "vrct-vox-sidecar"', SOURCE)
         macro = SOURCE.split("\n!macro CheckIfAppIsRunning\n", 1)[1].split("\n!macroend", 1)[0]
-        # Killing vrct-vox.exe skips the shell plugin's exit handler, which
-        # is what normally stops the sidecar.
+        # Killing an older vrct-vox.exe skipped the shell plugin's exit handler, which
+        # is what normally stopped the sidecar.
         after_app = macro.split("app_check_done:", 1)[1]
         for call in ("FindProcessCurrentUser", "KillProcessCurrentUser", "FindProcess", "KillProcess"):
             self.assertIn(f'nsis_tauri_utils::{call} "${{SIDECARBINARYNAME}}.exe"', after_app)
         self.assertIn('Abort "$(failedToKillApp)"', after_app)
         uninstall = block("Section", "Uninstall")
         self.assertLess(uninstall.index("!insertmacro CheckIfAppIsRunning"), uninstall.index("Delete "))
+        # The stale sidecar goes with the uninstall too.
+        self.assertIn('Delete "$INSTDIR\\${SIDECARBINARYNAME}.exe"', uninstall)
 
     def test_no_components_page(self):
         # Every section is required; the page let users skip the app or WebView2.

@@ -1,17 +1,12 @@
-"""Path policy shared by PyInstaller collection and final artifact inspection."""
+"""Path policy for the final artifact inspection (check_voice_distribution.py)."""
 
 PRIVATE_VOICE_NAMES = frozenset("mia2026" + suffix for suffix in (".pth", ".index", ".zip", ".png"))
 MODEL_SUFFIXES = (".onnx", ".pth", ".pt", ".ckpt", ".safetensors", ".gguf", ".bin", ".pdparams", ".pdmodel", ".pdiparams")
 ARCHIVE_SUFFIXES = (".zip", ".7z", ".tar", ".tgz", ".tar.gz", ".tar.xz", ".rar")
 
 
-# Chat reading needs the RapidOCR code and the YAML config it reads at start-up.
-# Its weights are not part of this list: they come from consented downloads.
-OCR_RUNTIME_DATA = ("rapidocr/config.yaml", "rapidocr/default_models.yaml")
-
-
-# GPL-licensed encoders bundled by PyAV's FFmpeg wheels; builds use a stub
-# for `av` instead (packaging/pyinstaller-stubs/av).
+# GPL-licensed encoders bundled by PyAV's FFmpeg wheels. The Python backend kept them out with a
+# stub for `av`; the rule stays so that no package carries them.
 GPL_CODEC_PREFIXES = ("libx264", "libx265", "x264", "x265")
 
 
@@ -35,15 +30,3 @@ def violation(name):
     if base.startswith("chatbox_yolo") or "chatbox_yolox" in base:
         return "Restricted OCR model"
     return None
-
-
-def missing_ocr_runtime(names):
-    """Required RapidOCR data files absent from an artifact inventory (posix paths)."""
-    present = {str(name).replace("\\", "/").lower() for name in names}
-    return [required for required in OCR_RUNTIME_DATA
-            if not any(name == required or name.endswith("/" + required) for name in present)]
-
-
-def filter_toc(entries):
-    # Hooks may rename destinations: inspect original source paths as well.
-    return [entry for entry in entries if not any(violation(name) for name in entry[:2])]

@@ -74,14 +74,6 @@
                 { "url": "*%5[cC]*" },
                 { "url": "*@*" }
             ]
-        },
-        "shell:allow-stdin-write",
-        "shell:allow-kill",
-        {
-            "identifier": "shell:allow-spawn",
-            "allow": [
-                { "name": "bin/vrct-vox-sidecar", "sidecar": true, "args": false }
-            ]
         }
     ]
 }

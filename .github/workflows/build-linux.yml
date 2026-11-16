@@ -11,7 +11,8 @@ on:
   pull_request:
     paths:
       - '.github/workflows/build-linux.yml'
-      - 'src-python/**'
+      # native/ops reads two backend files at compile time (tools/build_linux.py CRATE_INPUTS).
+      - 'src-python/models/model_downloads/**'
       - 'src-tauri/**'
       - 'src-ui/**'
       - 'locales/**'
@@ -19,10 +20,6 @@ on:
       - 'vite.config.js'
       - 'native/**'
       - 'config/pipewire/**'
-      - 'integrations/**'
-      - 'spec/backend_linux.spec'
-      - 'pyproject.toml'
-      - 'uv.lock'
       - 'mise.toml'
       - 'mise.lock'
       - 'package*.json'
@@ -59,8 +56,7 @@ jobs:
     env:
       CARGO_BUILD_JOBS: '4'
       SPEECH_VARIANT: ${{ inputs.speech_variant || 'linux-x64-vulkan' }}
-      UV_PYTHON: '3.11'
-      # The packaged backend is frozen from the Python in mise.toml; uv never fetches its own.
+      # The build and test tools run on the Python in mise.toml; uv never fetches its own.
       UV_PYTHON_PREFERENCE: only-system
       UV_PYTHON_DOWNLOADS: never
     steps:
@@ -72,7 +68,7 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
           df -h /
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      # Node, Rust, Python and uv at the versions in mise.toml and mise.lock.
+      # Node, Rust, Python (for the build and test tools) and uv at the versions in mise.toml and mise.lock.
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           version: 2026.11.8
@@ -98,14 +94,17 @@ jobs:
           echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
       - name: Build isolated candidate with pinned speech.cpp
         run: |
-          uv run --no-project --python 3.11 python tools/build_linux.py \
-            --python 3.11 --variant "$SPEECH_VARIANT" --download-speech \
+          python tools/build_linux.py \
+            --variant "$SPEECH_VARIANT" --download-speech \
             --appimage --download-appimage-tools \
             > linux-build.log 2>&1
+      # The test tools only (pytest, requests), checked against uv.lock; no app dependencies.
+      - name: Test environment
+        run: python tools/dev.py setup --scope headless
       - name: Contracts and archive integrity
         run: |
-          uv run --no-project --python build/linux/venv/bin/python python -m pytest \
-            -c tests/voice/pytest.ini tests/voice/test_linux_package.py tests/voice/test_runtime_paths.py \
+          build/dev/headless-venv/bin/python -m pytest \
+            -c tests/voice/pytest.ini tests/voice/test_linux_package.py \
             tests/voice/test_distribution_artifacts.py tests/voice/test_fork_distribution_identity.py \
             tests/voice/test_appimage.py -q
           cd build/linux/artifacts
@@ -122,7 +121,7 @@ jobs:
           export VRCT_TEST_DRIVER="$HOME/.cargo/bin/tauri-driver"
           export VRCT_TEST_LINUX_ARCHIVE="$(realpath build/linux/artifacts/*.tar.gz)"
           dbus-run-session -- xvfb-run -a -s '-screen 0 1280x900x24' \
-            uv run --no-project --python build/linux/venv/bin/python python -m pytest \
+            build/dev/headless-venv/bin/python -m pytest \
             -c tests/voice/pytest.ini tests/platform/test_linux_package.py -q \
             --basetemp=build/linux/acceptance > linux-acceptance.log 2>&1
       - name: AppImage extract-and-run acceptance
@@ -134,7 +133,7 @@ jobs:
           export VRCT_TEST_DRIVER="$HOME/.cargo/bin/tauri-driver"
           export VRCT_TEST_APPIMAGE="$(realpath build/linux/artifacts/*.AppImage)"
           dbus-run-session -- xvfb-run -a -s '-screen 0 1280x900x24' \
-            uv run --no-project --python build/linux/venv/bin/python python -m pytest \
+            build/dev/headless-venv/bin/python -m pytest \
             -c tests/voice/pytest.ini tests/platform/test_appimage.py -q \
             --basetemp=build/linux/appimage-acceptance > appimage-acceptance.log 2>&1
       # The same files as the tar.gz, installed under /opt/vrct-vox (tools/linux_packages.py).
@@ -187,7 +186,6 @@ jobs:
             linux-build.log
             linux-acceptance.log
             appimage-acceptance.log
-            build/linux/pyinstaller/backend_linux/warn-backend_linux.txt
             build/linux/acceptance/**/*.log
             build/linux/appimage-acceptance/**/*.log
             build/linux/appimage-acceptance/**/normal-window-*.png

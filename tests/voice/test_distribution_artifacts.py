@@ -157,20 +157,12 @@ def test_pyav_and_gpl_encoders_are_rejected(tmp_path, name, reason):
         guard.check([tmp_path])
 
 
-def test_lgpl_opencv_ffmpeg_and_the_pyav_stand_in_remain_allowed(tmp_path):
+def test_lgpl_opencv_ffmpeg_libraries_remain_allowed(tmp_path):
     with zipfile.ZipFile(tmp_path / "package.zip", "w") as archive:
         archive.writestr("_internal/opencv_python_headless.libs/libavcodec-9aae324f.so.59.37.100", b"lgpl")
         archive.writestr("_internal/cv2/opencv_videoio_ffmpeg4100_64.dll", b"lgpl")
         archive.writestr("_internal/soxr/soxr_ext.cpython-311-x86_64-linux-gnu.so", b"lgpl")
     guard.check([tmp_path])
-
-
-def test_pyav_stand_in_imports_without_its_native_code():
-    stub = Path(__file__).resolve().parents[2] / "packaging/pyinstaller-stubs/av/__init__.py"
-    namespace = {}
-    exec(compile(stub.read_text(encoding="utf-8"), str(stub), "exec"), namespace)
-    with pytest.raises(AttributeError, match="not included"):
-        namespace["__getattr__"]("open")
 
 
 def test_renamed_nested_zip_is_still_inspected(tmp_path):

@@ -7,6 +7,7 @@ whole, also removes the Python runtime of an older version.
 
     python tools/app_resources.py stage --output src-tauri/bin/_internal
     python tools/app_resources.py check src-tauri/bin/_internal
+    python tools/app_resources.py stage --allow-missing    # development: tauri dev needs the folder
 
 `stage` copies from the build folder (build/speechcpp from speechcpp_bundle.py, the RVC worker
 from build_rvc_worker.py, the Rust license texts from rust_licenses.py, the Linux helpers from
@@ -96,6 +97,8 @@ def main(argv=None):
     staging = commands.add_parser('stage', help='copy the shipped files into a fresh folder')
     staging.add_argument('--output', type=Path, default=ROOT / 'src-tauri/bin/_internal')
     staging.add_argument('--build-dir', type=Path, default=ROOT / 'build')
+    staging.add_argument('--allow-missing', action='store_true',
+                         help='development: report what is missing but succeed (a debug build reads build/ in the checkout)')
     checking = commands.add_parser('check', help='list what a staged folder lacks')
     checking.add_argument('internal', type=Path)
     args = parser.parse_args(argv)
@@ -105,7 +108,7 @@ def main(argv=None):
         absent = missing(args.internal, args.platform)
     if absent:
         print(f'Missing from {args.platform} _internal: {", ".join(absent)}', file=sys.stderr)
-        return 1
+        return 0 if getattr(args, 'allow_missing', False) else 1
     print(f'{args.platform} _internal complete')
     return 0
 

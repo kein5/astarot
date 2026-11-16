@@ -105,21 +105,21 @@ def install_launchers(appdir):
     (appdir / 'AppRun').rename(appdir / 'AppRun.gui')
     if not os.path.lexists(appdir / '.DirIcon'):
         (appdir / '.DirIcon').symlink_to('vrct-vox.png')
-    for name, target in [('AppRun', appdir / 'AppRun'), ('sidecar', appdir / 'usr/bin/vrct-vox-sidecar')]:
-        shutil.copyfile(ROOT / 'packaging/appimage' / name, target)
-        target.chmod(0o755)
+    target = appdir / 'AppRun'
+    shutil.copyfile(ROOT / 'packaging/appimage/AppRun', target)
+    target.chmod(0o755)
 
 
 def check_appdir(appdir):
     appdir = Path(appdir)
     check_tree(appdir, allow_directory_links=True)
     for name in ('AppRun', 'AppRun.gui', 'vrct-vox.desktop', 'vrct-vox.png', '.DirIcon',
-                 'usr/bin/vrct-vox', 'usr/bin/vrct-vox-sidecar'):
+                 'usr/bin/vrct-vox'):
         if not (appdir / name).is_file():
             raise ValueError(f'missing AppDir component: {name}')
     for name in RUNTIME:
         if name != 'vrct-vox' and not (appdir / 'usr/lib/vrct-vox' / name).is_file():
-            raise ValueError(f'missing AppDir backend: {name}')
+            raise ValueError(f'missing AppDir runtime file: {name}')
     verify_bundle(appdir / 'usr/lib/vrct-vox/_internal/build/speechcpp')
 
 
@@ -179,7 +179,7 @@ def main():
                PATH=str(args.tools_dir.resolve()) + os.pathsep + os.environ['PATH'])
     run([tools['linuxdeploy-x86_64.AppImage'], '--appdir', appdir, '--executable', gui,
          '--desktop-file', desktop, '--icon-file', icon, '--plugin', 'gtk'], env=env)
-    # Nothing that rewrites ELF bytes may run over the frozen backend.
+    # Nothing that rewrites ELF bytes may run over the pinned engine and the helpers in _internal.
     install_payload(candidate, appdir)
     install_launchers(appdir)
     shutil.copytree(ROOT / 'licenses/appimage', appdir / 'usr/share/licenses/vrct-vox-appimage')
