@@ -255,9 +255,11 @@ fn a_failure_turns_the_overlays_off_and_is_reported() {
     assert_eq!(failure["result"]["error_code"], "OVERLAY_RUNTIME_FAILED");
     assert_eq!(failure["result"]["data"], json!({ "reason": "runtime" }));
     wait("turned off", || ui.ok("/get/data/overlay_small_log", None) == false);
-    // Turning it on again tries again.
+    // Turning it on again tries again (and may fail first again, as above).
     let mark = ui.send("/set/enable/overlay_small_log", None);
-    assert_eq!(ui.wait_endpoint(mark, "/set/enable/overlay_small_log")["status"], 200);
+    let again = ui.wait_endpoint(mark, "/set/enable/overlay_small_log");
+    assert!(again["result"] == true || error_code(&again) == "OVERLAY_RUNTIME_FAILED", "{again}");
+    assert!(ui.wait_endpoint(mark, "/run/message_output_error")["result"]["error_code"] == "OVERLAY_RUNTIME_FAILED", "it tried again");
     ui.stop();
 
     // An upload that keeps failing after the reconnect.

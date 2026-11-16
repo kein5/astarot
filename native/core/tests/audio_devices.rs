@@ -501,6 +501,13 @@ fn a_running_capture_is_moved_and_its_own_switch_is_reported() {
     fake.set(windows(&[], None, &[("Speakers", "{s}")], Some("{s}")));
     fake.event(Topology::DeviceChanged);
     ui.wait_from(mark, "no microphone", |l| l["endpoint"] == "/run/selected_mic_device" && l["result"] == "NoDevice");
-    assert_eq!(capture.lost.lock().unwrap().as_slice(), [Source::Mic]);
+    // The capture hears that its device is gone. The list and the default are reconciled
+    // separately, so it may hear it once per update; only the microphone is ever told.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while capture.lost.lock().unwrap().is_empty() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let lost = capture.lost.lock().unwrap().clone();
+    assert!(!lost.is_empty() && lost.iter().all(|s| *s == Source::Mic), "{lost:?}");
     ui.stop();
 }

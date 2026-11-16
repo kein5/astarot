@@ -486,7 +486,9 @@ fn speech_goes_through_a_running_conversion_when_chosen() {
     run.ui.ok("/run/resume_voice", None);
     assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
     eventually("the conversion runs", || run.ui.ok("/get/data/direct_voice_state", None)["active"] == true);
-    assert_eq!(run.enable()["result"]["tts_enabled"], true);
+    // Starting the conversion moves the speech generation; an enable stamped with the
+    // generation read just before is refused as stale, so it is asked again until it holds.
+    eventually("TTS turns on", || run.enable()["result"]["tts_enabled"] == true);
     let mark = run.ui.lines().len();
     run.ui.ok("/run/send_message_box", Some(json!({ "id": "c-1", "message": "through" })));
     eventually("the speech is converted", || run.ui.on(mark, "/run/io_trace").iter().any(|t| t["result"]["outputs"]["speech"]["converted"] == true));
