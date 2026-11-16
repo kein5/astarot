@@ -1,16 +1,19 @@
+// Three presets as a small segmented control beside the 「言語設定」 heading.
 .container {
-    width: 100%;
     display: flex;
-    justify-content: space-between;
+    gap: .2rem;
+    padding: .2rem;
+    border-radius: .8rem;
+    background-color: var(--dark_925_color);
 }
 
 .tab_container {
-    height: 3rem;
-    width: 100%;
+    height: 2.8rem;
+    min-width: 3.2rem;
     display: flex;
     justify-content: center;
     align-items: center;
-    border-radius: 0.6rem 0.6rem 0 0;
+    border-radius: 0.6rem;
     color: var(--dark_600_color);
     cursor: pointer;
     &:hover {
@@ -19,15 +22,17 @@
     &:active {
         background-color: var(--dark_875_color);
     }
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: -.2rem; }
     &.is_selected {
-        background-color: var(--dark_800_color);
-        color: var(--dark_200_color);
+        background-color: var(--dark_750_color);
+        color: var(--dark_100_color);
         cursor: default;
         pointer-events: none;
     }
 }
 
 .tab_number {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
+    font-variant-numeric: tabular-nums;
 }
 .tab_container[aria-disabled="true"] { opacity: .55; cursor: wait; }

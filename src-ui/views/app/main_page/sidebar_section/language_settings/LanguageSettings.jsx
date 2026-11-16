@@ -14,8 +14,11 @@ export const LanguageSettings = () => {
 
     return (
         <div className={styles.container} onMouseLeave={closeTranslatorSelector}>
-            <p className={styles.title}>{t("main_page.language_settings")}</p>
-            <PresetTabSelector />
+            {/* The heading and the three presets share a row. */}
+            <div className={styles.header}>
+                <p className={styles.title}>{t("main_page.language_settings")}</p>
+                <PresetTabSelector />
+            </div>
             <PresetContainer />
         </div>
     );
