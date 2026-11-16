@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（435件: 削除 13、取得 195、実行 39、有効化 40、無効化 42、設定 106）
+## 要求（436件: 削除 13、取得 196、実行 39、有効化 40、無効化 42、設定 106）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -450,6 +450,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/papago_auth_key` | 取得 | `core: AUTH_KEYS[Papago_API]` | 可 | useTranslation.updateFromBackendPapagoAuthKey | 中核のみ、ログで伏せる |
 | `/set/data/papago_auth_key` | 設定 | `core: set_papago_key` | 可 | useTranslation.setSuccessPapagoAuthKey | 中核のみ、ログで伏せる |
 | `/delete/data/papago_auth_key` | 削除 | `core: delete_translation_key` | 可 | useTranslation.deleteSuccessPapagoAuthKey | 中核のみ、ログで伏せる |
+| `/get/data/vad_available` | 取得 | `core: services.vad` | 可 | useDevice.updateFromBackendVadAvailable | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）

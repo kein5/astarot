@@ -350,6 +350,9 @@ impl Core {
             record_timeout: number("RECORD_TIMEOUT").min(phrase_timeout),
             phrase_timeout,
             max_phrases: number("MAX_PHRASES").max(0.0) as usize,
+            // The switch takes effect at the next start, as in Python. Without a VAD engine the
+            // saved switch is kept and the energy listener cuts phrases.
+            vad: config.get_bool(&format!("{}_ENABLE_VAD", upper(source))).then(|| self.services().vad.clone()).flatten(),
         }
     }
 

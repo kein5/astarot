@@ -245,6 +245,7 @@ backend_errors:
     AUDIO_OPEN_ERROR_speaker: "The speaker's audio could not be captured. Check that the speaker is connected, then try again."
     AUDIO_READ_ERROR: "Audio capture stopped after a device error. Check that the device is still connected, then try again."
     VAD_INFERENCE_ERROR: "Speech detection failed, so recognition stopped. Try again. If this keeps happening, restart ASTAROT."
+    VAD_UNAVAILABLE: "VAD is not available in this version, so it was not turned on. Speech is cut by volume."
     TRANSCRIBER_INIT_ERROR: "The speech recognizer could not start. Check the engine and model under Settings → Speech recognition (ASR), then try again."
     ASR_ERROR: "Speech recognition failed, so recognition stopped. Check the engine under Settings → Speech recognition (ASR) and, for an online engine, the network connection, then try again."
     CLEANUP_TIMEOUT: "Audio capture did not stop in time. Wait a moment, then try again. If this keeps happening, restart ASTAROT."
@@ -545,6 +546,7 @@ config_page:
             option_auto: "Auto"
             option_manual: "Manual"
             desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time speech ends. Reduces background music and ambient noise."
+        desc_vad_unavailable: "Not available in this version: the speech detection model is not included yet. Speech is cut by volume, with the Auto or Manual setting."
 
     appearance:
         section_label_display: "Display"

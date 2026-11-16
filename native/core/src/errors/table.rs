@@ -116,4 +116,6 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "AUTH_PAPAGO_INVALID", category: Category::Auth, message: "Papago Client ID or Client Secret is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "AUTH_PAPAGO_FAILED", category: Category::Auth, message: "Authentication failure of Papago Client ID and Client Secret", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "CONNECTION_OLLAMA_URL_INVALID", category: Category::Connection, message: "Ollama URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
+    // Core only (#391): no VAD engine in this build, so the VAD switches cannot be turned on.
+    CodeInfo { code: "VAD_UNAVAILABLE", category: Category::Transcription, message: "Voice activity detection is not available in this version; phrases are cut by volume", severity: Severity::Warning, user_action_required: false, reported: false },
 ];

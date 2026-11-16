@@ -8,6 +8,7 @@
 |---|---|---|
 | `recorder` | 1 つの音源の録音。音量メーター、フレーズの切り出し、認識をまとめて動かす | `model.py` の `_AudioDeviceSession`、`transcription_recorder.py` |
 | `energy` | 音量によるフレーズの切り出し（しきい値、自動しきい値、`MIC_RECORD_TIMEOUT`） | `speech_recognition` の `listen_energy_and_audio` |
+| `vad` | VAD を差し込む口（`VadEngine`、`Segmenter`）。この版のエンジンはなし | `audio_vad.py` の `VadSegmenter` |
 | `phrases` | フレーズをつないで発話にする（`MIC_PHRASE_TIMEOUT`、15 秒の上限、`MIC_MAX_PHRASES`） | `transcription_transcriber.py` の `transcribeAudioQueue` |
 | `providers` | Google、OpenAI 互換の API（Groq、OpenAI、カスタム）、Deepgram。キーの確認とモデルの一覧 | `transcription_providers.py`、`transcription_openai_compatible.py`、`transcription_deepgram.py` |
 | `speechcpp` | speech.cpp のモデルの一覧と語彙（VRChat の用語を含む） | `speechcpp_asr.py`、`asr_vocabulary.py`、`vrchat_terms.py` |
@@ -29,7 +30,7 @@
 - **スピーカーのループバックの無音**。WASAPI のループバックは何も鳴っていない間は何も渡しません。Python は Realtime の経路だけで無音を足していました。ここでは録音の経路でも 60 ms 以上の空きを無音で埋めます。発話の終わりが、次に音が鳴るまで待たされないためです。
 - **停止**。Python は止めるときに認識の要求が終わるのを最大 15 秒待ちました。ここでは録音だけを止めて戻り、途中の要求の結果は捨てます。
 - **OpenAI 互換の API の再試行**。SDK と同じく、通信の失敗と 408、409、429、5xx のときに 2 回まで再試行します。Python の SDK の待ち時間（揺らぎつき）とは少し違います。
-- **VAD**。Python は `MIC_ENABLE_VAD` のときに Silero VAD でフレーズを切っていました。モデルと ONNX Runtime の同梱が決まっていないので、ここでは音量による切り出しを使います（[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」）。
+- **VAD**。Python は `MIC_ENABLE_VAD` のときに Silero VAD でフレーズを切っていました。`vad` に差し込み口があります。`VadEngine` を録音の設定（`Settings::vad`）に渡すと、音量の代わりにその `Segmenter` で切り、`Phrases::segmented` が Python の VAD の経路と同じにまとめます。自然な区切りで発話を確定し、上限で切れた区間は次とつなぎ（15 秒まで）、認識に送る音声の前に 0.3 秒、後に 0.5 秒の無音を足します。モデルと推論の仕組みが決まっていないので、`vad::bundled()` は何も返さず、音量による切り出しを使います（[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 13）。
 
 ## 試験
 

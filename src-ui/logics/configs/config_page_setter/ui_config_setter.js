@@ -164,6 +164,16 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "speaker_vad_filter",
     },
     {
+        // Whether this build has a VAD engine. Without one the VAD option is shown unavailable
+        // and a saved VAD switch cuts nothing (phrases are cut by volume).
+        Category: "Device",
+        Base_Name: "VadAvailable",
+        default_value: false,
+        ui_template_id: "custom",
+        logics_template_id: "get_only",
+        base_endpoint_name: "vad_available",
+    },
+    {
         Category: "Device",
         Base_Name: "EnableAutomaticSpeakerThreshold",
         default_value: true,

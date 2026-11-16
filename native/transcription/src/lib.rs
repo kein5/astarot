@@ -19,6 +19,7 @@ pub mod providers;
 pub mod realtime;
 pub mod recorder;
 pub mod speechcpp;
+pub mod vad;
 
 pub use capture::Source;
 
