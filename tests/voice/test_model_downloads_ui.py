@@ -537,6 +537,53 @@ def test_large_recognizer_shows_its_exact_size_and_license_before_consent(ui):
     assert not any(ep == "/run/start_model_download" for ep, _ in peer.sent)
 
 
+def test_a_model_larger_than_the_gpu_is_marked_but_can_still_be_chosen(ui):
+    """Issue #405: a warning mark and a plain note, compared with the GPU's total memory."""
+    from playwright.sync_api import expect
+
+    page, peer, _, _ = ui
+    page.goto(page.url + "?view=asr")
+    open_engine_settings(page)
+    # The 16 GiB GPU of the fixture is smaller than Nemotron's IQ4_NL (about 19.8 GB).
+    card = page.get_by_role("group", name="Nemotron 3.5 Transcribe 30B-A4B", exact=True)
+    expect(card.get_by_text("May be too heavy", exact=True)).to_be_visible()
+    expect(card).to_contain_text("Your PC may not be powerful enough for this model.")
+    expect(card).to_contain_text("on a GPU with 16.00 GiB in total")
+    expect(card).to_contain_text("You can still choose and try it.")
+    # A model that fits gets no mark, and neither does a model without figures.
+    haas = page.get_by_role("group", name="Haas-ja v1.0", exact=True)
+    expect(haas.get_by_text("May be too heavy", exact=True)).to_have_count(0)
+    expect(page.get_by_role("group", name="Silero VAD v6.2", exact=True).get_by_text(
+        "May be too heavy", exact=True)).to_have_count(0)
+    # Only guidance: the review, consent and download work as for any model.
+    card.get_by_role("button", name="Review download", exact=True).click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("Your PC may not be powerful enough for this model.")
+    dialog.get_by_role("checkbox").check()
+    dialog.get_by_role("button", name="Agree and download", exact=True).click()
+    expect(page.get_by_role("progressbar")).to_be_visible()
+    assert next(data for ep, data in peer.sent if ep == "/run/start_model_download")["id"] == \
+        "nemotron-35-transcribe-iq4nl"
+
+
+def test_speech_models_are_marked_on_a_pc_without_a_gpu(ui):
+    from playwright.sync_api import expect
+
+    page, peer, _, _ = ui
+    peer.hardware["devices"] = [dict(name="CPU", description="CPU", kind="cpu", memory_total=None, memory_free=None)]
+    page.get_by_role("button", name="Refresh GPU and memory", exact=True).first.click()
+    mf = page.get_by_role("group", name=MF, exact=True)
+    expect(mf.get_by_text("May be too heavy", exact=True)).to_be_visible()
+    expect(mf).to_contain_text("No GPU was found.")
+    # Each file type in the list says so too, so a lighter one can be told apart.
+    expect(mf.get_by_label(f"File type of {MF}", exact=True).locator("option").first).to_contain_text(
+        "may be too heavy")
+    # An unmeasured PC is never shown as too weak.
+    peer.hardware.update(phase="failed", devices=[], error_code="hardware_timeout")
+    page.get_by_role("button", name="Refresh GPU and memory", exact=True).first.click()
+    expect(page.get_by_text("May be too heavy", exact=True)).to_have_count(0)
+
+
 def test_a_model_downloaded_before_a_restart_is_shown_and_prepared_with_consent(ui):
     """After a restart there are no jobs; the state's `downloaded` still names the files on disk."""
     from playwright.sync_api import expect

@@ -1768,6 +1768,14 @@ model_catalog:
         not_needed: "GPU不要"
     recommended_for: "おすすめ：{{languages}}"
     fits_memory: "空きメモリーに合う"
+    hardware_warning:
+        badge: "性能不足の可能性"
+        option: "性能不足の可能性"
+        note: "お使いのPCでは性能が足りない可能性があります。{{reason}}あくまで目安なので、選んで試すこともできます。"
+        low_memory_gpu: "このモデルはメモリーを約{{required}}使います。GPUのメモリーは全部で{{available}}なので余裕がありません。"
+        low_memory_cpu: "このモデルはメモリーを約{{required}}使います。見つかったメモリーは全部で{{available}}なので余裕がありません。"
+        no_gpu: "GPUが見つかりませんでした。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
+        cpu_setting: "エンジンがCPUで動かす設定になっています。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
     variant: "ファイルの種類"
     variant_of: "{{model}}のファイルの種類"
     status:

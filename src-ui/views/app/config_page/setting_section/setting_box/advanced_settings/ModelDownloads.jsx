@@ -4,6 +4,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
 import { modelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice";
+import { hardwareWarning } from "../../../../../../logics/voice/modelHardwareWarning";
 import { catalogFamilies, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
 import styles from "./VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
@@ -100,6 +101,24 @@ const StatusBadge = ({ status }) => {
     return <span className={styles.badge} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>;
 };
 
+// A model that looks too heavy for the user's PC (modelHardwareWarning.ts): a mark on the card's
+// head, and a plain note that says why. Only guidance: nothing here stops the choice or download.
+const WarningBadge = () => {
+    const { t } = useI18n();
+    return <span className={styles.badge} data-tone="hardware_warning">
+        <span className={styles.warning_mark} aria-hidden="true" />{t("model_catalog.hardware_warning.badge")}</span>;
+};
+const WarningNote = ({ warning }) => {
+    const { t } = useI18n();
+    const key = warning.reason === "low_memory" ? `low_memory_${warning.device?.kind === "cpu" ? "cpu" : "gpu"}` : warning.reason;
+    // The note's own pattern joins the sentences: with spaces in English, without in Japanese.
+    return <p className={styles.hardware_warning}>
+        <span className={styles.warning_mark} aria-hidden="true" />
+        <span>{t("model_catalog.hardware_warning.note", {
+            reason: t(`model_catalog.hardware_warning.${key}`, { required: gib(warning.required ?? 0), available: gib(warning.available ?? 0) }) })}</span>
+    </p>;
+};
+
 // Every downloadable model of one use (a target), one card per model with its file types.
 // The download, verification and apply steps are the same as before; only the choice is laid out
 // as a catalog. Nothing here starts a download or changes a setting by itself.
@@ -119,7 +138,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     useEffect(() => {
         send("/get/data/model_download_catalog"); send("/get/data/model_download_state");
     }, [send]);
-    useEffect(() => { if (hasTTS) ensureHardware(); }, [hasTTS, hardware.phase, ensureHardware]);
+    // Every catalog reads the probe: the per-model warnings need it, not only the TTS advice.
+    useEffect(() => { ensureHardware(); }, [hardware.phase, ensureHardware]);
     useEffect(() => {
         if (!hasTTS) return;
         const timer = setInterval(() => setNow(Date.now()), 5000);
@@ -144,6 +164,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         hardware, { now: Date.now(), deviceMode, reserveBytes: reserveBytes(reserve) })]));
     const memory = value => Number.isFinite(value) ? `${(value / 1024 ** 3).toFixed(2)} GiB` : t('model_downloads.hardware_unknown');
     const status = entry => downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
+    const warningOf = entry => hardwareWarning(entry, hardware, { deviceMode });
+    const selectedWarning = selected && warningOf(selected);
 
     // One card: the chosen file of a model, its facts and its download.
     const card = (target, family) => {
@@ -158,6 +180,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             (activePhases.includes(state.jobs[entry.id]?.phase) || state.jobs[entry.id]?.phase === "ready"));
         const suggested = family.rows.flatMap(entry => entry.profile?.recommended_for ?? []);
         const label = familyLabel(current);
+        const warning = warningOf(current);
         const jobView = (entry, own) => {
             const job = state.jobs[entry.id], active = activePhases.includes(job?.phase);
             if (!job) return null;
@@ -186,15 +209,18 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{t("model_catalog.recommended_for", { languages: languages(suggested, 3) })}</span>}
                 {hint.recommended && family.rows.some(entry => entry.id === hint.recommended) &&
                     <span className={styles.badge} data-tone="recommended">{t("model_catalog.fits_memory")}</span>}
+                {warning && <WarningBadge />}
                 <StatusBadge status={shownStatus} />
             </div>
             {current.profile?.summary && <p>{t(`model_downloads.summary.${current.profile.summary}`)}</p>}
+            {warning && <WarningNote warning={warning} />}
             {family.rows.length > 1 && <label>{t("model_catalog.variant")}
                 <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
                     onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
                     {family.rows.map(entry => <option key={entry.id} value={entry.id}>
                         {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
-                            ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`)].filter(Boolean).join(" · ")}
+                            ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
+                            warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
                     </option>)}
                 </select></label>}
             {family.rows.length === 1 && variantLabel(current) !== current.name && <p className={styles.variant}>{t("model_catalog.variant")}: {variantLabel(current)}</p>}
@@ -263,6 +289,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{selected.name} · {selected.provider}</p>
             <p>{bytes(selected.total_bytes)} · {selected.license}</p>
             {selected.downloaded && <p>{t("model_catalog.prepare_notice")}</p>}
+            {selectedWarning && <WarningNote warning={selectedWarning} />}
             <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
             {selected.target === "rvc" && <p>{t("model_downloads.rvc_requirements")}</p>}
             {selected.target === "asr" && <p>{t("model_downloads.asr_requirements")}</p>}
