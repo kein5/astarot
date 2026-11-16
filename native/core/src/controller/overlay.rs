@@ -417,17 +417,22 @@ impl Core {
 
     #[allow(dead_code)]
     fn publish_large(&self, vr: &VrOverlay, picture: &LargePicture, current: &dyn Fn() -> bool) -> bool {
+        self.try_publish_large(vr, picture, current).unwrap_or(false)
+    }
+
+    /// [`Self::publish_large`] that says when the upload failed (`Err`), not only cancelled.
+    fn try_publish_large(&self, vr: &VrOverlay, picture: &LargePicture, current: &dyn Fn() -> bool) -> Result<bool, ()> {
         let token = vr.engine.publication_token(Surface::Large);
         let current = || current() && self.config().get_bool("OVERLAY_LARGE_LOG");
         if !current() {
-            return false;
+            return Ok(false);
         }
         let canvas = &picture.canvas;
         match vr.engine.update_image(Surface::Large, &canvas.pixels, canvas.width, canvas.height, token, &current) {
-            Ok(shown) => shown,
+            Ok(shown) => Ok(shown),
             Err(_) => {
                 self.step("overlay: showing the large log failed");
-                false
+                Err(())
             }
         }
     }
@@ -438,22 +443,25 @@ impl Core {
     /// dropped; a large log not shown keeps the message out of its history.
     #[allow(dead_code)]
     pub(crate) fn show_overlay_message(&self, message: &OverlayMessage, current: &dyn Fn() -> bool) {
-        self.show_overlay_logs(message, true, true, current);
+        let _ = self.show_overlay_logs(message, true, true, current);
     }
 
     /// One log's sink of the message pipeline (`small_overlay` or `large_overlay` in
-    /// `_processMessage`): the pipeline decides per log whether the message goes there.
-    pub(crate) fn show_overlay_log(&self, small: bool, message: &OverlayMessage, current: &dyn Fn() -> bool) {
-        self.show_overlay_logs(message, small, !small, current);
+    /// `_processMessage`): the pipeline decides per log whether the message goes there. `Err`
+    /// when the picture could not be made or shown (the sink raised in Python), so that the
+    /// pipeline reports `MESSAGE_OUTPUT_FAILED` for that log.
+    pub(crate) fn show_overlay_log(&self, small: bool, message: &OverlayMessage, current: &dyn Fn() -> bool) -> Result<(), ()> {
+        self.show_overlay_logs(message, small, !small, current)
     }
 
-    fn show_overlay_logs(&self, message: &OverlayMessage, small: bool, large: bool, current: &dyn Fn() -> bool) {
-        let Some(vr) = self.vr() else { return };
+    fn show_overlay_logs(&self, message: &OverlayMessage, small: bool, large: bool, current: &dyn Fn() -> bool) -> Result<(), ()> {
+        let Some(vr) = self.vr() else { return Ok(()) };
         let config = self.config();
         let only_translated = config.get_bool("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES");
         if only_translated && message.translations.is_empty() {
-            return;
+            return Ok(());
         }
+        let mut failed = false;
         let subtitle = message.subtitle(only_translated);
         if small && message.small_log && config.get_bool("OVERLAY_SMALL_LOG") && vr.engine.initialized() {
             let token = vr.engine.publication_token(Surface::Small);
@@ -462,18 +470,31 @@ impl Core {
                     let still = || current() && config.get_bool("OVERLAY_SMALL_LOG");
                     if still() && vr.engine.update_image(Surface::Small, &picture.pixels, picture.width, picture.height, token, &still).is_err() {
                         self.step("overlay: showing the small log failed");
+                        failed = true;
                     }
                 }
-                Err(_) => self.step("overlay: the small log's picture is too large"),
+                Err(_) => {
+                    self.step("overlay: the small log's picture is too large");
+                    failed = true;
+                }
             }
         }
         if large && config.get_bool("OVERLAY_LARGE_LOG") && vr.engine.initialized() && current() {
             let direction = if message.received { Direction::Receive } else { Direction::Send };
-            let published = vr.subtitles.publish_message(direction, subtitle, &mut |picture| self.publish_large(vr, picture, current));
+            let upload_failed = std::cell::Cell::new(false);
+            let published = vr.subtitles.publish_message(direction, subtitle, &mut |picture| {
+                self.try_publish_large(vr, picture, current).unwrap_or_else(|()| {
+                    upload_failed.set(true);
+                    false
+                })
+            });
             if published.is_err() {
                 self.step("overlay: the large log's picture is too large");
+                failed = true;
             }
+            failed |= upload_failed.get();
         }
+        if failed { Err(()) } else { Ok(()) }
     }
 
     /// Adds or updates a realtime caption in the large log (`publishRealtimeCaptionOverlay`).

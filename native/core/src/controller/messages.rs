@@ -775,10 +775,10 @@ impl Core {
                 let core = Arc::downgrade(self);
                 let current = current.clone();
                 Arc::new(move |event: &OverlayMessage| {
-                    if let Some(core) = core.upgrade() {
-                        core.show_overlay_log(event.log == OverlayLog::Small, &event.for_overlay(), &|| current());
+                    match core.upgrade() {
+                        Some(core) => core.show_overlay_log(event.log == OverlayLog::Small, &event.for_overlay(), &|| current()),
+                        None => Ok(()),
                     }
-                    Ok(())
                 })
             });
             if let Some(hook) = Some(overlay_hook).filter(|_| spec.render_overlay) {

@@ -78,6 +78,9 @@ pub mod fake {
         pub running: bool,
         pub refuse_connect: bool,
         pub fail_raw: bool,
+        /// Like `fail_raw`, but only for pictures larger than the 1×1 clear: connecting still
+        /// works, showing a message does not.
+        pub fail_pictures: bool,
         pub quit: bool,
         pub connects: usize,
         pub sessions_open: usize,
@@ -172,7 +175,7 @@ pub mod fake {
         }
         fn set_raw(&mut self, overlay: Handle, rgba: &[u8], width: u32, height: u32) -> Result<(), VrError> {
             let mut s = self.state.lock().unwrap();
-            if s.fail_raw {
+            if s.fail_raw || (s.fail_pictures && width * height > 1) {
                 return Err(VrError("VROverlayError_RequestFailed".into()));
             }
             assert_eq!(rgba.len(), (width * height * 4) as usize);
