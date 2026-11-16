@@ -983,7 +983,7 @@ config_page:
     experimental_features:
         notice: "ここにあるのは試験中の機能です。どれも最初はオフで、オンにした機能だけが動きます。今後の版で変わることや、なくなることもあります。調子が悪いときはオフに戻してください。"
         empty: "いま試せる機能はありません。新しい機能が加わるとここに並びます。"
-        # src-ui/logics/configs/experimentalFeatures.js の機能ごとに1つ:
+        # src-ui/logics/configs/experimentalFeatures.ts の機能ごとに1つ:
         # <id>: { label: "...", desc: "何をするか。実験中であること…" }
         items: {}
 

@@ -1334,7 +1334,7 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "obs_browser_source_font_outline_color",
     },
 
-    // { feature_id: bool }, every listed feature off by default (experimentalFeatures.js).
+    // { feature_id: bool }, every listed feature off by default (experimentalFeatures.ts).
     {
         Category: "ExperimentalFeatures",
         Base_Name: "ExperimentalFeatures",

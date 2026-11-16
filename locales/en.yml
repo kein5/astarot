@@ -983,7 +983,7 @@ config_page:
     experimental_features:
         notice: "These features are still being tried out. Each one is off until you turn it on here, and only the ones you turn on run. They may change or go away in a later version. If something goes wrong, turn the feature off again."
         empty: "There are no features to try right now. New ones will appear here when they are added."
-        # One entry per feature in src-ui/logics/configs/experimentalFeatures.js:
+        # One entry per feature in src-ui/logics/configs/experimentalFeatures.ts:
         # <id>: { label: "...", desc: "What it does. Experimental: ..." }
         items: {}
 

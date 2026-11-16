@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
-import * as registry from "../../../../../../logics/configs/experimentalFeatures.js";
+import * as registry from "../../../../../../logics/configs/experimentalFeatures.ts";
 
-const REGISTRY_PATH = "../../../../../../logics/configs/experimentalFeatures.js";
+const REGISTRY_PATH = "../../../../../../logics/configs/experimentalFeatures.ts";
 
 // The real list is empty until a feature graduates, so the tests list made-up ones.
 const FAKE_IDS = ["first_trial", "second_trial"];
@@ -16,7 +16,7 @@ async function load(context, registryModule = registry) {
     context.after(() => runtime.unmount());
     const writes = [];
     const current = { state: "ok", data: {} };
-    const module = await loadModule(new URL("./ExperimentalFeatures.jsx", import.meta.url), runtime, {
+    const module = await loadModule(new URL("./ExperimentalFeatures.tsx", import.meta.url), runtime, {
         "@logics_configs": { useExperimentalFeatures: () => ({
             currentExperimentalFeatures: current,
             setExperimentalFeatures: value => { writes.push(value); },

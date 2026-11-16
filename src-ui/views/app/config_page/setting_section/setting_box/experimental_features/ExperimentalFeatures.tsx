@@ -1,4 +1,4 @@
-import styles from "./ExperimentalFeatures.module.scss";
+import * as styles from "./ExperimentalFeatures.css.ts";
 import { useI18n } from "@useI18n";
 import { useExperimentalFeatures } from "@logics_configs";
 import {
@@ -7,13 +7,25 @@ import {
     experimentalFeatureLabelKey,
     experimentalFeatureDescKey,
     experimentalFeatureRequest,
-} from "../../../../../../logics/configs/experimentalFeatures.js";
+} from "../../../../../../logics/configs/experimentalFeatures.ts";
+import type { ExperimentalFeature, ExperimentalFeatureValues } from "../../../../../../logics/configs/experimentalFeatures.ts";
 import { SwitchBoxContainer } from "../_templates/Templates";
+
+type Current = { state?: string; data?: unknown };
+
+type ListProps = {
+    features: readonly ExperimentalFeature[];
+    current: Current;
+    setValues: (values: ExperimentalFeatureValues) => unknown;
+};
 
 // Features that came from the experimental branch after their hands-on checks. Every one is
 // off until the user turns it on here (Issue #361).
 export const ExperimentalFeatures = () => {
-    const { currentExperimentalFeatures, setExperimentalFeatures } = useExperimentalFeatures();
+    const { currentExperimentalFeatures, setExperimentalFeatures } = useExperimentalFeatures() as {
+        currentExperimentalFeatures: Current;
+        setExperimentalFeatures: ListProps["setValues"];
+    };
     return (
         <ExperimentalFeatureList
             features={EXPERIMENTAL_FEATURES}
@@ -23,7 +35,7 @@ export const ExperimentalFeatures = () => {
     );
 };
 
-export const ExperimentalFeatureList = ({ features, current, setValues }) => {
+export const ExperimentalFeatureList = ({ features, current, setValues }: ListProps) => {
     const { t } = useI18n();
     return (
         <div className={styles.container}>

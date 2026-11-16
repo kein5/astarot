@@ -15,7 +15,7 @@ from errors import ErrorCode
 from models import experimental_features
 
 ROOT = Path(__file__).resolve().parents[2]
-UI_REGISTRY = ROOT / "src-ui" / "logics" / "configs" / "experimentalFeatures.js"
+UI_REGISTRY = ROOT / "src-ui" / "logics" / "configs" / "experimentalFeatures.ts"
 RUST_SCHEMA = ROOT / "native" / "core" / "src" / "config" / "schema.rs"
 
 FAKE_IDS = ("first_trial", "second_trial")
@@ -93,7 +93,7 @@ def _quoted_ids(block: str) -> list[str]:
 class RegistryParityTests(unittest.TestCase):
     def test_the_backend_the_ui_and_the_rust_core_list_the_same_features(self) -> None:
         ui = UI_REGISTRY.read_text(encoding="utf-8")
-        ui_block = ui.split("export const EXPERIMENTAL_FEATURES = Object.freeze([", 1)[1].split("]);", 1)[0]
+        ui_block = re.split(r"export const EXPERIMENTAL_FEATURES\b[^=]*= Object\.freeze\(\[", ui, maxsplit=1)[1].split("]);", 1)[0]
         ui_ids = re.findall(r'\bid:\s*"([a-z0-9_]+)"', re.sub(r"//[^\n]*", "", ui_block))
 
         rust = RUST_SCHEMA.read_text(encoding="utf-8")

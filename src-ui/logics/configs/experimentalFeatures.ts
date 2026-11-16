@@ -11,21 +11,28 @@
 //
 // No hooks here: the settings page and the code a feature gates read the same helpers.
 
-export const EXPERIMENTAL_FEATURES = Object.freeze([
+export type ExperimentalFeature = { readonly id: string };
+
+// What the backend answers for /get/data/experimental_features: { feature_id: bool }.
+export type ExperimentalFeatureValues = Readonly<Record<string, boolean>>;
+
+export const EXPERIMENTAL_FEATURES: readonly ExperimentalFeature[] = Object.freeze([
     // Empty until a feature graduates from the experimental branch.
 ]);
 
 const KNOWN_IDS = new Set(EXPERIMENTAL_FEATURES.map(feature => feature.id));
 
-export const isExperimentalFeatureId = id => KNOWN_IDS.has(id);
+export const isExperimentalFeatureId = (id: string): boolean => KNOWN_IDS.has(id);
 
 // Only a listed feature the backend confirmed as true counts as on. Anything else, including
 // a value that has not arrived yet, is off.
-export const isExperimentalFeatureEnabled = (values, id) =>
-    isExperimentalFeatureId(id) && values !== null && typeof values === "object" && values[id] === true;
+export const isExperimentalFeatureEnabled = (values: unknown, id: string): boolean =>
+    isExperimentalFeatureId(id) && values !== null && typeof values === "object"
+    && (values as Record<string, unknown>)[id] === true;
 
-export const experimentalFeatureLabelKey = id => `config_page.experimental_features.items.${id}.label`;
-export const experimentalFeatureDescKey = id => `config_page.experimental_features.items.${id}.desc`;
+export const experimentalFeatureLabelKey = (id: string): string => `config_page.experimental_features.items.${id}.label`;
+export const experimentalFeatureDescKey = (id: string): string => `config_page.experimental_features.items.${id}.desc`;
 
 // The request that turns one feature on or off; the backend keeps the others as they are.
-export const experimentalFeatureRequest = (id, enabled) => ({ [id]: enabled === true });
+export const experimentalFeatureRequest = (id: string, enabled: unknown): ExperimentalFeatureValues =>
+    ({ [id]: enabled === true });

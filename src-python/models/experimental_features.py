@@ -8,7 +8,7 @@ it is on, so a fault in it cannot reach a user who left it off.
 The list of feature ids is written three times and a test keeps them equal:
 
 - FEATURE_IDS here (the backend checks saved and requested values against it),
-- EXPERIMENTAL_FEATURES in src-ui/logics/configs/experimentalFeatures.js (names, descriptions),
+- EXPERIMENTAL_FEATURES in src-ui/logics/configs/experimentalFeatures.ts (names, descriptions),
 - EXPERIMENTAL_FEATURE_IDS in native/core/src/config/schema.rs (the Rust core).
 
 To add a feature, add its id to all three and its name and description to locales/. To remove
