@@ -6,11 +6,14 @@ const endpoints = new Set([
     "openai_compatible_auth_key_and_url", "custom_whisper_auth_key_and_url",
     "overlay_small_log_settings", "overlay_large_log_settings",
     "mic_word_filter", "send_message_format_parts", "received_message_format_parts",
-    "osc_ip_address", "osc_port", "websocket_host", "websocket_port",
+    "osc_ip_address", "osc_port", "websocket_host", "websocket_port", "websocket_tls", "ocr_window_title",
     "obs_browser_source_port", "obs_browser_source_max_messages", "obs_browser_source_display_duration",
     "obs_browser_source_fadeout_duration", "obs_browser_source_font_size", "obs_browser_source_font_color",
     "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color",
-].map(name => `/set/data/${name}`));
+].map(name => `/set/data/${name}`).concat([
+    // A new connection key: the button says it is done only when the backend says so.
+    "/run/regenerate_websocket_auth_token",
+]));
 const textEndpoints = new Set([
     "deepl_auth_key", "plamo_auth_key", "gemini_auth_key", "openai_auth_key", "groq_auth_key", "openrouter_auth_key",
     "lmstudio_url", "openai_compatible_url", "openai_compatible_auth_key", "ollama_url",
