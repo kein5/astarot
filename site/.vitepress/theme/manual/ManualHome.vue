@@ -46,7 +46,7 @@ const SUPPORT = computed(() => {
                 :src="withBase('/manual/brand/wordmark-light.webp')"
                 alt="ASTAROT — Speech, Translation, Accessibility, Revoicing & OCR Toolkit"
                 width="955"
-                height="248"
+                height="227"
               />
             </picture>
           </h1>
