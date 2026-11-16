@@ -38,8 +38,18 @@ test("stale preset or dictionaries cannot overwrite the main snapshot", () => {
     }
 });
 
-test("final 400, 404, 423 and 500 release pending ownership as failures", () => {
-    for (const status of [400, 404, 423, 500]) {
+test("a log line or another non-final status keeps the write in flight", () => {
+    for (const status of [348, 100, 302, undefined]) {
+        const coordinator = setup();
+        const write = request(String(status));
+        coordinator.begin(write, snapshot);
+        assert.equal(coordinator.complete({ endpoint: write.endpoint, status }), null);
+        assert.equal(coordinator.getState().inFlight.requestId, String(status));
+    }
+});
+
+test("every final error, 403 and 409 among them, releases pending ownership as a failure", () => {
+    for (const status of [400, 403, 404, 409, 423, 500]) {
         const coordinator = setup();
         const write = request(String(status));
         coordinator.begin(write, snapshot);

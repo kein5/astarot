@@ -63,6 +63,13 @@ $toggle_config_size: 3rem;
     color: var(--dark_500_color);
 }
 
+// Lays out as if it were not there; hidden things leave the tab order.
+.settings {
+    display: contents;
+    visibility: hidden;
+    &[data-opened="true"] { visibility: visible; }
+}
+
 .others_wrapper {
     width: 100%;
     display: flex;

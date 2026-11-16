@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useI18n } from "@useI18n";
 import { useTranslation } from "@logics_configs";
-import { useMainFunction } from "@logics_main";
+import { useIsMainPageCompactMode, useMainFunction } from "@logics_main";
 import { useNotificationStatus } from "@logics_common";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useTranslationSetup } from "../../../logics/translation/useTranslationSetup";
@@ -14,28 +14,28 @@ import { LegacyModelDownloadDialog } from "../config_page/setting_section/settin
 // switch to get here, the switch is turned on once the model has arrived.
 export const TranslationSetupController = () => {
     const { t } = useI18n();
-    const { request, setRequest } = useTranslationSetup();
+    const { request, setRequest, waiting, setWaiting } = useTranslationSetup();
     const { currentCTranslate2WeightTypeStatus, currentSelectedCTranslate2WeightType,
         pendingCTranslate2WeightTypeStatus, downloadCTranslate2WeightTypeStatus } = useTranslation();
     const { currentTranslationStatus, setTranslation } = useMainFunction();
+    const { expandSidebar } = useIsMainPageCompactMode();
     const { showNotification_Success } = useNotificationStatus();
     const { updateIsOpenedTranslatorSelector } = useStore_IsOpenedTranslatorSelector();
-    // The model whose arrival turns the switch on; null when nobody is waiting.
-    const waiting = useRef(null);
 
-    useEffect(() => () => { waiting.current = null; setRequest(null); }, [setRequest]);
+    // An open review closes with the page; the wait for the model outlives it.
+    useEffect(() => () => { setRequest(null); }, [setRequest]);
     const weights = currentCTranslate2WeightTypeStatus.data || [];
-    const awaited = weights.find(item => item.id === waiting.current);
+    const awaited = weights.find(item => item.id === waiting);
     const arrived = awaited?.is_downloaded === true;
     const abandoned = !!awaited && !arrived && downloadProgress(awaited) === null;
     useEffect(() => {
-        if (!waiting.current) return;
+        if (!waiting) return;
         if (arrived) {
-            waiting.current = null;
+            setWaiting(null);
             showNotification_Success(t("studio.setup_translation_ready"), { category_id: "translation_setup_ready" });
             if (currentTranslationStatus.data !== true) setTranslation(true);
         } else if (abandoned) {
-            waiting.current = null;  // cancelled or failed; its own notice says why
+            setWaiting(null);  // cancelled or failed; its own notice says why
         }
     }, [arrived, abandoned]);
 
@@ -44,10 +44,14 @@ export const TranslationSetupController = () => {
     return <LegacyModelDownloadDialog kind="ctranslate2" weightType={request.weightType ?? currentSelectedCTranslate2WeightType.data}
         onCancel={close}
         onDownload={payload => {
-            waiting.current = request.resume ? payload.weight_type : null;
+            setWaiting(request.resume ? payload.weight_type : null);
             pendingCTranslate2WeightTypeStatus(payload.weight_type);
             downloadCTranslate2WeightTypeStatus(payload);
         }}
         note={request.resume ? t("studio.setup_translation_resume") : null}
-        extraAction={{ label: t("studio.setup_other_translator"), onClick: () => updateIsOpenedTranslatorSelector(true) }} />;
+        // The translator list is in the full rail; the icon rail has none to open.
+        extraAction={{ label: t("studio.setup_other_translator"), onClick: () => {
+            expandSidebar();
+            updateIsOpenedTranslatorSelector(true);
+        } }} />;
 };

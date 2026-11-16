@@ -4,10 +4,11 @@ import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import { flush } from "../../../logics/test/bridgeHarness.js";
 import * as status from "../../../logics/companion/status.ts";
 import * as voice from "../../../logics/voice/voiceActions.ts";
+import * as switchBlocks from "../../../logics/main/switchBlocks.ts";
 
 async function setup(context, { on = false } = {}) {
-    const runtime = hooks(), calls = [], listeners = new Map(), toggles = [];
-    const state = { on, ready: false, mic: { state: "ok", data: false }, request: null, setup: null,
+    const runtime = hooks(), calls = [], listeners = new Map(), toggles = [], notices = [];
+    const state = { on, ready: false, mic: { state: "ok", data: false }, request: null, setup: null, blocks: {}, notice: null,
         startup: "running", queue: [], quits: 0, edge: "right", edgeSaved: [], monitor: "", monitorSaved: [],
         // Whether the app has a tray icon to put the main window away in.
         tray: true };
@@ -23,9 +24,11 @@ async function setup(context, { on = false } = {}) {
         "@tauri-apps/api/core": { invoke },
         "@tauri-apps/api/event": { listen },
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "ja" } }) },
-        "@store": { store },
+        "@store": { store, useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: state.blocks } }),
+            useStore_NotificationStatus: () => ({ currentNotificationStatus: { data: state.notice } }) },
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }),
-            useWindow: () => ({ asyncQuitApp: () => { state.quits++; } }) },
+            useWindow: () => ({ asyncQuitApp: () => { state.quits++; } }),
+            useNotificationStatus: () => ({ showNotification_Error: (message, options) => notices.push([message, options]) }) },
         "@logics_configs": { useExperimentalFeature: id => id === "tray_companion" && state.on,
             useExperimentalFeatures: () => ({ currentTrayCompanionEdge: { state: "ok", data: state.edge },
                 setTrayCompanionEdge: value => { state.edgeSaved.push(value); },
@@ -42,11 +45,12 @@ async function setup(context, { on = false } = {}) {
         "../../../logics/translation/useTranslationSetup": { useTranslationSetup: () => ({ request: state.setup }) },
         "../../../logics/companion/status.ts": status,
         "../../../logics/companion/dialogs.ts": { watchOpenDialogs: () => () => {} },
+        "../../../logics/main/switchBlocks.ts": switchBlocks,
     });
     const render = async () => { runtime.render(CompanionController); await flush(); };
     await render(); await render();
     context.after(() => runtime.unmount());
-    return { state, store, calls, listeners, toggles, render,
+    return { state, store, calls, listeners, toggles, notices, render,
         of: name => calls.filter(([command]) => command === name).map(([, args]) => args) };
 }
 
@@ -153,6 +157,50 @@ test("the recognition consent and the translation model's review bring the hidde
     s.state.setup = { resume: true, weightType: null };
     await s.render();
     assert.equal(s.of("companion_show_main").length, 2);
+});
+
+test("a switch the main window greys out is not pressed from the tray; the main window comes forward and says why", async context => {
+    const s = await setup(context);
+    s.state.ready = true;
+    s.state.blocks = { ocr: { reason: "ocr_language", action: "ocr" }, transcription_send: { reason: "asr_models", action: "transcription" } };
+    await s.render();
+    // OCR is on, so it can still be turned off; the microphone is off and blocked.
+    s.state.queue.push("toggle_ocr", "toggle_mic", "toggle_translation");
+    await s.listeners.get("companion-requested")();
+    assert.deepEqual(s.toggles, ["ocr", "translation"]);
+    assert.deepEqual(s.notices, [["main_page.transcription_send: main_page.switch_blocked.asr_models", { category_id: "companion_blocked_mic" }]]);
+    assert.equal(s.of("companion_show_main").length, 1);
+});
+
+test("an error notice that answers a switch pressed from the tray brings the main window forward", async context => {
+    const s = await setup(context);
+    s.state.ready = true;
+    await s.render();
+    // An error with no press from the tray before it stays in the main window.
+    s.state.notice = { status: "error", is_open: true };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 0);
+    s.state.queue.push("toggle_mic");
+    await s.listeners.get("companion-requested")();
+    s.state.notice = { status: "success", is_open: true };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 0, "only an error is a refusal");
+    s.state.notice = { status: "error", is_open: true };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 1);
+    // Once answered, a later error does not bring it forward again.
+    s.state.notice = { status: "error", is_open: true };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 1);
+    // Nor does an error long after the press.
+    const now = Date.now;
+    context.after(() => { Date.now = now; });
+    s.state.queue.push("toggle_mic");
+    await s.listeners.get("companion-requested")();
+    Date.now = () => now() + 31000;
+    s.state.notice = { status: "error", is_open: true };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 1);
 });
 
 test("a failed start asks for the main window even before the settings arrive", async context => {

@@ -119,6 +119,78 @@ def test_small_window_and_reduced_motion(studio):
     expect(page.get_by_role("button", name="戻る", exact=True)).to_be_in_viewport()
 
 
+def _on_top(locator):
+    """The element drawn at the locator's centre is the locator itself (nothing covers it)."""
+    return locator.evaluate(
+        "node => { const r = node.getBoundingClientRect();"
+        " const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);"
+        " return !!top && (top === node || node.contains(top)); }"
+    )
+
+
+def test_narrow_window_keeps_stop_mute_and_the_opened_sidebar_in_reach(studio):
+    from playwright.sync_api import expect
+
+    page, _ = studio
+    stop = page.get_by_role("button", name="読み上げを停止", exact=True)
+    for width in (400, 450):
+        page.set_viewport_size({"width": width, "height": 600})
+        actions = page.get_by_role("group", name="停止", exact=True)
+        for button in actions.get_by_role("button").all():
+            expect(button).to_be_in_viewport()
+            assert _on_top(button), f"{width}px: a stop action is under another button"
+    expect(stop).to_be_visible()
+
+    # The update notice adds a button on the right (the app's updater is not in this
+    # page, so a 200px stand-in takes its place): stop and mute still stay on top.
+    page.get_by_role("link", name="ASTAROTの使い方を開く", exact=True).evaluate(
+        "help => { const extra = document.createElement('button'); extra.textContent = 'update';"
+        " extra.style.cssText = 'flex-shrink:0;width:200px'; help.parentElement.prepend(extra); }"
+    )
+    page.set_viewport_size({"width": 400, "height": 600})
+    for button in page.get_by_role("group", name="停止", exact=True).get_by_role("button").all():
+        assert _on_top(button), "a stop action is under the update notice"
+        expect(button).to_be_in_viewport()
+    page.reload()
+    page.get_by_role("heading", name="ここから会話を始めましょう").wait_for()
+
+    # A large UI size (170%) at the narrowest window: the opened sidebar stays inside it.
+    page.evaluate("() => document.documentElement.style.setProperty('font-size', `${62.5 * 1.7}%`)")
+    page.set_viewport_size({"width": 400, "height": 600})
+    page.get_by_role("button", name="サイドバーを切り替える", exact=True).click()
+    close = page.get_by_role("button", name="サイドバーを閉じる", exact=True)
+    expect(close).to_be_visible()
+    box = close.bounding_box()
+    assert box["x"] + box["width"] <= 400, box
+    assert _on_top(close)
+    # Some conversation stays beside the sidebar, so a press outside can close it.
+    page.mouse.click(395, 500)
+    expect(close).to_have_count(0)
+
+
+def test_log_font_size_slider_takes_focus_only_once_opened(studio):
+    from playwright.sync_api import expect
+
+    page, _ = studio
+    on_slider = (
+        "() => { const el = document.activeElement;"
+        " return !!el && (el.type === 'range' || !!el.closest('[role=slider]') || !!el.querySelector?.('[role=slider]')); }"
+    )
+    gear = page.get_by_role("button", name="ログのフォントサイズ", exact=True)
+    gear.focus()
+    expect(gear).to_be_focused()
+    page.keyboard.press("Tab")
+    assert not page.evaluate(on_slider), "Tab landed on the hidden slider"
+    gear.focus()
+    page.keyboard.press("Enter")
+    expect(gear).to_have_attribute("aria-expanded", "true")
+    for _ in range(5):
+        page.keyboard.press("Tab")
+        if page.evaluate(on_slider):
+            break
+    assert page.evaluate(on_slider), "the opened slider is reachable"
+
+
 def test_model_warning_in_styled_screen_keeps_explicit_consent(studio):
     from playwright.sync_api import expect
 

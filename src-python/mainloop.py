@@ -843,18 +843,28 @@ _WATCHDOG_GRACE_PERIOD_SEC = 30
 _WATCHDOG_FEED_ENDPOINT = "/run/feed_watchdog"
 
 def _request_error_result(endpoint: str, data: Any, result: Any, status: int) -> Any:
-    """Identify a failed legacy download without echoing arbitrary request data.
+    """Identify a failed legacy download or typed message without echoing arbitrary request data.
 
-    Different weights can be requested concurrently on the same endpoint, so
-    the UI cannot match a generic failure by endpoint alone.
+    Different weights, or several typed messages, can wait on the same endpoint,
+    so the UI cannot match a generic failure by endpoint alone. A typed message
+    gets only its row's id back, never its text.
     """
-    if status not in {404, 423, 500} or endpoint != "/run/download_ctranslate2_weight":
+    if status not in {404, 423, 500}:
         return result
-    weight_type = data.get("weight_type") if isinstance(data, dict) else data
-    if not isinstance(weight_type, str):
+    if endpoint == "/run/download_ctranslate2_weight":
+        weight_type = data.get("weight_type") if isinstance(data, dict) else data
+        if not isinstance(weight_type, str):
+            return result
+        identity = {"weight_type": weight_type}
+    elif endpoint == "/run/send_message_box":
+        row_id = data.get("id") if isinstance(data, dict) else None
+        if not isinstance(row_id, str):
+            return result
+        identity = {"id": row_id}
+    else:
         return result
     payload = dict(result) if isinstance(result, dict) else {"message": result}
-    payload["data"] = {"weight_type": weight_type}
+    payload["data"] = identity
     return payload
 
 

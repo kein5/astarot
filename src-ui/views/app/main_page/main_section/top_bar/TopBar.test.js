@@ -53,7 +53,8 @@ async function menu(context, values = {}) {
         return { tree, opener: find(tree, node => node.type === "button"), panel: find(tree, node => node.props?.role === "group"), rows,
             state: find(tree, node => node.props?.className === "menu_state")?.props.children };
     };
-    return { draw, calls, document, focused, state, flowButton: () => runtime.render(FlowButton) };
+    const UpdateButton = find(right, node => node.type?.name === "SoftwareUpdateAvailableButton").type;
+    return { draw, calls, document, focused, state, flowButton: () => runtime.render(FlowButton), updateButton: () => runtime.render(UpdateButton) };
 }
 
 test("the quick settings button says how many of its toggles are on, and opens them in place", async context => {
@@ -212,6 +213,21 @@ test("the main bar's stylesheet hides the long words and swaps to the shortest w
         for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof strings.main_page[key], "string");
         for (const key of ["topbar_stop_tiny", "topbar_stop_tiny_count"]) assert.equal(typeof strings.voice_ui[key], "string");
     }
+});
+
+test("stop and mute keep their width in a narrow bar; the update button keeps only its arrow there", async context => {
+    const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
+    const leading = css.match(/\.leading \{([^}]*)\}/)[1];
+    assert.match(leading, /flex-shrink: 0/, "the right-hand buttons can no longer slide over stop and mute");
+    assert.doesNotMatch(leading, /min-width: 0/);
+    const right = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
+    const narrow = right.split("@mixin narrow_menu")[1].split("@container")[0];
+    assert.match(narrow, /\.software_update_label \{[^}]*clip-path: inset\(50%\)/);
+    const button = (await menu(context, { update: "available" })).updateButton();
+    assert.equal(button.type, "button");
+    assert.equal(button.props.type, "button");
+    assert.equal(button.props.title, "main_page.update_available", "the tooltip keeps the words");
+    assert.ok(find(button, node => node.type === "span" && node.props.children === "main_page.update_available"), "and so does the name");
 });
 
 test("the words added to the main page are never smaller than 12px (1.2rem at the 10px base)", () => {

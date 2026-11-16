@@ -42,6 +42,11 @@ export type EdgeAction = `edge_${Edge}`;
 export type MonitorAction = `monitor:${string}`;
 export type CompanionAction = ToggleAction | EdgeAction | MonitorAction;
 export const actionFor = (feature: Feature): ToggleAction => `toggle_${feature}`;
+// Each feature's main switch (switch_id in MainFunctionSwitch and logics/main/switchBlocks.ts).
+export const SWITCH_IDS: Record<Feature, string> = {
+    mic: "transcription_send", translation: "translation", listening: "transcription_receive",
+    ocr: "ocr", tts: "tts", rvc: "rvc",
+};
 export const edgeAction = (edge: Edge): EdgeAction => `edge_${edge}`;
 
 // What the panel shows as the state of the app as a whole.
@@ -104,6 +109,9 @@ export type Toggles = {
     // Save TRAY_COMPANION_EDGE and TRAY_COMPANION_MONITOR, as the experimental features page does.
     setEdge?: (edge: Edge) => unknown;
     setMonitor?: (monitor: string) => unknown;
+    // True when the feature's switch cannot be turned on now (its main switch is greyed out
+    // with a reason); the caller tells the user why, and the toggle is not run.
+    refuse?: (feature: Feature) => boolean;
 };
 
 // Requests the panel, the handle and the tray may queue; anything else is ignored. Each one
@@ -131,6 +139,7 @@ export const runAction = (action: unknown, toggles: Toggles): boolean => {
     };
     const toggle = typeof action === "string" && Object.hasOwn(run, action) ? run[action as ToggleAction] : undefined;
     if (!toggle) return false;
+    if (toggles.refuse?.((action as ToggleAction).slice("toggle_".length) as Feature)) return false;
     toggle();
     return true;
 };

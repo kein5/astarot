@@ -60,9 +60,12 @@ export const UserModelRegistration = ({ target, busy }) => {
     const kinds = USER_MODEL_FILES[target] ?? [];
     const [name, setName] = useState(""), [paths, setPaths] = useState({});
     const [problem, setProblem] = useState(null);
+    // The name sent, and the registrations that already had it: a refused duplicate
+    // (user_model_exists) must not read as the model just registered.
     const [sentFor, setSentFor] = useState(null);
-    // Clear the form once the list holds the model just sent.
-    const registered = !!sentFor && !!userModels?.models?.some(model => model.target === target && model.name === sentFor);
+    const sameName = (model, sent) => model.target === target && model.name === sent;
+    // Clear the form once the list holds a new model with the name just sent.
+    const registered = !!sentFor && !!userModels?.models?.some(model => sameName(model, sentFor.name) && !sentFor.before.includes(model.id));
     useEffect(() => {
         if (!registered) return;
         setSentFor(null); setName(""); setPaths({}); setProblem(null);
@@ -70,7 +73,9 @@ export const UserModelRegistration = ({ target, busy }) => {
     const submit = () => {
         const checked = registrationRequest(target, name, paths);
         if ("problem" in checked) { setProblem(checked.problem); return; }
-        setProblem(null); setSentFor(checked.request.name);
+        const sent = checked.request.name;
+        setProblem(null);
+        setSentFor({ name: sent, before: (userModels?.models ?? []).filter(model => sameName(model, sent)).map(model => model.id) });
         send("/run/register_user_model", checked.request);
     };
     return <details className={styles.more} data-user-model-register>

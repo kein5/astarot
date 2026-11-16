@@ -90,6 +90,8 @@ export const useMessage = () => {
     };
 
     const updateSentMessageLogById = (payload) => {
+        // Once shutting down, the backend answers a send with null: no row to update.
+        if (payload?.id === undefined) return;
         updateMessageLogs(updateItemById(payload.id, payload));
     };
 

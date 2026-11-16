@@ -8,7 +8,10 @@
     margin: 0 2rem;
     border-bottom: .1rem solid var(--vox_border);
 }
-.leading { display: flex; align-items: center; gap: .8rem; min-width: 0; }
+// Stop and mute never go under the buttons on the right (PRODUCT.md: always within
+// reach): the group keeps its width. When the column is narrower than the whole bar,
+// the right end runs past it and the column scrolls sideways.
+.leading { display: flex; align-items: center; gap: .8rem; flex-shrink: 0; }
 
 // Stop and mute (others/stop_actions). Quiet until there is something to stop.
 .stop_actions { display: flex; align-items: center; gap: .8rem; min-width: 0; }

@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useI18n } from "@useI18n";
-import { store } from "@store";
-import { useIsBackendReady, useWindow } from "@logics_common";
+import { store, useStore_NotificationStatus, useStore_SwitchBlocks } from "@store";
+import { useIsBackendReady, useNotificationStatus, useWindow } from "@logics_common";
 import { useExperimentalFeature, useExperimentalFeatures } from "@logics_configs";
 import { useMainFunction } from "@logics_main";
 import { useBackendStartup } from "../../../logics/common/useBackendStartup";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
 import { useTranslationSetup } from "../../../logics/translation/useTranslationSetup";
-import { companionStatus, runAction } from "../../../logics/companion/status.ts";
+import { activeSwitchBlock, type SwitchBlock } from "../../../logics/main/switchBlocks.ts";
+import { companionStatus, runAction, SWITCH_IDS, type Feature } from "../../../logics/companion/status.ts";
 import { watchOpenDialogs } from "../../../logics/companion/dialogs.ts";
 import { voiceActions, voiceSwitchStates, type VoiceSwitchStates } from "../../../logics/voice/voiceActions.ts";
 
@@ -29,6 +30,13 @@ type MainFunction = {
 };
 // store.js is untyped; this controller adds the one hook useWindow.js reads.
 type CompanionStore = { companion_hide?: () => Promise<unknown> };
+type Notice = { status?: string; is_open?: boolean } | null | undefined;
+
+// How long after a switch pressed in the tray, the hexagram or its panel an error notice is
+// taken as that switch's answer. The engine may wait about 20 s for a busy lock before it
+// refuses, and starting the microphone takes a few seconds more.
+export const REFUSAL_WINDOW_MS = 30000;
+const showMain = () => invoke("companion_show_main").catch(error => console.error("Main window could not be shown", error));
 
 // The app's tray icon and the overlay feature (tray_companion). The tray icon is there in every
 // run, so whether or not the feature is on this reports the switches and the tray menu's words,
@@ -53,15 +61,47 @@ export const CompanionController = () => {
     const { request: translationSetup } = useTranslationSetup();
     const { startupState } = useBackendStartup();
     const needsUser = !!consent || !!translationSetup;
-    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor });
-    latest.current = { main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor };
-    const wasOn = useRef(false);
+    // store.js names its hooks' fields at run time, so their types are unknown here.
+    const { currentSwitchBlocks } = useStore_SwitchBlocks() as unknown as { currentSwitchBlocks: { data?: Record<string, SwitchBlock | undefined> } };
+    const { currentNotificationStatus } = useStore_NotificationStatus() as unknown as { currentNotificationStatus: { data?: Notice } };
+    const { showNotification_Error } = useNotificationStatus() as { showNotification_Error: (message: string, options?: object) => void };
     // The TTS and voice changer switches, as the main page's own switches work them out.
     const [voiceStates, setVoiceStates] = useState<VoiceSwitchStates>(voiceSwitchStates.get());
     useEffect(() => {
         setVoiceStates(voiceSwitchStates.get());
         return voiceSwitchStates.subscribe(() => setVoiceStates(voiceSwitchStates.get()));
     }, []);
+
+    // A switch whose main switch is greyed out (logics/main/switchBlocks.ts) is not pressed from
+    // the tray either: the main window comes forward and says why, as its switch does.
+    const refuse = (feature: Feature): boolean => {
+        if (currentIsBackendReady.data !== true) return false;
+        const voiceState = feature === "tts" || feature === "rvc" ? voiceStates[feature] : null;
+        const status = voiceState ? { data: voiceState.on, state: voiceState.pending ? "pending" : "ok" }
+            : { mic: main.currentTranscriptionSendStatus, translation: main.currentTranslationStatus,
+                listening: main.currentTranscriptionReceiveStatus, ocr: main.currentOcrCaptureStatus }[feature as "mic"];
+        const block = activeSwitchBlock(currentSwitchBlocks.data, SWITCH_IDS[feature], status);
+        if (!block) return false;
+        showNotification_Error(`${t(`main_page.${SWITCH_IDS[feature]}`)}: ${t(`main_page.switch_blocked.${block.reason}`)}`,
+            { category_id: `companion_blocked_${feature}` });
+        void showMain();
+        return true;
+    };
+    // When was a switch last pressed from the tray, the hexagram or its panel; null once answered.
+    const askedAt = useRef<number | null>(null);
+    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, refuse });
+    latest.current = { main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, refuse };
+    const wasOn = useRef(false);
+
+    // The engine's refusal (VRChat not running, a language the chat reading cannot read) is an
+    // error notice in the main window, which may be away in the tray. It comes forward with it.
+    const notice = currentNotificationStatus?.data;
+    useEffect(() => {
+        if (askedAt.current === null || !notice?.is_open || notice.status !== "error") return;
+        const recent = Date.now() - askedAt.current <= REFUSAL_WINDOW_MS;
+        askedAt.current = null;
+        if (recent) void showMain();
+    }, [notice]);
 
     // Closing the main window puts it away in the tray, in every run; the tray menu's Quit ends the
     // app. Without a tray icon nothing could bring the window back, so it quits as before.
@@ -92,8 +132,10 @@ export const CompanionController = () => {
             try {
                 const actions = await invoke<unknown[]>("companion_take");
                 for (const action of actions ?? []) {
-                    runAction(action, { ...latest.current.main, toggleTts: voiceActions.toggleTts, toggleRvc: voiceActions.toggleRvc,
-                        setEdge: latest.current.setTrayCompanionEdge, setMonitor: latest.current.setTrayCompanionMonitor });
+                    const ran = runAction(action, { ...latest.current.main, toggleTts: voiceActions.toggleTts, toggleRvc: voiceActions.toggleRvc,
+                        setEdge: latest.current.setTrayCompanionEdge, setMonitor: latest.current.setTrayCompanionMonitor,
+                        refuse: latest.current.refuse });
+                    if (ran && typeof action === "string" && action.startsWith("toggle_")) askedAt.current = Date.now();
                 }
             } catch (error) { console.error("Companion request could not be taken", error); }
         };

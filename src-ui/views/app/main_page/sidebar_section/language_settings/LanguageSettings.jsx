@@ -7,10 +7,23 @@ import { TranslatorSelectorOpenButton } from "./translator_selector_open_button/
 import { AddRemoveTargetLanguageButtons } from "./add_remove_target_language_buttons/AddRemoveTargetLanguageButtons";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 
+// The pointer left for the scrollbar of the rail around this part: the scrollbar is the
+// ancestor's own, to the right of its content box.
+export const isOnAncestorScrollbar = event => {
+    const element = event.relatedTarget;
+    if (!element?.getBoundingClientRect || !element.contains?.(event.currentTarget)) return false;
+    const bounds = element.getBoundingClientRect();
+    return event.clientX >= bounds.left + element.clientLeft + element.clientWidth;
+};
+
 export const LanguageSettings = () => {
     const { t } = useI18n();
     const { updateIsOpenedTranslatorSelector } = useStore_IsOpenedTranslatorSelector();
-    const closeTranslatorSelector = () => updateIsOpenedTranslatorSelector(false);
+    // The translator list closes when the pointer leaves the language settings, but not for
+    // the rail's scrollbar, which scrolls the list into view.
+    const closeTranslatorSelector = event => {
+        if (!isOnAncestorScrollbar(event)) updateIsOpenedTranslatorSelector(false);
+    };
 
     return (
         <div className={styles.container} onMouseLeave={closeTranslatorSelector}>

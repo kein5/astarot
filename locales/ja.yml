@@ -1826,6 +1826,7 @@ model_catalog:
         vad: "発話区間の検出（VAD）"
         diarization: "話者の区別（任意）"
         rvc: "ボイスチェンジャーの声"
+        translation: "翻訳"
         engines: "外部の音声合成エンジン"
     group_help:
         japanese: "日本語の文を読み上げるモデルです。取得したモデルは同梱のspeech.cppサーバーで動きます。"
@@ -1834,6 +1835,7 @@ model_catalog:
         vad: "声のある区間を見つけるモデルです。どの認識モデルを使うときも必要です。"
         diarization: "ゲーム音声の字幕に、誰が話したかのラベルを付けるときだけ使います。"
         rvc: "声を変えるRVCの音声モデルです。"
+        translation: "文を翻訳するモデルです。取得したモデルは手元で動きます。"
         engines: "自分のPCに入れて起動しておく読み上げソフトです。このアプリはダウンロードもインストールもしません。公式サイトから入手して起動し、上の「日本語を読み上げるエンジン」で選んでください。"
     languages: "対応言語"
     languages_more: "{{languages}}ほか{{count}}言語"
@@ -2103,6 +2105,7 @@ old_whisper_weights:
 network_privacy:
     http_warning: "この接続は暗号化されません。文章・音声・APIキーをネットワーク上の第三者に読み取られる可能性があります。"
     save_notice: "URLは保存時に確認します。APIキーを入力して保存するとこのURLに送信して認証します。"
+    disconnected: "ネットワークにつながっていません。つながるまで、インターネットを使う機能は使えません。"
 io_flow:
     open: "入力と出力"
     open_hint: "自分の声とチャットがどこへ出るかと、かかった時間を表示します"

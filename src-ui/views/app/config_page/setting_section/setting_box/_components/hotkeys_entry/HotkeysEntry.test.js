@@ -93,6 +93,19 @@ test("Shift+digit records the digit, even when Shift is released first", async (
     assert.deepEqual(subject.saves, [{ open_quick_chat: ["Ctrl", "Shift", "1"] }]);
 });
 
+test("Shift with a symbol key saves the chord when Shift is released first", async () => {
+    const subject = await setup();
+    subject.field().onKeyDown({ key: "Control", code: "ControlLeft", ctrlKey: true, preventDefault() {} });
+    subject.field().onKeyDown({ key: "Shift", code: "ShiftLeft", ctrlKey: true, shiftKey: true, preventDefault() {} });
+    subject.field().onKeyDown({ key: "?", code: "Slash", ctrlKey: true, shiftKey: true, preventDefault() {} });
+    assert.equal(subject.field().ui_variable, "Ctrl + Shift + ?");
+    subject.field().onKeyUp({ key: "Shift", code: "ShiftLeft", ctrlKey: true });
+    subject.field().onKeyUp({ key: "Control", code: "ControlLeft" });
+    // Without Shift the same key reports "/".
+    subject.field().onKeyUp({ key: "/", code: "Slash" });
+    assert.deepEqual(subject.saves, [{ open_quick_chat: ["Ctrl", "Shift", "?"] }]);
+});
+
 for (const newerEdit of [false, true]) test(`rejected hotkey restores committed display without overwriting a newer edit: ${newerEdit}`, async () => {
     const s = await setup();
     let resolve;

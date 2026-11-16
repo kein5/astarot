@@ -19,11 +19,18 @@ export const container = style({
 
 export const isCompactMode = style({ width: ICON_RAIL, minWidth: ICON_RAIL });
 
+// The opened rail never reaches the window's right edge: at a large UI size 24rem can be
+// wider than a narrow window, which pushed the close button out of it and left no place
+// outside the rail to press. A strip of conversation stays beside it.
+const OVERLAY_RAIL = `min(${RAIL}, calc(100vw - 4.8rem))`;
+
 // Opened from the icon rail in a narrow window: the full rail lies over the conversation,
 // which keeps the width of the icon rail beside it.
 export const isOverlay = style({
     zIndex: 40,
-    marginInlineEnd: `calc(${ICON_RAIL} - ${RAIL})`,
+    width: OVERLAY_RAIL,
+    minWidth: OVERLAY_RAIL,
+    marginInlineEnd: `calc(${ICON_RAIL} - ${OVERLAY_RAIL})`,
     boxShadow: vars.vox_shadow_overlay,
 });
 

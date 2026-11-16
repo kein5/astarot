@@ -69,8 +69,19 @@ test("a correlated error only settles that pending row", async context => {
     const subject = await setup();
     await subject.message.sendMessage("First", "first");
     await subject.message.sendMessage("Second", "second");
-    subject.receive(423, { data: { id: "second" } });
+    // The backends name the row on a lock timeout, a missing endpoint or an internal error.
+    subject.receive(423, { message: "Locked endpoint (busy)", data: { id: "second" } });
     assert.deepEqual(subject.rows().map(row => row.status), ["pending", "failed"]);
+    subject.receive(500, { message: "Internal error", data: { id: "unknown" } });
+    assert.deepEqual(subject.rows().map(row => row.status), ["pending", "failed"], "another row's failure leaves this one waiting");
+});
+
+test("a null answer during shutdown changes no row and does not throw", async () => {
+    const subject = await setup();
+    await subject.message.sendMessage("First", "first");
+    assert.doesNotThrow(() => subject.message.updateSentMessageLogById(null));
+    subject.receive(200, null);
+    assert.deepEqual(subject.rows().map(row => [row.id, row.status]), [["first", "pending"]]);
 });
 
 test("successful transport stays pending until a success response, including an immediate response", async () => {

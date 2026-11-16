@@ -53,3 +53,19 @@ test("download status after a restart comes from the files on disk, in use only 
     // An answer from an older backend has no `downloaded`; an applied job still counts.
     assert.equal(downloadStatus(entry, { phase: "applied", paths: { model: "/m.gguf" } }, undefined, { model: "/m.gguf" }), "in_use");
 });
+
+
+test("every catalog group a settings page shows has its heading and help in en and ja", async () => {
+    const { readFileSync } = await import("node:fs");
+    const yaml = (await import("js-yaml")).default;
+    // SpeechServers (japanese, multilingual, asr, vad, diarization), DirectVoiceSettings (rvc),
+    // LegacyModelDownloadDialog (translation), and the speech engines group.
+    const groups = ["japanese", "multilingual", "asr", "vad", "diarization", "rvc", "translation", "engines"];
+    for (const language of ["en", "ja"]) {
+        const strings = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")).model_catalog;
+        for (const group of groups) {
+            assert.equal(typeof strings.group[group], "string", `${language}: model_catalog.group.${group}`);
+            assert.equal(typeof strings.group_help[group], "string", `${language}: model_catalog.group_help.${group}`);
+        }
+    }
+});
