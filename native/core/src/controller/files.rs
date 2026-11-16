@@ -138,6 +138,31 @@ mod tests {
         assert!(!whisper.join("small").exists());
     }
 
+    fn link_dir(target: &Path, link: &Path) -> std::io::Result<()> {
+        #[cfg(windows)]
+        return std::os::windows::fs::symlink_dir(target, link);
+        #[cfg(unix)]
+        return std::os::unix::fs::symlink(target, link);
+    }
+
+    #[test]
+    fn a_link_is_neither_counted_nor_followed() {
+        let dir = tempfile::tempdir().unwrap();
+        let elsewhere = dir.path().join("elsewhere");
+        fs::create_dir_all(&elsewhere).unwrap();
+        fs::write(elsewhere.join("precious.bin"), vec![0u8; 7]).unwrap();
+        let whisper = dir.path().join("weights").join("whisper");
+        fs::create_dir_all(whisper.join("tiny")).unwrap();
+        if link_dir(&elsewhere, &whisper.join("base")).is_err() || link_dir(&elsewhere, &whisper.join("tiny").join("inner")).is_err() {
+            // Windows without the right to make symbolic links: nothing to check here.
+            eprintln!("symbolic links are not available; skipped");
+            return;
+        }
+        assert_eq!(old_whisper_weights(dir.path()), json!({ "total_bytes": 0, "folders": ["tiny"] }));
+        delete_old_whisper_weights(dir.path());
+        assert!(elsewhere.join("precious.bin").exists(), "what a link points to stays");
+    }
+
     #[test]
     fn nothing_there_is_nothing() {
         let dir = tempfile::tempdir().unwrap();

@@ -166,8 +166,9 @@ fn vr_window_settings_are_checked_and_stored() {
     let ui = Ui::start();
     ui.ready();
     assert_eq!(ui.ok("/set/data/overlay_vr_panel_opacity", Some(json!(0.456))), 0.46);
+    assert_eq!(ui.ok("/set/data/overlay_vr_panel_opacity", Some(json!(0.1 + 0.2))), 0.3, "float noise is rounded away");
     assert_eq!(ui.ok("/set/data/overlay_vr_panel_opacity", Some(json!("0.8"))), 0.8);
-    for bad in [json!(0.1), json!(1.5), json!("x"), json!({})] {
+    for bad in [json!(0.0), json!(0.19), json!(1.01), json!(-1), json!("x"), Value::Null, json!({})] {
         let answer = ui.request("/set/data/overlay_vr_panel_opacity", Some(bad.clone()));
         assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
         assert_eq!(answer["result"]["data"], 0.8);
