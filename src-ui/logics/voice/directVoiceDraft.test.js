@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { directSavedDraft, directSelectionPending, directShowsConversion } from "./directVoiceDraft.ts";
+import { directRvcSelection, directSavedDraft, directSelectionPending, directShowsConversion } from "./directVoiceDraft.ts";
 import { changedPaths } from "./saveBar.js";
 
 const defaults = { mode: "passthrough", engine: "rvc", rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0 };
@@ -34,19 +34,29 @@ test("input forwarding shows and starts forwarding only", () => {
     assert.equal(directShowsConversion({ ...draft, mode: "passthrough" }, "all"), false);
 });
 
-test("the RVC page still selects converted RVC as a change to save", () => {
+test("#436: the RVC page keeps the saved mode in its draft and asks for RVC on its own", () => {
     const passthrough = { ...rvcSaved, mode: "passthrough" };
     const draft = directSavedDraft(defaults, passthrough, "rvc");
-    assert.equal(draft.mode, "converted");
-    assert.equal(draft.engine, "rvc");
+    // A save of the RVC fields writes the mode as saved: it does not switch direct voice.
+    assert.equal(draft.mode, "passthrough");
+    assert.deepEqual(changedPaths(draft, draft), []);
+    assert.equal(directShowsConversion(draft, "rvc"), true, "the RVC fields show before RVC is selected");
     assert.equal(directSelectionPending(draft, passthrough, "rvc"), true);
-    assert.deepEqual(openedChanges(rvcSaved, "rvc"), []);
+    assert.equal(directSelectionPending(draft, rvcSaved, "rvc"), false);
+    assert.equal(directSelectionPending(draft, { ...rvcSaved, engine: "seed-vc" }, "rvc"), true);
 });
 
-test("the full form reports a mode it has changed", () => {
+test("#436: the RVC button writes the saved settings with converted RVC, not the draft", () => {
+    const passthrough = { ...rvcSaved, mode: "passthrough" };
+    assert.deepEqual(directRvcSelection(defaults, passthrough), { ...defaults, ...passthrough, mode: "converted", engine: "rvc" });
+    assert.deepEqual(directRvcSelection(defaults, { mode: "passthrough" }), { ...defaults, mode: "converted", engine: "rvc" });
+});
+
+test("the full form reports a mode it has changed as an edit, not as a pending selection", () => {
     const draft = directSavedDraft(defaults, rvcSaved, "all");
     assert.deepEqual(openedChanges(rvcSaved, "all"), []);
-    assert.equal(directSelectionPending({ ...draft, mode: "passthrough" }, rvcSaved, "all"), true);
+    assert.deepEqual(changedPaths(draft, { ...draft, mode: "passthrough" }), [["mode"]]);
+    assert.equal(directSelectionPending({ ...draft, mode: "passthrough" }, rvcSaved, "all"), false);
 });
 
 test("nothing is saved before the settings arrive", () => {
