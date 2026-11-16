@@ -13,9 +13,12 @@ pub const RATE: u32 = 48000;
 pub const FRAMES: usize = 3840;
 pub const PCM_BYTES: usize = FRAMES * 2;
 pub const BLOCK_NS: i64 = 80_000_000;
-/// Windows reads its clock in 16 ms ticks and schedules GPU work with more jitter. Its route
-/// drops a late block before sending it, so this only catches a stalled worker.
-pub const MAX_AGE_NS: i64 = if cfg!(windows) { 1_000_000_000 } else { 160_000_000 };
+/// How old a block may be when it is written. Python chose by OS; the device route is the
+/// Windows one: Windows reads its clock in 16 ms ticks and schedules GPU work with more jitter,
+/// and that route drops a late block before sending it, so this only catches a stalled worker.
+pub const MAX_AGE_NS: i64 = if cfg!(windows) { DEVICE_MAX_AGE_NS } else { MANAGED_MAX_AGE_NS };
+pub const DEVICE_MAX_AGE_NS: i64 = 1_000_000_000;
+pub const MANAGED_MAX_AGE_NS: i64 = 160_000_000;
 const MAGIC: &[u8; 4] = b"VVC1";
 const HEADER_LIMIT: usize = 2048;
 /// RVC converts on the GPU (`low`, as before) or on the CPU (`cpu`, with a larger delay).
@@ -148,8 +151,8 @@ pub fn require_ready(info: &Info, pcm: &[u8], session_id: &str, engine: &str) ->
     Ok((None, None))
 }
 
-pub fn require_fresh(end_ns: i64, now_ns: i64) -> Result<()> {
-    if end_ns <= 0 || end_ns > now_ns || now_ns - end_ns > MAX_AGE_NS {
+pub fn require_fresh(end_ns: i64, now_ns: i64, max_age_ns: i64) -> Result<()> {
+    if end_ns <= 0 || end_ns > now_ns || now_ns - end_ns > max_age_ns {
         return Err(ProtocolError::new("vc_block_expired"));
     }
     Ok(())
@@ -159,18 +162,18 @@ fn integer(info: &Info, key: &str) -> Option<i64> {
     info.get(key).filter(|v| v.is_i64() || v.is_u64()).and_then(Value::as_i64)
 }
 
-pub fn require_input(info: &Info, pcm: &[u8], session_id: &str, sequence: u64, now_ns: i64) -> Result<()> {
+pub fn require_input(info: &Info, pcm: &[u8], session_id: &str, sequence: u64, now_ns: i64, max_age_ns: i64) -> Result<()> {
     let invalid = || ProtocolError::new("vc_input_invalid");
     let start = integer(info, "start_ns").ok_or_else(invalid)?;
     let expected = with_pcm(input_info(session_id, sequence, start)?, PCM_BYTES);
     if pcm.len() != PCM_BYTES || !same(info, &expected) {
         return Err(invalid());
     }
-    require_fresh(start + BLOCK_NS, now_ns)
+    require_fresh(start + BLOCK_NS, now_ns, max_age_ns)
 }
 
 /// The worker's answer to `source`. Returns `converted` or `vad_silence`.
-pub fn require_output(info: &Info, pcm: &[u8], source: &Info, original: &[u8], now_ns: i64) -> Result<&'static str> {
+pub fn require_output(info: &Info, pcm: &[u8], source: &Info, original: &[u8], now_ns: i64, max_age_ns: i64) -> Result<&'static str> {
     let session_id = source.get("session").and_then(Value::as_str).unwrap_or("");
     if info.get("type").and_then(Value::as_str) == Some("failed") {
         let code = info.get("code").and_then(Value::as_str).unwrap_or("");
@@ -181,7 +184,7 @@ pub fn require_output(info: &Info, pcm: &[u8], source: &Info, original: &[u8], n
         return Err(ProtocolError::new("vc_output_invalid"));
     }
     let sequence = source.get("sequence").and_then(Value::as_u64).ok_or_else(|| ProtocolError::new("vc_input_invalid"))?;
-    require_input(source, original, session_id, sequence, now_ns)?;
+    require_input(source, original, session_id, sequence, now_ns, max_age_ns)?;
     let state = match info.get("state").and_then(Value::as_str) {
         Some("converted") => "converted",
         Some("vad_silence") => "vad_silence",
@@ -348,12 +351,12 @@ mod tests {
         let mut output = source.clone();
         output.insert("type".into(), json!("output"));
         output.insert("state".into(), json!("converted"));
-        assert_eq!(require_output(&output, &[5u8; PCM_BYTES], &source, &original, now).unwrap(), "converted");
-        assert_eq!(require_output(&output, &original, &source, &original, now).unwrap_err().code(), "vc_passthrough_forbidden");
+        assert_eq!(require_output(&output, &[5u8; PCM_BYTES], &source, &original, now, MAX_AGE_NS).unwrap(), "converted");
+        assert_eq!(require_output(&output, &original, &source, &original, now, MAX_AGE_NS).unwrap_err().code(), "vc_passthrough_forbidden");
         output.insert("state".into(), json!("vad_silence"));
-        assert_eq!(require_output(&output, &[5u8; PCM_BYTES], &source, &original, now).unwrap_err().code(), "vc_silence_invalid");
-        assert_eq!(require_output(&output, &[0u8; PCM_BYTES], &source, &original, now + MAX_AGE_NS + 10).unwrap_err().code(), "vc_block_expired");
+        assert_eq!(require_output(&output, &[5u8; PCM_BYTES], &source, &original, now, MAX_AGE_NS).unwrap_err().code(), "vc_silence_invalid");
+        assert_eq!(require_output(&output, &[0u8; PCM_BYTES], &source, &original, now + MAX_AGE_NS + 10, MAX_AGE_NS).unwrap_err().code(), "vc_block_expired");
         let overrun = with_pcm(failed_info(SESSION, "vc_capture_overrun").unwrap(), 0);
-        assert_eq!(require_output(&overrun, &[], &source, &original, now).unwrap_err().code(), "vc_capture_overrun");
+        assert_eq!(require_output(&overrun, &[], &source, &original, now, MAX_AGE_NS).unwrap_err().code(), "vc_capture_overrun");
     }
 }

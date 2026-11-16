@@ -51,6 +51,10 @@ pub trait VcRoute: Send + Sync {
     fn capture(&self, source: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture>;
     /// How the converted voice's monitor opens its device.
     fn monitor_factory(&self) -> MonitorFactory;
+    /// How old a block may be when its answer is written.
+    fn max_age_ns(&self) -> i64 {
+        p::MANAGED_MAX_AGE_NS
+    }
 }
 
 /// A chosen output device in place of the managed sink (Windows, `windows_route.py`).
@@ -90,6 +94,9 @@ impl VcRoute for DeviceRoute {
     }
     fn monitor_factory(&self) -> MonitorFactory {
         self.monitor.clone()
+    }
+    fn max_age_ns(&self) -> i64 {
+        p::DEVICE_MAX_AGE_NS
     }
 }
 
@@ -598,6 +605,7 @@ fn next_block(shared: &Shared, info: p::Info) -> Result<Option<p::Info>, String>
 struct Deadline<'a> {
     token: &'a CancelToken,
     end_ns: i64,
+    max_age_ns: i64,
 }
 
 impl Deadline<'_> {
@@ -605,7 +613,7 @@ impl Deadline<'_> {
         if self.token.is_set() {
             return Err("cancelled".into());
         }
-        p::require_fresh(self.end_ns, monotonic_ns() as i64).map_err(|e| e.0)
+        p::require_fresh(self.end_ns, monotonic_ns() as i64, self.max_age_ns).map_err(|e| e.0)
     }
 }
 
@@ -814,7 +822,7 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
         };
         let end_ns = info.get("end_ns").and_then(Value::as_i64).unwrap_or(0);
         let start_ns = info.get("start_ns").and_then(Value::as_i64).unwrap_or(0);
-        let deadline = Deadline { token: &shared.token, end_ns };
+        let deadline = Deadline { token: &shared.token, end_ns, max_age_ns: route.max_age_ns() };
         let fresh = || -> Result<(), ProtocolError> {
             deadline.fresh().map_err(ProtocolError)?;
             check_binding().map_err(ProtocolError)
@@ -832,7 +840,7 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
                 state.rounds.pop_front();
             }
         }
-        let converted_state = p::require_output(&result, &converted, &info, &pcm, monotonic_ns() as i64).map_err(|e| e.0)?;
+        let converted_state = p::require_output(&result, &converted, &info, &pcm, monotonic_ns() as i64, route.max_age_ns()).map_err(|e| e.0)?;
         fresh().map_err(|e| e.0)?;
         let audible = audible(shared, converted, speech);
         output.write(&audible, &deadline).map_err(code_of)?;
