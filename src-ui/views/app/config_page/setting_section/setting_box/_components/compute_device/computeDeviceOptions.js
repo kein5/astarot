@@ -44,8 +44,10 @@ const findKeyByDeviceValue = (devices, target_value) => {
     return null;
 };
 
+// From the smallest model to the most precise. int4 is the ONNX engine's weight-only variant.
 const DEFAULT_ORDER = [
     "auto",
+    "int4",
     "int8",
     "int8_bfloat16",
     "int8_float16",

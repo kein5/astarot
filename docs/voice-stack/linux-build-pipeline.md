@@ -1,8 +1,8 @@
 # Linux build pipeline
 
 `tools/build_linux.py` builds an x86_64 candidate: the `vrct-vox` app, which runs the Rust
-backend core (`native/core`) in its own process, and its `_internal` folder with pinned
-speech.cpp 0.11.0 CPU or Vulkan, the RVC worker, the C audio and capture helpers, the
+backend core (`native/core`) in its own process, and its `_internal` folder with both pinned
+speech.cpp 0.11.0 builds (Vulkan in `build/speechcpp`, CPU in `build/speechcpp-cpu`), the RVC worker, the C audio and capture helpers, the
 PipeWire template and the license texts (`tools/app_resources.py` lists them). Since 0.5.0
 no Python runtime is frozen or shipped. The default output is a `tar.gz`, a SHA-256 file
 and a JSON file inventory. Keep `vrct-vox` and `_internal` together: the core finds
@@ -15,12 +15,14 @@ The CI then makes a `.deb` and an `.rpm` from the same candidate directory with
 (needs `dpkg-deb` and `rpmbuild`). They install the unchanged files under `/opt/vrct-vox`,
 add `/usr/bin/vrct-vox`, a desktop entry, an icon and the license notices, and write
 `/opt/vrct-vox/package-manager` (`deb` or `rpm`) so the app can tell a package-manager install.
-They require glibc (the highest version the manifest records), GTK 3, WebKitGTK 4.1 and, for the
-Vulkan variant, the Vulkan loader, which speech.cpp loads from the system. The PipeWire tools and
-Mesa Vulkan drivers are recommended. `tools/ci/check_linux_package.sh` installs each package in a
+They require glibc (the highest version the manifest records), GTK 3, WebKitGTK 4.1 and
+libpipewire. The Vulkan loader (`libvulkan1`, `vulkan-loader`), the Mesa Vulkan drivers and the
+PipeWire tools are recommended: the Vulkan build of speech.cpp loads the loader from the system,
+and the CPU build in the same package runs without it (decision 48 in
+[core integration](core-integration.md)). `tools/ci/check_linux_package.sh` installs each package in a
 clean Ubuntu 24.04, Debian 13 or Fedora 44 container without recommended packages and checks
-that the GUI binary's libraries resolve, the bundled engine starts, and removal leaves nothing
-behind. It does not open the GUI, so the backend core inside it is tested by the tar.gz and
+that the GUI binary's libraries resolve, the CPU build starts without Vulkan, the Vulkan build
+starts once the loader is installed, and removal leaves nothing behind. It does not open the GUI, so the backend core inside it is tested by the tar.gz and
 AppImage acceptance instead.
 
 The GitHub Actions workflow `VRCT-VOX Linux candidate (no publication)` targets Ubuntu 24.04.
@@ -48,7 +50,7 @@ mkdir -p build
 bash tools/ci/setup_pipewire.sh "$PWD/build/ci-audio"
 while IFS= read -r setting; do export "$setting"; done < build/ci-audio/environment
 export PATH="$PWD/build/ci-audio/prefix/bin:$PATH"
-python tools/build_linux.py --variant linux-x64-vulkan --download-speech
+python tools/build_linux.py --download-speech
 ```
 
 The application's backend core lists and watches the audio devices through
@@ -70,10 +72,14 @@ daemon to report PipeWire 1.6.10 or newer. It rejects older/malformed runtime ve
 before emitting PCM; compile-time checks give an explicit dependency error. This
 does not relax timestamp/discontinuity checks or validate every newer release.
 
-`--download-speech` authorizes acquisition of **only the pinned engine executable**.
-Alternatively use `--speech-archive /absolute/path/speech-0.11.0-linux-x64-vulkan.zip`;
+`--download-speech` authorizes acquisition of **only the two pinned engine archives**
+(`speech-0.11.0-linux-x64-vulkan.zip` and `speech-0.11.0-linux-x64-cpu.zip`).
+Alternatively use `--speech-archive-dir /absolute/path` with both archives under those names;
 the archive and executable hashes are checked against `speechcpp-bundle-artifacts.json`.
-Choose `--variant linux-x64-cpu` with the corresponding CPU archive for CPU builds.
+Since 0.5.0 one candidate carries both builds; there is no `--variant` any more. The user
+chooses CPU or GPU in the speech server settings: `cpu` runs the CPU build, `gpu` and a named
+GPU the Vulkan build, and `auto` the Vulkan build when it starts and lists a GPU, else the CPU
+build (`native/speech-server/src/builds.rs`).
 `--offline` requires the npm and Cargo caches to be populated. No engine models or
 reference recordings are fetched. `--resources-only` stages and inspects `_internal`
 (in `build/linux/internal`) and produces no distributable. `--profile debug` is also
@@ -92,10 +98,17 @@ The inventory records the build commit, tracked dirty state, host, hashes and EL
 Default outputs:
 
 ```text
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-vulkan-release.tar.gz
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-vulkan-release.tar.gz.sha256
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-vulkan-release.manifest.json
+build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.tar.gz
+build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.tar.gz.sha256
+build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.manifest.json
 ```
+
+Until 0.4 the names carried the engine build (`linux-x64-vulkan`, `linux-x64-cpu`). Since 0.5.0
+`build-manifest.json` records `"variant": "linux-x64"` and both builds in `speech_builds`.
+Carrying both builds adds the CPU executable (9,965,440 bytes unpacked; 3,798,516 bytes
+deflated in the pinned 0.11.0 ZIP) and a second copy of the notices (about 47 KB) to each
+package. The Vulkan executable is 52,174,848 bytes unpacked. These are the sizes of the files
+in the pinned archives, not of a built package.
 
 ## Run and inspect
 
@@ -103,12 +116,12 @@ build/linux/artifacts/VRCT-VOX-<version>-linux-x64-vulkan-release.manifest.json
 cd build/linux/artifacts
 sha256sum -c ./*.tar.gz.sha256
 # Inspect with tools/linux_package.py before extracting an independently obtained candidate.
-tar -xzf VRCT-VOX-<version>-linux-x64-vulkan-release.tar.gz
+tar -xzf VRCT-VOX-<version>-linux-x64-release.tar.gz
 ./VRCT-VOX/vrct-vox
 ```
 
 The full `VRCT-VOX` directory must stay together. The host supplies WebKitGTK 4.1,
-GTK3, OpenSSL, PipeWire/tools, Vulkan loader for Vulkan variants and other system
+GTK3, OpenSSL, PipeWire/tools, the Vulkan loader for the GPU choices and other system
 ELF dependencies. This is a portable directory layout, **not** an AppImage or a
 promise of compatibility with all distributions. A build made on CachyOS may
 require newer glibc than the Ubuntu CI build; consult its manifest.
@@ -137,7 +150,7 @@ VRCT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
 `python tools/dev.py setup --scope headless` prepares that test environment from `uv.lock`
 (pytest and the other test tools; no app dependencies). The test extracts to a path
 containing spaces, makes the installation read-only, checks that no Python backend is
-present and that the bundled engine starts, and verifies installation hashes did not
+present and that both bundled engine builds start, and verifies installation hashes did not
 change. For GUI tests also set
 `VRCT_TEST_NATIVE_GUI=1` and `VRCT_TEST_DRIVER` to a tauri-driver 2.1.0 executable.
 The shared `NativeWebDriver` launcher passes `VRCT_CONFIG_DIR` explicitly, defaulting

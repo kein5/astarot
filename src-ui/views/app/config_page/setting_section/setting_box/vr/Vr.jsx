@@ -28,6 +28,7 @@ import SquareSvg from "@images/square.svg?react";
 import TriangleSvg from "@images/triangle.svg?react";
 import { randomIntMinMax } from "@utils";
 import { DesktopCaptionOverlay } from "./DesktopCaptionOverlay";
+import { OverlayFontFamily } from "./OverlayFontFamily";
 
 export const Vr = () => {
     const { t } = useI18n();
@@ -631,6 +632,7 @@ const CommonSettingsContainer = () => {
                 variable={currentVoiceTypingMode}
                 toggleFunction={toggleVoiceTypingMode}
             />
+            <OverlayFontFamily />
         </div>
     );
 };

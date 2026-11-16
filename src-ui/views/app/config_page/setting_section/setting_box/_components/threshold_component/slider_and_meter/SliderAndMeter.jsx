@@ -30,12 +30,13 @@ const ThresholdVolumeMeter_Mic = (props) => {
     const { t } = useI18n();
     const { currentMicVolume } = useStore_MicVolume();
 
-    const { currentEnableAutomaticMicThreshold, currentMicVadFilter } = useDevice();
+    const { currentEnableAutomaticMicThreshold, currentMicVadFilter, currentVadAvailable } = useDevice();
 
     const currentVolumeVariable = Math.min(currentMicVolume.data, props.max);
     const volume_width_percentage = (currentVolumeVariable / props.max) * 100;
 
-    const is_slider_hidden = currentEnableAutomaticMicThreshold.data === true || currentMicVadFilter.data === true;
+    // A saved VAD switch cuts nothing while this build has no VAD: the threshold applies.
+    const is_slider_hidden = currentEnableAutomaticMicThreshold.data === true || (currentMicVadFilter.data === true && currentVadAvailable.data === true);
     const slider_value = toNumericThreshold(props.ui_threshold, props.min ?? 0);
 
     return (
@@ -62,12 +63,12 @@ const ThresholdVolumeMeter_Speaker = (props) => {
     const { t } = useI18n();
     const { currentSpeakerVolume } = useStore_SpeakerVolume();
 
-    const { currentEnableAutomaticSpeakerThreshold, currentSpeakerVadFilter } = useDevice();
+    const { currentEnableAutomaticSpeakerThreshold, currentSpeakerVadFilter, currentVadAvailable } = useDevice();
 
     const currentVolumeVariable = Math.min(currentSpeakerVolume.data, props.max);
     const volume_width_percentage = (currentVolumeVariable / props.max) * 100;
 
-    const is_slider_hidden = currentEnableAutomaticSpeakerThreshold.data === true || currentSpeakerVadFilter.data === true;
+    const is_slider_hidden = currentEnableAutomaticSpeakerThreshold.data === true || (currentSpeakerVadFilter.data === true && currentVadAvailable.data === true);
     const slider_value = toNumericThreshold(props.ui_threshold, props.min ?? 0);
 
     return (

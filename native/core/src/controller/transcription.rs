@@ -309,7 +309,6 @@ impl Core {
         let key = |name: &str| config.get("TRANSCRIPTION_AUTH_KEYS")[name].as_str().unwrap_or("").to_string();
         let selected = |name: &str| config.get(name).as_str().unwrap_or("").to_string();
         let built = match engine {
-            "Google" => Engine::Google { url: endpoints.google.clone() },
             "Groq_Whisper" | "OpenAI_Whisper" | "Custom_Whisper" => {
                 let _guard = self.credential_lock.lock().unwrap();
                 let (base_url, model) = match engine {
@@ -350,6 +349,9 @@ impl Core {
             record_timeout: number("RECORD_TIMEOUT").min(phrase_timeout),
             phrase_timeout,
             max_phrases: number("MAX_PHRASES").max(0.0) as usize,
+            // The switch takes effect at the next start, as in Python. Without a VAD engine the
+            // saved switch is kept and the energy listener cuts phrases.
+            vad: config.get_bool(&format!("{}_ENABLE_VAD", upper(source))).then(|| self.services().vad.clone()).flatten(),
         }
     }
 
@@ -685,6 +687,27 @@ impl Core {
         ok(json!(false))
     }
 
+    /// `_leaveTranscriptionRoute` and an engine change on the recorder: what listens through
+    /// the engine that was selected stops, and the switches show off. Turning one on again
+    /// starts the newly selected engine. `realtime` is the route of the previous engine.
+    pub(crate) fn leave_transcription_route(&self, realtime: bool) {
+        let Some(core) = self.transcription.core() else { return };
+        if realtime {
+            for source in [Source::Mic, Source::Speaker] {
+                core.transcription.revoke(source);
+                core.stop_realtime_for_recorder(source);
+            }
+            return;
+        }
+        for source in [Source::Mic, Source::Speaker] {
+            if core.config().get_bool(flags(source).0) {
+                // The recorder stops as one, whatever the engine now is.
+                core.set_disable_transcription(source, &Value::Null);
+                core.run(200, &format!("/set/disable/transcription_{}", direction(source)), json!(false));
+            }
+        }
+    }
+
     /// Stops both recorders and realtime recognition at the end of the run.
     pub(crate) fn stop_transcription(&self) {
         if !self.close_realtime() {
@@ -885,8 +908,9 @@ impl Core {
                     let models: Vec<String> = detailed.into_iter().map(|(name, _)| name).collect();
                     if models.is_empty() { (false, None, None) } else { (true, Some(models), Some(languages)) }
                 }
-                // Google and speech.cpp: established by real requests, not a probe.
-                _ => (true, None, None),
+                // speech.cpp: established by its server, not a probe.
+                crate::languages::LOCAL_SPEECH_ENGINE => (true, None, None),
+                _ => (false, None, None),
             }
         };
         let results: Vec<(String, Checked)> = std::thread::scope(|scope| {

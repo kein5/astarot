@@ -137,7 +137,8 @@ export const isRelayAllowed = (path: unknown): path is string => typeof path ===
 // VR画面へ写さない atom。VR画面は認証キーとトークンを表示しない。写すと、VR画面からキーを
 // 読めてしまう。ウィンドウ共有を確認なしで再開するトークン (RestoreToken) も、VR画面では
 // 使わないので写さない
-export const isSecretAtomName = (name: string): boolean => /(Auth(Key|Token)|RestoreToken)$/.test(name);
+// PapagoClientID: the Client ID goes with Papago's secret and is kept out of the log too.
+export const isSecretAtomName = (name: string): boolean => /(Auth(Key|Token)|RestoreToken|ClientID)$/.test(name);
 
 // VR画面へ写してよい状態 (SEC-03)。VR画面が読む設定のカテゴリ (useVr、useDevice などで丸ごと読む)
 // と、VR画面がそのほかに読む atom だけを送る。高度な設定 (WebSocket、OSC、テレメトリ)、更新、

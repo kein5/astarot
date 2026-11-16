@@ -34,6 +34,11 @@ fn main_only(window: &tauri::WebviewWindow) -> Result<(), String> {
 
 /// Where settings, logs and models live: the same folders the Python sidecar used, so that a
 /// user's settings carry over (`runtime_paths.py`, `config.py`).
+/// Where the settings live (config.json), as the backend finds it.
+pub(crate) fn state_dir(executable: &Path) -> PathBuf {
+    environment(executable, String::new()).state_dir
+}
+
 fn environment(executable: &Path, version: String) -> Environment {
     let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     let linux_bundle = cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1");
@@ -55,7 +60,9 @@ fn environment(executable: &Path, version: String) -> Environment {
         app_dir,
         data_dir,
         platform: Platform::current(),
-        compute_devices: vec![Environment::cpu_device()],
+        // The CPU, and the GPU execution providers of the ONNX Runtime library beside the app
+        // (none loaded when no library is there).
+        compute_devices: vrct_core::controller::translation::compute_devices(),
         devices: None,
         websocket_token: None,
     }
@@ -92,6 +99,8 @@ pub fn backend_start(
     };
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
+    // The update endpoints use the update page's updater (app_update.rs; decision 20).
+    options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));
     if cfg!(debug_assertions) {
         // A development build runs from src-tauri/target; the files a package ships in
         // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.

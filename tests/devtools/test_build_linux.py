@@ -34,6 +34,9 @@ name = "vrct-vox"
 version = "0.1.0"
 source = { virtual = "." }
 '''
+# The two pinned speech.cpp archives a Linux package ships (stage_bundle is replaced in the tests).
+MANIFEST = {'assets': {'linux-x64-vulkan': {'name': 'vulkan.zip'}, 'linux-x64-cpu': {'name': 'cpu.zip'}}}
+ARCHIVES = {'linux-x64-vulkan': Path('vulkan.zip'), 'linux-x64-cpu': Path('cpu.zip')}
 
 
 class LinuxDependencyTests(unittest.TestCase):
@@ -176,17 +179,33 @@ class LinuxStagingTests(unittest.TestCase):
 
     def test_internal_holds_the_engine_helpers_and_notices_only(self):
         with patch.object(build_linux, 'run', side_effect=self.fake_run), \
-                patch.object(build_linux, 'load_manifest', return_value={'assets': {'linux-x64-cpu': {}}}), \
+                patch.object(build_linux, 'load_manifest', return_value=MANIFEST), \
                 patch.object(build_linux, 'stage_bundle', side_effect=self.fake_bundle), \
                 patch.object(build_linux, 'verify_bundle'):
-            internal = build_linux.stage_internal(self.work, 'linux-x64-cpu', self.work / 'speech.zip')
+            internal = build_linux.stage_internal(self.work, ARCHIVES)
         names = {path.relative_to(internal).as_posix() for path in internal.rglob('*') if path.is_file()}
         self.assertLessEqual(set(app_resources.required('linux')), names)
-        self.assertIn('build/speechcpp/notices/LICENSE', names)
+        # Both engine builds, each with its own pinned bundle and notices.
+        for folder in ('speechcpp', 'speechcpp-cpu'):
+            self.assertIn(f'build/{folder}/notices/LICENSE', names)
+            self.assertIn(f'build/{folder}/bundle.json', names)
         self.assertTrue({f'docs/{name}' for name in build_linux.SHIPPED_DOCS} <= names)
         self.assertTrue(any(name.startswith('config/pipewire/') for name in names))
         for forbidden in ('licenses/python', 'integrations', 'src-python', 'python-environment.json', 'rapidocr'):
             self.assertFalse(any(name.startswith(forbidden) for name in names), forbidden)
+
+    def test_both_engine_builds_are_staged_from_their_pinned_archives(self):
+        staged = []
+
+        def record(archive, output, asset):
+            staged.append((archive.name, output.name, asset['name']))
+            self.fake_bundle(archive, output, asset)
+        with patch.object(build_linux, 'run', side_effect=self.fake_run), \
+                patch.object(build_linux, 'load_manifest', return_value=MANIFEST), \
+                patch.object(build_linux, 'stage_bundle', side_effect=record), \
+                patch.object(build_linux, 'verify_bundle'):
+            build_linux.stage_internal(self.work, build_linux.speech_archives(MANIFEST, Path('/archives')))
+        self.assertEqual(staged, [('vulkan.zip', 'speechcpp', 'vulkan.zip'), ('cpu.zip', 'speechcpp-cpu', 'cpu.zip')])
 
     def test_a_missing_helper_stops_the_build(self):
         def without_gate(argv, **options):
@@ -195,11 +214,11 @@ class LinuxStagingTests(unittest.TestCase):
             if gate.exists():
                 gate.unlink()
         with patch.object(build_linux, 'run', side_effect=without_gate), \
-                patch.object(build_linux, 'load_manifest', return_value={'assets': {'linux-x64-cpu': {}}}), \
+                patch.object(build_linux, 'load_manifest', return_value=MANIFEST), \
                 patch.object(build_linux, 'stage_bundle', side_effect=self.fake_bundle), \
                 patch.object(build_linux, 'verify_bundle'):
             with self.assertRaisesRegex(ValueError, 'vrct-voice-gate'):
-                build_linux.stage_internal(self.work, 'linux-x64-cpu', self.work / 'speech.zip')
+                build_linux.stage_internal(self.work, ARCHIVES)
 
     def test_the_tauri_workspace_ships_no_sidecar(self):
         source = (Path(build_linux.ROOT) / 'tools/build_linux.py').read_text(encoding='utf-8')

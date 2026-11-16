@@ -203,18 +203,32 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     Ok(Value::Object(result))
 }
 
-/// The defaults of the direct voice settings, in the saved order. `rvc_device`, `rvc_threads`
-/// (0: the worker chooses) and `rvc_highpass` are the RVC worker's `--device`, `--threads` and
-/// `--highpass`; a file saved before them takes these defaults, which are the worker's own.
+/// The engine Python ran and the core cannot: Seed-VC ended with the Python backend (decision 10).
+pub const RETIRED_ENGINE: &str = "seed-vc";
+
+/// The defaults of the direct voice settings, in the saved order. Python's default engine was
+/// Seed-VC; RVC is the only one left (#391). `rvc_device`, `rvc_threads` (0: the worker chooses)
+/// and `rvc_highpass` are the RVC worker's `--device`, `--threads` and `--highpass`; a file saved
+/// before them takes these defaults, which are the worker's own.
 pub fn default_direct() -> Value {
     json!({
-        "mode": "passthrough", "runtime": "", "reference": "", "engine": "seed-vc", "rvc_runtime": "",
+        "mode": "passthrough", "runtime": "", "reference": "", "engine": "rvc", "rvc_runtime": "",
         "rvc_model": "", "rvc_index": "", "rvc_pitch": 0, "rvc_index_rate": 0.0,
         "rvc_device": "auto", "rvc_threads": 0, "rvc_highpass": true,
     })
 }
 
-/// `DirectSettings.from_dict(...).to_dict()`.
+/// The saved direct voice settings as they load: a Seed-VC engine saved by an earlier version
+/// moves to RVC. The other fields stay, so the file stays readable by 0.4, which knew both.
+pub fn load_direct(value: &Value) -> Option<Value> {
+    let mut value = value.clone();
+    if value.get("engine").and_then(Value::as_str) == Some(RETIRED_ENGINE) {
+        value["engine"] = json!("rvc");
+    }
+    normalize_direct(&value)
+}
+
+/// `DirectSettings.from_dict(...).to_dict()`, with RVC as the only engine.
 pub fn normalize_direct(value: &Value) -> Option<Value> {
     let object = value.as_object()?;
     let Value::Object(mut result) = default_direct() else { unreachable!() };
@@ -228,7 +242,7 @@ pub fn normalize_direct(value: &Value) -> Option<Value> {
         result[key].as_str().is_some_and(|s| s.chars().count() <= 4096 && !s.chars().any(|c| (c as u32) < 32))
     };
     let mode_ok = matches!(result["mode"].as_str(), Some("passthrough" | "converted"));
-    let engine_ok = matches!(result["engine"].as_str(), Some("seed-vc" | "rvc"));
+    let engine_ok = result["engine"].as_str() == Some("rvc");
     let texts_ok = ["runtime", "reference", "rvc_runtime", "rvc_model", "rvc_index"].iter().all(|k| text_ok(k));
     let pitch_ok = result["rvc_pitch"].as_i64().is_some_and(|p| result["rvc_pitch"].is_i64() && (-24..=24).contains(&p));
     let rate = &result["rvc_index_rate"];
@@ -266,6 +280,15 @@ mod tests {
         ] {
             assert!(normalize_direct(&bad).is_none(), "{bad}");
         }
+    }
+
+    #[test]
+    fn a_saved_seed_vc_engine_loads_as_rvc_and_a_new_one_is_refused() {
+        let saved = json!({ "mode": "converted", "engine": "seed-vc", "runtime": "/seed", "rvc_model": "a.pth" });
+        let loaded = load_direct(&saved).unwrap();
+        assert_eq!((loaded["mode"].clone(), loaded["engine"].clone(), loaded["runtime"].clone()), (json!("converted"), json!("rvc"), json!("/seed")));
+        assert_eq!(normalize_direct(&saved), None);
+        assert_eq!(default_direct()["engine"], "rvc");
     }
 
     #[test]

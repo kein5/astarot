@@ -215,7 +215,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 中核が`native/translation`（翻訳のプロバイダ、プロンプト、読みの規則）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`httparse`、`rustls`、`serde_json`、`webpki-roots`）と、中核に足した`chrono`は、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。プロンプトの文面はPythonの`translation_settings/prompt/*.yml`（VRCT-VOXのコード）を移したもの。
 
-中核に機能フラグ`onnx-translation`ができた（既定はオフ）。オンにすると`native/translate-onnx`経由で`ort`（ONNX Runtimeの取得を含む）と`tokenizers`が入る。そのため`native/core/Cargo.lock`にはこれらが載るが、既定のビルドとアプリには入らない。オンにするときは、ONNX Runtimeの同梱（[core-integration.md](core-integration.md)の「判断が要ること」の2）と一緒に、この台帳とNOTICEを見直す。読みの辞書（同じく3）も、決まったら辞書のライセンスをここに足す。
+中核の機能フラグ`onnx-translation`は、2026-11-16から既定でオンで、アプリでも有効（ローカル翻訳のエンジンを`native/translate-onnx`に決めた。[core-integration.md](core-integration.md)の「決まったこと」）。`ort`はチャットの読み取りと同じ`load-dynamic`で、ONNX Runtimeをビルドで取得もリンクもしない。アプリのロックファイルに新しく入った外部のクレートは`tokenizers` 0.23.2（Apache-2.0）とその依存（`esaxx-rs`、`spm_precompiled`、`fancy-regex`、`rayon`、`derive_builder`、`monostate`、`daachorse`、`compact_str`など。どれもMITかApache-2.0、またはそのどちらかを選べる。`zerocopy`はBSD-2-Clause OR Apache-2.0 OR MIT、`macro_rules_attribute`はApache-2.0 OR MIT OR Zlib）。`tools/rust_licenses.py`をWindowsとLinuxの両方の対象で実行し、どれも公開パッケージにライセンス文があることを確かめた。`tokenizers`は`default-features = false`と`fancy-regex`で使うので、C++のコード（`esaxx_fast`、`onig`）はビルドに入らない。ONNX Runtimeのライブラリそのものをどこから配るかは未決（同じ文書の「判断が要ること」の2）。読みの辞書（同じく3）も、決まったら辞書のライセンスをここに足す。
 ## チャットの読み取りを中核に入れたときの依存（2026-11-16、#285）
 
 中核（`native/core`）が`native/ocr-runtime`を使うようになり、`vrct-vox`に次の外部のクレートが加わった。`caseless`（MIT）、`libloading` 0.9.1（ISC）、`ort`と`ort-sys`（MIT OR Apache-2.0）、`ndarray`、`matrixmultiply`、`num-complex`、`num-integer`、`rawpointer`、`unicode-bidi`、`unicode-normalization`（MITとApache-2.0のいずれか）。`tools/rust_licenses.py`をWindowsとLinuxの両方で実行し、どれも公開パッケージにライセンス文があることを確かめた。`ndarray`などは`vrct-rvc-worker`がすでに使っていたもの。
@@ -224,7 +224,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 ## 音声認識を中核に入れたときの依存（2026-11-16、#278）
 
-中核が`native/transcription`（音声認識）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`tungstenite`、`serde_json`、`libc`）と`native/translation`のHTTPクライアントは、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。音量による発話の切り出しはSpeechRecognition 3.10.4（BSD-3-Clause）の処理を、`rms`と`ratecv`はCPythonの`audioop`（PSF-2.0）を、結果が同じになるように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。Googleの音声認識には、SpeechRecognitionと同じ既定のキーで送る（[core-integration.md](core-integration.md)の「判断が要ること」の21）。Silero VADのモデルは中核では使わない（同じ節の20）。
+中核が`native/transcription`（音声認識）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`tungstenite`、`serde_json`、`libc`）と`native/translation`のHTTPクライアントは、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。音量による発話の切り出しはSpeechRecognition 3.10.4（BSD-3-Clause）の処理を、`rms`と`ratecv`はCPythonの`audioop`（PSF-2.0）を、結果が同じになるように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。Googleの音声認識（SpeechRecognitionの既定のキーで送るもの）は移していない（[core-integration.md](core-integration.md)の「決まったこと」の「Google の Web 音声認識」）。Silero VADのモデルは中核では使わない（同じ節の20）。
 
 ## rmvpe.onnxの承認（2026-11-16、#322）
 
@@ -291,6 +291,10 @@ miniaudioの二重ライセンス、静的GCCランタイムのGPLv3＋Runtime L
 
 2026-11-15に固定版を0.11.0（commit 8d18924cd238b87c0297df112f7ff40783a6414f）へ更新。3種の公式ZIP（Linux CPU、Linux Vulkan、Windows Vulkan）は、リリースの`SHA256SUMS`とGitHubが示すダイジェストの両方と一致した。speech.cpp/cpp-httplib/miniaudioのライセンス文は0.10.0と同一で、vendorは無変更。GGMLはspeech.cppのfork（[nyosegawa/ggml](https://github.com/nyosegawa/ggml)）のsubmodule 79b50d239d0b88852814c873db0d85d43ed66d9bへ更新し、ライセンス文は同一。forkは0.10.0の時点から使われていたので、通知と台帳の原典URLもforkに直した。Linuxの実行ファイルのGCCは同じUbuntu 11.4.0-1ubuntu1~22.04.3で、必要なglibcは2.34のまま、動的に読むのはlibc・libm・（Vulkan版は）libvulkanだけ。Windowsの`speech.exe`はMSVCのビルド情報を持ち、読み込むDLLはWindows標準のものと`vulkan-1.dll`だけで、Cランタイムの動的ライブラリは読まない。新規に同梱する第三者コードはない。0.11.0で増えた音声強調（RE-USE）と対話（Haru-4B）のモデルはアプリから使わず、取得の候補にも入れない。
 
+## Linuxの2つのspeech.cpp（0.5.0、2026-11-16）
+
+0.5.0から、Linuxの配布物（tar.gz、AppImage、deb、rpm）はアーキテクチャごとに1つになり、speech.cppのCPU版とVulkan版の両方を入れる。Vulkan版は`_internal/build/speechcpp/`、CPU版は`_internal/build/speechcpp-cpu/`にあり、それぞれが固定台帳のZIPから作った自分の`bundle.json`と通知一式を持つ。どちらを使うかは設定の推論デバイスで決まる（[中核の統合](core-integration.md)の「判断が要ること」の5）。2つの実行ファイルは同じリリース（0.11.0、commit 8d18924cd238b87c0297df112f7ff40783a6414f）の公式ZIPで、通知の文面は同じ。新規に同梱する第三者コードはない。CPU版が動的に読むのはlibcとlibmだけで、Vulkanローダーは読まない。Vulkan版はlibvulkanを読むが、ローダーとドライバーは今までどおり配布物に含めない。debとrpmではVulkanローダーを必須から推奨に移した（「判断が要ること」の48）。Windowsは公式のWindows版がVulkan版だけなので、今までどおりVulkan版だけを入れる。
+
 ## 内蔵CTranslate2の取得条件
 
 ローカルの Whisper（faster-whisper）は #288 で削除し、Whisper の重み（OpenAIのMITモデルを元にしたSystran・Zoont・deepdmlのCTranslate2変換版）の取得もやめた。以前の版が取得した重みは読まず、設定の「音声認識（ASR）」から利用者が削除できる。提供元は[NOTICE](../../NOTICE.md#whisper-weights-from-earlier-versions)に残す。faster-whisperは依存から外し（`pyproject.toml`、`uv.lock`。PyAVも一緒に外れた）、発話区間の検出（同梱のSilero VAD）とOCRが使う`onnxruntime`を直接の依存にした。PyAVを必要とする依存はなくなったが、`packaging/pyinstaller-stubs/av`の代用モジュールと配布ポリシーによるPyAV・x264/x265の拒否は、防御として残す（代用モジュールは0.5.0でPyInstallerの工程と一緒に削除した）。CTranslate2と、そのCUDA用の追加依存は、ローカルの翻訳が使うので残す。
@@ -307,7 +311,7 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 
 | 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
 |---|---|---|---|
-| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | 候補。入れるときはONNX Runtimeの配り方（2）と一緒に台帳を見直す |
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは未公開。利用者が自分で置くモデルのライセンスは利用者が確かめる |
 | `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
 | `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
 | `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
@@ -395,7 +399,8 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 
 | パス | 内容 | ライセンス |
 |---|---|---|
-| `_internal/build/speechcpp/` | 固定版のspeech.cppと依存の通知 | MITと通知の各ライセンス（上の各節） |
+| `_internal/build/speechcpp/` | 固定版のspeech.cpp（Vulkan版）と依存の通知 | MITと通知の各ライセンス（上の各節） |
+| Linuxの`_internal/build/speechcpp-cpu/` | 固定版のspeech.cpp（CPU版）と依存の通知 | 同上（下の「Linuxの2つのspeech.cpp」） |
 | `_internal/build/sudachi/`（版が決まってから） | 読みの辞書SudachiDictと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
 | `_internal/build/vrct-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
 | Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`vrct-voice-gate`など） | VRCT-VOX自身のコード |
@@ -409,12 +414,12 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 - Pythonの実行環境とPythonのパッケージ（`_internal/licenses/python/`のライセンス文も）。NOTICEの「LGPL and GPL components」の表の部品（libsoxr、OpenCVのFFmpegとGCCのランタイム、zeroconf、Seed-VCのアダプター、PyInstallerのブートローダー）は0.4.xまでの配布物にだけ入る。ソースの提供の約束は、その版の公開から3年間続く。
 - Silero VADの同梱（上の節の`_internal/models/transcription/silero_vad/`）。Rustの音声認識がSilero VADを使うことになったら、`tools/app_resources.py`に足し、`licenses/silero-vad/`の通知も同梱する。
 - RapidOCRの設定ファイル（`rapidocr/*.yaml`）。Rustの`ocr-runtime`は読まない。
-- フォント（`*.ttf`）。VRのオーバーレイをRustで描くときに要るかは、その作業で決める（Outfitの節も同じ）。
+- フォント（`*.ttf`）。0.4.xまではVRの字幕のためにNoto SansのJP・KR・SC・TC（SIL Open Font License 1.1）を`_internal`に入れていた。Rustの中核は書体を同梱せず、利用者のPCの書体を使う（[中核の統合](core-integration.md)の「決まったこと」の「字幕の書体」）。そのため書体のライセンスは配布物に関係しない。Outfitの節はブランドの文字のためのもので、これとは別。
 - Sudachiの辞書（SudachiPyの`sudachidict_core`と`sudachidict_full`）。Rustの中核は同じ辞書をsudachi.rsで読む。入れる版は下の「読みの解析器と辞書」の節。
 
 まだ決まっていないもの（[中核の統合](core-integration.md)の「判断が要ること」）:
 
-- ONNX Runtimeの配り方（2）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`download-binaries`でONNX Runtimeを使う。WindowsでDirectMLを使うと、`onnxruntime.dll`と`DirectML.dll`を`vrct-vox.exe`の隣に置くことになる（`utils/zip.py`はあれば収める）。ONNX Runtime（MIT）とDirectML（Microsoftの再配布の条件）の通知を、そのときNOTICEとこの台帳に足す。
+- ONNX Runtimeの配り方（2）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`load-dynamic`でONNX Runtimeを実行時に読み込み、どちらも同じライブラリを使う。配布物にはまだ入れていない。同梱するなら公式のCPU版（`onnxruntime.dll` 17.3 MB、MIT）、WindowsでGPUも使うならDirectML版（`onnxruntime.dll` 1.24.4と`DirectML.dll` 18.5 MB）を`vrct-vox.exe`の隣に置く（`utils/zip.py`はあれば収める）。そのときONNX Runtime（MIT）とDirectML（Microsoftの再配布の条件）の通知をNOTICEとこの台帳に足す。CUDA版（NVIDIAのEULA）やOpenVINO版（Apache-2.0）は、声質変換の実行環境と同じく同意を得てから取得する案で、配布物には入れない。
 - CUDA版（20）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
 
 Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。

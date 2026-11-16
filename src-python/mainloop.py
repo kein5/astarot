@@ -204,6 +204,7 @@ run_mapping = {
     "config_file_unreadable":"/run/config_file_unreadable",
     "config_save_failed":"/run/config_save_failed",
     "config_save_recovered":"/run/config_save_recovered",
+    "secret_store_failed":"/run/secret_store_failed",
 
     "enable_osc_query":"/run/enable_osc_query",
 }
@@ -478,6 +479,10 @@ mapping = {
 
     "/get/data/experimental_features": {"status": True, "variable":controller.getExperimentalFeatures},
     "/set/data/experimental_features": {"status": True, "variable":controller.setExperimentalFeatures},
+    "/get/data/tray_companion_edge": {"status": True, "variable":controller.getTrayCompanionEdge},
+    "/set/data/tray_companion_edge": {"status": True, "variable":controller.setTrayCompanionEdge},
+    "/get/data/tray_companion_monitor": {"status": True, "variable":controller.getTrayCompanionMonitor},
+    "/set/data/tray_companion_monitor": {"status": True, "variable":controller.setTrayCompanionMonitor},
 
     "/get/data/mic_avg_logprob": {"status": True, "variable":controller.getMicAvgLogprob},
     "/set/data/mic_avg_logprob": {"status": True, "variable":controller.setMicAvgLogprob},
@@ -655,6 +660,12 @@ mapping = {
     "/run/start_model_download": {"status": True, "variable":controller.startModelDownload},
     "/run/cancel_model_download": {"status": True, "variable":controller.cancelModelDownload},
     "/run/apply_model_download": {"status": True, "variable":controller.applyModelDownload},
+    # Models the user registers under a name (#403). The routes carry "user_model" so the
+    # process log masks their names and paths (utils.SENSITIVE_ENDPOINT_MARKERS).
+    "/get/data/user_models": {"status": True, "variable":controller.getUserModels},
+    "/run/register_user_model": {"status": True, "variable":controller.registerUserModel},
+    "/run/remove_user_model": {"status": True, "variable":controller.removeUserModel},
+    "/run/apply_user_model": {"status": True, "variable":controller.applyUserModel},
     "/get/data/vc_runtime_catalog": {"status": True, "variable":controller.getVcRuntimeCatalog},
     "/get/data/vc_runtime_state": {"status": True, "variable":controller.getVcRuntimeState},
     "/run/start_vc_runtime_setup": {"status": True, "variable":controller.startVcRuntimeSetup},

@@ -19,7 +19,7 @@ const load = async phase => {
         "./_app_controllers/VirtualMicGuideController": { VirtualMicGuideController: parts.VirtualMicGuideController },
         "./_app_controllers/SwitchBlocksController": { SwitchBlocksController: parts.SwitchBlocksController },
         "./_app_controllers": { UiLanguageController: parts.UiLanguageController },
-        "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/IoFlowController": {},
+        "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/CompanionController": {}, "./_app_controllers/IoFlowController": {},
         "./main_page/MainPage": { MainPage: parts.MainPage }, "./config_page/ConfigPage": { ConfigPage: parts.ConfigPage },
         "./others": { WindowTitleBar: parts.WindowTitleBar, UpdatingComponent: parts.UpdatingComponent, ModalController: parts.ModalController },
         "@logics_common": { WindowGeometryController: parts.WindowGeometryController,

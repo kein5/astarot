@@ -7,6 +7,7 @@
 mod downloads;
 pub mod adapters;
 pub mod audio_devices;
+pub mod clipboard;
 mod credentials;
 mod files;
 pub mod ocr;
@@ -72,6 +73,8 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("error_translation_chat_vram_overflow", "/run/error_translation_chat_vram_overflow"),
     ("error_translation_mic_vram_overflow", "/run/error_translation_mic_vram_overflow"),
     ("error_translation_speaker_vram_overflow", "/run/error_translation_speaker_vram_overflow"),
+    // The core's own: the chosen ONNX Runtime device could not start; the model runs on the CPU.
+    ("translation_compute_device_fallback", "/run/translation_compute_device_fallback"),
     ("word_filter", "/run/word_filter"),
     ("transcription_recognition_error", "/run/transcription_recognition_error"),
     ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),
@@ -134,6 +137,7 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("config_file_unreadable", "/run/config_file_unreadable"),
     ("config_save_failed", "/run/config_save_failed"),
     ("config_save_recovered", "/run/config_save_recovered"),
+    ("secret_store_failed", "/run/secret_store_failed"),
     ("enable_osc_query", "/run/enable_osc_query"),
 ];
 
@@ -185,12 +189,15 @@ pub struct Services {
     /// first message: Sudachi with the dictionary shipped beside the app
     /// ([`messages::shipped_readings`]). Tests give fixed morphemes.
     pub transliteration: messages::ReadingsSource,
-    /// Copies (and pastes into VRChat when it can) a recognised message.
-    pub clipboard: Arc<dyn Fn(&str) -> bool + Send + Sync>,
+    /// Copies a recognised message and pastes it into the game SteamVR runs when it can
+    /// ([`clipboard::steamvr_clipboard`] over [`Services::vr`]). Tests give a recorder, or that
+    /// clipboard over a fake desktop.
+    pub clipboard: clipboard::ClipboardFn,
     /// The PC's audio devices (`native/audio-routing`): the lists the device manager watches,
     /// the speech outputs and the virtual microphone check. Tests give fakes.
     pub audio: Arc<dyn vrct_audio_routing::platform::AudioPlatform>,
-    /// SteamVR for the VR overlays: OpenVR, loaded when SteamVR runs ([`overlay`]).
+    /// SteamVR for the VR overlays and the clipboard: OpenVR, loaded when SteamVR runs
+    /// ([`overlay`]). One connection serves both ([`vrct_vr_overlay::shared::SharedVr`]).
     pub vr: Arc<dyn vrct_vr_overlay::runtime::Vr>,
     /// Where the VR panel's page is captured; `None` where the VR panel cannot run.
     pub vr_panel_surface: Option<Arc<dyn vrct_vr_overlay::surface::PanelSurface>>,
@@ -202,21 +209,34 @@ pub struct Services {
     pub ocr: Arc<dyn ocr::OcrPlatform>,
     /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]).
     pub ocr_message: ocr::OcrDelivery,
-    /// The app's own updater behind the old update endpoints ([`updates`]). Switched off by
-    /// default, as Python shipped it; the app updates through the host's updater.
+    /// The app's own updater behind the update endpoints ([`updates`]). Switched off by
+    /// default, as Python shipped it; the app gives the updater of its update page.
     pub software_updates: Arc<dyn updates::SoftwareUpdates>,
     /// The microphone and speaker captures of speech recognition (WASAPI, or the Linux helper
     /// `vrct-asr-capture`); tests feed PCM of their own.
     pub transcription_capture: TranscriptionCapture,
-    /// Where the cloud recognition engines are (Google, Groq, OpenAI, Deepgram).
+    /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
     pub transcription_endpoints: vrct_transcription::providers::Endpoints,
+    /// The VAD engine the recorders use while `*_ENABLE_VAD` is on: none in this build
+    /// ([`vrct_transcription::vad::bundled`], decision 13). Tests give a fake.
+    pub vad: Option<vrct_transcription::vad::Vad>,
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
     pub voice: Arc<dyn voice::VoicePlatform>,
+    /// Where the API keys are kept instead of `config.json`: `secrets.json` in the settings
+    /// folder by default ([`crate::config::secrets`]). Tests give a [`MemoryStore`] to look in
+    /// or to make fail.
+    ///
+    /// [`MemoryStore`]: crate::config::secrets::MemoryStore
+    pub secret_store: crate::config::secrets::StoreSource,
 }
 
 impl Default for Services {
     fn default() -> Self {
+        // OpenVR has one connection per process: the overlays and the clipboard share it.
+        let vr: Arc<dyn vrct_vr_overlay::runtime::Vr> = Arc::new(vrct_vr_overlay::shared::SharedVr::new(Arc::new(
+            vrct_vr_overlay::openvr::OpenVr::new(Vec::new()),
+        )));
         Self {
             translation_weight_available: Arc::new(|_| false),
             speech_server_launch: Arc::new(speech::bundled_launch),
@@ -233,9 +253,9 @@ impl Default for Services {
             translation_endpoints: vrct_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
             transliteration: Arc::new(messages::shipped_readings),
-            clipboard: Arc::new(default_clipboard),
+            clipboard: clipboard::steamvr_clipboard(Arc::clone(&vr), Arc::new(vrct_adapters::clipboard::system_desktop)),
             audio: Arc::new(vrct_audio_routing::platform::NativePlatform),
-            vr: Arc::new(vrct_vr_overlay::openvr::OpenVr::new(Vec::new())),
+            vr,
             vr_panel_surface: Some(vrct_vr_overlay::surface::platform()),
             overlay_fonts: Arc::new(overlay::default_fonts),
             steamvr_poll: Duration::from_secs(10),
@@ -244,7 +264,9 @@ impl Default for Services {
             software_updates: Arc::new(updates::Disabled),
             transcription_capture: Arc::new(default_transcription_capture),
             transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
+            vad: vrct_transcription::vad::bundled(),
             voice: Arc::new(voice::NativeVoice),
+            secret_store: Arc::new(crate::config::secrets::default_store),
         }
     }
 }
@@ -455,15 +477,6 @@ pub fn python_float(value: &Value) -> Option<f64> {
 /// value, as Python rounds it (not `(value * 10^digits).round()`, which differs at some ties).
 pub fn python_round(value: f64, digits: usize) -> f64 {
     format!("{value:.digits$}").parse().unwrap_or(value)
-}
-
-/// The clipboard of this system, made on first use (`Clipboard()` in `model.py`). Without
-/// OpenVR the app's name is unknown, so it copies without pasting.
-fn default_clipboard(text: &str) -> bool {
-    static CLIPBOARD: std::sync::OnceLock<vrct_adapters::clipboard::Clipboard> = std::sync::OnceLock::new();
-    CLIPBOARD
-        .get_or_init(|| vrct_adapters::clipboard::Clipboard::new(Arc::new(vrct_adapters::clipboard::NoVrAppName)))
-        .copy_and_paste(text, None, 0)
 }
 
 /// `{"status": 200, "result": value}`.

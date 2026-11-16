@@ -3,7 +3,7 @@ import { useVoice, sourceKey } from "../../../../../logics/voice/useVoice";
 import { directRouteReady, usesOutputDevice } from "../../../../../logics/voice/routeState";
 import { rvcStartOptions } from "../../../../../logics/voice/rvcStartOptions";
 import { useNotificationStatus } from "../../../../../logics/common/useNotificationStatus";
-import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
+import { voiceActions, voiceSwitchStates } from "../../../../../logics/voice/voiceActions.ts";
 import { splitFeatureLabel } from "../../../../../logics/common/featureLabel.ts";
 import { voiceErrorText } from "../../../../../logics/voice/voiceErrorText.ts";
 import { useSwitchBlocks } from "../../../../../logics/main/useSwitchBlocks";
@@ -118,6 +118,10 @@ export const MainFunctionSwitch = () => {
           currentState: { data: rvcOwnsInput && !!voice.directState.requested,
             state: rvcOwnsInput && (voice.directPending || voice.directState.pending || voice.directState.stopping) ? "pending" : "ok" } },
     ];
+    // Other views of these switches (the tray companion) read the TTS and voice changer state here.
+    const switchState = id => { const value = switch_items.find(item => item.switch_id === id)?.currentState;
+        return { on: value?.data === true, pending: value?.state === "pending" }; };
+    useEffect(() => { voiceSwitchStates.publish({ tts: switchState("tts"), rvc: switchState("rvc") }); });
 
     return (
         <div className={styles.container}>

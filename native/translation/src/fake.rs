@@ -3,9 +3,10 @@
 //! Point [`crate::providers::Endpoints::all_at`] (and the LM Studio and OpenAI-compatible URLs)
 //! at [`FakeProviders::url`]. Each provider lives under its own prefix: `/deepl`,
 //! `/deepl-free`, `/plamo/v1`, `/gemini`, `/openai/v1`, `/groq/v1`, `/openrouter/v1`,
-//! `/compatible/v1`, `/lmstudio/v1` and `/ollama`. A provider accepts the key set with
-//! [`FakeProviders::key`], lists the models set with [`FakeProviders::models`] and translates
-//! text `t` to `"<prefix>:<target>:<t>"` unless told otherwise.
+//! `/compatible/v1`, `/lmstudio/v1`, `/ollama`, `/google-cloud` and `/papago`. A provider
+//! accepts the key set with [`FakeProviders::key`] (Papago: `"<client id>:<secret>"`), lists the
+//! models set with [`FakeProviders::models`] and translates text `t` to `"<prefix>:<target>:<t>"`
+//! unless told otherwise.
 
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -49,7 +50,9 @@ pub struct FakeProviders {
     stop: Arc<AtomicBool>,
 }
 
-const PREFIXES: [&str; 10] = [
+const PREFIXES: [&str; 12] = [
+    "/google-cloud",
+    "/papago",
     "/deepl-free",
     "/deepl",
     "/plamo/v1",
@@ -245,6 +248,58 @@ fn serve(mut stream: TcpStream, state: &Mutex<State>) {
                 .map(|t| json!({ "detected_source_language": "JA", "text": translate(&target, t.as_str().unwrap_or("")) }))
                 .collect();
             answer(&mut stream, 200, &json!({ "translations": texts }))
+        }
+        "/google-cloud" => {
+            if seen.header("x-goog-api-key") != Some(key.as_str()) || key.is_empty() {
+                return answer(
+                    &mut stream,
+                    400,
+                    &json!({ "error": { "code": 400, "message": "API key not valid.", "status": "INVALID_ARGUMENT" } }),
+                );
+            }
+            match rest.as_str() {
+                "/language/translate/v2/languages" => {
+                    answer(&mut stream, 200, &json!({ "data": { "languages": [{ "language": "en" }, { "language": "ja" }] } }))
+                }
+                "/language/translate/v2" => {
+                    let target = seen.body["target"].as_str().unwrap_or("").to_string();
+                    let texts: Vec<Value> = seen.body["q"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(|t| json!({ "translatedText": translate(&target, t.as_str().unwrap_or("")) }))
+                        .collect();
+                    answer(&mut stream, 200, &json!({ "data": { "translations": texts } }))
+                }
+                _ => answer(&mut stream, 404, &json!({})),
+            }
+        }
+        "/papago" => {
+            let pair = format!(
+                "{}:{}",
+                seen.header("x-ncp-apigw-api-key-id").unwrap_or(""),
+                seen.header("x-ncp-apigw-api-key").unwrap_or("")
+            );
+            if pair != key || key.is_empty() {
+                return answer(
+                    &mut stream,
+                    401,
+                    &json!({ "error": { "errorCode": "200", "message": "Authentication Failed" } }),
+                );
+            }
+            if rest != "/nmt/v1/translation" {
+                return answer(&mut stream, 404, &json!({}));
+            }
+            let text = seen.body["text"].as_str().unwrap_or("").to_string();
+            if text.is_empty() {
+                return answer(&mut stream, 400, &json!({ "error": { "errorCode": "N2MT07", "message": "text parameter is needed" } }));
+            }
+            let (source, target) = (seen.body["source"].as_str().unwrap_or(""), seen.body["target"].as_str().unwrap_or(""));
+            answer(
+                &mut stream,
+                200,
+                &json!({ "message": { "result": { "srcLangType": source, "tarLangType": target, "translatedText": translate(target, &text) } } }),
+            )
         }
         "/gemini" => {
             if seen.header("x-goog-api-key") != Some(key.as_str()) {

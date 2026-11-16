@@ -94,6 +94,22 @@ pub const DETECTOR_SHA256: &str = "160c4a505bee87d101564c569dff7f0bacd416b9006ec
 
 pub const TARGETS: [&str; 7] = ["japanese", "multilingual", "asr", "vad", "diarization", "rvc", "ocr"];
 
+/// The local translation models (`native/translate-onnx` folders). Kept apart from [`TARGETS`],
+/// which is Python's list: Python had no such entries. The shipped catalog has none until the
+/// models are published; an entry is one folder of `tools/translation_onnx/export.py`, its id
+/// `<model>-onnx-<variant>` in lower case with `_` and `.` as `-` (`m2m100-418m-onnx-int8`),
+/// its `notice` `translation` (the UI's `model_downloads.notice_translation`), and nothing goes
+/// into the settings when it is applied: the local translation finds verified downloads by
+/// catalog id, as chat reading does.
+pub const TRANSLATION_TARGET: &str = "translation";
+/// The roles of a translation entry's files. `manifest` is required: it names the rest.
+pub const TRANSLATION_ROLES: [&str; 7] = ["manifest", "encoder", "decoder", "tokenizer", "vocabulary", "weights", "data"];
+
+/// Whether a catalog entry may name this target.
+pub fn known_target(target: &str) -> bool {
+    TARGETS.contains(&target) || target == TRANSLATION_TARGET
+}
+
 /// Where an applied file goes: (speech server profile, settings field). RVC is separate.
 pub fn speech_field(target: &str) -> Option<(&'static str, &'static str)> {
     match target {
@@ -496,14 +512,21 @@ pub fn validate_catalog(catalog: &[Model]) -> Result<(), &'static str> {
             || !full(&model.id, |i, c| c.is_ascii_lowercase() || c.is_ascii_digit() || (i > 0 && c == '-'))
             || !valid_repo(&model.repo)
             || !hex(&model.revision, 40)
-            || !TARGETS.contains(&model.target.as_str())
+            || !known_target(&model.target)
             || model.artifacts.is_empty()
         {
             return Err("catalog_invalid");
         }
         ids.insert(model.id.clone());
-        let ocr = model.target == "ocr";
-        let (suffixes, roles): (&[&str], &[&str]) = if ocr { (&["onnx", "yml"], &["det", "rec", "dict", "detector"]) } else { (&["gguf", "pth", "index"], &["model", "index"]) };
+        let (suffixes, roles): (&[&str], &[&str]) = match model.target.as_str() {
+            "ocr" => (&["onnx", "yml"], &["det", "rec", "dict", "detector"]),
+            // Graphs over 2 GB keep their weights in `<graph>.onnx_data` (or `.data`).
+            TRANSLATION_TARGET => (&["onnx", "json", "onnx_data", "data"], &TRANSLATION_ROLES),
+            _ => (&["gguf", "pth", "index"], &["model", "index"]),
+        };
+        if model.target == TRANSLATION_TARGET && !model.artifacts.iter().any(|a| a.role == "manifest" && a.filename == "manifest.json") {
+            return Err("catalog_invalid");
+        }
         let (mut names, mut seen_roles) = (std::collections::HashSet::new(), std::collections::HashSet::new());
         for artifact in &model.artifacts {
             let suffix_ok = artifact.filename.rsplit_once('.').is_some_and(|(stem, suffix)| valid_name(stem) && suffixes.contains(&suffix));
@@ -524,4 +547,38 @@ pub fn validate_catalog(catalog: &[Model]) -> Result<(), &'static str> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod translation_tests {
+    use super::*;
+
+    fn entry(artifacts: Vec<Artifact>) -> Model {
+        model("m2m100-418m-onnx-int8", TRANSLATION_TARGET, "M2M100 418M · int8", "Meta / VRCT-VOX", "owner/m2m100_418M-onnx", &"a".repeat(40), "MIT", &["https://www.apache.org/licenses/LICENSE-2.0"], "m2m100", artifacts)
+    }
+
+    fn file(name: &str, role: &str) -> Artifact {
+        artifact(name, 1, &"b".repeat(64), role)
+    }
+
+    #[test]
+    fn a_translation_entry_is_one_export_folder_with_its_manifest() {
+        let complete = vec![
+            file("manifest.json", "manifest"),
+            file("encoder_model_quantized.onnx", "encoder"),
+            file("decoder_model_merged_quantized.onnx", "decoder"),
+            file("decoder_model_merged_quantized.onnx_data", "data"),
+            file("vocabulary.data", "weights"),
+            file("tokenizer.json", "tokenizer"),
+            file("vocab.json", "vocabulary"),
+        ];
+        assert_eq!(validate_catalog(&[entry(complete.clone())]), Ok(()));
+        // Without its manifest, with a file type or a role no translation folder has.
+        assert_eq!(validate_catalog(&[entry(complete[1..].to_vec())]), Err("catalog_invalid"));
+        assert_eq!(validate_catalog(&[entry(vec![file("manifest.json", "manifest"), file("model.gguf", "encoder")])]), Err("catalog_invalid"));
+        assert_eq!(validate_catalog(&[entry(vec![file("manifest.json", "manifest"), file("encoder.onnx", "model")])]), Err("catalog_invalid"));
+        // The shipped catalog has no translation entry until the models are published.
+        assert!(catalog().iter().all(|m| m.target != TRANSLATION_TARGET));
+        assert!(!TARGETS.contains(&TRANSLATION_TARGET) && known_target(TRANSLATION_TARGET));
+    }
 }

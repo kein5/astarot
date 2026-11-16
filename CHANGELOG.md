@@ -10,6 +10,151 @@ changes for developers follow.
 A section is written when its release is prepared (`python tools/changelog.py write`), not on
 every commit. See [Changelog and releases](CONTRIBUTING.md#changelog-and-releases).
 
+## [0.4.0] - 2026-11-16
+
+Changes since [v0.3.0](https://github.com/kein5/VRCT-VOX/compare/v0.3.0...v0.4.0).
+
+### User-facing Changes
+
+#### Breaking Changes
+
+- **voice:** Let RVC convert on the CPU, move its GPU runtime to CUDA 13 and remove the earlier runtime ([8367f8d](https://github.com/kein5/VRCT-VOX/commit/8367f8d4ac03760b7d6f48bb009d8e8b1de2f506))
+  - Converting RVC on the GPU now needs NVIDIA driver 580 or
+later and a GeForce GTX 16 or RTX 20 series GPU or later; older ones convert
+on the CPU, with about 1.3 s of delay. Update the driver to keep the GPU.
+- **voice:** Convert RVC voice with the bundled Rust worker ([c2f5373](https://github.com/kein5/VRCT-VOX/commit/c2f53736afc092da87b17ddfd316b3a7ecb7c5a7))
+  - An RVC runtime set up by an earlier version (the PyTorch
+kind) can no longer be used. Set it up again from Settings > Voice changer
+(RVC) > Models and runtime; the page says so when the saved folder holds the
+earlier kind. It goes into the same folder, so the saved runtime setting
+keeps working. Once the new runtime is set up, the earlier files (venv,
+python, engine and so on) are removed; models and audio files placed in the
+folder are kept.
+
+#### Features
+
+- **asr:** Give each speech.cpp catalog entry what a user compares before choosing ([ec8c8dd](https://github.com/kein5/VRCT-VOX/commit/ec8c8dd439a76596756371c58b0c78cd7b9d697c))
+- **tts:** Explain the speech model choices and name each license link ([538cae9](https://github.com/kein5/VRCT-VOX/commit/538cae991a5c3eb4ce382f9ebbb6a2b24c217a13))
+- **tts:** Offer Irodori-TTS Small, Irodori-TTS Large and Qwen3-TTS 1.7B for download ([6d5cd4d](https://github.com/kein5/VRCT-VOX/commit/6d5cd4d91b80f0ca29ef903485ef94d4f0b53842))
+- **asr:** Choose the recognizer and its file type before the download ([91f8127](https://github.com/kein5/VRCT-VOX/commit/91f8127246a306e7e13d343492c4d31077496f05))
+- **asr:** Offer every speech.cpp recognizer and file type for download ([3f30886](https://github.com/kein5/VRCT-VOX/commit/3f308865e7875e5ddb5b3356ad15565a4f2cf90f))
+- **overlay:** Save caption moves and size steps, and reset them in settings ([3fdcba0](https://github.com/kein5/VRCT-VOX/commit/3fdcba07d72311181ff3ab1229289de0b2c12e79))
+- **overlay:** Move the desktop captions with Ctrl and a drag ([0ab423d](https://github.com/kein5/VRCT-VOX/commit/0ab423d828881008ec410e2c405d78f8b75cd214))
+- **overlay:** Save where the desktop caption window was dragged ([bc687e2](https://github.com/kein5/VRCT-VOX/commit/bc687e2811914ba2fec822a1380570473675b566))
+- **voice:** Guide Windows users to a virtual microphone and check it with a test sound ([fff36d6](https://github.com/kein5/VRCT-VOX/commit/fff36d6c3cda2b7f4811bf70ac868243eea1d1ab))
+- **ui:** Check for updates at start and update from the settings ([13733cb](https://github.com/kein5/VRCT-VOX/commit/13733cbeea9dbd0189d18747aec4b00db69da8da))
+- **config:** Add a setting for checking for updates at start ([2074821](https://github.com/kein5/VRCT-VOX/commit/20748216bba5bb6c1f2a49fc831966199cc8f509))
+- **app:** Check for and install signed updates with the Tauri updater ([86e52a9](https://github.com/kein5/VRCT-VOX/commit/86e52a9af929aedd9ebc369e73c89dee3caf0310))
+- **ui:** Open the main window at its normal size and in the system language ([cb070a0](https://github.com/kein5/VRCT-VOX/commit/cb070a05aecc54c0a7fa6fbb26f94610693ad24c))
+- **ui:** Show the main page while the engine starts instead of the splash screen ([fb42f4b](https://github.com/kein5/VRCT-VOX/commit/fb42f4b3b57c00fe07659e0607e5823bf837d4aa))
+- **ui:** Keep why the engine failed to start and derive the startup phase ([51b58c3](https://github.com/kein5/VRCT-VOX/commit/51b58c3a54023f280a3cdf30ee036112cb7ad3f4))
+- **vr:** Grey out VR launcher switches until their setup is there, and say why ([b828df9](https://github.com/kein5/VRCT-VOX/commit/b828df994183b22c05d10104d2480d23648365a9))
+- **ui:** Take a greyed-out chat reading switch to its models section ([ecf79b1](https://github.com/kein5/VRCT-VOX/commit/ecf79b181721d75a76fabad758bf6d151657bf82))
+- **ui:** Grey out a main switch until its setup is there, and say why ([7925f40](https://github.com/kein5/VRCT-VOX/commit/7925f40aee81ba70ef7f09dff2581e82d9cb533e))
+- **ui:** Work out which main switches still miss their setup ([28ead80](https://github.com/kein5/VRCT-VOX/commit/28ead80faca60cdc353c4a13cc59ef9cb5761185))
+- **ocr:** Report whether the chat reading models are here without looking for the window ([1d38f43](https://github.com/kein5/VRCT-VOX/commit/1d38f439044e79bdf14389ace420afdee0fd928d))
+
+#### Improvements
+
+- **site:** Download the file for your OS from the guide's home page ([d93e6d9](https://github.com/kein5/VRCT-VOX/commit/d93e6d925a6bfa4cc40beb2b4e34a179adf91dda))
+
+#### Bug Fixes
+
+- **installer:** Keep the language, edition and shortcuts when the app updates itself ([488824e](https://github.com/kein5/VRCT-VOX/commit/488824e97bb1abc5194f435834b097d7c5ab530f))
+- **privacy:** Keep sent and spoken messages out of process.log ([4c26fa1](https://github.com/kein5/VRCT-VOX/commit/4c26fa144fde93b5fdae180c69f889d34a633c9f))
+
+### Internal Changes
+
+#### Refactoring
+
+- **core:** Let each wired area add its endpoints from its own module ([27db2f0](https://github.com/kein5/VRCT-VOX/commit/27db2f080a5ebe70d9f629b3f3bf1f372ec18910))
+- **ui:** Work out the blocked main switches once and keep them in a shared atom ([591ce9a](https://github.com/kein5/VRCT-VOX/commit/591ce9a5e9a2f980571056ebb771953dab1aaecc))
+- **websocket:** Bind the checked address as a fresh value so CodeQL sees the guard ([a0120c9](https://github.com/kein5/VRCT-VOX/commit/a0120c9d4a3c3f4fbd4e0f947cc4d1ddcbcef669))
+
+#### Dependencies
+
+- **deps:** Bundle speech.cpp 0.11.0 ([939efed](https://github.com/kein5/VRCT-VOX/commit/939efedd1f67c2a67e0413ed4f209857c4acb72c))
+- **deps:** Refresh the Cargo lockfiles ([be70d57](https://github.com/kein5/VRCT-VOX/commit/be70d57be39fbdd3da47c9d23614f27cc329bde9))
+- **deps:** Update tauri-plugin-opener to 2.7.3 ([bb03525](https://github.com/kein5/VRCT-VOX/commit/bb03525143055363acdf597e87d3f3e355ea46d3))
+
+#### Build & CI
+
+- **linux:** Copy the backend files native/ops includes into the build workspace ([74bb5c5](https://github.com/kein5/VRCT-VOX/commit/74bb5c54c33ae50ad8851e0f6011b502d50ea808))
+- Take the core integration job's Rust from mise.toml ([e1ee6ae](https://github.com/kein5/VRCT-VOX/commit/e1ee6ae44e76743cf24668bc5a2c15ab74fe1c4b))
+- Credit the CCADB in the Rust license list when webpki-roots ships ([5b70ce5](https://github.com/kein5/VRCT-VOX/commit/5b70ce5ebe7a859f90172ebefaba8bb3ee0be44d))
+- **linux:** Copy the crates the app links by path into the build workspace ([c1471a0](https://github.com/kein5/VRCT-VOX/commit/c1471a08fb7bcc3a1d976698cb4f8d1e4b4d33c2))
+- Install cocogitto in the headless voice jobs ([d30f8ff](https://github.com/kein5/VRCT-VOX/commit/d30f8ffa9869f95c0c98a1a79a2e2625b35ce570))
+- Show cargo's error when the Rust license list cannot be made ([064b050](https://github.com/kein5/VRCT-VOX/commit/064b050b64c8f49ffcc1f52149cd2ad1af7c30e4))
+- Ship the license texts of the Rust crates in each package ([3fe265a](https://github.com/kein5/VRCT-VOX/commit/3fe265a99eca9a984be309b6cc7820a51b3a7dde))
+- Install node, rust, python, uv and cocogitto through mise ([111209d](https://github.com/kein5/VRCT-VOX/commit/111209de152a9c16efcd27d530d00f6a5a026eae))
+- Run the Rust core's integration tests on Linux and Windows ([0e6744e](https://github.com/kein5/VRCT-VOX/commit/0e6744e987a77415eb36aa20babd93250b336b16))
+- **release:** Sign the updater files and publish latest.json with the draft ([c47a99a](https://github.com/kein5/VRCT-VOX/commit/c47a99a33161508f7c95e92528d4d256184bbeac))
+- **rust:** Move the app and the dev sidecar to edition 2024 ([2b03569](https://github.com/kein5/VRCT-VOX/commit/2b03569c1425aa082331388147a260b6675dfd00))
+- **rust:** Move the native crates to edition 2024 ([7b5ae8a](https://github.com/kein5/VRCT-VOX/commit/7b5ae8ada590fba2ca5c0640815e60e2228729ec))
+- **translation:** Store the vocabulary matrix once in the ONNX models ([ee74b01](https://github.com/kein5/VRCT-VOX/commit/ee74b010eb6504cf75e5f7e33d0feb2e23946847))
+- **translation:** Write the ONNX graphs without optimum, on transformers 5.22.1 ([bad0399](https://github.com/kein5/VRCT-VOX/commit/bad039918b60139293f7557cd4379b2a253b2016))
+
+#### Tests
+
+- **core:** Wait for a failed speech server's generation to settle ([54f4823](https://github.com/kein5/VRCT-VOX/commit/54f482358ff7acdc06d8031d0c14dbbb7cec25dc))
+- **release:** Verify updater signatures in the voice test environment ([c4649d7](https://github.com/kein5/VRCT-VOX/commit/c4649d7224c24d9e7c92a44f39a64afcb51c31b7))
+- **platform:** Wait for the main page to be ready, not for the composer ([d181064](https://github.com/kein5/VRCT-VOX/commit/d181064feafa5a7ceab71695d1ef41275acd7a37))
+- **devtools:** Check the RVC runtime pin that remains after the native worker ([25d30e7](https://github.com/kein5/VRCT-VOX/commit/25d30e7b1e2adcad732d130d6e91e2e5b86e21b8))
+
+#### Documentation
+
+- **brand:** Replace the ASTAROT sources with the reference-traced set ([0bd6183](https://github.com/kein5/VRCT-VOX/commit/0bd6183e3ba4ca2db969749cad8cedb8a0c2edc2))
+- **brand:** Add ADR-011 and the ASTAROT brand sources ([e831352](https://github.com/kein5/VRCT-VOX/commit/e831352d58abc6568109911dbf3f7502f109ac56))
+- Record the licenses of the added speech models and why drama-3 is left out ([a61420d](https://github.com/kein5/VRCT-VOX/commit/a61420dc96b8ddef7cc8a659fb90a1cd2dc5564c))
+- **asr:** List every speech.cpp recognizer in the guide and the download notes ([20cf06a](https://github.com/kein5/VRCT-VOX/commit/20cf06aa92fb61fa3ed8670b3a1f0cfaecb00f5a))
+- **overlay:** Describe moving and resizing the desktop captions ([b40e920](https://github.com/kein5/VRCT-VOX/commit/b40e9202b3101482638258097d232fd3e9a57f16))
+- **site:** State the driver 580 requirement for RVC on the GPU and drop Seed-VC ([f8f3aad](https://github.com/kein5/VRCT-VOX/commit/f8f3aad4d3d5fcf1e13a52bcbdec741a012e5997))
+- **voice:** Record the approval to keep using rmvpe.onnx ([431a6bc](https://github.com/kein5/VRCT-VOX/commit/431a6bc869a054df7cf20c26316d459fbffa708e))
+- **voice:** Reconcile the license ledger with the crates the core added ([a0158eb](https://github.com/kein5/VRCT-VOX/commit/a0158ebf02f4ee3605c55310cf3cf72623045fc0))
+- **voice:** Record that the core stays a trial in 0.4.0 and becomes the default in 0.5.0 ([4bd5ee9](https://github.com/kein5/VRCT-VOX/commit/4bd5ee9839e64d78455bc5dc0db09940363c7c96))
+- Add code owners, a code of conduct and a support guide ([d02b71e](https://github.com/kein5/VRCT-VOX/commit/d02b71eb289a5bfa648ee5115ec0865c47ba449a))
+- **voice:** List the update-check endpoints among those the core does not wire yet ([bbe6ee6](https://github.com/kein5/VRCT-VOX/commit/bbe6ee6b1d6b5548cdd8ecb5be23dea7f38262e3))
+- **voice:** Update the license ledger for the Rust crates and RVC base models ([8a8ed9c](https://github.com/kein5/VRCT-VOX/commit/8a8ed9c85e5245b998d7de094ad8f13b4019d5c3))
+- **dev:** Describe the mise setup and tasks ([7477927](https://github.com/kein5/VRCT-VOX/commit/7477927bc801530be0d6bb44206a3883abe352c7))
+- **core:** Say how the app reaches the Rust core and what it answers ([4fa1a58](https://github.com/kein5/VRCT-VOX/commit/4fa1a583d29039da82605f349ac9e2152a6071be))
+- **voice:** Record the state of the core integration and what is left ([58903d5](https://github.com/kein5/VRCT-VOX/commit/58903d5dfb04d88603b6805de3080234bfc75e79))
+- Describe in-app updates and how releases are signed for them ([d07ea15](https://github.com/kein5/VRCT-VOX/commit/d07ea150829ee9658189c2d5c0c992554fd6a438))
+- **ui:** Describe the locked main page and the startup failure dialog ([33bd8a3](https://github.com/kein5/VRCT-VOX/commit/33bd8a394ea39fd5916279d885b76bbf5372b506))
+- **voice:** Name speech.cpp 0.11.0 in the build steps ([6ec0cc3](https://github.com/kein5/VRCT-VOX/commit/6ec0cc32fb505c039f09f690a15f15c96a27345e))
+- **translation:** Record the smaller ONNX models and the 4-bit trade-off ([f938b47](https://github.com/kein5/VRCT-VOX/commit/f938b479931737300390fd6f2fb38919c603a2ff))
+- **translation:** Record the comparison again with the graphs written without optimum ([c98de11](https://github.com/kein5/VRCT-VOX/commit/c98de11573b9cfdb4024cd5d009d6f56e19d6a82))
+- **spec:** Describe the shared switch blocks and the VR launcher's greyed-out buttons ([6648bfb](https://github.com/kein5/VRCT-VOX/commit/6648bfb9fa02445c340bcb4d25e26e7b55a5105e))
+- **ui:** Record where the main screen layout breaks across window sizes ([32cc404](https://github.com/kein5/VRCT-VOX/commit/32cc404c4ebc905c55bfe43c66b325245b140e9e))
+- **voice:** List ADR-009 in the decision index ([9fdf684](https://github.com/kein5/VRCT-VOX/commit/9fdf684cdd3abc34a5ba171dff39772ff7f5d534))
+- **voice:** Adopt relying on an external virtual cable on Windows and disclosing it to the Store ([7baca37](https://github.com/kein5/VRCT-VOX/commit/7baca3728d83eb297f1c1db91d56fd8a14ff4d30))
+- **voice:** Collect the platform constraints on signing, the Store and virtual microphones ([a2fbff0](https://github.com/kein5/VRCT-VOX/commit/a2fbff08e1f5e71a0b9959dc8746a1eec2487ed4))
+- **site:** Sort the latest release's files for a download button ([7df5b4d](https://github.com/kein5/VRCT-VOX/commit/7df5b4d298427f24a99389b59e8063e656722a41))
+- **spec:** Count the chat reading model endpoint together with the TTS engine one ([8238809](https://github.com/kein5/VRCT-VOX/commit/823880912f3995d43e7ca1143e1108fe259cb765))
+- **rvc:** Describe CPU conversion, the CUDA 13 runtime and the cleanup of the earlier one ([debddd0](https://github.com/kein5/VRCT-VOX/commit/debddd065ee2cdc09edcb07cdb0584042fa096bb))
+- **rvc:** Describe the bundled worker, its runtime and how it compares ([0363c82](https://github.com/kein5/VRCT-VOX/commit/0363c823f6fde4aeca63fbfee45bae1d71739c66))
+- **translation:** Record the comparison of the ONNX translator with CTranslate2 ([7b25fb7](https://github.com/kein5/VRCT-VOX/commit/7b25fb7fcb2e22b38856c70e8727edc01ccbca46))
+
+#### Maintenance
+
+- **app:** Read the stable update metadata through the project's worker ([c801df9](https://github.com/kein5/VRCT-VOX/commit/c801df96486ce3b4647664b28dedc59941a749d0))
+- **models:** Describe each downloadable model for people choosing one ([054c5c2](https://github.com/kein5/VRCT-VOX/commit/054c5c20fcc0318724665461e19248d12ef75a2a))
+- **dev:** Copy speech.cpp's own model catalog into the app with a tool ([1c0b180](https://github.com/kein5/VRCT-VOX/commit/1c0b1808f02699730145cd257b7601fa40556a43))
+- **core:** Retire the CTranslate2 weights once the core is the default backend ([cc7cb37](https://github.com/kein5/VRCT-VOX/commit/cc7cb3795205a73934affbe971016e4517c90ef8))
+- **core:** Forget the server models of engines whose start-up check fails, as Python did ([bee9317](https://github.com/kein5/VRCT-VOX/commit/bee93179036ae8ff652c8f9be44a3a340ebdd777))
+- **core:** Keep the start-up update check setting that develop added ([c615e5c](https://github.com/kein5/VRCT-VOX/commit/c615e5ca2267a8ec71c4ab21020c44a578dbadd3))
+- **dev:** Use Cocogitto from mise only when mise has it ([1a7c39b](https://github.com/kein5/VRCT-VOX/commit/1a7c39b50bfd23f294c5b7e276726d36ea8a43b0))
+- **dev:** Pin the toolchain versions in mise.toml and add mise tasks ([e74337f](https://github.com/kein5/VRCT-VOX/commit/e74337fad79975d40ce57b0845210253adb3c1fc))
+- **core:** Wire OSC, the WebSocket server and the OBS page into the Rust core ([f618f37](https://github.com/kein5/VRCT-VOX/commit/f618f3749e42cda3e8cfcc3077542cbe03bf56e4))
+- **core:** Wire the model downloads and the usage events into the Rust core ([1949b90](https://github.com/kein5/VRCT-VOX/commit/1949b90ad063ab6aa4833803fb80490473c7114c))
+- **core:** Find the bundled speech.cpp where the packaged app keeps it ([de1fdd8](https://github.com/kein5/VRCT-VOX/commit/de1fdd8f5869cc984bbb90580d52e5af1dde5fa5))
+- **core:** Wire the speech.cpp servers into the Rust core ([045949d](https://github.com/kein5/VRCT-VOX/commit/045949d7ad067189aeedc3bcf492ac67aa29d83f))
+- **core:** Let the app run the Rust core in place of the sidecar for development ([69211d5](https://github.com/kein5/VRCT-VOX/commit/69211d56f2309b36bbfbe6307e930c371d4cb577))
+- **core:** Add the Rust backend core with the settings carried over from Python ([876d889](https://github.com/kein5/VRCT-VOX/commit/876d8891b15ff128acbb38a6dcb5f47dbc8764cd))
+- **rvc:** Convert on the CPU when the GPU cannot be used, and load CUDA 13 ([c3e798b](https://github.com/kein5/VRCT-VOX/commit/c3e798ba65652d4415255d868911cf9f01052382))
+- **rvc:** Add the live conversion worker and build HuBERT from its checkpoint ([a0ba230](https://github.com/kein5/VRCT-VOX/commit/a0ba2300c196016b046de5c59ad4c7cdabf145e2))
+- **translation:** Give characters SentencePiece does not know the ids the app gives them ([7682da0](https://github.com/kein5/VRCT-VOX/commit/7682da060dcb0cb0e27102d2fe2d2be91723bc0c))
+- **translation:** Add the ONNX Runtime translator for the local models ([0c0ec7c](https://github.com/kein5/VRCT-VOX/commit/0c0ec7c92bbf6d683738ac8f9d792d008fafd4b1))
+
 ## [0.3.0] - 2026-11-15
 
 Changes since [v0.2.0](https://github.com/kein5/VRCT-VOX/compare/v0.2.0...v0.3.0).

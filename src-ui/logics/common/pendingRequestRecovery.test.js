@@ -120,9 +120,12 @@ test("language, voice and download generations are not registered as generic set
     assert.equal(subject.value.state, "pending");
 });
 
-test("all configured recovery reads exist in Python mapping and have UI routes", () => {
+test("all configured recovery reads exist in the backend mapping and have UI routes", () => {
     const mapping = readFileSync(new URL("../../../src-python/mainloop.py", import.meta.url), "utf8");
-    const mappedEndpoints = new Set([...mapping.matchAll(/^\s*"([^"]+)"\s*:/gm)].map(match => match[1]));
+    // The core's own endpoints (Python never had them) are listed for the specification.
+    const core = JSON.parse(readFileSync(new URL("../../../tools/spec_core_additions.json", import.meta.url), "utf8"));
+    const mappedEndpoints = new Set([...mapping.matchAll(/^\s*"([^"]+)"\s*:/gm)].map(match => match[1])
+        .concat(core.endpoints.map(entry => entry.endpoint)));
     const settings = readFileSync(new URL("../configs/config_page_setter/ui_config_setter.js", import.meta.url), "utf8").split("for (const setting_data")[0];
     const routes = readFileSync(new URL("../useReceiveRoutes.js", import.meta.url), "utf8");
     for (const read of [...Object.values(staticPendingControls).map(control => control.read), ...Object.values(featureResyncReads)]) if (read) {

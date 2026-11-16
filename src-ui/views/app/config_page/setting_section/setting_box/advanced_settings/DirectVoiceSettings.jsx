@@ -20,7 +20,8 @@ import { conversionDelaySeconds } from "../../../../../../logics/voice/conversio
 import { pathExample } from "../../../../../../logics/common/pathExample";
 import { MAX_RVC_THREADS, RVC_DEVICES, RVC_WORKER_DEFAULTS, rvcStartOptions } from "../../../../../../logics/voice/rvcStartOptions";
 
-const defaults = { mode: "passthrough", runtime: "", reference: "", engine: "seed-vc",
+// RVC is the only conversion engine: Seed-VC ended with the Python backend (#391).
+const defaults = { mode: "passthrough", runtime: "", reference: "", engine: "rvc",
     rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0, ...RVC_WORKER_DEFAULTS };
 // The example in each path field (voice_ui.example), written the way this OS writes paths.
 const exampleFiles = { runtime: "seed-vc-runtime", reference: "reference.wav",
@@ -36,7 +37,8 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
         if (!directState.settings) return null;
         const value = { ...defaults, ...directState.settings };
         if (variant === "rvc") return { ...value, mode: "converted", engine: "rvc" };
-        if (variant === "legacy" && value.engine === "rvc") return { ...value, mode: "passthrough", engine: "seed-vc" };
+        // Input forwarding only forwards; the conversion is the RVC page's.
+        if (variant === "legacy" && value.mode === "converted") return { ...value, mode: "passthrough" };
         return value;
     }, [directState.settings, variant]);
     const busy = !!directPending || directState.requested || directState.pending || directState.stopping;
@@ -108,18 +110,14 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
         {(variant === "rvc" || (converted && rvc)) && <Description text={t("voice_ui.rvc_latency_hint")} />}
         {/* Says what the unsaved change in the save bar is when the page opens. */}
         {variant === "rvc" && needsSelection(draft) && <p>{t("voice_ui.select_rvc_pending")}</p>}
+        {/* A Seed-VC conversion saved by an earlier version was moved to RVC at this start. */}
+        {variant !== "legacy" && directState.notice === "seed_vc_moved_to_rvc" && <p role="status">{t("voice_ui.seed_vc_moved_to_rvc")}</p>}
         {busy && !ownsInput && <p role="alert">{t("voice_ui.input_conflict")}</p>}
         <fieldset className={styles.fields} disabled={saving}>
-        {variant !== "rvc" && <label>{t("voice.direct_mode")}
+        {variant === "all" && <label>{t("voice.direct_mode")}
             <select aria-label={t("voice.direct_mode")} value={draft.mode} disabled={busy} onChange={e => setDraft({ ...draft, mode: e.target.value })}>
                 <option value="passthrough">{t("voice.direct_passthrough")}</option>
                 <option value="converted">{t("voice.direct_converted")}</option>
-            </select>
-        </label>}
-        {converted && variant === "all" && <label>{t("voice.vc_engine")}
-            <select aria-label={t("voice.vc_engine")} value={draft.engine} disabled={busy} onChange={e => setDraft({ ...draft, engine: e.target.value })}>
-                <option value="seed-vc">Seed-VC</option>
-                <option value="rvc">RVC</option>
             </select>
         </label>}
         {converted && rvc && [["rvc_pitch", -24, 24, 1], ["rvc_index_rate", 0, 1, 0.05]].map(([name, min, max, step]) =>

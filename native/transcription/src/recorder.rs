@@ -7,6 +7,9 @@
 //! the volume; the transcriber, which builds utterances and asks the engine. A slow engine
 //! never stalls the capture: phrases wait in a queue of 20, and the oldest is dropped when it
 //! is full (`putDroppingOldestOnFull`).
+//!
+//! Phrases are cut by the energy listener, or by a VAD engine when the settings carry one
+//! ([`crate::vad`]); the transcriber then joins them the way that path needs.
 
 use crate::Transcript;
 use crate::capture::{Capture, CapturePlatform, Source, Target};
@@ -14,6 +17,7 @@ use crate::energy::EnergyListener;
 use crate::pcm;
 use crate::phrases::{Clip, Phrases};
 use crate::providers::AsrFailed;
+use crate::vad::{Segmenter, Vad};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SyncSender, TrySendError, sync_channel};
@@ -35,6 +39,9 @@ pub struct Settings {
     pub record_timeout: f64,
     pub phrase_timeout: f64,
     pub max_phrases: usize,
+    /// The VAD that cuts phrases in place of the energy listener (`*_ENABLE_VAD` with an engine
+    /// at hand); `None` cuts by energy.
+    pub vad: Option<Vad>,
 }
 
 /// A failure of the pipeline, by its error code and stage (`AudioPipelineFailure`).
@@ -198,7 +205,7 @@ impl Drop for Recorder {
 }
 
 fn listen(shared: Arc<Shared>, receiver: Receiver<Chunk>, settings: Settings, energy: bool, transcribing: bool) {
-    let mut listener: Option<(EnergyListener, u32, usize)> = None;
+    let mut listener: Option<(Box<dyn Segmenter>, u32, usize)> = None;
     let mut was_paused = false;
     while shared.running() {
         let (samples, rate, channels) = match receiver.recv_timeout(Duration::from_millis(100)) {
@@ -221,13 +228,11 @@ fn listen(shared: Arc<Shared>, receiver: Receiver<Chunk>, settings: Settings, en
         }
         let channels = usize::from(channels.max(1));
         if listener.as_ref().is_none_or(|(_, r, c)| (*r, *c) != (rate, channels)) {
-            let created = EnergyListener::new(
-                rate,
-                channels,
-                settings.threshold,
-                settings.automatic_threshold,
-                settings.record_timeout.min(settings.phrase_timeout),
-            );
+            let limit = settings.record_timeout.min(settings.phrase_timeout);
+            let created: Box<dyn Segmenter> = match &settings.vad {
+                Some(vad) => vad.0.segmenter(rate, channels, limit),
+                None => Box::new(EnergyListener::new(rate, channels, settings.threshold, settings.automatic_threshold, limit)),
+            };
             listener = Some((created, rate, channels));
             shared.clips.lock().unwrap_or_else(|e| e.into_inner()).format = Some((rate, channels));
         }
@@ -241,13 +246,13 @@ fn listen(shared: Arc<Shared>, receiver: Receiver<Chunk>, settings: Settings, en
                 (shared.on_event)(Event::Energy(value));
             }
         }
-        if transcribing && !heard.phrases.is_empty() {
+        if transcribing && !heard.segments.is_empty() {
             let mut queue = shared.clips.lock().unwrap_or_else(|e| e.into_inner());
-            for phrase in heard.phrases {
+            for segment in heard.segments {
                 if queue.clips.len() >= AUDIO_QUEUE {
                     queue.clips.pop_front();
                 }
-                queue.clips.push_back(Clip { samples: phrase, ended: std::time::Instant::now() });
+                queue.clips.push_back(Clip { samples: segment.samples, ended: std::time::Instant::now(), cut: segment.cut });
             }
             drop(queue);
             shared.ready.notify_all();
@@ -275,7 +280,8 @@ fn transcribe(shared: Arc<Shared>, settings: Settings, mut recognize: Recognize)
             }
             let Some((rate, channels)) = queue.format else { continue };
             if phrases.as_ref().is_none_or(|(_, r, c)| (*r, *c) != (rate, channels)) {
-                phrases = Some((Phrases::new(rate, channels, settings.phrase_timeout, settings.max_phrases), rate, channels));
+                let built = Phrases::new(rate, channels, settings.phrase_timeout, settings.max_phrases);
+                phrases = Some((if settings.vad.is_some() { built.segmented() } else { built }, rate, channels));
             }
             std::mem::take(&mut queue.clips)
         };

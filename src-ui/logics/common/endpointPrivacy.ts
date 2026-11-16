@@ -3,6 +3,8 @@ export type Translate = (key: string) => string;
 
 // Display only. The backend validates both saved values and save requests.
 const isPrivateLanHost = (host: string) => {
+    // A multicast DNS name of the LAN (name.local); the backend allows plain HTTP to it too.
+    if (/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+local\.?$/i.test(host)) return true;
     if (host.startsWith("[")) {
         // URL canonicalizes IPv6; unique-local fc00::/7 and link-local fe80::/10.
         return /^\[(?:f[cd][0-9a-f]{2}|fe[89ab][0-9a-f]):/i.test(host);

@@ -4,6 +4,11 @@
 //! `source` and `target` display names to codes; CTranslate2 has one table per model), and
 //! `data/transcription_languages.json` is `transcription_languages.py` (language, then country,
 //! then each recognition engine's code). Both are written by `reference/dump_reference.py`.
+//!
+//! The official APIs the core adds (#277) get their columns here, after `DeepL_API`, so that the
+//! file stays Python's: `Google_Cloud_API` has the codes of the `Google` column (Cloud
+//! Translation lists them all), `Papago_API` the languages of the `Papago` column that NAVER
+//! Cloud Platform's Papago Translation has (not Hindi or Portuguese).
 
 use serde_json::{Map, Value};
 use std::sync::OnceLock;
@@ -18,8 +23,30 @@ fn parse(text: &str) -> Map<String, Value> {
     }
 }
 
+/// The languages of NAVER Cloud Platform's Papago Translation, by their codes.
+const PAPAGO_CODES: [&str; 13] = ["ko", "en", "ja", "zh-CN", "zh-TW", "vi", "th", "id", "fr", "es", "ru", "de", "it"];
+
+/// Python's table with the columns of the official APIs after DeepL.
+fn with_official_apis(python: Map<String, Value>) -> Map<String, Value> {
+    let papago = |side: &str| -> Value {
+        let names = python.get("Papago").and_then(|p| p[side].as_object()).cloned().unwrap_or_default();
+        Value::Object(names.into_iter().filter(|(_, code)| code.as_str().is_some_and(|c| PAPAGO_CODES.contains(&c))).collect())
+    };
+    let google = python.get("Google").cloned().unwrap_or_else(|| Value::Object(Map::new()));
+    let papago = serde_json::json!({ "source": papago("source"), "target": papago("target") });
+    let mut table = Map::new();
+    for (engine, column) in python.clone() {
+        table.insert(engine.clone(), column);
+        if engine == "DeepL_API" {
+            table.insert("Google_Cloud_API".into(), google.clone());
+            table.insert("Papago_API".into(), papago.clone());
+        }
+    }
+    table
+}
+
 pub fn translation() -> &'static Map<String, Value> {
-    TRANSLATION.get_or_init(|| parse(include_str!("../data/translation_languages.json")))
+    TRANSLATION.get_or_init(|| with_official_apis(parse(include_str!("../data/translation_languages.json"))))
 }
 
 pub fn transcription() -> &'static Map<String, Value> {
@@ -37,10 +64,15 @@ pub fn translation_engines() -> Vec<String> {
 
 /// The removed local Whisper engine; its column stays for the cloud Whisper engines.
 pub const RETIRED_WHISPER_ENGINE: &str = "Whisper";
+/// Python's Google web speech engine. It sent audio to an unofficial endpoint with the generic
+/// key of `speech_recognition`, so it is not offered; its column stays for the regional codes
+/// (`transcription_languages.py` keeps it) and a saved selection of it loads as none.
+pub const RETIRED_GOOGLE_ENGINE: &str = "Google";
 /// Recognition on this PC through speech.cpp.
 pub const LOCAL_SPEECH_ENGINE: &str = "SpeechCpp";
 
-/// The recognition engines: the table's columns without Whisper, and speech.cpp after Google.
+/// The recognition engines: speech.cpp first, then the table's columns without the retired
+/// Whisper and Google engines (Python listed Google first, and speech.cpp came after it).
 pub fn transcription_engines() -> Vec<String> {
     let first = transcription()
         .values()
@@ -51,9 +83,12 @@ pub fn transcription_engines() -> Vec<String> {
     let Some(engines) = first else {
         return Vec::new();
     };
-    let mut engines: Vec<String> = engines.keys().filter(|e| *e != RETIRED_WHISPER_ENGINE).cloned().collect();
-    let at = engines.iter().position(|e| e == "Google").map_or(0, |i| i + 1);
-    engines.insert(at, LOCAL_SPEECH_ENGINE.to_string());
+    let mut engines: Vec<String> = engines
+        .keys()
+        .filter(|e| *e != RETIRED_WHISPER_ENGINE && *e != RETIRED_GOOGLE_ENGINE)
+        .cloned()
+        .collect();
+    engines.insert(0, LOCAL_SPEECH_ENGINE.to_string());
     engines
 }
 
@@ -74,3 +109,29 @@ pub const DEFAULT_TRANSLATION_WEIGHT: &str = "m2m100_418M-ct2-int8";
 
 /// The languages OCR can read beyond "auto" (`ocr_languages.SELECTABLE_LANGUAGES`).
 pub const OCR_SOURCE_LANGUAGES: [&str; 7] = ["auto", "Arabic", "Hindi", "Korean", "Russian", "Thai", "Ukrainian"];
+
+#[cfg(test)]
+mod official_api_tests {
+    use super::*;
+
+    #[test]
+    fn the_official_apis_follow_deepl_with_their_languages() {
+        let engines: Vec<&String> = translation().keys().collect();
+        let deepl = engines.iter().position(|e| *e == "DeepL_API").unwrap();
+        assert_eq!((engines[deepl + 1].as_str(), engines[deepl + 2].as_str()), ("Google_Cloud_API", "Papago_API"));
+        assert_eq!(translation()["Google_Cloud_API"], translation()["Google"]);
+        let papago = translation()["Papago_API"]["source"].as_object().unwrap();
+        assert_eq!(papago.len(), 13);
+        assert_eq!(papago["Chinese Simplified"], "zh-CN");
+        assert!(!papago.contains_key("Hindi") && !papago.contains_key("Portuguese"));
+    }
+
+    #[test]
+    fn the_retired_recognition_engines_are_not_offered() {
+        let engines = transcription_engines();
+        assert_eq!(engines.first().map(String::as_str), Some(LOCAL_SPEECH_ENGINE));
+        assert!(!engines.iter().any(|e| e == RETIRED_GOOGLE_ENGINE || e == RETIRED_WHISPER_ENGINE), "{engines:?}");
+        // The column stays: it gives the regional codes.
+        assert_eq!(transcription()["Japanese"]["Japan"][RETIRED_GOOGLE_ENGINE], "ja-JP");
+    }
+}

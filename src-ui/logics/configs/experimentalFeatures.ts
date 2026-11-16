@@ -17,7 +17,9 @@ export type ExperimentalFeature = { readonly id: string };
 export type ExperimentalFeatureValues = Readonly<Record<string, boolean>>;
 
 export const EXPERIMENTAL_FEATURES: readonly ExperimentalFeature[] = Object.freeze([
-    // Empty until a feature graduates from the experimental branch.
+    // The app lives in the system tray, with a small control panel and a handle beside the
+    // desktop captions (src-tauri/src/companion.rs, views/companion_panel, Issue #355).
+    { id: "tray_companion" },
 ]);
 
 const KNOWN_IDS = new Set(EXPERIMENTAL_FEATURES.map(feature => feature.id));

@@ -9,6 +9,7 @@ for (const [warning, urls] of [
         "http://10.0.0.1/v1", "http://172.16.0.1/v1", "http://172.31.255.254/v1",
         "http://192.168.1.1/v1", "http://169.254.1.1/v1",
         "http://[fc00::1]/v1", "http://[fdff::1]/v1", "http://[fe80::1]/v1", "http://[febf::1]/v1",
+        "http://studio.local:1234/v1", "http://Gaming-PC.local:11434",
     ]],
     [false, [
         "http://127.0.0.1:1234/v1", "http://127.255.255.254/v1", "http://localhost:1234/v1",
@@ -16,6 +17,7 @@ for (const [warning, urls] of [
         "https://example.com/v1", "https://192.168.1.1/v1", "https://[fd00::1]/v1",
         "http://example.com/v1", "http://172.15.255.255/v1", "http://172.32.0.1/v1",
         "http://[fec0::1]/v1", "http://[2001:db8::1]/v1", "unfinished", "",
+        "https://studio.local/v1", "http://studio.local.example.com/v1",
     ]],
 ]) for (const url of urls) test(`${url || "empty draft"}: LAN warning ${warning}, save notice retained`, () => {
     const description = endpointDescription(url, "models", t);
@@ -49,6 +51,7 @@ test("URL errors restore the correct field and have actionable text in both loca
     const errors = readFileSync(new URL("../_useBackendErrorHandling.js", import.meta.url), "utf8");
     for (const [code, setter] of [
         ["CONNECTION_LMSTUDIO_URL_INVALID", "updateLMStudioURL"],
+        ["CONNECTION_OLLAMA_URL_INVALID", "updateOllamaURL"],
         ["CONNECTION_OPENAI_COMPATIBLE_URL_INVALID", "updateOpenAICompatibleURL"],
         ["CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID", "updateCustomWhisperURL"],
     ]) {

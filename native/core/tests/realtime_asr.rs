@@ -176,9 +176,25 @@ fn the_main_switch_streams_the_microphone_and_its_final_goes_out() {
 }
 
 #[test]
+fn a_saved_google_engine_leaves_realtime_recognition_as_it_was() {
+    // Linux with a config.json that chose the retired Google engine: the main switch still streams.
+    let run = start(Platform::Linux, json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google", "LOCAL_ASR_MIGRATION": 2 }), true);
+    assert_eq!(run.ui.ok("/get/data/selected_transcription_engine", None), Value::Null);
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || run.capture.opened() == vec![(Source::Mic, "alsa.mic".to_string())]);
+    run.capture.hear(Source::Mic, &[speech(2000)]);
+    assert_eq!(run.caption(mark, "final")["text"], "こんにちは");
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは"));
+    run.ui.ok("/set/disable/transcription_send", None);
+    run.ui.stop();
+}
+
+#[test]
 fn the_settings_page_starts_and_stops_a_session_beside_the_recorder() {
-    // Windows with the Google engine: the main switches run the recorder.
-    let run = start(Platform::Windows, json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google" }), true);
+    // Windows with a cloud engine: the main switches run the recorder.
+    let run = start(Platform::Windows, json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Groq_Whisper" }), true);
+    assert_eq!(run.ui.ok("/get/data/selected_transcription_engine", None), "Groq_Whisper");
     let answer = run.ui.request("/run/start_realtime_asr", Some(json!({ "source": "both" })));
     assert_eq!((answer["status"].clone(), answer["result"].clone()), (json!(400), json!({ "error_code": "realtime_start_invalid" })));
 
@@ -204,6 +220,24 @@ fn the_settings_page_starts_and_stops_a_session_beside_the_recorder() {
     let generation = run.ui.ok("/get/data/realtime_asr_state", None)["speaker"]["generation"].as_u64().unwrap();
     let state = run.ui.ok("/run/start_realtime_asr", Some(json!({ "source": "speaker" })));
     assert!(state["speaker"]["generation"].as_u64().unwrap() > generation);
+    run.ui.stop();
+}
+
+#[test]
+fn leaving_the_local_engine_stops_its_realtime_session() {
+    // #394: on Windows the local engine listens through realtime recognition; choosing a cloud
+    // engine stopped nothing, and the switch then turned off the recorder instead.
+    let run = start(Platform::Windows, json!({ "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp" }), true);
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/data/selected_transcription_engine", Some(json!("Groq_Whisper"))), "Groq_Whisper");
+    assert_eq!(run.ui.wait_endpoint(mark, "/set/disable/transcription_send")["result"], false);
+    assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["requested"], false);
+    eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+    run.capture.hear(Source::Mic, &[speech(2000)]);
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(run.ui.on(mark, "/run/realtime_caption").is_empty(), "no caption after the engine changed");
     run.ui.stop();
 }
 

@@ -1,11 +1,13 @@
-//! Where the VR panel's page is captured and how its size is set (`window_capture.py`,
-//! `window_capture_linux.py`).
+//! Where the VR panel's page is captured, how its size is set and how the controllers' mouse
+//! input reaches it (`window_capture.py`, `window_capture_linux.py`).
 //!
 //! On Windows the page lives in the app's window "VRCT-VOX VR Panel", parked off-screen; it is
-//! photographed with `PrintWindow`. On Linux the app (`src-tauri/src/vr_panel_surface.rs`)
-//! renders the page off-screen and writes each repaint to `<VRCT_VR_PANEL_DIR>/frame`; sizes go
-//! to `<VRCT_VR_PANEL_DIR>/input.sock`. The core runs in the app's process, so both work from
-//! here as they did from the sidecar.
+//! photographed with `PrintWindow`, and the mouse goes to its WebView2 input window
+//! (`Chrome_RenderWidgetHostHWND`) with `PostMessageW`, so the system's cursor does not move. On
+//! Linux the app (`src-tauri/src/vr_panel_surface.rs`) renders the page off-screen and writes each
+//! repaint to `<VRCT_VR_PANEL_DIR>/frame`; sizes and the mouse go to
+//! `<VRCT_VR_PANEL_DIR>/input.sock`, one line each, which the app turns into GDK events. The core
+//! runs in the app's process, so all of this works from here as it did from the sidecar.
 
 /// The title the app gives the VR panel's window (`src-tauri/src/lib.rs`).
 pub const VR_PANEL_TITLE: &str = "VRCT-VOX VR Panel";
@@ -16,6 +18,34 @@ pub struct Frame {
     pub bgra: Vec<u8>,
     pub width: u32,
     pub height: u32,
+}
+
+/// The mouse input the controller's laser makes on the page, in the captured picture's pixels
+/// (the page's client area; (-1, -1) is outside it). The left button is the trigger; the wheel
+/// is the stick, in Windows wheel units (120 a notch).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PointerInput {
+    Move { x: i64, y: i64, pressed: bool },
+    Down { x: i64, y: i64 },
+    Up { x: i64, y: i64 },
+    Wheel { x: i64, y: i64, delta: i64 },
+}
+
+/// Outside the page: moving or letting go here makes no click and ends the hover (`_OUTSIDE_XY`).
+pub const OUTSIDE: (i64, i64) = (-1, -1);
+
+/// GDK scrolls about 50 px for 1.0, down positive; Windows 120 a notch (about 100 px in
+/// WebView2) (`_WHEEL_UNITS_PER_GDK_DELTA`).
+pub const WHEEL_UNITS_PER_GDK_DELTA: f64 = -60.0;
+
+/// The line the Linux page reads from `input.sock` (`window_capture_linux.py`).
+pub fn input_line(input: PointerInput) -> String {
+    match input {
+        PointerInput::Move { x, y, pressed } => format!("move {x} {y} {}", u8::from(pressed)),
+        PointerInput::Down { x, y } => format!("down {x} {y}"),
+        PointerInput::Up { x, y } => format!("up {x} {y}"),
+        PointerInput::Wheel { x, y, delta } => format!("wheel {x} {y} {:.4}", delta as f64 / WHEEL_UNITS_PER_GDK_DELTA),
+    }
 }
 
 /// The VR page's window, found again when it is made again.
@@ -30,6 +60,9 @@ pub trait PanelSurface: Send + Sync {
     /// Asks for the page to be `width` x `height` logical px. Returns the picture size that
     /// means the change is done.
     fn resize(&self, window: u64, width: u32, height: u32) -> (u32, u32);
+    /// Mouse input into the page (`mouseMove`, `mouseDown`, `mouseUp`, `mouseWheel`). It does
+    /// not move the system's cursor; a page that is gone ignores it.
+    fn pointer(&self, _window: u64, _input: PointerInput) {}
 }
 
 /// The surface of this platform.
@@ -39,8 +72,10 @@ pub fn platform() -> std::sync::Arc<dyn PanelSurface> {
 
 #[cfg(windows)]
 mod imp {
-    use super::{Frame, PanelSurface, VR_PANEL_TITLE};
-    use windows::Win32::Foundation::{HWND, POINT, RECT};
+    use super::{Frame, PanelSurface, PointerInput, VR_PANEL_TITLE};
+    use std::sync::Mutex;
+    use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT, WPARAM};
+    use windows::core::BOOL;
     use windows::Win32::Graphics::Gdi::{
         BI_RGB, BITMAPINFO, BITMAPINFOHEADER, ClientToScreen, CreateCompatibleBitmap, CreateCompatibleDC, DIB_RGB_COLORS,
         DeleteDC, DeleteObject, GetDIBits, GetWindowDC, ReleaseDC, SelectObject,
@@ -48,18 +83,58 @@ mod imp {
     use windows::Win32::Storage::Xps::{PRINT_WINDOW_FLAGS, PrintWindow};
     use windows::Win32::UI::HiDpi::GetDpiForWindow;
     use windows::Win32::UI::WindowsAndMessaging::{
-        FindWindowW, GetClientRect, GetWindowRect, IsIconic, IsWindow, SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE,
-        SWP_NOZORDER, SetWindowPos,
+        EnumChildWindows, FindWindowW, GetClassNameW, GetClientRect, GetWindowRect, IsIconic, IsWindow, PostMessageW,
+        SWP_ASYNCWINDOWPOS, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetWindowPos, WM_LBUTTONDOWN, WM_LBUTTONUP,
+        WM_MOUSEMOVE, WM_MOUSEWHEEL,
     };
     use windows::core::HSTRING;
 
     const PW_RENDERFULLCONTENT: u32 = 2;
+    const MK_LBUTTON: usize = 1;
+    /// The WebView2 child window that takes the input.
+    const RENDER_WIDGET_CLASS: &str = "Chrome_RenderWidgetHostHWND";
 
     #[derive(Default)]
-    pub struct Native;
+    pub struct Native {
+        /// (page window, its input window), found once.
+        target: Mutex<Option<(u64, u64)>>,
+    }
 
     fn hwnd(window: u64) -> HWND {
         HWND(window as usize as *mut core::ffi::c_void)
+    }
+
+    unsafe extern "system" fn find_render_widget(child: HWND, found: LPARAM) -> BOOL {
+        let mut name = [0u16; 64];
+        let length = unsafe { GetClassNameW(child, &mut name) }.max(0) as usize;
+        if String::from_utf16_lossy(&name[..length]) == RENDER_WIDGET_CLASS {
+            unsafe { *(found.0 as *mut usize) = child.0 as usize };
+            return BOOL(0);
+        }
+        BOOL(1)
+    }
+
+    impl Native {
+        /// In WebView2 the descendant `Chrome_RenderWidgetHostHWND` takes the input (`_target`);
+        /// without one, the window itself.
+        fn target(&self, window: u64) -> HWND {
+            let mut cached = self.target.lock().unwrap();
+            if let Some((page, input)) = *cached
+                && page == window
+                && unsafe { IsWindow(Some(hwnd(input))) }.as_bool()
+            {
+                return hwnd(input);
+            }
+            let mut found: usize = 0;
+            unsafe {
+                let _ = EnumChildWindows(Some(hwnd(window)), Some(find_render_widget), LPARAM(&mut found as *mut usize as isize));
+            }
+            if found == 0 {
+                return hwnd(window);
+            }
+            *cached = Some((window, found as u64));
+            hwnd(found as u64)
+        }
     }
 
     impl PanelSurface for Native {
@@ -135,6 +210,27 @@ mod imp {
             }
         }
 
+        fn pointer(&self, window: u64, input: PointerInput) {
+            let target = self.target(window);
+            let lparam = |x: i64, y: i64| LPARAM((((y as i32 & 0xFFFF) << 16) | (x as i32 & 0xFFFF)) as isize);
+            unsafe {
+                let _ = match input {
+                    PointerInput::Move { x, y, pressed } => {
+                        PostMessageW(Some(target), WM_MOUSEMOVE, WPARAM(if pressed { MK_LBUTTON } else { 0 }), lparam(x, y))
+                    }
+                    PointerInput::Down { x, y } => PostMessageW(Some(target), WM_LBUTTONDOWN, WPARAM(MK_LBUTTON), lparam(x, y)),
+                    PointerInput::Up { x, y } => PostMessageW(Some(target), WM_LBUTTONUP, WPARAM(0), lparam(x, y)),
+                    PointerInput::Wheel { x, y, delta } => {
+                        // WM_MOUSEWHEEL carries screen coordinates.
+                        let mut point = POINT { x: x as i32, y: y as i32 };
+                        let _ = ClientToScreen(target, &mut point);
+                        let wparam = WPARAM((((delta as i32) & 0xFFFF) as usize) << 16);
+                        PostMessageW(Some(target), WM_MOUSEWHEEL, wparam, lparam(i64::from(point.x), i64::from(point.y)))
+                    }
+                };
+            }
+        }
+
         fn resize(&self, window: u64, width: u32, height: u32) -> (u32, u32) {
             let hwnd = hwnd(window);
             unsafe {
@@ -158,7 +254,7 @@ mod imp {
 
 #[cfg(unix)]
 mod imp {
-    use super::{Frame, PanelSurface};
+    use super::{Frame, PanelSurface, PointerInput};
     use std::os::unix::fs::FileExt;
     use std::os::unix::net::UnixDatagram;
     use std::path::PathBuf;
@@ -274,6 +370,10 @@ mod imp {
         fn resize(&self, _window: u64, width: u32, height: u32) -> (u32, u32) {
             self.send(&format!("resize {width} {height}"));
             (width, height)
+        }
+
+        fn pointer(&self, _window: u64, input: PointerInput) {
+            self.send(&super::input_line(input));
         }
     }
 }
