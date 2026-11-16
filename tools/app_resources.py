@@ -11,7 +11,8 @@ whole, also removes the Python runtime of an older version.
 
 `stage` copies from the build folder (build/speechcpp from speechcpp_bundle.py, the RVC worker
 from build_rvc_worker.py, the Rust license texts from rust_licenses.py, the Linux helpers from
-build_voice_gate.py) and the repository (LICENSE, NOTICE.md, the NScurl notices). It downloads
+build_voice_gate.py, the readings' dictionary from sudachi_dictionary.py when present) and the
+repository (LICENSE, NOTICE.md, the NScurl notices). It downloads
 nothing. `check` lists what a package needs and is missing.
 """
 import argparse
@@ -55,6 +56,11 @@ def pairs(platform, build=ROOT / 'build', root=ROOT):
         notices = bundle / 'notices'
         if notices.is_dir():
             result += [(file, f'build/speechcpp/notices/{file.name}') for file in sorted(notices.iterdir()) if file.is_file()]
+    # The readings' SudachiDict (sudachi_dictionary.py). Not required yet: which edition ships is
+    # decision 3 in docs/voice-stack/core-integration.md; without it messages have no readings.
+    sudachi = build / 'sudachi'
+    if sudachi.is_dir():
+        result += [(file, f'build/sudachi/{file.name}') for file in sorted(sudachi.iterdir()) if file.is_file()]
     helpers = ['vrct-rvc-worker'] + (list(LINUX_HELPERS) if platform == 'linux' else [])
     for name in helpers:
         file = build / _exe(name, platform)
