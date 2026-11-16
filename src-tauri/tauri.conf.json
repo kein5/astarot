@@ -50,6 +50,7 @@
                 "default",
                 "quick-chat",
                 "caption-overlay",
+                "companion",
                 "vrct-capability"
             ],
             "devCsp": {

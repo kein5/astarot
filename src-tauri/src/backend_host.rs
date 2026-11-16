@@ -35,6 +35,11 @@ fn main_only(window: &tauri::WebviewWindow) -> Result<(), String> {
 
 /// Where settings, logs and models live: the same folders the Python sidecar used, so that a
 /// user's settings carry over (`runtime_paths.py`, `config.py`).
+/// Where the settings live (config.json), as the backend finds it.
+pub(crate) fn state_dir(executable: &Path) -> PathBuf {
+    environment(executable, String::new()).state_dir
+}
+
 fn environment(executable: &Path, version: String) -> Environment {
     let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     let linux_bundle = cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1");

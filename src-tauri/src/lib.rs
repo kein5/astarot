@@ -8,6 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 mod backend_host;
 mod app_update;
 mod caption_overlay;
+mod companion;
 mod quick_chat;
 mod single_instance;
 mod vr_panel_state;
@@ -54,7 +55,7 @@ mod portal_shortcuts {
 // tauri.conf.json の main ウィンドウと同じ値にする (テストで確かめる)。Tauri既定の --disable-features
 // から msSmartScreenProtection を外し、WebView2 の SmartScreen を既定どおり動かす (第2回セキュリティ監査
 // SEC-03)。隠れたウィンドウの描画停止は無効にする (VRパネルは画面外に置いて撮影するため)。
-const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding";
+pub(crate) const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding";
 
 // VRオーバーレイに映す画面。Python側 (models/overlay) が撮影・入力する (Windows はタイトルで見つける)。
 // VR UI が ON の間だけ作る (set_vr_panel_window)。OFF の間も動かしておくと、使わない人にも負荷がかかる
@@ -98,7 +99,7 @@ fn startup_log_path(executable_path: &Path) -> PathBuf {
         .join("startup.log")
 }
 
-fn startup_log(message: &str) {
+pub(crate) fn startup_log(message: &str) {
     let Ok(executable_path) = std::env::current_exe() else {
         return;
     };
@@ -144,6 +145,19 @@ pub fn run() {
         }
         context
     };
+    // The tray companion (an experimental feature, off by default) keeps the main window hidden:
+    // it still runs the backend and the caption overlay, and the app lives in the tray.
+    let companion = std::env::current_exe()
+        .is_ok_and(|executable| companion::starts_in_tray(&backend_host::state_dir(&executable)));
+    let context = if companion {
+        let mut context = context;
+        if let Some(main) = context.config_mut().app.windows.iter_mut().find(|w| w.label == "main") {
+            main.visible = false;
+        }
+        context
+    } else {
+        context
+    };
     let mut builder = tauri::Builder::default();
     if single_instance::single_instance_enabled(
         cfg!(debug_assertions),
@@ -166,10 +180,20 @@ pub fn run() {
         }));
     }
     let result = builder
-        .setup(|app| {
+        .setup(move |app| {
             let main_window = app.get_webview_window("main").ok_or_else(|| {
                 Error::other("main webview window was not created")
             })?;
+            if companion {
+                match companion::install(app.handle()) {
+                    Ok(()) => {
+                        startup_log("Tray companion: the main window stays hidden in the tray");
+                        return Ok(());
+                    }
+                    // Without a tray the app could not be reached: start as usual.
+                    Err(error) => startup_log(&format!("Tray companion could not start: {error}")),
+                }
+            }
             main_window.show()?;
             if let Err(error) = main_window.set_focus() {
                 startup_log(&format!("Main window focus failed: {error}"));
@@ -184,6 +208,7 @@ pub fn run() {
         // 画面外の vr_panel ウィンドウが残ることがあるため「最後のウィンドウが閉じたら終了」に頼れない。
         // main が閉じたらアプリを終了する。
         .on_window_event(|window, event| {
+            companion::on_window_event(window, event);
             if window.label() == "quick_chat" {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
@@ -209,6 +234,7 @@ pub fn run() {
         .manage(portal_screencast::Screencast::default())
         .manage(vr_panel_state::VrPanelState::default())
         .manage(backend_host::BackendHost::default())
+        .manage(companion::CompanionState::default())
         .invoke_handler(tauri::generate_handler![get_font_list, set_vr_panel_window, main_window_restore,
             backend_host::backend_kind, backend_host::backend_start, backend_host::backend_write,
             backend_host::backend_kill,
@@ -221,7 +247,10 @@ pub fn run() {
             portal_screencast::screencast_support, portal_screencast::screencast_start,
             portal_screencast::screencast_stop,
             vr_panel_state::vr_panel_state_subscribe, vr_panel_state::vr_panel_state_push,
-            app_update::app_update_info, app_update::app_update_check, app_update::app_update_install])
+            app_update::app_update_info, app_update::app_update_check, app_update::app_update_install,
+            companion::companion_set, companion::companion_publish, companion::companion_take,
+            companion::companion_show_main, companion::companion_hide_main, companion::companion_status, companion::companion_request,
+            companion::companion_panel_hide, companion::companion_panel_toggle])
         .build(context)
         .map(|app| app.run(|app, event| {
             // A shared window must not stay shared after the app is gone.
