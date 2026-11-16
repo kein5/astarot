@@ -25,6 +25,7 @@ mod realtime_asr;
 #[cfg(feature = "onnx-translation")]
 mod translation_onnx;
 pub mod updates;
+pub mod voice;
 
 pub use adapters::Osc;
 pub use routes::routes;
@@ -156,7 +157,7 @@ pub struct Services {
     /// Whether nothing runs on a download's target ("japanese", "multilingual", "asr": the
     /// speech server profile is stopped or failed; "rvc": the voice conversion is not
     /// requested, pending or stopping). An apply is refused with `model_target_busy` otherwise.
-    /// The default says idle: neither runs in the core yet.
+    /// The default says idle; the core also asks its own speech servers and voice area.
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// The usage-event sender, to VRCT-VOX's own receiver by default.
     pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
@@ -207,6 +208,9 @@ pub struct Services {
     pub transcription_capture: TranscriptionCapture,
     /// Where the cloud recognition engines are (Google, Groq, OpenAI, Deepgram).
     pub transcription_endpoints: vrct_transcription::providers::Endpoints,
+    /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
+    /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
+    pub voice: Arc<dyn voice::VoicePlatform>,
 }
 
 impl Default for Services {
@@ -238,6 +242,7 @@ impl Default for Services {
             software_updates: Arc::new(updates::Disabled),
             transcription_capture: Arc::new(default_transcription_capture),
             transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
+            voice: Arc::new(voice::NativeVoice),
         }
     }
 }
@@ -271,6 +276,8 @@ pub struct Core {
     ocr: Arc<ocr::Ocr>,
     /// Speech recognition: the recorders and realtime recognition ([`transcription`]).
     transcription: Arc<transcription::Transcription>,
+    /// Speech, direct voice and the voice route, made with the routes ([`voice`]).
+    pub(crate) voice: std::sync::OnceLock<Arc<voice::Voice>>,
 }
 
 /// The captures of speech recognition for the settings' environment.
@@ -311,6 +318,7 @@ impl Core {
             vr: std::sync::OnceLock::new(),
             ocr: Arc::default(),
             transcription,
+            voice: std::sync::OnceLock::new(),
         })
     }
 
@@ -354,6 +362,7 @@ impl Core {
     /// Stamps a request before it waits in the queue (generations of the voice features).
     pub fn stamp(&self, endpoint: &str, data: &mut Value) {
         self.stamp_realtime(endpoint, data);
+        self.stamp_voice(endpoint, data);
     }
 
     pub fn start_watchdog(&self, timeout: Duration, interval: Duration, on_timeout: Arc<dyn Fn() + Send + Sync>) {
@@ -383,6 +392,7 @@ impl Core {
         *done = true;
         self.step("Shutdown");
         self.stop_transcription();
+        self.close_voice();
         self.close_speech_servers();
         self.close_model_downloads();
         self.stop_audio_devices();

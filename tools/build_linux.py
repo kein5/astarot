@@ -120,7 +120,7 @@ def copy_adapters(resources):
 # translate-onnx is an optional dependency of the core (feature onnx-translation, off), but Cargo
 # reads its manifest to resolve the core, so it is copied too.
 APP_CRATES = ('core', 'adapters', 'audio-routing', 'ocr-runtime', 'ops', 'speech-server', 'transcription', 'translation',
-              'translate-onnx', 'tts', 'vr-overlay')
+              'translate-onnx', 'tts', 'voice-conversion', 'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
 # the workspace: native/ops builds the speech.cpp recognizers from the backend's own text, and
 # native/vr-overlay checks its layout against the VR page's.

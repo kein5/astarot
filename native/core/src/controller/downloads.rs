@@ -120,13 +120,8 @@ impl Core {
             if !(self.services().model_target_idle)("rvc") {
                 return Err(Error::Code("model_target_busy"));
             }
-            let mut settings = config.get("DIRECT_VOICE_SETTINGS");
-            if keys.iter().any(|k| settings[format!("rvc_{k}")] != expected[*k]) {
-                return Err(Error::Code("settings_changed"));
-            }
-            settings["rvc_model"] = json!(path("model").unwrap_or_default());
-            settings["rvc_index"] = json!(path("index").unwrap_or_default());
-            config.set("DIRECT_VOICE_SETTINGS", settings).map_err(|_| Error::Code("download_apply_failed"))?;
+            // Under the voice settings' lock, refused while a conversion runs (`voice`).
+            self.apply_rvc_download(expected, &path("model").unwrap_or_default(), &path("index").unwrap_or_default()).map_err(Error::Code)?;
         } else {
             // A VAD or diarization file goes to a field of the asr profile; `expected` names
             // that field's value, not the recognizer's.
@@ -136,7 +131,7 @@ impl Core {
             let running = vrct_speech_server::settings::Profile::from_name(profile).is_ok_and(|p| self.speech_servers().is_running(p));
             // Realtime recognition listening on the bundled server keeps its model in use.
             let recognizing = profile == "asr" && self.realtime_uses_bundled_server();
-            if running || recognizing || !(self.services().model_target_idle)(profile) {
+            if running || recognizing || !(self.services().model_target_idle)(profile) || !self.voice_target_idle(profile) {
                 return Err(Error::Code("model_target_busy"));
             }
             let mut settings = config.get("SPEECH_SERVER_SETTINGS");

@@ -208,6 +208,11 @@ impl Core {
         self.adapters()?.websocket_send(message)
     }
 
+    /// Whether the WebSocket server runs (`checkWebSocketServerAlive`).
+    pub(crate) fn websocket_alive(&self) -> bool {
+        self.adapters().is_some_and(|adapters| adapters.websocket_alive())
+    }
+
     pub(crate) fn mic_held_back(&self) -> bool {
         self.adapters().is_some_and(|adapters| adapters.mic_held_back())
     }

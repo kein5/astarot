@@ -29,6 +29,8 @@ struct Inner {
     watching: AtomicBool,
     /// The cables offered; `None`: the check is not offered (Linux).
     cables: Mutex<Option<CableSetup>>,
+    /// The speech outputs; `Some(None)`: listing them fails.
+    outputs: Mutex<Option<Option<Vec<OutputOption>>>>,
 }
 
 #[derive(Clone, Default)]
@@ -63,6 +65,12 @@ impl FakeAudio {
 
     pub fn set(&self, lists: RawLists) {
         *self.0.lists.lock().unwrap() = Some(lists);
+    }
+
+    /// The speech outputs as `(id, label)`; `None`: listing them fails.
+    pub fn set_outputs(&self, outputs: Option<&[(&str, &str)]>) {
+        let rows = outputs.map(|rows| rows.iter().map(|(id, label)| OutputOption { id: (*id).into(), label: (*label).into() }).collect());
+        *self.0.outputs.lock().unwrap() = Some(rows);
     }
 
     pub fn set_cables(&self, cables: Option<CableSetup>) {
@@ -178,7 +186,11 @@ impl AudioPlatform for FakeAudio {
     }
 
     fn outputs(&self, _: &[String]) -> Result<Vec<OutputOption>, Error> {
-        Ok(Vec::new())
+        match self.0.outputs.lock().unwrap().clone() {
+            None => Ok(Vec::new()),
+            Some(Some(rows)) => Ok(rows),
+            Some(None) => Err(Error::speech("audio_devices_unavailable")),
+        }
     }
 
     fn cables(&self) -> Option<Arc<dyn CableDevices>> {

@@ -14,6 +14,7 @@ pub mod cancel;
 pub mod client;
 pub mod clock;
 pub mod converted;
+pub mod engines;
 pub mod error;
 pub mod events;
 mod http;

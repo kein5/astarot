@@ -21,6 +21,11 @@ impl SpeechError {
         Self(Cow::Owned(reason.to_owned()))
     }
 
+    /// A fixed code another crate reported (an output device's, the conversion's).
+    pub fn from_code(code: &str) -> Self {
+        Self::from_reason(code)
+    }
+
     pub fn code(&self) -> &str {
         &self.0
     }

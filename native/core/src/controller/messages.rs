@@ -260,6 +260,12 @@ pub struct SpokenMessage {
     pub target_slots: Vec<String>,
     pub destinations: Value,
     pub translation_enabled: bool,
+    /// The speech generation at admission (stamped by the receiver for typed chat): a stop or a
+    /// settings change since then refuses the speech.
+    pub voice_generation: Option<u64>,
+    /// When the pipeline took the message, on the speech clock.
+    pub started_ns: i64,
+    pub source_language: Option<String>,
 }
 
 /// An output the other areas plug in. `Err` reports a failed output.
@@ -520,6 +526,21 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None)
+    }
+
+    /// [`Core::process_message`] with the speech generation the receiver stamped.
+    #[allow(clippy::too_many_arguments)]
+    fn process_message_stamped(
+        self: &Arc<Self>,
+        spec: &Spec,
+        message: &str,
+        language: Option<&str>,
+        id: Option<String>,
+        asr_ms: Option<u64>,
+        guard: Option<Guard>,
+        voice_generation: Option<u64>,
+    ) -> Option<Value> {
         let mic = spec.kind == "mic";
         // A message refused at admission stays refused after unmute.
         if mic && self.mic_held_back() {
@@ -535,6 +556,7 @@ impl Core {
         let config = self.config();
         let feature_enabled = spec.feature.is_none_or(|key| config.get_bool(key));
         let snapshot = Snapshot::capture(self, spec, language);
+        let voice_generation = voice_generation.or_else(|| self.voice_generation());
         let sequence = spec.chatbox.map(|_| {
             let mut order = self.messages().chatbox.lock().unwrap();
             order.admitted += 1;
@@ -559,10 +581,13 @@ impl Core {
         }
 
         let started = Instant::now();
+        let started_ns = vrct_tts::clock::monotonic_ns();
+        let trace = self.io_trace_begin(spec.kind, message, id.as_deref(), started_ns, asr_ms);
+        let voice = (voice_generation, started_ns);
         let slots = snapshot.target_slots();
         let speaks = matches!(spec.kind, "chat" | "mic");
         if speaks {
-            self.speak(SpeechStage::Original, spec, &snapshot, id.as_ref(), message, &[], &current, &mut failures);
+            self.speak(SpeechStage::Original, spec, &snapshot, id.as_ref(), message, &[], voice, &current, &mut failures);
         }
 
         // Translation
@@ -664,6 +689,7 @@ impl Core {
             // The chatbox
             if let (Some(gate), Some(sequence)) = (spec.chatbox, sequence) {
                 if !config.get_bool(gate) {
+                    Self::io_trace_chatbox(trace.as_ref(), None);
                     if spec.format == "SEND" {
                         payload.insert("delivery_reason".into(), json!("vrchat_off"));
                     }
@@ -684,6 +710,9 @@ impl Core {
                             sent
                         }
                     };
+                    if let Ok(sent) = &sent {
+                        Self::io_trace_chatbox(trace.as_ref(), Some(*sent));
+                    }
                     match sent {
                         Ok(true) => {}
                         Ok(false) => {
@@ -788,12 +817,15 @@ impl Core {
 
         if speaks {
             let outcome: Vec<_> = outcomes.clone();
-            self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, &current, &mut failures);
+            self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, voice, &current, &mut failures);
         }
         if !failures.is_empty() {
             payload.insert("output_failures".into(), Value::Array(failures));
         }
         let total = started.elapsed().as_millis();
+        let translated = snapshot.translation_enabled.then_some(translations.as_slice());
+        let failed: Vec<Value> = payload.get("output_failures").and_then(Value::as_array).cloned().unwrap_or_default();
+        self.io_trace_publish(trace, translated, translate_ms, total.saturating_sub(translate_ms), &failed);
         let asr = asr_ms.map(|ms| format!("asr={ms}ms ")).unwrap_or_default();
         self.step(&format!(
             "[latency][{}] {asr}translate={translate_ms}ms output={}ms total={}ms",
@@ -898,6 +930,7 @@ impl Core {
         id: Option<&String>,
         message: &str,
         outcomes: &[super::translation::Translated],
+        (voice_generation, started_ns): (Option<u64>, i64),
         current: &dyn Fn() -> bool,
         failures: &mut Vec<Value>,
     ) {
@@ -916,6 +949,9 @@ impl Core {
             target_slots: snapshot.target_slots(),
             destinations: snapshot.destinations().clone(),
             translation_enabled: snapshot.translation_enabled,
+            voice_generation,
+            started_ns,
+            source_language: snapshot.source_language.clone(),
         };
         if hook(&event).is_err() {
             self.output_failed("tts", spec, id, current, failures);
@@ -930,10 +966,11 @@ impl Core {
         id: Option<&String>,
         message: &str,
         outcomes: &[super::translation::Translated],
+        voice: (Option<u64>, i64),
         current: &dyn Fn() -> bool,
         failures: &mut Vec<Value>,
     ) {
-        self.speak(SpeechStage::Translated, spec, snapshot, id, message, outcomes, current, failures);
+        self.speak(SpeechStage::Translated, spec, snapshot, id, message, outcomes, voice, current, failures);
     }
 
     /// `chatMessage`.
@@ -950,7 +987,9 @@ impl Core {
         if text.is_empty() {
             return ok(json!({ "id": id, "original": { "message": "", "transliteration": [] }, "translations": [] }));
         }
-        match self.process_message(&CHAT, text, None, Some(id_text), None, None) {
+        // The receiver's stamp: a stop while this waited in the queue refuses its speech.
+        let stamped = data.get("_voice_generation").and_then(Value::as_u64);
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();

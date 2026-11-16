@@ -6,6 +6,8 @@ pub mod fake_asr;
 pub mod fake_audio;
 pub mod fake_capture;
 pub mod fake_osc;
+pub mod fake_tts;
+pub mod fake_voice;
 pub mod net;
 
 use serde_json::{Value, json};
@@ -63,6 +65,8 @@ impl Default for Setup {
                 // No real microphone or speaker, and no recognition service beyond this PC.
                 transcription_capture: fake_capture::FakeCapture::new().factory(),
                 transcription_endpoints: vrct_transcription::providers::Endpoints::all_at("http://provider.invalid"),
+                // No speech output, microphone, gate or worker runtime of the PC.
+                voice: fake_voice::FakeVoice::new().platform(),
                 ..Services::default()
             },
             watchdog: None,
