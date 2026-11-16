@@ -99,6 +99,8 @@ for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric 
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
         "../../../../../../logics/common/fileDrop": { extensionOf: path => path.slice(path.lastIndexOf(".")).toLowerCase() },
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
+        "../../../../../../logics/common/pathExample": { pathExample: file => `/models/${file}` },
+        "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
     });
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });
     const alert = find(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers");
@@ -110,5 +112,13 @@ for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric 
         assert.equal(typeof field.props["aria-invalid"], "boolean");
     }
     assert.ok(fields.some(field => field.props["aria-invalid"]));
+    // A cleared number field still shows what goes in it.
+    assert.deepEqual(fields.map(field => field.props.placeholder),
+        [`voice_ui.example:${JSON.stringify({ value: 12 })}`, `voice_ui.example:${JSON.stringify({ value: 0.75 })}`]);
+    // Each path field shows an example path, written the way this OS writes paths (pathExample).
+    const paths = [];
+    find(tree, node => { if (node.type === "input" && node.props.type === "text") paths.push(node); return false; });
+    assert.deepEqual(paths.map(field => field.props.placeholder), ["rvc-runtime", "voice.pth", "voice.index"]
+        .map(file => `voice_ui.example:${JSON.stringify({ value: `/models/${file}` })}`));
     runtime.unmount();
 });

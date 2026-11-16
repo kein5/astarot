@@ -80,7 +80,7 @@ export const QuickChat = ({ bridge = quickChatBridge }) => {
             bridge.hide().catch(() => setError('quick_chat_not_ready'));
         }
     }}>
-        <textarea ref={field} aria-label={t('quick_chat.message')} value={value} readOnly={pending}
+        <textarea ref={field} aria-label={t('quick_chat.message')} placeholder={t('studio.message_placeholder')} value={value} readOnly={pending}
             aria-describedby={overflowLength !== null ? lengthWarningId : undefined}
             onChange={event => { setValue(event.target.value); setError(null); }}
             onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}

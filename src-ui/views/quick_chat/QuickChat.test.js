@@ -130,3 +130,10 @@ test('main publishes saved appearance on initial configuration and later changes
     assert.equal(contexts.at(-1).font_family, 'Local font');
     runtime.unmount();
 });
+
+test('the Quick Chat box shows the same hint as the main window composer while it is empty', async t => {
+    const subject = await setup(t);
+    assert.equal(subject.field().placeholder, 'studio.message_placeholder');
+    assert.equal(subject.field()['aria-label'], 'quick_chat.message');
+    subject.runtime.unmount(); await flush();
+});
