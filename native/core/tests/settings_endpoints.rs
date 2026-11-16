@@ -189,6 +189,39 @@ fn vr_window_settings_are_checked_and_stored() {
 }
 
 #[test]
+fn the_vr_panel_layout_follows_the_saved_log_size() {
+    let mut panel = json!({
+        "width": 1200, "height": 900, "x_pos": 0.5209, "y_pos": 0.6442, "z_pos": -0.9509,
+        "x_rotation": 95.0133, "y_rotation": 44.0232, "z_rotation": 42.6138,
+        "display_duration": 5, "fadeout_duration": 0, "opacity": 1.0, "ui_scaling": 0.4, "tracker": "Playspace",
+    });
+    let ui = Ui::with(Setup { saved: Some(json!({ "OVERLAY_VR_PANEL_SETTINGS": panel.clone() })), ..Setup::default() });
+    let snapshot = ui.ready();
+    let layout = &snapshot["/get/data/vr_panel_layout"];
+    assert_eq!(layout["atlas"], json!([1928, 1036]));
+    assert_eq!(layout["regions"]["panel"], json!([0, 0, 1200, 900]));
+    assert_eq!(layout["regions"]["launcher"], json!([10, 908, 880, 128]));
+    assert_eq!(layout["tooltip_epoch"], 0);
+    ui.stop();
+
+    // A size outside the range (an older file) is drawn at the nearest allowed size.
+    panel["width"] = json!(300);
+    let ui = Ui::with(Setup { saved: Some(json!({ "OVERLAY_VR_PANEL_SETTINGS": panel })), ..Setup::default() });
+    ui.ready();
+    let layout = ui.ok("/get/data/vr_panel_layout", None);
+    assert!(layout["regions"]["panel"][2].as_i64().unwrap() >= 600, "{layout}");
+    ui.stop();
+}
+
+#[test]
+fn turning_the_chat_reading_off_answers_off() {
+    let ui = Ui::start();
+    ui.ready();
+    assert_eq!(ui.ok("/set/disable/ocr_capture", None), false);
+    ui.stop();
+}
+
+#[test]
 fn the_launcher_reset_and_the_overlay_switches() {
     let saved = json!({ "OVERLAY_SMALL_LOG": true, "OVERLAY_VR_PANEL": true, "OVERLAY_VR_PANEL_LOCKED": false });
     let ui = Ui::with(Setup { saved: Some(saved), ..Setup::default() });

@@ -5,10 +5,10 @@
 //! Python stored each value and then handed it to the running capture
 //! (`updateOCRCaptureSettings`), which did nothing while none ran. The capture itself is not
 //! wired to the core yet (#281), so storing is all these endpoints do here; the capture reads
-//! the stored values when it starts. Turning the capture on and off, the readiness checks and
-//! the source language (which loads the models) wait for it.
+//! the stored values when it starts. Turning the capture on, its state, the readiness checks
+//! and the source language (which loads the models) wait for it.
 
-use super::routes::{Builder, OPEN};
+use super::routes::{Builder, OPEN, WAIT};
 use super::settings::{python_str, store, switch};
 use super::{Core, error, ok, python_round};
 use crate::protocol::Reply;
@@ -58,6 +58,12 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     }
     b.add("/set/data/ocr_capture_region", OPEN, region(core, "OCR_CAPTURE_REGION"));
     b.add("/set/data/ocr_vr_capture_region", OPEN, region(core, "OCR_VR_CAPTURE_REGION"));
+    // Turning the capture off stops it when it runs; none runs in the core yet, so the switch
+    // stays off (`setDisableOcrCapture`). Turning it on waits for the capture.
+    b.with("/set/disable/ocr_capture", WAIT, |core, _| {
+        let _ = core.config().set("ENABLE_OCR_CAPTURE", json!(false));
+        ok(core.config().get("ENABLE_OCR_CAPTURE"))
+    });
     for (name, key) in [("ocr_chatbox_filter", "OCR_CHATBOX_FILTER"), ("ocr_use_chatbox_detector", "OCR_USE_CHATBOX_DETECTOR")] {
         b.add(&format!("/set/enable/{name}"), OPEN, switch(core, key, true));
         b.add(&format!("/set/disable/{name}"), OPEN, switch(core, key, false));
