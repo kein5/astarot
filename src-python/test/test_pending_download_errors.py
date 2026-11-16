@@ -41,6 +41,17 @@ def test_unrelated_requests_never_echo_secrets_or_messages():
         assert error_result(endpoint, {"secret": "not for stdout"}, "Internal error", 500) == "Internal error"
 
 
+@pytest.mark.parametrize("status", [404, 423, 500])
+def test_typed_message_errors_name_only_the_row(status):
+    # Several typed messages can wait on one lock; the UI marks only the failed row.
+    data = {"id": "row-1", "message": "not for stdout"}
+    assert error_result("/run/send_message_box", data, "Locked endpoint (busy)", status) == {
+        "message": "Locked endpoint (busy)", "data": {"id": "row-1"},
+    }
+    assert error_result("/run/send_message_box", data, "x", 200) == "x"
+    assert error_result("/run/send_message_box", {"id": 1, "message": "m"}, "x", status) == "x"
+
+
 def test_invalid_weight_identifier_does_not_echo_other_fields():
     assert error_result("/run/download_ctranslate2_weight", {"other": "secret"}, None, 500) is None
 
