@@ -168,3 +168,17 @@ for (const language of ["en", "ja"]) test(`${language}: a VR UI that this system
         options: { category_id: "OVERLAY_VR_PANEL_UNSUPPORTED" } }]);
     assert.deepEqual(s.reads, ["/get/data/overlay_vr_panel"]);
 });
+
+for (const language of ["en", "ja"]) test(`${language}: a key store failure stays on screen and changes no setting`, async () => {
+    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { [language]: { translation } } });
+    const s = await loadBridgeRoutes(undefined, i18n);
+    s.receiveRoutes({ status: 400, endpoint: "/run/secret_store_failed", result: {
+        error_code: "SECRET_STORE_FAILED", data: { operation: "write", entries: ["AUTH_KEYS/DeepL_API"], reason: "write_failed", store: "file" },
+        message: "The API keys could not be kept in their secure storage.",
+    } });
+    assert.deepEqual(s.notices, [{ type: "error", key: translation.backend_errors.SECRET_STORE_FAILED,
+        options: { hide_duration: null, category_id: "SECRET_STORE_FAILED" } }]);
+    assert.deepEqual(s.reads, []);
+});

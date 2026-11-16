@@ -264,6 +264,7 @@ backend_errors:
     AUTH_OPENAI_COMPATIBLE_INVALID: "OpenAI互換APIキーの形式が正しくありません。"
     AUTH_OPENAI_COMPATIBLE_FAILED: "OpenAI互換エンドポイントに接続できないか、APIキーが受け付けられませんでした。URLとAPIキーを確認してください。"
     CREDENTIAL_REENTRY_REQUIRED: "URLが変わったため、保存済みのキーが別のサーバーへ送られないよう、新しいURLで使うキーを入力してください。キーが不要なサーバーを使う場合は、先に保存済みのキーを削除してからURLを変更してください。"
+    SECRET_STORE_FAILED: "APIキーを保護されたファイルに保存できませんでした。入力したキーはアプリを閉じるまで使えます。設定のフォルダに書き込めるか確かめてから、足りないキーを入れ直してください。"
     MODEL_PLAMO_INVALID: "そのPlamoのモデルは使えません。"
     MODEL_GEMINI_INVALID: "そのGeminiのモデルは使えません。"
     MODEL_OPENAI_INVALID: "そのOpenAIのモデルは使えません。"

@@ -100,7 +100,7 @@ fn a_deepl_key_is_saved_only_when_deepl_accepts_it() {
     assert_eq!(refused(&ui, "/set/data/deepl_auth_key", json!(refused_key)), ("AUTH_DEEPL_FAILED".into(), json!(good)));
 
     ui.ok("/run/shutdown", None);
-    assert_eq!(ui.saved()["AUTH_KEYS"]["DeepL_API"], json!(good));
+    assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), json!(good));
     let log = process_log(&ui);
     assert!(!log.contains(&good) && !log.contains(&refused_key), "a key reached the log");
     ui.stop();
@@ -143,7 +143,7 @@ fn a_provider_key_brings_its_models_and_a_model_must_be_one_it_lists() {
 
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
-    assert_eq!(file["AUTH_KEYS"]["OpenAI_API"], json!(key));
+    assert_eq!(ui.kept_key("AUTH_KEYS", "OpenAI_API"), json!(key));
     assert_eq!(file["SELECTED_OPENAI_MODEL"], "gpt-4o");
     assert!(!process_log(&ui).contains(&key));
     ui.stop();
@@ -262,7 +262,7 @@ fn start_up_checks_each_saved_key_and_keeps_the_ones_it_cannot_confirm() {
     assert!(offered.contains(&json!("Gemini_API")) && offered.contains(&json!("LMStudio")), "{offered:?}");
     assert!(!offered.contains(&json!("Groq_API")) && !offered.contains(&json!("Google")), "{offered:?}");
     ui.ok("/run/shutdown", None);
-    assert_eq!(ui.saved()["AUTH_KEYS"]["Groq_API"], json!(groq));
+    assert_eq!(ui.kept_key("AUTH_KEYS", "Groq_API"), json!(groq));
     assert!(!process_log(&ui).contains(&gemini));
     ui.stop();
 }

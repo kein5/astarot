@@ -4,9 +4,14 @@
 //! Rust core must write back the same file the Python backend wrote after its start-up, and
 //! notice the same things (a file moved aside, URLs dropped, the local ASR notice). The expected
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
+//!
+//! One difference is intended: API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
+//! `config.json` for the key store (`vrct_core::config::secrets`). The settings are compared
+//! without them, and the keys Python kept in the file must be in the store instead.
 
 use serde_json::{json, Map, Value};
 use std::path::Path;
+use vrct_core::config::secrets::{MemoryStore, SECRET_SETTINGS};
 use vrct_core::config::{Config, Environment, Platform};
 
 fn reference() -> Value {
@@ -43,6 +48,23 @@ fn write_input(dir: &Path, input: &Value, defaults: &Value) {
     }
 }
 
+/// Takes the keys out of an expected result: the entries the store must hold instead.
+fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
+    let mut keys = Vec::new();
+    if let Some(changed) = want["changed"].as_object_mut() {
+        for name in SECRET_SETTINGS {
+            if let Some(Value::Object(map)) = changed.remove(name) {
+                keys.extend(map.into_iter().filter_map(|(provider, v)| Some((format!("{name}/{provider}"), v.as_str()?.to_string()))));
+            }
+        }
+    }
+    if let Some(missing) = want["missing"].as_array_mut() {
+        missing.retain(|key| !SECRET_SETTINGS.contains(&key.as_str().unwrap_or_default()));
+    }
+    keys.sort();
+    keys
+}
+
 fn changes(saved: &Map<String, Value>, defaults: &Map<String, Value>) -> Map<String, Value> {
     saved.iter().filter(|(k, v)| defaults.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), v.clone())).collect()
 }
@@ -50,15 +72,27 @@ fn changes(saved: &Map<String, Value>, defaults: &Map<String, Value>) -> Map<Str
 fn check_platform(name: &str, platform: Platform) {
     let reference = reference();
     let expected = &reference["platforms"][name];
-    let defaults = expected["defaults"].as_object().unwrap();
+    let mut defaults = expected["defaults"].as_object().unwrap().clone();
+    defaults.retain(|key, _| !SECRET_SETTINGS.contains(&key.as_str()));
+    let defaults = &defaults;
     let mut failures = Vec::new();
+    let mut moved = 0;
     for (case, want) in expected["cases"].as_object().unwrap() {
         let dir = tempfile::tempdir().unwrap();
         write_input(dir.path(), &reference["inputs"][case], &expected["defaults"]);
-        let config = Config::open(environment(dir.path(), platform, &reference));
+        let store = MemoryStore::new();
+        let config = Config::open_with(environment(dir.path(), platform, &reference), store.clone());
         let saved: Map<String, Value> =
             serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap()).unwrap();
         let got_changes = changes(&saved, defaults);
+        let mut want = want.clone();
+        let wanted_keys = moved_keys(&mut want);
+        moved += wanted_keys.len();
+        let kept_keys: Vec<(String, String)> = store.snapshot().into_iter().collect();
+        if SECRET_SETTINGS.iter().any(|key| saved.contains_key(*key)) || kept_keys != wanted_keys {
+            failures.push(format!("{name}/{case}: keys\n  got:  {kept_keys:?} (in the file: {})\n  want: {wanted_keys:?}",
+                SECRET_SETTINGS.iter().any(|key| saved.contains_key(*key))));
+        }
         let missing: Vec<&String> = defaults.keys().filter(|k| !saved.contains_key(*k)).collect();
         let order_kept = saved.keys().eq(defaults.keys());
         let backups: Vec<String> = std::fs::read_dir(dir.path())
@@ -89,6 +123,7 @@ fn check_platform(name: &str, platform: Platform) {
         config.close();
     }
     assert!(failures.is_empty(), "{} differences:\n{}", failures.len(), failures.join("\n"));
+    assert!(moved > 0, "a case with saved keys moves them to the store");
 }
 
 #[test]

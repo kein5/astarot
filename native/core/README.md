@@ -38,6 +38,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 - 要求と応答の形式。1行の JSON で、`data` は Base64 にした JSON です。状態コード（200、400、404、409、423、500、403）とエラーの本体の形も同じです。
 - ロックの規則。同じロックの要求は受信順に1つずつ処理し、ロックの待ちが約 20 秒を超えたら 423、初期化前の待ちが約 30 秒を超えたら 423 を返します。停止の要求と watchdog の知らせはキューを通りません。VR パネルからの中継は、許した一覧のエンドポイントだけを通します。
 - `config.json` の場所、キー、既定値、並び、検査。Python が書いたファイルを読み、Python と同じ値を書き戻します。読めないファイルの退避、保存の遅延（2 秒）、すぐ保存するキー、`config.json.lock` のロック、保存失敗の通知と 30 秒ごとの再試行も同じです。
+- API キーは `config.json` に書かず、同じフォルダの `secrets.json` に置きます（`src/config/secrets.rs`。Windows は DPAPI で暗号化、Linux は 0600）。古い `config.json` にあるキーは起動時に移し、読み戻せたものだけをファイルから除きます。保存先は `Services::secret_store` で差し替えられ、試験はメモリーの保存先を使います。
 - 起動時の通知の順序と、`/run/initialization_complete` に入れるもの、入れないもの。
 
 ## Python 版と違う点

@@ -70,9 +70,9 @@ fn deleting_a_translation_key_forgets_its_models_and_tells_the_ui() {
     assert!(ui.on(mark, "/run/selected_deepl_model").is_empty());
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
-    assert_eq!(file["AUTH_KEYS"]["Gemini_API"], Value::Null);
-    assert_eq!(file["AUTH_KEYS"]["DeepL_API"], Value::Null);
-    assert_eq!(file["AUTH_KEYS"]["OpenAI_API"], "openai-key", "another provider's key stays");
+    assert_eq!(ui.kept_key("AUTH_KEYS", "Gemini_API"), Value::Null);
+    assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), Value::Null);
+    assert_eq!(ui.kept_key("AUTH_KEYS", "OpenAI_API"), "openai-key", "another provider's key stays");
     assert_eq!(file["SELECTED_GEMINI_MODEL"], Value::Null);
     ui.stop();
 }
@@ -87,9 +87,10 @@ fn deleting_a_recognition_key_forgets_its_models() {
     ui.ok("/delete/data/custom_whisper_auth_key", None);
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"]["Deepgram"], Value::Null);
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"]["Custom_Whisper"], Value::Null);
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"]["Groq_Whisper"], "gw-key");
+    assert!(file.get("TRANSCRIPTION_AUTH_KEYS").is_none());
+    assert_eq!(ui.kept_key("TRANSCRIPTION_AUTH_KEYS", "Deepgram"), Value::Null);
+    assert_eq!(ui.kept_key("TRANSCRIPTION_AUTH_KEYS", "Custom_Whisper"), Value::Null);
+    assert_eq!(ui.kept_key("TRANSCRIPTION_AUTH_KEYS", "Groq_Whisper"), "gw-key");
     ui.stop();
 }
 

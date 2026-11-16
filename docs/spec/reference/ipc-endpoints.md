@@ -441,7 +441,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/feed_watchdog` | 実行 | `feedWatchdog` | 可 | （受け取るだけ） |  |
 
 
-## 通知（サイドカーからUIへ、88件）
+## 通知（サイドカーからUIへ、89件）
 
 要求への応答とは別に、サイドカーが自分から送るメッセージ。`controller.run(status, run_mapping[名前], result)`で送る。
 
@@ -534,6 +534,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `config_file_unreadable` | `/run/config_file_unreadable` | （受け取るだけ） |
 | `config_save_failed` | `/run/config_save_failed` | （受け取るだけ） |
 | `config_save_recovered` | `/run/config_save_recovered` | （受け取るだけ） |
+| `secret_store_failed` | `/run/secret_store_failed` | （受け取るだけ） |
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 

@@ -204,6 +204,7 @@ run_mapping = {
     "config_file_unreadable":"/run/config_file_unreadable",
     "config_save_failed":"/run/config_save_failed",
     "config_save_recovered":"/run/config_save_recovered",
+    "secret_store_failed":"/run/secret_store_failed",
 
     "enable_osc_query":"/run/enable_osc_query",
 }

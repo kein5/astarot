@@ -623,6 +623,11 @@ export const _useBackendErrorHandling = () => {
             // ============================================================================
             // 汎用エラー (GENERAL_*)
             // ============================================================================
+            // The API keys' file could not be read or written. The keys work for this run.
+            case "SECRET_STORE_FAILED":
+                showNotification_Error(localized, { hide_duration: null, category_id: error_code });
+                return;
+
             case "GENERAL_EXCEPTION":
             case "GENERAL_UNKNOWN":
                 console.error(`Error occurred at endpoint: ${endpoint}\nerror_code: ${error_code}\nmessage: ${message}\nresult: ${JSON.stringify(result)}`);
