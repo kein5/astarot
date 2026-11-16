@@ -985,7 +985,10 @@ config_page:
         empty: "いま試せる機能はありません。新しい機能が加わるとここに並びます。"
         # src-ui/logics/configs/experimentalFeatures.ts の機能ごとに1つ:
         # <id>: { label: "...", desc: "何をするか。実験中であること…" }
-        items: {}
+        items:
+            tray_companion:
+                label: "トレイに常駐する"
+                desc: "VRCT-VOX をシステムトレイに置き、デスクトップの字幕と小さな操作パネルで使います。次の起動からはメイン画面を開かずにトレイで始まり、メイン画面を閉じてもトレイに残ります。マイクと翻訳の切り替えは、トレイのアイコンか字幕の横の小さなつまみから開くパネルで行います。試験中の機能です。"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -2039,3 +2042,21 @@ virtual_mic:
         found: "VRChatへ声を届ける仮想ケーブルのつながりをテスト音で確かめます。"
         missing: "仮想ケーブルが見つかりません。入れ方を案内します。"
         open: "仮想マイクを確かめる"
+
+# 実験中のコンパニオン形態（トレイ、字幕、コントロールパネル）。Issue #355
+companion:
+    state_starting: "起動中"
+    state_listening: "認識中"
+    state_idle: "停止中"
+    mic: "マイク"
+    translation: "翻訳"
+    "on": "オン"
+    "off": "オフ"
+    open_main: "VRCT-VOX を開く"
+    close: "閉じる"
+    handle: "コントロールパネルを開く"
+    menu_start: "認識を開始"
+    menu_stop: "認識を停止"
+    menu_panel: "コントロールパネルを開く"
+    menu_main: "VRCT-VOX を開く"
+    menu_quit: "終了"

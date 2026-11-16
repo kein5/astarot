@@ -985,7 +985,10 @@ config_page:
         empty: "There are no features to try right now. New ones will appear here when they are added."
         # One entry per feature in src-ui/logics/configs/experimentalFeatures.ts:
         # <id>: { label: "...", desc: "What it does. Experimental: ..." }
-        items: {}
+        items:
+            tray_companion:
+                label: "Live in the system tray"
+                desc: "Keeps VRCT-VOX in the system tray and works through the desktop captions and a small control panel. From the next start the app opens in the tray without its main window, and closing the main window leaves it there. Turn the microphone and translation on or off in the panel, opened from the tray icon or from the small handle beside the captions. This feature is still being tested."
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -2039,3 +2042,21 @@ virtual_mic:
         found: "Check with a test sound that the virtual cable carries your voice to VRChat."
         missing: "No virtual cable was found. The guide shows how to install one."
         open: "Check the virtual microphone"
+
+# Experimental companion form (tray, captions, control panel); Issue #355.
+companion:
+    state_starting: "Starting"
+    state_listening: "Listening"
+    state_idle: "Not listening"
+    mic: "Microphone"
+    translation: "Translation"
+    "on": "On"
+    "off": "Off"
+    open_main: "Open VRCT-VOX"
+    close: "Close"
+    handle: "Open the control panel"
+    menu_start: "Start recognition"
+    menu_stop: "Stop recognition"
+    menu_panel: "Open the control panel"
+    menu_main: "Open VRCT-VOX"
+    menu_quit: "Quit"
