@@ -21,7 +21,7 @@ voice:
     vc_rvc_index: "RVC検索インデックス（.index、省略可）"
     vc_rvc_pitch: "ピッチ変更（半音単位）"
     vc_rvc_index_rate: "検索結果の混合率（0〜1）"
-    vc_rvc_device: "変換に使う装置"
+    vc_rvc_device: "変換に使うデバイス"
     vc_rvc_device_auto: "自動（GPUを使えなければCPU）"
     vc_rvc_device_cuda: "NVIDIAのGPU（CUDA）"
     vc_rvc_device_cpu: "CPU"
@@ -721,19 +721,19 @@ config_page:
         whisper_filter:
             title: "Whisperの認識結果のふるい分け"
             status: "マイク {{mic_logprob}} / {{mic_no_speech}} · スピーカー {{speaker_logprob}} / {{speaker_no_speech}}"
-            desc: "Groq Whisper、OpenAI Whisper（whisper-1）、カスタムWhisperサーバーで使います。認識結果の区間ごとに確からしさと無音らしさを見て、しきい値を外れた区間を捨てます。ほかのエンジンには効きません。"
+            desc: "Groq Whisper、OpenAI Whisper（whisper-1）、カスタムWhisperサーバーで使います。認識結果の区間ごとに確からしさと無音らしさを見て、しきい値を外れた区間を捨てます。ほかのエンジンでは使いません。"
             mic_avg_logprob:
                 label: "マイクの確からしさの下限"
-                desc: "区間の平均対数確率がこの値より低いと捨てます。0に近づけるほど厳しくなります。初期値は-0.8です。"
+                desc: "区間の平均対数確率がこの値より低いと捨てます。0に近づけるほどふるい分けが厳しくなります。初期値は-0.8です。"
             mic_no_speech_prob:
                 label: "マイクの無音らしさの上限"
-                desc: "区間が無音である確率がこの値より高いと捨てます。小さくするほど厳しくなります。初期値は0.6です。"
+                desc: "区間が無音である確率がこの値より高いと捨てます。小さくするほどふるい分けが厳しくなります。初期値は0.6です。"
             speaker_avg_logprob:
                 label: "スピーカーの確からしさの下限"
-                desc: "区間の平均対数確率がこの値より低いと捨てます。0に近づけるほど厳しくなります。初期値は-0.8です。"
+                desc: "区間の平均対数確率がこの値より低いと捨てます。0に近づけるほどふるい分けが厳しくなります。初期値は-0.8です。"
             speaker_no_speech_prob:
                 label: "スピーカーの無音らしさの上限"
-                desc: "区間が無音である確率がこの値より高いと捨てます。小さくするほど厳しくなります。初期値は0.6です。"
+                desc: "区間が無音である確率がこの値より高いと捨てます。小さくするほどふるい分けが厳しくなります。初期値は0.6です。"
     vr:
         single_line: "一行"
         multi_lines: "複数行"
@@ -1421,7 +1421,7 @@ voice_ui:
         coeiroink:
             title: "COEIROINKの読み方"
             status: "話速 {{speed}} · {{rate}} Hz"
-            description: "COEIROINKに読み上げを頼むときの値です。保存すると、次の読み上げから使います。"
+            description: "COEIROINKに読み上げを頼むときの値です。保存すると次の読み上げから使います。"
             coeiroink_speed: "話速（0.5〜2）"
             coeiroink_volume: "音量（0〜2）"
             coeiroink_pitch: "音高（-0.15〜0.15）"
@@ -1547,9 +1547,9 @@ voice_ui:
     invalid_options: "シードは0〜9007199254740991の整数で指定してください。話し方の指示は4000文字までで、改行・タブ以外の制御文字は使えません。"
     save_direct_first: "直接入力の設定を保存するか、変更を破棄してから開始してください。"
     invalid_rvc_numbers: "ピッチは−24〜24の整数、index適用率は0〜1の数値、CPUのスレッド数は0〜64の整数で指定してください。"
-    rvc_worker_title: "変換の装置と処理"
+    rvc_worker_title: "変換に使うデバイスと処理"
     rvc_worker_status: "{{device}} · スレッド {{threads}} · ハイパス{{highpass}}"
-    rvc_worker_hint: "「開始」を押したときに使います。NVIDIAのGPUを選ぶと、GPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。"
+    rvc_worker_hint: "ここの設定は「開始」を押したときに使います。NVIDIAのGPUを選ぶと、GPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。"
     rvc_threads_auto: "自動"
     rvc_highpass_on: "あり"
     rvc_highpass_off: "なし"
