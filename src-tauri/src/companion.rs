@@ -1069,10 +1069,11 @@ fn monitor_infos(displays: &[Display]) -> Vec<MonitorInfo> {
         .collect()
 }
 
-/// The monitors connected now, for the settings page.
+/// The monitors connected now, for the settings page. Answered whether or not the feature is on
+/// yet: just after it is turned on, its windows may still be in the making.
 #[tauri::command]
 pub fn companion_monitors(window: WebviewWindow) -> Result<Vec<MonitorInfo>, String> {
-    sender(window.label(), &["main"])?;
+    from_main(window.label())?;
     Ok(monitor_infos(&read_displays(window.app_handle())?))
 }
 

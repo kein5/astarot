@@ -108,7 +108,8 @@ const TrayCompanionEdge = ({ current, set }: NonNullable<ListProps["edge"]>) => 
 // the primary monitor meanwhile and goes back to it when it is plugged in again.
 const TrayCompanionMonitor = ({ current, set, list }: NonNullable<ListProps["monitor"]>) => {
     const { t } = useI18n();
-    const [monitors, setMonitors] = useState<MonitorInfo[]>([]);
+    // null until the first list arrives: the saved monitor is not called unplugged before then.
+    const [monitors, setMonitors] = useState<MonitorInfo[] | null>(null);
     useEffect(() => {
         let live = true;
         const read = () => list().then(next => { if (live) setMonitors(next); }, () => {});
@@ -120,11 +121,11 @@ const TrayCompanionMonitor = ({ current, set, list }: NonNullable<ListProps["mon
     const selected = typeof current.data === "string" ? current.data : "";
     // The primary monitor is saved as an empty name; the list gives it an id of its own.
     const options: Record<string, string> = { [PRIMARY_OPTION]: t(`${key}.primary`) };
-    for (const item of monitors) {
+    for (const item of monitors ?? []) {
         const name = t(`${key}.display`, { number: item.number, width: item.width, height: item.height });
         options[item.id] = item.primary ? `${name} ${t(`${key}.is_primary`)}` : name;
     }
-    if (selected && !(selected in options)) options[selected] = t(`${key}.missing`);
+    if (selected && !(selected in options)) options[selected] = t(monitors ? `${key}.missing` : "common.loading");
     return (
         <DropdownMenuContainer
             setting_id="experimental_features.tray_companion.monitor"

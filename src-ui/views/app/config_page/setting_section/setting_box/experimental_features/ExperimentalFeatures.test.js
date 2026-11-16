@@ -160,3 +160,18 @@ test("the monitor is chosen under the edge: the primary one by default, one conn
     assert.equal(dropdown.props.selected_id, "\\\\.\\DISPLAY3");
     assert.equal(dropdown.props.list["\\\\.\\DISPLAY3"], "config_page.experimental_features.items.tray_companion.monitor.missing");
 });
+
+test("before the monitor list arrives, the chosen monitor is not called unplugged", async context => {
+    const s = await load(context);
+    const features = [{ id: "tray_companion" }];
+    const on = { state: "ok", data: { tray_companion: true } };
+    // The list never answers (or is refused) yet.
+    const props = { current: { state: "ok", data: "\\\\.\\DISPLAY2" }, set: () => {}, list: () => new Promise(() => {}) };
+    const list = s.render({ features, current: on, setValues: () => {}, edge: undefined, monitor: props });
+    const item = children(list).find(entry => typeof entry.type === "function");
+    s.runtime.render(item.type, item.props);
+    await flush();
+    const dropdown = s.runtime.render(item.type, item.props);
+    assert.equal(dropdown.props.selected_id, "\\\\.\\DISPLAY2");
+    assert.equal(dropdown.props.list["\\\\.\\DISPLAY2"], "common.loading");
+});
