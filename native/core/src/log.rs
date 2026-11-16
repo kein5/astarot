@@ -19,8 +19,9 @@ use std::sync::Mutex;
 
 const LIMIT: u64 = 10 * 1024 * 1024;
 
-pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 7] =
-    ["auth_key", "api_key", "password", "token", "secret", "voice_settings", "instructions"];
+/// `user_model`: the names and file paths of the models a user registers (#403).
+pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 8] =
+    ["auth_key", "api_key", "password", "token", "secret", "voice_settings", "instructions", "user_model"];
 
 /// Notifications that are never written to the log.
 pub const UNLOGGED_ENDPOINTS: [&str; 4] = ["/run/vr_panel_pointer", "/run/realtime_caption", "/run/word_filter", "/run/io_trace"];
