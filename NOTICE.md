@@ -163,7 +163,7 @@ the list from the lock files (`src-tauri/Cargo.lock`,
 `native/rvc-runtime/Cargo.lock`) when the package is built. The application
 also contains the backend core and the crates it uses (`native/core`,
 `native/adapters`, `native/ops`, `native/speech-server`, `native/translation`,
-`native/tts`, `native/vr-overlay`, `native/ocr-runtime`, `native/transcription`); they are VRCT-VOX's own
+`native/tts`, `native/vr-overlay`, `native/openvr-client`, `native/ocr-runtime`, `native/transcription`); they are VRCT-VOX's own
 code under `LICENSE`, and the list marks them so.
 
 `native/ocr-runtime` (chat reading) reimplements, so that its results match

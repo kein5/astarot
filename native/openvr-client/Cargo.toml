@@ -1,0 +1,16 @@
+[package]
+name = "vrct-openvr-client"
+version = "0.0.0"
+description = "The one OpenVR connection of a VRCT-VOX process, shared by the VR overlay and the OCR capture"
+edition = "2024"
+publish = false
+
+[lib]
+name = "vrct_openvr_client"
+
+[dependencies]
+# openvr_api is loaded when SteamVR runs, not linked: the build needs no OpenVR SDK.
+libloading = "=0.8.9"
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]

@@ -1069,6 +1069,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.21",
  "unicode-bidi",
+ "vrct-openvr-client",
  "windows",
  "x11rb",
 ]
@@ -2045,6 +2046,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "vrct-openvr-client"
+version = "0.0.0"
+dependencies = [
+ "libloading 0.8.9",
+]
+
+[[package]]
 name = "vrct-ops"
 version = "0.0.0"
 dependencies = [
@@ -2137,9 +2145,9 @@ version = "0.0.0"
 dependencies = [
  "ab_glyph",
  "libc",
- "libloading 0.8.9",
  "serde_json",
  "unicode-segmentation",
+ "vrct-openvr-client",
  "windows",
 ]
 
