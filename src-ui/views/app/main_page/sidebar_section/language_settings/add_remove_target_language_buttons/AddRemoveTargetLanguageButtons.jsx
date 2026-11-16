@@ -10,7 +10,6 @@ export const AddRemoveTargetLanguageButtons = () => {
     const { t } = useI18n();
     const {
         currentSelectedPresetTabNumber,
-        // currentSelectedYourLanguages,
         currentSelectedTargetLanguages,
         canChangeLanguageSettings,
         isLanguageSettingsBusy,
@@ -18,25 +17,31 @@ export const AddRemoveTargetLanguageButtons = () => {
         addTargetLanguage,
     } = useLanguageSettings();
 
-    const remove_button_class = clsx(styles.remove_target_language_button, {
-        [styles.is_disabled]: !currentSelectedTargetLanguages.data[currentSelectedPresetTabNumber.data]["2"].enable,
-    });
-    const add_button_class = clsx(styles.add_target_language_button, {
-        [styles.is_disabled]: currentSelectedTargetLanguages.data[currentSelectedPresetTabNumber.data]["3"].enable,
-    });
+    // A second target can be removed once it is on; a third can be added until it is on.
+    const targets = currentSelectedTargetLanguages.data[currentSelectedPresetTabNumber.data];
+    const removable = targets["2"].enable === true;
+    const addable = targets["3"].enable !== true;
+
+    // One rule for the look, the pointer and the keyboard: a button that looks unavailable
+    // does nothing when pressed, by mouse or by Enter and Space.
+    const button = (allowed, action, label, className, Icon, iconClass) => {
+        const press = () => { if (allowed && canChangeLanguageSettings()) action(); };
+        return (
+            <div className={clsx(className, { [styles.is_disabled]: !allowed, [styles.is_busy]: isLanguageSettingsBusy })}
+                aria-disabled={!allowed || isLanguageSettingsBusy} onClick={press}
+                role="button" tabIndex={0} aria-label={label}
+                onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; press(); } }}>
+                <Icon className={iconClass} aria-hidden="true" />
+            </div>
+        );
+    };
 
     return (
         <div className={styles.add_remove_target_language_container}>
-            <div className={remove_button_class} aria-disabled={isLanguageSettingsBusy} onClick={() => { if (canChangeLanguageSettings()) removeTargetLanguage(); }}
-                role="button" tabIndex={0} aria-label={t("main_page.remove_target_language")}
-                onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; if (canChangeLanguageSettings()) removeTargetLanguage(); } }}>
-                <RemoveSvg className={styles.remove_svg} aria-hidden="true" />
-            </div>
-            <div className={add_button_class} aria-disabled={isLanguageSettingsBusy} onClick={() => { if (canChangeLanguageSettings()) addTargetLanguage(); }}
-                role="button" tabIndex={0} aria-label={t("main_page.add_target_language")}
-                onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; if (canChangeLanguageSettings()) addTargetLanguage(); } }}>
-                <AddSvg className={styles.add_svg} aria-hidden="true" />
-            </div>
+            {button(removable, removeTargetLanguage, t("main_page.remove_target_language"),
+                styles.remove_target_language_button, RemoveSvg, styles.remove_svg)}
+            {button(addable, addTargetLanguage, t("main_page.add_target_language"),
+                styles.add_target_language_button, AddSvg, styles.add_svg)}
         </div>
     );
 };
