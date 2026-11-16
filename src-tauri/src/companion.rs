@@ -46,6 +46,8 @@ const STAY_MARGIN: f64 = 18.0;
 const HIDE_AFTER: Duration = Duration::from_millis(450);
 /// How often the pointer is looked at while the feature is on.
 const WATCH_EVERY: Duration = Duration::from_millis(80);
+/// How long the pointer stays near the edge before the hexagram comes out (a few looks).
+const COME_OUT_AFTER: Duration = Duration::from_millis(160);
 /// The panel's distance from the hexagram's plate.
 const PANEL_GAP: f64 = 10.0;/// A click on the tray icon first takes the focus from the open panel, which hides
 /// it; the click that follows must not open it again.
@@ -68,6 +70,9 @@ const ACTIONS: [&str; 10] = [
 pub const FEATURE_ID: &str = "tray_companion";
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
+/// What the main window last asked for. Turning the feature on takes a moment (two windows are
+/// made); a request to turn it off in that moment is kept here and carried out once it is on.
+static WANTED: AtomicBool = AtomicBool::new(false);
 
 /// The feature is on in this run.
 pub fn enabled() -> bool {
@@ -83,10 +88,11 @@ fn saved_on(config: &str) -> bool {
         == Some(true)
 }
 
-/// At launch: the feature was on when the app last saved its settings in `state_dir`.
+/// At launch: the feature was on when the app last saved its settings in `state_dir`. The
+/// feature itself is on only once `install` has made its windows, so a failed start leaves it off.
 pub fn starts_in_tray(state_dir: &Path) -> bool {
     let on = std::fs::read_to_string(state_dir.join("config.json")).is_ok_and(|text| saved_on(&text));
-    ENABLED.store(on, Ordering::SeqCst);
+    WANTED.store(on, Ordering::SeqCst);
     on
 }
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -446,6 +452,17 @@ fn near_edge(edge: Edge, work: Rect, scale: f64, cursor: (f64, f64)) -> bool {
     }
 }
 
+/// The pointer has stayed near the edge for `COME_OUT_AFTER`. Between two monitors the edge is
+/// not the end of the desktop: a pointer passing over it to the other monitor is near for one
+/// look or two, and must not bring the hexagram out.
+fn held_near(near: bool, since: &mut Option<Instant>, now: Instant) -> bool {
+    if !near {
+        *since = None;
+        return false;
+    }
+    now.duration_since(*since.get_or_insert(now)) >= COME_OUT_AFTER
+}
+
 fn inside(rect: Rect, cursor: (f64, f64), margin: f64) -> bool {
     let (x, y, width, height) = rect;
     let (left, top) = (f64::from(x) - margin, f64::from(y) - margin);
@@ -606,6 +623,7 @@ fn watch(app: AppHandle) {
     }
     std::thread::spawn(move || {
         let mut away_since: Option<Instant> = None;
+        let mut near_since: Option<Instant> = None;
         let mut round: u32 = 0;
         while enabled() {
             std::thread::sleep(WATCH_EVERY);
@@ -628,8 +646,9 @@ fn watch(app: AppHandle) {
             let (edge, out, Some((work, scale))) = inner else { continue };
             let cursor = (cursor.x, cursor.y);
             let result = match out {
-                None if near_edge(edge, work, scale, cursor) => {
+                None if held_near(near_edge(edge, work, scale, cursor), &mut near_since, Instant::now()) => {
                     away_since = None;
+                    near_since = None;
                     come_out(&app, edge, work, scale)
                 }
                 None => Ok(()),
@@ -924,8 +943,14 @@ pub async fn companion_set(window: WebviewWindow, enabled: bool) -> Result<(), S
         return Err("companion_forbidden".into());
     }
     let app = window.app_handle().clone();
+    WANTED.store(enabled, Ordering::SeqCst);
     if enabled {
-        install(&app).inspect_err(|error| crate::startup_log(&format!("Tray companion could not start: {error}")))
+        install(&app).inspect_err(|error| crate::startup_log(&format!("Tray companion could not start: {error}")))?;
+        // Turned off while it was being made: the off request found nothing to undo yet.
+        if !WANTED.load(Ordering::SeqCst) && self::enabled() {
+            return uninstall(&app);
+        }
+        Ok(())
     } else if self::enabled() {
         uninstall(&app)
     } else {
@@ -1105,6 +1130,31 @@ mod tests {
         assert_eq!(sender("quick_chat", &["main"]), Err("companion_forbidden".into()));
         assert_eq!(sender(HANDLE, &[PANEL]), Err("companion_forbidden".into()));
     }
+    #[test]
+    fn a_saved_on_setting_starts_in_the_tray_but_the_feature_waits_for_its_windows() {
+        let folder = std::env::temp_dir().join("vrct-vox-companion-test-saved-on");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join("config.json"), format!(r#"{{"EXPERIMENTAL_FEATURES": {{"{FEATURE_ID}": true}}}}"#)).unwrap();
+        assert!(starts_in_tray(&folder));
+        // A failed install must leave it off: only install turns it on.
+        assert!(!enabled());
+        let _ = std::fs::remove_dir_all(&folder);
+    }
+
+    #[test]
+    fn a_pointer_passing_over_the_edge_does_not_bring_the_hexagram_out() {
+        let start = Instant::now();
+        let mut since = None;
+        // Passing to the next monitor: near for one look, then gone.
+        assert!(!held_near(true, &mut since, start));
+        assert!(!held_near(false, &mut since, start + WATCH_EVERY));
+        assert_eq!(since, None);
+        // Resting at the edge: out after a few looks.
+        assert!(!held_near(true, &mut since, start + WATCH_EVERY * 2));
+        assert!(!held_near(true, &mut since, start + WATCH_EVERY * 3));
+        assert!(held_near(true, &mut since, start + WATCH_EVERY * 2 + COME_OUT_AFTER));
+    }
+
     #[test]
     fn a_status_with_odd_words_is_refused() {
         assert!(validate(&Status::default()).is_ok());
