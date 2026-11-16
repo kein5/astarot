@@ -43,6 +43,7 @@ test("the error fallback names the close-application action", async () => {
             "@common_components": { CloseButton: "close-button" }, "@logics_common": common,
             "react-error-boundary": { ErrorBoundary: "error-boundary" },
             "./contacts_container/ContactsContainer": { ContactsContainer: "contacts" },
+            "../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate: { info: null } }) },
         });
         let tree = runtime.render(exports[name], {});
         if (name === "AppErrorBoundary") {

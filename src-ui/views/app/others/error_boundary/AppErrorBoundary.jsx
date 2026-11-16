@@ -17,6 +17,7 @@ import {
     useCopyToClipboard,
 } from "@logics_common";
 import { CloseButton } from "@common_components";
+import { useAppUpdate } from "../../../../logics/common/useAppUpdate";
 
 import styles from "./AppErrorBoundary.module.scss";
 
@@ -105,14 +106,20 @@ const ActionButtons = () => {
     const { currentIsSoftwareUpdating, updateIsSoftwareUpdating } = useIsSoftwareUpdating();
     const { currentLatestSoftwareVersionInfo } = useSoftwareVersion();
     const { currentComputeMode } = useComputeMode();
+    const { appUpdate } = useAppUpdate();
 
-    const is_update_available = currentLatestSoftwareVersionInfo?.data?.is_update_available === true;
+    // The backend's start-up check (/run/software_update_info) found a newer version, and this
+    // copy updates itself (the installer or a writable AppImage; src-tauri/src/app_update.rs).
+    // A ZIP, a tar.gz or a package is updated by hand: the button would only fail there.
+    const is_update_available = currentLatestSoftwareVersionInfo?.data?.is_update_available === true
+        && appUpdate.info?.mode === "install";
     const is_updating = currentIsSoftwareUpdating?.data === true;
     const is_cpu = currentComputeMode?.data === "cpu";
 
     const onClickUpdate = () => {
         try {
             updateIsSoftwareUpdating(true);
+            // Both keep the edition this copy was installed as (decision 20).
             if (is_cpu) {
                 updateSoftware();
             } else {
