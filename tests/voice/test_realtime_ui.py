@@ -67,7 +67,10 @@ assert.ok(state.retired.length <= 256);
 console.log('caption contracts passed');
 """
     result = subprocess.run(
-        ["node", "--input-type=module", "-e", script],
+        # The reducer is TypeScript (ADR-010). Node 22 reads it only with type stripping turned on;
+        # later versions accept the flag as well. tools/dev.py runs the Node tests the same way.
+        ["node", "--experimental-strip-types", "--disable-warning=ExperimentalWarning",
+         "--input-type=module", "-e", script],
         cwd=ROOT,
         text=True,
         capture_output=True,
