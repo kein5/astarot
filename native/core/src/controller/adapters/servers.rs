@@ -201,6 +201,13 @@ impl Adapters {
         self.websocket.lock().unwrap().as_ref().is_some_and(|server| server.is_running())
     }
 
+    /// Sends a message to every WebSocket client (`websocketSendMessage`): `None` when the
+    /// server is not running, `Err` when the message was refused (too large, queue full).
+    pub(crate) fn websocket_send(&self, message: &str) -> Option<Result<(), vrct_adapters::websocket::SendError>> {
+        let server = self.websocket.lock().unwrap().clone().filter(|server| server.is_running())?;
+        Some(server.send(message))
+    }
+
     /// `startObsBrowserSourceServer`: true only when OBS listens on the requested address.
     fn start_obs(&self, host: &str, port: &Value, files: Option<&(String, String)>) -> bool {
         let (cert, key) = files.cloned().unwrap_or_else(|| self.tls_files());

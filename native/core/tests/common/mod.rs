@@ -45,8 +45,14 @@ impl Default for Setup {
         Self {
             saved: None,
             raw: None,
-            // The OSC link without mDNS: no test joins UDP 5353 on every interface.
-            services: Services { osc: fake_osc::factory(false).0, ..Services::default() },
+            // The OSC link without mDNS: no test joins UDP 5353 on every interface. The
+            // translation providers never leave this PC: a saved key is not sent anywhere.
+            services: Services {
+                osc: fake_osc::factory(false).0,
+                translation_transport: vrct_translation::http::loopback_only(),
+                translation_endpoints: vrct_translation::providers::Endpoints::all_at("http://provider.invalid"),
+                ..Services::default()
+            },
             watchdog: None,
             grace: Duration::from_secs(5),
             platform: Platform::current(),

@@ -1,0 +1,27 @@
+[package]
+name = "vrct-translation"
+version = "0.0.0"
+description = "Online translation providers and the kana and romaji readings of VRCT-VOX"
+edition = "2024"
+publish = false
+
+[lib]
+name = "vrct_translation"
+
+# Versions are pinned to the ones native/ops and src-tauri already lock, so linking this crate
+# into the core adds no second copy of any of them.
+[dependencies]
+httparse = "=1.10.1"
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+webpki-roots = "=1.0.11"
+
+[features]
+# A stand-in for every provider on a loopback port, for the tests of this crate and the core.
+fake-server = []
+
+[dev-dependencies]
+vrct-translation = { path = ".", features = ["fake-server"] }
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]

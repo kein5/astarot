@@ -10,6 +10,7 @@ name = "vrct_core"
 
 [dependencies]
 base64 = "=0.22.1"
+chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
 getrandom = "=0.3.4"
 serde = { version = "=1.0.229", features = ["derive"] }
 # The backend answered with Python dicts, whose keys keep their order; the UI shows some of
@@ -18,7 +19,16 @@ serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 vrct-adapters = { path = "../adapters" }
 vrct-ops = { path = "../ops" }
 vrct-speech-server = { path = "../speech-server" }
+# The local translation on ONNX Runtime; see the onnx-translation feature below.
+vrct-translate-onnx = { path = "../translate-onnx", optional = true }
+vrct-translation = { path = "../translation" }
 vrct-tts = { path = "../tts" }
+
+[features]
+# Local translation with ONNX Runtime (native/translate-onnx). Off until bundling ONNX Runtime
+# with the app is decided (docs/voice-stack/core-integration.md, decision 13): without it the
+# local translation reports its model as missing.
+onnx-translation = ["dep:vrct-translate-onnx"]
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"
@@ -35,6 +45,8 @@ windows-sys = { version = "=0.61.2", features = [
 # Certificates for the WebSocket TLS settings are made at test time; no key is committed.
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "pem"] }
 tempfile = "=3.27.0"
+# A stand-in for every translation provider on a loopback port.
+vrct-translation = { path = "../translation", features = ["fake-server"] }
 
 # A stand-in for the speech.cpp executable that tests/speech_servers.rs starts. It is never
 # part of an application build: a dependent crate does not build this target.

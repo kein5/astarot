@@ -41,23 +41,15 @@ impl Core {
         self.notify("initialization_progress", json!(1));
 
         let weight = config.get_str("CTRANSLATE2_WEIGHT_TYPE");
-        let available = (self.services().translation_weight_available)(&weight);
+        let available = (self.services().translation_weight_available)(&weight)
+            || super::translation::default_weight_available(config.environment(), &weight);
         self.set_translation_available(available);
         let uses_local = config.get("SELECTED_TRANSLATION_ENGINES")[config.get_str("SELECTED_TAB_NO")] == "CTranslate2";
         self.notify("enable_ai_models", json!(!(uses_local && !available)));
 
         self.step("Init Translation Engine Status");
-        let mut status = Map::new();
-        for engine in config.get("SELECTABLE_TRANSLATION_ENGINE_LIST").as_array().into_iter().flatten() {
-            let name = engine.as_str().unwrap_or_default();
-            // Only the local translation runs in the core so far; the online engines come with
-            // the providers of #277. Until then their start-up check counts as failed.
-            let usable = name == "CTranslate2" && available;
-            status.insert(name.to_string(), json!(usable));
-            if !usable {
-                self.forget_failed_engine(name);
-            }
-        }
+        // Every engine is checked as Python checked it (keys, servers, models), at the same time.
+        let status = self.check_translation_engines(available);
         config.put("SELECTABLE_TRANSLATION_ENGINE_STATUS", Value::Object(status));
 
         self.step("Init Transcription Engine Status");
@@ -84,6 +76,8 @@ impl Core {
         self.step("Set Transcription Engine");
         self.update_transcription_engine(None);
         self.notify("initialization_progress", json!(3));
+        self.step("Init Logger");
+        self.start_conversation_log();
         self.notify("initialization_progress", json!(4));
         self.start_adapters();
 
@@ -181,15 +175,13 @@ impl Core {
             .ok();
     }
 
-    /// What Python's start-up does for an engine whose check failed (`Controller.init`): the
-    /// engines that find their models on a server forget the model list and the selected
-    /// model, so the next successful check selects again. Saved API keys are kept, as in Python:
-    /// a failed check cannot tell a refused key from a network that is down.
+    /// What Python's start-up does for a recognition engine whose check failed
+    /// (`Controller.init`): the engines that find their models on a server forget the model
+    /// list and the selected model, so the next successful check selects again. Saved API keys
+    /// are kept, as in Python: a failed check cannot tell a refused key from a network that is
+    /// down. The translation engines are handled by `check_translation_engines`.
     fn forget_failed_engine(&self, engine: &str) {
         let (list, selected) = match engine {
-            "LMStudio" => ("SELECTABLE_LMSTUDIO_MODEL_LIST", "SELECTED_LMSTUDIO_MODEL"),
-            "OpenAI_Compatible" => ("SELECTABLE_OPENAI_COMPATIBLE_MODEL_LIST", "SELECTED_OPENAI_COMPATIBLE_MODEL"),
-            "Ollama" => ("SELECTABLE_OLLAMA_MODEL_LIST", "SELECTED_OLLAMA_MODEL"),
             "Groq_Whisper" => ("SELECTABLE_GROQ_WHISPER_MODEL_LIST", "SELECTED_GROQ_WHISPER_MODEL"),
             "OpenAI_Whisper" => ("SELECTABLE_OPENAI_WHISPER_MODEL_LIST", "SELECTED_OPENAI_WHISPER_MODEL"),
             "Custom_Whisper" => ("SELECTABLE_CUSTOM_WHISPER_MODEL_LIST", "SELECTED_CUSTOM_WHISPER_MODEL"),
