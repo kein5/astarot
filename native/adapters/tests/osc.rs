@@ -90,6 +90,23 @@ fn malformed_packets_are_refused_whole() {
 }
 
 #[test]
+fn arrays_nested_deeper_than_bundles_may_are_refused_without_recursing() {
+    // #428: thousands of `[` in one type tag string recursed until the stack overflowed.
+    let nested = |depth: usize| (0..depth).fold(vec![OscArg::Int(1)], |inner, _| vec![OscArg::Array(inner)]);
+    let ok = OscMessage::new("/deep", nested(16));
+    assert_eq!(decode_packet(&ok.encode()).unwrap(), vec![ok]);
+    assert!(decode_packet(&OscMessage::new("/deep", nested(17)).encode()).is_err());
+    let mut hostile = b"/x\0\0,".to_vec();
+    hostile.extend(std::iter::repeat_n(b'[', 200_000));
+    hostile.extend(std::iter::repeat_n(b']', 200_000));
+    hostile.push(0);
+    while hostile.len() % 4 != 0 {
+        hostile.push(0);
+    }
+    assert!(decode_packet(&hostile).is_err());
+}
+
+#[test]
 fn address_patterns_match_like_osc() {
     for (pattern, address, matches) in [
         ("/avatar/parameters/MuteSelf", "/avatar/parameters/MuteSelf", true),
