@@ -380,7 +380,7 @@ main_page:
     language_selector:
         title_your_language: "Select Your Language"
         title_target_language: "Select Target Language"
-        filter: "Filter languages"
+        filter: "Filter by name or code (ja, en)"
         no_results: "No matching languages"
 
     update_available: "New version is ready!"
