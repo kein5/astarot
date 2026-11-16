@@ -22,6 +22,7 @@ mod telemetry;
 pub mod translation;
 #[cfg(feature = "onnx-translation")]
 mod translation_onnx;
+pub mod updates;
 
 pub use adapters::Osc;
 pub use routes::routes;
@@ -197,6 +198,9 @@ pub struct Services {
     /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]). Dropped
     /// until the pipeline is wired.
     pub ocr_message: ocr::OcrDelivery,
+    /// The app's own updater behind the old update endpoints ([`updates`]). Switched off by
+    /// default, as Python shipped it; the app updates through the host's updater.
+    pub software_updates: Arc<dyn updates::SoftwareUpdates>,
 }
 
 impl Default for Services {
@@ -225,6 +229,7 @@ impl Default for Services {
             steamvr_poll: Duration::from_secs(10),
             ocr: ocr::real_platform(),
             ocr_message: Arc::new(ocr::no_delivery),
+            software_updates: Arc::new(updates::Disabled),
         }
     }
 }

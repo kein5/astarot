@@ -19,6 +19,7 @@ pub mod languages;
 pub mod log;
 pub mod net_policy;
 pub mod protocol;
+pub mod resources;
 pub mod voice_settings;
 
 pub use backend::{Backend, Options, Sink};

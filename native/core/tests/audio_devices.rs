@@ -471,9 +471,19 @@ fn a_running_capture_is_moved_and_its_own_switch_is_reported() {
 
     // A device the capture still holds stays in the options until it stops.
     let gone = Device { name: "USB Mic".into(), id: Some("mic:Windows WASAPI:{usb}".into()), ..Device::default() };
-    *capture.active.lock().unwrap() = Some(gone.clone());
-    let options = ui.ok("/get/data/selectable_mic_device_options", None);
-    assert_eq!(options.as_array().unwrap().last().unwrap(), &json!({ "id": "mic:Windows WASAPI:{usb}", "label": "USB Mic" }));
+    // The default change may still move the capture once more (the list and the default are
+    // reconciled separately), so hold the device until the options show it.
+    let expected = json!({ "id": "mic:Windows WASAPI:{usb}", "label": "USB Mic" });
+    let mut options = Value::Null;
+    for _ in 0..100 {
+        *capture.active.lock().unwrap() = Some(gone.clone());
+        options = ui.ok("/get/data/selectable_mic_device_options", None);
+        if options.as_array().and_then(|o| o.last()) == Some(&expected) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert_eq!(options.as_array().unwrap().last().unwrap(), &expected);
 
     // The capture moved by itself (its device vanished): the switch is reported.
     let mark = ui.lines().len();

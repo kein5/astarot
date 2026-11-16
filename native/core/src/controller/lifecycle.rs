@@ -79,6 +79,7 @@ impl Core {
         self.notify("initialization_progress", json!(3));
         self.step("Init Logger");
         self.start_conversation_log();
+        self.check_software_update_in_background();
         self.notify("initialization_progress", json!(4));
         self.step("Init Overlay");
         self.sync_overlay_running();

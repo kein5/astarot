@@ -101,11 +101,9 @@ pub fn backend_start(
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
     if cfg!(debug_assertions) {
-        // A development build runs from src-tauri/target; the speech.cpp bundle is staged in the
-        // checkout's build/speechcpp, where the Python sidecar found it too.
-        let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("build").join("speechcpp");
-        options.services.speech_server_launch =
-            std::sync::Arc::new(move |_| vrct_core::controller::speech_launch_from(checkout.clone()));
+        // A development build runs from src-tauri/target; the files a package ships in
+        // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.
+        vrct_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
     }
     let backend = Backend::start(options, sink);
     *current = Some((session, backend));
