@@ -17,6 +17,7 @@ use std::thread::JoinHandle;
 
 use sha2::{Digest, Sha256};
 
+use crate::capture::SharedState;
 use crate::detection::{block_bounds, group_lines, looks_like_chatbox, region_pixels, BBox, Candidate, RegionCandidates, RegionValue, Surface};
 use crate::engine::Word;
 use crate::failure::{Clock, Failure, FailureLog, Log, Retry};
@@ -97,7 +98,19 @@ pub trait FrameSource: Send {
     fn source(&self) -> Option<Surface>;
     /// A capture failure was logged and has not recovered yet.
     fn failure_active(&self) -> bool;
+    /// Whether a window shared through the portal is read, or was and is gone (Linux).
+    fn shared_window(&self) -> Option<SharedState> {
+        None
+    }
     fn close(&mut self);
+}
+
+/// What the controller shows of the capture: the view the last frame came from and the
+/// shared window's state (`getOcrCaptureStatus`'s `source` and `shared_window`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CaptureView {
+    pub source: Option<Surface>,
+    pub shared_window: Option<SharedState>,
 }
 
 /// Where candidates come from: the region itself, or a detector.
@@ -1040,6 +1053,10 @@ pub struct Shared {
     status: Mutex<RuntimeStatus>,
     /// The worker's language and reader, for settings changes made while it runs.
     active: Mutex<(String, Option<Arc<dyn Reader>>)>,
+    /// The capture as of the last tick.
+    capture: Mutex<CaptureView>,
+    /// True from the worker's start until its loop has returned.
+    running: AtomicBool,
     baseline_threads: Vec<u64>,
     /// Replaces the timed wait (tests drive a fake clock with it).
     waiter: Option<Box<dyn Fn(f64) + Send + Sync>>,
@@ -1061,6 +1078,8 @@ impl Shared {
             wake: Condvar::new(),
             status: Mutex::new(RuntimeStatus { state: "waiting", stage: Some("activation"), error_code: None, detector: None }),
             active: Mutex::new((String::new(), None)),
+            capture: Mutex::new(CaptureView::default()),
+            running: AtomicBool::new(false),
             baseline_threads: crate::priority::thread_ids(),
         }
     }
@@ -1075,6 +1094,9 @@ impl Shared {
         }
         if let Ok(mut active) = self.active.lock() {
             *active = (core.source_language.clone(), core.reader.clone());
+        }
+        if let Ok(mut capture) = self.capture.lock() {
+            *capture = core.capture.as_ref().map_or_else(CaptureView::default, |c| CaptureView { source: c.source(), shared_window: c.shared_window() });
         }
     }
 
@@ -1168,15 +1190,32 @@ impl OcrPipeline {
         }
         self.shared.publish(&core);
         let shared = self.shared.clone();
-        let handle = std::thread::Builder::new()
-            .name("ocr_pipeline".into())
-            .spawn(move || {
-                core.run(&shared);
-                core
-            })
-            .map_err(|_| StartError::Unknown)?;
-        self.thread = Some(handle);
+        shared.running.store(true, Ordering::SeqCst);
+        let spawned = std::thread::Builder::new().name("ocr_pipeline".into()).spawn(move || {
+            /// Clears `running` when the loop returns or unwinds.
+            struct Running<'a>(&'a AtomicBool);
+            impl Drop for Running<'_> {
+                fn drop(&mut self) {
+                    self.0.store(false, Ordering::SeqCst);
+                }
+            }
+            let _running = Running(&shared.running);
+            core.run(&shared);
+            core
+        });
+        match spawned {
+            Ok(handle) => self.thread = Some(handle),
+            Err(_) => {
+                self.shared.running.store(false, Ordering::SeqCst);
+                return Err(StartError::Unknown);
+            }
+        }
         Ok(true)
+    }
+
+    /// What another thread may read and signal without holding the pipeline.
+    pub fn handle(&self) -> PipelineHandle {
+        PipelineHandle { shared: self.shared.clone(), shutdown: self.shutdown.clone() }
     }
 
     fn prepare(&mut self, core: &mut PipelineCore) -> std::result::Result<bool, StartError> {
@@ -1324,6 +1363,42 @@ impl OcrPipeline {
             return (core.source_language.clone(), core.reader.clone());
         }
         self.shared.active.lock().map(|a| a.clone()).unwrap_or_default()
+    }
+}
+
+/// A view of a pipeline for other threads: its state for status polling, and the
+/// shutdown signal, neither of which waits for a start that is still loading models
+/// (`requestShutdown` and the lock-free reads of `getOcrCaptureStatus`).
+#[derive(Clone)]
+pub struct PipelineHandle {
+    shared: Arc<Shared>,
+    shutdown: Arc<AtomicBool>,
+}
+
+impl PipelineHandle {
+    /// The worker thread runs (it may still be waiting for activation).
+    pub fn is_alive(&self) -> bool {
+        self.shared.running.load(Ordering::SeqCst)
+    }
+
+    /// The worker's state as of its last tick; "stopped" once a stop was signalled.
+    pub fn runtime_status(&self) -> RuntimeStatus {
+        let stopped = RuntimeStatus { state: "stopped", stage: None, error_code: None, detector: None };
+        if self.shared.stopped.load(Ordering::SeqCst) {
+            return stopped;
+        }
+        self.shared.status.lock().map(|s| s.clone()).unwrap_or(stopped)
+    }
+
+    /// The capture as of the last tick.
+    pub fn capture_view(&self) -> CaptureView {
+        self.shared.capture.lock().map(|c| *c).unwrap_or_default()
+    }
+
+    /// Close admission for good and wake the worker ([`OcrPipeline::request_shutdown`]).
+    pub fn request_shutdown(&self) {
+        self.shutdown.store(true, Ordering::SeqCst);
+        self.shared.signal_stop();
     }
 }
 
