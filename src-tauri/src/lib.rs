@@ -264,23 +264,29 @@ pub fn run() {
             companion::companion_set, companion::companion_publish, companion::companion_take,
             companion::companion_show_main, companion::companion_hide_main, companion::companion_status, companion::companion_request,
             companion::companion_panel_hide, companion::companion_panel_toggle, companion::companion_handle_layout, companion::companion_monitors])
-        .build(context)
-        .map(|app| app.run(|app, event| {
-            // A shared window must not stay shared after the app is gone.
-            if let RunEvent::Exit = event {
-                portal_screencast::shutdown(app);
-                app.state::<backend_host::BackendHost>().shutdown();
-            }
-        }));
-    #[cfg(target_os = "linux")]
-    vr_panel_surface::cleanup();
-    match result {
-        Ok(()) => startup_log("VRCT event loop ended"),
+        .build(context);
+    let app = match result {
+        Ok(app) => app,
         Err(error) => {
             startup_log(&format!("VRCT startup failed: {error}"));
+            #[cfg(target_os = "linux")]
+            vr_panel_surface::cleanup();
             panic!("error while running tauri application: {error}");
         }
-    }
+    };
+    // `run` never returns: Tauri ends the process once the loop exits, so whatever must happen at
+    // the end happens on `Exit` (Issue #425).
+    app.run(|app, event| {
+        if let RunEvent::Exit = event {
+            // A shared window must not stay shared after the app is gone.
+            portal_screencast::shutdown(app);
+            app.state::<backend_host::BackendHost>().shutdown();
+            // The VR panel's last frame (it can show the conversation) must not outlive the app.
+            #[cfg(target_os = "linux")]
+            vr_panel_surface::cleanup();
+            startup_log("VRCT event loop ended");
+        }
+    });
 }
 
 
