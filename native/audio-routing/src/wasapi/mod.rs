@@ -65,6 +65,26 @@ impl Drop for Com {
     }
 }
 
+/// Keeps the process's multithreaded apartment alive until dropped (`CoIncrementMTAUsage`).
+/// Unlike [`Com`] it is not bound to a thread: an object opened on one thread and used and
+/// dropped on another holds this, so the thread that opened it keeps its own COM balanced.
+pub struct MtaUsage(windows::Win32::System::Com::CO_MTA_USAGE_COOKIE);
+
+// The cookie may be released from any thread.
+unsafe impl Send for MtaUsage {}
+
+impl MtaUsage {
+    pub fn new() -> Result<Self> {
+        unsafe { windows::Win32::System::Com::CoIncrementMTAUsage() }.map(Self).map_err(|_| Error::runtime("com_unavailable"))
+    }
+}
+
+impl Drop for MtaUsage {
+    fn drop(&mut self) {
+        let _ = unsafe { windows::Win32::System::Com::CoDecrementMTAUsage(self.0) };
+    }
+}
+
 fn failed(_: windows::core::Error) -> Error {
     Error::runtime("wasapi_unavailable")
 }
@@ -364,4 +384,31 @@ pub(crate) fn find_by_identity(enumerator: &IMMDeviceEnumerator, flow: EDataFlow
         return Err(Error::runtime("endpoint_missing"));
     }
     Ok(matches.remove(0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_mta_usage_keeps_com_usable_from_other_threads_and_is_released_from_any() {
+        // #428: an output held the opening thread's COM and was dropped on the writing thread,
+        // which left the opening thread's initialization unbalanced.
+        let usage = std::thread::spawn(|| MtaUsage::new().unwrap()).join().unwrap();
+        // A thread that never initialized COM uses the apartment the cookie keeps alive.
+        let made = std::thread::spawn(|| enumerator().is_ok()).join().unwrap();
+        assert!(made);
+        std::thread::spawn(move || drop(usage)).join().unwrap();
+        // The thread that opens keeps its own COM balanced: it can enter another apartment.
+        std::thread::spawn(|| {
+            let com = Com::init().unwrap();
+            let _usage = MtaUsage::new().unwrap();
+            drop(com);
+            let single = unsafe { windows::Win32::System::Com::CoInitializeEx(None, windows::Win32::System::Com::COINIT_APARTMENTTHREADED) };
+            assert!(single.is_ok(), "COM was left initialized on the opening thread: {single:?}");
+            unsafe { CoUninitialize() };
+        })
+        .join()
+        .unwrap();
+    }
 }
