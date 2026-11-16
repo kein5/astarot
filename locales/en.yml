@@ -404,8 +404,8 @@ main_page:
         resend_button_on_hover_desc: "Press And Hold To Send"
         resend_button_label: "Edit this message, or press and hold to send it again"
 
-    state_text_enabled: "Enabled"
-    state_text_disabled: "Disabled"
+    state_text_enabled: "On"
+    state_text_disabled: "Off"
 
     language_selector:
         title_your_language: "Select Your Language"
