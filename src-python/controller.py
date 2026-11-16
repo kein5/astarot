@@ -290,6 +290,7 @@ _SIMPLE_CONFIG_GETTERS = {
     "getSpeakerPhraseTimeout": "SPEAKER_PHRASE_TIMEOUT",
     "getSpeakerMaxPhrases": "SPEAKER_MAX_PHRASES",
     "getHotkeys": "HOTKEYS",
+    "getExperimentalFeatures": "EXPERIMENTAL_FEATURES",
     "getSpeakerAvgLogprob": "SPEAKER_AVG_LOGPROB",
     "getSpeakerNoSpeechProb": "SPEAKER_NO_SPEECH_PROB",
     "getSpeakerVadFilter": "SPEAKER_ENABLE_VAD",
@@ -4150,6 +4151,13 @@ class Controller:
     def setHotkeys(data, *args, **kwargs) -> dict:
         config.HOTKEYS = data
         return {"status":200, "result":config.HOTKEYS}
+
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setExperimentalFeatures(data, *args, **kwargs) -> dict:
+        # {feature_id: bool}; a feature left out keeps its value (models/experimental_features.py).
+        config.EXPERIMENTAL_FEATURES = data
+        return {"status":200, "result":config.EXPERIMENTAL_FEATURES}
 
 
     @staticmethod

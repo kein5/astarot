@@ -242,6 +242,7 @@ _debounce_time: int = 2  # デバウンス時間（秒）
 
 **その他設定**
 - `HOTKEYS`: ホットキー設定辞書（即座保存）
+- `EXPERIMENTAL_FEATURES`: 実験的機能ごとのオン・オフ `{機能のID: bool}`（即座保存、既定はすべてオフ）。機能の一覧と検査は `models/experimental_features.py`
 - `USE_EXCLUDE_WORDS`: 除外ワード機能使用フラグ
 - `AUTO_CLEAR_MESSAGE_BOX`: メッセージボックス自動クリア
 - `SEND_ONLY_TRANSLATED_MESSAGES`: 翻訳メッセージのみ送信

@@ -427,6 +427,37 @@ fn hotkeys() -> Check {
     })
 }
 
+/// Experimental features the user turns on one by one (`src-python/models/experimental_features.py`,
+/// Issue #361). The Python backend and the UI list the same ids; a backend test keeps them equal.
+/// Empty until a feature graduates from the experimental branch.
+pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &[];
+
+fn experimental_features_default() -> Value {
+    Value::Object(EXPERIMENTAL_FEATURE_IDS.iter().map(|id| (id.to_string(), Value::Bool(false))).collect())
+}
+
+/// `experimental_features.normalize`: a feature left out keeps its value, an unlisted id is
+/// dropped (a saved file may still name a feature that graduated), and a value that is not a
+/// bool refuses the whole request.
+fn normalize_experimental_features(ids: &[&str], value: &Value, current: &Value) -> Option<Value> {
+    let value = value.as_object()?;
+    let mut new = Map::new();
+    for id in ids {
+        let enabled = match value.get(*id) {
+            Some(given) => given.as_bool()?,
+            None => current.get(*id).and_then(Value::as_bool) == Some(true),
+        };
+        new.insert(id.to_string(), Value::Bool(enabled));
+    }
+    Some(Value::Object(new))
+}
+
+fn experimental_features() -> Check {
+    validated(|value, ctx| {
+        normalize_experimental_features(EXPERIMENTAL_FEATURE_IDS, value, &ctx.get("EXPERIMENTAL_FEATURES"))
+    })
+}
+
 fn main_window_geometry() -> Check {
     validated(|value, ctx| {
         let value = value.as_object()?;
@@ -536,6 +567,7 @@ pub fn keys() -> Vec<Key> {
         key("MIC_AVG_LOGPROB", num_in(-2.0, 0.0)),
         key("MIC_NO_SPEECH_PROB", num_in(0.0, 1.0)),
         immediate("HOTKEYS", hotkeys()),
+        immediate("EXPERIMENTAL_FEATURES", experimental_features()),
         key("SPEAKER_THRESHOLD", managed(Ty::Int, false, |v, ctx| {
             v.as_i64().is_some_and(|v| v >= 0 && v <= ctx.get("MAX_SPEAKER_THRESHOLD").as_i64().unwrap_or(0))
         })),
@@ -764,6 +796,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
             "toggle_transcription_send": null, "toggle_transcription_receive": null, "stop_voice": null,
             "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null,
         })),
+        ("EXPERIMENTAL_FEATURES", experimental_features_default()),
         ("SPEAKER_THRESHOLD", json!(300)),
         ("SPEAKER_AUTOMATIC_THRESHOLD", json!(false)),
         ("SPEAKER_RECORD_TIMEOUT", json!(3)),
@@ -891,4 +924,29 @@ pub fn default_launcher() -> Value {
         "x_rotation": 9.3648, "y_rotation": -22.0338, "z_rotation": -17.1646,
         "display_duration": 5, "fadeout_duration": 0, "opacity": 1.0, "ui_scaling": 0.1984, "tracker": "LeftHand",
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_experimental_features;
+    use serde_json::json;
+
+    // The real list is empty until a feature graduates, so these list made-up ones.
+    const IDS: &[&str] = &["first_trial", "second_trial"];
+
+    #[test]
+    fn a_feature_left_out_keeps_its_value_and_an_unlisted_one_is_dropped() {
+        let current = json!({ "first_trial": true, "second_trial": false });
+        let new = normalize_experimental_features(IDS, &json!({ "second_trial": true, "graduated": true }), &current);
+        assert_eq!(new, Some(json!({ "first_trial": true, "second_trial": true })));
+        let fresh = normalize_experimental_features(IDS, &json!({}), &serde_json::Value::Null);
+        assert_eq!(fresh, Some(json!({ "first_trial": false, "second_trial": false })));
+    }
+
+    #[test]
+    fn a_value_that_is_not_a_bool_refuses_the_request() {
+        for bad in [json!({ "first_trial": 1 }), json!({ "first_trial": "true" }), json!({ "first_trial": null }), json!("x"), json!([])] {
+            assert_eq!(normalize_experimental_features(IDS, &bad, &json!({})), None, "{bad}");
+        }
+    }
 }
