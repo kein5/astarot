@@ -1,11 +1,15 @@
 //! The online and local-server translation providers (`src-python/models/translation/`).
 //!
-//! Each provider is its own module, as each was its own file in Python: it builds its own
-//! requests and reads its own answers. There is no provider trait and no shared request
-//! builder; the caller (the core) chooses the module, as `translation_translator.py` chose the
-//! client. What this module shares is only leaf work that is not a provider: the provider names,
-//! the fixed addresses, the error values, the waits, and small helpers for URLs, JSON and one
-//! retry.
+//! Each provider is a unit struct in its own module (as each was its own file in Python) that
+//! implements [`Api`]. What the providers have in common is written once, as default methods
+//! and associated constants of [`Api`] and, for the OpenAI-style chat providers, of
+//! [`chat::ChatCompletions`]; a provider overrides only where it differs. Everything is resolved
+//! at compile time: the traits are used only as generic bounds (`P: Api`), never as `dyn`, so
+//! each call is a direct call to that provider's code.
+//!
+//! The settings name a provider at run time ([`Provider`]). [`Provider::call`] is the one place
+//! that turns that name into the static type, with one `match`; [`Provider::check`],
+//! [`Provider::models`], [`Provider::translate`] and the others go through it.
 //!
 //! The rules are those of the Python clients:
 //!
@@ -21,6 +25,7 @@
 //!
 //! Keys go into a header only. No key, text or URL reaches an [`Error`].
 
+pub mod chat;
 pub mod deepl;
 pub mod gemini;
 pub mod google_cloud;
@@ -33,10 +38,181 @@ pub mod openrouter;
 pub mod papago;
 pub mod plamo;
 
-use crate::http::{HttpError, Response, Timeouts};
+use crate::http::{HttpError, Response, Timeouts, Transport};
 use crate::prompt::HistoryItem;
 use serde_json::Value;
 use std::time::Duration;
+
+pub use deepl::DeepL;
+pub use gemini::Gemini;
+pub use google_cloud::GoogleCloud;
+pub use groq::Groq;
+pub use lmstudio::LmStudio;
+pub use ollama::Ollama;
+pub use openai::OpenAi;
+pub use openai_compatible::OpenAiCompatible;
+pub use openrouter::OpenRouter;
+pub use papago::Papago;
+pub use plamo::Plamo;
+
+// ------------------------------------------------------------------------- the provider trait
+
+/// Where and as whom a provider is called. A provider reads only what it uses: the machine
+/// translation APIs have no model, LM Studio and Ollama no key, only Papago a Client ID. Not
+/// `Debug`, so that a key cannot be printed by mistake.
+#[derive(Clone, Copy, Default)]
+pub struct Access<'a> {
+    pub base: &'a str,
+    pub key: &'a str,
+    /// Papago's Client ID.
+    pub client_id: &'a str,
+    /// The model to translate with (chat providers).
+    pub model: Option<&'a str>,
+}
+
+impl<'a> Access<'a> {
+    pub fn at(base: &'a str) -> Access<'a> {
+        Access { base, ..Access::default() }
+    }
+
+    pub fn key(self, key: &'a str) -> Access<'a> {
+        Access { key, ..self }
+    }
+
+    pub fn client_id(self, client_id: &'a str) -> Access<'a> {
+        Access { client_id, ..self }
+    }
+
+    pub fn model(self, model: &'a str) -> Access<'a> {
+        Access { model: Some(model), ..self }
+    }
+
+    /// The model of a chat provider; none chosen is [`Error::UnknownModel`].
+    pub fn chosen_model(&self) -> Result<&'a str, Error> {
+        self.model.ok_or(Error::UnknownModel)
+    }
+}
+
+/// A translation provider. Each provider is a unit struct implementing this; the defaults are
+/// the common case and a provider overrides only what it does differently.
+///
+/// A check is [`Api::reach`] then [`Api::list`]: `reach` is a check of its own where the provider
+/// has one (DeepL, Google Cloud, Papago, OpenRouter's `/auth/key`, LM Studio and Ollama answering
+/// at all); for the others the model list itself checks the key and `reach` does nothing.
+///
+/// Used only as a generic bound, never as `dyn Api`: the methods take no `self` and some are
+/// generic, so every call is resolved at compile time.
+pub trait Api {
+    /// The runtime name of this provider.
+    const PROVIDER: Provider;
+    /// The engine name the settings keep (`AUTH_KEYS`, `SELECTABLE_TRANSLATION_ENGINE_STATUS`).
+    const ENGINE: &'static str;
+    /// Whether the user chooses a model. The machine translation APIs have none.
+    const MODELS: bool = true;
+    /// A server the user runs (this PC or the LAN): no key, the long local wait for a reply
+    /// (it may load the model first) and no retry.
+    const LOCAL: bool = false;
+    /// The wait for one translation from a provider that is not local.
+    const TRANSLATE_WAIT: Timeouts = CLOUD_CHAT;
+
+    /// Whether this address gets the local wait and no retry. [`Api::LOCAL`], except where the
+    /// user's address decides (the OpenAI-compatible endpoint).
+    fn local(_base: &str) -> bool {
+        Self::LOCAL
+    }
+
+    /// The provider's own check before the model list, if it has one.
+    fn reach(_transport: &Transport, _access: &Access<'_>) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// The models fit for translation, sorted. None for a provider without models.
+    fn list(_transport: &Transport, _access: &Access<'_>) -> Result<Vec<String>, Error> {
+        Ok(Vec::new())
+    }
+
+    /// Checks the key (or that the server answers) and lists the models: `setAuthKey` and the
+    /// first `getModelList` of each Python client.
+    fn check(transport: &Transport, access: &Access<'_>) -> Result<Vec<String>, Error> {
+        Self::reach(transport, access)?;
+        Self::list(transport, access)
+    }
+
+    /// The models asked again (`getModelList`); none when they cannot be read.
+    fn models(transport: &Transport, access: &Access<'_>) -> Vec<String> {
+        Self::list(transport, access).unwrap_or_default()
+    }
+
+    /// Translates one text. Codes as the engine's language table gives them.
+    fn translate(transport: &Transport, access: &Access<'_>, request: &Translation<'_>) -> Result<String, Error>;
+
+    /// Runs one translation request: a local address once with [`LOCAL_CHAT`], else with
+    /// [`Api::TRANSLATE_WAIT`] and one more try when the failure is worth it (the SDKs'
+    /// `max_retries=1`).
+    fn attempt<T>(base: &str, mut once: impl FnMut(Timeouts) -> Result<T, Error>) -> Result<T, Error> {
+        if Self::local(base) {
+            once(LOCAL_CHAT)
+        } else {
+            retry_once(|| once(Self::TRANSLATE_WAIT))
+        }
+    }
+}
+
+/// Something to do with whichever provider a runtime [`Provider`] names: [`Provider::call`]
+/// calls `call::<P>()` with that provider's static type. A generic method, so each provider gets
+/// its own compiled copy and nothing is looked up at run time beyond the one `match`.
+pub trait Call {
+    type Output;
+    fn call<P: Api>(self) -> Self::Output;
+}
+
+struct Engine;
+impl Call for Engine {
+    type Output = &'static str;
+    fn call<P: Api>(self) -> &'static str {
+        P::ENGINE
+    }
+}
+
+struct Facts;
+impl Call for Facts {
+    type Output = (bool, bool);
+    fn call<P: Api>(self) -> (bool, bool) {
+        (P::MODELS, P::LOCAL)
+    }
+}
+
+struct Check<'t, 'a>(&'t Transport, Access<'a>);
+impl Call for Check<'_, '_> {
+    type Output = Result<Vec<String>, Error>;
+    fn call<P: Api>(self) -> Self::Output {
+        P::check(self.0, &self.1)
+    }
+}
+
+struct Reach<'t, 'a>(&'t Transport, Access<'a>);
+impl Call for Reach<'_, '_> {
+    type Output = Result<(), Error>;
+    fn call<P: Api>(self) -> Self::Output {
+        P::reach(self.0, &self.1)
+    }
+}
+
+struct Models<'t, 'a>(&'t Transport, Access<'a>);
+impl Call for Models<'_, '_> {
+    type Output = Vec<String>;
+    fn call<P: Api>(self) -> Vec<String> {
+        P::models(self.0, &self.1)
+    }
+}
+
+struct Translate<'t, 'a, 'r>(&'t Transport, Access<'a>, &'r Translation<'r>);
+impl Call for Translate<'_, '_, '_> {
+    type Output = Result<String, Error>;
+    fn call<P: Api>(self) -> Self::Output {
+        P::translate(self.0, &self.1, self.2)
+    }
+}
 
 /// A provider, by the name the settings keep (`AUTH_KEYS`, `SELECTABLE_TRANSLATION_ENGINE_STATUS`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -69,35 +245,66 @@ impl Provider {
         Provider::Ollama,
     ];
 
-    pub fn engine(self) -> &'static str {
+    /// Calls `call::<P>()` with the provider's static type: the one place where the runtime name
+    /// becomes a type. Static dispatch: each arm is a direct call to a monomorphized copy.
+    pub fn call<C: Call>(self, call: C) -> C::Output {
         match self {
-            Provider::DeepL => "DeepL_API",
-            Provider::GoogleCloud => "Google_Cloud_API",
-            Provider::Papago => "Papago_API",
-            Provider::Plamo => "Plamo_API",
-            Provider::Gemini => "Gemini_API",
-            Provider::OpenAi => "OpenAI_API",
-            Provider::Groq => "Groq_API",
-            Provider::OpenRouter => "OpenRouter_API",
-            Provider::OpenAiCompatible => "OpenAI_Compatible",
-            Provider::LmStudio => "LMStudio",
-            Provider::Ollama => "Ollama",
+            Provider::DeepL => call.call::<DeepL>(),
+            Provider::GoogleCloud => call.call::<GoogleCloud>(),
+            Provider::Papago => call.call::<Papago>(),
+            Provider::Plamo => call.call::<Plamo>(),
+            Provider::Gemini => call.call::<Gemini>(),
+            Provider::OpenAi => call.call::<OpenAi>(),
+            Provider::Groq => call.call::<Groq>(),
+            Provider::OpenRouter => call.call::<OpenRouter>(),
+            Provider::OpenAiCompatible => call.call::<OpenAiCompatible>(),
+            Provider::LmStudio => call.call::<LmStudio>(),
+            Provider::Ollama => call.call::<Ollama>(),
         }
+    }
+
+    /// [`Api::ENGINE`].
+    pub fn engine(self) -> &'static str {
+        self.call(Engine)
     }
 
     pub fn from_engine(engine: &str) -> Option<Provider> {
         Provider::ALL.into_iter().find(|p| p.engine() == engine)
     }
 
-    /// A server the user runs (this PC or the LAN): no retry, a long wait for the reply (it may
-    /// load the model first).
+    /// [`Api::LOCAL`].
     pub fn local(self) -> bool {
-        matches!(self, Provider::LmStudio | Provider::Ollama)
+        self.call(Facts).1
     }
 
-    /// A machine translation API: no model to choose.
+    /// Not [`Api::MODELS`]: a machine translation API, no model to choose.
     pub fn without_models(self) -> bool {
-        matches!(self, Provider::DeepL | Provider::GoogleCloud | Provider::Papago)
+        !self.call(Facts).0
+    }
+
+    /// [`Api::check`].
+    pub fn check(self, transport: &Transport, access: &Access<'_>) -> Result<Vec<String>, Error> {
+        self.call(Check(transport, *access))
+    }
+
+    /// [`Api::reach`]: for LM Studio and Ollama, whether the server answers.
+    pub fn reach(self, transport: &Transport, access: &Access<'_>) -> Result<(), Error> {
+        self.call(Reach(transport, *access))
+    }
+
+    /// [`Api::models`].
+    pub fn models(self, transport: &Transport, access: &Access<'_>) -> Vec<String> {
+        self.call(Models(transport, *access))
+    }
+
+    /// [`Api::translate`].
+    pub fn translate(
+        self,
+        transport: &Transport,
+        access: &Access<'_>,
+        request: &Translation<'_>,
+    ) -> Result<String, Error> {
+        self.call(Translate(transport, *access, request))
     }
 }
 
@@ -250,7 +457,11 @@ pub(crate) fn join(base: &str, path: &str) -> String {
 
 /// The answer when its status is 2xx.
 pub(crate) fn checked(response: Response) -> Result<Response, Error> {
-    if response.ok() { Ok(response) } else { Err(Error::Status(response.status)) }
+    if response.ok() {
+        Ok(response)
+    } else {
+        Err(Error::Status(response.status))
+    }
 }
 
 pub(crate) fn json_of(response: &Response) -> Result<Value, Error> {
@@ -276,6 +487,19 @@ pub(crate) fn percent(text: &str) -> String {
         }
     }
     out
+}
+
+/// The sorted `field` of each entry of `array` in the answer of a local server, without a key;
+/// none when it does not answer or the answer cannot be read (the status is not looked at).
+pub(crate) fn listed(transport: &Transport, url: &str, wait: Timeouts, array: &str, field: &str) -> Vec<String> {
+    let entries = transport(&crate::http::Request::get(url), wait)
+        .ok()
+        .and_then(|r| r.json())
+        .and_then(|body| body[array].as_array().cloned())
+        .unwrap_or_default();
+    let mut names: Vec<String> = entries.iter().filter_map(|m| m[field].as_str().map(str::to_string)).collect();
+    names.sort();
+    names
 }
 
 /// Whether a model id contains one of the words a client left out.
@@ -350,5 +574,23 @@ mod tests {
         for provider in Provider::ALL {
             assert_eq!(Provider::from_engine(provider.engine()), Some(provider));
         }
+    }
+
+    #[test]
+    fn each_runtime_name_reaches_its_own_type() {
+        struct Id;
+        impl Call for Id {
+            type Output = Provider;
+            fn call<P: Api>(self) -> Provider {
+                P::PROVIDER
+            }
+        }
+        for provider in Provider::ALL {
+            assert_eq!(provider.call(Id), provider);
+        }
+        let without: Vec<Provider> = Provider::ALL.into_iter().filter(|p| p.without_models()).collect();
+        assert_eq!(without, [Provider::DeepL, Provider::GoogleCloud, Provider::Papago]);
+        let local: Vec<Provider> = Provider::ALL.into_iter().filter(|p| p.local()).collect();
+        assert_eq!(local, [Provider::LmStudio, Provider::Ollama]);
     }
 }

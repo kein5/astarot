@@ -4,51 +4,30 @@
 //! (lower-cased) has a word the Python client left out. Translation is one Chat Completions
 //! request with one retry.
 
-use super::{checked, contains_any, join, json_of, reply_text, retry_once, Error, Translation, CLOUD_CHAT, DISCOVERY};
-use crate::http::{Request, Transport};
-use crate::prompt;
-use serde_json::json;
+use super::chat::{id_without, ChatCompletions, NOT_FOR_TEXT};
+use super::{Access, Api, Error, Provider, Translation};
+use crate::http::Transport;
+use serde_json::Value;
 
 pub const BASE_URL: &str = "https://api.groq.com/openai/v1";
 
-const EXCLUDED: [&str; 9] = ["whisper", "embedding", "image", "tts", "audio", "search", "transcribe", "diarize", "vision"];
+pub struct Groq;
 
-/// The models fit for translation, sorted; the answer also checks the key.
-pub fn models(transport: &Transport, base: &str, key: &str) -> Result<Vec<String>, Error> {
-    let url = join(base, "/models");
-    let request = Request::get(&url).header("Authorization", format!("Bearer {key}"));
-    let body = json_of(&checked(transport(&request, DISCOVERY)?)?)?;
-    let mut models: Vec<String> = body["data"]
-        .as_array()
-        .ok_or(Error::Answer)?
-        .iter()
-        .filter_map(|m| m["id"].as_str())
-        .filter(|id| !contains_any(&id.to_lowercase(), &EXCLUDED))
-        .map(str::to_string)
-        .collect();
-    models.sort();
-    Ok(models)
+impl ChatCompletions for Groq {
+    fn keep(model: &Value) -> Option<String> {
+        id_without(model, &NOT_FOR_TEXT)
+    }
 }
 
-/// Translates one text with a model.
-pub fn translate(transport: &Transport, base: &str, key: &str, model: &str, t: &Translation<'_>) -> Result<String, Error> {
-    let url = join(base, "/chat/completions");
-    let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history);
-    let body = json!({
-        "model": model,
-        "messages": [{ "role": "system", "content": system }, { "role": "user", "content": t.text }],
-        "stream": false,
-    });
-    retry_once(|| {
-        let request = Request::post_json(&url, &body).header("Authorization", format!("Bearer {key}"));
-        let answer = json_of(&checked(transport(&request, CLOUD_CHAT)?)?)?;
-        let choice = &answer["choices"][0];
-        if choice["finish_reason"] == "length" {
-            return Ok(String::new());
-        }
-        if choice.is_null() {
-            return Err(Error::Answer);
-        }
-        Ok(reply_text(&choice["message"]["content"]))
-    })
+impl Api for Groq {
+    const PROVIDER: Provider = Provider::Groq;
+    const ENGINE: &'static str = "Groq_API";
+
+    fn list(transport: &Transport, a: &Access<'_>) -> Result<Vec<String>, Error> {
+        Self::list_models(transport, a)
+    }
+
+    fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
+        Self::chat(transport, a, t)
+    }
 }

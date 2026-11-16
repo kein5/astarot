@@ -17,8 +17,8 @@
 //! - Only some pairs translate directly ([`supports`]); the others count as unsupported, and the
 //!   core then falls back as for any engine without the languages.
 
-use super::{checked, join, json_of, retry_once, Error, DISCOVERY, MACHINE_TRANSLATION};
-use crate::http::{Request, Transport};
+use super::{checked, join, json_of, Access, Api, Error, Provider, Translation, DISCOVERY, MACHINE_TRANSLATION};
+use crate::http::{Request, Timeouts, Transport};
 use serde_json::{json, Value};
 
 pub const BASE_URL: &str = "https://papago.apigw.ntruss.com";
@@ -39,9 +39,7 @@ pub fn supports(source: &str, target: &str) -> bool {
 }
 
 fn request<'a>(url: &'a str, client_id: &str, secret: &str, body: &Value) -> Request<'a> {
-    Request::post_json(url, body)
-        .header("X-NCP-APIGW-API-KEY-ID", client_id)
-        .header("X-NCP-APIGW-API-KEY", secret)
+    Request::post_json(url, body).header("X-NCP-APIGW-API-KEY-ID", client_id).header("X-NCP-APIGW-API-KEY", secret)
 }
 
 /// Papago's own error code (`N2MT…`) in an answer, in either shape the references show.
@@ -49,35 +47,40 @@ fn papago_code(body: &Value) -> Option<&str> {
     body["error"]["errorCode"].as_str().or_else(|| body["errorCode"].as_str())
 }
 
-/// Checks a Client ID and secret.
-pub fn check(transport: &Transport, base: &str, client_id: &str, secret: &str) -> Result<(), Error> {
-    let url = join(base, "/nmt/v1/translation");
-    let body = json!({ "source": "ko", "target": "en", "text": "" });
-    let response = transport(&request(&url, client_id, secret, &body), DISCOVERY)?;
-    let reached_papago =
-        response.status == 400 && response.json().as_ref().and_then(papago_code).is_some_and(|c| c.starts_with("N2MT"));
-    if response.ok() || reached_papago { Ok(()) } else { Err(Error::Status(response.status)) }
-}
+pub struct Papago;
 
-/// Translates one text; codes as the language table gives them.
-pub fn translate(
-    transport: &Transport,
-    base: &str,
-    client_id: &str,
-    secret: &str,
-    text: &str,
-    source: &str,
-    target: &str,
-) -> Result<String, Error> {
-    if !supports(source, target) {
-        return Err(Error::UnsupportedPair);
+/// The Client Secret is [`Access::key`], the Client ID [`Access::client_id`].
+impl Api for Papago {
+    const PROVIDER: Provider = Provider::Papago;
+    const ENGINE: &'static str = "Papago_API";
+    const MODELS: bool = false;
+    const TRANSLATE_WAIT: Timeouts = MACHINE_TRANSLATION;
+
+    /// Checks a Client ID and secret with an empty text.
+    fn reach(transport: &Transport, a: &Access<'_>) -> Result<(), Error> {
+        let url = join(a.base, "/nmt/v1/translation");
+        let body = json!({ "source": "ko", "target": "en", "text": "" });
+        let response = transport(&request(&url, a.client_id, a.key, &body), DISCOVERY)?;
+        let reached_papago = response.status == 400
+            && response.json().as_ref().and_then(papago_code).is_some_and(|c| c.starts_with("N2MT"));
+        if response.ok() || reached_papago {
+            Ok(())
+        } else {
+            Err(Error::Status(response.status))
+        }
     }
-    let url = join(base, "/nmt/v1/translation");
-    let body = json!({ "source": source, "target": target, "text": text });
-    retry_once(|| {
-        let answer = json_of(&checked(transport(&request(&url, client_id, secret, &body), MACHINE_TRANSLATION)?)?)?;
-        answer["message"]["result"]["translatedText"].as_str().map(str::to_string).ok_or(Error::Answer)
-    })
+
+    fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
+        if !supports(t.source, t.target) {
+            return Err(Error::UnsupportedPair);
+        }
+        let url = join(a.base, "/nmt/v1/translation");
+        let body = json!({ "source": t.source, "target": t.target, "text": t.text });
+        Self::attempt(a.base, |wait| {
+            let answer = json_of(&checked(transport(&request(&url, a.client_id, a.key, &body), wait)?)?)?;
+            answer["message"]["result"]["translatedText"].as_str().map(str::to_string).ok_or(Error::Answer)
+        })
+    }
 }
 
 #[cfg(test)]

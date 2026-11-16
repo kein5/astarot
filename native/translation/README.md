@@ -6,22 +6,36 @@
 
 | モジュール | 役割 | Python |
 |---|---|---|
-| `providers` | DeepL、Google Cloud Translation、Papago（NAVER Cloud Platform）、Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI 互換、LM Studio、Ollama のキーの確認、モデルの一覧、翻訳。プロバイダごとに 1 ファイル（`providers/deepl.rs` など） | `translation_*.py` の各クライアント |
+| `providers` | DeepL、Google Cloud Translation、Papago（NAVER Cloud Platform）、Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI 互換、LM Studio、Ollama のキーの確認、モデルの一覧、翻訳。プロバイダごとに 1 ファイル（`providers/deepl.rs` など）で、共通の部分はトレイト（`Api`、`ChatCompletions`）に書く | `translation_*.py` の各クライアント |
 | `prompt` | チャット型のプロバイダに渡すシステムプロンプトと会話の履歴 | `translation_settings/prompt/*.yml` |
 | `transliteration` | 読みの分け方、何（なに・なん）の規則、カタカナからひらがなとヘボン式 | `transliteration_*.py` |
 | `http` | プロバイダとの通信に使う小さな HTTP/1.1 クライアント | `models/network_policy.py` の一部 |
 
 ## プロバイダの形
 
-各プロバイダは `src/providers/` の 1 ファイルで、Python の 1 ファイルに当たります。要求の組み立て、応答の読み取り、モデルの絞り込み、長さで切れた答えの判定を、それぞれが自分で持ちます。プロバイダのトレイト、共通のクライアント、OpenAI 形式の共通の層はありません（オーナーの決定、2026-11-16）。似た要求を送るプロバイダ（OpenAI、Groq、OpenRouter、PLaMo、OpenAI 互換、LM Studio）も、別々に書いています。1 つを変えても、ほかに響きません。
+ゼロコスト抽象化で書いています（2026-11-16 に訂正したオーナーの決定）。共通の振る舞いはトレイトの既定のメソッドと関連定数に 1 回だけ書き、各プロバイダは単位構造体（`DeepL`、`OpenAi` など）としてトレイトを実装します。トレイトはジェネリクスの境界（`P: Api`）としてだけ使い、`dyn` や関数ポインタの表は使いません。呼び出しはコンパイル時に決まり、実行時の負担は 1 つの `match` だけです。各プロバイダは `src/providers/` の 1 ファイルで、Python の 1 ファイルに当たります。
 
-共有するのはプロバイダではない小さなものだけです。
+| トレイト | 役割 |
+|---|---|
+| `Api` | すべてのプロバイダ。関連定数は `PROVIDER`（実行時の名前）、`ENGINE`（設定に残る名前）、`MODELS`（モデルを選ぶか。機械翻訳の API は `false`）、`LOCAL`（利用者が動かすサーバ。キーなし、長い待ち時間、再試行なし）、`TRANSLATE_WAIT`（クラウドの翻訳の待ち時間）。確認は `reach`（そのプロバイダ独自の確認。既定は何もしない）のあとに `list`（モデルの一覧。既定は空）です。`check`、`models`、`attempt`（待ち時間と 1 回の再試行）は既定のメソッドで、`translate` だけは各プロバイダが書きます |
+| `chat::ChatCompletions` | OpenAI 形式のチャット（PLaMo、OpenAI、Groq、OpenRouter、OpenAI 互換、LM Studio）。`GET /models` と `POST /chat/completions` を既定のメソッド（`list_models`、`chat`）に 1 回だけ書きます。違いは関連定数の `PLAMO_PROMPT`（PLaMo のプロンプト）と `INCOMPLETE_DETAILS`（`incomplete_details` で切れた答えも見るか。OpenAI と OpenAI 互換だけ）と、`authorization`（LM Studio は `Bearer lmstudio`）と `keep`（モデルの絞り込み）の上書きで表します |
 
-- `http`: HTTP/1.1 の送受信と、平文の HTTP を許す範囲（下の「この PC と LAN」）。
+各プロバイダに残るのは、そのプロバイダだけの部分です。
+
+- DeepL: `:fx` のキーの送り先、`" "` を訳す確認、大文字のコード。
+- Google Cloud Translation: `x-goog-api-key` ヘッダー、言語の一覧での確認、`format: "text"`。
+- Papago: Client ID（`Access::client_id`）と Client Secret のヘッダー、空の文での確認、訳せる組。
+- Gemini: ページごとのモデルの一覧（全体で 8 秒）、`generateContent`、`MAX_TOKENS`、思考の部分を除くこと。
+- OpenRouter: `/auth/key` での確認。OpenAI 互換: アドレスがこの PC か LAN なら `local` を真にする。
+- LM Studio と Ollama: 0.2 秒でサーバが答えるかの確認と、キーなしのモデルの一覧。Ollama は `/api/chat` と `done_reason`。
+
+設定は実行時にエンジンの名前で選ぶので、名前を型に変える場所が要ります。それは `Provider::call` の 1 つの `match` だけです。`Call` トレイト（ジェネリックな `call::<P>()`）を渡すと、そのプロバイダの型で呼びます。中核は `Provider::check`、`models`、`translate`、`reach` を呼ぶだけで、プロバイダごとの分岐を持ちません。
+
+ほかに共有するもの。
+
+- `http`: HTTP/1.1 の送受信と、平文の HTTP を許す範囲（下の「この PC と LAN」）。HTTP の送り口（`http::Transport`）は試験で偽物に替えるための口で、翻訳の呼び出しの分岐ではありません。
 - `prompt`: チャット型のプロバイダに渡すプロンプトの文面と履歴。
-- `providers/mod.rs`: プロバイダの名前（`Provider`、設定に残る名前）、固定のアドレス（`Endpoints`、試験では偽のサーバに向ける）、エラーの値、待ち時間、URL と JSON と 1 回の再試行とモデルの選び方の小さな関数。
-
-どのモジュールを呼ぶかは、使う側（中核の `controller/translation.rs`）が決めます。Python の `translation_translator.py` がエンジンごとに分岐していたのと同じ形です。
+- `providers/mod.rs`: 固定のアドレス（`Endpoints`、試験では偽のサーバに向ける）、エラーの値、待ち時間、URL と JSON と 1 回の再試行とモデルの選び方の小さな関数。
 
 Google、Bing、Papago の Web 翻訳は、上流のライセンスにより VRCT-VOX では配布していません。Python でも動いていなかったので、このクレートにもありません。代わりに、各社の公式の API（Google Cloud Translation と Papago Translation）を利用者のキーで呼びます。
 
@@ -74,7 +88,7 @@ LM Studio と Ollama はこの PC か LAN のサーバとして、再試行せ�
 
 ## ログとデータ
 
-ログには何も書きません。エラーは固定の値だけで、キー、URL、利用者の文章は入りません。キーはヘッダーにだけ入れ、`Client` の `Debug` 表示にも出しません。
+ログには何も書きません。エラーは固定の値だけで、キー、URL、利用者の文章は入りません。キーはヘッダーにだけ入れます。呼び出し先と資格情報をまとめた `Access` は `Debug` を持たないので、キーを誤って表示することもありません。
 
 ## 試験
 
@@ -82,6 +96,6 @@ LM Studio と Ollama はこの PC か LAN のサーバとして、再試行せ�
 cargo test --locked --manifest-path native/translation/Cargo.toml
 ```
 
-`tests/providers.rs` は、ループバックに立てた偽のプロバイダ（機能 `fake-server` の `fake::FakeProviders`）を相手に、各プロバイダのモジュールを直接呼んで、キーの確認、モデルの一覧、翻訳、失敗と再試行、Google Cloud Translation と Papago の要求の形を確かめます。外のネットワークには出ません。
+`tests/providers.rs` は、ループバックに立てた偽のプロバイダ（機能 `fake-server` の `fake::FakeProviders`）を相手に、各プロバイダの型を直接呼んで、キーの確認、モデルの一覧、翻訳、失敗と再試行、Google Cloud Translation と Papago の要求の形を確かめます。実行時の名前からの呼び出しが型からの呼び出しと同じ要求を送ること、`incomplete_details` を見るのが OpenAI と OpenAI 互換だけであること、モデルのないチャットは何も送らないことも確かめます。外のネットワークには出ません。
 
 `tests/sudachi.rs` は、sudachi.rs の辞書の作成機能で数語の辞書をその場で作り、Sudachi の解析から読みまでを確かめます。ない辞書と壊れた辞書も確かめます。SudachiDict は取得しません。ビルドでは sudachi.rs を GitHub から取得します（C の依存はありません）。
