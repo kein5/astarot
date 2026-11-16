@@ -12,12 +12,13 @@
     justify-content: space-between;
     align-items: center;
     gap: .4rem .8rem;
-    padding: 1rem .2rem .6rem;
+    padding: .6rem .2rem .4rem;
     border-top: .1rem solid var(--dark_850_color);
 }
 
+// 1.2rem leaves 「Language Settings」 room beside the presets in the 24rem rail.
 .title {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     font-weight: 500;
     color: var(--vox_secondary_text);
 }

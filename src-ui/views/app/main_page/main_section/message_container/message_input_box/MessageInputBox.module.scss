@@ -52,3 +52,9 @@
 // shows no scrollbar for it.
 .message_box_input_area::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .message_box_input_area:placeholder-shown { overflow-y: hidden; }
+
+// A short column keeps a one-line composer (MessageContainer): less padding, so the line fits.
+@container main_section (max-height: 36rem) {
+    .message_box_wrapper { padding: .6rem 1.2rem; }
+    .message_box_input_area { font-size: 1.5rem; }
+}

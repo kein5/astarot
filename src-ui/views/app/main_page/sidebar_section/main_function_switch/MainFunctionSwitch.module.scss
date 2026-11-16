@@ -15,8 +15,8 @@
     gap: .8rem;
     min-height: 4.4rem;
     // 1.2rem at the sides leaves the label room for 「ボイスチェンジャー」 on one line in the 24rem rail.
-    // .8rem above and below: six two-line names leave room for the languages under them.
-    padding: .8rem 1.2rem;
+    // .7rem above and below: six two-line names leave room for the languages under them.
+    padding: .7rem 1.2rem;
     border-radius: var(--vox_radius);
     background-color: var(--dark_925_color);
     cursor: pointer;
