@@ -254,3 +254,8 @@ test("a guide link reads as a link wherever it sits", () => {
     const css = read(box + "_components/custom_model_link/CustomModelLink.module.scss");
     assert.match(css, /a\s*{[^}]*color: var\(--primary_300_color\)[^}]*text-decoration: underline/);
 });
+test("the saved chat reading language is named like the list's entries, so auto never shows raw", () => {
+    const source = read(box + "ocr/Ocr.jsx");
+    assert.match(source, /list\[currentOcrSourceLanguage\.data\] = label\(currentOcrSourceLanguage\.data\)/);
+    assert.match(source, /const label = id => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
+});
