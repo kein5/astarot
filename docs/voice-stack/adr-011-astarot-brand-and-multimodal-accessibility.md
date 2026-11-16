@@ -2,7 +2,7 @@
 
 Status: **採用（製品方針・ブランド仕様）／素材再生成済み・リポジトリ実装と識別子移行は未着手**
 Date: 2026-11-16
-Reference: `docs/brand/astarot/reference-brand-guide.png`（ユーザー承認済みの正本）
+Reference: `docs/brand/astarot/symbol-light.svg`（均一な幾何で作り直したシンボルの正本）、`docs/brand/astarot/reference-brand-guide.png`（構図の参照画像）
 Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`docs/voice-stack/project-rename.md`、`docs/voice-stack/adr-010-frontend-stack.md`、`docs/voice-stack/decisions.md`
 
 ## 1. 背景と目的
@@ -33,13 +33,13 @@ Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`do
 
 ## 3. 決定：ロゴ、アイコン、タイポグラフィー
 
-### 3.1 主要シンボル（確定・参照画像優先）
+### 3.1 主要シンボル（確定・均一版が正本）
 
-**視覚的な最上位の正本は `docs/brand/astarot/reference-brand-guide.png`。**
-ユーザーは2026-11-15、同画像の右下にある「App Icon」を正本と指定し、以前の別形状のアイコンを不採用とした。参照画像には `ASTAROT`、円環、二つの重なる正三角形からなる六芒星、六芒星の線と接する中央の三点入り吹き出しが描かれている。
+**シンボルの正本は `docs/brand/astarot/symbol-light.svg` の共通 `path`（均一版）。**
+ユーザーは2026-11-15に `reference-brand-guide.png` の右下にある「App Icon」を正本の構図と指定し、以前の別形状のアイコンを不採用とした。参照画像には `ASTAROT`、円環、二つの重なる正三角形からなる六芒星、六芒星の線と接する中央の三点入り吹き出しが描かれている。その後、この構図を保ったままシンボルを均一な幾何で作り直し、2026-11-16にこの均一版を正本とした。
 
-- **ベクター技術原版**：`symbol-light.svg` に含まれる共通の `path`。ユーザー指定画像の上段の大きなシンボルから輪郭を抽出した、**画像トレース由来の形状**である。CADで描き直した正多角形や、独立した吹き出しレイヤーを新たに合成したものではない。
-- **形状の優先順位**：参照画像 > トレースした共通SVG輪郭 > PNG/ICOなどのサイズ別出力。SVGと画像に食い違いが生じたら、参照画像に合わせてトレース・レビューする。
+- **ベクター技術原版**：`symbol-light.svg` に含まれる共通の `path`。参照画像のトレースではなく、均一な幾何で描き直した形状である。六芒星の白いラインはすべて同じ太さ（11単位）で、中の黒い三角形6つはすべて合同である。円環、吹き出し、三点の配置は参照画像の構図に合わせている。
+- **形状の優先順位**：共通SVGの `path` > PNG/ICOなどのサイズ別出力。参照画像は構図の確認に使い、形状の細部の基準にはしない。
 - **厳守**：星と吹き出しの接触部を切り離さない。吹き出しを取り囲む白いハロー・隙間や別の背景を作らない。円環、六芒星、吹き出し、三点の位置と比率を独立変形しない。
 - ブランドシートの新しい画像は、参考生成画像ではなく、**上記の共有SVGシルエットとロゴタイプ輪郭を組み合わせて描画した派生アセット**とする。
 
@@ -50,7 +50,7 @@ Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`do
 3. 装飾の追加（電波アーク、角、翼、惑星、模様、独立した小さな星、余分な点）は標準ロゴでは行わない。単純明快で、小サイズでも区別できることを優先する。
 4. 横長ロゴ、縦長ロゴ、アプリアイコン、favicon は **同一 SVG 原版から派生**させ、構図・円環・六芒星・吹き出しの形状を揃える。背景色や小サイズの線幅補正は許容する。
 5. **16–48 px の favicon は光学補正版**を使用できる。点の半径・線幅のみ増やしてよい。星の頂点数、吹き出しの位置、円環と星の関係を変えてはならない。
-6. ユーザー承認の参照PNGを視覚的な正本とし、形状を保存する共有SVGを実装用原版、PNG/ICO/ICNS を派生物とする。ロゴに不要な影、グラデーション、細かい装飾を付けない。モノクロ版を用意する。
+6. 均一版の共有SVGを正本かつ実装用原版とし、PNG/ICO/ICNS を派生物とする。参照PNGは構図の参照として残す。ロゴに不要な影、グラデーション、細かい装飾を付けない。モノクロ版を用意する。
 
 ### 3.2 文字組
 
@@ -62,8 +62,9 @@ Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`do
 | コード・ログ | 設定可能な等幅フォント。ブランド用書体を強制しない |
 | サブタイトル | 上記の正式英文を一字一句維持し、狭い画面では折り返しまたは省略してアイコンだけを用いる |
 
-**重要：本パッケージのWordmarkのパスは承認PNG画像に描かれた `ASTAROT` の輪郭をトレースしたものであり、Space Groteskフォントファイルからアウトラインを作成したものではない。**
-正式タイポグラフィー仕様は **Space Grotesk Bold (700)**。実書体での最終組版が必要になったときは、参照画像の文字幅・比率と実フォントの差異を確認してから正式版のアウトラインを確定する。PNGの小さな本文・サブタイトルは利用環境に応じて代替書体でレンダリングされうる。
+**Wordmark のパスは Space Grotesk Bold (700) の実フォントをアウトライン化したものである。** 参照画像のトレースではない。`wordmark-reference-outline.svg` と横長・縦長のロゴはこのアウトラインを使う。
+参照画像に描かれた `ASTAROT` の輪郭をトレースして整えたものは、比較用の別案として `wordmark-alt-traced.svg` に残す。ロゴには使わない。
+PNGの小さな本文・サブタイトルは利用環境に応じて代替書体でレンダリングされうる。
 
 フォントファイルをアセットに埋め込む場合はライセンス・配布物・表示崩れを別途検証する。**リモートフォントの自動読み込みはしない。** リポジトリの既存 UI フォント設定を勝手に置換しない。
 
@@ -80,7 +81,7 @@ Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`do
 
 ### 3.4 アセット管理
 
-配置先：`docs/brand/astarot/`。画像の最上位正本は `reference-brand-guide.png`。`tools/astarot_brand_from_reference.py` が正本から輪郭をトレースし、統一形状のSVG/PNGを再生成する。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
+配置先：`docs/brand/astarot/`。シンボルの正本は均一版の `symbol-light.svg`。`reference-brand-guide.png` と `reference-mark-crop.png` は構図の参照として残す。`tools/astarot_brand_from_reference.py` は参照画像をトレースした旧版を生成するツールで、現在の均一版は再現しない。実行すると均一版を旧版で上書きする。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
 
 現行 `docs/brand/` には `VRCT-VOX` のアイコン・ロゴ・生成ツール `tools/brand_assets.py` がある。**移行承認までこれらを上書きしない。** 実装段階で既存パイプラインに ASTAROT 原版を登録して、UI、README、Tauri の OS アイコン、インストーラー、AppImage などを一括生成・検証する。
 
@@ -122,9 +123,9 @@ Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`do
 
 ## 8. 受け入れ基準（ブランド原版）
 
-**画像ベースの受け入れゲート**：`reference-brand-guide.png`（ユーザー承認）、`reference-mark-crop.png`（輪郭抽出検証）を人が比較し、星の稜線と吹き出しの接触、円環、三点、比率が一致することを確認する。`brand-board.png` はSVG群から再構成しており、参考画像の転載や生成画像の形状と混同しない。
+**画像ベースの受け入れゲート**：均一版のシンボルを `reference-brand-guide.png` と `reference-mark-crop.png` に並べて人が比較し、構図（星と吹き出しの接触、円環、三点、比率）が保たれていることを確認する。線の太さと三角形の形は均一版のSVGを基準にする。
 
-**機械的検証**：`tools/astarot_brand_from_reference.py` は共通パスを全SVGに挿入し、同一パスの利用をassertする。生成ファイルを検査する際は最小16pxから大サイズまで視認性をレビューする。
+**機械的検証**：共通パスが全SVGで同一であることを確かめる。均一版を生成するツールはリポジトリにまだない。生成ファイルを検査する際は最小16pxから大サイズまで視認性をレビューする。
 
 - 主要画像・SVG に `ASTAROT` の文字列が正しく表記される。
 - 正式サブタイトルが `Speech, Translation, Accessibility, Revoicing & OCR Toolkit` と一致する（HTML/SVG 内の `&amp;` はレンダリング後 `&` となる）。
@@ -145,6 +146,12 @@ Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`do
 今回の再生成パッケージではユーザー添付画像を `reference-brand-guide.png` として同梱し、そこから主シンボル輪郭・Wordmark輪郭を抽出した。同じ主シンボル輪郭が全SVGに存在することを生成コードで検証している。確認済みの表示書体は参照画像内のアウトラインであり、実フォントのアウトラインであるとの主張はしない。
 
 この更新は**リポジトリへのコミットではない**。採用時は既存ADR-011との差分を確認し、PRなどの通常の手順で取り込む。旧VRCT-VOXのアイコン・識別子は自動で変更しない。
+
+## 11. 2026-11-16 均一版への差し替え（記録）
+
+10節のトレース版を、均一な幾何で作り直した一式に差し替えた。トレース版では線の太さと三角形の形にばらつきがあった。均一版では六芒星の白いラインがすべて11単位の太さで、中の黒い三角形6つがすべて合同である。Wordmark は Space Grotesk Bold の実フォントのアウトラインに替えた。参照画像のトレースから作った Wordmark は `wordmark-alt-traced.svg` として残している。
+
+`reference-brand-guide.png` と `reference-mark-crop.png` は構図の参照として残した。10節の「実フォントのアウトラインであるとの主張はしない」という記述は、トレース版についての記録である。
 
 ## 12. 2026-11-16 追記案：表示名、文書、サイト、リポジトリ名の移行を 0.5.0 に前倒しする
 
