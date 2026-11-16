@@ -123,9 +123,18 @@ export const VR_PANEL_RELAY_PATHS = new Set<string>([
     // Translation, speech recognition and chat reading.
     "/set/data/selected_ctranslate2_weight_type", "/set/data/selected_translation_compute_device",
     "/set/data/selected_translation_compute_type",
+    // The AI translation models (only which model; their URLs and keys stay on the PC).
+    "/set/data/selected_plamo_model", "/set/data/selected_gemini_model", "/set/data/selected_openai_model",
+    "/set/data/selected_groq_model", "/set/data/selected_openrouter_model", "/set/data/selected_lmstudio_model",
+    "/set/data/selected_openai_compatible_model", "/set/data/selected_ollama_model",
     "/set/data/selected_transcription_engine",
+    "/set/data/mic_record_timeout", "/set/data/mic_phrase_timeout", "/set/data/mic_max_phrases",
+    "/set/data/speaker_record_timeout", "/set/data/speaker_phrase_timeout", "/set/data/speaker_max_phrases",
     "/set/data/ocr_source_language", "/set/data/ocr_min_confidence", "/set/data/ocr_poll_interval_ms",
     "/set/data/ocr_bubble_min_text_length",
+    // VRChat's chatbox.
+    ...toggle("send_message_to_vrc"), ...toggle("send_only_translated_messages"), ...toggle("notification_vrc_sfx"),
+    ...toggle("send_received_message_to_vrc"),
     // Messages, VR overlays and appearance.
     ...toggle("convert_message_to_hiragana"), ...toggle("convert_message_to_romaji"), ...toggle("vrc_mic_mute_sync"),
     ...toggle("overlay_small_log"), ...toggle("overlay_large_log"), ...toggle("overlay_show_only_translated_messages"),

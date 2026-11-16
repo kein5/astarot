@@ -30,7 +30,7 @@ const BARRELS = new Set(["@logics_common", "@logics_main", "@logics_configs", "@
 const CATEGORY_HOOKS = {
     useAppearance: "Appearance", useDevice: "Device", useTranslation: "Translation",
     useTranscription: "Transcription", useVr: "Vr", useOthers: "Others",
-    useAdvancedSettings: "AdvancedSettings", useUpdater: "Updater", useOcr: "Ocr",
+    useAdvancedSettings: "AdvancedSettings", useOcr: "Ocr",
 };
 const SKIPPED = /\.(scss|css|svg|png|json)(\?.*)?$|\.css\.ts$/;
 

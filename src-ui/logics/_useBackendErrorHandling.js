@@ -293,7 +293,10 @@ export const _useBackendErrorHandling = () => {
                 // The user pressed the switch: say what is missing where they are and lead to
                 // the models section, whose review asks before downloading. A language change
                 // made in the OCR settings already shows that section, so a notice is enough there.
-                if (error_code === "OCR_DISABLED_MODEL_MISSING" && endpoint === "/set/enable/ocr_capture") {
+                // The backend tells why the switch could not start on /run/enable_ocr_capture, and only
+                // the switch (/set/enable/ocr_capture) starts it.
+                if (error_code === "OCR_DISABLED_MODEL_MISSING"
+                    && (endpoint === "/run/enable_ocr_capture" || endpoint === "/set/enable/ocr_capture")) {
                     ocrSetup.show();
                     return;
                 }

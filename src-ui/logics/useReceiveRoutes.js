@@ -20,6 +20,7 @@ import { receiveLanguageMutation, resetLanguageMutations, isLanguageMutation } f
 import { applyInitializationFields, createInitializationValidators } from "./common/initializationFields.ts";
 import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.ts";
 import { settingsWriteResponses } from "./common/settingsWriteResponses.ts";
+import { voiceErrorText } from "./voice/voiceErrorText.ts";
 
 const INIT_FIELD_VALIDATORS = createInitializationValidators(SETTINGS_ARRAY);
 
@@ -131,7 +132,6 @@ export const STATIC_ROUTE_META_LIST = [
 
     // Software Version
     { endpoint: "/get/data/version", ns: common, hook_name: "useSoftwareVersion", method_name: "updateSoftwareVersion" },
-    { endpoint: "/get/data/available_releases", ns: common, hook_name: "useAvailableReleases", method_name: "updateAvailableReleasesFromBackend" },
     // Latest Software Version Info
     { endpoint: "/run/software_update_info", ns: common, hook_name: "useSoftwareVersion", method_name: "updateSoftwareVersionInfo" },
 
@@ -223,9 +223,15 @@ export const STATIC_ROUTE_META_LIST = [
 
     // // Not Implemented.
     { endpoint: "/run/shutdown", ns: null, hook_name: null, method_name: null }, // Not implemented on UI.
-    { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null }, // Not implemented on UI yet; release_channel options are hardcoded in Updater.jsx for now.
+    // The release channel follows the installed build (the core decides it at start from the
+    // version), so there is nothing to choose; the app updater reads it from the install.
+    { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null },
+    // The app updater (src-tauri/src/app_update.rs) lists releases itself; nothing asks the backend.
+    { endpoint: "/get/data/available_releases", ns: null, hook_name: null, method_name: null },
 ];
 
+// The top bar's stop and mute (StopActions.jsx), which hotkeys press as well.
+const STOP_ACTIONS = ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"];
 const TRANSCRIPTION_TOGGLES = ["/set/enable/transcription_send", "/set/disable/transcription_send",
     "/set/enable/transcription_receive", "/set/disable/transcription_receive"];
 
@@ -406,8 +412,16 @@ export const useReceiveRoutes = () => {
             if ([404, 423, 500].includes(status) && endpoint !== "/get/data/direct_voice_state") sendVoice("/get/data/direct_voice_state");
             return;
         }
-        if (status !== 200 && (endpoint.includes("/voice_") || ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"].includes(endpoint))) {
-            updateVoiceError(result?.error_code || "voice_request_failed");
+        if (status !== 200 && (endpoint.includes("/voice_") || STOP_ACTIONS.includes(endpoint))) {
+            const code = result?.error_code || "voice_request_failed";
+            updateVoiceError(code);
+            // Stop and mute are pressed from the top bar or a hotkey, away from the settings
+            // page that shows the error above: say it where the user is. After the engine
+            // stops, its own notice already says so.
+            if (STOP_ACTIONS.includes(endpoint) && !(code === "backend_unavailable" && !store.backend_subprocess)) {
+                const page = t(endpoint === "/run/stop_voice" ? "main_page.tts" : "voice_ui.mute_row");
+                showNotification_Error(voiceErrorText(code, page, t, key => i18n.exists(key)), { category_id: `voice_action:${endpoint}` });
+            }
             return;
         }
 

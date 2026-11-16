@@ -5,13 +5,38 @@
 //! notice the same things (a file moved aside, URLs dropped, the local ASR notice). The expected
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
 //!
-//! Three differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
+//! Four differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
 //! `config.json` for the key store (`vrct_core::config::secrets`): the settings are compared
 //! without them, and the keys Python kept in the file must be in the store instead. A saved
-//! choice of the retired Google recognition engine loads as none (`retire_google_engine`). And
-//! the direct voice engine is RVC where Python saved Seed-VC, which ended with Python (#391).
+//! choice of the retired Google recognition engine loads as none (`retire_google_engine`). The
+//! direct voice engine is RVC where Python saved Seed-VC, which ended with Python (#391). And
+//! settings added after the Python backend (Issue #390) are written with their defaults into the
+//! voice settings Python wrote: [`added`] lists them, and they are added to the expected results
+//! before the comparison.
 
 use serde_json::{json, Map, Value};
+
+/// Fields the Rust core added to a nested setting, with their defaults.
+fn added() -> [(&'static str, Value); 2] {
+    [
+        ("VOICE_SETTINGS", json!({
+            "coeiroink_speed": "1.0", "coeiroink_volume": "1.0", "coeiroink_pitch": "0.0", "coeiroink_intonation": "1.0",
+            "coeiroink_pre_phoneme": "0.1", "coeiroink_post_phoneme": "0.1", "coeiroink_sampling_rate": "24000",
+        })),
+        ("DIRECT_VOICE_SETTINGS", json!({ "rvc_device": "auto", "rvc_threads": 0, "rvc_highpass": true })),
+    ]
+}
+
+/// The expected settings with [`added`] fields appended to the nested settings they belong to.
+fn with_added(settings: &mut Map<String, Value>) {
+    for (key, fields) in added() {
+        if let Some(Value::Object(saved)) = settings.get_mut(key) {
+            for (field, value) in fields.as_object().unwrap() {
+                saved.entry(field.clone()).or_insert_with(|| value.clone());
+            }
+        }
+    }
+}
 use std::path::Path;
 use vrct_core::config::secrets::{MemoryStore, SECRET_SETTINGS};
 use vrct_core::config::{Config, Environment, Platform};
@@ -105,6 +130,7 @@ fn check_platform(name: &str, platform: Platform) {
     let reference = reference();
     let expected = &reference["platforms"][name];
     let mut defaults = expected["defaults"].as_object().unwrap().clone();
+    with_added(&mut defaults);
     defaults.retain(|key, _| !SECRET_SETTINGS.contains(&key.as_str()));
     // Intended (#391): Seed-VC, Python's default engine of direct voice, ended with Python, so
     // the core's default is RVC and a saved Seed-VC loads as RVC.
@@ -113,6 +139,11 @@ fn check_platform(name: &str, platform: Platform) {
     let mut failures = Vec::new();
     let mut moved = 0;
     for (case, want) in expected["cases"].as_object().unwrap() {
+        let mut want = want.clone();
+        if let Some(changed) = want["changed"].as_object_mut() {
+            with_added(changed);
+        }
+        let want = &want;
         let dir = tempfile::tempdir().unwrap();
         write_input(dir.path(), &reference["inputs"][case], &expected["defaults"]);
         let store = MemoryStore::new();

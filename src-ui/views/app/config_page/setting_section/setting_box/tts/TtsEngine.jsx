@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -6,6 +6,7 @@ import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
 import { Description } from "../_components/description/Description";
+import { SetupSection } from "../_components/setup_section/SetupSection";
 
 // The speech engines a user can install and run to read Japanese (ADR-008): the setting that
 // holds each one's URL, its own address as the example, and its pages.
@@ -19,6 +20,59 @@ export const TTS_ENGINES = {
 };
 
 const VOICE_FIELDS = ["engine_voice_id", "engine_voice_speaker", "engine_voice_style"];
+
+// How COEIROINK reads (its /v1/synthesis fields). The defaults are what the app always sent;
+// the ranges are the ones the core accepts (native/tts/src/settings.rs, COEIROINK_RANGES).
+export const COEIROINK_NUMBERS = [
+    { key: "coeiroink_speed", min: 0.5, max: 2, step: 0.05, fallback: "1.0" },
+    { key: "coeiroink_volume", min: 0, max: 2, step: 0.05, fallback: "1.0" },
+    { key: "coeiroink_pitch", min: -0.15, max: 0.15, step: 0.01, fallback: "0.0" },
+    { key: "coeiroink_intonation", min: 0, max: 2, step: 0.05, fallback: "1.0" },
+    { key: "coeiroink_pre_phoneme", min: 0, max: 1.5, step: 0.05, fallback: "0.1" },
+    { key: "coeiroink_post_phoneme", min: 0, max: 1.5, step: 0.05, fallback: "0.1" },
+];
+export const COEIROINK_RATES = ["16000", "24000", "44100", "48000"];
+export const COEIROINK_DEFAULTS = { ...Object.fromEntries(COEIROINK_NUMBERS.map(item => [item.key, item.fallback])), coeiroink_sampling_rate: "24000" };
+
+const validNumber = ({ key, min, max }, draft) => {
+    const text = draft[key] ?? "";
+    const value = Number(text);
+    return text.length <= 16 && /^-?[0-9]+(\.[0-9]+)?$/.test(text) && value >= min && value <= max;
+};
+// Missing fields are the defaults: settings saved before these fields keep working.
+export const validCoeiroinkOptions = draft => COEIROINK_NUMBERS.every(item => draft[item.key] === undefined || validNumber(item, draft)) &&
+    (draft.coeiroink_sampling_rate === undefined || COEIROINK_RATES.includes(draft.coeiroink_sampling_rate));
+
+export const CoeiroinkOptions = ({ draft, setDraft }) => {
+    const { t } = useI18n();
+    const errorId = useId();
+    const value = key => draft[key] ?? COEIROINK_DEFAULTS[key];
+    const set = (key, text) => setDraft(current => ({ ...current, [key]: text }));
+    const changed = Object.keys(COEIROINK_DEFAULTS).some(key => value(key) !== COEIROINK_DEFAULTS[key]);
+    return <SetupSection title={t("voice_ui.engine.coeiroink.title")}
+        status={t("voice_ui.engine.coeiroink.status", { speed: value("coeiroink_speed"), rate: value("coeiroink_sampling_rate") })}>
+        <Description text={t("voice_ui.engine.coeiroink.description")} />
+        {COEIROINK_NUMBERS.map(item => {
+            const invalid = !validNumber(item, { [item.key]: value(item.key) });
+            return <label key={item.key}>{t(`voice_ui.engine.coeiroink.${item.key}`)}
+                <input type="number" min={item.min} max={item.max} step={item.step} value={value(item.key)}
+                    placeholder={t("voice_ui.example", { value: item.fallback })}
+                    aria-invalid={invalid} aria-describedby={invalid ? errorId : undefined}
+                    onChange={event => set(item.key, event.target.value)} />
+            </label>;
+        })}
+        <label>{t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")}
+            <select aria-label={t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")} value={value("coeiroink_sampling_rate")}
+                onChange={event => set("coeiroink_sampling_rate", event.target.value)}>
+                {COEIROINK_RATES.map(rate => <option key={rate} value={rate}>{t("voice_ui.engine.coeiroink.rate_option", { rate })}</option>)}
+            </select>
+        </label>
+        {!validCoeiroinkOptions({ ...COEIROINK_DEFAULTS, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.coeiroink.invalid")}</p>}
+        {/* Back to the values the app used before they could be set; saved from the save bar. */}
+        <button type="button" disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...COEIROINK_DEFAULTS }))}>
+            {t("voice_ui.engine.coeiroink.reset")}</button>
+    </SetupSection>;
+};
 
 // Which engine reads Japanese, and for an installed engine its URL, whether it answers and which
 // of its voices to use. The app never installs or starts an engine; checking only asks it for
@@ -96,6 +150,7 @@ export const TtsEngine = ({ draft, setDraft, saved }) => {
                 </select>
             </label>
             {state === "connected" && !voices.length && <p>{t("voice_ui.engine.no_voices")}</p>}
+            {engine === "coeiroink" && <CoeiroinkOptions draft={draft} setDraft={setDraft} />}
             <Description text={t(`voice_ui.engine.credit.${engine}`)} />
         </>}
     </>;

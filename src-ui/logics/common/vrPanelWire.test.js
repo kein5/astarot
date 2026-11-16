@@ -111,6 +111,8 @@ test("everything the VR windows send is relayed", () => {
     const sent = new Set(), names = new Set();
     for (const file of readdirSync(new URL("../../views/vr/", import.meta.url)).filter(name => /\.[jt]sx?$/.test(name) && !name.includes(".test."))) {
         const source = read(`../../views/vr/${file}`);
+        // A name built from pieces (`set${key}Model`) escapes this scan, so the VR windows write names out in full.
+        assert.doesNotMatch(source, /`(?:set|toggle|current)[A-Za-z]*\$\{/, `${file} builds a setter's name; write it out in full`);
         for (const [path] of source.matchAll(/"\/(?:get|set|run)\/[a-z0-9_/]+"/g)) sent.add(JSON.parse(path));
         for (const [name] of source.matchAll(/\b(?:set|toggle)[A-Z]\w*|\bvolumeCheck\w+|\brefreshLanguageSettings\b|\bswapSelectedLanguages\b/g)) names.add(name);
     }
@@ -149,7 +151,7 @@ test("the VR panel is not sent credentials, advanced settings, updates or hotkey
     const advanced = settings.filter(setting => ["AdvancedSettings", "Updater"].includes(setting.Category)).map(setting => setting.Base_Name);
     assert.ok(advanced.length > 5, "the advanced settings were not found");
     for (const name of [...advanced, "WebsocketAuthToken", "DeepLAuthKey", "OcrPortalRestoreToken", "Hotkeys",
-        "AvailableReleases", "LatestSoftwareVersionInfo", "SoftwareVersion", "ComputeMode"]) {
+        "LatestSoftwareVersionInfo", "SoftwareVersion", "ComputeMode"]) {
         assert.equal(allowed.has(name), false, name);
     }
     for (const name of allowed) assert.equal(isSecretAtomName(name), false, name);

@@ -40,4 +40,4 @@
     width: 0.8rem;
     color: var(--dark_200_color);
 }
-.remove_target_language_button[aria-disabled="true"], .add_target_language_button[aria-disabled="true"] { opacity: .55; cursor: wait; }
+.remove_target_language_button.is_busy, .add_target_language_button.is_busy { opacity: .55; cursor: wait; }

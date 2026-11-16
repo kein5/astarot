@@ -260,10 +260,11 @@ impl Core {
         self.audio_devices().notify_device_missing(source);
     }
 
-    /// `AudioPipelineFailure.to_notification`.
+    /// `AudioPipelineFailure.to_notification`, with `cause` when the engine said why it failed
+    /// (`TRANSCRIPTION_API_*`). `error_code` stays what Python sent.
     fn failure_payload(source: Source, failure: Failure) -> Value {
         let message = ErrorReply::new(failure.code, Value::Null).body()["message"].clone();
-        json!({
+        let mut payload = json!({
             "text": "",
             "language": null,
             "recognition_error": true,
@@ -272,7 +273,11 @@ impl Core {
             "source": source.as_str(),
             "message": message,
             "recoverable": false,
-        })
+        });
+        if let Some(cause) = failure.cause {
+            payload["cause"] = json!(cause);
+        }
+        payload
     }
 
     /// The candidate languages of a source (`_transcribe`): its enabled own or target slots.

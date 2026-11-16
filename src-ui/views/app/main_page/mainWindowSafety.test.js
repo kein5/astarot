@@ -4,10 +4,12 @@ import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import { loadBridgeStore } from "../../../logics/test/bridgeHarness.js";
 import { chunkArray } from "../../../logics/utils.ts";
 import * as routeState from "../../../logics/voice/routeState.ts";
+import * as rvcStartOptions from "../../../logics/voice/rvcStartOptions.js";
 import { voiceActions, voiceSwitchStates } from "../../../logics/voice/voiceActions.ts";
 import * as voiceErrorText from "../../../logics/voice/voiceErrorText.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
 import * as switchBlocksModule from "../../../logics/main/switchBlocks.ts";
+import * as sameLanguage from "../../../logics/main/sameLanguage.ts";
 
 const icon = () => null;
 const keydown = (control, key, repeat = false) => {
@@ -28,6 +30,7 @@ const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false 
         "../../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../../logics/voice/voiceActions.ts": { voiceActions, voiceSwitchStates },
         "../../../../../logics/voice/routeState": routeState,
+        "../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
         "../../../../../logics/common/featureLabel.ts": featureLabel,
         "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
@@ -178,7 +181,8 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
         canChangeLanguageSettings: () => true, isLanguageSettingsBusy: false,
         currentSelectedPresetTabNumber: { data: "1" },
         currentSelectedYourLanguages: { data: { "1": { "1": { language: "Japanese", country: "Japan" } } } },
-        currentSelectedTargetLanguages: { data: { "1": { "1": { language: "English", enable: true }, "2": {}, "3": {} } } },
+        // Two targets: both the remove and the add button are available (AddRemoveTargetLanguageButtons).
+        currentSelectedTargetLanguages: { data: { "1": { "1": { language: "English", enable: true }, "2": { language: "Korean", enable: true }, "3": {} } } },
         currentTranslationEngines: { data: [{ id: "one", label: "One" }] },
         currentSelectedTranslationEngines: { data: { "1": "one" } },
         setSelectedPresetTabNumber: () => actions.push("preset"),
@@ -189,7 +193,8 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
     const imports = { "@logics_main": { useLanguageSettings: () => language }, "@utils": { chunkArray },
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ currentIsOpenedTranslatorSelector: { data: opened },
             updateIsOpenedTranslatorSelector: value => { opened = value; actions.push("open"); } }) },
-        "./translator_selector/TranslatorSelector": {}, "@setting_box": { MessageLogUiScalingContainer: icon } };
+        "./translator_selector/TranslatorSelector": {}, "@setting_box": { MessageLogUiScalingContainer: icon },
+        "../../../../../../logics/main/sameLanguage.ts": sameLanguage };
     const cases = [
         ["sidebar_section/language_settings/preset_tab_selector/PresetTabSelector.jsx", "PresetTabSelector", {}],
         ["sidebar_section/language_settings/translator_selector_open_button/TranslatorSelectorOpenButton.jsx", "TranslatorSelectorOpenButton", {}],

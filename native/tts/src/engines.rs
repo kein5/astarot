@@ -21,7 +21,7 @@ use crate::http::{self, HttpError};
 use crate::model_options::SynthesisOptions;
 use crate::playback::Frames;
 use crate::scheduler::{EngineFactory, Synthesizer};
-use crate::settings::{local_url, EngineVoice, SettingsError, SpeechRequest};
+use crate::settings::{local_url, CoeiroinkParams, EngineVoice, SettingsError, SpeechRequest};
 
 /// On the project's test PC a 32-character sentence took about 4 s in VOICEVOX 0.26.1 and
 /// 2.4 s in COEIROINK 2.13.0. Microphone speech must start within 5 s, so long sentences
@@ -373,7 +373,7 @@ impl EngineClient {
     }
 
     /// One sentence as a WAV.
-    fn synthesize_piece(&self, text: &str, voice_id: &str, token: &CancelToken) -> Result<Vec<u8>, SpeechError> {
+    fn synthesize_piece(&self, text: &str, voice_id: &str, token: &CancelToken, params: &CoeiroinkParams) -> Result<Vec<u8>, SpeechError> {
         let timeout = Some(self.synthesis_timeout);
         match self.api {
             EngineApi::Voicevox => {
@@ -386,8 +386,8 @@ impl EngineClient {
             EngineApi::Coeiroink => {
                 let (speaker, style) = coeiroink_voice(voice_id).ok_or(SpeechError::new("tts_engine_voice_missing"))?;
                 let body = json!({
-                    "speedScale": 1.0, "volumeScale": 1.0, "pitchScale": 0.0, "intonationScale": 1.0,
-                    "prePhonemeLength": 0.1, "postPhonemeLength": 0.1, "outputSamplingRate": 24000,
+                    "speedScale": params.speed, "volumeScale": params.volume, "pitchScale": params.pitch, "intonationScale": params.intonation,
+                    "prePhonemeLength": params.pre_phoneme, "postPhonemeLength": params.post_phoneme, "outputSamplingRate": params.sampling_rate,
                     "speakerUuid": speaker, "styleId": style, "text": text,
                 });
                 let body = serde_json::to_vec(&body).expect("a JSON value serializes");
@@ -397,7 +397,14 @@ impl EngineClient {
     }
 
     /// Sentence by sentence. The next sentence is synthesized while this one plays.
+    /// COEIROINK reads with its default parameters; see [`Self::synthesize_stream_with`].
     pub fn synthesize_stream(&self, text: &str, voice: &EngineVoice, language: &str, token: &CancelToken) -> Result<Frames, SpeechError> {
+        self.synthesize_stream_with(text, voice, language, token, &CoeiroinkParams::default())
+    }
+
+    /// As [`Self::synthesize_stream`], with how COEIROINK reads. VOICEVOX ignores `params`.
+    pub fn synthesize_stream_with(&self, text: &str, voice: &EngineVoice, language: &str, token: &CancelToken, params: &CoeiroinkParams) -> Result<Frames, SpeechError> {
+        let params = *params;
         if language != "ja" {
             return Err(SpeechError::new("tts_engine_language"));
         }
@@ -420,7 +427,7 @@ impl EngineClient {
             .name("vrct-vox-engine-prefetch".into())
             .spawn(move || {
                 for piece in pieces {
-                    match client.synthesize_piece(&piece, &voice_id, &producer) {
+                    match client.synthesize_piece(&piece, &voice_id, &producer, &params) {
                         Ok(wav) => {
                             if !put(&sender, Item::Wav(wav), &producer) {
                                 return;
@@ -525,7 +532,8 @@ impl Drop for EngineFrames {
 impl Synthesizer for EngineClient {
     fn synthesize_stream(&self, request: &SpeechRequest, token: &CancelToken, _options: &SynthesisOptions) -> Result<Frames, TtsError> {
         let voice = request.engine_voice.as_ref().ok_or(SpeechError::new("tts_engine_voice_unset"))?;
-        Ok(EngineClient::synthesize_stream(self, &request.text, voice, request.language, token)?)
+        let params = request.coeiroink.unwrap_or_default();
+        Ok(EngineClient::synthesize_stream_with(self, &request.text, voice, request.language, token, &params)?)
     }
 }
 
