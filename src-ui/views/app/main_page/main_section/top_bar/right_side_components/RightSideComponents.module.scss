@@ -40,7 +40,8 @@
 @mixin narrow_menu {
     .container { gap: .4rem; }
     .menu_button { padding: .4rem .8rem; }
-    .menu_text { position: absolute; width: .1rem; height: .1rem; margin: -.1rem; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    // The update button keeps its arrow; its words stay the accessible name and the tooltip.
+    .menu_text, .software_update_label { position: absolute; width: .1rem; height: .1rem; margin: -.1rem; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @container main_section (max-width: 64rem) { @include narrow_menu; }
 @container main_section (max-height: 36rem) {
