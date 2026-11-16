@@ -1,9 +1,10 @@
 """Build an unpublished Linux x86_64 tar.gz candidate: the app and its `_internal` folder.
 
 The app runs the Rust backend core in its own process; no Python is frozen or shipped.
-`_internal` holds what tools/app_resources.py lists for Linux: the pinned speech.cpp bundle,
-the RVC worker, the audio and capture helpers, the PipeWire configuration and the license texts.
-No models are fetched by this tool.
+`_internal` holds what tools/app_resources.py lists for Linux: both pinned speech.cpp builds
+(the Vulkan build in build/speechcpp, the CPU build in build/speechcpp-cpu; the user chooses in
+the settings which one runs), the RVC worker, the audio and capture helpers, the PipeWire
+configuration and the license texts. No models are fetched by this tool.
 System dependencies are documented in docs/voice-stack/linux-build-pipeline.md.
 """
 import argparse
@@ -18,11 +19,11 @@ import sys
 try:
     from .app_resources import stage as stage_resources
     from .linux_package import check_tree, inventory, normalize_modes, pack
-    from .speechcpp_bundle import LINUX_VARIANTS, stage_bundle, fetch_archive, load_manifest, verify_bundle
+    from .speechcpp_bundle import stage_bundle, fetch_archive, load_manifest, verify_bundle
 except ImportError:
     from app_resources import stage as stage_resources
     from linux_package import check_tree, inventory, normalize_modes, pack
-    from speechcpp_bundle import LINUX_VARIANTS, stage_bundle, fetch_archive, load_manifest, verify_bundle
+    from speechcpp_bundle import stage_bundle, fetch_archive, load_manifest, verify_bundle
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -109,9 +110,22 @@ def tauri_workspace(work, internal):
 # Shipped in _internal/docs for users of the tar.gz, who have no installer to explain the setup.
 SHIPPED_DOCS = ('local-setup-linux.md', 'licensing.md', 'linux-build-pipeline.md')
 
+# Both speech.cpp builds ship in one package, each in its own folder of _internal/build
+# (app_resources.SPEECH_BUNDLES): (pinned variant, folder).
+SPEECH_BUILDS = (('linux-x64-vulkan', 'speechcpp'), ('linux-x64-cpu', 'speechcpp-cpu'))
+# The package's own name part: one package per architecture, with both builds.
+PACKAGE_VARIANT = 'linux-x64'
 
-def stage_internal(work, variant, archive, *, offline=False, download=False):
-    """Builds the helpers and returns the staged `_internal` folder (tools/app_resources.py)."""
+
+def speech_archives(manifest, directory):
+    """{variant: path of its pinned archive in `directory`} for both builds."""
+    return {variant: Path(directory) / manifest['assets'][variant]['name'] for variant, _ in SPEECH_BUILDS}
+
+
+def stage_internal(work, archives, *, offline=False, download=False):
+    """Builds the helpers and returns the staged `_internal` folder (tools/app_resources.py).
+
+    `archives` maps each variant of SPEECH_BUILDS to its pinned speech.cpp archive."""
     build = work / 'build'
     if build.exists():
         shutil.rmtree(build)
@@ -123,10 +137,12 @@ def stage_internal(work, variant, archive, *, offline=False, download=False):
     run([sys.executable, ROOT / 'tools/rust_licenses.py', '--output', build / 'licenses/rust',
          '--platform', 'linux', *(['--offline'] if offline else [])])
     manifest = load_manifest()
-    if download and not archive.exists():
-        fetch_archive(manifest['assets'][variant], archive)
-    stage_bundle(archive, build / 'speechcpp', manifest['assets'][variant])
-    verify_bundle(build / 'speechcpp')
+    for variant, folder in SPEECH_BUILDS:
+        archive = archives[variant]
+        if download and not archive.exists():
+            fetch_archive(manifest['assets'][variant], archive)
+        stage_bundle(archive, build / folder, manifest['assets'][variant])
+        verify_bundle(build / folder)
     internal = work / 'internal'
     missing = stage_resources(internal, 'linux', build=build)
     if missing:
@@ -142,10 +158,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work-dir', type=Path, default=ROOT / 'build/linux')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'build/linux/artifacts')
-    parser.add_argument('--variant', choices=LINUX_VARIANTS, default='linux-x64-vulkan')
     source = parser.add_mutually_exclusive_group()
-    source.add_argument('--speech-archive', type=Path)
-    source.add_argument('--download-speech', action='store_true', help='fetch only the pinned engine binary, never weights')
+    source.add_argument('--speech-archive-dir', type=Path,
+                        help='a folder holding both pinned speech.cpp archives under their release names')
+    source.add_argument('--download-speech', action='store_true', help='fetch only the pinned engine binaries, never weights')
     parser.add_argument('--profile', choices=('debug', 'release'), default='release')
     parser.add_argument('--resources-only', action='store_true',
                         help='stage and inspect _internal only; no distributable is produced')
@@ -155,11 +171,11 @@ def main():
     args = parser.parse_args()
     if sys.platform != 'linux' or platform.machine() not in ('x86_64', 'AMD64'):
         parser.error('Linux x86_64 required (no cross compilation)')
-    if not (args.speech_archive or args.download_speech):
-        parser.error('--speech-archive or explicit --download-speech is required')
+    if not (args.speech_archive_dir or args.download_speech):
+        parser.error('--speech-archive-dir or explicit --download-speech is required')
     work = prepare_work(args.work_dir)
-    archive = args.speech_archive.resolve() if args.speech_archive else work / f'speech-{args.variant}.zip'
-    internal = stage_internal(work, args.variant, archive, offline=args.offline, download=args.download_speech)
+    archives = speech_archives(load_manifest(), args.speech_archive_dir.resolve() if args.speech_archive_dir else work)
+    internal = stage_internal(work, archives, offline=args.offline, download=args.download_speech)
     if args.resources_only:
         print(f'Staged _internal ready: {internal}')
         return
@@ -182,9 +198,11 @@ def main():
     shutil.copy2(work / 'cargo' / args.profile / 'vrct-vox', candidate / 'vrct-vox')
     normalize_modes(candidate)
     check_tree(candidate, require_runtime=True)
-    verify_bundle(candidate / '_internal/build/speechcpp')
+    for _, folder in SPEECH_BUILDS:
+        verify_bundle(candidate / '_internal/build' / folder)
     version = json.loads((ROOT / 'package.json').read_text())['version']
-    report = {'schema': 1, 'version': version, 'profile': args.profile, 'variant': args.variant,
+    report = {'schema': 1, 'version': version, 'profile': args.profile, 'variant': PACKAGE_VARIANT,
+              'speech_builds': [variant for variant, _ in SPEECH_BUILDS],
               'platform': platform.platform(), 'libc': platform.libc_ver(),
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=ROOT)),
@@ -194,7 +212,7 @@ def main():
     (candidate / 'build-manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
     (candidate / 'build-manifest.json').chmod(0o644)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    output = args.output_dir / f'VRCT-VOX-{version}-{args.variant}-{args.profile}.tar.gz'
+    output = args.output_dir / f'VRCT-VOX-{version}-{PACKAGE_VARIANT}-{args.profile}.tar.gz'
     pack(candidate, output)
     shutil.copyfile(candidate / 'build-manifest.json', output.with_suffix('').with_suffix('.manifest.json'))
     print(f'Unpublished candidate: {output.resolve()}')

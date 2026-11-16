@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use vrct_speech_server::server::{Binary, Hooks, Launch};
 use vrct_speech_server::settings::{normalize_settings, start_options};
-use vrct_speech_server::{Code, Profile, StartOptions, codes, devices};
+use vrct_speech_server::{Code, Profile, StartOptions, builds, codes, devices};
 
 const SETTINGS_KEY: &str = "SPEECH_SERVER_SETTINGS";
 const REQUEST_INVALID: &str = "speech_server_request_invalid";
@@ -30,16 +30,21 @@ const START_FAILED: &str = "speech_server_start_failed";
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Where the bundled servers come from, checked against the pinned hashes at each start
-/// (`runtime.py`, `BUNDLE` and `bundled_binary`): `build/speechcpp` among the app's shipped
-/// files ([`crate::resources`]).
+/// (`runtime.py`, `BUNDLE` and `bundled_binary`): the bundles among the app's shipped files
+/// ([`crate::resources`]). Which build a start runs is [`vrct_speech_server::builds`].
 pub fn bundled_launch(env: &Environment) -> Launch {
-    Launch::bundled(bundle_folder(env))
+    Launch::bundles(bundle_folders(env))
 }
 
-/// The folder of the bundled speech.cpp, for the servers and for the hardware probe.
-pub fn bundle_folder(env: &Environment) -> std::path::PathBuf {
-    crate::resources::locate(&env.app_dir, "build/speechcpp")
+/// The folders of the bundled speech.cpp builds, for the servers and for the hardware probe:
+/// `build/speechcpp` (the Vulkan build; Windows ships only this one) and, on Linux,
+/// `build/speechcpp-cpu` (the CPU build). Each bundle's `bundle.json` says which build it is.
+pub fn bundle_folders(env: &Environment) -> Vec<PathBuf> {
+    BUNDLES.iter().map(|relative| crate::resources::locate(&env.app_dir, relative)).collect()
 }
+
+/// The bundle folders inside the shipped files, the Vulkan build first.
+pub const BUNDLES: [&str; 2] = ["build/speechcpp", "build/speechcpp-cpu"];
 
 /// A server ended. `run` names the start that ended (`None` when a Stop found none); `stopped`
 /// is true when the user stopped it from Settings, false when it ended on its own. Each run's
@@ -189,23 +194,37 @@ impl SpeechServers {
                     json!({ "state": standby.state, "completed": standby.completed, "error_code": standby.error_code }),
                 );
             }
+            // Only when a start runs other than asked (the CPU build after the Vulkan build
+            // did not start).
+            if let Some(notice) = health.notice {
+                row.insert("notice".into(), json!(notice));
+            }
             row.insert("generation".into(), json!(state.generation));
             result.insert(profile.name().into(), Value::Object(row));
         }
         Value::Object(result)
     }
 
-    /// The GPUs the bundled speech.cpp lists, without starting a model (`list_gpus`). Nothing
-    /// when the bundle is missing or fails its check.
+    /// The GPUs the bundled speech.cpp lists, without starting a model (`list_gpus`), and what
+    /// the CPU choice runs on. No GPU when the bundle is missing or fails its check.
+    ///
+    /// `devices` keeps Python's rows. The CPU is a choice of its own on every platform, so it is
+    /// not a row: `cpu_build` says what runs it (`separate`: the CPU build, Linux; `shared`: the
+    /// one Vulkan build with `--device cpu`, Windows; `missing`), and `gpu_build` whether the
+    /// GPU choices can start (`ready`; `unavailable`: the Vulkan build is bundled and does not
+    /// start on this PC, e.g. without `libvulkan.so.1`; `missing`).
     pub fn devices(&self) -> Value {
-        let binary: Option<PathBuf> = match &self.launch.binary {
-            Binary::Bundled(bundle) => vrct_speech_server::bundle::bundled_binary(bundle).ok(),
-            Binary::Fixed(binary) => Some(binary.clone()),
+        let survey = match &self.launch.binary {
+            Binary::Bundled(_) => builds::survey(&self.launch.builds(), &self.environment),
+            Binary::Fixed(binary) => {
+                let listed = devices::list_gpus_checked(binary, &self.environment);
+                let gpu_build = if listed.is_some() { "ready" } else { "unavailable" };
+                builds::Survey { gpus: listed.unwrap_or_default(), gpu_build, cpu_build: "shared" }
+            }
         };
-        let gpus = binary.map(|binary| devices::list_gpus(&binary, &self.environment)).unwrap_or_default();
         let rows: Vec<Value> =
-            gpus.into_iter().map(|gpu| json!({ "name": gpu.name, "kind": gpu.kind, "label": gpu.label })).collect();
-        json!({ "devices": rows })
+            survey.gpus.into_iter().map(|gpu| json!({ "name": gpu.name, "kind": gpu.kind, "label": gpu.label })).collect();
+        json!({ "devices": rows, "cpu_build": survey.cpu_build, "gpu_build": survey.gpu_build })
     }
 
     fn stop(&self, profile: Profile) {

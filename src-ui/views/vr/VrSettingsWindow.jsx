@@ -252,8 +252,7 @@ const TranscriptionSettings = ({ t, openPicker }) => {
     // Cloud engines appear once their key is registered in the settings page.
     const available = tr.currentSelectableTranscriptionEngines.data || [];
     // The local engine's models and server are set on the PC (Settings → Speech recognition).
-    const engines = [{ id: "Google", label: "Google" },
-        { id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
+    const engines = [{ id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
         ...CLOUD_TRANSCRIPTION_ENGINES.filter(engine => available.includes(engine.id))
             .map(engine => ({ id: engine.id, label: t(`config_page.transcription.select_transcription_engine.engines.${engine.key}`) }))];
     const engine_label = t("config_page.transcription.select_transcription_engine.label");

@@ -1,8 +1,8 @@
-//! Recognition services on a loopback port: the Google speech endpoint, the OpenAI-compatible
-//! transcription APIs (Groq, OpenAI, a custom server), Deepgram, and a speech.cpp server with
-//! its model list and Realtime WebSocket. No model and no network beyond 127.0.0.1.
+//! Recognition services on a loopback port: the OpenAI-compatible transcription APIs (Groq,
+//! OpenAI, a custom server), Deepgram, and a speech.cpp server with its model list and Realtime
+//! WebSocket. No model and no network beyond 127.0.0.1.
 //!
-//! Paths: `/google/recognize`, `/{groq,openai,custom}/v1/...`, `/deepgram/v1/...`,
+//! Paths: `/{groq,openai,custom}/v1/...`, `/deepgram/v1/...`,
 //! `/v1/models` and `/v1/realtime`. A key `good-key` is accepted, anything else refused.
 
 use serde_json::{Value, json};
@@ -17,7 +17,7 @@ pub const KEY: &str = "good-key";
 /// What the fake answers.
 #[derive(Default)]
 pub struct Behaviour {
-    /// Recognition answers 500 (Google, the APIs, Deepgram).
+    /// Recognition answers 500 (the APIs, Deepgram).
     pub fail: AtomicBool,
     /// The text every engine recognises.
     pub text: Mutex<String>,
@@ -146,16 +146,6 @@ impl FakeAsr {
             ("GET", "/v1/models") => {
                 let models = self.behaviour.models.lock().unwrap().clone();
                 Self::json(&mut stream, 200, models)
-            }
-            ("POST", "/google/recognize") => {
-                self.fields.lock().unwrap().push(target.clone());
-                if failing {
-                    return Self::respond(&mut stream, 500, "text/plain", b"");
-                }
-                let first = json!({ "result": [] });
-                let second = json!({ "result": [{ "alternative": [{ "transcript": text, "confidence": 0.9 }], "final": true }], "result_index": 0 });
-                let answer = format!("{first}\n{second}\n");
-                Self::respond(&mut stream, 200, "application/json", answer.as_bytes())
             }
             ("GET", p) if p.ends_with("/v1/models") && !p.starts_with("/deepgram") => {
                 if !bearer {

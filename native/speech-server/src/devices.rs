@@ -168,9 +168,15 @@ fn run_devices(binary: &Path, environment: &Environment, json: bool) -> Option<(
 
 /// The GPUs a server can be told to use, by the names the bundled speech.cpp prints.
 pub fn list_gpus(binary: &Path, environment: &Environment) -> Vec<Gpu> {
-    let Some((mut text, stderr)) = run_devices(binary, environment, false) else { return Vec::new() };
+    list_gpus_checked(binary, environment).unwrap_or_default()
+}
+
+/// The GPUs, or None when `speech devices` did not run to its end (a Vulkan build without its
+/// loader, a crash, a time-out).
+pub fn list_gpus_checked(binary: &Path, environment: &Environment) -> Option<Vec<Gpu>> {
+    let (mut text, stderr) = run_devices(binary, environment, false)?;
     text.extend(stderr);
-    parse_devices(&String::from_utf8_lossy(&text))
+    Some(parse_devices(&String::from_utf8_lossy(&text)))
 }
 
 /// The rows of `speech devices --json`, or None when they cannot be read.

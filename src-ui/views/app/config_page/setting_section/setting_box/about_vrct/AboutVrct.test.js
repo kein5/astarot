@@ -89,6 +89,7 @@ for (const language of ["en", "ja"]) {
             "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
             "@common_components": { ResetButton: "reset" }, "@utils": { randomIntMinMax: () => 0 },
             "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
+            "./OverlayFontFamily": { OverlayFontFamily: "font" },
             "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: settings }, currentOverlayLargeLogSettings: {} }) },
             "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
         });

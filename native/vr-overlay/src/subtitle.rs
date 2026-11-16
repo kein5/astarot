@@ -166,10 +166,13 @@ pub struct Renderer {
     sets: Mutex<VecDeque<((String, u32), FontSet)>>,
 }
 
+/// The font group of a language: Japanese (also the times, the samples and no language), the
+/// three other CJK languages, and Latin for the rest.
 fn family(language: &str) -> &str {
     match language {
         "Korean" | "Chinese Simplified" | "Chinese Traditional" => language,
-        _ => "Default",
+        "Default" | "Japanese" | "" => "Default",
+        _ => "Latin",
     }
 }
 
@@ -180,6 +183,12 @@ impl Renderer {
 
     pub fn library(&self) -> &Arc<FontLibrary> {
         &self.library
+    }
+
+    /// The family drawn first from now on (`None`: automatic); later pictures use it.
+    pub fn set_font_family(&self, family: Option<&str>) {
+        self.library.set_family(family);
+        self.sets.lock().unwrap().clear();
     }
 
     fn fonts(&self, language: &str, size: u32) -> FontSet {

@@ -64,9 +64,37 @@ class Downloads:
                 speech=speech_model(m.id), profile=model_profile(m.id), sources=sorted({f'https://huggingface.co/{r}/tree/{v}' for r, v, _ in
                                 (a.remote or (m.repo, m.revision, a.filename) for a in m.artifacts)})) for m in self.entries.values()]}
 
+    def _present(self, entry):
+        """The paths of an entry published in an earlier run, or None.
+
+        A cheap check for the catalog page: every file is a regular file of its pinned size
+        under real directories. The SHA-256 is checked again when the entry is prepared or
+        applied, never here (state is polled while a download runs).
+        """
+        final = self.destination(entry)
+        try:
+            for folder in (self.root, final.parent, final):
+                if not stat.S_ISDIR(folder.lstat().st_mode):
+                    return None
+            paths = {}
+            for artifact in entry.artifacts:
+                info = (final / artifact.filename).lstat()
+                if not stat.S_ISREG(info.st_mode) or info.st_size != artifact.size:
+                    return None
+                paths[artifact.role] = str(final / artifact.filename)
+            return paths
+        except OSError:
+            return None
+
+    def downloaded(self):
+        """{id: {role: path}} for every entry whose files are on disk, including earlier runs."""
+        return {id: paths for id, entry in self.entries.items() if (paths := self._present(entry)) is not None}
+
     def state(self):
+        downloaded = self.downloaded()
         with self.lock:
-            return {'observation_id': str(time.monotonic_ns()), 'jobs': deepcopy(self.jobs)}
+            return {'observation_id': str(time.monotonic_ns()), 'jobs': deepcopy(self.jobs),
+                    'downloaded': downloaded}
 
     def _job(self, id, job_id):
         job = self.jobs.get(id)

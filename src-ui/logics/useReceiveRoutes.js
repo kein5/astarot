@@ -33,6 +33,11 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/start_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/cancel_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/apply_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
+    // Models the user registers under a name (#403).
+    { endpoint: "/get/data/user_models", ns: downloads, hook_name: "useModelDownloads", method_name: "updateUserModels" },
+    { endpoint: "/run/register_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    { endpoint: "/run/remove_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    { endpoint: "/run/apply_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
     { endpoint: "/get/data/vc_runtime_catalog", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateCatalog" },
     { endpoint: "/get/data/vc_runtime_state", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateState" },
     { endpoint: "/run/start_vc_runtime_setup", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "acknowledge" },
@@ -318,7 +323,7 @@ export const useReceiveRoutes = () => {
                 console.error("Method not found.", { endpoint, hook_name, method_name, result_obj, fn });
             }
             return [endpoint, typeof fn === "function"
-                ? (hook_name === "useModelDownloads" && method_name === "acknowledge" ? value => fn(value, endpoint) : fn)
+                ? (hook_name === "useModelDownloads" && method_name.startsWith("acknowledge") ? value => fn(value, endpoint) : fn)
                 : noop];
         })
     );
@@ -351,7 +356,7 @@ export const useReceiveRoutes = () => {
             updateRuntimeError(result?.error_code || "vc_runtime_failed");
             return;
         }
-        if (status !== 200 && endpoint.includes("model_download")) {
+        if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
             updateDownloadError(result?.error_code || "download_failed", endpoint);
             return;
         }
@@ -362,7 +367,7 @@ export const useReceiveRoutes = () => {
             "/run/selected_mic_host", "/run/selected_mic_device"].includes(endpoint)) {
             sendVoice("/get/data/direct_voice_sources");
         }
-        if (status === 200 && endpoint === "/run/apply_model_download") {
+        if (status === 200 && ["/run/apply_model_download", "/run/apply_user_model"].includes(endpoint)) {
             sendSpeech("/get/data/speech_server_settings");
             sendVoice("/get/data/direct_voice_state");
         }
@@ -410,6 +415,7 @@ export const useReceiveRoutes = () => {
             resetDownloads();
             sendDownload("/get/data/model_download_catalog");
             sendDownload("/get/data/model_download_state");
+            sendDownload("/get/data/user_models");
             resetRuntimes();
             resetVoice();
             sendVoice("/get/data/voice_settings");

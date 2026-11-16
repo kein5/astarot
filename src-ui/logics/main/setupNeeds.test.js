@@ -24,7 +24,7 @@ test("the local engine on the bundled server needs both the recognition and the 
 
 test("a model that is there, or an engine that needs none, is not a need", () => {
     assert.deepEqual(setupNeeds(selection({ translationWeights: weights(true) })).map(need => need.id), ["transcription"]);
-    assert.deepEqual(setupNeeds(selection({ translationEngine: "Google", transcriptionEngine: "Google" })), []);
+    assert.deepEqual(setupNeeds(selection({ translationEngine: "DeepL_API", transcriptionEngine: "Deepgram" })), []);
     // Your own speech.cpp server has its own models.
     assert.deepEqual(setupNeeds(selection({ translationEngine: "DeepL", realtimeServer: "external" })), []);
     // Nothing has been chosen yet: the first press of the microphone asks which engine to use.

@@ -215,7 +215,7 @@ pub struct Services {
     /// The microphone and speaker captures of speech recognition (WASAPI, or the Linux helper
     /// `vrct-asr-capture`); tests feed PCM of their own.
     pub transcription_capture: TranscriptionCapture,
-    /// Where the cloud recognition engines are (Google, Groq, OpenAI, Deepgram).
+    /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
     pub transcription_endpoints: vrct_transcription::providers::Endpoints,
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.

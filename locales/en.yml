@@ -234,6 +234,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} was not downloaded. Review its license and size in Settings > Translation or Speech recognition (ASR) and agree before downloading. If the model version changed, review it again."
     OVERLAY_RUNTIME_FAILED: "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then turn the overlay on again."
     OVERLAY_VR_PANEL_UNSUPPORTED: "The VR UI is not available in this environment. Subtitle overlays are not affected."
+    OVERLAY_FONT_NOT_FOUND: "That font is not installed on this PC. The subtitles keep the font they had."
     MESSAGE_OUTPUT_FAILED: "The message could not be sent to {{output}}. It was sent to the other outputs. If you resend it, those outputs may receive it twice."
     TRANSLATION_VRAM_ENABLE: "Not enough GPU memory to start AI translation. Choose CPU as the device under Settings → Translation, or close other GPU apps."
     TRANSLATION_DISABLED_VRAM: "Translation was turned off because GPU memory ran out."
@@ -704,7 +705,7 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription Engine Used For Speech Recognition"
-            desc: "Google needs no API key. For other cloud engines, register a key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on this PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
+            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on this PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
             engines:
                 speechcpp: "Local (speech.cpp)"
                 groq_whisper: "Groq Whisper"
@@ -793,6 +794,12 @@ config_page:
         voice_typing_mode:
             label: "Voice Typing Mode"
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
+        overlay_font_family:
+            label: "Subtitle font"
+            desc: "The font of the subtitle overlays, chosen from the fonts on this PC. Characters it does not have use this PC's usual font for their language."
+            auto: "Automatic (this PC's usual fonts)"
+            not_installed: "{{name}} (not installed)"
+            missing: "No font on this PC can show {{languages}}. Those characters are left out of the subtitles. Install a font for them, such as Noto Sans CJK, then restart the app."
 
     others:
         section_label_message_formats: "Message Formats"
@@ -1007,7 +1014,24 @@ config_page:
         empty: "There are no features to try right now. New ones will appear here when they are added."
         # One entry per feature in src-ui/logics/configs/experimentalFeatures.ts:
         # <id>: { label: "...", desc: "What it does. Experimental: ..." }
-        items: {}
+        items:
+            tray_companion:
+                label: "Hexagram overlay"
+                desc: "Works VRCT-VOX through a hexagram hidden at the edge of the screen and the desktop captions. From the next start the app opens in the tray without its main window. Bring the mouse to the edge and half of the hexagram comes out. Turn it with the wheel, hover a triangle, and press the label that comes out to switch that feature. This feature is still being tested."
+                edge:
+                    label: "Screen edge for the hexagram"
+                    desc: "Bring the mouse to the middle of this edge and the hexagram comes out."
+                    right: "Right"
+                    left: "Left"
+                    top: "Top"
+                    bottom: "Bottom"
+                monitor:
+                    label: "Monitor for the hexagram"
+                    desc: "Choose one when there are several monitors. While the chosen monitor is unplugged, the hexagram uses the primary one."
+                    primary: "Primary monitor (default)"
+                    display: "Display {{number}} ({{width}}×{{height}})"
+                    is_primary: "(primary)"
+                    missing: "Monitor not connected (chosen before)"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1309,6 +1333,9 @@ speech_servers:
     device_named: "{{label}} ({{name}})"
     device_missing: "{{name}} (not found)"
     device_help: "Auto and GPU use a dedicated GPU before integrated graphics, and of several dedicated GPUs the one with the most memory, for AMD, Intel and NVIDIA alike. You can choose one here. Running this on the GPU that RVC uses can make RVC stop more easily."
+    cpu_build_separate: "CPU runs a CPU-only build of speech.cpp that needs no Vulkan. Auto also uses it when no GPU can be used."
+    cpu_build_shared: "CPU runs the same speech.cpp on the processor. It still needs the Vulkan library of your GPU driver (vulkan-1.dll)."
+    gpu_build_unavailable: "The GPU build of speech.cpp does not start on this PC. The Vulkan loader (libvulkan.so.1) may be missing. Auto and CPU still work on the CPU build. To use a GPU, install the Vulkan loader package (libvulkan1 or vulkan-loader) and your GPU's Vulkan driver, then open this page again."
     low_latency: "Low-latency standby (Irodori GPU)"
     low_latency_help: "While the server runs, it keeps the GPU warm with silent requests, even with TTS off, so the first speech starts sooner. Uses more power and may compete with games. Stop the server before changing this. Latency is not guaranteed."
     low_latency_warming: "Preparing low-latency standby"
@@ -1334,12 +1361,14 @@ speech_servers:
     japanese_selection: "Japanese server"
     multilingual_selection: "Other languages server"
     asr_selection: "ASR server"
+    notices:
+        speech_server_cpu_fallback: "Running on the CPU: the GPU build of speech.cpp did not start on this PC, so Auto uses the CPU build. To use a GPU, install the Vulkan loader (libvulkan.so.1) and start the server again."
     errors:
         speech_bundle_missing_or_invalid: "The bundled speech.cpp is missing or fails its check. Reinstall ASTAROT; in a development checkout, provide build/speechcpp."
         speech_server_launch_failed: "The server could not be started. Check the model files and the inference device, then start it again."
         speech_server_exited: "The server stopped unexpectedly. Check the model files and the inference device, then start it again."
         speech_server_out_of_memory: "Not enough memory. Stop other GPU applications or select CPU, save, and start the server again."
-        speech_server_vulkan_missing: "The GPU driver's Vulkan library (vulkan-1.dll) was not found. Install or update your GPU driver, then start the server again."
+        speech_server_vulkan_missing: "The Vulkan library was not found (vulkan-1.dll on Windows, libvulkan.so.1 on Linux). Install or update your GPU driver. On Linux, install the Vulkan loader package (libvulkan1 or vulkan-loader), or choose CPU. Then start the server again."
         speech_server_device_failed: "This inference device could not run the model. Update your GPU driver, or choose another device or CPU, save, and start the server again."
         speech_server_start_timeout: "The model took too long to load. Choose a smaller model or another inference device, then start it again."
         speech_server_readiness: "The server started but did not answer its health check. Start it again."
@@ -1753,6 +1782,136 @@ model_downloads:
     scope_tts_http_vulkan: "Linux / speech.cpp 0.9.0 Vulkan: fixed-text HTTP synthesis, cancellation and restart checked. Playback and other GPUs need separate checks."
     gpu_unverified: "This GPU differs from the tested GPU. The recommendation describes memory only."
 
+# The model catalog (where models are chosen): groups by use, one card per model.
+model_catalog:
+    group:
+        japanese: "Reading Japanese"
+        multilingual: "Reading other languages"
+        asr: "Speech recognition"
+        vad: "Voice activity detection (VAD)"
+        diarization: "Telling speakers apart (optional)"
+        rvc: "Voice changer voices"
+        engines: "Speech engines you install"
+    group_help:
+        japanese: "Models that read Japanese text. A downloaded model runs in the bundled speech.cpp server."
+        multilingual: "Models that read text in other languages, such as English and Chinese, and translations."
+        asr: "Models that turn speech into text. Choose one and download it."
+        vad: "A model that finds where someone speaks. Every recognition model needs it."
+        diarization: "Needed only to label who speaks in the game audio captions."
+        rvc: "RVC voice models that change your voice."
+        engines: "Text-to-speech programs you install and start on your own PC. This app neither downloads nor installs them. Get one from its official site, start it, then choose it in \"Engine that reads Japanese\" above."
+    languages: "Languages"
+    languages_more: "{{languages}} and {{count}} more"
+    size: "Download size"
+    hardware: "Hardware"
+    terms: "Provider and license"
+    memory: "about {{memory}} of memory (measured on {{device}})"
+    tier:
+        light: "Light"
+        medium: "Medium"
+        heavy: "Heavy"
+    cpu:
+        slow: "runs on a CPU, seconds behind"
+        practical: "runs on a CPU"
+        impractical: "too slow on a CPU"
+        unverified: "not tried on a CPU"
+    gpu:
+        recommended: "GPU recommended"
+        not_needed: "no GPU needed"
+    recommended_for: "Suggested for {{languages}}"
+    fits_memory: "Fits the free memory"
+    hardware_warning:
+        badge: "May be too heavy"
+        option: "may be too heavy"
+        note: "Your PC may not be powerful enough for this model. {{reason}} This is only a guide. You can still choose and try it."
+        low_memory_gpu: "It uses about {{required}} of memory, which leaves little room on a GPU with {{available}} in total."
+        low_memory_cpu: "It uses about {{required}} of memory, which leaves little room in the {{available}} found in total."
+        no_gpu: "No GPU was found. On a CPU alone, this model may lag or break up."
+        cpu_setting: "The engine is set to run on the CPU. On a CPU alone, this model may lag or break up."
+    variant: "File type"
+    variant_of: "File type of {{model}}"
+    status:
+        not_downloaded: "Not downloaded"
+        downloaded: "Downloaded"
+        in_use: "In use"
+        working: "Downloading"
+        ready: "Verified, not applied"
+    prepare: "Check the files and get ready to use"
+    prepare_hint: "Already on this PC. To use it, check the files, then apply the model path."
+    prepare_notice: "These files are already downloaded. Nothing is downloaded; their sizes and SHA-256 are checked."
+    prepare_start: "Agree and check"
+    engine:
+        terms_notice: "The engines and their voices (voice libraries) are used under the terms on their official sites. Some voices need a credit. Read the terms before you use them."
+        languages: "Japanese"
+        get: "Get it from"
+        get_value: "The official site (this app downloads nothing)"
+        address: "Address"
+        recheck_of: "Check the connection to {{engine}} again"
+        state:
+            unchecked: "Not checked"
+            checking: "Checking"
+            connected: "Connected"
+            not_connected: "Not connected"
+            url_invalid: "Invalid address"
+        summary:
+            voicevox: "A free Japanese text-to-speech program with many character voices. Each voice has its own terms."
+            coeiroink: "A free Japanese text-to-speech program. Version 2 is supported. Voices need the credit \"COEIROINK:voice name\"."
+            aivis: "A Japanese text-to-speech program. You add voice models to it, and each model has its own license."
+            sharevox: "A free Japanese text-to-speech program, connected the same way as VOICEVOX. Some voices need a credit."
+
+# Models the user brings (#403), listed with the catalog's cards.
+user_models:
+    badge: "Your model"
+    status:
+        registered: "Registered"
+        in_use: "In use"
+        missing: "File not found"
+        changed: "File changed"
+    status_help:
+        missing: "The registered file cannot be found. If you moved or deleted it, remove the registration and register it again."
+        changed: "The file's size or modification time changed after you registered it. Check the file, then register it again."
+    file:
+        model: "Model file"
+        index: "Index file"
+    size: "File size"
+    use: "Use this model"
+    remove: "Remove registration"
+    remove_confirm: "Only the registration is removed. The files are not deleted."
+    remove_confirm_label: "Remove the registration of {{name}}"
+    remove_do: "Remove"
+    blocked_edited: "The path this model replaces has unsaved edits. Save or discard them before switching."
+    register_title: "Register a model of your own"
+    register_label: "Register a model of your own for {{group}}"
+    register_help: "Register a model file on your computer under a name to choose it next to the models above. The file is not copied or moved; only its location is remembered."
+    terms_help: "This app has not checked where a registered model comes from or its license. Check its terms yourself."
+    name: "Display name"
+    name_placeholder: "e.g. My voice"
+    drop_hint: "Drop files here to fill the fields below."
+    file_field:
+        model: "Model file ({{kind}})"
+        index: "Index file ({{kind}}, optional)"
+    register: "Register"
+    problem:
+        name_missing: "Enter a name."
+        name_long: "Names can be up to 80 characters."
+        model_missing: "Enter the path of the model file."
+        model_kind: "Choose a {{kind}} file for the model."
+        index_kind: "Choose a {{kind}} file for the index."
+        target: "Models cannot be registered for this use."
+    errors:
+        user_model_invalid: "The registration is not valid. Check what you entered."
+        user_model_name_invalid: "The name has characters that cannot be used. Remove leading or trailing spaces and line breaks."
+        user_model_path_invalid: "Enter the file's full path, starting with the drive or the root folder."
+        user_model_file_type: "This kind of file cannot be used here."
+        user_model_file_missing: "The file cannot be found. Check the path."
+        user_model_exists: "A model with the same name or the same file is already registered."
+        user_model_limit: "Up to 200 models can be registered. Remove the registrations you no longer use."
+        user_model_unknown: "This registration cannot be found. Open the page again."
+        user_model_missing: "The registered file cannot be found. Register it again."
+        user_model_changed: "The file changed after it was registered. Register it again."
+        user_models_unreadable: "The list of registrations (user_models.json) cannot be read. The file was left as it is."
+        user_models_write_failed: "The list of registrations could not be saved. Check the permissions of its folder."
+
 studio:
     toggle_sidebar: "Toggle sidebar"
     close_sidebar: "Close the sidebar"
@@ -1781,6 +1940,7 @@ studio:
     minimize: "Minimize window"
     maximize: "Maximize or restore window"
     close: "Close application"
+    close_to_tray: "Close (keeps running in the tray)"
 
 legacy_model_downloads:
     errors:
@@ -1871,8 +2031,7 @@ telemetry_contents:
         igpu: "integrated"
 transcription_consent:
     title: "Choose speech recognition"
-    google_notice: "Google sends microphone or speaker audio to Google’s speech service. No API key is needed."
-    google: "Use Google and continue"
+    cloud_notice: "To use a cloud engine (Groq, OpenAI, Deepgram or your own Whisper server), open the engine settings, register its API key and choose it there. Audio is then sent to that service."
     speechcpp_notice: "Local (speech.cpp) recognizes audio with a speech.cpp server on this PC. If the recognition model or the VAD model is missing, review and download them in Settings → Speech recognition (ASR) → Models and servers."
     speechcpp: "Start transcription with Local (speech.cpp)"
     cancel: "Cancel"
@@ -2065,3 +2224,28 @@ virtual_mic:
         found: "Check with a test sound that the virtual cable carries your voice to VRChat."
         missing: "No virtual cable was found. The guide shows how to install one."
         open: "Check the virtual microphone"
+
+# Experimental companion form (tray, captions, control panel); Issue #355.
+companion:
+    state_starting: "Starting"
+    state_listening: "Listening"
+    state_idle: "Not listening"
+    mic: "Microphone"
+    translation: "Translation"
+    "on": "On"
+    "off": "Off"
+    open_main: "Open VRCT-VOX"
+    close: "Close"
+    handle: "Open the control panel"
+    menu_start: "Start recognition"
+    menu_stop: "Stop recognition"
+    menu_panel: "Open the control panel"
+    menu_main: "Open VRCT-VOX"
+    menu_quit: "Quit"
+    menu_monitor: "Monitor"
+    menu_monitor_primary: "Primary monitor"
+    menu_monitor_display: "Display"
+    menu_monitor_missing: "Monitor not connected"
+    common:
+        title: "Common settings"
+        edge: "Hide at"

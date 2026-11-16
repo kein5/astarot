@@ -39,6 +39,7 @@ mise run setup:resources  # tauri dev と cargo check が読む src-tauri/bin/_i
 ```sh
 mise run build:voice-gate
 python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/speech-0.11.0-linux-x64-vulkan.zip --output build/speechcpp
+python tools/speechcpp_bundle.py --variant linux-x64-cpu --archive /path/to/speech-0.11.0-linux-x64-cpu.zip --output build/speechcpp-cpu
 ```
 
 `build_voice_gate.py`は、`build/vrct-voice-gate`、`vrct-source-bridge`、`vrct-vc-worker`、`vrct-asr-capture`、`vrct-screen-capture`をビルドする。`libpipewire-0.3-dev`が必要。
@@ -46,12 +47,12 @@ python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/s
 `vrct-vc-worker`がないと、同梱サーバーの起動は`speech_server_launch_failed`で止まる。
 `vrct-vc-worker`は推論デバイスとして、`auto`、`cpu`、`gpu`と、`speech devices`が表示するGPUの名前（`Vulkan0`など）を受け付ける。設定でGPUを名前で選ぶ機能より前にビルドしたヘルパーは名前を拒否するので、作り直す。
 
-`speechcpp_bundle.py`は、版とSHA-256を固定した書庫から、`speech`本体と同梱のライセンス文書を`build/speechcpp`に置く。
+`speechcpp_bundle.py`は、版とSHA-256を固定した書庫から、`speech`本体と同梱のライセンス文書を出力先に置く。配布物と同じく、Vulkan版は`build/speechcpp`、CPU版は`build/speechcpp-cpu`に置く。どちらのビルドかは`bundle.json`で決まり、フォルダの名前では決まらない。
 書庫が手元になければ、`--archive`の代わりに`--download`を指定すると取得する。通信するのは`--download`を指定したときだけ。
-GPUを使わない場合は`--variant linux-x64-cpu`を選ぶ。出力先がすでにあると、上書きせずに止まる。
-Linux候補をビルド済みなら、`build/linux/resources/build/speechcpp`を`cp -a`でコピーしてもよい。
+片方だけでも動く。CPU版だけなら推論はCPUだけになる。Vulkan版だけでも「CPU」を選べるが、Vulkanローダー（`libvulkan.so.1`）が要る。出力先がすでにあると、上書きせずに止まる。`--replace`を付けると、同じ版はそのまま残し、別の版の部品だけを置き換える。
+Linux候補をビルド済みなら、`build/linux/build/speechcpp`と`build/linux/build/speechcpp-cpu`を`cp -a`でコピーしてもよい。
 アプリは起動のたびに版とハッシュを検査し、シンボリックリンクは受け付けないので、リンクではなくコピーにする。
-`build/speechcpp`がないか検査に合わないと、同梱サーバーの起動は`speech_bundle_missing_or_invalid`で止まる。
+2つとも見つからないか検査に合わないと、同梱サーバーの起動は`speech_bundle_missing_or_invalid`で止まる。
 
 開発起動で取得したモデルは`src-python/downloaded_models/`に保存される。このディレクトリはgitの対象外にしてある。
 

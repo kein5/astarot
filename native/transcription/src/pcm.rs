@@ -7,8 +7,7 @@
 //!   for the 16 kHz the cloud engines receive.
 //! - [`Resampler`] streams the capture to 48 kHz and the realtime feed to 24 kHz (Python used
 //!   soxr; this is a windowed sinc of similar band, see the README).
-//! - [`wav`] and [`flac`] write the forms the engines read. The FLAC is verbatim (no prediction),
-//!   valid FLAC that the Google endpoint reads.
+//! - [`wav`] writes the form the engines read.
 
 /// `audioop.rms`: the integer square root of the mean square.
 pub fn rms(samples: &[i16]) -> u32 {
@@ -97,124 +96,6 @@ pub fn wav(samples: &[i16], rate: u32, channels: u16) -> Vec<u8> {
     out.extend_from_slice(&data.to_le_bytes());
     for sample in samples {
         out.extend_from_slice(&sample.to_le_bytes());
-    }
-    out
-}
-
-struct Bits {
-    out: Vec<u8>,
-    current: u64,
-    count: u32,
-}
-
-impl Bits {
-    fn new() -> Self {
-        Bits { out: Vec::new(), current: 0, count: 0 }
-    }
-
-    fn put(&mut self, value: u64, bits: u32) {
-        for shift in (0..bits).rev() {
-            self.current = (self.current << 1) | ((value >> shift) & 1);
-            self.count += 1;
-            if self.count == 8 {
-                self.out.push(self.current as u8);
-                self.current = 0;
-                self.count = 0;
-            }
-        }
-    }
-}
-
-fn crc8(data: &[u8]) -> u8 {
-    let mut crc = 0u8;
-    for byte in data {
-        crc ^= byte;
-        for _ in 0..8 {
-            crc = if crc & 0x80 != 0 { (crc << 1) ^ 0x07 } else { crc << 1 };
-        }
-    }
-    crc
-}
-
-fn crc16(data: &[u8]) -> u16 {
-    let mut crc = 0u16;
-    for byte in data {
-        crc ^= u16::from(*byte) << 8;
-        for _ in 0..8 {
-            crc = if crc & 0x8000 != 0 { (crc << 1) ^ 0x8005 } else { crc << 1 };
-        }
-    }
-    crc
-}
-
-/// The "UTF-8" coded frame number of a FLAC frame header.
-fn coded_number(value: u64) -> Vec<u8> {
-    if value < 0x80 {
-        return vec![value as u8];
-    }
-    let mut bytes = 2;
-    while value >= 1u64 << (5 * bytes + 1) {
-        bytes += 1;
-    }
-    let mut out = vec![0u8; bytes];
-    let mut rest = value;
-    for byte in out.iter_mut().skip(1).rev() {
-        *byte = 0x80 | (rest & 0x3f) as u8;
-        rest >>= 6;
-    }
-    out[0] = (0xffu16 << (8 - bytes)) as u8 | rest as u8;
-    out
-}
-
-/// A FLAC stream of mono 16-bit PCM in verbatim frames of 4096 samples.
-pub fn flac(samples: &[i16], rate: u32) -> Vec<u8> {
-    const BLOCK: usize = 4096;
-    let mut out = b"fLaC".to_vec();
-    let mut info = Bits::new();
-    info.put(BLOCK as u64, 16);
-    info.put(BLOCK as u64, 16);
-    info.put(0, 24);
-    info.put(0, 24);
-    info.put(u64::from(rate), 20);
-    info.put(0, 3); // one channel
-    info.put(15, 5); // 16 bits
-    info.put(samples.len() as u64, 36);
-    info.put(0, 64);
-    info.put(0, 64); // no MD5
-    out.push(0x80); // the last metadata block, STREAMINFO
-    out.extend_from_slice(&(info.out.len() as u32).to_be_bytes()[1..]);
-    out.extend_from_slice(&info.out);
-    let (rate_code, rate_bits): (u64, Option<(u64, u32)>) = if rate <= 0xffff {
-        (0b1101, Some((u64::from(rate), 16)))
-    } else if rate.is_multiple_of(10) && rate / 10 <= 0xffff {
-        (0b1110, Some((u64::from(rate / 10), 16)))
-    } else {
-        (0, None)
-    };
-    for (index, block) in samples.chunks(BLOCK).enumerate() {
-        let mut header = Bits::new();
-        header.put(0b11_1111_1111_1110, 14);
-        header.put(0, 1);
-        header.put(0, 1); // fixed block size
-        header.put(0b0111, 4); // block size - 1 in 16 bits at the end
-        header.put(rate_code, 4);
-        header.put(0, 4); // mono
-        header.put(0b100, 3); // 16 bits
-        header.put(0, 1);
-        let mut frame = header.out;
-        frame.extend(coded_number(index as u64));
-        frame.extend_from_slice(&((block.len() - 1) as u16).to_be_bytes());
-        if let Some((value, bits)) = rate_bits {
-            frame.extend_from_slice(&value.to_be_bytes()[(8 - bits as usize / 8)..]);
-        }
-        frame.push(crc8(&frame));
-        frame.push(0b0000_0010); // verbatim subframe, no wasted bits
-        for sample in block {
-            frame.extend_from_slice(&sample.to_be_bytes());
-        }
-        let crc = crc16(&frame);
-        frame.extend_from_slice(&crc.to_be_bytes());
-        out.extend(frame);
     }
     out
 }
@@ -349,22 +230,6 @@ mod tests {
         assert_eq!(&file[..4], b"RIFF");
         assert_eq!(file.len(), 44 + 6);
         assert_eq!(u32::from_le_bytes(file[24..28].try_into().unwrap()), 16000);
-    }
-
-    #[test]
-    fn a_flac_frame_checks_out() {
-        let samples: Vec<i16> = (0..5000).map(|i| (i % 300) as i16).collect();
-        let file = flac(&samples, 44100);
-        assert_eq!(&file[..4], b"fLaC");
-        // STREAMINFO, then two frames that start with the sync code.
-        let first = 4 + 4 + 34;
-        assert_eq!(&file[first..first + 2], &[0xff, 0xf8]);
-        let header_end = first + 4 + 1 + 2 + 2;
-        assert_eq!(file[header_end], crc8(&file[first..header_end]));
-        let frame_end = header_end + 1 + 1 + 4096 * 2;
-        let crc = u16::from_be_bytes([file[frame_end], file[frame_end + 1]]);
-        assert_eq!(crc, crc16(&file[first..frame_end]));
-        assert_eq!(coded_number(200), vec![0xc3, 0x88]);
     }
 
     #[test]

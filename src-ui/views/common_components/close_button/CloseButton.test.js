@@ -36,7 +36,8 @@ test("the error fallback names the close-application action", async () => {
     for (const name of ["AppErrorBoundary"]) {
         const runtime = hooks();
         let closed = 0;
-        const common = { useWindow: () => ({ asyncCloseApp: () => closed++ }),
+        // A broken window is not put away in the tray: the error screen's close ends the app.
+        const common = { useWindow: () => ({ asyncQuitApp: () => closed++ }),
             useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }),
             useCopyToClipboard: () => ({ is_copied: false }) };
         const exports = await loadModule(new URL(`../../app/others/error_boundary/${name}.jsx`, import.meta.url), runtime, {

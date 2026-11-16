@@ -159,7 +159,9 @@ def main():
     args = parser.parse_args()
     candidate = args.candidate.resolve()
     check_tree(candidate, require_runtime=True)
-    verify_bundle(candidate / '_internal/build/speechcpp')
+    # Both speech.cpp builds: the Vulkan build and the CPU build (tools/build_linux.py).
+    for folder in ('speechcpp', 'speechcpp-cpu'):
+        verify_bundle(candidate / '_internal/build' / folder)
     tools = verify_tools(args.tools_dir, download=args.download_tools)
     work = prepare_work(args.work_dir)
     appdir = work / 'VRCT-VOX.AppDir'

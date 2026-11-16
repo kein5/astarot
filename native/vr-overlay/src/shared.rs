@@ -5,8 +5,8 @@
 //! it. [`SharedVr::connect`] opens the connection for the first holder and hands later holders
 //! the same one; the connection closes when the last holder drops its session.
 
-use crate::math::{Mat34, Mat4};
-use crate::runtime::{Device, Hand, Handle, SceneApp, Session, Vr, VrError};
+use crate::math::{Mat34, Mat4, Vec3};
+use crate::runtime::{ControllerState, Device, Hand, Handle, Intersection, SceneApp, Session, TextureSlot, Vr, VrError};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 struct Slot {
@@ -85,9 +85,9 @@ impl Session for SharedSession {
     fn set_raw(&mut self, overlay: Handle, rgba: &[u8], width: u32, height: u32) -> Result<(), VrError> {
         self.with(|s| s.set_raw(overlay, rgba, width, height))
     }
-    fn set_shared_texture(&mut self, overlays: &[Handle], bgra: &[u8], width: u32, height: u32, texture: (u32, u32))
+    fn set_shared_texture(&mut self, slot: TextureSlot, overlays: &[Handle], bgra: &[u8], width: u32, height: u32, texture: (u32, u32))
     -> Result<(u32, u32), VrError> {
-        self.with(|s| s.set_shared_texture(overlays, bgra, width, height, texture))
+        self.with(|s| s.set_shared_texture(slot, overlays, bgra, width, height, texture))
     }
     fn set_alpha(&mut self, overlay: Handle, alpha: f32) -> Result<(), VrError> {
         self.with(|s| s.set_alpha(overlay, alpha))
@@ -133,6 +133,15 @@ impl Session for SharedSession {
     }
     fn scene_application(&mut self) -> Result<Option<SceneApp>, VrError> {
         self.with(|s| s.scene_application())
+    }
+    fn controller_state(&mut self, device: Device) -> Option<ControllerState> {
+        self.with(|s| s.controller_state(device))
+    }
+    fn intersect(&mut self, overlay: Handle, source: Vec3, direction: Vec3) -> Option<Intersection> {
+        self.with(|s| s.intersect(overlay, source, direction))
+    }
+    fn tip_offset(&mut self, device: Device) -> Option<Mat4> {
+        self.with(|s| s.tip_offset(device))
     }
 }
 
@@ -187,5 +196,33 @@ mod tests {
         let mut session = shared.connect().unwrap();
         assert_eq!(session.scene_application().unwrap(), Some(app));
         assert_eq!(fake.with(|s| s.scene_reads), 1);
+    }
+
+    #[test]
+    fn the_controllers_come_through_the_shared_connection() {
+        let fake = FakeVr::running();
+        let held = ControllerState { pressed: crate::runtime::TRIGGER_MASK, axis: (0.0, 0.5) };
+        fake.set_controller(2, Some(held));
+        fake.with(|s| {
+            s.tips.insert(2, crate::math::IDENTITY);
+        });
+        let shared = SharedVr::new(Arc::new(fake.clone()));
+        let mut session = shared.connect().unwrap();
+        assert_eq!(session.controller_state(2), Some(held));
+        assert_eq!(session.controller_state(1), None);
+        assert_eq!(session.tip_offset(2), Some(crate::math::IDENTITY));
+        assert_eq!(fake.with(|s| s.controller_reads), 2);
+        // A shown overlay one metre ahead is hit at its centre.
+        let handle = session.create_overlay("vrct.panel", "panel").unwrap();
+        let ahead = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0]];
+        session.set_transform_absolute(handle, &ahead).unwrap();
+        session.set_width(handle, 0.5).unwrap();
+        session.show(handle).unwrap();
+        let hit = session.intersect(handle, [0.0, 0.0, 0.0], [0.0, 0.0, -1.0]).expect("hit");
+        assert!((hit.distance - 1.0).abs() < 1e-9);
+        assert!((hit.uv.0 - 0.5).abs() < 1e-9 && (hit.uv.1 - 0.5).abs() < 1e-9);
+        // The resize frame's texture slot reaches the runtime.
+        session.set_shared_texture(TextureSlot::Ghost, &[handle], &[0u8; 16], 2, 2, (2, 2)).unwrap();
+        assert_eq!(fake.with(|s| s.textures.get(&handle).map(|t| t.0)), Some(TextureSlot::Ghost));
     }
 }

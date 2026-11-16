@@ -234,6 +234,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} はダウンロードしていません。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認し、同意してからダウンロードしてください。モデルの版が変わったときはもう一度確認してください。"
     OVERLAY_RUNTIME_FAILED: "VRオーバーレイの描画または画面の取り込みに失敗したため、表示を止めました。SteamVRとVR画面の状態を確かめてから、もう一度オンにしてください。"
     OVERLAY_VR_PANEL_UNSUPPORTED: "この環境ではVR UIを使えません。字幕オーバーレイには影響しません。"
+    OVERLAY_FONT_NOT_FOUND: "その書体はこのPCに入っていません。字幕は前の書体のままです。"
     MESSAGE_OUTPUT_FAILED: "{{output}}にメッセージを送れませんでした。ほかの出力先には送っています。再送するとほかの出力先に同じメッセージが重ねて届くことがあります。"
     TRANSLATION_VRAM_ENABLE: "GPUのメモリーが足りず、AI翻訳を開始できませんでした。設定の「翻訳」で処理デバイスをCPUにするか、ほかのGPUアプリを止めてください。"
     TRANSLATION_DISABLED_VRAM: "GPUのメモリーが足りないため、翻訳をオフにしました。"
@@ -704,7 +705,7 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "Google は API キーなしで使えます。ほかのクラウドエンジンは、下の「クラウド音声認識」で API キーを登録すると選べます。「ローカル（speech.cpp）」は、この PC の speech.cpp サーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
+            desc: "クラウドエンジンは、下の「クラウド音声認識」で API キーを登録すると選べます。「ローカル（speech.cpp）」は、この PC の speech.cpp サーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
@@ -793,6 +794,12 @@ config_page:
         voice_typing_mode:
             label: "音声タイピングモード"
             desc: "文字起こしされたテキストをアクティブな入力欄へと自動的に貼り付けます。\n※クリップボードを使います。LinuxではX11／XWaylandのウィンドウ（Protonで動くVRChatなど）に貼り付けます。入力デバイスの操作を許可するか、デスクトップが最初に確認することがあります。"
+        overlay_font_family:
+            label: "字幕の書体"
+            desc: "字幕オーバーレイの書体を、このPCに入っている書体から選びます。選んだ書体にない文字は、このPCにあるその言語の標準の書体で出します。"
+            auto: "自動（このPCの標準の書体）"
+            not_installed: "{{name}}（このPCにありません）"
+            missing: "このPCには{{languages}}を表示できる書体がありません。その文字は字幕に出ません。Noto Sans CJKなどの書体を入れて、アプリを起動し直してください。"
 
     others:
         section_label_message_formats: "メッセージフォーマット"
@@ -1007,7 +1014,24 @@ config_page:
         empty: "いま試せる機能はありません。新しい機能が加わるとここに並びます。"
         # src-ui/logics/configs/experimentalFeatures.ts の機能ごとに1つ:
         # <id>: { label: "...", desc: "何をするか。実験中であること…" }
-        items: {}
+        items:
+            tray_companion:
+                label: "六芒星のオーバーレイで操作する"
+                desc: "画面の端に隠れた六芒星とデスクトップの字幕で VRCT-VOX を使います。次の起動からはメイン画面を開かずにトレイで始まります。マウスを画面の端に近づけると六芒星が半分出てきます。ホイールで回し、三角形に載せると出る札を押すと、その機能が切り替わります。試験中の機能です。"
+                edge:
+                    label: "六芒星を隠す画面の端"
+                    desc: "マウスをこの端の真ん中に近づけると、六芒星が出てきます。"
+                    right: "右"
+                    left: "左"
+                    top: "上"
+                    bottom: "下"
+                monitor:
+                    label: "六芒星を出すモニター"
+                    desc: "モニターが複数あるときに選びます。選んだモニターを外している間は、メインのモニターに出します。"
+                    primary: "メインのモニター（既定）"
+                    display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
+                    is_primary: "（メイン）"
+                    missing: "接続されていないモニター（前に選んだもの）"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1309,6 +1333,9 @@ speech_servers:
     device_named: "{{label}}（{{name}}）"
     device_missing: "{{name}}（見つかりません）"
     device_help: "「自動」と「GPU」は内蔵GPUより独立GPUを先に使い、独立GPUが複数あればメモリの多いほうを使います。AMD、Intel、NVIDIAのどれでも同じです。ここで指定もできます。RVCと同じGPUで動かすとRVCが止まりやすくなることがあります。"
+    cpu_build_separate: "「CPU」はVulkanを使わないCPU用のspeech.cppで動きます。「自動」もGPUを使えないときはこれで動きます。"
+    cpu_build_shared: "「CPU」は同じspeech.cppをプロセッサーで動かします。このときもGPUドライバーのVulkanライブラリ（vulkan-1.dll）が要ります。"
+    gpu_build_unavailable: "GPU用のspeech.cppがこのPCでは起動しません。Vulkanローダー（libvulkan.so.1）がないのかもしれません。「自動」と「CPU」はCPU用のspeech.cppで動きます。GPUを使うにはVulkanローダーのパッケージ（libvulkan1かvulkan-loader）とGPUのVulkanドライバーを入れてから、このページを開き直してください。"
     low_latency: "低遅延待機（Irodori・GPU）"
     low_latency_help: "サーバーの起動中は、TTSがオフでもGPUで無音の待機計算を続け、最初の読み上げを速くします。消費電力が増え、ゲームとGPUを取り合うことがあります。変更する前にサーバーを止めてください。遅延を保証する設定ではありません。"
     low_latency_warming: "低遅延待機を準備中"
@@ -1334,12 +1361,14 @@ speech_servers:
     japanese_selection: "日本語のサーバー"
     multilingual_selection: "その他の言語のサーバー"
     asr_selection: "ASRサーバー"
+    notices:
+        speech_server_cpu_fallback: "CPUで動いています。GPU用のspeech.cppがこのPCで起動しなかったので「自動」はCPU用で動かしています。GPUを使うにはVulkanローダー（libvulkan.so.1）を入れてからサーバーを起動し直してください。"
     errors:
         speech_bundle_missing_or_invalid: "同梱のspeech.cppが見つからないか、検査に通りません。配布版を入れ直してください。開発環境ではbuild/speechcppを用意してください。"
         speech_server_launch_failed: "サーバーを起動できませんでした。モデルファイルと「推論デバイス」を確認してから、もう一度起動してください。"
         speech_server_exited: "サーバーが予期せず停止しました。モデルファイルと「推論デバイス」を確認してから、もう一度起動してください。"
         speech_server_out_of_memory: "メモリーが不足しています。他のGPUアプリを停止するか、CPUを選択して保存し、サーバーを再起動してください。"
-        speech_server_vulkan_missing: "GPUドライバーのVulkanライブラリ（vulkan-1.dll）が見つかりません。GPUドライバーを入れるか更新してからもう一度起動してください。"
+        speech_server_vulkan_missing: "Vulkanのライブラリが見つかりません（Windowsはvulkan-1.dll、Linuxはlibvulkan.so.1）。GPUドライバーを入れるか更新してください。LinuxではVulkanローダーのパッケージ（libvulkan1かvulkan-loader）を入れるか「CPU」を選んでも動きます。そのあとでもう一度起動してください。"
         speech_server_device_failed: "この「推論デバイス」ではモデルを動かせませんでした。GPUドライバーを更新するか、別のデバイスかCPUを選んで保存してから、もう一度起動してください。"
         speech_server_start_timeout: "モデルの読み込みに時間がかかりすぎました。小さいモデルか別の「推論デバイス」を選んでから、もう一度起動してください。"
         speech_server_readiness: "サーバーが起動しましたが、応答を確認できませんでした。もう一度起動してください。"
@@ -1753,6 +1782,136 @@ model_downloads:
     scope_tts_http_vulkan: "Linux・speech.cpp 0.9.0 Vulkanで固定文のHTTP合成・取消・再起動を確認済み。再生経路や他GPUは別途確認が必要です。"
     gpu_unverified: "現在のGPUは検証したGPUと異なります。この推奨はメモリ容量に基づくものです。"
 
+# モデルカタログ（モデルを選ぶ画面）。用途ごとのまとまりと、モデルごとのカード。
+model_catalog:
+    group:
+        japanese: "日本語の読み上げ"
+        multilingual: "日本語以外の読み上げ"
+        asr: "音声認識"
+        vad: "発話区間の検出（VAD）"
+        diarization: "話者の区別（任意）"
+        rvc: "ボイスチェンジャーの声"
+        engines: "外部の音声合成エンジン"
+    group_help:
+        japanese: "日本語の文を読み上げるモデルです。取得したモデルは同梱のspeech.cppサーバーで動きます。"
+        multilingual: "英語や中国語など日本語以外の文と、翻訳した文を読み上げるモデルです。"
+        asr: "話した声を文字にするモデルです。使うモデルを1つ選んで取得します。"
+        vad: "声のある区間を見つけるモデルです。どの認識モデルを使うときも必要です。"
+        diarization: "ゲーム音声の字幕に、誰が話したかのラベルを付けるときだけ使います。"
+        rvc: "声を変えるRVCの音声モデルです。"
+        engines: "自分のPCに入れて起動しておく読み上げソフトです。このアプリはダウンロードもインストールもしません。公式サイトから入手して起動し、上の「日本語を読み上げるエンジン」で選んでください。"
+    languages: "対応言語"
+    languages_more: "{{languages}}ほか{{count}}言語"
+    size: "ダウンロードサイズ"
+    hardware: "ハードウェアの目安"
+    terms: "提供元とライセンス"
+    memory: "メモリー約{{memory}}（{{device}}で測定）"
+    tier:
+        light: "軽い"
+        medium: "中くらい"
+        heavy: "重い"
+    cpu:
+        slow: "CPUでも動くが数秒遅れる"
+        practical: "CPUで動く"
+        impractical: "CPUでは実用的に動かない"
+        unverified: "CPUでの動作は未確認"
+    gpu:
+        recommended: "GPU推奨"
+        not_needed: "GPU不要"
+    recommended_for: "おすすめ：{{languages}}"
+    fits_memory: "空きメモリーに合う"
+    hardware_warning:
+        badge: "性能不足の可能性"
+        option: "性能不足の可能性"
+        note: "お使いのPCでは性能が足りない可能性があります。{{reason}}あくまで目安なので、選んで試すこともできます。"
+        low_memory_gpu: "このモデルはメモリーを約{{required}}使います。GPUのメモリーは全部で{{available}}なので余裕がありません。"
+        low_memory_cpu: "このモデルはメモリーを約{{required}}使います。見つかったメモリーは全部で{{available}}なので余裕がありません。"
+        no_gpu: "GPUが見つかりませんでした。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
+        cpu_setting: "エンジンがCPUで動かす設定になっています。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
+    variant: "ファイルの種類"
+    variant_of: "{{model}}のファイルの種類"
+    status:
+        not_downloaded: "未取得"
+        downloaded: "取得済み"
+        in_use: "使用中"
+        working: "取得中"
+        ready: "検証済み・未適用"
+    prepare: "ファイルを確かめて使う準備をする"
+    prepare_hint: "このPCに取得済みです。使うには、ファイルを確かめてからモデルパスを適用します。"
+    prepare_notice: "このファイルは取得済みです。ダウンロードはせず、容量とSHA-256を照合します。"
+    prepare_start: "同意して照合"
+    engine:
+        terms_notice: "エンジンと声（音声ライブラリ）の利用条件は、それぞれの公式サイトの規約に従います。声によってはクレジットの表記が必要です。使う前に規約を確認してください。"
+        languages: "日本語"
+        get: "入手先"
+        get_value: "公式サイト（このアプリからはダウンロードしません）"
+        address: "接続先"
+        recheck_of: "{{engine}}への接続を再確認"
+        state:
+            unchecked: "未確認"
+            checking: "確認中"
+            connected: "接続できます"
+            not_connected: "接続できません"
+            url_invalid: "接続先が正しくありません"
+        summary:
+            voicevox: "無料で使える日本語の音声合成ソフトです。多くのキャラクターの声があり、声ごとに利用規約があります。"
+            coeiroink: "無料で使える日本語の音声合成ソフトです。対応するのはv2です。「COEIROINK:声の名前」のクレジットが必要です。"
+            aivis: "日本語の音声合成ソフトです。声のモデルを追加して使い、モデルごとにライセンスがあります。"
+            sharevox: "無料で使える日本語の音声合成ソフトで、VOICEVOXと同じ方式でつなぎます。声によってはクレジットが必要です。"
+
+# 利用者が用意したモデル（#403）。カタログのカードと同じ一覧に並べる。
+user_models:
+    badge: "自分のモデル"
+    status:
+        registered: "登録済み"
+        in_use: "使用中"
+        missing: "ファイルがありません"
+        changed: "ファイルが変わりました"
+    status_help:
+        missing: "登録したファイルが見つかりません。移動や削除をしたときは、登録を解除してから登録し直してください。"
+        changed: "登録したあとにファイルの容量か更新日時が変わりました。中身を確かめてから登録し直してください。"
+    file:
+        model: "モデルのファイル"
+        index: "indexのファイル"
+    size: "ファイルの容量"
+    use: "このモデルを使う"
+    remove: "登録を解除"
+    remove_confirm: "登録だけを解除します。ファイルは削除しません。"
+    remove_confirm_label: "{{name}}の登録の解除"
+    remove_do: "解除する"
+    blocked_edited: "置き換えるパスに未保存の編集があります。保存か破棄をしてから切り替えてください。"
+    register_title: "自分のモデルを登録"
+    register_label: "{{group}}に自分のモデルを登録"
+    register_help: "お使いのPCにあるモデルのファイルを名前を付けて登録すると、上のモデルと並べて選べます。ファイルはコピーも移動もせず、その場所を覚えるだけです。"
+    terms_help: "登録したモデルの出どころとライセンスは、このアプリでは確かめていません。利用条件はご自身で確認してください。"
+    name: "表示する名前"
+    name_placeholder: "例：自分の声"
+    drop_hint: "ファイルをここに落とすと、下の欄に入ります。"
+    file_field:
+        model: "モデルのファイル（{{kind}}）"
+        index: "indexのファイル（{{kind}}、なくても使えます）"
+    register: "登録"
+    problem:
+        name_missing: "名前を入れてください。"
+        name_long: "名前は80文字までです。"
+        model_missing: "モデルのファイルのパスを入れてください。"
+        model_kind: "モデルのファイルは{{kind}}を選んでください。"
+        index_kind: "indexのファイルは{{kind}}を選んでください。"
+        target: "この用途には登録できません。"
+    errors:
+        user_model_invalid: "登録の内容が正しくありません。入力を確かめてください。"
+        user_model_name_invalid: "名前に使えない文字があります。前後の空白や改行を除いてください。"
+        user_model_path_invalid: "ファイルの場所はドライブ名やフォルダーから始まる完全なパスで入れてください。"
+        user_model_file_type: "この用途に使えない種類のファイルです。"
+        user_model_file_missing: "ファイルが見つかりません。パスを確かめてください。"
+        user_model_exists: "同じ名前か同じファイルのモデルがすでに登録されています。"
+        user_model_limit: "登録できるモデルは200件までです。使わないモデルの登録を解除してください。"
+        user_model_unknown: "このモデルの登録が見つかりません。画面を開き直してください。"
+        user_model_missing: "登録したファイルが見つかりません。登録し直してください。"
+        user_model_changed: "登録したあとにファイルが変わっています。登録し直してください。"
+        user_models_unreadable: "登録の一覧（user_models.json）を読めません。ファイルはそのまま残しています。"
+        user_models_write_failed: "登録の一覧を保存できませんでした。保存先のアクセス権を確かめてください。"
+
 studio:
     toggle_sidebar: "サイドバーを切り替える"
     close_sidebar: "サイドバーを閉じる"
@@ -1781,6 +1940,7 @@ studio:
     minimize: "ウィンドウを最小化"
     maximize: "ウィンドウを最大化・元に戻す"
     close: "アプリを閉じる"
+    close_to_tray: "閉じる（トレイで動き続けます）"
 
 legacy_model_downloads:
     errors:
@@ -1871,8 +2031,7 @@ telemetry_contents:
         igpu: "内蔵GPU"
 transcription_consent:
     title: "音声認識エンジンを選ぶ"
-    google_notice: "Google を使うと、マイクやスピーカーの音声が Google の音声認識サービスに送られます。API キーは不要です。"
-    google: "Google で文字起こしを始める"
+    cloud_notice: "クラウドのエンジン（Groq、OpenAI、Deepgram、自分の Whisper サーバー）を使うときは、エンジンの設定を開いて API キーを登録し、そこで選んでください。音声はそのサービスに送られます。"
     speechcpp_notice: "ローカル（speech.cpp）はこの PC の speech.cpp サーバーで音声を認識します。認識モデルと VAD モデルがないときは、設定 → 音声認識（ASR） → モデルとサーバーで内容を確認して取得してください。"
     speechcpp: "ローカル（speech.cpp）で文字起こしを始める"
     cancel: "キャンセル"
@@ -2065,3 +2224,28 @@ virtual_mic:
         found: "VRChatへ声を届ける仮想ケーブルのつながりをテスト音で確かめます。"
         missing: "仮想ケーブルが見つかりません。入れ方を案内します。"
         open: "仮想マイクを確かめる"
+
+# 実験中のコンパニオン形態（トレイ、字幕、コントロールパネル）。Issue #355
+companion:
+    state_starting: "起動中"
+    state_listening: "認識中"
+    state_idle: "停止中"
+    mic: "マイク"
+    translation: "翻訳"
+    "on": "オン"
+    "off": "オフ"
+    open_main: "VRCT-VOX を開く"
+    close: "閉じる"
+    handle: "コントロールパネルを開く"
+    menu_start: "認識を開始"
+    menu_stop: "認識を停止"
+    menu_panel: "コントロールパネルを開く"
+    menu_main: "VRCT-VOX を開く"
+    menu_quit: "終了"
+    menu_monitor: "表示するモニター"
+    menu_monitor_primary: "メインのモニター"
+    menu_monitor_display: "ディスプレイ"
+    menu_monitor_missing: "接続されていないモニター"
+    common:
+        title: "共通の設定"
+        edge: "隠す端"
