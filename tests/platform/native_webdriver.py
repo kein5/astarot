@@ -283,6 +283,16 @@ class NativeWebDriver:
             assert alpha[1] == 255 and max(variance) > 1, report
         return report
 
+    def wait_main_ready(self, timeout=15):
+        """Wait until the main window takes input.
+
+        The main page is drawn before the engine is ready: locked (inert,
+        aria-busy) with placeholders, and with the composer already there. It is
+        ready once that page is no longer busy, which is also when the saved
+        settings (send button, UI size, languages) have been applied."""
+        return self.wait("const t = document.querySelector('textarea[class*=message_box_input_area]');"
+                         " return t !== null && t.closest('[aria-busy=true]') === null;", timeout=timeout)
+
     def wait(self, script, timeout=15):
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:

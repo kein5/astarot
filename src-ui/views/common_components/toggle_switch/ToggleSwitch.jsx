@@ -10,6 +10,7 @@ export const ToggleSwitch = ({
     toggleFunction,
     showLoader = false,
     className,
+    skeleton = false,
 }) => {
     const containerClasses = clsx(
         styles.toggle_switch_container,
@@ -39,7 +40,7 @@ export const ToggleSwitch = ({
     };
 
     return (
-        <div className={containerClasses} style={customStyles} onClick={handleClick}>
+        <div className={containerClasses} style={customStyles} onClick={handleClick} data-skeleton={skeleton ? "" : undefined}>
             <span className={controlClasses}></span>
             {showLoader && isPending && (
                 <span className={styles.loader}></span>

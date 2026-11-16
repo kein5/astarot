@@ -1,8 +1,8 @@
 """Regression coverage for item 16 (dead code removal).
 
 These are guard tests, not behavior tests: the removed symbols were
-confirmed unreferenced anywhere in the codebase before deletion (see
-docs/backend_review_2026-08-27.md item 16), so there is no pre-fix
+confirmed unreferenced anywhere in the codebase before deletion (backend
+review of 2026-08-27, item 16), so there is no pre-fix
 "buggy behavior" to reproduce here the way earlier items had. The point
 of these tests is to catch an accidental reintroduction (e.g. a bad
 merge resurrecting the duplicate dispatch path) rather than to prove a

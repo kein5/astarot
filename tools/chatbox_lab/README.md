@@ -21,7 +21,7 @@ Capture only in the lab's own local test instance, or in an invite-only instance
 
 ## Setup
 
-1. Create a Unity 2022.3.22f1 project with `com.vrchat.worlds` (here `~/ALCOM/projects/vrct-vox-chatbox-lab`). Copy `unity/Runtime/*.cs` to `Assets/ChatboxLab/` and `unity/Editor/*.cs` to `Assets/ChatboxLab/Editor/`. For Japanese text, copy M PLUS 1p, Zen Kaku Gothic New and BIZ UDPGothic (`*-Regular.ttf`, SIL Open Font License, from Google Fonts) to `Assets/ChatboxLab/Fonts/`.
+1. Create a Unity 2022.3.22f1 project with `com.vrchat.worlds`. Copy `unity/Runtime/*.cs` to `Assets/ChatboxLab/` and `unity/Editor/*.cs` to `Assets/ChatboxLab/Editor/`. For Japanese text, copy M PLUS 1p, Zen Kaku Gothic New and BIZ UDPGothic (`*-Regular.ttf`, SIL Open Font License, from Google Fonts) to `Assets/ChatboxLab/Fonts/`.
 2. Run **VRCT-VOX > Build Chatbox Lab Scene** twice: the first run creates the U# program asset, the second builds the scene. Batch mode also works:
    `Unity -batchmode -projectPath <project> -executeMethod ChatboxLabSceneBuilder.BuildScene -quit`.
 3. Sign in under **VRChat SDK > Show Control Panel**, then run **VRCT-VOX > Build Chatbox Lab World**.

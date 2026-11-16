@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -205,6 +206,36 @@ class VersionTest(unittest.TestCase):
         for bad in ("v0.1.0", "0.1", "0.1.0-", "01.0.0", "0.1.0+build"):
             with self.assertRaises(cl.ChangelogError, msg=bad):
                 cl.require_version(bad)
+
+
+class CogCommandTest(unittest.TestCase):
+    """mise on PATH without Cocogitto (a CI job that installs only Node) is no Cocogitto."""
+
+    def which(self, cog=None):
+        return lambda name: {"cog": cog, "mise": "/bin/mise"}.get(name)
+
+    def test_cog_on_path_wins(self):
+        with mock.patch.object(cl.shutil, "which", self.which(cog="/bin/cog")), \
+                mock.patch.object(cl.subprocess, "run") as run:
+            self.assertEqual(cl.cog_command(), ["cog"])
+        run.assert_not_called()
+
+    def test_mise_without_cocogitto_is_not_a_command(self):
+        missing = subprocess.CompletedProcess([], 1, stdout="", stderr="cog is not a mise bin")
+        with mock.patch.object(cl.shutil, "which", self.which()), \
+                mock.patch.object(cl.subprocess, "run", return_value=missing):
+            self.assertIsNone(cl.cog_command())
+
+    def test_cocogitto_from_mise_runs_by_its_path(self):
+        with tempfile.TemporaryDirectory() as folder:
+            binary = Path(folder) / "cog"
+            binary.write_text("")
+            found = subprocess.CompletedProcess([], 0, stdout=f"{binary}\n", stderr="")
+            with mock.patch.object(cl.shutil, "which", self.which()), \
+                    mock.patch.object(cl.subprocess, "run", return_value=found) as run:
+                self.assertEqual(cl.cog_command(), [str(binary)])
+            self.assertEqual(run.call_args.args[0], ["/bin/mise", "which", "cog"])
+            self.assertEqual(run.call_args.kwargs["cwd"], cl.ROOT)
 
 
 @unittest.skipUnless(shutil.which("git") and cl.cog_command(), "needs git and Cocogitto")

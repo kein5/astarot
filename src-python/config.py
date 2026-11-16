@@ -605,6 +605,21 @@ def _overlay_desktop_validator(val, inst):
             new[key] = float(v)
     return new
 
+OVERLAY_DESKTOP_PLACEMENT_LIMIT = 100_000
+
+
+def _overlay_desktop_placement_validator(val, inst):
+    """Where the user dragged the desktop caption window: its top-left corner in physical pixels
+    of the virtual desktop, or both None for the band the "position" setting picks."""
+    if not (isinstance(val, dict) and set(val.keys()) == {"x", "y"}):
+        return None
+    x, y = val["x"], val["y"]
+    if x is None and y is None:
+        return {"x": None, "y": None}
+    if all(type(v) is int and -OVERLAY_DESKTOP_PLACEMENT_LIMIT <= v <= OVERLAY_DESKTOP_PLACEMENT_LIMIT for v in (x, y)):
+        return {"x": x, "y": y}
+    return None
+
 def _io_flow_overlay_validator(val, inst):
     """The flow overlay: the desktop strip on or off, and how many recent inputs it shows (1 to 3)."""
     base = inst.IO_FLOW_OVERLAY_SETTINGS
@@ -1254,6 +1269,8 @@ class Config:
     OVERLAY_LARGE_LOG_SETTINGS = ValidatedProperty('OVERLAY_LARGE_LOG_SETTINGS', _overlay_large_validator)
     # Captions over the desktop, for VRChat without a headset. The UI draws them in its own window.
     OVERLAY_DESKTOP_SETTINGS = ValidatedProperty('OVERLAY_DESKTOP_SETTINGS', _overlay_desktop_validator)
+    # Where the caption window was dragged with Ctrl held; None keeps it on the band of "position".
+    OVERLAY_DESKTOP_PLACEMENT = ValidatedProperty('OVERLAY_DESKTOP_PLACEMENT', _overlay_desktop_placement_validator)
     IO_FLOW_OVERLAY_SETTINGS = ValidatedProperty('IO_FLOW_OVERLAY_SETTINGS', _io_flow_overlay_validator)
     # VRパネルの位置。UIからは設定せず、VR内で掴んで動かした位置だけが保存される。
     OVERLAY_VR_PANEL_SETTINGS = ValidatedProperty('OVERLAY_VR_PANEL_SETTINGS', _make_overlay_vr_window_validator('OVERLAY_VR_PANEL_SETTINGS'))
@@ -1273,6 +1290,8 @@ class Config:
     OSC_IP_ADDRESS = ManagedProperty('OSC_IP_ADDRESS', type_=str)
     OSC_PORT = ManagedProperty('OSC_PORT', type_=int, allowed=lambda v, inst: isValidPort(v))
     AUTO_CLEAR_MESSAGE_BOX = ManagedProperty('AUTO_CLEAR_MESSAGE_BOX', type_=bool)
+    # Whether the UI asks the Tauri updater for a new version at start (src-tauri/src/app_update.rs).
+    CHECK_SOFTWARE_UPDATES = ManagedProperty('CHECK_SOFTWARE_UPDATES', type_=bool)
     SEND_ONLY_TRANSLATED_MESSAGES = ManagedProperty('SEND_ONLY_TRANSLATED_MESSAGES', type_=bool)
     OVERLAY_SMALL_LOG = ManagedProperty('OVERLAY_SMALL_LOG', type_=bool)
     OVERLAY_LARGE_LOG = ManagedProperty('OVERLAY_LARGE_LOG', type_=bool)
@@ -1364,6 +1383,9 @@ class Config:
     # True after a migration moved a choice of the removed Whisper engine to speech.cpp, until
     # the user closes the notice that says what that needs (LocalAsrNoticeController).
     LOCAL_ASR_NOTICE_PENDING = ManagedProperty('LOCAL_ASR_NOTICE_PENDING', type_=bool)
+    # True until the user finishes the virtual microphone guide or asks not to see it again (#321).
+    # The guide opens by itself only on Windows and only while no virtual cable is found.
+    VIRTUAL_MIC_NOTICE_PENDING = ManagedProperty('VIRTUAL_MIC_NOTICE_PENDING', type_=bool)
     SELECTED_PLAMO_MODEL = ManagedProperty('SELECTED_PLAMO_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST'), allow_none=True)
     SELECTED_GEMINI_MODEL = ManagedProperty('SELECTED_GEMINI_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST'), allow_none=True)
     SELECTED_OPENAI_MODEL = ManagedProperty('SELECTED_OPENAI_MODEL', type_=str, allowed=_allowed_in_populated('SELECTABLE_OPENAI_MODEL_LIST'), allow_none=True)
@@ -1424,7 +1446,7 @@ class Config:
         self._SELECTED_MIC_DEVICE_ID = ''
         self._SELECTED_SPEAKER_DEVICE_ID = ''
         # Read Only
-        self._VERSION = "0.3.0"
+        self._VERSION = "0.4.0"
         if getattr(sys, 'frozen', False):
             self._PATH_LOCAL = os_path.dirname(sys.executable)
         else:
@@ -1630,6 +1652,7 @@ class Config:
         self._CTRANSLATE2_LICENSE_NOTICE_SHOWN = False
         self._LOCAL_ASR_MIGRATION = LOCAL_ASR_MIGRATION_LATEST
         self._LOCAL_ASR_NOTICE_PENDING = False
+        self._VIRTUAL_MIC_NOTICE_PENDING = True
         self._SELECTED_PLAMO_MODEL = None
         self._SELECTED_GEMINI_MODEL = None
         self._SELECTED_OPENAI_MODEL = None
@@ -1646,6 +1669,7 @@ class Config:
         self._SELECTED_DEEPGRAM_MODEL = None
         self._SELECTED_TRANSLATION_COMPUTE_TYPE = "auto"
         self._AUTO_CLEAR_MESSAGE_BOX = True
+        self._CHECK_SOFTWARE_UPDATES = True
         self._SEND_ONLY_TRANSLATED_MESSAGES = False
         self._OVERLAY_SMALL_LOG = False
         self._OVERLAY_SMALL_LOG_SETTINGS = {
@@ -1682,6 +1706,7 @@ class Config:
             "display_duration": 6,
             "opacity": 0.6,
         }
+        self._OVERLAY_DESKTOP_PLACEMENT = {"x": None, "y": None}
         # Where the user's voice and chat go, with stage times, over the desktop (one input by default).
         self._IO_FLOW_OVERLAY_SETTINGS = {"desktop": False, "count": 1}
         self._OVERLAY_VR_LAUNCHER_SETTINGS = dict(DEFAULT_OVERLAY_VR_LAUNCHER_SETTINGS)

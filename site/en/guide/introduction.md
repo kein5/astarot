@@ -11,7 +11,7 @@ VRCT-VOX is not endorsed by the VRCT authors or VRChat. Send questions and bug r
 ## What VRCT-VOX adds to VRCT
 
 - [Text to speech (TTS)](../features/tts) Speaks your text or its translation into VRChat's microphone. You can hear the same voice on your own speakers.
-- [Voice changer (RVC)](../features/voice-conversion) Changes your microphone's voice with RVC or Seed-VC and sends it to VRChat.
+- [Voice changer (RVC)](../features/voice-conversion) Changes your microphone's voice with RVC and sends it to VRChat.
 - [Realtime captions](../features/transcription) Turns your voice and other players' voices into text with the speech recognition server that comes with the app.
 - [Chat reading (OCR)](../features/chat-reading) Reads the text of chatboxes shown on the VRChat screen.
 - [Linux build](./install#linux) Global shortcuts on Wayland, a PipeWire virtual microphone, and Japanese input methods (fcitx/Mozc, ibus).

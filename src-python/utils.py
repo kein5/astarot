@@ -542,10 +542,14 @@ def isAvailableWebSocketServer(host: str, port: int) -> bool:
     """
     if not isValidWebSocketHost(host) or not isValidPort(port):
         return False
+    # Bind the address as ipaddress reads it back. The check above already refuses 0.0.0.0 and
+    # "::", but CodeQL (py/bind-socket-all-network-interfaces) follows the caller's string into
+    # bind without seeing that check; a fresh value ends that trail. The text is the same.
+    address = str(ipaddress.IPv4Address(host))
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as chk:
             chk.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            chk.bind((host, port))
+            chk.bind((address, port))
         return True
     except Exception:
         return False
@@ -931,8 +935,9 @@ def printLog(log: str, data: Any = None) -> None:
 
 # High-rate pointer data and private captions are IPC only. Final transcript
 # persistence is handled by the explicitly enabled message logger, not this
-# always-on process diagnostic log.
-_UNLOGGED_ENDPOINTS = {"/run/vr_panel_pointer", "/run/realtime_caption", "/run/word_filter"}
+# always-on process diagnostic log. The flow panel's traces (/run/io_trace) carry
+# the message and its translation and stay in memory (docs/spec/use-cases.md UC-16).
+_UNLOGGED_ENDPOINTS = {"/run/vr_panel_pointer", "/run/realtime_caption", "/run/word_filter", "/run/io_trace"}
 
 # State the UI polls every 0.5-1 s (src-ui/logics/useReceiveRoutes.js). Logging
 # each request, result and response added about 12 MB an hour to process.log

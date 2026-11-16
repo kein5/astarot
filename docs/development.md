@@ -1,26 +1,55 @@
 # VRCT-VOXの開発
 
-開発用の入口は `python tools/dev.py` です。環境の診断、依存関係の準備、対象を選んだ検証を同じCLIから実行します。CLI自体はPython 3.11以降の標準ライブラリだけで動きます。
+開発に使うツールの版はリポジトリの直下にある `mise.toml` で固定しています。よく使う手順も [mise](https://mise.jdx.dev/) のタスクにしてあります。
 
 ```sh
-python tools/dev.py doctor
-python tools/dev.py setup --scope headless --dry-run
-python tools/dev.py setup --scope headless
-python tools/dev.py setup --scope ui
-python tools/dev.py check
+mise install                 # mise.tomlの版のNode、Rust、Python、uv、Cocogittoを入れる
+mise tasks                   # タスクの一覧
+mise run doctor              # 足りないツールや依存を表示する
+mise run setup:headless      # モデルなしの試験に使うPythonの依存を入れる
+mise run setup:ui            # UIの依存を入れる
+mise run check               # 軽量チェック
 ```
 
-`doctor` は不足を表示します。`setup` は指定した依存関係を導入します。`check` の既定値は `quick` で、開発CLIの試験、Nodeの試験、Ruffを実行します。詳しいコマンドは各サブコマンドの `--help` で確認できます。Linuxで `python` がない場合は `python3`、WindowsではPython 3.11以降の `py` でも起動できます。
+タスクの中身は `python tools/dev.py` などの既存のCLIです。miseはその前に固定した版のツールをPATHの先頭に置きます。追加の引数はタスク名の後ろに書きます（`mise run check:voice --dry-run` など）。miseを使わずに `python tools/dev.py` を直接呼んでもかまいません。そのときは、PATHにあるツールの版を自分で合わせます。
 
-機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）はコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `python tools/spec_catalog.py --write` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
+`doctor` は不足を表示します。`setup` は指定した依存関係を導入します。`check` の既定値は `quick` で、開発CLIの試験、Nodeの試験、Ruffを実行します。詳しいコマンドは各サブコマンドの `--help` で確認できます。開発CLI自体はPython 3.11以降の標準ライブラリだけで動きます。
 
-npmからも `npm run doctor`、`npm run check`、`npm run check:all`、`npm run test:voice`、`npm run test:ui` を使えます。準備は `npm run setup:headless` と `npm run setup:browser`、コミット検証は `npm run check:commits -- --base origin/develop` です。追加オプションはnpmの `--` の後ろに渡します。`npm run dev:web` はWeb UIの開発サーバーを起動する別コマンドで、検証には含めません。
+| タスク | 中身 |
+| --- | --- |
+| `doctor` | `python tools/dev.py doctor` |
+| `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
+| `check:voice`、`check:ui`、`check:backend`、`check:rust` | `python tools/dev.py check --scope <名前>` |
+| `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
+| `setup:headless`、`setup:ui`、`setup:browser`、`setup:backend`、`setup:rust`、`setup:sidecar` | `python tools/dev.py setup --scope <名前>` |
+| `setup:app` | アプリのPython環境を `uv.lock` に合わせる。Windowsは `bat\install.bat`（`.venv` と `.venv_cuda`）、Linuxは `.venv_linux` |
+| `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
+| `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
+| `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
+| `changelog:print` | 次のリリースの変更を、書き込まずに表示する |
+| `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
+
+機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）はコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
+
+npmのスクリプト（`npm run doctor`、`npm run check` など）も当面は残します。中身は同じ `tools/dev.py` ですが、miseを通らないので、PATHにあるツールの版で動きます。アプリの起動（`npm run dev-fast` など）とWindowsの配布物のビルド（`npm run release`）は、今までどおりnpmのスクリプトです。miseを有効にしたシェル（`mise activate`）から呼ぶと、固定した版で動きます。
 
 ## 用意するツール
 
-モデルなしの試験にはPython 3.11とuv、UIにはNode.jsとnpmが必要です。Rustを検証するときはRust/Cargo、コミット形式を検証するときはCocogittoも使います。CIのNode基準は22.15.0です。開発CLIはNode 22以降を受け付けます。uv 0.13.5、Cocogitto 7.0.0でコマンドを確認しています。
+miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、リポジトリで一度 `mise trust` と `mise install` を実行します。`mise.toml` の版のツールがmiseの保存先に入ります。OSに入っている同じツールは変更しません。
 
-不足するツールは各公式手順から用意してください。`setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、Python 3.11が見つからない場合は先に用意します。
+| ツール | 版 | 補足 |
+| --- | --- | --- |
+| Node.js | 22.15.0 | npmはNodeに付属するもの |
+| Rust | 1.100.0 | rustupを通して入れる（profileはminimal、clippyとrustfmtを追加）。`rust-toolchain.toml` は置かない |
+| Python | 3.11.18 | `pyproject.toml` の `requires-python`（3.11）に合わせる。配布物のバックエンドもこのPythonから作る |
+| uv | 0.13.5 | |
+| Cocogitto | 7.0.0 | コマンド名は `cog` |
+
+版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
+
+uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。`mise.toml` の `[env]` にはuvの設定を置いていません。miseが起動したプログラムにはこの環境変数が引き継がれ、開発起動したアプリがSeed-VCの実行環境を入れるときのuv（自分でPythonを取得する必要がある）まで変えてしまうからです。
+
+`setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、miseを使わない場合は、Python 3.11を先に用意します。miseを使わない場合の各ツールの公式手順は次のとおりです。
 
 | ツール | 公式手順 |
 | --- | --- |
@@ -51,7 +80,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 
 `setup --scope ui` は既存の `node_modules` をnpmの仕様どおり作り直します。package.jsonとpackage-lock.jsonに不一致があれば失敗し、lockを更新しません。[npm ciの仕様](https://docs.npmjs.com/cli/v11/commands/npm-ci)を参照してください。
 
-Windowsでも `headless`、`ui`、`browser`、`rust` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。Windowsの全体セットアップは `npm run setup-python` です。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
+Windowsでも `headless`、`ui`、`browser`、`rust` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。Windowsの全体セットアップは `mise run setup:app`（`npm run setup-python` と同じbat）です。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
 
 ### Tauri開発用sidecarを準備する
 
@@ -64,7 +93,7 @@ python tools/dev.py doctor --scope rust
 python tools/dev.py check --scope rust
 ```
 
-`rustc -vV` でhost tripleを調べ、既存の `utils/dev_sidecar/src/main.rs` を `rustc --edition=2021` でコンパイルします。外部crateの取得はありません。出力は `src-tauri/bin/vrct-vox-sidecar-<host triple>` です。既存のAppImageビルドは別workspaceを使うため、この開発用出力を用意していなくても成功することがあります。
+`rustc -vV` でhost tripleを調べ、既存の `utils/dev_sidecar/src/main.rs` を `rustc --edition=2024` でコンパイルします。外部crateの取得はありません。出力は `src-tauri/bin/vrct-vox-sidecar-<host triple>` です。既存のAppImageビルドは別workspaceを使うため、この開発用出力を用意していなくても成功することがあります。
 
 出力が未存在なら新規作成します。既存ファイルを置き換えられるのは、このCLIの `.dev-owner.json` と現在のバイナリのSHA-256が一致する場合だけです。不明な既存バイナリ、変更されたハッシュ、出力先のシンボリックリンクは拒否します。コンパイルは同じファイルシステムの一時ディレクトリで行い、成功後に `os.replace` で配布します。コンパイル失敗時は元のバイナリと所有記録を保持します。
 
@@ -173,7 +202,9 @@ CLIは指定refとHEADの共通祖先を求め、その後のコミットだけ�
 
 ## CIでの利用と再現性
 
-CIでは準備と検証を分けます。例えば、既存CIで依存を導入した後は次のように同じコマンドを呼べます。WindowsではPython実行ファイルを `.venv\Scripts\python.exe` に変更します。
+CIのワークフローはNode、Rust、Python、uv、Cocogittoを `jdx/mise-action`（コミットSHAで固定）で入れます。版は `mise.toml`、取得するファイルとSHA-256は `mise.lock` から読むので、開発者の手元と同じ版になります。ジョブごとに必要なツールだけを `install_args` で選びます。uvを使うジョブは `UV_PYTHON_PREFERENCE=only-system` と `UV_PYTHON_DOWNLOADS=never` を付け、miseのPythonを使わせて、uvが別のPythonを取得しないようにします。署名の秘密情報を扱う `prepare-release.yml` では、書き込みのできるトークンをmise-actionに渡さず、キャッシュも使いません。
+
+CIでは準備と検証を分けます。例えば、依存を導入した後は次のように同じコマンドを呼べます。WindowsではPython実行ファイルを `.venv\Scripts\python.exe` に変更します。
 
 ```sh
 python tools/dev.py check --scope tooling
@@ -190,8 +221,16 @@ python tools/dev.py check --scope commits --base origin/develop
 検証済みの音声基盤はPipeWire 1.6.10とWirePlumber 0.5.18です。Ubuntu 24.04標準のAPIではcaptureをコンパイルできません。[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の隔離セットアップは、固定ハッシュの公式ソースから必要な版を作ります。ホストの音声サービスは変更しません。Python用の `setup --scope headless` とは別の明示操作です。
 
 ```sh
-python tools/build_voice_gate.py
-python tools/dev.py check --scope voice
+mise run build:voice-gate
+mise run check:voice
 ```
 
-npm、Cargo、Pythonはそれぞれ `package-lock.json`、`Cargo.lock`、`uv.lock` を使います。Pythonの検証対象はロックにある配布アーカイブとGitのcommitです。ソースビルド時に隔離環境へ追加されるビルド依存や、Python本体のpatch版、Rust、OSライブラリはこのCLIでは固定しません。同じビット列の配布物や全機種での動作を保証するものではありません。検証記録には `doctor --json` の結果、実行scope、commit、OSを併記します。
+ソースから起動したアプリでRVCを使うときは、RVCのワーカーも `build/` にビルドします（Rustが必要です。WindowsとLinuxのどちらでも同じです）。ワーカーはONNX Runtimeを持たず、アプリが同意のうえで取得した実行環境から読み込むので、このビルドは何もダウンロードしません。配布物のビルド（`tools/build_linux.py`、`bat/build.bat`）はこれを自動で実行します。
+
+```sh
+mise run build:rvc-worker
+```
+
+`native/rvc-runtime` 自体の試験（`cargo test`）は、ビルド時に `ort` がONNX Runtimeを取得します。手順は[クレートのREADME](../native/rvc-runtime/README.md)にあります。
+
+npm、Cargo、Pythonの依存はそれぞれ `package-lock.json`、`Cargo.lock`、`uv.lock` を使います。Pythonの検証対象はロックにある配布アーカイブとGitのcommitです。Node、Rust、Python本体、uv、Cocogittoの版は `mise.toml` で固定します。ソースビルド時に隔離環境へ追加されるビルド依存とOSライブラリは固定しません。同じビット列の配布物や全機種での動作を保証するものではありません。検証記録には `doctor --json` の結果、実行scope、commit、OSを併記します。

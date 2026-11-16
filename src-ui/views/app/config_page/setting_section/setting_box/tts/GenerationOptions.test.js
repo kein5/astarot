@@ -64,7 +64,7 @@ test("TTS form supplies an existing error ID to both language groups", async () 
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: s.draft }) },
         "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions },
         "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {} },
-        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" },
+        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" },
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
         "./StatusLine": { StatusLine: "status" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
@@ -88,7 +88,7 @@ for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric 
         "../../../../../../logics/voice/routeState": routeState,
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ directState: { settings: draft }, directSources: {},
             settings: { routing: "managed" }, route: {}, send: () => {}, setDirectDraftBlocked: () => {} }), sourceKey: value => value },
-        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route", VoiceRouteControls: "controls" },
+        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route", VoiceRouteControls: "controls" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" },
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
         "./ModelDownloads": { ModelDownloads: "downloads" }, "./VcRuntimeSetup": { VcRuntimeSetup: "runtime" }, "./StatusLine": { StatusLine: "status" },
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },
@@ -98,6 +98,7 @@ for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric 
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
         "../../../../../../logics/common/fileDrop": { extensionOf: path => path.slice(path.lastIndexOf(".")).toLowerCase() },
+        "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
     });
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });
     const alert = find(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers");

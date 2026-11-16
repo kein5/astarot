@@ -19,9 +19,16 @@ def test_health_accepts_only_fresh_complete_typed_state():
     assert validate_health(frame)['converted_blocks'] == 12
 
 
+def test_health_says_where_rvc_converts_and_its_delay():
+    frame = message(active=True, requested=True, state='converted', device='cpu', latency_ms=1183)
+    state = validate_health(frame)
+    assert (state['device'], state['latency_ms']) == ('cpu', 1183)
+
+
 @pytest.mark.parametrize('change', [dict(active=1), dict(converted_blocks=True),
     dict(converted_blocks=-1), dict(state='unknown'), dict(error='/private/file'),
-    dict(error='vc_'+'x'*100)])
+    dict(error='vc_'+'x'*100), dict(device='npu'), dict(device=True), dict(latency_ms=-1),
+    dict(latency_ms=1.5), dict(latency_ms=True), dict(latency_ms=60_001)])
 def test_bad_health_rejected(change):
     with pytest.raises(ValueError):
         validate_health(message(**change))

@@ -6,7 +6,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（127件）
+## config.jsonに保存するキー（130件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -48,6 +48,7 @@
 | `OVERLAY_SMALL_LOG_SETTINGS` | 検証 _overlay_small_validator | `{'x_pos': 0.0, 'y_pos': 0.0, 'z_pos': 0.0, 'x_rotation': 0.0, 'y_rotation': 0.0, 'z_rot…` | 2秒後にまとめて |
 | `OVERLAY_LARGE_LOG_SETTINGS` | 検証 _overlay_large_validator | `{'x_pos': 0.0, 'y_pos': 0.0, 'z_pos': 0.0, 'x_rotation': 0.0, 'y_rotation': 0.0, 'z_rot…` | 2秒後にまとめて |
 | `OVERLAY_DESKTOP_SETTINGS` | 検証 _overlay_desktop_validator | `{'position': 'bottom', 'font_size': 28, 'display_duration': 6, 'opacity': 0.6}` | 2秒後にまとめて |
+| `OVERLAY_DESKTOP_PLACEMENT` | 検証 _overlay_desktop_placement_validator | `{'x': None, 'y': None}` | 2秒後にまとめて |
 | `IO_FLOW_OVERLAY_SETTINGS` | 検証 _io_flow_overlay_validator | `{'desktop': False, 'count': 1}` | 2秒後にまとめて |
 | `OVERLAY_VR_PANEL_SETTINGS` | 検証 _make_overlay_vr_window_validator('OVERLAY_VR_PANEL_SETTINGS') | `{'width': 900, 'height': 700, 'x_pos': 0.5209, 'y_pos': 0.6442, 'z_pos': -0.9509, 'x_ro…` | 2秒後にまとめて |
 | `OVERLAY_VR_LAUNCHER_SETTINGS` | 検証 _make_overlay_vr_window_validator('OVERLAY_VR_LAUNCHER_SETTINGS') | `dict(DEFAULT_OVERLAY_VR_LAUNCHER_SETTINGS)` | 2秒後にまとめて |
@@ -61,6 +62,7 @@
 | `OSC_IP_ADDRESS` | str | `'127.0.0.1'` | 2秒後にまとめて |
 | `OSC_PORT` | int、許可値 lambda v, inst: isValidPort(v) | `9000` | 2秒後にまとめて |
 | `AUTO_CLEAR_MESSAGE_BOX` | bool | `True` | 2秒後にまとめて |
+| `CHECK_SOFTWARE_UPDATES` | bool | `True` | 2秒後にまとめて |
 | `SEND_ONLY_TRANSLATED_MESSAGES` | bool | `False` | 2秒後にまとめて |
 | `OVERLAY_SMALL_LOG` | bool | `False` | 2秒後にまとめて |
 | `OVERLAY_LARGE_LOG` | bool | `False` | 2秒後にまとめて |
@@ -101,6 +103,7 @@
 | `CTRANSLATE2_LICENSE_NOTICE_SHOWN` | bool | `False` | 2秒後にまとめて |
 | `LOCAL_ASR_MIGRATION` | int、許可値 lambda v, inst: not isinstance(v, bool) and 0 <= v <= LOCAL_ASR_MIGRATION_LATEST | `LOCAL_ASR_MIGRATION_LATEST` | 2秒後にまとめて |
 | `LOCAL_ASR_NOTICE_PENDING` | bool | `False` | 2秒後にまとめて |
+| `VIRTUAL_MIC_NOTICE_PENDING` | bool | `True` | 2秒後にまとめて |
 | `SELECTED_PLAMO_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_GEMINI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_OPENAI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_OPENAI_MODEL_LIST') | `None` | 2秒後にまとめて |
@@ -145,7 +148,7 @@
 
 | キー | 型・検証 | 既定値 | 扱い |
 |---|---|---|---|
-| `VERSION` |  | `'0.3.0'` | 読み取り専用 |
+| `VERSION` |  | `'0.4.0'` | 読み取り専用 |
 | `PATH_LOCAL` |  | `os_path.dirname(sys.executable)` | 読み取り専用 |
 | `PATH_DATA` |  | `str(data_root(self._PATH_LOCAL))` | 読み取り専用 |
 | `PATH_CONFIG` |  | `os_path.join(state_dir, 'config.json')` | 読み取り専用 |

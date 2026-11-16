@@ -76,7 +76,7 @@ export const TranslatorSelectorOpenButton = () => {
             <div className={styles.translator_selector_button} onClick={openTranslatorSelector}
                 role="button" tabIndex={0} aria-expanded={currentIsOpenedTranslatorSelector.data === true} onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; openTranslatorSelector(); } }}>
                 <p className={styles.label}>{t("main_page.translator")}:</p>
-                <p className={styles.label}>{selected_label}</p>
+                <p className={styles.label} data-skeleton="">{selected_label}</p>
                 {is_selected_same_language
                     ? <WarningSvg className={styles.warning_svg}/>
                     : null

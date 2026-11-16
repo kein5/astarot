@@ -70,8 +70,8 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
             {/* A button so the selector also opens from the keyboard. */}
             <button type="button" className={styles.dropdown_menu_container} onClick={toggleSelector}
                 aria-label={country_text ? `${title}: ${language_text} (${country_text})` : `${title}: ${language_text}`} aria-expanded={is_opened}>
-                <span className={styles.selected_language}>{language_text}</span>
-                {country_text && <span className={styles.selected_language}>({country_text})</span>}
+                <span className={styles.selected_language} data-skeleton="">{language_text}</span>
+                {country_text && <span className={styles.selected_language} data-skeleton="">({country_text})</span>}
                 <ArrowLeftSvg className={arrow_class_names} aria-hidden="true" />
             </button>
         </div>

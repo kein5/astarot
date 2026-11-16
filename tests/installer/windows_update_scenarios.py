@@ -199,10 +199,10 @@ def prepare(port):
         path.write_bytes(data)
 
 
-def installer_command(installer, directory, version, silent=True):
+def installer_command(installer, directory, version, silent=True, extra=""):
     # NSIS requires /D last, without quotes even when its value contains spaces.
     flags = "/S " if silent else ""
-    return f'"{installer}" {flags}/NS /UILANG=en /VERSION={version} /D={directory}'
+    return f'"{installer}" {flags}/NS /UILANG=en /VERSION={version} {extra}/D={directory}'
 
 
 def installer_environment(temp):
@@ -210,8 +210,8 @@ def installer_environment(temp):
     return dict(os.environ, TEMP=str(temp), TMP=str(temp))
 
 
-def run_install(installer, directory, version, temp, success):
-    result = subprocess.run(installer_command(installer, directory, version),
+def run_install(installer, directory, version, temp, success, extra=""):
+    result = subprocess.run(installer_command(installer, directory, version, extra=extra),
                             env=installer_environment(temp), timeout=180, check=False)
     assert result.returncode == (0 if success else 2), f"{version}: exit {result.returncode}"
     assert not list(temp.glob(PACKAGE + ".p*")), "Background transfer fragments remain"
@@ -317,6 +317,14 @@ def silent_scenarios(installer, work, server):
     run_install(installer, updated, "new", work / "temp-success", True)
     expect_updated(updated, before)
     print("PASS update success and user data retention", flush=True)
+
+    # The in-app updater (src-tauri/src/app_update.rs) adds /UPDATE and the edition. The app's
+    # language setting stays: no installer_language.txt for the app to apply at start.
+    directory = clone("in-app update")
+    (directory / "installer_language.txt").unlink()
+    run_install(installer, directory, "new", work / "temp-in-app", True, extra="/UPDATE /EDITION=cpu ")
+    expect_updated(directory, {k: v for k, v in before.items() if k != "installer_language.txt"})
+    print("PASS in-app update keeps the language setting", flush=True)
 
     # The installer's own version: the package is checked against the built-in hash, and the
     # .sha256 file next to it is not even fetched.

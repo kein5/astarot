@@ -1,7 +1,7 @@
 # Linux build pipeline
 
 `tools/build_linux.py` builds an x86_64 candidate: frozen Python sidecar,
-Tauri frontend, four C audio helpers and pinned speech.cpp 0.10.0 CPU or Vulkan.
+Tauri frontend, four C audio helpers and pinned speech.cpp 0.11.0 CPU or Vulkan.
 The default output is a `tar.gz`, SHA-256 sidecar and JSON file inventory. Use tar with symlink
 preservation; copying only the executable or flattening `_internal` is unsupported.
 Add `--appimage --download-appimage-tools` for an additional inspected AppImage;
@@ -29,7 +29,10 @@ are candidates from this workflow, published through the
 
 ## Build locally
 
-Use Linux x86_64, Python 3.11 via uv, Node/npm, Rust/Cargo, a C compiler and pkg-config.
+Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python 3.11 and uv come from
+`mise install` at the versions pinned in `mise.toml`, the same versions the workflow uses.
+Run the build from a shell where mise is active (`mise activate`), or through
+`mise run build:linux -- <options>`, so that uv freezes the backend from mise's Python.
 Ubuntu build/runtime prerequisites (see the workflow for GUI-test dependencies):
 
 ```sh
@@ -60,7 +63,7 @@ before emitting PCM; compile-time checks give an explicit dependency error. This
 does not relax timestamp/discontinuity checks or validate every newer release.
 
 `--download-speech` authorizes acquisition of **only the pinned engine executable**.
-Alternatively use `--speech-archive /absolute/path/speech-0.10.0-linux-x64-vulkan.zip`;
+Alternatively use `--speech-archive /absolute/path/speech-0.11.0-linux-x64-vulkan.zip`;
 the archive and executable hashes are checked against `speechcpp-bundle-artifacts.json`.
 Choose `--variant linux-x64-cpu` with the corresponding CPU archive for CPU builds.
 `--offline` requires uv, npm and Cargo caches to be populated. No engine models or
@@ -75,15 +78,16 @@ against its SHA-256 hashes; a mismatch aborts the build. Before invoking uv,
 have a SHA-256 hash, and each Git source must have matching full 40-character commit
 SHAs in its requested revision and resolved commit. Missing/malformed hashes,
 unpinned Git sources and local path dependencies stop the build, even on a cache hit.
-Only the uninstalled virtual root project is exempt. This uses the existing uv 0.13.5
-toolchain and keeps the same project, `dev` and `linux-build` dependency set.
+Only the uninstalled virtual root project is exempt. This uses the uv pinned in
+`mise.toml` and keeps the same project, `dev` and `linux-build` dependency set.
 
 The builder also uses `npm ci --ignore-scripts` and builds Cargo with `--locked` in a copied workspace.
 It does not replace `src-tauri/bin` or reuse its development Python wrapper.
 Hash verification covers the locked distribution archives; Git sources are verified
 by commit rather than archive hashes. Extra dependencies fetched by isolated source
 build backends are outside `uv.lock`. This is **not** a claim of bit-for-bit reproducible builds.
-Rust, system libraries and actual ELF version requirements remain host dependent.
+The Rust, Node, Python and uv versions are pinned in `mise.toml`; system libraries and
+actual ELF version requirements remain host dependent.
 The inventory records the build commit, tracked dirty state, host, hashes and ELF versions.
 
 Default outputs:
@@ -156,6 +160,11 @@ These are path/type checks, not a detector for deliberately renamed weights.
 Original licenses and notices are retained. Available Python package notices and
 the environment inventory are in `_internal/licenses/python` and
 `_internal/python-environment.json`; some packages do not supply license text.
+The Rust crates built into `vrct-vox` and `vrct-rvc-worker` are listed with their
+license texts in `_internal/licenses/rust/` (`tools/rust_licenses.py`, which needs
+the Cargo registry sources, so `--offline` builds need them cached). The build
+stops if a crate publishes no license text and has no reviewed entry in
+`licenses/rust/supplements.json`.
 The two Silero v5 VAD ONNX files are shipped as part of the app
 (`models/transcription/silero_vad/`, MIT, notices in `licenses/silero-vad/`); they
 are not speech.cpp/RVC/Seed-VC models. faster-whisper, which used to carry them, is
@@ -182,5 +191,3 @@ attribution audit. OCR weights are excluded regardless.
 - [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux) define the
   native WebKitGTK build boundary; [official WebDriver CI](https://v2.tauri.app/develop/tests/webdriver/ci/)
   uses a virtual display on Linux.
-- Local imozuru source map/log: `tmp/voice-resume/research/linux-build-pipeline/`.
-  Behavioral evidence and unresolved platform limits are recorded separately from documentation claims.

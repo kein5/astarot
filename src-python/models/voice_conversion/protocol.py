@@ -38,11 +38,25 @@ def _same(actual, expected):
             and all(type(actual[k]) is type(v) and actual[k] == v for k, v in expected.items()))
 
 
-def ready_info(session, *, engine='seed-vc'):
+# RVC converts on the GPU ('low', as before) or on the CPU ('cpu', with a larger delay).
+RVC_PROFILES = ('low', 'cpu')
+MAX_LATENCY_MS = 10_000
+
+
+def ready_info(session, *, engine='seed-vc', profile='low', latency_ms=0):
+    """RVC's ready packet also says where it converts and the delay it adds (ms) between
+    a sample in and its converted counterpart out, beyond the 80 ms block and the round
+    trip. Seed-VC's packet has neither and stays as it was."""
     if engine not in ('seed-vc', 'rvc'):
         raise ProtocolError('vc_engine_invalid')
-    return dict(type='ready', protocol=1, session=_session(session), engine=engine,
+    info = dict(type='ready', protocol=1, session=_session(session), engine=engine,
                 profile='low', rate=RATE, channels=1, block_frames=FRAMES)
+    if engine == 'rvc':
+        if (profile not in RVC_PROFILES or type(latency_ms) is not int
+                or not 0 <= latency_ms <= MAX_LATENCY_MS):
+            raise ProtocolError('vc_ready_invalid')
+        info.update(profile=profile, latency_ms=latency_ms)
+    return info
 
 
 def input_info(session, sequence, start_ns):
@@ -57,7 +71,12 @@ def input_info(session, sequence, start_ns):
 # of reporting a worker that ended. Nothing the worker writes is shown beyond these codes.
 WORKER_FAILURES = frozenset((
     'vc_gpu_unavailable', 'vc_model_missing', 'vc_runtime_version_unsupported',
-    'vc_checkpoint_incomplete', 'vc_index_failed', 'vc_engine_format_invalid'))
+    'vc_checkpoint_incomplete', 'vc_index_failed', 'vc_engine_format_invalid', 'vc_runtime_incomplete'))
+
+
+# Why a running worker stops, instead of answering a block: only "cannot keep up" (the RVC
+# worker on the CPU, which answers at once and so is never late itself).
+RUN_FAILURES = frozenset(('vc_capture_overrun',))
 
 
 def failed_info(session, code):
@@ -67,13 +86,27 @@ def failed_info(session, code):
 
 
 def require_ready(info, pcm, session, *, engine='seed-vc'):
+    """The worker's ready packet, or its failure as a ProtocolError. Returns where it
+    converts ('gpu', 'cpu', or None for Seed-VC, which says nothing) and its delay in ms."""
     if isinstance(info, dict) and info.get('type') == 'failed':
         code = info.get('code')
         if not pcm and code in WORKER_FAILURES and _same(info, dict(failed_info(session, code), pcm_bytes=0)):
             raise ProtocolError(code)
         raise ProtocolError('vc_ready_invalid')
-    if pcm or not _same(info, dict(ready_info(session, engine=engine), pcm_bytes=0)):
+    if pcm or not isinstance(info, dict):
         raise ProtocolError('vc_ready_invalid')
+    if engine == 'rvc':
+        profile, latency_ms = info.get('profile'), info.get('latency_ms')
+        try:
+            expected = ready_info(session, engine=engine, profile=profile, latency_ms=latency_ms)
+        except ProtocolError:
+            raise ProtocolError('vc_ready_invalid') from None
+        if not _same(info, dict(expected, pcm_bytes=0)):
+            raise ProtocolError('vc_ready_invalid')
+        return ('gpu' if profile == 'low' else 'cpu'), latency_ms
+    if not _same(info, dict(ready_info(session, engine=engine), pcm_bytes=0)):
+        raise ProtocolError('vc_ready_invalid')
+    return None, None
 
 
 def require_fresh(end_ns, now_ns):
@@ -92,6 +125,12 @@ def require_input(info, pcm, session, sequence, now_ns):
 
 
 def require_output(info, pcm, source, original, now_ns):
+    if isinstance(info, dict) and info.get('type') == 'failed':
+        code = info.get('code')
+        expected = dict(type='failed', protocol=1, session=_session(source['session']), code=code, pcm_bytes=0)
+        if not pcm and code in RUN_FAILURES and _same(info, expected):
+            raise ProtocolError(code)
+        raise ProtocolError('vc_output_invalid')
     require_input(source, original, source['session'], source['sequence'], now_ns)
     state = info.get('state') if isinstance(info, dict) else None
     if (state not in ('converted', 'vad_silence') or len(pcm) != PCM_BYTES

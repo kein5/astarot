@@ -46,6 +46,8 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 `LOCAL_ASR_NOTICE_PENDING`（真偽値、既定は`false`、保存する）は、移行のお知らせをまだ出していないことを表す。真の間、メイン画面は「ローカルの音声認識は speech.cpp に変わりました」のお知らせを出す（`LocalAsrNoticeController.jsx`）。お知らせは、Whisper が含まれなくなりローカル（speech.cpp）へ移したこと、同梱の ASR サーバーには認識モデルと VAD モデルが要ることと、それぞれが`asr`プロファイルに設定済みかどうか、設定でライセンスとサイズを確かめて同意するまで何も取得しないことを伝える。「音声認識（ASR）」の設定を開くボタンがあり、古い Whisper の重みが残っていれば、その合計の容量と、確認してから削除するボタンを出す。閉じる、Escape、設定を開くのどれで閉じても`/set/disable/local_asr_notice`を送り、以後は出さない。UIは`/get/data/local_asr_notice`で状態を読む。
 
+`VIRTUAL_MIC_NOTICE_PENDING`（真偽値、既定は`true`、保存する）は、仮想マイクの案内（#321）を起動時に自分で開いてよいことを表す。Windowsで仮想ケーブルが1つも見つからないときだけ開く。「完了」か「今後は自動で表示しない」で`/set/disable/virtual_mic_notice`を送り、偽にする。偽でも「テキスト読み上げ（TTS）」の設定から開ける。流れは[UC-17](use-cases.md#uc-17-仮想マイクを用意して確かめるwindows)にある。
+
 ### 古い Whisper の重み
 
 以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（`models/transcription/old_whisper_weights.py`の`WHISPER_WEIGHT_NAMES`）。いまの版は読まない。
@@ -245,7 +247,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 | `startup.log` | 同上（Tauri側） | ウィンドウの起動記録 |
 | 会話ログ `YYYY-MM-DD_HH-MM-SS.log` | `PATH_LOGS` | 「会話ログを自動的に保存する」がオンのときだけ。行頭は`[SENT]`、`[RECEIVED]`、`[OCR]`、`[CHAT]`。画面は新しい1,000件しか残さないが、ファイルには古いものも残る |
 | `downloaded_models/<id>/<版>/`と`receipt.json` | `config.json`と同じフォルダ | 取得したモデル。取得中は`.partial-<16進>/` |
-| `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCとSeed-VCの実行環境（WindowsとLinux）。`.steps.json`に終わった手順、`setup.log`に`uv`の出力を残す。`.uv-<版>/`に取得用の`uv`を置く |
+| `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCとSeed-VCの実行環境（WindowsとLinux）。`.steps.json`に終わった手順、`setup.log`に`uv`とワーカーの確認の出力を残す。`.uv-<版>/`に取得用の`uv`を置く（Seed-VC）。RVCは`lib/`（ONNX Runtime。GPU用はCUDA 13とcuDNNのライブラリも）と`assets/`だけで、取得中は`lib.part/`と`downloads/`を使う。RVCの取得が終わると、同じフォルダーにある以前のPyTorch形式の`venv/`、`python/`、`engine/`（中のモデルと音声のファイルは残す）、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`を削除する |
 | weights/whisper/… | PATH_DATA | 以前の版が取得した Whisper の重み。いまの版は読まず、取得もしない。利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](#古い-whisper-の重み)） |
 | weights/ctranslate2/… | PATH_DATA | 内蔵の翻訳モデルと検証記録。取得も既存ファイルの利用もbuiltin_model_pins.pyの全容量・SHA-256を照合する。tokenizerも同じ一式に含む。検証記録はschema=2、repo・revision・全ファイルpinのSHA-256識別値、各ファイルのsize・mtime_ns・ctime_ns・device・inode。古い記録は無効。不一致の既存ファイルは残し、同意済みの再取得に成功した場合だけ既存一式を`.preserved-<weight>-<uuid>`へ移してから新しい一式を公開する |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |

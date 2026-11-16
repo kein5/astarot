@@ -109,6 +109,41 @@ class TestReadiness(_Base):
         self.assertEqual((result["detector_installed"], result["detector_enabled"]), (True, False))
 
 
+class TestModelReadiness(_Base):
+    """The main screen's chat reading switch: files only, collected at start-up."""
+
+    def test_reports_missing_models_without_probing_the_window_or_the_engine(self) -> None:
+        config.OCR_SOURCE_LANGUAGE = "Korean"
+        with patch("controller.ocr_capture.probeCapture") as probe, \
+                patch("controller.ocr_engine.isAvailable") as engine, \
+                patch("controller.ocr_models.missingModels", return_value=["ppocrv5-korean"]) as missing:
+            result = self.controller.getOcrModelReadiness()["result"]
+        probe.assert_not_called()
+        engine.assert_not_called()
+        self.assertEqual(missing.call_args.args[0], Path("/tmp/vrct-test-models"))
+        self.assertEqual(result, {"language": "Korean", "language_supported": True,
+                                  "required_models": ["ppocrv6-small", "ppocrv5-korean"],
+                                  "missing_models": ["ppocrv5-korean"]})
+
+    def test_matches_the_full_readiness(self) -> None:
+        config.OCR_SOURCE_LANGUAGE = "auto"
+        with patch("controller.ocr_capture.probeCapture", return_value=CAPTURE_OK), \
+                patch("controller.ocr_models.missingModels", return_value=[]):
+            full = self.controller.getOcrReadiness()["result"]
+            models = self.controller.getOcrModelReadiness()["result"]
+        self.assertEqual(models, {key: full[key] for key in models})
+
+    def test_unsupported_language_needs_no_models(self) -> None:
+        with patch("controller.ocr_languages.resolveModelSpec", return_value=None):
+            result = self.controller.getOcrModelReadiness()["result"]
+        self.assertEqual((result["language_supported"], result["required_models"], result["missing_models"]),
+                         (False, [], []))
+
+    def test_is_routed_and_collected_at_startup(self) -> None:
+        source = (Path(__file__).resolve().parents[1] / "mainloop.py").read_text(encoding="utf-8")
+        self.assertIn('"/get/data/ocr_model_readiness": {"status": True, "variable":controller.getOcrModelReadiness}', source)
+
+
 class TestStartUsesDownloads(_Base):
     def test_model_root_is_the_download_root(self) -> None:
         config.ENABLE_OCR_CAPTURE = False

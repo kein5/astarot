@@ -1,0 +1,50 @@
+// The virtual microphone guide (#321): one section per step, a test button beside its
+// level meter, and the outcome under them.
+.step {
+    margin: 1.6rem 0 0;
+    h4 { margin: 0 0 .8rem; font-size: 1.4rem; }
+    p { margin: 0 0 .8rem; }
+    ol, ul { margin: 0 0 .8rem; padding-left: 2.2rem; }
+    li { margin-bottom: .4rem; }
+}
+.note { font-size: 1.25rem; color: var(--vox_secondary_text, #adbed6); }
+.searching { font-size: 1.3rem; }
+.choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .8rem;
+    align-items: center;
+    margin-bottom: .8rem;
+    select { min-width: 0; max-width: 100%; }
+}
+.meter_row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    align-items: center;
+    margin: .4rem 0 .8rem;
+    button { margin: 0; }
+}
+// Drawn with a transform, not the meter element: WebView2 and WebKitGTK style <meter> apart.
+.meter {
+    flex: 1 1 12rem;
+    min-width: 8rem;
+    height: 1rem;
+    border-radius: .5rem;
+    overflow: hidden;
+    background: var(--dark_825_color);
+    outline: .1rem solid var(--dark_600_color, #555d69);
+}
+.meter_fill {
+    height: 100%;
+    background: var(--primary_500_color);
+    transform-origin: left center;
+    transition: transform var(--vox_motion_fast) linear;
+    @media (prefers-reduced-motion: reduce) { transition: none; }
+}
+.heard { color: var(--vox_state_active, #80acff); }
+.failed {
+    color: var(--dark_200_color);
+    p { margin: 0 0 .4rem; }
+    ul { margin: 0; }
+}

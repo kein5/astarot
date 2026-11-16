@@ -1,7 +1,7 @@
 {
     "$schema": "https://schema.tauri.app/config/2",
     "productName": "VRCT-VOX",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "identifier": "io.github.kein5.vrct-vox",
     "build": {
         "beforeDevCommand": "",
@@ -15,8 +15,8 @@
             {
                 "title": "VRCT-VOX",
                 "center": true,
-                "width": 450,
-                "height": 220,
+                "width": 870,
+                "height": 654,
                 "minWidth": 400,
                 "minHeight": 200,
                 "transparent": true,
@@ -102,5 +102,17 @@
             }
         }
     },
-    "mainBinaryName": "vrct-vox"
+    "mainBinaryName": "vrct-vox",
+    "plugins": {
+        "updater": {
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDExNzg4MzZFNUM5RjUxMEIKUldRTFVaOWNib040RVdueGp0Zyt4WWFEYXoyOUoweDBUL1hRY2YyczNVekoxdnBsc3F1d0o2SVUK",
+            "endpoints": [
+                "https://vrct-vox-updates.kei9d09.workers.dev/latest.json"
+            ],
+            "requireSignedVersion": true,
+            "windows": {
+                "installMode": "passive"
+            }
+        }
+    }
 }

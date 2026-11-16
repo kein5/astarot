@@ -7,6 +7,7 @@ import * as routeState from "../../../logics/voice/routeState.js";
 import { voiceActions } from "../../../logics/voice/voiceActions.js";
 import * as voiceErrorText from "../../../logics/voice/voiceErrorText.js";
 import * as featureLabel from "../../../logics/common/featureLabel.js";
+import * as switchBlocksModule from "../../../logics/main/switchBlocks.js";
 
 const icon = () => null;
 const keydown = (control, key, repeat = false) => {
@@ -14,7 +15,7 @@ const keydown = (control, key, repeat = false) => {
     control.props.onKeyDown({ key, repeat, preventDefault() { prevented = true; } });
     assert.equal(prevented, true);
 };
-const loadSwitches = async (b, voice = {}) => {
+const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false }, starting = false) => {
     const requests = [];
     const main = await loadModule(new URL("../../../logics/main/useMainFunction.js", import.meta.url), b.runtime, {
         "@store": b.stores,
@@ -29,7 +30,10 @@ const loadSwitches = async (b, voice = {}) => {
         "../../../../../logics/voice/routeState": routeState,
         "../../../../../logics/common/featureLabel.js": featureLabel,
         "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
-        "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: false } }) },
+        "../../../../../logics/main/switchBlocks": switchBlocksModule,
+        "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: setup.blocks, prepare: action => setup.prepared?.push(action) }) },
+        "../../startupContext": { useIsStartingUp: () => starting },
+        "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: setup.compact } }) },
         "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
     });
     return { ...switches, ...main, requests };
@@ -137,6 +141,26 @@ test("disconnected main switches hide retained activity and reject clicks, keys 
     assert.deepEqual(sent, []);
 });
 
+test("while the engine starts, the switches are locked placeholders, not disconnected", async () => {
+    const b = await loadBridgeStore(), sent = [];
+    const voice = { status: { tts_generation: 1 }, directState: { observation_id: "one" }, send: endpoint => sent.push(endpoint) };
+    const s = await loadSwitches(b, voice, undefined, true);
+    const starting = b.runtime.render(s.MainFunctionSwitch);
+    for (const item of starting.props.children) {
+        assert.equal(item.props.statusText, null);
+        const control = s.SwitchContainer(item.props);
+        assert.equal(control.props["aria-disabled"], true);
+        assert.equal(control.props["aria-checked"], false);
+        assert.equal(control.props["aria-label"], item.props.switchLabel);
+        assert.equal(find(control, node => node.props.children === "main_page.backend_disconnected"), null);
+        // The toggle's state comes from the engine: a placeholder of the same size until then.
+        assert.equal(find(control, node => node.type === icon).props.skeleton, true);
+        control.props.onClick();
+    }
+    assert.deepEqual(s.requests, []);
+    assert.deepEqual(sent, []);
+});
+
 test("VR main-function actions still use the mirrored transport without owning a child", async () => {
     const b = await loadBridgeStore();
     b.stores.store.is_vr_panel = true;
@@ -197,4 +221,84 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
             }
         }
     }
+});
+
+test("a switch whose setup is missing is disabled, says why, and offers the way to it beside the switch", async () => {
+    const b = await loadBridgeStore(), sent = [], prepared = [];
+    b.stores.store.backend_subprocess = {};
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const voice = { status: { tts_generation: 1 }, directState: {}, send: endpoint => sent.push(endpoint) };
+    const setup = { compact: false, prepared, blocks: {
+        translation: { reason: "translation_model", action: "translation" },
+        ocr: { reason: "ocr_models", action: "ocr_models" },
+        tts: { reason: "tts_source", action: "tts" },
+        transcription_send: { reason: "translation_downloading", action: null },
+    } };
+    const s = await loadSwitches(b, voice, setup);
+    const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
+    const at = id => rows.findIndex(node => node.props.switch_id === id);
+    for (const id of ["translation", "ocr", "tts", "transcription_send"]) {
+        const props = rows[at(id)].props;
+        assert.equal(props.blockedReason, `main_page.switch_blocked.${setup.blocks[id].reason}`);
+        const control = s.SwitchContainer(props), before = s.requests.length + sent.length;
+        assert.equal(control.props["aria-disabled"], true);
+        assert.equal(control.props.title, props.blockedReason);
+        assert.equal(control.props["aria-describedby"], `main_switch_${id}_reason`);
+        // Still in the tab order, so the reason can be heard; pressing does nothing.
+        assert.equal(control.props.tabIndex, 0);
+        control.props.onClick();
+        control.props.onKeyDown({ key: "Enter", preventDefault() {} });
+        assert.equal(s.requests.length + sent.length, before);
+    }
+    // The way to the setup is its own button right after the switch; waiting needs none.
+    const button = id => rows[at(id) + 1]?.type === "button" ? rows[at(id) + 1] : null;
+    assert.equal(button("transcription_send"), null);
+    button("translation").props.onClick();
+    button("ocr").props.onClick();
+    assert.deepEqual(prepared, ["translation", "ocr_models"]);
+    assert.equal(button("translation").props.children, "model_downloads.review");
+    assert.equal(button("tts").props.children, "main_page.switch_blocked.open_settings");
+    // Switches without a block keep working.
+    const free = rows[at("transcription_receive")].props;
+    assert.equal(free.blockedReason, null);
+    assert.equal(s.SwitchContainer(free).props["aria-disabled"], false);
+});
+
+test("a switch that is on stays usable when its setup goes missing, so it can be turned off", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = {};
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    b.runtime.store.set(b.stores.Atom_OcrCaptureStatus, { data: true, state: "ok" });
+    const s = await loadSwitches(b, { status: {}, directState: {} },
+        { compact: false, blocks: { ocr: { reason: "ocr_models", action: "ocr" } } });
+    const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
+    const index = rows.findIndex(node => node.props.switch_id === "ocr");
+    assert.equal(rows[index].props.blockedReason, null);
+    assert.notEqual(rows[index + 1]?.type, "button");
+    const before = s.requests.length;
+    s.SwitchContainer(rows[index].props).props.onClick();
+    assert.deepEqual(s.requests.slice(before), ["/set/disable/ocr_capture"]);
+});
+
+test("in the icon rail a blocked switch names itself in its tooltip and has no button", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = {};
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const s = await loadSwitches(b, { status: {}, directState: {} },
+        { compact: true, blocks: { ocr: { reason: "ocr_models", action: "ocr" } } });
+    const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
+    assert.equal(rows.some(node => node.type === "button"), false);
+    const props = rows.find(node => node.props.switch_id === "ocr").props;
+    assert.equal(s.SwitchContainer(props).props.title, "main_page.ocr: main_page.switch_blocked.ocr_models");
+});
+
+test("while the engine is away no switch is blocked for a missing setup", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = {};
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: false, state: "ok" });
+    const s = await loadSwitches(b, { status: {}, directState: {} },
+        { compact: false, blocks: { ocr: { reason: "ocr_models", action: "ocr" } } });
+    const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
+    assert.equal(rows.some(node => node.type === "button"), false);
+    assert.equal(rows.find(node => node.props.switch_id === "ocr").props.blockedReason, null);
 });

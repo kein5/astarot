@@ -26,7 +26,7 @@ You can read what is sent in the app itself. The notice shown before anything is
 - Before anything is sent, a dialog explains what is sent. Nothing is sent until you choose "Send" or "Don't send". "Decide later" puts the dialog away, and it comes back the next time the app starts.
 - Starting the app with the environment variable `VRCT_TELEMETRY` set to `off` sends nothing, whatever the setting says.
 
-Upstream VRCT's usage reporting (Aptabase telemetry) is not used. Even when an old key file remains, nothing goes to upstream. The in-app updater is also disabled, so the app does not check for updates at startup.
+Upstream VRCT's usage reporting (Aptabase telemetry) is not used. Even when an old key file remains, nothing goes to upstream.
 
 ## What is sent outside
 
@@ -39,6 +39,7 @@ Turning off usage reporting does not make every feature offline. Services you ch
 | Model downloads | Hugging Face | The download request |
 | Sending to the chatbox | VRChat (OSC on this PC) | The text you send |
 | Usage data (can be turned off) | The developers of VRCT-VOX (Cloudflare) | That the app started, the kind of an error, and the PC's hardware |
+| Update check (at start, can be turned off) and update download | The check goes through the developers of VRCT-VOX (Cloudflare) to GitHub; the download comes from GitHub | A request for the latest version and the download. No conversation, voice or settings. Not made by deb or rpm installs |
 
 Local translation models, the bundled speech.cpp servers (speech, local speech recognition and realtime captions) and chat reading run on this PC. The picture of a window you share for chat reading stays on this PC too.
 

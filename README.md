@@ -6,8 +6,7 @@
 </h1>
 
 <!-- Badges read their values from GitHub (Actions, Releases, the repository) or from the files
-     they link to, except License, Platform and Rust toolchain: those follow LICENSE, the release
-     files and the CI workflows' `dtolnay/rust-toolchain … # stable`. Keep docs/readmes/README.ja.md the same. -->
+     they link to, except License and Platform: those follow LICENSE and the release files. Keep docs/readmes/README.ja.md the same. -->
 <p align="center">
   <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="Tests on Linux and Windows (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/voice-tests.yml?branch=develop&event=push&label=tests"></a>
   <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Linux build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
@@ -23,7 +22,7 @@
 <p align="center">
   <a href="https://kein5.github.io/VRCT-VOX/en/guide/requirements"><img alt="Platforms: Windows and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
   <a href="/src-tauri/Cargo.toml"><img alt="Rust edition of the app" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
-  <a href="/.github/workflows/build-linux.yml"><img alt="Rust toolchain: stable" src="https://img.shields.io/badge/Rust%20toolchain-stable-blue"></a>
+  <a href="/mise.toml"><img alt="Rust toolchain pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
   <a href="/pyproject.toml"><img alt="Python version of the backend" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
 </p>
 
@@ -35,10 +34,10 @@ VRCT-VOX is a desktop app for VRChat that combines speech recognition (ASR), tex
 
 - **Translated speech.** Speak your chat input and confirmed translations with [speech.cpp](https://github.com/nyosegawa/speech.cpp) TTS (Irodori for Japanese, Qwen3-TTS for other languages) into a virtual microphone that VRChat uses. Voice output and OSC chat text are configured independently, so you can, for example, keep your own voice while translated speech and text are added.
 - **Hear yourself.** Optionally play the same speech on your own speakers or headphones.
-- **Voice conversion.** Convert your microphone with an external RVC or Seed-VC runtime. On Windows and Linux the app can fetch the runtime for you after showing its license and size; an NVIDIA GPU is required.
+- **Voice conversion.** Convert your microphone with RVC. On Windows and Linux the app fetches its runtime after showing its license and size. It converts on an NVIDIA GPU (GeForce GTX 16 or RTX 20 series or later, driver 580 or later) and otherwise on the CPU, with a longer delay. Seed-VC was removed in 0.4.0.
 - **Realtime captions.** Transcribe your microphone and other players with bundled speech.cpp ASR servers.
 - **Bundled servers.** Save, start and stop speech.cpp servers from the settings.
-- **Model downloads.** Download fixed Irodori, Qwen3-TTS, Haas-ja (Japanese ASR) and RVC models from Hugging Face. Each download asks for consent after showing its license and size. Files are checked by size and SHA-256 and applied separately. GPU/VRAM guidance suggests standard or lighter variants; it is a guide, not a guarantee.
+- **Model downloads.** Download fixed Irodori, Qwen3-TTS, RVC and speech recognition models (every recognizer speech.cpp offers, such as Qwen3-ASR, ReazonSpeech and Haas-ja) from Hugging Face. Each download asks for consent after showing its license and size. Files are checked by size and SHA-256 and applied separately. GPU/VRAM guidance suggests standard or lighter variants; it is a guide, not a guarantee.
 - **Linux desktop.** Global shortcuts on Wayland (XDG portal), a managed PipeWire virtual microphone, PipeWire microphone selection, and Japanese input methods (fcitx/Mozc, ibus) in the AppImage. The VR UI, chat reading from a shared native Wayland window, and pasting in Voice Typing Mode (into X11/XWayland windows) work too.
 
 RVC also needs its runtime, HuBERT and RMVPE. See [model downloads](/docs/voice-stack/model-downloads.md), [voice features on Windows](/docs/voice-stack/local-setup-windows.md) and [the Linux setup notes](/docs/voice-stack/local-setup-linux.md).
@@ -50,7 +49,7 @@ The latest release is on **[GitHub Releases](https://github.com/kein5/VRCT-VOX/r
 - **Linux:** AppImage and tar.gz (x64, Vulkan). These have been tested with real models on CachyOS (KDE Plasma Wayland).
 - **Windows:** installer and zip (CPU), and a CUDA zip. These have been tested with real models on a Windows 11 PC ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
 
-Every file has a `.sha256` and `SHA256SUMS-*` for checking downloads; these are not signatures. The in-app updater is disabled. An AUR package is planned but not submitted.
+Every file has a `.sha256` and `SHA256SUMS-*` for checking downloads; these are not signatures. Installer and AppImage copies update themselves after checking the update's signature; ZIP and tar.gz copies are told about new versions; deb and rpm installs update through the package manager. An AUR package is planned but not submitted.
 
 Known limitations:
 - Chat reading (OCR) needs its models, which are not shipped: download them in Config → Chat Transcribe after agreeing to their terms. On Linux it reads the VRChat window through XWayland. A native Wayland window (VRChat inside gamescope, for example) is read after you share it: Config → Chat Transcribe → "Share a window…" opens your desktop's own window dialog.
@@ -74,7 +73,7 @@ Executables and packages use `vrct-vox` / `VRCT-VOX`, and the application ID is 
 
 VRCT-VOX sends two kinds of usage events to its own receiver unless you turn that off (Settings → Advanced → "Send usage data"): that the app started, once a day, and an error by its fixed code, once a day per code. Each carries the app version, the OS and its version, the display language, and the PC's hardware (CPU, memory, GPUs and their driver versions). The app shows you exactly what it sends ("See what is sent"). The text and audio of conversations, audio device names and user names are never sent, and nothing is sent before you have answered a one-time notice. Upstream VRCT's Aptabase telemetry is not used, even when an old upstream key file exists. Translation and speech services you choose still receive the text or audio you send them; turning off usage data does not make every feature offline. See [privacy](/site/en/guide/privacy.md).
 
-No model is bundled. TTS, ASR, RVC and Seed-VC models are downloaded only on request, or provided by you. Built packages contain no OCR weights. The upstream chat-bubble detector, which may not be shipped in a fork's release, was removed from the repository in 0.2.0; commits up to 0.1.0 still hold it under its own [terms](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.en.txt), so do not package an old checkout wholesale. The Mia2026 test voice is for local testing only and is never distributed. The bundled speech.cpp binaries carry their own notices; each model has its own license.
+No model is bundled. TTS, ASR and RVC models are downloaded only on request, or provided by you. Built packages contain no OCR weights. The upstream chat-bubble detector, which may not be shipped in a fork's release, was removed from the repository in 0.2.0; commits up to 0.1.0 still hold it under its own [terms](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.en.txt), so do not package an old checkout wholesale. The Mia2026 test voice is for local testing only and is never distributed. The bundled speech.cpp binaries carry their own notices; each model has its own license.
 
 ## License and acknowledgements
 
@@ -90,10 +89,9 @@ VRChat and its associated properties are trademarks or registered trademarks of 
 
 ## Development
 
-Python work uses `uv`. Start with `npm run doctor`, install the headless checks with `npm run setup:headless`, and install the UI dependencies with `python tools/dev.py setup --scope ui`. `npm run check` runs the developer-tool, Node and lint checks. The [developer guide](docs/development.md) covers the voice, backend and Rust checks, browser tests and Cocogitto. See [CONTRIBUTING.md](CONTRIBUTING.md) for branches, commit messages and pull requests. What each stable release changed is in [CHANGELOG.md](CHANGELOG.md), from 0.2.0 on; betas and earlier releases are described on [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases).
+[mise](https://mise.jdx.dev/) installs the pinned Node, Rust, Python, uv and Cocogitto from `mise.toml` (`mise install`) and runs the routine tasks (`mise tasks` lists them). Start with `mise run doctor`, install the headless checks with `mise run setup:headless`, and install the UI dependencies with `mise run setup:ui`. `mise run check` runs the developer-tool, Node and lint checks. The [developer guide](docs/development.md) covers the voice, backend and Rust checks, browser tests and Cocogitto. See [CONTRIBUTING.md](CONTRIBUTING.md) for branches, commit messages and pull requests. What each stable release changed is in [CHANGELOG.md](CHANGELOG.md), from 0.2.0 on; betas and earlier releases are described on [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases).
 
 - [Build and CI guide (Japanese)](/docs/readme_build.md)
 - [Linux build pipeline](/docs/voice-stack/linux-build-pipeline.md) and [AppImage](/docs/voice-stack/appimage.md)
 - [Release candidate and draft workflow](docs/voice-stack/release-candidates.md)
 - [Voice licenses and distribution boundaries](/docs/voice-stack/licensing.md)
-- [Implementation and validation ledger](/docs/voice-stack/completion-ledger.md)

@@ -10,7 +10,6 @@ What you can use depends on the feature.
 | Speech recognition (ASR) | A GGUF recognition model, VAD and diarization (optional). Or a server you run on this computer | "Speech recognition (ASR)" → "Models and servers" → "ASR + VAD" |
 | Whisper | A Whisper server of your own (OpenAI compatible) | "Speech recognition (ASR)" → "Cloud speech recognition" → "Custom Whisper server" |
 | Voice changer (RVC) | A `.pth` model and a `.index` (optional) | "Voice changer (RVC)" |
-| Seed-VC | A reference WAV | "Advanced" → "Input forwarding" |
 | Translation | A model you load into LM Studio, Ollama or an OpenAI-compatible server | "Translation" → "Local LLM & Compatible Server" |
 | Chat reading (OCR) | Not possible | — |
 
@@ -112,12 +111,7 @@ RVC also needs its runtime and an NVIDIA GPU. You can download the runtime from 
 
 ## Seed-VC {#seed-vc}
 
-Seed-VC changes your voice towards the voice in a reference WAV.
-
-- The WAV is PCM and 1 to 30 seconds long.
-- In Settings → "Advanced" → "Input forwarding", set "Direct voice mode" to "Voice conversion (experimental)" and enter the file in "Permitted reference WAV".
-
-A reference recording of anyone else's voice needs that person's permission.
+Seed-VC was removed in 0.4.0, so changing your voice with a reference WAV is no longer possible. To change your voice with your own model, use [Voice changer (RVC)](#rvc) above.
 
 ## Translation {#translation}
 

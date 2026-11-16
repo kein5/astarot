@@ -77,6 +77,122 @@ pub fn resample(input: &[f32], from: u32, to: u32) -> Vec<f32> {
     output
 }
 
+fn gcd(a: u64, b: u64) -> u64 {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
+    }
+}
+
+/// The interpolation kernel of [`resample`] at `offset` input samples from the centre.
+fn kernel(offset: f64, cutoff: f64, half_width: f64, beta: f64, window_norm: f64) -> f64 {
+    if offset.abs() > half_width {
+        return 0.0;
+    }
+    let x = offset * cutoff;
+    let sinc = if x.abs() < 1e-12 { 1.0 } else { (std::f64::consts::PI * x).sin() / (std::f64::consts::PI * x) };
+    let position = offset / half_width;
+    sinc * bessel_i0(beta * (1.0 - position * position).max(0.0).sqrt()) / window_norm * cutoff
+}
+
+/// [`resample`] for a stream that arrives in blocks: the same Kaiser-windowed sinc, made
+/// causal by a fixed delay of [`StreamResampler::delay`] input samples, with its history
+/// kept between calls. The output does not depend on how the input is split into blocks.
+///
+/// Output sample `n` is produced once input sample `floor(n * from / to)` has arrived, so a
+/// block of `len` samples gives exactly `len * to / from` samples whenever that is whole
+/// (for example 3840 at 48 kHz to 1280 at 16 kHz, or 3200 at 40 kHz to 3840 at 48 kHz).
+#[derive(Debug, Clone)]
+pub struct StreamResampler {
+    /// Rates reduced by their common divisor: output `n` sits at input `n * down / up`.
+    up: u64,
+    down: u64,
+    delay: usize,
+    /// Per phase `n * down % up`, the weights of input samples `base - reach ..= base + reach`
+    /// where `base = n * down / up - delay`.
+    weights: Vec<Vec<f32>>,
+    reach: usize,
+    /// Input received so far, from absolute index `start` on.
+    buffer: Vec<f32>,
+    start: u64,
+    received: u64,
+    produced: u64,
+}
+
+impl StreamResampler {
+    pub fn new(from: u32, to: u32) -> Self {
+        const ZERO_CROSSINGS: f64 = 32.0;
+        const BETA: f64 = 10.0;
+        let divisor = gcd(from as u64, to as u64).max(1);
+        let (up, down) = (to as u64 / divisor, from as u64 / divisor);
+        let ratio = to as f64 / from as f64;
+        let cutoff = ratio.min(1.0) * 0.97;
+        let half_width = ZERO_CROSSINGS / cutoff;
+        let window_norm = bessel_i0(BETA);
+        let reach = half_width.ceil() as usize + 1;
+        let delay = if from == to { 0 } else { reach };
+        let weights = (0..up)
+            .map(|phase| {
+                let fraction = phase as f64 / up as f64;
+                (0..=2 * reach).map(|j| kernel(fraction + reach as f64 - j as f64, cutoff, half_width, BETA, window_norm) as f32).collect()
+            })
+            .collect();
+        StreamResampler { up, down, delay, weights, reach, buffer: Vec::new(), start: 0, received: 0, produced: 0 }
+    }
+
+    /// How many input samples the output lags behind (0 when the rates are equal).
+    pub fn delay(&self) -> usize {
+        self.delay
+    }
+
+    /// Feeds `input` and returns the output samples it completes.
+    pub fn process(&mut self, input: &[f32]) -> Vec<f32> {
+        if self.up == self.down {
+            return input.to_vec();
+        }
+        self.buffer.extend_from_slice(input);
+        self.received += input.len() as u64;
+        let mut output = Vec::new();
+        let reach = self.reach as i64;
+        loop {
+            let n = self.produced;
+            let nominal = n * self.down / self.up;
+            if nominal >= self.received {
+                break;
+            }
+            let base = nominal as i64 - self.delay as i64;
+            let weights = &self.weights[(n * self.down % self.up) as usize];
+            let mut sum = 0.0f32;
+            for (j, &weight) in weights.iter().enumerate() {
+                let index = base - reach + j as i64;
+                // Before the first sample the stream is silent.
+                if index >= self.start as i64 {
+                    sum += weight * self.buffer[(index - self.start as i64) as usize];
+                }
+            }
+            output.push(sum);
+            self.produced += 1;
+        }
+        // Keep what the next output still reaches back to.
+        let next = (self.produced * self.down / self.up) as i64 - self.delay as i64 - reach;
+        if next > self.start as i64 {
+            let drop = ((next - self.start as i64) as usize).min(self.buffer.len());
+            self.buffer.drain(..drop);
+            self.start += drop as u64;
+        }
+        output
+    }
+
+    /// Forgets all input, as if newly created.
+    pub fn reset(&mut self) {
+        self.buffer.clear();
+        self.start = 0;
+        self.received = 0;
+        self.produced = 0;
+    }
+}
+
 /// Root-mean-square level per half-second frame, frames centred on multiples of the hop
 /// with zero padding at the ends: `len / hop + 1` values.
 fn rms_envelope(signal: &[f64], sample_rate: u32) -> Vec<f64> {
@@ -158,6 +274,45 @@ mod tests {
             let peak = output[1000..15_000].iter().fold(0.0f32, |peak, sample| peak.max(sample.abs()));
             assert!(peak < 1e-4, "{hz} Hz leaks at {peak}");
         }
+    }
+
+    #[test]
+    fn stream_resampling_follows_the_tone_after_its_delay() {
+        for (from, to, hz) in [(48_000u32, 16_000u32, 440.0), (40_000, 48_000, 1_234.0), (32_000, 48_000, 3_000.0), (48_000, 48_000, 440.0)] {
+            let input = tone(hz, from, from as usize);
+            let mut resampler = StreamResampler::new(from, to);
+            let block = from as usize / 25; // 40 ms
+            let output: Vec<f32> = input.chunks(block).flat_map(|chunk| resampler.process(chunk)).collect();
+            assert_eq!(output.len(), to as usize, "{from} -> {to}");
+            let delay = resampler.delay() as f64 / from as f64;
+            for (n, &sample) in output.iter().enumerate().skip(to as usize / 10) {
+                let time = n as f64 / to as f64 - delay;
+                let expected = ((2.0 * std::f64::consts::PI * hz * time).sin() * 0.5) as f32;
+                assert!((sample - expected).abs() < 1e-4, "{from} -> {to}, sample {n}: {sample} vs {expected}");
+            }
+        }
+    }
+
+    #[test]
+    fn stream_resampling_does_not_depend_on_the_blocks() {
+        let input: Vec<f32> = (0..12_000).map(|n| ((n * 7919 % 1000) as f32 / 1000.0 - 0.5) * 0.3).collect();
+        let whole = StreamResampler::new(40_000, 48_000).process(&input);
+        let mut resampler = StreamResampler::new(40_000, 48_000);
+        let mut pieces = Vec::new();
+        let mut rest = &input[..];
+        for size in [1usize, 17, 3200, 999, 5].iter().cycle() {
+            if rest.is_empty() {
+                break;
+            }
+            let (head, tail) = rest.split_at((*size).min(rest.len()));
+            pieces.extend(resampler.process(head));
+            rest = tail;
+        }
+        assert_eq!(whole, pieces);
+        // Whole blocks give whole outputs.
+        let mut resampler = StreamResampler::new(48_000, 16_000);
+        assert_eq!(resampler.process(&[0.0; 3840]).len(), 1280);
+        assert_eq!(resampler.process(&[0.0; 3840]).len(), 1280);
     }
 
     #[test]

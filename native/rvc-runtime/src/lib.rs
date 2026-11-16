@@ -1,6 +1,6 @@
 //! Inference-only RVC voice conversion for VRCT-VOX.
 //!
-//! The processing follows `docs/superpowers/specs/2026-11-15-rvc-inference-runtime-design.md`.
+//! The design is tracked in issue #275.
 //! Voice models (`.pth`) and retrieval indexes (`.index`) are read as they are; the three
 //! networks run on ONNX Runtime. See the crate README for the assets and how the output is
 //! checked against the reference implementation.
@@ -12,6 +12,7 @@ pub mod backend;
 pub mod error;
 pub mod f0;
 pub mod filter;
+pub mod hubert;
 pub mod index;
 pub mod model;
 pub mod noise;

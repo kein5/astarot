@@ -7,6 +7,7 @@ import { modelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice"
 import styles from "./VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
+import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 
 const activePhases = ["queued", "downloading", "verifying", "cancelling"];
 const bytes = value => `${Number(value).toLocaleString("en-US")} bytes (${(value / 1073741824).toFixed(2)} GiB)`;
@@ -14,6 +15,42 @@ const bytes = value => `${Number(value).toLocaleString("en-US")} bytes (${(value
 const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
 
 const reserveBytes = reserve => (reserve === 'vr' ? 2 : .5) * 1024 ** 3;
+
+// speech.cpp's catalog has several files (quantizations) per recognizer. The recognizer is
+// chosen first, then its file; the entry for the chosen file is listed below. Languages and
+// the default file come from speech.cpp's catalog (entry.speech), never from this page.
+const recognizer = entry => entry.speech?.name ?? entry.id;
+const AsrChoice = ({ rows, value, onChange }) => {
+    const { t, i18n } = useI18n();
+    const current = rows.find(entry => entry.id === value) ?? rows[0];
+    if (!current) return null;
+    const language = i18n?.language || "en";
+    const names = createLanguageNames(language);
+    let list;
+    try { list = new Intl.ListFormat(language, { type: "conjunction" }); }
+    catch { list = null; }
+    const languages = codes => {
+        const labels = codes.map(code => names.fromCode(code, code));
+        return list ? list.format(labels) : labels.join(", ");
+    };
+    // The first row of each recognizer is the file speech.cpp fetches for its name.
+    const heads = rows.filter((entry, index) => rows.findIndex(row => recognizer(row) === recognizer(entry)) === index);
+    const files = rows.filter(entry => recognizer(entry) === recognizer(current));
+    return <div className={styles.download_entry}>
+        <label>{t("model_downloads.asr_model")}<select aria-label={t("model_downloads.asr_model")} value={recognizer(current)}
+            onChange={event => onChange(rows.find(entry => recognizer(entry) === event.target.value).id)}>
+            {heads.map(entry => <option key={entry.id} value={recognizer(entry)}>{entry.speech?.label ?? entry.name}</option>)}
+        </select></label>
+        <label>{t("model_downloads.asr_type")}<select aria-label={t("model_downloads.asr_type")} value={current.id}
+            onChange={event => onChange(event.target.value)}>
+            {files.map(entry => <option key={entry.id} value={entry.id}>
+                {entry.speech?.type.toUpperCase() ?? entry.name} · {gib(entry.total_bytes)}{entry.speech?.default ? ` · ${t("model_downloads.asr_type_default")}` : ""}
+            </option>)}
+        </select></label>
+        {current.speech?.languages.length > 0 && <p>{t("model_downloads.asr_languages")}: {languages(current.speech.languages)}</p>}
+        {current.speech?.start.length > 0 && <p>{t("model_downloads.asr_start", { languages: languages(current.speech.start) })}</p>}
+    </div>;
+};
 
 // One GPU/memory reading for a page with several TTS engines: the headroom
 // choice, the refresh action and the measured device. Each engine's
@@ -63,6 +100,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const [, setNow] = useState(Date.now());
     const ttsTargets = targets.filter(target => ['japanese', 'multilingual'].includes(target));
     const hasTTS = ttsTargets.length > 0;
+    const chosenTargets = [...ttsTargets, ...targets.filter(target => target === "asr")];
     const section = useRef(null);
     const { dialog, close: closeDialog } = useConsentDialog(!!selected, section);
     useEffect(() => {
@@ -82,6 +120,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         try { await openUrl(url); setLinkError(null); }
         catch { setLinkError(url); }
     };
+    // A file in the model's repository is named by its file name (GEMMA_TERMS_OF_USE.md,
+    // LICENSE-MIT…), so several terms of one model can be told apart.
+    const linkLabel = (url, i) => i === 0 ? t("model_downloads.model_card")
+        : url.startsWith("https://huggingface.co/") ? url.split("/").pop() : `${selected.license} (${i})`;
     const request = (endpoint, entry, job) => send(endpoint, { id: entry.id, job_id: job.job_id });
     const failure = code => t(`model_downloads.errors.${code}`, { defaultValue: t("model_downloads.errors.download_failed") });
     const matching = catalog?.models.filter(entry => targets.includes(entry.target)) ?? [];
@@ -113,6 +155,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                         onChange={event => setChoices(previous => ({ ...previous, [target]: event.target.value }))}>
                         {rows.map(entry => <option key={entry.id} value={entry.id}>{entry.name} · {memory(entry.total_bytes)}</option>)}
                     </select></label>}
+                    {rows.length > 1 && <p>{t(`model_downloads.choice_${target}`)}</p>}
                     {hint.recommended && <p><strong>{t('model_downloads.recommended')}</strong>: {rows.find(entry => entry.id === hint.recommended)?.name}</p>}
                     {hint.recommended && choice(target) !== hint.recommended && <p>{t('model_downloads.manual_choice')}</p>}
                 </div>;
@@ -122,8 +165,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             </details>}
         </>}
         {targets.includes("asr") && <p>{t("model_downloads.asr_choice")}</p>}
-        {/* TTS variants are one choice per target; ASR and VAD entries are different models, so list them all. */}
-        {matching.filter(entry => !ttsTargets.includes(entry.target) || entry.id === choice(entry.target) || activePhases.includes(state.jobs[entry.id]?.phase) || state.jobs[entry.id]?.phase === 'ready').map(entry => {
+        {targets.includes("asr") && <AsrChoice rows={matching.filter(entry => entry.target === "asr")} value={choice("asr")}
+            onChange={id => setChoices(previous => ({ ...previous, asr: id }))} />}
+        {/* TTS variants and recognizer files are one choice per target; the VAD and diarization models are listed as they are. */}
+        {matching.filter(entry => !chosenTargets.includes(entry.target) || entry.id === choice(entry.target) || activePhases.includes(state.jobs[entry.id]?.phase) || state.jobs[entry.id]?.phase === 'ready').map(entry => {
             const job = state.jobs[entry.id], active = activePhases.includes(job?.phase);
             return <div key={entry.id} data-model-download tabIndex={-1} role="group" aria-label={entry.name} className={styles.download_entry}>
                 <strong>{entry.name}</strong>
@@ -169,7 +214,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t("model_downloads.connection_notice")}</p>
             <p>{t("model_downloads.no_start")}</p>
             <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
-            <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{i === 0 ? t("model_downloads.model_card") : `${selected.license} (${i})`}</a> </span>)}</p>
+            <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(url, i)}</a> </span>)}</p>
             {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
             <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
             <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size)}</li>)}</ul>

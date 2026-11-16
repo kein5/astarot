@@ -23,6 +23,8 @@ on:
       - 'spec/backend_linux.spec'
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'mise.toml'
+      - 'mise.lock'
       - 'package*.json'
       - 'packaging/appimage/**'
       - 'tools/**'
@@ -58,6 +60,9 @@ jobs:
       CARGO_BUILD_JOBS: '4'
       SPEECH_VARIANT: ${{ inputs.speech_variant || 'linux-x64-vulkan' }}
       UV_PYTHON: '3.11'
+      # The packaged backend is frozen from the Python in mise.toml; uv never fetches its own.
+      UV_PYTHON_PREFERENCE: only-system
+      UV_PYTHON_DOWNLOADS: never
     steps:
       # The tar.gz, the AppDir and the AppImage together nearly fill the
       # runner disk; drop preinstalled SDKs this job never uses.
@@ -67,16 +72,11 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
           df -h /
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      # Node, Rust, Python and uv at the versions in mise.toml and mise.lock.
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          version: '0.13.5'
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '22.15.0'
-          cache: npm
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+          version: 2026.11.8
+          install_args: node rust python uv
       - name: System build and runtime dependencies
         run: |
           packages="build-essential pkg-config binutils libwebkit2gtk-4.1-dev libssl-dev

@@ -8,8 +8,9 @@ Times count from a fixed origin per input, which the trace names:
 - "recognition": recognition of the cut-out speech began;
 - "received": the recognized text reached the app, when neither is known.
 
-The UI's flow panel and its overlays read the traces. Nothing is logged and
-nothing leaves the PC; the text is the same the message log already shows.
+The UI's flow panel and its overlays read the traces. Nothing is logged
+(utils._UNLOGGED_ENDPOINTS) and nothing leaves the PC; the text is the same the
+message log already shows.
 """
 import time
 from collections import OrderedDict

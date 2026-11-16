@@ -42,8 +42,43 @@ jobs:
         run: |
           python -m tools.prepare_release --linux-run "$LINUX_RUN" --windows-run "$WINDOWS_RUN" \
             --commit "$CANDIDATE_COMMIT" --branch "$RELEASE_BRANCH" --output build/release-draft
-      - name: Install pinned commit parser
-        run: cargo install cocogitto --version 7.0.0 --locked
+      # The in-app updater (issue #330) takes VRCT-VOX_setup.exe and the AppImage from this
+      # release, checked against the public key in src-tauri/tauri.conf.json. Sign exactly the
+      # files verified above, then write latest.json from the signatures.
+      # Node and Cocogitto at the versions in mise.toml, from the URLs and SHA-256 in mise.lock.
+      # This job's token can write the repository, so the action does not get it, and the tools
+      # are downloaded and checked afresh instead of restored from the Actions cache.
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          version: 2026.11.8
+          install_args: node cocogitto
+          github_token: ''
+          cache: false
+      # The pinned Tauri CLI from package-lock.json; no package install scripts run.
+      - name: Install the Tauri CLI and the signature verifier
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          sudo apt-get install -y --no-install-recommends python3-cryptography
+      # The updater key is a second key, separate from any code signing. Its private key and the
+      # password (empty when the key has none) are repository secrets; only this step sees them.
+      - name: Sign the updater files and write latest.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::The TAURI_SIGNING_PRIVATE_KEY secret is not set; a release without updater signatures cannot update itself."
+            exit 1
+          fi
+          version="$(python3 -c 'import json; print(json.load(open("package.json"))["version"])')"
+          payload=build/release-draft/payload
+          for file in "$payload/VRCT-VOX_setup.exe" "$payload"/*.AppImage; do
+            # Bind each signature to this version: the app requires it (requireSignedVersion).
+            node node_modules/@tauri-apps/cli/tauri.js signer sign --app-version "$version" "$file" < /dev/null
+          done
+          # Verifies every signature with the app's key (python3-cryptography), then
+          # moves them into latest.json.
+          python3 -m tools.updater_manifest --payload "$payload" --version "$version" --require-verification
       # A stable release's notes come from its CHANGELOG.md section; a beta's from its commits.
       - name: Require a stable version's CHANGELOG section and write the draft notes
         run: |

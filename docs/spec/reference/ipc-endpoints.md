@@ -10,7 +10,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（413件: 削除 11、取得 185、実行 38、有効化 39、無効化 40、設定 100）
+## 要求（423件: 削除 11、取得 190、実行 39、有効化 40、無効化 42、設定 101）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -248,6 +248,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/local_asr_notice` | 無効化 | `setDisableLocalAsrNotice` | 可 | useLocalAsrMigration.updateNotice |  |
 | `/get/data/old_whisper_weights` | 取得 | `getOldWhisperWeights` | 可 | useLocalAsrMigration.updateWeights |  |
 | `/run/delete_old_whisper_weights` | 実行 | `deleteOldWhisperWeights` | 可 | useLocalAsrMigration.updateDeleted |  |
+| `/get/data/virtual_mic_notice` | 取得 | `getVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
+| `/set/disable/virtual_mic_notice` | 無効化 | `setDisableVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
+| `/get/data/virtual_mic_status` | 取得 | `getVirtualMicStatus` | 可 | useVirtualMic.updateStatus |  |
+| `/run/virtual_mic_test` | 実行 | `runVirtualMicTest` | 可 | useVirtualMic.updateResult |  |
 | `/get/data/overlay_small_log` | 取得 | `getOverlaySmallLog` | 可 | useVr.updateFromBackendIsEnabledOverlaySmallLog |  |
 | `/set/enable/overlay_small_log` | 有効化 | `setEnableOverlaySmallLog` | 可 | useVr.setSuccessIsEnabledOverlaySmallLog |  |
 | `/set/disable/overlay_small_log` | 無効化 | `setDisableOverlaySmallLog` | 可 | useVr.setSuccessIsEnabledOverlaySmallLog |  |
@@ -289,6 +293,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/overlay_desktop` | 無効化 | `setDisableOverlayDesktop` | 可 | useVr.setSuccessIsEnabledOverlayDesktop |  |
 | `/get/data/overlay_desktop_settings` | 取得 | `getOverlayDesktopSettings` | 可 | useVr.updateFromBackendOverlayDesktopSettings |  |
 | `/set/data/overlay_desktop_settings` | 設定 | `setOverlayDesktopSettings` | 可 | useVr.setSuccessOverlayDesktopSettings |  |
+| `/get/data/overlay_desktop_placement` | 取得 | `getOverlayDesktopPlacement` | 可 | useVr.updateFromBackendOverlayDesktopPlacement |  |
+| `/set/data/overlay_desktop_placement` | 設定 | `setOverlayDesktopPlacement` | 可 | useVr.setSuccessOverlayDesktopPlacement |  |
 | `/get/data/io_flow_overlay_settings` | 取得 | `getIoFlowOverlaySettings` | 可 | useVr.updateFromBackendIoFlowOverlaySettings |  |
 | `/set/data/io_flow_overlay_settings` | 設定 | `setIoFlowOverlaySettings` | 可 | useVr.setSuccessIoFlowOverlaySettings |  |
 | `/get/data/overlay_show_only_translated_messages` | 取得 | `getOverlayShowOnlyTranslatedMessages` | 可 | useVr.updateFromBackendOverlayShowOnlyTranslatedMessages |  |
@@ -301,6 +307,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/auto_clear_message_box` | 取得 | `getAutoClearMessageBox` | 可 | useOthers.updateFromBackendEnableAutoClearMessageInputBox |  |
 | `/set/enable/auto_clear_message_box` | 有効化 | `setEnableAutoClearMessageBox` | 可 | useOthers.setSuccessEnableAutoClearMessageInputBox |  |
 | `/set/disable/auto_clear_message_box` | 無効化 | `setDisableAutoClearMessageBox` | 可 | useOthers.setSuccessEnableAutoClearMessageInputBox |  |
+| `/get/data/check_software_updates` | 取得 | `getCheckSoftwareUpdates` | 可 | useOthers.updateFromBackendEnableCheckSoftwareUpdates |  |
+| `/set/enable/check_software_updates` | 有効化 | `setEnableCheckSoftwareUpdates` | 可 | useOthers.setSuccessEnableCheckSoftwareUpdates |  |
+| `/set/disable/check_software_updates` | 無効化 | `setDisableCheckSoftwareUpdates` | 可 | useOthers.setSuccessEnableCheckSoftwareUpdates |  |
 | `/get/data/send_only_translated_messages` | 取得 | `getSendOnlyTranslatedMessages` | 可 | useOthers.updateFromBackendEnableSendOnlyTranslatedMessages |  |
 | `/set/enable/send_only_translated_messages` | 有効化 | `setEnableSendOnlyTranslatedMessages` | 可 | useOthers.setSuccessEnableSendOnlyTranslatedMessages |  |
 | `/set/disable/send_only_translated_messages` | 無効化 | `setDisableSendOnlyTranslatedMessages` | 可 | useOthers.setSuccessEnableSendOnlyTranslatedMessages |  |
@@ -415,6 +424,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/enable/ocr_use_chatbox_detector` | 有効化 | `setEnableOcrUseChatboxDetector` | 可 | useOcr.setSuccessOcrUseChatboxDetector |  |
 | `/set/disable/ocr_use_chatbox_detector` | 無効化 | `setDisableOcrUseChatboxDetector` | 可 | useOcr.setSuccessOcrUseChatboxDetector |  |
 | `/get/data/ocr_readiness` | 取得 | `getOcrReadiness` | 可 | useOcr.updateFromBackendOcrReadiness |  |
+| `/get/data/ocr_model_readiness` | 取得 | `getOcrModelReadiness` | 可 | useOcr.updateFromBackendOcrModelReadiness |  |
 | `/get/data/vrchat_osc_presence` | 取得 | `getVrchatOscPresence` | 可 | useOthers.updateFromBackendVrchatOscPresence |  |
 | `/get/data/ocr_portal_restore_token` | 取得 | `getOcrPortalRestoreToken` | 可 | useOcr.updateFromBackendOcrPortalRestoreToken | ログで伏せる |
 | `/set/data/ocr_portal_restore_token` | 設定 | `setOcrPortalRestoreToken` | 可 | useOcr.updateFromBackendOcrPortalRestoreToken | ログで伏せる |
@@ -429,7 +439,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/feed_watchdog` | 実行 | `feedWatchdog` | 可 | （受け取るだけ） |  |
 
 
-## 通知（サイドカーからUIへ、87件）
+## 通知（サイドカーからUIへ、88件）
 
 要求への応答とは別に、サイドカーが自分から送るメッセージ。`controller.run(status, run_mapping[名前], result)`で送る。
 
@@ -516,6 +526,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `selectable_mic_device_list` | `/run/selectable_mic_device_list` | useDevice.updateFromBackendMicDeviceList |
 | `selectable_speaker_device_list` | `/run/selectable_speaker_device_list` | useDevice.updateFromBackendSpeakerDeviceList |
 | `software_update_info` | `/run/software_update_info` | useSoftwareVersion.updateSoftwareVersionInfo |
+| `virtual_mic_level` | `/run/virtual_mic_level` | useVirtualMic.updateLevel |
 | `initialization_progress` | `/run/initialization_progress` | useInitProgress.updateInitProgress |
 | `initialization_complete` | `/run/initialization_complete` | — |
 | `config_file_unreadable` | `/run/config_file_unreadable` | （受け取るだけ） |
@@ -545,7 +556,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/translation_language_unsupported`
 
 
-## UIだけにあるルート（57件）
+## UIだけにあるルート（58件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
 
@@ -558,6 +569,7 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/auto_download_models`
 - `/set/data/auto_mic_select`
 - `/set/data/auto_speaker_select`
+- `/set/data/check_software_updates`
 - `/set/data/clipboard`
 - `/set/data/convert_message_to_hiragana`
 - `/set/data/convert_message_to_romaji`

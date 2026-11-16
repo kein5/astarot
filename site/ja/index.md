@@ -5,13 +5,14 @@ hero:
   # Each span stays on one line where it fits (custom.css), so the headline breaks between them.
   text: <span class="nb">VRChatの会話を</span><span class="nb">翻訳・字幕・読み上げで支える</span>
   tagline: 翻訳、字幕、読み上げ、声の変換、チャットの読み取りを1つにまとめたデスクトップアプリです。VRCTの非公式な派生版です。
-  actions:
-    - theme: brand
-      text: インストール
-      link: /ja/guide/install
-    - theme: alt
-      text: やりたいことから探す
-      link: /ja/guide/tasks
+# The hero's buttons (theme/HomeActions.vue). The download button offers the latest release's
+# file for the reader's OS, with every other file in its menu; `link` is the install page.
+heroActions:
+  - download: true
+    link: /ja/guide/install
+  - theme: alt
+    text: やりたいことから探す
+    link: /ja/guide/tasks
 shot:
   src: /screenshots/ja/main.webp
   alt: VRCT-VOXのメイン画面。日本語の発言に英語の訳が、相手の英語の発言に日本語の訳が付いている
@@ -35,9 +36,9 @@ showcase:
     linkText: テキスト読み上げ（TTS）の使い方
   - id: voice-changer
     title: 声を変える
-    details: ボイスチェンジャー（RVC・Seed-VC）でマイクの声を変えて、VRChatに届けます。自分で用意したモデルも使えます。
+    details: ボイスチェンジャー（RVC）でマイクの声を変えて、VRChatに届けます。自分で用意したモデルも使えます。
     link: /ja/features/voice-conversion
-    linkText: ボイスチェンジャー（RVC・Seed-VC）の使い方
+    linkText: ボイスチェンジャー（RVC）の使い方
   - id: chat-reading
     title: 相手のチャットを読む
     details: チャット読み取り（OCR）で、画面に出た相手のチャットボックスの文字を読み取って訳します。

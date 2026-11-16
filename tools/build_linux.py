@@ -87,12 +87,11 @@ def environment_resources(destination):
 
 
 # The sidecar sets a runtime up from these; the requirements for Windows stay out.
-SETUP_FILES = {'rvc': ('requirements-cuda.lock', 'requirements.lock'),
-               'seed_vc': ('requirements.lock', 'offline-loader.patch')}
+SETUP_FILES = {'seed_vc': ('requirements.lock', 'offline-loader.patch')}
 
 
 def copy_adapters(resources):
-    for engine in ('rvc', 'seed_vc'):
+    for engine in ('seed_vc',):
         source = ROOT / 'integrations' / engine
         for file in source.iterdir():
             if file.is_file() and (file.suffix == '.py' or file.name.startswith(('LICENSE', 'README'))
@@ -115,6 +114,17 @@ def copy_adapters(resources):
         shutil.copyfile(source, target)
 
 
+# The crates under native/ that src-tauri depends on by path: the backend core (#285) and the
+# crates it uses. tests/devtools/test_build_linux.py keeps this list equal to the path
+# dependencies of those Cargo.toml files.
+APP_CRATES = ('core', 'adapters', 'ops', 'speech-server', 'tts')
+# Files outside those crates that they read at compile time (include_str!), at the same path in
+# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text.
+# tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
+CRATE_INPUTS = ('src-python/models/model_downloads/speechcpp_models.py',
+                'src-python/models/model_downloads/speechcpp_asr.py')
+
+
 def tauri_workspace(work, frozen):
     workspace = work / 'workspace'
     tauri = workspace / 'src-tauri'
@@ -125,6 +135,15 @@ def tauri_workspace(work, frozen):
         if (tauri / name).exists():
             shutil.rmtree(tauri / name)
         shutil.copytree(ROOT / 'src-tauri' / name, tauri / name)
+    # The app links the backend core and the crates it uses by path (src-tauri/Cargo.toml).
+    for name in APP_CRATES:
+        crate = workspace / 'native' / name
+        if crate.exists():
+            shutil.rmtree(crate)
+        shutil.copytree(ROOT / 'native' / name, crate, ignore=shutil.ignore_patterns('target'))
+    for name in CRATE_INPUTS:
+        (workspace / name).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, workspace / name)
     shutil.copyfile(ROOT / 'LICENSE', workspace / 'LICENSE')
     (workspace / 'tools').mkdir(exist_ok=True)
     for name in ('check_voice_distribution.py', 'distribution_policy.py', 'linux_package.py'):
@@ -179,6 +198,11 @@ def main():
         shutil.rmtree(resources)
     resources.mkdir()
     run([sys.executable, ROOT / 'tools/build_voice_gate.py', '--output-dir', resources / 'build'])
+    run([sys.executable, ROOT / 'tools/build_rvc_worker.py', '--output-dir', resources / 'build',
+         '--target-dir', work / 'cargo-rvc', *(['--offline'] if args.offline else [])])
+    # The license texts of the Rust crates in vrct-vox and the worker (NOTICE.md).
+    run([sys.executable, ROOT / 'tools/rust_licenses.py', '--output', resources / 'licenses/rust',
+         '--platform', 'linux', *(['--offline'] if args.offline else [])])
     archive = args.speech_archive.resolve() if args.speech_archive else work / f'speech-{args.variant}.zip'
     manifest = load_manifest()
     if args.download_speech and not archive.exists():

@@ -46,6 +46,21 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("setup --scope headless", output)
         self.assertFalse((self.root / "build").exists())
 
+    def test_doctor_names_the_versions_pinned_in_mise_toml(self):
+        (self.root / "mise.toml").write_text(
+            '[tools]\nnode = "22.15.0"\nrust = { version = "1.100.0", profile = "minimal" }\n'
+            'cocogitto = "7.0.0"\n', encoding="utf-8")
+        self.assertEqual(self.dev.pinned_versions(self.root), {"node": "22.15.0", "cargo": "1.100.0", "cog": "7.0.0"})
+        with patch.dict(os.environ, {"PATH": ""}):
+            code, output = self.call("doctor", "--scope", "node", "--json")
+        self.assertEqual(code, 2)
+        self.assertIn("mise.toml pins 22.15.0", output)
+
+    def test_doctor_runs_without_mise_toml(self):
+        self.assertEqual(self.dev.pinned_versions(self.root), {})
+        (self.root / "mise.toml").write_text("not = [toml", encoding="utf-8")
+        self.assertEqual(self.dev.pinned_versions(self.root), {})
+
     def test_dry_setup_can_be_reviewed_before_tools_are_installed(self):
         with patch.dict(os.environ, {"PATH": ""}):
             code, output = self.call("setup", "--scope", "headless", "--dry-run")

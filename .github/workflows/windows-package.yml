@@ -10,6 +10,8 @@ on:
       - '**/*.spec'
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'mise.toml'
+      - 'mise.lock'
       - 'bat/**'
       - 'tools/check_voice_distribution.py'
       - 'src-python/packaged_self_check.py'
@@ -26,16 +28,19 @@ jobs:
   backend:
     runs-on: windows-latest
     timeout-minutes: 45
+    env:
+      UV_PYTHON_PREFERENCE: only-system
+      UV_PYTHON_DOWNLOADS: never
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      # The backend is frozen from the Python in mise.toml; bat\build.bat also builds the RVC
+      # worker with Rust. uv takes mise's Python and never fetches its own.
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          version: '0.13.5'
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: '3.11'
+          version: 2026.11.8
+          install_args: node python uv rust
       - run: npm run setup-python
       - run: npm run build-python
       - name: Inspect the backend

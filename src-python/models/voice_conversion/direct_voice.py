@@ -195,4 +195,9 @@ class DirectVoice:
                                else None),
                 round_trip_ms=(state.get('round_trip_ms') if self._requested and self._mode == 'converted'
                                else None),
+                # Where the conversion runs (RVC: 'gpu' or 'cpu') and the delay its worker adds.
+                conversion_device=(state.get('device') if self._requested and self._mode == 'converted'
+                                   else None),
+                conversion_latency_ms=(state.get('latency_ms') if self._requested and self._mode == 'converted'
+                                       else None),
             )

@@ -4,6 +4,11 @@ on:
   pull_request:
 permissions:
   contents: read
+# The toolchains come from mise.toml and mise.lock (jdx/mise-action). uv takes the Python mise
+# installed and never fetches one of its own.
+env:
+  UV_PYTHON_PREFERENCE: only-system
+  UV_PYTHON_DOWNLOADS: never
 jobs:
   headless:
     timeout-minutes: 20
@@ -14,9 +19,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      # Cocogitto too: the tooling scope runs tools/changelog.py against real commits.
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          version: '0.13.5'
+          version: 2026.11.8
+          install_args: node python uv cocogitto
       - run: uv venv --python 3.11
       - run: uv export --frozen --no-header --no-annotate --format requirements-txt --no-emit-project --only-group voice-test --output-file voice-test-requirements.txt
       - run: uv pip sync --require-hashes voice-test-requirements.txt
@@ -41,20 +48,37 @@ jobs:
       - run: uv run --no-project python tools/dev.py check --scope lint
       - run: uv run --no-project python tools/voice_cli.py --help
       - run: uv run --no-project python tools/voice_route.py --help
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '22.15.0'
-          cache: npm
       - run: npm ci --ignore-scripts
       - run: uv run --no-project python tools/dev.py check --scope ui
+  # The Rust backend core through the connection the UI uses (Issue #285): start-up and
+  # shut-down, settings carried over from the Python backend, the error codes, and the request
+  # rules. No model, device or network.
+  core-integration:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          version: 2026.11.8
+          install_args: rust
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/core
+      - run: cargo test --locked --manifest-path native/core/Cargo.toml
   backend-windows:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          version: '0.13.5'
+          version: 2026.11.8
+          install_args: python uv
       - run: uv sync --frozen
       - run: uv run --no-project python tools/dev.py check --scope backend --python .venv/Scripts/python.exe
       # mainloop sends faulthandler to this file, so a native crash prints nothing to the job log.
@@ -68,10 +92,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
-          version: '0.13.5'
-      - run: uv python install 3.11
+          version: 2026.11.8
+          install_args: python uv
       - run: uv run --no-project --python 3.11 python tools/dev.py setup --scope backend
       - run: uv run --no-project --python 3.11 python tools/dev.py check --scope backend
       - name: Show the native crash trace
@@ -89,7 +113,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Install pinned commit validator
-        run: cargo install cocogitto --version 7.0.0 --locked
+        uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          version: 2026.11.8
+          install_args: cocogitto
       - name: Check new commits only
         env:
           COMMIT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}

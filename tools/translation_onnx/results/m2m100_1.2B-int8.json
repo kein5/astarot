@@ -1,0 +1,220 @@
+{
+  "model": "m2m100_1.2B",
+  "app_weight": "m2m100_1.2B-ct2-int8",
+  "app_repository": "jncraton/m2m100_1.2B-ct2-int8",
+  "onnx": "m2m100_1.2B-onnx-int8",
+  "ct2_model": "the app's pinned model",
+  "onnx_files": {
+    "decoder_model_merged_quantized.onnx": "6ba73c1125e2ce01df55b72dd5e916ba9fccf629042ae71161be15e2eec28db1",
+    "encoder_model_quantized.onnx": "9bcf5e9789ea54e6ca0a758083abc3f35e7382e4f0e9ca7da5dbd9444cdf5e11",
+    "tokenizer.json": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
+    "vocab.json": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a"
+  },
+  "sentences_per_direction": 50,
+  "test_set": "wmt20 (sacrebleu), first sentences of each direction",
+  "environment": {
+    "machine": "x86_64",
+    "system": "Linux",
+    "processor": "AMD Ryzen 9 9900X 12-Core Processor",
+    "ctranslate2_compute_type": "int8",
+    "threads": 4,
+    "packages": {
+      "ctranslate2": "4.8.4",
+      "transformers": "5.22.1",
+      "tokenizers": "0.23.3",
+      "sentencepiece": "0.2.1",
+      "sacrebleu": "2.6.0"
+    }
+  },
+  "directions": {
+    "en-ja": {
+      "app": {
+        "bleu": 33.35,
+        "chrf": 29.03
+      },
+      "onnx": {
+        "bleu": 33.7,
+        "chrf": 29.24
+      },
+      "same_translation": 14,
+      "chrf_onnx_against_app": 81.08,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 400.9,
+      "onnx_seconds": 562.7,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.35,
+      "chrf_difference": 0.21
+    },
+    "ja-en": {
+      "app": {
+        "bleu": 12.92,
+        "chrf": 37.4
+      },
+      "onnx": {
+        "bleu": 12.83,
+        "chrf": 37.06
+      },
+      "same_translation": 16,
+      "chrf_onnx_against_app": 85.44,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 183.8,
+      "onnx_seconds": 234.9,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": -0.09,
+      "chrf_difference": -0.34
+    },
+    "en-zh": {
+      "app": {
+        "bleu": 28.34,
+        "chrf": 24.21
+      },
+      "onnx": {
+        "bleu": 28.89,
+        "chrf": 24.62
+      },
+      "same_translation": 16,
+      "chrf_onnx_against_app": 84.42,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 237.9,
+      "onnx_seconds": 331.3,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.55,
+      "chrf_difference": 0.41
+    },
+    "zh-en": {
+      "app": {
+        "bleu": 25.81,
+        "chrf": 57.42
+      },
+      "onnx": {
+        "bleu": 26.07,
+        "chrf": 57.68
+      },
+      "same_translation": 12,
+      "chrf_onnx_against_app": 88.82,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 344.6,
+      "onnx_seconds": 421.8,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 0.26,
+      "chrf_difference": 0.26
+    },
+    "en-de": {
+      "app": {
+        "bleu": 30.43,
+        "chrf": 56.19
+      },
+      "onnx": {
+        "bleu": 32.04,
+        "chrf": 58.27
+      },
+      "same_translation": 25,
+      "chrf_onnx_against_app": 95.46,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 317.5,
+      "onnx_seconds": 436.7,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 1.61,
+      "chrf_difference": 2.08
+    },
+    "de-en": {
+      "app": {
+        "bleu": 36.58,
+        "chrf": 60.34
+      },
+      "onnx": {
+        "bleu": 36.08,
+        "chrf": 59.46
+      },
+      "same_translation": 17,
+      "chrf_onnx_against_app": 91.35,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 327.9,
+      "onnx_seconds": 490.4,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": -0.5,
+      "chrf_difference": -0.88
+    },
+    "en-ru": {
+      "app": {
+        "bleu": 11.2,
+        "chrf": 41.96
+      },
+      "onnx": {
+        "bleu": 10.74,
+        "chrf": 42.07
+      },
+      "same_translation": 27,
+      "chrf_onnx_against_app": 94.73,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 311.4,
+      "onnx_seconds": 481.8,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": -0.46,
+      "chrf_difference": 0.11
+    },
+    "ru-en": {
+      "app": {
+        "bleu": 33.44,
+        "chrf": 62.67
+      },
+      "onnx": {
+        "bleu": 34.48,
+        "chrf": 62.69
+      },
+      "same_translation": 27,
+      "chrf_onnx_against_app": 92.82,
+      "source_ids_differ": 0,
+      "decode_differs": 0,
+      "app_failed": 0,
+      "onnx_failed": 0,
+      "onnx_errors": [],
+      "app_seconds": 131.6,
+      "onnx_seconds": 144.0,
+      "onnx_backend": "{\"backend\":\"cpu\"}",
+      "bleu_difference": 1.04,
+      "chrf_difference": 0.02
+    }
+  },
+  "totals": {
+    "sentences": 400,
+    "same": 154,
+    "source_ids_differ": 0,
+    "decode_differs": 0,
+    "app_failed": 0,
+    "onnx_failed": 0,
+    "app_seconds": 2255.6,
+    "onnx_seconds": 3103.6,
+    "mean_bleu_difference": 0.35,
+    "mean_chrf_difference": 0.23
+  },
+  "runs": "The directions were run in parts, in separate runs of compare.py with the same model, options and packages; the rows are joined here."
+}

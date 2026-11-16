@@ -52,58 +52,64 @@ def test_router_supervisor_has_only_fixed_entry_points(tmp_path, mode, expected)
         os.close(owner)
 
 
-def test_rvc_supervisor_passes_only_fixed_module_and_explicit_settings(tmp_path):
+def test_rvc_supervisor_passes_only_the_worker_and_explicit_settings(tmp_path):
     import json
     import os
     import threading
 
     helper = compile_helper(tmp_path, "native/vc-worker/main.c")
-    interpreter = tmp_path / "capture-args"
-    interpreter.write_text(
+    worker = tmp_path / "capture-args"
+    worker.write_text(
         "#!" + sys.executable + "\nimport sys,json\nprint(json.dumps(sys.argv[1:]))\n"
     )
-    interpreter.chmod(0o700)
+    worker.chmod(0o700)
     owner = os.pidfd_open(threading.get_native_id(), os.O_EXCL)
     try:
+        args = [str(helper), str(os.getpid()), str(owner), str(worker), "rvc-native"]
+        settings = ["/runtime", "/voice.pth", "a" * 32, "/voice.index", "-3", "0.5"]
         result = subprocess.run(
-            [
-                str(helper),
-                str(os.getpid()),
-                str(owner),
-                str(interpreter),
-                "/engine",
-                "/assets",
-                "/voice.pth",
-                "a" * 32,
-                "rvc",
-                "/voice.index",
-                "-3",
-                "0.5",
-            ],
-            pass_fds=(owner,),
-            capture_output=True,
-            timeout=3,
-            check=True,
+            [*args, *settings], pass_fds=(owner,), capture_output=True, timeout=3, check=True
         )
         assert json.loads(result.stdout) == [
-            "-u",
-            "-m",
-            "integrations.rvc.live_worker",
-            "--engine",
-            "/engine",
-            "--assets",
-            "/assets",
-            "--model",
-            "/voice.pth",
-            "--session",
-            "a" * 32,
-            "--index",
-            "/voice.index",
-            "--pitch",
-            "-3",
-            "--index-rate",
-            "0.5",
+            "--runtime", "/runtime", "--model", "/voice.pth", "--session", "a" * 32,
+            "--index", "/voice.index", "--pitch", "-3", "--index-rate", "0.5",
         ]
+        # No index is an empty argument; a whole-number rate is how Python prints 0.
+        result = subprocess.run(
+            [*args, "/runtime", "/voice.pth", "b" * 32, "", "24", "0"],
+            pass_fds=(owner,), capture_output=True, timeout=3, check=True,
+        )
+        assert json.loads(result.stdout)[6:] == ["--index", "", "--pitch", "24", "--index-rate", "0"]
+        for values in [
+            ("runtime", "/voice.pth", "a" * 32, "", "0", "0"),
+            ("/runtime", "voice.pth", "a" * 32, "", "0", "0"),
+            ("/runtime", "/voice.pth", "A" * 32, "", "0", "0"),
+            ("/runtime", "/voice.pth", "a" * 31, "", "0", "0"),
+            ("/runtime", "/voice.pth", "a" * 32, "voice.index", "0", "0"),
+            ("/runtime", "/voice.pth", "a" * 32, "", "25", "0"),
+            ("/runtime", "/voice.pth", "a" * 32, "", "1.5", "0"),
+            ("/runtime", "/voice.pth", "a" * 32, "", "0", "1.5"),
+            ("/runtime", "/voice.pth", "a" * 32, "", "0", "-0.1"),
+            ("/runtime", "/voice.pth", "a" * 32, "", "0", "nan"),
+            ("/runtime", "/voice.pth", "a" * 32, "", "0", "0", "--extra"),
+            ("/runtime", "/voice.pth", "a" * 32, "", "0"),
+        ]:
+            denied = subprocess.run(
+                [*args, *values], pass_fds=(owner,), capture_output=True, timeout=3
+            )
+            assert denied.returncode == 2 and not denied.stdout, values
+        relative = subprocess.run(
+            [str(helper), str(os.getpid()), str(owner), "worker", "rvc-native", *settings],
+            pass_fds=(owner,), capture_output=True, timeout=3,
+        )
+        assert relative.returncode == 2
+        # The Python worker of the earlier runtime is no longer an entry point.
+        earlier = subprocess.run(
+            [str(helper), str(os.getpid()), str(owner), str(worker), "/engine", "/assets",
+             "/voice.pth", "a" * 32, "rvc", "", "0", "0"],
+            pass_fds=(owner,), capture_output=True, timeout=3,
+        )
+        assert earlier.returncode == 2 and not earlier.stdout
     finally:
         os.close(owner)
 
@@ -128,7 +134,8 @@ def launch():
     try:
         args = ([engine,'/model.gguf','','','auto'] if engine=='speech-server' else
                 [engine] if engine.startswith('router') else
-                ['/engine', '/assets', '/reference.wav', 'a'*32] + (['rvc', '', '0', '0'] if engine == 'rvc' else []))
+                ['rvc-native', '/runtime', '/voice.pth', 'a'*32, '', '0', '0'] if engine == 'rvc' else
+                ['/engine', '/assets', '/reference.wav', 'a'*32])
         child = subprocess.Popen([helper, str(os.getpid()), str(fd), interpreter, *args], pass_fds=(fd,), stdout=subprocess.PIPE)
     finally:
         os.close(fd)

@@ -18,7 +18,7 @@ def test_split_settings_small_window_keyboard_and_long_paths(tmp_path, scaling):
     config.write_text(json.dumps(dict(json.loads(config.read_text()), UI_SCALING=scaling,
                                      MESSAGE_BOX_RATIO=30, SEND_MESSAGE_BUTTON_TYPE='hide')))
     with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-        ui.wait("return document.querySelector('textarea[class*=message_box_input_area]') !== null")
+        ui.wait_main_ready()
         ui.command('POST', '/window/rect', {'width': 870, 'height': 654})
         ui.wait("return innerWidth === 870 && innerHeight === 654")
         assert ui.evaluate("return [...document.querySelectorAll('[role=switch]')].map(e => e.getAttribute('aria-label')).slice(-2)") == ['Text to speech (TTS)', 'Voice changer (RVC)']

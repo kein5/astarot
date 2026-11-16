@@ -88,7 +88,7 @@ def test_native_voice_through_vrchat_local_replay(tmp_path):
             report["reference_samples"] = len(pcm) // 2
             state = initial_state(tmp_path)
             with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 # kdotool search defaults to OR, including an empty title regex.
                 # A debug app can also own inspector/VR panel windows. Select
                 # the configured main title AND PID; verify PID before actions.

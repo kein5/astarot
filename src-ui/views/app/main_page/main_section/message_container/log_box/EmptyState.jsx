@@ -3,17 +3,21 @@ import { store } from "@store";
 import { useSettingValue } from "@logics_configs";
 import { useSetupNeeds } from "../../../../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../../../../logics/main/setupNeeds";
+import { useStartupPlaceholder } from "../../../startupContext";
 import styles from "./LogBox.module.scss";
 
 // The first screen of a session. It says where to type and, in the main window,
 // what the selected engines still need, each with the step that provides it: the
 // download review, or the settings where the local speech recognition models are set.
+// While the engine starts, the main page's startup list (StartupProgress) takes
+// its place: how far the start has come and which models it is fetching.
 export const EmptyState = () => {
     const { t } = useI18n();
+    const startup = useStartupPlaceholder();
     return <div className={styles.empty}>
         <h1>{t("studio.empty_title")}</h1>
         <p>{t("studio.empty_description")}</p>
-        {!store.is_vr_panel && <Setup />}
+        {!store.is_vr_panel && (startup ?? <Setup />)}
     </div>;
 };
 

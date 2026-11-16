@@ -4,16 +4,20 @@ Windows向けのビルド手順と、現在のCIを説明します。Linuxでは
 
 ## Windowsの準備
 
-Node.jsとnpm、Python 3.11、Rust、Git、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。CIのNode.jsは22.15.0です。Pythonの依存関係は[uv](https://docs.astral.sh/uv/getting-started/installation/)で管理するため、uvも用意します。依存関係は`package-lock.json`、`pyproject.toml`と`uv.lock`、`src-tauri/Cargo.lock`で管理しています。
+Git、[mise](https://mise.jdx.dev/getting-started.html)、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。Node.js、Rust、Python 3.11、uvは、`mise.toml`で固定した版をmiseが入れます。CIも同じ版を使います（[開発ガイド](development.md#用意するツール)）。依存関係は`package-lock.json`、`pyproject.toml`と`uv.lock`、`src-tauri/Cargo.lock`で管理しています。
 
 ```sh
 git clone https://github.com/kein5/VRCT-VOX.git
 cd VRCT-VOX
-npm ci
-npm run setup-python
+mise trust
+mise install
+mise exec -- npm ci
+mise run setup:app
 ```
 
-`setup-python`は`uv sync --frozen`で`.venv`（標準版）と`.venv_cuda`（`cuda`のextra付き）を`uv.lock`のとおりに同期します。ロックにないパッケージは削除されるため、個別に追加した依存関係があれば先に記録してください。
+`npm`のスクリプトでビルドや起動をするときは、miseを有効にしたシェル（`mise activate`）から呼ぶか、`mise exec -- npm run build`のように呼びます。そうしないと、PATHにある別の版のツールで動きます。
+
+`setup:app`（`npm run setup-python`と同じbat）は`uv sync --frozen`で`.venv`（標準版）と`.venv_cuda`（`cuda`のextra付き）を`uv.lock`のとおりに同期します。ロックにないパッケージは削除されるため、個別に追加した依存関係があれば先に記録してください。
 
 Windowsの同期とLinux候補のビルドでは、uvが`uv.lock`のハッシュを使って取得したPythonパッケージを照合します。Linuxでは同期前に、各アーカイブのSHA-256とGit依存の完全なcommit SHAがあることも検査し、不足していれば停止します。詳しくは[Linuxビルドパイプライン](voice-stack/linux-build-pipeline.md)を参照してください。音声契約のCIはハッシュ付きの一覧を書き出し、`uv pip sync --require-hashes`で同期します。
 
@@ -108,7 +112,7 @@ window.addEventListener("securitypolicyviolation", event => {
 
 | ウィンドウ/画面 | 操作と確認する資源 |
 |---|---|
-| mainの起動 | splash、初期化進捗、ダウンロード状態、アプリアイコン、会話ログ、通知。共有JS/CSSと画像が描画される |
+| mainの起動 | 起動中のメイン画面（操作できない仮の表示）、初期化進捗、起動中のモデル取得の進み具合、起動失敗のダイアログ、アプリアイコン、会話ログ、通知。共有JS/CSSと画像が描画される |
 | mainの設定 | 全タブ、検索、開閉、保存、通知。言語5種、OSのローカルフォント、倍率、ログ文字サイズ、狭い幅、ドロップダウンとスクロールを確認する |
 | About | 全言語のロゴ、開発者/貢献者/謝辞の全画像、リンクボタンの画像。外部リンクはWebview内の資源として読まれない |
 | 色選択 | OBSの文字色と縁取り色のpickerを初回に開く。ドラッグ、キー操作、直接入力、保存を確認する。react-colorfulのstyle hashとdata SVG、CSSOMの更新を検査する |
@@ -137,11 +141,13 @@ npm run update-version
 
 ビルド候補はGitHub Actionsの成果物として保存します。これらのワークフローはGitHub ReleasesやHugging Faceへ自動公開しません。タグをpushしても公開処理は始まりません。権限は`contents: read`で、本家の公開用キーやテレメトリー用キーは使いません。
 
-配布先は[kein5/VRCT-VOX Releases](https://github.com/kein5/VRCT-VOX/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`VRCT-VOX.zip`または`VRCT-VOX_cuda.zip`を取得します。候補をビルドしただけでは、そのURLにファイルは存在しません。アプリ内更新は無効です。
+配布先は[kein5/VRCT-VOX Releases](https://github.com/kein5/VRCT-VOX/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`VRCT-VOX.zip`または`VRCT-VOX_cuda.zip`を取得します。候補をビルドしただけでは、そのURLにファイルは存在しません。
+
+アプリ内の更新はTauriのupdaterで行い、リリースの`latest.json`を読みます（[アプリの更新](spec/external-interfaces.md#アプリの更新)）。`latest.json`と署名は下書きを作るワークフローが作ります（[配布候補の手順](voice-stack/release-candidates.md#updaterの署名とlatestjson)）。
 
 Windowsの更新は、インストール先の`.upd`内で取得済みパッケージを検証・展開してから、アプリのファイルだけを置き換えます。取得・展開失敗では旧版を保持し、置き換え失敗では退避した旧ファイルを戻します。設定・モデル・ログは置き換えません。中断からの復旧、復元に失敗したときの扱い、実際のNSISを使うWindows試験は[配布候補の手順](voice-stack/release-candidates.md#windowsのwebview2とインストール時の通信)を参照してください。
 
-公開前に[配布検査](voice-stack/fork-distribution-isolation.md)とライセンス監査を行います。ローカルで作った候補と公開済みリリースは区別します。上流への連絡やPRの扱いは[公開方針](voice-stack/publication-and-upstream.md)を参照してください。
+公開前に配布物の検査とライセンス監査を行います。ローカルで作った候補と公開済みリリースは区別します。上流への連絡やPRの扱いは[公開方針](voice-stack/publication-and-upstream.md)を参照してください。
 
 ## ビルド出力の削除と診断
 

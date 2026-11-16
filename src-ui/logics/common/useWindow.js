@@ -173,11 +173,15 @@ export const useWindow = () => {
 // IsBreakPoint update re-rendered its parent, which made it new again. That loop
 // re-rendered the whole app and re-registered the window listeners about 40
 // times a second while idle.
-export const WindowGeometryController = () => {
+//
+// It runs from the first frame, so the narrow layout is right while the engine
+// starts. Until the engine is ready (saveGeometry false) it only updates the
+// layout: the geometry the engine restores at readiness is not overwritten.
+export const WindowGeometryController = ({ saveGeometry = true } = {}) => {
     const { asyncSaveWindowGeometry, asyncUpdateBreakPoint } = useWindow();
     const { currentUiScaling } = useAppearance();
     const latest = useRef(null);
-    latest.current = { asyncSaveWindowGeometry, asyncUpdateBreakPoint };
+    latest.current = { asyncSaveWindowGeometry, asyncUpdateBreakPoint, saveGeometry };
 
     // Also decide at startup and once the saved UI size arrives: a window that opens
     // narrow (or at a large UI size) never fires a resize event, so it kept the wide layout.
@@ -191,14 +195,14 @@ export const WindowGeometryController = () => {
         const unlistenResize = appWindow.onResized(() => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                latest.current.asyncSaveWindowGeometry();
+                if (latest.current.saveGeometry) latest.current.asyncSaveWindowGeometry();
                 latest.current.asyncUpdateBreakPoint();
             }, 200);
         });
         const unlistenMove = appWindow.onMoved(() => {
             clearTimeout(moveTimeout);
             moveTimeout = setTimeout(() => {
-                latest.current.asyncSaveWindowGeometry();
+                if (latest.current.saveGeometry) latest.current.asyncSaveWindowGeometry();
             }, 200);
         });
         return () => {

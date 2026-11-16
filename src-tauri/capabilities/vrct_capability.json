@@ -57,12 +57,15 @@
                 { "url": "https://github.com/jiaheguo521/**" },
                 { "url": "https://github.com/pytorch/**" },
                 { "url": "https://docs.nvidia.com/cuda/eula/**" },
+                { "url": "https://github.com/microsoft/onnxruntime/**" },
+                { "url": "https://docs.nvidia.com/deeplearning/cudnn/**" },
                 { "url": "https://voicevox.hiroshiba.jp/" },
                 { "url": "https://voicevox.hiroshiba.jp/term/" },
                 { "url": "https://coeiroink.com/" },
                 { "url": "https://coeiroink.com/terms" },
                 { "url": "https://aivis-project.com/" },
-                { "url": "https://www.sharevox.app/" }
+                { "url": "https://www.sharevox.app/" },
+                { "url": "https://vb-audio.com/Cable/" }
             ],
             "deny": [
                 { "url": "*/..*" },

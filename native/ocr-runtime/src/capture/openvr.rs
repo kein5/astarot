@@ -162,8 +162,10 @@ pub fn release() {
 
 impl Session {
     unsafe fn compositor_fn<T: Copy>(&self, index: usize) -> T {
-        let entry = *self.compositor.add(index);
-        std::mem::transmute_copy(&entry)
+        unsafe {
+            let entry = *self.compositor.add(index);
+            std::mem::transmute_copy(&entry)
+        }
     }
 
     pub fn last_frame_renderer(&self) -> u32 {
@@ -579,42 +581,44 @@ mod gl {
         }
 
         unsafe fn start(&mut self) -> Result<(), Failure> {
-            let egl = &self.egl;
-            if (egl.bind_api)(EGL_OPENGL_API) == 0 {
-                return Err(failure("eglBindAPI(OpenGL) failed"));
-            }
-            let attributes = [EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_NONE];
-            let (mut config, mut count) = (std::ptr::null_mut(), 0);
-            if (egl.choose_config)(self.display, attributes.as_ptr(), &mut config, 1, &mut count) == 0 || count < 1 {
-                return Err(failure("no EGL configuration for an OpenGL pbuffer"));
-            }
-            self.surface = (egl.create_pbuffer)(self.display, config, [EGL_WIDTH, 16, EGL_HEIGHT, 16, EGL_NONE].as_ptr());
-            self.context = (egl.create_context)(self.display, config, EGL_NO_CONTEXT, [EGL_NONE].as_ptr());
-            if self.surface.is_null() || self.context.is_null() || (egl.make_current)(self.display, self.surface, self.surface, self.context) == 0 {
-                return Err(failure("could not make an OpenGL context current"));
-            }
-            let proc = |name: &[u8]| -> Result<Ptr, Failure> {
-                let p = (egl.get_proc_address)(name.as_ptr());
-                if p.is_null() {
-                    Err(failure("missing OpenGL function"))
-                } else {
-                    Ok(p)
+            unsafe {
+                let egl = &self.egl;
+                if (egl.bind_api)(EGL_OPENGL_API) == 0 {
+                    return Err(failure("eglBindAPI(OpenGL) failed"));
                 }
-            };
-            self.gl = GlFns {
-                bind_texture: std::mem::transmute::<Ptr, unsafe extern "system" fn(u32, u32)>(proc(b"glBindTexture\0")?),
-                get_tex_level_parameteriv: std::mem::transmute::<Ptr, unsafe extern "system" fn(u32, i32, u32, *mut i32)>(proc(b"glGetTexLevelParameteriv\0")?),
-                pixel_storei: std::mem::transmute::<Ptr, unsafe extern "system" fn(u32, i32)>(proc(b"glPixelStorei\0")?),
-                get_tex_image: std::mem::transmute::<Ptr, unsafe extern "system" fn(u32, i32, u32, u32, *mut c_void)>(proc(b"glGetTexImage\0")?),
-            };
-            let get_mirror: unsafe extern "system" fn(i32, *mut u32, *mut Ptr) -> i32 = self.session.compositor_fn(COMPOSITOR_GET_MIRROR_TEXTURE_GL);
-            let (mut texture, mut handle) = (0u32, std::ptr::null_mut());
-            let error = get_mirror(EYE_LEFT, &mut texture, &mut handle);
-            if error != 0 {
-                return Err(Failure::new("RuntimeError", format!("GetMirrorTextureGL: OpenVR error {error}")));
+                let attributes = [EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT, EGL_NONE];
+                let (mut config, mut count) = (std::ptr::null_mut(), 0);
+                if (egl.choose_config)(self.display, attributes.as_ptr(), &mut config, 1, &mut count) == 0 || count < 1 {
+                    return Err(failure("no EGL configuration for an OpenGL pbuffer"));
+                }
+                self.surface = (egl.create_pbuffer)(self.display, config, [EGL_WIDTH, 16, EGL_HEIGHT, 16, EGL_NONE].as_ptr());
+                self.context = (egl.create_context)(self.display, config, EGL_NO_CONTEXT, [EGL_NONE].as_ptr());
+                if self.surface.is_null() || self.context.is_null() || (egl.make_current)(self.display, self.surface, self.surface, self.context) == 0 {
+                    return Err(failure("could not make an OpenGL context current"));
+                }
+                let proc = |name: &[u8]| -> Result<Ptr, Failure> {
+                    let p = (egl.get_proc_address)(name.as_ptr());
+                    if p.is_null() {
+                        Err(failure("missing OpenGL function"))
+                    } else {
+                        Ok(p)
+                    }
+                };
+                self.gl = GlFns {
+                    bind_texture: std::mem::transmute::<Ptr, unsafe extern "system" fn(u32, u32)>(proc(b"glBindTexture\0")?),
+                    get_tex_level_parameteriv: std::mem::transmute::<Ptr, unsafe extern "system" fn(u32, i32, u32, *mut i32)>(proc(b"glGetTexLevelParameteriv\0")?),
+                    pixel_storei: std::mem::transmute::<Ptr, unsafe extern "system" fn(u32, i32)>(proc(b"glPixelStorei\0")?),
+                    get_tex_image: std::mem::transmute::<Ptr, unsafe extern "system" fn(u32, i32, u32, u32, *mut c_void)>(proc(b"glGetTexImage\0")?),
+                };
+                let get_mirror: unsafe extern "system" fn(i32, *mut u32, *mut Ptr) -> i32 = self.session.compositor_fn(COMPOSITOR_GET_MIRROR_TEXTURE_GL);
+                let (mut texture, mut handle) = (0u32, std::ptr::null_mut());
+                let error = get_mirror(EYE_LEFT, &mut texture, &mut handle);
+                if error != 0 {
+                    return Err(Failure::new("RuntimeError", format!("GetMirrorTextureGL: OpenVR error {error}")));
+                }
+                self.texture = Some((texture, handle));
+                Ok(())
             }
-            self.texture = Some((texture, handle));
-            Ok(())
         }
     }
 

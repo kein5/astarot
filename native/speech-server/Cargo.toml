@@ -2,7 +2,7 @@
 name = "vrct-speech-server"
 version = "0.0.0"
 description = "Owns the bundled speech.cpp server processes of VRCT-VOX: start, stop, restart and liveness"
-edition = "2021"
+edition = "2024"
 publish = false
 
 [dependencies]

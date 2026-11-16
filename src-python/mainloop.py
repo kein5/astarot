@@ -197,6 +197,7 @@ run_mapping = {
     "selectable_speaker_device_list":"/run/selectable_speaker_device_list",
 
     "software_update_info":"/run/software_update_info",
+    "virtual_mic_level":"/run/virtual_mic_level",
 
     "initialization_progress":"/run/initialization_progress",
     "initialization_complete":"/run/initialization_complete",
@@ -538,6 +539,11 @@ mapping = {
     "/set/disable/local_asr_notice": {"status": True, "variable":controller.setDisableLocalAsrNotice},
     "/get/data/old_whisper_weights": {"status": True, "variable":controller.getOldWhisperWeights},
     "/run/delete_old_whisper_weights": {"status": True, "variable":controller.deleteOldWhisperWeights},
+    # The virtual microphone guide and its check on Windows (#321).
+    "/get/data/virtual_mic_notice": {"status": True, "variable":controller.getVirtualMicNotice},
+    "/set/disable/virtual_mic_notice": {"status": True, "variable":controller.setDisableVirtualMicNotice},
+    "/get/data/virtual_mic_status": {"status": True, "variable":controller.getVirtualMicStatus},
+    "/run/virtual_mic_test": {"status": True, "variable":controller.runVirtualMicTest},
 
     # VR
     "/get/data/overlay_small_log": {"status": True, "variable":controller.getOverlaySmallLog},
@@ -593,6 +599,8 @@ mapping = {
     "/set/disable/overlay_desktop": {"status": True, "variable":controller.setDisableOverlayDesktop},
     "/get/data/overlay_desktop_settings": {"status": True, "variable":controller.getOverlayDesktopSettings},
     "/set/data/overlay_desktop_settings": {"status": True, "variable":controller.setOverlayDesktopSettings},
+    "/get/data/overlay_desktop_placement": {"status": True, "variable":controller.getOverlayDesktopPlacement},
+    "/set/data/overlay_desktop_placement": {"status": True, "variable":controller.setOverlayDesktopPlacement},
     "/get/data/io_flow_overlay_settings": {"status": True, "variable":controller.getIoFlowOverlaySettings},
     "/set/data/io_flow_overlay_settings": {"status": True, "variable":controller.setIoFlowOverlaySettings},
 
@@ -609,6 +617,10 @@ mapping = {
     "/get/data/auto_clear_message_box": {"status": True, "variable":controller.getAutoClearMessageBox},
     "/set/enable/auto_clear_message_box": {"status": True, "variable":controller.setEnableAutoClearMessageBox},
     "/set/disable/auto_clear_message_box": {"status": True, "variable":controller.setDisableAutoClearMessageBox},
+
+    "/get/data/check_software_updates": {"status": True, "variable":controller.getCheckSoftwareUpdates},
+    "/set/enable/check_software_updates": {"status": True, "variable":controller.setEnableCheckSoftwareUpdates},
+    "/set/disable/check_software_updates": {"status": True, "variable":controller.setDisableCheckSoftwareUpdates},
 
     "/get/data/send_only_translated_messages": {"status": True, "variable":controller.getSendOnlyTranslatedMessages},
     "/set/enable/send_only_translated_messages": {"status": True, "variable":controller.setEnableSendOnlyTranslatedMessages},
@@ -739,6 +751,7 @@ mapping = {
     "/set/enable/ocr_use_chatbox_detector": {"status": True, "variable":controller.setEnableOcrUseChatboxDetector},
     "/set/disable/ocr_use_chatbox_detector": {"status": True, "variable":controller.setDisableOcrUseChatboxDetector},
     "/get/data/ocr_readiness": {"status": True, "variable":controller.getOcrReadiness},
+    "/get/data/ocr_model_readiness": {"status": True, "variable":controller.getOcrModelReadiness},
     "/get/data/vrchat_osc_presence": {"status": True, "variable":controller.getVrchatOscPresence},
     "/get/data/ocr_portal_restore_token": {"status": True, "variable":controller.getOcrPortalRestoreToken},
     "/set/data/ocr_portal_restore_token": {"status": True, "variable":controller.setOcrPortalRestoreToken},

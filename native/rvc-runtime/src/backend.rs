@@ -2,6 +2,7 @@
 //! salience (RMVPE) and the synthesizer.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
 
 use ort::environment::Environment;
@@ -19,8 +20,12 @@ use crate::synth::{self, io};
 pub enum Device {
     #[default]
     Cpu,
-    /// CUDA, falling back to the CPU for operators it lacks. Needs the `cuda` feature
-    /// and an ONNX Runtime build with the CUDA provider.
+    /// CUDA, falling back to the CPU for operators it lacks. Needs the `cuda` feature and
+    /// an ONNX Runtime build with the CUDA provider.
+    ///
+    /// If the CUDA provider cannot start (no NVIDIA driver or GPU, missing CUDA or cuDNN
+    /// libraries), loading fails with [`Error::DeviceUnavailable`] instead of running on
+    /// the CPU. ONNX Runtime's own behaviour would be to fall back silently.
     Cuda,
 }
 
@@ -28,9 +33,38 @@ fn backend(error: impl std::fmt::Display) -> Error {
     Error::Backend(error.to_string())
 }
 
+static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
+/// Threads of each session's intra-operator pool; 0 leaves ONNX Runtime's default.
+static INTRA_THREADS: AtomicUsize = AtomicUsize::new(0);
+
 fn environment() -> Result<&'static Environment> {
-    static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
     ENVIRONMENT.get_or_init(|| ort::init().with_name("rvc-runtime").build().map_err(|error| error.to_string())).as_ref().map_err(backend)
+}
+
+/// Loads ONNX Runtime from `library` (`libonnxruntime.so`, `onnxruntime.dll`) instead of
+/// looking it up by name. Call before anything else of this crate; a second call, or a
+/// call after a network was loaded, returns an error and changes nothing.
+#[cfg(feature = "load-dynamic")]
+pub fn load_runtime(library: &Path) -> Result<()> {
+    let mut fresh = false;
+    let result = ENVIRONMENT.get_or_init(|| {
+        fresh = true;
+        let builder = ort::init_from(library).map_err(|error| error.to_string())?;
+        builder.with_name("rvc-runtime").build().map_err(|error| error.to_string())
+    });
+    match (fresh, result) {
+        (true, Ok(_)) => Ok(()),
+        (true, Err(error)) => Err(Error::Backend(error.clone())),
+        (false, _) => Err(Error::invalid("ONNX Runtime was already loaded")),
+    }
+}
+
+/// Limits the CPU threads each network's session uses within one operator (ONNX
+/// Runtime's intra-operator pool). `None` keeps ONNX Runtime's default, one thread per
+/// physical core, which ignores the process's CPU affinity. Applies to sessions created
+/// afterwards.
+pub fn set_intra_threads(threads: Option<usize>) {
+    INTRA_THREADS.store(threads.unwrap_or(0), Ordering::Relaxed);
 }
 
 enum Source<'a> {
@@ -40,10 +74,15 @@ enum Source<'a> {
 
 fn session(source: Source, device: Device) -> Result<Session> {
     let mut builder = Session::builder(environment()?).map_err(backend)?;
+    let threads = INTRA_THREADS.load(Ordering::Relaxed);
+    if threads > 0 {
+        builder = builder.with_intra_threads(threads).map_err(backend)?;
+    }
     if device == Device::Cuda {
         #[cfg(feature = "cuda")]
         {
-            builder = builder.with_execution_providers([ort::ep::CUDA::default().build()]).map_err(backend)?;
+            // error_on_failure: a provider that cannot start is an error, not the CPU.
+            builder = builder.with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()]).map_err(|error| Error::DeviceUnavailable(error.to_string()))?;
         }
         #[cfg(not(feature = "cuda"))]
         return Err(Error::invalid("this build has no CUDA support (enable the `cuda` feature)"));
@@ -54,6 +93,30 @@ fn session(source: Source, device: Device) -> Result<Session> {
     }
 }
 
+/// Creates and runs a one-operator graph on `device`: whether the device can be used at
+/// all, without loading any model. A GPU that cannot be used gives
+/// [`Error::DeviceUnavailable`].
+pub fn check_device(device: Device) -> Result<()> {
+    let mut graph = crate::onnx::Graph::new();
+    let x = graph.input_f32("x", &[crate::onnx::Dim::Fixed(1), crate::onnx::Dim::Fixed(4)]);
+    let one = graph.scalar(1.0);
+    let y = graph.add(&x, &one);
+    graph.output_f32("y", &y, &[crate::onnx::Dim::Fixed(1), crate::onnx::Dim::Fixed(4)]);
+    // The graph is valid, so on the GPU any failure to create or run it is the device's.
+    let unavailable = |error: Error| match (device, error) {
+        (Device::Cuda, Error::Backend(message)) => Error::DeviceUnavailable(message),
+        (_, error) => error,
+    };
+    let mut session = session(Source::Memory(&graph.into_model()), device).map_err(unavailable)?;
+    let input = Tensor::from_array(([1usize, 4], vec![0.0f32; 4])).map_err(backend)?;
+    let outputs = session.run(ort::inputs!["x" => input]).map_err(|error| unavailable(backend(error)))?;
+    let (_, data) = first_output(&outputs, "y")?;
+    if data != [1.0; 4] {
+        return Err(Error::Backend("the device returned a wrong result".into()));
+    }
+    Ok(())
+}
+
 fn first_output(outputs: &ort::session::SessionOutputs, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {
     let value = outputs.get(name).ok_or_else(|| Error::Backend(format!("the graph has no output named {name}")))?;
     let (shape, data) = value.try_extract_tensor::<f32>().map_err(backend)?;
@@ -62,9 +125,11 @@ fn first_output(outputs: &ort::session::SessionOutputs, name: &str) -> Result<(V
 
 /// Content features from 16 kHz audio at 50 frames per second.
 ///
-/// The graph is the HuBERT checkpoint exported once by `reference/export_hubert_onnx.py`:
-/// input `audio` `[1, samples]`, outputs `features_v2` (last layer, 768 wide) and
-/// `features_v1` (ninth layer through the final projection, 256 wide).
+/// The graph takes `audio` `[1, samples]` and gives `features_v2` (last layer, 768 wide)
+/// and `features_v1` (ninth layer through the final projection, 256 wide). It is built
+/// from the Transformers-format checkpoint folder ([`FeatureExtractor::from_checkpoint`],
+/// see [`crate::hubert`]) or read from a graph exported by
+/// `reference/export_hubert_onnx.py` ([`FeatureExtractor::load`]).
 pub struct FeatureExtractor {
     session: Session,
 }
@@ -73,8 +138,19 @@ pub struct FeatureExtractor {
 pub const MIN_FEATURE_SAMPLES: usize = 400;
 
 impl FeatureExtractor {
+    /// Reads an exported graph file.
     pub fn load(path: &Path, device: Device) -> Result<Self> {
-        let session = session(Source::File(path), device)?;
+        Self::from_session(session(Source::File(path), device)?)
+    }
+
+    /// Builds the graph from a `hubert_base` checkpoint folder (`config.json` and
+    /// `pytorch_model.bin`).
+    pub fn from_checkpoint(folder: &Path, device: Device) -> Result<Self> {
+        let graph = crate::hubert::HubertCheckpoint::load(folder)?.build_graph()?;
+        Self::from_session(session(Source::Memory(&graph), device)?)
+    }
+
+    fn from_session(session: Session) -> Result<Self> {
         for name in ["features_v1", "features_v2"] {
             if !session.outputs().iter().any(|output| output.name() == name) {
                 return Err(Error::format("feature extractor", format!("the graph has no `{name}` output")));
@@ -86,6 +162,16 @@ impl FeatureExtractor {
     /// Row-major `[frames][version.feature_dim()]`. The audio is used as it is; the
     /// checkpoint's preprocessing configuration asks for no normalisation.
     pub fn extract(&mut self, audio: &[f32], version: Version) -> Result<Vec<f32>> {
+        let (width, data) = self.extract_any_width(audio, version)?;
+        if width != version.feature_dim() {
+            return Err(Error::Backend("feature extractor returned an unexpected width".into()));
+        }
+        Ok(data)
+    }
+
+    /// As [`FeatureExtractor::extract`], for graphs of another width (test checkpoints):
+    /// the width of the `version`'s output and the row-major features.
+    pub fn extract_any_width(&mut self, audio: &[f32], version: Version) -> Result<(usize, Vec<f32>)> {
         if audio.len() < MIN_FEATURE_SAMPLES {
             return Err(Error::invalid("audio is too short for feature extraction"));
         }
@@ -96,10 +182,7 @@ impl FeatureExtractor {
             Version::V2 => "features_v2",
         };
         let (shape, data) = first_output(&outputs, name)?;
-        if shape.last() != Some(&version.feature_dim()) {
-            return Err(Error::Backend("feature extractor returned an unexpected width".into()));
-        }
-        Ok(data)
+        Ok((shape.last().copied().unwrap_or(0), data))
     }
 }
 

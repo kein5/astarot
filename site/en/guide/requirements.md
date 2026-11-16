@@ -20,11 +20,13 @@ On Linux, the audio route the app manages needs Linux 6.9 or later, PipeWire and
 | Use | Memory the app used (measured) | Suggested PC memory |
 |---|---|---|
 | Translation and captions of other people's voices (earlier version, Whisper tiny for recognition, both on the CPU) | about 3.6 GB | 16 GB or more |
-| Speech, captions, the voice changer (RVC), translation and VR captions at once | about 11.5–13.1 GB | 32 GB or more |
+| Speech, captions, the voice changer (RVC), translation and VR captions at once (with the RVC runtime of 0.3 and earlier) | about 11.5–13.1 GB | 32 GB or more |
 
 "Memory the app used" is the total private memory of the VRCT-VOX processes, measured over runs of 30 minutes to 2 hours. "Suggested PC memory" adds the operating system and VRChat to that. VRChat's own memory was not measured.
 
-The first row was measured with an earlier version, which still had the Whisper that ran inside the app. Speech recognition on this PC is now done by Local (speech.cpp), and that setup has not been measured again.
+The first row was measured with an earlier version, which still had the Whisper that ran inside the app. Speech recognition on your own PC is now done by Local (speech.cpp), and that setup has not been measured again.
+
+The second row was measured with the RVC runtime of 0.3 and earlier. In 0.4.0, RVC converts with code included in the app and uses a different runtime. The 0.4.0 setup has not been measured again.
 
 ## GPU
 
@@ -32,8 +34,24 @@ The first row was measured with an earlier version, which still had the Whisper 
 |---|---|
 | Translation, chat reading | None; they run on the CPU |
 | Speech, local speech recognition and realtime captions, telling speakers apart (speech.cpp, included in the app) | A GPU with <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> support: NVIDIA, AMD or Intel, integrated GPUs included. Without one they run on the CPU, more slowly |
-| Voice changer (RVC, Seed-VC) | An NVIDIA GPU with a driver that supports CUDA 12.8 |
+| Voice changer (RVC) | An NVIDIA GeForce GTX 16 or RTX 20 series GPU or later with driver 580 or later (CUDA 13). Without one it runs on the CPU, but the voice comes about 1.3 s late instead of about 0.2 s ([next section](#rvc-on-an-nvidia-gpu)) |
 | Local translation on the GPU (the Windows CUDA version) | An NVIDIA GPU |
+
+## RVC on an NVIDIA GPU
+
+From 0.4.0, converting RVC on the GPU needs NVIDIA driver 580 or later, because RVC now uses CUDA 13. With an older driver or a GPU that is not supported, RVC converts on the CPU instead. The voice then comes about 1.3 s late instead of about 0.2 s, and on a slower CPU the conversion can fall behind and stop.
+
+| | Requirement |
+|---|---|
+| Driver | 580 or later, on Windows and on Linux |
+| GPUs that convert on the GPU | GeForce GTX 16 series, RTX 20 series and newer |
+| GPUs that do not | GeForce GTX 10 series and older (GTX 1080 Ti, GTX 1060, the GTX 900 series and so on), and workstation GPUs of those generations (Quadro P series, TITAN V and so on) |
+
+The NVIDIA Control Panel's System Information, or the command `nvidia-smi`, shows the driver version. RVC in 0.3 and earlier ran with any driver that supported CUDA 12.8, so after moving to 0.4.0 without a driver update, RVC that used to run on the GPU may run on the CPU. To keep it on the GPU, update the driver to 580 or later.
+
+Speech, speech recognition and captions run in speech.cpp on Vulkan, not CUDA, so this requirement does not affect them.
+
+## GPU memory
 
 The speech models use about this much GPU memory (more in [Getting models](models#gpu-and-memory-guidance)):
 
@@ -44,7 +62,7 @@ The speech models use about this much GPU memory (more in [Getting models](model
 | Qwen3-TTS 0.6B · Q8_0 (other languages) | about 1.3 GB |
 | Qwen3-TTS 0.6B · Q5_K (other languages, compact) | about 1.0 GB |
 
-On a GeForce RTX 3060 Ti (8 GB), speech, captions and RVC together used about 4.8 GB of GPU memory. With VRChat (desktop mode) on the same GPU it was about 6.1 GB, with a peak of about 7.2 GB. To run every feature with VRChat on one GPU, plan for 8 GB of GPU memory or more. VRChat on a VR headset was not measured.
+On a GeForce RTX 3060 Ti (8 GB), speech, captions and RVC (the runtime of 0.3 and earlier) together used about 4.8 GB of GPU memory. With VRChat (desktop mode) on the same GPU it was about 6.1 GB, with a peak of about 7.2 GB. To run every feature with VRChat on one GPU, plan for 8 GB of GPU memory or more. VRChat on a VR headset was not measured.
 
 ## CPU
 
@@ -53,7 +71,7 @@ The only CPU tested is an Intel Core i7-1255U (a laptop CPU with 10 cores and 12
 | Use | CPU use (100% = one logical core) |
 |---|---|
 | Translation and captions of other people's voices (earlier version, Whisper tiny for recognition, both on the CPU) | 21–34% |
-| Speech, captions and RVC on the GPU, translation on the CPU | 63–137% |
+| Speech, captions and RVC on the GPU, translation on the CPU (with the RVC runtime of 0.3 and earlier) | 63–137% |
 
 ## Free disk space
 
@@ -65,10 +83,9 @@ The only CPU tested is an Intel Core i7-1255U (a laptop CPU with 10 cores and 12
 | Translation model (one) | 0.4–3.3 GB |
 | Speech models (one for Japanese, one for other languages) | 0.8–1.8 GiB each |
 | Speech recognition model | 0.6–0.8 GiB |
-| RVC runtime | needs about 12 GB free on Windows, 16 GB on Linux |
-| Seed-VC runtime | needs about 14 GB free on Windows, 18 GB on Linux |
+| RVC runtime | needs about 2.7 GB free on Windows, 3.3 GB on Linux (the CPU runtime of a PC without an NVIDIA driver about 0.8 GB) |
 
-For every feature on Windows, plan for about 20 GB free with RVC, or about 35 GB with Seed-VC as well. The models and their sizes are listed in [Getting models](models).
+For every feature on Windows, plan for about 11 GB free. The models and their sizes are listed in [Getting models](models).
 
 ## Test PC
 

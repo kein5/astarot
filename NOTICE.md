@@ -8,8 +8,14 @@ removed in 0.2.0 (see below); **fork binary distributions exclude all OCR
 weights** while retaining their attribution documents.
 
 The fork supports external engines and a fixed speech.cpp binary bundle with
-separate third-party notices. Voice recordings and additional TTS/ASR/VC model
-weights are not bundled. Mia2026 is validation-only. The Seed-VC integration
+separate third-party notices. RVC voice conversion is the fork's own
+reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
+Rust dependencies are listed with the app's (see "Rust crates in VRCT-VOX
+builds" below). ONNX Runtime,
+the NVIDIA CUDA and cuDNN libraries and the HuBERT and RMVPE weights it uses are
+not bundled: the app fetches them from their providers after the user's
+consent (see "RVC base models" below). Voice recordings and additional TTS/ASR/VC model weights are not
+bundled. Mia2026 is validation-only. The Seed-VC integration
 contains files marked GPL-3.0-only; engine dependencies and weights have their
 own licenses. See [voice licensing](docs/voice-stack/licensing.md) for component
 boundaries, original sources, and unresolved binary distribution obligations.
@@ -74,6 +80,18 @@ large-v3), Zoont (large-v3-turbo-int8), and deepdml (large-v3-turbo). Files
 left by those versions can be deleted in Settings → Speech recognition (ASR)
 → Old Whisper models.
 
+## Downloadable speech recognition models (speech.cpp)
+
+The speech recognition models are not shipped. Each file is downloaded from a
+pinned Hugging Face revision only after the user agrees in Settings → Speech
+recognition (ASR). The catalog offers every file that the bundled speech.cpp
+lists for Qwen3-ASR 0.6B and 1.7B (Qwen, Apache-2.0), ReazonSpeech v2 (Reazon
+Research, Apache-2.0), Parakeet TDT-CTC 0.6B ja and Parakeet TDT 0.6B v3
+(NVIDIA, CC BY 4.0), Haas-ja v1.0 (Third Intelligence, Apache-2.0) and
+Nemotron 3.5 Transcribe 30B-A4B (NVIDIA, OpenMDW-1.1), all converted to GGUF by
+sakasegawa. `licenses/speechcpp-models/NOTICE.md` lists the sources, revisions
+and the license review.
+
 ## Downloadable CTranslate2 translation weights
 
 None of these weights ship with VRCT-VOX. The app downloads the selected one
@@ -113,8 +131,55 @@ files and saved selections are preserved.
 
 This table and the OCR table above cover **model weights** only. Python package
 dependencies are listed in `pyproject.toml` (resolved in `uv.lock`) and
-carry their own licenses; JavaScript and Rust dependencies are listed in
-`package.json` and `src-tauri/Cargo.toml`.
+carry their own licenses; JavaScript dependencies are listed in
+`package.json`. Rust dependencies are covered in the next section.
+
+## Rust crates in VRCT-VOX builds
+
+The application (`vrct-vox`) and the RVC worker (`vrct-rvc-worker`) are built
+from Rust crates. Every build lists the crates compiled into these two
+executables for its platform, with each crate's license, in
+`_internal/licenses/rust/README.md` (`crates.json` holds the same list), and
+carries the license texts each crate publishes in
+`_internal/licenses/rust/<crate>-<version>/`. `tools/rust_licenses.py` makes
+the list from the lock files (`src-tauri/Cargo.lock`,
+`native/rvc-runtime/Cargo.lock`) when the package is built. The application
+also contains the backend core and the crates it uses (`native/core`,
+`native/adapters`, `native/ops`, `native/speech-server`, `native/tts`); they
+are VRCT-VOX's own code under `LICENSE`, and the list marks them so.
+
+The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
+Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,
+`selectors` and `dwrote`, under the Mozilla Public License 2.0. VRCT-VOX does
+not modify them. The source code of every listed crate, these included, is on
+crates.io at the version listed (`https://crates.io/crates/<crate>/<version>`).
+
+The application checks TLS certificates against Mozilla's root CA
+certificates in the `webpki-roots` crate. That data is derived from the
+[Common CA Database (CCADB)](https://www.ccadb.org/) and is used under the
+[CCADB Data Usage Terms](https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms),
+that is, the Community Data License Agreement – Permissive, Version 2.0
+(CDLA-Permissive-2.0), whose text is in
+`_internal/licenses/rust/webpki-roots-<version>/LICENSE`.
+
+A few crates publish no license text in their package. For those, the texts
+come from the crate's own repository or from the license's canonical text, as
+recorded with their sources in
+[`licenses/rust/supplements.json`](licenses/rust/supplements.json).
+
+## RVC base models
+
+RVC voice conversion uses two base models that VRCT-VOX does not ship. After
+the user agrees on the RVC runtime setup screen, the app fetches them from
+[lj1995/VoiceConversionWebUI](https://huggingface.co/lj1995/VoiceConversionWebUI)
+at a pinned revision and checks their sizes and SHA-256
+([record](docs/voice-stack/rvc-base-artifacts.proposal.json)). That repository
+marks them MIT.
+
+| Model | Files | Upstream |
+|---|---|---|
+| HuBERT feature extractor (`hubert_base`) | `config.json`, `pytorch_model.bin` | [ContentVec](https://github.com/auspicious3000/contentvec) (MIT), built on [fairseq](https://github.com/facebookresearch/fairseq)'s HuBERT (MIT), as credited by [RVC](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) |
+| RMVPE pitch extractor | `rmvpe.onnx` | [RMVPE](https://github.com/Dream-High/RMVPE) (Apache-2.0); weights trained by yxlllc and RVC-Boss |
 
 ## Windows installer download component
 

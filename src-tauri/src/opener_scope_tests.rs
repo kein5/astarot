@@ -84,6 +84,10 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/81eed5e8/LICENSE",
         "https://github.com/pytorch/pytorch/blob/main/LICENSE",
         "https://docs.nvidia.com/cuda/eula/index.html",
+        "https://github.com/microsoft/onnxruntime/blob/v1.31.0/LICENSE",
+        "https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html",
+        // The virtual cable's download page in the virtual microphone guide (#321).
+        "https://vb-audio.com/Cable/",
     ] {
         assert!(allowed(url), "{url} should open");
     }
@@ -102,6 +106,8 @@ fn other_urls_and_other_schemes_are_refused() {
         "https://github.com/kein5/VRCT-VOX\\..\\..\\someone",
         "https://github.com/kein5/VRCT-VOX/%5c..",
         "https://huggingface.co.example.com/",
+        "https://vb-audio.com/Cable/../../other",
+        "https://vb-audio.com/Voicemeeter/",
         "https://huggingface.co@example.com/",
         "https://twitter.com/someone_else",
         "https://creativecommons.org/licenses/by/4.0/../../",

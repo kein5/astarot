@@ -1,13 +1,11 @@
 # rvc-runtime
 
 Inference-only RVC voice conversion in Rust (issue #275; Phase 1: offline conversion,
-Phase 2: streaming conversion).
-The processing follows the specification in
-[`docs/superpowers/specs/2026-11-15-rvc-inference-runtime-design.md`](../../docs/superpowers/specs/2026-11-15-rvc-inference-runtime-design.md).
+Phase 2: streaming conversion, Phase 3: the application's voice changer).
 
-This crate stands alone. The application does not use it yet: nothing under `src-tauri`
-or `src-python` refers to it, and the existing external RVC runtime is unchanged.
-Integration is Phase 3.
+The application runs it as `vrct-rvc-worker` (`src/bin/rvc_worker.rs`), a separate
+process that replaces the external PyTorch runtime the voice changer used before. See
+[Application worker](#application-worker-phase-3).
 
 ## What it does
 
@@ -26,6 +24,9 @@ Integration is Phase 3.
 | Synthesizer window (9.3) | `src/synth.rs`, `src/backend.rs` | `Synthesizer::synthesize_window`: the prior encoder sees the whole window, the flow starts 24 frames before `skip_head`, and only `return_length` frames are decoded. Offline conversion uses the same graph over the whole range. |
 | Streaming (12) | `src/stream.rs` | `Stream`: fixed blocks of 16 kHz input, one block of output at the model's rate per call. See [Streaming](#streaming-spec-section-12). |
 | Causal input filter (12) | `src/filter.rs` | `CausalFilter`: the same Butterworth run forward twice, keeping its memory between blocks. |
+| HuBERT graph from the checkpoint (6) | `src/hubert.rs` | `FeatureExtractor::from_checkpoint`: the Transformers-format `hubert_base` folder (`config.json`, `pytorch_model.bin`) is read with the same pickle reader and turned into the same graph `export_hubert_onnx.py` exports, so no exported file has to be distributed. |
+| Streaming rate conversion | `src/audio.rs` | `StreamResampler`: the Kaiser-windowed sinc of `resample`, made causal by a fixed delay (2.1 ms at 48 to 16 kHz, 0.9 ms at 40 to 48 kHz). |
+| Application worker | `src/bin/rvc_worker.rs` | The live-VC pipe contract of the application around `Stream`. |
 
 Not implemented: formant shift, and F0 extractors other than RMVPE.
 
@@ -38,8 +39,11 @@ The two fixed networks are data, not code, and are not part of this repository.
 | `rmvpe.onnx` | `lj1995/VoiceConversionWebUI` on Hugging Face (pinned revision and SHA-256 in `reference/setup_reference.py`) | MIT |
 | `hubert.onnx` | Exported by `reference/export_hubert_onnx.py` from the Transformers-format `hubert_base` of the same repository, with the stock `transformers.HubertModel` | MIT (repository); the upstream ContentVec/HuBERT terms must be confirmed before bundling (spec section 14) |
 
-Bundling them with the application, and recording their final source and licence in
-`NOTICE.md` and the licence ledger, belongs to Phase 3.
+The application does not bundle them. Its runtime setup fetches `hubert_base`'s
+`config.json` and `pytorch_model.bin` and `rmvpe.onnx` after the user's consent, from the
+pinned revision above, and the worker builds the HuBERT graph from the checkpoint
+(`FeatureExtractor::from_checkpoint`); `hubert.onnx` is only used by the tests. Sources and
+licences are recorded in `docs/voice-stack/licensing.md`.
 
 ## Use
 
@@ -66,10 +70,23 @@ cargo run --release --bin rvc-stream -- \
 It feeds the blocks back to back rather than at the pace of a live input and prints the
 per-block time, the real-time factor and how many blocks took longer than they last.
 
-ONNX Runtime is downloaded by the `ort` crate at build time. `--features cuda` selects the
-CUDA provider. The provider needs cuDNN 9 at run time, found through the library path; if
-the provider cannot start, ONNX Runtime falls back to the CPU without an error, so check
-GPU use (for example with `nvidia-smi`) when measuring.
+ONNX Runtime is downloaded by the `ort` crate at build time (feature `download-binaries`,
+on by default). `--features cuda` selects the CUDA provider. The provider needs cuDNN 9 at
+run time, found through the library path. If the provider cannot start (no GPU or driver,
+a missing CUDA or cuDNN library), loading now fails with `Error::DeviceUnavailable`
+instead of ONNX Runtime's silent fall back to the CPU; operators the provider lacks still
+run on the CPU.
+
+| Feature | What it does |
+|---|---|
+| `download-binaries` (default) | links the ONNX Runtime build `ort` downloads; tests and the two tools above |
+| `cuda` | the CUDA execution provider |
+| `load-dynamic` | no ONNX Runtime at build time: `backend::load_runtime(path)` loads `libonnxruntime.so` / `onnxruntime.dll` at run time |
+| `worker` | `load-dynamic` + `cuda`, and the `vrct-rvc-worker` binary |
+
+`backend::set_intra_threads(Some(n))` limits each session's CPU thread pool (ONNX Runtime's
+default is one thread per physical core and ignores the process's CPU affinity);
+`rvc-infer` and `rvc-stream` do not expose it yet, the worker does (`--threads`).
 
 ## Verification
 
@@ -360,8 +377,9 @@ for 0.31 s of 48 kHz audio) and 3 ms for the index.
 Not measured: an idle machine, weaker CPUs, and CPU thread limits. ONNX Runtime ignores
 the process's CPU affinity (it started 70 threads under `taskset -c 0-3`), so restricting
 cores with `taskset` would over-subscribe them and say little about a smaller CPU; a
-measurement on weaker hardware needs a thread-count setting, which the runtime does not
-expose yet. The CUDA output was not compared against the CPU output.
+measurement on weaker hardware needs a thread-count setting (added in Phase 3:
+`backend::set_intra_threads`; not yet measured on the CPU). The CUDA output was not
+compared against the CPU output.
 
 ### Where streaming differs from the reference's real-time GUI
 
@@ -387,6 +405,156 @@ small change if the specification decides otherwise.
 - **Not included:** the GUI's input gate, loudness mix, noise reduction, phase vocoder,
   formant shift, and device input and output.
 
+## Application worker (Phase 3)
+
+`vrct-rvc-worker` is what the application starts for the voice changer. It speaks the
+application's fixed live-VC pipe contract (`src-python/models/voice_conversion/protocol.py`,
+"VVC1"): a `ready` packet, or a `failed` packet with a fixed code, then one `output` packet
+of 80 ms of 48 kHz mono 16-bit audio for every `input` packet. The owner, the Linux launch
+helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink, mute
+and the speech-through-conversion path are the same as with the external runtime.
+
+```sh
+python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/vrct-rvc-worker
+vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|cpu]
+vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
+```
+
+- **Runtime folder** (set up by `src-python/models/voice_conversion/runtime_setup.py` after
+  consent). On a PC with an NVIDIA driver: `lib/` holds ONNX Runtime 1.31.0 (CUDA 13 build,
+  Microsoft's release) with CUDA 13.4 Update 1 and cuDNN 9.26 (NVIDIA's PyPI wheels; driver
+  580 or later; the provider has kernels for sm_75 to sm_120, Turing and later). Without
+  one: only ONNX Runtime's CPU build. `assets/` holds `hubert_base` and `rmvpe.onnx`. The
+  worker loads the CUDA libraries from `lib/` itself, then ONNX Runtime, so nothing depends
+  on the system's library path.
+- **Where it converts** (`--device`, default `auto`): on the GPU when the runtime has the
+  CUDA provider, its libraries load and a CUDA session runs; otherwise on the CPU. The
+  `ready` packet says which (`profile`: `low` for the GPU as before, `cpu`) and the delay
+  the worker adds (`latency_ms`); the application shows both. `--device cuda` keeps the
+  strict form (`vc_gpu_unavailable`). Missing or broken libraries are
+  `vc_runtime_incomplete`.
+- **GPU layout**: the external runtime's profile: 80 ms blocks, 40 ms crossfade searched
+  over 10 ms, 2 s of context (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`),
+  every packet converted before it is answered. Added delay 52 ms (crossfade, search and
+  the two rate conversions).
+- **CPU layout**: 0.5 s blocks, 50 ms crossfade, 10 ms search, 2.5 s of context, the only
+  layout of the Phase 2 measurements in which every CPU block took less time than it lasts.
+  The blocks are converted on a thread of their own; every packet is answered at once from
+  what that thread finished, a fixed 14 packets (1.12 s) later, which leaves a whole block's
+  time for converting each block. Added delay 1182 ms. Until the first converted audio is
+  due, the answers are silence (`vad_silence`). A block that comes after its place was
+  answered is dropped, and when more than three blocks of input wait, the oldest is dropped
+  unconverted. When more than half of the last eight blocks were late or dropped, the
+  worker sends `failed` with `vc_capture_overrun` instead of the next answer and stops, as
+  the owner stops a GPU worker that falls behind.
+- Both: index blend from the user's index rate, speaker 0, random synthesis noise; the
+  input high-pass of the specification is on (`--highpass off` matches the external runtime,
+  for measurements); 48 kHz to 16 kHz in and the model's rate to 48 kHz out with
+  `StreamResampler`.
+- **CPU threads** per session (`--threads` overrides): 1 with CUDA; on the CPU half the
+  logical CPUs, from 2 to 6 (measurements below).
+- Before `ready`, three blocks of a test tone (GPU) or one 0.5 s block (CPU) are converted
+  and forgotten.
+
+### Measurements (2026-11-15)
+
+Same machine as above (Ryzen 9 9900X, RTX 4080 SUPER, driver 620.70), CUDA, the worker
+driven through the application's contract module (`protocol.py`) with a 22.9 s speech file
+(the two public clips, twice, with pauses), fed in real time. Load average 1 – 16 from
+unrelated work during the runs. Round trip is the time from writing a block to reading its
+output.
+
+| Runtime | Model | Round trip mean / p95 / max | Over 80 ms | Ready after start |
+|---|---|---|---|---|
+| Rust worker (3 runs) | 48 kHz + index 0.75 | 27 – 36 / 49 – 54 / 61 – 114 ms | 0 – 1 of 286 | 3.1 – 4.8 s |
+| External runtime (3 runs) | 48 kHz + index 0.75 | 28 – 45 / 39 – 61 / 45 – 89 ms | 0 – 2 of 286 | 5.6 – 8.1 s |
+| Rust worker (3 runs) | 40 kHz | 22 – 28 / 45 – 49 / 48 – 55 ms | 0 of 286 | 2.1 – 4.1 s |
+| External runtime (3 runs) | 40 kHz | 25 – 41 / 38 – 53 / 39 – 70 ms | 0 of 286 | 3.6 – 6.8 s |
+
+Each line is the range of the per-run values; the runs of both runtimes alternated. "Ready"
+is from start to the `ready` packet, which includes loading the model and the warm-up.
+
+| Worker, 48 kHz + index, one run each | CPU (one core = 100 %) | Threads | Peak memory | Round trip mean |
+|---|---|---|---|---|
+| Rust, ONNX Runtime's default threads | 44 % | 77 | 2.1 GiB | 24.1 ms |
+| Rust, 1 thread (the worker's default on CUDA) | 36 % | 8 | 2.2 GiB | 23.7 ms |
+| Rust, 2 / 4 threads | 36 % / 38 % | 11 / 17 | 2.2 / 2.1 GiB | 24.3 / 24.9 ms |
+| External runtime | 106 % | 62 | 2.9 GiB | 25.7 ms |
+
+**CUDA 13 and the CPU (2026-11-15, later the same day).** The machine was busy with
+unrelated jobs during all of these (load average 18 – 34 on 24 hardware threads), which made
+every number slower than the ones above; read them against each other, not against those.
+
+| Same load, alternating runs, 48 kHz + index | Round trip mean / p95 / max | Over 80 ms |
+|---|---|---|
+| Worker of the first commit with CUDA 12.8 (2 runs) | 64 – 66 / 102 – 108 / 121 – 144 ms | 70 of 286 |
+| This worker with CUDA 13.4 (2 runs) | 64 – 65 / 106 / 136 – 172 ms | 62 – 76 of 286 |
+
+So CUDA 13 converts as fast as CUDA 12 did; the slower round trip is the load.
+
+CPU threads, the time to convert one 0.5 s block (48 kHz + index, 2.5 s of context) in the
+worker, twelve blocks each, under that load:
+
+| Threads | 2 | 4 | 6 | 8 | 12 | ONNX Runtime's default |
+|---|---|---|---|---|---|---|
+| Per block | 1.0 – 1.4 s | 0.71 – 0.97 s | 0.48 – 0.89 s | 0.70 – 1.00 s | 1.35 – 1.74 s | 2.3 – 3.0 s |
+
+With every logical CPU busy, more threads only wait for each other; six was fastest. Under
+this load no setting converted a block in less than its 0.5 s, so a live CPU conversion on
+this machine at that time stopped with `vc_capture_overrun` after about four seconds. With
+the input fed at 300 ms per packet instead of 80 ms (so the CPU keeps up), the worker
+converted the whole 22.9 s file without a single late block: 14 silent packets at the start,
+then 272 packets of voice, measured 1175 ms behind the input (envelope cross-correlation;
+the `ready` packet said 1182 ms). The GPU worker measured 45 ms the same way (said 52 ms).
+On the screen the delay is shown as the 80 ms block, plus `latency_ms`, plus the round
+trip: about 0.2 s on the GPU and 1.3 s on the CPU.
+
+Through the application's private PipeWire graph (`tests/platform/test_native_rvc_worker.py`,
+20 s of continuous conversion, index rate 0 and 0.5, stop and worker kill): all four cases
+passed; from the end of a captured block to its write to the managed sink 54 – 70 ms
+(median), 77 ms at most; start to active 3.2 – 3.3 s; silent 76 – 88 ms after stop or kill.
+
+**Against the external runtime's output.** Synthesis noise is random, so each runtime
+converted the file three times and the measures of `reference/objective_compare.py` were
+taken between pairs, after aligning the outputs (envelope cross-correlation, all within
+4 ms). "Within" means the Rust-against-external mean lies within the external runtime's
+spread against itself.
+
+| Measure | 48 kHz + index: external spread | Rust against external | 40 kHz: external spread | Rust against external |
+|---|---|---|---|---|
+| Speaker similarity | 0.982 – 0.987 | 0.984 (within) | 0.982 – 0.984 | 0.981 (just below) |
+| CER between transcripts | 0.000 – 0.009 | 0.012 | 0.026 – 0.044 | 0.026 (within) |
+| MFCC distortion | 27.3 – 28.2 | 32.4 | 31.4 – 31.9 | 33.2 |
+| Log-spectral distance (dB) | 7.51 – 7.65 | 8.49 | 8.17 – 8.23 | 11.68 |
+| F0 voicing agreement | 0.964 – 0.974 | 0.955 | 0.970 – 0.974 | 0.973 (within) |
+| F0 difference (cents) | 6.4 – 9.5 | 8.1 (within) | 5.8 – 6.2 | 8.3 |
+| Level difference (dB) | 0.04 – 0.11 | 0.09 (within) | 0.05 – 0.16 | 0.09 (within) |
+| Squim MOS estimate | 4.30 – 4.31 | 4.36 (higher) | 4.41 – 4.44 | 4.42 (within) |
+
+So the voice, the words and the estimated naturalness are the same, but timbre and pitch
+measures show a small systematic difference beyond the noise. What was ruled out and found:
+
+- The Rust runs against each other spread as much as the external ones (40 kHz MFCC
+  31.5 – 32.2), so the difference is between the implementations, not more noise.
+- The external runtime runs in half precision on this GPU; forcing it to single precision
+  stays within its own spread, so precision is not the cause. Turning the Rust input
+  high-pass off does not close the gap either (40 kHz MFCC 32.95).
+- Long-term spectra agree within 1 dB in every band up to 20 kHz. The 40 kHz LSD is mostly
+  the 20 – 24 kHz band, which the external runtime's resampler fills at about −110 dB and
+  `StreamResampler` leaves at about −133 dB; LSD weighs such quiet bins heavily.
+- Against offline conversion of the same file (this crate, which matches the reference;
+  40 kHz, protect off, three seeds), the Rust stream is closer than the external stream:
+  MFCC distortion 40.6 against 41.1, F0 difference 8.2 against 9.9 cents, LSD 9.4 against
+  12.4 dB. The remaining difference is more likely the external runtime's per-block
+  resampling of 80 ms pieces than a fault of this runtime, but it has not been pinned down.
+
+Decided by the maintainer (2026-11-15, PR #312): the live output was checked by ear and
+accepted; Windows is accepted on the CI build without a check on a Windows PC.
+
+Not done: other GPUs; a CPU conversion in real time on a machine that is not busy; long runs
+under the mixed load of VRChat, TTS and captions; the GUI test with the real worker
+(`tests/platform/test_native_rvc_ui.py`).
+
 ## Decisions on the specification's open questions (section 15)
 
 1. **Reading `.pth`**: read directly, no import step. The reader is about 600 lines, runs
@@ -402,7 +570,9 @@ small change if the specification decides otherwise.
    random weights; verification with a real v1 model is open.
 5. **CPU**: offline conversion runs several times faster than real time on the test
    machine. Streaming on the test machine's CPU: see [Streaming](#streaming-spec-section-12).
-   Weaker CPUs have not been measured (below).
+   Weaker CPUs have not been measured (below). The application keeps the GPU requirement
+   of the external runtime and does not convert on the CPU; a thread setting now exists
+   (`backend::set_intra_threads`), so a CPU measurement on weaker hardware is possible.
 6. **Formant shift**: not included.
 
 Where the specification leaves a detail open, the behaviour was taken from black-box

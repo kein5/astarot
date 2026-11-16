@@ -5,8 +5,8 @@
   </picture>
 </h1>
 
-<!-- バッジは値をGitHub（Actions、Releases、リポジトリ）かリンク先のファイルから読む。License、Platform、
-     Rust toolchainだけは固定で、LICENSE、配布物、CIの`dtolnay/rust-toolchain … # stable`に合わせる。README.mdと同じにする。 -->
+<!-- バッジは値をGitHub（Actions、Releases、リポジトリ）かリンク先のファイルから読む。LicenseとPlatformだけは固定で、
+     LICENSEと配布物に合わせる。README.mdと同じにする。 -->
 <p align="center">
   <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="LinuxとWindowsでの試験（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/voice-tests.yml?branch=develop&event=push&label=tests"></a>
   <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のLinuxビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
@@ -22,7 +22,7 @@
 <p align="center">
   <a href="https://kein5.github.io/VRCT-VOX/ja/guide/requirements"><img alt="対応OS: WindowsとLinux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
   <a href="/src-tauri/Cargo.toml"><img alt="アプリのRustのedition" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
-  <a href="/.github/workflows/build-linux.yml"><img alt="Rustのツールチェーン: stable" src="https://img.shields.io/badge/Rust%20toolchain-stable-blue"></a>
+  <a href="/mise.toml"><img alt="mise.tomlで固定したRustのツールチェーン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
   <a href="/pyproject.toml"><img alt="バックエンドのPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
 </p>
 
@@ -34,10 +34,10 @@ VRCT-VOXは音声認識（ASR）、読み上げ（TTS）、ボイスチェンジ
 
 - **翻訳した発声**: チャット入力や確定した翻訳を[speech.cpp](https://github.com/nyosegawa/speech.cpp)のTTS（日本語はIrodori、ほかの言語はQwen3-TTS）で読み上げ、VRChatが使う仮想マイクに流します。音声とOSCのチャット文字は別々に設定できるので、自分の声はそのままに、翻訳の音声と文字を足すといった使い方ができます。
 - **モニター出力**: 同じ読み上げ音声を自分のスピーカーやヘッドホンでも聞けます（任意）。
-- **ボイスチェンジ**: 外部のRVCまたはSeed-VCの実行環境でマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。NVIDIAのGPUが必要です。
+- **ボイスチェンジ**: RVCでマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。NVIDIAのGPU（GeForce GTX 16・RTX 20シリーズ以降とドライバー580以降）で変換し、それ以外ではCPUで変換します。CPUでは声の遅れが大きくなります。Seed-VCは0.4.0で外しました。
 - **リアルタイム字幕**: 同梱のspeech.cppの音声認識サーバーで自分のマイクとほかのプレイヤーの声を文字にします。
 - **同梱サーバー**: speech.cppのサーバーを設定画面から保存・起動・停止できます。
-- **モデルの取得**: Irodori、Qwen3-TTS、Haas-ja（日本語の音声認識）、RVCの既定モデルを、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
+- **モデルの取得**: Irodori、Qwen3-TTS、RVCの既定モデルと、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
 - **Linux対応**: Waylandでのグローバルショートカット（XDG portal）、PipeWireの仮想マイクとマイク選択、AppImageでの日本語入力（fcitx/Mozc、ibus）に対応しています。VR UI、Waylandネイティブのウィンドウを共有するチャット読み取り、音声タイピングモードの貼り付け（X11/XWaylandのウィンドウ）も使えます。
 
 RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です。[モデル取得の仕様](/docs/voice-stack/model-downloads.md)と、Windowsでは[Windowsで音声機能を使う](/docs/voice-stack/local-setup-windows.md)、Linuxでは[Linuxの手順](/docs/voice-stack/local-setup-linux.md)を参照してください。
@@ -49,7 +49,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 - **Linux**: AppImageとtar.gz（x64、Vulkan）。CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しています。
 - **Windows**: インストーラーとzip（CPU版）、CUDA版のzip。Windows 11の実機で実際のモデルを使って試験しています（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
 
-各ファイルの`.sha256`と`SHA256SUMS-*`でダウンロードしたファイルを確認できます（電子署名ではありません）。アプリ内の自動更新は無効です。AURでの配布は予定していますが、まだ登録していません。
+各ファイルの`.sha256`と`SHA256SUMS-*`でダウンロードしたファイルを確認できます（電子署名ではありません）。インストーラー版とAppImage版は、署名を確かめてからアプリ内で更新します。ZIP版とtar.gz版は新しい版を知らせるだけで、deb・rpmはパッケージマネージャーで更新します。AURでの配布は予定していますが、まだ登録していません。
 
 次の制限があります。
 
@@ -74,7 +74,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 
 VRCT-VOXはオフにしない限り、2種類の利用状況の通知をVRCT-VOXの受信サーバーへ送ります（「設定」→「高度な設定」の「利用状況を送信する」）。起動したこと（1日に1回）と、エラーの種類を表す固定のコード（同じコードにつき1日に1回）です。どちらにもアプリのバージョン、OSの種類とバージョン、表示言語、PCの構成（CPU、メモリ、GPUとそのドライバのバージョン）が付きます。送られる内容はアプリの「送信される内容を見る」でそのまま確かめられます。会話の文字や音声、マイクやスピーカーの名前、ユーザー名は送りません。最初に出るお知らせに答えるまでは何も送りません。本家VRCTのAptabaseのテレメトリーは使いません（本家の古いキーファイルが残っていても送信しません）。ユーザーが選んだ翻訳サービスや音声サービスには、送った文字や音声が届きます。利用状況の送信を止めても、すべての機能がオフラインになるわけではありません。
 
-モデルは同梱していません。TTS・音声認識・RVC・Seed-VCのモデルは、ユーザーが求めたときだけ取得するか、ユーザー自身が用意します。配布物にはOCRの重みを一切入れていません。本家のチャット欄検出モデルはforkの配布物に含めることが許されていないため、0.2.0でリポジトリからも消しました。0.1.0までのコミットには、その[利用条件](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt)のもとでモデルが残っているので、古いソース一式をそのまま配布しないでください。検証用の音声Mia2026は配布しません。同梱のspeech.cpp本体にはそれぞれの表記があり、モデルのライセンスはモデルごとに異なります。
+モデルは同梱していません。TTS・音声認識・RVCのモデルは、ユーザーが求めたときだけ取得するか、ユーザー自身が用意します。配布物にはOCRの重みを一切入れていません。本家のチャット欄検出モデルはforkの配布物に含めることが許されていないため、0.2.0でリポジトリからも消しました。0.1.0までのコミットには、その[利用条件](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt)のもとでモデルが残っているので、古いソース一式をそのまま配布しないでください。検証用の音声Mia2026は配布しません。同梱のspeech.cpp本体にはそれぞれの表記があり、モデルのライセンスはモデルごとに異なります。
 
 ## ライセンスと謝辞
 
@@ -86,7 +86,7 @@ VRChatおよび関連する名称はVRChat Inc.の商標または登録商標で
 
 ## 開発
 
-Pythonの環境には`uv`を使います。`npm run doctor`で開発環境を確認し、検査用の依存を`npm run setup:headless`、UIの依存を`python tools/dev.py setup --scope ui`で入れます。`npm run check`で開発ツール・Nodeのテスト・lintを実行します。音声・バックエンド・Rustの検査、ブラウザでのテスト、Cocogittoは[開発ガイド](/docs/development.md)を、ブランチ、コミットメッセージ、PRの決まりは[CONTRIBUTING.md](/CONTRIBUTING.md)を参照してください。
+開発に使うNode、Rust、Python、uv、Cocogittoの版は`mise.toml`で固定していて、[mise](https://mise.jdx.dev/)で入れます（`mise install`）。よく使う手順もmiseのタスクにしてあり、`mise tasks`で一覧を見られます。`mise run doctor`で開発環境を確認し、検査用の依存を`mise run setup:headless`、UIの依存を`mise run setup:ui`で入れます。`mise run check`で開発ツールとNodeのテスト、lintを実行します。音声・バックエンド・Rustの検査、ブラウザでのテスト、Cocogittoは[開発ガイド](/docs/development.md)を、ブランチ、コミットメッセージ、PRの決まりは[CONTRIBUTING.md](/CONTRIBUTING.md)を参照してください。
 
 正式版ごとの変更は[CHANGELOG.md](/CHANGELOG.md)にあります（0.2.0から）。ベータ版と、それより前のリリースは[GitHub Releases](https://github.com/kein5/VRCT-VOX/releases)にあります。
 

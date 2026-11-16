@@ -107,7 +107,7 @@ def test_native_same_send_chatbox_and_voice_then_off(tmp_path):
             config.update(SEND_MESSAGE_TO_VRC=True, OSC_PORT=relay.port, ENABLE_TRANSLATION=False)
             (state / "config.json").write_text(json.dumps(config))
             with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state), "VRCT_VOICE_TRACE": str(trace)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 windows = command("kdotool", "search", "--all", "--pid", str(ui.app_process.pid), "--title", "^VRCT-VOX$").splitlines()
                 assert len(windows) == 1
 

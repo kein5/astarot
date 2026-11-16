@@ -865,6 +865,16 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_only",
         base_endpoint_name: "ocr_readiness",
     },
+    {
+        // Only whether the language's models are here (files, no window probe):
+        // collected at start-up for the main screen's chat reading switch.
+        Category: "Ocr",
+        Base_Name: "OcrModelReadiness",
+        default_value: null,
+        ui_template_id: "custom",
+        logics_template_id: "get_only",
+        base_endpoint_name: "ocr_model_readiness",
+    },
 
     // Vr
     {
@@ -918,6 +928,16 @@ export const SETTINGS_ARRAY = [
         ui_template_id: "object",
         logics_template_id: "get_set",
         base_endpoint_name: "overlay_desktop_settings",
+    },
+    {
+        // Where the caption window was dragged with Ctrl held; x and y are null on the band
+        // the "position" setting picks.
+        Category: "Vr",
+        Base_Name: "OverlayDesktopPlacement",
+        default_value: ui_configs.overlay_desktop_default_placement,
+        ui_template_id: "object",
+        logics_template_id: "get_set",
+        base_endpoint_name: "overlay_desktop_placement",
     },
     {
         // The flow overlay: the desktop strip on or off, and how many recent inputs it and the
@@ -1039,6 +1059,15 @@ export const SETTINGS_ARRAY = [
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "auto_clear_message_box",
+    },
+    {
+        // Whether the app asks for a new version at start (AppUpdateController).
+        Category: "Others",
+        Base_Name: "EnableCheckSoftwareUpdates",
+        default_value: true,
+        ui_template_id: "toggle",
+        logics_template_id: "toggle_enable_disable",
+        base_endpoint_name: "check_software_updates",
     },
     {
         Category: "Others",

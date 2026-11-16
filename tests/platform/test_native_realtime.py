@@ -206,7 +206,7 @@ def test_real_asr_native_caption_translation_and_stop(tmp_path):
                       SEND_MESSAGE_TO_VRC=True, SEND_RECEIVED_MESSAGE_TO_VRC=True, OSC_PORT=osc.getsockname()[1])
         config_path.write_text(json.dumps(config))
         with NativeWebDriver(tmp_path / "first", {"VRCT_CONFIG_DIR": str(state_dir)}) as ui:
-            ui.wait("return document.querySelector('textarea') !== null")
+            ui.wait_main_ready()
             ui.assert_rendered()
             # Use the production Translation toggle; no test-only backend hook.
             toggle = ui.evaluate("return [...document.querySelectorAll('[class*=switch_container]')].find(e => e.querySelector('p')?.textContent === 'Translation')")
@@ -260,7 +260,7 @@ def test_real_asr_native_caption_translation_and_stop(tmp_path):
         assert saved["REALTIME_ASR_SETTINGS"] == choices
         assert "/run/realtime_caption" not in (state_dir / "logs" / "process.log").read_text()
         with NativeWebDriver(tmp_path / "restart", {"VRCT_CONFIG_DIR": str(state_dir)}) as ui:
-            ui.wait("return document.querySelector('textarea') !== null")
+            ui.wait_main_ready()
             open_captions(ui)
             ui.wait("return [...document.querySelectorAll('[role=status]')].filter(e => e.textContent === 'Captions stopped' || [...e.querySelectorAll('p')].some(p => p.textContent === 'Captions stopped')).length === 2")
             assert not any(name.startswith("vrct.asr.capture.") for name in nodes())

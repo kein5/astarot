@@ -111,7 +111,16 @@ If it prints "Verification succeeded!", the file was built by this repository's 
 
 ## Updates
 
-The in-app updater is disabled. Install a new version from GitHub Releases. Your settings and downloaded models stay in the locations above.
+When a new version is out, the top bar says so. You can also check in Settings → Update. How you update depends on how you installed VRCT-VOX.
+
+| Installed with | How to update |
+|---|---|
+| The Windows installer | Press "Update to (version) and restart" in Update. The update is installed only after its signature is checked, and VRCT-VOX restarts when it is done |
+| The AppImage | The same button replaces the AppImage file with the new one |
+| The Windows ZIP or the Linux tar.gz | The app only tells you a new version is out. Install it again from GitHub Releases |
+| deb or rpm | The app does not check. Update with your package manager |
+
+"Check for updates at start" in Update turns the check at start off. A failed check does not stop the app. Your settings and downloaded models stay in the locations above.
 
 The Windows installer unpacks and checks the new version before it replaces the old one. If something fails on the way, it puts the old version back. Your settings, models and logs are kept.
 

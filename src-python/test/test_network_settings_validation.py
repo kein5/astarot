@@ -254,6 +254,33 @@ def test_host_load_and_setter_use_the_same_ipv4_contract(settings, host, valid):
         settings.saveConfig.assert_not_called()
 
 
+def test_preflight_binds_the_checked_address_and_never_all_interfaces(monkeypatch):
+    bound = []
+
+    class FakeSocket:
+        def __init__(self, *args):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def setsockopt(self, *args):
+            pass
+
+        def bind(self, address):
+            bound.append(address)
+
+    monkeypatch.setattr("utils.socket.socket", FakeSocket)
+    assert isAvailableWebSocketServer("127.0.0.1", 2231)
+    assert isAvailableWebSocketServer("192.168.1.5", 2232)
+    for host in ("0.0.0.0", "::", "", "localhost"):
+        assert not isAvailableWebSocketServer(host, 2233)
+    assert bound == [("127.0.0.1", 2231), ("192.168.1.5", 2232)]
+
+
 def test_invalid_preflight_never_opens_socket(monkeypatch):
     socket = Mock(side_effect=AssertionError("must reject before socket creation"))
     monkeypatch.setattr("utils.socket.socket", socket)

@@ -79,7 +79,7 @@ def test_gui_owned_tts_asr_stop_and_restart_off(tmp_path):
     with wave.open(os.environ['VRCT_SPEECH_ASR_INPUT'], 'rb') as wav:
         assert (wav.getframerate(), wav.getnchannels(), wav.getsampwidth()) == (48000, 1, 2)
         pcm = wav.readframes(wav.getnframes())
-    report = dict(status='failed', bundled_version='0.10.0', native_gui=True, private_audio=True,
+    report = dict(status='failed', bundled_version='0.11.0', native_gui=True, private_audio=True,
                   physical_capture=False, vrchat=False, perceptual_quality=False)
     trace = tmp_path / 'voice.jsonl'
 
@@ -120,7 +120,7 @@ def test_gui_owned_tts_asr_stop_and_restart_off(tmp_path):
                                                          for slot in range(1, 4)} for tab in range(1, 6)}
             config_path.write_text(json.dumps(config))
             with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state), 'VRCT_VOICE_TRACE': str(trace.resolve())}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 open_voice(ui)
                 assert not owned(ui)
                 # Each page has its own save bar; leaving a page with edits asks first.
@@ -246,7 +246,7 @@ def test_gui_owned_tts_asr_stop_and_restart_off(tmp_path):
                 assert not any(alive(p) for p in children)
             assert gate.inspect()['muted']
             with NativeWebDriver(tmp_path / 'restart', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 open_voice(ui)
                 for name in ('Japanese TTS', 'Multilingual TTS', 'ASR + VAD'):
                     server_state(ui, name, 'Stopped', timeout=5)

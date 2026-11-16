@@ -72,13 +72,21 @@ export const CaptionOverlay = ({ bridge = captionOverlayBridge, now = Date.now }
             })}
         </div>
     );
-    if (!flow) return captions;
-    return (
+    const content = !flow ? captions : (
         <div className={clsx(styles.with_flow, { [styles.is_top]: snapshot.position === "top" })}>
             <FlowStrip items={snapshot.flow} note={snapshot.flow_note} />
             {captions}
         </div>
     );
+    if (!snapshot?.adjusting) return content;
+    // Ctrl is held over the window: outline the area that can be dragged and show the text
+    // size that Ctrl and + or - change. Numbers only, so the page needs no words of its own.
+    return <>
+        {content}
+        <div className={styles.adjust} aria-hidden="true">
+            <span className={styles.adjust_size}>{snapshot.font_size} px</span>
+        </div>
+    </>;
 };
 
 // Where the user's latest inputs went and how long each step took, in ms, drawn as a path:

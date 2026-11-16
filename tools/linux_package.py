@@ -21,14 +21,13 @@ except ImportError:
 RUNTIME = ('vrct-vox', 'vrct-vox-sidecar', '_internal/base_library.zip',
            '_internal/build/vrct-voice-gate', '_internal/build/vrct-source-bridge',
            '_internal/build/vrct-vc-worker', '_internal/build/vrct-asr-capture',
-           '_internal/build/vrct-screen-capture',
+           '_internal/build/vrct-screen-capture', '_internal/build/vrct-rvc-worker',
            '_internal/build/speechcpp/speech', '_internal/build/speechcpp/bundle.json',
-           '_internal/integrations/rvc/live_worker.py',
            '_internal/integrations/seed_vc/live_worker.py',
            # What the runtime setup installs from.
-           '_internal/integrations/rvc/requirements-cuda.lock', '_internal/integrations/rvc/requirements.lock',
            '_internal/integrations/seed_vc/requirements.lock', '_internal/integrations/seed_vc/offline-loader.patch',
            '_internal/licenses/VRCT/LICENSE', '_internal/licenses/VRCT/NOTICE.md',
+           '_internal/licenses/rust/crates.json', '_internal/licenses/rust/README.md',
            *('_internal/' + name for name in OCR_RUNTIME_DATA))
 
 

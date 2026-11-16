@@ -1,6 +1,6 @@
 # ADR-008: 外部の合成音声エンジン（VOICEVOX系、COEIROINK）を読み上げに使う
 
-Status: 採用（2026-11-15、0.3.0に入れる）。未実装。
+Status: 採用（2026-11-15）。0.3.0で実装済み（#272、#313）。
 Date: 2026-11-15
 Related: [ADR-007](adr-007-translated-speech-through-voice-conversion.md)
 

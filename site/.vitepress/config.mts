@@ -62,7 +62,7 @@ function sidebarJa(): DefaultTheme.SidebarItem[] {
         { text: '翻訳', link: '/ja/features/translation' },
         { text: '音声認識（ASR）とリアルタイム字幕', link: '/ja/features/transcription' },
         { text: 'テキスト読み上げ（TTS）', link: '/ja/features/tts' },
-        { text: 'ボイスチェンジャー（RVC・Seed-VC）', link: '/ja/features/voice-conversion' },
+        { text: 'ボイスチェンジャー（RVC）', link: '/ja/features/voice-conversion' },
         { text: 'チャット読み取り（OCR）', link: '/ja/features/chat-reading' },
       ],
     },
@@ -114,7 +114,7 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
         { text: 'Translation', link: '/en/features/translation' },
         { text: 'Speech recognition (ASR) and realtime captions', link: '/en/features/transcription' },
         { text: 'Text to speech (TTS)', link: '/en/features/tts' },
-        { text: 'Voice changer (RVC, Seed-VC)', link: '/en/features/voice-conversion' },
+        { text: 'Voice changer (RVC)', link: '/en/features/voice-conversion' },
         { text: 'Chat reading (OCR)', link: '/en/features/chat-reading' },
       ],
     },
@@ -202,8 +202,8 @@ export default defineConfig({
       link: '/ja/',
       description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリVRCT-VOXの使い方',
       themeConfig: {
-        // The top bar points at the three pages a reader looks for first; downloads start
-        // from the install page, which says which file to take.
+        // The top bar points at the three pages a reader looks for first. The home page's download
+        // button offers the file for the reader's OS; the install page says how to set each one up.
         nav: [
           { text: 'ガイド', link: '/ja/guide/introduction' },
           { text: 'インストール', link: '/ja/guide/install' },

@@ -61,6 +61,7 @@ from models.audio_routing.devices_windows import carries_own_voice, same_output
 from models.audio_routing.managed_route import VoiceRoute
 from models.audio_routing.monitor_output import monitor_spec
 from models.audio_routing.mute_state import MuteState
+from models.audio_routing import virtual_mic
 from models.audio_routing.pipewire_gate import PipeWireGate
 from models.audio_routing.source_bridge import PIPEWIRE_MIC_HOST, enumerate_sources, microphone_names, parse_source
 from models.voice_conversion.direct_voice import DirectVoice, create_converted_process
@@ -304,6 +305,7 @@ _SIMPLE_CONFIG_GETTERS = {
     "getSendMessageFormatParts": "SEND_MESSAGE_FORMAT_PARTS",
     "getReceivedMessageFormatParts": "RECEIVED_MESSAGE_FORMAT_PARTS",
     "getAutoClearMessageBox": "AUTO_CLEAR_MESSAGE_BOX",
+    "getCheckSoftwareUpdates": "CHECK_SOFTWARE_UPDATES",
     "getSendOnlyTranslatedMessages": "SEND_ONLY_TRANSLATED_MESSAGES",
     "getOverlaySmallLog": "OVERLAY_SMALL_LOG",
     "getOverlaySmallLogSettings": "OVERLAY_SMALL_LOG_SETTINGS",
@@ -316,6 +318,7 @@ _SIMPLE_CONFIG_GETTERS = {
     "getOverlayLargeLogSettings": "OVERLAY_LARGE_LOG_SETTINGS",
     "getOverlayDesktop": "OVERLAY_DESKTOP",
     "getOverlayDesktopSettings": "OVERLAY_DESKTOP_SETTINGS",
+    "getOverlayDesktopPlacement": "OVERLAY_DESKTOP_PLACEMENT",
     "getIoFlowOverlaySettings": "IO_FLOW_OVERLAY_SETTINGS",
     "getOverlayShowOnlyTranslatedMessages": "OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES",
     "getSendMessageToVrc": "SEND_MESSAGE_TO_VRC",
@@ -458,6 +461,7 @@ class Controller:
         self.io_traces = IoTraces(self._ioTraceEmit)
         self.voice_events.on_first_audio = self._ioSpeechStarted
         self._direct_engine = None
+        self.virtual_mic_check = virtual_mic.VirtualMicCheck()
         self.voice_route = VoiceRoute(self.voice_events, gate=PipeWireGate(),
                                      store=MuteState(Path(config_path).with_name('voice_mute_state.json')),
                                      on_muted=self.direct_voice.set_monitor_muted)
@@ -3081,6 +3085,7 @@ class Controller:
 
     def muteVoice(self, *args, **kwargs) -> dict:
         self.voice_route.mute()
+        self._stopVirtualMicCheck()
         return self.getVoiceRoute()
 
     def resumeVoice(self, *args, **kwargs) -> dict:
@@ -3100,6 +3105,7 @@ class Controller:
 
     def stopVoice(self, *args, **kwargs) -> dict:
         self.voice_events.cancel()
+        self._stopVirtualMicCheck()
         return self.getVoiceStatus()
 
     def chatMessage(self, data) -> dict:
@@ -4836,6 +4842,16 @@ class Controller:
             config.AUTO_CLEAR_MESSAGE_BOX = False
         return {"status":200, "result":config.AUTO_CLEAR_MESSAGE_BOX}
 
+    @staticmethod
+    def setEnableCheckSoftwareUpdates(*args, **kwargs) -> dict:
+        config.CHECK_SOFTWARE_UPDATES = True
+        return {"status":200, "result":config.CHECK_SOFTWARE_UPDATES}
+
+    @staticmethod
+    def setDisableCheckSoftwareUpdates(*args, **kwargs) -> dict:
+        config.CHECK_SOFTWARE_UPDATES = False
+        return {"status":200, "result":config.CHECK_SOFTWARE_UPDATES}
+
 
     @staticmethod
     def setEnableSendOnlyTranslatedMessages(*args, **kwargs) -> dict:
@@ -4899,6 +4915,12 @@ class Controller:
     def setOverlayDesktopSettings(data, *args, **kwargs) -> dict:
         config.OVERLAY_DESKTOP_SETTINGS = data
         return {"status":200, "result":config.OVERLAY_DESKTOP_SETTINGS}
+
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setOverlayDesktopPlacement(data, *args, **kwargs) -> dict:
+        config.OVERLAY_DESKTOP_PLACEMENT = data
+        return {"status":200, "result":config.OVERLAY_DESKTOP_PLACEMENT}
 
     @staticmethod
     @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
@@ -5593,6 +5615,26 @@ class Controller:
         """
         return {"status": 200, "result": model.getVrchatOscPresence()}
 
+    def _ocrModelReadiness(self) -> dict:
+        language = config.OCR_SOURCE_LANGUAGE
+        spec = ocr_languages.resolveModelSpec(language)
+        root = self._ocrModelRoot()
+        return {
+            "language": language,
+            "language_supported": spec is not None,
+            "required_models": list(spec.model_ids) if spec is not None else [],
+            "missing_models": ocr_models.missingModels(root, spec) if spec is not None else [],
+        }
+
+    def getOcrModelReadiness(self, *args, **kwargs) -> dict:
+        """Whether the chat reading models for the selected language are here.
+
+        The main screen greys out the chat reading switch while they are not.
+        It only looks at files (no hashing), so it is collected at start-up;
+        unlike getOcrReadiness it never probes the window or loads the engine.
+        """
+        return {"status": 200, "result": self._ocrModelReadiness()}
+
     def getOcrReadiness(self, *args, **kwargs) -> dict:
         """What chat reading still needs before it can start (models, window).
 
@@ -5601,11 +5643,7 @@ class Controller:
         Probing the window opens and closes the X11 connection / finds the
         HWND; it never captures a frame.
         """
-        language = config.OCR_SOURCE_LANGUAGE
-        spec = ocr_languages.resolveModelSpec(language)
-        root = self._ocrModelRoot()
-        required = list(spec.model_ids) if spec is not None else []
-        missing = ocr_models.missingModels(root, spec) if spec is not None else []
+        models = self._ocrModelReadiness()
         try:
             capture = ocr_capture.probeCapture(config.OCR_WINDOW_TITLE)
         except Exception:
@@ -5613,15 +5651,12 @@ class Controller:
             capture = ocr_capture.CAPTURE_UNAVAILABLE
         return {"status": 200, "result": {
             "engine": ocr_engine.isAvailable(),
-            "language": language,
-            "language_supported": spec is not None,
-            "required_models": required,
-            "missing_models": missing,
+            **models,
             "capture": capture,
             "window_title": config.OCR_WINDOW_TITLE,
             # Optional: VRCT-VOX's chatbox detector. Never a blocker for reading.
             "detector_model": ocr_chatbox_detector.DETECTOR_MODEL_ID,
-            "detector_installed": ocr_chatbox_detector.isDetectorInstalled(root),
+            "detector_installed": ocr_chatbox_detector.isDetectorInstalled(self._ocrModelRoot()),
             "detector_enabled": config.OCR_USE_CHATBOX_DETECTOR is True,
             "runtime": model.getOCRRuntime(),
         }}
@@ -5863,6 +5898,72 @@ class Controller:
         """The user closed the notice: it is not shown again."""
         config.LOCAL_ASR_NOTICE_PENDING = False
         return {"status": 200, "result": config.LOCAL_ASR_NOTICE_PENDING}
+
+    @staticmethod
+    def getVirtualMicNotice(*args, **kwargs) -> dict:
+        """Whether the virtual microphone guide may still open by itself (#321).
+
+        The UI opens it at start-up only on Windows and only when no virtual cable is found.
+        """
+        return {"status": 200, "result": config.VIRTUAL_MIC_NOTICE_PENDING}
+
+    @staticmethod
+    def setDisableVirtualMicNotice(*args, **kwargs) -> dict:
+        """The user finished the guide or asked not to see it again. It stays in the TTS settings."""
+        config.VIRTUAL_MIC_NOTICE_PENDING = False
+        return {"status": 200, "result": config.VIRTUAL_MIC_NOTICE_PENDING}
+
+    def _stopVirtualMicCheck(self):
+        # After the voice itself is stopped or muted: this must never keep those from working.
+        check = getattr(self, 'virtual_mic_check', None)
+        if check is not None:
+            check.stop()
+
+    def getVirtualMicStatus(self, *args, **kwargs) -> dict:
+        """The virtual cables found, and whether TTS already plays into one of them.
+
+        Only reads the device list: no device is opened and no choice is changed.
+        """
+        output = self.voice_events.settings.output_device
+        result = {'supported': virtual_mic.supported(), 'cables': [], 'error': None,
+                  'tts_output': output or None, 'tts_output_is_cable': False}
+        if not result['supported']:
+            return {'status': 200, 'result': result}
+        try:
+            result['cables'] = virtual_mic.find_cables()
+        except Exception:
+            result['error'] = 'audio_devices_unavailable'
+        result['tts_output_is_cable'] = bool(output) and any(
+            same_output(output, cable['playback']) for cable in result['cables'])
+        return {'status': 200, 'result': result}
+
+    def runVirtualMicTest(self, data=None, *args, **kwargs) -> dict:
+        """Play the test tone into a virtual cable and measure its other end (#321).
+
+        Runs only when the user asks. It is refused while the voice is muted, and a stop or
+        mute request ends it at once. The level is sent as /run/virtual_mic_level while it
+        runs; nothing recorded is kept.
+        """
+        if not virtual_mic.supported():
+            return {'status': 409, 'result': {'error_code': 'virtual_mic_unsupported'}}
+        playback = data.get('playback') if isinstance(data, dict) else None
+        try:
+            cables = virtual_mic.find_cables()
+        except Exception:
+            return {'status': 409, 'result': {'error_code': 'audio_devices_unavailable'}}
+        pair = next((cable for cable in cables if cable['playback'] == playback), None)
+        if pair is None:
+            return {'status': 409, 'result': {'error_code': 'virtual_mic_missing'}}
+        if self.voice_route.status()['requested_muted']:
+            return {'status': 409, 'result': {'error_code': 'virtual_mic_voice_muted'}}
+
+        def report(level):
+            self.run(200, self.run_mapping['virtual_mic_level'], {'playback': pair['playback'], 'level': level})
+        try:
+            outcome = self.virtual_mic_check.run(pair, report)
+        except RuntimeError as exc:
+            return {'status': 409, 'result': {'error_code': str(exc)}}
+        return {'status': 200, 'result': dict(outcome, playback=pair['playback'], recording=pair['recording'])}
 
     @staticmethod
     def getOldWhisperWeights(*args, **kwargs) -> dict:

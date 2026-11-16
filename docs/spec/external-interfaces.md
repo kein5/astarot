@@ -116,14 +116,14 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 | Hugging Face | `https://huggingface.co/{repo}/resolve/{rev}/{path}` | なし | 利用者が同意したモデルの取得。接続先はhuggingface.coとそのCDNに限る |
 | 接続の確認 | `https://huggingface.co/`へのHEAD | なし | 起動時の自動取得がオンで、固定版への保存済み同意があり、ファイルが不足している場合だけ1回（3秒）。プロキシ・リダイレクトは使わない |
 
-- クラウドの音声認識の仕様への準拠は`docs/transcription_stt_api_integration_plan.md`と各サービスの公式文書で確かめる。
+- クラウドの音声認識の仕様への準拠は各サービスの公式文書で確かめる。
 - OpenAI互換の音声認識では、接続と接続プールの待機を10秒、読み取りとアップロードの書き込みを60秒でタイムアウトさせる。通信が進まない時間の上限であり、SDKの再試行を含む要求全体の期限ではない。
 - OpenAI互換、Deepgramの自動検出結果は、返された言語名・コードを選択済みの言語と国に照合する。大文字小文字や`_`と`-`の違いを揃え、地域・文字体系まで一致する候補を優先する。ベース言語しか分からない場合は、その言語に一致する最初の候補を使う。検出言語がない、または選択候補に一致しない場合は、本文を保持し、内部の認識結果の`language`を`None`とする。従来のマイク・スピーカー認識では、配送時の設定スナップショットでもこの不明な値を保ち、先頭の候補言語を推測で付けない。要求で言語を明示した場合は、その指定を使う。
 - Deepgramの成功応答でも、結果の構造、文字列の本文、0〜1の有限な数値の信頼度が揃わなければ`TRANSCRIPTION_API_SERVER_ERROR`として扱い、既存の音声パイプラインのエラー経路に渡す。構造が正しい空の本文は、通常の「認識結果なし」として扱う。応答本文や秘密情報は診断ログに残さない。
 - 自動取得を予定していない起動では接続確認を送らない。`/run/connected_network`の`null`は未確認、真偽値は取得ホストへの確認結果を表す。UIは`false`のときだけ接続エラーを表示する。この値だけでGoogle音声認識などを使えない状態にはせず、各要求の成否で判定する。
 - 公式APIの接続先はコードで固定する。環境変数によるOpenAI・GeminiのURL変更、LangSmith gateway、OllamaのAPIキーは使わない。クラウドHTTPSではシステムのプロキシを使える。Requestsの認証は登録済みヘッダーを保ち、netrcの認証情報へ置き換えない。localhostとローカルIPアドレスへのAPI接続ではプロキシを使わない。APIのリダイレクトは追わず、モデル取得だけは既存のHTTPSホスト許可リストに従う。
 - カスタムURLの許可範囲と保存時の扱いは[ネットワーク設定](data-and-persistence.md#ネットワーク設定)を参照する。
-- 更新の確認は送信しない（[横断的な振る舞い](cross-cutting.md#同意と外部への送信)）。
+- 更新の確認と取得はRust側（Tauriのupdater）が行う（[アプリの更新](#アプリの更新)）。
 
 ### 利用状況の通知
 
@@ -147,6 +147,26 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 - 受け側は送信元のIPアドレスや端末の識別子を保存しない設計である（受け側の担当の説明による）。通信の相手として、Cloudflareは送信元のアドレスを扱う。
 - 受け側は通知ごとに、受信した時刻と接続元の国を記録する。国はクライアントが送る値ではなく、Cloudflareが接続元のアドレスから出す値である（2026-11-14に受け側の読み取り用のビューで確認した）。利用者に見せる説明にもこの2つを含める。
 
+### アプリの更新
+
+Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update.rs`、#330）。UIは`app_update_*`のコマンド（[Tauriのコマンド](#tauriのコマンド)）だけを使い、updaterのプラグインのコマンドの権限はどのウィンドウにも与えない。
+
+| 入れ方 | 判定 | 更新でできること（`mode`） |
+|---|---|---|
+| Windowsのインストーラー | 実行ファイルの隣に`uninstall.exe`がある。`_internal/nvidia`があればCUDA版 | 確認して入れる（`install`）。インストーラーを`/P /UPDATE /R /ARGS …`と`/EDITION=cpu`または`/EDITION=gpu`で起動し、アプリは終了する |
+| WindowsのZIP | 上のどれでもない | 確認して知らせるだけ（`manual`） |
+| AppImage | `APPIMAGE`があり、そのフォルダーに書き込める | 確認して入れる（`install`）。AppImageを置き換えて再起動する |
+| 書き込めない場所のAppImage | `APPIMAGE`のフォルダーに書き込めない | `manual` |
+| Linuxのtar.gz | 上のどれでもない | `manual` |
+| deb、rpm | 実行ファイルの隣に`package-manager`がある（`tools/linux_packages.py`が置く） | 確認しない（`package_manager`） |
+| 開発用のビルド | debugビルド | 確認しない（`disabled`） |
+
+- 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`を読む。この宛先はプロジェクトのCloudflare Workersで、最新のリリース（`https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json`）へ転送する。プレリリースは「latest」にならない。ベータ版は`GET https://api.github.com/repos/kein5/VRCT-VOX/releases`から、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）を選び、取れなければ安定版の`latest.json`を読む。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
+- `latest.json`の`platforms`は`windows-x86_64`（`VRCT-VOX_setup.exe`）と`linux-x86_64`（AppImage）を持つ。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
+- 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
+- インストーラーは`/UPDATE`のとき、言語とエディションのページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
+- 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
+
 ### LLMでの翻訳
 
 Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollamaは、現在の翻訳対象の本文、言語の指定、プロンプトと直近の会話履歴を接続先へ送る。プロンプトにはシステム向けの指示と対応言語も含む。SDKはOS・CPUアーキテクチャ・Pythonやパッケージのバージョンなどの情報をヘッダー等で送る。具体的な項目はSDKによって異なる。LM StudioとOpenAI互換では設定したURLが送信先になり、OpenRouterでは選んだモデルの提供元にも処理が渡る。
@@ -167,7 +187,7 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 | 音声認識（REST） | — | `POST /v1/audio/transcriptions` |
 | リアルタイム音声認識 | — | `ws://…/v1/realtime`。`session.update`と`input_audio_buffer.append`、`commit`、`clear` |
 | 話者分離（任意） | `asr`プロファイルに話者分離モデルのパスがあれば、同じサーバーに3つ目のモデルとして読み込ませる | `/v1/models`がCPU以外の装置にある`diarization`を返すサーバーへのスピーカーの接続だけが、`session.update`の`audio.input.diarization`に`{}`を入れる。確定した発話の`speakers`（ラベル、開始、終了）を受け取る。マイクの接続は要求しない |
-| RVCワーカー | `build/vrct-vc-worker … rvc …` | stdin・stdoutでPCM（48kHz、3840フレーム単位）。制御はJSON行（32KiBまで） |
+| RVCワーカー | `build/vrct-rvc-worker`（Rust、`native/rvc-runtime`）。Linuxでは`build/vrct-vc-worker … rvc-native …`が起動する | stdin・stdoutでPCM（48kHz、3840フレーム単位）。制御はJSON行（32KiBまで）。ONNX RuntimeとCUDAのライブラリは実行環境のフォルダーの`lib/`から読み込む。GPUを使えなければCPUで変換する。readyで変換する場所（`profile`が`low`ならGPU、`cpu`ならCPU）と、加える遅れ（`latency_ms`）を伝える。CPUで追いつかないときは、出力の代わりに`failed`（`vc_capture_overrun`）を送って止まる |
 
 同梱TTSサーバーの停止・異常終了は、起動ごとの識別子と、その実行を使うTTSの世代を照合して処理する。現在のTTSが使うサーバーが終了したときは、TTSをオフにして待機中・再生中の読み上げを取り消し、従来どおり音声の状態取得でUIに伝える。同じ実行の停止直後と後処理後に通知が重なっても、無効化とTTSの世代更新は一度だけ行う。古い実行からの遅れた通知で、別の接続先や新しいサーバー実行を使うTTSをオフにしない。
 
@@ -177,7 +197,7 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 
 TTSのスイッチをオフにしたときは、そのスイッチが起動した同梱サーバーだけを止める。設定画面から起動したサーバーと、独立したRVCのスイッチは維持する。
 
-設計の経緯は`docs/voice-stack/`（`current-architecture-2026-10-28.md`、`owned-speech-servers-report.md`、ADR）にある。
+設計の経緯は`docs/voice-stack/`の ADR にある。
 
 ### 利用者が入れた合成音声エンジン
 
@@ -203,6 +223,7 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 | `main` | `src-ui/index.html` | メイン画面と設定画面。閉じるとアプリが終わる |
 | `quick_chat` | `src-ui/quick-chat.html` | チャット入力の小窓。ホットキーかボタンで開き、閉じても隠すだけで下書きは残る |
 | `vr_panel` | `src-ui/vr.html` | VR UI。画面の外（-10000, -10000）に置いて描画し、オーバーレイが取り込む。VR UIがオンの間だけ作る |
+| `caption_overlay` | `src-ui/caption-overlay.html` | デスクトップの字幕。最前面に置き、クリックを通し、フォーカスを取らない。Ctrlキーを押している間だけマウスを受け取る（[デスクトップの字幕](use-cases.md)）。字幕か入力と出力の表示がオンの間だけ作る |
 
 設定画面は別ウィンドウではなく、`main`の中のページである。
 
@@ -247,6 +268,11 @@ Python sidecarはshell pluginのstdin/stdoutでつなぐ。UIはPythonのHTTPサ
 | `screencast_support` | `main` | `{supported, active}`。ウィンドウを共有できるデスクトップか（LinuxのWaylandセッション）、いま共有中か。何も始めない |
 | `screencast_start` | `main` | デスクトップにウィンドウの共有を頼む（[ウィンドウの共有](#ウィンドウの共有linux)）。引数は保存済みの`restoreToken`（なければ`null`）。成功すると`{restore_token}`を返す。共有中に呼ぶと、前の共有を終えてから頼む。選択画面の待ち時間は180秒 |
 | `screencast_stop` | `main` | 共有を終え、ヘルパーを止め、ポータルのセッションを閉じる |
+| `app_update_info` | `main` | `{kind, mode, channel, current_version, package_manager}`。このコピーの入れ方と、更新でできること（[アプリの更新](#アプリの更新)）。通信しない |
+| `app_update_check` | `main` | 新しい版を問い合わせ、`{available, version, release_url}`を返す。失敗は`update_check_failed`、`update_metadata_missing`などのコード |
+| `app_update_install` | `main` | 直前の確認で見つけた版を取得し、署名を確かめて入れる。進み具合は引数のチャンネル（`{phase: "download", downloaded, total}`、`{phase: "install"}`）で知らせる。Windowsではインストーラーに引き継いで終了し、Linuxでは再起動する。失敗したときは今の版のまま、コードを返す |
+| `caption_overlay_supported`、`caption_overlay_set`、`caption_overlay_update` | `main` | 字幕のウィンドウを使えるか調べる、開く・閉じる、描く内容を渡す。`caption_overlay_set`は`{open, position, placement}`を取る。`placement`は保存した左上の位置（物理ピクセル、`{x, y}`、各±100000以内）か`null`で、その位置の一部（縦横64ピクセル以上）がどれかのモニターの作業領域に残っていればそこに出し、残っていなければ`position`の帯に出す |
+| `caption_overlay_snapshot` | `caption_overlay` | 描く内容を読む。Ctrlキーで調整している間は`adjusting: true`が付く。`main`が渡した`adjusting`は捨てる |
 
 Quick Chatのコンテキストは、`ready`、`language`、`enter_to_send`、`clear_on_send`に加え、保存済みの`ui_scaling`（整数、40〜200%）と`font_family`（空白だけではなく、制御文字を含まない256文字以内のローカルフォント名）を持つ。Rustは呼び出し元と値を検証してから置き換える。新しい2項目を省略した要求は100%と`Yu Gothic UI`を使う。小窓はフォント名をCSSの文字列として扱い、既存のNoto／システムフォントへのフォールバックを保つ。設定ファイルのキーやPython側のIPC形式は変更しない。
 
@@ -265,6 +291,9 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 | `vr-panel-stdout` | `vr_panel` → `main` | VRパネルからの要求。`main`が許可したものだけをサイドカーへ渡す |
 | `vr-panel-config-page` | `vr_panel` → `main` | VR内の設定を開いた・閉じた |
 | `vr-panel-pointer` | `main` → 全体 | VR内のポインタの位置 |
+| `caption-overlay-changed` | Rust → `caption_overlay` | 描く内容か調整中の状態が変わった。ペイロードは使わず、`caption_overlay_snapshot`で読み直す |
+| `caption-overlay-moved` | Rust → `main` | Ctrlキーを押したままのドラッグが終わった。`{x, y}`はウィンドウの左上（物理ピクセル）。`main`は`/set/data/overlay_desktop_placement`で保存する |
+| `caption-overlay-font-step` | Rust → `main` | 字幕の上でCtrlキーと「+」か「-」が押された。`1`か`-1`。`main`は文字の大きさを2pxずつ16〜72pxの範囲で変え、`/set/data/overlay_desktop_settings`で保存する |
 
 #### VRパネルへ写す状態
 
@@ -272,7 +301,7 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 
 - VRパネルは起動すると`vr_panel_state_subscribe`にチャンネルを渡し、受け付けられたら`vr-panel-ready`を送る。受け付けるのは`vr_panel`のウィンドウからの呼び出しだけで、開き直したパネルのチャンネルが前のものに替わる。
 - `main`は`vr_panel_state_push`で状態を送る。受け付けるのは`main`からの呼び出しだけ。購読しているパネルがなければ`false`を返し、次の会話ログは全件で送る。パネルのウィンドウを閉じるとチャンネルを捨てる。
-- 送るのは、VRパネルの画面が読む状態だけ（`src-ui/logics/common/vrPanelWire.js`の`vrPanelStateNames`）。設定は、VRパネルが丸ごと読むカテゴリ（表示、デバイス、翻訳、音声認識、チャット読み取り、VR、その他）のもの。そのほかは会話ログ、ランチャーと言語の窓の状態、メーター、入力と出力の表示など、名前で挙げたatomだけ。高度な設定（WebSocket、OBS、OSC、テレメトリ）、更新、ホットキーは送らない。認証キーとトークンは、カテゴリに入っていても送らない。VRパネルのコードが新しいatomを読むようになると、ソースを読む試験（`src-ui/logics/test/vrPanelStateScan.js`）が一覧に足すまで失敗する。
+- 送るのは、VRパネルの画面が読む状態だけ（`src-ui/logics/common/vrPanelWire.js`の`vrPanelStateNames`）。設定は、VRパネルが丸ごと読むカテゴリ（表示、デバイス、翻訳、音声認識、チャット読み取り、VR、その他）のもの。そのほかは会話ログ、ランチャーと言語の窓の状態（前提が足りないスイッチとその理由の識別子を含む）、メーター、入力と出力の表示など、名前で挙げたatomだけ。高度な設定（WebSocket、OBS、OSC、テレメトリ）、更新、ホットキーは送らない。認証キーとトークンは、カテゴリに入っていても送らない。VRパネルのコードが新しいatomを読むようになると、ソースを読む試験（`src-ui/logics/test/vrPanelStateScan.js`）が一覧に足すまで失敗する。
 - 会話ログだけは前に送ったログとの差分で送る。通し番号が合わなければ、VRパネルが`vr-panel-ready`で全件を頼み直す。
 
 VRパネルで会話ログを閉じている間も、状態の受信とログの更新は続ける。閉じた領域は描画せず、操作も受け付けない。ログ本体の購読を外し、開き直すと保存した表示位置と末尾への追従状態を戻す。上へスクロールして読んでいた場合はその位置を保ち、それ以外は最新の末尾に追従する。保存中に古い行が保持上限を超えた場合は、通常のログ更新と同じように位置を補正する。
@@ -303,6 +332,7 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 - 読み上げの停止、ミュート、TTS、RVCのホットキーは、メイン画面の同じボタンとスイッチを押したのと同じ処理を通る。押した時点の状態で判断し、同じ確認とお知らせが出る。ミュート中に経路の準備ができていなければ、再開はしない。
 - X11とXWaylandではTauriのグローバルショートカット、ネイティブのWaylandではXDG GlobalShortcuts portalで登録する。KDEでは設定したキーをデスクトップ側にも反映し、反映できなかったときはお知らせを出す。
 - 設定画面を開いている間と、サイドカーの準備ができるまでは無効にする。
+- デスクトップの字幕の文字の大きさを変えるキー（Ctrlと`=`、Ctrl+Shiftと`=`、Ctrlとテンキーの`+`、Ctrlと`-`、Ctrlとテンキーの`-`）は、Ctrlキーを押したまま字幕のウィンドウの上にマウスがあるか、ドラッグしている間だけ、Rustがグローバルショートカットとして登録する。それ以外のときはほかのアプリに届く。利用者がホットキーに割り当て済みのキーは登録しない。
 
 ### 権限
 

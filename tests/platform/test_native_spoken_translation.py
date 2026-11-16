@@ -141,7 +141,7 @@ def test_native_mic_translation_to_qwen_once_and_source_stop(tmp_path, direct_po
             config_path.write_text(json.dumps(config))
             with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state),
                                                   'VRCT_VOICE_TRACE': str(trace.resolve())}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.assert_rendered()
                 toggle = ui.evaluate("return [...document.querySelectorAll('[class*=switch_container]')].find(e => e.querySelector('p')?.textContent === 'Translation')")
                 ui.element_command(toggle, 'click')
@@ -169,7 +169,7 @@ def test_native_mic_translation_to_qwen_once_and_source_stop(tmp_path, direct_po
                     ui.click_text('button', 'Start input forwarding')
                     ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => ['VC ready; conversion not yet confirmed','Converting voice'].includes(e.textContent))", timeout=65)
                     workers = [child for child in ui.app_process.children(recursive=True)
-                               if 'integrations.rvc.live_worker' in child.cmdline()]
+                               if child.cmdline()[:1] and Path(child.cmdline()[0]).name == 'vrct-rvc-worker']
                     assert len(workers) == 1
                     worker = workers[0]
                     settled(capture, time.monotonic_ns(), 'rvc_bypassed_mute', silent=True)
@@ -428,7 +428,7 @@ def test_native_mic_translation_to_qwen_once_and_source_stop(tmp_path, direct_po
                 ui.close_app()
             assert gate.inspect()['muted']
             with NativeWebDriver(tmp_path / 'restart', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 open_voice(ui)
                 assert ui.evaluate('return arguments[0].value', ui.control('Realtime microphone speech')) == 'translated'
                 assert gate.inspect()['muted']

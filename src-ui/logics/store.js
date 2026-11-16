@@ -174,12 +174,17 @@ export const registerMany = (settingsArray = []) => {
 // Common
 export const { atomInstance: Atom_IsBackendReady, useHook: useStore_IsBackendReady } = createAtomWithHook(false, "IsBackendReady");
 export const { atomInstance: Atom_BackendStartupState, useHook: useStore_BackendStartupState } = createAtomWithHook("starting", "BackendStartupState");
+// Why the last start failed ({ kind: "spawn" | "exit", ... }, see startupPhase.js); read only while BackendStartupState is "failed".
+export const { atomInstance: Atom_BackendStartupFailure, useHook: useStore_BackendStartupFailure } = createAtomWithHook(null, "BackendStartupFailure");
 export const { atomInstance: Atom_IsVrctAvailable, useHook: useStore_IsVrctAvailable } = createAtomWithHook(true, "IsVrctAvailable");
 export const { atomInstance: Atom_IsOscAvailable, useHook: useStore_IsOscAvailable } = createAtomWithHook(false, "IsOscAvailable");
 // Why it is unavailable: "remote_destination" (VRChat is on another machine) or "setup_failed". null while available or unknown.
 export const { atomInstance: Atom_OscUnavailableReason, useHook: useStore_OscUnavailableReason } = createAtomWithHook(null, "OscUnavailableReason");
 export const { atomInstance: Atom_ComputeMode, useHook: useStore_ComputeMode } = createAtomWithHook("cpu", "ComputeMode");
 export const { atomInstance: Atom_IsOpenedConfigPage, useHook: useStore_IsOpenedConfigPage } = createAtomWithHook(false, "IsOpenedConfigPage");
+// Why each main switch cannot be turned on yet (main/switchBlocks.js): {switch_id: {reason, action}}.
+// The main window works it out once (SwitchBlocksController) and the VR panel reads the same value.
+export const { atomInstance: Atom_SwitchBlocks, useHook: useStore_SwitchBlocks } = createAtomWithHook({}, "SwitchBlocks", { is_state_ok: true });
 export const { atomInstance: Atom_MainFunctionsStateMemory, useHook: useStore_MainFunctionsStateMemory } = createAtomWithHook({
     transcription_send: false,
     transcription_receive: false,

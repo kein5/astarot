@@ -1,9 +1,9 @@
 # speech.cpp固定配布部品 — 2026-10-29
 
 **Linux CPU/Vulkanの配布部品を作成・検証済み。GUIへの組み込みとアプリ全体の配布は未完了。**
-[30分複合試験](combined-voice-resume-2026-10-29.md)の通過後に着手。コードは`bcd5c623`。
-[設計](../superpowers/specs/2026-10-29-speechcpp-bundle-artifact-design.md)・
-[計画](../superpowers/plans/2026-10-29-speechcpp-bundle-artifact.md)に従う。
+30分複合試験の通過後に着手。コードは`bcd5c623`。
+設計・
+計画に従う。
 
 ## 作成方法と境界
 
@@ -33,7 +33,7 @@ Python最適化時の検証維持と、余分な私有モデルを追加した�
 
 原典はPython公式の[ZipFile](https://docs.python.org/3.11/library/zipfile.html#zipfile.ZipFile)と
 [TemporaryFile](https://docs.python.org/3.11/library/tempfile.html#tempfile.TemporaryFile)、
-実行中のCPython 3.11.17の実装。imozuru追跡は`tmp/voice-resume/research/speech-bundle/`。
+実行中のCPython 3.11.17の実装。
 これは局所レビューであり、後日依頼されたTrail of Bits監査の代替ではない。
 
 | 実物 | CPU | Vulkan |
@@ -57,8 +57,6 @@ libspeechや開発checkoutにあるライブラリへの動的依存はない。
 このPCではそのディレクトリなしで起動成功。バイナリを書き換えず配布記録に保持する。
 他ディストリビューション全体への互換性をこの1台だけで保証しない。
 
-実物: `tmp/voice-resume/speech-bundle/verified/{linux-x64-cpu,linux-x64-vulkan}/`。
-元ZIP・移設後部品・`relocation-final.json`も同ディレクトリ以下、Git管理外。
 試験環境は前記複合試験と同じLinux PC。モデルを起動せず、推論性能は再測定していない。
 
 ## 残るP5工程

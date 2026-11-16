@@ -103,7 +103,7 @@ def test_native_input_controls_and_independent_audio_stops(tmp_path):
                                    selected.media_class], separators=(',', ':'))
 
             with NativeWebDriver(tmp_path / 'first', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_route_settings()
                 ui.select('Audio route', 'managed')
                 ui.click_text('button', 'Save changes')
@@ -177,7 +177,7 @@ def test_native_input_controls_and_independent_audio_stops(tmp_path):
                 observe('app_exit_closes_input', ui.close_app, silent=True)
             assert not any(name.startswith('vrct.source-bridge.') for name in nodes())
             with NativeWebDriver(tmp_path / 'second', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_original_voice_settings()
                 observe('app_restart_off', silent=True)
                 ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Input forwarding stopped')")

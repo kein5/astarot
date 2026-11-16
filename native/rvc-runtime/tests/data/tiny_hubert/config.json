@@ -1,0 +1,29 @@
+{
+ "hidden_size": 16,
+ "num_hidden_layers": 9,
+ "num_attention_heads": 2,
+ "intermediate_size": 32,
+ "conv_dim": [
+  8,
+  8
+ ],
+ "conv_kernel": [
+  10,
+  3
+ ],
+ "conv_stride": [
+  5,
+  2
+ ],
+ "conv_bias": false,
+ "num_conv_pos_embeddings": 4,
+ "num_conv_pos_embedding_groups": 2,
+ "classifier_proj_size": 4,
+ "feat_extract_norm": "group",
+ "feat_extract_activation": "gelu",
+ "hidden_act": "gelu",
+ "do_stable_layer_norm": false,
+ "feat_proj_layer_norm": true,
+ "layer_norm_eps": 1e-05,
+ "model_type": "hubert"
+}

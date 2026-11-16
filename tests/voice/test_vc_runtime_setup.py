@@ -2,10 +2,10 @@
 
 Each setup test runs once per platform the app can set a runtime up on. Only
 runtime_setup.target is replaced, so both layouts are checked on Linux and on Windows.
+The `world` fixture is the Python kind (Seed-VC's), `native` the RVC kind.
 """
 from dataclasses import replace
 import hashlib
-import importlib
 import io
 import json
 import os
@@ -243,8 +243,13 @@ def test_a_source_with_no_pinned_files_is_not_fetched(world, monkeypatch):
 
 
 def test_both_engines_have_their_files_pinned():
-    for runtime in (rs.rvc_runtime(), rs.seed_runtime()):
-        assert re.fullmatch(r'[0-9a-f]{64}', rs.SOURCE_TREE_DIGESTS[runtime.source_url]), runtime.id
+    seed = rs.seed_runtime()
+    assert re.fullmatch(r'[0-9a-f]{64}', rs.SOURCE_TREE_DIGESTS[seed.source_url])
+    rvc = rs.rvc_runtime()
+    assert rvc.kind == 'native' and not rvc.locks and not rvc.source_url
+    for item in (*rvc.libraries, *rs.rvc_runtime(gpu=False).libraries, *rvc.assets):
+        assert re.fullmatch(r'[0-9a-f]{64}', item.sha256) and item.size > 0, item.url
+        assert transport.validate_url(item.url, rs.SOURCE_HOSTS)
 
 
 def test_a_corrupt_asset_is_rejected_and_not_kept(world):
@@ -346,10 +351,20 @@ def test_setup_is_offered_where_the_locked_wheels_fit(monkeypatch, system, machi
         assert rs.runtimes() == ()
 
 
-LOCKS = {'win32': {'rvc': ['integrations/rvc/requirements-cuda-windows.lock', 'integrations/rvc/requirements-windows.lock'],
-                   'seed-vc': ['integrations/seed_vc/requirements-windows.lock']},
-         'linux': {'rvc': ['integrations/rvc/requirements-cuda.lock', 'integrations/rvc/requirements.lock'],
-                   'seed-vc': ['integrations/seed_vc/requirements.lock']}}
+LOCKS = {'win32': {'rvc': [], 'seed-vc': ['integrations/seed_vc/requirements-windows.lock']},
+         'linux': {'rvc': [], 'seed-vc': ['integrations/seed_vc/requirements.lock']}}
+# What the RVC worker loads from lib/ on each platform (vrct-rvc-worker GPU_LIBRARIES and ORT).
+CUDNN = ('', '_adv', '_cnn', '_engines_precompiled', '_engines_runtime_compiled', '_engines_tensor_ir',
+         '_ext', '_graph', '_heuristic', '_ops')
+LIBRARIES = {
+    'linux': {'libonnxruntime.so', 'libonnxruntime_providers_cuda.so', 'libonnxruntime_providers_shared.so',
+              'libcudart.so.13', 'libcublas.so.13', 'libcublasLt.so.13', 'libcurand.so.10', 'libnvrtc.so.13',
+              'libnvrtc-builtins.so.13.4', *(f'libcudnn{part}.so.9' for part in CUDNN)},
+    'win32': {'onnxruntime.dll', 'onnxruntime_providers_cuda.dll', 'onnxruntime_providers_shared.dll',
+              'cudart64_13.dll', 'cublas64_13.dll', 'cublasLt64_13.dll', 'curand64_10.dll', 'nvrtc64_130_0.dll',
+              'nvrtc-builtins64_134.dll', *(f'cudnn{part}64_9.dll' for part in CUDNN)}}
+# Without an NVIDIA driver: ONNX Runtime's CPU build only.
+CPU_LIBRARIES = {'linux': {'libonnxruntime.so'}, 'win32': {'onnxruntime.dll'}}
 
 
 @pytest.fixture(params=['win32', 'linux'])
@@ -363,9 +378,20 @@ def platform(request, monkeypatch):
 def test_each_platform_installs_from_its_own_hash_locked_files(platform):
     offered = {runtime.id: runtime for runtime in rs.runtimes()}
     assert {key: [path for path, _ in runtime.locks] for key, runtime in offered.items()} == LOCKS[platform]
-    assert [index for _, index in offered['rvc'].locks] == [rs.CUDA_INDEX, '']
+    names = [name for item in offered['rvc'].libraries for _, name in item.members]
+    assert sorted(names) == sorted(LIBRARIES[platform])
+    worker = (ROOT / 'native/rvc-runtime/src/bin/rvc_worker.rs').read_text(encoding='utf-8')
+    # The worker loads every CUDA library by name, and ONNX Runtime and the provider by file.
+    for name in LIBRARIES[platform]:
+        if 'onnxruntime_providers_shared' not in name:
+            assert f'"{name}"' in worker, name
+    cpu = rs.rvc_runtime(gpu=False)
+    assert {name for item in cpu.libraries for _, name in item.members} == CPU_LIBRARIES[platform]
+    assert (cpu.device, cpu.notice, cpu.requires_gpu) == ('cpu', 'rvc_cpu', False)
+    assert (offered['rvc'].device, offered['rvc'].requires_gpu, offered['seed-vc'].requires_gpu) == ('cuda', False, True)
+    assert 300_000_000 < cpu.download_bytes < cpu.disk_bytes < 1_000_000_000
     for runtime in offered.values():
-        assert runtime.download_bytes > 2_000_000_000 and runtime.disk_bytes > runtime.download_bytes
+        assert runtime.download_bytes > 1_500_000_000 and runtime.disk_bytes > runtime.download_bytes
         for path, _ in runtime.locks:
             # Every requirement names its hashes, or uv refuses the whole file.
             entries = re.split(r'\n(?=[A-Za-z0-9])', (ROOT / path).read_text(encoding='utf-8'))
@@ -385,17 +411,24 @@ def test_one_platforms_pins_do_not_change_what_the_other_consented_to(platform, 
     other = 'linux' if platform == 'win32' else 'win32'
     before = {runtime.id: rs.version_of(runtime) for runtime in rs.runtimes()}
     monkeypatch.setitem(rs.UV, other, replace(rs.UV[other], sha256='0' * 64))
-    monkeypatch.setitem(rs.RVC_PLATFORM, other, (rs.RVC_PLATFORM[other][0], 1, 2))
+    monkeypatch.setitem(rs.RVC_LIBRARIES, other, rs.RVC_LIBRARIES[other][:1])
+    monkeypatch.setitem(rs.RVC_CPU_LIBRARIES, other, ())
+    monkeypatch.setitem(rs.SEED_PLATFORM, other, (rs.SEED_PLATFORM[other][0], 1, 2))
     rs.version_of.cache_clear()
     assert {runtime.id: rs.version_of(runtime) for runtime in rs.runtimes()} == before
+    # uv only sets up the Python kind; the RVC runtime changes with its own pins.
     monkeypatch.setitem(rs.UV, platform, replace(rs.UV[platform], sha256='0' * 64))
     rs.version_of.cache_clear()
-    assert all(rs.version_of(runtime) != before[runtime.id] for runtime in rs.runtimes())
+    after = {runtime.id: rs.version_of(runtime) for runtime in rs.runtimes()}
+    assert after['seed-vc'] != before['seed-vc'] and after['rvc'] == before['rvc']
+    monkeypatch.setitem(rs.RVC_LIBRARIES, platform, rs.RVC_LIBRARIES[platform][:1])
+    rs.version_of.cache_clear()
+    assert rs.version_of(rs.rvc_runtime()) != before['rvc']
 
 
 def test_setup_and_start_agree_on_the_python_of_this_platform(tmp_path):
-    from models.voice_conversion import rvc_process
-    assert rs.runtime_python(tmp_path) == rvc_process.runtime_python(tmp_path)
+    from models.voice_conversion import seed_process
+    assert rs.runtime_python(tmp_path) == seed_process.runtime_python(tmp_path)
 
 
 def test_unpacking_refuses_to_leave_the_target(tmp_path):
@@ -535,26 +568,32 @@ def test_the_routes_are_registered():
         assert f'"{route}"' in text
 
 
-def test_the_digest_matches_the_one_the_worker_checks(tmp_path):
-    loader = importlib.import_module('integrations.rvc.loader')
-    (tmp_path / 'infer').mkdir()
-    (tmp_path / 'infer/module.py').write_text('pass\n')
-    assert rs.source_digest(tmp_path) == loader.source_digest(tmp_path)
-    assert rs.RVC_COMMIT == loader.COMMIT
-
-
 def test_pinned_files_match_the_reviewed_records(platform):
-    loader = importlib.import_module('integrations.rvc.loader')
     rvc = rs.rvc_runtime()
-    assert rvc.source_digest == loader.SOURCE_DIGEST
     record = json.loads((ROOT / 'docs/voice-stack/rvc-base-artifacts.proposal.json').read_text(encoding='utf-8'))
-    pinned = {asset.url.rsplit('/', 1)[-1]: asset for asset in rvc.assets}
-    for item in record['files']:
-        assert item['revision'] == rs.RVC_REVISION
-        asset = pinned[item['rfilename'].rsplit('/', 1)[-1]]
-        assert asset.size == item['size']
-        if 'lfs' in item:
-            assert asset.sha256 == item['lfs']['sha256']
+    reviewed = {item['rfilename']: item for item in record['files']}
+    # The conformance tests ran on the same files (native/rvc-runtime/reference).
+    reference = (ROOT / 'native/rvc-runtime/reference/setup_reference.py').read_text(encoding='utf-8')
+    assert {item['revision'] for item in record['files']} == {rs.RVC_REVISION}
+    names = set()
+    for asset in rvc.assets:
+        name = asset.url.split(f'/resolve/{rs.RVC_REVISION}/', 1)[1]
+        names.add(name)
+        assert name in reviewed, name
+        assert asset.size == reviewed[name]['size']
+        assert asset.sha256 == reviewed[name].get('lfs', reviewed[name])['sha256']
+        assert f"'{name}', 'assets/{asset.path}', {asset.size}," in reference.replace("WEIGHTS + '", "'")
+        assert asset.sha256 in reference
+    # The record lists what the app fetches now, and what the earlier setup fetched and the
+    # app still recognizes in order to remove it.
+    assert names == set(reviewed)
+    assert record['total_bytes'] == sum(item['size'] for item in record['files'])
+    # A file joins the fetch only with an approval on record (rmvpe.onnx waited for one until #322).
+    for name in names:
+        assert any(name in entry for entry in record['consent']), name
+    earlier = {f"assets/{'rmvpe/' if item['rfilename'] == 'rmvpe.pt' else ''}{item['rfilename']}":
+               (item['size'], item.get('lfs', item)['sha256']) for item in record['earlier_files']}
+    assert earlier == {path: (size, sha) for path, size, sha in rs.EARLIER_RVC_FILES if size}
 
 
 def test_requests_for_other_hosts_stay_refused():
@@ -563,6 +602,12 @@ def test_requests_for_other_hosts_stay_refused():
     assert transport.validate_url('https://github.com/engine.zip', rs.SOURCE_HOSTS)
     with pytest.raises(ValueError, match='download_url_rejected'):
         transport.validate_url('https://example.com/engine.zip', rs.SOURCE_HOSTS)
+
+
+def test_the_linux_bundle_carries_the_rvc_worker():
+    from tools.linux_package import RUNTIME
+    assert '_internal/build/vrct-rvc-worker' in RUNTIME
+    assert 'build_rvc_worker.py' in (ROOT / 'tools/build_linux.py').read_text(encoding='utf-8')
 
 
 def test_the_linux_bundle_carries_what_the_setup_installs_from(tmp_path, monkeypatch):
@@ -649,3 +694,285 @@ def test_a_linux_setup_child_does_not_outlive_the_app(tmp_path):
     finally:
         app.kill()
         app.wait(5)
+
+
+# The native (RVC) kind: archives whose listed files go to lib/, then the worker's probe.
+
+def wheel_bytes(files):
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, 'w') as archive:
+        for name, data in files.items():
+            archive.writestr(name, data)
+    return stream.getvalue()
+
+
+def tgz_bytes(files, links=()):
+    stream = io.BytesIO()
+    with tarfile.open(fileobj=stream, mode='w:gz') as archive:
+        for name, data in files.items():
+            member = tarfile.TarInfo(name)
+            member.size = len(data)
+            archive.addfile(member, io.BytesIO(data))
+        for name, target in links:
+            member = tarfile.TarInfo(name)
+            member.type, member.linkname = tarfile.SYMTYPE, target
+            archive.addfile(member)
+    return stream.getvalue()
+
+
+def library(url, data, members):
+    return rs.Library(url, len(data), hashlib.sha256(data).hexdigest(), members)
+
+
+class NativeWorld:
+    def __init__(self, tmp_path, monkeypatch, platform):
+        monkeypatch.setattr(rs, 'target', lambda: platform)
+        self.ort = tgz_bytes({'ort-1/lib/libort.so.1.2': b'ort', 'ort-1/lib/README': b'no'},
+                             links=(('ort-1/lib/libort.so', 'libort.so.1.2'),))
+        self.wheel = wheel_bytes({'nvidia/x/lib/libx.so.1': b'x', 'nvidia/x/lib/libextra.so': b'extra'})
+        self.asset = b'weights'
+        self.served = {}
+        self.runtime = self.make()
+        self.worker = tmp_path / 'vrct-rvc-worker'
+        monkeypatch.setattr(rs, 'native_worker', lambda: self.worker)
+        rs.version_of.cache_clear()
+        self.requests, self.commands = [], []
+        self.probe_code = 0
+        self.setup = rs.RuntimeSetup(tmp_path / 'runtimes', transport=self.open, launcher=self.launch,
+                                     entries=(self.runtime,), gpu_check=lambda: True)
+
+    def make(self, ort_members=(('ort-1/lib/libort.so.1.2', 'libort.so'),)):
+        self.served = {'https://github.com/ort.tgz': self.ort, 'https://files.pythonhosted.org/packages/x.whl': self.wheel}
+        return rs.Runtime(
+            'rvc', 'RVC', '', (), '', '', '',
+            (rs.Asset('https://huggingface.co/model.bin', 'base/model.bin', len(self.asset), hashlib.sha256(self.asset).hexdigest()),),
+            'MIT', ('https://license',), 'rvc', 10, 0, kind='native',
+            libraries=(library('https://github.com/ort.tgz', self.ort, ort_members),
+                       library('https://files.pythonhosted.org/packages/x.whl', self.wheel, (('nvidia/x/lib/libx.so.1', 'libx.so.1'),))))
+
+    def open(self, url, *, hosts):
+        self.requests.append(url)
+        assert hosts == rs.SOURCE_HOSTS
+        return Response(self.served.get(url, self.asset))
+
+    def launch(self, args, *, stdin, stdout, stderr, env, cwd):
+        self.commands.append(args)
+        return Child(self.probe_code)
+
+    def start(self):
+        return self.setup.start(dict(id='rvc', consent=True, version=rs.version_of(self.runtime)))
+
+    def finish(self):
+        deadline = time.monotonic() + 5
+        while self.setup.state()['jobs']['rvc']['phase'] not in ('ready', 'failed', 'cancelled'):
+            assert time.monotonic() < deadline, self.setup.state()
+            time.sleep(.005)
+        self.setup.thread.join(5)
+        return self.setup.state()
+
+
+@pytest.fixture(params=['win32', 'linux'])
+def native(request, tmp_path, monkeypatch):
+    item = NativeWorld(tmp_path, monkeypatch, request.param)
+    yield item
+    assert item.setup.close(2)
+    rs.version_of.cache_clear()
+
+
+def test_a_native_setup_keeps_only_the_listed_files_and_checks_the_gpu_with_the_worker(native):
+    native.start()
+    state = native.finish()
+    folder = native.setup.folder(native.runtime)
+    job = state['jobs']['rvc']
+    assert job['phase'] == 'ready' and job['steps'] == 3 and state['installed'] == {'rvc': str(folder)}
+    assert {path.name: path.read_bytes() for path in (folder / 'lib').iterdir()} == {'libort.so': b'ort', 'libx.so.1': b'x'}
+    assert (folder / 'assets/base/model.bin').read_bytes() == native.asset
+    assert not (folder / 'downloads').exists() and not (folder / 'lib.part').exists()
+    # No uv, no Python: the only program run is the bundled worker's probe.
+    assert native.commands == [[str(native.worker), '--runtime', str(folder), '--probe', '--device', 'auto']]
+    assert job['warning_code'] is None
+    assert not (native.setup.root / f'.uv-{rs.UV_VERSION}').exists()
+
+
+def test_a_gpu_runtime_the_gpu_cannot_run_still_converts_on_the_cpu(native):
+    """A driver older than 580, or a GPU before Turing: the worker's probe says 3."""
+    native.probe_code = 3
+    native.start()
+    state = native.finish()
+    folder = native.setup.folder(native.runtime)
+    assert state['installed'] == {'rvc': str(folder)}
+    assert state['jobs']['rvc']['warning_code'] == 'vc_runtime_gpu_unusable_cpu'
+
+
+@pytest.mark.parametrize('device, code', [('cuda', 4), ('cpu', 3), ('cpu', 4)])
+def test_a_runtime_the_probe_refuses_is_not_installed(native, monkeypatch, device, code):
+    monkeypatch.setattr(native.setup, '_entries', {'rvc': replace(native.runtime, device=device)})
+    native.runtime = native.setup._entries['rvc']
+    rs.version_of.cache_clear()
+    native.probe_code = code
+    native.start()
+    state = native.finish()
+    assert state['jobs']['rvc']['error_code'] == 'vc_runtime_check_failed' and state['installed'] == {}
+    assert native.commands[-1][-2:] == ['--device', 'auto' if device == 'cuda' else 'cpu']
+
+
+def test_a_library_archive_that_differs_from_its_pin_is_never_unpacked(native):
+    native.served['https://files.pythonhosted.org/packages/x.whl'] = b'tampered'
+    native.start()
+    state = native.finish()
+    folder = native.setup.folder(native.runtime)
+    assert state['jobs']['rvc']['error_code'] == 'vc_runtime_libraries_failed'
+    assert not (folder / 'lib').exists() and not list(folder.rglob('libx*'))
+    assert native.commands == []
+
+
+def test_a_resumed_native_setup_skips_the_archives_it_finished(native):
+    native.served['https://files.pythonhosted.org/packages/x.whl'] = b'broken'
+    native.start()
+    native.finish()
+    native.served['https://files.pythonhosted.org/packages/x.whl'] = native.wheel
+    native.requests.clear()
+    native.start()
+    assert native.finish()['jobs']['rvc']['phase'] == 'ready'
+    assert 'https://github.com/ort.tgz' not in native.requests
+
+
+def test_a_listed_file_that_is_missing_or_a_link_refuses_the_archive(native, monkeypatch):
+    for members in ((('ort-1/lib/libnone.so', 'libnone.so'),), (('ort-1/lib/libort.so', 'libort.so'),)):
+        runtime = native.make(members)
+        native.setup._entries = {'rvc': runtime}
+        native.runtime = runtime
+        rs.version_of.cache_clear()
+        native.start()
+        assert native.finish()['jobs']['rvc']['error_code'] == 'vc_runtime_libraries_failed'
+
+
+@pytest.mark.parametrize('damage', ['lib/libx.so.1', 'assets/base/model.bin', 'receipt.json'])
+def test_a_damaged_native_runtime_can_be_set_up_again(native, damage):
+    native.start()
+    native.finish()
+    folder = native.setup.folder(native.runtime)
+    (folder / damage).unlink()
+    assert native.setup.state()['installed'] == {}
+    native.start()
+    assert native.finish()['installed'] == {'rvc': str(folder)}
+
+
+def test_unpacking_members_refuses_names_that_could_leave_lib(tmp_path):
+    archive = tmp_path / 'a.whl'
+    archive.write_bytes(wheel_bytes({'nvidia/x/lib/libx.so': b'x'}))
+    for name in ('../libx.so', 'sub/libx.so', 'libx.so\\x', ''):
+        with pytest.raises(ValueError, match='source_path_unsafe'):
+            rs.unpack_members(archive, (('nvidia/x/lib/libx.so', name),), tmp_path / 'lib')
+    assert not (tmp_path / 'libx.so').exists()
+
+
+def test_a_native_runtime_of_the_earlier_python_kind_is_not_taken_for_installed(tmp_path, monkeypatch):
+    """A folder from the PyTorch runtime has venv/ and engine/ but no lib/."""
+    monkeypatch.setattr(rs, 'target', lambda: 'linux')
+    rs.version_of.cache_clear()
+    runtime = rs.rvc_runtime()
+    setup = rs.RuntimeSetup(tmp_path, entries=(runtime,), gpu_check=lambda: True)
+    folder = setup.folder(runtime)
+    for name in ('venv/bin/python', 'engine/infer.py', 'assets/hubert_base/pytorch_model.bin'):
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_text('')
+    (folder / 'receipt.json').write_text(json.dumps({'version': 'earlier', 'id': 'rvc'}))
+    assert setup.state()['installed'] == {}
+    rs.version_of.cache_clear()
+
+
+def test_without_an_nvidia_driver_rvc_offers_its_cpu_runtime(tmp_path, monkeypatch):
+    monkeypatch.setattr(rs, 'target', lambda: 'linux')
+    rs.version_of.cache_clear()
+    setup = rs.RuntimeSetup(tmp_path, gpu_check=lambda: False)
+    rows = {row['id']: row for row in setup.catalog()['runtimes']}
+    assert rows['rvc']['device'] == 'cpu' and rows['rvc']['requires_gpu'] is False and rows['rvc']['notice'] == 'rvc_cpu'
+    assert rows['seed-vc']['requires_gpu'] is True and rows['rvc']['gpu_ready'] is False
+    assert 'nvidia' not in ' '.join(rows['rvc']['licenses'])
+    rs.version_of.cache_clear()
+
+
+def test_a_gpu_runtime_still_counts_when_the_driver_is_not_seen(tmp_path, monkeypatch):
+    """The GPU runtime converts on the CPU too; a driver missing for a moment does not hide it."""
+    monkeypatch.setattr(rs, 'target', lambda: 'linux')
+    rs.version_of.cache_clear()
+    gpu = rs.rvc_runtime(gpu=True)
+    folder = tmp_path / 'rvc'
+    for item in gpu.libraries:
+        for _, name in item.members:
+            (folder / 'lib').mkdir(parents=True, exist_ok=True)
+            (folder / 'lib' / name).write_bytes(b'')
+    for asset in gpu.assets:
+        (folder / 'assets' / asset.path).parent.mkdir(parents=True, exist_ok=True)
+        (folder / 'assets' / asset.path).write_bytes(b'')
+    (folder / 'receipt.json').write_text(json.dumps({'version': rs.version_of(gpu), 'id': 'rvc'}))
+    for driver in (True, False):
+        assert rs.RuntimeSetup(tmp_path, gpu_check=lambda: driver).state()['installed'] == {'rvc': str(folder)}
+    # A CPU runtime is not taken for a GPU one once the driver is there: that offers the GPU setup.
+    cpu = rs.rvc_runtime(gpu=False)
+    (folder / 'receipt.json').write_text(json.dumps({'version': rs.version_of(cpu), 'id': 'rvc'}))
+    assert rs.RuntimeSetup(tmp_path, gpu_check=lambda: False).state()['installed'] == {'rvc': str(folder)}
+    assert rs.RuntimeSetup(tmp_path, gpu_check=lambda: True).state()['installed'] == {}
+    rs.version_of.cache_clear()
+
+
+def earlier_rvc_folder(folder):
+    """What the PyTorch RVC runtime setup left in its folder, plus a user's own files."""
+    pinned = {name: size for name, size, _ in rs.EARLIER_RVC_FILES}
+    files = {
+        'venv/pyvenv.cfg': b'home = x', 'venv/lib/python3.12/site-packages/torch/__init__.py': b'',
+        'venv/lib/python3.12/site-packages/distutils-precedence.pth': b'',
+        'python/cpython-3.12.14-linux-x86_64-gnu/bin/python3': b'', 'python/.lock': b'',
+        'engine/infer/lib/rtrvc.py': b'', 'engine/assets/weights/my_voice.pth': b'mine',
+        'engine/logs/my_voice/added.index': b'mine', 'engine.zip': b'archive',
+        'assets/hubert_base/config.json': b'kept', 'assets/hubert_base/pytorch_model.bin': b'kept',
+        'assets/rmvpe/rmvpe.onnx': b'kept', 'setup.log': b'log', 'my_notes.txt': b'mine'}
+    for name, data in files.items():
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(data)
+    return pinned
+
+
+def test_the_earlier_rvc_runtime_files_go_and_nothing_else(tmp_path, monkeypatch):
+    folder = tmp_path / 'rvc'
+    earlier_rvc_folder(folder)
+    # The two pinned weights are removed only when they are the pinned files.
+    rmvpe = folder / 'assets/rmvpe/rmvpe.pt'
+    rmvpe.write_bytes(b'a different file the user put here')
+    monkeypatch.setattr(rs, 'EARLIER_RVC_FILES', rs.EARLIER_RVC_FILES + (
+        ('assets/hubert_base/old.bin', 3, hashlib.sha256(b'old').hexdigest()),))
+    (folder / 'assets/hubert_base/old.bin').write_bytes(b'old')
+    removed = rs.remove_earlier_rvc(folder)
+    assert set(removed) == {'venv', 'python', 'engine', 'engine.zip', 'assets/hubert_base/old.bin'}
+    left = {path.relative_to(folder).as_posix() for path in folder.rglob('*') if path.is_file()}
+    assert left == {'engine/assets/weights/my_voice.pth', 'engine/logs/my_voice/added.index',
+                    'assets/hubert_base/config.json', 'assets/hubert_base/pytorch_model.bin',
+                    'assets/rmvpe/rmvpe.onnx', 'assets/rmvpe/rmvpe.pt', 'setup.log', 'my_notes.txt'}
+    # Nothing left in the engine but the user's files and the folders on their way.
+    assert not (folder / 'engine/infer').exists() and not (folder / 'venv').exists()
+
+
+def test_folders_that_are_not_what_the_earlier_setup_made_are_left(tmp_path):
+    folder = tmp_path / 'rvc'
+    (folder / 'venv').mkdir(parents=True)
+    (folder / 'venv/something.txt').write_text('no pyvenv.cfg: not a virtual environment')
+    (folder / 'python').mkdir()
+    (folder / 'python/my-script.py').write_text('not one of uv\'s interpreters')
+    outside = tmp_path / 'outside'
+    (outside / 'infer').mkdir(parents=True)
+    (outside / 'infer/x.py').write_text('')
+    (folder / 'engine').symlink_to(outside, target_is_directory=True)
+    assert rs.remove_earlier_rvc(folder) == []
+    assert (folder / 'venv/something.txt').is_file() and (folder / 'python/my-script.py').is_file()
+    assert (outside / 'infer/x.py').is_file()
+
+
+def test_a_finished_rvc_setup_removes_the_earlier_runtime(native):
+    folder = native.setup.folder(native.runtime)
+    earlier_rvc_folder(folder)
+    native.start()
+    assert native.finish()['jobs']['rvc']['phase'] == 'ready'
+    assert not (folder / 'venv').exists() and not (folder / 'python').exists() and not (folder / 'engine.zip').exists()
+    assert (folder / 'engine/assets/weights/my_voice.pth').read_bytes() == b'mine'
+    assert (folder / 'my_notes.txt').is_file() and (folder / 'lib/libx.so.1').is_file()

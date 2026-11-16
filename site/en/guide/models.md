@@ -23,15 +23,27 @@ Downloaded files are checked by size and SHA-256 before use. They come only from
 |---|---|---|---|
 | Japanese speech | Irodori-TTS v4.1 Small MF · F16 | 1.79 GiB | MIT + Apache-2.0 |
 | Japanese speech (lighter) | Irodori-TTS v4.1 Small MF · Q8_0 | 1.12 GiB | MIT + Apache-2.0 |
+| Japanese speech (without MF) | Irodori-TTS v4.1 Small · F16 | 1.78 GiB | MIT + Apache-2.0 |
+| Japanese speech (large) | Irodori-TTS v4 Large · Q8_0 | 3.61 GiB | Gemma Terms of Use + MIT + Apache-2.0 |
 | Other languages' speech | Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0 | 1.13 GiB | Apache-2.0 |
 | Other languages' speech (lighter) | Qwen3-TTS 12Hz 0.6B CustomVoice · Q5_K | 0.81 GiB | Apache-2.0 |
-| Speech recognition (Japanese) | Haas-ja v1.0 · Q8_0 | 0.61 GiB | Apache-2.0 |
+| Other languages' speech (large) | Qwen3-TTS 12Hz 1.7B CustomVoice · Q8_0 | 2.13 GiB | Apache-2.0 |
 | Speech recognition (30 languages) | Qwen3-ASR 0.6B · Q8_0 | 0.78 GiB | Apache-2.0 |
+| Speech recognition (30 languages) | Qwen3-ASR 1.7B · Q8_0 | 2.03 GiB | Apache-2.0 |
+| Speech recognition (Japanese) | ReazonSpeech v2 · Q8_0 | 0.62 GiB | Apache-2.0 |
+| Speech recognition (Japanese) | Parakeet TDT-CTC 0.6B ja · Q8_0 | 0.62 GiB | CC BY 4.0 |
+| Speech recognition (25 European languages) | Parakeet TDT 0.6B v3 · F16 | 1.17 GiB | CC BY 4.0 |
+| Speech recognition (Japanese) | Haas-ja v1.0 · Q8_0 | 0.61 GiB | Apache-2.0 |
+| Speech recognition (40 languages, a large model) | Nemotron 3.5 Transcribe 30B-A4B · IQ4_NL | 17.69 GiB | OpenMDW-1.1 |
 | Finding where someone speaks | Silero VAD v6.2 · F32 | 1.2 MB | MIT |
 | Telling speakers apart (optional) | Nemotron 3 Diarization · Q8_0 | about 106 MB | OpenMDW-1.1 |
 | Voice changer (RVC) | Saisho Utane · RVC v2 | 0.31 GiB | CC BY 4.0 (credit required) |
 | Text recognition | PP-OCRv6 small (Japanese, English, Chinese, Latin) | about 30 MB | Apache-2.0 |
 | Text recognition | PP-OCRv5 mobile (Korean, Cyrillic, Thai, Arabic, Devanagari) | 8–14 MB each | Apache-2.0 |
+
+For Japanese speech, Small MF is the standard choice: its first audio comes soonest. Small without MF and Large take longer to their first audio. Large's text encoder comes from Google's Gemma, so the [Gemma Terms of Use](https://ai.google.dev/gemma/terms) and its Prohibited Use Policy apply.
+
+For speech recognition you can choose every model the bundled speech.cpp handles. The table gives the size of the file speech.cpp fetches by default. "File type (quantization)" offers the other types (Q4_K and so on). Smaller types take less space and memory but may make a few more mistakes.
 
 Translation models are downloaded under Settings → "Translation" (see [Translation](../features/translation)). "Download" opens a screen showing the source, license and size. Nothing is downloaded until you tick the consent box.
 
@@ -47,7 +59,7 @@ The "Text to speech (TTS)" page shows your GPU's name and its total and free mem
 |---|---|
 | Speech, realtime captions and telling speakers apart (speech.cpp, which comes with the app) | AMD, Intel and NVIDIA (Vulkan) |
 | Local translation | NVIDIA (the Windows GPU version). Other GPUs run it on the CPU |
-| Voice changer (RVC, Seed-VC) | NVIDIA |
+| Voice changer (RVC) | NVIDIA (GeForce GTX 16 or RTX 20 series or later, driver 580 or later). Otherwise it runs on the CPU ([System requirements](requirements#rvc-on-an-nvidia-gpu)) |
 | Chat reading | Runs on the CPU |
 
 With the inference device set to Automatic or GPU, the speech.cpp servers that come with the app use a dedicated GPU (a graphics card) before integrated graphics, and of several dedicated GPUs the one with the most memory. You can also pick one under "Inference device" in "Models and servers".

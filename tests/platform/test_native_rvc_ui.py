@@ -56,14 +56,14 @@ def test_native_rvc_selection_real_conversion_stop_and_restart(tmp_path):
                 ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => ['VC ready; conversion not yet confirmed','Converting voice'].includes(e.textContent))", timeout=10)
                 assert not ui.evaluate("return [...document.querySelectorAll('[data-setting-id=rvc_settings] [role=alert]')].map(e => e.textContent).filter(Boolean)")
                 workers = [child.pid for child in ui.app_process.children(recursive=True)
-                           if 'integrations.rvc.live_worker' in ' '.join(child.cmdline())]
+                           if child.cmdline()[:1] and Path(child.cmdline()[0]).name == 'vrct-rvc-worker']
                 assert len(workers) == 1, workers
                 return {'active': True, 'requested': True, 'error': None, 'generation': workers[0]}
 
             source = select_source(graph_snapshot(), 'vrct.native.caption.source')
             selected = json.dumps([str(source.cookie), str(source.serial), source.name, source.media_class], separators=(',', ':'))
             with NativeWebDriver(tmp_path/'first', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_rvc_settings()
                 ui.click_text('button', 'Prepare and use virtual microphone')
                 wait_for(lambda: json.loads((state/'config.json').read_text())['VOICE_SETTINGS']['routing'] == 'managed')
@@ -141,7 +141,7 @@ def test_native_rvc_selection_real_conversion_stop_and_restart(tmp_path):
                 ui.assert_rendered()
                 ui.close_app()
             with NativeWebDriver(tmp_path/'restart', {'VRCT_CONFIG_DIR': str(state)}) as ui:
-                ui.wait("return document.querySelector('textarea') !== null")
+                ui.wait_main_ready()
                 ui.open_rvc_settings()
                 assert ui.evaluate('return arguments[0].value', ui.control('Permitted RVC model (.pth)')) == model
                 # The list may offer the Device page's microphone as the default; what
