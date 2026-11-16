@@ -1311,6 +1311,8 @@ realtime:
 
 realtime_toggle:
   save_unconfirmed: "The save could not be confirmed. Check the settings and try saving again."
+  realtime_request_failed: "The realtime recognition request could not be finished. Check its state, then try again."
+  backend_unavailable: "Cannot reach the ASTAROT engine."
   generic: "Realtime recognition could not start or has stopped ({{reason}}). Check Settings → Speech recognition (ASR) → Realtime captions."
   realtime_endpoint_required: "No input is selected. In Settings → Speech recognition (ASR) → Realtime captions, choose a device or the system default, save, and turn this on again."
   realtime_default_endpoint_missing: "The system default device was not found. Connect a device, or choose one in Settings → Speech recognition (ASR) → Realtime captions, then turn this on again."
@@ -1409,6 +1411,7 @@ speech_servers:
         speech_server_stale_start: "The server changed after you pressed Start. Check its state, then start it again."
         speech_server_request_invalid: "The request was not in the expected form. Try again."
         speech_server_request_failed: "The server could not finish this. Try again."
+        speech_server_request_unconfirmed: "The server did not answer the request. Wait a moment, then check its state."
         speech_server_not_ready: "The server is not answering. Start it, then try again."
         speech_server_profile_invalid: "The server type was not recognized. Try again."
         speech_server_single_use: "This server's start was already used. Start it again."
@@ -1570,6 +1573,8 @@ voice_ui:
     errors:
         backend_unavailable: "Cannot reach the ASTAROT engine."
         voice_request_unconfirmed: "The request wasn't confirmed. Wait a moment, then check the status."
+        save_unconfirmed: "The save could not be confirmed. Check the settings and try saving again."
+        source_bridge_request_failed: "The input forwarding request could not be finished. Check its state, then try again."
         voice_route_muted: "Voice output is muted. In Settings → Device → Voice route, press \"Resume voice\", then turn on Text to speech (TTS) again."
         voice_route_closed: "The voice route is shutting down. Restart ASTAROT, then turn on Text to speech (TTS) again."
         tts_source_not_selected: "Choose what to speak first: in Settings → Text to speech (TTS), set chat speech or Realtime microphone speech to something other than Off and save."

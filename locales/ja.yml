@@ -1311,6 +1311,8 @@ realtime:
 
 realtime_toggle:
   save_unconfirmed: "設定の保存を確認できませんでした。内容を確認してもう一度保存してください。"
+  realtime_request_failed: "リアルタイム認識の操作を完了できませんでした。状態を確かめてから、もう一度操作してください。"
+  backend_unavailable: "ASTAROTの処理部分に接続できません。"
   generic: "リアルタイム認識を開始できないか、停止しました（{{reason}}）。設定 → 音声認識（ASR） → リアルタイム字幕を確認してください。"
   realtime_endpoint_required: "入力が選ばれていません。設定 → 音声認識（ASR） → リアルタイム字幕でデバイスかシステムの既定を選んで保存し、もう一度オンにしてください。"
   realtime_default_endpoint_missing: "システムの既定のデバイスが見つかりません。デバイスを接続するか、設定 → 音声認識（ASR） → リアルタイム字幕でデバイスを選んでから、もう一度オンにしてください。"
@@ -1409,6 +1411,7 @@ speech_servers:
         speech_server_stale_start: "起動を押したあとにサーバーの状態が変わりました。状態を確かめてから、もう一度起動してください。"
         speech_server_request_invalid: "要求の形が正しくありませんでした。もう一度操作してください。"
         speech_server_request_failed: "サーバーの操作を完了できませんでした。もう一度操作してください。"
+        speech_server_request_unconfirmed: "サーバーへの要求に応答がありませんでした。少し待ってから状態を確かめてください。"
         speech_server_not_ready: "サーバーが応答していません。サーバーを起動してから、もう一度試してください。"
         speech_server_profile_invalid: "サーバーの種類が正しくありませんでした。もう一度操作してください。"
         speech_server_single_use: "このサーバーの起動の準備は使い終わっています。もう一度起動してください。"
@@ -1570,6 +1573,8 @@ voice_ui:
     errors:
         backend_unavailable: "ASTAROTの処理部分に接続できません。"
         voice_request_unconfirmed: "要求への応答を確認できませんでした。しばらく待ってから状態を確かめてください。"
+        save_unconfirmed: "設定の保存を確認できませんでした。内容を確認してもう一度保存してください。"
+        source_bridge_request_failed: "入力の転送の操作を完了できませんでした。状態を確かめてから、もう一度操作してください。"
         voice_route_muted: "音声出力がミュート中です。設定の「デバイス」→「音声経路」で「音声を再開」を押してから、「テキスト読み上げ（TTS）」をオンにしてください。"
         voice_route_closed: "音声経路を終了中です。ASTAROTを再起動してから「テキスト読み上げ（TTS）」をオンにしてください。"
         tts_source_not_selected: "読み上げる内容が選ばれていません。設定の「テキスト読み上げ（TTS）」で「読み上げ」または「Realtimeマイクの発声」を「OFF」以外にして保存してください。"
