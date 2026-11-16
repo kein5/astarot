@@ -90,7 +90,7 @@ CI checks the commits of every pull request, and the commits pushed to `develop`
 2. For a stable release only, run `npm run changelog` (`python tools/changelog.py write`). It reads the commits since the previous stable release tag through Cocogitto and adds the version's section at the top of `CHANGELOG.md`, naming the betas it includes. Read the section; if a line is unclear, fix it in the file. The tool will not overwrite a section that differs from what it would write unless you pass `--force`. For a beta, skip this step; `write` refuses a beta.
 3. Commit as `chore(release): version X.Y.Z` and open the pull request. Release pull requests to `main` fail if the section is missing.
 4. Build the candidates and run "Prepare verified VRCT-VOX release draft" ([release candidates](docs/voice-stack/release-candidates.md)). A stable draft's notes are made from its CHANGELOG section; a beta's from its commits since the previous release tag. Run `python tools/changelog.py print` or `release-notes` to see them beforehand.
-5. Before publishing the draft, write its Highlights, Upgrade Notes and Known Issues. Publishing creates the `vX.Y.Z` tag.
+5. Before publishing the draft, replace its body with the release notes in `docs/release-notes/X.Y.Z.md` ([format](docs/release-notes/README.md)). Publishing creates the `vX.Y.Z` tag.
 
 Running `write` again gives the same file. It stops if the tag `vX.Y.Z` already exists. Tags are created only by publishing a GitHub release; do not run `cog bump` and do not push tags by hand.
 
@@ -124,7 +124,7 @@ Release commits (`chore(release): ...`) and merge commits are left out. The same
 
 ### GitHub Releases
 
-The CHANGELOG section is the full list of a stable release; the GitHub release helps users decide whether to update. Its draft starts with Highlights, Breaking Changes, Upgrade Notes and Known Issues, then the user-facing changes. Internal changes are counted, with a link to `CHANGELOG.md` for a stable release and to the comparison of commits for a beta. Keep the two consistent: change the CHANGELOG first, then the release text.
+The CHANGELOG section is the full list of a stable release; the GitHub release helps users decide whether to update. Its text is written by hand in `docs/release-notes/X.Y.Z.md` under two headings: changes that matter to users (features, improvements, fixes, compatibility and what to do when updating, in plain words, ending with the upgrade notes and known issues) and internal changes (one line each, in technical terms, with the pull request number). The format is in [docs/release-notes/README.md](docs/release-notes/README.md). The draft that `tools/changelog.py` starts (Highlights, Upgrade Notes, Known Issues and the changes) is replaced with these notes before publishing. Keep the two consistent: change the CHANGELOG first, then the release text.
 
 ### Troubleshooting
 
