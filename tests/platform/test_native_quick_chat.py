@@ -106,9 +106,9 @@ def test_shortcut_raises_input_above_fullscreen_without_restoring_main(tmp_path)
                 xdo('windowactivate', '--sync', foreground)
                 wait_for(lambda: xdo('getwindowfocus') == foreground)
                 xdo('key', '--clearmodifiers', 'ctrl+alt+shift+F9')
-                wait_for(lambda: window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat'),
+                wait_for(lambda: window_for(ui.app_process.pid, 'ASTAROT Quick Chat'),
                          code=f'{opening}: Quick Chat was not shown')
-                chat_xid, = window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat')
+                chat_xid, = window_for(ui.app_process.pid, 'ASTAROT Quick Chat')
                 game_geometry, chat_geometry = window_geometry(foreground), window_geometry(chat_xid)
                 for coordinate, size in (('X', 'WIDTH'), ('Y', 'HEIGHT')):
                     assert game_geometry[coordinate] <= chat_geometry[coordinate]
@@ -140,7 +140,7 @@ def test_shortcut_raises_input_above_fullscreen_without_restoring_main(tmp_path)
                     xdo('windowminimize', chat_xid)
                 else:
                     xdo('key', 'Escape')
-                wait_for(lambda: not window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat'))
+                wait_for(lambda: not window_for(ui.app_process.pid, 'ASTAROT Quick Chat'))
         ui.command('POST', '/window', {'handle': main})
         xdo('windowactivate', '--sync', main_xid)
         ui.close_app()
@@ -195,8 +195,8 @@ def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
             wait_for(lambda: not window_for(ui.app_process.pid, 'VRCT-VOX'))
             start = time.monotonic()
             xdo('key', '--clearmodifiers', 'ctrl+alt+shift+j')
-            wait_for(lambda: window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat'))
-            chat_xid, = window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat')
+            wait_for(lambda: window_for(ui.app_process.pid, 'ASTAROT Quick Chat'))
+            chat_xid, = window_for(ui.app_process.pid, 'ASTAROT Quick Chat')
             wait_for(lambda: xdo('getwindowfocus') == chat_xid)
             latency_ms = (time.monotonic() - start) * 1000
             assert not window_for(ui.app_process.pid, 'VRCT-VOX'), 'opening the input must not restore the main window'
@@ -209,9 +209,9 @@ def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
             ui.wait("return window.__forbidden === 'quick_chat_forbidden'")
             ui.fill('Message', 'retained draft')
             xdo('key', 'Escape')
-            wait_for(lambda: not window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat'))
+            wait_for(lambda: not window_for(ui.app_process.pid, 'ASTAROT Quick Chat'))
             xdo('key', '--clearmodifiers', 'ctrl+alt+shift+j')
-            wait_for(lambda: window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat'))
+            wait_for(lambda: window_for(ui.app_process.pid, 'ASTAROT Quick Chat'))
             ui.wait("return document.hasFocus() && document.activeElement?.getAttribute('aria-label') === 'Message'")
             assert ui.evaluate('return arguments[0].value', ui.control('Message')) == 'retained draft'
             ui.fill('Message', 'Quick chat integration')

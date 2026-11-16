@@ -18,7 +18,8 @@ def test_fork_identity_and_sidecar_contract():
     assert conf["identifier"] == "io.github.kein5.vrct-vox"
     assert conf["bundle"]["publisher"] == "kein5"
     assert "m's software" in conf["bundle"]["copyright"]
-    assert conf["app"]["windows"][0]["title"] == "VRCT-VOX"
+    # The window title is the display name (ADR-011 P1); productName above stays until P2.
+    assert conf["app"]["windows"][0]["title"] == "ASTAROT"
     assert conf["bundle"]["externalBin"] == ["bin/vrct-vox-sidecar"]
     assert 'Command.sidecar("bin/vrct-vox-sidecar")' in (ROOT / "src-ui/views/app/_app_controllers/StartPythonController.jsx").read_text(encoding="utf-8")
 
@@ -31,7 +32,9 @@ def test_build_metadata_and_launchers_agree_on_renamed_binaries():
     assert package["name"] == lock["name"] == lock["packages"][""]["name"] == cargo["package"]["name"] == "vrct-vox"
     assert any(p["name"] == "vrct-vox" and p["version"] == cargo["package"]["version"] for p in cargo_lock["package"])
     desktop = (ROOT / "packaging/appimage/vrct-vox.desktop").read_text(encoding="utf-8")
-    assert "Name=VRCT-VOX\n" in desktop and "Exec=vrct-vox\n" in desktop
+    # Name is only shown in menus (ADR-011 P1); the file name, Exec, Icon and StartupWMClass identify the app.
+    assert "Name=ASTAROT\n" in desktop and "Exec=vrct-vox\n" in desktop
+    assert "Icon=vrct-vox\n" in desktop and "StartupWMClass=vrct-vox\n" in desktop
     assert "usr/lib/vrct-vox/vrct-vox-sidecar" in (ROOT / "packaging/appimage/sidecar").read_text(encoding="utf-8")
     for spec in ("backend.spec", "backend_cuda.spec", "backend_linux.spec"):
         assert "name='vrct-vox-sidecar" in (ROOT / "spec" / spec).read_text(encoding="utf-8")
