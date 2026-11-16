@@ -162,9 +162,9 @@ def text(x, y, value, size=26, color=None, weight="500", anchor=None):
 
 
 def lockup_text(x, y, value, size, anchor=None):
-    """Subtitle of a lockup on the board, in Outfit Bold like the horizontal logo's rendered subtitle."""
+    """Subtitle of a lockup on the board: the light logos' subtitle colour, in Outfit Bold."""
     anchor_attr = f' text-anchor="{anchor}"' if anchor else ""
-    return (f'<text x="{x}" y="{y}" font-size="{size}" fill="{BOARD_MUTED}" font-weight="700" '
+    return (f'<text x="{x}" y="{y}" font-size="{size}" fill="#766B80" font-weight="700" '
             f'font-family="Outfit, Inter, DejaVu Sans, sans-serif"{anchor_attr}>{value}</text>')
 
 
