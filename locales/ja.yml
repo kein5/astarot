@@ -1523,6 +1523,7 @@ voice_ui:
     changed_items: "変更した設定"
     unsaved: "未保存の変更"
     applies_on_save: "保存すると適用: {{changes}}"
+    applies_now: "このページの変更はすぐに反映されます"
     changes_separator: "、"
     unsaved_count: "{{count}}件"
     saved: "保存済み"

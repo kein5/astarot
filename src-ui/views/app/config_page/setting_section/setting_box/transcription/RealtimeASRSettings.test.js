@@ -43,6 +43,7 @@ async function fixture(context) {
     });
     const { SaveBar } = await loadModule(new URL("../../../topbar/Topbar.jsx", import.meta.url), barRuntime, {
         "@logics_common": {}, "../../../../logics/voice/saveBar": saveBar, "../../others/stop_actions/StopActions": {},
+        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "transcription" } }) },
     });
     let dialogProps;
     const modal = { open: false, showModal() { this.open = true; }, close() { this.open = false; dialogProps.onClose(); } };

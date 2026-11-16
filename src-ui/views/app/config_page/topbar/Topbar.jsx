@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import styles from "./Topbar.module.scss";
 import { useIsOpenedConfigPage } from "@logics_common";
+import { useStore_SelectedConfigTabId } from "@store";
 import { useSaveBarEntries } from "../../../../logics/voice/saveBar";
 import { StopActions } from "../../others/stop_actions/StopActions";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
@@ -13,6 +14,7 @@ import ArrowLeftSvg from "@images/arrow_left.svg?react";
 export const SaveBar = () => {
     const { t } = useI18n();
     const entries = useSaveBarEntries();
+    const { currentSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const dirty = entries.filter(entry => entry.dirty);
     const saving = entries.some(entry => entry.saving);
     // Only edits ask before leaving; a pending selection alone is dropped quietly.
@@ -46,7 +48,12 @@ export const SaveBar = () => {
             }}>{t("voice_ui.discard_leave")}</button>
         </div>
     </dialog>;
-    if (!entries.length) return leaveDialog || null;
+    // A page without a form saves each change as it is made: the slot says so, so the
+    // two ways of saving are told apart before anything is changed (#436).
+    if (!entries.length) return <>
+        {currentSelectedConfigTabId.data !== "about_vrct" && <p className={styles.applies_now}>{t("voice_ui.applies_now")}</p>}
+        {leaveDialog}
+    </>;
     const failed = entries.some(entry => entry.saveState === "save_failed");
     const changes = [...new Set(dirty.flatMap(entry => entry.changes))];
     // A page can propose a change the user has not made (the RVC page selects RVC).

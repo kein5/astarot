@@ -1523,6 +1523,7 @@ voice_ui:
     changed_items: "Changed settings"
     unsaved: "Unsaved changes"
     applies_on_save: "Save to apply: {{changes}}"
+    applies_now: "Changes on this page apply at once"
     changes_separator: ", "
     unsaved_count: "{{count}}"
     saved: "Saved"
