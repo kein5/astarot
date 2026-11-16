@@ -165,6 +165,14 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
+    /// SteamVR for the VR overlays: OpenVR, loaded when SteamVR runs ([`overlay`]).
+    pub vr: Arc<dyn vrct_vr_overlay::runtime::Vr>,
+    /// Where the VR panel's page is captured; `None` where the VR panel cannot run.
+    pub vr_panel_surface: Option<Arc<dyn vrct_vr_overlay::surface::PanelSurface>>,
+    /// The subtitle fonts, from the settings' environment ([`overlay::default_fonts`]).
+    pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<vrct_vr_overlay::fonts::FontLibrary> + Send + Sync>,
+    /// How often the overlay looks for SteamVR while it does not run (10 seconds).
+    pub steamvr_poll: Duration,
 }
 
 impl Default for Services {
@@ -181,6 +189,10 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
+            vr: Arc::new(vrct_vr_overlay::openvr::OpenVr::new(Vec::new())),
+            vr_panel_surface: Some(vrct_vr_overlay::surface::platform()),
+            overlay_fonts: Arc::new(overlay::default_fonts),
+            steamvr_poll: Duration::from_secs(10),
         }
     }
 }
@@ -205,6 +217,8 @@ pub struct Core {
     /// The model downloads and the usage events, made on first use.
     ops: std::sync::OnceLock<downloads::Ops>,
     adapters: std::sync::OnceLock<Arc<adapters::Adapters>>,
+    /// The VR overlays and the subtitles, made with the routes ([`overlay`]).
+    pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
 }
 
 impl Core {
@@ -225,6 +239,7 @@ impl Core {
             speech,
             ops: std::sync::OnceLock::new(),
             adapters: std::sync::OnceLock::new(),
+            vr: std::sync::OnceLock::new(),
         })
     }
 
@@ -297,6 +312,7 @@ impl Core {
         self.close_speech_servers();
         self.close_model_downloads();
         self.stop_adapters();
+        self.stop_overlay();
         self.config.save_now();
         self.stop_telemetry();
     }

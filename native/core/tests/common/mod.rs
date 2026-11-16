@@ -46,7 +46,14 @@ impl Default for Setup {
             saved: None,
             raw: None,
             // The OSC link without mDNS: no test joins UDP 5353 on every interface.
-            services: Services { osc: fake_osc::factory(false).0, ..Services::default() },
+            // No VR runtime: a SteamVR that does not run, and no VR panel page.
+            services: Services {
+                osc: fake_osc::factory(false).0,
+                vr: Arc::new(vrct_core::vr_overlay::runtime::fake::FakeVr::default()),
+                vr_panel_surface: None,
+                steamvr_poll: Duration::from_millis(20),
+                ..Services::default()
+            },
             watchdog: None,
             grace: Duration::from_secs(5),
             platform: Platform::current(),

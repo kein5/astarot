@@ -202,7 +202,8 @@ fn the_vr_panel_layout_follows_the_saved_log_size() {
     assert_eq!(layout["atlas"], json!([1928, 1036]));
     assert_eq!(layout["regions"]["panel"], json!([0, 0, 1200, 900]));
     assert_eq!(layout["regions"]["launcher"], json!([10, 908, 880, 128]));
-    assert_eq!(layout["tooltip_epoch"], 0);
+    // The overlay's tooltip generation: random, never 0 (`Overlay.__init__`).
+    assert!(layout["tooltip_epoch"].as_u64().is_some_and(|epoch| epoch > 0), "{layout}");
     ui.stop();
 
     // A size outside the range (an older file) is drawn at the nearest allowed size.
