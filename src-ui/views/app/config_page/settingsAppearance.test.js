@@ -249,3 +249,8 @@ test("the forms' primary action is blue: the plain class name primary is matched
     const downloads = read(box + "advanced_settings/ModelDownloads.jsx");
     assert.match(downloads, /className="primary" disabled=\{!consent \|\| busy\}/, "agreeing to a download is the primary action");
 });
+
+test("a guide link reads as a link wherever it sits", () => {
+    const css = read(box + "_components/custom_model_link/CustomModelLink.module.scss");
+    assert.match(css, /a\s*{[^}]*color: var\(--primary_300_color\)[^}]*text-decoration: underline/);
+});

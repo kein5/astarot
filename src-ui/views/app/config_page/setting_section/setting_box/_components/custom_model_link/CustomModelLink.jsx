@@ -3,6 +3,7 @@ import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { generateLocalizedDocumentUrl } from "@ui_configs";
+import styles from "./CustomModelLink.module.scss";
 
 // Opens the user guide's section on bringing your own model (a file you trained, downloaded
 // elsewhere or bought) for this setting, in the browser, in the display language. It only
@@ -19,7 +20,7 @@ export const CustomModelLink = ({ section }) => {
         try { await openUrl(url); setFailed(false); }
         catch { setFailed(true); }
     };
-    return <p>
+    return <p className={styles.container}>
         <a href={url} onClick={open} target="_blank" rel="noreferrer">{t("config_page.custom_model_link")}</a>
         {failed && <span role="alert"><span>{t("model_downloads.link_error")}</span> <code style={{ overflowWrap: "anywhere" }}>{url}</code></span>}
     </p>;
