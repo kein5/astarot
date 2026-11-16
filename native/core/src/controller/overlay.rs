@@ -16,10 +16,9 @@ use crate::config::schema::default_launcher;
 use crate::errors::ErrorReply;
 use crate::protocol::Reply;
 use serde_json::{Value, json};
-use std::path::PathBuf;
 use std::sync::{Arc, Weak};
 use vrct_vr_overlay::engine::{self, Event, Options, Overlay, PANEL_ANCHORS, Surface, WindowSettings};
-use vrct_vr_overlay::fonts::FontLibrary;
+use vrct_vr_overlay::fonts::{FontLibrary, valid_family_name};
 use vrct_vr_overlay::placement;
 use vrct_vr_overlay::subtitle::{CaptionId, CaptionState, Direction, LargePicture, Reading, Subtitle, Subtitles, Translation};
 use vrct_vr_overlay::tooltip::validate_tooltip;
@@ -53,12 +52,10 @@ fn mirror_hand(position: &Value) -> Value {
     mirrored
 }
 
-/// The subtitle fonts: the app's own `fonts` folder, the Python bundle's (while it ships), then
-/// the system's. See "判断が要ること" in `docs/voice-stack/core-integration.md`.
-pub fn default_fonts(environment: &crate::config::Environment) -> Arc<FontLibrary> {
-    let app = &environment.app_dir;
-    let first: Vec<PathBuf> = vec![app.join("fonts"), app.join("_internal").join("fonts")];
-    Arc::new(FontLibrary::new(first))
+/// The subtitle fonts: the system's. No font is bundled; the family chosen in the settings
+/// (`OVERLAY_FONT_FAMILY`) comes first (decision 6 in `docs/voice-stack/core-integration.md`).
+pub fn default_fonts(_environment: &crate::config::Environment) -> Arc<FontLibrary> {
+    Arc::new(FontLibrary::new(Vec::new()))
 }
 
 /// The overlay and the subtitle pictures.
@@ -175,7 +172,41 @@ impl Core {
         });
         let fonts = (services.overlay_fonts)(config.environment());
         let subtitles = Subtitles::new(fonts, Arc::new(vrct_vr_overlay::subtitle::local_time));
+        // A saved family that is gone draws with the automatic fonts; the setting stays.
+        subtitles.renderer.set_font_family(Some(&config.get_str("OVERLAY_FONT_FAMILY")));
         let _ = core.vr.set(VrOverlay { engine, subtitles, supported });
+    }
+
+    /// `/set/data/overlay_font_family`: a family on this system, or "" for automatic. The
+    /// subtitles drawn after use it.
+    fn set_overlay_font_family(&self, data: &Value) -> Reply {
+        let current = || self.config().get("OVERLAY_FONT_FAMILY");
+        let Some(family) = data.as_str().map(str::trim) else {
+            return error("VALIDATION_CONFIG_VALUE_INVALID", current());
+        };
+        if !family.is_empty() && !valid_family_name(family) {
+            return error("VALIDATION_CONFIG_VALUE_INVALID", current());
+        }
+        if let Some(vr) = self.vr()
+            && !family.is_empty()
+            && !vr.subtitles.renderer.library().has_family(family)
+        {
+            return error("OVERLAY_FONT_NOT_FOUND", current());
+        }
+        if self.config().set("OVERLAY_FONT_FAMILY", json!(family)).is_err() {
+            return error("VALIDATION_CONFIG_VALUE_INVALID", current());
+        }
+        if let Some(vr) = self.vr() {
+            vr.subtitles.renderer.set_font_family(Some(family));
+        }
+        ok(current())
+    }
+
+    /// `/get/data/overlay_font_missing_languages`: the languages no font on this system can
+    /// draw (their text would be left out of the subtitles), for a notice in the settings.
+    fn overlay_font_missing_languages(&self) -> Value {
+        let missing = self.vr().map(|vr| vr.subtitles.renderer.library().missing_languages()).unwrap_or_default();
+        json!(missing)
     }
 
     /// What the VR page learns when the overlay is made: the layout and the launcher's
@@ -517,7 +548,8 @@ impl Core {
     }
 
     /// What the overlay's thread reports (`_onOverlayFailure`, `_onVrPanelLayout`,
-    /// `_onVrPanelLogOutOfView`, `_onVrPanelLauncherIntro`, `_onOverlayPositionChanged`).
+    /// `_onVrPanelLogOutOfView`, `_onVrPanelLauncherIntro`, `_onOverlayPositionChanged`,
+    /// `_onVrPanelPointer`).
     fn on_overlay_event(&self, event: Event) {
         match event {
             Event::Failure(reason) => {
@@ -540,6 +572,8 @@ impl Core {
             Event::PanelOutOfView(out) => self.notify("vr_panel_log_out_of_view", json!(out)),
             Event::LauncherIntro(state) => self.notify("vr_panel_launcher_intro", json!(state)),
             Event::Position(surface, position) => self.on_overlay_position(surface, position),
+            // `_onVrPanelPointer`: the hover position on the VR page, or null off it.
+            Event::Pointer(xy) => self.notify("vr_panel_pointer", xy.map_or(Value::Null, |(x, y)| json!({ "x": x, "y": y }))),
         }
     }
 
@@ -625,6 +659,9 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/set/enable/overlay_large_log", OPEN, |core, _| core.enable_log("OVERLAY_LARGE_LOG"));
     b.with("/set/disable/overlay_large_log", OPEN, |core, _| core.disable_log("OVERLAY_LARGE_LOG", Surface::Large));
     b.with("/set/data/overlay_large_log_settings", OPEN, |core, data| core.set_log_settings("OVERLAY_LARGE_LOG_SETTINGS", Surface::Large, data));
+    b.get("/get/data/overlay_font_family", OPEN, "OVERLAY_FONT_FAMILY");
+    b.with("/set/data/overlay_font_family", OPEN, |core, data| core.set_overlay_font_family(data));
+    b.with("/get/data/overlay_font_missing_languages", OPEN, |core, _| ok(core.overlay_font_missing_languages()));
 }
 
 #[cfg(test)]

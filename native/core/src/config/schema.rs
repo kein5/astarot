@@ -616,6 +616,8 @@ pub fn keys() -> Vec<Key> {
         key("OVERLAY_VR_PANEL_FONT_SIZE", plain(Ty::Int)),
         key("OVERLAY_VR_LAUNCHER_AUTO_HIDE", b()),
         key("OVERLAY_VR_TOOLTIP", b()),
+        // Core only: the subtitles' font family on this system; "" is automatic (no font is bundled).
+        key("OVERLAY_FONT_FAMILY", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(|s| s.is_empty() || vrct_vr_overlay::fonts::valid_family_name(s)))),
         key("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES", b()),
         key("SEND_MESSAGE_TO_VRC", b()),
         key("SEND_RECEIVED_MESSAGE_TO_VRC", b()),
@@ -854,6 +856,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("OVERLAY_VR_PANEL_FONT_SIZE", json!(17)),
         ("OVERLAY_VR_LAUNCHER_AUTO_HIDE", json!(true)),
         ("OVERLAY_VR_TOOLTIP", json!(true)),
+        ("OVERLAY_FONT_FAMILY", json!("")),
         ("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES", json!(false)),
         ("SEND_MESSAGE_TO_VRC", json!(true)),
         ("SEND_RECEIVED_MESSAGE_TO_VRC", json!(false)),

@@ -9,15 +9,16 @@
 //! The VR panel part shows the page's windows (log, launcher, popup), keeps the layout in step
 //! with the page, follows the launcher to the wrist (shown when the wrist is looked at, with the
 //! opening animation), moves the log to another anchor or back in front of the eyes, and shows
-//! the launcher's focus tooltip. Pointing with the controller's laser, grabbing, moving, scaling
-//! and resizing windows, the toolbar and the hover tooltips are not ported yet (they need the
-//! controller input and the page's mouse input); see `docs/voice-stack/core-integration.md`.
+//! the tooltips. The controllers ([`input`]) point with a laser, click and scroll the page, grab,
+//! move and scale windows, resize the log by a corner and show the toolbar under the log.
+
+mod input;
 
 use crate::layout::{self, Region, VrLayout};
 use crate::math::{self, Mat34, Mat4, Tracker};
 use crate::placement::{self, Placement};
 use crate::pose;
-use crate::runtime::{Device, HMD, Hand, Handle, INVALID_DEVICE, Session, Vr, VrError};
+use crate::runtime::{Device, HMD, Hand, Handle, INVALID_DEVICE, Session, TextureSlot, Vr, VrError};
 use crate::surface::{Frame, PanelSurface};
 use crate::timing::{self, LauncherTick, LauncherView};
 use crate::tooltip::{self, Picture, Tooltip, TooltipMode, TooltipParent, TooltipShape};
@@ -30,7 +31,6 @@ use std::time::{Duration, Instant};
 
 const REINIT_WAIT: Duration = Duration::from_secs(5);
 const SHUTDOWN_JOIN: Duration = Duration::from_secs(5);
-const LOOP_INTERVAL: Duration = Duration::from_millis(62);
 const PANEL_FIND_INTERVAL: Duration = Duration::from_secs(2);
 const PANEL_ERROR_LIMIT: u32 = 30;
 const STALL_REPORT: Duration = Duration::from_secs(2);
@@ -161,6 +161,9 @@ pub enum Event {
     LauncherIntro(&'static str),
     /// A window's position was settled in VR (`position_changed_callback`).
     Position(Surface, Value),
+    /// Where the laser points on the VR page in its logical px, `None` when off it
+    /// (`pointer_callback`; the page draws its hover from it).
+    Pointer(Option<(i64, i64)>),
 }
 
 pub type Events = Arc<dyn Fn(Event) + Send + Sync>;
@@ -277,6 +280,8 @@ struct State {
     capture_generation: u64,
     mask: Option<((u32, u32), VrLayout, Vec<u8>)>,
     events: Vec<Event>,
+    /// The controllers: pointing, grabbing, resizing, the toolbar.
+    input: input::Interaction,
 }
 
 struct Shared {
@@ -389,6 +394,7 @@ impl Overlay {
             capture_generation: 0,
             mask: None,
             events: Vec::new(),
+            input: input::Interaction::default(),
         };
         Self { shared: Arc::new(Shared { options, state: Mutex::new(state), wake: Condvar::new(), thread: Mutex::new(None), epoch_start: now }) }
     }
@@ -624,6 +630,7 @@ impl Overlay {
             self.apply_launcher_defaults(state, keep_hand);
         }
         state.constructing = true;
+        state.input = input::Interaction::default();
         for (i, surface) in Surface::ALL.into_iter().enumerate() {
             let handle = self.create(state, &format!("VRCT{i}"))?;
             state.handles.insert(surface, handle);
@@ -634,6 +641,7 @@ impl Overlay {
                 self.submit(state, handle, "visibility", "show".into(), |s| s.show(handle))?;
             }
         }
+        self.make_pointers(state)?;
         state.vr_resources_tried = false;
         self.apply_vr_panel_enabled(state)?;
         self.set_intro(state, if state.vr_panel_enabled { Intro::Pending } else { Intro::Idle });
@@ -644,6 +652,7 @@ impl Overlay {
             let session = state.session.as_mut().expect("connected");
             session.set_raw(handle, &[0, 0, 0, 0], 1, 1)?;
             session.set_color(handle, [1.0, 1.0, 1.0])?;
+            input::remember_image(state, surface, &[0, 0, 0, 0], 1, 1);
             let opacity = state.settings[surface.index()].opacity;
             self.set_alpha(state, surface, opacity)?;
             self.apply_width(state, surface)?;
@@ -752,8 +761,7 @@ impl Overlay {
         };
         if available {
             let relative = Self::relative(state, surface);
-            let handle = state.handles[&surface];
-            self.set_transform(state, handle, device, &relative)?;
+            self.set_window_transform(state, surface, device, &relative)?;
             state.position_pending.remove(&surface);
         } else {
             state.position_pending.insert(surface);
@@ -776,9 +784,12 @@ impl Overlay {
             if let Err(error) = self.tick(&mut state) {
                 self.log(&format!("overlay: {error}"));
             }
+            // Quicker while a window is held or the laser is on the VR page.
+            let holding = state.input.grabbing.is_some() || state.input.resizing.is_some();
+            let interval = Duration::from_secs_f64(timing::loop_interval(holding, state.input.pointer_notified.is_some()));
             self.flush(state);
             let mut state = self.lock();
-            let deadline = started + LOOP_INTERVAL;
+            let deadline = started + interval;
             while !state.run_stop && !state.start_cancelled {
                 let now = Instant::now();
                 if now >= deadline {
@@ -787,6 +798,10 @@ impl Overlay {
                 state = self.shared.wake.wait_timeout(state, deadline - now).unwrap_or_else(|e| e.into_inner()).0;
             }
         }
+        // Let go of anything still pressed on the page.
+        let mut state = self.lock();
+        self.cancel_panel_inputs(&mut state);
+        self.flush(state);
     }
 
     fn tick(&self, state: &mut State) -> Result<(), VrError> {
@@ -810,6 +825,10 @@ impl Overlay {
         self.update_intro_flight(state, &pose_of, seconds);
         self.update_launcher_visibility(state, &pose_of, seconds);
         self.apply_vr_windows(state, &pose_of)?;
+        // The laser before the capture, so it does not wait for the capture.
+        if let Err(error) = self.update_input(state, &pose_of, seconds) {
+            self.on_input_error(state, &error);
+        }
         if let Err(error) = self.update_panel(state, now) {
             state.panel_errors += 1;
             if state.panel_errors >= PANEL_ERROR_LIMIT && !state.panel_stopped {
@@ -858,8 +877,13 @@ impl Overlay {
         state.tooltip_ready = false;
         state.tooltip_shown = false;
         state.position_pending.clear();
+        state.input = input::Interaction::default();
         state.session = None;
+        let pointed = std::mem::take(&mut state.events);
         drop(state);
+        for event in pointed {
+            (self.shared.options.events)(event);
+        }
         self.log("overlay: stopped");
     }
 
@@ -896,6 +920,7 @@ impl Overlay {
                 let result = state.session.as_mut().expect("initialized").set_raw(handle, rgba, width, height);
                 match result {
                     Ok(()) => {
+                        input::remember_image(&mut state, surface, rgba, width, height);
                         let index = surface.index();
                         state.last_update[index] = Instant::now();
                         state.fade[index] = 1.0;
@@ -937,6 +962,7 @@ impl Overlay {
     pub fn clear_image(&self, surface: Surface) {
         let mut state = self.lock();
         state.output_generations[surface.index()] += 1;
+        input::forget_image(&mut state, surface);
         if state.initialized {
             let handle = state.handles[&surface];
             let cleared = state.session.as_mut().expect("initialized").set_raw(handle, &[0, 0, 0, 0], 1, 1);
@@ -1082,6 +1108,7 @@ impl Overlay {
         }
         if state.vr_panel_enabled && !state.vr_resources_tried && state.session.is_some() {
             state.vr_resources_tried = true;
+            self.make_toolbar_and_ghost(state)?;
             let handle = self.create(state, "VRCT_tooltip")?;
             state.session.as_mut().expect("connected").set_sort_order(handle, 70)?;
             self.submit(state, handle, "visibility", "hide".into(), |s| s.hide(handle))?;
@@ -1128,7 +1155,13 @@ impl Overlay {
             state.settings[index].position = position.map(layout::round4);
         }
         if surface == Surface::Launcher && placement::launcher_out_of_reach(&state.settings[index].placement()) {
-            state.launcher_reset = Some(true);
+            // Put too far, too small or too big: it flies back to the wrist of its hand.
+            let keep = state.launcher_reset.is_none_or(|k| k);
+            state.launcher_reset = Some(keep);
+        }
+        if surface == Surface::Panel {
+            // Moved after a resize: going back to the old size must not undo the move.
+            state.input.resize_undo = None;
         }
         self.notify_position(state, surface);
     }
@@ -1233,7 +1266,12 @@ impl Overlay {
                 }
                 state.vr_windows_hidden.insert(surface);
                 self.submit(state, handle, "visibility", "hide".into(), |s| s.hide(handle))?;
+                self.window_hidden(state, surface);
             }
+        }
+        // Not while a window is held: the hold places it this tick. A recall waits until it is let go.
+        if state.input.grabbing.is_some() || state.input.resizing.is_some() {
+            return Ok(());
         }
         if let Some(anchor) = state.requested_anchor.take() {
             self.set_anchor(state, pose_of, &anchor)?;
@@ -1270,7 +1308,9 @@ impl Overlay {
     }
 
     fn update_launcher_return(&self, state: &mut State, pose_of: &dyn Fn(Option<Device>) -> Option<Mat4>, now: f64) {
-        if state.intro_front.is_none()
+        // Not while a window is held, resized, or the launcher flies in (the hand might change).
+        let can_start = state.intro_front.is_none() && state.input.grabbing.is_none() && state.input.resizing.is_none();
+        if can_start
             && let Some(keep_hand) = state.launcher_reset.take()
         {
             if state.launcher_return.is_some() {
@@ -1395,7 +1435,9 @@ impl Overlay {
         }
         let forced = state.intro == Intro::Playing || state.launcher_return.is_some();
         let idle = state.intro == Intro::Idle && state.launcher_return.is_none();
-        let stopped = state.launcher.update(LauncherTick { now, view, held: false, forced, idle });
+        // The laser on the launcher, or the launcher held: it stays as it is.
+        let held = state.input.launcher_pointed || state.input.grabbing.as_ref().is_some_and(|g| g.surface == Surface::Launcher);
+        let stopped = state.launcher.update(LauncherTick { now, view, held, forced, idle });
         if stopped {
             self.reset_tooltip_epoch(state, true);
         }
@@ -1404,6 +1446,11 @@ impl Overlay {
     // ---- the VR page's capture ---------------------------------------------------------
 
     fn update_panel(&self, state: &mut State, now: Instant) -> Result<(), VrError> {
+        let manipulating = state.input.grabbing.is_some() || state.input.resizing.is_some();
+        if manipulating && !state.input.tooltip_manipulating {
+            self.reset_tooltip_epoch(state, true);
+        }
+        state.input.tooltip_manipulating = manipulating;
         self.apply_tooltip_requests(state);
         self.update_tooltip(state);
         let Some(surface) = self.shared.options.surface.clone() else {
@@ -1431,17 +1478,42 @@ impl Overlay {
         }
     }
 
+    /// Whether the tooltip's button is where the laser points (`tooltipTargetMatches`); a focus
+    /// tooltip (keyboard) always is.
+    fn tooltip_target_matches(state: &State, xy: Option<(i64, i64)>) -> bool {
+        let Some(shape) = state.tooltip_state else { return false };
+        if shape.mode == TooltipMode::Focus {
+            return true;
+        }
+        let Some((px, py)) = xy else { return false };
+        let (rx, ry, _, _) = match shape.region {
+            TooltipParent::Launcher => state.layout.launcher,
+            TooltipParent::Toolbar => state.layout.toolbar,
+        };
+        let [x, y, w, h] = shape.button;
+        let (px, py) = (px as f64, py as f64);
+        let (left, top) = (f64::from(rx) + x, f64::from(ry) + y);
+        left <= px && px < left + w && top <= py && py < top + h
+    }
+
     /// Places the tooltip over its button once the captured page carries it (`updateTooltip`).
-    /// Without the laser pointer only focus tooltips (keyboard) can match.
     fn update_tooltip(&self, state: &mut State) {
         let Some(shape) = state.tooltip_state else { return };
-        let parent_visible = shape.region == TooltipParent::Launcher && state.launcher.interactive;
+        let launcher = shape.region == TooltipParent::Launcher;
+        let parent_visible = if launcher { state.launcher.interactive } else { state.input.toolbar.visible };
+        let parent_hidden = if launcher {
+            state.vr_windows_hidden.contains(&Surface::Launcher)
+        } else {
+            state.vr_windows_hidden.contains(&Surface::Panel)
+        };
         if !parent_visible
             || !state.vr_panel_enabled
             || state.panel_stopped
-            || state.vr_windows_hidden.contains(&Surface::Launcher)
+            || parent_hidden
+            || state.input.grabbing.is_some()
+            || state.input.resizing.is_some()
             || state.layout_applied != Some(state.layout)
-            || shape.mode != TooltipMode::Focus
+            || !Self::tooltip_target_matches(state, state.input.pointer_notified)
         {
             self.hide_tooltip(state);
             return;
@@ -1449,16 +1521,25 @@ impl Overlay {
         let (Some(handle), true, Some(image), Some(texture)) = (state.tooltip_handle, state.tooltip_ready, state.panel_image_size, state.texture_size) else {
             return;
         };
-        let name = state.settings[Surface::Launcher.index()].tracker.clone();
-        let (_, device) = Self::tracker(state, &name);
-        if device == Some(INVALID_DEVICE) || state.position_pending.contains(&Surface::Launcher) {
+        let (relative, device, owner) = if launcher {
+            let name = state.settings[Surface::Launcher.index()].tracker.clone();
+            let (_, device) = Self::tracker(state, &name);
+            (Some(Self::relative(state, Surface::Launcher)), device, Surface::Launcher)
+        } else {
+            (state.input.toolbar_relative, state.input.toolbar_tracker, Surface::Panel)
+        };
+        let Some(relative) = relative else {
+            self.hide_tooltip(state);
+            return;
+        };
+        if device == Some(INVALID_DEVICE) || state.position_pending.contains(&owner) {
             self.hide_tooltip(state);
             return;
         }
-        let relative = Self::relative(state, Surface::Launcher);
-        let (_, _, pw, ph) = state.layout.launcher;
+        let (_, _, pw, ph) = if launcher { state.layout.launcher } else { state.layout.toolbar };
         let (pw, ph) = (f64::from(pw), f64::from(ph));
-        let mpp = Self::width_m(state, Surface::Launcher) / pw;
+        let width_m = if launcher { Self::width_m(state, Surface::Launcher) } else { layout::region_width_m(Region::Toolbar, 0.0) };
+        let mpp = width_m / pw;
         let [x, y, w, _] = shape.button;
         let [bw, bh] = shape.size;
         let center_x = (x + w / 2.0).max(bw / 2.0 + 12.0).min(pw - bw / 2.0 - 12.0);
@@ -1523,7 +1604,10 @@ impl Overlay {
         if state.capture_job.is_some() {
             return;
         }
-        let active = now.duration_since(state.panel_last_change).as_secs_f64() < timing::PANEL_ACTIVE_HOLD_SEC;
+        let active = state.input.pointer_notified.is_some()
+            || state.input.grabbing.is_some()
+            || state.input.resizing.is_some()
+            || now.duration_since(state.panel_last_change).as_secs_f64() < timing::PANEL_ACTIVE_HOLD_SEC;
         let interval = Duration::from_secs_f64(if active { timing::PANEL_CAPTURE_INTERVAL_SEC } else { timing::PANEL_IDLE_CAPTURE_INTERVAL_SEC });
         if state.panel_last_capture.is_some_and(|last| now.duration_since(last) < interval) {
             return;
@@ -1577,15 +1661,18 @@ impl Overlay {
             let fallback = state.layout_applied.map_or(layout::PANEL_DEFAULT_SIZE, |applied| (applied.panel.2, applied.panel.3));
             self.log("overlay: the VR page does not take the new size; going back");
             let index = Surface::Panel.index();
-            let ratio = f64::from(fallback.0) / f64::from(state.layout.panel.2);
-            state.settings[index].ui_scaling *= ratio;
-            state.settings[index].size = Some((f64::from(fallback.0), f64::from(fallback.1)));
-            let layout = VrLayout::for_panel(fallback.0, fallback.1);
-            if layout != state.layout {
-                state.layout = layout;
-                state.submitted.clear();
-                self.reset_tooltip_epoch(state, true);
+            if let Some((position, ui_scaling, tracker)) = state.input.resize_undo.take() {
+                // Back to where and how wide it was before the drag (else it would jump).
+                let window = &mut state.settings[index];
+                window.position = position;
+                window.ui_scaling = ui_scaling;
+                window.tracker = tracker;
+            } else {
+                // The length of one px stays.
+                let ratio = f64::from(fallback.0) / f64::from(state.layout.panel.2);
+                state.settings[index].ui_scaling *= ratio;
             }
+            self.set_panel_size(state, f64::from(fallback.0), f64::from(fallback.1));
             state.layout_requested_at = now + Duration::from_secs(3600);
             self.notify_position(state, Surface::Panel);
         } else if waited >= LAYOUT_RETRY && !state.layout_retried {
@@ -1666,13 +1753,14 @@ impl Overlay {
             }
         }
         let mut targets: Vec<Handle> = [Surface::Panel, Surface::Launcher, Surface::Popup].iter().filter_map(|s| state.handles.get(s).copied()).collect();
+        targets.extend(state.input.toolbar_handle);
         targets.extend(state.tooltip_handle);
         let max = VrLayout::max_layout().atlas;
         let scale = f64::from(size.0) / f64::from(state.layout.atlas.0);
         let wanted = (((f64::from(max.0) * scale).round() as u32).max(size.0), ((f64::from(max.1) * scale).round() as u32).max(size.1));
         let texture = state.texture_size.unwrap_or(wanted);
         let session = state.session.as_mut().expect("connected");
-        let texture = session.set_shared_texture(&targets, &pixels, size.0, size.1, texture)?;
+        let texture = session.set_shared_texture(TextureSlot::Page, &targets, &pixels, size.0, size.1, texture)?;
         let changed = state.panel_image_size != Some(size) || state.texture_size != Some(texture);
         state.panel_image_size = Some(size);
         state.texture_size = Some(texture);
@@ -1690,9 +1778,13 @@ impl Overlay {
         let (Some(image), Some(texture)) = (state.panel_image_size, state.texture_size) else { return Ok(()) };
         let fu = f64::from(image.0) / f64::from(texture.0);
         let fv = f64::from(image.1) / f64::from(texture.1);
-        for surface in [Surface::Panel, Surface::Launcher, Surface::Popup] {
-            let Some(&handle) = state.handles.get(&surface) else { continue };
-            let (u_min, u_max, v_min, v_max) = state.layout.region_bounds(surface.region().expect("a region"));
+        let mut regions: Vec<(Handle, Region)> = [Surface::Panel, Surface::Launcher, Surface::Popup]
+            .iter()
+            .filter_map(|s| state.handles.get(s).map(|h| (*h, s.region().expect("a region"))))
+            .collect();
+        regions.extend(state.input.toolbar_handle.map(|h| (h, Region::Toolbar)));
+        for (handle, region) in regions {
+            let (u_min, u_max, v_min, v_max) = state.layout.region_bounds(region);
             let bounds = [(u_min * fu) as f32, (1.0 - (1.0 - v_min) * fv) as f32, (u_max * fu) as f32, (1.0 - (1.0 - v_max) * fv) as f32];
             self.submit(state, handle, "bounds", format!("{bounds:?}"), |s| s.set_texture_bounds(handle, bounds))?;
         }
@@ -1701,7 +1793,29 @@ impl Overlay {
             self.update_position(state, Surface::Panel)?;
         }
         state.layout_applied = Some(state.layout);
+        state.input.resize_undo = None;
+        if state.input.resizing.is_none() {
+            self.hide_ghost(state);
+        }
         Ok(())
+    }
+
+    /// A new log size: the page is asked for the new layout, and the overlays switch once it
+    /// was captured in it (`setPanelSize`).
+    fn set_panel_size(&self, state: &mut State, width: f64, height: f64) {
+        let (width, height) = layout::clamp_panel_size(width, height);
+        state.settings[Surface::Panel.index()].size = Some((f64::from(width), f64::from(height)));
+        let layout = VrLayout::for_panel(width, height);
+        if layout == state.layout {
+            return;
+        }
+        state.layout = layout;
+        state.submitted.clear();
+        self.reset_tooltip_epoch(state, false);
+        state.panel_last_raw = None;
+        state.layout_requested_at = Instant::now();
+        state.layout_retried = false;
+        state.events.push(Event::Layout(layout_json(&state.layout, state.tooltip_epoch)));
     }
 
     /// The overlays' state for tests: (initialized, hidden VR windows, panel picture size).

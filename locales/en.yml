@@ -234,6 +234,7 @@ backend_errors:
     WEIGHT_DOWNLOAD_CONSENT_REQUIRED: "{{model}} was not downloaded. Review its license and size in Settings > Translation or Speech recognition (ASR) and agree before downloading. If the model version changed, review it again."
     OVERLAY_RUNTIME_FAILED: "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then turn the overlay on again."
     OVERLAY_VR_PANEL_UNSUPPORTED: "The VR UI is not available in this environment. Subtitle overlays are not affected."
+    OVERLAY_FONT_NOT_FOUND: "That font is not installed on this PC. The subtitles keep the font they had."
     MESSAGE_OUTPUT_FAILED: "The message could not be sent to {{output}}. It was sent to the other outputs. If you resend it, those outputs may receive it twice."
     TRANSLATION_VRAM_ENABLE: "Not enough GPU memory to start AI translation. Choose CPU as the device under Settings → Translation, or close other GPU apps."
     TRANSLATION_DISABLED_VRAM: "Translation was turned off because GPU memory ran out."
@@ -793,6 +794,12 @@ config_page:
         voice_typing_mode:
             label: "Voice Typing Mode"
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
+        overlay_font_family:
+            label: "Subtitle font"
+            desc: "The font of the subtitle overlays, chosen from the fonts on this PC. Characters it does not have use this PC's usual font for their language."
+            auto: "Automatic (this PC's usual fonts)"
+            not_installed: "{{name}} (not installed)"
+            missing: "No font on this PC can show {{languages}}. Those characters are left out of the subtitles. Install a font for them, such as Noto Sans CJK, then restart the app."
 
     others:
         section_label_message_formats: "Message Formats"

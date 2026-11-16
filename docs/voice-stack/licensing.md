@@ -409,7 +409,7 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 - Pythonの実行環境とPythonのパッケージ（`_internal/licenses/python/`のライセンス文も）。NOTICEの「LGPL and GPL components」の表の部品（libsoxr、OpenCVのFFmpegとGCCのランタイム、zeroconf、Seed-VCのアダプター、PyInstallerのブートローダー）は0.4.xまでの配布物にだけ入る。ソースの提供の約束は、その版の公開から3年間続く。
 - Silero VADの同梱（上の節の`_internal/models/transcription/silero_vad/`）。Rustの音声認識がSilero VADを使うことになったら、`tools/app_resources.py`に足し、`licenses/silero-vad/`の通知も同梱する。
 - RapidOCRの設定ファイル（`rapidocr/*.yaml`）。Rustの`ocr-runtime`は読まない。
-- フォント（`*.ttf`）。VRのオーバーレイをRustで描くときに要るかは、その作業で決める（Outfitの節も同じ）。
+- フォント（`*.ttf`）。0.4.xまではVRの字幕のためにNoto SansのJP・KR・SC・TC（SIL Open Font License 1.1）を`_internal`に入れていた。Rustの中核は書体を同梱せず、利用者のPCの書体を使う（[中核の統合](core-integration.md)の「決まったこと」の「字幕の書体」）。そのため書体のライセンスは配布物に関係しない。Outfitの節はブランドの文字のためのもので、これとは別。
 - Sudachiの辞書（SudachiPyの`sudachidict_core`と`sudachidict_full`）。Rustの中核は同じ辞書をsudachi.rsで読む。入れる版は下の「読みの解析器と辞書」の節。
 
 まだ決まっていないもの（[中核の統合](core-integration.md)の「判断が要ること」）:

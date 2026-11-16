@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（435件: 削除 13、取得 195、実行 39、有効化 40、無効化 42、設定 106）
+## 要求（438件: 削除 13、取得 197、実行 39、有効化 40、無効化 42、設定 107）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -450,6 +450,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/papago_auth_key` | 取得 | `core: AUTH_KEYS[Papago_API]` | 可 | useTranslation.updateFromBackendPapagoAuthKey | 中核のみ、ログで伏せる |
 | `/set/data/papago_auth_key` | 設定 | `core: set_papago_key` | 可 | useTranslation.setSuccessPapagoAuthKey | 中核のみ、ログで伏せる |
 | `/delete/data/papago_auth_key` | 削除 | `core: delete_translation_key` | 可 | useTranslation.deleteSuccessPapagoAuthKey | 中核のみ、ログで伏せる |
+| `/get/data/overlay_font_family` | 取得 | `core: OVERLAY_FONT_FAMILY` | 可 | useVr.updateFromBackendOverlayFontFamily | 中核のみ |
+| `/set/data/overlay_font_family` | 設定 | `core: set_overlay_font_family` | 可 | useVr.setSuccessOverlayFontFamily | 中核のみ |
+| `/get/data/overlay_font_missing_languages` | 取得 | `core: overlay_font_missing_languages` | 可 | useVr.updateFromBackendOverlayFontMissingLanguages | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）

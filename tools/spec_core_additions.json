@@ -11,17 +11,22 @@
     { "endpoint": "/set/data/papago_client_id", "handler": "core: set_papago_client_id", "before_init": true },
     { "endpoint": "/get/data/papago_auth_key", "handler": "core: AUTH_KEYS[Papago_API]", "before_init": true },
     { "endpoint": "/set/data/papago_auth_key", "handler": "core: set_papago_key", "before_init": true },
-    { "endpoint": "/delete/data/papago_auth_key", "handler": "core: delete_translation_key", "before_init": true }
+    { "endpoint": "/delete/data/papago_auth_key", "handler": "core: delete_translation_key", "before_init": true },
+    { "endpoint": "/get/data/overlay_font_family", "handler": "core: OVERLAY_FONT_FAMILY", "before_init": true },
+    { "endpoint": "/set/data/overlay_font_family", "handler": "core: set_overlay_font_family", "before_init": true },
+    { "endpoint": "/get/data/overlay_font_missing_languages", "handler": "core: overlay_font_missing_languages", "before_init": true }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },
     { "code": "AUTH_GOOGLE_CLOUD_FAILED", "category": "auth", "message": "Authentication failure of Google Cloud Translation API key", "severity": "error", "user_action_required": true },
     { "code": "AUTH_PAPAGO_INVALID", "category": "auth", "message": "Papago Client ID or Client Secret is not valid", "severity": "warning", "user_action_required": true },
     { "code": "AUTH_PAPAGO_FAILED", "category": "auth", "message": "Authentication failure of Papago Client ID and Client Secret", "severity": "error", "user_action_required": true },
-    { "code": "CONNECTION_OLLAMA_URL_INVALID", "category": "connection", "message": "Ollama URL is not valid", "severity": "warning", "user_action_required": true }
+    { "code": "CONNECTION_OLLAMA_URL_INVALID", "category": "connection", "message": "Ollama URL is not valid", "severity": "warning", "user_action_required": true },
+    { "code": "OVERLAY_FONT_NOT_FOUND", "category": "general", "message": "The font is not installed on this PC", "severity": "warning", "user_action_required": true }
   ],
   "config": [
     { "key": "OLLAMA_URL", "check": "検証 valid_saved_api_url", "default": "'http://localhost:11434'", "save": "2秒後にまとめて" },
-    { "key": "PAPAGO_CLIENT_ID", "check": "str（256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" }
+    { "key": "PAPAGO_CLIENT_ID", "check": "str（256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" },
+    { "key": "OVERLAY_FONT_FAMILY", "check": "str（空は自動。256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" }
   ]
 }
