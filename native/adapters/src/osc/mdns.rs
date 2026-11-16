@@ -42,6 +42,10 @@ const GOODBYE_GAP: Duration = Duration::from_millis(125);
 const BROWSE_FIRST: Duration = Duration::from_secs(1);
 const BROWSE_LIMIT: Duration = Duration::from_secs(3600);
 const MAX_PACKET: usize = 9000;
+/// How many records the cache keeps. VRChat's OSCQuery services on one LAN need a few dozen.
+const MAX_CACHE: usize = 1024;
+/// How many resolving questions are remembered for their back-off.
+const MAX_ASKED: usize = 256;
 const RESOLVE_FIRST: Duration = Duration::from_secs(1);
 const RESOLVE_LIMIT: Duration = Duration::from_secs(60);
 
@@ -361,8 +365,18 @@ impl State {
             !(c.record.rtype == record.rtype && same(&c.record.name, &record.name) && c.record.data == record.data)
         });
         if record.ttl > 0 {
-            let expires = now + Duration::from_secs(record.ttl as u64);
+            // A record is kept at most as long as this side's longest TTL, and the cache holds
+            // at most MAX_CACHE of them: the soonest to expire goes first. Every addition and
+            // every tick walks the cache, so a LAN that answers with many records must not
+            // make it grow without end.
+            let expires = now + Duration::from_secs(u64::from(record.ttl.min(OTHER_TTL)));
             self.cache.push(Cached { record, expires });
+            while self.cache.len() > MAX_CACHE {
+                let soonest = self.cache.iter().enumerate().min_by_key(|(_, c)| c.expires).map(|(i, _)| i);
+                if let Some(index) = soonest {
+                    self.cache.swap_remove(index);
+                }
+            }
         }
     }
 
@@ -556,6 +570,12 @@ impl Shared {
                 true
             }
             None => {
+                if state.asked.len() >= MAX_ASKED {
+                    // The question asked longest ago makes room.
+                    if let Some(oldest) = state.asked.iter().enumerate().min_by_key(|(_, (_, last, _))| *last).map(|(i, _)| i) {
+                        state.asked.swap_remove(oldest);
+                    }
+                }
                 state.asked.push((question.clone(), now, 0));
                 true
             }
@@ -789,5 +809,30 @@ impl Mdns {
 impl Drop for Mdns {
     fn drop(&mut self) {
         self.shutdown();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn a_record(index: u32, ttl: u32) -> Record {
+        Record { name: format!("host-{index}.local."), rtype: TYPE_A, class: CLASS_IN, ttl, data: RData::A(Ipv4Addr::from(index)) }
+    }
+
+    #[test]
+    fn the_cache_is_bounded_and_keeps_no_record_longer_than_its_own_longest_ttl() {
+        // #428: every record of the LAN was kept, with its TTL, without a limit.
+        let mut state = State::default();
+        let now = Instant::now();
+        state.add(a_record(0, u32::MAX), now, &mut Vec::new());
+        assert!(state.cache[0].expires <= now + Duration::from_secs(u64::from(OTHER_TTL)));
+        for index in 1..(MAX_CACHE as u32 + 500) {
+            state.add(a_record(index, 120 + index), now, &mut Vec::new());
+        }
+        assert_eq!(state.cache.len(), MAX_CACHE);
+        // The soonest to expire went first; the latest records are kept.
+        assert!(state.lookup(&format!("host-{}.local.", MAX_CACHE as u32 + 499), TYPE_A).next().is_some());
+        assert!(state.lookup("host-1.local.", TYPE_A).next().is_none());
     }
 }

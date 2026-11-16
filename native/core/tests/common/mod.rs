@@ -45,6 +45,8 @@ pub struct Setup {
     pub startup_limit: Option<Duration>,
     pub platform: Platform,
     pub dir: Option<PathBuf>,
+    /// Write process.log after what an earlier run left there (a run started again).
+    pub continue_logs: bool,
 }
 
 impl Default for Setup {
@@ -76,6 +78,7 @@ impl Default for Setup {
             startup_limit: None,
             platform: Platform::current(),
             dir: None,
+            continue_logs: false,
         }
     }
 }
@@ -131,6 +134,7 @@ impl Ui {
         options.watchdog = setup.watchdog;
         options.grace = setup.grace;
         options.startup_limit = setup.startup_limit;
+        options.continue_logs = setup.continue_logs;
         options.services = setup.services;
         let backend = Backend::start(options, sink);
         Ui { backend, seen, dir, _temp: temp }

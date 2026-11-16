@@ -146,7 +146,16 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn read_args(reader: &mut Reader<'_>, tags: &mut std::str::Chars<'_>, nested: bool) -> Result<Vec<OscArg>, ParseError> {
+/// How deep arrays may nest in one message, as bundles may ([`collect`]): a type tag string of
+/// thousands of `[` would otherwise recurse until the receive thread's stack overflows.
+const MAX_ARRAY_DEPTH: usize = 16;
+
+/// The arguments of a message; `depth` is how many arrays enclose them (0 at the top).
+fn read_args(reader: &mut Reader<'_>, tags: &mut std::str::Chars<'_>, depth: usize) -> Result<Vec<OscArg>, ParseError> {
+    if depth > MAX_ARRAY_DEPTH {
+        return Err(ParseError);
+    }
+    let nested = depth > 0;
     let mut args = Vec::new();
     while let Some(tag) = tags.next() {
         args.push(match tag {
@@ -170,7 +179,7 @@ fn read_args(reader: &mut Reader<'_>, tags: &mut std::str::Chars<'_>, nested: bo
             'c' => OscArg::Char(char::from_u32(u32::from_be_bytes(reader.array()?)).ok_or(ParseError)?),
             'r' => OscArg::Rgba(u32::from_be_bytes(reader.array()?)),
             'm' => OscArg::Midi(reader.array()?),
-            '[' => OscArg::Array(read_args(reader, tags, true)?),
+            '[' => OscArg::Array(read_args(reader, tags, depth + 1)?),
             ']' if nested => return Ok(args),
             _ => return Err(ParseError),
         });
@@ -193,7 +202,7 @@ fn decode_message(data: &[u8]) -> Result<OscMessage, ParseError> {
     }
     let type_tags = reader.string()?;
     let Some(type_tags) = type_tags.strip_prefix(',') else { return Err(ParseError) };
-    let args = read_args(&mut reader, &mut type_tags.chars(), false)?;
+    let args = read_args(&mut reader, &mut type_tags.chars(), 0)?;
     Ok(OscMessage { address, args })
 }
 

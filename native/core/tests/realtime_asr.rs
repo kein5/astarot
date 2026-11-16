@@ -307,6 +307,55 @@ fn a_session_the_server_refuses_ends_and_the_switch_says_so() {
 }
 
 #[test]
+fn both_switches_turned_on_together_share_one_bundled_server_start() {
+    // #427: both switches read the server's generation before taking the start lock; the
+    // second one's start was then stale and it failed with speech_server_start_failed.
+    let models = tempfile::tempdir().unwrap();
+    let gguf = |name: &str| {
+        let path = models.path().join(format!("{name}.gguf"));
+        std::fs::write(&path, b"GGUF\0\0\0\0\0\0\0\0").unwrap();
+        path.canonicalize().unwrap().to_str().unwrap().to_owned()
+    };
+    let row = |model: String, vad: String| json!({ "model": model, "vad_model": vad, "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false });
+    let empty = || row(String::new(), String::new());
+    let speech_settings = json!({ "version": 1, "profiles": { "japanese": empty(), "multilingual": empty(), "asr": row(gguf("asr_gate"), gguf("vad")) } });
+    let asr = FakeAsr::start();
+    let mut realtime = settings(&asr);
+    realtime["server"] = json!("bundled");
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.add_endpoint(Source::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    capture.set_default(Source::Speaker, Some("alsa.out"));
+    let fake = env!("CARGO_BIN_EXE_fake-speech-core");
+    let services = Services {
+        transcription_capture: capture.factory(),
+        speech_server_launch: std::sync::Arc::new(move |_| {
+            let mut launch = vrct_speech_server::server::Launch::fixed(fake);
+            launch.start_timeout = Duration::from_secs(10);
+            launch
+        }),
+        ..Setup::default().services
+    };
+    let saved = json!({ "OSC_IP_ADDRESS": "127.0.0.2", "REALTIME_ASR_SETTINGS": realtime, "SPEECH_SERVER_SETTINGS": speech_settings });
+    let ui = Ui::with(Setup { saved: Some(saved), services, platform: Platform::Linux, ..Setup::default() });
+    ui.ready();
+
+    let mark = ui.send("/set/enable/transcription_send", None);
+    ui.send("/set/enable/transcription_receive", None);
+    eventually("the server prepares", || ui.ok("/get/data/speech_server_state", None)["asr"]["state"] == "preparing");
+    std::fs::write(models.path().join("asr_gate.gguf.go"), b"").unwrap();
+    // The stand-in does not speak the Realtime API, so the sessions themselves may fail; what
+    // matters is that neither switch failed to start the server.
+    for endpoint in ["/set/enable/transcription_send", "/set/enable/transcription_receive"] {
+        let answer = ui.wait_from(mark, endpoint, |l| l["endpoint"] == endpoint);
+        let reason = answer["result"]["details"]["reason"].as_str().unwrap_or_default().to_string();
+        assert!(!reason.starts_with("speech_server_"), "{endpoint}: {answer}");
+    }
+    ui.stop();
+}
+
+#[test]
 fn shutdown_closes_running_sessions() {
     let run = start(Platform::Linux, json!({}), true);
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);

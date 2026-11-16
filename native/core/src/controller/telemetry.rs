@@ -65,6 +65,7 @@ impl Core {
     /// At shutdown, after the settings are saved (`model.telemetryShutdown`).
     pub(crate) fn stop_telemetry(&self) {
         if let Some(ops) = self.ops.get() {
+            ops.stop_reporting();
             ops.telemetry.shutdown();
         }
     }

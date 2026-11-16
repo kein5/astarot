@@ -195,10 +195,9 @@ fn pidfd_of_this_thread() -> Option<OwnedFd> {
     if fd < 0 {
         return None;
     }
-    let fd = unsafe { OwnedFd::from_raw_fd(fd as i32) };
-    // The helper inherits it.
-    unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_SETFD, 0) };
-    Some(fd)
+    // Close-on-exec, as pidfd_open makes it: only the helper inherits it, in its own `pre_exec`.
+    // Cleared here, any child another thread started meanwhile would inherit it too.
+    Some(unsafe { OwnedFd::from_raw_fd(fd as i32) })
 }
 
 fn reap(child: &Mutex<Option<Child>>) {
@@ -237,10 +236,22 @@ impl HelperCapture {
                     return;
                 };
                 let tag = format!("{:032x}", monotonic_ns() as u128 ^ (u128::from(std::process::id()) << 64));
-                let spawned = Command::new(&helper)
+                let mut command = Command::new(&helper);
+                let owner = fd.as_raw_fd();
+                unsafe {
+                    use std::os::unix::process::CommandExt;
+                    // Passed to exactly this child, between its fork and its exec.
+                    command.pre_exec(move || {
+                        if libc::fcntl(owner, libc::F_SETFD, 0) < 0 {
+                            return Err(std::io::Error::last_os_error());
+                        }
+                        Ok(())
+                    });
+                }
+                let spawned = command
                     .args([
                         std::process::id().to_string(),
-                        fd.as_raw_fd().to_string(),
+                        owner.to_string(),
                         endpoint.cookie.to_string(),
                         endpoint.serial.to_string(),
                         endpoint.name.clone(),

@@ -103,7 +103,7 @@
 ## 秘密情報
 
 - APIキーは`config.json`に書かず、同じフォルダの`secrets.json`に保存する。Windowsでは DPAPI で暗号化し、Linuxでは権限を0600にする。保存先が使えなくてもキーは黙って失わない（[APIキーの保存先](data-and-persistence.md#apiキーの保存先)）。WebSocketのトークンはいまも`config.json`に平文で保存する。`config.json`の権限は0600である。WebSocketのトークンが不正な保存値なら新しい秘密値で修復し、空のトークンでサーバーを起動しない（[ネットワーク設定](data-and-persistence.md#ネットワーク設定)）。
-- ログでは、名前に`auth_key`、`api_key`、`password`、`token`、`secret`、`voice_settings`、`instructions`を含む項目の値を`***MASKED***`にする。会話の本文は診断ログに書かない。
+- ログでは、名前に`auth_key`、`api_key`、`password`、`token`、`secret`、`voice_settings`、`instructions`を含む項目の値を`***MASKED***`にする。会話の本文は診断ログに書かない。パスに含まれる利用者のホームフォルダーはOSのユーザー名を含むので、`~`に置き換えて書く。
 - URLをログに書く前に、ユーザー情報とすべてのクエリ値を除く。プロバイダーの失敗は`errorLogging(provider=..., status=...)`で記録し、サービス名、例外クラス、取得できたHTTPステータス、発生位置のファイル名・行・関数名だけを残す。例外本文、原因となった例外の連鎖、ソース行は記録しない。SDKからの例外と、プロバイダーの呼び出し境界で印を付けた例外は、上位の共通処理に届いた場合も同じ扱いとする。
 - ファイル操作や設定など、一般の`errorLogging()`は例外本文と連鎖を含むトレースバックを残す。ただし、保存済みのAPIキー・認証トークン・WebSocketトークンと一致する文字列、Bearerトークン、認証ヘッダー、キーを含むクエリやJSONの値を`***MASKED***`に置き換える。ログファイルに書けず標準出力へ出す場合も同じ処理を行う。例外から作るIPCエラーは、一般の例外なら同じ秘匿処理をした本文を含め、プロバイダーの例外ならクラス名だけを返す。
 - LangChain/LangSmithのトレースは、全LLMアダプターの呼び出しで明示的に無効にする。サイドカーはSDKの読み込み前に`LANGSMITH_*`と`LANGCHAIN_*`の環境設定を除き、トレースを無効に設定する。LLMの生成・呼び出しも、引き継いだトレースのコンテキストを使わない。ローカルのLLMを含め、会話をLangSmithへ送らない。

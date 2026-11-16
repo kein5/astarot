@@ -206,6 +206,11 @@ pub struct FileStore {
     lock: Mutex<()>,
 }
 
+enum ReadFailure {
+    Io,
+    Undecodable,
+}
+
 impl FileStore {
     pub fn new(path: PathBuf) -> Self {
         Self { path, lock: Mutex::new(()) }
@@ -216,12 +221,22 @@ impl FileStore {
     }
 
     fn read_all(&self) -> Result<Map<String, Value>, StoreError> {
+        self.read_entries().map_err(|_| StoreError::Unreadable)
+    }
+
+    /// The entries, or why there are none: the file could not be read now (it may be readable
+    /// again later), or what it holds cannot be decoded.
+    fn read_entries(&self) -> Result<Map<String, Value>, ReadFailure> {
         let bytes = match fs::read(&self.path) {
             Ok(bytes) => bytes,
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Map::new()),
-            Err(_) => return Err(StoreError::Unreadable),
+            Err(_) => return Err(ReadFailure::Io),
         };
-        let file: Value = serde_json::from_slice(&bytes).map_err(|_| StoreError::Unreadable)?;
+        Self::decode(&bytes).map_err(|_| ReadFailure::Undecodable)
+    }
+
+    fn decode(bytes: &[u8]) -> Result<Map<String, Value>, StoreError> {
+        let file: Value = serde_json::from_slice(bytes).map_err(|_| StoreError::Unreadable)?;
         if file["version"] != 1 {
             return Err(StoreError::Unreadable);
         }
@@ -253,16 +268,20 @@ impl FileStore {
         write_private(&self.path, text.as_bytes()).map_err(|_| StoreError::WriteFailed)
     }
 
-    /// Changes one entry. A file that cannot be read any more (another user's or another PC's
-    /// DPAPI, or a broken file) is moved aside first, so that new keys can be kept.
+    /// Changes one entry. A file that cannot be decoded any more (another user's or another
+    /// PC's DPAPI, or a broken file) is moved aside first, so that new keys can be kept. A file
+    /// that could not be read just now (locked, or a passing I/O error) is left as it is and the
+    /// change fails: writing only this entry would drop every other key.
     fn change(&self, entry: &str, value: Option<&str>) -> Result<(), StoreError> {
         let _guard = self.lock.lock().unwrap();
         let _file = super::lock::FileLock::acquire(&self.path.with_file_name(format!("{FILE_NAME}.lock")))
             .map_err(|_| StoreError::WriteFailed)?;
-        let mut entries = match self.read_all() {
+        let mut entries = match self.read_entries() {
             Ok(entries) => entries,
-            Err(_) if value.is_none() && !self.path.exists() => Map::new(),
-            Err(_) => {
+            // Removing from a file that is gone meanwhile is done.
+            Err(ReadFailure::Io) if value.is_none() && !self.path.exists() => Map::new(),
+            Err(ReadFailure::Io) => return Err(StoreError::WriteFailed),
+            Err(ReadFailure::Undecodable) => {
                 self.move_aside()?;
                 Map::new()
             }
@@ -431,6 +450,24 @@ mod tests {
         assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(Some("new-value".into())));
         let aside = fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()?.file_name().into_string().ok()).filter(|n| n.contains(".unreadable-")).count();
         assert_eq!(aside, 1);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_file_that_cannot_be_read_now_fails_a_change_and_is_kept() {
+        // #427: a passing read error was taken for a broken file, which was moved aside; the new
+        // file held only the one key written, and the others were gone at the next start.
+        let dir = tempfile_dir();
+        let path = dir.join(FILE_NAME);
+        // A directory where the file is: reading fails with an I/O error, not "not found".
+        fs::create_dir(&path).unwrap();
+        let store = FileStore::new(path.clone());
+        assert_eq!(store.write("AUTH_KEYS/DeepL_API", "new-value"), Err(StoreError::WriteFailed));
+        assert_eq!(store.delete("AUTH_KEYS/DeepL_API"), Err(StoreError::WriteFailed));
+        assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Err(StoreError::Unreadable));
+        assert!(path.is_dir(), "left where it is");
+        let aside = fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()?.file_name().into_string().ok()).filter(|n| n.contains(".unreadable-")).count();
+        assert_eq!(aside, 0);
         let _ = fs::remove_dir_all(dir);
     }
 

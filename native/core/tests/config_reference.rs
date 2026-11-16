@@ -12,18 +12,18 @@
 //! direct voice engine is RVC where Python saved Seed-VC, which ended with Python (#391). And
 //! settings added after the Python backend (Issue #390) are written with their defaults into the
 //! voice settings Python wrote: [`added`] lists them, and they are added to the expected results
-//! before the comparison.
+//! before the comparison. The RVC worker's choices added to the direct voice settings are not:
+//! left at their defaults they stay out of the file, which 0.4 reads (#428).
 
 use serde_json::{json, Map, Value};
 
 /// Fields the Rust core added to a nested setting, with their defaults.
-fn added() -> [(&'static str, Value); 2] {
+fn added() -> [(&'static str, Value); 1] {
     [
         ("VOICE_SETTINGS", json!({
             "coeiroink_speed": "1.0", "coeiroink_volume": "1.0", "coeiroink_pitch": "0.0", "coeiroink_intonation": "1.0",
             "coeiroink_pre_phoneme": "0.1", "coeiroink_post_phoneme": "0.1", "coeiroink_sampling_rate": "24000",
         })),
-        ("DIRECT_VOICE_SETTINGS", json!({ "rvc_device": "auto", "rvc_threads": 0, "rvc_highpass": true })),
     ]
 }
 

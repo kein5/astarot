@@ -218,8 +218,29 @@ pub fn default_direct() -> Value {
     })
 }
 
+/// The fields 0.5 added to the direct voice settings (the RVC worker's options).
+const ADDED_IN_0_5: [&str; 3] = ["rvc_device", "rvc_threads", "rvc_highpass"];
+
+/// The direct voice settings as `config.json` holds them: the fields 0.5 added are left out
+/// while they hold their defaults, which a load fills in again. 0.4 refuses the whole value when
+/// it finds a field it does not know, and would reset the model and index too; so a file saved
+/// without those choices changed stays readable by 0.4. A changed choice is saved, and 0.4 then
+/// still resets the value.
+pub fn file_direct(value: &Value) -> Value {
+    let defaults = default_direct();
+    let mut value = value.clone();
+    if let Value::Object(object) = &mut value {
+        for field in ADDED_IN_0_5 {
+            if object.get(field) == defaults.get(field) {
+                object.remove(field);
+            }
+        }
+    }
+    value
+}
+
 /// The saved direct voice settings as they load: a Seed-VC engine saved by an earlier version
-/// moves to RVC. The other fields stay, so the file stays readable by 0.4, which knew both.
+/// moves to RVC. The other fields stay, as 0.4 knew both engines ([`file_direct`]).
 pub fn load_direct(value: &Value) -> Option<Value> {
     let mut value = value.clone();
     if value.get("engine").and_then(Value::as_str) == Some(RETIRED_ENGINE) {
@@ -280,6 +301,24 @@ mod tests {
         ] {
             assert!(normalize_direct(&bad).is_none(), "{bad}");
         }
+    }
+
+    #[test]
+    fn the_file_leaves_out_unchanged_rvc_worker_choices_so_0_4_still_reads_it() {
+        // #428: 0.4 refuses DIRECT_VOICE_SETTINGS with a field it does not know, and the model
+        // and index went back to the defaults after a downgrade.
+        let settings = normalize_direct(&json!({ "mode": "converted", "rvc_model": "a.pth", "rvc_index": "a.index" })).unwrap();
+        let file = file_direct(&settings);
+        for field in ADDED_IN_0_5 {
+            assert!(file.get(field).is_none(), "{field}");
+        }
+        let fields_0_4 = ["mode", "runtime", "reference", "engine", "rvc_runtime", "rvc_model", "rvc_index", "rvc_pitch", "rvc_index_rate"];
+        assert!(file.as_object().unwrap().keys().all(|k| fields_0_4.contains(&k.as_str())), "{file}");
+        assert_eq!(load_direct(&file).unwrap(), settings, "loads back the same");
+        // A changed choice is kept.
+        let chosen = normalize_direct(&json!({ "rvc_device": "cpu", "rvc_threads": 0, "rvc_highpass": true })).unwrap();
+        assert_eq!(file_direct(&chosen)["rvc_device"], "cpu");
+        assert_eq!(load_direct(&file_direct(&chosen)).unwrap(), chosen);
     }
 
     #[test]

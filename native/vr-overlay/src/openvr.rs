@@ -15,10 +15,8 @@ use crate::runtime::{
     ControllerState, Device, HMD, Hand, Handle, INVALID_DEVICE, Intersection, MAX_DEVICES, SceneApp, Session, TextureSlot, Vr,
     VrError,
 };
-use libloading::Library;
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 
 const SYSTEM_VERSION: &str = "FnTable:IVRSystem_023";
 const OVERLAY_VERSION: &str = "FnTable:IVROverlay_028";
@@ -35,7 +33,6 @@ const CONTROLLER_STATE_SIZE: usize = if cfg!(windows) { 64 } else { 60 };
 /// Where `ulButtonPressed` and `rAxis[0]` sit in it.
 const CONTROLLER_PRESSED_AT: usize = if cfg!(windows) { 8 } else { 4 };
 const CONTROLLER_AXIS_AT: usize = if cfg!(windows) { 24 } else { 20 };
-const APPLICATION_BACKGROUND: i32 = 3;
 const UNIVERSE_STANDING: i32 = 1;
 const ROLE_LEFT: i32 = 1;
 const ROLE_RIGHT: i32 = 2;
@@ -153,20 +150,18 @@ fn matrix(pose: &Mat34) -> Matrix34 {
     m
 }
 
-type InitInternal2 = unsafe extern "C" fn(*mut i32, i32, *const c_char) -> u32;
-type ShutdownInternal = unsafe extern "C" fn();
-type GetGenericInterface = unsafe extern "C" fn(*const c_char, *mut i32) -> *mut c_void;
-
 /// The real SteamVR.
+///
+/// The connection is the process's one ([`vrct_openvr_client`]): the OCR capture holds it too,
+/// and closing the overlay's session leaves the OCR's connected.
 pub struct OpenVr {
     folders: Vec<PathBuf>,
-    library: Mutex<Option<Arc<Library>>>,
 }
 
 impl OpenVr {
     /// `folders` are searched for the library before the defaults.
     pub fn new(folders: Vec<PathBuf>) -> Self {
-        Self { folders, library: Mutex::new(None) }
+        Self { folders }
     }
 
     fn candidates(&self) -> Vec<PathBuf> {
@@ -189,25 +184,6 @@ impl OpenVr {
         out.push(PathBuf::from(name));
         out
     }
-
-    fn library(&self) -> Result<Arc<Library>, VrError> {
-        let mut slot = self.library.lock().unwrap();
-        if let Some(library) = slot.as_ref() {
-            return Ok(Arc::clone(library));
-        }
-        for candidate in self.candidates() {
-            // A bare name goes through the system's search; a path must exist.
-            if candidate.components().count() > 1 && !candidate.is_file() {
-                continue;
-            }
-            if let Ok(library) = unsafe { Library::new(&candidate) } {
-                let library = Arc::new(library);
-                *slot = Some(Arc::clone(&library));
-                return Ok(library);
-            }
-        }
-        Err(VrError("openvr_api_not_found".into()))
-    }
 }
 
 impl Vr for OpenVr {
@@ -216,58 +192,23 @@ impl Vr for OpenVr {
     }
 
     fn connect(&self) -> Result<Box<dyn Session>, VrError> {
-        let library = self.library()?;
-        unsafe {
-            let init: libloading::Symbol<InitInternal2> =
-                library.get(b"VR_InitInternal2\0").map_err(|_| VrError("VR_InitInternal2 missing".into()))?;
-            let get: libloading::Symbol<GetGenericInterface> =
-                library.get(b"VR_GetGenericInterface\0").map_err(|_| VrError("VR_GetGenericInterface missing".into()))?;
-            let shutdown: ShutdownInternal = *library
-                .get::<ShutdownInternal>(b"VR_ShutdownInternal\0")
-                .map_err(|_| VrError("VR_ShutdownInternal missing".into()))?;
-            let mut error = 0i32;
-            init(&mut error, APPLICATION_BACKGROUND, std::ptr::null());
-            if error != 0 {
-                return Err(VrError(format!("VRInitError {error}")));
-            }
-            let table = |name: &str| -> Result<*const *const c_void, VrError> {
-                let name = CString::new(name).expect("no NUL");
-                let mut error = 0i32;
-                let pointer = get(name.as_ptr(), &mut error);
-                if error != 0 || pointer.is_null() {
-                    return Err(VrError(format!("interface {} error {error}", name.to_string_lossy())));
-                }
-                Ok(pointer as *const *const c_void)
-            };
-            let tables = table(SYSTEM_VERSION).and_then(|system| Ok((system, table(OVERLAY_VERSION)?)));
-            let (system, overlay) = match tables {
-                Ok(tables) => tables,
-                Err(error) => {
-                    shutdown();
-                    return Err(error);
-                }
-            };
-            // Only the clipboard reads the scene application; the overlays work without it.
-            let applications = table(APPLICATIONS_VERSION).unwrap_or(std::ptr::null());
-            // Only the laser's tip needs the render models; without them it points from the
-            // controller's body.
-            let render_models = table(RENDER_MODELS_VERSION).ok();
-            Ok(Box::new(OpenVrSession {
-                _library: library,
-                shutdown,
-                system,
-                overlay,
-                applications,
-                render_models,
-                textures: [None, None],
-            }))
-        }
+        let lease = vrct_openvr_client::acquire(&self.candidates()).map_err(|error| VrError(error.to_string()))?;
+        let table = |name: &str| -> Result<*const *const c_void, VrError> {
+            lease.interface(name).map_err(|error| VrError(format!("interface {name} error {error}")))
+        };
+        // A failure here drops the lease, which shuts OpenVR down only when nobody else holds it.
+        let system = table(SYSTEM_VERSION)?;
+        let overlay = table(OVERLAY_VERSION)?;
+        // Only the clipboard reads the scene application; the overlays work without it.
+        let applications = table(APPLICATIONS_VERSION).unwrap_or(std::ptr::null());
+        // Only the laser's tip needs the render models; without them it points from the
+        // controller's body.
+        let render_models = table(RENDER_MODELS_VERSION).ok();
+        Ok(Box::new(OpenVrSession { system, overlay, applications, render_models, textures: [None, None], lease }))
     }
 }
 
 struct OpenVrSession {
-    _library: Arc<Library>,
-    shutdown: ShutdownInternal,
     system: *const *const c_void,
     overlay: *const *const c_void,
     /// `IVRApplications`; null when the runtime does not offer this version.
@@ -275,17 +216,12 @@ struct OpenVrSession {
     render_models: Option<*const *const c_void>,
     /// The page's texture and the resize frame's ([`TextureSlot`]).
     textures: [Option<d3d::SharedTexture>; 2],
+    /// The hold on the process's connection; released after the textures (field order).
+    lease: vrct_openvr_client::Lease,
 }
 
 // The tables are used from one thread at a time, behind the engine's lock.
 unsafe impl Send for OpenVrSession {}
-
-impl Drop for OpenVrSession {
-    fn drop(&mut self) {
-        self.textures = [None, None];
-        unsafe { (self.shutdown)() };
-    }
-}
 
 macro_rules! call {
     ($table:expr, $index:expr, fn($($arg:ty),*) -> $ret:ty, $($value:expr),*) => {{
@@ -433,6 +369,10 @@ impl Session for OpenVrSession {
             if u32::from_ne_bytes([event[0], event[1], event[2], event[3]]) == EVENT_QUIT {
                 quit = true;
             }
+        }
+        if quit {
+            // The OCR capture lets go too, so the next connection is a fresh one.
+            self.lease.end_connection();
         }
         quit
     }
