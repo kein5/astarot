@@ -112,8 +112,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         ok(core.config().get("ENABLE_TRANSLATION"))
     });
 
-    // Audio devices: the saved choices (listing and following the devices wait for the
-    // audio routing to be wired)
+    // Audio devices: the saved choices (the lists and the changes are in `audio_devices`)
     for (name, key) in [
         ("auto_mic_select", "AUTO_MIC_SELECT"),
         ("auto_speaker_select", "AUTO_SPEAKER_SELECT"),
@@ -254,7 +253,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         ok(core.config().get("LOCAL_ASR_NOTICE_PENDING"))
     });
 
-    // The virtual microphone guide (#321). Finding the cables and the check are not wired yet.
+    // The virtual microphone guide (#321); finding the cables and the check are in `audio_devices`.
     b.get("/get/data/virtual_mic_notice", OPEN, "VIRTUAL_MIC_NOTICE_PENDING");
     b.with("/set/disable/virtual_mic_notice", OPEN, |core, _| {
         let _ = core.config().set("VIRTUAL_MIC_NOTICE_PENDING", json!(false));
@@ -372,4 +371,5 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::ocr::add,
     super::overlay::add,
     super::files::add,
+    super::audio_devices::add,
 ];

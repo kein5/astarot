@@ -78,7 +78,7 @@ fn start(saved: Value, receive_fails: bool) -> Run {
         stop_mic_transcription: Arc::new(move || {
             stopped.fetch_add(1, Ordering::SeqCst);
         }),
-        ..Services::default()
+        ..Setup::default().services
     };
     let ui = Ui::with(Setup { saved: Some(saved), services, ..Setup::default() });
     ui.ready();
@@ -97,7 +97,7 @@ fn typing_reaches_vrchat_and_turning_sending_off_ends_it() {
     // The real link of the adapters crate.
     let ui = Ui::with(Setup {
         saved: Some(json!({ "OSC_IP_ADDRESS": DESTINATION, "OSC_PORT": port })),
-        services: Services::default(),
+        services: Services { osc: Services::default().osc, ..Setup::default().services },
         ..Setup::default()
     });
     ui.ready();

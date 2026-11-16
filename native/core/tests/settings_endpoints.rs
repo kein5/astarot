@@ -274,7 +274,8 @@ fn the_old_whisper_weights_are_shown_and_removed_on_request_only() {
 
 #[test]
 fn the_remaining_switches_and_choices() {
-    let saved = json!({ "SELECTED_MIC_HOST": "Windows WASAPI", "SELECTED_SPEAKER_DEVICE_ID": "{0.0.0.00000000}.{abc}", "AUTO_MIC_SELECT": false });
+    // Auto Select off: with it on, start-up replaces the saved choice by the OS default.
+    let saved = json!({ "SELECTED_MIC_HOST": "Windows WASAPI", "SELECTED_SPEAKER_DEVICE_ID": "{0.0.0.00000000}.{abc}", "AUTO_MIC_SELECT": false, "AUTO_SPEAKER_SELECT": false });
     let ui = Ui::with(Setup { saved: Some(saved), ..Setup::default() });
     let snapshot = ui.ready();
     assert_eq!(snapshot["/get/data/auto_mic_select"], false);

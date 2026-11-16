@@ -2,6 +2,7 @@
 //! out, with the settings in a temporary folder.
 #![allow(dead_code)]
 
+pub mod fake_audio;
 pub mod fake_osc;
 pub mod net;
 
@@ -45,8 +46,9 @@ impl Default for Setup {
         Self {
             saved: None,
             raw: None,
-            // The OSC link without mDNS: no test joins UDP 5353 on every interface.
-            services: Services { osc: fake_osc::factory(false).0, ..Services::default() },
+            // The OSC link without mDNS: no test joins UDP 5353 on every interface. No audio
+            // device is listed or watched.
+            services: Services { osc: fake_osc::factory(false).0, audio: fake_audio::FakeAudio::new().platform(), ..Services::default() },
             watchdog: None,
             grace: Duration::from_secs(5),
             platform: Platform::current(),

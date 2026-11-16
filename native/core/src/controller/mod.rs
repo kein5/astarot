@@ -6,6 +6,7 @@
 
 mod downloads;
 pub mod adapters;
+pub mod audio_devices;
 mod credentials;
 mod files;
 mod ocr;
@@ -119,6 +120,7 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("selectable_mic_device_list", "/run/selectable_mic_device_list"),
     ("selectable_speaker_device_list", "/run/selectable_speaker_device_list"),
     ("software_update_info", "/run/software_update_info"),
+    ("virtual_mic_level", "/run/virtual_mic_level"),
     ("initialization_progress", "/run/initialization_progress"),
     ("initialization_complete", "/run/initialization_complete"),
     ("config_file_unreadable", "/run/config_file_unreadable"),
@@ -165,6 +167,9 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
+    /// The PC's audio devices (`native/audio-routing`): the lists the device manager watches,
+    /// the speech outputs and the virtual microphone check. Tests give fakes.
+    pub audio: Arc<dyn vrct_audio_routing::platform::AudioPlatform>,
 }
 
 impl Default for Services {
@@ -181,6 +186,7 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
+            audio: Arc::new(vrct_audio_routing::platform::NativePlatform),
         }
     }
 }
@@ -205,11 +211,13 @@ pub struct Core {
     /// The model downloads and the usage events, made on first use.
     ops: std::sync::OnceLock<downloads::Ops>,
     adapters: std::sync::OnceLock<Arc<adapters::Adapters>>,
+    audio: Arc<audio_devices::AudioDevices>,
 }
 
 impl Core {
     pub fn new(config: Arc<Config>, log: Arc<Log>, output: Arc<dyn Output>, services: Services) -> Arc<Self> {
         let speech = speech::SpeechServers::new((services.speech_server_launch)(config.environment()));
+        let audio = audio_devices::AudioDevices::new(Arc::clone(&config), Arc::clone(&output), Arc::clone(&log), Arc::clone(&services.audio));
         Arc::new(Self {
             config,
             log,
@@ -225,6 +233,7 @@ impl Core {
             speech,
             ops: std::sync::OnceLock::new(),
             adapters: std::sync::OnceLock::new(),
+            audio,
         })
     }
 
@@ -296,6 +305,7 @@ impl Core {
         self.step("Shutdown");
         self.close_speech_servers();
         self.close_model_downloads();
+        self.stop_audio_devices();
         self.stop_adapters();
         self.config.save_now();
         self.stop_telemetry();

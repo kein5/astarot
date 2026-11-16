@@ -8,6 +8,11 @@ publish = false
 [lib]
 name = "vrct_core"
 
+[features]
+# Linux: list and watch the PipeWire devices (links libpipewire-0.3; building needs its
+# development files and libclang). No effect on Windows.
+pipewire = ["vrct-audio-routing/pipewire"]
+
 [dependencies]
 base64 = "=0.22.1"
 getrandom = "=0.3.4"
@@ -16,6 +21,9 @@ serde = { version = "=1.0.229", features = ["derive"] }
 # them in that order (the translation weights, the initialization snapshot). See README.md.
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 vrct-adapters = { path = "../adapters" }
+# The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
+# build that way and need no PipeWire; the application turns it on.
+vrct-audio-routing = { path = "../audio-routing", default-features = false }
 vrct-ops = { path = "../ops" }
 vrct-speech-server = { path = "../speech-server" }
 vrct-tts = { path = "../tts" }
