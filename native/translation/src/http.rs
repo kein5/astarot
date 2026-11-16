@@ -424,11 +424,13 @@ fn dechunk(mut data: &[u8]) -> Option<Vec<u8>> {
         if size == 0 {
             return Some(out);
         }
-        if data.len() < size + 2 {
+        // A size near usize::MAX (a broken or hostile server) must not wrap around.
+        let end = size.checked_add(2)?;
+        if data.len() < end {
             return None;
         }
-        out.extend_from_slice(&data[..size]);
-        data = &data[size + 2..];
+        out.extend_from_slice(data.get(..size)?);
+        data = data.get(end..)?;
     }
 }
 
@@ -526,6 +528,12 @@ mod tests {
     fn chunked_bodies_are_joined() {
         assert_eq!(dechunk(b"3\r\nabc\r\n2;x=y\r\nde\r\n0\r\n\r\n").unwrap(), b"abcde");
         assert!(dechunk(b"3\r\nab").is_none());
+    }
+
+    #[test]
+    fn a_chunk_size_that_would_overflow_is_refused_without_a_panic() {
+        assert!(dechunk(b"ffffffffffffffff\r\nabc\r\n0\r\n\r\n").is_none());
+        assert!(dechunk(b"fffffffffffffffe\r\nabc\r\n0\r\n\r\n").is_none());
     }
 
     #[test]

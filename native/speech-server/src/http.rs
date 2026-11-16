@@ -90,11 +90,13 @@ fn dechunk(mut raw: &[u8]) -> io::Result<Option<Vec<u8>>> {
         if size == 0 {
             return Ok(Some(body));
         }
-        if raw.len() < size + 2 {
+        // A size near usize::MAX cannot be a real chunk: refuse it instead of wrapping around.
+        let end = size.checked_add(2).ok_or_else(invalid)?;
+        if raw.len() < end {
             return Ok(None);
         }
         body.extend_from_slice(&raw[..size]);
-        raw = &raw[size + 2..];
+        raw = &raw[end..];
     }
 }
 
@@ -206,5 +208,21 @@ pub(crate) fn request(
             }
             Ok(Response { status, body: Vec::new() })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::dechunk;
+
+    #[test]
+    fn chunked_bodies_are_joined() {
+        assert_eq!(dechunk(b"3\r\nabc\r\n2;x=y\r\nde\r\n0\r\n\r\n").unwrap().unwrap(), b"abcde");
+        assert!(dechunk(b"3\r\nab").unwrap().is_none());
+    }
+
+    #[test]
+    fn a_chunk_size_that_would_overflow_is_an_error_not_a_panic() {
+        assert!(dechunk(b"ffffffffffffffff\r\nabc\r\n0\r\n\r\n").is_err());
     }
 }
