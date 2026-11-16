@@ -17,9 +17,15 @@ import { CustomModelLink } from "../_components/custom_model_link/CustomModelLin
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { conversionDelaySeconds } from "../../../../../../logics/voice/conversionLatency";
+import { pathExample } from "../../../../../../logics/common/pathExample";
 
 const defaults = { mode: "passthrough", runtime: "", reference: "", engine: "seed-vc",
     rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0 };
+// The example in each path field (voice_ui.example), written the way this OS writes paths.
+const exampleFiles = { runtime: "seed-vc-runtime", reference: "reference.wav",
+    rvc_runtime: "rvc-runtime", rvc_model: "voice.pth", rvc_index: "voice.index" };
+// The example a cleared number field shows: an octave up, and most of the index.
+const exampleNumbers = { rvc_pitch: 12, rvc_index_rate: 0.75 };
 
 export const DirectVoiceSettings = ({ variant = "all" }) => {
     const { t } = useI18n();
@@ -119,6 +125,7 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
         {converted && rvc && [["rvc_pitch", -24, 24, 1], ["rvc_index_rate", 0, 1, 0.05]].map(([name, min, max, step]) =>
             <label key={name}>{t(`voice.vc_${name}`)}
                 <input type="number" min={min} max={max} step={step} disabled={busy}
+                    placeholder={t("voice_ui.example", { value: exampleNumbers[name] })}
                     aria-describedby={!validNumbers(draft) ? numbersErrorId : undefined}
                     aria-invalid={name === "rvc_pitch" ? !Number.isInteger(draft[name]) || Math.abs(draft[name]) > 24 :
                         !Number.isFinite(draft[name]) || draft[name] < 0 || draft[name] > 1}
@@ -159,6 +166,7 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
                     }} />}
                 {(rvc ? ["rvc_runtime", "rvc_model", "rvc_index"] : ["runtime", "reference"]).map(name => <label key={name}>{t(`voice.vc_${name}`)}
                     <input type="text" value={draft[name]} disabled={busy} maxLength={4096}
+                        placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[name]) })}
                         onChange={e => setDraft({ ...draft, [name]: e.target.value })} />
                 </label>)}
                 {/* How to use a model or reference voice of your own. */}
