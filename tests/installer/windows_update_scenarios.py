@@ -80,6 +80,8 @@ def payloads():
         "no-exe": archive_bytes({k: v for k, v in new.items() if k != APP}),
         "no-internal": archive_bytes({k: v for k, v in new.items() if not k.startswith("_internal/")}),
         "range-fallback": good,
+        # Served damaged (one byte changed, same length) the first time only.
+        "damaged-once": good,
         OWN: good,
     }
 
@@ -90,6 +92,7 @@ class PackageServer(ThreadingHTTPServer):
     def __init__(self, port):
         super().__init__(("127.0.0.1", port), PackageHandler)
         self.payloads = payloads()
+        self.damaged = False
         self.requests = []
         self.request_lock = threading.Lock()
 
@@ -137,6 +140,14 @@ class PackageHandler(BaseHTTPRequestHandler):
                 self.send_error(416)
                 return
             status = 206
+        if version == "damaged-once" and parts[1] == PACKAGE and not head:
+            with self.server.request_lock:
+                damage, self.server.damaged = not self.server.damaged, True
+            if damage:
+                # The transfer completes and reports OK; only the SHA-256 check can tell.
+                data = bytearray(data)
+                data[start] ^= 0xFF
+                data = bytes(data)
         self.send_response(status)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(end - start + 1))
@@ -366,7 +377,28 @@ def silent_scenarios(installer, work, server):
         assert_tree(directory, before)
         if version in ("corrupt", "partial", "no-exe", "no-internal"):
             assert (work / f"temp-{version}" / (PACKAGE + ".bad")).read_bytes() == server.payloads[version]
+        if version == "hash-mismatch":
+            # Downloaded again before giving up (#424), and a package that failed
+            # verification is not kept.
+            with server.request_lock:
+                fetched = [r for r in server.requests
+                           if r["method"] == "GET" and r["path"] == f"/v{version}/{PACKAGE}"]
+            assert len(fetched) >= 3, fetched
+            assert not (work / f"temp-{version}" / (PACKAGE + ".bad")).exists()
         print(f"PASS unchanged tree after {version}", flush=True)
+
+    # A transfer that reports OK can still be damaged (#424): the SHA-256 check refuses it
+    # and the next attempt downloads the package again, where the install succeeds. The
+    # archive an earlier failed install kept is removed too.
+    temp = work / "temp-damaged-once"
+    temp.mkdir()
+    (temp / (PACKAGE + ".bad")).write_bytes(b"kept by an earlier failed install")
+    directory = clone("damaged once")
+    run_install(installer, directory, "damaged-once", temp, True)
+    expect_updated(directory, before)
+    assert server.damaged
+    assert not (temp / (PACKAGE + ".bad")).exists()
+    print("PASS a damaged download is fetched again", flush=True)
 
     directory = clone("commit locked dependency")
     with hold_file(directory / "_internal/shared.txt"):

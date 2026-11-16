@@ -147,6 +147,16 @@ thread_local! {
 
 impl Panel {
     fn open(view: webkit2gtk::WebView, directory: &Path) -> Result<Self, String> {
+        // The steps that can fail come before the page moves: a page already in the offscreen
+        // window is no longer destroyed with its Tauri window, so a failure after the move would
+        // leave the web view and its web process running (Issue #425).
+        let frame_path = directory.join("frame");
+        let socket_path = directory.join("input.sock");
+        let (file, instance, stop) = Self::serve(&frame_path, &socket_path).inspect_err(|_| {
+            let _ = std::fs::remove_file(&frame_path);
+            let _ = std::fs::remove_file(&socket_path);
+        })?;
+
         // An offscreen window has no GL surface, and WebKit aborts the whole app when a page
         // that composites on the GPU asks for one. The policy only binds a web process that
         // starts after it is set, and Tauri has already started loading the page, so end
@@ -169,36 +179,6 @@ impl Panel {
             None => view.reload(),
         }
 
-        let frame_path = directory.join("frame");
-        let socket_path = directory.join("input.sock");
-        let _ = std::fs::remove_file(&frame_path);
-        let _ = std::fs::remove_file(&socket_path);
-        let file = OpenOptions::new().read(true).write(true).create_new(true).mode(0o600).open(&frame_path)
-            .map_err(|error| format!("vr_panel_frame_failed: {error}"))?;
-        // Never 0, and different for each page so the backend notices a new one.
-        let instance = (u64::from(std::process::id()) << 32) | (glib::monotonic_time() as u64 & 0xFFFF_FFFF) | 1;
-        file.write_all_at(&header(0, instance, 0, 0, 0), 0).map_err(|error| format!("vr_panel_frame_failed: {error}"))?;
-
-        let socket = UnixDatagram::bind(&socket_path).map_err(|error| format!("vr_panel_input_failed: {error}"))?;
-        let stop = Arc::new(AtomicBool::new(false));
-        let stopping = stop.clone();
-        std::thread::Builder::new().name("vrct-vr-panel-input".into()).spawn(move || {
-            let mut buffer = [0u8; 128];
-            while let Ok(length) = socket.recv(&mut buffer) {
-                if stopping.load(Ordering::Acquire) {
-                    break;
-                }
-                let Some(command) = std::str::from_utf8(&buffer[..length]).ok().and_then(parse_command) else { continue };
-                glib::MainContext::default().invoke(move || {
-                    PANEL.with(|panel| {
-                        if let Some(panel) = panel.borrow_mut().as_mut() {
-                            panel.apply(command);
-                        }
-                    });
-                });
-            }
-        }).map_err(|error| format!("vr_panel_input_failed: {error}"))?;
-
         let dirty = Rc::new(Cell::new(true));
         let damaged = dirty.clone();
         offscreen.connect_damage_event(move |_, _| {
@@ -217,6 +197,38 @@ impl Panel {
         });
         Ok(Self { offscreen, view, file, frame_path, socket_path, image: None, sequence: 0, instance, pressed: false,
             timer: Some(timer), stop })
+    }
+
+    /// Makes the frame file and the pointer socket, and starts reading the socket.
+    fn serve(frame_path: &Path, socket_path: &Path) -> Result<(File, u64, Arc<AtomicBool>), String> {
+        let _ = std::fs::remove_file(frame_path);
+        let _ = std::fs::remove_file(socket_path);
+        let file = OpenOptions::new().read(true).write(true).create_new(true).mode(0o600).open(frame_path)
+            .map_err(|error| format!("vr_panel_frame_failed: {error}"))?;
+        // Never 0, and different for each page so the backend notices a new one.
+        let instance = (u64::from(std::process::id()) << 32) | (glib::monotonic_time() as u64 & 0xFFFF_FFFF) | 1;
+        file.write_all_at(&header(0, instance, 0, 0, 0), 0).map_err(|error| format!("vr_panel_frame_failed: {error}"))?;
+
+        let socket = UnixDatagram::bind(socket_path).map_err(|error| format!("vr_panel_input_failed: {error}"))?;
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopping = stop.clone();
+        std::thread::Builder::new().name("vrct-vr-panel-input".into()).spawn(move || {
+            let mut buffer = [0u8; 128];
+            while let Ok(length) = socket.recv(&mut buffer) {
+                if stopping.load(Ordering::Acquire) {
+                    break;
+                }
+                let Some(command) = std::str::from_utf8(&buffer[..length]).ok().and_then(parse_command) else { continue };
+                glib::MainContext::default().invoke(move || {
+                    PANEL.with(|panel| {
+                        if let Some(panel) = panel.borrow_mut().as_mut() {
+                            panel.apply(command);
+                        }
+                    });
+                });
+            }
+        }).map_err(|error| format!("vr_panel_input_failed: {error}"))?;
+        Ok((file, instance, stop))
     }
 
     /// Copies what GTK last painted into the frame file.

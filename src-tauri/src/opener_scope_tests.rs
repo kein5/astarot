@@ -64,6 +64,20 @@ fn only_the_main_window_may_open_urls_and_only_through_the_list() {
 }
 
 #[test]
+fn every_capability_file_is_enabled() {
+    // A non-empty list in tauri.conf.json enables only the capabilities it names: a file left out
+    // grants its windows nothing (Issue #421, the VR panel could not listen for the pointer).
+    let config = parse(include_str!("../tauri.conf.json"));
+    let mut enabled: Vec<&str> = config["app"]["security"]["capabilities"].as_array().unwrap().iter()
+        .map(|name| name.as_str().unwrap()).collect();
+    let mut files: Vec<String> = CAPABILITIES.iter()
+        .map(|(_, text)| parse(text)["identifier"].as_str().unwrap().to_owned()).collect();
+    enabled.sort_unstable();
+    files.sort_unstable();
+    assert_eq!(enabled, files);
+}
+
+#[test]
 fn the_links_the_app_shows_can_be_opened() {
     for url in [
         "https://kein5.github.io/VRCT-VOX/en/guide/first-setup",

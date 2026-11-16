@@ -692,6 +692,13 @@ pub fn on_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
 pub(crate) fn install_tray(app: &AppHandle) -> Result<(), String> {
     let state = app.state::<CompanionState>();
     if state.lock()?.tray.is_none() {
+        // On Linux the tray loads libappindicator at run time and panics when it is missing
+        // (Issue #420): without it the app starts with no tray icon instead.
+        #[cfg(target_os = "linux")]
+        if !linux_tray::library_loads() {
+            let names: Vec<_> = linux_tray::LIBRARIES.iter().map(|name| name.to_string_lossy()).collect();
+            return Err(format!("no appindicator library ({})", names.join(", ")));
+        }
         let items = tray::install(app).map_err(|error| error.to_string())?;
         state.lock()?.tray = Some(items);
     }
@@ -969,16 +976,81 @@ pub fn companion_show_main(window: WebviewWindow) -> Result<(), String> {
 
 /// Closing the main window only hides it: the app stays in the tray, and the tray menu's Quit
 /// ends it. Answers whether it hid the window: without a tray icon (a desktop with no tray
-/// support) nothing could bring it back, so the main window quits as before. The main window has
-/// no hide permission of its own.
+/// support) nothing could bring it back, so the main window quits as before. On Linux the icon
+/// can be made yet not shown (GNOME without an AppIndicator extension, Issue #422), so the tray
+/// host is asked at each close. The main window has no hide permission of its own.
+/// Async: on Linux it waits for the session bus.
 #[tauri::command]
-pub fn companion_hide_main(window: WebviewWindow, state: State<CompanionState>) -> Result<bool, String> {
+pub async fn companion_hide_main(window: WebviewWindow, state: State<'_, CompanionState>) -> Result<bool, String> {
     from_main(window.label())?;
-    if state.lock()?.tray.is_none() {
+    // A statement of its own: the lock must not be held across the wait below.
+    let has_tray = state.lock()?.tray.is_some();
+    if !has_tray {
+        return Ok(false);
+    }
+    #[cfg(target_os = "linux")]
+    if !tauri::async_runtime::spawn_blocking(linux_tray::shown).await.unwrap_or(false) {
+        crate::startup_log("Tray icon is not shown on this desktop: closing quits");
         return Ok(false);
     }
     window.hide().map_err(|error| error.to_string())?;
     Ok(true)
+}
+
+/// Whether a tray icon can be made and seen on Linux.
+#[cfg(target_os = "linux")]
+mod linux_tray {
+    use std::ffi::{c_char, c_int, c_void, CStr};
+    use std::time::Duration;
+
+    unsafe extern "C" {
+        fn dlopen(filename: *const c_char, flag: c_int) -> *mut c_void;
+        fn dlclose(handle: *mut c_void) -> c_int;
+    }
+    const RTLD_LAZY: c_int = 0x0001;
+    /// The libraries libappindicator-sys 0.9 loads, in its order; it panics when neither loads.
+    pub const LIBRARIES: [&CStr; 2] = [c"libayatana-appindicator3.so.1", c"libappindicator3.so.1"];
+    /// The names a StatusNotifierItem host registers. libappindicator shows its icon through one.
+    const WATCHERS: [&str; 2] = ["org.kde.StatusNotifierWatcher", "org.freedesktop.StatusNotifierWatcher"];
+    /// How long the session bus may take to answer before the icon counts as not shown.
+    const ASK_FOR: Duration = Duration::from_secs(2);
+
+    /// Loads the way libappindicator-sys does (dlopen with the default search path).
+    pub fn library_loads() -> bool {
+        LIBRARIES.iter().any(|name| {
+            // SAFETY: a NUL-terminated name; the handle is closed at once. The libraries' own
+            // initializers are the ones the tray would run when it loads them.
+            let handle = unsafe { dlopen(name.as_ptr(), RTLD_LAZY) };
+            if handle.is_null() {
+                return false;
+            }
+            unsafe { dlclose(handle) };
+            true
+        })
+    }
+
+    /// Whether a tray host (a StatusNotifierWatcher) is on the session bus. Without one the
+    /// icon is made but nowhere to be seen. An XEmbed-only tray also counts as not shown, so
+    /// closing quits there as before 0.5.0. Anything that fails counts as not shown.
+    pub fn shown() -> bool {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let asked = std::thread::Builder::new().name("vrct-tray-host".into()).spawn(move || {
+            let _ = sender.send(watcher_present());
+        });
+        asked.is_ok() && receiver.recv_timeout(ASK_FOR).unwrap_or(false)
+    }
+
+    fn watcher_present() -> bool {
+        let Ok(connection) = zbus::blocking::Connection::session() else { return false };
+        WATCHERS.iter().any(|name| {
+            connection
+                .call_method(Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"),
+                    "NameHasOwner", &(*name,))
+                .ok()
+                .and_then(|reply| reply.body().deserialize::<bool>().ok())
+                .unwrap_or(false)
+        })
+    }
 }
 #[tauri::command]
 pub fn companion_status(window: WebviewWindow, state: State<CompanionState>) -> Result<Status, String> {
