@@ -247,9 +247,16 @@ pub struct Log {
 impl Log {
     /// Logs in `directory` (`<settings folder>/logs`). `process.log` starts empty, as `removeLog` did.
     pub fn new(directory: &Path) -> Self {
+        let log = Self::continuing(directory);
+        let _ = File::create(directory.join("process.log"));
+        log
+    }
+
+    /// Logs in `directory` after what an earlier run of this process wrote there: a run started
+    /// again after a failed one keeps the failed run's record (the 10 MB rule still applies).
+    pub fn continuing(directory: &Path) -> Self {
         let process = directory.join("process.log");
         let _ = create_dir_all(directory);
-        let _ = File::create(&process);
         Self {
             process: Mutex::new(LogFile { path: process, file: None }),
             error: Mutex::new(LogFile { path: directory.join("error.log"), file: None }),

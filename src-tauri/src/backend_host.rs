@@ -23,6 +23,9 @@ pub struct BackendHost {
 /// How long the stop before an update may take. The graceful stop saves the settings first and
 /// then stops the servers; past this the run is ended anyway, which still saves the settings.
 pub const UPDATE_STOP_LIMIT: Duration = Duration::from_secs(10);
+/// How long a new run waits for the failed one it replaces to stop. Past this it starts anyway,
+/// as before.
+const RETRY_STOP_LIMIT: Duration = Duration::from_secs(10);
 
 impl BackendHost {
     /// Stops the run when the application ends.
@@ -102,9 +105,11 @@ pub fn backend_start(
 ) -> Result<(), String> {
     main_only(&window)?;
     let mut current = host.session.lock().unwrap();
-    if let Some((_, previous)) = current.take() {
-        // The UI starts again only after a failed run; that run must not keep its ports.
-        previous.kill();
+    let previous = current.take();
+    if let Some((_, previous)) = &previous {
+        // The UI starts again only after a failed run; that run must not keep its ports, and its
+        // last save must not overwrite the new run's settings, so its stop is waited for.
+        previous.kill_and_wait(RETRY_STOP_LIMIT);
     }
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let sink = Sink {
@@ -116,6 +121,8 @@ pub fn backend_start(
         }),
     };
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
+    // A run started again keeps the failed run's record in process.log.
+    options.continue_logs = previous.is_some();
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
     // The update endpoints use the update page's updater (app_update.rs; decision 20).
     options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));

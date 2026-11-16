@@ -168,6 +168,29 @@ fn a_start_up_past_its_deadline_starts_nothing_once_it_goes_on() {
 }
 
 #[test]
+fn a_run_started_again_waits_for_the_old_stop_and_keeps_its_log() {
+    // #427: the retry started the new run while the old one was still stopping (two settings
+    // savers on one config.json), and emptied process.log, losing the failed run's record.
+    let dir = tempfile::tempdir().unwrap();
+    let first = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    first.ready();
+    assert!(first.backend.kill_and_wait(Duration::from_secs(10)), "the old run stopped");
+    let log = || std::fs::read_to_string(dir.path().join("logs").join("process.log")).unwrap_or_default();
+    assert!(log().contains("Shutdown"), "its stop is over before the next run starts");
+
+    let second = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), continue_logs: true, ..Setup::default() });
+    second.ready();
+    assert_eq!(log().matches("Start Initialization").count(), 2, "both runs are in process.log");
+    second.stop();
+
+    // A normal start still begins with an empty process.log.
+    let third = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    third.ready();
+    assert_eq!(log().matches("Start Initialization").count(), 1);
+    third.stop();
+}
+
+#[test]
 fn a_start_up_within_its_limit_is_not_ended() {
     let ui = Ui::with(Setup { startup_limit: Some(Duration::from_secs(30)), ..Setup::default() });
     ui.ready();
