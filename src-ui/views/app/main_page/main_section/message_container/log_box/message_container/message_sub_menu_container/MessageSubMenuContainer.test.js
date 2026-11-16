@@ -95,6 +95,42 @@ for (const cancel of ["onPointerUp", "onPointerLeave", "onPointerCancel", "onLos
         assert.deepEqual(s.window.removed, s.window.added);
     });
 
+const key = (name, extra = {}) => ({ key: name, repeat: false, prevented: false, preventDefault() { this.prevented = true; }, ...extra });
+
+for (const name of ["Enter", " "]) test(`holding ${name === " " ? "Space" : name} resends and a short press edits`, async context => {
+    const s = await setup(context);
+    // Held: the timer completes before the key comes up.
+    const down = key(name);
+    s.render().props.onKeyDown(down);
+    assert.equal(down.prevented, true, "the browser does not click on its own");
+    s.render().props.onKeyDown(key(name, { repeat: true }));
+    assert.equal(s.timers.size, 1, "key repeat does not start another hold");
+    [...s.timers.values()][0]();
+    s.render().props.onKeyUp(key(name));
+    s.render().props.onClick({ detail: 0 });
+    assert.deepEqual(s.sent, ["resend"]);
+    assert.deepEqual(s.edited, []);
+    // Short: up before the timer.
+    s.render().props.onKeyDown(key(name));
+    const stale = [...s.timers.values()][0];
+    s.render().props.onKeyUp(key(name));
+    assert.equal(s.timers.size, 0);
+    stale();
+    s.render().props.onClick({ detail: 0 });
+    assert.deepEqual(s.sent, ["resend"]);
+    assert.deepEqual(s.edited, ["edit"]);
+});
+
+test("other keys neither hold nor edit", async context => {
+    const s = await setup(context);
+    const tab = key("Tab");
+    s.render().props.onKeyDown(tab);
+    s.render().props.onKeyUp(key("Tab"));
+    assert.equal(tab.prevented, false);
+    assert.equal(s.timers.size, 0);
+    assert.deepEqual(s.edited, []);
+});
+
 test("duplicate pointerdown cannot orphan the first hold timer", async context => {
     const s = await setup(context);
     s.down();
