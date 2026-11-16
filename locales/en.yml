@@ -300,6 +300,7 @@ common_warning:
         mic: 'Microphone switched from “{{old}}” to “{{new}}”. Capture is continuing.'
         speaker: 'Speaker capture switched from “{{old}}” to “{{new}}”. Capture is continuing.'
     startup_degraded: "Some settings could not be loaded. ASTAROT has started with default values for those settings. Check them before use. If this continues, restart ASTAROT."
+    translation_device_fallback: "Translation is on, but {{device}} could not be used, so the translation model runs on the CPU. Translating may be slower. To use the GPU, check the device in Settings > Translation."
     config_file_unreadable: "config.json could not be read, so ASTAROT started with default settings. The old file was kept as {{file}}."
     osc_query_remote: "{{sync}} is not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on this PC."
     osc_query_remote_mic_stopped: "Messages go to another machine, so VRChat's mute state cannot be checked. {{sync}} was turned off and {{microphone}} was stopped. Turn {{microphone}} back on when you need it."
@@ -583,6 +584,7 @@ config_page:
             large: "High Accuracy Model ({{capacity}})"
             license_commercial: "License: {{license}} (commercial use allowed)"
             license_non_commercial: "Non-commercial license ({{license}})"
+            custom_model: "Your own model (translation-models folder). Check its license yourself."
             confirm_title: "Non-commercial license"
             confirm_body: "{{weight_type}} is licensed under {{license}}. It may not be used for commercial purposes. The M2M100 models (MIT license) have no such restriction."
             confirm_check: "I have read the license and will use this model only for non-commercial purposes."
@@ -1632,6 +1634,7 @@ model_downloads:
     notice_rvc: "RVC v2 voice conversion, trained on the author's own voice according to the model card. CC BY 4.0 requires attribution: Voice model created by Saisho Utane — https://huggingface.co/Saisho-Utane — Used under the CC BY 4.0 license. Include credit in public content and project documentation, link the license, and indicate changes. Voice quality in this runtime has not yet been verified."
     notice_ppocr: "Text detection and recognition for Chat reading from PaddleOCR (PaddlePaddle), Apache-2.0. Runs on this computer's CPU; screen contents are never uploaded."
     notice_chatbox: "ASTAROT's own chatbox detector for Chat reading (YOLOX-Tiny), trained on ASTAROT's own screenshots and published under MIT. Runs on this computer's CPU; screen contents are never uploaded."
+    notice_translation: "A local translation model for ONNX Runtime, converted from the model named above. It runs on this computer; the text you translate is never uploaded. Check the license of the original model."
     notice_haas: "Japanese speech recognition with punctuation for speech.cpp 0.9.4 or later. Apache-2.0, by Third Intelligence, converted by sakasegawa. Review the model card before use."
     rvc_requirements: "This downloads only the RVC voice model and index. Conversion also needs the RVC runtime (Python environment, HuBERT and RMVPE). Download completion does not mean conversion is ready."
     notice_qwen_asr: "Speech recognition in 30 languages that detects the spoken language itself. Apache-2.0, by the Qwen team, converted by sakasegawa. 1.7B makes fewer mistakes than 0.6B (CER 9.49% against 11.89% on Common Voice Japanese in speech.cpp's measurement) but needs more space and memory. Review the model card before use."
@@ -1777,6 +1780,9 @@ legacy_model_downloads:
     non_commercial: "Non-commercial use only (CC-BY-NC-4.0). This restriction also applies to the tokenizer."
     revision: "Model revision"
     review_unavailable: "Model details could not be loaded. Close this dialog and try again."
+    translation_not_published: "No translation model can be downloaded yet. The models for the new translation engine have not been published."
+    translation_own_model: "To use a model of your own, put a folder converted with tools/translation_onnx/export.py into the folder below, then restart ASTAROT. You are responsible for that model's license."
+    close: "Close"
     startup_skipped: "{{model}} was not downloaded at startup because consent for this model version is missing. Review its license and size in Settings > Translation or Speech recognition (ASR) to download it."
     consent: "I have reviewed the provider, license and size information and agree to download, including the additional files shown."
     no_start: "Downloading does not change the selected model or turn on translation or the microphone."

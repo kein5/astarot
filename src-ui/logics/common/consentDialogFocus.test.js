@@ -48,6 +48,7 @@ async function fixture(context, kind, openerState) {
         "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
         "../_components/credential_pair/CredentialPair": {},
         "../_components/download_models/LegacyModelDownloadDialog": {}, "../shared_items/SharedItems": {},
+        "../../advanced_settings/ModelDownloads": { ModelDownloads: () => null },
         "@ui_configs": {}, "@logics_common": {}, "@store": {},
     };
     const paths = { catalog: ["advanced_settings/ModelDownloads.jsx", "ModelDownloads"],

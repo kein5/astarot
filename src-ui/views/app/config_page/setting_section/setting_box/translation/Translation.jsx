@@ -202,6 +202,14 @@ const CTranslate2WeightType_Box = () => {
 
     const c_translate2_weight_types_object = currentCTranslate2WeightTypeStatus.data.map(item => {
         const non_commercial = isNonCommercialWeight(item);
+        // A model the user added: its name is its folder's, and its licence is theirs to check.
+        if (item.is_custom) {
+            return {
+                ...item,
+                label: item.id.slice("custom:".length),
+                desc: t("config_page.translation.ctranslate2_weight_type.custom_model"),
+            };
+        }
         return {
             ...item,
             label: item.id,

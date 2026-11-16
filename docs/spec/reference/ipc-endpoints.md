@@ -558,7 +558,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/translation_language_unsupported`
 
 
-## UIだけにあるルート（58件）
+## UIだけにあるルート（59件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
 
@@ -567,6 +567,7 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/run/io_trace`
 - `/run/pending_ctranslate2_weight`
 - `/run/realtime_caption`
+- `/run/translation_compute_device_fallback`
 - `/set/data/auto_clear_message_box`
 - `/set/data/auto_download_models`
 - `/set/data/auto_mic_select`

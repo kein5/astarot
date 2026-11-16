@@ -300,6 +300,7 @@ common_warning:
         mic: 'マイクを「{{old}}」から「{{new}}」に切り替え、録音を続けています。'
         speaker: 'スピーカーの録音元を「{{old}}」から「{{new}}」に切り替え、録音を続けています。'
     startup_degraded: "一部の設定を読み込めなかったため、その項目を初期値にして起動しました。使う前に設定を確認してください。繰り返し起きる場合はASTAROTを再起動してください。"
+    translation_device_fallback: "翻訳はオンにしましたが、{{device}}を使えなかったので翻訳モデルはCPUで動いています。翻訳に時間がかかることがあります。GPUを使うときは、設定の「翻訳」で処理デバイスを確認してください。"
     config_file_unreadable: "設定ファイル（config.json）を読み込めなかったため、既定の設定で起動しました。元のファイルは{{file}}として残しています。"
     osc_query_remote: "送信先が別のマシンのときは「{{sync}}」を使えません。VRChatのミュート状態を確認できるのは、VRChatが同じPCで動いているときだけです。"
     osc_query_remote_mic_stopped: "送信先が別のマシンなので、VRChatのミュート状態を確認できません。「{{sync}}」をオフにして、「{{microphone}}」を止めました。必要なときに、「{{microphone}}」をオンにし直してください。"
@@ -583,6 +584,7 @@ config_page:
             large: "高精度モデル（{{capacity}}）"
             license_commercial: "ライセンス: {{license}}（商用利用可）"
             license_non_commercial: "非商用ライセンス（{{license}}）"
+            custom_model: "自分で追加したモデル（translation-modelsフォルダ）です。ライセンスは自分で確認してください。"
             confirm_title: "非商用ライセンス"
             confirm_body: "{{weight_type}}のライセンスは{{license}}です。商用目的では使用できません。M2M100モデル（MITライセンス）にはこの制限はありません。"
             confirm_check: "ライセンスを確認し、非商用目的でのみ使用します。"
@@ -1632,6 +1634,7 @@ model_downloads:
     notice_rvc: "モデルカードでは作者本人の声で学習したRVC v2音声変換モデルと説明されています。CC BY 4.0の帰属表示が必要です：Voice model created by Saisho Utane — https://huggingface.co/Saisho-Utane — Used under the CC BY 4.0 license. 公開コンテンツやプロジェクトの説明にクレジットとライセンスへのリンクを記載し、変更した場合は明示してください。この実行環境での変換品質はまだ検証していません。"
     notice_ppocr: "チャット読み取り用の文字検出・認識モデルです。PaddleOCR（PaddlePaddle）提供、Apache-2.0です。このPCのCPUで動き、画面の内容を送信することはありません。"
     notice_chatbox: "チャット読み取り用の、ASTAROT独自の吹き出し検出モデル（YOLOX-Tiny）です。ASTAROT自身のスクリーンショットで学習し、MITで公開しています。このPCのCPUで動き、画面の内容を送信することはありません。"
+    notice_translation: "ONNX Runtime用のローカル翻訳モデルです。上に書いた元のモデルから変換しました。このPCで動き、翻訳する文章を送信することはありません。元のモデルのライセンスを確認してください。"
     notice_haas: "speech.cpp 0.9.4以降用の、句読点付きで書き起こす日本語音声認識モデルです。Third Intelligence提供、sakasegawa変換、Apache-2.0です。利用前にモデルカードを確認してください。"
     rvc_requirements: "取得するのはRVC音声モデルとindexだけです。変換にはRVCの実行環境（Python環境・HuBERT・RMVPE）も必要です。取得完了だけでは変換の準備完了になりません。"
     notice_qwen_asr: "30言語を認識し、話している言語も自動で判定する音声認識モデルです。Qwenチーム提供、sakasegawa変換、Apache-2.0です。1.7Bは0.6Bより誤りが少ない一方で容量とメモリーを多く使います（speech.cppによるCommon Voice日本語での測定ではCER 9.49%と11.89%）。利用前にモデルカードを確認してください。"
@@ -1777,6 +1780,9 @@ legacy_model_downloads:
     non_commercial: "非商用の利用に限られます（CC-BY-NC-4.0）。トークナイザーにも同じ制限があります。"
     revision: "モデルの版"
     review_unavailable: "モデルの情報を読み込めませんでした。この画面を閉じてもう一度お試しください。"
+    translation_not_published: "翻訳モデルはまだダウンロードできません。新しい翻訳エンジン用のモデルを公開していないためです。"
+    translation_own_model: "自分で用意したモデルを使うときは、tools/translation_onnx/export.pyで変換したフォルダを下のフォルダに置き、ASTAROTを起動し直します。そのモデルのライセンスは自分で確認してください。"
+    close: "閉じる"
     startup_skipped: "{{model}} のこの版にはまだ同意していないため、起動時にはダウンロードしませんでした。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認してから、ダウンロードしてください。"
     consent: "提供元・ライセンス・容量を確認しました。表示された追加のファイルも含めて、ダウンロードに同意します。"
     no_start: "ダウンロードしても、モデルの選択や、翻訳・マイクのオン／オフは変わりません。"
