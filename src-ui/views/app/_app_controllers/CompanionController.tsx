@@ -38,7 +38,10 @@ type CompanionStore = { companion_hide?: () => Promise<unknown> };
 export const CompanionController = () => {
     const { t, i18n } = useI18n();
     const on = useExperimentalFeature(TRAY_COMPANION);
-    const { currentTrayCompanionEdge: edge } = useExperimentalFeatures() as { currentTrayCompanionEdge: StoreValue };
+    const { currentTrayCompanionEdge: edge, setTrayCompanionEdge } = useExperimentalFeatures() as {
+        currentTrayCompanionEdge: StoreValue;
+        setTrayCompanionEdge: (edge: string) => unknown;
+    };
     const { currentIsBackendReady } = useIsBackendReady() as { currentIsBackendReady: StoreValue };
     const main = useMainFunction() as MainFunction;
     const { asyncQuitApp } = useWindow() as { asyncQuitApp: () => unknown };
@@ -46,8 +49,8 @@ export const CompanionController = () => {
     const { request: translationSetup } = useTranslationSetup();
     const { startupState } = useBackendStartup();
     const needsUser = !!consent || !!translationSetup;
-    const latest = useRef({ main, asyncQuitApp });
-    latest.current = { main, asyncQuitApp };
+    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge });
+    latest.current = { main, asyncQuitApp, setTrayCompanionEdge };
     const wasOn = useRef(false);
     // The TTS and voice changer switches, as the main page's own switches work them out.
     const [voiceStates, setVoiceStates] = useState<VoiceSwitchStates>(voiceSwitchStates.get());
@@ -77,7 +80,8 @@ export const CompanionController = () => {
             try {
                 const actions = await invoke<unknown[]>("companion_take");
                 for (const action of actions ?? []) {
-                    runAction(action, { ...latest.current.main, toggleTts: voiceActions.toggleTts, toggleRvc: voiceActions.toggleRvc });
+                    runAction(action, { ...latest.current.main, toggleTts: voiceActions.toggleTts, toggleRvc: voiceActions.toggleRvc,
+                        setEdge: latest.current.setTrayCompanionEdge });
                 }
             } catch (error) { console.error("Companion request could not be taken", error); }
         };

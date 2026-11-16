@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties, type WheelEvent } from "react";
 import { useI18n } from "@useI18n";
 import { companionBridge, type CompanionBridge, type HandleLayout } from "../../logics/companion/bridge.ts";
-import { actionFor, FEATURES, type CompanionStatus, type Feature } from "../../logics/companion/status.ts";
+import { actionFor, edgeAction, FEATURES, type CompanionStatus, type Feature } from "../../logics/companion/status.ts";
 import {
-    angleOf, baseRotation, dockAt, facesInward, innerHexagon, inwardSide, isEdge, pointTriangle, polygon, TURN,
+    angleOf, baseRotation, dockAt, EDGES, facesInward, innerHexagon, inwardAngle, inwardSide, isEdge, pointTriangle, polygon, TURN,
     type Edge,
 } from "../../logics/companion/hexagram.ts";
 import * as styles from "./CompanionHandle.css.ts";
@@ -16,14 +16,22 @@ import { FROM_X, FROM_Y } from "./CompanionHandle.css.ts";
 // a point at a time; three of its six triangles show at once, one for each of the main switches,
 // and the triangles of the switches that are on are filled. Hovering one docks that feature out
 // towards the middle of the screen; pressing the docked label runs the main window's own switch.
-// Hovering alone changes nothing. The hexagon in the middle opens the control panel. The window
-// never takes the focus.
+// Hovering the hexagon in the middle docks out the common settings (the edge to hide at, the main
+// window, the control panel). Hovering alone changes nothing. The window never takes the focus.
 
 // The hexagram's size (CSS px); the window around it is the app's (OUT_BESIDE, OUT_ALONG).
 export const OPEN_RADIUS = 58;
 const DOCK_DISTANCE = OPEN_RADIUS + 14;
 // A wheel that spins fast turns the hexagram one point at a time.
 export const TURN_EVERY_MS = 140;
+// The pointer must rest on a triangle or the middle this long before its dock opens: on the way
+// from the middle to the common settings it crosses a triangle, which must not take over.
+export const AIM_MS = 180;
+// The common settings dock out beyond the plate.
+const MENU_DISTANCE = OPEN_RADIUS * 1.22 + 10;
+
+// What is docked out: one of the six switches, or the common settings of the middle.
+type Docked = Feature | "common";
 
 // The same words as the main window's switches.
 const LABEL_KEYS: Record<Feature, string> = {
@@ -40,8 +48,18 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
     const [status, setStatus] = useState<CompanionStatus | null>(null);
     const [layout, setLayout] = useState<HandleLayout | null>(null);
     const [turns, setTurns] = useState(0);
-    const [docked, setDocked] = useState<Feature | null>(null);
+    const [docked, setDocked] = useState<Docked | null>(null);
     const lastTurn = useRef(0);
+    const aimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const unaim = () => {
+        if (aimTimer.current !== null) clearTimeout(aimTimer.current);
+        aimTimer.current = null;
+    };
+    const aim = (target: Docked) => {
+        unaim();
+        aimTimer.current = setTimeout(() => { aimTimer.current = null; setDocked(target); }, AIM_MS);
+    };
+    useEffect(() => unaim, []);
 
     useEffect(() => {
         let disposed = false;
@@ -87,10 +105,19 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
         setDocked(null);
     };
 
-    const dockIndex = docked ? FEATURES.indexOf(docked) : -1;
-    const dockAngle = angleOf(dockIndex, rotation);
-    const dock = docked ? dockAt(DOCK_DISTANCE, dockAngle, side) : null;
-    const dockState = docked && status ? status[docked] : null;
+    const feature = docked && docked !== "common" ? docked : null;
+    const dockAngle = feature ? angleOf(FEATURES.indexOf(feature), rotation) : inwardAngle(edge);
+    const dock = feature ? dockAt(DOCK_DISTANCE, dockAngle, side) : null;
+    const dockState = feature && status ? status[feature] : null;
+    const menu = docked === "common" ? dockAt(MENU_DISTANCE, inwardAngle(edge), side) : null;
+    const slide = (angle: number) => ({
+        // It slides out from the hexagram, along the direction it opens to.
+        [FROM_X]: `${-Math.cos((angle * Math.PI) / 180) * 14}px`,
+        [FROM_Y]: `${-Math.sin((angle * Math.PI) / 180) * 14}px`,
+    });
+    const ask = (action: Parameters<CompanionBridge["request"]>[0]) =>
+        bridge.request(action).catch(error => console.warn("Companion request failed", error));
+    const togglePanel = () => bridge.togglePanel().catch(error => console.warn("Companion panel could not be opened", error));
     const centreLabel = t("companion.handle");
 
     return (
@@ -110,31 +137,46 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                                         data-on={value?.on === true} data-pending={value?.pending === true}
                                         data-docked={docked === feature} data-shown={shown}
                                         aria-label={t(LABEL_KEYS[feature])} aria-hidden={!shown}
-                                        onPointerEnter={() => { if (shown) setDocked(feature); }} />
+                                        onPointerEnter={() => { if (shown) aim(feature); }} onPointerLeave={unaim} />
                                 );
                             })}
                             <polygon className={styles.core} points={polygon(innerHexagon(OPEN_RADIUS))} role="button"
-                                aria-label={centreLabel}
-                                onClick={() => bridge.togglePanel().catch(error => console.warn("Companion panel could not be opened", error))}>
+                                aria-label={centreLabel} aria-haspopup="menu"
+                                onPointerEnter={() => aim("common")} onPointerLeave={unaim} onClick={togglePanel}>
                                 <title>{centreLabel}</title>
                             </polygon>
                         </g>
                     </g>
                 </g>
             </svg>
-            {docked && dock && (
-                <button key={`${docked}-${rotation}`} type="button" className={styles.dock} data-side={dock.side}
+            {feature && dock && (
+                <button key={`${feature}-${rotation}`} type="button" className={styles.dock} data-side={dock.side}
                     aria-pressed={dockState?.on === true} disabled={!ready || dockState?.pending === true}
-                    style={{
-                        left: `${layout.x + dock.at.x}px`, top: `${layout.y + dock.at.y}px`,
-                        // It slides out from the hexagram, along its point.
-                        [FROM_X]: `${-Math.cos((dockAngle * Math.PI) / 180) * 14}px`,
-                        [FROM_Y]: `${-Math.sin((dockAngle * Math.PI) / 180) * 14}px`,
-                    } as CSSProperties}
-                    onClick={() => bridge.request(actionFor(docked)).catch(error => console.warn("Companion request failed", error))}>
-                    <span className={styles.dockLabel}>{t(LABEL_KEYS[docked])}</span>
+                    style={{ left: `${layout.x + dock.at.x}px`, top: `${layout.y + dock.at.y}px`, ...slide(dockAngle) } as CSSProperties}
+                    onClick={() => ask(actionFor(feature))}>
+                    <span className={styles.dockLabel}>{t(LABEL_KEYS[feature])}</span>
                     <span className={styles.dockState}>{t(dockState?.on ? "companion.on" : "companion.off")}</span>
                 </button>
+            )}
+            {menu && (
+                <div key={`common-${edge}`} className={styles.menu} data-side={menu.side} role="group"
+                    aria-label={t("companion.common.title")}
+                    style={{ left: `${layout.x + menu.at.x}px`, top: `${layout.y + menu.at.y}px`, ...slide(inwardAngle(edge)) } as CSSProperties}>
+                    <p className={styles.menuTitle}>{t("companion.common.title")}</p>
+                    <div className={styles.menuRow} role="group" aria-label={t("companion.common.edge")}>
+                        <span className={styles.menuLabel}>{t("companion.common.edge")}</span>
+                        <span className={styles.edges}>
+                            {EDGES.map(value => (
+                                <button key={value} type="button" className={styles.edge} aria-pressed={value === edge}
+                                    onClick={() => { if (value !== edge) void ask(edgeAction(value)); }}>
+                                    {t(`config_page.experimental_features.items.tray_companion.edge.${value}`)}
+                                </button>
+                            ))}
+                        </span>
+                    </div>
+                    <button type="button" className={styles.menuItem} onClick={() => ask("open_main")}>{t("companion.open_main")}</button>
+                    <button type="button" className={styles.menuItem} onClick={togglePanel}>{t("companion.menu_panel")}</button>
+                </div>
             )}
         </div>
     );

@@ -2067,3 +2067,6 @@ companion:
     menu_panel: "Open the control panel"
     menu_main: "Open VRCT-VOX"
     menu_quit: "Quit"
+    common:
+        title: "Common settings"
+        edge: "Hide at"

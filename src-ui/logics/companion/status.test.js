@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { actionFor, companionStatus, FEATURES, panelState, runAction } from "./status.ts";
+import { actionFor, companionStatus, edgeAction, FEATURES, panelState, runAction } from "./status.ts";
 
 const t = key => `t:${key}`;
 const off = { on: false, pending: false };
@@ -55,4 +55,14 @@ test("each of the six switches has its action, and only those run", () => {
     // The main page has not rendered its voice switches yet: nothing runs.
     assert.equal(runAction("toggle_tts", { ...toggles, toggleTts: null }), false);
     assert.deepEqual(calls, [...FEATURES]);
+});
+
+test("the hexagram's common settings may ask for one of the four edges, and nothing else", () => {
+    const edges = [];
+    const toggles = { toggleTranscriptionSend: () => {}, toggleTranslation: () => {}, setEdge: edge => edges.push(edge) };
+    for (const edge of ["right", "left", "top", "bottom"]) assert.equal(runAction(edgeAction(edge), toggles), true, edge);
+    assert.deepEqual(edges, ["right", "left", "top", "bottom"]);
+    assert.equal(runAction("edge_middle", toggles), false);
+    assert.equal(runAction("edge_right", { ...toggles, setEdge: undefined }), false);
+    assert.deepEqual(edges, ["right", "left", "top", "bottom"]);
 });

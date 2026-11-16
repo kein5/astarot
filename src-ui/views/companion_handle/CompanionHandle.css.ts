@@ -93,3 +93,45 @@ export const dockState = style({
     fontSize: "12px", opacity: 0.85,
     selectors: { [`${dock}[aria-pressed="true"] &`]: { color: ON, opacity: 1 } },
 });
+
+// The common settings of the hexagram's middle: a small card instead of a pill, opening the same
+// way as a docked label (towards the middle of the screen).
+export const menu = style({
+    position: "absolute", display: "flex", flexDirection: "column", gap: "6px", width: "max-content", maxWidth: "240px",
+    padding: "10px 12px", fontSize: "13px", lineHeight: 1.3,
+    color: LINE, background: PLATE, border: `1px solid ${LINE}`, borderRadius: "12px",
+    animation: `${dockOut} .16s ease-out`,
+    selectors: {
+        '&[data-side="top"]': { transform: "translate(-50%, -100%)" },
+        '&[data-side="bottom"]': { transform: "translate(-50%, 0)" },
+        '&[data-side="right"]': { transform: "translate(0, -50%)" },
+        '&[data-side="left"]': { transform: "translate(-100%, -50%)" },
+    },
+    ...quick,
+});
+
+export const menuTitle = style({ margin: 0, fontSize: "12px", fontWeight: 600, opacity: 0.8 });
+
+export const menuRow = style({ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 8px" });
+
+export const menuLabel = style({ whiteSpace: "nowrap" });
+
+export const edges = style({ display: "inline-flex", gap: "4px" });
+
+const control = {
+    font: "inherit", color: LINE, cursor: "pointer", background: "transparent",
+    border: `1px solid rgba(227, 221, 233, 0.45)`,
+} as const;
+
+export const edge = style({
+    ...control, minWidth: "28px", padding: "2px 6px", borderRadius: "6px",
+    selectors: {
+        '&[aria-pressed="true"]': { borderColor: ON, background: "rgba(164, 122, 245, 0.28)", cursor: "default" },
+        '&:hover:not([aria-pressed="true"])': { background: "rgba(227, 221, 233, 0.14)" },
+    },
+});
+
+export const menuItem = style({
+    ...control, display: "block", width: "100%", padding: "5px 10px", textAlign: "start", borderRadius: "8px",
+    selectors: { "&:hover": { background: "rgba(227, 221, 233, 0.14)" } },
+});

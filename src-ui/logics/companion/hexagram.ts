@@ -44,6 +44,7 @@ export const isEdge = (value: unknown): value is Edge => (EDGES as readonly unkn
 const INWARD: Record<Edge, number> = { right: 180, left: 0, top: 90, bottom: -90 };
 const INWARD_SIDE: Record<Edge, Side> = { right: "left", left: "right", top: "bottom", bottom: "top" };
 export const inwardSide = (edge: Edge): Side => INWARD_SIDE[edge];
+export const inwardAngle = (edge: Edge): number => INWARD[edge];
 
 // One turn of the wheel turns the hexagram by one point.
 export const TURN = 60;

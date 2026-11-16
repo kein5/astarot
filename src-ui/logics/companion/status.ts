@@ -26,9 +26,13 @@ export type CompanionStatus = {
 // A store value as the main window's hooks hand it over: { state: "ok" | "pending", data }.
 type StoreValue = { state?: string; data?: unknown } | null | undefined;
 
-// What the panel, the handle and the tray may ask the main window to do: one toggle per switch.
-export type CompanionAction = `toggle_${Feature}`;
-export const actionFor = (feature: Feature): CompanionAction => `toggle_${feature}`;
+// What the panel, the hexagram and the tray may ask the main window to do: one toggle per switch,
+// and (from the hexagram's common settings) the edge the hexagram hides at.
+export type ToggleAction = `toggle_${Feature}`;
+export type EdgeAction = `edge_${Edge}`;
+export type CompanionAction = ToggleAction | EdgeAction;
+export const actionFor = (feature: Feature): ToggleAction => `toggle_${feature}`;
+export const edgeAction = (edge: Edge): EdgeAction => `edge_${edge}`;
 
 // What the panel shows as the state of the app as a whole.
 export type PanelState = "starting" | "listening" | "idle";
@@ -81,12 +85,20 @@ export type Toggles = {
     // The main page's own handlers, with their checks and notices; null before it has rendered.
     toggleTts?: (() => unknown) | null;
     toggleRvc?: (() => unknown) | null;
+    // Saves TRAY_COMPANION_EDGE, as the experimental features page does.
+    setEdge?: (edge: Edge) => unknown;
 };
 
 // Requests the panel, the handle and the tray may queue; anything else is ignored. Each one
 // runs the same toggle as the main window's switch, so its consents and checks still apply.
 export const runAction = (action: unknown, toggles: Toggles): boolean => {
-    const run: Record<CompanionAction, (() => unknown) | null | undefined> = {
+    if (typeof action === "string" && action.startsWith("edge_")) {
+        const edge = action.slice("edge_".length);
+        if (!isEdge(edge) || !toggles.setEdge) return false;
+        toggles.setEdge(edge);
+        return true;
+    }
+    const run: Record<ToggleAction, (() => unknown) | null | undefined> = {
         toggle_mic: toggles.toggleTranscriptionSend,
         toggle_translation: toggles.toggleTranslation,
         toggle_listening: toggles.toggleTranscriptionReceive,
@@ -94,7 +106,7 @@ export const runAction = (action: unknown, toggles: Toggles): boolean => {
         toggle_tts: toggles.toggleTts,
         toggle_rvc: toggles.toggleRvc,
     };
-    const toggle = typeof action === "string" && Object.hasOwn(run, action) ? run[action as CompanionAction] : undefined;
+    const toggle = typeof action === "string" && Object.hasOwn(run, action) ? run[action as ToggleAction] : undefined;
     if (!toggle) return false;
     toggle();
     return true;

@@ -2067,3 +2067,6 @@ companion:
     menu_panel: "コントロールパネルを開く"
     menu_main: "VRCT-VOX を開く"
     menu_quit: "終了"
+    common:
+        title: "共通の設定"
+        edge: "隠す端"

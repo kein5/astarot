@@ -37,8 +37,8 @@ const PANEL_SIZE: (f64, f64) = (300.0, 208.0);
 const STAR_PLATE: f64 = 71.0;
 /// The window while the hexagram is out, in logical px: beside a left or right edge, and along
 /// a top or bottom edge. Half the hexagram shows; the rest is room for a docked label.
-const OUT_BESIDE: (f64, f64) = (330.0, 240.0);
-const OUT_ALONG: (f64, f64) = (580.0, 190.0);
+const OUT_BESIDE: (f64, f64) = (360.0, 240.0);
+const OUT_ALONG: (f64, f64) = (580.0, 250.0);
 /// How near the edge the pointer must come to bring the hexagram out, how far beyond its
 /// window it may stray, and for how long, before it hides again (logical px).
 const HOT_DEPTH: f64 = 14.0;
@@ -53,9 +53,11 @@ const REOPEN_GUARD: Duration = Duration::from_millis(400);
 const MAX_ACTIONS: usize = 8;
 const MAX_LABEL: usize = 80;
 const LANGUAGES: [&str; 5] = ["en", "ja", "ko", "zh-Hans", "zh-Hant"];
-/// What the panel and the tray may ask the main window to do.
-const ACTIONS: [&str; 6] = [
+/// What the panel, the hexagram and the tray may ask the main window to do: a switch to toggle,
+/// or (from the hexagram's common settings) the edge it hides at.
+const ACTIONS: [&str; 10] = [
     "toggle_mic", "toggle_translation", "toggle_listening", "toggle_ocr", "toggle_tts", "toggle_rvc",
+    "edge_right", "edge_left", "edge_top", "edge_bottom",
 ];
 
 /// The id in the experimental features list (src-ui/logics/configs/experimentalFeatures.ts,
@@ -795,7 +797,11 @@ pub fn companion_status(window: WebviewWindow, state: State<CompanionState>) -> 
 pub fn companion_request(window: WebviewWindow, action: String) -> Result<(), String> {
     sender(window.label(), &[PANEL, HANDLE])?;
     if action == "open_main" {
-        let _ = window.hide();
+        if window.label() == HANDLE {
+            go_in(window.app_handle())?;
+        } else {
+            let _ = window.hide();
+        }
         return show_main(window.app_handle());
     }
     request(window.app_handle(), &action)
@@ -927,8 +933,8 @@ mod tests {
             assert_eq!((x + cx, y + cy), centre, "{edge:?}");
         }
         // Beside a side edge the window is the narrow one; along a top or bottom edge, the wide one.
-        assert_eq!(out_rect(Edge::Right, WORK, 1.0).0, (1920 - 330, 516 - 120, 330, 240));
-        assert_eq!(out_rect(Edge::Bottom, WORK, 1.0).0, (960 - 290, 1032 - 190, 580, 190));
+        assert_eq!(out_rect(Edge::Right, WORK, 1.0).0, (1920 - 360, 516 - 120, 360, 240));
+        assert_eq!(out_rect(Edge::Bottom, WORK, 1.0).0, (960 - 290, 1032 - 250, 580, 250));
     }
 
     #[test]

@@ -8,7 +8,7 @@ import * as voice from "../../../logics/voice/voiceActions.ts";
 async function setup(context, { on = false } = {}) {
     const runtime = hooks(), calls = [], listeners = new Map(), toggles = [];
     const state = { on, ready: false, mic: { state: "ok", data: false }, request: null, setup: null,
-        startup: "running", queue: [], quits: 0, edge: "right" };
+        startup: "running", queue: [], quits: 0, edge: "right", edgeSaved: [] };
     const store = {};
     const invoke = async (command, args) => {
         calls.push([command, args]);
@@ -24,7 +24,8 @@ async function setup(context, { on = false } = {}) {
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }),
             useWindow: () => ({ asyncQuitApp: () => { state.quits++; } }) },
         "@logics_configs": { useExperimentalFeature: id => id === "tray_companion" && state.on,
-            useExperimentalFeatures: () => ({ currentTrayCompanionEdge: { state: "ok", data: state.edge } }) },
+            useExperimentalFeatures: () => ({ currentTrayCompanionEdge: { state: "ok", data: state.edge },
+                setTrayCompanionEdge: value => { state.edgeSaved.push(value); } }) },
         "@logics_main": { useMainFunction: () => ({ currentTranscriptionSendStatus: state.mic,
             currentTranslationStatus: { state: "ok", data: false },
             currentTranscriptionReceiveStatus: { state: "ok", data: false }, currentOcrCaptureStatus: { state: "ok", data: true },
@@ -81,6 +82,9 @@ test("turned on, it starts the tray, reports the switches and runs what the tray
     s.state.queue.push("toggle_mic", "toggle_translation", "toggle_listening", "toggle_ocr", "toggle_tts", "toggle_rvc", "unknown");
     await s.listeners.get("companion-requested")();
     assert.deepEqual(s.toggles, ["mic", "translation", "listening", "ocr", "tts", "rvc"]);
+    s.state.queue.push("edge_left");
+    await s.listeners.get("companion-requested")();
+    assert.deepEqual(s.state.edgeSaved, ["left"], "the common settings save the edge as the settings page does");
     s.listeners.get("companion-quit")();
     assert.equal(s.state.quits, 1);
 });
