@@ -366,7 +366,6 @@ main_page:
     add_target_language: "相手の言語を追加"
     remove_target_language: "最後の相手の言語を削除"
     translator: "翻訳エンジン"
-    translator_label_default: "デフォルト"
 
     translator_selector:
         is_selected_same_language: "「{{your_language}}」と「{{target_language}}」に同じ言語が選択されているため、「{{ctranslate2}}」のみが使用できます。"
