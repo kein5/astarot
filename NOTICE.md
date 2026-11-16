@@ -154,8 +154,19 @@ carries the license texts each crate publishes in
 the list from the lock files (`src-tauri/Cargo.lock`,
 `native/rvc-runtime/Cargo.lock`) when the package is built. The application
 also contains the backend core and the crates it uses (`native/core`,
-`native/adapters`, `native/ops`, `native/speech-server`, `native/tts`); they
-are VRCT-VOX's own code under `LICENSE`, and the list marks them so.
+`native/adapters`, `native/ops`, `native/speech-server`, `native/tts`,
+`native/ocr-runtime`); they are VRCT-VOX's own code under `LICENSE`, and the
+list marks them so.
+
+`native/ocr-runtime` (chat reading) reimplements, so that its results match
+the earlier Python implementation, the image operations of OpenCV 4.10.0
+(Apache-2.0, OpenCV team), the pre- and post-processing of RapidOCR 3.9.2
+(Apache-2.0, RapidAI) and the polygon offset of Clipper 6.4.2 as bundled by
+pyclipper 1.4.0 (Boost Software License 1.0, Angus Johnson); it follows GEOS's
+order of operations for two area and length formulas. No source file of these
+projects is included. ONNX Runtime is not built into the application: chat
+reading loads the library at run time (see
+`docs/voice-stack/core-integration.md`, item 13).
 
 The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
 Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,

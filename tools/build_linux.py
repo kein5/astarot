@@ -117,7 +117,7 @@ def copy_adapters(resources):
 # The crates under native/ that src-tauri depends on by path: the backend core (#285) and the
 # crates it uses. tests/devtools/test_build_linux.py keeps this list equal to the path
 # dependencies of those Cargo.toml files.
-APP_CRATES = ('core', 'adapters', 'ops', 'speech-server', 'tts')
+APP_CRATES = ('core', 'adapters', 'ops', 'speech-server', 'tts', 'ocr-runtime')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
 # the workspace: native/ops builds the speech.cpp recognizers from the backend's own text.
 # tests/devtools/test_build_linux.py keeps this list equal to what the crates include.

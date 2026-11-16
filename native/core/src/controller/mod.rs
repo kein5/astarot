@@ -8,7 +8,7 @@ mod downloads;
 pub mod adapters;
 mod credentials;
 mod files;
-mod ocr;
+pub mod ocr;
 mod overlay;
 mod languages;
 pub mod legacy_weights;
@@ -165,6 +165,11 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
+    /// Chat reading's screen, VR runtime, ONNX Runtime and model files ([`ocr::RealOcr`]).
+    pub ocr: Arc<dyn ocr::OcrPlatform>,
+    /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]). Dropped
+    /// until the pipeline is wired.
+    pub ocr_message: ocr::OcrDelivery,
 }
 
 impl Default for Services {
@@ -181,6 +186,8 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
+            ocr: ocr::real_platform(),
+            ocr_message: Arc::new(ocr::no_delivery),
         }
     }
 }
@@ -205,6 +212,8 @@ pub struct Core {
     /// The model downloads and the usage events, made on first use.
     ops: std::sync::OnceLock<downloads::Ops>,
     adapters: std::sync::OnceLock<Arc<adapters::Adapters>>,
+    /// Chat reading's pipeline and switch.
+    ocr: Arc<ocr::Ocr>,
 }
 
 impl Core {
@@ -225,6 +234,7 @@ impl Core {
             speech,
             ops: std::sync::OnceLock::new(),
             adapters: std::sync::OnceLock::new(),
+            ocr: Arc::default(),
         })
     }
 
@@ -296,6 +306,7 @@ impl Core {
         self.step("Shutdown");
         self.close_speech_servers();
         self.close_model_downloads();
+        self.stop_ocr();
         self.stop_adapters();
         self.config.save_now();
         self.stop_telemetry();
