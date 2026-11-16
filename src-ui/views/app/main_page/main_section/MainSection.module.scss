@@ -1,10 +1,15 @@
+// The conversation column. It is a size container: the top bar, the composer and
+// the panels that open in it fit themselves to this column, not to the window, so
+// a wide rail beside it or a large UI size is accounted for (container units and
+// rem in the queries follow the UI size).
 .container {
+    container: main_section / size;
     position: relative;
-    width: 100%;
+    flex: 1 1 0;
+    min-width: 0;
     height: 100%;
     display: flex;
     flex-direction: column;
-    // justify-content: space-between;
     overflow-y: auto;
 }
 
