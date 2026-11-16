@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import yaml from "js-yaml";
 
+// Codes the servers report as a notice, not a failure (native/speech-server/src/lib.rs).
+const NOTICES = { speech_server_cpu_fallback: true };
+
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 
 // The codes the bundled speech servers can report (native/speech-server/src/lib.rs, mod codes) and
@@ -24,8 +27,13 @@ test("every speech server code has its own text on the server page in English an
     const codes = serverCodes();
     assert.ok(codes.size > 15, `found ${codes.size} codes`);
     for (const language of ["en", "ja"]) {
-        const errors = yaml.load(read(`../../../locales/${language}.yml`)).speech_servers.errors;
-        for (const code of codes) assert.equal(typeof errors[code], "string", `${language}: speech_servers.errors.${code}`);
-        for (const code of codes) assert.doesNotMatch(errors[code], /TTS/, `${language}: ${code} names TTS`);
+        const { errors, notices = {} } = yaml.load(read(`../../../locales/${language}.yml`)).speech_servers;
+        for (const code of codes) {
+            // A notice (the CPU fallback) is shown from speech_servers.notices, not as an error.
+            const text = code in NOTICES ? notices[code] : errors[code];
+            const section = code in NOTICES ? "notices" : "errors";
+            assert.equal(typeof text, "string", `${language}: speech_servers.${section}.${code}`);
+            assert.doesNotMatch(text, /TTS/, `${language}: ${code} names TTS`);
+        }
     }
 });
