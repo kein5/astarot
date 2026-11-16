@@ -996,6 +996,13 @@ config_page:
                     left: "Left"
                     top: "Top"
                     bottom: "Bottom"
+                monitor:
+                    label: "Monitor for the hexagram"
+                    desc: "Choose one when there are several monitors. While the chosen monitor is unplugged, the hexagram uses the primary one."
+                    primary: "Primary monitor (default)"
+                    display: "Display {{number}} ({{width}}×{{height}})"
+                    is_primary: "(primary)"
+                    missing: "Monitor not connected (chosen before)"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -2067,6 +2074,10 @@ companion:
     menu_panel: "Open the control panel"
     menu_main: "Open VRCT-VOX"
     menu_quit: "Quit"
+    menu_monitor: "Monitor"
+    menu_monitor_primary: "Primary monitor"
+    menu_monitor_display: "Display"
+    menu_monitor_missing: "Monitor not connected"
     common:
         title: "Common settings"
         edge: "Hide at"

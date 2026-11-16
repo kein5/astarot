@@ -52,6 +52,9 @@ const PANEL_GAP: f64 = 10.0;/// A click on the tray icon first takes the focus f
 const REOPEN_GUARD: Duration = Duration::from_millis(400);
 const MAX_ACTIONS: usize = 8;
 const MAX_LABEL: usize = 80;
+const MAX_MONITOR_NAME: usize = 256;
+/// How often the list of monitors is read again, in rounds of the pointer watch (two seconds).
+const DISPLAYS_EVERY: u32 = 25;
 const LANGUAGES: [&str; 5] = ["en", "ja", "ko", "zh-Hans", "zh-Hant"];
 /// What the panel, the hexagram and the tray may ask the main window to do: a switch to toggle,
 /// or (from the hexagram's common settings) the edge it hides at.
@@ -102,6 +105,29 @@ pub struct MenuLabels {
     panel: String,
     main: String,
     quit: String,
+    /// The monitor submenu: its title, the primary monitor, the word before a monitor's number,
+    /// and a chosen monitor that is not connected now.
+    #[serde(default = "default_monitor_label")]
+    monitor: String,
+    #[serde(default = "default_primary_label")]
+    primary: String,
+    #[serde(default = "default_display_label")]
+    display: String,
+    #[serde(default = "default_missing_label")]
+    missing: String,
+}
+
+fn default_monitor_label() -> String {
+    "Monitor".into()
+}
+fn default_primary_label() -> String {
+    "Primary monitor".into()
+}
+fn default_display_label() -> String {
+    "Display".into()
+}
+fn default_missing_label() -> String {
+    "Monitor not connected".into()
 }
 
 /// What the main window reports. Only switches and words of the UI: no captions.
@@ -125,6 +151,10 @@ pub struct Status {
     /// The screen edge the hexagram hides at (TRAY_COMPANION_EDGE).
     #[serde(default = "default_edge")]
     edge: String,
+    /// The monitor it shows on, by the system's name for it; empty for the primary monitor
+    /// (TRAY_COMPANION_MONITOR).
+    #[serde(default)]
+    monitor: String,
 }
 
 fn default_edge() -> String {
@@ -143,12 +173,17 @@ impl Default for Status {
             rvc: Switch::default(),
             language: "en".into(),
             edge: default_edge(),
+            monitor: String::new(),
             menu: MenuLabels {
                 start: "Start recognition".into(),
                 stop: "Stop recognition".into(),
                 panel: "Open control panel".into(),
                 main: "Open VRCT-VOX".into(),
                 quit: "Quit".into(),
+                monitor: default_monitor_label(),
+                primary: default_primary_label(),
+                display: default_display_label(),
+                missing: default_missing_label(),
             },
         }
     }
@@ -162,7 +197,11 @@ fn validate(status: &Status) -> Result<(), String> {
     let menu = &status.menu;
     if !LANGUAGES.contains(&status.language.as_str())
         || Edge::parse(&status.edge).is_none()
-        || ![&menu.start, &menu.stop, &menu.panel, &menu.main, &menu.quit].iter().all(|label| valid_label(label))
+        || status.monitor.chars().count() > MAX_MONITOR_NAME
+        || status.monitor.chars().any(char::is_control)
+        || ![&menu.start, &menu.stop, &menu.panel, &menu.main, &menu.quit, &menu.monitor, &menu.primary, &menu.display, &menu.missing]
+            .iter()
+            .all(|label| valid_label(label))
     {
         return Err("companion_invalid".into());
     }
@@ -180,11 +219,26 @@ struct Inner {
     out: Option<Out>,
     /// Where the hexagram hides, as the main window last reported it.
     edge: Edge,
+    /// The monitors connected now, in the order they are numbered (left to right, then top to
+    /// bottom), as the watch last read them.
+    displays: Vec<Display>,
+}
+
+/// A connected monitor: the system's name for it, its work area and size (physical px).
+#[derive(Clone, Debug, PartialEq)]
+struct Display {
+    name: String,
+    work: Rect,
+    size: (u32, u32),
+    scale: f64,
+    primary: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Out {
     edge: Edge,
+    /// The work area it came out on: when the chosen monitor changes, it goes back in.
+    work: Rect,
     rect: Rect,
     centre: (i32, i32),
     local: (f64, f64),
@@ -211,11 +265,15 @@ fn sender(label: &str, expected: &[&str]) -> Result<(), String> {
 
 /// Queues an action for the main window and tells it to take it.
 fn request<R: Runtime>(app: &AppHandle<R>, action: &str) -> Result<(), String> {
-    if !ACTIONS.contains(&action) {
-        return Err("companion_invalid".into());
-    }
     let state = app.state::<CompanionState>();
     let mut inner = state.lock()?;
+    // `monitor:<name>`: a monitor connected now, or empty for the primary one.
+    let monitor_ok = action
+        .strip_prefix("monitor:")
+        .is_some_and(|name| name.is_empty() || inner.displays.iter().any(|display| display.name == name));
+    if !ACTIONS.contains(&action) && !monitor_ok {
+        return Err("companion_invalid".into());
+    }
     if inner.actions.len() >= MAX_ACTIONS {
         return Err("companion_busy".into());
     }
@@ -425,20 +483,49 @@ fn build_handle<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<Webview
         .build()
 }
 
-/// The work area the hexagram lives on: the primary monitor's.
-fn primary_work(app: &AppHandle) -> Result<(Rect, f64), String> {
-    let monitor = app.primary_monitor().map_err(|error| error.to_string())?.ok_or("companion_no_monitor")?;
-    let work = monitor.work_area();
-    Ok(((work.position.x, work.position.y, work.size.width, work.size.height), monitor.scale_factor()))
+/// The monitors connected now, numbered left to right, then top to bottom.
+fn read_displays(app: &AppHandle) -> Result<Vec<Display>, String> {
+    let primary = app.primary_monitor().map_err(|error| error.to_string())?;
+    let primary_name = primary.as_ref().and_then(|monitor| monitor.name().cloned());
+    let mut displays: Vec<Display> = app
+        .available_monitors()
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .enumerate()
+        .map(|(index, monitor)| {
+            let work = monitor.work_area();
+            let name = monitor.name().cloned().unwrap_or_else(|| format!("monitor-{index}"));
+            Display {
+                primary: primary_name.as_deref() == Some(name.as_str()),
+                name,
+                work: (work.position.x, work.position.y, work.size.width, work.size.height),
+                size: (monitor.size().width, monitor.size().height),
+                scale: monitor.scale_factor(),
+            }
+        })
+        .collect();
+    displays.sort_by_key(|display| (display.work.0, display.work.1));
+    let no_primary = !displays.iter().any(|display| display.primary);
+    if let Some(first) = displays.first_mut().filter(|_| no_primary) {
+        first.primary = true;
+    }
+    Ok(displays)
 }
 
+/// The monitor the hexagram lives on: the chosen one while it is connected, else the primary.
+fn pick<'a>(displays: &'a [Display], wanted: &str) -> Option<&'a Display> {
+    displays
+        .iter()
+        .find(|display| !wanted.is_empty() && display.name == wanted)
+        .or_else(|| displays.iter().find(|display| display.primary))
+        .or_else(|| displays.first())
+}
 /// Brings the hexagram out at `edge`: half of it shows over the edge of the screen. The window
 /// work is handed to the main thread without waiting for it: a window call made from the
 /// watching thread that waits for the main thread could hang there (hiding did).
-fn come_out(app: &AppHandle, edge: Edge) -> Result<(), String> {
-    let (work, scale) = primary_work(app)?;
+fn come_out(app: &AppHandle, edge: Edge, work: Rect, scale: f64) -> Result<(), String> {
     let ((x, y, width, height), (cx, cy)) = out_rect(edge, work, scale);
-    let out = Out { edge, rect: (x, y, width, height), centre: (x + cx, y + cy),
+    let out = Out { edge, work, rect: (x, y, width, height), centre: (x + cx, y + cy),
         local: (f64::from(cx) / scale, f64::from(cy) / scale) };
     app.state::<CompanionState>().lock()?.out = Some(out);
     let target = app.clone();
@@ -486,7 +573,7 @@ fn hide_window(handle: &WebviewWindow) {
     const SW_HIDE: i32 = 0;
     if let Ok(window) = handle.hwnd() {
         // SAFETY: the handle is this process's own live window; ShowWindow has no other precondition.
-        unsafe { ShowWindow(window.0 as *mut std::ffi::c_void, SW_HIDE) };
+        unsafe { ShowWindow(window.0, SW_HIDE) };
     }
 }
 
@@ -514,21 +601,36 @@ fn watch(app: AppHandle) {
     }
     std::thread::spawn(move || {
         let mut away_since: Option<Instant> = None;
+        let mut round: u32 = 0;
         while enabled() {
             std::thread::sleep(WATCH_EVERY);
+            // The monitors are read again every two seconds; a change rebuilds the tray's list.
+            if let Some(displays) = round.is_multiple_of(DISPLAYS_EVERY).then(|| read_displays(&app).ok()).flatten() {
+                let changed = app.state::<CompanionState>().lock().is_ok_and(|mut inner| {
+                    let changed = inner.displays != displays;
+                    inner.displays = displays;
+                    changed
+                });
+                if changed {
+                    tray::refresh_monitors(&app);
+                }
+            }
+            round = round.wrapping_add(1);
             let Ok(cursor) = app.cursor_position() else { continue };
-            let Ok((work, scale)) = primary_work(&app) else { continue };
-            let Ok(inner) = app.state::<CompanionState>().lock().map(|inner| (inner.edge, inner.out)) else { continue };
-            let (edge, out) = inner;
+            let Ok(inner) = app.state::<CompanionState>().lock().map(|inner| {
+                (inner.edge, inner.out, pick(&inner.displays, &inner.status.monitor).map(|display| (display.work, display.scale)))
+            }) else { continue };
+            let (edge, out, Some((work, scale))) = inner else { continue };
             let cursor = (cursor.x, cursor.y);
             let result = match out {
                 None if near_edge(edge, work, scale, cursor) => {
                     away_since = None;
-                    come_out(&app, edge)
+                    come_out(&app, edge, work, scale)
                 }
                 None => Ok(()),
-                // The edge was changed while it was out: put it back, to come out at the new one.
-                Some(out) if out.edge != edge => go_in(&app),
+                // The edge or the monitor was changed while it was out (or the monitor went away):
+                // put it back, to come out at the new place.
+                Some(out) if out.edge != edge || out.work != work => go_in(&app),
                 Some(out) if inside(out.rect, cursor, STAY_MARGIN * scale) => {
                     away_since = None;
                     Ok(())
@@ -548,8 +650,7 @@ fn watch(app: AppHandle) {
             if let Err(error) = result {
                 crate::startup_log(&format!("Tray companion hexagram failed: {error}"));
             }
-        }
-        let _ = go_in(&app);
+        }        let _ = go_in(&app);
         WATCHING.store(false, Ordering::SeqCst);
         // Turned off and on again before this loop saw it: keep watching.
         if enabled() {
@@ -623,8 +724,8 @@ pub(crate) fn uninstall(app: &AppHandle) -> Result<(), String> {
 }
 
 mod tray {
-    use super::{request, show_main, toggle_panel, Anchor, CompanionState, Status};
-    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+    use super::{pick, request, show_main, toggle_panel, Anchor, CompanionState, Status};
+    use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
     use tauri::{AppHandle, Emitter, Manager, Wry};
 
@@ -635,6 +736,10 @@ mod tray {
         panel: MenuItem<Wry>,
         main: MenuItem<Wry>,
         quit: MenuItem<Wry>,
+        /// Where the hexagram shows: the primary monitor, then each connected one.
+        monitors: Submenu<Wry>,
+        /// The monitor names behind the submenu's items, in their order ("monitor-<index>").
+        names: Vec<String>,
     }
 
     fn log(result: Result<(), String>, what: &str) {
@@ -652,9 +757,10 @@ mod tray {
         let panel = MenuItem::with_id(app, "panel", &labels.panel, true, None::<&str>)?;
         let main = MenuItem::with_id(app, "main", &labels.main, true, None::<&str>)?;
         let quit = MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>)?;
+        let monitors = Submenu::with_id(app, "monitors", &labels.monitor, true)?;
         let menu = Menu::with_items(
             app,
-            &[&toggle, &PredefinedMenuItem::separator(app)?, &panel, &main,
+            &[&toggle, &PredefinedMenuItem::separator(app)?, &panel, &monitors, &main,
               &PredefinedMenuItem::separator(app)?, &quit],
         )?;
         let mut builder = TrayIconBuilder::with_id(TRAY)
@@ -667,7 +773,7 @@ mod tray {
                 "panel" => open_panel_near_cursor(app),
                 "main" => log(show_main(app), "main window"),
                 "quit" => quit_app(app),
-                _ => {}
+                id => choose_monitor(app, id),
             })
             .on_tray_icon_event(|tray, event| {
                 if let TrayIconEvent::Click {
@@ -688,7 +794,53 @@ mod tray {
             builder = builder.icon(icon.clone());
         }
         builder.build(app)?;
-        Ok(Items { toggle, panel, main, quit })
+        Ok(Items { toggle, panel, main, quit, monitors, names: Vec::new() })
+    }
+
+    /// A monitor chosen in the submenu: the main window saves it as TRAY_COMPANION_MONITOR.
+    fn choose_monitor(app: &AppHandle, id: &str) {
+        let name = if id == "monitor-primary" {
+            Some(String::new())
+        } else {
+            id.strip_prefix("monitor-").and_then(|index| index.parse::<usize>().ok()).and_then(|index| {
+                let state = app.state::<CompanionState>();
+                let inner = state.lock().ok()?;
+                inner.tray.as_ref()?.names.get(index).cloned()
+            })
+        };
+        if let Some(name) = name {
+            log(request(app, &format!("monitor:{name}")), "monitor");
+        }
+    }
+
+    /// Rebuilds the monitor submenu: the primary monitor, each connected one, and the chosen one
+    /// while it is not connected. The one the hexagram uses is checked.
+    pub fn refresh_monitors(app: &AppHandle) {
+        let state = app.state::<CompanionState>();
+        let Ok(mut inner) = state.lock() else { return };
+        let wanted = inner.status.monitor.clone();
+        let labels = inner.status.menu.clone();
+        let displays = inner.displays.clone();
+        let using = pick(&displays, &wanted).map(|display| display.name.clone());
+        let Some(items) = inner.tray.as_mut() else { return };
+        if let Ok(old) = items.monitors.items() {
+            for item in old {
+                let _ = items.monitors.remove(&item);
+            }
+        }
+        let _ = CheckMenuItem::with_id(app, "monitor-primary", &labels.primary, true, wanted.is_empty(), None::<&str>)
+            .map(|item| items.monitors.append(&item));
+        items.names = displays.iter().map(|display| display.name.clone()).collect();
+        for (index, display) in displays.iter().enumerate() {
+            let text = format!("{} {} ({}×{})", labels.display, index + 1, display.size.0, display.size.1);
+            let checked = !wanted.is_empty() && using.as_deref() == Some(display.name.as_str());
+            let _ = CheckMenuItem::with_id(app, format!("monitor-{index}"), text, true, checked, None::<&str>)
+                .map(|item| items.monitors.append(&item));
+        }
+        if !wanted.is_empty() && !displays.iter().any(|display| display.name == wanted) {
+            let _ = CheckMenuItem::with_id(app, "monitor-missing", &labels.missing, false, true, None::<&str>)
+                .map(|item| items.monitors.append(&item));
+        }
     }
 
     fn open_panel_near_cursor(app: &AppHandle) {
@@ -727,6 +879,9 @@ mod tray {
         let _ = items.panel.set_text(&menu.panel);
         let _ = items.main.set_text(&menu.main);
         let _ = items.quit.set_text(&menu.quit);
+        let _ = items.monitors.set_text(&menu.monitor);
+        drop(inner);
+        refresh_monitors(app);
     }
 }
 
@@ -823,6 +978,38 @@ pub async fn companion_panel_toggle(window: WebviewWindow) -> Result<(), String>
     toggle_panel_by(app, point, move |size, work, scale| {
         panel_beside(out.edge, out.centre, (STAR_PLATE + PANEL_GAP) * scale, size, work)
     })
+}
+
+/// A connected monitor, for the settings page's list: its name, its number (as the tray menu
+/// numbers it), its size and whether it is the primary one.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct MonitorInfo {
+    id: String,
+    number: usize,
+    width: u32,
+    height: u32,
+    primary: bool,
+}
+
+fn monitor_infos(displays: &[Display]) -> Vec<MonitorInfo> {
+    displays
+        .iter()
+        .enumerate()
+        .map(|(index, display)| MonitorInfo {
+            id: display.name.clone(),
+            number: index + 1,
+            width: display.size.0,
+            height: display.size.1,
+            primary: display.primary,
+        })
+        .collect()
+}
+
+/// The monitors connected now, for the settings page.
+#[tauri::command]
+pub fn companion_monitors(window: WebviewWindow) -> Result<Vec<MonitorInfo>, String> {
+    sender(window.label(), &["main"])?;
+    Ok(monitor_infos(&read_displays(window.app_handle())?))
 }
 
 /// What the hexagram page draws: whether it is out, at which edge, and where its centre is
@@ -988,5 +1175,33 @@ mod tests {
         older.remove("edge");
         let read: Status = serde_json::from_value(serde_json::Value::Object(older)).unwrap();
         assert_eq!(read.edge, "right");
+    }
+
+    fn display(name: &str, x: i32, primary: bool) -> Display {
+        Display { name: name.into(), work: (x, 0, 1920, 1032), size: (1920, 1080), scale: 1.0, primary }
+    }
+
+    #[test]
+    fn the_chosen_monitor_is_used_while_connected_and_the_primary_one_otherwise() {
+        let displays = [display("\\\\.\\DISPLAY2", -1920, false), display("\\\\.\\DISPLAY1", 0, true)];
+        assert_eq!(pick(&displays, "").unwrap().name, "\\\\.\\DISPLAY1", "empty means the primary monitor");
+        assert_eq!(pick(&displays, "\\\\.\\DISPLAY2").unwrap().name, "\\\\.\\DISPLAY2");
+        // Unplugged: the primary one, until it comes back.
+        assert_eq!(pick(&displays, "\\\\.\\DISPLAY3").unwrap().name, "\\\\.\\DISPLAY1");
+        assert!(pick(&[], "").is_none());
+        // The settings page numbers them as the tray menu does: left to right.
+        let infos = monitor_infos(&displays);
+        assert_eq!(infos.iter().map(|info| (info.number, info.primary)).collect::<Vec<_>>(), [(1, false), (2, true)]);
+    }
+
+    #[test]
+    fn a_status_names_a_monitor_without_control_characters() {
+        let mut status = Status::default();
+        status.monitor = "\\\\.\\DISPLAY2".into();
+        assert!(validate(&status).is_ok());
+        status.monitor = "a\nb".into();
+        assert_eq!(validate(&status), Err("companion_invalid".into()));
+        status.monitor = "x".repeat(MAX_MONITOR_NAME + 1);
+        assert_eq!(validate(&status), Err("companion_invalid".into()));
     }
 }

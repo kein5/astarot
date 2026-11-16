@@ -252,7 +252,7 @@ pub fn run() {
             app_update::app_update_info, app_update::app_update_check, app_update::app_update_install,
             companion::companion_set, companion::companion_publish, companion::companion_take,
             companion::companion_show_main, companion::companion_hide_main, companion::companion_status, companion::companion_request,
-            companion::companion_panel_hide, companion::companion_panel_toggle, companion::companion_handle_layout])
+            companion::companion_panel_hide, companion::companion_panel_toggle, companion::companion_handle_layout, companion::companion_monitors])
         .build(context)
         .map(|app| app.run(|app, event| {
             // A shared window must not stay shared after the app is gone.

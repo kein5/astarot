@@ -38,9 +38,12 @@ type CompanionStore = { companion_hide?: () => Promise<unknown> };
 export const CompanionController = () => {
     const { t, i18n } = useI18n();
     const on = useExperimentalFeature(TRAY_COMPANION);
-    const { currentTrayCompanionEdge: edge, setTrayCompanionEdge } = useExperimentalFeatures() as {
+    const { currentTrayCompanionEdge: edge, setTrayCompanionEdge, currentTrayCompanionMonitor: monitor,
+        setTrayCompanionMonitor } = useExperimentalFeatures() as {
         currentTrayCompanionEdge: StoreValue;
         setTrayCompanionEdge: (edge: string) => unknown;
+        currentTrayCompanionMonitor: StoreValue;
+        setTrayCompanionMonitor: (monitor: string) => unknown;
     };
     const { currentIsBackendReady } = useIsBackendReady() as { currentIsBackendReady: StoreValue };
     const main = useMainFunction() as MainFunction;
@@ -49,8 +52,8 @@ export const CompanionController = () => {
     const { request: translationSetup } = useTranslationSetup();
     const { startupState } = useBackendStartup();
     const needsUser = !!consent || !!translationSetup;
-    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge });
-    latest.current = { main, asyncQuitApp, setTrayCompanionEdge };
+    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor });
+    latest.current = { main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor };
     const wasOn = useRef(false);
     // The TTS and voice changer switches, as the main page's own switches work them out.
     const [voiceStates, setVoiceStates] = useState<VoiceSwitchStates>(voiceSwitchStates.get());
@@ -81,7 +84,7 @@ export const CompanionController = () => {
                 const actions = await invoke<unknown[]>("companion_take");
                 for (const action of actions ?? []) {
                     runAction(action, { ...latest.current.main, toggleTts: voiceActions.toggleTts, toggleRvc: voiceActions.toggleRvc,
-                        setEdge: latest.current.setTrayCompanionEdge });
+                        setEdge: latest.current.setTrayCompanionEdge, setMonitor: latest.current.setTrayCompanionMonitor });
                 }
             } catch (error) { console.error("Companion request could not be taken", error); }
         };
@@ -100,10 +103,10 @@ export const CompanionController = () => {
         if (!on) return;
         invoke("companion_publish", { status: companionStatus({
             ready: currentIsBackendReady.data, mic, translation, listening, ocr, tts: voiceStates.tts, rvc: voiceStates.rvc,
-            edge: edge?.data, language: i18n.language, t,
+            edge: edge?.data, monitor: monitor?.data, language: i18n.language, t,
         }) }).catch(error => console.error("Companion state could not be reported", error));
     }, [on, currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
-        ocr?.data, ocr?.state, voiceStates, edge?.data, i18n.language, t]);
+        ocr?.data, ocr?.state, voiceStates, edge?.data, monitor?.data, i18n.language, t]);
 
     // Any dialog the main window opens (the start-up notices among them) needs the user too.
     useEffect(() => {

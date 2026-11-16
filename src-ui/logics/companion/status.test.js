@@ -9,7 +9,7 @@ test("the reported state holds only the six switches, the UI language and the tr
     const status = companionStatus({ ready: true, mic: { state: "ok", data: true },
         translation: { state: "pending", data: false }, listening: { state: "ok", data: true },
         ocr: { state: "ok", data: false }, tts: { on: true, pending: false }, rvc: { on: false, pending: true },
-        edge: "bottom", language: "ja", t });
+        edge: "bottom", monitor: "\\\\.\\DISPLAY2", language: "ja", t });
     assert.deepEqual(status, {
         ready: true,
         mic: { on: true, pending: false },
@@ -20,8 +20,11 @@ test("the reported state holds only the six switches, the UI language and the tr
         rvc: { on: false, pending: true },
         language: "ja",
         edge: "bottom",
+        monitor: "\\\\.\\DISPLAY2",
         menu: { start: "t:companion.menu_start", stop: "t:companion.menu_stop", panel: "t:companion.menu_panel",
-            main: "t:companion.menu_main", quit: "t:companion.menu_quit" },
+            main: "t:companion.menu_main", quit: "t:companion.menu_quit", monitor: "t:companion.menu_monitor",
+            primary: "t:companion.menu_monitor_primary", display: "t:companion.menu_monitor_display",
+            missing: "t:companion.menu_monitor_missing" },
     });
 });
 
@@ -30,6 +33,7 @@ test("an unknown language or edge falls back to English and the right edge, and 
     assert.equal(status.ready, false);
     assert.equal(status.language, "en");
     assert.equal(status.edge, "right");
+    assert.equal(status.monitor, "", "no monitor chosen: the primary one");
     for (const feature of FEATURES) assert.deepEqual(status[feature], off, feature);
 });
 
@@ -65,4 +69,13 @@ test("the hexagram's common settings may ask for one of the four edges, and noth
     assert.equal(runAction("edge_middle", toggles), false);
     assert.equal(runAction("edge_right", { ...toggles, setEdge: undefined }), false);
     assert.deepEqual(edges, ["right", "left", "top", "bottom"]);
+});
+
+test("a monitor chosen in the tray menu is saved by name, and an empty name means the primary one", () => {
+    const monitors = [];
+    const toggles = { toggleTranscriptionSend: () => {}, toggleTranslation: () => {}, setMonitor: name => monitors.push(name) };
+    assert.equal(runAction("monitor:\\\\.\\DISPLAY2", toggles), true);
+    assert.equal(runAction("monitor:", toggles), true);
+    assert.deepEqual(monitors, ["\\\\.\\DISPLAY2", ""]);
+    assert.equal(runAction("monitor:x", { ...toggles, setMonitor: undefined }), false);
 });

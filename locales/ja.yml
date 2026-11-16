@@ -996,6 +996,13 @@ config_page:
                     left: "左"
                     top: "上"
                     bottom: "下"
+                monitor:
+                    label: "六芒星を出すモニター"
+                    desc: "モニターが複数あるときに選びます。選んだモニターを外している間は、メインのモニターに出します。"
+                    primary: "メインのモニター（既定）"
+                    display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
+                    is_primary: "（メイン）"
+                    missing: "接続されていないモニター（前に選んだもの）"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -2067,6 +2074,10 @@ companion:
     menu_panel: "コントロールパネルを開く"
     menu_main: "VRCT-VOX を開く"
     menu_quit: "終了"
+    menu_monitor: "表示するモニター"
+    menu_monitor_primary: "メインのモニター"
+    menu_monitor_display: "ディスプレイ"
+    menu_monitor_missing: "接続されていないモニター"
     common:
         title: "共通の設定"
         edge: "隠す端"
