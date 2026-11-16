@@ -124,7 +124,7 @@ Release commits (`chore(release): ...`) and merge commits are left out. The same
 
 ### GitHub Releases
 
-The CHANGELOG section is the full list of a stable release; the GitHub release helps users decide whether to update. Its text is written by hand in `docs/release-notes/X.Y.Z.md` under two headings: changes that matter to users (features, improvements, fixes, compatibility and what to do when updating, in plain words, ending with the upgrade notes and known issues) and internal changes (one line each, in technical terms, with the pull request number). The format is in [docs/release-notes/README.md](docs/release-notes/README.md). The draft that `tools/changelog.py` starts (Highlights, Upgrade Notes, Known Issues and the changes) is replaced with these notes before publishing. Keep the two consistent: change the CHANGELOG first, then the release text.
+The CHANGELOG section is the full list of a stable release; the GitHub release helps users decide whether to update. Its text is written by hand in `docs/release-notes/X.Y.Z.md`. From 0.5.0 it has two headings: changes that matter to users (features, improvements, fixes, compatibility and what to do when updating, in plain words, ending with the upgrade notes and known issues) and internal changes (one line each, in technical terms, with the pull request number). The format is in [docs/release-notes/README.md](docs/release-notes/README.md). The draft that `tools/changelog.py` starts (Highlights, Upgrade Notes, Known Issues and the changes) is replaced with these notes before publishing. Keep the two consistent: change the CHANGELOG first, then the release text.
 
 ### Troubleshooting
 
