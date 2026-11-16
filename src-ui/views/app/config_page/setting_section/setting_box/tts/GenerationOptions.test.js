@@ -1,5 +1,6 @@
 import * as routeState from "../../../../../../logics/voice/routeState.ts";
 import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.js";
+import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceErrorText.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
@@ -65,7 +66,7 @@ test("TTS form supplies an existing error ID to both language groups", async () 
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: s.draft }) },
         "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions },
         "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {}, validCoeiroinkOptions: () => true },
-        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" },
+        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
         "./StatusLine": { StatusLine: "status" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
@@ -89,7 +90,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
         "../../../../../../logics/voice/routeState": routeState,
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ directState: { settings: draft }, directSources: {},
             settings: { routing: "managed" }, route: {}, send: () => {}, setDirectDraftBlocked: () => {} }), sourceKey: value => value },
-        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route", VoiceRouteControls: "controls" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" },
+        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route", VoiceRouteControls: "controls" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
         "./ModelDownloads": { ModelDownloads: "downloads" }, "./VcRuntimeSetup": { VcRuntimeSetup: "runtime" }, "./StatusLine": { StatusLine: "status" },
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },

@@ -16,7 +16,7 @@ use crate::capture::{Capture, CapturePlatform, Source, Target};
 use crate::energy::EnergyListener;
 use crate::pcm;
 use crate::phrases::{Clip, Phrases};
-use crate::providers::AsrFailed;
+use crate::providers::{ApiError, AsrFailed};
 use crate::vad::{Segmenter, Vad};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -49,12 +49,20 @@ pub struct Settings {
 pub struct Failure {
     pub code: &'static str,
     pub stage: &'static str,
+    /// Why the engine failed, for an `ASR_ERROR` from an engine's answer (`TRANSCRIPTION_API_*`:
+    /// a refused key, a rate limit, a timeout, a server error). The code stays `ASR_ERROR`.
+    pub cause: Option<&'static str>,
 }
 
 impl Failure {
-    pub const OPEN: Failure = Failure { code: "AUDIO_OPEN_ERROR", stage: "recording" };
-    pub const READ: Failure = Failure { code: "AUDIO_READ_ERROR", stage: "recording" };
-    pub const ASR: Failure = Failure { code: "ASR_ERROR", stage: "asr" };
+    pub const OPEN: Failure = Failure { code: "AUDIO_OPEN_ERROR", stage: "recording", cause: None };
+    pub const READ: Failure = Failure { code: "AUDIO_READ_ERROR", stage: "recording", cause: None };
+    pub const ASR: Failure = Failure { code: "ASR_ERROR", stage: "asr", cause: None };
+
+    /// The engine failed for every candidate, for this reason.
+    pub fn asr(error: ApiError) -> Failure {
+        Failure { cause: Some(error.code()), ..Failure::ASR }
+    }
 }
 
 /// What the recorder tells its owner. Called on the recorder's threads.
@@ -296,8 +304,8 @@ fn transcribe(shared: Arc<Shared>, settings: Settings, mut recognize: Recognize)
                 queue.clips.push_front(clip);
             }
         }
-        if drained.is_err() {
-            shared.fail(Failure::ASR);
+        if let Err(failed) = drained {
+            shared.fail(Failure::asr(failed.error));
             return;
         }
         for result in builder.take_results() {

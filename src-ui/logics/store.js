@@ -26,7 +26,6 @@ export const store = {
     setting_box_scroll_container: null,
     scroll_log_to_bottom: null,
     text_area_ref: null,
-    is_fetched_available_releases_already: false,
     last_executed_time_startTyping: 0,
     expired_speech: null,
 };
@@ -203,7 +202,6 @@ export const { atomInstance: Atom_NotificationStatus, useHook: useStore_Notifica
     key: 0,
     message: "",
 }, "NotificationStatus");
-export const { atomInstance: Atom_AvailableReleases, useHook: useStore_AvailableReleases } = createAtomWithHook([], "AvailableReleases");
 export const { atomInstance: Atom_IsLMStudioConnected, useHook: useStore_IsLMStudioConnected } = createAtomWithHook(false, "IsLMStudioConnected");
 export const { atomInstance: Atom_IsOllamaConnected, useHook: useStore_IsOllamaConnected } = createAtomWithHook(false, "IsOllamaConnected");
 

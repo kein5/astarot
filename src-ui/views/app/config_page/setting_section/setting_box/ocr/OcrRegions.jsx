@@ -11,7 +11,7 @@ export const OcrRegions = () => {
     const status = currentOcrCaptureStatus.data;
     const hasVr = status?.available_sources?.includes("vr") === true;
     return (
-        <div>
+        <div data-setting-id="region">
             {hasVr && <p className={styles.regionDesc}>{t("config_page.ocr.region.source_switch")}</p>}
             <OcrRegionEditor source="window" variable={currentOcrCaptureRegion} setRegion={setOcrCaptureRegion} />
             {hasVr && <OcrRegionEditor source="vr" variable={currentOcrVrCaptureRegion} setRegion={setOcrVrCaptureRegion} />}

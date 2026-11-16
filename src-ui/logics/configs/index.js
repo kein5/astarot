@@ -8,7 +8,6 @@ export const useTranscription = createCategoryHook("Transcription");
 export const useVr = createCategoryHook("Vr");
 export const useOthers = createCategoryHook("Others");
 export const useAdvancedSettings = createCategoryHook("AdvancedSettings");
-export const useUpdater = createCategoryHook("Updater");
 export const useOcr = createCategoryHook("Ocr");
 export const useExperimentalFeatures = createCategoryHook("ExperimentalFeatures");
 

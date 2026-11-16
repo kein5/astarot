@@ -96,7 +96,8 @@ test("nothing is shared again when there is no remembered window, or for a langu
 test("turning chat reading on without its models opens the setup guide instead of a notice", async () => {
     const s = await loadBridgeRoutes();
     assert.equal(s.ocrSetup().open, false);
-    s.receiveRoutes({ endpoint: "/set/enable/ocr_capture", status: 400,
+    // The backend (the core and the Python one) tells the refusal on /run/enable_ocr_capture.
+    s.receiveRoutes({ endpoint: "/run/enable_ocr_capture", status: 400,
         result: { error_code: "OCR_DISABLED_MODEL_MISSING", data: false } });
     assert.equal(s.ocrSetup().open, true);
     assert.deepEqual(s.notices, []);

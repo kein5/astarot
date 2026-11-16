@@ -242,6 +242,8 @@ fn a_failing_engine_turns_recognition_off_with_its_code() {
         json!({
             "text": "", "language": null, "recognition_error": true, "error_code": "ASR_ERROR", "stage": "asr",
             "source": "mic", "message": "Speech recognition failed", "recoverable": false,
+            // The engine answered 500: the UI says why, the code stays Python's.
+            "cause": "TRANSCRIPTION_API_SERVER_ERROR",
         })
     );
     // Both switches went off first, the meter at zero.

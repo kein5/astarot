@@ -304,6 +304,24 @@ for (const language of ["en", "ja"]) test(`${language}: recognition failures are
     assert.deepEqual(subject.reads, []);
 });
 
+// The core adds `cause` when a cloud engine said why it failed (native/transcription/src/providers.rs, ApiError).
+const ENGINE_CAUSES = ["TRANSCRIPTION_API_AUTH_FAILED", "TRANSCRIPTION_API_RATE_LIMITED", "TRANSCRIPTION_API_TIMEOUT",
+    "TRANSCRIPTION_API_SERVER_ERROR"];
+
+for (const language of ["en", "ja"]) test(`${language}: a cloud engine's reason for failing is logged instead of the general text`, async () => {
+    const translation = locale(language);
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { [language]: { translation } }, interpolation: { escapeValue: false } });
+    const subject = await setup(undefined, undefined, i18n);
+    const log = result => subject.receiveRoutes({ status: 200, endpoint: "/run/transcription_recognition_error", result });
+    for (const cause of ENGINE_CAUSES) log({ error_code: "ASR_ERROR", stage: "asr", source: "mic", message: "English default", cause });
+    // A cause the UI has no text for falls back to the general text.
+    log({ error_code: "ASR_ERROR", stage: "asr", source: "mic", message: "English default", cause: "TRANSCRIPTION_API_SOMETHING_NEW" });
+    const errors = translation.backend_errors;
+    assert.deepEqual(subject.rows().map(row => row.messages.original.message), [...ENGINE_CAUSES.map(code => errors[code]), errors.ASR_ERROR]);
+    for (const code of ENGINE_CAUSES) assert.notEqual(errors[code], errors.ASR_ERROR, code);
+});
+
 for (const accepted of [true, false]) test(`holding Enter and duplicate clicks send once until handoff settles (${accepted})`, async context => {
     context.mock.method(globalThis, "setTimeout", () => 0);
     const handoff = deferred(), subject = await setup(() => handoff.promise), input = await composer(subject);
