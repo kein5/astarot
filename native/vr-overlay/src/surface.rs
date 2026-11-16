@@ -1,11 +1,13 @@
-//! Where the VR panel's page is captured and how its size is set (`window_capture.py`,
-//! `window_capture_linux.py`).
+//! Where the VR panel's page is captured, how its size is set and how the controllers' mouse
+//! input reaches it (`window_capture.py`, `window_capture_linux.py`).
 //!
 //! On Windows the page lives in the app's window "VRCT-VOX VR Panel", parked off-screen; it is
-//! photographed with `PrintWindow`. On Linux the app (`src-tauri/src/vr_panel_surface.rs`)
-//! renders the page off-screen and writes each repaint to `<VRCT_VR_PANEL_DIR>/frame`; sizes go
-//! to `<VRCT_VR_PANEL_DIR>/input.sock`. The core runs in the app's process, so both work from
-//! here as they did from the sidecar.
+//! photographed with `PrintWindow`, and the mouse goes to its WebView2 input window
+//! (`Chrome_RenderWidgetHostHWND`) with `PostMessageW`, so the system's cursor does not move. On
+//! Linux the app (`src-tauri/src/vr_panel_surface.rs`) renders the page off-screen and writes each
+//! repaint to `<VRCT_VR_PANEL_DIR>/frame`; sizes and the mouse go to
+//! `<VRCT_VR_PANEL_DIR>/input.sock`, one line each, which the app turns into GDK events. The core
+//! runs in the app's process, so all of this works from here as it did from the sidecar.
 
 /// The title the app gives the VR panel's window (`src-tauri/src/lib.rs`).
 pub const VR_PANEL_TITLE: &str = "VRCT-VOX VR Panel";

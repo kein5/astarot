@@ -1,11 +1,13 @@
 //! The SteamVR overlays of VRCT-VOX (`src-python/models/overlay/`, issue #282).
 //!
 //! - [`engine`]: the overlay thread. It waits for SteamVR, makes the overlays, keeps their
-//!   positions, fades the subtitles out and shows the VR panel's picture.
+//!   positions, fades the subtitles out, shows the VR panel's picture and takes the controllers
+//!   (laser, clicks on the page, grabbing, scaling, resizing, the toolbar).
 //! - [`subtitle`] and [`fonts`]: the pictures of the small and the large log.
 //! - [`runtime`]: what the engine asks of SteamVR, with the real one in [`openvr`] (the
 //!   `openvr_api` library is loaded when SteamVR runs) and stand-ins in tests.
-//! - [`surface`]: where the VR panel's page is captured and how its size is set.
+//! - [`surface`]: where the VR panel's page is captured, how its size is set and how the mouse
+//!   input reaches it.
 //! - [`layout`], [`math`], [`placement`], [`pose`], [`timing`], [`tooltip`]: the arrangement of
 //!   the VR page and the pose math, checked against the Python overlay on recorded cases.
 //!
