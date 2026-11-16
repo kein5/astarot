@@ -18,7 +18,7 @@ mise exec -- npm ci
 
 0.5.0からバックエンドはアプリ（`vrct-vox.exe`）の中で動くRustの中核です（[中核の統合](voice-stack/core-integration.md)）。配布物にPythonは入りません。Pythonはビルドの道具と試験を動かすためだけに使います。`src-python/`のPythonバックエンドとその試験を動かすときだけ、`mise run setup:app`（`npm run setup-python`と同じbat）でアプリの依存を`.venv`に入れます。
 
-Windowsのビルドは、`build/speechcpp`がなければ固定版のspeech.cpp（約29 MB）を公式リリースから取得し、ハッシュを確かめてから同梱します。モデルの取得と本体のビルドは別の操作です。
+Windowsのビルドは、固定版のspeech.cpp（Vulkan版、約29 MB）を公式リリースから取得し、ハッシュを確かめてから同梱します。`build/speechcpp`に同じ版があれば取り直さず、別の版が残っていれば置き換えます（`speechcpp_bundle.py --replace`）。`build/`のほかのものには触れません。モデルの取得と本体のビルドは別の操作です。
 
 ## 開発時の起動
 
@@ -26,7 +26,7 @@ Windowsのビルドは、`build/speechcpp`がなければ固定版のspeech.cpp�
 npm run dev-fast
 ```
 
-`src-tauri/bin/_internal`を`build/`にあるもので用意し（`tools/app_resources.py stage --allow-missing`）、ViteとTauriを起動します。開発用のビルドは、speech.cppなどをチェックアウトの`build/`から読みます。`build/speechcpp`がないと音声サーバーは起動しませんが、アプリは起動します。
+`src-tauri/bin/_internal`を`build/`にあるもので用意し（`tools/app_resources.py stage --allow-missing`）、ViteとTauriを起動します。開発用のビルドは、speech.cppなどをチェックアウトの`build/`から読みます。`build/speechcpp`がないと音声サーバーは起動しませんが、アプリは起動します。Linuxでは`build/speechcpp-cpu`にCPU版を置くと、配布物と同じく2つのビルドから選びます。どちらか片方だけでも動きます。
 
 同梱する資源を変えたときは、次の方法で用意し直します。
 
@@ -50,7 +50,7 @@ npm run release-all
 | Windows標準版 | `VRCT-VOX.zip` |
 | Windows CUDA版 | `VRCT-VOX_cuda.zip` |
 | Windowsインストーラー | `src-tauri/target/release/bundle/nsis/VRCT-VOX_<version>_x64-setup.exe` |
-| Linux | `VRCT-VOX-<version>-linux-x64-vulkan-release.tar.gz`と同名の`.AppImage` |
+| Linux | `VRCT-VOX-<version>-linux-x64-release.tar.gz`と同名の`.AppImage`、`.deb`、`.rpm`。speech.cppのCPU版とVulkan版を両方入れる（0.4まではビルドごとに別の配布物） |
 
 WindowsのZIPには`vrct-vox.exe`と`_internal/`を収めます。ONNX Runtimeを動的にリンクするクレートがアプリに入った場合は、ビルドが`vrct-vox.exe`の隣に置いたONNX RuntimeとDirectMLのDLLも収めます。Linuxの実行名には`.exe`を付けません。配布物の作成時にはOCR重みなどの禁止資源を検査します。ソースツリー全体をそのまま配布ZIPにしないでください。
 
@@ -60,7 +60,8 @@ CUDA版は0.4までPythonバックエンドのためにCUDAのライブラリを
 
 | パス | 内容 |
 |---|---|
-| `_internal/build/speechcpp/` | speech.cppの実行ファイル、ライブラリ、`bundle.json`、ライセンス文 |
+| `_internal/build/speechcpp/` | speech.cppのVulkan版の実行ファイル、`bundle.json`、ライセンス文 |
+| `_internal/build/speechcpp-cpu/`（Linux） | speech.cppのCPU版の実行ファイル、`bundle.json`、ライセンス文。設定で「CPU」を選んだときと、「自動」でGPUを使えないときに動く |
 | `_internal/build/vrct-rvc-worker.exe` | 声質変換のworker |
 | `_internal/licenses/` | VRCT-VOXの`LICENSE`と`NOTICE.md`、Rustのクレートのライセンス文、NScurlのライセンス文 |
 

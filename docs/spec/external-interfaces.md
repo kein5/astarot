@@ -193,6 +193,8 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 
 同梱TTSサーバーの停止・異常終了は、起動ごとの識別子と、その実行を使うTTSの世代を照合して処理する。現在のTTSが使うサーバーが終了したときは、TTSをオフにして待機中・再生中の読み上げを取り消し、従来どおり音声の状態取得でUIに伝える。同じ実行の停止直後と後処理後に通知が重なっても、無効化とTTSの世代更新は一度だけ行う。古い実行からの遅れた通知で、別の接続先や新しいサーバー実行を使うTTSをオフにしない。
 
+同梱のspeech.cppは、Windowsでは`_internal/build/speechcpp`のVulkan版だけ、Linuxでは同じ場所のVulkan版と`_internal/build/speechcpp-cpu`のCPU版の2つである。起動のたびに、設定の推論デバイスでどちらを使うかを決める。`cpu`はCPU版（Windowsでは同じVulkan版を`--device cpu`で）、`gpu`とGPUの名前はVulkan版、`auto`はVulkan版の`speech devices --json`が動いて計算に使えるGPUを示せばVulkan版、そうでなければCPU版を使う。Vulkan版が起動しなかった（`libvulkan.so.1`がない）ために`auto`をCPU版で動かしたときは、`/get/data/speech_server_state`のそのプロファイルに`notice: "speech_server_cpu_fallback"`を付ける。`/get/data/speech_server_devices`は、GPUの行（`devices`）に加えて、CPUを何で動かすか（`cpu_build`: `separate`、`shared`、`missing`）とGPUの選択肢が起動できるか（`gpu_build`: `ready`、`unavailable`、`missing`）を返す。細かいところは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の「決まったこと」にある。
+
 同梱ASRサーバーは認識モデルとVADモデルを必ず読み込み、設定に話者分離モデルのパスがあるときだけそれも読み込む。起動の確認では`/v1/models`の内容を設定と照合する。話者分離モデルを指定したのにサーバーがそれを持たないとき、指定していないのに持つときは、`speech_server_model_tasks`で起動を失敗にする。
 
 同梱ASRサーバーも、起動ごとの識別子とマイク・スピーカーそれぞれの収録世代を照合する。終了した実行を使う収録だけを停止し、同じ終了通知を重ねて処理しない。古い実行の通知で新しい収録を止めない。異常終了で停止した場合は、従来どおり原因を通知する。
