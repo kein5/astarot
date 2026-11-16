@@ -115,14 +115,19 @@ struct DeviceStream {
 
 fn open_device(target: &DeviceTarget, loopback: bool) -> Result<DeviceStream> {
     use windows::core::HSTRING;
-    let _lock = audio_op_lock().lock();
-    let enumerator = enumerator()?;
-    let missing = |_| Error::runtime("asr_capture_endpoint_missing");
-    let device = match target {
-        DeviceTarget::EndpointId(id) => unsafe { enumerator.GetDevice(&HSTRING::from(id.as_str())) }.map_err(missing)?,
-        DeviceTarget::Identity(identity) => {
-            let flow = if loopback { windows::Win32::Media::Audio::eRender } else { eCapture };
-            find_by_identity(&enumerator, flow, identity).map_err(|_| Error::runtime("asr_capture_endpoint_missing"))?
+    // The shared lock covers finding the device only. Opening the stream can wait for the user
+    // to answer Windows' microphone permission; under the lock, the device lists, speech output
+    // and every other audio operation would wait as long. WASAPI's own objects are thread safe.
+    let device = {
+        let _lock = audio_op_lock().lock();
+        let enumerator = enumerator()?;
+        let missing = |_| Error::runtime("asr_capture_endpoint_missing");
+        match target {
+            DeviceTarget::EndpointId(id) => unsafe { enumerator.GetDevice(&HSTRING::from(id.as_str())) }.map_err(missing)?,
+            DeviceTarget::Identity(identity) => {
+                let flow = if loopback { windows::Win32::Media::Audio::eRender } else { eCapture };
+                find_by_identity(&enumerator, flow, identity).map_err(|_| Error::runtime("asr_capture_endpoint_missing"))?
+            }
         }
     };
     let failed = |_| Error::runtime("asr_capture_stream_create_failed");

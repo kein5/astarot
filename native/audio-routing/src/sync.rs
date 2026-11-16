@@ -61,7 +61,9 @@ impl Event {
 ///
 /// It stands in for the `pyaudio_op_lock` of the Python backend: every operation that
 /// opens, closes or inspects an OS audio endpoint runs under it, so that a device
-/// enumeration never overlaps a stream being opened.
+/// enumeration never overlaps a stream being opened. One exception: a WASAPI capture
+/// finds its device under it but opens the stream outside, since that can wait for the
+/// user to answer the microphone permission.
 #[derive(Debug, Default)]
 pub struct TimedLock {
     held: Mutex<bool>,
