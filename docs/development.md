@@ -39,7 +39,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 
 | ツール | 版 | 補足 |
 | --- | --- | --- |
-| Node.js | 22.15.0 | npmはNodeに付属するもの |
+| Node.js | 26.13.1 | npmはNodeに付属するもの |
 | Rust | 1.100.0 | rustupを通して入れる（profileはminimal、clippyとrustfmtを追加）。`rust-toolchain.toml` は置かない |
 | Python | 3.11.18 | `pyproject.toml` の `requires-python`（3.11）に合わせる。配布物のバックエンドもこのPythonから作る |
 | uv | 0.13.5 | |
