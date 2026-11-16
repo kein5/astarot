@@ -712,6 +712,22 @@ config_page:
             label: "カスタムWhisperサーバーのモデル"
         select_deepgram_model:
             label: "Deepgramのモデル"
+        whisper_filter:
+            title: "Whisperの認識結果のふるい分け"
+            status: "マイク {{mic_logprob}} / {{mic_no_speech}} · スピーカー {{speaker_logprob}} / {{speaker_no_speech}}"
+            desc: "Groq Whisper、OpenAI Whisper（whisper-1）、カスタムWhisperサーバーで使います。認識結果の区間ごとに確からしさと無音らしさを見て、しきい値を外れた区間を捨てます。ほかのエンジンには効きません。"
+            mic_avg_logprob:
+                label: "マイクの確からしさの下限"
+                desc: "区間の平均対数確率がこの値より低いと捨てます。0に近づけるほど厳しくなります。初期値は-0.8です。"
+            mic_no_speech_prob:
+                label: "マイクの無音らしさの上限"
+                desc: "区間が無音である確率がこの値より高いと捨てます。小さくするほど厳しくなります。初期値は0.6です。"
+            speaker_avg_logprob:
+                label: "スピーカーの確からしさの下限"
+                desc: "区間の平均対数確率がこの値より低いと捨てます。0に近づけるほど厳しくなります。初期値は-0.8です。"
+            speaker_no_speech_prob:
+                label: "スピーカーの無音らしさの上限"
+                desc: "区間が無音である確率がこの値より高いと捨てます。小さくするほど厳しくなります。初期値は0.6です。"
     vr:
         single_line: "一行"
         multi_lines: "複数行"

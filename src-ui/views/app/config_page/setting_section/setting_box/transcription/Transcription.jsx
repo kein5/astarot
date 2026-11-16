@@ -20,6 +20,7 @@ import {
     RadioButtonContainer,
     DropdownMenuContainer,
     AuthKeyContainer,
+    SliderContainer,
 } from "../_templates/Templates";
 
 import {
@@ -312,7 +313,46 @@ const CloudTranscription_Container = () => {
                     </SetupSection>
                 );
             })}
+            <WhisperSegmentFilter_Box />
         </div>
+    );
+};
+
+// Groq, OpenAI (whisper-1) and a Whisper server of your own return segments with two
+// scores; a segment below either threshold is dropped. Other engines ignore them.
+const WHISPER_FILTERS = [
+    { base: "MicAvgLogprob", key: "mic_avg_logprob", min: -2, max: 0, step: 0.05, labels: [-2, -1.5, -1, -0.5, 0] },
+    { base: "MicNoSpeechProb", key: "mic_no_speech_prob", min: 0, max: 1, step: 0.05, labels: [0, 0.25, 0.5, 0.75, 1] },
+    { base: "SpeakerAvgLogprob", key: "speaker_avg_logprob", min: -2, max: 0, step: 0.05, labels: [-2, -1.5, -1, -0.5, 0] },
+    { base: "SpeakerNoSpeechProb", key: "speaker_no_speech_prob", min: 0, max: 1, step: 0.05, labels: [0, 0.25, 0.5, 0.75, 1] },
+];
+
+const WhisperSegmentFilter_Box = () => {
+    const { t } = useI18n();
+    const transcription = useTranscription();
+    const value = base => transcription[`current${base}`].data;
+    return (
+        <SetupSection title={t("config_page.transcription.whisper_filter.title")}
+            status={t("config_page.transcription.whisper_filter.status", {
+                mic_logprob: value("MicAvgLogprob") ?? "-", mic_no_speech: value("MicNoSpeechProb") ?? "-",
+                speaker_logprob: value("SpeakerAvgLogprob") ?? "-", speaker_no_speech: value("SpeakerNoSpeechProb") ?? "-",
+            })}>
+            <Description text={t("config_page.transcription.whisper_filter.desc")} />
+            {WHISPER_FILTERS.map((filter, index) => (
+                <SliderContainer key={filter.key}
+                    label={t(`config_page.transcription.whisper_filter.${filter.key}.label`)}
+                    desc={t(`config_page.transcription.whisper_filter.${filter.key}.desc`)}
+                    state={transcription[`current${filter.base}`].state}
+                    variable={transcription[`current${filter.base}`].data}
+                    setterFunction={transcription[`set${filter.base}`]}
+                    min={filter.min}
+                    max={filter.max}
+                    step={filter.step}
+                    show_label_values={filter.labels}
+                    remove_border_bottom={index === WHISPER_FILTERS.length - 1}
+                />
+            ))}
+        </SetupSection>
     );
 };
 

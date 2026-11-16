@@ -712,6 +712,22 @@ config_page:
             label: "Custom Whisper server model"
         select_deepgram_model:
             label: "Deepgram model"
+        whisper_filter:
+            title: "Whisper result filtering"
+            status: "Mic {{mic_logprob}} / {{mic_no_speech}} · Speaker {{speaker_logprob}} / {{speaker_no_speech}}"
+            desc: "Used by Groq Whisper, OpenAI Whisper (whisper-1) and a custom Whisper server. Each recognized segment is scored for confidence and for silence, and a segment outside the thresholds is dropped. Other engines ignore these settings."
+            mic_avg_logprob:
+                label: "Mic minimum confidence"
+                desc: "A segment whose average log probability is below this value is dropped. Closer to 0 is stricter. The default is -0.8."
+            mic_no_speech_prob:
+                label: "Mic maximum silence"
+                desc: "A segment more likely than this to be silence is dropped. Lower is stricter. The default is 0.6."
+            speaker_avg_logprob:
+                label: "Speaker minimum confidence"
+                desc: "A segment whose average log probability is below this value is dropped. Closer to 0 is stricter. The default is -0.8."
+            speaker_no_speech_prob:
+                label: "Speaker maximum silence"
+                desc: "A segment more likely than this to be silence is dropped. Lower is stricter. The default is 0.6."
     vr:
         single_line: "Single line"
         multi_lines: "Multiple Lines"
