@@ -685,6 +685,27 @@ impl Core {
         ok(json!(false))
     }
 
+    /// `_leaveTranscriptionRoute` and an engine change on the recorder: what listens through
+    /// the engine that was selected stops, and the switches show off. Turning one on again
+    /// starts the newly selected engine. `realtime` is the route of the previous engine.
+    pub(crate) fn leave_transcription_route(&self, realtime: bool) {
+        let Some(core) = self.transcription.core() else { return };
+        if realtime {
+            for source in [Source::Mic, Source::Speaker] {
+                core.transcription.revoke(source);
+                core.stop_realtime_for_recorder(source);
+            }
+            return;
+        }
+        for source in [Source::Mic, Source::Speaker] {
+            if core.config().get_bool(flags(source).0) {
+                // The recorder stops as one, whatever the engine now is.
+                core.set_disable_transcription(source, &Value::Null);
+                core.run(200, &format!("/set/disable/transcription_{}", direction(source)), json!(false));
+            }
+        }
+    }
+
     /// Stops both recorders and realtime recognition at the end of the run.
     pub(crate) fn stop_transcription(&self) {
         if !self.close_realtime() {

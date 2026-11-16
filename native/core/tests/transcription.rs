@@ -185,6 +185,37 @@ fn the_volume_meter_reports_levels_and_needs_a_device() {
 }
 
 #[test]
+fn changing_the_engine_stops_the_recorder_that_used_the_old_one() {
+    // #394: the recorder kept sending to the engine it started with.
+    let run = start(json!({
+        "SELECTED_TRANSCRIPTION_ENGINE": "Groq_Whisper",
+        "TRANSCRIPTION_AUTH_KEYS": { "Groq_Whisper": KEY, "OpenAI_Whisper": KEY, "Custom_Whisper": null, "Deepgram": null },
+    }));
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/data/selected_transcription_engine", Some(json!("OpenAI_Whisper"))), "OpenAI_Whisper");
+    assert_eq!(run.heard(mark, "/set/disable/transcription_send")["result"], false);
+    eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+    // The speaker was off: it stays off and says nothing.
+    assert!(run.ui.on(mark, "/set/disable/transcription_receive").is_empty());
+
+    // On again: the newly selected engine hears it.
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let mark = run.ui.lines().len();
+    run.capture.hear(Source::Mic, &[speech(900), quiet(1200)]);
+    run.heard(mark, "/run/transcription_send_mic_message");
+    assert!(run.asr.requested("POST /openai/") >= 1);
+    assert_eq!(run.asr.requested("POST /groq/"), 0, "nothing went to the engine no longer selected");
+
+    // Choosing the same engine again leaves recognition running.
+    let mark = run.ui.lines().len();
+    run.ui.ok("/set/data/selected_transcription_engine", Some(json!("OpenAI_Whisper")));
+    assert_eq!(run.capture.running(Source::Mic), 1);
+    assert!(run.ui.on(mark, "/set/disable/transcription_send").is_empty());
+    run.ui.stop();
+}
+
+#[test]
 fn a_failing_engine_turns_recognition_off_with_its_code() {
     let run = start(json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google", "ENABLE_CHECK_ENERGY_SEND": false }));
     run.asr.behaviour.fail.store(true, Ordering::SeqCst);
