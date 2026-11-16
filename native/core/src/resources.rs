@@ -1,13 +1,14 @@
 //! Where the files shipped with the app are: speech.cpp, the helper programs, the license texts
-//! (`docs/voice-stack/core-integration.md`, 判断が要ること 7).
+//! (decision 7 in `docs/voice-stack/core-integration.md`).
 //!
 //! The packages keep them in a `_internal` folder, the name the Python sidecar's resources had,
 //! so that the installer's update step, which swaps that folder as a whole, also takes away the
 //! Python runtime of an older version:
 //!
-//! - beside the binary (the Windows installer and ZIP, the Linux tar.gz):
+//! - beside the binary (the Windows installer and ZIP, the Linux tar.gz, the deb and rpm in
+//!   `/opt/vrct-vox`):
 //!   `<app>/_internal/build/speechcpp`
-//! - in the AppImage and the Linux packages, where the binary is `usr/bin/vrct-vox`:
+//! - in the AppImage, where the binary is `usr/bin/vrct-vox`:
 //!   `usr/lib/vrct-vox/_internal/build/speechcpp`
 //! - a development checkout keeps them in `build/` at its root; a debug build of the app names
 //!   that root with [`use_development_checkout`].
@@ -37,7 +38,7 @@ pub fn folders(app_dir: &Path) -> Vec<PathBuf> {
     }
     folders.push(app_dir.join(FOLDER));
     if cfg!(target_os = "linux") {
-        // usr/bin/vrct-vox with its files in usr/lib/vrct-vox (AppImage, deb, rpm).
+        // The AppImage: usr/bin/vrct-vox with its files in usr/lib/vrct-vox.
         if let Some(prefix) = app_dir.parent() {
             folders.push(prefix.join("lib").join("vrct-vox").join(FOLDER));
         }
