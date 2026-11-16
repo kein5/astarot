@@ -22,7 +22,8 @@ const contrast = (fg, bg) => {
 const token = (css, pattern) => { const match = css.match(pattern); assert.ok(match, String(pattern)); return match[1]; };
 const bg = /background(?:-color)?:\s*var\((--[\w-]+)\)/;
 const fg = /color:\s*var\((--[\w-]+)\)/;
-const canvas = token(read("MainPage.module.scss"), bg);
+// MainPage is in vanilla-extract: `backgroundColor: vars.vox_canvas` is `var(--vox_canvas)`.
+const canvas = `--${token(read("MainPage.css.ts"), /backgroundColor:\s*vars\.(\w+)/)}`;
 const top = read("main_section/top_bar/right_side_components/_buttons/OpenQuickSettingButton.module.scss");
 const close = read("../others/modal_controller/ModalController.module.scss").split(".close_button {")[1];
 const off = token(top.split("&.is_disabled {")[1].split("}")[0], fg);

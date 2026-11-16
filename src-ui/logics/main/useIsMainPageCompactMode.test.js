@@ -19,7 +19,7 @@ async function fixture(saved, context) {
         "@store": store, "@useStdoutToPython": { useStdoutToPython: () => ({
             asyncStdoutToPython: endpoint => requests.push(endpoint) }) },
     });
-    const { SidebarSection } = await loadModule(new URL("../../views/app/main_page/sidebar_section/SidebarSection.jsx", import.meta.url), runtime, {
+    const { SidebarSection } = await loadModule(new URL("../../views/app/main_page/sidebar_section/SidebarSection.tsx", import.meta.url), runtime, {
         "@store": store, "@logics_main": logic, "./logo/Logo": { Logo: "logo" },
         "./main_function_switch/MainFunctionSwitch": { MainFunctionSwitch: "switches" },
         "./language_settings/LanguageSettings": { LanguageSettings: "languages" },
@@ -74,22 +74,22 @@ for (const saved of [false, true]) {
         assert.equal(s.document.added.length, 0, "the icon rail listens to nothing");
         s.render().button.props.onClick();
         const opened = s.render();
-        assert.match(opened.sidebar.props.className, /is_overlay/);
-        const inside = { closest: () => null };
+        assert.match(opened.sidebar.props.className, /isOverlay/);
+        const inside = { nodeType: 1, closest: () => null };
         opened.sidebar.ref.current = { contains: target => target === inside };
         s.document.dispatch("pointerdown", { target: inside });
         assert.equal(s.render().button.props["aria-expanded"], true, "a press inside the rail keeps it open");
         // The toggle handles its own press; closing here as well would reopen it.
-        s.document.dispatch("pointerdown", { target: { closest: selector => selector === "[data-sidebar-toggle]" ? {} : null } });
+        s.document.dispatch("pointerdown", { target: { nodeType: 1, closest: selector => selector === "[data-sidebar-toggle]" ? {} : null } });
         assert.equal(s.render().button.props["aria-expanded"], true);
         s.document.dispatch("keydown", { key: "Escape", defaultPrevented: false });
         assert.equal(s.render().button.props["aria-expanded"], false);
         assert.deepEqual(s.document.focused, ["[data-sidebar-toggle]"], "focus goes back to the toggle");
-        assert.doesNotMatch(s.render().sidebar.props.className, /is_overlay/);
+        assert.doesNotMatch(s.render().sidebar.props.className, /isOverlay/);
 
         s.render().button.props.onClick();
         s.render();
-        s.document.dispatch("pointerdown", { target: { closest: () => null } });
+        s.document.dispatch("pointerdown", { target: { nodeType: 1, closest: () => null } });
         assert.equal(s.render().button.props["aria-expanded"], false, "a press on the conversation closes it");
 
         // The opened rail carries its own close button, since the toggle is under it.
@@ -103,6 +103,6 @@ for (const saved of [false, true]) {
 
         // A wide window has no overlay, whatever the saved preference.
         s.setNarrow(false);
-        assert.doesNotMatch(s.render().sidebar.props.className ?? "", /is_overlay/);
+        assert.doesNotMatch(s.render().sidebar.props.className ?? "", /isOverlay/);
     });
 }

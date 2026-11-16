@@ -1,6 +1,6 @@
 import clsx from "clsx";
-import styles from "./MainPage.module.scss";
-import { SidebarSection } from "./sidebar_section/SidebarSection";
+import * as styles from "./MainPage.css.ts";
+import { SidebarSection } from "./sidebar_section/SidebarSection.tsx";
 import { MainSection } from "./main_section/MainSection";
 import { useIsOpenedConfigPage } from "@logics_common";
 import { StartupContext } from "./startupContext";
@@ -10,15 +10,17 @@ import { StartupProgress } from "./main_section/message_container/log_box/Startu
 // input: inert removes it from focus, pointer and the accessibility tree, and
 // data-starting turns what the engine has not sent yet ([data-skeleton]) into
 // placeholders of the same size. StartupAnnouncer, outside it, tells screen readers.
+// The styles are vanilla-extract (ADR-010); the view stays JavaScript until the store
+// hooks it reads (useIsOpenedConfigPage) have types.
 export const MainPage = ({ focusFallback, locked = false }) => {
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
     const hidden = currentIsOpenedConfigPage.data === true;
 
     return (
         <div ref={focusFallback} tabIndex={-1} inert={hidden || locked ? "" : undefined} aria-hidden={hidden}
-            aria-busy={locked || undefined} data-starting={locked ? "" : undefined} className={clsx(styles.page, styles.main_page, {
-            [styles.show_config]: currentIsOpenedConfigPage.data,
-            [styles.show_main]: !currentIsOpenedConfigPage.data
+            aria-busy={locked || undefined} data-starting={locked ? "" : undefined} className={clsx(styles.page, {
+            [styles.showConfig]: hidden,
+            [styles.showMain]: !hidden,
         })}>
             <StartupContext.Provider value={locked ? <StartupProgress /> : null}>
                 <div className={styles.container}>
