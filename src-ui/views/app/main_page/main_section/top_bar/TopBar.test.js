@@ -199,11 +199,14 @@ test("the settings bar draws the same actions without the shortest words", async
 test("the main bar's stylesheet hides the long words and swaps to the shortest when narrow; strings exist in en and ja", () => {
     const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
     assert.match(css, /\.long, \.tiny \{ display: none; \}/);
-    const narrow = css.split("@mixin narrow_bar")[1].split("@media")[0];
+    const narrow = css.split("@mixin narrow_bar")[1].split("@container")[0];
     assert.match(narrow, /\.short \{ display: none; \}/);
     assert.match(narrow, /\.tiny \{ display: inline; \}/);
-    assert.match(css, /@media \(max-width: 800px\) \{ @include narrow_bar; \}/);
-    assert.match(css, /:global\(html\[data-narrow\]\) \{ @include narrow_bar; \}/);
+    // The conversation column's width decides, not the window's (a wide rail leaves less room).
+    assert.match(css, /@container main_section \(max-width: 64rem\) \{ @include narrow_bar; \}/);
+    assert.doesNotMatch(css, /@media \(max-width: 800px\)|data-narrow/);
+    const menu = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
+    assert.match(menu, /@container main_section \(max-width: 64rem\) \{ @include narrow_menu; \}/);
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
         for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof strings.main_page[key], "string");

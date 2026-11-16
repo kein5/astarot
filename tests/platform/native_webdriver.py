@@ -211,7 +211,7 @@ class NativeWebDriver:
     def open_voice_page(self, tab, selector):
         self.wait("return innerWidth >= 500 && innerHeight >= 300")
         self.assert_rendered()
-        if not self.evaluate("return document.querySelector('[class*=show_config]') !== null"):
+        if not self.evaluate("return document.querySelector('[data-main-page][data-showing=config]') !== null"):
             self.open_settings()
         if not self.evaluate(f"return document.querySelector({json.dumps(selector)}) !== null"):
             element = self.evaluate("return [...document.querySelectorAll('button[aria-label], [role=button]')].find(e => e.getAttribute('aria-label') === arguments[0] && e.getClientRects().length);", tab)
@@ -242,8 +242,8 @@ class NativeWebDriver:
     # slides it back down over the settings page.
     def close_settings(self):
         self.click('button[class^="_back_"]')
-        self.wait("const page = document.querySelector('[class*=_main_page_]');"
-                  " return page.matches('[class*=_show_main_]') && Math.abs(new DOMMatrix(getComputedStyle(page).transform).m42) < 1;")
+        self.wait("const page = document.querySelector('[data-main-page]');"
+                  " return page.matches('[data-showing=main]') && Math.abs(new DOMMatrix(getComputedStyle(page).transform).m42) < 1;")
 
     def open_settings(self):
         # A startup notice (toast, bottom left) covers this button until it
@@ -255,8 +255,8 @@ class NativeWebDriver:
                   timeout=30)
         self.click('[data-open-settings]')
         # Settings are usable once the main page has finished sliding away.
-        self.wait("const page = document.querySelector('[class*=_main_page_]');"
-                  " return page.matches('[class*=_show_config_]') && new DOMMatrix(getComputedStyle(page).transform).m42 <= 1 - page.offsetHeight;")
+        self.wait("const page = document.querySelector('[data-main-page]');"
+                  " return page.matches('[data-showing=config]') && new DOMMatrix(getComputedStyle(page).transform).m42 <= 1 - page.offsetHeight;")
 
     def assert_rendered(self):
         """Observe real frame delivery and a nonblank native WebDriver image."""

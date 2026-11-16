@@ -3,6 +3,8 @@
     display: flex;
     justify-content: end;
     align-items: center;
+    gap: .2rem;
+    padding: 0 .2rem;
 }
 
 .remove_target_language_button, .add_target_language_button {
@@ -29,12 +31,9 @@
     }
 }
 
-.remove_target_language_button {
-    border-radius: 0 0 0 0.4rem;
-
-}
-.add_target_language_button {
-    border-radius: 0 0 0.4rem 0;
+.remove_target_language_button, .add_target_language_button {
+    border-radius: 0.4rem;
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .1rem; }
 }
 
 .remove_svg, .add_svg {

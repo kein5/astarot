@@ -1724,6 +1724,7 @@ model_downloads:
 
 studio:
     toggle_sidebar: "サイドバーを切り替える"
+    close_sidebar: "サイドバーを閉じる"
     empty_title: "ここから会話を始めましょう"
     empty_description: "下の入力欄にメッセージを入力します。翻訳・文字起こし・音声は左のメニューで切り替えられます。"
     empty_vrchat_hint: "VRChatに表示されないときは、VRChatのアクションメニューで「Options」→「OSC」を「Enabled」にしてください。"

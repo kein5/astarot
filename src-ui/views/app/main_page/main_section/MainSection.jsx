@@ -1,5 +1,5 @@
 import { useI18n } from "@useI18n";
-import styles from "./MainSection.module.scss";
+import * as styles from "./MainSection.css.ts";
 
 import { TopBar } from "./top_bar/TopBar";
 import { MessageContainer } from "./message_container/MessageContainer";
@@ -10,6 +10,9 @@ import { IoFlowPanel } from "./io_flow_panel/IoFlowPanel";
 import { useStore_IsOpenedLanguageSelector } from "@store";
 import { useLanguageSettings } from "@logics_main";
 import { useEffect } from "react";
+
+// The styles are vanilla-extract (ADR-010); the view stays JavaScript until the store
+// hooks it reads (useStore_IsOpenedLanguageSelector, useLanguageSettings) have types.
 export const MainSection = () => {
     return (
         <div className={styles.container}>
