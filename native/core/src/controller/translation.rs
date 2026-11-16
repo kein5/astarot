@@ -6,10 +6,12 @@
 //! `setEnableTranslation`, `changeToCTranslate2Process` and the engine part of `init`;
 //! `model.py`: `getTranslate`, `getInputTranslate`, `getOutputTranslate` and the history).
 //!
-//! The provider clients are in `native/translation`, one module per provider and no common
-//! layer; the branches that choose the module are here ([`Translators::check`],
-//! [`Translators::models`], [`Translators::translate`]), as `translation_translator.py` chose
-//! the client. Google Cloud Translation and Papago (NAVER Cloud Platform) are core additions
+//! The provider clients are in `native/translation`: one unit struct per provider implementing
+//! the `Api` trait, with the shared requests written once as default methods (zero-cost
+//! abstraction: generics and static dispatch, no `dyn`). [`Translators::check`],
+//! [`Translators::models`] and [`Translators::translate`] pass the engine named in the settings
+//! to `Provider::check` and the others, which reach the provider's type with one `match` (as
+//! `translation_translator.py` chose the client). Google Cloud Translation and Papago (NAVER Cloud Platform) are core additions
 //! (#277); the Ollama URL is a core addition (`OLLAMA_URL`). The local translation is a
 //! [`LocalTranslation`] given by [`super::Services::local_translation`]: ONNX Runtime
 //! (`native/translate-onnx`) when the core is built with the `onnx-translation` feature, else
@@ -31,10 +33,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use vrct_translation::http::Transport;
 use vrct_translation::prompt::HistoryItem;
-use vrct_translation::providers::{
-    self as providers, deepl, gemini, google_cloud, groq, lmstudio, ollama, openai, openai_compatible, openrouter, papago,
-    plamo, Endpoints, Provider,
-};
+use vrct_translation::providers::{self as providers, deepl, Access, Endpoints, Provider};
 
 // ------------------------------------------------------------------------- local translation
 
@@ -323,6 +322,17 @@ pub(crate) struct Session {
     model: Option<String>,
 }
 
+impl Session {
+    fn access(&self) -> Access<'_> {
+        Access {
+            base: &self.base,
+            key: self.key.as_deref().unwrap_or(""),
+            client_id: self.client_id.as_deref().unwrap_or(""),
+            model: self.model.as_deref(),
+        }
+    }
+}
+
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Session")
@@ -383,87 +393,37 @@ impl Translators {
         }
     }
 
-    // ------------------------------------------------------------ one branch per provider
+    // ------------------------------------------------------------ the provider calls
+
+    // The provider is named at run time (the settings); `Provider::check` and the others turn
+    // the name into the provider's static type with one `match` in `vrct_translation` and call
+    // its `Api` methods directly (static dispatch, no `dyn`).
 
     /// Checks the key (or that the server answers) and lists the models: `setAuthKey` and the
     /// first `getModelList` of each Python client. The machine translation APIs list nothing.
-    fn check(&self, provider: Provider, base: &str, key: &str, client_id: &str) -> Result<Vec<String>, providers::Error> {
-        let t = &self.transport;
-        match provider {
-            Provider::DeepL => deepl::check(t, base, key).map(|()| Vec::new()),
-            Provider::GoogleCloud => google_cloud::check(t, base, key).map(|()| Vec::new()),
-            Provider::Papago => papago::check(t, base, client_id, key).map(|()| Vec::new()),
-            Provider::Plamo => plamo::models(t, base, key),
-            Provider::Gemini => gemini::models(t, base, key),
-            Provider::OpenAi => openai::models(t, base, key),
-            Provider::Groq => groq::models(t, base, key),
-            Provider::OpenRouter => {
-                openrouter::check(t, base, key)?;
-                openrouter::models(t, base, key)
-            }
-            Provider::OpenAiCompatible => openai_compatible::models(t, base, key),
-            Provider::LmStudio => {
-                lmstudio::check(t, base)?;
-                Ok(lmstudio::models(t, base))
-            }
-            Provider::Ollama => {
-                ollama::check(t, base)?;
-                Ok(ollama::models(t, base))
-            }
-        }
+    fn check(&self, provider: Provider, access: &Access<'_>) -> Result<Vec<String>, providers::Error> {
+        provider.check(&self.transport, access)
     }
 
     /// Whether LM Studio or Ollama answers at an address.
     fn server_answers(&self, provider: Provider, base: &str) -> bool {
-        match provider {
-            Provider::LmStudio => lmstudio::check(&self.transport, base).is_ok(),
-            Provider::Ollama => ollama::check(&self.transport, base).is_ok(),
-            _ => false,
-        }
+        provider.local() && provider.reach(&self.transport, &Access::at(base)).is_ok()
     }
 
     /// The models of a live session, asked again (`getModelList`); none when they cannot be read.
     fn models(&self, provider: Provider, session: &Session) -> Vec<String> {
-        let (t, base, key) = (&self.transport, session.base.as_str(), session.key.as_deref().unwrap_or(""));
-        match provider {
-            Provider::DeepL | Provider::GoogleCloud | Provider::Papago => Vec::new(),
-            Provider::Plamo => plamo::models(t, base, key).unwrap_or_default(),
-            Provider::Gemini => gemini::models(t, base, key).unwrap_or_default(),
-            Provider::OpenAi => openai::models(t, base, key).unwrap_or_default(),
-            Provider::Groq => groq::models(t, base, key).unwrap_or_default(),
-            Provider::OpenRouter => openrouter::models(t, base, key).unwrap_or_default(),
-            Provider::OpenAiCompatible => openai_compatible::models(t, base, key).unwrap_or_default(),
-            Provider::LmStudio => lmstudio::models(t, base),
-            Provider::Ollama => ollama::models(t, base),
-        }
+        provider.models(&self.transport, &session.access())
     }
 
-    /// Translates one text (`Translator.translate`, one branch per engine). Codes as the
-    /// engine's language table gives them.
+    /// Translates one text (`Translator.translate`). Codes as the engine's language table gives
+    /// them.
     fn translate(
         &self,
         provider: Provider,
         session: &Session,
         chat: &providers::Translation<'_>,
     ) -> Result<String, providers::Error> {
-        let (t, base, key) = (&self.transport, session.base.as_str(), session.key.as_deref().unwrap_or(""));
-        let model = || session.model.as_deref().ok_or(providers::Error::UnknownModel);
-        let (text, source, target) = (chat.text, chat.source, chat.target);
-        match provider {
-            Provider::DeepL => deepl::translate(t, base, key, text, source, target),
-            Provider::GoogleCloud => google_cloud::translate(t, base, key, text, source, target),
-            Provider::Papago => {
-                papago::translate(t, base, session.client_id.as_deref().unwrap_or(""), key, text, source, target)
-            }
-            Provider::Plamo => plamo::translate(t, base, key, model()?, chat),
-            Provider::Gemini => gemini::translate(t, base, key, model()?, chat),
-            Provider::OpenAi => openai::translate(t, base, key, model()?, chat),
-            Provider::Groq => groq::translate(t, base, key, model()?, chat),
-            Provider::OpenRouter => openrouter::translate(t, base, key, model()?, chat),
-            Provider::OpenAiCompatible => openai_compatible::translate(t, base, key, model()?, chat),
-            Provider::LmStudio => lmstudio::translate(t, base, model()?, chat),
-            Provider::Ollama => ollama::translate(t, base, model()?, chat),
-        }
+        provider.translate(&self.transport, &session.access(), chat)
     }
 
     /// A provider checked and ready (`Translator.prepareCredential`): the saved model when the
@@ -476,7 +436,13 @@ impl Translators {
         client_id: Option<&str>,
         selected: Option<&str>,
     ) -> Result<Connected, providers::Error> {
-        let models = self.check(provider, base, key.unwrap_or(""), client_id.unwrap_or(""))?;
+        let access = Access {
+            base,
+            key: key.unwrap_or(""),
+            client_id: client_id.unwrap_or(""),
+            model: None,
+        };
+        let models = self.check(provider, &access)?;
         let model = if provider.without_models() { None } else { Some(providers::choose_model(&models, selected)?) };
         let session = Session {
             base: base.to_string(),

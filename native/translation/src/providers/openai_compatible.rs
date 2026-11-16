@@ -3,16 +3,15 @@
 //!
 //! The key is checked by listing the models at the saved URL. Every model is kept except those
 //! whose id (lower-cased) has a word the Python client left out. Translation is one Chat
-//! Completions request. A cloud address gets the cloud waits and one retry, as in Python; an
-//! address on this PC or the LAN ([`crate::http::is_local_host`]) gets the waits of LM Studio
-//! and no retry, because such a server may first load its model.
+//! Completions request; a reply cut by `max_output_tokens` also counts as no translation. A
+//! cloud address gets the cloud waits and one retry, as in Python; an address on this PC or the
+//! LAN ([`crate::http::is_local_host`]) gets the waits of LM Studio and no retry, because such a
+//! server may first load its model.
 
-use super::{
-    checked, contains_any, join, json_of, reply_text, retry_once, Error, Translation, CLOUD_CHAT, DISCOVERY, LOCAL_CHAT,
-};
-use crate::http::{is_local_host, Request, Transport, Url};
-use crate::prompt;
-use serde_json::json;
+use super::chat::{id_without, ChatCompletions};
+use super::{Access, Api, Error, Provider, Translation};
+use crate::http::{is_local_host, Transport, Url};
+use serde_json::Value;
 
 /// `OPENAI_COMPATIBLE_URL` of a fresh start.
 pub const DEFAULT_URL: &str = "https://api.openai.com/v1";
@@ -32,51 +31,36 @@ const EXCLUDED: [&str; 12] = [
     "rerank",
 ];
 
-/// The models fit for translation, sorted; the answer also checks the key.
-pub fn models(transport: &Transport, base: &str, key: &str) -> Result<Vec<String>, Error> {
-    let url = join(base, "/models");
-    let request = Request::get(&url).header("Authorization", format!("Bearer {key}"));
-    let body = json_of(&checked(transport(&request, DISCOVERY)?)?)?;
-    let mut models: Vec<String> = body["data"]
-        .as_array()
-        .ok_or(Error::Answer)?
-        .iter()
-        .filter_map(|m| m["id"].as_str())
-        .filter(|id| !contains_any(&id.to_lowercase(), &EXCLUDED))
-        .map(str::to_string)
-        .collect();
-    models.sort();
-    Ok(models)
-}
-
 /// Whether the endpoint is on this PC or the LAN.
 pub fn is_local(base: &str) -> bool {
     Url::parse(base).is_ok_and(|url| is_local_host(&url.host))
 }
 
-/// Translates one text with a model.
-pub fn translate(transport: &Transport, base: &str, key: &str, model: &str, t: &Translation<'_>) -> Result<String, Error> {
-    let url = join(base, "/chat/completions");
-    let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history);
-    let body = json!({
-        "model": model,
-        "messages": [{ "role": "system", "content": system }, { "role": "user", "content": t.text }],
-        "stream": false,
-    });
-    let local = is_local(base);
-    let once = || {
-        let request = Request::post_json(&url, &body).header("Authorization", format!("Bearer {key}"));
-        let answer = json_of(&checked(transport(&request, if local { LOCAL_CHAT } else { CLOUD_CHAT })?)?)?;
-        let choice = &answer["choices"][0];
-        if choice["finish_reason"] == "length" || answer["incomplete_details"]["reason"] == "max_output_tokens" {
-            return Ok(String::new());
-        }
-        if choice.is_null() {
-            return Err(Error::Answer);
-        }
-        Ok(reply_text(&choice["message"]["content"]))
-    };
-    if local { once() } else { retry_once(once) }
+pub struct OpenAiCompatible;
+
+impl ChatCompletions for OpenAiCompatible {
+    const INCOMPLETE_DETAILS: bool = true;
+
+    fn keep(model: &Value) -> Option<String> {
+        id_without(model, &EXCLUDED)
+    }
+}
+
+impl Api for OpenAiCompatible {
+    const PROVIDER: Provider = Provider::OpenAiCompatible;
+    const ENGINE: &'static str = "OpenAI_Compatible";
+
+    fn local(base: &str) -> bool {
+        is_local(base)
+    }
+
+    fn list(transport: &Transport, a: &Access<'_>) -> Result<Vec<String>, Error> {
+        Self::list_models(transport, a)
+    }
+
+    fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
+        Self::chat(transport, a, t)
+    }
 }
 
 #[cfg(test)]

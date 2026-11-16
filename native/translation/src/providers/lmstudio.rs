@@ -5,51 +5,43 @@
 //! is one Chat Completions request with the long local wait and no retry. LM Studio takes any
 //! key; the LangChain client sent `lmstudio`, and so does this one.
 
-use super::{checked, join, json_of, reply_text, Error, Translation, LOCAL_CHAT, LOCAL_PROBE};
+use super::chat::ChatCompletions;
+use super::{join, listed, Access, Api, Error, Provider, Translation, LOCAL_PROBE};
 use crate::http::{Request, Transport};
-use crate::prompt;
-use serde_json::json;
 
 /// `LMSTUDIO_URL` of a fresh start.
 pub const DEFAULT_URL: &str = "http://127.0.0.1:1234/v1";
 
-/// Whether the server answers.
-pub fn check(transport: &Transport, base: &str) -> Result<(), Error> {
-    let url = join(base, "/models");
-    let response = transport(&Request::get(&url), LOCAL_PROBE)?;
-    if response.status == 200 { Ok(()) } else { Err(Error::Status(response.status)) }
+pub struct LmStudio;
+
+impl ChatCompletions for LmStudio {
+    fn authorization(_key: &str) -> String {
+        "Bearer lmstudio".into()
+    }
 }
 
-/// The models, sorted; none when the server cannot be read.
-pub fn models(transport: &Transport, base: &str) -> Vec<String> {
-    let url = join(base, "/models");
-    let listed = transport(&Request::get(&url), LOCAL_PROBE)
-        .ok()
-        .and_then(|r| r.json())
-        .and_then(|body| body["data"].as_array().cloned())
-        .unwrap_or_default();
-    let mut models: Vec<String> = listed.iter().filter_map(|m| m["id"].as_str().map(str::to_string)).collect();
-    models.sort();
-    models
-}
+impl Api for LmStudio {
+    const PROVIDER: Provider = Provider::LmStudio;
+    const ENGINE: &'static str = "LMStudio";
+    const LOCAL: bool = true;
 
-/// Translates one text with a model.
-pub fn translate(transport: &Transport, base: &str, model: &str, t: &Translation<'_>) -> Result<String, Error> {
-    let url = join(base, "/chat/completions");
-    let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history);
-    let body = json!({
-        "model": model,
-        "messages": [{ "role": "system", "content": system }, { "role": "user", "content": t.text }],
-        "stream": false,
-    });
-    let request = Request::post_json(&url, &body).header("Authorization", "Bearer lmstudio");
-    let answer = json_of(&checked(transport(&request, LOCAL_CHAT)?)?)?;
-    let choice = &answer["choices"][0];
-    if choice["finish_reason"] == "length" {
-        return Ok(String::new());
+    /// Whether the server answers.
+    fn reach(transport: &Transport, a: &Access<'_>) -> Result<(), Error> {
+        let url = join(a.base, "/models");
+        let response = transport(&Request::get(&url), LOCAL_PROBE)?;
+        if response.status == 200 {
+            Ok(())
+        } else {
+            Err(Error::Status(response.status))
+        }
     }
-    if choice.is_null() {
-        return Err(Error::Answer);
+
+    /// Every listed model, without a key; none when the server cannot be read.
+    fn list(transport: &Transport, a: &Access<'_>) -> Result<Vec<String>, Error> {
+        Ok(listed(transport, &join(a.base, "/models"), LOCAL_PROBE, "data", "id"))
     }
-    Ok(reply_text(&choice["message"]["content"]))
+
+    fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
+        Self::chat(transport, a, t)
+    }
 }
