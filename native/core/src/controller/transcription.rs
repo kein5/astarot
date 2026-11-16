@@ -349,6 +349,9 @@ impl Core {
             record_timeout: number("RECORD_TIMEOUT").min(phrase_timeout),
             phrase_timeout,
             max_phrases: number("MAX_PHRASES").max(0.0) as usize,
+            // The switch takes effect at the next start, as in Python. Without a VAD engine the
+            // saved switch is kept and the energy listener cuts phrases.
+            vad: config.get_bool(&format!("{}_ENABLE_VAD", upper(source))).then(|| self.services().vad.clone()).flatten(),
         }
     }
 
@@ -682,6 +685,27 @@ impl Core {
         let _ = self.config().set(key, json!(false));
         let _ = self.reconfigure(source, None, Some(false), None, None);
         ok(json!(false))
+    }
+
+    /// `_leaveTranscriptionRoute` and an engine change on the recorder: what listens through
+    /// the engine that was selected stops, and the switches show off. Turning one on again
+    /// starts the newly selected engine. `realtime` is the route of the previous engine.
+    pub(crate) fn leave_transcription_route(&self, realtime: bool) {
+        let Some(core) = self.transcription.core() else { return };
+        if realtime {
+            for source in [Source::Mic, Source::Speaker] {
+                core.transcription.revoke(source);
+                core.stop_realtime_for_recorder(source);
+            }
+            return;
+        }
+        for source in [Source::Mic, Source::Speaker] {
+            if core.config().get_bool(flags(source).0) {
+                // The recorder stops as one, whatever the engine now is.
+                core.set_disable_transcription(source, &Value::Null);
+                core.run(200, &format!("/set/disable/transcription_{}", direction(source)), json!(false));
+            }
+        }
     }
 
     /// Stops both recorders and realtime recognition at the end of the run.

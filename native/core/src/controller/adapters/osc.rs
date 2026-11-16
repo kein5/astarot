@@ -217,6 +217,16 @@ impl Adapters {
         }
     }
 
+    /// The saved destination could not be opened at start-up: the UI hears it on the
+    /// destination's endpoint with the address now in use (or still saved, when even this PC
+    /// could not be opened), as a refused change would tell it.
+    pub(super) fn notify_osc_startup(&self) {
+        if self.osc_unopened.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            let body = crate::errors::ErrorReply::new("VALIDATION_CANNOT_SET_IP", self.config.get("OSC_IP_ADDRESS")).into_body();
+            self.run(400, "/set/data/osc_ip_address", body);
+        }
+    }
+
     /// `_publishOscQueryReadiness`: tells the UI whether receiving and OSCQuery run. When they do
     /// not and mute sync was on, the microphone's recognition is turned off first and then sync,
     /// so losing sync never lets a private microphone through.

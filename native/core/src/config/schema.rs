@@ -604,7 +604,7 @@ pub fn keys() -> Vec<Key> {
         key("SEND_MESSAGE_FORMAT_PARTS", message_format()),
         key("RECEIVED_MESSAGE_FORMAT_PARTS", message_format()),
         key("VOICE_SETTINGS", validated(tts_settings)),
-        key("DIRECT_VOICE_SETTINGS", validated(|v, _| voice_settings::normalize_direct(v))),
+        key("DIRECT_VOICE_SETTINGS", validated(|v, _| voice_settings::load_direct(v))),
         key("REALTIME_ASR_SETTINGS", validated(|v, _| voice_settings::normalize_realtime(v).ok())),
         key("SPEECH_SERVER_SETTINGS", validated(|v, _| vrct_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
         key("WEBSOCKET_SERVER", b()),

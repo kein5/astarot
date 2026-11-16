@@ -217,6 +217,9 @@ pub struct Services {
     pub transcription_capture: TranscriptionCapture,
     /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
     pub transcription_endpoints: vrct_transcription::providers::Endpoints,
+    /// The VAD engine the recorders use while `*_ENABLE_VAD` is on: none in this build
+    /// ([`vrct_transcription::vad::bundled`], decision 13). Tests give a fake.
+    pub vad: Option<vrct_transcription::vad::Vad>,
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
     pub voice: Arc<dyn voice::VoicePlatform>,
@@ -261,6 +264,7 @@ impl Default for Services {
             software_updates: Arc::new(updates::Disabled),
             transcription_capture: Arc::new(default_transcription_capture),
             transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
+            vad: vrct_transcription::vad::bundled(),
             voice: Arc::new(voice::NativeVoice),
             secret_store: Arc::new(crate::config::secrets::default_store),
         }

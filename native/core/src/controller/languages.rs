@@ -318,10 +318,16 @@ impl Core {
     pub fn update_transcription_engine(&self, requested: Option<Value>) {
         let config = self.config();
         let previous = config.get("SELECTED_TRANSCRIPTION_ENGINE");
+        let previous_realtime = self.realtime_toggles();
         if let Some(requested) = requested {
             let _ = config.set("SELECTED_TRANSCRIPTION_ENGINE", requested);
         }
         let current = config.get("SELECTED_TRANSCRIPTION_ENGINE");
+        // What listens through the engine that is no longer selected stops (#394). Python
+        // stopped it only when the route changed; the recorder also kept its old engine.
+        if self.realtime_toggles() != previous_realtime || (current != previous && !previous_realtime) {
+            self.leave_transcription_route(previous_realtime);
+        }
         if current != previous {
             self.fallback_unsupported_transcription_languages(current.as_str().unwrap_or(""));
             self.notify("selectable_language_list", json!(self.language_and_country_list()));

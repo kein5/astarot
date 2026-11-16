@@ -117,7 +117,7 @@
 ## UC-11 モデルを取得する
 
 - きっかけ: TTS、音声認識、RVCのページ、チャット読み取りのページで「取得内容を確認」を押す。
-- 主な流れ: 提供元、サイズ、ライセンス、保存先を見て、同意にチェックして開始する。進み具合を表示し、完了後に検証する。使うモデルとして反映するのは別の操作である。WindowsとLinux（x86-64）では、RVCとSeed-VCの実行環境も同じ流れで取得する。中止や失敗のあとは、終わった手順を飛ばして再開する。
+- 主な流れ: 提供元、サイズ、ライセンス、保存先を見て、同意にチェックして開始する。進み具合を表示し、完了後に検証する。使うモデルとして反映するのは別の操作である。WindowsとLinux（x86-64）では、RVCの実行環境も同じ流れで取得する（Seed-VCはPythonのバックエンドとともに外した）。中止や失敗のあとは、終わった手順を飛ばして再開する。
 - 自分のモデル: カタログのまとまりの下で「自分のモデルを登録」を開き、名前とファイルのパスを入れる（ファイルを落としてもよい）。登録したモデルは公式のカードと同じ一覧に並び、「このモデルを使う」で切り替える。切り替えは取得したモデルの適用と同じく、保存済みの値の照合と対象の停止を確かめてから、パスだけを保存する。ファイルがない、または登録のあとに変わったときは、そう表示して切り替えない。登録の解除はファイルを消さない（#403）。
 - 関係: `/run/start_model_download`、`/get/data/model_download_state`、`/run/start_vc_runtime_setup`、`/get/data/vc_runtime_state`、`/get/data/user_models`、`/run/register_user_model`、`/run/apply_user_model`、`/run/remove_user_model`、`docs/voice-stack/model-downloads.md`、`docs/voice-stack/local-setup-windows.md`、`docs/voice-stack/local-setup-linux.md`。
 

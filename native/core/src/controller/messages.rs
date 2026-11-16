@@ -775,10 +775,10 @@ impl Core {
                 let core = Arc::downgrade(self);
                 let current = current.clone();
                 Arc::new(move |event: &OverlayMessage| {
-                    if let Some(core) = core.upgrade() {
-                        core.show_overlay_log(event.log == OverlayLog::Small, &event.for_overlay(), &|| current());
+                    match core.upgrade() {
+                        Some(core) => core.show_overlay_log(event.log == OverlayLog::Small, &event.for_overlay(), &|| current()),
+                        None => Ok(()),
                     }
-                    Ok(())
                 })
             });
             if let Some(hook) = Some(overlay_hook).filter(|_| spec.render_overlay) {
@@ -939,7 +939,18 @@ impl Core {
         }
         std::thread::scope(|scope| {
             let handles: Vec<_> = targets.iter().map(|target| scope.spawn(move || one(target))).collect();
-            handles.into_iter().map(|h| h.join().unwrap_or_else(|_| Err("translation failed".into()))).collect()
+            handles
+                .into_iter()
+                .map(|h| {
+                    // A thread that ended abnormally is not the GPU running out of memory (#394):
+                    // only `Err` from the engine takes that path and turns translation off. This
+                    // destination failed like an engine that could not translate it.
+                    h.join().unwrap_or_else(|_| {
+                        self.step("Translation: a translation thread ended abnormally");
+                        Ok(super::translation::Translated { text: message.to_string(), success: false, provenance: "failed" })
+                    })
+                })
+                .collect()
         })
     }
 

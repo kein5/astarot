@@ -22,7 +22,7 @@ const ttsPendingAtom = atom(null), directPendingAtom = atom(null), ttsErrorAtom 
 // Keep the last producer through stopping/health failure, where backend mode is already off.
 const directOwnerAtom = atom(null);
 const directDraftBlockedAtom = atom(false);
-const inputOwner = (mode, engine) => mode === "converted" ? engine || "seed-vc" : "passthrough";
+const inputOwner = (mode, engine) => mode === "converted" ? engine || "rvc" : "passthrough";
 // Keep the complete backend identity. Refresh never rebinds a selected name.
 export const sourceKey = id => JSON.stringify([id.cookie, id.serial, id.name, id.media_class]);
 

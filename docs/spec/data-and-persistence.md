@@ -71,7 +71,15 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 保存したタイムアウトはJSONのキー順に関係なく、組として検証する。範囲外や型が不正な値は既定値へ戻す。範囲内でも記録時間がフレーズ時間を超える組は、両方を既定の3秒へ戻す。
 
+2つのタイムアウトの意味は次のとおりである（`native/transcription`の`energy.rs`と`phrases.rs`）。`RECORD_TIMEOUT`は1回の録音（音量で切り出した1つのフレーズ）の長さの上限で、0は上限なしである。上限で切れたフレーズも、間をあけずに続けば同じ発話につながる。`PHRASE_TIMEOUT`は、最後のフレーズからこの秒数が過ぎると、それまでの音声を1つの発話として区切る値である。フレーズの間の無音がこれより長いときも新しい発話になる。発話は音声が15秒になったときも区切る。設定画面のラベルと説明はこの意味で書く（「1回の録音の長さの上限」と「発話を区切るまでの待ち時間」）。
+
+`MIC_ENABLE_VAD`と`SPEAKER_ENABLE_VAD`は、音量の代わりに VAD でフレーズを区切るスイッチである。次に録音を始めたときから効く。VAD で区切るときは`PHRASE_TIMEOUT`を使わず、自然に区切れた区間ごとに1つの発話として認識する。長さの上限で切れた区間は次の区間とつなぐ（15秒まで）。認識に送る音声の前に0.3秒、後に0.5秒の無音を足す。いまの版は VAD のエンジンを持たない（`/get/data/vad_available`が`false`）。この間、`/set/enable/mic_vad_filter`と`/set/enable/speaker_vad_filter`は値を変えず、400の`VAD_UNAVAILABLE`と保存値を返す。オフにする操作は受け付ける。以前の版で保存したオンの値はそのまま残し、録音は音量で区切る。設定画面は VAD の選択肢を選べない状態にして理由を示し、保存値がオンでも「自動」か「手動」の表示にする。
+
 ローカルの Whisper とともに、`MIC_NO_REPEAT_NGRAM_SIZE`と`SPEAKER_NO_REPEAT_NGRAM_SIZE`は削除した。古い`config.json`にあっても読み込まない。
+
+### 直接音声の設定（声の変換）
+
+`DIRECT_VOICE_SETTINGS`の`engine`は`rvc`だけを受け付け、既定も`rvc`である。Seed-VCはPythonのバックエンドで動いていたので、Pythonとともに終わった。`/set/data/direct_voice_settings`に`engine: "seed-vc"`を送ると、何も保存せず400の`{"error_code": "vc_engine_unavailable", "settings": <保存値>}`を返す。そのほかの不正な値は従来どおり`vc_settings_invalid`である。以前の版が保存した`seed-vc`は、読み込むときに`rvc`へ移す。ほかの項目（`mode`、RVCのパス、Seed-VCの`runtime`と`reference`）はそのまま残すので、0.4の版でも読める。`mode`が`converted`だったときだけ、その起動のあいだ`/get/data/direct_voice_state`に`"notice": "seed_vc_moved_to_rvc"`を付け、RVCのページに「Seed-VCは使えなくなったため、声の変換をRVCに切り替えました」と出す。設定を保存し直すと消える。変換は自動では始めない。RVCのモデルが未設定なら、メイン画面のRVCのスイッチは設定を求める。
 
 ### 計算デバイスと計算型
 

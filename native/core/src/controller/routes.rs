@@ -4,7 +4,7 @@
 
 use super::settings::{
     compute_device, get, integer, integer_or_message, store, store_text, switch, threshold, transcription_model,
-    vr_panel_font_size,
+    vad_switch, vr_panel_font_size,
 };
 use super::{Core, languages, ok, ok_true};
 use crate::dispatch::Routes;
@@ -46,6 +46,15 @@ impl Builder<'_> {
         }
         let on = switch(self.core, key, true);
         let off = switch(self.core, key, false);
+        self.add(&format!("/set/enable/{name}"), OPEN, on);
+        self.add(&format!("/set/disable/{name}"), OPEN, off);
+    }
+
+    /// The VAD switch of a source: [`vad_switch`].
+    fn vad_switch(&mut self, name: &str, key: &'static str) {
+        self.get(&format!("/get/data/{name}"), OPEN, key);
+        let on = vad_switch(self.core, key, true);
+        let off = vad_switch(self.core, key, false);
         self.add(&format!("/set/enable/{name}"), OPEN, on);
         self.add(&format!("/set/disable/{name}"), OPEN, off);
     }
@@ -214,7 +223,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/mic_no_speech_prob", OPEN, "MIC_NO_SPEECH_PROB");
     let no_speech = threshold(core, "MIC_NO_SPEECH_PROB", "Mic no-speech probability must be finite and between 0 and 1");
     b.add("/set/data/mic_no_speech_prob", OPEN, no_speech);
-    b.switch("mic_vad_filter", "MIC_ENABLE_VAD", true);
+    b.vad_switch("mic_vad_filter", "MIC_ENABLE_VAD");
     b.get("/get/data/mic_word_filter", OPEN, "MIC_WORD_FILTER");
     // The filter is applied by the recognition, which reads the stored words when it starts.
     b.with("/set/data/mic_word_filter", OPEN, |core, data| {
@@ -254,7 +263,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     let speaker_no_speech =
         threshold(core, "SPEAKER_NO_SPEECH_PROB", "Speaker no-speech probability must be finite and between 0 and 1");
     b.add("/set/data/speaker_no_speech_prob", OPEN, speaker_no_speech);
-    b.switch("speaker_vad_filter", "SPEAKER_ENABLE_VAD", true);
+    b.vad_switch("speaker_vad_filter", "SPEAKER_ENABLE_VAD");
+    // Whether the VAD switches can be turned on: a VAD engine is in this build (decision 13).
+    b.with("/get/data/vad_available", OPEN, |core, _| ok(json!(core.services().vad.is_some())));
 
     // The move from the removed Whisper engine to speech.cpp (#288)
     b.get("/get/data/local_asr_notice", OPEN, "LOCAL_ASR_NOTICE_PENDING");

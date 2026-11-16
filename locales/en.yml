@@ -31,7 +31,7 @@ voice:
     vc_idle: "VC active; no speech detected"
     vc_hint: "Use a separately installed Seed-VC runtime and a reference voice you have permission to use. This experimental GPL-3.0 engine needs a compatible NVIDIA GPU. Stop before changing mode."
     input_title: "Input forwarding"
-    input_description: "Send the selected original input, or convert it with Seed-VC. ASR and translated speech can run independently."
+    input_description: "Send the selected input as it is. To convert your voice, use the Voice changer (RVC) page. ASR and translated speech can run independently."
     input_source: "Input to forward"
     select_input: "Select an input"
     refresh_inputs: "Refresh inputs"
@@ -68,7 +68,7 @@ voice:
         vc_output_missing: "The output device was not found. Choose it again on the Text to speech (TTS) page."
         vc_output_failed: "Writing to the output device failed. Check the device and start again."
         vc_feedback_blocked: "The input and output are the two ends of one virtual cable, which would feed the voice back into itself. Choose your real microphone as the input."
-        vc_gpu_unavailable: "No NVIDIA GPU is available for voice conversion. Check the GPU driver, and that an external GPU is still connected, then start again. Seed-VC currently runs on NVIDIA GPUs only."
+        vc_gpu_unavailable: "No NVIDIA GPU is available for voice conversion. Check the GPU driver, and that an external GPU is still connected, then start again."
         vc_capture_overrun: "Conversion could not keep up and stopped. Set the retrieval blend to 0, or close other apps that use the GPU or CPU, then start again."
         vc_block_expired: "Conversion fell too far behind and stopped. Close other apps that use the GPU or CPU, then start again."
         vc_start_failed: "Input forwarding could not start. Check that the runtime folder and the model files you set exist, then start again."
@@ -114,7 +114,7 @@ voice:
     conversion: "Speak through voice conversion"
     conversion_off: "Off"
     conversion_on: "On"
-    conversion_hint: "While RVC or Seed-VC converts your voice, speech is converted too and reaches others in the converted voice. During speech the conversion takes the speech in place of the microphone, then returns to the microphone, so this cannot go with mixing direct input and speech. When no conversion runs, speech plays as before. Speech is heard a little later, by the time the conversion takes."
+    conversion_hint: "While RVC converts your voice, speech is converted too and reaches others in the converted voice. During speech the conversion takes the speech in place of the microphone, then returns to the microphone, so this cannot go with mixing direct input and speech. When no conversion runs, speech plays as before. Speech is heard a little later, by the time the conversion takes."
     mic_hint: "Enable translation and start Realtime microphone captions separately. Saving does not start recording. On Linux, suppression requires the managed route and applies only to its direct input; an external cable requires the mix choice. Resume voice after changing the managed policy. On Windows, ASTAROT silences the voice it sends to the output device."
     off: "Off / silent send"
     original: "Original text"
@@ -130,7 +130,7 @@ voice:
     monitor_device: "Monitor output"
     monitor_default: "System default output"
     monitor_volume: "Monitor volume"
-    monitor_hint: "Plays the same speech and RVC/Seed-VC converted voice on your own speakers or headphones as well as sending it to VRChat. It never changes what VRChat receives. Use headphones so your microphone does not pick it up; speaker transcription of the same device will also hear it."
+    monitor_hint: "Plays the same speech and RVC converted voice on your own speakers or headphones as well as sending it to VRChat. It never changes what VRChat receives. Use headphones so your microphone does not pick it up; speaker transcription of the same device will also hear it."
     monitor_error: "Monitor output unavailable. Audio still goes to VRChat."
     vc_monitor_on: "The converted voice also plays on your monitor output, set on the Text to speech (TTS) page. Changes apply at the next Start."
     vc_monitor_off: "To also hear the converted voice yourself, turn on the monitor output on the Text to speech (TTS) page."
@@ -246,6 +246,7 @@ backend_errors:
     AUDIO_OPEN_ERROR_speaker: "The speaker's audio could not be captured. Check that the speaker is connected, then try again."
     AUDIO_READ_ERROR: "Audio capture stopped after a device error. Check that the device is still connected, then try again."
     VAD_INFERENCE_ERROR: "Speech detection failed, so recognition stopped. Try again. If this keeps happening, restart ASTAROT."
+    VAD_UNAVAILABLE: "VAD is not available in this version, so it was not turned on. Speech is cut by volume."
     TRANSCRIBER_INIT_ERROR: "The speech recognizer could not start. Check the engine and model under Settings → Speech recognition (ASR), then try again."
     ASR_ERROR: "Speech recognition failed, so recognition stopped. Check the engine under Settings → Speech recognition (ASR) and, for an online engine, the network connection, then try again."
     CLEANUP_TIMEOUT: "Audio capture did not stop in time. Wait a moment, then try again. If this keeps happening, restart ASTAROT."
@@ -546,6 +547,7 @@ config_page:
             option_auto: "Auto"
             option_manual: "Manual"
             desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time speech ends. Reduces background music and ambient noise."
+        desc_vad_unavailable: "Not available in this version: the speech detection model is not included yet. Speech is cut by volume, with the Auto or Manual setting."
 
     appearance:
         section_label_display: "Display"
@@ -672,13 +674,13 @@ config_page:
         section_label_speaker: "Speaker"
         section_label_transcription_engines: "Transcription Engines"
         timing_title: "Segmenting and queue"
-        timing_status: "ends after {{silence}} s of silence · processed every {{length}} s · up to {{queue}} waiting"
+        timing_status: "recordings up to {{record}} s · a message ends after {{phrase}} s without speech · up to {{queue}} waiting"
         mic_record_timeout:
             label: "Mic Record Timeout"
-            desc: "Detects silence and, when the specified number of seconds passes, the system considers the voice input to have ended. (Second(s))"
+            desc: "The longest single recording, in seconds. Longer speech is split at this length, and the pieces still become one message while you keep talking. 0 means no limit. It cannot be longer than the phrase timeout."
         mic_phrase_timeout:
             label: "Mic Phrase Timeout"
-            desc: "Transcription processing is performed at intervals of the specified number of seconds."
+            desc: "How long to wait after your last speech before what was heard becomes one message, in seconds. A shorter time sends sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         mic_max_phrase:
             label: "Mic Max Queued Messages"
             desc: "Maximum number of transcribed messages that can pile up before being sent. If more pile up, the oldest ones are discarded without being sent to VRChat."
@@ -693,10 +695,10 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
         speaker_record_timeout:
             label: "Speaker Record Timeout"
-            desc: "Detects silence and, when the specified number of seconds has passed, considers the speaker input to have ended. (Second(s))"
+            desc: "The longest single recording of the speaker audio, in seconds. Longer speech is split at this length, and the pieces still become one message while the speech goes on. 0 means no limit. It cannot be longer than the phrase timeout."
         speaker_phrase_timeout:
             label: "Speaker Phrase Timeout"
-            desc: "Transcription processing is performed at intervals of the specified number of seconds."
+            desc: "How long to wait after the last speech before what was heard becomes one message, in seconds. A shorter time shows it sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         speaker_max_phrase:
             label: "Speaker Max Queued Messages"
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."
@@ -860,9 +862,6 @@ config_page:
             desc:  "When enabled along with '{{convert_message_to_hiragana}}', romaji will be shown on mouse hover."
         convert_message_to_hiragana:
             label: "Show Hiragana"
-        auto_download_models:
-            label: "Download the translation model at startup"
-            desc: "When enabled, startup downloads the missing files of the built-in translation model only if you already agreed to that model and version in its download dialog. This switch alone does not grant consent. Existing files remain usable when disabled. Speech recognition and voice models are managed separately."
 
     vrchat:
         section_label_chatbox: "Chatbox"
@@ -1496,6 +1495,7 @@ voice_ui:
     save_changes: "Save changes"
     select_rvc: "Use RVC for direct voice"
     select_rvc_pending: "Direct voice is set to another mode. Saving on this page switches it to RVC."
+    seed_vc_moved_to_rvc: "Seed-VC is no longer available, so voice conversion now uses RVC. Check the RVC model and runtime on this page before you start."
     rvc_latency_hint: "The converted voice comes about 0.2 s after your voice on an NVIDIA GPU and about 1.3 s on the CPU. A PC whose GPU cannot be used converts on the CPU. Converting on the CPU uses a lot of it, so other apps may slow down, and on a slow PC the voice may break up."
     rvc_running_gpu: "Converting on the GPU. The voice is about {{seconds}} s behind."
     rvc_running_cpu: "Converting on the CPU. The voice is about {{seconds}} s behind. A runtime that can use an NVIDIA GPU makes the delay smaller."

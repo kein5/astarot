@@ -18,7 +18,7 @@
 
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
-| CT-10 | モデルの取得は、ライセンスとサイズを示して同意を得てから行う。起動時の自動取得も明示の同意が要る | `AGENTS.md`「ユーザーの操作と同意」 | `tests/voice/test_model_download_policy.py`、`test_model_downloads.py`、`src-ui/logics/common/modelConsentTranslations.test.js` |
+| CT-10 | モデルの取得は、ライセンスとサイズを示して同意を得てから行う。起動時には自動で取得しない（`AUTO_DOWNLOAD_MODELS` は 0.5.0 で引退。キーは互換のために残す） | `AGENTS.md`「ユーザーの操作と同意」 | `tests/voice/test_model_download_policy.py`、`test_model_downloads.py`、`native/core/tests/downloads.rs` |
 | CT-11 | 取得できるモデルは版、サイズ、SHA-256、ライセンスを固定してカタログに載せる。非商用など制限のあるライセンスのモデルは既定にしない | `AGENTS.md`「配布物とライセンス」 | `tests/voice/test_model_downloads.py`、`tests/voice/test_ocr_model_catalog.py`、`src-ui/logics/configs/ctranslate2License.test.js` |
 | CT-12 | 画面の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きない | `AGENTS.md`「ユーザーの操作と同意」 | 手動 |
 | CT-13 | ホットキーは既定で割り当てない。設定画面を開いている間は無効にする | `docs/voice-stack/quick-chat-design.md` | `tests/voice/test_quick_chat_config.py`（既存の割り当ての引き継ぎ）、手動 |
