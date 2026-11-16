@@ -21,7 +21,7 @@ use vrct_audio_routing::sync::monotonic_ns;
 use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WindowsRoute};
 
 use crate::protocol::{self as p, ProtocolError};
-use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe};
+use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, DEVICES, MAX_THREADS};
 
 /// Device route: a block older than this is dropped instead of sent. More than half of six
 /// seconds of blocks late means this PC cannot keep up, and the voice stops.
@@ -203,14 +203,29 @@ fn new_session() -> String {
 }
 
 /// The checked options of an RVC start (`start_options('converted', ...)` with engine `rvc`).
+/// `device` (`auto`), `threads` (0: the worker's choice) and `highpass` (true) may be left out.
 pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
     let invalid = || "vc_options_invalid".to_owned();
     let object = options.as_object().ok_or_else(invalid)?;
-    let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
-    keys.sort_unstable();
-    if keys != ["engine", "index", "index_rate", "model", "pitch", "runtime"] || object["engine"] != "rvc" {
+    const REQUIRED: [&str; 6] = ["engine", "index", "index_rate", "model", "pitch", "runtime"];
+    const OPTIONAL: [&str; 3] = ["device", "threads", "highpass"];
+    if !REQUIRED.iter().all(|key| object.contains_key(*key)) || object.keys().any(|key| !REQUIRED.contains(&key.as_str()) && !OPTIONAL.contains(&key.as_str())) || object["engine"] != "rvc" {
         return Err(invalid());
     }
+    let device = match object.get("device") {
+        None => "auto".to_owned(),
+        Some(Value::String(device)) if DEVICES.contains(&device.as_str()) => device.clone(),
+        Some(_) => return Err(invalid()),
+    };
+    let threads = match object.get("threads") {
+        None => 0,
+        Some(value) => value.as_u64().filter(|n| value.is_u64() && *n <= u64::from(MAX_THREADS)).ok_or_else(invalid)? as u32,
+    };
+    let highpass = match object.get("highpass") {
+        None => true,
+        Some(Value::Bool(on)) => *on,
+        Some(_) => return Err(invalid()),
+    };
     let text = |key: &str| -> Result<String, String> {
         let value = object[key].as_str().ok_or_else(invalid)?;
         if value.chars().count() > 4096 || value.chars().any(|c| (c as u32) < 32) {
@@ -226,7 +241,7 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         return Err(invalid());
     }
     let rate = rate_text(index_rate, !rate.is_f64());
-    Ok((RvcOptions { runtime: PathBuf::from(runtime), model: PathBuf::from(model), index, pitch, index_rate }, rate))
+    Ok((RvcOptions { runtime: PathBuf::from(runtime), model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass }, rate))
 }
 
 fn resolve(path: &Path) -> Option<PathBuf> {

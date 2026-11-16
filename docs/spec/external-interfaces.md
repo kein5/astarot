@@ -220,6 +220,19 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 - 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（`external_engine.py`）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
 - VOICEVOX系では`/audio_query`の応答を書き換えずに`/synthesis`へ渡す。AivisSpeechは書き換えた問い合わせを受け付けないことがあるため。COEIROINKの話者の一覧には画像を含まない`/v1/speakers_path_variant`を使う。`/v1/speakers`は画像をbase64で含み、話者1人で約1 MBになる。
 - 選んだ声はエンジンのID（COEIROINKは`speakerUuid:styleId`）と話者名、スタイル名で保存する。IDが見つからないか、IDの声の名前が変わっていれば名前で探し直す。見つからなければ`tts_engine_voice_missing`、声を選んでいなければ`tts_engine_voice_unset`、エンジンに接続できなければ`tts_engine_not_ready`で失敗する。歌うためのスタイルは一覧に出さない。
+- COEIROINKの`/v1/synthesis`には声の設定（`VOICE_SETTINGS`）の7つの値を送る。値は文字列の10進数で保存し、範囲外や`1e0`のような書き方は保存しない。
+
+  | 設定 | 送る項目 | 範囲 | 既定 |
+  |---|---|---|---|
+  | `coeiroink_speed` | `speedScale` | 0.5〜2 | `1.0` |
+  | `coeiroink_volume` | `volumeScale` | 0〜2 | `1.0` |
+  | `coeiroink_pitch` | `pitchScale` | −0.15〜0.15 | `0.0` |
+  | `coeiroink_intonation` | `intonationScale` | 0〜2 | `1.0` |
+  | `coeiroink_pre_phoneme` | `prePhonemeLength`（秒） | 0〜1.5 | `0.1` |
+  | `coeiroink_post_phoneme` | `postPhonemeLength`（秒） | 0〜1.5 | `0.1` |
+  | `coeiroink_sampling_rate` | `outputSamplingRate`（Hz） | 16000、24000、44100、48000 | `24000` |
+
+  既定値は設定できるようになる前に固定で送っていた値である。これらのキーがない古い設定は既定値で読む。設定画面ではCOEIROINKを選んだときだけ「COEIROINKの読み方」に7つの値が出る。保存した値は次の読み上げから使う。VOICEVOX系のエンジンには使わない。
 - WAVは16ビットのPCMだけを受け付け、約0.2秒ずつに分けて流す。1件の読み上げは60秒まで。エラーには安全なコードだけを使い、読み上げる文、音声、応答の本文を含めない。
 - 設定画面（`src-ui/.../tts/TtsEngine.jsx`）は、エンジンを選んだときと「再確認」を押したときに`/get/data/tts_engine_voices`へ`{engine, url, request_id}`を送る。保存前の編集中のエンジンとURLを使い、エンジンには版と声の一覧だけを問い合わせる。文は送らず、合成もしない。応答の`request_id`が最新の問い合わせと同じときだけ画面に使う。声は500件まで返し、保存できない名前やIDの声は除く。
 - モデルカタログの外部エンジンのカード（`EngineCatalog.jsx`）も同じエンドポイントで接続できるかを確かめる。保存済みのURL（未設定ならエンジンの既定）を使い、`request_id`は`catalog-`で始める。結果はエンジンごとに持ち、上の欄の問い合わせを置き換えない。保存済みの設定が届いたときに1回と、「再確認」を押したときに問い合わせる。

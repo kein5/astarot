@@ -21,6 +21,12 @@ voice:
     vc_rvc_index: "RVC retrieval index (.index, optional)"
     vc_rvc_pitch: "Pitch shift (semitones)"
     vc_rvc_index_rate: "Retrieval blend (0–1)"
+    vc_rvc_device: "Convert on"
+    vc_rvc_device_auto: "Automatic (the CPU when the GPU cannot be used)"
+    vc_rvc_device_cuda: "NVIDIA GPU (CUDA)"
+    vc_rvc_device_cpu: "CPU"
+    vc_rvc_threads: "CPU threads (0 is automatic)"
+    vc_rvc_highpass: "Cut low sounds from the input (high-pass filter)"
     vc_rvc_hint: "Choose an RVC runtime and a trained voice model you have permission to use. A retrieval blend above zero needs a matching index. This integration is experimental; check sound quality and delay in your environment. Stop before changing engine."
     vc_runtime: "Seed runtime folder"
     vc_reference: "Permitted reference WAV"
@@ -737,6 +743,22 @@ config_page:
             label: "Custom Whisper server model"
         select_deepgram_model:
             label: "Deepgram model"
+        whisper_filter:
+            title: "Whisper result filtering"
+            status: "Mic {{mic_logprob}} / {{mic_no_speech}} · Speaker {{speaker_logprob}} / {{speaker_no_speech}}"
+            desc: "Used by Groq Whisper, OpenAI Whisper (whisper-1) and a custom Whisper server. Each recognized segment is scored for confidence and for silence, and a segment outside the thresholds is dropped. Other engines ignore these settings."
+            mic_avg_logprob:
+                label: "Mic minimum confidence"
+                desc: "A segment whose average log probability is below this value is dropped. Closer to 0 is stricter. The default is -0.8."
+            mic_no_speech_prob:
+                label: "Mic maximum silence"
+                desc: "A segment more likely than this to be silence is dropped. Lower is stricter. The default is 0.6."
+            speaker_avg_logprob:
+                label: "Speaker minimum confidence"
+                desc: "A segment whose average log probability is below this value is dropped. Closer to 0 is stricter. The default is -0.8."
+            speaker_no_speech_prob:
+                label: "Speaker maximum silence"
+                desc: "A segment more likely than this to be silence is dropped. Lower is stricter. The default is 0.6."
     vr:
         single_line: "Single line"
         multi_lines: "Multiple Lines"
@@ -1445,6 +1467,21 @@ voice_ui:
             coeiroink: "COEIROINK voices need the credit \"COEIROINK:voice name\". Follow each voice's terms too."
             aivis: "Each voice model has its own license. Check the model's terms before you use it."
             sharevox: "Some voices need a credit. Check each voice's terms."
+        # How COEIROINK reads: the values sent to /v1/synthesis.
+        coeiroink:
+            title: "How COEIROINK reads"
+            status: "Speed {{speed}} · {{rate}} Hz"
+            description: "The values sent with each request to COEIROINK. Saved values apply from the next message read."
+            coeiroink_speed: "Speed (0.5–2)"
+            coeiroink_volume: "Volume (0–2)"
+            coeiroink_pitch: "Pitch (-0.15–0.15)"
+            coeiroink_intonation: "Intonation (0–2)"
+            coeiroink_pre_phoneme: "Silence before speech (0–1.5 s)"
+            coeiroink_post_phoneme: "Silence after speech (0–1.5 s)"
+            coeiroink_sampling_rate: "Sampling rate"
+            rate_option: "{{rate}} Hz"
+            invalid: "Enter a number within the range."
+            reset: "Restore defaults"
     check_needs_url: "Enter and save the server URL to check"
     check_needs_server: "Start the bundled server to check"
     setup_rvc: "Models and runtime"
@@ -1560,7 +1597,13 @@ voice_ui:
     check_options: "Check model options"
     invalid_options: "Use an integer seed from 0 to 9007199254740991. Instructions allow up to 4000 characters and no control characters except line breaks and tabs."
     save_direct_first: "Save or discard the direct input settings before starting."
-    invalid_rvc_numbers: "Pitch must be an integer from -24 to 24; retrieval blend must be a number from 0 to 1."
+    invalid_rvc_numbers: "Pitch must be an integer from -24 to 24, retrieval blend a number from 0 to 1, and CPU threads an integer from 0 to 64."
+    rvc_worker_title: "Device and processing"
+    rvc_worker_status: "{{device}} · threads {{threads}} · high-pass {{highpass}}"
+    rvc_worker_hint: "Used when you press Start. With the NVIDIA GPU chosen, Start fails when the GPU cannot be used. With 0 threads, the GPU uses 1 and the CPU half the logical CPUs (2 to 6). Turning the high-pass filter off sounds like the earlier external runtime."
+    rvc_threads_auto: "automatic"
+    rvc_highpass_on: "on"
+    rvc_highpass_off: "off"
     rvc_index_required: "A retrieval index is required when the blend is greater than 0."
 quick_chat:
     label: "Open quick chat"

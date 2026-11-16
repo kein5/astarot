@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { GenerationOptions, validGenerationOptions } from "../tts/GenerationOptions";
-import { TtsEngine, TTS_ENGINES } from "../tts/TtsEngine";
+import { TtsEngine, TTS_ENGINES, validCoeiroinkOptions } from "../tts/TtsEngine";
 import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { StatusLine } from "./StatusLine";
@@ -13,6 +13,9 @@ import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 
+// Every field the page can make invalid: speech.cpp's seed and instructions, COEIROINK's numbers.
+const validVoiceSettings = draft => validGenerationOptions(draft) && validCoeiroinkOptions(draft);
+
 export const VoiceSettings = () => {
     const { t } = useI18n();
     const optionsErrorId = useId();
@@ -21,6 +24,7 @@ export const VoiceSettings = () => {
         if (key === "japanese_engine") return t("voice_ui.engine.label");
         if (Object.values(TTS_ENGINES).some(engine => engine.url === key)) return t("voice_ui.engine.url");
         if (key.startsWith("engine_voice_")) return t("voice_ui.engine.voice");
+        if (key.startsWith("coeiroink_")) return `COEIROINK: ${t(`voice_ui.engine.coeiroink.${key}`)}`;
         const role = ["japanese", "multilingual"].find(name => key.startsWith(`${name}_`));
         if (key === `${role}_server`) return t(`speech_servers.${role}_selection`);
         if (key === `${role}_seed`) return `${t(`speech_servers.${role}`)}: ${t("voice_ui.seed_mode")}`;
@@ -28,7 +32,7 @@ export const VoiceSettings = () => {
         return t(`voice.${key}`, { defaultValue: key });
     };
     const form = useSettingsDraft(settings, error, updateError, { label,
-        write: value => send("/set/data/voice_settings", value), canSave: validGenerationOptions, patch: true });
+        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true });
     const { draft, setDraft, saving } = form;
     useEffect(() => {
         send("/get/data/voice_settings");
@@ -63,7 +67,7 @@ export const VoiceSettings = () => {
         </StatusLine>
         <Description text={t("voice_ui.tts_description")} />
         <VoiceRouteSummary />
-        <form onSubmit={e => { e.preventDefault(); if (form.dirty && validGenerationOptions(draft)) form.submit(value => send("/set/data/voice_settings", value)); }}>
+        <form onSubmit={e => { e.preventDefault(); if (form.dirty && validVoiceSettings(draft)) form.submit(value => send("/set/data/voice_settings", value)); }}>
             <fieldset className={styles.fields} disabled={saving}>
                 <label>{t("voice.mode")}<select aria-label={t("voice.mode")} value={draft.mode} onChange={e => field("mode", e.target.value)}>
                     {["off", "original", "translated"].map(mode => <option key={mode} value={mode}>{t(`voice.${mode}`)}</option>)}
@@ -144,7 +148,7 @@ export const TtsOutputDeviceSettings = ({ title }) => {
     const { t } = useI18n();
     const { settings, devices, error, send, updateError } = useVoice();
     const form = useSettingsDraft(settings, error, updateError, { label: ([key]) => t(`voice.${key}`, { defaultValue: key }),
-        write: value => send("/set/data/voice_settings", value), canSave: validGenerationOptions, patch: true });
+        write: value => send("/set/data/voice_settings", value), canSave: validVoiceSettings, patch: true });
     const { draft, setDraft, saving } = form;
     useEffect(() => {
         send("/get/data/voice_settings");

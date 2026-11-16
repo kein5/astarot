@@ -756,7 +756,7 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "selected_deepgram_model",
     },
     // The OpenAI-compatible cloud engines drop segments below these thresholds. The
-    // settings no longer show them: they were sliders for the removed local Whisper (#288).
+    // transcription page shows them under the cloud engines (WhisperSegmentFilter_Box).
     {
         Category: "Transcription",
         Base_Name: "MicAvgLogprob",
