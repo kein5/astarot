@@ -404,8 +404,8 @@ main_page:
         resend_button_on_hover_desc: "長押しで送信"
         resend_button_label: "このメッセージを編集（長押しで再送信）"
 
-    state_text_enabled: "有効"
-    state_text_disabled: "無効"
+    state_text_enabled: "オン"
+    state_text_disabled: "オフ"
 
     language_selector:
         title_your_language: "あなたの言語"
@@ -1690,6 +1690,7 @@ vc_runtime:
 
 model_downloads:
     hardware_title: "GPUとメモリ"
+    exact_bytes: "{{bytes}} バイト"
     title: "既定モデルのダウンロード"
     loading: "モデル一覧を読み込んでいます…"
     link_error: "ブラウザでリンクを開けませんでした。表示されたURLをコピーして開いてください。"

@@ -224,7 +224,8 @@ def test_unavailable_translators_say_why_and_stay_out_of_the_tab_order(studio):
 
     page, peer = studio
     peer.replies.append(dict(endpoint="/get/data/selectable_translation_engines", result=["CTranslate2"], status=200))
-    opener = page.locator('[role="button"][aria-expanded]').filter(has_text="翻訳エンジン")
+    # The heading sits above the field-like button; the button's name carries both.
+    opener = page.locator('[role="button"][aria-expanded][aria-label^="翻訳エンジン"]')
     opener.focus()
     page.keyboard.press("Enter")
     group = page.get_by_role("group", name="翻訳エンジン", exact=True)

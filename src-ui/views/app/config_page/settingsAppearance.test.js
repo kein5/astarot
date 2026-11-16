@@ -73,7 +73,9 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
     const breakpoint = css => Number(/@container \(max-width: ([\d.]+)rem\)/.exec(css)[1]);
     assert.equal(breakpoint(voice), 16 + 18 + 1.6);
     assert.equal(breakpoint(row), breakpoint(voice));
-    assert.equal(breakpoint(legacy), 16 + 24 + 2 + 2 * 2);
+    // The legacy row has no side padding, so its label starts on the heading's edge.
+    assert.equal(breakpoint(legacy), 16 + 24 + 2);
+    assert.match(legacy, /\.container\s*{[^}]*padding: 2rem 0;/);
     assert.match(read("setting_section/SettingSection.module.scss"), /container-type: inline-size/);
     assert.match(voice, /form, fieldset\s*{[^}]*container-type: inline-size/);
     for (const css of [voice, row]) {
@@ -86,10 +88,10 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
         const rem = 10 * scale; // root.css: 62.5% of the default 16px, then UI scale.
         const available = width - (5.6 + 2 * 1.6) * rem;
         const fieldset = available - (2 * 1.6 + 2 * .1) * rem;
-        const legacyContent = available - 2 * 2 * rem;
+        const legacyContent = available;
         assert.equal(available, 312 * scale);
         assert.equal(fieldset, 278 * scale);
-        assert.equal(legacyContent, 272 * scale);
+        assert.equal(legacyContent, 312 * scale);
         assert.ok(available < breakpoint(voice) * rem);
         assert.ok(fieldset < breakpoint(row) * rem);
         assert.ok(available < breakpoint(legacy) * rem);
@@ -237,4 +239,30 @@ test("header width budgets leave search usable even with queued/muted actions at
     const wideSave = 120 - 20.8 - (wideStop + .8) - (wideBack + 1.6) - .8;
     assert.ok(20.8 - 3.2 > searchChrome);
     assert.ok(wideSave > 10 + 2 * (5 * 1.4 + 2 * 1.4) + 1.6 + 2);
+});
+
+test("the forms' primary action is blue: the plain class name primary is matched globally", () => {
+    const css = read(box + "advanced_settings/VoiceSettings.module.scss");
+    // CSS Modules renames .primary, and the forms write className="primary", so only :global matches.
+    assert.doesNotMatch(css, /button\.primary/);
+    assert.match(css, /button:global\(\.primary\)\s*{[^}]*background: var\(--primary_600_color/);
+    const downloads = read(box + "advanced_settings/ModelDownloads.jsx");
+    assert.match(downloads, /className="primary" disabled=\{!consent \|\| busy\}/, "agreeing to a download is the primary action");
+});
+
+test("a guide link reads as a link wherever it sits", () => {
+    const css = read(box + "_components/custom_model_link/CustomModelLink.module.scss");
+    assert.match(css, /a\s*{[^}]*color: var\(--primary_300_color\)[^}]*text-decoration: underline/);
+});
+test("the saved chat reading language is named like the list's entries, so auto never shows raw", () => {
+    const source = read(box + "ocr/Ocr.jsx");
+    assert.match(source, /list\[currentOcrSourceLanguage\.data\] = label\(currentOcrSourceLanguage\.data\)/);
+    assert.match(source, /const label = id => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
+});
+test("download dialogs write byte counts in the display language", () => {
+    for (const page of ["advanced_settings/ModelDownloads.jsx", "ocr/OcrModels.jsx"]) {
+        const source = read(box + page);
+        assert.doesNotMatch(source, /\} bytes/, page);
+        assert.match(source, /t\("model_downloads\.exact_bytes"/, page);
+    }
 });
