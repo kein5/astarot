@@ -1,5 +1,5 @@
 //! Speech recognition through the recorder (#278): the microphone and speaker switches with the
-//! Google and cloud engines, the volume meters, recognition errors, a lost device, mic mute
+//! cloud engines, the volume meters, recognition errors, a lost device, mic mute
 //! sync, the engines' keys and the start-up check, and shutdown.
 //!
 //! The behaviours are those of `src-python/test/test_controller_transcription_*.py`,
@@ -89,8 +89,21 @@ impl Run {
     }
 }
 
-fn google() -> Value {
-    json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google" })
+/// A cloud engine the fake serves: OpenAI's Whisper API with a key it accepts.
+fn cloud() -> Value {
+    json!({
+        "SELECTED_TRANSCRIPTION_ENGINE": "OpenAI_Whisper",
+        "TRANSCRIPTION_AUTH_KEYS": { "Groq_Whisper": null, "OpenAI_Whisper": KEY, "Custom_Whisper": null, "Deepgram": null },
+    })
+}
+
+/// [`cloud`] with more saved settings.
+fn cloud_and(extra: Value) -> Value {
+    let mut saved = cloud();
+    for (key, value) in extra.as_object().unwrap() {
+        saved[key] = value.clone();
+    }
+    saved
 }
 
 #[test]
@@ -102,7 +115,7 @@ fn a_switch_needs_an_engine_and_a_device() {
     run.ui.stop();
 
     // No device to open: the switch is turned off again and the UI hears why.
-    let run = start_with(google(), vrct_audio_routing::snapshot::RawLists::none());
+    let run = start_with(cloud(), vrct_audio_routing::snapshot::RawLists::none());
     let mark = run.ui.send("/set/enable/transcription_receive", None);
     assert_eq!(run.ui.wait_endpoint(mark, "/set/enable/transcription_receive")["result"], false);
     assert_eq!(run.ui.on(mark, "/set/disable/transcription_receive")[0]["result"], false);
@@ -113,7 +126,7 @@ fn a_switch_needs_an_engine_and_a_device() {
 
 #[test]
 fn a_recognised_utterance_reaches_the_ui_the_chatbox_and_the_log_but_not_the_diagnostics() {
-    let run = start(json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google", "LOGGER_FEATURE": true }));
+    let run = start(cloud_and(json!({ "LOGGER_FEATURE": true })));
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
     assert_eq!(run.capture.opened(), vec![(Source::Mic, "{a}".to_string())], "the chosen microphone, by its endpoint");
     let mark = run.ui.lines().len();
@@ -121,10 +134,10 @@ fn a_recognised_utterance_reaches_the_ui_the_chatbox_and_the_log_but_not_the_dia
     let message = run.heard(mark, "/run/transcription_send_mic_message");
     assert_eq!(message["result"]["original"]["message"], "こんにちは");
     assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは"));
-    // The Google request named the language of the own slot, and carried FLAC.
-    let google = run.asr.fields.lock().unwrap().iter().find(|f| f.starts_with("/google")).cloned().unwrap();
-    assert!(google.contains("lang=ja-JP") || google.contains("lang=en-US"), "{google}");
-    assert!(google.contains("client=chromium"));
+    // The request named the model the start-up check chose and the language of the own slot.
+    let fields = run.asr.fields.lock().unwrap().clone();
+    assert!(fields.iter().any(|f| f == "model=distil-whisper&language=ja&response_format=verbose_json"), "{fields:?}");
+    assert!(run.asr.requested("POST /openai/v1/audio/transcriptions") >= 1);
 
     // The latency line is written without the text, once the message has gone everywhere.
     eventually("the latency line", || run.process_log().contains("[latency][mic] asr="));
@@ -162,7 +175,7 @@ fn the_speaker_is_heard_through_a_whisper_api_at_44_1_khz() {
 
 #[test]
 fn the_volume_meter_reports_levels_and_needs_a_device() {
-    let run = start(google());
+    let run = start(cloud());
     run.capture.hear(Source::Mic, &[speech(300)]);
     let mark = run.ui.lines().len();
     assert_eq!(run.ui.ok("/set/enable/check_mic_threshold", None), true);
@@ -177,7 +190,7 @@ fn the_volume_meter_reports_levels_and_needs_a_device() {
     assert_eq!(run.capture.running(Source::Speaker), 1, "the meter keeps listening");
     run.ui.stop();
 
-    let run = start_with(google(), vrct_audio_routing::snapshot::RawLists::none());
+    let run = start_with(cloud(), vrct_audio_routing::snapshot::RawLists::none());
     let mark = run.ui.send("/set/enable/check_mic_threshold", None);
     assert_eq!(run.ui.wait_endpoint(mark, "/set/enable/check_mic_threshold")["result"], false);
     assert_eq!(error_code(&run.heard(mark, "/run/error_device")), "DEVICE_NO_MIC");
@@ -217,7 +230,7 @@ fn changing_the_engine_stops_the_recorder_that_used_the_old_one() {
 
 #[test]
 fn a_failing_engine_turns_recognition_off_with_its_code() {
-    let run = start(json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google", "ENABLE_CHECK_ENERGY_SEND": false }));
+    let run = start(cloud_and(json!({ "ENABLE_CHECK_ENERGY_SEND": false })));
     run.asr.behaviour.fail.store(true, Ordering::SeqCst);
     assert_eq!(run.ui.ok("/set/enable/check_mic_threshold", None), true);
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
@@ -255,7 +268,7 @@ fn an_unusable_engine_is_refused_before_the_device_opens() {
 
 #[test]
 fn a_lost_device_moves_the_capture_to_another_or_stops_it() {
-    let run = start(google());
+    let run = start(cloud());
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
     let mark = run.ui.lines().len();
     // Mic A is unplugged: its read fails and the list no longer has it.
@@ -278,7 +291,7 @@ fn a_lost_device_moves_the_capture_to_another_or_stops_it() {
 
 #[test]
 fn a_read_error_on_a_device_that_is_still_there_stops_recognition() {
-    let run = start(google());
+    let run = start(cloud());
     assert_eq!(run.ui.ok("/set/enable/transcription_receive", None), true);
     let mark = run.ui.lines().len();
     run.capture.break_device(Source::Speaker);
@@ -290,7 +303,7 @@ fn a_read_error_on_a_device_that_is_still_there_stops_recognition() {
 
 #[test]
 fn a_device_that_does_not_open_falls_back_to_another() {
-    let run = start(google());
+    let run = start(cloud());
     run.capture.refuse("{a}");
     let mark = run.ui.lines().len();
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
@@ -299,7 +312,7 @@ fn a_device_that_does_not_open_falls_back_to_another() {
     assert_eq!(switched["new_device"]["name"], "Mic B");
     run.ui.stop();
 
-    let run = start(google());
+    let run = start(cloud());
     run.capture.refuse("{s}");
     run.capture.refuse("{h}");
     let mark = run.ui.send("/set/enable/transcription_receive", None);
@@ -310,7 +323,7 @@ fn a_device_that_does_not_open_falls_back_to_another() {
 
 #[test]
 fn mute_sync_holds_the_microphone_back_and_losing_it_stops_recognition() {
-    let run = start(google());
+    let run = start(cloud());
     // Mute sync needs OSCQuery, which starts in the background: wait until it says it runs.
     assert_eq!(run.ui.wait_endpoint(0, "/run/enable_osc_query")["result"]["data"], true);
     assert_eq!(run.ui.ok("/set/enable/vrc_mic_mute_sync", None), true);
@@ -322,7 +335,7 @@ fn mute_sync_holds_the_microphone_back_and_losing_it_stops_recognition() {
     run.capture.hear(Source::Mic, &[speech(800), quiet(1500)]);
     std::thread::sleep(Duration::from_millis(2600));
     assert!(run.ui.on(mark, "/run/transcription_send_mic_message").is_empty(), "held back while muted");
-    assert_eq!(run.asr.requested("POST /google"), 0, "nothing was even sent to the engine");
+    assert_eq!(run.asr.requested("POST /openai"), 0, "nothing was even sent to the engine");
     // Unmuted (confirmed by OSCQuery): heard again.
     *osc.mute.lock().unwrap() = Some(false);
     osc.vrchat_sends(PARAMETER_MUTE_SELF, vec![OscArg::Bool(false)]);
@@ -416,7 +429,7 @@ fn the_start_up_check_asks_each_service_with_its_saved_key() {
     }));
     let mut offered: Vec<String> = serde_json::from_value(run.ui.ok("/get/data/selectable_transcription_engines", None)).unwrap();
     offered.sort();
-    assert_eq!(offered, ["Deepgram", "Google", "Groq_Whisper", "SpeechCpp"]);
+    assert_eq!(offered, ["Deepgram", "Groq_Whisper", "SpeechCpp"]);
     assert_eq!(run.ui.ok("/get/data/selected_deepgram_model", None), "nova-3", "a listed choice stays");
     assert_eq!(run.ui.ok("/get/data/selected_openai_whisper_model", None), Value::Null, "a failed check forgets the choice");
     assert_eq!(run.ui.ok("/get/data/openai_whisper_auth_key", None), "wrong", "and keeps the key");
@@ -425,8 +438,35 @@ fn the_start_up_check_asks_each_service_with_its_saved_key() {
 }
 
 #[test]
+fn a_saved_google_engine_loads_as_none_and_google_is_not_offered() {
+    // A config.json of 0.4 or earlier with the retired Google web speech engine.
+    let run = start(json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google", "LOCAL_ASR_MIGRATION": 2 }));
+    assert_eq!(run.ui.ok("/get/data/selected_transcription_engine", None), Value::Null, "the user chooses again");
+    let offered = run.ui.ok("/get/data/selectable_transcription_engines", None);
+    assert!(!offered.as_array().unwrap().contains(&json!("Google")), "{offered}");
+    assert_eq!(offered, json!(["SpeechCpp"]), "no key saved: only the local engine is ready");
+    // Google cannot be chosen again.
+    assert_eq!(run.ui.ok("/set/data/selected_transcription_engine", Some(json!("Google"))), Value::Null);
+    // A switch asks for an engine, as on a first start, and sends nothing anywhere.
+    let answer = run.ui.request("/set/enable/transcription_send", None);
+    assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "TRANSCRIPTION_ENGINE_NOT_SELECTED"));
+    assert!(run.asr.requests.lock().unwrap().is_empty(), "nothing was sent");
+    // Another engine can be chosen and is kept.
+    assert_eq!(run.ui.ok("/set/data/selected_transcription_engine", Some(json!("SpeechCpp"))), "SpeechCpp");
+    run.ui.ok("/run/shutdown", None);
+    assert_eq!(run.ui.saved()["SELECTED_TRANSCRIPTION_ENGINE"], "SpeechCpp");
+    run.ui.stop();
+
+    // Left as it loaded, the file no longer names Google.
+    let run = start(json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google", "LOCAL_ASR_MIGRATION": 2 }));
+    run.ui.ok("/run/shutdown", None);
+    assert_eq!(run.ui.saved()["SELECTED_TRANSCRIPTION_ENGINE"], Value::Null);
+    run.ui.stop();
+}
+
+#[test]
 fn shutdown_stops_every_capture() {
-    let run = start(google());
+    let run = start(cloud());
     run.ui.ok("/set/enable/transcription_send", None);
     run.ui.ok("/set/enable/check_speaker_threshold", None);
     assert_eq!((run.capture.running(Source::Mic), run.capture.running(Source::Speaker)), (1, 1));

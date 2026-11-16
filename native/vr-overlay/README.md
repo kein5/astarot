@@ -7,6 +7,7 @@ SteamVR のオーバーレイを受け持つ Rust クレートです。字幕の
 | Python（`src-python/models/overlay/`） | Rust |
 |---|---|
 | `overlay.py` の `Overlay`（起動と停止、SteamVR を待つこと、位置、フェード、VR パネル） | `engine::Overlay` |
+| `overlay.py` の `updateGrab` とその周り（レーザー、VR 画面への入力、掴む、拡大縮小、角での大きさの変更、操作バー） | `engine/input.rs` |
 | `overlay.py` の `computeVrLayout` などの並びと姿勢の計算 | `layout`、`math`、`placement`、`pose`、`timing` |
 | `overlay_tooltip.py` | `tooltip` |
 | `overlay_image.py` | `subtitle` |
@@ -21,15 +22,25 @@ SteamVR のオーバーレイを受け持つ Rust クレートです。字幕の
 
 - OpenVR の C API（`openvr_api`）を、SteamVR が動いているときだけ読み込みます。ビルドに OpenVR SDK は要りません。関数表は OpenVR 2.12 のもの（`IVRSystem_023`、`IVROverlay_028`）で、Python が使っていた pyopenvr 2.12.1401 と同じ版です。
 - ライブラリは次の順に探します。環境変数 `VRCT_OPENVR_API`、中核が渡すフォルダ、実行ファイルの隣、Python の同梱物の中（`_internal/openvr`）、システムの検索パス。見つからないときは、SteamVR が動いているのにつなげなかったものとして `OVERLAY_RUNTIME_FAILED` を知らせます。配布物に入れるかどうかは未決です（`docs/voice-stack/core-integration.md` の「判断が要ること」）。
-- 字幕の画像は Python と同じく `SetOverlayRaw` で渡します。VR パネルの画面は、Windows では Direct3D 11 のテクスチャ 1 枚を各領域のオーバーレイで共有します（Python は OpenGL でした）。Linux ではまだ GPU のテクスチャを使わず、`SetOverlayRaw` で渡します。
+- 字幕の画像とポインタの印は Python と同じく `SetOverlayRaw` で渡します。VR パネルの画面は、Windows では Direct3D 11 のテクスチャ 1 枚を各領域のオーバーレイ（操作バーと吹き出しを含む）で共有します（Python は OpenGL でした）。角で大きさを変えるときの枠は、別のテクスチャ 1 枚です。Linux ではまだ GPU のテクスチャを使わず、どちらも `SetOverlayRaw` で渡します（実機での確認は `docs/voice-stack/core-integration.md` の「判断が要ること」の 8）。
 
 ## 字幕の書体
 
-Python は Noto Sans の日本語・韓国語・簡体字・繁体字の 4 書体（29.6 MB）を同梱していました。このクレートは書体を同梱しません。渡されたフォルダ（アプリの `fonts`、Python の同梱物の `_internal/fonts`）を先に、次にシステムの書体のフォルダを探し、言語ごとに決めた書体（Noto Sans CJK、游ゴシック、メイリオ、Malgun Gothic、Microsoft YaHei、Microsoft JhengHei など）を使います。足りない文字は、その文字を持つ書体をシステムの中から探します。どれにも無い文字は描きません。
+Python は Noto Sans の日本語・韓国語・簡体字・繁体字の 4 書体（29.6 MB）を同梱していました。このクレートは書体を同梱せず、利用者の PC の書体を使います。Windows は `Fonts` とユーザーの書体のフォルダ、Linux は fontconfig が既定で読むフォルダ（`/usr/share/fonts`、`~/.local/share/fonts` など）を探し、書体のファイルの `name` 表から書体名の一覧を作ります（fontconfig そのものは呼びません）。
 
-## まだ移していないもの
+1. 設定で選んだ書体（`FontLibrary::set_family`、中核の `OVERLAY_FONT_FAMILY`）。
+2. 言語ごとの標準の書体。日本語は Yu Gothic UI、Meiryo、Noto Sans CJK JP など、韓国語は Malgun Gothic、Noto Sans CJK KR など、簡体字は Microsoft YaHei、Noto Sans CJK SC など、繁体字は Microsoft JhengHei、Noto Sans CJK TC など、ほかの言語（ラテン文字）は Segoe UI、Noto Sans、DejaVu Sans など。
+3. 1 と 2 にない文字は、その文字を持つ書体をシステムの中から探します。どれにも無い文字は描きません。
 
-コントローラで VR パネルを操作する部分です。レーザーで指すこと、掴んで動かすこと、拡大縮小、角を掴んで大きさを変えること、操作バー、ホバーで出る吹き出し、VR 画面へのマウスの入力がこれに当たります。これらがないあいだ、VR パネルは表示と、UI からの固定先の変更・呼び戻し・ランチャーを戻す操作だけができます。
+`FontLibrary::missing_languages` は、日本語・韓国語・中国語（簡体字・繁体字）のうち、この PC のどの書体でも描けない言語を返します（CJK の書体がない Linux など）。
+
+## コントローラ
+
+`engine/input.rs` が Python の `updateGrab` とその周りにあたります。レーザーは各コントローラの先端から 12 度上に出し、SteamVR の `ComputeOverlayIntersection` で当たりを調べます。
+
+- VR 画面ではトリガーが左クリック、スティックの上下がスクロールです。入力は `PanelSurface::pointer` で VR 画面に送ります（Windows は WebView2 の `Chrome_RenderWidgetHostHWND` への `PostMessageW`、Linux は `input.sock`）。指している位置は `Event::Pointer` で知らせ、中核が `/run/vr_panel_pointer` で UI に送ります。
+- グリップで掴んで動かし、離すと `Event::Position` で保存を頼みます。掴んだままトリガーで拡大縮小、スティックで遠ざける・近づける、ログの角で大きさを変える（新しい大きさで描くまで枠を出す）ことができます。ロックしたログは掴めません。
+- ログを少し指していると、下に操作バーを出します。ホバーの吹き出しは、指している位置がボタンの上にあるときだけ出します。
 
 ## 試験
 
@@ -37,4 +48,4 @@ Python は Noto Sans の日本語・韓国語・簡体字・繁体字の 4 書�
 cargo test --locked --manifest-path native/vr-overlay/Cargo.toml
 ```
 
-SteamVR の代わりに `runtime::fake::FakeVr` を使います。実機の SteamVR、ヘッドセット、GPU は使いません。書体はシステムのものを使い、描いた字の画素の値までは比べません（OS で書体が違うため）。中核から見た振る舞いは `native/core/tests/vr_overlay.rs` が確かめます。
+SteamVR の代わりに `runtime::fake::FakeVr` を使います。偽物はコントローラの姿勢とボタンを持ち、置いたオーバーレイの位置からレーザーの当たりを答えます。`tests/interaction.rs` は、指す・押す・スクロールする、掴んで動かして保存する、ロック、拡大縮小の限度、角での大きさの変更と枠、操作バーとホバーの吹き出し、コントローラを見失ったとき、を確かめます。実機の SteamVR、ヘッドセット、GPU は使いません。書体はシステムのものを使い、描いた字の画素の値までは比べません（OS で書体が違うため）。中核から見た振る舞いは `native/core/tests/vr_overlay.rs` が確かめます。実機での確認が残っていることは `docs/voice-stack/core-integration.md` の「判断が要ること」の 8 にあります。

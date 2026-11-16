@@ -309,7 +309,6 @@ impl Core {
         let key = |name: &str| config.get("TRANSCRIPTION_AUTH_KEYS")[name].as_str().unwrap_or("").to_string();
         let selected = |name: &str| config.get(name).as_str().unwrap_or("").to_string();
         let built = match engine {
-            "Google" => Engine::Google { url: endpoints.google.clone() },
             "Groq_Whisper" | "OpenAI_Whisper" | "Custom_Whisper" => {
                 let _guard = self.credential_lock.lock().unwrap();
                 let (base_url, model) = match engine {
@@ -906,8 +905,9 @@ impl Core {
                     let models: Vec<String> = detailed.into_iter().map(|(name, _)| name).collect();
                     if models.is_empty() { (false, None, None) } else { (true, Some(models), Some(languages)) }
                 }
-                // Google and speech.cpp: established by real requests, not a probe.
-                _ => (true, None, None),
+                // speech.cpp: established by its server, not a probe.
+                crate::languages::LOCAL_SPEECH_ENGINE => (true, None, None),
+                _ => (false, None, None),
             }
         };
         let results: Vec<(String, Checked)> = std::thread::scope(|scope| {

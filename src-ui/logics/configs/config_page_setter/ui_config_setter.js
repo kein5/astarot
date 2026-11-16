@@ -984,6 +984,25 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "overlay_show_only_translated_messages",
     },
     {
+        // The subtitles' font, one of this PC's ("" is automatic). No font is bundled.
+        Category: "Vr",
+        Base_Name: "OverlayFontFamily",
+        default_value: "",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "overlay_font_family",
+    },
+    {
+        // The languages no font on this PC can draw (Linux without CJK fonts, say). Asked for
+        // when the settings open; not part of the start-up answer.
+        Category: "Vr",
+        Base_Name: "OverlayFontMissingLanguages",
+        default_value: [],
+        ui_template_id: "list",
+        logics_template_id: "get_only",
+        base_endpoint_name: "overlay_font_missing_languages",
+    },
+    {
         // VR UI (手首のランチャーと各ウィンドウ)。字幕のオーバーレイとは別にON/OFFする
         Category: "Vr",
         Base_Name: "IsEnabledOverlayVrPanel",
@@ -1368,6 +1387,24 @@ export const SETTINGS_ARRAY = [
         ui_template_id: "object",
         logics_template_id: "get_set",
         base_endpoint_name: "experimental_features",
+    },
+    {
+        // The screen edge the tray companion's hexagram hides at (experimental feature tray_companion).
+        Category: "ExperimentalFeatures",
+        Base_Name: "TrayCompanionEdge",
+        default_value: "right",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "tray_companion_edge",
+    },
+    {
+        // The monitor the hexagram shows on; empty for the primary monitor.
+        Category: "ExperimentalFeatures",
+        Base_Name: "TrayCompanionMonitor",
+        default_value: "",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "tray_companion_monitor",
     },
 
 ];

@@ -14,7 +14,7 @@ use serde_json::{Map, Value, json};
 
 /// Left out of `/run/initialization_complete`: they reach the network, a device or a server, or
 /// they describe what runs. The UI asks for them itself (`_INIT_MAPPING_EXCLUDED_ENDPOINTS`).
-pub const INIT_EXCLUDED: [&str; 7] = [
+pub const INIT_EXCLUDED: [&str; 8] = [
     "/get/data/available_releases",
     "/get/data/ocr_readiness",
     "/get/data/ocr_capture_status",
@@ -22,6 +22,8 @@ pub const INIT_EXCLUDED: [&str; 7] = [
     "/get/data/realtime_asr_models",
     "/get/data/telemetry_preview",
     "/get/data/tts_engine_voices",
+    // Core only: reads the system's fonts (slow on the first call).
+    "/get/data/overlay_font_missing_languages",
 ];
 
 /// The weights under a non-commercial license (CC-BY-NC-4.0).

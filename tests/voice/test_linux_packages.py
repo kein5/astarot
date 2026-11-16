@@ -20,7 +20,7 @@ def candidate(tmp_path):
     (root / "vrct-vox").write_bytes(b"\x7fELF main")
     (root / "vrct-vox-sidecar").write_bytes(b"\x7fELF sidecar")
     (root / "_internal/libexample.so").write_bytes(b"\x7fELF lib")
-    manifest = {"version": "0.3.0-beta.1", "variant": "linux-x64-vulkan", "files": [
+    manifest = {"version": "0.3.0-beta.1", "variant": "linux-x64", "speech_builds": ["linux-x64-vulkan", "linux-x64-cpu"], "files": [
         {"path": "vrct-vox", "elf_versions": ["GLIBC_2.34", "GLIBC_2.39", "GLIBCXX_3.4.32"]},
         {"path": "_internal/libexample.so", "elf_versions": ["GLIBC_2.17"]},
         {"path": "_internal/data.json"},
@@ -42,7 +42,7 @@ def test_other_versions_are_refused(version):
 
 
 def test_the_lowest_glibc_is_the_highest_version_any_file_needs(candidate):
-    assert lp.build_facts(candidate) == ("0.3.0-beta.1", "linux-x64-vulkan", "2.39")
+    assert lp.build_facts(candidate) == ("0.3.0-beta.1", "linux-x64", "2.39")
 
 
 def test_a_candidate_without_glibc_records_is_refused(candidate):
@@ -53,38 +53,52 @@ def test_a_candidate_without_glibc_records_is_refused(candidate):
         lp.build_facts(candidate)
 
 
+@pytest.mark.parametrize("change", [{"variant": "linux-x64-vulkan"}, {"variant": "linux-x64-cpu"},
+                                    {"speech_builds": ["linux-x64-vulkan"]}, {"speech_builds": None}])
+def test_a_candidate_without_both_engine_builds_is_refused(candidate, change):
+    # Until 0.4 each engine build had a package of its own; one package now carries both.
+    manifest = json.loads((candidate / "build-manifest.json").read_text())
+    manifest.update(change)
+    (candidate / "build-manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="both"):
+        lp.build_facts(candidate)
+
+
 def control_fields(control):
     return dict(line.split(": ", 1) for line in control.splitlines() if line and not line.startswith(" "))
 
 
-def test_the_deb_declares_glibc_gtk_webkit_and_the_vulkan_loader():
-    control = lp.deb_control("0.3.0-beta.1", "linux-x64-vulkan", "2.39", 1234)
+def test_the_deb_declares_glibc_gtk_webkit_and_recommends_the_vulkan_loader():
+    control = lp.deb_control("0.3.0-beta.1", "linux-x64", "2.39", 1234)
     fields = control_fields(control)
     assert fields["Package"] == "vrct-vox"
     assert fields["Version"] == "0.3.0~beta.1"
     assert fields["Architecture"] == "amd64"
     assert fields["Installed-Size"] == "1234"
     assert fields["Depends"] == ("libc6 (>= 2.39), libwebkit2gtk-4.1-0, libgtk-3-0t64 | libgtk-3-0, "
-                                  "libpipewire-0.3-0t64 | libpipewire-0.3-0, libvulkan1")
-    assert fields["Recommends"] == "pipewire-bin, mesa-vulkan-drivers"
+                                  "libpipewire-0.3-0t64 | libpipewire-0.3-0")
+    # The CPU build in the same package runs without Vulkan; the Vulkan build needs the loader.
+    assert fields["Recommends"] == "pipewire-bin, libvulkan1, mesa-vulkan-drivers"
     assert "@" not in fields["Maintainer"]  # No personal address in published metadata.
     assert control.endswith("\n")
 
 
-def test_the_cpu_variant_needs_no_vulkan():
-    fields = control_fields(lp.deb_control("0.3.0", "linux-x64-cpu", "2.39", 1))
-    assert "vulkan" not in fields["Depends"] + fields["Recommends"]
-    assert "vulkan" not in lp.rpm_spec("0.3.0", "linux-x64-cpu", "2.39", "/staged")
+def test_nothing_of_vulkan_is_required():
+    fields = control_fields(lp.deb_control("0.3.0", "linux-x64", "2.39", 1))
+    assert "vulkan" not in fields["Depends"]
+    assert not [line for line in lp.rpm_spec("0.3.0", "linux-x64", "2.39", "/staged").splitlines()
+                if line.startswith("Requires:") and "vulkan" in line]
+    with pytest.raises(ValueError):
+        lp.deb_control("0.3.0", "linux-x64-vulkan", "2.39", 1)
 
 
 def test_the_rpm_takes_the_files_as_built_and_declares_its_requirements(tmp_path):
-    spec = lp.rpm_spec("0.3.0-beta.1", "linux-x64-vulkan", "2.39", tmp_path / "staged root")
+    spec = lp.rpm_spec("0.3.0-beta.1", "linux-x64", "2.39", tmp_path / "staged root")
     assert "Version: 0.3.0~beta.1" in spec
     assert "AutoReqProv: no" in spec  # The bundled libraries are not offered to other packages.
     assert "%global __os_install_post %{nil}" in spec  # Nothing is stripped or rewritten.
     for line in ("Requires: glibc >= 2.39", "Requires: webkit2gtk4.1", "Requires: gtk3", "Requires: pipewire-libs",
-                 "Requires: vulkan-loader",
-                 "Recommends: pipewire-utils", "Recommends: mesa-vulkan-drivers"):
+                 "Recommends: pipewire-utils", "Recommends: vulkan-loader", "Recommends: mesa-vulkan-drivers"):
         assert line in spec.splitlines()
     assert f"cp -al '{tmp_path / 'staged root'}/.'" in spec  # Hard links: no second 1 GB copy.
 

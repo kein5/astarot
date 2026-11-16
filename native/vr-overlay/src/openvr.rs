@@ -9,8 +9,10 @@
 //! system's library path. Shipping it with the app is an open decision
 //! (`docs/voice-stack/core-integration.md`).
 
-use crate::math::{Mat34, Mat4};
-use crate::runtime::{Device, HMD, Hand, Handle, INVALID_DEVICE, MAX_DEVICES, Session, Vr, VrError};
+use crate::math::{Mat34, Mat4, Vec3};
+use crate::runtime::{
+    ControllerState, Device, HMD, Hand, Handle, INVALID_DEVICE, Intersection, MAX_DEVICES, Session, TextureSlot, Vr, VrError,
+};
 use libloading::Library;
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::path::PathBuf;
@@ -18,6 +20,14 @@ use std::sync::{Arc, Mutex};
 
 const SYSTEM_VERSION: &str = "FnTable:IVRSystem_023";
 const OVERLAY_VERSION: &str = "FnTable:IVROverlay_028";
+const RENDER_MODELS_VERSION: &str = "FnTable:IVRRenderModels_006";
+/// `Prop_RenderModelName_String`.
+const PROP_RENDER_MODEL_NAME: i32 = 1003;
+/// `sizeof(VRControllerState_t)`: packed to 4 bytes outside Windows, like `VREvent_t`.
+const CONTROLLER_STATE_SIZE: usize = if cfg!(windows) { 64 } else { 60 };
+/// Where `ulButtonPressed` and `rAxis[0]` sit in it.
+const CONTROLLER_PRESSED_AT: usize = if cfg!(windows) { 8 } else { 4 };
+const CONTROLLER_AXIS_AT: usize = if cfg!(windows) { 24 } else { 20 };
 const APPLICATION_BACKGROUND: i32 = 3;
 const UNIVERSE_STANDING: i32 = 1;
 const ROLE_LEFT: i32 = 1;
@@ -36,7 +46,12 @@ mod system {
     pub const ACTIVITY_LEVEL: usize = 15;
     pub const INDEX_FOR_CONTROLLER_ROLE: usize = 17;
     pub const IS_CONNECTED: usize = 20;
+    pub const STRING_PROPERTY: usize = 27;
     pub const POLL_NEXT_EVENT: usize = 29;
+    pub const CONTROLLER_STATE: usize = 33;
+}
+mod render_models {
+    pub const COMPONENT_STATE: usize = 14;
 }
 mod overlay {
     pub const CREATE: usize = 1;
@@ -50,6 +65,7 @@ mod overlay {
     pub const SET_TRANSFORM_RELATIVE: usize = 35;
     pub const SHOW: usize = 43;
     pub const HIDE: usize = 44;
+    pub const COMPUTE_INTERSECTION: usize = 53;
     pub const SET_TEXTURE: usize = 60;
     pub const SET_RAW: usize = 62;
 }
@@ -76,6 +92,43 @@ struct Texture {
     handle: *mut c_void,
     kind: i32,
     color_space: i32,
+}
+
+/// `VROverlayIntersectionParams_t`.
+#[repr(C)]
+struct IntersectionParams {
+    source: [f32; 3],
+    direction: [f32; 3],
+    origin: i32,
+}
+
+/// `VROverlayIntersectionResults_t`.
+#[repr(C)]
+#[derive(Default)]
+struct IntersectionResults {
+    point: [f32; 3],
+    normal: [f32; 3],
+    uv: [f32; 2],
+    distance: f32,
+}
+
+/// `RenderModel_ComponentState_t`: two matrices and the properties.
+#[repr(C)]
+#[derive(Default)]
+struct ComponentState {
+    tracking_to_render_model: Matrix34,
+    tracking_to_local: Matrix34,
+    properties: u32,
+}
+
+fn mat4(m: &Matrix34) -> Mat4 {
+    let mut out = crate::math::IDENTITY;
+    for row in 0..3 {
+        for column in 0..4 {
+            out[row][column] = f64::from(m.m[row][column]);
+        }
+    }
+    out
 }
 
 fn matrix(pose: &Mat34) -> Matrix34 {
@@ -182,7 +235,10 @@ impl Vr for OpenVr {
                     return Err(error);
                 }
             };
-            Ok(Box::new(OpenVrSession { _library: library, shutdown, system, overlay, texture: None }))
+            // Only the laser's tip needs the render models; without them it points from the
+            // controller's body.
+            let render_models = table(RENDER_MODELS_VERSION).ok();
+            Ok(Box::new(OpenVrSession { _library: library, shutdown, system, overlay, render_models, textures: [None, None] }))
         }
     }
 }
@@ -192,7 +248,9 @@ struct OpenVrSession {
     shutdown: ShutdownInternal,
     system: *const *const c_void,
     overlay: *const *const c_void,
-    texture: Option<d3d::SharedTexture>,
+    render_models: Option<*const *const c_void>,
+    /// The page's texture and the resize frame's ([`TextureSlot`]).
+    textures: [Option<d3d::SharedTexture>; 2],
 }
 
 // The tables are used from one thread at a time, behind the engine's lock.
@@ -200,7 +258,7 @@ unsafe impl Send for OpenVrSession {}
 
 impl Drop for OpenVrSession {
     fn drop(&mut self) {
-        self.texture = None;
+        self.textures = [None, None];
         unsafe { (self.shutdown)() };
     }
 }
@@ -215,6 +273,27 @@ macro_rules! call {
 impl OpenVrSession {
     fn check(&self, error: i32, what: &str) -> Result<(), VrError> {
         if error == 0 { Ok(()) } else { Err(VrError(format!("{what}: VROverlayError {error}"))) }
+    }
+
+    /// The raw `VRControllerState_t` (8-byte aligned for the 64-bit fields).
+    fn controller_bytes(&mut self, device: Device) -> Option<[u64; 8]> {
+        if device == INVALID_DEVICE {
+            return None;
+        }
+        let mut state = [0u64; 8];
+        let ok = call!(self.system, system::CONTROLLER_STATE, fn(u32, *mut u64, u32) -> bool,
+            device, state.as_mut_ptr(), CONTROLLER_STATE_SIZE as u32);
+        ok.then_some(state)
+    }
+}
+
+fn controller_state_of(raw: &[u64; 8]) -> ControllerState {
+    let bytes: Vec<u8> = raw.iter().flat_map(|word| word.to_ne_bytes()).collect();
+    let u64_at = |i: usize| u64::from_ne_bytes(bytes[i..i + 8].try_into().expect("8 bytes"));
+    let f32_at = |i: usize| f32::from_ne_bytes(bytes[i..i + 4].try_into().expect("4 bytes"));
+    ControllerState {
+        pressed: u64_at(CONTROLLER_PRESSED_AT),
+        axis: (f64::from(f32_at(CONTROLLER_AXIS_AT)), f64::from(f32_at(CONTROLLER_AXIS_AT + 4))),
     }
 }
 
@@ -238,27 +317,29 @@ impl Session for OpenVrSession {
         self.check(error, "setOverlayRaw")
     }
 
-    fn set_shared_texture(&mut self, overlays: &[Handle], bgra: &[u8], width: u32, height: u32, texture: (u32, u32))
+    fn set_shared_texture(&mut self, slot: TextureSlot, overlays: &[Handle], bgra: &[u8], width: u32, height: u32, texture: (u32, u32))
     -> Result<(u32, u32), VrError> {
         #[cfg(windows)]
         {
             let size = (texture.0.max(width), texture.1.max(height));
-            if self.texture.as_ref().is_none_or(|t| t.size.0 < width || t.size.1 < height) {
-                self.texture = Some(d3d::SharedTexture::new(size)?);
+            let held = &mut self.textures[slot as usize];
+            if held.as_ref().is_none_or(|t| t.size.0 < width || t.size.1 < height) {
+                *held = Some(d3d::SharedTexture::new(size)?);
             }
-            let shared = self.texture.as_ref().expect("made above");
+            let shared = held.as_ref().expect("made above");
             shared.upload(bgra, width, height)?;
+            let size = shared.size;
             let texture = Texture { handle: shared.raw(), kind: TEXTURE_DIRECTX, color_space: COLOR_SPACE_AUTO };
             for handle in overlays {
                 let error = call!(self.overlay, overlay::SET_TEXTURE, fn(u64, *const Texture) -> i32, *handle, &texture);
                 self.check(error, "setOverlayTexture")?;
             }
-            Ok(shared.size)
+            Ok(size)
         }
         #[cfg(not(windows))]
         {
             // No GPU texture here yet: the picture goes to each overlay as raw pixels.
-            let _ = (texture, TEXTURE_DIRECTX, COLOR_SPACE_AUTO);
+            let _ = (slot, texture, TEXTURE_DIRECTX, COLOR_SPACE_AUTO);
             let mut rgba = bgra[..(width * height * 4) as usize].to_vec();
             for pixel in rgba.chunks_exact_mut(4) {
                 pixel.swap(0, 2);
@@ -368,6 +449,47 @@ impl Session for OpenVrSession {
     fn headset_worn(&mut self) -> bool {
         let level = call!(self.system, system::ACTIVITY_LEVEL, fn(u32) -> i32, HMD);
         WORN_LEVELS.contains(&level)
+    }
+
+    fn controller_state(&mut self, device: Device) -> Option<ControllerState> {
+        self.controller_bytes(device).map(|raw| controller_state_of(&raw))
+    }
+
+    fn intersect(&mut self, handle: Handle, source: Vec3, direction: Vec3) -> Option<Intersection> {
+        let params = IntersectionParams {
+            source: source.map(|v| v as f32),
+            direction: direction.map(|v| v as f32),
+            origin: UNIVERSE_STANDING,
+        };
+        let mut results = IntersectionResults::default();
+        let hit = call!(self.overlay, overlay::COMPUTE_INTERSECTION, fn(u64, *const IntersectionParams, *mut IntersectionResults) -> bool,
+            handle, &params, &mut results);
+        hit.then(|| Intersection {
+            point: results.point.map(f64::from),
+            normal: results.normal.map(f64::from),
+            uv: (f64::from(results.uv[0]), f64::from(results.uv[1])),
+            distance: f64::from(results.distance),
+        })
+    }
+
+    fn tip_offset(&mut self, device: Device) -> Option<Mat4> {
+        let render_models = self.render_models?;
+        let mut name = [0u8; 256];
+        let mut error = 0i32;
+        let length = call!(self.system, system::STRING_PROPERTY, fn(u32, i32, *mut u8, u32, *mut i32) -> u32,
+            device, PROP_RENDER_MODEL_NAME, name.as_mut_ptr(), name.len() as u32, &mut error);
+        if error != 0 || length <= 1 || length as usize > name.len() {
+            return None;
+        }
+        let state = self.controller_bytes(device)?;
+        let tip = CString::new("tip").expect("no NUL");
+        let mode = [0u8; 4]; // RenderModel_ControllerMode_State_t { bScrollWheelVisible: false }
+        let mut component = ComponentState::default();
+        let found = call!(render_models, render_models::COMPONENT_STATE, fn(*const u8, *const c_char, *const u64, *const u8, *mut ComponentState) -> bool,
+            name.as_ptr(), tip.as_ptr(), state.as_ptr(), mode.as_ptr(), &mut component);
+        let _ = component.tracking_to_render_model;
+        let _ = component.properties;
+        found.then(|| mat4(&component.tracking_to_local))
     }
 }
 

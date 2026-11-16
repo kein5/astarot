@@ -154,7 +154,11 @@ export const useWindow = () => {
         await appWindow.minimize();
     };
 
-    const asyncCloseApp = () => closeAfterShutdown(appWindow, asyncStdoutToPython);
+    // The app lives in the tray: closing the window only puts it away there, and the tray menu's Quit
+    // ends the app (asyncQuitApp). CompanionController sets store.companion_hide; it quits instead
+    // when there is no tray icon to bring the window back from.
+    const asyncCloseApp = () => store.companion_hide ? store.companion_hide() : closeAfterShutdown(appWindow, asyncStdoutToPython);
+    const asyncQuitApp = () => closeAfterShutdown(appWindow, asyncStdoutToPython);
 
     return {
         asyncSaveWindowGeometry,
@@ -162,6 +166,7 @@ export const useWindow = () => {
         asyncUpdateBreakPoint,
 
         asyncCloseApp,
+        asyncQuitApp,
         asyncToggleMaximizeApp,
         asyncMinimizeApp,
     };
@@ -234,7 +239,8 @@ export const WindowCloseController = () => {
         };
         appWindow.onCloseRequested(event => {
             event.preventDefault();
-            closeAfterShutdown(appWindow, (...args) => latest.current(...args));
+            if (store.companion_hide) store.companion_hide();
+            else closeAfterShutdown(appWindow, (...args) => latest.current(...args));
         }).then(unlisten => {
             dispose = unlisten;
             if (!active) release();

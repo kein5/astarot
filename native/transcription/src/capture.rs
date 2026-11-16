@@ -173,7 +173,7 @@ impl CapturePlatform for NativeCapture {
                     crate::helper::HelperCapture::open(&self.helper, endpoint, source, on_audio, on_error)
                         .map(|c| Box::new(c) as Box<dyn Capture>)
                 }
-                // The recorder (Google and the cloud engines) read PyAudioWPatch, which is Windows only.
+                // The recorder (the cloud engines) read PyAudioWPatch, which is Windows only.
                 Target::Device(_) => Err("asr_capture_windows_only".into()),
             }
         }

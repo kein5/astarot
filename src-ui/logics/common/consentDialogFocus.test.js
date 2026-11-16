@@ -4,6 +4,8 @@ import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
 import * as legacyConsent from "../configs/legacyModelConsent.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 import * as languageNames from "./languageNames.ts";
+import * as modelCatalog from "../voice/modelCatalog.ts";
+import * as modelHardwareWarning from "../voice/modelHardwareWarning.ts";
 
 const boxes = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
 const entry = { id: "reviewed-model", name: "Reviewed model", target: "rvc", total_bytes: 100,
@@ -24,7 +26,7 @@ async function fixture(context, kind, openerState) {
         close() { this.open = false; order.push("close"); } };
     const dialogHooks = await loadModule(new URL("./useConsentDialog.js", import.meta.url), runtime);
     const downloads = { catalog: { models: [{ ...entry, target: kind === "ocr" ? "ocr" : "rvc" }],
-        legacy_models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {}, send: (endpoint, data) => {
+        legacy_models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {}, ensureHardware: () => {}, send: (endpoint, data) => {
         calls.push([endpoint, data]);
         if (endpoint.startsWith("/run/")) order.push("request");
     } };
@@ -39,6 +41,10 @@ async function fixture(context, kind, openerState) {
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },
         "../../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },
         "../../../../../../logics/voice/modelHardwareAdvice": { modelAdvice: () => ({}) },
+        "../../../../../../logics/voice/modelCatalog": modelCatalog,
+        "../../../../../../logics/voice/modelHardwareWarning": modelHardwareWarning,
+        "./EngineCatalog": { EngineCatalog: "engines" },
+        "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "../../../../../../logics/common/languageNames": languageNames,
         "../../../../../../../logics/configs/legacyModelConsent": legacyConsent,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },

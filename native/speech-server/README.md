@@ -20,6 +20,7 @@ speech.cpp の実行ファイルは従来どおり別プロセスです。この
 | `runtime.py` の `SpeechServers` | `servers::SpeechServers` |
 | `warmup.py` | `warmup` |
 | `low_latency.py` | `standby::LowLatencyStandby` |
+| （Python 版にはない） | `builds`（Linux の2つのビルドから選ぶ） |
 
 設定ファイルの形、状態名（`stopped`、`preparing`、`ready`、`stopping`、`failed`）、エラーコードの文字列は Python 版と同じです。エラーコードは `codes` にまとめてあります。
 
@@ -32,9 +33,24 @@ speech.cpp の実行ファイルは従来どおり別プロセスです。この
 - **ウォームアップ用の雑音**。長さ（6秒）と大きさは同じですが、乱数の列は Python 版と一致しません。結果は捨てるので、動作には影響しません。
 - **低遅延スタンバイ**。Python 版は、最初にモデルが `seed` を受け付けるかを問い合わせていました。Rust 版は問い合わせず、`seed` を付けた要求が 200 以外で返ったらスタンバイを失敗にします。
 
+## 同梱のビルドの選び方
+
+speech.cpp はアプリに同梱し、実行時には取得しません。Windows は Vulkan 版の1つだけを、Linux は CPU 版と Vulkan 版の2つを同梱します（`docs/voice-stack/core-integration.md` の「判断が要ること」の 5）。`server::Launch::bundles` に同梱のフォルダを渡すと、起動のたびに各フォルダを固定のハッシュで確かめ、`bundle.json` の variant の末尾（`-cpu`、`-vulkan`）でどちらのビルドかを決めます。フォルダの名前では決めません。
+
+| 設定の `device` | 2つのビルドがあるとき（Linux） | 1つのビルドのとき（Windows） |
+|---|---|---|
+| `cpu` | CPU 版を `--device cpu` で | そのビルドを `--device cpu` で |
+| `gpu` | Vulkan 版。`speech devices --json` で選んだ GPU | 同じ |
+| `Vulkan0` など | Vulkan 版をその名前で | 同じ |
+| `auto` | Vulkan 版の `speech devices --json` が動き、計算に使える GPU があれば Vulkan 版でその GPU。GPU がなければ CPU 版。一覧が動かなければ（`libvulkan.so.1` がないなど）CPU 版にして、状態に `notice: speech_server_cpu_fallback` を付ける | 今までどおり（GPU を選ぶか、speech.cpp に任せる） |
+
+`gpu` や GPU の名前を選んでいて Vulkan 版が起動しないときは、CPU 版に移さず失敗にします。Linux の動的ローダーが `libvulkan.so.1` を見つけられなかったときのエラーコードは、Windows で `vulkan-1.dll` がないときと同じ `speech_server_vulkan_missing` です。CPU 版だけがあるとき（開発の checkout など）は、CPU だけの配布物と同じに動きます。
+
+`builds::survey` は設定の画面に出すものを返します。GPU の一覧は Vulkan 版から取り、CPU を何で動かすか（`separate`、`shared`、`missing`）と Vulkan 版が動くか（`ready`、`unavailable`、`missing`）を添えます。
+
 ## ログとデータ
 
-サーバが出力した行、モデルのパス、文章、音声は、ログにも戻り値にも入れません。サーバの標準エラー出力から読み取るのは、待ち受けポートの行と、`out_of_memory`・`device` の2種類の失敗分類だけです。
+サーバが出力した行、モデルのパス、文章、音声は、ログにも戻り値にも入れません。サーバの標準エラー出力から読み取るのは、待ち受けポートの行と、`out_of_memory`・`device` の2種類の失敗分類と、Linux の動的ローダーが `libvulkan.so.1` を見つけられなかったことだけです。
 
 ## 試験
 
@@ -44,7 +60,7 @@ cargo test --locked --manifest-path native/speech-server/Cargo.toml
 python tools/dev.py check --scope rust
 ```
 
-試験は、speech.cpp の代わりをする小さな実行ファイル（`tests/fixture/fake_speech.rs`）を実際に起動して、プロセスの起動から終了までを確かめます。モデルも GPU も使いません。この実行ファイルはアプリのビルドには含まれません。
+試験は、speech.cpp の代わりをする小さな実行ファイル（`tests/fixture/fake_speech.rs`）を実際に起動して、プロセスの起動から終了までを確かめます。モデルも GPU も使いません。この実行ファイルはアプリのビルドには含まれません。`tests/builds.rs` は、この実行ファイルの写しを Linux と同じ2つの同梱フォルダと Windows と同じ1つのフォルダに置き、写しのハッシュで固定して、ビルドの選び方と CPU 版への切り替えを確かめます。
 
 実物の speech.cpp とモデルで確かめるときは、環境変数を指定します。指定がなければ、この試験は何もせずに通ります。
 

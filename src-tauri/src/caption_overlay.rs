@@ -542,7 +542,7 @@ fn watch(app: tauri::AppHandle) {
 /// Shows the window without making it the foreground window. Tauri's `show()`
 /// activates it, which takes the keyboard from the game the captions are over.
 #[cfg(windows)]
-fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
+pub(crate) fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
     #[link(name = "user32")]
     unsafe extern "system" {
         fn ShowWindow(window: *mut std::ffi::c_void, command: i32) -> i32;
@@ -580,7 +580,7 @@ where
 /// unwraps the GdkWindow and panics while the window is not realized (seen on the
 /// first open in CI). Realizing does not map it, so override-redirect still applies.
 #[cfg(target_os = "linux")]
-async fn prepare(overlay: &WebviewWindow) -> Result<(), String> {
+pub(crate) async fn prepare(overlay: &WebviewWindow) -> Result<(), String> {
     use gtk::prelude::*;
 
     on_gtk(overlay, |window| {
@@ -598,7 +598,7 @@ async fn prepare(overlay: &WebviewWindow) -> Result<(), String> {
 }
 
 #[cfg(target_os = "linux")]
-async fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
+pub(crate) async fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
     use gtk::prelude::*;
 
     on_gtk(overlay, |window| {
@@ -630,7 +630,7 @@ fn raise(overlay: &WebviewWindow) {
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
-fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
+pub(crate) fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
     overlay.show().map_err(|error| error.to_string())
 }
 
