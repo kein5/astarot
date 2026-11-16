@@ -164,7 +164,7 @@ voice:
 common:
     close_button_label: "Close"
     dismiss_notification: "Dismiss notification"
-    go_back_button_label: "Go Back"
+    go_back_button_label: "Go back"
     default_label: "Default"
     reset_to_default: "Reset to default"
     copy_version: "Copy version {{version}}"
@@ -345,7 +345,7 @@ main_page:
     ocr: "Chat reading (OCR)"
     tts: "Text to speech (TTS)"
     rvc: "Voice changer (RVC)"
-    foreground: "Always on Top"
+    foreground: "Always on top"
     quick_settings: "Quick settings"
     quick_settings_on: "{{count}} on"
     quick_settings_all_off: "All off"
@@ -365,13 +365,13 @@ main_page:
         open_settings: "Open settings"
         prepare_label: "{{feature}}: {{action}}"
 
-    language_settings: "Language Settings"
+    language_settings: "Language settings"
     language_pair: "{{from}} → {{to}}"
-    your_language: "Your Language"
-    translate_each_other_label: "Translate Both Languages"
-    swap_button_label: "Switch Languages"
+    your_language: "Your language"
+    translate_each_other_label: "Translate both languages"
+    swap_button_label: "Switch languages"
     help_link: "Open the ASTAROT guide"
-    target_language: "Target Language"
+    target_language: "Target language"
     add_target_language: "Add a target language"
     remove_target_language: "Remove the last target language"
     translator: "Translator"
@@ -401,15 +401,15 @@ main_page:
         speakers_separator: ", "
         system: "System"
 
-        resend_button_on_hover_desc: "Press And Hold To Send"
+        resend_button_on_hover_desc: "Press and hold to send"
         resend_button_label: "Edit this message, or press and hold to send it again"
 
     state_text_enabled: "On"
     state_text_disabled: "Off"
 
     language_selector:
-        title_your_language: "Select Your Language"
-        title_target_language: "Select Target Language"
+        title_your_language: "Select your language"
+        title_target_language: "Select target language"
         filter: "Filter by name or code (ja, en)"
         no_results: "No matching languages"
 
@@ -470,22 +470,22 @@ config_page:
         model_download_button_label: "Download"
         save_button_label: "Save"
         edit_button_label: "Edit"
-        correct_auth_key_required: "Correct API Key Required"
-        open_auth_key_webpage: "Open API Key Management Webpage"
+        correct_auth_key_required: "Correct API key required"
+        open_auth_key_webpage: "Open the API key management page"
         auth_key_success: "API key update completed."
         credential_reentry_required: "The URL has changed. To keep your saved key from being sent to a different server, enter the key for the new URL. For a server without a key, delete the saved key first, then change the URL."
         connection_check:
-            button_label: "Connection Check"
+            button_label: "Connection check"
             checking: "Checking..."
             connected: "Connected"
             disconnected: "Disconnected"
         compute_device:
             desc: "The accuracy and speed of each processing type may vary depending on your machine specs, and the compatibility with calculation methods may differ from the displayed order. Please use this as a general guideline."
-            label_device: "Processing Device"
-            label_type: "Processing Type"
+            label_device: "Processing device"
+            label_type: "Processing type"
             type_template_auto: "Automatic"
-            type_template_low: "{{type_name}} (Lower accuracy, faster processing)"
-            type_template_high: "{{type_name}} (Higher accuracy, slower processing)"
+            type_template_low: "{{type_name}} (lower accuracy, faster processing)"
+            type_template_high: "{{type_name}} (higher accuracy, slower processing)"
         warning_labels:
             unable_to_use_osc_query: "OSC reception or OSCQuery advertisement is not ready. Check the local OSC settings and save them again."
             unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
@@ -517,29 +517,29 @@ config_page:
     device:
         section_label_mic: "Mic"
         section_label_speaker: "Speaker"
-        check_volume: "Check Volume"
-        label_auto_select: "Auto Select"
-        label_host: "Host/Driver"
+        check_volume: "Check volume"
+        label_auto_select: "Auto select"
+        label_host: "Host/driver"
         label_device: "Device"
         mic_host_device:
-            label: "Mic Device"
+            label: "Mic device"
             desc: "The mic used for standard transcription. The selected mic is also the default RVC input (Start RVC from the Voice changer (RVC) switch). Realtime transcription uses the mic chosen in the Speech recognition (ASR) settings."
             desc_pipewire: "On Linux this list shows PipeWire inputs. The selected mic is the default RVC input (Start RVC from the Voice changer (RVC) switch). Realtime transcription uses the mic chosen in the Speech recognition (ASR) settings."
         mic_dynamic_energy_threshold:
-            label: "Mic Sensitivity Settings"
+            label: "Mic sensitivity settings"
             desc_for_automatic: "Automatically control mic input sensitivity."
             desc_for_manual: "Input sensitivity can be manually adjusted using the slider. Click the mic icon to test your voice input and adjust the level while monitoring the volume."
-            option_vad: "VAD (Auto)"
+            option_vad: "VAD (auto)"
             option_auto: "Auto"
             option_manual: "Manual"
             desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time you finish speaking. Reduces background music and ambient noise."
         speaker_device:
-            label: "Speaker Device"
+            label: "Speaker device"
         speaker_dynamic_energy_threshold:
-            label: "Speaker Input Sensitivity Adjustment"
+            label: "Speaker input sensitivity adjustment"
             desc_for_automatic: "Automatically control speaker input sensitivity."
             desc_for_manual: "Input sensitivity can be manually adjusted using the slider. Click the headphone icon to listen to the audio and adjust the level while checking the volume."
-            option_vad: "VAD (Auto)"
+            option_vad: "VAD (auto)"
             option_auto: "Auto"
             option_manual: "Manual"
             desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time speech ends. Reduces background music and ambient noise."
@@ -547,28 +547,28 @@ config_page:
 
     appearance:
         section_label_display: "Display"
-        section_label_send_buttons: "Send Buttons"
+        section_label_send_buttons: "Send buttons"
         transparency:
             label: "Transparency"
             desc: "Change the main window's transparency."
         ui_size:
-            label: "UI Size"
+            label: "UI size"
         textbox_ui_size:
-            label: "Message Logs Font Size"
+            label: "Message log font size"
             desc: "You can adjust the log font size by changing the scaling factor relative to the UI size."
         send_message_button_type:
-            label: "Send Message Button"
-            hide: "Hide (Use Enter key to send)"
+            label: "Send message button"
+            hide: "Hide (use the Enter key to send)"
             show: "Show"
             show_and_disable_enter_key: "Show and disable sending using the Enter key."
         show_resend_button:
-            label: "Show Resend Button"
+            label: "Show resend button"
             desc: "When hovering over a sent message log, the resend button appears. Click to edit, long press to resend."
         font_family:
-            label: "Font Family"
+            label: "Font family"
             not_installed: "{{name}} (not installed; a fallback font is shown)"
         ui_language:
-            label: "UI Language"
+            label: "UI language"
 
     translation:
         setup_title: "Model and device"
@@ -577,16 +577,16 @@ config_page:
         provider_in_use: "in use"
         provider_ready: "ready"
         provider_not_set: "not set up"
-        section_label_ai_translation: "AI Translation (Local)"
-        section_label_external_api: "External Translation API"
-        section_label_local_llm: "Local LLM & Compatible Server"
+        section_label_ai_translation: "AI translation (local)"
+        section_label_external_api: "External translation API"
+        section_label_local_llm: "Local LLM and compatible server"
         llm_privacy_desc: "LLM engines send the current text, the prompt and up to five recent chat, microphone or speaker messages to the selected service. SDKs also send OS, architecture and runtime/version metadata. History resets when you change the engine, server or model, or turn translation off."
 
         ctranslate2_weight_type:
-            label: "{{ctranslate2}} Model"
+            label: "{{ctranslate2}} model"
             desc: "You can choose the translation model when using the {{ctranslate2}} translation engine."
-            small: "Basic Model ({{capacity}})"
-            large: "High Accuracy Model ({{capacity}})"
+            small: "Basic model ({{capacity}})"
+            large: "High accuracy model ({{capacity}})"
             license_commercial: "License: {{license}} (commercial use allowed)"
             license_non_commercial: "Non-commercial license ({{license}})"
             custom_model: "Your own model (translation-models folder). Check its license yourself."
@@ -603,106 +603,106 @@ config_page:
             label: "Processing device for AI translation"
 
         deepl_auth_key:
-            label: "DeepL API Key"
+            label: "DeepL API key"
             desc: "To use it, set {{translator}} on the main screen to \"DeepL API\". ※Some languages may not be supported."
 
         google_cloud_auth_key:
-            label: "Google Cloud API Key"
+            label: "Google Cloud API key"
             desc: "Uses Cloud Translation (Basic) with your own Google Cloud project. Enable the Cloud Translation API and billing for the project, then paste an API key. Google charges your project for the characters you translate."
 
         papago_client_id:
-            label: "Papago Client ID"
+            label: "Papago client ID"
             desc: "Uses Papago Translation of NAVER Cloud Platform with your own account. Save the Client ID first, then the Client Secret. Papago translates between Korean, English, Japanese, Chinese and a few other languages; other pairs use the fallback."
             reentry_required: "To change the Client ID, delete the saved Client Secret first, then save the new Client ID and its secret."
         papago_auth_key:
-            label: "Papago Client Secret"
+            label: "Papago client secret"
 
         plamo_auth_key:
-            label: "Plamo API Key"
+            label: "Plamo API key"
         select_plamo_model:
-            label: "Select Plamo Model"
+            label: "Select Plamo model"
 
         gemini_auth_key:
-            label: "Gemini API Key"
+            label: "Gemini API key"
         select_gemini_model:
-            label: "Select Gemini Model"
+            label: "Select Gemini model"
 
         openai_auth_key:
-            label: "OpenAI API Key"
+            label: "OpenAI API key"
         select_openai_model:
-            label: "Select OpenAI Model"
+            label: "Select OpenAI model"
 
         groq_auth_key:
-            label: "Groq API Key"
+            label: "Groq API key"
         select_groq_model:
-            label: "Select Groq Model"
+            label: "Select Groq model"
 
         openrouter_auth_key:
-            label: "OpenRouter API Key"
+            label: "OpenRouter API key"
         select_openrouter_model:
-            label: "Select OpenRouter Model"
+            label: "Select OpenRouter model"
 
         lmstudio_connection_check:
-            label: "Check LM Studio Connection"
+            label: "Check LM Studio connection"
         select_lmstudio_model:
-            label: "Select LM Studio Model"
-            connection_required: "LMStudio Connection Required"
+            label: "Select LM Studio model"
+            connection_required: "LM Studio connection required"
 
         openai_compatible_url:
-            label: "OpenAI-Compatible Endpoint URL"
+            label: "OpenAI-compatible endpoint URL"
             desc: "When pointing at a non-official endpoint, verify pricing, security and model compatibility at your own risk."
         openai_compatible_auth_key:
-            label: "OpenAI-Compatible API Key"
+            label: "OpenAI-compatible API key"
         select_openai_compatible_model:
-            label: "Select OpenAI-Compatible Model"
+            label: "Select OpenAI-compatible model"
 
         ollama_connection_check:
-            label: "Check Ollama Connection"
+            label: "Check Ollama connection"
         ollama_url:
             label: "Ollama URL"
             desc: "Ollama on your PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
         select_ollama_model:
-            label: "Select Ollama Model"
-            connection_required: "Ollama Connection Required"
+            label: "Select Ollama model"
+            connection_required: "Ollama connection required"
 
     transcription:
         section_label_mic: "Mic"
         section_label_speaker: "Speaker"
-        section_label_transcription_engines: "Transcription Engines"
+        section_label_transcription_engines: "Transcription engines"
         timing_title: "Segmenting and queue"
         timing_status: "recordings up to {{record}} s · a message ends after {{phrase}} s without speech · up to {{queue}} waiting"
         mic_record_timeout:
-            label: "Mic Record Timeout"
+            label: "Mic record timeout"
             desc: "The longest single recording, in seconds. Longer speech is split at this length, and the pieces still become one message while you keep talking. 0 means no limit. It cannot be longer than the phrase timeout."
         mic_phrase_timeout:
-            label: "Mic Phrase Timeout"
+            label: "Mic phrase timeout"
             desc: "How long to wait after your last speech before what was heard becomes one message, in seconds. A shorter time sends sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         mic_max_phrase:
-            label: "Mic Max Queued Messages"
+            label: "Mic max queued messages"
             desc: "Maximum number of transcribed messages that can pile up before being sent. If more pile up, the oldest ones are discarded without being sent to VRChat."
         mic_word_filter:
             remove_word: "Remove {{word}}"
-            label: "Mic Word Filter"
+            label: "Mic word filter"
             desc: "If a registered word is detected, the message will not be sent. To add multiple words at once, separate them with ',' (comma).\n*Duplicate words will not be registered."
             add_button_label: "Add"
-            count_desc: "Words Currently Registered: {{count}}"
+            count_desc: "Words currently registered: {{count}}"
         mic_vad_filter:
-            label: "Mic VAD Filter"
+            label: "Mic VAD filter"
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
         speaker_record_timeout:
-            label: "Speaker Record Timeout"
+            label: "Speaker record timeout"
             desc: "The longest single recording of the speaker audio, in seconds. Longer speech is split at this length, and the pieces still become one message while the speech goes on. 0 means no limit. It cannot be longer than the phrase timeout."
         speaker_phrase_timeout:
-            label: "Speaker Phrase Timeout"
+            label: "Speaker phrase timeout"
             desc: "How long to wait after the last speech before what was heard becomes one message, in seconds. A shorter time shows it sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         speaker_max_phrase:
-            label: "Speaker Max Queued Messages"
+            label: "Speaker max queued messages"
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."
         speaker_vad_filter:
-            label: "Speaker VAD Filter"
+            label: "Speaker VAD filter"
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
-            label: "Transcription Engine Used For Speech Recognition"
+            label: "Transcription engine used for speech recognition"
             desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
             engines:
                 speechcpp: "Local (speech.cpp)"
@@ -751,9 +751,9 @@ config_page:
                 desc: "A segment more likely than this to be silence is dropped. Lower is stricter. The default is 0.6."
     vr:
         single_line: "Single line"
-        multi_lines: "Multiple Lines"
+        multi_lines: "Multiple lines"
         overlay_enable: "Enable"
-        restore_default_settings: "Reset to Default Settings"
+        restore_default_settings: "Reset to default settings"
         position: "Position"
         rotation: "Rotation"
         x_position: "X-axis (left-right)"
@@ -764,21 +764,21 @@ config_page:
         z_rotation: "Z-axis rotation"
         sample_text_button:
             start: "Send Sample Texts\nTo Overlay"
-            stop: "Stop Sending"
-            sample_text: "Sample Text."
+            stop: "Stop sending"
+            sample_text: "Sample text."
         opacity: "Opacity"
-        ui_scaling: "UI Scaling"
-        display_duration: "Display Duration"
-        fadeout_duration: "Fadeout Duration"
-        common_settings: "Common Settings"
-        vr_ui_beta: "VR UI (Beta)"
+        ui_scaling: "UI scaling"
+        display_duration: "Display duration"
+        fadeout_duration: "Fade-out duration"
+        common_settings: "Common settings"
+        vr_ui_beta: "VR UI (beta)"
         section_label_overlay: "Subtitle Overlay"
         tracker: "Tracker"
         hmd: "HMD"
-        left_hand: "Left Hand"
-        right_hand: "Right Hand"
+        left_hand: "Left hand"
+        right_hand: "Right hand"
         overlay_show_only_translated_messages:
-            label: "Show Only Translated Messages"
+            label: "Show only translated messages"
         section_label_desktop_overlay: "Desktop caption overlay"
         desktop_overlay:
             label: "Show captions on the desktop"
@@ -806,7 +806,7 @@ config_page:
             label: "Reset the launcher position and size"
             desc: "Use this if you lose the launcher in VR. It returns to your left wrist at its default position and size."
         voice_typing_mode:
-            label: "Voice Typing Mode"
+            label: "Voice typing mode"
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
         overlay_font_family:
             label: "Subtitle font"
@@ -816,44 +816,44 @@ config_page:
             missing: "No installed font can show {{languages}}. Those characters are left out of the subtitles. Install a font for them, such as Noto Sans CJK, then restart the app."
 
     others:
-        section_label_message_formats: "Message Formats"
-        section_label_reading_aids: "Hiragana & Romaji"
+        section_label_message_formats: "Message formats"
+        section_label_reading_aids: "Hiragana and romaji"
         auto_clear_the_message_box:
-            label: "Auto Clear Message Box"
+            label: "Auto clear message box"
         send_only_translated_messages:
-            label: "Send Only Translated Messages"
+            label: "Send only translated messages"
         auto_export_message_logs:
-            label: "Auto Save Message Logs"
+            label: "Auto save message logs"
             desc: "Automatically saves the conversation messages as text files."
             open_folder: "Open the logs folder"
         vrc_mic_mute_sync:
-            label: "VRC Mic Mute Sync"
+            label: "VRC mic mute sync"
             desc: "Microphone transcription pauses while VRChat's mic is muted. It resumes after VRChat confirms the mic is unmuted. If this cannot be confirmed, transcription stays paused.\n*There may be a slight delay. Push-To-Talk is not supported."
         send_message_to_vrc:
-            label: "Send Message To VRChat"
+            label: "Send message to VRChat"
             desc: "Sends messages to the VRChat chatbox. When this is off, ASTAROT works without sending to VRChat, but that way of using it is not supported."
         notification_vrc_sfx:
-            label: "Enable Notification Sound When Sending Chat"
+            label: "Enable notification sound when sending chat"
             desc: "When this feature is disabled, messages will be sent silently without playing the chatbox notification sound that others can hear."
         send_received_message_to_vrc:
-            label: "Send Received Message To VRChat"
+            label: "Send received message to VRChat"
             desc: "Send the message you received from the speaker's voice to VRChat's chatbox."
         message_format_common:
             example_view:
                 title: "Preview"
                 show_all: "Show all examples"
                 show_fewer: "Show fewer examples"
-                original_translated: "Original + Translation"
-                original_translated_multi: "Original + Translation (Multi-language)"
-                translated_only_multi: "Translation Only (Multi-language)"
-                translated_only: "Translation Only"
-                original_only: "Original Only"
+                original_translated: "Original + translation"
+                original_translated_multi: "Original + translation (multi-language)"
+                translated_only_multi: "Translation only (multi-language)"
+                translated_only: "Translation only"
+                original_only: "Original only"
             settings:
                 title: "Settings"
                 original: "Original"
                 translated: "Translation"
                 swap_order: "Swap the order (now {{first}} first)"
-                for_multi_translation: "For Multi-Translation"
+                for_multi_translation: "For multi-translation"
                 before_original: "Before the original"
                 after_original: "After the original"
                 between: "Between original and translation"
@@ -861,19 +861,19 @@ config_page:
                 after_translation: "After the translation"
                 between_translations: "Between translations"
         send_message_format:
-            label: "Message Format (Send)"
+            label: "Message format (send)"
             desc: "This allows you to change the format of the message that others see in VRChat."
         received_message_format:
-            label: "Message Format (Received)"
+            label: "Message format (received)"
             desc: "Used when received messages are sent to VRChat."
         common_convert_message_hiragana_romaji:
             desc_1: "Supported only when Japanese is selected as the translation language."
             desc_2: "Due to the complexity of Japanese, it has limitations on accuracy."
         convert_message_to_romaji:
-            label: "Show Romaji"
+            label: "Show romaji"
             desc:  "When enabled along with '{{convert_message_to_hiragana}}', romaji will be shown on mouse hover."
         convert_message_to_hiragana:
-            label: "Show Hiragana"
+            label: "Show hiragana"
 
     vrchat:
         section_label_chatbox: "Chatbox"
@@ -981,7 +981,7 @@ config_page:
         unassigned_placeholder: "Not set"
         disabled_notice: "* Hotkeys are temporarily disabled while the settings page is open to prevent unintended actions."
         section_label_quick_chat: "Quick Chat"
-        section_label_toggles: "Window & Feature Toggles"
+        section_label_toggles: "Window and feature toggles"
         section_label_voice: "Speech and voice"
         error_in_use: "The hotkey ({{hotkey}}) for \"{{action_name}}\" cannot be registered because it is already in use elsewhere."
         error_failed_to_register_at_launch: "The hotkey ({{hotkey}}) for \"{{action_name}}\" is unavailable because it is in use by another application."
@@ -1027,22 +1027,22 @@ config_page:
     advanced_settings:
         section_label_osc: "OSC"
         section_label_logs: "Logs"
-        section_label_config_file: "Config File"
+        section_label_config_file: "Config file"
         section_label_telemetry: "Usage data"
         telemetry:
             label: "Send usage data"
             desc: "Sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and your PC's hardware (CPU, memory, GPUs and their driver versions). The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from. The same thing is sent once a day at most."
         osc_ip_address:
-            label: "OSC IP Address"
+            label: "OSC IP address"
         osc_port:
-            label: "OSC Port"
+            label: "OSC port"
         open_config_filepath:
-            label: "Open Config File"
+            label: "Open config file"
         enable_websocket:
-            label: "Enable WebSocket Server"
+            label: "Enable WebSocket server"
             locked_by_obs_browser_source: "Disable OBS Browser Source to change this"
         websocket_host:
-            label: "WebSocket Host (IPv4)"
+            label: "WebSocket host (IPv4)"
             desc: "With 127.0.0.1 it works on your PC only. To use it from other PCs, enter your PC's LAN IP address, after setting the certificate and key below."
         websocket_tls_cert_file:
             label: "Certificate file"
@@ -1059,7 +1059,7 @@ config_page:
             confirm_ok: "Make a new key"
             done: "A new connection key was made. Copy the WebSocket and OBS URLs again."
         websocket_port:
-            label: "WebSocket Port"
+            label: "WebSocket port"
         websocket_url:
             label: "WebSocket URL (click to copy)"
         obs_browser_source:
@@ -1071,26 +1071,26 @@ config_page:
             label: "OBS URL (click to copy)"
             desc: "The OBS URL now includes a key. Copy it again and replace the Browser Source URL in OBS."
         obs_browser_source_port:
-            label: "OBS Port"
+            label: "OBS port"
         obs_browser_source_max_messages:
-            label: "Max Messages"
+            label: "Max messages"
             desc: "Enter a whole number from 1 to 50."
         obs_browser_source_display_duration:
-            label: "Display Duration (sec)"
+            label: "Display duration (sec)"
             desc: "Enter a whole number from 1 to 120."
         obs_browser_source_fadeout_duration:
-            label: "Fade-out Duration (sec)"
+            label: "Fade-out duration (sec)"
             desc: "Enter a whole number from 0 to 120."
         obs_browser_source_font_size:
-            label: "Font Size (px)"
+            label: "Font size (px)"
             desc: "Enter a whole number from 10 to 200."
         obs_browser_source_font_color:
-            label: "Font Color (#RRGGBB)"
+            label: "Font color (#RRGGBB)"
         obs_browser_source_font_outline_thickness:
-            label: "Outline Thickness (px)"
+            label: "Outline thickness (px)"
             desc: "Enter a whole number from 0 to 20."
         obs_browser_source_font_outline_color:
-            label: "Outline Color (#RRGGBB)"
+            label: "Outline color (#RRGGBB)"
 
     notifications:
         save_success: "Settings have been saved."
