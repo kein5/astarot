@@ -25,6 +25,8 @@ pub struct FakeLocal {
     pub fails_with: Mutex<Option<LocalError>>,
     pub loaded: Mutex<Option<LocalSetup>>,
     pub loads: Mutex<usize>,
+    /// A target language whose translation panics (a bug in an engine).
+    pub panics_for: Mutex<Option<String>>,
 }
 
 impl LocalTranslation for FakeLocal {
@@ -43,6 +45,9 @@ impl LocalTranslation for FakeLocal {
     }
 
     fn translate(&self, text: &str, _source: &str, target: &str) -> Result<String, LocalError> {
+        if self.panics_for.lock().unwrap().as_deref() == Some(target) {
+            panic!("a bug in the translation engine");
+        }
         Ok(format!("local:{target}:{text}"))
     }
 }
@@ -456,6 +461,43 @@ fn turning_translation_on_loads_the_local_model_or_says_why_it_cannot() {
     assert_eq!(ui.ok("/set/disable/translation", None), false);
     assert_eq!(ui.ok("/set/enable/translation", None), true);
     assert_eq!(*local.loads.lock().unwrap(), loads);
+    ui.stop();
+}
+
+#[test]
+fn a_translation_thread_that_ends_abnormally_fails_that_message_and_keeps_translation_on() {
+    // #394: with several targets, a thread that panicked was taken for the GPU running out of
+    // memory, and translation was turned off.
+    let fake = FakeProviders::start();
+    let (ui, local) = start(&fake, json!({}));
+    assert_eq!(ui.ok("/set/enable/translation", None), true);
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    target["1"]["2"] = json!({ "language": "Korean", "country": "South Korea", "enable": true });
+    ui.ok("/set/data/selected_target_languages", Some(target));
+    let first = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
+    let codes: Vec<String> = first["translations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["message"].as_str().unwrap().split(':').nth(1).unwrap_or("").to_string())
+        .collect();
+    assert_eq!(codes.len(), 2, "{first}");
+
+    // The second destination's engine panics.
+    *local.panics_for.lock().unwrap() = Some(codes[1].clone());
+    let mark = ui.lines().len();
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m2", "message": "hello" })));
+    assert_eq!(answer["translations"][0]["message"], format!("local:{}:hello", codes[0]));
+    assert_eq!(answer["translations"][1]["message"], "hello", "that destination gets the original text");
+    // Reported as a failed translation of this message, not as the GPU's memory.
+    assert_eq!(error_code(&ui.wait_endpoint(mark, "/run/error_translation_engine")), "TRANSLATION_ENGINE_LIMIT");
+    assert!(ui.on(mark, "/run/error_translation_chat_vram_overflow").is_empty());
+    assert!(ui.on(mark, "/run/enable_translation").is_empty());
+
+    // Translation stayed on: the next message translates again.
+    *local.panics_for.lock().unwrap() = None;
+    let again = ui.ok("/run/send_message_box", Some(json!({ "id": "m3", "message": "hello" })));
+    assert_eq!(again["translations"][1]["message"], format!("local:{}:hello", codes[1]));
     ui.stop();
 }
 

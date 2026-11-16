@@ -174,6 +174,36 @@ fn the_destination_is_checked_and_a_failed_change_keeps_the_saved_one() {
 }
 
 #[test]
+fn a_saved_destination_that_cannot_be_opened_falls_back_to_this_pc_and_is_reported() {
+    // #394: a hand-edited destination that cannot be opened dropped every send and never
+    // started receiving (Python did not start at all).
+    const UNOPENABLE: &str = "fe80::1%nowhere";
+    let (inner, opened) = factory(false);
+    let osc: vrct_core::controller::adapters::OpenOsc = Arc::new(move |ip: &str, port: u16| {
+        if ip == UNOPENABLE {
+            return Err(std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, "no such interface"));
+        }
+        inner(ip, port)
+    });
+    let ui = Ui::with(Setup {
+        saved: Some(json!({ "OSC_IP_ADDRESS": UNOPENABLE, "OSC_PORT": 9000 })),
+        services: Services { osc, ..Setup::default().services },
+        ..Setup::default()
+    });
+    ui.ready();
+    let notice = ui.wait_endpoint(0, "/set/data/osc_ip_address");
+    assert_eq!((notice["status"].clone(), error_code(&notice)), (json!(400), "VALIDATION_CANNOT_SET_IP"));
+    assert_eq!(notice["result"]["data"], "127.0.0.1", "the address now in use");
+    // Receiving started on this PC.
+    assert_eq!(ui.wait_endpoint(0, "/run/enable_osc_query")["result"], json!({ "data": true, "disabled_functions": [] }));
+    assert_eq!(opened.last().ip(), "127.0.0.1");
+    assert_eq!(ui.ok("/get/data/osc_ip_address", None), "127.0.0.1");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["OSC_IP_ADDRESS"], "127.0.0.1");
+    ui.stop();
+}
+
+#[test]
 fn the_port_is_an_exact_integer() {
     let run = start(json!({}), false);
     let ui = &run.ui;

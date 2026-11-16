@@ -39,7 +39,6 @@ const SETTING_TABS = {
     "others.common_convert_message_hiragana_romaji": ["appearance"],
     "others.convert_message_to_romaji": ["appearance"],
     "others.convert_message_to_hiragana": ["appearance"],
-    "others.auto_download_models": ["translation"],
     "advanced_settings.section_label_osc": ["vrchat"],
     "advanced_settings.osc_ip_address": ["vrchat"],
     "advanced_settings.osc_port": ["vrchat"],

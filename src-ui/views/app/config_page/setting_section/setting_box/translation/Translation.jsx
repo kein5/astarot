@@ -32,7 +32,6 @@ import { Description } from "../_components/description/Description";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { SetupSection } from "../_components/setup_section/SetupSection";
 import { LegacyModelDownloadDialog } from "../_components/download_models/LegacyModelDownloadDialog";
-import { AutoDownloadModelsContainer } from "../shared_items/SharedItems";
 
 import {
     deepl_auth_key_url,
@@ -78,8 +77,6 @@ const AITranslation_Container = () => {
                 <CTranslate2WeightType_Box />
                 <TranslationComputeDevice_Box />
             </SetupSection>
-            {/* Also on the speech recognition page: one switch fetches both models. */}
-            <AutoDownloadModelsContainer />
         </div>
     );
 };

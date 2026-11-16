@@ -862,9 +862,6 @@ config_page:
             desc: "「{{convert_message_to_hiragana}}」と同時に有効にした場合は、マウスホバーで表示されます。"
         convert_message_to_hiragana:
             label: "ひらがなを表示"
-        auto_download_models:
-            label: "起動時に翻訳モデルをダウンロード"
-            desc: "オンにすると、ダウンロードの画面で同意した翻訳モデルと版に限り、足りないファイルを起動時にダウンロードします。このスイッチだけではダウンロードに同意したことになりません。オフでも取得済みのモデルは使えます。音声認識と音声のモデルは別に管理します。"
 
     vrchat:
         section_label_chatbox: "チャットボックスへの送信"

@@ -288,6 +288,31 @@ fn a_failure_turns_the_overlays_off_and_is_reported() {
 }
 
 #[test]
+fn a_message_the_vr_log_cannot_show_is_reported_for_that_output() {
+    // #394: the pipeline said nothing when the overlay could not show a message.
+    let fake = FakeVr::running();
+    let ui = with_vr(Arc::new(fake.clone()), false, Some(json!({ "OVERLAY_LARGE_LOG": true })));
+    ui.ready();
+    wait("the large log made", || fake.handle("VRCT1").is_some());
+    std::thread::sleep(Duration::from_millis(100));
+    // SteamVR takes the reconnect but refuses the picture again.
+    fake.with(|s| s.fail_pictures = true);
+    let mark = ui.lines().len();
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
+    assert_eq!(answer["id"], "m1", "{answer}");
+    assert_eq!(answer["output_failures"], json!([{ "output": "overlay_large", "error_code": "MESSAGE_OUTPUT_FAILED" }]));
+    let failure = ui.wait_from(mark, "the output failure", |l| {
+        l["endpoint"] == "/run/message_output_error" && l["result"]["error_code"] == "MESSAGE_OUTPUT_FAILED"
+    });
+    assert_eq!(failure["status"], 400);
+    assert_eq!(
+        failure["result"]["data"],
+        json!({ "id": "m1", "source": "chat", "output": "overlay_large", "error_code": "MESSAGE_OUTPUT_FAILED" })
+    );
+    ui.stop();
+}
+
+#[test]
 fn launcher_and_panel_switches_reach_the_overlay_and_are_saved() {
     let fake = FakeVr::running();
     let ui = with_vr(Arc::new(fake.clone()), true, Some(json!({ "OVERLAY_VR_PANEL": true })));
