@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useI18n } from "@useI18n";
@@ -11,6 +11,7 @@ import { useTranscriptionConsent } from "../../../logics/transcription/useTransc
 import { useTranslationSetup } from "../../../logics/translation/useTranslationSetup";
 import { companionStatus, runAction } from "../../../logics/companion/status.ts";
 import { watchOpenDialogs } from "../../../logics/companion/dialogs.ts";
+import { voiceActions, voiceSwitchStates, type VoiceSwitchStates } from "../../../logics/voice/voiceActions.ts";
 
 // The experimental feature that keeps the app in the system tray (src-tauri/src/companion.rs).
 export const TRAY_COMPANION = "tray_companion";
@@ -19,8 +20,12 @@ type StoreValue = { state?: string; data?: unknown };
 type MainFunction = {
     currentTranscriptionSendStatus: StoreValue;
     currentTranslationStatus: StoreValue;
+    currentTranscriptionReceiveStatus: StoreValue;
+    currentOcrCaptureStatus: StoreValue;
     toggleTranscriptionSend: () => void;
     toggleTranslation: () => void;
+    toggleTranscriptionReceive: () => void;
+    toggleOcrCapture: () => void;
 };
 // store.js is untyped; this controller adds the one hook useWindow.js reads.
 type CompanionStore = { companion_hide?: () => Promise<unknown> };
@@ -43,6 +48,13 @@ export const CompanionController = () => {
     const latest = useRef({ main, asyncQuitApp });
     latest.current = { main, asyncQuitApp };
     const wasOn = useRef(false);
+    // The TTS and voice changer switches, as the main page's own switches work them out.
+    const [voiceStates, setVoiceStates] = useState<VoiceSwitchStates>(voiceSwitchStates.get());
+    useEffect(() => {
+        if (!on) return undefined;
+        setVoiceStates(voiceSwitchStates.get());
+        return voiceSwitchStates.subscribe(() => setVoiceStates(voiceSwitchStates.get()));
+    }, [on]);
 
     useEffect(() => {
         const shared = store as CompanionStore;
@@ -63,7 +75,9 @@ export const CompanionController = () => {
         const take = async () => {
             try {
                 const actions = await invoke<unknown[]>("companion_take");
-                for (const action of actions ?? []) runAction(action, latest.current.main);
+                for (const action of actions ?? []) {
+                    runAction(action, { ...latest.current.main, toggleTts: voiceActions.toggleTts, toggleRvc: voiceActions.toggleRvc });
+                }
             } catch (error) { console.error("Companion request could not be taken", error); }
         };
         const requested = listen("companion-requested", () => { void take(); });
@@ -75,13 +89,16 @@ export const CompanionController = () => {
         };
     }, [on]);
 
-    const { currentTranscriptionSendStatus: mic, currentTranslationStatus: translation } = main;
+    const { currentTranscriptionSendStatus: mic, currentTranslationStatus: translation,
+        currentTranscriptionReceiveStatus: listening, currentOcrCaptureStatus: ocr } = main;
     useEffect(() => {
         if (!on) return;
         invoke("companion_publish", { status: companionStatus({
-            ready: currentIsBackendReady.data, mic, translation, language: i18n.language, t,
+            ready: currentIsBackendReady.data, mic, translation, listening, ocr, tts: voiceStates.tts, rvc: voiceStates.rvc,
+            language: i18n.language, t,
         }) }).catch(error => console.error("Companion state could not be reported", error));
-    }, [on, currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, i18n.language, t]);
+    }, [on, currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
+        ocr?.data, ocr?.state, voiceStates, i18n.language, t]);
 
     // Any dialog the main window opens (the start-up notices among them) needs the user too.
     useEffect(() => {

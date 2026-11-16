@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import { flush } from "../../../logics/test/bridgeHarness.js";
 import * as status from "../../../logics/companion/status.ts";
+import * as voice from "../../../logics/voice/voiceActions.ts";
 
 async function setup(context, { on = false } = {}) {
     const runtime = hooks(), calls = [], listeners = new Map(), toggles = [];
@@ -25,7 +26,10 @@ async function setup(context, { on = false } = {}) {
         "@logics_configs": { useExperimentalFeature: id => id === "tray_companion" && state.on },
         "@logics_main": { useMainFunction: () => ({ currentTranscriptionSendStatus: state.mic,
             currentTranslationStatus: { state: "ok", data: false },
-            toggleTranscriptionSend: () => toggles.push("mic"), toggleTranslation: () => toggles.push("translation") }) },
+            currentTranscriptionReceiveStatus: { state: "ok", data: false }, currentOcrCaptureStatus: { state: "ok", data: true },
+            toggleTranscriptionSend: () => toggles.push("mic"), toggleTranslation: () => toggles.push("translation"),
+            toggleTranscriptionReceive: () => toggles.push("listening"), toggleOcrCapture: () => toggles.push("ocr") }) },
+        "../../../logics/voice/voiceActions.ts": voice,
         "../../../logics/common/useBackendStartup": { useBackendStartup: () => ({ startupState: state.startup }) },
         "../../../logics/transcription/useTranscriptionConsent": { useTranscriptionConsent: () => ({ request: state.request }) },
         "../../../logics/translation/useTranslationSetup": { useTranslationSetup: () => ({ request: state.setup }) },
@@ -60,9 +64,18 @@ test("turned on, it starts the tray, reports the switches and runs what the tray
     assert.equal(reported.ready, true);
     assert.deepEqual(reported.mic, { on: true, pending: false });
     assert.equal(reported.language, "ja");
-    s.state.queue.push("toggle_mic", "toggle_translation", "unknown");
+    assert.deepEqual(reported.ocr, { on: true, pending: false });
+    voice.voiceActions.toggleTts = () => s.toggles.push("tts");
+    voice.voiceActions.toggleRvc = () => s.toggles.push("rvc");
+    context.after(() => { voice.voiceActions.toggleTts = null; voice.voiceActions.toggleRvc = null; });
+    // The main page publishes what its TTS switch shows; the tray and the handle get the same.
+    voice.voiceSwitchStates.publish({ tts: { on: true, pending: false }, rvc: { on: false, pending: false } });
+    context.after(() => voice.voiceSwitchStates.publish({ tts: { on: false, pending: false }, rvc: { on: false, pending: false } }));
+    await s.render();
+    assert.deepEqual(s.of("companion_publish").at(-1).status.tts, { on: true, pending: false });
+    s.state.queue.push("toggle_mic", "toggle_translation", "toggle_listening", "toggle_ocr", "toggle_tts", "toggle_rvc", "unknown");
     await s.listeners.get("companion-requested")();
-    assert.deepEqual(s.toggles, ["mic", "translation"]);
+    assert.deepEqual(s.toggles, ["mic", "translation", "listening", "ocr", "tts", "rvc"]);
     s.listeners.get("companion-quit")();
     assert.equal(s.state.quits, 1);
 });
