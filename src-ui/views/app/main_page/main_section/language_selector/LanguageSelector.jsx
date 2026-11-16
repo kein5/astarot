@@ -11,8 +11,8 @@ export const LanguageSelector = ({ title, onClickFunction }) => {
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
     const { currentSelectableLanguageList } = useLanguageSettings();
 
-    // Typing narrows the list by language or country, or by a language code
-    // ("ja", "zh-Hant"), whose languages come first; Enter picks the first
+    // Typing narrows the list by language or country, or by the beginning of an
+    // ISO 639 code ("j", "ja", "zh-Hant"), whose languages come first; Enter picks the first
     // match. The field takes focus when the selector opens.
     const [query, setQuery] = useState("");
     const filter = useRef(null);

@@ -75,23 +75,22 @@ export function createLanguageNames(uiLanguage?: string | null, intl: typeof Int
         return normalize([localized.label, localized.language, localized.country,
             entry?.language, entry?.country, `${entry?.language ?? ""} (${entry?.country ?? ""})`].join(" "));
     };
-    // The tags a language code can name: the stored tag and its canonical form, in lower
-    // case. The stored tags are the speech engine's, so Chinese is cmn-Hans-CN and Hebrew
-    // iw-IL; their canonical forms zh-Hans-CN and he-IL are what people type.
-    const tagsFor = (entry: LanguageEntry | null | undefined): string[] => {
+    // The tag a code query is matched against, in lower case: the canonical form of the
+    // stored tag, which begins with the ISO 639 code people know. The stored tags are the
+    // speech engine's (cmn-Hans-CN, iw-IL); canonical, they are zh-Hans-CN and he-IL.
+    const tagFor = (entry: LanguageEntry | null | undefined): string | undefined => {
         const code = codeFor(entry);
-        if (!code) return [];
-        let canonical: string | undefined;
-        try { canonical = intl.getCanonicalLocales(code)[0]; }
-        catch { /* A tag Intl does not accept is still matched as it is stored. */ }
-        return [...new Set([code, canonical].filter((tag): tag is string => !!tag).map(tag => tag.toLowerCase()))];
+        if (!code) return undefined;
+        try { return (intl.getCanonicalLocales(code)[0] ?? code).toLowerCase(); }
+        catch { return code.toLowerCase(); }
     };
-    // A code names a whole tag or its leading subtags: "ja", "zh-hant", "en-us" (or "en_us").
-    // Only the whole query counts, so "ja" does not also need to be a part of a name.
+    // A code query is the beginning of a tag, so the list narrows while it is typed:
+    // "j" keeps ja, "ja" keeps ja, "zh-hant" keeps zh-Hant-TW, "en_us" keeps en-US.
+    // Only the whole query counts; a query with a space is a name search.
     const matchesCode = (entry: LanguageEntry | null | undefined, query: unknown) => {
         const code = normalize(query).replace(/_/g, "-");
-        if (!/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/.test(code)) return false;
-        return tagsFor(entry).some(tag => tag === code || tag.startsWith(`${code}-`));
+        if (!/^[a-z]{1,8}(-[a-z0-9]{0,8})*$/.test(code)) return false;
+        return tagFor(entry)?.startsWith(code) ?? false;
     };
     const matches = (entry: LanguageEntry | null | undefined, query: unknown) => {
         if (matchesCode(entry, query)) return true;
@@ -100,8 +99,8 @@ export function createLanguageNames(uiLanguage?: string | null, intl: typeof Int
     };
     const sorted = <T extends LanguageEntry | null | undefined>(entries: Iterable<T>): T[] => [...entries].sort((a, b) => collator?.compare(name(a).label, name(b).label) ?? 0);
     // The list a language picker shows for a query, in name order, except that the languages
-    // whose code the query is come first: "ja" lists Japanese before Azerbaijani, whose name
-    // also contains "ja", so Enter picks Japanese.
+    // whose code begins with the query come first: "j" and "ja" list Japanese before
+    // Azerbaijani, whose name also contains them, so Enter picks Japanese.
     const search = <T extends LanguageEntry | null | undefined>(entries: Iterable<T>, query: unknown): T[] => {
         const shown = sorted(entries).filter(entry => matches(entry, query));
         const named = shown.filter(entry => matchesCode(entry, query));
