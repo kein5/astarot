@@ -1,0 +1,51 @@
+{
+    // ADR-010: the UI moves from JavaScript to TypeScript in steps. TypeScript files are
+    // checked strictly; JavaScript files are only read for the types they export, so both
+    // can be mixed while the move lasts. Vite and esbuild compile; tsc only checks
+    // (npm run typecheck, part of `python tools/dev.py check --scope ui`).
+    "compilerOptions": {
+        "target": "ES2022",
+        "lib": ["ES2023", "DOM", "DOM.Iterable"],
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "jsx": "react-jsx",
+        "types": ["vite/client", "vite-plugin-svgr/client"],
+        "noEmit": true,
+        "allowJs": true,
+        "checkJs": false,
+        "strict": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitOverride": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        // The Node tests import the sources as they are (node --experimental-strip-types),
+        // so imports name the .ts file and only syntax that can be erased is allowed.
+        "allowImportingTsExtensions": true,
+        "erasableSyntaxOnly": true,
+        "verbatimModuleSyntax": true,
+        "isolatedModules": true,
+        // The same aliases as vite.config.js. Without an extension, so a file can change
+        // from .js to .ts without touching them.
+        "paths": {
+            "@root/*": ["./*"],
+            "@useI18n": ["./locales/useI18n.js"],
+            "@useReceiveRoutes": ["./src-ui/logics/useReceiveRoutes"],
+            "@useStdoutToPython": ["./src-ui/logics/common/useStdoutToPython"],
+            "@ui_configs": ["./src-ui/logics/ui_configs"],
+            "@store": ["./src-ui/logics/store"],
+            "@images/*": ["./src-ui/views/assets/*"],
+            "@utils": ["./src-ui/logics/utils"],
+            "@logics/*": ["./src-ui/logics/*"],
+            "@logics_common": ["./src-ui/logics/common/index"],
+            "@logics_common/*": ["./src-ui/logics/common/*"],
+            "@logics_main": ["./src-ui/logics/main/index"],
+            "@logics_main/*": ["./src-ui/logics/main/*"],
+            "@logics_configs": ["./src-ui/logics/configs/index"],
+            "@logics_configs/*": ["./src-ui/logics/configs/*"],
+            "@setting_box": ["./src-ui/views/app/config_page/setting_section/setting_box/index"],
+            "@common_components": ["./src-ui/views/common_components/index"]
+        }
+    },
+    "include": ["src-ui/**/*.ts", "src-ui/**/*.tsx"],
+    "exclude": ["node_modules", "dist"]
+}

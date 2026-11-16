@@ -32,7 +32,7 @@ import {
 } from "@logics_configs";
 import { ui_configs } from "./ui_configs";
 import { clearLegacyConsentPending, clearLegacyDownloadFailure, legacyDownloadFailure } from "./configs/legacyModelConsent";
-import noticeStyles from "./common/noticeAction.module.scss";
+import * as noticeStyles from "./common/noticeAction.css.ts";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "./configs/cloudTranscription";
 
 const OCR_ERROR_KEYS = {

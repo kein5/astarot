@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { hooks, loadModule, find, stubGlobals } from "../../logics/test/hookHarness.js";
 import { flush } from "../../logics/test/bridgeHarness.js";
-import * as lines from "../../logics/captionOverlay/lines.js";
-import * as speakerLabels from "../../logics/common/speakerLabels.js";
+import * as lines from "../../logics/captionOverlay/lines.ts";
+import * as speakerLabels from "../../logics/common/speakerLabels.ts";
 
 const findAll = (tree, match, found = []) => {
     if (Array.isArray(tree)) tree.forEach(item => findAll(item, match, found));

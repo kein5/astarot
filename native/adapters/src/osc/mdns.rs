@@ -722,7 +722,13 @@ impl Mdns {
 
     /// Withdraw every service, sending each goodbye three times, 125 ms apart.
     pub fn unregister_all(&self) {
-        let services = std::mem::take(&mut self.shared.state().services);
+        let services = {
+            let mut state = self.shared.state();
+            // Announcements still waiting would advertise the services again after the
+            // goodbye, and every cache would keep them for their full TTL.
+            state.pending.clear();
+            std::mem::take(&mut state.services)
+        };
         if services.is_empty() {
             return;
         }

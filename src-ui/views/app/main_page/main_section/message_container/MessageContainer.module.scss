@@ -1,5 +1,10 @@
+// The log and the composer. In a very wide window they keep a readable measure,
+// centred in the column, instead of running the lines across the whole screen.
 .container {
     height: 0%;
+    width: 100%;
+    max-width: 120rem;
+    margin-inline: auto;
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -8,6 +13,8 @@
 
 .log_box_resize_wrapper {
     flex: 1;
+    // Two lines of the log stay in sight when a panel above takes room.
+    min-height: 4.8rem;
     overflow: auto;
     position: relative;
 }
@@ -37,8 +44,18 @@
     transition: background-color .15s ease-out;
 }
 
+// The share of the column the user dragged it to (MessageInputBoxRatio).
 .message_box_resize_wrapper {
     height: 10%;
     min-height: 6.4rem;
     max-height: 90%;
+}
+
+// A short window (the 200px minimum leaves 166px under the title bar) keeps the
+// log readable: thinner margins, a one-line composer.
+@container main_section (max-height: 36rem) {
+    .container { padding: .4rem 1.2rem .8rem; }
+    .separator { height: .6rem; }
+    .log_box_resize_wrapper { min-height: 2.4rem; }
+    .message_box_resize_wrapper { min-height: 4.4rem; }
 }

@@ -123,10 +123,10 @@ python tools/dev.py check --scope rust --dry-run
 | スコープ | 内容 |
 | --- | --- |
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
-| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` を全列挙して `node --test` |
+| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` を全列挙して `node --test`。TypeScript のソースを直接読み込めるよう `--experimental-strip-types` を付ける |
 | `lint` | voice CIと同じRuff対象に開発CLI、配布候補CLI2本、専用試験を追加。自動修正なし |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験4件 |
-| `ui` | Nodeの試験と `npm run vite-build`。ブラウザの操作は含まない |
+| `ui` | Nodeの試験、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
 | `backend` | 既存 `pytest.ini` による `src-python/test` と、`tests/platform`の単体の試験1件。runtime依存が必要 |
 | `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
@@ -149,6 +149,18 @@ Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探し
 | `130` | Ctrl+Cによる中断 |
 
 機械処理には `python tools/dev.py doctor --scope voice --json` を使います。未整備環境では `ok: false` と対処方法を返します。
+
+## UIのTypeScriptとスタイル（移行中）
+
+[ADR-010](voice-stack/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
+
+- 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。新しいスタイルはvanilla-extract（`.css.ts`）で書きます。
+- 型チェックは `npm run typecheck` です。`check --scope ui` も実行し、CIでも動きます。TypeScriptのファイルは `strict` で検査します。JavaScriptのファイルは検査せず、型を推論して読むだけです。
+- `any`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。
+- Nodeの試験はTypeScriptのソースを `node --experimental-strip-types` でそのまま読み込みます。このため、消去できる構文だけを使います（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）。型だけのimportは `import type` にします。相対importは `./name.ts` のように拡張子まで書きます。
+- 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
+- デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.js` が食い違いを検出します）。
+- Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.js` がその数を数えています。
 
 ## VRの機器なしでVRの処理を試す
 

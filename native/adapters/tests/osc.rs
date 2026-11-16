@@ -604,6 +604,36 @@ fn a_local_vrchat_found_over_mdns_gives_mute_and_presence() {
 }
 
 #[test]
+fn a_service_withdrawn_right_after_registering_is_not_announced_again() {
+    if !mdns_available() {
+        return;
+    }
+    let name = format!("Withdrawn-T{}", std::process::id());
+    let instance = format!("{name}.{OSCJSON_TYPE}");
+    let observer = Mdns::start().unwrap();
+    observer.browse(OSCJSON_TYPE);
+    let advertiser = Mdns::start().unwrap();
+    advertiser.register(ServiceSpec {
+        service_type: OSCJSON_TYPE.into(),
+        instance: instance.clone(),
+        host: format!("{name}.oscjson.local."),
+        port: 1,
+        txt: vec!["txtvers=1".into()],
+        address: Ipv4Addr::LOCALHOST,
+    });
+    // Withdrawn while its later announcements (225 and 450 ms after registering) are
+    // still due; the advertiser keeps running past them.
+    advertiser.unregister_all();
+    thread::sleep(Duration::from_secs(1));
+    assert!(
+        observer.discovered(OSCJSON_TYPE).iter().all(|service| service.name != instance),
+        "an announcement after the goodbye brought the service back"
+    );
+    advertiser.close();
+    observer.close();
+}
+
+#[test]
 fn nothing_logged_holds_the_text() {
     let lines = Arc::new(Mutex::new(Vec::<&'static str>::new()));
     let sink = lines.clone();

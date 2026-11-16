@@ -1,5 +1,5 @@
 import { useI18n } from "@useI18n";
-import { createLanguageNames } from "../../../../../../logics/common/languageNames.js";
+import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import clsx from "clsx";
 import styles from "./LanguageSelectorOpenButton.module.scss";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";

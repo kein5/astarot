@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FADE_MS, MAX_CAPTION_LINES, captionLines, nextChange, stampLines, visibleLines } from "./lines.js";
+import { FADE_MS, MAX_CAPTION_LINES, captionLines, nextChange, stampLines, visibleLines } from "./lines.ts";
 
 const row = (id, category, message, translations = [], status = "ok") => ({
     id, category, status, messages: { original: { message, transliteration: [] },

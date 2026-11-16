@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createSettingsWriteResponses } from "./settingsWriteResponses.js";
+import { createSettingsWriteResponses } from "./settingsWriteResponses.ts";
 
 for (const name of ["voice_settings", "direct_voice_settings", "speech_server_settings", "realtime_asr_settings", "hotkeys",
     "openai_compatible_auth_key_and_url", "custom_whisper_auth_key_and_url",

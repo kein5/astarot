@@ -436,7 +436,7 @@ NLLB-200 系の重み（`facebook/nllb-200-*` とその ct2 変換）はすべ�
 - `translateCTranslate2()` の `weight_type` 分岐に新モデルキーを追加（既存のNLLB系分岐に合流、Flores-200コードをそのまま `target_prefix` として使用）
 - `languages.yml` の `CTranslate2` セクションに、既存の `nllb-200-distilled-1.3B-ct2-int8` と同じ `&nllb_langs` アンカーを参照するエントリを追加
 - `config.py` の `CTRANSLATE2_WEIGHT_TYPE` デフォルト値を `m2m100_418M-ct2-int8` から `nllb-200-distilled-600M-ct2-int8` に変更（**新規インストールのみ適用**。既存ユーザーは `config.json` に保存済みの値が優先されるため影響なし）
-- `src-ui/logics/ui_configs.js` の `ctranslate2_weight_type_status` に表示用エントリ（`600MB`）を追加。ラベルはUI側で `id (capacity)` から動的生成されるため個別の表示名対応は不要
+- `src-ui/logics/ui_configs.ts` の `ctranslate2_weight_type_status` に表示用エントリ（`600MB`）を追加。ラベルはUI側で `id (capacity)` から動的生成されるため個別の表示名対応は不要
 
 #### 影響
 | 項目 | 内容 |

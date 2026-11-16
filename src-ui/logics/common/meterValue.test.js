@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadModule } from "../test/hookHarness.js";
 import { loadBridgeStore } from "../test/bridgeHarness.js";
-import * as meterValue from "./meterValue.js";
+import * as meterValue from "./meterValue.ts";
 
 test("both meter atoms preserve equal wrappers but publish state and value changes", async () => {
     const { runtime, stores } = await loadBridgeStore();
@@ -34,7 +34,7 @@ test("both meter atoms preserve equal wrappers but publish state and value chang
 test("useVolume only writes meter atoms; repeated samples and stop resets preserve wrappers", async () => {
     const { runtime, stores, jotai, subscriptions } = await loadBridgeStore();
     const { useVolume } = await loadModule(new URL("./useVolume.js", import.meta.url), runtime, {
-        "@store": stores, jotai, "./meterValue.js": meterValue,
+        "@store": stores, jotai, "./meterValue.ts": meterValue,
     });
     const volume = runtime.render(useVolume);
     assert.equal(subscriptions.includes(stores.Atom_MicVolume), false);

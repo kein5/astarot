@@ -5,7 +5,7 @@ import i18next from "i18next";
 import yaml from "js-yaml";
 import { loadBridgeRoutes } from "./test/bridgeHarness.js";
 import { loadModule } from "./test/hookHarness.js";
-import * as meterValue from "./common/meterValue.js";
+import * as meterValue from "./common/meterValue.ts";
 
 for (const language of ["en", "ja"]) for (const source of ["mic", "speaker"]) {
     test(`${language} ${source}: opened fallback is selected by ID and one notice names both devices`, async () => {
@@ -42,7 +42,7 @@ for (const source of ["mic", "speaker"]) test(`${source}: terminal device error 
         const volume = await loadModule(new URL("./common/useVolume.js", import.meta.url), subject.runtime, {
             "@store": subject.stores, jotai: subject.jotai,
             "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: () => {} }) },
-            "./meterValue.js": meterValue,
+            "./meterValue.ts": meterValue,
         });
         return volume;
     });

@@ -20,12 +20,16 @@
     resize: none;
 }
 
+// Square, at most 10rem, at the foot of a tall composer (where typing ends)
+// instead of stretching to the composer's height.
 .message_send_button {
     display: flex;
+    flex-shrink: 0;
     justify-content: center;
     align-items: center;
+    align-self: flex-end;
     max-width: 10rem;
-    height: 100%;
+    height: min(100%, 10rem);
     font-size: 1.2rem;
     background-color: var(--primary_600_color);
     border-radius: 1.2rem;
@@ -48,3 +52,9 @@
 // shows no scrollbar for it.
 .message_box_input_area::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .message_box_input_area:placeholder-shown { overflow-y: hidden; }
+
+// A short column keeps a one-line composer (MessageContainer): less padding, so the line fits.
+@container main_section (max-height: 36rem) {
+    .message_box_wrapper { padding: .6rem 1.2rem; }
+    .message_box_input_area { font-size: 1.5rem; }
+}

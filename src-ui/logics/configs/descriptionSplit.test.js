@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { splitDescription } from "./descriptionSplit.js";
+import { splitDescription } from "./descriptionSplit.ts";
 
 test("the first sentence stays visible and a long rest folds", () => {
     assert.deepEqual(splitDescription("読み上げます。保存してから、メイン画面でTTSをオンにします。サーバーも起動します。"),

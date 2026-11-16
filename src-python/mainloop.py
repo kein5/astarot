@@ -476,6 +476,9 @@ mapping = {
     "/get/data/hotkeys": {"status": True, "variable":controller.getHotkeys},
     "/set/data/hotkeys": {"status": True, "variable":controller.setHotkeys},
 
+    "/get/data/experimental_features": {"status": True, "variable":controller.getExperimentalFeatures},
+    "/set/data/experimental_features": {"status": True, "variable":controller.setExperimentalFeatures},
+
     "/get/data/mic_avg_logprob": {"status": True, "variable":controller.getMicAvgLogprob},
     "/set/data/mic_avg_logprob": {"status": True, "variable":controller.setMicAvgLogprob},
 

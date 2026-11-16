@@ -18,7 +18,7 @@ use tauri::{
 };
 
 pub const LABEL: &str = "caption_overlay";
-const TITLE: &str = "VRCT-VOX Captions";
+const TITLE: &str = "ASTAROT Captions";
 const MAX_LINES: usize = 8;
 const MAX_TEXT: usize = 2000;
 const MAX_TRANSLATIONS: usize = 3;

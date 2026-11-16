@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { asrModels, hasOldWeights, normalizeOutcome, normalizeWeights, weightsSize } from "./localAsrMigration.js";
+import { asrModels, hasOldWeights, normalizeOutcome, normalizeWeights, weightsSize } from "./localAsrMigration.ts";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
 
 test("old weights are taken only in the shape the backend sends", () => {

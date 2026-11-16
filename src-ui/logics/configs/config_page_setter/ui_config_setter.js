@@ -1,6 +1,6 @@
 import { useAtomValue } from "jotai";
 import { createAtomWithHook, dynamicStoreRegistry } from "@store";
-import { settingPendingControl } from "../../common/pendingRequestRecovery.js";
+import { settingPendingControl } from "../../common/pendingRequestRecovery.ts";
 import vr_layout from "../../../views/vr/vr_layout.json";
 
 import {
@@ -1332,6 +1332,16 @@ export const SETTINGS_ARRAY = [
         ui_template_id: "input",
         logics_template_id: "get_set",
         base_endpoint_name: "obs_browser_source_font_outline_color",
+    },
+
+    // { feature_id: bool }, every listed feature off by default (experimentalFeatures.ts).
+    {
+        Category: "ExperimentalFeatures",
+        Base_Name: "ExperimentalFeatures",
+        default_value: {},
+        ui_template_id: "object",
+        logics_template_id: "get_set",
+        base_endpoint_name: "experimental_features",
     },
 
 ];

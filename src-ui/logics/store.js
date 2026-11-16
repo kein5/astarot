@@ -7,7 +7,7 @@ import {
 
 import {
     generateTestConversationData,
-} from "./_test_data.js";
+} from "./_test_data.ts";
 
 import {
     translator_status,
@@ -15,9 +15,9 @@ import {
 import { keepNewestVrLayout } from "./common/vrPanelTooltip";
 import { requestSettingsNavigation } from "./voice/settingsNavigation";
 
-import { pendingRequestRecovery, restorePendingValue, restoreDownloadPending, staticPendingControls } from "./common/pendingRequestRecovery.js";
-import { updateMeterValue } from "./common/meterValue.js";
-import { initialLanguages } from "./common/initializationFields.js";
+import { pendingRequestRecovery, restorePendingValue, restoreDownloadPending, staticPendingControls } from "./common/pendingRequestRecovery.ts";
+import { updateMeterValue } from "./common/meterValue.ts";
+import { initialLanguages } from "./common/initializationFields.ts";
 
 export const store = {
     backend_subprocess: null,

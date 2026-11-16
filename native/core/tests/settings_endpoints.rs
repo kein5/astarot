@@ -296,3 +296,20 @@ fn the_remaining_switches_and_choices() {
     assert_eq!(file["MIC_WORD_FILTER"], json!(["a", "b"]));
     ui.stop();
 }
+
+#[test]
+fn experimental_features_are_all_off_and_a_bad_value_is_refused() {
+    // The list is empty until a feature graduates from the experimental branch; the check itself
+    // is tested with made-up ids in src/config/schema.rs.
+    let ui = Ui::with(Setup { saved: Some(json!({ "EXPERIMENTAL_FEATURES": { "graduated_long_ago": true } })), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/experimental_features"], json!({}), "an id no longer listed is dropped");
+    assert_eq!(ui.ok("/get/data/experimental_features", None), json!({}));
+    assert_eq!(ui.ok("/set/data/experimental_features", Some(json!({ "unknown": true }))), json!({}));
+    let answer = ui.request("/set/data/experimental_features", Some(json!("on")));
+    assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
+    assert_eq!(answer["result"]["data"], json!({}));
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["EXPERIMENTAL_FEATURES"], json!({}));
+    ui.stop();
+}

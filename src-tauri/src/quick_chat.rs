@@ -309,7 +309,7 @@ pub async fn quick_chat_show(
     chat.emit("quick-chat-opened", ())
         .map_err(|e| e.to_string())
 }
-const TITLE: &str = "VRCT-VOX Quick Chat";
+const TITLE: &str = "ASTAROT Quick Chat";
 
 pub(crate) fn wayland_session() -> bool {
     cfg!(target_os = "linux")

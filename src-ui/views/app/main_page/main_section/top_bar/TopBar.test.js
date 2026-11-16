@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../logics/test/hookHarness.js";
-import { voiceActions } from "../../../../../logics/voice/voiceActions.js";
+import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
@@ -140,7 +140,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     const voice = { status: { queued: 2, active: true }, route: { requested_muted: true, ready: true, pending: false, managed: true }, send: path => sent.push(path) };
     const actions = await loadModule(new URL("../../../others/stop_actions/StopActions.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.js": { voiceActions },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
     const { TopBar } = await loadModule(new URL("./TopBar.jsx", import.meta.url), runtime, {
         "./sidebar_compact_mode_button/SidebarCompactModeButton": { SidebarCompactModeButton: "compact" },
@@ -186,7 +186,7 @@ test("the settings bar draws the same actions without the shortest words", async
     const voice = { status: {}, route: {}, send() {} };
     const { StopActions } = await loadModule(new URL("../../../others/stop_actions/StopActions.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.js": { voiceActions },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
     const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", is_attention: "is_attention",
         is_pressed: "is_pressed", muted_badge: "muted_badge" };
@@ -199,11 +199,14 @@ test("the settings bar draws the same actions without the shortest words", async
 test("the main bar's stylesheet hides the long words and swaps to the shortest when narrow; strings exist in en and ja", () => {
     const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
     assert.match(css, /\.long, \.tiny \{ display: none; \}/);
-    const narrow = css.split("@mixin narrow_bar")[1].split("@media")[0];
+    const narrow = css.split("@mixin narrow_bar")[1].split("@container")[0];
     assert.match(narrow, /\.short \{ display: none; \}/);
     assert.match(narrow, /\.tiny \{ display: inline; \}/);
-    assert.match(css, /@media \(max-width: 800px\) \{ @include narrow_bar; \}/);
-    assert.match(css, /:global\(html\[data-narrow\]\) \{ @include narrow_bar; \}/);
+    // The conversation column's width decides, not the window's (a wide rail leaves less room).
+    assert.match(css, /@container main_section \(max-width: 64rem\) \{ @include narrow_bar; \}/);
+    assert.doesNotMatch(css, /@media \(max-width: 800px\)|data-narrow/);
+    const menu = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
+    assert.match(menu, /@container main_section \(max-width: 64rem\) \{ @include narrow_menu; \}/);
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
         for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof strings.main_page[key], "string");

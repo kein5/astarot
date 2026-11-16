@@ -290,6 +290,7 @@ _SIMPLE_CONFIG_GETTERS = {
     "getSpeakerPhraseTimeout": "SPEAKER_PHRASE_TIMEOUT",
     "getSpeakerMaxPhrases": "SPEAKER_MAX_PHRASES",
     "getHotkeys": "HOTKEYS",
+    "getExperimentalFeatures": "EXPERIMENTAL_FEATURES",
     "getSpeakerAvgLogprob": "SPEAKER_AVG_LOGPROB",
     "getSpeakerNoSpeechProb": "SPEAKER_NO_SPEECH_PROB",
     "getSpeakerVadFilter": "SPEAKER_ENABLE_VAD",
@@ -4151,6 +4152,13 @@ class Controller:
         config.HOTKEYS = data
         return {"status":200, "result":config.HOTKEYS}
 
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setExperimentalFeatures(data, *args, **kwargs) -> dict:
+        # {feature_id: bool}; a feature left out keeps its value (models/experimental_features.py).
+        config.EXPERIMENTAL_FEATURES = data
+        return {"status":200, "result":config.EXPERIMENTAL_FEATURES}
+
 
     @staticmethod
     def setSpeakerAvgLogprob(data, *args, **kwargs) -> dict:
@@ -6993,7 +7001,7 @@ class Controller:
 
         position["ui_scaling"] は保存する設定値。small と large ではオーバーレイの幅(m) に対応し、
         small は幅=設定値、large は幅=設定値*0.25 (Model.init参照)。ランチャーは旧来の帯の幅で
-        保存するので実際の幅とは異なる (regionWidthM参照)。設定画面のスライダーの範囲 (src-ui/logics/ui_configs.js の
+        保存するので実際の幅とは異なる (regionWidthM参照)。設定画面のスライダーの範囲 (src-ui/logics/ui_configs.ts の
         ui_scaling: 40〜200%) に収めてから保存し、収めた値をオーバーレイにも戻す。
         """
         def clamp(value: float) -> float:

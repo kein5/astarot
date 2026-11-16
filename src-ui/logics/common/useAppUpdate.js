@@ -1,6 +1,6 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { atom, getDefaultStore, useAtomValue } from "jotai";
-import { createAppUpdate, INITIAL_APP_UPDATE } from "./appUpdate.js";
+import { createAppUpdate, INITIAL_APP_UPDATE } from "./appUpdate.ts";
 
 // One state for the whole window: the top bar and the update page show the same check.
 export const Atom_AppUpdate = atom(INITIAL_APP_UPDATE);

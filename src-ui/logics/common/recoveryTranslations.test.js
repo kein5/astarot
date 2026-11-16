@@ -40,7 +40,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     const fallback = boundary.props.fallbackRender({ error });
     const tree = fallback.type(fallback.props);
     assert.ok(find(tree, node => node.props.children === t("common_error.recovery_instructions")));
-    assert.match(t("common_error.recovery_instructions"), /VRCT-VOX/);
+    assert.match(t("common_error.recovery_instructions"), /ASTAROT/);
     const copy = find(tree, node => node.type === "button");
     assert.ok(find(copy, node => node.props.children === t("common_error.copy_error_log")));
     copy.props.onClick();
@@ -58,9 +58,9 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
         "@useI18n": translations, "@store": b.stores, "@utils": {},
         "@tauri-apps/api/core": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
-        "../../../logics/common/sidecarSession.js": {},
-        "../../../logics/common/backendCommand.js": {},
-        "../../../logics/common/startupPhase.js": { describeStartupFailure: detail => detail },
+        "../../../logics/common/sidecarSession.ts": {},
+        "../../../logics/common/backendCommand.ts": {},
+        "../../../logics/common/startupPhase.ts": { describeStartupFailure: detail => detail },
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady,
             useNotificationStatus: () => ({ showNotification_Error: text => notices.push(text) }) },
     });

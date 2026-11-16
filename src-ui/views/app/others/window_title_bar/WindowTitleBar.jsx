@@ -14,7 +14,7 @@ export const WindowTitleBar = () => {
         <div className={styles.container}>
             <div className={styles.wrapper} data-tauri-drag-region>
                 <div className={styles.title_wrapper}>
-                    <span>VRCT-VOX</span>
+                    <span>ASTAROT</span>
                 </div>
 
                 <div className={styles.window_control_wrapper}>

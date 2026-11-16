@@ -5,7 +5,7 @@ import yaml from "js-yaml";
 import {
     createSharedWindowActions, endedNotice, INITIAL_SHARED_WINDOW, nextRestoreToken, RESTORE_LIMIT_MS, shareErrorKey,
     sharedWindowView, shouldHoldSwitch, shouldRestoreSharing, shouldStopSharing, startErrorKey,
-} from "./ocrSharedWindow.js";
+} from "./ocrSharedWindow.ts";
 
 const locale = name => yaml.load(readFileSync(new URL(`../../../locales/${name}.yml`, import.meta.url), "utf8"));
 const lookup = (tree, key) => key.split(".").reduce((node, part) => node?.[part], tree);

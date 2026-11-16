@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
-import * as helpers from "../../../../../../logics/configs/ocrReadiness.js";
+import * as helpers from "../../../../../../logics/configs/ocrReadiness.ts";
 
 const windowRegion = { x: 0.6, y: 0.1, width: 0.2, height: 0.2 };
 const vrRegion = { x: 0.1, y: 0.5, width: 0.3, height: 0.4 };

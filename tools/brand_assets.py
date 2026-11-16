@@ -1,25 +1,23 @@
-"""Build the README and About page logos and the Tauri app icons from docs/brand.
+"""Build the README logos of the former VRCT-VOX brand from docs/brand.
 
-    uv run --no-project --with pillow --with fonttools python tools/brand_assets.py
+    uv run --no-project --with fonttools python tools/brand_assets.py
 
-Needs rsvg-convert and Noto Sans CJK Bold for the CJK and Hangul labels.
+Needs Noto Sans CJK Bold for the Japanese labels.
 Labels are converted to outlines, so the SVGs render the same without fonts.
+
+The app's icons and in-app logos show ASTAROT and are built by
+tools/astarot_app_assets.py, so this tool no longer writes them.
 """
 import re
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTCollection
-from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 BRAND = ROOT / 'docs/brand'
-ICONS = ROOT / 'src-tauri/icons'
-UI_LOGOS = ROOT / 'src-ui/views/assets/brand'
 FONT = Path('/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc')
 
 # Hand-drawn letters on a 64 x 80 cell with an 80-unit advance.
@@ -111,46 +109,13 @@ def logo(lang, theme, glyphs, icon_small):
             f'{latin("VRCT-VOX", WORD_X, WORD_Y, WORD_SCALE, ink)}{"".join(parts)}\n</svg>\n')
 
 
-def render(svg, size, out):
-    subprocess.run(['rsvg-convert', '-w', str(size), '-h', str(size), '-o', str(out), str(svg)], check=True)
-    return Image.open(out).convert('RGBA')
-
-
-def icons():
-    # Below 256 px the small optical version stays legible; the full icon shows all five functions.
-    def source(size):
-        return BRAND / ('icon.svg' if size >= 256 else 'icon-small.svg')
-
-    with tempfile.TemporaryDirectory() as tmp:
-        cache = {}
-
-        def image(size):
-            if size not in cache:
-                cache[size] = render(source(size), size, Path(tmp) / f'{size}.png')
-            return cache[size]
-
-        names = {'32x32.png': 32, '128x128.png': 128, '128x128@2x.png': 256, 'icon.png': 512,
-                 'StoreLogo.png': 50, **{f'Square{n}x{n}Logo.png': n for n in (30, 44, 71, 89, 107, 142, 150, 284, 310)}}
-        for name, size in names.items():
-            image(size).save(ICONS / name, optimize=True)
-        ico = [16, 24, 32, 48, 64, 256]
-        image(256).save(ICONS / 'icon.ico', sizes=[(s, s) for s in ico], append_images=[image(s) for s in ico[:-1]])
-        icns = [16, 32, 64, 128, 256, 512, 1024]
-        image(1024).save(ICONS / 'icon.icns', append_images=[image(s) for s in icns[:-1]])
-
-
 def main():
     glyphs = {name: inner((BRAND / 'glyphs' / f'{name}.svg').read_text()).replace('scale(1.0)', 'scale(1)')
               for name in FEATURES}
     icon_small = inner((BRAND / 'icon-small.svg').read_text())
-    UI_LOGOS.mkdir(exist_ok=True)
     for lang in LABELS:
         for theme in THEMES:
             (BRAND / f'logo-{lang}-on-{theme}.svg').write_text(logo(lang, theme, glyphs, icon_small))
-        # The app UI is dark only.
-        (UI_LOGOS / f'logo-{lang}.svg').write_text(logo(lang, 'dark', glyphs, icon_small))
-    (UI_LOGOS / 'icon-small.svg').write_text((BRAND / 'icon-small.svg').read_text())
-    icons()
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { setupNeeds, downloadProgress } from "./setupNeeds.js";
+import { setupNeeds, downloadProgress } from "./setupNeeds.ts";
 
 const weights = downloaded => [{ id: "small", is_downloaded: downloaded }, { id: "large", is_downloaded: false }];
 const asr = (model, vad_model) => ({ model, vad_model, diarization_model: "", device: "auto" });

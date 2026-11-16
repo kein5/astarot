@@ -9,8 +9,8 @@ import { useLanguageSettings } from '@logics_main';
 import { useI18n } from '@useI18n';
 import { useIsOpenedConfigPage } from '@logics_common';
 import { LANGUAGE_RESPONSE_WAIT_MS } from '../../logics/main/languageMutations';
-import { createLanguageNames, isLanguagePickKey } from '../../logics/common/languageNames.js';
-import { languageJumpGroups } from '../../logics/common/languageJumpGroups.js';
+import { createLanguageNames, isLanguagePickKey } from '../../logics/common/languageNames.ts';
+import { languageJumpGroups } from '../../logics/common/languageJumpGroups.ts';
 import { VrPickerList, VR_PICKER_WINDOW_THRESHOLD } from './VrPickerList';
 import styles from './VrLanguageWindow.module.scss';
 

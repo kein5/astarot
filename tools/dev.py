@@ -154,12 +154,16 @@ def checks_plan(args, root):
                 pass
             else:
                 files = sorted({p.relative_to(root).as_posix()
-                    for pattern in ("*.test.js", "*.test.mjs")
+                    for pattern in ("*.test.js", "*.test.mjs", "*.test.ts")
                     for p in (root / "src-ui").rglob(pattern)})
                 if not files:
                     raise DevError("No Node tests found under src-ui; refusing an empty check.")
-                steps.append(Step("Node tests", ["node", "--test", *files]))
+                # The UI is moving to TypeScript (ADR-010): the tests import .ts sources directly.
+                # Node 22 strips the types only behind this flag; later versions accept it as well.
+                steps.append(Step("Node tests", ["node", "--experimental-strip-types",
+                    "--disable-warning=ExperimentalWarning", "--test", *files]))
             if scope == "ui":
+                steps.append(Step("TypeScript", ["npm", "--ignore-scripts", "run", "typecheck"]))
                 steps.append(Step("Vite build", ["npm", "--ignore-scripts", "run", "vite-build"]))
         elif scope in ("voice", "backend"):
             args_pytest = (["-c", "tests/voice/pytest.ini", "tests/voice", *PLATFORM_UNIT_TESTS] if scope == "voice"

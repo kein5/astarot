@@ -7,7 +7,7 @@ import i18next from "i18next";
 import yaml from "js-yaml";
 import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
-import * as consentLogic from "./legacyModelConsent.js";
+import * as consentLogic from "./legacyModelConsent.ts";
 
 const componentURL = new URL("../../views/app/config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.jsx", import.meta.url);
 const entry = { kind: "ctranslate2", weight_type: "nllb-200-distilled-600M-ct2-int8", name: "CTranslate2 NLLB 600M",

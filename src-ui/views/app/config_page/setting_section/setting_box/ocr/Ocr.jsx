@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useI18n } from "@useI18n";
-import { createLanguageNames } from "../../../../../../logics/common/languageNames.js";
+import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import styles from "./Ocr.module.scss";
 
 import { useOcr } from "@logics_configs";

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { test } from "node:test";
-import { createSidecarSessionOwner } from "./sidecarSession.js";
-import * as startupPhase from "./startupPhase.js";
-import { expectBackendExit } from "./sidecarExitExpectation.js";
+import { createSidecarSessionOwner } from "./sidecarSession.ts";
+import * as startupPhase from "./startupPhase.ts";
+import { expectBackendExit } from "./sidecarExitExpectation.ts";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { deferred, flush, loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.js";
-import * as utils from "../utils.js";
+import * as utils from "../utils.ts";
 
 test("only the main window can start, feed or retire the backend", async () => {
     const directory = new URL("../../../src-tauri/capabilities/", import.meta.url);
@@ -249,9 +249,9 @@ test("production controller publishes startup failure and the failure dialog say
         "@tauri-apps/api/core": { invoke: async () => [] },
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => ({ receiveRoutes: () => {}, backendStopped: () => {} }) },
-        "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
-        "../../../logics/common/backendCommand.js": { createCoreBackendCommand: () => s.createCommand() },
-        "../../../logics/common/startupPhase.js": startupPhase,
+        "../../../logics/common/sidecarSession.ts": { createSidecarSessionOwner },
+        "../../../logics/common/backendCommand.ts": { createCoreBackendCommand: () => s.createCommand() },
+        "../../../logics/common/startupPhase.ts": startupPhase,
     });
     b.runtime.render(module.StartPythonController);
     await flush();
@@ -261,7 +261,7 @@ test("production controller publishes startup failure and the failure dialog say
     assert.equal(b.runtime.store.get(b.stores.Atom_IsBackendReady).data, false);
     // The failure dialog says why: here the program never started.
     assert.deepEqual(b.runtime.store.get(b.stores.Atom_BackendStartupFailure).data, { kind: "spawn", message: "not found" });
-    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.js": startupPhase });
+    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
     const screen = await loadModule(new URL("../../views/app/others/startup/StartupFailedDialog.jsx", import.meta.url), b.runtime, {
         "@logics_common": common,
         "../../../../logics/common/useBackendStartup": startup,
@@ -300,9 +300,9 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "@tauri-apps/api/core": { invoke: async () => [] },
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => b },
-        "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
-        "../../../logics/common/backendCommand.js": { createCoreBackendCommand: () => s.createCommand() },
-        "../../../logics/common/startupPhase.js": startupPhase,
+        "../../../logics/common/sidecarSession.ts": { createSidecarSessionOwner },
+        "../../../logics/common/backendCommand.ts": { createCoreBackendCommand: () => s.createCommand() },
+        "../../../logics/common/startupPhase.ts": startupPhase,
     });
     b.runtime.render(controller.StartPythonController);
     await flush();
@@ -344,7 +344,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     assert.deepEqual(sent, []);
     assert.deepEqual(quickCalls.at(-1), ["quick_chat_finish", { id: "after-exit", accepted: false }]);
 
-    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.js": startupPhase });
+    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
     const StartupFailedDialog = () => null, StartupAnnouncer = () => null;
     const app = await loadModule(new URL("../../views/app/App.jsx", import.meta.url), b.runtime, {
         "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},

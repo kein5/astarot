@@ -21,7 +21,7 @@ flowchart LR
 ```
 
 - サイドカーと話すのは`main`ウィンドウだけである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
-- 起動は`backend_start`（`src-tauri/src/backend_host.rs`）で、UIは`backendCommand.js`を通して0.4までの`Command.sidecar`と同じ形で扱う（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。要求は`backend_write`、終了は`backend_kill`で、応答と通知は順序を保つチャネルで届く。行の形式と規則は0.4までと変わらない（[中核の統合](../voice-stack/core-integration.md)）。下で「stdin」「stdout」と書くのは、この要求と応答の向きのことである。
+- 起動は`backend_start`（`src-tauri/src/backend_host.rs`）で、UIは`backendCommand.ts`を通して0.4までの`Command.sidecar`と同じ形で扱う（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。要求は`backend_write`、終了は`backend_kill`で、応答と通知は順序を保つチャネルで届く。行の形式と規則は0.4までと変わらない（[中核の統合](../voice-stack/core-integration.md)）。下で「stdin」「stdout」と書くのは、この要求と応答の向きのことである。
 
 ## メッセージの形
 
@@ -70,7 +70,7 @@ flowchart LR
 - 集約用のキーは最大64件。不明な形、未知の通知、枠がない新規キーは通常の行として保持し、別の字幕行などを捨てない。このため、保持が必要な行の総数・総バイト数に上限はない。
 - 別の監視スレッドが、未配送の行（書き込み中を含む）がある状態で20秒書き込みを完了できなかったことを、`error.log`に1回記録する。保持行、集約行、診断ログ、書き込み中、累積欠落の件数を添える。次に書き込みを完了すると復旧を1回記録する。writerと監視は別の条件変数で待つ。監視を通知で起こすのは、期限未設定時の最初の投入、詰まりを報告したあとの最初の成功、停止だけである。通常の投入・完了では起こさず、設定済みの期限に達してから最新の進捗時刻を読む。その時点でキューが空なら期限なしの待機に戻り、詰まりの報告後も復旧まで期限なしで待つ。詰まりだけでは終了・再起動・要求の再実行をしない。
 - 一時的な`OSError`（WindowsのErrno 22など）は同じ出力行を最大3回試す。途中まで出た行と次のJSONが連結しないよう、失敗後は改行の書き込みとflushを成功させてから次の試行へ進む。改行の失敗も試行回数に含める。壊れたパイプ・閉じたstdoutなどはその行の試行を打ち切る。配送を断念した行は累積欠落件数とともに`error.log`に記録し、後続の成功でその記録や累計を消さない。50行の連続失敗で既存のフロントエンド消失コールバックを呼ぶ（未登録時は終了）。成功で連続失敗数だけを戻す。
-- UIの`StartPythonController.jsx`が使う`sidecarSession.js`は空行を無視し、不正なJSONの行を記録して後続の行を読む。flushの失敗時には、行全体がすでに届いている可能性もある。再試行による重複は受信確認のない現行形式では判別できず、厳密な一度限りの配送は保証しない。輸送の診断が失敗してもstdoutへ書き戻さない。
+- UIの`StartPythonController.jsx`が使う`sidecarSession.ts`は空行を無視し、不正なJSONの行を記録して後続の行を読む。flushの失敗時には、行全体がすでに届いている可能性もある。再試行による重複は受信確認のない現行形式では判別できず、厳密な一度限りの配送は保証しない。輸送の診断が失敗してもstdoutへ書き戻さない。
 
 ### 状態コード
 
@@ -162,9 +162,9 @@ sequenceDiagram
 3. UIは`/run/initialization_complete`の各項目を対応する受信先に配り、`IsBackendReady`を真にしてメイン画面の操作を有効にする（それまでは操作できない仮の表示。[初期化中の扱い](cross-cutting.md#初期化中オフライン能力の不足)）。各取得先が必要とする配列・オブジェクト・文字列・数値・真偽値の形を先に確かめる。APIキーや未選択のモデルなど、未設定を表す`null`は受け付ける。必須の値が欠けている、形が違う、または反映時に例外が出た場合は、その項目の安全な初期値を残して後続の項目へ進む。言語の初期値には全タブの表示枠を用意し、取得できていない言語名は既存の読み込み中の表示にする。失敗した項目名と理由を1回ずつコンソールに記録し、値自体は記録しない。失敗があれば、同じ結果に含まれるUIの言語で、一部の設定を読み込めなかったことを既存の消えない警告通知で知らせる。音声・音声サーバー・リアルタイム音声認識・モデル取得の状態は、このときUIから改めて取りに行く。
 4. 全エンドポイントのロックが外れるのは`init()`が戻ったあとである。
 
-起動の所有者は`store.backend_session_owner`に保持する（`src-ui/logics/common/sidecarSession.js`）。複数のコントローラーやStrictModeのeffect再実行、エラー境界からの再マウントは同じセッションに接続し、サイドカーを重複起動しない。stdout、stderr、close、errorと非同期処理の完了は、そのセッションが現在のものか確かめる。古い子プロセスの通知や書き込みの完了で、新しいセッションの状態を変えない。
+起動の所有者は`store.backend_session_owner`に保持する（`src-ui/logics/common/sidecarSession.ts`）。複数のコントローラーやStrictModeのeffect再実行、エラー境界からの再マウントは同じセッションに接続し、サイドカーを重複起動しない。stdout、stderr、close、errorと非同期処理の完了は、そのセッションが現在のものか確かめる。古い子プロセスの通知や書き込みの完了で、新しいセッションの状態を変えない。
 
-spawnの拒否、子プロセスができる前のコマンドのerror、初期化完了の200通知を受け取る前の予期しない終了は`BackendStartupState`を`failed`にする。spawnの成功と初期化完了は別に記録する。動作中のerror（stdout・stderrの読み取りの失敗など）は、子プロセスを止めずに記録だけする。失敗の理由（spawnできなかったか、準備前に終了したか。終了ならコードまたはシグナル）を`BackendStartupFailure`に記録し、UIは操作できないメイン画面の上に消えない起動失敗のダイアログを出して、理由と次の行動、「もう一度起動する」と終了のボタンを示す。準備完了の判定は`BackendStartupState`と`IsBackendReady`から導き（`src-ui/logics/common/startupPhase.js`）、別の状態は持たない。利用者が押した場合だけ、失敗したspawnの完了と子プロセスの終了処理を待って再試行する。待機中はダイアログを閉じて起動中の表示に戻し、連打を無視する。終了処理に失敗した場合は新しい子プロセスを起動せず、失敗の案内に戻す。自動再試行や、不確かな書き込みの再送はしない。
+spawnの拒否、子プロセスができる前のコマンドのerror、初期化完了の200通知を受け取る前の予期しない終了は`BackendStartupState`を`failed`にする。spawnの成功と初期化完了は別に記録する。動作中のerror（stdout・stderrの読み取りの失敗など）は、子プロセスを止めずに記録だけする。失敗の理由（spawnできなかったか、準備前に終了したか。終了ならコードまたはシグナル）を`BackendStartupFailure`に記録し、UIは操作できないメイン画面の上に消えない起動失敗のダイアログを出して、理由と次の行動、「もう一度起動する」と終了のボタンを示す。準備完了の判定は`BackendStartupState`と`IsBackendReady`から導き（`src-ui/logics/common/startupPhase.ts`）、別の状態は持たない。利用者が押した場合だけ、失敗したspawnの完了と子プロセスの終了処理を待って再試行する。待機中はダイアログを閉じて起動中の表示に戻し、連打を無視する。終了処理に失敗した場合は新しい子プロセスを起動せず、失敗の案内に戻す。自動再試行や、不確かな書き込みの再送はしない。
 
 `failed`と`stopped`のどちらでも`IsBackendReady`を偽にし、グローバルホットキーとQuick Chatの送信を無効にする。初期化後に終了した場合はメイン画面を残し、起動中の操作できない表示には戻さない。メインの機能スイッチは最後に確認した値を保持するが、動作中とは表示せず、接続が切れたことを文言とアクセシブル名で示して操作を無効にする。サイドカーがない間は、これらのスイッチから要求を送らない。
 
@@ -189,7 +189,7 @@ shellプラグインの権限は`main`ウィンドウの起動・入力・終了
 
 ### 言語の変更の対応づけ
 
-`selected_your_languages`、`selected_target_languages`、`selected_translation_engines`、`selected_tab_no`への書き込みだけは、UIが要求ごとにIDと送る前の状態を覚えておく（`src-ui/logics/main/languageMutationCoordinator.js`）。400・404・423・500が返ったときは、言語に関する値をすべて読み直す。30秒以内に応答がないときは「未確認」として示すが、要求の持ち主は手放さず、最後の応答を待つ。遅れて届いた応答を別の要求のものと取り違えないためである。そのため応答が失われると、サイドカーを起動し直すまで言語を変えられない。IDはサイドカーには送らない。
+`selected_your_languages`、`selected_target_languages`、`selected_translation_engines`、`selected_tab_no`への書き込みだけは、UIが要求ごとにIDと送る前の状態を覚えておく（`src-ui/logics/main/languageMutationCoordinator.ts`）。400・404・423・500が返ったときは、言語に関する値をすべて読み直す。30秒以内に応答がないときは「未確認」として示すが、要求の持ち主は手放さず、最後の応答を待つ。遅れて届いた応答を別の要求のものと取り違えないためである。そのため応答が失われると、サイドカーを起動し直すまで言語を変えられない。IDはサイドカーには送らない。
 
 ## 監視と終了
 
@@ -201,7 +201,7 @@ shellプラグインの権限は`main`ウィンドウの起動・入力・終了
 
 ## stderrとログ
 
-- stderrの行のうち、警告と判定したもの（`src-ui/logics/common/sidecarDiagnostics.js`）は無視する。それ以外の行は、消えないエラー通知として表示する。
+- stderrの行のうち、警告と判定したもの（`src-ui/logics/common/sidecarDiagnostics.ts`）は無視する。それ以外の行は、消えないエラー通知として表示する。
 - status 348の行はログで、UIは表示しない。同じ内容が`process.log`にも書かれる。
 - UIが0.5〜1秒ごとに問い合わせる状態（`POLLED_ENDPOINTS`。音声の状態、経路、声質変換の状態、音声サーバー、リアルタイム音声認識、モデル取得）は、成功した応答（200）を`process.log`にもstatus 348の行にも書かない。応答そのものはUIへ送る。失敗した応答は書く。設定の音量チェックが送る音量の値（`/run/check_mic_volume`、`/run/check_speaker_volume`）も、成功したものは`process.log`に書かない。
 - UIの2つの音量メーターは、値と`state`がともに同じならatomのオブジェクトを再利用する。受信側はメーターの値を購読せず、書き込みだけを行う。他のatomの再通知の意味は変えない（`src-ui/logics/common/meterValue.test.js`）。

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find, stubGlobals } from "../../logics/test/hookHarness.js";
-import * as wire from "../../logics/common/vrPanelWire.js";
-import { keepNewestVrLayout } from "../../logics/common/vrPanelTooltip.js";
+import * as wire from "../../logics/common/vrPanelWire.ts";
+import { keepNewestVrLayout } from "../../logics/common/vrPanelTooltip.ts";
 
 test("closed log region is inert and unpainted while the receiver keeps its data current", async context => {
     stubGlobals(context, { requestAnimationFrame: () => 1, cancelAnimationFrame: () => {} });

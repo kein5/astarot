@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { captureStatusSummary, detectorStatus, FULL_REGION, isFullRegion, normalizeRegion, readinessSummary, regionPercent, runtimeSummary, withRegionValue } from "./ocrReadiness.js";
+import { captureStatusSummary, detectorStatus, FULL_REGION, isFullRegion, normalizeRegion, readinessSummary, regionPercent, runtimeSummary, withRegionValue } from "./ocrReadiness.ts";
 
 test("region stays inside the window whichever slider moves", () => {
     assert.deepEqual(normalizeRegion(null), FULL_REGION);

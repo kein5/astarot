@@ -1,7 +1,7 @@
 """What the VR panel may ask the backend to do (security audit SEC-02, SEC-07).
 
 The VR panel window has no sidecar of its own. The main window relays its requests, only the
-paths in src-ui/logics/common/vrPanelWire.js (VR_PANEL_RELAY_PATHS), and marks them with
+paths in src-ui/logics/common/vrPanelWire.ts (VR_PANEL_RELAY_PATHS), and marks them with
 "origin": "vr_panel". The backend checks the mark against this list as well, so a slip in the
 UI list or a compromised VR page still cannot reach credentials, network addresses, downloads,
 voice settings, telemetry consent, files or shutdown. Anything not listed is refused, new

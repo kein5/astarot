@@ -5,9 +5,9 @@ import { useStdoutToPython } from "@useStdoutToPython";
 import { useReceiveRoutes } from "@useReceiveRoutes";
 import { store, useStore_SelectableFontFamilyList, useStore_BackendStartupState, useStore_BackendStartupFailure, useStore_InitProgress } from "@store";
 import { arrayToObject } from "@utils";
-import { createSidecarSessionOwner } from "../../../logics/common/sidecarSession.js";
-import { createCoreBackendCommand } from "../../../logics/common/backendCommand.js";
-import { describeStartupFailure } from "../../../logics/common/startupPhase.js";
+import { createSidecarSessionOwner } from "../../../logics/common/sidecarSession.ts";
+import { createCoreBackendCommand } from "../../../logics/common/backendCommand.ts";
+import { describeStartupFailure } from "../../../logics/common/startupPhase.ts";
 import { useI18n } from "@useI18n";
 import { useNotificationStatus, useIsBackendReady } from "@logics_common";
 

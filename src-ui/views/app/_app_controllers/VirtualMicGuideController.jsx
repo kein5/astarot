@@ -7,7 +7,7 @@ import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@stor
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useLocalAsrMigration } from "../../../logics/transcription/useLocalAsrMigration";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
-import { guideOpensByItself, preferredCable } from "../../../logics/voice/virtualMic.js";
+import { guideOpensByItself, preferredCable } from "../../../logics/voice/virtualMic.ts";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
 import noticeStyles from "./TelemetryNoticeController.module.scss";

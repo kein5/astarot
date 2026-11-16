@@ -92,7 +92,7 @@ def test_normal_launch_keeps_window_painted_after_idle_and_hover(appimage, tmp_p
                         if not matches_launched_app(child.exe(), child.environ(), appimage, appimage=True):
                             continue
                         found = subprocess.run(['xdotool', 'search', '--all', '--onlyvisible',
-                                                '--pid', str(child.pid), '--name', '^VRCT-VOX$'],
+                                                '--pid', str(child.pid), '--name', '^ASTAROT$'],
                                                capture_output=True, text=True, timeout=3)
                         ids = found.stdout.split()
                         if len(ids) == 1:

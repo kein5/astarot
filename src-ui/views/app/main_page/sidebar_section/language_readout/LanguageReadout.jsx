@@ -1,5 +1,5 @@
 import { useI18n } from "@useI18n";
-import { createLanguageNames } from "../../../../../logics/common/languageNames.js";
+import { createLanguageNames } from "../../../../../logics/common/languageNames.ts";
 import styles from "./LanguageReadout.module.scss";
 import ArrowDownSvg from "@images/narrow_arrow_down.svg?react";
 import { useIsMainPageCompactMode, useLanguageSettings } from "@logics_main";

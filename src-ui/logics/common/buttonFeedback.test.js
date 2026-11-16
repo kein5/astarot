@@ -5,11 +5,12 @@ import Babel from "@babel/standalone";
 import React from "react";
 import * as jsx from "react/jsx-runtime";
 import clsx from "clsx";
-import * as chatboxLength from "./chatboxLength.js";
-import * as voiceErrorText from "../voice/voiceErrorText.js";
-import * as featureLabel from "./featureLabel.js";
-import { nextLogView, rowsBetween } from "./messageLogView.js";
-import * as switchBlocksModule from "../main/switchBlocks.js";
+import * as chatboxLength from "./chatboxLength.ts";
+import * as voiceErrorText from "../voice/voiceErrorText.ts";
+import * as featureLabel from "./featureLabel.ts";
+import { nextLogView, rowsBetween } from "./messageLogView.ts";
+import * as switchBlocksModule from "../main/switchBlocks.ts";
+import { typeScriptAware } from "../test/hookHarness.js";
 
 // Exercise the production JSX handlers without a WebView or a new test runtime.
 // Hooks retain state across explicit renders; IPC promises are controlled by tests.
@@ -47,16 +48,22 @@ function hooks() {
 
 const icon = () => null;
 async function load(path, runtime, imports = {}) {
-    const source = await readFile(new URL(`../../views/${path}`, import.meta.url), "utf8");
-    const { code } = Babel.transform(source, {
+    const url = new URL(`../../views/${path}`, import.meta.url);
+    const source = await readFile(url, "utf8");
+    // Views moving to TypeScript (ADR-010) lose their types first, as in hookHarness.js.
+    const { code } = Babel.transform(source, typeScriptAware(url, {
         presets: [["react", { runtime: "automatic" }]], plugins: ["transform-modules-commonjs"],
-    });
+    }));
     const dependencies = { react: runtime.api, "react/jsx-runtime": jsx, clsx,
         "@useI18n": { useI18n: () => ({ t: key => key }) }, ...imports };
     const require = name => {
         if (name.endsWith(".module.scss")) return new Proxy({}, { get: (_, key) => key === "__esModule" ? false : key });
+        if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return icon;
         if (name in dependencies) return dependencies[name];
+        // A TypeScript view names its relative imports with their extension.
+        const base = name.replace(/\.[jt]sx?$/, "");
+        if (/^\.\.?\//.test(name) && base in dependencies) return dependencies[base];
         throw new Error(`Unexpected component dependency: ${name}`);
     };
     const exports = {};
@@ -230,10 +237,10 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "@store": { store: {} },
         "@logics_common": {},
         "../../../../../logics/common/useNotificationStatus": {},
-        "../../../../../logics/voice/useVoice": {}, "../../../../../logics/voice/voiceActions.js": { voiceActions: {} },
+        "../../../../../logics/voice/useVoice": {}, "../../../../../logics/voice/voiceActions.ts": { voiceActions: {} },
         "../../../../../logics/voice/routeState": {},
-        "../../../../../logics/common/featureLabel.js": featureLabel,
-        "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
+        "../../../../../logics/common/featureLabel.ts": featureLabel,
+        "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
         "../../startupContext": { useIsStartingUp: () => false },
@@ -409,7 +416,7 @@ test("the window geometry controller keeps its listeners and only sends layout c
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython() {} }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
         "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: scaling } }) },
-        "./windowGeometry.js": await import("./windowGeometry.js"),
+        "./windowGeometry.ts": await import("./windowGeometry.ts"),
     });
     const settle = () => new Promise(resolve => setTimeout(resolve));
     // A module-level component: re-rendering its parent must not remount it.
@@ -444,7 +451,7 @@ test("while the engine starts, resizing updates the layout but does not save the
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => sent.push([endpoint, data]) }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
         "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
-        "./windowGeometry.js": await import("./windowGeometry.js"),
+        "./windowGeometry.ts": await import("./windowGeometry.ts"),
     });
     const settle = () => new Promise(resolve => setTimeout(resolve, 250));
     runtime.render(WindowGeometryController, { saveGeometry: false });
@@ -480,6 +487,9 @@ test("opening and closing settings keeps the same MainSection type and key mount
         assert.equal(page.ref, focusFallback);
         assert.equal(page.props.tabIndex, -1, "quick-dialog fallback is programmatically focusable");
         assert.equal(page.props["aria-hidden"], state);
+        // The packaged-app tests find the page and which one shows by these, not by hashed class names.
+        assert.equal(page.props["data-main-page"], "");
+        assert.equal(page.props["data-showing"], state ? "config" : "main");
         assert.equal(section.type, initial.type);
         assert.equal(section.key, initial.key);
     }

@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createStore } from "jotai/vanilla";
 import { hooks, loadModule } from "../test/hookHarness.js";
-import * as polledState from "../common/polledState.js";
-import * as routeState from "./routeState.js";
-import * as pendingVoiceRequest from "./pendingVoiceRequest.js";
+import * as polledState from "../common/polledState.ts";
+import * as routeState from "./routeState.ts";
+import * as pendingVoiceRequest from "./pendingVoiceRequest.ts";
 
 async function setup(file, name) {
     const runtime = hooks();
     const module = await loadModule(new URL(file, import.meta.url), runtime, {
-        "../common/polledState.js": polledState, "./routeState": routeState,
-        "./pendingVoiceRequest.js": pendingVoiceRequest,
+        "../common/polledState.ts": polledState, "./routeState": routeState,
+        "./pendingVoiceRequest.ts": pendingVoiceRequest,
     });
     const render = () => runtime.render(module[name]);
     return { runtime, render, useHook: module[name] };

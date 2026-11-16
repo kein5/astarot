@@ -3,7 +3,7 @@ import { getDefaultStore } from "jotai";
 import { invoke } from "@tauri-apps/api/core";
 import { Atom_OcrSharedWindow, dynamicStoreRegistry, useStore_OcrSharedWindow } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { createSharedWindowActions, shouldRestoreSharing, startErrorKey } from "./ocrSharedWindow.js";
+import { createSharedWindowActions, shouldRestoreSharing, startErrorKey } from "./ocrSharedWindow.ts";
 
 const atoms = getDefaultStore();
 

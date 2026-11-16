@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { eventTarget, find, hooks, loadModule } from "../../logics/test/hookHarness.js";
-import * as switchBlocks from "../../logics/main/switchBlocks.js";
+import * as switchBlocks from "../../logics/main/switchBlocks.ts";
 
 async function launcher(context) {
     const runtime = hooks(), document = eventTarget(), window = eventTarget();
@@ -28,7 +28,7 @@ async function launcher(context) {
         "../../logics/main/switchBlocks": switchBlocks,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: path => calls.push(path) }) },
         "@images/brand/icon-small.svg": "icon",
-        "@images/brand/logo-en.svg": "logo-en", "@images/brand/logo-ja.svg": "logo-ja",
+        "@images/brand/logo.svg": "logo",
         "./VrTooltip": { VrTooltipButton: "button" },
     });
     const tree = runtime.render(VrLauncher, { windows: { log: false, popup: null },
@@ -123,7 +123,7 @@ async function functionButtons({ blocks = {}, statuses = {}, configOpen = false 
         "../../logics/main/switchBlocks": switchBlocks,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: path => calls.push(path) }) },
         "@images/brand/icon-small.svg": "icon",
-        "@images/brand/logo-en.svg": "logo-en", "@images/brand/logo-ja.svg": "logo-ja",
+        "@images/brand/logo.svg": "logo",
         "./VrTooltip": { VrTooltipButton: "button" },
     });
     const tree = runtime.render(VrLauncher, { windows: { log: false, popup: null }, toggleLog() {}, openLog() {}, togglePopup() {} });

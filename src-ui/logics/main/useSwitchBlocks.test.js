@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../test/hookHarness.js";
-import * as switchBlocks from "./switchBlocks.js";
+import * as switchBlocks from "./switchBlocks.ts";
 
 const load = async () => {
     const runtime = hooks(), calls = [];

@@ -3,11 +3,33 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
-/// A port nothing listens on right now.
+/// Where [`free_port`] takes its ports from: below the ranges the OS picks ports from by
+/// itself (Linux from 32768, Windows and macOS from 49152).
+const PORTS_FROM: u32 = 20000;
+const PORTS: u32 = 12000;
+
+/// A port for a server the backend starts later from its settings, which take no port 0.
+///
+/// A port the OS chose for port 0 and that was let go can be chosen again, for another
+/// listener or as the local port of any outgoing connection, before the backend binds it;
+/// tests running at the same time then took each other's ports. These ports come from a
+/// range the OS never picks from, each one only once in this process (starting at a place
+/// that depends on the process, for test processes running side by side), and only when
+/// nothing listens on it right now.
 pub fn free_port() -> u16 {
-    TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port()
+    static NEXT: AtomicU32 = AtomicU32::new(0);
+    let start = std::process::id().wrapping_mul(7919) % PORTS;
+    loop {
+        let next = NEXT.fetch_add(1, Ordering::SeqCst);
+        assert!(next < PORTS, "no free test port left");
+        let port = (PORTS_FROM + (start + next) % PORTS) as u16;
+        if port_free("127.0.0.1", port) {
+            return port;
+        }
+    }
 }
 
 /// Whether `host:port` can be bound (nothing listens there).

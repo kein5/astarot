@@ -11,7 +11,7 @@ def test_caption_revisions_namespace_stop_and_legacy_rows():
     script = r"""
 import assert from 'node:assert/strict';
 import {applyRealtimeCaption, pruneRealtimeCaptions, mergeRealtimeState}
- from './src-ui/logics/transcription/realtimeCaptionState.js';
+ from './src-ui/logics/transcription/realtimeCaptionState.ts';
 const active = {mic: {namespace:'m', generation:1, requested:true, state:'ready'},
  speaker: {namespace:'s', generation:1, requested:true, state:'ready'}};
 const event = {source:'mic', namespace:'m', generation:1, item_id:'u', revision:1,
@@ -67,7 +67,10 @@ assert.ok(state.retired.length <= 256);
 console.log('caption contracts passed');
 """
     result = subprocess.run(
-        ["node", "--input-type=module", "-e", script],
+        # The reducer is TypeScript (ADR-010). Node 22 reads it only with type stripping turned on;
+        # later versions accept the flag as well. tools/dev.py runs the Node tests the same way.
+        ["node", "--experimental-strip-types", "--disable-warning=ExperimentalWarning",
+         "--input-type=module", "-e", script],
         cwd=ROOT,
         text=True,
         capture_output=True,

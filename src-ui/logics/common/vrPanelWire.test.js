@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { decodeLogUpdate, decodeOrdered, diffLogRows, encodeLogUpdate, encodeOrdered, isLogUpdate, isRelayAllowed, isSecretAtomName,
-    VR_PANEL_RELAY_PATHS, VR_PANEL_STATE_ATOMS, VR_PANEL_STATE_CATEGORIES, vrPanelStateNames } from "./vrPanelWire.js";
+    VR_PANEL_RELAY_PATHS, VR_PANEL_STATE_ATOMS, VR_PANEL_STATE_CATEGORIES, vrPanelStateNames } from "./vrPanelWire.ts";
 import { scanVrPanelState, settingsByCategory } from "../test/vrPanelStateScan.js";
 
 // Tauri の emit を通ったときの変化を模す: キーを辞書順にし、undefined を落とし、NaN を null にする
@@ -101,7 +101,7 @@ test("everything the VR windows send is relayed", () => {
         return verb === "toggle" ? [`/set/enable/${setting.endpoint}`, `/set/disable/${setting.endpoint}`] : [`/set/data/${setting.endpoint}`];
     };
     const sent = new Set(), names = new Set();
-    for (const file of readdirSync(new URL("../../views/vr/", import.meta.url)).filter(name => /\.jsx?$/.test(name) && !name.includes(".test."))) {
+    for (const file of readdirSync(new URL("../../views/vr/", import.meta.url)).filter(name => /\.[jt]sx?$/.test(name) && !name.includes(".test."))) {
         const source = read(`../../views/vr/${file}`);
         for (const [path] of source.matchAll(/"\/(?:get|set|run)\/[a-z0-9_/]+"/g)) sent.add(JSON.parse(path));
         for (const [name] of source.matchAll(/\b(?:set|toggle)[A-Z]\w*|\bvolumeCheck\w+|\brefreshLanguageSettings\b|\bswapSelectedLanguages\b/g)) names.add(name);

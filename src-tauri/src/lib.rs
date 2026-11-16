@@ -260,7 +260,7 @@ async fn main_window_restore(window: tauri::WebviewWindow) -> Result<(), String>
     Ok(())
 }
 #[cfg(target_os = "linux")]
-const MAIN_TITLE: &str = "VRCT-VOX";
+const MAIN_TITLE: &str = "ASTAROT";
 
 // VR UI の ON/OFF に合わせて、VR画面のウィンドウを作る・消す (メイン画面が設定に合わせて呼ぶ)。
 // ウィンドウを作るので async にする (同期コマンドから作ると Windows で固まることがある)

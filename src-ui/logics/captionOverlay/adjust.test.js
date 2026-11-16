@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { FONT_SIZE_MAX, FONT_SIZE_MIN, placementOf, steppedFontSize } from "./adjust.js";
+import { FONT_SIZE_MAX, FONT_SIZE_MIN, placementOf, steppedFontSize } from "./adjust.ts";
 
 test("a size step moves by the slider's step and stops at its ends", () => {
     assert.equal(steppedFontSize(28, 1), 30);

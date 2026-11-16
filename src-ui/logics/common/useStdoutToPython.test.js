@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { pendingRequestRecovery } from "./pendingRequestRecovery.js";
-import { rejectExpectedExit } from "./sidecarExitExpectation.js";
-import { settingsWriteResponses } from "./settingsWriteResponses.js";
+import { pendingRequestRecovery } from "./pendingRequestRecovery.ts";
+import { rejectExpectedExit } from "./sidecarExitExpectation.ts";
+import { settingsWriteResponses } from "./settingsWriteResponses.ts";
 
 const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
 async function setup() {
@@ -29,9 +29,9 @@ async function setup() {
     let source = await readFile(new URL("./useStdoutToPython.js", import.meta.url), "utf8");
     for (const name of ["@store", "js-base64", "./useNotificationStatus", "@useI18n", "@tauri-apps/api/event", "../main/languageMutations"])
         source = source.replace(JSON.stringify(name), JSON.stringify(dependencies));
-    source = source.replace('"./pendingRequestRecovery.js"', JSON.stringify(new URL("./pendingRequestRecovery.js", import.meta.url).href));
-    source = source.replace('"./sidecarExitExpectation.js"', JSON.stringify(new URL("./sidecarExitExpectation.js", import.meta.url).href));
-    source = source.replace('"./settingsWriteResponses.js"', JSON.stringify(new URL("./settingsWriteResponses.js", import.meta.url).href));
+    source = source.replace('"./pendingRequestRecovery.ts"', JSON.stringify(new URL("./pendingRequestRecovery.ts", import.meta.url).href));
+    source = source.replace('"./sidecarExitExpectation.ts"', JSON.stringify(new URL("./sidecarExitExpectation.ts", import.meta.url).href));
+    source = source.replace('"./settingsWriteResponses.ts"', JSON.stringify(new URL("./settingsWriteResponses.ts", import.meta.url).href));
     const { useStdoutToPython } = await import(moduleUrl(source));
     let value = { state: "pending", data: 9000 };
     pendingRequestRecovery.register({ endpoints: ["/set/data/osc_port", "/get/data/osc_port"], read: "/get/data/osc_port",

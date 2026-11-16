@@ -1,11 +1,11 @@
-import * as routeState from "./routeState.js";
+import * as routeState from "./routeState.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.js";
 import { flush } from "../test/bridgeHarness.js";
-import { rebaseDraft } from "./draftRebase.js";
+import { rebaseDraft } from "./draftRebase.ts";
 import { changedPaths } from "./saveBar.js";
-import { createSettingsWriteResponses } from "../common/settingsWriteResponses.js";
+import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 
 async function setup(context) {
     context.mock.timers.enable({ apis: ["setTimeout"] });

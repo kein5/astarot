@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
-import * as endpointPrivacy from "../common/endpointPrivacy.js";
+import * as endpointPrivacy from "../common/endpointPrivacy.ts";
 
 const noop = () => {};
 const api = values => new Proxy(values, { get: (object, name) => object[name] ?? noop });
