@@ -117,12 +117,14 @@ def copy_adapters(resources):
 # The crates under native/ that src-tauri depends on by path: the backend core (#285) and the
 # crates it uses. tests/devtools/test_build_linux.py keeps this list equal to the path
 # dependencies of those Cargo.toml files.
-APP_CRATES = ('core', 'adapters', 'ops', 'speech-server', 'tts')
+APP_CRATES = ('core', 'adapters', 'ops', 'speech-server', 'tts', 'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
-# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text.
+# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text, and
+# native/vr-overlay checks its layout against the VR page's.
 # tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
 CRATE_INPUTS = ('src-python/models/model_downloads/speechcpp_models.py',
-                'src-python/models/model_downloads/speechcpp_asr.py')
+                'src-python/models/model_downloads/speechcpp_asr.py',
+                'src-ui/views/vr/vr_layout.json')
 
 
 def tauri_workspace(work, frozen):

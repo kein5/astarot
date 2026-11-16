@@ -19,6 +19,7 @@ vrct-adapters = { path = "../adapters" }
 vrct-ops = { path = "../ops" }
 vrct-speech-server = { path = "../speech-server" }
 vrct-tts = { path = "../tts" }
+vrct-vr-overlay = { path = "../vr-overlay" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"
