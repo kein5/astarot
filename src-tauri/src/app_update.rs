@@ -303,6 +303,17 @@ pub async fn app_update_check<R: Runtime>(
         // The installer fetches the app package again: keep the edition the user chose.
         builder = builder.installer_arg(if gpu { "/EDITION=gpu" } else { "/EDITION=cpu" });
     }
+    // Windows: once the installer has started, the updater ends this process with
+    // `std::process::exit`, so RunEvent::Exit never comes. The core is stopped here instead: it
+    // saves a setting changed in the last two seconds and stops the speech servers, whose files
+    // the installer replaces. Linux restarts through RunEvent::Exit, which stops it already.
+    let stopping = app.clone();
+    builder = builder.on_before_exit(move || {
+        if let Some(host) = stopping.try_state::<crate::backend_host::BackendHost>() {
+            crate::startup_log("Stopping the backend before the installer starts");
+            host.stop_and_wait("The app is being updated; stopping", crate::backend_host::UPDATE_STOP_LIMIT);
+        }
+    });
     let updater = builder.build().map_err(|error| {
         crate::startup_log(&format!("Update: updater unavailable: {error}"));
         "update_check_failed".to_string()
