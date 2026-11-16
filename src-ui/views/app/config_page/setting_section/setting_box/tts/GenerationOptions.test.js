@@ -63,7 +63,7 @@ test("TTS form supplies an existing error ID to both language groups", async () 
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: s.draft, status: {}, devices: {}, send: () => {} }) },
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: s.draft }) },
         "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions },
-        "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {} },
+        "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {}, validCoeiroinkOptions: () => true },
         "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" },
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
         "./StatusLine": { StatusLine: "status" },

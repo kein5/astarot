@@ -4,8 +4,33 @@
 //! Rust core must write back the same file the Python backend wrote after its start-up, and
 //! notice the same things (a file moved aside, URLs dropped, the local ASR notice). The expected
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
+//!
+//! One difference is intended: settings added after the Python backend (Issue #390) are written
+//! with their defaults into the voice settings Python wrote. [`added`] lists them; they are
+//! added to the expected results before the comparison.
 
 use serde_json::{json, Map, Value};
+
+/// Fields the Rust core added to a nested setting, with their defaults.
+fn added() -> [(&'static str, Value); 1] {
+    [
+        ("VOICE_SETTINGS", json!({
+            "coeiroink_speed": "1.0", "coeiroink_volume": "1.0", "coeiroink_pitch": "0.0", "coeiroink_intonation": "1.0",
+            "coeiroink_pre_phoneme": "0.1", "coeiroink_post_phoneme": "0.1", "coeiroink_sampling_rate": "24000",
+        })),
+    ]
+}
+
+/// The expected settings with [`added`] fields appended to the nested settings they belong to.
+fn with_added(settings: &mut Map<String, Value>) {
+    for (key, fields) in added() {
+        if let Some(Value::Object(saved)) = settings.get_mut(key) {
+            for (field, value) in fields.as_object().unwrap() {
+                saved.entry(field.clone()).or_insert_with(|| value.clone());
+            }
+        }
+    }
+}
 use std::path::Path;
 use vrct_core::config::{Config, Environment, Platform};
 
@@ -50,9 +75,16 @@ fn changes(saved: &Map<String, Value>, defaults: &Map<String, Value>) -> Map<Str
 fn check_platform(name: &str, platform: Platform) {
     let reference = reference();
     let expected = &reference["platforms"][name];
-    let defaults = expected["defaults"].as_object().unwrap();
+    let mut defaults = expected["defaults"].as_object().unwrap().clone();
+    with_added(&mut defaults);
+    let defaults = &defaults;
     let mut failures = Vec::new();
     for (case, want) in expected["cases"].as_object().unwrap() {
+        let mut want = want.clone();
+        if let Some(changed) = want["changed"].as_object_mut() {
+            with_added(changed);
+        }
+        let want = &want;
         let dir = tempfile::tempdir().unwrap();
         write_input(dir.path(), &reference["inputs"][case], &expected["defaults"]);
         let config = Config::open(environment(dir.path(), platform, &reference));

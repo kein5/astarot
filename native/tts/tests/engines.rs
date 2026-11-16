@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 use vrct_tts::engines::{EngineApi, EngineClient, VoiceRow};
-use vrct_tts::settings::EngineVoice;
+use vrct_tts::settings::{CoeiroinkParams, EngineVoice};
 use vrct_tts::CancelToken;
 
 type Seen = Arc<Mutex<Vec<(String, String, Vec<u8>)>>>;
@@ -138,11 +138,25 @@ fn coeiroink_sends_its_synthesis_parameters() {
     let voice = EngineVoice { id: "3c37646f-3881:0".into(), speaker: "つくよみちゃん".into(), style: "れいせい".into() };
     let frames: Vec<_> = client.synthesize_stream("やあ", &voice, "ja", &CancelToken::new()).unwrap().collect::<Result<_, _>>().unwrap();
     assert_eq!(frames.len(), 1);
-    let seen = seen.lock().unwrap();
-    let body: Value = serde_json::from_slice(&seen.iter().find(|(_, path, _)| path == "/v1/synthesis").unwrap().2).unwrap();
+    let requests = seen.lock().unwrap();
+    let body: Value = serde_json::from_slice(&requests.iter().find(|(_, path, _)| path == "/v1/synthesis").unwrap().2).unwrap();
     assert_eq!(body["speakerUuid"], "3c37646f-3881");
     assert_eq!(body["styleId"], 0);
-    assert_eq!(body["outputSamplingRate"], 24000);
+    // The defaults are the values sent before they could be set.
+    assert_eq!(
+        (&body["speedScale"], &body["volumeScale"], &body["pitchScale"], &body["intonationScale"], &body["prePhonemeLength"], &body["postPhonemeLength"], &body["outputSamplingRate"]),
+        (&json!(1.0), &json!(1.0), &json!(0.0), &json!(1.0), &json!(0.1), &json!(0.1), &json!(24000))
+    );
+    drop(requests);
+
+    let params = CoeiroinkParams { speed: 1.5, volume: 0.8, pitch: -0.05, intonation: 1.2, pre_phoneme: 0.0, post_phoneme: 0.3, sampling_rate: 48_000 };
+    client.synthesize_stream_with("やあ", &voice, "ja", &CancelToken::new(), &params).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+    let requests = seen.lock().unwrap();
+    let body: Value = serde_json::from_slice(&requests.iter().rev().find(|(_, path, _)| path == "/v1/synthesis").unwrap().2).unwrap();
+    assert_eq!(
+        (&body["speedScale"], &body["volumeScale"], &body["pitchScale"], &body["intonationScale"], &body["prePhonemeLength"], &body["postPhonemeLength"], &body["outputSamplingRate"]),
+        (&json!(1.5), &json!(0.8), &json!(-0.05), &json!(1.2), &json!(0.0), &json!(0.3), &json!(48000))
+    );
 }
 
 #[test]
