@@ -240,3 +240,12 @@ test("header width budgets leave search usable even with queued/muted actions at
     assert.ok(20.8 - 3.2 > searchChrome);
     assert.ok(wideSave > 10 + 2 * (5 * 1.4 + 2 * 1.4) + 1.6 + 2);
 });
+
+test("the forms' primary action is blue: the plain class name primary is matched globally", () => {
+    const css = read(box + "advanced_settings/VoiceSettings.module.scss");
+    // CSS Modules renames .primary, and the forms write className="primary", so only :global matches.
+    assert.doesNotMatch(css, /button\.primary/);
+    assert.match(css, /button:global\(\.primary\)\s*{[^}]*background: var\(--primary_600_color/);
+    const downloads = read(box + "advanced_settings/ModelDownloads.jsx");
+    assert.match(downloads, /className="primary" disabled=\{!consent \|\| busy\}/, "agreeing to a download is the primary action");
+});

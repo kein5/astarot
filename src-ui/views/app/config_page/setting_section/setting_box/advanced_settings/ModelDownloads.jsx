@@ -313,7 +313,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             <div className={styles.actions}>
                 <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
-                <button type="button" disabled={!consent || busy} onClick={() => {
+                <button type="button" className="primary" disabled={!consent || busy} onClick={() => {
                     if (!consent || busy) return;
                     send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version }); close();
                 }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</button>
