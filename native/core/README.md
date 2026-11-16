@@ -46,7 +46,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 - **ログの行の形式**。Python の辞書の表記ではなく JSON で書きます。伏せる規則は同じです。
 - **真偽値を数として扱わない**。Python では `True` が整数 1 として通る検査がありました（オーバーレイの表示秒数など）。Rust では数として扱いません。
 - **翻訳エンジンの確認**。翻訳のプロバイダ（#277）は Python と同じに起動時に確かめます。Web 翻訳（Google、Bing、Papago）は配布していないので「使えない」と示します（Python は「使える」と示し、毎回失敗していました）。音声認識のエンジン（#278）も Python と同じに確かめます。Whisper の API と Deepgram はキーでモデルの一覧を取り、Google と speech.cpp は確かめずに「使える」とします。API キーは Python と同じく残します。
-- **読み（ひらがな・ローマ字）**。辞書が決まるまで読みは出しません。読みのスイッチが入っていても、メッセージは読みなしで送ります（`docs/voice-stack/core-integration.md` の「判断が要ること」の 3）。
+- **読み（ひらがな・ローマ字）**。Python と同じく Sudachi（sudachi.rs）で解析します。辞書は同梱のファイル `_internal/build/sudachi/system.dic`（開発の checkout では `build/sudachi/system.dic`、`tools/sudachi_dictionary.py` が置く）を、読みを求める最初のメッセージで開きます（`Services::transliteration`、既定は `messages::shipped_readings`）。辞書がない、または読めないときは、読みのスイッチが入っていてもメッセージを読みなしで送り、理由を `process.log` に一度だけ書きます。Python は辞書を読めないと送信ごと失敗していました。どの辞書を配布物に入れるかは `docs/voice-stack/core-integration.md` の「判断が要ること」の 3 です。
 - **プロキシ**。翻訳のプロバイダへの通信は `HTTP(S)_PROXY` を使いません（「判断が要ること」の 18）。
 - **声質変換**。変換の持ち主はアプリのプロセスのスレッドで動き、別の router プロセスはありません。Linux の管理された経路での変換と Seed-VC は動きません（`vc_start_failed`）。実行環境の準備は RVC だけを出します（core-integration.md の「判断が要ること」の 10、「Linux の声質変換」「声質変換の router プロセス」）。
 - **音声デバイス**。Windows のマイクは `Windows WASAPI` のホストの下だけに並びます。Python が MME などのホストで保存した選択は、起動時に WASAPI の同じデバイスへ移します。Linux で PipeWire のデバイスを並べるのは `pipewire` 機能を有効にしたときだけで、アプリ（src-tauri）は有効にします。試験は無効のまま動き、PipeWire が要りません。詳しくは [core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 4 にあります。

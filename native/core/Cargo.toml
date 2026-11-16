@@ -38,7 +38,7 @@ vrct-speech-server = { path = "../speech-server" }
 vrct-transcription = { path = "../transcription" }
 # The local translation on ONNX Runtime; see the onnx-translation feature below.
 vrct-translate-onnx = { path = "../translate-onnx", optional = true }
-vrct-translation = { path = "../translation" }
+vrct-translation = { path = "../translation", features = ["sudachi"] }
 vrct-tts = { path = "../tts" }
 # Direct voice, the RVC worker's owner and its runtime setup.
 vrct-voice-conversion = { path = "../voice-conversion" }

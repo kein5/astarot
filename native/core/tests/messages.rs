@@ -64,6 +64,11 @@ fn deepl_key() -> String {
 }
 
 fn start(saved: Value, tokenizer: Option<Arc<dyn Tokenizer>>) -> Run {
+    start_in(saved, tokenizer, None)
+}
+
+/// `dir` holds the settings and the app's folder (`app/`); a fresh one when `None`.
+fn start_in(saved: Value, tokenizer: Option<Arc<dyn Tokenizer>>, dir: Option<std::path::PathBuf>) -> Run {
     let fake = FakeProviders::start();
     fake.key("/deepl-free", &deepl_key());
     let chatbox = UdpSocket::bind((VRCHAT, 0)).unwrap();
@@ -89,9 +94,9 @@ fn start(saved: Value, tokenizer: Option<Arc<dyn Tokenizer>>) -> Run {
         ..Services::default()
     };
     if let Some(tokenizer) = tokenizer {
-        services.transliteration = tokenizer;
+        services.transliteration = Arc::new(move |_| Arc::clone(&tokenizer));
     }
-    let ui = Ui::with(Setup { saved: Some(saved), services, ..Setup::default() });
+    let ui = Ui::with(Setup { saved: Some(saved), services, dir, ..Setup::default() });
     ui.ready();
     Run { ui, fake, chatbox, websocket_port, clipboard }
 }
@@ -233,7 +238,25 @@ fn readings_are_added_for_japanese_and_left_out_without_a_dictionary() {
     let result = run.chat("m-1", "日本語です");
     assert_eq!(result["original"]["transliteration"], json!([]));
     assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("日本語です"), "the message still goes out");
-    assert!(run.process_log().contains("Transliteration: no dictionary"));
+    assert!(run.process_log().contains("Transliteration: no dictionary (no dictionary at "));
+    run.ui.stop();
+}
+
+#[test]
+fn a_damaged_dictionary_beside_the_app_leaves_the_readings_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let shipped = dir.path().join("app/_internal").join(vrct_core::controller::messages::READINGS_DICTIONARY);
+    std::fs::create_dir_all(shipped.parent().unwrap()).unwrap();
+    std::fs::write(&shipped, b"cut off").unwrap();
+    let run = start_in(json!({ "CONVERT_MESSAGE_TO_ROMAJI": true }), None, Some(dir.path().to_path_buf()));
+    let result = run.chat("m-1", "日本語です");
+    assert_eq!(result["original"]["transliteration"], json!([]));
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("日本語です"), "the message still goes out");
+    let result = run.chat("m-2", "東京");
+    assert_eq!(result["original"]["transliteration"], json!([]));
+    let log = run.process_log();
+    assert_eq!(log.matches("Transliteration: no dictionary (cannot read ").count(), 1, "noted once");
+    assert!(!log.contains("日本語です") && !log.contains("東京"), "no text in the log");
     run.ui.stop();
 }
 
