@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
+import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const icon = name => Object.assign(() => null, { icon: name });
@@ -22,6 +23,7 @@ test("chat reading has a page of its own, and search lists it there", async () =
     const search = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
         "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
         "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
+        "./configSearchTargets.ts": searchTargets,
     });
     assert.deepEqual(search.settingTabs("ocr", "source_language"), ["ocr"]);
     assert.deepEqual(search.settingTabs("others", "send_message_to_vrc"), ["vrchat"]);

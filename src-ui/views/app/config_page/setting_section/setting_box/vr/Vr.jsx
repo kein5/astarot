@@ -58,7 +58,8 @@ export const Vr = () => {
 
     return (
         <div className={styles.container}>
-            <div className={styles.overlay_section}>
+            {/* The settings search leads here for the overlay's position, rotation, size and timing. */}
+            <div className={styles.overlay_section} data-setting-id="vr_overlay">
                 <SectionLabelComponent label={t("config_page.vr.section_label_overlay")} />
                 <div className={styles.wrapper}>
                     <PageSwitcherContainer
@@ -101,6 +102,7 @@ export const Vr = () => {
             <VrUiBetaContainer />
             <button
                 className={styles.restore_default_settings_button}
+                data-setting-id="restore_default_settings"
                 onClick={restoreDefaultSettings}
             >
                 {t("config_page.vr.restore_default_settings")}

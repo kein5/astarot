@@ -902,7 +902,6 @@ config_page:
         section_title: "Reading VRChat's chat"
         section_desc: "Reads VRChat chat bubbles on screen and translates the text the same way as the microphone and listening. The results appear in the main message log and the SteamVR overlay; they are never sent to the VRChat chatbox."
         capture_target: "Capture target"
-        language: "Language"
         performance: "Performance"
         window_title:
             label: "Window name"
