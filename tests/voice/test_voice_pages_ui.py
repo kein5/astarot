@@ -207,7 +207,7 @@ def test_separate_pages_search_and_asr_placement(pages):
     page.get_by_label("Search settings", exact=True).fill("RVC")
     results = page.get_by_label("Search results", exact=True).get_by_role("button")
     # The Device page Mic selection is also the RVC input on Linux, so it is found too.
-    expect(results.filter(has_text="Device: Mic Device")).to_be_visible()
+    expect(results.filter(has_text="Device: Mic device")).to_be_visible()
     results.filter(has_text="Voice changer (RVC): Voice changer (RVC)").click()
     expect(page.get_by_label("Permitted RVC model (.pth)", exact=True)).to_have_count(1)
     assert not any(ep.startswith("/run/start_") for ep, _ in peer.sent)
