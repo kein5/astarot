@@ -188,8 +188,8 @@ responsible for.
 cut as before, the energy-based listening of SpeechRecognition 3.10.4
 (BSD-3-Clause, Anthony Zhang) as the fork used by the earlier Python
 implementation ran it, and `audioop`'s `rms` and `ratecv` of CPython
-(PSF-2.0). It sends Google's web speech requests as that library did, with its
-default key. No source file of these projects is included.
+(PSF-2.0). No source file of these projects is included. It does not send
+Google's web speech requests or carry that library's default key.
 
 The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
 Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,
