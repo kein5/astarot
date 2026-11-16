@@ -8,7 +8,6 @@ export { LabelComponent } from "./label_component/LabelComponent";
 export { RadioButton } from "./radio_button/RadioButton";
 export { SectionLabelComponent } from "./section_label_component/SectionLabelComponent";
 export { Slider } from "./slider/Slider";
-export { SwitchBox } from "./switch_box/SwitchBox";
 export { ThresholdComponent } from "./threshold_component/ThresholdComponent";
 export { WordFilter, WordFilterListToggleComponent } from "./word_filter/WordFilter";
 export { DownloadModels } from "./download_models/DownloadModels";

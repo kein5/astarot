@@ -25,7 +25,7 @@ async function load(context, registryModule = registry) {
             setExperimentalFeatures: value => { writes.push(value); },
         }) },
         [REGISTRY_PATH]: registryModule,
-        "../_templates/Templates": { SwitchBoxContainer: "switch", DropdownMenuContainer: "dropdown" },
+        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown" },
         "../../../../../../logics/companion/hexagram.ts": hexagram,
     });
     const render = props => runtime.render(module.ExperimentalFeatureList, props);
@@ -33,7 +33,7 @@ async function load(context, registryModule = registry) {
 }
 
 const flat = tree => [tree.props.children].flat(Infinity).filter(Boolean);
-// Each feature is a group: its switch, and below it any setting of its own.
+// Each feature is a group: its checkbox, and below it any setting of its own.
 const children = tree => flat(tree).flatMap(item => (item.type === "div" ? flat(item) : [item]));
 
 test("the page says there is nothing to try while no feature is listed", async context => {
@@ -42,15 +42,15 @@ test("the page says there is nothing to try while no feature is listed", async c
     const [notice, empty] = children(list);
     assert.equal(notice.props.children, "config_page.experimental_features.notice");
     assert.equal(empty.props.children, "config_page.experimental_features.empty");
-    assert.equal(children(list).some(item => item.type === "switch"), false);
+    assert.equal(children(list).some(item => item.type === "checkbox"), false);
 });
 
-test("each listed feature gets a switch with its name and description, off until confirmed on", async context => {
+test("each listed feature gets a checkbox with its name and description, off until confirmed on", async context => {
     const s = await load(context, fakeRegistry);
     const features = FAKE_IDS.map(id => ({ id }));
     const tree = s.render({ features, current: { state: "ok", data: { second_trial: true, first_trial: "yes" } },
         setValues: () => {} });
-    const switches = children(tree).filter(item => item.type === "switch");
+    const switches = children(tree).filter(item => item.type === "checkbox");
     assert.deepEqual(switches.map(item => item.props.setting_id),
         ["experimental_features.first_trial", "experimental_features.second_trial"]);
     assert.equal(switches[0].props.label, "config_page.experimental_features.items.first_trial.label");
@@ -58,16 +58,16 @@ test("each listed feature gets a switch with its name and description, off until
     assert.deepEqual(switches.map(item => item.props.variable.data), [false, true]);
 });
 
-test("a switch asks the backend for that one feature only, and turns an on feature off", async context => {
+test("a checkbox asks the backend for that one feature only, and turns an on feature off", async context => {
     const s = await load(context, fakeRegistry);
     const writes = [];
     const tree = s.render({ features: FAKE_IDS.map(id => ({ id })), current: { state: "pending", data: { second_trial: true } },
         setValues: value => writes.push(value) });
-    const [first, second] = children(tree).filter(item => item.type === "switch");
+    const [first, second] = children(tree).filter(item => item.type === "checkbox");
     first.props.toggleFunction();
     second.props.toggleFunction();
     assert.deepEqual(writes, [{ first_trial: true }, { second_trial: false }]);
-    // While a request is out the switch shows it is busy (the switch ignores presses then).
+    // While a request is out the checkbox shows it is busy (it ignores presses then).
     assert.equal(first.props.variable.state, "pending");
 });
 
@@ -95,7 +95,7 @@ test("the tray companion is listed and stays off until the user turns it on", as
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
     const list = tree.type(tree.props);
-    const switches = children(list).filter(item => item.type === "switch");
+    const switches = children(list).filter(item => item.type === "checkbox");
     assert.deepEqual(switches.map(item => item.props.setting_id), ["experimental_features.tray_companion"]);
     assert.equal(switches[0].props.label, "config_page.experimental_features.items.tray_companion.label");
     assert.equal(switches[0].props.variable.data, false);
@@ -103,7 +103,7 @@ test("the tray companion is listed and stays off until the user turns it on", as
     assert.deepEqual(s.writes, [{ tray_companion: true }]);
 });
 
-test("while the tray companion is on, the edge its hexagram hides at can be chosen under its switch", async context => {
+test("while the tray companion is on, the edge its hexagram hides at can be chosen under its checkbox", async context => {
     const s = await load(context);
     const edges = [];
     const edge = { current: { state: "ok", data: "right" }, set: value => { edges.push(value); } };

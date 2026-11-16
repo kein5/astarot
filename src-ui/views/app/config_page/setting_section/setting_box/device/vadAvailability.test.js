@@ -29,7 +29,8 @@ const render = async device => {
         }) },
         "../_templates/Templates": { MultiDropdownMenuContainer: () => null },
         "../_components": { SectionLabelComponent: () => null, LabelComponent: () => null, DropdownMenu: () => null,
-            ThresholdComponent, SwitchBox: () => null, RadioButton },
+            ThresholdComponent, RadioButton },
+        "@common_components": { Checkbox: () => null },
     });
     const page = runtime.render(module.Device);
     const containers = page.props.children.filter(node => typeof node?.type === "function" && node.type.name.endsWith("Container"));

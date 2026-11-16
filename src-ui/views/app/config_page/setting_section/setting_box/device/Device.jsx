@@ -18,9 +18,16 @@ import {
     LabelComponent,
     DropdownMenu,
     ThresholdComponent,
-    SwitchBox,
     RadioButton,
 } from "../_components";
+import { Checkbox } from "@common_components";
+
+// "Auto select" in a device row: a settings checkbox with its name beside it, like
+// every other on/off setting (#436).
+export const AutoSelectCheckbox = ({ secondary_label, variable, toggleFunction }) => (
+    <Checkbox show_label label={secondary_label} variable={variable} toggleFunction={toggleFunction}
+        size="2.4rem" padding="0.8rem" />
+);
 
 export const Device = () => {
     return (
@@ -99,7 +106,7 @@ const MicContainer = () => {
                 desc={currentSelectedMicHost.data === "PipeWire" ? t("config_page.device.mic_host_device.desc_pipewire") : t("config_page.device.mic_host_device.desc")}
                 dropdown_settings={[
                     {
-                        insert_component: SwitchBox,
+                        insert_component: AutoSelectCheckbox,
                         insert_component_props: {
                             secondary_label: t("config_page.device.label_auto_select"),
                             variable: currentEnableAutoMicSelect,
@@ -229,7 +236,7 @@ const SpeakerContainer = () => {
             <div className={device_container_class} data-setting-id="speaker_device">
                 <LabelComponent label={t("config_page.device.speaker_device.label")} />
                 <div className={styles.device_contents}>
-                    <SwitchBox
+                    <AutoSelectCheckbox
                         secondary_label={t("config_page.device.label_auto_select")}
                         variable={currentEnableAutoSpeakerSelect}
                         toggleFunction={toggleEnableAutoSpeakerSelect}
