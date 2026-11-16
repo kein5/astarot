@@ -27,6 +27,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 | `controller.py` のモデル取得（`getModelDownload*`、`start`/`cancel`/`applyModelDownload`）とテレメトリ（`*Telemetry*`） | `controller::downloads`、`controller::telemetry`（処理は `vrct-ops`） |
 | `controller.py` の翻訳のキー・モデル・接続、`setEnableTranslation`、`setCtranslate2WeightType`、`model.py` の `getTranslate` と翻訳の履歴 | `controller::translation`（プロバイダは `vrct-translation`、ローカル翻訳は機能 `onnx-translation`（既定でオン）の `vrct-translate-onnx` と `controller::translation_onnx`。ONNX Runtime は実行時に読み込む。`docs/voice-stack/core-integration.md` の「決まったこと」） |
 | `controller.py` の `_processMessage`、`chatMessage`、ロガー、`model.py` の読み（`convertMessageToTransliteration`） | `controller::messages`（読みの規則は `vrct-translation`） |
+| `models/clipboard/clipboard.py` の `Clipboard`（音声タイピング）、`models/openvr_session.py` | `controller::clipboard`（コピーと貼り付けは `vrct_adapters::clipboard`、OpenVR の接続の共有は `vrct_vr_overlay::shared`） |
 | `device_manager.py`、`controller.py` のデバイスの選択（`_audioTarget`、`_publishAudioDeviceLocked`、`applyAuto*Select`、`setSelected*`）、`getVirtualMicStatus`、`runVirtualMicTest` | `controller::audio_devices`（一覧、識別、監視、選択の規則、仮想マイクの確認は `vrct-audio-routing`） |
 | `controller.py` と `model.py` のチャットの読み取り（`*Ocr*`、`ocrMessage`、`startOCRCapture`、`updateOCRCaptureSettings`） | `controller::ocr`（撮影、エンジン、パイプラインは `ocr-runtime`） |
 | `controller.py` の音声認識（`setEnable/DisableTranscription*`、`setEnable/DisableCheck*Threshold`、`micMessage`、`speakerMessage`、`_audioPipelineFailed*`、認識のキー、起動時のエンジンの確認）と `model.py` の `_AudioDeviceSession` | `controller::transcription`（録音、エンジン、フレーズは `vrct-transcription`） |
@@ -52,6 +53,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 - **プロキシ**。翻訳のプロバイダへの通信は `HTTP(S)_PROXY` を使いません（「判断が要ること」の 18）。
 - **更新**。Python は自前の更新の仕組みを止めて出荷していました。中核の更新のエンドポイントは、アプリの更新の画面と同じ Tauri の updater を使います（core-integration.md の「判断が要ること」の 20）。起動時の確認は `CHECK_SOFTWARE_UPDATES` がオンのときだけ通信します。オフなら尋ねずに「更新なし」を送ります。
 - **声質変換**。変換の持ち主はアプリのプロセスのスレッドで動き、別の router プロセスはありません。Linux の管理された経路での変換と Seed-VC は動きません（`vc_start_failed`）。実行環境の準備は RVC だけを出します（core-integration.md の「判断が要ること」の 10、「Linux の声質変換」「声質変換の router プロセス」）。
+- **音声タイピングの貼り付け先**。Python は SteamVR の起動を見つけたときに一度だけ、登録済みのアプリから最初の `steam.app.*` の名前を読み、それを貼り付け先にしていました。中核は貼り付けのたびに、SteamVR のシーンのアプリ（いま頭の中に映っているゲーム）を `IVRApplications` で読みます。キーが `steam.app.*` のものだけを使うのは Python と同じです。読むときは VR のオーバーレイと同じ OpenVR の接続を借り、オーバーレイが使っていなければ読んだあとに閉じます（`Services::vr` は `vrct_vr_overlay::shared::SharedVr`）。ウィンドウを前面に出して Ctrl+V を送る手順と、出せなかったときにコピーだけ行うことは Python と同じです（`vrct_adapters::clipboard`）。
 - **音声デバイス**。Windows のマイクは `Windows WASAPI` のホストの下だけに並びます。Python が MME などのホストで保存した選択は、起動時に WASAPI の同じデバイスへ移します。Linux で PipeWire のデバイスを並べるのは `pipewire` 機能を有効にしたときだけで、アプリ（src-tauri）は有効にします。試験は無効のまま動き、PipeWire が要りません。詳しくは [core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 4 にあります。
 
 ## ほかの領域から使うもの
@@ -84,6 +86,7 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/transcription.rs`、`tests/realtime_asr.rs`: 音声認識。マイクとスピーカーは 44.1 kHz と 48 kHz の PCM をデバイスと同じ間隔で渡す偽物（`tests/common/fake_capture.rs`）で、Google、Whisper の API、Deepgram、speech.cpp（モデルの一覧と Realtime の WebSocket）は 127.0.0.1 の偽のサーバ（`tests/common/fake_asr.rs`）です。
 - `tests/legacy_weights.rs`: 旧 CTranslate2 の重みは、中核が既定のバックエンドのときだけ起動の後で消すこと。Python が作ったフォルダだけを消し、リンクをたどらないこと。
 - `tests/ocr.rs`: チャットの読み取り。偽の画像と偽の認識器で、オンにできない理由、状態、設定、読んだ行がメッセージの流れを通って UI に届くこと。
+- `tests/clipboard.rs`: 音声タイピングの貼り付け。代わりの SteamVR が報せるゲームのウィンドウを前面に出して Ctrl+V を送ること（Windows と X11 の順序）、ゲームを貼り付けのたびに読み直すこと、SteamVR がない、つなげない、ゲームがない、Steam のゲームでない、前面に出せないときはコピーだけ行うこと、オーバーレイと接続を共有すること、文とゲームの名前をログに書かないこと。デスクトップは記録するだけの偽物で、本物のクリップボード、ウィンドウ、キーボードには触れません。
 - `tests/vr_overlay.rs`: VR のオーバーレイ。代わりの SteamVR で、字幕と VR パネルのオンとオフ、設定、失敗の通知、送ったメッセージが大きいログに描かれること。
 - `tests/updates.rs`: 更新のエンドポイント。偽の更新の仕組みで、リリースの一覧、起動時の確認（`CHECK_SOFTWARE_UPDATES` がオフなら尋ねずに「更新なし」）、更新の成功と失敗（ダウンロード、署名の検証）、版の指定。ホストが仕組みを渡さないときの、Python と同じく止めてある答え。
 - `tests/voice.rs`: TTS のスイッチと内蔵サーバ、音声の設定、チャットとマイクの確定文の読み上げ（偽の認識サーバからリアルタイムの確定文を流し、訳を読み上げるまで）、声を流しているケーブルを認識に使わせないこと、停止とミュート、直接の音声と声質変換、実行環境の準備、フローパネル、終了。出力とマイクは `tests/common/fake_voice.rs`、speech.cpp とエンジンは `tests/common/fake_tts.rs` と `fake-speech-core`、RVC の worker は小さな実行ファイル（`tests/fixture/fake_rvc_worker.rs`）です。どれもアプリのビルドには含まれません。
