@@ -853,9 +853,6 @@ config_page:
             desc:  "When enabled along with '{{convert_message_to_hiragana}}', romaji will be shown on mouse hover."
         convert_message_to_hiragana:
             label: "Show Hiragana"
-        auto_download_models:
-            label: "Download the translation model at startup"
-            desc: "When enabled, startup downloads the missing files of the built-in translation model only if you already agreed to that model and version in its download dialog. This switch alone does not grant consent. Existing files remain usable when disabled. Speech recognition and voice models are managed separately."
 
     vrchat:
         section_label_chatbox: "Chatbox"
