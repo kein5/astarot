@@ -114,7 +114,7 @@ def test_native_osc_once_with_voice_and_ui_to_write_measurement(tmp_path):
                 ui.select('Audio route', 'managed')
                 ui.click_text('button', 'Save changes')
                 wait_for(lambda: json.loads((state / 'config.json').read_text()).get('VOICE_SETTINGS', {}).get('routing') == 'managed')
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Voice enabled (confirmed)')")
                 ui.close_settings()
                 ui.open_voice_settings()

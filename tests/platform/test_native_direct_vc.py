@@ -63,7 +63,7 @@ def test_native_converted_controls_stop_replacement_and_restart(tmp_path):
                 ui.click_text('button', 'Start input forwarding')
                 ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => ['VC active; no speech detected','VC ready; conversion not yet confirmed'].includes(e.textContent))", timeout=65)
                 settled(capture, time.monotonic_ns(), 'preparing_not_silent', silent=True)
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 finished = producer.play()
                 ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Converting voice')", timeout=15)
                 wait_for(lambda: capture.snapshot()['nonzero_frames'] > 5)

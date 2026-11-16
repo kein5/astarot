@@ -133,7 +133,7 @@ def test_native_same_send_chatbox_and_voice_then_off(tmp_path):
 
                 save("original")
                 ui.open_route_settings()
-                ui.click_text("button", "Resume voice")
+                ui.click_text("button", "Unmute")
                 ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Voice enabled (confirmed)')")
                 ui.close_settings()
                 # Text is spoken only while the main TTS switch is on.

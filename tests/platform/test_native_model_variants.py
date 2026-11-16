@@ -53,7 +53,7 @@ def test_native_variant_pcm_matches_independent_reference(tmp_path, model_id):
                 ui.select('Audio route', 'managed')
                 ui.click_text('button', 'Save changes')
                 wait_for(lambda: json.loads(config.read_text()).get('VOICE_SETTINGS', {}).get('routing') == 'managed')
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 wait_for(lambda: not gate.inspect()['muted'])
                 ui.open_voice_settings()
                 ui.select('Chat voice', 'original')

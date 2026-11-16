@@ -337,7 +337,7 @@ def test_tts_failure_names_the_next_step(pages):
     peer.reject_tts = "voice_route_muted"
     tts.click()
     alert = page.get_by_role("alert").filter(has_text="voice_route_muted")
-    expect(alert).to_contain_text('press "Resume voice"')
+    expect(alert).to_contain_text('press "Unmute"')
     expect(alert).not_to_contain_text("Check TTS settings.")
     expect(tts).to_have_attribute("aria-checked", "false")
 

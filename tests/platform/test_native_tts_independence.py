@@ -100,7 +100,7 @@ def test_tts_off_keeps_asr_translation_and_osc(tmp_path):
         with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
             ui.wait_main_ready()
             ui.open_route_settings()
-            ui.click_text('button', 'Resume voice')
+            ui.click_text('button', 'Unmute')
             ui.open_voice_page('Speech recognition (ASR)', 'section[aria-label="Realtime captions"] select')
             ui.click_text('button', 'Start microphone captions')
             ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Captions running')")
