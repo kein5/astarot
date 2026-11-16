@@ -73,7 +73,9 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
     const breakpoint = css => Number(/@container \(max-width: ([\d.]+)rem\)/.exec(css)[1]);
     assert.equal(breakpoint(voice), 16 + 18 + 1.6);
     assert.equal(breakpoint(row), breakpoint(voice));
-    assert.equal(breakpoint(legacy), 16 + 24 + 2 + 2 * 2);
+    // The legacy row has no side padding, so its label starts on the heading's edge.
+    assert.equal(breakpoint(legacy), 16 + 24 + 2);
+    assert.match(legacy, /\.container\s*{[^}]*padding: 2rem 0;/);
     assert.match(read("setting_section/SettingSection.module.scss"), /container-type: inline-size/);
     assert.match(voice, /form, fieldset\s*{[^}]*container-type: inline-size/);
     for (const css of [voice, row]) {
@@ -86,10 +88,10 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
         const rem = 10 * scale; // root.css: 62.5% of the default 16px, then UI scale.
         const available = width - (5.6 + 2 * 1.6) * rem;
         const fieldset = available - (2 * 1.6 + 2 * .1) * rem;
-        const legacyContent = available - 2 * 2 * rem;
+        const legacyContent = available;
         assert.equal(available, 312 * scale);
         assert.equal(fieldset, 278 * scale);
-        assert.equal(legacyContent, 272 * scale);
+        assert.equal(legacyContent, 312 * scale);
         assert.ok(available < breakpoint(voice) * rem);
         assert.ok(fieldset < breakpoint(row) * rem);
         assert.ok(available < breakpoint(legacy) * rem);
