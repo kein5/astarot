@@ -905,7 +905,7 @@ impl Core {
     }
 
     fn load_local(&self) -> Result<(), LocalError> {
-        let _guard = self.translation.local_lock.lock().unwrap();
+        let _guard = self.translation.local_lock.lock().unwrap_or_else(|e| e.into_inner());
         self.translation.local.load(&self.local_setup())
     }
 
@@ -1084,7 +1084,8 @@ impl Core {
             return Attempt::Unsupported;
         };
         if engine == LOCAL_ENGINE {
-            let _guard = self.translation.local_lock.lock().unwrap();
+            // A translation that panicked must not keep the next ones from running.
+            let _guard = self.translation.local_lock.lock().unwrap_or_else(|e| e.into_inner());
             let Some(mut setup) = self.translation.local.loaded() else { return Attempt::Failed };
             if setup.weight != weight {
                 // The message's weight, even if a newer one is selected already.

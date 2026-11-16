@@ -174,6 +174,7 @@
 - 翻訳に失敗したときはCTranslate2で訳し直す。空でない原文への空の訳も失敗として扱う。LLMの応答が長さの上限で切れた場合（OpenAI互換の`finish_reason: length`、OpenAI Responses APIの`incomplete_details.reason: max_output_tokens`、Geminiの`finish_reason: MAX_TOKENS`、Ollamaの`done_reason: length`）は途中の訳を捨て、空の訳と同じ処理に進む。終了理由が返らない場合は、本文の長さから打ち切りを推測しない。
 - CTranslate2では、特殊トークンを含む入力が1,024トークンを超えたら推論せず失敗として扱う。入力の自動切り詰めを無効にし、出力の生成上限は256トークンに固定する。結果に終了トークンがなければ途中の訳を捨て、既存の翻訳失敗処理に進む。終了トークンは訳文に含めない。
 - CTranslate2で訳し直せた場合は、その訳を使い、失敗の通知は出さない。訳し直せなかった場合は原文を使い、失敗として返す。呼び出し元はエンジンをCTranslate2へ切り替え、`/run/error_translation_engine`に既存の`TRANSLATION_ENGINE_LIMIT`を送る。両方のエンジンが言語ペアに未対応なだけの場合は、原文を使って成功として扱い、通知しない（`Model.getTranslate`、`Controller._processMessage`）。
+- 複数の翻訳先へ同時に訳すとき、ある翻訳先のスレッドが異常終了したら（中核の panic）、その翻訳先は訳し直せなかった場合と同じく原文を使い、失敗として扱う。ほかの翻訳先の訳はそのまま使う。GPU のメモリー不足として扱わず、翻訳はオフにしない。メモリー不足の経路（`TRANSLATION_VRAM_*`と`TRANSLATION_DISABLED_VRAM`）に進むのは、エンジンがメモリー不足を返したときだけである。
 - 訳文読み上げは、選んだ枠に空でない実際の訳文があるときだけ行う。翻訳結果には枠ごとの成功フラグと由来（`translated`、`failed`、`unsupported`）を持たせる。失敗時の原文も、未対応ペアで成功扱いにした原文も読み上げない。原文と同じ文字列でも、翻訳器が成功として返した訳なら読み上げられる。テキストのフォールバックと失敗通知は上記のまま。
 - OSCQueryのcapabilityは受信と広告の準備結果から決める。使えなくなったとき、同期がオンだったマイク入力を自動で再開しない。状態が不明な間の一時停止、失敗時の入力停止、設定の復旧、通知の詳細は[OSCの契約](external-interfaces.md#vrchatへのosc)に従う。
 
