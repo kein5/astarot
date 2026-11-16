@@ -56,7 +56,9 @@ def studio(ui):
 
 def screenshot(page, name):
     page.evaluate(
-        "async () => { await Promise.all(document.getAnimations().filter(a => a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); }"
+        # An animation that goes idle after it was listed (a transition cancelled by the next
+        # style change) never settles its promise, which hung the run at random; wait at most 3 s.
+        "async () => { const settled = Promise.all(document.getAnimations().filter(a => a.playState !== \"idle\" && a.effect.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); await Promise.race([settled, new Promise(resolve => setTimeout(resolve, 3000))]); }"
     )
     if directory := os.environ.get("VRCT_STUDIO_SCREENSHOTS"):
         destination = Path(directory)

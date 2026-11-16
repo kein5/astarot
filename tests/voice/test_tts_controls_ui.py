@@ -162,6 +162,14 @@ def test_rvc_numbers_preserve_seed_paths_and_lock_during_start(pages):
     )
     page.get_by_role("button", name="Voice changer (RVC)", exact=True).click()
     save = page.get_by_role("button", name="Save changes", exact=True)
+    # Opening the page changes nothing (#436); selecting RVC is its own button.
+    expect(save).to_be_disabled()
+    assert peer.direct["settings"]["mode"] == "passthrough"
+    use_rvc = page.get_by_role("button", name="Use RVC for direct voice", exact=True)
+    use_rvc.click()
+    expect(use_rvc).to_have_count(0)
+    assert peer.direct["settings"]["mode"] == "converted"
+    assert peer.direct["settings"]["engine"] == "rvc"
     pitch = page.get_by_label("Pitch shift (semitones)", exact=True)
     for invalid in ("25", "-25", "0.5"):
         pitch.fill(invalid)
