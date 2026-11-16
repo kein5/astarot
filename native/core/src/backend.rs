@@ -252,7 +252,12 @@ impl Backend {
             }
             *exit = Some(code);
         }
-        self.inner.ending.store(true, Ordering::SeqCst);
+        {
+            // Under the start-up lock, so the deadline's watcher cannot miss it and wakes at once.
+            let _started = self.inner.started.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            self.inner.ending.store(true, Ordering::SeqCst);
+            self.inner.started_changed.notify_all();
+        }
         if stop_core {
             let core = Arc::clone(&self.inner.core);
             std::thread::spawn(move || core.shutdown());
