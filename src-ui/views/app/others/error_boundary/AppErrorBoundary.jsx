@@ -39,7 +39,8 @@ export const AppErrorBoundary = ({children}) => {
 
 const ErrorContainer = ({error, errorInfo}) => {
     const { t } = useI18n();
-    const { asyncCloseApp } = useWindow();
+    // A broken window is not put away in the tray: this ends the app.
+    const { asyncQuitApp } = useWindow();
     const { currentSoftwareVersion } = useSoftwareVersion();
     const { is_copied, copyToClipboard } = useCopyToClipboard({ show_error_notification: false });
 
@@ -64,7 +65,7 @@ const ErrorContainer = ({error, errorInfo}) => {
     return (
         <div className={styles.container}>
             <div className={styles.drag_able_area} data-tauri-drag-region></div>
-            <CloseButton variant="active_error" aria-label={t("studio.close")} onClick={asyncCloseApp} />
+            <CloseButton variant="active_error" aria-label={t("studio.close")} onClick={asyncQuitApp} />
             <div className={styles.wrapper}>
                 <p className={styles.error_message}>{t("common_error.recovery_instructions")}</p>
                 <SafeActionButtons />

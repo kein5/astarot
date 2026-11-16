@@ -154,8 +154,9 @@ export const useWindow = () => {
         await appWindow.minimize();
     };
 
-    // In the experimental companion form the app lives in the tray: closing the window only hides it,
-    // and the tray's Quit ends the app (asyncQuitApp). CompanionController sets store.companion_hide.
+    // The app lives in the tray: closing the window only puts it away there, and the tray menu's Quit
+    // ends the app (asyncQuitApp). CompanionController sets store.companion_hide; it quits instead
+    // when there is no tray icon to bring the window back from.
     const asyncCloseApp = () => store.companion_hide ? store.companion_hide() : closeAfterShutdown(appWindow, asyncStdoutToPython);
     const asyncQuitApp = () => closeAfterShutdown(appWindow, asyncStdoutToPython);
 

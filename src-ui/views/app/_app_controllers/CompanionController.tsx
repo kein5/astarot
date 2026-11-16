@@ -32,11 +32,10 @@ type CompanionStore = { companion_hide?: () => Promise<unknown> };
 
 // The app's tray icon and the overlay feature (tray_companion). The tray icon is there in every
 // run, so whether or not the feature is on this reports the switches and the tray menu's words,
-// and runs what the tray asks for (start or stop recognition, quit). While the feature is on, the
-// main window (hidden in the tray) also starts the overlay, runs what the panel and the hexagram
-// ask for, hides instead of quitting when closed, and comes forward when it needs the user (a
-// dialog, the recognition consent, the translation model's review). Turned off, it puts the main
-// window back.
+// runs what the tray asks for (start or stop recognition, quit), puts the main window away in the
+// tray when it is closed, and brings it forward when it needs the user (a dialog, the recognition
+// consent, the translation model's review). While the feature is on it also starts the overlay
+// and runs what the panel and the hexagram ask for. Turned off, it puts the main window back.
 export const CompanionController = () => {
     const { t, i18n } = useI18n();
     const on = useExperimentalFeature(TRAY_COMPANION);
@@ -64,16 +63,25 @@ export const CompanionController = () => {
         return voiceSwitchStates.subscribe(() => setVoiceStates(voiceSwitchStates.get()));
     }, []);
 
+    // Closing the main window puts it away in the tray, in every run; the tray menu's Quit ends the
+    // app. Without a tray icon nothing could bring the window back, so it quits as before.
     useEffect(() => {
         const shared = store as CompanionStore;
+        shared.companion_hide = async () => {
+            try {
+                if (await invoke<boolean>("companion_hide_main") === true) return;
+            } catch (error) { console.error("Main window could not be hidden", error); }
+            latest.current.asyncQuitApp();
+        };
+        return () => { delete shared.companion_hide; };
+    }, []);
+
+    useEffect(() => {
         if (on) {
             wasOn.current = true;
-            shared.companion_hide = () => invoke("companion_hide_main")
-                .catch(error => console.error("Main window could not be hidden", error));
             invoke("companion_set", { enabled: true }).catch(error => console.error("Tray companion could not start", error));
         } else if (wasOn.current) {
             wasOn.current = false;
-            delete shared.companion_hide;
             invoke("companion_set", { enabled: false }).catch(error => console.error("Tray companion could not stop", error));
         }
     }, [on]);
@@ -108,21 +116,21 @@ export const CompanionController = () => {
     }, [currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
         ocr?.data, ocr?.state, voiceStates, edge?.data, monitor?.data, i18n.language, t]);
 
-    // Any dialog the main window opens (the start-up notices among them) needs the user too.
+    // Any dialog the main window opens (the start-up notices among them) needs the user. The main
+    // window may be put away in the tray in any run, so this watches in every run.
     useEffect(() => {
-        if (!on || typeof document === "undefined") return undefined;
+        if (typeof document === "undefined") return undefined;
         return watchOpenDialogs(document, () => {
             invoke("companion_show_main").catch(error => console.error("Main window could not be shown", error));
         });
-    }, [on]);
+    }, []);
 
     useEffect(() => {
-        if (on && needsUser) invoke("companion_show_main").catch(error => console.error("Main window could not be shown", error));
-    }, [on, needsUser]);
+        if (needsUser) invoke("companion_show_main").catch(error => console.error("Main window could not be shown", error));
+    }, [needsUser]);
 
     // A failed start never brings the settings, so the feature's state is unknown; the app may
-    // have started hidden in the tray from the saved setting. Ask for the main window: with the
-    // feature off the command refuses and nothing changes.
+    // have started hidden in the tray from the saved setting. Ask for the main window.
     useEffect(() => {
         if (startupState === "failed") invoke("companion_show_main").catch(() => {});
     }, [startupState]);

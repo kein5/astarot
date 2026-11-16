@@ -988,7 +988,7 @@ config_page:
         items:
             tray_companion:
                 label: "Hexagram overlay"
-                desc: "Works VRCT-VOX through a hexagram hidden at the edge of the screen and the desktop captions. From the next start the app opens in the tray without its main window, and closing the main window leaves it there. Bring the mouse to the edge and half of the hexagram comes out. Turn it with the wheel, hover a triangle, and press the label that comes out to switch that feature. This feature is still being tested."
+                desc: "Works VRCT-VOX through a hexagram hidden at the edge of the screen and the desktop captions. From the next start the app opens in the tray without its main window. Bring the mouse to the edge and half of the hexagram comes out. Turn it with the wheel, hover a triangle, and press the label that comes out to switch that feature. This feature is still being tested."
                 edge:
                     label: "Screen edge for the hexagram"
                     desc: "Bring the mouse to the middle of this edge and the hexagram comes out."
@@ -1775,6 +1775,7 @@ studio:
     minimize: "Minimize window"
     maximize: "Maximize or restore window"
     close: "Close application"
+    close_to_tray: "Close (keeps running in the tray)"
 
 legacy_model_downloads:
     errors:

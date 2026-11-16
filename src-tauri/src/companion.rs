@@ -959,21 +959,27 @@ pub fn companion_take(window: WebviewWindow, state: State<CompanionState>) -> Re
     Ok(state.lock()?.actions.drain(..).collect())
 }
 
-/// The main window needs the user, for a consent dialog for example.
+/// The main window needs the user, for a consent dialog for example. It may be hidden in the tray
+/// whether or not the overlay feature is on.
 #[tauri::command]
 pub fn companion_show_main(window: WebviewWindow) -> Result<(), String> {
-    sender(window.label(), &["main"])?;
+    from_main(window.label())?;
     show_main(window.app_handle())
 }
 
-/// Closing the main window only hides it: the app stays in the tray. The main
-/// window has no hide permission of its own, and ordinary launches keep it so.
+/// Closing the main window only hides it: the app stays in the tray, and the tray menu's Quit
+/// ends it. Answers whether it hid the window: without a tray icon (a desktop with no tray
+/// support) nothing could bring it back, so the main window quits as before. The main window has
+/// no hide permission of its own.
 #[tauri::command]
-pub fn companion_hide_main(window: WebviewWindow) -> Result<(), String> {
-    sender(window.label(), &["main"])?;
-    window.hide().map_err(|error| error.to_string())
+pub fn companion_hide_main(window: WebviewWindow, state: State<CompanionState>) -> Result<bool, String> {
+    from_main(window.label())?;
+    if state.lock()?.tray.is_none() {
+        return Ok(false);
+    }
+    window.hide().map_err(|error| error.to_string())?;
+    Ok(true)
 }
-
 #[tauri::command]
 pub fn companion_status(window: WebviewWindow, state: State<CompanionState>) -> Result<Status, String> {
     sender(window.label(), &[PANEL, HANDLE])?;

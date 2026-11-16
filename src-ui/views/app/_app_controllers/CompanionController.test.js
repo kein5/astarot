@@ -8,11 +8,14 @@ import * as voice from "../../../logics/voice/voiceActions.ts";
 async function setup(context, { on = false } = {}) {
     const runtime = hooks(), calls = [], listeners = new Map(), toggles = [];
     const state = { on, ready: false, mic: { state: "ok", data: false }, request: null, setup: null,
-        startup: "running", queue: [], quits: 0, edge: "right", edgeSaved: [], monitor: "", monitorSaved: [] };
+        startup: "running", queue: [], quits: 0, edge: "right", edgeSaved: [], monitor: "", monitorSaved: [],
+        // Whether the app has a tray icon to put the main window away in.
+        tray: true };
     const store = {};
     const invoke = async (command, args) => {
         calls.push([command, args]);
         if (command === "companion_take") return state.queue.splice(0);
+        if (command === "companion_hide_main") return state.tray;
         return undefined;
     };
     const listen = async (name, callback) => { listeners.set(name, callback); return () => listeners.delete(name); };
@@ -62,10 +65,29 @@ test("while the overlay feature is off it only serves the app's tray icon", asyn
     assert.deepEqual(s.toggles, ["mic"]);
     s.listeners.get("companion-quit")();
     assert.equal(s.state.quits, 1);
-    // Nothing of the overlay: it is not started, and closing the window quits as before.
+    // Nothing of the overlay is started.
     assert.deepEqual(s.of("companion_set"), []);
     assert.deepEqual(s.of("companion_show_main"), []);
-    assert.equal(s.store.companion_hide, undefined);
+});
+
+test("closing the main window puts it away in the tray in every run, and quits only without a tray", async context => {
+    const s = await setup(context);
+    await s.store.companion_hide();
+    assert.equal(s.of("companion_hide_main").length, 1);
+    assert.equal(s.state.quits, 0, "put away in the tray, not quit");
+    s.state.tray = false;
+    await s.store.companion_hide();
+    assert.equal(s.state.quits, 1, "no tray icon to come back from: it quits as before");
+    // The tray menu's Quit is how the app ends.
+    s.listeners.get("companion-quit")();
+    assert.equal(s.state.quits, 2);
+});
+
+test("a dialog or a consent brings the main window forward from the tray, even with the overlay off", async context => {
+    const s = await setup(context);
+    s.state.request = { endpoint: "/set/enable/transcription_send", mode: "choose" };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 1);
 });
 
 test("turned on, it starts the overlay, reports the switches and runs what the tray and the panel ask", async context => {
@@ -109,13 +131,13 @@ test("turned on, it starts the overlay, reports the switches and runs what the t
     assert.equal(s.state.quits, 1);
 });
 
-test("turned off again, it stops the overlay once and closing the window quits as before", async context => {
+test("turned off again, it stops the overlay once; the window still goes to the tray when closed", async context => {
     const s = await setup(context, { on: true });
     s.state.on = false;
     await s.render();
     await s.render();
     assert.deepEqual(s.of("companion_set"), [{ enabled: true }, { enabled: false }]);
-    assert.equal(s.store.companion_hide, undefined);
+    assert.equal(typeof s.store.companion_hide, "function");
     // The tray icon stays, and still asks for its own actions.
     assert.ok(s.listeners.has("companion-requested") && s.listeners.has("companion-quit"));
 });
