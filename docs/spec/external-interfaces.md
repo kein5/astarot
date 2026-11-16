@@ -287,7 +287,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 | `main_window_restore` | `main` | 最小化したメイン画面を戻して前面に出す。Waylandでは最小化の状態をアプリが知れず、ポータルのホットキーには前面に出す権利もないため、UIが最小化したことを覚えておき、戻すときはKWinに頼む |
 | `quick_chat_show`、`quick_chat_configure`、`quick_chat_take`、`quick_chat_finish`、`quick_chat_shortcut_platform` | `main` | 小窓を開く、設定を渡す、送信要求を受け取る、結果を返す、ホットキーの登録方法を調べる |
 | `quick_chat_context`、`quick_chat_submit`、`quick_chat_hide` | `quick_chat` | 設定を読む、送信を頼む、隠す |
-| `portal_shortcuts_bind` | `main` | Waylandでホットキーを登録する（180秒で打ち切り） |
+| `portal_shortcuts_bind` | `main` | Waylandでホットキーを登録する（180秒で打ち切り）。今のセッションを閉じてから登録し直すので、確認画面でのキャンセル、時間切れ、失敗で終わったときは、エラーを返したあとで直前に効いていた組を登録し直す。それより新しい登録の要求が来ていれば、登録し直さない |
 | `screencast_support` | `main` | `{supported, active}`。ウィンドウを共有できるデスクトップか（LinuxのWaylandセッション）、いま共有中か。何も始めない |
 | `screencast_start` | `main` | デスクトップにウィンドウの共有を頼む（[ウィンドウの共有](#ウィンドウの共有linux)）。引数は保存済みの`restoreToken`（なければ`null`）。成功すると`{restore_token}`を返す。共有中に呼ぶと、前の共有を終えてから頼む。選択画面の待ち時間は180秒 |
 | `screencast_stop` | `main` | 共有を終え、ヘルパーを止め、ポータルのセッションを閉じる |

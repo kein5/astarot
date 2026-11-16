@@ -16,6 +16,12 @@ mod vr_panel_state;
 mod opener_scope_tests;
 #[cfg(target_os = "linux")]
 mod portal_shortcuts;
+// The portal worker's policy depends on neither Tauri nor D-Bus: its tests run on every platform
+// (on Linux through portal_shortcuts, which includes it).
+#[cfg(all(test, not(target_os = "linux")))]
+#[path = "portal_shortcut_worker.rs"]
+#[allow(dead_code)]
+mod portal_shortcut_worker;
 #[cfg(target_os = "linux")]
 mod portal_screencast;
 #[cfg(target_os = "linux")]

@@ -16,9 +16,23 @@ pub struct Operation {
     latest: Arc<AtomicU64>,
     cancelled: Arc<AtomicBool>,
     pub deadline: Instant,
+    timeout: Duration,
 }
 
 impl Operation {
+    /// A newer bind was submitted after this one.
+    fn superseded(&self) -> bool {
+        self.latest.load(Ordering::Acquire) != self.generation
+    }
+
+    /// The same generation with a fresh deadline and cancel flag: a newer bind still cancels it.
+    fn renewed(&self) -> Self {
+        Self {
+            generation: self.generation, latest: self.latest.clone(), cancelled: Arc::new(AtomicBool::new(false)),
+            deadline: Instant::now() + self.timeout, timeout: self.timeout,
+        }
+    }
+
     pub fn check(&self) -> Result<(), String> {
         if Instant::now() >= self.deadline {
             Err("portal_timeout".into())
@@ -100,7 +114,7 @@ impl<B, A> Mailbox<B, A> {
         let operation = Operation {
             generation: self.latest.fetch_add(1, Ordering::AcqRel) + 1,
             latest: self.latest.clone(), cancelled: Arc::new(AtomicBool::new(false)),
-            deadline: Instant::now() + timeout,
+            deadline: Instant::now() + timeout, timeout,
         };
         if let Some(old) = pending.replace(Job { binding, operation: operation.clone(), reply }) {
             let _ = old.reply.send(Err("portal_cancelled".into()));
@@ -144,17 +158,38 @@ impl<P: Backend> Worker<P> {
         if let Some(mut portal) = self.portal.take() { portal.close(); }
     }
 
-    pub fn process(&mut self, job: Job<P::Binding, P::Assigned>, open: impl FnOnce(&Operation) -> Result<P, String>) {
-        let result = self.bind(&job.binding, &job.operation, open);
-        // Admission can change even after the adapter returns success.
-        let result = match job.operation.check() {
-            Ok(()) => result,
-            Err(code) => { self.invalidate(); Err(code) }
-        };
+    pub fn process(&mut self, job: Job<P::Binding, P::Assigned>, open: impl Fn(&Operation) -> Result<P, String>) {
+        let previous = self.bound.clone();
+        let result = self.attempt(&job.binding, &job.operation, &open);
+        let failed = result.is_err();
         let _ = job.reply.send(result);
+        if failed {
+            self.restore(previous, &job.operation, &open);
+        }
     }
 
-    fn bind(&mut self, binding: &P::Binding, operation: &Operation, open: impl FnOnce(&Operation) -> Result<P, String>) -> Result<P::Assigned, String> {
+    fn attempt(&mut self, binding: &P::Binding, operation: &Operation, open: &impl Fn(&Operation) -> Result<P, String>) -> Result<P::Assigned, String> {
+        let result = self.bind(binding, operation, open);
+        // Admission can change even after the adapter returns success.
+        match operation.check() {
+            Ok(()) => result,
+            Err(code) => { self.invalidate(); Err(code) }
+        }
+    }
+
+    /// The adapter closes the session in force before it makes the new one, so a bind that is
+    /// cancelled in the desktop's dialog, times out or fails leaves no key at all, the unchanged
+    /// ones included (Issue #423). Bind what was in force before again. A newer bind replaces
+    /// both, so a superseded one restores nothing, and that newer bind cancels a restore too.
+    fn restore(&mut self, previous: Option<(P::Binding, P::Assigned)>, failed: &Operation, open: &impl Fn(&Operation) -> Result<P, String>) {
+        let Some((binding, _)) = previous else { return };
+        if failed.superseded() || self.bound.as_ref().is_some_and(|(bound, _)| *bound == binding) {
+            return;
+        }
+        let _ = self.attempt(&binding, &failed.renewed(), open);
+    }
+
+    fn bind(&mut self, binding: &P::Binding, operation: &Operation, open: &impl Fn(&Operation) -> Result<P, String>) -> Result<P::Assigned, String> {
         operation.check()?;
         if self.portal.as_ref().is_some_and(|portal| !portal.alive()) { self.invalidate(); }
         if self.portal.is_none() {
@@ -211,7 +246,10 @@ mod tests {
         closed_requests: AtomicUsize,
         closed_sessions: AtomicUsize,
         alive: AtomicBool,
+        /// A binding the desktop refuses, as when its dialog is cancelled (0: none).
+        refused: std::sync::atomic::AtomicU32,
     }
+    #[derive(Clone, Copy)]
     enum Response { Ready, Pending, Cancel, Expire, Supersede }
     struct FakePortal {
         state: Arc<FakeState>,
@@ -252,6 +290,11 @@ mod tests {
             }
             // Mirrors the adapter's mutation boundary after the portal response.
             operation.check()?;
+            if self.state.refused.load(Ordering::Relaxed) == *binding {
+                // The adapter closed the old session first and closes the refused request itself.
+                self.request = false;
+                return Err("portal_cancelled".into());
+            }
             self.request = false;
             self.state.applied.fetch_add(1, Ordering::Relaxed);
             Ok(*binding)
@@ -364,6 +407,64 @@ mod tests {
         }
         assert_eq!(state.opens.load(Ordering::Relaxed), 2);
         assert_eq!(state.closed_sessions.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn a_refused_bind_binds_the_previous_shortcuts_again() {
+        // Issue #423: a change cancelled in the desktop's dialog must not take every key away.
+        let jobs = Mailbox::default();
+        let state = Arc::new(FakeState::default());
+        let mut worker = Worker::default();
+        let open = |_: &Operation| Ok(FakePortal::open(&state, Response::Ready));
+        let first = jobs.submit(1, Duration::from_secs(1));
+        worker.process(jobs.next(), open);
+        assert_eq!(first.receive(), Ok(1));
+        state.refused.store(2, Ordering::Relaxed);
+        let changed = jobs.submit(2, Duration::from_secs(1));
+        worker.process(jobs.next(), open);
+        assert_eq!(changed.receive(), Err("portal_cancelled".into()), "the caller still learns it failed");
+        assert_eq!(state.binds.load(Ordering::Relaxed), 3, "the first set is bound again");
+        assert_eq!(worker.bound.as_ref().map(|(binding, _)| *binding), Some(1));
+        assert!(worker.portal.is_some());
+        // The same set asked for again is in force: nothing is bound twice.
+        let again = jobs.submit(1, Duration::from_secs(1));
+        worker.process(jobs.next(), open);
+        assert_eq!(again.receive(), Ok(1));
+        assert_eq!(state.binds.load(Ordering::Relaxed), 3);
+    }
+
+    #[test]
+    fn a_timed_out_bind_binds_the_previous_shortcuts_again() {
+        let jobs = Mailbox::default();
+        let state = Arc::new(FakeState::default());
+        let mut worker = Worker::default();
+        let first = jobs.submit(1, Duration::from_millis(200));
+        worker.process(jobs.next(), |_| Ok(FakePortal::open(&state, Response::Ready)));
+        assert_eq!(first.receive(), Ok(1));
+        // The bind of the new set never answers; the deadline ends it and closes the portal.
+        worker.portal.as_mut().unwrap().response = Response::Pending;
+        let changed = jobs.submit(2, Duration::from_millis(200));
+        worker.process(jobs.next(), |_| Ok(FakePortal::open(&state, Response::Ready)));
+        assert_eq!(changed.receive(), Err("portal_timeout".into()));
+        assert_eq!(state.opens.load(Ordering::Relaxed), 2, "a new connection binds the first set");
+        assert_eq!(worker.bound.as_ref().map(|(binding, _)| *binding), Some(1));
+    }
+
+    #[test]
+    fn a_superseded_bind_restores_nothing() {
+        let jobs = Mailbox::default();
+        let state = Arc::new(FakeState::default());
+        let mut worker = Worker::default();
+        let first = jobs.submit(1, Duration::from_secs(1));
+        worker.process(jobs.next(), |_| Ok(FakePortal::open(&state, Response::Ready)));
+        assert_eq!(first.receive(), Ok(1));
+        worker.portal.as_mut().unwrap().response = Response::Supersede;
+        let changed = jobs.submit(2, Duration::from_secs(1));
+        worker.process(jobs.next(), |_| Ok(FakePortal::open(&state, Response::Ready)));
+        assert_eq!(changed.receive(), Err("portal_cancelled".into()));
+        // The newer bind does the work: the first set is not bound again in between.
+        assert_eq!(state.binds.load(Ordering::Relaxed), 2);
+        assert!(worker.bound.is_none());
     }
 
     #[test]
