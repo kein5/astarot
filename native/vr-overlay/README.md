@@ -14,12 +14,14 @@ SteamVR のオーバーレイを受け持つ Rust クレートです。字幕の
 | pyopenvr | `openvr`（`openvr_api` を実行時に読み込む） |
 | `window_capture.py`、`window_capture_linux.py` | `surface` |
 | `models/process_check.py`（`vrmonitor` の確認） | `process` |
+| `models/openvr_session.py`（OpenVR の接続を参照数で共有する） | `shared::SharedVr` |
 
 `layout` から `tooltip` までは、以前は `src-tauri/src/vr_overlay/` にありました。Python の値と照らし合わせる試験（`src/reference_tests.rs` と `tests/vr_overlay_reference/`）もここへ移しました。
 
 ## SteamVR とのつなぎ方
 
-- OpenVR の C API（`openvr_api`）を、SteamVR が動いているときだけ読み込みます。ビルドに OpenVR SDK は要りません。関数表は OpenVR 2.12 のもの（`IVRSystem_023`、`IVROverlay_028`）で、Python が使っていた pyopenvr 2.12.1401 と同じ版です。
+- OpenVR の C API（`openvr_api`）を、SteamVR が動いているときだけ読み込みます。ビルドに OpenVR SDK は要りません。関数表は OpenVR 2.12 のもの（`IVRSystem_023`、`IVROverlay_028`、`IVRApplications_007`）で、Python が使っていた pyopenvr 2.12.1401 と同じ版です。`IVRApplications` は音声タイピングの貼り付け先（SteamVR のシーンのアプリ）を読むためだけに使い、取れなくてもオーバーレイは動きます。
+- OpenVR の接続はプロセスに 1 つです。`shared::SharedVr` は最初の利用者のときに接続し、後の利用者には同じ接続を渡し、最後の利用者が手放したときに閉じます。中核はオーバーレイと音声タイピングのクリップボードでこれを共有します。
 - ライブラリは次の順に探します。環境変数 `VRCT_OPENVR_API`、中核が渡すフォルダ、実行ファイルの隣、Python の同梱物の中（`_internal/openvr`）、システムの検索パス。見つからないときは、SteamVR が動いているのにつなげなかったものとして `OVERLAY_RUNTIME_FAILED` を知らせます。配布物に入れるかどうかは未決です（`docs/voice-stack/core-integration.md` の「判断が要ること」）。
 - 字幕の画像は Python と同じく `SetOverlayRaw` で渡します。VR パネルの画面は、Windows では Direct3D 11 のテクスチャ 1 枚を各領域のオーバーレイで共有します（Python は OpenGL でした）。Linux ではまだ GPU のテクスチャを使わず、`SetOverlayRaw` で渡します。
 

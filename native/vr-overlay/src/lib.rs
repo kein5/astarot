@@ -4,7 +4,8 @@
 //!   positions, fades the subtitles out and shows the VR panel's picture.
 //! - [`subtitle`] and [`fonts`]: the pictures of the small and the large log.
 //! - [`runtime`]: what the engine asks of SteamVR, with the real one in [`openvr`] (the
-//!   `openvr_api` library is loaded when SteamVR runs) and stand-ins in tests.
+//!   `openvr_api` library is loaded when SteamVR runs) and stand-ins in tests. [`shared`]
+//!   lets the overlays and the clipboard share one connection, as OpenVR has one per process.
 //! - [`surface`]: where the VR panel's page is captured and how its size is set.
 //! - [`layout`], [`math`], [`placement`], [`pose`], [`timing`], [`tooltip`]: the arrangement of
 //!   the VR page and the pose math, checked against the Python overlay on recorded cases.
@@ -21,6 +22,7 @@ pub mod placement;
 pub mod pose;
 pub mod process;
 pub mod runtime;
+pub mod shared;
 pub mod subtitle;
 pub mod surface;
 pub mod timing;
