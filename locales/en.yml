@@ -673,13 +673,13 @@ config_page:
         section_label_speaker: "Speaker"
         section_label_transcription_engines: "Transcription Engines"
         timing_title: "Segmenting and queue"
-        timing_status: "ends after {{silence}} s of silence · processed every {{length}} s · up to {{queue}} waiting"
+        timing_status: "recordings up to {{record}} s · a message ends after {{phrase}} s without speech · up to {{queue}} waiting"
         mic_record_timeout:
             label: "Mic Record Timeout"
-            desc: "Detects silence and, when the specified number of seconds passes, the system considers the voice input to have ended. (Second(s))"
+            desc: "The longest single recording, in seconds. Longer speech is split at this length, and the pieces still become one message while you keep talking. 0 means no limit. It cannot be longer than the phrase timeout."
         mic_phrase_timeout:
             label: "Mic Phrase Timeout"
-            desc: "Transcription processing is performed at intervals of the specified number of seconds."
+            desc: "How long to wait after your last speech before what was heard becomes one message, in seconds. A shorter time sends sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         mic_max_phrase:
             label: "Mic Max Queued Messages"
             desc: "Maximum number of transcribed messages that can pile up before being sent. If more pile up, the oldest ones are discarded without being sent to VRChat."
@@ -694,10 +694,10 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
         speaker_record_timeout:
             label: "Speaker Record Timeout"
-            desc: "Detects silence and, when the specified number of seconds has passed, considers the speaker input to have ended. (Second(s))"
+            desc: "The longest single recording of the speaker audio, in seconds. Longer speech is split at this length, and the pieces still become one message while the speech goes on. 0 means no limit. It cannot be longer than the phrase timeout."
         speaker_phrase_timeout:
             label: "Speaker Phrase Timeout"
-            desc: "Transcription processing is performed at intervals of the specified number of seconds."
+            desc: "How long to wait after the last speech before what was heard becomes one message, in seconds. A shorter time shows it sooner. A longer time keeps short pauses inside one message. A message also ends after 15 seconds of speech."
         speaker_max_phrase:
             label: "Speaker Max Queued Messages"
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."

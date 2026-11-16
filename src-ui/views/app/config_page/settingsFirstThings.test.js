@@ -83,8 +83,8 @@ test("speech recognition opens on the engine choice; the timing numbers follow, 
         "RealtimeASRSettings", "SpeechServers", "OldWhisperWeights"]);
     const section = name => source.split(`const ${name} = () => {`)[1].split("\n};")[0];
     // The word filter is a list people edit; it stays in sight. The three numbers are folded.
-    assert.match(section("Mic_Container"), /<MicWordFilter_Box \/>\s*<TimingFold silence=\{currentMicRecordTimeout\.data\} length=\{currentMicPhraseTimeout\.data\} queue=\{currentMicMaxWords\.data\}>\s*<MicRecordTimeout_Box \/>\s*<MicPhraseTimeout_Box \/>\s*<MicMaxWords_Box \/>\s*<\/TimingFold>/);
-    assert.match(section("Speaker_Container"), /<TimingFold silence=\{currentSpeakerRecordTimeout\.data\} length=\{currentSpeakerPhraseTimeout\.data\} queue=\{currentSpeakerMaxWords\.data\}>\s*<SpeakerRecordTimeout_Box \/>\s*<SpeakerPhraseTimeout_Box \/>\s*<SpeakerMaxWords_Box \/>\s*<\/TimingFold>/);
+    assert.match(section("Mic_Container"), /<MicWordFilter_Box \/>\s*<TimingFold record=\{currentMicRecordTimeout\.data\} phrase=\{currentMicPhraseTimeout\.data\} queue=\{currentMicMaxWords\.data\}>\s*<MicRecordTimeout_Box \/>\s*<MicPhraseTimeout_Box \/>\s*<MicMaxWords_Box \/>\s*<\/TimingFold>/);
+    assert.match(section("Speaker_Container"), /<TimingFold record=\{currentSpeakerRecordTimeout\.data\} phrase=\{currentSpeakerPhraseTimeout\.data\} queue=\{currentSpeakerMaxWords\.data\}>\s*<SpeakerRecordTimeout_Box \/>\s*<SpeakerPhraseTimeout_Box \/>\s*<SpeakerMaxWords_Box \/>\s*<\/TimingFold>/);
     // Whisper's thresholds and model choice went with the engine (#288): the engine choice stands alone.
     assert.doesNotMatch(section("TranscriptionEngine_Container"), /thresholds_title|AvgLogprob|NoSpeechProb|WhisperWeightType|ComputeDevice/);
 
