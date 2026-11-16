@@ -2,6 +2,7 @@
 //! out, with the settings in a temporary folder.
 #![allow(dead_code)]
 
+pub mod fake_audio;
 pub mod fake_osc;
 pub mod net;
 
@@ -46,11 +47,13 @@ impl Default for Setup {
             saved: None,
             raw: None,
             // The OSC link without mDNS: no test joins UDP 5353 on every interface. The
-            // translation providers never leave this PC: a saved key is not sent anywhere.
+            // translation providers never leave this PC: a saved key is not sent anywhere. No
+            // audio device is listed or watched.
             services: Services {
                 osc: fake_osc::factory(false).0,
                 translation_transport: vrct_translation::http::loopback_only(),
                 translation_endpoints: vrct_translation::providers::Endpoints::all_at("http://provider.invalid"),
+                audio: fake_audio::FakeAudio::new().platform(),
                 ..Services::default()
             },
             watchdog: None,

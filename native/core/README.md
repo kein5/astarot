@@ -27,6 +27,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 | `controller.py` のモデル取得（`getModelDownload*`、`start`/`cancel`/`applyModelDownload`）とテレメトリ（`*Telemetry*`） | `controller::downloads`、`controller::telemetry`（処理は `vrct-ops`） |
 | `controller.py` の翻訳のキー・モデル・接続、`setEnableTranslation`、`setCtranslate2WeightType`、`model.py` の `getTranslate` と翻訳の履歴 | `controller::translation`（プロバイダは `vrct-translation`、ローカル翻訳は機能 `onnx-translation` の `vrct-translate-onnx`） |
 | `controller.py` の `_processMessage`、`chatMessage`、ロガー、`model.py` の読み（`convertMessageToTransliteration`） | `controller::messages`（読みの規則は `vrct-translation`） |
+| `device_manager.py`、`controller.py` のデバイスの選択（`_audioTarget`、`_publishAudioDeviceLocked`、`applyAuto*Select`、`setSelected*`）、`getVirtualMicStatus`、`runVirtualMicTest` | `controller::audio_devices`（一覧、識別、監視、選択の規則、仮想マイクの確認は `vrct-audio-routing`） |
 
 ## 変わらないこと
 
@@ -43,6 +44,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 - **翻訳エンジンの確認**。翻訳のプロバイダ（#277）は Python と同じに起動時に確かめます。Web 翻訳（Google、Bing、Papago）は配布していないので「使えない」と示します（Python は「使える」と示し、毎回失敗していました）。音声認識のプロバイダ（#278）はまだ移していないので、speech.cpp 以外を「使えない」と示し、サーバからモデルを探すエンジン（Whisper の API、Deepgram）のモデルの選択を消します。API キーは Python と同じく残します。
 - **読み（ひらがな・ローマ字）**。辞書が決まるまで読みは出しません。読みのスイッチが入っていても、メッセージは読みなしで送ります（`docs/voice-stack/core-integration.md` の未決事項 16）。
 - **プロキシ**。翻訳のプロバイダへの通信は `HTTP(S)_PROXY` を使いません（未決事項 18）。
+- **音声デバイス**。Windows のマイクは `Windows WASAPI` のホストの下だけに並びます。Python が MME などのホストで保存した選択は、起動時に WASAPI の同じデバイスへ移します。Linux で PipeWire のデバイスを並べるのは `pipewire` 機能を有効にしたときだけで、アプリ（src-tauri）は有効にします。試験は無効のまま動き、PipeWire が要りません。詳しくは [core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 12 にあります。
 
 ## ほかの領域から使うもの
 
@@ -66,6 +68,7 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 
 - `tests/engine_checks.rs`: 起動時の確認に失敗したエンジンの扱いが Python と同じこと（サーバからモデルを探すエンジンの選択を消し、API キーは残す）。
 - `tests/translation.rs`、`tests/messages.rs`: 翻訳のプロバイダ（ループバックの偽のサーバ、`vrct_translation::fake`）、ローカル翻訳（偽のモデル）、`/run/send_message_box` からチャットボックス・WebSocket・会話のログまで。試験では、プロバイダへの通信はループバックだけに限ります（`tests/common` の `Setup`）。
+- `tests/audio_devices.rs`: 音声デバイスの一覧と選択肢、名前・ID・ホストでの選択と拒否したときに戻す値、Auto Select が OS の既定に従うこと、抜き差しで一覧が変わること、通知の順序、保存、Python が保存した選択、起動時の一覧、仮想マイクの案内と確認。デバイスはメモリの中の偽物（`tests/common/fake_audio.rs`）で、本物のデバイスには触れません。
 - `tests/legacy_weights.rs`: 旧 CTranslate2 の重みは、中核が既定のバックエンドのときだけ起動の後で消すこと。Python が作ったフォルダだけを消し、リンクをたどらないこと。
 
 利用者の文章、音声、API キーは、ログにも試験の出力にも入れません。

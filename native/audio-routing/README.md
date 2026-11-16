@@ -4,11 +4,10 @@ Audio device enumeration, device identity, following the OS default devices, and
 voice routing, in Rust (issue #280). Windows uses WASAPI and the MMDevice API; Linux
 uses PipeWire through its native client API.
 
-This crate stands alone. The application does not use it yet: nothing under
-`src-tauri` or `src-python` refers to it, and the Python modules it replaces are
-unchanged. Connecting it to the application (and then deleting the Python modules)
-needs a decision on how the Python backend and Rust talk while the migration lasts
-(#285); see "Open questions" below.
+The Rust backend core (`native/core`, #285) uses it for the device lists, the choice
+of microphone and speaker, Auto Select and the virtual microphone guide
+(`controller/audio_devices.rs`). The Python backend does not use it; its modules stay
+until the sidecar is retired.
 
 ## What replaces what
 
@@ -30,6 +29,8 @@ needs a decision on how the Python backend and Rust talk while the migration las
 | `audio_routing/managed_microphone.py` | `src/pipewire/managed.rs` | Unit files byte for byte the same (checked against Python's output in `tests/data/managed_units.json`). |
 | `audio_routing/source_bridge.py` | `src/graph.rs` (selection, links), `src/pipewire/bridge.rs` | Still supervises `vrct-source-bridge`. |
 | `audio_routing/gc_guard.py` | — | Python's cyclic garbage collector paused playback; Rust has none. |
+| `audio_routing/virtual_mic.py` | `src/virtual_mic.rs`, `src/platform.rs` | The recording end is read as 48 kHz mono converted by WASAPI, not in its own format through PortAudio. |
+| The device choice in `controller.py` (`_selectedAudioDevice`, `_audioTarget`, the host of `_publishAudioDeviceLocked`) | `src/selection.rs` | Plus moving choices saved under other Windows hosts (`migrate_mic`, `migrate_speaker`). |
 
 Timing kept from Python: the monitoring thread waits for an OS notification for at
 most 2 s; without notifications (Linux, or a failed registration) every 2 s timeout
@@ -80,20 +81,22 @@ settled and are listed again under "Open questions".
 
 ## Open questions
 
-1. How the Python backend uses this crate until #285 removes the sidecar (a Python
-   extension module, a helper process with a JSON protocol, or Tauri commands). This
-   decides when the Python modules can be deleted.
-2. The Windows microphone host list and default (above): accept WASAPI only, or keep
-   showing other hosts.
-3. Whether to migrate saved selections from other Windows hosts, and the speaker ID
-   prefix (above).
-4. Whether the C helpers `vrct-voice-gate` and `vrct-source-bridge` should move to Rust
+The questions about the Windows hosts, saved selections, the speaker ID prefix and
+the PipeWire dependency are item 12 of "判断が要ること" in
+`docs/voice-stack/core-integration.md`, with what the core does meanwhile (WASAPI
+only, saved choices from other hosts moved to the same WASAPI device). Still open
+here:
+
+1. Whether the C helpers `vrct-voice-gate` and `vrct-source-bridge` should move to Rust
    too. They are outside #280 and already use libpipewire directly.
 
 ## Build
 
 Linux needs the `libpipewire-0.3` development files and libclang (for the bindings);
-Windows needs nothing beyond the MSVC toolchain.
+Windows needs nothing beyond the MSVC toolchain. The PipeWire client is the
+`pipewire` feature, on by default. Without it (`default-features = false`, as the
+core's tests build) Linux lists no devices and plays nothing, and nothing PipeWire is
+needed to build.
 
 ## Verification
 

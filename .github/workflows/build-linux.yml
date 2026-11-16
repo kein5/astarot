@@ -79,8 +79,9 @@ jobs:
           install_args: node rust python uv
       - name: System build and runtime dependencies
         run: |
+          # libclang-dev: the app's backend core binds libpipewire-0.3 (native/audio-routing).
           packages="build-essential pkg-config binutils libwebkit2gtk-4.1-dev libssl-dev
-            libxdo-dev libayatana-appindicator3-dev librsvg2-dev libpipewire-0.3-dev
+            libxdo-dev libayatana-appindicator3-dev librsvg2-dev libpipewire-0.3-dev libclang-dev
             pipewire-bin libvulkan1 libglfw3 libportaudio2 libasound2-dev
             webkit2gtk-driver xvfb xauth x11-utils dbus-x11 fonts-noto-cjk
             desktop-file-utils libgtk-3-dev libgdk-pixbuf-2.0-dev glib-networking

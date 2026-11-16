@@ -8,6 +8,15 @@ publish = false
 [lib]
 name = "vrct_core"
 
+[features]
+# Linux: list and watch the PipeWire devices (links libpipewire-0.3; building needs its
+# development files and libclang). No effect on Windows.
+pipewire = ["vrct-audio-routing/pipewire"]
+# Local translation with ONNX Runtime (native/translate-onnx). Off until bundling ONNX Runtime
+# with the app is decided (docs/voice-stack/core-integration.md, decision 13): without it the
+# local translation reports its model as missing.
+onnx-translation = ["dep:vrct-translate-onnx"]
+
 [dependencies]
 base64 = "=0.22.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
@@ -17,18 +26,15 @@ serde = { version = "=1.0.229", features = ["derive"] }
 # them in that order (the translation weights, the initialization snapshot). See README.md.
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 vrct-adapters = { path = "../adapters" }
+# The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
+# build that way and need no PipeWire; the application turns it on.
+vrct-audio-routing = { path = "../audio-routing", default-features = false }
 vrct-ops = { path = "../ops" }
 vrct-speech-server = { path = "../speech-server" }
 # The local translation on ONNX Runtime; see the onnx-translation feature below.
 vrct-translate-onnx = { path = "../translate-onnx", optional = true }
 vrct-translation = { path = "../translation" }
 vrct-tts = { path = "../tts" }
-
-[features]
-# Local translation with ONNX Runtime (native/translate-onnx). Off until bundling ONNX Runtime
-# with the app is decided (docs/voice-stack/core-integration.md, decision 13): without it the
-# local translation reports its model as missing.
-onnx-translation = ["dep:vrct-translate-onnx"]
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"

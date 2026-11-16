@@ -204,6 +204,10 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 `webpki-roots`はMozillaのルート証明書のデータで、`native/ops`がTLSの証明書の検証に使う。そのため、上の#330の節の「証明書のデータは加えていない」は当てはまらなくなった（`webpki-root-certs`は今もビルドに入らない）。このデータはCCADB（Common CA Database）のデータの派生物で、[CCADBのデータ利用条件](https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms)に従う。条件はCDLA-Permissive-2.0で、データを配るときは契約の本文を添えることを求める。利用条件はさらに、再配布や派生物での利用のときにCCADBへの帰属を示すことを求める。本文は`_internal/licenses/rust/webpki-roots-1.0.11/LICENSE`として同梱されていたが、帰属の表示はどこにもなかった。そこでNOTICEの「Rust crates in VRCT-VOX builds」に表示を足し、`tools/rust_licenses.py`が書く一覧（`README.md`）にも、このクレートが入るビルドでは表示を書くようにした。ロックファイルに`webpki-roots`があるかぎりNOTICEに表示があることは、試験（`tests/devtools/test_rust_licenses.py`）で確かめる。
 
+### 音声デバイスを中核につないだときの追加（2026-11-16）
+
+中核が`native/audio-routing`（MIT、リポジトリ内）を使うようになり、`vrct-vox`に入るクレートが増えた。`tools/rust_licenses.py`の一覧は Windows が 335 から 336、Linux が 407 から 414 になった。Windows で増えたのは`vrct-audio-routing`だけで、`windows`などのクレートはすでに入っていた。Linux では`pipewire`、`pipewire-sys`、`libspa`、`libspa-sys`（どれも MIT）、`nom` 8.0.0（MIT）、`cookie-factory`（MIT）が加わった。`bindgen`（BSD-3-Clause）などはビルドのときだけ使い、配布物には入らない。`cookie-factory` 0.3.3 は公開パッケージにライセンス文がないので、公開した版の commit にある`LICENSES/MIT.txt`を補い（`licenses/rust/supplements.json`）に足した。`pipewire`のクレートは実行時に`libpipewire-0.3`（MIT）へ動的にリンクする。中核の`pipewire`機能はアプリだけが有効にし、中核の試験のビルドには入らない。
+
 中核のクレートが`include_str!`で取り込むファイルは、OBSのブラウザーソースのページ（`native/adapters/src/obs/page.html`）と言語の表（`native/core/data/*.json`）だけ。どちらもリポジトリのコードとデータから作ったもので、第三者のデータではない。中核のクレートには`build.rs`もない。
 
 ### 翻訳のプロバイダと読み（#277）

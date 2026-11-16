@@ -643,12 +643,12 @@ pub fn platform_backend(reporter: Arc<dyn Reporter>) -> Arc<dyn DeviceBackend> {
     {
         Arc::new(crate::wasapi::WasapiBackend::new(reporter))
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "pipewire"))]
     {
         let _ = reporter;
         Arc::new(crate::pipewire::devices::PipeWireBackend)
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(not(any(windows, all(target_os = "linux", feature = "pipewire"))))]
     {
         let _ = reporter;
         Arc::new(NullBackend)

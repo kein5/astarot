@@ -8,6 +8,13 @@
       },
       "note": "Repository root at the commit the package was published from (.cargo_vcs_info.json)."
     },
+    "cookie-factory-0.3.3": {
+      "license": "MIT",
+      "files": {
+        "LICENSE": "https://github.com/rust-bakery/cookie-factory/blob/d36b805dbd7dd65f2df947235c5bcc573afe2c76/LICENSES/MIT.txt"
+      },
+      "note": "The repository keeps its license under LICENSES/ (REUSE) at the commit the package was published from (.cargo_vcs_info.json); the README links it. Used by libspa on Linux."
+    },
     "dlopen2-0.8.2": {
       "license": "MIT",
       "files": {

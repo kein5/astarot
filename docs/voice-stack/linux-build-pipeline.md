@@ -38,7 +38,7 @@ Ubuntu build/runtime prerequisites (see the workflow for GUI-test dependencies):
 ```sh
 sudo apt-get install build-essential pkg-config binutils libwebkit2gtk-4.1-dev \
   libssl-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev \
-  libpipewire-0.3-dev pipewire-bin libvulkan1 libglfw3 libportaudio2 libasound2-dev \
+  libpipewire-0.3-dev libclang-dev pipewire-bin libvulkan1 libglfw3 libportaudio2 libasound2-dev \
   meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev
 mkdir -p build
 bash tools/ci/setup_pipewire.sh "$PWD/build/ci-audio"
@@ -47,6 +47,11 @@ export PATH="$PWD/build/ci-audio/prefix/bin:$PATH"
 uv run --no-project --python 3.11 python tools/build_linux.py \
   --python 3.11 --variant linux-x64-vulkan --download-speech
 ```
+
+The application's backend core lists and watches the audio devices through
+libpipewire-0.3 (`native/audio-routing`, the `pipewire` feature that `src-tauri`
+turns on), so building the app needs the PipeWire development files and libclang
+for the bindings. The core's own tests build without that feature and need neither.
 
 The native capture helper uses the clock API tested with PipeWire **1.6.10**.
 Ubuntu 24.04's stock headers lack the cycle and discontinuity fields; its stock

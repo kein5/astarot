@@ -80,6 +80,7 @@ impl Core {
         self.start_conversation_log();
         self.notify("initialization_progress", json!(4));
         self.start_adapters();
+        self.start_audio_devices();
 
         self.step("Revalidate Selected Models");
         config.revalidate_selected_models();
