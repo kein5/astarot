@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useStore_MessageLogs } from "@store";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady } from "@logics_common";
-import { useAppearance, useVr } from "@logics_configs";
+import { useAppearance, useVr, useExperimentalFeature } from "@logics_configs";
 import { captionLines, stampLines } from "../../../logics/captionOverlay/lines";
 import { placementOf, steppedFontSize } from "../../../logics/captionOverlay/adjust";
 import { useIoFlow } from "../../../logics/flow/useIoFlow";
@@ -23,6 +23,8 @@ export const CaptionOverlayController = () => {
         currentIoFlowOverlaySettings, currentOverlayDesktopPlacement, setOverlayDesktopSettings,
         setOverlayDesktopPlacement } = useVr();
     const { currentMessageLogs } = useStore_MessageLogs();
+    // The tray companion (an experimental feature) has no window of its own to show captions in.
+    const trayCompanion = useExperimentalFeature("tray_companion");
     const { currentSelectedFontFamily } = useAppearance();
     const { currentIsBackendReady } = useIsBackendReady();
     const { currentIoFlow, currentIoTraces } = useIoFlow();
@@ -36,7 +38,8 @@ export const CaptionOverlayController = () => {
     }, []);
 
     const ready = supported && currentIsBackendReady.data === true;
-    const captions = ready && currentIsEnabledOverlayDesktop.data === true;
+    // While it is on, the captions are on too, without changing the saved setting.
+    const captions = ready && (currentIsEnabledOverlayDesktop.data === true || trayCompanion);
     const flowShown = ready && currentIoFlowOverlaySettings.data?.desktop === true;
     const enabled = captions || flowShown;
     const settings = currentOverlayDesktopSettings.data;

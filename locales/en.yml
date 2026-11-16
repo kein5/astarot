@@ -985,7 +985,24 @@ config_page:
         empty: "There are no features to try right now. New ones will appear here when they are added."
         # One entry per feature in src-ui/logics/configs/experimentalFeatures.ts:
         # <id>: { label: "...", desc: "What it does. Experimental: ..." }
-        items: {}
+        items:
+            tray_companion:
+                label: "Hexagram overlay"
+                desc: "Works VRCT-VOX through a hexagram hidden at the edge of the screen and the desktop captions. From the next start the app opens in the tray without its main window. Bring the mouse to the edge and half of the hexagram comes out. Turn it with the wheel, hover a triangle, and press the label that comes out to switch that feature. This feature is still being tested."
+                edge:
+                    label: "Screen edge for the hexagram"
+                    desc: "Bring the mouse to the middle of this edge and the hexagram comes out."
+                    right: "Right"
+                    left: "Left"
+                    top: "Top"
+                    bottom: "Bottom"
+                monitor:
+                    label: "Monitor for the hexagram"
+                    desc: "Choose one when there are several monitors. While the chosen monitor is unplugged, the hexagram uses the primary one."
+                    primary: "Primary monitor (default)"
+                    display: "Display {{number}} ({{width}}×{{height}})"
+                    is_primary: "(primary)"
+                    missing: "Monitor not connected (chosen before)"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1827,6 +1844,7 @@ studio:
     minimize: "Minimize window"
     maximize: "Maximize or restore window"
     close: "Close application"
+    close_to_tray: "Close (keeps running in the tray)"
 
 legacy_model_downloads:
     errors:
@@ -2108,3 +2126,28 @@ virtual_mic:
         found: "Check with a test sound that the virtual cable carries your voice to VRChat."
         missing: "No virtual cable was found. The guide shows how to install one."
         open: "Check the virtual microphone"
+
+# Experimental companion form (tray, captions, control panel); Issue #355.
+companion:
+    state_starting: "Starting"
+    state_listening: "Listening"
+    state_idle: "Not listening"
+    mic: "Microphone"
+    translation: "Translation"
+    "on": "On"
+    "off": "Off"
+    open_main: "Open VRCT-VOX"
+    close: "Close"
+    handle: "Open the control panel"
+    menu_start: "Start recognition"
+    menu_stop: "Stop recognition"
+    menu_panel: "Open the control panel"
+    menu_main: "Open VRCT-VOX"
+    menu_quit: "Quit"
+    menu_monitor: "Monitor"
+    menu_monitor_primary: "Primary monitor"
+    menu_monitor_display: "Display"
+    menu_monitor_missing: "Monitor not connected"
+    common:
+        title: "Common settings"
+        edge: "Hide at"

@@ -985,7 +985,24 @@ config_page:
         empty: "いま試せる機能はありません。新しい機能が加わるとここに並びます。"
         # src-ui/logics/configs/experimentalFeatures.ts の機能ごとに1つ:
         # <id>: { label: "...", desc: "何をするか。実験中であること…" }
-        items: {}
+        items:
+            tray_companion:
+                label: "六芒星のオーバーレイで操作する"
+                desc: "画面の端に隠れた六芒星とデスクトップの字幕で VRCT-VOX を使います。次の起動からはメイン画面を開かずにトレイで始まります。マウスを画面の端に近づけると六芒星が半分出てきます。ホイールで回し、三角形に載せると出る札を押すと、その機能が切り替わります。試験中の機能です。"
+                edge:
+                    label: "六芒星を隠す画面の端"
+                    desc: "マウスをこの端の真ん中に近づけると、六芒星が出てきます。"
+                    right: "右"
+                    left: "左"
+                    top: "上"
+                    bottom: "下"
+                monitor:
+                    label: "六芒星を出すモニター"
+                    desc: "モニターが複数あるときに選びます。選んだモニターを外している間は、メインのモニターに出します。"
+                    primary: "メインのモニター（既定）"
+                    display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
+                    is_primary: "（メイン）"
+                    missing: "接続されていないモニター（前に選んだもの）"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1827,6 +1844,7 @@ studio:
     minimize: "ウィンドウを最小化"
     maximize: "ウィンドウを最大化・元に戻す"
     close: "アプリを閉じる"
+    close_to_tray: "閉じる（トレイで動き続けます）"
 
 legacy_model_downloads:
     errors:
@@ -2108,3 +2126,28 @@ virtual_mic:
         found: "VRChatへ声を届ける仮想ケーブルのつながりをテスト音で確かめます。"
         missing: "仮想ケーブルが見つかりません。入れ方を案内します。"
         open: "仮想マイクを確かめる"
+
+# 実験中のコンパニオン形態（トレイ、字幕、コントロールパネル）。Issue #355
+companion:
+    state_starting: "起動中"
+    state_listening: "認識中"
+    state_idle: "停止中"
+    mic: "マイク"
+    translation: "翻訳"
+    "on": "オン"
+    "off": "オフ"
+    open_main: "VRCT-VOX を開く"
+    close: "閉じる"
+    handle: "コントロールパネルを開く"
+    menu_start: "認識を開始"
+    menu_stop: "認識を停止"
+    menu_panel: "コントロールパネルを開く"
+    menu_main: "VRCT-VOX を開く"
+    menu_quit: "終了"
+    menu_monitor: "表示するモニター"
+    menu_monitor_primary: "メインのモニター"
+    menu_monitor_display: "ディスプレイ"
+    menu_monitor_missing: "接続されていないモニター"
+    common:
+        title: "共通の設定"
+        edge: "隠す端"

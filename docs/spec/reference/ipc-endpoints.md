@@ -10,7 +10,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（425件: 削除 11、取得 191、実行 39、有効化 40、無効化 42、設定 102）
+## 要求（429件: 削除 11、取得 193、実行 39、有効化 40、無効化 42、設定 104）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -207,6 +207,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/data/hotkeys` | 設定 | `setHotkeys` | 可 | useHotkeys.setSuccessHotkeys |  |
 | `/get/data/experimental_features` | 取得 | `getExperimentalFeatures` | 可 | useExperimentalFeatures.updateFromBackendExperimentalFeatures |  |
 | `/set/data/experimental_features` | 設定 | `setExperimentalFeatures` | 可 | useExperimentalFeatures.setSuccessExperimentalFeatures |  |
+| `/get/data/tray_companion_edge` | 取得 | `getTrayCompanionEdge` | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionEdge |  |
+| `/set/data/tray_companion_edge` | 設定 | `setTrayCompanionEdge` | 可 | useExperimentalFeatures.setSuccessTrayCompanionEdge |  |
+| `/get/data/tray_companion_monitor` | 取得 | `getTrayCompanionMonitor` | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionMonitor |  |
+| `/set/data/tray_companion_monitor` | 設定 | `setTrayCompanionMonitor` | 可 | useExperimentalFeatures.setSuccessTrayCompanionMonitor |  |
 | `/get/data/mic_avg_logprob` | 取得 | `getMicAvgLogprob` | 可 | useTranscription.updateFromBackendMicAvgLogprob |  |
 | `/set/data/mic_avg_logprob` | 設定 | `setMicAvgLogprob` | 可 | useTranscription.setSuccessMicAvgLogprob |  |
 | `/get/data/mic_no_speech_prob` | 取得 | `getMicNoSpeechProb` | 可 | useTranscription.updateFromBackendMicNoSpeechProb |  |

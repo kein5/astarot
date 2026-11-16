@@ -30,7 +30,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     const errorModule = await loadModule(new URL("../../views/app/others/error_boundary/AppErrorBoundary.jsx", import.meta.url), runtime, {
         "@useI18n": translations, "react-error-boundary": { ErrorBoundary: icon },
         "./contacts_container/ContactsContainer": { ContactsContainer: icon }, "@common_components": { CloseButton: icon },
-        "@logics_common": { useWindow: () => ({ asyncCloseApp() {} }),
+        "@logics_common": { useWindow: () => ({ asyncQuitApp() {} }),
             useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test-version" }, currentLatestSoftwareVersionInfo: { data: { is_update_available: true } } }),
             useCopyToClipboard: () => ({ copyToClipboard: text => copies.push(text) }), useComputeMode: () => ({ currentComputeMode: { data: "cpu" } }),
             useUpdateSoftware: () => ({}), useIsSoftwareUpdating: () => ({ currentIsSoftwareUpdating: { data: updating } }) },

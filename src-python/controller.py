@@ -291,6 +291,8 @@ _SIMPLE_CONFIG_GETTERS = {
     "getSpeakerMaxPhrases": "SPEAKER_MAX_PHRASES",
     "getHotkeys": "HOTKEYS",
     "getExperimentalFeatures": "EXPERIMENTAL_FEATURES",
+    "getTrayCompanionEdge": "TRAY_COMPANION_EDGE",
+    "getTrayCompanionMonitor": "TRAY_COMPANION_MONITOR",
     "getSpeakerAvgLogprob": "SPEAKER_AVG_LOGPROB",
     "getSpeakerNoSpeechProb": "SPEAKER_NO_SPEECH_PROB",
     "getSpeakerVadFilter": "SPEAKER_ENABLE_VAD",
@@ -4158,6 +4160,20 @@ class Controller:
         # {feature_id: bool}; a feature left out keeps its value (models/experimental_features.py).
         config.EXPERIMENTAL_FEATURES = data
         return {"status":200, "result":config.EXPERIMENTAL_FEATURES}
+
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setTrayCompanionEdge(data, *args, **kwargs) -> dict:
+        # "right", "left", "top" or "bottom" (TRAY_COMPANION_EDGE_LIST).
+        config.TRAY_COMPANION_EDGE = data
+        return {"status":200, "result":config.TRAY_COMPANION_EDGE}
+
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setTrayCompanionMonitor(data, *args, **kwargs) -> dict:
+        # A monitor's name, or "" for the primary monitor (TRAY_COMPANION_MONITOR).
+        config.TRAY_COMPANION_MONITOR = data
+        return {"status":200, "result":config.TRAY_COMPANION_MONITOR}
 
 
     @staticmethod

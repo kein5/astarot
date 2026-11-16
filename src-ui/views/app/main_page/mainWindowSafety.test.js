@@ -4,7 +4,7 @@ import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import { loadBridgeStore } from "../../../logics/test/bridgeHarness.js";
 import { chunkArray } from "../../../logics/utils.ts";
 import * as routeState from "../../../logics/voice/routeState.ts";
-import { voiceActions } from "../../../logics/voice/voiceActions.ts";
+import { voiceActions, voiceSwitchStates } from "../../../logics/voice/voiceActions.ts";
 import * as voiceErrorText from "../../../logics/voice/voiceErrorText.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
 import * as switchBlocksModule from "../../../logics/main/switchBlocks.ts";
@@ -26,7 +26,7 @@ const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false 
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady },
         "../../../../../logics/common/useNotificationStatus": { useNotificationStatus: () => ({ showNotification_Error() {} }) },
         "../../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../../logics/voice/voiceActions.ts": { voiceActions },
+        "../../../../../logics/voice/voiceActions.ts": { voiceActions, voiceSwitchStates },
         "../../../../../logics/voice/routeState": routeState,
         "../../../../../logics/common/featureLabel.ts": featureLabel,
         "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
