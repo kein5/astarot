@@ -12,7 +12,11 @@
 - **小さいウィンドウでは、ほかの部品より会話を優先します。** メイン部分の高さが 36rem 未満のときは、上部バーとロゴの行を 4.4rem にします。余白を詰め、入力欄は 1 行にします。
 - **重ねて表示するものは、置かれた場所の大きさに合わせます。** クイック設定のパネル、入力と出力のパネル、狭いウィンドウで開いたサイドバーが対象です。
 - **サイドバーは「ロゴ、スクロールする部分、設定ボタン」の縦の並びにしました。** 手で足し合わせた余白はなくしました。
-- 0.4.0 の UI 変更と同じく、SCSS Modules のまま書きました。TypeScript と vanilla-extract への移行は、#370 のマージ後に行います（PR の残課題を参照）。
+- 最初は SCSS Modules で書き、#370（TypeScript の土台）のマージ後に骨組みを移しました。
+  - コンテナの名前と境目の値は `src-ui/views/app/main_page/layout.ts` にまとめました。
+  - MainPage、MainSection、SidebarSection、OpenSettings のスタイルは vanilla-extract（`.css.ts`）です。
+  - SidebarSection と OpenSettings は TSX にしました。MainPage と MainSection は、読んでいる store のフックにまだ型がないので、ビューは JavaScript のままです。
+  - そのほかの部品は SCSS Modules のままで、同じ名前と値を文字で書いています。
 
 ## 指摘ごとの対応
 
