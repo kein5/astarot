@@ -168,6 +168,29 @@ def test_narrow_window_keeps_stop_mute_and_the_opened_sidebar_in_reach(studio):
     expect(close).to_have_count(0)
 
 
+def test_log_font_size_slider_takes_focus_only_once_opened(studio):
+    from playwright.sync_api import expect
+
+    page, _ = studio
+    on_slider = (
+        "() => { const el = document.activeElement;"
+        " return !!el && (el.type === 'range' || !!el.closest('[role=slider]') || !!el.querySelector?.('[role=slider]')); }"
+    )
+    gear = page.get_by_role("button", name="ログのフォントサイズ", exact=True)
+    gear.focus()
+    expect(gear).to_be_focused()
+    page.keyboard.press("Tab")
+    assert not page.evaluate(on_slider), "Tab landed on the hidden slider"
+    gear.focus()
+    page.keyboard.press("Enter")
+    expect(gear).to_have_attribute("aria-expanded", "true")
+    for _ in range(5):
+        page.keyboard.press("Tab")
+        if page.evaluate(on_slider):
+            break
+    assert page.evaluate(on_slider), "the opened slider is reachable"
+
+
 def test_model_warning_in_styled_screen_keeps_explicit_consent(studio):
     from playwright.sync_api import expect
 
