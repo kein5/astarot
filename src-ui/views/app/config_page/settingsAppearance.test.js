@@ -259,3 +259,10 @@ test("the saved chat reading language is named like the list's entries, so auto 
     assert.match(source, /list\[currentOcrSourceLanguage\.data\] = label\(currentOcrSourceLanguage\.data\)/);
     assert.match(source, /const label = id => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
 });
+test("download dialogs write byte counts in the display language", () => {
+    for (const page of ["advanced_settings/ModelDownloads.jsx", "ocr/OcrModels.jsx"]) {
+        const source = read(box + page);
+        assert.doesNotMatch(source, /\} bytes/, page);
+        assert.match(source, /t\("model_downloads\.exact_bytes"/, page);
+    }
+});

@@ -17,7 +17,7 @@ import { USER_MODEL_FILES } from "../../../../../../logics/voice/modelCatalog";
 const activePhases = ["queued", "downloading", "verifying", "cancelling"];
 // The time of a reading in the display language, not the system's (\4:19:57 AM\ in a Japanese UI).
 export const measuredTime = (ms, language) => new Date(ms).toLocaleTimeString(language);
-const bytes = value => `${Number(value).toLocaleString("en-US")} bytes (${(value / 1073741824).toFixed(2)} GiB)`;
+const bytes = (value, t) => `${t("model_downloads.exact_bytes", { bytes: Number(value).toLocaleString("en-US") })} (${(value / 1073741824).toFixed(2)} GiB)`;
 // The page lists sizes in GiB; the consent dialog keeps the exact byte counts.
 const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
 
@@ -297,7 +297,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
             <h3>{t("model_downloads.warning_title")}</h3>
             <p>{selected.name} · {selected.provider}</p>
-            <p>{bytes(selected.total_bytes)} · {selected.license}</p>
+            <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
             {selected.downloaded && <p>{t("model_catalog.prepare_notice")}</p>}
             {selectedWarning && <WarningNote warning={selectedWarning} />}
             <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
@@ -311,7 +311,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(url, i)}</a> </span>)}</p>
             {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
             <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-            <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size)}</li>)}</ul>
+            <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             <div className={styles.actions}>
                 <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>

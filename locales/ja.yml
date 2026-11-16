@@ -1690,6 +1690,7 @@ vc_runtime:
 
 model_downloads:
     hardware_title: "GPUとメモリ"
+    exact_bytes: "{{bytes}} バイト"
     title: "既定モデルのダウンロード"
     loading: "モデル一覧を読み込んでいます…"
     link_error: "ブラウザでリンクを開けませんでした。表示されたURLをコピーして開いてください。"

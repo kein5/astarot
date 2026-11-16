@@ -1690,6 +1690,7 @@ vc_runtime:
 
 model_downloads:
     hardware_title: "GPU and memory"
+    exact_bytes: "{{bytes}} bytes"
     title: "Download a default model"
     loading: "Loading the model catalog…"
     link_error: "Could not open the link in your browser. Copy the displayed URL to open it manually."
