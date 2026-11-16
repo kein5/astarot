@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { eventTarget, find, hooks, loadModule } from "../../logics/test/hookHarness.js";
-import * as switchBlocks from "../../logics/main/switchBlocks.js";
+import * as switchBlocks from "../../logics/main/switchBlocks.ts";
 
 async function launcher(context) {
     const runtime = hooks(), document = eventTarget(), window = eventTarget();

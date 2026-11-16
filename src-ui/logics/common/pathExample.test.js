@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { pathExample } from "./pathExample.js";
+import { pathExample } from "./pathExample.ts";
 
 test("a path placeholder is written the way the OS writes paths", () => {
     const windows = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36 Edg/158.0.0.0";

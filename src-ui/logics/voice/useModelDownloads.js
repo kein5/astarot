@@ -1,7 +1,7 @@
 import { atom, useAtom, useStore } from "jotai";
 import { useCallback, useRef } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { acceptObservation, resetObservations, sameSnapshot } from "../common/polledState.js";
+import { acceptObservation, resetObservations, sameSnapshot } from "../common/polledState.ts";
 
 const catalogAtom = atom(null), stateAtom = atom({ observation_id: "0", jobs: {} });
 const errorAtom = atom(null), pendingAtom = atom(null);

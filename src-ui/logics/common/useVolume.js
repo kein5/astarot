@@ -7,7 +7,7 @@ import {
 
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useSetAtom } from "jotai";
-import { updateMeterValue } from "./meterValue.js";
+import { updateMeterValue } from "./meterValue.ts";
 
 export const useVolume = () => {
     const { asyncStdoutToPython } = useStdoutToPython();

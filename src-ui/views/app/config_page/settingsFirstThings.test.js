@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
-import * as featureLabel from "../../../logics/common/featureLabel.js";
+import * as featureLabel from "../../../logics/common/featureLabel.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const icon = name => Object.assign(() => null, { icon: name });
@@ -21,7 +21,7 @@ test("chat reading has a page of its own, and search lists it there", async () =
 
     const search = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
         "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
-        "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.js": {}, "../../../voice/settingsNavigation": {},
+        "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
     });
     assert.deepEqual(search.settingTabs("ocr", "source_language"), ["ocr"]);
     assert.deepEqual(search.settingTabs("others", "send_message_to_vrc"), ["vrchat"]);
@@ -39,7 +39,7 @@ test("the side menu lists chat reading after VRChat, with an icon of its own and
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
-        "../../../../logics/common/featureLabel.js": featureLabel,
+        "../../../../logics/common/featureLabel.ts": featureLabel,
     });
     const tabs = all(runtime.render(sidebar.SidebarSection), node => typeof node.props?.tab_id === "string").map(node => node.props.tab_id);
     assert.deepEqual(tabs.slice(tabs.indexOf("vrchat"), tabs.indexOf("vrchat") + 3), ["vrchat", "ocr", "vr"]);
@@ -65,7 +65,7 @@ test("a long settings menu name breaks before its bracket and keeps its whole na
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
-        "../../../../logics/common/featureLabel.js": featureLabel,
+        "../../../../logics/common/featureLabel.ts": featureLabel,
     });
     const [tab] = all(runtime.render(sidebar.SidebarSection), node => node.props?.tab_id === "transcription");
     const tree = runtime.render(tab.type, tab.props);

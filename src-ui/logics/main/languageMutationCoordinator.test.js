@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createLanguageMutationCoordinator } from "./languageMutationCoordinator.js";
+import { createLanguageMutationCoordinator } from "./languageMutationCoordinator.ts";
 
 const snapshot = { tab: "1", your: { 1: "Japanese" }, target: { 1: "English" }, selectedEngines: { 1: "CTranslate2" } };
 const request = (requestId, source = "vr", endpoint = "/set/data/selected_target_languages") => ({ requestId, source, endpoint, expectedSnapshot: snapshot });

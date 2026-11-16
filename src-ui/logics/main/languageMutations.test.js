@@ -28,7 +28,7 @@ async function setup() {
     storage.values.LanguageMutation.data = { inFlight: null, lastVrResult: null, isResyncing: false };
     const atomsUrl = moduleUrl(atomNames.map(name => `export const Atom_${name} = "${name}";`).join("\n"));
     const translationUrl = moduleUrl("export default {t: key => key};");
-    const coordinatorUrl = new URL("./languageMutationCoordinator.js", import.meta.url).href;
+    const coordinatorUrl = new URL("./languageMutationCoordinator.ts", import.meta.url).href;
     const source = (await readFile(new URL("./languageMutations.js", import.meta.url), "utf8"))
         .replace('"jotai"', JSON.stringify(storageUrl))
         .replace('"@store"', JSON.stringify(atomsUrl))

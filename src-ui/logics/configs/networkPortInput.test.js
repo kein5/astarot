@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import i18next from "i18next";
-import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.js";
-import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.js";
+import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.ts";
+import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.ts";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
 

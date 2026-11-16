@@ -8,7 +8,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import "../../../src-ui/views/caption_overlay/page.css";
 import { CaptionOverlay } from "../../../src-ui/views/caption_overlay/CaptionOverlay";
-import { flowNote, stripItems } from "../../../src-ui/logics/flow/flowText.js";
+import { flowNote, stripItems } from "../../../src-ui/logics/flow/flowText.ts";
 import i18n from "../../../locales/config";
 import sample from "../fixtures/io_flow_sample.json";
 import "./scene.css";

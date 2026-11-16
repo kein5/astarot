@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { nextLogView, rowsBetween } from "./messageLogView.js";
+import { nextLogView, rowsBetween } from "./messageLogView.ts";
 
 const rows = (...ids) => ids.map(id => ({ id }));
 const ids = view => view.rows.map(row => row.id);

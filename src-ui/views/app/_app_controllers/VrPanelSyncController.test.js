@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
-import * as wire from "../../../logics/common/vrPanelWire.js";
+import * as wire from "../../../logics/common/vrPanelWire.ts";
 
 async function setup(context, { registry = {}, values = {}, settings = [] } = {}) {
     const runtime = hooks(), lifecycle = hooks(), listeners = new Map();

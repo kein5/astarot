@@ -8,8 +8,8 @@ import { useAppearance, useVr } from "@logics_configs";
 import { captionLines, stampLines } from "../../../logics/captionOverlay/lines";
 import { placementOf, steppedFontSize } from "../../../logics/captionOverlay/adjust";
 import { useIoFlow } from "../../../logics/flow/useIoFlow";
-import { overlayCount } from "../../../logics/flow/ioFlow.js";
-import { flowNote, stripItems } from "../../../logics/flow/flowText.js";
+import { overlayCount } from "../../../logics/flow/ioFlow.ts";
+import { flowNote, stripItems } from "../../../logics/flow/flowText.ts";
 
 // Captions over the desktop: opens the overlay window while the setting is on
 // and hands it the last rows of the message log. The window only draws; what

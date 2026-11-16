@@ -1,7 +1,7 @@
 import { atom, useAtom, useStore } from "jotai";
 import { useCallback } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { normalizeOutcome, normalizeWeights } from "./localAsrMigration.js";
+import { normalizeOutcome, normalizeWeights } from "./localAsrMigration.ts";
 
 // The one-time notice after a saved choice of the removed Whisper engine moved to
 // speech.cpp, and the Whisper weights an older version left on disk (#288).

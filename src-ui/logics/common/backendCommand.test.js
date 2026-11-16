@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createCoreBackendCommand, createSelectedBackendCommand } from "./backendCommand.js";
-import { createSidecarSessionOwner } from "./sidecarSession.js";
+import { createCoreBackendCommand, createSelectedBackendCommand } from "./backendCommand.ts";
+import { createSidecarSessionOwner } from "./sidecarSession.ts";
 
 class FakeChannel {
     onmessage = () => {};

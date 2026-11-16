@@ -5,11 +5,11 @@ import Babel from "@babel/standalone";
 import React from "react";
 import * as jsx from "react/jsx-runtime";
 import clsx from "clsx";
-import * as chatboxLength from "./chatboxLength.js";
-import * as voiceErrorText from "../voice/voiceErrorText.js";
-import * as featureLabel from "./featureLabel.js";
-import { nextLogView, rowsBetween } from "./messageLogView.js";
-import * as switchBlocksModule from "../main/switchBlocks.js";
+import * as chatboxLength from "./chatboxLength.ts";
+import * as voiceErrorText from "../voice/voiceErrorText.ts";
+import * as featureLabel from "./featureLabel.ts";
+import { nextLogView, rowsBetween } from "./messageLogView.ts";
+import * as switchBlocksModule from "../main/switchBlocks.ts";
 
 // Exercise the production JSX handlers without a WebView or a new test runtime.
 // Hooks retain state across explicit renders; IPC promises are controlled by tests.
@@ -230,10 +230,10 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "@store": { store: {} },
         "@logics_common": {},
         "../../../../../logics/common/useNotificationStatus": {},
-        "../../../../../logics/voice/useVoice": {}, "../../../../../logics/voice/voiceActions.js": { voiceActions: {} },
+        "../../../../../logics/voice/useVoice": {}, "../../../../../logics/voice/voiceActions.ts": { voiceActions: {} },
         "../../../../../logics/voice/routeState": {},
-        "../../../../../logics/common/featureLabel.js": featureLabel,
-        "../../../../../logics/voice/voiceErrorText.js": voiceErrorText,
+        "../../../../../logics/common/featureLabel.ts": featureLabel,
+        "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
         "../../startupContext": { useIsStartingUp: () => false },
@@ -409,7 +409,7 @@ test("the window geometry controller keeps its listeners and only sends layout c
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython() {} }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
         "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: scaling } }) },
-        "./windowGeometry.js": await import("./windowGeometry.js"),
+        "./windowGeometry.ts": await import("./windowGeometry.ts"),
     });
     const settle = () => new Promise(resolve => setTimeout(resolve));
     // A module-level component: re-rendering its parent must not remount it.
@@ -444,7 +444,7 @@ test("while the engine starts, resizing updates the layout but does not save the
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => sent.push([endpoint, data]) }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
         "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
-        "./windowGeometry.js": await import("./windowGeometry.js"),
+        "./windowGeometry.ts": await import("./windowGeometry.ts"),
     });
     const settle = () => new Promise(resolve => setTimeout(resolve, 250));
     runtime.render(WindowGeometryController, { saveGeometry: false });

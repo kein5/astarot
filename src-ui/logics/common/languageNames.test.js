@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createLanguageNames, isLanguagePickKey } from "./languageNames.js";
-import { languageCodes } from "./languageCodes.js";
+import { createLanguageNames, isLanguagePickKey } from "./languageNames.ts";
+import { languageCodes } from "./languageCodes.ts";
 
 const japanese = Object.freeze({ language: "Japanese", country: "Japan" });
 const english = Object.freeze({ language: "English", country: "United States" });

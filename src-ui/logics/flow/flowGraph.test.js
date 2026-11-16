@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildFlowGraph } from "./flowGraph.js";
+import { buildFlowGraph } from "./flowGraph.ts";
 
 const sample = JSON.parse(readFileSync(new URL("../../../tests/voice/fixtures/io_flow_sample.json", import.meta.url), "utf8"));
 const edge = (graph, id) => graph.edges.find(row => row.id === id);

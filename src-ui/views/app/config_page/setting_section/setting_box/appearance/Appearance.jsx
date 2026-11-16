@@ -1,4 +1,4 @@
-import { createLanguageNames } from "../../../../../../logics/common/languageNames.js";
+import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";

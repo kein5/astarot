@@ -11,7 +11,7 @@ def test_caption_revisions_namespace_stop_and_legacy_rows():
     script = r"""
 import assert from 'node:assert/strict';
 import {applyRealtimeCaption, pruneRealtimeCaptions, mergeRealtimeState}
- from './src-ui/logics/transcription/realtimeCaptionState.js';
+ from './src-ui/logics/transcription/realtimeCaptionState.ts';
 const active = {mic: {namespace:'m', generation:1, requested:true, state:'ready'},
  speaker: {namespace:'s', generation:1, requested:true, state:'ready'}};
 const event = {source:'mic', namespace:'m', generation:1, item_id:'u', revision:1,

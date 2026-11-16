@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import { useSoftwareVersion, useNotificationStatus } from "@logics_common";
 import { useOthers } from "@logics_configs";
 import { useAppUpdate } from "../../../../../../logics/common/useAppUpdate";
-import { downloadPercent } from "../../../../../../logics/common/appUpdate.js";
+import { downloadPercent } from "../../../../../../logics/common/appUpdate.ts";
 import styles from "./Updater.module.scss";
 import { SectionLabelComponent } from "../_components";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";

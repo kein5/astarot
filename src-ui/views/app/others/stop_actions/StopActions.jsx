@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { useEffect } from "react";
 import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../logics/voice/useVoice";
-import { voiceActions } from "../../../../logics/voice/voiceActions.js";
+import { voiceActions } from "../../../../logics/voice/voiceActions.ts";
 
 // Stop actions within reach during a conversation: on the main page and on
 // every settings page. Stop sends the TTS page's stop (it also clears the

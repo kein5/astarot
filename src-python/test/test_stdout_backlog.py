@@ -242,7 +242,7 @@ class _FaultyStdout:
             try:
                 rows.append(json.loads(line))
             except ValueError:
-                pass  # sidecarSession.js と同じ行単位の復旧。
+                pass  # sidecarSession.ts と同じ行単位の復旧。
         return rows
 
 

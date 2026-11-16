@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import yaml from "js-yaml";
-import { CLOUD_TRANSCRIPTION_ENGINES } from "./cloudTranscription.js";
+import { CLOUD_TRANSCRIPTION_ENGINES } from "./cloudTranscription.ts";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 const setter = read("./config_page_setter/ui_config_setter.js");

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { languageJumpGroups } from "./languageJumpGroups.js";
-import { createLanguageNames } from "./languageNames.js";
-import { languageCodes } from "./languageCodes.js";
+import { languageJumpGroups } from "./languageJumpGroups.ts";
+import { createLanguageNames } from "./languageNames.ts";
+import { languageCodes } from "./languageCodes.ts";
 
 const group = (name, locale = "ja") => languageJumpGroups([name], locale)[0]?.id;
 

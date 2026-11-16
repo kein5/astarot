@@ -1,0 +1,159 @@
+export const ui_configs = {
+    brand_color_hex: "#48A495",
+    mic_threshold_min: 0,
+    mic_threshold_max: 2000,
+    speaker_threshold_min: 0,
+    speaker_threshold_max: 2000,
+    // Shared overlay config (used by both small and large log)
+    _overlay_log_config: {
+        x_pos: { step: 0.05, min: -0.5, max: 0.5 },
+        y_pos: { step: 0.05, min: -0.8, max: 0.8 },
+        z_pos: { step: 0.05, min: -0.5, max: 1.5 },
+        x_rotation: { min: -180, max: 180, step: 5 },
+        y_rotation: { min: -180, max: 180, step: 5 },
+        z_rotation: { min: -180, max: 180, step: 5 },
+        ui_scaling: { step: 10, min: 40, max: 200 },
+    },
+    get overlay_small_log() { return this._overlay_log_config; },
+    get overlay_large_log() { return this._overlay_log_config; },
+
+    // Shared overlay default settings base
+    _overlay_log_default_settings_base: {
+        x_pos: 0.0,
+        y_pos: 0.0,
+        z_pos: 0.0,
+        x_rotation: 0.0,
+        y_rotation: 0.0,
+        z_rotation: 0.0,
+        display_duration: 5,
+        fadeout_duration: 2,
+        opacity: 1.0,
+        ui_scaling: 1.0,
+    },
+    get overlay_small_log_default_settings() {
+        return { ...this._overlay_log_default_settings_base, tracker: "HMD" };
+    },
+    get overlay_large_log_default_settings() {
+        return { ...this._overlay_log_default_settings_base, tracker: "LeftHand" };
+    },
+    // Captions over the desktop (OVERLAY_DESKTOP_SETTINGS in src-python/config.py).
+    get overlay_desktop_default_settings() {
+        return { position: "bottom", font_size: 28, display_duration: 6, opacity: 0.6 };
+    },
+    // OVERLAY_DESKTOP_PLACEMENT: null until the user drags the caption window.
+    get overlay_desktop_default_placement() {
+        return { x: null, y: null };
+    },
+
+    // Shared message format parts base
+    _default_message_format_parts: {
+        message: {
+            prefix: "",
+            suffix: ""
+        },
+        separator: "\n",
+        translation: {
+            prefix: "",
+            separator: "\n",
+            suffix: ""
+        },
+        translation_first: false,
+    },
+    get send_message_format_parts() { return { ...this._default_message_format_parts }; },
+    get received_message_format_parts() { return { ...this._default_message_format_parts }; },
+
+    selectable_ui_languages: [
+        {id: "en", label: "English"},
+        {id: "ja", label: "日本語"},
+    ]
+};
+
+export interface TranslatorStatus {
+    id: string;
+    label: string;
+    is_available: boolean;
+    is_default?: boolean;
+}
+
+export const translator_status: TranslatorStatus[] = [
+    { id: "CTranslate2", label: `AI\nCTranslate2`, is_available: false, is_default: true },
+    { id: "Google", label: "Google", is_available: false },
+    { id: "Bing", label: "Bing", is_available: false },
+    { id: "Papago", label: "Papago", is_available: false },
+    { id: "DeepL_API", label: `DeepL API`, is_available: false },
+    { id: "Plamo_API", label: `Plamo API`, is_available: false },
+    { id: "Gemini_API", label: `Gemini API`, is_available: false },
+    { id: "OpenAI_API", label: `OpenAI API`, is_available: false },
+    { id: "Groq_API", label: `Groq API`, is_available: false },
+    { id: "OpenRouter_API", label: `OpenRouter API`, is_available: false },
+    { id: "LMStudio", label: `LMStudio`, is_available: false },
+    { id: "Ollama", label: `Ollama`, is_available: false },
+    { id: "OpenAI_Compatible", label: `OpenAI Compatible`, is_available: false },
+];
+
+// license/non_commercial mirror ctranslate2_weights in
+// src-python/models/translation/translation_utils.py (a pytest checks they
+// agree). non_commercial weights need the confirmation dialog in
+// Config -> Translation before they are downloaded or selected.
+const CC_BY_NC_4_0 = { license: "CC-BY-NC-4.0", non_commercial: true, license_url: "https://creativecommons.org/licenses/by-nc/4.0/" };
+const MIT = { license: "MIT", non_commercial: false };
+
+export interface CTranslate2WeightStatus {
+    id: string;
+    capacity: string;
+    is_default: boolean;
+    license: string;
+    non_commercial: boolean;
+    license_url?: string;
+    model_card_url: string;
+    is_downloaded: boolean;
+    progress: number | null;
+}
+
+export const ctranslate2_weight_type_status: CTranslate2WeightStatus[] = [
+    { id: "m2m100_418M-ct2-int8", capacity: "418MB", is_default: true, ...MIT, model_card_url: "https://huggingface.co/facebook/m2m100_418M" },
+    { id: "m2m100_1.2B-ct2-int8", capacity: "1.2GB", ...MIT, model_card_url: "https://huggingface.co/facebook/m2m100_1.2B" },
+    { id: "nllb-200-distilled-600M-ct2-int8", capacity: "600MB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-distilled-600M" },
+    { id: "nllb-200-distilled-1.3B-ct2-int8", capacity: "1.3GB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-distilled-1.3B" },
+    { id: "nllb-200-3.3B-ct2-int8", capacity: "3.3GB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-3.3B" },
+].map(item => ({ is_default: false, ...item, is_downloaded: false, progress: null }));
+
+
+export const deepl_auth_key_url = "https://www.deepl.com/ja/your-account/keys";
+export const plamo_auth_key_url = "https://plamo.preferredai.jp/api";
+export const gemini_auth_key_url = "https://aistudio.google.com/api-keys";
+export const openai_auth_key_url = "https://platform.openai.com/api-keys";
+export const groq_auth_key_url = "https://console.groq.com/keys";
+export const deepgram_auth_key_url = "https://console.deepgram.com/";
+export const openrouter_auth_key_url = "https://openrouter.ai/keys";
+
+
+
+// VRCT-VOX's own user guide (site/, published by .github/workflows/pages.yml).
+// It has Japanese and English pages; other UI languages get the English ones.
+export const vrct_document_home_url = "https://kein5.github.io/VRCT-VOX";
+export const vrct_document_url_chunk_faq = "guide/troubleshooting";
+export const vrct_document_url_chunk_ui_guide = "guide/first-setup";
+// Each model setting links to its own section: #tts, #asr, #whisper-server, #rvc, #seed-vc, #translation.
+export const vrct_document_url_chunk_custom_models = "guide/custom-models";
+
+// The upstream VRCT documentation, linked from the credits for the original VRCT on About.
+export const upstream_vrct_document_url = (lang_code = "en") =>
+    `https://misyaguziya.github.io/VRCT-Docs/${lang_code === "ja" ? "ja" : ""}`;
+
+export const generateLocalizedDocumentUrl = (lang_code = "en") => {
+    const supported_languages = ["en", "ja"];
+
+    if (supported_languages.includes(lang_code) === false) {
+        lang_code = "en";
+    }
+
+    const lang_path = lang_code;
+
+    return {
+        vrct_document_home_url: `${vrct_document_home_url}/${lang_path}`,
+        vrct_document_faq_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_faq}`,
+        vrct_document_ui_guide_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_ui_guide}`,
+        vrct_document_custom_models_url: `${vrct_document_home_url}/${lang_path}/${vrct_document_url_chunk_custom_models}`,
+    };
+};

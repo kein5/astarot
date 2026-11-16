@@ -78,6 +78,11 @@ export async function loadModule(url, runtime, imports = {}) {
         if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return () => null;
         if (name in dependencies) return dependencies[name];
+        // While modules move from .js to .ts (ADR-010), a test may still name a dependency
+        // with its old extension, or with none, as the importing module once did.
+        const base = name.replace(/\.[jt]sx?$/, "");
+        const alias = [base, `${base}.js`, `${base}.jsx`, `${base}.ts`, `${base}.tsx`].find(key => key in dependencies);
+        if (alias !== undefined && /^\.\.?\//.test(name)) return dependencies[alias];
         throw new Error(`Unexpected dependency: ${name}`);
     };
     const exports = {};

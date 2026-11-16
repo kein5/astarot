@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import { useStore_SelectedConfigTabId } from "@store";
 import { useOcr } from "@logics_configs";
 import { useRealtimeASR } from "../../../transcription/useRealtimeASR";
-import { createLanguageNames } from "../../../common/languageNames.js";
+import { createLanguageNames } from "../../../common/languageNames.ts";
 import { ui_configs } from "@ui_configs";
 import i18n from "@root/locales/config.js";
 import { requestSettingsNavigation } from "../../../voice/settingsNavigation";
