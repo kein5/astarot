@@ -13,8 +13,10 @@ async function fixture(saved, context) {
         useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: narrow } }),
         useStore_IsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: saved, state: "ok" },
             updateIsMainPageCompactMode: value => { saved = value; } }),
-        useStore_IsOpenedLanguageSelector: () => ({ currentIsOpenedLanguageSelector: { data: {} } }),
+        useStore_IsOpenedLanguageSelector: () => ({ currentIsOpenedLanguageSelector: { data: selector },
+            updateIsOpenedLanguageSelector: value => { selector = value; } }),
     };
+    let selector = {};
     const logic = await loadModule(new URL("./useIsMainPageCompactMode.js", import.meta.url), runtime, {
         "@store": store, "@useStdoutToPython": { useStdoutToPython: () => ({
             asyncStdoutToPython: endpoint => requests.push(endpoint) }) },
@@ -29,8 +31,18 @@ async function fixture(saved, context) {
     const { SidebarCompactModeButton } = await loadModule(new URL("../../views/app/main_page/main_section/top_bar/sidebar_compact_mode_button/SidebarCompactModeButton.jsx", import.meta.url), runtime, {
         "@logics_main": logic,
     });
-    const render = () => runtime.render(() => ({ sidebar: SidebarSection(), button: SidebarCompactModeButton() }));
-    return { render, requests, document, setNarrow: value => { narrow = value; }, saved: () => saved };
+    const english = { language: "English", country: "United States", enable: true };
+    const { LanguageSelectorOpenButton } = await loadModule(new URL("../../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.jsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: () => ({ language: "English", country: "" }) }) },
+        "@store": store, "@logics_main": { ...logic, useLanguageSettings: () => ({ currentSelectedPresetTabNumber: { data: "1" },
+            currentSelectedYourLanguages: { data: { 1: { 1: english } } }, currentSelectedTargetLanguages: { data: { 1: { 1: english, 2: english } } } }) },
+    });
+    // One render for all of them: the hooks share the runtime's slots.
+    const render = () => runtime.render(() => ({ sidebar: SidebarSection(), button: SidebarCompactModeButton(),
+        hook: logic.useIsMainPageCompactMode(),
+        language: LanguageSelectorOpenButton({ TurnedOnSvgComponent: "svg", is_turned_on: true, selector_key: "your_language", target_key: "1" }) }));
+    return { render, requests, document, setNarrow: value => { narrow = value; }, saved: () => saved, selector: () => selector };
 }
 
 for (const saved of [false, true]) {
@@ -105,4 +117,39 @@ for (const saved of [false, true]) {
         s.setNarrow(false);
         assert.doesNotMatch(s.render().sidebar.props.className ?? "", /isOverlay/);
     });
+
+    test(`a language selector opened from the rail over a narrow window closes the rail first (${saved})`, async context => {
+        const s = await fixture(saved, context);
+        s.render().button.props.onClick();
+        const opener = find(s.render().language, node => node.type === "button");
+        opener.props.onClick();
+        assert.deepEqual(s.selector(), { your_language: true, target_language: false, target_key: "1" });
+        const tree = s.render();
+        assert.equal(tree.button.props["aria-expanded"], false, "the selector's back button and search field are not under the rail");
+        assert.doesNotMatch(tree.sidebar.props.className, /isOverlay/);
+        assert.deepEqual(s.requests, [], "never saved");
+    });
+
+    test(`asking for the translator list shows the full rail (${saved})`, async context => {
+        const s = await fixture(saved, context);
+        // Narrow: over the conversation, not saved.
+        s.render().hook.expandSidebar();
+        assert.match(s.render().sidebar.props.className, /isOverlay/);
+        assert.ok(find(s.render().sidebar, node => node.type === "languages"));
+        assert.deepEqual(s.requests, []);
+        // Wide: the icon rail is the saved choice and is undone like its toggle; a full rail stays.
+        s.setNarrow(false);
+        s.render();
+        s.render().hook.expandSidebar();
+        assert.deepEqual(s.requests, saved ? ["/set/disable/main_window_sidebar_compact_mode"] : []);
+    });
 }
+
+test("the rail over the conversation never grows wider than the window, so its close button and the space beside it stay", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync(new URL("../../views/app/main_page/sidebar_section/SidebarSection.css.ts", import.meta.url), "utf8");
+    const overlay = css.split("export const isOverlay")[1].split("});")[0];
+    assert.match(overlay, /width: OVERLAY_RAIL/);
+    assert.match(overlay, /marginInlineEnd: `calc\(\$\{ICON_RAIL\} - \$\{OVERLAY_RAIL\}\)`/);
+    assert.match(css, /const OVERLAY_RAIL = `min\(\$\{RAIL\}, calc\(100vw - [\d.]+rem\)\)`/);
+});
