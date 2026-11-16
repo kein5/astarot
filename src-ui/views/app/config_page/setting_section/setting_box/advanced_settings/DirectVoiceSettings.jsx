@@ -6,6 +6,7 @@ import styles from "./VoiceSettings.module.scss";
 import { useI18n } from "@useI18n";
 import { useVoice, sourceKey as key } from "../../../../../../logics/voice/useVoice";
 import { directRouteReady, usesOutputDevice } from "../../../../../../logics/voice/routeState";
+import { directSavedDraft, directSelectionPending, directShowsConversion } from "../../../../../../logics/voice/directVoiceDraft";
 import { ModelDownloads } from "./ModelDownloads";
 import { VcRuntimeSetup } from "./VcRuntimeSetup";
 import { StatusLine } from "./StatusLine";
@@ -33,20 +34,13 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
     const { t } = useI18n();
     const { settings, route, error, directState, directOwner, directPending, directSources, directError, updateDirectError, send, setDirectDraftBlocked,
         selectedSource: selected, setSelectedSource: setSelected } = useVoice();
-    const saved = useMemo(() => {
-        if (!directState.settings) return null;
-        const value = { ...defaults, ...directState.settings };
-        if (variant === "rvc") return { ...value, mode: "converted", engine: "rvc" };
-        // Input forwarding only forwards; the conversion is the RVC page's.
-        if (variant === "legacy" && value.mode === "converted") return { ...value, mode: "passthrough" };
-        return value;
-    }, [directState.settings, variant]);
+    const saved = useMemo(() => directSavedDraft(defaults, directState.settings, variant), [directState.settings, variant]);
     const busy = !!directPending || directState.requested || directState.pending || directState.stopping;
     const validThreads = draft => Number.isInteger(draft.rvc_threads) && draft.rvc_threads >= 0 && draft.rvc_threads <= MAX_RVC_THREADS;
     const validNumbers = draft => Number.isInteger(draft.rvc_pitch) && Math.abs(draft.rvc_pitch) <= 24 &&
         Number.isFinite(draft.rvc_index_rate) && draft.rvc_index_rate >= 0 && draft.rvc_index_rate <= 1 && validThreads(draft);
     // The RVC page edits converted RVC; selecting it is itself a change to save.
-    const needsSelection = draft => draft.mode !== directState.settings?.mode || draft.engine !== directState.settings?.engine;
+    const needsSelection = draft => directSelectionPending(draft, directState.settings, variant);
     const label = ([name]) => t(name === "mode" ? "voice.direct_mode" : name === "engine" ? "voice.vc_engine" : `voice.vc_${name}`, { defaultValue: name });
     const form = useSettingsDraft(saved, directError, updateDirectError, { label,
         savedFromResponse: value => ({ ...defaults, ...value.settings }),
@@ -73,7 +67,8 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
     const deviceRoute = usesOutputDevice(directState);
     const routeReady = directRouteReady(settings, directState);
     const unavailable = directSources.error || directError || directState.error;
-    const converted = draft.mode === "converted";
+    // Input forwarding only forwards; the conversion is the RVC page's.
+    const converted = directShowsConversion(draft, variant);
     const rvc = draft.engine === "rvc";
     const complete = !converted || (rvc ? (draft.rvc_runtime.trim() && /\.pth$/i.test(draft.rvc_model) &&
         (!draft.rvc_index || /\.index$/i.test(draft.rvc_index)) &&

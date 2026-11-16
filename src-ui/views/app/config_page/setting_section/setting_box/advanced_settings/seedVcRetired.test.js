@@ -11,8 +11,9 @@ const strings = language => yaml.load(readFileSync(new URL(`../../../../../../..
 test("the direct voice settings offer no Seed-VC and default to RVC", () => {
     assert.doesNotMatch(source, /<option value="seed-vc">/);
     assert.match(source, /const defaults = \{[^}]*engine: "rvc"/);
-    // Input forwarding only forwards: its old conversion was Seed-VC's.
-    assert.match(source, /variant === "legacy" && value\.mode === "converted"\) return \{ \.\.\.value, mode: "passthrough" \}/);
+    // Input forwarding only forwards: its old conversion was Seed-VC's. It shows forwarding
+    // without rewriting the saved mode (#429, directVoiceDraft.test.js).
+    assert.match(source, /const converted = directShowsConversion\(draft, variant\)/);
     assert.match(source, /\{variant === "all" && <label>\{t\("voice\.direct_mode"\)\}/);
     assert.match(source, /directState\.notice === "seed_vc_moved_to_rvc" && <p role="status">\{t\("voice_ui\.seed_vc_moved_to_rvc"\)\}/);
 });
