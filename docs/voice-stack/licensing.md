@@ -358,6 +358,8 @@ ASTAROTのブランド書体をSpace GroteskからOutfitに変えた。ワード
 
 **AudioSetのラベル**：CED、EfficientAT、PANNs、YAMNet、BEATs、ASTは、どれもAudioSetで学習した527種（YAMNetは521種）の分類を返す。AudioSetのデータはCC BY 4.0、ラベルの体系（ontology）はCC BY-SA 4.0で配られている（[AudioSetのダウンロードの頁](https://research.google.com/audioset/download.html)）。CEDの`config.json`にはラベルの名前が入っている。ラベルの一覧をファイルとして同梱するときは、ontologyの帰属とCC BY-SA 4.0をNOTICEに書く。学習に使われたYouTubeの音声そのものの権利は、どのモデルの提供元も扱っていない。
 
+**実測（2026-11-17）**：取得の承認を受けて、CED-Tiny、CED-Mini、d1-omni-600M（公式のGGUF Q8_0、llama.cpp b12445）をESC-50で比べた。結果は#386のコメントにある。CEDの2つの`model.onnx`は、上の表のサイズとSHA-256に一致した。ESC-50（[karolpiczak/ESC-50](https://github.com/karolpiczak/ESC-50) @ `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`）は全体がCC BY-NC 3.0で、クリップごとに別の条件もある。評価にだけ使い、リポジトリにも配布物にも入れない。測定のあとで、ESC-50とd1のファイルは消した。
+
 ## speech.cppの読み上げモデルの追加（2026-11-16）
 
 speech.cppの読み上げで選べるモデルを増やした。どれも配布物には含めない。利用者が同意画面でライセンスとサイズを確認してから、Hugging Faceの固定revisionからこのPCへ取得する。取得するファイルは、speech.cppがそのモデル名で取得するもの（`speech models --json`の既定の型）と同じで、サイズとSHA-256もそれと一致させた。revision、サイズ、SHA-256は0.10.0と同梱の0.11.0で変わらない。
