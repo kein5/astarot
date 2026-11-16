@@ -31,6 +31,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 | `controller.py` と `model.py` のチャットの読み取り（`*Ocr*`、`ocrMessage`、`startOCRCapture`、`updateOCRCaptureSettings`） | `controller::ocr`（撮影、エンジン、パイプラインは `ocr-runtime`） |
 | `controller.py` の音声認識（`setEnable/DisableTranscription*`、`setEnable/DisableCheck*Threshold`、`micMessage`、`speakerMessage`、`_audioPipelineFailed*`、認識のキー、起動時のエンジンの確認）と `model.py` の `_AudioDeviceSession` | `controller::transcription`（録音、エンジン、フレーズは `vrct-transcription`） |
 | `controller.py` のリアルタイムの音声認識（`*RealtimeASR*`、`_enableRealtimeToggle`、`_startRealtime`、`_awaitAsrServer`） | `controller::realtime_asr`（セッションと字幕は `vrct_transcription::realtime`） |
+| `controller.py` と `model.py` の更新（`listAvailableReleases`、`checkSoftwareUpdated`、`updateSoftware`、`updateCudaSoftware`） | `controller::updates`（更新の仕組みは `Services::software_updates`。アプリは `src-tauri/src/app_update.rs` の `CoreUpdates` を渡す） |
 | `controller.py` の TTS、直接の音声、声質変換、音声の経路（`getVoice*`、`setVoiceSettings`、`enableTts`、`disableTts`、`stopVoice`、`muteVoice`、`resumeVoice`、`*DirectVoice*`、`*VcRuntime*`、`getIoFlow`、`_publishChatVoice`、`_publishMicVoice`、TTS の `_speechServerEnded`）、`io_flow.py`、`io_trace.py` | `controller::voice`（読み上げは `vrct-tts`、直接の音声と RVC の worker と実行環境の準備は `vrct-voice-conversion`、経路のミュートと出力は `vrct-audio-routing`） |
 
 ## 変わらないこと
@@ -49,6 +50,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 - **翻訳エンジンの確認**。翻訳のプロバイダ（#277）は Python と同じに起動時に確かめます。Web 翻訳（Google、Bing、Papago）は配布していないので、エンジンの一覧に出しません（Python は「使える」と示し、毎回失敗していました。`languages::RETIRED_WEB_TRANSLATORS`）。代わりに、各社の公式の API（Google Cloud Translation の `Google_Cloud_API` と NAVER Cloud Platform の Papago の `Papago_API`）を利用者のキーで呼びます。これと Ollama の URL（`OLLAMA_URL`、既定は Python と同じ `http://localhost:11434`）は Python になかったもので、エンドポイント、エラーコード、設定キーは仕様の一覧に「中核のみ」として載せています（`tools/spec_core_additions.json`）。平文の HTTP は、この PC と LAN（プライベートなアドレス、リンクローカル、IPv6 のユニークローカル、`.local` の名前）にだけ送ります（`net_policy`）。プロバイダは `vrct-translation` の型で、共通の要求はトレイトに 1 回だけ書いてあります（ゼロコスト抽象化。静的ディスパッチで `dyn` は使わない）。中核はエンジンの名前を `Provider::check`、`models`、`translate` に渡すだけで、プロバイダごとの分岐を持ちません。音声認識のエンジン（#278）も Python と同じに確かめます。Whisper の API と Deepgram はキーでモデルの一覧を取り、Google と speech.cpp は確かめずに「使える」とします。API キーは Python と同じく残します。
 - **読み（ひらがな・ローマ字）**。Python と同じく Sudachi（sudachi.rs）で解析します。辞書は同梱のファイル `_internal/build/sudachi/system.dic`（開発の checkout では `build/sudachi/system.dic`、`tools/sudachi_dictionary.py` が置く）を、読みを求める最初のメッセージで開きます（`Services::transliteration`、既定は `messages::shipped_readings`）。辞書がない、または読めないときは、読みのスイッチが入っていてもメッセージを読みなしで送り、理由を `process.log` に一度だけ書きます。Python は辞書を読めないと送信ごと失敗していました。どの辞書を配布物に入れるかは `docs/voice-stack/core-integration.md` の「判断が要ること」の 3 です。
 - **プロキシ**。翻訳のプロバイダへの通信は `HTTP(S)_PROXY` を使いません（「判断が要ること」の 18）。
+- **更新**。Python は自前の更新の仕組みを止めて出荷していました。中核の更新のエンドポイントは、アプリの更新の画面と同じ Tauri の updater を使います（core-integration.md の「判断が要ること」の 20）。起動時の確認は `CHECK_SOFTWARE_UPDATES` がオンのときだけ通信します。オフなら尋ねずに「更新なし」を送ります。
 - **声質変換**。変換の持ち主はアプリのプロセスのスレッドで動き、別の router プロセスはありません。Linux の管理された経路での変換と Seed-VC は動きません（`vc_start_failed`）。実行環境の準備は RVC だけを出します（core-integration.md の「判断が要ること」の 10、「Linux の声質変換」「声質変換の router プロセス」）。
 - **音声デバイス**。Windows のマイクは `Windows WASAPI` のホストの下だけに並びます。Python が MME などのホストで保存した選択は、起動時に WASAPI の同じデバイスへ移します。Linux で PipeWire のデバイスを並べるのは `pipewire` 機能を有効にしたときだけで、アプリ（src-tauri）は有効にします。試験は無効のまま動き、PipeWire が要りません。詳しくは [core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 4 にあります。
 
@@ -83,7 +85,7 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/legacy_weights.rs`: 旧 CTranslate2 の重みは、中核が既定のバックエンドのときだけ起動の後で消すこと。Python が作ったフォルダだけを消し、リンクをたどらないこと。
 - `tests/ocr.rs`: チャットの読み取り。偽の画像と偽の認識器で、オンにできない理由、状態、設定、読んだ行がメッセージの流れを通って UI に届くこと。
 - `tests/vr_overlay.rs`: VR のオーバーレイ。代わりの SteamVR で、字幕と VR パネルのオンとオフ、設定、失敗の通知、送ったメッセージが大きいログに描かれること。
-- `tests/updates.rs`: Python と同じく止めてある更新の答え。
+- `tests/updates.rs`: 更新のエンドポイント。偽の更新の仕組みで、リリースの一覧、起動時の確認（`CHECK_SOFTWARE_UPDATES` がオフなら尋ねずに「更新なし」）、更新の成功と失敗（ダウンロード、署名の検証）、版の指定。ホストが仕組みを渡さないときの、Python と同じく止めてある答え。
 - `tests/voice.rs`: TTS のスイッチと内蔵サーバ、音声の設定、チャットとマイクの確定文の読み上げ（偽の認識サーバからリアルタイムの確定文を流し、訳を読み上げるまで）、声を流しているケーブルを認識に使わせないこと、停止とミュート、直接の音声と声質変換、実行環境の準備、フローパネル、終了。出力とマイクは `tests/common/fake_voice.rs`、speech.cpp とエンジンは `tests/common/fake_tts.rs` と `fake-speech-core`、RVC の worker は小さな実行ファイル（`tests/fixture/fake_rvc_worker.rs`）です。どれもアプリのビルドには含まれません。
 
 利用者の文章、音声、API キーは、ログにも試験の出力にも入れません。

@@ -205,8 +205,8 @@ pub struct Services {
     pub ocr: Arc<dyn ocr::OcrPlatform>,
     /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]).
     pub ocr_message: ocr::OcrDelivery,
-    /// The app's own updater behind the old update endpoints ([`updates`]). Switched off by
-    /// default, as Python shipped it; the app updates through the host's updater.
+    /// The app's own updater behind the update endpoints ([`updates`]). Switched off by
+    /// default, as Python shipped it; the app gives the updater of its update page.
     pub software_updates: Arc<dyn updates::SoftwareUpdates>,
     /// The microphone and speaker captures of speech recognition (WASAPI, or the Linux helper
     /// `vrct-asr-capture`); tests feed PCM of their own.
