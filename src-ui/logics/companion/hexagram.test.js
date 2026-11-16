@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { dockAnchor, innerHexagon, pointAngle, pointTriangle, polygon } from "./hexagram.ts";
+import { angleOf, baseRotation, dockAt, EDGES, facesInward, innerHexagon, inwardSide, pointAngle, pointTriangle, polygon, TURN } from "./hexagram.ts";
 
 const close = (actual, expected, label) => assert.ok(Math.abs(actual - expected) < 0.01, `${label}: ${actual} != ${expected}`);
 
@@ -31,11 +31,36 @@ test("the inner hexagon's corners lie between the points", () => {
     assert.equal(polygon([{ x: 1, y: 2 }, { x: 3, y: -4 }]), "1,2 3,-4");
 });
 
-test("a feature docks out beyond its own point, on the side away from the star", () => {
-    assert.deepEqual(dockAnchor(80, 0), { at: { x: 0, y: -80 }, side: "top" });
-    assert.deepEqual(dockAnchor(80, 3), { at: { x: 0, y: 80 }, side: "bottom" });
-    assert.equal(dockAnchor(80, 1).side, "right");
-    assert.equal(dockAnchor(80, 2).side, "right");
-    assert.equal(dockAnchor(80, 4).side, "left");
-    assert.equal(dockAnchor(80, 5).side, "left");
+test("at every edge three whole triangles face the screen, whichever way it has turned", () => {
+    for (const edge of EDGES) {
+        for (let turns = -7; turns <= 7; turns++) {
+            const rotation = baseRotation(edge) + TURN * turns;
+            const shown = [0, 1, 2, 3, 4, 5].filter(index => facesInward(angleOf(index, rotation), edge));
+            assert.equal(shown.length, 3, `${edge}, ${turns} turns`);
+        }
+    }
+    // At the right edge, unturned, the point straight into the screen (180°) shows with its two neighbours.
+    const rotation = baseRotation("right");
+    assert.equal(rotation, 30);
+    assert.deepEqual([0, 1, 2, 3, 4, 5].filter(index => facesInward(angleOf(index, rotation), "right")), [3, 4, 5]);
+    // At the bottom edge the top point (mic) faces the screen.
+    assert.equal(baseRotation("bottom"), 0);
+    assert.ok(facesInward(angleOf(0, 0), "bottom"));
+});
+
+test("one turn brings one more feature into view and puts one away", () => {
+    const before = [0, 1, 2, 3, 4, 5].filter(index => facesInward(angleOf(index, 30), "right"));
+    const after = [0, 1, 2, 3, 4, 5].filter(index => facesInward(angleOf(index, 30 + TURN), "right"));
+    assert.equal(before.filter(index => !after.includes(index)).length, 1);
+    assert.equal(after.filter(index => !before.includes(index)).length, 1);
+});
+
+test("a feature docks out beyond its point, its label growing towards the middle of the screen", () => {
+    assert.deepEqual(inwardSide("right"), "left");
+    assert.deepEqual(inwardSide("left"), "right");
+    assert.deepEqual(inwardSide("top"), "bottom");
+    assert.deepEqual(inwardSide("bottom"), "top");
+    const { at, side } = dockAt(72, 180, inwardSide("right"));
+    assert.deepEqual(at, { x: -72, y: 0 });
+    assert.equal(side, "left");
 });

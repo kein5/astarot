@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
 import * as registry from "../../../../../../logics/configs/experimentalFeatures.ts";
+import * as hexagram from "../../../../../../logics/companion/hexagram.ts";
 
 const REGISTRY_PATH = "../../../../../../logics/configs/experimentalFeatures.ts";
 
@@ -22,13 +23,16 @@ async function load(context, registryModule = registry) {
             setExperimentalFeatures: value => { writes.push(value); },
         }) },
         [REGISTRY_PATH]: registryModule,
-        "../_templates/Templates": { SwitchBoxContainer: "switch" },
+        "../_templates/Templates": { SwitchBoxContainer: "switch", DropdownMenuContainer: "dropdown" },
+        "../../../../../../logics/companion/hexagram.ts": hexagram,
     });
     const render = props => runtime.render(module.ExperimentalFeatureList, props);
     return { module, runtime, render, writes, current };
 }
 
-const children = tree => [tree.props.children].flat(Infinity).filter(Boolean);
+const flat = tree => [tree.props.children].flat(Infinity).filter(Boolean);
+// Each feature is a group: its switch, and below it any setting of its own.
+const children = tree => flat(tree).flatMap(item => (item.type === "div" ? flat(item) : [item]));
 
 test("the page says there is nothing to try while no feature is listed", async context => {
     const s = await load(context);
@@ -95,4 +99,22 @@ test("the tray companion is listed and stays off until the user turns it on", as
     assert.equal(switches[0].props.variable.data, false);
     switches[0].props.toggleFunction();
     assert.deepEqual(s.writes, [{ tray_companion: true }]);
+});
+
+test("while the tray companion is on, the edge its hexagram hides at can be chosen under its switch", async context => {
+    const s = await load(context);
+    const edges = [];
+    const edge = { current: { state: "ok", data: "right" }, set: value => { edges.push(value); } };
+    const features = [{ id: "tray_companion" }];
+    const off = s.render({ features, current: { state: "ok", data: { tray_companion: false } }, setValues: () => {}, edge });
+    assert.equal(children(off).some(item => typeof item.type === "function"), false, "off: no edge to choose");
+    const on = s.render({ features, current: { state: "ok", data: { tray_companion: true } }, setValues: () => {}, edge });
+    const chooser = children(on).find(item => typeof item.type === "function");
+    const dropdown = chooser.type(chooser.props);
+    assert.equal(dropdown.type, "dropdown");
+    assert.equal(dropdown.props.selected_id, "right");
+    assert.deepEqual(Object.keys(dropdown.props.list), ["right", "left", "top", "bottom"]);
+    assert.equal(dropdown.props.list.top, "config_page.experimental_features.items.tray_companion.edge.top");
+    dropdown.props.selectFunction({ selected_id: "top" });
+    assert.deepEqual(edges, ["top"]);
 });

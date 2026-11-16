@@ -1343,6 +1343,15 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set",
         base_endpoint_name: "experimental_features",
     },
+    {
+        // The screen edge the tray companion's hexagram hides at (experimental feature tray_companion).
+        Category: "ExperimentalFeatures",
+        Base_Name: "TrayCompanionEdge",
+        default_value: "right",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "tray_companion_edge",
+    },
 
 ];
 

@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useI18n } from "@useI18n";
 import { store } from "@store";
 import { useIsBackendReady, useWindow } from "@logics_common";
-import { useExperimentalFeature } from "@logics_configs";
+import { useExperimentalFeature, useExperimentalFeatures } from "@logics_configs";
 import { useMainFunction } from "@logics_main";
 import { useBackendStartup } from "../../../logics/common/useBackendStartup";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
@@ -38,6 +38,7 @@ type CompanionStore = { companion_hide?: () => Promise<unknown> };
 export const CompanionController = () => {
     const { t, i18n } = useI18n();
     const on = useExperimentalFeature(TRAY_COMPANION);
+    const { currentTrayCompanionEdge: edge } = useExperimentalFeatures() as { currentTrayCompanionEdge: StoreValue };
     const { currentIsBackendReady } = useIsBackendReady() as { currentIsBackendReady: StoreValue };
     const main = useMainFunction() as MainFunction;
     const { asyncQuitApp } = useWindow() as { asyncQuitApp: () => unknown };
@@ -95,10 +96,10 @@ export const CompanionController = () => {
         if (!on) return;
         invoke("companion_publish", { status: companionStatus({
             ready: currentIsBackendReady.data, mic, translation, listening, ocr, tts: voiceStates.tts, rvc: voiceStates.rvc,
-            language: i18n.language, t,
+            edge: edge?.data, language: i18n.language, t,
         }) }).catch(error => console.error("Companion state could not be reported", error));
     }, [on, currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
-        ocr?.data, ocr?.state, voiceStates, i18n.language, t]);
+        ocr?.data, ocr?.state, voiceStates, edge?.data, i18n.language, t]);
 
     // Any dialog the main window opens (the start-up notices among them) needs the user too.
     useEffect(() => {

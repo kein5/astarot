@@ -9,7 +9,7 @@ test("the reported state holds only the six switches, the UI language and the tr
     const status = companionStatus({ ready: true, mic: { state: "ok", data: true },
         translation: { state: "pending", data: false }, listening: { state: "ok", data: true },
         ocr: { state: "ok", data: false }, tts: { on: true, pending: false }, rvc: { on: false, pending: true },
-        language: "ja", t });
+        edge: "bottom", language: "ja", t });
     assert.deepEqual(status, {
         ready: true,
         mic: { on: true, pending: false },
@@ -19,15 +19,17 @@ test("the reported state holds only the six switches, the UI language and the tr
         tts: { on: true, pending: false },
         rvc: { on: false, pending: true },
         language: "ja",
+        edge: "bottom",
         menu: { start: "t:companion.menu_start", stop: "t:companion.menu_stop", panel: "t:companion.menu_panel",
             main: "t:companion.menu_main", quit: "t:companion.menu_quit" },
     });
 });
 
-test("an unknown language falls back to English and a missing switch reads as off", () => {
-    const status = companionStatus({ ready: undefined, mic: undefined, translation: { data: "yes" }, language: "fr", t });
+test("an unknown language or edge falls back to English and the right edge, and a missing switch reads as off", () => {
+    const status = companionStatus({ ready: undefined, mic: undefined, translation: { data: "yes" }, edge: "middle", language: "fr", t });
     assert.equal(status.ready, false);
     assert.equal(status.language, "en");
+    assert.equal(status.edge, "right");
     for (const feature of FEATURES) assert.deepEqual(status[feature], off, feature);
 });
 

@@ -1,3 +1,5 @@
+import { isEdge, type Edge } from "./hexagram.ts";
+
 // The tray companion (experimental feature "tray_companion", Issue #355). The main window
 // reports only the switches and the words the tray menu needs; never what was said or typed.
 // The shapes match `Status` in src-tauri/src/companion.rs.
@@ -17,6 +19,8 @@ export type CompanionStatus = {
     ready: boolean;
     language: Language;
     menu: MenuLabels;
+    // The screen edge the hexagram hides at (TRAY_COMPANION_EDGE).
+    edge: Edge;
 } & Record<Feature, Switch>;
 
 // A store value as the main window's hooks hand it over: { state: "ok" | "pending", data }.
@@ -33,7 +37,7 @@ const toSwitch = (value: StoreValue): Switch => ({ on: value?.data === true, pen
 
 const isLanguage = (value: unknown): value is Language => (LANGUAGES as readonly unknown[]).includes(value);
 
-export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, rvc, language, t }: {
+export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, rvc, edge, language, t }: {
     ready: unknown;
     mic: StoreValue;
     translation: StoreValue;
@@ -42,6 +46,7 @@ export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, 
     // Already worked out by the main page's switches (logics/voice/voiceActions.ts).
     tts?: Switch;
     rvc?: Switch;
+    edge?: unknown;
     language: unknown;
     t: (key: string) => string;
 }): CompanionStatus => ({
@@ -53,6 +58,7 @@ export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, 
     tts: { on: tts?.on === true, pending: tts?.pending === true },
     rvc: { on: rvc?.on === true, pending: rvc?.pending === true },
     language: isLanguage(language) ? language : "en",
+    edge: isEdge(edge) ? edge : "right",
     menu: {
         start: t("companion.menu_start"),
         stop: t("companion.menu_stop"),

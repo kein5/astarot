@@ -988,7 +988,14 @@ config_page:
         items:
             tray_companion:
                 label: "Live in the system tray"
-                desc: "Keeps VRCT-VOX in the system tray and works through the desktop captions and a small control panel. From the next start the app opens in the tray without its main window, and closing the main window leaves it there. Turn the microphone and translation on or off in the panel, opened from the tray icon or from the small handle beside the captions. This feature is still being tested."
+                desc: "Keeps VRCT-VOX in the system tray and works through the desktop captions and a hexagram hidden at the edge of the screen. From the next start the app opens in the tray without its main window, and closing the main window leaves it there. Bring the mouse to the edge and half of the hexagram comes out. Turn it with the wheel, hover a triangle, and press the label that comes out to switch that feature. This feature is still being tested."
+                edge:
+                    label: "Screen edge for the hexagram"
+                    desc: "Bring the mouse to the middle of this edge and the hexagram comes out."
+                    right: "Right"
+                    left: "Left"
+                    top: "Top"
+                    bottom: "Bottom"
 
     advanced_settings:
         section_label_osc: "OSC"

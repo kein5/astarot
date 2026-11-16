@@ -1,6 +1,6 @@
 import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 
-// The handle window is see-through: only the magic circle and a docked label are painted. Its
+// The hexagram's window is see-through: only the magic circle and a docked label are painted. Its
 // colours are the ASTAROT palette (docs/brand/astarot): the deep purple as the plate, the light
 // lilac as the lines, the violet for a feature that is on. Like the caption plates, it does not
 // follow the app's theme: it sits over a game, not over the app.
@@ -14,18 +14,29 @@ globalStyle("body", { userSelect: "none", fontFamily: '"Yu Gothic UI", "Noto San
 
 const quick = { "@media": { "(prefers-reduced-motion: reduce)": { transition: "none", animation: "none" } } };
 
-export const root = style({
-    position: "relative", width: "100%", height: "100%",
-    // Faint at rest so the captions stay the thing to read; plain while the pointer is on it.
-    opacity: 0.55, transition: "opacity .15s",
-    selectors: { '&[data-open="true"]': { opacity: 1 } },
-    ...quick,
-});
+export const root = style({ position: "relative", width: "100%", height: "100%" });
 
 export const canvas = style({ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible" });
 
-export const star = style({ transition: "transform .18s cubic-bezier(.2, .7, .3, 1)", ...quick });
+// It comes out over its edge: from beyond the edge to its place.
+const arriveFrom = (x: number, y: number) => keyframes({
+    from: { transform: `translate(${x}px, ${y}px)`, opacity: 0 },
+    to: { transform: "translate(0, 0)", opacity: 1 },
+});
+const fromRight = arriveFrom(36, 0), fromLeft = arriveFrom(-36, 0), fromTop = arriveFrom(0, -36), fromBottom = arriveFrom(0, 36);
 
+export const arrive = style({
+    animation: `${fromRight} .18s cubic-bezier(.2, .7, .3, 1)`,
+    selectors: {
+        [`${root}[data-edge="left"] &`]: { animationName: fromLeft },
+        [`${root}[data-edge="top"] &`]: { animationName: fromTop },
+        [`${root}[data-edge="bottom"] &`]: { animationName: fromBottom },
+    },
+    ...quick,
+});
+
+// The wheel turns it a point at a time.
+export const star = style({ transition: "transform .2s cubic-bezier(.2, .7, .3, 1)", ...quick });
 export const plate = style({ fill: PLATE });
 
 export const ring = style({ fill: "none", stroke: LINE, strokeWidth: 1.6, opacity: 0.7 });
@@ -38,6 +49,8 @@ export const point = style({
         '&[data-pending="true"]': { opacity: 0.5 },
         '&[data-docked="true"]': { stroke: "#ffffff", strokeWidth: 3.2 },
         '&[data-docked="true"]:not([data-on="true"])': { fill: "rgba(227, 221, 233, 0.22)" },
+        // Turned beyond the edge: half off the screen, not one to aim at.
+        '&[data-shown="false"]': { opacity: 0.35, pointerEvents: "none" },
     },
     ...quick,
 });

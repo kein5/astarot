@@ -1,6 +1,6 @@
-// The tray companion's handle is a magic circle around a hexagram, the shape of the ASTAROT
-// symbol (docs/brand/astarot). Each of the six triangles at the star's points stands for one
-// of the main switches; hovering one docks that feature out beyond its point.
+// The tray companion's hexagram: a magic circle around a hexagram, the shape of the ASTAROT symbol
+// (docs/brand/astarot). Each of the six triangles at the star's points stands for one of the main
+// switches; hovering one docks that feature out beyond its point, towards the middle of the screen.
 //
 // A hexagram of circumradius R is two equilateral triangles. Its points are at -90°, -30°, 30°,
 // 90°, 150° and 210° (clockwise from the top, y down); the two triangles cross on a hexagon of
@@ -33,11 +33,34 @@ export const innerHexagon = (radius: number): readonly Point[] =>
 
 export const polygon = (points: readonly Point[]): string => points.map(({ x, y }) => `${x},${y}`).join(" ");
 
-// Where a feature docks out: `distance` from the centre beyond its point, and which side of
-// that spot the docked label grows to, so it leaves the star instead of covering it.
-export const dockAnchor = (distance: number, index: number): { at: Point; side: Side } => {
-    const angle = pointAngle(index);
-    const spot = at(distance, angle);
-    const side: Side = angle === -90 ? "top" : angle === 90 ? "bottom" : spot.x > 0 ? "right" : "left";
-    return { at: spot, side };
-};
+// The screen edge the hexagram hides at (TRAY_COMPANION_EDGE). Out, its centre is on the edge, so
+// only the half towards the screen shows.
+export const EDGES = ["right", "left", "top", "bottom"] as const;
+export type Edge = (typeof EDGES)[number];
+export const isEdge = (value: unknown): value is Edge => (EDGES as readonly unknown[]).includes(value);
+
+// The direction from the edge into the screen, and the side a docked label grows to: towards the
+// middle of the screen.
+const INWARD: Record<Edge, number> = { right: 180, left: 0, top: 90, bottom: -90 };
+const INWARD_SIDE: Record<Edge, Side> = { right: "left", left: "right", top: "bottom", bottom: "top" };
+export const inwardSide = (edge: Edge): Side => INWARD_SIDE[edge];
+
+// One turn of the wheel turns the hexagram by one point.
+export const TURN = 60;
+
+// The rotation that points one triangle straight into the screen, so that three whole
+// triangles show (that one and its two neighbours) and three hide beyond the edge.
+export const baseRotation = (edge: Edge): number => (((INWARD[edge] + 90) % TURN) + TURN) % TURN;
+
+// The angle of the index-th point after the hexagram has turned by `rotation`.
+export const angleOf = (index: number, rotation: number): number => pointAngle(index) + rotation;
+
+const difference = (a: number, b: number) => Math.abs(((((a - b) % 360) + 540) % 360) - 180);
+
+// The point shows whole, on the screen's side of the edge.
+export const facesInward = (angle: number, edge: Edge): boolean => difference(angle, INWARD[edge]) <= TURN + 0.5;
+
+// Where a feature docks out: `distance` from the centre beyond its point, the label growing to
+// `side` (towards the middle of the screen), so it leaves the hexagram instead of covering it.
+export const dockAt = (distance: number, angle: number, side: Side): { at: Point; side: Side } =>
+    ({ at: at(distance, angle), side });

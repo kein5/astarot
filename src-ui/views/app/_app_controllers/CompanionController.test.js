@@ -8,7 +8,7 @@ import * as voice from "../../../logics/voice/voiceActions.ts";
 async function setup(context, { on = false } = {}) {
     const runtime = hooks(), calls = [], listeners = new Map(), toggles = [];
     const state = { on, ready: false, mic: { state: "ok", data: false }, request: null, setup: null,
-        startup: "running", queue: [], quits: 0 };
+        startup: "running", queue: [], quits: 0, edge: "right" };
     const store = {};
     const invoke = async (command, args) => {
         calls.push([command, args]);
@@ -23,7 +23,8 @@ async function setup(context, { on = false } = {}) {
         "@store": { store },
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }),
             useWindow: () => ({ asyncQuitApp: () => { state.quits++; } }) },
-        "@logics_configs": { useExperimentalFeature: id => id === "tray_companion" && state.on },
+        "@logics_configs": { useExperimentalFeature: id => id === "tray_companion" && state.on,
+            useExperimentalFeatures: () => ({ currentTrayCompanionEdge: { state: "ok", data: state.edge } }) },
         "@logics_main": { useMainFunction: () => ({ currentTranscriptionSendStatus: state.mic,
             currentTranslationStatus: { state: "ok", data: false },
             currentTranscriptionReceiveStatus: { state: "ok", data: false }, currentOcrCaptureStatus: { state: "ok", data: true },
@@ -64,6 +65,10 @@ test("turned on, it starts the tray, reports the switches and runs what the tray
     assert.equal(reported.ready, true);
     assert.deepEqual(reported.mic, { on: true, pending: false });
     assert.equal(reported.language, "ja");
+    assert.equal(reported.edge, "right");
+    s.state.edge = "top";
+    await s.render();
+    assert.equal(s.of("companion_publish").at(-1).status.edge, "top", "a changed edge is reported");
     assert.deepEqual(reported.ocr, { on: true, pending: false });
     voice.voiceActions.toggleTts = () => s.toggles.push("tts");
     voice.voiceActions.toggleRvc = () => s.toggles.push("rvc");
