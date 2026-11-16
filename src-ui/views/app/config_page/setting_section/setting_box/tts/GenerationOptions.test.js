@@ -1,4 +1,5 @@
 import * as routeState from "../../../../../../logics/voice/routeState.ts";
+import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDraft.ts";
 import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.js";
 import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceErrorText.ts";
 import assert from "node:assert/strict";
@@ -88,6 +89,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
     const { DirectVoiceSettings } = await loadModule(new URL("../advanced_settings/DirectVoiceSettings.jsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft }) },
         "../../../../../../logics/voice/routeState": routeState,
+        "../../../../../../logics/voice/directVoiceDraft": directVoiceDraft,
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ directState: { settings: draft }, directSources: {},
             settings: { routing: "managed" }, route: {}, send: () => {}, setDirectDraftBlocked: () => {} }), sourceKey: value => value },
         "../device/VoiceRouteSettings": { VoiceRouteSummary: "route", VoiceRouteControls: "controls" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,
