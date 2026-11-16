@@ -1,5 +1,5 @@
 {
- "version": "0.4.0-beta.1",
+ "version": "0.4.0",
  "websocket_token": "fixed-websocket-token-for-the-reference",
  "cpu_device": {
   "device": "cpu",
@@ -719,7 +719,7 @@
     "LEGACY_MODEL_DOWNLOAD_CONSENTS": {},
     "SELECTED_TAB_NO": "1",
     "SELECTED_TRANSCRIPTION_ENGINE": null,
-    "SELECTED_RELEASE_CHANNEL": "beta",
+    "SELECTED_RELEASE_CHANNEL": "stable",
     "CTRANSLATE2_WEIGHT_TYPE": "m2m100_418M-ct2-int8",
     "CTRANSLATE2_LICENSE_NOTICE_SHOWN": false,
     "LOCAL_ASR_MIGRATION": 2,
@@ -2000,7 +2000,7 @@
     "LEGACY_MODEL_DOWNLOAD_CONSENTS": {},
     "SELECTED_TAB_NO": "1",
     "SELECTED_TRANSCRIPTION_ENGINE": null,
-    "SELECTED_RELEASE_CHANNEL": "beta",
+    "SELECTED_RELEASE_CHANNEL": "stable",
     "CTRANSLATE2_WEIGHT_TYPE": "m2m100_418M-ct2-int8",
     "CTRANSLATE2_LICENSE_NOTICE_SHOWN": false,
     "LOCAL_ASR_MIGRATION": 2,
