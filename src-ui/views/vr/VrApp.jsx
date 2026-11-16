@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { emit, listen } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import { getDefaultStore } from "jotai";
 
 import { dynamicStoreRegistry } from "@store";
@@ -21,6 +21,7 @@ import { VrTooltip } from "./VrTooltip";
 import { keepNewestVrLayout } from "../../logics/common/vrPanelTooltip";
 import { decodeLogUpdate, decodeOrdered, isLogUpdate } from "../../logics/common/vrPanelWire";
 import { trackVrPointerHover } from "./vrPanelHover";
+import { sendToMain } from "../../logics/common/vrPanelSend.ts";
 
 import styles from "./VrApp.module.scss";
 
@@ -71,7 +72,7 @@ export const VrApp = () => {
     // (メインがメイン機能を止め、閉じたら戻す。VrPanelSyncController)
     const is_settings_open = windows.popup === "settings";
     useEffect(() => {
-        emit("vr-panel-config-page", is_settings_open);
+        sendToMain("vr-panel-config-page", is_settings_open).catch(console.error);
     }, [is_settings_open]);
     // デスクトップ側で設定画面が閉じられたら、VR設定ウィンドウも閉じる
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
@@ -137,7 +138,7 @@ const VrStateReceiver = () => {
                 if (isLogUpdate(encoded)) {
                     const log = decodeLogUpdate(receivedLog, encoded);
                     if (!log) {
-                        if (!isAwaitingFullLog) emit("vr-panel-ready");
+                        if (!isAwaitingFullLog) sendToMain("vr-panel-ready").catch(console.error);
                         isAwaitingFullLog = true;
                         continue;
                     }
@@ -154,7 +155,7 @@ const VrStateReceiver = () => {
         };
         // 受信の準備ができてから全状態を要求する (メインが先に起動していた場合)
         invoke("vr_panel_state_subscribe", { channel })
-            .then(() => { if (active) emit("vr-panel-ready"); })
+            .then(() => { if (active) return sendToMain("vr-panel-ready"); })
             .catch(console.error);
         return () => { active = false; };
     }, []);

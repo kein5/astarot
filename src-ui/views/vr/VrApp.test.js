@@ -25,6 +25,8 @@ test("closed log region is inert and unpainted while the receiver keeps its data
         "./VrLauncher": { VrLauncher }, "./VrLogWindow": { VrLogWindow }, "./VrPopupWindow": { VrPopupWindow: () => null },
         "./VrToolbar": { VrToolbar: () => null }, "./VrTooltip": { VrTooltip: () => null }, "./vrPanelHover": {},
         "../../logics/common/vrPanelTooltip": { keepNewestVrLayout }, "../../logics/common/vrPanelWire": wire,
+        // #397: the panel sends nothing as an event; it asks Rust to pass it on to the main window.
+        "../../logics/common/vrPanelSend.ts": { sendToMain: async (...args) => { emitted.push(args); } },
     });
     const closed = runtime.render(VrApp);
     const log = find(closed, node => node.type === VrLogWindow);

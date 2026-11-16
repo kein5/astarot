@@ -16,7 +16,7 @@ flowchart LR
   side["サイドカー（Rustの中核, native/core。アプリのプロセスの中）"]
   main -- "backend_write: 要求（1行のJSON）" --> side
   side -- "Channel: 応答と通知（1行のJSON）" --> main
-  vr -- "Tauriイベント vr-panel-stdout" --> main
+  vr -- "Tauriコマンド vr_panel_send（vr-panel-stdout）" --> main
   qc -- "Tauriコマンド quick_chat_submit" --> main
 ```
 

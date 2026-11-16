@@ -221,6 +221,7 @@ pub fn run() {
             portal_screencast::screencast_support, portal_screencast::screencast_start,
             portal_screencast::screencast_stop,
             vr_panel_state::vr_panel_state_subscribe, vr_panel_state::vr_panel_state_push,
+            vr_panel_state::vr_panel_send,
             app_update::app_update_info, app_update::app_update_check, app_update::app_update_install])
         .build(context)
         .map(|app| app.run(|app, event| {

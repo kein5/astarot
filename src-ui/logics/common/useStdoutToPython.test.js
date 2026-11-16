@@ -14,7 +14,7 @@ async function setup() {
         export const store = {backend_subprocess: null, backend_session: {expectedExits: new Map()}};
         export const events = [], notices = [];
         export const encode = value => Buffer.from(value).toString('base64');
-        export const emit = async (...args) => events.push(['relay', ...args]);
+        export const sendToMain = async (...args) => events.push(['relay', ...args]);
         export const useI18n = () => ({t: key => key});
         export const useNotificationStatus = () => ({showNotification_Error: (...args) => notices.push(args)});
         export const isLanguageMutation = path => path === '/set/data/selected_target_languages';
@@ -27,7 +27,7 @@ async function setup() {
     `) + `#${crypto.randomUUID()}`;
     const deps = await import(dependencies);
     let source = await readFile(new URL("./useStdoutToPython.js", import.meta.url), "utf8");
-    for (const name of ["@store", "js-base64", "./useNotificationStatus", "@useI18n", "@tauri-apps/api/event", "../main/languageMutations"])
+    for (const name of ["@store", "js-base64", "./useNotificationStatus", "@useI18n", "./vrPanelSend.ts", "../main/languageMutations"])
         source = source.replace(JSON.stringify(name), JSON.stringify(dependencies));
     source = source.replace('"./pendingRequestRecovery.ts"', JSON.stringify(new URL("./pendingRequestRecovery.ts", import.meta.url).href));
     source = source.replace('"./sidecarExitExpectation.ts"', JSON.stringify(new URL("./sidecarExitExpectation.ts", import.meta.url).href));
