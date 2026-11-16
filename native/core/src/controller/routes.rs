@@ -105,6 +105,27 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         ok_true()
     });
     b.with("/run/swap_your_language_and_target_language", OPEN, |core, _| languages::swap_languages(core));
+    // Turning translation on loads the local model and waits for the translation pipeline;
+    // turning it off only clears the switch (no spoken translation runs in the core yet).
+    b.with("/set/disable/translation", WAIT, |core, _| {
+        let _ = core.config().set("ENABLE_TRANSLATION", json!(false));
+        ok(core.config().get("ENABLE_TRANSLATION"))
+    });
+
+    // Audio devices: the saved choices (listing and following the devices wait for the
+    // audio routing to be wired)
+    for (name, key) in [
+        ("auto_mic_select", "AUTO_MIC_SELECT"),
+        ("auto_speaker_select", "AUTO_SPEAKER_SELECT"),
+        ("selected_mic_host", "SELECTED_MIC_HOST"),
+        ("selected_mic_device", "SELECTED_MIC_DEVICE"),
+        ("selected_mic_device_id", "SELECTED_MIC_DEVICE_ID"),
+        ("selected_speaker_device", "SELECTED_SPEAKER_DEVICE"),
+        ("selected_speaker_device_id", "SELECTED_SPEAKER_DEVICE_ID"),
+    ] {
+        b.get(&format!("/get/data/{name}"), OPEN, key);
+    }
+    b.get("/get/data/voice_settings", OPEN, "VOICE_SETTINGS");
 
     // Appearance
     b.get("/get/data/version", OPEN, "VERSION");
@@ -186,6 +207,17 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.add("/set/data/mic_no_speech_prob", OPEN, no_speech);
     b.switch("mic_vad_filter", "MIC_ENABLE_VAD", true);
     b.get("/get/data/mic_word_filter", OPEN, "MIC_WORD_FILTER");
+    // The filter is applied by the recognition, which reads the stored words when it starts.
+    b.with("/set/data/mic_word_filter", OPEN, |core, data| {
+        // Python let anything but a list of words raise: 500.
+        if !data.is_array() {
+            return Reply::status(500, "Internal error");
+        }
+        match core.config().set("MIC_WORD_FILTER", data.clone()) {
+            Ok(value) => ok(value),
+            Err(_) => Reply::status(500, "Internal error"),
+        }
+    });
 
     b.get("/get/data/speaker_threshold", OPEN, "SPEAKER_THRESHOLD");
     let speaker_threshold = integer(core, "SPEAKER_THRESHOLD", "VALIDATION_SPEAKER_THRESHOLD", |v, c| {
@@ -267,7 +299,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.add("/set/data/received_message_format_parts", OPEN, received_format);
     b.switch("auto_clear_message_box", "AUTO_CLEAR_MESSAGE_BOX", true);
     b.switch("send_only_translated_messages", "SEND_ONLY_TRANSLATED_MESSAGES", true);
-    b.get("/get/data/logger_feature", OPEN, "LOGGER_FEATURE");
+    // The message log is written by the message pipeline, which reads this switch.
+    b.switch("logger_feature", "LOGGER_FEATURE", true);
+    b.switch("check_software_updates", "CHECK_SOFTWARE_UPDATES", true);
     b.get("/get/data/vrc_mic_mute_sync", OPEN, "VRC_MIC_MUTE_SYNC");
     b.get("/get/data/send_message_to_vrc", OPEN, "SEND_MESSAGE_TO_VRC");
     b.switch("send_received_message_to_vrc", "SEND_RECEIVED_MESSAGE_TO_VRC", true);
@@ -334,4 +368,8 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::telemetry::add,
     super::downloads::add,
     super::adapters::add,
+    super::credentials::add,
+    super::ocr::add,
+    super::overlay::add,
+    super::files::add,
 ];

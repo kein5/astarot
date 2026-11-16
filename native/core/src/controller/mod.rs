@@ -6,6 +6,10 @@
 
 mod downloads;
 pub mod adapters;
+mod credentials;
+mod files;
+mod ocr;
+mod overlay;
 mod languages;
 pub mod legacy_weights;
 mod lifecycle;
@@ -192,6 +196,10 @@ pub struct Core {
     shut_down: Mutex<bool>,
     /// The language and engine settings change together under this lock.
     pub(crate) language_lock: Mutex<()>,
+    /// A key, its URL and its models change together under this lock (`config.credential_lock`).
+    pub(crate) credential_lock: Mutex<()>,
+    /// The VR windows' saved positions change under this lock (`_VR_WINDOW_SETTINGS_LOCK`).
+    pub(crate) vr_window_lock: Mutex<()>,
     translation_available: Mutex<Option<bool>>,
     speech: speech::SpeechServers,
     /// The model downloads and the usage events, made on first use.
@@ -211,6 +219,8 @@ impl Core {
             shutdown_requested: AtomicBool::new(false),
             shut_down: Mutex::new(false),
             language_lock: Mutex::new(()),
+            credential_lock: Mutex::new(()),
+            vr_window_lock: Mutex::new(()),
             translation_available: Mutex::new(None),
             speech,
             ops: std::sync::OnceLock::new(),
@@ -334,6 +344,12 @@ pub fn python_float(value: &Value) -> Option<f64> {
         Value::String(s) => s.trim().parse::<f64>().ok(),
         _ => None,
     }
+}
+
+/// Python's `round(value, digits)` for a finite float: the nearest decimal of the exact binary
+/// value, as Python rounds it (not `(value * 10^digits).round()`, which differs at some ties).
+pub fn python_round(value: f64, digits: usize) -> f64 {
+    format!("{value:.digits$}").parse().unwrap_or(value)
 }
 
 /// `{"status": 200, "result": value}`.
