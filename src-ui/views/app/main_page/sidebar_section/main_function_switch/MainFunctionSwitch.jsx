@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useVoice, sourceKey } from "../../../../../logics/voice/useVoice";
 import { directRouteReady, usesOutputDevice } from "../../../../../logics/voice/routeState";
+import { rvcStartOptions } from "../../../../../logics/voice/rvcStartOptions";
 import { useNotificationStatus } from "../../../../../logics/common/useNotificationStatus";
 import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
 import { splitFeatureLabel } from "../../../../../logics/common/featureLabel.ts";
@@ -77,10 +78,7 @@ export const MainFunctionSwitch = () => {
             voice.directSources.error || !source || cfg?.mode !== "converted" || cfg?.engine !== "rvc" ||
             !cfg.rvc_runtime || !cfg.rvc_model)
             return notify(t(usesOutputDevice(voice.directState) ? "voice_ui.rvc_not_ready_device" : "voice_ui.rvc_not_ready"), rvcName);
-        voice.send("/run/start_direct_voice", { source: source.id, mode: "converted", options: {
-            engine: "rvc", runtime: cfg.rvc_runtime, model: cfg.rvc_model, index: cfg.rvc_index,
-            pitch: cfg.rvc_pitch, index_rate: cfg.rvc_index_rate,
-        } });
+        voice.send("/run/start_direct_voice", { source: source.id, mode: "converted", options: rvcStartOptions(cfg) });
     };
     // Hotkeys press the same switches, with today's state (logics/voice/voiceActions.js).
     useEffect(() => { voiceActions.toggleTts = toggleTts; voiceActions.toggleRvc = toggleRvc; });

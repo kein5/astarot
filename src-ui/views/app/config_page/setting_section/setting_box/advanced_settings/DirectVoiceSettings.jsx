@@ -18,9 +18,10 @@ import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { conversionDelaySeconds } from "../../../../../../logics/voice/conversionLatency";
 import { pathExample } from "../../../../../../logics/common/pathExample";
+import { MAX_RVC_THREADS, RVC_DEVICES, RVC_WORKER_DEFAULTS, rvcStartOptions } from "../../../../../../logics/voice/rvcStartOptions";
 
 const defaults = { mode: "passthrough", runtime: "", reference: "", engine: "seed-vc",
-    rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0 };
+    rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0, ...RVC_WORKER_DEFAULTS };
 // The example in each path field (voice_ui.example), written the way this OS writes paths.
 const exampleFiles = { runtime: "seed-vc-runtime", reference: "reference.wav",
     rvc_runtime: "rvc-runtime", rvc_model: "voice.pth", rvc_index: "voice.index" };
@@ -39,8 +40,9 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
         return value;
     }, [directState.settings, variant]);
     const busy = !!directPending || directState.requested || directState.pending || directState.stopping;
+    const validThreads = draft => Number.isInteger(draft.rvc_threads) && draft.rvc_threads >= 0 && draft.rvc_threads <= MAX_RVC_THREADS;
     const validNumbers = draft => Number.isInteger(draft.rvc_pitch) && Math.abs(draft.rvc_pitch) <= 24 &&
-        Number.isFinite(draft.rvc_index_rate) && draft.rvc_index_rate >= 0 && draft.rvc_index_rate <= 1;
+        Number.isFinite(draft.rvc_index_rate) && draft.rvc_index_rate >= 0 && draft.rvc_index_rate <= 1 && validThreads(draft);
     // The RVC page edits converted RVC; selecting it is itself a change to save.
     const needsSelection = draft => draft.mode !== directState.settings?.mode || draft.engine !== directState.settings?.engine;
     const label = ([name]) => t(name === "mode" ? "voice.direct_mode" : name === "engine" ? "voice.vc_engine" : `voice.vc_${name}`, { defaultValue: name });
@@ -74,9 +76,7 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
     const complete = !converted || (rvc ? (draft.rvc_runtime.trim() && /\.pth$/i.test(draft.rvc_model) &&
         (!draft.rvc_index || /\.index$/i.test(draft.rvc_index)) &&
         (!draft.rvc_index_rate || draft.rvc_index) && validNumbers(draft)) : (draft.runtime.trim() && draft.reference.trim()));
-    const options = rvc ? { engine: "rvc", runtime: draft.rvc_runtime, model: draft.rvc_model,
-        index: draft.rvc_index, pitch: draft.rvc_pitch, index_rate: draft.rvc_index_rate } :
-        { runtime: draft.runtime, reference: draft.reference };
+    const options = rvc ? rvcStartOptions(draft) : { runtime: draft.runtime, reference: draft.reference };
     let status = "voice.input_stopped";
     if (!directState.observation_id) status = "voice.input_unknown";
     else if (directState.error) status = "voice.input_failed";
@@ -134,6 +134,31 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
             </label>)}
         {converted && rvc && !validNumbers(draft) && <p id={numbersErrorId} role="alert">{t("voice_ui.invalid_rvc_numbers")}</p>}
         {converted && rvc && draft.rvc_index_rate > 0 && !draft.rvc_index && <p role="alert">{t("voice_ui.rvc_index_required")}</p>}
+        {/* Where and how the worker converts; read at Start. */}
+        {converted && rvc && <SetupSection title={t("voice_ui.rvc_worker_title")}
+            status={t("voice_ui.rvc_worker_status", { device: t(`voice.vc_rvc_device_${draft.rvc_device}`, { defaultValue: draft.rvc_device }),
+                threads: draft.rvc_threads ? draft.rvc_threads : t("voice_ui.rvc_threads_auto"),
+                highpass: t(draft.rvc_highpass ? "voice_ui.rvc_highpass_on" : "voice_ui.rvc_highpass_off") })}>
+            <Description text={t("voice_ui.rvc_worker_hint")} />
+            <label>{t("voice.vc_rvc_device")}
+                <select aria-label={t("voice.vc_rvc_device")} value={draft.rvc_device} disabled={busy}
+                    onChange={e => setDraft({ ...draft, rvc_device: e.target.value })}>
+                    {RVC_DEVICES.map(device => <option key={device} value={device}>{t(`voice.vc_rvc_device_${device}`)}</option>)}
+                </select>
+            </label>
+            <label>{t("voice.vc_rvc_threads")}
+                <input type="number" min={0} max={MAX_RVC_THREADS} step={1} disabled={busy}
+                    placeholder={t("voice_ui.example", { value: 4 })}
+                    aria-invalid={!validThreads(draft)} aria-describedby={!validNumbers(draft) ? numbersErrorId : undefined}
+                    value={Number.isFinite(draft.rvc_threads) ? draft.rvc_threads : ""}
+                    onChange={e => setDraft({ ...draft, rvc_threads: e.target.valueAsNumber })} />
+            </label>
+            <label>
+                <input type="checkbox" checked={!!draft.rvc_highpass} disabled={busy}
+                    onChange={e => setDraft({ ...draft, rvc_highpass: e.target.checked })} />
+                {t("voice.vc_rvc_highpass")}
+            </label>
+        </SetupSection>}
         </fieldset>
         <FormRow label={t("voice.input_source")} description={t(deviceRoute ? "voice.input_selection_hint_device" : "voice.input_selection_hint")}
             actions={<button type="button" onClick={() => send("/get/data/direct_voice_sources")}>{t("voice.refresh_inputs")}</button>}>

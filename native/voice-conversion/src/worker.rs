@@ -52,7 +52,18 @@ pub struct RvcOptions {
     pub index: String,
     pub pitch: i64,
     pub index_rate: f64,
+    /// `auto`, `cuda` or `cpu` (the worker's `--device`).
+    pub device: String,
+    /// CPU threads per network; 0 lets the worker choose.
+    pub threads: u32,
+    /// The causal input high-pass (`--highpass on|off`).
+    pub highpass: bool,
 }
+
+/// What the worker's `--device` takes.
+pub const DEVICES: [&str; 3] = ["auto", "cuda", "cpu"];
+/// The most CPU threads per network a start may ask for.
+pub const MAX_THREADS: u32 = 64;
 
 /// Python's `str()` of the index rate: `0` for an int, `0.5`, `1.0` for floats.
 pub fn rate_text(rate: f64, was_integer: bool) -> String {
@@ -67,7 +78,7 @@ pub fn rate_text(rate: f64, was_integer: bool) -> String {
 
 /// The worker's arguments.
 pub fn arguments(options: &RvcOptions, rate_text: &str, session: &str) -> Vec<String> {
-    vec![
+    let mut args: Vec<String> = vec![
         "--runtime".into(),
         options.runtime.to_string_lossy().into_owned(),
         "--model".into(),
@@ -80,7 +91,16 @@ pub fn arguments(options: &RvcOptions, rate_text: &str, session: &str) -> Vec<St
         options.pitch.to_string(),
         "--index-rate".into(),
         rate_text.into(),
-    ]
+        "--device".into(),
+        options.device.clone(),
+        "--highpass".into(),
+        (if options.highpass { "on" } else { "off" }).into(),
+    ];
+    // Without `--threads` the worker picks the count for the device it ends up on.
+    if options.threads > 0 {
+        args.extend(["--threads".into(), options.threads.to_string()]);
+    }
+    args
 }
 
 type Packet = Result<(Info, Vec<u8>), ProtocolError>;
@@ -174,5 +194,49 @@ impl WorkerPipe {
 impl Drop for WorkerPipe {
     fn drop(&mut self) {
         self.end();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::process::rvc_options;
+    use serde_json::json;
+
+    fn base() -> serde_json::Value {
+        json!({ "engine": "rvc", "runtime": "/r", "model": "/v.pth", "index": "", "pitch": 2, "index_rate": 0 })
+    }
+
+    #[test]
+    fn older_starts_without_the_worker_choices_keep_the_workers_defaults() {
+        let (options, rate) = rvc_options(&base()).unwrap();
+        assert_eq!((options.device.as_str(), options.threads, options.highpass), ("auto", 0, true));
+        let args = arguments(&options, &rate, "s");
+        assert_eq!(args[args.len() - 4..], ["--device", "auto", "--highpass", "on"], "no --threads: the worker picks");
+    }
+
+    #[test]
+    fn the_worker_choices_reach_its_arguments() {
+        let mut value = base();
+        value["device"] = json!("cpu");
+        value["threads"] = json!(6);
+        value["highpass"] = json!(false);
+        let (options, rate) = rvc_options(&value).unwrap();
+        let args = arguments(&options, &rate, "s");
+        assert_eq!(args[args.len() - 6..], ["--device", "cpu", "--highpass", "off", "--threads", "6"]);
+    }
+
+    #[test]
+    fn bad_worker_choices_are_refused() {
+        for (key, bad) in [("device", json!("gpu")), ("device", json!(null)), ("threads", json!(-1)), ("threads", json!(65)), ("threads", json!(1.5)),
+            ("highpass", json!("on")), ("other", json!(1))]
+        {
+            let mut value = base();
+            value[key] = bad.clone();
+            assert_eq!(rvc_options(&value).unwrap_err(), "vc_options_invalid", "{key}={bad}");
+        }
+        let mut missing = base();
+        missing.as_object_mut().unwrap().remove("pitch");
+        assert!(rvc_options(&missing).is_err());
     }
 }

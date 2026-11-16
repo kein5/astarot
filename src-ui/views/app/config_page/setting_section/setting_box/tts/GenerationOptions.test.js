@@ -1,4 +1,5 @@
 import * as routeState from "../../../../../../logics/voice/routeState.ts";
+import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
@@ -79,10 +80,10 @@ test("TTS form supplies an existing error ID to both language groups", async () 
     runtime.unmount(); s.runtime.unmount();
 });
 
-for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric fields reference their error (${pitch}, ${rate})`, async () => {
+for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [0, 0, 65], [0, 0, 1.5]]) test(`RVC numeric fields reference their error (${pitch}, ${rate}, ${threads})`, async () => {
     const runtime = hooks();
     const draft = { mode: "converted", engine: "rvc", rvc_pitch: pitch, rvc_index_rate: rate,
-        rvc_runtime: "", rvc_model: "", rvc_index: "" };
+        rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_device: "auto", rvc_threads: threads, rvc_highpass: true };
     const { DirectVoiceSettings } = await loadModule(new URL("../advanced_settings/DirectVoiceSettings.jsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft }) },
         "../../../../../../logics/voice/routeState": routeState,
@@ -100,13 +101,14 @@ for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric 
         "../../../../../../logics/common/fileDrop": { extensionOf: path => path.slice(path.lastIndexOf(".")).toLowerCase() },
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
         "../../../../../../logics/common/pathExample": { pathExample: file => `/models/${file}` },
+        "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
         "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
     });
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });
     const alert = find(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers");
     const fields = [];
     find(tree, node => { if (node.type === "input" && node.props.type === "number") fields.push(node); return false; });
-    assert.equal(fields.length, 2);
+    assert.equal(fields.length, 3);
     for (const field of fields) {
         assert.equal(field.props["aria-describedby"], alert.props.id);
         assert.equal(typeof field.props["aria-invalid"], "boolean");
@@ -114,7 +116,7 @@ for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric 
     assert.ok(fields.some(field => field.props["aria-invalid"]));
     // A cleared number field still shows what goes in it.
     assert.deepEqual(fields.map(field => field.props.placeholder),
-        [`voice_ui.example:${JSON.stringify({ value: 12 })}`, `voice_ui.example:${JSON.stringify({ value: 0.75 })}`]);
+        [12, 0.75, 4].map(value => `voice_ui.example:${JSON.stringify({ value })}`));
     // Each path field shows an example path, written the way this OS writes paths (pathExample).
     const paths = [];
     find(tree, node => { if (node.type === "input" && node.props.type === "text") paths.push(node); return false; });

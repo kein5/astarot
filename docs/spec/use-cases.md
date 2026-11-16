@@ -91,6 +91,7 @@
 
 - きっかけ: RVCのページで実行環境とモデルを用意し、「入力の転送を開始」を押す。
 - 主な流れ: 選んだマイクの声をRVCで変換し、仮想マイク（Windowsでは出力デバイス）へ流す。読み上げとは独立して動く。WindowsとLinux（x86-64）では、RVCのページから実行環境を取得できる。
+- 変換の装置と処理: RVCのページの「変換の装置と処理」で、変換に使う装置（`rvc_device`: `auto`、`cuda`、`cpu`）、CPUのスレッド数（`rvc_threads`: 0〜64、0は自動）、入力のハイパスフィルター（`rvc_highpass`）を選べる。`DIRECT_VOICE_SETTINGS`に保存し、開始のときに`/run/start_direct_voice`の`options`の`device`、`threads`、`highpass`として送る。ワーカーには`--device`、`--threads`（0のときは渡さない）、`--highpass on|off`で渡す。3つとも省略でき、省略したときと古い設定はワーカーの既定（`auto`、自動、オン）になる。
 - 関係: `/run/start_direct_voice`、`/run/stop_direct_voice`、`native/rvc-runtime/README.md`。
 
 ## UC-08 声と読み上げをすぐ止める
