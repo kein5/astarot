@@ -51,6 +51,7 @@
                 "quick-chat",
                 "caption-overlay",
                 "companion",
+                "vr-panel",
                 "vrct-capability"
             ],
             "devCsp": {
