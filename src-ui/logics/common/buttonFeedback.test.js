@@ -487,6 +487,9 @@ test("opening and closing settings keeps the same MainSection type and key mount
         assert.equal(page.ref, focusFallback);
         assert.equal(page.props.tabIndex, -1, "quick-dialog fallback is programmatically focusable");
         assert.equal(page.props["aria-hidden"], state);
+        // The packaged-app tests find the page and which one shows by these, not by hashed class names.
+        assert.equal(page.props["data-main-page"], "");
+        assert.equal(page.props["data-showing"], state ? "config" : "main");
         assert.equal(section.type, initial.type);
         assert.equal(section.key, initial.key);
     }

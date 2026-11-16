@@ -101,10 +101,10 @@ def test_native_settings_navigation_observes_open_and_close(tmp_path):
             for _ in range(20):
                 open_voice(ui)
                 ui.close_settings()
-                ui.wait("return document.querySelector('[class*=show_main]') !== null", timeout=3)
+                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
                 open_captions(ui)
                 ui.close_settings()
-                ui.wait("return document.querySelector('[class*=show_main]') !== null", timeout=3)
+                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
             ui.close_app()
 
 

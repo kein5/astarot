@@ -252,7 +252,7 @@ def test_wayland_explains_shortcut_limit_and_opens_from_button(tmp_path, monkeyp
         ui.open_voice_page('Hotkeys', '[data-setting-id="open_quick_chat"] input')
         ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent.includes('unavailable in native Wayland'))")
         ui.click_text('button', 'Open input window')
-        ui.wait("return document.querySelector('[class*=show_main]') !== null")
+        ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null")
         chat, = [handle for handle in ui.command('GET', '/window/handles') if handle != main]
         ui.command('POST', '/window', {'handle': chat})
         ui.wait("return document.activeElement?.getAttribute('aria-label') === 'Message'")

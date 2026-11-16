@@ -10,6 +10,8 @@ import { StartupProgress } from "./main_section/message_container/log_box/Startu
 // input: inert removes it from focus, pointer and the accessibility tree, and
 // data-starting turns what the engine has not sent yet ([data-skeleton]) into
 // placeholders of the same size. StartupAnnouncer, outside it, tells screen readers.
+// data-main-page and data-showing name the page and which page shows for tests that
+// drive the packaged app (tests/platform/native_webdriver.py): its class names are hashed.
 // The styles are vanilla-extract (ADR-010); the view stays JavaScript until the store
 // hooks it reads (useIsOpenedConfigPage) have types.
 export const MainPage = ({ focusFallback, locked = false }) => {
@@ -18,7 +20,8 @@ export const MainPage = ({ focusFallback, locked = false }) => {
 
     return (
         <div ref={focusFallback} tabIndex={-1} inert={hidden || locked ? "" : undefined} aria-hidden={hidden}
-            aria-busy={locked || undefined} data-starting={locked ? "" : undefined} className={clsx(styles.page, {
+            aria-busy={locked || undefined} data-starting={locked ? "" : undefined}
+            data-main-page="" data-showing={hidden ? "config" : "main"} className={clsx(styles.page, {
             [styles.showConfig]: hidden,
             [styles.showMain]: !hidden,
         })}>
