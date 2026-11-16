@@ -983,7 +983,9 @@ pub fn companion_show_main(window: WebviewWindow) -> Result<(), String> {
 #[tauri::command]
 pub async fn companion_hide_main(window: WebviewWindow, state: State<'_, CompanionState>) -> Result<bool, String> {
     from_main(window.label())?;
-    if state.lock()?.tray.is_none() {
+    // A statement of its own: the lock must not be held across the wait below.
+    let has_tray = state.lock()?.tray.is_some();
+    if !has_tray {
         return Ok(false);
     }
     #[cfg(target_os = "linux")]
