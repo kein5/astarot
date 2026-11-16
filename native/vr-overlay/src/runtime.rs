@@ -64,6 +64,16 @@ impl std::fmt::Display for VrError {
     }
 }
 
+/// The application SteamVR shows as the scene (the game), from `IVRApplications`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SceneApp {
+    /// The application key, such as `steam.app.438100`.
+    pub key: String,
+    /// The application's name (`VRApplicationProperty_Name_String`), such as `VRChat`.
+    pub name: String,
+    pub process_id: u32,
+}
+
 /// SteamVR on this machine.
 pub trait Vr: Send + Sync {
     /// Whether SteamVR runs (its `vrmonitor` process). Cheap; polled every 10 seconds.
@@ -104,6 +114,10 @@ pub trait Session: Send {
     fn poses(&mut self) -> Vec<Option<Mat4>>;
     /// Whether the headset is worn; true when SteamVR cannot tell.
     fn headset_worn(&mut self) -> bool;
+    /// The scene application (the game in the headset); `None` while there is none.
+    fn scene_application(&mut self) -> Result<Option<SceneApp>, VrError> {
+        Ok(None)
+    }
     /// The buttons and the stick of a controller (`GetControllerState`); `None` when SteamVR
     /// does not answer for it.
     fn controller_state(&mut self, _device: Device) -> Option<ControllerState> {
@@ -153,6 +167,12 @@ pub mod fake {
         /// The devices' poses (index 0 is the headset). Empty: the headset at the origin only.
         pub poses: Vec<Option<Mat4>>,
         pub hands_connected: bool,
+        /// The scene application [`Session::scene_application`] reports.
+        pub scene: Option<SceneApp>,
+        /// Whether reading the scene application fails.
+        pub fail_scene: bool,
+        /// How often the scene application was read.
+        pub scene_reads: usize,
         /// What each controller holds and where its stick is; a controller missing here does not
         /// answer.
         pub controllers: HashMap<Device, ControllerState>,
@@ -385,6 +405,14 @@ pub mod fake {
         }
         fn headset_worn(&mut self) -> bool {
             true
+        }
+        fn scene_application(&mut self) -> Result<Option<SceneApp>, VrError> {
+            let mut s = self.state.lock().unwrap();
+            s.scene_reads += 1;
+            if s.fail_scene {
+                return Err(VrError("VRApplicationError_IPCFailed".into()));
+            }
+            Ok(s.scene.clone())
         }
         fn controller_state(&mut self, device: Device) -> Option<ControllerState> {
             let mut s = self.state.lock().unwrap();

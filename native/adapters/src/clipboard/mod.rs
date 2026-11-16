@@ -5,8 +5,8 @@
 //! - The text is always copied when it can be, so the user can paste it by hand.
 //! - The automatic paste (Ctrl+V) is sent only when the target window actually came
 //!   to the front; otherwise the keys would reach whatever else has focus.
-//! - The target is the window named in the call, or else the running SteamVR app's
-//!   name. Windows matches a window title (case-insensitive substring), then a process
+//! - The target is the window named in the call, or else the name of the game SteamVR
+//!   runs ([`VrAppName`], asked at each paste). Windows matches a window title (case-insensitive substring), then a process
 //!   name. Linux finds X11/XWayland windows by title (exact, then substring), then by
 //!   class or process name, asks the window manager to activate it and sends the keys
 //!   through XTest over one kept connection (desktops grant input per connection).
@@ -21,17 +21,14 @@ pub mod windows;
 #[cfg(target_os = "linux")]
 pub mod x11;
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::thread;
 use std::time::Duration;
 
 use crate::log;
 
 /// How long the focused window gets to be able to read the clipboard.
 pub const FOCUS_SETTLE: Duration = Duration::from_millis(200);
-/// How often the SteamVR monitor looks for `vrmonitor`.
-pub const STEAMVR_POLL: Duration = Duration::from_secs(10);
 
 /// The desktop connection broke; it is closed and opened again next time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -58,9 +55,9 @@ pub trait Desktop: Send {
     fn paste(&mut self, countdown: u32) -> Result<bool, DesktopBroken>;
 }
 
-/// The name of the running SteamVR app (the first `steam.app.*` application), read
-/// through the shared OpenVR session. The OpenVR session belongs to the overlay; the
-/// application provides this.
+/// The name of the game SteamVR runs (its scene application), read through the OpenVR
+/// connection the overlays share. The host provides this; `None` while SteamVR does not
+/// run or runs no game. It is asked on every paste that names no window.
 pub trait VrAppName: Send + Sync {
     fn running_app_name(&self) -> Option<String>;
 }
@@ -94,14 +91,6 @@ pub fn is_process_running(name: &str) -> bool {
     {
         let _ = name;
         false
-    }
-}
-
-pub fn steamvr_process_name() -> &'static str {
-    if cfg!(windows) {
-        "vrmonitor.exe"
-    } else {
-        "vrmonitor"
     }
 }
 
@@ -144,54 +133,24 @@ impl Desktop for CopyOnlyDesktop {
 
 pub struct Clipboard {
     desktop: Mutex<Box<dyn Desktop>>,
-    app_name: Arc<Mutex<Option<String>>>,
-    stop: Arc<AtomicBool>,
-    monitor: Mutex<Option<JoinHandle<()>>>,
+    vr: Arc<dyn VrAppName>,
 }
 
 impl Clipboard {
-    /// The clipboard of this system. A background thread waits for SteamVR (checking
-    /// every 10 seconds) and then reads the running app's name once from `vr`.
+    /// The clipboard of this system.
     pub fn new(vr: Arc<dyn VrAppName>) -> Self {
-        Self::with_desktop(system_desktop(), vr, is_process_running, STEAMVR_POLL)
+        Self::with_desktop(system_desktop(), vr)
     }
 
-    /// A clipboard over `desktop`; `steamvr_running` is asked every `poll`.
-    pub fn with_desktop(
-        desktop: Box<dyn Desktop>,
-        vr: Arc<dyn VrAppName>,
-        steamvr_running: fn(&str) -> bool,
-        poll: Duration,
-    ) -> Self {
-        let app_name = Arc::new(Mutex::new(None));
-        let stop = Arc::new(AtomicBool::new(false));
-        let (name, stopping) = (app_name.clone(), stop.clone());
-        log::line("Clipboard initialized. Waiting for SteamVR.");
-        let monitor = thread::Builder::new()
-            .name("clipboard_steamvr_monitor".into())
-            .spawn(move || {
-                while !stopping.load(Ordering::SeqCst) {
-                    if steamvr_running(steamvr_process_name()) {
-                        log::line("Clipboard: SteamVR detected. Setting up app info.");
-                        *name.lock().unwrap_or_else(|e| e.into_inner()) = vr.running_app_name();
-                        break;
-                    }
-                    // Sleep in short steps so that close() returns promptly.
-                    let mut slept = Duration::ZERO;
-                    while slept < poll && !stopping.load(Ordering::SeqCst) {
-                        let step = Duration::from_millis(100).min(poll - slept);
-                        thread::sleep(step);
-                        slept += step;
-                    }
-                }
-            })
-            .ok();
-        Self { desktop: Mutex::new(desktop), app_name, stop, monitor: Mutex::new(monitor) }
+    /// A clipboard over `desktop`. `vr` is asked for the game on every paste without a
+    /// window name (Python read it once when SteamVR started, before the game ran).
+    pub fn with_desktop(desktop: Box<dyn Desktop>, vr: Arc<dyn VrAppName>) -> Self {
+        Self { desktop: Mutex::new(desktop), vr }
     }
 
-    /// The running SteamVR app's name, once SteamVR was seen.
+    /// The name of the game SteamVR runs now, if any.
     pub fn app_name(&self) -> Option<String> {
-        self.app_name.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.vr.running_app_name()
     }
 
     /// Copy `message`, and paste it into `window_name` (or the SteamVR app) when that
@@ -249,19 +208,5 @@ impl Clipboard {
                 false
             }
         }
-    }
-
-    /// Stop waiting for SteamVR.
-    pub fn close(&self) {
-        self.stop.store(true, Ordering::SeqCst);
-        if let Some(monitor) = self.monitor.lock().unwrap_or_else(|e| e.into_inner()).take() {
-            let _ = monitor.join();
-        }
-    }
-}
-
-impl Drop for Clipboard {
-    fn drop(&mut self) {
-        self.stop.store(true, Ordering::SeqCst);
     }
 }

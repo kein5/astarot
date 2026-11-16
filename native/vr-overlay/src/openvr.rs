@@ -2,7 +2,8 @@
 //!
 //! The library is not linked: a build needs no OpenVR SDK, and a machine without it runs
 //! everything else. The function tables are those of OpenVR 2.12 (`IVRSystem_023`,
-//! `IVROverlay_028`), the version the Python sidecar's pyopenvr 2.12.1401 shipped.
+//! `IVROverlay_028`, `IVRApplications_007`, `IVRRenderModels_006`), the version the Python sidecar's pyopenvr
+//! 2.12.1401 shipped.
 //!
 //! Where the library is looked for (the first that loads): `VRCT_OPENVR_API`, the folders the
 //! host gives, next to the executable, the Python bundle's copy (`_internal/openvr`), then the
@@ -11,7 +12,8 @@
 
 use crate::math::{Mat34, Mat4, Vec3};
 use crate::runtime::{
-    ControllerState, Device, HMD, Hand, Handle, INVALID_DEVICE, Intersection, MAX_DEVICES, Session, TextureSlot, Vr, VrError,
+    ControllerState, Device, HMD, Hand, Handle, INVALID_DEVICE, Intersection, MAX_DEVICES, SceneApp, Session, TextureSlot, Vr,
+    VrError,
 };
 use libloading::Library;
 use std::ffi::{CStr, CString, c_char, c_void};
@@ -20,6 +22,11 @@ use std::sync::{Arc, Mutex};
 
 const SYSTEM_VERSION: &str = "FnTable:IVRSystem_023";
 const OVERLAY_VERSION: &str = "FnTable:IVROverlay_028";
+const APPLICATIONS_VERSION: &str = "FnTable:IVRApplications_007";
+/// `k_unMaxApplicationKeyLength`.
+const MAX_APPLICATION_KEY: usize = 128;
+/// `VRApplicationProperty_Name_String`.
+const PROPERTY_NAME: i32 = 0;
 const RENDER_MODELS_VERSION: &str = "FnTable:IVRRenderModels_006";
 /// `Prop_RenderModelName_String`.
 const PROP_RENDER_MODEL_NAME: i32 = 1003;
@@ -68,6 +75,11 @@ mod overlay {
     pub const COMPUTE_INTERSECTION: usize = 53;
     pub const SET_TEXTURE: usize = 60;
     pub const SET_RAW: usize = 62;
+}
+mod applications {
+    pub const KEY_BY_PROCESS_ID: usize = 5;
+    pub const PROPERTY_STRING: usize = 14;
+    pub const CURRENT_SCENE_PROCESS_ID: usize = 29;
 }
 
 #[repr(C)]
@@ -235,10 +247,20 @@ impl Vr for OpenVr {
                     return Err(error);
                 }
             };
+            // Only the clipboard reads the scene application; the overlays work without it.
+            let applications = table(APPLICATIONS_VERSION).unwrap_or(std::ptr::null());
             // Only the laser's tip needs the render models; without them it points from the
             // controller's body.
             let render_models = table(RENDER_MODELS_VERSION).ok();
-            Ok(Box::new(OpenVrSession { _library: library, shutdown, system, overlay, render_models, textures: [None, None] }))
+            Ok(Box::new(OpenVrSession {
+                _library: library,
+                shutdown,
+                system,
+                overlay,
+                applications,
+                render_models,
+                textures: [None, None],
+            }))
         }
     }
 }
@@ -248,6 +270,8 @@ struct OpenVrSession {
     shutdown: ShutdownInternal,
     system: *const *const c_void,
     overlay: *const *const c_void,
+    /// `IVRApplications`; null when the runtime does not offer this version.
+    applications: *const *const c_void,
     render_models: Option<*const *const c_void>,
     /// The page's texture and the resize frame's ([`TextureSlot`]).
     textures: [Option<d3d::SharedTexture>; 2],
@@ -449,6 +473,44 @@ impl Session for OpenVrSession {
     fn headset_worn(&mut self) -> bool {
         let level = call!(self.system, system::ACTIVITY_LEVEL, fn(u32) -> i32, HMD);
         WORN_LEVELS.contains(&level)
+    }
+
+    fn scene_application(&mut self) -> Result<Option<SceneApp>, VrError> {
+        if self.applications.is_null() {
+            return Err(VrError("IVRApplications unavailable".into()));
+        }
+        let process_id = call!(self.applications, applications::CURRENT_SCENE_PROCESS_ID, fn() -> u32,);
+        if process_id == 0 {
+            return Ok(None);
+        }
+        let mut key = [0 as c_char; MAX_APPLICATION_KEY];
+        let error = call!(self.applications, applications::KEY_BY_PROCESS_ID, fn(u32, *mut c_char, u32) -> i32,
+            process_id, key.as_mut_ptr(), MAX_APPLICATION_KEY as u32);
+        if error != 0 {
+            // A scene process SteamVR has no manifest for.
+            return Ok(None);
+        }
+        let key = unsafe { CStr::from_ptr(key.as_ptr()) }.to_owned();
+        let mut name = vec![0 as c_char; 256];
+        loop {
+            let mut error = 0i32;
+            let needed = call!(self.applications, applications::PROPERTY_STRING,
+                fn(*const c_char, i32, *mut c_char, u32, *mut i32) -> u32,
+                key.as_ptr(), PROPERTY_NAME, name.as_mut_ptr(), name.len() as u32, &mut error);
+            if (needed as usize) > name.len() && name.len() < 65536 {
+                name = vec![0 as c_char; needed as usize];
+                continue;
+            }
+            if error != 0 {
+                return Err(VrError(format!("getApplicationPropertyString: VRApplicationError {error}")));
+            }
+            break;
+        }
+        Ok(Some(SceneApp {
+            key: key.to_string_lossy().into_owned(),
+            name: unsafe { CStr::from_ptr(name.as_ptr()) }.to_string_lossy().into_owned(),
+            process_id,
+        }))
     }
 
     fn controller_state(&mut self, device: Device) -> Option<ControllerState> {
