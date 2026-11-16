@@ -4,6 +4,8 @@ import { TranslatorSelector } from "./translator_selector/TranslatorSelector";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useLanguageSettings } from "@logics_main";
 import WarningSvg from "@images/warning.svg?react";
+import ArrowLeftSvg from "@images/arrow_left.svg?react";
+import clsx from "clsx";
 import { isSameLanguageSelected } from "../../../../../../logics/main/sameLanguage.ts";
 
 export const TranslatorSelectorOpenButton = () => {
@@ -48,16 +50,24 @@ export const TranslatorSelectorOpenButton = () => {
         updateIsOpenedTranslatorSelector(!currentIsOpenedTranslatorSelector.data);
     };
 
+    const is_opened = currentIsOpenedTranslatorSelector.data === true;
+    const title = t("main_page.translator");
+
+    // Like a language above it: its role as a small heading, then the engine as a
+    // field-like button whose arrow says the list opens below it.
     return (
         <div className={styles.container}>
+            <p className={styles.title}>{title}</p>
             <div className={styles.translator_selector_button} onClick={openTranslatorSelector}
-                role="button" tabIndex={0} aria-expanded={currentIsOpenedTranslatorSelector.data === true} onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; openTranslatorSelector(); } }}>
-                <p className={styles.label}>{t("main_page.translator")}:</p>
-                <p className={styles.label} data-skeleton="">{selected_label}</p>
+                role="button" tabIndex={0} aria-expanded={is_opened}
+                aria-label={selected_label ? `${title}: ${selected_label.replace(/\s+/g, " ")}` : title}
+                onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; openTranslatorSelector(); } }}>
+                <span className={styles.label} data-skeleton="">{selected_label}</span>
                 {is_selected_same_language
-                    ? <WarningSvg className={styles.warning_svg}/>
+                    ? <WarningSvg className={styles.warning_svg} aria-hidden="true"/>
                     : null
                 }
+                <ArrowLeftSvg className={clsx(styles.arrow_svg, { [styles.is_opened]: is_opened })} aria-hidden="true" />
             </div>
             {currentIsOpenedTranslatorSelector.data &&
                 <TranslatorSelector
