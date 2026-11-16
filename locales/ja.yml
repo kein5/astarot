@@ -1824,6 +1824,59 @@ model_catalog:
             aivis: "日本語の音声合成ソフトです。声のモデルを追加して使い、モデルごとにライセンスがあります。"
             sharevox: "無料で使える日本語の音声合成ソフトで、VOICEVOXと同じ方式でつなぎます。声によってはクレジットが必要です。"
 
+# 利用者が用意したモデル（#403）。カタログのカードと同じ一覧に並べる。
+user_models:
+    badge: "自分のモデル"
+    status:
+        registered: "登録済み"
+        in_use: "使用中"
+        missing: "ファイルがありません"
+        changed: "ファイルが変わりました"
+    status_help:
+        missing: "登録したファイルが見つかりません。移動や削除をしたときは、登録を解除してから登録し直してください。"
+        changed: "登録したあとにファイルの容量か更新日時が変わりました。中身を確かめてから登録し直してください。"
+    file:
+        model: "モデルのファイル"
+        index: "indexのファイル"
+    size: "ファイルの容量"
+    use: "このモデルを使う"
+    remove: "登録を解除"
+    remove_confirm: "登録だけを解除します。ファイルは削除しません。"
+    remove_confirm_label: "{{name}}の登録の解除"
+    remove_do: "解除する"
+    blocked_edited: "置き換えるパスに未保存の編集があります。保存か破棄をしてから切り替えてください。"
+    register_title: "自分のモデルを登録"
+    register_label: "{{group}}に自分のモデルを登録"
+    register_help: "お使いのPCにあるモデルのファイルを名前を付けて登録すると、上のモデルと並べて選べます。ファイルはコピーも移動もせず、その場所を覚えるだけです。"
+    terms_help: "登録したモデルの出どころとライセンスは、このアプリでは確かめていません。利用条件はご自身で確認してください。"
+    name: "表示する名前"
+    name_placeholder: "例：自分の声"
+    drop_hint: "ファイルをここに落とすと、下の欄に入ります。"
+    file_field:
+        model: "モデルのファイル（{{kind}}）"
+        index: "indexのファイル（{{kind}}、なくても使えます）"
+    register: "登録"
+    problem:
+        name_missing: "名前を入れてください。"
+        name_long: "名前は80文字までです。"
+        model_missing: "モデルのファイルのパスを入れてください。"
+        model_kind: "モデルのファイルは{{kind}}を選んでください。"
+        index_kind: "indexのファイルは{{kind}}を選んでください。"
+        target: "この用途には登録できません。"
+    errors:
+        user_model_invalid: "登録の内容が正しくありません。入力を確かめてください。"
+        user_model_name_invalid: "名前に使えない文字があります。前後の空白や改行を除いてください。"
+        user_model_path_invalid: "ファイルの場所はドライブ名やフォルダーから始まる完全なパスで入れてください。"
+        user_model_file_type: "この用途に使えない種類のファイルです。"
+        user_model_file_missing: "ファイルが見つかりません。パスを確かめてください。"
+        user_model_exists: "同じ名前か同じファイルのモデルがすでに登録されています。"
+        user_model_limit: "登録できるモデルは200件までです。使わないモデルの登録を解除してください。"
+        user_model_unknown: "このモデルの登録が見つかりません。画面を開き直してください。"
+        user_model_missing: "登録したファイルが見つかりません。登録し直してください。"
+        user_model_changed: "登録したあとにファイルが変わっています。登録し直してください。"
+        user_models_unreadable: "登録の一覧（user_models.json）を読めません。ファイルはそのまま残しています。"
+        user_models_write_failed: "登録の一覧を保存できませんでした。保存先のアクセス権を確かめてください。"
+
 studio:
     toggle_sidebar: "サイドバーを切り替える"
     close_sidebar: "サイドバーを閉じる"

@@ -16,8 +16,9 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_ops::downloads::catalog::{self, Model};
+use vrct_ops::downloads::catalog;
 use vrct_ops::downloads::hardware::{BinarySource, HardwareProbe};
+use vrct_ops::downloads::user_models::{self, UserModels};
 use vrct_ops::downloads::{Downloads, Error};
 use vrct_ops::telemetry::Telemetry;
 
@@ -49,6 +50,8 @@ pub(crate) struct Ops {
     pub(super) downloads: Downloads,
     pub(super) hardware: HardwareProbe,
     pub(super) telemetry: Telemetry,
+    /// The models the user registered under a name (#403).
+    pub(super) user_models: UserModels,
     /// Held while an apply checks and writes the settings (Python's `_speech_settings_lock` and
     /// `_voice_settings_lock`).
     apply_lock: Mutex<()>,
@@ -72,7 +75,8 @@ impl Ops {
         // the telemetry itself sends nothing until it is started, and once a day per code.
         let reporter = telemetry.clone();
         crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
-        Ops { downloads, hardware, telemetry, apply_lock: Mutex::new(()) }
+        let user_models = UserModels::new(env.state_dir.join(user_models::FILE_NAME));
+        Ops { downloads, hardware, telemetry, user_models, apply_lock: Mutex::new(()) }
     }
 }
 
@@ -95,19 +99,19 @@ impl Core {
         }
     }
 
-    /// Writes the paths of a verified download into the settings (the callback of
-    /// `applyModelDownload`). It runs at the manager's commit point; a refusal leaves the
-    /// download ready.
-    fn apply_download_paths(&self, entry: &Model, paths: &[(String, String)], expected: &Value) -> Result<(), Error> {
+    /// Writes the paths of a verified download or a registered model into the settings
+    /// (`_applyModelPaths`). For a download it runs at the manager's commit point; a refusal
+    /// leaves the download ready.
+    fn apply_model_paths(&self, target: &str, paths: &[(String, String)], expected: &Value) -> Result<(), Error> {
         let path = |role: &str| paths.iter().find(|(r, _)| r == role).map(|(_, p)| p.clone());
-        if entry.target == "ocr" {
+        if target == "ocr" {
             // Chat reading finds verified downloads by catalog id; no setting holds a path.
             if !(expected.is_null() || *expected == json!({})) {
                 return Err(Error::Code("download_request_invalid"));
             }
             return Ok(());
         }
-        let rvc = entry.target == "rvc";
+        let rvc = target == "rvc";
         let keys: &[&str] = if rvc { &["model", "index"] } else { &["model"] };
         let shaped = expected.as_object().is_some_and(|o| o.len() == keys.len() && keys.iter().all(|k| o.get(*k).is_some_and(Value::is_string)));
         if !shaped {
@@ -130,7 +134,7 @@ impl Core {
         } else {
             // A VAD or diarization file goes to a field of the asr profile; `expected` names
             // that field's value, not the recognizer's.
-            let Some((profile, field)) = catalog::speech_field(&entry.target) else {
+            let Some((profile, field)) = catalog::speech_field(target) else {
                 return Err(Error::Code("download_request_invalid"));
             };
             let running = vrct_speech_server::settings::Profile::from_name(profile).is_ok_and(|p| self.speech_servers().is_running(p));
@@ -206,7 +210,30 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/apply_model_download", OPEN, |core, data| {
         let Some((id, job_id)) = request(data, true) else { return failure("download_request_invalid") };
         let expected = &data["expected"];
-        let result = core.ops().downloads.apply(id, job_id, |entry, paths| core.apply_download_paths(entry, paths, expected));
+        let result = core.ops().downloads.apply(id, job_id, |entry, paths| core.apply_model_paths(&entry.target, paths, expected));
         answer(result, "download_apply_failed")
+    });
+    // Models the user registers under a name (#403). The routes carry "user_model" so the
+    // process log masks their names and paths (`log::SENSITIVE_ENDPOINT_MARKERS`).
+    b.with("/get/data/user_models", OPEN, |core, _| ok(core.ops().user_models.state()));
+    b.with("/run/register_user_model", OPEN, |core, data| match core.ops().user_models.register(data) {
+        Ok(state) => ok(state),
+        Err(error) => failure(error.code().unwrap_or("user_models_write_failed")),
+    });
+    b.with("/run/remove_user_model", OPEN, |core, data| match core.ops().user_models.remove(data) {
+        Ok(state) => ok(state),
+        Err(error) => failure(error.code().unwrap_or("user_models_write_failed")),
+    });
+    b.with("/run/apply_user_model", OPEN, |core, data| {
+        // `{id, expected}`: switches the registered model's target as `applyModelDownload` does.
+        let id = data.as_object().filter(|o| o.len() == 2 && o.contains_key("expected")).and_then(|o| o.get("id")).and_then(Value::as_str).filter(|s| !s.is_empty());
+        let Some(id) = id else { return failure("user_model_invalid") };
+        let ops = core.ops();
+        let result = ops.user_models.usable(id).and_then(|(target, paths)| core.apply_model_paths(&target, &paths, &data["expected"]));
+        match result {
+            Ok(()) => ok(ops.user_models.state()),
+            Err(Error::Code(code)) => failure(code),
+            Err(_) => failure("download_apply_failed"),
+        }
     });
 }

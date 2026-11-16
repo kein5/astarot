@@ -90,6 +90,7 @@ const loadCatalog = (s, ui) => loadModule(new URL("../../views/app/config_page/s
     "../../../../../../logics/common/languageNames": languageNames,
     "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
     "./EngineCatalog": { EngineCatalog: "engines" },
+    "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
 });
 
 // The nodes of a rendered tree that match, in order (find returns only the first).

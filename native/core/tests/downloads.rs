@@ -496,3 +496,87 @@ fn starting_with_automatic_downloads_on_fetches_nothing() {
     assert!(world.opened().is_empty() && !root(&ui).exists());
     ui.stop();
 }
+
+/// A model file of the user's own, outside the downloads folder (#403).
+fn own_file(ui: &Ui, name: &str, bytes: &[u8]) -> String {
+    let folder = ui.dir.join("my models");
+    std::fs::create_dir_all(&folder).unwrap();
+    let path = folder.join(name);
+    std::fs::write(&path, bytes).unwrap();
+    path.to_string_lossy().into_owned()
+}
+
+fn register(ui: &Ui, target: &str, name: &str, paths: Value) -> Value {
+    ui.request("/run/register_user_model", Some(json!({ "target": target, "name": name, "paths": paths })))
+}
+
+#[test]
+fn a_registered_model_is_listed_and_switched_to_with_the_checks_of_an_apply() {
+    let world = World::default();
+    let saved = json!({ "SPEECH_SERVER_SETTINGS": { "version": 1, "profiles": { "japanese": { "model": "/old.gguf", "low_latency": true, "device": "cpu" } } } });
+    let ui = world.start_with(Some(saved));
+    assert_eq!(ui.ok("/get/data/user_models", None), json!({ "models": [] }));
+    let file = own_file(&ui, "mine.gguf", b"GGUF mine");
+    let answer = register(&ui, "japanese", "Mine", json!({ "model": file }));
+    assert_eq!(answer["status"], 200, "{answer}");
+    let row = answer["result"]["models"][0].clone();
+    assert_eq!((row["name"].as_str(), row["status"].as_str(), row["total_bytes"].as_u64()), (Some("Mine"), Some("ok"), Some(9)));
+    assert_eq!(row["paths"], json!({ "model": file }));
+    let id = row["id"].as_str().unwrap().to_string();
+    // Registering changes no setting and touches no network.
+    assert_eq!(speech_settings(&ui)["profiles"]["japanese"]["model"], "/old.gguf");
+    let switch = |expected: Value| ui.request("/run/apply_user_model", Some(json!({ "id": id, "expected": expected })));
+    assert_eq!(failure(&switch(json!({ "model": "/elsewhere.gguf" }))), (409, "settings_changed"));
+    world.set_busy(&["japanese"]);
+    assert_eq!(failure(&switch(json!({ "model": "/old.gguf" }))), (409, "model_target_busy"));
+    world.set_busy(&[]);
+    assert_eq!(switch(json!({ "model": "/old.gguf" }))["status"], 200);
+    let profile = speech_settings(&ui)["profiles"]["japanese"].clone();
+    assert_eq!((profile["model"].as_str(), profile["low_latency"].clone(), profile["device"].clone()), (Some(file.as_str()), json!(true), json!("cpu")));
+    // A changed file is reported and not switched to.
+    std::fs::write(&file, b"GGUF but changed").unwrap();
+    assert_eq!(ui.ok("/get/data/user_models", None)["models"][0]["status"], "changed");
+    assert_eq!(failure(&switch(json!({ "model": file }))), (400, "user_model_changed"));
+    // Removing forgets the registration; the file and the setting stay.
+    assert_eq!(ui.ok("/run/remove_user_model", Some(json!({ "id": id }))), json!({ "models": [] }));
+    assert!(Path::new(&file).exists());
+    assert_eq!(speech_settings(&ui)["profiles"]["japanese"]["model"], file.as_str());
+    assert!(world.opened().is_empty() && !root(&ui).exists());
+    ui.stop();
+}
+
+#[test]
+fn a_registered_rvc_model_without_an_index_replaces_both_paths() {
+    let world = World::default();
+    let saved = json!({ "DIRECT_VOICE_SETTINGS": { "rvc_runtime": "/owned/runtime", "rvc_model": "/old.pth", "rvc_index": "/old.index", "rvc_pitch": 3 } });
+    let ui = world.start_with(Some(saved));
+    let file = own_file(&ui, "voice.pth", b"pth");
+    let id = register(&ui, "rvc", "Voice", json!({ "model": file }))["result"]["models"][0]["id"].as_str().unwrap().to_string();
+    let answer = ui.request("/run/apply_user_model", Some(json!({ "id": id, "expected": { "model": "/old.pth", "index": "/old.index" } })));
+    assert_eq!(answer["status"], 200, "{answer}");
+    let voice = ui.backend.core().config().get("DIRECT_VOICE_SETTINGS");
+    assert_eq!((voice["rvc_model"].as_str(), voice["rvc_index"].as_str()), (Some(file.as_str()), Some("")));
+    assert_eq!((voice["rvc_runtime"].clone(), voice["rvc_pitch"].clone()), (json!("/owned/runtime"), json!(3)));
+    ui.stop();
+}
+
+#[test]
+fn bad_user_model_requests_fail_with_a_code_and_write_nothing() {
+    let world = World::default();
+    let ui = world.start();
+    let file = own_file(&ui, "mine.gguf", b"GGUF");
+    for (endpoint, data, code) in [
+        ("/run/register_user_model", None, "user_model_invalid"),
+        ("/run/register_user_model", Some(json!({ "target": "ocr", "name": "x", "paths": { "model": file } })), "user_model_invalid"),
+        ("/run/register_user_model", Some(json!({ "target": "japanese", "name": "", "paths": { "model": file } })), "user_model_name_invalid"),
+        ("/run/register_user_model", Some(json!({ "target": "japanese", "name": "x", "paths": { "model": "mine.gguf" } })), "user_model_path_invalid"),
+        ("/run/register_user_model", Some(json!({ "target": "rvc", "name": "x", "paths": { "model": file } })), "user_model_file_type"),
+        ("/run/remove_user_model", Some(json!({ "id": "user-none" })), "user_model_unknown"),
+        ("/run/apply_user_model", Some(json!({ "id": "x" })), "user_model_invalid"),
+        ("/run/apply_user_model", Some(json!({ "id": "user-none", "expected": { "model": "" } })), "user_model_unknown"),
+    ] {
+        assert_eq!(failure(&ui.request(endpoint, data.clone())), (400, code), "{endpoint} {data:?}");
+    }
+    assert!(!ui.dir.join("user_models.json").exists());
+    ui.stop();
+}

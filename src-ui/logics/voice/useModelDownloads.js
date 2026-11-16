@@ -6,12 +6,16 @@ import { acceptObservation, resetObservations, sameSnapshot } from "../common/po
 const catalogAtom = atom(null), stateAtom = atom({ observation_id: "0", jobs: {} });
 const errorAtom = atom(null), pendingAtom = atom(null);
 const hardwareAtom = atom({ phase: 'unknown', devices: [], observation_id: '0' });
+// The models the user registered under a name (#403): {models: [...]} as the backend sends it,
+// null until the first answer.
+const userModelsAtom = atom(null);
 
 export const useModelDownloads = () => {
     const store = useStore();
     const [catalog, setCatalog] = useAtom(catalogAtom), [state] = useAtom(stateAtom);
     const [error, setError] = useAtom(errorAtom), [pending, setPending] = useAtom(pendingAtom);
     const [hardware] = useAtom(hardwareAtom);
+    const [userModels] = useAtom(userModelsAtom);
     const { asyncStdoutToPython } = useStdoutToPython();
     const transport = useRef(asyncStdoutToPython);
     transport.current = asyncStdoutToPython;
@@ -38,6 +42,15 @@ export const useModelDownloads = () => {
         settle(endpoint);
         setError(previous => previous === "request_unconfirmed" ? null : previous);
     }, [updateState, settle, setError]);
+    const updateUserModels = useCallback(value => {
+        if (Array.isArray(value?.models)) store.set(userModelsAtom, value);
+    }, [store]);
+    // The answer to a registration, a removal or a switch: the list as it is now.
+    const acknowledgeUserModels = useCallback((value, endpoint) => {
+        updateUserModels(value);
+        settle(endpoint);
+        setError(previous => previous === "request_unconfirmed" ? null : previous);
+    }, [updateUserModels, settle, setError]);
     const updateError = useCallback((value, endpoint = "") => {
         setError(value); settle(endpoint);
         if (value && endpoint.includes("model_download_hardware"))
@@ -54,6 +67,7 @@ export const useModelDownloads = () => {
     const reset = useCallback(() => {
         resetObservations(store, [stateAtom, hardwareAtom]);
         store.set(catalogAtom, null); store.set(stateAtom, { observation_id: "0", jobs: {} });
+        store.set(userModelsAtom, null);
         store.set(errorAtom, null); store.set(pendingAtom, null);
         store.set(hardwareAtom, { phase: 'unknown', devices: [], observation_id: '0' });
     }, [store]);
@@ -76,5 +90,6 @@ export const useModelDownloads = () => {
     const ensureHardware = useCallback(() => {
         if (store.get(hardwareAtom).phase === 'unknown') send('/run/refresh_model_download_hardware', {});
     }, [store, send]);
-    return { catalog, state, hardware, error, pending, send, ensureHardware, updateHardware, updateCatalog, updateState, acknowledge, updateError, reset, backendStopped };
+    return { catalog, state, hardware, error, pending, userModels, send, ensureHardware, updateHardware, updateCatalog, updateState,
+        acknowledge, updateUserModels, acknowledgeUserModels, updateError, reset, backendStopped };
 };

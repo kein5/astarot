@@ -307,7 +307,7 @@ def controller_methods():
     source = Path(__file__).resolve().parents[1] / "controller.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     cls = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "Controller")
-    names = {"_modelDownloadFailure", "_modelDownloadRequest", "applyModelDownload", "shutdown"}
+    names = {"_modelDownloadFailure", "_modelDownloadRequest", "_applyModelPaths", "applyModelDownload", "shutdown"}
     cls.body = [node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name in names]
     namespace = {"copy": copy, "SPEECH_DOWNLOAD_FIELDS": SPEECH_FIELDS}
     exec(compile(ast.Module(body=[cls], type_ignores=[]), str(source), "exec"), namespace)
