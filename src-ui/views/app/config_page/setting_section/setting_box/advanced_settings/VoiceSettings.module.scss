@@ -118,6 +118,22 @@
     &[data-tone="downloaded"] { color: var(--dark_200_color); }
     &[data-tone="working"], &[data-tone="checking"], &[data-tone="not_connected"] { border-color: var(--vox_state_warning, #cb944f); color: var(--vox_state_warning, #cb944f); }
     &[data-tone="url_invalid"] { border-color: var(--vox_state_failed, #f08a85); color: var(--vox_state_failed, #f08a85); }
+    &[data-tone="hardware_warning"] { display: inline-flex; align-items: center; gap: .5rem;
+        border-color: var(--vox_state_warning, #cb944f); color: var(--vox_state_warning, #cb944f); }
+}
+// The "!" of a model that may be too heavy for the user's PC. The words beside it say the same.
+.warning_mark {
+    display: inline-flex; flex: none; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem;
+    border-radius: 50%; background: var(--vox_state_warning, #cb944f); color: var(--dark_950_color, #10141c);
+    font-size: 1.1rem; font-weight: 700; line-height: 1;
+    // Drawn here so the "!" is never part of the words that are read out or searched.
+    &::before { content: "!"; }
+}
+.hardware_warning {
+    display: flex; align-items: flex-start; gap: .8rem; margin: 0; padding: .6rem .8rem;
+    border-left: .3rem solid var(--vox_state_warning, #cb944f); color: var(--dark_200_color);
+    overflow-wrap: anywhere;
+    > .warning_mark { margin-top: .2rem; }
 }
 // What a user compares: a term and its value per row; the rows stack in a narrow card.
 .facts {

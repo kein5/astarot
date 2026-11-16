@@ -5,6 +5,7 @@ import { loadBridgeRoutes } from "../test/bridgeHarness.js";
 import * as polledState from "../common/polledState.ts";
 import * as languageNames from "../common/languageNames.ts";
 import * as modelCatalog from "./modelCatalog.ts";
+import * as modelHardwareWarning from "./modelHardwareWarning.ts";
 
 const apply = "/run/apply_model_download", cancel = "/run/cancel_model_download";
 const request = { id: "model", job_id: "job" };
@@ -84,6 +85,7 @@ const loadCatalog = (s, ui) => loadModule(new URL("../../views/app/config_page/s
     "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: s.render },
     "../../../../../../logics/voice/modelHardwareAdvice": { modelAdvice: () => ({}) },
     "../../../../../../logics/voice/modelCatalog": modelCatalog,
+    "../../../../../../logics/voice/modelHardwareWarning": modelHardwareWarning,
     "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null } }) },
     "../../../../../../logics/common/languageNames": languageNames,
     "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
@@ -117,7 +119,8 @@ test("the production model card enables matching Cancel during Apply verificatio
     assert.equal(button("review").props.disabled, true);
     button("cancel").props.onClick();
     assert.equal(button("cancel").props.disabled, true);
-    assert.deepEqual(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/")), [
+    // The page's own GPU probe (for the per-model warnings) is not a model action.
+    assert.deepEqual(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")), [
         [apply, { ...request, expected: {} }], [cancel, request],
     ]);
 });
@@ -151,7 +154,7 @@ test("the catalog groups models by use, one card per recognizer with its file ty
     // The facts come from speech.cpp's catalog when a row has no profile.
     const facts = find(cards()[1], node => node.type?.name === "ModelFacts");
     assert.equal(facts.props.entry.id, "v3-q8");
-    assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/")).length, 0, "choosing starts nothing");
+    assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")).length, 0, "choosing starts nothing");
 });
 
 test("a model downloaded before a restart says so, and in use only when its file is the saved path", async t => {
@@ -169,7 +172,7 @@ test("a model downloaded before a restart says so, and in use only when its file
     assert.deepEqual(cards.map(card => action(card).props.children), ["model_catalog.prepare", "model_catalog.prepare", "model_downloads.review"]);
     // Getting a downloaded file ready still goes through the review and consent.
     action(cards[1]).props.onClick();
-    assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/")).length, 0);
+    assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")).length, 0);
     const dialog = find(render(), node => node.type === "dialog");
     assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
 });
