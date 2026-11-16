@@ -2,20 +2,25 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import * as wire from "../../../logics/common/vrPanelWire.ts";
+import * as windowFailures from "../../../logics/common/windowFailures.ts";
 
-async function setup(context, { registry = {}, values = {}, settings = [] } = {}) {
+async function setup(context, { registry = {}, values = {}, settings = [], openFailure = null } = {}) {
     const runtime = hooks(), lifecycle = hooks(), listeners = new Map();
     const state = { enabled: true, configOpen: false, mic: true };
-    const actions = [], requests = [], windows = [], pushes = [], emitted = [];
+    const actions = [], requests = [], windows = [], pushes = [], emitted = [], notices = [];
     let memory = { translation: false, transcription_send: false, transcription_receive: false };
     const common = {
         useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: state.configOpen },
             setIsOpenedConfigPage: value => { state.configOpen = value; } }),
+        useNotificationStatus: () => ({ showNotification_Error: (message, options) => notices.push([message, options]) }),
         useVolume: () => ({ currentMicThresholdCheckStatus: { data: false }, currentSpeakerThresholdCheckStatus: { data: false } }),
     };
     const { VrPanelSyncController } = await loadModule(new URL("./VrPanelSyncController.jsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke: async (name, args) => {
-            if (name === "set_vr_panel_window") windows.push(args.open);
+            if (name === "set_vr_panel_window") {
+                windows.push(args.open);
+                if (args.open && openFailure) throw openFailure;
+            }
             else pushes.push([name, args]);
             return true;
         } },
@@ -30,6 +35,8 @@ async function setup(context, { registry = {}, values = {}, settings = [] } = {}
         "@logics_configs": { useVr: () => ({ currentIsEnabledOverlayVrPanel: { data: state.enabled } }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args) => requests.push(args) }) },
         "../../../logics/common/vrPanelWire": wire,
+        "../../../logics/common/windowFailures.ts": windowFailures,
+        "@useI18n": { useI18n: () => ({ t: key => key }) },
         "../../../logics/main/languageMutations": { isLanguageMutation: () => false, rejectLanguageMutation: () => {} },
     });
     const { ConfigPageCloseTriggerController } = await loadModule(new URL("./ConfigPageCloseTriggerController.jsx", import.meta.url), lifecycle, {
@@ -47,7 +54,7 @@ async function setup(context, { registry = {}, values = {}, settings = [] } = {}
     const render = () => { runtime.render(VrPanelSyncController); lifecycle.render(ConfigPageCloseTriggerController); };
     const config = value => { listeners.get("vr-panel-config-page")({ payload: value }); render(); };
     render();
-    return { state, actions, requests, windows, pushes, emitted, listeners, runtime, render, config };
+    return { state, actions, requests, windows, pushes, emitted, notices, listeners, runtime, render, config };
 }
 
 // SEC-03: only the listed state goes to the VR panel, through its channel.
@@ -140,4 +147,17 @@ test("a live panel cannot close settings first opened on the desktop", async con
     view.config(false);
     assert.equal(view.state.configOpen, true);
     assert.equal(view.state.mic, false);
+});
+
+test("a VR panel window that cannot be opened is said once, and turning it off says nothing", async context => {
+    const view = await setup(context, { openFailure: "vr_panel_surface_unavailable" });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(view.notices, [["common_error.window.vr_panel_surface_unavailable", { category_id: "vr_panel_open_failed" }]]);
+    view.state.enabled = false;
+    view.render();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(view.notices.length, 1);
+    const other = await setup(context, { openFailure: "Os { code: 1400 }" });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(other.notices, [["common_error.window.vr_panel_open_failed", { category_id: "vr_panel_open_failed" }]]);
 });

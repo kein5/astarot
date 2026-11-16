@@ -180,6 +180,13 @@ common_error:
     backend_startup_next: "Try starting again. If this keeps happening, reinstall ASTAROT. If any error notices appeared, include their text when you report it in the ASTAROT issues."
     backend_startup_retry: "Try starting again"
     backend_startup_quit: "Quit ASTAROT"
+    window:
+        caption_overlay_open_failed: "The desktop captions window could not be opened. Turn desktop captions off and on again in Settings."
+        caption_overlay_update_failed: "The desktop captions could not be updated. They may show older lines until the next update works."
+        caption_overlay_no_monitor: "No monitor was found to show the desktop captions on. Check that a display is connected, then turn desktop captions off and on again."
+        caption_overlay_unsupported: "Desktop captions cannot be shown on this desktop."
+        vr_panel_open_failed: "The VR panel window could not be opened. Turn the VR panel off and on again in Settings."
+        vr_panel_surface_unavailable: "The VR panel could not prepare its drawing area. Restart ASTAROT, then turn the VR panel on again."
     request_404: "This operation is not available. Restart ASTAROT and try again."
     request_423: "The operation could not run because the backend was busy. Wait for the current operation to finish, then try again."
     request_send_failed: "The request could not be sent. Check the displayed value and try again. If this continues, restart ASTAROT."

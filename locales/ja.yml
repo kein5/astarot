@@ -180,6 +180,13 @@ common_error:
     backend_startup_next: "もう一度起動してください。繰り返し起きる場合は、ASTAROTをインストールし直してください。エラーの通知が出ていれば、その内容を添えてASTAROTのIssuesで報告してください。"
     backend_startup_retry: "もう一度起動する"
     backend_startup_quit: "ASTAROTを終了"
+    window:
+        caption_overlay_open_failed: "デスクトップ字幕のウィンドウを開けませんでした。設定でデスクトップ字幕をいったんオフにしてからオンにしてください。"
+        caption_overlay_update_failed: "デスクトップ字幕を更新できませんでした。次の更新がうまくいくまで前の行が残ることがあります。"
+        caption_overlay_no_monitor: "デスクトップ字幕を出すモニターが見つかりませんでした。画面がつながっているか確かめてから、デスクトップ字幕をいったんオフにしてオンにしてください。"
+        caption_overlay_unsupported: "このデスクトップではデスクトップ字幕を表示できません。"
+        vr_panel_open_failed: "VRパネルのウィンドウを開けませんでした。設定でVRパネルをいったんオフにしてからオンにしてください。"
+        vr_panel_surface_unavailable: "VRパネルを描く場所を用意できませんでした。ASTAROTを起動し直してから、VRパネルをもう一度オンにしてください。"
     request_404: "この操作は利用できません。ASTAROTを再起動してもう一度お試しください。"
     request_423: "別の処理が続いているため、操作できませんでした。処理が終わってからもう一度お試しください。"
     request_send_failed: "要求を送信できませんでした。表示されている値を確認してもう一度お試しください。繰り返し起きる場合はASTAROTを再起動してください。"

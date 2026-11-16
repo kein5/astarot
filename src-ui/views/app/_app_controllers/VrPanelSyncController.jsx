@@ -5,11 +5,13 @@ import { getDefaultStore } from "jotai";
 
 import { dynamicStoreRegistry } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { useIsOpenedConfigPage } from "@logics_common";
+import { useIsOpenedConfigPage, useNotificationStatus } from "@logics_common";
+import { useI18n } from "@useI18n";
 import { useVr } from "@logics_configs";
 import { SETTINGS_ARRAY } from "../../../logics/configs/config_page_setter/ui_config_setter";
 import { encodeLogUpdate, encodeOrdered, isRelayAllowed, vrPanelStateNames } from "../../../logics/common/vrPanelWire";
 import { isLanguageMutation, rejectLanguageMutation } from "../../../logics/main/languageMutations";
+import { failureRun, windowFailureKey } from "../../../logics/common/windowFailures.ts";
 
 // VRパネル (vr_panel ウィンドウ) にこのウィンドウの状態を写す。
 // - VRパネルが読むatomの値だけを一方向に同期する (vrPanelWire.vrPanelStateNames。SEC-03)。
@@ -73,12 +75,21 @@ export const VrPanelSyncController = () => {
     const { asyncStdoutToPython } = useStdoutToPython();
     const { currentIsOpenedConfigPage, setIsOpenedConfigPage } = useIsOpenedConfigPage();
     const { currentIsEnabledOverlayVrPanel } = useVr();
+    const { t } = useI18n();
+    const { showNotification_Error } = useNotificationStatus();
+    const openFailures = useRef(null);
+    openFailures.current ??= failureRun();
 
     // VR画面のウィンドウは VR UI が ON の間だけ作る (OFF の間も動かしておくと、使わない人にも負荷がかかる)。
     // 作られた VR画面は vr-panel-ready を送ってくるので、状態はそのときに送る
     const is_vr_panel_enabled = currentIsEnabledOverlayVrPanel.data === true;
     useEffect(() => {
-        invoke("set_vr_panel_window", { open: is_vr_panel_enabled }).catch(console.error);
+        invoke("set_vr_panel_window", { open: is_vr_panel_enabled }).then(() => openFailures.current.succeeded(), error => {
+            console.error("VR panel window could not be changed", error);
+            // Turning the panel off needs no notice; a panel that cannot be opened does (#397).
+            if (is_vr_panel_enabled) openFailures.current.failed(() => showNotification_Error(
+                t(windowFailureKey("vr_panel", "open", error)), { category_id: "vr_panel_open_failed" }));
+        });
     }, [is_vr_panel_enabled]);
     const isOpenedConfigPageRef = useRef(currentIsOpenedConfigPage.data);
     isOpenedConfigPageRef.current = currentIsOpenedConfigPage.data;
