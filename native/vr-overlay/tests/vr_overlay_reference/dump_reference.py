@@ -2,9 +2,9 @@
 
 Run from the repository root with the app's Python (NumPy, Pillow and openvr installed):
 
-    python src-tauri/tests/vr_overlay_reference/dump_reference.py
+    python native/vr-overlay/tests/vr_overlay_reference/dump_reference.py
 
-It writes reference.json next to this file. The Rust tests (src-tauri/src/vr_overlay/reference_tests.rs)
+It writes reference.json next to this file. The Rust tests (native/vr-overlay/src/reference_tests.rs)
 replay every case, and src-python/test/test_overlay_rust_reference.py checks that the file still
 matches the Python implementation. Inputs are fixed (seeded), so the file only changes when the
 Python overlay does. No SteamVR is needed: only the overlay's calculations run.
@@ -18,7 +18,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 OUTPUT = Path(__file__).with_name("reference.json")
 if str(ROOT / "src-python") not in sys.path:
     sys.path.insert(0, str(ROOT / "src-python"))
@@ -396,7 +396,7 @@ def tooltip_cases():
 def build():
     inputs = Inputs()
     return plain({
-        "generator": "src-tauri/tests/vr_overlay_reference/dump_reference.py",
+        "generator": "native/vr-overlay/tests/vr_overlay_reference/dump_reference.py",
         "layout": layout_cases(),
         "math": math_cases(inputs),
         "pose": pose_cases(inputs),

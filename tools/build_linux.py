@@ -119,12 +119,15 @@ def copy_adapters(resources):
 # dependencies of those Cargo.toml files.
 # translate-onnx is an optional dependency of the core (feature onnx-translation, off), but Cargo
 # reads its manifest to resolve the core, so it is copied too.
-APP_CRATES = ('core', 'adapters', 'audio-routing', 'ops', 'speech-server', 'translation', 'translate-onnx', 'tts')
+APP_CRATES = ('core', 'adapters', 'audio-routing', 'ops', 'speech-server', 'translation', 'translate-onnx', 'tts',
+              'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
-# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text.
+# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text, and
+# native/vr-overlay checks its layout against the VR page's.
 # tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
 CRATE_INPUTS = ('src-python/models/model_downloads/speechcpp_models.py',
-                'src-python/models/model_downloads/speechcpp_asr.py')
+                'src-python/models/model_downloads/speechcpp_asr.py',
+                'src-ui/views/vr/vr_layout.json')
 
 
 def tauri_workspace(work, frozen):

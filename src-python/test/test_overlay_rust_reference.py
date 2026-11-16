@@ -1,7 +1,7 @@
-"""The Rust port of the VR overlay (src-tauri/src/vr_overlay/) is checked against values recorded
+"""The Rust port of the VR overlay (native/vr-overlay/) is checked against values recorded
 from this Python overlay. When the Python overlay changes, those values must be recorded again:
 
-    python src-tauri/tests/vr_overlay_reference/dump_reference.py
+    python native/vr-overlay/tests/vr_overlay_reference/dump_reference.py
 
 and the Rust port changed to match (issue #282).
 """
@@ -12,7 +12,7 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "src-tauri/tests/vr_overlay_reference/dump_reference.py"
+SCRIPT = ROOT / "native/vr-overlay/tests/vr_overlay_reference/dump_reference.py"
 
 
 def _load_dump():

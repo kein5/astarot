@@ -13,7 +13,7 @@ use super::tooltip::{self, Picture, TooltipMode, TooltipParent};
 const TOLERANCE: f64 = 1e-9;
 
 fn reference() -> Value {
-    serde_json::from_str(include_str!("../../tests/vr_overlay_reference/reference.json")).unwrap()
+    serde_json::from_str(include_str!("../tests/vr_overlay_reference/reference.json")).unwrap()
 }
 
 fn cases<'a>(value: &'a Value, path: &[&str]) -> &'a Vec<Value> {

@@ -184,6 +184,14 @@ pub struct Services {
     /// The PC's audio devices (`native/audio-routing`): the lists the device manager watches,
     /// the speech outputs and the virtual microphone check. Tests give fakes.
     pub audio: Arc<dyn vrct_audio_routing::platform::AudioPlatform>,
+    /// SteamVR for the VR overlays: OpenVR, loaded when SteamVR runs ([`overlay`]).
+    pub vr: Arc<dyn vrct_vr_overlay::runtime::Vr>,
+    /// Where the VR panel's page is captured; `None` where the VR panel cannot run.
+    pub vr_panel_surface: Option<Arc<dyn vrct_vr_overlay::surface::PanelSurface>>,
+    /// The subtitle fonts, from the settings' environment ([`overlay::default_fonts`]).
+    pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<vrct_vr_overlay::fonts::FontLibrary> + Send + Sync>,
+    /// How often the overlay looks for SteamVR while it does not run (10 seconds).
+    pub steamvr_poll: Duration,
 }
 
 impl Default for Services {
@@ -206,6 +214,10 @@ impl Default for Services {
             transliteration: Arc::new(vrct_translation::transliteration::NoDictionary),
             clipboard: Arc::new(default_clipboard),
             audio: Arc::new(vrct_audio_routing::platform::NativePlatform),
+            vr: Arc::new(vrct_vr_overlay::openvr::OpenVr::new(Vec::new())),
+            vr_panel_surface: Some(vrct_vr_overlay::surface::platform()),
+            overlay_fonts: Arc::new(overlay::default_fonts),
+            steamvr_poll: Duration::from_secs(10),
         }
     }
 }
@@ -233,6 +245,8 @@ pub struct Core {
     translation: translation::Translators,
     messages: messages::Messages,
     audio: Arc<audio_devices::AudioDevices>,
+    /// The VR overlays and the subtitles, made with the routes ([`overlay`]).
+    pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
 }
 
 impl Core {
@@ -258,6 +272,7 @@ impl Core {
             translation,
             messages: messages::Messages::default(),
             audio,
+            vr: std::sync::OnceLock::new(),
         })
     }
 
@@ -332,6 +347,7 @@ impl Core {
         self.stop_audio_devices();
         self.stop_adapters();
         self.stop_conversation_log();
+        self.stop_overlay();
         self.config.save_now();
         self.stop_telemetry();
     }

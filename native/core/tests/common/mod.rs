@@ -48,12 +48,16 @@ impl Default for Setup {
             raw: None,
             // The OSC link without mDNS: no test joins UDP 5353 on every interface. The
             // translation providers never leave this PC: a saved key is not sent anywhere. No
-            // audio device is listed or watched.
+            // audio device is listed or watched. No VR runtime: a SteamVR that does not run, and
+            // no VR panel page.
             services: Services {
                 osc: fake_osc::factory(false).0,
                 translation_transport: vrct_translation::http::loopback_only(),
                 translation_endpoints: vrct_translation::providers::Endpoints::all_at("http://provider.invalid"),
                 audio: fake_audio::FakeAudio::new().platform(),
+                vr: Arc::new(vrct_core::vr_overlay::runtime::fake::FakeVr::default()),
+                vr_panel_surface: None,
+                steamvr_poll: Duration::from_millis(20),
                 ..Services::default()
             },
             watchdog: None,

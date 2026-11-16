@@ -1,5 +1,5 @@
 {
- "generator": "src-tauri/tests/vr_overlay_reference/dump_reference.py",
+ "generator": "native/vr-overlay/tests/vr_overlay_reference/dump_reference.py",
  "layout": {
   "layouts": [
    {

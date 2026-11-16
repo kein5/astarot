@@ -37,6 +37,7 @@ impl Core {
     /// Runs the start-up sequence; the caller opens the endpoints afterwards.
     pub fn init(&self, dispatcher: &Dispatcher) {
         let config = self.config();
+        self.announce_overlay();
         self.notify("connected_network", Value::Null);
         self.notify("initialization_progress", json!(1));
 
@@ -79,6 +80,8 @@ impl Core {
         self.step("Init Logger");
         self.start_conversation_log();
         self.notify("initialization_progress", json!(4));
+        self.step("Init Overlay");
+        self.sync_overlay_running();
         self.start_adapters();
         self.start_audio_devices();
 
