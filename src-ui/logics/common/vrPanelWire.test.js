@@ -103,6 +103,8 @@ test("everything the VR windows send is relayed", () => {
     const sent = new Set(), names = new Set();
     for (const file of readdirSync(new URL("../../views/vr/", import.meta.url)).filter(name => /\.[jt]sx?$/.test(name) && !name.includes(".test."))) {
         const source = read(`../../views/vr/${file}`);
+        // A name built from pieces (`set${key}Model`) escapes this scan, so the VR windows write names out in full.
+        assert.doesNotMatch(source, /`(?:set|toggle|current)[A-Za-z]*\$\{/, `${file} builds a setter's name; write it out in full`);
         for (const [path] of source.matchAll(/"\/(?:get|set|run)\/[a-z0-9_/]+"/g)) sent.add(JSON.parse(path));
         for (const [name] of source.matchAll(/\b(?:set|toggle)[A-Z]\w*|\bvolumeCheck\w+|\brefreshLanguageSettings\b|\bswapSelectedLanguages\b/g)) names.add(name);
     }
