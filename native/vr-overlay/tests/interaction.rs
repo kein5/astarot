@@ -234,7 +234,8 @@ fn a_grabbed_log_follows_the_hand_and_its_place_is_saved() {
     rig.wait("pointing", || rig.pointers().iter().any(Option::is_some));
     rig.press(GRIP_MASK, 0.0);
     rig.wait("held (tinted)", || rig.color("VRCT2").is_some_and(|c| c != [1.0, 1.0, 1.0]));
-    assert_eq!(rig.pointers().last(), Some(&None), "no hover while held");
+    // The hover ends on the tick after the grab.
+    rig.wait("no hover while held", || rig.pointers().last() == Some(&None));
     // The hand moves up 20 cm.
     let mut moved = rig.vr.with(|s| s.poses[RIGHT as usize]).unwrap();
     moved[1][3] += 0.2;
@@ -277,7 +278,8 @@ fn the_trigger_with_the_grip_scales_within_its_limits() {
     rig.wait("pointing", || rig.pointers().iter().any(Option::is_some));
     rig.press(GRIP_MASK, 0.0);
     rig.wait("held", || rig.color("VRCT2").is_some_and(|c| c != [1.0, 1.0, 1.0]));
-    std::thread::sleep(Duration::from_millis(100));
+    // A few ticks held with the grip alone first (scaling starts from where it was last shown).
+    std::thread::sleep(Duration::from_millis(300));
     rig.press(GRIP_MASK | TRIGGER_MASK, 0.0);
     std::thread::sleep(Duration::from_millis(100));
     // Pushed 15 cm forward: twice as wide; the plus mark shows.
@@ -310,7 +312,7 @@ fn a_corner_resizes_the_log_with_a_frame_until_the_page_takes_the_size() {
     rig.wait("the frame shows", || rig.visible("VRCT_resize_ghost"));
     // Dragged 10 cm left: 1125 px wide, the top right corner stays.
     rig.aim(-PANEL_WIDTH_M / 2.0 - 0.1, -height_m / 2.0, 0.6);
-    std::thread::sleep(Duration::from_millis(200));
+    std::thread::sleep(Duration::from_millis(400));
     rig.press(0, 0.0);
     rig.wait("the new layout", || rig.events().iter().any(|e| matches!(e, Event::Layout(l) if l["regions"]["panel"][2] == 1125)));
     let saved = rig.positions(Surface::Panel).last().cloned().unwrap();
@@ -329,7 +331,7 @@ fn a_corner_resizes_the_log_with_a_frame_until_the_page_takes_the_size() {
     rig.press(GRIP_MASK, 0.0);
     rig.wait("the frame shows", || rig.visible("VRCT_resize_ghost"));
     rig.aim(-width_m / 2.0 - 3.0, -height_m / 2.0 - 3.0, 0.6);
-    std::thread::sleep(Duration::from_millis(200));
+    std::thread::sleep(Duration::from_millis(400));
     rig.press(0, 0.0);
     rig.wait("the largest layout", || rig.events().iter().any(|e| matches!(e, Event::Layout(l) if l["regions"]["panel"] == serde_json::json!([0, 0, 1400, 1000]))));
     rig.stop();
@@ -385,7 +387,7 @@ fn a_lost_controller_lets_go_where_the_window_was_last_shown() {
     let mut moved = rig.vr.with(|s| s.poses[RIGHT as usize]).unwrap();
     moved[0][3] += 0.1;
     rig.vr.set_pose(RIGHT, Some(moved));
-    std::thread::sleep(Duration::from_millis(200));
+    std::thread::sleep(Duration::from_millis(400));
     rig.vr.set_pose(RIGHT, None);
     rig.wait("let go", || !rig.positions(Surface::Panel).is_empty());
     assert!(rig.positions(Surface::Panel)[0]["x_pos"].as_f64().unwrap() > 0.05);
