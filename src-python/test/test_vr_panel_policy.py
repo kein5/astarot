@@ -1,7 +1,7 @@
 """SEC-02 and SEC-07: the backend refuses what the VR panel may not ask for.
 
 The main window relays the VR panel's requests and marks them {"origin": "vr_panel"}. The UI
-relays only VR_PANEL_RELAY_PATHS (src-ui/logics/common/vrPanelWire.js); the backend checks the
+relays only VR_PANEL_RELAY_PATHS (src-ui/logics/common/vrPanelWire.ts); the backend checks the
 same list, so a slip in the UI or a compromised VR page still cannot reach anything else.
 """
 import json
@@ -15,13 +15,13 @@ import mainloop as mainloop_module
 from mainloop import Main
 from models.vr_panel_policy import VR_PANEL_ENDPOINTS, VR_PANEL_ORIGIN, request_allowed
 
-WIRE = Path(__file__).resolve().parents[2] / "src-ui" / "logics" / "common" / "vrPanelWire.js"
+WIRE = Path(__file__).resolve().parents[2] / "src-ui" / "logics" / "common" / "vrPanelWire.ts"
 
 
 def _ui_list():
     """VR_PANEL_RELAY_PATHS as the UI writes it: path strings and toggle("name") pairs."""
     source = WIRE.read_text(encoding="utf-8")
-    block = source.split("export const VR_PANEL_RELAY_PATHS = new Set([", 1)[1].split("]);", 1)[0]
+    block = re.split(r"export const VR_PANEL_RELAY_PATHS = new Set(?:<string>)?\(\[", source, maxsplit=1)[1].split("]);", 1)[0]
     block = re.sub(r"//[^\n]*", "", block)
     paths = set(re.findall(r'"(/(?:get|set|run)/[a-z0-9_/]+)"', block))
     for name in re.findall(r'toggle\("([a-z0-9_]+)"\)', block):

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { endpointDescription, isNetworkDisconnected } from "./endpointPrivacy.js";
+import { endpointDescription, isNetworkDisconnected } from "./endpointPrivacy.ts";
 
 const t = key => key;
 for (const [warning, urls] of [

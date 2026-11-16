@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadBridgeRoutes } from "./test/bridgeHarness.js";
-import { expectBackendExit } from "./common/sidecarExitExpectation.js";
-import { createSidecarSessionOwner } from "./common/sidecarSession.js";
+import { expectBackendExit } from "./common/sidecarExitExpectation.ts";
+import { createSidecarSessionOwner } from "./common/sidecarSession.ts";
 import { loadModule } from "./test/hookHarness.js";
 
 test("blocked config loading shows the persistent load-failure notice", async () => {
@@ -42,7 +42,7 @@ test("failed required initialization maps and scalars retain renderable defaults
     const { LanguageSelectorOpenButton } = await loadModule(new URL("../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.jsx", import.meta.url), s.runtime, {
         "@store": s.stores,
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
-        "../../../../../../logics/common/languageNames.js": { createLanguageNames: () => ({ name: value => value }) },
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: value => value }) },
         "@logics_main": { useLanguageSettings: () => ({
             ...s.stores.useStore_SelectedPresetTabNumber(), ...s.stores.useStore_SelectedYourLanguages(), ...s.stores.useStore_SelectedTargetLanguages(),
         }) },

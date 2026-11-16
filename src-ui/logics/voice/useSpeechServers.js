@@ -1,7 +1,7 @@
 import { atom, useAtom, useStore } from "jotai";
 import { useCallback } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { sameValue } from "../common/polledState.js";
+import { sameValue } from "../common/polledState.ts";
 
 const settingsAtom = atom(null), stateAtom = atom({}), pendingAtom = atom({}), errorAtom = atom(null), devicesAtom = atom([]);
 const phases = { stopped: 0, preparing: 1, ready: 2, stopping: 3, failed: 4 };

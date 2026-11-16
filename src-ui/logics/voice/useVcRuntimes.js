@@ -1,7 +1,7 @@
 import { atom, useAtom, useStore } from "jotai";
 import { useCallback, useRef } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { acceptObservation, resetObservations, sameSnapshot } from "../common/polledState.js";
+import { acceptObservation, resetObservations, sameSnapshot } from "../common/polledState.ts";
 
 export const activeSetupPhases = ["queued", "tools", "python", "packages", "engine", "libraries", "assets", "verifying", "cancelling"];
 const emptyState = { observation_id: "0", jobs: {}, installed: {} };

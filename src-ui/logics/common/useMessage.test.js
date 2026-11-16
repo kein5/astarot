@@ -5,9 +5,9 @@ import i18next from "i18next";
 import yaml from "js-yaml";
 import { find, hooks, loadModule } from "../test/hookHarness.js";
 import { loadBridgeRoutes, deferred, flush } from "../test/bridgeHarness.js";
-import { keepRecentLogs } from "./messageLogLimit.js";
-import * as chatboxLength from "./chatboxLength.js";
-import { decodeLogUpdate, encodeLogUpdate } from "./vrPanelWire.js";
+import { keepRecentLogs } from "./messageLogLimit.ts";
+import * as chatboxLength from "./chatboxLength.ts";
+import { decodeLogUpdate, encodeLogUpdate } from "./vrPanelWire.ts";
 
 async function setup(send = async () => true, reset = async () => true, i18n = null) {
     let useMessage;

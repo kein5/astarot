@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { rebaseDraft } from "./draftRebase.js";
+import { rebaseDraft } from "./draftRebase.ts";
 
 const profile = { model: "", vad_model: "", voice_file: "", device: "auto", low_latency: false };
 const saved = { version: 1, profiles: { japanese: { ...profile }, asr: { ...profile } } };

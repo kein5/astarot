@@ -38,7 +38,9 @@ function walk(node, visit) {
         else if (value && typeof value === "object") walk(value, visit);
     }
 }
-const ast = code => parse(code, { sourceType: "unambiguous", plugins: ["jsx"], createImportExpressions: true });
+// TypeScript sources (ADR-010) are read with the same rules; .ts files have no JSX.
+const ast = (code, file = "") => parse(code, { sourceType: "unambiguous", createImportExpressions: true,
+    plugins: /\.ts$/.test(file) ? ["typescript"] : /\.tsx$/.test(file) ? ["typescript", "jsx"] : ["jsx"] });
 const literal = node => node?.type === "StringLiteral" ? node.value
     : node?.type === "TemplateLiteral" && !node.expressions.length ? node.quasis[0].value.cooked : null;
 const member = node => node?.type === "Identifier" ? node.name
@@ -55,9 +57,9 @@ function cssProblems(css) {
     if (/(?:url\(|@import)[^;\n]*\\/i.test(css)) problems.push("escaped CSS resource URL");
     return problems;
 }
-function jsProblems(code, application = true) {
+function jsProblems(code, application = true, file = "") {
     const problems = [];
-    walk(ast(code), node => {
+    walk(ast(code, file), node => {
         const fail = message => problems.push(`${node.loc.start.line}: ${message}`);
         // Check references too, so aliases and indirect eval cannot evade this guard.
         if ((node.type === "Identifier" && ["eval", "Function", "WebAssembly"].includes(node.name))
@@ -152,10 +154,10 @@ test("development relaxations are confined to Vite inline code/styles and loopba
 
 test("production sources have no dynamic code or unreviewed resource loaders", () => {
     for (const file of [...files("src-ui"), ...files("locales")]) {
-        if (/\.test\.[cm]?js$|\/test\//.test(file)) continue;
-        if (!/\.(?:[cm]?jsx?|css|scss|html|svg)$/.test(file)) continue;
+        if (/\.test\.[cm]?[jt]s$|\/test\/|\.d\.ts$/.test(file)) continue;
+        if (!/\.(?:[cm]?jsx?|tsx?|css|scss|html|svg)$/.test(file)) continue;
         const code = read(file);
-        const problems = /\.[cm]?jsx?$/.test(file) ? jsProblems(code)
+        const problems = /\.(?:[cm]?jsx?|tsx?)$/.test(file) ? jsProblems(code, true, file)
             : /\.(?:css|scss)$/.test(file) ? cssProblems(code)
                 : /\.(?:html|svg)$/.test(file) ? htmlProblems(code) : [];
         assert.deepEqual(problems, [], `${file}: update the CSP inventory and policy before adding resources`);
@@ -169,6 +171,8 @@ test("guards detect direct, indirect and computed eval and remote script/style/f
     for (const css of ["@import 'https://cdn.invalid/a.css';", "@font-face{src:url(https://cdn.invalid/a.woff2)}", "body{background:url(//cdn.invalid/a.svg)}"]) assert.notEqual(cssProblems(css).length, 0, css);
     assert.notEqual(htmlProblems('<link rel="stylesheet" href="https://cdn.invalid/a.css">').length, 0);
     assert.deepEqual(jsProblems('const help = "https://example.invalid"; element.style.setProperty("color", "red");'), []);
+    assert.notEqual(jsProblems("const run = (code: string): unknown => eval(code);", true, "a.ts").length, 0);
+    assert.notEqual(jsProblems("const x = <script src={url as string} />;", true, "a.tsx").length, 0);
 });
 
 test("emitted production dependencies and HTML agree with the policy (run after vite-build)", context => {

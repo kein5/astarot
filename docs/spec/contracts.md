@@ -39,7 +39,7 @@
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
 | CT-30 | APIキーとトークンの値をログに書かない。会話の本文を診断ログに書かない | `src-python/utils.py` | `src-python/test/test_utils_log_masking.py` |
-| CT-31 | VRパネルからは、APIキー、トークン、モデル取得、ファイルを開く操作、終了、更新を要求できない | `src-ui/logics/common/vrPanelWire.js` | `src-ui/logics/common/vrPanelWire.test.js` |
+| CT-31 | VRパネルからは、APIキー、トークン、モデル取得、ファイルを開く操作、終了、更新を要求できない | `src-ui/logics/common/vrPanelWire.ts` | `src-ui/logics/common/vrPanelWire.test.js` |
 | CT-32 | WebSocketはトークンのない接続を拒み、すべてのアドレスでは待ち受けない | `src-python/models/websocket/websocket_server.py` | `src-python/test/test_websocket_auth_and_bind_guard.py` |
 | CT-33 | 上流VRCTのチャット吹き出し検出モデルを含むOCRの重み、許諾のないモデル、Mia2026の音声を配布物に入れない | `AGENTS.md`「配布物とライセンス」 | `tests/voice/test_ocr_distribution.py`、`tests/voice/test_distribution_artifacts.py` |
 
@@ -49,5 +49,5 @@
 |---|---|---|---|
 | CT-40 | 表示する文言は`locales/`に置き、`en.yml`と`ja.yml`は必ずそろえる | `AGENTS.md`「UI」 | `tests/voice/test_headless_and_ui_contract.py`、`src-ui/logics/configs/cloudTranscription.test.js` |
 | CT-41 | React 18、CSS Modules、Jotai、i18nextの構成を保ち、リモートのフォントを入れない | `AGENTS.md`「UI」 | 手動 |
-| CT-42 | 言語の変更は要求ごとに対応づけ、失敗したら読み直す | `src-ui/logics/main/languageMutationCoordinator.js` | `languageMutationCoordinator.test.js`、`languageMutations.test.js` |
+| CT-42 | 言語の変更は要求ごとに対応づけ、失敗したら読み直す | `src-ui/logics/main/languageMutationCoordinator.ts` | `languageMutationCoordinator.test.js`、`languageMutations.test.js` |
 | CT-43 | 未保存の変更があるまま離れるときは確かめる | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.js`（保存バーの集計）、手動（ダイアログ） |

@@ -4,7 +4,7 @@ import { useStdoutToPython } from "@useStdoutToPython";
 import { useStore_IsBreakPoint } from "@store";
 import { useAppearance } from "@logics_configs";
 import { store } from "@store";
-import { isBuiltInGeometry, sizeToRestore } from "./windowGeometry.js";
+import { isBuiltInGeometry, sizeToRestore } from "./windowGeometry.ts";
 
 // Time the backend gets to save the settings after /run/shutdown. Closing the
 // window ends the app, and the shell plugin then kills the backend.

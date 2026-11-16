@@ -2,9 +2,9 @@ import { store } from "@store";
 import { encode } from "js-base64";
 import { useNotificationStatus } from "./useNotificationStatus";
 import { useI18n } from "@useI18n";
-import { pendingRequestRecovery, sendWithRecovery } from "./pendingRequestRecovery.js";
-import { expectBackendExit, undoExpectedExit } from "./sidecarExitExpectation.js";
-import { settingsWriteResponses } from "./settingsWriteResponses.js";
+import { pendingRequestRecovery, sendWithRecovery } from "./pendingRequestRecovery.ts";
+import { expectBackendExit, undoExpectedExit } from "./sidecarExitExpectation.ts";
+import { settingsWriteResponses } from "./settingsWriteResponses.ts";
 import { emit } from "@tauri-apps/api/event";
 import { isLanguageMutation, beginLanguageMutation, createLanguageRequestId, getLanguageSnapshot,
     failLanguageMutationBeforeSend, failLanguageRead, languageMutationWriteUnconfirmed } from "../main/languageMutations";

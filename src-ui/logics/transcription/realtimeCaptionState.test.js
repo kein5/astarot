@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../test/hookHarness.js";
-import * as captions from "./realtimeCaptionState.js";
-import { keepRecentLogs } from "../common/messageLogLimit.js";
+import * as captions from "./realtimeCaptionState.ts";
+import { keepRecentLogs } from "../common/messageLogLimit.ts";
 
 const owner = { generation: 4, requested: true, state: "ready", namespace: "session" };
 const payload = { source: "mic", namespace: "session", generation: 4, item_id: "one", revision: 1, state: "partial", text: "hello" };

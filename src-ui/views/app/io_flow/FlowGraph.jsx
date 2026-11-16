@@ -1,9 +1,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
-import { formatMs } from "../../../logics/flow/ioFlow.js";
-import { outputDetail } from "../../../logics/flow/flowText.js";
-import { splitFeatureLabel } from "../../../logics/common/featureLabel.js";
+import { formatMs } from "../../../logics/flow/ioFlow.ts";
+import { outputDetail } from "../../../logics/flow/flowText.ts";
+import { splitFeatureLabel } from "../../../logics/common/featureLabel.ts";
 import styles from "./FlowGraph.module.scss";
 
 const ENGINE_NAMES = { rvc: "RVC", "seed-vc": "Seed-VC" };

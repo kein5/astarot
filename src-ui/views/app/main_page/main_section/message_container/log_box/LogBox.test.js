@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../../logics/test/hookHarness.js";
-import { nextLogView, rowsBetween } from "../../../../../../logics/common/messageLogView.js";
+import { nextLogView, rowsBetween } from "../../../../../../logics/common/messageLogView.ts";
 
 async function setup(context, savedView, initialRows) {
     const runtime = hooks(), store = {}, observers = [];

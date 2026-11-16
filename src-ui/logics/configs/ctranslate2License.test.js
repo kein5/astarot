@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ctranslate2_weight_type_status } from "../ui_configs.js";
-import { isNonCommercialWeight, needsLicenseConfirmation, weightRequest, weightIdOfRequest } from "./ctranslate2License.js";
+import { ctranslate2_weight_type_status } from "../ui_configs.ts";
+import { isNonCommercialWeight, needsLicenseConfirmation, weightRequest, weightIdOfRequest } from "./ctranslate2License.ts";
 
 const byId = Object.fromEntries(ctranslate2_weight_type_status.map(weight => [weight.id, weight]));
 

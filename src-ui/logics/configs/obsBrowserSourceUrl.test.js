@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildObsBrowserSourceUrl, buildWebsocketUrl, isLoopbackHost } from "./obsBrowserSourceUrl.js";
+import { buildObsBrowserSourceUrl, buildWebsocketUrl, isLoopbackHost } from "./obsBrowserSourceUrl.ts";
 
 test("OBS copies the token while the visible URL masks it like the WebSocket row", () => {
     const { url, shown } = buildObsBrowserSourceUrl("127.0.0.1", 2232, "secret-token");

@@ -58,9 +58,9 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
         "@useI18n": translations, "@store": b.stores, "@utils": {},
         "@tauri-apps/api/core": {}, "@tauri-apps/plugin-shell": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
-        "../../../logics/common/sidecarSession.js": {},
-        "../../../logics/common/backendCommand.js": {},
-        "../../../logics/common/startupPhase.js": { describeStartupFailure: detail => detail },
+        "../../../logics/common/sidecarSession.ts": {},
+        "../../../logics/common/backendCommand.ts": {},
+        "../../../logics/common/startupPhase.ts": { describeStartupFailure: detail => detail },
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady,
             useNotificationStatus: () => ({ showNotification_Error: text => notices.push(text) }) },
     });

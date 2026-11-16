@@ -1,5 +1,5 @@
 import { store, useStore_BackendStartupState, useStore_BackendStartupFailure, useStore_IsBackendReady } from "@store";
-import { startupPhase } from "./startupPhase.js";
+import { startupPhase } from "./startupPhase.ts";
 
 export const useBackendStartup = () => {
     const { currentBackendStartupState } = useStore_BackendStartupState();

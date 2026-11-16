@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { getDefaultStore } from "jotai";
 import { Atom_IoFlow, Atom_IoTraces, useStore_IoFlow, useStore_IoTraces, useStore_IsOpenedIoFlowPanel } from "@store";
-import { mergeTrace } from "./ioFlow.js";
+import { mergeTrace } from "./ioFlow.ts";
 
 // The flow panel's state lives in registered atoms, so the VR window mirrors it as it is.
 export const useIoFlow = () => {

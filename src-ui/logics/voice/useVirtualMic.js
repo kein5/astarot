@@ -1,7 +1,7 @@
 import { atom, useAtom, useStore } from "jotai";
 import { useCallback } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { normalizeVirtualMicStatus, normalizeVirtualMicResult, normalizeVirtualMicLevel } from "./virtualMic.js";
+import { normalizeVirtualMicStatus, normalizeVirtualMicResult, normalizeVirtualMicLevel } from "./virtualMic.ts";
 
 // The virtual microphone guide and its check on Windows (#321).
 // notice: whether the guide may still open by itself at start-up (null: not known yet).

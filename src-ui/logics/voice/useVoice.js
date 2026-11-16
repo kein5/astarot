@@ -1,9 +1,9 @@
 import { atom, useAtom, useStore } from "jotai";
 import { useCallback } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { pendingAfterVoiceFailure, stoppedVoiceStatus, stoppedDirectState } from "./pendingVoiceRequest.js";
+import { pendingAfterVoiceFailure, stoppedVoiceStatus, stoppedDirectState } from "./pendingVoiceRequest.ts";
 import { newerRoute, newerDirectState } from "./routeState";
-import { acceptObservation, resetObservations } from "../common/polledState.js";
+import { acceptObservation, resetObservations } from "../common/polledState.ts";
 
 const settingsAtom = atom(null), statusAtom = atom({}), routeAtom = atom({});
 const devicesAtom = atom({ devices: [], error: null }), errorAtom = atom(null);

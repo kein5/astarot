@@ -1,6 +1,6 @@
 import { useAtomValue } from "jotai";
 import { createAtomWithHook, dynamicStoreRegistry } from "@store";
-import { settingPendingControl } from "../../common/pendingRequestRecovery.js";
+import { settingPendingControl } from "../../common/pendingRequestRecovery.ts";
 import vr_layout from "../../../views/vr/vr_layout.json";
 
 import {

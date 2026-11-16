@@ -8,7 +8,7 @@ import { register, unregister, unregisterAll } from "@tauri-apps/plugin-global-s
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useI18n } from "@useI18n";
-import { voiceActions } from "../../../voice/voiceActions.js";
+import { voiceActions } from "../../../voice/voiceActions.ts";
 
 // Native Wayland grants no global key grab: the desktop binds the keys
 // through the GlobalShortcuts portal and Rust forwards each press here.

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { flowNote, offGroups, outputDetail, outputTime, stripItems, timelineRows } from "./flowText.js";
+import { flowNote, offGroups, outputDetail, outputTime, stripItems, timelineRows } from "./flowText.ts";
 
 const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
 const names = { language: name => `lang(${name})` };

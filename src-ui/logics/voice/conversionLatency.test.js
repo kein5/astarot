@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { conversionDelaySeconds } from "./conversionLatency.js";
+import { conversionDelaySeconds } from "./conversionLatency.ts";
 
 test("the delay adds the app's block, the worker's delay and the round trip", () => {
     assert.deepEqual(conversionDelaySeconds({ active: true, conversion_device: "gpu", conversion_latency_ms: 52, round_trip_ms: 24 }),

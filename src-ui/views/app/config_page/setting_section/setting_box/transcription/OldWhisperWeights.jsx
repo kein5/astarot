@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useLocalAsrMigration } from "../../../../../../logics/transcription/useLocalAsrMigration";
-import { hasOldWeights, weightsSize } from "../../../../../../logics/transcription/localAsrMigration.js";
+import { hasOldWeights, weightsSize } from "../../../../../../logics/transcription/localAsrMigration.ts";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import own from "./OldWhisperWeights.module.scss";
 

@@ -1,4 +1,4 @@
-import { createLanguageNames } from "../../logics/common/languageNames.js";
+import { createLanguageNames } from "../../logics/common/languageNames.ts";
 import { useLayoutEffect, useRef, useState } from "react";
 import clsx from "clsx";
 
@@ -24,7 +24,7 @@ import { buildComputeDeviceOptions } from "../app/config_page/setting_section/se
 import { CLOUD_TRANSCRIPTION_ENGINES } from "../../logics/configs/cloudTranscription";
 import { isNonCommercialWeight } from "../../logics/configs/ctranslate2License";
 import styles from "./VrSettingsWindow.module.scss";
-import { splitFeatureLabel } from "../../logics/common/featureLabel.js";
+import { splitFeatureLabel } from "../../logics/common/featureLabel.ts";
 
 // 左のカテゴリはデスクトップの設定画面と同じ順序・名前・アイコン。VRでは文字入力が要る項目
 // (APIキー、URL、単語フィルターなど) と、モデルのダウンロードは載せない

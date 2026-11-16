@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
-import * as migration from "../../../logics/transcription/localAsrMigration.js";
+import * as migration from "../../../logics/transcription/localAsrMigration.ts";
 
 const OldWhisperWeights = () => null;
 
@@ -19,7 +19,7 @@ async function setup(context, { notice = true, settings = { profiles: { asr: { m
         "../../../logics/common/useConsentDialog": { useConsentDialog: open => ({ dialog: { current: null, open }, close: () => { closed++; } }) },
         "../../../logics/transcription/useLocalAsrMigration": { useLocalAsrMigration: () => state },
         "../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings }) },
-        "../../../logics/transcription/localAsrMigration.js": migration,
+        "../../../logics/transcription/localAsrMigration.ts": migration,
         "../config_page/setting_section/setting_box/transcription/OldWhisperWeights": { OldWhisperWeights },
     });
     context.after(() => runtime.unmount());
