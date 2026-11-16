@@ -12,12 +12,13 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { VirtualMicEntry } from "../tts/VirtualMicEntry";
+import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 
 // Every field the page can make invalid: speech.cpp's seed and instructions, COEIROINK's numbers.
 const validVoiceSettings = draft => validGenerationOptions(draft) && validCoeiroinkOptions(draft);
 
 export const VoiceSettings = () => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
     const optionsErrorId = useId();
     const { settings, status, devices, error, send, updateError } = useVoice();
     const label = ([key]) => {
@@ -138,7 +139,9 @@ export const VoiceSettings = () => {
         </form>
         {!validGenerationOptions(draft) && <p id={optionsErrorId} role="alert">{t("voice_ui.invalid_options")}</p>}
         {form.navigationDialog}
-        {(error || status.last_error || devices.error) && <p role="alert">{t("voice.error")}: {error || status.last_error || devices.error}</p>}
+        {/* The sentence says what to do; the code stays for reports. */}
+        {(error || status.last_error || devices.error) && <p role="alert">{t("voice.error")}: {voiceErrorText(error || status.last_error || devices.error,
+            t("config_page.tts.tts_settings.label"), t, key => i18n.exists(key))}</p>}
     </section>;
 };
 

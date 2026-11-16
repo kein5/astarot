@@ -24,6 +24,19 @@ for (const language of ["en", "ja"]) test(`${language}: every code the voice pag
     assert.equal(voiceErrorText("voice_route_muted", "TTS", t, exists), `${t("voice_ui.errors.voice_route_muted")} (voice_route_muted)`);
 });
 
+// The TTS settings page shows why a save was refused. The core refuses with these codes
+// (native/core/src/controller/voice/mod.rs, set_settings and output_devices).
+for (const language of ["en", "ja"]) test(`${language}: a refused TTS settings save is explained, not shown as a code`, async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources });
+    const t = i18n.t.bind(i18n), exists = key => i18n.exists(key);
+    for (const code of ["VOICE_SETTINGS_INVALID", "direct_voice_stop_required", "voice_route_closed", "voice_request_failed",
+        "audio_devices_unavailable", "backend_unavailable"]) {
+        const text = voiceErrorText(code, "TTS", t, exists);
+        assert.ok(text.endsWith(` (${code})`) && !text.startsWith(code), `${code}: ${text}`);
+    }
+});
+
 test("an unknown code is shown as it is, with where to look", () => {
     const t = (key, values) => `${key}:${values?.page ?? ""}`;
     assert.equal(voiceErrorText("vc_new_failure", "RVC", t, () => false), "vc_new_failure · voice_ui.check_settings:RVC");
