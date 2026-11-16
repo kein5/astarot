@@ -298,7 +298,11 @@ async fn a_client_that_sends_a_little_stays_connected_and_reaches_the_handler() 
     for index in 0..5 {
         client.send(Message::text(format!("hello {index}"))).await.unwrap();
     }
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    // Wait until the handler has had all five; a flood would have closed the client by then.
+    let end = Instant::now() + Duration::from_secs(5);
+    while seen.lock().unwrap().len() < 5 && Instant::now() < end {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
     server.send("reply").unwrap();
     assert_eq!(recv_text(&mut client).await, "reply");
     assert_eq!(server.client_count(), 1);
