@@ -15,7 +15,7 @@ use vrct_core::protocol::request_line;
 use vrct_core::{Backend, Options, Sink};
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
-pub const VERSION: &str = "0.4.0-beta.1";
+pub const VERSION: &str = "0.4.0";
 
 #[derive(Default)]
 struct Seen {
