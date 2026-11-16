@@ -1,11 +1,11 @@
 //! The local translation on ONNX Runtime (`native/translate-onnx`), built only with the
 //! `onnx-translation` feature: linking it brings ONNX Runtime into the app, which waits for a
-//! decision ("判断が要ること" 13 in `docs/voice-stack/core-integration.md`).
+//! decision ("判断が要ること" 1 and 2 in `docs/voice-stack/core-integration.md`).
 //!
 //! Until the models are in the download catalog, a model is looked for at
 //! `<data>/weights/translate-onnx/<model>-onnx-int8/`, the folder `tools/translation_onnx/export.py`
 //! writes (the place is not decided either). The saved compute settings are CTranslate2's: the
-//! model always runs on the CPU here, and the compute type is not used ("判断が要ること" 4).
+//! model always runs on the CPU here, and the compute type is not used ("判断が要ること" 1).
 
 use super::translation::{LocalError, LocalSetup, LocalTranslation};
 use std::path::{Path, PathBuf};

@@ -9,7 +9,7 @@
 //! The provider clients are in `native/translation`. The local translation is a
 //! [`LocalTranslation`] given by [`super::Services::local_translation`]: ONNX Runtime
 //! (`native/translate-onnx`) when the core is built with the `onnx-translation` feature, else
-//! nothing (see "判断が要ること" 4 and 13 in `docs/voice-stack/core-integration.md`).
+//! nothing (see "判断が要ること" 1 and 2 in `docs/voice-stack/core-integration.md`).
 //!
 //! Keys, URLs with their queries and the user's text never reach the log.
 

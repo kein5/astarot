@@ -33,7 +33,7 @@ jobs:
   # The candidate job below inspects everything together and records the candidate.
   # Since 0.5.0 both packages hold the same files (no Python, so no CUDA libraries); the CUDA
   # package stays so that the installer's GPU choice and older GPU installs keep a download
-  # (decision 17 in docs/voice-stack/core-integration.md).
+  # (decision 20 in docs/voice-stack/core-integration.md).
   build-cuda:
     name: Windows cuda build
     runs-on: windows-latest

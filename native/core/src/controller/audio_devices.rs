@@ -591,7 +591,7 @@ impl AudioDevices {
 
     /// Choices saved by the Python backend under a Windows host this list no longer has (MME,
     /// DirectSound, WDM-KS) move to the same device under WASAPI, so the user keeps them. See
-    /// decision 12 in `docs/voice-stack/core-integration.md`.
+    /// decision 4 in `docs/voice-stack/core-integration.md`.
     fn migrate_saved_choices(&self) {
         let snapshot = self.snapshot();
         if let Some((host, device)) = selection::migrate_mic(&snapshot, &self.saved(Source::Mic)) {

@@ -54,7 +54,7 @@ npm run release-all
 
 WindowsのZIPには`vrct-vox.exe`と`_internal/`を収めます。ONNX Runtimeを動的にリンクするクレートがアプリに入った場合は、ビルドが`vrct-vox.exe`の隣に置いたONNX RuntimeとDirectMLのDLLも収めます。Linuxの実行名には`.exe`を付けません。配布物の作成時にはOCR重みなどの禁止資源を検査します。ソースツリー全体をそのまま配布ZIPにしないでください。
 
-CUDA版は0.4までPythonバックエンドのためにCUDAのライブラリを同梱していました。0.5.0からは標準版と同じ中身です。インストーラーのGPUの選択と、CUDA版から更新する利用者のために、同じ名前で作り続けています（[中核の統合](voice-stack/core-integration.md)の「判断が要ること」の17）。
+CUDA版は0.4までPythonバックエンドのためにCUDAのライブラリを同梱していました。0.5.0からは標準版と同じ中身です。インストーラーのGPUの選択と、CUDA版から更新する利用者のために、同じ名前で作り続けています（[中核の統合](voice-stack/core-integration.md)の「判断が要ること」の20）。
 
 `_internal/`の中身は次のとおりです（`tools/app_resources.py`）。
 

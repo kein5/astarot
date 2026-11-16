@@ -168,7 +168,7 @@ pyclipper 1.4.0 (Boost Software License 1.0, Angus Johnson); it follows GEOS's
 order of operations for two area and length formulas. No source file of these
 projects is included. ONNX Runtime is not built into the application: chat
 reading loads the library at run time (see
-`docs/voice-stack/core-integration.md`, item 13).
+`docs/voice-stack/core-integration.md`, item 2).
 
 `native/transcription` (speech recognition) reimplements, so that phrases are
 cut as before, the energy-based listening of SpeechRecognition 3.10.4

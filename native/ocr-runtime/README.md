@@ -18,7 +18,7 @@ ONNX Runtime is linked in one of two ways, chosen by a feature:
   `ORT_DYLIB_PATH`, else `onnxruntime.dll` / `libonnxruntime.so` beside the executable,
   else by name. A missing library is an error value (`engine::is_available()` is false),
   not a panic. The core uses this; which ONNX Runtime the application ships is open
-  (`docs/voice-stack/core-integration.md`, item 13).
+  (`docs/voice-stack/core-integration.md`, item 2).
 
 ## What it does
 
@@ -157,7 +157,7 @@ file. Which ONNX Runtime build ships is open (below).
    recognition 73 % slower than the official 1.31.1 library on this machine, and some
    scores differ by 1e-5. The core loads the library at run time (`load-dynamic`), so
    the official library gives identical results; which one ships, and where, is
-   item 13 of `docs/voice-stack/core-integration.md`. The static build also failed to
+   item 2 of `docs/voice-stack/core-integration.md`. The static build also failed to
    link with MSVC 14.43 (it needs a newer C++ library), and the Windows test
    `a_file_left_by_a_killed_helper_is_not_a_stream` relies on `/proc` and fails there.
 3. **OpenVR client library.** pyopenvr shipped `openvr_api`; something must ship it next

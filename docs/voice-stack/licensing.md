@@ -398,7 +398,7 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 
 まだ決まっていないもの（[中核の統合](core-integration.md)の「判断が要ること」）:
 
-- ONNX Runtimeの同梱（13）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`download-binaries`でONNX Runtimeを使う。WindowsでDirectMLを使うと、`onnxruntime.dll`と`DirectML.dll`を`vrct-vox.exe`の隣に置くことになる（`utils/zip.py`はあれば収める）。ONNX Runtime（MIT）とDirectML（Microsoftの再配布の条件）の通知を、そのときNOTICEとこの台帳に足す。
-- CUDA版（17）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
+- ONNX Runtimeの配り方（2）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`download-binaries`でONNX Runtimeを使う。WindowsでDirectMLを使うと、`onnxruntime.dll`と`DirectML.dll`を`vrct-vox.exe`の隣に置くことになる（`utils/zip.py`はあれば収める）。ONNX Runtime（MIT）とDirectML（Microsoftの再配布の条件）の通知を、そのときNOTICEとこの台帳に足す。
+- CUDA版（20）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
 
 Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。

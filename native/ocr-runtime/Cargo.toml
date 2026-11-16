@@ -22,7 +22,7 @@ download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs
 # Load the ONNX Runtime library at run time instead: `ORT_DYLIB_PATH`, else
 # `onnxruntime.dll` / `libonnxruntime.so` beside the executable, else by name. A missing
 # library makes the engine unavailable instead of failing the build or the start of the
-# process. The application core uses this (docs/voice-stack/core-integration.md, item 13).
+# process. The application core uses this (docs/voice-stack/core-integration.md, item 2).
 load-dynamic = ["ort/load-dynamic"]
 
 [dependencies]

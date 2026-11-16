@@ -12,7 +12,7 @@ from check_voice_distribution import check
 
 # ONNX Runtime and DirectML, when a crate in vrct-vox.exe links them dynamically: ort's
 # copy-dylibs puts them beside the binary in target/release, and Windows loads them from there
-# (decision 13 in docs/voice-stack/core-integration.md).
+# (decision 2 in docs/voice-stack/core-integration.md).
 ONNX_RUNTIME_LIBRARIES = ("onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll")
 
 def zip_files_and_directory(zip_name, file_paths, dir_paths, verbose=False):

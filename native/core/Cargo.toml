@@ -13,7 +13,7 @@ name = "vrct_core"
 # development files and libclang). No effect on Windows.
 pipewire = ["vrct-audio-routing/pipewire", "vrct-transcription/pipewire"]
 # Local translation with ONNX Runtime (native/translate-onnx). Off until bundling ONNX Runtime
-# with the app is decided (docs/voice-stack/core-integration.md, decision 13): without it the
+# with the app is decided (docs/voice-stack/core-integration.md, decisions 1 and 2): without it the
 # local translation reports its model as missing.
 onnx-translation = ["dep:vrct-translate-onnx"]
 
@@ -26,7 +26,7 @@ serde = { version = "=1.0.229", features = ["derive"] }
 # them in that order (the translation weights, the initialization snapshot). See README.md.
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 # Chat reading. ONNX Runtime is loaded when chat reading starts, not linked: see
-# docs/voice-stack/core-integration.md, item 13 of "判断が要ること".
+# docs/voice-stack/core-integration.md, item 2 of "判断が要ること".
 ocr-runtime = { path = "../ocr-runtime", default-features = false, features = ["load-dynamic"] }
 vrct-adapters = { path = "../adapters" }
 # The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests

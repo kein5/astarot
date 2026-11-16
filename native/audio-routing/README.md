@@ -82,7 +82,7 @@ settled and are listed again under "Open questions".
 ## Open questions
 
 The questions about the Windows hosts, saved selections, the speaker ID prefix and
-the PipeWire dependency are item 12 of "判断が要ること" in
+the PipeWire dependency are item 4 of "判断が要ること" in
 `docs/voice-stack/core-integration.md`, with what the core does meanwhile (WASAPI
 only, saved choices from other hosts moved to the same WASAPI device). Still open
 here:

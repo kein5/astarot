@@ -1,7 +1,7 @@
 # One Windows package for release.yml: check the version fields, set up the toolchains, build
 # the package with its npm script and inspect it. The calling job checks out the code first and
 # collects the outputs afterwards. Since 0.5.0 both variants hold the same files: the CUDA
-# libraries were for the Python backend (decision 17 in docs/voice-stack/core-integration.md).
+# libraries were for the Python backend (decision 20 in docs/voice-stack/core-integration.md).
 name: Build a Windows package
 description: Build and inspect VRCT-VOX.zip or VRCT-VOX_cuda.zip
 inputs:
