@@ -30,6 +30,7 @@ async function setup(context, { on = false } = {}) {
         "../../../logics/transcription/useTranscriptionConsent": { useTranscriptionConsent: () => ({ request: state.request }) },
         "../../../logics/translation/useTranslationSetup": { useTranslationSetup: () => ({ request: state.setup }) },
         "../../../logics/companion/status.ts": status,
+        "../../../logics/companion/dialogs.ts": { watchOpenDialogs: () => () => {} },
     });
     const render = async () => { runtime.render(CompanionController); await flush(); };
     await render(); await render();

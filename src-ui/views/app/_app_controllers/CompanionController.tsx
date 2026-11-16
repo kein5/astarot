@@ -10,6 +10,7 @@ import { useBackendStartup } from "../../../logics/common/useBackendStartup";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
 import { useTranslationSetup } from "../../../logics/translation/useTranslationSetup";
 import { companionStatus, runAction } from "../../../logics/companion/status.ts";
+import { watchOpenDialogs } from "../../../logics/companion/dialogs.ts";
 
 // The experimental feature that keeps the app in the system tray (src-tauri/src/companion.rs).
 export const TRAY_COMPANION = "tray_companion";
@@ -81,6 +82,14 @@ export const CompanionController = () => {
             ready: currentIsBackendReady.data, mic, translation, language: i18n.language, t,
         }) }).catch(error => console.error("Companion state could not be reported", error));
     }, [on, currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, i18n.language, t]);
+
+    // Any dialog the main window opens (the start-up notices among them) needs the user too.
+    useEffect(() => {
+        if (!on || typeof document === "undefined") return undefined;
+        return watchOpenDialogs(document, () => {
+            invoke("companion_show_main").catch(error => console.error("Main window could not be shown", error));
+        });
+    }, [on]);
 
     useEffect(() => {
         if (on && needsUser) invoke("companion_show_main").catch(error => console.error("Main window could not be shown", error));
