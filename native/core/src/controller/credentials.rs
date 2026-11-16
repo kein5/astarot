@@ -186,6 +186,13 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.get("/get/data/lmstudio_url", OPEN, "LMSTUDIO_URL");
     b.get("/get/data/selected_lmstudio_model", OPEN, "SELECTED_LMSTUDIO_MODEL");
     b.get("/get/data/selected_ollama_model", OPEN, "SELECTED_OLLAMA_MODEL");
+    // Core only (#277): the Ollama URL and the official machine translation APIs.
+    b.get("/get/data/ollama_url", OPEN, "OLLAMA_URL");
+    b.add("/get/data/google_cloud_auth_key", OPEN, read(b.core, "AUTH_KEYS", "Google_Cloud_API"));
+    b.with("/delete/data/google_cloud_auth_key", OPEN, |core, _| core.delete_translation_key("Google_Cloud_API", None));
+    b.get("/get/data/papago_client_id", OPEN, "PAPAGO_CLIENT_ID");
+    b.add("/get/data/papago_auth_key", OPEN, read(b.core, "AUTH_KEYS", "Papago_API"));
+    b.with("/delete/data/papago_auth_key", OPEN, |core, _| core.delete_translation_key("Papago_API", None));
 
     // Recognition
     for service in TRANSCRIPTION {

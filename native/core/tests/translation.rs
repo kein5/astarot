@@ -180,14 +180,126 @@ fn lm_studio_and_ollama_are_connected_and_lost_with_their_models() {
         "CONNECTION_LMSTUDIO_URL_INVALID"
     );
 
-    // Ollama, at its fixed address.
+    // Ollama: the address Python always used, until the user chooses another (core only).
+    assert_eq!(ui.ok("/get/data/ollama_url", None), "http://localhost:11434");
+    for public in ["http://example.com:11434", "http://100.64.0.1:11434", "ftp://192.168.1.2/"] {
+        assert_eq!(
+            refused(&ui, "/set/data/ollama_url", json!(public)),
+            ("CONNECTION_OLLAMA_URL_INVALID".into(), json!("http://localhost:11434")),
+            "{public}"
+        );
+    }
+    let url = fake.url_of("/ollama");
+    let mark = ui.send("/set/data/ollama_url", Some(json!(format!(" {url} "))));
+    assert_eq!(ui.wait_endpoint(mark, "/set/data/ollama_url")["result"], json!(url));
+    assert_eq!(ui.wait_endpoint(mark, "/run/selected_ollama_model")["result"], "gemma3");
     let mark = ui.send("/run/ollama_connection", None);
     assert_eq!(ui.wait_endpoint(mark, "/run/ollama_connection")["result"], true);
-    assert_eq!(ui.wait_endpoint(mark, "/run/selected_ollama_model")["result"], "gemma3");
     assert_eq!(ui.ok("/get/data/connected_ollama", None), true);
     // A server without a model counts as failed.
     fake.models("/ollama", &[]);
     assert_eq!(refused(&ui, "/run/ollama_connection", Value::Null), ("CONNECTION_OLLAMA_FAILED".into(), json!(false)));
+    // An address where nothing answers is not saved.
+    let closed = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap().local_addr().unwrap().port();
+    assert_eq!(
+        refused(&ui, "/set/data/ollama_url", json!(format!("http://127.0.0.1:{closed}"))),
+        ("CONNECTION_OLLAMA_URL_INVALID".into(), json!(url))
+    );
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["OLLAMA_URL"], json!(url));
+    ui.stop();
+}
+
+#[test]
+fn a_saved_ollama_url_is_checked_at_start_up_and_a_public_one_is_dropped() {
+    let fake = FakeProviders::start();
+    fake.models("/ollama", &["qwen"]);
+    let (ui, _) = start(&fake, json!({ "OLLAMA_URL": fake.url_of("/ollama"), "SELECTED_OLLAMA_MODEL": "qwen" }));
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/connected_ollama"], true);
+    assert_eq!(snapshot["/get/data/selected_ollama_model"], "qwen");
+    ui.stop();
+
+    // Plain HTTP to a public host is not kept from a hand-edited file, and the UI is told.
+    let (ui, _) = start(&fake, json!({ "OLLAMA_URL": "http://ollama.example.com:11434" }));
+    assert_eq!(ui.ready()["/get/data/ollama_url"], "");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["OLLAMA_URL"], "");
+    ui.stop();
+}
+
+#[test]
+fn a_google_cloud_key_is_saved_only_when_google_accepts_it() {
+    let fake = FakeProviders::start();
+    let key = format!("AIza{}", "g".repeat(35));
+    fake.key("/google-cloud", &key);
+    let (ui, _) = start(&fake, json!({}));
+
+    for bad in ["", "  ", "two words"] {
+        assert_eq!(refused(&ui, "/set/data/google_cloud_auth_key", json!(bad)), ("AUTH_GOOGLE_CLOUD_INVALID".into(), Value::Null));
+    }
+    assert!(fake.seen_under("/google-cloud").is_empty(), "nothing is sent for a malformed key");
+    let mark = ui.send("/set/data/google_cloud_auth_key", Some(json!(format!(" {key} "))));
+    assert_eq!(ui.wait_endpoint(mark, "/set/data/google_cloud_auth_key")["result"], json!(key));
+    let engines = ui.wait_endpoint(mark, "/run/translation_engines");
+    assert!(engines["result"].as_array().unwrap().contains(&json!("Google_Cloud_API")), "{engines}");
+    let check = fake.seen_under("/google-cloud").pop().unwrap();
+    assert_eq!(check.header("x-goog-api-key"), Some(key.as_str()));
+    assert!(!check.path.contains(&key), "the key is not in the URL");
+
+    let other = format!("AIza{}", "x".repeat(35));
+    assert_eq!(refused(&ui, "/set/data/google_cloud_auth_key", json!(other)), ("AUTH_GOOGLE_CLOUD_FAILED".into(), json!(key)));
+    assert_eq!(ui.ok("/get/data/google_cloud_auth_key", None), json!(key));
+
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["AUTH_KEYS"]["Google_Cloud_API"], json!(key));
+    let log = process_log(&ui);
+    assert!(!log.contains(&key) && !log.contains(&other), "a key reached the log");
+    ui.stop();
+
+    // At the next start the saved key is checked again; deleting it takes the engine away.
+    let (ui, _) = start(&fake, json!({ "AUTH_KEYS": { "Google_Cloud_API": key } }));
+    let snapshot = ui.ready();
+    assert!(snapshot["/get/data/selectable_translation_engines"].as_array().unwrap().contains(&json!("Google_Cloud_API")));
+    assert_eq!(ui.ok("/delete/data/google_cloud_auth_key", None), Value::Null);
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["AUTH_KEYS"]["Google_Cloud_API"], Value::Null);
+    ui.stop();
+}
+
+#[test]
+fn papago_needs_the_client_id_before_the_secret_and_checks_them_together() {
+    let fake = FakeProviders::start();
+    fake.key("/papago", "client-1:secret-1");
+    let (ui, _) = start(&fake, json!({}));
+
+    // No Client ID yet: the secret cannot be checked.
+    assert_eq!(refused(&ui, "/set/data/papago_auth_key", json!("secret-1")), ("AUTH_PAPAGO_INVALID".into(), Value::Null));
+    assert_eq!(refused(&ui, "/set/data/papago_client_id", json!(" ")), ("AUTH_PAPAGO_INVALID".into(), json!("")));
+    assert_eq!(ui.ok("/set/data/papago_client_id", Some(json!(" client-1 "))), "client-1");
+    assert_eq!(refused(&ui, "/set/data/papago_auth_key", json!("wrong")), ("AUTH_PAPAGO_FAILED".into(), Value::Null));
+
+    let mark = ui.send("/set/data/papago_auth_key", Some(json!("secret-1")));
+    assert_eq!(ui.wait_endpoint(mark, "/set/data/papago_auth_key")["result"], "secret-1");
+    let engines = ui.wait_endpoint(mark, "/run/translation_engines");
+    assert!(engines["result"].as_array().unwrap().contains(&json!("Papago_API")), "{engines}");
+    // The check translates nothing.
+    assert_eq!(fake.seen_under("/papago").pop().unwrap().body["text"], "");
+
+    // A new Client ID needs the secret again.
+    assert_eq!(
+        refused(&ui, "/set/data/papago_client_id", json!("client-2")),
+        ("CREDENTIAL_REENTRY_REQUIRED".into(), json!("client-1"))
+    );
+    assert_eq!(ui.ok("/delete/data/papago_auth_key", None), Value::Null);
+    assert_eq!(ui.ok("/set/data/papago_client_id", Some(json!("client-2"))), "client-2");
+
+    ui.ok("/run/shutdown", None);
+    let file = ui.saved();
+    assert_eq!(file["PAPAGO_CLIENT_ID"], "client-2");
+    assert_eq!(file["AUTH_KEYS"]["Papago_API"], Value::Null);
+    let log = process_log(&ui);
+    assert!(!log.contains("secret-1") && !log.contains("client-1"), "a credential reached the log");
     ui.stop();
 }
 

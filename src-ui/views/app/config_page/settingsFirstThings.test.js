@@ -177,8 +177,8 @@ test("each translation provider is one fold that says whether it can be used; th
             folds.push([provider.props.id, fold.props.title, fold.props.status, fold.props.attention]);
         }
     }
-    assert.deepEqual(folds.map(fold => fold[0]), ["DeepL_API", "Plamo_API", "Gemini_API", "OpenAI_API", "Groq_API", "OpenRouter_API",
-        "LMStudio", "Ollama", "OpenAI_Compatible"]);
+    assert.deepEqual(folds.map(fold => fold[0]), ["DeepL_API", "Google_Cloud_API", "Papago_API", "Plamo_API", "Gemini_API", "OpenAI_API",
+        "Groq_API", "OpenRouter_API", "LMStudio", "Ollama", "OpenAI_Compatible"]);
     const by = Object.fromEntries(folds.map(([id, ...rest]) => [id, rest]));
     assert.deepEqual(by.DeepL_API, ["DeepL API", "config_page.translation.provider_ready", false]);
     assert.deepEqual(by.Gemini_API, ["Gemini API", "config_page.translation.provider_not_set", false]);

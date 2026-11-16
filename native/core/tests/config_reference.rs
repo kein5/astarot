@@ -43,6 +43,25 @@ fn write_input(dir: &Path, input: &Value, defaults: &Value) {
     }
 }
 
+/// What the core saves that Python never had (#277): the Ollama URL, Papago's Client ID and the
+/// keys of the official machine translation APIs. They are left out before comparing.
+const CORE_ONLY_KEYS: [&str; 2] = ["OLLAMA_URL", "PAPAGO_CLIENT_ID"];
+const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
+/// The engines the core adds after DeepL (the official APIs, #277).
+const CORE_ONLY_ENGINES: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
+
+fn without_core_additions(mut saved: Map<String, Value>) -> Map<String, Value> {
+    for key in CORE_ONLY_KEYS {
+        saved.shift_remove(key);
+    }
+    if let Some(Value::Object(keys)) = saved.get_mut("AUTH_KEYS") {
+        for engine in CORE_ONLY_AUTH_KEYS {
+            keys.shift_remove(engine);
+        }
+    }
+    saved
+}
+
 fn changes(saved: &Map<String, Value>, defaults: &Map<String, Value>) -> Map<String, Value> {
     saved.iter().filter(|(k, v)| defaults.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), v.clone())).collect()
 }
@@ -56,8 +75,9 @@ fn check_platform(name: &str, platform: Platform) {
         let dir = tempfile::tempdir().unwrap();
         write_input(dir.path(), &reference["inputs"][case], &expected["defaults"]);
         let config = Config::open(environment(dir.path(), platform, &reference));
-        let saved: Map<String, Value> =
-            serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap()).unwrap();
+        let saved: Map<String, Value> = without_core_additions(
+            serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap()).unwrap(),
+        );
         let got_changes = changes(&saved, defaults);
         let missing: Vec<&String> = defaults.keys().filter(|k| !saved.contains_key(*k)).collect();
         let order_kept = saved.keys().eq(defaults.keys());
@@ -108,13 +128,19 @@ fn the_lists_the_settings_are_checked_against_are_pythons() {
     let config = Config::open(environment(dir.path(), Platform::current(), &reference));
     let lists = &reference["platforms"]["win32"]["lists"];
     assert_eq!(config.get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST"), lists["selectable_transcription_engines"]);
-    // Python's list without the web translators no build could run ("判断が要ること" 17).
-    let engines: Vec<&Value> = lists["selectable_translation_engines"]
+    // Python's list without the web translators no build could run ("判断が要ること" 17), with the
+    // official APIs the core adds after DeepL.
+    let mut engines: Vec<Value> = lists["selectable_translation_engines"]
         .as_array()
         .unwrap()
         .iter()
         .filter(|e| !["Google", "Bing", "Papago"].contains(&e.as_str().unwrap()))
+        .cloned()
         .collect();
+    let after_deepl = engines.iter().position(|e| e == "DeepL_API").unwrap() + 1;
+    for (offset, engine) in CORE_ONLY_ENGINES.iter().enumerate() {
+        engines.insert(after_deepl + offset, json!(engine));
+    }
     assert_eq!(config.get("SELECTABLE_TRANSLATION_ENGINE_LIST"), json!(engines));
     assert_eq!(config.get("SELECTABLE_OCR_SOURCE_LANGUAGE_LIST"), lists["selectable_ocr_source_languages"]);
     assert_eq!(config.get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST"), lists["selectable_ctranslate2_weight_types"]);

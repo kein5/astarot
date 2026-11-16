@@ -14,6 +14,7 @@ const endpoints = new Set([
 const textEndpoints = new Set([
     "deepl_auth_key", "plamo_auth_key", "gemini_auth_key", "openai_auth_key", "groq_auth_key", "openrouter_auth_key",
     "lmstudio_url", "openai_compatible_url", "openai_compatible_auth_key", "ollama_url",
+    "google_cloud_auth_key", "papago_client_id", "papago_auth_key",
     "groq_whisper_auth_key", "openai_whisper_auth_key", "custom_whisper_url", "custom_whisper_auth_key", "deepgram_auth_key",
 ].flatMap(name => [`/set/data/${name}`, `/delete/data/${name}`]));
 

@@ -3,7 +3,11 @@
 //! `data/translation_languages.json` is `languages.yml` of the translation engines (engine, then
 //! `source` and `target` display names to codes; CTranslate2 has one table per model), and
 //! `data/transcription_languages.json` is `transcription_languages.py` (language, then country,
-//! then each recognition engine's code). Both are written by `reference/dump_reference.py`.
+//! then each recognition engine's code). Both were written by `reference/dump_reference.py`.
+//! The columns `Google_Cloud_API` and `Papago_API` (the official APIs, #277) were added in the
+//! core afterwards: the first has the codes of the `Google` column, the second the languages of
+//! the `Papago` column that NAVER Cloud Platform's Papago Translation has (no Hindi and no
+//! Portuguese). A new dump must keep them.
 
 use serde_json::{Map, Value};
 use std::sync::OnceLock;

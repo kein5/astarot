@@ -48,7 +48,11 @@ fn a_failed_check_clears_the_models_found_on_a_server_and_keeps_every_key() {
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
     // A failed check cannot tell a refused key from a network that is down: the keys stay.
-    assert_eq!(file["AUTH_KEYS"], saved()["AUTH_KEYS"]);
+    // (The official APIs the core added have no key saved.)
+    let mut keys = saved()["AUTH_KEYS"].clone();
+    keys["Google_Cloud_API"] = Value::Null;
+    keys["Papago_API"] = Value::Null;
+    assert_eq!(file["AUTH_KEYS"], keys);
     assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"], saved()["TRANSCRIPTION_AUTH_KEYS"]);
     assert_eq!(file["LMSTUDIO_URL"], "http://127.0.0.1:1234/v1");
     assert_eq!(file["TRANSCRIPTION_CUSTOM_URL"], "http://127.0.0.1:9000/v1");

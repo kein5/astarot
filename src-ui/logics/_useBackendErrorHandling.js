@@ -51,6 +51,7 @@ const UI_OWNED_SETTINGS = new Set(["main_window_geometry", "message_box_ratio"])
 
 const ENDPOINT_URL_ERRORS = new Set([
     "CONNECTION_LMSTUDIO_URL_INVALID",
+    "CONNECTION_OLLAMA_URL_INVALID",
     "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID",
     "CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID",
     "CREDENTIAL_REENTRY_REQUIRED",
@@ -100,6 +101,10 @@ export const _useBackendErrorHandling = () => {
     const {
         updateDeepLAuthKey,
 
+        updateGoogleCloudAuthKey,
+        updatePapagoClientID,
+        updatePapagoAuthKey,
+
         updatePlamoAuthKey,
         updateSelectedPlamoModel,
 
@@ -122,6 +127,7 @@ export const _useBackendErrorHandling = () => {
         updateOpenAICompatibleAuthKey,
         updateSelectedOpenAICompatibleModel,
 
+        updateOllamaURL,
         updateSelectedOllamaModel,
 
         updateSelectedCTranslate2WeightType,
@@ -424,6 +430,18 @@ export const _useBackendErrorHandling = () => {
                 updateDeepLAuthKey(data);
                 showNotification_Error(t("common_error.deepl_auth_key_failed_authentication"), { category_id: error_code });
                 return;
+            case "AUTH_GOOGLE_CLOUD_INVALID":
+            case "AUTH_GOOGLE_CLOUD_FAILED":
+                updateGoogleCloudAuthKey(data);
+                showNotification_Error(localized, { category_id: error_code });
+                return;
+            case "AUTH_PAPAGO_INVALID":
+            case "AUTH_PAPAGO_FAILED":
+                // The Client ID and the secret share the codes; the endpoint says which field to restore.
+                if (endpoint === "/set/data/papago_client_id") updatePapagoClientID(data ?? "");
+                else updatePapagoAuthKey(data);
+                showNotification_Error(localized, { category_id: error_code });
+                return;
             case "AUTH_PLAMO_LENGTH":
             case "AUTH_PLAMO_FAILED":
                 updatePlamoAuthKey(data);
@@ -524,6 +542,10 @@ export const _useBackendErrorHandling = () => {
                 updateLMStudioURL(data);
                 showNotification_Error(localized, { category_id: error_code });
                 return;
+            case "CONNECTION_OLLAMA_URL_INVALID":
+                updateOllamaURL(data);
+                showNotification_Error(localized, { category_id: error_code });
+                return;
             case "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID":
                 updateOpenAICompatibleURL(data);
                 showNotification_Error(localized, { category_id: error_code });
@@ -531,6 +553,12 @@ export const _useBackendErrorHandling = () => {
             case "CREDENTIAL_REENTRY_REQUIRED":
                 if (endpoint === "/set/data/openai_compatible_url") updateOpenAICompatibleURL(data);
                 else if (endpoint === "/set/data/custom_whisper_url") transcription.updateCustomWhisperURL(data);
+                else if (endpoint === "/set/data/papago_client_id") {
+                    // The URL wording does not fit: a new Client ID needs the secret again.
+                    updatePapagoClientID(data);
+                    showNotification_Error(t("config_page.translation.papago_client_id.reentry_required"), { category_id: error_code });
+                    return;
+                }
                 showNotification_Error(localized, { category_id: error_code });
                 return;
 

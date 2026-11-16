@@ -127,6 +127,7 @@ impl Core {
         for key in config.invalid_saved_api_urls() {
             let (endpoint, code) = match key.as_str() {
                 "LMSTUDIO_URL" => ("/set/data/lmstudio_url", "CONNECTION_LMSTUDIO_URL_INVALID"),
+                "OLLAMA_URL" => ("/set/data/ollama_url", "CONNECTION_OLLAMA_URL_INVALID"),
                 "OPENAI_COMPATIBLE_URL" => ("/set/data/openai_compatible_url", "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID"),
                 _ => ("/set/data/custom_whisper_url", "CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID"),
             };

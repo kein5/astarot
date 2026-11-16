@@ -9,8 +9,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
+- 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（425件: 削除 11、取得 191、実行 39、有効化 40、無効化 42、設定 102）
+## 要求（435件: 削除 13、取得 195、実行 39、有効化 40、無効化 42、設定 106）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -439,6 +440,16 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/notification_vrc_sfx` | 無効化 | `setDisableNotificationVrcSfx` | 可 | useOthers.setSuccessEnableNotificationVrcSfx |  |
 | `/run/open_filepath_config_file` | 実行 | `openFilepathConfigFile` | 可 | useOpenFolder.openedFolder_ConfigFile |  |
 | `/run/feed_watchdog` | 実行 | `feedWatchdog` | 可 | （受け取るだけ） |  |
+| `/get/data/ollama_url` | 取得 | `core: OLLAMA_URL` | 可 | useTranslation.updateFromBackendOllamaURL | 中核のみ |
+| `/set/data/ollama_url` | 設定 | `core: set_server_url` | 可 | useTranslation.setSuccessOllamaURL | 中核のみ |
+| `/get/data/google_cloud_auth_key` | 取得 | `core: AUTH_KEYS[Google_Cloud_API]` | 可 | useTranslation.updateFromBackendGoogleCloudAuthKey | 中核のみ、ログで伏せる |
+| `/set/data/google_cloud_auth_key` | 設定 | `core: set_google_cloud_key` | 可 | useTranslation.setSuccessGoogleCloudAuthKey | 中核のみ、ログで伏せる |
+| `/delete/data/google_cloud_auth_key` | 削除 | `core: delete_translation_key` | 可 | useTranslation.deleteSuccessGoogleCloudAuthKey | 中核のみ、ログで伏せる |
+| `/get/data/papago_client_id` | 取得 | `core: PAPAGO_CLIENT_ID` | 可 | useTranslation.updateFromBackendPapagoClientID | 中核のみ、ログで伏せる |
+| `/set/data/papago_client_id` | 設定 | `core: set_papago_client_id` | 可 | useTranslation.setSuccessPapagoClientID | 中核のみ、ログで伏せる |
+| `/get/data/papago_auth_key` | 取得 | `core: AUTH_KEYS[Papago_API]` | 可 | useTranslation.updateFromBackendPapagoAuthKey | 中核のみ、ログで伏せる |
+| `/set/data/papago_auth_key` | 設定 | `core: set_papago_key` | 可 | useTranslation.setSuccessPapagoAuthKey | 中核のみ、ログで伏せる |
+| `/delete/data/papago_auth_key` | 削除 | `core: delete_translation_key` | 可 | useTranslation.deleteSuccessPapagoAuthKey | 中核のみ、ログで伏せる |
 
 
 ## 通知（サイドカーからUIへ、88件）
@@ -558,12 +569,11 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/translation_language_unsupported`
 
 
-## UIだけにあるルート（58件）
+## UIだけにあるルート（56件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
 
 - `/get/data/ctranslate2_weight`
-- `/get/data/ollama_url`
 - `/run/io_trace`
 - `/run/pending_ctranslate2_weight`
 - `/run/realtime_caption`
@@ -583,7 +593,6 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/obs_browser_source`
 - `/set/data/ocr_chatbox_filter`
 - `/set/data/ocr_use_chatbox_detector`
-- `/set/data/ollama_url`
 - `/set/data/overlay_desktop`
 - `/set/data/overlay_large_log`
 - `/set/data/overlay_show_only_translated_messages`

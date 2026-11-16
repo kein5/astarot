@@ -581,6 +581,10 @@ pub fn keys() -> Vec<Key> {
         key("SPEAKER_ENABLE_VAD", b()),
         key("AUTH_KEYS", credentials("AUTH_KEYS")),
         key("LMSTUDIO_URL", managed(Ty::Str, false, |v, _| valid_saved_api_url(v))),
+        // Core only (#277): where Ollama runs (Python always used localhost:11434), and the
+        // Client ID of Papago (its secret is in AUTH_KEYS).
+        key("OLLAMA_URL", managed(Ty::Str, false, |v, _| valid_saved_api_url(v))),
+        key("PAPAGO_CLIENT_ID", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(|s| s.chars().count() <= 256 && !s.chars().any(char::is_control)))),
         key("OPENAI_COMPATIBLE_URL", managed(Ty::Str, false, |v, _| valid_saved_api_url(v))),
         key("TRANSCRIPTION_AUTH_KEYS", credentials("TRANSCRIPTION_AUTH_KEYS")),
         key("TRANSCRIPTION_CUSTOM_URL", managed(Ty::Str, false, |v, _| valid_saved_api_url(v))),
@@ -809,8 +813,11 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("AUTH_KEYS", json!({
             "DeepL_API": null, "Plamo_API": null, "Gemini_API": null, "OpenAI_API": null,
             "OpenAI_Compatible": null, "Groq_API": null, "OpenRouter_API": null,
+            "Google_Cloud_API": null, "Papago_API": null,
         })),
         ("LMSTUDIO_URL", json!("http://127.0.0.1:1234/v1")),
+        ("OLLAMA_URL", json!("http://localhost:11434")),
+        ("PAPAGO_CLIENT_ID", json!("")),
         ("OPENAI_COMPATIBLE_URL", json!("https://api.openai.com/v1")),
         ("TRANSCRIPTION_AUTH_KEYS", json!({ "Groq_Whisper": null, "OpenAI_Whisper": null, "Custom_Whisper": null, "Deepgram": null })),
         ("TRANSCRIPTION_CUSTOM_URL", json!("")),

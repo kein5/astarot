@@ -277,6 +277,11 @@ backend_errors:
     CONNECTION_LMSTUDIO_URL_INVALID: "The URL is invalid or the server could not be reached. Use HTTPS, or HTTP for localhost or a private LAN IP address. Remove usernames, passwords and secret query parameters. Check and save the URL again."
     CONNECTION_OPENAI_COMPATIBLE_URL_INVALID: "The URL is invalid or the server could not be reached. Use HTTPS, or HTTP for localhost or a private LAN IP address. Remove usernames, passwords and secret query parameters. Check and save the URL again."
     CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID: "The URL is invalid or the server could not be reached. Use HTTPS, or HTTP for localhost or a private LAN IP address. Remove usernames, passwords and secret query parameters. Check and save the URL again."
+    CONNECTION_OLLAMA_URL_INVALID: "The URL is invalid or Ollama could not be reached there. Use HTTPS, or HTTP for localhost, a private LAN IP address or a .local name. Remove usernames, passwords and secret query parameters. Check that Ollama is running with a model, then save the URL again."
+    AUTH_GOOGLE_CLOUD_INVALID: "Enter the Google Cloud API key without spaces."
+    AUTH_GOOGLE_CLOUD_FAILED: "The Google Cloud API key could not be verified. Check the key, and that Cloud Translation API and billing are enabled for its project."
+    AUTH_PAPAGO_INVALID: "Enter the Papago Client ID first, then the Client Secret, both without spaces."
+    AUTH_PAPAGO_FAILED: "The Papago Client ID and Client Secret could not be verified. Check both values, and that Papago Translation is enabled for the application in NAVER Cloud Platform."
     WEBSOCKET_HOST_INVALID: "That host cannot be used for the WebSocket server."
     WEBSOCKET_PORT_UNAVAILABLE: "Another app is using the WebSocket port. Choose a different port."
     WEBSOCKET_PORT_INVALID: "Enter a WebSocket port from 1 to 65535 using whole numbers."
@@ -599,6 +604,17 @@ config_page:
             label: "DeepL API Key"
             desc: "To use it, set {{translator}} on the main screen to \"DeepL API\". ※Some languages may not be supported."
 
+        google_cloud_auth_key:
+            label: "Google Cloud API Key"
+            desc: "Uses Cloud Translation (Basic) with your own Google Cloud project. Enable the Cloud Translation API and billing for the project, then paste an API key. Google charges your project for the characters you translate."
+
+        papago_client_id:
+            label: "Papago Client ID"
+            desc: "Uses Papago Translation of NAVER Cloud Platform with your own account. Save the Client ID first, then the Client Secret. Papago translates between Korean, English, Japanese, Chinese and a few other languages; other pairs use the fallback."
+            reentry_required: "To change the Client ID, delete the saved Client Secret first, then save the new Client ID and its secret."
+        papago_auth_key:
+            label: "Papago Client Secret"
+
         plamo_auth_key:
             label: "Plamo API Key"
         select_plamo_model:
@@ -640,6 +656,9 @@ config_page:
 
         ollama_connection_check:
             label: "Check Ollama Connection"
+        ollama_url:
+            label: "Ollama URL"
+            desc: "Ollama on this PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
         select_ollama_model:
             label: "Select Ollama Model"
             connection_required: "Ollama Connection Required"
