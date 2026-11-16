@@ -29,6 +29,8 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 | `controller.py` の `_processMessage`、`chatMessage`、ロガー、`model.py` の読み（`convertMessageToTransliteration`） | `controller::messages`（読みの規則は `vrct-translation`） |
 | `device_manager.py`、`controller.py` のデバイスの選択（`_audioTarget`、`_publishAudioDeviceLocked`、`applyAuto*Select`、`setSelected*`）、`getVirtualMicStatus`、`runVirtualMicTest` | `controller::audio_devices`（一覧、識別、監視、選択の規則、仮想マイクの確認は `vrct-audio-routing`） |
 | `controller.py` と `model.py` のチャットの読み取り（`*Ocr*`、`ocrMessage`、`startOCRCapture`、`updateOCRCaptureSettings`） | `controller::ocr`（撮影、エンジン、パイプラインは `ocr-runtime`） |
+| `controller.py` の音声認識（`setEnable/DisableTranscription*`、`setEnable/DisableCheck*Threshold`、`micMessage`、`speakerMessage`、`_audioPipelineFailed*`、認識のキー、起動時のエンジンの確認）と `model.py` の `_AudioDeviceSession` | `controller::transcription`（録音、エンジン、フレーズは `vrct-transcription`） |
+| `controller.py` のリアルタイムの音声認識（`*RealtimeASR*`、`_enableRealtimeToggle`、`_startRealtime`、`_awaitAsrServer`） | `controller::realtime_asr`（セッションと字幕は `vrct_transcription::realtime`） |
 
 ## 変わらないこと
 
@@ -42,7 +44,7 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 - **ステータス 348 のログ行**。UI に送りません。UI は表示せず捨てていました。`process.log` には書きます。
 - **ログの行の形式**。Python の辞書の表記ではなく JSON で書きます。伏せる規則は同じです。
 - **真偽値を数として扱わない**。Python では `True` が整数 1 として通る検査がありました（オーバーレイの表示秒数など）。Rust では数として扱いません。
-- **翻訳エンジンの確認**。翻訳のプロバイダ（#277）は Python と同じに起動時に確かめます。Web 翻訳（Google、Bing、Papago）は配布していないので「使えない」と示します（Python は「使える」と示し、毎回失敗していました）。音声認識のプロバイダ（#278）はまだ移していないので、speech.cpp 以外を「使えない」と示し、サーバからモデルを探すエンジン（Whisper の API、Deepgram）のモデルの選択を消します。API キーは Python と同じく残します。
+- **翻訳エンジンの確認**。翻訳のプロバイダ（#277）は Python と同じに起動時に確かめます。Web 翻訳（Google、Bing、Papago）は配布していないので「使えない」と示します（Python は「使える」と示し、毎回失敗していました）。音声認識のエンジン（#278）も Python と同じに確かめます。Whisper の API と Deepgram はキーでモデルの一覧を取り、Google と speech.cpp は確かめずに「使える」とします。API キーは Python と同じく残します。
 - **読み（ひらがな・ローマ字）**。辞書が決まるまで読みは出しません。読みのスイッチが入っていても、メッセージは読みなしで送ります（`docs/voice-stack/core-integration.md` の未決事項 16）。
 - **プロキシ**。翻訳のプロバイダへの通信は `HTTP(S)_PROXY` を使いません（未決事項 18）。
 - **音声デバイス**。Windows のマイクは `Windows WASAPI` のホストの下だけに並びます。Python が MME などのホストで保存した選択は、起動時に WASAPI の同じデバイスへ移します。Linux で PipeWire のデバイスを並べるのは `pipewire` 機能を有効にしたときだけで、アプリ（src-tauri）は有効にします。試験は無効のまま動き、PipeWire が要りません。詳しくは [core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 12 にあります。
@@ -51,6 +53,8 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 
 - `Core::deliver_transcription(Source::{Mic, Speaker, Ocr}, Recognized, guard)`: 音声認識と OCR の結果をメッセージの経路に渡します。ワードフィルタ、繰り返しの確認、翻訳、読み、チャットボックス、UI への通知、WebSocket、会話のログ、履歴まで行います。
 - `Core::process_message(&messages::REALTIME_MIC など, ...)`: 結果を返す向き（リアルタイムの音声認識）に使います。
+- `Core::realtime_toggles()`、`Core::realtime_requested(source)`、`Core::realtime_uses_bundled_server()`: リアルタイムの音声認識の状態。TTS は `_cancelMicVoice`（マイクの声を止める）をつなぐときに使います。
+- 音声認識の録音は `AudioDevices::set_capture_owner` に登録してあり、デバイスの変更で移ります。
 - `Core::set_message_hooks(overlay, speech)`: VR のオーバーレイ（`OverlayMessage`）と音声（`SpokenMessage`、翻訳の前後の 2 回）の口です。設定されるまで何もしません。`Err` を返すと出力の失敗として通知します。
 
 ## 試験
@@ -70,6 +74,7 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/engine_checks.rs`: 起動時の確認に失敗したエンジンの扱いが Python と同じこと（サーバからモデルを探すエンジンの選択を消し、API キーは残す）。
 - `tests/translation.rs`、`tests/messages.rs`: 翻訳のプロバイダ（ループバックの偽のサーバ、`vrct_translation::fake`）、ローカル翻訳（偽のモデル）、`/run/send_message_box` からチャットボックス・WebSocket・会話のログまで。試験では、プロバイダへの通信はループバックだけに限ります（`tests/common` の `Setup`）。
 - `tests/audio_devices.rs`: 音声デバイスの一覧と選択肢、名前・ID・ホストでの選択と拒否したときに戻す値、Auto Select が OS の既定に従うこと、抜き差しで一覧が変わること、通知の順序、保存、Python が保存した選択、起動時の一覧、仮想マイクの案内と確認。デバイスはメモリの中の偽物（`tests/common/fake_audio.rs`）で、本物のデバイスには触れません。
+- `tests/transcription.rs`、`tests/realtime_asr.rs`: 音声認識。マイクとスピーカーは 44.1 kHz と 48 kHz の PCM をデバイスと同じ間隔で渡す偽物（`tests/common/fake_capture.rs`）で、Google、Whisper の API、Deepgram、speech.cpp（モデルの一覧と Realtime の WebSocket）は 127.0.0.1 の偽のサーバ（`tests/common/fake_asr.rs`）です。
 - `tests/legacy_weights.rs`: 旧 CTranslate2 の重みは、中核が既定のバックエンドのときだけ起動の後で消すこと。Python が作ったフォルダだけを消し、リンクをたどらないこと。
 
 利用者の文章、音声、API キーは、ログにも試験の出力にも入れません。

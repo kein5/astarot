@@ -46,6 +46,8 @@ flowchart LR
 | `tests/audio_devices.rs` | 音声デバイスの一覧と選択肢、名前・ID・ホストでの選択と拒否したときに戻す値、Auto Select が OS の既定に従うこと、抜き差しで一覧が変わり選択が既定へ移ること、通知の順序、保存、Python が MME などで保存した選択、起動時の一覧、動いている録音を移すときの受け渡し、仮想マイクの案内と確認（見つけ方、テスト音、ミュート中の拒否、止めること）。デバイスはメモリの中の偽物 |
 | `tests/vr_overlay.rs` | 字幕のログと VR パネルのオンとオフ（SteamVR の有無、VR パネルを作れない環境、保存した設定での起動）、設定が動いているオーバーレイに届くこと、VR パネルのエンドポイントと中継、失敗の通知（`OVERLAY_RUNTIME_FAILED`）、終了。SteamVR と VR 画面は代わりのものを使う |
 | `tests/ocr.rs` | チャットの読み取り。偽の画像と偽の認識器を使う。ディスクのファイルから見たモデルの準備、オンにできない理由（`OCR_DISABLED_*`）の通知、状態、動いている読み取りに設定が届くこと、言語の切り替えと巻き戻し、読んだ行をメッセージの流れへ渡すこと、オフと終了、モデルの読み込み中の終了、読んだ文字がログに出ないこと |
+| `tests/transcription.rs` | 音声認識の録音（Google とクラウドのエンジン）。マイクとスピーカーのスイッチ、エンジンやデバイスがないときの拒否と通知、認識した文が UI・チャットボックス・会話のログに届き `process.log` には出ないこと、44.1 kHz のスピーカーと Whisper の API（言語とセグメントの選別）、音量メーター、エンジンの失敗（`ASR_ERROR`）、開けないデバイス（`AUDIO_OPEN_ERROR`）と別のデバイスへの切り替え、読み取りの失敗（`AUDIO_READ_ERROR`）、抜いたデバイスから別のデバイスへ移ることと最後のデバイスを抜いたときの停止、ミュートの同期、認識のキーと URL の確認と戻す値、起動時のエンジンの確認、終了。デバイスは 44.1 kHz と 48 kHz の PCM をデバイスと同じ間隔で渡す偽物、エンジンは 127.0.0.1 の偽のサーバ |
+| `tests/realtime_asr.rs` | リアルタイムの音声認識。設定の検査と保存、エンドポイントとモデルの一覧、メインのスイッチ（Linux と Windows の speech.cpp）で字幕（途中・確定・訳・結果）と確定した文がチャットボックスまで届くこと、設定画面からの開始と停止と録音からの引き継ぎ、スイッチが足りないものを `details.reason` で答えること、サーバが断ったときの失敗の通知、終了。speech.cpp はモデルの一覧と Realtime の WebSocket を返す 127.0.0.1 の偽のサーバ |
 
 Python の `src-python/test/test_native_core_reference.py` は、Python 側の設定の規則が変わったのに基準データを作り直していないとき失敗します。
 
@@ -56,7 +58,7 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | 区分 | 内容 | 扱い |
 |---|---|---|
 | A | サイドカーを動くアプリとして試すもの（エンドポイント、設定の移行、起動と終了、モデル取得、エラーコード） | `native/core/tests/` で再カバーする |
-| A-u | 移植先のクレートがまだ無いサイドカーの処理（リアルタイム音声認識のセッション、speech.cpp の ASR クライアント、声質変換の入力の切り替え） | 移植するときに一緒に再カバーする |
+| A-u | 移植先のクレートがまだ無いサイドカーの処理（声質変換の入力の切り替え） | 移植するときに一緒に再カバーする |
 | B | 移植済みのクレートの単体の振る舞い | 各クレートの試験と同等性の試験がすでに持つ |
 | C | ビルド、配布、開発用の道具、ブラウザや GUI の試験 | バックエンドの言語に関係なく残す |
 | D | Python と一緒に消えるもの（PyInstaller、Seed-VC、CTranslate2、Python の実行環境の準備） | コードと一緒に引退させる |
@@ -79,15 +81,19 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `tests/voice/test_virtual_mic_controller.py`、`src-python/test/test_controller_audio.py`（Auto Select と終了時の停止の部分）、`test_config_saved_device_selection.py` | `audio_devices.rs` |
 | `src-python/test/test_controller_ocr_enable.py`、`test_controller_ocr_readiness.py`、`test_controller_ocr_settings.py`、`test_model_stop_ocr_capture.py`、`test_ocr_language_and_shutdown.py`（中核の部分） | `ocr.rs`、`settings_endpoints.rs`。パイプラインそのものの振る舞いは `native/ocr-runtime` の試験が持つ |
 | `src-python/test/test_controller_update_software_failure.py`、`test_controller_init_config_settings.py`（`available_releases` を起動時の一覧に入れない部分） | `updates.rs`、`lifecycle.rs` |
+| `src-python/test/test_controller_transcription_api_endpoints.py`（キーの保存と拒否、URL とキーの組）、`test_controller_transcription_engine_status.py` | `transcription.rs`、`engine_checks.rs` |
+| `src-python/test/test_model_transcript_wiring.py`、`test_model_api_transcription_wiring.py`、`test_model_energy_consumer.py`、`test_model_transcript_stop.py`、`test_device_capture_lifecycle.py`、`test_controller_vrc_mic_mute_sync_init.py`（認識の部分） | `transcription.rs` |
+| `tests/voice/test_realtime_controls.py`、`test_realtime_toggles.py`、`test_realtime_settings.py`（移行以外）、`test_realtime_delivery.py`、`src-python/test/test_realtime_toggle_generation.py`、`test_realtime_legacy_handoff.py`、`test_realtime_delivery_outcomes.py` | `realtime_asr.rs` |
+| 区分 A-u だった `tests/voice/test_realtime_session.py`、`test_realtime_events.py`、`test_realtime_audio.py`、`test_speechcpp_realtime.py`、`test_speechcpp_asr.py`、`test_asr_vocabulary.py`、`test_capture_packets.py` と、`src-python/test/test_transcription_recorder.py`、`test_transcription_transcriber.py`、`test_transcription_providers.py`、`test_transcription_openai_compatible.py`、`test_transcription_deepgram.py` | `realtime_asr.rs`、`transcription.rs` と `native/transcription` の単体の試験 |
 
 | `src-python/test/test_controller_message_pipeline.py`、`test_message_snapshot_and_sinks.py`（送信、翻訳、読み、出力の失敗の部分） | `messages.rs`、`src/controller/messages.rs` の単体の試験 |
 | `src-python/test/test_controller_translation_enable.py`、`test_translation_providers.py` と `test_endpoints.py` の翻訳のキーとモデルの部分 | `translation.rs`、`native/translation` の試験 |
 
-残りの区分 A（TTS、声質変換、リアルタイム音声認識）は、それぞれの機能をつなぐときに再カバーします。メッセージの経路のうち、音声と VR のオーバーレイへの受け渡しは口（フック）までを試験し、その先はそれぞれの機能の試験で確かめます。
+残りの区分 A（TTS、声質変換）は、それぞれの機能をつなぐときに再カバーします。音声認識のうち、字幕を VR の大きいログに出す部分（`test_realtime_overlay*.py`）は、VR のオーバーレイの代わりを使う試験がまだありません。発話の診断のログ（`test_utterance_diagnostics.py`）は移していません。メッセージの経路のうち、音声と VR のオーバーレイへの受け渡しは口（フック）までを試験し、その先はそれぞれの機能の試験で確かめます。
 | `src-python/test/test_controller_overlay_running.py`、`test_controller_vr_panel_toolbar.py`（固定先、ロック、ランチャーの手と初期化、自動で隠す設定）、`test_overlay_lifecycle_publication.py`（オンの失敗と切ったときの消去） | `vr_overlay.rs` |
 | `src-python/test/test_overlay_steamvr_quit.py`、`test_overlay_shutdown_timeout.py`（SteamVR を待つこと、終了、つなぎ直し） | `vr_overlay.rs` と `native/vr-overlay` の `engine` の試験 |
 
-残りの区分 A（TTS、声質変換、リアルタイム音声認識、メッセージの送信。字幕へのメッセージの表示はメッセージの送信と一緒に）は、それぞれの機能をつなぐときに再カバーします。
+残りの区分 A（TTS、声質変換）は、それぞれの機能をつなぐときに再カバーします。
 
 ## 切り替え前の基準値
 
@@ -154,7 +160,6 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 
 | 領域 | 残っている理由 |
 |---|---|
-| 音声認識 | リアルタイムの音声認識、録音と音量の確認、クラウドの認識のクライアントが Rust にない（#278、`asr-capture` は空） |
 | TTS・声質変換・音声の経路 | 合成から再生までの流れと音声の経路がまだ中核にない。出力先の一覧は音声デバイスの領域が渡す（`AudioDevices::outputs`）。声質変換の実行環境の準備は「判断が要ること」の 6 を待つ |
 | OCR | `ocr-runtime` を中核に入れると ONNX Runtime をアプリに同梱することになる（「判断が要ること」の 7 と 13） |
 | 音声デバイス | `audio-routing` はあるが、README の未決事項（Windows のマイクのホスト、保存したスピーカーの ID）と、Linux で中核が PipeWire に依存することを決める必要がある（「判断が要ること」の 12） |
@@ -163,9 +168,8 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 | 更新 | 更新の取得と入れ替えを Rust のどこで行うかが決まっていない（自己更新の作業と一緒に決める） |
 
 <!-- remaining-endpoints:begin -->
-41 件。
+21 件。
 
-- 音声認識（#278）とクラウドの認識（20 件）: `/get/data/realtime_asr_endpoints`、`/get/data/realtime_asr_models`、`/get/data/realtime_asr_settings`、`/get/data/realtime_asr_state`、`/run/start_realtime_asr`、`/run/stop_realtime_asr`、`/set/data/custom_whisper_auth_key`、`/set/data/custom_whisper_auth_key_and_url`、`/set/data/deepgram_auth_key`、`/set/data/groq_whisper_auth_key`、`/set/data/openai_whisper_auth_key`、`/set/data/realtime_asr_settings`、`/set/disable/check_mic_threshold`、`/set/disable/check_speaker_threshold`、`/set/disable/transcription_receive`、`/set/disable/transcription_send`、`/set/enable/check_mic_threshold`、`/set/enable/check_speaker_threshold`、`/set/enable/transcription_receive`、`/set/enable/transcription_send`
 - TTS・声質変換・音声の経路（21 件）: `/get/data/direct_voice_sources`、`/get/data/direct_voice_state`、`/get/data/io_flow`、`/get/data/tts_engine_voices`、`/get/data/tts_model_options`、`/get/data/vc_runtime_catalog`、`/get/data/vc_runtime_state`、`/get/data/voice_output_devices`、`/get/data/voice_route`、`/get/data/voice_status`、`/run/cancel_vc_runtime_setup`、`/run/disable_tts`、`/run/enable_tts`、`/run/mute_voice`、`/run/resume_voice`、`/run/start_direct_voice`、`/run/start_vc_runtime_setup`、`/run/stop_direct_voice`、`/run/stop_voice`、`/set/data/direct_voice_settings`、`/set/data/voice_settings`
 <!-- remaining-endpoints:end -->
 
@@ -181,7 +185,7 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 
 1. **移植されていない機能の扱い**。#277（翻訳・翻字のプロバイダ）、#278（音声認識の流れとクラウドの認識）、#282 のうち VR パネルのコントローラ操作（18）の Rust 版がまだありません。Python 同梱を終えるには、これらも移す必要があります。#285 の中で進めるか、各 Issue で先に進めるかを決めてください。
 2. **既定の切り替えの時期（決定済み、2026-11-16）**。0.4.0 の間は既定を切り替えず、中核は `VRCT_BACKEND=core` を指定したときだけの試用とします。Python から中核への切り替えは 0.5.0 で行います。`src-python/` と PyInstaller の工程を消すのも、その切り替えと一緒です。旧 CTranslate2 の重みを消す処理（5）も、そのとき `CORE_IS_DEFAULT` を有効にするまで動きません。
-3. **使えないエンジンの選択とキー（決定済み、2026-11-16。翻訳は #277 で解消）**。翻訳のプロバイダは `native/translation` で Rust に移り、起動時に Python と同じ確認（キー、サーバ、モデルの一覧）をします。確認に失敗したときの扱いは下の決定のとおりで、Web 翻訳（Google、Bing、Papago）だけは配布していないので使えないままです（17）。音声認識のエンジンは、まだ下のとおりです。Rust にまだ無いエンジンは、起動時の確認に失敗したものとして Python と同じに扱います。LM Studio、OpenAI 互換、Ollama、Groq・OpenAI・カスタムの Whisper、Deepgram は、モデルの一覧と選択を消します（Deepgram は言語の表も）。ほかのエンジンの選択は残します。API キーは、Python と同じく残します。Python は「確認の失敗は、キーが拒まれたのか通信できないだけなのかを区別できない」ため、起動時にキーを消しません。オーナーの決定の文面は「キーも消す」と読めるので、キーの扱いは PR で確認を求めています。
+3. **使えないエンジンの選択とキー（決定済み、2026-11-16。翻訳は #277 で解消）**。翻訳のプロバイダは `native/translation` で Rust に移り、起動時に Python と同じ確認（キー、サーバ、モデルの一覧）をします。確認に失敗したときの扱いは下の決定のとおりで、Web 翻訳（Google、Bing、Papago）だけは配布していないので使えないままです（17）。音声認識のエンジン（#278）も `native/transcription` で Rust に移り、起動時に Python と同じ確認をします（Google と speech.cpp は確かめずに使えるとする）。確認に失敗したエンジンは Python と同じに扱います。LM Studio、OpenAI 互換、Ollama、Groq・OpenAI・カスタムの Whisper、Deepgram は、モデルの一覧と選択を消します（Deepgram は言語の表も）。ほかのエンジンの選択は残します。API キーは、Python と同じく残します。Python は「確認の失敗は、キーが拒まれたのか通信できないだけなのかを区別できない」ため、起動時にキーを消しません。オーナーの決定の文面は「キーも消す」と読めるので、キーの扱いは PR で確認を求めています。
 4. **ONNX 翻訳での計算デバイスと計算型**。設定の `SELECTED_TRANSLATION_COMPUTE_DEVICE` と `SELECTED_TRANSLATION_COMPUTE_TYPE` は CTranslate2 の考え方のままです。中核は CPU だけを、CTranslate2 と同じ計算型の一覧で示します。ONNX（CPU と DirectML）でこの設定をどう読み替えるか。いまの実装（`controller/translation_onnx.rs`）は設定の形を変えず、どの値でも CPU で動かし、計算型は使いません。設定が変わったかどうか（読み込み直すか）は、重み・デバイス・計算型の 3 つを読み込んだときの値と比べて決めます。モデルの置き場所も仮で、`<データ>/weights/translate-onnx/<モデル>-onnx-int8/` を見ます（モデルはまだ取得のカタログにありません）。
 5. **旧 CTranslate2 の重み（決定済み、2026-11-16: 消す）**。`/run/download_ctranslate2_weight`、起動時の自動取得、カタログの `legacy_models` は中核に移さず、引退させます。重みのフォルダ（`<データ>/weights/ctranslate2/` の、Python が作った 7 つの名前）は、中核が既定のバックエンドになったときに、起動の後で消します（`src-tauri/src/backend_host.rs` の `CORE_IS_DEFAULT`）。Python のサイドカーが既定の間と、開発用に `VRCT_BACKEND=core` で動かしたときは消さないので、サイドカーのローカル翻訳は今まで通り動きます。リンクやジャンクションはたどらず、ほかのファイルには触れません。利用者に知らせず消すかどうかは PR で確認を求めています（古い Whisper の重みは、利用者が設定画面で頼んだときだけ消していました）。
 6. **声質変換の実行環境の準備**。`/get/data/vc_runtime_*` と `/run/*_vc_runtime_setup`（Python の実行環境を用意するもの）は、RVC が Rust の worker になった今も要るか。
@@ -229,3 +233,8 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 16. **チャットの読み取りの OpenVR のライブラリ**。中核のチャットの読み取りは、SteamVR が動いているとき VR の映像を OpenVR のミラーから読みます。OpenVR のクライアントライブラリ（`openvr_api.dll` / `libopenvr_api.so`、BSD-3-Clause、Valve）は実行時に読み込み、`VRCT_OPENVR_API`、実行ファイルの隣、名前だけでの検索の順で探します（`native/ocr-runtime/README.md`）。Python では pyopenvr がこれを同梱していました。中核ではまだ誰も置いていないので、見つからないときはデスクトップのウィンドウを読み、`available_sources` に `vr` が出ません。配布物に入れるか、入れるなら `NOTICE.md` に載せるかを決める必要があります。
 17. **チャットの読み取りのスレッドの優先度（Windows）**。`ocr-runtime` は Python の `background_priority.py` と同じく、モデルを読み込む間と最初の 2 回の読み取りの間にできたプロセスのスレッドを、すべて「通常より低い」優先度にします。ONNX Runtime のスレッドを VRChat や VR パネルより後に回すためです。Python ではサイドカーのプロセスの中だけの話でしたが、中核はアプリのプロセスで動くので、その間にアプリのほかの部分が作ったスレッドも下がります。ONNX Runtime のスレッドだけを下げる方法（スレッドを作るときのフック）に変えるかを決める必要があります。
 16. **古い更新のエンドポイント**。Python は自前の更新の仕組みを止めて出荷していました（`BUILTIN_UPDATER_ENABLED = False`）。アプリの更新は `src-tauri/src/app_update.rs` が行い、UI はそれを直接呼びます。中核も Python と同じ答えを返します。`/get/data/available_releases` は空の一覧、起動時の `/run/software_update_info` は「更新なし」、`/run/update_software` と `/run/update_cuda_software` は 200 を返してから `UPDATE_SOFTWARE_DOWNLOAD` を通知します。ホストが別の仕組みを渡せるように `Services::software_updates` を用意しましたが、`backend_host.rs` は何も渡していません。UI でこれらを使うのは、エラー画面の「今すぐ更新」（`AppErrorBoundary.jsx`、更新ありと通知されたときだけ出る）だけです。選択肢は (a) このまま残す、(b) Python と一緒に 3 つのエンドポイントと通知、UI の古い経路を引退させる、(c) エラー画面のボタンを `app_update` につなぎ直す、です。Python がなくなると「CUDA 版」で違うものは何もなくなります（`_internal/nvidia` は CTranslate2 のためのものでした）。CUDA 版の扱いは 17 と一緒に決めます。
+20. **音声認識の VAD（Silero VAD）**。Python は `MIC_ENABLE_VAD` と `SPEAKER_ENABLE_VAD` がオンのとき、同梱の Silero VAD（MIT、2 ファイルで 1.2 MB、`_internal/models/transcription/silero_vad/`）を onnxruntime で動かしてフレーズを切っていました。このモデルは Python と一緒に配布物から消えます。中核は今、VAD のスイッチがオンでも音量による切り出しを使います（スイッチの値は保存したまま）。案は (a) モデルを実行ファイルの隣に置き、OCR と同じく ONNX Runtime を実行時に読み込んで移植する（13 と一緒に決める）、(b) 同意を得てから取得する、(c) VAD のスイッチを引退させる、です。影響は VAD をオンにしていた利用者で、長い連続発話の切れ方と静かな出だしの拾い方が既定の方式と同じになります。
+21. **Google の音声認識の鍵**。Python は `speech_recognition` が持つ公開の既定キー（Chromium のもの）で Google の Web 音声認識に送っていました。中核の `vrct-transcription` は同じキーと同じ要求（FLAC、HTTPS）を自分のコードに持ちます。Google がいつ止めてもおかしくない非公式の窓口です。このまま残すか、選択肢から外すかを決めてください。
+22. **Linux の録音の補助プログラム**。中核は Python と同じく `vrct-asr-capture`（`native/asr-capture/main.c`）を `build/vrct-asr-capture` から起動して PipeWire のノードを読みます（`resources::locate`）。配布物の置き場所は 7 と一緒に決めます。リアルタイムの音声認識が選べるエンドポイントの一覧は PipeWire のグラフから作るので、中核の `pipewire` 機能（アプリでは有効）が要ります。機能がないと一覧は空で `realtime_graph_unavailable` を返します。録音の経路（Google とクラウドのエンジン）は Python と同じく Windows だけです。
+23. **音声認識と Python の小さな違い**。(1) 認識をオフにしたとき、Python は途中のエンジンへの要求が終わるのを最大 15 秒待ちました。中核は録音だけを止めてすぐに答え、途中の結果は捨てます。(2) マイクを開けるデバイスがないとき、Python はスピーカーと音量メーターでは `/run/error_device` を送り、マイクの文字起こしでは送っていませんでした（取り消した後の確認で落ちていた）。中核はどれでも送ります。(3) WASAPI のループバックが何も渡さない間は、録音の経路でも無音で埋めます（Python は Realtime の経路だけ）。発話の終わりが次の音まで待たされないためです。(4) クラウドの認識の通信は 18 と同じくプロキシを使いません。
+24. **音声認識でまだつないでいないもの**。リアルタイムの音声認識の確定した文で、マイクの声（TTS）を止める処理（`_cancelMicVoice`、`_snapshotMicVoice`）と、出力に送った録音のエンドポイントを拒む確認（`_carriesOwnVoice`）は TTS と声質変換の側にあり、まだ中核にありません。TTS をつなぐときに `realtime_asr` に足します。発話の時間の診断（`utterance_diagnostics.py` の集計ログ）は移していません。チャットボックスへ送った後に期限が切れた確定した文を「届けた」とする扱い（`output_progress`）も、メッセージの経路に口がないので移していません。
