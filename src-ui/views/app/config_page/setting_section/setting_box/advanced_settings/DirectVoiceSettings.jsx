@@ -153,8 +153,8 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
                     value={Number.isFinite(draft.rvc_threads) ? draft.rvc_threads : ""}
                     onChange={e => setDraft({ ...draft, rvc_threads: e.target.valueAsNumber })} />
             </label>
-            <label>
-                <input type="checkbox" checked={!!draft.rvc_highpass} disabled={busy}
+            <label className={styles.checkLabel}>
+                <input type="checkbox" className={styles.fieldCheck} checked={!!draft.rvc_highpass} disabled={busy}
                     onChange={e => setDraft({ ...draft, rvc_highpass: e.target.checked })} />
                 {t("voice.vc_rvc_highpass")}
             </label>
