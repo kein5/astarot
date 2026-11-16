@@ -30,17 +30,15 @@ const START_FAILED: &str = "speech_server_start_failed";
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Where the bundled servers come from, checked against the pinned hashes at each start
-/// (`runtime.py`, `BUNDLE` and `bundled_binary`): the packaged app keeps them with the sidecar's
-/// resources (`_internal/build/speechcpp`, PyInstaller's resource folder), a source checkout in
-/// `build/speechcpp`.
+/// (`runtime.py`, `BUNDLE` and `bundled_binary`): `build/speechcpp` among the app's shipped
+/// files ([`crate::resources`]).
 pub fn bundled_launch(env: &Environment) -> Launch {
     Launch::bundled(bundle_folder(env))
 }
 
 /// The folder of the bundled speech.cpp, for the servers and for the hardware probe.
 pub fn bundle_folder(env: &Environment) -> std::path::PathBuf {
-    let packaged = env.app_dir.join("_internal").join("build").join("speechcpp");
-    if packaged.is_dir() { packaged } else { env.app_dir.join("build").join("speechcpp") }
+    crate::resources::locate(&env.app_dir, "build/speechcpp")
 }
 
 /// A server ended. `run` names the start that ended (`None` when a Stop found none); `stopped`
