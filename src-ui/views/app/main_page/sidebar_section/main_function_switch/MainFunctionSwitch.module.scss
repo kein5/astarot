@@ -114,6 +114,11 @@ $pending_label_color: var(--dark_500_color);
     display: block;
     font-size: 1.2rem;
     color: var(--vox_description_text);
+    // A full-width bracket carries half an em of space on its left, so 「（OCR）」 started half
+    // a character right of the name above (#437). Proportional widths trim it in Japanese fonts
+    // that have them (WebKitGTK too); engines that trim a line's opening bracket do it for any font.
+    font-feature-settings: "palt";
+    @supports (text-spacing-trim: trim-start) { text-spacing-trim: trim-start; }
     &.is_pending, &.is_unavailable {
         color: inherit;
     }

@@ -76,7 +76,7 @@ $pending_label_color: var(--dark_500_color);
         justify-content: space-between;
         gap: 1.6rem;
         padding: .6rem 1.2rem;
-        border-radius: .6rem;
+        border-radius: var(--vox_radius);
         text-align: left;
         &:disabled { cursor: not-allowed; opacity: .6; }
         &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: -.2rem; }

@@ -87,7 +87,7 @@
     align-items: center;
     padding: 0.6rem 0;
     cursor: pointer;
-    border-radius: 0.6rem;
+    border-radius: var(--vox_radius);
     &:hover {
         background-color: var(--dark_850_color);
     }
@@ -173,6 +173,10 @@
     align-items: center;
     gap: 1rem;
     color: var(--dark_basic_text_color);
+    // The format is typed with \n for a line break. Japanese UI fonts (Yu Gothic, Meiryo)
+    // draw a backslash as a yen sign, so the fields use a font that draws it as written (#437).
+    // Each of these is installed with its OS; nothing is fetched.
+    input { font-family: "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Noto Sans Mono", "Liberation Mono", var(--font_family), "Noto Sans", system-ui, sans-serif; }
 }
 
 .preset_text {

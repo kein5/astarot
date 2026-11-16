@@ -27,7 +27,8 @@
     margin-top: 2rem;
     display: flex;
     border: 0.1rem solid var(--dark_600_color);
-    border-radius: 0.4rem;
+    border-radius: var(--vox_radius, 0.8rem);
+    overflow: hidden;
     width: 80%;
     max-width: 44.8rem;
     align-items: center;
@@ -50,7 +51,7 @@
 }
 .controller_switcher_label {
     padding: 1rem;
-    font-size: 1.6rem;
+    font-size: 1.4rem;
 }
 
 .position_rotation_controls_box {
@@ -308,14 +309,15 @@
     @include variable-button-wrapper(bottom, 50%, right, -60%, -45deg);
 }
 
+// Opacity, size and timing are ordinary setting rows: the name starts on the page's
+// left edge like every other row, and the slider takes the rest (#437).
 .other_controls {
     margin-top: 6rem;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     gap: 2rem;
     width: 100%;
-    max-width: 56rem;
 }
 
 .other_controls_wrapper {
@@ -332,10 +334,11 @@
 }
 
 .other_controls_slider_label {
-    // position: absolute;
-    font-size: 1.6rem;
+    font-size: 1.4rem;
+    font-weight: 500;
     flex-shrink: 0;
     width: 30%;
+    overflow-wrap: anywhere;
 }
 
 .common_container {
