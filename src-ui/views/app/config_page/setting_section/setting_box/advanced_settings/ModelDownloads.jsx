@@ -11,6 +11,8 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
+import { UserModelCards, UserModelRegistration } from "./UserModels";
+import { USER_MODEL_FILES } from "../../../../../../logics/voice/modelCatalog";
 
 const activePhases = ["queued", "downloading", "verifying", "cancelling"];
 const bytes = value => `${Number(value).toLocaleString("en-US")} bytes (${(value / 1073741824).toFixed(2)} GiB)`;
@@ -136,7 +138,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const section = useRef(null);
     const { dialog, close: closeDialog } = useConsentDialog(!!selected, section);
     useEffect(() => {
-        send("/get/data/model_download_catalog"); send("/get/data/model_download_state");
+        send("/get/data/model_download_catalog"); send("/get/data/model_download_state"); send("/get/data/user_models");
     }, [send]);
     // Every catalog reads the probe: the per-model warnings need it, not only the TTS advice.
     useEffect(() => { ensureHardware(); }, [hardware.phase, ensureHardware]);
@@ -261,7 +263,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         </>}
         {catalog && targets.map(target => {
             const families = catalogFamilies(matching.filter(entry => entry.target === target));
-            if (!families.length) return null;
+            const own = !!USER_MODEL_FILES[target];
+            if (!families.length && !own) return null;
             const hint = advice[target], tts = ttsTargets.includes(target);
             const heading = `model-catalog-${target}`;
             return <section key={target} className={styles.catalog_group} aria-labelledby={heading}>
@@ -277,7 +280,12 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 </>}
                 {target === "asr" && <p>{t("model_downloads.asr_choice")}</p>}
                 {["rvc", "asr", "vad", "diarization"].includes(target) && <p>{t(`model_downloads.${target}_requirements`)}</p>}
-                <ul className={styles.catalog} role="list">{families.map(family => card(target, family))}</ul>
+                {/* The models of one's own sit in the same list, after the reviewed ones (#403). */}
+                <ul className={styles.catalog} role="list">
+                    {families.map(family => card(target, family))}
+                    {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} />}
+                </ul>
+                {own && <UserModelRegistration target={target} busy={busy} />}
             </section>;
         })}
         {hasTTS && !shared && <details className={styles.more}><summary>{t('model_downloads.memory_boundary_summary')}</summary>
@@ -311,7 +319,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</button>
             </div>
         </dialog>}
-        {error && <p role="alert">{failure(error)}</p>}
+        {error && <p role="alert">{t([`user_models.errors.${error}`, `model_downloads.errors.${error}`, "model_downloads.errors.download_failed"])}</p>}
         {!catalog && <button type="button" onClick={() => send("/get/data/model_download_catalog")}>{t("voice.retry")}</button>}
     </section>;
 };

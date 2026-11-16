@@ -83,7 +83,7 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
     for (const name of ["voice_settings", "voice_status", "voice_route", "voice_output_devices", "tts_model_options",
         "direct_voice_state", "direct_voice_sources", "speech_server_settings", "speech_server_state",
         "realtime_asr_settings", "realtime_asr_state", "realtime_asr_models", "realtime_asr_endpoints",
-        "model_download_catalog", "model_download_state", "model_download_hardware"]) specific[name] = record;
+        "model_download_catalog", "model_download_state", "model_download_hardware", "user_models"]) specific[name] = record;
     for (const [name, validate] of Object.entries(specific)) validators[`/get/data/${name}`] = validate;
     return validators;
 };

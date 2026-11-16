@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（442件: 削除 13、取得 199、実行 39、有効化 40、無効化 42、設定 109）
+## 要求（446件: 削除 13、取得 200、実行 42、有効化 40、無効化 42、設定 109）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -340,6 +340,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/start_model_download` | 実行 | `startModelDownload` | 可 | useModelDownloads.acknowledge |  |
 | `/run/cancel_model_download` | 実行 | `cancelModelDownload` | 可 | useModelDownloads.acknowledge |  |
 | `/run/apply_model_download` | 実行 | `applyModelDownload` | 可 | useModelDownloads.acknowledge |  |
+| `/get/data/user_models` | 取得 | `getUserModels` | 可 | useModelDownloads.updateUserModels | ログで伏せる |
+| `/run/register_user_model` | 実行 | `registerUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
+| `/run/remove_user_model` | 実行 | `removeUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
+| `/run/apply_user_model` | 実行 | `applyUserModel` | 可 | useModelDownloads.acknowledgeUserModels | ログで伏せる |
 | `/get/data/vc_runtime_catalog` | 取得 | `getVcRuntimeCatalog` | 可 | useVcRuntimes.updateCatalog |  |
 | `/get/data/vc_runtime_state` | 取得 | `getVcRuntimeState` | 可 | useVcRuntimes.updateState |  |
 | `/run/start_vc_runtime_setup` | 実行 | `startVcRuntimeSetup` | 可 | useVcRuntimes.acknowledge |  |

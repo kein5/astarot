@@ -1859,6 +1859,59 @@ model_catalog:
             aivis: "A Japanese text-to-speech program. You add voice models to it, and each model has its own license."
             sharevox: "A free Japanese text-to-speech program, connected the same way as VOICEVOX. Some voices need a credit."
 
+# Models the user brings (#403), listed with the catalog's cards.
+user_models:
+    badge: "Your model"
+    status:
+        registered: "Registered"
+        in_use: "In use"
+        missing: "File not found"
+        changed: "File changed"
+    status_help:
+        missing: "The registered file cannot be found. If you moved or deleted it, remove the registration and register it again."
+        changed: "The file's size or modification time changed after you registered it. Check the file, then register it again."
+    file:
+        model: "Model file"
+        index: "Index file"
+    size: "File size"
+    use: "Use this model"
+    remove: "Remove registration"
+    remove_confirm: "Only the registration is removed. The files are not deleted."
+    remove_confirm_label: "Remove the registration of {{name}}"
+    remove_do: "Remove"
+    blocked_edited: "The path this model replaces has unsaved edits. Save or discard them before switching."
+    register_title: "Register a model of your own"
+    register_label: "Register a model of your own for {{group}}"
+    register_help: "Register a model file on your computer under a name to choose it next to the models above. The file is not copied or moved; only its location is remembered."
+    terms_help: "This app has not checked where a registered model comes from or its license. Check its terms yourself."
+    name: "Display name"
+    name_placeholder: "e.g. My voice"
+    drop_hint: "Drop files here to fill the fields below."
+    file_field:
+        model: "Model file ({{kind}})"
+        index: "Index file ({{kind}}, optional)"
+    register: "Register"
+    problem:
+        name_missing: "Enter a name."
+        name_long: "Names can be up to 80 characters."
+        model_missing: "Enter the path of the model file."
+        model_kind: "Choose a {{kind}} file for the model."
+        index_kind: "Choose a {{kind}} file for the index."
+        target: "Models cannot be registered for this use."
+    errors:
+        user_model_invalid: "The registration is not valid. Check what you entered."
+        user_model_name_invalid: "The name has characters that cannot be used. Remove leading or trailing spaces and line breaks."
+        user_model_path_invalid: "Enter the file's full path, starting with the drive or the root folder."
+        user_model_file_type: "This kind of file cannot be used here."
+        user_model_file_missing: "The file cannot be found. Check the path."
+        user_model_exists: "A model with the same name or the same file is already registered."
+        user_model_limit: "Up to 200 models can be registered. Remove the registrations you no longer use."
+        user_model_unknown: "This registration cannot be found. Open the page again."
+        user_model_missing: "The registered file cannot be found. Register it again."
+        user_model_changed: "The file changed after it was registered. Register it again."
+        user_models_unreadable: "The list of registrations (user_models.json) cannot be read. The file was left as it is."
+        user_models_write_failed: "The list of registrations could not be saved. Check the permissions of its folder."
+
 studio:
     toggle_sidebar: "Toggle sidebar"
     close_sidebar: "Close the sidebar"

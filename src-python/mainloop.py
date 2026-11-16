@@ -660,6 +660,12 @@ mapping = {
     "/run/start_model_download": {"status": True, "variable":controller.startModelDownload},
     "/run/cancel_model_download": {"status": True, "variable":controller.cancelModelDownload},
     "/run/apply_model_download": {"status": True, "variable":controller.applyModelDownload},
+    # Models the user registers under a name (#403). The routes carry "user_model" so the
+    # process log masks their names and paths (utils.SENSITIVE_ENDPOINT_MARKERS).
+    "/get/data/user_models": {"status": True, "variable":controller.getUserModels},
+    "/run/register_user_model": {"status": True, "variable":controller.registerUserModel},
+    "/run/remove_user_model": {"status": True, "variable":controller.removeUserModel},
+    "/run/apply_user_model": {"status": True, "variable":controller.applyUserModel},
     "/get/data/vc_runtime_catalog": {"status": True, "variable":controller.getVcRuntimeCatalog},
     "/get/data/vc_runtime_state": {"status": True, "variable":controller.getVcRuntimeState},
     "/run/start_vc_runtime_setup": {"status": True, "variable":controller.startVcRuntimeSetup},
