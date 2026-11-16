@@ -167,7 +167,7 @@ pub const ENGINES: &[&str] = &["speechcpp", "voicevox", "coeiroink", "aivis", "s
 pub const SPEECHCPP: &str = "speechcpp";
 
 /// `[0-9]{1,9}` or `[0-9A-Fa-f-]{1,64}:[0-9]{1,9}`: a style id, or a speaker UUID and style id.
-fn valid_engine_voice_id(id: &str) -> bool {
+pub fn valid_engine_voice_id(id: &str) -> bool {
     let digits = |part: &str| (1..=9).contains(&part.len()) && part.bytes().all(|b| b.is_ascii_digit());
     match id.split_once(':') {
         None => digits(id),
@@ -381,7 +381,13 @@ impl VoiceSettings {
         ENGINES.iter().copied().find(|engine| *engine == self.japanese_engine).ok_or(SettingsError("Unknown speech engine"))
     }
 
-    fn engine_url(&self, engine: &str) -> &str {
+    /// Whether a role (`japanese` or `multilingual`) speaks through a speech.cpp server.
+    pub fn uses_speechcpp(&self, role: &str) -> bool {
+        role != "japanese" || self.japanese_engine == SPEECHCPP
+    }
+
+    /// The saved URL of an installed engine (`voicevox`, `coeiroink`, `aivis`, `sharevox`).
+    pub fn engine_url(&self, engine: &str) -> &str {
         match engine {
             "voicevox" => &self.voicevox_url,
             "coeiroink" => &self.coeiroink_url,
