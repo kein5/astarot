@@ -1398,6 +1398,17 @@ speech_servers:
         speech_server_low_latency_requires_gpu_irodori: "「低遅延待機」にはGPUで動くIrodoriモデルが必要です。低遅延待機を外すか、推論デバイスをGPUにしてください。"
         speech_server_cleanup_unconfirmed: "前回のサーバーの停止を確認できません。ASTAROTを再起動してください。"
         speech_server_notification_failed: "サーバーの停止をアプリに伝えられませんでした。ASTAROTを再起動してください。"
+        speech_server_model_invalid: "このサーバーに使えるモデルがありません。モデルファイルに既存のGGUFファイルを指定して保存してから、もう一度起動してください。"
+        speech_server_start_failed: "サーバーを起動できませんでした。モデルファイルと「推論デバイス」を確認してから、もう一度起動してください。"
+        speech_server_busy: "サーバーを停止しているところです。少し待ってから、もう一度起動してください。"
+        speech_server_settings_invalid: "設定を保存できませんでした。入力した値を確かめてから、もう一度保存してください。"
+        speech_server_closed: "ASTAROTを終了しているため、サーバーを起動できません。"
+        speech_server_stale_start: "起動を押したあとにサーバーの状態が変わりました。状態を確かめてから、もう一度起動してください。"
+        speech_server_request_invalid: "要求の形が正しくありませんでした。もう一度操作してください。"
+        speech_server_request_failed: "サーバーの操作を完了できませんでした。もう一度操作してください。"
+        speech_server_not_ready: "サーバーが応答していません。サーバーを起動してから、もう一度試してください。"
+        speech_server_profile_invalid: "サーバーの種類が正しくありませんでした。もう一度操作してください。"
+        speech_server_single_use: "このサーバーの起動の準備は使い終わっています。もう一度起動してください。"
 
 app_update:
     beta_channel: "（ベータ版）"

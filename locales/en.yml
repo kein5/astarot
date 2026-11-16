@@ -1398,6 +1398,17 @@ speech_servers:
         speech_server_low_latency_requires_gpu_irodori: "Low-latency standby needs an Irodori model on the GPU. Turn standby off or choose the GPU."
         speech_server_cleanup_unconfirmed: "Stopping the previous server could not be confirmed. Restart ASTAROT."
         speech_server_notification_failed: "The app was not told that the server stopped. Restart ASTAROT."
+        speech_server_model_invalid: "This server has no usable model. Enter an existing GGUF file as its model file, save, and start it again."
+        speech_server_start_failed: "The server could not be started. Check the model files and the inference device, then start it again."
+        speech_server_busy: "The server is still stopping. Wait a moment, then start it again."
+        speech_server_settings_invalid: "The settings could not be saved. Check the values you entered, then save again."
+        speech_server_closed: "ASTAROT is closing, so the server cannot be started."
+        speech_server_stale_start: "The server changed after you pressed Start. Check its state, then start it again."
+        speech_server_request_invalid: "The request was not in the expected form. Try again."
+        speech_server_request_failed: "The server could not finish this. Try again."
+        speech_server_not_ready: "The server is not answering. Start it, then try again."
+        speech_server_profile_invalid: "The server type was not recognized. Try again."
+        speech_server_single_use: "This server's start was already used. Start it again."
 
 app_update:
     beta_channel: "(beta)"
