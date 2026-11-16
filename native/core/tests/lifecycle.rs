@@ -101,6 +101,51 @@ fn the_backend_stops_itself_when_the_watchdog_is_not_fed() {
 }
 
 #[test]
+fn a_start_up_that_panics_ends_the_run_so_the_ui_can_say_it_could_not_start() {
+    let services = Services {
+        translation_weight_available: Arc::new(|_| panic!("a start-up step failed")),
+        ..Setup::default().services
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let ui = Ui::with(Setup { services, dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_FAILED_EXIT));
+    assert!(ui.on(0, "/run/initialization_complete").is_empty());
+    // The run is over: a request is not taken.
+    let mark = ui.send("/get/data/version", None);
+    std::thread::sleep(Duration::from_millis(200));
+    assert!(ui.on(mark, "/get/data/version").is_empty());
+    // The log says what happened, never the panic's own words.
+    let errors = std::fs::read_to_string(dir.path().join("logs").join("error.log")).unwrap_or_default();
+    assert!(errors.contains("The start-up stopped on an internal error"), "{errors}");
+    assert!(!errors.contains("a start-up step failed"), "{errors}");
+}
+
+#[test]
+fn a_start_up_that_does_not_end_in_time_ends_the_run_and_never_opens() {
+    let services = Services {
+        translation_weight_available: Arc::new(|_| {
+            std::thread::sleep(Duration::from_millis(1500));
+            false
+        }),
+        ..Setup::default().services
+    };
+    let ui = Ui::with(Setup { services, startup_limit: Some(Duration::from_millis(200)), ..Setup::default() });
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_TIMEOUT_EXIT));
+    // The start-up that ends later does not open the endpoints of a run that is over.
+    std::thread::sleep(Duration::from_millis(2500));
+    assert!(!ui.backend.dispatcher().is_open());
+}
+
+#[test]
+fn a_start_up_within_its_limit_is_not_ended() {
+    let ui = Ui::with(Setup { startup_limit: Some(Duration::from_secs(30)), ..Setup::default() });
+    ui.ready();
+    assert_eq!(ui.wait_exit(Duration::from_millis(300)), None);
+    assert!(ui.backend.dispatcher().is_open());
+    ui.stop();
+}
+
+#[test]
 fn the_backend_stops_when_the_ui_input_closes_but_not_after_a_requested_shutdown() {
     let ui = Ui::start();
     ui.ready();

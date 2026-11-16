@@ -12,8 +12,19 @@ use crate::dispatch::{self, Dispatcher, Output};
 use crate::log::Log;
 use serde_json::Value;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::panic::AssertUnwindSafe;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
+
+/// The exit code of a run whose start-up stopped on an internal error (a panic, or no thread to
+/// run it on). It is the code a Rust program that panics ends with, so the UI can name it.
+pub const STARTUP_FAILED_EXIT: i32 = 101;
+/// The exit code of a run whose start-up did not end within [`Options::startup_limit`].
+pub const STARTUP_TIMEOUT_EXIT: i32 = 124;
+/// How long the start-up may take before the run is ended and the UI told. The engines are
+/// checked at the same time, each with its own network timeout, so this is far beyond a slow
+/// start; it is there for a start-up that hangs, so the UI does not say "starting" for ever.
+pub const STARTUP_LIMIT: Duration = Duration::from_secs(180);
 
 /// Where the backend's lines and its end go.
 #[derive(Clone)]
@@ -31,6 +42,9 @@ pub struct Options {
     pub watchdog: Option<(Duration, Duration)>,
     /// How long a graceful stop may take before the run is ended anyway.
     pub grace: Duration,
+    /// How long the start-up may take before the run ends with [`STARTUP_TIMEOUT_EXIT`];
+    /// `None` waits for it however long it takes.
+    pub startup_limit: Option<Duration>,
     /// Write `process.log` and `error.log` under the settings folder.
     pub logs: bool,
     pub services: Services,
@@ -43,6 +57,7 @@ impl Options {
             workers: dispatch::DEFAULT_WORKER_COUNT,
             watchdog: Some((vrct_ops::watchdog::TIMEOUT, vrct_ops::watchdog::INTERVAL)),
             grace: Duration::from_secs(30),
+            startup_limit: Some(STARTUP_LIMIT),
             logs: true,
             services: Services::default(),
         }
@@ -79,6 +94,10 @@ struct Inner {
     ending: AtomicBool,
     exit_code: Mutex<Option<i32>>,
     exited: Condvar,
+    /// The start-up ended and the endpoints opened. Set and read under its lock together with
+    /// `ending`, so a start-up that ends at its deadline either opens or is stopped, not both.
+    started: Mutex<bool>,
+    started_changed: Condvar,
 }
 
 /// A running backend.
@@ -107,6 +126,8 @@ impl Backend {
             ending: AtomicBool::new(false),
             exit_code: Mutex::new(None),
             exited: Condvar::new(),
+            started: Mutex::new(false),
+            started_changed: Condvar::new(),
         });
         let backend = Backend { inner };
         if let Some((timeout, interval)) = options.watchdog {
@@ -118,16 +139,60 @@ impl Backend {
             }));
         }
         let starter = backend.clone();
-        std::thread::Builder::new()
-            .name("backend_init".into())
-            .spawn(move || {
-                let core = &starter.inner.core;
-                core.init(&starter.inner.dispatcher);
-                starter.inner.dispatcher.open();
-                core.after_init();
-            })
-            .expect("the start-up thread starts");
+        let spawned = std::thread::Builder::new().name("backend_init".into()).spawn(move || starter.run_startup());
+        if spawned.is_err() {
+            backend.startup_failed("The start-up thread could not be started");
+            return backend;
+        }
+        if let Some(limit) = options.startup_limit {
+            let watcher = backend.clone();
+            // Without this thread a start-up that hangs is not ended, as before.
+            let _ = std::thread::Builder::new().name("backend_init_deadline".into()).spawn(move || watcher.watch_startup(limit));
+        }
         backend
+    }
+
+    /// The start-up sequence, then the endpoints open. A panic in it ends the run with
+    /// [`STARTUP_FAILED_EXIT`], so the UI shows why it cannot start instead of "starting" for
+    /// ever. Only a fixed line is logged: a panic's message may quote what the user said.
+    fn run_startup(&self) {
+        let core = &self.inner.core;
+        if std::panic::catch_unwind(AssertUnwindSafe(|| core.init(&self.inner.dispatcher))).is_err() {
+            self.startup_failed("The start-up stopped on an internal error");
+            return;
+        }
+        {
+            let mut started = self.inner.started.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            if self.inner.ending.load(Ordering::SeqCst) {
+                // Stopped meanwhile, or past its deadline: the endpoints stay closed.
+                return;
+            }
+            *started = true;
+            self.inner.started_changed.notify_all();
+        }
+        self.inner.dispatcher.open();
+        if std::panic::catch_unwind(AssertUnwindSafe(|| core.after_init())).is_err() {
+            core.log().error("The work after the start-up stopped on an internal error");
+        }
+    }
+
+    fn startup_failed(&self, why: &str) {
+        self.inner.core.log().error(why);
+        self.finish(STARTUP_FAILED_EXIT, true);
+    }
+
+    /// Ends the run when the start-up has not ended after `limit`.
+    fn watch_startup(&self, limit: Duration) {
+        let started = self.inner.started.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let (started, _) = self.inner.started_changed
+            .wait_timeout_while(started, limit, |started| !*started && !self.inner.ending.load(Ordering::SeqCst))
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if *started || self.inner.ending.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        drop(started);
+        self.inner.core.log().error("The start-up did not end in time; stopping");
+        self.finish(STARTUP_TIMEOUT_EXIT, true);
     }
 
     pub fn core(&self) -> &Arc<Core> {
@@ -181,7 +246,7 @@ impl Backend {
 
     fn finish(&self, code: i32, stop_core: bool) {
         {
-            let mut exit = self.inner.exit_code.lock().unwrap();
+            let mut exit = self.inner.exit_code.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             if exit.is_some() {
                 return;
             }
@@ -192,16 +257,23 @@ impl Backend {
             let core = Arc::clone(&self.inner.core);
             std::thread::spawn(move || core.shutdown());
         }
-        self.inner.dispatcher.stop(Duration::from_secs(2));
-        self.inner.core.close();
+        // A start-up that panicked may leave a lock poisoned; the UI must still hear the end.
+        let closed = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            self.inner.dispatcher.stop(Duration::from_secs(2));
+            self.inner.core.close();
+        }));
+        if closed.is_err() {
+            self.inner.core.log().error("The run could not be closed cleanly");
+        }
         (self.inner.sink.exit)(code);
         self.inner.exited.notify_all();
     }
 
     /// The exit code once the run has ended.
     pub fn wait(&self, timeout: Duration) -> Option<i32> {
-        let exit = self.inner.exit_code.lock().unwrap();
-        let (exit, _) = self.inner.exited.wait_timeout_while(exit, timeout, |code| code.is_none()).unwrap();
+        let exit = self.inner.exit_code.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let (exit, _) = self.inner.exited.wait_timeout_while(exit, timeout, |code| code.is_none())
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         *exit
     }
 }

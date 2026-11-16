@@ -174,6 +174,8 @@ common_error:
     backend_startup_title: "ASTAROT could not start"
     backend_startup_reason_spawn: "The ASTAROT engine program could not be started."
     backend_startup_reason_exit: "The ASTAROT engine stopped while it was getting ready (code {{code}})."
+    backend_startup_reason_internal: "The ASTAROT engine stopped on an internal error while it was getting ready."
+    backend_startup_reason_timeout: "The ASTAROT engine did not finish getting ready in time."
     backend_startup_detail: "Details: {{message}}"
     backend_startup_next: "Try starting again. If this keeps happening, reinstall ASTAROT. If any error notices appeared, include their text when you report it in the ASTAROT issues."
     backend_startup_retry: "Try starting again"

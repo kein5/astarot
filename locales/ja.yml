@@ -174,6 +174,8 @@ common_error:
     backend_startup_title: "ASTAROTを起動できませんでした"
     backend_startup_reason_spawn: "ASTAROTの処理部分のプログラムを起動できませんでした。"
     backend_startup_reason_exit: "ASTAROTの処理部分が準備の途中で終了しました（コード{{code}}）。"
+    backend_startup_reason_internal: "ASTAROTの処理部分が準備の途中で内部のエラーにより止まりました。"
+    backend_startup_reason_timeout: "ASTAROTの処理部分の準備が時間内に終わりませんでした。"
     backend_startup_detail: "詳細: {{message}}"
     backend_startup_next: "もう一度起動してください。繰り返し起きる場合は、ASTAROTをインストールし直してください。エラーの通知が出ていれば、その内容を添えてASTAROTのIssuesで報告してください。"
     backend_startup_retry: "もう一度起動する"

@@ -41,6 +41,8 @@ pub struct Setup {
     pub services: Services,
     pub watchdog: Option<(Duration, Duration)>,
     pub grace: Duration,
+    /// The start-up's deadline; none unless a test is about it.
+    pub startup_limit: Option<Duration>,
     pub platform: Platform,
     pub dir: Option<PathBuf>,
 }
@@ -71,6 +73,7 @@ impl Default for Setup {
             },
             watchdog: None,
             grace: Duration::from_secs(5),
+            startup_limit: None,
             platform: Platform::current(),
             dir: None,
         }
@@ -127,6 +130,7 @@ impl Ui {
         let mut options = Options::new(environment(&dir, setup.platform));
         options.watchdog = setup.watchdog;
         options.grace = setup.grace;
+        options.startup_limit = setup.startup_limit;
         options.services = setup.services;
         let backend = Backend::start(options, sink);
         Ui { backend, seen, dir, _temp: temp }
