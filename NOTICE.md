@@ -23,9 +23,9 @@ Do not infer the complete stack's license from the main MIT license alone.
 
 Upstream VRCT's `translator_engines` extension (Google, Bing and Papago web
 translation) is licensed for official VRCT distributions only. VRCT-VOX does
-not include it, so those web translators are unavailable; local CTranslate2
-translation, DeepL and the LLM providers remain. The distribution policy
-rejects it in any build.
+not include it, so those web translators are not offered; DeepL and the LLM
+providers remain. The distribution policy rejects it in any build. For local
+translation see "Downloadable CTranslate2 translation weights" below.
 
 ## Removed: VRCT's chat-bubble detection model
 
@@ -103,8 +103,12 @@ and the license review.
 
 ## Downloadable CTranslate2 translation weights
 
-None of these weights ship with VRCT-VOX. The app downloads the selected one
-from Hugging Face into `weights/ctranslate2/`. The license is shown next to
+None of these weights ship with VRCT-VOX. Up to 0.4 the app downloaded the
+selected one from Hugging Face into `weights/ctranslate2/`. Since 0.5.0 the
+builds contain no CTranslate2: the app neither downloads nor reads these
+weights, and removes those earlier versions downloaded after start-up. Which
+local translation engine replaces it is open
+(`docs/voice-stack/core-integration.md`, item 1). The license is shown next to
 each weight in Config → Translation.
 
 | Weight (setting value) | Downloaded from | Upstream model | License |
