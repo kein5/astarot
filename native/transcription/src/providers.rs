@@ -1,8 +1,9 @@
 //! The cloud engines of the recorder (`transcription_providers.py`,
-//! `transcription_openai_compatible.py`, `transcription_deepgram.py`): the Google web speech
-//! endpoint, the OpenAI-compatible transcription APIs (Groq, OpenAI, a custom server) and
-//! Deepgram. Each recognises one utterance for each candidate language and the best text wins,
-//! as `AudioTranscriber._finalizeAndTranscribe` chose it.
+//! `transcription_openai_compatible.py`, `transcription_deepgram.py`): the OpenAI-compatible
+//! transcription APIs (Groq, OpenAI, a custom server) and Deepgram. Each recognises one
+//! utterance for each candidate language and the best text wins, as
+//! `AudioTranscriber._finalizeAndTranscribe` chose it. Python's Google web speech engine is not
+//! ported: it used an unofficial endpoint with the generic key of `speech_recognition`.
 //!
 //! Requests go through the HTTP client of `vrct-translation` (no proxy, no redirects, TLS with
 //! the Mozilla roots); tests give a transport that only reaches this PC. Nothing here logs or
@@ -17,8 +18,6 @@ use vrct_translation::http::{HttpError, Request, Response, Timeouts, Transport};
 /// The address of the engines with a fixed one; tests point them at this PC.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Endpoints {
-    /// `speech_recognition`'s Google endpoint, upgraded to HTTPS as Python upgraded it.
-    pub google: String,
     pub groq: String,
     pub openai: String,
     pub deepgram: String,
@@ -27,7 +26,6 @@ pub struct Endpoints {
 impl Default for Endpoints {
     fn default() -> Self {
         Endpoints {
-            google: "https://www.google.com/speech-api/v2/recognize".into(),
             groq: "https://api.groq.com/openai/v1".into(),
             openai: "https://api.openai.com/v1".into(),
             deepgram: "https://api.deepgram.com/v1".into(),
@@ -36,11 +34,10 @@ impl Default for Endpoints {
 }
 
 impl Endpoints {
-    /// Every engine at one local server (for tests): `{base}/google`, `{base}/groq/v1`, ...
+    /// Every engine at one local server (for tests): `{base}/groq/v1`, `{base}/openai/v1`, ...
     pub fn all_at(base: &str) -> Endpoints {
         let base = base.trim_end_matches('/');
         Endpoints {
-            google: format!("{base}/google/recognize"),
             groq: format!("{base}/groq/v1"),
             openai: format!("{base}/openai/v1"),
             deepgram: format!("{base}/deepgram/v1"),
@@ -48,10 +45,6 @@ impl Endpoints {
     }
 }
 
-/// The key `speech_recognition` sends when none is given (its "generic key").
-const GOOGLE_KEY: &str = "AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw";
-/// `GOOGLE_RECOGNIZE_TIMEOUT_SECONDS`.
-const GOOGLE_TIMEOUT: Timeouts = Timeouts::all(10.0);
 /// `_OPENAI_TIMEOUT` and `_HTTP_TIMEOUT`: 10 s to connect, 60 s to read and write.
 const UPLOAD: Timeouts = Timeouts { connect: Duration::from_secs(10), read: Duration::from_secs(60), write: Duration::from_secs(60) };
 /// `DISCOVERY_TIMEOUT`.
@@ -97,7 +90,8 @@ impl ApiError {
 pub struct Candidate {
     /// The name (`Japanese`).
     pub language: String,
-    /// The table's `Google` column (`ja-JP`).
+    /// The table's `Google` column (`ja-JP`): the regional code used to match a detected
+    /// language and to pick a Deepgram language.
     pub google: String,
     /// The table's `Whisper` column (`ja`).
     pub whisper: String,
@@ -108,8 +102,7 @@ pub struct Candidate {
 /// A configured engine.
 #[derive(Clone)]
 pub enum Engine {
-    Google { url: String },
-    /// `Groq_Whisper`, `OpenAI_Whisper` or `Custom_Whisper`.
+    ///`Groq_Whisper`, `OpenAI_Whisper` or `Custom_Whisper`.
     Compatible { name: String, key: String, base_url: String, model: String },
     Deepgram { key: String, model: String, languages: Vec<String>, base_url: String },
 }
@@ -118,7 +111,6 @@ impl std::fmt::Debug for Engine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Never the key.
         match self {
-            Engine::Google { .. } => f.write_str("Google"),
             Engine::Compatible { name, model, .. } => write!(f, "{name}({model})"),
             Engine::Deepgram { model, .. } => write!(f, "Deepgram({model})"),
         }
@@ -128,7 +120,6 @@ impl std::fmt::Debug for Engine {
 impl Engine {
     pub fn name(&self) -> &str {
         match self {
-            Engine::Google { .. } => "Google",
             Engine::Compatible { name, .. } => name,
             Engine::Deepgram { .. } => "Deepgram",
         }
@@ -293,7 +284,6 @@ impl Recognizer {
         let mut failure: Option<ApiError> = None;
         for candidate in candidates {
             let attempt = match &self.engine {
-                Engine::Google { url } => self.google(url, mono, rate, candidate),
                 Engine::Compatible { key, base_url, model, .. } => {
                     self.compatible(key, base_url, model, mono, rate, candidate, force_language, avg_logprob, no_speech_prob)
                 }
@@ -324,39 +314,6 @@ impl Recognizer {
         }
     }
 
-    fn google(&self, url: &str, mono: &[i16], rate: u32, candidate: &Candidate) -> Result<Attempt, ApiError> {
-        let (samples, rate) = if rate < 8000 { (pcm::ratecv(mono, rate, 8000), 8000) } else { (mono.to_vec(), rate) };
-        let flac = pcm::flac(&samples, rate);
-        let target = format!("{url}?client=chromium&lang={}&key={GOOGLE_KEY}&pFilter=0", percent(&candidate.google));
-        let request = Request {
-            method: "POST",
-            url: &target,
-            headers: vec![("Content-Type", format!("audio/x-flac; rate={rate}"))],
-            body: Some(flac),
-        };
-        let response = self.send(&request, GOOGLE_TIMEOUT).map_err(ApiError::of_http)?;
-        if response.status != 200 {
-            return Err(ApiError::of_status(response.status));
-        }
-        let text = String::from_utf8_lossy(&response.body);
-        let mut transcripts = Vec::new();
-        let mut confidences = Vec::new();
-        for line in text.split('\n').filter(|line| !line.is_empty()) {
-            let block: Value = serde_json::from_str(line).map_err(|_| ApiError::Server)?;
-            let Some(result) = block.get("result").and_then(Value::as_array) else { return Err(ApiError::Server) };
-            let Some(first) = result.first() else { continue };
-            // `"confidence" in candidate["alternative"]` looks in a list: the first wins.
-            let Some(best) = first["alternative"].as_array().and_then(|a| a.first()) else { continue };
-            let Some(transcript) = best["transcript"].as_str() else { continue };
-            transcripts.push(transcript.to_string());
-            confidences.push(best["confidence"].as_f64().unwrap_or(0.5));
-        }
-        if transcripts.is_empty() {
-            return Ok(Attempt { text: String::new(), confidence: 0.0, definitive: false, detected: None });
-        }
-        let confidence = confidences.iter().sum::<f64>() / confidences.len() as f64;
-        Ok(Attempt { text: transcripts.join(" "), confidence, definitive: false, detected: Some(candidate.google.clone()) })
-    }
 
     #[allow(clippy::too_many_arguments)]
     fn compatible(

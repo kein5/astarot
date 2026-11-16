@@ -113,7 +113,7 @@ test("each cloud speech recognition provider is one fold; the selected one stays
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" }, { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true },
         { id: "Deepgram", base: "Deepgram", key: "deepgram" }];
-    const state = { currentSelectedTranscriptionEngine: { data: "Deepgram" }, currentSelectableTranscriptionEngines: { data: ["Google", "Groq_Whisper", "Deepgram"] },
+    const state = { currentSelectedTranscriptionEngine: { data: "Deepgram" }, currentSelectableTranscriptionEngines: { data: ["SpeechCpp", "Groq_Whisper", "Deepgram"] },
         currentCustomWhisperURL: { data: "" }, getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
         ...Object.fromEntries(engines.map(engine => [`current${engine.base}AuthKey`, { data: null }])) };
     const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {

@@ -64,10 +64,15 @@ pub fn translation_engines() -> Vec<String> {
 
 /// The removed local Whisper engine; its column stays for the cloud Whisper engines.
 pub const RETIRED_WHISPER_ENGINE: &str = "Whisper";
+/// Python's Google web speech engine. It sent audio to an unofficial endpoint with the generic
+/// key of `speech_recognition`, so it is not offered; its column stays for the regional codes
+/// (`transcription_languages.py` keeps it) and a saved selection of it loads as none.
+pub const RETIRED_GOOGLE_ENGINE: &str = "Google";
 /// Recognition on this PC through speech.cpp.
 pub const LOCAL_SPEECH_ENGINE: &str = "SpeechCpp";
 
-/// The recognition engines: the table's columns without Whisper, and speech.cpp after Google.
+/// The recognition engines: speech.cpp first, then the table's columns without the retired
+/// Whisper and Google engines (Python listed Google first, and speech.cpp came after it).
 pub fn transcription_engines() -> Vec<String> {
     let first = transcription()
         .values()
@@ -78,9 +83,12 @@ pub fn transcription_engines() -> Vec<String> {
     let Some(engines) = first else {
         return Vec::new();
     };
-    let mut engines: Vec<String> = engines.keys().filter(|e| *e != RETIRED_WHISPER_ENGINE).cloned().collect();
-    let at = engines.iter().position(|e| e == "Google").map_or(0, |i| i + 1);
-    engines.insert(at, LOCAL_SPEECH_ENGINE.to_string());
+    let mut engines: Vec<String> = engines
+        .keys()
+        .filter(|e| *e != RETIRED_WHISPER_ENGINE && *e != RETIRED_GOOGLE_ENGINE)
+        .cloned()
+        .collect();
+    engines.insert(0, LOCAL_SPEECH_ENGINE.to_string());
     engines
 }
 
@@ -116,5 +124,14 @@ mod official_api_tests {
         assert_eq!(papago.len(), 13);
         assert_eq!(papago["Chinese Simplified"], "zh-CN");
         assert!(!papago.contains_key("Hindi") && !papago.contains_key("Portuguese"));
+    }
+
+    #[test]
+    fn the_retired_recognition_engines_are_not_offered() {
+        let engines = transcription_engines();
+        assert_eq!(engines.first().map(String::as_str), Some(LOCAL_SPEECH_ENGINE));
+        assert!(!engines.iter().any(|e| e == RETIRED_GOOGLE_ENGINE || e == RETIRED_WHISPER_ENGINE), "{engines:?}");
+        // The column stays: it gives the regional codes.
+        assert_eq!(transcription()["Japanese"]["Japan"][RETIRED_GOOGLE_ENGINE], "ja-JP");
     }
 }
