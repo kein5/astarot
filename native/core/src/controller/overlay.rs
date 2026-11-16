@@ -517,7 +517,8 @@ impl Core {
     }
 
     /// What the overlay's thread reports (`_onOverlayFailure`, `_onVrPanelLayout`,
-    /// `_onVrPanelLogOutOfView`, `_onVrPanelLauncherIntro`, `_onOverlayPositionChanged`).
+    /// `_onVrPanelLogOutOfView`, `_onVrPanelLauncherIntro`, `_onOverlayPositionChanged`,
+    /// `_onVrPanelPointer`).
     fn on_overlay_event(&self, event: Event) {
         match event {
             Event::Failure(reason) => {
@@ -540,6 +541,8 @@ impl Core {
             Event::PanelOutOfView(out) => self.notify("vr_panel_log_out_of_view", json!(out)),
             Event::LauncherIntro(state) => self.notify("vr_panel_launcher_intro", json!(state)),
             Event::Position(surface, position) => self.on_overlay_position(surface, position),
+            // `_onVrPanelPointer`: the hover position on the VR page, or null off it.
+            Event::Pointer(xy) => self.notify("vr_panel_pointer", xy.map_or(Value::Null, |(x, y)| json!({ "x": x, "y": y }))),
         }
     }
 

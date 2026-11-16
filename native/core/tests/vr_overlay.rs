@@ -11,8 +11,8 @@ use std::time::{Duration, Instant};
 use vrct_core::controller::Services;
 use vrct_core::protocol::encode_data;
 use vrct_core::vr_overlay::runtime::fake::FakeVr;
-use vrct_core::vr_overlay::runtime::{Session, Vr, VrError};
-use vrct_core::vr_overlay::surface::{Frame, PanelSurface};
+use vrct_core::vr_overlay::runtime::{ControllerState, GRIP_MASK, Session, TRIGGER_MASK, Vr, VrError};
+use vrct_core::vr_overlay::surface::{Frame, PanelSurface, PointerInput};
 
 /// The VR page: one dark picture of the default layout's size.
 struct FakePage;
@@ -296,6 +296,93 @@ fn launcher_and_panel_switches_reach_the_overlay_and_are_saved() {
     assert_eq!(saved["OVERLAY_VR_LAUNCHER_AUTO_HIDE"], false);
     assert_eq!(saved["OVERLAY_VR_PANEL_SETTINGS"]["opacity"], 0.5);
     assert_eq!(fake.with(|s| s.sessions_open), 0);
+    ui.stop();
+}
+
+/// The VR page that records the mouse input from the controllers.
+#[derive(Default)]
+struct PointedPage {
+    inputs: std::sync::Mutex<Vec<PointerInput>>,
+}
+
+impl PanelSurface for PointedPage {
+    fn available(&self) -> bool {
+        true
+    }
+    fn find(&self) -> Option<u64> {
+        Some(7)
+    }
+    fn alive(&self, window: u64) -> bool {
+        window == 7
+    }
+    fn capture(&self, window: u64) -> Option<Frame> {
+        FakePage.capture(window)
+    }
+    fn resize(&self, _window: u64, width: u32, height: u32) -> (u32, u32) {
+        (width, height)
+    }
+    fn pointer(&self, _window: u64, input: PointerInput) {
+        self.inputs.lock().unwrap().push(input);
+    }
+}
+
+#[test]
+fn the_controllers_hover_click_and_move_the_log_and_the_place_is_saved() {
+    let fake = FakeVr::running();
+    let page = Arc::new(PointedPage::default());
+    let base = Setup::default();
+    let services = Services {
+        vr: Arc::new(fake.clone()),
+        vr_panel_surface: Some(Arc::clone(&page) as Arc<dyn PanelSurface>),
+        ..base.services
+    };
+    // The log 1 m in front of the headset (at the origin, looking down -Z), 0.4 m wide.
+    let panel = json!({
+        "width": 900, "height": 700, "x_pos": 0.0, "y_pos": 0.0, "z_pos": 1.0, "x_rotation": 0.0, "y_rotation": 0.0, "z_rotation": 0.0,
+        "display_duration": 5, "fadeout_duration": 0, "opacity": 1.0, "ui_scaling": 0.4, "tracker": "Playspace",
+    });
+    let saved = json!({ "OVERLAY_VR_PANEL": true, "OVERLAY_VR_PANEL_SETTINGS": panel });
+    let ui = Ui::with(Setup { services, saved: Some(saved), ..Setup::default() });
+    ui.ready();
+    wait("connected", || fake.handle("VRCT2").is_some());
+    ui.ok("/run/vr_panel_windows", Some(json!({ "log": true, "popup": false })));
+    let log = fake.handle("VRCT2").unwrap();
+    wait("log shown", || fake.with(|s| s.visible.contains(&log) && s.bounds.contains_key(&log)));
+
+    // The right controller 60 cm in front of the log's centre, its laser on it.
+    let aim = |x: f64, y: f64| {
+        let mut ray = vrct_core::vr_overlay::math::IDENTITY;
+        ray[0][3] = x;
+        ray[1][3] = y;
+        ray[2][3] = -0.4;
+        let tilt = vrct_core::vr_overlay::pose::laser_tilt(vrct_core::vr_overlay::pose::LASER_PITCH_UP_DEG);
+        let untilt = vrct_core::vr_overlay::math::inverse(&tilt).unwrap();
+        fake.set_pose(2, Some(vrct_core::vr_overlay::math::mul(&ray, &untilt)));
+    };
+    let press = |buttons: u64| fake.set_controller(2, Some(ControllerState { pressed: buttons, axis: (0.0, 0.0) }));
+    press(0);
+    aim(0.0, 0.0);
+    // The hover position goes to the UI (the main window relays it to the VR page).
+    let hover = ui.wait_from(0, "the hover position", |l| l["endpoint"] == "/run/vr_panel_pointer" && l["result"].is_object());
+    assert_eq!(hover["result"], json!({ "x": 450, "y": 350 }));
+    // The trigger is a click on the page where the laser points.
+    press(TRIGGER_MASK);
+    wait("pressed", || page.inputs.lock().unwrap().contains(&PointerInput::Down { x: 450, y: 350 }));
+    press(0);
+    wait("released", || page.inputs.lock().unwrap().contains(&PointerInput::Up { x: 450, y: 350 }));
+
+    // The grip holds the log; moved up and let go, its place is saved and the UI hears it.
+    let mark = ui.lines().len();
+    press(GRIP_MASK);
+    ui.wait_from(mark, "the hover ends while held", |l| l["endpoint"] == "/run/vr_panel_pointer" && l["result"].is_null());
+    aim(0.0, 0.2);
+    std::thread::sleep(Duration::from_millis(200));
+    press(0);
+    ui.wait_from(mark, "the place", |l| l["endpoint"] == "/run/overlay_vr_panel_anchor" && l["result"] == "Playspace");
+    ui.ok("/run/shutdown", None);
+    let saved = ui.saved()["OVERLAY_VR_PANEL_SETTINGS"].clone();
+    assert!(saved["y_pos"].as_f64().unwrap() > 0.1, "{saved}");
+    assert_eq!(saved["width"], 900);
     ui.stop();
 }
 
