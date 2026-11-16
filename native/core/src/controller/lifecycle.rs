@@ -143,6 +143,14 @@ impl Core {
             }),
             std::sync::Arc::new(move || recovered("config_save_recovered", json!(true))),
         );
+        // The key store failed: the key stays usable for this run and is tried again.
+        let output = std::sync::Arc::clone(&self.output);
+        let kind = config.secret_store().kind();
+        config.set_secret_callback(std::sync::Arc::new(move |operation, entries, reason| {
+            let data = json!({ "operation": operation, "entries": entries, "reason": reason, "store": kind });
+            let body = ErrorReply::new("SECRET_STORE_FAILED", data).into_body();
+            output.answer(400, Some(super::run_endpoint("secret_store_failed")), &body);
+        }));
         self.step("End Initialization");
     }
 

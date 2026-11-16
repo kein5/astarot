@@ -366,8 +366,8 @@ fn keys_are_checked_with_their_service_and_a_refusal_keeps_the_saved_one() {
 
     run.ui.ok("/run/shutdown", None);
     let file = run.ui.saved();
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"]["Groq_Whisper"], KEY);
-    assert_eq!(file["TRANSCRIPTION_AUTH_KEYS"]["Deepgram"], KEY);
+    assert_eq!(run.ui.kept_key("TRANSCRIPTION_AUTH_KEYS", "Groq_Whisper"), KEY);
+    assert_eq!(run.ui.kept_key("TRANSCRIPTION_AUTH_KEYS", "Deepgram"), KEY);
     assert_eq!(file["TRANSCRIPTION_CUSTOM_URL"], json!(other));
     assert!(!run.process_log().contains(KEY), "a key reached the log");
     run.ui.stop();

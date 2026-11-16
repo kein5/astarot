@@ -153,7 +153,7 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
     assert_eq!(license["result"]["data"], json!({ "weight_type": "nllb-200-distilled-600M-ct2-int8", "license": "CC-BY-NC-4.0" }));
     ui.ok("/run/shutdown", None);
     let saved = ui.saved();
-    assert_eq!(saved["AUTH_KEYS"]["DeepL_API"], "kept-key", "a saved key is kept even while its engine is unavailable");
+    assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), "kept-key", "a saved key is kept even while its engine is unavailable");
     assert_eq!(saved["CTRANSLATE2_LICENSE_NOTICE_SHOWN"], true, "the notice is shown once");
     assert_eq!(saved["LOCAL_ASR_MIGRATION"], 2);
     ui.stop();

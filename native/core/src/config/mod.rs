@@ -16,8 +16,13 @@
 //!   old one, under the byte lock of `config.json.lock` that the Python backend also took. Most
 //!   changes are saved 2 s after the last one; a few at once. A failed save is reported once,
 //!   tried again every 30 s while the values stay in memory, and its recovery is reported too.
+//! - API keys are not written to `config.json` but to a store of their own ([`secrets`]). Keys
+//!   found in the file (written by an older version) are moved there when it is read: each is
+//!   written and read back first, and only then is `config.json` written without it. A key the
+//!   store does not take stays where it was, stays usable, and is reported and tried again.
 
 pub mod schema;
+pub mod secrets;
 
 use base64::Engine;
 use serde_json::{Map, Value, json};
@@ -118,6 +123,39 @@ pub struct Invalid {
 /// Where a failed or recovered save is reported.
 pub type SaveFailed = Arc<dyn Fn(&str, &Path) + Send + Sync>;
 pub type SaveRecovered = Arc<dyn Fn() + Send + Sync>;
+/// Where a failure of the key store is reported: what failed (`"read"`, `"write"`, `"delete"`,
+/// `"migrate"`), the entries (names such as `AUTH_KEYS/DeepL_API`, never values) and the reason.
+pub type SecretFailed = Arc<dyn Fn(&str, &[String], &str) + Send + Sync>;
+
+/// The keys on their way to or from the store.
+#[derive(Default)]
+struct Secrets {
+    /// Changes not yet in the store: `Some` to write, `None` to delete.
+    pending: std::collections::BTreeMap<String, Option<String>>,
+    /// Keys read from `config.json` that the store has not taken yet: they stay in the file.
+    in_file: std::collections::BTreeSet<String>,
+    /// Failures found before anyone listens: (operation, entry, reason).
+    unreported: Vec<(&'static str, String, &'static str)>,
+    /// Entries whose failure was reported and has not recovered (reported once).
+    reported: std::collections::BTreeSet<String>,
+    on_failed: Option<SecretFailed>,
+    /// The keys were read at start-up: changes from now on go to the store.
+    ready: bool,
+}
+
+fn report_secret_failures(callback: &SecretFailed, failures: Vec<(&'static str, String, &'static str)>) {
+    // One report per operation and reason, naming its entries.
+    let mut grouped: Vec<(&'static str, &'static str, Vec<String>)> = Vec::new();
+    for (operation, entry, reason) in failures {
+        match grouped.iter_mut().find(|(o, r, _)| *o == operation && *r == reason) {
+            Some((_, _, entries)) => entries.push(entry),
+            None => grouped.push((operation, reason, vec![entry])),
+        }
+    }
+    for (operation, reason, entries) in grouped {
+        callback(operation, &entries, reason);
+    }
+}
 
 struct State {
     values: Map<String, Value>,
@@ -134,6 +172,7 @@ struct State {
     invalid_saved_api_urls: Vec<String>,
     history_generation: u64,
     closed: bool,
+    secrets: Secrets,
 }
 
 pub struct Config {
@@ -142,6 +181,9 @@ pub struct Config {
     state: Mutex<State>,
     file_lock: Mutex<()>,
     wake: Condvar,
+    store: Arc<dyn secrets::SecretStore>,
+    /// One exchange with the key store at a time.
+    store_lock: Mutex<()>,
 }
 
 /// `secrets.token_urlsafe(32)`.
@@ -176,8 +218,15 @@ fn failure_reason(error: &io::Error) -> &'static str {
 }
 
 impl Config {
-    /// Fills in the defaults, reads `config.json` and saves it back, as a start did.
+    /// Fills in the defaults, reads `config.json` and saves it back, as a start did. The keys
+    /// go to the app's store ([`secrets::default_store`]).
     pub fn open(env: Environment) -> Arc<Config> {
+        let store = secrets::default_store(&env);
+        Self::open_with(env, store)
+    }
+
+    /// [`Config::open`] with the keys in `store`.
+    pub fn open_with(env: Environment, store: Arc<dyn secrets::SecretStore>) -> Arc<Config> {
         let keys = schema::keys();
         let values = schema::defaults(&env);
         debug_assert!(keys.iter().all(|k| values.contains_key(k.name)), "every key has a default");
@@ -199,9 +248,12 @@ impl Config {
                 invalid_saved_api_urls: Vec::new(),
                 history_generation: 0,
                 closed: false,
+                secrets: Secrets::default(),
             }),
             file_lock: Mutex::new(()),
             wake: Condvar::new(),
+            store,
+            store_lock: Mutex::new(()),
         });
         let _ = fs::create_dir_all(config.env.state_dir.join("logs"));
         config.load();
@@ -269,7 +321,166 @@ impl Config {
         if TRANSLATION_HISTORY_SETTINGS.contains(&name) && state.values.get(name) != Some(&value) {
             state.history_generation += 1;
         }
+        if state.secrets.ready && secrets::SECRET_SETTINGS.contains(&name) {
+            // A changed key goes to the store (see `flush_secrets`); the file no longer holds it.
+            let old: std::collections::BTreeMap<String, Option<String>> =
+                secrets::entries(name, state.values.get(name).unwrap_or(&Value::Null)).into_iter().collect();
+            for (entry, new) in secrets::entries(name, &value) {
+                if old.get(&entry) != Some(&new) {
+                    state.secrets.in_file.remove(&entry);
+                    state.secrets.pending.insert(entry, new);
+                }
+            }
+        }
         state.values.insert(name.to_string(), value);
+    }
+
+    /// The store this run keeps the keys in.
+    pub fn secret_store(&self) -> &Arc<dyn secrets::SecretStore> {
+        &self.store
+    }
+
+    /// Hands the changed keys to the store, and the keys `config.json` still holds. A failure
+    /// keeps the key in memory (usable), is reported once per entry, and is tried again with the
+    /// next save and every 30 s. Returns whether a key left the file (the file needs writing).
+    fn flush_secrets(&self) -> bool {
+        let _io = self.store_lock.lock().unwrap();
+        let (pending, in_file) = {
+            let state = self.state.lock().unwrap();
+            if !state.secrets.ready {
+                return false;
+            }
+            let in_file: Vec<(String, Option<String>)> = state
+                .secrets
+                .in_file
+                .iter()
+                .map(|entry| (entry.clone(), self.secret_value(&state, entry)))
+                .collect();
+            (state.secrets.pending.clone(), in_file)
+        };
+        let mut failures = Vec::new();
+        let mut recovered = Vec::new();
+        for (entry, value) in pending {
+            let (operation, result) = match &value {
+                Some(key) => ("write", secrets::write_verified(self.store.as_ref(), &entry, key)),
+                None => ("delete", self.store.delete(&entry)),
+            };
+            let mut state = self.state.lock().unwrap();
+            match result {
+                Ok(()) => {
+                    if state.secrets.pending.get(&entry) == Some(&value) {
+                        state.secrets.pending.remove(&entry);
+                    }
+                    recovered.push(entry);
+                }
+                Err(error) => failures.push((operation, entry, error.as_str())),
+            }
+        }
+        let mut left_file = false;
+        for (entry, value) in in_file {
+            let result = match &value {
+                Some(key) => secrets::write_verified(self.store.as_ref(), &entry, key),
+                None => Ok(()),
+            };
+            let mut state = self.state.lock().unwrap();
+            match result {
+                Ok(()) => {
+                    left_file |= state.secrets.in_file.remove(&entry);
+                    recovered.push(entry);
+                }
+                Err(error) => failures.push(("migrate", entry, error.as_str())),
+            }
+        }
+        self.secret_results(failures, recovered);
+        left_file
+    }
+
+    /// The value of one entry in memory.
+    fn secret_value(&self, state: &State, entry: &str) -> Option<String> {
+        let name = secrets::SECRET_SETTINGS.iter().find(|name| entry == **name || entry.starts_with(&format!("{name}/")))?;
+        secrets::entries(name, state.values.get(*name).unwrap_or(&Value::Null))
+            .into_iter()
+            .find(|(e, _)| e == entry)
+            .and_then(|(_, value)| value)
+    }
+
+    /// Records what the store did: new failures are reported (or kept until someone listens),
+    /// and a retry is due while anything is left.
+    fn secret_results(&self, failures: Vec<(&'static str, String, &'static str)>, recovered: Vec<String>) {
+        let mut state = self.state.lock().unwrap();
+        for entry in &recovered {
+            state.secrets.reported.remove(entry);
+        }
+        let mut fresh: Vec<(&'static str, String, &'static str)> = Vec::new();
+        for (operation, entry, reason) in failures {
+            if state.secrets.reported.insert(entry.clone()) {
+                fresh.push((operation, entry, reason));
+            }
+        }
+        if (!state.secrets.pending.is_empty() || !state.secrets.in_file.is_empty()) && state.retry_due.is_none() {
+            state.retry_due = Some(Instant::now() + SAVE_RETRY);
+        }
+        let callback = state.secrets.on_failed.clone();
+        if callback.is_none() {
+            state.secrets.unreported.extend(fresh);
+            return;
+        }
+        drop(state);
+        self.wake.notify_all();
+        if let Some(callback) = callback {
+            report_secret_failures(&callback, fresh);
+        }
+    }
+
+    /// Where failures of the key store are reported; failures found before (while reading the
+    /// settings) are reported now.
+    pub fn set_secret_callback(&self, on_failed: SecretFailed) {
+        let pending = {
+            let mut state = self.state.lock().unwrap();
+            state.secrets.on_failed = Some(on_failed.clone());
+            std::mem::take(&mut state.secrets.unreported)
+        };
+        report_secret_failures(&on_failed, pending);
+    }
+
+    /// Reads the keys at start-up: keys in `config.json` move to the store (written and read
+    /// back), and the store fills in the keys the file does not have.
+    fn load_secrets(&self) {
+        let _io = self.store_lock.lock().unwrap();
+        let mut failures = Vec::new();
+        let mut in_file = Vec::new();
+        for name in secrets::SECRET_SETTINGS {
+            let current = self.get(name);
+            for (entry, value) in secrets::entries(name, &current) {
+                match value {
+                    Some(key) => {
+                        if let Err(error) = secrets::write_verified(self.store.as_ref(), &entry, &key) {
+                            failures.push(("migrate", entry.clone(), error.as_str()));
+                            in_file.push(entry);
+                        }
+                    }
+                    None => match self.store.read(&entry) {
+                        Ok(Some(key)) => {
+                            let mut state = self.state.lock().unwrap();
+                            let value = secrets::with_entry(name, state.values.get(name).unwrap_or(&Value::Null), &entry, Some(&key));
+                            Self::store(&mut state, name, value);
+                        }
+                        Ok(None) => {}
+                        Err(error) => failures.push(("read", entry, error.as_str())),
+                    },
+                }
+            }
+        }
+        let mut state = self.state.lock().unwrap();
+        state.secrets.in_file.extend(in_file);
+        for (operation, entry, _) in &failures {
+            if *operation == "migrate" {
+                // Tried again with every save: reported once until it succeeds.
+                state.secrets.reported.insert(entry.clone());
+            }
+        }
+        state.secrets.unreported.extend(failures);
+        state.secrets.ready = true;
     }
 
     /// Checks and stores a value, then schedules the save. Returns the value as stored.
@@ -281,6 +492,7 @@ impl Config {
             let key = self.key(name).expect("checked above");
             (key.immediate, key.serialize)
         };
+        self.flush_changed_secrets();
         if serialize {
             self.schedule_save(immediate);
         }
@@ -304,6 +516,7 @@ impl Config {
                 Self::store(&mut state, name, value);
             }
         }
+        self.flush_changed_secrets();
         if serialize {
             self.schedule_save(immediate);
         }
@@ -314,8 +527,16 @@ impl Config {
     pub fn put(&self, name: &str, value: Value) {
         let serialize = self.key(name).is_some_and(|k| k.serialize);
         Self::store(&mut self.state.lock().unwrap(), name, value);
+        self.flush_changed_secrets();
         if serialize {
             self.schedule_save(false);
+        }
+    }
+
+    /// Hands changed keys to the store now, so that a key is kept before the request answers.
+    fn flush_changed_secrets(&self) {
+        if !self.state.lock().unwrap().secrets.pending.is_empty() {
+            self.flush_secrets();
         }
     }
 
@@ -382,12 +603,26 @@ impl Config {
         self.keys
             .iter()
             .filter(|k| k.serialize && !k.readonly)
-            .map(|k| (k.name.to_string(), state.values.get(k.name).cloned().unwrap_or(Value::Null)))
+            .filter_map(|k| {
+                let value = state.values.get(k.name).cloned().unwrap_or(Value::Null);
+                if secrets::SECRET_SETTINGS.contains(&k.name) {
+                    // Only keys the store has not taken yet; none at all once it has them.
+                    return secrets::file_value(k.name, &value, &state.secrets.in_file).map(|v| (k.name.to_string(), v));
+                }
+                Some((k.name.to_string(), value))
+            })
             .collect()
     }
 
-    /// Writes `config.json` now (`saveConfigToFile`).
+    /// Writes `config.json` now (`saveConfigToFile`), after handing changed keys to the store.
     pub fn save_now(&self) {
+        let has_secrets = {
+            let state = self.state.lock().unwrap();
+            !state.secrets.pending.is_empty() || !state.secrets.in_file.is_empty()
+        };
+        if has_secrets {
+            self.flush_secrets();
+        }
         let _file = self.file_lock.lock().unwrap();
         let snapshot = {
             let state = self.state.lock().unwrap();
@@ -403,7 +638,9 @@ impl Config {
                 let recovered = state.save_failed;
                 state.save_failed = false;
                 state.failure_reason = None;
-                state.retry_due = None;
+                // Keys the store has not taken are tried again.
+                let keys_left = !state.secrets.pending.is_empty() || !state.secrets.in_file.is_empty();
+                state.retry_due = keys_left.then(|| Instant::now() + SAVE_RETRY);
                 let callback = state.on_recovered.clone();
                 drop(state);
                 if recovered {
@@ -474,6 +711,8 @@ impl Config {
         match result {
             Ok(data) => {
                 self.apply_saved(data);
+                // The store takes the file's keys before the file is written without them.
+                self.load_secrets();
                 let mut state = self.state.lock().unwrap();
                 state.loading = false;
                 state.loaded = true;
@@ -481,6 +720,8 @@ impl Config {
                 self.save_now();
             }
             Err(_) => {
+                // The file stays as it is; the keys in the store are still used.
+                self.load_secrets();
                 let mut state = self.state.lock().unwrap();
                 state.loading = false;
                 // A read or preservation failure is not repaired by writing again.
@@ -685,7 +926,12 @@ fn write_config(path: &Path, value: &Value) -> io::Result<()> {
     let text = to_python_json(value);
     let (temporary, mut file) = loop {
         let candidate = directory.join(format!("config.json.{}.tmp", random_suffix()));
-        match OpenOptions::new().write(true).create_new(true).open(&candidate) {
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        // Owner only, as Python wrote it (`docs/spec/cross-cutting.md`).
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        match options.open(&candidate) {
             Ok(file) => break (candidate, file),
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
             Err(error) => return Err(error),

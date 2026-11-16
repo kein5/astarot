@@ -134,6 +134,7 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("config_file_unreadable", "/run/config_file_unreadable"),
     ("config_save_failed", "/run/config_save_failed"),
     ("config_save_recovered", "/run/config_save_recovered"),
+    ("secret_store_failed", "/run/secret_store_failed"),
     ("enable_osc_query", "/run/enable_osc_query"),
 ];
 
@@ -213,6 +214,12 @@ pub struct Services {
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
     pub voice: Arc<dyn voice::VoicePlatform>,
+    /// Where the API keys are kept instead of `config.json`: `secrets.json` in the settings
+    /// folder by default ([`crate::config::secrets`]). Tests give a [`MemoryStore`] to look in
+    /// or to make fail.
+    ///
+    /// [`MemoryStore`]: crate::config::secrets::MemoryStore
+    pub secret_store: crate::config::secrets::StoreSource,
 }
 
 impl Default for Services {
@@ -245,6 +252,7 @@ impl Default for Services {
             transcription_capture: Arc::new(default_transcription_capture),
             transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
             voice: Arc::new(voice::NativeVoice),
+            secret_store: Arc::new(crate::config::secrets::default_store),
         }
     }
 }
