@@ -4,6 +4,8 @@
 
 pub mod fake_audio;
 pub mod fake_osc;
+pub mod fake_tts;
+pub mod fake_voice;
 pub mod net;
 
 use serde_json::{Value, json};
@@ -58,6 +60,8 @@ impl Default for Setup {
                 vr: Arc::new(vrct_core::vr_overlay::runtime::fake::FakeVr::default()),
                 vr_panel_surface: None,
                 steamvr_poll: Duration::from_millis(20),
+                // No speech output, microphone, gate or worker runtime of the PC.
+                voice: fake_voice::FakeVoice::new().platform(),
                 ..Services::default()
             },
             watchdog: None,

@@ -23,6 +23,7 @@ pub mod translation;
 #[cfg(feature = "onnx-translation")]
 mod translation_onnx;
 pub mod updates;
+pub mod voice;
 
 pub use adapters::Osc;
 pub use routes::routes;
@@ -154,7 +155,7 @@ pub struct Services {
     /// Whether nothing runs on a download's target ("japanese", "multilingual", "asr": the
     /// speech server profile is stopped or failed; "rvc": the voice conversion is not
     /// requested, pending or stopping). An apply is refused with `model_target_busy` otherwise.
-    /// The default says idle: neither runs in the core yet.
+    /// The default says idle; the core also asks its own speech servers and voice area.
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// The usage-event sender, to VRCT-VOX's own receiver by default.
     pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
@@ -200,6 +201,9 @@ pub struct Services {
     /// The app's own updater behind the old update endpoints ([`updates`]). Switched off by
     /// default, as Python shipped it; the app updates through the host's updater.
     pub software_updates: Arc<dyn updates::SoftwareUpdates>,
+    /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
+    /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
+    pub voice: Arc<dyn voice::VoicePlatform>,
 }
 
 impl Default for Services {
@@ -229,6 +233,7 @@ impl Default for Services {
             ocr: ocr::real_platform(),
             ocr_message: Arc::new(ocr::pipeline_delivery),
             software_updates: Arc::new(updates::Disabled),
+            voice: Arc::new(voice::NativeVoice),
         }
     }
 }
@@ -260,6 +265,8 @@ pub struct Core {
     pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
     /// Chat reading's pipeline and switch.
     ocr: Arc<ocr::Ocr>,
+    /// Speech, direct voice and the voice route, made with the routes ([`voice`]).
+    pub(crate) voice: std::sync::OnceLock<Arc<voice::Voice>>,
 }
 
 impl Core {
@@ -287,6 +294,7 @@ impl Core {
             audio,
             vr: std::sync::OnceLock::new(),
             ocr: Arc::default(),
+            voice: std::sync::OnceLock::new(),
         })
     }
 
@@ -328,7 +336,9 @@ impl Core {
     }
 
     /// Stamps a request before it waits in the queue (generations of the voice features).
-    pub fn stamp(&self, _endpoint: &str, _data: &mut Value) {}
+    pub fn stamp(&self, endpoint: &str, data: &mut Value) {
+        self.stamp_voice(endpoint, data);
+    }
 
     pub fn start_watchdog(&self, timeout: Duration, interval: Duration, on_timeout: Arc<dyn Fn() + Send + Sync>) {
         let watchdog = vrct_ops::watchdog::Watchdog::new(timeout, interval);
@@ -356,6 +366,7 @@ impl Core {
         }
         *done = true;
         self.step("Shutdown");
+        self.close_voice();
         self.close_speech_servers();
         self.close_model_downloads();
         self.stop_audio_devices();

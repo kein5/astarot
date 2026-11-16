@@ -106,8 +106,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     });
     b.with("/run/swap_your_language_and_target_language", OPEN, |core, _| languages::swap_languages(core));
     // Turning translation on loads the local model and waits for the translation pipeline;
-    // turning it off only clears the switch (no spoken translation runs in the core yet).
+    // turning it off clears the switch and the microphone's queued speech of translations.
     b.with("/set/disable/translation", WAIT, |core, _| {
+        core.cancel_mic_voice();
         let _ = core.config().set("ENABLE_TRANSLATION", json!(false));
         ok(core.config().get("ENABLE_TRANSLATION"))
     });
@@ -374,4 +375,5 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::messages::add,
     super::audio_devices::add,
     super::updates::add,
+    super::voice::add,
 ];

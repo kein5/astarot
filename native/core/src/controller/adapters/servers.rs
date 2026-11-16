@@ -197,7 +197,7 @@ impl Adapters {
         }
     }
 
-    fn websocket_alive(&self) -> bool {
+    pub(crate) fn websocket_alive(&self) -> bool {
         self.websocket.lock().unwrap().as_ref().is_some_and(|server| server.is_running())
     }
 

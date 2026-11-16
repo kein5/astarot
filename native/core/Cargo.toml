@@ -38,6 +38,8 @@ vrct-speech-server = { path = "../speech-server" }
 vrct-translate-onnx = { path = "../translate-onnx", optional = true }
 vrct-translation = { path = "../translation" }
 vrct-tts = { path = "../tts" }
+# Direct voice, the RVC worker's owner and its runtime setup.
+vrct-voice-conversion = { path = "../voice-conversion" }
 vrct-vr-overlay = { path = "../vr-overlay" }
 
 [target.'cfg(unix)'.dependencies]
@@ -63,6 +65,14 @@ vrct-translation = { path = "../translation", features = ["fake-server"] }
 [[bin]]
 name = "fake-speech-core"
 path = "tests/fixture/fake_speech.rs"
+test = false
+doc = false
+
+# A stand-in for the RVC worker that tests/voice.rs starts (the same pipe contract, no model).
+# Never part of an application build.
+[[bin]]
+name = "fake-rvc-worker"
+path = "tests/fixture/fake_rvc_worker.rs"
 test = false
 doc = false
 

@@ -3,7 +3,8 @@
 //! `fake-speech-core devices` lists one GPU. `fake-speech-core serve MODEL ...` serves the
 //! readiness the owner checks; the stem of MODEL's file name picks what it does:
 //!
-//! - `asr...` serves recognition and detection, anything else synthesis;
+//! - `asr...` serves recognition and detection, anything else synthesis (`/v1/audio/speech`
+//!   answers 0.2 s of a tone as 24 kHz PCM);
 //! - `...crash...` exits at once with an error;
 //! - `...gate...` prints its ready line only once `MODEL.go` exists;
 //! - `...die...` exits with an error once `MODEL.die` exists.
@@ -46,6 +47,23 @@ fn handle(mut stream: TcpStream, asr: bool) {
             .map(|task| format!(r#"{{"id":"{task}","speech":{{"task":"{task}","architecture":"other","device":"CPU"}}}}"#))
             .collect();
         return respond(&mut stream, "200 OK", format!(r#"{{"data":[{}]}}"#, rows.join(",")).as_bytes());
+    }
+    if line.starts_with("POST /v1/audio/speech ") && !asr {
+        // The whole request first: closing with unread bytes would reset the connection.
+        let text = String::from_utf8_lossy(&request).to_ascii_lowercase();
+        let head_end = request.windows(4).position(|four| four == b"\r\n\r\n").map_or(request.len(), |at| at + 4);
+        let length: usize = text.lines().find_map(|l| l.strip_prefix("content-length:")).and_then(|v| v.trim().parse().ok()).unwrap_or(0);
+        while request.len() < head_end + length {
+            match stream.read(&mut block) {
+                Ok(0) | Err(_) => break,
+                Ok(read) => request.extend_from_slice(&block[..read]),
+            }
+        }
+        let pcm: Vec<u8> = (0..4800).flat_map(|i: i32| (((i % 60) - 30) as i16 * 200).to_le_bytes()).collect();
+        let head = format!("HTTP/1.1 200 OK\r\nContent-Type: audio/pcm\r\nX-Sample-Rate: 24000\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", pcm.len());
+        let _ = stream.write_all(head.as_bytes());
+        let _ = stream.write_all(&pcm);
+        return;
     }
     respond(&mut stream, "404 Not Found", b"{}");
 }

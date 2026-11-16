@@ -347,6 +347,7 @@ pub fn set_languages(core: &Core, key: &str, value: &Value) -> Reply {
             return super::error("VALIDATION_CONFIG_VALUE_INVALID", core.config().get(key));
         }
     }
+    core.cancel_mic_voice();
     core.update_translation_engine_and_list();
     ok(core.config().get(key))
 }
@@ -359,6 +360,7 @@ pub fn set_tab(core: &Core, value: &Value) -> Reply {
             return Reply::status(500, "Internal error");
         }
     }
+    core.cancel_mic_voice();
     core.update_translation_engine_and_list();
     ok(core.config().get("SELECTED_TAB_NO"))
 }
@@ -377,6 +379,7 @@ pub fn swap_languages(core: &Core) -> Reply {
             return Reply::status(500, "Internal error");
         }
     }
+    core.cancel_mic_voice();
     core.update_translation_engine_and_list();
     let config = core.config();
     let mut result = Map::new();

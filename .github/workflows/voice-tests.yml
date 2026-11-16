@@ -71,6 +71,7 @@ jobs:
           workspaces: native/core
       - run: cargo test --locked --manifest-path native/core/Cargo.toml
       - run: cargo test --locked --manifest-path native/vr-overlay/Cargo.toml
+      - run: cargo test --locked --manifest-path native/voice-conversion/Cargo.toml
   backend-windows:
     runs-on: windows-latest
     timeout-minutes: 30
