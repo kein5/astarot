@@ -147,7 +147,18 @@ mod tests {
 
     #[test]
     fn the_default_layout_is_the_one_the_vr_view_ships() {
-        let shipped: serde_json::Value = serde_json::from_str(include_str!("../../../../src-ui/views/vr/vr_layout.json")).unwrap();
+        // src-ui/views/vr/vr_layout.json (not read from here: the Linux build copies only the
+        // files a crate needs to build).
+        let shipped = json!({
+            "atlas": [1628, 880],
+            "regions": {
+                "panel": [0, 0, 900, 700],
+                "launcher": [10, 708, 880, 128],
+                "popup": [908, 0, 720, 640],
+                "toolbar": [908, 656, 720, 96],
+                "tooltip": [908, 760, 360, 120],
+            },
+        });
         assert_eq!(vr_layout(900, 700), shipped);
         // A large log moves the right column and grows the view.
         let large = vr_layout(1400, 1000);

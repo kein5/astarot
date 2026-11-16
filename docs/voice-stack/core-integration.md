@@ -72,6 +72,52 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 
 残りの区分 A（TTS、声質変換、リアルタイム音声認識、メッセージの送信）は、それぞれの機能をつなぐときに再カバーします。
 
+## 切り替え前の基準値
+
+0.5.0 で Python の同梱をやめたときに比べるための値です。2026-11-16 に計りました。
+
+### 計り方
+
+`tools/measure_backend_startup.py` が、展開した Windows の配布物を相手にサイズと起動時間を計ります。中核の起動は `native/core/examples/startup_time.rs` で計ります。アプリと同じ `Environment` で `Backend::start` を呼び、`/run/initialization_complete` までの時間を返します。
+
+```sh
+cargo build --release --locked --manifest-path native/core/Cargo.toml --example startup_time
+python tools/measure_backend_startup.py --package <展開した配布物> \
+    --core-example native/core/target/release/examples/startup_time.exe \
+    --work <空のフォルダ> --runs 5 --zip <VRCT-VOX.zip>
+```
+
+- 対象は release/0.4.0（e4b9bcfb）の CI が作った CPU 版の `VRCT-VOX.zip` です。
+- 起動時間は、バックエンドを起動してから `/run/initialization_complete` が届くまでです。サイドカーは `vrct-vox-sidecar.exe` を子プロセスとして起動した時点から計ります。中核はアプリと同じくプロセスの中で起動します。アプリの窓や WebView の起動は含みません。
+- 設定は空のフォルダから始め、起動時に外へ出る処理を止めます（モデルの自動取得、更新の確認、利用状況の送信、VRChat への OSC）。何も取得していません。
+- それぞれ 5 回続けて起動しました。サイドカーを先に計り、1 回目はほかより遅いので分けて書きます。展開した直後なので、ディスクのキャッシュが完全に冷えた起動ではありません。
+- 計った環境は Windows 11、Intel Core i7-1255U、ノート PC です。ほかの PC での速さを示す値ではありません。
+
+### 配布物のサイズ
+
+展開した `VRCT-VOX.zip` は 1,115.3 MB です（zip のままでは 408.7 MB）。1 MB は 10^6 バイトです。
+
+| 部分 | サイズ | 切り替えたあと |
+|---|---:|---|
+| `vrct-vox.exe`（アプリと中核） | 22.0 MB | 残る |
+| speech.cpp（`_internal/build`） | 49.3 MB | 残る（置き場所は「判断が要ること」の 7） |
+| `vrct-vox-sidecar.exe` | 28.0 MB | なくなる |
+| Python の実行環境とライブラリ | 408.3 MB | なくなる |
+| Sudachi の辞書（`*.dic`、かな・ローマ字の変換用） | 576.9 MB | Python と一緒になくなる。Rust で同じ変換をするときの辞書は未決 |
+| 同梱のモデル（`_internal` の `*.onnx`） | 1.2 MB | Python と一緒になくなる |
+| フォント（`*.ttf`） | 29.6 MB | Python と一緒になくなる。オーバーレイを Rust で描くときに要るかは未決 |
+
+Python の実行環境とライブラリの中で大きいのは `cv2`（100.6 MB）、`ctranslate2`（63.7 MB）、`transformers`（42.7 MB）、`onnxruntime`（39.3 MB）、`numpy.libs`（38.2 MB）、`PIL`（13.5 MB）です。初回に取得するモデル（翻訳の重みなど）は配布物に入っていないので、この表に含めていません。
+
+### 起動から初期化の完了まで
+
+| バックエンド | 1 回目 | 2〜5 回目の中央値 | 最小〜最大 |
+|---|---:|---:|---:|
+| Python のサイドカー | 11.83 秒 | 7.95 秒 | 7.89〜11.83 秒 |
+| 中核（`VRCT_BACKEND=core`） | 1.02 秒 | 0.74 秒 | 0.62〜1.02 秒 |
+
+中核の値は、いまの接続の状態での値です。中核はまだ音声デバイスの列挙と選択をしていません。サイドカーではこれが 3.48 秒かかっていました（`startup_timing.log` の `select_audio_devices`）。そのほかの段階はモジュールの読み込み（約 2.5 秒）と設定の一覧の収集（1.15 秒）です。収集のうち 0.99 秒は speech.cpp の機器の確認で、これは中核も同じく行い、同じ一覧を返しました。初期化の一覧の項目は、サイドカーが 183、中核が 160 です。機能をつなぐと中核の値は増えるので、0.5.0 では同じ方法で計り直して比べます。
+
 ## 往復の試験について
 
 Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の往復を統合テストで確かめるよう求めています。この PR の時点では、どれもまだ中核につながっていません。往復の試験は、次の形で用意する予定です。どれも headless の CI で動き、モデルを使いません。
@@ -133,7 +179,7 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 8. **起動時の一覧に入れるもの**。Python と同じく `/get/data/speech_server_devices` を `/run/initialization_complete` に入れています。同梱の speech.cpp では子プロセスを起動するため、起動が最大で十数秒遅れることがあります。除外の一覧に足すか。
 9. **ログの違い**。ステータス 348 のログ行を UI へ送りません（UI は捨てていました）。`process.log` の行は JSON で書きます。
 10. **`serde_json` の機能**。中核は Python の辞書と同じ順序を保つため `preserve_order` を使い、tts クレートは `arbitrary_precision` を使います。どちらもアプリ全体の `serde_json` に及びます。src-tauri の試験は通っています。
-11. **受け入れ条件の計測**。「起動時間と配布サイズが現行より改善している」はまだ計っていません。Python 同梱をやめた段階で計ります。
+11. **受け入れ条件の計測**。「起動時間と配布サイズが現行より改善している」の切り替え前の値は「切り替え前の基準値」に書きました。Python 同梱をやめた段階で、同じ方法で計り直して比べます。
 12. **音声デバイスを中核につなぐ前の判断**。`native/audio-routing/README.md` の未決事項がそのまま利用者の設定に効きます。Windows のマイクは `Windows WASAPI` のホストだけになり、MME などで保存したマイクの選択は解決しなくなります。保存したスピーカーの ID（`speaker:2:<endpoint id>`）が一致するかは実機の設定で確かめていません。ほかのホストで保存した出力の扱いも未決です。さらに、つなぐと Linux の中核（と src-tauri）が PipeWire のライブラリに依存し、ビルドの環境と CI の準備が変わります。TTS の出力先と音声の経路もこの判断を待ちます。
 13. **ONNX Runtime の同梱**。OCR（`ocr-runtime`）とローカル翻訳（`translate-onnx`）は `ort` で ONNX Runtime を使います。中核に入れると、ONNX Runtime の取得（`download-binaries`）と DLL・共有ライブラリの置き場所が配布物の形に入ります（7 と一緒に決める）。
 14. **設定だけをつないだエンドポイント**。機能が動いていない間も、設定を保存するエンドポイントは 200 を返します（「残っているエンドポイント」の前の説明）。機能を動かすエンドポイントは 404 のままなので、たとえば VR のオーバーレイは中核ではオフにはできてもオンにはできません。この分け方でよいか。
