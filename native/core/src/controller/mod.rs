@@ -20,6 +20,8 @@ mod settings;
 pub mod speech;
 mod telemetry;
 pub mod translation;
+mod transcription;
+mod realtime_asr;
 #[cfg(feature = "onnx-translation")]
 mod translation_onnx;
 pub mod updates;
@@ -200,6 +202,11 @@ pub struct Services {
     /// The app's own updater behind the old update endpoints ([`updates`]). Switched off by
     /// default, as Python shipped it; the app updates through the host's updater.
     pub software_updates: Arc<dyn updates::SoftwareUpdates>,
+    /// The microphone and speaker captures of speech recognition (WASAPI, or the Linux helper
+    /// `vrct-asr-capture`); tests feed PCM of their own.
+    pub transcription_capture: TranscriptionCapture,
+    /// Where the cloud recognition engines are (Google, Groq, OpenAI, Deepgram).
+    pub transcription_endpoints: vrct_transcription::providers::Endpoints,
 }
 
 impl Default for Services {
@@ -229,6 +236,8 @@ impl Default for Services {
             ocr: ocr::real_platform(),
             ocr_message: Arc::new(ocr::pipeline_delivery),
             software_updates: Arc::new(updates::Disabled),
+            transcription_capture: Arc::new(default_transcription_capture),
+            transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
         }
     }
 }
@@ -260,10 +269,24 @@ pub struct Core {
     pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
     /// Chat reading's pipeline and switch.
     ocr: Arc<ocr::Ocr>,
+    /// Speech recognition: the recorders and realtime recognition ([`transcription`]).
+    transcription: Arc<transcription::Transcription>,
+}
+
+/// The captures of speech recognition for the settings' environment.
+pub type TranscriptionCapture =
+    Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> + Send + Sync>;
+
+/// This computer's devices; on Linux the shipped `vrct-asr-capture` helper reads PipeWire.
+fn default_transcription_capture(env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
+    Arc::new(vrct_transcription::capture::NativeCapture::new(crate::resources::locate(&env.app_dir, "build/vrct-asr-capture")))
 }
 
 impl Core {
     pub fn new(config: Arc<Config>, log: Arc<Log>, output: Arc<dyn Output>, services: Services) -> Arc<Self> {
+        let transcription = transcription::Transcription::new(&config);
+        // Mic mute sync reaches the microphone's recognition through the services.
+        let services = transcription.wrap_services(services);
         let speech = speech::SpeechServers::new((services.speech_server_launch)(config.environment()));
         let translation = translation::Translators::new(&services, config.environment());
         let audio = audio_devices::AudioDevices::new(Arc::clone(&config), Arc::clone(&output), Arc::clone(&log), Arc::clone(&services.audio));
@@ -287,6 +310,7 @@ impl Core {
             audio,
             vr: std::sync::OnceLock::new(),
             ocr: Arc::default(),
+            transcription,
         })
     }
 
@@ -328,7 +352,9 @@ impl Core {
     }
 
     /// Stamps a request before it waits in the queue (generations of the voice features).
-    pub fn stamp(&self, _endpoint: &str, _data: &mut Value) {}
+    pub fn stamp(&self, endpoint: &str, data: &mut Value) {
+        self.stamp_realtime(endpoint, data);
+    }
 
     pub fn start_watchdog(&self, timeout: Duration, interval: Duration, on_timeout: Arc<dyn Fn() + Send + Sync>) {
         let watchdog = vrct_ops::watchdog::Watchdog::new(timeout, interval);
@@ -356,6 +382,7 @@ impl Core {
         }
         *done = true;
         self.step("Shutdown");
+        self.stop_transcription();
         self.close_speech_servers();
         self.close_model_downloads();
         self.stop_audio_devices();

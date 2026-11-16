@@ -5380,6 +5380,7 @@ dependencies = [
  "vrct-audio-routing",
  "vrct-ops",
  "vrct-speech-server",
+ "vrct-transcription",
  "vrct-translation",
  "vrct-tts",
  "vrct-vr-overlay",
@@ -5410,6 +5411,17 @@ dependencies = [
  "serde_json",
  "sha2",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "vrct-transcription"
+version = "0.0.0"
+dependencies = [
+ "libc",
+ "serde_json",
+ "tungstenite",
+ "vrct-audio-routing",
+ "vrct-translation",
 ]
 
 [[package]]

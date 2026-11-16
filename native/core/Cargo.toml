@@ -11,7 +11,7 @@ name = "vrct_core"
 [features]
 # Linux: list and watch the PipeWire devices (links libpipewire-0.3; building needs its
 # development files and libclang). No effect on Windows.
-pipewire = ["vrct-audio-routing/pipewire"]
+pipewire = ["vrct-audio-routing/pipewire", "vrct-transcription/pipewire"]
 # Local translation with ONNX Runtime (native/translate-onnx). Off until bundling ONNX Runtime
 # with the app is decided (docs/voice-stack/core-integration.md, decision 13): without it the
 # local translation reports its model as missing.
@@ -34,6 +34,8 @@ vrct-adapters = { path = "../adapters" }
 vrct-audio-routing = { path = "../audio-routing", default-features = false }
 vrct-ops = { path = "../ops" }
 vrct-speech-server = { path = "../speech-server" }
+# Speech recognition: the recorder, the cloud engines and realtime recognition on speech.cpp.
+vrct-transcription = { path = "../transcription" }
 # The local translation on ONNX Runtime; see the onnx-translation feature below.
 vrct-translate-onnx = { path = "../translate-onnx", optional = true }
 vrct-translation = { path = "../translation" }
@@ -55,6 +57,8 @@ windows-sys = { version = "=0.61.2", features = [
 # Certificates for the WebSocket TLS settings are made at test time; no key is committed.
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "pem"] }
 tempfile = "=3.27.0"
+# A stand-in speech.cpp Realtime server for tests/realtime_asr.rs.
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 # A stand-in for every translation provider on a loopback port.
 vrct-translation = { path = "../translation", features = ["fake-server"] }
 

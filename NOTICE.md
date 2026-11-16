@@ -155,7 +155,7 @@ the list from the lock files (`src-tauri/Cargo.lock`,
 `native/rvc-runtime/Cargo.lock`) when the package is built. The application
 also contains the backend core and the crates it uses (`native/core`,
 `native/adapters`, `native/ops`, `native/speech-server`, `native/translation`,
-`native/tts`, `native/vr-overlay`, `native/ocr-runtime`); they are VRCT-VOX's own
+`native/tts`, `native/vr-overlay`, `native/ocr-runtime`, `native/transcription`); they are VRCT-VOX's own
 code under `LICENSE`, and the list marks them so.
 
 `native/ocr-runtime` (chat reading) reimplements, so that its results match
@@ -167,6 +167,13 @@ order of operations for two area and length formulas. No source file of these
 projects is included. ONNX Runtime is not built into the application: chat
 reading loads the library at run time (see
 `docs/voice-stack/core-integration.md`, item 13).
+
+`native/transcription` (speech recognition) reimplements, so that phrases are
+cut as before, the energy-based listening of SpeechRecognition 3.10.4
+(BSD-3-Clause, Anthony Zhang) as the fork used by the earlier Python
+implementation ran it, and `audioop`'s `rms` and `ratecv` of CPython
+(PSF-2.0). It sends Google's web speech requests as that library did, with its
+default key. No source file of these projects is included.
 
 The crates are under permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib,
 Unicode-3.0, CC0-1.0 and similar), except a few, such as `cssparser`,
