@@ -49,8 +49,9 @@ WHITE = "#FFFFFF"
 BOARD_MUTED = "#777082"
 SUBTITLE = "Speech, Translation, Accessibility, Revoicing &amp; OCR Toolkit"
 SUBTITLE_LINES = ("Speech, Translation, Accessibility,", "Revoicing &amp; OCR Toolkit")
-BOARD_STACKED_LINES = ("Speech, Translation,", "Accessibility, Revoicing &amp; OCR Toolkit")  # as in reference-brand-guide.png
-DEFAULT_DESC = "ASTAROT circular hexagram and speech bubble"
+BOARD_STACKED_LINES = ("Speech, Translation,", "Accessibility, Revoicing &amp; OCR Toolkit")  # the approved stacked-logo line break
+HERO_DX, HERO_DY = 155, 67  # the brand board's hero = the horizontal logo's lockup moved by this
+DEFAULT_DESC ="ASTAROT circular hexagram and speech bubble"
 
 
 def wordmark_path(font_path: Path) -> str:
@@ -161,10 +162,10 @@ def text(x, y, value, size=26, color=None, weight="500", anchor=None):
 
 
 def lockup_text(x, y, value, size, anchor=None):
-    """Subtitle of a lockup on the board: Outfit first, so the ink width follows the board's lockup rule."""
+    """Subtitle of a lockup on the board, in Outfit Bold like the horizontal logo's rendered subtitle."""
     anchor_attr = f' text-anchor="{anchor}"' if anchor else ""
-    return (f'<text x="{x}" y="{y}" font-size="{size}" fill="{BOARD_MUTED}" font-weight="500" '
-            f'font-family="Outfit, Inter, Noto Sans, sans-serif"{anchor_attr}>{value}</text>')
+    return (f'<text x="{x}" y="{y}" font-size="{size}" fill="{BOARD_MUTED}" font-weight="700" '
+            f'font-family="Outfit, Inter, DejaVu Sans, sans-serif"{anchor_attr}>{value}</text>')
 
 
 def rule(x1, y1, x2, y2):
@@ -179,14 +180,14 @@ def board(parts: Parts) -> str:
           text(73, 50, "ASTAROT — BRAND IDENTITY", 25, weight="700"),
           text(width - 45, 50, "UNIFORM GEOMETRY  |  v3", 19, color=muted, anchor="end"),
           rule(40, 75, 1640, 75)]
-    # Hero lockup, scaled from reference-brand-guide.png and centred on the board: the symbol's
-    # ink is 276 px high, the wordmark's ink is 2.94 times that wide, the subtitle (Outfit
-    # Medium) has the wordmark's ink width / 1.0047, both start at the same left ink edge, and
-    # there is no lilac line under the subtitle.
-    s += [parts.mark(253.3, 93.3, 294.4, PLUM),
-          f'<rect x="563.4" y="148" width="3" height="175" fill="{LILAC}"/>',
-          parts.word(596.3, 148.9, 811.6, PLUM),
-          lockup_text(595.5, 308, SUBTITLE, 31.6),
+    # Hero lockup: the horizontal logo's lockup at the same size, without the lilac line under
+    # the subtitle, moved by (HERO_DX, HERO_DY) so that it is centred on the board. The
+    # subtitle (Outfit Bold) has the wordmark's ink width / 1.0047 and the same left ink edge.
+    dx, dy = HERO_DX, HERO_DY
+    s += [parts.mark(35 + dx, 35 + dy, 275, PLUM),
+          f'<rect x="{330 + dx}" y="{55 + dy}" width="3" height="235" rx="1.5" fill="{LILAC}"/>',
+          parts.word(370 + dx, 70 + dy, 955, PLUM),
+          lockup_text(round(369.3 + dx, 1), 290 + dy, SUBTITLE, 35.8),
           rule(40, 404, 1640, 404)]
     for x, heading in ((45, "APP ICON"), (425, "FAVICON"), (830, "MONOCHROME"), (1230, "STACKED LOGO")):
         s.append(text(x, 454, heading, 22, weight="700"))
@@ -199,12 +200,12 @@ def board(parts: Parts) -> str:
           f'<rect x="1035" y="498" width="155" height="155" rx="31" fill="{PLUM}"/>',
           parts.mark(1044, 508, 137, WHITE),
           text(1025, 734, "Light / dark", 18, color=muted, anchor="middle")]
-    # Stacked logo, scaled from the vertical logo of reference-brand-guide.png: symbol ink 160 px
-    # high, wordmark ink 1.78 times that wide, the subtitle broken after "Translation," so that
-    # its second line is wider than the wordmark.
+    # Stacked logo in the approved reference balance, set in Outfit: symbol ink 160 px high,
+    # wordmark ink 1.78 times that wide, the subtitle broken after "Translation," so that its
+    # second line is about 1.24 times as wide as the wordmark.
     s += [parts.mark(1342.9, 480.9, 170.67, PLUM), parts.word(1285.6, 657.1, 285.1, PLUM),
-          lockup_text(1428, 726, BOARD_STACKED_LINES[0], 21.5, anchor="middle"),
-          lockup_text(1428, 752, BOARD_STACKED_LINES[1], 21.5, anchor="middle"),
+          lockup_text(1428, 726, BOARD_STACKED_LINES[0], 20.7, anchor="middle"),
+          lockup_text(1428, 752, BOARD_STACKED_LINES[1], 20.7, anchor="middle"),
           rule(40, 802, 1640, 802)]
     s.append(text(48, 850, "BRAND COLORS", 22, weight="700"))
     for x, name, color in ((55, "Dark Plum", PLUM), (235, "Lilac", LILAC), (415, "Off-white", CANVAS)):
