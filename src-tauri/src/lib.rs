@@ -191,6 +191,11 @@ pub fn run() {
             let main_window = app.get_webview_window("main").ok_or_else(|| {
                 Error::other("main webview window was not created")
             })?;
+            // The tray icon's Title (the name tray settings list it by) is the application name,
+            // which GLib takes from the program's file name when none is set: "AppRun.wrapped"
+            // in the AppImage. The program name itself stays, as the desktop entry matches it.
+            #[cfg(target_os = "linux")]
+            gtk::glib::set_application_name(MAIN_TITLE);
             // The app's one tray icon, there in every run (the overlay feature adds to its menu).
             if let Err(error) = companion::install_tray(app.handle()) {
                 startup_log(&format!("Tray icon could not be made: {error}"));
