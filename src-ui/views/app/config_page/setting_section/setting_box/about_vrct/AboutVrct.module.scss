@@ -17,7 +17,16 @@
 }
 .vrct_vox_logo {
     width: 100%;
-    max-width: 60rem;
+    max-width: 44rem;
+}
+// The official subtitle (ADR-011). Outfit is used only when it is installed; no font is fetched.
+.vrct_vox_subtitle {
+    font-family: Outfit, var(--font_family), "Noto Sans", system-ui, sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: center;
+    color: var(--dark_300_color);
 }
 .vrct_vox_version {
     font-size: 1.4rem;
