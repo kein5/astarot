@@ -429,8 +429,7 @@ fn hotkeys() -> Check {
 
 /// Experimental features the user turns on one by one (`src-python/models/experimental_features.py`,
 /// Issue #361). The Python backend and the UI list the same ids; a backend test keeps them equal.
-/// Empty until a feature graduates from the experimental branch.
-pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &[];
+pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion"];
 
 fn experimental_features_default() -> Value {
     Value::Object(EXPERIMENTAL_FEATURE_IDS.iter().map(|id| (id.to_string(), Value::Bool(false))).collect())
@@ -522,6 +521,7 @@ pub fn keys() -> Vec<Key> {
         readonly("COMPUTE_MODE"),
         readonly("SELECTABLE_COMPUTE_DEVICE_LIST"),
         readonly("SEND_MESSAGE_BUTTON_TYPE_LIST"),
+        readonly("TRAY_COMPANION_EDGE_LIST"),
         runtime("ENABLE_TRANSLATION", b()),
         runtime("ENABLE_TRANSCRIPTION_SEND", b()),
         runtime("ENABLE_TRANSCRIPTION_RECEIVE", b()),
@@ -568,6 +568,12 @@ pub fn keys() -> Vec<Key> {
         key("MIC_NO_SPEECH_PROB", num_in(0.0, 1.0)),
         immediate("HOTKEYS", hotkeys()),
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
+        // The screen edge the tray companion's hexagram hides at (src-tauri/src/companion.rs).
+        key("TRAY_COMPANION_EDGE", one_of("TRAY_COMPANION_EDGE_LIST")),
+        // The monitor it shows on, by the system's name for it; empty for the primary monitor.
+        key("TRAY_COMPANION_MONITOR", managed(Ty::Str, false, |v, _| {
+            v.as_str().is_some_and(|s| s.chars().count() <= 256 && !s.chars().any(char::is_control))
+        })),
         key("SPEAKER_THRESHOLD", managed(Ty::Int, false, |v, ctx| {
             v.as_i64().is_some_and(|v| v >= 0 && v <= ctx.get("MAX_SPEAKER_THRESHOLD").as_i64().unwrap_or(0))
         })),
@@ -757,6 +763,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("COMPUTE_MODE", json!(compute_mode)),
         ("SELECTABLE_COMPUTE_DEVICE_LIST", compute.clone()),
         ("SEND_MESSAGE_BUTTON_TYPE_LIST", json!(["show", "hide", "show_and_disable_enter_key"])),
+        ("TRAY_COMPANION_EDGE_LIST", json!(["right", "left", "top", "bottom"])),
         ("ENABLE_TRANSLATION", json!(false)),
         ("ENABLE_TRANSCRIPTION_SEND", json!(false)),
         ("ENABLE_TRANSCRIPTION_RECEIVE", json!(false)),
@@ -805,6 +812,8 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
             "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null,
         })),
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
+        ("TRAY_COMPANION_EDGE", json!("right")),
+        ("TRAY_COMPANION_MONITOR", json!("")),
         ("SPEAKER_THRESHOLD", json!(300)),
         ("SPEAKER_AUTOMATIC_THRESHOLD", json!(false)),
         ("SPEAKER_RECORD_TIMEOUT", json!(3)),

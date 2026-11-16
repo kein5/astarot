@@ -1014,7 +1014,24 @@ config_page:
         empty: "いま試せる機能はありません。新しい機能が加わるとここに並びます。"
         # src-ui/logics/configs/experimentalFeatures.ts の機能ごとに1つ:
         # <id>: { label: "...", desc: "何をするか。実験中であること…" }
-        items: {}
+        items:
+            tray_companion:
+                label: "六芒星のオーバーレイで操作する"
+                desc: "画面の端に隠れた六芒星とデスクトップの字幕で VRCT-VOX を使います。次の起動からはメイン画面を開かずにトレイで始まります。マウスを画面の端に近づけると六芒星が半分出てきます。ホイールで回し、三角形に載せると出る札を押すと、その機能が切り替わります。試験中の機能です。"
+                edge:
+                    label: "六芒星を隠す画面の端"
+                    desc: "マウスをこの端の真ん中に近づけると、六芒星が出てきます。"
+                    right: "右"
+                    left: "左"
+                    top: "上"
+                    bottom: "下"
+                monitor:
+                    label: "六芒星を出すモニター"
+                    desc: "モニターが複数あるときに選びます。選んだモニターを外している間は、メインのモニターに出します。"
+                    primary: "メインのモニター（既定）"
+                    display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
+                    is_primary: "（メイン）"
+                    missing: "接続されていないモニター（前に選んだもの）"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1765,6 +1782,83 @@ model_downloads:
     scope_tts_http_vulkan: "Linux・speech.cpp 0.9.0 Vulkanで固定文のHTTP合成・取消・再起動を確認済み。再生経路や他GPUは別途確認が必要です。"
     gpu_unverified: "現在のGPUは検証したGPUと異なります。この推奨はメモリ容量に基づくものです。"
 
+# モデルカタログ（モデルを選ぶ画面）。用途ごとのまとまりと、モデルごとのカード。
+model_catalog:
+    group:
+        japanese: "日本語の読み上げ"
+        multilingual: "日本語以外の読み上げ"
+        asr: "音声認識"
+        vad: "発話区間の検出（VAD）"
+        diarization: "話者の区別（任意）"
+        rvc: "ボイスチェンジャーの声"
+        engines: "外部の音声合成エンジン"
+    group_help:
+        japanese: "日本語の文を読み上げるモデルです。取得したモデルは同梱のspeech.cppサーバーで動きます。"
+        multilingual: "英語や中国語など日本語以外の文と、翻訳した文を読み上げるモデルです。"
+        asr: "話した声を文字にするモデルです。使うモデルを1つ選んで取得します。"
+        vad: "声のある区間を見つけるモデルです。どの認識モデルを使うときも必要です。"
+        diarization: "ゲーム音声の字幕に、誰が話したかのラベルを付けるときだけ使います。"
+        rvc: "声を変えるRVCの音声モデルです。"
+        engines: "自分のPCに入れて起動しておく読み上げソフトです。このアプリはダウンロードもインストールもしません。公式サイトから入手して起動し、上の「日本語を読み上げるエンジン」で選んでください。"
+    languages: "対応言語"
+    languages_more: "{{languages}}ほか{{count}}言語"
+    size: "ダウンロードサイズ"
+    hardware: "ハードウェアの目安"
+    terms: "提供元とライセンス"
+    memory: "メモリー約{{memory}}（{{device}}で測定）"
+    tier:
+        light: "軽い"
+        medium: "中くらい"
+        heavy: "重い"
+    cpu:
+        slow: "CPUでも動くが数秒遅れる"
+        practical: "CPUで動く"
+        impractical: "CPUでは実用的に動かない"
+        unverified: "CPUでの動作は未確認"
+    gpu:
+        recommended: "GPU推奨"
+        not_needed: "GPU不要"
+    recommended_for: "おすすめ：{{languages}}"
+    fits_memory: "空きメモリーに合う"
+    hardware_warning:
+        badge: "性能不足の可能性"
+        option: "性能不足の可能性"
+        note: "お使いのPCでは性能が足りない可能性があります。{{reason}}あくまで目安なので、選んで試すこともできます。"
+        low_memory_gpu: "このモデルはメモリーを約{{required}}使います。GPUのメモリーは全部で{{available}}なので余裕がありません。"
+        low_memory_cpu: "このモデルはメモリーを約{{required}}使います。見つかったメモリーは全部で{{available}}なので余裕がありません。"
+        no_gpu: "GPUが見つかりませんでした。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
+        cpu_setting: "エンジンがCPUで動かす設定になっています。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
+    variant: "ファイルの種類"
+    variant_of: "{{model}}のファイルの種類"
+    status:
+        not_downloaded: "未取得"
+        downloaded: "取得済み"
+        in_use: "使用中"
+        working: "取得中"
+        ready: "検証済み・未適用"
+    prepare: "ファイルを確かめて使う準備をする"
+    prepare_hint: "このPCに取得済みです。使うには、ファイルを確かめてからモデルパスを適用します。"
+    prepare_notice: "このファイルは取得済みです。ダウンロードはせず、容量とSHA-256を照合します。"
+    prepare_start: "同意して照合"
+    engine:
+        terms_notice: "エンジンと声（音声ライブラリ）の利用条件は、それぞれの公式サイトの規約に従います。声によってはクレジットの表記が必要です。使う前に規約を確認してください。"
+        languages: "日本語"
+        get: "入手先"
+        get_value: "公式サイト（このアプリからはダウンロードしません）"
+        address: "接続先"
+        recheck_of: "{{engine}}への接続を再確認"
+        state:
+            unchecked: "未確認"
+            checking: "確認中"
+            connected: "接続できます"
+            not_connected: "接続できません"
+            url_invalid: "接続先が正しくありません"
+        summary:
+            voicevox: "無料で使える日本語の音声合成ソフトです。多くのキャラクターの声があり、声ごとに利用規約があります。"
+            coeiroink: "無料で使える日本語の音声合成ソフトです。対応するのはv2です。「COEIROINK:声の名前」のクレジットが必要です。"
+            aivis: "日本語の音声合成ソフトです。声のモデルを追加して使い、モデルごとにライセンスがあります。"
+            sharevox: "無料で使える日本語の音声合成ソフトで、VOICEVOXと同じ方式でつなぎます。声によってはクレジットが必要です。"
+
 studio:
     toggle_sidebar: "サイドバーを切り替える"
     close_sidebar: "サイドバーを閉じる"
@@ -1793,6 +1887,7 @@ studio:
     minimize: "ウィンドウを最小化"
     maximize: "ウィンドウを最大化・元に戻す"
     close: "アプリを閉じる"
+    close_to_tray: "閉じる（トレイで動き続けます）"
 
 legacy_model_downloads:
     errors:
@@ -2076,3 +2171,28 @@ virtual_mic:
         found: "VRChatへ声を届ける仮想ケーブルのつながりをテスト音で確かめます。"
         missing: "仮想ケーブルが見つかりません。入れ方を案内します。"
         open: "仮想マイクを確かめる"
+
+# 実験中のコンパニオン形態（トレイ、字幕、コントロールパネル）。Issue #355
+companion:
+    state_starting: "起動中"
+    state_listening: "認識中"
+    state_idle: "停止中"
+    mic: "マイク"
+    translation: "翻訳"
+    "on": "オン"
+    "off": "オフ"
+    open_main: "VRCT-VOX を開く"
+    close: "閉じる"
+    handle: "コントロールパネルを開く"
+    menu_start: "認識を開始"
+    menu_stop: "認識を停止"
+    menu_panel: "コントロールパネルを開く"
+    menu_main: "VRCT-VOX を開く"
+    menu_quit: "終了"
+    menu_monitor: "表示するモニター"
+    menu_monitor_primary: "メインのモニター"
+    menu_monitor_display: "ディスプレイ"
+    menu_monitor_missing: "接続されていないモニター"
+    common:
+        title: "共通の設定"
+        edge: "隠す端"

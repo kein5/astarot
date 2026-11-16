@@ -1,0 +1,6 @@
+{
+    "identifier": "companion",
+    "description": "The experimental companion panel and the handle beside the captions only listen for the notice that the state changed; native commands that check their labels hand it over and take their requests.",
+    "windows": ["companion_panel", "companion_handle"],
+    "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

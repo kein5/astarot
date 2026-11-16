@@ -82,7 +82,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                     {/* Other unsaved edits survive an apply; only an edited model path conflicts. */}
                     {/* The asr profile also takes a VAD file and a diarization file; "expected" names the field each target replaces. */}
                     <ModelDownloads targets={name === "asr" ? ["asr", "vad", "diarization"] : [name]} deviceMode={settings.profiles[name].device}
-                        reserve={name === "asr" ? undefined : reserve}
+                        reserve={name === "asr" ? undefined : reserve} engines={name === "japanese"}
                         blocked={busy ? "busy" : row.model !== settings.profiles[name].model ||
                             (name === "asr" && (row.vad_model !== settings.profiles.asr.vad_model ||
                                 row.diarization_model !== settings.profiles.asr.diarization_model)) ? "edited" : false}

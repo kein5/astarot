@@ -37,6 +37,7 @@ async function setup(context, { supported = true } = {}) {
         "@useI18n": { useI18n: () => ({ t }) },
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }) },
         "@logics_configs": {
+            useExperimentalFeature: id => id === "tray_companion" && state.companion === true,
             useAppearance: () => ({ currentSelectedFontFamily: { data: "Yu Gothic UI" } }),
             useVr: () => ({
                 currentIsEnabledOverlayDesktop: { data: state.enabled },
@@ -76,6 +77,16 @@ test("the window opens only while the setting is on, and closes when it is turne
     s.state.enabled = false;
     await s.render();
     assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: false, position: "top", placement: null });
+});
+
+test("the tray companion (an experimental feature) shows the captions with the setting off", async context => {
+    const s = await setup(context);
+    s.state.companion = true;
+    await s.render();
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "bottom", placement: null });
+    s.state.ready = false;
+    await s.render();
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: false, position: "bottom", placement: null });
 });
 
 test("the backend not being ready keeps the window closed", async context => {

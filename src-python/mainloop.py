@@ -479,6 +479,10 @@ mapping = {
 
     "/get/data/experimental_features": {"status": True, "variable":controller.getExperimentalFeatures},
     "/set/data/experimental_features": {"status": True, "variable":controller.setExperimentalFeatures},
+    "/get/data/tray_companion_edge": {"status": True, "variable":controller.getTrayCompanionEdge},
+    "/set/data/tray_companion_edge": {"status": True, "variable":controller.setTrayCompanionEdge},
+    "/get/data/tray_companion_monitor": {"status": True, "variable":controller.getTrayCompanionMonitor},
+    "/set/data/tray_companion_monitor": {"status": True, "variable":controller.setTrayCompanionMonitor},
 
     "/get/data/mic_avg_logprob": {"status": True, "variable":controller.getMicAvgLogprob},
     "/set/data/mic_avg_logprob": {"status": True, "variable":controller.setMicAvgLogprob},
