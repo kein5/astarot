@@ -71,11 +71,37 @@ pub trait CaptureOwner: Send + Sync {
     fn active_device(&self, source: Source) -> Option<Device>;
 }
 
+/// A source's lock held by the recognition ([`AudioDevices::lock_source`]).
+pub struct SourceGuard<'a> {
+    area: &'a AudioDevices,
+    source: Source,
+    _guard: MutexGuard<'a, ()>,
+}
+
+impl SourceGuard<'_> {
+    /// Saves and shows the device a capture opened (`_publishAudioDeviceLocked`).
+    pub fn publish(&self, device: Option<&Device>, previous: Option<&Device>) {
+        self.area.publish_locked(self.source, device, previous);
+    }
+
+    /// Advances the source's generation: a change of intent.
+    pub fn advance(&self) -> u64 {
+        self.area.advance(self.source)
+    }
+
+    pub fn generation(&self) -> u64 {
+        self.area.generation(self.source)
+    }
+}
+
 /// What a reconfiguration left running.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Reopened {
     /// The capture runs on this device; it is published as the choice.
     On(Box<Device>),
+    /// The capture moved from the second device to the first: published, and told as
+    /// `/run/audio_device_switched` (`device_fnc` of the Python session).
+    Moved(Box<Device>, Box<Device>),
     /// Nothing runs any more (the owner turned the features off); "no device" is published.
     Off,
     /// The capture keeps going and will publish what it opens itself.
@@ -179,6 +205,18 @@ impl AudioDevices {
 
     fn advance(&self, source: Source) -> u64 {
         self.state(source).generation.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    /// Takes a source's lock (`_audioLock`) for the recognition, which turns its capture on and
+    /// off under it. Never call it from inside [`CaptureOwner`].
+    pub fn lock_source(&self, source: Source) -> SourceGuard<'_> {
+        SourceGuard { area: self, source, _guard: self.lock(source) }
+    }
+
+    /// Advances a source's generation (`_audioGeneration(advance=True)`) from inside
+    /// [`CaptureOwner::device_lost`], where the lock is already held.
+    pub fn advance_generation(&self, source: Source) -> u64 {
+        self.advance(source)
     }
 
     fn notify(&self, endpoint: &str, value: Value) {
@@ -341,6 +379,7 @@ impl AudioDevices {
         }
         match owner.reconfigure(source, &target, previous) {
             Reopened::On(device) => self.publish_locked(source, Some(&device), None),
+            Reopened::Moved(device, from) => self.publish_locked(source, Some(&device), Some(&from)),
             Reopened::Off => self.publish_locked(source, None, None),
             Reopened::Unchanged => {}
         }

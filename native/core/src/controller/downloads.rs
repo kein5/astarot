@@ -134,7 +134,9 @@ impl Core {
                 return Err(Error::Code("download_request_invalid"));
             };
             let running = vrct_speech_server::settings::Profile::from_name(profile).is_ok_and(|p| self.speech_servers().is_running(p));
-            if running || !(self.services().model_target_idle)(profile) {
+            // Realtime recognition listening on the bundled server keeps its model in use.
+            let recognizing = profile == "asr" && self.realtime_uses_bundled_server();
+            if running || recognizing || !(self.services().model_target_idle)(profile) {
                 return Err(Error::Code("model_target_busy"));
             }
             let mut settings = config.get("SPEECH_SERVER_SETTINGS");

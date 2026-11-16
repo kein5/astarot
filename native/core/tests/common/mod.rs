@@ -2,7 +2,9 @@
 //! out, with the settings in a temporary folder.
 #![allow(dead_code)]
 
+pub mod fake_asr;
 pub mod fake_audio;
+pub mod fake_capture;
 pub mod fake_osc;
 pub mod net;
 
@@ -58,6 +60,9 @@ impl Default for Setup {
                 vr: Arc::new(vrct_core::vr_overlay::runtime::fake::FakeVr::default()),
                 vr_panel_surface: None,
                 steamvr_poll: Duration::from_millis(20),
+                // No real microphone or speaker, and no recognition service beyond this PC.
+                transcription_capture: fake_capture::FakeCapture::new().factory(),
+                transcription_endpoints: vrct_transcription::providers::Endpoints::all_at("http://provider.invalid"),
                 ..Services::default()
             },
             watchdog: None,

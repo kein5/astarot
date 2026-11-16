@@ -1,7 +1,7 @@
 //! An engine whose start-up check fails is handled as Python's `Controller.init` handles it
 //! (#285, decided: no kept selections for engines the core cannot run yet). Here every check
-//! fails: the translation providers cannot be reached (tests stay on loopback) and the
-//! recognition providers are not in Rust yet.
+//! that asks a service fails: the providers cannot be reached (tests stay on loopback). Google and
+//! speech.cpp are not probed, as in Python: real requests show whether they work.
 
 mod common;
 
@@ -42,8 +42,8 @@ fn a_failed_check_clears_the_models_found_on_a_server_and_keeps_every_key() {
         assert_eq!(snapshot[format!("/get/data/selected_{name}_model")], Value::Null, "{name}");
         assert_eq!(snapshot[format!("/get/data/selectable_{name}_model_list")], json!([]), "{name}");
     }
-    // None of them is offered.
-    assert_eq!(snapshot["/get/data/selectable_transcription_engines"], json!(["SpeechCpp"]));
+    // None of them is offered; Google and speech.cpp are.
+    assert_eq!(snapshot["/get/data/selectable_transcription_engines"], json!(["Google", "SpeechCpp"]));
 
     ui.ok("/run/shutdown", None);
     let file = ui.saved();

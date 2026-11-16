@@ -24,10 +24,6 @@ pub const INIT_EXCLUDED: [&str; 7] = [
     "/get/data/tts_engine_voices",
 ];
 
-/// The recognition engines the core can run. The cloud engines (Google, the Whisper APIs,
-/// Deepgram) come with the providers of #278; until then they are not offered.
-const WIRED_TRANSCRIPTION_ENGINES: [&str; 1] = ["SpeechCpp"];
-
 /// The weights under a non-commercial license (CC-BY-NC-4.0).
 pub fn non_commercial(weight: &str) -> bool {
     weight.starts_with("nllb-200")
@@ -54,13 +50,11 @@ impl Core {
         config.put("SELECTABLE_TRANSLATION_ENGINE_STATUS", Value::Object(status));
 
         self.step("Init Transcription Engine Status");
-        let mut status = Map::new();
-        for engine in config.get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST").as_array().into_iter().flatten() {
-            let name = engine.as_str().unwrap_or_default();
-            let usable = WIRED_TRANSCRIPTION_ENGINES.contains(&name);
-            status.insert(name.to_string(), json!(usable));
-            if !usable {
-                self.forget_failed_engine(name);
+        // Checked as Python checked them (keys and model lists), at the same time.
+        let status = self.check_transcription_engines();
+        for (engine, usable) in &status {
+            if usable != &json!(true) {
+                self.forget_failed_engine(engine);
             }
         }
         config.put("SELECTABLE_TRANSCRIPTION_ENGINE_STATUS", Value::Object(status));
