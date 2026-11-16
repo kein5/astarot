@@ -5,9 +5,10 @@
 //! notice the same things (a file moved aside, URLs dropped, the local ASR notice). The expected
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
 //!
-//! One difference is intended: API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
-//! `config.json` for the key store (`vrct_core::config::secrets`). The settings are compared
-//! without them, and the keys Python kept in the file must be in the store instead.
+//! Two differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
+//! `config.json` for the key store (`vrct_core::config::secrets`): the settings are compared
+//! without them, and the keys Python kept in the file must be in the store instead. A saved
+//! choice of the retired Google recognition engine loads as none (`retire_google_engine`).
 
 use serde_json::{json, Map, Value};
 use std::path::Path;
@@ -84,7 +85,18 @@ fn without_core_additions(mut saved: Map<String, Value>) -> Map<String, Value> {
     saved
 }
 
-fn changes(saved: &Map<String, Value>, defaults: &Map<String, Value>) -> Map<String, Value> {
+/// The second intended difference: the Google web speech engine is retired (its unofficial
+/// endpoint and generic key are gone), so a saved choice of it loads as none, the default, where
+/// Python kept it.
+fn retire_google_engine(want: &mut Value) {
+    if let Some(changed) = want["changed"].as_object_mut()
+        && changed.get("SELECTED_TRANSCRIPTION_ENGINE").and_then(Value::as_str) == Some("Google")
+    {
+        changed.shift_remove("SELECTED_TRANSCRIPTION_ENGINE");
+    }
+}
+
+fn changes(saved:&Map<String, Value>, defaults: &Map<String, Value>) -> Map<String, Value> {
     saved.iter().filter(|(k, v)| defaults.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), v.clone())).collect()
 }
 
@@ -106,6 +118,7 @@ fn check_platform(name: &str, platform: Platform) {
         );
         let got_changes = changes(&saved, defaults);
         let mut want = want.clone();
+        retire_google_engine(&mut want);
         let wanted_keys = moved_keys(&mut want);
         moved += wanted_keys.len();
         let kept_keys: Vec<(String, String)> = store.snapshot().into_iter().collect();
@@ -162,7 +175,10 @@ fn the_lists_the_settings_are_checked_against_are_pythons() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::open(environment(dir.path(), Platform::current(), &reference));
     let lists = &reference["platforms"]["win32"]["lists"];
-    assert_eq!(config.get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST"), lists["selectable_transcription_engines"]);
+    // Python's recognition engines without the retired Google web speech engine.
+    let recognition: Vec<Value> =
+        lists["selectable_transcription_engines"].as_array().unwrap().iter().filter(|e| *e != "Google").cloned().collect();
+    assert_eq!(config.get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST"), json!(recognition));
     // Python's list without the web translators no build could run ("判断が要ること" 17), with the
     // official APIs the core adds after DeepL.
     let mut engines: Vec<Value> = lists["selectable_translation_engines"]

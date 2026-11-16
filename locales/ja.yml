@@ -704,7 +704,7 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "Google は API キーなしで使えます。ほかのクラウドエンジンは、下の「クラウド音声認識」で API キーを登録すると選べます。「ローカル（speech.cpp）」は、この PC の speech.cpp サーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
+            desc: "クラウドエンジンは、下の「クラウド音声認識」で API キーを登録すると選べます。「ローカル（speech.cpp）」は、この PC の speech.cpp サーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
@@ -1871,8 +1871,7 @@ telemetry_contents:
         igpu: "内蔵GPU"
 transcription_consent:
     title: "音声認識エンジンを選ぶ"
-    google_notice: "Google を使うと、マイクやスピーカーの音声が Google の音声認識サービスに送られます。API キーは不要です。"
-    google: "Google で文字起こしを始める"
+    cloud_notice: "クラウドのエンジン（Groq、OpenAI、Deepgram、自分の Whisper サーバー）を使うときは、エンジンの設定を開いて API キーを登録し、そこで選んでください。音声はそのサービスに送られます。"
     speechcpp_notice: "ローカル（speech.cpp）はこの PC の speech.cpp サーバーで音声を認識します。認識モデルと VAD モデルがないときは、設定 → 音声認識（ASR） → モデルとサーバーで内容を確認して取得してください。"
     speechcpp: "ローカル（speech.cpp）で文字起こしを始める"
     cancel: "キャンセル"

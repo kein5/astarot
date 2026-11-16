@@ -704,7 +704,7 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription Engine Used For Speech Recognition"
-            desc: "Google needs no API key. For other cloud engines, register a key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on this PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
+            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on this PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
             engines:
                 speechcpp: "Local (speech.cpp)"
                 groq_whisper: "Groq Whisper"
@@ -1871,8 +1871,7 @@ telemetry_contents:
         igpu: "integrated"
 transcription_consent:
     title: "Choose speech recognition"
-    google_notice: "Google sends microphone or speaker audio to Google’s speech service. No API key is needed."
-    google: "Use Google and continue"
+    cloud_notice: "To use a cloud engine (Groq, OpenAI, Deepgram or your own Whisper server), open the engine settings, register its API key and choose it there. Audio is then sent to that service."
     speechcpp_notice: "Local (speech.cpp) recognizes audio with a speech.cpp server on this PC. If the recognition model or the VAD model is missing, review and download them in Settings → Speech recognition (ASR) → Models and servers."
     speechcpp: "Start transcription with Local (speech.cpp)"
     cancel: "Cancel"

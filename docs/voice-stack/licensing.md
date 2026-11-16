@@ -224,7 +224,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 ## 音声認識を中核に入れたときの依存（2026-11-16、#278）
 
-中核が`native/transcription`（音声認識）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`tungstenite`、`serde_json`、`libc`）と`native/translation`のHTTPクライアントは、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。音量による発話の切り出しはSpeechRecognition 3.10.4（BSD-3-Clause）の処理を、`rms`と`ratecv`はCPythonの`audioop`（PSF-2.0）を、結果が同じになるように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。Googleの音声認識には、SpeechRecognitionと同じ既定のキーで送る（[core-integration.md](core-integration.md)の「判断が要ること」の21）。Silero VADのモデルは中核では使わない（同じ節の20）。
+中核が`native/transcription`（音声認識）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`tungstenite`、`serde_json`、`libc`）と`native/translation`のHTTPクライアントは、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。音量による発話の切り出しはSpeechRecognition 3.10.4（BSD-3-Clause）の処理を、`rms`と`ratecv`はCPythonの`audioop`（PSF-2.0）を、結果が同じになるように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。Googleの音声認識（SpeechRecognitionの既定のキーで送るもの）は移していない（[core-integration.md](core-integration.md)の「決まったこと」の「Google の Web 音声認識」）。Silero VADのモデルは中核では使わない（同じ節の20）。
 
 ## rmvpe.onnxの承認（2026-11-16、#322）
 

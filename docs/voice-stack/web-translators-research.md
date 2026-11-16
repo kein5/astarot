@@ -10,7 +10,7 @@
 - `translator_engines` のライセンス（「VRCT Translator Engines License」）は、ソースを読むことは許しますが、使うことと配ることは公式の VRCT の部品としてだけ許しています。フォークや派生物での利用ははっきり禁じています。対象には「modification or derivative work」も含みます。このため VRCT-VOX はコミット 7806cacc で同梱をやめました。2026-11-16 には翻訳エンジンの一覧からも外しました（`docs/voice-stack/core-integration.md` の 17）。
 - `translation_translator.py` は `from translator_engines import translate_text` で読み込み、無ければ `ENABLE_TRANSLATORS = False` にします。1 回の要求のタイムアウトは 10 秒です。Bing は認証ページの取得と再試行で最大 4 回の要求になるとコメントにあります。
 - 作り直すときの著作権上の条件は 2 つあります。`translator_engines` のコードを見て写すと、そのライセンスの「派生物」にあたるおそれがあります。`translators` を移植すると GPL-3.0 の派生物になります。どちらのコードも参照せず、公開の情報と通信の観察から書く形（クリーンルーム）が前提になります。なお、これは著作権の話です。サービスの規約の問題は別に残ります（下の「規約面のリスク」）。
-- 中核にはすでに似た例があります。Google の音声認識は Chromium の公開キーで非公式の窓口に送っています（`core-integration.md` の 14、未決）。ウェブ翻訳を作り直すかどうかは、14 と同じ方針でそろえるのが自然です。
+- 中核にはすでに似た例があります。Google の音声認識は Chromium の公開キーで非公式の窓口に送っています（`core-integration.md` の 14。この調査の後、外すことに決まりました）。ウェブ翻訳を作り直すかどうかは、14 と同じ方針でそろえるのが自然です。
 - 公式 API（Google Cloud Translation と NAVER Cloud Platform の Papago）を利用者のキーで使う形は、2026-11-16 に足すことが決まり、中核に入れました（`core-integration.md` の 32）。
 
 ## 技術的な可否
