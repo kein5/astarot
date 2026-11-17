@@ -350,7 +350,14 @@ main_page:
     quick_settings_on: "{{count}}件オン"
     quick_settings_all_off: "すべてオフ"
 
-    # Under a main switch that cannot be turned on yet: why, and where to provide it.
+    # The icon button beside each main switch: its name and tooltip.
+    # A switch whose setup is missing sends the icon to the place that provides it.
+    feature_settings:
+        open_page: "「{{page}}」の設定を開く"
+        translator: "翻訳エンジンを選ぶ"
+        translation_model: "翻訳モデルの取得内容を確認"
+
+    # A main switch that cannot be turned on yet: why, and where to provide it.
     # Shown as the switch's tooltip and read as its description.
     switch_blocked:
         translation_model: "翻訳モデルをまだ取得していません。設定の「翻訳」で取得するか、「翻訳エンジン」でほかのエンジンを選んでください。"
@@ -363,8 +370,6 @@ main_page:
         rvc_model: "変換に使うモデルと実行環境が保存されていません。設定の「ボイスチェンジャー（RVC）」→「モデルと実行環境」で設定して保存してください。"
         rvc_output_device: "変換した声の出力先が選ばれていません。設定の「テキスト読み上げ（TTS）」で「出力デバイス」を選んで保存してください。"
         rvc_route: "音声経路が「管理対象の仮想マイク」になっていません。設定の「デバイス」→「音声経路」で選んで保存してください。"
-        open_settings: "設定を開く"
-        prepare_label: "{{feature}}: {{action}}"
 
     language_settings: "言語設定"
     language_pair: "{{from}} → {{to}}"
