@@ -34,9 +34,11 @@ export const LogBox = memo(function LogBox({ savedView } = {}) {
     const selection = useSelectedRows();
     const keepMounted = useMemo(() => rowsBetween(view.rows, selection), [view.rows, selection]);
 
+    // An empty log shows the empty state, which is read from its top: following its end
+    // scrolled the greeting up whenever the list under it grew past the log's height at startup.
     const follow = useCallback(() => {
         const element = logContainerRef.current;
-        if (element && followRef.current) element.scrollTop = element.scrollHeight;
+        if (element && followRef.current && latestView.current.view.rows.length) element.scrollTop = element.scrollHeight;
     }, []);
 
     useLayoutEffect(() => {

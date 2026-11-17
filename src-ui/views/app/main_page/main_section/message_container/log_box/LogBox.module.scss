@@ -16,6 +16,8 @@
 // greeting moved with both (256, 235, 174, 195 px in 0.5.0-beta.5).
 .empty { min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: clamp(3.2rem, 22vh, 24rem) 3.2rem 3.2rem; text-align: center; }
 .greeting { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+// Until the saved UI size arrives (EmptyState.jsx): drawn nowhere, its room kept.
+.greeting[data-waiting] { visibility: hidden; }
 .next { width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 1rem; }
 .empty h1 { font-size: 2.4rem; font-weight: 650; color: var(--dark_200_color); }
 .empty p { max-width: 42rem; font-size: 1.4rem; line-height: 1.8; color: var(--dark_450_color); }
