@@ -95,7 +95,7 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 - **ユーザーの操作と同意**: モデルの取得は、ライセンスとサイズを示して同意を得てから行います。UI の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きないようにします。
 - **音声 AI のランタイム**: 新しい音声 AI モデルは、まず speech.cpp への上流の貢献で入れます。アプリ固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめ、例外ごとの ADR で承認したときだけ足します。分担は、音声 AI の推論（ASR、TTS、VAD、話者、音声強調）が speech.cpp、OCR とローカル翻訳が ONNX Runtime、音声の入出力と AI でない DSP が Rust と OS の機能、字幕や OSC など固有の制御がアプリです。RVC は管理対象の例外として ONNX Runtime の実装を続け、移行は義務にしません。手順、非機能要件、検証は ADR-012（`docs/voice-stack/adr-012-audio-ai-runtime-consolidation.md`）にあります。
 - **停止と独立した制御**: 停止・ミュート、TTS と RVC の独立したスイッチ、Quick Chat、VR パネル、ホットキーの振る舞いを保ちます（`PRODUCT.md`、`DESIGN.md`）。
-- **UI**: React 18、SCSS Modules、Jotai、i18next の構成を保ちます。TypeScript、vanilla-extract、Radix UI への段階移行は ADR-010 のとおりで、混在期の規約は `docs/development.md` にあります。フレームワークの移行や、リモートのフォントは入れません。表示する文言は `locales/` に置き、`en.yml` と `ja.yml` は必ず更新します。キーボード操作、フォーカスの表示、長い日本語の表示、狭いウィンドウも確認の対象です。Windows の WebView2 と Linux の WebKitGTK の両方で動くことを前提にします。Baseline Widely available の機能はそのまま使い、それより新しい機能は機能検出と代わりの表示を付けたときだけ使います。
+- **UI**: React 18、SCSS Modules、Jotai、i18next の構成を保ちます。TypeScript、vanilla-extract、Radix UI への段階移行は ADR-010 のとおりで、混在期の規約は `docs/development.md` にあります。フレームワークの移行や、リモートのフォントは入れません。表示する文言は `locales/` に置き、`en.yml` と `ja.yml` は必ず更新します。キーの不足、補間変数の食い違い、UI への直書きは `check` に含まれる文言の検査（`tools/i18n_gate/check.mjs`）が止めます。わざと訳さない文字列には理由を書きます（`docs/development.md` の「UIの文言と翻訳の検査」）。キーボード操作、フォーカスの表示、長い日本語の表示、狭いウィンドウも確認の対象です。Windows の WebView2 と Linux の WebKitGTK の両方で動くことを前提にします。Baseline Widely available の機能はそのまま使い、それより新しい機能は機能検出と代わりの表示を付けたときだけ使います。
 - **並行作業**: 別のセッションと担当を分けているときは、合意した範囲の外のファイルを編集・コミットしません。
 
 ## AGENTS.md 自体の更新

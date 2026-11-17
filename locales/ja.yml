@@ -511,6 +511,7 @@ config_page:
         updater: "アップデート"
         about_vrct: "ASTAROTについて"
         ocr: "チャット読み取り（OCR）"
+        vr: "VR"
 
     tts:
         tts_settings:

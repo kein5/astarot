@@ -159,10 +159,16 @@ def checks_plan(args, root):
                     for p in (root / "src-ui").rglob(pattern)})
                 if not files:
                     raise DevError("No Node tests found under src-ui; refusing an empty check.")
+                # The i18n gate's own tests sit next to it.
+                files += sorted(p.relative_to(root).as_posix() for p in (root / "tools/i18n_gate").glob("*.test.mjs"))
                 # The UI is moving to TypeScript (ADR-010): the tests import .ts sources directly.
                 # Node 22 strips the types only behind this flag; later versions accept it as well.
                 steps.append(Step("Node tests", ["node", "--experimental-strip-types",
                     "--disable-warning=ExperimentalWarning", "--test", *files]))
+                # Issue #515: en/ja keys and {{variables}} agree, every key the UI names exists,
+                # and no new text is written straight into the UI.
+                steps.append(Step("i18n gate", ["node", "--disable-warning=ExperimentalWarning",
+                    "tools/i18n_gate/check.mjs"]))
             if scope == "ui":
                 steps.append(Step("TypeScript", ["npm", "--ignore-scripts", "run", "typecheck"]))
                 steps.append(Step("Vite build", ["npm", "--ignore-scripts", "run", "vite-build"]))
