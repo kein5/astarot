@@ -1,6 +1,9 @@
 # SteamVR subtitle images
 
-`src-python/models/overlay/overlay_image.py` builds both subtitle textures.
+Since 0.5.0 the Rust core builds both subtitle textures (`native/vr-overlay`,
+mainly `src/subtitle.rs`, `src/layout.rs` and `src/fonts.rs`). This contract was
+written against the Python backend's `src-python/models/overlay/overlay_image.py`,
+which built them up to 0.4; the Python names below refer to that implementation.
 This contract covers subtitle pixels only; message delivery, OSC text and
 retained conversation text are unchanged.
 

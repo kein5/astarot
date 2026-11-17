@@ -272,7 +272,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 `dangerousDisableAssetCspModification`は既定の`false`を保つ。TauriによるHTMLのnonce/hash挿入を無効化しない。`script-src-elem`を別に指定してTauriの`script-src`への追加を無効にすることもしない。`freezePrototype`は別のprototype汚染対策であり、CSPを有効にする条件ではない。今回は既定の`false`を保つ。
 
-バックエンド（Rustの中核）はアプリの中で動き、UIとはTauriのコマンドとチャネルでつなぐ（0.4まではPython sidecarをshell pluginのstdin/stdoutでつないでいた）。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後にPython側で実行する。モデルカード、ライセンス、Aboutの外部リンクはopenerまたは既存のPython側の処理へ渡す。ログの保存もPython側で行う。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
+バックエンド（Rustの中核）はアプリの中で動き、UIとはTauriのコマンドとチャネルでつなぐ（0.4まではPython sidecarをshell pluginのstdin/stdoutでつないでいた）。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後に中核（`native/ops`）が実行する（0.4まではPython側）。モデルカード、ライセンス、Aboutの外部リンクはopenerまたは既存のPython側の処理へ渡す。ログの保存もPython側で行う。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
 
 `devCsp`だけはViteのReact Refresh用inline script、HMR用style、および`ws://localhost:1420`、`ws://127.0.0.1:1420`、`ws://localhost:1421`、`ws://127.0.0.1:1421`を許す。通常のdev URLは`http://localhost:1420`。`TAURI_DEV_HOST`に別のホストを指定する場合は、開発用のローカルTauri設定で`devCsp.connect-src`にそのホストのHMR URL（ポート1421）を明記する。配布用CSPを広げない。
 
