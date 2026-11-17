@@ -155,15 +155,16 @@ impl Telemetry {
     }
 
     /// Sends an `error` event with this fixed code, unless sending is off or this code was
-    /// already sent today. The day is recorded before sending, so a burst sends one event.
+    /// already sent today. The day is recorded before sending, so a burst sends one event; an
+    /// error that cannot be sent (no session) is not recorded, so it can still go out today.
     pub fn track_error(&self, error_code: &str) {
         let shared = &self.shared;
         if !shared.state.is_enabled() || error_code.is_empty() || !shared.state.should_send_error_today(error_code) {
             return;
         }
-        shared.state.mark_error_sent_today(error_code);
         let session = shared.lifecycle.lock().unwrap().session.clone();
         let Some(session) = session.filter(|s| !s.stopped()) else { return };
+        shared.state.mark_error_sent_today(error_code);
         let (task_shared, task_session, code) = (shared.clone(), session.clone(), error_code.to_string());
         spawn(&session, "telemetry-error", move || {
             task_session.ready.wait(&task_session.stop, START_WAIT);

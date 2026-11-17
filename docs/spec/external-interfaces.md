@@ -139,7 +139,7 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 | 本文 | `{"event": "app_started", "v": 2, "timestamp", "app_version", "os", "os_version", "locale", "hw"}`。`error`はこれに`error_code`（`[A-Za-z0-9_.-]{1,64}`）が付く |
 | `timestamp` | 通知を組み立てた時刻。ISO 8601のUTCで、秒まで（`YYYY-MM-DDTHH:MM:SSZ`） |
 | `hw` | `{"cpu", "cores", "ram_gb", "gpus": [{"name", "kind", "vram_gb", "driver"}]}`。読み取れた項目だけが入り、何も読めなければ`hw`ごと省く。名前は表示できるASCIIの64文字まで。`ram_gb`は一般的な容量の段階に丸める。`gpus`は4台まで。`kind`は`gpu`か`igpu`。`driver`はWindowsではレジストリにあるディスプレイアダプターのドライバのバージョン、LinuxではNVIDIAのドライバのバージョンだけ |
-| `os`と`locale` | `os`は`Windows`、`Linux`、`Other`のどれか。`locale`は表示言語を5種類のタグ（`en-US`、`ja-JP`、`ko-KR`、`zh-CN`、`zh-TW`）にしたもの |
+| `os`と`locale` | `os`は`Windows`、`Linux`、`Other`のどれか。`locale`は表示言語をタグにしたもので、`ja`なら`ja-JP`、それ以外は`en-US`になる |
 | 応答 | `200 {"ok": true, "accepted": N}`。鍵がなければ401、JSONでなければ400。検査に通らない通知は`accepted`に数えない |
 | 通信 | 1件につき1回のPOST。タイムアウトは5秒。リダイレクトは追わず、プロキシは使わない。失敗しても再送しない |
 
