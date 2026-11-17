@@ -774,7 +774,7 @@ config_page:
         z_rotation: "Z軸の回転"
         position_rotation:
             label: "位置と回転"
-            desc: "軸ごとに、スライダーか横のボタンで動かします。"
+            desc: "軸ごとにスライダーか横のボタンで動かします。"
         sample_text_button:
             label: "見え方の確認"
             desc: "調整しているあいだ、サンプルの文を1秒ごとに字幕オーバーレイへ送ります。設定を閉じると止まります。"
