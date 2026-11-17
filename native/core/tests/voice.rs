@@ -193,6 +193,99 @@ fn a_stop_or_mute_cancels_speech_and_a_stale_stamp_is_refused() {
     run.ui.stop();
 }
 
+/// The inputs the server was asked to speak, in order.
+fn spoken_inputs(server: &FakeTts) -> Vec<String> {
+    server.requests().iter().map(|r| r["input"].as_str().unwrap_or_default().to_owned()).collect()
+}
+
+#[test]
+fn speech_starts_while_the_server_still_streams_and_messages_follow_in_order() {
+    // #279: the start delay and speech one after another (`test_scheduler.py`,
+    // `test_tts.py::test_audio_arrives_before_response_completes` through the endpoints).
+    let run = start(json!({}), Platform::Windows);
+    let server = FakeTts::speechcpp(1.5);
+    server.set_pace(Duration::from_millis(15));
+    speaking(&run, &server);
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "o-1", "message": "first" })));
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "o-2", "message": "second" })));
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "o-3", "message": "third" })));
+    // The first audio plays before the server has sent the whole answer.
+    eventually("the first speech is audible", || run.played_on(OUTPUT) > 0);
+    eventually("the others wait", || run.status()["queued"] == 2);
+    let status = run.status();
+    assert_eq!((status["active"].clone(), status["completed"].clone()), (json!(true), json!(0)), "{status}");
+    assert!(status["last_first_write_ms"].is_number(), "the start delay is not reported: {status}");
+    assert_eq!(spoken_inputs(&server), ["first"], "a later message was asked for while the first one speaks");
+
+    // Each message is spoken whole, once, in the order it came.
+    server.set_pace(Duration::ZERO);
+    eventually("all three are spoken", || run.status()["completed"] == 3);
+    assert_eq!(spoken_inputs(&server), ["first", "second", "third"]);
+    let whole = (24000.0 * 1.5) as usize * 2;
+    assert_eq!(run.played_on(OUTPUT), whole * 3, "a message was cut or played twice");
+    assert!(run.voice.played().iter().filter(|p| p.device == OUTPUT).all(|p| p.closed));
+    let status = run.status();
+    assert_eq!((status["dropped"].clone(), status["cancelled"].clone(), status["errors"].clone(), status["queued"].clone()), (json!(0), json!(0), json!(0), json!(0)), "{status}");
+    run.ui.stop();
+}
+
+#[test]
+fn a_stop_cuts_the_speech_and_empties_the_queue_and_the_next_message_speaks() {
+    // #279: an interruption (`test_scheduler.py::test_bounded_queue_cancel_and_old_generation`,
+    // `test_stopping_speech_is_not_reported_as_expired` through `/run/stop_voice`).
+    let run = start(json!({}), Platform::Windows);
+    let server = FakeTts::speechcpp(3.0);
+    server.set_pace(Duration::from_millis(15));
+    speaking(&run, &server);
+    for (id, message) in [("c-1", "cut"), ("c-2", "waiting one"), ("c-3", "waiting two")] {
+        run.ui.ok("/run/send_message_box", Some(json!({ "id": id, "message": message })));
+    }
+    eventually("speech plays", || run.played_on(OUTPUT) > 0);
+    eventually("the others wait", || run.status()["queued"] == 2);
+    run.ui.ok("/run/stop_voice", None);
+    eventually("the speech stops", || run.status()["active"] == false);
+    let status = run.status();
+    assert_eq!(
+        (status["cancelled"].clone(), status["dropped"].clone(), status["expired"].clone(), status["queued"].clone(), status["completed"].clone(), status["errors"].clone()),
+        (json!(1), json!(2), json!(0), json!(0), json!(0), json!(0)),
+        "{status}"
+    );
+    assert!(run.played_on(OUTPUT) < (24000 * 3) * 2, "the speech played to its end");
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(spoken_inputs(&server), ["cut"], "a message waiting at the stop was spoken");
+
+    // The switch stays on, and a message sent after the stop speaks.
+    assert_eq!(run.status()["tts_enabled"], true);
+    server.set_pace(Duration::ZERO);
+    server.set_seconds(0.1);
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "c-4", "message": "after" })));
+    eventually("the next message is spoken", || run.status()["completed"] == 1);
+    assert_eq!(spoken_inputs(&server), ["cut", "after"]);
+    run.ui.stop();
+}
+
+#[test]
+fn saving_the_voice_settings_cuts_the_speech_but_keeps_the_switch() {
+    // The `configure` stop of `test_tts_playback_ownership.py`, through `/set/data/voice_settings`.
+    let run = start(json!({}), Platform::Windows);
+    let server = FakeTts::speechcpp(3.0);
+    server.set_pace(Duration::from_millis(15));
+    speaking(&run, &server);
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "s-1", "message": "cut by a save" })));
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "s-2", "message": "waiting" })));
+    eventually("speech plays", || run.played_on(OUTPUT) > 0);
+    let before = run.generation();
+    let saved = run.settings(json!({ "japanese_voice": "other" }));
+    assert_eq!(saved["status"], 200, "{saved}");
+    assert_ne!(run.generation(), before, "a save starts a new epoch");
+    eventually("the speech stops", || run.status()["active"] == false);
+    let status = run.status();
+    assert_eq!((status["cancelled"].clone(), status["dropped"].clone(), status["tts_enabled"].clone()), (json!(1), json!(1), json!(true)), "{status}");
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(spoken_inputs(&server), ["cut by a save"]);
+    run.ui.stop();
+}
+
 #[test]
 fn the_mute_survives_a_restart_and_a_broken_record_fails_closed() {
     let dir = tempfile::tempdir().unwrap();
