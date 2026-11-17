@@ -251,7 +251,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 
 ### APIキーの保存先
 
-APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格情報ストアに保存する（Issue #575）（[ADR-013](../voice-stack/adr-013-secret-store.md)）。Windowsは資格情報マネージャー、LinuxはSecret Service（GNOME Keyring、KWalletなど）である。`AUTH_KEYS`（翻訳）と`TRANSCRIPTION_AUTH_KEYS`（音声認識）の値と`PAPAGO_CLIENT_ID`を1件ずつ保存する。項目の名前は`AUTH_KEYS/DeepL_API`のように辞書の名前とプロバイダ名をつないだものである。どちらの辞書に足したプロバイダも同じ扱いになる。キーを持つ設定を新しく足すときは`native/core/src/config/secrets.rs`の`SECRET_SETTINGS`に名前を加える。
+APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格情報ストアに保存する（Issue #575）（[ADR-013](../adr/adr-013-secret-store.md)）。Windowsは資格情報マネージャー、LinuxはSecret Service（GNOME Keyring、KWalletなど）である。`AUTH_KEYS`（翻訳）と`TRANSCRIPTION_AUTH_KEYS`（音声認識）の値と`PAPAGO_CLIENT_ID`を1件ずつ保存する。項目の名前は`AUTH_KEYS/DeepL_API`のように辞書の名前とプロバイダ名をつないだものである。どちらの辞書に足したプロバイダも同じ扱いになる。キーを持つ設定を新しく足すときは`native/core/src/config/secrets.rs`の`SECRET_SETTINGS`に名前を加える。
 
 - メモリー上の設定はいままでどおりで、`/get/data/*_auth_key`は同じ値を返す。`/run/initialization_complete`の一覧にも同じ値が入る。
 - 設定のフォルダごとに16桁の16進のIDを作り、`secrets.json`の`store_id`に置く。OSのストアの項目はこのIDで分けるので、`VRCT_CONFIG_DIR`で分けた設定どうしはキーを共有しない。IDは最初のキーを保存したときに作る。IDがないうちはOSのストアに問い合わせない。

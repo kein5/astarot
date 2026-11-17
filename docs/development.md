@@ -154,7 +154,7 @@ Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探し
 
 ## UIのTypeScriptとスタイル（移行中）
 
-[ADR-010](voice-stack/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
+[ADR-010](adr/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
 
 - 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。新しいスタイルはvanilla-extract（`.css.ts`）で書きます。
 - 型チェックは `npm run typecheck` です。`check --scope ui` も実行し、CIでも動きます。TypeScriptのファイルは `strict` で検査します。JavaScriptのファイルは検査せず、型を推論して読むだけです。
