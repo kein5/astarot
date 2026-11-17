@@ -955,7 +955,7 @@ class Config:
     def setupDownloadUrl(self, target_version: Optional[str] = None, tag: Optional[str] = None) -> str:
         """Reserved fork installer URL; built-in updates are disabled."""
         revision = tag or (f"v{target_version}" if target_version else None)
-        base = "https://github.com/kein5/VRCT-VOX/releases"
+        base = "https://github.com/kein5/astarot/releases"
         route = f"download/{revision}" if revision else "latest/download"
         return f"{base}/{route}/VRCT-VOX_setup.exe"
 
@@ -1472,8 +1472,8 @@ class Config:
         state_dir = os_path.abspath(os_path.expanduser(environ.get("VRCT_CONFIG_DIR") or self._PATH_LOCAL))
         self._PATH_CONFIG = os_path.join(state_dir, "config.json")
         self._PATH_LOGS = os_path.join(state_dir, "logs")
-        self._GITHUB_URL = "https://api.github.com/repos/kein5/VRCT-VOX/releases/latest"
-        self._GITHUB_RELEASES_LIST_URL = "https://api.github.com/repos/kein5/VRCT-VOX/releases"
+        self._GITHUB_URL = "https://api.github.com/repos/kein5/astarot/releases/latest"
+        self._GITHUB_RELEASES_LIST_URL = "https://api.github.com/repos/kein5/astarot/releases"
         # VRCT-VOX numbers its own releases from 0.1.0, each with the version
         # picker UI; older tags in this repository are hidden so users can't
         # switch to a build they can't switch back from.

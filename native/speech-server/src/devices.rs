@@ -62,13 +62,20 @@ fn kind(row: &Value) -> Option<&str> {
     row.get("kind")?.as_str().filter(|kind| matches!(*kind, "gpu" | "igpu"))
 }
 
+/// Whether a GPU is one the servers may be started on: a separate GPU. The settings offer
+/// only the CPU and separate GPUs; an integrated GPU shares the PC's memory with everything
+/// else and is not a choice, not even for "auto" and "gpu".
+pub fn selectable(kind: &str) -> bool {
+    kind == "gpu"
+}
+
 /// The Vulkan device "auto" and "gpu" mean, from `speech devices --json` rows, or None.
 ///
 /// speech.cpp takes the first GPU it lists, and lists an integrated GPU first on a PC with
-/// both. A separate GPU is faster for every vendor, so it comes first, then the one with
-/// the most memory. AMD, Intel and NVIDIA are treated alike.
+/// both. Only a separate GPU is chosen ([`selectable`]), the one with the most memory. AMD,
+/// Intel and NVIDIA are treated alike.
 pub fn preferred_gpu(rows: &[Value]) -> Option<String> {
-    let mut best: Option<((bool, u64), &str)> = None;
+    let mut best: Option<(u64, &str)> = None;
     for row in rows {
         let (Some(kind), Some(name)) = (kind(row), row.get("name").and_then(Value::as_str)) else { continue };
         let description = match row.get("description") {
@@ -76,10 +83,10 @@ pub fn preferred_gpu(rows: &[Value]) -> Option<String> {
             Some(Value::String(text)) => text.clone(),
             Some(other) => other.to_string(),
         };
-        if !is_named_gpu(name) || not_a_compute_gpu(&description) {
+        if !selectable(kind) || !is_named_gpu(name) || not_a_compute_gpu(&description) {
             continue;
         }
-        let rank = (kind == "gpu", row.get("memory_total").and_then(Value::as_u64).unwrap_or(0));
+        let rank = row.get("memory_total").and_then(Value::as_u64).unwrap_or(0);
         // The first of equals, as speech.cpp lists them.
         if best.is_none_or(|(held, _)| rank > held) {
             best = Some((rank, name));

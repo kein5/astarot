@@ -1,6 +1,6 @@
 {
     "$schema": "https://schema.tauri.app/config/2",
-    "productName": "VRCT-VOX",
+    "productName": "ASTAROT",
     "version": "0.5.1-beta.1",
     "identifier": "io.github.kein5.vrct-vox",
     "build": {
@@ -23,7 +23,7 @@
                 "transparent": true,
                 "decorations": false,
                 "shadow": false,
-                "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding"
+                "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-networking"
             }
         ],
         "security": {
@@ -33,7 +33,7 @@
                 "style-src": [
                     "'self'",
                     "'sha256-I2px+fnpbN4E5+Djrj7aoTIyq9yyREkuVl19f4Sye9A='",
-                    "'sha256-Xo8/tnRnpUxMw05nUf764oT49W2GEbQN9LaX8Wqxuwg='"
+                    "'sha256-wBAOjWqzlHdwhuIyV//yRl4v0VNTHc3TOqbIfNXoA7k='"
                 ],
                 "style-src-attr": "'none'",
                 "img-src": "'self' data:",
@@ -79,7 +79,7 @@
         "publisher": "kein5",
         "copyright": "Copyright m's software",
         "licenseFile": "../LICENSE",
-        "shortDescription": "VRCT-VOX — speech, voice conversion and translated chat",
+        "shortDescription": "ASTAROT — speech, voice conversion and translated chat",
         "icon": [
             "icons/32x32.png",
             "icons/128x128.png",

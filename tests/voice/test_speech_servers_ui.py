@@ -223,7 +223,7 @@ def test_a_named_gpu_can_be_chosen_when_the_pc_reports_one(ui):
     page, peer, reply = ui
     group = page.get_by_role('group', name='Japanese TTS', exact=True)
     device = group.get_by_label('Inference device', exact=True)
-    help_text = group.get_by_text('Auto and GPU use a dedicated GPU before integrated graphics', exact=False)
+    help_text = group.get_by_text('You can choose the CPU or a dedicated GPU', exact=False)
     expect(device.locator('option')).to_have_count(3)
     expect(help_text).to_have_count(0)
     reply('/get/data/speech_server_devices', dict(devices=[dict(name='Vulkan1', kind='gpu', label='Example GPU')]))
@@ -234,6 +234,32 @@ def test_a_named_gpu_can_be_chosen_when_the_pc_reports_one(ui):
     expect(page.get_by_role('button', name='Save changes', exact=True)).to_be_disabled()
     assert peer.settings['profiles']['japanese']['device'] == 'Vulkan1'
     assert not any(ep == '/run/start_speech_server' for ep, _ in peer.sent)
+
+
+def test_an_integrated_gpu_is_never_offered(ui):
+    from playwright.sync_api import expect
+    page, peer, reply = ui
+    group = page.get_by_role('group', name='Japanese TTS', exact=True)
+    device = group.get_by_label('Inference device', exact=True)
+    # A laptop with integrated graphics only: CPU and Automatic, no GPU choice at all.
+    reply('/get/data/speech_server_devices', dict(devices=[dict(name='Vulkan0', kind='igpu', label='Example iGPU')],
+                                                  gpu_build='ready', cpu_build='shared'))
+    expect(device.locator('option')).to_have_text(['Automatic', 'CPU'])
+    # With a dedicated GPU beside it, only the dedicated one is named.
+    reply('/get/data/speech_server_devices', dict(devices=[dict(name='Vulkan0', kind='igpu', label='Example iGPU'),
+                                                           dict(name='Vulkan1', kind='gpu', label='Example GPU')],
+                                                  gpu_build='ready', cpu_build='shared'))
+    expect(device.locator('option')).to_have_text(['Automatic', 'CPU', 'GPU', 'Example GPU (Vulkan1)'])
+    # An integrated GPU saved by an older version stays shown, so saving does not change it,
+    # but it cannot be picked again.
+    peer.settings['profiles']['japanese']['device'] = 'Vulkan0'
+    reply('/get/data/speech_server_settings', peer.settings)
+    expect(device).to_have_value('Vulkan0')
+    kept = device.locator('option', has_text='integrated graphics')
+    expect(kept).to_have_count(1)
+    expect(kept).to_have_js_property('disabled', True)
+    device.select_option('Vulkan1')
+    expect(device.locator('option', has_text='integrated graphics')).to_have_count(0)
 
 
 def test_a_saved_gpu_that_is_gone_stays_selected(ui):

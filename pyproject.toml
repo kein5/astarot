@@ -47,7 +47,7 @@ dependencies = [
     "pydub==0.25.1",
     "psutil==7.2.2",
     "pycaw==20260927 ; sys_platform=='win32'",
-    "websockets==15.0.1",
+    "websockets==17.4",
     "huggingface_hub==2.4.0",
     "hf-xet==1.8.0",
     # NOTE: PYSEC-2026-3447 is fixed in setuptools 83.0.0, but setuptools removed
@@ -130,7 +130,7 @@ voice-test = [
     "soxr==1.1.0",
     "psutil==7.2.2",
     "pillow==13.0.0",
-    "websockets==15.0.1",
+    "websockets==17.4",
     "tqdm==4.70.1",
     # Verifies updater signatures in the release-draft tests (tools/updater_manifest.py).
     "cryptography==50.0.2",
@@ -156,6 +156,11 @@ exclude-dependencies = ["opencv-python"]
 # tinyoscquery pins zeroconf==0.39.1, which has known vulnerabilities; the
 # API it uses (Zeroconf, ServiceInfo, ServiceBrowser) is unchanged since.
 override-dependencies = ["zeroconf==0.152.0"]
+
+[tool.ruff.lint]
+# Ruff 0.14's default rules, named so that a Ruff upgrade does not widen the check.
+# Ruff 0.17 added hundreds of findings (import order, dict() calls...) under its new defaults.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.per-file-ignores]
 # Deliberately incomplete upstream function body parsed by AST contract tests.

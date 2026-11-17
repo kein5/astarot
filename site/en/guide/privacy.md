@@ -51,7 +51,7 @@ When you change the URL of an OpenAI-compatible endpoint or Custom Whisper, you 
 
 - The settings file (`config.json`), which also holds your external translation API keys, the key for the OBS browser source and WebSocket, and, on Linux, what the desktop needs to share the same window again without its dialog.
 - Logs, recording what the app did. Remove personal data and conversation text before posting them in a report.
-- Conversation logs, saved as text files only when "Auto Save Message Logs" under Settings → "Advanced" is on.
+- Conversation logs, saved as text files only when "Auto save message logs" under Settings → "Advanced" is on.
 
 For the locations, see [Install](./install) and [Troubleshooting](./troubleshooting).
 

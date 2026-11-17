@@ -43,7 +43,16 @@ ${StrLoc}
 !define WEBVIEW2BOOTSTRAPPERPATH "{{webview2_bootstrapper_path}}"
 !define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
 ; Stable registry identity: upgrades find the stored install location by this key.
+; It keeps the old name on purpose (Issue #535): the Apps list shows DisplayName
+; (${PRODUCTNAME}), so an install made under the name VRCT-VOX is found, updated in its
+; folder and renamed in the list, without a second entry. Settings and models live in the
+; install folder on Windows, which is why an update never moves it.
 !define INSTALLREGNAME "VRCT-VOX"
+; Shortcuts carry the display name. Up to 0.5.0 they carried the binary's name; an update
+; replaces those (MigrateOldShortcuts) and the uninstaller removes both.
+!define SHORTCUTNAME "${PRODUCTNAME}"
+!define OLDSHORTCUTNAME "${MAINBINARYNAME}"
+!define OLDSTARTMENUFOLDER "VRCT-VOX"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${INSTALLREGNAME}"
 !define MANUPRODUCTKEY "Software\${MANUFACTURER}\${INSTALLREGNAME}"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
@@ -169,7 +178,7 @@ Page custom PageChooseLanguage PageLeaveChooseLanguage
 Function PageChooseLanguage
     ; An update leaves the app's language setting alone.
     ${IfThen} $UpdateMode == 1 ${|} Abort ${|}
-    !insertmacro MUI_HEADER_TEXT "Initial Settings" "Set the language of the VRCT-VOX UI (can be changed later)."
+    !insertmacro MUI_HEADER_TEXT "Initial Settings" "Set the language of the ${PRODUCTNAME} UI (can be changed later)."
     nsDialogs::Create 1018
     Pop $DialogChooseLanguage
 
@@ -223,7 +232,7 @@ Function PageChooseEdition
     ${AndIf} $SelectedEdition != ""
         Abort
     ${EndIf}
-    !insertmacro MUI_HEADER_TEXT "Initial Settings" "Choose the version of VRCT-VOX to install (can be changed later by reinstalling)."
+    !insertmacro MUI_HEADER_TEXT "Initial Settings" "Choose the version of ${PRODUCTNAME} to install (can be changed later by reinstalling)."
     nsDialogs::Create 1018
     Pop $DialogChooseEdition
 
@@ -941,7 +950,7 @@ Section Install
     StrCpy $effective_version "${VERSION}"
   ${EndIf}
   StrCpy $release_revision "v$effective_version"
-  StrCpy $cmder_dl "https://github.com/kein5/VRCT-VOX/releases/download/$release_revision/$file_name"
+  StrCpy $cmder_dl "https://github.com/kein5/astarot/releases/download/$release_revision/$file_name"
   DetailPrint "Got URL : $cmder_dl"
 
   StrCpy $package_hash_path ""
@@ -1536,6 +1545,9 @@ Section Install
       Call CreateDesktopShortcut
       Call CreateStartMenuShortcut
   shortcuts_done:
+  ${If} $existing_install == "1"
+    Call MigrateOldShortcuts
+  ${EndIf}
 
   Goto install_finished
   commit_failed:
@@ -1819,16 +1831,27 @@ Section Uninstall
   RMDir "$INSTDIR"
 
   !insertmacro DeleteAppUserModelId
-  !insertmacro UnpinShortcut "$SMPROGRAMS\$AppStartMenuFolder\${MAINBINARYNAME}.lnk"
-  !insertmacro UnpinShortcut "$DESKTOP\${MAINBINARYNAME}.lnk"
+  !insertmacro MUI_STARTMENU_GETFOLDER Application $AppStartMenuFolder
+  !insertmacro UnpinShortcut "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk"
+  !insertmacro UnpinShortcut "$DESKTOP\${SHORTCUTNAME}.lnk"
 
   ; Remove start menu shortcut
-  !insertmacro MUI_STARTMENU_GETFOLDER Application $AppStartMenuFolder
-  Delete "$SMPROGRAMS\$AppStartMenuFolder\${MAINBINARYNAME}.lnk"
+  Delete "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk"
   RMDir "$SMPROGRAMS\$AppStartMenuFolder"
+  ; A passive install puts it at the top of the Start menu.
+  Delete "$SMPROGRAMS\${SHORTCUTNAME}.lnk"
 
   ; Remove desktop shortcuts
-  Delete "$DESKTOP\${MAINBINARYNAME}.lnk"
+  Delete "$DESKTOP\${SHORTCUTNAME}.lnk"
+
+  ; Shortcuts under the names used up to 0.5.0, if an update did not replace them.
+  !insertmacro UnpinShortcut "$SMPROGRAMS\${OLDSTARTMENUFOLDER}\${OLDSHORTCUTNAME}.lnk"
+  !insertmacro UnpinShortcut "$SMPROGRAMS\${OLDSHORTCUTNAME}.lnk"
+  !insertmacro UnpinShortcut "$DESKTOP\${OLDSHORTCUTNAME}.lnk"
+  Delete "$SMPROGRAMS\${OLDSTARTMENUFOLDER}\${OLDSHORTCUTNAME}.lnk"
+  RMDir "$SMPROGRAMS\${OLDSTARTMENUFOLDER}"
+  Delete "$SMPROGRAMS\${OLDSHORTCUTNAME}.lnk"
+  Delete "$DESKTOP\${OLDSHORTCUTNAME}.lnk"
 
   ; Remove registry information for add/remove programs
   !if "${INSTALLMODE}" == "both"
@@ -1890,12 +1913,38 @@ FunctionEnd
 !macroend
 
 Function CreateDesktopShortcut
-  CreateShortcut "$DESKTOP\${MAINBINARYNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
-  !insertmacro SetLnkAppUserModelId "$DESKTOP\${MAINBINARYNAME}.lnk"
+  CreateShortcut "$DESKTOP\${SHORTCUTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+  !insertmacro SetLnkAppUserModelId "$DESKTOP\${SHORTCUTNAME}.lnk"
 FunctionEnd
 
 Function CreateStartMenuShortcut
   CreateDirectory "$SMPROGRAMS\$AppStartMenuFolder"
-  CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\${MAINBINARYNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
-  !insertmacro SetLnkAppUserModelId "$SMPROGRAMS\$AppStartMenuFolder\${MAINBINARYNAME}.lnk"
+  CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+  !insertmacro SetLnkAppUserModelId "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk"
+FunctionEnd
+
+; An install from 0.5.0 or earlier named its shortcuts after the binary (vrct-vox), in the
+; Start menu folder VRCT-VOX or, from a passive install, at the top of the Start menu. Each
+; one found is replaced by one under the display name in the same place, so an update keeps
+; the shortcuts the user has, and only those, and the old names disappear.
+!macro MigrateOldShortcut old new
+  ; No UnpinShortcut here: the new shortcut has the same AppUserModelID (${BUNDLEID}).
+  ${If} ${FileExists} "${old}"
+    Delete "${old}"
+    ${IfNot} ${FileExists} "${new}"
+      CreateShortcut "${new}" "$INSTDIR\${MAINBINARYNAME}.exe"
+      !insertmacro SetLnkAppUserModelId "${new}"
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+Function MigrateOldShortcuts
+  !insertmacro MigrateOldShortcut "$DESKTOP\${OLDSHORTCUTNAME}.lnk" "$DESKTOP\${SHORTCUTNAME}.lnk"
+  !insertmacro MigrateOldShortcut "$SMPROGRAMS\${OLDSHORTCUTNAME}.lnk" "$SMPROGRAMS\${SHORTCUTNAME}.lnk"
+  ${If} ${FileExists} "$SMPROGRAMS\${OLDSTARTMENUFOLDER}\${OLDSHORTCUTNAME}.lnk"
+    CreateDirectory "$SMPROGRAMS\${PRODUCTNAME}"
+    !insertmacro MigrateOldShortcut "$SMPROGRAMS\${OLDSTARTMENUFOLDER}\${OLDSHORTCUTNAME}.lnk" "$SMPROGRAMS\${PRODUCTNAME}\${SHORTCUTNAME}.lnk"
+    ; Only if empty: the folder may hold something the user put there.
+    RMDir "$SMPROGRAMS\${OLDSTARTMENUFOLDER}"
+  ${EndIf}
 FunctionEnd

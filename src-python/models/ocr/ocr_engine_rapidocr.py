@@ -145,6 +145,12 @@ def getReader(spec: OcrModelSpec, files: Optional[OcrModelFiles] = None) -> Opti
             if spec.lang_rec:
                 params["Rec.lang_type"] = LangRec(spec.lang_rec)
             engine = RapidOCR(params=params)
+            # RapidOCR 3.10 opens the models on the first read instead of here. Open them now,
+            # so a missing or broken file still fails here (and is reported once) rather than
+            # on every read. 3.9.2 has no such methods and has already opened them.
+            for load in ("_load_det_model", "_load_rec_model"):
+                if hasattr(engine, load):
+                    getattr(engine, load)()
         except Exception:
             errorLogging()
             printLog(f"OCR engine: could not load {spec.label}")

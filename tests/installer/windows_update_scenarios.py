@@ -22,7 +22,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RELEASE_URL = "https://github.com/kein5/VRCT-VOX/releases/download/$release_revision"
+RELEASE_URL = "https://github.com/kein5/astarot/releases/download/$release_revision"
 APP = "vrct-vox.exe"
 # Packages up to 0.4 carried the Python sidecar beside the app; from 0.5.0 they do not. The
 # "old" package is such a package: updating it to "new" removes the stale sidecar, while
@@ -500,6 +500,123 @@ def gui_scenario(installer, work):
             process.wait(timeout=10)
 
 
+PRODUCT_NAME = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["productName"]
+OLD_FOLDER = "VRCT-VOX"
+OLD_SHORTCUT = "vrct-vox.lnk"
+
+
+def shell_folder(csidl):
+    buffer = ctypes.create_unicode_buffer(260)
+    assert ctypes.windll.shell32.SHGetFolderPathW(None, csidl, None, 0, buffer) == 0
+    return Path(buffer.value)
+
+
+def desktop_folder():
+    return shell_folder(0x10)  # CSIDL_DESKTOPDIRECTORY
+
+
+def programs_folder():
+    return shell_folder(0x02)  # CSIDL_PROGRAMS: the user's Start menu programs
+
+
+def make_shortcut(link, target):
+    link.parent.mkdir(parents=True, exist_ok=True)
+    script = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{link}');"
+              f"$s.TargetPath='{target}';$s.Save()")
+    subprocess.run(["powershell", "-NoProfile", "-Command", script], check=True, timeout=60)
+
+
+def uninstall_entry():
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_KEY, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+            return {name: winreg.QueryValueEx(key, name)[0]
+                    for name in ("DisplayName", "DisplayVersion", "InstallLocation")}
+    except FileNotFoundError:
+        return None
+
+
+def uninstall_entries_named(*names):
+    import winreg
+    found = []
+    root = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, root, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+        for index in range(winreg.QueryInfoKey(key)[0]):
+            sub = winreg.EnumKey(key, index)
+            try:
+                with winreg.OpenKey(key, sub) as entry:
+                    if winreg.QueryValueEx(entry, "DisplayName")[0] in names:
+                        found.append(sub)
+            except OSError:
+                pass
+    return found
+
+
+def run_default_install(installer, version, temp, extra=""):
+    """No /D and no /NS: the default folder, the stored location and shortcuts as a user gets them."""
+    command = f'"{installer}" /S /UILANG=en /VERSION={version} {extra}'.strip()
+    result = subprocess.run(command, env=installer_environment(temp), timeout=180, check=False)
+    assert result.returncode == 0, f"{version}: exit {result.returncode}"
+
+
+def run_uninstall(directory):
+    # _? keeps the uninstaller in place and makes it wait; it must come last, unquoted.
+    subprocess.run(f'"{directory / "uninstall.exe"}" /S _?={directory}', timeout=180, check=True)
+
+
+def rename_scenarios(installer, work):
+    """The display name moves to productName (Issue #535); identifiers and data stay."""
+    local = Path(os.environ["LOCALAPPDATA"])
+    new_dir, old_dir = local / PRODUCT_NAME, local / OLD_FOLDER
+    desktop, programs = desktop_folder(), programs_folder()
+    assert PRODUCT_NAME != OLD_FOLDER
+    for path in (new_dir, old_dir):
+        assert not path.exists(), f"Run on a disposable machine: {path} exists"
+    assert uninstall_entry() is None, "Run on a disposable machine: an install is registered"
+
+    # A new install: folder, Apps list and shortcuts carry the display name.
+    run_default_install(installer, "new", work / "temp-rename-fresh")
+    assert (new_dir / APP).is_file() and not old_dir.exists()
+    entry = uninstall_entry()
+    assert entry["DisplayName"] == PRODUCT_NAME, entry
+    assert entry["InstallLocation"].strip('"') == str(new_dir), entry
+    assert (desktop / f"{PRODUCT_NAME}.lnk").is_file()
+    assert list(programs.rglob(f"{PRODUCT_NAME}.lnk")), "No Start menu shortcut"
+    assert not (desktop / OLD_SHORTCUT).exists() and not list(programs.rglob(OLD_SHORTCUT))
+    run_uninstall(new_dir)
+    assert uninstall_entry() is None and not (desktop / f"{PRODUCT_NAME}.lnk").exists()
+    assert not list(programs.rglob(f"{PRODUCT_NAME}.lnk"))
+    shutil.rmtree(new_dir)
+    print("PASS a new install uses the display name for folder, Apps list and shortcuts", flush=True)
+
+    # An install made under the old name, with the shortcuts 0.5.0 made, updated in place.
+    run_install(installer, old_dir, "old", work / "temp-rename-seed", True)
+    add_user_data(old_dir)
+    register_old_install(old_dir)
+    old_links = [desktop / OLD_SHORTCUT, programs / OLD_FOLDER / OLD_SHORTCUT, programs / OLD_SHORTCUT]
+    for link in old_links:
+        make_shortcut(link, old_dir / APP)
+    before = snapshot(old_dir)
+    run_default_install(installer, "new", work / "temp-rename-update", extra="/UPDATE /EDITION=cpu")
+    expect_updated(old_dir, before)
+    assert not new_dir.exists(), "An update must not move settings and models to a new folder"
+    entry = uninstall_entry()
+    assert entry["DisplayName"] == PRODUCT_NAME and entry["InstallLocation"].strip('"') == str(old_dir), entry
+    assert uninstall_entries_named(PRODUCT_NAME, OLD_FOLDER) == [OLD_FOLDER]
+    assert not any(link.exists() for link in old_links), [str(l) for l in old_links if l.exists()]
+    assert not (programs / OLD_FOLDER).exists()
+    for link in (desktop / f"{PRODUCT_NAME}.lnk", programs / PRODUCT_NAME / f"{PRODUCT_NAME}.lnk",
+                 programs / f"{PRODUCT_NAME}.lnk"):
+        assert link.is_file(), link
+    print("PASS an update keeps folder and data, renames the Apps entry and the shortcuts", flush=True)
+    run_uninstall(old_dir)
+    assert uninstall_entry() is None
+    assert not (desktop / f"{PRODUCT_NAME}.lnk").exists()
+    assert not list(programs.rglob(f"{PRODUCT_NAME}.lnk")) and not list(programs.rglob(OLD_SHORTCUT))
+    assert (old_dir / "config.json").is_file(), "The uninstaller keeps settings unless asked"
+    print("PASS the uninstaller removes the renamed shortcuts", flush=True)
+
+
 def system_tar():
     # The installer's tar, not one that a tool put earlier on PATH.
     return str(Path(os.environ["SystemRoot"]) / "System32/tar.exe")
@@ -547,7 +664,7 @@ def verify_extraction_outside_ansi(work):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("prepare", "tar", "silent", "gui"), required=True)
+    parser.add_argument("--mode", choices=("prepare", "tar", "silent", "gui", "rename"), required=True)
     parser.add_argument("--port", type=int, default=18765)
     parser.add_argument("--installer", type=Path)
     parser.add_argument("--work-dir", type=Path, default=ROOT / ".review/tmp/windows-update")
@@ -568,6 +685,8 @@ def main():
         if args.mode == "silent":
             verify_partial_fixture(work)
             silent_scenarios(args.installer.resolve(), work, server)
+        elif args.mode == "rename":
+            rename_scenarios(args.installer.resolve(), work)
         else:
             gui_scenario(args.installer.resolve(), work)
 

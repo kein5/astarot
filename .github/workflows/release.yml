@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - run: python tools/changelog.py check
@@ -40,7 +40,7 @@ jobs:
     timeout-minutes: 75
     steps:
       - name: Checkout code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -84,7 +84,7 @@ jobs:
     timeout-minutes: 75
     steps:
       - name: Checkout code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -128,7 +128,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force build/windows-output | Out-Null
           Move-Item VRCT-VOX.zip build/windows-output/
-          Move-Item "src-tauri/target/release/bundle/nsis/VRCT-VOX_$($env:VERSION)_x64-setup.exe" build/windows-output/
+          Move-Item "src-tauri/target/release/bundle/nsis/ASTAROT_$($env:VERSION)_x64-setup.exe" build/windows-output/
           Copy-Item src-tauri/nsis/package-hashes.nsh build/windows-output/
 
       - name: Hand over build outputs
@@ -153,7 +153,7 @@ jobs:
       attestations: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -223,7 +223,7 @@ jobs:
       - name: Inspect CPU and CUDA ZIPs and completed NSIS installer
         shell: pwsh
         run: |
-          $installer = "build/windows-output/VRCT-VOX_$($env:VERSION)_x64-setup.exe"
+          $installer = "build/windows-output/ASTAROT_$($env:VERSION)_x64-setup.exe"
           python tools/check_voice_distribution.py build/windows-output/VRCT-VOX.zip build/windows-output/VRCT-VOX_cuda.zip --nsis $installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -232,7 +232,7 @@ jobs:
           CANDIDATE_COMMIT: ${{ github.sha }}
         shell: pwsh
         run: |
-          $installer = "build/windows-output/VRCT-VOX_$($env:VERSION)_x64-setup.exe"
+          $installer = "build/windows-output/ASTAROT_$($env:VERSION)_x64-setup.exe"
           python tools/release_candidate.py stage build/release-candidate --platform windows --commit $env:CANDIDATE_COMMIT --asset build/windows-output/VRCT-VOX.zip --asset build/windows-output/VRCT-VOX_cuda.zip --asset $installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/release_candidate.py verify build/release-candidate --platform windows --commit $env:CANDIDATE_COMMIT
