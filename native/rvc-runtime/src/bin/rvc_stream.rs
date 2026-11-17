@@ -169,6 +169,8 @@ fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
 }
 
 fn main() -> ExitCode {
+    // SAFETY: first thing in main, before any other thread starts.
+    unsafe { rvc_runtime::backend::disable_telemetry_for_process() };
     let arguments = match parse() {
         Ok(arguments) => arguments,
         Err(message) => {

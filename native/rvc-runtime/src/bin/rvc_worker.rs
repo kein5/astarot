@@ -762,6 +762,8 @@ fn probe(runtime: &Path, choice: Choice) -> ExitCode {
 }
 
 fn main() -> ExitCode {
+    // SAFETY: first thing in main, before any other thread starts.
+    unsafe { rvc_runtime::backend::disable_telemetry_for_process() };
     let (values, probing) = match options() {
         Ok(parsed) => parsed,
         Err(message) => {

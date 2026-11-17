@@ -16,6 +16,17 @@ pub const ONNX_RUNTIME: &str = if cfg!(windows) { "onnxruntime/onnxruntime.dll" 
 /// The OpenVR client library 2.12.14 (the function tables the core uses), inside `_internal`.
 pub const OPENVR: &str = if cfg!(windows) { "openvr/libopenvr_api_64.dll" } else { "openvr/libopenvr_api_64.so" };
 
+/// Stops ONNX Runtime's own usage reports to Microsoft for the app and the processes it starts,
+/// such as the voice conversion worker (issue #518). They are not the app's opt-in telemetry and
+/// never depend on its consent setting.
+///
+/// # Safety
+///
+/// Changes the process environment: call at the start of the app, before other threads run.
+pub unsafe fn disable_onnx_runtime_telemetry() {
+    unsafe { ocr_runtime::engine::disable_telemetry_for_process() };
+}
+
 /// Points chat reading, translation and OpenVR at the libraries beside the app, and has
 /// translation use chat reading's ONNX Runtime environment: `ort` allows one per process.
 /// Returns a line for the log. Call once, before any of them is used.

@@ -38,7 +38,22 @@ static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLoc
 static INTRA_THREADS: AtomicUsize = AtomicUsize::new(0);
 
 fn environment() -> Result<&'static Environment> {
-    ENVIRONMENT.get_or_init(|| ort::init().with_name("rvc-runtime").build().map_err(|error| error.to_string())).as_ref().map_err(backend)
+    ENVIRONMENT
+        .get_or_init(|| ort::init().with_name("rvc-runtime").with_telemetry(false).build().map_err(|error| error.to_string()))
+        .as_ref()
+        .map_err(backend)
+}
+
+/// Stops ONNX Runtime's usage reports for this process (issue #518): the official Linux build
+/// writes a `deviceid` and sends a first event when the environment is made, before the
+/// environment option (`with_telemetry(false)`, also set here) can apply. The app sets the
+/// variable for the worker it starts as well; the tools set it themselves.
+///
+/// # Safety
+///
+/// Changes the process environment: call at the start of `main`, before other threads run.
+pub unsafe fn disable_telemetry_for_process() {
+    unsafe { std::env::set_var("ORT_DISABLE_TELEMETRY", "1") };
 }
 
 /// Loads ONNX Runtime from `library` (`libonnxruntime.so`, `onnxruntime.dll`) instead of
@@ -50,7 +65,7 @@ pub fn load_runtime(library: &Path) -> Result<()> {
     let result = ENVIRONMENT.get_or_init(|| {
         fresh = true;
         let builder = ort::init_from(library).map_err(|error| error.to_string())?;
-        builder.with_name("rvc-runtime").build().map_err(|error| error.to_string())
+        builder.with_name("rvc-runtime").with_telemetry(false).build().map_err(|error| error.to_string())
     });
     match (fresh, result) {
         (true, Ok(_)) => Ok(()),
