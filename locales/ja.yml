@@ -1007,12 +1007,13 @@ config_page:
     experimental_features:
         notice: "ここにあるのは試験中の機能です。どれも最初はオフで、オンにした機能だけが動きます。今後の版で変わることや、なくなることもあります。調子が悪いときはオフに戻してください。"
         empty: "いま試せる機能はありません。新しい機能が加わるとここに並びます。"
+        section_label: "試せる機能"
         # src-ui/logics/configs/experimentalFeatures.ts の機能ごとに1つ:
         # <id>: { label: "...", desc: "何をするか。実験中であること…" }
         items:
             tray_companion:
                 label: "六芒星のオーバーレイで操作する"
-                desc: "画面の端に隠れた六芒星とデスクトップの字幕で VRCT-VOX を使います。次の起動からはメイン画面を開かずにトレイで始まります。マウスを画面の端に近づけると六芒星が半分出てきます。ホイールで回し、三角形に載せると出る札を押すと、その機能が切り替わります。試験中の機能です。"
+                desc: "画面の端に隠れた六芒星とデスクトップの字幕でASTAROTを使います。次の起動からはメイン画面を開かずにトレイで始まります。マウスを画面の端に近づけると六芒星が半分出てきます。ホイールで回し、三角形に載せると出る札を押すと、その機能が切り替わります。試験中の機能です。"
                 edge:
                     label: "六芒星を隠す画面の端"
                     desc: "マウスをこの端の真ん中に近づけると、六芒星が出てきます。"
@@ -2280,13 +2281,13 @@ companion:
     translation: "翻訳"
     "on": "オン"
     "off": "オフ"
-    open_main: "VRCT-VOX を開く"
+    open_main: "ASTAROTを開く"
     close: "閉じる"
     handle: "コントロールパネルを開く"
     menu_start: "認識を開始"
     menu_stop: "認識を停止"
     menu_panel: "コントロールパネルを開く"
-    menu_main: "VRCT-VOX を開く"
+    menu_main: "ASTAROTを開く"
     menu_quit: "終了"
     menu_monitor: "表示するモニター"
     menu_monitor_primary: "メインのモニター"

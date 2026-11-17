@@ -33,3 +33,11 @@ test("#437: user-facing strings do not say this PC", () => {
 test("#472: Japanese strings write メモリ, not メモリー", () => {
     assert.deepEqual(locale("ja").split("\n").filter(line => line.includes("メモリー")), []);
 });
+
+// #477: the app is called ASTAROT. Only the line that explains the old name may say VRCT-VOX.
+test("#477: user-facing strings use ASTAROT, not the old name", () => {
+    for (const language of ["ja", "en"]) {
+        const lines = locale(language).split("\n").filter(line => line.includes("VRCT-VOX") && !/^\s*fork_notice:/.test(line));
+        assert.deepEqual(lines, [], language);
+    }
+});

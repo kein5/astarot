@@ -12,6 +12,7 @@ import {
 } from "../../../../../../logics/configs/experimentalFeatures.ts";
 import type { ExperimentalFeature, ExperimentalFeatureValues } from "../../../../../../logics/configs/experimentalFeatures.ts";
 import { CheckboxContainer, DropdownMenuContainer } from "../_templates/Templates";
+import { SectionLabelComponent } from "../_components";
 import { EDGES } from "../../../../../../logics/companion/hexagram.ts";
 
 type Current = { state?: string; data?: unknown };
@@ -61,6 +62,8 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
     const { t } = useI18n();
     return (
         <div className={styles.container}>
+            {/* Like every other page, it starts with its category heading, then the notice. */}
+            <SectionLabelComponent label={t("config_page.experimental_features.section_label")} />
             <p className={styles.notice}>{t("config_page.experimental_features.notice")}</p>
             {features.length === 0
                 ? <p className={styles.empty}>{t("config_page.experimental_features.empty")}</p>
