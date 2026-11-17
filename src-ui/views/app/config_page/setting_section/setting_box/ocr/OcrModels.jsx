@@ -60,7 +60,8 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                     <button type="button" disabled={!!pending || job.phase === "cancelling"}
                         onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</button></>}
                 {job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
-                {!installed && !active && <button type="button" className="primary" disabled={busy}
+                {/* Opening a review is not the download itself: the same plain button as everywhere (#474). */}
+                {!installed && !active && <button type="button" disabled={busy}
                     onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog.catalog_version }); }}>
                     {t("model_downloads.review")}</button>}
             </div>;
@@ -68,7 +69,7 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
         {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
             <h3>{t("model_downloads.warning_title")}</h3>
             <p>{selected.name} · {selected.provider}</p>
-            <p>{Number(selected.total_bytes).toLocaleString("en-US")} bytes · {selected.license}</p>
+            <p>{t("model_downloads.exact_bytes", { bytes: Number(selected.total_bytes).toLocaleString("en-US") })} · {selected.license}</p>
             <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
             <p>{t("model_downloads.connection_notice")}</p>
             <p>{t("model_downloads.source")}: {(selected.sources ?? [selected.source]).map(url =>
@@ -77,11 +78,12 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                 <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{new URL(url).hostname === "www.apache.org" || url.endsWith("/LICENSE") ? selected.license : `${t("model_downloads.model_card")} (${i + 1})`}</a> </span>)}</p>
             {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
             <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-            <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {Number(file.size).toLocaleString("en-US")} bytes</li>)}</ul>
+            <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {t("model_downloads.exact_bytes", { bytes: Number(file.size).toLocaleString("en-US") })}</li>)}</ul>
             <label className={voiceStyles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             <div className={voiceStyles.actions}>
                 <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
-                <button type="button" disabled={!consent || busy} onClick={() => {
+                {/* Start is the dialog's main action: blue like the voice models' (#462). */}
+                <button type="button" className="primary" disabled={!consent || busy} onClick={() => {
                     if (!consent || busy) return;
                     send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version }); close();
                 }}>{t("model_downloads.start")}</button>

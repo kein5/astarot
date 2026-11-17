@@ -1,13 +1,12 @@
-"""Offline dependency-verification contracts; never install or build packages."""
-import contextlib
-import io
-import os
+"""Linux build contracts and the uv.lock verifier; never install or build packages."""
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+
+from tools import app_resources
 
 from tools import build_linux
 from tools.check_python_lock import validate_lock
@@ -35,6 +34,9 @@ name = "vrct-vox"
 version = "0.1.0"
 source = { virtual = "." }
 '''
+# The two pinned speech.cpp archives a Linux package ships (stage_bundle is replaced in the tests).
+MANIFEST = {'assets': {'linux-x64-vulkan': {'name': 'vulkan.zip'}, 'linux-x64-cpu': {'name': 'cpu.zip'}}}
+ARCHIVES = {'linux-x64-vulkan': Path('vulkan.zip'), 'linux-x64-cpu': Path('cpu.zip')}
 
 
 class LinuxDependencyTests(unittest.TestCase):
@@ -106,55 +108,6 @@ class LinuxDependencyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'missing or invalid SHA-256'):
             validate_lock(self.lock)
 
-    def test_sync_uses_hashed_lock_and_same_groups_in_explicit_build_environment(self):
-        venv = self.root / 'build with spaces/venv'
-        with patch.object(build_linux, 'ROOT', self.root), patch.object(build_linux, 'run') as run, \
-                patch.dict(os.environ, {'UV_PROJECT_ENVIRONMENT': '/wrong/environment'}):
-            build_linux.sync_dependencies(['uv', '--offline'], venv, '3.11')
-        self.assertEqual(run.call_count, 2)
-        self.assertEqual(run.call_args_list[0].args[0], ['uv', '--offline', 'venv', '--python', '3.11', venv])
-        command = run.call_args.args[0]
-        self.assertEqual(command, ['uv', '--offline', 'sync', '--frozen', '--no-install-project',
-                                   '--python', venv / 'bin/python', '--group', 'dev', '--group', 'linux-build'])
-        self.assertEqual(run.call_args.kwargs['cwd'], self.root)
-        self.assertEqual(run.call_args.kwargs['env']['UV_PROJECT_ENVIRONMENT'], str(venv.resolve()))
-        # uv consumes uv.lock itself; hashes and full commits are never stripped
-        # or passed through a second dependency resolver.
-        self.assertIn(f'hash = "sha256:{SHA256}"', self.lock.read_text())
-        self.assertIn(f'rev={COMMIT}#{COMMIT}', self.lock.read_text())
-        self.assertFalse((self.root / 'requirements.txt').exists())
-
-    def test_invalid_lock_stops_before_any_environment_command(self):
-        for packages in (INDEX_PACKAGE.replace(f', hash = "sha256:{SHA256}"', ''),
-                         GIT_PACKAGE.replace(COMMIT, 'main')):
-            with self.subTest(packages=packages):
-                self.write_lock(packages)
-                with patch.object(build_linux, 'ROOT', self.root), patch.object(build_linux, 'run') as run:
-                    with self.assertRaises(ValueError):
-                        build_linux.sync_dependencies(['uv'], self.root / 'venv', '3.11')
-                run.assert_not_called()
-
-    def test_installer_hash_failure_aborts_build_before_freezing(self):
-        commands = []
-
-        def subprocess_run(argv, **kwargs):
-            self.assertTrue(kwargs['check'])
-            commands.append(argv)
-            if argv[:2] == ['uv', 'sync']:
-                raise subprocess.CalledProcessError(1, argv, stderr='Hash mismatch')
-
-        with patch.object(build_linux, 'ROOT', self.root), \
-                patch.object(build_linux.sys, 'platform', 'linux'), \
-                patch.object(build_linux.platform, 'machine', return_value='x86_64'), \
-                patch.object(sys, 'argv', ['build_linux.py', '--work-dir', str(self.root / 'build'),
-                                          '--speech-archive', str(self.root / 'speech.zip')]), \
-                patch.object(build_linux.subprocess, 'run', side_effect=subprocess_run), \
-                contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaises(subprocess.CalledProcessError):
-                build_linux.main()
-        self.assertEqual([command[:2] for command in commands], [['uv', 'venv'], ['uv', 'sync']])
-        self.assertFalse((self.root / 'build/resources').exists())
-
     def test_validator_cli_reports_bad_lock_and_exits_nonzero(self):
         self.write_lock(GIT_PACKAGE.replace(COMMIT, 'main'))
         result = subprocess.run([sys.executable, '-S', str(build_linux.ROOT / 'tools/check_python_lock.py'),
@@ -191,6 +144,87 @@ class LinuxWorkspaceTests(unittest.TestCase):
                         self.assertTrue(target.is_file(), path)
                         outside.add(target.relative_to(root.resolve()).as_posix())
         self.assertEqual(set(build_linux.CRATE_INPUTS), outside)
+
+
+class LinuxStagingTests(unittest.TestCase):
+    """The candidate is the app and its _internal folder; nothing of the Python backend."""
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='vox linux staging ')
+        self.addCleanup(temporary.cleanup)
+        self.work = Path(temporary.name)
+
+    def fake_run(self, argv, **_):
+        names = [str(value) for value in argv]
+        output = Path(names[names.index('--output-dir') + 1]) if '--output-dir' in names else None
+        if names[1].endswith('build_voice_gate.py'):
+            for name in app_resources.LINUX_HELPERS:
+                (output / name).write_bytes(b'helper')
+        elif names[1].endswith('build_rvc_worker.py'):
+            (output / 'vrct-rvc-worker').write_bytes(b'worker')
+        elif names[1].endswith('rust_licenses.py'):
+            licenses = Path(names[names.index('--output') + 1])
+            licenses.mkdir(parents=True)
+            (licenses / 'crates.json').write_text('[]')
+            (licenses / 'README.md').write_text('crates')
+        else:
+            self.fail(f'unexpected command {names}')
+
+    @staticmethod
+    def fake_bundle(archive, output, asset):
+        (output / 'notices').mkdir(parents=True)
+        (output / 'speech').write_bytes(b'engine')
+        (output / 'bundle.json').write_text('{}')
+        (output / 'notices/LICENSE').write_text('MIT')
+
+    def test_internal_holds_the_engine_helpers_and_notices_only(self):
+        with patch.object(build_linux, 'run', side_effect=self.fake_run), \
+                patch.object(build_linux, 'load_manifest', return_value=MANIFEST), \
+                patch.object(build_linux, 'stage_bundle', side_effect=self.fake_bundle), \
+                patch.object(build_linux, 'verify_bundle'):
+            internal = build_linux.stage_internal(self.work, ARCHIVES)
+        names = {path.relative_to(internal).as_posix() for path in internal.rglob('*') if path.is_file()}
+        self.assertLessEqual(set(app_resources.required('linux')), names)
+        # Both engine builds, each with its own pinned bundle and notices.
+        for folder in ('speechcpp', 'speechcpp-cpu'):
+            self.assertIn(f'build/{folder}/notices/LICENSE', names)
+            self.assertIn(f'build/{folder}/bundle.json', names)
+        self.assertTrue({f'docs/{name}' for name in build_linux.SHIPPED_DOCS} <= names)
+        self.assertTrue(any(name.startswith('config/pipewire/') for name in names))
+        for forbidden in ('licenses/python', 'integrations', 'src-python', 'python-environment.json', 'rapidocr'):
+            self.assertFalse(any(name.startswith(forbidden) for name in names), forbidden)
+
+    def test_both_engine_builds_are_staged_from_their_pinned_archives(self):
+        staged = []
+
+        def record(archive, output, asset):
+            staged.append((archive.name, output.name, asset['name']))
+            self.fake_bundle(archive, output, asset)
+        with patch.object(build_linux, 'run', side_effect=self.fake_run), \
+                patch.object(build_linux, 'load_manifest', return_value=MANIFEST), \
+                patch.object(build_linux, 'stage_bundle', side_effect=record), \
+                patch.object(build_linux, 'verify_bundle'):
+            build_linux.stage_internal(self.work, build_linux.speech_archives(MANIFEST, Path('/archives')))
+        self.assertEqual(staged, [('vulkan.zip', 'speechcpp', 'vulkan.zip'), ('cpu.zip', 'speechcpp-cpu', 'cpu.zip')])
+
+    def test_a_missing_helper_stops_the_build(self):
+        def without_gate(argv, **options):
+            self.fake_run(argv, **options)
+            gate = self.work / 'build/vrct-voice-gate'
+            if gate.exists():
+                gate.unlink()
+        with patch.object(build_linux, 'run', side_effect=without_gate), \
+                patch.object(build_linux, 'load_manifest', return_value=MANIFEST), \
+                patch.object(build_linux, 'stage_bundle', side_effect=self.fake_bundle), \
+                patch.object(build_linux, 'verify_bundle'):
+            with self.assertRaisesRegex(ValueError, 'vrct-voice-gate'):
+                build_linux.stage_internal(self.work, ARCHIVES)
+
+    def test_the_tauri_workspace_ships_no_sidecar(self):
+        source = (Path(build_linux.ROOT) / 'tools/build_linux.py').read_text(encoding='utf-8')
+        self.assertNotIn('PyInstaller', source)
+        self.assertNotIn('vrct-vox-sidecar', source)
+        self.assertIn("pop('externalBin', None)", source)
 
 
 if __name__ == '__main__':

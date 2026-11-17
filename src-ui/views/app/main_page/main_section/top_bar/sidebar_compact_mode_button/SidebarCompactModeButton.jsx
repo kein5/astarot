@@ -14,7 +14,7 @@ export const SidebarCompactModeButton = () => {
     });
 
     return (
-        <button type="button" aria-label={t("studio.toggle_sidebar")}
+        <button type="button" data-sidebar-toggle="" aria-label={t("studio.toggle_sidebar")}
             aria-expanded={!currentIsMainPageCompactMode.data} className={styles.container} onClick={toggleIsMainPageCompactMode}>
             <ArrowLeftSvg className={class_names} preserveAspectRatio="none" aria-hidden="true" />
         </button>

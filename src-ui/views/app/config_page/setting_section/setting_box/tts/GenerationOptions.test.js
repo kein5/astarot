@@ -1,4 +1,7 @@
-import * as routeState from "../../../../../../logics/voice/routeState.js";
+import * as routeState from "../../../../../../logics/voice/routeState.ts";
+import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDraft.ts";
+import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.js";
+import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceErrorText.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
@@ -63,8 +66,8 @@ test("TTS form supplies an existing error ID to both language groups", async () 
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: s.draft, status: {}, devices: {}, send: () => {} }) },
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: s.draft }) },
         "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions },
-        "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {} },
-        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" },
+        "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES: {}, validCoeiroinkOptions: () => true },
+        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
         "./StatusLine": { StatusLine: "status" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
@@ -79,16 +82,17 @@ test("TTS form supplies an existing error ID to both language groups", async () 
     runtime.unmount(); s.runtime.unmount();
 });
 
-for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric fields reference their error (${pitch}, ${rate})`, async () => {
+for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [0, 0, 65], [0, 0, 1.5]]) test(`RVC numeric fields reference their error (${pitch}, ${rate}, ${threads})`, async () => {
     const runtime = hooks();
     const draft = { mode: "converted", engine: "rvc", rvc_pitch: pitch, rvc_index_rate: rate,
-        rvc_runtime: "", rvc_model: "", rvc_index: "" };
+        rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_device: "auto", rvc_threads: threads, rvc_highpass: true };
     const { DirectVoiceSettings } = await loadModule(new URL("../advanced_settings/DirectVoiceSettings.jsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft }) },
         "../../../../../../logics/voice/routeState": routeState,
+        "../../../../../../logics/voice/directVoiceDraft": directVoiceDraft,
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ directState: { settings: draft }, directSources: {},
             settings: { routing: "managed" }, route: {}, send: () => {}, setDirectDraftBlocked: () => {} }), sourceKey: value => value },
-        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route", VoiceRouteControls: "controls" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" },
+        "../device/VoiceRouteSettings": { VoiceRouteSummary: "route", VoiceRouteControls: "controls" }, "../tts/VirtualMicEntry": { VirtualMicEntry: "virtual-mic" }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
         "./ModelDownloads": { ModelDownloads: "downloads" }, "./VcRuntimeSetup": { VcRuntimeSetup: "runtime" }, "./StatusLine": { StatusLine: "status" },
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },
@@ -99,16 +103,27 @@ for (const [pitch, rate] of [[25, 0.5], [0, -1], [NaN, NaN]]) test(`RVC numeric 
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
         "../../../../../../logics/common/fileDrop": { extensionOf: path => path.slice(path.lastIndexOf(".")).toLowerCase() },
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
+        "../../../../../../logics/common/pathExample": { pathExample: file => `/models/${file}` },
+        "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
+        "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
     });
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });
     const alert = find(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers");
     const fields = [];
     find(tree, node => { if (node.type === "input" && node.props.type === "number") fields.push(node); return false; });
-    assert.equal(fields.length, 2);
+    assert.equal(fields.length, 3);
     for (const field of fields) {
         assert.equal(field.props["aria-describedby"], alert.props.id);
         assert.equal(typeof field.props["aria-invalid"], "boolean");
     }
     assert.ok(fields.some(field => field.props["aria-invalid"]));
+    // A cleared number field still shows what goes in it.
+    assert.deepEqual(fields.map(field => field.props.placeholder),
+        [12, 0.75, 4].map(value => `voice_ui.example:${JSON.stringify({ value })}`));
+    // Each path field shows an example path, written the way this OS writes paths (pathExample).
+    const paths = [];
+    find(tree, node => { if (node.type === "input" && node.props.type === "text") paths.push(node); return false; });
+    assert.deepEqual(paths.map(field => field.props.placeholder), ["rvc-runtime", "voice.pth", "voice.index"]
+        .map(file => `voice_ui.example:${JSON.stringify({ value: `/models/${file}` })}`));
     runtime.unmount();
 });

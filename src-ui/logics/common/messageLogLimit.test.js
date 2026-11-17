@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MESSAGE_LOG_LIMIT, keepRecentLogs } from "./messageLogLimit.js";
+import { MESSAGE_LOG_LIMIT, keepRecentLogs } from "./messageLogLimit.ts";
 
 test("the log keeps only the most recent rows", () => {
     const rows = Array.from({ length: MESSAGE_LOG_LIMIT + 5 }, (_, index) => ({ id: index }));

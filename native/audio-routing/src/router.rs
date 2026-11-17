@@ -169,11 +169,11 @@ pub fn open_output(device: &str, rate: u32, channels: u16) -> Result<Box<dyn Out
     {
         Ok(Box::new(crate::wasapi::output::WindowsOutput::open(device, rate, channels, true)?))
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "pipewire"))]
     {
         Ok(Box::new(crate::pipewire::output::PipeWireOutput::open(device, rate, channels, None, "vrct.tts")?))
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(not(any(windows, all(target_os = "linux", feature = "pipewire"))))]
     {
         let _ = (rate, channels);
         Err(Error::speech("unsupported_platform"))

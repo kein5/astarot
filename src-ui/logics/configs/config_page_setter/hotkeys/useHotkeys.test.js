@@ -16,7 +16,7 @@ async function setup() {
     // replaced; no plugin, portal, browser or application is started.
     const dependencies = moduleUrl(`
         export const state = { ready: true, settings: false, updating: false, actions: [], notices: [],
-            registered: new Map(), removed: [], writes: [], calls: [], handlers: new Set(), removals: 0, cleanups: [], disposers: [],
+            registered: new Map(), removed: [], writes: [], calls: [], handlers: new Set(), lostHandlers: new Set(), warnings: [], removals: 0, cleanups: [], disposers: [],
             hotkeys: { open_quick_chat: ['Ctrl', 'Q'] } };
         export const hot = { data: {}, dispose: callback => state.disposers.push(callback) };
         export const useRef = value => state.runtime ? state.runtime.api.useRef(value) : ({ current: value });
@@ -24,7 +24,7 @@ async function setup() {
         export const store = { text_area_ref: { current: { focus: () => state.actions.push('focus-input') } }, appWindow: {
             isMinimized: async () => state.minimized ?? false,
             minimize: async () => { state.actions.push('minimize'); },
-            unminimize: async () => { state.actions.push('unminimize'); },
+            unminimize: async () => { if (state.unminimizeFails) throw new Error('window'); state.actions.push('unminimize'); },
             setFocus: async () => { state.actions.push('set-focus'); },
             onFocusChanged: callback => { state.focusChanged = callback; return () => {}; },
         } };
@@ -33,7 +33,7 @@ async function setup() {
         export const useStore_Hotkeys = () => ({ currentHotkeys: { data: state.hotkeys }, updateHotkeys: value => { state.hotkeys = value; }, pendingHotkeys() {} });
         export const useStdoutToPython = () => ({ asyncStdoutToPython: async (...args) => { state.writes.push(args); return state.writeGate ?? true; } });
         export const useNotificationStatus = () => ({ showNotification_SaveSuccess() {}, closeNotification() {},
-            showNotification_Error: (...args) => state.notices.push(args) });
+            showNotification_Error: (...args) => state.notices.push(args), showNotification_Warning: (...args) => state.warnings.push(args) });
         export const useI18n = () => ({ t: key => key, i18n: { exists: () => true } });
         export const useMainFunction = () => ({ toggleTranslation: () => state.actions.push('translation'),
             toggleTranscriptionSend: () => state.actions.push('send'), toggleTranscriptionReceive: () => state.actions.push('receive') });
@@ -43,19 +43,24 @@ async function setup() {
             if (command === 'quick_chat_shortcut_platform') return state.platformGate ?? 'wayland';
             if (command === 'portal_shortcuts_bind') return state.bind?.(args) ?? {};
             if (command === 'quick_chat_show') state.actions.push('quick-chat');
-            if (command === 'main_window_restore') state.actions.push('restore');
+            if (command === 'main_window_restore') {
+                if (state.restoreFails) throw 'restore_failed';
+                state.actions.push('restore');
+            }
         };
         export const listen = async (name, callback) => {
-            state.handlers.add(callback);
+            // "portal-shortcuts-lost" is kept apart, so the counts below are those of the key presses.
+            const handlers = name === 'portal-shortcuts-lost' ? state.lostHandlers : state.handlers;
+            handlers.add(callback);
             await state.listenGate;
-            return () => { state.handlers.delete(callback); state.removals++; };
+            return () => { handlers.delete(callback); if (handlers === state.handlers) state.removals++; };
         };
         export const register = async (key, callback) => {
             await state.registerGate;
             state.registered.set(key, callback);
         };
         export const unregister = async key => { state.removed.push(key); state.registered.delete(key); };
-        export const unregisterAll = async () => { await state.unregisterGate; state.removed.push(...state.registered.keys()); state.registered.clear(); };
+        export const unregisterAll = async () => { await state.unregisterGate; if (state.unregisterFails) throw new Error('plugin'); state.removed.push(...state.registered.keys()); state.registered.clear(); };
     `) + `#${crypto.randomUUID()}`;
     const { state, hot } = await import(dependencies);
     let instance = 0;
@@ -67,7 +72,8 @@ async function setup() {
         return state.runtime ? module.useHotkeys : module.useHotkeys();
     };
     return { state, load, dispose: index => state.disposers[index](hot.data),
-        emit: () => { for (const callback of state.handlers) callback({ payload: { id: "open_quick_chat" } }); } };
+        emit: () => { for (const callback of state.handlers) callback({ payload: { id: "open_quick_chat" } }); },
+        lost: () => { for (const callback of state.lostHandlers) callback({ payload: null }); } };
 }
 
 for (const boundary of ["platform", "unregister", "listen", "bind"]) {
@@ -419,6 +425,53 @@ test("elsewhere the visibility hotkey asks the window whether it is minimized", 
     assert.ok(!state.calls.some(([command]) => command === "main_window_restore"));
 });
 
+// #465: a failure no caller catches is told, not only logged.
+test("a registration that fails before any key is bound says no hotkey works", async () => {
+    const subject = await setup();
+    const { state } = subject;
+    state.platformGate = "native";
+    state.unregisterFails = true;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.equal(state.registered.size, 0);
+    assert.deepEqual(state.notices.map(([message]) => message), ["config_page.hotkeys.error_failed_to_register_all"]);
+});
+
+test("on Wayland a window the hotkey cannot restore is told, and the next press tries again", async () => {
+    const subject = await setup();
+    const { state } = subject;
+    state.hotkeys = { toggle_vrct_visibility: ["Ctrl", "H"] };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    await flush();
+    const press = async () => { for (const callback of state.handlers) callback({ payload: { id: "toggle_vrct_visibility" } }); await flush(); await flush(); };
+    await press();
+    state.restoreFails = true;
+    await press();
+    assert.deepEqual(state.actions, ["minimize"]);
+    assert.deepEqual(state.notices.map(([message]) => message), ["config_page.hotkeys.error_window_restore_failed"]);
+    state.restoreFails = false;
+    await press();
+    assert.deepEqual(state.actions, ["minimize", "restore", "focus-input"]);
+});
+
+test("elsewhere a window the hotkey cannot restore is told", async () => {
+    const subject = await setup();
+    const { state } = subject;
+    state.platformGate = "native";
+    state.hotkeys = { toggle_vrct_visibility: ["Ctrl", "H"] };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    await flush();
+    const [[, press]] = [...state.registered];
+    state.minimized = true;
+    state.unminimizeFails = true;
+    await press({ state: "Pressed" });
+    await flush();
+    assert.deepEqual(state.actions, []);
+    assert.deepEqual(state.notices.map(([message]) => message), ["config_page.hotkeys.error_window_restore_failed"]);
+});
+
 test("the voice hotkeys press the controls the main window published", async () => {
     const subject = await setup();
     const { state } = subject;
@@ -433,4 +486,53 @@ test("the voice hotkeys press the controls the main window published", async () 
         await flush();
     }
     assert.deepEqual(state.actions, ["stop", "toggleMute", "toggleTts", "toggleRvc"]);
+});
+
+test("a portal that goes away is said and the keys are bound again once; a second loss soon after is left to the user", async context => {
+    context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    const binds = () => state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length;
+    assert.equal(binds(), 1);
+    subject.lost();
+    assert.deepEqual(state.warnings.map(([message]) => message), ["quick_chat.portal_lost_reconnecting"]);
+    assert.equal(binds(), 1, "not at once: a restarted portal needs a moment");
+    context.mock.timers.tick(3000);
+    await flush(); await flush(); await flush();
+    assert.equal(binds(), 2);
+    subject.emit();
+    assert.deepEqual(state.actions, ["quick-chat"], "the keys work again");
+    // Lost again within a minute: no second automatic bind, the user is told what to do.
+    context.mock.timers.tick(10000);
+    subject.lost();
+    context.mock.timers.tick(3000);
+    await flush(); await flush();
+    assert.equal(binds(), 2);
+    assert.deepEqual(state.notices.map(([message]) => message), ["quick_chat.portal_lost"]);
+});
+
+test("a portal lost while the shortcuts are paused waits for the next bind", async context => {
+    context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    await hook.unregisterAll();
+    subject.lost();
+    context.mock.timers.tick(5000);
+    await flush();
+    assert.deepEqual(state.warnings, []);
+    assert.equal(state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length, 1);
+});
+
+test("a reconnect that is pending when the shortcuts pause is dropped", async context => {
+    context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    subject.lost();
+    await hook.unregisterAll();
+    context.mock.timers.tick(5000);
+    await flush();
+    assert.equal(state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length, 1);
 });

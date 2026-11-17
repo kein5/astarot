@@ -9,8 +9,8 @@ VRCT-VOXは[misyaguziya/VRCT](https://github.com/misyaguziya/VRCT)を基にし�
 | プロジェクト・画面表示 | `VRCT-VOX` |
 | GitHubリポジトリ | `kein5/VRCT-VOX` |
 | npm・Cargoパッケージ、本体の実行名 | `vrct-vox` |
-| Pythonバックエンドの実行名 | `vrct-vox-sidecar` |
-| Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-vulkan-release.tar.gz`、同名の`.AppImage` |
+| Pythonバックエンドの実行名（0.4まで。0.5.0の配布物には入らない） | `vrct-vox-sidecar` |
+| Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-release.tar.gz`、同名の`.AppImage`、`.deb`、`.rpm`（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`） |
 | Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_cuda.zip`、`VRCT-VOX_<version>_x64-setup.exe` |
 | Linuxデスクトップエントリー | `vrct-vox.desktop` |
 

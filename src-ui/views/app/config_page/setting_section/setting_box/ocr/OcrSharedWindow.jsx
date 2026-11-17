@@ -17,7 +17,7 @@ export const OcrSharedWindow = () => {
     const label = t("config_page.ocr.shared_window.label");
     const active = currentOcrSharedWindow.data.active === true;
     return (
-        <section className={styles.region} aria-label={label}>
+        <section className={styles.region} aria-label={label} data-setting-id="shared_window">
             <p className={styles.regionLabel}>{label}</p>
             <p className={styles.regionDesc}>{t("config_page.ocr.shared_window.desc")}</p>
             <EnvReadout className={styles.sharedStatus} tone={view.tone}>

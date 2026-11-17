@@ -111,6 +111,33 @@ def test_verified_completion_does_not_apply_or_load_and_can_be_applied_explicitl
     assert m.state()["jobs"][entry.id]["phase"] == "applied"
 
 
+def test_state_reports_files_downloaded_in_an_earlier_run(setup, tmp_path):
+    """After a restart there is no job, but the catalog page still shows the model as downloaded."""
+    from models.model_downloads.manager import Downloads
+
+    m, entry, content, opened = setup
+    assert m.state()["downloaded"] == {}
+    start(m)
+    job = finish(m)
+    assert m.state()["downloaded"] == {entry.id: job["paths"]}
+    m.close()
+
+    restarted = Downloads(m.root, catalog=(entry,), transport=lambda url: None, reserve_bytes=0)
+    try:
+        state = restarted.state()
+        assert state["jobs"] == {} and state["downloaded"] == {entry.id: job["paths"]}
+        # A file of the wrong size, or a folder in its place, is not reported (no hashing here).
+        model = Path(job["paths"]["model"])
+        model.write_bytes(content + b"x")
+        assert restarted.state()["downloaded"] == {}
+        model.unlink()
+        model.mkdir()
+        assert restarted.state()["downloaded"] == {}
+    finally:
+        restarted.close()
+    assert opened == [opened[0]]
+
+
 def test_download_finishes_under_a_japanese_windows_locale(setup, monkeypatch):
     """Catalog text has "·", which cp932 cannot write: every download failed at the very end."""
     m, entry, _, _ = setup

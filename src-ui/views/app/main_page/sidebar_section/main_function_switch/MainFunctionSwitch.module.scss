@@ -3,8 +3,8 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: .4rem;
-    padding: .8rem 1rem;
+    gap: .3rem;
+    padding: .6rem 1rem;
 }
 
 .switch_container {
@@ -13,9 +13,10 @@
     justify-content: space-between;
     align-items: center;
     gap: .8rem;
-    min-height: 4.8rem;
+    min-height: 4.4rem;
     // 1.2rem at the sides leaves the label room for 「ボイスチェンジャー」 on one line in the 24rem rail.
-    padding: 1.2rem 1.2rem;
+    // .7rem above and below: six two-line names leave room for the languages under them.
+    padding: .7rem 1.2rem;
     border-radius: var(--vox_radius);
     background-color: var(--dark_925_color);
     cursor: pointer;
@@ -38,7 +39,7 @@
     }
 
     &.is_compact_mode {
-        padding: 1.5rem;
+        padding: 1.2rem;
         justify-content: center;
     }
     &.is_pending {
@@ -113,6 +114,14 @@ $pending_label_color: var(--dark_500_color);
     display: block;
     font-size: 1.2rem;
     color: var(--vox_description_text);
+    // A full-width bracket carries half an em of space on its left, so 「（OCR）」 started half
+    // a character right of the name above (#437, #475). Trimming by font features depended on the
+    // font (the default UI font has no proportional widths), so the bracket is drawn at its full
+    // width everywhere and the line is pulled back by that half em. Only a line that starts with
+    // a full-width bracket is moved (data-bracket); "(OCR)" in English is not.
+    font-feature-settings: normal;
+    @supports (text-spacing-trim: space-all) { text-spacing-trim: space-all; }
+    &[data-bracket] { text-indent: -.5em; }
     &.is_pending, &.is_unavailable {
         color: inherit;
     }

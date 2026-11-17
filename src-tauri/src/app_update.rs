@@ -13,16 +13,28 @@
 //! stable address. The download is verified against the public key in tauri.conf.json, and the
 //! signature has to name the announced version (`requireSignedVersion`).
 //!
+//! The backend core's update endpoints (`/get/data/available_releases`, the start-up
+//! `/run/software_update_info`, `/run/update_software`) use the same updater through
+//! [`CoreUpdates`], which `backend_host.rs` gives the core. The release list comes from the same
+//! GitHub release list and channel rule as the beta manifest ([`list_releases`]).
+//!
 //! Nothing here sees the user's text or voice. The log gets error kinds and URLs only.
 
 use serde::Serialize;
+use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, Runtime, Url, WebviewWindow};
-use tauri_plugin_updater::{Update, UpdaterExt};
+use tauri_plugin_updater::{Update, Updater, UpdaterExt};
+use vrct_core::controller::updates::{SoftwareUpdates, UpdateOutcome, no_update};
 
+/// The owner of the project's releases. Their downloads are the only ones taken ([`project_download`]).
+const OWNER: &str = "kein5";
+/// The repository, for the release list and the release pages. GitHub forwards both from the old
+/// name after a rename, so a copy built before a rename keeps working.
 const REPOSITORY: &str = "kein5/VRCT-VOX";
 const STABLE_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/latest.json";
 const RELEASES_API: &str = "https://api.github.com/repos/kein5/VRCT-VOX/releases?per_page=30";
@@ -78,6 +90,11 @@ impl InstallKind {
         matches!(self.mode(), "install" | "manual")
     }
 
+    /// The `platforms` key of latest.json when this copy checks for updates at all.
+    fn checking_target(&self) -> Option<&'static str> {
+        if self.checks() { self.target() } else { None }
+    }
+
     /// The `platforms` key of latest.json this copy reads.
     fn target(&self) -> Option<&'static str> {
         match self {
@@ -98,7 +115,8 @@ pub fn detect_install(executable: &Path, appimage: Option<&Path>, debug: bool) -
     };
     if cfg!(windows) {
         if directory.join("uninstall.exe").is_file() {
-            // Only the CUDA package carries the NVIDIA libraries (spec/backend_cuda.spec).
+            // The CUDA packages up to 0.4 carried the NVIDIA libraries in _internal/nvidia; from
+            // 0.5.0 both packages are the same and an updated CUDA install counts as CPU.
             let gpu = directory.join("_internal").join("nvidia").is_dir();
             return InstallKind::WindowsInstaller { gpu };
         }
@@ -145,6 +163,8 @@ pub struct GithubRelease {
     #[serde(default)]
     prerelease: bool,
     #[serde(default)]
+    published_at: Option<String>,
+    #[serde(default)]
     assets: Vec<GithubAsset>,
 }
 
@@ -154,35 +174,106 @@ pub struct GithubAsset {
     browser_download_url: String,
 }
 
-/// The latest.json of the newest published release the channel takes. Stable takes stable
-/// releases only; beta takes betas and stable releases alike, so a beta tester moves on to the
-/// stable release once it is out. Only this repository's release downloads are accepted.
-pub fn pick_manifest(releases: &[GithubRelease], channel: &str) -> Option<Url> {
-    let prefix = format!("https://github.com/{REPOSITORY}/releases/download/");
+/// The version and latest.json of a release the channel takes and the updater can install.
+/// Stable takes stable releases only; beta takes betas and stable releases alike, so a beta
+/// tester moves on to the stable release once it is out. Drafts, tags that are not a version,
+/// releases without latest.json and anything but the project's release downloads are left out.
+fn installable(release: &GithubRelease, channel: &str) -> Option<(semver::Version, Url)> {
+    if release.draft || (channel != "beta" && release.prerelease) {
+        return None;
+    }
+    let version = semver::Version::parse(release.tag_name.strip_prefix('v')?).ok()?;
+    let asset = release.assets.iter().find(|asset| asset.name == MANIFEST_NAME)?;
+    let url = Url::parse(&asset.browser_download_url).ok().filter(project_download)?;
+    Some((version, url))
+}
+
+/// A release download of the project's owner: `https://github.com/<owner>/<repository>/releases/download/…`.
+/// The repository's name is not checked. GitHub still answers the API at a renamed repository's
+/// old name, and the downloads it lists then carry the new name: checking the name would empty
+/// the beta channel and the release list without a word once the repository is renamed (Issue
+/// #456). What proves a download is its signature (`requireSignedVersion`); this only keeps the
+/// updater on the owner's GitHub release files.
+fn project_download(url: &Url) -> bool {
+    let plain = url.scheme() == "https"
+        && url.host_str() == Some("github.com")
+        && url.port().is_none()
+        && url.username().is_empty()
+        && url.password().is_none();
+    let segments: Vec<&str> = url.path_segments().map(Iterator::collect).unwrap_or_default();
+    plain
+        && matches!(segments.as_slice(), [owner, repository, "releases", "download", tag, _, ..]
+            if owner.eq_ignore_ascii_case(OWNER) && !repository.is_empty() && !tag.is_empty())
+}
+
+/// The latest.json files the release list names outside the project's downloads. The list
+/// leaves them out; they are logged so that a move of the downloads (another owner, another
+/// host) shows in the log instead of only as an empty list.
+fn foreign_manifests(releases: &[GithubRelease]) -> impl Iterator<Item = &str> {
     releases
         .iter()
-        .filter(|release| !release.draft && (channel == "beta" || !release.prerelease))
-        .filter_map(|release| {
-            let version = semver::Version::parse(release.tag_name.strip_prefix('v')?).ok()?;
-            let asset = release.assets.iter().find(|asset| asset.name == MANIFEST_NAME)?;
-            if !asset.browser_download_url.starts_with(&prefix) {
-                return None;
-            }
-            let url = Url::parse(&asset.browser_download_url).ok()?;
-            Some((version, url))
-        })
+        .flat_map(|release| release.assets.iter())
+        .filter(|asset| asset.name == MANIFEST_NAME)
+        .map(|asset| asset.browser_download_url.as_str())
+        .filter(|url| !Url::parse(url).is_ok_and(|url| project_download(&url)))
+}
+
+/// The latest.json of the newest release the channel takes.
+pub fn pick_manifest(releases: &[GithubRelease], channel: &str) -> Option<Url> {
+    releases
+        .iter()
+        .filter_map(|release| installable(release, channel))
         .max_by(|a, b| a.0.cmp(&b.0))
         .map(|(_, url)| url)
 }
 
-async fn beta_manifest() -> Result<Option<Url>, String> {
+/// One entry of `/get/data/available_releases` (`ReleaseInfo` of the Python backend).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReleaseEntry {
+    pub tag: String,
+    pub version: String,
+    pub is_prerelease: bool,
+    pub published_at: String,
+}
+
+/// The releases the channel can move to, newest first: the same choice as [`pick_manifest`],
+/// the running version and older ones included (Python's version picker listed them too).
+pub fn list_releases(releases: &[GithubRelease], channel: &str) -> Vec<ReleaseEntry> {
+    let mut listed: Vec<(semver::Version, ReleaseEntry)> = releases
+        .iter()
+        .filter_map(|release| {
+            let (version, _) = installable(release, channel)?;
+            let entry = ReleaseEntry {
+                tag: release.tag_name.clone(),
+                version: version.to_string(),
+                is_prerelease: release.prerelease,
+                published_at: release.published_at.clone().unwrap_or_default(),
+            };
+            Some((version, entry))
+        })
+        .collect();
+    listed.sort_by(|a, b| b.0.cmp(&a.0));
+    listed.into_iter().map(|(_, entry)| entry).collect()
+}
+
+/// The version and latest.json of a listed release, by its version (`0.5.0` or `v0.5.0`).
+pub fn find_release(releases: &[GithubRelease], channel: &str, wanted: &str) -> Option<(semver::Version, Url)> {
+    let wanted = semver::Version::parse(wanted.trim().strip_prefix('v').unwrap_or(wanted.trim())).ok()?;
+    releases
+        .iter()
+        .filter_map(|release| installable(release, channel))
+        .find(|(version, _)| *version == wanted)
+}
+
+/// The project's releases from the GitHub API, newest 30, without authentication.
+async fn fetch_releases() -> Result<Vec<GithubRelease>, String> {
     // The updater installs the same provider before its own requests.
     if rustls::crypto::CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
     let client = reqwest::Client::builder()
         .user_agent("VRCT-VOX-updater")
-        .timeout(std::time::Duration::from_secs(20))
+        .timeout(Duration::from_secs(20))
         .build()
         .map_err(|error| error.to_string())?;
     let response = client
@@ -196,13 +287,29 @@ async fn beta_manifest() -> Result<Option<Url>, String> {
     }
     let body = response.bytes().await.map_err(|error| error.to_string())?;
     let releases: Vec<GithubRelease> = serde_json::from_slice(&body).map_err(|error| error.to_string())?;
-    Ok(pick_manifest(&releases, "beta"))
+    for url in foreign_manifests(&releases) {
+        crate::startup_log(&format!("Update: skipped a latest.json outside the project's downloads: {url}"));
+    }
+    Ok(releases)
 }
+
+async fn beta_manifest() -> Result<Option<Url>, String> {
+    Ok(pick_manifest(&fetch_releases().await?, "beta"))
+}
+
+/// How long a finished check answers a check that starts after it. The core's start-up check
+/// and the update page's check at start run at the same time; one request serves both.
+const CHECK_REUSE: Duration = Duration::from_secs(30);
+
+type LatestCheck = Result<Option<Update>, String>;
 
 #[derive(Default)]
 pub struct AppUpdateState {
     pending: Mutex<Option<Update>>,
     busy: AtomicBool,
+    /// The last check of the channel's newest release. Held while a check runs, so that a
+    /// second one waits for it instead of asking again.
+    last_check: tauri::async_runtime::Mutex<Option<(Instant, LatestCheck)>>,
 }
 
 struct BusyGuard<'a>(&'a AtomicBool);
@@ -226,6 +333,148 @@ fn install_kind<R: Runtime>(app: &AppHandle<R>) -> InstallKind {
     #[cfg(not(target_os = "linux"))]
     let appimage: Option<PathBuf> = { let _ = app; None };
     detect_install(&executable, appimage.as_deref(), cfg!(debug_assertions))
+}
+
+/// An updater for this copy that reads `endpoints`. With `exactly`, the release of that version
+/// is taken whether it is newer or not (an update to a chosen version); otherwise only a newer
+/// one is.
+fn build_updater<R: Runtime>(
+    app: &AppHandle<R>,
+    kind: &InstallKind,
+    target: &str,
+    endpoints: Vec<Url>,
+    exactly: Option<semver::Version>,
+) -> Result<Updater, String> {
+    let mut builder = app
+        .updater_builder()
+        .target(target)
+        .timeout(Duration::from_secs(30))
+        .endpoints(endpoints)
+        .map_err(|error| error.to_string())?;
+    if let InstallKind::WindowsInstaller { gpu } = kind {
+        // The installer fetches the app package again: keep the edition the user chose.
+        builder = builder.installer_arg(if *gpu { "/EDITION=gpu" } else { "/EDITION=cpu" });
+    }
+    if let Some(wanted) = exactly {
+        builder = builder.version_comparator(move |_, release| release.version == wanted);
+    }
+    // Windows: once the installer has started, the updater ends this process with
+    // `std::process::exit`, so RunEvent::Exit never comes. The core is stopped here instead: it
+    // saves a setting changed in the last two seconds and stops the speech servers, whose files
+    // the installer replaces. Linux restarts through RunEvent::Exit, which stops it already.
+    let stopping = app.clone();
+    builder = builder.on_before_exit(move || {
+        if let Some(host) = stopping.try_state::<crate::backend_host::BackendHost>() {
+            crate::startup_log("Stopping the backend before the installer starts");
+            CORE_STOPPED_FOR_INSTALLER.store(true, Ordering::SeqCst);
+            host.stop_and_wait("The app is being updated; stopping", crate::backend_host::UPDATE_STOP_LIMIT);
+        }
+    });
+    builder.build().map_err(|error| {
+        crate::startup_log(&format!("Update: updater unavailable: {error}"));
+        "update_check_failed".to_string()
+    })
+}
+
+fn check_error_code(error: &tauri_plugin_updater::Error) -> &'static str {
+    match error {
+        // No latest.json (a release from before the updater) or no entry for this target.
+        tauri_plugin_updater::Error::ReleaseNotFound
+        | tauri_plugin_updater::Error::TargetNotFound(_)
+        | tauri_plugin_updater::Error::TargetsNotFound(_) => "update_metadata_missing",
+        _ => "update_check_failed",
+    }
+}
+
+fn download_error_code(error: &tauri_plugin_updater::Error) -> &'static str {
+    match error {
+        tauri_plugin_updater::Error::Minisign(_)
+        | tauri_plugin_updater::Error::Base64(_)
+        | tauri_plugin_updater::Error::SignatureUtf8(_)
+        | tauri_plugin_updater::Error::SignedVersionMismatch { .. }
+        | tauri_plugin_updater::Error::MissingSignedVersion => "update_signature_invalid",
+        _ => "update_download_failed",
+    }
+}
+
+/// Asks for the newest release of the running version's channel.
+async fn check_channel<R: Runtime>(app: &AppHandle<R>, kind: &InstallKind, target: &str) -> LatestCheck {
+    let channel = channel_of(&app.package_info().version);
+    let stable = Url::parse(STABLE_MANIFEST).map_err(|error| error.to_string())?;
+    let mut endpoints = Vec::new();
+    if channel == "beta" {
+        match beta_manifest().await {
+            Ok(Some(url)) => endpoints.push(url),
+            Ok(None) => {}
+            // The stable manifest below still answers.
+            Err(error) => crate::startup_log(&format!("Update: release list unavailable: {error}")),
+        }
+    }
+    endpoints.push(stable);
+    let updater = build_updater(app, kind, target, endpoints, None)?;
+    updater.check().await.map_err(|error| {
+        crate::startup_log(&format!("Update check failed: {error}"));
+        check_error_code(&error).to_string()
+    })
+}
+
+/// [`check_channel`], sharing a check that runs or has just ended (`CHECK_REUSE`). A failed
+/// check is shared only with the checks that waited for it: asking again tries again.
+async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, kind: &InstallKind, target: &str) -> LatestCheck {
+    let mut last = state.last_check.lock().await;
+    if let Some((at, result)) = last.as_ref()
+        && ((result.is_ok() && at.elapsed() < CHECK_REUSE) || at.elapsed() < Duration::from_secs(1))
+    {
+        return result.clone();
+    }
+    let result = check_channel(app, kind, target).await;
+    *last = Some((Instant::now(), result.clone()));
+    result
+}
+
+/// The core was stopped for the Windows installer (`on_before_exit`). Once that has happened the
+/// app has no backend left, so a failure to start the installer must not leave it running so.
+static CORE_STOPPED_FOR_INSTALLER: AtomicBool = AtomicBool::new(false);
+
+/// After a failed install: when the core was already stopped for the installer (Windows: the
+/// installer could not start, or the user declined it), the app restarts as it is, with its
+/// backend, instead of going on without one (Issue #456). Answers whether it restarts.
+fn restart_if_core_stopped<R: Runtime>(app: &AppHandle<R>) -> bool {
+    if !CORE_STOPPED_FOR_INSTALLER.swap(false, Ordering::SeqCst) {
+        return false;
+    }
+    crate::startup_log("Update: the installer did not start after the backend stopped; restarting");
+    app.request_restart();
+    true
+}
+
+/// Downloads `update`, verifies its signature and installs it. On Windows the installer takes
+/// over and this process exits; elsewhere it returns, and the caller restarts the app. A failure
+/// before the core is stopped leaves the running app as it was; a failure after it (the Windows
+/// installer did not start) restarts the app through [`restart_if_core_stopped`].
+async fn download_and_install(update: &Update, mut progress: impl FnMut(InstallProgress)) -> Result<(), &'static str> {
+    let mut downloaded = 0u64;
+    let bytes = update
+        .download(
+            |chunk, total| {
+                downloaded += chunk as u64;
+                progress(InstallProgress::Download { downloaded, total });
+            },
+            || {},
+        )
+        .await
+        .map_err(|error| {
+            crate::startup_log(&format!("Update download failed: {error}"));
+            download_error_code(&error)
+        })?;
+    progress(InstallProgress::Install);
+    crate::startup_log(&format!("Installing update {}", update.version));
+    // Windows: starts the installer and exits. Linux: replaces the AppImage, keeping the old
+    // one when writing the new one fails.
+    update.install(bytes).map_err(|error| {
+        crate::startup_log(&format!("Update install failed: {error}"));
+        "update_install_failed"
+    })
 }
 
 fn main_only<R: Runtime>(window: &WebviewWindow<R>) -> Result<(), String> {
@@ -274,48 +523,11 @@ pub async fn app_update_check<R: Runtime>(
 ) -> Result<CheckResult, String> {
     main_only(&window)?;
     let kind = install_kind(&app);
-    let target = match (kind.checks(), kind.target()) {
-        (true, Some(target)) => target,
-        _ => return Err("update_unsupported".into()),
+    let Some(target) = kind.checking_target() else {
+        return Err("update_unsupported".into());
     };
     let _busy = acquire(&state)?;
-    let channel = channel_of(&app.package_info().version);
-    let stable = Url::parse(STABLE_MANIFEST).map_err(|error| error.to_string())?;
-    let mut endpoints = Vec::new();
-    if channel == "beta" {
-        match beta_manifest().await {
-            Ok(Some(url)) => endpoints.push(url),
-            Ok(None) => {}
-            // The stable manifest below still answers.
-            Err(error) => crate::startup_log(&format!("Update: release list unavailable: {error}")),
-        }
-    }
-    endpoints.push(stable);
-
-    let mut builder = app
-        .updater_builder()
-        .target(target)
-        .timeout(std::time::Duration::from_secs(30))
-        .endpoints(endpoints)
-        .map_err(|error| error.to_string())?;
-    if let InstallKind::WindowsInstaller { gpu } = kind {
-        // The installer fetches the app package again: keep the edition the user chose.
-        builder = builder.installer_arg(if gpu { "/EDITION=gpu" } else { "/EDITION=cpu" });
-    }
-    let updater = builder.build().map_err(|error| {
-        crate::startup_log(&format!("Update: updater unavailable: {error}"));
-        "update_check_failed".to_string()
-    })?;
-    let update = updater.check().await.map_err(|error| {
-        crate::startup_log(&format!("Update check failed: {error}"));
-        match error {
-            // No latest.json (a release from before the updater) or no entry for this target.
-            tauri_plugin_updater::Error::ReleaseNotFound
-            | tauri_plugin_updater::Error::TargetNotFound(_)
-            | tauri_plugin_updater::Error::TargetsNotFound(_) => "update_metadata_missing".to_string(),
-            _ => "update_check_failed".to_string(),
-        }
-    })?;
+    let update = check_latest(&app, &state, &kind, target).await?;
     let result = CheckResult {
         available: update.is_some(),
         version: update.as_ref().map(|update| update.version.clone()),
@@ -337,7 +549,8 @@ pub enum InstallProgress {
 
 /// Downloads the update found by the last check, verifies its signature and installs it.
 /// On Windows the installer takes over and this process exits; on Linux the app restarts.
-/// Any failure before that leaves the running app as it was.
+/// A failure before the core stops leaves the running app as it was; on Windows the core stops
+/// just before the installer starts, so a failure after that restarts the app.
 #[tauri::command]
 pub async fn app_update_install<R: Runtime>(
     window: WebviewWindow<R>,
@@ -356,36 +569,121 @@ pub async fn app_update_install<R: Runtime>(
         .map_err(|_| "update_install_failed".to_string())?
         .clone()
         .ok_or_else(|| "update_not_checked".to_string())?;
-    let mut downloaded = 0u64;
-    let bytes = update
-        .download(
-            |chunk, total| {
-                downloaded += chunk as u64;
-                let _ = on_progress.send(InstallProgress::Download { downloaded, total });
-            },
-            || {},
-        )
-        .await
-        .map_err(|error| {
-            crate::startup_log(&format!("Update download failed: {error}"));
-            match error {
-                tauri_plugin_updater::Error::Minisign(_)
-                | tauri_plugin_updater::Error::Base64(_)
-                | tauri_plugin_updater::Error::SignatureUtf8(_)
-                | tauri_plugin_updater::Error::SignedVersionMismatch { .. }
-                | tauri_plugin_updater::Error::MissingSignedVersion => "update_signature_invalid".to_string(),
-                _ => "update_download_failed".to_string(),
-            }
-        })?;
-    let _ = on_progress.send(InstallProgress::Install);
-    crate::startup_log(&format!("Installing update {}", update.version));
-    // Windows: starts the installer and exits. Linux: replaces the AppImage, keeping the old
-    // one when writing the new one fails.
-    update.install(bytes).map_err(|error| {
-        crate::startup_log(&format!("Update install failed: {error}"));
-        "update_install_failed".to_string()
+    download_and_install(&update, |progress| {
+        let _ = on_progress.send(progress);
+    })
+    .await
+    .map_err(|code| {
+        restart_if_core_stopped(&app);
+        code.to_string()
     })?;
     app.restart();
+}
+
+/// `/run/software_update_info` from a check: the version found, or none.
+fn update_info(found: Result<Option<&str>, &str>) -> Value {
+    match found {
+        Ok(Some(version)) => json!({ "is_update_available": true, "new_version": version }),
+        // Python's answer when the check failed or found nothing newer.
+        Ok(None) | Err(_) => no_update(),
+    }
+}
+
+/// What the core reports for an `update_*` code of [`download_and_install`] or of the check.
+fn outcome_of(code: &str) -> UpdateOutcome {
+    if code == "update_signature_invalid" { UpdateOutcome::VerifyFailed } else { UpdateOutcome::DownloadFailed }
+}
+
+/// The updater behind the core's update endpoints (`docs/voice-stack/core-integration.md`,
+/// decision 20): the same install kinds, channel, release list, check and signed download as
+/// the update page. The calls come on the core's own threads, never on the async runtime.
+pub struct CoreUpdates<R: Runtime> {
+    app: AppHandle<R>,
+}
+
+impl<R: Runtime> CoreUpdates<R> {
+    pub fn new(app: AppHandle<R>) -> Self {
+        Self { app }
+    }
+
+    async fn install_async(&self, target_version: Option<&str>) -> Result<(), &'static str> {
+        let app = &self.app;
+        let kind = install_kind(app);
+        // A ZIP, a tar.gz, a read-only AppImage or a package is updated by the user or the
+        // package manager; the update page says how.
+        let target = match (kind.mode(), kind.target()) {
+            ("install", Some(target)) => target,
+            _ => return Err("update_unsupported"),
+        };
+        let state = app.state::<AppUpdateState>();
+        let _busy = acquire(&state).map_err(|_| "update_busy")?;
+        let update = match target_version {
+            None => check_latest(app, &state, &kind, target).await.map_err(|_| "update_check_failed")?,
+            Some(wanted) => {
+                let channel = channel_of(&app.package_info().version);
+                let releases = fetch_releases().await.map_err(|error| {
+                    crate::startup_log(&format!("Update: release list unavailable: {error}"));
+                    "update_check_failed"
+                })?;
+                let (version, manifest) = find_release(&releases, channel, wanted).ok_or("update_not_listed")?;
+                let updater = build_updater(app, &kind, target, vec![manifest], Some(version))
+                    .map_err(|_| "update_check_failed")?;
+                updater.check().await.map_err(|error| {
+                    crate::startup_log(&format!("Update check failed: {error}"));
+                    check_error_code(&error)
+                })?
+            }
+        };
+        let update = update.ok_or("update_not_found")?;
+        download_and_install(&update, |_| {}).await
+    }
+}
+
+impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
+    fn check(&self) -> Value {
+        let kind = install_kind(&self.app);
+        let Some(target) = kind.checking_target() else {
+            return no_update();
+        };
+        let state = self.app.state::<AppUpdateState>();
+        let result = tauri::async_runtime::block_on(check_latest(&self.app, &state, &kind, target));
+        update_info(result.as_ref().map(|update| update.as_ref().map(|update| update.version.as_str())).map_err(String::as_str))
+    }
+
+    fn releases(&self) -> Vec<Value> {
+        if install_kind(&self.app).checking_target().is_none() {
+            return Vec::new();
+        }
+        let channel = channel_of(&self.app.package_info().version);
+        match tauri::async_runtime::block_on(fetch_releases()) {
+            Ok(releases) => list_releases(&releases, channel)
+                .into_iter()
+                .filter_map(|entry| serde_json::to_value(entry).ok())
+                .collect(),
+            Err(error) => {
+                crate::startup_log(&format!("Update: release list unavailable: {error}"));
+                Vec::new()
+            }
+        }
+    }
+
+    /// The edition stays the one this copy was installed as (`/EDITION=gpu` only for a CUDA
+    /// install, as the update page does); `edition` only tells which endpoint asked.
+    fn install(&self, _edition: &str, target_version: Option<&str>) -> UpdateOutcome {
+        match tauri::async_runtime::block_on(self.install_async(target_version)) {
+            Ok(()) => {
+                // Linux: the AppImage is replaced. The restart ends the app through its normal
+                // exit, which stops the core.
+                self.app.request_restart();
+                UpdateOutcome::Launched
+            }
+            Err(code) => {
+                crate::startup_log(&format!("Update from the backend failed: {code}"));
+                restart_if_core_stopped(&self.app);
+                outcome_of(code)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -403,7 +701,92 @@ mod tests {
                 browser_download_url: format!("https://github.com/{REPOSITORY}/releases/download/{tag}/latest.json"),
             });
         }
-        GithubRelease { tag_name: tag.into(), draft: false, prerelease, assets }
+        GithubRelease { tag_name: tag.into(), draft: false, prerelease, published_at: Some(format!("{tag}-date")), assets }
+    }
+
+    fn versions(entries: &[ReleaseEntry]) -> Vec<&str> {
+        entries.iter().map(|entry| entry.version.as_str()).collect()
+    }
+
+    #[test]
+    fn the_list_follows_the_channel_newest_first() {
+        let releases = vec![
+            release("v0.4.0-beta.2", true, true),
+            release("v0.5.0", false, true),
+            release("v0.4.0", false, true),
+            release("v0.5.1-beta.1", true, true),
+            // Before the updater: nothing the updater could install.
+            release("v0.3.0", false, false),
+        ];
+        assert_eq!(versions(&list_releases(&releases, "stable")), ["0.5.0", "0.4.0"]);
+        let beta = list_releases(&releases, "beta");
+        assert_eq!(versions(&beta), ["0.5.1-beta.1", "0.5.0", "0.4.0", "0.4.0-beta.2"]);
+        assert_eq!(
+            beta[0],
+            ReleaseEntry {
+                tag: "v0.5.1-beta.1".into(),
+                version: "0.5.1-beta.1".into(),
+                is_prerelease: true,
+                published_at: "v0.5.1-beta.1-date".into(),
+            }
+        );
+        // The list and the manifest the check reads agree on the newest release.
+        assert!(pick_manifest(&releases, "beta").unwrap().as_str().ends_with("/v0.5.1-beta.1/latest.json"));
+    }
+
+    #[test]
+    fn the_list_leaves_out_drafts_foreign_downloads_and_odd_tags() {
+        let mut draft = release("v9.0.0", false, true);
+        draft.draft = true;
+        let mut foreign = release("v8.0.0", false, true);
+        foreign.assets[1].browser_download_url = "https://example.com/latest.json".into();
+        let mut odd = release("nightly", false, true);
+        odd.published_at = None;
+        let mut undated = release("v0.5.0", false, true);
+        undated.published_at = None;
+        let listed = list_releases(&[draft, foreign, odd, undated], "beta");
+        assert_eq!(versions(&listed), ["0.5.0"]);
+        assert_eq!(listed[0].published_at, "");
+        let entry = serde_json::to_value(&listed[0]).unwrap();
+        assert_eq!(entry, serde_json::json!({ "tag": "v0.5.0", "version": "0.5.0", "is_prerelease": false, "published_at": "" }));
+    }
+
+    #[test]
+    fn a_chosen_version_must_be_listed_for_the_channel() {
+        let releases = vec![release("v0.5.0", false, true), release("v0.5.1-beta.1", true, true), release("v0.4.0", false, false)];
+        let (version, url) = find_release(&releases, "stable", "0.5.0").unwrap();
+        assert_eq!(version.to_string(), "0.5.0");
+        assert!(url.as_str().ends_with("/v0.5.0/latest.json"), "{url}");
+        assert_eq!(find_release(&releases, "stable", "v0.5.0").unwrap().0.to_string(), "0.5.0");
+        // A beta is not on the stable channel; a release without latest.json cannot be installed.
+        assert!(find_release(&releases, "stable", "0.5.1-beta.1").is_none());
+        assert!(find_release(&releases, "beta", "0.5.1-beta.1").is_some());
+        assert!(find_release(&releases, "beta", "0.4.0").is_none());
+        assert!(find_release(&releases, "beta", "0.9.9").is_none());
+        assert!(find_release(&releases, "beta", "latest").is_none());
+    }
+
+    #[test]
+    fn the_start_up_answer_and_the_reported_failure() {
+        assert_eq!(update_info(Ok(Some("0.6.0"))), serde_json::json!({ "is_update_available": true, "new_version": "0.6.0" }));
+        let none = serde_json::json!({ "is_update_available": false, "new_version": "" });
+        assert_eq!(update_info(Ok(None)), none);
+        assert_eq!(update_info(Err("update_check_failed")), none);
+        assert_eq!(outcome_of("update_signature_invalid"), UpdateOutcome::VerifyFailed);
+        for code in ["update_download_failed", "update_install_failed", "update_unsupported", "update_busy",
+            "update_not_listed", "update_not_found", "update_check_failed", "update_metadata_missing"] {
+            assert_eq!(outcome_of(code), UpdateOutcome::DownloadFailed, "{code}");
+        }
+    }
+
+    #[test]
+    fn only_copies_that_check_have_a_target() {
+        assert_eq!(InstallKind::WindowsInstaller { gpu: true }.checking_target(), Some("windows-x86_64"));
+        assert_eq!(InstallKind::WindowsPortable.checking_target(), Some("windows-x86_64"));
+        assert_eq!(InstallKind::AppImageReadOnly.checking_target(), Some("linux-x86_64"));
+        assert_eq!(InstallKind::PackageManager("deb".into()).checking_target(), None);
+        assert_eq!(InstallKind::Development.checking_target(), None);
+        assert_eq!(InstallKind::Unsupported.checking_target(), None);
     }
 
     #[test]
@@ -428,6 +811,40 @@ mod tests {
         foreign.assets[1].browser_download_url = "https://example.com/latest.json".into();
         assert!(pick_manifest(&[draft, foreign], "beta").is_none());
         assert!(pick_manifest(&[release("v0.3.0", false, false)], "stable").is_none());
+    }
+
+    #[test]
+    fn a_renamed_repository_keeps_its_releases_and_another_owner_does_not_count() {
+        // After a rename GitHub lists the downloads under the new name (Issue #456).
+        let mut renamed = release("v0.5.1-beta.1", true, true);
+        renamed.assets[1].browser_download_url = "https://github.com/kein5/astarot/releases/download/v0.5.1-beta.1/latest.json".into();
+        let releases = vec![release("v0.5.0", false, true), renamed];
+        assert_eq!(versions(&list_releases(&releases, "beta")), ["0.5.1-beta.1", "0.5.0"]);
+        assert!(pick_manifest(&releases, "beta").unwrap().as_str().contains("/kein5/astarot/"));
+        assert_eq!(foreign_manifests(&releases).count(), 0);
+
+        for url in [
+            "https://github.com/someone-else/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "http://github.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "https://github.com:8443/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "https://user@github.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "https://github.com.example.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "https://github.com/kein5/VRCT-VOX/archive/v9.0.0/latest.json",
+            "https://github.com/kein5/VRCT-VOX/releases/download/latest.json",
+        ] {
+            let mut foreign = release("v9.0.0", false, true);
+            foreign.assets[1].browser_download_url = url.into();
+            let releases = [foreign];
+            assert!(pick_manifest(&releases, "beta").is_none(), "{url}");
+            // Skipped, and said so in the log.
+            assert_eq!(foreign_manifests(&releases).collect::<Vec<_>>(), [url]);
+        }
+    }
+
+    #[test]
+    fn the_release_list_and_pages_name_the_owners_repository() {
+        assert!(REPOSITORY.starts_with(&format!("{OWNER}/")));
+        assert!(RELEASES_API.starts_with(&format!("https://api.github.com/repos/{REPOSITORY}/releases")));
     }
 
     #[test]

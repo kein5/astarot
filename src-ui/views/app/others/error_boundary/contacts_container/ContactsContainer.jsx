@@ -3,7 +3,7 @@ import styles from "./ContactsContainer.module.scss";
 export const ContactsContainer = () => {
     return (
         <div className={styles.container}>
-            <OpenLinkContainer className={styles.github_issues} href_id="github_issues" text="VRCT-VOX Issues"/>
+            <OpenLinkContainer className={styles.github_issues} href_id="github_issues" text="ASTAROT Issues"/>
         </div>
     );
 };

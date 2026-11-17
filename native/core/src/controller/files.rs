@@ -88,7 +88,13 @@ fn open_folder(path: &Path) -> std::io::Result<()> {
     let program = "explorer";
     #[cfg(not(windows))]
     let program = "xdg-open";
-    std::process::Command::new(program).arg(path).spawn().map(|_| ())
+    let mut child = std::process::Command::new(program).arg(path).spawn()?;
+    // Waited for on a thread of its own: a child nobody waits for stays a zombie on Linux until
+    // the app ends, one more for every click.
+    let _ = std::thread::Builder::new().name("open_folder_wait".into()).spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
 }
 
 impl Core {

@@ -120,7 +120,7 @@ hr {
  */
 
 pre {
-    font-family: monospace, monospace; /* 1 */
+    font-family: var(--vox_font_mono, monospace); /* 1 */
     font-size: inherit; /* 2 */
 }
 
@@ -167,7 +167,7 @@ strong {
 code,
 kbd,
 samp {
-    font-family: monospace, monospace; /* 1 */
+    font-family: var(--vox_font_mono, monospace); /* 1 */
     font-size: inherit; /* 2 */
 }
 

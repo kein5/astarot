@@ -48,7 +48,7 @@ def test_standby_active_stop_toggle_mute_and_restart(tmp_path):
                 ui.select('Audio route', 'managed')
                 ui.click_text('button', 'Save changes')
                 wait_for(lambda: json.loads(path.read_text()).get('VOICE_SETTINGS', {}).get('routing') == 'managed')
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 wait_for(lambda: not gate.inspect()['muted'])
                 ui.open_voice_settings()
                 ui.click_text('button', 'Start server')
@@ -99,8 +99,8 @@ def test_standby_active_stop_toggle_mute_and_restart(tmp_path):
                     if action == 'tts_off':
                         ui.click('[role=switch][aria-label=TTS]')
                     else:
-                        ui.click_text('button', {'stop': 'Stop playback and clear queue',
-                                               'held_mute': 'Mute until resumed',
+                        ui.click_text('button', {'stop': 'Stop speech',
+                                               'held_mute': 'Mute now',
                                                'server_stop': 'Stop server'}[action])
                     silent = settled(monitor, at, action + '_not_silent', silent=True)
                     wait_for(lambda: len(traces()) == count + 1, timeout=8)
@@ -117,7 +117,7 @@ def test_standby_active_stop_toggle_mute_and_restart(tmp_path):
                         assert gate.inspect()['muted']
                         silence('held_mute_rejects_new', lambda: send(SHORT))
                         ui.open_route_settings()
-                        ui.click_text('button', 'Resume voice')
+                        ui.click_text('button', 'Unmute')
                         wait_for(lambda: not gate.inspect()['muted'])
                         ui.close_settings()
                 ui.open_voice_settings()

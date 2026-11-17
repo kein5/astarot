@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { flowNote, offGroups, outputDetail, outputTime, stripItems, timelineRows } from "./flowText.js";
+import { flowNote, offGroups, oneLine, outputDetail, outputTime, stripItems, timelineRows } from "./flowText.ts";
 
 const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
 const names = { language: name => `lang(${name})` };
@@ -60,6 +60,21 @@ test("the desktop strip lists the newest inputs first, worded, and fits the over
     const long = stripItems([trace("3", "voice", { speech: { state: "playing", at_ms: 900000, converted: false } }, {}, { text: "x".repeat(300) })], 1, t)[0];
     assert.equal(long.text.length, 200);
     assert.ok(long.rows.every(row => row.end <= long.scale && long.scale <= 600000));
+});
+
+test("the strip's text is one line that the native side accepts, whatever was said", () => {
+    // A line break or a tab from speech or a pasted message becomes one space.
+    const [broken] = stripItems([trace("4", "chat", {}, {}, { text: "line one\r\n\nline two\tend" })], 1, t);
+    assert.equal(broken.text, "line one line two end");
+    assert.doesNotMatch(broken.text, /\p{Cc}/u);
+    // An emoji at the limit is kept whole or left out, never cut in half.
+    const [emoji] = stripItems([trace("5", "voice", {}, {}, { text: "a" + "😀".repeat(250) })], 1, t);
+    assert.equal([...emoji.text].length, 200);
+    assert.ok([...emoji.text].every(char => char === "a" || char === "😀"));
+    // A lone surrogate already in the text cannot be sent and is dropped.
+    assert.equal(oneLine("x\uD83Dy", 10), "xy");
+    // Japanese spacing is kept as it is.
+    assert.equal(oneLine("こんにちは　世界", 10), "こんにちは　世界");
 });
 
 test("the note under the strip is the conversion's round trip while it runs", () => {

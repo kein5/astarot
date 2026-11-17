@@ -49,6 +49,32 @@ fn an_unknown_endpoint_answers_404() {
 }
 
 #[test]
+fn a_failed_typed_message_names_its_row_and_never_echoes_the_text() {
+    let mut routes = Routes::new();
+    routes.add("/run/send_message_box", false, |data| {
+        if data["message"] == json!("panic") {
+            panic!("handler failed on purpose");
+        }
+        Reply::ok(json!(true))
+    });
+    let (dispatcher, lines) = dispatcher(routes);
+    dispatcher.receive_line(&request_line("/run/send_message_box", Some(&json!({ "id": "row-1", "message": "panic" }))));
+    let lines = lines.wait(1);
+    assert_eq!((lines[0].0, lines[0].2.clone()), (500, json!({ "message": "Internal error", "data": { "id": "row-1" } })));
+    dispatcher.stop(Duration::from_secs(1));
+
+    // Without an id there is nothing to name; the plain result stays.
+    let (dispatcher, lines) = self::dispatcher(Routes::new());
+    dispatcher.receive_line(&request_line("/run/send_message_box", Some(&json!({ "id": "row-2", "message": "secret" }))));
+    dispatcher.receive_line(&request_line("/run/send_message_box", Some(&json!({ "message": "secret" }))));
+    let lines = lines.wait(2);
+    assert!(lines.iter().any(|line| line.2 == json!({ "message": "Invalid endpoint", "data": { "id": "row-2" } })));
+    assert!(lines.iter().any(|line| line.2 == json!("Invalid endpoint")));
+    assert!(lines.iter().all(|line| !line.2.to_string().contains("secret")));
+    dispatcher.stop(Duration::from_secs(1));
+}
+
+#[test]
 fn data_is_decoded_and_bad_data_becomes_an_empty_object() {
     let mut routes = Routes::new();
     routes.add("/set/data/echo", false, |data| Reply::ok(data.clone()));

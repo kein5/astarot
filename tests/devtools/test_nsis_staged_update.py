@@ -57,6 +57,45 @@ class NsisStagedUpdateTests(unittest.TestCase):
         failed = after.split("attempt_failed:", 1)[0]
         self.assertIn('Rename "$INSTDIR\\.upd\\$file_name" "$TEMP\\$file_name"', failed)
 
+    def test_a_hash_mismatch_downloads_again_before_giving_up(self):
+        # Issue #424: a truncated transfer shows up as a SHA-256 mismatch; it is retried like any
+        # other failure, on a single connection, and only the third one stops the install.
+        install = block("Section", "Install")
+        mismatch = install.split("${If} $actual_package_hash != $expected_package_hash", 1)[1].split("${EndIf}", 1)[0]
+        self.assertNotIn("Abort", mismatch)
+        self.assertNotIn("MessageBox", mismatch)
+        self.assertIn('StrCpy $dl_hash_failed "1"', mismatch)
+        self.assertIn('StrCpy $dl_parallel "0"', mismatch)
+        self.assertEqual(mismatch.strip().splitlines()[-1].strip(), "Goto attempt_failed")
+        attempt = install.split("install_attempt:", 1)[1].split("${If} $dl_parallel != \"1\"", 1)[0]
+        self.assertIn('StrCpy $dl_hash_failed "0"', attempt)
+        failed = install.split("attempt_failed:", 1)[1].split("install_ready:", 1)[0]
+        retry, give_up = failed.split("Goto install_attempt", 1)
+        self.assertIn("${If} $dl_retries < 3", retry)
+        hash_failed = give_up.split('${If} $dl_hash_failed == "1"', 1)[1].split("${EndIf}", 1)[0]
+        self.assertIn("failed SHA-256 verification. Installation was aborted.", hash_failed)
+        self.assertLess(hash_failed.index("Call CleanupFailedInstall"), hash_failed.index("Abort"))
+        # A package that failed verification is never kept as the .bad archive.
+        self.assertLess(hash_failed.index('Delete "$TEMP\\$file_name"'), hash_failed.index("Abort"))
+
+    def test_a_slow_single_download_is_cut_only_when_it_stalls_and_then_continues(self):
+        install = block("Section", "Install")
+        single = install.split("download_wait:", 1)[1].split("single_download_done:", 1)[0]
+        self.assertIn('"@XFERSIZE_B@"', single)
+        self.assertNotIn("3600", single)
+        self.assertIn("${If} $R4 >= 600", single)
+        self.assertEqual(single.count('StrCpy $dl_resume "1"'), 2)
+        # Only that file survives into the next attempt, where NScurl /RESUME continues it.
+        attempt = install.split("install_attempt:", 1)[1].split("${If} $dl_parallel != \"1\"", 1)[0]
+        kept = attempt.split('${If} $dl_resume != "1"', 1)[1].split("${EndIf}", 1)[0]
+        self.assertIn('Delete "$TEMP\\$file_name"', kept)
+        self.assertLess(attempt.index("${EndIf}", attempt.index(kept)), attempt.index('StrCpy $dl_resume "0"'))
+        self.assertIn('NScurl::http GET "$cmder_dl" "$TEMP\\$file_name" /INSIST /RESUME', install)
+
+    def test_a_successful_install_removes_the_archive_a_failed_one_kept(self):
+        ready = block("Section", "Install").split("install_ready:", 1)[1]
+        self.assertLess(ready.index('Delete "$TEMP\\$file_name.bad"'), ready.index("Call CheckAppIsRunning"))
+
     def test_install_volume_budgets_the_archive_on_another_drive(self):
         install = block("Section", "Install")
         self.assertIn("IntOp $R4 $req_dl_mb + $req_extract_mb", install)
@@ -141,19 +180,23 @@ class NsisStagedUpdateTests(unittest.TestCase):
 
 
 class NsisAppProcessAndDataTests(unittest.TestCase):
-    def test_running_check_also_stops_the_sidecar(self):
+    def test_running_check_also_stops_the_sidecar_of_an_older_install(self):
+        # Packages up to 0.4 carried the Python sidecar; 0.5.0 has none (tauri.conf.json lists no
+        # externalBin), but an install being updated may still run one.
         conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
-        sidecar = Path(conf["bundle"]["externalBin"][0]).name
-        self.assertIn(f'!define SIDECARBINARYNAME "{sidecar}"', SOURCE)
+        self.assertNotIn("externalBin", conf["bundle"])
+        self.assertIn('!define SIDECARBINARYNAME "vrct-vox-sidecar"', SOURCE)
         macro = SOURCE.split("\n!macro CheckIfAppIsRunning\n", 1)[1].split("\n!macroend", 1)[0]
-        # Killing vrct-vox.exe skips the shell plugin's exit handler, which
-        # is what normally stops the sidecar.
+        # Killing an older vrct-vox.exe skipped the shell plugin's exit handler, which
+        # is what normally stopped the sidecar.
         after_app = macro.split("app_check_done:", 1)[1]
         for call in ("FindProcessCurrentUser", "KillProcessCurrentUser", "FindProcess", "KillProcess"):
             self.assertIn(f'nsis_tauri_utils::{call} "${{SIDECARBINARYNAME}}.exe"', after_app)
         self.assertIn('Abort "$(failedToKillApp)"', after_app)
         uninstall = block("Section", "Uninstall")
         self.assertLess(uninstall.index("!insertmacro CheckIfAppIsRunning"), uninstall.index("Delete "))
+        # The stale sidecar goes with the uninstall too.
+        self.assertIn('Delete "$INSTDIR\\${SIDECARBINARYNAME}.exe"', uninstall)
 
     def test_no_components_page(self):
         # Every section is required; the page let users skip the app or WebView2.
@@ -164,7 +207,9 @@ class NsisAppProcessAndDataTests(unittest.TestCase):
         uninstall = block("Section", "Uninstall")
         opted_in = uninstall.split("${If} $DeleteAppDataCheckboxState == 1", 1)[1].split("${EndIf}", 1)[0]
         for line in ('RmDir /r "$INSTDIR\\downloaded_models"', 'Delete "$INSTDIR\\voice_mute_state.json"',
-                     'Delete "$INSTDIR\\config.json"', 'RmDir /r "$INSTDIR\\weights"'):
+                     'Delete "$INSTDIR\\config.json"', 'RmDir /r "$INSTDIR\\weights"',
+                     # The registered models (#403), listed in docs/spec/data-and-persistence.md.
+                     'Delete "$INSTDIR\\user_models.json"'):
             self.assertIn(line, opted_in)
             # Kept when the box is not ticked, e.g. when an update moves the install.
             self.assertEqual(uninstall.count(line), 1)

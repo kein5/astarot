@@ -22,8 +22,8 @@ async function setup() {
         "../_atoms/_dropdown_menu/_DropdownMenu": { _DropdownMenu: "dropdown" },
     });
     const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu,
-        Entry: "entry", EntryWithSaveButton: "save-entry", AuthKey: "auth", ColorEntryWithSaveButton: "color",
-        Slider: "slider", SwitchBox: "switch", WordFilter: "word-filter", WordFilterListToggleComponent: "word-toggle",
+        EntryWithSaveButton: "save-entry", AuthKey: "auth", ColorEntryWithSaveButton: "color",
+        Slider: "slider", WordFilter: "word-filter", WordFilterListToggleComponent: "word-toggle",
         HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check" };
     const templates = await loadModule(new URL("./Templates.jsx", import.meta.url), runtime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
@@ -37,7 +37,7 @@ async function setup() {
     return { runtime, templates, components, render };
 }
 
-for (const name of ["Checkbox", "Entry", "EntryWithSaveButton", "AuthKey", "ColorEntryWithSaveButton", "Slider", "SwitchBox", "DropdownMenu", "RadioButton", "DownloadModels", "ActionButton", "HotkeysEntry", "ConnectionCheckButton"]) {
+for (const name of ["Checkbox", "EntryWithSaveButton", "AuthKey", "ColorEntryWithSaveButton", "Slider", "DropdownMenu", "RadioButton", "DownloadModels", "ActionButton", "HotkeysEntry", "ConnectionCheckButton"]) {
     test(`${name} template connects description and warning IDs without changing its label`, async () => {
         const s = await setup();
         const props = { label: "Setting", desc: "Help", add_warnings: [{ label: "Unavailable" }], "aria-describedby": "existing-help" };

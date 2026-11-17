@@ -31,7 +31,7 @@ NLLB_1_3B = "nllb-200-distilled-1.3B-ct2-int8"
 SRC_PYTHON = Path(__file__).resolve().parents[1]
 REPO_ROOT = SRC_PYTHON.parent
 LANGUAGES_YAML = SRC_PYTHON / "models" / "translation" / "translation_settings" / "languages" / "languages.yml"
-UI_CONFIGS_JS = REPO_ROOT / "src-ui" / "logics" / "ui_configs.js"
+UI_CONFIGS_JS = REPO_ROOT / "src-ui" / "logics" / "ui_configs.ts"
 
 # transformers 5.22.1 M2M100Tokenizer FAIRSEQ_LANGUAGE_CODES["m2m100"]. Copied so
 # the check also runs where transformers isn't installed; compared against the
@@ -78,7 +78,7 @@ class WeightLicenseMetadataTests(unittest.TestCase):
         self.assertTrue(ctranslate2_weights[DEFAULT_CTRANSLATE2_WEIGHT_TYPE]["commercial_use"])
 
     def test_ui_weight_list_matches_backend_licenses(self) -> None:
-        """src-ui/logics/ui_configs.js repeats the license per weight for the
+        """src-ui/logics/ui_configs.ts repeats the license per weight for the
         Config -> Translation list; it must not drift from the backend."""
         source = UI_CONFIGS_JS.read_text(encoding="utf-8")
         block = source[source.index("export const ctranslate2_weight_type_status"):]

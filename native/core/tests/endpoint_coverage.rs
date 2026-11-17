@@ -75,6 +75,39 @@ fn every_endpoint_is_specified_and_waits_as_specified() {
     }
 }
 
+/// `VR_PANEL_RELAY_PATHS` as the UI writes it (`src-ui/logics/common/vrPanelWire.ts`): path
+/// strings and `toggle("name")` pairs.
+fn ui_vr_panel_list() -> BTreeSet<String> {
+    let text = include_str!("../../../src-ui/logics/common/vrPanelWire.ts");
+    let block = text.split("export const VR_PANEL_RELAY_PATHS = new Set<string>([").nth(1).unwrap().split("]);").next().unwrap();
+    let mut paths = BTreeSet::new();
+    for line in block.lines() {
+        let line = line.split("//").next().unwrap();
+        for (i, piece) in line.split('"').enumerate().filter(|(i, _)| i % 2 == 1) {
+            let before = line.split('"').nth(i - 1).unwrap_or("");
+            if before.trim_end().ends_with("toggle(") {
+                paths.insert(format!("/set/enable/{piece}"));
+                paths.insert(format!("/set/disable/{piece}"));
+            } else if piece.starts_with('/') {
+                paths.insert(piece.to_string());
+            }
+        }
+    }
+    paths
+}
+
+#[test]
+fn the_vr_panel_list_is_the_uis_and_every_entry_is_wired() {
+    let ui = ui_vr_panel_list();
+    assert!(ui.len() > 60, "the UI's list was not read: {ui:?}");
+    let core: BTreeSet<String> = vrct_core::dispatch::vr_panel_endpoints().into_iter().collect();
+    assert_eq!(core, ui, "native/core/src/dispatch.rs and src-ui/logics/common/vrPanelWire.ts list the same requests");
+    let routes = routes();
+    for endpoint in &core {
+        assert!(routes.contains(endpoint), "{endpoint} is relayed for the VR panel but not wired");
+    }
+}
+
 #[test]
 fn the_remaining_endpoints_are_listed_in_the_migration_document() {
     let spec: BTreeSet<String> = spec().into_iter().map(|s| s.endpoint).collect();

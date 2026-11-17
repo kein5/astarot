@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { useVoice, sourceKey } from "../../../../../logics/voice/useVoice";
 import { directRouteReady, usesOutputDevice } from "../../../../../logics/voice/routeState";
+import { rvcStartOptions } from "../../../../../logics/voice/rvcStartOptions";
 import { useNotificationStatus } from "../../../../../logics/common/useNotificationStatus";
-import { voiceActions } from "../../../../../logics/voice/voiceActions.js";
-import { splitFeatureLabel } from "../../../../../logics/common/featureLabel.js";
-import { voiceErrorText } from "../../../../../logics/voice/voiceErrorText.js";
+import { voiceActions, voiceSwitchStates } from "../../../../../logics/voice/voiceActions.ts";
+import { splitFeatureLabel } from "../../../../../logics/common/featureLabel.ts";
+import { voiceErrorText } from "../../../../../logics/voice/voiceErrorText.ts";
 import { useSwitchBlocks } from "../../../../../logics/main/useSwitchBlocks";
 import { activeSwitchBlock } from "../../../../../logics/main/switchBlocks";
 import { useI18n } from "@useI18n";
@@ -77,10 +78,7 @@ export const MainFunctionSwitch = () => {
             voice.directSources.error || !source || cfg?.mode !== "converted" || cfg?.engine !== "rvc" ||
             !cfg.rvc_runtime || !cfg.rvc_model)
             return notify(t(usesOutputDevice(voice.directState) ? "voice_ui.rvc_not_ready_device" : "voice_ui.rvc_not_ready"), rvcName);
-        voice.send("/run/start_direct_voice", { source: source.id, mode: "converted", options: {
-            engine: "rvc", runtime: cfg.rvc_runtime, model: cfg.rvc_model, index: cfg.rvc_index,
-            pitch: cfg.rvc_pitch, index_rate: cfg.rvc_index_rate,
-        } });
+        voice.send("/run/start_direct_voice", { source: source.id, mode: "converted", options: rvcStartOptions(cfg) });
     };
     // Hotkeys press the same switches, with today's state (logics/voice/voiceActions.js).
     useEffect(() => { voiceActions.toggleTts = toggleTts; voiceActions.toggleRvc = toggleRvc; });
@@ -120,6 +118,10 @@ export const MainFunctionSwitch = () => {
           currentState: { data: rvcOwnsInput && !!voice.directState.requested,
             state: rvcOwnsInput && (voice.directPending || voice.directState.pending || voice.directState.stopping) ? "pending" : "ok" } },
     ];
+    // Other views of these switches (the tray companion) read the TTS and voice changer state here.
+    const switchState = id => { const value = switch_items.find(item => item.switch_id === id)?.currentState;
+        return { on: value?.data === true, pending: value?.state === "pending" }; };
+    useEffect(() => { voiceSwitchStates.publish({ tts: switchState("tts"), rvc: switchState("rvc") }); });
 
     return (
         <div className={styles.container}>
@@ -146,7 +148,8 @@ export const MainFunctionSwitch = () => {
                 // does nothing when pressed, and a switch cannot hold a button. The icon rail has
                 // no room for it; its tooltip still names the page.
                 if (!block?.action || currentIsMainPageCompactMode.data) return [control];
-                const action = t(block.action === "translation" ? "model_downloads.review" : "main_page.switch_blocked.open_settings");
+                const action = t(block.action === "translation" ? "model_downloads.review"
+                    : block.action === "translator" ? "studio.setup_other_translator" : "main_page.switch_blocked.open_settings");
                 return [control,
                     <button key={`${item.switch_id}_prepare`} type="button" className={styles.prepare_button}
                         aria-label={t("main_page.switch_blocked.prepare_label", { feature: item.label, action })}
@@ -201,7 +204,8 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                 <SvgComponent className={getClassNames(styles.switch_svg)} />
                 <p className={getClassNames(styles.switch_label)}>
                     {label.name}
-                    {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}>{label.abbr}</span>}
+                    {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}
+                        data-bracket={label.abbr.startsWith("（") || undefined}>{label.abbr}</span>}
                 </p>
                 {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
                 {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}

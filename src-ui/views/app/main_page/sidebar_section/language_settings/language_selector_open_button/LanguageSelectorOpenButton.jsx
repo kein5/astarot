@@ -1,16 +1,18 @@
 import { useI18n } from "@useI18n";
-import { createLanguageNames } from "../../../../../../logics/common/languageNames.js";
+import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import clsx from "clsx";
 import styles from "./LanguageSelectorOpenButton.module.scss";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
 import { useStore_IsOpenedLanguageSelector } from "@store";
 import {
+    useIsMainPageCompactMode,
     useLanguageSettings,
 } from "@logics_main";
 
 export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on, selector_key, target_key }) => {
     const { t, i18n } = useI18n();
     const { updateIsOpenedLanguageSelector, currentIsOpenedLanguageSelector } = useStore_IsOpenedLanguageSelector();
+    const { closeOverlay } = useIsMainPageCompactMode();
 
     const {
         currentSelectedPresetTabNumber,
@@ -24,6 +26,9 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
         if (is_opened) { // Close Language Selector
             updateIsOpenedLanguageSelector({ your_language: false, target_language: false, target_key: "1" });
         } else { // Open Language Selector
+            // The selector opens in the conversation column; the rail opened over it in a
+            // narrow window would cover its back button and search field.
+            closeOverlay();
             updateIsOpenedLanguageSelector({
                 your_language: selector_key === "your_language",
                 target_language: selector_key === "target_language",

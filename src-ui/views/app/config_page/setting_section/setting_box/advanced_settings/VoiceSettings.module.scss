@@ -58,13 +58,15 @@
     textarea { resize: vertical; min-height: 8rem; }
     button { width: fit-content; max-width: 100%; white-space: normal; cursor: pointer; background: var(--dark_850_color, #25364f); border: .1rem solid transparent; font-weight: 600; }
     button:hover:enabled { background: var(--vox_secondary_hover); }
-    button.primary { background: var(--primary_600_color, #2865dc); color: var(--dark_50_color, #fff); }
-    button.primary:hover:enabled { background: var(--primary_550_color, #3470e8); }
+    // The forms mark their primary action with the plain class name "primary" (className="primary"),
+    // so it is matched globally; a module class would be renamed and never match.
+    button:global(.primary) { background: var(--primary_600_color, #2865dc); color: var(--dark_50_color, #fff); }
+    button:global(.primary):hover:enabled { background: var(--primary_550_color, #3470e8); }
     // A secondary action beside a primary one: an outline, not a filled button.
     button.quiet { background: transparent; border-color: var(--dark_775_color); }
     button.quiet:hover:enabled { background: var(--dark_850_color); }
     button:active:enabled { background: var(--dark_925_color); }
-    button.primary:active:enabled { background: var(--primary_800_color); }
+    button:global(.primary):active:enabled { background: var(--primary_800_color); }
     :focus-visible { outline: .2rem solid var(--primary_200_color, #80cbc4); outline-offset: .3rem; }
     :disabled { opacity: .6; cursor: not-allowed; }
     // General description role: 1.2rem / 400 in the description color.
@@ -78,9 +80,19 @@
     [role="alert"] { border: .1rem solid var(--warning_color); border-radius: var(--vox_radius); padding: .8rem 1.2rem; overflow-wrap: anywhere; font-size: 1.3rem; color: var(--dark_200_color); }
     label.checkLabel { display: flex; align-items: flex-start; gap: 1.2rem; cursor: pointer; }
     input[type="checkbox"] { appearance: auto; -webkit-appearance: checkbox; accent-color: var(--primary_400_color); width: 2rem; height: 2rem; min-height: 2rem; padding: 0; margin-top: .2rem; flex-shrink: 0; }
+    // A checkbox among a form's fields is at least 24px high, like the other controls there.
+    input[type="checkbox"].fieldCheck { width: 2.4rem; height: 2.4rem; min-height: 2.4rem; margin-top: 0; }
     dialog { max-width: min(46rem, calc(100vw - 3.2rem)); max-height: calc(100dvh - 3.2rem); overflow-y: auto; padding: 2.4rem; border: .1rem solid var(--dark_600_color, #555d69); border-radius: 1.2rem; background: var(--dark_875_color, #282a2e); color: inherit; }
     dialog::backdrop { background: #0009; }
     dialog button { margin: .8rem .8rem 0 0; }
+    // A consent dialog reads as a document: its title in the title role, one fact a
+    // paragraph with air between them, and the consent and actions set apart below.
+    dialog[open] { display: grid; gap: .8rem; align-content: start; }
+    dialog > h3 { margin: 0 0 .4rem; font-size: 1.8rem; line-height: 1.4; color: var(--dark_200_color); }
+    dialog > ul { margin: 0; padding-left: 2rem; list-style: disc; font-size: 1.2rem; line-height: 1.6; color: var(--vox_description_text); }
+    dialog > label.checkLabel { margin-top: .8rem; padding: 0; font-size: 1.4rem; line-height: 1.5; }
+    dialog > .actions { margin-top: .4rem; }
+    dialog > .actions button { margin: 0; }
     // A range control looks like the shared Slider (4px track, 18px blue thumb), not a text field.
     input[type="range"] { appearance: none; -webkit-appearance: none; height: 2.4rem; min-height: 2.4rem; padding: 0; background: transparent; border: 0; cursor: pointer; }
     input[type="range"]::-webkit-slider-runnable-track { height: .4rem; border-radius: .2rem; background: var(--dark_825_color); }
@@ -94,9 +106,66 @@
     @media (max-width: 700px) { label { grid-template-columns: minmax(0, 1fr); gap: .8rem; } }
 }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; }
+// Buttons that belong to the fields above them start in the control column, where the
+// fields start (the label rows' 1fr / 1.6fr split with its 1.6rem gap), not under the labels (#473).
+.control_column { margin-inline-start: calc((100% - 1.6rem) / 2.6 + 1.6rem); }
+@container (max-width: 35.6rem) { .control_column { margin-inline-start: 0; } }
+@media (max-width: 700px) { .control_column { margin-inline-start: 0; } }
 .error_code { font-size: 1.1rem; color: var(--dark_400_color); overflow-wrap: anywhere; }
 // One downloadable model: name, readout, a full-width progress bar, then its actions.
 .download_entry { display: grid; gap: .8rem; min-width: 0; }
+// The model catalog: one group per use (a subheading and space, no frame), one card per model.
+// A card is a real unit (one model or engine), so it keeps a quiet frame (DESIGN.md, Roles).
+.catalog_group { display: grid; gap: .8rem; min-width: 0; }
+.catalog { display: grid; gap: 1.2rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.card {
+    display: grid; gap: .8rem; min-width: 0; padding: 1.2rem 1.6rem;
+    border: .1rem solid var(--dark_800_color, #344662); border-radius: var(--vox_radius, .8rem);
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .3rem; }
+    > strong, .card_head > strong { font-size: 1.5rem; font-weight: 600; color: var(--dark_200_color); }
+}
+.card_head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; min-width: 0; }
+// A word on a card's head. Its words say the state; the color only repeats them.
+.badge {
+    display: inline-block; padding: .1rem .8rem; border: .1rem solid var(--dark_700_color, #4a5d7c);
+    border-radius: .4rem; font-size: 1.2rem; font-weight: 500; line-height: 1.6; color: var(--vox_secondary_text);
+    white-space: normal; overflow-wrap: anywhere;
+    &[data-tone="recommended"] { border-color: var(--primary_500_color); color: var(--primary_200_color); }
+    &[data-tone="in_use"], &[data-tone="connected"], &[data-tone="ready"] { border-color: var(--vox_state_active, #80acff); color: var(--vox_state_active, #80acff); }
+    &[data-tone="downloaded"] { color: var(--dark_200_color); }
+    &[data-tone="working"], &[data-tone="checking"], &[data-tone="not_connected"], &[data-tone="changed"] { border-color: var(--vox_state_warning, #cb944f); color: var(--vox_state_warning, #cb944f); }
+    &[data-tone="url_invalid"], &[data-tone="missing"] { border-color: var(--vox_state_failed, #f08a85); color: var(--vox_state_failed, #f08a85); }
+    // A model the user registered (#403): set apart from the reviewed catalog by a dashed edge.
+    &[data-tone="own"] { border-style: dashed; color: var(--dark_200_color); }
+    &[data-tone="hardware_warning"] { display: inline-flex; align-items: center; gap: .5rem;
+        border-color: var(--vox_state_warning, #cb944f); color: var(--vox_state_warning, #cb944f); }
+}
+// The "!" of a model that may be too heavy for the user's PC. The words beside it say the same.
+.warning_mark {
+    display: inline-flex; flex: none; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem;
+    border-radius: 50%; background: var(--vox_state_warning, #cb944f); color: var(--dark_950_color, #10141c);
+    font-size: 1.1rem; font-weight: 700; line-height: 1;
+    // Drawn here so the "!" is never part of the words that are read out or searched.
+    &::before { content: "!"; }
+}
+.hardware_warning {
+    display: flex; align-items: flex-start; gap: .8rem; margin: 0; padding: .6rem .8rem;
+    border-left: .3rem solid var(--vox_state_warning, #cb944f); color: var(--dark_200_color);
+    overflow-wrap: anywhere;
+    > .warning_mark { margin-top: .2rem; }
+}
+// What a user compares: a term and its value per row; the rows stack in a narrow card.
+.facts {
+    display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .4rem 1.6rem; margin: 0; min-width: 0;
+    > div { display: contents; }
+    dt { font-size: 1.2rem; color: var(--vox_description_text); }
+    dd { margin: 0; font-size: 1.3rem; color: var(--dark_200_color); overflow-wrap: anywhere; min-width: 0; }
+    code { overflow-wrap: anywhere; }
+    @container (max-width: 35.6rem) { grid-template-columns: minmax(0, 1fr); dd { margin-bottom: .4rem; } }
+}
+.variant { margin: 0; }
+// An official site, opened like the buttons beside it.
+.link_button { display: inline-flex; align-items: center; min-height: 4rem; }
 .progress { width: 100%; height: .6rem; appearance: none; -webkit-appearance: none; border: 0; border-radius: .3rem; overflow: hidden; background: var(--dark_825_color); }
 .progress::-webkit-progress-bar { background: var(--dark_825_color); border-radius: .3rem; }
 .progress::-webkit-progress-value { background: var(--primary_500_color); border-radius: .3rem; }

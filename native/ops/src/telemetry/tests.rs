@@ -322,6 +322,25 @@ fn after_it_is_stopped_an_error_is_neither_sent_nor_counted_as_sent() {
 }
 
 #[test]
+fn an_error_before_sending_is_on_is_not_recorded_and_can_go_out_once_it_is() {
+    // #470: the record said "sent today" while nothing could be sent, and the file was written
+    // before the user agreed to anything.
+    let target = Receiver::new(Duration::ZERO);
+    let dir = tempfile::tempdir().unwrap();
+    let storage = dir.path().join("telemetry_state.json");
+    let telemetry = telemetry_for(&target.url(), None, Duration::ZERO);
+    telemetry.state().set_storage_path(&storage);
+    telemetry.track_error("VRAM_ERROR");
+    assert!(telemetry.state().should_send_error_today("VRAM_ERROR"));
+    assert!(!storage.exists());
+    telemetry.init(true, "1.0", Some(&storage), "en");
+    telemetry.track_error("VRAM_ERROR");
+    assert!(telemetry.settle(Duration::from_secs(8)));
+    assert_eq!(seen(&target).len(), 2);
+    telemetry.shutdown();
+}
+
+#[test]
 fn shutdown_does_not_wait_for_a_stalled_receiver_beyond_its_limit() {
     let target = Receiver::new(Duration::from_secs(30));
     let dir = tempfile::tempdir().unwrap();

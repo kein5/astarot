@@ -18,12 +18,12 @@ A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose o
 - Write every commit message as a [Conventional Commit](#commit-messages). The commit-msg hook and CI check them.
 - Add or update tests for behavior changes, and describe what you verified and what you could not.
 - Do not commit secrets, API keys, voice recordings or model files without a redistribution license.
-- New or upgraded dependencies must have a compatible license; update [NOTICE.md](NOTICE.md) when bundled components change. Python dependencies live in `pyproject.toml` and `uv.lock` (`uv lock`).
-- Models offered for download go into the download catalog (`src-python/models/model_downloads/catalog.py`) with a pinned revision, file sizes, SHA-256 and the license shown before download. Do not make a model with a non-commercial or otherwise restrictive license a default.
+- New or upgraded dependencies must have a compatible license; update [NOTICE.md](NOTICE.md) when bundled components change. The app's Rust crates are pinned in the `Cargo.lock` files (`src-tauri/`, `native/rvc-runtime/`). Python dependencies, used by the development tools and tests since 0.5.0, live in `pyproject.toml` and `uv.lock` (`uv lock`).
+- Models offered for download go into the download catalog (`native/ops/src/downloads/catalog.rs`; the tests compare it with `src-python/models/model_downloads/catalog.py`, so keep both the same) with a pinned revision, file sizes, SHA-256 and the license shown before download. Do not make a model with a non-commercial or otherwise restrictive license a default.
 - User-facing text goes into `locales/`. English (`en.yml`) and Japanese (`ja.yml`) are the only UI languages; update both. Korean and Chinese were dropped as UI languages in 0.2.0 (they remain translation languages).
-- Icons and logos are generated from `docs/brand/` with `tools/brand_assets.py`; edit the sources there, not the generated files.
+- The app's icons and in-app logos are generated from `docs/brand/astarot/` with `tools/astarot_app_assets.py`, and the README logos from `docs/brand/` with `tools/brand_assets.py`; edit the sources there, not the generated files.
 
-Automated checks on every pull request: the model-free contract tests on Linux and Windows, the commit-message check, dependency review (known vulnerabilities and licenses), and CodeQL code scanning. Pull requests to `main` must pass the required checks before merging.
+Automated checks on every pull request: the model-free contract tests, the Rust backend core tests and the Python backend tests on Linux and Windows, the commit-message check, dependency review (known vulnerabilities and licenses), and CodeQL code scanning. Pull requests to `main` must pass the required checks before merging.
 
 ## Commit messages
 

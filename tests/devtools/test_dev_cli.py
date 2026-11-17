@@ -125,13 +125,24 @@ class DeveloperCLITests(unittest.TestCase):
     def test_node_scope_discovers_new_tests_without_shell_globs(self):
         folder = self.root / "src-ui/area with spaces"
         folder.mkdir(parents=True)
-        for name in ("one.test.js", "future.test.mjs"):
+        for name in ("one.test.js", "future.test.mjs", "typed.test.ts"):
             (folder / name).write_text('')
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 0)
         self.assertIn("one.test.js", output)
         self.assertIn("future.test.mjs", output)
+        self.assertIn("typed.test.ts", output)
+        # The tests import TypeScript sources directly (ADR-010).
+        self.assertIn("--experimental-strip-types", output)
         self.assertNotIn("npm ci", output)
+
+    def test_ui_scope_runs_the_type_check_before_the_build(self):
+        folder = self.root / "src-ui"
+        folder.mkdir(parents=True)
+        (folder / "one.test.js").write_text('')
+        code, output = self.call("check", "--scope", "ui", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertLess(output.index("typecheck"), output.index("vite-build"))
 
     def test_node_scope_does_not_pass_when_no_tests_were_found(self):
         code, output = self.call("check", "--scope", "node", "--dry-run")
@@ -175,11 +186,8 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 0, output)
 
     def test_linux_tray_library_accepts_either_provider_but_not_neither(self):
-        binary = self.root / "src-tauri/bin/vrct-vox-sidecar-x86_64-unknown-linux-gnu"
-        binary.parent.mkdir(parents=True)
-        binary.write_bytes(b"existing sidecar")
-        resources = binary.parent / "_internal"
-        resources.mkdir()
+        resources = self.root / "src-tauri/bin/_internal"
+        resources.mkdir(parents=True)
         (resources / "resource").write_text("existing")
         for available in ("appindicator3-0.1", "ayatana-appindicator3-0.1", None):
             with self.subTest(available=available):

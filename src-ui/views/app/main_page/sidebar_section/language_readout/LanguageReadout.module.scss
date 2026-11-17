@@ -1,8 +1,10 @@
 // The selected language pair in the 72px icon rail: two short names, one above the other.
+// Thin margins: the 72px rail, less its scrollbar, leaves about 60px for a
+// name, which holds 「Japanese」 at 12px.
 .container {
-    width: calc(100% - 2rem);
-    margin: .4rem 1rem .8rem;
-    padding: .8rem .2rem;
+    width: calc(100% - .4rem);
+    margin: .4rem .2rem .8rem;
+    padding: .8rem 0;
     display: flex;
     flex-direction: column;
     align-items: center;

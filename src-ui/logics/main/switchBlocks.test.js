@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { activeSwitchBlock, switchBlocks } from "./switchBlocks.js";
+import { activeSwitchBlock, switchBlocks } from "./switchBlocks.ts";
 
 const reasons = blocks => Object.fromEntries(Object.entries(blocks).map(([id, block]) => [id, block.reason]));
 const rvc = values => ({ mode: "converted", engine: "rvc", rvc_runtime: "/r/python", rvc_model: "/m/voice.pth", ...values });
@@ -28,6 +28,11 @@ test("a translation model on its way says so, with nothing to press", () => {
         assert.deepEqual(switchBlocks({ needs: [{ id: "translation", weight, action: "review" }] }).translation,
             { reason: "translation_downloading", action: null });
     }
+});
+
+test("a translation model that cannot be downloaded points to the translator list", () => {
+    assert.deepEqual(switchBlocks({ needs: [{ id: "translation", weight: { id: "small", is_downloaded: false }, action: "choose" }] }).translation,
+        { reason: "translation_unavailable", action: "translator" });
 });
 
 test("chat reading follows the start: language first, then its models", () => {

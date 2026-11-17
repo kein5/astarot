@@ -9,7 +9,7 @@ flowchart LR
   user(["利用者"])
   subgraph app["VRCT-VOX"]
     ui["UI（Tauri＋React）<br/>main / quick_chat / vr_panel"]
-    side["サイドカー（Python）"]
+    side["中核（Rust、アプリのプロセスの中）"]
     speech["同梱の音声サーバー<br/>speech.cpp・RVCワーカー"]
   end
   vrc["VRChat"]
@@ -36,15 +36,15 @@ flowchart LR
 
 | 要素 | 場所 | 役割 |
 |---|---|---|
-| UI | `src-ui/` | 画面、設定、ホットキー、VRパネルとQuick Chatの窓口。状態はサイドカーから受け取る |
-| Tauri | `src-tauri/` | ウィンドウ、サイドカーの起動、Quick Chat、ホットキーの登録、ウィンドウの共有（Linux）、権限 |
-| サイドカー | `src-python/` | 設定の保存、翻訳、音声認識、OCR、OSC、WebSocket、OBS、オーバーレイ、読み上げとRVCの制御 |
-| 受付と振り分け | `src-python/mainloop.py` | エンドポイントと処理の対応表（`mapping`）、通知の名前（`run_mapping`）、キューとロック |
-| 処理の本体 | `src-python/controller.py`、`model.py`、`models/` | 各機能 |
-| 設定 | `src-python/config.py` | 設定の宣言、検証、保存 |
-| エラー | `src-python/errors.py` | エラーコードと既定の文言 |
-| 音声 | `src-python/models/tts`、`audio_routing`、`voice_conversion`、`speech_server` | 読み上げ、音声経路、RVC、同梱サーバー |
-| ネイティブの補助 | `native/`、`build/` | `vrct-vc-worker`、`vrct-screen-capture`（Linuxのウィンドウ共有）、speech.cppのバイナリ |
+| UI | `src-ui/` | 画面、設定、ホットキー、VRパネルとQuick Chatの窓口。状態は中核から受け取る |
+| Tauri | `src-tauri/` | ウィンドウ、中核の起動と要求・通知の受け渡し（`src/backend_host.rs`）、Quick Chat、ホットキーの登録、ウィンドウの共有（Linux）、アプリの更新、権限 |
+| 中核 | `native/core/` | 設定の保存、翻訳、音声認識、OCR、OSC、WebSocket、OBS、オーバーレイ、読み上げとRVCの制御。0.5.0からアプリと同じプロセスで動く、ただ一つのバックエンド |
+| 受付と振り分け | `native/core/src/dispatch.rs`、`controller/routes.rs` | エンドポイントと処理の対応表、通知の名前（`controller::RUN_MAPPING`）、キューとロック |
+| 処理の本体 | `native/core/src/controller/`と、`native/`のほかのクレート | 各機能（翻訳は`translation`、音声認識は`transcription`、読み上げは`tts`、声質変換は`voice-conversion`、音声経路は`audio-routing`、OCRは`ocr-runtime`、オーバーレイは`vr-overlay`、OSCなどは`adapters`、同梱サーバーは`speech-server`、モデル取得とテレメトリは`ops`） |
+| 設定 | `native/core/src/config/` | 設定の宣言、検証（`config/schema.rs`）、保存 |
+| エラー | `native/core/src/errors/` | エラーコードと既定の文言 |
+| ネイティブの補助 | `native/`、`build/` | `vrct-rvc-worker`、Linuxの`vrct-voice-gate`・`vrct-source-bridge`・`vrct-asr-capture`・`vrct-screen-capture`（ウィンドウ共有）、speech.cppのバイナリ |
+| Pythonバックエンド（0.4まで） | `src-python/` | 0.5.0の配布物には入らず、起動もしない。`reference/`の一覧の生成元（`mainloop.py`、`errors.py`、`config.py`）と、その試験として残している。中核との対応は`native/core/README.md`にある |
 
 ## 画面
 
@@ -69,13 +69,14 @@ flowchart LR
 | デバイス | 音声経路、マイクとスピーカーの選択、入力の感度、VRCマイクミュート同期 | 選択は即時、音声経路は保存バー |
 | デザイン | UIの言語、UIの大きさ、ログの文字の大きさ、透明度、フォント、送信ボタン、送信後に入力欄を空にする、ひらがな・ローマ字 | 即時 |
 | 翻訳 | 内蔵翻訳のモデルと実行デバイス、起動時のモデル取得、外部APIのキーとモデル、ローカルLLM | 選択は即時、キーとURLは保存バー |
-| 音声認識 | 無音時間、待機数、ワードフィルター、エンジン（Google、ローカル（speech.cpp）、クラウド4種）、クラウドのキーとモデル、リアルタイム音声認識、同梱ASRサーバー、古い Whisper モデルの削除 | 選択は即時、キーとURLとサーバーは保存バー、古いモデルの削除はその場の確認 |
+| 音声認識 | 無音時間、待機数、ワードフィルター、エンジン（ローカル（speech.cpp）、クラウド4種）、クラウドのキーとモデル、リアルタイム音声認識、同梱ASRサーバー、古い Whisper モデルの削除 | 選択は即時、キーとURLとサーバーは保存バー、古いモデルの削除はその場の確認 |
 | VRChat | チャットボックスへの送信（送信、訳だけ、通知音、受信したメッセージ、VRCマイクミュート同期）、メッセージフォーマット、OSC、音声経路、読み上げの出力先、チャット読み取り（読み取り言語、認識モデル、読み取る範囲、キャプチャの対象） | 選択は即時、文字の欄と音声経路と出力先は保存バー、モデルの取得は同意の操作 |
-| VR | 字幕オーバーレイの位置と見た目、デスクトップの字幕と入力と出力の表示、VR UI | 即時 |
+| VR | 字幕オーバーレイの位置と見た目、字幕の書体、デスクトップの字幕と入力と出力の表示、VR UI | 即時 |
 | ホットキー | 5つの動作のキー（既定は未割り当て） | 入力した時点 |
 | TTS | 読み上げの元、出力デバイス、モニター、言語ごとのサーバーと声、同梱サーバー、モデルの取得 | 保存バー |
 | RVC | ピッチ、混合率、転送する入力、実行環境とモデル | 保存バー |
 | 高度な設定 | 会話ログの保存、設定ファイル、WebSocket、OBSブラウザソース | 文字の欄は保存バー、スイッチは即時 |
+| 実験的機能 | experimentalブランチで実機の確認を通った機能のスイッチと説明（既定はすべてオフ）。項目がないときはその旨を出す | 即時 |
 | アップデート | 版と配布の方針 | 表示のみ |
 | About VRCT-VOX | 名前、版、リンク、本家VRCTへの謝辞 | 表示のみ |
 

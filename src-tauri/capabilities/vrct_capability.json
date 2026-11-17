@@ -49,6 +49,8 @@
                 { "url": "https://console.groq.com/keys" },
                 { "url": "https://console.deepgram.com/" },
                 { "url": "https://openrouter.ai/keys" },
+                { "url": "https://console.cloud.google.com/apis/credentials" },
+                { "url": "https://www.ncloud.com/product/aiService/papagoTranslation" },
                 { "url": "https://huggingface.co/**" },
                 { "url": "https://creativecommons.org/licenses/by/4.0/" },
                 { "url": "https://creativecommons.org/licenses/by-nc/4.0/" },
@@ -73,14 +75,6 @@
                 { "url": "*%2[eE]*" },
                 { "url": "*%5[cC]*" },
                 { "url": "*@*" }
-            ]
-        },
-        "shell:allow-stdin-write",
-        "shell:allow-kill",
-        {
-            "identifier": "shell:allow-spawn",
-            "allow": [
-                { "name": "bin/vrct-vox-sidecar", "sidecar": true, "args": false }
             ]
         }
     ]

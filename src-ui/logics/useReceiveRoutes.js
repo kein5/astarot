@@ -15,11 +15,12 @@ import * as flow from "./flow/useIoFlow";
 import { _useBackendErrorHandling } from "./_useBackendErrorHandling";
 import { SETTINGS_ARRAY } from "./configs/config_page_setter/ui_config_setter";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { pendingRequestRecovery, featureResyncReads } from "./common/pendingRequestRecovery.js";
+import { pendingRequestRecovery, featureResyncReads } from "./common/pendingRequestRecovery.ts";
 import { receiveLanguageMutation, resetLanguageMutations, isLanguageMutation } from "./main/languageMutations";
-import { applyInitializationFields, createInitializationValidators } from "./common/initializationFields.js";
-import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.js";
-import { settingsWriteResponses } from "./common/settingsWriteResponses.js";
+import { applyInitializationFields, createInitializationValidators } from "./common/initializationFields.ts";
+import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.ts";
+import { settingsWriteResponses } from "./common/settingsWriteResponses.ts";
+import { voiceErrorText } from "./voice/voiceErrorText.ts";
 
 const INIT_FIELD_VALIDATORS = createInitializationValidators(SETTINGS_ARRAY);
 
@@ -33,6 +34,11 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/start_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/cancel_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
     { endpoint: "/run/apply_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
+    // Models the user registers under a name (#403).
+    { endpoint: "/get/data/user_models", ns: downloads, hook_name: "useModelDownloads", method_name: "updateUserModels" },
+    { endpoint: "/run/register_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    { endpoint: "/run/remove_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    { endpoint: "/run/apply_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
     { endpoint: "/get/data/vc_runtime_catalog", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateCatalog" },
     { endpoint: "/get/data/vc_runtime_state", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateState" },
     { endpoint: "/run/start_vc_runtime_setup", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "acknowledge" },
@@ -91,12 +97,14 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/audio_device_switched", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/config_file_unreadable", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
     { endpoint: "/run/config_save_failed", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/secret_store_failed", ns: null, hook_name: null, method_name: null }, // A 400: shown by the error handling.
     // Fire-and-forget actions from the VR settings (sample text, sent repeatedly while
     // started, and launcher reset): the answer needs no handling, but without a route
     // each one was logged as an invalid endpoint.
     { endpoint: "/run/send_text_overlay", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/vr_launcher_reset", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/config_save_recovered", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/translation_compute_device_fallback", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
 
     // VR UI のポインタ位置 (ホバー表示用)。VR ウィンドウへ転送する
     { endpoint: "/run/vr_panel_pointer", ns: common, hook_name: "useVrPanelPointer", method_name: "forwardVrPanelPointer" },
@@ -110,7 +118,9 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/vr_panel_tooltip", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/update_cuda_software", ns: null, hook_name: null, method_name: null },
 
-    { endpoint: "/get/data/main_window_geometry", ns: common, hook_name: "useWindow", method_name: "restoreWindowGeometry" },
+    // The app places the window before it shows it (src-tauri/src/window_placement.rs); moving it
+    // again here, once the engine was ready, made it jump.
+    { endpoint: "/get/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
     { endpoint: "/set/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
 
     { endpoint: "/run/open_filepath_logs", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_MessageLogs" },
@@ -124,7 +134,6 @@ export const STATIC_ROUTE_META_LIST = [
 
     // Software Version
     { endpoint: "/get/data/version", ns: common, hook_name: "useSoftwareVersion", method_name: "updateSoftwareVersion" },
-    { endpoint: "/get/data/available_releases", ns: common, hook_name: "useAvailableReleases", method_name: "updateAvailableReleasesFromBackend" },
     // Latest Software Version Info
     { endpoint: "/run/software_update_info", ns: common, hook_name: "useSoftwareVersion", method_name: "updateSoftwareVersionInfo" },
 
@@ -216,9 +225,15 @@ export const STATIC_ROUTE_META_LIST = [
 
     // // Not Implemented.
     { endpoint: "/run/shutdown", ns: null, hook_name: null, method_name: null }, // Not implemented on UI.
-    { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null }, // Not implemented on UI yet; release_channel options are hardcoded in Updater.jsx for now.
+    // The release channel follows the installed build (the core decides it at start from the
+    // version), so there is nothing to choose; the app updater reads it from the install.
+    { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null },
+    // The app updater (src-tauri/src/app_update.rs) lists releases itself; nothing asks the backend.
+    { endpoint: "/get/data/available_releases", ns: null, hook_name: null, method_name: null },
 ];
 
+// The top bar's stop and mute (StopActions.jsx), which hotkeys press as well.
+const STOP_ACTIONS = ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"];
 const TRANSCRIPTION_TOGGLES = ["/set/enable/transcription_send", "/set/disable/transcription_send",
     "/set/enable/transcription_receive", "/set/disable/transcription_receive"];
 
@@ -248,7 +263,7 @@ export const useReceiveRoutes = () => {
         const timer = setInterval(() => !store.backend_stopped && sendSpeech("/get/data/speech_server_state"), 500);
         return () => clearInterval(timer);
     }, [speechActive, sendSpeech]);
-    const { state: downloadState, hardware: modelHardware, pending: downloadPending, send: sendDownload, updateError: updateDownloadError, reset: resetDownloads, backendStopped: stopDownloadPending } = downloads.useModelDownloads();
+    const { state: downloadState, hardware: modelHardware, pending: downloadPending, send: sendDownload, updateError: updateDownloadError, expireUnconfirmed: expireDownloadRequests, reset: resetDownloads, backendStopped: stopDownloadPending } = downloads.useModelDownloads();
     useEffect(() => {
         if (modelHardware.phase !== 'probing') return;
         const timer = setInterval(() => !store.backend_stopped && sendDownload('/get/data/model_download_hardware'), 500);
@@ -262,9 +277,9 @@ export const useReceiveRoutes = () => {
     }, [downloadActive, sendDownload]);
     useEffect(() => {
         if (!downloadPending) return;
-        const timer = setTimeout(() => updateDownloadError("request_unconfirmed"), 10000);
+        const timer = setTimeout(expireDownloadRequests, 10000);
         return () => clearTimeout(timer);
-    }, [downloadPending, updateDownloadError]);
+    }, [downloadPending, expireDownloadRequests]);
     const { state: runtimeState, pending: runtimePending, send: sendRuntime, updateError: updateRuntimeError, reset: resetRuntimes, backendStopped: stopRuntimePending } = vcRuntimes.useVcRuntimes();
     const runtimeActive = runtimePending || Object.values(runtimeState.jobs).some(job => vcRuntimes.activeSetupPhases.includes(job.phase));
     useEffect(() => {
@@ -316,7 +331,7 @@ export const useReceiveRoutes = () => {
                 console.error("Method not found.", { endpoint, hook_name, method_name, result_obj, fn });
             }
             return [endpoint, typeof fn === "function"
-                ? (hook_name === "useModelDownloads" && method_name === "acknowledge" ? value => fn(value, endpoint) : fn)
+                ? (hook_name === "useModelDownloads" && method_name.startsWith("acknowledge") ? value => fn(value, endpoint) : fn)
                 : noop];
         })
     );
@@ -349,7 +364,7 @@ export const useReceiveRoutes = () => {
             updateRuntimeError(result?.error_code || "vc_runtime_failed");
             return;
         }
-        if (status !== 200 && endpoint.includes("model_download")) {
+        if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
             updateDownloadError(result?.error_code || "download_failed", endpoint);
             return;
         }
@@ -360,7 +375,7 @@ export const useReceiveRoutes = () => {
             "/run/selected_mic_host", "/run/selected_mic_device"].includes(endpoint)) {
             sendVoice("/get/data/direct_voice_sources");
         }
-        if (status === 200 && endpoint === "/run/apply_model_download") {
+        if (status === 200 && ["/run/apply_model_download", "/run/apply_user_model"].includes(endpoint)) {
             sendSpeech("/get/data/speech_server_settings");
             sendVoice("/get/data/direct_voice_state");
         }
@@ -399,8 +414,16 @@ export const useReceiveRoutes = () => {
             if ([404, 423, 500].includes(status) && endpoint !== "/get/data/direct_voice_state") sendVoice("/get/data/direct_voice_state");
             return;
         }
-        if (status !== 200 && (endpoint.includes("/voice_") || ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"].includes(endpoint))) {
-            updateVoiceError(result?.error_code || "voice_request_failed");
+        if (status !== 200 && (endpoint.includes("/voice_") || STOP_ACTIONS.includes(endpoint))) {
+            const code = result?.error_code || "voice_request_failed";
+            updateVoiceError(code);
+            // Stop and mute are pressed from the top bar or a hotkey, away from the settings
+            // page that shows the error above: say it where the user is. After the engine
+            // stops, its own notice already says so.
+            if (STOP_ACTIONS.includes(endpoint) && !(code === "backend_unavailable" && !store.backend_subprocess)) {
+                const page = t(endpoint === "/run/stop_voice" ? "main_page.tts" : "voice_ui.mute_row");
+                showNotification_Error(voiceErrorText(code, page, t, key => i18n.exists(key)), { category_id: `voice_action:${endpoint}` });
+            }
             return;
         }
 
@@ -408,6 +431,7 @@ export const useReceiveRoutes = () => {
             resetDownloads();
             sendDownload("/get/data/model_download_catalog");
             sendDownload("/get/data/model_download_state");
+            sendDownload("/get/data/user_models");
             resetRuntimes();
             resetVoice();
             sendVoice("/get/data/voice_settings");
@@ -447,6 +471,12 @@ export const useReceiveRoutes = () => {
                     old: label(result.old_device), new: label(result.new_device),
                 }), { category_id: `audio_device_switched.${result.source}` });
             }
+            return;
+        }
+        if (status === 200 && endpoint === "/run/translation_compute_device_fallback") {
+            // Translation is on, on the CPU: the chosen device could not start the model.
+            showNotification_Warning(t("common_warning.translation_device_fallback", { device: String(result?.requested ?? "") }),
+                { category_id: "translation_device_fallback" });
             return;
         }
         if (endpoint === "/run/config_save_failed") {

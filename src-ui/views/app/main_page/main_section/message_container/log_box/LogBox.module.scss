@@ -27,5 +27,12 @@
 // Help for the moment nothing shows up in VRChat; quieter than the description above it.
 .empty .hint { max-width: 46rem; margin-top: .6rem; font-size: 1.2rem; line-height: 1.6; color: var(--vox_description_text); }
 
-@media (max-width: 800px) { .empty { padding: 1rem; } .empty h1 { font-size: 1.8rem; } .empty p { font-size: 1.3rem; } }
-:global(html[data-narrow]) { .empty { padding: 1rem; } .empty h1 { font-size: 1.8rem; } .empty p { font-size: 1.3rem; } }
+// A narrow or short conversation column (MainSection) tightens the empty state;
+// a short one also gives the log's own padding to its lines.
+@container main_section (max-width: 64rem) or (max-height: 36rem) {
+    .empty { padding: 1rem; } .empty h1 { font-size: 1.8rem; } .empty p { font-size: 1.3rem; }
+}
+@container main_section (max-height: 36rem) {
+    .container { padding: .6rem 1rem; }
+    .empty { justify-content: flex-start; gap: .4rem; }
+}

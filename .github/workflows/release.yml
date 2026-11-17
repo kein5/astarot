@@ -31,6 +31,9 @@ jobs:
   # which has the SHA-256 of both packages built in (tools/installer_package_hashes.py): the
   # installer refuses a package that was replaced on the release page, even with its .sha256.
   # The candidate job below inspects everything together and records the candidate.
+  # Since 0.5.0 both packages hold the same files (no Python, so no CUDA libraries); the CUDA
+  # package stays so that the installer's GPU choice and older GPU installs keep a download
+  # (decision 20 in docs/voice-stack/core-integration.md).
   build-cuda:
     name: Windows cuda build
     runs-on: windows-latest

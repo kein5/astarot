@@ -12,7 +12,7 @@ const load = async (failure, language = "en") => {
     const t = i18n.t.bind(i18n), calls = [];
     const { StartupFailedDialog } = await loadModule(new URL("./StartupFailedDialog.jsx", import.meta.url), hooks(), {
         "@useI18n": { useI18n: () => ({ t }) },
-        "@logics_common": { useWindow: () => ({ asyncCloseApp: () => calls.push("quit") }) },
+        "@logics_common": { useWindow: () => ({ asyncQuitApp: () => calls.push("quit") }) },
         "../../../../logics/common/useBackendStartup": { useBackendStartup: () => ({ failure, retryStartup: () => calls.push("retry") }) },
     });
     const tree = StartupFailedDialog();
@@ -29,6 +29,15 @@ for (const language of ["en", "ja"]) test(`${language}: an engine that ended ear
     // The reason and the next step are what the dialog is described by.
     assert.equal(tree.props["aria-describedby"], "startup_failed_reason startup_failed_next");
     assert.ok(find(tree, node => node.props?.id === tree.props["aria-labelledby"]));
+});
+
+for (const language of ["en", "ja"]) test(`${language}: a start-up that stopped on an internal error or ran out of time says so`, async () => {
+    const internal = await load({ kind: "exit", code: 101 }, language);
+    assert.equal(internal.texts[1], internal.t("common_error.backend_startup_reason_internal"));
+    const timeout = await load({ kind: "exit", code: 124 }, language);
+    assert.equal(timeout.texts[1], timeout.t("common_error.backend_startup_reason_timeout"));
+    // Both are worded, not left as their keys.
+    for (const text of [internal.texts[1], timeout.texts[1]]) assert.doesNotMatch(text, /common_error\./);
 });
 
 test("a program that never ran gets its short message as a detail; with no message, none", async () => {

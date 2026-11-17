@@ -22,12 +22,16 @@
     }
 }
 
+// An external link looks like the other links in settings: blue and underlined (#476).
 .open_webpage_text {
     font-size: 1.2rem;
+    color: var(--primary_300_color);
+    text-decoration: underline;
 }
+.open_webpage_button:hover .open_webpage_text { color: var(--primary_200_color); }
 
 .external_link_svg {
-    color: var(--dark_500_color);
+    color: var(--primary_300_color);
     width: 1.6rem;
     flex-shrink: 0;
 }

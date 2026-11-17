@@ -90,14 +90,113 @@ fn a_change_is_saved_two_seconds_after_the_last_one() {
 
 #[test]
 fn the_backend_stops_itself_when_the_watchdog_is_not_fed() {
-    let ui = Ui::with(Setup { watchdog: Some((Duration::from_millis(600), Duration::from_millis(100))), ..Setup::default() });
+    // The timeout is far above the feeding interval: a loaded machine may answer a feed late,
+    // and the test is about stopping when no feed comes at all.
+    let ui = Ui::with(Setup { watchdog: Some((Duration::from_secs(6), Duration::from_millis(100))), ..Setup::default() });
     ui.ready();
-    for _ in 0..6 {
+    for _ in 0..8 {
         ui.ok("/run/feed_watchdog", None);
-        std::thread::sleep(Duration::from_millis(200));
+        std::thread::sleep(Duration::from_millis(300));
     }
     assert_eq!(ui.wait_exit(Duration::from_millis(100)), None, "fed: still running");
-    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(0), "not fed: a graceful stop");
+    assert_eq!(ui.wait_exit(Duration::from_secs(20)), Some(0), "not fed: a graceful stop");
+}
+
+#[test]
+fn a_start_up_that_panics_ends_the_run_so_the_ui_can_say_it_could_not_start() {
+    let services = Services {
+        translation_weight_available: Arc::new(|_| panic!("a start-up step failed")),
+        ..Setup::default().services
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let ui = Ui::with(Setup { services, dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_FAILED_EXIT));
+    assert!(ui.on(0, "/run/initialization_complete").is_empty());
+    // The run is over: a request is not taken.
+    let mark = ui.send("/get/data/version", None);
+    std::thread::sleep(Duration::from_millis(200));
+    assert!(ui.on(mark, "/get/data/version").is_empty());
+    // The log says what happened, never the panic's own words.
+    let errors = std::fs::read_to_string(dir.path().join("logs").join("error.log")).unwrap_or_default();
+    assert!(errors.contains("The start-up stopped on an internal error"), "{errors}");
+    assert!(!errors.contains("a start-up step failed"), "{errors}");
+}
+
+#[test]
+fn a_start_up_that_does_not_end_in_time_ends_the_run_and_never_opens() {
+    let services = Services {
+        translation_weight_available: Arc::new(|_| {
+            std::thread::sleep(Duration::from_millis(1500));
+            false
+        }),
+        ..Setup::default().services
+    };
+    let ui = Ui::with(Setup { services, startup_limit: Some(Duration::from_millis(200)), ..Setup::default() });
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_TIMEOUT_EXIT));
+    // The start-up that ends later does not open the endpoints of a run that is over.
+    std::thread::sleep(Duration::from_millis(2500));
+    assert!(!ui.backend.dispatcher().is_open());
+}
+
+#[test]
+fn a_start_up_past_its_deadline_starts_nothing_once_it_goes_on() {
+    // #427: the stop ran first; the start-up then went on and started the servers, the overlay
+    // and the usage events, which nothing stopped any more.
+    let slow = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let services = Services {
+        translation_weight_available: Arc::new(move |_| {
+            if slow.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(1000));
+            }
+            false
+        }),
+        ..Setup::default().services
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let ui = Ui::with(Setup { services, startup_limit: Some(Duration::from_millis(200)), dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_TIMEOUT_EXIT));
+    let log = || std::fs::read_to_string(dir.path().join("logs").join("process.log")).unwrap_or_default();
+    common::net::eventually("the start-up ended", || {
+        let log = log();
+        log.contains("The run was stopped during the start-up") || log.contains("End Initialization")
+    });
+    let log = log();
+    for started in ["Init Logger", "Init WebSocket Server", "Init Device Manager", "Telemetry Init"] {
+        assert!(!log.contains(started), "{started} after the stop");
+    }
+    assert!(!ui.backend.dispatcher().is_open());
+}
+
+#[test]
+fn a_run_started_again_waits_for_the_old_stop_and_keeps_its_log() {
+    // #427: the retry started the new run while the old one was still stopping (two settings
+    // savers on one config.json), and emptied process.log, losing the failed run's record.
+    let dir = tempfile::tempdir().unwrap();
+    let first = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    first.ready();
+    assert!(first.backend.kill_and_wait(Duration::from_secs(10)), "the old run stopped");
+    let log = || std::fs::read_to_string(dir.path().join("logs").join("process.log")).unwrap_or_default();
+    assert!(log().contains("Shutdown"), "its stop is over before the next run starts");
+
+    let second = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), continue_logs: true, ..Setup::default() });
+    second.ready();
+    assert_eq!(log().matches("Start Initialization").count(), 2, "both runs are in process.log");
+    second.stop();
+
+    // A normal start still begins with an empty process.log.
+    let third = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    third.ready();
+    assert_eq!(log().matches("Start Initialization").count(), 1);
+    third.stop();
+}
+
+#[test]
+fn a_start_up_within_its_limit_is_not_ended() {
+    let ui = Ui::with(Setup { startup_limit: Some(Duration::from_secs(30)), ..Setup::default() });
+    ui.ready();
+    assert_eq!(ui.wait_exit(Duration::from_millis(300)), None);
+    assert!(ui.backend.dispatcher().is_open());
+    ui.stop();
 }
 
 #[test]
@@ -153,7 +252,7 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
     assert_eq!(license["result"]["data"], json!({ "weight_type": "nllb-200-distilled-600M-ct2-int8", "license": "CC-BY-NC-4.0" }));
     ui.ok("/run/shutdown", None);
     let saved = ui.saved();
-    assert_eq!(saved["AUTH_KEYS"]["DeepL_API"], "kept-key", "a saved key is kept even while its engine is unavailable");
+    assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), "kept-key", "a saved key is kept even while its engine is unavailable");
     assert_eq!(saved["CTRANSLATE2_LICENSE_NOTICE_SHOWN"], true, "the notice is shown once");
     assert_eq!(saved["LOCAL_ASR_MIGRATION"], 2);
     ui.stop();

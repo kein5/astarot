@@ -48,25 +48,24 @@ export const TranscriptionConsentController = () => {
         if (sent === false && selection.current === waiting) selection.current = null;
     };
     const pending = currentSelectedTranscriptionEngine.state === "pending";
+    const openSettings = () => { cancel(); updateSelectedConfigTabId("transcription"); updateIsOpenedConfigPage(true); };
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("transcription_consent.title")}
             onCancel={event => { event.preventDefault(); cancel(); }}>
             <h3>{t("transcription_consent.title")}</h3>
             {request.mode === "choose" ? <>
-                <p>{t("transcription_consent.google_notice")}</p>
                 <p>{t("transcription_consent.speechcpp_notice")}</p>
+                <p>{t("transcription_consent.cloud_notice")}</p>
                 <div className={styles.actions}>
                     <button type="button" autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</button>
-                    <button type="button" disabled={pending} onClick={() => choose("Google")}>{t("transcription_consent.google")}</button>
+                    <button type="button" onClick={openSettings}>{t("transcription_consent.settings")}</button>
                     <button type="button" disabled={pending} onClick={() => choose("SpeechCpp")}>{t("transcription_consent.speechcpp")}</button>
                 </div>
             </> : <>
                 <p>{t("backend_errors.TRANSCRIPTION_ENGINE_UNAVAILABLE")}</p>
                 <div className={styles.actions}>
                     <button type="button" autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</button>
-                    <button type="button" onClick={() => {
-                        cancel(); updateSelectedConfigTabId("transcription"); updateIsOpenedConfigPage(true);
-                    }}>{t("transcription_consent.settings")}</button>
+                    <button type="button" onClick={openSettings}>{t("transcription_consent.settings")}</button>
                 </div>
             </>}
         </dialog>

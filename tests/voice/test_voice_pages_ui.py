@@ -207,7 +207,7 @@ def test_separate_pages_search_and_asr_placement(pages):
     page.get_by_label("Search settings", exact=True).fill("RVC")
     results = page.get_by_label("Search results", exact=True).get_by_role("button")
     # The Device page Mic selection is also the RVC input on Linux, so it is found too.
-    expect(results.filter(has_text="Device: Mic Device")).to_be_visible()
+    expect(results.filter(has_text="Device: Mic device")).to_be_visible()
     results.filter(has_text="Voice changer (RVC): Voice changer (RVC)").click()
     expect(page.get_by_label("Permitted RVC model (.pth)", exact=True)).to_have_count(1)
     assert not any(ep.startswith("/run/start_") for ep, _ in peer.sent)
@@ -238,7 +238,7 @@ def test_device_route_is_first_and_setup_status_does_not_enable_resume(pages):
     expect(
         page.get_by_text("Preparing the virtual microphone…", exact=True)
     ).to_be_visible()
-    expect(page.get_by_role("button", name="Resume voice", exact=True)).to_be_disabled()
+    expect(page.get_by_role("button", name="Unmute", exact=True)).to_be_disabled()
 
 
 def test_rvc_can_prepare_route_without_losing_model_or_output_settings(pages):
@@ -283,7 +283,7 @@ def test_rvc_can_prepare_route_without_losing_model_or_output_settings(pages):
         ),
     )
     expect(page.get_by_role("alert").filter(has_text="pw-loopback")).to_be_visible()
-    expect(page.get_by_role("button", name="Resume voice", exact=True)).to_be_disabled()
+    expect(page.get_by_role("button", name="Unmute", exact=True)).to_be_disabled()
 
 
 def test_rvc_download_applies_without_saving_other_edits_first(pages):
@@ -465,19 +465,22 @@ def test_unset_voice_name_reads_as_not_set_and_stays_none(pages):
     assert peer.voice["japanese_voice"] == "kei"
 
 
-def test_top_bar_mute_shows_the_reported_state_and_names_what_it_silences(pages):
+def test_top_bar_mute_shows_the_reported_state_and_says_what_it_silences(pages):
     from playwright.sync_api import expect
 
     page, peer, reply = pages
     page.get_by_role("button", name="Text to speech (TTS)", exact=True).click()
     actions = page.get_by_role("group", name="Stop", exact=True)
-    mute = actions.get_by_role("button", name="Mute speech", exact=True)
+    # One name on every route (#436); the tooltip says what it silences.
+    mute = actions.get_by_role("button", name="Mute", exact=True)
     expect(mute).to_have_attribute("aria-pressed", "false")
+    expect(mute).to_have_attribute("title", "Mute applies to ASTAROT text-to-speech only.")
     # Muted on the managed route: the whole virtual microphone is silenced.
     reply("/get/data/voice_route", dict(observation_id="900", managed=True, ready=True, pending=False,
                                         requested_muted=True, observed_muted=True))
-    mic = actions.get_by_role("button", name="Mute virtual mic", exact=True)
+    mic = actions.get_by_role("button", name="Mute", exact=True)
     expect(mic).to_have_attribute("aria-pressed", "true")
+    expect(mic).to_have_attribute("title", "Mute applies to TTS and VC sent through this managed microphone.")
     expect(mic).to_contain_text("Muted")
     before = len(peer.sent)
     mic.click()

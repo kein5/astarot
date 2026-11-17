@@ -16,8 +16,9 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_ops::downloads::catalog::{self, Model};
+use vrct_ops::downloads::catalog;
 use vrct_ops::downloads::hardware::{BinarySource, HardwareProbe};
+use vrct_ops::downloads::user_models::{self, UserModels};
 use vrct_ops::downloads::{Downloads, Error};
 use vrct_ops::telemetry::Telemetry;
 
@@ -39,9 +40,14 @@ pub(crate) fn default_downloads(root: &Path) -> Result<Downloads, Error> {
 }
 
 /// The default [`Services::speech_binary`]: the checked speech.cpp of the app's bundle
-/// (`runtime.bundled_binary`, `<resources>/build/speechcpp`).
+/// (`runtime.bundled_binary`, `<resources>/build/speechcpp`). With both Linux builds it is the
+/// Vulkan build when it lists its devices on this PC, else the CPU build, so that the probe
+/// sees the devices a server can use.
 pub(crate) fn default_speech_binary(env: &Environment) -> Result<PathBuf, String> {
-    vrct_speech_server::bundle::bundled_binary(&super::speech::bundle_folder(env)).map_err(str::to_string)
+    let builds = vrct_speech_server::builds::Builds::find(&super::speech::bundle_folders(env), &vrct_speech_server::bundle::pinned());
+    builds
+        .for_listing(|binary| vrct_speech_server::devices::device_rows(binary, &None).is_some())
+        .ok_or_else(|| vrct_speech_server::codes::BUNDLE.to_string())
 }
 
 /// What the download and usage-event endpoints keep for the run.
@@ -49,9 +55,13 @@ pub(crate) struct Ops {
     pub(super) downloads: Downloads,
     pub(super) hardware: HardwareProbe,
     pub(super) telemetry: Telemetry,
+    /// The models the user registered under a name (#403).
+    pub(super) user_models: UserModels,
     /// Held while an apply checks and writes the settings (Python's `_speech_settings_lock` and
     /// `_voice_settings_lock`).
     apply_lock: Mutex<()>,
+    /// This run's hook in the error reports ([`crate::errors::register_report_hook`]).
+    report_hook: u64,
 }
 
 impl Ops {
@@ -71,8 +81,20 @@ impl Ops {
         // Every reported error code reaches the usage events (`register_error_report_hook`);
         // the telemetry itself sends nothing until it is started, and once a day per code.
         let reporter = telemetry.clone();
-        crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
-        Ops { downloads, hardware, telemetry, apply_lock: Mutex::new(()) }
+        let report_hook = crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
+        let user_models = UserModels::new(env.state_dir.join(user_models::FILE_NAME));
+        Ops { downloads, hardware, telemetry, user_models, apply_lock: Mutex::new(()), report_hook }
+    }
+
+    /// Takes this run's hook away: the error codes of a later run are not counted here.
+    pub(super) fn stop_reporting(&self) {
+        crate::errors::unregister_report_hook(self.report_hook);
+    }
+}
+
+impl Drop for Ops {
+    fn drop(&mut self) {
+        self.stop_reporting();
     }
 }
 
@@ -95,19 +117,23 @@ impl Core {
         }
     }
 
-    /// Writes the paths of a verified download into the settings (the callback of
-    /// `applyModelDownload`). It runs at the manager's commit point; a refusal leaves the
-    /// download ready.
-    fn apply_download_paths(&self, entry: &Model, paths: &[(String, String)], expected: &Value) -> Result<(), Error> {
+    /// Writes the paths of a verified download or a registered model into the settings
+    /// (`_applyModelPaths`). For a download it runs at the manager's commit point; a refusal
+    /// leaves the download ready.
+    fn apply_model_paths(&self, target: &str, id: &str, paths: &[(String, String)], expected: &Value) -> Result<(), Error> {
         let path = |role: &str| paths.iter().find(|(r, _)| r == role).map(|(_, p)| p.clone());
-        if entry.target == "ocr" {
-            // Chat reading finds verified downloads by catalog id; no setting holds a path.
+        if target == "ocr" || target == catalog::TRANSLATION_TARGET {
+            // Chat reading and the local translation find verified downloads by catalog id;
+            // no setting holds a path.
             if !(expected.is_null() || *expected == json!({})) {
                 return Err(Error::Code("download_request_invalid"));
             }
+            if target == catalog::TRANSLATION_TARGET {
+                self.translation_model_downloaded(id);
+            }
             return Ok(());
         }
-        let rvc = entry.target == "rvc";
+        let rvc = target == "rvc";
         let keys: &[&str] = if rvc { &["model", "index"] } else { &["model"] };
         let shaped = expected.as_object().is_some_and(|o| o.len() == keys.len() && keys.iter().all(|k| o.get(*k).is_some_and(Value::is_string)));
         if !shaped {
@@ -120,21 +146,18 @@ impl Core {
             if !(self.services().model_target_idle)("rvc") {
                 return Err(Error::Code("model_target_busy"));
             }
-            let mut settings = config.get("DIRECT_VOICE_SETTINGS");
-            if keys.iter().any(|k| settings[format!("rvc_{k}")] != expected[*k]) {
-                return Err(Error::Code("settings_changed"));
-            }
-            settings["rvc_model"] = json!(path("model").unwrap_or_default());
-            settings["rvc_index"] = json!(path("index").unwrap_or_default());
-            config.set("DIRECT_VOICE_SETTINGS", settings).map_err(|_| Error::Code("download_apply_failed"))?;
+            // Under the voice settings' lock, refused while a conversion runs (`voice`).
+            self.apply_rvc_download(expected, &path("model").unwrap_or_default(), &path("index").unwrap_or_default()).map_err(Error::Code)?;
         } else {
             // A VAD or diarization file goes to a field of the asr profile; `expected` names
             // that field's value, not the recognizer's.
-            let Some((profile, field)) = catalog::speech_field(&entry.target) else {
+            let Some((profile, field)) = catalog::speech_field(target) else {
                 return Err(Error::Code("download_request_invalid"));
             };
             let running = vrct_speech_server::settings::Profile::from_name(profile).is_ok_and(|p| self.speech_servers().is_running(p));
-            if running || !(self.services().model_target_idle)(profile) {
+            // Realtime recognition listening on the bundled server keeps its model in use.
+            let recognizing = profile == "asr" && self.realtime_uses_bundled_server();
+            if running || recognizing || !(self.services().model_target_idle)(profile) || !self.voice_target_idle(profile) {
                 return Err(Error::Code("model_target_busy"));
             }
             let mut settings = config.get("SPEECH_SERVER_SETTINGS");
@@ -145,6 +168,29 @@ impl Core {
             config.set("SPEECH_SERVER_SETTINGS", settings).map_err(|_| Error::Code("download_apply_failed"))?;
         }
         Ok(())
+    }
+}
+
+impl Core {
+    /// A translation model of the catalog was applied: its weight is marked as downloaded, as
+    /// the CTranslate2 download told the UI (`downloaded_ctranslate2_weight`). The manager has
+    /// verified every file in its folder before this runs.
+    fn translation_model_downloaded(&self, id: &str) {
+        #[cfg(feature = "onnx-translation")]
+        if let Some((weight, _)) = super::translation_onnx::weight_of_catalog_id(id) {
+            let config = self.config();
+            let mut weights = config.get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT");
+            if let Some(map) = weights.as_object_mut() {
+                map.insert(weight.to_string(), json!(true));
+            }
+            config.put("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT", weights);
+            if config.get_str("CTRANSLATE2_WEIGHT_TYPE") == weight {
+                self.set_translation_available(true);
+            }
+            self.notify("downloaded_ctranslate2_weight", json!({ "weight_type": weight, "downloaded": true }));
+        }
+        #[cfg(not(feature = "onnx-translation"))]
+        let _ = id;
     }
 }
 
@@ -184,6 +230,9 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         // The reviews of the built-in CTranslate2 downloads (`legacyModelCatalog`) come with
         // that download, which the core does not run yet: none is offered.
         catalog["legacy_models"] = json!([]);
+        // Where a user puts a translation model of their own (the core's addition).
+        let folder = core.config().environment().data_dir.join("translation-models");
+        catalog["translation_models_folder"] = json!(folder.to_string_lossy());
         ok(catalog)
     });
     b.with("/get/data/model_download_hardware", OPEN, |core, _| ok(to_value(core.ops().hardware.state())));
@@ -206,7 +255,30 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/apply_model_download", OPEN, |core, data| {
         let Some((id, job_id)) = request(data, true) else { return failure("download_request_invalid") };
         let expected = &data["expected"];
-        let result = core.ops().downloads.apply(id, job_id, |entry, paths| core.apply_download_paths(entry, paths, expected));
+        let result = core.ops().downloads.apply(id, job_id, |entry, paths| core.apply_model_paths(&entry.target, &entry.id, paths, expected));
         answer(result, "download_apply_failed")
+    });
+    // Models the user registers under a name (#403). The routes carry "user_model" so the
+    // process log masks their names and paths (`log::SENSITIVE_ENDPOINT_MARKERS`).
+    b.with("/get/data/user_models", OPEN, |core, _| ok(core.ops().user_models.state()));
+    b.with("/run/register_user_model", OPEN, |core, data| match core.ops().user_models.register(data) {
+        Ok(state) => ok(state),
+        Err(error) => failure(error.code().unwrap_or("user_models_write_failed")),
+    });
+    b.with("/run/remove_user_model", OPEN, |core, data| match core.ops().user_models.remove(data) {
+        Ok(state) => ok(state),
+        Err(error) => failure(error.code().unwrap_or("user_models_write_failed")),
+    });
+    b.with("/run/apply_user_model", OPEN, |core, data| {
+        // `{id, expected}`: switches the registered model's target as `applyModelDownload` does.
+        let id = data.as_object().filter(|o| o.len() == 2 && o.contains_key("expected")).and_then(|o| o.get("id")).and_then(Value::as_str).filter(|s| !s.is_empty());
+        let Some(id) = id else { return failure("user_model_invalid") };
+        let ops = core.ops();
+        let result = ops.user_models.usable(id).and_then(|(target, paths)| core.apply_model_paths(&target, id, &paths, &data["expected"]));
+        match result {
+            Ok(()) => ok(ops.user_models.state()),
+            Err(Error::Code(code)) => failure(code),
+            Err(_) => failure("download_apply_failed"),
+        }
     });
 }

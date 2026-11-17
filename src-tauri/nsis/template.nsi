@@ -28,7 +28,8 @@ ${StrLoc}
 !define HEADERIMAGE "{{header_image}}"
 !define MAINBINARYNAME "{{main_binary_name}}"
 !define MAINBINARYSRCPATH "{{main_binary_path}}"
-; The Python sidecar from tauri.conf.json bundle.externalBin ("bin/vrct-vox-sidecar").
+; The Python sidecar that packages up to 0.4 carried beside the app. 0.5.0 has none; the
+; installer still stops and removes the one an older install left behind.
 !define SIDECARBINARYNAME "vrct-vox-sidecar"
 !define BUNDLEID "{{bundle_id}}"
 !define COPYRIGHT "{{copyright}}"
@@ -767,8 +768,9 @@ SectionEnd
         Abort "$(appRunning)"
   ${EndIf}
   app_check_done:
-  ; Killing the main process skips the shell plugin's exit handler, so the
-  ; Python sidecar keeps running until its own watchdog stops it (1-2 min).
+  ; Updating an install from before 0.5.0: killing its main process skipped the
+  ; shell plugin's exit handler, so its Python sidecar keeps running until its own
+  ; watchdog stops it (1-2 min).
   ; Meanwhile its exe and loaded libraries cannot be deleted, and its final
   ; save can write config.json again. The main app is gone at this point:
   ; it was not running, or the user agreed to stop it above.
@@ -807,6 +809,8 @@ Var /GLOBAL existing_install
 Var install_started
 Var upd_dir
 Var upd_entry
+; 1 when the staged package has no Python sidecar (0.5.0 and later) and an old one is left.
+Var stale_sidecar
 Var upd_find
 Var upd_failed
 
@@ -878,6 +882,12 @@ Section Install
   Var /GLOBAL package_hash_available
   Var /GLOBAL expected_package_hash
   Var /GLOBAL actual_package_hash
+  ; "1" while the last attempt failed SHA-256 verification (the final message names it).
+  Var /GLOBAL dl_hash_failed
+  ; "1" when the next attempt may continue the single-connection file the last one left.
+  Var /GLOBAL dl_resume
+  ; Bytes the single-connection transfer had at the last look, for its stall watchdog.
+  Var /GLOBAL dl_last_bytes
   ${If} $SelectedEdition == "gpu"
     StrCpy $file_name "${SOFTWARE_DOWNLOAD_FILENAME_GPU}"
     StrCpy $req_dl_mb ${REQ_DOWNLOAD_MB_GPU}
@@ -1070,11 +1080,16 @@ Section Install
   ; Download + extract is retried as a single unit: a transfer the downloader
   ; reports as OK can still be truncated (the HuggingFace CDN does this on
   ; multi-GB files), which only surfaces when the unpack fails. So on ANY
-  ; failure (download error, tar error, or an incomplete staged package)
-  ; we wipe the archive and pull a completely fresh copy.
+  ; failure (download error, tar error, a SHA-256 mismatch, or an incomplete
+  ; staged package) we pull the archive again. Only a single-connection
+  ; transfer that stalled or stopped keeps its file for the next attempt to
+  ; continue (NScurl /RESUME): the SHA-256 check or the unpack catches a bad
+  ; continuation, and the attempt after that starts from nothing.
   StrCpy $dl_retries 0
+  StrCpy $dl_resume "0"
   install_attempt:
     Call StopPackageTransfers
+    StrCpy $dl_hash_failed "0"
     RMDir /r "$INSTDIR\.upd\new"
     ${If} ${FileExists} "$INSTDIR\.upd\new"
       Abort "Could not empty the update staging folder: $INSTDIR\.upd\new"
@@ -1083,7 +1098,11 @@ Section Install
     CreateDirectory "$INSTDIR\.upd\new"
     IfErrors attempt_failed
     Delete "$INSTDIR\.upd\$file_name"
-    Delete "$TEMP\$file_name"
+    ${If} $dl_resume != "1"
+    ${OrIf} $dl_parallel == "1"
+      Delete "$TEMP\$file_name"
+    ${EndIf}
+    StrCpy $dl_resume "0"
     Delete "$TEMP\$file_name.p0"
     Delete "$TEMP\$file_name.p1"
     Delete "$TEMP\$file_name.p2"
@@ -1096,6 +1115,7 @@ Section Install
       Pop $dl_transfer_id
       StrCpy $dl_tick 0
       StrCpy $R4 0
+      StrCpy $dl_last_bytes ""
       download_wait:
         Sleep 1000
         NScurl::query /ID $dl_transfer_id "@STATUS@"
@@ -1104,7 +1124,16 @@ Section Install
           Goto single_download_done
         ${ElseIf} $0 == "Waiting"
         ${OrIf} $0 == "Running"
-          IntOp $R4 $R4 + 1
+          ; The watchdog counts seconds without progress, not the whole transfer:
+          ; a slow line may take hours over a large package.
+          NScurl::query /ID $dl_transfer_id "@XFERSIZE_B@"
+          Pop $1
+          ${If} $1 != $dl_last_bytes
+            StrCpy $dl_last_bytes $1
+            StrCpy $R4 0
+          ${Else}
+            IntOp $R4 $R4 + 1
+          ${EndIf}
           IntOp $dl_tick $dl_tick + 1
           ${If} $dl_tick >= 5
             StrCpy $dl_tick 0
@@ -1114,13 +1143,15 @@ Section Install
             Pop $dl_xfersize
             DetailPrint "Downloading $file_name... $dl_xfersize ($dl_percent%)"
           ${EndIf}
-          ${If} $R4 >= 3600
-            DetailPrint "Download timed out"
+          ${If} $R4 >= 600
+            DetailPrint "Download stalled for 10 minutes"
+            StrCpy $dl_resume "1"
             Goto attempt_failed
           ${EndIf}
           Goto download_wait
         ${Else}
           DetailPrint "Download stopped with status $0"
+          StrCpy $dl_resume "1"
           Goto attempt_failed
         ${EndIf}
       single_download_done:
@@ -1129,6 +1160,7 @@ Section Install
       Pop $0
       ${If} $0 != "OK"
         DetailPrint "Download failed ($0)"
+        StrCpy $dl_resume "1"
         Goto attempt_failed
       ${EndIf}
     ${Else}
@@ -1274,12 +1306,13 @@ Section Install
       NScurl::sha256 -file "$TEMP\$file_name"
       Pop $actual_package_hash
       ${If} $actual_package_hash != $expected_package_hash
-        Call StopPackageTransfers
+        ; A truncated transfer fails here, before any unpack: pull it again like
+        ; any other failure. One short part of a parallel download is the
+        ; usual cause, so the next attempts use a single connection.
         DetailPrint "Package SHA-256 mismatch"
-        Delete "$TEMP\$file_name"
-        ${IfThen} $package_hash_path != "" ${|} Delete "$package_hash_path" ${|}
-        MessageBox MB_OK|MB_ICONSTOP "The downloaded package failed SHA-256 verification. Installation was aborted." /SD IDOK
-        Abort
+        StrCpy $dl_hash_failed "1"
+        StrCpy $dl_parallel "0"
+        Goto attempt_failed
       ${EndIf}
       DetailPrint "Package SHA-256 verified"
     ${EndIf}
@@ -1333,6 +1366,14 @@ Section Install
       DetailPrint "Retrying download + unpack ($dl_retries/3)..."
       Goto install_attempt
     ${EndIf}
+    ${If} $dl_hash_failed == "1"
+      ; A package that fails verification is not kept.
+      Delete "$TEMP\$file_name"
+      DetailPrint "Giving up after 3 attempts: package SHA-256 mismatch"
+      Call CleanupFailedInstall
+      MessageBox MB_OK|MB_ICONSTOP "The downloaded package failed SHA-256 verification. Installation was aborted." /SD IDOK
+      Abort
+    ${EndIf}
     ; Keep the last (bad) archive instead of deleting it, so the failure can
     ; be diagnosed from %TEMP%.
     Delete "$TEMP\$file_name.bad"
@@ -1343,8 +1384,11 @@ Section Install
     Abort
 
   install_ready:
-  ; The archive is no longer needed once it is unpacked; reclaim the space.
+  ; The archive is no longer needed once it is unpacked; reclaim the space,
+  ; and the space of an archive an earlier failed install kept (several GB
+  ; for the CUDA edition).
   Delete "$TEMP\$file_name"
+  Delete "$TEMP\$file_name.bad"
 
   ; Downloads can take hours; check again immediately before changing files.
   Call CheckAppIsRunning
@@ -1356,6 +1400,12 @@ Section Install
       MessageBox MB_OK|MB_ICONEXCLAMATION "$(unableToUninstall)" /SD IDOK
       Abort
     ${EndIf}
+  ${EndIf}
+
+  ; A package from 0.5.0 on has no sidecar; an older one (the version picker) still ships it.
+  StrCpy $stale_sidecar "0"
+  ${IfNot} ${FileExists} "$INSTDIR\.upd\new\${SIDECARBINARYNAME}.exe"
+    StrCpy $stale_sidecar "1"
   ${EndIf}
 
   ClearErrors
@@ -1412,6 +1462,11 @@ Section Install
   Delete "$INSTDIR\.upd\committing"
   IfErrors commit_failed
   RMDir /r "$INSTDIR\.upd"
+  ; Up to 0.4 the package carried the Python sidecar beside the app. A package without it
+  ; leaves the old one in place through the commit above; it is no longer used.
+  ${If} $stale_sidecar == "1"
+    Delete "$INSTDIR\${SIDECARBINARYNAME}.exe"
+  ${EndIf}
 
   ; An in-place NSIS uninstall would delete the newly committed app. When
   ; moving locations, uninstall only after the replacement is ready, and
@@ -1724,6 +1779,8 @@ Section Uninstall
     Delete "$INSTDIR\config.json"
     Delete "$INSTDIR\config.json.unreadable-*"
     Delete "$INSTDIR\voice_mute_state.json"
+    ; The list of registered models only: the model files stay where the user keeps them.
+    Delete "$INSTDIR\user_models.json"
     RmDir /r "$INSTDIR\downloaded_models"
     RmDir /r "$INSTDIR\vc_runtimes"
     Delete "$INSTDIR\process.log"
@@ -1746,6 +1803,9 @@ Section Uninstall
 
   ; Remove abandoned update work files too.
   RmDir /r "$INSTDIR\.upd"
+
+  ; The Python sidecar of an install from before 0.5.0 that was updated in place.
+  Delete "$INSTDIR\${SIDECARBINARYNAME}.exe"
 
   ; Delete _internal folder (アプリ本体の一部なので常に削除)
   RmDir /r "$INSTDIR\_internal"

@@ -5,10 +5,8 @@ server, one bounded speech worker, and the hand-off of streamed PCM to an output
 It is the Rust counterpart of `src-python/models/tts/` and keeps its settings format,
 error codes, and queueing, interruption and expiry rules.
 
-This crate stands alone. The application does not use it yet: nothing under
-`src-tauri` or `src-python` refers to it, and the Python speech path is unchanged.
-Wiring it in needs the output devices (#280) and the speech.cpp server owner (#276)
-on the Rust side first; see "Not in this crate" below.
+The backend core (`native/core`) uses it for TTS; the Python speech path is unchanged
+until the sidecar is retired. See "Not in this crate" below for what plugs in.
 
 ## What it does
 
@@ -22,6 +20,7 @@ on the Rust side first; see "Not in this crate" below.
 | `AudioRouter.play` (in `audio_routing/`) | `src/playback.rs` | The device-independent part: 10 ms blocks, first audible write, monitor copy, drain or discard |
 | `converted_router.py` | `src/converted.rs`, `src/resample.rs` | Speech through the running voice conversion (ADR-007): 48 kHz mono, one resampler per stream |
 | `message_hook.py` | `src/message_hook.rs` | Chat and microphone speech events from pipeline values |
+| `external_engine.py`, `voicevox_tts.py`, `coeiroink_tts.py`, `engines.py` | `src/engines.rs` | Installed engines (ADR-008): VOICEVOX, SHAREVOX, AivisSpeech and COEIROINK v2; version, voice list, sentence-by-sentence WAV synthesis with one sentence prefetched |
 | `voice_trace.py` | `src/trace.rs` | Opt-in `VRCT_VOICE_TRACE` timing records |
 
 Nothing is logged. Text, instructions, audio, server bodies and device names never go
@@ -38,12 +37,10 @@ These stay where they are and plug in through traits:
 | The running voice conversion | `converted::ConversionSpeaker` | Voice conversion (`DirectVoice`) |
 | A started speech.cpp process | `listener::ProcessExit`, `ListenerMonitors::own`/`forget` | The speech.cpp server owner (#276) |
 | Bundled server URL | `scheduler::ResolveServer` | The speech.cpp server owner (#276) |
-| Installed engine clients (VOICEVOX-family, COEIROINK; ADR-008) | `scheduler::Synthesizer`, `scheduler::EngineFactory` | Still Python (`voicevox_tts.py`, `coeiroink_tts.py`, `external_engine.py`) |
 | Failure reports, flow panel | `BusOptions::on_failure`, `on_first_audio`, `on_monitor_error` | The application core |
 
-The installed engines' clients (ADR-008) are a separate Python path and are not part of
-this crate. Their settings and the choice of engine for Japanese are, so that saved
-settings stay readable and Japanese goes where the user chose.
+The backend core (`native/core`, `controller/voice.rs`) wires the bus to the output
+devices, the speech.cpp servers and the voice conversion.
 
 ## Differences from the Python version
 

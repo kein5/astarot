@@ -30,7 +30,7 @@ const sources = (folder, found = []) => {
     for (const name of readdirSync(folder)) {
         const path = new URL(name, folder);
         if (statSync(path).isDirectory()) sources(new URL(`${name}/`, folder), found);
-        else if (/\.(js|jsx|json)$/.test(name) && !name.includes(".test.")) found.push(path);
+        else if (/\.(js|jsx|ts|tsx|json)$/.test(name) && !name.includes(".test.") && !name.endsWith(".d.ts")) found.push(path);
     }
     return found;
 };

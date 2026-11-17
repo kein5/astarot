@@ -6,11 +6,13 @@
 //! (tauri-plugin-opener 2.7.2, src/scope.rs); these tests use the same matcher.
 use serde_json::Value;
 
-const CAPABILITIES: [(&str, &str); 4] = [
+const CAPABILITIES: [(&str, &str); 6] = [
     ("default.json", include_str!("../capabilities/default.json")),
     ("vrct_capability.json", include_str!("../capabilities/vrct_capability.json")),
     ("quick-chat.json", include_str!("../capabilities/quick-chat.json")),
     ("caption-overlay.json", include_str!("../capabilities/caption-overlay.json")),
+    ("vr-panel.json", include_str!("../capabilities/vr-panel.json")),
+    ("companion.json", include_str!("../capabilities/companion.json")),
 ];
 
 fn parse(text: &str) -> Value {
@@ -62,6 +64,20 @@ fn only_the_main_window_may_open_urls_and_only_through_the_list() {
 }
 
 #[test]
+fn every_capability_file_is_enabled() {
+    // A non-empty list in tauri.conf.json enables only the capabilities it names: a file left out
+    // grants its windows nothing (Issue #421, the VR panel could not listen for the pointer).
+    let config = parse(include_str!("../tauri.conf.json"));
+    let mut enabled: Vec<&str> = config["app"]["security"]["capabilities"].as_array().unwrap().iter()
+        .map(|name| name.as_str().unwrap()).collect();
+    let mut files: Vec<String> = CAPABILITIES.iter()
+        .map(|(_, text)| parse(text)["identifier"].as_str().unwrap().to_owned()).collect();
+    enabled.sort_unstable();
+    files.sort_unstable();
+    assert_eq!(enabled, files);
+}
+
+#[test]
 fn the_links_the_app_shows_can_be_opened() {
     for url in [
         "https://kein5.github.io/VRCT-VOX/en/guide/first-setup",
@@ -76,6 +92,9 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://twitter.com/misya_ai",
         "https://www.deepl.com/ja/your-account/keys",
         "https://console.deepgram.com/",
+        // The key pages of the official translation APIs (#277).
+        "https://console.cloud.google.com/apis/credentials",
+        "https://www.ncloud.com/product/aiService/papagoTranslation",
         "https://huggingface.co/facebook/m2m100_418M",
         "https://huggingface.co/sakasegawa/silero-vad-GGUF/blob/0123abc/LICENSE",
         "https://huggingface.co/Plachta/Seed-VC/tree/main?x=1",

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../logics/test/hookHarness.js";
-import { voiceActions } from "../../../../../logics/voice/voiceActions.js";
+import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
@@ -53,7 +53,8 @@ async function menu(context, values = {}) {
         return { tree, opener: find(tree, node => node.type === "button"), panel: find(tree, node => node.props?.role === "group"), rows,
             state: find(tree, node => node.props?.className === "menu_state")?.props.children };
     };
-    return { draw, calls, document, focused, state, flowButton: () => runtime.render(FlowButton) };
+    const UpdateButton = find(right, node => node.type?.name === "SoftwareUpdateAvailableButton").type;
+    return { draw, calls, document, focused, state, flowButton: () => runtime.render(FlowButton), updateButton: () => runtime.render(UpdateButton) };
 }
 
 test("the quick settings button says how many of its toggles are on, and opens them in place", async context => {
@@ -140,7 +141,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     const voice = { status: { queued: 2, active: true }, route: { requested_muted: true, ready: true, pending: false, managed: true }, send: path => sent.push(path) };
     const actions = await loadModule(new URL("../../../others/stop_actions/StopActions.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.js": { voiceActions },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
     const { TopBar } = await loadModule(new URL("./TopBar.jsx", import.meta.url), runtime, {
         "./sidebar_compact_mode_button/SidebarCompactModeButton": { SidebarCompactModeButton: "compact" },
@@ -159,8 +160,11 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
         tiny: 'voice_ui.topbar_stop_tiny_count:{"count":2}' });
     assert.equal(stop.props["aria-label"], 'voice_ui.topbar_stop_count:{"count":2}', "the name stays the full words");
     assert.match(stop.props.className, /is_attention/);
-    assert.deepEqual(words(mute), { long: "voice_ui.topbar_mute_mic", short: "voice_ui.topbar_mute_short", tiny: "voice_ui.topbar_muted",
+    // One name at every width and on every route (#436); the tooltip says what it silences.
+    assert.deepEqual(words(mute), { long: "voice_ui.mute_row", short: "voice_ui.mute_row", tiny: "voice_ui.topbar_muted",
         muted_badge: "voice_ui.topbar_muted" });
+    assert.equal(mute.props["aria-label"], "voice_ui.mute_row");
+    assert.equal(mute.props.title, "voice.mute_scope_managed");
     assert.equal(mute.props["aria-pressed"], true);
     stop.props.onClick(); mute.props.onClick();
     assert.deepEqual(sent.slice(-2), ["/run/stop_voice", "/run/resume_voice"]);
@@ -186,7 +190,7 @@ test("the settings bar draws the same actions without the shortest words", async
     const voice = { status: {}, route: {}, send() {} };
     const { StopActions } = await loadModule(new URL("../../../others/stop_actions/StopActions.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.js": { voiceActions },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
     const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", is_attention: "is_attention",
         is_pressed: "is_pressed", muted_badge: "muted_badge" };
@@ -199,16 +203,34 @@ test("the settings bar draws the same actions without the shortest words", async
 test("the main bar's stylesheet hides the long words and swaps to the shortest when narrow; strings exist in en and ja", () => {
     const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
     assert.match(css, /\.long, \.tiny \{ display: none; \}/);
-    const narrow = css.split("@mixin narrow_bar")[1].split("@media")[0];
+    const narrow = css.split("@mixin narrow_bar")[1].split("@container")[0];
     assert.match(narrow, /\.short \{ display: none; \}/);
     assert.match(narrow, /\.tiny \{ display: inline; \}/);
-    assert.match(css, /@media \(max-width: 800px\) \{ @include narrow_bar; \}/);
-    assert.match(css, /:global\(html\[data-narrow\]\) \{ @include narrow_bar; \}/);
+    // The conversation column's width decides, not the window's (a wide rail leaves less room).
+    assert.match(css, /@container main_section \(max-width: 64rem\) \{ @include narrow_bar; \}/);
+    assert.doesNotMatch(css, /@media \(max-width: 800px\)|data-narrow/);
+    const menu = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
+    assert.match(menu, /@container main_section \(max-width: 64rem\) \{ @include narrow_menu; \}/);
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
         for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof strings.main_page[key], "string");
         for (const key of ["topbar_stop_tiny", "topbar_stop_tiny_count"]) assert.equal(typeof strings.voice_ui[key], "string");
     }
+});
+
+test("stop and mute keep their width in a narrow bar; the update button keeps only its arrow there", async context => {
+    const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
+    const leading = css.match(/\.leading \{([^}]*)\}/)[1];
+    assert.match(leading, /flex-shrink: 0/, "the right-hand buttons can no longer slide over stop and mute");
+    assert.doesNotMatch(leading, /min-width: 0/);
+    const right = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
+    const narrow = right.split("@mixin narrow_menu")[1].split("@container")[0];
+    assert.match(narrow, /\.software_update_label \{[^}]*clip-path: inset\(50%\)/);
+    const button = (await menu(context, { update: "available" })).updateButton();
+    assert.equal(button.type, "button");
+    assert.equal(button.props.type, "button");
+    assert.equal(button.props.title, "main_page.update_available", "the tooltip keeps the words");
+    assert.ok(find(button, node => node.type === "span" && node.props.children === "main_page.update_available"), "and so does the name");
 });
 
 test("the words added to the main page are never smaller than 12px (1.2rem at the 10px base)", () => {

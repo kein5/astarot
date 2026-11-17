@@ -10,14 +10,12 @@ sequenceDiagram
   participant UI as UI（main）
   participant S as サイドカー
   participant Net as ネットワーク
-  UI->>S: spawn（bin/vrct-vox-sidecar）
+  UI->>S: backend_start（0.5.0 からアプリの中の中核。0.4 までは bin/vrct-vox-sidecar）
   Note over S: 受信とワーカー3本が先に動く。<br/>status False の要求は423で待たせる
   S->>Net: GET https://www.google.com（3秒）
   S-->>UI: /run/connected_network
   S-->>UI: /run/initialization_progress = 1
-  opt オンラインで AUTO_DOWNLOAD_MODELS がオン
-    S->>Net: 内蔵の翻訳モデル（CTranslate2）の取得
-  end
+  Note over S: モデルは自動では取得しない（0.5.0 で起動時の取得を引退）
   S-->>UI: /run/enable_ai_models（真偽）
   S->>Net: 各エンジンのキーとモデル一覧の確認
   Note over S: 確認できないキーも保存したままにする

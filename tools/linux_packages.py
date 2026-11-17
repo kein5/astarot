@@ -5,11 +5,14 @@
 The packages hold the same files as the release tar.gz. They install them read-only under
 /opt/vrct-vox, add /usr/bin/vrct-vox, a desktop entry, an icon and the license notices, and
 declare what the tar.gz needs from the host: glibc, GTK 3 and WebKitGTK 4.1 (with what they pull
-in), and for the Vulkan variant the Vulkan loader: speech.cpp loads libvulkan.so.1 from the system,
-not the copy in _internal. The bundle carries libpipewire and OpenSSL itself (checked with readelf on
-the 0.2.0 tar.gz). The PipeWire tools are recommended: managed audio routing runs them, and so are
-the Mesa Vulkan drivers for the Vulkan variant. The lowest glibc comes from the candidate's
-build-manifest.json. Settings and models stay in the user's XDG folders.
+in). The app runs the backend core in its own process and links the host's libpipewire, which is
+required; _internal holds no Python runtime. One package carries both speech.cpp builds: the
+Vulkan build loads libvulkan.so.1 from the system, not from _internal, and the CPU build needs no
+Vulkan at all, so the Vulkan loader is recommended, not required (decision 48 in
+docs/voice-stack/core-integration.md): without it the GPU choices are unavailable and "auto" runs
+on the CPU build. The PipeWire tools are recommended: managed audio routing runs them, and so
+are the Mesa Vulkan drivers. The lowest glibc comes from the candidate's build-manifest.json.
+Settings and models stay in the user's XDG folders.
 
 `package-manager` beside the binary names the package format, so the app knows that updates
 come from the package manager and never replaces itself (self-update, 0.3.0).
@@ -31,12 +34,18 @@ DESCRIPTION = ('VRCT-VOX translates and speaks your chat and voice in VRChat, wi
                'recognition, text to speech, voice conversion and chat reading.')
 HOMEPAGE = 'https://github.com/kein5/VRCT-VOX'
 # Debian and Fedora names of what the tar.gz needs from the host.
-DEB_DEPENDS = ['libwebkit2gtk-4.1-0', 'libgtk-3-0t64 | libgtk-3-0']
+# The app links libpipewire-0.3.so.0 itself (the core's audio devices, #285), so the library is
+# required; the PipeWire tools stay recommended.
+DEB_DEPENDS = ['libwebkit2gtk-4.1-0', 'libgtk-3-0t64 | libgtk-3-0', 'libpipewire-0.3-0t64 | libpipewire-0.3-0']
 DEB_RECOMMENDS = ['pipewire-bin']
-RPM_REQUIRES = ['webkit2gtk4.1', 'gtk3']
+RPM_REQUIRES = ['webkit2gtk4.1', 'gtk3', 'pipewire-libs']
 RPM_RECOMMENDS = ['pipewire-utils']
-# Only the Vulkan variant: the loader is required, a driver for the GPU is recommended.
+# The Vulkan build's loader and a driver for the GPU; both recommended, since the CPU build in
+# the same package runs without them.
 VULKAN = {'deb': ('libvulkan1', 'mesa-vulkan-drivers'), 'rpm': ('vulkan-loader', 'mesa-vulkan-drivers')}
+# The candidate's build-manifest.json: one package per architecture with both speech.cpp builds.
+PACKAGE_VARIANT = 'linux-x64'
+SPEECH_BUILDS = ['linux-x64-cpu', 'linux-x64-vulkan']
 WRAPPER = '#!/bin/sh\nexec /opt/vrct-vox/vrct-vox "$@"\n'
 VERSION = re.compile(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(beta\.[1-9][0-9]*))?')
 
@@ -57,21 +66,20 @@ def build_facts(candidate):
              if re.fullmatch(r'GLIBC_[0-9]+(?:\.[0-9]+)+', value)]
     if not glibc:
         raise ValueError('The candidate records no glibc requirement')
-    if manifest.get('variant') not in ('linux-x64-vulkan', 'linux-x64-cpu'):
-        raise ValueError('Unknown engine variant')
+    if manifest.get('variant') != PACKAGE_VARIANT or sorted(manifest.get('speech_builds') or ()) != SPEECH_BUILDS:
+        raise ValueError('Expected a candidate with both speech.cpp builds')
     return manifest['version'], manifest['variant'], '.'.join(map(str, max(glibc)))
 
 
 def requirements(kind, variant, glibc):
     """(required, recommended) package names."""
+    if variant != PACKAGE_VARIANT:
+        raise ValueError('Unknown package variant')
     if kind == 'deb':
         required, recommended = [f'libc6 (>= {glibc})', *DEB_DEPENDS], [*DEB_RECOMMENDS]
     else:
         required, recommended = [f'glibc >= {glibc}', *RPM_REQUIRES], [*RPM_RECOMMENDS]
-    if variant == 'linux-x64-vulkan':
-        loader, driver = VULKAN[kind]
-        required.append(loader)
-        recommended.append(driver)
+    recommended += VULKAN[kind]
     return required, recommended
 
 

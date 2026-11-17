@@ -11,6 +11,8 @@
     display: inline-block;
     cursor: pointer;
     padding: var(--checkbox-padding, 2rem);
+    // The box ends where the row's fields end; the target keeps its padding on the other sides (#474).
+    padding-inline-end: 0;
     position: relative;
 
     &:hover {
@@ -31,6 +33,19 @@
             border-color: var(--dark_800_color);
         }
     }
+}
+
+// A checkbox with its label beside it: the label is part of the target.
+.checkbox_wrapper.has_label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.text {
+    font-size: 1.4rem;
+    color: var(--dark_500_color);
+    white-space: nowrap;
 }
 
 .checkbox_wrapper .cbx {

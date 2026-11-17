@@ -152,6 +152,8 @@ def test_save_only_explicit_start_pending_stop_and_stale_ready(ui):
     group = page.get_by_role('group', name='Japanese TTS', exact=True)
     start = group.get_by_role('button', name='Start server', exact=True)
     expect(start).to_be_disabled()
+    # A stopped server has nothing to stop (#473); a start on its way can still be stopped (below).
+    expect(group.get_by_role('button', name='Stop server', exact=True)).to_be_disabled()
     group.get_by_label('Model GGUF path', exact=True).fill('/local/tts.gguf')
     expect(start).to_be_disabled()
     save = page.get_by_role('button', name='Save changes', exact=True)
@@ -270,10 +272,10 @@ def test_endpoint_selection_retains_external_urls_and_rejects_old_model_lists(ui
     from playwright.sync_api import expect
     page, peer, reply = ui
     page.get_by_label('Japanese server', exact=True).select_option('bundled')
-    expect(page.get_by_label('Japanese server (Irodori)', exact=True)).to_have_count(0)
+    expect(page.get_by_label('Japanese server URL (Irodori)', exact=True)).to_have_count(0)
     page.get_by_role('button', name='Save changes', exact=True).click()
     page.get_by_label('Japanese server', exact=True).select_option('external')
-    expect(page.get_by_label('Japanese server (Irodori)', exact=True)).to_have_value('http://127.0.0.1:8080')
+    expect(page.get_by_label('Japanese server URL (Irodori)', exact=True)).to_have_value('http://127.0.0.1:8080')
     page.get_by_label('ASR server', exact=True).select_option('bundled')
     page.get_by_role('button', name='Save caption settings', exact=True).click()
     model = page.get_by_label('ASR model', exact=True)

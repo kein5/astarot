@@ -41,10 +41,3 @@ def test_the_backend_answers_the_flag_and_starts_nothing_else():
     assert lines[-1] == "self-check passed" and len([line for line in lines if line.startswith("ok ")]) == len(subject.CHECKS)
     # None of the backend's own start-up output: the flag is handled before anything is built.
     assert "initialization_complete" not in done.stdout
-
-
-def test_the_packages_are_built_with_transformers_as_source_files():
-    # Inside the PYZ archive Transformers cannot list its own folders, and no tokenizer loads.
-    for spec in ("backend.spec", "backend_cuda.spec", "backend_linux.spec"):
-        text = (ROOT / "spec" / spec).read_text(encoding="utf-8")
-        assert "'transformers': 'py'" in text, spec

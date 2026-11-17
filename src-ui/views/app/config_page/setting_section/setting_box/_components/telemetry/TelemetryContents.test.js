@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import React from "react";
 import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.js";
-import * as rows from "../../../../../../../logics/common/telemetryRows.js";
+import * as rows from "../../../../../../../logics/common/telemetryRows.ts";
 
 const EVENT = { event: "app_started", v: 2, timestamp: "2026-11-13T00:00:00Z", app_version: "0.1.0-beta.6", os: "Windows",
     os_version: "10.0.26320", locale: "ja-JP", hw: { cpu: "CPU", cores: 12, gpus: [] } };

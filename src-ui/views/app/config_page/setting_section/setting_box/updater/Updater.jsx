@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import { useSoftwareVersion, useNotificationStatus } from "@logics_common";
 import { useOthers } from "@logics_configs";
 import { useAppUpdate } from "../../../../../../logics/common/useAppUpdate";
-import { downloadPercent } from "../../../../../../logics/common/appUpdate.js";
+import { downloadPercent } from "../../../../../../logics/common/appUpdate.ts";
 import styles from "./Updater.module.scss";
 import { SectionLabelComponent } from "../_components";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
@@ -75,7 +75,7 @@ export const Updater = () => {
             <SectionLabelComponent label={t("config_page.side_menu_labels.updater")} />
             <EnvReadout tone={toneOf(appUpdate)} progress={busy ? "working" : undefined}>
                 <p>
-                    VRCT-VOX {version}
+                    ASTAROT {version}
                     {info?.channel === "beta" && <span className={styles.channel}> {t("app_update.beta_channel")}</span>}
                 </p>
                 {status && <p>{status}</p>}

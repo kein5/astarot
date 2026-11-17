@@ -16,6 +16,7 @@ import GraphicEqSvg from "@images/mui_graphic_eq.svg?react";
 import HMDSvg from "@images/mui_head_mounted_device.svg?react";
 import KeyboardAltSvg from "@images/mui_keyboard_alt.svg?react";
 import CodeBlocksSvg from "@images/mui_code_blocks.svg?react";
+import ScienceSvg from "@images/mui_science.svg?react";
 import RefreshSvg from "@images/refresh.svg?react";
 import ChatTranscribeSvg from "@images/chat_transcribe.svg?react";
 import DocumentScannerSvg from "@images/mui_document_scanner.svg?react";
@@ -23,7 +24,7 @@ import DocumentScannerSvg from "@images/mui_document_scanner.svg?react";
 import vrct_vox_icon from "@images/brand/icon-small.svg";
 
 import { VersionLabel } from "../version_label/VersionLabel.jsx";
-import { splitFeatureLabel } from "../../../../logics/common/featureLabel.js";
+import { splitFeatureLabel } from "../../../../logics/common/featureLabel.ts";
 
 // Keyboard focus expands the rail; focus from a click or from opening the page does
 // not, or the rail would stay over the page after the pointer left. A focus counts as
@@ -73,6 +74,7 @@ export const SidebarSection = () => {
                         <Tab tab_id="tts" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
                         <Tab tab_id="rvc" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
                         <Tab tab_id="advanced_settings" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
+                        <Tab tab_id="experimental_features" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
                         <Tab tab_id="updater" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
                     </div>
                     <div className={styles.separated_tabs_wrapper}>
@@ -98,6 +100,7 @@ export const TabIcon = ({ tab_id, className }) => {
         case "vr": return <HMDSvg className={clsx(className, styles.mui_icon)} />;
         case "hotkeys": return <KeyboardAltSvg className={clsx(className, styles.mui_icon)} />;
         case "advanced_settings": return <CodeBlocksSvg className={clsx(className, styles.mui_icon)} />;
+        case "experimental_features": return <ScienceSvg className={clsx(className, styles.mui_icon)} />;
         case "updater": return <RefreshSvg className={clsx(className, styles.updater_icon)} />;
         case "about_vrct": return <img alt="" src={vrct_vox_icon} className={clsx(className, styles.about_vrct_icon)} />;
         default: return null;

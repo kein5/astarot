@@ -141,6 +141,11 @@ pub fn vr_panel_endpoints() -> HashSet<String> {
         "/set/data/mic_threshold", "/set/data/speaker_threshold",
         "/set/data/selected_ctranslate2_weight_type", "/set/data/selected_translation_compute_device",
         "/set/data/selected_translation_compute_type", "/set/data/selected_transcription_engine",
+        "/set/data/selected_plamo_model", "/set/data/selected_gemini_model", "/set/data/selected_openai_model",
+        "/set/data/selected_groq_model", "/set/data/selected_openrouter_model", "/set/data/selected_lmstudio_model",
+        "/set/data/selected_openai_compatible_model", "/set/data/selected_ollama_model",
+        "/set/data/mic_record_timeout", "/set/data/mic_phrase_timeout", "/set/data/mic_max_phrases",
+        "/set/data/speaker_record_timeout", "/set/data/speaker_phrase_timeout", "/set/data/speaker_max_phrases",
         "/set/data/ocr_source_language", "/set/data/ocr_min_confidence", "/set/data/ocr_poll_interval_ms",
         "/set/data/ocr_bubble_min_text_length", "/set/data/overlay_vr_launcher_hand",
         "/set/data/ui_language", "/set/data/font_family",
@@ -153,7 +158,8 @@ pub fn vr_panel_endpoints() -> HashSet<String> {
         "mic_automatic_threshold", "speaker_automatic_threshold", "auto_mic_select", "auto_speaker_select",
         "check_mic_threshold", "check_speaker_threshold", "convert_message_to_hiragana", "convert_message_to_romaji",
         "vrc_mic_mute_sync", "overlay_small_log", "overlay_large_log", "overlay_show_only_translated_messages",
-        "overlay_vr_launcher_auto_hide", "overlay_vr_tooltip",
+        "overlay_vr_launcher_auto_hide", "overlay_vr_tooltip", "send_message_to_vrc", "send_only_translated_messages",
+        "notification_vrc_sfx", "send_received_message_to_vrc",
     ] {
         set.extend(toggle(name));
     }
@@ -468,18 +474,30 @@ impl Dispatcher {
     }
 }
 
-/// A failed legacy weight download names the weight, without echoing the request
-/// (`_request_error_result`).
+/// A failed legacy weight download names the weight, and a failed typed message its
+/// row's id, without echoing the request (`_request_error_result`). Several of either
+/// can wait on one lock, so the UI cannot match a failure by its endpoint alone.
 fn request_error_result(endpoint: Option<&str>, data: &Value, result: Value, status: u16) -> Value {
-    if !matches!(status, 404 | 423 | 500) || endpoint != Some("/run/download_ctranslate2_weight") {
+    if !matches!(status, 404 | 423 | 500) {
         return result;
     }
-    let weight_type = match data {
-        Value::Object(object) => object.get("weight_type").cloned(),
-        other => Some(other.clone()),
-    };
-    let Some(Value::String(weight_type)) = weight_type else {
-        return result;
+    let identity = match endpoint {
+        Some("/run/download_ctranslate2_weight") => {
+            let weight_type = match data {
+                Value::Object(object) => object.get("weight_type").cloned(),
+                other => Some(other.clone()),
+            };
+            match weight_type {
+                Some(Value::String(weight_type)) => json!({ "weight_type": weight_type }),
+                _ => return result,
+            }
+        }
+        // Only the id: the message itself never goes back out.
+        Some("/run/send_message_box") => match data.get("id") {
+            Some(Value::String(id)) => json!({ "id": id }),
+            _ => return result,
+        },
+        _ => return result,
     };
     let mut payload = match result {
         Value::Object(object) => object,
@@ -489,6 +507,6 @@ fn request_error_result(endpoint: Option<&str>, data: &Value, result: Value, sta
             map
         }
     };
-    payload.insert("data".into(), json!({ "weight_type": weight_type }));
+    payload.insert("data".into(), identity);
     Value::Object(payload)
 }

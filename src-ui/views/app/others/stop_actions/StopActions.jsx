@@ -2,13 +2,14 @@ import clsx from "clsx";
 import { useEffect } from "react";
 import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../logics/voice/useVoice";
-import { voiceActions } from "../../../../logics/voice/voiceActions.js";
+import { voiceActions } from "../../../../logics/voice/voiceActions.ts";
 
 // Stop actions within reach during a conversation: on the main page and on
 // every settings page. Stop sends the TTS page's stop (it also clears the
 // queue). Mute is the route's mute: TTS on the external route, and the whole
-// virtual microphone (TTS and converted voice) on the managed route, so it is
-// named by what it silences. It shows the reported mute state as a pressed
+// virtual microphone (TTS and converted voice) on the managed route. It has one
+// name everywhere (voice_ui.mute_row: this button, the voice route row and the
+// hotkey); its tooltip says what it silences. It shows the reported mute state as a pressed
 // toggle; pressing it again asks to resume, which the backend allows only once
 // the route is ready.
 // classes: the host bar's stylesheet (stop_actions, stop, long, short,
@@ -26,8 +27,7 @@ export const StopActions = ({ classes }) => {
     // Only a reported state makes a toggle; without one this is a plain mute action.
     const known = typeof route.requested_muted === "boolean";
     const muted = known && route.requested_muted;
-    const coversVoice = route.managed || route.covers_direct;
-    const mute = t(coversVoice ? "voice_ui.topbar_mute_mic" : "voice_ui.topbar_mute_speech");
+    const mute = t("voice_ui.mute_row");
     const resumeBlocked = muted && (!route.ready || route.pending);
     const stopVoice = () => send("/run/stop_voice");
     const toggleMute = () => { if (!resumeBlocked) send(muted ? "/run/resume_voice" : "/run/mute_voice"); };
@@ -46,8 +46,8 @@ export const StopActions = ({ classes }) => {
             disabled={resumeBlocked}
             onClick={toggleMute}>
             <span className={classes.long} aria-hidden="true">{mute}</span>
-            <span className={classes.short} aria-hidden="true">{t("voice_ui.topbar_mute_short")}</span>
-            {classes.tiny && <span className={classes.tiny} aria-hidden="true">{t(muted ? "voice_ui.topbar_muted" : "voice_ui.topbar_mute_short")}</span>}
+            <span className={classes.short} aria-hidden="true">{mute}</span>
+            {classes.tiny && <span className={classes.tiny} aria-hidden="true">{muted ? t("voice_ui.topbar_muted") : mute}</span>}
             {muted && <span className={classes.muted_badge} aria-hidden="true">{t("voice_ui.topbar_muted")}</span>}
         </button>
     </div>;

@@ -1,6 +1,6 @@
 //! Checks against the running PipeWire session. Ignored by default; run with
 //! `cargo test --test pipewire_live -- --ignored` on a Linux desktop.
-#![cfg(target_os = "linux")]
+#![cfg(all(target_os = "linux", feature = "pipewire"))]
 #![allow(clippy::type_complexity)]
 
 use std::collections::BTreeMap;

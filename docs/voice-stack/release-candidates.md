@@ -15,13 +15,13 @@
 
 1. `package.json`の版をリリースするブランチの形式にし、`npm run update-version`で`src-tauri/tauri.conf.json`、`src-python/config.py`、`pyproject.toml`、`uv.lock`へ反映します。版が載る仕様の一覧（`docs/spec/reference/config-keys.md`）も同じコマンドで作り直します。
    正式版のときだけ、続けて`npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。版の変更と一緒に`chore(release): version X.Y.Z`でコミットします。分類と手順は[CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases)にあります。
-2. GitHub Actionsの「VRCT-VOX Linux candidate (no publication)」を`main`（正式版）または`develop`（ベータ版）で手動実行します。Vulkan版かCPU版を選びます。
+2. GitHub Actionsの「VRCT-VOX Linux candidate (no publication)」を`main`（正式版）または`develop`（ベータ版）で手動実行します。0.5.0からはspeech.cppのCPU版とVulkan版を両方入れた候補を1つ作るので、選ぶものはありません。ファイル名は`VRCT-VOX-<version>-linux-x64-release`に`.tar.gz`、`.AppImage`、`.deb`、`.rpm`を付けたものです（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`）。
 3. 「Validate VRCT-VOX distribution」を同じコミットで手動実行し、Windows候補を作ります。このワークフローはmain宛てのPRでも動きますが、下書きに使えるのは手動実行の結果だけです。
 4. 両方の実行が成功したら、run IDを控えます。候補の保存期間は7日です。
 
-Linuxでは再配置したアーカイブとAppImageのGUI試験、WindowsではZIP・NSIS内の配布禁止ファイル検査が成功した後に、候補を保存します。Linuxの候補は、tar.gz、AppImage、deb、rpmの4つです。debとrpmはtar.gzと同じファイルを`/opt/vrct-vox`に入れるもので（`tools/linux_packages.py`）、ダイジェストで固定したUbuntu 24.04、Debian 13、Fedora 44のコンテナに、それぞれのパッケージマネージャーで推奨パッケージなしに入れて確かめます（`tools/ci/check_linux_package.sh`）。確かめるのは、メインの実行ファイルのライブラリがそろうこと、同梱の音声エンジンとバックエンド（`--self-check`）が起動すること、削除で何も残らないことです。画面の表示は確かめません。各候補の`candidate-manifest.json`にはリポジトリ、コミット、版、ファイル名、容量、SHA-256を記録します。`SHA256SUMS`と、各配布物の`.sha256`も同梱します。インストーラー用の`.sha256`は改行なしの64 ASCII文字で保存します。
+Linuxでは再配置したアーカイブとAppImageのGUI試験、WindowsではZIP・NSIS内の配布禁止ファイル検査が成功した後に、候補を保存します。Linuxの候補は、tar.gz、AppImage、deb、rpmの4つです。debとrpmはtar.gzと同じファイルを`/opt/vrct-vox`に入れるもので（`tools/linux_packages.py`）、ダイジェストで固定したUbuntu 24.04、Debian 13、Fedora 44のコンテナに、それぞれのパッケージマネージャーで推奨パッケージなしに入れて確かめます（`tools/ci/check_linux_package.sh`）。確かめるのは、メインの実行ファイルのライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で何も残らないことです。0.5.0からバックエンドはメインの実行ファイルの中にあり、別に起動するものはありません。画面の表示は確かめません。各候補の`candidate-manifest.json`にはリポジトリ、コミット、版、ファイル名、容量、SHA-256を記録します。`SHA256SUMS`と、各配布物の`.sha256`も同梱します。インストーラー用の`.sha256`は改行なしの64 ASCII文字で保存します。
 
-Windowsの候補は、CUDA版のZIPを先に作り、続くジョブでCPU版のZIPとインストーラーを作ります。インストーラーには両方のZIPのSHA-256を組み込みます（`tools/installer_package_hashes.py`が書く`src-tauri/nsis/package-hashes.nsh`。コミットしません）。インストーラーは自分と同じ版のZIPを、この組み込みのハッシュで照合します。リリースのページでZIPと`.sha256`を一緒に差し替えられても、そのZIPは展開しません。`/VERSION`で別の版を入れるときと、ハッシュを組み込まずに作ったインストーラーでは、従来どおりZIPの隣の`.sha256`で照合します。候補のジョブは、組み込んだハッシュと保存するZIPが一致するかを確かめます。ビルドの順番がこうなったため、Windowsの候補は以前より15分ほど長くかかります。
+Windowsの候補は、CUDA版のZIPを先に作り、続くジョブでCPU版のZIPとインストーラーを作ります。0.5.0から2つのZIPの中身は同じです（Pythonを同梱しないので、CUDAのライブラリもありません）。インストーラーのGPUの選択と、CUDA版から更新する利用者のために、CUDA版の名前でも作り続けます。インストーラーには両方のZIPのSHA-256を組み込みます（`tools/installer_package_hashes.py`が書く`src-tauri/nsis/package-hashes.nsh`。コミットしません）。インストーラーは自分と同じ版のZIPを、この組み込みのハッシュで照合します。リリースのページでZIPと`.sha256`を一緒に差し替えられても、そのZIPは展開しません。`/VERSION`で別の版を入れるときと、ハッシュを組み込まずに作ったインストーラーでは、従来どおりZIPの隣の`.sha256`で照合します。候補のジョブは、組み込んだハッシュと保存するZIPが一致するかを確かめます。ビルドの順番がこうなったため、Windowsの候補は以前より15分ほど長くかかります。
 
 手動実行のときは、保存する前に候補の全ファイルへビルドの来歴を付けます（GitHub Artifact Attestations、`actions/attest-build-provenance`。第2回セキュリティ監査 SEC-04）。来歴には、ファイルのSHA-256、作ったワークフロー、コミット、ブランチ、実行が入り、GitHubがSigstoreで署名します。このリポジトリは公開しているので、署名はSigstoreの公開の透明性ログにも記録されます。SHA-256のファイルだけでは、リリースの資産を差し替えられる人がチェックサムも一緒に差し替えられます。来歴があれば、ファイルがこのリポジトリの候補のワークフローで作られたかを、リリースとは別に確かめられます。来歴を付ける権限（`id-token`と`attestations`）は、候補のジョブにだけ与えます。PRの実行では来歴を付けません。
 
@@ -50,9 +50,9 @@ Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピ
 
 ## 公開前にWindowsのパッケージを起動して確かめる
 
-候補のビルドはパッケージの中身（配布してはいけないファイル、容量、SHA-256）を検査し、パッケージしたバックエンドを`--self-check`で起動します。`--self-check`は機能をオンにしたときに初めて読み込むライブラリ（翻訳のtokenizer、CTranslate2、faster-whisper）を読み込めるかだけを確かめます。画面と、モデルを使う動作は確かめません。
+候補のビルドはパッケージの中身（配布してはいけないファイル、容量、SHA-256）と、`_internal`に必要なファイルがそろっていること（`tools/app_resources.py check`）を検査します。0.4までは、パッケージしたPythonのバックエンドを`--self-check`で起動していました。0.5.0からバックエンドは`vrct-vox.exe`の中にあるので、起動して確かめるのはアプリそのものです。画面と、モデルを使う動作はビルドでは確かめません。
 
-0.1.0-beta.7までのWindowsのパッケージでは、ローカル翻訳を一度もオンにできませんでした。PyInstallerのアーカイブの中ではTransformersが自分のフォルダーの一覧を読めず、tokenizerを組み立てられなかったためです。開発用のビルドでは起きないので、パッケージを起動して「翻訳」を押すまで分かりませんでした。公開の前に、下書きの`VRCT-VOX.zip`を作業用のフォルダーへ展開して起動してください。インストール済みのVRCT-VOXには触れません。
+0.1.0-beta.7までのWindowsのパッケージでは、ローカル翻訳を一度もオンにできませんでした。PyInstallerのアーカイブの中ではTransformersが自分のフォルダーの一覧を読めず、tokenizerを組み立てられなかったためです。開発用のビルドでは起きないので、パッケージを起動して「翻訳」を押すまで分かりませんでした。開発用のビルドは同梱の資源をチェックアウトの`build/`から読むので、パッケージの`_internal`の不足も同じく開発中には見えません。公開の前に、下書きの`VRCT-VOX.zip`を作業用のフォルダーへ展開して起動してください。インストール済みのVRCT-VOXには触れません。
 
 ```powershell
 # 下書きのパッケージを取得し、SHA-256を確かめて、作業用のフォルダーへ展開する
@@ -109,14 +109,14 @@ python tools/native_acceptance.py --app src-tauri/target/debug/vrct-vox --only v
 | `asr` | リアルタイム字幕、内蔵の音声サーバー、音声翻訳 | Qwen3-ASR、Silero VAD、Qwen3-TTS、GPU |
 | `downloads` | 同意の画面、実際の取得（約336 MB）、SHA-256、適用、再起動後の保持 | `--downloads` |
 | `rvc` | アプリから起動した実際のRVCの変換、ミュート中の無音、停止 | RVCの実行環境とモデル、GPU |
-| `seed-vc` | アプリから起動した実際のSeed-VCの変換、停止、入力の消失 | Seed-VCの実行環境、GPU |
+| `seed-vc` | アプリから起動した実際のSeed-VCの変換、停止、入力の消失。0.5.0のアプリはSeed-VCを使えない（中核が`vc_engine_unavailable`で断る。[中核の統合](core-integration.md)の「判断が要ること」の10） | Seed-VCの実行環境、GPU |
 | `vrchat` | アプリで入力した文が実際のVRChatの吹き出しに出て、チャット読み取りで読み戻せること | `--vrchat`、OCRのモデル |
 | `vrchat-voice` | 同じ送信で吹き出しと読み上げが1回ずつ届くこと、読み上げがVRChatのマイクに届いてVRChatの再生で1回だけ確認できること | `--vrchat-voice`、Irodori、GPU |
-| `vr-ui` | VR UIの表示と操作（偽のSteamVR） | 開発ビルド |
+| `vr-ui` | VR UIの表示と操作（偽のSteamVR）。偽のSteamVRはPythonバックエンドにだけ差し込まれるので、0.5.0のアプリのVRにはつながらない（[開発ガイド](../development.md#vrの機器なしでvrの処理を試す)） | 開発ビルド |
 
 モデルは、製品のカタログ（`src-python/models/model_downloads/catalog.py`）に載っているものだけです。`--fetch-models`を付けたときだけ、足りないモデルを製品と同じダウンローダーで`~/.cache/vrct-vox-acceptance`へ取得し、容量とSHA-256を照合します。取得する量は、全部で約3.6 GBです。付けなければ何も取得せず、モデルが足りないグループは、足りないものの名前を示してスキップします。音声認識の試験が聞く音声は、製品のTTSで合成するので、人の録音は要りません。
 
-`--fetch-runtimes`は、RVCとSeed-VCの実行環境を、製品の設定画面と同じ仕組みで同じフォルダーへ用意します。取得は約11 GB、ディスクは約17 GBです。uv、Pythonのパッケージ、ソース、モデルは、固定した版とハッシュで照合します。モデルの読み込みは、任意のコードを実行しない方式（`weights_only=True`）です。
+`--fetch-runtimes`は、RVCとSeed-VCの実行環境を、Pythonバックエンドの準備の仕組み（`src-python/models/voice_conversion/runtime_setup.py`）で用意します。0.5.0のアプリの設定画面はRVCだけを、中核（`native/voice-conversion/src/runtime.rs`）で用意します。取得は約11 GB、ディスクは約17 GBです。uv、Pythonのパッケージ、ソース、モデルは、固定した版とハッシュで照合します。モデルの読み込みは、任意のコードを実行しない方式（`weights_only=True`）です。
 
 `--vrchat`は、チャットボックスのラボのVRChatを2つ、このPCの中だけの非公開のインスタンスで起動し、往復の試験を流してから終了します。VRChatのアカウントは、このPCでサインイン済みのものです。
 
@@ -146,11 +146,11 @@ NSISインストーラーは、HKLMとHKCUのレジストリにWebView2 Runtime�
 
 Windowsの更新では、既定の「アンインストールしてからインストール」を選んでも、取得前に旧版を削除しません。`$INSTDIR\.upd\new`へ展開し、tarの成功、実行ファイル、`_internal`フォルダーを確認してから、アプリが動いていないかをもう一度調べます。新規インストールと、`/S`・`/P`でも同じ段階的な置き換えを使います。同じ版の「アプリをアンインストール」は、明示的な削除操作なので従来どおりその場で実行します。
 
-インストーラーとアンインストーラーは、動いているアプリを調べるときに`vrct-vox.exe`と`vrct-vox-sidecar.exe`の両方を探します。`vrct-vox.exe`を強制終了するとサイドカーは自分の監視が止めるまで1〜2分残り、実行ファイルを消せず、終了時に`config.json`を書き直すことがあるため、サイドカーも終了させます。
+インストーラーとアンインストーラーは、動いているアプリを調べるときに`vrct-vox.exe`と`vrct-vox-sidecar.exe`の両方を探します。0.5.0の配布物にサイドカーはありませんが、0.4までの版から更新するときに古いサイドカーが動いていることがあります。`vrct-vox.exe`を強制終了するとサイドカーは自分の監視が止めるまで1〜2分残り、実行ファイルを消せず、終了時に`config.json`を書き直すことがあるため、サイドカーも終了させます。新しいパッケージにはサイドカーがないので、置き換えの後と削除のときに、残った`vrct-vox-sidecar.exe`を消します。
 
 tarは引数をANSIコードページで受け取るので、ユーザー名などにその外の文字があると、引数に書いたパスのアーカイブも展開先も開けません。作業ディレクトリは引数ではなく、Unicodeのまま扱われます。そこでtarの作業ディレクトリを`$INSTDIR\.upd\new`にし、`$TEMP`のアーカイブを隣の`$INSTDIR\.upd`へ移してから、ASCIIだけの相対パス（`..\VRCT-VOX.zip`）を渡します。8.3形式の名前には依存しないので、8.3形式の名前がないボリュームでも同じように動きます。展開に失敗したアーカイブは`$TEMP`へ戻し、再取得と`.bad`の保存に使います。`$TEMP`とインストール先が別のドライブなら、この移動でアーカイブをコピーするので、その時間がかかります。インストール先のドライブの容量検査にもアーカイブの分を足しています。
 
-置き換え中は`.upd\committing`を残し、旧アプリの各項目を`.upd\old`へ退避します。新しく追加する項目は`.upd\add`に記録します。`_internal`はフォルダーごと置き換えるため、旧版だけの依存ファイルは残りません。`config.json`、`weights`、`logs`、`telemetry_state.json`、利用者のログはそのまま保持します。旧版と展開済みの新版が同時に存在するため、容量の検査は既存ファイルに加えて必要になる空き容量を調べます。
+置き換え中は`.upd\committing`を残し、旧アプリの各項目を`.upd\old`へ退避します。新しく追加する項目は`.upd\add`に記録します。`_internal`はフォルダーごと置き換えるため、旧版だけの依存ファイルは残りません。0.4までの版から更新すると、Pythonの実行環境（約1 GB）もこのとき消えます。`config.json`、`weights`、`logs`、`telemetry_state.json`、利用者のログはそのまま保持します。旧版と展開済みの新版が同時に存在するため、容量の検査は既存ファイルに加えて必要になる空き容量を調べます。
 
 置き換えに失敗したら追加分を`.upd\discard`へ移し、退避した旧ファイルを戻します。次回の実行時にもマーカーを調べ、中断した置き換えを先に戻します。復元できないファイルがあれば、旧ファイルとマーカーを削除せず、保存場所を表示して停止します。この場合は使用中のアプリを閉じて再実行し、`.upd`を手動で削除しないでください。復元が完了した後の作業フォルダーの削除に失敗しても、次回に残りを削除できます。転送の失敗・再試行では、パッケージの通信を停止し、終了を待ってから一時ファイルを削除します。最終的な展開失敗時の`.bad`アーカイブは診断用に残します。
 

@@ -6,17 +6,27 @@
 
 mod downloads;
 pub mod adapters;
+pub mod audio_devices;
+pub mod clipboard;
 mod credentials;
 mod files;
-mod ocr;
+pub mod ocr;
 mod overlay;
 mod languages;
 pub mod legacy_weights;
 mod lifecycle;
+pub mod messages;
 mod routes;
 mod settings;
 pub mod speech;
 mod telemetry;
+pub mod translation;
+mod transcription;
+mod realtime_asr;
+#[cfg(feature = "onnx-translation")]
+mod translation_onnx;
+pub mod updates;
+pub mod voice;
 
 pub use adapters::Osc;
 pub use routes::routes;
@@ -63,6 +73,8 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("error_translation_chat_vram_overflow", "/run/error_translation_chat_vram_overflow"),
     ("error_translation_mic_vram_overflow", "/run/error_translation_mic_vram_overflow"),
     ("error_translation_speaker_vram_overflow", "/run/error_translation_speaker_vram_overflow"),
+    // The core's own: the chosen ONNX Runtime device could not start; the model runs on the CPU.
+    ("translation_compute_device_fallback", "/run/translation_compute_device_fallback"),
     ("word_filter", "/run/word_filter"),
     ("transcription_recognition_error", "/run/transcription_recognition_error"),
     ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),
@@ -119,11 +131,13 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("selectable_mic_device_list", "/run/selectable_mic_device_list"),
     ("selectable_speaker_device_list", "/run/selectable_speaker_device_list"),
     ("software_update_info", "/run/software_update_info"),
+    ("virtual_mic_level", "/run/virtual_mic_level"),
     ("initialization_progress", "/run/initialization_progress"),
     ("initialization_complete", "/run/initialization_complete"),
     ("config_file_unreadable", "/run/config_file_unreadable"),
     ("config_save_failed", "/run/config_save_failed"),
     ("config_save_recovered", "/run/config_save_recovered"),
+    ("secret_store_failed", "/run/secret_store_failed"),
     ("enable_osc_query", "/run/enable_osc_query"),
 ];
 
@@ -147,7 +161,7 @@ pub struct Services {
     /// Whether nothing runs on a download's target ("japanese", "multilingual", "asr": the
     /// speech server profile is stopped or failed; "rvc": the voice conversion is not
     /// requested, pending or stopping). An apply is refused with `model_target_busy` otherwise.
-    /// The default says idle: neither runs in the core yet.
+    /// The default says idle; the core also asks its own speech servers and voice area.
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// The usage-event sender, to VRCT-VOX's own receiver by default.
     pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
@@ -165,10 +179,64 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
+    /// How the translation providers reach the network ([`vrct_translation::http::direct`]).
+    pub translation_transport: vrct_translation::http::Transport,
+    /// Where the providers with a fixed address are.
+    pub translation_endpoints: vrct_translation::providers::Endpoints,
+    /// The local translation model ([`translation::default_local_translation`]).
+    pub local_translation: translation::LocalTranslationSource,
+    /// The morphological analyzer of the readings for the settings' environment, made on the
+    /// first message: Sudachi with the dictionary shipped beside the app
+    /// ([`messages::shipped_readings`]). Tests give fixed morphemes.
+    pub transliteration: messages::ReadingsSource,
+    /// Copies a recognised message and pastes it into the game SteamVR runs when it can
+    /// ([`clipboard::steamvr_clipboard`] over [`Services::vr`]). Tests give a recorder, or that
+    /// clipboard over a fake desktop.
+    pub clipboard: clipboard::ClipboardFn,
+    /// The PC's audio devices (`native/audio-routing`): the lists the device manager watches,
+    /// the speech outputs and the virtual microphone check. Tests give fakes.
+    pub audio: Arc<dyn vrct_audio_routing::platform::AudioPlatform>,
+    /// SteamVR for the VR overlays and the clipboard: OpenVR, loaded when SteamVR runs
+    /// ([`overlay`]). One connection serves both ([`vrct_vr_overlay::shared::SharedVr`]).
+    pub vr: Arc<dyn vrct_vr_overlay::runtime::Vr>,
+    /// Where the VR panel's page is captured; `None` where the VR panel cannot run.
+    pub vr_panel_surface: Option<Arc<dyn vrct_vr_overlay::surface::PanelSurface>>,
+    /// The subtitle fonts, from the settings' environment ([`overlay::default_fonts`]).
+    pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<vrct_vr_overlay::fonts::FontLibrary> + Send + Sync>,
+    /// How often the overlay looks for SteamVR while it does not run (10 seconds).
+    pub steamvr_poll: Duration,
+    /// Chat reading's screen, VR runtime, ONNX Runtime and model files ([`ocr::RealOcr`]).
+    pub ocr: Arc<dyn ocr::OcrPlatform>,
+    /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]).
+    pub ocr_message: ocr::OcrDelivery,
+    /// The app's own updater behind the update endpoints ([`updates`]). Switched off by
+    /// default, as Python shipped it; the app gives the updater of its update page.
+    pub software_updates: Arc<dyn updates::SoftwareUpdates>,
+    /// The microphone and speaker captures of speech recognition (WASAPI, or the Linux helper
+    /// `vrct-asr-capture`); tests feed PCM of their own.
+    pub transcription_capture: TranscriptionCapture,
+    /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
+    pub transcription_endpoints: vrct_transcription::providers::Endpoints,
+    /// The VAD engine the recorders use while `*_ENABLE_VAD` is on: none in this build
+    /// ([`vrct_transcription::vad::bundled`], decision 13). Tests give a fake.
+    pub vad: Option<vrct_transcription::vad::Vad>,
+    /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
+    /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
+    pub voice: Arc<dyn voice::VoicePlatform>,
+    /// Where the API keys are kept instead of `config.json`: `secrets.json` in the settings
+    /// folder by default ([`crate::config::secrets`]). Tests give a [`MemoryStore`] to look in
+    /// or to make fail.
+    ///
+    /// [`MemoryStore`]: crate::config::secrets::MemoryStore
+    pub secret_store: crate::config::secrets::StoreSource,
 }
 
 impl Default for Services {
     fn default() -> Self {
+        // OpenVR has one connection per process: the overlays and the clipboard share it.
+        let vr: Arc<dyn vrct_vr_overlay::runtime::Vr> = Arc::new(vrct_vr_overlay::shared::SharedVr::new(Arc::new(
+            vrct_vr_overlay::openvr::OpenVr::new(Vec::new()),
+        )));
         Self {
             translation_weight_available: Arc::new(|_| false),
             speech_server_launch: Arc::new(speech::bundled_launch),
@@ -181,6 +249,24 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
+            translation_transport: vrct_translation::http::direct(),
+            translation_endpoints: vrct_translation::providers::Endpoints::default(),
+            local_translation: Arc::new(translation::default_local_translation),
+            transliteration: Arc::new(messages::shipped_readings),
+            clipboard: clipboard::steamvr_clipboard(Arc::clone(&vr), Arc::new(vrct_adapters::clipboard::system_desktop)),
+            audio: Arc::new(vrct_audio_routing::platform::NativePlatform),
+            vr,
+            vr_panel_surface: Some(vrct_vr_overlay::surface::platform()),
+            overlay_fonts: Arc::new(overlay::default_fonts),
+            steamvr_poll: Duration::from_secs(10),
+            ocr: ocr::real_platform(),
+            ocr_message: Arc::new(ocr::pipeline_delivery),
+            software_updates: Arc::new(updates::Disabled),
+            transcription_capture: Arc::new(default_transcription_capture),
+            transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
+            vad: vrct_transcription::vad::bundled(),
+            voice: Arc::new(voice::NativeVoice),
+            secret_store: Arc::new(crate::config::secrets::default_store),
         }
     }
 }
@@ -205,11 +291,36 @@ pub struct Core {
     /// The model downloads and the usage events, made on first use.
     ops: std::sync::OnceLock<downloads::Ops>,
     adapters: std::sync::OnceLock<Arc<adapters::Adapters>>,
+    translation: translation::Translators,
+    messages: messages::Messages,
+    audio: Arc<audio_devices::AudioDevices>,
+    /// The VR overlays and the subtitles, made with the routes ([`overlay`]).
+    pub(crate) vr: std::sync::OnceLock<overlay::VrOverlay>,
+    /// Chat reading's pipeline and switch.
+    ocr: Arc<ocr::Ocr>,
+    /// Speech recognition: the recorders and realtime recognition ([`transcription`]).
+    transcription: Arc<transcription::Transcription>,
+    /// Speech, direct voice and the voice route, made with the routes ([`voice`]).
+    pub(crate) voice: std::sync::OnceLock<Arc<voice::Voice>>,
+}
+
+/// The captures of speech recognition for the settings' environment.
+pub type TranscriptionCapture =
+    Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> + Send + Sync>;
+
+/// This computer's devices; on Linux the shipped `vrct-asr-capture` helper reads PipeWire.
+fn default_transcription_capture(env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
+    Arc::new(vrct_transcription::capture::NativeCapture::new(crate::resources::locate(&env.app_dir, "build/vrct-asr-capture")))
 }
 
 impl Core {
     pub fn new(config: Arc<Config>, log: Arc<Log>, output: Arc<dyn Output>, services: Services) -> Arc<Self> {
+        let transcription = transcription::Transcription::new(&config);
+        // Mic mute sync reaches the microphone's recognition through the services.
+        let services = transcription.wrap_services(services);
         let speech = speech::SpeechServers::new((services.speech_server_launch)(config.environment()));
+        let translation = translation::Translators::new(&services, config.environment());
+        let audio = audio_devices::AudioDevices::new(Arc::clone(&config), Arc::clone(&output), Arc::clone(&log), Arc::clone(&services.audio));
         Arc::new(Self {
             config,
             log,
@@ -225,6 +336,13 @@ impl Core {
             speech,
             ops: std::sync::OnceLock::new(),
             adapters: std::sync::OnceLock::new(),
+            translation,
+            messages: messages::Messages::default(),
+            audio,
+            vr: std::sync::OnceLock::new(),
+            ocr: Arc::default(),
+            transcription,
+            voice: std::sync::OnceLock::new(),
         })
     }
 
@@ -266,7 +384,10 @@ impl Core {
     }
 
     /// Stamps a request before it waits in the queue (generations of the voice features).
-    pub fn stamp(&self, _endpoint: &str, _data: &mut Value) {}
+    pub fn stamp(&self, endpoint: &str, data: &mut Value) {
+        self.stamp_realtime(endpoint, data);
+        self.stamp_voice(endpoint, data);
+    }
 
     pub fn start_watchdog(&self, timeout: Duration, interval: Duration, on_timeout: Arc<dyn Fn() + Send + Sync>) {
         let watchdog = vrct_ops::watchdog::Watchdog::new(timeout, interval);
@@ -294,9 +415,15 @@ impl Core {
         }
         *done = true;
         self.step("Shutdown");
+        self.stop_transcription();
+        self.close_voice();
         self.close_speech_servers();
         self.close_model_downloads();
+        self.stop_audio_devices();
+        self.stop_ocr();
         self.stop_adapters();
+        self.stop_conversation_log();
+        self.stop_overlay();
         self.config.save_now();
         self.stop_telemetry();
     }

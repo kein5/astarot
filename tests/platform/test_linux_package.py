@@ -31,14 +31,15 @@ def installation(tmp_path, monkeypatch):
     root = roots[0]
     check_tree(root, require_runtime=True)
     from tools.speechcpp_bundle import verify_bundle
-    verify_bundle(root / '_internal/build/speechcpp')
+    # Both engine builds: the Vulkan build and the CPU build, each pinned.
+    assert verify_bundle(root / '_internal/build/speechcpp')['variant'] == 'linux-x64-vulkan'
+    assert verify_bundle(root / '_internal/build/speechcpp-cpu')['variant'] == 'linux-x64-cpu'
     paths = [root, *root.rglob('*')]
     for path in paths:
         if not path.is_symlink():
             path.chmod(path.stat().st_mode & ~0o222)
     assert not os.access(root, os.W_OK), 'run package acceptance as an unprivileged user'
     before = inventory(root)
-    monkeypatch.setenv('VRCT_TEST_SIDECAR', str(root / 'vrct-vox-sidecar'))
     monkeypatch.setenv('VRCT_TEST_APP', str(root / 'vrct-vox'))
     try:
         yield root
@@ -49,34 +50,15 @@ def installation(tmp_path, monkeypatch):
                 path.chmod(path.stat().st_mode | stat.S_IWUSR)
 
 
-def test_relocated_sidecar_settings_restart(installation, tmp_path):
-    from test_native_backend import test_real_startup_settings_and_restart_without_models
-    test_real_startup_settings_and_restart_without_models(tmp_path)
-    assert (tmp_path / 'native-state/data/vrct-vox').is_dir()
-
-
-def test_frozen_router_and_bundled_engine_entrypoints(installation, tmp_path):
-    env = dict(os.environ, XDG_CONFIG_HOME=str(tmp_path / 'config'),
-               XDG_DATA_HOME=str(tmp_path / 'data'), XDG_CACHE_HOME=str(tmp_path / 'cache'))
-    # Invalid control must fail closed, without a missing-module traceback.
-    result = subprocess.run([str(installation / 'vrct-vox-sidecar'), '--voice-router-worker'],
-                            input=b'', capture_output=True, timeout=10, env=env, cwd=tmp_path)
-    assert result.returncode == 1
-    assert b'Traceback' not in result.stderr
-    result = subprocess.run([str(installation / '_internal/build/speechcpp/speech'), '--help'],
-                            capture_output=True, timeout=10, cwd=tmp_path)
-    assert result.returncode == 0, result.stderr
-
-
-def test_packaged_backend_loads_what_features_import_only_when_turned_on(installation, tmp_path):
-    # The tokenizer of the local translation never loaded from a Windows package up to
-    # 0.1.0-beta.7: Transformers could not list its own folders inside the PYZ archive.
-    env = dict(os.environ, XDG_CONFIG_HOME=str(tmp_path / 'config'),
-               XDG_DATA_HOME=str(tmp_path / 'data'), XDG_CACHE_HOME=str(tmp_path / 'cache'))
-    result = subprocess.run([str(installation / 'vrct-vox-sidecar'), '--self-check'],
-                            capture_output=True, timeout=300, env=env, cwd=tmp_path)
-    assert result.returncode == 0, (result.stdout + result.stderr).decode('utf-8', 'replace')
-    assert result.stdout.splitlines()[-1] == b'self-check passed'
+def test_no_python_backend_and_the_bundled_engines_start(installation, tmp_path):
+    # The app runs the backend core in its own process (#285); nothing frozen ships beside it.
+    assert not (installation / 'vrct-vox-sidecar').exists()
+    assert not (installation / '_internal/base_library.zip').exists()
+    assert not list(installation.rglob('libpython*'))
+    for folder in ('speechcpp', 'speechcpp-cpu'):
+        result = subprocess.run([str(installation / '_internal/build' / folder / 'speech'), '--help'],
+                                capture_output=True, timeout=10, cwd=tmp_path)
+        assert result.returncode == 0, (folder, result.stderr)
 
 
 @pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')

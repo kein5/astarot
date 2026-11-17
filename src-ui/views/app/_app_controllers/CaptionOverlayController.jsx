@@ -3,13 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useStore_MessageLogs } from "@store";
 import { useI18n } from "@useI18n";
-import { useIsBackendReady } from "@logics_common";
-import { useAppearance, useVr } from "@logics_configs";
+import { useIsBackendReady, useNotificationStatus } from "@logics_common";
+import { useAppearance, useVr, useExperimentalFeature } from "@logics_configs";
 import { captionLines, stampLines } from "../../../logics/captionOverlay/lines";
 import { placementOf, steppedFontSize } from "../../../logics/captionOverlay/adjust";
 import { useIoFlow } from "../../../logics/flow/useIoFlow";
-import { overlayCount } from "../../../logics/flow/ioFlow.js";
-import { flowNote, stripItems } from "../../../logics/flow/flowText.js";
+import { overlayCount } from "../../../logics/flow/ioFlow.ts";
+import { flowNote, stripItems } from "../../../logics/flow/flowText.ts";
+import { failureRun, windowFailureKey } from "../../../logics/common/windowFailures.ts";
 
 // Captions over the desktop: opens the overlay window while the setting is on
 // and hands it the last rows of the message log. The window only draws; what
@@ -23,11 +24,19 @@ export const CaptionOverlayController = () => {
         currentIoFlowOverlaySettings, currentOverlayDesktopPlacement, setOverlayDesktopSettings,
         setOverlayDesktopPlacement } = useVr();
     const { currentMessageLogs } = useStore_MessageLogs();
+    // The tray companion (an experimental feature) has no window of its own to show captions in.
+    const trayCompanion = useExperimentalFeature("tray_companion");
     const { currentSelectedFontFamily } = useAppearance();
     const { currentIsBackendReady } = useIsBackendReady();
     const { currentIoFlow, currentIoTraces } = useIoFlow();
+    const { showNotification_Error } = useNotificationStatus();
     const [supported, setSupported] = useState(false);
     const stamps = useRef(null);
+    // A window that cannot be opened or updated is said once, until it works again (#397).
+    const failures = useRef(null);
+    failures.current ??= { open: failureRun(), update: failureRun() };
+    const notifyFailure = (step, error) => failures.current[step].failed(() => showNotification_Error(
+        t(windowFailureKey("caption_overlay", step, error)), { category_id: `caption_overlay_${step}_failed` }));
 
     useEffect(() => {
         let disposed = false;
@@ -36,7 +45,8 @@ export const CaptionOverlayController = () => {
     }, []);
 
     const ready = supported && currentIsBackendReady.data === true;
-    const captions = ready && currentIsEnabledOverlayDesktop.data === true;
+    // While it is on, the captions are on too, without changing the saved setting.
+    const captions = ready && (currentIsEnabledOverlayDesktop.data === true || trayCompanion);
     const flowShown = ready && currentIoFlowOverlaySettings.data?.desktop === true;
     const enabled = captions || flowShown;
     const settings = currentOverlayDesktopSettings.data;
@@ -46,7 +56,11 @@ export const CaptionOverlayController = () => {
     useEffect(() => {
         if (!supported) return;
         invoke("caption_overlay_set", { open: enabled, position: settings.position, placement })
-            .catch(error => console.error("Caption overlay window could not be changed", error));
+            .then(() => failures.current.open.succeeded(), error => {
+                console.error("Caption overlay window could not be changed", error);
+                // Closing a window that is gone needs no notice; opening one that fails does.
+                if (enabled) notifyFailure("open", error);
+            });
     }, [supported, enabled, settings.position, placement?.x, placement?.y]);
 
     // A step starts from the last size asked for while the backend has not confirmed it, so
@@ -92,7 +106,11 @@ export const CaptionOverlayController = () => {
             position: settings.position, font_size: settings.font_size, opacity: settings.opacity,
             font_family: currentSelectedFontFamily.data,
             ...(flowShown ? { flow: stripItems(currentIoTraces.data, count, t), flow_note: flowNote(currentIoFlow.data, t) } : {}),
-        } }).catch(error => console.error("Caption overlay could not be updated", error));
+        } }).then(() => failures.current.update.succeeded(), error => {
+            // The error is a code or a system message, never the captions themselves.
+            console.error("Caption overlay could not be updated", error);
+            notifyFailure("update", error);
+        });
     }, [enabled, captions, flowShown, count, currentMessageLogs.data, currentOverlayShowOnlyTranslatedMessages.data,
         settings.position, settings.font_size, settings.opacity, settings.display_duration, currentSelectedFontFamily.data,
         currentIoTraces.data, currentIoFlow.data?.conversion_round_trip_ms, t]);

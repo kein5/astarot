@@ -1,14 +1,13 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
-import { Command } from "@tauri-apps/plugin-shell";
 import { useEffect, useRef } from "react";
 
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useReceiveRoutes } from "@useReceiveRoutes";
 import { store, useStore_SelectableFontFamilyList, useStore_BackendStartupState, useStore_BackendStartupFailure, useStore_InitProgress } from "@store";
 import { arrayToObject } from "@utils";
-import { createSidecarSessionOwner } from "../../../logics/common/sidecarSession.js";
-import { createSelectedBackendCommand } from "../../../logics/common/backendCommand.js";
-import { describeStartupFailure } from "../../../logics/common/startupPhase.js";
+import { createSidecarSessionOwner } from "../../../logics/common/sidecarSession.ts";
+import { createCoreBackendCommand } from "../../../logics/common/backendCommand.ts";
+import { describeStartupFailure } from "../../../logics/common/startupPhase.ts";
 import { useI18n } from "@useI18n";
 import { useNotificationStatus, useIsBackendReady } from "@logics_common";
 
@@ -54,11 +53,10 @@ export const StartPythonController = () => {
     useEffect(() => {
         store.backend_session_owner ??= createSidecarSessionOwner({
             store,
-            // The Python sidecar, or the Rust core when the app is started with VRCT_BACKEND=core (#285).
-            createCommand: () => createSelectedBackendCommand({
+            // The Rust core, run inside the app (#285).
+            createCommand: () => createCoreBackendCommand({
                 invoke,
                 Channel,
-                createSidecar: () => Command.sidecar("bin/vrct-vox-sidecar"),
                 newSessionId: () => crypto.randomUUID(),
             }),
             setInterval,

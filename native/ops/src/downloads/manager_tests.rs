@@ -179,6 +179,32 @@ fn verified_completion_does_not_apply_or_load_and_can_be_applied_explicitly() {
 }
 
 #[test]
+fn state_reports_files_downloaded_in_an_earlier_run() {
+    let s = setup();
+    let downloaded = |m: &Downloads| m.state().get("downloaded").cloned().unwrap();
+    assert_eq!(downloaded(&s.manager), Json::from(Object::new()));
+    start(&s.manager).unwrap();
+    let job = finish(&s.manager);
+    let expected = Json::from(Object::new().with("test-model", job.get("paths").unwrap().clone()));
+    assert_eq!(downloaded(&s.manager), expected);
+    s.manager.close(Duration::from_secs(2));
+
+    // After a restart there is no job, but the files are still reported.
+    let restarted = Downloads::with(&s.root, vec![entry()], Arc::new(|_: &str| body(b"")), Options { reserve_bytes: 0, ..Options::default() }).unwrap();
+    assert_eq!(restarted.state().get("jobs"), Some(&Json::from(Object::new())));
+    assert_eq!(downloaded(&restarted), expected);
+    // A file of the wrong size, or a folder in its place, is not reported (no hashing here).
+    let model = model_path(&job);
+    fs::write(&model, [CONTENT, b"x"].concat()).unwrap();
+    assert_eq!(downloaded(&restarted), Json::from(Object::new()));
+    fs::remove_file(&model).unwrap();
+    fs::create_dir(&model).unwrap();
+    assert_eq!(downloaded(&restarted), Json::from(Object::new()));
+    restarted.close(Duration::from_secs(2));
+    assert_eq!(s.opened.lock().unwrap().len(), 1);
+}
+
+#[test]
 fn catalog_text_beyond_ascii_is_written_as_utf8() {
     let s = setup_with(Model { name: "PP-OCRv6 small · Japanese".into(), ..entry() }, None);
     start(&s.manager).unwrap();

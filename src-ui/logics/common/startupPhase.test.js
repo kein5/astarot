@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { startupPhase, isStartupLocked, describeStartupFailure, startupDownloads } from "./startupPhase.js";
+import { startupPhase, isStartupLocked, describeStartupFailure, startupDownloads } from "./startupPhase.ts";
 
 test("the phase comes from the session's startup state and readiness, nothing else", () => {
     // Retry returns "starting" before the old attempt is gone: the page stays locked, without the dialog.

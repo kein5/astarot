@@ -179,7 +179,7 @@ def test_chatbox_detector_is_an_optional_consented_download_with_a_switch(ui):
     detector.get_by_role("button", name="Review download", exact=True).click()
     dialog = page.get_by_role("dialog")
     expect(dialog).to_contain_text("MIT")
-    expect(dialog).to_contain_text("VRCT-VOX's own chatbox detector")
+    expect(dialog).to_contain_text("ASTAROT's own chatbox detector")
     # One file, ours (never the upstream chatbox_yolox_tiny.onnx).
     expect(dialog.get_by_role("listitem")).to_have_text(["vrct_vox_chatbox_yolox_tiny.onnx · 20,184,371 bytes"])
     start = dialog.get_by_role("button", name="Agree and download", exact=True)

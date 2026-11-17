@@ -113,7 +113,7 @@ def test_native_rvc_selection_real_conversion_stop_and_restart(tmp_path):
                     output_before=muted_before, output_after=muted_after,
                     producer_finished=True, gate_muted=True,
                     status_before=status_before, status_after=status_after)
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 baseline = capture.snapshot()['nonzero_frames']
                 input_baseline = original.snapshot()['nonzero_frames']
                 finished = producer.play()

@@ -33,12 +33,30 @@ export const useIsMainPageCompactMode = () => {
         }
     };
 
+    // The rail opened over the conversation in a narrow window closes; nothing is saved.
+    const closeOverlay = () => {
+        if (isAutomaticCompact) setExpandedWhileNarrow(false);
+    };
+
+    // Shows the full rail when something in it has to open (the translator list): over
+    // the conversation in a narrow window; a wide window's icon rail is the saved choice,
+    // so it is undone the way its toggle does it.
+    const expandSidebar = () => {
+        if (isAutomaticCompact) {
+            setExpandedWhileNarrow(true);
+        } else if (currentIsMainPageCompactMode.data) {
+            asyncStdoutToPython("/set/disable/main_window_sidebar_compact_mode");
+        }
+    };
+
     return {
         currentIsMainPageCompactMode: { ...currentIsMainPageCompactMode,
             data: isAutomaticCompact ? !isExpandedWhileNarrow : currentIsMainPageCompactMode.data },
         isAutomaticCompact,
         getIsMainPageCompactMode,
         toggleIsMainPageCompactMode,
+        closeOverlay,
+        expandSidebar,
         updateIsMainPageCompactMode,
     };
 };

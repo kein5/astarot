@@ -90,6 +90,23 @@ fn malformed_packets_are_refused_whole() {
 }
 
 #[test]
+fn arrays_nested_deeper_than_bundles_may_are_refused_without_recursing() {
+    // #428: thousands of `[` in one type tag string recursed until the stack overflowed.
+    let nested = |depth: usize| (0..depth).fold(vec![OscArg::Int(1)], |inner, _| vec![OscArg::Array(inner)]);
+    let ok = OscMessage::new("/deep", nested(16));
+    assert_eq!(decode_packet(&ok.encode()).unwrap(), vec![ok]);
+    assert!(decode_packet(&OscMessage::new("/deep", nested(17)).encode()).is_err());
+    let mut hostile = b"/x\0\0,".to_vec();
+    hostile.extend(std::iter::repeat_n(b'[', 200_000));
+    hostile.extend(std::iter::repeat_n(b']', 200_000));
+    hostile.push(0);
+    while hostile.len() % 4 != 0 {
+        hostile.push(0);
+    }
+    assert!(decode_packet(&hostile).is_err());
+}
+
+#[test]
 fn address_patterns_match_like_osc() {
     for (pattern, address, matches) in [
         ("/avatar/parameters/MuteSelf", "/avatar/parameters/MuteSelf", true),
@@ -542,6 +559,31 @@ fn the_oscquery_http_server_has_an_absolute_request_deadline() {
 }
 
 #[test]
+fn the_oscquery_http_server_answers_only_requests_by_address() {
+    // #459: a page that rebinds its own name to 127.0.0.1 sends that name in `Host`.
+    if !mdns_available() {
+        return;
+    }
+    let service = QueryService::start("VRCT:host-test", 1).unwrap();
+    let port = service.http_port();
+    let ask = |host: Option<&str>| {
+        let mut stream = std::net::TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
+        let host = host.map(|h| format!("Host: {h}\r\n")).unwrap_or_default();
+        write!(stream, "GET /HOST_INFO HTTP/1.1\r\n{host}Connection: close\r\n\r\n").unwrap();
+        let mut reply = String::new();
+        let _ = stream.read_to_string(&mut reply);
+        reply.split_whitespace().nth(1).unwrap_or("").to_string()
+    };
+    for allowed in [Some(format!("127.0.0.1:{port}")), Some("localhost".into()), Some(format!("[::1]:{port}")), None] {
+        assert_eq!(ask(allowed.as_deref()), "200", "{allowed:?}");
+    }
+    for refused in ["rebind.example.com", "evil.test:80", ""] {
+        assert_eq!(ask(Some(refused)), "403", "{refused}");
+    }
+    service.close();
+}
+
+#[test]
 fn changing_the_destination_moves_the_receiver_and_a_failure_keeps_the_old_one() {
     if !mdns_available() {
         return;
@@ -601,6 +643,36 @@ fn a_local_vrchat_found_over_mdns_gives_mute_and_presence() {
     assert!(wait_until(|| handler.local_vrchat_presence() == Some(false), Duration::from_secs(5)));
     handler.osc_server_stop().unwrap();
     assert_eq!(handler.local_vrchat_presence(), None);
+}
+
+#[test]
+fn a_service_withdrawn_right_after_registering_is_not_announced_again() {
+    if !mdns_available() {
+        return;
+    }
+    let name = format!("Withdrawn-T{}", std::process::id());
+    let instance = format!("{name}.{OSCJSON_TYPE}");
+    let observer = Mdns::start().unwrap();
+    observer.browse(OSCJSON_TYPE);
+    let advertiser = Mdns::start().unwrap();
+    advertiser.register(ServiceSpec {
+        service_type: OSCJSON_TYPE.into(),
+        instance: instance.clone(),
+        host: format!("{name}.oscjson.local."),
+        port: 1,
+        txt: vec!["txtvers=1".into()],
+        address: Ipv4Addr::LOCALHOST,
+    });
+    // Withdrawn while its later announcements (225 and 450 ms after registering) are
+    // still due; the advertiser keeps running past them.
+    advertiser.unregister_all();
+    thread::sleep(Duration::from_secs(1));
+    assert!(
+        observer.discovered(OSCJSON_TYPE).iter().all(|service| service.name != instance),
+        "an announcement after the goodbye brought the service back"
+    );
+    advertiser.close();
+    observer.close();
 }
 
 #[test]

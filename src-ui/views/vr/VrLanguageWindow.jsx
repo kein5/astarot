@@ -9,8 +9,8 @@ import { useLanguageSettings } from '@logics_main';
 import { useI18n } from '@useI18n';
 import { useIsOpenedConfigPage } from '@logics_common';
 import { LANGUAGE_RESPONSE_WAIT_MS } from '../../logics/main/languageMutations';
-import { createLanguageNames, isLanguagePickKey } from '../../logics/common/languageNames.js';
-import { languageJumpGroups } from '../../logics/common/languageJumpGroups.js';
+import { createLanguageNames, isLanguagePickKey } from '../../logics/common/languageNames.ts';
+import { languageJumpGroups } from '../../logics/common/languageJumpGroups.ts';
 import { VrPickerList, VR_PICKER_WINDOW_THRESHOLD } from './VrPickerList';
 import styles from './VrLanguageWindow.module.scss';
 
@@ -209,7 +209,9 @@ export function VrLanguageWindow({ onClose }) {
     const selectionLabel = entry => view.kind === 'your' ? c('selected') : c('selected_slots', { n: targets.flatMap((other, index) => same(other, entry) ? [index + 1] : []).join(', ') });
     const choiceSource = view.stage === 'list' ? selectable.data : saved;
     const sortedChoices = useMemo(() => names.sorted(choiceSource ?? []), [names, choiceSource]);
-    const languageChoices = useMemo(() => sortedChoices.filter(entry => names.matches(entry, query)), [names, sortedChoices, query]);
+    // As on the desktop selector: languages whose code begins with the query come first,
+    // so "ja" and Enter pick Japanese, not Azerbaijani.
+    const languageChoices = useMemo(() => names.narrow(sortedChoices, query), [names, sortedChoices, query]);
     const jumpGroups = useMemo(() => view.stage === 'list'
         ? languageJumpGroups(languageChoices.map(entry => names.name(entry).language), i18n.language) : [], [view.stage, languageChoices, names, i18n.language]);
     const jumpTo = index => {

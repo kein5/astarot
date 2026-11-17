@@ -1,4 +1,4 @@
-import { createLanguageNames } from "../../logics/common/languageNames.js";
+import { createLanguageNames } from "../../logics/common/languageNames.ts";
 import { useLayoutEffect, useRef, useState } from "react";
 import clsx from "clsx";
 
@@ -24,7 +24,7 @@ import { buildComputeDeviceOptions } from "../app/config_page/setting_section/se
 import { CLOUD_TRANSCRIPTION_ENGINES } from "../../logics/configs/cloudTranscription";
 import { isNonCommercialWeight } from "../../logics/configs/ctranslate2License";
 import styles from "./VrSettingsWindow.module.scss";
-import { splitFeatureLabel } from "../../logics/common/featureLabel.js";
+import { splitFeatureLabel } from "../../logics/common/featureLabel.ts";
 
 // 左のカテゴリはデスクトップの設定画面と同じ順序・名前・アイコン。VRでは文字入力が要る項目
 // (APIキー、URL、単語フィルターなど) と、モデルのダウンロードは載せない
@@ -38,15 +38,18 @@ const CATEGORIES = [
 ];
 
 // 翻訳のAIのうち、接続済み (モデルの一覧が取れている) ものだけモデルを選べる
+// 呼ぶ関数の名前は組み立てずに書く。VR から送れる操作の一覧 (vrPanelWire.ts) と照らす試験が、
+// ソースに書かれた名前を拾うため (組み立てた名前は拾えず、一覧から漏れても試験が通ってしまう)
 const AI_PROVIDERS = [
-    { key: "Plamo", i18n: "plamo" },
-    { key: "Gemini", i18n: "gemini" },
-    { key: "OpenAI", i18n: "openai" },
-    { key: "Groq", i18n: "groq" },
-    { key: "OpenRouter", i18n: "openrouter" },
-    { key: "LMStudio", i18n: "lmstudio" },
-    { key: "OpenAICompatible", i18n: "openai_compatible" },
-    { key: "Ollama", i18n: "ollama" },
+    { i18n: "plamo", list: "currentSelectablePlamoModelList", selected: "currentSelectedPlamoModel", set: "setSelectedPlamoModel" },
+    { i18n: "gemini", list: "currentSelectableGeminiModelList", selected: "currentSelectedGeminiModel", set: "setSelectedGeminiModel" },
+    { i18n: "openai", list: "currentSelectableOpenAIModelList", selected: "currentSelectedOpenAIModel", set: "setSelectedOpenAIModel" },
+    { i18n: "groq", list: "currentSelectableGroqModelList", selected: "currentSelectedGroqModel", set: "setSelectedGroqModel" },
+    { i18n: "openrouter", list: "currentSelectableOpenRouterModelList", selected: "currentSelectedOpenRouterModel", set: "setSelectedOpenRouterModel" },
+    { i18n: "lmstudio", list: "currentSelectableLMStudioModelList", selected: "currentSelectedLMStudioModel", set: "setSelectedLMStudioModel" },
+    { i18n: "openai_compatible", list: "currentSelectableOpenAICompatibleModelList", selected: "currentSelectedOpenAICompatibleModel",
+        set: "setSelectedOpenAICompatibleModel" },
+    { i18n: "ollama", list: "currentSelectableOllamaModelList", selected: "currentSelectedOllamaModel", set: "setSelectedOllamaModel" },
 ];
 
 const THRESHOLD_STEP = 50;
@@ -252,27 +255,35 @@ const TranscriptionSettings = ({ t, openPicker }) => {
     // Cloud engines appear once their key is registered in the settings page.
     const available = tr.currentSelectableTranscriptionEngines.data || [];
     // The local engine's models and server are set on the PC (Settings → Speech recognition).
-    const engines = [{ id: "Google", label: "Google" },
-        { id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
+    const engines = [{ id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
         ...CLOUD_TRANSCRIPTION_ENGINES.filter(engine => available.includes(engine.id))
             .map(engine => ({ id: engine.id, label: t(`config_page.transcription.select_transcription_engine.engines.${engine.key}`) }))];
     const engine_label = t("config_page.transcription.select_transcription_engine.label");
     // 区切りの秒数は「記録の上限 ≦ 無音で区切る秒数」でないとバックエンドが受け付けない
-    const timeoutRows = (prefix, max_words) => {
-        const record = tr[`current${prefix}RecordTimeout`];
-        const phrase = tr[`current${prefix}PhraseTimeout`];
-        const lower = prefix.toLowerCase();
+    // 関数の名前は組み立てずに書く (AI_PROVIDERS と同じ理由)
+    const timeoutRows = (lower, rows, max_words) => {
+        const { record, phrase, maxWords } = rows;
         return (
             <>
                 <SectionLabel label={t(`config_page.transcription.section_label_${lower}`)} />
                 <StepperRow label={t(`config_page.transcription.${lower}_record_timeout.label`)}
-                    variable={record} setValue={tr[`set${prefix}RecordTimeout`]} min={0} max={Math.min(30, Number(phrase.data))} step={1} />
+                    variable={record.variable} setValue={record.set} min={0} max={Math.min(30, Number(phrase.variable.data))} step={1} />
                 <StepperRow label={t(`config_page.transcription.${lower}_phrase_timeout.label`)}
-                    variable={phrase} setValue={tr[`set${prefix}PhraseTimeout`]} min={Number(record.data)} max={30} step={1} />
+                    variable={phrase.variable} setValue={phrase.set} min={Number(record.variable.data)} max={30} step={1} />
                 <StepperRow label={t(`config_page.transcription.${lower}_max_phrase.label`)}
-                    variable={tr[`current${prefix}MaxWords`]} setValue={tr[`set${prefix}MaxWords`]} min={0} max={max_words} step={1} />
+                    variable={maxWords.variable} setValue={maxWords.set} min={0} max={max_words} step={1} />
             </>
         );
+    };
+    const micRows = {
+        record: { variable: tr.currentMicRecordTimeout, set: tr.setMicRecordTimeout },
+        phrase: { variable: tr.currentMicPhraseTimeout, set: tr.setMicPhraseTimeout },
+        maxWords: { variable: tr.currentMicMaxWords, set: tr.setMicMaxWords },
+    };
+    const speakerRows = {
+        record: { variable: tr.currentSpeakerRecordTimeout, set: tr.setSpeakerRecordTimeout },
+        phrase: { variable: tr.currentSpeakerPhraseTimeout, set: tr.setSpeakerPhraseTimeout },
+        maxWords: { variable: tr.currentSpeakerMaxWords, set: tr.setSpeakerMaxWords },
     };
     return (
         <>
@@ -280,9 +291,9 @@ const TranscriptionSettings = ({ t, openPicker }) => {
                 value={engines.find(engine => engine.id === tr.currentSelectedTranscriptionEngine.data)?.label ?? tr.currentSelectedTranscriptionEngine.data}
                 is_pending={tr.currentSelectedTranscriptionEngine.state === "pending"}
                 onOpen={() => openPicker(engine_label, engines, tr.currentSelectedTranscriptionEngine.data, tr.setSelectedTranscriptionEngine)} />
-            {timeoutRows("Mic", 30)}
+            {timeoutRows("mic", micRows, 30)}
             <Disclosure label={t("config_page.transcription.section_label_speaker")} summary={t("vr_panel.settings.speaker_adjustments")}>
-                {timeoutRows("Speaker", 60)}
+                {timeoutRows("speaker", speakerRows, 60)}
             </Disclosure>
         </>
     );
@@ -307,14 +318,14 @@ const TranslationSettings = ({ t, openPicker }) => {
                 device_list={tl.currentSelectableTranslationComputeDeviceList}
                 device={tl.currentSelectedTranslationComputeDevice} setDevice={tl.setSelectedTranslationComputeDevice}
                 compute_type={tl.currentSelectedTranslationComputeType} setComputeType={tl.setSelectedTranslationComputeType} />
-            {AI_PROVIDERS.map(({ key, i18n }) => {
-                const options = toOptions(tl[`currentSelectable${key}ModelList`].data);
+            {AI_PROVIDERS.map((provider) => {
+                const options = toOptions(tl[provider.list].data);
                 if (options.length === 0) return null;
-                const selected = tl[`currentSelected${key}Model`];
-                const label = t(`config_page.translation.select_${i18n}_model.label`);
+                const selected = tl[provider.selected];
+                const label = t(`config_page.translation.select_${provider.i18n}_model.label`);
                 return (
-                    <SelectRow key={key} label={label} value={selected.data} is_pending={selected.state === "pending"}
-                        onOpen={() => openPicker(label, options, selected.data, tl[`setSelected${key}Model`])} />
+                    <SelectRow key={provider.i18n} label={label} value={selected.data} is_pending={selected.state === "pending"}
+                        onOpen={() => openPicker(label, options, selected.data, tl[provider.set])} />
                 );
             })}
         </>
@@ -367,16 +378,17 @@ const VrcMicMuteSyncRow = ({ t }) => {
 
 const VrchatSettings = ({ t, openPicker }) => {
     const o = useOthers();
-    const toggle = (name, key) => (
-        <ToggleRow label={t(`config_page.others.${key}.label`)} variable={o[`current${name}`]} onToggle={o[`toggle${name}`]} />
+    // 関数の名前は組み立てずに書く (AI_PROVIDERS と同じ理由)
+    const toggle = (key, variable, onToggle) => (
+        <ToggleRow label={t(`config_page.others.${key}.label`)} variable={variable} onToggle={onToggle} />
     );
     return (
         <>
             <SectionLabel label={t("config_page.vrchat.section_label_chatbox")} />
-            {toggle("EnableSendMessageToVrc", "send_message_to_vrc")}
-            {toggle("EnableSendOnlyTranslatedMessages", "send_only_translated_messages")}
-            {toggle("EnableNotificationVrcSfx", "notification_vrc_sfx")}
-            {toggle("EnableSendReceivedMessageToVrc", "send_received_message_to_vrc")}
+            {toggle("send_message_to_vrc", o.currentEnableSendMessageToVrc, o.toggleEnableSendMessageToVrc)}
+            {toggle("send_only_translated_messages", o.currentEnableSendOnlyTranslatedMessages, o.toggleEnableSendOnlyTranslatedMessages)}
+            {toggle("notification_vrc_sfx", o.currentEnableNotificationVrcSfx, o.toggleEnableNotificationVrcSfx)}
+            {toggle("send_received_message_to_vrc", o.currentEnableSendReceivedMessageToVrc, o.toggleEnableSendReceivedMessageToVrc)}
             <VrcMicMuteSyncRow t={t} />
             <SectionLabel label={t("config_page.ocr.section_title")} />
             <OcrSettings t={t} openPicker={openPicker} />

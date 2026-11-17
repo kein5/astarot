@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find, stubGlobals } from "../../../../../../logics/test/hookHarness.js";
-import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.js";
+import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 
 async function fixture(context) {
     context.mock.timers.enable({ apis: ["setTimeout"] });
@@ -34,7 +34,7 @@ async function fixture(context) {
     const speech = { state: {}, send: () => {} };
     const { RealtimeASRSettings } = await loadModule(new URL("./RealtimeASRSettings.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "ja" } }) },
-        "../../../../../../logics/common/languageNames.js": { createLanguageNames: () => ({ fromCode: code => code }) },
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: code => code }) },
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => speech },
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,
@@ -43,6 +43,7 @@ async function fixture(context) {
     });
     const { SaveBar } = await loadModule(new URL("../../../topbar/Topbar.jsx", import.meta.url), barRuntime, {
         "@logics_common": {}, "../../../../logics/voice/saveBar": saveBar, "../../others/stop_actions/StopActions": {},
+        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "transcription" } }) },
     });
     let dialogProps;
     const modal = { open: false, showModal() { this.open = true; }, close() { this.open = false; dialogProps.onClose(); } };
@@ -62,9 +63,16 @@ async function fixture(context) {
         for (let i = 0; i < 10; i++) await Promise.resolve();
         render();
     };
+    // The backend refuses a write with its error code and a non-200 reply to that write.
+    const refuse = async code => {
+        asr.error = code;
+        responses.shift()({ status: 400, result: { error_code: code } });
+        for (let i = 0; i < 10; i++) await Promise.resolve();
+        render();
+    };
     context.after(() => { runtime.unmount(); barRuntime.unmount(); });
     render();
-    return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, writes, acknowledge, window, modal, listeners };
+    return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, writes, acknowledge, refuse, window, modal, listeners };
 }
 
 test("realtime drafts register and unregister with the shared save bar, including dictionary edits", async context => {
@@ -159,7 +167,7 @@ test("rejected and unconfirmed saves keep edits visible and guarded; refresh doe
     s.render();
     assert.equal(s.field("realtime.url").value, "http://localhost:9090");
     s.entries()[0].save(); s.render();
-    s.asr.error = "invalid_settings"; s.render();
+    await s.refuse("invalid_settings");
     assert.equal(s.status(), "voice_ui.save_failed");
     assert.equal(s.entries()[0].edited, true);
     assert.equal(s.field("realtime.url").readOnly, false);

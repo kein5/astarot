@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { keepNewestVrLayout, tooltipMarker, tooltipGeometry } from "./vrPanelTooltip.js";
+import { keepNewestVrLayout, tooltipMarker, tooltipGeometry } from "./vrPanelTooltip.ts";
 
 test("delayed GET/initialization snapshots cannot replace a newer session", () => {
     const current = { tooltip_epoch: 23, atlas: [1628, 880] };

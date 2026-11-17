@@ -260,9 +260,23 @@ impl Downloads {
         Object::new().with("catalog_version", CATALOG_VERSION).with("models", models).into()
     }
 
-    /// `{observation_id, jobs: {id: {job_id, phase, received_bytes, total_bytes, paths, error_code}}}`.
+    /// `{observation_id, jobs: {id: {job_id, phase, received_bytes, total_bytes, paths, error_code}},
+    /// downloaded: {id: {role: path}}}`.
     pub fn state(&self) -> Json {
-        self.inner.state.lock().unwrap().to_json()
+        let downloaded = self.downloaded();
+        let Json::Object(mut state) = self.inner.state.lock().unwrap().to_json() else { unreachable!("the state is an object") };
+        state.insert("downloaded", downloaded);
+        Json::Object(state)
+    }
+
+    /// `{id: {role: path}}` for every entry whose files are on disk, including those of earlier
+    /// runs (`manager.py` `downloaded`).
+    pub fn downloaded(&self) -> Json {
+        let paths = |paths: Paths| paths.iter().fold(Object::new(), |o, (role, path)| o.with(role.as_str(), path.as_str()));
+        self.inner.entries.iter().fold(Object::new(), |o, m| match self.inner.present(m) {
+            Some(found) => o.with(m.id.as_str(), paths(found)),
+            None => o,
+        }).into()
     }
 
     /// Starts downloading one entry. The request is exactly `{id, consent, catalog_version}`,
@@ -450,6 +464,27 @@ impl Drop for Downloads {
 impl Inner {
     fn destination(&self, entry: &Model) -> PathBuf {
         self.root.join(&entry.id).join(&entry.revision)
+    }
+
+    /// The paths of an entry published in an earlier run: every file a regular file of its pinned
+    /// size under real directories. The SHA-256 is checked again when the entry is prepared or
+    /// applied, never here (the state is polled while a download runs).
+    fn present(&self, entry: &Model) -> Option<Paths> {
+        let final_dir = self.destination(entry);
+        for folder in [self.root.as_path(), final_dir.parent()?, final_dir.as_path()] {
+            if !fs::symlink_metadata(folder).ok()?.file_type().is_dir() {
+                return None;
+            }
+        }
+        entry
+            .artifacts
+            .iter()
+            .map(|a| {
+                let path = final_dir.join(&a.filename);
+                let info = fs::symlink_metadata(&path).ok()?;
+                (info.file_type().is_file() && info.len() == a.size).then(|| (a.role.clone(), path.to_string_lossy().into_owned()))
+            })
+            .collect()
     }
 
     fn signal_cancel(&self) {

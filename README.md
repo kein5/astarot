@@ -23,7 +23,8 @@
   <a href="https://kein5.github.io/VRCT-VOX/en/guide/requirements"><img alt="Platforms: Windows and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
   <a href="/src-tauri/Cargo.toml"><img alt="Rust edition of the app" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
   <a href="/mise.toml"><img alt="Rust toolchain pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
-  <a href="/pyproject.toml"><img alt="Python version of the backend" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
+  <a href="/pyproject.toml"><img alt="Python version for the development tools and tests" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
+  <a href="/mise.toml"><img alt="Node.js pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
 </p>
 
 [日本語](/docs/readmes/README.ja.md)
@@ -34,7 +35,7 @@ VRCT-VOX is a desktop app for VRChat that combines speech recognition (ASR), tex
 
 - **Translated speech.** Speak your chat input and confirmed translations with [speech.cpp](https://github.com/nyosegawa/speech.cpp) TTS (Irodori for Japanese, Qwen3-TTS for other languages) into a virtual microphone that VRChat uses. Voice output and OSC chat text are configured independently, so you can, for example, keep your own voice while translated speech and text are added.
 - **Hear yourself.** Optionally play the same speech on your own speakers or headphones.
-- **Voice conversion.** Convert your microphone with RVC. On Windows and Linux the app fetches its runtime after showing its license and size. It converts on an NVIDIA GPU (GeForce GTX 16 or RTX 20 series or later, driver 580 or later) and otherwise on the CPU, with a longer delay. Seed-VC was removed in 0.4.0.
+- **Voice conversion.** Convert your microphone with RVC. On Windows and Linux the app fetches its runtime after showing its license and size. It converts on an NVIDIA GPU (GeForce GTX 16 or RTX 20 series or later, driver 580 or later) and otherwise on the CPU, with a longer delay. Seed-VC is no longer offered from 0.5.0; a saved Seed-VC setting switches to RVC.
 - **Realtime captions.** Transcribe your microphone and other players with bundled speech.cpp ASR servers.
 - **Bundled servers.** Save, start and stop speech.cpp servers from the settings.
 - **Model downloads.** Download fixed Irodori, Qwen3-TTS, RVC and speech recognition models (every recognizer speech.cpp offers, such as Qwen3-ASR, ReazonSpeech and Haas-ja) from Hugging Face. Each download asks for consent after showing its license and size. Files are checked by size and SHA-256 and applied separately. GPU/VRAM guidance suggests standard or lighter variants; it is a guide, not a guarantee.
@@ -46,13 +47,13 @@ RVC also needs its runtime, HuBERT and RMVPE. See [model downloads](/docs/voice-
 
 The latest release is on **[GitHub Releases](https://github.com/kein5/VRCT-VOX/releases/latest)** (the release badge above shows its version). Versions count from 0.1.0, separately from upstream VRCT 3.x. Betas are published from `develop`, stable releases from `main`.
 
-- **Linux:** AppImage and tar.gz (x64, Vulkan). These have been tested with real models on CachyOS (KDE Plasma Wayland).
+- **Linux:** AppImage, tar.gz, deb and rpm (x64, Vulkan). These have been tested with real models on CachyOS (KDE Plasma Wayland).
 - **Windows:** installer and zip (CPU), and a CUDA zip. These have been tested with real models on a Windows 11 PC ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
 
 Every file has a `.sha256` and `SHA256SUMS-*` for checking downloads; these are not signatures. Installer and AppImage copies update themselves after checking the update's signature; ZIP and tar.gz copies are told about new versions; deb and rpm installs update through the package manager. An AUR package is planned but not submitted.
 
 Known limitations:
-- Chat reading (OCR) needs its models, which are not shipped: download them in Config → Chat Transcribe after agreeing to their terms. On Linux it reads the VRChat window through XWayland. A native Wayland window (VRChat inside gamescope, for example) is read after you share it: Config → Chat Transcribe → "Share a window…" opens your desktop's own window dialog.
+- Chat reading (OCR) needs its models, which are not shipped: download them in Settings → Chat reading (OCR) → Recognition models after agreeing to their terms. On Linux it reads the VRChat window through XWayland. A native Wayland window (VRChat inside gamescope, for example) is read after you share it: Settings → Chat reading (OCR) → "Share a window…" opens your desktop's own window dialog.
 - On Linux, the VR UI and chat reading from the headset view have been checked only with a stand-in for SteamVR, not with a real headset. Linux builds have been checked on KDE Plasma (Wayland) only.
 - The Google, Bing and Papago web translators are unavailable (see License).
 

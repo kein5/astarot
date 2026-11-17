@@ -1,20 +1,20 @@
 # The full candidate build runs on pull requests into main. This catches a change to
-# how the backend is packaged earlier, when the change is still small.
-name: Windows backend package
+# what the Windows package ships in _internal earlier, when the change is still small.
+name: Windows package resources
 
 on:
   workflow_dispatch:
   pull_request:
     branches: [develop]
     paths:
-      - '**/*.spec'
-      - 'pyproject.toml'
-      - 'uv.lock'
       - 'mise.toml'
       - 'mise.lock'
       - 'bat/**'
+      - 'tools/app_resources.py'
       - 'tools/check_voice_distribution.py'
-      - 'src-python/packaged_self_check.py'
+      - 'tools/speechcpp_bundle.py'
+      - 'tools/build_rvc_worker.py'
+      - 'tools/rust_licenses.py'
       - '.github/workflows/windows-package.yml'
 
 permissions:
@@ -25,34 +25,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
+  resources:
     runs-on: windows-latest
     timeout-minutes: 45
-    env:
-      UV_PYTHON_PREFERENCE: only-system
-      UV_PYTHON_DOWNLOADS: never
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      # The backend is frozen from the Python in mise.toml; bat\build.bat also builds the RVC
-      # worker with Rust. uv takes mise's Python and never fetches its own.
+      # bat\build.bat fetches the pinned speech.cpp, builds the RVC worker with Rust and stages
+      # _internal with the Python tools; no Python is packaged.
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           version: 2026.11.8
-          install_args: node python uv rust
-      - run: npm run setup-python
-      - run: npm run build-python
-      - name: Inspect the backend
+          install_args: python rust
+      - run: bat\build.bat
+      - name: Inspect the shipped files
         shell: pwsh
         run: |
           python tools/check_voice_distribution.py src-tauri/bin/_internal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      # The inspection reads files. This starts the packaged backend and imports what the
-      # features import only when they turn on (the translation tokenizer never loaded
-      # from a Windows package up to 0.1.0-beta.7, and no check started it).
-      - name: Self-check the packaged backend
-        shell: pwsh
-        run: |
-          & src-tauri/bin/vrct-vox-sidecar-x86_64-pc-windows-msvc.exe --self-check
+          python tools/app_resources.py --platform windows check src-tauri/bin/_internal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

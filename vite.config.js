@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
 import yaml from "@rollup/plugin-yaml";
+import { vanillaExtractPlugin } from "@vanilla-extract/vite-plugin";
 import path from "path";
 
 const host = process.env.TAURI_DEV_HOST;
@@ -16,6 +17,8 @@ export default defineConfig(() => {
             yaml({ include: ["**/*.yml", "**/*.yaml"] }),
             react(),
             svgr(),
+            // Styles written in *.css.ts (ADR-010) become static CSS files at build time.
+            vanillaExtractPlugin(),
         ],
 
         // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -58,6 +61,8 @@ export default defineConfig(() => {
                     vr: path.resolve(__dirname, "src-ui/vr.html"),
                     quick_chat: path.resolve(__dirname, "src-ui/quick-chat.html"),
                     caption_overlay: path.resolve(__dirname, "src-ui/caption-overlay.html"),
+                    companion_panel: path.resolve(__dirname, "src-ui/companion-panel.html"),
+                    companion_handle: path.resolve(__dirname, "src-ui/companion-handle.html"),
                 },
             },
             sourcemap: true,
@@ -69,21 +74,23 @@ export default defineConfig(() => {
 
                 "@useI18n": path.resolve(__dirname, "locales/useI18n.js"),
 
-                "@useReceiveRoutes": path.resolve(__dirname, "src-ui/logics/useReceiveRoutes.js"),
-                "@useStdoutToPython": path.resolve(__dirname, "src-ui/logics/common/useStdoutToPython.js"),
+                // Logic modules without an extension, so a file can move from .js to .ts
+                // (ADR-010) without touching the alias; tsconfig.json has the same list.
+                "@useReceiveRoutes": path.resolve(__dirname, "src-ui/logics/useReceiveRoutes"),
+                "@useStdoutToPython": path.resolve(__dirname, "src-ui/logics/common/useStdoutToPython"),
 
-                "@ui_configs": path.resolve(__dirname, "src-ui/logics/ui_configs.js"),
+                "@ui_configs": path.resolve(__dirname, "src-ui/logics/ui_configs"),
                 "@scss_mixins": path.resolve(__dirname, "src-ui/views/common_css/mixins.scss"),
-                "@store": path.resolve(__dirname, "src-ui/logics/store.js"),
+                "@store": path.resolve(__dirname, "src-ui/logics/store"),
                 "@images": path.resolve(__dirname, "src-ui/views/assets"),
-                "@utils": path.resolve(__dirname, "src-ui/logics/utils.js"),
+                "@utils": path.resolve(__dirname, "src-ui/logics/utils"),
                 "@logics": path.resolve(__dirname, "src-ui/logics"),
                 "@logics_common": path.resolve(__dirname, "src-ui/logics/common"),
                 "@logics_main": path.resolve(__dirname, "src-ui/logics/main"),
                 "@logics_configs": path.resolve(__dirname, "src-ui/logics/configs"),
 
-                "@setting_box": path.resolve(__dirname, "src-ui/views/app/config_page/setting_section/setting_box/index.js"),
-                "@common_components": path.resolve(__dirname, "src-ui/views/common_components/index.js"),
+                "@setting_box": path.resolve(__dirname, "src-ui/views/app/config_page/setting_section/setting_box/index"),
+                "@common_components": path.resolve(__dirname, "src-ui/views/common_components/index"),
             },
         },
 

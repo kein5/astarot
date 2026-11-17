@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find, stubGlobals } from "../../logics/test/hookHarness.js";
-import * as wire from "../../logics/common/vrPanelWire.js";
-import { keepNewestVrLayout } from "../../logics/common/vrPanelTooltip.js";
+import * as wire from "../../logics/common/vrPanelWire.ts";
+import { keepNewestVrLayout } from "../../logics/common/vrPanelTooltip.ts";
 
 test("closed log region is inert and unpainted while the receiver keeps its data current", async context => {
     stubGlobals(context, { requestAnimationFrame: () => 1, cancelAnimationFrame: () => {} });
@@ -25,6 +25,8 @@ test("closed log region is inert and unpainted while the receiver keeps its data
         "./VrLauncher": { VrLauncher }, "./VrLogWindow": { VrLogWindow }, "./VrPopupWindow": { VrPopupWindow: () => null },
         "./VrToolbar": { VrToolbar: () => null }, "./VrTooltip": { VrTooltip: () => null }, "./vrPanelHover": {},
         "../../logics/common/vrPanelTooltip": { keepNewestVrLayout }, "../../logics/common/vrPanelWire": wire,
+        // #397: the panel sends nothing as an event; it asks Rust to pass it on to the main window.
+        "../../logics/common/vrPanelSend.ts": { sendToMain: async (...args) => { emitted.push(args); } },
     });
     const closed = runtime.render(VrApp);
     const log = find(closed, node => node.type === VrLogWindow);

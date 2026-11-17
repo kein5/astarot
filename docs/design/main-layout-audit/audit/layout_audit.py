@@ -40,9 +40,9 @@ SIZES = [
 ]
 
 LABELS = {
-    "ja": dict(toggle="サイドバーを切り替える", translator="翻訳エンジン", add="相手の言語を追加", your="あなたの言語",
+    "ja": dict(toggle="サイドバーを切り替える", close="サイドバーを閉じる", translator="翻訳エンジン", add="相手の言語を追加", your="あなたの言語",
                quick="クイック設定", flow="入力と出力", title="ここから会話を始めましょう"),
-    "en": dict(toggle="Toggle sidebar", translator="Translator", add="Add a target language", your="Your Language",
+    "en": dict(toggle="Toggle sidebar", close="Close the sidebar", translator="Translator", add="Add a target language", your="Your Language",
                quick="Quick settings", flow="Inputs and outputs", title="Your conversation starts here"),
 }
 
@@ -115,7 +115,10 @@ def states(lang):
         page.wait_for_timeout(400)
 
     def close_compact(page, peer):
-        page.get_by_role("button", name=L["toggle"]).click()
+        # A narrow window opens the rail over the conversation, on top of the toggle;
+        # the rail then carries its own close button.
+        close = page.get_by_role("button", name=L["close"])
+        (close if close.count() else page.get_by_role("button", name=L["toggle"])).click()
         page.wait_for_timeout(300)
 
     return {

@@ -154,9 +154,11 @@ const SoftwareUpdateAvailableButton = () => {
     if (!["available", "downloading", "installing"].includes(appUpdate.status)) return null;
 
     return (
-        <button className={styles.software_update_button} onClick={()=>updateOpenedQuickSetting("update_software")}>
-            <RefreshSvg className={styles.refresh_svg}/>
-            <p className={styles.software_update_label}>{t("main_page.update_available")}</p>
+        // A narrow bar hides the words (RightSideComponents.module.scss); the tooltip keeps them.
+        <button type="button" className={styles.software_update_button} title={t("main_page.update_available")}
+            onClick={()=>updateOpenedQuickSetting("update_software")}>
+            <RefreshSvg className={styles.refresh_svg} aria-hidden="true"/>
+            <span className={styles.software_update_label}>{t("main_page.update_available")}</span>
         </button>
     );
 };

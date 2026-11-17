@@ -24,6 +24,7 @@
   <a href="/src-tauri/Cargo.toml"><img alt="アプリのRustのedition" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
   <a href="/mise.toml"><img alt="mise.tomlで固定したRustのツールチェーン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
   <a href="/pyproject.toml"><img alt="バックエンドのPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
+  <a href="/mise.toml"><img alt="mise.tomlで固定したNode.jsのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
 </p>
 
 [English](/README.md)

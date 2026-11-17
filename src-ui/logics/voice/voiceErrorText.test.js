@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { voiceErrorText } from "./voiceErrorText.js";
+import { voiceErrorText } from "./voiceErrorText.ts";
 
 const resources = Object.fromEntries(["en", "ja"].map(language => [language, {
     translation: yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")),
@@ -22,6 +22,33 @@ for (const language of ["en", "ja"]) test(`${language}: every code the voice pag
     }
     // voice_ui.errors wins where both have the code.
     assert.equal(voiceErrorText("voice_route_muted", "TTS", t, exists), `${t("voice_ui.errors.voice_route_muted")} (voice_route_muted)`);
+});
+
+// The TTS settings page shows why a save was refused. The core refuses with these codes
+// (native/core/src/controller/voice/mod.rs, set_settings and output_devices).
+for (const language of ["en", "ja"]) test(`${language}: a refused TTS settings save is explained, not shown as a code`, async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources });
+    const t = i18n.t.bind(i18n), exists = key => i18n.exists(key);
+    for (const code of ["VOICE_SETTINGS_INVALID", "direct_voice_stop_required", "voice_route_closed", "voice_request_failed",
+        "audio_devices_unavailable", "backend_unavailable"]) {
+        const text = voiceErrorText(code, "TTS", t, exists);
+        assert.ok(text.endsWith(` (${code})`) && !text.startsWith(code), `${code}: ${text}`);
+    }
+});
+
+// The codes the UI itself writes into the voice pages' alert lines (#460).
+for (const language of ["en", "ja"]) test(`${language}: the codes the UI makes are explained on the route and input lines`, async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources });
+    const t = i18n.t.bind(i18n), exists = key => i18n.exists(key);
+    for (const code of ["save_unconfirmed", "source_bridge_request_failed", "voice_request_failed", "voice_request_unconfirmed", "backend_unavailable"]) {
+        const text = voiceErrorText(code, "RVC", t, exists, ["voice_setup_errors"]);
+        assert.ok(text.endsWith(` (${code})`) && !text.startsWith(code), `${code}: ${text}`);
+    }
+    // The route's own setup codes come from voice_setup_errors.
+    assert.equal(voiceErrorText("managed_setup_timeout", "RVC", t, exists, ["voice_setup_errors"]),
+        `${t("voice_setup_errors.managed_setup_timeout")} (managed_setup_timeout)`);
 });
 
 test("an unknown code is shown as it is, with where to look", () => {

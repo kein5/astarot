@@ -7,11 +7,12 @@
 min_version = "2026.11.0"
 
 [tools]
-node = "22.15.0"
+node = "26.13.1"
 # Installed through rustup. Cargo.toml's rust-version (1.92) is the oldest that builds;
 # this is the version development and CI use.
 rust = { version = "1.100.0", profile = "minimal", components = "clippy,rustfmt" }
-# pyproject.toml requires 3.11.*; the packaged backend is frozen from this Python.
+# pyproject.toml requires 3.11.*: the build tools, the tests and the Python backend kept as the
+# specification until it is removed (the packages carry no Python since 0.5.0).
 python = "3.11.18"
 uv = "0.13.5"
 cocogitto = "7.0.0"
@@ -77,9 +78,9 @@ env = { UV_PYTHON_PREFERENCE = "only-system" }
 description = "cargo fetch --locked for the Tauri app and the native crates"
 run = "python tools/dev.py setup --scope rust"
 
-[tasks."setup:sidecar"]
-description = "Development sidecar wrapper for Tauri (Unix)"
-run = "python tools/dev.py setup --scope sidecar"
+[tasks."setup:resources"]
+description = "src-tauri/bin/_internal for tauri dev and cargo check (stages what build/ has)"
+run = "python tools/dev.py setup --scope resources"
 
 [tasks."setup:app"]
 description = "App Python environments from uv.lock: .venv and .venv_cuda on Windows, .venv_linux on Linux"
