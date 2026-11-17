@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { find, hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
 import * as sharedWindow from "../../../../../../logics/configs/ocrSharedWindow.ts";
 
@@ -18,7 +18,7 @@ const buttons = tree => {
 
 const mount = async (context, state) => {
     const runtime = hooks();
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const page = { state: { ...sharedWindow.INITIAL_SHARED_WINDOW, ...state }, calls: [] };
     const { OcrSharedWindow } = await loadModule(new URL("./OcrSharedWindow.jsx", import.meta.url), runtime, {
         "@logics_configs": { useOcrSharedWindow: () => ({

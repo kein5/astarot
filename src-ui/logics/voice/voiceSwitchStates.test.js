@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { voiceSwitchStates } from "./voiceActions.ts";
 
 test("the voice switch states reach their listeners only when they change", () => {

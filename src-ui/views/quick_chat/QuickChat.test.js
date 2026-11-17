@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { hooks, loadModule, find, eventTarget, stubGlobals } from '../../logics/test/hookHarness.js';
 import { deferred, flush } from '../../logics/test/bridgeHarness.js';
 import * as chatboxLength from '../../logics/common/chatboxLength.ts';

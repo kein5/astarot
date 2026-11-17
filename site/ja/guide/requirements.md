@@ -9,9 +9,9 @@
 | OS | 条件 |
 |---|---|
 | Windows | 64ビットのWindows 11で確かめています。Windows 10では確かめていません。WebView2 Runtimeが必要です。入っていなければ、インストーラーが取得します。 |
-| Linux | x86-64のPCで、<Term tip="多くのLinuxのアプリが使う基本のライブラリ（GNU Cライブラリ）です。版はldd --versionで確かめられます。">glibc</Term> 2.39以降、GTK 3、WebKitGTK 4.1が必要です。debとrpmは、Ubuntu 24.04、Debian 13、Fedora 44に入れられることを確かめています。実際のモデルを使った動作は、CachyOS（KDE Plasma、Wayland）で確かめています。 |
+| Linux | x86-64のPCで、<Term tip="多くのLinuxのアプリが使う基本のライブラリ（GNU Cライブラリ）です。版はldd --versionで確かめられます。">glibc</Term> 2.39以降、GTK 3、WebKitGTK 4.1が必要です。debとrpmは、Ubuntu 24.04、Debian 13、Fedora 44に入れられることを確かめています。実際のモデルを使った動作は、0.5より前の版をCachyOS（KDE Plasma、Wayland）で動かして確かめました。 |
 
-macOS版はありません。
+macOS版はありません。配布形式と機能ごとに、どこまで確かめたかは[対応環境と検証の範囲](support)にあります。
 
 Linuxでアプリが管理する音声経路を使うには、Linux 6.9以降、PipeWire、WirePlumber 0.5が必要です（[Linuxの音声経路](linux-audio)）。デスクトップの字幕オーバーレイはX11かXWaylandで動きます。
 

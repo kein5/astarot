@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, stubGlobals } from "../test/hookHarness.js";
 
 // innerSize reports physical pixels; the 800px breakpoint is in CSS pixels
@@ -53,7 +53,7 @@ const loadClosing = async (runtime, appWindow, sent) => loadModule(new URL("./us
 });
 
 test("Alt+F4 and the close button share one shutdown before the window is destroyed", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), sent = [], calls = [];
     let requested = null;
     const appWindow = {
@@ -71,7 +71,7 @@ test("Alt+F4 and the close button share one shutdown before the window is destro
     assert.equal(prevented, true);
     assert.deepEqual(sent, ["/run/shutdown"]);
     assert.deepEqual(calls, []); // the backend gets its time to save first
-    context.mock.timers.tick(2000);
+    vi.advanceTimersByTime(2000);
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(calls, ["destroy"]);
     runtime.unmount();
@@ -79,7 +79,7 @@ test("Alt+F4 and the close button share one shutdown before the window is destro
 });
 
 test("a failed destroy removes the listener and closes the window the usual way", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     stubGlobals(context, { console: { ...console, error() {} } });
     const runtime = hooks(), sent = [], calls = [];
     const appWindow = {
@@ -91,7 +91,7 @@ test("a failed destroy removes the listener and closes the window the usual way"
     runtime.render(WindowCloseController);
     await Promise.resolve();
     const closed = useWindow().asyncCloseApp();
-    context.mock.timers.tick(2000);
+    vi.advanceTimersByTime(2000);
     await closed;
     assert.deepEqual(calls, ["unlisten", "close"]);
 });

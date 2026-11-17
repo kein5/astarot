@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 import * as migration from "../../../../../../logics/transcription/localAsrMigration.ts";
 
@@ -11,7 +11,7 @@ async function setup(context, values) {
         "../../../../../../logics/transcription/useLocalAsrMigration": { useLocalAsrMigration: () => state },
         "../../../../../../logics/transcription/localAsrMigration.ts": migration,
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const render = (props = {}) => runtime.render(OldWhisperWeights, props);
     const all = (tree, type) => {
         const found = [];

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, find } from "../../logics/test/hookHarness.js";
 import { flush } from "../../logics/test/bridgeHarness.js";
 import * as status from "../../logics/companion/status.ts";
@@ -11,9 +11,9 @@ const ready = { ready: true, language: "ja", edge: "right", mic: { on: true, pen
     menu: { start: "s", stop: "s", panel: "p", main: "m", quit: "q" } };
 
 async function setup(context, { layout = { out: true, edge: "right", x: 330, y: 120 } } = {}) {
-    context.mock.timers.enable({ apis: ["Date", "setTimeout"], now: 1_000_000 });
+    vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], now: 1_000_000 });
     const runtime = hooks(), calls = [], callbacks = {};
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const i18n = { language: "ja", changeLanguage: async () => {} };
     const state = { layout };
     const bridge = {
@@ -38,7 +38,7 @@ async function setup(context, { layout = { out: true, edge: "right", x: 330, y: 
     const dock = () => find(render(), node => node.type === "button" && node.props.className === "dock");
     const shown = () => [...FEATURE_LABELS].filter(label => point(label).props["data-shown"] === true);
     // The pointer rests on a triangle (or the middle) long enough for its dock to open.
-    const rest = async target => { target.props.onPointerEnter(); context.mock.timers.tick(200); await settle(); };
+    const rest = async target => { target.props.onPointerEnter(); vi.advanceTimersByTime(200); await settle(); };
     const core = () => find(render(), node => node.type === "polygon" && node.props.role === "button");
     const menu = () => find(render(), node => node.type === "div" && node.props.role === "group");
     return { render, calls, state, callbacks, point, dock, shown, settle, rest, core, menu, context };
@@ -69,7 +69,7 @@ test("the wheel turns it a point at a time, bringing another switch into view", 
     await s.settle();
     const once = s.shown();
     assert.equal(once.filter(label => !before.includes(label)).length, 1, "a fast wheel still turns one point");
-    s.context.mock.timers.tick(200);
+    vi.advanceTimersByTime(200);
     s.render().props.onWheel({ deltaY: -100 });
     await s.settle();
     assert.deepEqual(s.shown(), before, "turned back");
@@ -114,9 +114,9 @@ test("a click on the hexagon in the middle opens the control panel, and going ba
 test("passing over a triangle on the way does not dock it; only resting there does", async context => {
     const s = await setup(context);
     s.point("main_page.transcription_receive").props.onPointerEnter();
-    s.context.mock.timers.tick(100);
+    vi.advanceTimersByTime(100);
     s.point("main_page.transcription_receive").props.onPointerLeave();
-    s.context.mock.timers.tick(300);
+    vi.advanceTimersByTime(300);
     await s.settle();
     assert.equal(s.dock(), null);
 });

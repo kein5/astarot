@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, stubGlobals, eventTarget } from "../test/hookHarness.js";
 import { rebaseDraft } from "./draftRebase.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 async function setup(context, savedFromResponse) {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests = [];
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window: eventTarget() });
     const state = { saved: { vocabulary: { terms: [] }, model: "old" }, error: null };
     const { useSettingsDraft } = await loadModule(new URL("./useSettingsDraft.jsx", import.meta.url), runtime, {
@@ -39,14 +39,14 @@ test("a successful write adopts canonical vocabulary and clears saving without a
     assert.deepEqual(form.draft, canonical);
     assert.equal(form.dirty, false);
     assert.equal(form.saving, false);
-    context.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     assert.equal(s.render().saveState, "saved");
 });
 
 test("a late owned acknowledgement clears uncertainty but discard revokes ownership", async context => {
     const s = await setup(context);
     s.edit(); s.render().submit(s.write); s.render();
-    context.mock.timers.tick(5000); s.render();
+    vi.advanceTimersByTime(5000); s.render();
     const canonical = { ...s.state.saved, vocabulary: { terms: ["VRChat=ブイアールチャット"] } };
     assert.equal((await s.reply(0, canonical)).saveState, "saved");
     s.edit(); s.render().submit(s.write); s.render();
@@ -94,7 +94,7 @@ test("an identical GET cannot acknowledge a write and an older response cannot c
     s.edit(); s.render().submit(s.write); s.render();
     s.state.saved = structuredClone(s.requests[0].value); s.render();
     assert.equal(s.render().saving, true);
-    context.mock.timers.tick(5000); s.render();
+    vi.advanceTimersByTime(5000); s.render();
     assert.equal(s.state.error, "save_unconfirmed");
     s.state.error = null; s.render();
     assert.equal(s.render().saveState, "save_failed", "a refresh clearing the feature error still cannot confirm delivery");

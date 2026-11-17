@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule } from "../../test/hookHarness.js";
 
 async function setup(context) {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests = [];
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     let entry;
     const { useSaveButtonLogic } = await loadModule(new URL("./useSettingsLogics.js", import.meta.url), runtime, {
         "@store": {}, "@logics_common": {}, "@utils": {},
@@ -62,7 +62,7 @@ test("text saves await their own response, preserve later edits and ignore disca
     const saving = s.render().saveFunction(); s.render();
     s.props.variable = "first"; s.render(); // A GET is not an acknowledgement.
     assert.equal(s.entry.saveState, "saving");
-    context.mock.timers.tick(5000); s.render();
+    vi.advanceTimersByTime(5000); s.render();
     assert.equal(s.entry.saveState, "save_failed");
     s.render().onChangeFunction("newer"); s.render();
     s.requests[0].resolve({ status: 200, result: "first" }); await saving;
@@ -75,7 +75,7 @@ test("text saves await their own response, preserve later edits and ignore disca
 });
 
 test("VR sliders can hand edits to the parent debounce synchronously", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const writes = [], runtime = hooks();
     const props = { variable: 0, min: 0, max: 1, setter_timing: "on_change", debounce_ms: 0,
         setterFunction: value => writes.push(value) };

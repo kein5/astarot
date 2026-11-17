@@ -9,9 +9,9 @@ The values on this page were measured on one test PC or worked out from model si
 | OS | Requirements |
 |---|---|
 | Windows | Tested on 64-bit Windows 11. Not tested on Windows 10. Needs the WebView2 Runtime; the installer fetches it if it is missing. |
-| Linux | An x86-64 PC with <Term tip="The GNU C Library, the basic library most Linux apps use. ldd --version shows its version.">glibc</Term> 2.39 or later, GTK 3 and WebKitGTK 4.1. The deb and rpm are tested to install on Ubuntu 24.04, Debian 13 and Fedora 44. Real models are tested on CachyOS (KDE Plasma, Wayland). |
+| Linux | An x86-64 PC with <Term tip="The GNU C Library, the basic library most Linux apps use. ldd --version shows its version.">glibc</Term> 2.39 or later, GTK 3 and WebKitGTK 4.1. The deb and rpm are tested to install on Ubuntu 24.04, Debian 13 and Fedora 44. Real models were tested on CachyOS (KDE Plasma, Wayland) with versions before 0.5. |
 
-There is no macOS version.
+There is no macOS version. [Platform support](support) shows how far each package and feature has been checked.
 
 On Linux, the audio route the app manages needs Linux 6.9 or later, PipeWire and WirePlumber 0.5 ([Linux audio](linux-audio)). The desktop caption overlay runs under X11 or XWayland.
 

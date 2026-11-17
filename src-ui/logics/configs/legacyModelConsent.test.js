@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Children } from "react";
 import i18next from "i18next";
@@ -48,7 +48,7 @@ async function dialogFixture(context, language, reviewedEntry, catalog = { legac
     const render = () => runtime.render(LegacyModelDownloadDialog, props, tree => {
         find(tree, node => node.type === "dialog").ref.current = modal;
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     render();
     return { runtime, requests, reads, downloads, events, render, t: translations.t.bind(translations) };
 }

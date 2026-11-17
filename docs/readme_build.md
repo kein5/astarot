@@ -85,7 +85,7 @@ CSPの定義と許可理由は[外部インターフェース](spec/external-int
 
 ```sh
 python tools/dev.py check --scope ui
-node --test src-ui/logics/common/contentSecurityPolicy.test.js
+npx vitest run src-ui/logics/common/contentSecurityPolicy.test.js
 ```
 
 次に、対象OSの配布手順でproductionフロントエンドを埋め込んだrelease binaryを作る。配布資源（`src-tauri/bin/_internal`）を準備済みなら`npm run tauri build -- --no-bundle`で本体をビルドできる。`cargo check`は設定のparse確認であり、埋め込まれたCSPやWebviewの動作確認ではない。

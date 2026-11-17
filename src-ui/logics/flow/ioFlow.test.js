@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { TRACE_KEEP, formatMs, latestTraces, median, mergeTrace, outputArrivals, overlayCount, stageSegments,
     timelineScale, traceTotal } from "./ioFlow.ts";
