@@ -29,6 +29,15 @@ test("Japanese voicing, small kana, hiragana and half-width names share their ba
     ]) assert.equal(group(name), expected, name);
 });
 
+test("hiragana maps to katakana up to its last letter, small ke", () => {
+    // U+3041 (ぁ) and U+3096 (ゖ) are both ends of the hiragana range that is moved to katakana.
+    assert.equal(group("ぁ"), "ア");
+    assert.equal(group("ゕ"), "カ");
+    assert.equal(group("ゖ"), "カ");
+    // Just outside: the iteration mark has no row of its own.
+    assert.equal(group("ゝ"), "other");
+});
+
 test("Japanese prolonged-sound marks do not become a jump group", () => {
     assert.equal(group("ラオ語"), "ラ");
     assert.equal(group("ズールー語"), "サ");
@@ -43,6 +52,16 @@ test("English exposes only present A–Z initials and uses displayed names", () 
     ]);
     assert.equal(group("Ｆｒｅｎｃｈ", "en"), "F");
     assert.equal(group("  english", "EN"), "E");
+});
+
+test("a missing name is other in English too, not the N of \"null\" or the U of \"undefined\"", () => {
+    assert.deepEqual(languageJumpGroups([null, undefined, "Nepali", "Urdu"], "en"), [
+        { id: "N", index: 2 }, { id: "U", index: 3 }, { id: "other", index: 0 },
+    ]);
+    for (const locale of ["ja", "en", "ko"]) {
+        assert.equal(group(null, locale), "other", locale);
+        assert.equal(group(undefined, locale), "other", locale);
+    }
 });
 
 test("Korean groups syllables by Hangul initial consonant, including doubled initials", () => {
