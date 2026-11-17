@@ -1577,7 +1577,7 @@ voice_ui:
         VOICE_SETTINGS_INVALID: "読み上げの設定を保存できませんでした。出力先と使うサーバーを選んでから保存してください。"
         voice_request_failed: "読み上げの操作を完了できませんでした。もう一度操作してください。"
         audio_devices_unavailable: "音声デバイスの一覧を読めませんでした。少し待ってからもう一度試してください。"
-    state_unknown: "状態を確認できません。バックエンド接続後に再試行してください。"
+    state_unknown: "状態を確認できません。ASTAROTの処理部分につながってからもう一度お試しください。"
     rvc_not_ready_device: "「テキスト読み上げ（TTS）」の設定で出力デバイスを選び、RVCモデル設定を保存して、デバイス設定の「マイク」か「ボイスチェンジャー（RVC）」の設定で入力マイクを選択してください。"
     rvc_not_ready: "管理された音声経路を選び、RVCモデル設定を保存して、デバイス設定の「マイク」か「ボイスチェンジャー（RVC）」の設定で入力マイクを選択してください。"
     seed_mode: "シードの指定"
@@ -1693,7 +1693,7 @@ vc_runtime:
         vc_runtime_assets_failed: "基礎モデルを取得できないか、内容が固定の版と一致しません。"
         vc_runtime_gpu_unusable: "実行環境からGPUを使えません。NVIDIAのドライバーを580以降に更新してください。"
         vc_runtime_check_failed: "取得した実行環境を読み込めませんでした。もう一度取得してください。繰り返すときは、保存先のsetup.logに詳細があります。"
-        backend_unavailable: "バックエンドが停止しています。"
+        backend_unavailable: "ASTAROTの処理部分が停止しています。"
     warnings:
         vc_runtime_gpu_unusable_cpu: "GPUを使えなかったため、CPUで変換します。声の遅れは約1.3秒です。GPUで変換するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。ドライバーを更新したら、開始し直すとGPUで変換します。"
 
@@ -1785,9 +1785,9 @@ model_downloads:
         catalog_changed: "モデル一覧が変更されています。取得内容の確認をやり直してください。"
         consent_required: "利用条件を確認し、明示的に同意してから取得してください。"
         stale_job: "この取得要求は古くなっています。状態を再確認してください。"
-        downloads_closed: "バックエンドを終了中のため取得できません。"
+        downloads_closed: "ASTAROTの処理部分が終了の途中のため取得できません。"
         download_apply_failed: "モデルパスを保存できませんでした。ファイルのアクセス権を確認してください。"
-        backend_unavailable: "バックエンドに接続できません。取得開始を確認できていません。"
+        backend_unavailable: "ASTAROTの処理部分に接続できません。取得が始まったかは確認できていません。"
         request_unconfirmed: "処理に時間がかかっています。完了を待つか、検証中であればキャンセルしてください。"
 
     headroom: "残しておくメモリの余裕"
