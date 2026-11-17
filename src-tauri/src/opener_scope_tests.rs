@@ -80,8 +80,8 @@ fn every_capability_file_is_enabled() {
 #[test]
 fn the_links_the_app_shows_can_be_opened() {
     for url in [
-        "https://kein5.github.io/VRCT-VOX/en/guide/first-setup",
-        "https://kein5.github.io/VRCT-VOX/ja/guide/custom-models#seed-vc",
+        "https://kein5.github.io/astarot/en/guide/first-setup",
+        "https://kein5.github.io/astarot/ja/guide/custom-models#seed-vc",
         "https://github.com/kein5/VRCT-VOX",
         "https://github.com/kein5/VRCT-VOX/releases",
         "https://github.com/kein5/VRCT-VOX/blob/main/NOTICE.md",
