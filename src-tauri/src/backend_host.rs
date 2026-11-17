@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::ipc::Channel;
+use tauri::Manager;
 use vrct_core::config::{Environment, Platform};
 use vrct_core::{Backend, Options, Sink};
 
@@ -105,24 +106,57 @@ fn environment(executable: &Path, version: String) -> Environment {
 /// so the core retires the CTranslate2 weights that backend downloaded (decision 5).
 pub const CORE_IS_DEFAULT: bool = true;
 
+/// One start at a time: a second one waits until the first has its run.
+static STARTING: tauri::async_runtime::Mutex<()> = tauri::async_runtime::Mutex::const_new(());
+
 /// Starts a run for the UI session `session`. Its lines go to `lines`, its end to `exit`.
+///
+/// Async, so that waiting for a failed run to stop (up to `RETRY_STOP_LIMIT`) does not hold up
+/// the main thread, which every window, the tray and the hotkeys need (Issue #456). The run itself
+/// is still started on the main thread, as it was when this command was synchronous: the compute
+/// devices start ONNX Runtime there, and moving that elsewhere is left until its effect on the
+/// Windows COM state is known (#433).
 #[tauri::command]
-pub fn backend_start(
+pub async fn backend_start(
     window: tauri::WebviewWindow,
     app: tauri::AppHandle,
-    host: tauri::State<'_, BackendHost>,
     session: String,
     lines: Channel<String>,
     exit: Channel<i32>,
 ) -> Result<(), String> {
     main_only(&window)?;
-    let mut current = host.session.lock().unwrap();
-    let previous = current.take();
-    if let Some((_, previous)) = &previous {
+    let _starting = STARTING.lock().await;
+    let host = app.state::<BackendHost>();
+    let previous = host.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take();
+    let continue_logs = previous.is_some();
+    if let Some((_, previous)) = previous {
         // The UI starts again only after a failed run; that run must not keep its ports, and its
         // last save must not overwrite the new run's settings, so its stop is waited for.
-        previous.kill_and_wait(RETRY_STOP_LIMIT);
+        tauri::async_runtime::spawn_blocking(move || {
+            previous.kill_and_wait(RETRY_STOP_LIMIT);
+        })
+        .await
+        .map_err(|error| error.to_string())?;
     }
+    let (started, result) = std::sync::mpsc::channel();
+    let target = app.clone();
+    app.run_on_main_thread(move || {
+        let _ = started.send(start_run(&target, session, lines, exit, continue_logs));
+    })
+    .map_err(|error| error.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || result.recv().unwrap_or_else(|_| Err("backend_start_failed".into())))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+/// The start itself, on the main thread.
+fn start_run(
+    app: &tauri::AppHandle,
+    session: String,
+    lines: Channel<String>,
+    exit: Channel<i32>,
+    continue_logs: bool,
+) -> Result<(), String> {
     let executable = std::env::current_exe().map_err(|error| error.to_string())?;
     let sink = Sink {
         line: std::sync::Arc::new(move |line| {
@@ -134,7 +168,7 @@ pub fn backend_start(
     };
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
     // A run started again keeps the failed run's record in process.log.
-    options.continue_logs = previous.is_some();
+    options.continue_logs = continue_logs;
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
     // The update endpoints use the update page's updater (app_update.rs; decision 20).
     options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));
@@ -144,7 +178,8 @@ pub fn backend_start(
         vrct_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
     }
     let backend = Backend::start(options, sink);
-    *current = Some((session, backend));
+    let host = app.state::<BackendHost>();
+    *host.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some((session, backend));
     Ok(())
 }
 
