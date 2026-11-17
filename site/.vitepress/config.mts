@@ -6,8 +6,8 @@ import { LOCALE_KEY } from './theme/locale'
 import { CHAPTERS, WORDS } from './theme/manual/content.mjs'
 
 const repo = 'https://github.com/kein5/VRCT-VOX'
-const site = 'https://kein5.github.io/VRCT-VOX/'
-const base = '/VRCT-VOX/'
+const site = 'https://kein5.github.io/astarot/'
+const base = '/astarot/'
 
 // / only picks a language. Its head sends the reader on before the page is drawn, so the picker
 // does not show while the site's scripts load; it stays for readers without JavaScript, and
@@ -156,8 +156,8 @@ export default defineConfig({
   head: [
     ['meta', { name: 'theme-color', content: '#111b2c' }],
     // The app's own icon. Head links are not prefixed with base, so the path carries it.
-    ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/VRCT-VOX/favicon.png' }],
-    ['link', { rel: 'apple-touch-icon', href: '/VRCT-VOX/apple-touch-icon.png' }],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: `${base}favicon.png` }],
+    ['link', { rel: 'apple-touch-icon', href: `${base}apple-touch-icon.png` }],
   ],
   // The ASTAROT manual (theme/manual/) is built in Japanese and switches language in place; its
   // pages carry the ASTAROT icon and their own title, without the guide's " | VRCT-VOX".
