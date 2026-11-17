@@ -38,20 +38,43 @@ fn backend(error: impl std::fmt::Display) -> Error {
     Error::Backend(error.to_string())
 }
 
+/// The process's ONNX Runtime environment, made on first use.
+///
+/// `ort` allows one environment per process, so this is the only one: local translation uses it
+/// too (`vrct_translate_onnx::runtime::share`), whichever of the two starts first.
 pub(crate) fn environment() -> Result<&'static Environment> {
+    shared_environment().map_err(backend)
+}
+
+/// [`environment`] for other crates, with the error as text.
+pub fn shared_environment() -> std::result::Result<&'static Environment, String> {
     static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
-    ENVIRONMENT.get_or_init(|| builder()?.with_name("ocr-runtime").build().map_err(|error| error.to_string())).as_ref().map_err(backend)
+    ENVIRONMENT.get_or_init(|| builder()?.with_name("vrct").build().map_err(|error| error.to_string())).as_ref().map_err(Clone::clone)
+}
+
+static SHIPPED_LIBRARY: OnceLock<std::path::PathBuf> = OnceLock::new();
+
+/// The ONNX Runtime library the app ships (`_internal/onnxruntime`), used when `ORT_DYLIB_PATH`
+/// is not set. Set once, before the engine is first used; a later call changes nothing.
+pub fn use_library(path: std::path::PathBuf) {
+    let _ = SHIPPED_LIBRARY.set(path);
+}
+
+/// The library to load: `ORT_DYLIB_PATH`, else the shipped one ([`use_library`]), else the bare
+/// name, which `ort` resolves beside the executable first and then as the system does.
+pub fn library_path() -> std::path::PathBuf {
+    std::env::var_os("ORT_DYLIB_PATH")
+        .filter(|path| !path.is_empty())
+        .map(std::path::PathBuf::from)
+        .or_else(|| SHIPPED_LIBRARY.get().cloned())
+        .unwrap_or_else(|| format!("{}onnxruntime{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX).into())
 }
 
 /// With `load-dynamic`, the library is loaded here so that a missing one is an error value
 /// rather than a panic on first use.
 #[cfg(feature = "load-dynamic")]
 fn builder() -> std::result::Result<ort::environment::EnvironmentBuilder, String> {
-    let path = std::env::var_os("ORT_DYLIB_PATH")
-        .filter(|path| !path.is_empty())
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| format!("{}onnxruntime{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX).into());
-    ort::init_from(path).map_err(|error| error.to_string())
+    ort::init_from(library_path()).map_err(|error| error.to_string())
 }
 
 #[cfg(not(feature = "load-dynamic"))]

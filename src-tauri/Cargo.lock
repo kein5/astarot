@@ -5753,6 +5753,7 @@ dependencies = [
  "serde_json",
  "vrct-adapters",
  "vrct-audio-routing",
+ "vrct-openvr-client",
  "vrct-ops",
  "vrct-speech-server",
  "vrct-transcription",
