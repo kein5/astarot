@@ -13,8 +13,8 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::Message;
 use vrct_adapters::websocket::{
-    Incoming, SendError, StartError, WebSocketServer, INCOMING_MESSAGE_BURST, MAX_INCOMING_MESSAGE_SIZE,
-    MAX_OUTGOING_MESSAGE_SIZE, MAX_PENDING_MESSAGES,
+    Incoming, SendError, StartError, WebSocketServer, INCOMING_MESSAGE_BURST, MAX_CLIENTS, MAX_INCOMING_MESSAGE_SIZE,
+    MAX_OPENING_CONNECTIONS, MAX_OUTGOING_MESSAGE_SIZE, MAX_PENDING_MESSAGES,
 };
 
 const TOKEN: &str = "test-token";
@@ -424,6 +424,47 @@ mod tls {
         drop(stalled);
         server.stop();
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn connections_that_never_open_are_limited_and_do_not_shut_out_later_clients() {
+    // #470: every accepted connection got a task and up to ten seconds, without a limit.
+    let (server, port) = started(TOKEN);
+    let stalled: Vec<_> = (0..MAX_OPENING_CONNECTIONS).map(|_| StdTcpStream::connect(("127.0.0.1", port)).unwrap()).collect();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let mut extra = StdTcpStream::connect(("127.0.0.1", port)).unwrap();
+    extra.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+    let began = Instant::now();
+    let closed = matches!(extra.read(&mut [0u8; 1]), Ok(0) | Err(_));
+    assert!(closed && began.elapsed() < Duration::from_secs(4), "{:?}", began.elapsed());
+    drop(stalled);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let mut client = connect(port, Some(TOKEN)).await.unwrap();
+    wait_for_clients(&server, 1);
+    server.send("still open").unwrap();
+    assert_eq!(recv_text(&mut client).await, "still open");
+    server.stop();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_client_over_the_limit_is_told_to_try_again_later() {
+    let (server, port) = started(TOKEN);
+    let mut clients = Vec::new();
+    for _ in 0..MAX_CLIENTS {
+        clients.push(connect(port, Some(TOKEN)).await.unwrap());
+    }
+    wait_for_clients(&server, MAX_CLIENTS);
+    let mut extra = connect(port, Some(TOKEN)).await.unwrap();
+    match tokio::time::timeout(Duration::from_secs(5), extra.next()).await.unwrap() {
+        Some(Ok(Message::Close(Some(frame)))) => assert_eq!(frame.code, CloseCode::Again),
+        other => panic!("expected a close, got {other:?}"),
+    }
+    assert_eq!(server.client_count(), MAX_CLIENTS);
+    drop(clients.pop());
+    wait_for_clients(&server, MAX_CLIENTS - 1);
+    let _again = connect(port, Some(TOKEN)).await.unwrap();
+    wait_for_clients(&server, MAX_CLIENTS);
+    server.stop();
 }
 
 #[tokio::test(flavor = "multi_thread")]

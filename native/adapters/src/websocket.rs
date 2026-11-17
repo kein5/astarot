@@ -58,6 +58,12 @@ pub const PING_TIMEOUT: Duration = Duration::from_secs(20);
 pub const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 /// The opening handshake (after TLS) has the same budget as the Python library's default.
 const OPEN_TIMEOUT: Duration = Duration::from_secs(10);
+/// Connections still opening (TLS and the WebSocket handshake, before the token is checked).
+/// More are closed at once, so a flood of half-open connections cannot use up the process's
+/// files and tasks.
+pub const MAX_OPENING_CONNECTIONS: usize = 32;
+/// Clients connected at once; one more is closed with "try again later" (1013).
+pub const MAX_CLIENTS: usize = 64;
 const POLICY_CLOSE_TIMEOUT: Duration = Duration::from_secs(2);
 const STOP_JOIN_TIMEOUT: Duration = Duration::from_secs(2);
 /// How long a stopping server lets clients receive its close frame (1001) before the
@@ -576,10 +582,13 @@ impl Worker {
             });
         }
         drop(accepted_tx);
+        let opening = Arc::new(tokio::sync::Semaphore::new(MAX_OPENING_CONNECTIONS));
         loop {
             tokio::select! {
                 _ = cancelled.wait_for(|c| *c) => break,
                 Some(stream) = accepted.recv() => {
+                    // Too many still opening: this one is closed without a task of its own.
+                    let Ok(permit) = opening.clone().try_acquire_owned() else { continue };
                     let shared = self.shared.clone();
                     let acceptor = acceptor.clone();
                     tokio::spawn(async move {
@@ -590,10 +599,10 @@ impl Worker {
                                 if let Ok(Ok(stream)) =
                                     tokio::time::timeout(TLS_HANDSHAKE_TIMEOUT, acceptor.accept(stream)).await
                                 {
-                                    connection(shared, stream).await;
+                                    connection(shared, stream, permit).await;
                                 }
                             }
-                            None => connection(shared, stream).await,
+                            None => connection(shared, stream, permit).await,
                         }
                     });
                 }
@@ -719,7 +728,9 @@ fn forbidden() -> ErrorResponse {
     response
 }
 
-async fn connection<S>(shared: Arc<Shared>, stream: S)
+/// One connection from accept to close. `opening` is its place among the connections still
+/// opening, given back once the handshake is over.
+async fn connection<S>(shared: Arc<Shared>, stream: S, opening: tokio::sync::OwnedSemaphorePermit)
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
@@ -742,13 +753,14 @@ where
         .max_message_size(Some(MAX_INCOMING_MESSAGE_SIZE))
         .max_frame_size(Some(MAX_INCOMING_MESSAGE_SIZE));
     let handshake = tokio_tungstenite::accept_hdr_async_with_config(stream, authenticate, Some(config));
-    let Ok(Ok(socket)) = tokio::time::timeout(OPEN_TIMEOUT, handshake).await else { return };
+    let Ok(Ok(mut socket)) = tokio::time::timeout(OPEN_TIMEOUT, handshake).await else { return };
+    drop(opening);
 
     let id = shared.clients.next.fetch_add(1, Ordering::SeqCst);
     let (tx, mut rx) = mpsc::unbounded_channel::<Outgoing>();
     let queued = Arc::new(AtomicUsize::new(0));
     let kill = Arc::new(Notify::new());
-    {
+    let full = {
         let mut clients = shared.clients.lock();
         // A token that changed during the handshake shuts this client out too. The
         // check runs under the clients lock, which set_token's eviction also takes.
@@ -756,7 +768,16 @@ where
         if current != *accepted_with.lock().unwrap_or_else(|e| e.into_inner()) {
             return;
         }
-        clients.insert(id, Client { tx: tx.clone(), queued: queued.clone(), kill: kill.clone() });
+        let full = clients.len() >= MAX_CLIENTS;
+        if !full {
+            clients.insert(id, Client { tx: tx.clone(), queued: queued.clone(), kill: kill.clone() });
+        }
+        full
+    };
+    if full {
+        let close = CloseFrame { code: CloseCode::Again, reason: "".into() };
+        let _ = tokio::time::timeout(POLICY_CLOSE_TIMEOUT, socket.close(Some(close))).await;
+        return;
     }
 
     let (mut sink, mut stream) = socket.split();
