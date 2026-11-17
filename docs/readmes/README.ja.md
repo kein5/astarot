@@ -47,8 +47,10 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 
 最新の版は **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** にあります（上のreleaseのバッジに番号が出ます）。バージョン番号は本家VRCT（3.x）とは別に0.1.0から数えます。ベータ版は`develop`から、正式版は`main`から公開します。
 
-- **Linux**: AppImage、tar.gz、deb、rpm（x64、Vulkan）。CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しています。
-- **Windows**: インストーラーとzip（CPU版）、CUDA版のzip。Windows 11の実機で実際のモデルを使って試験しています（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
+- **Linux**: AppImage、tar.gz、deb、rpm（x64、Vulkan）。0.5より前の版は、CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しました。
+- **Windows**: インストーラーとzip（CPU版）、CUDA版のzip。0.5より前の版は、Windows 11の実機で実際のモデルを使って試験しました（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
+
+いまの版で配布形式と機能ごとにどこまで確かめたか、CIで確かめたことと実機で確かめたことの違いは、**[対応環境と検証の範囲](https://kein5.github.io/astarot/ja/guide/support)** にあります。
 
 各ファイルの`.sha256`と`SHA256SUMS-*`でダウンロードしたファイルを確認できます（電子署名ではありません）。インストーラー版とAppImage版は、署名を確かめてからアプリ内で更新します。ZIP版とtar.gz版は新しい版を知らせるだけで、deb・rpmはパッケージマネージャーで更新します。AURでの配布は予定していますが、まだ登録していません。
 
