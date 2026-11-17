@@ -25,6 +25,48 @@ Windowsの候補は、CUDA版のZIPを先に作り、続くジョブでCPU版の
 
 手動実行のときは、保存する前に候補の全ファイルへビルドの来歴を付けます（GitHub Artifact Attestations、`actions/attest-build-provenance`。第2回セキュリティ監査 SEC-04）。来歴には、ファイルのSHA-256、作ったワークフロー、コミット、ブランチ、実行が入り、GitHubがSigstoreで署名します。このリポジトリは公開しているので、署名はSigstoreの公開の透明性ログにも記録されます。SHA-256のファイルだけでは、リリースの資産を差し替えられる人がチェックサムも一緒に差し替えられます。来歴があれば、ファイルがこのリポジトリの候補のワークフローで作られたかを、リリースとは別に確かめられます。来歴を付ける権限（`id-token`と`attestations`）は、候補のジョブにだけ与えます。PRの実行では来歴を付けません。
 
+## 候補ビルドの制限
+
+候補のビルドが成功しても、配布物のすべてを確かめたことにはなりません。候補には次の制限があります。詳しくは各項目の参照先を読んでください。公開する前に確かめられなかったことは、リリースノートの「既知の問題」に書きます（[リリースノートの書式](../release-notes/README.md)）。
+
+### 候補の扱い
+
+- 候補は公開物ではありません。下書きを作れるのは、手動実行で作った候補だけです。main宛てのPRで動いた「Validate VRCT-VOX distribution」の結果は使えません（[候補を作る](#候補を作る)）。
+- 候補の保存期間は7日です。過ぎたら作り直します。
+- LinuxとWindowsの候補は、同じブランチの同じコミットから作ります。コミットが進んだら、両方を作り直します（[下書きを作る](#下書きを作る)）。
+- 候補のビルドはspeech.cppとRVCのモデルを取得も同梱もしません。OCRの重みとMia2026の素材は、配布物に入っていると検査で止まります。Linuxの検査はパスとファイルの種類で調べるもので、名前を変えた重みは見分けられません（[Linuxのビルド](linux-build-pipeline.md#acceptance-and-exclusions)、[AppImage](appimage.md#acceptance-and-limits)）。
+
+### 署名と照合
+
+- Windowsのインストーラーには、コードサイニングの署名がありません。初めて起動するとSmartScreenの警告が出ます（[プラットフォームの制約](platform-constraints.md#1-コード署名)、[README](../readmes/README.ja.md)）。
+- `.sha256`、`SHA256SUMS`、`candidate-manifest.json`は、転送の途中でファイルが変わっていないことを確かめるためのものです。電子署名やコードの安全性の証明ではありません（[ローカル検査](#ローカル検査)）。
+- ビルドの来歴は手動実行の候補にだけ付きます。PRの実行には付きません。
+- updaterの署名を付けるのは、下書きを作るジョブです。候補には付いていません。`TAURI_SIGNING_PRIVATE_KEY`がないとき、またはアプリの公開鍵と合わないときは、下書きを作りません（[updaterの署名とlatest.json](#updaterの署名とlatestjson)）。
+
+### ビルドで確かめないこと
+
+| 対象 | ビルドで確かめること | 確かめないこと |
+|---|---|---|
+| Linuxのtar.gzとAppImage | 展開した形での起動、描画、終了、設定画面の操作（Xvfb） | FUSEでの起動、実際の音声、管理対象の音声経路。音声認識、モデルを使う機能、VRChat（[公開前にLinuxのデスクトップで確かめる](#公開前にlinuxのデスクトップで確かめる)） |
+| Linuxのdebとrpm | Ubuntu 24.04、Debian 13、Fedora 44のコンテナで、ライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で何も残らないこと | 画面の表示 |
+| WindowsのZIPとインストーラー | 配布してはいけないファイル、容量、SHA-256、`_internal`のファイル | 画面、モデルを使う機能、TTSとRVCの実機での動作（[公開前にWindowsのパッケージを起動して確かめる](#公開前にwindowsのパッケージを起動して確かめる)） |
+| Windowsの更新とインストール | 候補のビルドでは確かめません。別のワークフロー`installer-update-tests.yml`（手動実行と、NSISを変えるPR）が、軽いダミーのペイロードで置き換え、失敗時の復元、中断からの復旧を確かめます | 実際の配布用ペイロード、実際の音声処理（[WindowsのWebView2とインストール時の通信](#windowsのwebview2とインストール時の通信)） |
+| WebView2 Runtimeの取得 | なし | ブートストラッパーの版とSHA-256は固定していません。追加の接続先、送る内容、Windowsでの実行は未検証です |
+| VR | なし | 偽のSteamVRはPythonバックエンドにだけ差し込まれるため、0.5.0のアプリのVRにはつながりません。VR UIの試験は開発ビルドだけです |
+
+### 動く環境
+
+- Linuxの配布物は、GitHubがホストするUbuntu 24.04で作ります。ほかのディストリビューションは別に確かめる必要があります。カーネルとglibc、GPUのドライバー、PipeWire、音声のコマンドラインツールは、AppImageでも利用者の環境に要ります。同梱の音声補助はLinux 6.9以降が必要です（[AppImage](appimage.md#acceptance-and-limits)）。
+- Linuxのデスクトップでの動作確認はKDE Plasma（Wayland）だけです。LinuxのVR UIと、ヘッドセットの画面のチャット読み取りは、SteamVRの代わりになる試験用の仕組みでだけ確かめています（[README](../readmes/README.ja.md)）。
+- Linuxの配布物はx64向けです（[README](../readmes/README.ja.md)）。
+- GTK、WebKit、実行時に静的に入る依存のライセンスの確認と、ネイティブ、フロントエンド、Rustのライセンスと部品表（SBOM）の確認は、公開の前に済ませる条件です。ビルドは確かめません（[AppImage](appimage.md#acceptance-and-limits)）。
+
+### 機能
+
+- 0.5.0のアプリはSeed-VCを使えません。中核が`vc_engine_unavailable`で断ります（[中核の統合](core-integration.md)）。
+- アプリの中で更新できるのは、インストーラー版とAppImage版です。ZIP版とtar.gz版は新しい版を知らせるだけです。debとrpmはパッケージマネージャーで更新します（[README](../readmes/README.ja.md)）。
+- 下書きの`latest.json`は公開するまでアプリから読まれません（[updaterの署名とlatest.json](#updaterの署名とlatestjson)）。
+
 ## 下書きを作る
 
 「Prepare verified VRCT-VOX release draft」を同じブランチの同じコミットで手動実行し、Linux・Windowsのrun IDを指定します。別のコミットへ進んだ場合は、そのコミットで候補を作り直してください。

@@ -29,10 +29,10 @@ Under Settings → "Hotkeys" you can assign keys to the actions below. None has 
 | Action | What it does |
 |---|---|
 | Open quick chat | Opens the Quick Chat window |
-| Toggle VRCT-VOX visibility | Minimizes the main window; the same key brings it back |
+| Toggle ASTAROT visibility | Minimizes the main window; the same key brings it back |
 | Toggle Translation, Mic input, Listening | Flips the switch of the same name on the main screen |
 | Stop speech | The same as "Stop speech" at the top of the main screen |
-| Mute or resume the voice | The same as "Mute" at the top of the main screen |
+| Mute or unmute | The same as "Mute" at the top of the main screen |
 | Toggle Text to speech (TTS), Voice changer (RVC) | Flips the switch of the same name on the main screen |
 
 Hotkeys are paused while the settings are open, so they don't fire by accident.

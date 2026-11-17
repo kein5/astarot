@@ -69,7 +69,7 @@ CPUでは0.5秒ずつまとめて変換するので、遅れが大きくなり�
    </template>
    <template v-slot:linux>
 
-   Linuxでは「仮想マイクを準備して使用」を押し、準備が終わったら「音声を再開」を押します。VRChatのマイクには「VRCT Managed Virtual Microphone」を選びます。
+   Linuxでは「仮想マイクを準備して使用」を押し、準備が終わったら「ミュートを解除」を押します。VRChatのマイクには「VRCT Managed Virtual Microphone」を選びます。
 
    </template>
    </OsTabs>

@@ -12,12 +12,12 @@ Find the heading closest to what you see. If your voice or text does not reach V
 
 - Open Settings → "VRChat". The top of the page says whether a VRChat with OSC enabled was found on this PC. The same line is in "Quick settings" on the main screen.
 - If it says none was found, start VRChat, then open its Action Menu and set "Options" → "OSC" to "Enabled". The line changes shortly after.
-- A message marked "Not sent to VRChat (off in settings)" in the log was held back because "Send Message To VRChat" is off. Turn it on under Settings → "VRChat".
+- A message marked "Not sent to VRChat (off in settings)" in the log was held back because "Send message to VRChat" is off. Turn it on under Settings → "VRChat".
 - Whether VRChat was found is checked with <Term tip="A way for OSC apps to find each other's ports and the values they accept.">OSCQuery</Term>, on this PC only. So when the destination is another PC, it says VRChat cannot be checked, and messages are still sent. If a firewall blocks discovery on this PC (<Term tip="Finds devices and services on the same computer or local network by name, without a server.">mDNS</Term>), it can say none was found while messages still arrive.
 
 ### VRChat does not hear the speech
 
-1. If the button at the top of the main screen reads "Muted", the voice is muted. Press "Resume voice" under Settings → "Device" → "Audio route".
+1. If the button at the top of the main screen shows "Muted", the voice is muted. Press "Unmute" under Settings → "Device" → "Audio route".
 2. Check that the output under "Text to speech (TTS)" and the microphone chosen in VRChat match (see [Windows audio route](./windows-audio) or [Linux audio route](./linux-audio)).
 3. Check that the bundled server is running. Servers are stopped again after you restart the app.
 4. VRChat's microphone test records for a moment and then plays it back. Start the test while VRChat's microphone input meter is moving.
