@@ -51,6 +51,7 @@
 |---|---|---|---|
 | [Windows 音声の検証記録](windows-voice-report.md) | 0.1.0 のベータ版のころ（2026-11-07〜11-13）、Python のバックエンド | Windows 11 Insider build 26220、開発用のビルドと凍結したサイドカー | 同梱の speech.cpp での読み上げと音声認識、RVC と Seed-VC、入力の転送、実際の SteamVR（null ドライバー）でのオーバーレイ、実マイク、ホットキー（`SendInput`）、VRChat の検出、翻訳モデルの取得、デスクトップの字幕オーバーレイ |
 | [Windows で未確認の変更](windows-pending-checks.md) | 0.1.0-beta.7、0.1.0 の ZIP | Windows 11 | 展開して起動、設定の各ページ、デスクトップの字幕オーバーレイ、翻訳モデルの取得から翻訳まで |
+| [ベンチマーク](benchmarks.md#vrchatデスクトップ手動試験)の「VRChatデスクトップ手動試験」 | Python のバックエンドの版 | Linux、アプリが作る仮想マイク | 仮想マイクを VRChat の入力に選び、VRChat の録音・再生のテストで声が聞こえた。VRChat の中の遅延とほかの利用者への送信は確かめていない |
 | [README](../../README.md) の Platforms の節と[配布候補](release-candidates.md#動く環境) | 0.4 以前 | CachyOS（KDE Plasma、Wayland）、x64 | 実際のモデルを使った試験（`tools/native_acceptance.py`）。Linux のデスクトップでの確認は KDE Plasma（Wayland）だけ |
 
 ## マトリクスを更新するとき
