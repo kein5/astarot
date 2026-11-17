@@ -127,7 +127,7 @@ def test_native_same_send_chatbox_and_voice_then_off(tmp_path):
                         wait_for(lambda: saved("routing") == "managed")
                     ui.open_voice_settings()
                     ui.select("Chat voice", mode)
-                    ui.fill("Japanese server (Irodori)", server.url)
+                    ui.fill("Japanese server URL (Irodori)", server.url)
                     ui.click_text("button", "Save changes")
                     wait_for(lambda: saved("mode") == mode)
 

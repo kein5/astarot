@@ -52,11 +52,15 @@ async function fixture(context) {
     const error = errors._useBackendErrorHandling().errorHandling_Backend;
     let selector = false;
     const expanded = [];
-    const controller = owner => loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.jsx", import.meta.url), owner, {
+    const controller = async owner => loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.jsx", import.meta.url), owner, {
         "@logics_configs": configs, "@logics_common": common,
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
         "../../../logics/translation/useTranslationSetup": setup,
+        "../../../logics/translation/useOpenTranslatorList": await loadModule(new URL("./useOpenTranslatorList.js", import.meta.url), owner, {
+            "@logics_main": { useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
+            "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
+        }),
         "../../../logics/main/setupNeeds": { downloadProgress },
         "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog": { LegacyModelDownloadDialog: "review" },
     });
@@ -149,6 +153,17 @@ test("going back, or choosing another translator, downloads nothing and leaves T
     assert.equal(review.props.extraAction.label, "studio.setup_other_translator");
     assert.ok(!s.calls.some(([path]) => path.startsWith("/run/download")));
     assert.equal(s.states.Translation.data, false);
+});
+
+test("asking for another translator opens the list once, and drawing the page again does not reopen it", async context => {
+    const s = await fixture(context);
+    s.setup.useTranslationSetup().chooseTranslator();
+    assert.equal(s.render(), null, "no review opens");
+    assert.equal(s.selector(), true);
+    assert.deepEqual(s.expanded, [true]);
+    await s.remount();
+    assert.deepEqual(s.expanded, [true]);
+    assert.ok(!s.calls.some(([path]) => path.startsWith("/run/download")));
 });
 
 test("a review opened from the empty conversation fetches the model without turning Translation on", async context => {

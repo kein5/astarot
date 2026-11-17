@@ -4,10 +4,11 @@ import { directRouteReady, usesOutputDevice } from "../voice/routeState.ts";
 
 export type SwitchBlockId = "translation" | "transcription_send" | "transcription_receive" | "ocr" | "tts" | "rvc";
 
-export type SwitchBlockReason = "translation_model" | "translation_downloading" | "asr_models" | "ocr_language"
-    | "ocr_models" | "tts_source" | "rvc_model" | "rvc_output_device" | "rvc_route";
+export type SwitchBlockReason = "translation_model" | "translation_unavailable" | "translation_downloading" | "asr_models"
+    | "ocr_language" | "ocr_models" | "tts_source" | "rvc_model" | "rvc_output_device" | "rvc_route";
 
-export type SwitchBlockAction = "translation" | "transcription" | "ocr" | "ocr_models" | "tts" | "rvc" | "device";
+// "translator" opens the translator list in the sidebar.
+export type SwitchBlockAction = "translation" | "translator" | "transcription" | "ocr" | "ocr_models" | "tts" | "rvc" | "device";
 
 export interface SwitchBlock {
     reason: SwitchBlockReason;
@@ -73,9 +74,12 @@ export const switchBlocks = ({ needs = [], ocr = null, voiceSettings = null, dir
 
     const translation = needs.find(need => need.id === "translation");
     if (translation) {
-        blocks.translation = downloadProgress(translation.weight) === null
-            ? { reason: "translation_model", action: "translation" }
-            : { reason: "translation_downloading", action: null };
+        // A model that cannot be downloaded yet points to the other translators instead.
+        blocks.translation = downloadProgress(translation.weight) !== null
+            ? { reason: "translation_downloading", action: null }
+            : translation.action === "choose"
+                ? { reason: "translation_unavailable", action: "translator" }
+                : { reason: "translation_model", action: "translation" };
     }
 
     if (needs.some(need => need.id === "transcription")) {

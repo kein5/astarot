@@ -13,8 +13,12 @@ export const VoiceRouteSummary = () => {
     const { t } = useI18n();
     const { settings } = useVoice();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
-    return <div className={styles.actions}><span>{t("voice.routing")}: {settings ? t(`voice.routing_${settings.routing}`) : t("voice.loading")}</span>
-        <button type="button" onClick={() => updateSelectedConfigTabId("device")}>{t("voice_ui.edit_route")}</button></div>;
+    // A setting row like the others (#478): the label on the left, the route in use under it,
+    // and the button that opens the Device page in the control column.
+    const route = settings ? t(`voice.routing_${settings.routing}`) : t("voice.loading");
+    return <FormRow group label={t("voice.routing")} description={t("voice_ui.route_current", { route })} fold={false}>
+        <button type="button" onClick={() => updateSelectedConfigTabId("device")}>{t("voice_ui.edit_route")}</button>
+    </FormRow>;
 };
 
 export const VoiceRouteControls = () => {

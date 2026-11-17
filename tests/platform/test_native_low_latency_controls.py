@@ -99,7 +99,7 @@ def test_standby_active_stop_toggle_mute_and_restart(tmp_path):
                     if action == 'tts_off':
                         ui.click('[role=switch][aria-label=TTS]')
                     else:
-                        ui.click_text('button', {'stop': 'Stop playback and clear queue',
+                        ui.click_text('button', {'stop': 'Stop speech',
                                                'held_mute': 'Mute now',
                                                'server_stop': 'Stop server'}[action])
                     silent = settled(monitor, at, action + '_not_silent', silent=True)

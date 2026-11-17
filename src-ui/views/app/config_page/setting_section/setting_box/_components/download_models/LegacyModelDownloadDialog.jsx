@@ -8,6 +8,7 @@ import styles from "../../advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "./LegacyModelDownloadDialog.module.scss";
 import { useConsentDialog } from "../../../../../../../logics/common/useConsentDialog";
 import { ModelDownloads } from "../../advanced_settings/ModelDownloads";
+import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 
 // Native modal scope, initial focus on Back and the shared catalog form styles.
 // A snapshot remains on screen until closed, even if the catalog is refreshed.
@@ -90,6 +91,7 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
                     ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 <p>{t("legacy_model_downloads.translation_own_model")}</p>
+                <CustomModelLink section="translation" />
                 {catalog.translation_models_folder && <p><code className={dialogStyles.path}>{catalog.translation_models_folder}</code></p>}
             </> : <p role="status">{t(error ? "legacy_model_downloads.review_unavailable" : "model_downloads.loading")}</p>}
             <div className={styles.actions}>

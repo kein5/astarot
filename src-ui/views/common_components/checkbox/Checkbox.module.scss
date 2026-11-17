@@ -11,6 +11,8 @@
     display: inline-block;
     cursor: pointer;
     padding: var(--checkbox-padding, 2rem);
+    // The box ends where the row's fields end; the target keeps its padding on the other sides (#474).
+    padding-inline-end: 0;
     position: relative;
 
     &:hover {

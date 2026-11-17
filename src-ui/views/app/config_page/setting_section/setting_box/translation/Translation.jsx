@@ -6,6 +6,9 @@ import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { isNonCommercialWeight, needsLicenseConfirmation, weightRequest } from "../../../../../../logics/configs/ctranslate2License";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
+import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
+import { translationDownloadable } from "../../../../../../logics/main/setupNeeds";
+import { computeDeviceName } from "../_components/compute_device/computeDeviceOptions";
 
 import {
     useTranslation,
@@ -64,16 +67,21 @@ const AITranslation_Container = () => {
     const { currentCTranslate2WeightTypeStatus, currentSelectedCTranslate2WeightType, currentSelectedTranslationComputeDevice } = useTranslation();
     const selected = currentSelectedCTranslate2WeightType.data;
     const weight = (currentCTranslate2WeightTypeStatus.data || []).find(item => item.id === selected);
-    const device = currentSelectedTranslationComputeDevice.data?.device_name;
+    const device = computeDeviceName(currentSelectedTranslationComputeDevice.data?.device_name);
+    const { catalog } = useModelDownloads();
+    // false only once the catalog says so; until then the downloads are offered as before.
+    const unavailable = translationDownloadable(catalog, selected) === false;
+    const state = weight?.is_downloaded ? "setup_downloaded" : unavailable ? "setup_unavailable" : "setup_not_downloaded";
     const status = [
-        selected ? `${selected} · ${t(weight?.is_downloaded ? "config_page.translation.setup_downloaded" : "config_page.translation.setup_not_downloaded")}` : null,
+        selected ? `${selected} · ${t(`config_page.translation.${state}`)}` : null,
         device || null,
     ].filter(Boolean).join(" · ");
     return (
         <div>
             <SectionLabelComponent label={t("config_page.translation.section_label_ai_translation")} />
-            {/* Open while the selected model is missing: the download is the first thing to do here. */}
-            <SetupSection title={t("config_page.translation.setup_title")} status={status} attention={!!weight && !weight.is_downloaded}>
+            {/* Open while the selected model is missing and can be downloaded: the download is the first thing to do here. */}
+            <SetupSection title={t("config_page.translation.setup_title")} status={status} attention={!!weight && !weight.is_downloaded && !unavailable}>
+                {unavailable && <Description text={t("config_page.translation.models_unavailable")} />}
                 <CTranslate2WeightType_Box />
                 <TranslationComputeDevice_Box />
             </SetupSection>
@@ -176,6 +184,7 @@ const CTranslate2WeightType_Box = () => {
         currentSelectedCTranslate2WeightType,
         setSelectedCTranslate2WeightType,
     } = useTranslation();
+    const { catalog } = useModelDownloads();
     const [confirming, setConfirming] = useState(null);
     const [downloadReview, setDownloadReview] = useState(null);
     const selection = useRef(null);
@@ -220,6 +229,8 @@ const CTranslate2WeightType_Box = () => {
         return {
             ...item,
             label: item.id,
+            // No download button for a model the catalog does not offer: it would only open a dead end.
+            download_unavailable: translationDownloadable(catalog, item.id) === false,
             desc: t(
                 non_commercial
                     ? "config_page.translation.ctranslate2_weight_type.license_non_commercial"

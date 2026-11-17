@@ -148,7 +148,8 @@ export const MainFunctionSwitch = () => {
                 // does nothing when pressed, and a switch cannot hold a button. The icon rail has
                 // no room for it; its tooltip still names the page.
                 if (!block?.action || currentIsMainPageCompactMode.data) return [control];
-                const action = t(block.action === "translation" ? "model_downloads.review" : "main_page.switch_blocked.open_settings");
+                const action = t(block.action === "translation" ? "model_downloads.review"
+                    : block.action === "translator" ? "studio.setup_other_translator" : "main_page.switch_blocked.open_settings");
                 return [control,
                     <button key={`${item.switch_id}_prepare`} type="button" className={styles.prepare_button}
                         aria-label={t("main_page.switch_blocked.prepare_label", { feature: item.label, action })}
@@ -203,7 +204,8 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                 <SvgComponent className={getClassNames(styles.switch_svg)} />
                 <p className={getClassNames(styles.switch_label)}>
                     {label.name}
-                    {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}>{label.abbr}</span>}
+                    {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}
+                        data-bracket={label.abbr.startsWith("（") || undefined}>{label.abbr}</span>}
                 </p>
                 {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
                 {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}

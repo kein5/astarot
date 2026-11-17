@@ -63,7 +63,7 @@ export const VoiceSettings = () => {
     return <section className={styles.container} aria-label={t("voice.title")} data-setting-id="tts_settings">
         <SectionLabelComponent label={t("config_page.tts.tts_settings.label")} />
         <StatusLine tone={status.active ? "active" : "idle"}
-            actions={<button type="button" onClick={() => send("/run/stop_voice")}>{t("voice.stop")}</button>}>
+            actions={<button type="button" title={t("voice.stop")} onClick={() => send("/run/stop_voice")}>{t("voice_ui.topbar_stop")}</button>}>
             {t(status.active ? "voice.playing" : "voice.idle")} · {t("voice.queued")}: {status.queued ?? 0}
         </StatusLine>
         <Description text={t("voice_ui.tts_description")} />

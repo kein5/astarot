@@ -238,7 +238,7 @@ def execute(args, report):
         def save_settings(mode='original'):
             page.get_by_label('Read aloud').select_option(mode)
             page.get_by_label('Audio route').select_option('managed')
-            page.get_by_label('Japanese server (Irodori)', exact=True).fill(server.url)
+            page.get_by_label('Japanese server URL (Irodori)', exact=True).fill(server.url)
             page.get_by_label('Translation slot').select_option('2')
             page.get_by_role('button', name='Save changes', exact=True).click()
             until(f'window.entry.state.settings?.mode === {json.dumps(mode)} && window.entry.state.settings.routing === "managed"')
@@ -329,13 +329,13 @@ def execute(args, report):
             resume()
             positive('normal')
             # Further cases use the same real UI controls and wire receiver.
-            for name, button in [('cancel', 'Stop playback and clear queue'), ('mute', 'Mute now')]:
+            for name, button in [('cancel', 'Stop speech'), ('mute', 'Mute now')]:
                 before = snapshot()
                 started, id = send(LONG)
                 wait_for(lambda: any(t > started and nz for t, _, nz in capture.history), timeout=12, code='long_audio_missing')
                 pause(.3)
                 command = time.monotonic_ns()
-                page.get_by_role('button', name=button, exact=True).click()
+                page.get_by_role('button', name=button, exact=True).first.click()
                 first = settled(capture, command, 'stop_not_silent', silent=True)
                 after = snapshot()
                 assert after['voice']['cancelled'] == before['voice']['cancelled'] + 1, after
@@ -378,7 +378,7 @@ def execute(args, report):
                      timeout=3, code='workers_not_blocked')
             before = len(sidecar.writes)
             started, queued_id = send(SHORT)
-            page.get_by_role('button', name='Stop playback and clear queue').click()
+            page.get_by_role('button', name='Stop speech', exact=True).first.click()
             until('window.entry.received.at(-1)?.endpoint === "/run/stop_voice"', timeout=2000)
             stop_response_ns = time.monotonic_ns()
             (backend_dir / 'release').touch()
@@ -392,7 +392,7 @@ def execute(args, report):
             # Invalid settings must leave the working configuration intact and
             # return an error through the production UI response route.
             previous = state()['settings']
-            page.get_by_label('Japanese server (Irodori)', exact=True).fill('https://invalid.example')
+            page.get_by_label('Japanese server URL (Irodori)', exact=True).fill('https://invalid.example')
             page.get_by_role('button', name='Save changes', exact=True).click()
             until('window.entry.state.error === "VOICE_SETTINGS_INVALID"')
             assert state()['settings'] == previous
@@ -419,7 +419,7 @@ def execute(args, report):
                     assert not any(t > started and nz for t, _, nz in capture.history)
                     assert len(snapshot()['pcm']) == len(before['pcm'])
                 assert state()['logs'][-1]['status'] == 'pending'
-                page.get_by_role('button', name='Stop playback and clear queue').click()
+                page.get_by_role('button', name='Stop speech', exact=True).first.click()
                 stopped = time.monotonic_ns()
                 settled(capture, stopped, 'translation_cancel_not_silent', silent=True)
                 (backend_dir / 'release').touch()

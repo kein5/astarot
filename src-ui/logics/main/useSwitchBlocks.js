@@ -5,8 +5,7 @@ import { useSetupNeeds } from "./useSetupNeeds";
 import { switchBlocks } from "./switchBlocks";
 import { useVoice } from "../voice/useVoice";
 import { useModelDownloads } from "../voice/useModelDownloads";
-import { useTranslationSetup } from "../translation/useTranslationSetup";
-import { focusOcrModels } from "../ocr/useOcrSetup";
+import { useTranslationSetup } from "../translation/useTranslationSetup";import { focusOcrModels } from "../ocr/useOcrSetup";
 
 // Main window only, once (SwitchBlocksController). Why each main switch cannot be turned on
 // yet (switchBlocks.js), kept in the SwitchBlocks atom. The main window's switches and the VR
@@ -52,6 +51,7 @@ export const useSwitchBlocks = () => {
     const prepare = action => {
         if (!action) return;
         if (action === "translation") return translationSetup.open(false);
+        if (action === "translator") return translationSetup.chooseTranslator();
         updateSelectedConfigTabId(action === "ocr_models" ? "ocr" : action);
         updateIsOpenedConfigPage(true);
         if (action === "ocr_models") focusOcrModels();

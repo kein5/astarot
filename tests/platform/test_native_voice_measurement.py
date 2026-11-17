@@ -129,7 +129,7 @@ def test_native_osc_once_with_voice_and_ui_to_write_measurement(tmp_path):
                     if managed_server:
                         ui.select('Japanese server', 'bundled')
                     else:
-                        ui.fill("Japanese server (Irodori)", server.url)
+                        ui.fill("Japanese server URL (Irodori)", server.url)
                     ui.click_text("button", "Save changes")
                     wait_for(lambda: json.loads((state / "config.json").read_text()).get("VOICE_SETTINGS", {}).get("mode") == mode)
 

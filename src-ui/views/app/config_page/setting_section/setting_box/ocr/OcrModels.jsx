@@ -60,7 +60,8 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                     <button type="button" disabled={!!pending || job.phase === "cancelling"}
                         onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</button></>}
                 {job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
-                {!installed && !active && <button type="button" className="primary" disabled={busy}
+                {/* Opening a review is not the download itself: the same plain button as everywhere (#474). */}
+                {!installed && !active && <button type="button" disabled={busy}
                     onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog.catalog_version }); }}>
                     {t("model_downloads.review")}</button>}
             </div>;

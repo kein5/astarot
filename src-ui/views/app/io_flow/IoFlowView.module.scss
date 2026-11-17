@@ -6,7 +6,9 @@
 // A narrow window scrolls the graph sideways instead of squeezing its boxes.
 .graph_scroll { overflow-x: auto; }
 
-.unused { display: flex; flex-direction: column; gap: .3rem; margin: 0; padding: 0; list-style: none;
+// Side by side when the panel is wide, so the list ends higher up and the panel opened at
+// 1200 x 850 shows it to its last row (#475); one column in a narrow panel.
+.unused { display: grid; grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr)); gap: .3rem 1.2rem; margin: 0; padding: 0; list-style: none;
     font-size: 1.2rem; color: var(--vox_description_text); }
 .unused li { display: flex; gap: .6rem; align-items: baseline; overflow-wrap: anywhere; }
 .lane_mark { flex-shrink: 0; padding: 0 .5rem; border-radius: .4rem; font-weight: 600; color: #0b0f18; }

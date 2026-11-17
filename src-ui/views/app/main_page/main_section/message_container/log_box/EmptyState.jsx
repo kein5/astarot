@@ -29,11 +29,13 @@ const Setup = () => {
         {needs.length > 0 && <ul className={styles.setup} aria-label={t("studio.setup_label")}>
             {needs.map(({ id, weight, action }) => {
                 const progress = downloadProgress(weight);
+                // "choose": the translation model cannot be downloaded yet, so another translator is offered.
                 return <li key={id}>
-                    <span>{t(`studio.setup_${id}`)}</span>
+                    <span>{t(action === "choose" ? "studio.setup_translation_unavailable" : `studio.setup_${id}`)}</span>
                     {progress === null
                         ? <button type="button" onClick={() => start(id)}>
-                            {t(action === "settings" ? "studio.setup_open_settings" : "model_downloads.review")}</button>
+                            {t(action === "settings" ? "studio.setup_open_settings"
+                                : action === "choose" ? "studio.setup_other_translator" : "model_downloads.review")}</button>
                         : <span role="status">{t(progress === "pending" ? "studio.setup_preparing" : "studio.setup_downloading", { progress })}</span>}
                 </li>;
             })}

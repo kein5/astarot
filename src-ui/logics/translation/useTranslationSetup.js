@@ -10,9 +10,15 @@ const requestAtom = atom(null);
 // outside the controller: changing the UI language draws the main page again, and
 // the user who asked for the switch is still waiting for it.
 const waitingAtom = atom(null);
+// Counts the requests to open the translator list (the model cannot be downloaded yet,
+// so another engine is the way forward). TranslationSetupController opens the list; the
+// sidebar's state stays out of the hooks the VR panel's views import.
+const chooseAtom = atom(0);
 export const useTranslationSetup = () => {
     const [request, setRequest] = useAtom(requestAtom);
     const [waiting, setWaiting] = useAtom(waitingAtom);
+    const [chooseRequests, setChooseRequests] = useAtom(chooseAtom);
     const open = (resume = false, weightType = null) => setRequest(previous => previous ?? { resume, weightType });
-    return { request, open, setRequest, waiting, setWaiting };
+    const chooseTranslator = () => setChooseRequests(count => count + 1);
+    return { request, open, setRequest, waiting, setWaiting, chooseRequests, chooseTranslator };
 };

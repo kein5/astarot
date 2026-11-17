@@ -26,6 +26,7 @@ async function load(context, registryModule = registry) {
         }) },
         [REGISTRY_PATH]: registryModule,
         "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown" },
+        "../_components": { SectionLabelComponent: "heading" },
         "../../../../../../logics/companion/hexagram.ts": hexagram,
     });
     const render = props => runtime.render(module.ExperimentalFeatureList, props);
@@ -39,7 +40,8 @@ const children = tree => flat(tree).flatMap(item => (item.type === "div" ? flat(
 test("the page says there is nothing to try while no feature is listed", async context => {
     const s = await load(context);
     const list = s.render({ features: [], current: s.current, setValues: () => {} });
-    const [notice, empty] = children(list);
+    const [heading, notice, empty] = children(list);
+    assert.equal(heading.props.label, "config_page.experimental_features.section_label");
     assert.equal(notice.props.children, "config_page.experimental_features.notice");
     assert.equal(empty.props.children, "config_page.experimental_features.empty");
     assert.equal(children(list).some(item => item.type === "checkbox"), false);

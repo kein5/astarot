@@ -109,7 +109,7 @@ def test_native_input_controls_and_independent_audio_stops(tmp_path):
                 ui.click_text('button', 'Save changes')
                 ui.open_voice_settings()
                 ui.select('Chat voice', 'original')
-                ui.fill('Japanese server (Irodori)', f'http://127.0.0.1:{server.server_port}')
+                ui.fill('Japanese server URL (Irodori)', f'http://127.0.0.1:{server.server_port}')
                 ui.click_text('button', 'Save changes')
                 wait_for(lambda: json.loads((state / 'config.json').read_text()).get('VOICE_SETTINGS', {}).get('routing') == 'managed')
                 wait_for(lambda: gate.inspect()['muted'])

@@ -32,13 +32,16 @@ export const _DownloadButton = ({option, ...props}) => {
                         <CircularProgress aria-label={progressName} size="3rem" sx={{ color: "var(--dark_600_color)" }}/>
                     </div>
                 );
+            // Nothing to download yet: say so instead of a button that only opens a dead end.
+            case !option.is_downloaded && option.download_unavailable === true:
+                return <span className={styles.unavailable}>{t("config_page.translation.download_unavailable")}</span>;
             case !option.is_downloaded:
                 return (
                     <button
                         className={styles.download_button}
                         onClick={() => props.downloadStartFunction(option.id)}
                     >
-                        <p className={styles.download_button_label}>{t("config_page.common.model_download_button_label")}</p>
+                        <p className={styles.download_button_label}>{t("model_downloads.review")}</p>
                     </button>
                 );
             case option.is_default:

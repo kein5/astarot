@@ -239,7 +239,7 @@ def test_vr_sample_text_stops_with_settings_and_only_the_button_restarts_it(stud
     settings = page.get_by_role("button", name="設定を開く", exact=True)
     settings.click()
     page.get_by_role("button", name="VR", exact=True).click()
-    start = page.get_by_role("button", name="サンプルテキストをOverlayに送信する", exact=True)
+    start = page.get_by_role("button", name="サンプルの文を字幕オーバーレイに送る", exact=True)
     stop = page.get_by_role("button", name="送信を停止", exact=True)
     start.click()
     expect(stop).to_be_visible()

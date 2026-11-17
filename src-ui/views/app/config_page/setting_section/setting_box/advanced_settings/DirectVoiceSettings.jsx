@@ -111,10 +111,10 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
         {/* Before Start: what to expect on the GPU and, without one, on the CPU. */}
         {(variant === "rvc" || (converted && rvc)) && <Description text={t("voice_ui.rvc_latency_hint")} />}
         {/* Selecting RVC is its own action: opening the page or saving other fields never switches the mode. */}
-        {variant === "rvc" && needsSelection(draft) && <div className={styles.actions}>
-            <p>{t("voice_ui.select_rvc_pending")}</p>
+        {/* A row like the others (#478): the note on the left, its button in the control column. */}
+        {variant === "rvc" && needsSelection(draft) && <FormRow group label={t("voice_ui.select_rvc_label")} description={t("voice_ui.select_rvc_pending")} fold={false}>
             <button type="button" disabled={busy || saving || selecting} onClick={selectRvc}>{t("voice_ui.select_rvc")}</button>
-        </div>}
+        </FormRow>}
         {/* A Seed-VC conversion saved by an earlier version was moved to RVC at this start. */}
         {variant !== "legacy" && directState.notice === "seed_vc_moved_to_rvc" && <p role="status">{t("voice_ui.seed_vc_moved_to_rvc")}</p>}
         {busy && !ownsInput && <p role="alert">{t("voice_ui.input_conflict")}</p>}
@@ -172,7 +172,8 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
             </select>
         </FormRow>
         {(managed || deviceRoute) && <VoiceRouteControls />}
-        <div className={styles.actions}>
+        {/* In the control column, under the input it starts (#473, #478). */}
+        <div className={`${styles.actions} ${styles.control_column}`}>
             <button type="button" className="primary" disabled={!!startBlocked} aria-describedby={startBlocked ? reasonId : undefined}
                 onClick={() => send("/run/start_direct_voice", converted ? {
                     source: source.id, mode: "converted", options,
@@ -209,8 +210,10 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
             {deviceRoute && !routeReady && <Description text={t("voice.input_requires_output")} />}
             {/* The route is unknown until the first state arrives, and Windows has no microphone to prepare. */}
             {directState.observation_id && !managed && !deviceRoute && <><Description text={t("voice.input_requires_managed")} />
-                <button type="button" disabled={!settings || busy || saving}
-                    onClick={() => send("/set/data/voice_settings", { ...settings, routing: "managed" })}>{t("voice.prepare_microphone")}</button>
+                <div className={`${styles.actions} ${styles.control_column}`}>
+                    <button type="button" disabled={!settings || busy || saving}
+                        onClick={() => send("/set/data/voice_settings", { ...settings, routing: "managed" })}>{t("voice.prepare_microphone")}</button>
+                </div>
                 {error && <p role="alert">{t([`voice_setup_errors.${error}`, `voice_ui.errors.${error}`], { defaultValue: error })}</p>}
             </>}
         </SetupSection>

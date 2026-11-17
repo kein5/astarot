@@ -1,8 +1,9 @@
 import { useTranslation, useTranscription } from "@logics_configs";
 import { useStore_IsBackendReady, useStore_SelectedPresetTabNumber, useStore_SelectedTranslationEngines,
     useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
-import { setupNeeds } from "./setupNeeds";
+import { setupNeeds, translationDownloadable } from "./setupNeeds";
 import { useTranslationSetup } from "../translation/useTranslationSetup";
+import { useModelDownloads } from "../voice/useModelDownloads";
 import { useRealtimeASR } from "../transcription/useRealtimeASR";
 import { useSpeechServers } from "../voice/useSpeechServers";
 
@@ -21,17 +22,23 @@ export const useSetupNeeds = () => {
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const translationSetup = useTranslationSetup();
+    const { catalog } = useModelDownloads();
     // Until the engine has sent its settings, "not downloaded" is only the list's default.
     const needs = currentIsBackendReady.data !== true ? [] : setupNeeds({
         translationEngine: currentSelectedTranslationEngines.data?.[currentSelectedPresetTabNumber.data],
         translationWeights: currentCTranslate2WeightTypeStatus.data,
         translationWeight: currentSelectedCTranslate2WeightType.data,
+        translationDownloadable: translationDownloadable(catalog, currentSelectedCTranslate2WeightType.data),
         transcriptionEngine: currentSelectedTranscriptionEngine.data,
         realtimeServer: realtimeSettings?.server,
         asrProfile: serverSettings?.profiles?.asr,
     });
     const start = id => {
-        if (id === "translation") return translationSetup.open(false);
+        if (id === "translation") {
+            // No model to download yet: the way forward is another translator.
+            if (needs.find(need => need.id === id)?.action === "choose") return translationSetup.chooseTranslator();
+            return translationSetup.open(false);
+        }
         updateSelectedConfigTabId("transcription");
         updateIsOpenedConfigPage(true);
     };

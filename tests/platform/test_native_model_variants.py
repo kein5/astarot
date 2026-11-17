@@ -58,7 +58,7 @@ def test_native_variant_pcm_matches_independent_reference(tmp_path, model_id):
                 ui.open_voice_settings()
                 ui.select('Chat voice', 'original')
                 ui.select('Japanese server', 'external')
-                ui.fill('Japanese server (Irodori)', server.url)
+                ui.fill('Japanese server URL (Irodori)', server.url)
                 ui.fill('Japanese voice name', row['voice'])
                 ui.click_text('button', 'Save changes')
                 wait_for(lambda: json.loads(config.read_text()).get('VOICE_SETTINGS', {}).get('japanese_voice') == row['voice'])

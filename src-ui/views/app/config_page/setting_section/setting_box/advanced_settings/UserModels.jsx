@@ -107,7 +107,7 @@ export const UserModelRegistration = ({ target, busy }) => {
                     onChange={event => setPaths(current => ({ ...current, [role]: event.target.value }))} />
             </label>)}
             {problem && <p id={`${id}-problem`} role="alert">{t(`user_models.problem.${problem}`, { kind: kinds.find(([role]) => problem.startsWith(role))?.[1] ?? "" })}</p>}
-            <div className={styles.actions}>
+            <div className={`${styles.actions} ${styles.control_column}`}>
                 <button type="button" disabled={busy} onClick={submit}>{t("user_models.register")}</button>
             </div>
         </div>

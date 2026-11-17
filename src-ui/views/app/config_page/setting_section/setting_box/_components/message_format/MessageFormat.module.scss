@@ -176,7 +176,7 @@
     // The format is typed with \n for a line break. Japanese UI fonts (Yu Gothic, Meiryo)
     // draw a backslash as a yen sign, so the fields use a font that draws it as written (#437).
     // Each of these is installed with its OS; nothing is fetched.
-    input { font-family: "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Noto Sans Mono", "Liberation Mono", var(--font_family), "Noto Sans", system-ui, sans-serif; }
+    input { font-family: var(--vox_font_mono, monospace); }
 }
 
 .preset_text {
