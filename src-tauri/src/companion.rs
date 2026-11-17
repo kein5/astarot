@@ -1028,14 +1028,11 @@ pub async fn companion_close_hides(window: WebviewWindow, state: State<'_, Compa
 async fn tray_shown(state: &State<'_, CompanionState>) -> Result<bool, String> {
     // A statement of its own: the lock must not be held across the wait below.
     let has_tray = state.lock()?.tray.is_some();
-    if !has_tray {
-        return Ok(false);
-    }
     #[cfg(target_os = "linux")]
-    if !tauri::async_runtime::spawn_blocking(linux_tray::shown).await.unwrap_or(false) {
-        return Ok(false);
+    if has_tray {
+        return Ok(tauri::async_runtime::spawn_blocking(linux_tray::shown).await.unwrap_or(false));
     }
-    Ok(true)
+    Ok(has_tray)
 }
 
 /// Whether a tray icon can be made and seen on Linux.
