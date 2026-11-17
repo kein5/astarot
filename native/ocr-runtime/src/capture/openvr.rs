@@ -33,6 +33,8 @@ pub const SYSTEM_VERSION: &str = "IVRSystem_023";
 pub const EYE_LEFT: i32 = 0;
 /// After a failed start on Linux (an OpenGL context opened and closed) wait this long.
 pub const GL_RETRY_SEC: f64 = 30.0;
+/// After SteamVR asked applications to quit, connect again no sooner than this.
+pub const QUIT_RETRY_SEC: f64 = 10.0;
 
 // Function table indices (openvr_capi.h, SDK 2.12.14).
 const COMPOSITOR_GET_CURRENT_SCENE_FOCUS_PROCESS: usize = 24;
@@ -208,8 +210,11 @@ impl VrCapture for OpenVrMirrorCapture {
     fn capture(&mut self) -> Option<BgrImage> {
         self.failures.report(self.clock.now());
         if self.session.as_ref().is_some_and(|session| session.closing()) {
-            // SteamVR is quitting: let go so the next connection is a fresh one.
+            // SteamVR is quitting: let go so the next connection is a fresh one. Not at once: the
+            // quitting vrserver may still accept a connection, and the OCR reads no events, so it
+            // would never hear the request to quit and could hold SteamVR up.
             self.reset();
+            self.retry_at = self.clock.now() + QUIT_RETRY_SEC;
         }
         if !self.init() {
             return None;
