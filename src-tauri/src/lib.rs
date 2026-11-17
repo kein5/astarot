@@ -431,6 +431,27 @@ mod tests {
     }
 
     #[test]
+    fn no_window_may_make_a_tray_icon_or_a_menu() {
+        // The tray and its menu are made in Rust; no page uses the menu, tray or image API, and
+        // `core:default` would bring them all (Issue #456).
+        let unused = ["core:default", "core:menu:", "core:tray:", "core:image:", "core:resources:", "core:path:", "core:app:"];
+        for text in [
+            include_str!("../capabilities/default.json"),
+            include_str!("../capabilities/vrct_capability.json"),
+            include_str!("../capabilities/quick-chat.json"),
+            include_str!("../capabilities/caption-overlay.json"),
+            include_str!("../capabilities/vr-panel.json"),
+            include_str!("../capabilities/companion.json"),
+        ] {
+            let capability: serde_json::Value = serde_json::from_str(text).unwrap();
+            for permission in capability["permissions"].as_array().unwrap() {
+                let name = permission.as_str().or_else(|| permission["identifier"].as_str()).unwrap();
+                assert!(!unused.iter().any(|prefix| name.starts_with(prefix)), "{} grants {name}", capability["identifier"]);
+            }
+        }
+    }
+
+    #[test]
     #[cfg(windows)]
     fn startup_log_is_stored_next_to_the_application() {
         assert_eq!(

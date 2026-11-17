@@ -1,9 +1,10 @@
 {
     "$schema": "../gen/schemas/desktop-schema.json",
     "identifier": "default",
-    "description": "Core permissions of the main window. Opening links is granted to main alone, in vrct_capability.json, for the sites the app links to. The VR panel has its own, narrower set in vr-panel.json.",
+    "description": "Core permissions of the main window: events, and the webview's file drops. Its window permissions and the links it may open are in vrct_capability.json; the VR panel has its own, narrower set in vr-panel.json. No menu, tray, image, resource, path or app permissions: the tray and its menu are made in Rust alone (Issue #456).",
     "windows": ["main"],
     "permissions": [
-        "core:default"
+        "core:event:default",
+        "core:webview:default"
     ]
 }
