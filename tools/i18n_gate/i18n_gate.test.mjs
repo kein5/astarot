@@ -92,6 +92,8 @@ test("terms of exceptions.yml and i18n-exempt comments with a reason are allowed
             {/* i18n-exempt: shown in English on purpose */}
             <span>UI Language</span>
             <span>Still flagged</span>
+            <span>Symbol</span>{/* i18n-exempt: covers this line only */}
+            <span>Next line</span>
         </div>;
         // i18n-exempt-start: service names
         const names = [{ label: "DeepL API" },
@@ -100,7 +102,7 @@ test("terms of exceptions.yml and i18n-exempt comments with a reason are allowed
         // i18n-exempt
         const x = { label: "No reason" };
     `);
-    assert.deepEqual(hardcoded.map(h => h.text), ["Still flagged", "No reason"]);
+    assert.deepEqual(hardcoded.map(h => h.text), ["Still flagged", "Next line", "No reason"]);
     assert.equal(errors.length, 1);
     assert.match(errors[0].message, /needs a reason/);
 });

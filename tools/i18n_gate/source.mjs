@@ -139,8 +139,9 @@ export const scanSource = (file, code, { index, needsTranslation }) => {
         return { keys, hardcoded, errors };
     }
 
-    // Lines an i18n-exempt comment covers: its own last line and the next one; or, for
-    // i18n-exempt-start ... i18n-exempt-end, every line from one to the other.
+    // Lines an i18n-exempt comment covers: its own last line (and the next one, see below); or,
+    // for i18n-exempt-start ... i18n-exempt-end, every line from one to the other.
+    const sourceLines = code.split("\n");
     const exemptLines = new Set();
     let blockStart = null;
     for (const comment of ast.comments ?? []) {
@@ -164,7 +165,9 @@ export const scanSource = (file, code, { index, needsTranslation }) => {
             continue;
         }
         exemptLines.add(comment.loc.end.line);
-        exemptLines.add(comment.loc.end.line + 1);
+        // A comment on a line of its own covers the next line; one after code covers its line only.
+        const before = sourceLines[comment.loc.start.line - 1].slice(0, comment.loc.start.column);
+        if (/^\s*\{?\s*$/.test(before)) exemptLines.add(comment.loc.end.line + 1);
     }
     if (blockStart !== null) errors.push({ file, line: blockStart, column: 1, message: `${EXEMPT_MARK}-start without ${EXEMPT_MARK}-end` });
     const exempt = (line) => exemptLines.has(line);
