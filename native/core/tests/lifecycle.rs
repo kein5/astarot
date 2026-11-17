@@ -5,7 +5,7 @@ mod common;
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use vrct_core::controller::Services;
 
 #[test]
@@ -78,10 +78,21 @@ fn shutdown_answers_and_keeps_the_settings_for_the_next_start() {
 fn a_change_is_saved_two_seconds_after_the_last_one() {
     let ui = Ui::start();
     ui.ready();
+    // The delay starts after the change arrives, so it is measured from before it is sent: the
+    // save can come later on a loaded machine, never sooner. Only its lower bound is checked.
+    let sent = Instant::now();
     ui.ok("/set/data/font_family", Some(json!("Noto Sans JP")));
-    assert_eq!(ui.saved()["FONT_FAMILY"], "Yu Gothic UI", "not yet");
-    std::thread::sleep(Duration::from_millis(2600));
-    assert_eq!(ui.saved()["FONT_FAMILY"], "Noto Sans JP");
+    let font = || ui.saved()["FONT_FAMILY"].clone();
+    let early = font();
+    if sent.elapsed() < Duration::from_secs(2) {
+        assert_eq!(early, "Yu Gothic UI", "not yet");
+    }
+    let deadline = Instant::now() + common::TIMEOUT;
+    while font() != "Noto Sans JP" {
+        assert!(Instant::now() < deadline, "the delayed save did not come");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    assert!(sent.elapsed() >= Duration::from_secs(2), "saved after {:?}, before the 2 s delay", sent.elapsed());
     // Some settings are saved at once.
     ui.ok("/set/data/main_window_geometry", Some(json!({ "x_pos": 5, "y_pos": 6, "width": 900, "height": 700 })));
     assert_eq!(ui.saved()["MAIN_WINDOW_GEOMETRY"]["x_pos"], 5);

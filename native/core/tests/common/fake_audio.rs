@@ -3,7 +3,7 @@
 //! real device.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use vrct_audio_routing::Error;
@@ -27,6 +27,8 @@ struct Inner {
     lists: Mutex<Option<RawLists>>,
     handler: Mutex<Option<Handler>>,
     watching: AtomicBool,
+    /// How many times the devices were listed: once per pass of the device monitor.
+    listed: AtomicU64,
     /// The cables offered; `None`: the check is not offered (Linux).
     cables: Mutex<Option<CableSetup>>,
     /// The speech outputs; `Some(None)`: listing them fails.
@@ -97,6 +99,26 @@ impl FakeAudio {
         handler(topology);
     }
 
+    /// Waits until the device monitor has run every callback of the passes it started before
+    /// this call, so that nothing of an earlier change can still arrive.
+    ///
+    /// The monitor runs one pass at a time: it lists the devices, then runs the callbacks of what
+    /// changed. A pass that lists the devices after a notification sent here therefore means the
+    /// pass before it is over. Two rounds are needed: the first ends the pass under way, the second
+    /// ends the pass the first notification started. Nothing has changed for those passes, except
+    /// that the first pass after start-up compares with empty lists and reports every list once.
+    pub fn settle(&self) {
+        for _ in 0..2 {
+            let before = self.0.listed.load(Ordering::SeqCst);
+            self.event(Topology::DefaultChanged);
+            let deadline = Instant::now() + super::TIMEOUT;
+            while self.0.listed.load(Ordering::SeqCst) == before {
+                assert!(Instant::now() < deadline, "the device monitor did not list the devices again");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+    }
+
     pub fn platform(&self) -> Arc<dyn AudioPlatform> {
         Arc::new(self.clone())
     }
@@ -162,7 +184,9 @@ impl MeterFactory for NoMeters {
 
 impl DeviceBackend for FakeAudio {
     fn enumerate(&self) -> RawLists {
-        self.0.lists.lock().unwrap().clone().unwrap_or_else(RawLists::none)
+        let lists = self.0.lists.lock().unwrap().clone().unwrap_or_else(RawLists::none);
+        self.0.listed.fetch_add(1, Ordering::SeqCst);
+        lists
     }
 
     fn endpoint_ids(&self) -> HashMap<String, Vec<String>> {
