@@ -14,6 +14,7 @@ import { SetupSection } from "../_components/setup_section/SetupSection";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
+import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
@@ -31,7 +32,10 @@ const exampleFiles = { runtime: "seed-vc-runtime", reference: "reference.wav",
 const exampleNumbers = { rvc_pitch: 12, rvc_index_rate: 0.75 };
 
 export const DirectVoiceSettings = ({ variant = "all" }) => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
+    // A code's sentence with the code kept for reports, as on the main screen (#460).
+    const errorText = (code, first) => voiceErrorText(code, t(`config_page.side_menu_labels.${variant === "rvc" ? "rvc" : "advanced_settings"}`),
+        t, key => i18n.exists(key), first);
     const { settings, route, error, directState, directOwner, directPending, directSources, directError, updateDirectError, send, setDirectDraftBlocked,
         selectedSource: selected, setSelectedSource: setSelected } = useVoice();
     const saved = useMemo(() => directSavedDraft(defaults, directState.settings, variant), [directState.settings, variant]);
@@ -214,7 +218,7 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
                     <button type="button" disabled={!settings || busy || saving}
                         onClick={() => send("/set/data/voice_settings", { ...settings, routing: "managed" })}>{t("voice.prepare_microphone")}</button>
                 </div>
-                {error && <p role="alert">{t([`voice_setup_errors.${error}`, `voice_ui.errors.${error}`], { defaultValue: error })}</p>}
+                {error && <p role="alert">{errorText(error, ["voice_setup_errors"])}</p>}
             </>}
         </SetupSection>
         {/* The unsaved-changes dialog stays outside the fold so it shows while folded. */}
@@ -223,6 +227,7 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
         <p>{t(!converted ? "voice.vc_monitor_passthrough" : settings?.monitor === "on" ? "voice.vc_monitor_on" : "voice.vc_monitor_off")}</p>
         {directState.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${directState.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
         <Description text={t("voice.input_scope")} />
-        {unavailable && <p role="alert">{t("voice.input_error")}: {t(`voice.input_errors.${unavailable}`, { defaultValue: unavailable })}</p>}
+        {/* An unconfirmed save is not a reason the input cannot be forwarded: its sentence stands alone (#460). */}
+        {unavailable && <p role="alert">{unavailable.startsWith("save_") ? "" : `${t("voice.input_error")}: `}{errorText(unavailable)}</p>}
     </section>;
 };

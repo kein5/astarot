@@ -2,6 +2,7 @@ import * as routeState from "../../../../../../logics/voice/routeState.ts";
 import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.js";
 import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDraft.ts";
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
+import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -45,6 +46,7 @@ async function open(variant, settings) {
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
         "../../../../../../logics/common/pathExample": { pathExample: file => file },
         "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
+        "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
     });
     const render = () => runtime.render(DirectVoiceSettings, { variant });
     // The first render has no draft yet; the second shows the saved settings.

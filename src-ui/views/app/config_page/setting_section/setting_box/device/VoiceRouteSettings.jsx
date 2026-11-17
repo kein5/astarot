@@ -8,6 +8,7 @@ import { SectionLabelComponent } from "../_components/section_label_component/Se
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
+import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 
 export const VoiceRouteSummary = () => {
     const { t } = useI18n();
@@ -22,7 +23,7 @@ export const VoiceRouteSummary = () => {
 };
 
 export const VoiceRouteControls = () => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
     const { route, error, send } = useVoice();
     const problem = error || route.error;
     return <>
@@ -35,7 +36,8 @@ export const VoiceRouteControls = () => {
             <p>{t(route.preparing ? "voice.preparing_microphone" : route.error ? "voice.gate_error" : route.pending ? "voice.gate_pending" : !route.ready || route.observed_muted == null ? "voice.gate_unknown" :
                 `voice.gate_${route.observed_muted ? "muted" : "open"}${route.covers_direct ? "_device" : ""}`)}</p>
         </EnvReadout>
-        {problem && <p role="alert">{t(`voice_setup_errors.${problem}`, { defaultValue: problem })}</p>}
+        {/* The route's own codes (managed_setup_*) first, then the voice requests' (#460). */}
+        {problem && <p role="alert">{voiceErrorText(problem, t("voice.routing"), t, key => i18n.exists(key), ["voice_setup_errors"])}</p>}
     </>;
 };
 
