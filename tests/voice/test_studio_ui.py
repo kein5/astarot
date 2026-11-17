@@ -121,6 +121,26 @@ def test_small_window_and_reduced_motion(studio):
     expect(page.get_by_role("button", name="戻る", exact=True)).to_be_in_viewport()
 
 
+def test_empty_conversation_heading_stays_put_while_the_app_starts(studio):
+    # At startup the list under the heading changes (the startup steps, then what the engines
+    # still need) and the input box takes its saved height; a centred heading moved with both
+    # (256, 235, 174, 195 px in 0.5.0-beta.5; 377, 341 px here). Every frame is sampled.
+    page, _ = studio
+    page.add_init_script(
+        "window.__headingTops = [];"
+        "const sample = () => { const h = document.querySelector('h1');"
+        " if (h) { const top = Math.round(h.getBoundingClientRect().top);"
+        " if (window.__headingTops.at(-1) !== top) window.__headingTops.push(top); }"
+        " if (performance.now() < 6000) requestAnimationFrame(sample); };"
+        "requestAnimationFrame(sample);"
+    )
+    page.reload()
+    page.get_by_role("heading", name="ここから会話を始めましょう").wait_for()
+    page.wait_for_timeout(3000)
+    tops = page.evaluate("window.__headingTops")
+    assert len(tops) == 1, tops
+
+
 def _on_top(locator):
     """The element drawn at the locator's centre is the locator itself (nothing covers it)."""
     return locator.evaluate(
