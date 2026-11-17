@@ -1,6 +1,6 @@
-# VRCT-VOX 開発エージェント向けガイド
+# ASTAROT 開発エージェント向けガイド
 
-VRCT-VOX は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 18 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。`src-python/` の Python のバックエンドは、移植の仕様として残しているものです（`docs/voice-stack/core-integration.md`）。名前を ASTAROT に変える方針がありますが（ADR-011）、今のビルドの名前と識別子は VRCT-VOX のままです。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
+ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 18 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。`src-python/` の Python のバックエンドは、移植の仕様として残しているものです（`docs/voice-stack/core-integration.md`）。アプリの表示名は ASTAROT です（ADR-011）。リポジトリ名、実行ファイル名、アプリ ID、設定の保存先などの識別子は VRCT-VOX のままで、リポジトリ名は 0.5.0 の正式公開のときに変えます。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
 
 この文書は作業の入口です。詳しい内容は、下の表の正本を読んでください。
 
@@ -88,6 +88,7 @@ python tools/dev.py check                   # 軽量チェック（tooling、nod
 - **配布物とライセンス**: 上流のチャット吹き出し検出モデルを含む OCR の重み、許諾のないモデル、Mia2026 の音声を配布物に入れません。依存や同梱物を変えたら、`NOTICE.md` とライセンス台帳を確認します。ダウンロードできるモデルは、版、サイズ、SHA-256、ライセンスを固定してカタログ（`src-python/models/model_downloads/catalog.py`）に載せます。アプリが読むのは Rust の写し（`native/ops/src/downloads/catalog.rs`、OCR は `native/ocr-runtime/src/models.rs`）なので、同じ変更をそちらにも入れます（食い違いは `tests/voice/test_native_ops_reference.py` などが検出します）。非商用など制限のあるライセンスのモデルは既定にしません。
 - **互換性**: 内部識別子の `VRCT`、設定の形式、IPC と OSC の契約は、名前を変えるという理由だけで一括置換しません。保存先やアプリ ID などの識別子を変えるときは、移行の処理も用意します（`project-rename.md`）。
 - **ユーザーの操作と同意**: モデルの取得は、ライセンスとサイズを示して同意を得てから行います。UI の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きないようにします。
+- **音声 AI のランタイム**: 新しい音声 AI モデルは、まず speech.cpp への上流の貢献で入れます。アプリ固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめ、例外ごとの ADR で承認したときだけ足します。分担は、音声 AI の推論（ASR、TTS、VAD、話者、音声強調）が speech.cpp、OCR とローカル翻訳が ONNX Runtime、音声の入出力と AI でない DSP が Rust と OS の機能、字幕や OSC など固有の制御がアプリです。RVC は管理対象の例外として ONNX Runtime の実装を続け、移行は義務にしません。手順、非機能要件、検証は ADR-012（`docs/voice-stack/adr-012-audio-ai-runtime-consolidation.md`）にあります。
 - **停止と独立した制御**: 停止・ミュート、TTS と RVC の独立したスイッチ、Quick Chat、VR パネル、ホットキーの振る舞いを保ちます（`PRODUCT.md`、`DESIGN.md`）。
 - **UI**: React 18、SCSS Modules、Jotai、i18next の構成を保ちます。TypeScript、vanilla-extract、Radix UI への段階移行は ADR-010 のとおりで、混在期の規約は `docs/development.md` にあります。フレームワークの移行や、リモートのフォントは入れません。表示する文言は `locales/` に置き、`en.yml` と `ja.yml` は必ず更新します。キーボード操作、フォーカスの表示、長い日本語の表示、狭いウィンドウも確認の対象です。Windows の WebView2 と Linux の WebKitGTK の両方で動くことを前提にします。Baseline Widely available の機能はそのまま使い、それより新しい機能は機能検出と代わりの表示を付けたときだけ使います。
 - **並行作業**: 別のセッションと担当を分けているときは、合意した範囲の外のファイルを編集・コミットしません。

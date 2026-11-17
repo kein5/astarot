@@ -2034,6 +2034,7 @@ dependencies = [
  "tungstenite",
  "vrct-adapters",
  "vrct-audio-routing",
+ "vrct-openvr-client",
  "vrct-ops",
  "vrct-speech-server",
  "vrct-transcription",

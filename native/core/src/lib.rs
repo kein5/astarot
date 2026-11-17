@@ -20,6 +20,7 @@ pub mod log;
 pub mod net_policy;
 pub mod protocol;
 pub mod resources;
+pub mod shipped_libraries;
 pub mod voice_settings;
 
 pub use backend::{Backend, Options, STARTUP_FAILED_EXIT, STARTUP_LIMIT, STARTUP_TIMEOUT_EXIT, Sink};

@@ -227,7 +227,22 @@ static REGISTRY: Registry = Registry::new();
 /// `candidates` are where to look for the client library, in order. They are used only until a
 /// library has loaded; after that every lease uses that one.
 pub fn acquire(candidates: &[PathBuf]) -> Result<Lease, Error> {
-    REGISTRY.acquire(|| load(candidates))
+    REGISTRY.acquire(|| load(&with_shipped(candidates, SHIPPED_LIBRARY.get())))
+}
+
+static SHIPPED_LIBRARY: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// The client library the app ships (`_internal/openvr`). Every [`acquire`] tries it after the
+/// caller's full paths (an explicit `VRCT_OPENVR_API`, the file beside the binary) and before a
+/// bare name, which the system would look up anywhere. Set once, before the first connection.
+pub fn use_library(path: PathBuf) {
+    let _ = SHIPPED_LIBRARY.set(path);
+}
+
+/// `candidates` with `shipped` placed before the first bare name.
+fn with_shipped(candidates: &[PathBuf], shipped: Option<&PathBuf>) -> Vec<PathBuf> {
+    let (named, bare): (Vec<PathBuf>, Vec<PathBuf>) = candidates.iter().cloned().partition(|path| path.components().count() > 1);
+    named.into_iter().chain(shipped.cloned()).chain(bare).collect()
 }
 
 #[cfg(test)]
@@ -338,5 +353,16 @@ mod tests {
     fn no_candidate_means_no_library() {
         let missing = std::env::temp_dir().join("vrct-openvr-client-test").join("no_such_openvr_api.dll");
         assert_eq!(load(&[missing]).err(), Some(Error::LibraryNotFound));
+    }
+
+    #[test]
+    fn the_shipped_library_comes_after_full_paths_and_before_a_bare_name() {
+        let override_path = PathBuf::from("/override/openvr_api.dll");
+        let beside = PathBuf::from("/app/openvr_api.dll");
+        let bare = PathBuf::from("openvr_api.dll");
+        let shipped = PathBuf::from("/app/_internal/openvr/libopenvr_api_64.dll");
+        let candidates = [override_path.clone(), beside.clone(), bare.clone()];
+        assert_eq!(with_shipped(&candidates, Some(&shipped)), [override_path.clone(), beside.clone(), shipped, bare.clone()]);
+        assert_eq!(with_shipped(&candidates, None), [override_path, beside, bare]);
     }
 }

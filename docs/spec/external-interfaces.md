@@ -117,14 +117,13 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 | カスタムWhisperサーバー | `TRANSCRIPTION_CUSTOM_URL` | APIキー（不要なサーバーでも任意の文字列） | 同上 |
 | Deepgram | `https://api.deepgram.com/v1` | `Authorization: Token <キー>` | キーの確認（`/auth/token`）、モデル一覧（`/models`）、発話ごとの`/listen` |
 | Hugging Face | `https://huggingface.co/{repo}/resolve/{rev}/{path}` | なし | 利用者が同意したモデルの取得。接続先はhuggingface.coとそのCDNに限る |
-| 接続の確認 | `https://huggingface.co/`へのHEAD | なし | 起動時の自動取得がオンで、固定版への保存済み同意があり、ファイルが不足している場合だけ1回（3秒）。プロキシ・リダイレクトは使わない |
 
 - クラウドの音声認識の仕様への準拠は各サービスの公式文書で確かめる。
 - Python 版にあった Google の Web 音声認識（非公式の窓口に`speech_recognition`の汎用のキーで FLAC 音声を送るもの）は使わない。中核にはその窓口もキーもない。
 - OpenAI互換の音声認識では、接続と接続プールの待機を10秒、読み取りとアップロードの書き込みを60秒でタイムアウトさせる。通信が進まない時間の上限であり、SDKの再試行を含む要求全体の期限ではない。
 - OpenAI互換、Deepgramの自動検出結果は、返された言語名・コードを選択済みの言語と国に照合する。大文字小文字や`_`と`-`の違いを揃え、地域・文字体系まで一致する候補を優先する。ベース言語しか分からない場合は、その言語に一致する最初の候補を使う。検出言語がない、または選択候補に一致しない場合は、本文を保持し、内部の認識結果の`language`を`None`とする。従来のマイク・スピーカー認識では、配送時の設定スナップショットでもこの不明な値を保ち、先頭の候補言語を推測で付けない。要求で言語を明示した場合は、その指定を使う。
 - Deepgramの成功応答でも、結果の構造、文字列の本文、0〜1の有限な数値の信頼度が揃わなければ`TRANSCRIPTION_API_SERVER_ERROR`として扱い、既存の音声パイプラインのエラー経路に渡す。構造が正しい空の本文は、通常の「認識結果なし」として扱う。応答本文や秘密情報は診断ログに残さない。
-- 自動取得を予定していない起動では接続確認を送らない。`/run/connected_network`の`null`は未確認、真偽値は取得ホストへの確認結果を表す。UIは`false`のときだけ接続エラーを表示する。この値だけでクラウドのエンジンなどを使えない状態にはせず、各要求の成否で判定する。
+- 起動時に接続の確認を送らない（0.4までは、起動時の自動取得を予定しているときだけ`https://huggingface.co/`へHEADを送っていた。自動取得は0.5.0で引退した）。中核は`/run/connected_network`に`null`（未確認）を送る。真偽値なら取得ホストへの確認結果を表す。UIは`false`のときだけ接続エラーを表示する。この値だけでクラウドのエンジンなどを使えない状態にはせず、各要求の成否で判定する。
 - 公式APIの接続先はコードで固定する。環境変数によるOpenAI・GeminiのURL変更、LangSmith gateway、OllamaのAPIキーは使わない。クラウドHTTPSではシステムのプロキシを使える。Requestsの認証は登録済みヘッダーを保ち、netrcの認証情報へ置き換えない。localhostとローカルIPアドレスへのAPI接続ではプロキシを使わない。APIのリダイレクトは追わず、モデル取得だけは既存のHTTPSホスト許可リストに従う。
 - カスタムURLの許可範囲と保存時の扱いは[ネットワーク設定](data-and-persistence.md#ネットワーク設定)を参照する。
 - 更新の確認と取得はRust側（Tauriのupdater）が行う（[アプリの更新](#アプリの更新)）。
@@ -177,9 +176,9 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 
 ### LLMでの翻訳
 
-Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollamaは、現在の翻訳対象の本文、言語の指定、プロンプトと直近の会話履歴を接続先へ送る。プロンプトにはシステム向けの指示と対応言語も含む。SDKはOS・CPUアーキテクチャ・Pythonやパッケージのバージョンなどの情報をヘッダー等で送る。具体的な項目はSDKによって異なる。LM StudioとOpenAI互換では設定したURLが送信先になり、OpenRouterでは選んだモデルの提供元にも処理が渡る。
+Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollamaは、現在の翻訳対象の本文、言語の指定、プロンプトと直近の会話履歴を接続先へ送る。プロンプトにはシステム向けの指示と対応言語も含む。中核は各社のSDKを使わずにAPIを直接呼び、ヘッダーの`User-Agent: VRCT-VOX`のほかに実行環境の情報を送らない（`native/translation/src/http.rs`。0.4までのPythonではSDKがOSやライブラリの版などを送っていた）。LM StudioとOpenAI互換では設定したURLが送信先になり、OpenRouterでは選んだモデルの提供元にも処理が渡る。
 
-付属の`src-python/models/translation/translation_settings/prompt/translation_*.yml`は、`history.use_history: true`でチャット・マイク・スピーカーの履歴を有効にしている。直近の最大5件を、時刻と入力元を付けて含め、整形後の履歴は最大4,000文字に制限する。OCRの過去の履歴は既定では含めないが、今回の翻訳対象がOCRの本文なら送る。これらはプロンプトファイルの`use_history`、`sources`、`max_messages`、`max_chars`で決まり、履歴専用のUIスイッチはない。DeepLとCTranslate2はこの履歴を送らない。
+履歴にはチャット・マイク・スピーカーの発言を使う。直近の最大5件を、時刻と入力元を付けて含め、整形後の履歴は最大4,000文字に制限する。OCRの過去の履歴は含めないが、今回の翻訳対象がOCRの本文なら送る。これらは中核の`native/translation/src/prompt.rs`の定数（`HISTORY_SOURCES`、`HISTORY_MAX_MESSAGES`、`HISTORY_MAX_CHARS`）で決まり、履歴専用のUIスイッチはない（0.4までは`src-python`のプロンプトファイルで同じ値を決めていた）。DeepLとCTranslate2はこの履歴を送らない。
 
 翻訳用履歴はメモリー内に最大20件保持し、同じ送信先を使い続ける間だけ引き継ぐ。[同意と外部への送信](cross-cutting.md#同意と外部への送信)に従い、エンジン・URL・モデルの変更で履歴の世代を更新する。翻訳のオン・オフ、タブ、翻訳用APIキー、CTranslate2の重み、選択していないエンジンのURLやモデルを変えた場合も、誤送信を防ぐために無効にする。同じ値の再保存では無効にしない。世代を戻す処理はなく、送信先を切り替えて戻っても古い履歴は再利用しない。
 
@@ -273,7 +272,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 `dangerousDisableAssetCspModification`は既定の`false`を保つ。TauriによるHTMLのnonce/hash挿入を無効化しない。`script-src-elem`を別に指定してTauriの`script-src`への追加を無効にすることもしない。`freezePrototype`は別のprototype汚染対策であり、CSPを有効にする条件ではない。今回は既定の`false`を保つ。
 
-バックエンド（Rustの中核）はアプリの中で動き、UIとはTauriのコマンドとチャネルでつなぐ（0.4まではPython sidecarをshell pluginのstdin/stdoutでつないでいた）。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後に中核（`native/ops`）が実行する（0.4まではPython側）。モデルカード、ライセンス、Aboutの外部リンクはopenerまたは既存のPython側の処理へ渡す。ログの保存もPython側で行う。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
+バックエンド（Rustの中核）はアプリの中で動き、UIとはTauriのコマンドとチャネルでつなぐ（0.4まではPython sidecarをshell pluginのstdin/stdoutでつないでいた）。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後に中核（`native/ops`）が実行する（0.4まではPython側）。モデルカード、ライセンス、Aboutの外部リンクはopenerで開く。ログは中核が書く。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
 
 `devCsp`だけはViteのReact Refresh用inline script、HMR用style、および`ws://localhost:1420`、`ws://127.0.0.1:1420`、`ws://localhost:1421`、`ws://127.0.0.1:1421`を許す。通常のdev URLは`http://localhost:1420`。`TAURI_DEV_HOST`に別のホストを指定する場合は、開発用のローカルTauri設定で`devCsp.connect-src`にそのホストのHMR URL（ポート1421）を明記する。配布用CSPを広げない。
 

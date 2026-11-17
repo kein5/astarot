@@ -5,6 +5,11 @@
 //! (`libonnxruntime.so`) beside the executable, else by name. `ort` keeps the first library a
 //! process loads, so chat reading and translation always share one; which execution providers
 //! exist depends on that library (the CPU build, the DirectML build, the CUDA build, ...).
+//!
+//! `ort` also allows only one environment per process. In the app, chat reading makes it and
+//! translation uses it ([`share`]): two crates each building their own left the second one
+//! without ONNX Runtime for the whole run (issue #509). The comparison command and the tests,
+//! which run translation alone, build their own here.
 
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -14,19 +19,40 @@ use ort::environment::Environment;
 use crate::accelerate::Provider;
 use crate::{codes, Error, Result};
 
+/// The environment and library of the process, from whoever made them (in the app,
+/// `ocr_runtime::engine`).
+#[derive(Clone, Copy)]
+pub struct Shared {
+    /// The process's one environment, made on first use.
+    pub environment: fn() -> std::result::Result<&'static Environment, String>,
+    /// The library that environment loads.
+    pub library_path: fn() -> PathBuf,
+}
+
+static SHARED: OnceLock<Shared> = OnceLock::new();
+
+/// Uses `shared` instead of an environment of this crate's own. Call once, before translation
+/// is first used; a later call changes nothing.
+pub fn share(shared: Shared) {
+    let _ = SHARED.set(shared);
+}
+
 /// The file name of the library on this platform.
 pub fn library_name() -> String {
     format!("{}onnxruntime{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX)
 }
 
-/// The library to load: `ORT_DYLIB_PATH` when set, else the bare name (which `ort` resolves
-/// beside the executable first).
+/// The library to load: the shared one ([`share`]), else `ORT_DYLIB_PATH` when set, else the
+/// bare name (which `ort` resolves beside the executable first).
 pub fn library_path() -> PathBuf {
+    if let Some(shared) = SHARED.get() {
+        return (shared.library_path)();
+    }
     std::env::var_os("ORT_DYLIB_PATH").filter(|path| !path.is_empty()).map(PathBuf::from).unwrap_or_else(|| library_name().into())
 }
 
 /// Whether a library is where [`library_path`] points without searching the system: the
-/// variable's file, or the file beside the executable. Cheap; loads nothing.
+/// given file, or the file beside the executable. Cheap; loads nothing.
 pub fn library_present() -> bool {
     let path = library_path();
     if path.is_absolute() {
@@ -45,8 +71,12 @@ fn builder() -> std::result::Result<ort::environment::EnvironmentBuilder, ()> {
     Ok(ort::init())
 }
 
-/// The process's ONNX Runtime environment for translation, made on first use.
+/// The process's ONNX Runtime environment: the shared one, or one of this crate's own, made on
+/// first use.
 pub(crate) fn environment() -> Result<&'static Environment> {
+    if let Some(shared) = SHARED.get() {
+        return (shared.environment)().map_err(|_| Error::new(codes::RUNTIME_MISSING));
+    }
     static ENVIRONMENT: OnceLock<std::result::Result<Environment, ()>> = OnceLock::new();
     ENVIRONMENT
         .get_or_init(|| builder()?.with_name("vrct-translate").build().map_err(|_| ()))

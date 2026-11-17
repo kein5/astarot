@@ -66,7 +66,7 @@ CUDA版は0.4までPythonバックエンドのためにCUDAのライブラリを
 | `_internal/build/vrct-voice-gate`ほか（Linux） | 音声経路の補助プログラム。`vrct-voice-gate`、`vrct-source-bridge`、`vrct-vc-worker`、`vrct-asr-capture`、`vrct-screen-capture`（`tools/build_voice_gate.py`） |
 | `_internal/build/sudachi/` | 読みの辞書。`build/sudachi`にあるときだけ入る（`tools/sudachi_dictionary.py`） |
 | `_internal/config/pipewire/`（Linux） | PipeWireの設定（リポジトリの`config/pipewire`） |
-| `_internal/licenses/` | VRCT-VOXの`LICENSE`と`NOTICE.md`、Rustのクレートのライセンス文、NScurlのライセンス文（Windows） |
+| `_internal/licenses/` | リポジトリの`LICENSE`と`NOTICE.md`、Rustのクレートのライセンス文、NScurlのライセンス文（Windows） |
 
 個別にビルドするコマンドは次のとおりです。
 
@@ -144,7 +144,7 @@ npm run update-version
 
 配布先は[kein5/VRCT-VOX Releases](https://github.com/kein5/VRCT-VOX/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`VRCT-VOX.zip`または`VRCT-VOX_cuda.zip`を取得します。候補をビルドしただけでは、そのURLにファイルは存在しません。
 
-アプリ内の更新はTauriのupdaterで行い、リリースの`latest.json`を読みます（[アプリの更新](spec/external-interfaces.md#アプリの更新)）。`latest.json`と署名は下書きを作るワークフローが作ります（[配布候補の手順](voice-stack/release-candidates.md#updaterの署名とlatestjson)）。
+アプリ内の更新はTauriのupdaterで行い、リリースの`latest.json`を読みます。安定版の確認先はプロジェクトのWorker（`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`）で、Workerが最新のリリースの`latest.json`へ転送します。ベータ版（版に`-beta`があるもの）は、GitHubのリリースの一覧から最も新しい版の`latest.json`を選びます。利用者が更新のチャネルを選ぶ機能はありません（[アプリの更新](spec/external-interfaces.md#アプリの更新)）。`latest.json`と署名は下書きを作るワークフローが作ります（[配布候補の手順](voice-stack/release-candidates.md#updaterの署名とlatestjson)）。
 
 Windowsの更新は、インストール先の`.upd`内で取得済みパッケージを検証・展開してから、アプリのファイルだけを置き換えます。取得・展開失敗では旧版を保持し、置き換え失敗では退避した旧ファイルを戻します。設定・モデル・ログは置き換えません。中断からの復旧、復元に失敗したときの扱い、実際のNSISを使うWindows試験は[配布候補の手順](voice-stack/release-candidates.md#windowsのwebview2とインストール時の通信)を参照してください。
 

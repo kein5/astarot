@@ -17,9 +17,8 @@ python = "3.11.18"
 uv = "0.13.5"
 cocogitto = "7.0.0"
 
-# No uv settings in [env]: mise exports [env] to every program it starts, and the app passes
-# its environment on to the uv that installs the Seed-VC runtime, which must fetch its own
-# Python. Tasks that create environments set them for themselves instead.
+# No uv settings in [env]: mise exports [env] to every program it starts. Tasks that create
+# environments set them for themselves instead.
 
 # Every task forwards extra arguments to its command, e.g. `mise run check -- --dry-run`.
 
