@@ -69,7 +69,7 @@ As a default model, you can get Saisho Utane's RVC v2 model (CC BY 4.0, about 0.
    </template>
    <template v-slot:linux>
 
-   On Linux, press "Prepare and use virtual microphone". When it is ready, press "Resume voice". In VRChat, choose "VRCT Managed Virtual Microphone" as your microphone.
+   On Linux, press "Prepare and use virtual microphone". When it is ready, press "Unmute". In VRChat, choose "VRCT Managed Virtual Microphone" as your microphone.
 
    </template>
    </OsTabs>

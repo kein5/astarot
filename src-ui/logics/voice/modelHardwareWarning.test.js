@@ -24,14 +24,19 @@ test("the same 25% allowance as the advice is added to the model's memory", () =
     assert.equal(hardwareWarning(model(6 * GiB), ready([gpu(8 * GiB)])), null);
 });
 
-test("on auto the engine's first GPU is compared and GPU memories are never added", () => {
-    // speech.cpp's auto and gpu run on the first GPU it lists, not on the largest.
+test("on auto the separate GPU with the most memory is compared and GPU memories are never added", () => {
+    // The app starts auto and gpu on that GPU (preferred_gpu), not on the first one listed.
     const devices = [gpu(4 * GiB), gpu(12 * GiB, { name: "Vulkan1" })];
     for (const deviceMode of ["auto", "gpu"]) {
-        const warning = hardwareWarning(model(8 * GiB), ready(devices), { deviceMode });
-        assert.equal(warning.device.name, "Vulkan0");
-        assert.equal(warning.available, 4 * GiB);
+        const warning = hardwareWarning(model(12 * GiB), ready(devices), { deviceMode });
+        assert.equal(warning.device.name, "Vulkan1");
+        assert.equal(warning.available, 12 * GiB);
     }
+});
+
+test("on auto an integrated GPU is never compared", () => {
+    const devices = [gpu(32 * GiB, { kind: "igpu" }), cpu(16 * GiB)];
+    assert.equal(hardwareWarning(model(GiB), ready(devices)).reason, "no_gpu");
 });
 
 test("a GPU named in the engine's settings is the one compared", () => {
@@ -39,7 +44,7 @@ test("a GPU named in the engine's settings is the one compared", () => {
     assert.equal(hardwareWarning(model(8 * GiB), ready(devices), { deviceMode: "Vulkan0" }).reason, "low_memory");
     assert.equal(hardwareWarning(model(8 * GiB), ready(devices), { deviceMode: "Vulkan1" }), null);
     // A name the probe does not know is treated as auto.
-    assert.equal(hardwareWarning(model(8 * GiB), ready(devices), { deviceMode: "Vulkan9" }).device.name, "Vulkan0");
+    assert.equal(hardwareWarning(model(12 * GiB), ready(devices), { deviceMode: "Vulkan9" }).device.name, "Vulkan1");
 });
 
 test("an integrated GPU's shared memory does not stand in for the chosen GPU", () => {

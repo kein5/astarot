@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   draft:
-    if: github.repository == 'kein5/VRCT-VOX' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    if: github.repository == 'kein5/astarot' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -27,7 +27,7 @@ jobs:
       # Reads the candidates' build provenance (gh attestation verify).
       attestations: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The tags and history: a beta's notes list the commits since the previous release tag.
           fetch-depth: 0
@@ -97,7 +97,7 @@ jobs:
           channel = release_channel(os.environ['RELEASE_BRANCH'], version)
           require_unused_tag(version)
           payload = pathlib.Path('build/release-draft/payload')
-          command = ['gh', 'release', 'create', 'v' + version, '--repo', 'kein5/VRCT-VOX',
+          command = ['gh', 'release', 'create', 'v' + version, '--repo', 'kein5/astarot',
                      '--draft', '--target', os.environ['CANDIDATE_COMMIT'], '--title', 'VRCT-VOX ' + version,
                      '--notes-file', 'build/release-draft/notes.md']
           # Betas never become the repository's latest release.

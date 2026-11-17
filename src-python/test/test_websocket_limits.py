@@ -106,7 +106,9 @@ def test_keepalive_deadline_includes_ping_drain_and_pong(clock_loop, stalled_dra
         await client.keepalive()
         assert client.transport.aborted
         assert len(client.transport.frames) == 1  # ping was written
-        assert len(client.pong_waiters) == 1
+        # websockets 17 renamed the private pong_waiters to pending_pings.
+        pending = client.pending_pings if hasattr(client, "pending_pings") else client.pong_waiters
+        assert len(pending) == 1
         assert not client.drain_waiters
         assert clock_loop.time() == ws._PING_INTERVAL + ws._PING_TIMEOUT
     clock_loop.run_until_complete(scenario())

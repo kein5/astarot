@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import shutil
 
-REPOSITORY = "kein5/VRCT-VOX"
+REPOSITORY = "kein5/astarot"
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?")
 

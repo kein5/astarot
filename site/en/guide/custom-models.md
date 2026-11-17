@@ -10,7 +10,7 @@ What you can use depends on the feature.
 | Speech recognition (ASR) | A GGUF recognition model, VAD and diarization (optional). Or a server you run on this computer | "Speech recognition (ASR)" → "Models and servers" → "ASR + VAD" |
 | Whisper | A Whisper server of your own (OpenAI compatible) | "Speech recognition (ASR)" → "Cloud speech recognition" → "Custom Whisper server" |
 | Voice changer (RVC) | A `.pth` model and a `.index` (optional) | "Voice changer (RVC)" |
-| Translation | A model you load into LM Studio, Ollama or an OpenAI-compatible server | "Translation" → "Local LLM & Compatible Server" |
+| Translation | A model you load into LM Studio, Ollama or an OpenAI-compatible server | "Translation" → "Local LLM and compatible server" |
 | Chat reading (OCR) | Not possible | — |
 
 Each model setting has a "How to use your own model" link that opens its section of this page.
@@ -118,7 +118,7 @@ Seed-VC was removed in 0.4.0, so changing your voice with a reference WAV is no 
 The models of local AI translation are the listed ones only. To translate with another model, load it into LM Studio, Ollama or an OpenAI-compatible server and connect to that.
 
 1. Load the model into the server and start it.
-2. In Settings → "Translation" → "Local LLM & Compatible Server", press that server's connection check.
+2. In Settings → "Translation" → "Local LLM and compatible server", press that server's connection check.
 3. Choose the model, and choose the server as the translation engine on the main screen.
 
 See [Translation](../features/translation#use-local-llms-and-compatible-servers) for more.

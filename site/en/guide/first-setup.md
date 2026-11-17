@@ -24,10 +24,10 @@ By default VRCT-VOX sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>90
 
 ## 3. Choose your languages
 
-In "Language Settings" on the left of the main screen, choose:
+In "Language settings" on the left of the main screen, choose:
 
-- "Your Language" is the language you speak or type.
-- "Target Language" is the language to translate into. You can choose up to three.
+- "Your language" is the language you speak or type.
+- "Target language" is the language to translate into. You can choose up to three.
 
 ## 4. Turn on Translation and send
 
@@ -48,7 +48,7 @@ Do this before you use a voice feature (captions, text to speech, the voice chan
 - "Mic" is the microphone that picks up your voice. On Linux it lists PipeWire inputs.
 - "Speaker" is the output device VRCT-VOX listens to when it turns other players' voices into text.
 
-"Auto Select" uses the device set as the default in your OS.
+"Auto select" uses the device set as the default in your OS.
 
 ## Next
 

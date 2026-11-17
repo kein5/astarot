@@ -22,8 +22,11 @@ CPU = row("CPU", "12th Gen Intel(R) Core(TM) i7-1255U", "cpu", 32 << 30)
     # Two separate GPUs: the one with more memory.
     ([row("Vulkan0", "AMD Radeon RX 6600", "gpu", 8 << 30),
       row("Vulkan1", "NVIDIA GeForce RTX 4090", "gpu", 24 << 30)], "Vulkan1"),
-    # Only an integrated GPU (a laptop with Intel or AMD graphics only).
-    ([row("Vulkan0", "AMD Radeon(TM) 780M", "igpu"), CPU], "Vulkan0"),
+    # Only an integrated GPU (a laptop with Intel or AMD graphics only): never chosen.
+    ([row("Vulkan0", "AMD Radeon(TM) 780M", "igpu"), CPU], None),
+    # An integrated GPU with more memory than the separate one still loses.
+    ([row("Vulkan0", "Intel(R) Iris(R) Xe Graphics", "igpu", 32 << 30),
+      row("Vulkan1", "NVIDIA GeForce RTX 3050", "gpu", 4 << 30)], "Vulkan1"),
     # The Direct3D 12 mapping layer and software rasterizers are not GPUs to compute on.
     ([row("Vulkan0", "Microsoft Direct3D12 (Intel(R) Iris(R) Xe Graphics)", "igpu"), CPU], None),
     ([row("Vulkan0", "llvmpipe (LLVM 19.1.7, 256 bits)", "igpu"), CPU], None),
@@ -70,3 +73,10 @@ def test_only_devices_that_cannot_compute_mean_the_cpu_for_auto():
 
     assert resolve_device("auto", layer) == "cpu"
     assert resolve_device("gpu", layer) == "gpu"
+
+
+def test_auto_runs_on_the_cpu_when_only_an_integrated_gpu_is_shown():
+    def laptop():
+        return [row("Vulkan0", "Intel(R) Iris(R) Xe Graphics", "igpu", 16 << 30), CPU]
+
+    assert resolve_device("auto", laptop) == "cpu"

@@ -49,7 +49,7 @@ test("every URL the UI shows is on the list of URLs the app may open", () => {
 });
 
 test("other sites, other schemes and paths that climb out are refused", () => {
-    for (const url of ["https://example.com/", "http://github.com/kein5/VRCT-VOX", "https://github.com/someone/else",
-        "https://github.com/kein5/VRCT-VOX/../../someone", "https://huggingface.co@example.com/", "file:///C:/x.exe",
+    for (const url of ["https://example.com/", "http://github.com/kein5/astarot", "https://github.com/someone/else",
+        "https://github.com/kein5/astarot/../../someone", "https://huggingface.co@example.com/", "file:///C:/x.exe",
         "mailto:a@example.com"]) assert.equal(opens(url), false, url);
 });

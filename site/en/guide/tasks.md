@@ -11,7 +11,7 @@ Each section names what you need and the main steps. The full steps are on the l
 You need: VRChat's OSC, and a translation model or API {.needs}
 
 1. In VRChat's Action Menu, set "Options" → "OSC" to "Enabled".
-2. In "Language Settings" on the left of the main screen, choose your language and theirs.
+2. In "Language settings" on the left of the main screen, choose your language and theirs.
 3. Turn on "Translation" and send from the box at the bottom.
 
 See [First setup](./first-setup) and [Translation](../features/translation).
