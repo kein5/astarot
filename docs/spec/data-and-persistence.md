@@ -48,6 +48,8 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 `VIRTUAL_MIC_NOTICE_PENDING`（真偽値、既定は`true`、保存する）は、仮想マイクの案内（#321）を起動時に自分で開いてよいことを表す。Windowsで仮想ケーブルが1つも見つからないときだけ開く。「完了」か「今後は自動で表示しない」で`/set/disable/virtual_mic_notice`を送り、偽にする。偽でも「テキスト読み上げ（TTS）」の設定から開ける。流れは[UC-17](use-cases.md#uc-17-仮想マイクを用意して確かめるwindows)にある。
 
+`FIRST_RUN_SETUP_PENDING`（真偽値、既定は`true`、保存する）は、初期設定（#557）を起動時に自分で開いてよいことを表す。開くのは、ローカルの音声認識の準備が足りないとき（エンジンが未選択か、speech.cpp を同梱のサーバーで使うのに認識モデルか VAD モデルが未設定のとき）だけである。以前の版から更新した人もキーがないので真になるが、準備が足りていれば開かない。「完了」か「今後は自動で表示しない」で`/set/disable/first_run_setup`を送り、偽にする。偽でも最初の画面から開ける。流れは[UC-18](use-cases.md#uc-18-初期設定で基本機能を準備する)にある。
+
 ### 古い Whisper の重み
 
 以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（`models/transcription/old_whisper_weights.py`の`WHISPER_WEIGHT_NAMES`）。いまの版は読まない。

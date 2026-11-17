@@ -550,6 +550,8 @@ mapping = {
     # The virtual microphone guide and its check on Windows (#321).
     "/get/data/virtual_mic_notice": {"status": True, "variable":controller.getVirtualMicNotice},
     "/set/disable/virtual_mic_notice": {"status": True, "variable":controller.setDisableVirtualMicNotice},
+    "/get/data/first_run_setup": {"status": True, "variable":controller.getFirstRunSetup},
+    "/set/disable/first_run_setup": {"status": True, "variable":controller.setDisableFirstRunSetup},
     "/get/data/virtual_mic_status": {"status": True, "variable":controller.getVirtualMicStatus},
     "/run/virtual_mic_test": {"status": True, "variable":controller.runVirtualMicTest},
 

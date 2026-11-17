@@ -6,7 +6,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（136件）
+## config.jsonに保存するキー（137件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -107,6 +107,7 @@
 | `LOCAL_ASR_MIGRATION` | int、許可値 lambda v, inst: not isinstance(v, bool) and 0 <= v <= LOCAL_ASR_MIGRATION_LATEST | `LOCAL_ASR_MIGRATION_LATEST` | 2秒後にまとめて |
 | `LOCAL_ASR_NOTICE_PENDING` | bool | `False` | 2秒後にまとめて |
 | `VIRTUAL_MIC_NOTICE_PENDING` | bool | `True` | 2秒後にまとめて |
+| `FIRST_RUN_SETUP_PENDING` | bool | `True` | 2秒後にまとめて |
 | `SELECTED_PLAMO_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_GEMINI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_OPENAI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_OPENAI_MODEL_LIST') | `None` | 2秒後にまとめて |

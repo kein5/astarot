@@ -64,6 +64,7 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
         selected_translation_compute_device: record,
         local_asr_notice: boolean,
         virtual_mic_notice: boolean,
+        first_run_setup: boolean,
         virtual_mic_status: record,
         old_whisper_weights: record,
         hotkeys: value => record(value) && ["open_quick_chat", "toggle_vrct_visibility", "toggle_translation",
