@@ -19,10 +19,22 @@ use std::sync::Mutex;
 
 const LIMIT: u64 = 10 * 1024 * 1024;
 
-/// Python's markers, `client_id` for the Client ID that goes with Papago's secret (core only), and
-/// `user_model`: the names and file paths of the models a user registers (#403).
-pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 9] =
-    ["auth_key", "api_key", "password", "token", "secret", "voice_settings", "instructions", "client_id", "user_model"];
+/// Python's markers, `client_id` for the Client ID that goes with Papago's secret (core only),
+/// `user_model`: the names and file paths of the models a user registers (#403), and
+/// `translation_catalog`: the names, folders, addresses and keys of the translation entries a
+/// user adds (#413, core only).
+pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 10] = [
+    "auth_key",
+    "api_key",
+    "password",
+    "token",
+    "secret",
+    "voice_settings",
+    "instructions",
+    "client_id",
+    "user_model",
+    "translation_catalog",
+];
 
 /// Notifications that are never written to the log.
 pub const UNLOGGED_ENDPOINTS: [&str; 4] = ["/run/vr_panel_pointer", "/run/realtime_caption", "/run/word_filter", "/run/io_trace"];

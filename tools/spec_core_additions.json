@@ -1,6 +1,6 @@
 {
   "_comment": "What the Rust core (native/core) has and the Python backend never had. tools/spec_catalog.py appends these to the catalogs it reads from src-python. Error codes must be in the order of native/core/src/errors/table.rs, after Python's.",
-  "sensitive_markers": ["client_id"],
+  "sensitive_markers": ["client_id", "translation_catalog"],
   "endpoints": [
     { "endpoint": "/get/data/ollama_url", "handler": "core: OLLAMA_URL", "before_init": true },
     { "endpoint": "/set/data/ollama_url", "handler": "core: set_server_url", "before_init": true },
@@ -15,7 +15,11 @@
     { "endpoint": "/get/data/overlay_font_family", "handler": "core: OVERLAY_FONT_FAMILY", "before_init": true },
     { "endpoint": "/set/data/overlay_font_family", "handler": "core: set_overlay_font_family", "before_init": true },
     { "endpoint": "/get/data/overlay_font_missing_languages", "handler": "core: overlay_font_missing_languages", "before_init": true },
-    { "endpoint": "/get/data/vad_available", "handler": "core: services.vad", "before_init": true }
+    { "endpoint": "/get/data/vad_available", "handler": "core: services.vad", "before_init": true },
+    { "endpoint": "/get/data/translation_catalog", "handler": "core: translation_catalog_view", "before_init": true },
+    { "endpoint": "/run/register_translation_catalog_entry", "handler": "core: register_translation_entry", "before_init": false },
+    { "endpoint": "/run/remove_translation_catalog_entry", "handler": "core: remove_translation_entry", "before_init": false },
+    { "endpoint": "/run/use_translation_catalog_entry", "handler": "core: use_translation_entry", "before_init": false }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },

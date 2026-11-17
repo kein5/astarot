@@ -343,7 +343,7 @@ mod tests {
 
     #[test]
     fn bad_requests_are_refused_and_write_nothing() {
-        let (dir, catalog, folder) = setup();
+        let (dir, _catalog, folder) = setup();
         let gone = dir.path().join("gone").to_string_lossy().into_owned();
         let cases = [
             (json!({ "group": "other", "name": "x" }), codes::INVALID),
