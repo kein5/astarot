@@ -20,7 +20,8 @@ A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose o
 - Do not commit secrets, API keys, voice recordings or model files without a redistribution license.
 - New or upgraded dependencies must have a compatible license; update [NOTICE.md](NOTICE.md) when bundled components change. The app's Rust crates are pinned in the `Cargo.lock` files (`src-tauri/`, `native/rvc-runtime/`). Python dependencies, used by the development tools and tests since 0.5.0, live in `pyproject.toml` and `uv.lock` (`uv lock`).
 - Models offered for download go into the download catalog (`native/ops/src/downloads/catalog.rs`; the tests compare it with `src-python/models/model_downloads/catalog.py`, so keep both the same) with a pinned revision, file sizes, SHA-256 and the license shown before download. Do not make a model with a non-commercial or otherwise restrictive license a default.
-- User-facing text goes into `locales/`. English (`en.yml`) and Japanese (`ja.yml`) are the only UI languages; update both. Korean and Chinese were dropped as UI languages in 0.2.0 (they remain translation languages).
+- User-facing text goes into `locales/`. English (`en.yml`) and Japanese (`ja.yml`) are the only UI languages; update both in the same pull request, and do not fill a language you cannot translate with a guess. Korean and Chinese were dropped as UI languages in 0.2.0 (they remain translation languages).
+- The UI reads its text with `t()` and does not write it into the code. `tools/i18n_gate/check.mjs`, part of `python tools/dev.py check` and CI, fails on keys missing in one language, empty text, `{{variables}}` that differ between the languages, keys the UI names that do not exist, and new text hard-coded in the UI. Text that stays untranslated on purpose (product names, units) needs a reason: see [the i18n check](docs/development.md#uiの文言と翻訳の検査).
 - The app's icons and in-app logos are generated from `docs/brand/astarot/` with `tools/astarot_app_assets.py`, and the README logos from `docs/brand/` with `tools/brand_assets.py`; edit the sources there, not the generated files.
 
 Automated checks on every pull request: the model-free contract tests, the Rust backend core tests and the Python backend tests on Linux and Windows, the commit-message check, dependency review (known vulnerabilities and licenses), and CodeQL code scanning. Pull requests to `main` must pass the required checks before merging.
@@ -157,7 +158,8 @@ Issue や PR は日本語でも構いません。作業ブランチは `develop`
 - 形式の検査は commit-msg フックで行います。Cocogitto 7 を入れて、複製ごとに `cog install-hook commit-msg` を一度実行してください。CI も PR と、develop・main への push を検査します。
 - `CHANGELOG.md` に載せるのは正式版だけです。正式版のリリースを準備するときに `npm run changelog` で書きます。ベータ版の変更は GitHub のプレリリースのノートに載せます。機能のブランチでは編集しません。手順と分類は上の「Changelog and releases」にあります。
 - テストと確認した内容を PR に書いてください。
-- 表示する文言は `locales/` の英語と日本語の両方に足します。
+- 表示する文言は `locales/` の英語と日本語の両方に、同じ PR で足します。訳せない文言を推測で埋めません。
+- UI は文言を `t()` で取り出し、コードに直接書きません。`python tools/dev.py check` と CI が `tools/i18n_gate/check.mjs` で検査します。片方の言語にないキー、空の値、言語で食い違う補間変数、存在しないキーの参照、新しい直書きがあると失敗します。わざと訳さない文字列（製品名や単位など）には理由を書きます。書き方は [docs/development.md](docs/development.md#uiの文言と翻訳の検査) にあります。
 - ダウンロードできるモデルは、版・サイズ・SHA-256・ライセンスを固定してカタログに登録します。非商用ライセンスのモデルは既定にしません。
 
 脆弱性は SECURITY.md の手順で非公開に報告してください。

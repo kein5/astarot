@@ -123,7 +123,7 @@ python tools/dev.py check --scope rust --dry-run
 | スコープ | 内容 |
 | --- | --- |
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
-| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` を全列挙して `node --test`。TypeScript のソースを直接読み込めるよう `--experimental-strip-types` を付ける |
+| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` を全列挙して `node --test`。TypeScript のソースを直接読み込めるよう `--experimental-strip-types` を付ける。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`src-python/` の音声まわり、`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験4件 |
 | `ui` | Nodeの試験、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
@@ -161,6 +161,36 @@ Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探し
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.js` が食い違いを検出します）。
 - Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.js` がその数を数えています。
+
+## UIの文言と翻訳の検査
+
+利用者に見せる文言は `locales/en.yml` と `locales/ja.yml` が正本です。UIは `t("キー")` で取り出し、コードに直接書きません。対象はラベル、ボタン、説明、通知、ダイアログ、検証のメッセージ、ツールチップ、読み上げ用の名前と説明、バックエンドのエラーを表示する文言です。
+
+`tools/i18n_gate/check.mjs` がこれを検査します。`check --scope node` と `check --scope ui` に含まれ、CIでも動きます。失敗するとファイルと行と原因を表示します。
+
+```sh
+node tools/i18n_gate/check.mjs                    # 検査だけ
+node tools/i18n_gate/check.mjs --inventory        # 既知の直書きを場所と種類ごとに数える
+node tools/i18n_gate/check.mjs --update-baseline  # 直書きを減らしたあとに基準を書き直す
+```
+
+検査する内容は次のとおりです。
+
+- 英語と日本語で、キーの集合が同じこと。値が空でないこと。
+- `{{name}}` の補間変数が英語と同じ名前の組であること。
+- 複数形（`_one`、`_other` など）に、その言語が必要とする形がそろっていること。`$t(キー)` の参照先があること。
+- UIが名指しするキーが `en.yml` にあること。`t()`、`i18n.t()`、`i18nKey`、テンプレートの固定部分（`` t(`main_page.${id}`) `` なら `main_page`）、既知の名前空間のキーに見える文字列が対象です。
+- JSXの文字列、利用者に見える属性（`title`、`placeholder`、`alt`、`label`、`aria-label` など）、選択肢の `label` などに、新しい直書きがないこと。
+
+検査を始めたときにあった直書きは `tools/i18n_gate/baseline.json` にファイルごとの件数で記録してあります。件数が増えると失敗します。減ったときも、消した直書きが戻らないように、`--update-baseline` で基準を書き直すまで失敗します。
+
+翻訳しない文字列は理由を書いて例外にします。
+
+- 製品名、サービス名、プロトコル名、単位は `tools/i18n_gate/exceptions.yml` の `terms` に足します。
+- 1行だけなら、その行の末尾か直前の行に `// i18n-exempt: 理由`（JSXの中では `{/* i18n-exempt: 理由 */}`）と書きます。
+- 続く数行なら `// i18n-exempt-start: 理由` と `// i18n-exempt-end` で囲みます。
+
+利用者の入力、外部から受け取った名前、プロトコルの識別子、ログだけに出す文字列は、もともと翻訳の対象ではありません。検査もそれらを画面の文言とは見なしません。キーを組み立てて渡す箇所（`` t(`backend_errors.${code}`) `` など）は固定部分しか確かめられないので、試験で補います。
 
 ## VRの機器なしでVRの処理を試す
 
