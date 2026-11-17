@@ -4,7 +4,7 @@ import { useStore_SelectableFontFamilyList } from "@store";
 import { useVr } from "@logics_configs";
 import { useIsOpenedConfigPage } from "@logics_common";
 import { DropdownMenuContainer } from "../_templates/Templates";
-import { missingLanguagesText } from "../../../../../../logics/common/fontLanguages.js";
+import { missingLanguagesText } from "../../../../../../logics/common/fontLanguages";
 
 // The subtitles' font, from the fonts on this PC (the same list as the app's font). No font is
 // bundled: when no font here can show a language, the description says so.

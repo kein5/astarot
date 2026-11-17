@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { directRvcSelection, directSavedDraft, directSelectionPending, directShowsConversion } from "./directVoiceDraft.ts";
-import { changedPaths } from "./saveBar.js";
+import { changedPaths } from "./saveBar.ts";
 
 const defaults = { mode: "passthrough", engine: "rvc", rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0 };
 const rvcSaved = { mode: "converted", engine: "rvc", rvc_runtime: "/rvc", rvc_model: "voice.pth", rvc_index: "", rvc_pitch: 3 };

@@ -20,7 +20,7 @@ test("a StrictMode effect replay keeps the original opener for focus return", as
     const modal = { open: false, contains: () => false,
         showModal() { this.open = true; doc.activeElement = { tagName: "A" }; },
         close() { this.open = false; doc.activeElement = body; } };
-    const { useConsentDialog } = await loadModule(new URL("./useConsentDialog.js", import.meta.url), hooks(),
+    const { useConsentDialog } = await loadModule(new URL("./useConsentDialog.ts", import.meta.url), hooks(),
         { react });
     const render = open => {
         refIndex = 0;

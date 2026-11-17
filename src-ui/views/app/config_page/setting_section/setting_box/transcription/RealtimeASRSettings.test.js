@@ -14,7 +14,7 @@ async function fixture(context) {
     };
     stubGlobals(context, { window });
     runtime.api.useSyncExternalStore = (_, snapshot) => snapshot();
-    const saveBar = await loadModule(new URL("../../../../../../logics/voice/saveBar.js", import.meta.url), runtime);
+    const saveBar = await loadModule(new URL("../../../../../../logics/voice/saveBar.ts", import.meta.url), runtime);
     const draftHooks = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.jsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": saveBar,
     });

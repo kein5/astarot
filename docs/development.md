@@ -156,7 +156,8 @@ Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探し
 
 - 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。新しいスタイルはvanilla-extract（`.css.ts`）で書きます。
 - 型チェックは `npm run typecheck` です。`check --scope ui` も実行し、CIでも動きます。TypeScriptのファイルは `strict` で検査します。JavaScriptのファイルは検査せず、型を推論して読むだけです。
-- `any`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。
+- `any`、`as unknown as`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。`check --scope tooling` の `test_typescript_strictness.py` がこれらを数えます。
+- 移す順序と残りの範囲は [TypeScript 移行計画](typescript-migration.md) にあります。
 - Nodeの試験はTypeScriptのソースを `node --experimental-strip-types` でそのまま読み込みます。このため、消去できる構文だけを使います（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）。型だけのimportは `import type` にします。相対importは `./name.ts` のように拡張子まで書きます。
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.js` が食い違いを検出します）。

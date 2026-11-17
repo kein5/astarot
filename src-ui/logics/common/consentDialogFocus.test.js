@@ -24,7 +24,7 @@ async function fixture(context, kind, openerState) {
     stubGlobals(context, { document: { activeElement: opener } });
     const modal = { open: false, showModal() { this.open = true; },
         close() { this.open = false; order.push("close"); } };
-    const dialogHooks = await loadModule(new URL("./useConsentDialog.js", import.meta.url), runtime);
+    const dialogHooks = await loadModule(new URL("./useConsentDialog.ts", import.meta.url), runtime);
     const downloads = { catalog: { models: [{ ...entry, target: kind === "ocr" ? "ocr" : "rvc" }],
         legacy_models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {}, ensureHardware: () => {}, send: (endpoint, data) => {
         calls.push([endpoint, data]);

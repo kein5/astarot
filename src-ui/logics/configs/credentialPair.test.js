@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.js";
 import { flush, loadBridgeRoutes } from "../test/bridgeHarness.js";
 import { rebaseDraft } from "../voice/draftRebase.ts";
-import { changedPaths } from "../voice/saveBar.js";
+import { changedPaths } from "../voice/saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 import { endpointDescription } from "../common/endpointPrivacy.ts";
 
