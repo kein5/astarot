@@ -118,7 +118,9 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/vr_panel_tooltip", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/update_cuda_software", ns: null, hook_name: null, method_name: null },
 
-    { endpoint: "/get/data/main_window_geometry", ns: common, hook_name: "useWindow", method_name: "restoreWindowGeometry" },
+    // The app places the window before it shows it (src-tauri/src/window_placement.rs); moving it
+    // again here, once the engine was ready, made it jump.
+    { endpoint: "/get/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
     { endpoint: "/set/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
 
     { endpoint: "/run/open_filepath_logs", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_MessageLogs" },

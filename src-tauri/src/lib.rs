@@ -12,6 +12,7 @@ mod companion;
 mod quick_chat;
 mod single_instance;
 mod vr_panel_state;
+mod window_placement;
 #[cfg(test)]
 mod opener_scope_tests;
 #[cfg(target_os = "linux")]
@@ -191,6 +192,11 @@ pub fn run() {
             let main_window = app.get_webview_window("main").ok_or_else(|| {
                 Error::other("main webview window was not created")
             })?;
+            // Made hidden (tauri.conf.json): it goes to its saved place before it is first shown,
+            // so it does not show centred and then jump there once the engine is ready.
+            if let Ok(executable) = std::env::current_exe() {
+                window_placement::apply(&main_window, &backend_host::state_dir(&executable));
+            }
             // The tray icon's Title (the name tray settings list it by) is the application name,
             // which GLib takes from the program's file name when none is set: "AppRun.wrapped"
             // in the AppImage. The program name itself stays, as the desktop entry matches it.

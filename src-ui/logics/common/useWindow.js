@@ -1,10 +1,8 @@
 import { useEffect, useRef } from "react";
-import { currentMonitor, availableMonitors, PhysicalPosition, PhysicalSize } from "@tauri-apps/api/window";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useStore_IsBreakPoint } from "@store";
 import { useAppearance } from "@logics_configs";
 import { store } from "@store";
-import { isBuiltInGeometry, sizeToRestore } from "./windowGeometry.ts";
 
 // Time the backend gets to save the settings after /run/shutdown. Closing the
 // window ends the app, and the shell plugin then kills the backend.
@@ -69,61 +67,8 @@ export const useWindow = () => {
         asyncStdoutToPython("/set/data/main_window_geometry", data);
     };
 
-    const restoreWindowGeometry = async (data) => {
-        try {
-            const monitors = await availableMonitors();
-            const { x_pos, y_pos } = data;
-
-            // ウィンドウが属するモニターを特定
-            const targetMonitor = monitors.find(monitor =>
-                x_pos >= monitor.position.x &&
-                y_pos >= monitor.position.y &&
-                x_pos < monitor.position.x + monitor.size.width &&
-                y_pos < monitor.position.y + monitor.size.height
-            ) || await currentMonitor();
-
-            if (targetMonitor) {
-                const { width, height } = sizeToRestore(data, targetMonitor.scaleFactor);
-                // The first window also stays clear of the taskbar; a saved geometry keeps the monitor's bounds.
-                const bounds = isBuiltInGeometry(data) && targetMonitor.workArea ? targetMonitor.workArea : targetMonitor;
-                const { width: monitorWidth, height: monitorHeight } = bounds.size;
-                const { x: monitorX, y: monitorY } = bounds.position;
-
-                // ウィンドウのサイズをモニターサイズ内に収める
-                let adjustedWidth = Math.min(parseInt(width), monitorWidth);
-                let adjustedHeight = Math.min(parseInt(height), monitorHeight);
-
-                // ウィンドウの位置をモニターの範囲内に収める
-                let adjustedX = parseInt(x_pos);
-                let adjustedY = parseInt(y_pos);
-
-                // X座標がモニター左にはみ出ている場合
-                if (adjustedX < monitorX) {
-                    adjustedX = monitorX;
-                }
-                // X座標がモニター右にはみ出ている場合
-                else if (adjustedX + adjustedWidth > monitorX + monitorWidth) {
-                    adjustedX = monitorX + monitorWidth - adjustedWidth;
-                }
-
-                // Y座標がモニター上にはみ出ている場合
-                if (adjustedY < monitorY) {
-                    adjustedY = monitorY;
-                }
-                // Y座標がモニター下にはみ出ている場合
-                else if (adjustedY + adjustedHeight > monitorY + monitorHeight) {
-                    adjustedY = monitorY + monitorHeight - adjustedHeight;
-                }
-
-                await appWindow.setPosition(new PhysicalPosition(adjustedX, adjustedY));
-                await appWindow.setSize(new PhysicalSize(adjustedWidth, adjustedHeight));
-            } else {
-                console.error("Monitor information could not be retrieved.");
-            }
-        } catch (err) {
-            console.error("Error setting window position and size:", err);
-        }
-    };
+    // The saved geometry is applied before the window is first shown
+    // (src-tauri/src/window_placement.rs), not here.
 
     const asyncUpdateBreakPoint = async () => {
         const size = await appWindow.innerSize();
@@ -162,7 +107,6 @@ export const useWindow = () => {
 
     return {
         asyncSaveWindowGeometry,
-        restoreWindowGeometry,
         asyncUpdateBreakPoint,
 
         asyncCloseApp,

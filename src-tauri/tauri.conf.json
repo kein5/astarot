@@ -15,6 +15,7 @@
             {
                 "title": "ASTAROT",
                 "center": true,
+                "visible": false,
                 "width": 870,
                 "height": 654,
                 "minWidth": 400,

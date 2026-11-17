@@ -424,9 +424,7 @@ test("the window geometry controller keeps its listeners and only sends layout c
         "@tauri-apps/api/window": {},
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython() {} }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
-        "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: scaling } }) },
-        "./windowGeometry.ts": await import("./windowGeometry.ts"),
-    });
+        "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: scaling } }) },    });
     const settle = () => new Promise(resolve => setTimeout(resolve));
     // A module-level component: re-rendering its parent must not remount it.
     for (let i = 0; i < 3; i++) runtime.render(WindowGeometryController);
@@ -459,9 +457,7 @@ test("while the engine starts, resizing updates the layout but does not save the
         "@tauri-apps/api/window": {},
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => sent.push([endpoint, data]) }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
-        "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
-        "./windowGeometry.ts": await import("./windowGeometry.ts"),
-    });
+        "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },    });
     const settle = () => new Promise(resolve => setTimeout(resolve, 250));
     runtime.render(WindowGeometryController, { saveGeometry: false });
     await settle();
