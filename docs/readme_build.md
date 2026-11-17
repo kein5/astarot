@@ -89,7 +89,7 @@ node --test src-ui/logics/common/contentSecurityPolicy.test.js
 
 WindowsのWebView2とLinuxのWebKitGTKで、それぞれ次を実施する。Linuxの実機操作は`tools/display_power_guard.py`の下で行う。OS、Webviewの版、コミット、ビルド設定、操作したウィンドウ、Console/Networkの記録を残す。
 
-1. `main`、`quick_chat`、`vr_panel`それぞれにInspectorを接続する。現在のCargo設定には`devtools`機能があるが、releaseでは自動でInspectorを開かない。必要なら検証専用のローカル変更でmainの`devtools: true`と動的ウィンドウbuilderの`.devtools(true)`を指定し、作成後にRustの`open_devtools()`を呼ぶ。CSPの変更や`tauri dev`への切り替えはしない。VRパネルは画面外にあるため、mainだけを検査して済ませない。この検証用変更は配布しない。
+1. `main`、`quick_chat`、`vr_panel`それぞれにInspectorを接続する。配布するreleaseではInspectorを使えない（`src-tauri/Cargo.toml`の`tauri`に`devtools`機能を付けていない）。検証専用のローカル変更で`devtools`機能を足し、mainの`devtools: true`と動的ウィンドウbuilderの`.devtools(true)`を指定し、作成後にRustの`open_devtools()`を呼ぶ。CSPの変更や`tauri dev`への切り替えはしない。VRパネルは画面外にあるため、mainだけを検査して済ませない。この検証用変更は配布しない。
 2. Consoleの全レベルとログ保持を有効にして各ページを再読み込みする。NetworkでHTML応答の`Content-Security-Policy`を確認する。設定したdirectiveに加え、Tauriが生成したnonce/hashがある場合も正常。`frame-ancestors`はmetaタグでは効かないため、HTMLにmetaを追加するだけで検証を代替しない。
 3. 下表の操作を実施する。`Refused to …`、`Content Security Policy`、`blocked:csp`、`securitypolicyviolation`を探す。動作中の記録には以下のlistenerも使える。listenerをConsoleから登録した場合、それ以前の違反や再読み込み後の違反はこの配列には入らないので、Consoleのブラウザー自身のエラーと併せて確認する。
 4. 記録を保存した後、検証用のinline scriptをDOMへ追加すると拒否されることも確かめる。例えば`const s = document.createElement('script'); s.textContent = 'window.__cspProbeExecuted = true'; document.head.append(s)`をInspectorで実行する。`__cspProbeExecuted`が設定されず、`script-src`違反が記録されることを確認する。この意図した違反は通常操作の結果と分けて記録する。

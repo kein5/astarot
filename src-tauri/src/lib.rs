@@ -422,6 +422,15 @@ mod tests {
     }
 
     #[test]
+    fn a_release_has_no_web_inspector() {
+        // Tauri's `devtools` feature turns the inspector on in a release for every window that does
+        // not turn it off itself (Issue #456). A debug build has it without the feature.
+        let manifest = include_str!("../Cargo.toml");
+        let tauri = manifest.lines().find(|line| line.starts_with("tauri = ")).expect("the tauri dependency");
+        assert!(!tauri.contains("devtools"), "{tauri}");
+    }
+
+    #[test]
     #[cfg(windows)]
     fn startup_log_is_stored_next_to_the_application() {
         assert_eq!(
