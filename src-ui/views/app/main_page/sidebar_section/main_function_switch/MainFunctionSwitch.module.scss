@@ -53,12 +53,12 @@
     }
 
     // Beside the icon button in the wide rail: the row draws the background and the tint,
-    // the switch only its hover. The icon button takes the row's left padding, so the
-    // label starts where it did when the icon was part of the switch.
+    // the switch only its hover. The icon button takes the row's left padding; the label
+    // keeps a small gap from the button's frame.
     &.in_row {
         flex: 1 1 0;
         min-width: 0;
-        padding-left: .2rem;
+        padding-left: .6rem;
         &:not(:hover):not(:active) { background-color: transparent; }
     }
 }
@@ -75,6 +75,8 @@
 
 // Opens the feature's settings. The same size whatever the state, so nothing moves when the
 // engine's state arrives. 2.8rem square: a pointer target of at least 24 CSS pixels.
+// Drawn as a button at rest (the raised surface and hairline of the other plain buttons), not
+// only on hover or focus, so it reads as something to press beside the switch.
 .settings_button {
     flex: none;
     display: flex;
@@ -84,9 +86,9 @@
     height: 2.8rem;
     margin-left: .6rem;
     padding: 0;
-    border: none;
+    border: .1rem solid var(--vox_border);
     border-radius: var(--vox_radius);
-    background-color: transparent;
+    background-color: var(--vox_surface);
     color: inherit;
     cursor: pointer;
     &:hover { background-color: var(--dark_800_color); }
