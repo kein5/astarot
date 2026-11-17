@@ -19,7 +19,7 @@ from typing import Optional
 import numpy as np
 
 DIRECTORY_ENV = "VRCT_VR_PANEL_DIR"
-VR_PANEL_TITLE = "VRCT-VOX VR Panel"
+VR_PANEL_TITLE = "ASTAROT VR Panel"
 
 _MAGIC = b"VRCTVRP1"
 # 先頭64バイト: 目印, 通し番号 (書き換え中は奇数), VR画面の番号 (0 は無い), 幅, 高さ, 1行のバイト数
