@@ -25,7 +25,7 @@ export interface SidecarSession {
     early?: Array<{ readonly [key: string]: unknown }>;
 }
 
-// The fields of the shared UI store (store.js) the session owner reads and writes.
+// The fields of the shared UI store (store.ts) the session owner reads and writes.
 export interface SidecarSessionStore {
     backend_session: SidecarSession | null;
     backend_subprocess: BackendChild | null;
