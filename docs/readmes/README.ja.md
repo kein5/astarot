@@ -20,7 +20,7 @@
   <a href="https://github.com/kein5/VRCT-VOX"><img alt="GitHubのスター数" src="https://img.shields.io/github/stars/kein5/VRCT-VOX?label=stars&style=flat"></a>
 </p>
 <p align="center">
-  <a href="https://kein5.github.io/VRCT-VOX/ja/guide/requirements"><img alt="対応OS: WindowsとLinux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
+  <a href="https://kein5.github.io/astarot/ja/guide/requirements"><img alt="対応OS: WindowsとLinux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
   <a href="/src-tauri/Cargo.toml"><img alt="アプリのRustのedition" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
   <a href="/mise.toml"><img alt="mise.tomlで固定したRustのツールチェーン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
   <a href="/pyproject.toml"><img alt="開発ツールと試験に使うPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
