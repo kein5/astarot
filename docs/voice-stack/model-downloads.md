@@ -64,13 +64,13 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 - おすすめは、speech.cppが言語ごとに「最初に使うモデル」として示すものを使う。アプリでは別に決めない。2026-11-16時点では、日本語がreazonspeech-v2、ウクライナ語などヨーロッパの9言語がparakeet-tdt-0.6b-v3、ほかの言語がqwen3-asr-0.6bである。名前が取得するファイル（既定の種類）の行にだけ付く。
 - `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーである。測った機器は`memory_measured_on`に書く（Nemotron 3.5 TranscribeはH100、ほかはApple M5）。このPCでの値でも、必要量の保証でもない。`tier`は1.5 GiB以下をlight、4 GiB以下をmedium、それより大きいものをheavyとする。
-- `cpu`は、CPUで動かして確かめたものだけを書く。`slow`はVRCT-VOXが測ったもの、`practical`はspeech.cppがCPUで動かす作りのもの（VAD）、ほかは`unverified`である。`gpu`はVAD以外を`recommended`にした。モデルカードの測定はどれもGPUで、下の測定でもGPUのほうがずっと速かった。
+- `cpu`は、CPUで動かして確かめたものだけを書く。`slow`はASTAROTが測ったもの、`practical`はspeech.cppがCPUで動かす作りのもの（VAD）、ほかは`unverified`である。`gpu`はVAD以外を`recommended`にした。モデルカードの測定はどれもGPUで、下の測定でもGPUのほうがずっと速かった。
 - 2026-11-16の測定。Windows 11、Intel Core i7-1255U、NVIDIA RTX 3060 Ti（Thunderbolt接続、Vulkan1）、speech.cpp 0.11.0、Qwen3-ASR 0.6B Q8_0、言語は`ja`。Windowsの合成音声（10.2秒の日本語1文）を`speech asr`で認識させ、1ファイルと6ファイルの所要時間の差から1発話あたりを出した。各2回で、CPUは2.95秒と4.26秒、GPUは0.08秒と0.16秒だった。CPUでも動くが、字幕は発話の後に数秒遅れる。合成音声1文での測定で、精度の評価ではない。
 
 読み上げの行（2026-11-16に追加）：
 
 - `catalog.py`で手で固定した行なので、`PROFILES`の`ids`で、ファイルの種類ごとにカタログのIDを指す（Irodori MFのF16は`irodori-v41-f16`など）。
-- おすすめは`PROFILES`の`recommended_for`で、speech.cppの`start`を置き換える。speech.cppは日本語にもQwen3-TTS 0.6Bを勧めるが、VRCT-VOXは日本語をIrodori（japaneseプロファイル）で、ほかの言語をQwen3-TTS（multilingualプロファイル）で読むためである。日本語はIrodori MFのF16、ほかの9言語はQwen3-TTS 0.6BのQ8_0で、どちらもアプリが最初から選ぶファイルである。ほかの読み上げの行は空。Irodori LargeはGemmaの利用規約に従うので、おすすめにしない。
+- おすすめは`PROFILES`の`recommended_for`で、speech.cppの`start`を置き換える。speech.cppは日本語にもQwen3-TTS 0.6Bを勧めるが、ASTAROTは日本語をIrodori（japaneseプロファイル）で、ほかの言語をQwen3-TTS（multilingualプロファイル）で読むためである。日本語はIrodori MFのF16、ほかの9言語はQwen3-TTS 0.6BのQ8_0で、どちらもアプリが最初から選ぶファイルである。ほかの読み上げの行は空。Irodori LargeはGemmaの利用規約に従うので、おすすめにしない。
 - `cpu`は`impractical`。i7-1255UのCPUでspeech.cpp 0.10.0を動かした（2026-11-16、短い日本語5文）。Irodori MF F16は最初の音まで3〜7秒で、生成は実時間の約4倍遅く、再生が途切れる。Qwen3-TTS 1.7B Q8_0は最初の音まで約1秒だが、生成は約3倍遅い。Irodori Small F16は最初の音まで20〜100秒だった。LargeとQwen3-TTS 0.6BはCPUで測っていないが、大きさから同じ扱いにした。`gpu`は`recommended`。
 - `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーで、どれもApple M5（Metal）での値である。
 ### カタログ画面（0.5.0）

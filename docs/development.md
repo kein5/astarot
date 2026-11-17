@@ -1,4 +1,4 @@
-# VRCT-VOXの開発
+# ASTAROTの開発
 
 開発に使うツールの版はリポジトリの直下にある `mise.toml` で固定しています。よく使う手順も [mise](https://mise.jdx.dev/) のタスクにしてあります。
 

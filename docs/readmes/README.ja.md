@@ -1,7 +1,7 @@
 <h1 align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../brand/logo-ja-on-dark.svg">
-    <img src="../brand/logo-ja-on-light.svg" width="800" alt="VRCT-VOX：音声認識、音声合成、声質変換、文字認識、翻訳">
+    <source media="(prefers-color-scheme: dark)" srcset="../brand/astarot/logo-horizontal-dark.png">
+    <img src="../brand/astarot/logo-horizontal-light.png" width="700" alt="ASTAROT: Speech, Translation, Accessibility, Revoicing &amp; OCR Toolkit">
   </picture>
 </h1>
 
@@ -29,7 +29,7 @@
 
 [English](/README.md)
 
-VRCT-VOXは音声認識（ASR）、読み上げ（TTS）、ボイスチェンジ（RVC）、チャット読み取り（OCR）、翻訳をまとめたVRChat向けのデスクトップアプリです。[VRCT](https://github.com/misyaguziya/VRCT)をもとに[kein5](https://github.com/kein5)が開発しています。**VRCTの公式版ではなく、VRCTの開発者やVRChatが承認したものでもありません。**
+ASTAROT（旧名VRCT-VOX）は音声認識（ASR）、読み上げ（TTS）、ボイスチェンジ（RVC）、チャット読み取り（OCR）、翻訳をまとめたVRChat向けのデスクトップアプリです。[VRCT](https://github.com/misyaguziya/VRCT)をもとに[kein5](https://github.com/kein5)が開発しています。**VRCTの公式版ではなく、VRCTの開発者やVRChatが承認したものでもありません。**
 
 ## できること
 
@@ -58,32 +58,32 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 - LinuxのVR UIと、VRヘッドセットの画面のチャット読み取りは、SteamVRの代わりになる試験用の仕組みでだけ確認しました。実際のヘッドセットでは確認していません。Linux版の動作確認はKDE Plasma（Wayland）だけです。
 - Google・Bing・PapagoのWeb翻訳は使えません（ライセンスの項を参照）。
 
-不具合の報告や質問は **[Issues](https://github.com/kein5/VRCT-VOX/issues)** へ、OS・バージョン・再現手順と、個人情報を除いたログを添えてお寄せください。脆弱性は[SECURITY.md](/SECURITY.md)の手順で非公開に報告してください。VRCT-VOXについての問い合わせを本家VRCTの開発者へ送らないでください。
+不具合の報告や質問は **[Issues](https://github.com/kein5/VRCT-VOX/issues)** へ、OS・バージョン・再現手順と、個人情報を除いたログを添えてお寄せください。脆弱性は[SECURITY.md](/SECURITY.md)の手順で非公開に報告してください。ASTAROTについての問い合わせを本家VRCTの開発者へ送らないでください。
 
 ## 使い始めるには
 
 - [TTS設定ガイド](/docs/voice-stack/tts-quickstart-ja.md)
 - [トラブルシューティング](/docs/voice-stack/troubleshooting.md)
 - [モデル取得とGPU・VRAMの目安](/docs/voice-stack/model-downloads.md)
-- [本家VRCTのドキュメント](https://misyaguziya.github.io/VRCT-Docs/)（本家アプリの説明で、VRCT-VOXの音声機能は含みません）
+- [本家VRCTのドキュメント](https://misyaguziya.github.io/VRCT-Docs/)（本家アプリの説明で、ASTAROTの音声機能は含みません）
 
 ## 名称と保存先
 
-実行ファイルと配布物は`vrct-vox` / `VRCT-VOX`、アプリIDは`io.github.kein5.vrct-vox`です。Linuxでは設定・データ・キャッシュを`vrct-vox`ディレクトリ（`~/.config/vrct-vox`など）に保存します。詳しくは[名称と識別子](/docs/voice-stack/project-rename.md)を参照してください。
+画面にはASTAROTと表示しますが、実行ファイルと配布物は`vrct-vox` / `VRCT-VOX`、アプリIDは`io.github.kein5.vrct-vox`のままです。Linuxでは設定・データ・キャッシュを`vrct-vox`ディレクトリ（`~/.config/vrct-vox`など）に保存します。詳しくは[名称と識別子](/docs/voice-stack/project-rename.md)を参照してください。
 
 ## プライバシーとモデル
 
-VRCT-VOXはオフにしない限り、2種類の利用状況の通知をVRCT-VOXの受信サーバーへ送ります（「設定」→「高度な設定」の「利用状況を送信する」）。起動したこと（1日に1回）と、エラーの種類を表す固定のコード（同じコードにつき1日に1回）です。どちらにもアプリのバージョン、OSの種類とバージョン、表示言語、PCの構成（CPU、メモリ、GPUとそのドライバのバージョン）が付きます。送られる内容はアプリの「送信される内容を見る」でそのまま確かめられます。会話の文字や音声、マイクやスピーカーの名前、ユーザー名は送りません。最初に出るお知らせに答えるまでは何も送りません。本家VRCTのAptabaseのテレメトリーは使いません（本家の古いキーファイルが残っていても送信しません）。ユーザーが選んだ翻訳サービスや音声サービスには、送った文字や音声が届きます。利用状況の送信を止めても、すべての機能がオフラインになるわけではありません。
+ASTAROTはオフにしない限り、2種類の利用状況の通知をASTAROTの受信サーバーへ送ります（「設定」→「高度な設定」の「利用状況を送信する」）。起動したこと（1日に1回）と、エラーの種類を表す固定のコード（同じコードにつき1日に1回）です。どちらにもアプリのバージョン、OSの種類とバージョン、表示言語、PCの構成（CPU、メモリ、GPUとそのドライバのバージョン）が付きます。送られる内容はアプリの「送信される内容を見る」でそのまま確かめられます。会話の文字や音声、マイクやスピーカーの名前、ユーザー名は送りません。最初に出るお知らせに答えるまでは何も送りません。本家VRCTのAptabaseのテレメトリーは使いません（本家の古いキーファイルが残っていても送信しません）。ユーザーが選んだ翻訳サービスや音声サービスには、送った文字や音声が届きます。利用状況の送信を止めても、すべての機能がオフラインになるわけではありません。
 
 モデルは同梱していません。TTS・音声認識・RVCのモデルは、ユーザーが求めたときだけ取得するか、ユーザー自身が用意します。配布物にはOCRの重みを一切入れていません。本家のチャット欄検出モデルはforkの配布物に含めることが許されていないため、0.2.0でリポジトリからも消しました。0.1.0までのコミットには、その[利用条件](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt)のもとでモデルが残っているので、古いソース一式をそのまま配布しないでください。検証用の音声Mia2026は配布しません。同梱のspeech.cpp本体にはそれぞれの表記があり、モデルのライセンスはモデルごとに異なります。
 
 ## ライセンスと謝辞
 
-VRCT-VOXは[MIT License](/LICENSE)で、本家VRCTの著作権表示を残しています。外部エンジン、モデル、GPL表示のSeed-VC連携にはそれぞれの条件があり、音声機能全体をMITとは主張しません。配布物に含まれるLGPL・GPLの部品、ソースの入手先、差し替え方法は[NOTICE](/NOTICE.md)にあります。GPLのx264/x265を含むPyAVと、公式VRCT専用ライセンスの`translator_engines`は配布しません。`translator_engines`を配布しないため、Google・Bing・PapagoのWeb翻訳は使えません。
+ASTAROTは[MIT License](/LICENSE)で、本家VRCTの著作権表示を残しています。外部エンジン、モデル、GPL表示のSeed-VC連携にはそれぞれの条件があり、音声機能全体をMITとは主張しません。配布物に含まれるLGPL・GPLの部品、ソースの入手先、差し替え方法は[NOTICE](/NOTICE.md)にあります。GPLのx264/x265を含むPyAVと、公式VRCT専用ライセンスの`translator_engines`は配布しません。`translator_engines`を配布しないため、Google・Bing・PapagoのWeb翻訳は使えません。
 
-本家VRCTの、みしゃ（misyaguziya）さん（メイン開発）、しいな（Shiina_12siy）さん（UI/UXとローカライズ）、レラ（soumt-r）さん（技術的な助言）、どね（done_vrc）さん（ロゴ）、そして[すべての貢献者](https://github.com/misyaguziya/VRCT/graphs/contributors)に感謝します。VRCT-VOXは皆さんの成果の上に成り立っています。現在は本家に追従しておらず、リポジトリの所有者が決めない限り本家へ何かを送ることはありません（[方針](/docs/voice-stack/publication-and-upstream.md)）。
+本家VRCTの、みしゃ（misyaguziya）さん（メイン開発）、しいな（Shiina_12siy）さん（UI/UXとローカライズ）、レラ（soumt-r）さん（技術的な助言）、どね（done_vrc）さん（ロゴ）、そして[すべての貢献者](https://github.com/misyaguziya/VRCT/graphs/contributors)に感謝します。ASTAROTは皆さんの成果の上に成り立っています。現在は本家に追従しておらず、リポジトリの所有者が決めない限り本家へ何かを送ることはありません（[方針](/docs/voice-stack/publication-and-upstream.md)）。
 
-VRChatおよび関連する名称はVRChat Inc.の商標または登録商標です。VRCT-VOXはVRChat Inc.と関係ありません。
+VRChatおよび関連する名称はVRChat Inc.の商標または登録商標です。ASTAROTはVRChat Inc.と関係ありません。
 
 ## 開発
 

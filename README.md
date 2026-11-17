@@ -1,7 +1,7 @@
 <h1 align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-en-on-dark.svg">
-    <img src="docs/brand/logo-en-on-light.svg" width="800" alt="VRCT-VOX: speech recognition, text to speech, voice conversion, screen text reading and translation">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/astarot/logo-horizontal-dark.png">
+    <img src="docs/brand/astarot/logo-horizontal-light.png" width="700" alt="ASTAROT: Speech, Translation, Accessibility, Revoicing &amp; OCR Toolkit">
   </picture>
 </h1>
 
@@ -29,7 +29,7 @@
 
 [日本語](/docs/readmes/README.ja.md)
 
-VRCT-VOX is a desktop app for VRChat that combines speech recognition (ASR), text to speech (TTS), voice conversion (RVC), chat reading (OCR) and translation. It is derived from [VRCT](https://github.com/misyaguziya/VRCT) and maintained by [kein5](https://github.com/kein5). **It is not an official VRCT release and is not endorsed by the VRCT authors or VRChat.**
+ASTAROT (formerly VRCT-VOX) is a desktop app for VRChat that combines speech recognition (ASR), text to speech (TTS), voice conversion (RVC), chat reading (OCR) and translation. It is derived from [VRCT](https://github.com/misyaguziya/VRCT) and maintained by [kein5](https://github.com/kein5). **It is not an official VRCT release and is not endorsed by the VRCT authors or VRChat.**
 
 ## Features
 
@@ -57,36 +57,36 @@ Known limitations:
 - On Linux, the VR UI and chat reading from the headset view have been checked only with a stand-in for SteamVR, not with a real headset. Linux builds have been checked on KDE Plasma (Wayland) only.
 - The Google, Bing and Papago web translators are unavailable (see License).
 
-Report bugs and ask questions on **[Issues](https://github.com/kein5/VRCT-VOX/issues)**, with OS, version, steps and redacted logs. Report vulnerabilities privately (see [SECURITY.md](SECURITY.md)). Do not send VRCT-VOX support requests to the VRCT maintainers.
+Report bugs and ask questions on **[Issues](https://github.com/kein5/VRCT-VOX/issues)**, with OS, version, steps and redacted logs. Report vulnerabilities privately (see [SECURITY.md](SECURITY.md)). Do not send ASTAROT support requests to the VRCT maintainers.
 
 ## Getting started
 
 - [TTS quick start (Japanese)](/docs/voice-stack/tts-quickstart-ja.md)
 - [Troubleshooting](/docs/voice-stack/troubleshooting.md)
 - [Model downloads and GPU/VRAM guidance](/docs/voice-stack/model-downloads.md)
-- [Original VRCT documentation](https://misyaguziya.github.io/VRCT-Docs/). It covers the upstream app, not the VRCT-VOX voice features.
+- [Original VRCT documentation](https://misyaguziya.github.io/VRCT-Docs/). It covers the upstream app, not the ASTAROT voice features.
 
 ## Names and storage
 
-Executables and packages use `vrct-vox` / `VRCT-VOX`, and the application ID is `io.github.kein5.vrct-vox`. On Linux, configuration, data and cache live in `vrct-vox` directories (`~/.config/vrct-vox` and so on). See [names and identifiers](/docs/voice-stack/project-rename.md).
+The app is shown as ASTAROT, but executables and packages still use `vrct-vox` / `VRCT-VOX`, and the application ID is `io.github.kein5.vrct-vox`. On Linux, configuration, data and cache live in `vrct-vox` directories (`~/.config/vrct-vox` and so on). See [names and identifiers](/docs/voice-stack/project-rename.md).
 
 ## Privacy and models
 
-VRCT-VOX sends two kinds of usage events to its own receiver unless you turn that off (Settings → Advanced → "Send usage data"): that the app started, once a day, and an error by its fixed code, once a day per code. Each carries the app version, the OS and its version, the display language, and the PC's hardware (CPU, memory, GPUs and their driver versions). The app shows you exactly what it sends ("See what is sent"). The text and audio of conversations, audio device names and user names are never sent, and nothing is sent before you have answered a one-time notice. Upstream VRCT's Aptabase telemetry is not used, even when an old upstream key file exists. Translation and speech services you choose still receive the text or audio you send them; turning off usage data does not make every feature offline. See [privacy](/site/en/guide/privacy.md).
+ASTAROT sends two kinds of usage events to its own receiver unless you turn that off (Settings → Advanced → "Send usage data"): that the app started, once a day, and an error by its fixed code, once a day per code. Each carries the app version, the OS and its version, the display language, and the PC's hardware (CPU, memory, GPUs and their driver versions). The app shows you exactly what it sends ("See what is sent"). The text and audio of conversations, audio device names and user names are never sent, and nothing is sent before you have answered a one-time notice. Upstream VRCT's Aptabase telemetry is not used, even when an old upstream key file exists. Translation and speech services you choose still receive the text or audio you send them; turning off usage data does not make every feature offline. See [privacy](/site/en/guide/privacy.md).
 
 No model is bundled. TTS, ASR and RVC models are downloaded only on request, or provided by you. Built packages contain no OCR weights. The upstream chat-bubble detector, which may not be shipped in a fork's release, was removed from the repository in 0.2.0; commits up to 0.1.0 still hold it under its own [terms](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.en.txt), so do not package an old checkout wholesale. The Mia2026 test voice is for local testing only and is never distributed. The bundled speech.cpp binaries carry their own notices; each model has its own license.
 
 ## License and acknowledgements
 
-VRCT-VOX is under the [MIT License](/LICENSE), and the original VRCT copyright and attribution are retained. External engines, model weights and the GPL-marked Seed-VC integration have their own terms, so the voice stack as a whole is not claimed to be MIT.
+ASTAROT is under the [MIT License](/LICENSE), and the original VRCT copyright and attribution are retained. External engines, model weights and the GPL-marked Seed-VC integration have their own terms, so the voice stack as a whole is not claimed to be MIT.
 
 [NOTICE](/NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds) lists the LGPL and GPL components in the builds, where to get their source and how to replace them. Two upstream components are deliberately left out:
 - PyAV, because its wheels bundle the GPL x264/x265 encoders.
 - Upstream's `translator_engines`, which is licensed for official VRCT only. This is why the Google, Bing and Papago web translators are unavailable.
 
-Thank you to the VRCT team: **みしゃ / misyaguziya** (main development), **しいな / Shiina_12siy** (UI/UX and localization), **レラ / soumt-r** (technical advice), **どね / done_vrc** (logo), and [all VRCT contributors](https://github.com/misyaguziya/VRCT/graphs/contributors). VRCT-VOX builds on their work. It no longer tracks upstream VRCT; nothing is sent upstream without the repository owner's explicit decision ([policy](/docs/voice-stack/publication-and-upstream.md)).
+Thank you to the VRCT team: **みしゃ / misyaguziya** (main development), **しいな / Shiina_12siy** (UI/UX and localization), **レラ / soumt-r** (technical advice), **どね / done_vrc** (logo), and [all VRCT contributors](https://github.com/misyaguziya/VRCT/graphs/contributors). ASTAROT builds on their work. It no longer tracks upstream VRCT; nothing is sent upstream without the repository owner's explicit decision ([policy](/docs/voice-stack/publication-and-upstream.md)).
 
-VRChat and its associated properties are trademarks or registered trademarks of VRChat Inc. VRCT-VOX is not affiliated with VRChat Inc.
+VRChat and its associated properties are trademarks or registered trademarks of VRChat Inc. ASTAROT is not affiliated with VRChat Inc.
 
 ## Development
 
