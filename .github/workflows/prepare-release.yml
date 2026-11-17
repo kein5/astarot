@@ -27,7 +27,7 @@ jobs:
       # Reads the candidates' build provenance (gh attestation verify).
       attestations: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The tags and history: a beta's notes list the commits since the previous release tag.
           fetch-depth: 0

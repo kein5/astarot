@@ -22,6 +22,8 @@ ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み
 | 機能、API（IPCのエンドポイント）、データ形式、横断的な振る舞い、契約 | `docs/spec/README.md`（一覧は `python tools/spec_catalog.py --write` で生成する） |
 | UI の見た目、操作、アクセシビリティ | `DESIGN.md` |
 | 開発環境、検証コマンド、コミット形式 | `docs/development.md` |
+| 日本語の文章（文書、画面の文言、リリースノート、PR と Issue、作業の報告） | `docs/writing/japanese-guideline.md` |
+| 英語の文章（文書、画面の文言、コミットメッセージ、PR と Issue、作業の報告） | `docs/writing/english-guideline.md` |
 | 起動、ビルド、CI、配布候補 | `docs/readme_build.md`、`docs/voice-stack/release-candidates.md` |
 | ブランチ、PR、依存、ダウンロードするモデル、表示する文言 | `CONTRIBUTING.md` |
 | 同梱物、モデル、依存ライブラリのライセンス | `NOTICE.md`、`docs/voice-stack/licensing.md` |
@@ -66,6 +68,7 @@ python tools/dev.py check                   # 軽量チェック（tooling、nod
   - 実行しなかった検証と、その理由
   - 残っている懸念
 - 計測した値には、計測した環境と条件を添えます。ある PC での性能を、一般的な保証として書きません。
+- 報告の文章は、日本語なら `docs/writing/japanese-guideline.md` の「エージェントの報告文」に、英語なら `docs/writing/english-guideline.md` の「Agent reports」に従って書きます。
 
 ## コミットと変更履歴
 
