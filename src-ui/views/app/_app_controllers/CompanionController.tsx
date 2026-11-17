@@ -87,21 +87,37 @@ export const CompanionController = () => {
         void showMain();
         return true;
     };
-    // When was a switch last pressed from the tray, the hexagram or its panel; null once answered.
-    const askedAt = useRef<number | null>(null);
-    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, refuse });
-    latest.current = { main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, refuse };
+    // A switch as the main page shows it: on, and whether its change is still waiting.
+    const switchState = (feature: Feature) => {
+        const voiceState = feature === "tts" || feature === "rvc" ? voiceStates[feature] : null;
+        if (voiceState) return { on: voiceState.on, pending: !!voiceState.pending };
+        const status = { mic: main.currentTranscriptionSendStatus, translation: main.currentTranslationStatus,
+            listening: main.currentTranscriptionReceiveStatus, ocr: main.currentOcrCaptureStatus }[feature as "mic"];
+        return { on: status?.data, pending: status?.state === "pending" };
+    };
+    // The switch last pressed from the tray, the hexagram or its panel, when, and how it was then;
+    // null once answered, by an error notice or by the switch changing.
+    const asked = useRef<{ at: number; feature: Feature; was: unknown } | null>(null);
+    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, refuse, switchState });
+    latest.current = { main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, refuse, switchState };
     const wasOn = useRef(false);
 
     // The engine's refusal (VRChat not running, a language the chat reading cannot read) is an
     // error notice in the main window, which may be away in the tray. It comes forward with it.
     const notice = currentNotificationStatus?.data;
     useEffect(() => {
-        if (askedAt.current === null || !notice?.is_open || notice.status !== "error") return;
-        const recent = Date.now() - askedAt.current <= REFUSAL_WINDOW_MS;
-        askedAt.current = null;
+        if (asked.current === null || !notice?.is_open || notice.status !== "error") return;
+        const recent = Date.now() - asked.current.at <= REFUSAL_WINDOW_MS;
+        asked.current = null;
         if (recent) void showMain();
     }, [notice]);
+    // A switch that changed did what was asked: a later error is not its answer and leaves the
+    // main window where it is (#463).
+    const askedFeature = asked.current?.feature;
+    const askedState = askedFeature ? switchState(askedFeature) : null;
+    useEffect(() => {
+        if (asked.current && askedState && !askedState.pending && askedState.on !== asked.current.was) asked.current = null;
+    }, [askedFeature, askedState?.on, askedState?.pending]);
 
     // Closing the main window puts it away in the tray, in every run; the tray menu's Quit ends the
     // app. Without a tray icon nothing could bring the window back, so it quits as before.
@@ -132,10 +148,12 @@ export const CompanionController = () => {
             try {
                 const actions = await invoke<unknown[]>("companion_take");
                 for (const action of actions ?? []) {
+                    const feature = typeof action === "string" && action.startsWith("toggle_") ? action.slice("toggle_".length) as Feature : null;
+                    const was = feature && Object.hasOwn(SWITCH_IDS, feature) ? latest.current.switchState(feature).on : undefined;
                     const ran = runAction(action, { ...latest.current.main, toggleTts: voiceActions.toggleTts, toggleRvc: voiceActions.toggleRvc,
                         setEdge: latest.current.setTrayCompanionEdge, setMonitor: latest.current.setTrayCompanionMonitor,
                         refuse: latest.current.refuse });
-                    if (ran && typeof action === "string" && action.startsWith("toggle_")) askedAt.current = Date.now();
+                    if (ran && feature) asked.current = { at: Date.now(), feature, was };
                 }
             } catch (error) { console.error("Companion request could not be taken", error); }
         };

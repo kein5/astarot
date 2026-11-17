@@ -58,6 +58,28 @@ test("only the matching job can cancel pending Apply; polls, errors and timeouts
     assert.equal(s.render().pending, null);
 });
 
+// #431-7: a start that never got a reply blocked every later download command, silently.
+test("an unanswered start is released when it times out; a pending Apply stays with its Cancel", async t => {
+    const s = await setup(t);
+    await s.render().send("/run/start_model_download", { id: "model" });
+    await s.render().send("/run/start_model_download", { id: "other" });
+    assert.equal(s.calls.length, 1, "blocked while the first start waits for its reply");
+    s.render().expireUnconfirmed();
+    assert.equal(s.render().pending, null);
+    assert.equal(s.render().error, "request_unconfirmed");
+    await s.render().send("/run/start_model_download", { id: "other" });
+    assert.equal(s.calls.length, 2, "the user can act again");
+    s.render().acknowledge({ observation_id: "1", jobs: {} }, "/run/start_model_download");
+    await s.render().send(apply, request);
+    await s.render().send(cancel, request);
+    s.render().expireUnconfirmed();
+    assert.deepEqual(s.render().pending.map(item => item.endpoint), [apply]);
+    await s.render().send("/run/start_model_download", { id: "other" });
+    assert.equal(s.calls.length, 4, "competing actions stay blocked during Apply");
+    await s.render().send(cancel, request);
+    assert.equal(s.calls.length, 5, "its Cancel can be sent again");
+});
+
 test("a failed Cancel write retains pending Apply", async t => {
     const s = await setup(t, async endpoint => endpoint !== cancel);
     await s.render().send(apply, request);

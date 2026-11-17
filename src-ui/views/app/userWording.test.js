@@ -30,6 +30,17 @@ test("#437: user-facing strings do not say this PC", () => {
     }
 });
 
+// #461: the user meets "ASTAROTの処理部分" / "the ASTAROT engine", not the developers' word.
+// The credits say what each developer worked on, so they may keep it.
+test("#461: user-facing strings do not say backend", () => {
+    for (const [language, word] of [["ja", /バックエンド/], ["en", /\bback-?end\b/i]]) {
+        const lines = locale(language).split("\n").filter(line => !line.trim().startsWith("#") && !/^\s*dev_\w+:/.test(line))
+            // Keys may name the backend; only the text after the key counts.
+            .filter(line => word.test(line.split('"').slice(1).join('"')));
+        assert.deepEqual(lines, [], language);
+    }
+});
+
 test("#472: Japanese strings write メモリ, not メモリー", () => {
     assert.deepEqual(locale("ja").split("\n").filter(line => line.includes("メモリー")), []);
 });

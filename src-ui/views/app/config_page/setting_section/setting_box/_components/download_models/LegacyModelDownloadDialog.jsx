@@ -96,7 +96,8 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
             </> : <p role="status">{t(error ? "legacy_model_downloads.review_unavailable" : "model_downloads.loading")}</p>}
             <div className={styles.actions}>
                 <button type="button" autoFocus onClick={cancel}>{t(translation ? "legacy_model_downloads.close" : "model_downloads.back")}</button>
-                {!translation && <button type="button" disabled={!request} onClick={() => {
+                {/* The main action, blue (#462); VoiceSettings' .container reaches it through the host div. */}
+                {!translation && <button type="button" className="primary" disabled={!request} onClick={() => {
                     if (!request || submitted.current) return;
                     submitted.current = true;
                     close(); onDownload(request); onCancel();

@@ -194,7 +194,7 @@ common_error:
         vr_panel_open_failed: "The VR panel window could not be opened. Turn the VR panel off and on again in Settings."
         vr_panel_surface_unavailable: "The VR panel could not prepare its drawing area. Restart ASTAROT, then turn the VR panel on again."
     request_404: "This operation is not available. Restart ASTAROT and try again."
-    request_423: "The operation could not run because the backend was busy. Wait for the current operation to finish, then try again."
+    request_423: "The operation could not run because another one was still in progress. Wait for it to finish, then try again."
     request_send_failed: "The request could not be sent. Check the displayed value and try again. If this continues, restart ASTAROT."
     config_save_failed:
         load_failed: "Saved settings could not be loaded safely. The original file is preserved and changes will not be saved. Check the file and its permissions, then restart ASTAROT. ({{file}})"
@@ -989,6 +989,9 @@ config_page:
         section_label_voice: "Speech and voice"
         error_in_use: "The hotkey ({{hotkey}}) for \"{{action_name}}\" cannot be registered because it is already in use elsewhere."
         error_failed_to_register_at_launch: "The hotkey ({{hotkey}}) for \"{{action_name}}\" is unavailable because it is in use by another application."
+        error_failed_to_register_all: "The hotkeys could not be registered, so none of them work. Open and close Settings to register them again."
+        error_window_restore_failed: "The ASTAROT window could not be restored. Open it from the taskbar or the tray."
+        error_window_minimize_failed: "The ASTAROT window could not be minimized."
         toggle_vrct_visibility:
             label: "Toggle ASTAROT visibility"
         toggle_translation:
@@ -1577,7 +1580,7 @@ voice_ui:
         VOICE_SETTINGS_INVALID: "The speech settings could not be saved. Choose an output and the server to use, then save."
         voice_request_failed: "The speech request could not be finished. Try again."
         audio_devices_unavailable: "The audio devices could not be listed. Wait a moment and try again."
-    state_unknown: "State not confirmed; retry after the backend connects."
+    state_unknown: "State not confirmed. Try again once the ASTAROT engine is connected."
     rvc_not_ready_device: "Choose an output device on the Text to speech (TTS) page, save an RVC model, and choose an input microphone in Device > Mic or on the Voice changer (RVC) page."
     rvc_not_ready: "Select the managed route, save an RVC model, and choose an input microphone in Device > Mic or on the Voice changer (RVC) page."
     seed_mode: "Seed mode"
@@ -1693,7 +1696,7 @@ vc_runtime:
         vc_runtime_assets_failed: "The base models could not be fetched, or they do not match the pinned version."
         vc_runtime_gpu_unusable: "The runtime cannot use the GPU. Update your NVIDIA driver to 580 or later."
         vc_runtime_check_failed: "The runtime that was fetched could not be loaded. Fetch it again. If this repeats, setup.log in the destination folder has the details."
-        backend_unavailable: "The backend has stopped."
+        backend_unavailable: "The ASTAROT engine has stopped."
     warnings:
         vc_runtime_gpu_unusable_cpu: "The GPU could not be used, so conversion runs on the CPU, about 1.3 s behind your voice. Converting on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. After updating the driver, start again to convert on the GPU."
 
@@ -1785,9 +1788,9 @@ model_downloads:
         catalog_changed: "The model catalog changed. Reopen the download review."
         consent_required: "Review the model terms and explicitly agree before downloading."
         stale_job: "This download request is no longer current. Refresh and retry."
-        downloads_closed: "The backend is shutting down. Downloading is unavailable."
+        downloads_closed: "The ASTAROT engine is shutting down. Downloading is unavailable."
         download_apply_failed: "The model path could not be saved. Check file access and retry."
-        backend_unavailable: "The backend is unavailable. No download has been confirmed."
+        backend_unavailable: "Can't reach the ASTAROT engine. No download has been confirmed."
         request_unconfirmed: "This is taking longer than expected. Wait for it to finish, or cancel if the model is still being verified."
 
     headroom: "Memory headroom"

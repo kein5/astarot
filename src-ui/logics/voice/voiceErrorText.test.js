@@ -37,6 +37,20 @@ for (const language of ["en", "ja"]) test(`${language}: a refused TTS settings s
     }
 });
 
+// The codes the UI itself writes into the voice pages' alert lines (#460).
+for (const language of ["en", "ja"]) test(`${language}: the codes the UI makes are explained on the route and input lines`, async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources });
+    const t = i18n.t.bind(i18n), exists = key => i18n.exists(key);
+    for (const code of ["save_unconfirmed", "source_bridge_request_failed", "voice_request_failed", "voice_request_unconfirmed", "backend_unavailable"]) {
+        const text = voiceErrorText(code, "RVC", t, exists, ["voice_setup_errors"]);
+        assert.ok(text.endsWith(` (${code})`) && !text.startsWith(code), `${code}: ${text}`);
+    }
+    // The route's own setup codes come from voice_setup_errors.
+    assert.equal(voiceErrorText("managed_setup_timeout", "RVC", t, exists, ["voice_setup_errors"]),
+        `${t("voice_setup_errors.managed_setup_timeout")} (managed_setup_timeout)`);
+});
+
 test("an unknown code is shown as it is, with where to look", () => {
     const t = (key, values) => `${key}:${values?.page ?? ""}`;
     assert.equal(voiceErrorText("vc_new_failure", "RVC", t, () => false), "vc_new_failure · voice_ui.check_settings:RVC");

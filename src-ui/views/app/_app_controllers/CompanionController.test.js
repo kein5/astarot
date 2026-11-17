@@ -203,6 +203,32 @@ test("an error notice that answers a switch pressed from the tray brings the mai
     assert.equal(s.of("companion_show_main").length, 1);
 });
 
+// #463: a press the switch carried out has been answered; an unrelated error after it (a failed
+// translation, say) leaves the main window in the tray.
+test("an error after the switch from the tray has changed does not bring the main window forward", async context => {
+    const s = await setup(context);
+    s.state.ready = true;
+    await s.render();
+    s.state.queue.push("toggle_mic");
+    await s.listeners.get("companion-requested")();
+    s.state.mic = { state: "pending", data: false };
+    await s.render();
+    s.state.mic = { state: "ok", data: true };
+    await s.render();
+    s.state.notice = { status: "error", is_open: true };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 0);
+    // A press that is still waiting is answered by the error.
+    s.state.notice = null;
+    s.state.queue.push("toggle_mic");
+    await s.listeners.get("companion-requested")();
+    s.state.mic = { state: "pending", data: true };
+    await s.render();
+    s.state.notice = { status: "error", is_open: true };
+    await s.render();
+    assert.equal(s.of("companion_show_main").length, 1);
+});
+
 test("a failed start asks for the main window even before the settings arrive", async context => {
     const s = await setup(context);
     s.state.startup = "failed";

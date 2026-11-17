@@ -4,7 +4,8 @@
 // option of a choice. Listed, they would lead nowhere.
 export const NOT_SETTINGS: ReadonlySet<string> = new Set([
     "hotkeys.input_placeholder", "hotkeys.unassigned_placeholder", "hotkeys.disabled_notice",
-    "hotkeys.error_in_use", "hotkeys.error_failed_to_register_at_launch",
+    "hotkeys.error_in_use", "hotkeys.error_failed_to_register_at_launch", "hotkeys.error_failed_to_register_all",
+    "hotkeys.error_window_restore_failed", "hotkeys.error_window_minimize_failed",
     "vr.hmd", "vr.left_hand", "vr.right_hand",
 ]);
 
