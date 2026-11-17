@@ -353,6 +353,14 @@ pub fn set_languages(core: &Core, key: &str, value: &Value) -> Reply {
         }
     }
     core.cancel_mic_voice();
+    if key == "SELECTED_TRANSLATION_ENGINES" {
+        // An engine the start-up left unchecked is checked once a tab selects it (#457). One
+        // that fails is no longer selectable, so the update below falls back.
+        let engines = core.config().get(key);
+        for engine in engines.as_object().into_iter().flat_map(|t| t.values()).filter_map(Value::as_str) {
+            core.ensure_translator(engine);
+        }
+    }
     core.update_translation_engine_and_list();
     ok(core.config().get(key))
 }

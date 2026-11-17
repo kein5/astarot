@@ -1,7 +1,8 @@
 //! An engine whose start-up check fails is handled as Python's `Controller.init` handles it
 //! (#285, decided: no kept selections for engines the core cannot run yet). Here every check
 //! that asks a service fails: the providers cannot be reached (tests stay on loopback). speech.cpp
-//! is not probed: its server shows whether it works.
+//! is not probed: its server shows whether it works. Since #457 only the engines in use and the
+//! servers at a loopback address are checked at start-up; the others wait until they are selected.
 
 mod common;
 
@@ -17,6 +18,8 @@ fn saved() -> Value {
         "TRANSCRIPTION_AUTH_KEYS": { "Groq_Whisper": "gw", "OpenAI_Whisper": "ow", "Custom_Whisper": "cw", "Deepgram": "dg" },
         "LMSTUDIO_URL": "http://127.0.0.1:1234/v1",
         "TRANSCRIPTION_CUSTOM_URL": "http://127.0.0.1:9000/v1",
+        "SELECTED_TRANSCRIPTION_ENGINE": "Groq_Whisper",
+        "SELECTED_TRANSLATION_ENGINES": { "1": "OpenAI_Compatible", "2": "CTranslate2", "3": "CTranslate2" },
         "SELECTED_LMSTUDIO_MODEL": "local-model",
         "SELECTED_OPENAI_COMPATIBLE_MODEL": "compatible-model",
         "SELECTED_OLLAMA_MODEL": "llama",
@@ -37,13 +40,18 @@ fn a_failed_check_clears_the_models_found_on_a_server_and_keeps_every_key() {
     let ui = Ui::with(Setup { saved: Some(saved()), ..Setup::default() });
     let snapshot = ui.ready();
     // The engines that list their models from a server forget the list and the selection.
-    for name in ["groq_whisper", "openai_whisper", "custom_whisper", "deepgram", "openai_compatible"] {
+    for name in ["groq_whisper", "custom_whisper", "openai_compatible"] {
         assert!(snapshot.get(format!("/get/data/selected_{name}_model")).is_some(), "{name} is answered");
         assert_eq!(snapshot[format!("/get/data/selected_{name}_model")], Value::Null, "{name}");
         assert_eq!(snapshot[format!("/get/data/selectable_{name}_model_list")], json!([]), "{name}");
     }
-    // None of them is offered; speech.cpp is.
-    assert_eq!(snapshot["/get/data/selectable_transcription_engines"], json!(["SpeechCpp"]));
+    // An engine not checked yet keeps its selection and stays offered while its key is saved.
+    assert_eq!(snapshot["/get/data/selected_openai_whisper_model"], "whisper-1");
+    assert_eq!(snapshot["/get/data/selected_deepgram_model"], "nova-3");
+    // The checked ones that failed are not offered; speech.cpp is.
+    let mut offered: Vec<String> = serde_json::from_value(snapshot["/get/data/selectable_transcription_engines"].clone()).unwrap();
+    offered.sort();
+    assert_eq!(offered, ["Deepgram", "OpenAI_Whisper", "SpeechCpp"]);
 
     ui.ok("/run/shutdown", None);
     let file = ui.saved();
@@ -55,10 +63,12 @@ fn a_failed_check_clears_the_models_found_on_a_server_and_keeps_every_key() {
     // The cleared selections are saved as Python saved them.
     for key in [
         "SELECTED_LMSTUDIO_MODEL", "SELECTED_OPENAI_COMPATIBLE_MODEL", "SELECTED_OLLAMA_MODEL", "SELECTED_GROQ_WHISPER_MODEL",
-        "SELECTED_OPENAI_WHISPER_MODEL", "SELECTED_CUSTOM_WHISPER_MODEL", "SELECTED_DEEPGRAM_MODEL",
+        "SELECTED_CUSTOM_WHISPER_MODEL",
     ] {
         assert_eq!(file[key], Value::Null, "{key}");
     }
+    assert_eq!(file["SELECTED_OPENAI_WHISPER_MODEL"], "whisper-1");
+    assert_eq!(file["SELECTED_DEEPGRAM_MODEL"], "nova-3");
     // The other engines keep their selection, as Python did when their check failed.
     assert_eq!(file["SELECTED_PLAMO_MODEL"], "plamo-2.0-prime");
     assert_eq!(file["SELECTED_GEMINI_MODEL"], "gemini-2.5-flash");

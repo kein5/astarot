@@ -422,20 +422,35 @@ fn keys_are_checked_with_their_service_and_a_refusal_keeps_the_saved_one() {
 }
 
 #[test]
-fn the_start_up_check_asks_each_service_with_its_saved_key() {
+fn the_start_up_asks_only_the_selected_service_and_checks_another_when_it_is_selected() {
+    // #457: a saved key alone sends nothing at start-up; a server at a loopback address is
+    // still checked.
     let run = start(json!({
+        "SELECTED_TRANSCRIPTION_ENGINE": "Deepgram",
         "TRANSCRIPTION_AUTH_KEYS": { "Groq_Whisper": KEY, "OpenAI_Whisper": "wrong", "Custom_Whisper": KEY, "Deepgram": KEY },
         "TRANSCRIPTION_CUSTOM_URL": "http://127.0.0.1:9/v1",
         "SELECTED_DEEPGRAM_MODEL": "nova-3",
         "SELECTED_OPENAI_WHISPER_MODEL": "whisper-1",
     }));
-    let mut offered: Vec<String> = serde_json::from_value(run.ui.ok("/get/data/selectable_transcription_engines", None)).unwrap();
-    offered.sort();
-    assert_eq!(offered, ["Deepgram", "Groq_Whisper", "SpeechCpp"]);
+    let offered = || -> Vec<String> {
+        let mut offered: Vec<String> = serde_json::from_value(run.ui.ok("/get/data/selectable_transcription_engines", None)).unwrap();
+        offered.sort();
+        offered
+    };
+    assert_eq!(offered(), ["Deepgram", "Groq_Whisper", "OpenAI_Whisper", "SpeechCpp"]);
     assert_eq!(run.ui.ok("/get/data/selected_deepgram_model", None), "nova-3", "a listed choice stays");
+    assert!(run.asr.requested("GET /deepgram/v1/auth/token") >= 1);
+    assert_eq!(run.asr.requested("GET /groq/") + run.asr.requested("GET /openai/"), 0, "an engine not selected was asked");
+
+    // A key the service refuses: the engine is not selected, and is no longer offered.
+    assert_eq!(run.ui.ok("/set/data/selected_transcription_engine", Some(json!("OpenAI_Whisper"))), "Deepgram");
+    assert_eq!(offered(), ["Deepgram", "Groq_Whisper", "SpeechCpp"]);
     assert_eq!(run.ui.ok("/get/data/selected_openai_whisper_model", None), Value::Null, "a failed check forgets the choice");
     assert_eq!(run.ui.ok("/get/data/openai_whisper_auth_key", None), "wrong", "and keeps the key");
-    assert!(run.asr.requested("GET /deepgram/v1/auth/token") >= 1);
+
+    // An accepted key: selected, with its models.
+    assert_eq!(run.ui.ok("/set/data/selected_transcription_engine", Some(json!("Groq_Whisper"))), "Groq_Whisper");
+    assert_eq!(run.ui.ok("/get/data/selectable_groq_whisper_model_list", None), json!(["distil-whisper", "whisper-large-v3"]));
     run.ui.stop();
 }
 

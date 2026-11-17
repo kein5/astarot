@@ -128,6 +128,18 @@ pub fn validate_api_url(url: &str, allow_empty: bool) -> Result<(), &'static str
     Ok(())
 }
 
+/// Whether a URL points at the user's own machine (`localhost` or a loopback address). A check
+/// sent there leaves nothing on the network, so the start-up may run it for every engine (#457).
+pub fn is_loopback_url(url: &str) -> bool {
+    let Some(parts) = urlsplit(url) else { return false };
+    let Ok((host, _)) = host_and_port(parts.netloc) else { return false };
+    let host = host.trim_end_matches('.');
+    if host == "localhost" {
+        return true;
+    }
+    host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+}
+
 /// `valid_saved_api_url`: a URL that may stay in the settings, or `""`.
 pub fn valid_saved_api_url(value: &serde_json::Value) -> bool {
     value.as_str().is_some_and(|url| validate_api_url(url, true).is_ok())
@@ -156,5 +168,15 @@ mod tests {
             assert!(validate_api_url(bad, true).is_err(), "{bad}");
         }
         assert!(validate_api_url("", false).is_err());
+    }
+
+    #[test]
+    fn tells_a_loopback_url() {
+        for local in ["http://127.0.0.1:1234/v1", "http://localhost:11434", "http://LOCALHOST./v1", "http://[::1]:8080/v1", "http://127.8.0.1"] {
+            assert!(is_loopback_url(local), "{local}");
+        }
+        for remote in ["http://192.168.1.20:1234/v1", "https://api.openai.com/v1", "http://studio.local:1234", "", "localhost"] {
+            assert!(!is_loopback_url(remote), "{remote}");
+        }
     }
 }

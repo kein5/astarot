@@ -262,7 +262,8 @@ fn a_google_cloud_key_is_saved_only_when_google_accepts_it() {
     assert!(!log.contains(&key) && !log.contains(&other), "a key reached the log");
     ui.stop();
 
-    // At the next start the saved key is checked again; deleting it takes the engine away.
+    // At the next start the saved key keeps the engine selectable (no tab uses it, so it is not
+    // contacted, #457); deleting it takes the engine away.
     let (ui, _) = start(&fake, json!({ "AUTH_KEYS": { "Google_Cloud_API": key } }));
     let snapshot = ui.ready();
     assert!(snapshot["/get/data/selectable_translation_engines"].as_array().unwrap().contains(&json!("Google_Cloud_API")));
@@ -358,7 +359,7 @@ fn the_compatible_endpoint_checks_its_url_and_key_together() {
 }
 
 #[test]
-fn start_up_checks_each_saved_key_and_keeps_the_ones_it_cannot_confirm() {
+fn start_up_checks_each_saved_key_a_tab_uses_and_keeps_the_ones_it_cannot_confirm() {
     let fake = FakeProviders::start();
     let gemini = "g".repeat(39);
     fake.key("/gemini", &gemini).models("/gemini", &["gemini-2.5-flash", "gemini-2.5-pro"]);
@@ -366,6 +367,7 @@ fn start_up_checks_each_saved_key_and_keeps_the_ones_it_cannot_confirm() {
     let groq = format!("gsk{}", "q".repeat(40));
     let saved = json!({
         "AUTH_KEYS": { "Gemini_API": gemini, "Groq_API": groq },
+        "SELECTED_TRANSLATION_ENGINES": { "1": "CTranslate2", "2": "Gemini_API", "3": "Groq_API" },
         "SELECTED_GEMINI_MODEL": "gemini-2.5-pro",
         "SELECTED_GROQ_MODEL": "llama-3.3-70b",
         "LMSTUDIO_URL": fake.url_of("/lmstudio/v1"),
@@ -388,8 +390,44 @@ fn start_up_checks_each_saved_key_and_keeps_the_ones_it_cannot_confirm() {
 }
 
 #[test]
-fn the_web_translators_no_build_can_run_are_not_engines() {
-    // Upstream VRCT's Google, Bing and Papago module is licensed for the official VRCT only.
+fn start_up_contacts_no_engine_that_no_tab_uses_and_checks_one_when_it_is_selected() {
+    // #457: a saved key alone does not send anything at start-up.
+    let fake = FakeProviders::start();
+    let gemini = "g".repeat(39);
+    fake.key("/gemini", &gemini).models("/gemini", &["gemini-2.5-flash", "gemini-2.5-pro"]);
+    let groq = format!("gsk{}", "q".repeat(40));
+    let saved = json!({
+        "AUTH_KEYS": { "Gemini_API": gemini, "Groq_API": groq },
+        "SELECTED_GEMINI_MODEL": "gemini-2.5-pro",
+    });
+    let (ui, _) = start(&fake, saved);
+    let snapshot = ui.ready();
+    assert!(fake.seen_under("/gemini").is_empty() && fake.seen_under("/groq").is_empty(), "an unused engine was contacted");
+    let offered = snapshot["/get/data/selectable_translation_engines"].as_array().unwrap().clone();
+    assert!(offered.contains(&json!("Gemini_API")) && offered.contains(&json!("Groq_API")), "{offered:?}");
+    assert_eq!(snapshot["/get/data/selectable_gemini_model_list"], json!([]));
+
+    // Selected: checked now, with its models.
+    let mut engines = ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("Gemini_API");
+    let mark = ui.send("/set/data/selected_translation_engines", Some(engines.clone()));
+    assert_eq!(ui.wait_endpoint(mark, "/set/data/selected_translation_engines")["result"]["1"], "Gemini_API");
+    assert_eq!(ui.wait_endpoint(mark, "/run/selectable_gemini_model_list")["result"], json!(["gemini-2.5-flash", "gemini-2.5-pro"]));
+    assert_eq!(ui.ok("/get/data/selected_gemini_model", None), "gemini-2.5-pro");
+    assert!(!fake.seen_under("/gemini").is_empty());
+
+    // A key the service refuses: the engine is no longer offered, and the tab falls back.
+    engines["1"] = json!("Groq_API");
+    assert_eq!(ui.ok("/set/data/selected_translation_engines", Some(engines))["1"], "CTranslate2");
+    let offered = ui.ok("/get/data/selectable_translation_engines", None);
+    assert!(!offered.as_array().unwrap().contains(&json!("Groq_API")), "{offered}");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.kept_key("AUTH_KEYS", "Groq_API"), json!(groq), "the key is kept");
+    ui.stop();
+}
+
+#[test]
+fn the_web_translators_no_build_can_run_are_not_engines() {    // Upstream VRCT's Google, Bing and Papago module is licensed for the official VRCT only.
     let fake = FakeProviders::start();
     let (ui, _) = start(&fake, json!({ "SELECTED_TRANSLATION_ENGINES": { "1": "Google", "2": "Papago", "3": "CTranslate2" } }));
     let snapshot = ui.ready();
