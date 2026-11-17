@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Write in English or Japanese. 英語でも日本語でも構いません。
-        Security vulnerabilities must not be reported here: use [private vulnerability reporting](https://github.com/kein5/VRCT-VOX/security/advisories/new) (see SECURITY.md).
+        Security vulnerabilities must not be reported here: use [private vulnerability reporting](https://github.com/kein5/astarot/security/advisories/new) (see SECURITY.md).
         脆弱性はここではなく、非公開の脆弱性報告から送ってください。
   - type: input
     id: version

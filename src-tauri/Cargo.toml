@@ -1,7 +1,7 @@
 [package]
 name = "vrct-vox"
 version = "0.0.0"
-description = "VRCT-VOX: speech, voice conversion and translated chat"
+description = "ASTAROT: speech, voice conversion and translated chat"
 authors = ["misyaguziya"]
 edition = "2024"
 

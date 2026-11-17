@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import shutil
 
-REPOSITORY = "kein5/VRCT-VOX"
+REPOSITORY = "kein5/astarot"
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?")
 
@@ -51,7 +51,7 @@ def stage(output, assets, platform, commit, version):
         name = (
             "VRCT-VOX_setup.exe"
             if platform == "windows"
-            and asset.name == f"VRCT-VOX_{version}_x64-setup.exe"
+            and asset.name == f"ASTAROT_{version}_x64-setup.exe"
             else asset.name
         )
         if name in mapping:

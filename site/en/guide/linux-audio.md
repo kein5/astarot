@@ -4,14 +4,14 @@ route: linux-audio
 
 # Linux audio route
 
-For VRChat to hear speech or converted voice, VRCT-VOX's audio has to reach VRChat's microphone input. On Linux, VRCT-VOX can create a virtual microphone (PipeWire) that it manages.
+For VRChat to hear speech or converted voice, ASTAROT's audio has to reach VRChat's microphone input. On Linux, ASTAROT can create a virtual microphone (PipeWire) that it manages.
 
 ![Settings → Device](/screenshots/en/device.webp)
 
 ## Using the managed virtual microphone
 
 1. Under Settings → "Device" → "Audio route", choose "Managed virtual microphone (Linux)" and save. Setup starts automatically. You can also start it with "Prepare and use virtual microphone" on the "Voice changer (RVC)" page.
-2. When it is ready, press "Resume voice". The virtual microphone is created muted.
+2. When it is ready, press "Unmute". The virtual microphone is created muted.
 3. In VRChat, choose "VRCT Managed Virtual Microphone" as your microphone.
 
 You do not need administrator rights. You need PipeWire and systemd user services.
@@ -19,7 +19,7 @@ You do not need administrator rights. You need PipeWire and systemd user service
 ### What the app does
 
 - Creates and enables three user services, `vrct-managed-source`, `vrct-managed-tts` and `vrct-managed-vc`, in <CopyText>~/.config/systemd/user/</CopyText>.
-- Keeps the virtual microphone after VRCT-VOX exits. At your next login it is created again, muted.
+- Keeps the virtual microphone after ASTAROT exits. At your next login it is created again, muted.
 - If a working virtual microphone already exists, it uses that one instead of making a new one.
 
 ### What the app does not do
@@ -30,11 +30,11 @@ You do not need administrator rights. You need PipeWire and systemd user service
 
 ## Mute and resume
 
-"Mute until resumed" under "Device" → "Audio route" stops both speech and the voice changer going through this virtual microphone. Press "Resume voice" to resume. When you start VRCT-VOX again, it starts muted.
+"Mute now" under "Device" → "Audio route" stops both speech and the voice changer going through this virtual microphone. Press "Unmute" to unmute. When you start ASTAROT again, it starts muted.
 
 ## Removing the virtual microphone
 
-1. Quit VRCT-VOX.
+1. Quit ASTAROT.
 2. Switch VRChat and any other app using the virtual microphone to another microphone.
 3. Stop and disable only the three user services above.
 
@@ -44,4 +44,4 @@ systemctl --user disable --now vrct-managed-source.service vrct-managed-tts.serv
 
 ## Using an existing external cable
 
-If you already have a virtual cable, set "Audio route" to "Existing external cable" and choose the cable under "Output device" on the "Text to speech (TTS)" page. In VRChat, choose the cable's recording end as your microphone. In this mode, "Mute until resumed" stops VRCT-VOX's speech only.
+If you already have a virtual cable, set "Audio route" to "Existing external cable" and choose the cable under "Output device" on the "Text to speech (TTS)" page. In VRChat, choose the cable's recording end as your microphone. In this mode, "Mute now" stops ASTAROT's speech only.

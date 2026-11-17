@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to VRCT-VOX, newest first. Only stable releases are listed: each section
+All notable changes to ASTAROT, newest first. Only stable releases are listed: each section
 covers everything since the previous stable release, its betas included. Betas (`X.Y.Z-beta.N`,
 from `develop`) are described in their [GitHub pre-release notes](https://github.com/kein5/VRCT-VOX/releases).
 Versions follow [Semantic Versioning](https://semver.org/). The layout follows the ideas of
@@ -9,6 +9,100 @@ changes for developers follow.
 
 A section is written when its release is prepared (`python tools/changelog.py write`), not on
 every commit. See [Changelog and releases](CONTRIBUTING.md#changelog-and-releases).
+
+## [0.5.1] - 2026-11-18
+
+Changes since [v0.5.0](https://github.com/kein5/astarot/compare/v0.5.0...v0.5.1).
+
+### User-facing Changes
+
+#### Features
+
+- **installer:** Install and list the app as ASTAROT ([7a4792a](https://github.com/kein5/astarot/commit/7a4792a5da199def0d99395067d1698a7f3b57e8))
+
+#### Bug Fixes
+
+- **ui:** Fit the experimental tab's English name in the settings menu ([42f0cb8](https://github.com/kein5/astarot/commit/42f0cb831dbd45e525e79fa118e0284992cd1034))
+- **ui:** Show each settings menu tab on one line so the tabs keep one height ([6862102](https://github.com/kein5/astarot/commit/686210255b76e934a7eb1484d127bc04688adc65))
+- **ui:** Never hold the greeting back for long when the language or layout does not follow ([1a7353b](https://github.com/kein5/astarot/commit/1a7353bb36afab5a3fcb6218e6ff7ac6a9245183))
+- **ui:** Draw the empty conversation's greeting once the saved size and language are in place ([9547561](https://github.com/kein5/astarot/commit/9547561d5866b87731baea7164c7a74a92f1c082))
+- **ui:** Apply the saved UI size before the frame that brings it is drawn ([1a2987b](https://github.com/kein5/astarot/commit/1a2987b464a45a01407f7f838ead55d08d43c4e5))
+- **ui:** Keep the empty conversation at its top while the list under the greeting grows ([3414d8c](https://github.com/kein5/astarot/commit/3414d8cf2d378f2dfb326b4a166fb69d901bf5ac))
+- **ui:** Keep 「ボイスチェンジャー」 on one line in the rail of the default window ([f23bf0c](https://github.com/kein5/astarot/commit/f23bf0c25cfa2057dd26854390ea8036b304e596))
+- Name the helper windows ASTAROT ([7fde602](https://github.com/kein5/astarot/commit/7fde6021058ec9804236174ec80a6235d95110de))
+- **windows:** Stop WebView2 fetching Edge experiments and repeating component updates ([b59bbba](https://github.com/kein5/astarot/commit/b59bbbadfb6f34aa28dd5651ff7134b99190882f))
+- **ui:** Offer only the CPU and dedicated GPUs as the speech engine device ([ca52167](https://github.com/kein5/astarot/commit/ca5216726a37cc195e61c5eec5cb7d3e4036c88b))
+- **speech:** Never start the speech servers on an integrated GPU ([a9a2c10](https://github.com/kein5/astarot/commit/a9a2c1058e29b58c242f9514ea592a3b5ba51b10))
+- Download releases from the kein5/astarot repository ([9ca663d](https://github.com/kein5/astarot/commit/9ca663db2cf8600baf4ee2c281027b82297b36dc))
+- **site:** Publish the user guide under /astarot/ from the renamed repository ([2bf2f29](https://github.com/kein5/astarot/commit/2bf2f29f5ffc9f1a713c8c28829f154b10d7a44b))
+- **ui:** Open the user guide at its new kein5.github.io/astarot address ([f993245](https://github.com/kein5/astarot/commit/f993245cb338669d8de2ed51909360526521afdc))
+
+### Internal Changes
+
+#### Dependencies
+
+- **deps:** List sass as a development dependency ([89b4f86](https://github.com/kein5/astarot/commit/89b4f860d8ee403c87bc76df43e50372c0bceb40))
+- **deps:** Make DeepL retries, OCR model checks and Ruff ready for #498 ([93d632e](https://github.com/kein5/astarot/commit/93d632e311fded824e2da303e6d5c56aff7259df))
+- **deps:** Keep the CSP in step with react-toastify 11.2 and js-base64 3.9 ([eaab438](https://github.com/kein5/astarot/commit/eaab4383cc7fdf3f338bf258f99afc45d13215e9))
+- **deps:** Bump the python-minor-and-patch group across 1 directory with 19 updates ([84af89a](https://github.com/kein5/astarot/commit/84af89aca3fc1bdaf88d6305a45befaef6a94166))
+- **deps:** Bump websockets from 15.0.1 to 17.4 ([8079ee8](https://github.com/kein5/astarot/commit/8079ee85c15cd0ba9fa443354585d92281cb9de2))
+- **deps:** Bump the npm-minor-and-patch group across 1 directory with 9 updates ([ea349d2](https://github.com/kein5/astarot/commit/ea349d295a6a7aacc8b6ff0c5c227ed0ec203790))
+- **deps:** Bump pycaw from 20240210 to 20260927 ([ca87e1f](https://github.com/kein5/astarot/commit/ca87e1f18521a938f627d249449e6e310f1c0407))
+- **deps:** Bump numpy from 1.26.4 to 2.4.6 ([2bdbb46](https://github.com/kein5/astarot/commit/2bdbb46e1fdf88ee387eca394c3798db4935c668))
+- **deps:** Bump psutil from 5.9.8 to 7.2.2 ([b1c4b0f](https://github.com/kein5/astarot/commit/b1c4b0f6019faac95448132cde8fac0df1bed03a))
+- **deps:** Bump jotai from 2.12.3 to 3.0.2 ([107a9f4](https://github.com/kein5/astarot/commit/107a9f49c18e7ec618abeafd7c7622bbd5e601e3))
+- **deps:** Bump typescript from 5.9.3 to 7.0.2 ([c88e62a](https://github.com/kein5/astarot/commit/c88e62ac0e388cb5fdfaadc25fca0c51eb032de0))
+
+#### Build & CI
+
+- **release:** Title release drafts ASTAROT ([47edf68](https://github.com/kein5/astarot/commit/47edf68e9630725938579bfbb8fc592753a6007d))
+- Bump actions/checkout from 4.4.0 to 7.0.1 ([955747f](https://github.com/kein5/astarot/commit/955747f7d9ceba704aaceffcf68c64b1115c4716))
+- Bump actions/upload-artifact from 4.6.2 to 7.0.2 ([2e3dd10](https://github.com/kein5/astarot/commit/2e3dd10d830abaf59bda8ee829a4356a47eaa0c9))
+- Bump jdx/mise-action from 5.2.7 to 5.2.8 ([aead6b0](https://github.com/kein5/astarot/commit/aead6b0e882c6b48d951291a2f7b5bee052c452c))
+- Bump actions/download-artifact from 4.3.0 to 8.0.2 ([98c0094](https://github.com/kein5/astarot/commit/98c0094ddede2f80dfad3a86c86c4944a3b0fcf0))
+
+#### Tests
+
+- **ui:** Check that every settings menu tab is one line of one height ([f69d2bf](https://github.com/kein5/astarot/commit/f69d2bf9d58d608fa005e86a1b9c2cfda6cc9e64))
+- **ui:** Check that the rail names fit on one line in the default window ([06fe9af](https://github.com/kein5/astarot/commit/06fe9af30def6071a0f17f7b9e83b0a32fc49b05))
+- **core:** Wait for the delayed settings save instead of sleeping past it ([a85e053](https://github.com/kein5/astarot/commit/a85e053aaac0d356026f196f05329ba177c3e2ed))
+- **core:** Wait for the device monitor to finish a change before checking the choice ([98667fd](https://github.com/kein5/astarot/commit/98667fda74743c7ecf1a14036cf2047e0da1acea))
+- **installer:** Check the display name on a new install and an update ([1577b6e](https://github.com/kein5/astarot/commit/1577b6e479565b7003da7a419b20435d51370f6c))
+- **websocket:** Read pending pings under websockets 17 as well ([7a48498](https://github.com/kein5/astarot/commit/7a4849875987d1d459d7b2bbc49542008974326e))
+- **docs:** Stop waiting for screenshot animations after 3 seconds ([83b0ad6](https://github.com/kein5/astarot/commit/83b0ad6d7563416f7ac14bade2d59e3bf4c751ab))
+- **security:** Expect the pages deploy guard to name kein5/astarot ([52ae935](https://github.com/kein5/astarot/commit/52ae935808587fadafb2ac70025fc881252cd355))
+
+#### Documentation
+
+- **release:** Say which ONNX Runtime the 0.5.1 notes mean ([e3e1bda](https://github.com/kein5/astarot/commit/e3e1bda7f4c257d8346f1276cbcdb99fa1d24f0a))
+- **release:** Add the 0.5.1 release notes ([5dbfedf](https://github.com/kein5/astarot/commit/5dbfedf58835f522b3f16cfd9904ef58178e0b06))
+- **site:** Call the app ASTAROT in the user guide ([e83d991](https://github.com/kein5/astarot/commit/e83d991824acd685fad202fc3f6c453567f95c8a))
+- **docs:** Point GitHub links at the kein5/astarot repository ([54719ac](https://github.com/kein5/astarot/commit/54719acf1bad3dbbab058dc361ecbdad4110bb62))
+- **dev:** Drop a stray comma from the mutation testing entry ([1fd92cc](https://github.com/kein5/astarot/commit/1fd92cc2a7c2ad43a7c411cca75e107d24178728))
+- **dev:** Align the mutation testing entry with the 0.6.0 plan ([71a262c](https://github.com/kein5/astarot/commit/71a262c903becf9246a2abf00770c465bf3208cc))
+- **design:** Name the impeccable design system ASTAROT and recolor it ([863522b](https://github.com/kein5/astarot/commit/863522b10f0a1e411ed3835f050c693140986785))
+- **design:** Describe the palette in lilac and plum instead of blue ([65e0e49](https://github.com/kein5/astarot/commit/65e0e49b6253d1332113fa5a80555809015e267b))
+- **design:** Move the DESIGN.md palette to the ASTAROT brand colors ([f07d057](https://github.com/kein5/astarot/commit/f07d0570a53792eaa4c4fdce451d83acd5ac7709))
+- **dev:** Link the agent tool list from AGENTS.md ([89200a1](https://github.com/kein5/astarot/commit/89200a1843f1a442e675c1bdc67b802feb1441dc))
+- **dev:** List the tools agents should use for audits, writing and checks ([802e7c4](https://github.com/kein5/astarot/commit/802e7c48dd562a948a8e975c09519c941d1e2c70))
+- **rename:** Tighten the wording of the install name notes ([e07f476](https://github.com/kein5/astarot/commit/e07f476c6c352e4117de5f858ae5f31610fda3cc))
+- **release:** List what a release candidate build does not check ([07c76b3](https://github.com/kein5/astarot/commit/07c76b3e1c0bcbf988e4350078d256ce82683ae6))
+- **site:** Match the guide's button and setting names to the 0.5.0 screens ([ff14e66](https://github.com/kein5/astarot/commit/ff14e6610d27b664a5d3cbefbe252afbca9cb745))
+- **spec:** Regenerate the config key table for the release URLs ([73b166d](https://github.com/kein5/astarot/commit/73b166ddce838ee1399b5dc42f10329dcee993dc))
+- Read the README badges from kein5/astarot ([68f7700](https://github.com/kein5/astarot/commit/68f770016723dfe5208fb2f1e2c596f23e497541))
+- **release:** Link the 0.5.0 notes to the changelog in kein5/astarot ([6fb3473](https://github.com/kein5/astarot/commit/6fb34738facaeb1d0c88fe086d52b85cac17bf9b))
+- Point guide links at kein5.github.io/astarot ([61acd44](https://github.com/kein5/astarot/commit/61acd441f8af6668e1366c1a75fceb27c95eb462))
+- Add paragraph and argument rules and the humanizer revision tool to the English writing rules ([21f8572](https://github.com/kein5/astarot/commit/21f8572de2fbded5a538f498298454d15f4fccb9))
+- Split the Japanese writing rules by source role and cut overlaps ([63d5ce4](https://github.com/kein5/astarot/commit/63d5ce4b4778ac20a7765c26e9f6e1064a1a3a35))
+- Add paragraph, argument and reader-load rules to the Japanese writing rules ([c620153](https://github.com/kein5/astarot/commit/c62015391feee29aec266f408cb2e5c8cc035e5f))
+- Add English writing rules focused on AI writing habits ([e69e9e5](https://github.com/kein5/astarot/commit/e69e9e5eb69a2a4eb21fc1693b8e6fc3b072ea7f))
+- Point links and AGENTS.md at the moved Japanese writing rules ([98b9b29](https://github.com/kein5/astarot/commit/98b9b2976c08af0b7650e653e1201c720b5db805))
+- Move the Japanese writing rules to docs/writing/japanese-guideline.md ([ae6a009](https://github.com/kein5/astarot/commit/ae6a0092ea286680ef98201e5e1a9e4bc282eeb6))
+- Give writing rules for each document type precedence over the general rules ([c0aa674](https://github.com/kein5/astarot/commit/c0aa67430fd759800c0fdfaea3d5ab60479938f8))
+- **agents:** Point agents to the Japanese writing rules ([ab4b01b](https://github.com/kein5/astarot/commit/ab4b01b48a2612ef3232fa035a3c9606c25b8247))
+- Add Japanese writing rules for docs, UI text and agent reports ([d7349e0](https://github.com/kein5/astarot/commit/d7349e01259b5145b491904dae0e0b4da4f970d8))
+- **licensing:** Note the sound event measurement and the ESC-50 terms ([35734a8](https://github.com/kein5/astarot/commit/35734a802b9113e4161a4067b211c1e528e5c0e9))
+- **licensing:** Record the sound event model candidates for captions ([1065e37](https://github.com/kein5/astarot/commit/1065e37cf235eee4b802ee572e9c8e49be3b807a))
 
 ## [0.5.0] - 2026-11-17
 

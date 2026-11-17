@@ -2,7 +2,7 @@
 
 This page sets up translating text and sending it to the VRChat chatbox. Set up speech or captions afterwards, following the page for each feature.
 
-![The VRCT-VOX main screen with Translation on and a conversation in the log](/screenshots/en/main.webp)
+![The ASTAROT main screen with Translation on and a conversation in the log](/screenshots/en/main.webp)
 
 The switches and languages are on the left, the conversation log is on the right, and the message box is at the bottom.
 
@@ -14,20 +14,20 @@ On the first start, a screen asks whether to send usage data. Choose "Send", "Do
 
 ## 2. Turn on OSC in VRChat
 
-VRCT-VOX sends text to the VRChat chatbox over OSC. In VRChat, open the Action Menu, go to "Options" → "OSC" and choose "Enabled".
+ASTAROT sends text to the VRChat chatbox over OSC. In VRChat, open the Action Menu, go to "Options" → "OSC" and choose "Enabled".
 
 "Quick settings" at the top right of the main screen says whether a VRChat with OSC enabled was found on this PC. The top of Settings → "VRChat" says the same.
 
 !["Quick settings" open, saying that VRChat was found](/screenshots/en/quick-settings.webp)
 
-By default VRCT-VOX sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>9000</CopyText>, which is also VRChat's default, so you usually don't need to change it. To change it, use "OSC" under Settings → "VRChat".
+By default ASTAROT sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>9000</CopyText>, which is also VRChat's default, so you usually don't need to change it. To change it, use "OSC" under Settings → "VRChat".
 
 ## 3. Choose your languages
 
-In "Language Settings" on the left of the main screen, choose:
+In "Language settings" on the left of the main screen, choose:
 
-- "Your Language" is the language you speak or type.
-- "Target Language" is the language to translate into. You can choose up to three.
+- "Your language" is the language you speak or type.
+- "Target language" is the language to translate into. You can choose up to three.
 
 ## 4. Turn on Translation and send
 
@@ -46,9 +46,9 @@ Models you have not downloaded yet are also listed under "Before you start", whi
 Do this before you use a voice feature (captions, text to speech, the voice changer). Open the settings with the gear at the bottom left of the main screen, then open "Device".
 
 - "Mic" is the microphone that picks up your voice. On Linux it lists PipeWire inputs.
-- "Speaker" is the output device VRCT-VOX listens to when it turns other players' voices into text.
+- "Speaker" is the output device ASTAROT listens to when it turns other players' voices into text.
 
-"Auto Select" uses the device set as the default in your OS.
+"Auto select" uses the device set as the default in your OS.
 
 ## Next
 

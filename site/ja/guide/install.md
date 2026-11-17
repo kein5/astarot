@@ -1,15 +1,15 @@
 # インストール
 
-配布物は[GitHub Releases](https://github.com/kein5/VRCT-VOX/releases)にあります。正式版には「Latest」の印が付きます。ベータ版は「Pre-release」として公開しています。対応するOSと、機能ごとに必要なメモリ、GPU、空き容量は[動作環境と推奨スペック](requirements)にあります。
+配布物は[GitHub Releases](https://github.com/kein5/astarot/releases)にあります。正式版には「Latest」の印が付きます。ベータ版は「Pre-release」として公開しています。対応するOSと、機能ごとに必要なメモリ、GPU、空き容量は[動作環境と推奨スペック](requirements)にあります。
 
 Windowsはこのすぐ下、Linuxは[Linuxの節](#linux)にあります。
 
 ## Windows
 
-1. [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases)で「Latest」の印が付いた版の「Assets」から、`VRCT-VOX_setup.exe`をダウンロードします。
+1. [GitHub Releases](https://github.com/kein5/astarot/releases)で「Latest」の印が付いた版の「Assets」から、`VRCT-VOX_setup.exe`をダウンロードします。
 2. ダウンロードしたファイルを開きます。SmartScreenの警告が出たときは、下の注意のとおりに進めます。
 3. 途中でCPU版かGPU版を選びます。NVIDIAのGPUがあるPCではGPU版（CUDA版）を選べます。
-4. インストールが終わったら、VRCT-VOXを起動して[最初の設定](./first-setup)へ進みます。
+4. インストールが終わったら、ASTAROTを起動して[最初の設定](./first-setup)へ進みます。
 
 ::: warning 初めて起動するときにSmartScreenの警告が出ます
 Windows版はコード署名をしていません。「WindowsによってPCが保護されました」と出たら、「詳細情報」を押してから「実行」を押します。
@@ -103,8 +103,10 @@ sha256sum -c --ignore-missing SHA256SUMS-linux
 確かめるには[GitHub CLI](https://cli.github.com/)を入れて、ダウンロードしたフォルダーで次を実行します。ファイル名は確かめたいものに替えてください。
 
 ```sh
-gh attestation verify VRCT-VOX_setup.exe --repo kein5/VRCT-VOX
+gh attestation verify VRCT-VOX_setup.exe --owner kein5 --signer-repo kein5/VRCT-VOX
 ```
+
+0.5.0までのファイルは、リポジトリの名前を`kein5/astarot`に変える前に作ったので、来歴には古い名前の`kein5/VRCT-VOX`が書かれています。そのため、上のように持ち主（`kein5`）と古い名前を指定します。0.5.0より後のファイルは`gh attestation verify ファイル名 --repo kein5/astarot`で確かめます。
 
 「Verification succeeded!」と出れば、そのファイルはこのリポジトリのワークフローで作られています。失敗した場合は、そのファイルを使わずにIssueで知らせてください。
 :::
@@ -115,7 +117,7 @@ gh attestation verify VRCT-VOX_setup.exe --repo kein5/VRCT-VOX
 
 | 入れ方 | 更新のしかた |
 |---|---|
-| Windowsのインストーラー | 「アップデート」の「（バージョン）に更新して再起動」で更新します。ダウンロードした更新は署名を確かめてから入れ、終わるとVRCT-VOXが再起動します |
+| Windowsのインストーラー | 「アップデート」の「（バージョン）に更新して再起動」で更新します。ダウンロードした更新は署名を確かめてから入れ、終わるとASTAROTが再起動します |
 | AppImage | 同じボタンで、AppImageのファイルを新しいものに置き換えます |
 | WindowsのZIP、Linuxのtar.gz | 新しいバージョンがあることだけを知らせます。GitHub Releasesから入れ直してください |
 | deb、rpm | アプリは更新を確認しません。パッケージマネージャーで更新してください |
@@ -130,6 +132,6 @@ Windowsのインストーラーは新しいバージョンを展開して確か�
 
 ## 起動は1つだけ
 
-VRCT-VOXが動いている間にもう一度起動すると、もう1つは起動せず、動いているウィンドウを前に出します。
+ASTAROTが動いている間にもう一度起動すると、もう1つは起動せず、動いているウィンドウを前に出します。
 
 次は[最初の設定](./first-setup)へ進んでください。

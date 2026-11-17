@@ -8,23 +8,23 @@
 <!-- Badges read their values from GitHub (Actions, Releases, the repository) or from the files
      they link to, except License and Platform: those follow LICENSE and the release files. Keep docs/readmes/README.ja.md the same. -->
 <p align="center">
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="Tests on Linux and Windows (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/voice-tests.yml?branch=develop&event=push&label=tests"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Linux build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Windows build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/github-code-scanning/codeql"><img alt="CodeQL analysis (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
+  <a href="https://github.com/kein5/astarot/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="Tests on Linux and Windows (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/voice-tests.yml?branch=develop&event=push&label=tests"></a>
+  <a href="https://github.com/kein5/astarot/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Linux build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
+  <a href="https://github.com/kein5/astarot/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Windows build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
+  <a href="https://github.com/kein5/astarot/actions/workflows/github-code-scanning/codeql"><img alt="CodeQL analysis (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
 </p>
 <p align="center">
-  <a href="https://github.com/kein5/VRCT-VOX/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/kein5/VRCT-VOX?label=release"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/releases"><img alt="Downloads from GitHub Releases" src="https://img.shields.io/github/downloads/kein5/VRCT-VOX/total?label=downloads"></a>
+  <a href="https://github.com/kein5/astarot/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/kein5/astarot?label=release"></a>
+  <a href="https://github.com/kein5/astarot/releases"><img alt="Downloads from GitHub Releases" src="https://img.shields.io/github/downloads/kein5/astarot/total?label=downloads"></a>
   <a href="/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="https://github.com/kein5/VRCT-VOX"><img alt="GitHub stars" src="https://img.shields.io/github/stars/kein5/VRCT-VOX?label=stars&style=flat"></a>
+  <a href="https://github.com/kein5/astarot"><img alt="GitHub stars" src="https://img.shields.io/github/stars/kein5/astarot?label=stars&style=flat"></a>
 </p>
 <p align="center">
-  <a href="https://kein5.github.io/VRCT-VOX/en/guide/requirements"><img alt="Platforms: Windows and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
-  <a href="/src-tauri/Cargo.toml"><img alt="Rust edition of the app" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
-  <a href="/mise.toml"><img alt="Rust toolchain pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
-  <a href="/pyproject.toml"><img alt="Python version for the development tools and tests" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
-  <a href="/mise.toml"><img alt="Node.js pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
+  <a href="https://kein5.github.io/astarot/en/guide/requirements"><img alt="Platforms: Windows and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
+  <a href="/src-tauri/Cargo.toml"><img alt="Rust edition of the app" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
+  <a href="/mise.toml"><img alt="Rust toolchain pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
+  <a href="/pyproject.toml"><img alt="Python version for the development tools and tests" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
+  <a href="/mise.toml"><img alt="Node.js pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
 </p>
 
 [日本語](/docs/readmes/README.ja.md)
@@ -45,7 +45,7 @@ RVC also needs its runtime, HuBERT and RMVPE. See [model downloads](/docs/voice-
 
 ## Status and downloads
 
-The latest release is on **[GitHub Releases](https://github.com/kein5/VRCT-VOX/releases/latest)** (the release badge above shows its version). Versions count from 0.1.0, separately from upstream VRCT 3.x. Betas are published from `develop`, stable releases from `main`.
+The latest release is on **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** (the release badge above shows its version). Versions count from 0.1.0, separately from upstream VRCT 3.x. Betas are published from `develop`, stable releases from `main`.
 
 - **Linux:** AppImage, tar.gz, deb and rpm (x64, Vulkan). These have been tested with real models on CachyOS (KDE Plasma Wayland).
 - **Windows:** installer and zip (CPU), and a CUDA zip. These have been tested with real models on a Windows 11 PC ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
@@ -57,7 +57,7 @@ Known limitations:
 - On Linux, the VR UI and chat reading from the headset view have been checked only with a stand-in for SteamVR, not with a real headset. Linux builds have been checked on KDE Plasma (Wayland) only.
 - The Google, Bing and Papago web translators are unavailable (see License).
 
-Report bugs and ask questions on **[Issues](https://github.com/kein5/VRCT-VOX/issues)**, with OS, version, steps and redacted logs. Report vulnerabilities privately (see [SECURITY.md](SECURITY.md)). Do not send ASTAROT support requests to the VRCT maintainers.
+Report bugs and ask questions on **[Issues](https://github.com/kein5/astarot/issues)**, with OS, version, steps and redacted logs. Report vulnerabilities privately (see [SECURITY.md](SECURITY.md)). Do not send ASTAROT support requests to the VRCT maintainers.
 
 ## Getting started
 
@@ -75,7 +75,7 @@ The app is shown as ASTAROT, but executables and packages still use `vrct-vox` /
 
 ASTAROT sends two kinds of usage events to its own receiver unless you turn that off (Settings → Advanced → "Send usage data"): that the app started, once a day, and an error by its fixed code, once a day per code. Each carries the app version, the OS and its version, the display language, and the PC's hardware (CPU, memory, GPUs and their driver versions). The app shows you exactly what it sends ("See what is sent"). The text and audio of conversations, audio device names and user names are never sent, and nothing is sent before you have answered a one-time notice. Upstream VRCT's Aptabase telemetry is not used, even when an old upstream key file exists. Translation and speech services you choose still receive the text or audio you send them; turning off usage data does not make every feature offline. See [privacy](/site/en/guide/privacy.md).
 
-No model is bundled. TTS, ASR and RVC models are downloaded only on request, or provided by you. Built packages contain no OCR weights. The upstream chat-bubble detector, which may not be shipped in a fork's release, was removed from the repository in 0.2.0; commits up to 0.1.0 still hold it under its own [terms](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.en.txt), so do not package an old checkout wholesale. The Mia2026 test voice is for local testing only and is never distributed. The bundled speech.cpp binaries carry their own notices; each model has its own license.
+No model is bundled. TTS, ASR and RVC models are downloaded only on request, or provided by you. Built packages contain no OCR weights. The upstream chat-bubble detector, which may not be shipped in a fork's release, was removed from the repository in 0.2.0; commits up to 0.1.0 still hold it under its own [terms](https://github.com/kein5/astarot/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.en.txt), so do not package an old checkout wholesale. The Mia2026 test voice is for local testing only and is never distributed. The bundled speech.cpp binaries carry their own notices; each model has its own license.
 
 ## License and acknowledgements
 
@@ -91,7 +91,7 @@ VRChat and its associated properties are trademarks or registered trademarks of 
 
 ## Development
 
-[mise](https://mise.jdx.dev/) installs the pinned Node, Rust, Python, uv and Cocogitto from `mise.toml` (`mise install`) and runs the routine tasks (`mise tasks` lists them). Start with `mise run doctor`, install the headless checks with `mise run setup:headless`, and install the UI dependencies with `mise run setup:ui`. `mise run check` runs the developer-tool, Node and lint checks. The [developer guide](docs/development.md) covers the voice, backend and Rust checks, browser tests and Cocogitto. See [CONTRIBUTING.md](CONTRIBUTING.md) for branches, commit messages and pull requests. What each stable release changed is in [CHANGELOG.md](CHANGELOG.md), from 0.2.0 on; betas and earlier releases are described on [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases).
+[mise](https://mise.jdx.dev/) installs the pinned Node, Rust, Python, uv and Cocogitto from `mise.toml` (`mise install`) and runs the routine tasks (`mise tasks` lists them). Start with `mise run doctor`, install the headless checks with `mise run setup:headless`, and install the UI dependencies with `mise run setup:ui`. `mise run check` runs the developer-tool, Node and lint checks. The [developer guide](docs/development.md) covers the voice, backend and Rust checks, browser tests and Cocogitto. See [CONTRIBUTING.md](CONTRIBUTING.md) for branches, commit messages and pull requests. What each stable release changed is in [CHANGELOG.md](CHANGELOG.md), from 0.2.0 on; betas and earlier releases are described on [GitHub Releases](https://github.com/kein5/astarot/releases).
 
 - [Build and CI guide (Japanese)](/docs/readme_build.md)
 - [Linux build pipeline](/docs/voice-stack/linux-build-pipeline.md) and [AppImage](/docs/voice-stack/appimage.md)

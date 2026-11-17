@@ -105,6 +105,23 @@ test("retention during closure uses the existing two-step shift after restoring 
     subject.runtime.unmount();
 });
 
+test("an empty log stays at its top while the empty state grows, and follows again from the first row", async context => {
+    // At startup the list under the greeting grows past the log's height; following the end
+    // scrolled the greeting up (262 to 245 px in the default window with a tall input box).
+    const subject = await setup(context, undefined, []);
+    let virtual = subject.render();
+    assert.equal(subject.element.scrollTop, 0);
+    subject.observers[0].callback();
+    virtual.props.onResize();
+    subject.element.scrollTop = 0;
+    subject.element.dispatch("scroll");
+    assert.equal(subject.element.scrollTop, 0, "layout changes do not scroll the empty state");
+    subject.setRows([{ id: "a" }]);
+    virtual = subject.render();
+    assert.equal(subject.element.scrollTop, 800, "the first message is followed as before");
+    subject.runtime.unmount();
+});
+
 test("desktop without a saved view still follows layout changes and pauses only for user scroll", async context => {
     const subject = await setup(context, undefined, [{ id: "a" }]);
     const virtual = subject.render();

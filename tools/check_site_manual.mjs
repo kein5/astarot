@@ -83,7 +83,7 @@ for (const path of pictures) if (!built(path)) failures.push(`${path} is missing
 // The built home page carries the download link for readers without scripts.
 if (built("manual/index.html")) {
     const html = readFileSync(join(dist, "manual/index.html"), "utf8");
-    const latest = "https://github.com/kein5/VRCT-VOX/releases/latest";
+    const latest = "https://github.com/kein5/astarot/releases/latest";
     const links = [...html.matchAll(/\bhref="([^"]*)"/g)].map(match => match[1]);
     if (!links.some(link => link === latest)) failures.push("the built home page has no link to the latest release");
 }

@@ -1,7 +1,7 @@
 {
   "name": "vrct-vox",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "scripts": {
     "setup-python": "bat\\install.bat",
@@ -45,19 +45,18 @@
     "@vanilla-extract/css": "1.21.3",
     "clsx": "2.1.1",
     "i18next": "25.0.1",
-    "jotai": "2.12.3",
-    "js-base64": "3.7.7",
-    "jszip": "3.10.1",
+    "jotai": "3.0.2",
+    "js-base64": "3.9.6",
+    "jszip": "3.10.2",
     "react": "18.3.1",
-    "react-colorful": "5.6.1",
+    "react-colorful": "5.8.1",
     "react-dom": "18.3.1",
     "react-error-boundary": "5.0.0",
     "react-i18next": "15.5.1",
-    "react-resizable-layout": "0.7.2",
-    "react-toastify": "11.0.5",
-    "sass": "1.79.4",
-    "semver": "7.7.1",
-    "virtua": "0.53.5"
+    "react-resizable-layout": "0.7.3",
+    "react-toastify": "11.2.0",
+    "semver": "7.8.6",
+    "virtua": "0.54.2"
   },
   "devDependencies": {
     "@rollup/plugin-yaml": "4.1.2",
@@ -69,8 +68,9 @@
     "eslint": "9.39.5",
     "eslint-plugin-react": "7.37.5",
     "npm-run-all2": "9.0.4",
-    "source-map": "0.7.4",
-    "typescript": "5.9.3",
+    "sass": "1.108.2",
+    "source-map": "0.8.0",
+    "typescript": "7.0.2",
     "vite": "6.4.5",
     "vite-plugin-svgr": "4.3.0"
   }

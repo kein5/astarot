@@ -1,7 +1,7 @@
 ---
 layout: home
 hero:
-  name: VRCT-VOX
+  name: ASTAROT
   text: Translation, captions and speech for your VRChat conversations
   tagline: One desktop app for translation, captions, speech, a voice changer and chat reading. It is an unofficial derivative of VRCT.
 # The hero's buttons (theme/HomeActions.vue). The download button offers the latest release's
@@ -14,7 +14,7 @@ heroActions:
     link: /en/guide/tasks
 shot:
   src: /screenshots/en/main.webp
-  alt: The VRCT-VOX main window. A message sent in Japanese has its English translation, and the other player's English reply has its Japanese translation
+  alt: The ASTAROT main window. A message sent in Japanese has its English translation, and the other player's English reply has its Japanese translation
 # Each feature beside a short loop of what it does (theme/HomeShowcase.vue). The id names the
 # loop under public/motion/en/, rendered by site/motion.
 showcase:

@@ -135,7 +135,7 @@ export const papago_auth_key_url = "https://www.ncloud.com/product/aiService/pap
 
 // VRCT-VOX's own user guide (site/, published by .github/workflows/pages.yml).
 // It has Japanese and English pages; other UI languages get the English ones.
-export const vrct_document_home_url = "https://kein5.github.io/VRCT-VOX";
+export const vrct_document_home_url = "https://kein5.github.io/astarot";
 export const vrct_document_url_chunk_faq = "guide/troubleshooting";
 export const vrct_document_url_chunk_ui_guide = "guide/first-setup";
 // Each model setting links to its own section: #tts, #asr, #whisper-server, #rvc, #seed-vc, #translation.

@@ -154,13 +154,13 @@
 
 | キー | 型・検証 | 既定値 | 扱い |
 |---|---|---|---|
-| `VERSION` |  | `'0.5.0'` | 読み取り専用 |
+| `VERSION` |  | `'0.5.1'` | 読み取り専用 |
 | `PATH_LOCAL` |  | `os_path.dirname(sys.executable)` | 読み取り専用 |
 | `PATH_DATA` |  | `str(data_root(self._PATH_LOCAL))` | 読み取り専用 |
 | `PATH_CONFIG` |  | `os_path.join(state_dir, 'config.json')` | 読み取り専用 |
 | `PATH_LOGS` |  | `os_path.join(state_dir, 'logs')` | 読み取り専用 |
-| `GITHUB_URL` |  | `'https://api.github.com/repos/kein5/VRCT-VOX/releases/latest'` | 読み取り専用 |
-| `GITHUB_RELEASES_LIST_URL` |  | `'https://api.github.com/repos/kein5/VRCT-VOX/releases'` | 読み取り専用 |
+| `GITHUB_URL` |  | `'https://api.github.com/repos/kein5/astarot/releases/latest'` | 読み取り専用 |
+| `GITHUB_RELEASES_LIST_URL` |  | `'https://api.github.com/repos/kein5/astarot/releases'` | 読み取り専用 |
 | `MIN_SUPPORTED_VERSION` |  | `'0.1.0'` | 読み取り専用 |
 | `SELECTABLE_RELEASE_CHANNEL_LIST` |  | `['stable', 'beta']` | 読み取り専用 |
 | `MAX_MIC_THRESHOLD` |  | `2000` | 読み取り専用 |

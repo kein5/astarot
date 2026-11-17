@@ -61,9 +61,9 @@ jobs:
           df -h /
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
           df -h /
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Node, Rust, Python (for the build and test tools) and uv at the versions in mise.toml and mise.lock.
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.11.8
           install_args: node rust python uv
@@ -164,7 +164,7 @@ jobs:
           subject-path: build/linux/release-candidate/*
       # Candidate storage only. No release creation, package registry, or secrets.
       - name: Store inspected candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: VRCT-VOX-linux-x86_64-candidate
           path: build/linux/release-candidate/*
@@ -173,7 +173,7 @@ jobs:
           compression-level: 0
       - name: Store diagnostic logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: VRCT-VOX-linux-build-logs
           retention-days: 7

@@ -25,9 +25,10 @@ class _RuntimeHttpClient(HttpClient):
         kwargs["allow_redirects"] = False
         return super()._internal_request(request, stream, **kwargs)
 
-    def _should_retry(self, response, exception, num_retries):
-        # Keep SDK retryable errors and backoff, but allow only one retry.
-        return num_retries < 1 and super()._should_retry(response, exception, num_retries)
+    def _should_retry(self, response, exception, num_retries, *args, **kwargs):
+        # Keep SDK retryable errors and backoff, but allow only one retry. DeepL 1.33 passes a
+        # fourth argument (only_unprocessed); hand on whatever the installed SDK gives.
+        return num_retries < 1 and super()._should_retry(response, exception, num_retries, *args, **kwargs)
 
 
 def configureDeepLRuntimeTimeout(client) -> None:
@@ -44,7 +45,7 @@ class _DiscoveryHttpClient(_RuntimeHttpClient):
                                             timeout=(DISCOVERY_TIMEOUT, DISCOVERY_TIMEOUT),
                                             allow_redirects=False)
 
-    def _should_retry(self, response, exception, num_retries):
+    def _should_retry(self, response, exception, num_retries, *args, **kwargs):
         return False
 
 

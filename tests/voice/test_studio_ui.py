@@ -54,6 +54,75 @@ def studio(ui):
     return page, peer
 
 
+def test_settings_menu_tabs_are_one_line_and_the_same_height(studio):
+    # 「音声認識（ASR）」 and the other feature names took a second line for their short name,
+    # so four tabs were 52 px high and the rest 40 px. Each tab is now one line that fits,
+    # in both languages and also in a font whose kana are full width (Meiryo, Noto Sans CJK).
+    page, _ = studio
+    for lang in ("ja", "en"):
+        page.goto(page.url.split("?")[0] + f"?lang={lang}")
+        page.get_by_role("heading", name={"ja": "ここから会話を始めましょう", "en": "Your conversation starts here"}[lang]).wait_for()
+        page.set_viewport_size({"width": 870, "height": 654})
+        page.get_by_role("button", name="設定を開く" if lang == "ja" else "Open settings", exact=True).click()
+        page.locator("button[aria-current=page]").first.wait_for()
+        for font in ("", "Meiryo", "BIZ UDGothic"):
+            tabs = page.evaluate(
+                """font => [...document.querySelectorAll('[class*=tabs_wrapper] button')].map(b => {
+                    const p = b.querySelector('p'); p.style.fontFamily = font;
+                    const range = document.createRange(); range.selectNodeContents(p);
+                    const row = { name: b.getAttribute('aria-label'), height: Math.round(b.getBoundingClientRect().height),
+                        lines: new Set([...range.getClientRects()].map(x => Math.round(x.top))).size,
+                        clipped: p.scrollWidth > p.clientWidth };
+                    p.style.fontFamily = ''; return row; })""",
+                font,
+            )
+            assert len(tabs) == 14, tabs
+            assert all(tab["lines"] == 1 and not tab["clipped"] for tab in tabs), (lang, font, tabs)
+            assert len({tab["height"] for tab in tabs}) == 1, (lang, font, tabs)
+        asr = page.get_by_role("button", name="音声認識（ASR）" if lang == "ja" else "Speech recognition (ASR)", exact=True)
+        assert asr.get_attribute("title") == ("音声認識（ASR）" if lang == "ja" else "Speech recognition (ASR)")
+
+
+def _name_lines(page):
+    """Each main switch's name (without its short name in brackets) and the lines it takes."""
+    return page.evaluate(
+        """() => [...document.querySelectorAll('[role=switch] p')].map(p => {
+            const range = document.createRange();
+            range.selectNodeContents(p.firstChild);
+            const tops = new Set([...range.getClientRects()].map(rect => Math.round(rect.top)));
+            return [p.firstChild.textContent, tops.size];
+        })"""
+    )
+
+
+def test_feature_names_stay_on_one_line_in_the_default_window(studio):
+    # The rail's scrollbar always takes 8 of its 240 px (overflow-y: scroll), and in a font whose
+    # kana are full width (Noto Sans CJK on Linux, Meiryo) 「ボイスチェンジャー」 is nine full
+    # characters wide. It broke before its last character in the default window (870 x 654).
+    page, _ = studio
+    page.set_viewport_size({"width": 870, "height": 654})
+    page.wait_for_function("document.querySelectorAll('[role=switch] p').length >= 6")
+    lines = dict(_name_lines(page))
+    assert "ボイスチェンジャー" in lines, lines
+    assert all(count == 1 for count in lines.values()), lines
+    # The browser under test may hide scrollbars and draw its own font, so the room is measured
+    # as the app has it: the switch's width less its sides, the toggle and the gap, less the
+    # part of the 8 px scrollbar that the browser did not draw.
+    room, size = page.evaluate(
+        """() => {
+            const p = [...document.querySelectorAll('[role=switch] p')].find(p => p.firstChild.textContent === 'ボイスチェンジャー');
+            const sw = p.closest('[role=switch]'), style = getComputedStyle(sw);
+            const toggle = sw.children[1].getBoundingClientRect().width;
+            const scroll = sw.closest('[class*=scrollContainer]');
+            const hidden = 8 - (scroll.offsetWidth - scroll.clientWidth);
+            const room = sw.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+                - toggle - parseFloat(style.columnGap) - hidden;
+            return [room, parseFloat(getComputedStyle(p).fontSize)];
+        }"""
+    )
+    assert room >= 9 * size, (room, size)
+
+
 def screenshot(page, name):
     page.evaluate(
         # An animation that goes idle after it was listed (a transition cancelled by the next

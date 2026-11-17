@@ -61,13 +61,16 @@ mod portal_shortcuts {
 // tauri.conf.json の main ウィンドウと同じ値にする (テストで確かめる)。Tauri既定の --disable-features
 // から msSmartScreenProtection を外し、WebView2 の SmartScreen を既定どおり動かす (第2回セキュリティ監査
 // SEC-03)。隠れたウィンドウの描画停止は無効にする (VRパネルは画面外に置いて撮影するため)。
-pub(crate) const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding";
+// --disable-background-networking は、画面と関係なくMicrosoftへ出る通信 (Edgeの実験の設定の取得
+// config.edge.skype.com と、コンポーネント更新の繰り返し) を止める暫定対策。WebView2の公式の一覧に
+// ないChromiumのスイッチなので、Runtimeの更新で効かなくなることがある (docs/spec/external-interfaces.md)。
+pub(crate) const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-networking";
 
 // VRオーバーレイに映す画面。Python側 (models/overlay) が撮影・入力する (Windows はタイトルで見つける)。
 // VR UI が ON の間だけ作る (set_vr_panel_window)。OFF の間も動かしておくと、使わない人にも負荷がかかる
 fn create_vr_panel_window<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<tauri::WebviewWindow<R>> {
     let window = WebviewWindowBuilder::new(manager, "vr_panel", WebviewUrl::App("vr.html".into()))
-        .title("VRCT-VOX VR Panel")
+        .title("ASTAROT VR Panel")
         // 既定の並び (src-ui/views/vr/vr_layout.json の atlas)。ログの大きさを変えると Python が合わせて変える
         .inner_size(1628.0, 880.0)
         .decorations(false)
@@ -422,6 +425,13 @@ mod tests {
         for feature in disabled {
             assert!(!feature.contains("SmartScreen"), "{feature} is disabled");
         }
+    }
+
+    #[test]
+    fn webview2_background_networking_stays_off() {
+        // WebView2 fetches Edge's experiment settings and repeats component updates on its own.
+        // Keep that off for every window (docs/spec/external-interfaces.md, "WebView2の通信").
+        assert!(BROWSER_ARGS.split_whitespace().any(|argument| argument == "--disable-background-networking"));
     }
 
     #[test]

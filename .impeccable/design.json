@@ -1,22 +1,22 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-30T10:22:28.124460+00:00",
-  "title": "Design System: VRCT-VOX Dark Studio",
+  "generatedAt": "2026-11-18T00:00:00+00:00",
+  "title": "Design System: ASTAROT Dark Studio",
   "extensions": {
     "colorMeta": {
       "primary": {
         "role": "primary",
-        "displayName": "Studio blue",
-        "canonical": "#2865dc",
+        "displayName": "ASTAROT Lilac",
+        "canonical": "#a47af5",
         "tonalRamp": [
-          "#153366",
-          "#1b418e",
-          "#2052b8",
-          "#2865dc",
-          "#3f7bf2",
-          "#6e9fff",
-          "#a9ccff",
-          "#dbeafe"
+          "#25075f",
+          "#380b8e",
+          "#4e0fc7",
+          "#702eef",
+          "#a47af5",
+          "#bea0f8",
+          "#d8c6fb",
+          "#efe7fd"
         ]
       }
     },
@@ -45,7 +45,7 @@
       "refersTo": "button-primary",
       "description": "Primary action used by the studio forms.",
       "html": "<button class=\"ds-primary\">Save settings</button>",
-      "css": ".ds-primary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#edf3ff;background:#2865dc;border:0}.ds-primary:hover{background:#3470e8}.ds-primary:focus-visible{outline:2px solid #a9ccff;outline-offset:3px}"
+      "css": ".ds-primary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#261633;background:#a47af5;border:0}.ds-primary:hover{background:#b897f7}.ds-primary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Secondary action",
@@ -53,7 +53,7 @@
       "refersTo": "",
       "description": "Secondary action used by the studio forms.",
       "html": "<button class=\"ds-secondary\">Discard changes</button>",
-      "css": ".ds-secondary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#edf3ff;background:#25364f;border:0}.ds-secondary:hover{background:#798ca8}.ds-secondary:focus-visible{outline:2px solid #a9ccff;outline-offset:3px}"
+      "css": ".ds-secondary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#3f2c57;border:0}.ds-secondary:hover{background:#4f3b66}.ds-secondary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Text field",
@@ -61,7 +61,7 @@
       "refersTo": "input",
       "description": "Text field used by the studio forms.",
       "html": "<label class=\"ds-field\">Model path<input value=\"models/irodori.gguf\"></label>",
-      "css": ".ds-field{display:grid;gap:8px;color:#edf3ff;font:14px system-ui}.ds-field input{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#edf3ff;background:#18253b;border:1px solid #657a96}.ds-field input:focus-visible{outline:2px solid #a9ccff;outline-offset:3px}"
+      "css": ".ds-field{display:grid;gap:8px;color:#fafafc;font:14px system-ui}.ds-field input{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#33214a;border:1px solid #88779c}.ds-field input:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Settings navigation",
@@ -69,7 +69,7 @@
       "refersTo": "",
       "description": "Settings navigation used by the studio forms.",
       "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">TTS</button><button>RVC</button></nav>",
-      "css": ".ds-nav{display:grid;gap:4px;background:#0d1625;padding:10px}.ds-nav button{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#edf3ff;text-align:left;border:0;background:transparent}.ds-nav [aria-current]{background:#18345f}.ds-nav button:hover{background:#25364f}.ds-nav button:focus-visible{outline:2px solid #a9ccff;outline-offset:2px}"
+      "css": ".ds-nav{display:grid;gap:4px;background:#1c0f27;padding:10px}.ds-nav button{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;text-align:left;border:0;background:transparent}.ds-nav [aria-current]{background:#45306a}.ds-nav button:hover{background:#3f2c57}.ds-nav button:focus-visible{outline:2px solid #d9c8fc;outline-offset:2px}"
     },
     {
       "name": "Explicit consent",
@@ -77,7 +77,7 @@
       "refersTo": "",
       "description": "Explicit consent used by the studio forms.",
       "html": "<label class=\"ds-consent\"><input type=\"checkbox\">I reviewed the terms and download size.</label>",
-      "css": ".ds-consent{display:flex;align-items:flex-start;gap:12px;font:14px/1.5 system-ui;color:#edf3ff}.ds-consent input{width:20px;height:20px;accent-color:#5b92ff}.ds-consent input:focus-visible{outline:2px solid #a9ccff;outline-offset:3px}"
+      "css": ".ds-consent{display:flex;align-items:flex-start;gap:12px;font:14px/1.5 system-ui;color:#fafafc}.ds-consent input{width:20px;height:20px;accent-color:#a47af5}.ds-consent input:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     }
   ],
   "narrative": {
@@ -85,7 +85,7 @@
     "overview": "Conversation and audio control take precedence over visual effects.",
     "keyCharacteristics": [
       "A deep rail separates navigation from the conversation workspace.",
-      "Blue identifies primary actions, selected navigation and keyboard focus.",
+      "Lilac identifies primary actions, selected navigation and keyboard focus.",
       "Shared forms make TTS, RVC and model downloads feel part of the same application."
     ],
     "rules": [],

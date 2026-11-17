@@ -1,6 +1,6 @@
 # Model downloads
 
-VRCT-VOX packages contain no models for text to speech, speech recognition, the voice changer or text recognition. Download the models you use from the settings, or point to files you already have. How to use files of your own is in [Use your own models](./custom-models).
+ASTAROT packages contain no models for text to speech, speech recognition, the voice changer or text recognition. Download the models you use from the settings, or point to files you already have. How to use files of your own is in [Use your own models](./custom-models).
 
 ## How a download works
 
@@ -72,4 +72,4 @@ Downloaded models go to `downloaded_models` in the same folder as the settings f
 
 ## Downloading at startup
 
-"Download the translation model at startup" under Settings → "Translation" downloads, at the next start, the translation model you chose if you have not downloaded it yet. It only downloads a model whose version you have agreed to before; otherwise it shows a notice and downloads nothing. Speech recognition and speech models are never downloaded at startup. It is off by default. Models you already have work either way.
+From 0.5.0 the app never downloads a model on its own when it starts. "Download the translation model at startup" is gone from Settings → "Translation". A model is downloaded only when you check its license and size in the settings or in a confirmation and agree.

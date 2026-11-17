@@ -33,11 +33,12 @@ use vrct_core::controller::updates::{SoftwareUpdates, UpdateOutcome, no_update};
 
 /// The owner of the project's releases. Their downloads are the only ones taken ([`project_download`]).
 const OWNER: &str = "kein5";
-/// The repository, for the release list and the release pages. GitHub forwards both from the old
-/// name after a rename, so a copy built before a rename keeps working.
-const REPOSITORY: &str = "kein5/VRCT-VOX";
+/// The repository, for the release list and the release pages. GitHub forwards an old name only
+/// while nothing else takes it: the old name kein5/VRCT-VOX is now a repository of its own that
+/// holds a copy of 0.5.0 and nothing newer (Issue #534), so the current name is used.
+const REPOSITORY: &str = "kein5/astarot";
 const STABLE_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/latest.json";
-const RELEASES_API: &str = "https://api.github.com/repos/kein5/VRCT-VOX/releases?per_page=30";
+const RELEASES_API: &str = "https://api.github.com/repos/kein5/astarot/releases?per_page=30";
 const MANIFEST_NAME: &str = "latest.json";
 
 /// How this copy of the app was installed, which decides what an update can do.
@@ -825,12 +826,12 @@ mod tests {
 
         for url in [
             "https://github.com/someone-else/VRCT-VOX/releases/download/v9.0.0/latest.json",
-            "http://github.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
-            "https://github.com:8443/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
-            "https://user@github.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
-            "https://github.com.example.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
-            "https://github.com/kein5/VRCT-VOX/archive/v9.0.0/latest.json",
-            "https://github.com/kein5/VRCT-VOX/releases/download/latest.json",
+            "http://github.com/kein5/astarot/releases/download/v9.0.0/latest.json",
+            "https://github.com:8443/kein5/astarot/releases/download/v9.0.0/latest.json",
+            "https://user@github.com/kein5/astarot/releases/download/v9.0.0/latest.json",
+            "https://github.com.example.com/kein5/astarot/releases/download/v9.0.0/latest.json",
+            "https://github.com/kein5/astarot/archive/v9.0.0/latest.json",
+            "https://github.com/kein5/astarot/releases/download/latest.json",
         ] {
             let mut foreign = release("v9.0.0", false, true);
             foreign.assets[1].browser_download_url = url.into();

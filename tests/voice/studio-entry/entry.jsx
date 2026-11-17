@@ -25,6 +25,9 @@ for (const key of ["SendMessageFormatParts", "ReceivedMessageFormatParts"]) {
     atoms.set(dynamicStoreRegistry[`Atom_${key}`], { state: "ok", data: { message: { prefix: "", suffix: "" }, separator: "\n", translation: { prefix: "", suffix: "", separator: "\n" }, translation_first: false } });
 }
 atoms.set(Atom_SoftwareVersion, { state: "ok", data: "3.6.0-beta.1" });
+// The saved language is the one shown, as UiLanguageController keeps it in the app: the empty
+// conversation's greeting waits until they agree.
+atoms.set(dynamicStoreRegistry.Atom_UiLanguage, { state: "ok", data: i18n.language });
 // The sidecar peer answers from the start: without this every main switch reads "connection lost".
 atoms.set(Atom_IsBackendReady, { state: "ok", data: true });
 store.backend_subprocess = { write: line => window.sidecarWrite(line) };
@@ -34,7 +37,11 @@ function Studio() {
     receiver.current = useReceiveRoutes().receiveRoutes;
     useEffect(() => {
         let active = true;
-        const resize = () => atoms.set(Atom_IsBreakPoint, { state: "ok", data: innerWidth <= 800 });
+        // As useWindow does in the app: the state and the mark on the root.
+        const resize = () => {
+            atoms.set(Atom_IsBreakPoint, { state: "ok", data: innerWidth <= 800 });
+            document.documentElement.toggleAttribute("data-narrow", innerWidth <= 800);
+        };
         resize();
         window.addEventListener("resize", resize);
         const poll = async () => {

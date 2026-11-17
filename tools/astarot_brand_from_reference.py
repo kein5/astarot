@@ -47,10 +47,22 @@ LILAC = "#A47AF5"
 CANVAS = "#FAFAFC"
 WHITE = "#FFFFFF"
 BOARD_MUTED = "#777082"
+# Subtitle of the dark horizontal logo: the hue of the light logo's #766B80 at 67 % lightness.
+# Contrast 6.8:1 on Dark Plum and 7.6:1 on #0D1117, so the white wordmark stays the lead.
+HORIZONTAL_DARK_SUBTITLE = "#ABA0B5"
 SUBTITLE = "Speech, Translation, Accessibility, Revoicing &amp; OCR Toolkit"
 SUBTITLE_LINES = ("Speech, Translation, Accessibility,", "Revoicing &amp; OCR Toolkit")
 BOARD_STACKED_LINES = ("Speech, Translation,", "Accessibility, Revoicing &amp; OCR Toolkit")  # the approved stacked-logo line break
 HERO_DX, HERO_DY = 155, 67  # the brand board's hero = the horizontal logo's lockup moved by this
+SYMBOL_INK = (294.0, 300.0)  # ink width and height of the symbol path in its own units
+SYMBOL_INK_ORIGIN = (12.5, 9.5)  # the path's own translate() in symbol-light.svg
+PANEL_MID = 622  # the brand board's middle row: the artwork of all four panels is centred on this
+PANEL_INK = 160  # ink height of the 64 px favicon, the monochrome pair and the stacked symbol
+PANEL_LABEL_Y = 757  # baseline of the labels under the favicons and the monochrome pair
+FAVICON_LABEL_W = 46  # a favicon column is never narrower than its label ("16 px" at 18 px)
+FAVICON_GAP = 44
+MONO_GAP = 36
+STACKED_DY = 0.5  # moves the stacked logo so that its ink is centred on PANEL_MID
 DEFAULT_DESC ="ASTAROT circular hexagram and speech bubble"
 
 
@@ -131,14 +143,14 @@ def wordmark_svg(parts: Parts) -> str:
 
 def horizontal(parts: Parts, dark: bool) -> str:
     ink = WHITE if dark else PLUM
-    sub = "#E1D6E8" if dark else "#766B80"
+    sub = HORIZONTAL_DARK_SUBTITLE if dark else "#766B80"
     # One-line lockup: wordmark ink width = subtitle ink width x 1.0047 (typography-and-lockup.md).
+    # The subtitle names Outfit Bold explicitly, and no line is drawn under it.
     body = (
         parts.mark(35, 35, 275, ink)
         + f'<rect x="330" y="55" width="3" height="235" rx="1.5" fill="{LILAC}"/>'
         + parts.word(370, 70, 955, ink)
-        + f'<text x="369.3" y="290" font-family="Outfit, Inter, DejaVu Sans, sans-serif" font-size="35.8" fill="{sub}">{SUBTITLE}</text>'
-        + f'<rect x="370" y="313" width="92" height="5" rx="2.5" fill="{LILAC}"/>'
+        + f'<text x="369.3" y="290" font-family="Outfit, Inter, DejaVu Sans, sans-serif" font-size="35.8" fill="{sub}" font-weight="700">{SUBTITLE}</text>'
     )
     return svg_root(body, 1400, 360, title="ASTAROT horizontal logo",
                     desc="User-approved circular hexagram, Outfit wordmark and fixed subtitle.")
@@ -168,6 +180,15 @@ def lockup_text(x, y, value, size, anchor=None):
             f'font-family="Outfit, Inter, DejaVu Sans, sans-serif"{anchor_attr}>{value}</text>')
 
 
+def centred_mark(parts: Parts, cx: float, cy: float, ink_height: float, color: str) -> str:
+    """The symbol scaled to an ink height of ink_height, with its ink box centred on (cx, cy)."""
+    size = ink_height * SYMBOL_SIZE / SYMBOL_INK[1]
+    scale = size / SYMBOL_SIZE
+    x = cx - (SYMBOL_INK_ORIGIN[0] + SYMBOL_INK[0] / 2) * scale
+    y = cy - (SYMBOL_INK_ORIGIN[1] + SYMBOL_INK[1] / 2) * scale
+    return parts.mark(x, y, size, color)
+
+
 def rule(x1, y1, x2, y2):
     return f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#E3DDE9" stroke-width="2"/>'
 
@@ -193,19 +214,37 @@ def board(parts: Parts) -> str:
         s.append(text(x, 454, heading, 22, weight="700"))
     for x in (407, 814, 1216):
         s.append(rule(x, 432, x, 781))
-    s += [f'<rect x="81" y="491" width="273" height="273" rx="55" fill="{PLUM}"/>', parts.mark(95, 505, 245, WHITE)]
-    for x, size, label in ((463, 178, "64 px"), (667, 95, "32 px"), (766, 39, "16 px")):
-        s += [parts.mark(x, 512 + (178 - size) / 2, size, PLUM), text(x + size / 2, 734, label, 18, color=muted, anchor="middle")]
-    s += [parts.mark(850, 516, 167, "#222222"),
-          f'<rect x="1035" y="498" width="155" height="155" rx="31" fill="{PLUM}"/>',
-          parts.mark(1044, 508, 137, WHITE),
-          text(1025, 734, "Light / dark", 18, color=muted, anchor="middle")]
+    # The four panels share one level: their artwork is centred on PANEL_MID, the 64 px
+    # favicon, the monochrome pair and the stacked logo's symbol are all PANEL_INK high,
+    # and the labels share one baseline at the bottom of the band.
+    mid, ink_h, label_y = PANEL_MID, PANEL_INK, PANEL_LABEL_Y
+    s += [f'<rect x="81" y="{mid - 136.5}" width="273" height="273" rx="55" fill="{PLUM}"/>',
+          parts.mark(95, mid - 122.5, 245, WHITE)]
+    # Favicons at 4:2:1 for 64, 32 and 16 px, centred in their panel with equal gaps. A
+    # column is as wide as its symbol ink or its label, whichever is wider.
+    fav = [(ink_h, "64 px"), (ink_h / 2, "32 px"), (ink_h / 4, "16 px")]
+    cols = [max(h * SYMBOL_INK[0] / SYMBOL_INK[1], FAVICON_LABEL_W) for h, _ in fav]
+    left = (407 + 814) / 2 - (sum(cols) + FAVICON_GAP * (len(cols) - 1)) / 2
+    for (h, label), col in zip(fav, cols):
+        cx = left + col / 2
+        s += [centred_mark(parts, cx, mid, h, PLUM), text(round(cx, 1), label_y, label, 18, color=muted, anchor="middle")]
+        left += col + FAVICON_GAP
+    # Monochrome: a light symbol and a dark tile of the same height, centred in their panel.
+    light_w = ink_h * SYMBOL_INK[0] / SYMBOL_INK[1]
+    mono_left = (814 + 1216) / 2 - (light_w + MONO_GAP + ink_h) / 2
+    tile_x = mono_left + light_w + MONO_GAP
+    s += [centred_mark(parts, mono_left + light_w / 2, mid, ink_h, "#222222"),
+          f'<rect x="{tile_x:g}" y="{mid - ink_h / 2:g}" width="{ink_h:g}" height="{ink_h:g}" rx="{ink_h / 5:g}" fill="{PLUM}"/>',
+          centred_mark(parts, tile_x + ink_h / 2, mid, ink_h * 0.83, WHITE),
+          text((814 + 1216) / 2, label_y, "Light / dark", 18, color=muted, anchor="middle")]
     # Stacked logo in the approved reference balance, set in Outfit: symbol ink 160 px high,
     # wordmark ink 1.78 times that wide, the subtitle broken after "Translation," so that its
-    # second line is about 1.24 times as wide as the wordmark.
-    s += [parts.mark(1342.9, 480.9, 170.67, PLUM), parts.word(1285.6, 657.1, 285.1, PLUM),
-          lockup_text(1428, 726, BOARD_STACKED_LINES[0], 20.7, anchor="middle"),
-          lockup_text(1428, 752, BOARD_STACKED_LINES[1], 20.7, anchor="middle"),
+    # second line is about 1.24 times as wide as the wordmark. The whole block is moved by
+    # STACKED_DY so that it is centred on PANEL_MID like the app icon.
+    dy = STACKED_DY
+    s += [parts.mark(1342.9, 480.9 + dy, 170.67, PLUM), parts.word(1285.6, 657.1 + dy, 285.1, PLUM),
+          lockup_text(1428, 726 + dy, BOARD_STACKED_LINES[0], 20.7, anchor="middle"),
+          lockup_text(1428, 752 + dy, BOARD_STACKED_LINES[1], 20.7, anchor="middle"),
           rule(40, 802, 1640, 802)]
     s.append(text(48, 850, "BRAND COLORS", 22, weight="700"))
     for x, name, color in ((55, "Dark Plum", PLUM), (235, "Lilac", LILAC), (415, "Off-white", CANVAS)):
