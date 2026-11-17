@@ -1,0 +1,18 @@
+// The first-run setup (#557): the models to consent to, then one line per step with its state.
+.models {
+    margin: .8rem 0;
+    li { margin-bottom: .8rem; }
+}
+.model_name { display: block; font-weight: 500; }
+.model_facts { display: block; font-size: 1.25rem; color: var(--vox_secondary_text, #adbed6); }
+.steps {
+    margin: .8rem 0;
+    padding-left: 2.2rem;
+    // The global reset drops list markers; steps done in order show their numbers (#476).
+    list-style: decimal;
+    li { margin-bottom: .6rem; }
+    li[data-state="done"] .state { color: var(--vox_state_active, #80acff); }
+    li[data-state="failed"] .state { color: var(--dark_200_color); font-weight: 500; }
+    progress { display: block; width: 100%; margin-top: .4rem; }
+}
+.state { margin-left: .4rem; }

@@ -7,6 +7,8 @@ import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@stor
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useLocalAsrMigration } from "../../../logics/transcription/useLocalAsrMigration";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
+import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
+import { setupComesFirst } from "../../../logics/setup/firstRunSetup.ts";
 import { guideOpensByItself, preferredCable } from "../../../logics/voice/virtualMic.ts";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
@@ -36,6 +38,7 @@ export const VirtualMicGuideController = () => {
     const { notice, status, check, opened, refreshStatus, startCheck, resetCheck, dismissNotice, closeGuide } = useVirtualMic();
     const { currentTelemetryNotice } = useOthers();
     const { notice: localAsrNotice } = useLocalAsrMigration();
+    const firstRunSetup = useFirstRunSetup();
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const [later, setLater] = useState(false);
@@ -44,9 +47,9 @@ export const VirtualMicGuideController = () => {
     const [chosen, setChosen] = useState(null);
     const [linkFailed, setLinkFailed] = useState(false);
 
-    // Other first-run notices come first; one dialog at a time.
+    // Other first-run notices and the first-run setup come first; one dialog at a time.
     const othersFirst = (currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true)
-        || localAsrNotice === true;
+        || localAsrNotice === true || setupComesFirst(firstRunSetup);
     const byItself = !later && !othersFirst && guideOpensByItself(notice, status);
     useEffect(() => { if (byItself) setShown(true); }, [byItself]);
     const open = opened || shown;

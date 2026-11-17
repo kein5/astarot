@@ -30,6 +30,3 @@ export const useFirstRunSetup = () => {
 
     return { notice, opened, settled, updateNotice, dismissNotice, openSetup, closeSetup, markSettled, reset };
 };
-
-// Whether another start-up dialog should still wait for the setup.
-export const setupComesFirst = ({ notice, settled }) => notice === true && !settled;
