@@ -109,14 +109,14 @@ python tools/native_acceptance.py --app src-tauri/target/debug/vrct-vox --only v
 | `asr` | リアルタイム字幕、内蔵の音声サーバー、音声翻訳 | Qwen3-ASR、Silero VAD、Qwen3-TTS、GPU |
 | `downloads` | 同意の画面、実際の取得（約336 MB）、SHA-256、適用、再起動後の保持 | `--downloads` |
 | `rvc` | アプリから起動した実際のRVCの変換、ミュート中の無音、停止 | RVCの実行環境とモデル、GPU |
-| `seed-vc` | アプリから起動した実際のSeed-VCの変換、停止、入力の消失 | Seed-VCの実行環境、GPU |
+| `seed-vc` | アプリから起動した実際のSeed-VCの変換、停止、入力の消失。0.5.0のアプリはSeed-VCを使えない（中核が`vc_engine_unavailable`で断る。[中核の統合](core-integration.md)の「判断が要ること」の10） | Seed-VCの実行環境、GPU |
 | `vrchat` | アプリで入力した文が実際のVRChatの吹き出しに出て、チャット読み取りで読み戻せること | `--vrchat`、OCRのモデル |
 | `vrchat-voice` | 同じ送信で吹き出しと読み上げが1回ずつ届くこと、読み上げがVRChatのマイクに届いてVRChatの再生で1回だけ確認できること | `--vrchat-voice`、Irodori、GPU |
-| `vr-ui` | VR UIの表示と操作（偽のSteamVR） | 開発ビルド |
+| `vr-ui` | VR UIの表示と操作（偽のSteamVR）。偽のSteamVRはPythonバックエンドにだけ差し込まれるので、0.5.0のアプリのVRにはつながらない（[開発ガイド](../development.md#vrの機器なしでvrの処理を試す)） | 開発ビルド |
 
 モデルは、製品のカタログ（`src-python/models/model_downloads/catalog.py`）に載っているものだけです。`--fetch-models`を付けたときだけ、足りないモデルを製品と同じダウンローダーで`~/.cache/vrct-vox-acceptance`へ取得し、容量とSHA-256を照合します。取得する量は、全部で約3.6 GBです。付けなければ何も取得せず、モデルが足りないグループは、足りないものの名前を示してスキップします。音声認識の試験が聞く音声は、製品のTTSで合成するので、人の録音は要りません。
 
-`--fetch-runtimes`は、RVCとSeed-VCの実行環境を、製品の設定画面と同じ仕組みで同じフォルダーへ用意します。取得は約11 GB、ディスクは約17 GBです。uv、Pythonのパッケージ、ソース、モデルは、固定した版とハッシュで照合します。モデルの読み込みは、任意のコードを実行しない方式（`weights_only=True`）です。
+`--fetch-runtimes`は、RVCとSeed-VCの実行環境を、Pythonバックエンドの準備の仕組み（`src-python/models/voice_conversion/runtime_setup.py`）で用意します。0.5.0のアプリの設定画面はRVCだけを、中核（`native/voice-conversion/src/runtime.rs`）で用意します。取得は約11 GB、ディスクは約17 GBです。uv、Pythonのパッケージ、ソース、モデルは、固定した版とハッシュで照合します。モデルの読み込みは、任意のコードを実行しない方式（`weights_only=True`）です。
 
 `--vrchat`は、チャットボックスのラボのVRChatを2つ、このPCの中だけの非公開のインスタンスで起動し、往復の試験を流してから終了します。VRChatのアカウントは、このPCでサインイン済みのものです。
 

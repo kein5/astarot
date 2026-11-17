@@ -9,7 +9,7 @@
 | `first_audio_timeout` | 応答ヘッダ＋最初のPCMが10秒内に届かなかった。モデルwarmup、文の長さ、GPU負荷を確認。接続/後続readは2秒、要求全体は30秒 |
 | `realtime_asr_timeout` | リアルタイム字幕の結果が届かなかった。接続の最初の結果は120秒、以降は15秒まで待つ。GPU負荷と推論デバイスを確認。自動再接続はしないので、スイッチを入れ直す |
 | `language_or_text_unavailable` | 自分の言語、選択した翻訳先、有効な訳文、他言語サーバーの別ポート |
-| `audio_devices_unavailable` | WindowsはPyAudioWPatch、Linuxはpw-dumpとユーザーのPipeWireセッション |
+| `audio_devices_unavailable` | WindowsはWASAPIのデバイス（0.5.0から中核の`native/audio-routing`が直接読む。0.4まではPyAudioWPatch）、LinuxはユーザーのPipeWireセッション（0.5.0の中核はlibpipewire-0.3で読む。0.4まではpw-dump） |
 | `speech_server_vulkan_missing` | Windowsで`vulkan-1.dll`が見つからない。GPUドライバーを入れるか更新する |
 | `vc_feedback_blocked` | Windowsで入力と出力が同じ仮想ケーブルの両端。入力に実際のマイクを選ぶ |
 | `vc_capture_overrun`、`vc_block_expired` | 変換が実時間に追いついていない。GPUを使う他のアプリを止める。止まったときの遅れは、`process.log`の`voice conversion stopped`に残る（`round_trip_ms`が大きければGPUの処理待ち、`block_age_ms`だけが大きければワーカーへ渡すまでの待ち）。Windowsの手順は[ここ](local-setup-windows.md#rvc) |

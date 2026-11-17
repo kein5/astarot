@@ -24,7 +24,9 @@ Linuxで入れた変更のうち、Windowsの実機でまだ確かめていな�
 .venv\Scripts\python.exe tools\windows_field\win_soak_full.py 1800 run-name realtime Vulkan1
 ```
 
-引数は、秒数、結果のフォルダー名（`build/model-test/`の下）、`realtime`または`whisper`、speech.cppの装置です。実物のSteamVRをnullドライバーで起動します。設定とログは`VR_CONFIG_PATH`と`VR_LOG_PATH`で一時フォルダーへ逃がすので、普段の設定は変わりません。マイクは試験用のフックで開けないようにします。開こうとした回数は`mic-guard.log`に残ります。
+この試験はPythonバックエンド（`src-python/mainloop.py`）を`.venv`のPythonで起動して動かします（`tools/windows_field/harness.py`）。0.5.0のアプリのバックエンド（Rustの中核）は試しません。
+
+引数は、秒数、結果のフォルダー名（`build/model-test/`の下）、`realtime`、speech.cppの装置です。3つめの引数に指定できるのは`realtime`だけです。`whisper`（従来の録音とローカルのWhisper）は、そのエンジンと一緒に削除しました（#288）。実物のSteamVRをnullドライバーで起動します。設定とログは`VR_CONFIG_PATH`と`VR_LOG_PATH`で一時フォルダーへ逃がすので、普段の設定は変わりません。マイクは試験用のフックで開けないようにします。開こうとした回数は`mic-guard.log`に残ります。
 
 音声は、無音の仮想出力`Speakers (Steam Streaming Microphone)`へ流し、そのループバックを入力にします。Steam Remote Playの仮想デバイスが要ります。
 
