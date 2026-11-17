@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REPO_URL = "https://github.com/kein5/VRCT-VOX"
+REPO_URL = "https://github.com/kein5/astarot"
 TEMPLATE = Path(__file__).resolve().with_name("changelog_commits.tera")
 TEMPLATE_CHECKLIST = ROOT / "docs" / "release-draft-template.md"
 
@@ -49,7 +49,7 @@ SECTION = re.compile(r"^## \[(?P<version>[^\]]+)\] - (?P<date>\d{4}-\d{2}-\d{2})
 OLDER_HEADING = "## Earlier releases"
 HEADER = """# Changelog
 
-All notable changes to VRCT-VOX, newest first. Only stable releases are listed: each section
+All notable changes to ASTAROT, newest first. Only stable releases are listed: each section
 covers everything since the previous stable release, its betas included. Betas (`X.Y.Z-beta.N`,
 from `develop`) are described in their [GitHub pre-release notes](https://github.com/kein5/VRCT-VOX/releases).
 Versions follow [Semantic Versioning](https://semver.org/). The layout follows the ideas of
@@ -59,9 +59,10 @@ changes for developers follow.
 A section is written when its release is prepared (`python tools/changelog.py write`), not on
 every commit. See [Changelog and releases](CONTRIBUTING.md#changelog-and-releases).
 """
+# Releases up to 0.1.0 were published as VRCT-VOX; this record keeps the name they had.
 OLDER = f"""{OLDER_HEADING}
 
-Releases up to 0.1.0 are described in [GitHub Releases]({REPO_URL}/releases).
+Releases up to 0.1.0 are described in [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases).
 """
 
 
