@@ -70,8 +70,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/selected_deepgram_model` | 取得 | `getDeepgramModel` | 可 | useTranscription.updateFromBackendSelectedDeepgramModel |  |
 | `/set/data/selected_deepgram_model` | 設定 | `setDeepgramModel` | 可 | useTranscription.setSuccessSelectedDeepgramModel |  |
 | `/get/data/selectable_release_channels` | 取得 | `getSelectableReleaseChannels` | 可 | （受け取るだけ） |  |
-| `/get/data/release_channel` | 取得 | `getSelectedReleaseChannel` | 可 | useUpdater.updateFromBackendReleaseChannel |  |
-| `/set/data/release_channel` | 設定 | `setSelectedReleaseChannel` | 可 | useUpdater.setSuccessReleaseChannel |  |
+| `/get/data/release_channel` | 取得 | `getSelectedReleaseChannel` | 可 | （受け取るだけ） |  |
+| `/set/data/release_channel` | 設定 | `setSelectedReleaseChannel` | 可 | （受け取るだけ） |  |
 | `/get/data/available_releases` | 取得 | `listAvailableReleases` | 可 | （受け取るだけ） |  |
 | `/run/send_message_box` | 実行 | `sendMessageBox` | 待つ | useMessage.updateSentMessageLogById |  |
 | `/run/typing_message_box` | 実行 | `typingMessageBox` | 待つ | （受け取るだけ） |  |

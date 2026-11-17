@@ -1249,14 +1249,8 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_only",
         base_endpoint_name: "telemetry_preview",
     },
-    {
-        Category: "Updater",
-        Base_Name: "ReleaseChannel",
-        default_value: "stable",
-        ui_template_id: "select",
-        logics_template_id: "get_set",
-        base_endpoint_name: "release_channel",
-    },
+    // The release channel has no setting here: it follows the installed build (the core sets it
+    // from the version at every start) and the app updater reads it from the install (#399).
 
     // AdvancedSettings
     {

@@ -228,6 +228,8 @@ export const STATIC_ROUTE_META_LIST = [
     // The release channel follows the installed build (the core decides it at start from the
     // version), so there is nothing to choose; the app updater reads it from the install.
     { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/get/data/release_channel", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/set/data/release_channel", ns: null, hook_name: null, method_name: null },
     // The app updater (src-tauri/src/app_update.rs) lists releases itself; nothing asks the backend.
     { endpoint: "/get/data/available_releases", ns: null, hook_name: null, method_name: null },
 ];
