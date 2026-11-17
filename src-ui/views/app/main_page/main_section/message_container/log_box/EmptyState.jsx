@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
 import { store } from "@store";
 import { useSettingValue } from "@logics_configs";
@@ -13,16 +14,54 @@ import styles from "./LogBox.module.scss";
 // its place: how far the start has come and which models it is fetching.
 // The greeting sits in the middle row and the list in the row below it, so the list
 // changing at startup never moves the greeting (LogBox.module.scss).
+// The main window draws at the default UI size and in a provisional language until the saved
+// settings arrive, then takes the saved size, which moves everything, the saved language, and
+// at a large size the narrow layout, which widens the conversation and so its heading's size.
+// The greeting is drawn from then on, so the first place it is seen is where it stays and its
+// words and size do not change under the eye. Its room is kept, so nothing under it moves when
+// it appears. The VR panel gets its settings from the main window and does not wait.
 export const EmptyState = () => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
     const startup = useStartupPlaceholder();
+    const scaling = useSettingValue("UiScaling");
+    const language = useSettingValue("UiLanguage");
+    const narrow = useNarrowLayout();
+    const waiting = !store.is_vr_panel && greetingWaits({ scaling, language, shownLanguage: i18n?.language,
+        width: globalThis.innerWidth, narrow });
     return <div className={styles.empty}>
-        <div className={styles.greeting}>
+        <div className={styles.greeting} data-waiting={waiting || undefined} aria-hidden={waiting || undefined}>
             <h1>{t("studio.empty_title")}</h1>
             <p>{t("studio.empty_description")}</p>
         </div>
         {!store.is_vr_panel && <div className={styles.next}>{startup ?? <Setup />}</div>}
     </div>;
+};
+
+// Whether the saved UI size and language are still to arrive or to be applied. The narrow layout
+// is decided as useWindow decides it (a window at most 800 CSS px wide at 100%, scaled with the
+// UI size) and marked on the root as data-narrow. Within a pixel of that width either layout
+// counts, so a rounding difference between the two never holds the greeting back for good.
+export const greetingWaits = ({ scaling, language, shownLanguage, width, narrow }) => {
+    if (scaling?.state === "pending" || language?.state === "pending") return true;
+    if (language?.data && shownLanguage !== undefined && shownLanguage !== language.data) return true;
+    const breakPoint = 8 * scaling?.data;
+    if (!Number.isFinite(width) || !Number.isFinite(breakPoint) || Math.abs(width - breakPoint) <= 1) return false;
+    return narrow !== (width <= breakPoint);
+};
+
+// Whether the root is marked narrow (useWindow), kept current by watching the mark. It is read
+// from the page, not from the IsBreakPoint state, which the VR panel is not sent.
+const narrowNow = () => !!globalThis.document?.documentElement?.hasAttribute("data-narrow");
+const useNarrowLayout = () => {
+    const [narrow, setNarrow] = useState(narrowNow);
+    useEffect(() => {
+        if (store.is_vr_panel || typeof MutationObserver === "undefined") return;
+        const observer = new MutationObserver(() => setNarrow(narrowNow()));
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-narrow"] });
+        setNarrow(narrowNow());
+        return () => observer.disconnect();
+    }, []);
+    return narrow;
 };
 
 const Setup = () => {
