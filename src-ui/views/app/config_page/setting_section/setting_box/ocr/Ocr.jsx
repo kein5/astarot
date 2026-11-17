@@ -197,7 +197,6 @@ const OcrWindowTitle_Box = () => {
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentOcrWindowTitle.state}
-            width="16rem"
             remove_border_bottom={true}
         />
     );
