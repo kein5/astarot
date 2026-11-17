@@ -177,9 +177,14 @@ fn serve_one(mut stream: TcpStream, state: &RwLock<ServiceState>, stopping: &Ato
         let _ = stream.shutdown(Shutdown::Both);
         return;
     };
-    let line = String::from_utf8_lossy(head.split(|&b| b == b'\n').next().unwrap_or(b""));
+    let text = String::from_utf8_lossy(&head);
+    let line = text.lines().next().unwrap_or("");
     let words: Vec<&str> = line.split_whitespace().collect();
     let reply = match words.as_slice() {
+        // A page in a browser can rebind its own name to 127.0.0.1 and read this service as
+        // same-origin; its requests carry that name in `Host` (#459). VRChat and other OSCQuery
+        // clients ask by address. A request without `Host` (HTTP/1.0) cannot come from a browser.
+        ["GET", ..] if !host_allowed(request_header(&text, "host")) => Some((403, "Forbidden", String::new())),
         ["GET", path, ..] => {
             let state = state.read().unwrap_or_else(|e| e.into_inner());
             if path.contains("HOST_INFO") {
@@ -200,6 +205,19 @@ fn serve_one(mut stream: TcpStream, state: &RwLock<ServiceState>, stopping: &Ato
         let _ = stream.write_all(response.as_bytes());
     }
     let _ = stream.shutdown(Shutdown::Both);
+}
+
+/// The value of a request header, if present (the first one, case-insensitive name).
+fn request_header<'a>(head: &'a str, name: &str) -> Option<&'a str> {
+    head.lines()
+        .skip(1)
+        .take_while(|l| !l.trim().is_empty())
+        .find_map(|l| l.split_once(':').filter(|(k, _)| k.trim().eq_ignore_ascii_case(name)).map(|(_, v)| v.trim()))
+}
+
+/// No `Host`, or one that names an IP address or `localhost`, as the OBS browser source checks it.
+fn host_allowed(host: Option<&str>) -> bool {
+    host.is_none() || crate::obs::is_trusted_host_header(host)
 }
 
 /// This app's OSCQuery service: the HTTP server for its tree and host info, and its

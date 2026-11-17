@@ -559,6 +559,31 @@ fn the_oscquery_http_server_has_an_absolute_request_deadline() {
 }
 
 #[test]
+fn the_oscquery_http_server_answers_only_requests_by_address() {
+    // #459: a page that rebinds its own name to 127.0.0.1 sends that name in `Host`.
+    if !mdns_available() {
+        return;
+    }
+    let service = QueryService::start("VRCT:host-test", 1).unwrap();
+    let port = service.http_port();
+    let ask = |host: Option<&str>| {
+        let mut stream = std::net::TcpStream::connect((Ipv4Addr::LOCALHOST, port)).unwrap();
+        let host = host.map(|h| format!("Host: {h}\r\n")).unwrap_or_default();
+        write!(stream, "GET /HOST_INFO HTTP/1.1\r\n{host}Connection: close\r\n\r\n").unwrap();
+        let mut reply = String::new();
+        let _ = stream.read_to_string(&mut reply);
+        reply.split_whitespace().nth(1).unwrap_or("").to_string()
+    };
+    for allowed in [Some(format!("127.0.0.1:{port}")), Some("localhost".into()), Some(format!("[::1]:{port}")), None] {
+        assert_eq!(ask(allowed.as_deref()), "200", "{allowed:?}");
+    }
+    for refused in ["rebind.example.com", "evil.test:80", ""] {
+        assert_eq!(ask(Some(refused)), "403", "{refused}");
+    }
+    service.close();
+}
+
+#[test]
 fn changing_the_destination_moves_the_receiver_and_a_failure_keeps_the_old_one() {
     if !mdns_available() {
         return;
