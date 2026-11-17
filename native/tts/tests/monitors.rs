@@ -174,7 +174,7 @@ impl Playback {
             output_device: "cable".into(),
             monitor: "on".into(),
             monitor_device: "speakers".into(),
-            ..Default::default()
+            ..external()
         };
         let mut options = BusOptions::new(router(&main).0);
         options.provider_factory = Arc::new(|_: &str| -> Result<Box<dyn Synthesizer>, TtsError> { Ok(Box::new(Ten)) });
@@ -426,7 +426,7 @@ fn a_failing_monitor_is_a_notice_not_a_speech_error() {
         Err(TtsError::Output)
     }));
     options.on_monitor_error = Some(Arc::new(move |code: &str| record.lock().unwrap().push(code.to_owned())));
-    let settings = VoiceSettings { mode: "original".into(), output_device: "cable".into(), monitor: "on".into(), ..Default::default() };
+    let settings = VoiceSettings { mode: "original".into(), output_device: "cable".into(), monitor: "on".into(), ..external() };
     let bus = VoiceEventBus::new(settings, options);
     assert!(bus.publish(chat("one"), None, None));
     until2(|| bus.status().completed == 1);
@@ -472,7 +472,7 @@ fn a_monitor_may_report_while_it_is_being_silenced() {
         Some(Arc::new(move |request: MonitorRequest| -> Result<Arc<dyn Monitor>, TtsError> { Ok(Arc::new(ReportingMonitor { on_error: request.on_error, released: factory_released.clone() })) }));
     let record = reports.clone();
     options.on_monitor_error = Some(Arc::new(move |code: &str| record.lock().unwrap().push(code.to_owned())));
-    let settings = VoiceSettings { mode: "original".into(), output_device: "cable".into(), monitor: "on".into(), ..Default::default() };
+    let settings = VoiceSettings { mode: "original".into(), output_device: "cable".into(), monitor: "on".into(), ..external() };
     let bus = Arc::new(VoiceEventBus::new(settings, options));
     for (index, action) in ["cancel_source", "stop", "configure", "close"].into_iter().enumerate() {
         if action != "close" {

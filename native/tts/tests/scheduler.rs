@@ -47,11 +47,11 @@ fn blocking(entered: Event) -> ProviderFactory {
 }
 
 fn original() -> VoiceSettings {
-    VoiceSettings { mode: "original".into(), output_device: "cable".into(), ..Default::default() }
+    VoiceSettings { mode: "original".into(), output_device: "cable".into(), ..external() }
 }
 
 fn speech_settings() -> VoiceSettings {
-    VoiceSettings { mic_mode: "translated".into(), direct_policy: "mix".into(), output_device: "cable".into(), ..Default::default() }
+    VoiceSettings { mic_mode: "translated".into(), direct_policy: "mix".into(), output_device: "cable".into(), ..external() }
 }
 
 fn bus(settings: VoiceSettings, sink: &Sink, configure: impl FnOnce(&mut BusOptions)) -> VoiceEventBus {
@@ -495,7 +495,7 @@ fn silent_pcm_does_not_disable_start_deadline() {
 #[test]
 fn disabled_bus_rejects_both_sources_until_explicit_enable() {
     let sink = Sink::default();
-    let settings = VoiceSettings { mode: "original".into(), mic_mode: "translated".into(), output_device: "cable".into(), ..Default::default() };
+    let settings = VoiceSettings { mode: "original".into(), mic_mode: "translated".into(), output_device: "cable".into(), ..external() };
     let bus = bus(settings, &sink, |o| {
         o.enabled = false;
         o.provider_factory = provider(|_, _, _| Ok(frames(vec![1, 0])));

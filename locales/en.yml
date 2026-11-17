@@ -1450,7 +1450,7 @@ voice_ui:
     engine:
         label: "Engine that reads Japanese"
         description: "Install and start an engine such as VOICEVOX yourself, and Japanese is read in its voices. The app does not install or start the engine."
-        description_speechcpp: "AI voice reads with a speech.cpp TTS server. Under Models and servers below, choose the bundled server and download its model, or enter the URL of a server you started yourself."
+        description_speechcpp: "AI voice reads with a speech.cpp TTS server. It starts with the bundled server, so download its model under Models and servers below. To use a server you started yourself, choose External server and enter its URL."
         speechcpp: "AI voice (speech.cpp)"
         url: "Engine URL"
         url_hint: "Where the engine runs on your PC. The engine's default usually works."
