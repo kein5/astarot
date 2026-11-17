@@ -34,15 +34,18 @@ const isGpu = (row: HardwareDevice) => row.kind === 'gpu' || row.kind === 'igpu'
 const DEVICE_CHOICES = ['auto', 'cpu', 'gpu'];
 
 // The GPU the speech engine runs on with `deviceMode`, or null on the CPU: the GPU the
-// settings name, else the first one the probe lists. speech.cpp's `auto` and `gpu` take that
-// first GPU, an integrated one included (checked with 0.11.0: Vulkan0, an Iris Xe, before
-// Vulkan1, an RTX 3060 Ti); the advice and the warning describe that device and no other.
+// settings name, else the one the app passes for `auto` and `gpu` (preferred_gpu in
+// native/speech-server/src/devices.rs): the separate GPU with the most memory, the first of
+// equals. An integrated GPU is never chosen there, so without a separate GPU `auto` runs on
+// the CPU. The advice and the warning describe that device and no other.
 // A name the probe does not list is treated as `auto`.
 export function engineGpu(hardware: { devices: HardwareDevice[] } | null | undefined, deviceMode = 'auto'): HardwareDevice | null {
     if (!hardware || deviceMode === 'cpu') return null;
     const named = DEVICE_CHOICES.includes(deviceMode) ? undefined : hardware.devices.find(row => row.name === deviceMode);
     if (named) return isGpu(named) ? named : null;
-    return hardware.devices.find(isGpu) ?? null;
+    const memory = (row: HardwareDevice) => Number.isSafeInteger(row.memory_total) && row.memory_total! > 0 ? row.memory_total! : 0;
+    return hardware.devices.filter(row => row.kind === 'gpu')
+        .reduce<HardwareDevice | null>((best, row) => !best || memory(row) > memory(best) ? row : best, null);
 }
 
 // Advisory only: measured memory on one GPU plus explicit headroom.

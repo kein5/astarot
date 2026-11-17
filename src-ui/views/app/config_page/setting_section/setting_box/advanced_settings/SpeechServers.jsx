@@ -46,9 +46,21 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
     const field = (name, key, value) => setDraft(previous => ({ ...previous,
         profiles: { ...previous.profiles, [name]: { ...previous.profiles[name], [key]: value } } }));
     const stateText = name => t(`speech_servers.state_${pending[name] ? "pending" : state[name]?.state ?? "unknown"}`);
+    // Only the CPU and separate GPUs are choices; "auto" and "gpu" never pick an integrated GPU either.
+    const separate = devices.filter(row => row.kind === "gpu");
+    // "GPU" means a separate GPU, so it is offered only when one is listed, or when the list
+    // could not be read here. A saved value is always kept in the list.
+    const choices = current => ["auto", "cpu",
+        ...(separate.length || builds.gpu_build !== "ready" || current === "gpu" ? ["gpu"] : [])];
     // A saved GPU stays selectable after it is unplugged, so saving never changes it silently.
-    const namedDevices = current => [...devices.map(row => [row.name, t("speech_servers.device_named", { label: row.label, name: row.name })]),
-        ...(["auto", "cpu", "gpu", ...devices.map(row => row.name)].includes(current) ? [] : [[current, t("speech_servers.device_missing", { name: current })]])];
+    // An integrated GPU saved by an older version stays shown too, but cannot be picked again.
+    const namedDevices = current => {
+        const rows = separate.map(row => [row.name, t("speech_servers.device_named", { label: row.label, name: row.name }), false]);
+        if (["auto", "cpu", "gpu", ...separate.map(row => row.name)].includes(current)) return rows;
+        const integrated = devices.find(row => row.name === current);
+        return [...rows, integrated ? [current, t("speech_servers.device_integrated", { label: integrated.label, name: current }), true]
+            : [current, t("speech_servers.device_missing", { name: current }), false]];
+    };
     const configured = name => {
         const saved = settings?.profiles?.[name];
         return !!saved?.model?.trim() && (name !== "asr" || !!saved?.vad_model?.trim());
@@ -91,8 +103,8 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                             : { [name]: { model: settings.profiles[name].model } }} />
                     <label>{t("speech_servers.device")}<select aria-label={t("speech_servers.device")} value={row.device} disabled={busy}
                         onChange={event => field(name, "device", event.target.value)}>
-                        {["auto", "cpu", "gpu"].map(device => <option key={device} value={device}>{t(`speech_servers.${device}`)}</option>)}
-                        {namedDevices(row.device).map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+                        {choices(row.device).map(device => <option key={device} value={device}>{t(`speech_servers.${device}`)}</option>)}
+                        {namedDevices(row.device).map(([value, text, kept]) => <option key={value} value={value} disabled={kept}>{text}</option>)}
                     </select></label>
                     {devices.length > 0 && <Description text={t("speech_servers.device_help")} />}
                     {/* What the CPU choice runs on differs by platform: a CPU build of its own on Linux,

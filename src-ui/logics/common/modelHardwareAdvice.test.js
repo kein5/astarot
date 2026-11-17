@@ -15,7 +15,8 @@ test('select standard or small using current free memory plus margin, never tota
 test('zero free is exhausted; missing/free stale/shared are unknown',()=>{
   assert.equal(advise(snapshot([gpu(0)])).reason,'low_memory');
   assert.equal(advise(snapshot([gpu(null)])).reason,'unknown_memory');
-  assert.equal(advise(snapshot([gpu(4*GiB,8*GiB,'igpu')])).reason,'shared_memory');
+  // An integrated GPU is advised on only when an older version saved it by name.
+  assert.equal(advise(snapshot([gpu(4*GiB,8*GiB,'igpu')]),{deviceMode:'Vulkan0'}).reason,'shared_memory');
   assert.equal(advise(snapshot([gpu(4*GiB)]),{now:121001}).reason,'stale');
 });
 test('does not add GPU memory or recommend the second GPU which runtime will not select',()=>{
@@ -27,13 +28,16 @@ test('a GPU named in the settings is the one advised on, not the first one liste
   const devices=[gpu(16*GiB,16*GiB,'igpu'),{...gpu(4*GiB),name:'Vulkan1'}];
   const chosen=advise(snapshot(devices),{deviceMode:'Vulkan1'});
   assert.equal(chosen.device.name,'Vulkan1');assert.equal(chosen.reason,'fits');assert.equal(chosen.recommended,'standard');
-  assert.equal(advise(snapshot(devices)).reason,'shared_memory');
-  assert.equal(advise(snapshot(devices),{deviceMode:'Vulkan9'}).device.name,'Vulkan0');
+  // auto and gpu run on the separate GPU, never on the integrated one listed first.
+  for(const deviceMode of ['auto','gpu']) assert.equal(advise(snapshot(devices),{deviceMode}).device.name,'Vulkan1');
+  assert.equal(advise(snapshot(devices),{deviceMode:'Vulkan9'}).device.name,'Vulkan1');
   assert.equal(advise(snapshot([...devices,{name:'CPU',kind:'cpu'}]),{deviceMode:'CPU'}).reason,'cpu');
 });
 test('CPU mode, unavailable probe and not yet tested variants cannot claim GPU suitability',()=>{
   assert.equal(advise(snapshot([gpu(8*GiB)]),{deviceMode:'cpu'}).reason,'cpu');
   assert.equal(advise(snapshot([{kind:'cpu'}])).reason,'cpu');
+  // With only an integrated GPU, auto runs on the CPU.
+  assert.equal(advise(snapshot([gpu(4*GiB,8*GiB,'igpu'),{name:'CPU',kind:'cpu'}])).reason,'cpu');
   assert.equal(advise({phase:'failed',devices:[]}).reason,'unknown');
   assert.equal(modelAdvice([{id:'pending',guidance:{reference_memory_bytes:GiB,validation:{state:'pending'}}}],snapshot([gpu(8*GiB)]),{now:1000,reserveBytes:GiB}).recommended,null);
 });
