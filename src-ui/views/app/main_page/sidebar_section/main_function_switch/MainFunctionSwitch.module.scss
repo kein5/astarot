@@ -115,10 +115,13 @@ $pending_label_color: var(--dark_500_color);
     font-size: 1.2rem;
     color: var(--vox_description_text);
     // A full-width bracket carries half an em of space on its left, so 「（OCR）」 started half
-    // a character right of the name above (#437). Proportional widths trim it in Japanese fonts
-    // that have them (WebKitGTK too); engines that trim a line's opening bracket do it for any font.
-    font-feature-settings: "palt";
-    @supports (text-spacing-trim: trim-start) { text-spacing-trim: trim-start; }
+    // a character right of the name above (#437, #475). Trimming by font features depended on the
+    // font (the default UI font has no proportional widths), so the bracket is drawn at its full
+    // width everywhere and the line is pulled back by that half em. Only a line that starts with
+    // a full-width bracket is moved (data-bracket); "(OCR)" in English is not.
+    font-feature-settings: normal;
+    @supports (text-spacing-trim: space-all) { text-spacing-trim: space-all; }
+    &[data-bracket] { text-indent: -.5em; }
     &.is_pending, &.is_unavailable {
         color: inherit;
     }

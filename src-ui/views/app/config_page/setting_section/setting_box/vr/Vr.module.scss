@@ -320,13 +320,16 @@
     width: 100%;
 }
 
+// The label rows' columns (1fr / 1.6fr, 1.6rem apart): the slider starts where the other
+// pages' fields start, and the label says the value in use (#475).
 .other_controls_wrapper {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+    gap: 1.6rem;
     align-items: center;
-    justify-content: space-between;
     width: 100%;
     position: relative;
+    @media (max-width: 700px) { grid-template-columns: minmax(0, 1fr); gap: .8rem; }
 }
 .other_controls_slider {
     // margin-left: 18rem;
@@ -336,9 +339,13 @@
 .other_controls_slider_label {
     font-size: 1.4rem;
     font-weight: 500;
-    flex-shrink: 0;
-    width: 30%;
     overflow-wrap: anywhere;
+}
+.other_controls_value {
+    margin-inline-start: .8rem;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: var(--vox_secondary_text);
 }
 
 .common_container {

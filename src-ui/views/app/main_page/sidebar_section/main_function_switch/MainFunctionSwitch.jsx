@@ -204,7 +204,8 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
                 <SvgComponent className={getClassNames(styles.switch_svg)} />
                 <p className={getClassNames(styles.switch_label)}>
                     {label.name}
-                    {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}>{label.abbr}</span>}
+                    {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}
+                        data-bracket={label.abbr.startsWith("（") || undefined}>{label.abbr}</span>}
                 </p>
                 {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
                 {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}

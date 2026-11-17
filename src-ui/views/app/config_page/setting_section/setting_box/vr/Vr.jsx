@@ -539,6 +539,7 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}) => {
             <div className={styles.other_controls_wrapper}>
                 <p className={clsx(styles.other_controls_slider_label, styles.opacity_label)}>
                     {t("config_page.vr.opacity")}
+                    <span className={styles.other_controls_value}>{ui_variable_opacity}%</span>
                 </p>
                 <Slider
                     aria-label={t("config_page.vr.opacity")}
@@ -558,6 +559,7 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}) => {
             <div className={styles.other_controls_wrapper}>
                 <p className={clsx(styles.other_controls_slider_label, styles.ui_scaling_label)}>
                     {t("config_page.vr.ui_scaling")}
+                    <span className={styles.other_controls_value}>{ui_variable_ui_scaling}%</span>
                 </p>
                 <Slider
                     aria-label={t("config_page.vr.ui_scaling")}
@@ -575,7 +577,8 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}) => {
                 />
             </div>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.display_duration_label)}>{t("config_page.vr.display_duration")}</p>
+                <p className={clsx(styles.other_controls_slider_label, styles.display_duration_label)}>{t("config_page.vr.display_duration")}
+                    <span className={styles.other_controls_value}>{t("config_page.common.duration_seconds", { count: settings.display_duration })}</span></p>
                 <Slider
                     aria-label={t("config_page.vr.display_duration")}
                     className={clsx(styles.other_controls_slider, styles.display_duration_slider)}
@@ -591,7 +594,8 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}) => {
                 />
             </div>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.fadeout_duration_label)}>{t("config_page.vr.fadeout_duration")}</p>
+                <p className={clsx(styles.other_controls_slider_label, styles.fadeout_duration_label)}>{t("config_page.vr.fadeout_duration")}
+                    <span className={styles.other_controls_value}>{t("config_page.common.duration_seconds", { count: settings.fadeout_duration })}</span></p>
                 <Slider
                     aria-label={t("config_page.vr.fadeout_duration")}
                     className={clsx(styles.other_controls_slider, styles.fadeout_duration_slider)}
