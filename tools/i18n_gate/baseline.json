@@ -5,9 +5,6 @@
   "src-ui/views/app/config_page/setting_section/setting_box/transcription/RealtimeASRSettings.jsx": {
     "attribute:placeholder|VRChat=ブイアールチャット": 1
   },
-  "src-ui/views/app/config_page/version_label/VersionLabel.jsx": {
-    "jsx-text|Beta": 1
-  },
   "src-ui/views/companion_handle/CompanionHandle.tsx": {
     "attribute:aria-label|VRCT-VOX": 1
   },
