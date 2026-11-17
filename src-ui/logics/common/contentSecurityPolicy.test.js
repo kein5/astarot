@@ -19,9 +19,11 @@ const sources = (policy, directive) => {
     return Array.isArray(value) ? value : value.trim().split(/\s+/);
 };
 const hash = css => `'sha256-${createHash("sha256").update(css).digest("base64")}'`;
+// Each library's stylesheet literal, recognised by how it starts. react-toastify 11.2 ships it
+// formatted (":root {\n  --toastify-"); 11.0 minified it (":root{--toastify-").
 const injectedStyles = [
-    ["node_modules/react-colorful/dist/index.mjs", ".react-colorful{"],
-    ["node_modules/react-toastify/dist/index.mjs", ":root{--toastify-"],
+    ["node_modules/react-colorful/dist/index.mjs", /^\.react-colorful\s*\{/],
+    ["node_modules/react-toastify/dist/index.mjs", /^:root\s*\{\s*--toastify-/],
 ];
 function files(directory) {
     return readdirSync(path.join(root, directory), { withFileTypes: true }).flatMap(entry => {
@@ -57,12 +59,27 @@ function cssProblems(css) {
     if (/(?:url\(|@import)[^;\n]*\\/i.test(css)) problems.push("escaped CSS resource URL");
     return problems;
 }
+// `Function.prototype.call`, `.apply` and `.bind` only borrow a method (js-base64 3.9 binds
+// Uint8Array.prototype.toBase64 this way); they cannot make code from a string. Anything else on
+// Function, including Function.prototype.constructor, is still reported.
+const isStatic = (node, name) => ["MemberExpression", "OptionalMemberExpression"].includes(node?.type)
+    && !node.computed && node.property.name === name;
+function borrowedFunctionMethods(tree) {
+    const names = new Set();
+    walk(tree, node => {
+        if (["call", "apply", "bind"].some(name => isStatic(node, name)) && isStatic(node.object, "prototype")
+            && node.object.object.type === "Identifier" && node.object.object.name === "Function") names.add(node.object.object);
+    });
+    return names;
+}
 function jsProblems(code, application = true, file = "") {
     const problems = [];
-    walk(ast(code, file), node => {
+    const tree = ast(code, file);
+    const borrowed = borrowedFunctionMethods(tree);
+    walk(tree, node => {
         const fail = message => problems.push(`${node.loc.start.line}: ${message}`);
         // Check references too, so aliases and indirect eval cannot evade this guard.
-        if ((node.type === "Identifier" && ["eval", "Function", "WebAssembly"].includes(node.name))
+        if ((node.type === "Identifier" && ["eval", "Function", "WebAssembly"].includes(node.name) && !borrowed.has(node))
             || (["MemberExpression", "OptionalMemberExpression"].includes(node.type)
                 && ["eval", "Function", "WebAssembly"].includes(member(node)))) fail("dynamic code generation");
         if (["CallExpression", "OptionalCallExpression", "NewExpression"].includes(node.type)) {
@@ -109,7 +126,7 @@ function styleHashes(code) {
     const values = [];
     walk(ast(code), node => {
         const value = literal(node);
-        if (value && injectedStyles.some(([, prefix]) => value.startsWith(prefix))) values.push(hash(value));
+        if (value && injectedStyles.some(([, start]) => start.test(value))) values.push(hash(value));
     });
     return values;
 }
@@ -172,6 +189,11 @@ test("guards detect direct, indirect and computed eval and remote script/style/f
     assert.notEqual(htmlProblems('<link rel="stylesheet" href="https://cdn.invalid/a.css">').length, 0);
     assert.deepEqual(jsProblems('const help = "https://example.invalid"; element.style.setProperty("color", "red");'), []);
     assert.notEqual(jsProblems("const run = (code: string): unknown => eval(code);", true, "a.ts").length, 0);
+    for (const code of ["Function.prototype.constructor('x')", "const F = Function.prototype.constructor; F('x')",
+        "Function.prototype['call'].bind(Function)", "Function.prototype.call.call(Function, null, 'x')"]) {
+        assert.notEqual(jsProblems(code).length, 0, code);
+    }
+    assert.deepEqual(jsProblems("const encode = Function.prototype.call.bind(Uint8Array.prototype.toBase64);"), []);
     assert.notEqual(jsProblems("const x = <script src={url as string} />;", true, "a.tsx").length, 0);
 });
 

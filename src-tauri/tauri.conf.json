@@ -33,7 +33,7 @@
                 "style-src": [
                     "'self'",
                     "'sha256-I2px+fnpbN4E5+Djrj7aoTIyq9yyREkuVl19f4Sye9A='",
-                    "'sha256-Xo8/tnRnpUxMw05nUf764oT49W2GEbQN9LaX8Wqxuwg='"
+                    "'sha256-wBAOjWqzlHdwhuIyV//yRl4v0VNTHc3TOqbIfNXoA7k='"
                 ],
                 "style-src-attr": "'none'",
                 "img-src": "'self' data:",
