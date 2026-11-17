@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import * as uiConfigs from "../ui_configs.ts";
 

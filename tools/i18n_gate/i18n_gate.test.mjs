@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 
 import { checkLocales, keyIndex, parseLocale } from "./locales.mjs";
 import { makeNeedsTranslation, scanSource } from "./source.mjs";

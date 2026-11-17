@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { createPendingRequestRecovery, restorePendingValue, settingPendingControl, staticPendingControls, featureResyncReads, restoreDownloadPending, sendWithRecovery } from "./pendingRequestRecovery.ts";
 
@@ -73,7 +73,7 @@ test("delete and both toggle directions restore without synthesizing a success",
 });
 
 test("transport false, sync throw and rejection restore, never resend", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     for (const failure of [() => false, () => { throw Error("sync"); }, () => Promise.reject(Error("async"))]) {
         const subject = setup();
         let calls = 0, failures = 0;
@@ -88,10 +88,10 @@ test("transport false, sync throw and rejection restore, never resend", async co
 });
 
 test("successful send stays pending; elapsed time cannot release it", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const subject = setup();
     assert.equal(await sendWithRecovery(() => true, () => assert.fail("unexpected failure")), true);
-    context.mock.timers.tick(600000);
+    vi.advanceTimersByTime(600000);
     assert.equal(subject.value.state, "pending");
     assert.deepEqual(subject.reads, []);
 });

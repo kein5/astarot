@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { createAppUpdate, downloadPercent, INITIAL_APP_UPDATE } from "./appUpdate.ts";
 
 const setup = (answers, mode = "install") => {

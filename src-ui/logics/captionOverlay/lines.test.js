@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { FADE_MS, MAX_CAPTION_LINES, captionLines, nextChange, stampLines, visibleLines } from "./lines.ts";
 

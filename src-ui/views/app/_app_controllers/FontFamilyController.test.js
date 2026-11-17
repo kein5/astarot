@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, stubGlobals } from "../../../logics/test/hookHarness.js";
 
 test("the selected font family is set as one CSS string, so non-identifier names still apply", async context => {
@@ -9,7 +9,7 @@ test("the selected font family is set as one CSS string, so non-identifier names
         setProperty: (name, value) => properties.set(name, value),
         removeProperty: name => properties.delete(name),
     } } } });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const { FontFamilyController } = await loadModule(new URL("./FontFamilyController.jsx", import.meta.url), runtime, {
         "@logics_configs": { useAppearance: () => ({ currentSelectedFontFamily: { data: font } }) },
     });
