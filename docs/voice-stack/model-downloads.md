@@ -112,7 +112,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 カタログの各まとまりで、お使いのPCにあるモデルのファイルを名前を付けて登録できる。登録したモデルは公式のカードと同じ一覧の後ろに並び、「自分のモデル」の印と状態（登録済み、使用中、ファイルがありません、ファイルが変わりました）を付ける。
 
-- 対象：日本語の読み上げ、日本語以外の読み上げ、音声認識、VAD、話者の区別は`.gguf`のファイル1つ。ボイスチェンジャーの声は`.pth`と、任意で`.index`。翻訳とチャット読み取りは対象にしていない。
+- 対象：日本語の読み上げ、日本語以外の読み上げ、音声認識、VAD、話者の区別は`.gguf`のファイル1つ。ボイスチェンジャーの声は`.pth`と、任意で`.index`。チャット読み取りは対象にしていない。翻訳は下の「翻訳のカタログ」で扱う。
 - 登録はファイルの場所を覚えるだけで、コピー、移動、取得はしない。`config.json`と同じフォルダーの`user_models.json`に、名前、対象、パス、登録したときの容量と更新時刻を保存する（[データ形式と保存](../spec/data-and-persistence.md#そのほかのファイル)）。同じ対象に同じ名前か同じファイルは登録できない。200件まで。
 - 切り替えは「このモデルを使う」で行う。取得したモデルの「モデルパスを適用」と同じく、画面に出ている保存済みの値が今も保存されていることと、対象のサーバーや音声入力が止まっていることを確かめ、パスだけを保存する（`_applyModelPaths`、`apply_model_paths`）。RVCで`.index`を登録していないモデルに切り替えると、保存済みの`.index`は空にする。前の声のファイルだからである。
 - 状態を聞かれるたびに、ファイルがあるかと、容量と更新時刻が登録したときと同じかを確かめる。違えば「ファイルが変わりました」とし、切り替えは`user_model_changed`で断る。SHA-256は計算しない。モデルのファイルは数GiBになることがあり、計算に時間がかかるためである。
@@ -120,6 +120,22 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 出どころとライセンスはアプリでは確かめない。登録の欄にそう書いている。
 - 名前とパスは利用者のデータなので、IPCの経路名に`user_model`を含め、`process.log`では値を伏せる（`SENSITIVE_ENDPOINT_MARKERS`）。
 - IPC：`/get/data/user_models`、`/run/register_user_model`（`{target, name, paths}`）、`/run/remove_user_model`（`{id}`）、`/run/apply_user_model`（`{id, expected}`）。どれも`{models: [...]}`を返し、失敗は`{error_code}`で返す。PythonとRustのコアは同じ答えを返す。
+
+#### 翻訳のカタログ（#413）
+
+翻訳は上の登録の対象に入れず、翻訳のページの「翻訳のカタログ」で扱う。翻訳に使うものの形が2つに分かれ、足すときに入れるものも違うからである。自分の翻訳のモデルの足し方はこの「種類ごとに合った形」で決着とする。中核だけの機能で、Pythonのバックエンドにはない。
+
+- **推論エンジン系**（`engine`）：お使いのPCの推論エンジンで動かすモデル。アプリの組み込みの重み、`<データ>/translation-models/<フォルダー>/`に置いたモデル（`custom:<フォルダー>`、従来どおり）、利用者が足した項目（`user:<ID>`）が並ぶ。足すときはモデルのフォルダー、推論エンジン（`runtime`）、言語のコード（省略するとモデルのすべての言語）を入れる。フォルダーはどこにあってもよく、コピーも移動もしない。
+- **API系**（`api`）：中核が呼ぶプロバイダ（DeepL、Google Cloud、Papago、Gemini、OpenAI、Groq、OpenRouter、PLaMo、LM Studio、Ollama、OpenAI互換）と、利用者が足した項目が並ぶ。足すときは名前、種類（`protocol`）、アドレス、モデル、キーを入れる。アドレスはお使いのPCとLANの中なら`http://`も使える（`net_policy`の`validate_api_url`。OpenAI互換のエンジンと同じ）。
+- 項目は`config.json`と同じフォルダーの`translation_catalog.json`に置く（[データ形式と保存](../spec/data-and-persistence.md#そのほかのファイル)）。APIのキーはほかのAPIキーと同じ保管場所（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)）の`TRANSLATION_CATALOG/<ID>`に置き、`translation_catalog.json`と`config.json`には書かない。100件まで。グループの中で同じ名前、同じフォルダー、同じアドレスとモデルの組は足せない。
+- 項目を足しても中核は覚えるだけで、取得も切り替えもしない。推論エンジン系の項目は、足すときに中核がフォルダーを開いて、`native/translate-onnx`が読める形か、示す言語がモデルにあるかを確かめる（`translation_onnx::inspect`）。ファイルのSHA-256は読み込むときに確かめる。
+- 推論エンジン系の「お使いのPCの翻訳に使う」は、その重み（`user:<ID>`）を`/set/data/selected_ctranslate2_weight_type`と同じ処理で選ぶ。計算に使う機器（CPU、DirectML、CUDAなど）は、ほかのローカルの重みと同じ欄で選ぶ。利用者のモデルは量子化の形を1つだけ持ち、その形がGPUで動かないときはCPUで動かして知らせる（既存の`custom:`と同じ）。選んでいるモデルの項目は削除できない。
+- API系の「OpenAI互換の接続先にする」は、`/set/data/openai_compatible_auth_key_and_url`と同じ処理で、アドレスとキーを確かめてからOpenAI互換のエンジンの接続先を替える。項目のモデルがサーバーの一覧になければ、切り替えたうえで`translation_catalog_model_not_listed`を知らせる。項目ごとに別のエンジンとして並べることはしていない（PRの残課題）。
+- 組み込みの項目と、利用者が足した項目と、フォルダーのモデルは`origin`（`builtin`、`user`、`folder`）で見分け、画面では印を付ける。
+- この版が知らない`runtime`や`protocol`の項目（新しい版が書いたもの）は消さずに残し、「この版では使えません」と見せる。新しい推論エンジン（MADLAD-400のようなT5系、TranslateGemmaのようなdecoder-onlyのLLM）や新しい種類のAPIは、中核で動かせるようになったときに`translation_catalog::RUNTIMES`と`PROTOCOLS`に足す。
+- 開発側で推論エンジン系の項目を足すとき（#411、#412）は、これまでどおり固定カタログ（`catalog.rs`、対象`translation`）に版、サイズ、SHA-256、ライセンスを固定して載せ、ライセンス台帳（`licensing.md`）と`NOTICE.md`に記録する。非商用などの制限があるモデルは既定にしない。利用者が足した項目は、出どころとライセンスをアプリでは確かめないことを追加の欄に書いている。
+- 名前、フォルダー、アドレス、キーは利用者のデータなので、IPCの経路名に`translation_catalog`を含め、`process.log`では値を伏せる。フォルダーが読めない項目は、IDと固定のコードだけをログに書く。
+- IPC：`/get/data/translation_catalog`（`{engine, api, runtimes, protocols}`）、`/run/register_translation_catalog_entry`、`/run/remove_translation_catalog_entry`（`{id}`）、`/run/use_translation_catalog_entry`（`{id}`）。どれもカタログ全体を返し、失敗は`{error_code}`で返す。
 
 ## 固定カタログ
 

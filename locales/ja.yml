@@ -1980,7 +1980,7 @@ translation_catalog:
         engine: "お使いのPCで動かすモデル"
         api: "API"
     group_help:
-        engine: "推論エンジンでお使いのPCの上で動かす翻訳のモデルです。手元のモデルはフォルダーを指定して追加します。"
+        engine: "お使いのPCの推論エンジンで動かす翻訳のモデルです。手元のモデルはフォルダーを指定して追加します。"
         api: "アプリがネットワーク越しに呼び出す翻訳のサービスです。お使いのPCやLANの中のサーバーも含みます。アドレスとモデルとキーを指定して追加します。"
     none_added: "まだ追加していません。"
     shipped_title: "アプリに含まれる項目（{{count}}件）"
@@ -2019,7 +2019,7 @@ translation_catalog:
     model_first: "サーバーの一覧の最初のモデル"
     key_kept: "アプリのキーの保管場所にあります"
     key_none: "なし"
-    folder_help: "translation-modelsフォルダーに置いたモデルです。外すときはそのフォルダーから移動してください。"
+    folder_help: "translation-modelsフォルダーに置いたモデルです。一覧から外すときは、モデルのフォルダーをtranslation-modelsフォルダーの外へ移してください。"
     use:
         engine: "お使いのPCの翻訳に使う"
         api: "OpenAI互換の接続先にする"
@@ -2095,7 +2095,7 @@ translation_catalog:
         translation_variant_unsupported: "このモデルの量子化の形には対応していません。"
         translation_file_missing: "manifest.jsonにあるファイルがフォルダーにありません。"
         translation_bundle_modified: "フォルダーのファイルがmanifest.jsonの記録と違います。"
-        translation_languages_unknown: "モデルの言語を名前にできないか、入れた言語のコードがモデルにありません。"
+        translation_languages_unknown: "モデルの言語の名前が分からないか、入れた言語のコードがモデルにありません。"
 studio:
     toggle_sidebar: "サイドバーを切り替える"
     close_sidebar: "サイドバーを閉じる"
