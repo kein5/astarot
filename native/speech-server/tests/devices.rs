@@ -54,8 +54,16 @@ fn a_separate_gpu_comes_first_for_every_vendor() {
             vec![row("Vulkan0", "AMD Radeon RX 6600", "gpu", 8), row("Vulkan1", "AMD Radeon RX 6600", "gpu", 8)],
             Some("Vulkan0"),
         ),
-        // Only an integrated GPU (a laptop with Intel or AMD graphics only).
-        (vec![row("Vulkan0", "AMD Radeon(TM) 780M", "igpu", 8), cpu()], Some("Vulkan0")),
+        // Only an integrated GPU (a laptop with Intel or AMD graphics only): never chosen.
+        (vec![row("Vulkan0", "AMD Radeon(TM) 780M", "igpu", 8), cpu()], None),
+        // An integrated GPU with more memory than the separate one still loses.
+        (
+            vec![
+                row("Vulkan0", "Intel(R) Iris(R) Xe Graphics", "igpu", 32),
+                row("Vulkan1", "NVIDIA GeForce RTX 3050", "gpu", 4),
+            ],
+            Some("Vulkan1"),
+        ),
         // The Direct3D 12 mapping layer and software rasterizers are not GPUs to compute on.
         (vec![row("Vulkan0", "Microsoft Direct3D12 (Intel(R) Iris(R) Xe Graphics)", "igpu", 8), cpu()], None),
         (vec![row("Vulkan0", "llvmpipe (LLVM 19.1.7, 256 bits)", "igpu", 8), cpu()], None),
@@ -109,6 +117,12 @@ fn only_devices_that_cannot_compute_mean_the_cpu_for_auto() {
     ];
     assert_eq!(resolve_device("auto", Some(&layer)), "cpu");
     assert_eq!(resolve_device("gpu", Some(&layer)), "gpu");
+}
+
+#[test]
+fn auto_runs_on_the_cpu_when_only_an_integrated_gpu_is_shown() {
+    let laptop = [row("Vulkan0", "Intel(R) Iris(R) Xe Graphics", "igpu", 16), cpu()];
+    assert_eq!(resolve_device("auto", Some(&laptop)), "cpu");
 }
 
 #[test]
