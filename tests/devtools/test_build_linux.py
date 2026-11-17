@@ -9,6 +9,7 @@ from unittest.mock import patch
 from tools import app_resources
 
 from tools import build_linux
+from tools import runtime_libraries
 from tools.check_python_lock import validate_lock
 
 
@@ -153,6 +154,19 @@ class LinuxStagingTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix='vox linux staging ')
         self.addCleanup(temporary.cleanup)
         self.work = Path(temporary.name)
+        # ONNX Runtime and OpenVR come from pinned downloads (tools/runtime_libraries.py, its own
+        # tests); here they are stand-ins, so that no test needs the archives or the network.
+        libraries = patch.object(build_linux, 'stage_runtime_libraries', side_effect=self.fake_runtime_libraries)
+        self.runtime_libraries = libraries.start()
+        self.addCleanup(libraries.stop)
+
+    @staticmethod
+    def fake_runtime_libraries(platform, build, *, download=False):
+        names = runtime_libraries.shipped(platform)
+        for name in names:
+            (build / name).parent.mkdir(parents=True, exist_ok=True)
+            (build / name).write_bytes(b'library')
+        return names
 
     def fake_run(self, argv, **_):
         names = [str(value) for value in argv]

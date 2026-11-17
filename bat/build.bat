@@ -11,6 +11,10 @@ REM The RVC worker (cargo rebuilds only what changed); it loads ONNX Runtime fro
 REM runtime the user sets up.
 python tools/build_rvc_worker.py --output-dir build
 if errorlevel 1 exit /b 1
+REM ONNX Runtime (chat reading, local translation) and the OpenVR client library (VR overlay),
+REM pinned by size and SHA-256 and kept in build/runtime-libraries.
+python tools/runtime_libraries.py --platform windows --download --output build
+if errorlevel 1 exit /b 1
 REM The license texts of the Rust crates in vrct-vox.exe and the worker (NOTICE.md).
 python tools/rust_licenses.py --output build/licenses/rust
 if errorlevel 1 exit /b 1

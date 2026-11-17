@@ -12,7 +12,8 @@ whole, also removes the Python runtime of an older version.
 `stage` copies from the build folder (build/speechcpp from speechcpp_bundle.py, and on Linux
 build/speechcpp-cpu beside it: the Vulkan build and the CPU build ship together; the RVC worker
 from build_rvc_worker.py, the Rust license texts from rust_licenses.py, the Linux helpers from
-build_voice_gate.py, the readings' dictionary from sudachi_dictionary.py when present) and the
+build_voice_gate.py, the readings' dictionary from sudachi_dictionary.py when present, ONNX
+Runtime and the OpenVR client library from runtime_libraries.py) and the
 repository (LICENSE, NOTICE.md, the NScurl notices). It downloads
 nothing. `check` lists what a package needs and is missing.
 """
@@ -20,6 +21,11 @@ import argparse
 from pathlib import Path
 import shutil
 import sys
+
+try:
+    from .runtime_libraries import shipped as runtime_libraries
+except ImportError:
+    from runtime_libraries import shipped as runtime_libraries
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,6 +48,9 @@ def required(platform):
              for name in (f'build/{bundle}/{_exe("speech", platform)}', f'build/{bundle}/bundle.json')]
     names += [f'build/{_exe("vrct-rvc-worker", platform)}',
               'licenses/VRCT/LICENSE', 'licenses/VRCT/NOTICE.md', 'licenses/rust/crates.json']
+    # ONNX Runtime for chat reading and local translation, and the OpenVR client library for the
+    # VR overlay and the headset view (tools/runtime_libraries.py, issue #509).
+    names += runtime_libraries(platform)
     if platform == 'windows':
         names.append('licenses/nscurl/LICENSE.md')
     else:
@@ -69,6 +78,10 @@ def pairs(platform, build=ROOT / 'build', root=ROOT):
     sudachi = build / 'sudachi'
     if sudachi.is_dir():
         result += [(file, f'build/sudachi/{file.name}') for file in sorted(sudachi.iterdir()) if file.is_file()]
+    for name in runtime_libraries(platform):
+        file = build / name
+        if file.is_file():
+            result.append((file, name))
     helpers = ['vrct-rvc-worker'] + (list(LINUX_HELPERS) if platform == 'linux' else [])
     for name in helpers:
         file = build / _exe(name, platform)

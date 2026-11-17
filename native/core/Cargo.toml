@@ -33,6 +33,8 @@ vrct-adapters = { path = "../adapters" }
 # The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
 # build that way and need no PipeWire; the application turns it on.
 vrct-audio-routing = { path = "../audio-routing", default-features = false }
+# The OpenVR client library the packages ship (shipped_libraries.rs); the overlay depends on it too.
+vrct-openvr-client = { path = "../openvr-client" }
 vrct-ops = { path = "../ops" }
 vrct-speech-server = { path = "../speech-server" }
 # Speech recognition: the recorder, the cloud engines and realtime recognition on speech.cpp.
