@@ -4,7 +4,9 @@
 //! directory, checked for size and SHA-256, and only then renamed into
 //! `<root>/<id>/<revision>/`. A failed, cancelled or interrupted download publishes nothing and
 //! leaves no staging behind; what a killed process left is reclaimed by the next owner of the
-//! root. Applying a download to the settings is a separate, explicit call.
+//! root. A published entry whose files no longer pass the check is moved out of the way and
+//! downloaded again when this app wrote everything in it; otherwise it is kept and the download
+//! fails. Applying a download to the settings is a separate, explicit call.
 
 pub mod catalog;
 pub mod guidance;
@@ -111,6 +113,18 @@ pub(crate) fn create_private_dir(path: &Path) -> io::Result<()> {
     {
         std::fs::create_dir(path)
     }
+}
+
+/// Makes a rename inside `directory` durable where the system needs it (Linux: the folder's own
+/// entry is flushed, so a power cut does not undo a publish). Best effort: the rename itself has
+/// already succeeded, and Windows has no such step.
+pub fn sync_directory(directory: &Path) {
+    #[cfg(unix)]
+    if let Ok(folder) = std::fs::File::open(directory) {
+        let _ = folder.sync_all();
+    }
+    #[cfg(not(unix))]
+    let _ = directory;
 }
 
 /// `Path(root).expanduser().absolute()`: `~` expanded, made absolute without resolving links.
