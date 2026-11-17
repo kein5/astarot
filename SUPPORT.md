@@ -5,6 +5,7 @@ VRCT-VOX is maintained by one person on a best-effort basis. Replies may take so
 | You want to… | Go to |
 |---|---|
 | Learn how to install, set up or use the app | The user guide: [English](https://kein5.github.io/VRCT-VOX/en/) / [日本語](https://kein5.github.io/VRCT-VOX/ja/) |
+| Find out how the app helps if hearing, speaking or reading is hard for you, and what it cannot do yet | [ACCESSIBILITY.md](ACCESSIBILITY.md) |
 | Fix something that does not work | [Troubleshooting](https://kein5.github.io/VRCT-VOX/en/guide/troubleshooting) first, then a [bug report](https://github.com/kein5/VRCT-VOX/issues/new?template=bug_report.yml) |
 | Ask for a new feature or an improvement | A [feature request](https://github.com/kein5/VRCT-VOX/issues/new?template=feature_request.yml) |
 | Report a security vulnerability | Privately, as described in [SECURITY.md](SECURITY.md). Do not open a public issue. |
@@ -24,6 +25,7 @@ VRCT-VOX は1人で保守しています。返事に時間がかかることが�
 | したいこと | 行き先 |
 |---|---|
 | 入れ方、設定、使い方を知りたい | [ガイド](https://kein5.github.io/VRCT-VOX/ja/) |
+| 聞くことや話すこと、文字を読むことを助ける機能と、まだできないことを知りたい | [ACCESSIBILITY.md](ACCESSIBILITY.md#アクセシビリティ日本語) |
 | うまく動かない | まず[トラブルシューティング](https://kein5.github.io/VRCT-VOX/ja/guide/troubleshooting)を見て、解決しなければ[不具合の報告](https://github.com/kein5/VRCT-VOX/issues/new?template=bug_report.yml) |
 | 機能を追加・改善してほしい | [機能の要望](https://github.com/kein5/VRCT-VOX/issues/new?template=feature_request.yml) |
 | 脆弱性を見つけた | [SECURITY.md](SECURITY.md) の手順で非公開で報告する（公開の Issue には書かない） |
