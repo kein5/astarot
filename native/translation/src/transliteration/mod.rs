@@ -265,6 +265,10 @@ mod tests {
         // Short: a block of one kana keeps it; the kana come off the blocks to its left.
         assert_eq!(kana("東京の", "トノ"), ["ト", "ノ"]);
         assert_eq!(kana("美しい", "ウツ"), ["ウ", "ツ"]);
+        // Every block keeps at least one kana's share, even when the reading runs out first.
+        assert_eq!(kana("東京の", "ノ"), ["ノ", ""]);
+        // Once enough has come off the right, the blocks to the left keep theirs.
+        assert_eq!(kana("東京の京都", "トウノキ"), ["トウ", "ノ", "キ"]);
         // Long: the kanji blocks take one more each, then every block in turn from the left.
         assert_eq!(kana("取り敢えず", "トリアエズアイ"), ["トリ", "ア", "エズ", "アイ"]);
         assert_eq!(kana("取り敢えず", "トリアエズアイウ"), ["トリア", "エ", "ズア", "イウ"]);
