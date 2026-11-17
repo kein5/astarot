@@ -64,6 +64,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 
 - [TTS設定ガイド](/docs/voice-stack/tts-quickstart-ja.md)
 - [トラブルシューティング](/docs/voice-stack/troubleshooting.md)
+- [アクセシビリティ：聞く・話す・読むことの支援と既知の制限](/ACCESSIBILITY.md#アクセシビリティ日本語)
 - [モデル取得とGPU・VRAMの目安](/docs/voice-stack/model-downloads.md)
 - [本家VRCTのドキュメント](https://misyaguziya.github.io/VRCT-Docs/)（本家アプリの説明で、VRCT-VOXの音声機能は含みません）
 

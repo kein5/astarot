@@ -19,4 +19,4 @@ The user requested the name VRCT-VOX and a full application redesign on 2026-10-
 The current components live under src-ui/views. Functional tests cover voice settings, model downloads, Quick Chat and native AppImage startup. Historical acceptance reports are under docs/voice-stack; their old artifact names and measurement boundaries remain factual.
 
 ## Accessibility and implementation
-Keyboard access, visible focus, readable contrast, reduced motion, long Japanese labels, window resizing, and existing font/size preferences are part of acceptance. Keep React 18, CSS modules, Jotai and i18next; do not migrate frameworks or add remote fonts.
+Keyboard access, visible focus, readable contrast, reduced motion, long Japanese labels, window resizing, and existing font/size preferences are part of acceptance. [ACCESSIBILITY.md](ACCESSIBILITY.md) tells users which help the app gives for hearing, speaking and reading, and its known limits; keep it in step when a change adds, removes or limits one of them. Keep React 18, CSS modules, Jotai and i18next; do not migrate frameworks or add remote fonts.
