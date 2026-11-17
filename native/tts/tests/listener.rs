@@ -4,7 +4,7 @@
 mod common;
 
 use std::io;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -441,6 +441,9 @@ fn stop_during_probe_prevents_late_cancellation_and_overlapping_probes() {
     old.close();
     let new = registry.watch(&address, &new_token, Event::new(), probe, None);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
+    // The new request joins the monitor whose probe is in flight (`new._monitor is old._monitor`).
+    assert_eq!(registry.external_count(), 1);
+    assert_eq!(old.monitor().watch_count(), 1, "the new request started another monitor");
     release.set();
     assert!(second_entered.wait(Some(millis(500))));
     // A new request must not receive the old request's in-flight observation.
@@ -464,6 +467,32 @@ fn a_stopped_subscription_never_cancels() {
     until2(|| registry.external_count() == 0);
     assert!(!token.is_set());
     watch.close();
+}
+
+#[test]
+fn the_last_subscriptions_stop_flag_ends_the_monitor_without_cancelling() {
+    // The `stopped` ending of `test_external_monitor_stops_only_after_last_subscription`: the
+    // first request has gone, then the last one's own stop flag is set while its server is gone.
+    let registry = ListenerMonitors::new();
+    let address: Address = ("127.0.0.1".into(), 9);
+    let gone = Arc::new(AtomicBool::new(false));
+    let probe: Probe = {
+        let gone = gone.clone();
+        Arc::new(move |_: &Address, _: &Event| gone.load(Ordering::SeqCst))
+    };
+    let tokens = [CancelToken::new(), CancelToken::new()];
+    let stops = [Event::new(), Event::new()];
+    let first = registry.watch(&address, &tokens[0], stops[0].clone(), probe.clone(), None);
+    let second = registry.watch(&address, &tokens[1], stops[1].clone(), probe, None);
+    let monitor = registry.external(&address).unwrap();
+    first.close();
+    assert!(!monitor.finished() && monitor.watch_count() == 1);
+    stops[1].set();
+    gone.store(true, Ordering::SeqCst);
+    assert!(monitor.join(millis(300)), "the monitor outlived its last subscription");
+    assert_eq!(registry.external_count(), 0);
+    assert!(!tokens[0].is_set() && !tokens[1].is_set(), "a stopped subscription was cancelled");
+    second.close();
 }
 
 #[test]

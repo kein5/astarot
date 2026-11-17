@@ -177,6 +177,40 @@ fn errors_are_private_and_worker_recovers() {
 }
 
 #[test]
+fn an_unexpected_provider_failure_is_private_and_the_worker_recovers() {
+    // The other half of Python's `test_errors_are_private_and_worker_recovers`: an arbitrary
+    // exception with secret text. Its Rust counterpart is a panic in the provider; neither
+    // the message nor the panic reaches the status or the failure report.
+    let sink = Sink::default();
+    let attempts = Arc::new(Mutex::new(0));
+    let reports: Arc<Mutex<Vec<String>>> = Arc::default();
+    let (counter, record) = (attempts.clone(), reports.clone());
+    let bus = bus(original(), &sink, |o| {
+        o.provider_factory = provider(move |_, _, _| {
+            let mut count = counter.lock().unwrap();
+            *count += 1;
+            if *count == 1 {
+                drop(count);
+                panic!("secret spoken text / path / token");
+            }
+            Ok(frames(vec![1, 0]))
+        });
+        o.on_failure = Some(Arc::new(move |code: &str| record.lock().unwrap().push(code.to_owned())));
+    });
+    bus.publish(chat("first"), None, None);
+    until2(|| bus.status().errors == 1);
+    let status = bus.status();
+    assert_eq!(status.last_error.as_deref(), Some("audio_output_error"));
+    assert!(!serde_json::to_string(&status).unwrap().contains("secret"));
+    assert_eq!(*reports.lock().unwrap(), vec!["audio_output_error"]);
+    bus.publish(chat("second"), None, None);
+    until2(|| bus.status().completed == 1);
+    assert_eq!(bus.status().last_error, None);
+    assert_eq!(sink.bytes(), vec![1, 0]);
+    close(&bus);
+}
+
+#[test]
 fn settings_errors_never_show_their_message() {
     // English without a multilingual server: a settings error, shown only by class.
     let bus = bus(original(), &Sink::default(), |_| {});
@@ -251,9 +285,12 @@ fn a_finished_utterances_timer_cannot_cancel_the_next() {
     });
     assert!(bus.publish(chat("first"), None, None));
     until2(|| bus.status().completed == 1);
+    // The first timer's deadline passes while the second utterance is held, well before the
+    // second's own: a first timer left running would set the first token, or the second's.
+    thread::sleep(ms(120));
     assert!(bus.publish(chat("second"), None, None));
     assert!(entered.wait(Some(Duration::from_secs(1))));
-    thread::sleep(ms(100));
+    thread::sleep(ms(60));
     let tokens_now = tokens.lock().unwrap().clone();
     assert!(!tokens_now[0].is_set() && !tokens_now[1].is_set());
     release.set();

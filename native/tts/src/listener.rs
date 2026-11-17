@@ -611,6 +611,38 @@ mod windows_table {
         }
         Some(endpoints)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        const ESTABLISHED: u32 = 5;
+
+        #[test]
+        fn listening_rows_include_an_unknown_state_without_a_peer() {
+            // `test_tts_listener_monitor.py::test_listening_rows_include_unknown_state_without_a_peer`
+            // and the ESTABLISHED row of `test_windows_listener_table_requires_exact_port_and_listen_state`.
+            // The ports are in network byte order, as the table holds them.
+            let peer = u32::from(9u16.to_be());
+            assert!(listening(MIB_TCP_STATE_LISTEN, 0));
+            assert!(listening(0, 0), "a listening socket reported with state 0");
+            assert!(!listening(0, peer), "a state-0 row with a peer is a connection");
+            assert!(!listening(ESTABLISHED, peer));
+            assert!(!listening(ESTABLISHED, 0), "a known state other than LISTEN");
+            assert_eq!(port(u32::from(8080u16.to_be())), 8080);
+        }
+
+        #[test]
+        fn the_query_sees_a_real_listener_and_not_its_connection() {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let client = std::net::TcpStream::connect(address).unwrap();
+            let rows = query().expect("the TCP table is readable");
+            assert!(rows.contains(&("127.0.0.1".to_owned(), address.port())));
+            // The client's own end is a connection, never a listener.
+            assert!(!rows.contains(&("127.0.0.1".to_owned(), client.local_addr().unwrap().port())));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -840,7 +872,16 @@ mod tests {
         let address: Address = ("127.0.0.1".into(), listener.local_addr().unwrap().port());
         assert!(!listener_missing_with(&address, &Event::new(), Some(&probe)));
         drop(listener);
-        assert!(listener_missing_with(&address, &Event::new(), Some(&probe)));
+        let started = Instant::now();
+        let missing = listener_missing_with(&address, &Event::new(), Some(&probe));
+        assert!(started.elapsed() < Duration::from_millis(500), "the connect fallback is not bounded");
+        // A refused connect proves absence. Winsock retries a refused loopback connect for
+        // longer than the 100 ms probe, so on Windows only the table proves it and an
+        // unreadable table leaves the answer inconclusive.
+        #[cfg(not(windows))]
+        assert!(missing);
+        #[cfg(windows)]
+        assert!(!missing);
         let stopped = Event::new();
         stopped.set();
         assert!(!listener_missing_with(&address, &stopped, Some(&probe)));
