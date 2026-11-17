@@ -31,7 +31,7 @@ dependencies = [
     "deepl==1.22.0",
     "flashtext==2.7",
     "pyinstaller==6.10.0",
-    "numpy==1.26.4",
+    "numpy==2.4.6",
     "soxr==1.1.0",  # Streaming ASR resampling; LGPL-2.1-or-later, see docs/voice-stack/licensing.md.
     "sentencepiece==0.2.1",  # PYSEC-2026-1909 fixed in 0.2.1
     "openvr==2.12.1401",
@@ -126,7 +126,7 @@ voice-test = [
     "requests==2.34.2",
     "PyYAML==6.0.2",
     "ruff==0.14.4",
-    "numpy==1.26.4",
+    "numpy==2.4.6",
     "soxr==1.1.0",
     "psutil==5.9.8",
     "pillow==13.0.0",
