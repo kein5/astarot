@@ -2316,7 +2316,9 @@ first_run_setup:
         what: "Your speech is turned into text on your own computer and is not sent anywhere. The models below are downloaded and written into the settings, and the bundled speech recognition server is selected. The microphone is not turned on."
         loading: "Loading the model list…"
         models: "Models to download"
-        model_facts: "Provider: {{provider}} · License: {{license}} · Size: {{size}}"
+        model_provider: "Provider: {{provider}}"
+        model_license: "License: {{license}}"
+        model_size: "Size: {{size}}"
         model_card: "Model card and license"
         total: "Total {{size}} ({{bytes}} bytes)"
         consent: "I have checked the providers, licenses and sizes, and I agree to the download."
@@ -2336,7 +2338,7 @@ first_run_setup:
         state_failed: "Could not be done."
         state_stopped: "Stopped."
         kept: "Your settings are as they were. Fix the cause and press Try again: steps already done are skipped."
-        finished: "Speech recognition is ready. Turn on the speech recognition switch on the main screen to use it."
+        finished: "Speech recognition is ready. Turn on Mic input on the main screen to use it."
 
 # Experimental companion form (tray, captions, control panel); Issue #355.
 companion:

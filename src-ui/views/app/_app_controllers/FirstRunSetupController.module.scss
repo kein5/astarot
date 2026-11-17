@@ -4,7 +4,15 @@
     li { margin-bottom: .8rem; }
 }
 .model_name { display: block; font-weight: 500; }
-.model_facts { display: block; font-size: 1.25rem; color: var(--vox_secondary_text, #adbed6); }
+.model_facts {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 1.2rem;
+    font-size: 1.25rem;
+    color: var(--vox_secondary_text, #adbed6);
+    // A label stays with its value; Japanese labels are not broken inside a word.
+    > span { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
+}
 .steps {
     margin: .8rem 0;
     padding-left: 2.2rem;

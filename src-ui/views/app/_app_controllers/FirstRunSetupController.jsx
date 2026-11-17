@@ -23,7 +23,8 @@ import guideStyles from "./VirtualMicGuideController.module.scss";
 import setupStyles from "./FirstRunSetupController.module.scss";
 
 const ACTIVE = ["queued", "downloading", "verifying", "cancelling"];
-const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
+// GiB with two decimals; a file under 0.1 GiB (the VAD model) in MiB, so it never reads "0.00 GiB".
+const gib = value => value < 0.1 * 1073741824 ? `${(value / 1048576).toFixed(1)} MiB` : `${(value / 1073741824).toFixed(2)} GiB`;
 
 // The first-run setup (#557). It opens by itself once the start-up notices are closed, when the
 // local speech recognition is not ready yet, and from the first screen at any time.
@@ -251,10 +252,13 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
         {models.length > 0 && <ul className={setupStyles.models} aria-label={t("first_run_setup.recognition.models")}>
             {models.map(entry => <li key={entry.id}>
                 <span className={setupStyles.model_name}>{entry.name}</span>
+                {/* Each fact keeps its label and value together; a long provider name wraps inside its own item. */}
                 <span className={setupStyles.model_facts}>
-                    {t("first_run_setup.recognition.model_facts", { provider: entry.provider ?? "", license: entry.license ?? "", size: gib(entry.total_bytes) })}
-                    {entry.licenses?.[0] && <>{" "}<a href={entry.licenses[0]} target="_blank" rel="noreferrer"
-                        onClick={event => openLink(event, entry.licenses[0])}>{t("first_run_setup.recognition.model_card")}</a></>}
+                    <span>{t("first_run_setup.recognition.model_provider", { provider: entry.provider ?? "" })}</span>
+                    <span>{t("first_run_setup.recognition.model_license", { license: entry.license ?? "" })}</span>
+                    <span>{t("first_run_setup.recognition.model_size", { size: gib(entry.total_bytes) })}</span>
+                    {entry.licenses?.[0] && <a href={entry.licenses[0]} target="_blank" rel="noreferrer"
+                        onClick={event => openLink(event, entry.licenses[0])}>{t("first_run_setup.recognition.model_card")}</a>}
                 </span>
             </li>)}
         </ul>}
@@ -262,7 +266,7 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
         {models.length > 0 && <p>{t("first_run_setup.recognition.total", { size: gib(planBytes(plan)),
             bytes: planBytes(plan).toLocaleString("en-US") })}</p>}
         {!run && models.length > 0 && <label className={styles.checkLabel}>
-            <input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />
+            <input type="checkbox" autoFocus checked={consent} onChange={event => setConsent(event.target.checked)} />
             {t("first_run_setup.recognition.consent")}
         </label>}
         {!run && models.length === 0 && plan.length > 0 && <p>{t("first_run_setup.recognition.no_download")}</p>}
