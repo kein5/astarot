@@ -176,12 +176,17 @@ pub fn load(path: &Path) -> Result<Value> {
 
 /// Reads the top-level object of a checkpoint held in memory.
 pub fn load_bytes(bytes: &[u8]) -> Result<Value> {
+    load_within(bytes, MAX_ELEMENTS)
+}
+
+/// [`load_bytes`], building at most `elements` tensor elements while reading the stream.
+fn load_within(bytes: &[u8], elements: usize) -> Result<Value> {
     if !bytes.starts_with(b"PK") {
         return Err(Error::unsupported(KIND, "not a zip-format PyTorch checkpoint (legacy or foreign format)"));
     }
     let archive = Archive::open(bytes)?;
     let pickle = archive.entry_named("data.pkl")?;
-    Machine { archive: &archive, input: pickle, at: 0, stack: Vec::new(), marks: Vec::new(), memo: HashMap::new() }.run()
+    Machine { archive: &archive, input: pickle, at: 0, stack: Vec::new(), marks: Vec::new(), memo: HashMap::new(), elements }.run()
 }
 
 /// The stored (uncompressed) entries of a zip archive, by name.
@@ -279,7 +284,36 @@ impl<'a> Archive<'a> {
     }
 }
 
-type Pairs = Rc<RefCell<Vec<(Item, Item)>>>;
+/// A list, or a dict as its keys and values in turn.
+type Shared = Rc<RefCell<Items>>;
+
+/// The items of a container. Dropping them takes the tree apart one level at a time instead of
+/// recursing: a hundred thousand nested tuples fit in a hundred kilobytes of pickle, and a
+/// recursive drop of them would overflow the worker's stack.
+#[derive(Debug, Clone, Default)]
+struct Items(Vec<Item>);
+
+impl Drop for Items {
+    fn drop(&mut self) {
+        let mut pending = std::mem::take(&mut self.0);
+        while let Some(item) = pending.pop() {
+            // An item still referenced elsewhere is only released here; the last reference empties it.
+            match item {
+                Item::Leaf(_) => {}
+                Item::Tuple(items) => {
+                    if let Ok(mut items) = Rc::try_unwrap(items) {
+                        pending.append(&mut items.0);
+                    }
+                }
+                Item::List(items) | Item::Dict(items) => {
+                    if let Ok(items) = Rc::try_unwrap(items) {
+                        pending.append(&mut items.into_inner().0);
+                    }
+                }
+            }
+        }
+    }
+}
 
 /// How much one checkpoint may expand to. A voice model has some hundreds of tensors and some
 /// tens of millions of weights; these leave ample room above that.
@@ -299,9 +333,9 @@ impl Default for Budget {
 #[derive(Debug, Clone)]
 enum Item {
     Leaf(Rc<Value>),
-    Tuple(Rc<Vec<Item>>),
-    List(Rc<RefCell<Vec<Item>>>),
-    Dict(Pairs),
+    Tuple(Rc<Items>),
+    List(Shared),
+    Dict(Shared),
 }
 
 impl Item {
@@ -325,11 +359,15 @@ impl Item {
                 }
                 Rc::try_unwrap(value).unwrap_or_else(|shared| (*shared).clone())
             }
-            Item::Tuple(items) => Value::List(many(Rc::try_unwrap(items).unwrap_or_else(|shared| (*shared).clone()), budget)?),
-            Item::List(items) => Value::List(many(items.take(), budget)?),
+            Item::Tuple(items) => {
+                let mut items = Rc::try_unwrap(items).unwrap_or_else(|shared| (*shared).clone());
+                Value::List(many(std::mem::take(&mut items.0), budget)?)
+            }
+            Item::List(items) => Value::List(many(std::mem::take(&mut items.borrow_mut().0), budget)?),
             Item::Dict(items) => {
+                let mut items = std::mem::take(&mut items.borrow_mut().0).into_iter();
                 let mut pairs = Vec::new();
-                for (key, value) in items.take() {
+                while let (Some(key), Some(value)) = (items.next(), items.next()) {
                     pairs.push((key.into_value(depth + 1, budget)?, value.into_value(depth + 1, budget)?));
                 }
                 Value::Dict(pairs)
@@ -356,6 +394,8 @@ struct Machine<'a> {
     stack: Vec<Item>,
     marks: Vec<usize>,
     memo: HashMap<u32, Item>,
+    /// Tensor elements the stream may still build.
+    elements: usize,
 }
 
 fn bad(detail: impl std::fmt::Display) -> Error {
@@ -407,14 +447,14 @@ impl Machine<'_> {
         self.stack.push(Item::leaf(value));
     }
 
-    fn top_dict(&mut self) -> Result<Pairs> {
+    fn top_dict(&mut self) -> Result<Shared> {
         match self.stack.last() {
             Some(Item::Dict(items)) => Ok(items.clone()),
             _ => Err(bad("expected a dict on the stack")),
         }
     }
 
-    fn top_list(&mut self) -> Result<Rc<RefCell<Vec<Item>>>> {
+    fn top_list(&mut self) -> Result<Shared> {
         match self.stack.last() {
             Some(Item::List(items)) => Ok(items.clone()),
             _ => Err(bad("expected a list on the stack")),
@@ -491,39 +531,35 @@ impl Machine<'_> {
                         return Err(bad("stack underflow"));
                     }
                     let items = self.stack.split_off(self.stack.len() - count);
-                    self.stack.push(Item::Tuple(Rc::new(items)));
+                    self.stack.push(Item::Tuple(Rc::new(Items(items))));
                 }
                 b't' => {
                     let items = self.pop_mark()?;
-                    self.stack.push(Item::Tuple(Rc::new(items)));
+                    self.stack.push(Item::Tuple(Rc::new(Items(items))));
                 }
                 b'l' => {
                     let items = self.pop_mark()?;
-                    self.stack.push(Item::List(Rc::new(RefCell::new(items))));
+                    self.stack.push(Item::List(Rc::new(RefCell::new(Items(items)))));
                 }
                 b'a' => {
                     let value = self.pop()?;
-                    self.top_list()?.borrow_mut().push(value);
+                    self.top_list()?.borrow_mut().0.push(value);
                 }
                 b'e' => {
                     let items = self.pop_mark()?;
-                    self.top_list()?.borrow_mut().extend(items);
+                    self.top_list()?.borrow_mut().0.extend(items);
                 }
                 b's' => {
                     let value = self.pop()?;
                     let key = self.pop()?;
-                    self.top_dict()?.borrow_mut().push((key, value));
+                    self.top_dict()?.borrow_mut().0.extend([key, value]);
                 }
                 b'u' => {
                     let items = self.pop_mark()?;
                     if items.len() % 2 != 0 {
                         return Err(bad("odd number of dict items"));
                     }
-                    let dict = self.top_dict()?;
-                    let mut items = items.into_iter();
-                    while let (Some(key), Some(value)) = (items.next(), items.next()) {
-                        dict.borrow_mut().push((key, value));
-                    }
+                    self.top_dict()?.borrow_mut().0.extend(items);
                 }
                 b'q' => {
                     let key = self.byte()? as u32;
@@ -566,7 +602,7 @@ impl Machine<'_> {
                 b'R' | 0x81 => {
                     let Item::Tuple(arguments) = self.pop()? else { return Err(bad("call arguments are not a tuple")) };
                     let callee = self.pop()?;
-                    let item = self.reduce(callee, &arguments)?;
+                    let item = self.reduce(callee, &arguments.0)?;
                     self.stack.push(item);
                 }
                 b'b' => {
@@ -593,7 +629,7 @@ impl Machine<'_> {
     /// `('storage', <storage class>, key, location, element count)`
     fn storage(&mut self, id: Item) -> Result<Value> {
         let Item::Tuple(parts) = id else { return Err(bad("persistent id is not a tuple")) };
-        let part = |index: usize| parts.get(index).and_then(Item::value);
+        let part = |index: usize| parts.0.get(index).and_then(Item::value);
         match (part(0), part(1), part(2)) {
             (Some(Value::Str(tag)), Some(Value::Global(module, class)), Some(Value::Str(key))) if tag == "storage" && module == "torch" => {
                 let dtype = Dtype::from_storage(class).ok_or_else(|| Error::unsupported(KIND, format!("storage type {class}")))?;
@@ -623,7 +659,7 @@ impl Machine<'_> {
         let Some(Value::Storage(storage)) = storage.value() else { return Err(bad("tensor without storage")) };
         let dims = |item: &Item| -> Result<Vec<usize>> {
             let Item::Tuple(items) = item else { return Err(bad("tensor shape is not a tuple")) };
-            items.iter().map(|item| item.integer().ok_or_else(|| bad("bad tensor dimension"))).collect()
+            items.0.iter().map(|item| item.integer().ok_or_else(|| bad("bad tensor dimension"))).collect()
         };
         let shape = dims(shape)?;
         let stride = dims(stride)?;
@@ -634,6 +670,14 @@ impl Machine<'_> {
         let count = shape.iter().try_fold(1usize, |total, &dim| total.checked_mul(dim)).filter(|&total| total <= MAX_ELEMENTS).ok_or_else(|| bad("tensor too large"))?;
         let bytes = self.archive.entry_named(&format!("data/{}", storage.key))?;
         let width = storage.dtype.size();
+        // A saved weight never has more elements than its storage holds. A zero stride (or one that
+        // revisits elements) would turn four stored bytes into a gigabyte.
+        if count.checked_mul(width).is_none_or(|size| size > bytes.len()) {
+            return Err(bad("tensor larger than its storage"));
+        }
+        // Every tensor built counts, not only the ones the result keeps: a memoised constructor can
+        // be called again and again for a few bytes each.
+        self.elements = self.elements.checked_sub(count).ok_or_else(|| bad("tensors too large in total"))?;
         let mut data = Vec::with_capacity(count);
         let mut index = vec![0usize; shape.len()];
         for _ in 0..count {
@@ -678,35 +722,49 @@ mod tests {
 
     /// A zip archive with one stored entry, as PyTorch writes them.
     fn stored_zip(name: &str, data: &[u8]) -> Vec<u8> {
-        let (name, size) = (name.as_bytes(), data.len() as u32);
-        let mut out = vec![0x50, 0x4b, 0x03, 0x04];
-        for field in [20u16, 0, 0, 0, 0] {
-            out.extend(field.to_le_bytes());
+        stored_zip_of(&[(name, data)])
+    }
+
+    /// A zip archive with stored entries.
+    fn stored_zip_of(files: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut headers = Vec::new();
+        for (name, data) in files {
+            headers.push(out.len() as u32);
+            let (name, size) = (name.as_bytes(), data.len() as u32);
+            out.extend([0x50, 0x4b, 0x03, 0x04]);
+            for field in [20u16, 0, 0, 0, 0] {
+                out.extend(field.to_le_bytes());
+            }
+            out.extend(0u32.to_le_bytes());
+            out.extend(size.to_le_bytes());
+            out.extend(size.to_le_bytes());
+            out.extend((name.len() as u16).to_le_bytes());
+            out.extend(0u16.to_le_bytes());
+            out.extend(name);
+            out.extend(*data);
         }
-        out.extend(0u32.to_le_bytes());
-        out.extend(size.to_le_bytes());
-        out.extend(size.to_le_bytes());
-        out.extend((name.len() as u16).to_le_bytes());
-        out.extend(0u16.to_le_bytes());
-        out.extend(name);
-        out.extend(data);
         let central = out.len();
-        out.extend([0x50, 0x4b, 0x01, 0x02]);
-        for field in [20u16, 20, 0, 0, 0, 0] {
-            out.extend(field.to_le_bytes());
+        for ((name, data), header) in files.iter().zip(headers) {
+            let (name, size) = (name.as_bytes(), data.len() as u32);
+            out.extend([0x50, 0x4b, 0x01, 0x02]);
+            for field in [20u16, 20, 0, 0, 0, 0] {
+                out.extend(field.to_le_bytes());
+            }
+            out.extend(0u32.to_le_bytes());
+            out.extend(size.to_le_bytes());
+            out.extend(size.to_le_bytes());
+            for field in [name.len() as u16, 0, 0, 0, 0] {
+                out.extend(field.to_le_bytes());
+            }
+            out.extend(0u32.to_le_bytes());
+            out.extend(header.to_le_bytes());
+            out.extend(name);
         }
-        out.extend(0u32.to_le_bytes());
-        out.extend(size.to_le_bytes());
-        out.extend(size.to_le_bytes());
-        for field in [name.len() as u16, 0, 0, 0, 0] {
-            out.extend(field.to_le_bytes());
-        }
-        out.extend(0u32.to_le_bytes());
-        out.extend(0u32.to_le_bytes());
-        out.extend(name);
         let central_size = (out.len() - central) as u32;
+        let count = files.len() as u16;
         out.extend([0x50, 0x4b, 0x05, 0x06]);
-        for field in [0u16, 0, 1, 1] {
+        for field in [0u16, 0, count, count] {
             out.extend(field.to_le_bytes());
         }
         out.extend(central_size.to_le_bytes());
@@ -749,5 +807,60 @@ mod tests {
         let began = std::time::Instant::now();
         assert!(matches!(load_bytes(&stored_zip("archive/data.pkl", &pickle)), Err(Error::Format { .. })));
         assert!(began.elapsed() < std::time::Duration::from_secs(10), "{:?}", began.elapsed());
+    }
+
+    #[test]
+    fn deeply_nested_tuples_fail_as_invalid_without_overflowing_the_stack() {
+        // #469: one byte per level; dropping the rest of the tree recursed once per level.
+        let mut pickle = b"\x80\x02K\x01".to_vec();
+        pickle.extend(std::iter::repeat_n(0x85u8, 300_000));
+        pickle.push(b'.');
+        assert!(matches!(load_bytes(&stored_zip("archive/data.pkl", &pickle)), Err(Error::Format { .. })));
+        // Left on the stack when the stream breaks off, too.
+        pickle.pop();
+        assert!(load_bytes(&stored_zip("archive/data.pkl", &pickle)).is_err());
+    }
+
+    /// `_rebuild_tensor_v2(storage "0" of `class`, offset 0, (len,), (stride,))`, memoised as 0 (the
+    /// callee) and 1 (the arguments), followed by `tail` and STOP.
+    fn tensor_pickle(class: &str, len: u32, stride: u32, tail: &[u8]) -> Vec<u8> {
+        let mut pickle = b"\x80\x02ctorch._utils\n_rebuild_tensor_v2\nq\x00(".to_vec();
+        pickle.extend(format!("(X\x07\0\0\0storagectorch\n{class}\nX\x01\0\0\x000X\x03\0\0\0cpuK\x01tQK\x00").as_bytes());
+        pickle.push(b'J');
+        pickle.extend(len.to_le_bytes());
+        pickle.push(0x85);
+        pickle.push(b'J');
+        pickle.extend(stride.to_le_bytes());
+        pickle.extend(b"\x85tq\x01R");
+        pickle.extend(tail);
+        pickle.push(b'.');
+        pickle
+    }
+
+    #[test]
+    fn a_tensor_reads_its_storage() {
+        let storage: Vec<u8> = [1.0f32, 2.0, 3.0].iter().flat_map(|v| v.to_le_bytes()).collect();
+        let file = stored_zip_of(&[("archive/data.pkl", &tensor_pickle("FloatStorage", 3, 1, b"")), ("archive/data/0", &storage)]);
+        assert_eq!(load_bytes(&file).unwrap(), Value::Tensor(Tensor { shape: vec![3], data: vec![1.0, 2.0, 3.0] }));
+    }
+
+    #[test]
+    fn a_zero_stride_cannot_turn_a_few_bytes_into_a_gigabyte() {
+        // #469: four stored bytes, 2^28 elements read from the same place.
+        let file = stored_zip_of(&[("archive/data.pkl", &tensor_pickle("FloatStorage", 1 << 28, 0, b"")), ("archive/data/0", &[0; 4])]);
+        assert!(matches!(load_bytes(&file), Err(Error::Format { .. })));
+    }
+
+    #[test]
+    fn tensors_built_again_from_the_memo_count_against_the_budget() {
+        // #469: each call of the memoised constructor built the tensor anew; BUILD drops the result.
+        let storage = [0u8; 400];
+        let mut tail = Vec::new();
+        for _ in 0..20 {
+            tail.extend(b"bh\x00h\x01R");
+        }
+        let file = stored_zip_of(&[("archive/data.pkl", &tensor_pickle("FloatStorage", 100, 1, &tail)), ("archive/data/0", &storage)]);
+        assert!(load_within(&file, 21 * 100).is_ok());
+        assert!(matches!(load_within(&file, 20 * 100), Err(Error::Format { .. })));
     }
 }
