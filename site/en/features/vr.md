@@ -6,7 +6,7 @@ You can read translations and captions inside VR or on top of your desktop. The 
 |---|---|---|
 | Subtitle overlay | show captions in your VR view | SteamVR |
 | Desktop caption overlay | show captions above VRChat when you play without a headset | Windows or Linux (AppImage) |
-| VR UI (beta feature) | control VRCT-VOX inside VR | SteamVR |
+| VR UI (beta feature) | control ASTAROT inside VR | SteamVR |
 
 ## Show captions in VR (subtitle overlay)
 
@@ -37,13 +37,13 @@ The background is a drawing for this page. In use, the captions sit above whatev
 - Hold Ctrl and drag the captions to move them anywhere. While Ctrl is held, a frame shows the area of the captions. They stay where you put them the next time you start the app.
 - Point at the captions, hold Ctrl and press "+" or "-" to change the text size. At other times Ctrl and "+" or "-" go to your other apps as usual.
 - "Reset the caption position and text size" puts both back. Choosing an edge again in "Where the captions appear" also moves them back to that edge.
-- Until you move them, they appear on the monitor that holds VRCT-VOX's main window.
+- Until you move them, they appear on the monitor that holds ASTAROT's main window.
 - "Show only translated messages" applies to these captions too.
 - Next to the captions, you can also show where your inputs went and how long they took. See [Inputs and outputs](io-flow#show-it-on-the-desktop).
 - They do not appear above an app in exclusive full screen (a mode in which the app takes over the whole display). VRChat's full screen is a borderless window, so they do appear there.
 - On Linux they work when you start the AppImage, also on a Wayland desktop, where the app runs through XWayland. Start the tar.gz with `GDK_BACKEND=x11`; without it the app runs on native Wayland and the section is not shown.
 
-## Use VRCT-VOX in VR (VR UI, beta feature)
+## Use ASTAROT in VR (VR UI, beta feature)
 
 "Show the VR UI" shows a launcher on your wrist (a row of buttons) and windows in VR. From there you can turn features on and off and open the log, languages and settings. It works separately from the subtitle overlay. It comes from upstream VRCT.
 
@@ -53,5 +53,5 @@ If you lose the launcher, press "Reset the launcher position and size"; it retur
 - On Linux, an automated test on a test X11 screen (no window manager) checked that the caption window appears without a window manager handling it and shows a sent line. Its place above VRChat in full screen on KDE Plasma, and transparency on an NVIDIA GPU, have not been checked yet.
 - The desktop caption overlay was checked on Windows 11 above VRChat, both windowed and full screen, with test lines. Captions recognized from game audio were seen in the overlay without VRChat running. Microphone captions were not checked.
 - On Linux, the VR UI has only been checked against a simulated SteamVR, not with a real headset.
-- The subtitle overlay and the VR UI have not been tested in depth in VRCT-VOX.
+- The subtitle overlay and the VR UI have not been tested in depth in ASTAROT.
 :::

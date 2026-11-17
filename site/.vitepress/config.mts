@@ -43,7 +43,7 @@ function sidebarJa(): DefaultTheme.SidebarItem[] {
     {
       text: 'はじめに',
       items: [
-        { text: 'VRCT-VOXとは', link: '/ja/guide/introduction' },
+        { text: 'ASTAROTとは', link: '/ja/guide/introduction' },
         { text: 'インストール', link: '/ja/guide/install' },
         { text: '動作環境と推奨スペック', link: '/ja/guide/requirements' },
         { text: '最初の設定', link: '/ja/guide/first-setup' },
@@ -95,7 +95,7 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
     {
       text: 'Getting started',
       items: [
-        { text: 'What is VRCT-VOX', link: '/en/guide/introduction' },
+        { text: 'What is ASTAROT', link: '/en/guide/introduction' },
         { text: 'Install', link: '/en/guide/install' },
         { text: 'System requirements', link: '/en/guide/requirements' },
         { text: 'First setup', link: '/en/guide/first-setup' },
@@ -144,7 +144,7 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
 
 export default defineConfig({
   base,
-  title: 'VRCT-VOX',
+  title: 'ASTAROT',
   // Only the / language picker uses this; each locale sets its own lang.
   lang: 'en',
   cleanUrls: true,
@@ -160,7 +160,7 @@ export default defineConfig({
     ['link', { rel: 'apple-touch-icon', href: `${base}apple-touch-icon.png` }],
   ],
   // The ASTAROT manual (theme/manual/) is built in Japanese and switches language in place; its
-  // pages carry the ASTAROT icon and their own title, without the guide's " | VRCT-VOX".
+  // pages carry the ASTAROT icon and their own title, without the guide's " | ASTAROT".
   transformPageData(pageData) {
     if (!pageData.relativePath.startsWith('manual/')) return
     const slug = pageData.params?.chapter as string | undefined
@@ -216,7 +216,7 @@ export default defineConfig({
       label: '日本語',
       lang: 'ja',
       link: '/ja/',
-      description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリVRCT-VOXの使い方',
+      description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリASTAROTの使い方',
       themeConfig: {
         // The top bar points at the three pages a reader looks for first. The home page's download
         // button offers the file for the reader's OS; the install page says how to set each one up.
@@ -237,7 +237,7 @@ export default defineConfig({
           linkText: 'トップページへ',
         },
         footer: {
-          message: 'VRCT-VOXはVRCTの非公式な派生版です。VRChat Inc.とは関係ありません。',
+          message: 'ASTAROT（旧名VRCT-VOX）はVRCTの非公式な派生版です。VRChat Inc.とは関係ありません。',
           copyright: 'MIT License · 元のVRCTの著作権表示を保持しています',
         },
       },
@@ -246,7 +246,7 @@ export default defineConfig({
       label: 'English',
       lang: 'en',
       link: '/en/',
-      description: 'How to use VRCT-VOX, a translation, speech recognition, text-to-speech, voice conversion and chat-reading app for VRChat',
+      description: 'How to use ASTAROT, a translation, speech recognition, text-to-speech, voice conversion and chat-reading app for VRChat',
       themeConfig: {
         nav: [
           { text: 'Guide', link: '/en/guide/introduction' },
@@ -255,7 +255,7 @@ export default defineConfig({
         ],
         sidebar: sidebarEn(),
         footer: {
-          message: 'VRCT-VOX is an unofficial derivative of VRCT. It is not affiliated with VRChat Inc.',
+          message: 'ASTAROT (formerly VRCT-VOX) is an unofficial derivative of VRCT. It is not affiliated with VRChat Inc.',
           copyright: 'MIT License · The original VRCT copyright notice is retained',
         },
       },

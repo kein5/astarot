@@ -51,12 +51,12 @@ The bundled server uses one recognition model for both microphone captions and g
 After a restart, captions start off.
 
 ::: info Other players' words are not sent to VRChat
-What VRCT-VOX transcribes from game audio is never sent to your chatbox or played into your microphone.
+What ASTAROT transcribes from game audio is never sent to your chatbox or played into your microphone.
 :::
 
 ## Tell speakers apart
 
-Game audio captions can show who is speaking. VRCT-VOX tells the voices apart and marks them "Speaker A", "Speaker B" and so on.
+Game audio captions can show who is speaking. ASTAROT tells the voices apart and marks them "Speaker A", "Speaker B" and so on.
 
 To use it, download and apply the diarization model under "Models and servers" → "ASR + VAD". This is the model that tells speakers apart (Nemotron 3 Diarization, about 106 MB, OpenMDW-1.1). It is used from the next time the server starts. To stop using it, clear "Diarization GGUF path (optional)".
 
@@ -79,7 +79,7 @@ With "Voice typing mode" on under Settings → "VR", what you say is transcribed
 - While SteamVR is running, it brings the window of the app SteamVR is running (VRChat, for example) to the front and pastes there.
 - When SteamVR is not running, the text is only copied to the clipboard.
 
-On Linux it pastes into apps that run as X11/XWayland windows, such as VRChat under Proton. On KDE, the desktop asks once whether VRCT-VOX may control input devices when it first pastes. It cannot paste into a native Wayland window; the text is copied to the clipboard only.
+On Linux it pastes into apps that run as X11/XWayland windows, such as VRChat under Proton. On KDE, the desktop asks once whether ASTAROT may control input devices when it first pastes. It cannot paste into a native Wayland window; the text is copied to the clipboard only.
 
 ## Choose the speech recognition engine (Windows) {#engines}
 

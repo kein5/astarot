@@ -4,9 +4,9 @@ route: windows-audio
 
 # Windows audio route
 
-For VRChat to hear speech or your changed voice, VRCT-VOX's audio has to reach VRChat's microphone input. On Windows the app cannot create a virtual microphone, so you install a virtual cable. This page uses [VB-CABLE](https://vb-audio.com/Cable/) as the example.
+For VRChat to hear speech or your changed voice, ASTAROT's audio has to reach VRChat's microphone input. On Windows the app cannot create a virtual microphone, so you install a virtual cable. This page uses [VB-CABLE](https://vb-audio.com/Cable/) as the example.
 
-VB-CABLE is a VB-Audio product and has nothing to do with VRCT-VOX. Check its terms on its download page.
+VB-CABLE is a VB-Audio product and has nothing to do with ASTAROT. Check its terms on its download page.
 
 ## Install the virtual cable
 
@@ -19,7 +19,7 @@ It adds "CABLE Input" to your output (playback) devices and "CABLE Output" to yo
 
 ## Connect it to VRChat
 
-1. In VRCT-VOX, choose "CABLE Input" as "Output device" under Settings → "Text to speech (TTS)", and save. If it is missing, press "Refresh devices".
+1. In ASTAROT, choose "CABLE Input" as "Output device" under Settings → "Text to speech (TTS)", and save. If it is missing, press "Refresh devices".
 2. In VRChat, choose "CABLE Output" as your microphone.
 3. Turn on "Text to speech (TTS)" on the main screen and send a short line. If VRChat's microphone meter moves, it is connected.
 

@@ -1,7 +1,7 @@
 ---
 layout: home
 hero:
-  name: VRCT-VOX
+  name: ASTAROT
   # Each span stays on one line where it fits (custom.css), so the headline breaks between them.
   text: <span class="nb">VRChatの会話を</span><span class="nb">翻訳・字幕・読み上げで支える</span>
   tagline: 翻訳、字幕、読み上げ、声の変換、チャットの読み取りを1つにまとめたデスクトップアプリです。VRCTの非公式な派生版です。
@@ -15,7 +15,7 @@ heroActions:
     link: /ja/guide/tasks
 shot:
   src: /screenshots/ja/main.webp
-  alt: VRCT-VOXのメイン画面。日本語の発言に英語の訳が、相手の英語の発言に日本語の訳が付いている
+  alt: ASTAROTのメイン画面。日本語の発言に英語の訳が、相手の英語の発言に日本語の訳が付いている
 # Each feature beside a short loop of what it does (theme/HomeShowcase.vue). The id names the
 # loop under public/motion/ja/, rendered by site/motion.
 showcase:

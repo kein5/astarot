@@ -1,8 +1,8 @@
 # ライセンスと謝辞
 
-## VRCT-VOXのライセンス
+## ASTAROTのライセンス
 
-VRCT-VOXは[MIT License](https://github.com/kein5/astarot/blob/develop/LICENSE)です。元のVRCTの著作権表示と帰属表示は、そのまま残しています。
+ASTAROTは[MIT License](https://github.com/kein5/astarot/blob/develop/LICENSE)です。元のVRCTの著作権表示と帰属表示は、そのまま残しています。
 
 外部のエンジン、モデル、GPLのSeed-VCとの連携には、それぞれ別の条件があります。そのため、音声の機能全体がMITだとは言えません。配布物に含まれるLGPLとGPLの部品、そのソースの入手方法と差し替え方は、[NOTICE.md](https://github.com/kein5/astarot/blob/develop/NOTICE.md)にまとめています。
 
@@ -14,11 +14,11 @@ VRCT-VOXは[MIT License](https://github.com/kein5/astarot/blob/develop/LICENSE)�
 - NLLBの翻訳モデルは非商用（CC-BY-NC-4.0）です。
 - 公開する作品でSaisho UtaneのRVCモデル（CC BY 4.0）を使うときは、クレジットの表示が必要です。
 
-本家VRCTの吹き出し検出モデルは、派生版の配布物に含めることが許されていないため、VRCT-VOXの配布物には入れていません。チャット読み取りで使えるVRCT-VOX独自の吹き出し検出モデルは、これとは別に学習したもので、MITで公開しています。配布物には含めず、同意したときだけ取得します。開発の試験に使っている音声Mia2026も、配布しません。
+本家VRCTの吹き出し検出モデルは、派生版の配布物に含めることが許されていないため、ASTAROTの配布物には入れていません。チャット読み取りで使えるASTAROT独自の吹き出し検出モデルは、これとは別に学習したもので、MITで公開しています。配布物には含めず、同意したときだけ取得します。開発の試験に使っている音声Mia2026も、配布しません。
 
 ## 謝辞
 
-VRCT-VOXはVRCTチームの成果の上に作られています。
+ASTAROTはVRCTチームの成果の上に作られています。
 
 - みしゃ / misyaguziya（メインの開発）
 - しいな / Shiina_12siy（UI/UXとローカライズ）
@@ -26,4 +26,4 @@ VRCT-VOXはVRCTチームの成果の上に作られています。
 - どね / done_vrc（ロゴ）
 - そして[VRCTのすべてのコントリビューター](https://github.com/misyaguziya/VRCT/graphs/contributors)
 
-VRChatとその関連する名称はVRChat Inc.の商標または登録商標です。VRCT-VOXはVRChat Inc.とは関係ありません。
+VRChatとその関連する名称はVRChat Inc.の商標または登録商標です。ASTAROTはVRChat Inc.とは関係ありません。

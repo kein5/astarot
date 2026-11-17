@@ -9,7 +9,7 @@ Windows comes first below; Linux is in [its own section](#linux).
 1. On [GitHub Releases](https://github.com/kein5/astarot/releases), open the release marked "Latest" and download `VRCT-VOX_setup.exe` from its "Assets".
 2. Open the file you downloaded. If SmartScreen warns you, continue as the note below says.
 3. On the way, it asks for the CPU or the GPU version. On a PC with an NVIDIA GPU you can choose the GPU (CUDA) version.
-4. When it is installed, start VRCT-VOX and go on to [First setup](./first-setup).
+4. When it is installed, start ASTAROT and go on to [First setup](./first-setup).
 
 ::: warning SmartScreen warns on first launch
 The Windows build is not code-signed. When "Windows protected your PC" appears, press "More info" and then "Run anyway".
@@ -103,19 +103,21 @@ Every file also has build provenance: a record, signed by GitHub, of which workf
 To check a file, install the [GitHub CLI](https://cli.github.com/) and run this in the folder you downloaded to, with the name of the file you want to check:
 
 ```sh
-gh attestation verify VRCT-VOX_setup.exe --repo kein5/VRCT-VOX
+gh attestation verify VRCT-VOX_setup.exe --owner kein5 --signer-repo kein5/VRCT-VOX
 ```
+
+Files up to 0.5.0 were built before the repository was renamed to `kein5/astarot`, so their provenance names the old `kein5/VRCT-VOX`. That is why the command names the owner (`kein5`) and the old name. For files after 0.5.0, run `gh attestation verify <file> --repo kein5/astarot`.
 
 If it prints "Verification succeeded!", the file was built by this repository's workflow. If it fails, don't use the file, and tell us in an Issue.
 :::
 
 ## Updates
 
-When a new version is out, the top bar says so. You can also check in Settings → Update. How you update depends on how you installed VRCT-VOX.
+When a new version is out, the top bar says so. You can also check in Settings → Update. How you update depends on how you installed ASTAROT.
 
 | Installed with | How to update |
 |---|---|
-| The Windows installer | Press "Update to (version) and restart" in Update. The update is installed only after its signature is checked, and VRCT-VOX restarts when it is done |
+| The Windows installer | Press "Update to (version) and restart" in Update. The update is installed only after its signature is checked, and ASTAROT restarts when it is done |
 | The AppImage | The same button replaces the AppImage file with the new one |
 | The Windows ZIP or the Linux tar.gz | The app only tells you a new version is out. Install it again from GitHub Releases |
 | deb or rpm | The app does not check. Update with your package manager |
@@ -130,6 +132,6 @@ Your settings and models are inside the unpacked folder, so unpacking a new ZIP 
 
 ## One running copy
 
-If you start VRCT-VOX while it is already running, it brings the running window to the front instead of starting again.
+If you start ASTAROT while it is already running, it brings the running window to the front instead of starting again.
 
 Next, see [First setup](./first-setup).

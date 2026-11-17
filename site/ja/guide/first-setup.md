@@ -2,7 +2,7 @@
 
 文章を翻訳してVRChatのチャットボックスへ送るところまでを設定します。読み上げや字幕は、そのあとで機能ごとのページを見ながら設定してください。
 
-![翻訳をオンにして会話しているVRCT-VOXのメイン画面](/screenshots/ja/main.webp)
+![翻訳をオンにして会話しているASTAROTのメイン画面](/screenshots/ja/main.webp)
 
 左にスイッチと言語、右に会話のログ、下に入力欄があります。
 
@@ -14,7 +14,7 @@
 
 ## 2. VRChatのOSCをオンにする
 
-VRCT-VOXはOSCという仕組みでVRChatのチャットボックスへ文字を送ります。VRChatのアクションメニューから「Options」→「OSC」を開き、「Enabled」にしてください。
+ASTAROTはOSCという仕組みでVRChatのチャットボックスへ文字を送ります。VRChatのアクションメニューから「Options」→「OSC」を開き、「Enabled」にしてください。
 
 メイン画面の右上の「クイック設定」を開くと、OSCが有効なVRChatをこのPCで検出できたかが出ます。「設定」→「VRChat」の先頭にも同じ表示があります。
 

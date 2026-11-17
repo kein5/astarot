@@ -1,6 +1,6 @@
 # Model downloads
 
-VRCT-VOX packages contain no models for text to speech, speech recognition, the voice changer or text recognition. Download the models you use from the settings, or point to files you already have. How to use files of your own is in [Use your own models](./custom-models).
+ASTAROT packages contain no models for text to speech, speech recognition, the voice changer or text recognition. Download the models you use from the settings, or point to files you already have. How to use files of your own is in [Use your own models](./custom-models).
 
 ## How a download works
 

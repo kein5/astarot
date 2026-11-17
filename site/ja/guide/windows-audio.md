@@ -4,9 +4,9 @@ route: windows-audio
 
 # Windowsの音声経路
 
-テキスト読み上げやボイスチェンジャーの声をVRChatに届けるには、VRCT-VOXの音をVRChatのマイク入力へつなぐ必要があります。Windowsではアプリが仮想マイクを作れないので、仮想ケーブルを別に入れます。このページでは[VB-CABLE](https://vb-audio.com/Cable/)を例にします。
+テキスト読み上げやボイスチェンジャーの声をVRChatに届けるには、ASTAROTの音をVRChatのマイク入力へつなぐ必要があります。Windowsではアプリが仮想マイクを作れないので、仮想ケーブルを別に入れます。このページでは[VB-CABLE](https://vb-audio.com/Cable/)を例にします。
 
-VB-CABLEはVB-Audioの製品で、VRCT-VOXとは関係ありません。利用の条件は配布ページで確かめてください。
+VB-CABLEはVB-Audioの製品で、ASTAROTとは関係ありません。利用の条件は配布ページで確かめてください。
 
 ## 仮想ケーブルを入れる
 
@@ -19,7 +19,7 @@ VB-CABLEはVB-Audioの製品で、VRCT-VOXとは関係ありません。利用�
 
 ## VRChatへつなぐ
 
-1. VRCT-VOXの「設定」→「テキスト読み上げ（TTS）」の「出力デバイス」で「CABLE Input」を選んで保存します。一覧にないときは「デバイス一覧を更新」を押します。
+1. ASTAROTの「設定」→「テキスト読み上げ（TTS）」の「出力デバイス」で「CABLE Input」を選んで保存します。一覧にないときは「デバイス一覧を更新」を押します。
 2. VRChatのマイクに「CABLE Output」を選びます。
 3. メイン画面の「テキスト読み上げ（TTS）」をオンにして、短い文を送ります。VRChatのマイクの入力メーターが動けばつながっています。
 

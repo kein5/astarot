@@ -2,7 +2,7 @@
 
 ## Usage data
 
-VRCT-VOX sends its developers two kinds of events, to fix problems and to learn which features run well on which PCs. Turn them off under Settings → "Advanced" → "Send usage data".
+ASTAROT sends its developers two kinds of events, to fix problems and to learn which features run well on which PCs. Turn them off under Settings → "Advanced" → "Send usage data".
 
 | Event | When | What it holds |
 |---|---|---|
@@ -38,8 +38,8 @@ Turning off usage reporting does not make every feature offline. Services you ch
 | Google speech recognition engine (Windows) | Google | Your microphone or speaker audio |
 | Model downloads | Hugging Face | The download request |
 | Sending to the chatbox | VRChat (OSC on this PC) | The text you send |
-| Usage data (can be turned off) | The developers of VRCT-VOX (Cloudflare) | That the app started, the kind of an error, and the PC's hardware |
-| Update check (at start, can be turned off) and update download | The check goes through the developers of VRCT-VOX (Cloudflare) to GitHub; the download comes from GitHub | A request for the latest version and the download. No conversation, voice or settings. Not made by deb or rpm installs |
+| Usage data (can be turned off) | The developers of ASTAROT (Cloudflare) | That the app started, the kind of an error, and the PC's hardware |
+| Update check (at start, can be turned off) and update download | The check goes through the developers of ASTAROT (Cloudflare) to GitHub; the download comes from GitHub | A request for the latest version and the download. No conversation, voice or settings. Not made by deb or rpm installs |
 
 Local translation models, the bundled speech.cpp servers (speech, local speech recognition and realtime captions) and chat reading run on this PC. The picture of a window you share for chat reading stays on this PC too.
 

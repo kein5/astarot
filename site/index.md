@@ -1,6 +1,6 @@
 ---
 layout: page
-title: VRCT-VOX
+title: ASTAROT
 sidebar: false
 ---
 
@@ -15,7 +15,7 @@ onMounted(() => location.replace(withBase(`/${preferredLocale()}/`)))
 </script>
 
 <div class="language-picker">
-  <h1>VRCT-VOX</h1>
+  <h1>ASTAROT</h1>
   <p>
     <a href="./ja/" lang="ja">日本語のドキュメント</a>
     <span aria-hidden="true"> · </span>

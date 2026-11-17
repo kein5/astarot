@@ -1,14 +1,16 @@
-# What is VRCT-VOX
+# What is ASTAROT
 
-VRCT-VOX is a desktop app that helps you talk in VRChat. It combines translation, speech recognition (ASR), text to speech (TTS), a voice changer (RVC) and chat reading (OCR) in one app.
+ASTAROT is a desktop app that helps you talk in VRChat. It combines translation, speech recognition (ASR), text to speech (TTS), a voice changer (RVC) and chat reading (OCR) in one app.
 
 It is derived from [VRCT](https://github.com/misyaguziya/VRCT) and developed by [kein5](https://github.com/kein5).
 
+It used to be called VRCT-VOX. Some names, such as those of the files you download and of the install folder, still carry VRCT-VOX.
+
 ::: warning Not an official VRCT release
-VRCT-VOX is not endorsed by the VRCT authors or VRChat. Send questions and bug reports about VRCT-VOX to the [VRCT-VOX Issues](https://github.com/kein5/astarot/issues), not to the VRCT authors.
+ASTAROT is not endorsed by the VRCT authors or VRChat. Send questions and bug reports about ASTAROT to the [ASTAROT Issues](https://github.com/kein5/astarot/issues), not to the VRCT authors.
 :::
 
-## What VRCT-VOX adds to VRCT
+## What ASTAROT adds to VRCT
 
 - [Text to speech (TTS)](../features/tts) Speaks your text or its translation into VRChat's microphone. You can hear the same voice on your own speakers.
 - [Voice changer (RVC)](../features/voice-conversion) Changes your microphone's voice with RVC and sends it to VRChat.
