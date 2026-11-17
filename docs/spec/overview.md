@@ -9,7 +9,7 @@ flowchart LR
   user(["利用者"])
   subgraph app["VRCT-VOX"]
     ui["UI（Tauri＋React）<br/>main / quick_chat / vr_panel"]
-    side["サイドカー（Python）"]
+    side["中核（Rust、アプリのプロセスの中）"]
     speech["同梱の音声サーバー<br/>speech.cpp・RVCワーカー"]
   end
   vrc["VRChat"]
@@ -36,15 +36,15 @@ flowchart LR
 
 | 要素 | 場所 | 役割 |
 |---|---|---|
-| UI | `src-ui/` | 画面、設定、ホットキー、VRパネルとQuick Chatの窓口。状態はサイドカーから受け取る |
-| Tauri | `src-tauri/` | ウィンドウ、サイドカーの起動、Quick Chat、ホットキーの登録、ウィンドウの共有（Linux）、権限 |
-| サイドカー | `src-python/` | 設定の保存、翻訳、音声認識、OCR、OSC、WebSocket、OBS、オーバーレイ、読み上げとRVCの制御 |
-| 受付と振り分け | `src-python/mainloop.py` | エンドポイントと処理の対応表（`mapping`）、通知の名前（`run_mapping`）、キューとロック |
-| 処理の本体 | `src-python/controller.py`、`model.py`、`models/` | 各機能 |
-| 設定 | `src-python/config.py` | 設定の宣言、検証、保存 |
-| エラー | `src-python/errors.py` | エラーコードと既定の文言 |
-| 音声 | `src-python/models/tts`、`audio_routing`、`voice_conversion`、`speech_server` | 読み上げ、音声経路、RVC、同梱サーバー |
-| ネイティブの補助 | `native/`、`build/` | `vrct-vc-worker`、`vrct-screen-capture`（Linuxのウィンドウ共有）、speech.cppのバイナリ |
+| UI | `src-ui/` | 画面、設定、ホットキー、VRパネルとQuick Chatの窓口。状態は中核から受け取る |
+| Tauri | `src-tauri/` | ウィンドウ、中核の起動と要求・通知の受け渡し（`src/backend_host.rs`）、Quick Chat、ホットキーの登録、ウィンドウの共有（Linux）、アプリの更新、権限 |
+| 中核 | `native/core/` | 設定の保存、翻訳、音声認識、OCR、OSC、WebSocket、OBS、オーバーレイ、読み上げとRVCの制御。0.5.0からアプリと同じプロセスで動く、ただ一つのバックエンド |
+| 受付と振り分け | `native/core/src/dispatch.rs`、`controller/routes.rs` | エンドポイントと処理の対応表、通知の名前（`controller::RUN_MAPPING`）、キューとロック |
+| 処理の本体 | `native/core/src/controller/`と、`native/`のほかのクレート | 各機能（翻訳は`translation`、音声認識は`transcription`、読み上げは`tts`、声質変換は`voice-conversion`、音声経路は`audio-routing`、OCRは`ocr-runtime`、オーバーレイは`vr-overlay`、OSCなどは`adapters`、同梱サーバーは`speech-server`、モデル取得とテレメトリは`ops`） |
+| 設定 | `native/core/src/config/` | 設定の宣言、検証（`config/schema.rs`）、保存 |
+| エラー | `native/core/src/errors/` | エラーコードと既定の文言 |
+| ネイティブの補助 | `native/`、`build/` | `vrct-rvc-worker`、Linuxの`vrct-voice-gate`・`vrct-source-bridge`・`vrct-asr-capture`・`vrct-screen-capture`（ウィンドウ共有）、speech.cppのバイナリ |
+| Pythonバックエンド（0.4まで） | `src-python/` | 0.5.0の配布物には入らず、起動もしない。`reference/`の一覧の生成元（`mainloop.py`、`errors.py`、`config.py`）と、その試験として残している。中核との対応は`native/core/README.md`にある |
 
 ## 画面
 
