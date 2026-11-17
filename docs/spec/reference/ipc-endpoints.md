@@ -108,7 +108,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/data/font_family` | 設定 | `setFontFamily` | 可 | useAppearance.setSuccessSelectedFontFamily |  |
 | `/get/data/ui_language` | 取得 | `getUiLanguage` | 可 | useAppearance.updateFromBackendUiLanguage |  |
 | `/set/data/ui_language` | 設定 | `setUiLanguage` | 可 | useAppearance.setSuccessUiLanguage |  |
-| `/get/data/main_window_geometry` | 取得 | `getMainWindowGeometry` | 可 | useWindow.restoreWindowGeometry |  |
+| `/get/data/main_window_geometry` | 取得 | `getMainWindowGeometry` | 可 | （受け取るだけ） |  |
 | `/set/data/main_window_geometry` | 設定 | `setMainWindowGeometry` | 可 | （受け取るだけ） |  |
 | `/get/data/compute_mode` | 取得 | `getComputeMode` | 可 | useComputeMode.updateComputeMode |  |
 | `/get/data/selectable_translation_compute_device_list` | 取得 | `getComputeDeviceList` | 可 | useTranslation.updateFromBackendSelectableTranslationComputeDeviceList |  |

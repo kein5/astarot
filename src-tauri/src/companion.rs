@@ -1008,18 +1008,31 @@ pub fn companion_show_main(window: WebviewWindow) -> Result<(), String> {
 #[tauri::command]
 pub async fn companion_hide_main(window: WebviewWindow, state: State<'_, CompanionState>) -> Result<bool, String> {
     from_main(window.label())?;
-    // A statement of its own: the lock must not be held across the wait below.
-    let has_tray = state.lock()?.tray.is_some();
-    if !has_tray {
-        return Ok(false);
-    }
-    #[cfg(target_os = "linux")]
-    if !tauri::async_runtime::spawn_blocking(linux_tray::shown).await.unwrap_or(false) {
+    if !tray_shown(&state).await? {
         crate::startup_log("Tray icon is not shown on this desktop: closing quits");
         return Ok(false);
     }
     window.hide().map_err(|error| error.to_string())?;
     Ok(true)
+}
+
+/// Whether closing the main window now would put it away in the tray (true) or quit (false),
+/// asked the way [`companion_hide_main`] asks: the close button's name says which.
+#[tauri::command]
+pub async fn companion_close_hides(window: WebviewWindow, state: State<'_, CompanionState>) -> Result<bool, String> {
+    from_main(window.label())?;
+    tray_shown(&state).await
+}
+
+/// Whether the tray icon was made and, on Linux, a tray host shows it.
+async fn tray_shown(state: &State<'_, CompanionState>) -> Result<bool, String> {
+    // A statement of its own: the lock must not be held across the wait below.
+    let has_tray = state.lock()?.tray.is_some();
+    #[cfg(target_os = "linux")]
+    if has_tray {
+        return Ok(tauri::async_runtime::spawn_blocking(linux_tray::shown).await.unwrap_or(false));
+    }
+    Ok(has_tray)
 }
 
 /// Whether a tray icon can be made and seen on Linux.

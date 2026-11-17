@@ -19,6 +19,10 @@ export interface SidecarSession {
     completion?: Promise<void>;
     closed?: boolean;
     retirement?: Promise<boolean> | null;
+    // Lines that came before spawn() gave the child. The core starts its start-up while
+    // backend_start is still answering, so its first lines (even /run/initialization_complete)
+    // can overtake that answer. They are handed on once requests can be written.
+    early?: Array<{ readonly [key: string]: unknown }>;
 }
 
 // The fields of the shared UI store (store.js) the session owner reads and writes.
@@ -111,6 +115,13 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
         session.completion = Promise.resolve().then(async () => {
             try {
                 const command = createCommand();
+                const deliver = (message: { readonly [key: string]: unknown }) => {
+                    try {
+                        handlers()?.receiveRoutes(message);
+                    } catch (error) {
+                        console.log(error, message);
+                    }
+                };
                 // The shell plugin also reports stdout/stderr read errors here,
                 // which do not stop the child. Only fail a start that has no child.
                 command.on("error", error => {
@@ -132,14 +143,19 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
                     // The shell plugin uses line mode; Windows CRLF can deliver
                     // an empty line. Escaped newlines inside JSON remain intact.
                     if (typeof line === "string" && line.trim() === "") return;
+                    let message: { readonly [key: string]: unknown };
                     try {
                         // Not checked here: a JSON null throws below and is logged like invalid JSON.
-                        const message = JSON.parse(line) as { readonly [key: string]: unknown };
-                        handlers()?.receiveRoutes(message);
+                        message = JSON.parse(line) as { readonly [key: string]: unknown };
                         if (message.status === 200 && message.endpoint === "/run/initialization_complete") session.initialized = true;
                     } catch (error) {
                         console.log(error, line);
+                        return;
                     }
+                    // A reply to a line may send requests; until the child is known they could
+                    // not be written and would read as "engine unavailable".
+                    if (!session.child) (session.early ??= []).push(message);
+                    else deliver(message);
                 });
                 command.stderr.on("data", line => {
                     if (!isLive(session)) return;
@@ -148,6 +164,8 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
                 });
                 const child = await command.spawn();
                 session.child = child;
+                const early = session.early ?? [];
+                session.early = undefined;
                 if (!isLive(session)) {
                     await retireChild(session);
                     return;
@@ -157,6 +175,11 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
                 handlers()?.setStartupState("running");
                 startFeeding(session);
                 if (clients.size) handlers()?.started(() => isLive(session) && clients.size > 0);
+                // In the order they came; a line may end the session, and then the rest is dropped.
+                for (const message of early) {
+                    if (!isLive(session)) break;
+                    deliver(message);
+                }
             } catch (error) {
                 fail(session, error);
             }

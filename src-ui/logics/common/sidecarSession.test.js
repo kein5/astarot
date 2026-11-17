@@ -238,6 +238,41 @@ for (const beforeSpawn of [false, true]) test(`acknowledged initialization (${be
     detach();
 });
 
+test("lines that overtake spawn() wait for the child, so their replies can send requests", async () => {
+    // The core's start-up runs while backend_start is answering: on the AppImage its
+    // initialization_complete reached the UI first, and the requests made for it could not
+    // be written (backend_unavailable right after the window opened).
+    const s = setup(), seen = [];
+    s.handlers.receiveRoutes = message => seen.push([message.endpoint, s.store.backend_subprocess]);
+    const detach = s.mount();
+    await flush();
+    const a = s.attempts[0];
+    a.stdout.data(JSON.stringify({ endpoint: "/run/initialization_complete", status: 200, result: {} }));
+    a.stdout.data(JSON.stringify({ endpoint: "/run/after", status: 200 }));
+    assert.deepEqual(seen, []);
+    a.spawn.resolve(a.child);
+    await s.store.backend_session.completion;
+    assert.deepEqual(seen, [["/run/initialization_complete", a.child], ["/run/after", a.child]]);
+    assert.equal(s.store.backend_session.early, undefined);
+    a.stdout.data(JSON.stringify({ endpoint: "/run/later", status: 200 }));
+    assert.deepEqual(seen.at(-1), ["/run/later", a.child]);
+    detach();
+});
+
+test("lines held before a failed spawn are dropped", async context => {
+    context.mock.method(console, "error", () => {});
+    const s = setup(), detach = s.mount();
+    await flush();
+    const a = s.attempts[0];
+    a.stdout.data(JSON.stringify({ endpoint: "/run/initialization_complete", status: 200, result: {} }));
+    a.events.error("spawn failed");
+    a.spawn.resolve(a.child);
+    await s.store.backend_session.completion;
+    assert.deepEqual(s.messages, []);
+    assert.equal(a.child.kills, 1);
+    detach();
+});
+
 test("production controller publishes startup failure and the failure dialog says why and offers a working retry", async context => {
     context.mock.method(console, "error", () => {});
     const s = setup(), b = await loadBridgeStore();

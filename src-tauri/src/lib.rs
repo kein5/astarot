@@ -12,6 +12,7 @@ mod companion;
 mod quick_chat;
 mod single_instance;
 mod vr_panel_state;
+mod window_placement;
 #[cfg(test)]
 mod opener_scope_tests;
 #[cfg(target_os = "linux")]
@@ -191,6 +192,16 @@ pub fn run() {
             let main_window = app.get_webview_window("main").ok_or_else(|| {
                 Error::other("main webview window was not created")
             })?;
+            // Made hidden (tauri.conf.json): it goes to its saved place before it is first shown,
+            // so it does not show centred and then jump there once the engine is ready.
+            if let Ok(executable) = std::env::current_exe() {
+                window_placement::apply(&main_window, &backend_host::state_dir(&executable));
+            }
+            // The tray icon's Title (the name tray settings list it by) is the application name,
+            // which GLib takes from the program's file name when none is set: "AppRun.wrapped"
+            // in the AppImage. The program name itself stays, as the desktop entry matches it.
+            #[cfg(target_os = "linux")]
+            gtk::glib::set_application_name(MAIN_TITLE);
             // The app's one tray icon, there in every run (the overlay feature adds to its menu).
             if let Err(error) = companion::install_tray(app.handle()) {
                 startup_log(&format!("Tray icon could not be made: {error}"));
@@ -262,7 +273,7 @@ pub fn run() {
             vr_panel_state::vr_panel_send,
             app_update::app_update_info, app_update::app_update_check, app_update::app_update_install,
             companion::companion_set, companion::companion_publish, companion::companion_take,
-            companion::companion_show_main, companion::companion_hide_main, companion::companion_status, companion::companion_request,
+            companion::companion_show_main, companion::companion_hide_main, companion::companion_close_hides, companion::companion_status, companion::companion_request,
             companion::companion_panel_hide, companion::companion_panel_toggle, companion::companion_handle_layout, companion::companion_monitors])
         .build(context);
     let app = match result {

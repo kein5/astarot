@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
 import styles from "./AdvancedSettings.module.scss";
@@ -12,7 +12,7 @@ import { parsePortInput, PORT_INPUT_LIMITS } from "../../../../../../logics/conf
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "../../../../../../logics/configs/obsBrowserSourceUrl";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
-import { toggleTelemetryOrAnswer } from "../../../../../../logics/configs/telemetryToggle";
+import { shownTelemetry, telemetryUnanswered, toggleTelemetryOrAnswer } from "../../../../../../logics/configs/telemetryToggle";
 
 import { useCopyToClipboard, useOpenFolder, useNotificationStatus } from "@logics_common";
 import {
@@ -131,11 +131,14 @@ const OpenConfigFolderContainer = () => {
     );
 };
 
-// Usage events (the app started; an error by its code) are sent unless this is off.
-// Turning it on or off here also answers the one-time notice (telemetryToggle.js, SEC-07).
+// Usage events (the app started; an error by its code) are sent once this is on and the
+// one-time notice is answered. Until the answer the switch shows off, as nothing is sent, and
+// says that no choice was made; pressing it then answers "send" (telemetryToggle.ts, SEC-07).
 const TelemetryContainer = () => {
     const { t } = useI18n();
     const others = useOthers();
+    const unansweredId = useId();
+    const unanswered = telemetryUnanswered(others.currentTelemetryNotice);
 
     return (
         <>
@@ -143,10 +146,13 @@ const TelemetryContainer = () => {
                 setting_id="telemetry"
                 label={t("config_page.advanced_settings.telemetry.label")}
                 desc={t("config_page.advanced_settings.telemetry.desc")}
-                variable={others.currentTelemetry}
+                variable={shownTelemetry(others.currentTelemetry, others.currentTelemetryNotice)}
                 toggleFunction={() => toggleTelemetryOrAnswer(others)}
+                note={unanswered ? t("config_page.advanced_settings.telemetry.unanswered") : undefined}
+                note_id={unansweredId}
+                aria-describedby={unanswered ? unansweredId : undefined}
             />
-            {/* The event itself as this PC would send it, and what was sent before. */}
+            {/* The event itself as it would be sent, and what was sent before. */}
             <div className={styles.telemetry_contents}>
                 <TelemetryContents with_sent />
             </div>
