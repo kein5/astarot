@@ -34,7 +34,7 @@ export const CHAPTERS = [
       en: 'What ASTAROT does, and the PC it needs.',
     },
     keywords: 'about vrct-vox requirements 動作環境 スペック GPU メモリ',
-    guide: [g('/guide/introduction', 'VRCT-VOXとは', 'What is VRCT-VOX'), g('/guide/requirements', '動作環境と推奨スペック', 'System requirements')],
+    guide: [g('/guide/introduction', 'ASTAROTとは', 'What is ASTAROT'), g('/guide/requirements', '動作環境と推奨スペック', 'System requirements')],
     status: 'guide',
   },
   {

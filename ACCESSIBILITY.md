@@ -12,7 +12,7 @@ ASTAROT puts captions, text to speech and chat reading into one app, so that peo
 - **Desktop caption overlay.** Lines from the conversation log appear as captions on top of other windows, including VRChat played without a headset. Your own words are blue and other people's words are purple. Clicks pass through the captions to the window below.
 - **VR caption overlay.** Captions appear inside SteamVR. You can change where they appear (the headset or either hand), their size, how long they stay and how see-through they are.
 - **OBS browser source.** Captions can be added to a stream.
-- **Planned for 0.6.0: notes for sounds.** Notes such as [applause] for sounds that are not speech ([#386](https://github.com/kein5/VRCT-VOX/issues/386)). Version 0.5.0 does not have this.
+- **Planned for 0.6.0: notes for sounds.** Notes such as [applause] for sounds that are not speech ([#386](https://github.com/kein5/astarot/issues/386)). Version 0.5.0 does not have this.
 
 ### Speaking
 
@@ -20,7 +20,7 @@ ASTAROT puts captions, text to speech and chat reading into one app, so that peo
 - **Quick Chat.** A hotkey opens a small input box, so you can send a message without switching to the main window.
 - **Voice changer (RVC).** Your voice is changed into the voice of the model you choose. It has its own switch, separate from text to speech.
 - **Stop and mute.** Speech can be stopped, and the voice muted, from the main window or with a hotkey.
-- **Planned for 0.6.0: saved phrases.** Phrases you save in advance, read aloud and sent from a hotkey ([#445](https://github.com/kein5/VRCT-VOX/issues/445)). Version 0.5.0 does not have this.
+- **Planned for 0.6.0: saved phrases.** Phrases you save in advance, read aloud and sent from a hotkey ([#445](https://github.com/kein5/astarot/issues/445)). Version 0.5.0 does not have this.
 
 ### Seeing
 
@@ -52,7 +52,7 @@ ASTAROT puts captions, text to speech and chat reading into one app, so that peo
 ## Getting help
 
 - To learn how to use the app, see the user guide and [SUPPORT.md](SUPPORT.md).
-- If a feature on this page does not work for you, or something is hard to use, open a [bug report](https://github.com/kein5/VRCT-VOX/issues/new?template=bug_report.yml) or a [feature request](https://github.com/kein5/VRCT-VOX/issues/new?template=feature_request.yml) and include "accessibility" in the title. Please say what you use (for example a screen reader or the keyboard alone) and where you got stuck.
+- If a feature on this page does not work for you, or something is hard to use, open a [bug report](https://github.com/kein5/astarot/issues/new?template=bug_report.yml) or a [feature request](https://github.com/kein5/astarot/issues/new?template=feature_request.yml) and include "accessibility" in the title. Please say what you use (for example a screen reader or the keyboard alone) and where you got stuck.
 - Remove personal data, such as voice recordings and chat text, from anything you attach. See [SUPPORT.md](SUPPORT.md).
 
 ---
@@ -69,7 +69,7 @@ ASTAROT は字幕と読み上げとチャットの読み取りを1つにまと�
 - デスクトップの字幕オーバーレイ：会話ログの文をほかのウィンドウの上に字幕として重ねます。ヘッドセットを使わない VRChat の画面にも出せます。自分の発言は青、相手の発言は紫の文字です。字幕はクリックを通すので、下のウィンドウをそのまま操作できます。
 - VR の字幕オーバーレイ：SteamVR の中に字幕を出します。出す位置（頭か左右の手）と大きさ、表示時間、透明度を変えられます。
 - OBS ブラウザソース：配信の画面に字幕を出せます。
-- 音の注記（0.6.0 で予定）：話し声でない音に、[拍手] のような注記を字幕で付けます（[#386](https://github.com/kein5/VRCT-VOX/issues/386)）。0.5.0 にはありません。
+- 音の注記（0.6.0 で予定）：話し声でない音に、[拍手] のような注記を字幕で付けます（[#386](https://github.com/kein5/astarot/issues/386)）。0.5.0 にはありません。
 
 #### 話すことの支援
 
@@ -77,7 +77,7 @@ ASTAROT は字幕と読み上げとチャットの読み取りを1つにまと�
 - 入力の小窓（Quick Chat）：ホットキーで小さな入力欄を開きます。メイン画面に切り替えずに文を送れます。
 - ボイスチェンジャー（RVC）：自分の声を選んだモデルの声に変えて届けます。読み上げとは別のスイッチで入り切りできます。
 - 停止とミュート：読み上げの停止とミュートは、メイン画面からもホットキーからもできます。
-- 定型文（0.6.0 で予定）：登録しておいた文を、ホットキーから読み上げて送ります（[#445](https://github.com/kein5/VRCT-VOX/issues/445)）。0.5.0 にはありません。
+- 定型文（0.6.0 で予定）：登録しておいた文を、ホットキーから読み上げて送ります（[#445](https://github.com/kein5/astarot/issues/445)）。0.5.0 にはありません。
 
 #### 見えの支援
 
@@ -109,5 +109,5 @@ ASTAROT は字幕と読み上げとチャットの読み取りを1つにまと�
 ### 困ったときは
 
 - 使い方はガイドと [SUPPORT.md](SUPPORT.md) を見てください。
-- この文書にある配慮が使えないときや、使いにくいところがあるときは、[不具合の報告](https://github.com/kein5/VRCT-VOX/issues/new?template=bug_report.yml)か[機能の要望](https://github.com/kein5/VRCT-VOX/issues/new?template=feature_request.yml)を出してください。タイトルに「アクセシビリティ」と入れてください。使っているもの（スクリーンリーダー、キーボードだけ、など）と、どこで困ったかを書いてもらえると助かります。
+- この文書にある配慮が使えないときや、使いにくいところがあるときは、[不具合の報告](https://github.com/kein5/astarot/issues/new?template=bug_report.yml)か[機能の要望](https://github.com/kein5/astarot/issues/new?template=feature_request.yml)を出してください。タイトルに「アクセシビリティ」と入れてください。使っているもの（スクリーンリーダー、キーボードだけ、など）と、どこで困ったかを書いてもらえると助かります。
 - 添付するものからは音声やチャットの本文などの個人情報を取り除いてください。詳しくは [SUPPORT.md](SUPPORT.md) にあります。

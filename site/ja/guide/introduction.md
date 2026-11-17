@@ -1,11 +1,13 @@
-# VRCT-VOXとは
+# ASTAROTとは
 
-VRCT-VOXはVRChatでの会話を助けるデスクトップアプリです。翻訳、音声認識（ASR）、テキスト読み上げ（TTS）、ボイスチェンジャー（RVC）、チャット読み取り（OCR）を1つにまとめています。
+ASTAROTはVRChatでの会話を助けるデスクトップアプリです。翻訳、音声認識（ASR）、テキスト読み上げ（TTS）、ボイスチェンジャー（RVC）、チャット読み取り（OCR）を1つにまとめています。
 
 [VRCT](https://github.com/misyaguziya/VRCT)をもとに、[kein5](https://github.com/kein5)が開発しています。
 
+以前はVRCT-VOXという名前でした。ダウンロードするファイルやインストール先のフォルダーなどには、今もVRCT-VOXの名前が残っています。
+
 ::: warning VRCTの公式版ではありません
-VRCT-VOXはVRCTの開発者やVRChatが承認したものではありません。VRCT-VOXについての質問や不具合の報告は、VRCTの開発者ではなく[VRCT-VOXのIssues](https://github.com/kein5/VRCT-VOX/issues)へお願いします。
+ASTAROTはVRCTの開発者やVRChatが承認したものではありません。ASTAROTについての質問や不具合の報告は、VRCTの開発者ではなく[ASTAROTのIssues](https://github.com/kein5/astarot/issues)へお願いします。
 :::
 
 ## VRCTから増えたこと

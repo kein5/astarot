@@ -31,10 +31,10 @@ Reads the text of chatboxes shown on the VRChat screen, so it can be logged or t
 
 ## Find each chatbox before reading it
 
-With "Use the chatbox detector (recommended when installed)" on, VRCT-VOX's own detection model first finds each chatbox on the screen, then reads the text inside it. Fewer chatboxes are missed, and text on world signs is misread less often.
+With "Use the chatbox detector (recommended when installed)" on, ASTAROT's own detection model first finds each chatbox on the screen, then reads the text inside it. Fewer chatboxes are missed, and text on world signs is misread less often.
 
 - You can do without this model. Chatboxes are then looked for within the reading area.
-- The model is a YOLOX-Tiny (about 19 MB, MIT) published on [Hugging Face](https://huggingface.co/kein5/vrct-vox-chatbox-detector). It was trained on VRCT-VOX's own screenshots; it is not the upstream VRCT model.
+- The model is a YOLOX-Tiny (about 19 MB, MIT) published on [Hugging Face](https://huggingface.co/kein5/vrct-vox-chatbox-detector). It was trained on ASTAROT's own screenshots; it is not the upstream VRCT model.
 - Download it from "Chatbox detector" on the same page after reviewing its terms and agreeing ([Model downloads](../guide/models)). The file is used only after its contents are checked against the published file (by its hash).
 - The detector runs on this computer's CPU. Screen contents are never sent anywhere.
 - The reading area and "Only read chatbox-style text" still apply when the detector is used.
@@ -51,11 +51,11 @@ When VRChat runs as a native Wayland window (inside gamescope, or with Wine's Wa
 1. Press "Share a window…". Your desktop opens its own dialog; pick the VRChat window there.
 2. Turn on Chat reading (OCR). It reads the shared window instead of looking for one by name.
 
-- VRCT-VOX asks the desktop to share a window only when you press "Share a window…" and when you turn chat reading on again. It never asks at start-up.
+- ASTAROT asks the desktop to share a window only when you press "Share a window…" and when you turn chat reading on again. It never asks at start-up.
 - The desktop remembers your choice if you leave that option checked in its dialog, so the next "Share a window…" needs no dialog. "Choose another window…" opens the dialog again.
-- Sharing ends when you press "Stop sharing", turn chat reading off, or close VRCT-VOX.
-- When you turn chat reading on again and no VRChat window is found by its name, the window your desktop remembers is shared again. If the desktop remembers it, no dialog appears. If a dialog stays open for 15 seconds, VRCT-VOX stops trying and tells you; share from "Share a window…" in that case.
-- If the shared window is closed, or you stop sharing from the desktop, VRCT-VOX tells you. Share a window again and reading continues.
+- Sharing ends when you press "Stop sharing", turn chat reading off, or close ASTAROT.
+- When you turn chat reading on again and no VRChat window is found by its name, the window your desktop remembers is shared again. If the desktop remembers it, no dialog appears. If a dialog stays open for 15 seconds, ASTAROT stops trying and tells you; share from "Share a window…" in that case.
+- If the shared window is closed, or you stop sharing from the desktop, ASTAROT tells you. Share a window again and reading continues.
 - The shared picture stays on this computer. A few frames per second are copied, and the mouse pointer is left out of the picture.
 - The shared picture includes the window's title bar. The reading area is the same setting used when the window is found by name, applied to the picture with the title bar in it.
 

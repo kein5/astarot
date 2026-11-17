@@ -17,7 +17,7 @@ Inputs are on the left, the steps in the middle and the outputs on the right, jo
 - Each output shows the latest time from each input, and what it does: what the chatbox gets (the original, the translation or both), and whether the voice VRChat hears is converted.
 - Outputs not in use are dashed boxes with no line into them. The reasons are listed under the graph (for example, off in the settings, TTS is off).
 - The lines your latest message took are lit. When a new message arrives, a light runs along them once.
-- When VRChat uses your microphone directly, without going through VRCT-VOX, a dotted line runs from the microphone.
+- When VRChat uses your microphone directly, without going through ASTAROT, a dotted line runs from the microphone.
 
 Under the graph, a timeline for each of your voice and chat shows the latest message's steps as bars, with recent totals and their median.
 

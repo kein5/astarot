@@ -10,13 +10,13 @@
 
 ## Scope
 
-In scope: the ASTAROT application (since 0.5.0 its backend runs inside it; 0.4.x and earlier ship a Python sidecar), the Windows installer and ZIP files and the Linux packages (AppImage, tar.gz, deb, rpm) published on [Releases](https://github.com/kein5/VRCT-VOX/releases), the local servers the app opens (for example the OBS browser source and the WebSocket server), model download and verification, and the release workflows in this repository.
+In scope: the ASTAROT application (since 0.5.0 its backend runs inside it; 0.4.x and earlier ship a Python sidecar), the Windows installer and ZIP files and the Linux packages (AppImage, tar.gz, deb, rpm) published on [Releases](https://github.com/kein5/astarot/releases), the local servers the app opens (for example the OBS browser source and the WebSocket server), model download and verification, and the release workflows in this repository.
 
 Out of scope: vulnerabilities in third-party engines and models (speech.cpp, RVC, Seed-VC, translation and speech services) that ASTAROT does not change. Report those to their projects; tell us too if ASTAROT should work around them. ASTAROT (formerly VRCT-VOX) is derived from [VRCT](https://github.com/misyaguziya/VRCT); if an issue also affects upstream VRCT, report it to its maintainers as well.
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately through GitHub: open the repository's **Security** tab and choose **Report a vulnerability** ([private vulnerability reporting](https://github.com/kein5/VRCT-VOX/security/advisories/new)). Do not open a public issue for a vulnerability.
+Please report vulnerabilities privately through GitHub: open the repository's **Security** tab and choose **Report a vulnerability** ([private vulnerability reporting](https://github.com/kein5/astarot/security/advisories/new)). Do not open a public issue for a vulnerability.
 
 Include the affected version and operating system, the steps to reproduce, and the impact you expect. Remove personal data such as voice recordings, chat text, API keys and full log files you have not reviewed.
 

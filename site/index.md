@@ -1,6 +1,6 @@
 ---
 layout: page
-title: VRCT-VOX
+title: ASTAROT
 sidebar: false
 ---
 
@@ -15,7 +15,7 @@ onMounted(() => location.replace(withBase(`/${preferredLocale()}/`)))
 </script>
 
 <div class="language-picker">
-  <h1>VRCT-VOX</h1>
+  <h1>ASTAROT</h1>
   <p>
     <a href="./ja/" lang="ja">日本語のドキュメント</a>
     <span aria-hidden="true"> · </span>
@@ -23,7 +23,7 @@ onMounted(() => location.replace(withBase(`/${preferredLocale()}/`)))
   </p>
   <!-- Readers without JavaScript stay here; the language pages pick the file for their OS. -->
   <p class="download">
-    <a href="https://github.com/kein5/VRCT-VOX/releases/latest"><span lang="ja">ダウンロード</span> / <span lang="en">Download</span></a>
+    <a href="https://github.com/kein5/astarot/releases/latest"><span lang="ja">ダウンロード</span> / <span lang="en">Download</span></a>
     <span>(GitHub Releases)</span>
   </p>
 </div>

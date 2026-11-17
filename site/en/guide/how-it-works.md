@@ -1,6 +1,6 @@
 # How voice and text flow
 
-VRCT-VOX takes in voice and text, turns them into text, translates them or speaks them, and hands them to VRChat or to your screen. This page shows the whole flow in one picture.
+ASTAROT takes in voice and text, turns them into text, translates them or speaks them, and hands them to VRChat or to your screen. This page shows the whole flow in one picture.
 
 ![How voice and text flow. The top lane: your voice and typed chat go through speech recognition and translation to the VRChat chatbox and the virtual microphone. The bottom lane: their voice and their chatbox go through speech recognition or chat reading and translation to the captions and log, and to OBS](/diagrams/how-it-works-en.svg)
 
@@ -28,7 +28,7 @@ What you hear from them, and the text made from it, is never sent on to your mic
 
 ## Why a virtual microphone is needed
 
-VRChat hears only the microphone you choose in VRChat. For the voice VRCT-VOX makes (speech, or your changed voice) to reach VRChat, VRChat has to receive it as a microphone. A virtual microphone does that: it passes the sound an app plays to other apps as if it came from a microphone.
+VRChat hears only the microphone you choose in VRChat. For the voice ASTAROT makes (speech, or your changed voice) to reach VRChat, VRChat has to receive it as a microphone. A virtual microphone does that: it passes the sound an app plays to other apps as if it came from a microphone.
 
 <OsTabs>
 <template v-slot:windows>
@@ -38,7 +38,7 @@ On Windows, install a virtual cable such as VB-CABLE separately ([Windows audio 
 </template>
 <template v-slot:linux>
 
-On Linux, VRCT-VOX can prepare a virtual microphone it manages ([Linux audio route](./linux-audio)).
+On Linux, ASTAROT can prepare a virtual microphone it manages ([Linux audio route](./linux-audio)).
 
 </template>
 </OsTabs>

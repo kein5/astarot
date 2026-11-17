@@ -22,7 +22,7 @@ On Linux, the audio route the app manages needs Linux 6.9 or later, PipeWire and
 | Translation and captions of other people's voices (earlier version, Whisper tiny for recognition, both on the CPU) | about 3.6 GB | 16 GB or more |
 | Speech, captions, the voice changer (RVC), translation and VR captions at once (with the RVC runtime of 0.3 and earlier) | about 11.5–13.1 GB | 32 GB or more |
 
-"Memory the app used" is the total private memory of the VRCT-VOX processes, measured over runs of 30 minutes to 2 hours. "Suggested PC memory" adds the operating system and VRChat to that. VRChat's own memory was not measured.
+"Memory the app used" is the total private memory of the ASTAROT processes, measured over runs of 30 minutes to 2 hours. "Suggested PC memory" adds the operating system and VRChat to that. VRChat's own memory was not measured.
 
 The first row was measured with an earlier version, which still had the Whisper that ran inside the app. Speech recognition on your own PC is now done by Local (speech.cpp), and that setup has not been measured again.
 
@@ -96,4 +96,4 @@ For every feature on Windows, plan for about 11 GB free. The models and their si
 | Memory | 32 GB |
 | GPU | NVIDIA GeForce RTX 3060 Ti (8 GB, connected over Thunderbolt), Intel Iris Xe (integrated) |
 
-The measurements are recorded in the developer [Windows voice report](https://github.com/kein5/VRCT-VOX/blob/develop/docs/voice-stack/windows-voice-report.md).
+The measurements are recorded in the developer [Windows voice report](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/windows-voice-report.md).

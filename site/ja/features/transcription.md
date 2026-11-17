@@ -106,5 +106,5 @@ Linuxの「マイク入力」と「聞き取り」は、エンジンの選択に
 以前の版が取得したWhisperのモデルは、もう使いません。PCに残っているあいだは、「設定」→「音声認識（ASR）」のいちばん下に「古いWhisperモデル」が出て、使っている容量が分かります。「古いWhisperモデルを削除」を押し、確認で「削除する」を押すと消えます。元には戻せません。消すのは、以前の版がWhisperのモデルを入れたフォルダーだけで、ほかのファイルは残します。お知らせにも同じ削除のボタンが出ます。
 
 ::: details 確かめた範囲
-話した人を見分ける機能は、Windows 11で、読み上げの音声で作った2〜6人の会話を使って確かめました。実際の人の声では確かめていません。結果は開発者向けの[記録](https://github.com/kein5/VRCT-VOX/blob/develop/docs/voice-stack/speaker-diarization-2026-11-13.md)にあります。
+話した人を見分ける機能は、Windows 11で、読み上げの音声で作った2〜6人の会話を使って確かめました。実際の人の声では確かめていません。結果は開発者向けの[記録](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/speaker-diarization-2026-11-13.md)にあります。
 :::

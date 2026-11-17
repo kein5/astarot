@@ -4,7 +4,7 @@ route: voice-conversion
 
 # Voice changer (RVC)
 
-Changes your microphone's voice into another voice and gets it to VRChat through a virtual microphone. RVC conversion is part of VRCT-VOX; the libraries it runs on and its base models are fetched separately as its runtime. RVC converts on an NVIDIA GPU, and on the CPU on a PC whose GPU cannot be used. The settings are under Settings → "Voice changer (RVC)".
+Changes your microphone's voice into another voice and gets it to VRChat through a virtual microphone. RVC conversion is part of ASTAROT; the libraries it runs on and its base models are fetched separately as its runtime. RVC converts on an NVIDIA GPU, and on the CPU on a PC whose GPU cannot be used. The settings are under Settings → "Voice changer (RVC)".
 
 It is experimental. Before relying on it, check in your own setup how it sounds and how long the changed voice takes to come through.
 

@@ -22,7 +22,7 @@ Linuxでアプリが管理する音声経路を使うには、Linux 6.9以降、
 | 翻訳と相手の声の字幕（以前の版で、音声認識はWhisper tiny、どちらもCPU） | 約3.6 GB | 16 GB以上 |
 | 読み上げ、字幕、ボイスチェンジャー（RVC）、翻訳、VRの字幕を同時に（0.3以前のRVCの実行環境で） | 約11.5〜13.1 GB | 32 GB以上 |
 
-「アプリが使ったメモリ」は、VRCT-VOXのプロセスのプライベートメモリの合計を、30分〜2時間の運転で測った値です。「PCのメモリの目安」はこの値にOSとVRChatの分を足して出しました。VRChat自身のメモリは測っていません。
+「アプリが使ったメモリ」は、ASTAROTのプロセスのプライベートメモリの合計を、30分〜2時間の運転で測った値です。「PCのメモリの目安」はこの値にOSとVRChatの分を足して出しました。VRChat自身のメモリは測っていません。
 
 1行目は、アプリの中で動くWhisperがあった以前の版で測った値です。いまの版では、手元で動く音声認識はローカル（speech.cpp）が行います。その構成では測り直していません。
 
@@ -96,4 +96,4 @@ GeForce RTX 3060 Ti（8 GB）で読み上げ、字幕、RVC（0.3以前の実行
 | メモリ | 32 GB |
 | GPU | NVIDIA GeForce RTX 3060 Ti（8 GB、Thunderbolt接続）、Intel Iris Xe（内蔵） |
 
-測定の記録は開発者向けの[Windowsの音声機能の記録](https://github.com/kein5/VRCT-VOX/blob/develop/docs/voice-stack/windows-voice-report.md)にあります。
+測定の記録は開発者向けの[Windowsの音声機能の記録](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/windows-voice-report.md)にあります。
