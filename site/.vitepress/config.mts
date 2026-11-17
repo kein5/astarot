@@ -169,8 +169,12 @@ export default defineConfig({
     pageData.title = chapter ? `${chapter.title.ja} | ${words.meta.title}` : words.meta.title
     pageData.titleTemplate = ':title'
     pageData.description = chapter ? chapter.summary.ja : words.meta.description
+    // One ICO with a 16 px frame drawn for that size (tools/astarot_favicon_small.py) and 32 and
+    // 48 px frames of the full symbol. No SVG icon: browsers take an SVG at every size, so a 16 px
+    // tab would get the full symbol scaled down. It comes after the guide's 32 px icon in the head,
+    // and of two icons that fit equally the browser takes the later one.
     pageData.frontmatter.head = [
-      ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}manual/brand/favicon.svg` }],
+      ['link', { rel: 'icon', type: 'image/x-icon', sizes: '16x16 32x32 48x48', href: `${base}manual/brand/favicon.ico` }],
       ['meta', { name: 'theme-color', content: '#261633' }],
     ]
   },

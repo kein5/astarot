@@ -94,6 +94,13 @@ class AstarotFaviconSmallTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT).as_posix()):
                 self.assertEqual(path.read_bytes(), data, "run tools/astarot_favicon_small.py")
 
+    def test_manual_uses_the_ico(self):
+        config = (ROOT / "site/.vitepress/config.mts").read_text(encoding="utf-8")
+        self.assertIn("manual/brand/favicon.ico", config)
+        self.assertNotIn("manual/brand/favicon.svg", config,
+                         "browsers prefer an SVG icon at every size and would skip the 16 px variant")
+        self.assertEqual((favicon.SITE_BRAND / "favicon.ico").read_bytes(), (favicon.BRAND / "favicon.ico").read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

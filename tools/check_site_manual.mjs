@@ -75,7 +75,7 @@ for (const path of guidePages) {
 
 // The pictures.
 const pictures = [
-    "manual/brand/app-icon.svg", "manual/brand/favicon.svg", "manual/brand/wordmark-light.webp", "manual/brand/wordmark-dark.webp",
+    "manual/brand/app-icon.svg", "manual/brand/favicon.ico", "manual/brand/wordmark-light.webp", "manual/brand/wordmark-dark.webp",
     "manual/mascot/mascot-hero.webp", ...FACES.map(face => `manual/mascot/face-${face}.webp`),
 ];
 for (const path of pictures) if (!built(path)) failures.push(`${path} is missing`);
