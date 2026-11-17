@@ -9,9 +9,9 @@
 //!
 //! The store of the app is [`FileStore`]: `secrets.json` next to `config.json`. On Windows its
 //! entries are encrypted for the signed-in user with DPAPI (`CryptProtectData`); on Linux the file
-//! is readable by its owner only (0600). Tests use a [`MemoryStore`]. Whether to move to the OS
-//! credential stores (Windows Credential Manager, the Secret Service on Linux) is open:
-//! `docs/voice-stack/core-integration.md`, "判断が要ること".
+//! is readable by its owner only (0600). Tests use a [`MemoryStore`]. The keys are to move to the
+//! OS credential stores (Windows Credential Manager, the Secret Service on Linux):
+//! `docs/voice-stack/adr-013-secret-store.md`, carried out in issue #575.
 //!
 //! Nothing here logs or returns a key in an error: an error names its reason only.
 
