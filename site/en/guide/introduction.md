@@ -5,7 +5,7 @@ VRCT-VOX is a desktop app that helps you talk in VRChat. It combines translation
 It is derived from [VRCT](https://github.com/misyaguziya/VRCT) and developed by [kein5](https://github.com/kein5).
 
 ::: warning Not an official VRCT release
-VRCT-VOX is not endorsed by the VRCT authors or VRChat. Send questions and bug reports about VRCT-VOX to the [VRCT-VOX Issues](https://github.com/kein5/VRCT-VOX/issues), not to the VRCT authors.
+VRCT-VOX is not endorsed by the VRCT authors or VRChat. Send questions and bug reports about VRCT-VOX to the [VRCT-VOX Issues](https://github.com/kein5/astarot/issues), not to the VRCT authors.
 :::
 
 ## What VRCT-VOX adds to VRCT

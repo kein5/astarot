@@ -2,9 +2,9 @@
 
 ## VRCT-VOX's license
 
-VRCT-VOX is under the [MIT License](https://github.com/kein5/VRCT-VOX/blob/develop/LICENSE). The original VRCT copyright and attribution are retained.
+VRCT-VOX is under the [MIT License](https://github.com/kein5/astarot/blob/develop/LICENSE). The original VRCT copyright and attribution are retained.
 
-External engines, models and the GPL Seed-VC integration have their own terms, so the voice stack as a whole is not claimed to be MIT. [NOTICE.md](https://github.com/kein5/VRCT-VOX/blob/develop/NOTICE.md) lists the LGPL and GPL components in the packages, where to get their source and how to replace them.
+External engines, models and the GPL Seed-VC integration have their own terms, so the voice stack as a whole is not claimed to be MIT. [NOTICE.md](https://github.com/kein5/astarot/blob/develop/NOTICE.md) lists the LGPL and GPL components in the packages, where to get their source and how to replace them.
 
 ## Model licenses
 

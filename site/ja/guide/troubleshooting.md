@@ -84,7 +84,7 @@ VRCT-VOXは同時に1つだけ動きます。動いている間にもう一度�
 
 ### 不具合を報告する
 
-[VRCT-VOXのIssues](https://github.com/kein5/VRCT-VOX/issues)に次のことを書いてください。
+[VRCT-VOXのIssues](https://github.com/kein5/astarot/issues)に次のことを書いてください。
 
 - OSと、VRCT-VOXのバージョン
 - 起きたことと、そこまでの手順
@@ -94,4 +94,4 @@ VRCT-VOXは同時に1つだけ動きます。動いている間にもう一度�
 VRCT-VOXについての質問や報告を、本家VRCTの開発者へ送らないでください。
 :::
 
-セキュリティの問題は公開のIssuesではなく[SECURITY.md](https://github.com/kein5/VRCT-VOX/blob/develop/SECURITY.md)の方法で非公開で知らせてください。
+セキュリティの問題は公開のIssuesではなく[SECURITY.md](https://github.com/kein5/astarot/blob/develop/SECURITY.md)の方法で非公開で知らせてください。

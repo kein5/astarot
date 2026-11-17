@@ -96,4 +96,4 @@ For every feature on Windows, plan for about 11 GB free. The models and their si
 | Memory | 32 GB |
 | GPU | NVIDIA GeForce RTX 3060 Ti (8 GB, connected over Thunderbolt), Intel Iris Xe (integrated) |
 
-The measurements are recorded in the developer [Windows voice report](https://github.com/kein5/VRCT-VOX/blob/develop/docs/voice-stack/windows-voice-report.md).
+The measurements are recorded in the developer [Windows voice report](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/windows-voice-report.md).

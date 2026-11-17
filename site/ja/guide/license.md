@@ -2,9 +2,9 @@
 
 ## VRCT-VOXのライセンス
 
-VRCT-VOXは[MIT License](https://github.com/kein5/VRCT-VOX/blob/develop/LICENSE)です。元のVRCTの著作権表示と帰属表示は、そのまま残しています。
+VRCT-VOXは[MIT License](https://github.com/kein5/astarot/blob/develop/LICENSE)です。元のVRCTの著作権表示と帰属表示は、そのまま残しています。
 
-外部のエンジン、モデル、GPLのSeed-VCとの連携には、それぞれ別の条件があります。そのため、音声の機能全体がMITだとは言えません。配布物に含まれるLGPLとGPLの部品、そのソースの入手方法と差し替え方は、[NOTICE.md](https://github.com/kein5/VRCT-VOX/blob/develop/NOTICE.md)にまとめています。
+外部のエンジン、モデル、GPLのSeed-VCとの連携には、それぞれ別の条件があります。そのため、音声の機能全体がMITだとは言えません。配布物に含まれるLGPLとGPLの部品、そのソースの入手方法と差し替え方は、[NOTICE.md](https://github.com/kein5/astarot/blob/develop/NOTICE.md)にまとめています。
 
 ## モデルのライセンス
 

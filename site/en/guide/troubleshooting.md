@@ -84,7 +84,7 @@ This was a bug in the Windows builds up to 0.1.0-beta.6: the download review kep
 
 ### Reporting a problem
 
-Open an issue on the [VRCT-VOX Issues](https://github.com/kein5/VRCT-VOX/issues) with:
+Open an issue on the [VRCT-VOX Issues](https://github.com/kein5/astarot/issues) with:
 
 - your OS and VRCT-VOX version
 - what happened and the steps that led to it
@@ -94,4 +94,4 @@ Open an issue on the [VRCT-VOX Issues](https://github.com/kein5/VRCT-VOX/issues)
 Do not send questions or reports about VRCT-VOX to the upstream VRCT authors.
 :::
 
-Report security problems privately, not in a public issue, as described in [SECURITY.md](https://github.com/kein5/VRCT-VOX/blob/develop/SECURITY.md).
+Report security problems privately, not in a public issue, as described in [SECURITY.md](https://github.com/kein5/astarot/blob/develop/SECURITY.md).

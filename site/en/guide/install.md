@@ -1,12 +1,12 @@
 # Install
 
-Downloads are on [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases). The stable release is marked "Latest"; betas are published as pre-releases. Supported operating systems and the memory, GPU and disk space each feature needs are in [System requirements](requirements).
+Downloads are on [GitHub Releases](https://github.com/kein5/astarot/releases). The stable release is marked "Latest"; betas are published as pre-releases. Supported operating systems and the memory, GPU and disk space each feature needs are in [System requirements](requirements).
 
 Windows comes first below; Linux is in [its own section](#linux).
 
 ## Windows
 
-1. On [GitHub Releases](https://github.com/kein5/VRCT-VOX/releases), open the release marked "Latest" and download `VRCT-VOX_setup.exe` from its "Assets".
+1. On [GitHub Releases](https://github.com/kein5/astarot/releases), open the release marked "Latest" and download `VRCT-VOX_setup.exe` from its "Assets".
 2. Open the file you downloaded. If SmartScreen warns you, continue as the note below says.
 3. On the way, it asks for the CPU or the GPU version. On a PC with an NVIDIA GPU you can choose the GPU (CUDA) version.
 4. When it is installed, start VRCT-VOX and go on to [First setup](./first-setup).

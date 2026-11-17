@@ -106,5 +106,5 @@ The Whisper that ran inside the app is gone. Speech is now turned into text on t
 Whisper models downloaded by an earlier version are no longer used. While any remain on the PC, "Old Whisper models" appears at the bottom of Settings → "Speech recognition (ASR)" with the space they take. Press "Delete old Whisper models", then "Delete" in the confirmation, to remove them. This cannot be undone. Only the folders an earlier version made for Whisper models are removed; other files stay. The notice has the same delete button.
 
 ::: details What was checked
-Telling speakers apart was checked on Windows 11 with conversations of two to six synthetic voices, not with human voices. The results are in the developers' [record](https://github.com/kein5/VRCT-VOX/blob/develop/docs/voice-stack/speaker-diarization-2026-11-13.md) (in Japanese).
+Telling speakers apart was checked on Windows 11 with conversations of two to six synthetic voices, not with human voices. The results are in the developers' [record](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/speaker-diarization-2026-11-13.md) (in Japanese).
 :::

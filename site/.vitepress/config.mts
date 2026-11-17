@@ -5,7 +5,7 @@ import { slugify } from './slugify.mjs'
 import { LOCALE_KEY } from './theme/locale'
 import { CHAPTERS, WORDS } from './theme/manual/content.mjs'
 
-const repo = 'https://github.com/kein5/VRCT-VOX'
+const repo = 'https://github.com/kein5/astarot'
 const site = 'https://kein5.github.io/astarot/'
 const base = '/astarot/'
 

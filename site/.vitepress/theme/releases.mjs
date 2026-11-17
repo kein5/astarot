@@ -6,7 +6,7 @@
 //
 // tools/check_site_downloads.mjs checks these rules against past and expected asset lists.
 
-export const REPO = 'kein5/VRCT-VOX'
+export const REPO = 'kein5/astarot'
 export const REPO_URL = `https://github.com/${REPO}`
 export const RELEASES_URL = `${REPO_URL}/releases`
 export const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`

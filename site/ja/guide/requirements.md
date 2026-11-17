@@ -96,4 +96,4 @@ GeForce RTX 3060 Ti（8 GB）で読み上げ、字幕、RVC（0.3以前の実行
 | メモリ | 32 GB |
 | GPU | NVIDIA GeForce RTX 3060 Ti（8 GB、Thunderbolt接続）、Intel Iris Xe（内蔵） |
 
-測定の記録は開発者向けの[Windowsの音声機能の記録](https://github.com/kein5/VRCT-VOX/blob/develop/docs/voice-stack/windows-voice-report.md)にあります。
+測定の記録は開発者向けの[Windowsの音声機能の記録](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/windows-voice-report.md)にあります。

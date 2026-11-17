@@ -23,7 +23,7 @@ onMounted(() => location.replace(withBase(`/${preferredLocale()}/`)))
   </p>
   <!-- Readers without JavaScript stay here; the language pages pick the file for their OS. -->
   <p class="download">
-    <a href="https://github.com/kein5/VRCT-VOX/releases/latest"><span lang="ja">ダウンロード</span> / <span lang="en">Download</span></a>
+    <a href="https://github.com/kein5/astarot/releases/latest"><span lang="ja">ダウンロード</span> / <span lang="en">Download</span></a>
     <span>(GitHub Releases)</span>
   </p>
 </div>
