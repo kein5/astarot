@@ -61,7 +61,7 @@ export const HardwareReadout = ({ reserve, setReserve }) => {
             <option value="vr">{t('model_downloads.headroom_vr')}</option>
             <option value="alone">{t('model_downloads.headroom_alone')}</option>
         </select></label>
-        <div className={styles.actions}>
+        <div className={` ${styles.control_column}`}>
             <button type="button" disabled={hardware.phase === 'probing'} onClick={() => send('/run/refresh_model_download_hardware', {})}>
                 {t('model_downloads.hardware_refresh')}</button>
             {hardware.phase === 'probing' && <span aria-busy="true">{t('model_downloads.hardware_probing')}</span>}
@@ -259,9 +259,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <option value="vr">{t('model_downloads.headroom_vr')}</option>
                 <option value="alone">{t('model_downloads.headroom_alone')}</option>
             </select></label>
-            <button type="button" disabled={hardware.phase === 'probing'} onClick={() => send('/run/refresh_model_download_hardware', {})}>
-                {t('model_downloads.hardware_refresh')}</button>
-            {hardware.phase === 'probing' && <p aria-busy="true">{t('model_downloads.hardware_probing')}</p>}
+            <div className={` ${styles.control_column}`}>
+                <button type="button" disabled={hardware.phase === 'probing'} onClick={() => send('/run/refresh_model_download_hardware', {})}>
+                    {t('model_downloads.hardware_refresh')}</button>
+                {hardware.phase === 'probing' && <span aria-busy="true">{t('model_downloads.hardware_probing')}</span>}
+            </div>
         </>}
         {catalog && targets.map(target => {
             const families = catalogFamilies(matching.filter(entry => entry.target === target));

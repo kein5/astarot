@@ -148,7 +148,7 @@ def test_gui_owned_tts_asr_stop_and_restart_off(tmp_path):
                 wait_for(lambda: json.loads(config_path.read_text()).get('VOICE_SETTINGS', {}).get('routing') == 'managed')
                 open_voice(ui)
                 ui.select('Chat voice', 'original')
-                ui.fill('Other languages server (Qwen3-TTS)', external.url)
+                ui.fill('Other languages server URL (Qwen3-TTS)', external.url)
                 ui.select('Other languages server', 'bundled')
                 ui.click_text('button', 'Save changes')
                 wait_for(lambda: json.loads(config_path.read_text()).get('VOICE_SETTINGS', {}).get('multilingual_server') == 'bundled')

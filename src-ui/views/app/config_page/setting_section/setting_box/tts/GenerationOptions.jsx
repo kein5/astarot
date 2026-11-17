@@ -4,6 +4,7 @@ import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
+import styles from "../advanced_settings/VoiceSettings.module.scss";
 
 export const validGenerationOptions = draft => ["japanese", "multilingual"].every(role => {
     const seed = draft[`${role}_seed`] || "", instruction = draft[`${role}_instructions`] || "";
@@ -59,8 +60,11 @@ export const GenerationOptions = ({ role, draft, field, errorId }) => {
         {(fixed || instructions.trim()) && (!options || (fixed && !options.seed) || (instructions.trim() && !options.instructions)) &&
             <p>{t("voice_ui.options_warning")}</p>}
         {outsideSeedRange && <p id={seedRangeId} role="alert">{t("voice_ui.seed_range", options.seed)}</p>}
-        <button type="button" disabled={!canQuery} aria-describedby={canQuery ? undefined : reasonId}
-            onClick={() => send("/get/data/tts_model_options", { role })}>{t("voice_ui.check_options")}</button>
+        {/* In the control column, under the fields it checks (#473). */}
+        <div className={`${styles.actions} ${styles.control_column}`}>
+            <button type="button" disabled={!canQuery} aria-describedby={canQuery ? undefined : reasonId}
+                onClick={() => send("/get/data/tts_model_options", { role })}>{t("voice_ui.check_options")}</button>
+        </div>
         {/* A disabled check says what it waits for: a saved URL, or the bundled server running. */}
         {!canQuery && <p id={reasonId}>{t(server === "bundled" ? "voice_ui.check_needs_server" : "voice_ui.check_needs_url")}</p>}
     </>;

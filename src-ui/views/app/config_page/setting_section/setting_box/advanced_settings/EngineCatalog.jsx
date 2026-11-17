@@ -58,12 +58,13 @@ export const EngineCatalog = () => {
                             state === "connected" ? t("voice_ui.engine.connected", { engine: spec.name, version: result.version ?? "" }) :
                                 state === "url_invalid" ? t("voice_ui.errors.tts_engine_url_invalid") : t("voice_ui.engine.not_connected")}</p>
                     </EnvReadout>
+                    {/* The button leads, so it is in the same place on every card; the links follow (#478). */}
                     <div className={styles.actions}>
+                        <button type="button" disabled={state === "checking"} onClick={() => check(id)}
+                            aria-label={t("model_catalog.engine.recheck_of", { engine: spec.name })}>{t("voice_ui.engine.recheck")}</button>
                         <a className={styles.link_button} href={spec.site} target="_blank" rel="noreferrer" onClick={event => open(event, spec.site)}>
                             {t("voice_ui.engine.site", { engine: spec.name })}</a>
                         {spec.terms && <a href={spec.terms} target="_blank" rel="noreferrer" onClick={event => open(event, spec.terms)}>{t("voice_ui.engine.terms")}</a>}
-                        <button type="button" disabled={state === "checking"} onClick={() => check(id)}
-                            aria-label={t("model_catalog.engine.recheck_of", { engine: spec.name })}>{t("voice_ui.engine.recheck")}</button>
                     </div>
                 </li>;
             })}
