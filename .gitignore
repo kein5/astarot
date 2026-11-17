@@ -85,3 +85,6 @@ src-python/telemetry_keys.py
 
 # Written for one release build by tools/installer_package_hashes.py
 src-tauri/nsis/package-hashes.nsh
+
+# Mutation testing (mutator): cache and reports
+.mutator/
