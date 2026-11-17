@@ -90,3 +90,10 @@
     white-space: nowrap;
     flex-shrink: 0;
 }
+
+.unavailable {
+    font-size: 1.2rem;
+    color: var(--dark_400_color);
+    text-align: center;
+    overflow-wrap: anywhere;
+}

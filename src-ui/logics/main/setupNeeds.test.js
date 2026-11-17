@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { setupNeeds, downloadProgress } from "./setupNeeds.ts";
+import { setupNeeds, downloadProgress, translationDownloadable } from "./setupNeeds.ts";
 
 const weights = downloaded => [{ id: "small", is_downloaded: downloaded }, { id: "large", is_downloaded: false }];
 const asr = (model, vad_model) => ({ model, vad_model, diarization_model: "", device: "auto" });
@@ -45,4 +45,25 @@ test("progress is a whole percentage, a wait before the first report, or nothing
     assert.equal(downloadProgress({ is_pending: true, progress: 100.4 }), 100);
     assert.equal(downloadProgress({ is_pending: false, progress: null }), null);
     assert.equal(downloadProgress(undefined), null);
+});
+
+test("a model the catalog does not offer asks for another translator instead of a review", () => {
+    const action = translationDownloadable => setupNeeds(selection({ translationDownloadable })).find(need => need.id === "translation").action;
+    assert.equal(action(false), "choose");
+    // Unknown (no catalog yet) or downloadable: the review, as before.
+    assert.equal(action(null), "review");
+    assert.equal(action(undefined), "review");
+    assert.equal(action(true), "review");
+    // A download already on its way keeps its progress.
+    const pending = setupNeeds(selection({ translationDownloadable: false,
+        translationWeights: [{ id: "small", is_downloaded: false, is_pending: true }] }));
+    assert.equal(pending[0].action, "review");
+});
+
+test("a translation model is downloadable when the catalog reviews its weight or lists a translation model", () => {
+    assert.equal(translationDownloadable(null, "small"), null);
+    assert.equal(translationDownloadable({ legacy_models: [], models: [] }, "small"), false);
+    assert.equal(translationDownloadable({ legacy_models: [{ kind: "ctranslate2", weight_type: "large" }], models: [{ target: "rvc" }] }, "small"), false);
+    assert.equal(translationDownloadable({ legacy_models: [{ kind: "ctranslate2", weight_type: "small" }] }, "small"), true);
+    assert.equal(translationDownloadable({ legacy_models: [], models: [{ target: "translation" }] }, "small"), true);
 });

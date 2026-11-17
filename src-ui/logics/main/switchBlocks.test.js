@@ -30,6 +30,11 @@ test("a translation model on its way says so, with nothing to press", () => {
     }
 });
 
+test("a translation model that cannot be downloaded points to the translator list", () => {
+    assert.deepEqual(switchBlocks({ needs: [{ id: "translation", weight: { id: "small", is_downloaded: false }, action: "choose" }] }).translation,
+        { reason: "translation_unavailable", action: "translator" });
+});
+
 test("chat reading follows the start: language first, then its models", () => {
     const ocr = values => switchBlocks({ ocr: { language: "Korean", language_supported: true, required_models: ["a", "b"],
         missing_models: [], ...values } }).ocr;

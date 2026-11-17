@@ -188,7 +188,7 @@ test("the VR panel has a text for every block its buttons can show", async () =>
         ocr: { language_supported: true, missing_models: ["a"] },
     });
     const reasons = new Set(shown.map(id => blocks[id]?.reason).filter(Boolean));
-    reasons.add("translation_downloading").add("ocr_language");
+    reasons.add("translation_downloading").add("translation_unavailable").add("ocr_language");
     for (const lang of ["en", "ja"]) {
         const text = await readFile(new URL(`../../../locales/${lang}.yml`, import.meta.url), "utf8");
         const section = text.slice(text.indexOf("\n    switch_blocked:", text.indexOf("\nvr_panel:")));

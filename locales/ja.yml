@@ -354,6 +354,7 @@ main_page:
     # Shown as the switch's tooltip and read as its description.
     switch_blocked:
         translation_model: "翻訳モデルをまだ取得していません。設定の「翻訳」で取得するか、「翻訳エンジン」でほかのエンジンを選んでください。"
+        translation_unavailable: "選んでいる翻訳モデルは、まだダウンロードできません。「翻訳エンジン」でほかのエンジンを選んでください。"
         translation_downloading: "翻訳モデルを取得しています。取得が終わるとオンにできます。"
         asr_models: "ローカルの音声認識に使うモデルがありません。設定の「音声認識（ASR）」→「モデルとサーバー」で、認識モデルとVADモデルを取得してください。"
         ocr_models: "チャット読み取りの認識モデルをまだ取得していません。設定の「チャット読み取り（OCR）」→「認識モデル」で取得してください。"
@@ -574,6 +575,9 @@ config_page:
         setup_title: "モデルと処理デバイス"
         setup_downloaded: "ダウンロード済み"
         setup_not_downloaded: "未ダウンロード"
+        setup_unavailable: "まだダウンロードできません"
+        download_unavailable: "まだ取得できません"
+        models_unavailable: "下のモデルは、まだダウンロードできません。翻訳には、外部翻訳APIかローカルLLMのエンジンを使ってください。"
         provider_in_use: "使用中"
         provider_ready: "使用できます"
         provider_not_set: "未設定"
@@ -1120,6 +1124,7 @@ vr_panel:
     switch_blocked:
         state: "未準備"
         translation_model: "翻訳モデルが未取得です。PCの設定「翻訳」で取得してください。"
+        translation_unavailable: "この翻訳モデルはまだ取得できません。ほかの翻訳エンジンを選んでください。"
         translation_downloading: "翻訳モデルを取得中です。終わるとONにできます。"
         asr_models: "認識モデルがありません。PCの設定「音声認識（ASR）」で取得してください。"
         ocr_models: "モデルが未取得です。PCの設定「チャット読み取り（OCR）」で取得してください。"
@@ -1957,6 +1962,7 @@ studio:
     empty_vrchat_hint: "VRChatに表示されないときは、VRChatのアクションメニューで「Options」→「OSC」を「Enabled」にしてください。"
     setup_label: "使う前の準備"
     setup_translation: "翻訳を使うには翻訳モデルの取得が必要です。"
+    setup_translation_unavailable: "選んでいる翻訳モデルは、まだダウンロードできません。翻訳を使うには、ほかの翻訳エンジンを選んでください。"
     setup_transcription: "ローカル（speech.cpp）の音声認識には、音声認識モデルと VAD モデルが要ります。設定 → 音声認識（ASR） → モデルとサーバーで内容を確認して取得してください。"
     setup_open_settings: "音声認識（ASR）の設定を開く"
     setup_preparing: "取得を準備しています"
@@ -1999,7 +2005,7 @@ legacy_model_downloads:
     revision: "モデルの版"
     review_unavailable: "モデルの情報を読み込めませんでした。この画面を閉じてもう一度お試しください。"
     translation_not_published: "翻訳モデルはまだダウンロードできません。新しい翻訳エンジン用のモデルを公開していないためです。"
-    translation_own_model: "自分で用意したモデルを使うときは、tools/translation_onnx/export.pyで変換したフォルダを下のフォルダに置き、ASTAROTを起動し直します。そのモデルのライセンスは自分で確認してください。"
+    translation_own_model: "自分で用意したモデルを使う方法はマニュアルで説明しています。用意したモデルは下のフォルダに置きます。そのモデルのライセンスは自分で確かめてください。"
     close: "閉じる"
     startup_skipped: "{{model}} のこの版にはまだ同意していないため、起動時にはダウンロードしませんでした。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認してから、ダウンロードしてください。"
     consent: "提供元・ライセンス・容量を確認しました。表示された追加のファイルも含めて、ダウンロードに同意します。"

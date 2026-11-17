@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useI18n } from "@useI18n";
 import { useTranslation } from "@logics_configs";
-import { useIsMainPageCompactMode, useMainFunction } from "@logics_main";
+import { useMainFunction } from "@logics_main";
 import { useNotificationStatus } from "@logics_common";
-import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useTranslationSetup } from "../../../logics/translation/useTranslationSetup";
+import { useOpenTranslatorList } from "../../../logics/translation/useOpenTranslatorList";
 import { downloadProgress } from "../../../logics/main/setupNeeds";
 import { LegacyModelDownloadDialog } from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog";
 
@@ -14,16 +14,23 @@ import { LegacyModelDownloadDialog } from "../config_page/setting_section/settin
 // switch to get here, the switch is turned on once the model has arrived.
 export const TranslationSetupController = () => {
     const { t } = useI18n();
-    const { request, setRequest, waiting, setWaiting } = useTranslationSetup();
+    const { request, setRequest, waiting, setWaiting, chooseRequests } = useTranslationSetup();
     const { currentCTranslate2WeightTypeStatus, currentSelectedCTranslate2WeightType,
         pendingCTranslate2WeightTypeStatus, downloadCTranslate2WeightTypeStatus } = useTranslation();
     const { currentTranslationStatus, setTranslation } = useMainFunction();
-    const { expandSidebar } = useIsMainPageCompactMode();
     const { showNotification_Success } = useNotificationStatus();
-    const { updateIsOpenedTranslatorSelector } = useStore_IsOpenedTranslatorSelector();
+    const openTranslatorList = useOpenTranslatorList();
 
     // An open review closes with the page; the wait for the model outlives it.
     useEffect(() => () => { setRequest(null); }, [setRequest]);
+    // A model that cannot be downloaded yet: the empty conversation and the switch offer the translator list.
+    // Only requests made while mounted: drawing the page again does not reopen the list.
+    const handledChoose = useRef(chooseRequests);
+    useEffect(() => {
+        if (chooseRequests === handledChoose.current) return;
+        handledChoose.current = chooseRequests;
+        openTranslatorList();
+    }, [chooseRequests]);
     const weights = currentCTranslate2WeightTypeStatus.data || [];
     const awaited = weights.find(item => item.id === waiting);
     const arrived = awaited?.is_downloaded === true;
@@ -49,9 +56,5 @@ export const TranslationSetupController = () => {
             downloadCTranslate2WeightTypeStatus(payload);
         }}
         note={request.resume ? t("studio.setup_translation_resume") : null}
-        // The translator list is in the full rail; the icon rail has none to open.
-        extraAction={{ label: t("studio.setup_other_translator"), onClick: () => {
-            expandSidebar();
-            updateIsOpenedTranslatorSelector(true);
-        } }} />;
+        extraAction={{ label: t("studio.setup_other_translator"), onClick: openTranslatorList }} />;
 };

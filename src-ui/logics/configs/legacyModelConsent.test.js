@@ -40,6 +40,7 @@ async function dialogFixture(context, language, reviewedEntry, catalog = { legac
         "../../../../../../../logics/configs/legacyModelConsent": consentLogic,
         "../../../../../../../logics/common/useConsentDialog": dialogHooks,
         "../../advanced_settings/ModelDownloads": { ModelDownloads: function ModelDownloads() { return null; } },
+        "../custom_model_link/CustomModelLink": { CustomModelLink: function CustomModelLink() { return null; } },
     });
     const props = { kind: reviewedEntry.kind, weightType: reviewedEntry.weight_type,
         onCancel: () => events.closed++, onDownload: data => requests.push(data) };

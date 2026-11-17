@@ -55,6 +55,9 @@ async function fixture(context, kind, openerState) {
         "../_components/credential_pair/CredentialPair": {},
         "../_components/download_models/LegacyModelDownloadDialog": {}, "../shared_items/SharedItems": {},
         "../../advanced_settings/ModelDownloads": { ModelDownloads: () => null },
+        "../custom_model_link/CustomModelLink": { CustomModelLink: () => null },
+        "../../../../../../logics/main/setupNeeds": { translationDownloadable: () => null },
+        "../_components/compute_device/computeDeviceOptions": { computeDeviceName: name => name },
         "@ui_configs": {}, "@logics_common": {}, "@store": {},
     };
     const paths = { catalog: ["advanced_settings/ModelDownloads.jsx", "ModelDownloads"],

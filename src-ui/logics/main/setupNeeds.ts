@@ -24,13 +24,18 @@ export interface SetupSelection {
     translationEngine?: unknown;
     translationWeights?: readonly ModelWeight[] | null;
     translationWeight?: unknown;
+    // Whether the selected translation model can be downloaded (translationDownloadable);
+    // null or undefined while the download catalog has not arrived.
+    translationDownloadable?: boolean | null;
     transcriptionEngine?: unknown;
     realtimeServer?: unknown;
     asrProfile?: AsrProfile | null;
 }
 
+// "review" opens the download review. "choose" opens the translator list instead: the
+// model cannot be downloaded yet, so another engine is the way forward.
 export type SetupNeed =
-    | { id: "translation"; weight: ModelWeight; action: "review" }
+    | { id: "translation"; weight: ModelWeight; action: "review" | "choose" }
     | { id: "transcription"; weight: null; action: "settings" };
 
 // What downloadProgress returns.
@@ -52,13 +57,29 @@ const missingLocalModels = (engine: unknown, realtimeServer: unknown, asrProfile
     return !set(asrProfile.model) || !set(asrProfile.vad_model);
 };
 
-export const setupNeeds = ({ translationEngine, translationWeights, translationWeight,
+export const setupNeeds = ({ translationEngine, translationWeights, translationWeight, translationDownloadable,
     transcriptionEngine, realtimeServer, asrProfile }: SetupSelection): SetupNeed[] => {
     const needs: SetupNeed[] = [];
     const translation = missingWeight(translationEngine, "CTranslate2", translationWeights, translationWeight);
-    if (translation) needs.push({ id: "translation", weight: translation, action: "review" });
+    if (translation) needs.push({ id: "translation", weight: translation,
+        action: translationDownloadable === false && downloadProgress(translation) === null ? "choose" : "review" });
     if (missingLocalModels(transcriptionEngine, realtimeServer, asrProfile)) needs.push({ id: "transcription", weight: null, action: "settings" });
     return needs;
+};
+
+// The download catalog, as far as it is read here.
+export interface TranslationCatalog {
+    legacy_models?: readonly { kind?: unknown; weight_type?: unknown }[] | null;
+    models?: readonly { target?: unknown }[] | null;
+}
+
+// Whether a translation model can be downloaded: the catalog reviews this CTranslate2
+// weight, or lists a model for the translation engine (the review then offers those).
+// null while the catalog is unknown, so nothing is hidden before it arrives.
+export const translationDownloadable = (catalog: TranslationCatalog | null | undefined, weightType: unknown): boolean | null => {
+    if (!catalog) return null;
+    if ((catalog.legacy_models ?? []).some(item => item.kind === "ctranslate2" && item.weight_type === weightType)) return true;
+    return (catalog.models ?? []).some(model => model.target === "translation");
 };
 
 // "pending" until the first byte, then a whole percentage; null when nothing is being fetched.

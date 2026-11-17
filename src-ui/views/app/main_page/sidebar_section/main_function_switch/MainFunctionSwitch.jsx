@@ -148,7 +148,8 @@ export const MainFunctionSwitch = () => {
                 // does nothing when pressed, and a switch cannot hold a button. The icon rail has
                 // no room for it; its tooltip still names the page.
                 if (!block?.action || currentIsMainPageCompactMode.data) return [control];
-                const action = t(block.action === "translation" ? "model_downloads.review" : "main_page.switch_blocked.open_settings");
+                const action = t(block.action === "translation" ? "model_downloads.review"
+                    : block.action === "translator" ? "studio.setup_other_translator" : "main_page.switch_blocked.open_settings");
                 return [control,
                     <button key={`${item.switch_id}_prepare`} type="button" className={styles.prepare_button}
                         aria-label={t("main_page.switch_blocked.prepare_label", { feature: item.label, action })}
