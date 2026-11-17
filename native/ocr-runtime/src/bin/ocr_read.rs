@@ -17,6 +17,8 @@ use ocr_runtime::models::{characters, resolve_model_files};
 use ocr_runtime::BgrImage;
 
 fn main() -> ExitCode {
+    // SAFETY: first thing in main, before any other thread starts.
+    unsafe { ocr_runtime::engine::disable_telemetry_for_process() };
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {

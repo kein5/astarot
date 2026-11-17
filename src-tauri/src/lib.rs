@@ -127,6 +127,9 @@ pub(crate) fn startup_log(message: &str) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // SAFETY: before Tauri, the backend or any other thread starts. ONNX Runtime reads the
+    // variable when chat reading or translation first loads it; the RVC worker inherits it.
+    unsafe { vrct_core::shipped_libraries::disable_onnx_runtime_telemetry() };
     startup_log("VRCT startup began");
     // Before the backend starts: it learns from its environment where the VR page will be served.
     #[cfg(target_os = "linux")]

@@ -150,6 +150,16 @@ VRCT-VOXが他のプログラムとやり取りする口。UIとサイドカー�
 - 受け側は送信元のIPアドレスや端末の識別子を保存しない設計である（受け側の担当の説明による）。通信の相手として、Cloudflareは送信元のアドレスを扱う。
 - 受け側は通知ごとに、受信した時刻と接続元の国を記録する。国はクライアントが送る値ではなく、Cloudflareが接続元のアドレスから出す値である（2026-11-14に受け側の読み取り用のビューで確認した）。利用者に見せる説明にもこの2つを含める。
 
+### ONNX Runtimeの利用状況の送信を止める
+
+同梱のONNX Runtime（チャット読み取り、ローカル翻訳、声質変換のワーカー）は、Microsoftの公式ビルドが持つ利用状況の送信を、アプリの同意の設定にかかわらず常に止める（#518）。
+
+- アプリ（`src-tauri/src/lib.rs`の`run`）と、ONNX Runtimeを読み込む各ツール（`ocr-read`、`vrct-translate`、`vrct-rvc-worker`ほか）は、ほかのスレッドを始める前に環境変数`ORT_DISABLE_TELEMETRY=1`を設定する。声質変換のワーカーはアプリからこの値を受け継ぐ。
+- ONNX Runtimeの環境はすべて`with_telemetry(false)`（`DisableTelemetryEvents`）で作る。
+- Linux版（1.31）は、環境を作った時点で`~/.cache/Microsoft/DeveloperTools/.onnxruntime/`に`deviceid`とイベントのデータベースを作り、`mobile.events.data.microsoft.com`へ送る。止められるのは環境変数だけで、`DisableTelemetryEvents`は環境を作った後に呼ぶため、最初のイベントとファイルには間に合わない（2026-11-17に公式の`onnxruntime-linux-x64-1.31.0.tgz`で確認した）。
+- Windows版（1.31）はHTTPで送らず、ETWのイベント（プロバイダー`Microsoft.ML.ONNXRuntime`）を書くだけで、`deviceid`のファイルも作らない。集めるかどうかはWindowsの診断データの設定による。環境変数は読まず、`DisableTelemetryEvents`で止める。環境を作るときの最初の`ProcessInfo`イベントだけは、この設定より前に書かれる。
+- 試験：`tests/voice/test_onnx_runtime_telemetry.py`が、環境を作る箇所と各実行ファイルの`main`の最初の文を確かめる。
+
 ### アプリの更新
 
 Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update.rs`、#330）。UIは`app_update_*`のコマンド（[Tauriのコマンド](#tauriのコマンド)）だけを使い、updaterのプラグインのコマンドの権限はどのウィンドウにも与えない。

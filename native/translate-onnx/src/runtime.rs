@@ -37,6 +37,18 @@ pub fn share(shared: Shared) {
     let _ = SHARED.set(shared);
 }
 
+/// Stops ONNX Runtime's usage reports for this process (issue #518): the official Linux build
+/// writes a `deviceid` and sends a first event when the environment is made, before the
+/// environment option (`with_telemetry(false)`, also set here) can apply. The app sets the
+/// variable at startup (`ocr_runtime::engine::disable_telemetry_for_process`); the tools call this.
+///
+/// # Safety
+///
+/// Changes the process environment: call at the start of `main`, before other threads run.
+pub unsafe fn disable_telemetry_for_process() {
+    unsafe { std::env::set_var("ORT_DISABLE_TELEMETRY", "1") };
+}
+
 /// The file name of the library on this platform.
 pub fn library_name() -> String {
     format!("{}onnxruntime{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX)
@@ -79,7 +91,7 @@ pub(crate) fn environment() -> Result<&'static Environment> {
     }
     static ENVIRONMENT: OnceLock<std::result::Result<Environment, ()>> = OnceLock::new();
     ENVIRONMENT
-        .get_or_init(|| builder()?.with_name("vrct-translate").build().map_err(|_| ()))
+        .get_or_init(|| builder()?.with_name("vrct-translate").with_telemetry(false).build().map_err(|_| ()))
         .as_ref()
         .map_err(|_| Error::new(codes::RUNTIME_MISSING))
 }

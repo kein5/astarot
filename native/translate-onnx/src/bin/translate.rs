@@ -16,6 +16,8 @@ use serde_json::{json, Value};
 use vrct_translate_onnx::{Accelerator, Bundle, Provider, Translator};
 
 fn main() {
+    // SAFETY: first thing in main, before any other thread starts.
+    unsafe { vrct_translate_onnx::runtime::disable_telemetry_for_process() };
     let args: Vec<String> = std::env::args().collect();
     let usage = || -> ! {
         eprintln!("usage: vrct-translate MODEL_FOLDER [--device PROVIDER[:INDEX]] [--verify] | --providers");

@@ -49,7 +49,29 @@ pub(crate) fn environment() -> Result<&'static Environment> {
 /// [`environment`] for other crates, with the error as text.
 pub fn shared_environment() -> std::result::Result<&'static Environment, String> {
     static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
-    ENVIRONMENT.get_or_init(|| builder()?.with_name("vrct").build().map_err(|error| error.to_string())).as_ref().map_err(Clone::clone)
+    ENVIRONMENT
+        .get_or_init(|| builder()?.with_name("vrct").with_telemetry(false).build().map_err(|error| error.to_string()))
+        .as_ref()
+        .map_err(Clone::clone)
+}
+
+/// The variable that stops ONNX Runtime's usage reports before its environment exists.
+pub const DISABLE_TELEMETRY_VARIABLE: &str = "ORT_DISABLE_TELEMETRY";
+
+/// Stops ONNX Runtime's usage reports for this process and the processes it starts (issue #518).
+///
+/// The official Linux build (1.31) sets up its uploader when the library makes its first
+/// environment: it writes a `deviceid` and an event store under `~/.cache/Microsoft/DeveloperTools`
+/// and sends a `ProcessInfo` event to Microsoft. Only `ORT_DISABLE_TELEMETRY` stops that; the
+/// environment option (`with_telemetry(false)`, which every environment here also sets) comes
+/// too late for the first event and the files. The Windows build writes ETW events instead and
+/// honours only the option.
+///
+/// # Safety
+///
+/// Changes the process environment: call at the start of `main`, before other threads run.
+pub unsafe fn disable_telemetry_for_process() {
+    unsafe { std::env::set_var(DISABLE_TELEMETRY_VARIABLE, "1") };
 }
 
 static SHIPPED_LIBRARY: OnceLock<std::path::PathBuf> = OnceLock::new();
