@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
@@ -15,7 +15,7 @@ async function fixture(context) {
         "../../../logics/ocr/useOcrSetup": { ...setup, focusOcrModels: () => events.push(["focus_models"]) },
         "../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close: () => events.push(["close"]) }) },
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(OcrSetupController);
     const click = key => find(render(), node => node.type === "button" && node.props.children === `ocr_setup.${key}`).props.onClick();
     const show = () => { runtime.render(setup.useOcrSetup).show(); return render(); };

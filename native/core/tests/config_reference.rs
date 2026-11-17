@@ -208,7 +208,7 @@ fn linux_settings_carry_over_as_python_wrote_them() {
 fn the_lists_the_settings_are_checked_against_are_pythons() {
     let reference = reference();
     let dir = tempfile::tempdir().unwrap();
-    let config = Config::open(environment(dir.path(), Platform::current(), &reference));
+    let config = Config::open_with(environment(dir.path(), Platform::current(), &reference), MemoryStore::new());
     let lists = &reference["platforms"]["win32"]["lists"];
     // Python's recognition engines without the retired Google web speech engine.
     let recognition: Vec<Value> =

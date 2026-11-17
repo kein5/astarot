@@ -1,5 +1,5 @@
 // Opt-in rules for CTranslate2 weights with a non-commercial license
-// (NLLB, CC-BY-NC-4.0). Kept free of React/aliases so node --test can load it.
+// (NLLB, CC-BY-NC-4.0). Kept free of React/aliases so the tests can load it in plain Node.
 // The backend enforces the same rule (Controller._ctranslate2LicenseConsentError).
 
 // A row of the CTranslate2 weight list, as far as these rules read it.

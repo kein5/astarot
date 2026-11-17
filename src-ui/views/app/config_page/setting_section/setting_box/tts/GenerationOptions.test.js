@@ -3,7 +3,7 @@ import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDra
 import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.ts";
 import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceErrorText.ts";
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 
 async function setup({ seed = "invalid", instructions = "\u0001", modelOptions = {} } = {}) {
@@ -48,7 +48,7 @@ test("the seed and instruction fields show an example while they are empty", asy
 });
 
 test("TTS model-specific seed range error is associated without changing the save contract", async t => {
-    t.mock.timers.enable({ apis: ["setInterval"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const s = await setup({ seed: "123", instructions: "", modelOptions: { japanese: {
         server: "external", configured_url: "http://local", options: { seed: { minimum: 0, maximum: 100 } },
     } } });

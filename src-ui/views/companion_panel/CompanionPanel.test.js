@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../logics/test/hookHarness.js";
 import { flush } from "../../logics/test/bridgeHarness.js";
 import * as status from "../../logics/companion/status.ts";
@@ -12,7 +12,7 @@ async function setup(context, initial = ready) {
     let current = initial, hides = 0;
     const window = eventTarget();
     // Unmount before the stubbed window goes: the panel's cleanup removes its key listener.
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window });
     const i18n = { language: "en", changeLanguage: async language => { languages.push(language); i18n.language = language; } };
     const bridge = {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../logics/test/hookHarness.js";
@@ -11,7 +11,7 @@ const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
 async function menu(context, values = {}) {
     const runtime = hooks(), calls = [], document = eventTarget();
     // Unmount first: the menu's cleanup still needs the document this test provides.
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { document });
     const state = { foreground: false, sync: false, small: false, large: false, osc: true, pending: false, flow: false, ...values };
     const button = await loadModule(new URL("./right_side_components/_buttons/OpenQuickSettingButton.jsx", import.meta.url), runtime, {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 
 const slots = (second, third) => ({ 1: { enable: true }, 2: { enable: second }, 3: { enable: third } });

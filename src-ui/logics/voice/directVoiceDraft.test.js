@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import { directRvcSelection, directSavedDraft, directSelectionPending, directShowsConversion } from "./directVoiceDraft.ts";
 import { changedPaths } from "./saveBar.ts";

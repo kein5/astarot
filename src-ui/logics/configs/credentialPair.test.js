@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.js";
 import { flush, loadBridgeRoutes } from "../test/bridgeHarness.js";
 import { rebaseDraft } from "../voice/draftRebase.ts";
@@ -9,7 +9,7 @@ import { endpointDescription } from "../common/endpointPrivacy.ts";
 
 const providers = [["OpenAICompatible", "openai_compatible", "translation"], ["CustomWhisper", "custom_whisper", "transcription"]];
 async function setup(context, base, provider, section) {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests = [], owners = createSettingsWriteResponses();
     // Flush state updates as React would; a render that keeps rebasing a fresh
     // saved object must fail here instead of hiding an effect/render loop.
@@ -23,7 +23,7 @@ async function setup(context, base, provider, section) {
             return resolved;
         })];
     };
-    context.after(() => { runtime.unmount(); owners.stop(); });
+    context.onTestFinished(() => { runtime.unmount(); owners.stop(); });
     stubGlobals(context, { window: eventTarget() });
     let entry;
     const draft = await loadModule(new URL("../voice/useSettingsDraft.jsx", import.meta.url), runtime, {

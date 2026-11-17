@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import * as sharedWindow from "../../../logics/configs/ocrSharedWindow.ts";
 
@@ -9,7 +9,7 @@ const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve()
 // the Tauri event and the notifications.
 const mount = async (context, { listenFails = false } = {}) => {
     const runtime = hooks();
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const app = { chatReading: { data: false, state: "ok" }, shared: { supported: true, active: false, busy: false, error: null },
         calls: [], notices: [], listeners: [], unlistened: 0 };
     const { OcrSharedWindowController } = await loadModule(new URL("./OcrSharedWindowController.jsx", import.meta.url), runtime, {
