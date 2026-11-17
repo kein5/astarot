@@ -59,10 +59,13 @@ settled and are listed again under "Open questions".
   cut), and opens that WASAPI output.
 - **Windows rate and channel conversion.** WASAPI converts (`AUTOCONVERTPCM`) instead
   of PortAudio plus soxr and the mono-to-stereo widening.
-- **Windows underflow (needs measurement).** The virtual microphone path reports a
-  render buffer that ran dry after playback started (`output_underflow`), as
-  PortAudio's `exception_on_underflow` did; how often this fires with a 60 ms buffer
-  on real hardware is unmeasured.
+- **Windows underflow.** The virtual microphone path reports a render buffer that ran
+  dry after playback started (`output_underflow`), as PortAudio's
+  `exception_on_underflow` did. The stream holds 100 ms and starts only once it is
+  full (or at the end, for shorter audio). Starting after the first 10 ms write with a
+  60 ms buffer made every message fail on the Steam Streaming devices, whose engine
+  takes 30 ms at a time and two blocks right after the start (0.5.0-beta.5; measured
+  with `tests/wasapi_live.rs`).
 - **Windows direct bridge capture.** The Python bridge borrowed the transcription
   capture (`capture_windows.py`, outside this issue); here a small WASAPI capture of
   its own delivers 48 kHz mono.
