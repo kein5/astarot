@@ -58,6 +58,7 @@ fn services(fake: &FakeProviders, local: Arc<FakeLocal>) -> Services {
         translation_transport: http::loopback_only(),
         translation_endpoints: Endpoints::all_at(&fake.url()),
         local_translation: Arc::new(move |_| local.clone() as Arc<dyn LocalTranslation>),
+        secret_store: common::shared_vault().system_source(),
         ..Services::default()
     }
 }
