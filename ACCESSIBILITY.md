@@ -1,6 +1,6 @@
 # Accessibility
 
-VRCT-VOX puts captions, text to speech and chat reading into one app, so that people who find hearing, speaking or reading hard can still hold a conversation in VRChat. This page lists the help the app gives, how the app itself tries to be easy to use, and what it cannot do yet. It describes version 0.5.0. Anything planned for a later version is marked as planned.
+ASTAROT puts captions, text to speech and chat reading into one app, so that people who find hearing, speaking or reading hard can still hold a conversation in VRChat. This page lists the help the app gives, how the app itself tries to be easy to use, and what it cannot do yet. It describes version 0.5.0. Anything planned for a later version is marked as planned.
 
 日本語は[後半](#アクセシビリティ日本語)にあります。
 
@@ -59,7 +59,7 @@ VRCT-VOX puts captions, text to speech and chat reading into one app, so that pe
 
 ## アクセシビリティ（日本語）
 
-VRCT-VOX は字幕と読み上げとチャットの読み取りを1つにまとめたアプリです。聞くことや話すこと、文字を読むことに困りごとがある人も VRChat で会話できるようにします。この文書には、アプリが提供する支援と、アプリ自体の使いやすさへの配慮と、まだできないことを書きます。対象は 0.5.0 です。後の版で予定しているものは、予定と書きます。
+ASTAROT は字幕と読み上げとチャットの読み取りを1つにまとめたアプリです。聞くことや話すこと、文字を読むことに困りごとがある人も VRChat で会話できるようにします。この文書には、アプリが提供する支援と、アプリ自体の使いやすさへの配慮と、まだできないことを書きます。対象は 0.5.0 です。後の版で予定しているものは、予定と書きます。
 
 ### アプリが提供する支援
 
