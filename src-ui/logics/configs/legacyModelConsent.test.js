@@ -30,7 +30,7 @@ async function dialogFixture(context, language, reviewedEntry, catalog = { legac
     stubGlobals(context, { document: { activeElement: { isConnected: true, getAttribute: () => null,
         closest: () => null, focus: () => events.focused++ } } });
     const runtime = hooks(), requests = [], reads = [];
-    const dialogHooks = await loadModule(new URL("../common/useConsentDialog.js", import.meta.url), runtime);
+    const dialogHooks = await loadModule(new URL("../common/useConsentDialog.ts", import.meta.url), runtime);
     const downloads = { catalog, send: (...args) => reads.push(args) };
     const { LegacyModelDownloadDialog } = await loadModule(componentURL, runtime, {
         "@useI18n": { useI18n: () => ({ t: translations.t.bind(translations) }) },

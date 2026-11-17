@@ -12,7 +12,7 @@ async function fixture(context, language = "en", name = "ctranslate2_weight_type
     const resource = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
     const t = (key, values) => { messages.push(key); return translations.t(key, values); };
-    const statusHook = await loadModule(new URL("./useLegacyDownloadStatus.js", import.meta.url), runtime);
+    const statusHook = await loadModule(new URL("./useLegacyDownloadStatus.ts", import.meta.url), runtime);
     const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.jsx", import.meta.url), runtime);
     const { _DownloadButton } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "@common_components": { CircularProgress },

@@ -8,7 +8,7 @@ const api = values => new Proxy(values, { get: (object, name) => object[name] ??
 
 async function fixture(context) {
     const runtime = hooks(), calls = [], notices = [];
-    const setup = await loadModule(new URL("./useTranslationSetup.js", import.meta.url), runtime);
+    const setup = await loadModule(new URL("./useTranslationSetup.ts", import.meta.url), runtime);
     const states = {};
     const mainStore = { store: { backend_subprocess: {} } };
     for (const name of ["Translation", "TranscriptionSend", "TranscriptionReceive", "OcrCapture", "Foreground"]) {
