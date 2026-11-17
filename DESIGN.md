@@ -1,21 +1,21 @@
 ---
-name: VRCT-VOX Dark Studio
-description: A quiet navy workspace for conversation and voice control.
+name: ASTAROT Dark Studio
+description: A quiet dark plum workspace for conversation and voice control.
 colors:
-  primary: "#2865dc"
-  primary-hover: "#3470e8"
-  focus: "#a9ccff"
-  canvas: "#111b2c"
-  rail: "#0d1625"
-  surface: "#18253b"
-  border: "#344662"
-  text: "#edf3ff"
-  secondary-text: "#adbed6"
-  description-text: "#8d9fb9"
-  state-active: "#80acff"
-  state-warning: "#cb944f"
-  state-failed: "#f08a85"
-  readout-rule: "#5b92ff"
+  primary: "#a47af5"
+  primary-hover: "#b897f7"
+  focus: "#d9c8fc"
+  canvas: "#261633"
+  rail: "#1c0f27"
+  surface: "#33214a"
+  border: "#4f3b66"
+  text: "#fafafc"
+  secondary-text: "#cfc4d6"
+  description-text: "#aba0b5"
+  state-active: "#b797f8"
+  state-warning: "#cb9c62"
+  state-failed: "#eb938e"
+  readout-rule: "#a47af5"
 typography:
   body:
     fontFamily: "Configured UI font, Noto Sans, system-ui, sans-serif"
@@ -64,7 +64,7 @@ spacing:
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
-    textColor: "#ffffff"
+    textColor: "{colors.canvas}"
     rounded: "{rounded.control}"
     padding: "9px 12px"
     height: "40px"
