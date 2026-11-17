@@ -354,6 +354,44 @@ def test_vr_sample_text_stops_with_settings_and_only_the_button_restarts_it(stud
     expect(start).to_be_visible()
 
 
+def test_vr_axes_are_a_row_whose_diagram_stays_in_the_field_column(studio):
+    # The position and rotation diagram used to float in the middle of the page (#568). It is now
+    # one row of the label and field columns: its axis names and step buttons stay right of the
+    # row's label and inside the page, in both diagrams, wide and narrow.
+    page, _ = studio
+    page.get_by_role("button", name="設定を開く", exact=True).click()
+    page.get_by_role("button", name="VR", exact=True).click()
+    page.get_by_text("位置と回転", exact=True).wait_for()
+    for width in (1200, 870):
+        page.set_viewport_size({"width": width, "height": 850})
+        for half in ("回転", "位置"):
+            page.get_by_role("button", name=half, exact=True).click()
+            screenshot(page, f"settings-VR-axes-{half}-{width}")
+            box = page.evaluate(
+                """() => {
+                    const label = [...document.querySelectorAll('label, span')].find(e => e.textContent === '位置と回転');
+                    const row = label.closest('[data-setting-label]');
+                    const group = row.querySelector('[role=group]');
+                    const page = row.parentElement.getBoundingClientRect();
+                    // The axis names are drawn right-aligned in wider boxes: measure their words.
+                    const words = [...group.querySelectorAll('p')].map(p => { const r = document.createRange();
+                        r.selectNodeContents(p.firstChild); return r.getBoundingClientRect(); });
+                    const parts = [...words, ...[...group.querySelectorAll('[role=button], [role=slider], input, button')]
+                        .filter(e => e.getClientRects().length).map(e => e.getBoundingClientRect())]
+                        .filter(r => r.width > 0);
+                    const label_box = label.getBoundingClientRect();
+                    const stacked = group.getBoundingClientRect().top >= label_box.bottom - 1;
+                    return { stacked, label_right: label_box.right, page_left: page.left, page_right: page.right,
+                        left: Math.min(...parts.map(r => r.left)), right: Math.max(...parts.map(r => r.right)) };
+                }"""
+            )
+            assert box["right"] <= box["page_right"] + 1 and box["left"] >= box["page_left"] - 1, (width, half, box)
+            if not box["stacked"]:
+                assert box["left"] >= box["label_right"], (width, half, box)
+    sample = page.get_by_role("button", name="サンプルの文を字幕オーバーレイに送る", exact=True)
+    assert sample.is_visible()
+
+
 def test_settings_top_bar_stops_speech_and_mutes_without_starting_anything(studio):
     from playwright.sync_api import expect
 
