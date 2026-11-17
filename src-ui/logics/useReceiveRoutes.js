@@ -263,7 +263,7 @@ export const useReceiveRoutes = () => {
         const timer = setInterval(() => !store.backend_stopped && sendSpeech("/get/data/speech_server_state"), 500);
         return () => clearInterval(timer);
     }, [speechActive, sendSpeech]);
-    const { state: downloadState, hardware: modelHardware, pending: downloadPending, send: sendDownload, updateError: updateDownloadError, reset: resetDownloads, backendStopped: stopDownloadPending } = downloads.useModelDownloads();
+    const { state: downloadState, hardware: modelHardware, pending: downloadPending, send: sendDownload, updateError: updateDownloadError, expireUnconfirmed: expireDownloadRequests, reset: resetDownloads, backendStopped: stopDownloadPending } = downloads.useModelDownloads();
     useEffect(() => {
         if (modelHardware.phase !== 'probing') return;
         const timer = setInterval(() => !store.backend_stopped && sendDownload('/get/data/model_download_hardware'), 500);
@@ -277,9 +277,9 @@ export const useReceiveRoutes = () => {
     }, [downloadActive, sendDownload]);
     useEffect(() => {
         if (!downloadPending) return;
-        const timer = setTimeout(() => updateDownloadError("request_unconfirmed"), 10000);
+        const timer = setTimeout(expireDownloadRequests, 10000);
         return () => clearTimeout(timer);
-    }, [downloadPending, updateDownloadError]);
+    }, [downloadPending, expireDownloadRequests]);
     const { state: runtimeState, pending: runtimePending, send: sendRuntime, updateError: updateRuntimeError, reset: resetRuntimes, backendStopped: stopRuntimePending } = vcRuntimes.useVcRuntimes();
     const runtimeActive = runtimePending || Object.values(runtimeState.jobs).some(job => vcRuntimes.activeSetupPhases.includes(job.phase));
     useEffect(() => {

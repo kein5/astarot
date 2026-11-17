@@ -56,6 +56,16 @@ export const useModelDownloads = () => {
         if (value && endpoint.includes("model_download_hardware"))
             store.set(hardwareAtom, previous => ({ ...previous, phase: "failed", error_code: value }));
     }, [store, setError, settle]);
+    // No reply in time (#431): say so, and release the commands whose effect the state poll
+    // shows anyway (start, cancel, the user's models), so the buttons work again. A pending
+    // Apply stays: verifying can take that long, and its Cancel is still allowed meanwhile.
+    const expireUnconfirmed = useCallback(() => {
+        setError("request_unconfirmed");
+        setPending(previous => {
+            const remaining = previous?.filter(request => request.endpoint === "/run/apply_model_download");
+            return remaining?.length ? remaining : null;
+        });
+    }, [setError, setPending]);
     const backendStopped = useCallback(() => {
         updateError("backend_unavailable");
         store.set(pendingAtom, null);
@@ -91,5 +101,5 @@ export const useModelDownloads = () => {
         if (store.get(hardwareAtom).phase === 'unknown') send('/run/refresh_model_download_hardware', {});
     }, [store, send]);
     return { catalog, state, hardware, error, pending, userModels, send, ensureHardware, updateHardware, updateCatalog, updateState,
-        acknowledge, updateUserModels, acknowledgeUserModels, updateError, reset, backendStopped };
+        acknowledge, updateUserModels, acknowledgeUserModels, updateError, expireUnconfirmed, reset, backendStopped };
 };
