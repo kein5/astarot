@@ -94,17 +94,39 @@ test("the greeting waits for the language and the narrow layout that the saved s
     });
     const ok = (data) => ({ state: "ok", data });
     const base = { scaling: ok(100), language: ok("ja"), shownLanguage: "ja", width: 871, narrow: false };
-    assert.equal(greetingWaits(base), false);
-    assert.equal(greetingWaits({ ...base, scaling: { state: "pending", data: 100 } }), true);
-    assert.equal(greetingWaits({ ...base, language: { state: "pending", data: "en" } }), true);
-    assert.equal(greetingWaits({ ...base, shownLanguage: "en" }), true, "the saved language is not shown yet");
+    assert.equal(greetingWaits(base), null);
+    assert.equal(greetingWaits({ ...base, scaling: { state: "pending", data: 100 } }), "settings");
+    assert.equal(greetingWaits({ ...base, language: { state: "pending", data: "en" } }), "settings");
+    assert.equal(greetingWaits({ ...base, shownLanguage: "en" }), "language", "the saved language is not shown yet");
     // At 120% an 871 px window is narrow (at most 960 px): wait until the layout says so.
-    assert.equal(greetingWaits({ ...base, scaling: ok(120) }), true);
-    assert.equal(greetingWaits({ ...base, scaling: ok(120), narrow: true }), false);
-    // Within a pixel of the edge either layout counts, so rounding never holds it back.
-    assert.equal(greetingWaits({ ...base, width: 800.5, narrow: false }), false);
-    assert.equal(greetingWaits({ ...base, width: 800.5, narrow: true }), false);
-    assert.equal(greetingWaits({ ...base, width: undefined }), false);
+    assert.equal(greetingWaits({ ...base, scaling: ok(120) }), "layout");
+    assert.equal(greetingWaits({ ...base, scaling: ok(120), narrow: true }), null);
+    // Within a pixel of the edge either layout counts.
+    assert.equal(greetingWaits({ ...base, width: 800.5, narrow: false }), null);
+    assert.equal(greetingWaits({ ...base, width: 800.5, narrow: true }), null);
+    assert.equal(greetingWaits({ ...base, width: undefined }), null);
+});
+
+test("a language or layout that does not follow holds the greeting back for a second at most", async context => {
+    context.mock.timers.enable({ apis: ["setTimeout"] });
+    const runtime = hooks();
+    const { EmptyState, GREETING_FOLLOW_MS } = await loadModule(new URL("./EmptyState.jsx", import.meta.url), runtime, {
+        "@store": { store: {} },
+        "@logics_configs": { useSettingValue: name => name === "UiScaling" ? { state: "ok", data: 120 }
+            : name === "UiLanguage" ? { state: "ok", data: "ja" } : { data: undefined } },
+        "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
+        "../../../../../../logics/main/setupNeeds": needsLogic,
+        "../../../startupContext": { useStartupPlaceholder: () => null },
+    });
+    const stub = { innerWidth: 871, document: { documentElement: { hasAttribute: () => false } } };
+    const saved = Object.fromEntries(Object.keys(stub).map(key => [key, globalThis[key]]));
+    Object.assign(globalThis, stub);
+    context.after(() => Object.assign(globalThis, saved));
+    const greeting = () => find(runtime.render(EmptyState), node => node.props?.children?.[0]?.type === "h1");
+    assert.equal(greeting().props["data-waiting"], true, "871 px at 120% is narrow, the root is not marked yet");
+    context.mock.timers.tick(GREETING_FOLLOW_MS);
+    assert.equal(greeting().props["data-waiting"], undefined, "drawn after a second all the same");
+    runtime.unmount();
 });
 
 test("while the engine starts, the main page's startup list takes the setup list's place", async () => {

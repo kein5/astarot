@@ -20,14 +20,16 @@ import styles from "./LogBox.module.scss";
 // The greeting is drawn from then on, so the first place it is seen is where it stays and its
 // words and size do not change under the eye. Its room is kept, so nothing under it moves when
 // it appears. The VR panel gets its settings from the main window and does not wait.
+// Once drawn it stays: a later resize or settings change does not hide it again.
 export const EmptyState = () => {
     const { t, i18n } = useI18n();
     const startup = useStartupPlaceholder();
     const scaling = useSettingValue("UiScaling");
     const language = useSettingValue("UiLanguage");
     const narrow = useNarrowLayout();
-    const waiting = !store.is_vr_panel && greetingWaits({ scaling, language, shownLanguage: i18n?.language,
+    const reason = store.is_vr_panel ? null : greetingWaits({ scaling, language, shownLanguage: i18n?.language,
         width: globalThis.innerWidth, narrow });
+    const waiting = !useShownOnce(reason) && reason !== null;
     return <div className={styles.empty}>
         <div className={styles.greeting} data-waiting={waiting || undefined} aria-hidden={waiting || undefined}>
             <h1>{t("studio.empty_title")}</h1>
@@ -37,16 +39,34 @@ export const EmptyState = () => {
     </div>;
 };
 
-// Whether the saved UI size and language are still to arrive or to be applied. The narrow layout
-// is decided as useWindow decides it (a window at most 800 CSS px wide at 100%, scaled with the
-// UI size) and marked on the root as data-narrow. Within a pixel of that width either layout
-// counts, so a rounding difference between the two never holds the greeting back for good.
+// What the greeting still waits for, or null: "settings" until the saved UI size and language
+// arrive, then "language" until the saved language is shown and "layout" until the narrow layout
+// fits the UI size. The narrow layout is decided as useWindow decides it (a window at most 800
+// CSS px wide at 100%, scaled with the UI size) and marked on the root as data-narrow. Within a
+// pixel of that width either layout counts.
 export const greetingWaits = ({ scaling, language, shownLanguage, width, narrow }) => {
-    if (scaling?.state === "pending" || language?.state === "pending") return true;
-    if (language?.data && shownLanguage !== undefined && shownLanguage !== language.data) return true;
+    if (scaling?.state === "pending" || language?.state === "pending") return "settings";
+    if (language?.data && shownLanguage !== undefined && shownLanguage !== language.data) return "language";
     const breakPoint = 8 * scaling?.data;
-    if (!Number.isFinite(width) || !Number.isFinite(breakPoint) || Math.abs(width - breakPoint) <= 1) return false;
-    return narrow !== (width <= breakPoint);
+    if (!Number.isFinite(width) || !Number.isFinite(breakPoint) || Math.abs(width - breakPoint) <= 1) return null;
+    return narrow !== (width <= breakPoint) ? "layout" : null;
+};
+
+// The language and the layout follow the settings within a fraction of a second; should either
+// not follow (a failed window query), the greeting is drawn after this long all the same.
+export const GREETING_FOLLOW_MS = 1000;
+
+// True from the first render that waits for nothing, or GREETING_FOLLOW_MS after the settings
+// arrived. Missing settings are waited for without a limit: the startup list says why.
+const useShownOnce = (reason) => {
+    const [shown, setShown] = useState(false);
+    useEffect(() => {
+        if (shown || reason === "settings") return;
+        if (reason === null) { setShown(true); return; }
+        const timer = setTimeout(() => setShown(true), GREETING_FOLLOW_MS);
+        return () => clearTimeout(timer);
+    }, [shown, reason === null || reason === "settings" ? reason : "following"]);
+    return shown;
 };
 
 // Whether the root is marked narrow (useWindow), kept current by watching the mark. It is read
