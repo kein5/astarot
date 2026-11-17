@@ -17,16 +17,18 @@ builds" below). ONNX Runtime,
 the NVIDIA CUDA and cuDNN libraries and the HuBERT and RMVPE weights it uses are
 not bundled: the app fetches them from their providers after the user's
 consent (see "RVC base models" below). Voice recordings and additional TTS/ASR/VC model weights are not
-bundled. Mia2026 is validation-only. The Seed-VC integration
-contains files marked GPL-3.0-only; engine dependencies and weights have their
-own licenses. See [voice licensing](docs/voice-stack/licensing.md) for component
+bundled. Mia2026 is validation-only. The Seed-VC integration kept in the
+repository (`integrations/seed_vc/`) contains files marked GPL-3.0-only; builds
+up to 0.4.x carried it, and 0.5.0 and later builds do not. Engine dependencies
+and weights have their own licenses. See [voice licensing](docs/voice-stack/licensing.md) for component
 boundaries, original sources, and unresolved binary distribution obligations.
 Do not infer the complete stack's license from the main MIT license alone.
 
 Upstream VRCT's `translator_engines` extension (Google, Bing and Papago web
 translation) is licensed for official VRCT distributions only. VRCT-VOX does
 not include it, so those web translators are not offered; DeepL and the LLM
-providers remain. The distribution policy rejects it in any build. For local
+providers remain, and from 0.5.0 the official Google Cloud Translation and
+NAVER Papago APIs, used with the user's own key. The distribution policy rejects it in any build. For local
 translation see "Downloadable CTranslate2 translation weights" below.
 
 ## Removed: VRCT's chat-bubble detection model
@@ -53,22 +55,25 @@ them, as stated above; the table is kept for attribution.
 |---|---|---|
 | YOLOX `yolox_tiny.pth` (COCO-pretrained base of the model above; not shipped, used only at training time) | 0.1.1rc0 | Apache-2.0 |
 | RapidOCR (code and YAML config only; its bundled PP-OCR weights are stripped from builds) | 3.9.2 | Apache-2.0 |
-| PaddleOCR PP-OCRv6 small det/rec and PP-OCRv5 mobile script recognisers (official ONNX exports by PaddlePaddle on Hugging Face; not shipped, downloaded only after the user agrees in Config → Chat Transcribe) | pinned revisions in `src-python/models/model_downloads/catalog.py` | Apache-2.0 |
+| PaddleOCR PP-OCRv6 small det/rec and PP-OCRv5 mobile script recognisers (official ONNX exports by PaddlePaddle on Hugging Face; not shipped, downloaded only after the user agrees in Settings → Chat reading (OCR)) | pinned revisions in the model download catalog (`native/ops/src/downloads/catalog.rs`; up to 0.4.x `src-python/models/model_downloads/catalog.py`) | Apache-2.0 |
 
 VRCT-VOX's own chat-bubble detector, `vrct_vox_chatbox_yolox_tiny.onnx`, is a
 separate model: a YOLOX-Tiny trained from VRCT-VOX's own frames with
 `tools/chatbox_lab` from Megvii's COCO weights (Apache-2.0), published under
 MIT at [kein5/vrct-vox-chatbox-detector](https://huggingface.co/kein5/vrct-vox-chatbox-detector).
 It is not derived from the upstream model or its outputs. It is not shipped either; it is downloaded only after the
-user agrees in Config → Chat Transcribe (catalog entry `vrct-vox-chatbox-detector`).
+user agrees in Settings → Chat reading (OCR) (catalog entry `vrct-vox-chatbox-detector`).
 
 ## Bundled Silero VAD model
 
 The microphone and speaker transcription finds speech with the Silero VAD v5
 model (MIT, Silero Team), as split into two ONNX graphs by faster-whisper (MIT,
-SYSTRAN). VRCT-VOX ships those two files (about 1.2 MB in all) and their
-license texts in `licenses/silero-vad/`, which also lists their sizes, SHA-256
-and sources.
+SYSTRAN). Builds up to 0.4.x ship those two files (about 1.2 MB in all) and
+their license texts in `licenses/silero-vad/`, which also lists their sizes,
+SHA-256 and sources. From 0.5.0 the speech recognition runs in Rust, which cuts
+phrases by energy and does not use this model, so the builds carry neither the
+files nor their texts; both remain in the repository
+(`src-python/models/transcription/silero_vad/`, `licenses/silero-vad/`).
 
 ## Outfit typeface (ASTAROT brand)
 
@@ -108,10 +113,12 @@ and the license review.
 None of these weights ship with VRCT-VOX. Up to 0.4 the app downloaded the
 selected one from Hugging Face into `weights/ctranslate2/`. Since 0.5.0 the
 builds contain no CTranslate2: the app neither downloads nor reads these
-weights, and removes those earlier versions downloaded after start-up. Which
-local translation engine replaces it is open
-(`docs/voice-stack/core-integration.md`, item 1). The license is shown next to
-each weight in Config → Translation.
+weights, and removes those earlier versions downloaded after start-up. Local
+translation now runs on ONNX Runtime (`native/translate-onnx`, see "Rust crates
+in VRCT-VOX builds" below); the models for it are not published yet
+(`docs/voice-stack/core-integration.md`, item 1). The setting keeps the values
+in the table, which now select the ONNX conversion of the same model, and
+Settings → Translation shows the license next to each model.
 
 | Weight (setting value) | Downloaded from | Upstream model | License |
 |---|---|---|---|
@@ -121,14 +128,15 @@ each weight in Config → Translation.
 | `nllb-200-distilled-1.3B-ct2-int8` | `OpenNMT/nllb-200-distilled-1.3B-ct2-int8` | `facebook/nllb-200-distilled-1.3B` | CC-BY-NC-4.0 (non-commercial) |
 | `nllb-200-3.3B-ct2-int8` | `OpenNMT/nllb-200-3.3B-ct2-int8` | `facebook/nllb-200-3.3B` | CC-BY-NC-4.0 (non-commercial) |
 
+The next three paragraphs describe how 0.4.x and earlier downloaded these
+weights; 0.5.0 and later do not download them.
+
 Every built-in acquisition requires checkbox consent to the exact model and
 manifest, including an already-selected NLLB model and its pinned
 tokenizer files. The backend refuses download requests without that consent or with
 an outdated manifest. NLLB-200 review always labels CC-BY-NC-4.0 as
 non-commercial; selecting a different NLLB model also requires license
-confirmation. Keeping an existing selection does not grant download consent. Earlier versions made
-`nllb-200-distilled-600M-ct2-int8` the default. Configurations saved by those
-versions keep it, and the app shows a one-time notice about its license.
+confirmation. Keeping an existing selection does not grant download consent.
 
 CTranslate2 tokenizers derive from the upstream models in the table and carry
 the same MIT or CC-BY-NC-4.0 terms. Acquisition now uses the tokenizer files
@@ -143,6 +151,10 @@ Consent is saved per model and manifest in `LEGACY_MODEL_DOWNLOAD_CONSENTS`.
 Startup auto-acquisition requires a matching saved consent in addition to the
 auto-download switch; legacy settings have no recorded consent. Existing
 files and saved selections are preserved.
+
+Earlier versions made `nllb-200-distilled-600M-ct2-int8` the default.
+Configurations saved by those versions keep it, and the app shows a one-time
+notice about its license.
 
 This table and the OCR table above cover **model weights** only. Since 0.5.0
 the builds contain no Python: the Python packages in `pyproject.toml` (resolved
@@ -162,8 +174,10 @@ carries the license texts each crate publishes in
 the list from the lock files (`src-tauri/Cargo.lock`,
 `native/rvc-runtime/Cargo.lock`) when the package is built. The application
 also contains the backend core and the crates it uses (`native/core`,
-`native/adapters`, `native/ops`, `native/speech-server`, `native/translation`,
-`native/tts`, `native/vr-overlay`, `native/openvr-client`, `native/ocr-runtime`, `native/transcription`); they are VRCT-VOX's own
+`native/adapters`, `native/audio-routing`, `native/ops`, `native/speech-server`,
+`native/translation`, `native/translate-onnx`, `native/tts`,
+`native/voice-conversion`, `native/vr-overlay`, `native/openvr-client`,
+`native/ocr-runtime`, `native/transcription`); they are VRCT-VOX's own
 code under `LICENSE`, and the list marks them so.
 
 `native/ocr-runtime` (chat reading) reimplements, so that its results match
