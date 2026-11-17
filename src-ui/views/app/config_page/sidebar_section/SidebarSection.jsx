@@ -128,18 +128,22 @@ const Tab = (props) => {
         if (props.tab_id === "vr") return "VR";
         return t(`config_page.side_menu_labels.${props.tab_id}`);
     };
-    // A long name breaks before its short name in brackets, never inside a word.
-    const label = splitFeatureLabel(getLabel());
+    // Every tab is one line, so the tabs are all the same height and the menu does not change
+    // its layout with the language or the font. A feature's short name in brackets (「（ASR）」)
+    // did not fit beside its name in the 20.8rem rail and took a second line; the menu shows the
+    // name, and the full name stays in the tooltip, for screen readers and on the page itself.
+    const fullLabel = getLabel();
+    const label = splitFeatureLabel(fullLabel);
 
     return (
-        <button type="button" className={tab_container_class_names} aria-label={getLabel()} aria-current={is_selected ? "page" : undefined}
-            onClick={onclickFunction}>
+        <button type="button" className={tab_container_class_names} aria-label={fullLabel} aria-current={is_selected ? "page" : undefined}
+            title={label.abbr ? fullLabel : undefined} onClick={onclickFunction}>
             <div className={styles.tab_icon_wrapper} aria-hidden="true">
                 <TabIcon tab_id={props.tab_id} className={styles.tab_icon} />
             </div>
             <p className={clsx(styles.tab_text, {
                 [styles.hide]: props.isSmall && !props.isHovered
-            })}>{label.name}{label.abbr && <span className={styles.tab_text_abbr}>{label.abbr}</span>}</p>
+            })}>{label.name}</p>
             <div className={switch_indicator_class_names}></div>
         </button>
     );

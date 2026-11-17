@@ -507,7 +507,7 @@ config_page:
         tts: "Text to speech (TTS)"
         rvc: "Voice changer (RVC)"
         advanced_settings: "Advanced"
-        experimental_features: "Experimental features"
+        experimental_features: "Experimental"
         updater: "Updater"
         about_vrct: "About ASTAROT"
         ocr: "Chat reading (OCR)"

@@ -54,6 +54,35 @@ def studio(ui):
     return page, peer
 
 
+def test_settings_menu_tabs_are_one_line_and_the_same_height(studio):
+    # 「音声認識（ASR）」 and the other feature names took a second line for their short name,
+    # so four tabs were 52 px high and the rest 40 px. Each tab is now one line that fits,
+    # in both languages and also in a font whose kana are full width (Meiryo, Noto Sans CJK).
+    page, _ = studio
+    for lang in ("ja", "en"):
+        page.goto(page.url.split("?")[0] + f"?lang={lang}")
+        page.get_by_role("heading", name={"ja": "ここから会話を始めましょう", "en": "Your conversation starts here"}[lang]).wait_for()
+        page.set_viewport_size({"width": 870, "height": 654})
+        page.get_by_role("button", name="設定を開く" if lang == "ja" else "Open settings", exact=True).click()
+        page.locator("button[aria-current=page]").first.wait_for()
+        for font in ("", "Meiryo", "BIZ UDGothic"):
+            tabs = page.evaluate(
+                """font => [...document.querySelectorAll('[class*=tabs_wrapper] button')].map(b => {
+                    const p = b.querySelector('p'); p.style.fontFamily = font;
+                    const range = document.createRange(); range.selectNodeContents(p);
+                    const row = { name: b.getAttribute('aria-label'), height: Math.round(b.getBoundingClientRect().height),
+                        lines: new Set([...range.getClientRects()].map(x => Math.round(x.top))).size,
+                        clipped: p.scrollWidth > p.clientWidth };
+                    p.style.fontFamily = ''; return row; })""",
+                font,
+            )
+            assert len(tabs) == 14, tabs
+            assert all(tab["lines"] == 1 and not tab["clipped"] for tab in tabs), (lang, font, tabs)
+            assert len({tab["height"] for tab in tabs}) == 1, (lang, font, tabs)
+        asr = page.get_by_role("button", name="音声認識（ASR）" if lang == "ja" else "Speech recognition (ASR)", exact=True)
+        assert asr.get_attribute("title") == ("音声認識（ASR）" if lang == "ja" else "Speech recognition (ASR)")
+
+
 def _name_lines(page):
     """Each main switch's name (without its short name in brackets) and the lines it takes."""
     return page.evaluate(
