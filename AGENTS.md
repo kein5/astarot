@@ -85,11 +85,11 @@ python tools/dev.py check                   # 軽量チェック（tooling、nod
 詳しい内容は、それぞれの正本にあります。ここには要点だけを挙げます。
 
 - **外部への操作**: 上流 VRCT への連絡、取り込みの打診、PR の作成（draft を含む）は、明示の指示がある場合だけ行います（`publication-and-upstream.md`）。push、PR、Release の公開、Hugging Face へのアップロードは、依頼の範囲に含まれているときに行います。Release は保守担当者が確認してから公開します（`release-candidates.md`）。
-- **配布物とライセンス**: 上流のチャット吹き出し検出モデルを含む OCR の重み、許諾のないモデル、Mia2026 の音声を配布物に入れません。依存や同梱物を変えたら、`NOTICE.md` とライセンス台帳を確認します。ダウンロードできるモデルは、版、サイズ、SHA-256、ライセンスを固定してカタログ（`src-python/models/model_downloads/catalog.py`）に載せます。非商用など制限のあるライセンスのモデルは既定にしません。
+- **配布物とライセンス**: 上流のチャット吹き出し検出モデルを含む OCR の重み、許諾のないモデル、Mia2026 の音声を配布物に入れません。依存や同梱物を変えたら、`NOTICE.md` とライセンス台帳を確認します。ダウンロードできるモデルは、版、サイズ、SHA-256、ライセンスを固定してカタログ（`src-python/models/model_downloads/catalog.py`）に載せます。アプリが読むのは Rust の写し（`native/ops/src/downloads/catalog.rs`、OCR は `native/ocr-runtime/src/models.rs`）なので、同じ変更をそちらにも入れます（食い違いは `tests/voice/test_native_ops_reference.py` などが検出します）。非商用など制限のあるライセンスのモデルは既定にしません。
 - **互換性**: 内部識別子の `VRCT`、設定の形式、IPC と OSC の契約は、名前を変えるという理由だけで一括置換しません。保存先やアプリ ID などの識別子を変えるときは、移行の処理も用意します（`project-rename.md`）。
 - **ユーザーの操作と同意**: モデルの取得は、ライセンスとサイズを示して同意を得てから行います。UI の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きないようにします。
 - **停止と独立した制御**: 停止・ミュート、TTS と RVC の独立したスイッチ、Quick Chat、VR パネル、ホットキーの振る舞いを保ちます（`PRODUCT.md`、`DESIGN.md`）。
-- **UI**: React 18、CSS Modules、Jotai、i18next の構成を保ちます。TypeScript、vanilla-extract、Radix UI への段階移行は ADR-010 のとおりで、混在期の規約は `docs/development.md` にあります。フレームワークの移行や、リモートのフォントは入れません。表示する文言は `locales/` に置き、`en.yml` と `ja.yml` は必ず更新します。キーボード操作、フォーカスの表示、長い日本語の表示、狭いウィンドウも確認の対象です。Windows の WebView2 と Linux の WebKitGTK の両方で動くことを前提にします。Baseline Widely available の機能はそのまま使い、それより新しい機能は機能検出と代わりの表示を付けたときだけ使います。
+- **UI**: React 18、SCSS Modules、Jotai、i18next の構成を保ちます。TypeScript、vanilla-extract、Radix UI への段階移行は ADR-010 のとおりで、混在期の規約は `docs/development.md` にあります。フレームワークの移行や、リモートのフォントは入れません。表示する文言は `locales/` に置き、`en.yml` と `ja.yml` は必ず更新します。キーボード操作、フォーカスの表示、長い日本語の表示、狭いウィンドウも確認の対象です。Windows の WebView2 と Linux の WebKitGTK の両方で動くことを前提にします。Baseline Widely available の機能はそのまま使い、それより新しい機能は機能検出と代わりの表示を付けたときだけ使います。
 - **並行作業**: 別のセッションと担当を分けているときは、合意した範囲の外のファイルを編集・コミットしません。
 
 ## AGENTS.md 自体の更新
