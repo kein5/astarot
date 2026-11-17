@@ -60,7 +60,7 @@ test("only the main window may emit events; the VR panel only listens", () => {
         for (const window of capability.windows ?? []) assert.equal(window, "main", `${file}: ${window} may emit events`);
     }
     assert.deepEqual(granted.get("vr_panel")?.sort(), ["core:event:allow-listen", "core:event:allow-unlisten"]);
-    for (const file of ["../../views/vr/VrApp.jsx", "./useStdoutToPython.js"]) {
+    for (const file of ["../../views/vr/VrApp.jsx", "./useStdoutToPython.ts"]) {
         const source = readFileSync(new URL(file, import.meta.url), "utf8");
         assert.doesNotMatch(source, /\bemit\s*\(/, `${file} sends an event`);
     }
