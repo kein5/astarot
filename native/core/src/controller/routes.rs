@@ -83,7 +83,13 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.with("/get/data/selectable_transcription_engines", WAIT, |core, _| ok(json!(core.selectable_transcription_engines())));
     b.get("/get/data/selected_transcription_engine", WAIT, "SELECTED_TRANSCRIPTION_ENGINE");
     b.with("/set/data/selected_transcription_engine", WAIT, |core, data| {
-        core.update_transcription_engine(Some(json!(super::settings::python_str(data))));
+        let engine = super::settings::python_str(data);
+        // An engine the start-up left unchecked is checked first (#457); one that fails is
+        // not selected.
+        if !core.ensure_transcription_engine(&engine) {
+            return ok(core.config().get("SELECTED_TRANSCRIPTION_ENGINE"));
+        }
+        core.update_transcription_engine(Some(json!(engine)));
         ok(core.config().get("SELECTED_TRANSCRIPTION_ENGINE"))
     });
 

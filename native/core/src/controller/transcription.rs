@@ -872,7 +872,10 @@ impl Core {
     // ------------------------------------------------------------------------- start-up
 
     /// The start-up check of the recognition engines (`check_transcription_engine` in
-    /// `init`), every engine at the same time. Keys stay, as in Python.
+    /// `init`), at the same time. Keys stay, as in Python. Only the selected engine, and a
+    /// custom server at a loopback address, are contacted (#457): another engine with a saved
+    /// key stays selectable and is checked when it is selected
+    /// ([`Core::ensure_transcription_engine`]). Its model list stays empty until then.
     pub(crate) fn check_transcription_engines(&self) -> Map<String, Value> {
         let config = self.config();
         let engines: Vec<String> = config
@@ -882,71 +885,151 @@ impl Core {
             .flatten()
             .filter_map(|e| e.as_str().map(str::to_string))
             .collect();
-        let keys = config.get("TRANSCRIPTION_AUTH_KEYS");
+        let selected = config.get_str("SELECTED_TRANSCRIPTION_ENGINE");
         let custom_url = config.get_str("TRANSCRIPTION_CUSTOM_URL");
-        let transport = self.services().translation_transport.clone();
-        let endpoints = self.services().transcription_endpoints.clone();
-        type Checked = (bool, Option<Vec<String>>, Option<Map<String, Value>>);
-        let check = |engine: &str| -> Checked {
-            let key = keys[engine].as_str().unwrap_or("").to_string();
-            match engine {
-                "Groq_Whisper" | "OpenAI_Whisper" | "Custom_Whisper" => {
-                    let base = match engine {
-                        "Groq_Whisper" => endpoints.groq.clone(),
-                        "OpenAI_Whisper" => endpoints.openai.clone(),
-                        _ => custom_url.clone(),
-                    };
-                    if key.is_empty() || base.is_empty() {
-                        return (false, None, None);
-                    }
-                    match providers::compatible_models(&transport, &base, &key, engine != "Custom_Whisper") {
-                        Ok(models) if !models.is_empty() => (true, Some(models), None),
-                        _ => (false, None, None),
-                    }
-                }
-                "Deepgram" => {
-                    if key.is_empty() || !providers::deepgram_key_valid(&transport, &endpoints.deepgram, &key) {
-                        return (false, None, None);
-                    }
-                    let detailed = providers::deepgram_models(&transport, &endpoints.deepgram, &key);
-                    let languages = detailed.iter().map(|(name, codes)| (name.clone(), json!(codes))).collect();
-                    let models: Vec<String> = detailed.into_iter().map(|(name, _)| name).collect();
-                    if models.is_empty() { (false, None, None) } else { (true, Some(models), Some(languages)) }
-                }
-                // speech.cpp: established by its server, not a probe.
-                crate::languages::LOCAL_SPEECH_ENGINE => (true, None, None),
-                _ => (false, None, None),
-            }
-        };
-        let results: Vec<(String, Checked)> = std::thread::scope(|scope| {
-            let handles: Vec<_> = engines.iter().map(|engine| scope.spawn(|| (engine.clone(), check(engine)))).collect();
+        let results: Vec<(String, TranscriptionCheck)> = std::thread::scope(|scope| {
+            let handles: Vec<_> = engines
+                .iter()
+                .map(|engine| {
+                    let check_now = *engine == selected
+                        || (engine == "Custom_Whisper" && crate::net_policy::is_loopback_url(&custom_url));
+                    scope.spawn(move || {
+                        let checked = if check_now { self.check_transcription_engine(engine) } else { self.deferred_transcription_engine(engine) };
+                        (engine.clone(), checked)
+                    })
+                })
+                .collect();
             handles.into_iter().filter_map(|h| h.join().ok()).collect()
         });
         let mut status = Map::new();
         for engine in &engines {
-            let (available, models, languages) = results.iter().find(|(e, _)| e == engine).map(|(_, c)| c.clone()).unwrap_or((false, None, None));
-            status.insert(engine.clone(), json!(available));
-            if !COMPATIBLE_ENGINES.contains(&engine.as_str()) && engine != "Deepgram" {
-                continue;
-            }
-            if !available {
-                continue;
-            }
-            if let Some(models) = models {
-                let prefix = engine.to_uppercase();
-                let selected_key = format!("SELECTED_{prefix}_MODEL");
-                let saved = config.get(&selected_key);
-                let selected = saved.as_str().filter(|s| models.iter().any(|m| m == s)).unwrap_or(&models[0]).to_string();
-                config.put(&format!("SELECTABLE_{prefix}_MODEL_LIST"), json!(models));
-                let _ = config.set(&selected_key, json!(selected));
-                if let Some(languages) = languages {
-                    config.put("DEEPGRAM_MODEL_LANGUAGES", Value::Object(languages));
-                }
-                self.step(&format!("{engine} transcription engine is valid/available"));
-            }
+            let checked = results.iter().find(|(e, _)| e == engine).map(|(_, c)| c.clone()).unwrap_or_default();
+            status.insert(engine.clone(), json!(checked.available));
+            self.apply_transcription_check(engine, checked);
         }
         status
     }
+
+    /// Asks one engine's service for its models with the saved key.
+    fn check_transcription_engine(&self, engine: &str) -> TranscriptionCheck {
+        let config = self.config();
+        let key = config.get("TRANSCRIPTION_AUTH_KEYS")[engine].as_str().unwrap_or("").to_string();
+        let transport = &self.services().translation_transport;
+        let endpoints = &self.services().transcription_endpoints;
+        let none = TranscriptionCheck::default();
+        match engine {
+            "Groq_Whisper" | "OpenAI_Whisper" | "Custom_Whisper" => {
+                let base = match engine {
+                    "Groq_Whisper" => endpoints.groq.clone(),
+                    "OpenAI_Whisper" => endpoints.openai.clone(),
+                    _ => config.get_str("TRANSCRIPTION_CUSTOM_URL"),
+                };
+                if key.is_empty() || base.is_empty() {
+                    return none;
+                }
+                match providers::compatible_models(transport, &base, &key, engine != "Custom_Whisper") {
+                    Ok(models) if !models.is_empty() => TranscriptionCheck { available: true, models: Some(models), ..none },
+                    _ => none,
+                }
+            }
+            "Deepgram" => {
+                if key.is_empty() || !providers::deepgram_key_valid(transport, &endpoints.deepgram, &key) {
+                    return none;
+                }
+                let detailed = providers::deepgram_models(transport, &endpoints.deepgram, &key);
+                let languages = detailed.iter().map(|(name, codes)| (name.clone(), json!(codes))).collect();
+                let models: Vec<String> = detailed.into_iter().map(|(name, _)| name).collect();
+                if models.is_empty() {
+                    none
+                } else {
+                    TranscriptionCheck { available: true, models: Some(models), languages: Some(languages), deferred: false }
+                }
+            }
+            // speech.cpp: established by its server, not a probe.
+            crate::languages::LOCAL_SPEECH_ENGINE => TranscriptionCheck { available: true, ..none },
+            _ => none,
+        }
+    }
+
+    /// An engine left unchecked at start-up: selectable when its key (and the custom server's
+    /// address) is saved.
+    fn deferred_transcription_engine(&self, engine: &str) -> TranscriptionCheck {
+        let config = self.config();
+        let key = config.get("TRANSCRIPTION_AUTH_KEYS")[engine].as_str().is_some_and(|k| !k.is_empty());
+        let available = match engine {
+            "Groq_Whisper" | "OpenAI_Whisper" | "Deepgram" => key,
+            "Custom_Whisper" => key && !config.get_str("TRANSCRIPTION_CUSTOM_URL").is_empty(),
+            crate::languages::LOCAL_SPEECH_ENGINE => true,
+            _ => false,
+        };
+        TranscriptionCheck { available, deferred: true, ..TranscriptionCheck::default() }
+    }
+
+    /// Keeps the models and the choice an engine's check found.
+    fn apply_transcription_check(&self, engine: &str, checked: TranscriptionCheck) {
+        if checked.deferred || !checked.available {
+            return;
+        }
+        if !COMPATIBLE_ENGINES.contains(&engine) && engine != "Deepgram" {
+            return;
+        }
+        let config = self.config();
+        if let Some(models) = checked.models {
+            let prefix = engine.to_uppercase();
+            let selected_key = format!("SELECTED_{prefix}_MODEL");
+            let saved = config.get(&selected_key);
+            let selected = saved.as_str().filter(|s| models.iter().any(|m| m == s)).unwrap_or(&models[0]).to_string();
+            config.put(&format!("SELECTABLE_{prefix}_MODEL_LIST"), json!(models));
+            let _ = config.set(&selected_key, json!(selected));
+            if let Some(languages) = checked.languages {
+                config.put("DEEPGRAM_MODEL_LANGUAGES", Value::Object(languages));
+            }
+            self.step(&format!("{engine} transcription engine is valid/available"));
+        }
+    }
+
+    /// Checks an engine the start-up left unchecked, before it is selected (#457). An engine
+    /// that has listed its models this run, or has no saved key, is not asked. `false` when it cannot be used:
+    /// it is then no longer selectable, and its model list and choice are forgotten as at
+    /// start-up.
+    pub(crate) fn ensure_transcription_engine(&self, engine: &str) -> bool {
+        if !COMPATIBLE_ENGINES.contains(&engine) && engine != "Deepgram" {
+            return true;
+        }
+        let config = self.config();
+        let list = format!("SELECTABLE_{}_MODEL_LIST", engine.to_uppercase());
+        if config.get(&list).as_array().is_some_and(|models| !models.is_empty()) {
+            return true;
+        }
+        // Without a saved key there is nothing to check: the selection is taken as before, and a
+        // switch then says the engine cannot be used.
+        if !self.deferred_transcription_engine(engine).available {
+            return true;
+        }
+        let checked = self.check_transcription_engine(engine);
+        let available = checked.available;
+        self.apply_transcription_check(engine, checked);
+        let mut status = config.get("SELECTABLE_TRANSCRIPTION_ENGINE_STATUS");
+        status[engine] = json!(available);
+        config.put("SELECTABLE_TRANSCRIPTION_ENGINE_STATUS", status);
+        if !available {
+            self.forget_failed_engine(engine);
+        }
+        let lower = engine.to_lowercase();
+        self.notify(&format!("selectable_{lower}_model_list"), config.get(&list));
+        self.notify(&format!("selected_{lower}_model"), config.get(&format!("SELECTED_{}_MODEL", engine.to_uppercase())));
+        available
+    }
+}
+
+/// What a recognition engine's check found.
+#[derive(Clone, Default)]
+struct TranscriptionCheck {
+    available: bool,
+    models: Option<Vec<String>>,
+    languages: Option<Map<String, Value>>,
+    /// Not checked at start-up (#457); `available` then only says that its key is saved.
+    deferred: bool,
 }
 
 /// The endpoints that only answer from the settings (`getGroqWhisperAuthKey` and the like are

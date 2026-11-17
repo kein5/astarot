@@ -1102,6 +1102,10 @@ impl Core {
             };
         }
         let Some(provider) = Provider::from_engine(engine) else { return Attempt::Failed };
+        // An engine left unchecked at start-up is checked on its first use (#457).
+        if self.translation.session(provider).is_none() && !self.ensure_translator(engine) {
+            return Attempt::Failed;
+        }
         let Some(session) = self.translation.session(provider) else { return Attempt::Failed };
         let supported = Self::supported_languages(engine);
         let request =
@@ -1236,12 +1240,23 @@ struct Checked {
     available: bool,
     models: Option<(Vec<String>, Option<String>)>,
     connected: Option<Connected>,
+    /// Not checked yet (#457): no tab uses the engine, and checking it would reach a server
+    /// outside the user's machine. `available` then only says that its credentials are saved;
+    /// it is checked when a tab selects it or a translation needs it ([`Core::ensure_translator`]).
+    deferred: bool,
+}
+
+impl Checked {
+    const NONE: Checked = Checked { available: false, models: None, connected: None, deferred: false };
 }
 
 impl Core {
-    /// The start-up check of every engine (`check_translation_engine` in `init`): each is
-    /// checked at the same time, then the results are applied in order. A key is never
-    /// removed: a failed check cannot tell a refused key from a network that is down.
+    /// The start-up check (`check_translation_engine` in `init`). The engines a tab uses, the
+    /// local translation, and LM Studio or Ollama at a loopback address are checked at the same
+    /// time, then the results are applied in order. The others are not contacted at start-up
+    /// (#457): an engine with saved credentials stays selectable and is checked when it is
+    /// selected. A key is never removed: a failed check cannot tell a refused key from a
+    /// network that is down.
     pub(crate) fn check_translation_engines(&self, local_available: bool) -> Map<String, Value> {
         let config = self.config();
         let engines: Vec<String> = config
@@ -1251,13 +1266,22 @@ impl Core {
             .flatten()
             .filter_map(|e| e.as_str().map(str::to_string))
             .collect();
+        let in_use = self.translation_engines_in_use();
         let keys = config.get("AUTH_KEYS");
         let results: Vec<(String, Checked)> = std::thread::scope(|scope| {
             let handles: Vec<_> = engines
                 .iter()
                 .map(|engine| {
                     let keys = &keys;
-                    scope.spawn(move || (engine.clone(), self.check_engine(engine, keys, local_available)))
+                    let checked_now = in_use.contains(engine) || !self.reaches_outside(engine);
+                    scope.spawn(move || {
+                        let checked = if checked_now {
+                            self.check_engine(engine, keys, local_available)
+                        } else {
+                            self.deferred_engine(engine, keys)
+                        };
+                        (engine.clone(), checked)
+                    })
                 })
                 .collect();
             handles.into_iter().filter_map(|h| h.join().ok()).collect()
@@ -1267,32 +1291,98 @@ impl Core {
             let checked = results.iter().find(|(e, _)| e == engine).map(|(_, c)| c);
             let available = checked.is_some_and(|c| c.available);
             status.insert(engine.clone(), json!(available));
-            let provider = Provider::from_engine(engine);
-            match (checked, provider) {
-                (Some(Checked { available: true, models, connected }), Some(provider)) => {
-                    if let Some(connected) = connected {
-                        self.translation.commit(provider, connected);
-                    }
-                    if let (Some((models, choice)), Some((list, selected, _))) = (models, model_keys(provider)) {
-                        config.put(list, json!(models));
-                        config.put(selected, choice.as_ref().map_or(Value::Null, |c| json!(c)));
-                    }
-                }
-                (_, Some(provider))
-                    if matches!(provider, Provider::LmStudio | Provider::OpenAiCompatible | Provider::Ollama) =>
-                {
-                    let (list, selected, _) = model_keys(provider).expect("a provider with models");
-                    config.put(list, json!([]));
-                    let _ = config.set(selected, Value::Null);
-                }
-                _ => {}
-            }
+            self.apply_checked(engine, checked);
         }
         status
     }
 
+    /// Keeps what a check found: the session, the models and the selection.
+    fn apply_checked(&self, engine: &str, checked: Option<&Checked>) {
+        let config = self.config();
+        match (checked, Provider::from_engine(engine)) {
+            (Some(Checked { deferred: true, .. }), _) => {}
+            (Some(Checked { available: true, models, connected, .. }), Some(provider)) => {
+                if let Some(connected) = connected {
+                    self.translation.commit(provider, connected);
+                }
+                if let (Some((models, choice)), Some((list, selected, _))) = (models, model_keys(provider)) {
+                    config.put(list, json!(models));
+                    config.put(selected, choice.as_ref().map_or(Value::Null, |c| json!(c)));
+                }
+            }
+            (_, Some(provider))
+                if matches!(provider, Provider::LmStudio | Provider::OpenAiCompatible | Provider::Ollama) =>
+            {
+                let (list, selected, _) = model_keys(provider).expect("a provider with models");
+                config.put(list, json!([]));
+                let _ = config.set(selected, Value::Null);
+            }
+            _ => {}
+        }
+    }
+
+    /// The engines selected in some tab.
+    fn translation_engines_in_use(&self) -> std::collections::HashSet<String> {
+        self.config()
+            .get("SELECTED_TRANSLATION_ENGINES")
+            .as_object()
+            .into_iter()
+            .flat_map(|tabs| tabs.values())
+            .filter_map(|e| e.as_str().map(str::to_string))
+            .collect()
+    }
+
+    /// Whether checking an engine sends anything off the user's machine: every cloud API, and
+    /// LM Studio, Ollama or the OpenAI-compatible endpoint at an address that is not loopback.
+    fn reaches_outside(&self, engine: &str) -> bool {
+        let Some(provider) = Provider::from_engine(engine) else { return false };
+        match url_key(provider) {
+            Some(key) => !crate::net_policy::is_loopback_url(&self.config().get_str(key)),
+            None => true,
+        }
+    }
+
+    /// An engine left unchecked at start-up: selectable when its credentials are saved. LM
+    /// Studio and Ollama have none and need their models, so they wait for a check.
+    fn deferred_engine(&self, engine: &str, keys: &Value) -> Checked {
+        let Some(provider) = Provider::from_engine(engine) else { return Checked::NONE };
+        let config = self.config();
+        let key = keys[engine].as_str().is_some_and(|k| !k.is_empty());
+        let available = match provider {
+            Provider::LmStudio | Provider::Ollama => false,
+            Provider::OpenAiCompatible => key && !config.get_str("OPENAI_COMPATIBLE_URL").is_empty(),
+            Provider::Papago => key && !config.get_str("PAPAGO_CLIENT_ID").is_empty(),
+            _ => key,
+        };
+        Checked { available, deferred: true, ..Checked::NONE }
+    }
+
+    /// Makes sure an engine left unchecked at start-up has been checked (#457): connects with
+    /// the saved credentials, keeps the session and tells the UI the models. `false` when the
+    /// engine cannot be used; it is then no longer selectable.
+    pub(crate) fn ensure_translator(&self, engine: &str) -> bool {
+        if engine == LOCAL_ENGINE {
+            return true;
+        }
+        let Some(provider) = Provider::from_engine(engine) else { return false };
+        if self.translation.session(provider).is_some() {
+            return true;
+        }
+        if !self.engine_status(engine) && !provider.local() {
+            return false;
+        }
+        let checked = self.check_engine(engine, &self.config().get("AUTH_KEYS"), false);
+        self.set_engine_status(engine, checked.available);
+        self.apply_checked(engine, Some(&checked));
+        if let Some((list, selected, _)) = model_keys(provider) {
+            self.notify(&list.to_lowercase(), self.config().get(list));
+            self.notify(&selected.to_lowercase(), self.config().get(selected));
+        }
+        checked.available
+    }
+
     fn check_engine(&self, engine: &str, keys: &Value, local_available: bool) -> Checked {
-        let none = Checked { available: false, models: None, connected: None };
+        let none = Checked::NONE;
         if engine == LOCAL_ENGINE {
             return Checked { available: local_available, ..none };
         }
@@ -1332,7 +1422,7 @@ impl Core {
             Ok(connected) => {
                 let models = (!provider.without_models())
                     .then(|| (connected.models.clone(), connected.session.model.clone()));
-                Checked { available: true, models, connected: Some(connected) }
+                Checked { available: true, models, connected: Some(connected), deferred: false }
             }
             Err(_) => {
                 self.step("Translation engine check failed; the saved key is kept");
@@ -1345,10 +1435,10 @@ impl Core {
     fn local_server_checked(&self, provider: Provider) -> Checked {
         let models = self.local_server_models(provider);
         if models.is_empty() {
-            return Checked { available: false, models: None, connected: None };
+            return Checked::NONE;
         }
         let choice = self.choose_server_model(provider, &models);
-        Checked { available: true, models: Some((models, Some(choice))), connected: None }
+        Checked { available: true, models: Some((models, Some(choice))), ..Checked::NONE }
     }
 }
 

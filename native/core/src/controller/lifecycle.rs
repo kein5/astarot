@@ -235,7 +235,7 @@ impl Core {
     /// list and the selected model, so the next successful check selects again. Saved API keys
     /// are kept, as in Python: a failed check cannot tell a refused key from a network that is
     /// down. The translation engines are handled by `check_translation_engines`.
-    fn forget_failed_engine(&self, engine: &str) {
+    pub(crate) fn forget_failed_engine(&self, engine: &str) {
         let (list, selected) = match engine {
             "Groq_Whisper" => ("SELECTABLE_GROQ_WHISPER_MODEL_LIST", "SELECTED_GROQ_WHISPER_MODEL"),
             "OpenAI_Whisper" => ("SELECTABLE_OPENAI_WHISPER_MODEL_LIST", "SELECTED_OPENAI_WHISPER_MODEL"),
