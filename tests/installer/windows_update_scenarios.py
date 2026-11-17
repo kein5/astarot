@@ -22,7 +22,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
-RELEASE_URL = "https://github.com/kein5/VRCT-VOX/releases/download/$release_revision"
+RELEASE_URL = "https://github.com/kein5/astarot/releases/download/$release_revision"
 APP = "vrct-vox.exe"
 # Packages up to 0.4 carried the Python sidecar beside the app; from 0.5.0 they do not. The
 # "old" package is such a package: updating it to "new" removes the stale sidecar, while

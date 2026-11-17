@@ -10,15 +10,15 @@ You can read translations and captions inside VR or on top of your desktop. The 
 
 ## Show captions in VR (subtitle overlay)
 
-Turn on "Subtitle Overlay" in "Quick settings" at the top right of the main screen to show translations and captions in your VR view. It comes from upstream VRCT.
+Turn on "Subtitle overlay" in "Quick settings" at the top right of the main screen to show translations and captions in your VR view. It comes from upstream VRCT.
 
 ![Settings → VR](/screenshots/en/vr.webp)
 
-- Switch between "Single line" and "Multiple Lines".
+- Switch between "Single line" and "Multiple lines".
 - Adjust position and rotation, opacity, size, display time and fade-out time.
 - Under "Tracker", choose whether the captions follow the HMD (your headset), the left hand or the right hand.
-- "Send Sample Texts To Overlay" shows how it looks.
-- "Show Only Translated Messages" hides the original text and shows only the translation.
+- "Send sample text to the subtitle overlay" shows how it looks.
+- "Show only translated messages" hides the original text and shows only the translation.
 
 ## Show captions over the screen (desktop caption overlay)
 
@@ -38,7 +38,7 @@ The background is a drawing for this page. In use, the captions sit above whatev
 - Point at the captions, hold Ctrl and press "+" or "-" to change the text size. At other times Ctrl and "+" or "-" go to your other apps as usual.
 - "Reset the caption position and text size" puts both back. Choosing an edge again in "Where the captions appear" also moves them back to that edge.
 - Until you move them, they appear on the monitor that holds VRCT-VOX's main window.
-- "Show Only Translated Messages" applies to these captions too.
+- "Show only translated messages" applies to these captions too.
 - Next to the captions, you can also show where your inputs went and how long they took. See [Inputs and outputs](io-flow#show-it-on-the-desktop).
 - They do not appear above an app in exclusive full screen (a mode in which the app takes over the whole display). VRChat's full screen is a borderless window, so they do appear there.
 - On Linux they work when you start the AppImage, also on a Wayland desktop, where the app runs through XWayland. Start the tar.gz with `GDK_BACKEND=x11`; without it the app runs on native Wayland and the section is not shown.

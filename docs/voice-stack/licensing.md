@@ -340,6 +340,26 @@ ASTAROTのブランド書体をSpace GroteskからOutfitに変えた。ワード
 | ワードマークに使ったフォント | Google Fontsが配る静的なOutfit Bold（Version 1.100）。SHA-256 `cc3235ab6d698be85a2735d1fd59ba8f73b144cb763c00aaf173b68f0471a9c7`。上流の静的な`Outfit-Bold.ttf`とは輪郭が少し違う |
 | 同梱するとき | フォントファイルに`OFL.txt`を添え、`licenses/outfit/NOTICE.md`にファイル名、版、サイズ、SHA-256を足す。OFLはフォント単体での販売を認めないが、ソフトウェアに同梱して再配布することは認める。同梱するときは、著作権表示とライセンス文を添える |
 
+## 音の出来事の検出モデルの候補（2026-11-17、#386）
+
+字幕に`[拍手]`のような注記を付けるために、音の分類モデルの候補を比べた（#386）。どれもアプリにはまだ入れていない。重みは取得しておらず、ライセンスは提供元のリポジトリとモデルカードで確かめた。依存とライセンスの台帳、NOTICE、カタログは変わらない。
+
+| 候補 | 重みの取得元 | 重みのライセンス | 確かめたこと | 扱い |
+|---|---|---|---|---|
+| CED-Tiny、CED-Mini | [mispeech/ced-tiny](https://huggingface.co/mispeech/ced-tiny/tree/ace276d29dd0bb3f3517b0fa8cf300738c409019) @ `ace276d29dd0bb3f3517b0fa8cf300738c409019`、[mispeech/ced-mini](https://huggingface.co/mispeech/ced-mini/tree/26c3ebcae85d4330f4fc26763f029539a3afcda0) @ `26c3ebcae85d4330f4fc26763f029539a3afcda0` | Apache-2.0（モデルカードの表示） | `model.onnx`はTinyが6,681,767 bytes（SHA-256 `3890f227660be71886ff48633d11a731993e0206db8a486781412c28a0873435`）、Miniが10,890,069 bytes（SHA-256 `2a86374dbe1fa03e96b0acf6a02618ac71852d12aa3d72a030b062ff1e5c5434`）。リポジトリにLICENSEファイルはなく、同じリポジトリの`modeling_ced.py`は「Copyright 2023 Xiaomi Corporation and The HuggingFace Inc. team」のApache-2.0。ログインは要らない（`gated: false`）。学習用のコード（[RicherMans/CED](https://github.com/RicherMans/CED)）はGPL-3.0なので、そこからコードを写さない | **推奨**。Tinyを同梱の第一候補にする。同梱するときは、Apache-2.0の全文と上の著作権表示を`licenses/`に置き、NOTICEにファイル名、revision、サイズ、SHA-256を足す |
+| EfficientAT（`mn10_as`など） | [fschmid56/EfficientAT](https://github.com/fschmid56/EfficientAT)のGitHub Release `v0.0.1` | MIT（リポジトリ） | 重みに別の条件の記載はない。ONNXは公開されておらず、自分で変換する | 予備の候補 |
+| PANNs（CNN14、MobileNetV1） | [Zenodo 3987831](https://zenodo.org/records/3987831) | CC-BY-4.0（重み）。コードはMIT | 帰属表示があれば同梱できる。ONNXは自分で変換する | 精度とサイズで劣るので採らない |
+| YAMNet | `storage.googleapis.com/audioset/yamnet.h5`（[tensorflow/models](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet)） | Apache-2.0（リポジトリ） | 取得元に版の固定がなく、Keras 2でしか読めない。ONNXは自分で変換する | 精度が低いので採らない |
+| BEATs | [microsoft/unilm](https://github.com/microsoft/unilm/tree/master/beats)のREADMEにあるOneDriveのリンク | MIT（リポジトリ）。重みに別の条件の記載はない | OneDriveのリンクは版とハッシュを固定できず、カタログの条件に合わない | 採らない |
+| AST | [MIT/ast-finetuned-audioset-10-10-0.4593](https://huggingface.co/MIT/ast-finetuned-audioset-10-10-0.4593) | BSD-3-Clause | 330 MB。常に動かすには重い | 採らない |
+| d1-omni-600M、d1-Omni-2B | [LiquidAI/d1-omni-600M](https://huggingface.co/LiquidAI/d1-omni-600M/tree/02b55d7076f15129e59ab3f94783f32c4b088674) @ `02b55d7076f15129e59ab3f94783f32c4b088674`、[LiquidAI/d1-Omni-2B](https://huggingface.co/LiquidAI/d1-Omni-2B/tree/51918b53052eacfd24062f99f13556c3c56fcf63) @ `51918b53052eacfd24062f99f13556c3c56fcf63`。公式のGGUF版とONNX版（2Bだけ）もある | LFM Open License v1.0 | 下の「d1の条件」を参照 | 既定にも同梱にもしない。カタログに載せるかは保守担当者が決める |
+
+**d1の条件**：2026-11-17に両リポジトリの`LICENSE`を読んだ。600Mと2Bの文面は空白を除いて同じだった（600M 10,572 bytes、2B 10,574 bytes）。Apache-2.0をもとにした許諾で、再配布の条件はライセンスの写しを渡すこと、変更したファイルに変更の旨を示すこと、`NOTICE`ファイルがあればその表示を残すことである（4節）。5節で、年間売上が1000万米ドル以上の法人による商用の利用は許諾の外になる。この条件は配布する側だけでなく、使う側の一人ひとりに及ぶ。VRCT-VOXが同梱すると、該当する法人の利用者は許諾なしで使うことになる。同じ形の売上の条件を持つdrama-3も、載せるかどうかを保守担当者の判断にした（上の「speech.cppの読み上げモデルの追加」）。OSIのライセンスではないので、既定にはしない。
+
+**AudioSetのラベル**：CED、EfficientAT、PANNs、YAMNet、BEATs、ASTは、どれもAudioSetで学習した527種（YAMNetは521種）の分類を返す。AudioSetのデータはCC BY 4.0、ラベルの体系（ontology）はCC BY-SA 4.0で配られている（[AudioSetのダウンロードの頁](https://research.google.com/audioset/download.html)）。CEDの`config.json`にはラベルの名前が入っている。ラベルの一覧をファイルとして同梱するときは、ontologyの帰属とCC BY-SA 4.0をNOTICEに書く。学習に使われたYouTubeの音声そのものの権利は、どのモデルの提供元も扱っていない。
+
+**実測（2026-11-17）**：取得の承認を受けて、CED-Tiny、CED-Mini、d1-omni-600M（公式のGGUF Q8_0、llama.cpp b12445）をESC-50で比べた。結果は#386のコメントにある。CEDの2つの`model.onnx`は、上の表のサイズとSHA-256に一致した。ESC-50（[karolpiczak/ESC-50](https://github.com/karolpiczak/ESC-50) @ `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`）は全体がCC BY-NC 3.0で、クリップごとに別の条件もある。評価にだけ使い、リポジトリにも配布物にも入れない。測定のあとで、ESC-50とd1のファイルは消した。
+
 ## speech.cppの読み上げモデルの追加（2026-11-16）
 
 speech.cppの読み上げで選べるモデルを増やした。どれも配布物には含めない。利用者が同意画面でライセンスとサイズを確認してから、Hugging Faceの固定revisionからこのPCへ取得する。取得するファイルは、speech.cppがそのモデル名で取得するもの（`speech models --json`の既定の型）と同じで、サイズとSHA-256もそれと一致させた。revision、サイズ、SHA-256は0.10.0と同梱の0.11.0で変わらない。
@@ -360,6 +380,53 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 **drama-3を対象外にした理由**：Fish Audio Community License 1.0（2026-10-13版）を2026-11-16に読んだ。研究と非商用の利用は無料だが、商用の利用は年間売上が50万米ドル未満の間だけ認められる。さらに、音声合成を第三者に使わせる場合は、規約と同等以上の制限を拘束力のある条件で相手に課す義務があり、製品や説明に「Built with Fish Audio」を目立つように示す義務もある。ASTAROTが取得を案内すると、この義務を誰が負うのかを判断する必要がある。その判断は独断でしない。既定の型でも20.79 GB、上流の測定でGPUメモリを約21 GiB使い、VRChatと並べて動かす前提にも合わない。条件を確認したうえで載せるかどうかは、保守担当者が決める。
 
 同意画面で、Hugging Face上のライセンスファイルへのリンクをファイル名で示すようにした。1つのモデルに複数の条件があっても、どれがどの文書か区別できる。
+
+## RVCの声のモデルの候補（2026-11-17、#383）
+
+カタログに足すRVCの声のモデルの候補を調べた。調べただけで、カタログ（`catalog.py`、`native/ops/src/downloads/catalog.rs`）は変えていない。確認した点は次の3つ。
+
+- ライセンス：無料で使えるか。非商用などの制限があるか。
+- 配り方：利用者の同意を得て提供元から取得する形と合うか。今のカタログはHugging Faceの固定revisionから1ファイルずつ取得し、ZIPは展開しない（`native/ops/src/downloads/transport.rs`の`HOSTS`）。
+- 声の権利：誰の声を学習したか。その人の許諾があるか。人物やキャラクターの声を無許諾で学習したモデルは対象外にする。
+
+Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026-11-17に読んだもの。作者のサーバーのZIPの大きさはHEADの応答の`Content-Length`。どちらもファイルは取得していない。
+
+### カタログの形に合い、判断を待つもの
+
+| モデル | 取得元とrevision | ファイル | ライセンス | 声の出どころ | 扱い |
+|---|---|---|---|---|---|
+| Saisho Utane · RVC v2（既存の`rvc-saisho`） | [Saisho-Utane/Saisho-Model-RVC](https://huggingface.co/Saisho-Utane/Saisho-Model-RVC/tree/7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a) @ `7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a` | 変わらない（[モデル取得](model-downloads.md#固定カタログ)） | CC BY 4.0 | 作者本人の声と自前のデータセット（作者のカード） | 載せたまま。2026-11-17もリポジトリの最新revisionはこの値 |
+| 愛想良い系少女の声 5種風味パック（ちはや神社、製作：鶴乃） | [aa444rt/RVC_V2_models_5_japanese_womens](https://huggingface.co/aa444rt/RVC_V2_models_5_japanese_womens/tree/944f947d44a77b7f67509cd4f8f30333a1009548) @ `944f947d44a77b7f67509cd4f8f30333a1009548`。第三者による転載 | `V2-AISO-HOWATTO.pth` 55,074,309 bytes `8fc32652b8ec472615af3f6661a50a195dd54990e0f517bd0dbd66db59813146`、`V2-AISO-KAKKOII.pth` 55,074,309 bytes `ae33b60655a59ecb37135892ed4a95ba326b412d6589dea251fced95e18aef31`、`V2-AISO-SARASARA.pth` 55,074,757 bytes `ff8c3058dc6ef17f46bd178190cd38fdf46fc06f1d47c12fae55a0cc54398a4e`、`V2-AISO-SITTORI.pth` 55,074,309 bytes `7696d020ced92d9d5502ca40943ee7d35120988a92b70909fa099fc4e24a8477`、`V2-AISO-SYAKITTO.pth` 55,074,757 bytes `569257d45848dada4ba604dfb9a60496d3043eb112e82c81d71eb37be942be50`。共用の`.index`はダミー（2,556,043 bytes、検索の割合を0にする前提） | MIT（モデル、index、アイコン、サンプル音声） | 同梱の`説明書.txt`に、10人の女性の会話の録音をマージした実在しない人物の声で、全員が「AI化、NSFW、R18Gを含めた著作権関係の放棄」をしたとある | 判断待ち（下の1） |
+| Nepali RVC Voices v1（4声） | [ampixa/nepali-rvc-voices-v1](https://huggingface.co/ampixa/nepali-rvc-voices-v1/tree/f9b58227fcb9e85b2435b514947d8c672e40dee1) @ `f9b58227fcb9e85b2435b514947d8c672e40dee1` | `voices/ne_rvc_{f01,f02,m01,m02}/*_v1.pth` 各57,584,861 bytes と`.index` 200,923,939〜274,905,539 bytes。SHA-256はリポジトリの`voices.json`と一致 | CC BY 4.0（モデル）。学習データの[IndicVoices-R](https://huggingface.co/datasets/ai4bharat/indicvoices_r)もCC BY 4.0 | IndicVoices-Rの匿名の話者。[論文](https://proceedings.neurips.cc/paper_files/paper/2024/file/7dfcaf4512bbf2a807a783b90afb6c09-Paper-Datasets_and_Benchmarks_Track.pdf)は元のIndicVoicesで話者から明示の同意を得たと書く。カードは実在の人物として示すことや、聞き手をだますことを禁じる | 判断待ち（下の2） |
+
+### 配り方が今のカタログに合わないもの
+
+| モデル | 取得元 | ライセンスと配り方の条件 | 声の出どころ | 扱い |
+|---|---|---|---|---|
+| [つくよみちゃん公式RVCモデル](https://tyc.rei-yumesaki.net/work/software/rvc/) 1.0.0 | 作者のサーバーのZIP（`tyc-rvc.zip`、255,700,053 bytes。HEADで確認） | [独自の規約](https://tyc.rei-yumesaki.net/work/software/rvc/terms/)。個人・法人、営利・非営利を問わず無料。クレジットが要る。単品・無改変の再配布は原則禁止。自作のソフトへの同梱は、配布ページへのリンク、規約の同梱、無料のおまけとして扱うこと、使う前に説明とクレジットを示すことを条件に認める。政治・宗教の活動や実在の人物への攻撃などには使えない | 作者の夢前黎さんが自分の声だけを学習させた（規約のページ） | 取得元がHugging Faceでなく、ZIPなので、今の仕組みでは取得できない（下の3）。用途の制限があるので既定にはしない |
+| [あみたろの声素材工房のRVCモデル](https://amitaro.net/synth/rvc/)（はきはき、るんるん、よふかし、ささやき） | 作者のサーバーのZIP（はきはきは421,620,163 bytes。HEADで確認） | 商用も含めて無料、クレジットが要る。転売・再配布と、第三者のサービスへの登録を禁じる。自作のソフトへの組み込みは事前に相談するよう求める。性的な表現などに使えない | あみたろさん本人が自分のコーパスの読み上げで学習した | 権利者への相談がないので入れない（下の4） |
+| [RVC_v2_Rio](https://huggingface.co/Alpha-Humana/RVC_v2_Rio/tree/ffcb30eb5994e5d8162abb59887d94ff08dc8b60) 1.1 | Hugging FaceのZIP（`RVC_v2_Rio_1.1.zip`、85,711,967 bytes、`57a904d565ee3520a81f872f4d7e59d6916fb9f6b4fdedc907e65dad370f577f`） | CC BY 4.0 | カードに「my own voice」とあるだけ（男性、20代半ば） | ZIPなので今の仕組みでは取得できない（下の3）。カードが短く、声の出どころは作者の一文だけ |
+| [黄琴まひろ RVC学習済モデル](https://booth.pm/ja/items/5014978) 4.0.0 | BOOTHのZIP（取得にログインが要る） | [れぷりかどーるの個別利用規約](https://replicadoll.studio.site/terms-of-service/rvc)。ページがスクリプトで描画され、本文を読めなかった。検索の抜粋では商用利用とソフトウェアに組み込んでの再配布を認める | キャラクターの声の担当は作者。学習データの内訳と提供者の許諾は確かめられなかった | 保留。規約の本文と学習データを確かめるまで入れない |
+| [VCTK話者のモデル](https://huggingface.co/Nekochu/RVC-VCTK_Voice-sample)（Nekochu） | Hugging Faceの単体の`.pth`と`.index`。形は合う | カードはApache-2.0。学習データの[VCTK 0.92](https://datashare.ed.ac.uk/handle/10283/3443)はCC BY 4.0だが、カードにVCTKへの帰属の表示がない | VCTKの話者。コーパスは声の複製の研究用に作られたが、話者の同意の範囲を示す一次資料は見つからなかった | 保留（下の5） |
+
+### 対象外にしたもの
+
+| モデル | 理由 |
+|---|---|
+| VCClientのサンプル（[wok000/vcclient_model](https://huggingface.co/wok000/vcclient_model)のつくよみちゃん、あみたろ、黄琴まひろ、黄琴海月、刻鳴時雨） | どの`terms_of_use.txt`も「本モデルは、VCClient上でのみ使用可能です。」とする |
+| [RinneVoiceSet](https://huggingface.co/RinneAi/RinneVoiceSet) | 音声モデルの二次配布を禁じる。声の主と同意について書いていない。ZIPだけ |
+| [刻鳴時雨のRVCモデル](https://huggingface.co/yasyune/Shigure_Tokina_RVC)（yasyune） | モデルのライセンスがない。作ったのは権利者でない第三者。コーパスの追記が配布を認めるのは、声の高さを変えて学習したモデルと、マージしたモデルだけ |
+| [RVCgirls/RVC-japanese](https://huggingface.co/RVCgirls/RVC-japanese) | 中身は実行環境のパッケージ（4〜18 GBのZIP）で、声のモデルではない |
+| [kuwacom/RVC-Models](https://huggingface.co/kuwacom/RVC-Models) | カードが私用に限るとする |
+| Hugging Faceの検索でライセンスの表示がCC0、CC BY、MIT、Apache-2.0の残り（2026-11-17に460件） | ほとんどがアニメやゲームのキャラクター、歌手、配信者などの名前で、本人や権利者の許諾を示していない。ライセンスの表示は、学習した声の権利を示さない |
+
+### 判断が要ること
+
+1. AISOの5種を載せるか。ライセンスと声の提供者の権利放棄は同梱の`説明書.txt`にある。ただし元の[BOOTHのページ](https://chihaya369.booth.pm/items/4701666)は2026-11-17に非公開で、Hugging Faceの転載が元の配布物と同じかを確かめられない。権利放棄は配布者の記載だけである。F0を使わない40 kHzのv2モデルで、`native/rvc-runtime`は乱数の重みでしか試していない形なので、載せるなら実物で聞いて確かめる。
+2. Nepali RVC Voices v1を載せるか。ライセンスと同意の記録はそろっている。ただし同意は元のIndicVoices（音声認識のデータ）で取ったもので、声の複製を明示した同意かは論文から読み取れない。80エポックの試作と作者が書いていて、日本語の入力での品質は未確認。載せるなら、ampixaとIndicVoices-Rへの帰属を同意画面と[NOTICE](../../NOTICE.md)に書く。
+3. ZIPと作者のサーバーからの取得を足すか。つくよみちゃんとRioはこれがないと載せられない。足すなら、取得先の追加、ZIPの固定の大きさとSHA-256、展開するファイルの一覧と検査を、`transport.rs`とカタログの両方で設計する。つくよみちゃんは、規約が求める説明とクレジットを使う前に示す必要もある。
+4. 権利者に相談するか（あみたろなど）。権利者への連絡は、指示があるまで行わない。
+5. VCTKの話者のモデルをどう扱うか。話者の同意の範囲を示す資料が見つかるまで保留する。
 
 ## 話者分離モデル（2026-11-13）
 

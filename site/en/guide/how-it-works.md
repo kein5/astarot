@@ -58,7 +58,7 @@ The switches on the main screen join or cut the lines of the picture.
 | Text to speech (TTS) | Text → text to speech → the output (a virtual microphone, for example) |
 | Voice changer (RVC) | Your voice → voice changer → virtual microphone |
 
-Whether text goes to the chatbox is set by "Send Message To VRChat" under Settings → "VRChat".
+Whether text goes to the chatbox is set by "Send message to VRChat" under Settings → "VRChat".
 
 ## Check where things go with your settings
 

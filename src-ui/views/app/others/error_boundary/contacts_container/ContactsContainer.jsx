@@ -11,7 +11,7 @@ export const ContactsContainer = () => {
 import dev_github_icon from "@images/about_vrct/dev_github_icon.png";
 
 const contacts_links = {
-    github_issues: { img: dev_github_icon, href: "https://github.com/kein5/VRCT-VOX/issues" },
+    github_issues: { img: dev_github_icon, href: "https://github.com/kein5/astarot/issues" },
 };
 
 const OpenLinkContainer = ({className, href_id, text}) => {

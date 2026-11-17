@@ -59,6 +59,8 @@ FLOW_LATEST = "ありがとうございます。お願いします！"
 SAVE_TO = "~/.config/vrct-vox/downloaded_models"
 # The log stamps each row with the time it arrived; a fixed clock keeps the pictures the same between runs.
 CLOCK = datetime(2026, 1, 10, 21, 30)
+# The longest wait for animations before a picture is taken (save()).
+ANIMATION_WAIT_MS = 3000
 # studio-entry sets "your language" to Japanese and the target to English in both display languages.
 CONVERSATION = [
     ("/run/transcription_send_mic_message", "こんばんは！このワールドは初めて来ました。", "Good evening! This is my first time in this world."),
@@ -93,10 +95,16 @@ def push(peer, endpoint, result):
 
 def save(page, path, replace=()):
     """Write the picture. `replace` lists (shown text, text for the picture) pairs beyond the version."""
+    # Let finite animations settle, but never wait past ANIMATION_WAIT_MS: an animation that
+    # is paused, or restarted before it ends (the ASR settings page has one), never finishes.
     page.evaluate(
-        "async () => { await Promise.all(document.getAnimations()"
-        ".filter(a => a.effect.getTiming().iterations !== Infinity)"
-        ".map(a => a.finished.catch(() => {}))); }"
+        """ms => Promise.race([
+            Promise.all(document.getAnimations()
+                .filter(a => a.effect?.getTiming().iterations !== Infinity)
+                .map(a => a.finished.catch(() => {}))),
+            new Promise(resolve => setTimeout(resolve, ms)),
+        ])""",
+        ANIMATION_WAIT_MS,
     )
     page.evaluate(
         """pairs => {

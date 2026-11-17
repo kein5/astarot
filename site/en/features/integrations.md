@@ -18,7 +18,7 @@ You can change the maximum number of messages, display time, fade-out time, font
 
 ## Receive them in your own tools (WebSocket)
 
-"Enable WebSocket Server" sends translations and captions over WebSocket, for your own tools and similar apps. With the default host and port, the URL has the form `ws://127.0.0.1:2231/?token=<key>`; copy it with "WebSocket URL (click to copy)". It uses the same key as the OBS URL.
+"Enable WebSocket server" sends translations and captions over WebSocket, for your own tools and similar apps. With the default host and port, the URL has the form `ws://127.0.0.1:2231/?token=<key>`; copy it with "WebSocket URL (click to copy)". It uses the same key as the OBS URL.
 
 While the OBS browser source is on, the WebSocket settings cannot be changed. Turn the OBS browser source off first.
 
@@ -29,7 +29,7 @@ From OBS or tools on other PCs, the connection is encrypted. For that you need a
 ![The WebSocket rows under Advanced](/screenshots/en/websocket.webp)
 
 1. Enter the paths under "Certificate file" and "Private key file" and save. A pair that does not work is not saved, and the reason is shown.
-2. Enter this PC's LAN IP address (for example `192.168.1.10`) under "WebSocket Host (IPv4)" and save.
+2. Enter the LAN IP address of the PC that runs the app (for example `192.168.1.10`) under "WebSocket host (IPv4)" and save.
 3. Copy the WebSocket and OBS URLs again. They now start with `wss://` and `https://`.
 
 The PCs and OBS that connect must trust the certificate. If you made the certificate yourself, add its issuer's certificate on the PCs that connect. A private key with a passphrase cannot be used.
