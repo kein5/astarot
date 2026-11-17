@@ -1,3 +1,14 @@
+---
+date: 2026-11-17
+status: accepted
+era: rust-core
+validity: current
+implementation_status: not_applicable
+implementation_note: 開発の原則と採用の規則を決めるもので、既存のコードは変えない（原文の Status）。原則は AGENTS.md の「音声 AI のランタイム」に写してある。
+evidence:
+  - docs/adr/adr-012-audio-ai-runtime-consolidation.md
+  - AGENTS.md
+---
 # ADR-012: Audio AI Runtime Consolidation
 
 Status: 採用（2026-11-17）。開発の原則、機能ごとの責務の分担、新しいモデルとランタイムの採用規則を定める。既存のコードは変えない。

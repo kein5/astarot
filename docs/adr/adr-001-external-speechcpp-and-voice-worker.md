@@ -1,6 +1,21 @@
+---
+date: 2026-10-27
+status: accepted
+era: python-sidecar
+validity: implementation_changed
+validity_note: 外部の speech.cpp に推論を任せ、アプリに推論のライブラリと重みを足さない原則は、ADR-012 が音声 AI 全体に広げて引き継いだ。HTTP のストリームを Python の標準ライブラリで扱う実装は、0.5.0 から Rust の native/tts に替わった。
+implementation_status: implemented
+implementation_checked: 2026-11-18
+implementation_note: native/tts の client.rs が audio/pcm と X-Sample-Rate を確かめ、受け取った PCM をサンプルの境界で渡す。リダイレクトは追わない。
+evidence:
+  - docs/adr/adr-012-audio-ai-runtime-consolidation.md
+  - docs/voice-stack/core-integration.md
+  - native/tts/README.md
+  - native/tts/src/client.rs
+---
 # ADR 001: 外部speech.cppと独立した音声worker
 
-> **移行の注記**（2026-11-18、Issue #587）：この文書は、旧 `docs/voice-stack/decisions.md` の「ADR 001」の節を、1件ずつのファイルに分けたものである。原文は 2026-10-27 に書かれ（コミット `ad977081`）、分けるまで変わっていない。本文は原文のままで、足したのはこの注記だけである。
+> **移行の注記**（2026-11-18、Issue #587）：この文書は、旧 `docs/voice-stack/decisions.md` の「ADR 001」の節を、1件ずつのファイルに分けたものである。原文は 2026-10-27 に書かれ（コミット `ad977081`）、分けるまで変わっていない。本文は原文のままで、分けるときに足したのはこの注記だけである。冒頭の front matter は、その後に足した機械可読の項目である。
 
 Status: accepted for P1, 2026-10-27.
 

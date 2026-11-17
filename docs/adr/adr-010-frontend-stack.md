@@ -1,3 +1,15 @@
+---
+date: 2026-11-15
+status: accepted
+era: python-sidecar
+validity: current
+implementation_status: partial
+implementation_checked: 2026-11-18
+implementation_note: TypeScript と vanilla-extract への移行は段階的に進めていて、src-ui には JavaScript と SCSS Modules のファイルがまだ混在する。Radix UI は @radix-ui/react-visually-hidden から使い始めている。
+evidence:
+  - docs/typescript-migration.md
+  - package.json
+---
 # ADR-010: フロントエンドのスタック（React と Vite を維持し、TypeScript と vanilla-extract を採用する）
 
 Status: 採用（2026-11-15）。移行は 0.5.0 に向けて段階実施。

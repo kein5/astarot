@@ -1,3 +1,16 @@
+---
+date: 2026-11-18
+status: accepted
+era: rust-core
+validity: current
+implementation_status: implemented
+implementation_checked: 2026-11-18
+implementation_note: 中核の SystemStore で実装した（本文 10.5、#575）。KWallet、ロックされた鍵束、Secret Service のない Linux、AppImage での実機の確認と、0.5.x へ戻すときの注意をリリースノートに書くことが残っている（本文 10.6）。
+evidence:
+  - docs/adr/adr-013-secret-store.md
+  - native/core/src/config/secrets/system.rs
+  - native/core/tests/secret_store.rs
+---
 # ADR-013: API キーを OS の資格情報ストアに保管する
 
 Status: 採用（2026-11-18）。保管先を OS の資格情報ストアへ移すことを決める。実施は Issue #575 で、9 の判断と実施の内容は 10 に書き足した。

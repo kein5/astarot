@@ -3,26 +3,101 @@
 ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリだけにある。このページがその索引である。新しい ADR もここに置く。
 
 - 番号は通し番号である。一度使った番号は使い直さず、ファイル名（`adr-NNN-<英語の短い名前>.md`）も後から変えない。
-- 採用の状態は、各 ADR の Status 欄を正とする。
-- ADR の本文は、書いた時点の判断と前提の記録である。後から状況が変わっても本文は書き換えず、注記や後続の ADR で示す。
+- いまの状態は、各 ADR の冒頭の front matter が正である。本文の Status 欄は、書いた時点の記録として残す。
+- ADR の本文は、書いた時点の判断と前提の記録である。後から状況が変わっても本文は書き換えず、front matter、注記、後続の ADR で示す。
 
 ## 一覧
 
-| ADR | 題名 | 日付 |
+<!-- adr-index:start -->
+<!-- 自動生成。手で編集しない。`python tools/adr_catalog.py --write`で更新する。 -->
+
+| ADR | 題名 | 日付 | 状態 | 実装 | 有効性 | 時代 |
+|---|---|---|---|---|---|---|
+| [001](adr-001-external-speechcpp-and-voice-worker.md) | 外部speech.cppと独立した音声worker | 2026-10-27 | 採用 | 実装済み | 実装の方式が変わった | Python のサイドカー |
+| [002](adr-002-output-and-lifetime.md) | 出力と寿命 | 2026-10-27 | 採用 | 実装済み | 実装の方式が変わった | Python のサイドカー |
+| [003](adr-003-voice-conversion-selection-deferred.md) | VCは選定保留 | 2026-10-27 | 採用 | 対象外 | 置き換えられた（[ADR-012](adr-012-audio-ai-runtime-consolidation.md)） | Python のサイドカー |
+| [004](adr-004-audio-integration-boundaries.md) | 外部推論と音声経路の境界を条件付きで選ぶ | 2026-10-27 | 提案 | 未確認 | 未確認 | Python のサイドカー |
+| [005](adr-005-managed-microphone-lifetime.md) | 仮想マイクの寿命と保持ミュート | 2026-10-27 | 採用 | 実装済み | 実装の方式が変わった | Python のサイドカー |
+| [006](adr-006-external-source-health.md) | 外部入力の接続確認とVC変換状態を分ける | 2026-10-28 | 採用 | 実装済み | 実装の方式が変わった | Python のサイドカー |
+| [007](adr-007-translated-speech-through-voice-conversion.md) | 訳文の読み上げを声の変換に通す | 2026-11-14 | 採用 | 一部 | 実装の方式が変わった | Python のサイドカー |
+| [008](adr-008-external-speech-engines.md) | 外部の合成音声エンジン（VOICEVOX系、COEIROINK）を読み上げに使う | 2026-11-15 | 採用 | 実装済み | 実装の方式が変わった | Python のサイドカー |
+| [009](adr-009-virtual-microphone-and-store.md) | Windows の仮想マイクは外部のドライバに頼り、Microsoft Store では依存を開示する | 2026-11-15 | 採用 | 一部 | 有効 | Python のサイドカー |
+| [010](adr-010-frontend-stack.md) | フロントエンドのスタック（React と Vite を維持し、TypeScript と vanilla-extract を採用する） | 2026-11-15 | 採用 | 一部 | 有効 | Python のサイドカー |
+| [011](adr-011-astarot-brand-and-multimodal-accessibility.md) | ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針 | 2026-11-16 | 採用 | 一部 | 有効 | Python のサイドカー |
+| [012](adr-012-audio-ai-runtime-consolidation.md) | Audio AI Runtime Consolidation | 2026-11-17 | 採用 | 対象外 | 有効 | Rust の中核 |
+| [013](adr-013-secret-store.md) | API キーを OS の資格情報ストアに保管する | 2026-11-18 | 採用 | 実装済み | 有効 | Rust の中核 |
+
+<!-- adr-index:end -->
+
+各列の意味は[項目と値](#項目と値)にある。古い ADR を読むときは、先に「時代」と「有効性」を見る。
+
+## 新しい ADR の書き方
+
+1. [TEMPLATE.md](TEMPLATE.md) を写して、一覧の最後の次の番号で `adr-NNN-<英語の短い名前>.md` を作る。
+2. front matter を埋める。確かめていない値は `unknown` にし、推測で埋めない。
+3. `python tools/adr_catalog.py --write`（`mise run adr`）で一覧の表を作り直す。`python tools/dev.py check` の `tooling` が `--check` を実行し、番号の重複、項目と値、`evidence` のパス、リンク、一覧の古さを確かめる。
+4. 判断の内容を変える変更と、ファイルの移動やメタデータだけの変更は、別のプルリクエストに分ける。
+
+ADR を後から更新するときも本文は書き換えない。実装が進んだら `implementation_status`、`implementation_checked`、`evidence` を直し、判断が変わるなら新しい ADR を書いて、古い ADR の `validity` と `superseded_by` を直す。
+
+## 項目と値
+
+front matter は YAML の一部だけを使う。`キー: 値` の行と、`  - 項目` の行が続くリストである。値に `: ` や ` #` が入るとき、または記号で始まるときは、値を二重引用符で囲む。コメントと空行は書かない。
+
+| 項目 | 必要なとき | 中身 |
 |---|---|---|
-| [001](adr-001-external-speechcpp-and-voice-worker.md) | 外部speech.cppと独立した音声worker | 2026-10-27 |
-| [002](adr-002-output-and-lifetime.md) | 出力と寿命 | 2026-10-27 |
-| [003](adr-003-voice-conversion-selection-deferred.md) | VCは選定保留 | 2026-10-27 |
-| [004](adr-004-audio-integration-boundaries.md) | 外部推論と音声経路の境界を条件付きで選ぶ | 2026-10-27 |
-| [005](adr-005-managed-microphone-lifetime.md) | 仮想マイクの寿命と保持ミュート | 2026-10-27 |
-| [006](adr-006-external-source-health.md) | 外部入力の接続確認とVC変換状態を分ける | 2026-10-28 |
-| [007](adr-007-translated-speech-through-voice-conversion.md) | 訳文の読み上げを声の変換に通す | 2026-11-14 |
-| [008](adr-008-external-speech-engines.md) | 外部の合成音声エンジン（VOICEVOX系、COEIROINK）を読み上げに使う | 2026-11-15 |
-| [009](adr-009-virtual-microphone-and-store.md) | Windows の仮想マイクは外部のドライバに頼り、Microsoft Store では依存を開示する | 2026-11-15 |
-| [010](adr-010-frontend-stack.md) | フロントエンドのスタック（React と Vite を維持し、TypeScript と vanilla-extract を採用する） | 2026-11-15 |
-| [011](adr-011-astarot-brand-and-multimodal-accessibility.md) | ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針 | 2026-11-16 |
-| [012](adr-012-audio-ai-runtime-consolidation.md) | Audio AI Runtime Consolidation | 2026-11-17 |
-| [013](adr-013-secret-store.md) | API キーを OS の資格情報ストアに保管する | 2026-11-18 |
+| `date` | 必須 | 判断を書いた日（`YYYY-MM-DD`）。原文の Date 欄か Status 欄の日付 |
+| `status` | 必須 | 判断の状態 |
+| `era` | 必須 | 書いた時点の前提（時代背景） |
+| `validity` | 必須 | 判断がいまも有効か |
+| `validity_note` | `validity` が `implementation_changed` か `replaced` のとき | 何が変わったか、何が引き継いだか |
+| `superseded_by` | `status` が `superseded` か、`validity` が `replaced` のとき | 置き換えた ADR（`ADR-NNN`） |
+| `implementation_status` | 必須 | 実装を確かめた結果 |
+| `implementation_checked` | `implementation_status` が `pending`、`partial`、`implemented` のとき | 実装を確かめた日 |
+| `implementation_note` | `implementation_status` が `partial` のとき | 残っていること、確かめていないこと |
+| `evidence` | `validity` と `implementation_status` の両方が `unknown` のときだけ省ける | 値の裏付けにしたファイル。リポジトリの中のパスで書く |
+
+### status（判断の状態）
+
+| 値 | 一覧での表示 | 意味 |
+|---|---|---|
+| `proposed` | 提案 | 提案したが、採用を決めていない |
+| `accepted` | 採用 | 採用した |
+| `rejected` | 不採用 | 検討して採らなかった |
+| `superseded` | 置き換え済み | 後続の ADR で置き換えると決めた。`validity` を `replaced` にし、`superseded_by` を書く |
+| `deprecated` | 廃止 | 置き換えずにやめた |
+
+`status` を `superseded` や `deprecated` に変えるのは、保守担当者がそう決めたときだけである。後続の ADR が判断を実際に引き継いだだけのときは、`status` は変えずに `validity` を `replaced` にする（ADR 003 がこれに当たる）。
+
+### implementation_status（実装の確認状況）
+
+| 値 | 一覧での表示 | 意味 |
+|---|---|---|
+| `pending` | 未着手 | 実装が始まっていない |
+| `partial` | 一部 | 決定の一部だけが実装されている。または一部の OS や経路でだけ動く |
+| `implemented` | 実装済み | 決定の範囲が実装されている。実機での受け入れがすべて済んだことは意味しない |
+| `not_applicable` | 対象外 | 判断そのものがコードの変更を求めない（開発の原則、選定の保留など） |
+| `unknown` | 未確認 | 確かめていない |
+
+`status` と `implementation_status` は別々に決める。`accepted` であることだけを根拠に `implemented` にしない。実装を確かめたら、`implementation_checked` をその日にし、確かめたファイルを `evidence` に足す。残る確認は `implementation_note` に書く。
+
+### validity（判断の現在の有効性）
+
+| 値 | 一覧での表示 | 意味 |
+|---|---|---|
+| `current` | 有効 | 判断の原則も、本文に書いた実装の方式も、いまも当てはまる |
+| `implementation_changed` | 実装の方式が変わった | 判断の原則はいまも有効だが、本文に書いた実装の方式（言語、プロセスの構成、使う API など）が変わった |
+| `replaced` | 置き換えられた | 後続の ADR が判断を置き換えた。いまの判断は `superseded_by` の ADR を読む |
+| `unknown` | 未確認 | 確かめていない |
+
+### era（時代背景）
+
+| 値 | 一覧での表示 | 意味 |
+|---|---|---|
+| `python-sidecar` | Python のサイドカー | 書いた時点のバックエンドは Python のサイドカーだった。0.4.x までの構成で、Rust の中核を唯一のバックエンドにした変更（2026-11-16、`8f186f6c`）より前に書いた |
+| `rust-core` | Rust の中核 | 書いた時点で、Rust の中核（`native/core`）が唯一のバックエンドだった（0.5.0 からの構成） |
+
+`python-sidecar` の ADR は、実装を Python のモジュール名や `src-python/` のパスで書いていることがある。いまの実装は、`native/` の各クレートの README にある Python との対応表で引ける。新しい時代の値が要るときは、この表と `tools/adr_catalog.py` の `ERA` に同時に足す。
 
 ## 各 ADR の要約
 
@@ -74,4 +149,4 @@ ADR は 2026-11-18 まで `docs/voice-stack/` にあった。対象が音声の�
 | `docs/voice-stack/adr-012-audio-ai-runtime-consolidation.md` | [`adr-012-audio-ai-runtime-consolidation.md`](adr-012-audio-ai-runtime-consolidation.md) |
 | `docs/voice-stack/adr-013-secret-store.md` | [`adr-013-secret-store.md`](adr-013-secret-store.md) |
 
-ADR 001〜003 の本文は原文のままで、足したのは移行と状態の注記だけである。ADR 004〜013 は `git mv` で移し、変えたのは、ディレクトリが変わって切れるリンクの行き先だけである。
+ADR 001〜003 の本文は原文のままで、分けるときに足したのは移行と状態の注記だけである。ADR 004〜013 は `git mv` で移し、移すときに変えたのは、ディレクトリが変わって切れるリンクの行き先だけである。その後、すべての ADR の冒頭に front matter を足した。
