@@ -119,6 +119,7 @@ impl Backend {
             (true, true) => Log::continuing(&logs),
         });
         log.step("Start Initialization", None);
+        log.step(&crate::shipped_libraries::use_shipped(&options.env.app_dir), None);
         let store = (options.services.secret_store)(&options.env);
         let config = Config::open_with(options.env.clone(), store);
         let output = Arc::new(LineOutput { sink: sink.clone(), log: Arc::clone(&log) });

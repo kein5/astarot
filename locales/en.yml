@@ -350,7 +350,14 @@ main_page:
     quick_settings_on: "{{count}} on"
     quick_settings_all_off: "All off"
 
-    # Under a main switch that cannot be turned on yet: why, and where to provide it.
+    # The icon button beside each main switch: its name and tooltip.
+    # A switch whose setup is missing sends the icon to the place that provides it.
+    feature_settings:
+        open_page: "Open {{page}} settings"
+        translator: "Choose a translator"
+        translation_model: "Review the translation model download"
+
+    # A main switch that cannot be turned on yet: why, and where to provide it.
     # Shown as the switch's tooltip and read as its description.
     switch_blocked:
         translation_model: "The translation model is not downloaded yet. Download it in Settings → Translation, or pick another engine under Translator."
@@ -363,8 +370,6 @@ main_page:
         rvc_model: "No conversion model and runtime are saved. Set them in Settings → Voice changer (RVC) → Models and runtime, then save."
         rvc_output_device: "No output is chosen for the converted voice. Choose an Output device in Settings → Text to speech (TTS), then save."
         rvc_route: "The audio route is not the managed virtual microphone. Choose it in Settings → Device → Audio route, then save."
-        open_settings: "Open settings"
-        prepare_label: "{{feature}}: {{action}}"
 
     language_settings: "Language settings"
     language_pair: "{{from}} → {{to}}"

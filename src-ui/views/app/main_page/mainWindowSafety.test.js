@@ -228,7 +228,7 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
     }
 });
 
-test("a switch whose setup is missing is disabled, says why, and offers the way to it beside the switch", async () => {
+test("a switch whose setup is missing is disabled, says why, and its icon leads to the setup", async () => {
     const b = await loadBridgeStore(), sent = [], prepared = [];
     b.stores.store.backend_subprocess = {};
     b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
@@ -255,14 +255,14 @@ test("a switch whose setup is missing is disabled, says why, and offers the way 
         control.props.onKeyDown({ key: "Enter", preventDefault() {} });
         assert.equal(s.requests.length + sent.length, before);
     }
-    // The way to the setup is its own button right after the switch; waiting needs none.
-    const button = id => rows[at(id) + 1]?.type === "button" ? rows[at(id) + 1] : null;
-    assert.equal(button("transcription_send"), null);
-    button("translation").props.onClick();
-    button("ocr").props.onClick();
-    assert.deepEqual(prepared, ["translation", "ocr_models"]);
-    assert.equal(button("translation").props.children, "model_downloads.review");
-    assert.equal(button("tts").props.children, "main_page.switch_blocked.open_settings");
+    // No button is added under a switch: one row per feature, whatever is missing.
+    assert.equal(rows.length, 6);
+    // The way to the setup is the icon beside the switch; waiting sends it to the usual page.
+    const iconButton = id => find(s.SwitchRow(rows[at(id)].props), node => node.type === "button");
+    for (const id of ["translation", "ocr", "tts", "transcription_send"]) iconButton(id).props.onClick();
+    assert.deepEqual(prepared, ["translation", "ocr_models", "tts", "transcription"]);
+    assert.equal(iconButton("translation").props["aria-label"], "main_page.feature_settings.translation_model");
+    assert.equal(iconButton("tts").props["aria-label"], "main_page.feature_settings.open_page");
     // Switches without a block keep working.
     const free = rows[at("transcription_receive")].props;
     assert.equal(free.blockedReason, null);
@@ -279,7 +279,7 @@ test("a switch that is on stays usable when its setup goes missing, so it can be
     const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
     const index = rows.findIndex(node => node.props.switch_id === "ocr");
     assert.equal(rows[index].props.blockedReason, null);
-    assert.notEqual(rows[index + 1]?.type, "button");
+    assert.equal(rows.length, 6);
     const before = s.requests.length;
     s.SwitchContainer(rows[index].props).props.onClick();
     assert.deepEqual(s.requests.slice(before), ["/set/disable/ocr_capture"]);
@@ -292,9 +292,50 @@ test("in the icon rail a blocked switch names itself in its tooltip and has no b
     const s = await loadSwitches(b, { status: {}, directState: {} },
         { compact: true, blocks: { ocr: { reason: "ocr_models", action: "ocr" } } });
     const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
-    assert.equal(rows.some(node => node.type === "button"), false);
     const props = rows.find(node => node.props.switch_id === "ocr").props;
+    // The rail has room for one target per feature: the icon stays part of the switch.
+    const row = s.SwitchRow(props);
+    assert.equal(row.type, s.SwitchContainer);
+    assert.equal(find(s.SwitchContainer(row.props), node => node.type === "button"), null);
     assert.equal(s.SwitchContainer(props).props.title, "main_page.ocr: main_page.switch_blocked.ocr_models");
+});
+
+test("each feature's icon is a named button to its settings, the same while starting and once ready", async () => {
+    const b = await loadBridgeStore(), prepared = [];
+    b.stores.store.backend_subprocess = {};
+    const voice = { status: { tts_generation: 1 }, directState: { observation_id: "one" }, send() {} };
+    const name = type => typeof type === "function" ? type.name : type;
+    const shape = rows => rows.map(node => {
+        const row = node.type(node.props);
+        return [name(row.type), row.props.children.map(child => name(child.type))];
+    });
+    const starting = await loadSwitches(b, voice, { compact: false, prepared, blocks: {} }, true);
+    const before = shape(b.runtime.render(starting.MainFunctionSwitch).props.children);
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const s = await loadSwitches(b, voice, { compact: false, prepared,
+        blocks: { translation: { reason: "translation_unavailable", action: "translator" }, tts: { reason: "tts_source", action: "tts" } } });
+    const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
+    // A block found after the start adds nothing to the rail: the rows keep their parts.
+    assert.deepEqual(shape(rows), before);
+    for (const node of rows) {
+        const row = s.SwitchRow(node.props);
+        const [button, control] = row.props.children;
+        assert.equal(button.type, "button");
+        assert.equal(button.props.type, "button");
+        // Named and titled alike; the icon inside is not read.
+        assert.ok(button.props["aria-label"]);
+        assert.equal(button.props.title, button.props["aria-label"]);
+        assert.equal(button.props.children.props["aria-hidden"], "true");
+        // The switch beside it keeps its own role and name.
+        assert.equal(control.type, s.SwitchContainer);
+        assert.equal(s.SwitchContainer(control.props).props.role, "switch");
+        button.props.onClick();
+    }
+    assert.deepEqual(prepared, ["translator", "transcription", "transcription", "ocr", "tts", "rvc"]);
+    assert.equal(s.settingsLabel("translator", key => key), "main_page.feature_settings.translator");
+    const labels = [];
+    s.settingsLabel("ocr_models", (key, options) => { labels.push([key, options?.page]); return key; });
+    assert.deepEqual(labels, [["config_page.side_menu_labels.ocr", undefined], ["main_page.feature_settings.open_page", "config_page.side_menu_labels.ocr"]]);
 });
 
 test("while the engine is away no switch is blocked for a missing setup", async () => {

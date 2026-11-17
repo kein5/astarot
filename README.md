@@ -63,6 +63,7 @@ Report bugs and ask questions on **[Issues](https://github.com/kein5/VRCT-VOX/is
 
 - [TTS quick start (Japanese)](/docs/voice-stack/tts-quickstart-ja.md)
 - [Troubleshooting](/docs/voice-stack/troubleshooting.md)
+- [Accessibility: help with hearing, speaking and reading, and known limits](/ACCESSIBILITY.md)
 - [Model downloads and GPU/VRAM guidance](/docs/voice-stack/model-downloads.md)
 - [Original VRCT documentation](https://misyaguziya.github.io/VRCT-Docs/). It covers the upstream app, not the ASTAROT voice features.
 

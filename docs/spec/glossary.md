@@ -12,7 +12,7 @@
 | 保存バー | 設定画面の上部にある、未保存の変更の件数と「保存」「破棄」のボタン | `SaveBar`、`setSaveBarEntry` |
 | タブ | 言語と翻訳エンジンの組を3つまで切り替える仕組み（1〜3） | `selected_tab_no` |
 | あなたの言語、相手の言語 | 自分が話す言語と、訳す先の言語（最大3つ） | `selected_your_languages`、`selected_target_languages` |
-| 内蔵モデル | アプリの中で動く翻訳（CTranslate2）のモデル。ローカルの音声認識は同梱サーバー（speech.cpp）のモデルを使う。以前の文字起こし（Whisper）のモデルは #288 で使わなくなった | `weights/` |
+| 内蔵モデル | アプリの中でONNX Runtimeで動くローカル翻訳（M2M100）のモデル。翻訳エンジンのIDは互換のため`CTranslate2`のまま（0.4まではCTranslate2で動かしていた）。ローカルの音声認識は同梱サーバー（speech.cpp）のモデルを使う。以前の文字起こし（Whisper）のモデルは #288 で使わなくなった | `weights/` |
 | 同梱サーバー | アプリが起動して管理するspeech.cppのサーバー（TTSとASR） | `speech_server` |
 | 外部サーバー | 利用者が別に起動したspeech.cppのサーバー | `external` |
 | 音声経路 | 読み上げとRVCの音声をVRChatへ届ける道筋 | `voice_route` |

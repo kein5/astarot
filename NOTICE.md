@@ -13,7 +13,7 @@ carry its CPU build and its Vulkan build of the same release side by side, each
 with the same notices. RVC voice conversion is the fork's own
 reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
 Rust dependencies are listed with the app's (see "Rust crates in VRCT-VOX
-builds" below). ONNX Runtime,
+builds" below). The ONNX Runtime the worker runs on,
 the NVIDIA CUDA and cuDNN libraries and the HuBERT and RMVPE weights it uses are
 not bundled: the app fetches them from their providers after the user's
 consent (see "RVC base models" below). Voice recordings and additional TTS/ASR/VC model weights are not
@@ -187,14 +187,23 @@ the earlier Python implementation, the image operations of OpenCV 4.10.0
 pyclipper 1.4.0 (Boost Software License 1.0, Angus Johnson); it follows GEOS's
 order of operations for two area and length formulas. No source file of these
 projects is included. ONNX Runtime is not built into the application: chat
-reading loads the library at run time (see
-`docs/voice-stack/core-integration.md`, item 2).
+reading loads the library at run time. The packages ship the official CPU build
+of ONNX Runtime 1.31.0 (MIT, Microsoft Corporation) for it in
+`_internal/onnxruntime`, with its license and third-party notices in
+`_internal/licenses/onnxruntime` (`LICENSE`, `ThirdPartyNotices.txt`).
+
+The VR overlay and chat reading's headset view load the OpenVR client library
+at run time. The packages ship `libopenvr_api_64` of OpenVR SDK 2.12.14
+(BSD-3-Clause, Valve Corporation), taken from the pyopenvr 2.12.1401 wheel
+(BSD-3-Clause, Christopher Bruns) as builds up to 0.4.x did, in
+`_internal/openvr`, with both license texts in `_internal/licenses/openvr`
+(`LICENSE`, `pyopenvr-LICENSE`).
 
 `native/translate-onnx` (local translation) is the fork's own code (MIT). It
 uses `tokenizers` (Apache-2.0, Hugging Face) for SentencePiece segmentation and
-loads the same ONNX Runtime library as chat reading at run time; ONNX Runtime
-(MIT, Microsoft) and its execution providers (DirectML, CUDA, OpenVINO,
-MIGraphX, WebGPU) are not bundled. No translation model is bundled: the M2M100
+loads the same ONNX Runtime library as chat reading at run time (the CPU build
+above); the builds of ONNX Runtime with other execution providers (DirectML,
+CUDA, OpenVINO, MIGraphX, WebGPU) are not bundled. No translation model is bundled: the M2M100
 (MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
 consented model catalog once published, and a model the user places in the
 `translation-models` folder is under its own license, which the user is

@@ -1,6 +1,6 @@
 # ADR-009: Windows の仮想マイクは外部のドライバに頼り、Microsoft Store では依存を開示する
 
-Status: 採用（2026-11-15）。アプリ側の導入支援（4.2）は 0.4.0 で実装する予定で、まだ実装していない。Store への申請（4.1）は、申請するときの作業とする。
+Status: 採用（2026-11-15）。アプリ側の導入支援（4.2）は 0.4.0 で実装した。Store への申請（4.1）は、申請するときの作業とする。
 Date: 2026-11-15
 Related: [ADR-005](adr-005-managed-microphone-lifetime.md)、[ADR-008](adr-008-external-speech-engines.md)、[プラットフォームの制約](platform-constraints.md)、Issue #321
 
@@ -51,7 +51,7 @@ Windows では、VRCT-VOX は仮想マイクを作れない。今は、利用者
 
 ### 4.2 B: アプリで導入の手間を減らす
 
-0.4.0 で実装する。Windows を対象にする。
+0.4.0 で実装した。Windows を対象にする。
 
 1. **検出**: 初回起動のときに、仮想ケーブルの再生側が入っているかを調べる。既存の判定（`src-python/models/audio_routing/devices_windows.py` の `is_virtual_cable()`）を出発点にする。
 2. **案内**: 見つからないときだけ案内を出す。見つかったときは何も出さない。初回の案内の流れは、Issue #305 と #311 で入れた初回利用時の案内にそろえる。

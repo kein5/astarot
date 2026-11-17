@@ -12,6 +12,7 @@ import StepProgress from './components/StepProgress.vue'
 import Term from './components/Term.vue'
 import TermTooltip from './components/TermTooltip.vue'
 import { LOCALE_KEY } from './locale'
+import ManualCallout from './manual/ManualCallout.vue'
 import './custom.css'
 
 // A screenshot in a page is shown at about half its size. Click it, or press Enter on it, to see it
@@ -53,6 +54,8 @@ export default {
     app.component('OsTabs', OsTabs)
     app.component('CopyText', CopyText)
     app.component('Term', Term)
+    // The ASTAROT manual's boxed notes, for the chapters' text.
+    app.component('ManualCallout', ManualCallout)
     if (typeof document === 'undefined') return
     document.addEventListener('click', (event) => {
       const target = event.target as Element | null
