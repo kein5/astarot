@@ -40,6 +40,10 @@ GitHub のリポジトリ名を `kein5/VRCT-VOX` から ASTAROT の名前に変�
 
 0.4.x のベータ版は `src-tauri/src/app_update.rs` の `https://api.github.com/repos/kein5/VRCT-VOX/releases?per_page=30` を直接読む。名前を変えた後、GitHub API は `301` で新しい名前に転送し、reqwest がそれをたどる。古い名前のリポジトリを作り直さない限り、この経路は保たれる。0.5.0 では新しい名前の URL に変える。
 
+転送の先で API が返す `latest.json` の URL は、新しい名前になる。0.5.0-beta.2 までのアプリは、`https://github.com/kein5/VRCT-VOX/releases/download/` で始まる URL だけを受け付けていた。そのため名前を変えると、ベータ版の更新と版の一覧（`/get/data/available_releases`）が何も言わずに空になる。ベータ版の更新は安定版の Worker に戻るので、安定版が出ればそれに上がれる（#456）。
+
+それより後の版は、持ち主（`kein5`）の Releases の URL ならリポジトリ名を問わずに受け付ける（`app_update.rs` の `project_download`）。持ち主や置き場所が変わって受け付けられない `latest.json` は、`startup.log` に `Update: skipped a latest.json outside the project's downloads` と URL を書く。名前を変えた後は、ベータ版の更新確認を一度実行し、この行が出ていないことを確かめる。
+
 Python 側の `src-python/config.py`（`_GITHUB_URL`、`_GITHUB_RELEASES_LIST_URL`）も同じ転送で届く。0.5.0 では新しい名前に変える。
 
 ### インストーラー

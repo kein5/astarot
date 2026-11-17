@@ -745,6 +745,37 @@ pub(crate) fn install(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// At launch with the feature on: whether the main window may stay hidden in the tray. Only a
+/// tray icon brings it back for sure, so without one it shows (Issue #455): the hexagram may never
+/// come out where the pointer cannot be read (native Wayland). On Linux the icon can be made yet
+/// not shown (Issue #422); asking the session bus takes up to two seconds, so the start-up does
+/// not wait for the answer, and the main window shows once it says no tray host is there.
+pub(crate) fn may_start_hidden(app: &AppHandle) -> bool {
+    let has_tray = app.state::<CompanionState>().lock().is_ok_and(|inner| inner.tray.is_some());
+    #[cfg(target_os = "linux")]
+    if has_tray {
+        let app = app.clone();
+        let asked = std::thread::Builder::new().name("vrct-tray-at-start".into()).spawn(move || {
+            if linux_tray::shown() {
+                return;
+            }
+            crate::startup_log("Tray icon is not shown on this desktop: showing the main window");
+            let target = app.clone();
+            let shown = app.run_on_main_thread(move || {
+                if let Err(error) = show_main(&target) {
+                    crate::startup_log(&format!("Main window show failed: {error}"));
+                }
+            });
+            if let Err(error) = shown {
+                crate::startup_log(&format!("Main window show failed: {error}"));
+            }
+        });
+        // Without the thread nothing would show it later: show it now.
+        return asked.is_ok();
+    }
+    has_tray
+}
+
 /// Turns the overlay feature off: the panel and the hexagram go, the tray icon stays with its
 /// overlay items greyed out, and the main window comes back if it was hidden in the tray.
 pub(crate) fn uninstall(app: &AppHandle) -> Result<(), String> {
@@ -771,6 +802,8 @@ mod tray {
 
     pub const TRAY: &str = "vrct-vox";
 
+    /// The menu items are handles: a clone changes the same item in the menu.
+    #[derive(Clone)]
     pub struct Items {
         toggle: MenuItem<Wry>,
         panel: MenuItem<Wry>,
@@ -860,34 +893,57 @@ mod tray {
         }
     }
 
+    /// Runs `update` on the main thread, which is where the menu is changed (Issue #454). A menu
+    /// call made on another thread waits for the main thread, and the main thread's synchronous
+    /// commands take the state's lock: a thread that held the lock across a menu call could stop
+    /// the whole app. So the menu is changed only on the main thread, and the updates take the
+    /// lock just long enough to copy what they need. On the main thread `update` runs at once;
+    /// from another thread it is queued and not waited for.
+    fn on_main(app: &AppHandle, update: impl FnOnce(&AppHandle) + Send + 'static) {
+        let target = app.clone();
+        if let Err(error) = app.run_on_main_thread(move || update(&target)) {
+            crate::startup_log(&format!("Tray update failed: {error}"));
+        }
+    }
+
+    /// The tray's items, copied out of the state. The lock is let go before this returns.
+    fn items(app: &AppHandle) -> Option<Items> {
+        app.state::<CompanionState>().lock().ok()?.tray.clone()
+    }
+
     /// Rebuilds the monitor submenu: the primary monitor, each connected one, and the chosen one
     /// while it is not connected. The one the hexagram uses is checked.
     pub fn refresh_monitors(app: &AppHandle) {
-        let state = app.state::<CompanionState>();
-        let Ok(mut inner) = state.lock() else { return };
-        let wanted = inner.status.monitor.clone();
-        let labels = inner.status.menu.clone();
-        let displays = inner.displays.clone();
-        let using = pick(&displays, &wanted).map(|display| display.name.clone());
-        let Some(items) = inner.tray.as_mut() else { return };
-        if let Ok(old) = items.monitors.items() {
-            for item in old {
-                let _ = items.monitors.remove(&item);
+        on_main(app, |app| {
+            let (monitors, wanted, labels, displays) = {
+                let state = app.state::<CompanionState>();
+                let Ok(mut inner) = state.lock() else { return };
+                let names = inner.displays.iter().map(|display| display.name.clone()).collect();
+                let Some(items) = inner.tray.as_mut() else { return };
+                // The names behind the items made below: a click reads them by the item's index.
+                items.names = names;
+                let monitors = items.monitors.clone();
+                (monitors, inner.status.monitor.clone(), inner.status.menu.clone(), inner.displays.clone())
+            };
+            let using = pick(&displays, &wanted).map(|display| display.name.clone());
+            if let Ok(old) = monitors.items() {
+                for item in old {
+                    let _ = monitors.remove(&item);
+                }
             }
-        }
-        let _ = CheckMenuItem::with_id(app, "monitor-primary", &labels.primary, true, wanted.is_empty(), None::<&str>)
-            .map(|item| items.monitors.append(&item));
-        items.names = displays.iter().map(|display| display.name.clone()).collect();
-        for (index, display) in displays.iter().enumerate() {
-            let text = format!("{} {} ({}×{})", labels.display, index + 1, display.size.0, display.size.1);
-            let checked = !wanted.is_empty() && using.as_deref() == Some(display.name.as_str());
-            let _ = CheckMenuItem::with_id(app, format!("monitor-{index}"), text, true, checked, None::<&str>)
-                .map(|item| items.monitors.append(&item));
-        }
-        if !wanted.is_empty() && !displays.iter().any(|display| display.name == wanted) {
-            let _ = CheckMenuItem::with_id(app, "monitor-missing", &labels.missing, false, true, None::<&str>)
-                .map(|item| items.monitors.append(&item));
-        }
+            let _ = CheckMenuItem::with_id(app, "monitor-primary", &labels.primary, true, wanted.is_empty(), None::<&str>)
+                .map(|item| monitors.append(&item));
+            for (index, display) in displays.iter().enumerate() {
+                let text = format!("{} {} ({}×{})", labels.display, index + 1, display.size.0, display.size.1);
+                let checked = !wanted.is_empty() && using.as_deref() == Some(display.name.as_str());
+                let _ = CheckMenuItem::with_id(app, format!("monitor-{index}"), text, true, checked, None::<&str>)
+                    .map(|item| monitors.append(&item));
+            }
+            if !wanted.is_empty() && !displays.iter().any(|display| display.name == wanted) {
+                let _ = CheckMenuItem::with_id(app, "monitor-missing", &labels.missing, false, true, None::<&str>)
+                    .map(|item| monitors.append(&item));
+            }
+        });
     }
 
     fn open_panel_near_cursor(app: &AppHandle) {
@@ -917,28 +973,29 @@ mod tray {
     }
 
     pub fn refresh(app: &AppHandle, status: &Status) {
-        let state = app.state::<CompanionState>();
-        let Ok(inner) = state.lock() else { return };
-        let Some(items) = &inner.tray else { return };
-        let menu = &status.menu;
-        let _ = items.toggle.set_text(if status.mic.on { &menu.stop } else { &menu.start });
-        let _ = items.toggle.set_enabled(status.ready && !status.mic.pending);
-        let _ = items.panel.set_text(&menu.panel);
-        let _ = items.main.set_text(&menu.main);
-        let _ = items.quit.set_text(&menu.quit);
-        let _ = items.monitors.set_text(&menu.monitor);
-        drop(inner);
-        refresh_feature(app);
-        refresh_monitors(app);
+        let status = status.clone();
+        on_main(app, move |app| {
+            let Some(items) = items(app) else { return };
+            let menu = &status.menu;
+            let _ = items.toggle.set_text(if status.mic.on { &menu.stop } else { &menu.start });
+            let _ = items.toggle.set_enabled(status.ready && !status.mic.pending);
+            let _ = items.panel.set_text(&menu.panel);
+            let _ = items.main.set_text(&menu.main);
+            let _ = items.quit.set_text(&menu.quit);
+            let _ = items.monitors.set_text(&menu.monitor);
+            refresh_feature(app);
+            refresh_monitors(app);
+        });
     }
 
     /// The overlay's items follow the feature: usable while it is on, greyed out while off.
     pub fn refresh_feature(app: &AppHandle) {
-        let state = app.state::<CompanionState>();
-        let Ok(inner) = state.lock() else { return };
-        let Some(items) = &inner.tray else { return };
-        let _ = items.panel.set_enabled(enabled());
-        let _ = items.monitors.set_enabled(enabled());
+        on_main(app, |app| {
+            let Some(items) = items(app) else { return };
+            // Read when it runs: a change queued from another thread shows the latest state.
+            let _ = items.panel.set_enabled(enabled());
+            let _ = items.monitors.set_enabled(enabled());
+        });
     }
 }
 

@@ -31,6 +31,10 @@ use tauri::{AppHandle, Manager, Runtime, Url, WebviewWindow};
 use tauri_plugin_updater::{Update, Updater, UpdaterExt};
 use vrct_core::controller::updates::{SoftwareUpdates, UpdateOutcome, no_update};
 
+/// The owner of the project's releases. Their downloads are the only ones taken ([`project_download`]).
+const OWNER: &str = "kein5";
+/// The repository, for the release list and the release pages. GitHub forwards both from the old
+/// name after a rename, so a copy built before a rename keeps working.
 const REPOSITORY: &str = "kein5/VRCT-VOX";
 const STABLE_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/latest.json";
 const RELEASES_API: &str = "https://api.github.com/repos/kein5/VRCT-VOX/releases?per_page=30";
@@ -173,20 +177,45 @@ pub struct GithubAsset {
 /// The version and latest.json of a release the channel takes and the updater can install.
 /// Stable takes stable releases only; beta takes betas and stable releases alike, so a beta
 /// tester moves on to the stable release once it is out. Drafts, tags that are not a version,
-/// releases without latest.json and anything but this repository's release downloads are left
-/// out.
+/// releases without latest.json and anything but the project's release downloads are left out.
 fn installable(release: &GithubRelease, channel: &str) -> Option<(semver::Version, Url)> {
     if release.draft || (channel != "beta" && release.prerelease) {
         return None;
     }
-    let prefix = format!("https://github.com/{REPOSITORY}/releases/download/");
     let version = semver::Version::parse(release.tag_name.strip_prefix('v')?).ok()?;
     let asset = release.assets.iter().find(|asset| asset.name == MANIFEST_NAME)?;
-    if !asset.browser_download_url.starts_with(&prefix) {
-        return None;
-    }
-    let url = Url::parse(&asset.browser_download_url).ok()?;
+    let url = Url::parse(&asset.browser_download_url).ok().filter(project_download)?;
     Some((version, url))
+}
+
+/// A release download of the project's owner: `https://github.com/<owner>/<repository>/releases/download/…`.
+/// The repository's name is not checked. GitHub still answers the API at a renamed repository's
+/// old name, and the downloads it lists then carry the new name: checking the name would empty
+/// the beta channel and the release list without a word once the repository is renamed (Issue
+/// #456). What proves a download is its signature (`requireSignedVersion`); this only keeps the
+/// updater on the owner's GitHub release files.
+fn project_download(url: &Url) -> bool {
+    let plain = url.scheme() == "https"
+        && url.host_str() == Some("github.com")
+        && url.port().is_none()
+        && url.username().is_empty()
+        && url.password().is_none();
+    let segments: Vec<&str> = url.path_segments().map(Iterator::collect).unwrap_or_default();
+    plain
+        && matches!(segments.as_slice(), [owner, repository, "releases", "download", tag, _, ..]
+            if owner.eq_ignore_ascii_case(OWNER) && !repository.is_empty() && !tag.is_empty())
+}
+
+/// The latest.json files the release list names outside the project's downloads. The list
+/// leaves them out; they are logged so that a move of the downloads (another owner, another
+/// host) shows in the log instead of only as an empty list.
+fn foreign_manifests(releases: &[GithubRelease]) -> impl Iterator<Item = &str> {
+    releases
+        .iter()
+        .flat_map(|release| release.assets.iter())
+        .filter(|asset| asset.name == MANIFEST_NAME)
+        .map(|asset| asset.browser_download_url.as_str())
+        .filter(|url| !Url::parse(url).is_ok_and(|url| project_download(&url)))
 }
 
 /// The latest.json of the newest release the channel takes.
@@ -257,7 +286,11 @@ async fn fetch_releases() -> Result<Vec<GithubRelease>, String> {
         return Err(format!("GitHub API answered {}", response.status()));
     }
     let body = response.bytes().await.map_err(|error| error.to_string())?;
-    serde_json::from_slice(&body).map_err(|error| error.to_string())
+    let releases: Vec<GithubRelease> = serde_json::from_slice(&body).map_err(|error| error.to_string())?;
+    for url in foreign_manifests(&releases) {
+        crate::startup_log(&format!("Update: skipped a latest.json outside the project's downloads: {url}"));
+    }
+    Ok(releases)
 }
 
 async fn beta_manifest() -> Result<Option<Url>, String> {
@@ -333,6 +366,7 @@ fn build_updater<R: Runtime>(
     builder = builder.on_before_exit(move || {
         if let Some(host) = stopping.try_state::<crate::backend_host::BackendHost>() {
             crate::startup_log("Stopping the backend before the installer starts");
+            CORE_STOPPED_FOR_INSTALLER.store(true, Ordering::SeqCst);
             host.stop_and_wait("The app is being updated; stopping", crate::backend_host::UPDATE_STOP_LIMIT);
         }
     });
@@ -398,9 +432,26 @@ async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, ki
     result
 }
 
+/// The core was stopped for the Windows installer (`on_before_exit`). Once that has happened the
+/// app has no backend left, so a failure to start the installer must not leave it running so.
+static CORE_STOPPED_FOR_INSTALLER: AtomicBool = AtomicBool::new(false);
+
+/// After a failed install: when the core was already stopped for the installer (Windows: the
+/// installer could not start, or the user declined it), the app restarts as it is, with its
+/// backend, instead of going on without one (Issue #456). Answers whether it restarts.
+fn restart_if_core_stopped<R: Runtime>(app: &AppHandle<R>) -> bool {
+    if !CORE_STOPPED_FOR_INSTALLER.swap(false, Ordering::SeqCst) {
+        return false;
+    }
+    crate::startup_log("Update: the installer did not start after the backend stopped; restarting");
+    app.request_restart();
+    true
+}
+
 /// Downloads `update`, verifies its signature and installs it. On Windows the installer takes
-/// over and this process exits; elsewhere it returns, and the caller restarts the app. Any
-/// failure before that leaves the running app as it was.
+/// over and this process exits; elsewhere it returns, and the caller restarts the app. A failure
+/// before the core is stopped leaves the running app as it was; a failure after it (the Windows
+/// installer did not start) restarts the app through [`restart_if_core_stopped`].
 async fn download_and_install(update: &Update, mut progress: impl FnMut(InstallProgress)) -> Result<(), &'static str> {
     let mut downloaded = 0u64;
     let bytes = update
@@ -498,7 +549,8 @@ pub enum InstallProgress {
 
 /// Downloads the update found by the last check, verifies its signature and installs it.
 /// On Windows the installer takes over and this process exits; on Linux the app restarts.
-/// Any failure before that leaves the running app as it was.
+/// A failure before the core stops leaves the running app as it was; on Windows the core stops
+/// just before the installer starts, so a failure after that restarts the app.
 #[tauri::command]
 pub async fn app_update_install<R: Runtime>(
     window: WebviewWindow<R>,
@@ -521,7 +573,10 @@ pub async fn app_update_install<R: Runtime>(
         let _ = on_progress.send(progress);
     })
     .await
-    .map_err(str::to_string)?;
+    .map_err(|code| {
+        restart_if_core_stopped(&app);
+        code.to_string()
+    })?;
     app.restart();
 }
 
@@ -624,6 +679,7 @@ impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
             }
             Err(code) => {
                 crate::startup_log(&format!("Update from the backend failed: {code}"));
+                restart_if_core_stopped(&self.app);
                 outcome_of(code)
             }
         }
@@ -755,6 +811,40 @@ mod tests {
         foreign.assets[1].browser_download_url = "https://example.com/latest.json".into();
         assert!(pick_manifest(&[draft, foreign], "beta").is_none());
         assert!(pick_manifest(&[release("v0.3.0", false, false)], "stable").is_none());
+    }
+
+    #[test]
+    fn a_renamed_repository_keeps_its_releases_and_another_owner_does_not_count() {
+        // After a rename GitHub lists the downloads under the new name (Issue #456).
+        let mut renamed = release("v0.5.1-beta.1", true, true);
+        renamed.assets[1].browser_download_url = "https://github.com/kein5/astarot/releases/download/v0.5.1-beta.1/latest.json".into();
+        let releases = vec![release("v0.5.0", false, true), renamed];
+        assert_eq!(versions(&list_releases(&releases, "beta")), ["0.5.1-beta.1", "0.5.0"]);
+        assert!(pick_manifest(&releases, "beta").unwrap().as_str().contains("/kein5/astarot/"));
+        assert_eq!(foreign_manifests(&releases).count(), 0);
+
+        for url in [
+            "https://github.com/someone-else/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "http://github.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "https://github.com:8443/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "https://user@github.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "https://github.com.example.com/kein5/VRCT-VOX/releases/download/v9.0.0/latest.json",
+            "https://github.com/kein5/VRCT-VOX/archive/v9.0.0/latest.json",
+            "https://github.com/kein5/VRCT-VOX/releases/download/latest.json",
+        ] {
+            let mut foreign = release("v9.0.0", false, true);
+            foreign.assets[1].browser_download_url = url.into();
+            let releases = [foreign];
+            assert!(pick_manifest(&releases, "beta").is_none(), "{url}");
+            // Skipped, and said so in the log.
+            assert_eq!(foreign_manifests(&releases).collect::<Vec<_>>(), [url]);
+        }
+    }
+
+    #[test]
+    fn the_release_list_and_pages_name_the_owners_repository() {
+        assert!(REPOSITORY.starts_with(&format!("{OWNER}/")));
+        assert!(RELEASES_API.starts_with(&format!("https://api.github.com/repos/{REPOSITORY}/releases")));
     }
 
     #[test]

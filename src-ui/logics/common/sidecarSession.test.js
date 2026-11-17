@@ -19,7 +19,8 @@ test("only the main window can start, feed or retire the backend", async () => {
     // The app's own commands refuse every window but main.
     const host = await readFile(new URL("../../../src-tauri/src/backend_host.rs", import.meta.url), "utf8");
     for (const command of ["backend_start", "backend_write", "backend_kill"]) {
-        const body = host.split(`pub fn ${command}(`)[1].split("\n}\n")[0];
+        // backend_start is async: it waits for a failed run off the main thread.
+        const body = host.split(new RegExp(`pub (?:async )?fn ${command}\\(`))[1].split("\n}\n")[0];
         assert.match(body, /main_only\(&window\)\?/, command);
     }
 });
