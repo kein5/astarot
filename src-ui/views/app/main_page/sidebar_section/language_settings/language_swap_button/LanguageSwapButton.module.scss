@@ -1,46 +1,47 @@
 .container {
     width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
-// The arrows stay beside the words when a long label (「Translate Both Languages」)
-// takes two lines: the label takes the middle and is centred in it.
+// Drawn as a button at rest (#569): the raised surface and hairline of the other plain buttons,
+// sized to its words and centred between the two language fields, so it does not read as a
+// third field. The arrows stay beside the words when a long label takes two lines.
 .swap_button_wrapper {
-    width: auto;
     display: flex;
-    justify-content: space-between;
     align-items: center;
     gap: .6rem;
-    margin: 0 1rem;
-    padding: 0.4rem 0.8rem;
+    max-width: calc(100% - 2rem);
+    min-height: 2.8rem;
+    padding: .3rem 1rem;
+    border: .1rem solid var(--vox_border);
     border-radius: var(--vox_radius);
+    background-color: var(--vox_surface);
+    color: var(--dark_300_color);
     cursor: pointer;
     &:hover {
-        background-color: var(--dark_750_color);
+        background-color: var(--dark_800_color);
+        color: var(--dark_200_color);
     }
     &:active {
         background-color: var(--dark_850_color);
     }
-    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: -.2rem; }
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .1rem; }
 }
 
 .narrow_arrow_down_svg {
-    width: 1.6rem;
+    width: 1.4rem;
     flex-shrink: 0;
-    color: var(--dark_500_color);
+    color: currentColor;
     &.reverse {
         transform: rotate(180deg);
     }
 }
 
 .label {
-    flex: 1 1 auto;
     min-width: 0;
     text-align: center;
     font-size: 1.2rem;
     line-height: 1.3;
-    color: var(--dark_500_color);
-    &.is_hovered {
-        color: var(--dark_200_color);
-    }
 }
 .swap_button_wrapper[aria-disabled="true"] { opacity: .55; cursor: wait; }

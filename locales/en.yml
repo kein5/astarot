@@ -374,7 +374,6 @@ main_page:
     language_settings: "Language settings"
     language_pair: "{{from}} → {{to}}"
     your_language: "Your language"
-    translate_each_other_label: "Translate both languages"
     swap_button_label: "Switch languages"
     help_link: "Open the ASTAROT guide"
     target_language: "Target language"
