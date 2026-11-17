@@ -41,6 +41,7 @@ Changes since [v0.5.0](https://github.com/kein5/astarot/compare/v0.5.0...v0.5.1)
 
 #### Dependencies
 
+- **deps:** List sass as a development dependency ([89b4f86](https://github.com/kein5/astarot/commit/89b4f860d8ee403c87bc76df43e50372c0bceb40))
 - **deps:** Make DeepL retries, OCR model checks and Ruff ready for #498 ([93d632e](https://github.com/kein5/astarot/commit/93d632e311fded824e2da303e6d5c56aff7259df))
 - **deps:** Keep the CSP in step with react-toastify 11.2 and js-base64 3.9 ([eaab438](https://github.com/kein5/astarot/commit/eaab4383cc7fdf3f338bf258f99afc45d13215e9))
 - **deps:** Bump the python-minor-and-patch group across 1 directory with 19 updates ([84af89a](https://github.com/kein5/astarot/commit/84af89aca3fc1bdaf88d6305a45befaef6a94166))
@@ -73,6 +74,8 @@ Changes since [v0.5.0](https://github.com/kein5/astarot/compare/v0.5.0...v0.5.1)
 
 #### Documentation
 
+- **release:** Say which ONNX Runtime the 0.5.1 notes mean ([e3e1bda](https://github.com/kein5/astarot/commit/e3e1bda7f4c257d8346f1276cbcdb99fa1d24f0a))
+- **release:** Add the 0.5.1 release notes ([5dbfedf](https://github.com/kein5/astarot/commit/5dbfedf58835f522b3f16cfd9904ef58178e0b06))
 - **site:** Call the app ASTAROT in the user guide ([e83d991](https://github.com/kein5/astarot/commit/e83d991824acd685fad202fc3f6c453567f95c8a))
 - **docs:** Point GitHub links at the kein5/astarot repository ([54719ac](https://github.com/kein5/astarot/commit/54719acf1bad3dbbab058dc361ecbdad4110bb62))
 - **dev:** Drop a stray comma from the mutation testing entry ([1fd92cc](https://github.com/kein5/astarot/commit/1fd92cc2a7c2ad43a7c411cca75e107d24178728))
