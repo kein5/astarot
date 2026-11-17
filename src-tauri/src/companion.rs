@@ -745,6 +745,37 @@ pub(crate) fn install(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// At launch with the feature on: whether the main window may stay hidden in the tray. Only a
+/// tray icon brings it back for sure, so without one it shows (Issue #455): the hexagram may never
+/// come out where the pointer cannot be read (native Wayland). On Linux the icon can be made yet
+/// not shown (Issue #422); asking the session bus takes up to two seconds, so the start-up does
+/// not wait for the answer, and the main window shows once it says no tray host is there.
+pub(crate) fn may_start_hidden(app: &AppHandle) -> bool {
+    let has_tray = app.state::<CompanionState>().lock().is_ok_and(|inner| inner.tray.is_some());
+    #[cfg(target_os = "linux")]
+    if has_tray {
+        let app = app.clone();
+        let asked = std::thread::Builder::new().name("vrct-tray-at-start".into()).spawn(move || {
+            if linux_tray::shown() {
+                return;
+            }
+            crate::startup_log("Tray icon is not shown on this desktop: showing the main window");
+            let target = app.clone();
+            let shown = app.run_on_main_thread(move || {
+                if let Err(error) = show_main(&target) {
+                    crate::startup_log(&format!("Main window show failed: {error}"));
+                }
+            });
+            if let Err(error) = shown {
+                crate::startup_log(&format!("Main window show failed: {error}"));
+            }
+        });
+        // Without the thread nothing would show it later: show it now.
+        return asked.is_ok();
+    }
+    has_tray
+}
+
 /// Turns the overlay feature off: the panel and the hexagram go, the tray icon stays with its
 /// overlay items greyed out, and the main window comes back if it was hidden in the tray.
 pub(crate) fn uninstall(app: &AppHandle) -> Result<(), String> {

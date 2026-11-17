@@ -208,10 +208,12 @@ pub fn run() {
             }
             if companion {
                 match companion::install(app.handle()) {
-                    Ok(()) => {
+                    Ok(()) if companion::may_start_hidden(app.handle()) => {
                         startup_log("Tray companion: the main window stays hidden in the tray");
                         return Ok(());
                     }
+                    // Nothing could bring a hidden window back (Issue #455): start as usual.
+                    Ok(()) => startup_log("Tray companion: no tray icon, so the main window shows"),
                     // Without a tray the app could not be reached: start as usual.
                     Err(error) => startup_log(&format!("Tray companion could not start: {error}")),
                 }
