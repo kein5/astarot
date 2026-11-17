@@ -49,6 +49,9 @@ typography:
     fontSize: "1.3rem"
     fontWeight: 500
     fontFeature: "tabular-nums"
+  display:
+    fontSize: "2.4rem"
+    fontWeight: 650
 rounded:
   hairline: "2px"
   small: "4px"
@@ -105,6 +108,8 @@ Contrast (WCAG 2.x, measured on the canvas and the surface): text, secondary tex
 ## Typography
 
 Keep the user's configured UI font, scaling and log-font preferences. Local Noto/system fallbacks support Japanese without remote font requests. Section headings give long forms a readable hierarchy; technical paths wrap inside their containers.
+
+Text in the app window takes the sizes in the front matter's `typography` (#568): 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2 and 2.4rem (the last only for the empty conversation's greeting). A size in between is moved to the nearest step, not added; small marks and tooltips use 1.2rem. Sizes relative to their parent (em, %) follow the parent, such as the log, whose base size the log font size setting replaces. The VR windows draw into the headset at fixed pixel sizes and the caption overlay at the size its user picks; neither is on these steps. `src-ui/views/app/fontSteps.test.js` checks the app window.
 
 ## Layout
 
