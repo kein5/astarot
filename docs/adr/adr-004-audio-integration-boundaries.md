@@ -6,7 +6,7 @@ Decision authority: リポジトリ保守者／依頼者。モデル不要PoCの
 
 Scope: P1見直しとP2〜P5の音声統合。既存テキスト機能の全面再設計、独自virtual driver開発、クラウドサービス化は含めない。
 
-Related: [評価書](architecture-evaluation-2026-10-27.md)、確認用PoC・fitness functions、[ADR 001〜003](decisions.md)。本提案だけで既存accepted ADRをsupersededに変更しない。
+Related: [評価書](../voice-stack/architecture-evaluation-2026-10-27.md)、確認用PoC・fitness functions、[ADR 001〜003](README.md)。本提案だけで既存accepted ADRをsupersededに変更しない。
 
 ## Context
 
@@ -77,7 +77,7 @@ engineと重みは初期にはユーザー管理を前提とし、追加取得�
 
 ## Current evidence and open items
 
-P1の限定経路は[既存benchmarks](benchmarks.md)、今回の独立PipeWireと合成音による検証はB検証レポートに分ける。修正版の30反復で経路別取消・全体muteが成立し、producer終了後もendpointを維持できた。合成音の30分継続は別群で確認した。一方、endpoint自体を削除すると通常設定のpw-cat consumerが30/30回で別の合成入力へ切り替わった。入力固定consumerは終了し、これは無音captureの継続ではない。
+P1の限定経路は[既存benchmarks](../voice-stack/benchmarks.md)、今回の独立PipeWireと合成音による検証はB検証レポートに分ける。修正版の30反復で経路別取消・全体muteが成立し、producer終了後もendpointを維持できた。合成音の30分継続は別群で確認した。一方、endpoint自体を削除すると通常設定のpw-cat consumerが30/30回で別の合成入力へ切り替わった。入力固定consumerは終了し、これは無音captureの継続ではない。
 
 したがって、Bを続ける条件は「engineから独立したendpoint寿命」と「endpoint故障時にもconsumerが未変換入力へ切り替わらないこと」。writer側の固定だけで合格にはしない。Cもconsumerのfallbackを自動的には解決しないため、同じ故障試験を要する。
 

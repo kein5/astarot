@@ -3,7 +3,7 @@
 Status: 採用（2026-11-17）。開発の原則、機能ごとの責務の分担、新しいモデルとランタイムの採用規則を定める。既存のコードは変えない。
 Date: 2026-11-17
 Decision owners: リポジトリの保守担当者
-Related: Issue #507、[ADR 001〜003](decisions.md)、[ADR-004](adr-004-audio-integration-boundaries.md)、[ADR-005](adr-005-managed-microphone-lifetime.md)、[ADR-007](adr-007-translated-speech-through-voice-conversion.md)、[ADR-008](adr-008-external-speech-engines.md)、[ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)、[中核の統合](core-integration.md)、[推論ランタイムの比較](inference-runtime-comparison.md)、`AGENTS.md`、`NOTICE.md`
+Related: Issue #507、[ADR 001〜003](README.md)、[ADR-004](adr-004-audio-integration-boundaries.md)、[ADR-005](adr-005-managed-microphone-lifetime.md)、[ADR-007](adr-007-translated-speech-through-voice-conversion.md)、[ADR-008](adr-008-external-speech-engines.md)、[ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)、[中核の統合](../voice-stack/core-integration.md)、[推論ランタイムの比較](../voice-stack/inference-runtime-comparison.md)、`AGENTS.md`、`NOTICE.md`
 
 この ADR の「アプリ」は本リポジトリのアプリを指す。表示名は ADR-011 で決めた ASTAROT で、実行ファイル名やアプリ ID などの識別子は VRCT-VOX のままである。
 
@@ -24,7 +24,7 @@ Related: Issue #507、[ADR 001〜003](decisions.md)、[ADR-004](adr-004-audio-in
 | 機能 | 現在の実装 |
 |---|---|
 | 音声認識（リアルタイムを含む）、読み上げ | 同梱の speech.cpp のサーバ |
-| 話者分離 | 同じ speech.cpp のサーバに Nemotron 3 Diarization を読み込む（[話者分離の選定](speaker-diarization-2026-11-13.md)） |
+| 話者分離 | 同じ speech.cpp のサーバに Nemotron 3 Diarization を読み込む（[話者分離の選定](../voice-stack/speaker-diarization-2026-11-13.md)） |
 | 録音の VAD | 差し込む口（`vrct_transcription::vad`）はあるが、エンジンは未決。今は音量で区切る（`core-integration.md` の 13） |
 | 音声強調、AI のノイズ除去 | 実装なし |
 | 声質変換（RVC） | 自前の Rust 実装 `native/rvc-runtime`。別プロセスの `vrct-rvc-worker` で動き、ONNX Runtime（`ort`）で推論する。ONNX Runtime と CUDA のライブラリと HuBERT、RMVPE の重みは、同意を得てから取得する（`NOTICE.md`） |
@@ -152,7 +152,7 @@ ASR、TTS、VAD、話者に関わるモデル、音声強調、VC の新しい�
 | ランタイムの混在 | 機能ごとに一番よいランタイムをその都度選ぶ | 1.1 のコストが機能の数だけ増える。選んだ理由と見直す条件も残らない |
 | すべて GGML にする | OCR と翻訳も speech.cpp や GGML に移す | OCR と翻訳は speech.cpp の扱う範囲の外にあり、上流の設計に合わない。ONNX Runtime で動いている今の実装と検証を捨てることになる |
 | 原則を決めず、今のまま | 既存の構成を保ち、新しいモデルはその都度判断する | 今の構成は保てるが、新しいモデルでランタイムが増えるのを止める基準がない |
-| ONNX Runtime 以外の Rust のランタイム（tract、rten、candle、burn） | OCR、翻訳、VAD を別のランタイムで動かす | [推論ランタイムの比較](inference-runtime-comparison.md)では、全部のモデルが動いたのは ONNX Runtime だけだった。VAD だけを別にする案は `core-integration.md` の 53 で未決のまま |
+| ONNX Runtime 以外の Rust のランタイム（tract、rten、candle、burn） | OCR、翻訳、VAD を別のランタイムで動かす | [推論ランタイムの比較](../voice-stack/inference-runtime-comparison.md)では、全部のモデルが動いたのは ONNX Runtime だけだった。VAD だけを別にする案は `core-integration.md` の 53 で未決のまま |
 
 ## 4. Consequences（結果）
 
@@ -227,7 +227,7 @@ ONNX Runtime 系の OCR とローカル翻訳は、2.2 の分担どおりなの�
 - 上流が方針を変えたとき、または提案を受け入れないと決めたとき
 - 使っているモデルやランタイムの版を上げるとき
 - 実機で性能や品質が悪くなったとき
-- ライセンス、再配布の条件、取得元が変わったとき（たとえば DirectML 版の ONNX Runtime の更新が止まっていること。[推論ランタイムの比較](inference-runtime-comparison.md)）
+- ライセンス、再配布の条件、取得元が変わったとき（たとえば DirectML 版の ONNX Runtime の更新が止まっていること。[推論ランタイムの比較](../voice-stack/inference-runtime-comparison.md)）
 - ランタイムに深刻な脆弱性が見つかったとき
 - 対応する OS や GPU の範囲を変えるとき
 
