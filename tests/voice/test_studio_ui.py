@@ -54,6 +54,46 @@ def studio(ui):
     return page, peer
 
 
+def _name_lines(page):
+    """Each main switch's name (without its short name in brackets) and the lines it takes."""
+    return page.evaluate(
+        """() => [...document.querySelectorAll('[role=switch] p')].map(p => {
+            const range = document.createRange();
+            range.selectNodeContents(p.firstChild);
+            const tops = new Set([...range.getClientRects()].map(rect => Math.round(rect.top)));
+            return [p.firstChild.textContent, tops.size];
+        })"""
+    )
+
+
+def test_feature_names_stay_on_one_line_in_the_default_window(studio):
+    # The rail's scrollbar always takes 8 of its 240 px (overflow-y: scroll), and in a font whose
+    # kana are full width (Noto Sans CJK on Linux, Meiryo) 「ボイスチェンジャー」 is nine full
+    # characters wide. It broke before its last character in the default window (870 x 654).
+    page, _ = studio
+    page.set_viewport_size({"width": 870, "height": 654})
+    page.wait_for_function("document.querySelectorAll('[role=switch] p').length >= 6")
+    lines = dict(_name_lines(page))
+    assert "ボイスチェンジャー" in lines, lines
+    assert all(count == 1 for count in lines.values()), lines
+    # The browser under test may hide scrollbars and draw its own font, so the room is measured
+    # as the app has it: the switch's width less its sides, the toggle and the gap, less the
+    # part of the 8 px scrollbar that the browser did not draw.
+    room, size = page.evaluate(
+        """() => {
+            const p = [...document.querySelectorAll('[role=switch] p')].find(p => p.firstChild.textContent === 'ボイスチェンジャー');
+            const sw = p.closest('[role=switch]'), style = getComputedStyle(sw);
+            const toggle = sw.children[1].getBoundingClientRect().width;
+            const scroll = sw.closest('[class*=scrollContainer]');
+            const hidden = 8 - (scroll.offsetWidth - scroll.clientWidth);
+            const room = sw.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+                - toggle - parseFloat(style.columnGap) - hidden;
+            return [room, parseFloat(getComputedStyle(p).fontSize)];
+        }"""
+    )
+    assert room >= 9 * size, (room, size)
+
+
 def screenshot(page, name):
     page.evaluate(
         # An animation that goes idle after it was listed (a transition cancelled by the next
