@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isSidecarWarning } from "./sidecarDiagnostics.js";
+import { isSidecarWarning } from "./sidecarDiagnostics.ts";
 
 test("structured Python warnings keep multiline messages out of fatal notifications", () => {
     assert.equal(isSidecarWarning(JSON.stringify({ type: "vrct_warning", category: "FutureWarning", message: "first\n次行", filename: "x.py", lineno: 4 })), true);

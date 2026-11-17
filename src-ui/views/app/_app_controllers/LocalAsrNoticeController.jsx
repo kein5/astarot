@@ -3,7 +3,7 @@ import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@stor
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useLocalAsrMigration } from "../../../logics/transcription/useLocalAsrMigration";
 import { useSpeechServers } from "../../../logics/voice/useSpeechServers";
-import { asrModels } from "../../../logics/transcription/localAsrMigration.js";
+import { asrModels } from "../../../logics/transcription/localAsrMigration.ts";
 import { OldWhisperWeights } from "../config_page/setting_section/setting_box/transcription/OldWhisperWeights";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";

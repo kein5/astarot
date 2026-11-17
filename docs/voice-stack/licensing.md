@@ -85,7 +85,7 @@ Windowsはartifact検査のみ、実行試験ではない。numpy1.26.4との実
 2026-10-31（0.1.0前）: 配布物のLGPL/GPL部品を[NOTICE](../../NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds)に列挙し、
 対応ソースの入手先、差し替え方法、3年間のソース提供の申し出を記載した。libsoxrは拡張モジュール（別ファイル）として差し替え可能。
 LGPLの純Pythonパッケージ`zeroconf`はPYZへ入れず`.py`のまま同梱する。PyAVの公式wheelは12〜18系のLinux/Windowsいずれも
-GPLのx264/x265を同梱していたため配布せず、`packaging/pyinstaller-stubs/av`の代用モジュールを使う
+GPLのx264/x265を同梱していたため配布せず、`packaging/pyinstaller-stubs/av`の代用モジュールを使う（0.5.0でPyInstallerの工程と一緒に削除。配布ポリシーの拒否は残す）
 （faster-whisperはnumpy配列の入力ではデコードしない）。配布ポリシーがPyAVのネイティブライブラリとx264/x265を拒否する。
 nanobind（BSD-3-Clause）の実ビルド版の特定は未了。
 
@@ -98,7 +98,7 @@ RVCの変換は、本家の推論を再実装した`native/rvc-runtime`（MIT、
 
 ワーカーはONNX Runtimeを自分では持たず、実行時に読み込む。ONNX Runtime、CUDAとcuDNNのライブラリ、
 基礎モデルは配布物に含めず、利用者の同意を得てから提供元から直接取得する（版・サイズ・SHA-256を
-`src-python/models/voice_conversion/runtime_setup.py`に固定）。
+`src-python/models/voice_conversion/runtime_setup.py`と、Rustの中核が使う`native/voice-conversion/src/runtime.rs`に固定。値は同じ）。
 
 | 取得物 | 取得元 | ライセンス |
 |---|---|---|
@@ -148,6 +148,7 @@ Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の�
 `_internal/licenses/rust/<クレート>-<版>/`に写し、一覧を`README.md`と`crates.json`に書く。
 写した文書と一覧は、WindowsではPyInstallerのデータとして（`bat/build.bat`、`bat/build_cuda.bat`、`tools/windows_voice_resources.py`）、
 Linuxではリソースとして（`tools/build_linux.py`）、どちらもPyInstallerの`_internal`に入る。
+→ 0.5.0からはPyInstallerを使わず、`tools/app_resources.py`が同じ`_internal/licenses/rust/`へ写す（下の「Pythonの同梱の終了」の節）。
 どちらの検査も`crates.json`がないと失敗する。リポジトリ内のクレート（パス依存）はVRCT-VOX自身のコードで、
 `LICENSE`に従うので文書を写さない。
 
@@ -204,7 +205,26 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 `webpki-roots`はMozillaのルート証明書のデータで、`native/ops`がTLSの証明書の検証に使う。そのため、上の#330の節の「証明書のデータは加えていない」は当てはまらなくなった（`webpki-root-certs`は今もビルドに入らない）。このデータはCCADB（Common CA Database）のデータの派生物で、[CCADBのデータ利用条件](https://www.ccadb.org/rootstores/usage#ccadb-data-usage-terms)に従う。条件はCDLA-Permissive-2.0で、データを配るときは契約の本文を添えることを求める。利用条件はさらに、再配布や派生物での利用のときにCCADBへの帰属を示すことを求める。本文は`_internal/licenses/rust/webpki-roots-1.0.11/LICENSE`として同梱されていたが、帰属の表示はどこにもなかった。そこでNOTICEの「Rust crates in VRCT-VOX builds」に表示を足し、`tools/rust_licenses.py`が書く一覧（`README.md`）にも、このクレートが入るビルドでは表示を書くようにした。ロックファイルに`webpki-roots`があるかぎりNOTICEに表示があることは、試験（`tests/devtools/test_rust_licenses.py`）で確かめる。
 
+### 音声デバイスを中核につないだときの追加（2026-11-16）
+
+中核が`native/audio-routing`（MIT、リポジトリ内）を使うようになり、`vrct-vox`に入るクレートが増えた。`tools/rust_licenses.py`の一覧は Windows が 335 から 336、Linux が 407 から 414 になった。Windows で増えたのは`vrct-audio-routing`だけで、`windows`などのクレートはすでに入っていた。Linux では`pipewire`、`pipewire-sys`、`libspa`、`libspa-sys`（どれも MIT）、`nom` 8.0.0（MIT）、`cookie-factory`（MIT）が加わった。`bindgen`（BSD-3-Clause）などはビルドのときだけ使い、配布物には入らない。`cookie-factory` 0.3.3 は公開パッケージにライセンス文がないので、公開した版の commit にある`LICENSES/MIT.txt`を補い（`licenses/rust/supplements.json`）に足した。`pipewire`のクレートは実行時に`libpipewire-0.3`（MIT）へ動的にリンクする。中核の`pipewire`機能はアプリだけが有効にし、中核の試験のビルドには入らない。
+
 中核のクレートが`include_str!`で取り込むファイルは、OBSのブラウザーソースのページ（`native/adapters/src/obs/page.html`）と言語の表（`native/core/data/*.json`）だけ。どちらもリポジトリのコードとデータから作ったもので、第三者のデータではない。中核のクレートには`build.rs`もない。
+
+### 翻訳のプロバイダと読み（#277）
+
+中核が`native/translation`（翻訳のプロバイダ、プロンプト、読みの規則）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`httparse`、`rustls`、`serde_json`、`webpki-roots`）と、中核に足した`chrono`は、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。プロンプトの文面はPythonの`translation_settings/prompt/*.yml`（VRCT-VOXのコード）を移したもの。
+
+中核の機能フラグ`onnx-translation`は、2026-11-16から既定でオンで、アプリでも有効（ローカル翻訳のエンジンを`native/translate-onnx`に決めた。[core-integration.md](core-integration.md)の「決まったこと」）。`ort`はチャットの読み取りと同じ`load-dynamic`で、ONNX Runtimeをビルドで取得もリンクもしない。アプリのロックファイルに新しく入った外部のクレートは`tokenizers` 0.23.2（Apache-2.0）とその依存（`esaxx-rs`、`spm_precompiled`、`fancy-regex`、`rayon`、`derive_builder`、`monostate`、`daachorse`、`compact_str`など。どれもMITかApache-2.0、またはそのどちらかを選べる。`zerocopy`はBSD-2-Clause OR Apache-2.0 OR MIT、`macro_rules_attribute`はApache-2.0 OR MIT OR Zlib）。`tools/rust_licenses.py`をWindowsとLinuxの両方の対象で実行し、どれも公開パッケージにライセンス文があることを確かめた。`tokenizers`は`default-features = false`と`fancy-regex`で使うので、C++のコード（`esaxx_fast`、`onig`）はビルドに入らない。ONNX Runtimeのライブラリそのものをどこから配るかは未決（同じ文書の「判断が要ること」の2）。読みの辞書（同じく3）も、決まったら辞書のライセンスをここに足す。
+## チャットの読み取りを中核に入れたときの依存（2026-11-16、#285）
+
+中核（`native/core`）が`native/ocr-runtime`を使うようになり、`vrct-vox`に次の外部のクレートが加わった。`caseless`（MIT）、`libloading` 0.9.1（ISC）、`ort`と`ort-sys`（MIT OR Apache-2.0）、`ndarray`、`matrixmultiply`、`num-complex`、`num-integer`、`rawpointer`、`unicode-bidi`、`unicode-normalization`（MITとApache-2.0のいずれか）。`tools/rust_licenses.py`をWindowsとLinuxの両方で実行し、どれも公開パッケージにライセンス文があることを確かめた。`ndarray`などは`vrct-rvc-worker`がすでに使っていたもの。
+
+`native/ocr-runtime`はVRCT-VOXのコードで、OpenCV 4.10.0（Apache-2.0）、RapidOCR 3.9.2（Apache-2.0）、pyclipperが同梱するClipper 6.4.2（Boost Software License 1.0）の処理を、結果が一致するように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。ONNX Runtimeはアプリに静的にリンクせず、実行時に読み込む（[core-integration.md](core-integration.md)の「判断が要ること」の13）。どのONNX Runtimeをどこから配るかは未決。OpenVRのクライアントライブラリも同じく未決（同じ節の16）。
+
+## 音声認識を中核に入れたときの依存（2026-11-16、#278）
+
+中核が`native/transcription`（音声認識）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`tungstenite`、`serde_json`、`libc`）と`native/translation`のHTTPクライアントは、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。音量による発話の切り出しはSpeechRecognition 3.10.4（BSD-3-Clause）の処理を、`rms`と`ratecv`はCPythonの`audioop`（PSF-2.0）を、結果が同じになるように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。Googleの音声認識（SpeechRecognitionの既定のキーで送るもの）は移していない（[core-integration.md](core-integration.md)の「決まったこと」の「Google の Web 音声認識」）。Silero VADのモデルは中核では使わない（同じ節の20）。
 
 ## rmvpe.onnxの承認（2026-11-16、#322）
 
@@ -212,7 +232,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 2026-11-16にHugging FaceのAPIで、記録の5ファイル（今取得する3つと以前の2つ）のサイズとblob IDが記録と一致することを確かめた。LFSのファイルはSHA-256も一致した。
 
-取得するのは、今も既定の経路のPythonのサイドカー（`src-python/models/voice_conversion/runtime_setup.py`）。#344で入ったRustの中核は、まだ実行環境を準備しない（[core-integration.md](core-integration.md)の未決事項6）。中核に移すときも同じ固定値で取得する必要がある。Pythonの固定値と記録の一致は、試験（`tests/voice/test_vc_runtime_setup.py`）が確かめている。
+取得するのは、既定の経路のPythonのサイドカー（`src-python/models/voice_conversion/runtime_setup.py`）と、Rustの中核（`native/voice-conversion/src/runtime.rs`、[core-integration.md](core-integration.md)の「判断が要ること」の6）。中核はPythonと同じ固定値で取得し、`receipt.json`の版も同じ文字列にする（`native/voice-conversion`の単体の試験が、Pythonで計算した4通りの版と一致することを確かめる）。Pythonの固定値と記録の一致は、試験（`tests/voice/test_vc_runtime_setup.py`）が確かめている。
 
 ## RVC追加分（2026-10-29、モデル未取得）
 
@@ -253,9 +273,9 @@ librosa、libsndfile等を含む最終runtime配布条件の監査は引き続�
 
 Windows版にも固定speech.cpp 0.10.0の公式Vulkan版`speech.exe`と通知を同梱する。元ZIPのサイズとSHA-256は[固定台帳](speechcpp-bundle-artifacts.json)にある。ZIP内の`speech.dll`、`speech.h`、`speech.lib`は使わないので含めない。`speech.exe`はMSVCのビルド情報を持ち、Cランタイムの動的ライブラリを読み込まないので、GCCのランタイムは含まない。GCCの文書はLinux版のための通知で、同じ通知一式に残る。`vulkan-1.dll`とGPUドライバーは配布物に含まない。
 
-RVCとSeed-VCの実行環境、基礎モデル、声のモデルは、WindowsでもLinuxでも配布物に含まない。アプリの準備機能は、利用者の同意を得て提供元からこのPCへ直接取得するだけで、再配布はしない。取得先はGitHub（uv、Python、エンジン本体、ONNX Runtime）、PyPI、PyTorch、Hugging Faceで、同意画面にライセンスのリンクとサイズを示す。2026-11-15からRVCの実行環境はONNX Runtime（GPU用はNVIDIAのライブラリも）だけになり、変換は同梱の`vrct-rvc-worker`が行う（上の「RVC同梱ワーカー」）。Windowsの配布物の`_internal/voice_worker/integrations/seed_vc/`にはGPL-3.0-onlyのアダプターを、`_internal/licenses/python/`には凍結したPythonパッケージのライセンス文書を含む。
+RVCとSeed-VCの実行環境、基礎モデル、声のモデルは、WindowsでもLinuxでも配布物に含まない。アプリの準備機能は、利用者の同意を得て提供元からこのPCへ直接取得するだけで、再配布はしない。取得先はGitHub（uv、Python、エンジン本体、ONNX Runtime）、PyPI、PyTorch、Hugging Faceで、同意画面にライセンスのリンクとサイズを示す。2026-11-15からRVCの実行環境はONNX Runtime（GPU用はNVIDIAのライブラリも）だけになり、変換は同梱の`vrct-rvc-worker`が行う（上の「RVC同梱ワーカー」）。0.4.xまでのWindowsの配布物の`_internal/voice_worker/integrations/seed_vc/`にはGPL-3.0-onlyのアダプターを、`_internal/licenses/python/`には凍結したPythonパッケージのライセンス文書を含んでいた。0.5.0の中核はSeed-VCの実行環境を準備せず、RVCの実行環境だけをGitHub（ONNX Runtime）、PyPI（NVIDIAのライブラリ）、Hugging Face（基礎モデル）から取得する（`native/voice-conversion/src/runtime.rs`）。0.5.0の配布物の中身は下の「Pythonの同梱の終了」の節にある。
 
-Linuxの配布物も、2026-11-11から同じ準備機能を持つ。取得するuvはLinux用の公式リリース（x86-64、glibc版）で、版・サイズ・SHA-256を固定する。そのために`_internal/integrations/seed_vc/`へ（2026-11-15まではRVCの`_internal/integrations/rvc/`にも）、ハッシュを固定した依存の一覧（`requirements-cuda.lock`、`requirements.lock`）と、Seed-VCのパッチ（`offline-loader.patch`、GPL-3.0-only）を加えた。Linux用のPyTorch（CUDA版）は、NVIDIAのライブラリを別のパッケージ（`nvidia-*-cu12`など）として取得する。これらもNVIDIAのライセンスに従い、配布物には含まない。
+Linuxの配布物も、2026-11-11から同じ準備機能を持つ（以下のuvとSeed-VCの記述は0.4.xまでのもの）。取得するuvはLinux用の公式リリース（x86-64、glibc版）で、版・サイズ・SHA-256を固定する。そのために`_internal/integrations/seed_vc/`へ（2026-11-15まではRVCの`_internal/integrations/rvc/`にも）、ハッシュを固定した依存の一覧（`requirements-cuda.lock`、`requirements.lock`）と、Seed-VCのパッチ（`offline-loader.patch`、GPL-3.0-only）を加えた。Linux用のPyTorch（CUDA版）は、NVIDIAのライブラリを別のパッケージ（`nvidia-*-cu12`など）として取得する。これらもNVIDIAのライセンスに従い、配布物には含まない。
 
 ## speech.cpp配布部品（2026-10-29）
 
@@ -271,13 +291,32 @@ miniaudioの二重ライセンス、静的GCCランタイムのGPLv3＋Runtime L
 
 2026-11-15に固定版を0.11.0（commit 8d18924cd238b87c0297df112f7ff40783a6414f）へ更新。3種の公式ZIP（Linux CPU、Linux Vulkan、Windows Vulkan）は、リリースの`SHA256SUMS`とGitHubが示すダイジェストの両方と一致した。speech.cpp/cpp-httplib/miniaudioのライセンス文は0.10.0と同一で、vendorは無変更。GGMLはspeech.cppのfork（[nyosegawa/ggml](https://github.com/nyosegawa/ggml)）のsubmodule 79b50d239d0b88852814c873db0d85d43ed66d9bへ更新し、ライセンス文は同一。forkは0.10.0の時点から使われていたので、通知と台帳の原典URLもforkに直した。Linuxの実行ファイルのGCCは同じUbuntu 11.4.0-1ubuntu1~22.04.3で、必要なglibcは2.34のまま、動的に読むのはlibc・libm・（Vulkan版は）libvulkanだけ。Windowsの`speech.exe`はMSVCのビルド情報を持ち、読み込むDLLはWindows標準のものと`vulkan-1.dll`だけで、Cランタイムの動的ライブラリは読まない。新規に同梱する第三者コードはない。0.11.0で増えた音声強調（RE-USE）と対話（Haru-4B）のモデルはアプリから使わず、取得の候補にも入れない。
 
+## Linuxの2つのspeech.cpp（0.5.0、2026-11-16）
+
+0.5.0から、Linuxの配布物（tar.gz、AppImage、deb、rpm）はアーキテクチャごとに1つになり、speech.cppのCPU版とVulkan版の両方を入れる。Vulkan版は`_internal/build/speechcpp/`、CPU版は`_internal/build/speechcpp-cpu/`にあり、それぞれが固定台帳のZIPから作った自分の`bundle.json`と通知一式を持つ。どちらを使うかは設定の推論デバイスで決まる（[中核の統合](core-integration.md)の「判断が要ること」の5）。2つの実行ファイルは同じリリース（0.11.0、commit 8d18924cd238b87c0297df112f7ff40783a6414f）の公式ZIPで、通知の文面は同じ。新規に同梱する第三者コードはない。CPU版が動的に読むのはlibcとlibmだけで、Vulkanローダーは読まない。Vulkan版はlibvulkanを読むが、ローダーとドライバーは今までどおり配布物に含めない。debとrpmではVulkanローダーを必須から推奨に移した（「判断が要ること」の48）。Windowsは公式のWindows版がVulkan版だけなので、今までどおりVulkan版だけを入れる。
+
 ## 内蔵CTranslate2の取得条件
 
-ローカルの Whisper（faster-whisper）は #288 で削除し、Whisper の重み（OpenAIのMITモデルを元にしたSystran・Zoont・deepdmlのCTranslate2変換版）の取得もやめた。以前の版が取得した重みは読まず、設定の「音声認識（ASR）」から利用者が削除できる。提供元は[NOTICE](../../NOTICE.md#whisper-weights-from-earlier-versions)に残す。faster-whisperは依存から外し（`pyproject.toml`、`uv.lock`。PyAVも一緒に外れた）、発話区間の検出（同梱のSilero VAD）とOCRが使う`onnxruntime`を直接の依存にした。PyAVを必要とする依存はなくなったが、`packaging/pyinstaller-stubs/av`の代用モジュールと配布ポリシーによるPyAV・x264/x265の拒否は、防御として残す。CTranslate2と、そのCUDA用の追加依存は、ローカルの翻訳が使うので残す。
+ローカルの Whisper（faster-whisper）は #288 で削除し、Whisper の重み（OpenAIのMITモデルを元にしたSystran・Zoont・deepdmlのCTranslate2変換版）の取得もやめた。以前の版が取得した重みは読まず、設定の「音声認識（ASR）」から利用者が削除できる。提供元は[NOTICE](../../NOTICE.md#whisper-weights-from-earlier-versions)に残す。faster-whisperは依存から外し（`pyproject.toml`、`uv.lock`。PyAVも一緒に外れた）、発話区間の検出（同梱のSilero VAD）とOCRが使う`onnxruntime`を直接の依存にした。PyAVを必要とする依存はなくなったが、`packaging/pyinstaller-stubs/av`の代用モジュールと配布ポリシーによるPyAV・x264/x265の拒否は、防御として残す（代用モジュールは0.5.0でPyInstallerの工程と一緒に削除した）。CTranslate2と、そのCUDA用の追加依存は、ローカルの翻訳が使うので残す。
 
 CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとその文章分割ファイルがCC-BY-NC-4.0（非商用）。[NOTICEの一覧](../../NOTICE.md#downloadable-ctranslate2-translation-weights)を正本とする。非商用モデルは既定にしない。
 
 内蔵モデルの取得は、選択済みのNLLBや同じ一式に含まれるtokenizerも含め、モデルと固定した一覧への明示的な同意を必要とする。起動時の取得は、その同意の記録がある版だけに限る。tokenizerはCTranslate2変換リポジトリ内の固定済みファイルを使い、容量・SHA-256を検証する。確認画面の合計容量に含め、取得元の変更によりmanifestの再同意が必要になる。ライセンスの条件は変えない。この追記で配布許可や完全性の検証完了を主張しない。取得画面と移行の詳細は[モデル取得](model-downloads.md#内蔵ctranslate2と文章分割ファイル)を参照する。
+
+0.5.0でPythonを同梱しなくなったので、`ctranslate2`のホイール（Intel MKLとoneDNNを含む）も配布物から消えた。中核は以前の版が取得した重みを読まず、起動の後で消す（[core-integration.md](core-integration.md)の「決まったこと」）。
+
+### ローカル翻訳のエンジンの候補（2026-11-16）
+
+中核のローカル翻訳に使えるOSSを比べた（[core-integration.md](core-integration.md)の「判断が要ること」の1）。どれもアプリにはまだ入れていない。依存とライセンスの台帳、NOTICE、`tools/rust_licenses.py`の一覧は変わらない。
+
+| 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
+|---|---|---|---|
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは未公開。利用者が自分で置くモデルのライセンスは利用者が確かめる |
+| `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
+| `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
+| `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
+| `fxtranslate` 0.5.0 | MPL-2.0 | Firefoxの翻訳モデル（作者は自分で配り直すよう求めている） | 英語との組だけで、配り直しが要るので候補から外した |
+| Bergamot（translateLocally、`marek_translate_locally` 1.0.1） | AGPL-3.0-or-later | ― | **除外**。AGPLはアプリ全体の配布の条件に及ぶため |
 
 ## Silero VADの同梱（2026-11-15）
 
@@ -289,6 +328,17 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 | 2グラフへの分割 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper)。MIT、Copyright (c) 2023 SYSTRAN。v1.1.1（commit `9e657b47cb71ed7aa32ce115ef0dca953ca39ae5`）のファイルを無加工で使う。PyPIのwheel（SHA-256 `5808dc33…`）と照合した |
 | ファイル | `silero_encoder_v5.onnx` 713,415 bytes、`silero_decoder_v5.onnx` 532,505 bytes。SHA-256は[通知](../../licenses/silero-vad/NOTICE.md)にあり、読み込むたびに照合する |
 | 置き場所 | リポジトリは`src-python/models/transcription/silero_vad/`、配布物は`_internal/models/transcription/silero_vad/`。ライセンス文と通知は`licenses/silero-vad/` |
+
+## Outfit（ASTAROTのブランド書体、2026-11-16）
+
+ASTAROTのブランド書体をSpace GroteskからOutfitに変えた。ワードマークはOutfit Boldの字形の輪郭で、ロゴのサブタイトルもOutfitで組む。サブタイトルなどの表示のため、Outfitのフォントファイルをアプリに同梱する（ADR-011の3.2節）。同梱の実装はP1のUIの作業で行い、この時点では配布物にもリポジトリにもフォントファイルはない。
+
+| 項目 | 内容 |
+|---|---|
+| 書体 | [Outfit](https://github.com/Outfitio/Outfit-Fonts)。SIL Open Font License 1.1、Copyright 2021 The Outfit Project Authors。Reserved Font Nameはない |
+| ライセンス文 | 上流のcommit `902773808eb372f70fb34e8946dd1ffe604efc79`の`OFL.txt`を無加工で`licenses/outfit/OFL.txt`に置いた。Google Fontsもこのcommitを取り込んでいる |
+| ワードマークに使ったフォント | Google Fontsが配る静的なOutfit Bold（Version 1.100）。SHA-256 `cc3235ab6d698be85a2735d1fd59ba8f73b144cb763c00aaf173b68f0471a9c7`。上流の静的な`Outfit-Bold.ttf`とは輪郭が少し違う |
+| 同梱するとき | フォントファイルに`OFL.txt`を添え、`licenses/outfit/NOTICE.md`にファイル名、版、サイズ、SHA-256を足す。OFLはフォント単体での販売を認めないが、ソフトウェアに同梱して再配布することは認める。同梱するときは、著作権表示とライセンス文を添える |
 
 ## speech.cppの読み上げモデルの追加（2026-11-16）
 
@@ -305,9 +355,9 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 
 どのリポジトリも取得にログインは要らない（2026-11-16にHugging FaceのAPIで`gated: false`を確認）。
 
-**Irodori-TTS v4 Large**：文章と説明を読むエンコーダーがGoogleの`google/t5gemma-2-1b-1b`に由来するので、モデルとGGUFはGemma Terms of Useに従って配布されている。2026-11-16にリポジトリ内の`GEMMA_TERMS_OF_USE.md`と`NOTICE`を確認した。この規約は利用を商用と非商用で分けておらず、再配布も認める。再配布するときは、規約の写しを渡し、禁止用途の制限を受け手にも拘束力のある条件として課し、変更したファイルにその旨を示し、`NOTICE`の表示を添える条件がある（3.1節）。Googleは規約違反と考える利用を制限できる（3.2節）。VRCT-VOXはファイルを再配布せず、利用者が提供元から直接取得するので、再配布の条件は当てはまらない。ただし禁止用途のポリシーは利用者の使い方に及ぶ。そこで同意画面に、Gemmaの規約と禁止用途のポリシーに従うことを書き、`GEMMA_TERMS_OF_USE.md`、`GEMMA_PROHIBITED_USE_POLICY.md`、`LICENSE-MIT`、`LICENSE-APACHE-2.0`へのリンクを個別に示す。OSIのライセンスではないので既定にはせず、一覧の最後に置いた。モデルカードには、無断の声の模倣やなりすまし、誤情報の生成の禁止も書かれている。公式の実行環境は聞こえない透かし（SilentCipher）を入れるが、speech.cppは入れない、とモデルカードにある。
+**Irodori-TTS v4 Large**：文章と説明を読むエンコーダーがGoogleの`google/t5gemma-2-1b-1b`に由来するので、モデルとGGUFはGemma Terms of Useに従って配布されている。2026-11-16にリポジトリ内の`GEMMA_TERMS_OF_USE.md`と`NOTICE`を確認した。この規約は利用を商用と非商用で分けておらず、再配布も認める。再配布するときは、規約の写しを渡し、禁止用途の制限を受け手にも拘束力のある条件として課し、変更したファイルにその旨を示し、`NOTICE`の表示を添える条件がある（3.1節）。Googleは規約違反と考える利用を制限できる（3.2節）。ASTAROTはファイルを再配布せず、利用者が提供元から直接取得するので、再配布の条件は当てはまらない。ただし禁止用途のポリシーは利用者の使い方に及ぶ。そこで同意画面に、Gemmaの規約と禁止用途のポリシーに従うことを書き、`GEMMA_TERMS_OF_USE.md`、`GEMMA_PROHIBITED_USE_POLICY.md`、`LICENSE-MIT`、`LICENSE-APACHE-2.0`へのリンクを個別に示す。OSIのライセンスではないので既定にはせず、一覧の最後に置いた。モデルカードには、無断の声の模倣やなりすまし、誤情報の生成の禁止も書かれている。公式の実行環境は聞こえない透かし（SilentCipher）を入れるが、speech.cppは入れない、とモデルカードにある。
 
-**drama-3を対象外にした理由**：Fish Audio Community License 1.0（2026-10-13版）を2026-11-16に読んだ。研究と非商用の利用は無料だが、商用の利用は年間売上が50万米ドル未満の間だけ認められる。さらに、音声合成を第三者に使わせる場合は、規約と同等以上の制限を拘束力のある条件で相手に課す義務があり、製品や説明に「Built with Fish Audio」を目立つように示す義務もある。VRCT-VOXが取得を案内すると、この義務を誰が負うのかを判断する必要がある。その判断は独断でしない。既定の型でも20.79 GB、上流の測定でGPUメモリを約21 GiB使い、VRChatと並べて動かす前提にも合わない。条件を確認したうえで載せるかどうかは、保守担当者が決める。
+**drama-3を対象外にした理由**：Fish Audio Community License 1.0（2026-10-13版）を2026-11-16に読んだ。研究と非商用の利用は無料だが、商用の利用は年間売上が50万米ドル未満の間だけ認められる。さらに、音声合成を第三者に使わせる場合は、規約と同等以上の制限を拘束力のある条件で相手に課す義務があり、製品や説明に「Built with Fish Audio」を目立つように示す義務もある。ASTAROTが取得を案内すると、この義務を誰が負うのかを判断する必要がある。その判断は独断でしない。既定の型でも20.79 GB、上流の測定でGPUメモリを約21 GiB使い、VRChatと並べて動かす前提にも合わない。条件を確認したうえで載せるかどうかは、保守担当者が決める。
 
 同意画面で、Hugging Face上のライセンスファイルへのリンクをファイル名で示すようにした。1つのモデルに複数の条件があっても、どれがどの文書か区別できる。
 
@@ -322,7 +372,7 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 | ファイル | `Nemotron-3-Diarization-99M-Q8_0.gguf`、106,179,488 bytes、SHA-256 `336df6350dce2ea5ff06aa6e2b249d331a859ced13305fbb45c44bdb3c0abe20` |
 | ライセンス | [OpenMDW-1.1](https://openmdw.ai/license/1-1/)。リポジトリに`LICENSE.OpenMDW-1.1`がある。取得にログインは要らない |
 
-2026-11-13にOpenMDW-1.1の本文を読んだ。モデルと関連物を制限なく扱える許諾で、配布するときは契約の写しと著作権表示・出所の表示を残す条件である。特許や著作権の侵害を主張する訴訟を起こすと許諾が終わる。出力の利用には制限も義務も課さない。VRCT-VOXはこのモデルを再配布しないので、配布時の条件は当てはまらない。同意画面ではモデルカードとリポジトリ内のライセンス文へのリンクを示す。
+2026-11-13にOpenMDW-1.1の本文を読んだ。モデルと関連物を制限なく扱える許諾で、配布するときは契約の写しと著作権表示・出所の表示を残す条件である。特許や著作権の侵害を主張する訴訟を起こすと許諾が終わる。出力の利用には制限も義務も課さない。ASTAROTはこのモデルを再配布しないので、配布時の条件は当てはまらない。同意画面ではモデルカードとリポジトリ内のライセンス文へのリンクを示す。
 
 元のモデルカードは学習データに日本語を挙げていない。日本語での精度は提供元も変換者も公表していない。この条件と手元での試験の結果は[話者分離の選定と試験](speaker-diarization-2026-11-13.md)に記録した。
 
@@ -342,3 +392,55 @@ speech.cppの読み上げで選べるモデルを増やした。どれも配布�
 | Nemotron 3.5 Transcribe 30B-A4B | OpenMDW-1.1 | 話者分離モデルと同じ契約（上の節）。リポジトリの`LICENSE`がNVIDIAの著作権表示を含む |
 
 2026-11-16に、固定revisionのモデルカードと元のモデルのカードで確かめた。どれもHugging Faceのアクセス制限（gated）がなく、ログインや利用規約への同意は要らない。非商用の制限もない。ライセンスを理由に外したモデルはない。Nemotron 3.5 Transcribeはいちばん小さいファイルでも約19 GBある。同意画面の注意書きで容量とメモリーの大きさを示し、既定では選ばない。
+
+## Pythonの同梱の終了（0.5.0、2026-11-16）
+
+0.5.0から、バックエンドはアプリ（`vrct-vox`）の中で動くRustの中核になり（[中核の統合](core-integration.md)）、配布物にPythonを入れない。PyInstallerの工程（`spec/*.spec`）もやめた。配布物の`_internal`は`tools/app_resources.py`が作り、中身は次のものだけになる。
+
+| パス | 内容 | ライセンス |
+|---|---|---|
+| `_internal/build/speechcpp/` | 固定版のspeech.cpp（Vulkan版）と依存の通知 | MITと通知の各ライセンス（上の各節） |
+| Linuxの`_internal/build/speechcpp-cpu/` | 固定版のspeech.cpp（CPU版）と依存の通知 | 同上（下の「Linuxの2つのspeech.cpp」） |
+| `_internal/build/sudachi/`（版が決まってから） | 読みの辞書SudachiDictと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
+| `_internal/build/vrct-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
+| Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`vrct-voice-gate`など） | VRCT-VOX自身のコード |
+| `_internal/licenses/VRCT/` | `LICENSE`と`NOTICE.md` | |
+| `_internal/licenses/rust/` | アプリとワーカーのRustのクレートのライセンス文 | 一覧のとおり |
+| `_internal/licenses/nscurl/`（Windows） | インストーラーのNScurlの通知 | 上の節のとおり |
+| Linuxの`_internal/config/pipewire/` | PipeWireの設定の例 | VRCT-VOX自身のファイル |
+
+配布物から消えるもの:
+
+- Pythonの実行環境とPythonのパッケージ（`_internal/licenses/python/`のライセンス文も）。NOTICEの「LGPL and GPL components」の表の部品（libsoxr、OpenCVのFFmpegとGCCのランタイム、zeroconf、Seed-VCのアダプター、PyInstallerのブートローダー）は0.4.xまでの配布物にだけ入る。ソースの提供の約束は、その版の公開から3年間続く。
+- Silero VADの同梱（上の節の`_internal/models/transcription/silero_vad/`）。Rustの音声認識がSilero VADを使うことになったら、`tools/app_resources.py`に足し、`licenses/silero-vad/`の通知も同梱する。
+- RapidOCRの設定ファイル（`rapidocr/*.yaml`）。Rustの`ocr-runtime`は読まない。
+- フォント（`*.ttf`）。0.4.xまではVRの字幕のためにNoto SansのJP・KR・SC・TC（SIL Open Font License 1.1）を`_internal`に入れていた。Rustの中核は書体を同梱せず、利用者のPCの書体を使う（[中核の統合](core-integration.md)の「決まったこと」の「字幕の書体」）。そのため書体のライセンスは配布物に関係しない。Outfitの節はブランドの文字のためのもので、これとは別。
+- Sudachiの辞書（SudachiPyの`sudachidict_core`と`sudachidict_full`）。Rustの中核は同じ辞書をsudachi.rsで読む。入れる版は下の「読みの解析器と辞書」の節。
+
+- ONNX Runtime（2026-11-17に決定、#509）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`load-dynamic`でONNX Runtimeを実行時に読み込み、プロセスで1つの環境を共有する。配布物には公式のCPU版1.31.0（MIT、Microsoft。声質変換の実行環境の準備が取得するものと同じアーカイブ）を`_internal/onnxruntime`に入れ、ライセンスと`ThirdPartyNotices.txt`を`_internal/licenses/onnxruntime`に置く（`tools/runtime_libraries.py`）。DirectML、CUDA、OpenVINOなどの実行プロバイダの入った版は入れない。0.5.0-beta.4までは何も入れておらず、WindowsではSystem32の古いONNX Runtime（1.17）が読み込まれてOCRのモデル（IR 10）を読めなかった。
+- OpenVRのクライアントライブラリ（2026-11-17に決定、#509）。VRのオーバーレイとOCRのVRの映像が実行時に読み込む。0.4.xと同じpyopenvr 2.12.1401のwheel（BSD-3-Clause、Christopher Bruns）から、OpenVR SDK 2.12.14の`libopenvr_api_64`（BSD-3-Clause、Valve Corporation）を`_internal/openvr`に入れる。ライセンスは、Valveの同じ版のもの（`LICENSE`）とpyopenvrのもの（`pyopenvr-LICENSE`）を`_internal/licenses/openvr`に置く。
+
+まだ決まっていないもの（[中核の統合](core-integration.md)の「判断が要ること」）:
+
+- CUDA版（20）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
+
+Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。
+
+## 読みの解析器と辞書（2026-11-16）
+
+メッセージの読み（ひらがな・ローマ字）は、Pythonと同じくSudachiで解析する。中核は解析器にsudachi.rsを使い、辞書は`_internal/build/sudachi/system.dic`を読む。候補の比較は[中核の統合](core-integration.md)の「判断が要ること」の3にある。
+
+| 部品 | 入れ方 | ライセンス | 確認したこと |
+|---|---|---|---|
+| sudachi.rs 0.6.11（クレート`sudachi`） | アプリに組み込む。crates.ioにないので、GitHubのタグv0.6.11のコミット（`90fd6068`）をgitの依存で固定 | Apache-2.0（Works Applications） | パッケージのフォルダにライセンス文がないので、リポジトリの`LICENSE`を`licenses/rust/sudachi-0.6.11/`に置いた（`supplements.json`）。NOTICEファイルはない。組み込む設定と文字の定義（`resources/`）も同じライセンス |
+| sudachi.rsの依存（`fancy-regex`、`nom`、`yada`、`csv`、`memmap2`など） | アプリに組み込む | MIT、Apache-2.0、Unlicense/MITなど | `tools/rust_licenses.py`がWindowsとLinuxの両方で、ライセンス文の欠けなしに集められた |
+| SudachiDict 20250825（full、core、small） | 公式の配布（`d2ej7fkh96fzlu.cloudfront.net/sudachidict/`）から`tools/sudachi_dictionary.py`が固定の大きさとSHA-256で取得し、`_internal/build/sudachi/`に置く。版は未決 | Apache-2.0。語彙の一部はUniDic（BSD-3-Clause、UniDic Consortium）とmecab-unidic-NEologd（Apache-2.0）に由来し、配布の`LEGAL`がその表示を持つ | 配布の`LEGAL`と`LICENSE-2.0.txt`を辞書と一緒に置く。辞書はSudachiPyの`sudachidict_*` 20250825と同じバイト列 |
+
+比べた候補のライセンス:
+
+- lindera（MIT）とvibrato（MITかApache-2.0）は問題ない。読みの質で外した。
+- IPADIC（mecab-ipadic 2.7.0）は独自の許諾で、再配布できるが著作権の表示が要る。NAIST-JDICはBSD-3-Clause。どちらも読みの質で外した。
+- UniDic（unidic-mecab 2.1.2、UniDic-cwj 3.1.1）はBSD・GPL・LGPLの三つから選ぶ形で、BSDを選べば配布できる。読みの質で外した。
+- linderaのSudachiDictの埋め込み（`lindera-sudachidict`）は、ビルドのたびに配布元ではないlindera.devから辞書を取得する。ライセンスはSudachiDictと同じ。読みの質と実行ファイルの大きさ（+593 MB）で外した。
+
+ライセンスを理由に外した候補はない。

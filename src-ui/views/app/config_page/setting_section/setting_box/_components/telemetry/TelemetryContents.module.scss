@@ -43,9 +43,9 @@
         padding: 1rem 1.2rem;
         max-height: 24rem;
         overflow: auto;
-        border-radius: .6rem;
+        border-radius: var(--vox_radius);
         background: var(--dark_900_color, #12161d);
-        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-family: var(--vox_font_mono, monospace);
         font-size: 1.2rem;
         white-space: pre-wrap;
         user-select: text;

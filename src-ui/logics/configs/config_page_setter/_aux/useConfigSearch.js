@@ -3,10 +3,11 @@ import { useI18n } from "@useI18n";
 import { useStore_SelectedConfigTabId } from "@store";
 import { useOcr } from "@logics_configs";
 import { useRealtimeASR } from "../../../transcription/useRealtimeASR";
-import { createLanguageNames } from "../../../common/languageNames.js";
+import { createLanguageNames } from "../../../common/languageNames.ts";
 import { ui_configs } from "@ui_configs";
 import i18n from "@root/locales/config.js";
 import { requestSettingsNavigation } from "../../../voice/settingsNavigation";
+import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
 
 // 検索の元にする config_page 以下の文言の名前空間
 const VALID_TABS = [
@@ -16,8 +17,8 @@ const VALID_TABS = [
     "transcription",
     "vrchat",
     "ocr",
-    // "vr",
-    // "hotkeys",
+    "vr",
+    "hotkeys",
     "tts", "rvc",
     "advanced_settings",
     "others",
@@ -39,7 +40,6 @@ const SETTING_TABS = {
     "others.common_convert_message_hiragana_romaji": ["appearance"],
     "others.convert_message_to_romaji": ["appearance"],
     "others.convert_message_to_hiragana": ["appearance"],
-    "others.auto_download_models": ["translation"],
     "advanced_settings.section_label_osc": ["vrchat"],
     "advanced_settings.osc_ip_address": ["vrchat"],
     "advanced_settings.osc_port": ["vrchat"],
@@ -48,6 +48,14 @@ const SETTING_TABS = {
 export const settingTabs = (namespace, key) =>
     SETTING_TABS[`${namespace}.${key}`] ?? NAMESPACE_TABS[namespace] ?? [namespace];
 
+// Labels that name another text, filled in as the page fills them.
+const labelValues = t => ({
+    "hotkeys.toggle_translation": { translation: t("main_page.translation") },
+    "hotkeys.toggle_transcription_send": { transcription_send: t("main_page.transcription_send") },
+    "hotkeys.toggle_transcription_receive": { transcription_receive: t("main_page.transcription_receive") },
+    "hotkeys.toggle_voice_switch": { name: `${t("main_page.tts")} / ${t("main_page.rvc")}` },
+});
+
 const TAB_LABEL_KEYS = {
     vrchat: "config_page.side_menu_labels.vrchat",
     ocr: "config_page.side_menu_labels.ocr",
@@ -55,8 +63,8 @@ const TAB_LABEL_KEYS = {
     appearance: "config_page.side_menu_labels.appearance",
     translation: "config_page.side_menu_labels.translation",
     transcription: "config_page.side_menu_labels.transcription",
-    // vr: "config_page.side_menu_labels.vr",
-    // hotkeys: "config_page.side_menu_labels.hotkeys",
+    vr: "config_page.side_menu_labels.vr",
+    hotkeys: "config_page.side_menu_labels.hotkeys",
     tts: "config_page.side_menu_labels.tts",
     rvc: "config_page.side_menu_labels.rvc",
     advanced_settings: "config_page.side_menu_labels.advanced_settings",
@@ -103,6 +111,7 @@ export const useConfigSearch = () => {
 
         const names = createLanguageNames(currentLng);
         const english = createLanguageNames("en");
+        const values = labelValues(t);
         const entries = [];
 
         for (const tab of VALID_TABS) {
@@ -115,6 +124,7 @@ export const useConfigSearch = () => {
                 const enVal = enTab[key];
 
                 if (!curVal && !enVal) continue;
+                if (NOT_SETTINGS.has(`${tab}.${key}`)) continue;
                 // A group of texts with no label of its own (status messages, model
                 // notes) is not a setting; listing it would show its raw key.
                 const labelled = (v) => typeof v === "string" || (v && (v.label || v.label_for_automatic || v.label_for_manual));
@@ -125,8 +135,10 @@ export const useConfigSearch = () => {
                 if (/_desc$/.test(key) && typeof (curVal ?? enVal) === "string" && ["_title", "_label"].some(suffix => { const title = key.replace(/_desc$/, suffix); return curTab[title] || enTab[title]; })) continue;
                 const sectionDesc = descKey !== key && typeof (curTab[descKey] ?? enTab[descKey]) === "string" ? { cur: curTab[descKey], en: enTab[descKey] } : null;
 
-                // label の抽出（currentLng → en フォールバック）
-                const rawLabel = (typeof curVal === "object" ? (curVal.label || curVal.label_for_automatic || curVal.label_for_manual) : null)
+                // label の抽出（currentLng → en フォールバック）。ほかの文言を名前に含むものは、ページと同じ値で埋める
+                const filled = values[`${tab}.${key}`] && typeof (curVal ?? enVal) === "object"
+                    ? t(`config_page.${tab}.${key}.label`, values[`${tab}.${key}`]) : null;
+                const rawLabel = filled ?? (typeof curVal === "object" ? (curVal.label || curVal.label_for_automatic || curVal.label_for_manual) : null)
                     ?? (typeof enVal === "object" ? (enVal.label || enVal.label_for_automatic || enVal.label_for_manual) : null)
                     ?? (typeof curVal === "string" ? curVal : (typeof enVal === "string" ? enVal : key));
 
@@ -145,6 +157,7 @@ export const useConfigSearch = () => {
                     searchStrings.push(...collectStrings(enVal));
                 }
                 if (sectionDesc) searchStrings.push(...[sectionDesc.cur, isEn ? null : sectionDesc.en].filter(Boolean));
+                if (filled) searchStrings.push(filled);
 
                 if (tab === "ocr" && key === "source_language") {
                     const languages = new Set([...Object.keys(currentSelectableOcrSourceLanguageList.data ?? {}), currentOcrSourceLanguage.data]);
@@ -164,7 +177,7 @@ export const useConfigSearch = () => {
                 for (const page of settingTabs(tab, key)) {
                     entries.push({
                         tab: page,
-                        setting_id: tab === "ocr" && key === "source_language" ? "ocr_source_language" : key,
+                        setting_id: settingTarget(tab, key),
                         label: cleanTemplateStr(rawLabel),
                         desc: cleanTemplateStr(rawDesc),
                         tab_label: t(TAB_LABEL_KEYS[page] ?? page),

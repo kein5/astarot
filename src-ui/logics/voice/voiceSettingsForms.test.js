@@ -1,11 +1,12 @@
-import * as routeState from "./routeState.js";
+import * as routeState from "./routeState.ts";
+import * as voiceErrorTextModule from "./voiceErrorText.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.js";
 import { flush } from "../test/bridgeHarness.js";
-import { rebaseDraft } from "./draftRebase.js";
+import { rebaseDraft } from "./draftRebase.ts";
 import { changedPaths } from "./saveBar.js";
-import { createSettingsWriteResponses } from "../common/settingsWriteResponses.js";
+import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 
 async function setup(context) {
     context.mock.timers.enable({ apis: ["setTimeout"] });
@@ -33,7 +34,7 @@ async function setup(context) {
             "@store": {}, "../../../../../../logics/voice/useVoice": { useVoice: () => state },
             "../../../../../../logics/voice/routeState": routeState,
             "../../../../../../logics/voice/useSettingsDraft": draft,
-            "../tts/GenerationOptions": { validGenerationOptions: () => true }, "../tts/TtsEngine": { TTS_ENGINES: {} }, "../device/VoiceRouteSettings": {}, "../tts/VirtualMicEntry": { VirtualMicEntry: () => null },
+            "../tts/GenerationOptions": { validGenerationOptions: () => true }, "../tts/TtsEngine": { TTS_ENGINES: {}, validCoeiroinkOptions: () => true }, "../device/VoiceRouteSettings": {}, "../tts/VirtualMicEntry": { VirtualMicEntry: () => null }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,
             "./StatusLine": {}, "../_components/description/Description": {},
             "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
             "../_components/env_readout/EnvReadout": {}, "../_components/form_row/FormRow": { FormRow: "row" },

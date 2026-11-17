@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createLanguageNames, isLanguagePickKey } from "./languageNames.js";
-import { languageCodes } from "./languageCodes.js";
+import { createLanguageNames, isLanguagePickKey } from "./languageNames.ts";
+import { languageCodes } from "./languageCodes.ts";
 
 const japanese = Object.freeze({ language: "Japanese", country: "Japan" });
 const english = Object.freeze({ language: "English", country: "United States" });
@@ -39,6 +39,66 @@ test("sorting and filtering return original objects in visible order for Enter s
     assert.deepEqual(sorted, expected);
     assert.strictEqual(sorted.filter(entry => names.matches(entry, "japan"))[0], japanese);
     assert.deepEqual(entries, [japanese, english, { language: "Arabic", country: "Algeria" }]);
+});
+
+test("a language code narrows the list as it is typed: the ISO 639 code's beginning, in either case, with - or _", () => {
+    const names = createLanguageNames("ja");
+    const traditional = { language: "Chinese Traditional", country: "Taiwan" };
+    for (const query of ["j", "ja", "JA", "ja-", "ja-j", "ja-jp", "ja_JP", " ja "]) assert.equal(names.matchesCode(japanese, query), true, query);
+    for (const query of ["e", "en", "en-u", "en-us", "EN_US"]) assert.equal(names.matchesCode(english, query), true, query);
+    for (const query of ["jp", "ja-us", "japan", "ja jp", "", "日本"]) assert.equal(names.matchesCode(japanese, query), false, query);
+    for (const query of ["j", "ja", "en-g"]) assert.equal(names.matchesCode(english, query), false, query);
+    // The stored tags are the speech engine's (cmn-Hant-TW, iw-IL); the code matched is the ISO 639 one (zh, he).
+    assert.equal(languageCodes[traditional.language][traditional.country], "cmn-Hant-TW");
+    for (const query of ["z", "zh", "zh-hant", "zh-Hant-TW"]) assert.equal(names.matchesCode(traditional, query), true, query);
+    for (const query of ["zh-hans", "cmn", "c"]) assert.equal(names.matchesCode(traditional, query), false, query);
+    const [hebrewCountry, hebrewTag] = Object.entries(languageCodes.Hebrew)[0];
+    assert.match(hebrewTag, /^iw-/);
+    const hebrew = { language: "Hebrew", country: hebrewCountry };
+    for (const query of ["h", "he"]) assert.equal(names.matchesCode(hebrew, query), true, query);
+    assert.equal(names.matchesCode(hebrew, "iw"), false);
+    // Code matching adds to the name search; it does not replace it.
+    assert.equal(names.matches(japanese, "日本"), true);
+    assert.equal(names.matches(english, "zh"), false);
+});
+
+test("typing a code narrows the code matches at each letter over the real language list", () => {
+    const names = createLanguageNames("en");
+    const entries = Object.entries(languageCodes).flatMap(([language, countries]) => Object.keys(countries).map(country => ({ language, country })));
+    const codeMatches = query => entries.filter(entry => names.matchesCode(entry, query));
+    const tag = entry => Intl.getCanonicalLocales(languageCodes[entry.language][entry.country])[0].toLowerCase();
+    let previous = entries.length;
+    for (const query of ["e", "en", "en-", "en-u", "en-us"]) {
+        const found = codeMatches(query);
+        assert.ok(found.length > 0 && found.length <= previous, `${query}: ${found.length}`);
+        assert.ok(found.every(entry => tag(entry).startsWith(query)), query);
+        previous = found.length;
+    }
+    assert.ok(codeMatches("e").some(entry => entry.language === "Spanish"), "e also keeps es");
+    assert.ok(codeMatches("en").every(entry => entry.language === "English"));
+    assert.ok(codeMatches("j").some(entry => entry.language === "Japanese"));
+    assert.ok(codeMatches("ja").every(entry => entry.language === "Japanese"));
+    // The list puts the code matches first, then the names that contain the letters.
+    const shown = names.search(entries, "j");
+    const first = shown.slice(0, codeMatches("j").length);
+    assert.ok(first.every(entry => tag(entry).startsWith("j")));
+});
+test("the languages whose code begins with the query come first, so Enter picks them over a name that contains it", () => {
+    const azerbaijani = Object.freeze({ language: "Azerbaijani", country: "Azerbaijan" });
+    const entries = Object.freeze([azerbaijani, japanese, english]);
+    for (const locale of ["en", "ja"]) {
+        const names = createLanguageNames(locale);
+        // In English, "Azerbaijani" contains "j" and "ja" and sorts before "Japanese".
+        for (const query of ["j", "ja"]) {
+            const shown = names.search(entries, query);
+            assert.strictEqual(shown[0], japanese, `${locale} ${query}`);
+            if (locale === "en") assert.deepEqual(shown, [japanese, azerbaijani], query);
+        }
+        // Without a code match the list is the name search in name order, as before.
+        assert.deepEqual(names.search(entries, "japan"), names.sorted(entries).filter(entry => names.matches(entry, "japan")));
+        assert.deepEqual(names.search(entries, ""), names.sorted(entries));
+    }
+    assert.deepEqual(createLanguageNames("en").search(entries, "en"), [english]);
 });
 
 test("all source tags are valid and localized in each supported UI locale", () => {

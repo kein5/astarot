@@ -131,7 +131,7 @@ impl FeatureIndex {
             return Err(Error::unsupported(KIND, "coarse quantizer is not a flat L2 index"));
         }
         let (centroid_dim, centroids) = reader.flat()?;
-        if centroid_dim != dim || centroids.len() != lists * dim {
+        if centroid_dim != dim || lists.checked_mul(dim) != Some(centroids.len()) {
             return Err(Error::format(KIND, "centroids disagree with the header"));
         }
         // Direct map: a kind byte, an id array and, for the hash kind, a table.
@@ -172,6 +172,12 @@ impl FeatureIndex {
         }
         if sizes.iter().try_fold(0usize, |sum, &size| sum.checked_add(size)) != Some(total) {
             return Err(Error::format(KIND, "list sizes do not add up to the vector count"));
+        }
+        // Each vector is stored with its id; a header that claims more than the file holds would
+        // otherwise make the worker reserve memory it cannot get, and end without saying why.
+        let needed = dim.checked_mul(4).and_then(|row| row.checked_add(8)).and_then(|row| row.checked_mul(total));
+        if needed.is_none_or(|needed| needed > reader.bytes.len() - reader.at) {
+            return Err(Error::format(KIND, "the vector count is larger than the file"));
         }
         let mut vectors = Vec::with_capacity(total * dim);
         let mut ids = Vec::with_capacity(total);
@@ -310,6 +316,58 @@ mod tests {
         let (w1, w3) = (1.0 / (2.25f32 * 2.25), 1.0 / (0.25f32 * 0.25));
         let neighbours = (w1 * 1.0 + w3 * 3.0) / (w1 + w3);
         assert!((features[0] - (0.5 * neighbours + 0.5 * 2.5)).abs() < 1e-6);
+    }
+
+    /// An inverted index with `lists` lists (no centroids stored when `lists` is 0) whose list sizes
+    /// are given sparsely as `pairs` and claim `total` vectors, followed by `body`.
+    fn inverted_index(dim: usize, total: u64, pairs: &[(u64, u64)], body: &[u8]) -> Vec<u8> {
+        let lists = pairs.iter().map(|&(list, _)| list + 1).max().unwrap_or(0);
+        let mut bytes = b"IwFl".to_vec();
+        bytes.extend((dim as i32).to_le_bytes());
+        bytes.extend(total.to_le_bytes());
+        bytes.extend([0u8; 16]);
+        bytes.push(1);
+        bytes.extend(1i32.to_le_bytes());
+        bytes.extend(lists.to_le_bytes());
+        bytes.extend(1u64.to_le_bytes()); // nprobe
+        let centroids = vec![0.0f32; lists as usize * dim];
+        bytes.extend(flat_index(dim, &centroids));
+        bytes.push(0); // direct map: none
+        bytes.extend(0u64.to_le_bytes());
+        bytes.extend(b"ilar");
+        bytes.extend(lists.to_le_bytes());
+        bytes.extend((dim as u64 * 4).to_le_bytes());
+        bytes.extend(b"sprs");
+        bytes.extend((pairs.len() as u64 * 2).to_le_bytes());
+        for (list, size) in pairs {
+            bytes.extend(list.to_le_bytes());
+            bytes.extend(size.to_le_bytes());
+        }
+        bytes.extend(body);
+        bytes
+    }
+
+    #[test]
+    fn an_inverted_index_reads_its_lists() {
+        let mut body = Vec::new();
+        for value in [1.0f32, 2.0, 3.0, 4.0] {
+            body.extend(value.to_le_bytes());
+        }
+        body.extend(7i64.to_le_bytes());
+        body.extend(9i64.to_le_bytes());
+        let index = FeatureIndex::from_bytes(&inverted_index(2, 2, &[(0, 2)], &body)).unwrap();
+        assert_eq!(index.len(), 2);
+        assert_eq!(index.search(&[3.0, 4.0], 1)[0].id, 9);
+    }
+
+    #[test]
+    fn a_vector_count_larger_than_the_file_is_refused_before_reserving_memory() {
+        // #469: a kilobyte claiming 2^36 vectors made the worker abort on the allocation.
+        let file = inverted_index(256, 1 << 36, &[(0, 1 << 36)], &[0; 64]);
+        assert!(matches!(FeatureIndex::from_bytes(&file), Err(Error::Format { .. })));
+        // One whose vectors times width wraps around the address space.
+        let file = inverted_index(256, u64::MAX / 512, &[(0, u64::MAX / 512)], &[0; 64]);
+        assert!(matches!(FeatureIndex::from_bytes(&file), Err(Error::Format { .. })));
     }
 
     #[test]

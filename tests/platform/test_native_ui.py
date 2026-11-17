@@ -32,8 +32,8 @@ def test_model_free_native_app_renders_text_input_without_fatal_warning(tmp_path
     state = initial_state(tmp_path)
     with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
         ui.wait_main_ready()
-        assert ui.evaluate("return document.title") == "VRCT-VOX"
-        assert "VRCT-VOX" in ui.evaluate("return document.body.innerText")
+        assert ui.evaluate("return document.title") == "ASTAROT"
+        assert "ASTAROT" in ui.evaluate("return document.body.innerText")
         assert "An error occurred" not in ui.evaluate("return document.body.innerText")
         assert "download automatically, normally" not in ui.evaluate("return document.body.innerText")
         # DPMS Off reproduced the old black window while the DOM still worked.
@@ -66,7 +66,7 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
         ui.evaluate("document.querySelector('[data-setting-id=\"desktop_overlay\"] input').click(); return true;")
         ui.wait("return document.querySelector('[data-setting-id=\"desktop_overlay\"] input').checked === true")
         deadline = time.monotonic() + 15
-        while (found := x11_window("VRCT-VOX Captions")) is None or "IsViewable" not in found[1]:
+        while (found := x11_window("ASTAROT Captions")) is None or "IsViewable" not in found[1]:
             assert time.monotonic() < deadline, "the caption window did not appear"
             time.sleep(.2)
         xid, report = found
@@ -101,10 +101,10 @@ def test_native_settings_navigation_observes_open_and_close(tmp_path):
             for _ in range(20):
                 open_voice(ui)
                 ui.close_settings()
-                ui.wait("return document.querySelector('[class*=show_main]') !== null", timeout=3)
+                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
                 open_captions(ui)
                 ui.close_settings()
-                ui.wait("return document.querySelector('[class*=show_main]') !== null", timeout=3)
+                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
             ui.close_app()
 
 
@@ -134,7 +134,7 @@ def test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path
             ui.open_route_settings()
             ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Muted (confirmed)')")
             assert gate.inspect()["muted"] is True
-            ui.click_text("button", "Resume voice")
+            ui.click_text("button", "Unmute")
             wait_for(lambda: gate.inspect()["muted"] is False)
             ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Voice enabled (confirmed)')")
             ui.assert_rendered()

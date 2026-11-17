@@ -1,16 +1,27 @@
-# VRCT-VOXの名称と識別子
+# ASTAROTの名称と識別子
 
-VRCT-VOXは[misyaguziya/VRCT](https://github.com/misyaguziya/VRCT)を基にした派生プロジェクトです（MIT）。2026-10-31にGitHubのfork networkから外れましたが、元のライセンスと帰属表示は維持します。上流のVRCTと、上流の作者による別プロジェクト[VRCT-TTS](https://github.com/misyaguziya/VRCT-TTS)の名称は変更しません。
+ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/VRCT)を基にした派生プロジェクトです（MIT）。2026-10-31にGitHubのfork networkから外れましたが、元のライセンスと帰属表示は維持します。上流のVRCTと、上流の作者による別プロジェクト[VRCT-TTS](https://github.com/misyaguziya/VRCT-TTS)の名称は変更しません。
 
-## 名称
+表示名の移行の範囲は[ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)にあり、旧名が出てくる場所は[表示名の棚卸し](astarot-rename-inventory.md)にまとめてあります。
+
+## 表示名
 
 | 対象 | 名称 |
 |---|---|
-| プロジェクト・画面表示 | `VRCT-VOX` |
+| 製品名と、画面・文書・サイトに出す名前 | `ASTAROT` |
+| 正式なサブタイトル | `Speech, Translation, Accessibility, Revoicing & OCR Toolkit` |
+
+## 旧名のまま使う名前
+
+次の名前は旧名のままです。リポジトリ名は0.5.0のリリースのときに変える予定です（[リポジトリ名の変更手順](repository-rename.md)）。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。変えるときは、ADR-011のP2として別のADRで移行を決めます。配布物の名前は、インストーラーとupdaterが名前で探します。
+
+| 対象 | 名称 |
+|---|---|
 | GitHubリポジトリ | `kein5/VRCT-VOX` |
 | npm・Cargoパッケージ、本体の実行名 | `vrct-vox` |
-| Pythonバックエンドの実行名 | `vrct-vox-sidecar` |
-| Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-vulkan-release.tar.gz`、同名の`.AppImage` |
+| Pythonバックエンドの実行名（0.4まで。0.5.0の配布物には入らない） | `vrct-vox-sidecar` |
+| Tauriの`productName`（インストーラーとインストール先の名前） | `VRCT-VOX` |
+| Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-release.tar.gz`、同名の`.AppImage`、`.deb`、`.rpm`（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`） |
 | Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_cuda.zip`、`VRCT-VOX_<version>_x64-setup.exe` |
 | Linuxデスクトップエントリー | `vrct-vox.desktop` |
 
@@ -33,7 +44,7 @@ Windowsの実行ファイルには`.exe`が付きます。
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.vrct-vox`、`~/.local/share/applications/io.github.kein5.vrct-vox.desktop` |
 
-WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読み、表示名にはVRCT-VOXを使います。Windowsでのインストール・更新の実機試験は別途必要です。
+WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読みます。インストーラーの画面とWindowsのアプリの一覧には、`productName`とテンプレートの文言から`VRCT-VOX`と出ます。Windowsでのインストール・更新の実機試験は別途必要です。
 
 ## 公開
 

@@ -18,7 +18,7 @@ use tauri::{
 };
 
 pub const LABEL: &str = "caption_overlay";
-const TITLE: &str = "VRCT-VOX Captions";
+const TITLE: &str = "ASTAROT Captions";
 const MAX_LINES: usize = 8;
 const MAX_TEXT: usize = 2000;
 const MAX_TRANSLATIONS: usize = 3;
@@ -92,6 +92,34 @@ pub struct FlowItem {
 
 fn valid_label(value: &str, limit: usize) -> bool {
     value.chars().count() <= limit && !value.chars().any(char::is_control)
+}
+
+/// The user's words in the strip, as one line of at most `limit` characters: each run of control
+/// characters (a line break from speech or a pasted message) becomes one space. The labels are
+/// the app's own words and are checked as they are; only the words may hold anything.
+fn one_line(text: &str, limit: usize) -> String {
+    let mut line = String::with_capacity(text.len());
+    let mut in_break = false;
+    for char in text.chars() {
+        if char.is_control() {
+            if !in_break {
+                line.push(' ');
+            }
+            in_break = true;
+        } else {
+            line.push(char);
+            in_break = false;
+        }
+    }
+    line.trim().chars().take(limit).collect()
+}
+
+/// What the main window sent, made drawable where it can be: a strip whose words hold a line
+/// break must not take the captions and the other strips with it.
+fn tidy(snapshot: &mut Snapshot) {
+    for item in &mut snapshot.flow {
+        item.text = one_line(&item.text, MAX_FLOW_TEXT);
+    }
 }
 
 fn valid_flow(item: &FlowItem) -> bool {
@@ -542,7 +570,7 @@ fn watch(app: tauri::AppHandle) {
 /// Shows the window without making it the foreground window. Tauri's `show()`
 /// activates it, which takes the keyboard from the game the captions are over.
 #[cfg(windows)]
-fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
+pub(crate) fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
     #[link(name = "user32")]
     unsafe extern "system" {
         fn ShowWindow(window: *mut std::ffi::c_void, command: i32) -> i32;
@@ -580,7 +608,7 @@ where
 /// unwraps the GdkWindow and panics while the window is not realized (seen on the
 /// first open in CI). Realizing does not map it, so override-redirect still applies.
 #[cfg(target_os = "linux")]
-async fn prepare(overlay: &WebviewWindow) -> Result<(), String> {
+pub(crate) async fn prepare(overlay: &WebviewWindow) -> Result<(), String> {
     use gtk::prelude::*;
 
     on_gtk(overlay, |window| {
@@ -598,7 +626,7 @@ async fn prepare(overlay: &WebviewWindow) -> Result<(), String> {
 }
 
 #[cfg(target_os = "linux")]
-async fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
+pub(crate) async fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
     use gtk::prelude::*;
 
     on_gtk(overlay, |window| {
@@ -630,7 +658,7 @@ fn raise(overlay: &WebviewWindow) {
 }
 
 #[cfg(not(any(windows, target_os = "linux")))]
-fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
+pub(crate) fn show_without_focus(overlay: &WebviewWindow) -> Result<(), String> {
     overlay.show().map_err(|error| error.to_string())
 }
 
@@ -750,9 +778,10 @@ pub async fn caption_overlay_set(
 pub fn caption_overlay_update(
     window: WebviewWindow,
     state: State<CaptionOverlayState>,
-    snapshot: Snapshot,
+    mut snapshot: Snapshot,
 ) -> Result<(), String> {
     sender(window.label(), "main")?;
+    tidy(&mut snapshot);
     validate(&snapshot)?;
     *state.0.lock().map_err(|_| "caption_overlay_unavailable")? = snapshot;
     // No overlay window yet is not an error: it reads the snapshot when it opens.
@@ -926,6 +955,25 @@ mod tests {
             change(&mut value);
             assert_eq!(validate(&value), Err("caption_overlay_invalid".into()));
         }
+    }
+
+    #[test]
+    fn words_with_a_line_break_or_past_the_limit_still_reach_the_strip() {
+        let mut value = snapshot();
+        value.flow = vec![flow(), flow()];
+        value.flow[0].text = "一行目\r\n\n二行目\tおわり".into();
+        value.flow[1].text = "😀".repeat(MAX_FLOW_TEXT + 5);
+        tidy(&mut value);
+        assert!(validate(&value).is_ok());
+        assert_eq!(value.flow[0].text, "一行目 二行目 おわり");
+        assert_eq!(value.flow[1].text.chars().count(), MAX_FLOW_TEXT);
+        assert!(value.flow[1].text.chars().all(|char| char == '😀'));
+        // Spaces inside Japanese text are kept; only the ends are trimmed.
+        assert_eq!(one_line("\nこんにちは　世界 \n", 20), "こんにちは　世界");
+        // The labels are the app's own words, and a broken one is still refused.
+        value.flow[0].label = "a\nb".into();
+        tidy(&mut value);
+        assert_eq!(validate(&value), Err("caption_overlay_invalid".into()));
     }
 
     #[test]

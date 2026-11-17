@@ -149,7 +149,7 @@
     max-width: 58rem;
     background-color: var(--dark_875_color);
     border: 0.1rem solid var(--dark_700_color);
-    border-radius: 0.6rem;
+    border-radius: var(--vox_radius);
     overflow: hidden;
 }
 

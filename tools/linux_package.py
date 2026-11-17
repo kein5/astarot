@@ -13,22 +13,19 @@ import tempfile
 
 try:
     from .check_voice_distribution import _check_name, _inspect_member, _InspectionBudget, check
-    from .distribution_policy import OCR_RUNTIME_DATA
 except ImportError:
     from check_voice_distribution import _check_name, _inspect_member, _InspectionBudget, check
-    from distribution_policy import OCR_RUNTIME_DATA
 
-RUNTIME = ('vrct-vox', 'vrct-vox-sidecar', '_internal/base_library.zip',
+# The app runs the Rust backend core in its own process; _internal holds what it and the app
+# start or read (tools/app_resources.py lists the same files for staging).
+RUNTIME = ('vrct-vox',
            '_internal/build/vrct-voice-gate', '_internal/build/vrct-source-bridge',
            '_internal/build/vrct-vc-worker', '_internal/build/vrct-asr-capture',
            '_internal/build/vrct-screen-capture', '_internal/build/vrct-rvc-worker',
            '_internal/build/speechcpp/speech', '_internal/build/speechcpp/bundle.json',
-           '_internal/integrations/seed_vc/live_worker.py',
-           # What the runtime setup installs from.
-           '_internal/integrations/seed_vc/requirements.lock', '_internal/integrations/seed_vc/offline-loader.patch',
+           '_internal/build/speechcpp-cpu/speech', '_internal/build/speechcpp-cpu/bundle.json',
            '_internal/licenses/VRCT/LICENSE', '_internal/licenses/VRCT/NOTICE.md',
-           '_internal/licenses/rust/crates.json', '_internal/licenses/rust/README.md',
-           *('_internal/' + name for name in OCR_RUNTIME_DATA))
+           '_internal/licenses/rust/crates.json', '_internal/licenses/rust/README.md')
 
 
 def check_tree(root, *, require_runtime=False, allow_directory_links=False):
@@ -57,7 +54,7 @@ def check_tree(root, *, require_runtime=False, allow_directory_links=False):
             path = root / name
             if not path.is_file():
                 raise ValueError(f'Missing runtime component: {name}')
-            if name in ('vrct-vox', 'vrct-vox-sidecar') or name.startswith('_internal/build/vrct-') or name.endswith('/speech'):
+            if name == 'vrct-vox' or name.startswith('_internal/build/vrct-') or name.endswith('/speech'):
                 with path.open('rb') as src:
                     header = src.read(20)
                 if header[:6] != b'\x7fELF\x02\x01' or header[18:20] != b'\x3e\x00' or not os.access(path, os.X_OK):

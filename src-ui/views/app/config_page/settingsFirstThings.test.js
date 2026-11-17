@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
-import * as featureLabel from "../../../logics/common/featureLabel.js";
+import * as featureLabel from "../../../logics/common/featureLabel.ts";
+import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const icon = name => Object.assign(() => null, { icon: name });
@@ -21,7 +22,8 @@ test("chat reading has a page of its own, and search lists it there", async () =
 
     const search = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
         "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
-        "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.js": {}, "../../../voice/settingsNavigation": {},
+        "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
+        "./configSearchTargets.ts": searchTargets,
     });
     assert.deepEqual(search.settingTabs("ocr", "source_language"), ["ocr"]);
     assert.deepEqual(search.settingTabs("others", "send_message_to_vrc"), ["vrchat"]);
@@ -39,7 +41,7 @@ test("the side menu lists chat reading after VRChat, with an icon of its own and
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
-        "../../../../logics/common/featureLabel.js": featureLabel,
+        "../../../../logics/common/featureLabel.ts": featureLabel,
     });
     const tabs = all(runtime.render(sidebar.SidebarSection), node => typeof node.props?.tab_id === "string").map(node => node.props.tab_id);
     assert.deepEqual(tabs.slice(tabs.indexOf("vrchat"), tabs.indexOf("vrchat") + 3), ["vrchat", "ocr", "vr"]);
@@ -65,7 +67,7 @@ test("a long settings menu name breaks before its bracket and keeps its whole na
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
-        "../../../../logics/common/featureLabel.js": featureLabel,
+        "../../../../logics/common/featureLabel.ts": featureLabel,
     });
     const [tab] = all(runtime.render(sidebar.SidebarSection), node => node.props?.tab_id === "transcription");
     const tree = runtime.render(tab.type, tab.props);
@@ -83,8 +85,8 @@ test("speech recognition opens on the engine choice; the timing numbers follow, 
         "RealtimeASRSettings", "SpeechServers", "OldWhisperWeights"]);
     const section = name => source.split(`const ${name} = () => {`)[1].split("\n};")[0];
     // The word filter is a list people edit; it stays in sight. The three numbers are folded.
-    assert.match(section("Mic_Container"), /<MicWordFilter_Box \/>\s*<TimingFold silence=\{currentMicRecordTimeout\.data\} length=\{currentMicPhraseTimeout\.data\} queue=\{currentMicMaxWords\.data\}>\s*<MicRecordTimeout_Box \/>\s*<MicPhraseTimeout_Box \/>\s*<MicMaxWords_Box \/>\s*<\/TimingFold>/);
-    assert.match(section("Speaker_Container"), /<TimingFold silence=\{currentSpeakerRecordTimeout\.data\} length=\{currentSpeakerPhraseTimeout\.data\} queue=\{currentSpeakerMaxWords\.data\}>\s*<SpeakerRecordTimeout_Box \/>\s*<SpeakerPhraseTimeout_Box \/>\s*<SpeakerMaxWords_Box \/>\s*<\/TimingFold>/);
+    assert.match(section("Mic_Container"), /<MicWordFilter_Box \/>\s*<TimingFold record=\{currentMicRecordTimeout\.data\} phrase=\{currentMicPhraseTimeout\.data\} queue=\{currentMicMaxWords\.data\}>\s*<MicRecordTimeout_Box \/>\s*<MicPhraseTimeout_Box \/>\s*<MicMaxWords_Box \/>\s*<\/TimingFold>/);
+    assert.match(section("Speaker_Container"), /<TimingFold record=\{currentSpeakerRecordTimeout\.data\} phrase=\{currentSpeakerPhraseTimeout\.data\} queue=\{currentSpeakerMaxWords\.data\}>\s*<SpeakerRecordTimeout_Box \/>\s*<SpeakerPhraseTimeout_Box \/>\s*<SpeakerMaxWords_Box \/>\s*<\/TimingFold>/);
     // Whisper's thresholds and model choice went with the engine (#288): the engine choice stands alone.
     assert.doesNotMatch(section("TranscriptionEngine_Container"), /thresholds_title|AvgLogprob|NoSpeechProb|WhisperWeightType|ComputeDevice/);
 
@@ -113,7 +115,7 @@ test("each cloud speech recognition provider is one fold; the selected one stays
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" }, { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true },
         { id: "Deepgram", base: "Deepgram", key: "deepgram" }];
-    const state = { currentSelectedTranscriptionEngine: { data: "Deepgram" }, currentSelectableTranscriptionEngines: { data: ["Google", "Groq_Whisper", "Deepgram"] },
+    const state = { currentSelectedTranscriptionEngine: { data: "Deepgram" }, currentSelectableTranscriptionEngines: { data: ["SpeechCpp", "Groq_Whisper", "Deepgram"] },
         currentCustomWhisperURL: { data: "" }, getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
         ...Object.fromEntries(engines.map(engine => [`current${engine.base}AuthKey`, { data: null }])) };
     const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
@@ -177,8 +179,8 @@ test("each translation provider is one fold that says whether it can be used; th
             folds.push([provider.props.id, fold.props.title, fold.props.status, fold.props.attention]);
         }
     }
-    assert.deepEqual(folds.map(fold => fold[0]), ["DeepL_API", "Plamo_API", "Gemini_API", "OpenAI_API", "Groq_API", "OpenRouter_API",
-        "LMStudio", "Ollama", "OpenAI_Compatible"]);
+    assert.deepEqual(folds.map(fold => fold[0]), ["DeepL_API", "Google_Cloud_API", "Papago_API", "Plamo_API", "Gemini_API", "OpenAI_API",
+        "Groq_API", "OpenRouter_API", "LMStudio", "Ollama", "OpenAI_Compatible"]);
     const by = Object.fromEntries(folds.map(([id, ...rest]) => [id, rest]));
     assert.deepEqual(by.DeepL_API, ["DeepL API", "config_page.translation.provider_ready", false]);
     assert.deepEqual(by.Gemini_API, ["Gemini API", "config_page.translation.provider_not_set", false]);

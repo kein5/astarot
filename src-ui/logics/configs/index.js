@@ -8,12 +8,13 @@ export const useTranscription = createCategoryHook("Transcription");
 export const useVr = createCategoryHook("Vr");
 export const useOthers = createCategoryHook("Others");
 export const useAdvancedSettings = createCategoryHook("AdvancedSettings");
-export const useUpdater = createCategoryHook("Updater");
 export const useOcr = createCategoryHook("Ocr");
+export const useExperimentalFeatures = createCategoryHook("ExperimentalFeatures");
 
 // Exceptional exports that are not part of SETTINGS_ARRAY or have custom logic.
 export { useHotkeys } from "./config_page_setter/hotkeys/useHotkeys.js";
 export { useOcrSharedWindow, ocrStartErrorKey, ocrShouldRestoreSharedWindow } from "./useOcrSharedWindow.js";
+export { useExperimentalFeature } from "./useExperimentalFeature.ts";
 
 export { useSettingBoxScrollPosition } from "./config_page_setter/_aux/useSettingBoxScrollPosition.js";
 export { useConfigSearch } from "./config_page_setter/_aux/useConfigSearch.js";

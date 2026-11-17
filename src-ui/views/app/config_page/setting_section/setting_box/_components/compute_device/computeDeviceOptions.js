@@ -1,4 +1,8 @@
 // PC と VR で同じデバイスの識別・表示名・対応精度を使う。
+
+// The engine names the processor "cpu"; the screen says CPU, as a GPU keeps its own name.
+export const computeDeviceName = (name) => (typeof name === "string" && name.toLowerCase() === "cpu" ? "CPU" : name);
+
 const transformDeviceArray = (devices = {}) => {
     if (!devices) return {};
     const name_counts = Object.values(devices).reduce((counts, device) => {
@@ -18,11 +22,11 @@ const transformDeviceArray = (devices = {}) => {
 
         if (name_counts[name] > 1) {
             name_indices[name] = (name_indices[name] || 0);
-            const value = `${name}:${name_indices[name]}`;
+            const value = `${computeDeviceName(name)}:${name_indices[name]}`;
             name_indices[name]++;
             result[key] = value;
         } else {
-            result[key] = name;
+            result[key] = computeDeviceName(name);
         }
     });
 
@@ -44,8 +48,10 @@ const findKeyByDeviceValue = (devices, target_value) => {
     return null;
 };
 
+// From the smallest model to the most precise. int4 is the ONNX engine's weight-only variant.
 const DEFAULT_ORDER = [
     "auto",
+    "int4",
     "int8",
     "int8_bfloat16",
     "int8_float16",

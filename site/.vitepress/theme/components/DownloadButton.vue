@@ -5,15 +5,8 @@
 // answer. Which file is which comes from ../releases.mjs.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import { useData, withBase } from 'vitepress'
-import {
-  LATEST_API,
-  RELEASES_URL,
-  REPO_URL,
-  detectPlatform,
-  formatSize,
-  readRelease,
-  recommend,
-} from '../releases.mjs'
+import { RELEASES_URL, REPO_URL, detectPlatform, formatSize, readRelease, recommend } from '../releases.mjs'
+import { loadLatestRelease } from '../latestRelease'
 
 const props = defineProps<{ install: string }>()
 
@@ -130,50 +123,14 @@ const note = computed(() => {
   return w.unsupported(os === 'macos' ? OS_NAMES.macos : w.thisOs)
 })
 
-// One answer per tab and quarter hour: the API allows 60 unsigned requests an hour per address.
-const CACHE_KEY = 'vrct-vox-guide-latest-release'
-const CACHE_MS = 15 * 60 * 1000
-let controller: AbortController | undefined
-
-async function load() {
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(CACHE_KEY) ?? 'null')
-    if (saved && Date.now() - saved.at < CACHE_MS) return saved.release
-  } catch {
-    // Storage can be blocked; ask the API.
-  }
-  controller = new AbortController()
-  const timer = setTimeout(() => controller?.abort(), 10000)
-  try {
-    const response = await fetch(LATEST_API, { headers: { Accept: 'application/vnd.github+json' }, signal: controller.signal })
-    if (!response.ok) throw new Error(`GitHub API ${response.status}`)
-    const data = await response.json()
-    // Only what the page reads.
-    const slim = {
-      tag_name: data?.tag_name,
-      html_url: data?.html_url,
-      assets: (Array.isArray(data?.assets) ? data.assets : []).map((asset: Record<string, unknown>) => ({
-        name: asset?.name,
-        size: asset?.size,
-        browser_download_url: asset?.browser_download_url,
-      })),
-    }
-    try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), release: slim }))
-    } catch {
-      // Not kept; the next visit asks again.
-    }
-    return slim
-  } finally {
-    clearTimeout(timer)
-  }
-}
+// The API's answer is shared with the manual's button (../latestRelease.ts).
+const controller = new AbortController()
 
 onMounted(async () => {
   platform.value = detectPlatform(navigator)
   state.value = 'loading'
   try {
-    const read = readRelease(await load()) as Release
+    const read = readRelease(await loadLatestRelease(controller)) as Release
     if (!read.downloads.length) throw new Error('no downloads')
     release.value = read
     state.value = 'ready'
@@ -254,7 +211,7 @@ function onFocusOut(event: FocusEvent) {
 onMounted(() => document.addEventListener('pointerdown', onPointerDown))
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onPointerDown)
-  controller?.abort()
+  controller.abort()
 })
 </script>
 

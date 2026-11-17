@@ -80,16 +80,18 @@ export const useMessage = () => {
     };
 
     // A recognition failure names its code; the sidecar's `message` is English.
-    // The context picks the microphone or speaker wording when there is one.
+    // The context picks the microphone or speaker wording when there is one. When the
+    // engine said why it failed (`cause`: a refused key, a rate limit, a timeout, a server
+    // error), that text is shown instead of the general one.
     const addSystemMessageLog_FromBackend = (payload) => {
-        const code = payload?.error_code;
-        const key = `backend_errors.${code}`;
-        addSystemMessageLog(typeof code === "string" && i18n?.exists(key)
-            ? t(key, { context: payload.source })
-            : payload?.message);
+        const known = code => typeof code === "string" && /^[A-Z0-9_]+$/.test(code) && i18n?.exists(`backend_errors.${code}`);
+        const code = [payload?.cause, payload?.error_code].find(known);
+        addSystemMessageLog(code ? t(`backend_errors.${code}`, { context: payload.source }) : payload?.message);
     };
 
     const updateSentMessageLogById = (payload) => {
+        // Once shutting down, the backend answers a send with null: no row to update.
+        if (payload?.id === undefined) return;
         updateMessageLogs(updateItemById(payload.id, payload));
     };
 

@@ -8,6 +8,13 @@
       },
       "note": "Repository root at the commit the package was published from (.cargo_vcs_info.json)."
     },
+    "cookie-factory-0.3.3": {
+      "license": "MIT",
+      "files": {
+        "LICENSE": "https://github.com/rust-bakery/cookie-factory/blob/d36b805dbd7dd65f2df947235c5bcc573afe2c76/LICENSES/MIT.txt"
+      },
+      "note": "The repository keeps its license under LICENSES/ (REUSE) at the commit the package was published from (.cargo_vcs_info.json); the README links it. Used by libspa on Linux."
+    },
     "dlopen2-0.8.2": {
       "license": "MIT",
       "files": {
@@ -59,6 +66,13 @@
         "LICENSE": "https://www.mozilla.org/media/MPL/2.0/index.txt"
       },
       "note": "servo/stylo has no license file at the published commit (572ecba2d1600e7c3d490586692a209faf703baa); its source files carry the MPL-2.0 header. The text is Mozilla's canonical MPL-2.0. Source: https://crates.io/crates/selectors/0.38.0"
+    },
+    "sudachi-0.6.11": {
+      "license": "Apache-2.0",
+      "files": {
+        "LICENSE": "https://github.com/WorksApplications/sudachi.rs/blob/90fd6068c80c2fc3b63e0dbab0e341475bad4d8f/LICENSE"
+      },
+      "note": "Not on crates.io: a git dependency on the tag v0.6.11 (the commit above). The license file sits at the repository root, outside the sudachi/ package folder; the repository has no NOTICE file. The package embeds the repository's resources/ (sudachi.json, char.def, unk.def, rewrite.def) under the same license."
     },
     "webview2-com-0.39.1": {
       "license": "MIT",

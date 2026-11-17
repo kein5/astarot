@@ -8,17 +8,44 @@ publish = false
 [lib]
 name = "vrct_core"
 
+[features]
+default = ["onnx-translation"]
+# Linux: list and watch the PipeWire devices (links libpipewire-0.3; building needs its
+# development files and libclang). No effect on Windows.
+pipewire = ["vrct-audio-routing/pipewire", "vrct-transcription/pipewire"]
+# Local translation with ONNX Runtime (native/translate-onnx), loaded at run time like chat
+# reading's (docs/voice-stack/core-integration.md, decisions 1 and 2). Nothing is linked or
+# fetched at build time. Without the feature the local translation reports its model as missing.
+onnx-translation = ["dep:vrct-translate-onnx"]
+
 [dependencies]
 base64 = "=0.22.1"
+chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
 getrandom = "=0.3.4"
 serde = { version = "=1.0.229", features = ["derive"] }
 # The backend answered with Python dicts, whose keys keep their order; the UI shows some of
 # them in that order (the translation weights, the initialization snapshot). See README.md.
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+# Chat reading. ONNX Runtime is loaded when chat reading starts, not linked: see
+# docs/voice-stack/core-integration.md, item 2 of "判断が要ること".
+ocr-runtime = { path = "../ocr-runtime", default-features = false, features = ["load-dynamic"] }
 vrct-adapters = { path = "../adapters" }
+# The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
+# build that way and need no PipeWire; the application turns it on.
+vrct-audio-routing = { path = "../audio-routing", default-features = false }
+# The OpenVR client library the packages ship (shipped_libraries.rs); the overlay depends on it too.
+vrct-openvr-client = { path = "../openvr-client" }
 vrct-ops = { path = "../ops" }
 vrct-speech-server = { path = "../speech-server" }
+# Speech recognition: the recorder, the cloud engines and realtime recognition on speech.cpp.
+vrct-transcription = { path = "../transcription" }
+# The local translation on ONNX Runtime; see the onnx-translation feature below.
+vrct-translate-onnx = { path = "../translate-onnx", optional = true, default-features = false, features = ["load-dynamic"] }
+vrct-translation = { path = "../translation", features = ["sudachi"] }
 vrct-tts = { path = "../tts" }
+# Direct voice, the RVC worker's owner and its runtime setup.
+vrct-voice-conversion = { path = "../voice-conversion" }
+vrct-vr-overlay = { path = "../vr-overlay" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"
@@ -26,6 +53,8 @@ libc = "=0.2.191"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "=0.61.2", features = [
     "Win32_Foundation",
+    # DPAPI for the API keys' file (src/config/secrets.rs).
+    "Win32_Security_Cryptography",
     "Win32_Storage_FileSystem",
     "Win32_System_IO",
     "Win32_UI_Shell",
@@ -35,12 +64,24 @@ windows-sys = { version = "=0.61.2", features = [
 # Certificates for the WebSocket TLS settings are made at test time; no key is committed.
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "pem"] }
 tempfile = "=3.27.0"
+# A stand-in speech.cpp Realtime server for tests/realtime_asr.rs.
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
+# A stand-in for every translation provider on a loopback port.
+vrct-translation = { path = "../translation", features = ["fake-server"] }
 
 # A stand-in for the speech.cpp executable that tests/speech_servers.rs starts. It is never
 # part of an application build: a dependent crate does not build this target.
 [[bin]]
 name = "fake-speech-core"
 path = "tests/fixture/fake_speech.rs"
+test = false
+doc = false
+
+# A stand-in for the RVC worker that tests/voice.rs starts (the same pipe contract, no model).
+# Never part of an application build.
+[[bin]]
+name = "fake-rvc-worker"
+path = "tests/fixture/fake_rvc_worker.rs"
 test = false
 doc = false
 

@@ -8,14 +8,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 mod backend_host;
 mod app_update;
 mod caption_overlay;
+mod companion;
 mod quick_chat;
 mod single_instance;
 mod vr_panel_state;
-mod vr_overlay;
+mod window_placement;
 #[cfg(test)]
 mod opener_scope_tests;
 #[cfg(target_os = "linux")]
 mod portal_shortcuts;
+// The portal worker's policy depends on neither Tauri nor D-Bus: its tests run on every platform
+// (on Linux through portal_shortcuts, which includes it).
+#[cfg(all(test, not(target_os = "linux")))]
+#[path = "portal_shortcut_worker.rs"]
+#[allow(dead_code)]
+mod portal_shortcut_worker;
 #[cfg(target_os = "linux")]
 mod portal_screencast;
 #[cfg(target_os = "linux")]
@@ -54,7 +61,7 @@ mod portal_shortcuts {
 // tauri.conf.json の main ウィンドウと同じ値にする (テストで確かめる)。Tauri既定の --disable-features
 // から msSmartScreenProtection を外し、WebView2 の SmartScreen を既定どおり動かす (第2回セキュリティ監査
 // SEC-03)。隠れたウィンドウの描画停止は無効にする (VRパネルは画面外に置いて撮影するため)。
-const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding";
+pub(crate) const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding";
 
 // VRオーバーレイに映す画面。Python側 (models/overlay) が撮影・入力する (Windows はタイトルで見つける)。
 // VR UI が ON の間だけ作る (set_vr_panel_window)。OFF の間も動かしておくと、使わない人にも負荷がかかる
@@ -98,7 +105,7 @@ fn startup_log_path(executable_path: &Path) -> PathBuf {
         .join("startup.log")
 }
 
-fn startup_log(message: &str) {
+pub(crate) fn startup_log(message: &str) {
     let Ok(executable_path) = std::env::current_exe() else {
         return;
     };
@@ -120,6 +127,9 @@ fn startup_log(message: &str) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // SAFETY: before Tauri, the backend or any other thread starts. ONNX Runtime reads the
+    // variable when chat reading or translation first loads it; the RVC worker inherits it.
+    unsafe { vrct_core::shipped_libraries::disable_onnx_runtime_telemetry() };
     startup_log("VRCT startup began");
     // Before the backend starts: it learns from its environment where the VR page will be served.
     #[cfg(target_os = "linux")]
@@ -144,6 +154,21 @@ pub fn run() {
         }
         context
     };
+    // The tray companion (an experimental feature, off by default) keeps the main window hidden:
+    // it still runs the backend and the caption overlay, and the app lives in the tray.
+    let companion = std::env::current_exe()
+        .is_ok_and(|executable| companion::starts_in_tray(&backend_host::state_dir(&executable)));
+    let context = if companion {
+        let mut context = context;
+        if let Some(main) = context.config_mut().app.windows.iter_mut().find(|w| w.label == "main") {
+            main.visible = false;
+            // Hidden, it must not hold the focus either.
+            main.focus = false;
+        }
+        context
+    } else {
+        context
+    };
     let mut builder = tauri::Builder::default();
     if single_instance::single_instance_enabled(
         cfg!(debug_assertions),
@@ -166,10 +191,36 @@ pub fn run() {
         }));
     }
     let result = builder
-        .setup(|app| {
+        .setup(move |app| {
             let main_window = app.get_webview_window("main").ok_or_else(|| {
                 Error::other("main webview window was not created")
             })?;
+            // Made hidden (tauri.conf.json): it goes to its saved place before it is first shown,
+            // so it does not show centred and then jump there once the engine is ready.
+            if let Ok(executable) = std::env::current_exe() {
+                window_placement::apply(&main_window, &backend_host::state_dir(&executable));
+            }
+            // The tray icon's Title (the name tray settings list it by) is the application name,
+            // which GLib takes from the program's file name when none is set: "AppRun.wrapped"
+            // in the AppImage. The program name itself stays, as the desktop entry matches it.
+            #[cfg(target_os = "linux")]
+            gtk::glib::set_application_name(MAIN_TITLE);
+            // The app's one tray icon, there in every run (the overlay feature adds to its menu).
+            if let Err(error) = companion::install_tray(app.handle()) {
+                startup_log(&format!("Tray icon could not be made: {error}"));
+            }
+            if companion {
+                match companion::install(app.handle()) {
+                    Ok(()) if companion::may_start_hidden(app.handle()) => {
+                        startup_log("Tray companion: the main window stays hidden in the tray");
+                        return Ok(());
+                    }
+                    // Nothing could bring a hidden window back (Issue #455): start as usual.
+                    Ok(()) => startup_log("Tray companion: no tray icon, so the main window shows"),
+                    // Without a tray the app could not be reached: start as usual.
+                    Err(error) => startup_log(&format!("Tray companion could not start: {error}")),
+                }
+            }
             main_window.show()?;
             if let Err(error) = main_window.set_focus() {
                 startup_log(&format!("Main window focus failed: {error}"));
@@ -184,6 +235,7 @@ pub fn run() {
         // 画面外の vr_panel ウィンドウが残ることがあるため「最後のウィンドウが閉じたら終了」に頼れない。
         // main が閉じたらアプリを終了する。
         .on_window_event(|window, event| {
+            companion::on_window_event(window, event);
             if window.label() == "quick_chat" {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
@@ -195,8 +247,9 @@ pub fn run() {
             }
         })
         // Only the plugins the windows use. The UI reads and writes no files and makes no HTTP
-        // requests of its own, so the fs and http plugins are gone (security audit SEC-05).
-        .plugin(tauri_plugin_shell::init())
+        // requests of its own, so the fs and http plugins are gone (security audit SEC-05). It starts
+        // no programs either: the backend runs inside the app (backend_host.rs), so the shell plugin
+        // went with the Python sidecar.
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         // In-app updates (app_update.rs). The window gets no updater permission: the UI goes
@@ -209,8 +262,9 @@ pub fn run() {
         .manage(portal_screencast::Screencast::default())
         .manage(vr_panel_state::VrPanelState::default())
         .manage(backend_host::BackendHost::default())
+        .manage(companion::CompanionState::default())
         .invoke_handler(tauri::generate_handler![get_font_list, set_vr_panel_window, main_window_restore,
-            backend_host::backend_kind, backend_host::backend_start, backend_host::backend_write,
+            backend_host::backend_start, backend_host::backend_write,
             backend_host::backend_kill,
             quick_chat::quick_chat_context, quick_chat::quick_chat_configure, quick_chat::quick_chat_submit,
             quick_chat::quick_chat_take, quick_chat::quick_chat_finish, quick_chat::quick_chat_hide,
@@ -221,24 +275,34 @@ pub fn run() {
             portal_screencast::screencast_support, portal_screencast::screencast_start,
             portal_screencast::screencast_stop,
             vr_panel_state::vr_panel_state_subscribe, vr_panel_state::vr_panel_state_push,
-            app_update::app_update_info, app_update::app_update_check, app_update::app_update_install])
-        .build(context)
-        .map(|app| app.run(|app, event| {
-            // A shared window must not stay shared after the app is gone.
-            if let RunEvent::Exit = event {
-                portal_screencast::shutdown(app);
-                app.state::<backend_host::BackendHost>().shutdown();
-            }
-        }));
-    #[cfg(target_os = "linux")]
-    vr_panel_surface::cleanup();
-    match result {
-        Ok(()) => startup_log("VRCT event loop ended"),
+            vr_panel_state::vr_panel_send,
+            app_update::app_update_info, app_update::app_update_check, app_update::app_update_install,
+            companion::companion_set, companion::companion_publish, companion::companion_take,
+            companion::companion_show_main, companion::companion_hide_main, companion::companion_close_hides, companion::companion_status, companion::companion_request,
+            companion::companion_panel_hide, companion::companion_panel_toggle, companion::companion_handle_layout, companion::companion_monitors])
+        .build(context);
+    let app = match result {
+        Ok(app) => app,
         Err(error) => {
             startup_log(&format!("VRCT startup failed: {error}"));
+            #[cfg(target_os = "linux")]
+            vr_panel_surface::cleanup();
             panic!("error while running tauri application: {error}");
         }
-    }
+    };
+    // `run` never returns: Tauri ends the process once the loop exits, so whatever must happen at
+    // the end happens on `Exit` (Issue #425).
+    app.run(|app, event| {
+        if let RunEvent::Exit = event {
+            // A shared window must not stay shared after the app is gone.
+            portal_screencast::shutdown(app);
+            app.state::<backend_host::BackendHost>().shutdown();
+            // The VR panel's last frame (it can show the conversation) must not outlive the app.
+            #[cfg(target_os = "linux")]
+            vr_panel_surface::cleanup();
+            startup_log("VRCT event loop ended");
+        }
+    });
 }
 
 
@@ -260,7 +324,7 @@ async fn main_window_restore(window: tauri::WebviewWindow) -> Result<(), String>
     Ok(())
 }
 #[cfg(target_os = "linux")]
-const MAIN_TITLE: &str = "VRCT-VOX";
+const MAIN_TITLE: &str = "ASTAROT";
 
 // VR UI の ON/OFF に合わせて、VR画面のウィンドウを作る・消す (メイン画面が設定に合わせて呼ぶ)。
 // ウィンドウを作るので async にする (同期コマンドから作ると Windows で固まることがある)
@@ -357,6 +421,36 @@ mod tests {
             .flat_map(|features| features.split(','));
         for feature in disabled {
             assert!(!feature.contains("SmartScreen"), "{feature} is disabled");
+        }
+    }
+
+    #[test]
+    fn a_release_has_no_web_inspector() {
+        // Tauri's `devtools` feature turns the inspector on in a release for every window that does
+        // not turn it off itself (Issue #456). A debug build has it without the feature.
+        let manifest = include_str!("../Cargo.toml");
+        let tauri = manifest.lines().find(|line| line.starts_with("tauri = ")).expect("the tauri dependency");
+        assert!(!tauri.contains("devtools"), "{tauri}");
+    }
+
+    #[test]
+    fn no_window_may_make_a_tray_icon_or_a_menu() {
+        // The tray and its menu are made in Rust; no page uses the menu, tray or image API, and
+        // `core:default` would bring them all (Issue #456).
+        let unused = ["core:default", "core:menu:", "core:tray:", "core:image:", "core:resources:", "core:path:", "core:app:"];
+        for text in [
+            include_str!("../capabilities/default.json"),
+            include_str!("../capabilities/vrct_capability.json"),
+            include_str!("../capabilities/quick-chat.json"),
+            include_str!("../capabilities/caption-overlay.json"),
+            include_str!("../capabilities/vr-panel.json"),
+            include_str!("../capabilities/companion.json"),
+        ] {
+            let capability: serde_json::Value = serde_json::from_str(text).unwrap();
+            for permission in capability["permissions"].as_array().unwrap() {
+                let name = permission.as_str().or_else(|| permission["identifier"].as_str()).unwrap();
+                assert!(!unused.iter().any(|prefix| name.starts_with(prefix)), "{} grants {name}", capability["identifier"]);
+            }
         }
     }
 

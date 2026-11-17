@@ -219,6 +219,31 @@ def verify_bundle(root):
         raise ValueError('speech_bundle_inventory') from None
 
 
+def replaceable(root):
+    """Whether `root` is a staged bundle of any release or variant, and nothing else: a real
+    folder whose bundle.json names speech.cpp and that holds only what a bundle holds. Only such
+    a folder is removed by --replace."""
+    root = Path(root)
+    if root.is_symlink() or not root.is_dir():
+        return False
+    try:
+        value = json.loads((root/'bundle.json').read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(value, dict) or value.get('component') != 'speech.cpp':
+        return False
+    allowed = {'bundle.json', 'speech', 'speech.exe', 'notices'}
+    return all(not path.is_symlink() and path.relative_to(root).parts[0] in allowed for path in root.rglob('*'))
+
+
+def up_to_date(root, variant):
+    """Whether `root` is a verified bundle of the pinned release and of `variant`."""
+    try:
+        return verify_bundle(root)['variant'] == variant
+    except (ValueError, OSError):
+        return False
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--variant', choices=VARIANTS, required=True)
@@ -226,8 +251,17 @@ def main(argv=None):
     source.add_argument('--archive', type=Path)
     source.add_argument('--download', action='store_true')
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--replace', action='store_true',
+                        help='keep a verified bundle of this release and variant at --output; replace a staged '
+                             'bundle of another release or variant (nothing else is removed)')
     args = parser.parse_args(argv)
     try:
+        if args.replace and os.path.lexists(args.output):
+            if up_to_date(args.output, args.variant):
+                print(f'speech.cpp {VERSION} ({args.variant}) is up to date: {args.output}')
+                return
+            _require(replaceable(args.output), 'destination_exists')
+            shutil.rmtree(args.output)
         _require(not os.path.lexists(args.output), 'destination_exists')
         asset = load_manifest()['assets'][args.variant]
         if args.archive:

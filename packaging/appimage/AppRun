@@ -26,7 +26,7 @@ fi
 case "${GTK_IM_MODULE-}" in
     ''|fcitx|fcitx5|ibus|wayland) [ -z "${XMODIFIERS-}" ] || export GTK_IM_MODULE=xim ;;
 esac
-# Isolate GUI libraries from the frozen sidecar's loader environment.
+# The GUI's bundled libraries. The VRCT_APPIMAGE_HOST_* copies above keep the host values.
 export LD_LIBRARY_PATH="$APPDIR/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export PATH="$APPDIR/usr/bin:$PATH"
 # The GTK plugin relocates WebKit's /usr paths to ././. Match AppImageKit's

@@ -1,6 +1,5 @@
 import styles from "./AboutVrct.module.scss";
-import logo_en from "@images/brand/logo-en.svg";
-import logo_ja from "@images/brand/logo-ja.svg";
+import astarot_logo from "@images/brand/logo.svg";
 
 import dev_section_title from "@images/about_vrct/dev_section_title.png";
 import dev_misya from "@images/about_vrct/dev_misya.png";
@@ -27,8 +26,10 @@ import { useSoftwareVersion } from "@logics_common";
 
 import { upstream_vrct_document_url } from "@ui_configs";
 
-const logos = { en: logo_en, ja: logo_ja };
+// The official subtitle is the same in every UI language (ADR-011), so it is not translated.
+const ASTAROT_SUBTITLE = "Speech, Translation, Accessibility, Revoicing & OCR Toolkit";
 
+// The repository keeps its current name until it is renamed for 0.5.0.
 const vrct_vox_url = "https://github.com/kein5/VRCT-VOX";
 const vrct_vox_links = [
     { id: "repository", href: vrct_vox_url },
@@ -38,13 +39,14 @@ const vrct_vox_links = [
 ];
 
 export const AboutVrct = () => {
-    const { t, i18n } = useI18n();
+    const { t } = useI18n();
     const { currentUiLanguage } = useAppearance();
     const { currentSoftwareVersion } = useSoftwareVersion();
     return (
         <div className={styles.container}>
             <section className={styles.vrct_vox_section}>
-                <img src={logos[i18n.language] ?? logo_en} className={styles.vrct_vox_logo} alt="VRCT-VOX" />
+                <img src={astarot_logo} className={styles.vrct_vox_logo} alt="ASTAROT" />
+                <p className={styles.vrct_vox_subtitle} lang="en" translate="no">{ASTAROT_SUBTITLE}</p>
                 {currentSoftwareVersion.data && (
                     <p className={styles.vrct_vox_version}>{t("config_page.common.version", { version: currentSoftwareVersion.data })}</p>
                 )}
@@ -130,7 +132,7 @@ export const AboutVrct = () => {
 
             <div className={styles.vrchat_disclaimer_section}>
                 {/* VRChat's trademark notice stays in its original English wording; lang lets screen readers read it as English. */}
-                <p className={styles.vrchat_disclaimer} lang="en">VRCT-VOX and VRCT are not endorsed by VRChat and do not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc.</p>
+                <p className={styles.vrchat_disclaimer} lang="en">ASTAROT and VRCT are not endorsed by VRChat and do not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc.</p>
             </div>
 
 

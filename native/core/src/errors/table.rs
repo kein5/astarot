@@ -80,6 +80,7 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID", category: Category::Connection, message: "OpenAI-compatible endpoint URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID", category: Category::Connection, message: "Custom transcription server URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "CREDENTIAL_REENTRY_REQUIRED", category: Category::Auth, message: "Enter the API key again for the new URL, or delete the saved key before changing the URL for a server without a key", severity: Severity::Warning, user_action_required: true, reported: true },
+    CodeInfo { code: "SECRET_STORE_FAILED", category: Category::Auth, message: "The API keys could not be kept in their secure storage. They work until the app closes; check the settings folder, then enter a missing key again", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "WEBSOCKET_HOST_INVALID", category: Category::Websocket, message: "WebSocket server host is not available", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "WEBSOCKET_PORT_UNAVAILABLE", category: Category::Websocket, message: "WebSocket server port is not available", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "WEBSOCKET_PORT_INVALID", category: Category::Websocket, message: "WebSocket server port must be a number", severity: Severity::Warning, user_action_required: true, reported: true },
@@ -108,4 +109,15 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "OCR_DISABLED_UNKNOWN", category: Category::Ocr, message: "OCR disabled due to an unknown error", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "GENERAL_EXCEPTION", category: Category::General, message: "An error occurred", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "GENERAL_UNKNOWN", category: Category::General, message: "Unknown error", severity: Severity::Error, user_action_required: false, reported: true },
+    // Core only (#277): the official translation APIs and the Ollama URL. tools/spec_core_additions.json
+    // adds them to the generated specification, after Python's codes.
+    CodeInfo { code: "AUTH_GOOGLE_CLOUD_INVALID", category: Category::Auth, message: "Google Cloud Translation API key is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
+    CodeInfo { code: "AUTH_GOOGLE_CLOUD_FAILED", category: Category::Auth, message: "Authentication failure of Google Cloud Translation API key", severity: Severity::Error, user_action_required: true, reported: true },
+    CodeInfo { code: "AUTH_PAPAGO_INVALID", category: Category::Auth, message: "Papago Client ID or Client Secret is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
+    CodeInfo { code: "AUTH_PAPAGO_FAILED", category: Category::Auth, message: "Authentication failure of Papago Client ID and Client Secret", severity: Severity::Error, user_action_required: true, reported: true },
+    CodeInfo { code: "CONNECTION_OLLAMA_URL_INVALID", category: Category::Connection, message: "Ollama URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
+    // Core only: the subtitles' font is chosen from the system's fonts (none is bundled).
+    CodeInfo { code: "OVERLAY_FONT_NOT_FOUND", category: Category::General, message: "The font is not installed on this PC", severity: Severity::Warning, user_action_required: true, reported: true },
+    // Core only (#391): no VAD engine in this build, so the VAD switches cannot be turned on.
+    CodeInfo { code: "VAD_UNAVAILABLE", category: Category::Transcription, message: "Voice activity detection is not available in this version; phrases are cut by volume", severity: Severity::Warning, user_action_required: false, reported: false },
 ];

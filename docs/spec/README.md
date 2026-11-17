@@ -1,6 +1,6 @@
-# VRCT-VOX 機能仕様書
+# ASTAROT 機能仕様書
 
-VRCT-VOXの機能、API、データ、振る舞いの約束をまとめた文書の入口。ここから全部の文書に行ける。
+ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書の入口。ここから全部の文書に行ける。
 
 製品の目的と利用者は`PRODUCT.md`、見た目と操作は`DESIGN.md`、開発の進め方は`AGENTS.md`と`docs/development.md`にある。この仕様書は、それらが決めた方針のもとで「いま何がどう動くか」を書く。
 
@@ -9,7 +9,7 @@ VRCT-VOXの機能、API、データ、振る舞いの約束をまとめた文書
 | 文書 | 書いてあること | 種類 | 作り方 |
 |---|---|---|---|
 | [全体像](overview.md) | 構成要素、外のシステムとの関係、画面とページ | 説明 | 手書き |
-| [IPCプロトコル](ipc-protocol.md) | UIとサイドカーの間のメッセージの形、状態コード、起動、ロック、監視 | 決まり | 手書き |
+| [IPCプロトコル](ipc-protocol.md) | UIとバックエンド（0.5.0からはRustの中核、0.4まではPythonのサイドカー）の間のメッセージの形、状態コード、起動、ロック、監視 | 決まり | 手書き |
 | [横断的な振る舞い](cross-cutting.md) | エラー、保存、同意、秘密情報、国際化、停止とミュート、初期化中の扱い | 決まり | 手書き |
 | [データ形式と保存](data-and-persistence.md) | 主なデータの形、`config.json`、ログやモデルのファイル、環境変数 | 参照 | 手書き |
 | [外部インターフェース](external-interfaces.md) | OSC、WebSocket、OBS、クラウド、音声サーバー、ウィンドウ、Tauriのコマンドとイベント、ホットキー | 参照 | 手書き |
@@ -27,7 +27,7 @@ VRCT-VOXの機能、API、データ、振る舞いの約束をまとめた文書
 
 | したいこと | 読むところ |
 |---|---|
-| あるエンドポイントが何をするか知る | [IPCエンドポイント一覧](reference/ipc-endpoints.md)で処理する関数を見て、`src-python/controller.py`を読む |
+| あるエンドポイントが何をするか知る | [IPCエンドポイント一覧](reference/ipc-endpoints.md)で処理する関数（Pythonバックエンドの名前）を見て、`native/core/README.md`の対応表から中核のモジュール（`native/core/src/controller/`）を読む。Pythonの実装は`src-python/controller.py`にある |
 | 新しい設定を足す | [設定キー一覧](reference/config-keys.md)、[設定の保存](cross-cutting.md#設定の保存)、[データ形式と保存](data-and-persistence.md) |
 | 新しいエラーを足す | [エラーの扱い](cross-cutting.md#エラーの扱い)、[エラーコード一覧](reference/error-codes.md) |
 | 機能の流れを追う | [ユースケース](use-cases.md)から[シーケンス](sequences.md)へ |

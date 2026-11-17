@@ -43,6 +43,9 @@ export const HotkeysEntry = (props) => {
         if (key === "Meta") return "Super";
         return key;
     };
+    // Which physical key is held. A symbol changes with Shift ("?" down, "/" up once Shift
+    // is released first), so the key's code tells the press and its release apart.
+    const heldKey = event => event.code || processKey(event);
 
     const handleKeyInput = (event) => {
         const keys = [];
@@ -61,9 +64,7 @@ export const HotkeysEntry = (props) => {
             nonModifierKeys.push(key);
         }
 
-        if (!pressedKeys.current.has(key)) {
-            pressedKeys.current.add(key);
-        }
+        pressedKeys.current.add(heldKey(event));
 
         keysRef.current = keys;
         setDisplayValue(keys.join(" + "));
@@ -90,7 +91,7 @@ export const HotkeysEntry = (props) => {
         if (event.key === "Tab" || event.key === "Escape") return;
         lastKeyRef.current = null;
 
-        const key = processKey(event);
+        const key = heldKey(event);
         if (!pressedKeys.current.has(key)) return;
         pressedKeys.current.delete(key);
 

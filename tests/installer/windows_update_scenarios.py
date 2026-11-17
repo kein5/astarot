@@ -24,6 +24,9 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_URL = "https://github.com/kein5/VRCT-VOX/releases/download/$release_revision"
 APP = "vrct-vox.exe"
+# Packages up to 0.4 carried the Python sidecar beside the app; from 0.5.0 they do not. The
+# "old" package is such a package: updating it to "new" removes the stale sidecar, while
+# installing a package that has one (a downgrade) keeps it.
 SIDECAR = "vrct-vox-sidecar.exe"
 PACKAGE = "VRCT-VOX.zip"
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VRCT-VOX"
@@ -38,13 +41,15 @@ OWN = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"
 
 
 def payload_files(version):
-    return {
+    files = {
         APP: f"{version} executable stub".encode(),
-        SIDECAR: f"{version} sidecar stub".encode(),
         "_internal/shared.txt": f"{version} dependency".encode(),
         f"_internal/{version}-only.txt": f"{version} only".encode(),
         "_internal/nested/padding.bin": bytes(range(256)) * 2048,
     }
+    if version == "old":
+        files[SIDECAR] = f"{version} sidecar stub".encode()
+    return files
 
 
 def archive_bytes(files):
@@ -75,6 +80,8 @@ def payloads():
         "no-exe": archive_bytes({k: v for k, v in new.items() if k != APP}),
         "no-internal": archive_bytes({k: v for k, v in new.items() if not k.startswith("_internal/")}),
         "range-fallback": good,
+        # Served damaged (one byte changed, same length) the first time only.
+        "damaged-once": good,
         OWN: good,
     }
 
@@ -85,6 +92,7 @@ class PackageServer(ThreadingHTTPServer):
     def __init__(self, port):
         super().__init__(("127.0.0.1", port), PackageHandler)
         self.payloads = payloads()
+        self.damaged = False
         self.requests = []
         self.request_lock = threading.Lock()
 
@@ -132,6 +140,14 @@ class PackageHandler(BaseHTTPRequestHandler):
                 self.send_error(416)
                 return
             status = 206
+        if version == "damaged-once" and parts[1] == PACKAGE and not head:
+            with self.server.request_lock:
+                damage, self.server.damaged = not self.server.damaged, True
+            if damage:
+                # The transfer completes and reports OK; only the SHA-256 check can tell.
+                data = bytearray(data)
+                data[start] ^= 0xFF
+                data = bytes(data)
         self.send_response(status)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(end - start + 1))
@@ -191,7 +207,6 @@ def prepare(port):
         f'!define PACKAGE_SHA256_CPU "{released}"\n!define PACKAGE_SHA256_GPU "{released}"\n', encoding="ascii")
     for name, data in {
         "dist/index.html": b"<!doctype html><title>Installer test stub</title>",
-        "src-tauri/bin/vrct-vox-sidecar-x86_64-pc-windows-msvc.exe": b"sidecar build stub",
         "src-tauri/bin/_internal/stub.txt": b"resource build stub",
     }.items():
         path = ROOT / name
@@ -362,7 +377,28 @@ def silent_scenarios(installer, work, server):
         assert_tree(directory, before)
         if version in ("corrupt", "partial", "no-exe", "no-internal"):
             assert (work / f"temp-{version}" / (PACKAGE + ".bad")).read_bytes() == server.payloads[version]
+        if version == "hash-mismatch":
+            # Downloaded again before giving up (#424), and a package that failed
+            # verification is not kept.
+            with server.request_lock:
+                fetched = [r for r in server.requests
+                           if r["method"] == "GET" and r["path"] == f"/v{version}/{PACKAGE}"]
+            assert len(fetched) >= 3, fetched
+            assert not (work / f"temp-{version}" / (PACKAGE + ".bad")).exists()
         print(f"PASS unchanged tree after {version}", flush=True)
+
+    # A transfer that reports OK can still be damaged (#424): the SHA-256 check refuses it
+    # and the next attempt downloads the package again, where the install succeeds. The
+    # archive an earlier failed install kept is removed too.
+    temp = work / "temp-damaged-once"
+    temp.mkdir()
+    (temp / (PACKAGE + ".bad")).write_bytes(b"kept by an earlier failed install")
+    directory = clone("damaged once")
+    run_install(installer, directory, "damaged-once", temp, True)
+    expect_updated(directory, before)
+    assert server.damaged
+    assert not (temp / (PACKAGE + ".bad")).exists()
+    print("PASS a damaged download is fetched again", flush=True)
 
     directory = clone("commit locked dependency")
     with hold_file(directory / "_internal/shared.txt"):

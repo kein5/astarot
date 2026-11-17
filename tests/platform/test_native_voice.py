@@ -94,7 +94,7 @@ def test_native_text_to_virtual_microphone_and_recovery(tmp_path):
                         wait_for(lambda: saved("routing") == "managed")
                     ui.open_voice_settings()
                     ui.select("Chat voice", mode)
-                    ui.fill("Japanese server (Irodori)", server.url)
+                    ui.fill("Japanese server URL (Irodori)", server.url)
                     ui.click_text("button", "Save changes")
                     wait_for(lambda: saved("mode") == mode)
 
@@ -144,12 +144,12 @@ def test_native_text_to_virtual_microphone_and_recovery(tmp_path):
                 save("original")
                 ui.open_route_settings()
                 status("Muted (confirmed)")
-                ui.click_text("button", "Resume voice")
+                ui.click_text("button", "Unmute")
                 status("Voice enabled (confirmed)")
                 home()
                 positive("normal_exactly_once")
 
-                for name, button in [("stop", "Stop playback and clear queue"), ("mute", "Mute until resumed")]:
+                for name, button in [("stop", "Stop speech"), ("mute", "Mute now")]:
                     ui.set_switch("Text to speech (TTS)")
                     start = send(LONG)
                     first_audio(start)
@@ -167,7 +167,7 @@ def test_native_text_to_virtual_microphone_and_recovery(tmp_path):
                 done("held_mute_stays_silent")
                 save("off")
                 ui.open_route_settings()
-                ui.click_text("button", "Resume voice")
+                ui.click_text("button", "Unmute")
                 status("Voice enabled (confirmed)")
                 home()
                 start = send(SHORT)

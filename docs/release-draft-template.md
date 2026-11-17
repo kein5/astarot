@@ -1,5 +1,5 @@
 Before publishing this draft (tools/changelog.py puts this list in a comment, which the release page does not show):
-- Write the Highlights, Upgrade Notes and Known Issues below; the changes come from CHANGELOG.md.
+- Replace this body with the release notes in `docs/release-notes/<version>.md`, written in the format of `docs/release-notes/README.md` from 0.5.0 (an opening paragraph, one emoji heading per change that matters to users, and a last heading for internal changes with their pull request numbers). The full list stays in CHANGELOG.md.
 - Check the candidate manifests, SHA256SUMS, Linux GUI acceptance and Windows install/upgrade/uninstall results.
 - Confirm model/runtime licenses and supported platforms. No user voice models are bundled.
 - TTS/RVC hardware results apply only to the recorded device and configuration. Windows hardware acceptance is separate from building the installer.

@@ -1,0 +1,7 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "vr-panel",
+    "description": "The VR panel only listens for the pointer the main window forwards. It reads the state through its own channel (vr_panel_state_subscribe) and sends what it has to say through vr_panel_send, which checks its label and the event, so it cannot send events that pass for Rust or another window.",
+    "windows": ["vr_panel"],
+    "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

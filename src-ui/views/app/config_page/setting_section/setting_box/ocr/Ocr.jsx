@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useI18n } from "@useI18n";
-import { createLanguageNames } from "../../../../../../logics/common/languageNames.js";
+import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import styles from "./Ocr.module.scss";
 
 import { useOcr } from "@logics_configs";
@@ -119,11 +119,12 @@ const OcrSourceLanguage_Box = () => {
     const { currentSelectableOcrSourceLanguageList, currentOcrSourceLanguage, setOcrSourceLanguage } = useOcr();
 
     const names = createLanguageNames(i18n.language);
-    const list = Object.fromEntries(Object.keys(currentSelectableOcrSourceLanguageList.data ?? {}).map(id =>
-        [id, id === "auto" ? t("config_page.ocr.source_language.auto") : names.language(id)]));
-    // Old configs can retain a language now covered by the automatic model.
+    const label = id => id === "auto" ? t("config_page.ocr.source_language.auto") : names.language(id);
+    const list = Object.fromEntries(Object.keys(currentSelectableOcrSourceLanguageList.data ?? {}).map(id => [id, label(id)]));
+    // Old configs can retain a language now covered by the automatic model, and the saved
+    // choice shows before the list arrives: name it the same way ("auto" is never shown raw).
     if (currentOcrSourceLanguage.data && !list[currentOcrSourceLanguage.data]) {
-        list[currentOcrSourceLanguage.data] = names.language(currentOcrSourceLanguage.data);
+        list[currentOcrSourceLanguage.data] = label(currentOcrSourceLanguage.data);
     }
     const selectFunction = (selected_data) => {
         setOcrSourceLanguage(selected_data.selected_id);

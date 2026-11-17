@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createAppUpdate, downloadPercent, INITIAL_APP_UPDATE } from "./appUpdate.js";
+import { createAppUpdate, downloadPercent, INITIAL_APP_UPDATE } from "./appUpdate.ts";
 
 const setup = (answers, mode = "install") => {
     let state = { ...INITIAL_APP_UPDATE };

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, stubGlobals, eventTarget } from "../test/hookHarness.js";
-import { rebaseDraft } from "./draftRebase.js";
+import { rebaseDraft } from "./draftRebase.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 async function setup(context, savedFromResponse) {
@@ -104,6 +104,30 @@ test("an identical GET cannot acknowledge a write and an older response cannot c
     await s.reply(0, s.requests[0].value);
     assert.equal(s.render().saving, true);
     await s.reply(1, s.requests[1].value);
+    assert.equal(s.render().saveState, "saved");
+});
+
+test("another request's failure on the page neither marks an unedited form failed nor ends a save (#458)", async context => {
+    const s = await setup(context);
+    s.state.error = "voice_request_failed";
+    assert.equal(s.render().saveState, "saved", "a failed mute is not a failed save");
+    s.state.error = null;
+    s.edit(); s.render().submit(s.write); s.render();
+    s.state.error = "voice_request_failed"; s.render();
+    assert.equal(s.render().saving, true, "the save stays in progress until its own reply");
+    assert.equal(s.render().saveState, "saving");
+    const canonical = { ...s.state.saved, vocabulary: { terms: ["VRChat=ブイアールチャット"] } };
+    assert.equal((await s.reply(0, canonical)).saveState, "saved");
+});
+
+test("a write that throws stays failed until the next save or discard", async context => {
+    const s = await setup(context);
+    s.edit();
+    await s.render().submit(() => Promise.reject(new Error("closed")));
+    assert.equal(s.state.error, "save_unconfirmed");
+    s.state.error = null;
+    assert.equal(s.render().saveState, "save_failed");
+    s.render().discard();
     assert.equal(s.render().saveState, "saved");
 });
 

@@ -11,13 +11,17 @@ import styles from "./LogBox.module.scss";
 // download review, or the settings where the local speech recognition models are set.
 // While the engine starts, the main page's startup list (StartupProgress) takes
 // its place: how far the start has come and which models it is fetching.
+// The greeting sits in the middle row and the list in the row below it, so the list
+// changing at startup never moves the greeting (LogBox.module.scss).
 export const EmptyState = () => {
     const { t } = useI18n();
     const startup = useStartupPlaceholder();
     return <div className={styles.empty}>
-        <h1>{t("studio.empty_title")}</h1>
-        <p>{t("studio.empty_description")}</p>
-        {!store.is_vr_panel && (startup ?? <Setup />)}
+        <div className={styles.greeting}>
+            <h1>{t("studio.empty_title")}</h1>
+            <p>{t("studio.empty_description")}</p>
+        </div>
+        {!store.is_vr_panel && <div className={styles.next}>{startup ?? <Setup />}</div>}
     </div>;
 };
 
@@ -29,11 +33,13 @@ const Setup = () => {
         {needs.length > 0 && <ul className={styles.setup} aria-label={t("studio.setup_label")}>
             {needs.map(({ id, weight, action }) => {
                 const progress = downloadProgress(weight);
+                // "choose": the translation model cannot be downloaded yet, so another translator is offered.
                 return <li key={id}>
-                    <span>{t(`studio.setup_${id}`)}</span>
+                    <span>{t(action === "choose" ? "studio.setup_translation_unavailable" : `studio.setup_${id}`)}</span>
                     {progress === null
                         ? <button type="button" onClick={() => start(id)}>
-                            {t(action === "settings" ? "studio.setup_open_settings" : "model_downloads.review")}</button>
+                            {t(action === "settings" ? "studio.setup_open_settings"
+                                : action === "choose" ? "studio.setup_other_translator" : "model_downloads.review")}</button>
                         : <span role="status">{t(progress === "pending" ? "studio.setup_preparing" : "studio.setup_downloading", { progress })}</span>}
                 </li>;
             })}

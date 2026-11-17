@@ -138,6 +138,40 @@ export function recommend(downloads, os, arch = 'x64') {
   return null
 }
 
+// The manual's download menu (manual/ManualDownload.vue) always shows these seven files, in this
+// order, whether or not the release has each one. `variant` narrows a slot to one build: 'cpu'
+// also takes a file with no engine word, since a lone build is the one every PC runs.
+export const SLOTS = [
+  { id: 'windows-installer', os: 'windows', format: 'installer' },
+  { id: 'windows-zip-cpu', os: 'windows', format: 'zip', variant: 'cpu' },
+  { id: 'windows-zip-cuda', os: 'windows', format: 'zip', variant: 'cuda' },
+  { id: 'linux-appimage', os: 'linux', format: 'appimage' },
+  { id: 'linux-deb', os: 'linux', format: 'deb' },
+  { id: 'linux-rpm', os: 'linux', format: 'rpm' },
+  { id: 'linux-tar', os: 'linux', format: 'tar' },
+]
+
+/**
+ * The release's file for each of SLOTS, or null where it has none.
+ * @param {Download[]} downloads  already sorted by readRelease
+ * @param {'x64' | 'arm64'} [arch]
+ * @returns {{ id: string, os: Os, format: Format, variant?: string, download: Download | null }[]}
+ */
+export function fillSlots(downloads, arch = 'x64') {
+  const list = Array.isArray(downloads) ? downloads : []
+  return SLOTS.map((slot) => {
+    const fits = list.filter(
+      (item) => item.os === slot.os && item.format === slot.format && (item.arch === null || item.arch === arch),
+    )
+    let download
+    if (slot.variant === 'cuda') download = fits.find((item) => item.variant === 'cuda')
+    else if (slot.variant === 'cpu') download = fits.find((item) => item.variant === 'cpu' || item.variant === null)
+    // Not the CUDA build when another one is there, as on the button.
+    else download = fits.find((item) => item.variant !== 'cuda') ?? fits[0]
+    return { ...slot, download: download ?? null }
+  })
+}
+
 /**
  * The reader's OS and CPU from the browser. Phones and tablets have no build; they are 'other'.
  * @param {{ userAgent?: string, platform?: string, userAgentData?: { platform?: string, mobile?: boolean } }} nav

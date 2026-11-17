@@ -5,6 +5,9 @@
     h4 { margin: 0 0 .8rem; font-size: 1.4rem; }
     p { margin: 0 0 .8rem; }
     ol, ul { margin: 0 0 .8rem; padding-left: 2.2rem; }
+    // The global reset drops list markers; steps done in order show their numbers (#476).
+    ol { list-style: decimal; }
+    ul { list-style: disc; }
     li { margin-bottom: .4rem; }
 }
 .note { font-size: 1.25rem; color: var(--vox_secondary_text, #adbed6); }
@@ -30,7 +33,7 @@
     flex: 1 1 12rem;
     min-width: 8rem;
     height: 1rem;
-    border-radius: .5rem;
+    border-radius: .4rem;
     overflow: hidden;
     background: var(--dark_825_color);
     outline: .1rem solid var(--dark_600_color, #555d69);

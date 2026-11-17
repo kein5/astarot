@@ -12,7 +12,7 @@ use windows::Win32::Media::Audio::{
 };
 use windows::Win32::System::Com::CLSCTX_ALL;
 
-use super::{enumerator, friendly_name, named, Com};
+use super::{enumerator, friendly_name, named, Com, MtaUsage};
 use crate::error::{Error, Result};
 use crate::graph::OutputOption;
 use crate::naming::{device_host, device_name, output_identity, same_output, WASAPI_HOST};
@@ -20,8 +20,10 @@ use crate::router::{Output, PlaybackToken};
 use crate::sync::{audio_op_lock, monotonic};
 use std::time::Duration;
 
-/// The shared-mode buffer, in 100 ns units (60 ms).
-const BUFFER_DURATION: i64 = 600_000;
+/// The shared-mode buffer, in 100 ns units (100 ms). Some engines, such as the Steam
+/// Streaming devices', take 30 ms at a time and two blocks right after the start; with
+/// 60 ms the buffer kept only 20 ms in hand, about one Windows timer tick of the writer.
+const BUFFER_DURATION: i64 = 1_000_000;
 const DRAIN_DEADLINE: f64 = 2.0;
 
 /// WASAPI outputs, plus saved choices from other hosts while their device exists.
@@ -61,7 +63,11 @@ pub struct WindowsOutput {
     block: usize,
     strict_underflow: bool,
     started: bool,
-    _com: Com,
+    /// The output is opened on one thread and often written and dropped on another (the
+    /// virtual microphone's check, the queued route): it keeps the apartment alive by itself
+    /// instead of holding the opening thread's COM, which would be released on the wrong thread.
+    /// Last, so the interfaces above are released while the apartment is still alive.
+    _mta: MtaUsage,
 }
 
 // The interfaces live in the multithreaded apartment, where any thread of it may
@@ -76,7 +82,8 @@ impl WindowsOutput {
     /// `strict_underflow`: report a buffer that ran dry (the virtual microphone does);
     /// a monitor tolerates it.
     pub fn open(identity: &str, rate: u32, channels: u16, strict_underflow: bool) -> Result<Self> {
-        let com = Com::init()?;
+        let _com = Com::init()?;
+        let mta = MtaUsage::new()?;
         let _lock = audio_op_lock().lock();
         let enumerator = enumerator()?;
         let wasapi = device_host(identity).is_none_or(|host| host == WASAPI_HOST);
@@ -103,16 +110,26 @@ impl WindowsOutput {
                 .map_err(|_| Error::speech("output_format_unsupported"))?;
             let buffer_frames = client.GetBufferSize().map_err(lost)?;
             let render: IAudioRenderClient = client.GetService().map_err(lost)?;
-            Ok(Self { client, render, buffer_frames, block, strict_underflow, started: false, _com: com })
+            Ok(Self { client, render, buffer_frames, block, strict_underflow, started: false, _mta: mta })
         }
     }
 
     fn padding(&self) -> Result<u32> {
         unsafe { self.client.GetCurrentPadding() }.map_err(lost)
     }
+
+    fn start(&mut self) -> Result<()> {
+        unsafe { self.client.Start() }.map_err(lost)?;
+        self.started = true;
+        Ok(())
+    }
 }
 
 impl Output for WindowsOutput {
+    /// The stream starts once its buffer is full (or at `close` for shorter audio). Starting
+    /// after the first 10 ms write let the engine drain that write before the next one came,
+    /// so a strict output failed at once with `output_underflow` and nothing was heard: every
+    /// message to the virtual microphone on Windows in 0.5.0-beta.5.
     fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> Result<()> {
         token.check()?;
         let mut pending = &pcm[..pcm.len() / self.block * self.block];
@@ -124,6 +141,10 @@ impl Output for WindowsOutput {
             }
             let room = (self.buffer_frames - padding) as usize;
             if room == 0 {
+                if !self.started {
+                    self.start()?;
+                    continue;
+                }
                 // Blocks for about the audio's length, as a PortAudio write does.
                 token.wait(Duration::from_millis(5));
                 continue;
@@ -135,15 +156,15 @@ impl Output for WindowsOutput {
                 self.render.ReleaseBuffer(frames as u32, 0).map_err(lost)?;
             }
             pending = &pending[frames * self.block..];
-            if !self.started {
-                unsafe { self.client.Start() }.map_err(lost)?;
-                self.started = true;
-            }
         }
         Ok(())
     }
 
     fn close(&mut self, drain: bool, token: &dyn PlaybackToken) -> Result<()> {
+        // Audio shorter than the buffer has not started yet.
+        if drain && !self.started && !token.is_set() && self.padding()? > 0 {
+            self.start()?;
+        }
         // The last hardware buffer belongs to the driver; an unplug can still cut it.
         if drain && self.started && !token.is_set() {
             let deadline = monotonic() + DRAIN_DEADLINE;

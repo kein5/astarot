@@ -5,16 +5,21 @@ import yaml from "js-yaml";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../logics/test/hookHarness.js";
 
 const t = (key, options) => options?.changes ? `${key}[${options.changes}]` : key;
-async function bar(context, entries) {
+async function render(context, entries, tab = "tts") {
     const runtime = hooks();
     // The leave guard listens on the window while there are edits.
     stubGlobals(context, { window: eventTarget() });
     const { SaveBar } = await loadModule(new URL("./Topbar.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "@logics_common": {},
+        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: tab } }) },
         "../../../../logics/voice/saveBar": { useSaveBarEntries: () => entries }, "../../others/stop_actions/StopActions": {},
     });
     const tree = runtime.render(SaveBar);
     runtime.unmount();
+    return tree;
+}
+async function bar(context, entries) {
+    const tree = await render(context, entries);
     return { status: find(tree, node => node.props?.role === "status").props.children,
         count: find(tree, node => node.props?.className === "count"),
         save: find(tree, node => node.type === "button" && node.props.className === "save").props };
@@ -46,10 +51,24 @@ test("saving and a failed save keep their own words; nothing dirty is saved", as
     assert.match((await bar(context, [entry({ dirty: false, edited: false })])).status, /^voice_ui\.saved/);
 });
 
+test("#436: a page without a form says in the save bar's place that its changes apply at once", async context => {
+    for (const tab of ["appearance", "vr", "hotkeys"]) {
+        const tree = await render(context, [], tab);
+        const note = find(tree, node => node.props?.className === "applies_now");
+        assert.equal(note?.props.children, "voice_ui.applies_now", tab);
+        assert.equal(find(tree, node => node.type === "button"), null, `${tab}: nothing to save or discard`);
+    }
+    // The about page holds no settings, so it says nothing.
+    assert.equal(find(await render(context, [], "about_vrct"), node => node.props?.className === "applies_now"), null);
+    // A page with a form shows the bar instead.
+    assert.equal(find(await render(context, [entry({ dirty: false, edited: false })]), node => node.props?.className === "applies_now"), null);
+});
+
 test("the wording exists in English and Japanese and names the change", () => {
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8")).voice_ui;
         assert.match(strings.applies_on_save, /\{\{changes\}\}/);
         assert.equal(typeof strings.changes_separator, "string");
+        assert.equal(typeof strings.applies_now, "string");
     }
 });

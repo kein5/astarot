@@ -11,6 +11,8 @@ export const LabelComponent = (props) => {
                 ? typeof props.desc === "string" ? <Description id={props.description_id} text={props.desc} className={styles.desc} /> : <p id={props.description_id} className={styles.desc}>{props.desc}</p>
                 : null
             }
+            {/* The setting's current state when its control alone cannot say it. */}
+            {props.note && <p id={props.note_id} className={styles.note}>{props.note}</p>}
             {props.add_warnings && Array.isArray(props.add_warnings) && props.add_warnings.length > 0 && (
                 <div id={props.warnings_id} className={styles.warnings_section}>
                     {props.add_warnings.map((w, i) => (

@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import clsx from "clsx";
 import styles from "./TranslatorSelector.module.scss";
 import { useI18n } from "@useI18n";
@@ -14,9 +14,12 @@ export const TranslatorSelector = ({selected_id, translation_engines, is_selecte
     // focus: it is on screen, and it describes the group the keyboard enters.
     const reason_id = useId();
     const has_unavailable = translation_engines.some(engine => !engine.is_available);
+    // It opens under its button at the foot of the rail: bring it into view.
+    const container = useRef(null);
+    useEffect(() => { container.current?.scrollIntoView?.({ block: "nearest" }); }, []);
 
     return (
-        <div className={styles.container}>
+        <div ref={container} className={styles.container}>
             <div className={styles.relative_container} role="group" aria-label={t("main_page.translator")}
                 aria-describedby={has_unavailable || is_selected_same_language ? reason_id : undefined}>
                 {has_unavailable && !is_selected_same_language &&

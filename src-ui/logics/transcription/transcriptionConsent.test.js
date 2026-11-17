@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
-import * as endpointPrivacy from "../common/endpointPrivacy.js";
+import * as endpointPrivacy from "../common/endpointPrivacy.ts";
 
 const noop = () => {};
 const api = values => new Proxy(values, { get: (object, name) => object[name] ?? noop });
@@ -30,7 +30,7 @@ async function fixture(context) {
     });
     const transcription = api({
         currentSelectedTranscriptionEngine: { data: null, state: "ok" },
-        currentSelectableTranscriptionEngines: { data: ["Google", "SpeechCpp"] },
+        currentSelectableTranscriptionEngines: { data: ["SpeechCpp"] },
         setSelectedTranscriptionEngine: async value => {
             transcription.currentSelectedTranscriptionEngine = { data: null, state: "pending" };
             calls.push(["/set/data/selected_transcription_engine", value]);
@@ -52,8 +52,8 @@ async function fixture(context) {
     const error = errors._useBackendErrorHandling().errorHandling_Backend;
     const { TranscriptionConsentController } = await loadModule(new URL("../../views/app/_app_controllers/TranscriptionConsentController.jsx", import.meta.url), runtime, {
         "@logics_configs": configs, "@logics_main": main,
-        "@store": { useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: noop }),
-            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: noop }) },
+        "@store": { useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: value => calls.push(["open_config_page", value]) }),
+            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: value => calls.push(["config_tab", value]) }) },
         "../../../logics/transcription/useTranscriptionConsent": consent,
         "../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close: noop }) },
     });
@@ -70,7 +70,7 @@ async function fixture(context) {
     return { runtime, render, calls, states, transcription, configs, click, acknowledge, firstEnable, error, consent };
 }
 
-for (const direction of ["Send", "Receive"]) test(`${direction}: first enable opens chooser; Google saves then continues only the original enable`, async context => {
+for (const direction of ["Send", "Receive"]) test(`${direction}: first enable opens chooser; a choice saves then continues only the original enable`, async context => {
     const s = await fixture(context);
     assert.equal(s.render(), null);
     s.firstEnable(direction);
@@ -79,11 +79,11 @@ for (const direction of ["Send", "Receive"]) test(`${direction}: first enable op
     assert.equal(s.states[`Transcription${direction}`].state, "ok");
     const enable = `/set/enable/transcription_${direction === "Send" ? "send" : "receive"}`;
     assert.equal(s.calls.filter(([path]) => path === enable).length, 1);
-    await s.click("google");
+    await s.click("speechcpp");
     s.render();
-    assert.deepEqual(s.calls.at(-1), ["/set/data/selected_transcription_engine", "Google"]);
+    assert.deepEqual(s.calls.at(-1), ["/set/data/selected_transcription_engine", "SpeechCpp"]);
     assert.equal(s.calls.filter(([path]) => path === enable).length, 1, "writing the selection is not an ack");
-    s.acknowledge("Google");
+    s.acknowledge("SpeechCpp");
     assert.equal(s.render(), null);
     assert.equal(s.calls.filter(([path]) => path === enable).length, 2);
     s.render();
@@ -93,10 +93,11 @@ for (const direction of ["Send", "Receive"]) test(`${direction}: first enable op
 test("Local (speech.cpp) saves the selection and continues the original enable without downloading", async context => {
     const s = await fixture(context);
     s.firstEnable("Receive");
-    // The removed local Whisper is no longer offered (#288).
+    // The removed local Whisper (#288) and the retired Google web speech engine are not offered;
+    // a cloud engine is chosen in the settings once its key is registered.
     const choices = [];
     find(s.render(), node => { if (node.type === "button") choices.push(node.props.children); return false; });
-    assert.deepEqual(choices, ["transcription_consent.cancel", "transcription_consent.google", "transcription_consent.speechcpp"]);
+    assert.deepEqual(choices, ["transcription_consent.cancel", "transcription_consent.settings", "transcription_consent.speechcpp"]);
     await s.click("speechcpp");
     assert.deepEqual(s.calls.at(-1), ["/set/data/selected_transcription_engine", "SpeechCpp"]);
     s.acknowledge("SpeechCpp");
@@ -109,9 +110,9 @@ test("Local (speech.cpp) saves the selection and continues the original enable w
 for (const pending of [false, true]) test(`cancel leaves transcription off (selection pending: ${pending})`, async context => {
     const s = await fixture(context);
     s.firstEnable("Send");
-    if (pending) await s.click("google");
+    if (pending) await s.click("speechcpp");
     s.click("cancel");
-    s.acknowledge("Google");
+    s.acknowledge("SpeechCpp");
     assert.equal(s.render(), null);
     assert.equal(s.states.TranscriptionSend.data, false);
     assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
@@ -133,9 +134,9 @@ test("repeated choices and simultaneous enables do not multiply the continuation
     const s = await fixture(context);
     s.firstEnable("Send");
     s.firstEnable("Receive");
-    await s.click("google");
-    await s.click("google");
-    s.acknowledge("Google");
+    await s.click("speechcpp");
+    await s.click("speechcpp");
+    s.acknowledge("SpeechCpp");
     assert.equal(s.calls.filter(([path]) => path === "/set/data/selected_transcription_engine").length, 1);
     assert.equal(s.calls.filter(([path]) => path === "/set/enable/transcription_send").length, 2);
     assert.equal(s.calls.filter(([path]) => path === "/set/enable/transcription_receive").length, 1);
@@ -144,10 +145,10 @@ test("repeated choices and simultaneous enables do not multiply the continuation
 test("failed save and unrelated selection updates never enable capture", async context => {
     const s = await fixture(context);
     s.firstEnable("Send");
-    await s.click("google");
+    await s.click("speechcpp");
     s.acknowledge(null);
     assert.ok(find(s.render(), node => node.type === "dialog"));
-    s.acknowledge("Google");
+    s.acknowledge("SpeechCpp");
     assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
 });
 
@@ -162,13 +163,24 @@ test("an engine that cannot start points at its settings; unmount drops any cont
     assert.deepEqual(s.calls, []);
 });
 
+test("the chooser leads to the engine settings for a cloud engine without enabling anything", async context => {
+    const s = await fixture(context);
+    s.firstEnable("Send");
+    s.click("settings");
+    assert.equal(s.render(), null);
+    assert.deepEqual(s.calls.slice(-2), [["config_tab", "transcription"], ["open_config_page", true]]);
+    assert.equal(s.calls.filter(([path]) => path === "/set/data/selected_transcription_engine").length, 0);
+    assert.equal(s.calls.filter(([path]) => path === "/set/enable/transcription_send").length, 1);
+    assert.equal(s.states.TranscriptionSend.data, false);
+});
+
 test("only enable errors can open the chooser", async context => {
     const s = await fixture(context);
     s.error({ error_code: "TRANSCRIPTION_ENGINE_NOT_SELECTED", endpoint: "/get/data/selected_transcription_engine", data: false });
     assert.equal(s.render(), null);
 });
 
-test("settings keep the selected engine and Google notice inside the radio row's accessible help", async context => {
+test("settings keep the selected engine inside the radio row's accessible help", async context => {
     const s = await fixture(context);
     const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), s.runtime, {
         "@logics_configs": s.configs, "@utils": {},
@@ -180,13 +192,13 @@ test("settings keep the selected engine and Google notice inside the radio row's
         "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
         "../_components/setup_section/SetupSection": {},
     });
-    s.transcription.currentSelectedTranscriptionEngine = { data: "Google", state: "ok" };
+    s.transcription.currentSelectedTranscriptionEngine = { data: "SpeechCpp", state: "ok" };
     const tree = s.runtime.render(TranscriptionEngine_Box);
     assert.equal(tree.type, "radio-options", "help belongs inside the row, not after its divider");
-    assert.equal(tree.props.checked_variable.data, "Google");
-    // Google, the local speech.cpp engine and the cloud engines; the local Whisper is gone (#288).
-    assert.deepEqual(tree.props.options.map(option => option.id), ["Google", "SpeechCpp"]);
-    assert.ok(find(tree.props.desc, node => node.props?.children === "transcription_consent.google_notice"));
+    assert.equal(tree.props.checked_variable.data, "SpeechCpp");
+    // The local speech.cpp engine and the cloud engines; the local Whisper (#288) and the
+    // retired Google web speech engine are gone.
+    assert.deepEqual(tree.props.options.map(option => option.id), ["SpeechCpp"]);
     assert.ok(find(tree.props.desc, node => node.props?.role === "status"));
 
     // Use the real row, label and radio group to verify their help relationship.
@@ -212,19 +224,22 @@ test("settings keep the selected engine and Google notice inside the radio row's
     const help = find(rowRuntime.render(label.type, label.props), node => node.props?.id === group.props["aria-describedby"]);
     assert.equal(group.props.role, "radiogroup");
     assert.ok(group.props["aria-describedby"]);
-    assert.ok(find(help, node => node.props?.children === "transcription_consent.google_notice"));
     assert.ok(find(help, node => node.props?.role === "status"));
 
+    // A selection the backend no longer offers (a saved Google loads as none) shows as unselected.
     s.transcription.currentSelectedTranscriptionEngine = { data: null, state: "ok" };
     const unselectedHelp = s.runtime.render(TranscriptionEngine_Box).props.desc;
-    assert.ok(find(unselectedHelp, node => node.props?.role === "status"));
-    assert.equal(find(unselectedHelp, node => node.props?.children === "transcription_consent.google_notice"), null);
+    assert.ok(find(unselectedHelp, node => node.props?.role === "status" && JSON.stringify(node.props.children).includes("transcription_consent.selected")));
 });
 
-for (const language of ["en", "ja"]) test(`${language}: choice and error text disclose Google and the separate local download`, async () => {
+for (const language of ["en", "ja"]) test(`${language}: choice and error text disclose where audio goes and the separate local download`, async () => {
     const messages = yaml.load(await readFile(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    assert.match(messages.transcription_consent.google_notice, /Google/);
-    assert.match(messages.transcription_consent.google_notice, language === "ja" ? /送られます/ : /sends/);
+    // The retired Google web speech engine left no text behind.
+    assert.equal(messages.transcription_consent.google_notice, undefined);
+    assert.equal(messages.transcription_consent.google, undefined);
+    assert.doesNotMatch(messages.config_page.transcription.select_transcription_engine.desc, /Google/);
+    assert.match(messages.transcription_consent.cloud_notice, /API/);
+    assert.match(messages.transcription_consent.cloud_notice, language === "ja" ? /送られます/ : /sent/);
     assert.match(messages.transcription_consent.speechcpp_notice, /speech\.cpp/);
     assert.equal(messages.transcription_consent.whisper_notice, undefined);
     for (const code of ["ENGINE_NOT_SELECTED", "ENGINE_UNAVAILABLE"])

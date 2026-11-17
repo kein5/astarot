@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { splitFeatureLabel } from "./featureLabel.js";
+import { splitFeatureLabel } from "./featureLabel.ts";
 
 test("splits a feature name before its abbreviation", () => {
     assert.deepEqual(splitFeatureLabel("テキスト読み上げ（TTS）"), { name: "テキスト読み上げ", abbr: "（TTS）" });

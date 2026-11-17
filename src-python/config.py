@@ -1,5 +1,6 @@
 from models.network_policy import CUSTOM_URL_KEYS, valid_saved_api_url
 from models.obs.settings import is_valid_numeric_setting
+import models.experimental_features as experimental_features
 import sys
 import copy
 import errno
@@ -1149,6 +1150,7 @@ class Config:
     COMPUTE_MODE = ManagedProperty('COMPUTE_MODE', readonly=True, serialize=False)
     SELECTABLE_COMPUTE_DEVICE_LIST = ManagedProperty('SELECTABLE_COMPUTE_DEVICE_LIST', readonly=True, serialize=False)
     SEND_MESSAGE_BUTTON_TYPE_LIST = ManagedProperty('SEND_MESSAGE_BUTTON_TYPE_LIST', readonly=True, serialize=False)
+    TRAY_COMPANION_EDGE_LIST = ManagedProperty('TRAY_COMPANION_EDGE_LIST', readonly=True, serialize=False)
 
     # Read Write
     # --- Simple boolean flags (managed by descriptor) ---
@@ -1216,6 +1218,18 @@ class Config:
         ),
         immediate_save=True
     )
+    # Experimental features the user turned on (models/experimental_features.py).
+    EXPERIMENTAL_FEATURES = ValidatedProperty('EXPERIMENTAL_FEATURES',
+        validator=lambda val, inst: experimental_features.normalize(val, inst.EXPERIMENTAL_FEATURES),
+        immediate_save=True
+    )
+    # The screen edge the tray companion's hexagram hides at (experimental feature tray_companion,
+    # src-tauri/src/companion.rs). Kept while the feature is off, for the next time it is on.
+    TRAY_COMPANION_EDGE = ManagedProperty('TRAY_COMPANION_EDGE', type_=str, allowed=lambda v, inst: v in inst.TRAY_COMPANION_EDGE_LIST)
+    # The monitor the hexagram shows on, by the name the system gives it (such as \\.\DISPLAY2);
+    # empty for the primary monitor. Kept while that monitor is unplugged, so it comes back to it.
+    TRAY_COMPANION_MONITOR = ManagedProperty('TRAY_COMPANION_MONITOR', type_=str,
+        allowed=lambda v, inst: len(v) <= 256 and not any(ord(c) < 32 or 127 <= ord(c) < 160 for c in v))
 
     # --- Speaker-related simple properties ---
     SPEAKER_THRESHOLD = ManagedProperty('SPEAKER_THRESHOLD', type_=int, allowed=lambda v, inst: 0 <= v <= inst.MAX_SPEAKER_THRESHOLD)
@@ -1446,7 +1460,7 @@ class Config:
         self._SELECTED_MIC_DEVICE_ID = ''
         self._SELECTED_SPEAKER_DEVICE_ID = ''
         # Read Only
-        self._VERSION = "0.4.0"
+        self._VERSION = "0.5.0"
         if getattr(sys, 'frozen', False):
             self._PATH_LOCAL = os_path.dirname(sys.executable)
         else:
@@ -1496,6 +1510,7 @@ class Config:
             device.get("device") == "cuda" for device in self._SELECTABLE_COMPUTE_DEVICE_LIST
         ) else "cpu"
         self._SEND_MESSAGE_BUTTON_TYPE_LIST = ["show", "hide", "show_and_disable_enter_key"]
+        self._TRAY_COMPANION_EDGE_LIST = ["right", "left", "top", "bottom"]
 
         # Read Write
         self._ENABLE_TRANSLATION = False
@@ -1605,6 +1620,9 @@ class Config:
             "toggle_tts": None,
             "toggle_rvc": None,
         }
+        self._EXPERIMENTAL_FEATURES = experimental_features.defaults()
+        self._TRAY_COMPANION_EDGE = "right"
+        self._TRAY_COMPANION_MONITOR = ""
         self._MIC_AVG_LOGPROB = -0.8
         self._MIC_NO_SPEECH_PROB = 0.6
         self._AUTO_SPEAKER_SELECT = True

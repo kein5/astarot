@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import * as featureLabel from "../../logics/common/featureLabel.js";
+import * as featureLabel from "../../logics/common/featureLabel.ts";
 import { test } from "node:test";
 import React from "react";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../logics/test/hookHarness.js";
-import * as languageNames from "../../logics/common/languageNames.js";
-import { languageCodes } from "../../logics/common/languageCodes.js";
-import { languageJumpGroups } from "../../logics/common/languageJumpGroups.js";
+import * as languageNames from "../../logics/common/languageNames.ts";
+import { languageCodes } from "../../logics/common/languageCodes.ts";
+import { languageJumpGroups } from "../../logics/common/languageJumpGroups.ts";
 import { trackVrPointerHover } from "./vrPanelHover.js";
 
 const fonts = Array.from({ length: 743 }, (_, index) => ({ id: `font-${index}`, label: `Font ${index}` }));
@@ -290,8 +290,8 @@ async function languageWindow(context, h, locale = "en") {
         "@logics_main": { useLanguageSettings: () => settings },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: false } }) },
         "../../logics/main/languageMutations": { LANGUAGE_RESPONSE_WAIT_MS: 30000 },
-        "../../logics/common/languageJumpGroups.js": { languageJumpGroups },
-        "../../logics/common/languageNames.js": { ...languageNames, createLanguageNames: locale => {
+        "../../logics/common/languageJumpGroups.ts": { languageJumpGroups },
+        "../../logics/common/languageNames.ts": { ...languageNames, createLanguageNames: locale => {
             const names = languageNames.createLanguageNames(locale);
             return { ...names, sorted: entries => { sorts.push(entries); return names.sorted(entries); },
                 matches: (entry, query) => { filters.push(query); return names.matches(entry, query); } };
@@ -411,6 +411,20 @@ test("search keeps lazy windowing, sorts only when its inputs change, and uses o
     assert.equal(w.sorts.length, initialSorts + 2);
 });
 
+test("a language code typed in the VR filter lists that language first, and Enter picks it", async context => {
+    const h = await pickerHarness(context, { margin: 38 });
+    const w = await languageWindow(context, h);
+    w.open();
+    await h.settle(w.list.props);
+    find(w.tree, node => node.type === "input").props.onChange({ target: { value: "ja" } });
+    w.render();
+    // Azerbaijani's name also contains "ja" and comes first by name.
+    assert.ok(w.list.props.options.some(entry => entry.language === "Azerbaijani"));
+    assert.equal(w.list.props.options[0].language, "Japanese");
+    find(w.tree, node => node.type === "input").props.onKeyDown({ key: "Enter", preventDefault() {} });
+    assert.equal(w.picked[0].language, "Japanese");
+});
+
 test("grid jumps to disabled selections keep focus; Tab skips disabled options and preserves columns", async context => {
     const h = await pickerHarness(context, { margin: 38 });
     const options = fonts.slice(0, 100), isDisabled = option => Number(option.id.slice(5)) % 2 === 0;
@@ -456,8 +470,8 @@ test("font selection reaches the existing appearance setter and closes the setti
         "./VrPickerList": { VrPickerList: h.VrPickerList },
     });
     const { VrSettingsWindow } = await loadModule(new URL("./VrSettingsWindow.jsx", import.meta.url), runtime, {
-        "../../logics/common/languageNames.js": languageNames,
-        "../../logics/common/featureLabel.js": featureLabel,
+        "../../logics/common/languageNames.ts": languageNames,
+        "../../logics/common/featureLabel.ts": featureLabel,
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
         "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: "en" },

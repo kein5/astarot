@@ -6,8 +6,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    // Six Japanese characters at 1.2rem + 2 * .8rem padding = 8.8rem.
-    width: 9rem;
+    // 「取得内容を確認」: seven Japanese characters at 1.2rem + 2 * .8rem padding = 10rem.
+    width: 10.4rem;
+    // Every row is as tall as one with a button, whatever it shows (#474).
+    min-height: 4rem;
     min-width: 0;
     max-width: 100%;
     flex-shrink: 0;
@@ -89,4 +91,11 @@
     user-select: none;
     white-space: nowrap;
     flex-shrink: 0;
+}
+
+.unavailable {
+    font-size: 1.2rem;
+    color: var(--dark_400_color);
+    text-align: center;
+    overflow-wrap: anywhere;
 }

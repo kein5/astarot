@@ -15,36 +15,23 @@ pytestmark = pytest.mark.skipif(sys.platform != 'linux', reason='Linux AppImage 
 
 @pytest.mark.parametrize('library_path', [None, '', '/host/libs with spaces'])
 @pytest.mark.parametrize('host_data', [None, '/host/share'])
-def test_gui_environment_does_not_reach_sidecar(tmp_path, library_path, host_data):
+def test_launcher_keeps_the_host_environment_beside_the_gui_one(tmp_path, library_path, host_data):
+    """The backend runs inside the GUI process; programs it starts can restore the host values."""
     from tools.build_appimage import install_launchers
     appdir = tmp_path / 'bundle with spaces.AppDir'
     (appdir / 'usr/bin').mkdir(parents=True)
-    payload = appdir / 'usr/lib/vrct-vox'
-    payload.mkdir(parents=True)
-    (appdir / 'AppRun').write_text('''#!/bin/sh
-. "$APPDIR/apprun-hooks/test.sh"
-test "$PWD" = "$APPDIR/usr" || exit 21
-test "$GUI_HOOK_LOADED" = yes || exit 22
-test "$GUI_HOOK_COUNT" = 1 || exit 24
-case "$LD_LIBRARY_PATH" in "$APPDIR/usr/lib"*) ;; *) exit 23 ;; esac
-export LD_LIBRARY_PATH="$APPDIR/usr/lib"
-export GIO_EXTRA_MODULES="$APPDIR/usr/lib/gio"
-export XDG_DATA_DIRS="$APPDIR/usr/share"
-export LD_LIBRARY_PATH_ORIG=/wrong/gui
-exec "$APPDIR/usr/bin/vrct-vox-sidecar" "$@"
-''')
+    (appdir / 'usr/lib/vrct-vox').mkdir(parents=True)
+    # linuxdeploy's GUI launcher, renamed to AppRun.gui: report what the GUI process sees.
+    report = ('import json,os,sys; print(json.dumps({"args": sys.argv[1:], "cwd": os.getcwd(), '
+              '"ld": os.environ.get("LD_LIBRARY_PATH"), "xdg": os.environ.get("XDG_DATA_DIRS"), '
+              '"host": {k: v for k, v in os.environ.items() if k.startswith("VRCT_APPIMAGE_HOST_")}}))')
+    (appdir / 'AppRun').write_text(f'#!{sys.executable}\n{report}\n')
     (appdir / 'AppRun').chmod(0o755)
-    (appdir / 'apprun-hooks').mkdir()
-    (appdir / 'apprun-hooks/test.sh').write_text('export GUI_HOOK_LOADED=yes\nexport GUI_HOOK_COUNT=$((${GUI_HOOK_COUNT:-0}+1))\nexport XDG_DATA_DIRS="$APPDIR/usr/share:$XDG_DATA_DIRS"\n')
     (appdir / 'vrct-vox.png').write_bytes(b'icon')
-    # A real subprocess observes the environment after both launchers.
-    target = payload / 'vrct-vox-sidecar'
-    target.write_text(f'#!{sys.executable}\nimport json,os,sys\nprint(json.dumps({{"args":sys.argv[1:],"ld":os.environ.get("LD_LIBRARY_PATH"),"gio":os.environ.get("GIO_EXTRA_MODULES"),"xdg":os.environ.get("XDG_DATA_DIRS"),"orig":os.environ.get("LD_LIBRARY_PATH_ORIG")}}))\n')
-    target.chmod(0o755)
     install_launchers(appdir)
     assert (appdir / '.DirIcon').read_bytes() == b'icon'
-    env = dict(os.environ, APPDIR='/wrong', GIO_EXTRA_MODULES='/host/gio')
-    env.pop('GUI_HOOK_COUNT', None)
+    assert not (appdir / 'usr/bin/vrct-vox-sidecar').exists(), 'no backend runs beside the GUI'
+    env = dict(os.environ, APPDIR='/wrong')
     env.pop('XDG_DATA_DIRS', None)
     if host_data is not None:
         env['XDG_DATA_DIRS'] = host_data
@@ -53,31 +40,34 @@ exec "$APPDIR/usr/bin/vrct-vox-sidecar" "$@"
         env['LD_LIBRARY_PATH'] = library_path
     result = subprocess.run([str(appdir / 'AppRun'), 'two words', '$(not a command)', ''],
                             env=env, cwd=tmp_path, check=True, text=True, capture_output=True)
-    assert json.loads(result.stdout) == {'args': ['two words', '$(not a command)', ''],
-                                        'ld': library_path, 'gio': '/host/gio', 'xdg': host_data, 'orig': None}
+    seen = json.loads(result.stdout)
+    assert seen['args'] == ['two words', '$(not a command)', '']
+    assert seen['cwd'] == str((appdir / 'usr').resolve())
+    assert seen['ld'].startswith(str((appdir / 'usr/lib').resolve()))
+    host = seen['host']
+    assert (host['VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET'], host['VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH']) == \
+        ('x' if library_path is not None else '', library_path or '')
+    assert (host['VRCT_APPIMAGE_HOST_XDG_DATA_DIRS_SET'], host['VRCT_APPIMAGE_HOST_XDG_DATA_DIRS']) == \
+        ('x' if host_data is not None else '', host_data or '')
 
 
-@pytest.mark.parametrize(('host', 'daemon', 'gui', 'sidecar'), [
-    ({}, 'fcitx5', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=fcitx'}, {}),
-    ({'GTK_IM_MODULE': 'fcitx'}, 'fcitx5', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=fcitx'}, {'GTK_IM_MODULE': 'fcitx'}),
-    ({}, 'ibus-daemon', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=ibus'}, {}),
-    ({'XMODIFIERS': '@im=custom'}, 'fcitx5', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=custom'}, {'XMODIFIERS': '@im=custom'}),
-    ({'GTK_IM_MODULE': 'simple'}, 'fcitx5', {'GTK_IM_MODULE': 'simple', 'XMODIFIERS': '@im=fcitx'}, {'GTK_IM_MODULE': 'simple'}),
-    ({}, None, {}, {}),
+@pytest.mark.parametrize(('host', 'daemon', 'gui'), [
+    ({}, 'fcitx5', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=fcitx'}),
+    ({'GTK_IM_MODULE': 'fcitx'}, 'fcitx5', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=fcitx'}),
+    ({}, 'ibus-daemon', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=ibus'}),
+    ({'XMODIFIERS': '@im=custom'}, 'fcitx5', {'GTK_IM_MODULE': 'xim', 'XMODIFIERS': '@im=custom'}),
+    ({'GTK_IM_MODULE': 'simple'}, 'fcitx5', {'GTK_IM_MODULE': 'simple', 'XMODIFIERS': '@im=fcitx'}),
+    ({}, None, {}),
 ])
-def test_gui_reaches_host_input_method_over_xim(tmp_path, host, daemon, gui, sidecar):
+def test_gui_reaches_host_input_method_over_xim(tmp_path, host, daemon, gui):
     from tools.build_appimage import install_launchers
     appdir = tmp_path / 'App.AppDir'
     (appdir / 'usr/bin').mkdir(parents=True)
     (appdir / 'usr/lib/vrct-vox').mkdir(parents=True)
     report = 'import json,os,sys; print(json.dumps({k: os.environ[k] for k in ("GTK_IM_MODULE", "XMODIFIERS") if k in os.environ}))'
-    (appdir / 'AppRun').write_text(f'#!/bin/sh\n{sys.executable} -c \'{report}\'\nexec "$APPDIR/usr/bin/vrct-vox-sidecar"\n')
+    (appdir / 'AppRun').write_text(f'#!{sys.executable}\n{report}\n')
     (appdir / 'AppRun').chmod(0o755)
-    (appdir / 'apprun-hooks').mkdir()
     (appdir / 'vrct-vox.png').write_bytes(b'icon')
-    target = appdir / 'usr/lib/vrct-vox/vrct-vox-sidecar'
-    target.write_text(f'#!{sys.executable}\n{report}\n')
-    target.chmod(0o755)
     install_launchers(appdir)
     # A stand-in pgrep reports which input method daemon is running.
     tools = tmp_path / 'bin'
@@ -88,7 +78,7 @@ def test_gui_reaches_host_input_method_over_xim(tmp_path, host, daemon, gui, sid
     env.update(host, PATH=f'{tools}:{env["PATH"]}')
     lines = subprocess.run([str(appdir / 'AppRun')], env=env, check=True, text=True,
                            capture_output=True).stdout.splitlines()
-    assert [json.loads(line) for line in lines] == [gui, sidecar]
+    assert [json.loads(line) for line in lines] == [gui]
 
 
 def test_directory_links_require_explicit_appdir_mode(tmp_path):
@@ -185,7 +175,6 @@ def test_backend_payload_is_copied_without_rewriting(tmp_path):
     candidate, appdir = tmp_path / 'candidate', tmp_path / 'AppDir'
     (candidate / '_internal/build/speechcpp').mkdir(parents=True)
     (candidate / 'vrct-vox').write_bytes(b'gui')
-    (candidate / 'vrct-vox-sidecar').write_bytes(b'frozen')
     (candidate / '_internal/build/speechcpp/speech').write_bytes(b'exact pinned engine')
     (candidate / '_internal/lib.so').symlink_to('build/speechcpp/speech')
     install_payload(candidate, appdir)

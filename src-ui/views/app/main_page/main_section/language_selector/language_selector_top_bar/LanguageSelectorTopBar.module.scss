@@ -1,5 +1,8 @@
 .container {
+    flex-shrink: 0;
     height: var(--main_page_topbar_height);
+    // The title stays clear of the back button on the left.
+    padding-inline: 9rem;
     background-color: var(--dark_850_color);
     display: flex;
     justify-content: center;
@@ -8,8 +11,15 @@
 }
 
 .title {
+    min-width: 0;
     font-size: 2rem;
+    line-height: 1.2;
+    text-align: center;
+    overflow-wrap: anywhere;
     color: var(--dark_400_color);
+}
+@container main_section (max-width: 48rem) or (max-height: 36rem) {
+    .title { font-size: 1.6rem; }
 }
 
 .go_back_button_wrapper {

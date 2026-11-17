@@ -204,6 +204,7 @@ class ErrorCode(str, Enum):
     AUTH_OPENROUTER_INVALID = "AUTH_OPENROUTER_INVALID"
     AUTH_OPENROUTER_FAILED = "AUTH_OPENROUTER_FAILED"
     CREDENTIAL_REENTRY_REQUIRED = "CREDENTIAL_REENTRY_REQUIRED"
+    SECRET_STORE_FAILED = "SECRET_STORE_FAILED"
     
     # ============================================================================
     # モデル選択エラー (MODEL_*)
@@ -831,6 +832,14 @@ ERROR_METADATA: Dict[ErrorCode, Dict[str, Any]] = {
         "category": ErrorCategory.AUTH,
         "message": "Enter the API key again for the new URL, or delete the saved key before changing the URL for a server without a key",
         "severity": "warning",
+        "user_action_required": True,
+    },
+
+    # Rust core only: the API keys' store (native/core/src/config/secrets.rs)
+    ErrorCode.SECRET_STORE_FAILED: {
+        "category": ErrorCategory.AUTH,
+        "message": "The API keys could not be kept in their secure storage. They work until the app closes; check the settings folder, then enter a missing key again",
+        "severity": "error",
         "user_action_required": True,
     },
 

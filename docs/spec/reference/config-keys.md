@@ -2,11 +2,11 @@
 
 # 設定キー一覧
 
-`src-python/config.py`の`Config`クラス（`ManagedProperty`と`ValidatedProperty`）と`init_config()`の既定値から生成した。保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。
+`src-python/config.py`の`Config`クラス（`ManagedProperty`と`ValidatedProperty`）と`init_config()`の既定値から生成した。中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（130件）
+## config.jsonに保存するキー（136件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -31,6 +31,9 @@
 | `MIC_AVG_LOGPROB` | (int, float)、許可値 lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and (-2 <= v <= 0) | `-0.8` | 2秒後にまとめて |
 | `MIC_NO_SPEECH_PROB` | (int, float)、許可値 lambda v, inst: not isinstance(v, bool) and math.isfinite(v) and (0 <= v <= 1) | `0.6` | 2秒後にまとめて |
 | `HOTKEYS` | 検証 lambda val, inst: {**inst.HOTKEYS, **{k: v if isinstance(v, list) or v is None else inst.HOTKEYS.get(k) for k, v in val.items()}} if isinstance(val, dict) and set(val.keys()) <= set(inst.HOTKEYS.keys()) else None | `{'open_quick_chat': None, 'toggle_vrct_visibility': None, 'toggle_translation': None, '…` | 即時 |
+| `EXPERIMENTAL_FEATURES` | 検証 lambda val, inst: experimental_features.normalize(val, inst.EXPERIMENTAL_FEATURES) | `experimental_features.defaults()` | 即時 |
+| `TRAY_COMPANION_EDGE` | str、許可値 lambda v, inst: v in inst.TRAY_COMPANION_EDGE_LIST | `'right'` | 2秒後にまとめて |
+| `TRAY_COMPANION_MONITOR` | str、許可値 lambda v, inst: len(v) <= 256 and (not any((ord(c) < 32 or 127 <= ord(c) < 160 for c in v))) | `''` | 2秒後にまとめて |
 | `SPEAKER_THRESHOLD` | int、許可値 lambda v, inst: 0 <= v <= inst.MAX_SPEAKER_THRESHOLD | `300` | 2秒後にまとめて |
 | `SPEAKER_AUTOMATIC_THRESHOLD` | bool | `False` | 2秒後にまとめて |
 | `SPEAKER_RECORD_TIMEOUT` | int、許可値 lambda v, inst: _asr_timeout_allowed(v, inst, 'SPEAKER', 'RECORD') | `3` | 2秒後にまとめて |
@@ -140,15 +143,18 @@
 | `OCR_CHATBOX_FILTER` | bool | `True` | 2秒後にまとめて |
 | `OCR_USE_CHATBOX_DETECTOR` | bool | `True` | 2秒後にまとめて |
 | `OCR_PORTAL_RESTORE_TOKEN` | str、許可値 _ocr_portal_restore_token_validator | `''` | 即時 |
+| `OLLAMA_URL` | 検証 valid_saved_api_url（中核のみ） | `'http://localhost:11434'` | 2秒後にまとめて |
+| `PAPAGO_CLIENT_ID` | str（256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
+| `OVERLAY_FONT_FAMILY` | str（空は自動。256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
 
 
-## 保存しないキー（45件）
+## 保存しないキー（46件）
 
 実行中だけの状態、選択肢の一覧、読み取り専用の値。起動のたびに既定値や検出結果から作り直す。
 
 | キー | 型・検証 | 既定値 | 扱い |
 |---|---|---|---|
-| `VERSION` |  | `'0.4.0'` | 読み取り専用 |
+| `VERSION` |  | `'0.5.0'` | 読み取り専用 |
 | `PATH_LOCAL` |  | `os_path.dirname(sys.executable)` | 読み取り専用 |
 | `PATH_DATA` |  | `str(data_root(self._PATH_LOCAL))` | 読み取り専用 |
 | `PATH_CONFIG` |  | `os_path.join(state_dir, 'config.json')` | 読み取り専用 |
@@ -171,6 +177,7 @@
 | `COMPUTE_MODE` |  | `'cuda' if any((device.get('device') == 'cuda' for device in self._SELECTABLE_COMPUTE_DE…` | 読み取り専用 |
 | `SELECTABLE_COMPUTE_DEVICE_LIST` |  | `getComputeDeviceList()` | 読み取り専用 |
 | `SEND_MESSAGE_BUTTON_TYPE_LIST` |  | `['show', 'hide', 'show_and_disable_enter_key']` | 読み取り専用 |
+| `TRAY_COMPANION_EDGE_LIST` |  | `['right', 'left', 'top', 'bottom']` | 読み取り専用 |
 | `ENABLE_TRANSLATION` | bool | `False` | 保存しない |
 | `ENABLE_TRANSCRIPTION_SEND` | bool | `False` | 保存しない |
 | `ENABLE_TRANSCRIPTION_RECEIVE` | bool | `False` | 保存しない |

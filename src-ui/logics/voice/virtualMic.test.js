@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../test/hookHarness.js";
-import * as shapes from "./virtualMic.js";
+import * as shapes from "./virtualMic.ts";
 
 const id = name => JSON.stringify(["Windows WASAPI", name]);
 const CABLE = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording: id("CABLE Output (VB-Audio Virtual Cable)"),
@@ -50,7 +50,7 @@ async function hook(context, sent = []) {
     const runtime = hooks();
     const { useVirtualMic } = await loadModule(new URL("./useVirtualMic.js", import.meta.url), runtime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint, data) => { sent.push([endpoint, data]); return true; } }) },
-        "./virtualMic.js": shapes,
+        "./virtualMic.ts": shapes,
     });
     context.after(() => runtime.unmount());
     return () => runtime.render(useVirtualMic);

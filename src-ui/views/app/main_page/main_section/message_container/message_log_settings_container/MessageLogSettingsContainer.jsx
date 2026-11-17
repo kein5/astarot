@@ -36,7 +36,11 @@ export const MessageLogSettingsContainer = (props) => {
                     <ConfigSvg className={styles.config_svg} aria-hidden="true"/>
                 </div>
             </div>
-            <MessageLogUiScalingContainer />
+            {/* Out of sight until opened, and out of the tab order with it: Tab past the gear
+                must not land on a slider no one can see. */}
+            <div className={styles.settings} data-opened={is_opened}>
+                <MessageLogUiScalingContainer />
+            </div>
             <div className={styles.others_wrapper}>
             </div>
         </div>

@@ -1,4 +1,4 @@
-# VRCT-VOX
+# ASTAROT
 
 The English README is maintained at the [repository root](/README.md).
 

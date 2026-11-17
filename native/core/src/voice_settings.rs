@@ -203,15 +203,53 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     Ok(Value::Object(result))
 }
 
-/// The defaults of the direct voice settings, in the saved order.
+/// The engine Python ran and the core cannot: Seed-VC ended with the Python backend (decision 10).
+pub const RETIRED_ENGINE: &str = "seed-vc";
+
+/// The defaults of the direct voice settings, in the saved order. Python's default engine was
+/// Seed-VC; RVC is the only one left (#391). `rvc_device`, `rvc_threads` (0: the worker chooses)
+/// and `rvc_highpass` are the RVC worker's `--device`, `--threads` and `--highpass`; a file saved
+/// before them takes these defaults, which are the worker's own.
 pub fn default_direct() -> Value {
     json!({
-        "mode": "passthrough", "runtime": "", "reference": "", "engine": "seed-vc", "rvc_runtime": "",
+        "mode": "passthrough", "runtime": "", "reference": "", "engine": "rvc", "rvc_runtime": "",
         "rvc_model": "", "rvc_index": "", "rvc_pitch": 0, "rvc_index_rate": 0.0,
+        "rvc_device": "auto", "rvc_threads": 0, "rvc_highpass": true,
     })
 }
 
-/// `DirectSettings.from_dict(...).to_dict()`.
+/// The fields 0.5 added to the direct voice settings (the RVC worker's options).
+const ADDED_IN_0_5: [&str; 3] = ["rvc_device", "rvc_threads", "rvc_highpass"];
+
+/// The direct voice settings as `config.json` holds them: the fields 0.5 added are left out
+/// while they hold their defaults, which a load fills in again. 0.4 refuses the whole value when
+/// it finds a field it does not know, and would reset the model and index too; so a file saved
+/// without those choices changed stays readable by 0.4. A changed choice is saved, and 0.4 then
+/// still resets the value.
+pub fn file_direct(value: &Value) -> Value {
+    let defaults = default_direct();
+    let mut value = value.clone();
+    if let Value::Object(object) = &mut value {
+        for field in ADDED_IN_0_5 {
+            if object.get(field) == defaults.get(field) {
+                object.remove(field);
+            }
+        }
+    }
+    value
+}
+
+/// The saved direct voice settings as they load: a Seed-VC engine saved by an earlier version
+/// moves to RVC. The other fields stay, as 0.4 knew both engines ([`file_direct`]).
+pub fn load_direct(value: &Value) -> Option<Value> {
+    let mut value = value.clone();
+    if value.get("engine").and_then(Value::as_str) == Some(RETIRED_ENGINE) {
+        value["engine"] = json!("rvc");
+    }
+    normalize_direct(&value)
+}
+
+/// `DirectSettings.from_dict(...).to_dict()`, with RVC as the only engine.
 pub fn normalize_direct(value: &Value) -> Option<Value> {
     let object = value.as_object()?;
     let Value::Object(mut result) = default_direct() else { unreachable!() };
@@ -225,12 +263,17 @@ pub fn normalize_direct(value: &Value) -> Option<Value> {
         result[key].as_str().is_some_and(|s| s.chars().count() <= 4096 && !s.chars().any(|c| (c as u32) < 32))
     };
     let mode_ok = matches!(result["mode"].as_str(), Some("passthrough" | "converted"));
-    let engine_ok = matches!(result["engine"].as_str(), Some("seed-vc" | "rvc"));
+    let engine_ok = result["engine"].as_str() == Some("rvc");
     let texts_ok = ["runtime", "reference", "rvc_runtime", "rvc_model", "rvc_index"].iter().all(|k| text_ok(k));
     let pitch_ok = result["rvc_pitch"].as_i64().is_some_and(|p| result["rvc_pitch"].is_i64() && (-24..=24).contains(&p));
     let rate = &result["rvc_index_rate"];
     let rate_ok = rate.is_number() && rate.as_f64().is_some_and(|r| r.is_finite() && (0.0..=1.0).contains(&r));
-    (mode_ok && engine_ok && texts_ok && pitch_ok && rate_ok).then_some(Value::Object(result))
+    use vrct_voice_conversion::worker::{DEVICES, MAX_THREADS};
+    let device_ok = result["rvc_device"].as_str().is_some_and(|d| DEVICES.contains(&d));
+    let threads = &result["rvc_threads"];
+    let threads_ok = threads.is_u64() && threads.as_u64().is_some_and(|n| n <= u64::from(MAX_THREADS));
+    let highpass_ok = result["rvc_highpass"].is_boolean();
+    (mode_ok && engine_ok && texts_ok && pitch_ok && rate_ok && device_ok && threads_ok && highpass_ok).then_some(Value::Object(result))
 }
 
 #[cfg(test)]
@@ -244,6 +287,47 @@ mod tests {
         assert!(parse_term(&json!("x=")).is_ok());
         let vocabulary = normalize_vocabulary(Some(&json!({ "terms": ["VRChat", "vrchat=ぶい"] }))).unwrap();
         assert_eq!(vocabulary, json!({ "builtin": true, "terms": ["VRChat"] }));
+    }
+
+    #[test]
+    fn rvc_worker_choices_default_to_the_workers_own_and_are_checked() {
+        let older = normalize_direct(&json!({ "mode": "converted", "engine": "rvc", "rvc_pitch": 3 })).unwrap();
+        assert_eq!((&older["rvc_device"], &older["rvc_threads"], &older["rvc_highpass"]), (&json!("auto"), &json!(0), &json!(true)));
+        let chosen = normalize_direct(&json!({ "rvc_device": "cpu", "rvc_threads": 4, "rvc_highpass": false })).unwrap();
+        assert_eq!((&chosen["rvc_device"], &chosen["rvc_threads"], &chosen["rvc_highpass"]), (&json!("cpu"), &json!(4), &json!(false)));
+        for bad in [
+            json!({ "rvc_device": "gpu" }), json!({ "rvc_device": 1 }), json!({ "rvc_threads": -1 }), json!({ "rvc_threads": 65 }),
+            json!({ "rvc_threads": 2.0 }), json!({ "rvc_threads": "2" }), json!({ "rvc_highpass": "on" }),
+        ] {
+            assert!(normalize_direct(&bad).is_none(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn the_file_leaves_out_unchanged_rvc_worker_choices_so_0_4_still_reads_it() {
+        // #428: 0.4 refuses DIRECT_VOICE_SETTINGS with a field it does not know, and the model
+        // and index went back to the defaults after a downgrade.
+        let settings = normalize_direct(&json!({ "mode": "converted", "rvc_model": "a.pth", "rvc_index": "a.index" })).unwrap();
+        let file = file_direct(&settings);
+        for field in ADDED_IN_0_5 {
+            assert!(file.get(field).is_none(), "{field}");
+        }
+        let fields_0_4 = ["mode", "runtime", "reference", "engine", "rvc_runtime", "rvc_model", "rvc_index", "rvc_pitch", "rvc_index_rate"];
+        assert!(file.as_object().unwrap().keys().all(|k| fields_0_4.contains(&k.as_str())), "{file}");
+        assert_eq!(load_direct(&file).unwrap(), settings, "loads back the same");
+        // A changed choice is kept.
+        let chosen = normalize_direct(&json!({ "rvc_device": "cpu", "rvc_threads": 0, "rvc_highpass": true })).unwrap();
+        assert_eq!(file_direct(&chosen)["rvc_device"], "cpu");
+        assert_eq!(load_direct(&file_direct(&chosen)).unwrap(), chosen);
+    }
+
+    #[test]
+    fn a_saved_seed_vc_engine_loads_as_rvc_and_a_new_one_is_refused() {
+        let saved = json!({ "mode": "converted", "engine": "seed-vc", "runtime": "/seed", "rvc_model": "a.pth" });
+        let loaded = load_direct(&saved).unwrap();
+        assert_eq!((loaded["mode"].clone(), loaded["engine"].clone(), loaded["runtime"].clone()), (json!("converted"), json!("rvc"), json!("/seed")));
+        assert_eq!(normalize_direct(&saved), None);
+        assert_eq!(default_direct()["engine"], "rvc");
     }
 
     #[test]

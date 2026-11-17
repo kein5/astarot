@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
-import * as migration from "../../../../../../logics/transcription/localAsrMigration.js";
+import * as migration from "../../../../../../logics/transcription/localAsrMigration.ts";
 
 async function setup(context, values) {
     const runtime = hooks(), deletes = [];
@@ -9,7 +9,7 @@ async function setup(context, values) {
         deleteWeights: () => { deletes.push(true); state.deleting = true; }, ...values };
     const { OldWhisperWeights } = await loadModule(new URL("./OldWhisperWeights.jsx", import.meta.url), runtime, {
         "../../../../../../logics/transcription/useLocalAsrMigration": { useLocalAsrMigration: () => state },
-        "../../../../../../logics/transcription/localAsrMigration.js": migration,
+        "../../../../../../logics/transcription/localAsrMigration.ts": migration,
     });
     context.after(() => runtime.unmount());
     const render = (props = {}) => runtime.render(OldWhisperWeights, props);

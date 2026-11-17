@@ -13,31 +13,33 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const SRC = path.join(ROOT, "src-ui");
 
 const ALIASES = {
-    "@store": "src-ui/logics/store.js",
-    "@utils": "src-ui/logics/utils.js",
-    "@ui_configs": "src-ui/logics/ui_configs.js",
-    "@useStdoutToPython": "src-ui/logics/common/useStdoutToPython.js",
-    "@useReceiveRoutes": "src-ui/logics/useReceiveRoutes.js",
+    "@store": "src-ui/logics/store",
+    "@utils": "src-ui/logics/utils",
+    "@ui_configs": "src-ui/logics/ui_configs",
+    "@useStdoutToPython": "src-ui/logics/common/useStdoutToPython",
+    "@useReceiveRoutes": "src-ui/logics/useReceiveRoutes",
     "@useI18n": "locales/useI18n.js",
     "@logics_common": "src-ui/logics/common",
     "@logics_main": "src-ui/logics/main",
     "@logics_configs": "src-ui/logics/configs",
     "@logics": "src-ui/logics",
-    "@setting_box": "src-ui/views/app/config_page/setting_section/setting_box/index.js",
-    "@common_components": "src-ui/views/common_components/index.js",
+    "@setting_box": "src-ui/views/app/config_page/setting_section/setting_box/index",
+    "@common_components": "src-ui/views/common_components/index",
 };
 const BARRELS = new Set(["@logics_common", "@logics_main", "@logics_configs", "@setting_box", "@common_components"]);
 const CATEGORY_HOOKS = {
     useAppearance: "Appearance", useDevice: "Device", useTranslation: "Translation",
     useTranscription: "Transcription", useVr: "Vr", useOthers: "Others",
-    useAdvancedSettings: "AdvancedSettings", useUpdater: "Updater", useOcr: "Ocr",
+    useAdvancedSettings: "AdvancedSettings", useOcr: "Ocr",
 };
-const SKIPPED = /\.(scss|css|svg|png|json)(\?.*)?$/;
+const SKIPPED = /\.(scss|css|svg|png|json)(\?.*)?$|\.css\.ts$/;
 
 const stripComments = source => source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
 
 const resolveFile = (base) => {
-    for (const candidate of [base, `${base}.js`, `${base}.jsx`, path.join(base, "index.js"), path.join(base, "index.jsx")]) {
+    // Files move from .js to .ts in steps (ADR-010), so either may be there.
+    const candidates = [base, ...[".js", ".jsx", ".ts", ".tsx"].flatMap(ext => [`${base}${ext}`, path.join(base, `index${ext}`)])];
+    for (const candidate of candidates) {
         if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
     }
     return null;
@@ -77,7 +79,7 @@ const definingFile = (barrel, name, seen = new Set()) => {
 };
 
 export const settingsByCategory = () => {
-    const source = fs.readFileSync(path.join(SRC, "logics/configs/config_page_setter/ui_config_setter.js"), "utf8");
+    const source = fs.readFileSync(resolveFile(path.join(SRC, "logics/configs/config_page_setter/ui_config_setter")), "utf8");
     const byCategory = {};
     for (const [, category, base] of source.matchAll(/Category:\s*"(\w+)",\s*Base_Name:\s*"(\w+)"/g)) {
         (byCategory[category] ??= []).push(base);
@@ -87,7 +89,7 @@ export const settingsByCategory = () => {
 
 export const scanVrPanelState = () => {
     const vrDir = path.join(SRC, "views/vr");
-    const queue = fs.readdirSync(vrDir).filter(name => /\.(js|jsx)$/.test(name) && !/\.test\./.test(name))
+    const queue = fs.readdirSync(vrDir).filter(name => /\.(js|jsx|ts|tsx)$/.test(name) && !/\.test\.|\.d\.ts$|\.css\.ts$/.test(name))
         .map(name => path.join(vrDir, name));
     const seen = new Set();
     const atoms = new Set();
@@ -103,7 +105,7 @@ export const scanVrPanelState = () => {
             const [, , braces, spec] = match;
             const alias = Object.keys(ALIASES).find(name => spec === name);
             const resolved = resolveSpecifier(file, spec);
-            const isBarrel = (alias && BARRELS.has(alias)) || (resolved && /[\\/]index\.jsx?$/.test(resolved));
+            const isBarrel = (alias && BARRELS.has(alias)) || (resolved && /[\\/]index\.[jt]sx?$/.test(resolved));
             if (isBarrel && resolved) {
                 const barrel = resolved;
                 // `import * as x` from a barrel could use anything in it: follow the whole barrel.
@@ -118,7 +120,7 @@ export const scanVrPanelState = () => {
                 continue;
             }
             const target = resolveSpecifier(file, spec);
-            if (target && target !== path.join(ROOT, ALIASES["@store"])) queue.push(target);
+            if (target && target !== resolveFile(path.join(ROOT, ALIASES["@store"]))) queue.push(target);
         }
     }
     // Category hooks also read NotificationStatus (useSettingsLogics -> useNotificationStatus).

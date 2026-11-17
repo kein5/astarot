@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
-import { createLanguageNames } from "../../../logics/common/languageNames.js";
-import { formatMs, latestTraces, median, timelineScale, traceTotal } from "../../../logics/flow/ioFlow.js";
-import { flowNote, offGroups, timelineRows } from "../../../logics/flow/flowText.js";
-import { buildFlowGraph } from "../../../logics/flow/flowGraph.js";
+import { createLanguageNames } from "../../../logics/common/languageNames.ts";
+import { formatMs, latestTraces, median, timelineScale, traceTotal } from "../../../logics/flow/ioFlow.ts";
+import { flowNote, offGroups, timelineRows } from "../../../logics/flow/flowText.ts";
+import { buildFlowGraph } from "../../../logics/flow/flowGraph.ts";
 import { FlowGraph } from "./FlowGraph";
 import styles from "./IoFlowView.module.scss";
 

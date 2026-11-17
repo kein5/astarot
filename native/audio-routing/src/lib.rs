@@ -17,14 +17,17 @@ pub mod manager;
 pub mod monitor;
 pub mod mute_state;
 pub mod naming;
-#[cfg(target_os = "linux")]
+pub mod platform;
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
 pub mod pipewire;
 pub mod process;
 pub mod report;
 pub mod router;
+pub mod selection;
 pub mod snapshot;
 pub mod sync;
 pub mod tracker;
+pub mod virtual_mic;
 pub mod voice_route;
 #[cfg(windows)]
 pub mod wasapi;

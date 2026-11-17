@@ -18,9 +18,16 @@ import {
     LabelComponent,
     DropdownMenu,
     ThresholdComponent,
-    SwitchBox,
     RadioButton,
 } from "../_components";
+import { Checkbox } from "@common_components";
+
+// "Auto select" in a device row: a settings checkbox with its name beside it, like
+// every other on/off setting (#436).
+export const AutoSelectCheckbox = ({ secondary_label, variable, toggleFunction }) => (
+    <Checkbox show_label label={secondary_label} variable={variable} toggleFunction={toggleFunction}
+        size="2.4rem" padding="0.8rem" />
+);
 
 export const Device = () => {
     return (
@@ -49,6 +56,7 @@ const MicContainer = () => {
         toggleMicVadFilter,
         currentEnableAutomaticMicThreshold,
         toggleEnableAutomaticMicThreshold,
+        currentVadAvailable,
     } = useDevice();
 
     const selectFunction_host = (selected_data) => {
@@ -61,8 +69,12 @@ const MicContainer = () => {
 
     const is_disabled_selector = currentEnableAutoMicSelect.data === true || currentEnableAutoMicSelect.state === "pending";
 
+    // Without a VAD engine a saved VAD switch cuts nothing: show the mode that applies.
+    const is_vad_available = currentVadAvailable.data === true;
+    const is_mic_vad_active = is_vad_available && currentMicVadFilter.data === true;
+
     const getMicSensitivityMode = () => {
-        if (currentMicVadFilter.data === true) return "vad";
+        if (is_mic_vad_active) return "vad";
         if (currentEnableAutomaticMicThreshold.data === true) return "auto";
         return "manual";
     };
@@ -94,7 +106,7 @@ const MicContainer = () => {
                 desc={currentSelectedMicHost.data === "PipeWire" ? t("config_page.device.mic_host_device.desc_pipewire") : t("config_page.device.mic_host_device.desc")}
                 dropdown_settings={[
                     {
-                        insert_component: SwitchBox,
+                        insert_component: AutoSelectCheckbox,
                         insert_component_props: {
                             secondary_label: t("config_page.device.label_auto_select"),
                             variable: currentEnableAutoMicSelect,
@@ -133,7 +145,10 @@ const MicContainer = () => {
                             {
                                 id: "vad",
                                 label: t("config_page.device.mic_dynamic_energy_threshold.option_vad"),
-                                desc: t("config_page.device.mic_dynamic_energy_threshold.desc_for_vad"),
+                                desc: is_vad_available
+                                    ? t("config_page.device.mic_dynamic_energy_threshold.desc_for_vad")
+                                    : t("config_page.device.desc_vad_unavailable"),
+                                disabled: !is_vad_available,
                             },
                             {
                                 id: "auto",
@@ -153,7 +168,7 @@ const MicContainer = () => {
                         id="mic_threshold"
                         min={ui_configs.mic_threshold_min}
                         max={ui_configs.mic_threshold_max}
-                        is_vad_active={currentMicVadFilter.data === true}
+                        is_vad_active={is_mic_vad_active}
                     />
                 </div>
             </div>
@@ -175,6 +190,7 @@ const SpeakerContainer = () => {
         toggleSpeakerVadFilter,
         currentEnableAutomaticSpeakerThreshold,
         toggleEnableAutomaticSpeakerThreshold,
+        currentVadAvailable,
     } = useDevice();
 
     const selectFunction = (selected_data) => {
@@ -183,8 +199,11 @@ const SpeakerContainer = () => {
 
     const is_disabled_selector = currentEnableAutoSpeakerSelect.data === true || currentEnableAutoSpeakerSelect.state === "pending";
 
+    const is_vad_available = currentVadAvailable.data === true;
+    const is_speaker_vad_active = is_vad_available && currentSpeakerVadFilter.data === true;
+
     const getSpeakerSensitivityMode = () => {
-        if (currentSpeakerVadFilter.data === true) return "vad";
+        if (is_speaker_vad_active) return "vad";
         if (currentEnableAutomaticSpeakerThreshold.data === true) return "auto";
         return "manual";
     };
@@ -217,7 +236,7 @@ const SpeakerContainer = () => {
             <div className={device_container_class} data-setting-id="speaker_device">
                 <LabelComponent label={t("config_page.device.speaker_device.label")} />
                 <div className={styles.device_contents}>
-                    <SwitchBox
+                    <AutoSelectCheckbox
                         secondary_label={t("config_page.device.label_auto_select")}
                         variable={currentEnableAutoSpeakerSelect}
                         toggleFunction={toggleEnableAutoSpeakerSelect}
@@ -245,7 +264,10 @@ const SpeakerContainer = () => {
                             {
                                 id: "vad",
                                 label: t("config_page.device.speaker_dynamic_energy_threshold.option_vad"),
-                                desc: t("config_page.device.speaker_dynamic_energy_threshold.desc_for_vad"),
+                                desc: is_vad_available
+                                    ? t("config_page.device.speaker_dynamic_energy_threshold.desc_for_vad")
+                                    : t("config_page.device.desc_vad_unavailable"),
+                                disabled: !is_vad_available,
                             },
                             {
                                 id: "auto",
@@ -265,7 +287,7 @@ const SpeakerContainer = () => {
                         id="speaker_threshold"
                         min={ui_configs.speaker_threshold_min}
                         max={ui_configs.speaker_threshold_max}
-                        is_vad_active={currentSpeakerVadFilter.data === true}
+                        is_vad_active={is_speaker_vad_active}
                     />
                 </div>
             </div>

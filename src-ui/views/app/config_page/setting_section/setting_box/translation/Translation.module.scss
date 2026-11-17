@@ -19,7 +19,7 @@
     overflow-wrap: anywhere;
     padding: 2.4rem;
     border: .1rem solid var(--warning_color);
-    border-radius: .6rem;
+    border-radius: var(--vox_radius);
     background: var(--dark_875_color, #282a2e);
     color: var(--dark_200_color, #e5e7eb);
 

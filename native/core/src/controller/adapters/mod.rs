@@ -109,6 +109,9 @@ pub fn open_osc(ip_address: &str, port: u16) -> io::Result<Arc<dyn Osc>> {
     Ok(Arc::new(OscHandler::new(ip_address, port)?))
 }
 
+/// The default OSC destination (`OSC_IP_ADDRESS`): VRChat on this PC.
+const DEFAULT_OSC_IP: &str = "127.0.0.1";
+
 /// What the adapters keep between requests.
 pub(crate) struct Adapters {
     config: Arc<Config>,
@@ -116,6 +119,8 @@ pub(crate) struct Adapters {
     services: super::Services,
     /// `None` when the saved destination could not be opened; a new destination opens it.
     osc: Mutex<Option<Arc<dyn Osc>>>,
+    /// The saved destination could not be opened at start-up: told to the UI after the start.
+    osc_unopened: AtomicBool,
     /// `_OSC_CONTROL_LOCK`: the destination, receive start-up and enabling mute sync.
     osc_control: Mutex<()>,
     osc_shutdown: AtomicBool,
@@ -133,11 +138,21 @@ impl Adapters {
         let config = Arc::clone(core.config());
         let ip = config.get_str("OSC_IP_ADDRESS");
         let port = config.get("OSC_PORT").as_u64().and_then(|p| u16::try_from(p).ok()).unwrap_or(9000);
-        let osc = match (core.services().osc)(&ip, port) {
-            Ok(osc) => Some(osc),
+        let (osc, osc_unopened) = match (core.services().osc)(&ip, port) {
+            Ok(osc) => (Some(osc), false),
             Err(_) => {
+                // Python could not start at all here (a hand-edited `config.json`, say). The
+                // destination goes back to VRChat on this PC so that sending and receiving work;
+                // the UI is told once it has the settings (#394).
                 core.step("OSC: the saved destination could not be opened");
-                None
+                let fallback = (ip != DEFAULT_OSC_IP)
+                    .then(|| (core.services().osc)(DEFAULT_OSC_IP, port).ok())
+                    .flatten();
+                if fallback.is_some() {
+                    let _ = config.set("OSC_IP_ADDRESS", serde_json::json!(DEFAULT_OSC_IP));
+                    core.step("OSC: the destination moved back to this PC");
+                }
+                (fallback, true)
             }
         };
         Arc::new(Self {
@@ -145,6 +160,7 @@ impl Adapters {
             output: Arc::clone(&core.output),
             services: core.services().clone(),
             osc: Mutex::new(osc),
+            osc_unopened: AtomicBool::new(osc_unopened),
             osc_control: Mutex::new(()),
             osc_shutdown: AtomicBool::new(false),
             typing: Mutex::new(false),
@@ -196,6 +212,27 @@ impl Core {
         self.adapters.get()
     }
 
+    /// The message pipeline's outputs: the chatbox, the WebSocket clients, mic mute sync.
+    pub(crate) fn chatbox_send(&self, text: &str, current: &dyn Fn() -> bool) -> io::Result<bool> {
+        match self.adapters() {
+            Some(adapters) => adapters.send_chatbox(text, current),
+            None => Ok(false),
+        }
+    }
+
+    pub(crate) fn websocket_send(&self, message: &str) -> Option<Result<(), vrct_adapters::websocket::SendError>> {
+        self.adapters()?.websocket_send(message)
+    }
+
+    /// Whether the WebSocket server runs (`checkWebSocketServerAlive`).
+    pub(crate) fn websocket_alive(&self) -> bool {
+        self.adapters().is_some_and(|adapters| adapters.websocket_alive())
+    }
+
+    pub(crate) fn mic_held_back(&self) -> bool {
+        self.adapters().is_some_and(|adapters| adapters.mic_held_back())
+    }
+
     /// Start-up (`Controller.init`): OSC receive starts in the background, then the WebSocket
     /// and OBS servers start from the saved settings, before the settings snapshot.
     pub(crate) fn start_adapters(&self) {
@@ -213,6 +250,7 @@ impl Core {
     /// The notices of the start-up, once the UI has the settings (after `initialization_complete`).
     pub(crate) fn notify_adapters_started(&self) {
         if let Some(adapters) = self.adapters() {
+            adapters.notify_osc_startup();
             adapters.notify_startup();
         }
     }

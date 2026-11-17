@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../test/hookHarness.js";
-import { downloadProgress } from "../main/setupNeeds.js";
+import { downloadProgress } from "../main/setupNeeds.ts";
 
 const noop = () => {};
 const api = values => new Proxy(values, { get: (object, name) => object[name] ?? noop });
@@ -51,14 +51,31 @@ async function fixture(context) {
     });
     const error = errors._useBackendErrorHandling().errorHandling_Backend;
     let selector = false;
-    const { TranslationSetupController } = await loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.jsx", import.meta.url), runtime, {
-        "@logics_configs": configs, "@logics_main": main, "@logics_common": common,
+    const expanded = [];
+    const controller = async owner => loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.jsx", import.meta.url), owner, {
+        "@logics_configs": configs, "@logics_common": common,
+        "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
         "../../../logics/translation/useTranslationSetup": setup,
+        "../../../logics/translation/useOpenTranslatorList": await loadModule(new URL("./useOpenTranslatorList.js", import.meta.url), owner, {
+            "@logics_main": { useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
+            "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
+        }),
         "../../../logics/main/setupNeeds": { downloadProgress },
         "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog": { LegacyModelDownloadDialog: "review" },
     });
-    const render = () => runtime.render(TranslationSetupController);
+    let { TranslationSetupController } = await controller(runtime);
+    let owner = runtime;
+    const render = () => owner.render(TranslationSetupController);
+    // Changing the UI language draws the main page again (App.jsx, Contents key).
+    const remount = async () => {
+        owner.unmount();
+        const next = hooks();
+        next.store = runtime.store;
+        ({ TranslationSetupController } = await controller(next));
+        owner = next;
+        return render();
+    };
     const press = () => {
         main.useMainFunction().toggleTranslation();
         error({ error_code: "TRANSLATION_MODEL_MISSING", endpoint: "/set/enable/translation", data: false });
@@ -68,7 +85,7 @@ async function fixture(context) {
     const enables = () => calls.filter(([path]) => path === "/set/enable/translation").length;
     context.after(() => runtime.unmount());
     render();
-    return { render, press, accept, enables, calls, notices, states, weight, setup, error, selector: () => selector };
+    return { render, remount, press, accept, enables, calls, notices, states, weight, setup, error, expanded, selector: () => selector };
 }
 
 test("turning Translation on without its model opens the review instead of a notice", async context => {
@@ -101,6 +118,18 @@ test("after consent the switch is turned on once, when the model has arrived", a
     assert.equal(s.enables(), 2, "one continuation only");
 });
 
+test("changing the UI language while the model downloads still turns the switch on when it arrives", async context => {
+    const s = await fixture(context);
+    s.accept(s.press());
+    s.weight({ progress: 40 });
+    assert.equal(await s.remount(), null);
+    assert.equal(s.enables(), 1);
+    s.weight({ is_downloaded: true, is_pending: false, progress: null });
+    s.render();
+    assert.equal(s.enables(), 2);
+    assert.deepEqual(s.notices, [["success", "studio.setup_translation_ready"]]);
+});
+
 test("a cancelled or failed download leaves Translation off, even if the model arrives later", async context => {
     const s = await fixture(context);
     s.accept(s.press());
@@ -120,9 +149,21 @@ test("going back, or choosing another translator, downloads nothing and leaves T
     review.props.onCancel();
     review.props.extraAction.onClick();
     assert.equal(s.selector(), true);
+    assert.deepEqual(s.expanded, [true], "the icon rail has no translator list; the full rail opens to show it");
     assert.equal(review.props.extraAction.label, "studio.setup_other_translator");
     assert.ok(!s.calls.some(([path]) => path.startsWith("/run/download")));
     assert.equal(s.states.Translation.data, false);
+});
+
+test("asking for another translator opens the list once, and drawing the page again does not reopen it", async context => {
+    const s = await fixture(context);
+    s.setup.useTranslationSetup().chooseTranslator();
+    assert.equal(s.render(), null, "no review opens");
+    assert.equal(s.selector(), true);
+    assert.deepEqual(s.expanded, [true]);
+    await s.remount();
+    assert.deepEqual(s.expanded, [true]);
+    assert.ok(!s.calls.some(([path]) => path.startsWith("/run/download")));
 });
 
 test("a review opened from the empty conversation fetches the model without turning Translation on", async context => {

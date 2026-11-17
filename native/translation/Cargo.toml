@@ -1,0 +1,36 @@
+[package]
+name = "vrct-translation"
+version = "0.0.0"
+description = "Online translation providers and the kana and romaji readings of VRCT-VOX"
+edition = "2024"
+publish = false
+
+[lib]
+name = "vrct_translation"
+
+# Versions are pinned to the ones native/ops and src-tauri already lock, so linking this crate
+# into the core adds no second copy of any of them.
+[dependencies]
+httparse = "=1.10.1"
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
+serde_json = { version = "=1.0.154", features = ["preserve_order"] }
+webpki-roots = "=1.0.11"
+# The morphological analyzer of the readings (feature `sudachi`; decision 3 in
+# docs/voice-stack/core-integration.md). sudachi.rs is not on crates.io; the tag v0.6.11 is pinned
+# by its commit. The 0.6 line reads the SudachiDict releases SudachiPy 0.6 read (dictionary format
+# V0); 0.7 reads only V1.
+sudachi = { git = "https://github.com/WorksApplications/sudachi.rs", rev = "90fd6068c80c2fc3b63e0dbab0e341475bad4d8f", version = "=0.6.11", optional = true }
+memmap2 = { version = "=0.9.11", optional = true }
+
+[features]
+# A stand-in for every provider on a loopback port, for the tests of this crate and the core.
+fake-server = []
+# The Sudachi analyzer of the readings (transliteration::sudachi). The core turns it on; crates
+# that only use the providers leave it off.
+sudachi = ["dep:sudachi", "dep:memmap2"]
+
+[dev-dependencies]
+vrct-translation = { path = ".", features = ["fake-server", "sudachi"] }
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]

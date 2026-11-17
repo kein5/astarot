@@ -1,4 +1,4 @@
-# VRCT-VOXの開発
+# ASTAROTの開発
 
 開発に使うツールの版はリポジトリの直下にある `mise.toml` で固定しています。よく使う手順も [mise](https://mise.jdx.dev/) のタスクにしてあります。
 
@@ -21,8 +21,8 @@ mise run check               # 軽量チェック
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
 | `check:voice`、`check:ui`、`check:backend`、`check:rust` | `python tools/dev.py check --scope <名前>` |
 | `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
-| `setup:headless`、`setup:ui`、`setup:browser`、`setup:backend`、`setup:rust`、`setup:sidecar` | `python tools/dev.py setup --scope <名前>` |
-| `setup:app` | アプリのPython環境を `uv.lock` に合わせる。Windowsは `bat\install.bat`（`.venv` と `.venv_cuda`）、Linuxは `.venv_linux` |
+| `setup:headless`、`setup:ui`、`setup:browser`、`setup:backend`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
+| `setup:app` | Pythonバックエンド（`src-python/`）の環境を `uv.lock` に合わせる。Windowsは `bat\install.bat`（`.venv` と `.venv_cuda`）、Linuxは `.venv_linux`。配布物には使わない |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
@@ -39,15 +39,15 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 
 | ツール | 版 | 補足 |
 | --- | --- | --- |
-| Node.js | 22.15.0 | npmはNodeに付属するもの |
+| Node.js | 26.13.1 | npmはNodeに付属するもの |
 | Rust | 1.100.0 | rustupを通して入れる（profileはminimal、clippyとrustfmtを追加）。`rust-toolchain.toml` は置かない |
-| Python | 3.11.18 | `pyproject.toml` の `requires-python`（3.11）に合わせる。配布物のバックエンドもこのPythonから作る |
+| Python | 3.11.18 | `pyproject.toml` の `requires-python`（3.11）に合わせる。ビルドの道具と試験に使う。0.5.0から配布物にPythonは入らない |
 | uv | 0.13.5 | |
 | Cocogitto | 7.0.0 | コマンド名は `cog` |
 
 版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
 
-uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。`mise.toml` の `[env]` にはuvの設定を置いていません。miseが起動したプログラムにはこの環境変数が引き継がれ、開発起動したアプリがSeed-VCの実行環境を入れるときのuv（自分でPythonを取得する必要がある）まで変えてしまうからです。
+uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
 
 `setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、miseを使わない場合は、Python 3.11を先に用意します。miseを使わない場合の各ツールの公式手順は次のとおりです。
 
@@ -73,35 +73,29 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `ui` | `npm ci --ignore-scripts` でルートの `node_modules` を準備 |
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
 | `backend` | `uv.lock` の本体・`dev`・`linux-build` を `build/dev/backend-venv` に同期（Linux） |
-| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と `native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`） |
-| `sidecar` | Unixで既存Rustソースをコンパイルし、Tauri開発用wrapperと必要なplaceholderを準備 |
+| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と、`tools/dev.py` の `NATIVE_CRATES` にある `native/` の11クレート。下の `check --scope rust` と同じ一覧） |
+| `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 
 専用venvには所有マーカーを保存します。同じ場所にマーカーのない既存ディレクトリやシンボリックリンクがある場合は停止し、削除しません。Pythonのスコープはいずれも、`tools/check_python_lock.py`でロック全体のアーカイブのSHA-256とGit依存の完全なcommit SHAを検査します。続いて、`uv.lock` からハッシュと間接依存を含む一覧を `uv export` で `build/dev/<scope>-requirements.txt` に書き出し、専用venvへ `uv pip sync` で同期します。uvは一覧にあるハッシュを照合し、不一致なら停止します。Git依存にはアーカイブのハッシュを要求せず、固定commitを使います。`--python` で既存venvを指定した場合（`browser` のみ）は `uv pip install -r` で追加し、ほかのパッケージは削除しません。[uvの環境指定](https://docs.astral.sh/uv/pip/environments/)と[依存の固定・同期](https://docs.astral.sh/uv/pip/compile/)を参照してください。
 
 `setup --scope ui` は既存の `node_modules` をnpmの仕様どおり作り直します。package.jsonとpackage-lock.jsonに不一致があれば失敗し、lockを更新しません。[npm ciの仕様](https://docs.npmjs.com/cli/v11/commands/npm-ci)を参照してください。
 
-Windowsでも `headless`、`ui`、`browser`、`rust` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。Windowsの全体セットアップは `mise run setup:app`（`npm run setup-python` と同じbat）です。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
+Windowsでも `headless`、`ui`、`browser`、`rust`、`resources` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。WindowsでPythonバックエンド（`src-python/`）とその試験の依存を入れるのは `mise run setup:app`（`npm run setup-python` と同じbat）です。アプリの起動とビルドには使いません。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
 
-### Tauri開発用sidecarを準備する
+### Tauriが読む資源を用意する
 
-新しいcheckoutや改名前の開発環境では、Tauriが要求するsidecarが不足する場合があります。Linuxでは次の順に準備して診断します。
+`tauri.conf.json` は `src-tauri/bin/_internal` を配布物の `_internal` として同梱します。このフォルダがないと、`cargo check`、`tauri dev`、`tauri build` が止まります。新しいcheckoutでは次の順に用意して診断します。
 
 ```sh
-python tools/dev.py setup --scope sidecar --dry-run
-python tools/dev.py setup --scope sidecar
+python tools/dev.py setup --scope resources --dry-run
+python tools/dev.py setup --scope resources
 python tools/dev.py doctor --scope rust
 python tools/dev.py check --scope rust
 ```
 
-`rustc -vV` でhost tripleを調べ、既存の `utils/dev_sidecar/src/main.rs` を `rustc --edition=2024` でコンパイルします。外部crateの取得はありません。出力は `src-tauri/bin/vrct-vox-sidecar-<host triple>` です。既存のAppImageビルドは別workspaceを使うため、この開発用出力を用意していなくても成功することがあります。
+`setup --scope resources` はフォルダを作り直し、`build/` にあるspeech.cpp、RVCのworker、Rustのライセンス文と、リポジトリの `LICENSE`、`NOTICE.md` を写します。足りないものは表示しますが、失敗にはしません。開発用のビルド（debug）は、speech.cppなどをチェックアウトの `build/` から直接読みます（`native/core/src/resources.rs`）。配布物の中身をそろえるときは `npm run build-resources`（Windows）を使います。
 
-出力が未存在なら新規作成します。既存ファイルを置き換えられるのは、このCLIの `.dev-owner.json` と現在のバイナリのSHA-256が一致する場合だけです。不明な既存バイナリ、変更されたハッシュ、出力先のシンボリックリンクは拒否します。コンパイルは同じファイルシステムの一時ディレクトリで行い、成功後に `os.replace` で配布します。コンパイル失敗時は元のバイナリと所有記録を保持します。
-
-更新途中の中断に備え、所有記録は置換前後のハッシュを一時的に保持します。完了すると新しいハッシュだけになります。同時setupはlockで拒否します。異常終了で `.vrct-vox-dev-sidecar.lock` が残った場合は、別のsetupが動いていないことを確認してから手動で扱います。CLIは他プロセスを停止しません。
-
-`src-tauri/bin/_internal` が未存在または空なら、所有placeholderファイルだけをexclusive作成します。既存ファイルや非空のresourcesは変更しません。placeholderは配布用runtimeではありません。`doctor --scope rust` は新名のsidecarとresourcesの不足も診断します。
-
-この直rustc方式はUnix向けです。Windowsでは既存ソースのJob Object処理が `windows-sys` を必要とするため、安全に停止して `utils/dev_sidecar` の既存Cargo方式を案内します。Windows実機は未確認です。wrapperを実際に起動するには、従来どおり `.venv`、`.venv_cuda`、Linuxの `.venv_linux` のいずれかへアプリ依存を用意し、必要に応じて `VRCT_DEV_VENV` を指定します。`build/dev/backend-venv` はwrapperの起動対象には自動追加しません。
+0.4までの開発用sidecar（`utils/dev_sidecar`、`setup --scope sidecar`、`npm run dev-fast` のPython起動）は、Pythonの同梱をやめたときに削除しました。Pythonバックエンドを動かして比べたいときは、0.4.xの配布物か、そのタグのcheckoutを使います。
 
 ### 既存Linux環境へUI試験の依存を追加する
 
@@ -129,12 +123,12 @@ python tools/dev.py check --scope rust --dry-run
 | スコープ | 内容 |
 | --- | --- |
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
-| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` を全列挙して `node --test` |
-| `lint` | voice CIと同じRuff対象に開発CLI、配布候補CLI2本、専用試験を追加。自動修正なし |
+| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` を全列挙して `node --test`。TypeScript のソースを直接読み込めるよう `--experimental-strip-types` を付ける |
+| `lint` | `tools/dev.py` の `LINT_PATHS`（`src-python/` の音声まわり、`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験4件 |
-| `ui` | Nodeの試験と `npm run vite-build`。ブラウザの操作は含まない |
+| `ui` | Nodeの試験、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
 | `backend` | 既存 `pytest.ini` による `src-python/test` と、`tests/platform`の単体の試験1件。runtime依存が必要 |
-| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang）がなければ失敗 |
+| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
 | `all` | 上記7対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
@@ -143,7 +137,7 @@ Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探し
 
 `doctor` と `check` は依存パッケージ・モデルを取得せず、アプリ、マイク、発声、GPU推論を起動しません。子プロセスでは `VRCT_` で始まる環境変数、pytest追加引数・外部pluginの自動読込みを除外し、Hugging Faceをofflineにします。これは試験の誤起動を防ぐ設定であり、任意のテストコードを封じるネットワークsandboxではありません。HTTP/UDP契約試験はローカルの一時ポートを使います。通信を禁止するsandboxではその試験が失敗します。
 
-`check` はキャッシュや検証用の一時ファイルを作り、UIでは `dist`、RustではCargoのビルド先を書き換えます。起動中の通常アプリを停止するnpmの `dev` / `build` / `task-kill` は呼びません。tooling試験では、Linuxにrustcがある場合に一時ディレクトリでwrapperをコンパイルし、隔離したダミーPythonで引数転送を確かめます。配布ビルドは[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の専用workspaceで行います。
+`check` はキャッシュや検証用の一時ファイルを作り、UIでは `dist`、RustではCargoのビルド先を書き換えます。起動中の通常アプリを停止するnpmの `dev` / `build` / `task-kill` は呼びません。tooling試験では、rustcがある場合に一時ディレクトリで `src-tauri/src/single_instance.rs` の単体試験をコンパイルして実行します（`tests/devtools/test_single_instance.py`）。配布ビルドは[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の専用workspaceで行います。
 
 最初に見つかった失敗で停止します。終了コードは次のとおりです。
 
@@ -156,17 +150,29 @@ Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探し
 
 機械処理には `python tools/dev.py doctor --scope voice --json` を使います。未整備環境では `ok: false` と対処方法を返します。
 
+## UIのTypeScriptとスタイル（移行中）
+
+[ADR-010](voice-stack/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
+
+- 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。新しいスタイルはvanilla-extract（`.css.ts`）で書きます。
+- 型チェックは `npm run typecheck` です。`check --scope ui` も実行し、CIでも動きます。TypeScriptのファイルは `strict` で検査します。JavaScriptのファイルは検査せず、型を推論して読むだけです。
+- `any`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。
+- Nodeの試験はTypeScriptのソースを `node --experimental-strip-types` でそのまま読み込みます。このため、消去できる構文だけを使います（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）。型だけのimportは `import type` にします。相対importは `./name.ts` のように拡張子まで書きます。
+- 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
+- デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.js` が食い違いを検出します）。
+- Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.js` がその数を数えています。
+
 ## VRの機器なしでVRの処理を試す
+
+0.5.0からVRのオーバーレイはRustの中核（`native/vr-overlay`、`native/openvr-client`）が扱います。中核の試験は偽のSteamVR（`native/vr-overlay` の `runtime::fake::FakeVr`）を使います。コントローラの姿勢とボタンを持ち、置いたオーバーレイの位置からレーザーの当たりを答えます。試験は `native/vr-overlay/tests/interaction.rs` と `native/core/tests/vr_overlay.rs` で、`check --scope rust` に含まれます。詳しくは[クレートのREADME](../native/vr-overlay/README.md)にあります。
+
+以下のPythonの偽物は、`src-python/` のPythonバックエンドとその試験のためのものです。
 
 `src-python/test/fake_openvr.py` は、SteamVRの代わりになる偽のOpenVRです。pyopenvrの定数と構造体は本物を使い、`openvr.init`、`IVRSystem`、`IVROverlay` など、SteamVRにつながる入口だけを差し替えます。製品のコードと設定は変えません。頭と両手の姿勢、ボタン、オーバーレイの表示・位置・画像、SteamVRの終了（`VREvent_Quit`）を扱えます。
 
 試験では `with FakeOpenVR() as vr:` の中でオーバーレイを動かし、`vr.overlay_by_key("VRCT0")` などで結果を確かめます。本物にはない検査として、`shutdown` の後に古いインターフェースを使うと `vr.misuse` に、消さずに残したオーバーレイを `vr.leaked` に記録します。呼び出しの形が本物とずれていないかは `test_fake_openvr.py` が確かめます。使用例は `test_overlay_fake_vr.py` にあります。
 
-アプリ全体では、次のように起動するとバックエンド（`src-python/mainloop.py`）だけが偽物につながります。`tools/fake_vr_site` を `PYTHONPATH` に入れ、Pythonの `sitecustomize` で差し込みます。
-
-```sh
-python tools/run_with_fake_vr.py --out build/fake-vr -- npx tauri dev
-```
+`tools/run_with_fake_vr.py` は、`tools/fake_vr_site` を `PYTHONPATH` に入れ、Pythonの `sitecustomize` でこの偽物を差し込んでからコマンドを実行します。差し込まれるのはPythonのバックエンド（`src-python/mainloop.py`）だけです。0.5.0のアプリはPythonのバックエンドを起動しないので、`python tools/run_with_fake_vr.py --out build/fake-vr -- npx tauri dev` のようにアプリを起動しても、アプリのVRは偽物につながりません。アプリ全体を偽のSteamVRで動かす手順は、今のところありません。
 
 `--out` には、ヘッドセットに出るはずの画像（オーバーレイごとのPNGと、VR画面のテクスチャ全体）と、オーバーレイの状態の `state.json` を1秒ごとに書き出します。`control.json` を書き換えると、コントローラの向きやボタンを操作できます。書き方は `tools/fake_vr_site/fake_vr_recorder.py` の先頭にあります。ミラー画面（OCRのVRの撮影）は扱いません。実機のSteamVRでの見え方や性能の確認の代わりにはなりません。
 

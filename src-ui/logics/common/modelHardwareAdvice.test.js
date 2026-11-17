@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { modelAdvice } from '../voice/modelHardwareAdvice.js';
+import { modelAdvice } from '../voice/modelHardwareAdvice.ts';
 const GiB=1024**3;
 const models=[{id:'standard',guidance:{reference_memory_bytes:2*GiB,validation:{state:'passed'}}},
               {id:'small',guidance:{reference_memory_bytes:GiB,validation:{state:'passed'}}}];
@@ -21,6 +21,15 @@ test('zero free is exhausted; missing/free stale/shared are unknown',()=>{
 test('does not add GPU memory or recommend the second GPU which runtime will not select',()=>{
   const result=advise(snapshot([gpu(.5*GiB),{...gpu(8*GiB),name:'Vulkan1'}]));
   assert.equal(result.device.name,'Vulkan0');assert.equal(result.recommended,null);assert.equal(result.multiple,true);
+});
+test('a GPU named in the settings is the one advised on, not the first one listed',()=>{
+  // The beta.5 PC: an integrated Vulkan0 listed first, the RTX chosen as Vulkan1.
+  const devices=[gpu(16*GiB,16*GiB,'igpu'),{...gpu(4*GiB),name:'Vulkan1'}];
+  const chosen=advise(snapshot(devices),{deviceMode:'Vulkan1'});
+  assert.equal(chosen.device.name,'Vulkan1');assert.equal(chosen.reason,'fits');assert.equal(chosen.recommended,'standard');
+  assert.equal(advise(snapshot(devices)).reason,'shared_memory');
+  assert.equal(advise(snapshot(devices),{deviceMode:'Vulkan9'}).device.name,'Vulkan0');
+  assert.equal(advise(snapshot([...devices,{name:'CPU',kind:'cpu'}]),{deviceMode:'CPU'}).reason,'cpu');
 });
 test('CPU mode, unavailable probe and not yet tested variants cannot claim GPU suitability',()=>{
   assert.equal(advise(snapshot([gpu(8*GiB)]),{deviceMode:'cpu'}).reason,'cpu');

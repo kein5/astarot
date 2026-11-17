@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import { decodeLogUpdate, decodeOrdered, diffLogRows, encodeLogUpdate, encodeOrdered, isLogUpdate, isRelayAllowed, isSecretAtomName,
-    VR_PANEL_RELAY_PATHS, VR_PANEL_STATE_ATOMS, VR_PANEL_STATE_CATEGORIES, vrPanelStateNames } from "./vrPanelWire.js";
+    VR_PANEL_RELAY_PATHS, VR_PANEL_STATE_ATOMS, VR_PANEL_STATE_CATEGORIES, vrPanelStateNames } from "./vrPanelWire.ts";
 import { scanVrPanelState, settingsByCategory } from "../test/vrPanelStateScan.js";
 
 // Tauri の emit を通ったときの変化を模す: キーを辞書順にし、undefined を落とし、NaN を null にする
@@ -45,16 +45,24 @@ test("the VR panel cannot change where saved keys are sent or what runs", () => 
         "/run/regenerate_websocket_auth_token"]) assert.equal(isRelayAllowed(path), false, path);
 });
 
-// SEC-02: the main window relays "vr-panel-stdout" events. Only windows allowed to emit events
-// can send one, and those must be the main window and the VR panel.
-test("only the main window and the VR panel may emit the relayed events", () => {
+// SEC-02: the main window relays "vr-panel-stdout". #397: only the main window may send events at
+// all. The VR panel hands its three events to vr_panel_send, which checks its label and the event
+// (src-tauri/src/vr_panel_state.rs), so it cannot pass for Rust ("portal-shortcut" and the like).
+test("only the main window may emit events; the VR panel only listens", () => {
     const dir = new URL("../../../src-tauri/capabilities/", import.meta.url);
     const emitting = ["core:default", "core:event:default", "core:event:allow-emit", "core:event:allow-emit-to"];
+    const granted = new Map();
     for (const file of readdirSync(dir).filter(name => name.endsWith(".json"))) {
         const capability = JSON.parse(readFileSync(new URL(file, dir), "utf8"));
         const permissions = (capability.permissions ?? []).map(item => typeof item === "string" ? item : item.identifier);
+        for (const window of capability.windows ?? []) granted.set(window, [...(granted.get(window) ?? []), ...permissions]);
         if (!permissions.some(permission => emitting.includes(permission))) continue;
-        for (const window of capability.windows ?? []) assert.ok(["main", "vr_panel"].includes(window), `${file}: ${window} may emit events`);
+        for (const window of capability.windows ?? []) assert.equal(window, "main", `${file}: ${window} may emit events`);
+    }
+    assert.deepEqual(granted.get("vr_panel")?.sort(), ["core:event:allow-listen", "core:event:allow-unlisten"]);
+    for (const file of ["../../views/vr/VrApp.jsx", "./useStdoutToPython.js"]) {
+        const source = readFileSync(new URL(file, import.meta.url), "utf8");
+        assert.doesNotMatch(source, /\bemit\s*\(/, `${file} sends an event`);
     }
 });
 
@@ -101,8 +109,10 @@ test("everything the VR windows send is relayed", () => {
         return verb === "toggle" ? [`/set/enable/${setting.endpoint}`, `/set/disable/${setting.endpoint}`] : [`/set/data/${setting.endpoint}`];
     };
     const sent = new Set(), names = new Set();
-    for (const file of readdirSync(new URL("../../views/vr/", import.meta.url)).filter(name => /\.jsx?$/.test(name) && !name.includes(".test."))) {
+    for (const file of readdirSync(new URL("../../views/vr/", import.meta.url)).filter(name => /\.[jt]sx?$/.test(name) && !name.includes(".test."))) {
         const source = read(`../../views/vr/${file}`);
+        // A name built from pieces (`set${key}Model`) escapes this scan, so the VR windows write names out in full.
+        assert.doesNotMatch(source, /`(?:set|toggle|current)[A-Za-z]*\$\{/, `${file} builds a setter's name; write it out in full`);
         for (const [path] of source.matchAll(/"\/(?:get|set|run)\/[a-z0-9_/]+"/g)) sent.add(JSON.parse(path));
         for (const [name] of source.matchAll(/\b(?:set|toggle)[A-Z]\w*|\bvolumeCheck\w+|\brefreshLanguageSettings\b|\bswapSelectedLanguages\b/g)) names.add(name);
     }
@@ -115,7 +125,7 @@ test("everything the VR windows send is relayed", () => {
 
 test("credentials are not mirrored to the VR panel", () => {
     for (const name of ["DeepLAuthKey", "OpenAICompatibleAuthKey", "DeepgramAuthKey", "WebsocketAuthToken",
-        "OcrPortalRestoreToken"]) assert.equal(isSecretAtomName(name), true, name);
+        "OcrPortalRestoreToken", "GoogleCloudAuthKey", "PapagoAuthKey", "PapagoClientID"]) assert.equal(isSecretAtomName(name), true, name);
     for (const name of ["SelectedFontFamily", "MessageLogs", "OpenAICompatibleUrl", "SelectedTranslationEngines"]) assert.equal(isSecretAtomName(name), false, name);
 });
 
@@ -138,10 +148,10 @@ test("the VR panel is sent every atom its views read", () => {
 test("the VR panel is not sent credentials, advanced settings, updates or hotkeys", () => {
     const settings = settingsArray();
     const allowed = vrPanelStateNames(settings);
-    const advanced = settings.filter(setting => ["AdvancedSettings", "Updater"].includes(setting.Category)).map(setting => setting.Base_Name);
+    const advanced = settings.filter(setting => setting.Category === "AdvancedSettings").map(setting => setting.Base_Name);
     assert.ok(advanced.length > 5, "the advanced settings were not found");
     for (const name of [...advanced, "WebsocketAuthToken", "DeepLAuthKey", "OcrPortalRestoreToken", "Hotkeys",
-        "AvailableReleases", "LatestSoftwareVersionInfo", "SoftwareVersion", "ComputeMode"]) {
+        "LatestSoftwareVersionInfo", "SoftwareVersion", "ComputeMode"]) {
         assert.equal(allowed.has(name), false, name);
     }
     for (const name of allowed) assert.equal(isSecretAtomName(name), false, name);

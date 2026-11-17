@@ -8,17 +8,22 @@ import { SectionLabelComponent } from "../_components/section_label_component/Se
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
+import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 
 export const VoiceRouteSummary = () => {
     const { t } = useI18n();
     const { settings } = useVoice();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
-    return <div className={styles.actions}><span>{t("voice.routing")}: {settings ? t(`voice.routing_${settings.routing}`) : t("voice.loading")}</span>
-        <button type="button" onClick={() => updateSelectedConfigTabId("device")}>{t("voice_ui.edit_route")}</button></div>;
+    // A setting row like the others (#478): the label on the left, the route in use under it,
+    // and the button that opens the Device page in the control column.
+    const route = settings ? t(`voice.routing_${settings.routing}`) : t("voice.loading");
+    return <FormRow group label={t("voice.routing")} description={t("voice_ui.route_current", { route })} fold={false}>
+        <button type="button" onClick={() => updateSelectedConfigTabId("device")}>{t("voice_ui.edit_route")}</button>
+    </FormRow>;
 };
 
 export const VoiceRouteControls = () => {
-    const { t } = useI18n();
+    const { t, i18n } = useI18n();
     const { route, error, send } = useVoice();
     const problem = error || route.error;
     return <>
@@ -31,7 +36,8 @@ export const VoiceRouteControls = () => {
             <p>{t(route.preparing ? "voice.preparing_microphone" : route.error ? "voice.gate_error" : route.pending ? "voice.gate_pending" : !route.ready || route.observed_muted == null ? "voice.gate_unknown" :
                 `voice.gate_${route.observed_muted ? "muted" : "open"}${route.covers_direct ? "_device" : ""}`)}</p>
         </EnvReadout>
-        {problem && <p role="alert">{t(`voice_setup_errors.${problem}`, { defaultValue: problem })}</p>}
+        {/* The route's own codes (managed_setup_*) first, then the voice requests' (#460). */}
+        {problem && <p role="alert">{voiceErrorText(problem, t("voice.routing"), t, key => i18n.exists(key), ["voice_setup_errors"])}</p>}
     </>;
 };
 

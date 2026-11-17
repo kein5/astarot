@@ -45,10 +45,6 @@ impl Desktop for Fake {
     }
 }
 
-fn never(_: &str) -> bool {
-    false
-}
-
 fn clipboard(
     windows_style: bool,
     copy_ok: bool,
@@ -56,7 +52,7 @@ fn clipboard(
 ) -> (Clipboard, Arc<Mutex<Vec<Step>>>) {
     let steps = Arc::new(Mutex::new(Vec::new()));
     let fake = Fake { windows_style, copy_ok, focus, paste: Ok(true), steps: steps.clone() };
-    (Clipboard::with_desktop(Box::new(fake), Arc::new(NoVrAppName), never, Duration::from_millis(10)), steps)
+    (Clipboard::with_desktop(Box::new(fake), Arc::new(NoVrAppName)), steps)
 }
 
 fn steps(recorded: &Arc<Mutex<Vec<Step>>>) -> Vec<Step> {
@@ -137,49 +133,65 @@ fn x11_a_broken_connection_fails_once_and_the_next_paste_works() {
 
 // ---------------------------------------------------------------- SteamVR app name
 
-struct Named;
+/// The game SteamVR runs, as the test sets it; counts how often it is asked.
+#[derive(Default)]
+struct Named {
+    name: Mutex<Option<String>>,
+    asked: Mutex<usize>,
+}
 
 impl VrAppName for Named {
     fn running_app_name(&self) -> Option<String> {
-        Some("VRChat".into())
+        *self.asked.lock().unwrap() += 1;
+        self.name.lock().unwrap().clone()
     }
 }
 
-fn always(name: &str) -> bool {
-    assert!(name == "vrmonitor" || name == "vrmonitor.exe");
-    true
+#[test]
+fn the_game_steamvr_runs_is_the_target() {
+    for windows_style in [true, false] {
+        let steps_seen = Arc::new(Mutex::new(Vec::new()));
+        let fake = Fake {
+            windows_style,
+            copy_ok: true,
+            focus: vec![Ok(Focus::Focused)],
+            paste: Ok(true),
+            steps: steps_seen.clone(),
+        };
+        let vr = Arc::new(Named::default());
+        *vr.name.lock().unwrap() = Some("VRChat".into());
+        let clipboard = Clipboard::with_desktop(Box::new(fake), vr.clone());
+        assert_eq!(clipboard.app_name().as_deref(), Some("VRChat"));
+        assert!(clipboard.copy_and_paste("text", None, 0));
+        assert!(steps(&steps_seen).contains(&Step::Focus("VRChat".into())));
+        assert_eq!(steps(&steps_seen).last(), Some(&Step::Paste(0)));
+        // A name given in the call wins, and SteamVR is not asked.
+        let asked = *vr.asked.lock().unwrap();
+        let before = steps(&steps_seen).len();
+        assert!(clipboard.copy_and_paste("text", Some("Other"), 0));
+        let after = steps(&steps_seen);
+        assert!(after[before..].contains(&Step::Focus("Other".into())));
+        assert!(!after[before..].contains(&Step::Focus("VRChat".into())));
+        assert_eq!(*vr.asked.lock().unwrap(), asked);
+    }
 }
 
 #[test]
-fn the_steamvr_app_is_the_target_once_steamvr_runs() {
+fn the_game_is_looked_up_again_at_each_paste() {
+    // Python read the name once when SteamVR started, usually before the game ran.
     let steps_seen = Arc::new(Mutex::new(Vec::new()));
-    let fake = Fake {
-        windows_style: false,
-        copy_ok: true,
-        focus: vec![Ok(Focus::Focused)],
-        paste: Ok(true),
-        steps: steps_seen.clone(),
-    };
-    let clipboard = Clipboard::with_desktop(Box::new(fake), Arc::new(Named), always, Duration::from_millis(10));
-    let end = Instant::now() + Duration::from_secs(2);
-    while clipboard.app_name().is_none() && Instant::now() < end {
-        std::thread::sleep(Duration::from_millis(10));
-    }
-    assert_eq!(clipboard.app_name().as_deref(), Some("VRChat"));
-    assert!(clipboard.copy_and_paste("text", None, 0));
-    assert!(steps(&steps_seen).contains(&Step::Focus("VRChat".into())));
-    // A name given in the call wins.
-    assert!(clipboard.copy_and_paste("text", Some("Other"), 0));
-    assert_eq!(steps(&steps_seen)[steps(&steps_seen).len() - 2], Step::Focus("Other".into()));
-}
-
-#[test]
-fn close_stops_waiting_for_steamvr() {
-    let (clipboard, _) = clipboard(false, true, vec![Ok(Focus::Focused)]);
-    let started = Instant::now();
-    clipboard.close();
-    assert!(started.elapsed() < Duration::from_secs(1));
-    assert_eq!(clipboard.app_name(), None);
+    let fake =
+        Fake { windows_style: true, copy_ok: true, focus: vec![Ok(Focus::Focused)], paste: Ok(true), steps: steps_seen.clone() };
+    let vr = Arc::new(Named::default());
+    let clipboard = Clipboard::with_desktop(Box::new(fake), vr.clone());
+    assert!(!clipboard.copy_and_paste("first", None, 0));
+    assert_eq!(steps(&steps_seen), vec![Step::Copy("first".into())]);
+    *vr.name.lock().unwrap() = Some("VRChat".into());
+    assert!(clipboard.copy_and_paste("second", None, 0));
+    assert_eq!(
+        steps(&steps_seen)[1..],
+        [Step::Focus("VRChat".into()), Step::Copy("second".into()), Step::Paste(0)]
+    );
 }
 
 // ---------------------------------------------------------------- copy tools

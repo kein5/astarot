@@ -51,6 +51,7 @@ from models.speech_server.runtime import START_TIMEOUT as SPEECH_START_TIMEOUT, 
 from models.model_downloads.manager import Downloads
 from models.model_downloads.catalog import SPEECH_FIELDS as SPEECH_DOWNLOAD_FIELDS
 from models.model_downloads.hardware import HardwareProbe
+from models.model_downloads.user_models import FILE_NAME as USER_MODELS_FILE, UserModels
 from models.voice_conversion.runtime_setup import RuntimeSetup
 from models.ocr import ocr_capture, ocr_chatbox_detector, ocr_languages, ocr_models
 from models.ocr import ocr_engine_rapidocr as ocr_engine
@@ -290,6 +291,9 @@ _SIMPLE_CONFIG_GETTERS = {
     "getSpeakerPhraseTimeout": "SPEAKER_PHRASE_TIMEOUT",
     "getSpeakerMaxPhrases": "SPEAKER_MAX_PHRASES",
     "getHotkeys": "HOTKEYS",
+    "getExperimentalFeatures": "EXPERIMENTAL_FEATURES",
+    "getTrayCompanionEdge": "TRAY_COMPANION_EDGE",
+    "getTrayCompanionMonitor": "TRAY_COMPANION_MONITOR",
     "getSpeakerAvgLogprob": "SPEAKER_AVG_LOGPROB",
     "getSpeakerNoSpeechProb": "SPEAKER_NO_SPEECH_PROB",
     "getSpeakerVadFilter": "SPEAKER_ENABLE_VAD",
@@ -452,6 +456,7 @@ class Controller:
         if not isinstance(config_path, (str, Path)):
             config_path = 'config.json'
         self.model_downloads = Downloads(Path(config_path).absolute().parent / 'downloaded_models')
+        self.user_models = UserModels(Path(config_path).absolute().parent / USER_MODELS_FILE)
         self.vc_runtimes = RuntimeSetup(Path(config_path).absolute().parent / 'vc_runtimes')
         self.legacy_downloads = LegacyDownloads()
         self.model_hardware = HardwareProbe()
@@ -559,46 +564,84 @@ class Controller:
         except ValueError as error:
             return self._modelDownloadFailure(error)
 
+    def _applyModelPaths(self, target, paths, expected):
+        """Writes the paths of a verified download or a registered model into the settings.
+
+        `expected` is the saved value the user saw ({model} or, for RVC, {model, index}); the
+        paths are written only while the settings still hold it and nothing runs on the target.
+        """
+        if target == 'ocr':
+            # Chat reading finds verified downloads by catalog id; there is
+            # no path setting to change (models/ocr/ocr_models.py).
+            if expected not in ({}, None):
+                raise ValueError('download_request_invalid')
+            return
+        keys = {'model', 'index'} if target == 'rvc' else {'model'}
+        if not isinstance(expected, dict) or set(expected) != keys or any(not isinstance(v, str) for v in expected.values()):
+            raise ValueError('download_request_invalid')
+        if target == 'rvc':
+            with self._voice_settings_lock:
+                state = self.direct_voice.health()
+                if self._direct_voice_closed or any(state.get(k) for k in ('requested', 'pending', 'stopping')):
+                    raise ValueError('model_target_busy')
+                settings = self._direct_settings.to_dict()
+                if any(settings['rvc_' + k] != expected[k] for k in keys):
+                    raise ValueError('settings_changed')
+                settings.update(rvc_model=paths['model'], rvc_index=paths.get('index', ''))
+                updated = DirectSettings.from_dict(settings)
+                self.direct_voice.stop()  # Invalidate queued starts, as in the normal settings setter.
+                self._config.DIRECT_VOICE_SETTINGS = updated.to_dict()
+                self._direct_settings = updated
+        else:
+            # A VAD file goes to the asr profile's vad_model; expected names that field's value.
+            profile, field = SPEECH_DOWNLOAD_FIELDS[target]
+            with self._speech_settings_lock:
+                if self.speech_servers.state()[profile]['state'] not in ('stopped', 'failed'):
+                    raise ValueError('model_target_busy')
+                settings = copy.deepcopy(self._speech_settings)
+                if settings['profiles'][profile][field] != expected['model']:
+                    raise ValueError('settings_changed')
+                settings['profiles'][profile][field] = paths['model']
+                self._config.SPEECH_SERVER_SETTINGS = settings
+                self._speech_settings = settings
+
     def applyModelDownload(self, data, *args, **kwargs):
         try:
             self._modelDownloadRequest(data, apply=True)
             def apply(entry, paths):
-                expected = data['expected']
-                if entry.target == 'ocr':
-                    # Chat reading finds verified downloads by catalog id; there is
-                    # no path setting to change (models/ocr/ocr_models.py).
-                    if expected not in ({}, None):
-                        raise ValueError('download_request_invalid')
-                    return
-                keys = {'model', 'index'} if entry.target == 'rvc' else {'model'}
-                if not isinstance(expected, dict) or set(expected) != keys or any(not isinstance(v, str) for v in expected.values()):
-                    raise ValueError('download_request_invalid')
-                if entry.target == 'rvc':
-                    with self._voice_settings_lock:
-                        state = self.direct_voice.health()
-                        if self._direct_voice_closed or any(state.get(k) for k in ('requested', 'pending', 'stopping')):
-                            raise ValueError('model_target_busy')
-                        settings = self._direct_settings.to_dict()
-                        if any(settings['rvc_' + k] != expected[k] for k in keys):
-                            raise ValueError('settings_changed')
-                        settings.update(rvc_model=paths['model'], rvc_index=paths.get('index', ''))
-                        updated = DirectSettings.from_dict(settings)
-                        self.direct_voice.stop()  # Invalidate queued starts, as in the normal settings setter.
-                        self._config.DIRECT_VOICE_SETTINGS = updated.to_dict()
-                        self._direct_settings = updated
-                else:
-                    # A VAD file goes to the asr profile's vad_model; expected names that field's value.
-                    profile, field = SPEECH_DOWNLOAD_FIELDS[entry.target]
-                    with self._speech_settings_lock:
-                        if self.speech_servers.state()[profile]['state'] not in ('stopped', 'failed'):
-                            raise ValueError('model_target_busy')
-                        settings = copy.deepcopy(self._speech_settings)
-                        if settings['profiles'][profile][field] != expected['model']:
-                            raise ValueError('settings_changed')
-                        settings['profiles'][profile][field] = paths['model']
-                        self._config.SPEECH_SERVER_SETTINGS = settings
-                        self._speech_settings = settings
+                self._applyModelPaths(entry.target, paths, data['expected'])
             return {'status': 200, 'result': self.model_downloads.apply(data['id'], data['job_id'], apply)}
+        except ValueError as error:
+            return self._modelDownloadFailure(error)
+        except OSError:
+            return {'status': 400, 'result': {'error_code': 'download_apply_failed'}}
+
+    # Models the user registers under a name (#403, models/model_downloads/user_models.py).
+    # The answers carry {models: [...]}; failures {error_code} like the downloads.
+    def getUserModels(self, *args, **kwargs):
+        return {'status': 200, 'result': self.user_models.state()}
+
+    def registerUserModel(self, data, *args, **kwargs):
+        try:
+            return {'status': 200, 'result': self.user_models.register(data)}
+        except ValueError as error:
+            return self._modelDownloadFailure(error)
+
+    def removeUserModel(self, data, *args, **kwargs):
+        try:
+            return {'status': 200, 'result': self.user_models.remove(data)}
+        except ValueError as error:
+            return self._modelDownloadFailure(error)
+
+    def applyUserModel(self, data, *args, **kwargs):
+        """Switches a target to a registered model: `{id, expected}` as in applyModelDownload."""
+        try:
+            if (not isinstance(data, dict) or set(data) != {'id', 'expected'}
+                    or not isinstance(data['id'], str) or not data['id']):
+                raise ValueError('user_model_invalid')
+            target, paths = self.user_models.usable(data['id'])
+            self._applyModelPaths(target, paths, data['expected'])
+            return {'status': 200, 'result': self.user_models.state()}
         except ValueError as error:
             return self._modelDownloadFailure(error)
         except OSError:
@@ -4151,6 +4194,27 @@ class Controller:
         config.HOTKEYS = data
         return {"status":200, "result":config.HOTKEYS}
 
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setExperimentalFeatures(data, *args, **kwargs) -> dict:
+        # {feature_id: bool}; a feature left out keeps its value (models/experimental_features.py).
+        config.EXPERIMENTAL_FEATURES = data
+        return {"status":200, "result":config.EXPERIMENTAL_FEATURES}
+
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setTrayCompanionEdge(data, *args, **kwargs) -> dict:
+        # "right", "left", "top" or "bottom" (TRAY_COMPANION_EDGE_LIST).
+        config.TRAY_COMPANION_EDGE = data
+        return {"status":200, "result":config.TRAY_COMPANION_EDGE}
+
+    @staticmethod
+    @_configValidationErrorResponse(ErrorCode.VALIDATION_CONFIG_VALUE_INVALID)
+    def setTrayCompanionMonitor(data, *args, **kwargs) -> dict:
+        # A monitor's name, or "" for the primary monitor (TRAY_COMPANION_MONITOR).
+        config.TRAY_COMPANION_MONITOR = data
+        return {"status":200, "result":config.TRAY_COMPANION_MONITOR}
+
 
     @staticmethod
     def setSpeakerAvgLogprob(data, *args, **kwargs) -> dict:
@@ -6993,7 +7057,7 @@ class Controller:
 
         position["ui_scaling"] は保存する設定値。small と large ではオーバーレイの幅(m) に対応し、
         small は幅=設定値、large は幅=設定値*0.25 (Model.init参照)。ランチャーは旧来の帯の幅で
-        保存するので実際の幅とは異なる (regionWidthM参照)。設定画面のスライダーの範囲 (src-ui/logics/ui_configs.js の
+        保存するので実際の幅とは異なる (regionWidthM参照)。設定画面のスライダーの範囲 (src-ui/logics/ui_configs.ts の
         ui_scaling: 40〜200%) に収めてから保存し、収めた値をオーバーレイにも戻す。
         """
         def clamp(value: float) -> float:

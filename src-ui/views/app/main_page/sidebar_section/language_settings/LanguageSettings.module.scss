@@ -2,23 +2,34 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-inline: 1rem;
+    padding: 0 1rem 1rem;
 }
 
+.header {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: .4rem .8rem;
+    padding: .6rem .2rem .4rem;
+    border-top: .1rem solid var(--dark_850_color);
+}
+
+// 1.2rem leaves 「Language Settings」 room beside the presets in the 24rem rail.
 .title {
-    font-size: 1.4rem;
-    padding-top: 1rem;
-    padding-bottom: 0.8rem;
-    color: var(--dark_400_color);
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--vox_secondary_text);
 }
 
 .preset_container {
     width: 100%;
-    padding-top: 0.8rem;
     background-color: var(--vox_rail);
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: .2rem;
 }
 
 .target_language_containers {

@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createStore } from "jotai/vanilla";
 import { hooks, loadModule } from "../test/hookHarness.js";
-import * as polledState from "../common/polledState.js";
-import * as routeState from "./routeState.js";
-import * as pendingVoiceRequest from "./pendingVoiceRequest.js";
+import * as polledState from "../common/polledState.ts";
+import * as routeState from "./routeState.ts";
+import * as pendingVoiceRequest from "./pendingVoiceRequest.ts";
 
 async function setup(file, name) {
     const runtime = hooks();
     const module = await loadModule(new URL(file, import.meta.url), runtime, {
-        "../common/polledState.js": polledState, "./routeState": routeState,
-        "./pendingVoiceRequest.js": pendingVoiceRequest,
+        "../common/polledState.ts": polledState, "./routeState": routeState,
+        "./pendingVoiceRequest.ts": pendingVoiceRequest,
     });
     const render = () => runtime.render(module[name]);
     return { runtime, render, useHook: module[name] };
@@ -189,4 +189,24 @@ test("speech servers preserve rows and pending objects while retaining generatio
     render().updateState({ japanese: { generation: 3, state: "preparing" } });
     assert.equal(render().state, ready);
     subscription.unsubscribe();
+});
+
+test("speech server devices keep what the CPU and GPU choices run on, and nothing unknown", async () => {
+    const { render } = await setup("./useSpeechServers.js", "useSpeechServers");
+    assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
+    // Linux: the CPU build of its own, and a Vulkan build that does not start on this PC.
+    render().updateDevices({ devices: [], cpu_build: "separate", gpu_build: "unavailable" });
+    assert.deepEqual(render().builds, { cpu_build: "separate", gpu_build: "unavailable" });
+    // Windows: the CPU runs on the one Vulkan build.
+    render().updateDevices({ devices: [{ name: "Vulkan0", kind: "gpu", label: "GPU" }], cpu_build: "shared", gpu_build: "ready" });
+    assert.deepEqual(render().builds, { cpu_build: "shared", gpu_build: "ready" });
+    assert.equal(render().devices.length, 1);
+    // An answer without the fields (an older backend) or with unknown values shows nothing extra.
+    render().updateDevices({ devices: [], cpu_build: "other", gpu_build: 3 });
+    assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
+    render().updateDevices({ devices: [], cpu_build: "separate" });
+    render().updateDevices(null);
+    assert.deepEqual(render().builds, { cpu_build: "separate", gpu_build: null });
+    render().reset();
+    assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
 });

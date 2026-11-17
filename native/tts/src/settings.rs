@@ -167,7 +167,7 @@ pub const ENGINES: &[&str] = &["speechcpp", "voicevox", "coeiroink", "aivis", "s
 pub const SPEECHCPP: &str = "speechcpp";
 
 /// `[0-9]{1,9}` or `[0-9A-Fa-f-]{1,64}:[0-9]{1,9}`: a style id, or a speaker UUID and style id.
-fn valid_engine_voice_id(id: &str) -> bool {
+pub fn valid_engine_voice_id(id: &str) -> bool {
     let digits = |part: &str| (1..=9).contains(&part.len()) && part.bytes().all(|b| b.is_ascii_digit());
     match id.split_once(':') {
         None => digits(id),
@@ -184,6 +184,52 @@ pub struct EngineVoice {
     pub style: String,
 }
 
+/// The sample rates COEIROINK's `outputSamplingRate` is offered with.
+pub const COEIROINK_RATES: [u32; 4] = [16_000, 24_000, 44_100, 48_000];
+
+/// How COEIROINK v2 reads (`/v1/synthesis`): every field is required by the engine.
+/// The defaults are the values the app sent before they could be set.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CoeiroinkParams {
+    pub speed: f64,
+    pub volume: f64,
+    pub pitch: f64,
+    pub intonation: f64,
+    /// Silence before and after the speech, in seconds.
+    pub pre_phoneme: f64,
+    pub post_phoneme: f64,
+    pub sampling_rate: u32,
+}
+
+// Only built from validated, finite numbers.
+impl Eq for CoeiroinkParams {}
+
+impl Default for CoeiroinkParams {
+    fn default() -> Self {
+        Self { speed: 1.0, volume: 1.0, pitch: 0.0, intonation: 1.0, pre_phoneme: 0.1, post_phoneme: 0.1, sampling_rate: 24_000 }
+    }
+}
+
+/// `(field, minimum, maximum)` of the saved COEIROINK numbers.
+const COEIROINK_RANGES: [(&str, f64, f64); 6] = [
+    ("coeiroink_speed", 0.5, 2.0),
+    ("coeiroink_volume", 0.0, 2.0),
+    ("coeiroink_pitch", -0.15, 0.15),
+    ("coeiroink_intonation", 0.0, 2.0),
+    ("coeiroink_pre_phoneme", 0.0, 1.5),
+    ("coeiroink_post_phoneme", 0.0, 1.5),
+];
+
+/// A plain decimal such as `1`, `0.25` or `-0.05` within `min..=max`. No exponent, `inf` or
+/// `NaN`: the text goes to the engine as a number.
+fn decimal_in(text: &str, min: f64, max: f64) -> Option<f64> {
+    let digits = text.strip_prefix('-').unwrap_or(text);
+    let (whole, fraction) = digits.split_once('.').unwrap_or((digits, ""));
+    let shape_ok = text.len() <= 16 && !whole.is_empty() && whole.bytes().all(|b| b.is_ascii_digit()) && fraction.bytes().all(|b| b.is_ascii_digit()) && (!digits.contains('.') || !fraction.is_empty());
+    let value: f64 = text.parse().ok().filter(|_| shape_ok)?;
+    (value.is_finite() && (min..=max).contains(&value)).then_some(value)
+}
+
 /// One speech request chosen from the settings for one message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpeechRequest {
@@ -196,11 +242,13 @@ pub struct SpeechRequest {
     pub engine: &'static str,
     /// The saved voice, for an installed engine.
     pub engine_voice: Option<EngineVoice>,
+    /// How COEIROINK reads, when it is the engine.
+    pub coeiroink: Option<CoeiroinkParams>,
 }
 
 impl SpeechRequest {
     fn speechcpp(url: String, voice: &str, language: &'static str, text: String) -> Self {
-        Self { url, voice: voice.to_owned(), language, text, engine: SPEECHCPP, engine_voice: None }
+        Self { url, voice: voice.to_owned(), language, text, engine: SPEECHCPP, engine_voice: None, coeiroink: None }
     }
 }
 
@@ -260,6 +308,14 @@ voice_settings! {
     engine_voice_id = "",
     engine_voice_speaker = "",
     engine_voice_style = "",
+    // How COEIROINK reads (`/v1/synthesis`), as plain decimals; see COEIROINK_RANGES.
+    coeiroink_speed = "1.0",
+    coeiroink_volume = "1.0",
+    coeiroink_pitch = "0.0",
+    coeiroink_intonation = "1.0",
+    coeiroink_pre_phoneme = "0.1",
+    coeiroink_post_phoneme = "0.1",
+    coeiroink_sampling_rate = "24000", // one of COEIROINK_RATES
 }
 
 impl VoiceSettings {
@@ -343,6 +399,11 @@ impl VoiceSettings {
                 return Err(SettingsError("Invalid engine voice name"));
             }
         }
+        if COEIROINK_RANGES.iter().any(|(field, min, max)| decimal_in(self.coeiroink_text(field), *min, *max).is_none())
+            || !COEIROINK_RATES.iter().any(|rate| rate.to_string() == self.coeiroink_sampling_rate)
+        {
+            return Err(SettingsError("Invalid COEIROINK reading settings"));
+        }
         for voice in [&self.japanese_voice, &self.multilingual_voice] {
             if is_blank(voice) || voice.chars().count() > 128 || has_control(voice) {
                 return Err(SettingsError("Invalid voice name"));
@@ -373,6 +434,35 @@ impl VoiceSettings {
         Ok(())
     }
 
+    fn coeiroink_text(&self, field: &str) -> &str {
+        match field {
+            "coeiroink_speed" => &self.coeiroink_speed,
+            "coeiroink_volume" => &self.coeiroink_volume,
+            "coeiroink_pitch" => &self.coeiroink_pitch,
+            "coeiroink_intonation" => &self.coeiroink_intonation,
+            "coeiroink_pre_phoneme" => &self.coeiroink_pre_phoneme,
+            _ => &self.coeiroink_post_phoneme,
+        }
+    }
+
+    /// How COEIROINK reads. Validated settings always parse; anything else is the default.
+    pub fn coeiroink_params(&self) -> CoeiroinkParams {
+        let defaults = CoeiroinkParams::default();
+        let number = |field: &str, fallback: f64| {
+            let (_, min, max) = COEIROINK_RANGES.iter().find(|(name, _, _)| *name == field).expect("a listed field");
+            decimal_in(self.coeiroink_text(field), *min, *max).unwrap_or(fallback)
+        };
+        CoeiroinkParams {
+            speed: number("coeiroink_speed", defaults.speed),
+            volume: number("coeiroink_volume", defaults.volume),
+            pitch: number("coeiroink_pitch", defaults.pitch),
+            intonation: number("coeiroink_intonation", defaults.intonation),
+            pre_phoneme: number("coeiroink_pre_phoneme", defaults.pre_phoneme),
+            post_phoneme: number("coeiroink_post_phoneme", defaults.post_phoneme),
+            sampling_rate: self.coeiroink_sampling_rate.parse().ok().filter(|rate| COEIROINK_RATES.contains(rate)).unwrap_or(defaults.sampling_rate),
+        }
+    }
+
     /// The engine that reads `language`: an installed engine for Japanese, else speech.cpp.
     pub fn engine_for(&self, language: &str) -> Result<&'static str, SettingsError> {
         if language_tag(language)? != "ja" {
@@ -381,7 +471,13 @@ impl VoiceSettings {
         ENGINES.iter().copied().find(|engine| *engine == self.japanese_engine).ok_or(SettingsError("Unknown speech engine"))
     }
 
-    fn engine_url(&self, engine: &str) -> &str {
+    /// Whether a role (`japanese` or `multilingual`) speaks through a speech.cpp server.
+    pub fn uses_speechcpp(&self, role: &str) -> bool {
+        role != "japanese" || self.japanese_engine == SPEECHCPP
+    }
+
+    /// The saved URL of an installed engine (`voicevox`, `coeiroink`, `aivis`, `sharevox`).
+    pub fn engine_url(&self, engine: &str) -> &str {
         match engine {
             "voicevox" => &self.voicevox_url,
             "coeiroink" => &self.coeiroink_url,
@@ -435,7 +531,8 @@ impl VoiceSettings {
                 return Err(crate::error::SpeechError::new("tts_engine_voice_unset").into());
             }
             let voice = EngineVoice { id: self.engine_voice_id.clone(), speaker: self.engine_voice_speaker.clone(), style: self.engine_voice_style.clone() };
-            return Ok(SpeechRequest { url: local_url(self.engine_url(engine))?, voice: voice.id.clone(), language, text, engine, engine_voice: Some(voice) });
+            let coeiroink = (engine == "coeiroink").then(|| self.coeiroink_params());
+            return Ok(SpeechRequest { url: local_url(self.engine_url(engine))?, voice: voice.id.clone(), language, text, engine, engine_voice: Some(voice), coeiroink });
         }
         let (server, voice) = if japanese { (&self.japanese_server, &self.japanese_voice) } else { (&self.multilingual_server, &self.multilingual_voice) };
         if server == "bundled" {
@@ -699,6 +796,30 @@ mod tests {
         }
         for id in ["0", "123456789", "7ffcb7ce-00ec-4bdc-82cd-45a8889e43ff:0", "ABC-def:12"] {
             assert!(VoiceSettings::from_value_on(&json!({"engine_voice_id": id}), Platform::Other).is_ok(), "{id}");
+        }
+    }
+
+    #[test]
+    fn coeiroink_reading_settings_default_to_the_earlier_fixed_values_and_are_checked() {
+        assert_eq!(VoiceSettings::default().coeiroink_params(), CoeiroinkParams::default());
+        let value = settings(json!({"mode": "original", "output_device": "cable", "japanese_engine": "coeiroink", "engine_voice_id": "ab-12:0",
+            "coeiroink_speed": "1.25", "coeiroink_volume": "0", "coeiroink_pitch": "-0.05", "coeiroink_intonation": "2",
+            "coeiroink_pre_phoneme": "0.0", "coeiroink_post_phoneme": "1.5", "coeiroink_sampling_rate": "48000"}));
+        let params = CoeiroinkParams { speed: 1.25, volume: 0.0, pitch: -0.05, intonation: 2.0, pre_phoneme: 0.0, post_phoneme: 1.5, sampling_rate: 48_000 };
+        assert_eq!(value.coeiroink_params(), params);
+        assert_eq!(value.request_for(&chat("x", "ja"), None).unwrap().coeiroink, Some(params));
+        assert_eq!(settings(value.to_value()), value);
+        // Other engines carry none.
+        let voicevox = settings(json!({"mode": "original", "output_device": "cable", "japanese_engine": "voicevox", "engine_voice_id": "3"}));
+        assert_eq!(voicevox.request_for(&chat("x", "ja"), None).unwrap().coeiroink, None);
+        for (field, bad) in [
+            ("coeiroink_speed", "0.4"), ("coeiroink_speed", "2.01"), ("coeiroink_speed", "1e0"), ("coeiroink_speed", "NaN"),
+            ("coeiroink_speed", "inf"), ("coeiroink_speed", ""), ("coeiroink_speed", "1."), ("coeiroink_speed", ".5"), ("coeiroink_speed", "+1"),
+            ("coeiroink_volume", "-0.1"), ("coeiroink_pitch", "0.2"), ("coeiroink_intonation", "2.5"),
+            ("coeiroink_pre_phoneme", "1.6"), ("coeiroink_post_phoneme", "-1"),
+            ("coeiroink_sampling_rate", "22050"), ("coeiroink_sampling_rate", "24000.0"), ("coeiroink_sampling_rate", ""),
+        ] {
+            assert!(VoiceSettings::from_value_on(&json!({ field: bad }), Platform::Other).is_err(), "{field}={bad}");
         }
     }
 

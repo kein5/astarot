@@ -3,7 +3,9 @@
 () => {
     const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
     const root = document.querySelector("#root");
-    const main = document.querySelector("[class*='main_page']") || root;
+    // The main page is the focusable page that holds the sidebar toggle (class names are
+    // hashed once the styles are vanilla-extract, ADR-010).
+    const main = document.querySelector("[data-sidebar-toggle]")?.closest("[tabindex='-1']") || document.querySelector("[class*='main_page']") || root;
     const findings = [];
     const SKIP_TEXT_IN = "[class*='log_box'], [class*='message_container'] [class*='message'], textarea";
 
@@ -148,7 +150,8 @@
     const doc = { scrollW: document.documentElement.scrollWidth, scrollH: document.documentElement.scrollHeight, vw, vh };
     // 6) Sizes worth comparing between window sizes: the message log, the message box and the sidebar.
     const box = selector => { const e = main.querySelector(selector); if (!e) return null; const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
-    const sidebar = main.querySelector("[class*='scroll_container']");
+    // SCSS Modules named it scroll_container; vanilla-extract names it scrollContainer (ADR-010).
+const sidebar = main.querySelector("[class*='scrollContainer'], [class*='scroll_container']");
     const metrics = {
         log: box("[class*='log_box_resize_wrapper']"), input: box("[class*='message_box_resize_wrapper']"),
         sidebar: sidebar ? { visible: sidebar.clientHeight, content: sidebar.scrollHeight } : null,

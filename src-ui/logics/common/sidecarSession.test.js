@@ -1,23 +1,28 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { test } from "node:test";
-import { createSidecarSessionOwner } from "./sidecarSession.js";
-import { createSelectedBackendCommand } from "./backendCommand.js";
-import * as startupPhase from "./startupPhase.js";
-import { expectBackendExit } from "./sidecarExitExpectation.js";
+import { createSidecarSessionOwner } from "./sidecarSession.ts";
+import * as startupPhase from "./startupPhase.ts";
+import { expectBackendExit } from "./sidecarExitExpectation.ts";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { deferred, flush, loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.js";
-import * as utils from "../utils.js";
+import * as utils from "../utils.ts";
 
-test("only the main window can retire a spawned sidecar through shell kill", async () => {
+test("only the main window can start, feed or retire the backend", async () => {
     const directory = new URL("../../../src-tauri/capabilities/", import.meta.url);
     const capabilities = await Promise.all((await readdir(directory)).filter(name => name.endsWith(".json"))
         .map(async name => JSON.parse(await readFile(new URL(name, directory), "utf8"))));
-    const grants = capabilities.filter(capability => capability.permissions.some(permission =>
-        (typeof permission === "string" ? permission : permission.identifier) === "shell:allow-kill"));
-    assert.equal(grants.length, 1);
-    assert.equal(grants[0].identifier, "vrct-capability");
-    assert.deepEqual(grants[0].windows, ["main"]);
+    // No window may start or stop a program; the backend runs inside the app (#285).
+    const shell = capabilities.flatMap(capability => capability.permissions).filter(permission =>
+        (typeof permission === "string" ? permission : permission.identifier).startsWith("shell:"));
+    assert.deepEqual(shell, []);
+    // The app's own commands refuse every window but main.
+    const host = await readFile(new URL("../../../src-tauri/src/backend_host.rs", import.meta.url), "utf8");
+    for (const command of ["backend_start", "backend_write", "backend_kill"]) {
+        // backend_start is async: it waits for a failed run off the main thread.
+        const body = host.split(new RegExp(`pub (?:async )?fn ${command}\\(`))[1].split("\n}\n")[0];
+        assert.match(body, /main_only\(&window\)\?/, command);
+    }
 });
 
 const setup = () => {
@@ -234,6 +239,41 @@ for (const beforeSpawn of [false, true]) test(`acknowledged initialization (${be
     detach();
 });
 
+test("lines that overtake spawn() wait for the child, so their replies can send requests", async () => {
+    // The core's start-up runs while backend_start is answering: on the AppImage its
+    // initialization_complete reached the UI first, and the requests made for it could not
+    // be written (backend_unavailable right after the window opened).
+    const s = setup(), seen = [];
+    s.handlers.receiveRoutes = message => seen.push([message.endpoint, s.store.backend_subprocess]);
+    const detach = s.mount();
+    await flush();
+    const a = s.attempts[0];
+    a.stdout.data(JSON.stringify({ endpoint: "/run/initialization_complete", status: 200, result: {} }));
+    a.stdout.data(JSON.stringify({ endpoint: "/run/after", status: 200 }));
+    assert.deepEqual(seen, []);
+    a.spawn.resolve(a.child);
+    await s.store.backend_session.completion;
+    assert.deepEqual(seen, [["/run/initialization_complete", a.child], ["/run/after", a.child]]);
+    assert.equal(s.store.backend_session.early, undefined);
+    a.stdout.data(JSON.stringify({ endpoint: "/run/later", status: 200 }));
+    assert.deepEqual(seen.at(-1), ["/run/later", a.child]);
+    detach();
+});
+
+test("lines held before a failed spawn are dropped", async context => {
+    context.mock.method(console, "error", () => {});
+    const s = setup(), detach = s.mount();
+    await flush();
+    const a = s.attempts[0];
+    a.stdout.data(JSON.stringify({ endpoint: "/run/initialization_complete", status: 200, result: {} }));
+    a.events.error("spawn failed");
+    a.spawn.resolve(a.child);
+    await s.store.backend_session.completion;
+    assert.deepEqual(s.messages, []);
+    assert.equal(a.child.kills, 1);
+    detach();
+});
+
 test("production controller publishes startup failure and the failure dialog says why and offers a working retry", async context => {
     context.mock.method(console, "error", () => {});
     const s = setup(), b = await loadBridgeStore();
@@ -243,12 +283,11 @@ test("production controller publishes startup failure and the failure dialog say
         useIsBackendReady: b.stores.useStore_IsBackendReady, useWindow: () => ({ asyncCloseApp: () => {} }) };
     const module = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
         "@tauri-apps/api/core": { invoke: async () => [] },
-        "@tauri-apps/plugin-shell": { Command: { sidecar: s.createCommand } },
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => ({ receiveRoutes: () => {}, backendStopped: () => {} }) },
-        "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
-        "../../../logics/common/backendCommand.js": { createSelectedBackendCommand },
-        "../../../logics/common/startupPhase.js": startupPhase,
+        "../../../logics/common/sidecarSession.ts": { createSidecarSessionOwner },
+        "../../../logics/common/backendCommand.ts": { createCoreBackendCommand: () => s.createCommand() },
+        "../../../logics/common/startupPhase.ts": startupPhase,
     });
     b.runtime.render(module.StartPythonController);
     await flush();
@@ -258,7 +297,7 @@ test("production controller publishes startup failure and the failure dialog say
     assert.equal(b.runtime.store.get(b.stores.Atom_IsBackendReady).data, false);
     // The failure dialog says why: here the program never started.
     assert.deepEqual(b.runtime.store.get(b.stores.Atom_BackendStartupFailure).data, { kind: "spawn", message: "not found" });
-    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.js": startupPhase });
+    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
     const screen = await loadModule(new URL("../../views/app/others/startup/StartupFailedDialog.jsx", import.meta.url), b.runtime, {
         "@logics_common": common,
         "../../../../logics/common/useBackendStartup": startup,
@@ -294,12 +333,12 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         useIsSoftwareUpdating: b.stores.useStore_IsSoftwareUpdating,
         useIsOpenedConfigPage: b.stores.useStore_IsOpenedConfigPage };
     const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
-        "@tauri-apps/api/core": { invoke: async () => [] }, "@tauri-apps/plugin-shell": { Command: { sidecar: s.createCommand } },
+        "@tauri-apps/api/core": { invoke: async () => [] },
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => b },
-        "../../../logics/common/sidecarSession.js": { createSidecarSessionOwner },
-        "../../../logics/common/backendCommand.js": { createSelectedBackendCommand },
-        "../../../logics/common/startupPhase.js": startupPhase,
+        "../../../logics/common/sidecarSession.ts": { createSidecarSessionOwner },
+        "../../../logics/common/backendCommand.ts": { createCoreBackendCommand: () => s.createCommand() },
+        "../../../logics/common/startupPhase.ts": startupPhase,
     });
     b.runtime.render(controller.StartPythonController);
     await flush();
@@ -341,7 +380,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     assert.deepEqual(sent, []);
     assert.deepEqual(quickCalls.at(-1), ["quick_chat_finish", { id: "after-exit", accepted: false }]);
 
-    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.js": startupPhase });
+    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
     const StartupFailedDialog = () => null, StartupAnnouncer = () => null;
     const app = await loadModule(new URL("../../views/app/App.jsx", import.meta.url), b.runtime, {
         "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},
@@ -349,7 +388,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "./_app_controllers/LocalAsrNoticeController": {},
         "./_app_controllers/VirtualMicGuideController": {},
         "./_app_controllers/SwitchBlocksController": {},
-        "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/IoFlowController": {},
+        "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/CompanionController": {}, "./_app_controllers/IoFlowController": {},
         "./main_page/MainPage": {}, "./config_page/ConfigPage": {},
         "./others": {}, "@logics_common": common,
         "@useI18n": { useI18n: () => ({ i18n: { language: "en" } }) },

@@ -98,13 +98,13 @@ pub fn open_monitor_output(device: &str, rate: u32, channels: u16, exclude: &[St
         let target = if device.is_empty() { default_output()? } else { device.to_owned() };
         Ok(Box::new(WindowsOutput::open(check_monitor_target(&target, exclude)?, rate, channels, false)?))
     }
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "pipewire"))]
     {
         use crate::pipewire::output::{default_output, PipeWireOutput};
         let target = if device.is_empty() { default_output()? } else { device.to_owned() };
         Ok(Box::new(PipeWireOutput::open(check_monitor_target(&target, exclude)?, rate, channels, None, MONITOR_NODE)?))
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
+    #[cfg(not(any(windows, all(target_os = "linux", feature = "pipewire"))))]
     {
         let _ = (device, rate, channels, exclude);
         Err(Error::speech("unsupported_platform"))

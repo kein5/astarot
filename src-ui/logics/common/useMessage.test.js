@@ -5,9 +5,9 @@ import i18next from "i18next";
 import yaml from "js-yaml";
 import { find, hooks, loadModule } from "../test/hookHarness.js";
 import { loadBridgeRoutes, deferred, flush } from "../test/bridgeHarness.js";
-import { keepRecentLogs } from "./messageLogLimit.js";
-import * as chatboxLength from "./chatboxLength.js";
-import { decodeLogUpdate, encodeLogUpdate } from "./vrPanelWire.js";
+import { keepRecentLogs } from "./messageLogLimit.ts";
+import * as chatboxLength from "./chatboxLength.ts";
+import { decodeLogUpdate, encodeLogUpdate } from "./vrPanelWire.ts";
 
 async function setup(send = async () => true, reset = async () => true, i18n = null) {
     let useMessage;
@@ -69,8 +69,19 @@ test("a correlated error only settles that pending row", async context => {
     const subject = await setup();
     await subject.message.sendMessage("First", "first");
     await subject.message.sendMessage("Second", "second");
-    subject.receive(423, { data: { id: "second" } });
+    // The backends name the row on a lock timeout, a missing endpoint or an internal error.
+    subject.receive(423, { message: "Locked endpoint (busy)", data: { id: "second" } });
     assert.deepEqual(subject.rows().map(row => row.status), ["pending", "failed"]);
+    subject.receive(500, { message: "Internal error", data: { id: "unknown" } });
+    assert.deepEqual(subject.rows().map(row => row.status), ["pending", "failed"], "another row's failure leaves this one waiting");
+});
+
+test("a null answer during shutdown changes no row and does not throw", async () => {
+    const subject = await setup();
+    await subject.message.sendMessage("First", "first");
+    assert.doesNotThrow(() => subject.message.updateSentMessageLogById(null));
+    subject.receive(200, null);
+    assert.deepEqual(subject.rows().map(row => [row.id, row.status]), [["first", "pending"]]);
 });
 
 test("successful transport stays pending until a success response, including an immediate response", async () => {
@@ -302,6 +313,24 @@ for (const language of ["en", "ja"]) test(`${language}: recognition failures are
     assert.doesNotMatch(errors.AUDIO_OPEN_ERROR_speaker, /Windows/);
     for (const code of RECOGNITION_FAILURES) assert.ok(errors[code], code);
     assert.deepEqual(subject.reads, []);
+});
+
+// The core adds `cause` when a cloud engine said why it failed (native/transcription/src/providers.rs, ApiError).
+const ENGINE_CAUSES = ["TRANSCRIPTION_API_AUTH_FAILED", "TRANSCRIPTION_API_RATE_LIMITED", "TRANSCRIPTION_API_TIMEOUT",
+    "TRANSCRIPTION_API_SERVER_ERROR"];
+
+for (const language of ["en", "ja"]) test(`${language}: a cloud engine's reason for failing is logged instead of the general text`, async () => {
+    const translation = locale(language);
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { [language]: { translation } }, interpolation: { escapeValue: false } });
+    const subject = await setup(undefined, undefined, i18n);
+    const log = result => subject.receiveRoutes({ status: 200, endpoint: "/run/transcription_recognition_error", result });
+    for (const cause of ENGINE_CAUSES) log({ error_code: "ASR_ERROR", stage: "asr", source: "mic", message: "English default", cause });
+    // A cause the UI has no text for falls back to the general text.
+    log({ error_code: "ASR_ERROR", stage: "asr", source: "mic", message: "English default", cause: "TRANSCRIPTION_API_SOMETHING_NEW" });
+    const errors = translation.backend_errors;
+    assert.deepEqual(subject.rows().map(row => row.messages.original.message), [...ENGINE_CAUSES.map(code => errors[code]), errors.ASR_ERROR]);
+    for (const code of ENGINE_CAUSES) assert.notEqual(errors[code], errors.ASR_ERROR, code);
 });
 
 for (const accepted of [true, false]) test(`holding Enter and duplicate clicks send once until handoff settles (${accepted})`, async context => {

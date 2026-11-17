@@ -97,6 +97,9 @@
     --vox_skeleton: var(--dark_850_color);
     --dark_50_color: #ffffff;
     --font_family: "Yu Gothic UI";
+    /* One monospace stack for URLs, paths and codes (#476). Latin mono faces first; Japanese
+       falls back to the UI font instead of a Japanese monospace face with wide gaps. */
+    --vox_font_mono: "Cascadia Mono", Consolas, "DejaVu Sans Mono", "Noto Sans Mono", "Liberation Mono", var(--font_family), "Noto Sans", system-ui, sans-serif;
 }
 /* https://m2.material.io/design/color/the-color-system.html#tools-for-picking-colors */
 /* https://meyerweb.com/eric/tools/color-blend/#::1:hex */

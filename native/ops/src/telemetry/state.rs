@@ -104,6 +104,25 @@ fn load(path: Option<&Path>) -> Data {
     }
 }
 
+/// Writes `bytes` to a file beside `path` and puts it in place only once it is on disk, so a
+/// crash or a full disk mid-write leaves the previous record instead of an empty one.
+fn replace(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let temporary = path.with_file_name(format!("{name}.{}.tmp", std::process::id()));
+    let written = (|| {
+        let mut file = std::fs::File::create(&temporary)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temporary, path)
+    })();
+    if written.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    written
+}
+
 impl Inner {
     fn save(&self) {
         let Some(path) = &self.storage_path else { return };
@@ -112,7 +131,7 @@ impl Inner {
         if std::fs::create_dir_all(parent).is_err() {
             return;
         }
-        let _ = std::fs::write(path, self.data.to_json().to_python_indented());
+        let _ = replace(path, self.data.to_json().to_python_indented().as_bytes());
     }
 
     /// Only today's error codes are kept.
@@ -128,7 +147,8 @@ impl Inner {
 
 impl TelemetryState {
     pub fn new(storage_path: Option<&Path>) -> Self {
-        TelemetryState { inner: Mutex::new(Inner { enabled: true, storage_path: storage_path.map(Path::to_path_buf), data: load(storage_path) }) }
+        // Off until `Telemetry::init` turns it on: before that nothing may be sent or recorded.
+        TelemetryState { inner: Mutex::new(Inner { enabled: false, storage_path: storage_path.map(Path::to_path_buf), data: load(storage_path) }) }
     }
 
     /// Sets (late) where the record lives, and reads it from there.
@@ -289,6 +309,22 @@ mod tests {
         }
         std::fs::write(&path, data.to_python_indented()).unwrap();
         assert_eq!(TelemetryState::new(Some(&path)).sent(), [kept[0].clone()]);
+    }
+
+    #[test]
+    fn it_is_off_until_turned_on() {
+        assert!(!TelemetryState::new(None).is_enabled());
+    }
+
+    #[test]
+    fn a_write_replaces_the_file_whole_and_leaves_no_temporary_behind() {
+        let (dir, path) = fresh();
+        let state = TelemetryState::new(Some(&path));
+        state.mark_app_started_sent_today();
+        state.mark_error_sent_today("A");
+        assert!(!TelemetryState::new(Some(&path)).should_send_error_today("A"));
+        let names: Vec<_> = std::fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names, ["telemetry_state.json"]);
     }
 
     #[test]

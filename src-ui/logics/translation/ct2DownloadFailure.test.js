@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
-import { legacyDownloadFailure } from "../configs/legacyModelConsent.js";
+import { legacyDownloadFailure } from "../configs/legacyModelConsent.ts";
 
 // Issue #305: a failed CTranslate2 download said only that it failed. It now says why and
 // offers a retry that reopens the review (consent first), not a silent re-download.

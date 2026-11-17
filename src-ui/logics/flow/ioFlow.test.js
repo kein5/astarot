@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { TRACE_KEEP, formatMs, latestTraces, median, mergeTrace, outputArrivals, overlayCount, stageSegments,
-    timelineScale, traceTotal } from "./ioFlow.js";
+    timelineScale, traceTotal } from "./ioFlow.ts";
 
 const trace = (id, input = "voice", outputs = {}, stages = {}) => ({ id, input, text: id, translation: "", origin: "final",
     stages, outputs });

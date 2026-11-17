@@ -27,7 +27,7 @@ pub const FOLDERS: [&str; 7] = [
 ];
 
 /// A real directory: not a symbolic link, not a junction or another reparse point.
-fn plain_directory(path: &Path) -> bool {
+pub(crate) fn plain_directory(path: &Path) -> bool {
     let Ok(info) = fs::symlink_metadata(path) else { return false };
     if info.file_type().is_symlink() {
         return false;

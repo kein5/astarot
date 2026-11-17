@@ -7,11 +7,16 @@ import { legacyDownloadRequest, legacyReviewSize } from "../../../../../../../lo
 import styles from "../../advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "./LegacyModelDownloadDialog.module.scss";
 import { useConsentDialog } from "../../../../../../../logics/common/useConsentDialog";
+import { ModelDownloads } from "../../advanced_settings/ModelDownloads";
+import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 
 // Native modal scope, initial focus on Back and the shared catalog form styles.
 // A snapshot remains on screen until closed, even if the catalog is refreshed.
 // extraAction: another way forward that closes this review without downloading.
 // note: what the download changes, when the caller continues something afterwards.
+// The translation models of the ONNX engine come through the shared consent catalog
+// (target "translation"): this review lists them there, or says that none is published yet
+// and where a model of one's own goes, instead of waiting for a review that never comes.
 export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null }) => {
     const { t } = useI18n();
     const { catalog, error, send } = useModelDownloads();
@@ -36,6 +41,8 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
     const modelCard = model => `https://huggingface.co/${model.repo}/blob/${model.revision}/README.md`;
     const revision = value => <code title={value} aria-description={value}>{value.slice(0, 12)}</code>;
     const request = legacyDownloadRequest(entry, consent);
+    const translation = kind === "ctranslate2" && !!catalog && !entry;
+    const translationRows = translation ? (catalog.models ?? []).filter(model => model.target === "translation") : [];
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); cancel(); }}>
             <h3>{t("model_downloads.warning_title")}</h3>
@@ -79,14 +86,22 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
                 <label className={styles.checkLabel}><input type="checkbox" checked={consent}
                     onChange={event => setConsent(event.target.checked)} />{t(entry.tokenizer
                         ? "legacy_model_downloads.consent" : "legacy_model_downloads.consent_without_extra_files")}</label>
+            </> : translation ? <>
+                {translationRows.length > 0
+                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} />
+                    : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
+                <p>{t("legacy_model_downloads.translation_own_model")}</p>
+                <CustomModelLink section="translation" />
+                {catalog.translation_models_folder && <p><code className={dialogStyles.path}>{catalog.translation_models_folder}</code></p>}
             </> : <p role="status">{t(error ? "legacy_model_downloads.review_unavailable" : "model_downloads.loading")}</p>}
             <div className={styles.actions}>
-                <button type="button" autoFocus onClick={cancel}>{t("model_downloads.back")}</button>
-                <button type="button" disabled={!request} onClick={() => {
+                <button type="button" autoFocus onClick={cancel}>{t(translation ? "legacy_model_downloads.close" : "model_downloads.back")}</button>
+                {/* The main action, blue (#462); VoiceSettings' .container reaches it through the host div. */}
+                {!translation && <button type="button" className="primary" disabled={!request} onClick={() => {
                     if (!request || submitted.current) return;
                     submitted.current = true;
                     close(); onDownload(request); onCancel();
-                }}>{t("model_downloads.start")}</button>
+                }}>{t("model_downloads.start")}</button>}
             </div>
             {extraAction && <p className={dialogStyles.alternative}>
                 <button type="button" onClick={() => { cancel(); extraAction.onClick(); }}>{extraAction.label}</button>

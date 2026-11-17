@@ -14,6 +14,22 @@ test("credential reentry notices and field hints exist in every supported locale
     }
 });
 
+// A branch that shows `localized` falls back to the backend's English message when the code has
+// no text, so a Japanese UI would show English (the GPU memory notices once did).
+test("every code shown with its backend_errors text has one in every supported locale", () => {
+    const source = readFileSync(new URL("./_useBackendErrorHandling.js", import.meta.url), "utf8");
+    const codes = new Set();
+    for (const [, labels, body] of source.matchAll(/((?:case "[A-Z0-9_]+":\s*)+)([\s\S]*?)(?=case "|default:)/g)) {
+        if (/\blocalized\b/.test(body)) for (const [, code] of labels.matchAll(/case "([A-Z0-9_]+)"/g)) codes.add(code);
+    }
+    for (const code of ["TRANSLATION_VRAM_CHAT", "TRANSLATION_VRAM_MIC", "TRANSLATION_VRAM_SPEAKER"]) assert.ok(codes.has(code), code);
+    for (const language of ["en", "ja"]) {
+        const locale = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+        const missing = [...codes].filter(code => typeof locale.backend_errors[code] !== "string");
+        assert.deepEqual(missing, [], `${language}: backend_errors has no text for these codes`);
+    }
+});
+
 for (const [base, provider] of [["OpenAICompatible", "openai_compatible"], ["CustomWhisper", "custom_whisper"]]) {
     test(`${provider}: credential reentry settles only the URL and explains the rejection`, async () => {
         const s = await loadBridgeRoutes();
@@ -167,4 +183,18 @@ for (const language of ["en", "ja"]) test(`${language}: a VR UI that this system
     assert.deepEqual(s.notices, [{ type: "error", key: translation.backend_errors.OVERLAY_VR_PANEL_UNSUPPORTED,
         options: { category_id: "OVERLAY_VR_PANEL_UNSUPPORTED" } }]);
     assert.deepEqual(s.reads, ["/get/data/overlay_vr_panel"]);
+});
+
+for (const language of ["en", "ja"]) test(`${language}: a key store failure stays on screen and changes no setting`, async () => {
+    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { [language]: { translation } } });
+    const s = await loadBridgeRoutes(undefined, i18n);
+    s.receiveRoutes({ status: 400, endpoint: "/run/secret_store_failed", result: {
+        error_code: "SECRET_STORE_FAILED", data: { operation: "write", entries: ["AUTH_KEYS/DeepL_API"], reason: "write_failed", store: "file" },
+        message: "The API keys could not be kept in their secure storage.",
+    } });
+    assert.deepEqual(s.notices, [{ type: "error", key: translation.backend_errors.SECRET_STORE_FAILED,
+        options: { hide_duration: null, category_id: "SECRET_STORE_FAILED" } }]);
+    assert.deepEqual(s.reads, []);
 });

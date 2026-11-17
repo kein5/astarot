@@ -18,12 +18,12 @@ A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose o
 - Write every commit message as a [Conventional Commit](#commit-messages). The commit-msg hook and CI check them.
 - Add or update tests for behavior changes, and describe what you verified and what you could not.
 - Do not commit secrets, API keys, voice recordings or model files without a redistribution license.
-- New or upgraded dependencies must have a compatible license; update [NOTICE.md](NOTICE.md) when bundled components change. Python dependencies live in `pyproject.toml` and `uv.lock` (`uv lock`).
-- Models offered for download go into the download catalog (`src-python/models/model_downloads/catalog.py`) with a pinned revision, file sizes, SHA-256 and the license shown before download. Do not make a model with a non-commercial or otherwise restrictive license a default.
+- New or upgraded dependencies must have a compatible license; update [NOTICE.md](NOTICE.md) when bundled components change. The app's Rust crates are pinned in the `Cargo.lock` files (`src-tauri/`, `native/rvc-runtime/`). Python dependencies, used by the development tools and tests since 0.5.0, live in `pyproject.toml` and `uv.lock` (`uv lock`).
+- Models offered for download go into the download catalog (`native/ops/src/downloads/catalog.rs`; the tests compare it with `src-python/models/model_downloads/catalog.py`, so keep both the same) with a pinned revision, file sizes, SHA-256 and the license shown before download. Do not make a model with a non-commercial or otherwise restrictive license a default.
 - User-facing text goes into `locales/`. English (`en.yml`) and Japanese (`ja.yml`) are the only UI languages; update both. Korean and Chinese were dropped as UI languages in 0.2.0 (they remain translation languages).
-- Icons and logos are generated from `docs/brand/` with `tools/brand_assets.py`; edit the sources there, not the generated files.
+- The app's icons and in-app logos are generated from `docs/brand/astarot/` with `tools/astarot_app_assets.py`, and the README logos from `docs/brand/` with `tools/brand_assets.py`; edit the sources there, not the generated files.
 
-Automated checks on every pull request: the model-free contract tests on Linux and Windows, the commit-message check, dependency review (known vulnerabilities and licenses), and CodeQL code scanning. Pull requests to `main` must pass the required checks before merging.
+Automated checks on every pull request: the model-free contract tests, the Rust backend core tests and the Python backend tests on Linux and Windows, the commit-message check, dependency review (known vulnerabilities and licenses), and CodeQL code scanning. Pull requests to `main` must pass the required checks before merging.
 
 ## Commit messages
 
@@ -90,7 +90,7 @@ CI checks the commits of every pull request, and the commits pushed to `develop`
 2. For a stable release only, run `npm run changelog` (`python tools/changelog.py write`). It reads the commits since the previous stable release tag through Cocogitto and adds the version's section at the top of `CHANGELOG.md`, naming the betas it includes. Read the section; if a line is unclear, fix it in the file. The tool will not overwrite a section that differs from what it would write unless you pass `--force`. For a beta, skip this step; `write` refuses a beta.
 3. Commit as `chore(release): version X.Y.Z` and open the pull request. Release pull requests to `main` fail if the section is missing.
 4. Build the candidates and run "Prepare verified VRCT-VOX release draft" ([release candidates](docs/voice-stack/release-candidates.md)). A stable draft's notes are made from its CHANGELOG section; a beta's from its commits since the previous release tag. Run `python tools/changelog.py print` or `release-notes` to see them beforehand.
-5. Before publishing the draft, write its Highlights, Upgrade Notes and Known Issues. Publishing creates the `vX.Y.Z` tag.
+5. Before publishing the draft, replace its body with the release notes in `docs/release-notes/X.Y.Z.md` ([format](docs/release-notes/README.md)). Publishing creates the `vX.Y.Z` tag.
 
 Running `write` again gives the same file. It stops if the tag `vX.Y.Z` already exists. Tags are created only by publishing a GitHub release; do not run `cog bump` and do not push tags by hand.
 
@@ -124,7 +124,7 @@ Release commits (`chore(release): ...`) and merge commits are left out. The same
 
 ### GitHub Releases
 
-The CHANGELOG section is the full list of a stable release; the GitHub release helps users decide whether to update. Its draft starts with Highlights, Breaking Changes, Upgrade Notes and Known Issues, then the user-facing changes. Internal changes are counted, with a link to `CHANGELOG.md` for a stable release and to the comparison of commits for a beta. Keep the two consistent: change the CHANGELOG first, then the release text.
+The CHANGELOG section is the full list of a stable release; the GitHub release helps users decide whether to update. Its text is written by hand in `docs/release-notes/X.Y.Z.md`. From 0.5.0 it opens with two to four sentences on the biggest change, then gives each change that matters to users its own heading (one emoji and a short title), written in plain paragraphs with lists only where they help; the upgrade notes and known issues come last among these. It ends with one heading for internal changes, a short list in technical terms with the pull request number on each line. The format is in [docs/release-notes/README.md](docs/release-notes/README.md). The draft that `tools/changelog.py` starts (Highlights, Upgrade Notes, Known Issues and the changes) is replaced with these notes before publishing. Keep the two consistent: change the CHANGELOG first, then the release text.
 
 ### Troubleshooting
 

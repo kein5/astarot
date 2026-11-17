@@ -106,11 +106,46 @@ fn handle(mut stream: TcpStream, mode: &str, diarization: bool) {
     respond(&mut stream, "404 Not Found", "text/plain", "", b"");
 }
 
+/// A file beside this executable, for a copy of it that plays one bundled build.
+fn beside(name: &str) -> Option<std::path::PathBuf> {
+    let path = std::env::current_exe().ok()?.parent()?.join(name);
+    path.is_file().then_some(path)
+}
+
+/// A Vulkan build on a PC without `libvulkan.so.1`: the dynamic loader's own message and status.
+fn without_loader() {
+    if beside("no-loader").is_some() {
+        eprintln!(
+            "speech: error while loading shared libraries: libvulkan.so.1: cannot open shared object file: No such file or directory"
+        );
+        std::process::exit(127);
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // `devices [--json]` answers only for a copy with `devices.json` beside it: its rows, as
+    // JSON or as the text lines speech.cpp prints. Any other copy refuses it.
+    if args.get(1).map(String::as_str) == Some("devices") {
+        without_loader();
+        let Some(rows) = beside("devices.json").and_then(|path| std::fs::read_to_string(path).ok()) else {
+            std::process::exit(2);
+        };
+        if args.get(2).map(String::as_str) == Some("--json") {
+            println!("{rows}");
+        } else {
+            let value: serde_json::Value = serde_json::from_str(&rows).expect("devices.json");
+            for row in value["devices"].as_array().into_iter().flatten() {
+                let (name, kind, label) = (&row["name"], &row["kind"], &row["description"]);
+                println!("{}    {}   {}, 8.0 GB, 7.5 GB free", name.as_str().unwrap(), kind.as_str().unwrap(), label.as_str().unwrap());
+            }
+        }
+        return;
+    }
     if args.get(1).map(String::as_str) != Some("serve") {
         std::process::exit(2);
     }
+    without_loader();
     let mode = stem(args.get(2));
     let diarization = stem(args.get(4)) == "diarization";
     let fail = |message: &str, newline: bool| -> ! {

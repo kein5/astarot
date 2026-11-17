@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import { flush } from "../../../logics/test/bridgeHarness.js";
-import * as lines from "../../../logics/captionOverlay/lines.js";
-import * as ioFlow from "../../../logics/flow/ioFlow.js";
-import * as flowText from "../../../logics/flow/flowText.js";
-import * as adjust from "../../../logics/captionOverlay/adjust.js";
+import * as lines from "../../../logics/captionOverlay/lines.ts";
+import * as ioFlow from "../../../logics/flow/ioFlow.ts";
+import * as flowText from "../../../logics/flow/flowText.ts";
+import * as adjust from "../../../logics/captionOverlay/adjust.ts";
+import * as windowFailures from "../../../logics/common/windowFailures.ts";
 
 const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
 
@@ -13,15 +14,17 @@ const row = (id, category, message, status = "ok") => ({
     id, category, status, messages: { original: { message, transliteration: [] }, translations: [] },
 });
 
-async function setup(context, { supported = true } = {}) {
+async function setup(context, { supported = true, fail = () => null } = {}) {
     context.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
-    const runtime = hooks(), calls = [];
+    const runtime = hooks(), calls = [], notices = [];
     const state = { ready: true, enabled: false, rows: [], onlyTranslated: false,
         settings: { position: "bottom", font_size: 28, display_duration: 6, opacity: 0.6 },
         placement: { x: null, y: null },
         flow: { desktop: false, count: 1 }, traces: [], map: null };
     const invoke = async (command, args) => {
         calls.push([command, args]);
+        const failure = fail(command, args);
+        if (failure) throw failure;
         return command === "caption_overlay_supported" ? supported : undefined;
     };
     const listeners = new Map(), saved = [];
@@ -35,8 +38,11 @@ async function setup(context, { supported = true } = {}) {
         "../../../logics/captionOverlay/adjust": adjust,
         "@store": { useStore_MessageLogs: () => ({ currentMessageLogs: { data: state.rows } }) },
         "@useI18n": { useI18n: () => ({ t }) },
-        "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }) },
+        "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }),
+            useNotificationStatus: () => ({ showNotification_Error: (message, options) => notices.push([message, options]) }) },
+        "../../../logics/common/windowFailures.ts": windowFailures,
         "@logics_configs": {
+            useExperimentalFeature: id => id === "tray_companion" && state.companion === true,
             useAppearance: () => ({ currentSelectedFontFamily: { data: "Yu Gothic UI" } }),
             useVr: () => ({
                 currentIsEnabledOverlayDesktop: { data: state.enabled },
@@ -50,8 +56,8 @@ async function setup(context, { supported = true } = {}) {
         },
         "../../../logics/captionOverlay/lines": lines,
         "../../../logics/flow/useIoFlow": { useIoFlow: () => ({ currentIoFlow: { data: state.map }, currentIoTraces: { data: state.traces } }) },
-        "../../../logics/flow/ioFlow.js": ioFlow,
-        "../../../logics/flow/flowText.js": flowText,
+        "../../../logics/flow/ioFlow.ts": ioFlow,
+        "../../../logics/flow/flowText.ts": flowText,
     });
     const render = async () => {
         runtime.render(CaptionOverlayController); await flush();
@@ -59,7 +65,7 @@ async function setup(context, { supported = true } = {}) {
     };
     await render();
     context.after(() => runtime.unmount());
-    return { state, calls, render, listeners, saved, runtime, tick: ms => context.mock.timers.tick(ms),
+    return { state, calls, notices, render, listeners, saved, runtime, tick: ms => context.mock.timers.tick(ms),
         of: name => calls.filter(([command]) => command === name).map(([, args]) => args) };
 }
 
@@ -76,6 +82,16 @@ test("the window opens only while the setting is on, and closes when it is turne
     s.state.enabled = false;
     await s.render();
     assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: false, position: "top", placement: null });
+});
+
+test("the tray companion (an experimental feature) shows the captions with the setting off", async context => {
+    const s = await setup(context);
+    s.state.companion = true;
+    await s.render();
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: true, position: "bottom", placement: null });
+    s.state.ready = false;
+    await s.render();
+    assert.deepEqual(s.of("caption_overlay_set").at(-1), { open: false, position: "bottom", placement: null });
 });
 
 test("the backend not being ready keeps the window closed", async context => {
@@ -186,4 +202,49 @@ test("the listeners go when the controller does", async context => {
     s.runtime.unmount();
     await flush();
     assert.equal(s.listeners.size, 0);
+});
+test("a window that cannot be opened says why, once, and closing one says nothing", async context => {
+    let failing = "caption_overlay_no_monitor";
+    const s = await setup(context, { fail: (command, args) => command === "caption_overlay_set" && args.open ? failing : null });
+    s.state.enabled = true;
+    await s.render();
+    assert.deepEqual(s.notices, [["common_error.window.caption_overlay_no_monitor", { category_id: "caption_overlay_open_failed" }]]);
+    // Moved while it still fails: no second notice.
+    s.state.settings = { ...s.state.settings, position: "top" };
+    await s.render();
+    assert.equal(s.notices.length, 1);
+    // A system error's text gets the general words; after a success a new failure is said again.
+    failing = null;
+    s.state.settings = { ...s.state.settings, position: "bottom" };
+    await s.render();
+    failing = "Os { code: 1400 }";
+    s.state.settings = { ...s.state.settings, position: "top" };
+    await s.render();
+    assert.deepEqual(s.notices.at(-1), ["common_error.window.caption_overlay_open_failed", { category_id: "caption_overlay_open_failed" }]);
+    // Turning it off is not an open that failed.
+    const before = s.notices.length;
+    s.state.enabled = false;
+    await s.render();
+    assert.equal(s.notices.length, before);
+});
+
+test("captions that cannot be updated are said once until an update works again", async context => {
+    let failing = "caption_overlay_invalid";
+    const s = await setup(context, { fail: command => command === "caption_overlay_update" ? failing : null });
+    s.state.enabled = true;
+    await s.render();
+    for (const id of [1, 2, 3]) {
+        s.state.rows = [...s.state.rows, row(id, "sent", `行${id}`)];
+        await s.render();
+    }
+    assert.deepEqual(s.notices, [["common_error.window.caption_overlay_update_failed", { category_id: "caption_overlay_update_failed" }]]);
+    failing = null;
+    s.state.rows = [...s.state.rows, row(4, "sent", "行4")];
+    await s.render();
+    failing = "caption_overlay_invalid";
+    s.state.rows = [...s.state.rows, row(5, "sent", "行5")];
+    await s.render();
+    assert.equal(s.notices.length, 2);
+    // The notice never carries what was said.
+    assert.ok(s.notices.every(([message]) => !message.includes("行")));
 });

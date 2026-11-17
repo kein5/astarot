@@ -610,26 +610,6 @@ def test_the_linux_bundle_carries_the_rvc_worker():
     assert 'build_rvc_worker.py' in (ROOT / 'tools/build_linux.py').read_text(encoding='utf-8')
 
 
-def test_the_linux_bundle_carries_what_the_setup_installs_from(tmp_path, monkeypatch):
-    from tools.build_linux import copy_adapters
-    copy_adapters(tmp_path)
-    monkeypatch.setattr(rs, 'target', lambda: 'linux')
-    monkeypatch.setattr(rs, 'worker_file', lambda path: tmp_path / path)
-    rs.version_of.cache_clear()
-    try:
-        for runtime in rs.runtimes():
-            assert rs.version_of(runtime)
-            assert all((tmp_path / path).is_file() for path, _ in runtime.locks)
-            assert not runtime.patch or (tmp_path / runtime.patch).is_file()
-    finally:
-        rs.version_of.cache_clear()
-    names = {path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob('*.lock')}
-    assert not any('windows' in name for name in names)
-    from tools.linux_package import RUNTIME
-    assert {'_internal/' + name for name in names} <= set(RUNTIME)
-    assert '_internal/integrations/seed_vc/offline-loader.patch' in RUNTIME
-
-
 linux_only = pytest.mark.skipif(sys.platform != 'linux', reason='the Linux launcher')
 
 

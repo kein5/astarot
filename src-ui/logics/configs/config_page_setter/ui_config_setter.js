@@ -1,6 +1,6 @@
 import { useAtomValue } from "jotai";
 import { createAtomWithHook, dynamicStoreRegistry } from "@store";
-import { settingPendingControl } from "../../common/pendingRequestRecovery.js";
+import { settingPendingControl } from "../../common/pendingRequestRecovery.ts";
 import vr_layout from "../../../views/vr/vr_layout.json";
 
 import {
@@ -164,6 +164,16 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "speaker_vad_filter",
     },
     {
+        // Whether this build has a VAD engine. Without one the VAD option is shown unavailable
+        // and a saved VAD switch cuts nothing (phrases are cut by volume).
+        Category: "Device",
+        Base_Name: "VadAvailable",
+        default_value: false,
+        ui_template_id: "custom",
+        logics_template_id: "get_only",
+        base_endpoint_name: "vad_available",
+    },
+    {
         Category: "Device",
         Base_Name: "EnableAutomaticSpeakerThreshold",
         default_value: true,
@@ -290,6 +300,32 @@ export const SETTINGS_ARRAY = [
         ui_template_id: "input",
         logics_template_id: "get_set_delete",
         base_endpoint_name: "deepl_auth_key",
+    },
+    // Google Cloud Translation (official API, core only)
+    {
+        Category: "Translation",
+        Base_Name: "GoogleCloudAuthKey",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set_delete",
+        base_endpoint_name: "google_cloud_auth_key",
+    },
+    // Papago Translation of NAVER Cloud Platform (official API, core only)
+    {
+        Category: "Translation",
+        Base_Name: "PapagoClientID",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set",
+        base_endpoint_name: "papago_client_id",
+    },
+    {
+        Category: "Translation",
+        Base_Name: "PapagoAuthKey",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set_delete",
+        base_endpoint_name: "papago_auth_key",
     },
     // Plamo
     {
@@ -720,7 +756,7 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "selected_deepgram_model",
     },
     // The OpenAI-compatible cloud engines drop segments below these thresholds. The
-    // settings no longer show them: they were sliders for the removed local Whisper (#288).
+    // transcription page shows them under the cloud engines (WhisperSegmentFilter_Box).
     {
         Category: "Transcription",
         Base_Name: "MicAvgLogprob",
@@ -956,6 +992,25 @@ export const SETTINGS_ARRAY = [
         ui_template_id: "toggle",
         logics_template_id: "toggle_enable_disable",
         base_endpoint_name: "overlay_show_only_translated_messages",
+    },
+    {
+        // The subtitles' font, one of this PC's ("" is automatic). No font is bundled.
+        Category: "Vr",
+        Base_Name: "OverlayFontFamily",
+        default_value: "",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "overlay_font_family",
+    },
+    {
+        // The languages no font on this PC can draw (Linux without CJK fonts, say). Asked for
+        // when the settings open; not part of the start-up answer.
+        Category: "Vr",
+        Base_Name: "OverlayFontMissingLanguages",
+        default_value: [],
+        ui_template_id: "list",
+        logics_template_id: "get_only",
+        base_endpoint_name: "overlay_font_missing_languages",
     },
     {
         // VR UI (手首のランチャーと各ウィンドウ)。字幕のオーバーレイとは別にON/OFFする
@@ -1194,14 +1249,8 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_only",
         base_endpoint_name: "telemetry_preview",
     },
-    {
-        Category: "Updater",
-        Base_Name: "ReleaseChannel",
-        default_value: "stable",
-        ui_template_id: "select",
-        logics_template_id: "get_set",
-        base_endpoint_name: "release_channel",
-    },
+    // The release channel has no setting here: it follows the installed build (the core sets it
+    // from the version at every start) and the app updater reads it from the install (#399).
 
     // AdvancedSettings
     {
@@ -1332,6 +1381,34 @@ export const SETTINGS_ARRAY = [
         ui_template_id: "input",
         logics_template_id: "get_set",
         base_endpoint_name: "obs_browser_source_font_outline_color",
+    },
+
+    // { feature_id: bool }, every listed feature off by default (experimentalFeatures.ts).
+    {
+        Category: "ExperimentalFeatures",
+        Base_Name: "ExperimentalFeatures",
+        default_value: {},
+        ui_template_id: "object",
+        logics_template_id: "get_set",
+        base_endpoint_name: "experimental_features",
+    },
+    {
+        // The screen edge the tray companion's hexagram hides at (experimental feature tray_companion).
+        Category: "ExperimentalFeatures",
+        Base_Name: "TrayCompanionEdge",
+        default_value: "right",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "tray_companion_edge",
+    },
+    {
+        // The monitor the hexagram shows on; empty for the primary monitor.
+        Category: "ExperimentalFeatures",
+        Base_Name: "TrayCompanionMonitor",
+        default_value: "",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "tray_companion_monitor",
     },
 
 ];

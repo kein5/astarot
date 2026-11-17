@@ -155,7 +155,7 @@ def test_native_mic_translation_to_qwen_once_and_source_stop(tmp_path, direct_po
                 ui.open_voice_settings()
                 ui.select('Realtime microphone speech', 'translated')
                 ui.select('Direct input while translating', direct_policy)
-                ui.fill('Other languages server (Qwen3-TTS)', tts.url)
+                ui.fill('Other languages server URL (Qwen3-TTS)', tts.url)
                 ui.click_text('button', 'Save changes')
                 wait_for(lambda: json.loads(config_path.read_text()).get('VOICE_SETTINGS', {}).get('mic_mode') == 'translated')
                 wait_for(lambda: gate.inspect_pair()['direct']['muted'] == (direct_policy == 'suppress'))
@@ -174,7 +174,7 @@ def test_native_mic_translation_to_qwen_once_and_source_stop(tmp_path, direct_po
                     worker = workers[0]
                     settled(capture, time.monotonic_ns(), 'rvc_bypassed_mute', silent=True)
                     ui.open_route_settings()
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 wait_for(lambda: not gate.inspect()['muted'])
                 if not real_rvc:
                     settled(capture, time.monotonic_ns(), 'direct_input_policy_mismatch', **direct)
@@ -417,13 +417,13 @@ def test_native_mic_translation_to_qwen_once_and_source_stop(tmp_path, direct_po
                     ui.open_rvc_settings()
                     ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Converting voice')")
                     ui.open_route_settings()
-                    ui.click_text('button', 'Mute until resumed')
+                    ui.click_text('button', 'Mute now')
                     producer.play()
                     settled(capture, time.monotonic_ns(), 'rvc_global_mute_failed', silent=True)
                     ui.open_rvc_settings()
                     ui.click_text('button', 'Stop input forwarding')
                     wait_for(lambda: not any(name.startswith('vrct.asr.capture.') for name in nodes()))
-                    ui.click_text('button', 'Resume voice')
+                    ui.click_text('button', 'Unmute')
                     settled(capture, time.monotonic_ns(), 'rvc_raw_fallback_after_stop', silent=True)
                 ui.close_app()
             assert gate.inspect()['muted']

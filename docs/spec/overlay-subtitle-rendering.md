@@ -1,6 +1,9 @@
 # SteamVR subtitle images
 
-`src-python/models/overlay/overlay_image.py` builds both subtitle textures.
+Since 0.5.0 the Rust core builds both subtitle textures (`native/vr-overlay`,
+mainly `src/subtitle.rs`, `src/layout.rs` and `src/fonts.rs`). This contract was
+written against the Python backend's `src-python/models/overlay/overlay_image.py`,
+which built them up to 0.4; the Python names below refer to that implementation.
 This contract covers subtitle pixels only; message delivery, OSC text and
 retained conversation text are unchanged.
 
@@ -68,8 +71,9 @@ budgets, not limits on chat input or transmission.
 
 Missing glyphs are detected by comparing each character's mask with that font's
 missing-glyph mask. A whole grapheme uses the first font covering its visible
-characters: the selected bundled Noto font, the other bundled Noto fonts, then
-a locally installed emoji font. Shaping controls and variation selectors do not
+characters: the selected font, the standard fonts for its language, then any
+other installed font that has the characters. No font is bundled (see the
+subtitle font in `use-cases.md`). Shaping controls and variation selectors do not
 require a standalone glyph. Adjacent runs share baseline measurement; the same
 font and metrics are used for wrapping and drawing.
 

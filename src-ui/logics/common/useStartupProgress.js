@@ -1,6 +1,6 @@
 import { useStore_InitProgress } from "@store";
 import { useTranslation } from "@logics_configs";
-import { startupDownloads } from "./startupPhase.js";
+import { startupDownloads } from "./startupPhase.ts";
 
 // The engine reports four startup steps (/run/initialization_progress).
 export const STARTUP_STEPS = 4;

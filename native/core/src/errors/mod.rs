@@ -89,10 +89,26 @@ pub fn info(code: &str) -> Option<&'static CodeInfo> {
 /// Where usage events learn of an error code (`register_error_report_hook`).
 pub type ReportHook = Arc<dyn Fn(&str) + Send + Sync>;
 
-static HOOKS: Mutex<Vec<ReportHook>> = Mutex::new(Vec::new());
+/// The registered hooks, each with the number [`register_report_hook`] gave it.
+static HOOKS: Mutex<Vec<(u64, ReportHook)>> = Mutex::new(Vec::new());
+static NEXT_HOOK: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
-pub fn register_report_hook(hook: ReportHook) {
-    HOOKS.lock().unwrap().push(hook);
+/// Adds a hook; the number removes it again ([`unregister_report_hook`]).
+pub fn register_report_hook(hook: ReportHook) -> u64 {
+    let id = NEXT_HOOK.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    HOOKS.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).push((id, hook));
+    id
+}
+
+/// Removes a hook: a run that ends takes its own away, so that a run started again does not
+/// leave the old one's behind.
+pub fn unregister_report_hook(id: u64) {
+    HOOKS.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).retain(|(hook, _)| *hook != id);
+}
+
+/// How many hooks are registered (tests).
+pub fn report_hook_count() -> usize {
+    HOOKS.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).len()
 }
 
 pub fn clear_report_hooks() {
@@ -104,7 +120,7 @@ pub fn report(code: &str) {
     if code.is_empty() {
         return;
     }
-    let hooks = HOOKS.lock().unwrap().clone();
+    let hooks: Vec<ReportHook> = HOOKS.lock().unwrap().iter().map(|(_, hook)| Arc::clone(hook)).collect();
     for hook in hooks {
         hook(code);
     }

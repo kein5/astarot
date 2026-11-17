@@ -20,6 +20,7 @@ import {
     RadioButtonContainer,
     DropdownMenuContainer,
     AuthKeyContainer,
+    SliderContainer,
 } from "../_templates/Templates";
 
 import {
@@ -50,11 +51,13 @@ export const Transcription = () => {
 // The numbers that tune how speech is cut into messages are set once, if ever.
 // They sit in one fold whose line shows the values in use, so the page stays
 // short and nothing has to be opened to see what is set.
-const TimingFold = ({ silence, length, queue, children }) => {
+// `record` is the longest single recording (RECORD_TIMEOUT); `phrase` is how long after the
+// last speech the gathered audio becomes one message (PHRASE_TIMEOUT).
+const TimingFold = ({ record, phrase, queue, children }) => {
     const { t } = useI18n();
     return (
         <SetupSection title={t("config_page.transcription.timing_title")}
-            status={t("config_page.transcription.timing_status", { silence: silence ?? "-", length: length ?? "-", queue: queue ?? "-" })}>
+            status={t("config_page.transcription.timing_status", { record: record ?? "-", phrase: phrase ?? "-", queue: queue ?? "-" })}>
             {children}
         </SetupSection>
     );
@@ -67,7 +70,7 @@ const Mic_Container = () => {
         <div>
             <SectionLabelComponent label={t("config_page.transcription.section_label_mic")} />
             <MicWordFilter_Box />
-            <TimingFold silence={currentMicRecordTimeout.data} length={currentMicPhraseTimeout.data} queue={currentMicMaxWords.data}>
+            <TimingFold record={currentMicRecordTimeout.data} phrase={currentMicPhraseTimeout.data} queue={currentMicMaxWords.data}>
                 <MicRecordTimeout_Box />
                 <MicPhraseTimeout_Box />
                 <MicMaxWords_Box />
@@ -157,7 +160,7 @@ const Speaker_Container = () => {
     return (
         <div>
             <SectionLabelComponent label={t("config_page.transcription.section_label_speaker")} />
-            <TimingFold silence={currentSpeakerRecordTimeout.data} length={currentSpeakerPhraseTimeout.data} queue={currentSpeakerMaxWords.data}>
+            <TimingFold record={currentSpeakerRecordTimeout.data} phrase={currentSpeakerPhraseTimeout.data} queue={currentSpeakerMaxWords.data}>
                 <SpeakerRecordTimeout_Box />
                 <SpeakerPhraseTimeout_Box />
                 <SpeakerMaxWords_Box />
@@ -264,12 +267,10 @@ export const TranscriptionEngine_Box = () => {
                         ? t("config_page.transcription.select_transcription_engine.engines.speechcpp")
                         : currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
                 })}</span>
-                {currentSelectedTranscriptionEngine.data === "Google" && <span>{t("transcription_consent.google_notice")}</span>}
             </span>}
             selectFunction={setSelectedTranscriptionEngine}
             name="select_transcription_engine"
             options={[
-                { id: "Google", label: "Google" },
                 { id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
                 ...cloud_options,
             ]}
@@ -312,7 +313,46 @@ const CloudTranscription_Container = () => {
                     </SetupSection>
                 );
             })}
+            <WhisperSegmentFilter_Box />
         </div>
+    );
+};
+
+// Groq, OpenAI (whisper-1) and a Whisper server of your own return segments with two
+// scores; a segment below either threshold is dropped. Other engines ignore them.
+const WHISPER_FILTERS = [
+    { base: "MicAvgLogprob", key: "mic_avg_logprob", min: -2, max: 0, step: 0.05, labels: [-2, -1.5, -1, -0.5, 0] },
+    { base: "MicNoSpeechProb", key: "mic_no_speech_prob", min: 0, max: 1, step: 0.05, labels: [0, 0.25, 0.5, 0.75, 1] },
+    { base: "SpeakerAvgLogprob", key: "speaker_avg_logprob", min: -2, max: 0, step: 0.05, labels: [-2, -1.5, -1, -0.5, 0] },
+    { base: "SpeakerNoSpeechProb", key: "speaker_no_speech_prob", min: 0, max: 1, step: 0.05, labels: [0, 0.25, 0.5, 0.75, 1] },
+];
+
+const WhisperSegmentFilter_Box = () => {
+    const { t } = useI18n();
+    const transcription = useTranscription();
+    const value = base => transcription[`current${base}`].data;
+    return (
+        <SetupSection title={t("config_page.transcription.whisper_filter.title")}
+            status={t("config_page.transcription.whisper_filter.status", {
+                mic_logprob: value("MicAvgLogprob") ?? "-", mic_no_speech: value("MicNoSpeechProb") ?? "-",
+                speaker_logprob: value("SpeakerAvgLogprob") ?? "-", speaker_no_speech: value("SpeakerNoSpeechProb") ?? "-",
+            })}>
+            <Description text={t("config_page.transcription.whisper_filter.desc")} />
+            {WHISPER_FILTERS.map((filter, index) => (
+                <SliderContainer key={filter.key}
+                    label={t(`config_page.transcription.whisper_filter.${filter.key}.label`)}
+                    desc={t(`config_page.transcription.whisper_filter.${filter.key}.desc`)}
+                    state={transcription[`current${filter.base}`].state}
+                    variable={transcription[`current${filter.base}`].data}
+                    setterFunction={transcription[`set${filter.base}`]}
+                    min={filter.min}
+                    max={filter.max}
+                    step={filter.step}
+                    show_label_values={filter.labels}
+                    remove_border_bottom={index === WHISPER_FILTERS.length - 1}
+                />
+            ))}
+        </SetupSection>
     );
 };
 

@@ -466,6 +466,11 @@
      "toggle_tts": null,
      "toggle_rvc": null
     },
+    "EXPERIMENTAL_FEATURES": {
+     "tray_companion": false
+    },
+    "TRAY_COMPANION_EDGE": "right",
+    "TRAY_COMPANION_MONITOR": "",
     "SPEAKER_THRESHOLD": 300,
     "SPEAKER_AUTOMATIC_THRESHOLD": false,
     "SPEAKER_RECORD_TIMEOUT": 3,
@@ -1746,6 +1751,11 @@
      "toggle_tts": null,
      "toggle_rvc": null
     },
+    "EXPERIMENTAL_FEATURES": {
+     "tray_companion": false
+    },
+    "TRAY_COMPANION_EDGE": "right",
+    "TRAY_COMPANION_MONITOR": "",
     "SPEAKER_THRESHOLD": 300,
     "SPEAKER_AUTOMATIC_THRESHOLD": false,
     "SPEAKER_RECORD_TIMEOUT": 3,

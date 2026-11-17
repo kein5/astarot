@@ -110,14 +110,14 @@ def run(args):
             ui.click_text('button', 'Save voice settings')
             wait_for(lambda: json.loads((state / 'config.json').read_text())['VOICE_SETTINGS']['mode'] == 'original')
             ui.open_route_settings()
-            ui.click_text('button', 'Resume voice')
+            ui.click_text('button', 'Unmute')
             ui.wait("return [...document.querySelectorAll('[role=status]')].some(e=>e.textContent==='Voice enabled (confirmed)')")
             ui.close_settings()
             if ui.evaluate("return document.querySelector('[role=switch][aria-label=TTS]').getAttribute('aria-checked')") == 'false':
                 ui.click('[role=switch][aria-label=TTS]')
             ui.wait("return document.querySelector('[role=switch][aria-label=TTS]').getAttribute('aria-checked')==='true'")
             main = ui.command('GET', '/window')
-            main_xid, = window_for(ui.app_process.pid, 'VRCT-VOX')
+            main_xid, = window_for(ui.app_process.pid, 'ASTAROT')
             before_sidecars = sidecars(ui)
             assert len(before_sidecars) == 1
             observer = ToneCapture(stack, SOURCE)
@@ -216,7 +216,7 @@ def run(args):
                     wait_checked(lambda: observer.snapshot()['nonzero_frames'] > nonzero_before)
                     ui.open_voice_settings() if name == 'stop' else ui.open_route_settings()
                     stop = time.monotonic_ns()
-                    ui.click_text('button', 'Stop playback and clear queue' if name == 'stop' else 'Mute until resumed')
+                    ui.click_text('button', 'Stop playback and clear queue' if name == 'stop' else 'Mute now')
                     ended = wait_checked(lambda: observer.settled(stop, silent=True, duration_ms=2000), 8)
                     after = wait_checked(lambda: s if (s := backend_status()) and (not s['active']) and (not s['queued']) else None, 8)
                     assert after['cancelled'] == before['cancelled'] + 1 and after['errors'] == before['errors'], after
@@ -226,7 +226,7 @@ def run(args):
                     ui.close_settings()
                 silence('held_mute_new_message', lambda: send(SHORT))
                 ui.open_route_settings()
-                ui.click_text('button', 'Resume voice')
+                ui.click_text('button', 'Unmute')
                 wait_checked(lambda: not gate.inspect()['muted'])
                 ui.close_settings()
                 ui.click('[role=switch][aria-label=TTS]')
@@ -237,14 +237,14 @@ def run(args):
             xdo('windowminimize', main_xid)
             xdo('windowactivate', '--sync', args.vrchat_window)
             xdo('key', '--clearmodifiers', 'ctrl+alt+shift+F9')
-            wait_checked(lambda: window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat'))
+            wait_checked(lambda: window_for(ui.app_process.pid, 'ASTAROT Quick Chat'))
             chat, = [h for h in ui.command('GET', '/window/handles') if h != main]
             ui.command('POST', '/window', {'handle': chat})
             ui.wait("return document.hasFocus()&&document.activeElement?.tagName==='TEXTAREA'")
             ui.fill('Message', 'quick chat draft')
             for index in range(3):
                 xdo('key', 'Escape')
-                wait_checked(lambda: not window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat'))
+                wait_checked(lambda: not window_for(ui.app_process.pid, 'ASTAROT Quick Chat'))
                 focus_samples = []
                 for _ in range(20):
                     focus_samples.append({'active': xdo('getactivewindow'), 'focus': xdo('getwindowfocus')})
@@ -253,14 +253,14 @@ def run(args):
                     time.sleep(0.1)
                 report['last_escape_focus_samples'] = focus_samples
                 assert focus_samples[-1]['active'] == args.vrchat_window, 'Esc_did_not_return_to_VRChat'
-                assert not window_for(ui.app_process.pid, 'VRCT-VOX'), 'main_restored_unexpectedly'
+                assert not window_for(ui.app_process.pid, 'ASTAROT'), 'main_restored_unexpectedly'
                 note('quick_chat_escape_returns_to_game_' + str(index), active_window=xdo('getactivewindow'), input_focus=xdo('getwindowfocus'))
                 xdo('key', '--clearmodifiers', 'ctrl+alt+shift+F9')
                 ui.wait("return document.hasFocus()&&document.activeElement?.tagName==='TEXTAREA'")
                 assert ui.evaluate('return document.querySelector("textarea").value') == 'quick chat draft'
             if not args.skip_ime:
                 ui.element_command(ui.control('Message'), 'clear')
-                chat_xid, = window_for(ui.app_process.pid, 'VRCT-VOX Quick Chat')
+                chat_xid, = window_for(ui.app_process.pid, 'ASTAROT Quick Chat')
                 xdo('mousemove', '--window', chat_xid, 100, 80)
                 xdo('click', 1)
                 ui.wait("return document.hasFocus() && document.activeElement?.tagName==='TEXTAREA'")

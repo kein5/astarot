@@ -1,0 +1,26 @@
+// Moving the desktop caption window and changing its text size with Ctrl held
+// (src-tauri/src/caption_overlay.rs). The native side reports a drop or a size
+// step; the main window saves them like any other setting.
+
+// The window's place in whole px, as the native command takes it.
+export interface CaptionPlacement {
+    x: number;
+    y: number;
+}
+
+// The same range and step as the size slider in the settings.
+export const FONT_SIZE_MIN = 16;
+export const FONT_SIZE_MAX = 72;
+export const FONT_SIZE_STEP = 2;
+
+// One press of Ctrl and + (1) or - (-1). Anything else keeps the size.
+export const steppedFontSize = (size: number, change: unknown): number => {
+    if (change !== 1 && change !== -1) return size;
+    const next = size + change * FONT_SIZE_STEP;
+    return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, next));
+};
+
+// The saved place, or a drop the native side reported, as the native command takes it:
+// null for the band, and for anything malformed.
+export const placementOf = (data: { x?: unknown; y?: unknown } | null | undefined): CaptionPlacement | null =>
+    Number.isInteger(data?.x) && Number.isInteger(data?.y) ? { x: data!.x as number, y: data!.y as number } : null;

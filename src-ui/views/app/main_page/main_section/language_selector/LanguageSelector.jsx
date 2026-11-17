@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 
 import { useLanguageSettings } from "@logics_main";
-import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.js";
+import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.ts";
 import styles from "./LanguageSelector.module.scss";
 
 import { LanguageSelectorTopBar } from "./language_selector_top_bar/LanguageSelectorTopBar";
@@ -11,13 +11,14 @@ export const LanguageSelector = ({ title, onClickFunction }) => {
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
     const { currentSelectableLanguageList } = useLanguageSettings();
 
-    // Typing narrows the list by language or country; Enter picks the first
+    // Typing narrows the list by language or country, or by the beginning of an
+    // ISO 639 code ("j", "ja", "zh-Hant"), whose languages come first; Enter picks the first
     // match. The field takes focus when the selector opens.
     const [query, setQuery] = useState("");
     const filter = useRef(null);
     useEffect(() => { filter.current?.focus({ preventScroll: true }); }, []);
-    const shown = useMemo(() => names.sorted(currentSelectableLanguageList.data ?? [])
-        .filter(entry => names.matches(entry, query)), [names, currentSelectableLanguageList.data, query]);
+    const shown = useMemo(() => names.search(currentSelectableLanguageList.data ?? [], query),
+        [names, currentSelectableLanguageList.data, query]);
 
     return (
         <div className={styles.container}>
