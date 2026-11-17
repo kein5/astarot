@@ -45,4 +45,4 @@ VC本体やモデルは同梱しない。P1終了前にVC/ASRの大改造を行�
 
 [ADR-011: ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針](adr-011-astarot-brand-and-multimodal-accessibility.md)は2026-11-16に製品方針とブランド仕様として採用した。新しい名前を ASTAROT とし、正式サブタイトルを「Speech, Translation, Accessibility, Revoicing & OCR Toolkit」と決めた。ロゴとアイコンの原版は `docs/brand/astarot/` に置く。表示の移行（P1）と識別子の移行（P2、別の ADR が必要）はまだ始めておらず、現行のビルドの名前と識別子は VRCT-VOX のままである。
 
-[ADR-012: Audio AI Runtime Consolidation](adr-012-audio-ai-runtime-consolidation.md)は2026-11-17に開発の原則として採用した。新しい音声AIモデルは、まずspeech.cppへの上流の貢献で入れる。VRCT-VOX固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめたときだけ採用する。speech.cppをASRとTTSの中核とし、RVC、翻訳、OCRのONNX Runtime系は理由のある既存の例外として続ける。
+[ADR-012: Audio AI Runtime Consolidation](adr-012-audio-ai-runtime-consolidation.md)は2026-11-17に開発の原則として採用した。新しい音声AIモデルは、まずspeech.cppへの上流の貢献で入れる。VRCT-VOX固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめたときだけ採用する。責務の分担は、音声AIの推論がspeech.cpp、画像のOCRとローカル翻訳がONNX Runtime、音声の入出力とミキシングがRustとOSのネイティブAPI、リサンプリングとフィルタがRustの軽量なDSP、UIと設定とVRChatとの連携がVRCT-VOXとした。ONNX Runtimeで動く今のRVCの扱いは未決である。
