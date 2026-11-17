@@ -340,6 +340,26 @@ ASTAROTのブランド書体をSpace GroteskからOutfitに変えた。ワード
 | ワードマークに使ったフォント | Google Fontsが配る静的なOutfit Bold（Version 1.100）。SHA-256 `cc3235ab6d698be85a2735d1fd59ba8f73b144cb763c00aaf173b68f0471a9c7`。上流の静的な`Outfit-Bold.ttf`とは輪郭が少し違う |
 | 同梱するとき | フォントファイルに`OFL.txt`を添え、`licenses/outfit/NOTICE.md`にファイル名、版、サイズ、SHA-256を足す。OFLはフォント単体での販売を認めないが、ソフトウェアに同梱して再配布することは認める。同梱するときは、著作権表示とライセンス文を添える |
 
+## 音の出来事の検出モデルの候補（2026-11-17、#386）
+
+字幕に`[拍手]`のような注記を付けるために、音の分類モデルの候補を比べた（#386）。どれもアプリにはまだ入れていない。重みは取得しておらず、ライセンスは提供元のリポジトリとモデルカードで確かめた。依存とライセンスの台帳、NOTICE、カタログは変わらない。
+
+| 候補 | 重みの取得元 | 重みのライセンス | 確かめたこと | 扱い |
+|---|---|---|---|---|
+| CED-Tiny、CED-Mini | [mispeech/ced-tiny](https://huggingface.co/mispeech/ced-tiny/tree/ace276d29dd0bb3f3517b0fa8cf300738c409019) @ `ace276d29dd0bb3f3517b0fa8cf300738c409019`、[mispeech/ced-mini](https://huggingface.co/mispeech/ced-mini/tree/26c3ebcae85d4330f4fc26763f029539a3afcda0) @ `26c3ebcae85d4330f4fc26763f029539a3afcda0` | Apache-2.0（モデルカードの表示） | `model.onnx`はTinyが6,681,767 bytes（SHA-256 `3890f227660be71886ff48633d11a731993e0206db8a486781412c28a0873435`）、Miniが10,890,069 bytes（SHA-256 `2a86374dbe1fa03e96b0acf6a02618ac71852d12aa3d72a030b062ff1e5c5434`）。リポジトリにLICENSEファイルはなく、同じリポジトリの`modeling_ced.py`は「Copyright 2023 Xiaomi Corporation and The HuggingFace Inc. team」のApache-2.0。ログインは要らない（`gated: false`）。学習用のコード（[RicherMans/CED](https://github.com/RicherMans/CED)）はGPL-3.0なので、そこからコードを写さない | **推奨**。Tinyを同梱の第一候補にする。同梱するときは、Apache-2.0の全文と上の著作権表示を`licenses/`に置き、NOTICEにファイル名、revision、サイズ、SHA-256を足す |
+| EfficientAT（`mn10_as`など） | [fschmid56/EfficientAT](https://github.com/fschmid56/EfficientAT)のGitHub Release `v0.0.1` | MIT（リポジトリ） | 重みに別の条件の記載はない。ONNXは公開されておらず、自分で変換する | 予備の候補 |
+| PANNs（CNN14、MobileNetV1） | [Zenodo 3987831](https://zenodo.org/records/3987831) | CC-BY-4.0（重み）。コードはMIT | 帰属表示があれば同梱できる。ONNXは自分で変換する | 精度とサイズで劣るので採らない |
+| YAMNet | `storage.googleapis.com/audioset/yamnet.h5`（[tensorflow/models](https://github.com/tensorflow/models/tree/master/research/audioset/yamnet)） | Apache-2.0（リポジトリ） | 取得元に版の固定がなく、Keras 2でしか読めない。ONNXは自分で変換する | 精度が低いので採らない |
+| BEATs | [microsoft/unilm](https://github.com/microsoft/unilm/tree/master/beats)のREADMEにあるOneDriveのリンク | MIT（リポジトリ）。重みに別の条件の記載はない | OneDriveのリンクは版とハッシュを固定できず、カタログの条件に合わない | 採らない |
+| AST | [MIT/ast-finetuned-audioset-10-10-0.4593](https://huggingface.co/MIT/ast-finetuned-audioset-10-10-0.4593) | BSD-3-Clause | 330 MB。常に動かすには重い | 採らない |
+| d1-omni-600M、d1-Omni-2B | [LiquidAI/d1-omni-600M](https://huggingface.co/LiquidAI/d1-omni-600M/tree/02b55d7076f15129e59ab3f94783f32c4b088674) @ `02b55d7076f15129e59ab3f94783f32c4b088674`、[LiquidAI/d1-Omni-2B](https://huggingface.co/LiquidAI/d1-Omni-2B/tree/51918b53052eacfd24062f99f13556c3c56fcf63) @ `51918b53052eacfd24062f99f13556c3c56fcf63`。公式のGGUF版とONNX版（2Bだけ）もある | LFM Open License v1.0 | 下の「d1の条件」を参照 | 既定にも同梱にもしない。カタログに載せるかは保守担当者が決める |
+
+**d1の条件**：2026-11-17に両リポジトリの`LICENSE`を読んだ。600Mと2Bの文面は空白を除いて同じだった（600M 10,572 bytes、2B 10,574 bytes）。Apache-2.0をもとにした許諾で、再配布の条件はライセンスの写しを渡すこと、変更したファイルに変更の旨を示すこと、`NOTICE`ファイルがあればその表示を残すことである（4節）。5節で、年間売上が1000万米ドル以上の法人による商用の利用は許諾の外になる。この条件は配布する側だけでなく、使う側の一人ひとりに及ぶ。VRCT-VOXが同梱すると、該当する法人の利用者は許諾なしで使うことになる。同じ形の売上の条件を持つdrama-3も、載せるかどうかを保守担当者の判断にした（上の「speech.cppの読み上げモデルの追加」）。OSIのライセンスではないので、既定にはしない。
+
+**AudioSetのラベル**：CED、EfficientAT、PANNs、YAMNet、BEATs、ASTは、どれもAudioSetで学習した527種（YAMNetは521種）の分類を返す。AudioSetのデータはCC BY 4.0、ラベルの体系（ontology）はCC BY-SA 4.0で配られている（[AudioSetのダウンロードの頁](https://research.google.com/audioset/download.html)）。CEDの`config.json`にはラベルの名前が入っている。ラベルの一覧をファイルとして同梱するときは、ontologyの帰属とCC BY-SA 4.0をNOTICEに書く。学習に使われたYouTubeの音声そのものの権利は、どのモデルの提供元も扱っていない。
+
+**実測（2026-11-17）**：取得の承認を受けて、CED-Tiny、CED-Mini、d1-omni-600M（公式のGGUF Q8_0、llama.cpp b12445）をESC-50で比べた。結果は#386のコメントにある。CEDの2つの`model.onnx`は、上の表のサイズとSHA-256に一致した。ESC-50（[karolpiczak/ESC-50](https://github.com/karolpiczak/ESC-50) @ `33c8ce9eb2cf0b1c2f8bcf322eb349b6be34dbb6`）は全体がCC BY-NC 3.0で、クリップごとに別の条件もある。評価にだけ使い、リポジトリにも配布物にも入れない。測定のあとで、ESC-50とd1のファイルは消した。
+
 ## speech.cppの読み上げモデルの追加（2026-11-16）
 
 speech.cppの読み上げで選べるモデルを増やした。どれも配布物には含めない。利用者が同意画面でライセンスとサイズを確認してから、Hugging Faceの固定revisionからこのPCへ取得する。取得するファイルは、speech.cppがそのモデル名で取得するもの（`speech models --json`の既定の型）と同じで、サイズとSHA-256もそれと一致させた。revision、サイズ、SHA-256は0.10.0と同梱の0.11.0で変わらない。
