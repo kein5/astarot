@@ -1,6 +1,6 @@
 # VRCT-VOX 開発エージェント向けガイド
 
-VRCT-VOX は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC など）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。Tauri と React 18 の UI に、Python のバックエンドを組み合わせています。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
+VRCT-VOX は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 18 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。`src-python/` の Python のバックエンドは、移植の仕様として残しているものです（`docs/voice-stack/core-integration.md`）。名前を ASTAROT に変える方針がありますが（ADR-011）、今のビルドの名前と識別子は VRCT-VOX のままです。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
 
 この文書は作業の入口です。詳しい内容は、下の表の正本を読んでください。
 
