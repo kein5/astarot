@@ -232,26 +232,31 @@ impl FileStore {
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Map::new()),
             Err(_) => return Err(ReadFailure::Io),
         };
-        Self::decode(&bytes).map_err(|_| ReadFailure::Undecodable)
+        Self::decode(&bytes, protect::open)
     }
 
-    fn decode(bytes: &[u8]) -> Result<Map<String, Value>, StoreError> {
-        let file: Value = serde_json::from_slice(bytes).map_err(|_| StoreError::Unreadable)?;
+    /// The entries of a file's bytes; `open` decrypts DPAPI-sealed entries. A DPAPI that cannot
+    /// answer now is a passing failure ([`ReadFailure::Io`]), so the file is not moved aside.
+    fn decode(bytes: &[u8], open: impl Fn(&[u8]) -> Result<Vec<u8>, OpenFailure>) -> Result<Map<String, Value>, ReadFailure> {
+        let file: Value = serde_json::from_slice(bytes).map_err(|_| ReadFailure::Undecodable)?;
         if file["version"] != 1 {
-            return Err(StoreError::Unreadable);
+            return Err(ReadFailure::Undecodable);
         }
         match (file["protection"].as_str(), &file["entries"]) {
             (Some("none"), Value::Object(entries)) => Ok(entries.clone()),
             (Some("dpapi"), Value::String(encoded)) => {
                 use base64::Engine;
-                let sealed = base64::engine::general_purpose::STANDARD.decode(encoded).map_err(|_| StoreError::Unreadable)?;
-                let plain = protect::open(&sealed).ok_or(StoreError::Unreadable)?;
+                let sealed = base64::engine::general_purpose::STANDARD.decode(encoded).map_err(|_| ReadFailure::Undecodable)?;
+                let plain = open(&sealed).map_err(|failure| match failure {
+                    OpenFailure::NotNow => ReadFailure::Io,
+                    OpenFailure::Undecodable => ReadFailure::Undecodable,
+                })?;
                 match serde_json::from_slice(&plain) {
                     Ok(Value::Object(entries)) => Ok(entries),
-                    _ => Err(StoreError::Unreadable),
+                    _ => Err(ReadFailure::Undecodable),
                 }
             }
-            _ => Err(StoreError::Unreadable),
+            _ => Err(ReadFailure::Undecodable),
         }
     }
 
@@ -270,8 +275,8 @@ impl FileStore {
 
     /// Changes one entry. A file that cannot be decoded any more (another user's or another
     /// PC's DPAPI, or a broken file) is moved aside first, so that new keys can be kept. A file
-    /// that could not be read just now (locked, or a passing I/O error) is left as it is and the
-    /// change fails: writing only this entry would drop every other key.
+    /// that could not be read just now (locked, a passing I/O error, or DPAPI not answering) is
+    /// left as it is and the change fails: writing only this entry would drop every other key.
     fn change(&self, entry: &str, value: Option<&str>) -> Result<(), StoreError> {
         let _guard = self.lock.lock().unwrap();
         let _file = super::lock::FileLock::acquire(&self.path.with_file_name(format!("{FILE_NAME}.lock")))
@@ -385,14 +390,59 @@ mod protect {
         (ok != 0).then(|| take(out))
     }
 
-    pub fn open(sealed: &[u8]) -> Option<Vec<u8>> {
+    pub fn open(sealed: &[u8]) -> Result<Vec<u8>, super::OpenFailure> {
         let (input, entropy) = (blob(sealed), blob(ENTROPY));
         let mut out = CRYPT_INTEGER_BLOB { cbData: 0, pbData: std::ptr::null_mut() };
         let ok = unsafe {
             CryptUnprotectData(&input, std::ptr::null_mut(), &entropy, std::ptr::null(), std::ptr::null(), CRYPTPROTECT_UI_FORBIDDEN, &mut out)
         };
-        (ok != 0).then(|| take(out))
+        if ok != 0 {
+            return Ok(take(out));
+        }
+        let error = unsafe { windows_sys::Win32::Foundation::GetLastError() };
+        Err(if passing(error) { super::OpenFailure::NotNow } else { super::OpenFailure::Undecodable })
     }
+
+    /// Errors that say DPAPI could not answer just now (the security service busy or restarting,
+    /// memory short), not that the data is another user's or broken. Anything else counts as
+    /// undecodable, as before.
+    pub(super) fn passing(error: u32) -> bool {
+        const ERROR_NOT_ENOUGH_MEMORY: u32 = 8;
+        const ERROR_OUTOFMEMORY: u32 = 14;
+        const ERROR_BUSY: u32 = 170;
+        const ERROR_SHUTDOWN_IN_PROGRESS: u32 = 1115;
+        const ERROR_NO_SYSTEM_RESOURCES: u32 = 1450;
+        const ERROR_TIMEOUT: u32 = 1460;
+        const RPC_S_SERVER_UNAVAILABLE: u32 = 1722;
+        const RPC_S_SERVER_TOO_BUSY: u32 = 1723;
+        const RPC_S_CALL_FAILED: u32 = 1726;
+        const RPC_S_CALL_FAILED_DNE: u32 = 1727;
+        const E_OUTOFMEMORY: u32 = 0x8007_000E;
+        matches!(
+            error,
+            ERROR_NOT_ENOUGH_MEMORY
+                | ERROR_OUTOFMEMORY
+                | ERROR_BUSY
+                | ERROR_SHUTDOWN_IN_PROGRESS
+                | ERROR_NO_SYSTEM_RESOURCES
+                | ERROR_TIMEOUT
+                | RPC_S_SERVER_UNAVAILABLE
+                | RPC_S_SERVER_TOO_BUSY
+                | RPC_S_CALL_FAILED
+                | RPC_S_CALL_FAILED_DNE
+                | E_OUTOFMEMORY
+        )
+    }
+}
+
+/// Why sealed entries could not be opened.
+#[cfg_attr(not(windows), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OpenFailure {
+    /// Another user's or another PC's data, or broken: it will not open later either.
+    Undecodable,
+    /// DPAPI could not answer now; the file may open later.
+    NotNow,
 }
 
 #[cfg(not(windows))]
@@ -404,8 +454,8 @@ mod protect {
         None
     }
 
-    pub fn open(_: &[u8]) -> Option<Vec<u8>> {
-        None
+    pub fn open(_: &[u8]) -> Result<Vec<u8>, super::OpenFailure> {
+        Err(super::OpenFailure::Undecodable)
     }
 }
 
@@ -469,6 +519,29 @@ mod tests {
         let aside = fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()?.file_name().into_string().ok()).filter(|n| n.contains(".unreadable-")).count();
         assert_eq!(aside, 0);
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn dpapi_not_answering_is_a_passing_failure_and_other_failures_are_not() {
+        // #470: any DPAPI failure counted as "cannot be decoded", and the file was moved aside.
+        let file = br#"{"version": 1, "protection": "dpapi", "entries": "AAAA"}"#;
+        assert!(matches!(FileStore::decode(file, |_| Err(OpenFailure::NotNow)), Err(ReadFailure::Io)));
+        assert!(matches!(FileStore::decode(file, |_| Err(OpenFailure::Undecodable)), Err(ReadFailure::Undecodable)));
+        assert_eq!(FileStore::decode(file, |_| Ok(br#"{"A": "b"}"#.to_vec())).ok(), Some(json!({ "A": "b" }).as_object().unwrap().clone()));
+        assert!(matches!(FileStore::decode(b"not json", |_| Err(OpenFailure::NotNow)), Err(ReadFailure::Undecodable)));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn dpapi_data_that_is_not_this_users_counts_as_undecodable() {
+        // What DPAPI says about bytes it did not seal, and about a blob made with other entropy
+        // (as close to another user's data as a test can get), stays "undecodable".
+        assert_eq!(protect::open(b"not sealed by DPAPI"), Err(OpenFailure::Undecodable));
+        let mut sealed = protect::seal(b"{}").unwrap();
+        let last = sealed.len() - 1;
+        sealed[last] ^= 0xff;
+        assert_eq!(protect::open(&sealed), Err(OpenFailure::Undecodable));
+        assert!(protect::passing(1722) && !protect::passing(13) && !protect::passing(0x8009_000B));
     }
 
     #[test]
