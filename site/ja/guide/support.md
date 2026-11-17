@@ -2,7 +2,7 @@
 
 ASTAROTがどの環境に対応していて、どこまで確かめてあるかをまとめたページです。0.5.1の時点の内容です（2026-11-18）。
 
-自動の試験が通っていても、実際のPCで動くことを確かめたとは限りません。このページでは、対応の扱いと確かめ方を分けて書きます。確かめた記録がないものは「未検証」と書きます。必要なメモリ、GPU、空き容量は[動作環境と推奨スペック](requirements)にあります。
+自動の試験が通っていても、実際のPCで動くことを確かめたとは限りません。このページでは対応の扱いと確かめ方を分けて書きます。確かめた記録がないものは「未検証」と書きます。必要なメモリ、GPU、空き容量は[動作環境と推奨スペック](requirements)にあります。
 
 ## 表の見かた
 
@@ -40,7 +40,7 @@ ASTAROTがどの環境に対応していて、どこまで確かめてあるか�
 | WindowsとLinuxのARM64 | なし | 未対応 | なし | なし |
 | macOS | なし | 未対応 | なし | なし |
 
-Windowsの実機の記録は、どれもWindows 11のInsider Preview版（0.5.1はbuild 26320）で取ったものです。一般向けに配信されているWindows 11では確かめていません。
+Windowsの実機の記録はどれもWindows 11のInsider Preview版（0.5.1はbuild 26320）で取ったものです。一般向けに配信されているWindows 11では確かめていません。
 
 ## Linuxのデスクトップ環境
 
@@ -83,6 +83,6 @@ WindowsとLinuxの欄は実機で確かめた範囲です。どちらの版も�
 
 ## 不具合を知らせるとき
 
-[Issues](https://github.com/kein5/astarot/issues)で、OSとその版、配布形式、ASTAROTの版を書いてください。Linuxでは、ディストリビューション、デスクトップ環境、WaylandかX11かも書いてください。未検証の環境で動いたという報告も、この表を直すのに役立ちます。
+[Issues](https://github.com/kein5/astarot/issues)で、OSとその版、配布形式、ASTAROTの版を書いてください。Linuxではディストリビューション、デスクトップ環境、WaylandかX11かも書いてください。未検証の環境で動いたという報告も、この表を直すのに役立ちます。
 
-このページの根拠は、開発者向けの[対応環境の検証の台帳](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/platform-verification.md)にあります。
+このページの根拠は開発者向けの[対応環境の検証の記録](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/platform-verification.md)にあります。

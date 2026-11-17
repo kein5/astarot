@@ -85,4 +85,4 @@ How you update depends on the package. The installer and the AppImage update fro
 
 On [Issues](https://github.com/kein5/astarot/issues), give your OS and its version, the package and the ASTAROT version. On Linux, also give the distribution, the desktop and whether it is Wayland or X11. A report that ASTAROT works on a system marked "not verified" also helps us update these tables.
 
-The records behind this page are in the developer [platform verification ledger](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/platform-verification.md) (Japanese).
+The records behind this page are listed in the developer page [platform verification records](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/platform-verification.md) (Japanese).
