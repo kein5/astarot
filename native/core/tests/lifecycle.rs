@@ -275,6 +275,24 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
 }
 
 #[test]
+fn a_settings_file_that_cannot_be_read_is_left_alone_and_never_overwritten() {
+    // Not a parse failure: something the app cannot read at all (here a folder in its place).
+    let dir = tempfile::tempdir().unwrap();
+    let blocked = dir.path().join("config.json");
+    std::fs::create_dir(&blocked).unwrap();
+    std::fs::write(blocked.join("inside"), "kept").unwrap();
+    let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    ui.ready();
+    assert_eq!(ui.wait_endpoint(0, "/run/config_save_failed")["result"]["reason"], "load_failed");
+    ui.ok("/set/data/main_window_geometry", Some(json!({ "x_pos": 1, "y_pos": 1, "width": 900, "height": 700 })));
+    ui.ok("/run/shutdown", None);
+    assert!(blocked.is_dir(), "not moved aside or replaced");
+    assert_eq!(std::fs::read_to_string(blocked.join("inside")).unwrap(), "kept");
+    assert!(ui.on(0, "/run/config_file_unreadable").is_empty(), "nothing was moved aside");
+    ui.stop();
+}
+
+#[test]
 fn a_copy_before_a_migration_is_written_once_and_only_when_one_runs() {
     let dir = tempfile::tempdir().unwrap();
     let copy = dir.path().join("config.json.before-migration-1");
