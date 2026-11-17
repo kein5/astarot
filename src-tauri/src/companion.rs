@@ -28,8 +28,8 @@ use tauri::{
 
 pub const PANEL: &str = "companion_panel";
 pub const HANDLE: &str = "companion_handle";
-const PANEL_TITLE: &str = "VRCT-VOX Control Panel";
-const HANDLE_TITLE: &str = "VRCT-VOX Hexagram";
+const PANEL_TITLE: &str = "ASTAROT Control Panel";
+const HANDLE_TITLE: &str = "ASTAROT Hexagram";
 /// The panel, in logical px.
 const PANEL_SIZE: (f64, f64) = (300.0, 208.0);
 /// The hexagram's plate (its outer circle) as the handle page draws it, radius in logical px

@@ -14,13 +14,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_fork_identity_and_backend_contract():
     conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
-    assert conf["productName"] == "VRCT-VOX"
+    # The installer's title, install folder, shortcuts, the Apps list and the executable's
+    # version information show productName (Issue #535). The identifiers below stay.
+    assert conf["productName"] == "ASTAROT"
     assert conf["mainBinaryName"] == "vrct-vox"
     # Changing it moves Tauri data and desktop integration (portal, app id).
     assert conf["identifier"] == "io.github.kein5.vrct-vox"
     assert conf["bundle"]["publisher"] == "kein5"
     assert "m's software" in conf["bundle"]["copyright"]
-    # The window title is the display name (ADR-011 P1); productName above stays until P2.
+    # The window title is the display name (ADR-011 P1).
     assert conf["app"]["windows"][0]["title"] == "ASTAROT"
     # The backend runs inside the app: no program ships beside it and the UI starts none.
     assert "externalBin" not in conf["bundle"]
