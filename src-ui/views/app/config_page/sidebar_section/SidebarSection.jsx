@@ -124,10 +124,7 @@ const Tab = (props) => {
         [styles["is_selected"]]: is_selected
     });
 
-    const getLabel = () => {
-        if (props.tab_id === "vr") return "VR";
-        return t(`config_page.side_menu_labels.${props.tab_id}`);
-    };
+    const getLabel = () => t(`config_page.side_menu_labels.${props.tab_id}`);
     // Every tab is one line, so the tabs are all the same height and the menu does not change
     // its layout with the language or the font. A feature's short name in brackets (「（ASR）」)
     // did not fit beside its name in the 20.8rem rail and took a second line; the menu shows the
