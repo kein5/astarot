@@ -1,6 +1,6 @@
 import * as routeState from "../../../../../../logics/voice/routeState.ts";
 import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDraft.ts";
-import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.js";
+import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.ts";
 import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceErrorText.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.js";
+import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.js";
 
 const all = (tree, predicate) => {

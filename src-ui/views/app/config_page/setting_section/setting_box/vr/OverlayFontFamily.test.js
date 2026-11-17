@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
-import { missingLanguagesText } from "../../../../../../logics/common/fontLanguages.js";
+import { missingLanguagesText } from "../../../../../../logics/common/fontLanguages.ts";
 
 async function render({ selected = "", missing = [], open = true, fonts = { "Noto Sans": "Noto Sans" } } = {}) {
     const runtime = hooks(), asked = [], chosen = [];
@@ -15,7 +15,7 @@ async function render({ selected = "", missing = [], open = true, fonts = { "Not
         }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
         "../_templates/Templates": { DropdownMenuContainer: "dropdown" },
-        "../../../../../../logics/common/fontLanguages.js": { missingLanguagesText },
+        "../../../../../../logics/common/fontLanguages.ts": { missingLanguagesText },
     });
     const tree = runtime.render(OverlayFontFamily, {});
     return { props: tree.props, asked, chosen };

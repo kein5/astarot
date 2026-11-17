@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.js";
 import { flush } from "../test/bridgeHarness.js";
 import { rebaseDraft } from "./draftRebase.ts";
-import { changedPaths } from "./saveBar.js";
+import { changedPaths } from "./saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 
 async function setup(context) {
