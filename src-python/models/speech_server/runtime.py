@@ -97,17 +97,17 @@ def preferred_gpu(devices):
     """The Vulkan device "auto" and "gpu" mean, from `speech devices --json` rows, or None.
 
     speech.cpp takes the first GPU it lists, and lists an integrated GPU first on a PC
-    with both (Iris Xe before an RTX 3060 Ti here). A separate GPU is faster for every
-    vendor, so it comes first, then the one with the most memory. AMD, Intel and NVIDIA
-    are treated alike.
+    with both. Only a separate GPU is chosen, the one with the most memory: the settings
+    offer the CPU and separate GPUs, never an integrated GPU. AMD, Intel and NVIDIA are
+    treated alike.
     """
-    candidates=[row for row in devices if isinstance(row,dict) and row.get('kind') in ('gpu','igpu')
+    candidates=[row for row in devices if isinstance(row,dict) and row.get('kind')=='gpu'
                 and isinstance(row.get('name'),str) and NAMED_DEVICE.fullmatch(row['name'])
                 and not NOT_A_COMPUTE_GPU.search(str(row.get('description','')))]
     if not candidates: return None
     def rank(row):
         memory=row.get('memory_total')
-        return (row['kind']=='gpu',memory if type(memory) is int and memory>0 else 0)
+        return memory if type(memory) is int and memory>0 else 0
     return max(candidates,key=rank)['name']
 
 
