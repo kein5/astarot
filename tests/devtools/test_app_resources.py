@@ -24,6 +24,9 @@ def _build(base, platform):
     if platform == "linux":
         for name in app_resources.LINUX_HELPERS:
             (build / name).write_bytes(b"helper")
+    for name in app_resources.runtime_libraries(platform):
+        (build / name).parent.mkdir(parents=True, exist_ok=True)
+        (build / name).write_bytes(b"library")
     return build
 
 
@@ -71,6 +74,22 @@ class AppResourcesTests(unittest.TestCase):
                 file.unlink()
         absent = app_resources.stage(self.output, "linux", build, ROOT)
         self.assertEqual(absent, ["build/speechcpp-cpu/speech", "build/speechcpp-cpu/bundle.json"])
+
+    def test_onnx_runtime_and_openvr_ship_where_the_core_looks(self):
+        # native/core/src/shipped_libraries.rs; 0.5.0-beta.4 shipped neither (issue #509).
+        self.assertIn("onnxruntime/onnxruntime.dll", app_resources.required("windows"))
+        self.assertIn("openvr/libopenvr_api_64.dll", app_resources.required("windows"))
+        self.assertIn("onnxruntime/libonnxruntime.so", app_resources.required("linux"))
+        self.assertIn("openvr/libopenvr_api_64.so", app_resources.required("linux"))
+        core = (ROOT / "native/core/src/shipped_libraries.rs").read_text(encoding="utf-8")
+        for name in ("onnxruntime/onnxruntime.dll", "onnxruntime/libonnxruntime.so",
+                     "openvr/libopenvr_api_64.dll", "openvr/libopenvr_api_64.so"):
+            self.assertIn(f'"{name}"', core)
+        build = _build(self.base, "windows")
+        (build / "onnxruntime/onnxruntime.dll").unlink()
+        (build / "openvr/libopenvr_api_64.dll").unlink()
+        absent = app_resources.stage(self.output, "windows", build, ROOT)
+        self.assertEqual(absent, ["onnxruntime/onnxruntime.dll", "openvr/libopenvr_api_64.dll"])
 
     def test_a_missing_engine_is_reported(self):
         build = self.base / "build"

@@ -20,10 +20,12 @@ try:
     from .app_resources import stage as stage_resources
     from .linux_package import check_tree, inventory, normalize_modes, pack
     from .speechcpp_bundle import stage_bundle, fetch_archive, load_manifest, verify_bundle
+    from .runtime_libraries import stage as stage_runtime_libraries
 except ImportError:
     from app_resources import stage as stage_resources
     from linux_package import check_tree, inventory, normalize_modes, pack
     from speechcpp_bundle import stage_bundle, fetch_archive, load_manifest, verify_bundle
+    from runtime_libraries import stage as stage_runtime_libraries
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -143,6 +145,8 @@ def stage_internal(work, archives, *, offline=False, download=False):
             fetch_archive(manifest['assets'][variant], archive)
         stage_bundle(archive, build / folder, manifest['assets'][variant])
         verify_bundle(build / folder)
+    # ONNX Runtime and the OpenVR client library, pinned like the engine binaries (issue #509).
+    stage_runtime_libraries('linux', build, download=download)
     internal = work / 'internal'
     missing = stage_resources(internal, 'linux', build=build)
     if missing:
@@ -161,7 +165,7 @@ def main():
     source = parser.add_mutually_exclusive_group()
     source.add_argument('--speech-archive-dir', type=Path,
                         help='a folder holding both pinned speech.cpp archives under their release names')
-    source.add_argument('--download-speech', action='store_true', help='fetch only the pinned engine binaries, never weights')
+    source.add_argument('--download-speech', action='store_true', help='fetch only the pinned engine binaries and runtime libraries, never weights')
     parser.add_argument('--profile', choices=('debug', 'release'), default='release')
     parser.add_argument('--resources-only', action='store_true',
                         help='stage and inspect _internal only; no distributable is produced')
