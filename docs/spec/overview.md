@@ -1,13 +1,13 @@
 # 全体像
 
-VRCT-VOXの構成要素と、外のシステムとの関係、画面の構成。製品の目的と利用者は`PRODUCT.md`、見た目と操作の決まりは`DESIGN.md`にある。
+ASTAROTの構成要素と、外のシステムとの関係、画面の構成。製品の目的と利用者は`PRODUCT.md`、見た目と操作の決まりは`DESIGN.md`にある。
 
 ## システムの文脈
 
 ```mermaid
 flowchart LR
   user(["利用者"])
-  subgraph app["VRCT-VOX"]
+  subgraph app["ASTAROT"]
     ui["UI（Tauri＋React）<br/>main / quick_chat / vr_panel"]
     side["中核（Rust、アプリのプロセスの中）"]
     speech["同梱の音声サーバー<br/>speech.cpp・RVCワーカー"]
@@ -78,7 +78,7 @@ flowchart LR
 | 高度な設定 | 会話ログの保存、設定ファイル、WebSocket、OBSブラウザソース | 文字の欄は保存バー、スイッチは即時 |
 | 実験的機能 | experimentalブランチで実機の確認を通った機能のスイッチと説明（既定はすべてオフ）。項目がないときはその旨を出す | 即時 |
 | アップデート | 版と配布の方針 | 表示のみ |
-| About VRCT-VOX | 名前、版、リンク、本家VRCTへの謝辞 | 表示のみ |
+| About ASTAROT | 名前、版、リンク、本家VRCTへの謝辞 | 表示のみ |
 
 ### そのほかのウィンドウ
 

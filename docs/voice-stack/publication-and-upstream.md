@@ -1,4 +1,4 @@
-# VRCT-VOXの公開と上流VRCTとの関係
+# ASTAROTの公開と上流VRCTとの関係
 現在の名称・配布物・識別子は[名称と識別子](project-rename.md)を参照してください。
 
 ## 現在の方針

@@ -1,4 +1,4 @@
-# VRCT-VOXのビルドとCI
+# ASTAROTのビルドとCI
 
 Windows向けのビルド手順と、現在のCIを説明します。Linuxでは[Linuxビルドパイプライン](voice-stack/linux-build-pipeline.md)と[AppImageガイド](voice-stack/appimage.md)を使います。Windows用のバッチコマンドはLinuxでは実行できません。
 
