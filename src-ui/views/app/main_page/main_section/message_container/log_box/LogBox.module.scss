@@ -10,7 +10,13 @@
     font-size: 1rem; // This is the standard font size for message logs, and is controlled by JavaScript. All child elements this are generally expressed in "em" and are affected by the font size setting here.
     &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: -.2rem; }
 }
-.empty { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; padding: 3.2rem; text-align: center; }
+// The greeting stands at a fixed distance from the top of the log, set by the window's
+// height, not centred in the log: at startup the list under it changes (the startup steps,
+// then what the engines still need) and the input box takes its saved height, and a centred
+// greeting moved with both (256, 235, 174, 195 px in 0.5.0-beta.5).
+.empty { min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: clamp(3.2rem, 22vh, 24rem) 3.2rem 3.2rem; text-align: center; }
+.greeting { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+.next { width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: 1rem; }
 .empty h1 { font-size: 2.4rem; font-weight: 650; color: var(--dark_200_color); }
 .empty p { max-width: 42rem; font-size: 1.4rem; line-height: 1.8; color: var(--dark_450_color); }
 
@@ -30,9 +36,11 @@
 // A narrow or short conversation column (MainSection) tightens the empty state;
 // a short one also gives the log's own padding to its lines.
 @container main_section (max-width: 64rem) or (max-height: 36rem) {
-    .empty { padding: 1rem; } .empty h1 { font-size: 1.8rem; } .empty p { font-size: 1.3rem; }
+    .empty { padding-inline: 1rem; padding-bottom: 1rem; } .empty h1 { font-size: 1.8rem; } .empty p { font-size: 1.3rem; }
 }
 @container main_section (max-height: 36rem) {
     .container { padding: .6rem 1rem; }
-    .empty { justify-content: flex-start; gap: .4rem; }
+    .empty { padding-top: 1rem; }
+    .greeting { gap: .4rem; }
+    .next { margin-top: .4rem; }
 }

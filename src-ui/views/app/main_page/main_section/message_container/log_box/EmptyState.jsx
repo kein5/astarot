@@ -11,13 +11,17 @@ import styles from "./LogBox.module.scss";
 // download review, or the settings where the local speech recognition models are set.
 // While the engine starts, the main page's startup list (StartupProgress) takes
 // its place: how far the start has come and which models it is fetching.
+// The greeting sits in the middle row and the list in the row below it, so the list
+// changing at startup never moves the greeting (LogBox.module.scss).
 export const EmptyState = () => {
     const { t } = useI18n();
     const startup = useStartupPlaceholder();
     return <div className={styles.empty}>
-        <h1>{t("studio.empty_title")}</h1>
-        <p>{t("studio.empty_description")}</p>
-        {!store.is_vr_panel && (startup ?? <Setup />)}
+        <div className={styles.greeting}>
+            <h1>{t("studio.empty_title")}</h1>
+            <p>{t("studio.empty_description")}</p>
+        </div>
+        {!store.is_vr_panel && <div className={styles.next}>{startup ?? <Setup />}</div>}
     </div>;
 };
 
