@@ -1177,15 +1177,15 @@ mod tests {
             })
         };
         // Message 3 is skipped at the last moment: message 2, admitted earlier, still goes out.
-        assert_eq!(send(3, false).unwrap(), false);
-        assert_eq!(send(2, true).unwrap(), true);
+        assert!(!send(3, false).unwrap());
+        assert!(send(2, true).unwrap());
         // Message 4 went out: message 3 is late and is not sent after it.
-        assert_eq!(send(4, true).unwrap(), true);
-        assert_eq!(send(3, true).unwrap(), false);
+        assert!(send(4, true).unwrap());
+        assert!(!send(3, true).unwrap());
         // A failed send does not move the order on either.
         assert!(order.send(6, || Err(std::io::Error::other("closed"))).is_err());
         let mut send = |sequence: u64| order.send(sequence, || Ok(true));
-        assert_eq!(send(5).unwrap(), true);
+        assert!(send(5).unwrap());
         assert_eq!(*sent.borrow(), [2, 4]);
     }
 
@@ -1195,14 +1195,14 @@ mod tests {
         let first = tempfile::tempdir().unwrap();
         let second = tempfile::tempdir().unwrap();
         let mut log = ConversationLog::default();
-        assert_eq!(log.write("[CHAT] before").unwrap(), false, "off: nothing is written");
+        assert!(!log.write("[CHAT] before").unwrap(), "off: nothing is written");
         log.start(first.path());
-        assert_eq!(log.write("[CHAT] one").unwrap(), true);
+        assert!(log.write("[CHAT] one").unwrap());
         // A new start replaces the open file without a stop.
         log.start(second.path());
-        assert_eq!(log.write("[CHAT] two").unwrap(), true);
+        assert!(log.write("[CHAT] two").unwrap());
         log.stop();
-        assert_eq!(log.write("[CHAT] after").unwrap(), false);
+        assert!(!log.write("[CHAT] after").unwrap());
 
         let read = |dir: &tempfile::TempDir| -> String {
             std::fs::read_dir(dir.path())
