@@ -89,14 +89,18 @@ export const runGate = (root) => {
 const lineCache = new Map();
 const lineOfKey = (root, file, key) => {
     if (!lineCache.has(file)) lineCache.set(file, readFileSync(join(root, file), "utf8").split(/\r?\n/));
-    const lines = lineCache.get(file);
+    return findKeyLine(lineCache.get(file), key);
+};
+
+// The 1-based line of a YAML key ("a.b.c"), or of the deepest parent found.
+export const findKeyLine = (lines, key) => {
     const parts = key.split(".");
     let line = 0;
     let depth = -1;
     for (const part of parts) {
         if (/^\d+$/.test(part)) break;
         let found = false;
-        for (let i = line; i < lines.length; i++) {
+        for (let i = depth < 0 ? 0 : line + 1; i < lines.length; i++) {
             const match = lines[i].match(/^(\s*)([^\s:#][^:]*):/);
             if (!match) continue;
             const indent = match[1].length;

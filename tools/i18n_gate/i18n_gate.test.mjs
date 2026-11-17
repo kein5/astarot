@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { checkLocales, keyIndex, parseLocale } from "./locales.mjs";
 import { makeNeedsTranslation, scanSource } from "./source.mjs";
 import { compareBaseline, countFindings } from "./baseline.mjs";
-import { loadExceptions } from "./check.mjs";
+import { findKeyLine, loadExceptions } from "./check.mjs";
 
 const locales = (en, ja) => [parseLocale(en, "en"), parseLocale(ja, "ja")];
 const messages = (problems) => problems.map(p => `${p.file} ${p.key}: ${p.message}`);
@@ -127,6 +127,14 @@ test("every exception needs a reason", () => {
     const { terms, problems } = loadExceptions("terms:\n  - text: ASTAROT\n    reason: product name\n  - text: Foo\npaths: []\n");
     assert.deepEqual(terms, ["ASTAROT"]);
     assert.equal(problems.length, 1);
+});
+
+test("a locale problem points at the line of its key", () => {
+    const lines = ["# note", "a:", "    title: \"T\"", "    search:", "        label: \"L\"", "        requires: \"R: {{name}}\"", "b:", "    requires: \"X\""];
+    assert.equal(findKeyLine(lines, "a.search.requires"), 6);
+    assert.equal(findKeyLine(lines, "b.requires"), 8);
+    // A key that is gone points at its nearest parent.
+    assert.equal(findKeyLine(lines, "a.search.gone"), 4);
 });
 
 test("allowed terms are whole words", () => {
