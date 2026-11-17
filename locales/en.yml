@@ -767,7 +767,7 @@ config_page:
         y_rotation: "Y-axis rotation"
         z_rotation: "Z-axis rotation"
         sample_text_button:
-            start: "Send Sample Texts\nTo Overlay"
+            start: "Send sample text\nto the subtitle overlay"
             stop: "Stop sending"
             sample_text: "Sample text."
         opacity: "Opacity"
@@ -776,7 +776,7 @@ config_page:
         fadeout_duration: "Fade-out duration"
         common_settings: "Common settings"
         vr_ui_beta: "VR UI (beta)"
-        section_label_overlay: "Subtitle Overlay"
+        section_label_overlay: "Subtitle overlay"
         tracker: "Tracker"
         hmd: "HMD"
         left_hand: "Left hand"

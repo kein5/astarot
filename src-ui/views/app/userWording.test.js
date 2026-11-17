@@ -41,3 +41,21 @@ test("#477: user-facing strings use ASTAROT, not the old name", () => {
         assert.deepEqual(lines, [], language);
     }
 });
+
+// #476: Japanese says オン／オフ, and puts no space between Japanese and a Latin word.
+test("#476: Japanese strings say オン／オフ, not ON／OFF", () => {
+    assert.deepEqual(locale("ja").split("\n").filter(line => /(^|[^A-Za-z])(ON|OFF)([^A-Za-z]|$)/.test(line.split('"').slice(1).join('"'))), []);
+});
+
+test("#476: Japanese strings put no space between Japanese and a Latin word", () => {
+    const jp = "[\\u3040-\\u30ff\\u4e00-\\u9fff]";
+    const units = new Set(["ms", "Hz", "GB", "GiB", "MB"]);
+    const spaced = new RegExp(`([A-Za-z][\\w.-]*) (?=${jp})|${jp} ([A-Za-z][\\w.-]*)`, "g");
+    const lines = locale("ja").split("\n").filter(line => !line.trim().startsWith("#") && line.includes('"')).filter(line => {
+        const value = line.split('"').slice(1).join('"');
+        // A URL or an English sentence keeps its spaces.
+        if (/https?:\/\/|[A-Za-z]+\. /.test(value)) return false;
+        return [...value.matchAll(spaced)].some(match => !units.has(match[1] ?? match[2]));
+    });
+    assert.deepEqual(lines, []);
+});
