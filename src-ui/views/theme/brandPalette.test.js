@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 // The app's tokens follow the ASTAROT palette in DESIGN.md (#452). DESIGN.md's front matter is the
 // source of the colours; variables.css carries them to the app. These tests keep the two in step

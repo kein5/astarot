@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 // The rules of the #452 settings kit that a reader of the source could break without noticing.
 // The behaviour itself (Space toggles a switch, a label names it, focus shows a ring) was checked
