@@ -10,7 +10,7 @@ Translates what you type and what speech recognition turns into text. Turn it on
 
 ## Translate on this PC (CTranslate2)
 
-Translation runs on your PC, so your text is not sent anywhere. Choose a model under "AI Translation (Local)" and press "Download". A screen shows the source, license and size; the download starts after you agree.
+Translation runs on your PC, so your text is not sent anywhere. Choose a model under "AI translation (local)" and press "Download". A screen shows the source, license and size; the download starts after you agree.
 
 | Model | Approximate size | License |
 |---|---|---|
@@ -37,7 +37,7 @@ You can use DeepL, Plamo, Gemini, OpenAI, Groq and OpenRouter. Register an API k
 
 ## Use local LLMs and compatible servers
 
-You can use LM Studio, Ollama and OpenAI-compatible endpoints. Check the connection with "Connection Check", then choose a model. If you point the OpenAI-compatible endpoint at a non-official URL, check its pricing, security and compatibility yourself.
+You can use LM Studio, Ollama and OpenAI-compatible endpoints. Check the connection with "Connection check", then choose a model. If you point the OpenAI-compatible endpoint at a non-official URL, check its pricing, security and compatibility yourself.
 
 If you change the URL while an API key is saved, you are asked to enter the key again, so that the saved key is not sent to a different server. To switch to a server that needs no key, delete the saved key first.
 
