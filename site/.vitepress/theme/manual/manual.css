@@ -1,0 +1,171 @@
+/* The ASTAROT manual's look: the brand's Dark Plum, Lilac and Off-White, in light and dark. The
+   rest of the site is dark only (config.mts); the manual follows the reader's system setting.
+   Every color the components use is a token here. */
+
+.astarot {
+  --a-plum: #261633;
+  --a-lilac: #a47af5;
+  --a-offwhite: #fafafc;
+
+  --a-bg: #fafafc;
+  --a-bg-soft: #f3eff9;
+  --a-surface: #ffffff;
+  --a-text: #261633;
+  --a-text-2: #554a63;
+  --a-text-3: #6e6479;
+  --a-link: #6a3fd2;
+  --a-border: #e4ddee;
+  --a-border-strong: #cfc3e0;
+  --a-accent-soft: #ece3fd;
+  --a-focus: #6a3fd2;
+  --a-shadow: 0 18px 40px rgba(38, 22, 51, 0.14);
+  --a-button-bg: #a47af5;
+  --a-button-hover: #b590f8;
+  --a-button-text: #261633;
+  --a-backdrop: #e9dffc;
+  --a-mark-bg: #261633;
+  --a-mark-text: #fafafc;
+
+  --a-note: #6e6479;
+  --a-tip: #2f7d64;
+  --a-important: #6a3fd2;
+  --a-caution: #9a5b00;
+  --a-warning: #b3261e;
+  --a-trouble: #8a4a9e;
+
+  --a-ease: cubic-bezier(0.2, 0, 0, 1);
+  --a-fast: 140ms;
+  --a-radius: 14px;
+  --a-gutter: clamp(16px, 4vw, 32px);
+  --a-width: 1120px;
+
+  color-scheme: light;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--a-bg);
+  color: var(--a-text);
+  font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
+    'Noto Sans CJK JP', 'Yu Gothic UI', Meiryo, sans-serif;
+  font-size: 16px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@media (prefers-color-scheme: dark) {
+  .astarot {
+    --a-bg: #1a0f24;
+    --a-bg-soft: #21142d;
+    --a-surface: #261633;
+    --a-text: #fafafc;
+    --a-text-2: #d6cce2;
+    --a-text-3: #b3a7c2;
+    --a-link: #c9adff;
+    --a-border: #3a2a4b;
+    --a-border-strong: #4e3a63;
+    --a-accent-soft: #33204a;
+    --a-focus: #c9adff;
+    --a-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+    --a-button-bg: #a47af5;
+    --a-button-hover: #b590f8;
+    --a-button-text: #1a0f24;
+    --a-backdrop: #2f1d45;
+    --a-mark-bg: #a47af5;
+    --a-mark-text: #1a0f24;
+
+    --a-note: #b3a7c2;
+    --a-tip: #6fd3b0;
+    --a-important: #c9adff;
+    --a-caution: #f0b360;
+    --a-warning: #ff8e86;
+    --a-trouble: #e3a2f5;
+
+    color-scheme: dark;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .astarot {
+    --a-fast: 0ms;
+  }
+}
+
+/* The page behind the manual matches it, so overscroll shows no other color. */
+html:has(.astarot),
+html:has(.astarot) body {
+  background: #fafafc;
+}
+@media (prefers-color-scheme: dark) {
+  html:has(.astarot),
+  html:has(.astarot) body {
+    background: #1a0f24;
+  }
+}
+
+.astarot *,
+.astarot *::before,
+.astarot *::after {
+  box-sizing: border-box;
+}
+
+.astarot :where(h1, h2, h3, p, ul, ol, dl, dd, figure) {
+  margin: 0;
+}
+
+.astarot :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+.astarot a {
+  color: var(--a-link);
+  text-underline-offset: 3px;
+}
+
+.astarot :focus-visible {
+  outline: 2px solid var(--a-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Headings: Outfit when the reader has it installed; no font is fetched. */
+.astarot .a-heading {
+  font-family: Outfit, system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.astarot .a-container {
+  width: 100%;
+  max-width: calc(var(--a-width) + 2 * var(--a-gutter));
+  margin-inline: auto;
+  padding-inline: var(--a-gutter);
+}
+
+.astarot .a-paragraphs > p + p {
+  margin-top: 0.4em;
+}
+
+/* Japanese lines break between phrases where the browser can; elsewhere they break as usual. */
+.astarot :lang(ja) {
+  line-break: strict;
+}
+@supports (word-break: auto-phrase) {
+  .astarot :lang(ja) {
+    word-break: auto-phrase;
+  }
+}
+
+.astarot .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
