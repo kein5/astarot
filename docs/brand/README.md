@@ -36,3 +36,5 @@ uv run --no-project --with fonttools python tools/brand_assets.py
 This rewrites the logos in this folder. It needs `/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc`.
 
 For the app's ASTAROT icons and in-app logos, run `uv run --no-project --with pillow==13.0.0 python tools/astarot_app_assets.py` (add `--check` to compare without writing). The AppImage desktop icon is copied from `src-tauri/icons/128x128@2x.png` at build time.
+
+The 16 px ASTAROT favicon is its own drawing, not the symbol scaled down: `astarot/favicon-16.svg` is drawn on the 16 px grid with one-pixel lines and no dots in the bubble (ADR-011, 3.1). `tools/astarot_favicon_small.py` builds it with `favicon-16.png` and `favicon.ico` (16 px from this variant, 32 and 48 px from `favicon-32.png` and `favicon-48.png`) and copies the ICO to `site/public/manual/brand/`. Run it the same way as the tool above, with `--check` to compare without writing.
