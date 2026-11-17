@@ -45,7 +45,7 @@
     "@vanilla-extract/css": "1.21.3",
     "clsx": "2.1.1",
     "i18next": "25.0.1",
-    "jotai": "2.12.3",
+    "jotai": "3.0.2",
     "js-base64": "3.7.7",
     "jszip": "3.10.1",
     "react": "18.3.1",
