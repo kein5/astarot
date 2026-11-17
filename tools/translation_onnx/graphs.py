@@ -17,11 +17,18 @@ keeping one copy of each weight they share.
 """
 import gc
 import hashlib
+import os
 from pathlib import Path
 
-import numpy as np
-import torch
-from torch import nn
+# The onnxruntime wheel in uv.lock (1.32) otherwise writes a device id under ~/.cache/Microsoft
+# and sends usage events when the first session or quantizer starts (#574). Set before torch
+# and onnxruntime are imported; export.py imports this module first. A value the caller set is
+# kept.
+os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
+
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+from torch import nn  # noqa: E402
 
 OPSET = 18
 # ONNX keeps a model in one protobuf message only below 2 GB.
