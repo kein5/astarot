@@ -55,10 +55,18 @@ Do not rewrite existing documents to these rules in one sweep. Apply them to new
 
 - Put the point first, then the reasons and details.
 - One idea per sentence. Split a sentence that carries two.
-- One topic per paragraph.
 - Use a list for three or more parallel items that a reader will scan. Number a list only when order matters.
 - Name who acts. Prefer "ASTAROT saves the settings" to "the settings are saved" when the actor matters.
 - State quantities and times as numbers ("wait 30 seconds", not "wait a while"). If the number is unknown, say so instead of inventing one.
+
+### Paragraphs and arguments
+
+- Open each paragraph with a sentence that states its topic. Keep one topic per paragraph.
+- Move the argument in one direction. Deal with objections and limits first, and state the conclusion once.
+- Show how a paragraph follows from the one before with a connective such as "but" or "so".
+- Do not call different things "the same". Do not reduce an event with several causes to one cause.
+- When you state a cause, add one sentence on how it works. Write "Stopping advances the generation number, and speech from earlier generations is not played" rather than "Stopping keeps old speech from playing".
+- Keep a claim within what your examples support. State detection and guarantees together with the conditions under which they hold.
 
 ### Revising without changing the meaning
 
@@ -74,6 +82,10 @@ If an edit would change one of these, leave the text and raise it with the autho
 ### Adding nothing
 
 Do not add facts that the source text or a checked record does not contain: actors, numbers, examples, causes, or conditions. If the code and records do not settle a point, write "not verified" or "unknown" instead of guessing. Give measured values with the environment and conditions they were measured under.
+
+### Revision tool
+
+Revise English text with [humanizer](https://github.com/blader/humanizer). It is the tool that carries out the revision; its rules are not copied into this file. When humanizer's suggestions and this file disagree, follow this file.
 
 ### Habits to remove
 
@@ -272,17 +284,18 @@ Layout follows `DESIGN.md`, "The user guide (site/)". The text follows this sect
 
 ## Checklist
 
-Check these points when you finish. No automated check covers this file yet.
+When you finish, revise with humanizer, then check these points. No automated check covers this file yet.
 
 1. The point comes first, and each sentence carries one idea.
-2. None of the [habits to remove](#habits-to-remove) are left: filler, chatbot phrases, promotional words, AI vocabulary, "serves as", trailing "-ing" clauses, padded triplets, needless contrasts, dashes.
-3. One term per thing, matching `locales/en.yml` and the glossary.
-4. Spelling, numbers, dates, and quotes follow [Spelling and mechanics](#spelling-and-mechanics).
-5. Editing kept the claim, weight, strength, and function, and added no facts.
-6. Public text has no people's names, roles, or details of the machine used.
+2. Each paragraph opens with its topic. Different things are not called the same, causes come with how they work, and claims stay within the examples.
+3. None of the [habits to remove](#habits-to-remove) are left: filler, chatbot phrases, promotional words, AI vocabulary, "serves as", trailing "-ing" clauses, padded triplets, needless contrasts, dashes.
+4. One term per thing, matching `locales/en.yml` and the glossary.
+5. Spelling, numbers, dates, and quotes follow [Spelling and mechanics](#spelling-and-mechanics).
+6. Editing kept the claim, weight, strength, and function, and added no facts.
+7. Public text has no people's names, roles, or details of the machine used.
 
 ## References
 
 - Wikipedia contributors, "Wikipedia:Signs of AI writing". <https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing> (accessed 2026-11-17)
   - Used for the catalogue of habits: filler and chatbot phrases, promotional language, AI vocabulary, copula avoidance, trailing "-ing" analyses, the rule of three, negative parallelisms, vague attribution, elegant variation, and formatting signs such as title case, bold inline headers, emoji, and curly quotes. Also for its caveat that the signs are descriptive, not proof, and that removing them is not the same as fixing the text.
-- [japanese-guideline.md](japanese-guideline.md), the Japanese counterpart. Its sections on meaning-preserving revision and on adding nothing are mirrored here.
+- [japanese-guideline.md](japanese-guideline.md), the Japanese counterpart. Its sections on paragraphs and arguments, on meaning-preserving revision, and on adding nothing are mirrored here.
