@@ -145,17 +145,15 @@
     }
 }
 
-// The short name in brackets goes on its own line: 「音声認識」 then 「（ASR）」. Each line stays whole.
-.tab_text_abbr {
-    display: block;
-    font-size: 1.2rem;
-    color: var(--vox_description_text);
-}
-
-// One line per part: while the rail is narrow, a wrapping label would stretch the tab.
+// One line: every tab is the same height, also in the narrow rail where the text is hidden.
+// The names fit the 20.8rem rail (13rem beside the icon) also in a font whose kana are full
+// width; a longer one would end in an ellipsis rather than be cut off unseen.
 .tab_text {
     font-size: 1.4rem;
     position: relative;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
     line-height: 1.4;
     opacity: 1;

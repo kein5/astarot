@@ -55,7 +55,7 @@ test("the side menu lists chat reading after VRChat, with an icon of its own and
     }
 });
 
-test("a long settings menu name breaks before its bracket and keeps its whole name for screen readers", async () => {
+test("a feature's settings menu tab shows its name on one line and keeps the whole name in its tooltip and for screen readers", async () => {
     const runtime = hooks();
     const names = { "config_page.side_menu_labels.transcription": "Speech recognition (ASR)" };
     const svg = name => icon(name);
@@ -71,9 +71,14 @@ test("a long settings menu name breaks before its bracket and keeps its whole na
     });
     const [tab] = all(runtime.render(sidebar.SidebarSection), node => node.props?.tab_id === "transcription");
     const tree = runtime.render(tab.type, tab.props);
-    assert.ok(find(tree, node => node.props?.["aria-label"] === "Speech recognition (ASR)"));
-    assert.ok(find(tree, node => node.type === "span" && node.props?.children === "(ASR)"));
-    assert.ok(find(tree, node => Array.isArray(node.props?.children) && node.props.children[0] === "Speech recognition"));
+    const button = find(tree, node => node.type === "button");
+    assert.equal(button.props["aria-label"], "Speech recognition (ASR)");
+    assert.equal(button.props.title, "Speech recognition (ASR)");
+    assert.ok(find(tree, node => node.type === "p" && node.props?.children === "Speech recognition"));
+    assert.equal(find(tree, node => node.type === "span"), null, "the short name has no second line");
+    // A tab without a short name needs no tooltip: its text is its whole name.
+    const [device] = all(runtime.render(sidebar.SidebarSection), node => node.props?.tab_id === "device");
+    assert.equal(find(runtime.render(device.type, device.props), node => node.type === "button").props.title, undefined);
 });
 
 test("speech recognition opens on the engine choice; the timing numbers follow, folded under a line that shows them", async () => {
