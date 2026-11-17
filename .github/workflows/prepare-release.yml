@@ -1,4 +1,4 @@
-name: Prepare verified VRCT-VOX release draft
+name: Prepare verified ASTAROT release draft
 on:
   workflow_dispatch:
     inputs:
@@ -98,7 +98,7 @@ jobs:
           require_unused_tag(version)
           payload = pathlib.Path('build/release-draft/payload')
           command = ['gh', 'release', 'create', 'v' + version, '--repo', 'kein5/astarot',
-                     '--draft', '--target', os.environ['CANDIDATE_COMMIT'], '--title', 'VRCT-VOX ' + version,
+                     '--draft', '--target', os.environ['CANDIDATE_COMMIT'], '--title', 'ASTAROT ' + version,
                      '--notes-file', 'build/release-draft/notes.md']
           # Betas never become the repository's latest release.
           command += ['--prerelease', '--latest=false'] if channel == 'beta' else ['--latest']
