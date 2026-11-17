@@ -83,6 +83,19 @@ def test_the_deb_declares_glibc_gtk_webkit_and_recommends_the_vulkan_loader():
     assert control.endswith("\n")
 
 
+def test_the_displayed_text_names_astarot_and_the_identifiers_stay():
+    # The package name, paths and files stay vrct-vox; what a package manager shows is the brand.
+    control = lp.deb_control("0.3.0", "linux-x64", "2.39", 1)
+    fields = control_fields(control)
+    spec = lp.rpm_spec("0.3.0", "linux-x64", "2.39", "/staged")
+    assert fields["Package"] == "vrct-vox" and "Name: vrct-vox" in spec.splitlines()
+    assert fields["Maintainer"].startswith("ASTAROT maintainers ")
+    description = spec.split("%description\n", 1)[1].split("\n%install", 1)[0]
+    for text in (fields["Maintainer"], fields["Description"], control.split("Description: ", 1)[1], description):
+        assert "VRCT" not in text
+    assert "ASTAROT translates" in control and "ASTAROT translates" in description
+
+
 def test_nothing_of_vulkan_is_required():
     fields = control_fields(lp.deb_control("0.3.0", "linux-x64", "2.39", 1))
     assert "vulkan" not in fields["Depends"]
