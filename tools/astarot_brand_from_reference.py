@@ -47,6 +47,9 @@ LILAC = "#A47AF5"
 CANVAS = "#FAFAFC"
 WHITE = "#FFFFFF"
 BOARD_MUTED = "#777082"
+# Subtitle of the dark horizontal logo: the hue of the light logo's #766B80 at 67 % lightness.
+# Contrast 6.8:1 on Dark Plum and 7.6:1 on #0D1117, so the white wordmark stays the lead.
+HORIZONTAL_DARK_SUBTITLE = "#ABA0B5"
 SUBTITLE = "Speech, Translation, Accessibility, Revoicing &amp; OCR Toolkit"
 SUBTITLE_LINES = ("Speech, Translation, Accessibility,", "Revoicing &amp; OCR Toolkit")
 BOARD_STACKED_LINES = ("Speech, Translation,", "Accessibility, Revoicing &amp; OCR Toolkit")  # the approved stacked-logo line break
@@ -140,7 +143,7 @@ def wordmark_svg(parts: Parts) -> str:
 
 def horizontal(parts: Parts, dark: bool) -> str:
     ink = WHITE if dark else PLUM
-    sub = "#E1D6E8" if dark else "#766B80"
+    sub = HORIZONTAL_DARK_SUBTITLE if dark else "#766B80"
     # One-line lockup: wordmark ink width = subtitle ink width x 1.0047 (typography-and-lockup.md).
     # The subtitle names Outfit Bold explicitly, and no line is drawn under it.
     body = (
