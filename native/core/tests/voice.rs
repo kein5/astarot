@@ -212,9 +212,10 @@ fn speech_starts_while_the_server_still_streams_and_messages_follow_in_order() {
     // The first audio plays before the server has sent the whole answer.
     eventually("the first speech is audible", || run.played_on(OUTPUT) > 0);
     eventually("the others wait", || run.status()["queued"] == 2);
+    // The bus records the start delay right after the first write returns.
+    eventually("the start delay is reported", || run.status()["last_first_write_ms"].is_number());
     let status = run.status();
     assert_eq!((status["active"].clone(), status["completed"].clone()), (json!(true), json!(0)), "{status}");
-    assert!(status["last_first_write_ms"].is_number(), "the start delay is not reported: {status}");
     assert_eq!(spoken_inputs(&server), ["first"], "a later message was asked for while the first one speaks");
 
     // Each message is spoken whole, once, in the order it came.
@@ -354,7 +355,12 @@ fn speech_servers_the_switch_starts_are_its_own_and_go_with_it() {
     assert!(core.voice_target_idle("japanese"));
     let on = run.enable();
     assert_eq!(on["status"], 200, "{on}");
-    assert_eq!(run.ui.ok("/get/data/speech_server_state", None)["japanese"]["state"], "ready");
+    let state = run.ui.ok("/get/data/speech_server_state", None);
+    assert_eq!(state["japanese"]["state"], "ready");
+    // Requests to the server the app started end with it; its port is not probed.
+    let port: u16 = state["japanese"]["base_url"].as_str().and_then(|url| url.rsplit(':').next()).and_then(|port| port.parse().ok()).expect("a ready server has an address");
+    let address = ("127.0.0.1".to_owned(), port);
+    assert!(vrct_tts::listener::listener_monitors().owned(&address).is_some(), "the started server is not owned");
     assert!(!core.voice_target_idle("japanese"), "a model download must not replace the model TTS uses");
     run.ui.ok("/run/send_message_box", Some(json!({ "id": "b-1", "message": "bundled" })));
     eventually("the bundled server's speech plays", || run.played_on(OUTPUT) >= 9600);
@@ -362,6 +368,7 @@ fn speech_servers_the_switch_starts_are_its_own_and_go_with_it() {
     run.ui.ok("/run/disable_tts", None);
     eventually("the server stops", || run.ui.ok("/get/data/speech_server_state", None)["japanese"]["state"] == "stopped");
     assert!(core.voice_target_idle("japanese"));
+    assert!(vrct_tts::listener::listener_monitors().owned(&address).is_none(), "a stopped server is still owned");
     // A server started from Settings is not the switch's: OFF leaves it, and its stop turns
     // TTS off.
     let state = run.ui.ok("/get/data/speech_server_state", None);
