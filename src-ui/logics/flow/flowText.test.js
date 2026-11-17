@@ -43,6 +43,9 @@ test("a timeline lists the stages in order, then each arrival, then what did not
     assert.deepEqual(rows.map(row => [row.kind, row.value, row.start, row.end]), [
         ["stage", "10 ms", 0, 10], ["stage", "200 ms", 10, 210], ["chatbox", "240 ms", 0, 240],
         ["speech", "800 ms", 0, 800], ["conversion", "31 ms", 800, 831]]);
+    const spoken = timelineRows(trace("s", "chat", { speech: { state: "playing", at_ms: 800, converted: false, synthesis_ms: 300 } }), t);
+    assert.deepEqual(spoken.map(row => [row.kind, row.label, row.value, row.start, row.end]), [
+        ["synthesis", "io_flow.synthesis", "300 ms", 500, 800], ["speech", "io_flow.output_short.speech", "800 ms", 0, 800]]);
     const off = timelineRows(trace("b", "chat", { chatbox: { state: "off", at_ms: null } }), t);
     assert.deepEqual(off, [{ kind: "chatbox", label: "io_flow.output_short.chatbox", value: "io_flow.state.off", start: 0, end: 0, off: true }]);
 });
@@ -57,6 +60,9 @@ test("the desktop strip lists the newest inputs first, worded, and fits the over
     assert.equal(first.scale, 200);
     assert.equal(second.scale, 500);
     assert.equal(stripItems(traces, 1, t).length, 1);
+    // The strip window draws no synthesis row (caption_overlay.rs refuses unknown kinds).
+    const spoken = stripItems([trace("6", "chat", { speech: { state: "playing", at_ms: 400, converted: false, synthesis_ms: 100 } })], 1, t)[0];
+    assert.deepEqual(spoken.rows.map(row => row.kind), ["speech"]);
     const long = stripItems([trace("3", "voice", { speech: { state: "playing", at_ms: 900000, converted: false } }, {}, { text: "x".repeat(300) })], 1, t)[0];
     assert.equal(long.text.length, 200);
     assert.ok(long.rows.every(row => row.end <= long.scale && long.scale <= 600000));
