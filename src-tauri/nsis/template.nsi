@@ -950,7 +950,7 @@ Section Install
     StrCpy $effective_version "${VERSION}"
   ${EndIf}
   StrCpy $release_revision "v$effective_version"
-  StrCpy $cmder_dl "https://github.com/kein5/VRCT-VOX/releases/download/$release_revision/$file_name"
+  StrCpy $cmder_dl "https://github.com/kein5/astarot/releases/download/$release_revision/$file_name"
   DetailPrint "Got URL : $cmder_dl"
 
   StrCpy $package_hash_path ""

@@ -2,6 +2,8 @@ import asyncio
 import importlib
 import json
 from pathlib import Path
+import re
+import subprocess
 import sys
 import tomllib
 from types import SimpleNamespace
@@ -86,12 +88,37 @@ def test_upstream_telemetry_stays_unused_even_with_stale_upstream_key(monkeypatc
 
 def test_download_sources_belong_to_fork():
     from config import config
-    assert "/repos/kein5/VRCT-VOX/releases" in config.GITHUB_URL
-    assert "/repos/kein5/VRCT-VOX/releases" in config.GITHUB_RELEASES_LIST_URL
-    assert config.setupDownloadUrl("3.6.0", tag="v3.6.0") == "https://github.com/kein5/VRCT-VOX/releases/download/v3.6.0/VRCT-VOX_setup.exe"
+    assert "/repos/kein5/astarot/releases" in config.GITHUB_URL
+    assert "/repos/kein5/astarot/releases" in config.GITHUB_RELEASES_LIST_URL
+    assert config.setupDownloadUrl("3.6.0", tag="v3.6.0") == "https://github.com/kein5/astarot/releases/download/v3.6.0/VRCT-VOX_setup.exe"
     script = (ROOT / "src-tauri/nsis/template.nsi").read_text(encoding="utf-8")
     assert "ms-software/VRCT" not in script
-    assert "https://github.com/kein5/VRCT-VOX/releases/download/" in script
+    assert "https://github.com/kein5/astarot/releases/download/" in script
+
+
+# The old name kein5/VRCT-VOX is now a repository of its own that keeps only a copy of the 0.5.0
+# release (Issue #534), so GitHub no longer forwards it. Shipped code and the release workflow
+# must name the current repository, or downloads newer than 0.5.0 return 404.
+OLD_REPOSITORY = re.compile(r"(github\.com|repos)/kein5/VRCT-VOX\b", re.IGNORECASE)
+SHIPPED = ("src-tauri", "native", "src-ui", "src-python", "spec", "bat")
+RELEASE_FILES = (".github/workflows/prepare-release.yml", "tools/release_candidate.py",
+                 "tools/updater_manifest.py", "tools/linux_packages.py")
+
+
+def test_shipped_code_does_not_name_the_old_repository():
+    tracked = subprocess.run(["git", "ls-files", "--", *SHIPPED, *RELEASE_FILES], cwd=ROOT,
+                             capture_output=True, text=True, check=True).stdout.splitlines()
+    offenders = []
+    for name in tracked:
+        path = ROOT / name
+        if path.suffix.lower() in {".png", ".ico", ".icns", ".jpg", ".gif", ".webp", ".onnx", ".wav", ".bin"}:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):  # binaries, submodules and links
+            continue
+        offenders += [f"{name}:{n}" for n, line in enumerate(text.splitlines(), 1) if OLD_REPOSITORY.search(line)]
+    assert offenders == []
 
 
 def test_release_workflow_cannot_publish_or_inject_upstream_keys():
