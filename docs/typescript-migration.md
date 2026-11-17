@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 1 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 2 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 55 本、321KB | 81 本、263KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 170 本、829KB | 18 本、61KB（うち vanilla-extract の `.css.ts` が 8 本） |
+| `src-ui/logics`（試験を除く） | 50 本、299KB | 86 本、294KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 170 本、829KB | 18 本、60KB（うち vanilla-extract の `.css.ts` が 8 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 175 本、1.1MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -31,7 +31,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 段 | 対象 | 状態 |
 |---|---|---|
 | 1 | 未移行の JavaScript を import しない `logics` の葉のモジュール | 済み |
-| 2 | データ層の根（ストアと IPC） | 未着手 |
+| 2 | データ層の根（ストアと IPC） | 済み |
 | 3 | ストアと IPC だけに依存する小さなフック | 未着手 |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 未着手 |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 未着手 |
@@ -50,11 +50,17 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 
 ### 第 2 段：データ層の根
 
-- `store.js`（Jotai の atom の定義。134 本のファイルが参照しています）
-- `common/useStdoutToPython.js`（バックエンドへの送信。53 本が参照しています）
-- 再輸出だけのファイル（`common/index.js`、`configs/index.js`、`main/index.js`）
+- `store`（Jotai の atom の定義。134 本のファイルが参照しています）
+- `common/useStdoutToPython`（バックエンドへの送信。53 本が参照しています）
+- 再輸出だけのファイル（`common/index`、`configs/index`、`main/index`）
 
-ここを先に型付けすると、第 3 段以降のフックが推論ではなく実際の型を受け取れます。`CompanionController.tsx` に残っている 2 つのキャストもここで外せます。ストアの値の形はバックエンドが返すデータの形でもあるので、`docs/spec/` の該当する仕様と照らし合わせて型を書きます。
+ここを先に型付けしたので、第 3 段以降のフックは推論ではなく実際の型を受け取れます。
+
+- atom ごとに、持つ値の型を決めました。`null` や空の配列で始まる atom は、後で入る値の型で宣言しています。値の形は、すでにある TypeScript の型（`SwitchBlocks`、`StartupFailure`、`MessageLogRow`、`IoFlow` など）と `docs/spec/` に合わせました。
+- ストアのフックが返すフィールドは、atom の名前から作る名前（`currentX`、`updateX`、`pendingX`、`errorX`）のまま型が付きます。`useStore_SwitchBlocks()` の `currentSwitchBlocks.data` は `SwitchBlocks` です。
+- `CompanionController.tsx` の 2 つのキャストを外し、型の厳しさの検査の `ALLOWED` を空にしました。
+- `useStdoutToPython` の結果は `false`、`true`、設定の書き込みへの応答のどれかで、型は `StdoutResult` です。
+- 設定から実行時に作る atom（`ui_config_setter.js`）は、値の型が `unknown` です。名前で引くフック（`getStoreHook`）は、フィールドの名前も値の型も分からない形で返します。
 
 ### 第 3 段：小さなフック
 
@@ -98,6 +104,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 試験のファイル（`*.test.js`）と `src-ui/logics/test/` のハーネスは、Issue #550 で決まった Vitest への移行が済んでから TypeScript にします。それまでは次のように扱います。
 
 - ソースを移す PR では、試験のうち移したファイルを名指しする行だけを書き換えます（`./saveBar.js` を `./saveBar.ts` にするなど）。試験の書き方、実行の方法、ハーネスの API は変えません。
+- ソースを文字列として読んで書き換えてから読み込む試験（`useStdoutToPython.test.js`）は、`node:module` の `stripTypeScriptTypes` で型を消してから読み込みます。
 - 試験は今のまま `node --test --experimental-strip-types` で `.ts` のソースを読み込みます。ハーネスの `loadModule` は `.ts` を Babel で変換して読み込みます。依存の指定に拡張子がなくても、対応するモックを見つけます。
 - Vitest は `.ts` のソースを拡張子つきで import できるので、ここでの書き換えは Vitest への移行の妨げになりません。
 
@@ -112,6 +119,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - `tsconfig.json` は `strict` です。TypeScript のファイルだけを検査し、JavaScript のファイルは型を推論して読むだけです。
 - `tests/devtools/test_typescript_strictness.py` は、`src-ui` の TypeScript のファイルにある `any`、`as unknown as`、`@ts-ignore`、`@ts-nocheck`、`@ts-expect-error` を数えます。まだ外せないものは、ファイルごとの数を `ALLOWED` に書きます。数が増えても減っても失敗するので、外したら一覧も減らします。
 - DOM の要素を扱うところでは、型を決めつけるキャストの代わりに型ガードで確かめます。たとえば `Element` には `focus()` がないので、`useConsentDialog` は `focus` を持つ要素だけを `Focusable` として扱います。
+- TypeScript は計算したキーを `string` として扱うので、`{ [key]: value }` が名前 `K` のキーを持つことを確かめられません。ストアでは `field()` のオーバーロードで 1 か所だけそう宣言しています。名前を 1 つずつ渡すので成り立ちます。同じ形が要るときは `field()` を使い、ほかの場所で宣言を増やしません。
 
 ## 移すときの手順
 

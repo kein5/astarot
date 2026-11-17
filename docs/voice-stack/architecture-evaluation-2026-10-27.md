@@ -48,7 +48,7 @@ flowchart TB
     VIRTUAL --> VRCHAT["VRChat input"]
 ```
 
-主な証拠は [UI sidecar起動](../../src-ui/views/app/_app_controllers/StartPythonController.jsx)、[UI IPC](../../src-ui/logics/common/useStdoutToPython.js)、[Main](../../src-python/mainloop.py#L688)、[Controller](../../src-python/controller.py#L976)、[scheduler](../../src-python/models/tts/tts_scheduler.py)、[AudioRouter](../../src-python/models/audio_routing/audio_router.py)。
+主な証拠は [UI sidecar起動](../../src-ui/views/app/_app_controllers/StartPythonController.jsx)、[UI IPC](../../src-ui/logics/common/useStdoutToPython.ts)、[Main](../../src-python/mainloop.py#L688)、[Controller](../../src-python/controller.py#L976)、[scheduler](../../src-python/models/tts/tts_scheduler.py)、[AudioRouter](../../src-python/models/audio_routing/audio_router.py)。
 
 | 責務・境界 | 確認できた実装 | 評価 |
 |---|---|---|
