@@ -43,7 +43,7 @@ git grep -n -I -P "kein5/VRCT-VOX|kein5\.github\.io/VRCT-VOX|base = '/VRCT-VOX/'
 | `src-tauri/src/opener_scope_tests.rs` | 許可と拒否の試験 | 上の許可リストの試験 |
 | `src-tauri/nsis/template.nsi` | `$cmder_dl` | インストーラーが本体の zip を取得する URL |
 | `src-python/config.py` | `_GITHUB_URL`、`_GITHUB_RELEASES_LIST_URL`、リリースの `base` | 版の一覧と配布物の URL |
-| `src-ui/logics/ui_configs.js` | `vrct_document_home_url` | アプリから開くマニュアルの URL |
+| `src-ui/logics/ui_configs.ts` | `vrct_document_home_url` | アプリから開くマニュアルの URL |
 | `src-ui/views/.../AboutVrct.jsx`、`Updater.jsx`、`AppErrorBoundary.jsx`、`ContactsContainer.jsx` | リポジトリ、Releases、Issues の URL | 画面のリンク |
 | `src-ui/logics/common/*.test.js`、`src-python/test/test_model_update.py` | 試験の URL | 上の値の試験 |
 | `site/.vitepress/config.mts` | `repo`、`site`、`base = '/VRCT-VOX/'`、favicon の `href` | サイトの URL とパス |
