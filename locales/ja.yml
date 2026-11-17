@@ -580,7 +580,7 @@ config_page:
         section_label_ai_translation: "AI翻訳（ローカル）"
         section_label_external_api: "外部翻訳API"
         section_label_local_llm: "ローカルLLM・互換サーバー"
-        llm_privacy_desc: "LLMエンジンは、翻訳する本文とプロンプトに加え、チャット・マイク・スピーカーの直近の会話を最大5件、選んだサービスに送ります。SDKはOSの種類、CPUの種類、実行環境やバージョンの情報も送ります。エンジン・接続先・モデルを変えたときや、翻訳をオフにしたときに履歴をリセットします。"
+        llm_privacy_desc: "LLMのエンジンには翻訳する文とプロンプトのほかに、直近の会話を最大5件送ります。会話はチャットとマイクの自分の発言と、スピーカーから聞き取った相手の発言です。どれにも言った時刻（時:分）が付きます。会話はメモリーにだけ置き、エンジンや接続先やモデルを変えたときと翻訳をオフにしたときに消します。"
 
         ctranslate2_weight_type:
             label: "{{ctranslate2}}のモデルタイプ"
@@ -1390,7 +1390,7 @@ app_update:
     install: "{{version}}に更新して再起動"
     release_page: "{{version}}のリリースノート"
     check_at_start: "起動時に更新を確認する"
-    check_at_start_desc: "起動のたびにGitHubのリリースに新しい版を問い合わせます。送るのは通常のダウンロードと同じ情報で、会話や音声は送りません。"
+    check_at_start_desc: "起動のたびに新しい版を問い合わせます。正式版は開発者のサーバー（Cloudflare）を通してGitHubのリリースへ、ベータ版はGitHubのAPIへ直接問い合わせます。送るのは通常のダウンロードと同じ情報で、会話や音声は送りません。"
     status:
         checking: "更新を確認しています…"
         up_to_date: "最新の版です。"

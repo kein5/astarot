@@ -580,7 +580,7 @@ config_page:
         section_label_ai_translation: "AI translation (local)"
         section_label_external_api: "External translation API"
         section_label_local_llm: "Local LLM and compatible server"
-        llm_privacy_desc: "LLM engines send the current text, the prompt and up to five recent chat, microphone or speaker messages to the selected service. SDKs also send OS, architecture and runtime/version metadata. History resets when you change the engine, server or model, or turn translation off."
+        llm_privacy_desc: "LLM engines receive the text to translate and the prompt, plus up to five recent messages of the conversation: what you said in chat or into the microphone, and what the speaker transcription heard from others, each with the time it was said (hours and minutes). The conversation is kept in memory only and cleared when you change the engine, server or model, or turn translation off."
 
         ctranslate2_weight_type:
             label: "{{ctranslate2}} model"
@@ -1390,7 +1390,7 @@ app_update:
     install: "Update to {{version}} and restart"
     release_page: "Release notes for {{version}}"
     check_at_start: "Check for updates at start"
-    check_at_start_desc: "Each start asks GitHub Releases for a new version. This sends what any download sends; no conversation or voice."
+    check_at_start_desc: "Each start asks for a new version: a stable version asks GitHub Releases through the developer's server (Cloudflare), a beta asks the GitHub API directly. This sends what any download sends; no conversation or voice."
     status:
         checking: "Checking for updates…"
         up_to_date: "You have the latest version."
