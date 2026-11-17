@@ -417,3 +417,110 @@ fn the_chat_providers_get_the_recent_conversation() {
     assert!(!sent.body["messages"][0]["content"].as_str().unwrap().contains("最初の話"));
     run.ui.stop();
 }
+
+#[test]
+fn a_message_still_being_translated_at_shutdown_goes_nowhere() {
+    // `test_message_delivery_revocation.py` (`shutdown_revokes_all_sources_before_cleanup`,
+    // `shutdown_closes_new_message_admission`).
+    let run = start(json!({ "LOGGER_FEATURE": true }), None);
+    let (status, stream) = websocket("127.0.0.1", run.websocket_port, Some("test-token"));
+    assert_eq!(status, 101);
+    let mut stream = stream.unwrap();
+    run.translate_with_deepl();
+    let (release, held) = std::sync::mpsc::channel::<()>();
+    let held = Mutex::new(held);
+    run.fake.reply(move |_, _, _| {
+        let _ = held.lock().unwrap().recv_timeout(Duration::from_secs(10));
+        None
+    });
+    let before = run.fake.seen_under("/deepl-free/v2/translate").len();
+    let mark = run.ui.send("/run/send_message_box", Some(json!({ "id": "m-1", "message": "まだ訳している" })));
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while run.fake.seen_under("/deepl-free/v2/translate").len() == before {
+        assert!(std::time::Instant::now() < deadline, "the translation never started");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    run.ui.send("/run/shutdown", None);
+    std::thread::sleep(Duration::from_millis(200));
+    release.send(()).unwrap();
+
+    let answer = run.ui.wait_endpoint(mark, "/run/send_message_box");
+    assert_eq!(answer["result"], Value::Null, "{answer}");
+    assert!(run.chatbox_text(Duration::from_millis(500)).is_none(), "the chatbox got it");
+    assert!(read_text(&mut stream, Duration::from_millis(300)).is_none(), "WebSocket got it");
+    assert!(!run.conversation_log().contains("まだ訳している"), "the conversation log got it");
+    // A message after shutdown is not taken.
+    assert_eq!(run.ui.request("/run/send_message_box", Some(json!({ "id": "m-2", "message": "後から" })))["result"], Value::Null);
+    assert!(run.chatbox_text(Duration::from_millis(300)).is_none());
+    run.ui.stop();
+}
+
+#[test]
+fn the_conversation_history_starts_again_when_the_translation_goes_elsewhere() {
+    // `test_translation_history_destination.py`.
+    let run = start(json!({}), None);
+    let key = format!("gsk{}", "q".repeat(40));
+    run.fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
+    assert_eq!(run.ui.ok("/set/data/groq_auth_key", Some(json!(key))), json!(key));
+    let groq = |run: &Run| {
+        let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+        engines["1"] = json!("Groq_API");
+        run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    };
+    groq(&run);
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    let history = |run: &Run| -> String {
+        let sent = run.fake.seen_under("/groq/v1/chat").pop().unwrap();
+        sent.body["messages"][0]["content"].as_str().unwrap().to_string()
+    };
+
+    run.chat("m-1", "一つ目");
+    // Saving the same engine again keeps the history.
+    groq(&run);
+    run.chat("m-2", "二つ目");
+    assert!(history(&run).contains("][chat] 一つ目\n"), "{}", history(&run));
+
+    // Another engine and back: the history went with the other engine's turn.
+    let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("DeepL_API");
+    run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    groq(&run);
+    run.chat("m-3", "三つ目");
+    let after_switch = history(&run);
+    assert!(!after_switch.contains("一つ目") && !after_switch.contains("二つ目"), "{after_switch}");
+
+    // Another tab and back: the same.
+    run.chat("m-4", "四つ目");
+    assert!(history(&run).contains("][chat] 三つ目\n"), "{}", history(&run));
+    run.ui.ok("/set/data/selected_tab_no", Some(json!("2")));
+    run.ui.ok("/set/data/selected_tab_no", Some(json!("1")));
+    run.chat("m-5", "五つ目");
+    let after_tab = history(&run);
+    assert!(!after_tab.contains("三つ目") && !after_tab.contains("四つ目"), "{after_tab}");
+    // The history never reaches the diagnostic log.
+    assert!(!run.process_log().contains("つ目"));
+    run.ui.stop();
+}
+
+#[test]
+fn the_conversation_log_is_written_only_while_it_is_on() {
+    // `test_conversation_logger.py` through the endpoints.
+    let run = start(json!({}), None);
+    run.chat("m-1", "記録しない");
+    assert_eq!(run.ui.ok("/set/enable/logger_feature", None), true);
+    run.chat("m-2", "記録する");
+    assert_eq!(run.ui.ok("/set/disable/logger_feature", None), false);
+    run.chat("m-3", "また記録しない");
+    let log = run.conversation_log();
+    assert!(log.contains("[CHAT] 記録する\n"), "{log}");
+    assert!(!log.contains("記録しない"), "{log}");
+    // On again: a new file of its own.
+    std::thread::sleep(Duration::from_millis(1100));
+    assert_eq!(run.ui.ok("/set/enable/logger_feature", None), true);
+    run.chat("m-4", "二度目");
+    let files: Vec<String> =
+        run.logs().into_iter().filter(|(name, _)| name.starts_with("20")).map(|(_, text)| text).collect();
+    assert_eq!(files.len(), 2, "{files:?}");
+    assert!(files.iter().any(|text| text.contains("二度目") && !text.contains("記録する")), "{files:?}");
+    run.ui.stop();
+}
