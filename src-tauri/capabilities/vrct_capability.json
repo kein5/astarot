@@ -28,8 +28,8 @@
             "allow": [
                 { "url": "https://kein5.github.io/astarot" },
                 { "url": "https://kein5.github.io/astarot/**" },
-                { "url": "https://github.com/kein5/VRCT-VOX" },
-                { "url": "https://github.com/kein5/VRCT-VOX/**" },
+                { "url": "https://github.com/kein5/astarot" },
+                { "url": "https://github.com/kein5/astarot/**" },
                 { "url": "https://misyaguziya.github.io/VRCT-Docs/**" },
                 { "url": "https://github.com/misyaguziya" },
                 { "url": "https://github.com/misyaguziya/VRCT" },

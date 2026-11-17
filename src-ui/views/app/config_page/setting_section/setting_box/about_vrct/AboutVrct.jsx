@@ -30,7 +30,7 @@ import { upstream_vrct_document_url } from "@ui_configs";
 const ASTAROT_SUBTITLE = "Speech, Translation, Accessibility, Revoicing & OCR Toolkit";
 
 // The repository keeps its current name until it is renamed for 0.5.0.
-const vrct_vox_url = "https://github.com/kein5/VRCT-VOX";
+const vrct_vox_url = "https://github.com/kein5/astarot";
 const vrct_vox_links = [
     { id: "repository", href: vrct_vox_url },
     { id: "releases", href: `${vrct_vox_url}/releases` },

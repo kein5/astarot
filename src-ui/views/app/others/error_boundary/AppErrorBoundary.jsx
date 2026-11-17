@@ -21,7 +21,7 @@ import { useAppUpdate } from "../../../../logics/common/useAppUpdate";
 
 import styles from "./AppErrorBoundary.module.scss";
 
-const VRCT_STATUS_URL = "https://github.com/kein5/VRCT-VOX/issues";
+const VRCT_STATUS_URL = "https://github.com/kein5/astarot/issues";
 
 export const AppErrorBoundary = ({children}) => {
     const [errorInfo, setErrorInfo] = useState(null);

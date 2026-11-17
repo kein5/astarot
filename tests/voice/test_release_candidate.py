@@ -45,8 +45,8 @@ def test_prepare_preserves_installer_checksums(candidate, tmp_path, monkeypatch)
         head_branch="develop",
         head_sha=SHA,
         path=".github/workflows/release.yml",
-        repository={"full_name": "kein5/VRCT-VOX"},
-        head_repository={"full_name": "kein5/VRCT-VOX"},
+        repository={"full_name": "kein5/astarot"},
+        head_repository={"full_name": "kein5/astarot"},
     )
     monkeypatch.setattr(subprocess, "check_output", lambda *a, **kw: json.dumps(run))
 
@@ -68,7 +68,7 @@ def _draft(candidate, tmp_path, monkeypatch, attestation):
     run = dict(
         conclusion="success", status="completed", event="workflow_dispatch", head_branch="develop",
         head_sha=SHA, path=".github/workflows/release.yml",
-        repository={"full_name": "kein5/VRCT-VOX"}, head_repository={"full_name": "kein5/VRCT-VOX"},
+        repository={"full_name": "kein5/astarot"}, head_repository={"full_name": "kein5/astarot"},
     )
     monkeypatch.setattr(subprocess, "check_output", lambda *a, **kw: json.dumps(run))
     checked = []
@@ -92,8 +92,8 @@ def test_every_candidate_file_needs_provenance_from_its_workflow_and_commit(cand
     assert sorted(Path(argv[3]).name for argv in checked) == files
     for argv in checked:
         options = dict(zip(argv[4::2], argv[5::2]))
-        assert options["--repo"] == "kein5/VRCT-VOX"
-        assert options["--signer-workflow"] == "kein5/VRCT-VOX/.github/workflows/release.yml"
+        assert options["--repo"] == "kein5/astarot"
+        assert options["--signer-workflow"] == "kein5/astarot/.github/workflows/release.yml"
         assert options["--source-digest"] == SHA
         assert options["--source-ref"] == "refs/heads/develop"
         assert "--deny-self-hosted-runners" in argv
@@ -223,8 +223,8 @@ def test_release_draft_only_accepts_successful_canonical_manual_builds(mutation)
         head_branch="develop",
         head_sha=SHA,
         path=".github/workflows/build-linux.yml",
-        repository={"full_name": "kein5/VRCT-VOX"},
-        head_repository={"full_name": "kein5/VRCT-VOX"},
+        repository={"full_name": "kein5/astarot"},
+        head_repository={"full_name": "kein5/astarot"},
     )
     if mutation is None:
         check_run(run, "linux", SHA, "develop")
@@ -264,6 +264,6 @@ def test_branch_and_version_must_agree(branch, version):
 def test_candidate_from_another_branch_is_rejected():
     run = dict(conclusion="success", status="completed", event="workflow_dispatch",
                head_branch="develop", head_sha=SHA, path=".github/workflows/build-linux.yml",
-               repository={"full_name": "kein5/VRCT-VOX"}, head_repository={"full_name": "kein5/VRCT-VOX"})
+               repository={"full_name": "kein5/astarot"}, head_repository={"full_name": "kein5/astarot"})
     with pytest.raises(ValueError):
         check_run(run, "linux", SHA, "main")

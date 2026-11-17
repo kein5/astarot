@@ -68,7 +68,7 @@ def test_latest_json_points_at_the_release_files(payload):
     manifest = write(payload, VERSION, now=NOW, key=key.pair, require_verification=True)
     assert manifest["version"] == VERSION
     assert manifest["pub_date"] == "2026-11-15T12:00:00Z"
-    base = f"https://github.com/kein5/VRCT-VOX/releases/download/v{VERSION}/"
+    base = f"https://github.com/kein5/astarot/releases/download/v{VERSION}/"
     assert manifest["platforms"]["windows-x86_64"]["url"] == base + "VRCT-VOX_setup.exe"
     assert manifest["platforms"]["linux-x86_64"]["url"] == base + APPIMAGE
     assert json.loads((payload / "latest.json").read_text()) == manifest
