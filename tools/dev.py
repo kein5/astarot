@@ -68,7 +68,9 @@ def child_environment():
     env = {key: value for key, value in os.environ.items()
            if not key.startswith("VRCT_") and key not in (
                "PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONPATH", "PYTHONHOME")}
-    env.update(HF_HUB_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1",
+    # ORT_DISABLE_TELEMETRY: the onnxruntime wheel (1.32) otherwise writes a device id under
+    # ~/.cache/Microsoft and sends usage events when a test creates a session (#574).
+    env.update(HF_HUB_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1", ORT_DISABLE_TELEMETRY="1",
                TRANSFORMERS_OFFLINE="1", SPEECH_NO_UPDATE_CHECK="1",
                CARGO_NET_OFFLINE="true", RUSTUP_AUTO_INSTALL="0",
                PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", UV_NO_VERIFY_HASHES="0")

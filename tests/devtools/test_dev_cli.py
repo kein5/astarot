@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -91,6 +92,15 @@ class DeveloperCLITests(unittest.TestCase):
     def test_setup_cannot_inherit_disabled_hash_verification(self):
         with patch.dict(os.environ, {"UV_NO_VERIFY_HASHES": "1"}):
             self.assertEqual(self.dev.child_environment()["UV_NO_VERIFY_HASHES"], "0")
+
+    def test_children_run_with_onnx_runtime_usage_reports_off(self):
+        # The onnxruntime wheel (1.32) sends usage events unless this is set (#574).
+        with patch.dict(os.environ, {"ORT_DISABLE_TELEMETRY": "0"}):
+            self.assertEqual(self.dev.child_environment()["ORT_DISABLE_TELEMETRY"], "1")
+
+    def test_mise_exports_onnx_runtime_usage_reports_off(self):
+        mise = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
+        self.assertEqual(mise["env"], {"ORT_DISABLE_TELEMETRY": "1"})
 
     def test_missing_python_dependency_is_a_prerequisite_error(self):
         target = self.root / "build/dev/headless-venv"
