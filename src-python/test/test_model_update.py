@@ -308,8 +308,8 @@ class TestPinnedVersionDownload(_EnabledUpdaterTests):
     beta.2 から beta.1 を選んだとき)。
     """
 
-    BETA_MAIN = "https://github.com/kein5/VRCT-VOX/releases/latest/download/VRCT-VOX_setup.exe"
-    STABLE_MAIN = "https://github.com/kein5/VRCT-VOX/releases/latest/download/VRCT-VOX_setup.exe"
+    BETA_MAIN = "https://github.com/kein5/astarot/releases/latest/download/VRCT-VOX_setup.exe"
+    STABLE_MAIN = "https://github.com/kein5/astarot/releases/latest/download/VRCT-VOX_setup.exe"
 
     def setUp(self) -> None:
         super().setUp()
@@ -346,11 +346,11 @@ class TestPinnedVersionDownload(_EnabledUpdaterTests):
     def test_setup_download_url_follows_the_target_version(self) -> None:
         self.assertEqual(
             config.setupDownloadUrl("3.5.1-beta.1", tag="v3.5.1-beta.1"),
-            "https://github.com/kein5/VRCT-VOX/releases/download/v3.5.1-beta.1/VRCT-VOX_setup.exe",
+            "https://github.com/kein5/astarot/releases/download/v3.5.1-beta.1/VRCT-VOX_setup.exe",
         )
         self.assertEqual(
             config.setupDownloadUrl("3.5.0", tag="v3.5.0"),
-            "https://github.com/kein5/VRCT-VOX/releases/download/v3.5.0/VRCT-VOX_setup.exe",
+            "https://github.com/kein5/astarot/releases/download/v3.5.0/VRCT-VOX_setup.exe",
         )
 
     def test_setup_download_url_pins_target_version_even_without_explicit_tag(self) -> None:

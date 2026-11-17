@@ -10,7 +10,7 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { _OpenWebpageButton } from "../_components/_atoms/_open_webpage_button/_OpenWebpageButton";
 import { CheckboxContainer } from "../_templates/Templates";
 
-const RELEASES_URL = "https://github.com/kein5/VRCT-VOX/releases";
+const RELEASES_URL = "https://github.com/kein5/astarot/releases";
 const BUSY = ["checking", "downloading", "installing"];
 const OFFERED = ["available", "downloading", "installing"];
 

@@ -32,7 +32,7 @@ PREFIX = Path('opt/vrct-vox')
 SUMMARY = 'Speech recognition, speech, voice conversion and translated chat for VRChat'
 DESCRIPTION = ('VRCT-VOX translates and speaks your chat and voice in VRChat, with speech '
                'recognition, text to speech, voice conversion and chat reading.')
-HOMEPAGE = 'https://github.com/kein5/VRCT-VOX'
+HOMEPAGE = 'https://github.com/kein5/astarot'
 # Debian and Fedora names of what the tar.gz needs from the host.
 # The app links libpipewire-0.3.so.0 itself (the core's audio devices, #285), so the library is
 # required; the PipeWire tools stay recommended.
@@ -127,7 +127,7 @@ def deb_control(version, variant, glibc, size_kib):
         f'Package: {NAME}',
         f'Version: {package_version(version)}',
         'Architecture: amd64',
-        'Maintainer: VRCT-VOX maintainers <https://github.com/kein5/VRCT-VOX/issues>',
+        'Maintainer: VRCT-VOX maintainers <https://github.com/kein5/astarot/issues>',
         f'Installed-Size: {size_kib}',
         f'Depends: {", ".join(required)}',
         f'Recommends: {", ".join(recommended)}',

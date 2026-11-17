@@ -24,7 +24,7 @@ const setup = (answers, mode = "install") => {
 };
 
 test("a found update is offered with its version and release page", async () => {
-    const s = setup({ app_update_check: { available: true, version: "0.4.1", release_url: "https://github.com/kein5/VRCT-VOX/releases/tag/v0.4.1" } });
+    const s = setup({ app_update_check: { available: true, version: "0.4.1", release_url: "https://github.com/kein5/astarot/releases/tag/v0.4.1" } });
     await s.updater.check();
     assert.equal(s.state().status, "available");
     assert.equal(s.state().version, "0.4.1");
