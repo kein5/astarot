@@ -278,7 +278,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 | `base-uri` | `'self'` | 別オリジンへの基準URLの変更を禁止 |
 | `frame-ancestors`、`form-action` | `'none'` | 埋め込みとHTMLフォームによる送信を禁止 |
 
-`style-src`に加える固定値は、react-colorful 5.6.1の`'sha256-I2px+fnpbN4E5+Djrj7aoTIyq9yyREkuVl19f4Sye9A='`と、react-toastify 11.0.5の`'sha256-Xo8/tnRnpUxMw05nUf764oT49W2GEbQN9LaX8Wqxuwg='`。依存が実際に挿入するCSS文字列のUTF-8バイトから計算する。配布用に`'unsafe-inline'`、`'unsafe-eval'`、`'wasm-unsafe-eval'`を許可しない。依存を更新して文字列が変わったら、挿入方法とCSS内のURLを確認したうえでハッシュを更新する。
+`style-src`に加える固定値は、react-colorful 5.8.1の`'sha256-I2px+fnpbN4E5+Djrj7aoTIyq9yyREkuVl19f4Sye9A='`と、react-toastify 11.2.0の`'sha256-wBAOjWqzlHdwhuIyV//yRl4v0VNTHc3TOqbIfNXoA7k='`。依存が実際に挿入するCSS文字列のUTF-8バイトから計算する。配布用に`'unsafe-inline'`、`'unsafe-eval'`、`'wasm-unsafe-eval'`を許可しない。依存を更新して文字列が変わったら、挿入方法とCSS内のURLを確認したうえでハッシュを更新する。
 
 `dangerousDisableAssetCspModification`は既定の`false`を保つ。TauriによるHTMLのnonce/hash挿入を無効化しない。`script-src-elem`を別に指定してTauriの`script-src`への追加を無効にすることもしない。`freezePrototype`は別のprototype汚染対策であり、CSPを有効にする条件ではない。今回は既定の`false`を保つ。
 
