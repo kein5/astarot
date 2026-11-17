@@ -1,0 +1,46 @@
+{
+  "src-ui/logics/ui_configs.ts": {
+    "property:label|AI CTranslate2": 1,
+    "property:label|DeepL API": 1,
+    "property:label|English": 1,
+    "property:label|Gemini API": 1,
+    "property:label|Google Cloud Translation": 1,
+    "property:label|Groq API": 1,
+    "property:label|LMStudio": 1,
+    "property:label|Ollama": 1,
+    "property:label|OpenAI API": 1,
+    "property:label|OpenAI Compatible": 1,
+    "property:label|OpenRouter API": 1,
+    "property:label|Papago (NAVER Cloud)": 1,
+    "property:label|Plamo API": 1,
+    "property:label|日本語": 1
+  },
+  "src-ui/views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.jsx": {
+    "jsx-text|Update": 1
+  },
+  "src-ui/views/app/config_page/setting_section/setting_box/about_vrct/AboutVrct.jsx": {
+    "jsx-text|ASTAROT and VRCT are not endorsed by VRChat and do not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc.": 1
+  },
+  "src-ui/views/app/config_page/setting_section/setting_box/appearance/Appearance.jsx": {
+    "attribute:label|UI Language": 1
+  },
+  "src-ui/views/app/config_page/setting_section/setting_box/transcription/RealtimeASRSettings.jsx": {
+    "attribute:placeholder|VRChat=ブイアールチャット": 1
+  },
+  "src-ui/views/app/config_page/version_label/VersionLabel.jsx": {
+    "jsx-expression|v": 2,
+    "jsx-text|Beta": 1
+  },
+  "src-ui/views/companion_handle/CompanionHandle.tsx": {
+    "attribute:aria-label|VRCT-VOX": 1
+  },
+  "src-ui/views/companion_panel/CompanionPanel.tsx": {
+    "jsx-text|VRCT-VOX": 1
+  },
+  "src-ui/views/vr/VrToolbar.jsx": {
+    "jsx-expression|L": 1,
+    "jsx-expression|R": 1,
+    "jsx-text|A＋": 1,
+    "jsx-text|A−": 1
+  }
+}

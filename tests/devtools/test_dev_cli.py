@@ -136,6 +136,16 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("--experimental-strip-types", output)
         self.assertNotIn("npm ci", output)
 
+    def test_node_scope_runs_the_i18n_gate_and_its_tests(self):
+        (self.root / "src-ui").mkdir(parents=True)
+        (self.root / "src-ui/one.test.js").write_text('')
+        (self.root / "tools/i18n_gate").mkdir(parents=True)
+        (self.root / "tools/i18n_gate/gate.test.mjs").write_text('')
+        code, output = self.call("check", "--scope", "node", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("tools/i18n_gate/gate.test.mjs", output)
+        self.assertIn("tools/i18n_gate/check.mjs", output)
+
     def test_ui_scope_runs_the_type_check_before_the_build(self):
         folder = self.root / "src-ui"
         folder.mkdir(parents=True)
