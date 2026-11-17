@@ -333,6 +333,7 @@ fn build_updater<R: Runtime>(
     builder = builder.on_before_exit(move || {
         if let Some(host) = stopping.try_state::<crate::backend_host::BackendHost>() {
             crate::startup_log("Stopping the backend before the installer starts");
+            CORE_STOPPED_FOR_INSTALLER.store(true, Ordering::SeqCst);
             host.stop_and_wait("The app is being updated; stopping", crate::backend_host::UPDATE_STOP_LIMIT);
         }
     });
@@ -398,9 +399,26 @@ async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, ki
     result
 }
 
+/// The core was stopped for the Windows installer (`on_before_exit`). Once that has happened the
+/// app has no backend left, so a failure to start the installer must not leave it running so.
+static CORE_STOPPED_FOR_INSTALLER: AtomicBool = AtomicBool::new(false);
+
+/// After a failed install: when the core was already stopped for the installer (Windows: the
+/// installer could not start, or the user declined it), the app restarts as it is, with its
+/// backend, instead of going on without one (Issue #456). Answers whether it restarts.
+fn restart_if_core_stopped<R: Runtime>(app: &AppHandle<R>) -> bool {
+    if !CORE_STOPPED_FOR_INSTALLER.swap(false, Ordering::SeqCst) {
+        return false;
+    }
+    crate::startup_log("Update: the installer did not start after the backend stopped; restarting");
+    app.request_restart();
+    true
+}
+
 /// Downloads `update`, verifies its signature and installs it. On Windows the installer takes
-/// over and this process exits; elsewhere it returns, and the caller restarts the app. Any
-/// failure before that leaves the running app as it was.
+/// over and this process exits; elsewhere it returns, and the caller restarts the app. A failure
+/// before the core is stopped leaves the running app as it was; a failure after it (the Windows
+/// installer did not start) restarts the app through [`restart_if_core_stopped`].
 async fn download_and_install(update: &Update, mut progress: impl FnMut(InstallProgress)) -> Result<(), &'static str> {
     let mut downloaded = 0u64;
     let bytes = update
@@ -498,7 +516,8 @@ pub enum InstallProgress {
 
 /// Downloads the update found by the last check, verifies its signature and installs it.
 /// On Windows the installer takes over and this process exits; on Linux the app restarts.
-/// Any failure before that leaves the running app as it was.
+/// A failure before the core stops leaves the running app as it was; on Windows the core stops
+/// just before the installer starts, so a failure after that restarts the app.
 #[tauri::command]
 pub async fn app_update_install<R: Runtime>(
     window: WebviewWindow<R>,
@@ -521,7 +540,10 @@ pub async fn app_update_install<R: Runtime>(
         let _ = on_progress.send(progress);
     })
     .await
-    .map_err(str::to_string)?;
+    .map_err(|code| {
+        restart_if_core_stopped(&app);
+        code.to_string()
+    })?;
     app.restart();
 }
 
@@ -624,6 +646,7 @@ impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
             }
             Err(code) => {
                 crate::startup_log(&format!("Update from the backend failed: {code}"));
+                restart_if_core_stopped(&self.app);
                 outcome_of(code)
             }
         }
