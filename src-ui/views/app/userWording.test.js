@@ -29,3 +29,7 @@ test("#437: user-facing strings do not say this PC", () => {
         assert.deepEqual(lines, [], language);
     }
 });
+
+test("#472: Japanese strings write メモリ, not メモリー", () => {
+    assert.deepEqual(locale("ja").split("\n").filter(line => line.includes("メモリー")), []);
+});

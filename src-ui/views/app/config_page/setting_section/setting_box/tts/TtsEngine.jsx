@@ -109,7 +109,8 @@ export const TtsEngine = ({ draft, setDraft, saved }) => {
         result.error_code === "tts_engine_url_invalid" ? "url_invalid" : "not_connected";
 
     return <>
-        <FormRow label={t("voice_ui.engine.label")} description={t("voice_ui.engine.description")}>
+        {/* The description follows the chosen engine: AI voice needs a speech server, the others are installed by the user. */}
+        <FormRow label={t("voice_ui.engine.label")} description={t(spec ? "voice_ui.engine.description" : "voice_ui.engine.description_speechcpp")}>
             <select aria-label={t("voice_ui.engine.label")} value={engine} onChange={event => choose(event.target.value)}>
                 <option value="speechcpp">{t("voice_ui.engine.speechcpp")}</option>
                 {Object.entries(TTS_ENGINES).map(([id, item]) => <option key={id} value={id}>{item.name}</option>)}
