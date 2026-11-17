@@ -321,9 +321,9 @@ impl Vault for MemoryStore {
 
 /// `secrets.json`: `{"version": 1, "protection": ..., "entries": ..., "store_id": ...}`. With
 /// `"dpapi"` (Windows) `entries` is the base64 of the DPAPI-encrypted JSON object of the entries;
-/// with `"none"` (Linux, where the file is 0600) it is the object itself. `store_id` (from 0.6)
-/// names this settings folder's entries in the OS store; it is not secret. Versions before 0.6
-/// read the file without it. Written like `config.json`: a new temporary file, flushed, renamed
+/// with `"none"` (Linux, where the file is 0600) it is the object itself. `store_id` (added with the
+/// OS store) names this settings folder's entries there; it is not secret. 0.5, which kept the
+/// keys in this file, reads it and ignores the id. Written like `config.json`: a new temporary file, flushed, renamed
 /// over the old one.
 pub struct FileStore {
     path: PathBuf,
