@@ -16,7 +16,7 @@ from .catalog import CATALOG, CATALOG_VERSION, artifact_url, validate_catalog
 from .guidance import model_guidance
 from .speechcpp_asr import model_profile, speech_model
 from .transport import open_public
-from .staging import RootLease, mark_owned, recover_owned
+from .staging import RootLease, mark_owned, reclaim_published, recover_owned
 from .verification import verify_file
 
 CHUNK = 1024 * 1024
@@ -158,12 +158,21 @@ class Downloads:
             lease.acquire()
             recover_owned(self.root, self.entries)
             final = self.destination(entry)
-            if final.exists() or final.is_symlink():
+            published = final.exists() or final.is_symlink()
+            if published:
                 directory(final)
                 with self.lock: job['phase'] = 'verifying'
-                for artifact in entry.artifacts:
-                    self._verify(final / artifact.filename, artifact, event)
-            else:
+                try:
+                    for artifact in entry.artifacts:
+                        self._verify(final / artifact.filename, artifact, event)
+                except (ValueError, FileNotFoundError) as error:
+                    # Damaged or missing files this app published are downloaded again;
+                    # anything it does not recognize stays, and fails.
+                    damaged = isinstance(error, FileNotFoundError) or str(error) in ('size_mismatch', 'hash_mismatch')
+                    if not damaged or not reclaim_published(self.root, final, entry):
+                        raise
+                    published = False
+            if not published:
                 if shutil.disk_usage(self.root).free < job['total_bytes'] + self.reserve_bytes:
                     raise ValueError('insufficient_space')
                 staging = self.root / ('.partial-' + uuid4().hex)
