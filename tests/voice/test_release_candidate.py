@@ -18,7 +18,7 @@ def candidate(tmp_path):
     for name in (
         "VRCT-VOX.zip",
         "VRCT-VOX_cuda.zip",
-        f"VRCT-VOX_{VERSION}_x64-setup.exe",
+        f"ASTAROT_{VERSION}_x64-setup.exe",
     ):
         path = tmp_path / name
         path.write_bytes(b"inspected synthetic output")

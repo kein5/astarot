@@ -8,23 +8,23 @@
 <!-- Badges read their values from GitHub (Actions, Releases, the repository) or from the files
      they link to, except License and Platform: those follow LICENSE and the release files. Keep docs/readmes/README.ja.md the same. -->
 <p align="center">
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="Tests on Linux and Windows (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/voice-tests.yml?branch=develop&event=push&label=tests"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Linux build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Windows build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/github-code-scanning/codeql"><img alt="CodeQL analysis (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="Tests on Linux and Windows (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/voice-tests.yml?branch=develop&event=push&label=tests"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Linux build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Windows build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/github-code-scanning/codeql"><img alt="CodeQL analysis (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
 </p>
 <p align="center">
-  <a href="https://github.com/kein5/VRCT-VOX/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/kein5/VRCT-VOX?label=release"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/releases"><img alt="Downloads from GitHub Releases" src="https://img.shields.io/github/downloads/kein5/VRCT-VOX/total?label=downloads"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/kein5/astarot?label=release"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/releases"><img alt="Downloads from GitHub Releases" src="https://img.shields.io/github/downloads/kein5/astarot/total?label=downloads"></a>
   <a href="/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="https://github.com/kein5/VRCT-VOX"><img alt="GitHub stars" src="https://img.shields.io/github/stars/kein5/VRCT-VOX?label=stars&style=flat"></a>
+  <a href="https://github.com/kein5/VRCT-VOX"><img alt="GitHub stars" src="https://img.shields.io/github/stars/kein5/astarot?label=stars&style=flat"></a>
 </p>
 <p align="center">
-  <a href="https://kein5.github.io/VRCT-VOX/en/guide/requirements"><img alt="Platforms: Windows and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
-  <a href="/src-tauri/Cargo.toml"><img alt="Rust edition of the app" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
-  <a href="/mise.toml"><img alt="Rust toolchain pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
-  <a href="/pyproject.toml"><img alt="Python version for the development tools and tests" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
-  <a href="/mise.toml"><img alt="Node.js pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
+  <a href="https://kein5.github.io/astarot/en/guide/requirements"><img alt="Platforms: Windows and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
+  <a href="/src-tauri/Cargo.toml"><img alt="Rust edition of the app" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
+  <a href="/mise.toml"><img alt="Rust toolchain pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
+  <a href="/pyproject.toml"><img alt="Python version for the development tools and tests" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
+  <a href="/mise.toml"><img alt="Node.js pinned in mise.toml" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
 </p>
 
 [日本語](/docs/readmes/README.ja.md)

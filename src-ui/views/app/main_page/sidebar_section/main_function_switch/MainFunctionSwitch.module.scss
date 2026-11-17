@@ -14,7 +14,6 @@
     align-items: center;
     gap: .8rem;
     min-height: 4.4rem;
-    // 1.2rem at the sides leaves the label room for 「ボイスチェンジャー」 on one line in the 24rem rail.
     // .7rem above and below: six two-line names leave room for the languages under them.
     padding: .7rem 1.2rem;
     border-radius: var(--vox_radius);
@@ -55,10 +54,16 @@
     // Beside the icon button in the wide rail: the row draws the background and the tint,
     // the switch only its hover. The icon button takes the row's left padding; the label
     // keeps a small gap from the button's frame.
+    // The rail's scrollbar always takes .8rem of its 24rem (overflow-y: scroll), so a row has
+    // 22rem. The tight sides and gap leave the name 12.8rem, room for nine full-width
+    // characters at 1.4rem: 「ボイスチェンジャー」 stays on one line also in a font whose kana
+    // are full width (Noto Sans CJK on Linux, Meiryo). It broke before 「ー」 with 11.6rem.
     &.in_row {
         flex: 1 1 0;
         min-width: 0;
-        padding-left: .6rem;
+        gap: .6rem;
+        padding-left: .4rem;
+        padding-right: .6rem;
         &:not(:hover):not(:active) { background-color: transparent; }
     }
 }
@@ -84,7 +89,7 @@
     align-items: center;
     width: 2.8rem;
     height: 2.8rem;
-    margin-left: .6rem;
+    margin-left: .4rem;
     padding: 0;
     border: .1rem solid var(--vox_border);
     border-radius: var(--vox_radius);

@@ -192,12 +192,15 @@ fn auto_select_follows_the_os_default_until_it_is_turned_off() {
     let fake = FakeAudio::with(pc());
     let ui = start(&fake, json!({}));
     ui.ready();
+    // The monitor's first pass reports every list once; let it pass before the change.
+    fake.settle();
 
     let mark = ui.lines().len();
     fake.set(windows(&[("Mic A", "{a}"), ("Headset Mic", "{h}")], Some("{a}"), &[("Speakers", "{s}"), ("Headphones", "{p}")], Some("{p}")));
     fake.event(Topology::DefaultChanged);
     ui.wait_from(mark, "the new default microphone", |l| l["endpoint"] == "/run/selected_mic_device" && l["result"] == "Mic A");
     ui.wait_from(mark, "the new default speaker", |l| l["endpoint"] == "/run/selected_speaker_device" && l["result"] == "Headphones [Loopback]");
+    fake.settle();
     assert_eq!(ui.ok("/get/data/selected_mic_device_id", None), A);
     assert_eq!(ui.ok("/get/data/selected_speaker_device_id", None), P);
 
@@ -206,9 +209,10 @@ fn auto_select_follows_the_os_default_until_it_is_turned_off() {
     let mark = ui.lines().len();
     fake.set(windows(&[("Mic A", "{a}"), ("Headset Mic", "{h}")], Some("{h}"), &[("Speakers", "{s}"), ("Headphones", "{p}")], Some("{p}")));
     fake.event(Topology::DefaultChanged);
+    // Every callback of that change has run: none may move the choice.
+    fake.settle();
     let core = ui.backend.core().clone();
-    eventually("the monitor listed the devices again", || core.audio_devices().snapshot().default_mic_device.device.endpoint_id.as_deref() == Some("{h}"));
-    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(core.audio_devices().snapshot().default_mic_device.device.endpoint_id.as_deref(), Some("{h}"), "the monitor saw the new default");
     assert!(ui.on(mark, "/run/selected_mic_device").is_empty());
     assert_eq!(ui.ok("/get/data/selected_mic_device_id", None), A);
 
@@ -316,6 +320,8 @@ fn choices_saved_by_the_python_backend_keep_resolving() {
     let mark = ui.lines().len();
     fake.event(Topology::DeviceChanged);
     ui.wait_from(mark, "the fallback host", |l| l["endpoint"] == "/run/selected_mic_host" && l["result"] == "Windows WASAPI");
+    // The host is told before the device is saved; read the choice once the change is over.
+    fake.settle();
     assert_eq!(ui.ok("/get/data/selected_mic_device_id", None), A);
     ui.stop();
 }
@@ -456,6 +462,9 @@ fn a_running_capture_is_moved_and_its_own_switch_is_reported() {
     let fake = FakeAudio::with(pc());
     let ui = start(&fake, json!({}));
     ui.ready();
+    // The monitor's first pass reports every list once, and each report moves the capture
+    // again. Let it pass before the capture is plugged in, so that a change moves it once.
+    fake.settle();
     let core = ui.backend.core().clone();
     let capture = Arc::new(Capture::default());
     core.audio_devices().set_capture_owner(capture.clone());
@@ -466,24 +475,16 @@ fn a_running_capture_is_moved_and_its_own_switch_is_reported() {
     fake.set(windows(&[("Mic A", "{a}"), ("Headset Mic", "{h}")], Some("{a}"), &[("Speakers", "{s}")], Some("{s}")));
     fake.event(Topology::DefaultChanged);
     ui.wait_from(mark, "the capture's device", |l| l["endpoint"] == "/run/selected_mic_device_id" && l["result"] == A);
-    assert!(capture.moved.lock().unwrap().contains(&A.to_string()), "the capture moved to the new default");
+    // Nothing of that change may come after this point.
+    fake.settle();
+    assert_eq!(*capture.moved.lock().unwrap(), [A.to_string()], "the capture moved to the new default, once");
     assert!(capture.lost.lock().unwrap().is_empty());
 
     // A device the capture still holds stays in the options until it stops.
     let gone = Device { name: "USB Mic".into(), id: Some("mic:Windows WASAPI:{usb}".into()), ..Device::default() };
-    // The default change may still move the capture once more (the list and the default are
-    // reconciled separately), so hold the device until the options show it.
-    let expected = json!({ "id": "mic:Windows WASAPI:{usb}", "label": "USB Mic" });
-    let mut options = Value::Null;
-    for _ in 0..100 {
-        *capture.active.lock().unwrap() = Some(gone.clone());
-        options = ui.ok("/get/data/selectable_mic_device_options", None);
-        if options.as_array().and_then(|o| o.last()) == Some(&expected) {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(50));
-    }
-    assert_eq!(options.as_array().unwrap().last().unwrap(), &expected);
+    *capture.active.lock().unwrap() = Some(gone.clone());
+    let options = ui.ok("/get/data/selectable_mic_device_options", None);
+    assert_eq!(options.as_array().unwrap().last().unwrap(), &json!({ "id": "mic:Windows WASAPI:{usb}", "label": "USB Mic" }));
 
     // The capture moved by itself (its device vanished): the switch is reported.
     let mark = ui.lines().len();
@@ -503,10 +504,7 @@ fn a_running_capture_is_moved_and_its_own_switch_is_reported() {
     ui.wait_from(mark, "no microphone", |l| l["endpoint"] == "/run/selected_mic_device" && l["result"] == "NoDevice");
     // The capture hears that its device is gone. The list and the default are reconciled
     // separately, so it may hear it once per update; only the microphone is ever told.
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while capture.lost.lock().unwrap().is_empty() && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(20));
-    }
+    fake.settle();
     let lost = capture.lost.lock().unwrap().clone();
     assert!(!lost.is_empty() && lost.iter().all(|s| *s == Source::Mic), "{lost:?}");
     ui.stop();

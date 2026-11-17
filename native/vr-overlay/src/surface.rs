@@ -1,7 +1,7 @@
 //! Where the VR panel's page is captured, how its size is set and how the controllers' mouse
 //! input reaches it (`window_capture.py`, `window_capture_linux.py`).
 //!
-//! On Windows the page lives in the app's window "VRCT-VOX VR Panel", parked off-screen; it is
+//! On Windows the page lives in the app's window "ASTAROT VR Panel", parked off-screen; it is
 //! photographed with `PrintWindow`, and the mouse goes to its WebView2 input window
 //! (`Chrome_RenderWidgetHostHWND`) with `PostMessageW`, so the system's cursor does not move. On
 //! Linux the app (`src-tauri/src/vr_panel_surface.rs`) renders the page off-screen and writes each
@@ -10,7 +10,7 @@
 //! runs in the app's process, so all of this works from here as it did from the sidecar.
 
 /// The title the app gives the VR panel's window (`src-tauri/src/lib.rs`).
-pub const VR_PANEL_TITLE: &str = "VRCT-VOX VR Panel";
+pub const VR_PANEL_TITLE: &str = "ASTAROT VR Panel";
 
 /// A captured picture: BGRA, tightly packed, only the page (the window frame cut away).
 #[derive(Clone, Debug, PartialEq, Eq)]

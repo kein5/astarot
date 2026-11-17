@@ -12,7 +12,7 @@ import { join, posix, relative, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 const dist = resolve(process.argv[2] ?? join(root, "site/.vitepress/dist"));
-const BASE = "/VRCT-VOX/";
+const BASE = "/astarot/";
 
 const walk = dir => readdirSync(dir).flatMap(name => {
     const path = join(dir, name);

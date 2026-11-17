@@ -8,23 +8,23 @@
 <!-- バッジは値をGitHub（Actions、Releases、リポジトリ）かリンク先のファイルから読む。LicenseとPlatformだけは固定で、
      LICENSEと配布物に合わせる。README.mdと同じにする。 -->
 <p align="center">
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="LinuxとWindowsでの試験（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/voice-tests.yml?branch=develop&event=push&label=tests"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のLinuxビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のWindowsビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/github-code-scanning/codeql"><img alt="CodeQLの解析（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/VRCT-VOX/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="LinuxとWindowsでの試験（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/voice-tests.yml?branch=develop&event=push&label=tests"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のLinuxビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="最新の配布候補のWindowsビルド" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/actions/workflows/github-code-scanning/codeql"><img alt="CodeQLの解析（develop）" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
 </p>
 <p align="center">
-  <a href="https://github.com/kein5/VRCT-VOX/releases/latest"><img alt="最新の正式版" src="https://img.shields.io/github/v/release/kein5/VRCT-VOX?label=release"></a>
-  <a href="https://github.com/kein5/VRCT-VOX/releases"><img alt="GitHub Releasesからのダウンロード数" src="https://img.shields.io/github/downloads/kein5/VRCT-VOX/total?label=downloads"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/releases/latest"><img alt="最新の正式版" src="https://img.shields.io/github/v/release/kein5/astarot?label=release"></a>
+  <a href="https://github.com/kein5/VRCT-VOX/releases"><img alt="GitHub Releasesからのダウンロード数" src="https://img.shields.io/github/downloads/kein5/astarot/total?label=downloads"></a>
   <a href="/LICENSE"><img alt="ライセンス: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <a href="https://github.com/kein5/VRCT-VOX"><img alt="GitHubのスター数" src="https://img.shields.io/github/stars/kein5/VRCT-VOX?label=stars&style=flat"></a>
+  <a href="https://github.com/kein5/VRCT-VOX"><img alt="GitHubのスター数" src="https://img.shields.io/github/stars/kein5/astarot?label=stars&style=flat"></a>
 </p>
 <p align="center">
-  <a href="https://kein5.github.io/VRCT-VOX/ja/guide/requirements"><img alt="対応OS: WindowsとLinux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
-  <a href="/src-tauri/Cargo.toml"><img alt="アプリのRustのedition" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
-  <a href="/mise.toml"><img alt="mise.tomlで固定したRustのツールチェーン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
-  <a href="/pyproject.toml"><img alt="開発ツールと試験に使うPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
-  <a href="/mise.toml"><img alt="mise.tomlで固定したNode.jsのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
+  <a href="https://kein5.github.io/astarot/ja/guide/requirements"><img alt="対応OS: WindowsとLinux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
+  <a href="/src-tauri/Cargo.toml"><img alt="アプリのRustのedition" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
+  <a href="/mise.toml"><img alt="mise.tomlで固定したRustのツールチェーン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
+  <a href="/pyproject.toml"><img alt="開発ツールと試験に使うPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
+  <a href="/mise.toml"><img alt="mise.tomlで固定したNode.jsのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
 </p>
 
 [English](/README.md)

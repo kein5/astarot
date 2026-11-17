@@ -47,6 +47,11 @@ jobs:
           $installers = @(Get-ChildItem src-tauri/target/debug/bundle/nsis/*-setup.exe)
           if ($installers.Count -ne 1) { throw "Expected one NSIS installer" }
           "INSTALLER=$($installers[0].FullName)" >> $env:GITHUB_ENV
+      # First, on a runner where nothing is registered yet: the default folder and shortcuts.
+      - name: Display name for a new install and for an update of an old one (Issue 535)
+        run: |
+          python tests/installer/windows_update_scenarios.py --mode rename --installer "$env:INSTALLER" --port 18765
+          exit $LASTEXITCODE
       - name: Silent install, update, rollback and recovery scenarios
         run: |
           python tests/installer/windows_update_scenarios.py --mode silent --installer "$env:INSTALLER" --port 18765
