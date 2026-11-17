@@ -20,6 +20,8 @@ def initial_state(tmp_path):
     state.mkdir()
     (state / "config.json").write_text(json.dumps({
         "AUTO_DOWNLOAD_MODELS": False, "ENABLE_TELEMETRY": False, "TELEMETRY_NOTICE": 1,
+        # The first-run setup (#557) is a modal dialog over the main page; these tests start past it.
+        "FIRST_RUN_SETUP_PENDING": False,
         "AUTO_MIC_SELECT": False, "AUTO_SPEAKER_SELECT": False,
         "SEND_MESSAGE_TO_VRC": False, "VRC_MIC_MUTE_SYNC": False,
         "OSC_IP_ADDRESS": "127.0.0.2", "WEBSOCKET_SERVER": False,
