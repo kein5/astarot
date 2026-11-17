@@ -102,7 +102,7 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         assert set(document["jobs"]) == {"draft"}
         draft = document["jobs"]["draft"]
         assert draft["permissions"] == {"contents": "write", "actions": "read", "attestations": "read"}
-        assert "github.repository == 'kein5/VRCT-VOX'" in draft["if"]
+        assert "github.repository == 'kein5/astarot'" in draft["if"]
         assert "github.ref == 'refs/heads/develop'" in draft["if"]
         commands = "\n".join(step.get("run", "") for step in draft["steps"])
         assert "tools.prepare_release" in commands
