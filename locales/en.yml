@@ -989,6 +989,9 @@ config_page:
         section_label_voice: "Speech and voice"
         error_in_use: "The hotkey ({{hotkey}}) for \"{{action_name}}\" cannot be registered because it is already in use elsewhere."
         error_failed_to_register_at_launch: "The hotkey ({{hotkey}}) for \"{{action_name}}\" is unavailable because it is in use by another application."
+        error_failed_to_register_all: "The hotkeys could not be registered, so none of them work. Open and close Settings to register them again."
+        error_window_restore_failed: "The ASTAROT window could not be restored. Open it from the taskbar or the tray."
+        error_window_minimize_failed: "The ASTAROT window could not be minimized."
         toggle_vrct_visibility:
             label: "Toggle ASTAROT visibility"
         toggle_translation:

@@ -24,7 +24,7 @@ async function setup() {
         export const store = { text_area_ref: { current: { focus: () => state.actions.push('focus-input') } }, appWindow: {
             isMinimized: async () => state.minimized ?? false,
             minimize: async () => { state.actions.push('minimize'); },
-            unminimize: async () => { state.actions.push('unminimize'); },
+            unminimize: async () => { if (state.unminimizeFails) throw new Error('window'); state.actions.push('unminimize'); },
             setFocus: async () => { state.actions.push('set-focus'); },
             onFocusChanged: callback => { state.focusChanged = callback; return () => {}; },
         } };
@@ -43,7 +43,10 @@ async function setup() {
             if (command === 'quick_chat_shortcut_platform') return state.platformGate ?? 'wayland';
             if (command === 'portal_shortcuts_bind') return state.bind?.(args) ?? {};
             if (command === 'quick_chat_show') state.actions.push('quick-chat');
-            if (command === 'main_window_restore') state.actions.push('restore');
+            if (command === 'main_window_restore') {
+                if (state.restoreFails) throw 'restore_failed';
+                state.actions.push('restore');
+            }
         };
         export const listen = async (name, callback) => {
             // "portal-shortcuts-lost" is kept apart, so the counts below are those of the key presses.
@@ -57,7 +60,7 @@ async function setup() {
             state.registered.set(key, callback);
         };
         export const unregister = async key => { state.removed.push(key); state.registered.delete(key); };
-        export const unregisterAll = async () => { await state.unregisterGate; state.removed.push(...state.registered.keys()); state.registered.clear(); };
+        export const unregisterAll = async () => { await state.unregisterGate; if (state.unregisterFails) throw new Error('plugin'); state.removed.push(...state.registered.keys()); state.registered.clear(); };
     `) + `#${crypto.randomUUID()}`;
     const { state, hot } = await import(dependencies);
     let instance = 0;
@@ -420,6 +423,53 @@ test("elsewhere the visibility hotkey asks the window whether it is minimized", 
     await flush();
     assert.deepEqual(state.actions, ["minimize", "unminimize", "set-focus", "focus-input"]);
     assert.ok(!state.calls.some(([command]) => command === "main_window_restore"));
+});
+
+// #465: a failure no caller catches is told, not only logged.
+test("a registration that fails before any key is bound says no hotkey works", async () => {
+    const subject = await setup();
+    const { state } = subject;
+    state.platformGate = "native";
+    state.unregisterFails = true;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.equal(state.registered.size, 0);
+    assert.deepEqual(state.notices.map(([message]) => message), ["config_page.hotkeys.error_failed_to_register_all"]);
+});
+
+test("on Wayland a window the hotkey cannot restore is told, and the next press tries again", async () => {
+    const subject = await setup();
+    const { state } = subject;
+    state.hotkeys = { toggle_vrct_visibility: ["Ctrl", "H"] };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    await flush();
+    const press = async () => { for (const callback of state.handlers) callback({ payload: { id: "toggle_vrct_visibility" } }); await flush(); await flush(); };
+    await press();
+    state.restoreFails = true;
+    await press();
+    assert.deepEqual(state.actions, ["minimize"]);
+    assert.deepEqual(state.notices.map(([message]) => message), ["config_page.hotkeys.error_window_restore_failed"]);
+    state.restoreFails = false;
+    await press();
+    assert.deepEqual(state.actions, ["minimize", "restore", "focus-input"]);
+});
+
+test("elsewhere a window the hotkey cannot restore is told", async () => {
+    const subject = await setup();
+    const { state } = subject;
+    state.platformGate = "native";
+    state.hotkeys = { toggle_vrct_visibility: ["Ctrl", "H"] };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    await flush();
+    const [[, press]] = [...state.registered];
+    state.minimized = true;
+    state.unminimizeFails = true;
+    await press({ state: "Pressed" });
+    await flush();
+    assert.deepEqual(state.actions, []);
+    assert.deepEqual(state.notices.map(([message]) => message), ["config_page.hotkeys.error_window_restore_failed"]);
 });
 
 test("the voice hotkeys press the controls the main window published", async () => {

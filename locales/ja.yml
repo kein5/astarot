@@ -989,6 +989,9 @@ config_page:
         section_label_voice: "読み上げと声"
         error_in_use: "「{{action_name}}」のホットキー（{{hotkey}}）は他で使用されているため登録できません。"
         error_failed_to_register_at_launch: "「{{action_name}}」のホットキー（{{hotkey}}）は他のアプリケーションで使用されているため利用できません。"
+        error_failed_to_register_all: "ホットキーを登録できなかったため、どのホットキーも使えません。設定を開いて閉じると、もう一度登録します。"
+        error_window_restore_failed: "ASTAROTのウィンドウを元に戻せませんでした。タスクバーかトレイから開いてください。"
+        error_window_minimize_failed: "ASTAROTのウィンドウを最小化できませんでした。"
         toggle_vrct_visibility:
             label: "ASTAROTの最小化/アクティブ化の切り替え"
         toggle_translation:

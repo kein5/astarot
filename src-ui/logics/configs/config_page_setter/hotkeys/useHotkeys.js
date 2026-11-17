@@ -175,18 +175,35 @@ export const useHotkeys = () => {
             case "toggle_vrct_visibility": {
                 const wayland = await currentPlatform() === "wayland";
                 if (wayland) focusWatch ??= appWindow.onFocusChanged?.(({ payload: focused }) => { if (focused) minimizedByHotkey = false; });
-                const minimized = wayland ? minimizedByHotkey : await appWindow.isMinimized();
+                let minimized = minimizedByHotkey;
+                // A window whose state cannot be read is taken as shown: the press minimizes it.
+                if (!wayland) try { minimized = await appWindow.isMinimized(); } catch { minimized = false; }
+                // Nothing above catches a failure here (the shortcut callbacks, the portal handler),
+                // so it is told here (#465).
                 if (minimized) {
                     minimizedByHotkey = false;
-                    // The desktop gives a portal shortcut no right to raise a window; Rust asks KWin.
-                    if (wayland) await invoke("main_window_restore");
-                    else {
-                        await appWindow.unminimize();
-                        await appWindow.setFocus();
+                    try {
+                        // The desktop gives a portal shortcut no right to raise a window; Rust asks KWin.
+                        if (wayland) await invoke("main_window_restore");
+                        else {
+                            await appWindow.unminimize();
+                            await appWindow.setFocus();
+                        }
+                    } catch (error) {
+                        console.warn("Main window could not be restored", error);
+                        // Still minimized: the next press tries to restore it again.
+                        minimizedByHotkey = wayland;
+                        showNotification_Error(t("config_page.hotkeys.error_window_restore_failed"));
+                        break;
                     }
                     store.text_area_ref.current?.focus();
                 } else {
-                    await appWindow.minimize();
+                    try { await appWindow.minimize(); }
+                    catch (error) {
+                        console.warn("Main window could not be minimized", error);
+                        showNotification_Error(t("config_page.hotkeys.error_window_minimize_failed"));
+                        break;
+                    }
                     minimizedByHotkey = wayland;
                 }
                 break;
@@ -375,6 +392,8 @@ export const useHotkeys = () => {
             } catch (error) {
                 if (!isCurrent()) return;
                 console.error("Failed to register global shortcuts:", error);
+                // unregisterAll failed, so none of the hotkeys is bound: say so (#465).
+                showNotification_Error(t("config_page.hotkeys.error_failed_to_register_all"), { hide_duration: 10000 });
             }
         });
     };
