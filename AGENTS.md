@@ -25,7 +25,8 @@ VRCT-VOX は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、�
 | 起動、ビルド、CI、配布候補 | `docs/readme_build.md`、`docs/voice-stack/release-candidates.md` |
 | ブランチ、PR、依存、ダウンロードするモデル、表示する文言 | `CONTRIBUTING.md` |
 | 同梱物、モデル、依存ライブラリのライセンス | `NOTICE.md`、`docs/voice-stack/licensing.md` |
-| 名前、識別子、保存先、上流 VRCT との関係 | `docs/voice-stack/project-rename.md`、`docs/voice-stack/publication-and-upstream.md` |
+| Rust のバックエンド中核、Python からの移植の状況 | `docs/voice-stack/core-integration.md` |
+| 名前、識別子、保存先、上流 VRCT との関係 | `docs/voice-stack/project-rename.md`、`docs/voice-stack/publication-and-upstream.md`、ASTAROT への改名は `docs/voice-stack/adr-011-astarot-brand-and-multimodal-accessibility.md` |
 | モデル取得の画面と同意 | `docs/voice-stack/model-downloads.md` |
 | Linux のビルド、AppImage、実機での GUI 試験 | `docs/voice-stack/linux-build-pipeline.md`、`docs/voice-stack/appimage.md` |
 | 音声まわりの設計判断 | `docs/voice-stack/decisions.md` と各 ADR（状態欄で、採用済みか提案かを確認する） |
@@ -44,10 +45,10 @@ python tools/dev.py check                   # 軽量チェック（tooling、nod
 
 | 変更したもの | 追加で実行するもの |
 |---|---|
-| Python の音声、モデル取得、配布の検査 | `check --scope voice`（新しい Linux の checkout では先に `python tools/build_voice_gate.py`） |
+| 音声、モデル取得の Python のコードとその試験（`src-python/`、`tests/voice/`）、配布の検査（`tools/`） | `check --scope voice`（新しい Linux の checkout では先に `python tools/build_voice_gate.py`） |
 | UI（`src-ui/`）や文言 | `check --scope ui` |
-| Python のバックエンド全体（`src-python/`） | `check --scope backend --python <アプリ依存のある Python>` |
-| Tauri や Rust（`src-tauri/`） | `check --scope rust` |
+| 移植の仕様として残している Python のバックエンド全体（`src-python/`） | `check --scope backend --python <アプリ依存のある Python>` |
+| Rust のバックエンド中核（`native/core`）と `native/` のクレート、Tauri（`src-tauri/`） | `check --scope rust`（対象のクレートは `tools/dev.py` の `NATIVE_CRATES`。ほかのクレートは `cargo test --manifest-path native/<crate>/Cargo.toml`） |
 | 複数の領域、統合の前 | `check --scope all` |
 | コミット | `check --scope commits --base origin/develop` |
 
