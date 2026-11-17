@@ -85,7 +85,7 @@ for (const language of ["en", "ja"]) {
         const { Vr } = await loadModule(new URL("../vr/Vr.jsx", import.meta.url), runtime, {
             "@useI18n": { useI18n: () => translation },
             "@ui_configs": { ui_configs: { overlay_small_log: controls } },
-            "../_components": { Slider: "slider", SectionLabelComponent: "heading" },
+            "../_components": { Slider: "slider", SectionLabelComponent: "heading" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
             "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
             "@common_components": { ResetButton: "reset" }, "@utils": { randomIntMinMax: () => 0 },
             "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
