@@ -184,7 +184,7 @@ impl Default for Status {
                 start: "Start recognition".into(),
                 stop: "Stop recognition".into(),
                 panel: "Open control panel".into(),
-                main: "Open VRCT-VOX".into(),
+                main: "Open ASTAROT".into(),
                 quit: "Quit".into(),
                 monitor: default_monitor_label(),
                 primary: default_primary_label(),
@@ -838,7 +838,8 @@ mod tray {
               &PredefinedMenuItem::separator(app)?, &quit],
         )?;
         let mut builder = TrayIconBuilder::with_id(TRAY)
-            .tooltip("VRCT-VOX")
+            // The display name (ADR-011); the tray's id (`TRAY`) keeps the internal name.
+            .tooltip("ASTAROT")
             .menu(&menu)
             // Left click opens the control panel while the overlay is on, else the main window;
             // the menu is on the right button.

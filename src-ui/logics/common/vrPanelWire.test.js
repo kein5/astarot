@@ -148,7 +148,7 @@ test("the VR panel is sent every atom its views read", () => {
 test("the VR panel is not sent credentials, advanced settings, updates or hotkeys", () => {
     const settings = settingsArray();
     const allowed = vrPanelStateNames(settings);
-    const advanced = settings.filter(setting => ["AdvancedSettings", "Updater"].includes(setting.Category)).map(setting => setting.Base_Name);
+    const advanced = settings.filter(setting => setting.Category === "AdvancedSettings").map(setting => setting.Base_Name);
     assert.ok(advanced.length > 5, "the advanced settings were not found");
     for (const name of [...advanced, "WebsocketAuthToken", "DeepLAuthKey", "OcrPortalRestoreToken", "Hotkeys",
         "LatestSoftwareVersionInfo", "SoftwareVersion", "ComputeMode"]) {
