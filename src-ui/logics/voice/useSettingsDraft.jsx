@@ -32,10 +32,12 @@ export function useSettingsDraft(saved, error, updateError, { write, canSave = t
         }
         previousSavedKey.current = savedKey;
     }, [savedKey, saved]);
-    useEffect(() => { if (error) setSaving(false); }, [error]);
+    // Only this form's own write decides its save state. `error` is shared with other requests
+    // (mute, status polls) on the same page, so it never ends saving or marks a failure (#458).
+    const [failed, setFailed] = useState(false);
     useEffect(() => {
         if (!saving) return;
-        const timer = setTimeout(() => { setSaving(false); updateError("save_unconfirmed"); }, 5000);
+        const timer = setTimeout(() => { setSaving(false); setFailed(true); updateError("save_unconfirmed"); }, 5000);
         return () => clearTimeout(timer);
     }, [saving, updateError]);
     const [leaving, setLeaving] = useState(null);
@@ -56,7 +58,7 @@ export function useSettingsDraft(saved, error, updateError, { write, canSave = t
         };
     }, [dirty, saving]);
     useEffect(() => { if (leaving) dialog.current?.showModal(); }, [leaving]);
-    const discard = () => { setDraft(saved); setSaving(false); setAwaitingResponse(false); submitted.current = null; updateError(null); };
+    const discard = () => { setDraft(saved); setSaving(false); setFailed(false); setAwaitingResponse(false); submitted.current = null; updateError(null); };
     useEffect(() => () => { submitted.current = null; }, []);
     const submit = async send => {
         if (saving) return;
@@ -64,6 +66,7 @@ export function useSettingsDraft(saved, error, updateError, { write, canSave = t
         const request = { draft };
         submitted.current = request;
         setAwaitingResponse(true);
+        setFailed(false);
         setSaving(true);
         try {
             const value = patch ? Object.fromEntries(Object.entries(draft).filter(([key, value]) =>
@@ -75,23 +78,26 @@ export function useSettingsDraft(saved, error, updateError, { write, canSave = t
                 setDraft(value => rebaseDraft(request.draft, value, canonical));
                 previousSavedKey.current = JSON.stringify(canonical);
                 setSaving(false);
+                setFailed(false);
                 submitted.current = null;
                 setAwaitingResponse(false);
                 updateError(null);
             } else if (response === false || response?.status) {
                 setSaving(false);
+                setFailed(true);
                 submitted.current = null;
                 // Keep failed writes dirty even if a refresh has the same value.
             }
         } catch {
             if (submitted.current !== request) return;
             setSaving(false);
+            setFailed(true);
             submitted.current = null;
             setAwaitingResponse(false);
             updateError("save_unconfirmed");
         }
     };
-    const saveState = error || (!saving && awaitingResponse) ? "save_failed" : saving ? "saving" : dirty ? "unsaved" : "saved";
+    const saveState = failed || (!saving && awaitingResponse) ? "save_failed" : saving ? "saving" : dirty ? "unsaved" : "saved";
     const id = useId();
     // Fields saved together under one name (an engine voice's id and names) count as one change.
     const changes = draft === null ? [] : [...new Set([...changedPaths(saved, draft).map(label), ...(typeof pending === "function" ? pending(draft) : pending)])];
