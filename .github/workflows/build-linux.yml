@@ -164,7 +164,7 @@ jobs:
           subject-path: build/linux/release-candidate/*
       # Candidate storage only. No release creation, package registry, or secrets.
       - name: Store inspected candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: VRCT-VOX-linux-x86_64-candidate
           path: build/linux/release-candidate/*
@@ -173,7 +173,7 @@ jobs:
           compression-level: 0
       - name: Store diagnostic logs
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: VRCT-VOX-linux-build-logs
           retention-days: 7
