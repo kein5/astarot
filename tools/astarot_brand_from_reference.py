@@ -133,12 +133,12 @@ def horizontal(parts: Parts, dark: bool) -> str:
     ink = WHITE if dark else PLUM
     sub = "#E1D6E8" if dark else "#766B80"
     # One-line lockup: wordmark ink width = subtitle ink width x 1.0047 (typography-and-lockup.md).
+    # The subtitle names Outfit Bold explicitly, and no line is drawn under it.
     body = (
         parts.mark(35, 35, 275, ink)
         + f'<rect x="330" y="55" width="3" height="235" rx="1.5" fill="{LILAC}"/>'
         + parts.word(370, 70, 955, ink)
-        + f'<text x="369.3" y="290" font-family="Outfit, Inter, DejaVu Sans, sans-serif" font-size="35.8" fill="{sub}">{SUBTITLE}</text>'
-        + f'<rect x="370" y="313" width="92" height="5" rx="2.5" fill="{LILAC}"/>'
+        + f'<text x="369.3" y="290" font-family="Outfit, Inter, DejaVu Sans, sans-serif" font-size="35.8" fill="{sub}" font-weight="700">{SUBTITLE}</text>'
     )
     return svg_root(body, 1400, 360, title="ASTAROT horizontal logo",
                     desc="User-approved circular hexagram, Outfit wordmark and fixed subtitle.")
