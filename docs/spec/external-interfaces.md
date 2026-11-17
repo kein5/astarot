@@ -160,6 +160,29 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 - Windows版（1.31）はHTTPで送らず、ETWのイベント（プロバイダー`Microsoft.ML.ONNXRuntime`）を書くだけで、`deviceid`のファイルも作らない。集めるかどうかはWindowsの診断データの設定による。環境変数は読まず、`DisableTelemetryEvents`で止める。環境を作るときの最初の`ProcessInfo`イベントだけは、この設定より前に書かれる。
 - 試験：`tests/voice/test_onnx_runtime_telemetry.py`が、環境を作る箇所と各実行ファイルの`main`の最初の文を確かめる。
 
+### WebView2の通信
+
+Windowsの画面を描くWebView2 Runtimeは、アプリの画面とは別にMicrosoftへ通信する。アプリの同意の設定では止まらない。
+
+Microsoftの文書（[Data and privacy in WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/data-privacy)）による扱いは次のとおり。
+
+- 任意の診断データは、Windowsの「設定」→「プライバシーとセキュリティ」→「診断とフィードバック」の「診断データ」に従う。必須の診断データは、この設定にかかわらず集める。アプリから全体を止める方法はない。
+- アプリが変えられるのはSmartScreen（`IsReputationCheckingRequired`）と、クラッシュダンプの送信（`IsCustomCrashReportingEnabled`）だけである。どちらもAPIで、環境変数はない。
+- 環境変数`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`は、アプリが渡す起動引数の後ろに足される（[CreateCoreWebView2EnvironmentWithOptions](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/webview2-idl#createcorewebview2environmentwithoptions)）。テレメトリを止めるフラグは、公式のフラグの一覧（[WebView2 browser flags](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/webview-features-flags)）にない。この一覧も、配布するアプリでフラグを使わないよう求めている。
+
+0.5.0のWindows版（WebView2 Runtime 158.0.4370.26）を、空のWebView2のデータフォルダーで150秒起動し、WebView2のネットログ（`--log-net-log`）を取った結果は次のとおり（2026-11-17）。文字の入力と音声は使っていない。
+
+| 宛先 | 内容 | `--disable-background-networking`を付けたとき |
+|---|---|---|
+| `config.edge.skype.com` | Edgeの実験と設定の取得（`/config/v1/Edge/<版>`） | なくなる |
+| `edge.microsoft.com/componentupdater`と`msedge.b.tlu.dl.delivery.mp.microsoft.com` | コンポーネントの更新の確認と取得 | 36回の確認と8件の取得が、起動直後の4回と1件になる |
+| `nav-edge`、`data-edge`、`telem-edge`（`.smartscreen.microsoft.com`） | SmartScreenの確認と、その送信 | 残る（SEC-03で止めない） |
+| `wpad` | プロキシの自動検出 | 残る |
+
+- 全ウィンドウの起動引数（`BROWSER_ARGS`）に`--disable-background-networking`を入れて、上の2つを止める。Chromiumのスイッチで、WebView2の公式の一覧にはないため、Runtimeの更新で効かなくなることがある。暫定の対策とし、Runtimeの版が大きく上がったら同じ方法で確かめ直す。
+- 環境変数ではなく起動引数に入れるのは、環境変数がサイドカーや起動した別のプログラムにも受け継がれるためである。WebView2から見ると、どちらも同じ起動引数の並びになる。利用者が`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`を設定していれば、その後ろに足される。
+- Windowsの診断データ（WebView2の文書がいうWindows data reporting）と、クラッシュダンプの送信は、この対策の外にある。前者はネットログに出ず、Windowsの設定に従う。後者を止めるには、WebView2の環境をアプリで作り（`with_environment`）、`IsCustomCrashReportingEnabled`を設定する必要がある。
+
 ### アプリの更新
 
 Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update.rs`、#330）。UIは`app_update_*`のコマンド（[Tauriのコマンド](#tauriのコマンド)）だけを使い、updaterのプラグインのコマンドの権限はどのウィンドウにも与えない。
@@ -260,7 +283,7 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 
 設定画面は別ウィンドウではなく、`main`の中のページである。
 
-WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。
+WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
 
 ### WebviewのContent Security Policy（CSP）
 
