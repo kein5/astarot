@@ -23,7 +23,7 @@
   <a href="https://kein5.github.io/VRCT-VOX/ja/guide/requirements"><img alt="対応OS: WindowsとLinux" src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-blue"></a>
   <a href="/src-tauri/Cargo.toml"><img alt="アプリのRustのedition" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fsrc-tauri%2FCargo.toml&query=%24.package.edition&label=Rust%20edition&color=blue"></a>
   <a href="/mise.toml"><img alt="mise.tomlで固定したRustのツールチェーン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.rust.version&label=Rust%20toolchain&color=blue"></a>
-  <a href="/pyproject.toml"><img alt="バックエンドのPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
+  <a href="/pyproject.toml"><img alt="開発ツールと試験に使うPythonのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fpyproject.toml&query=%24.project%5B%27requires-python%27%5D&label=Python&color=blue"></a>
   <a href="/mise.toml"><img alt="mise.tomlで固定したNode.jsのバージョン" src="https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2FVRCT-VOX%2Fdevelop%2Fmise.toml&query=%24.tools.node&label=Node.js&color=blue"></a>
 </p>
 
@@ -35,7 +35,7 @@ VRCT-VOXは音声認識（ASR）、読み上げ（TTS）、ボイスチェンジ
 
 - **翻訳した発声**: チャット入力や確定した翻訳を[speech.cpp](https://github.com/nyosegawa/speech.cpp)のTTS（日本語はIrodori、ほかの言語はQwen3-TTS）で読み上げ、VRChatが使う仮想マイクに流します。音声とOSCのチャット文字は別々に設定できるので、自分の声はそのままに、翻訳の音声と文字を足すといった使い方ができます。
 - **モニター出力**: 同じ読み上げ音声を自分のスピーカーやヘッドホンでも聞けます（任意）。
-- **ボイスチェンジ**: RVCでマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。NVIDIAのGPU（GeForce GTX 16・RTX 20シリーズ以降とドライバー580以降）で変換し、それ以外ではCPUで変換します。CPUでは声の遅れが大きくなります。Seed-VCは0.4.0で外しました。
+- **ボイスチェンジ**: RVCでマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。NVIDIAのGPU（GeForce GTX 16・RTX 20シリーズ以降とドライバー580以降）で変換し、それ以外ではCPUで変換します。CPUでは声の遅れが大きくなります。Seed-VCは0.5.0で廃止しました。保存してあったSeed-VCの設定はRVCに切り替わります。
 - **リアルタイム字幕**: 同梱のspeech.cppの音声認識サーバーで自分のマイクとほかのプレイヤーの声を文字にします。
 - **同梱サーバー**: speech.cppのサーバーを設定画面から保存・起動・停止できます。
 - **モデルの取得**: Irodori、Qwen3-TTS、RVCの既定モデルと、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
@@ -47,7 +47,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 
 最新の版は **[GitHub Releases](https://github.com/kein5/VRCT-VOX/releases/latest)** にあります（上のreleaseのバッジに番号が出ます）。バージョン番号は本家VRCT（3.x）とは別に0.1.0から数えます。ベータ版は`develop`から、正式版は`main`から公開します。
 
-- **Linux**: AppImageとtar.gz（x64、Vulkan）。CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しています。
+- **Linux**: AppImage、tar.gz、deb、rpm（x64、Vulkan）。CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しています。
 - **Windows**: インストーラーとzip（CPU版）、CUDA版のzip。Windows 11の実機で実際のモデルを使って試験しています（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
 
 各ファイルの`.sha256`と`SHA256SUMS-*`でダウンロードしたファイルを確認できます（電子署名ではありません）。インストーラー版とAppImage版は、署名を確かめてからアプリ内で更新します。ZIP版とtar.gz版は新しい版を知らせるだけで、deb・rpmはパッケージマネージャーで更新します。AURでの配布は予定していますが、まだ登録していません。

@@ -239,7 +239,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 ## config.json
 
 - 置き場所は`$VRCT_CONFIG_DIR`、なければ実行ファイルのあるフォルダ（開発中は`src-python/`）。Linuxの配布版では`$XDG_CONFIG_HOME/vrct-vox`（なければ`~/.config/vrct-vox`）である。フォルダ名は保存先の識別子なので、変えるには移行の処理がいる（`docs/voice-stack/project-rename.md`）。
-- 設定は`Config`クラスの`ManagedProperty`と`ValidatedProperty`で宣言し、既定値は`init_config()`にある。`serialize=True`のものだけを保存する。オンオフの状態（`ENABLE_*`）や選択肢の一覧は保存しない。
+- 設定は中核の`native/core/src/config/schema.rs`の`keys()`で宣言し、既定値は`defaults()`にある（0.4までのPythonの`Config`クラスの`ManagedProperty`と`ValidatedProperty`を写したもの）。`serialize`が真のものだけを保存する。オンオフの状態（`ENABLE_*`）や選択肢の一覧は保存しない。
 - 単純な設定プロパティは、未選択を表すモデル名と音声認識エンジンを除き`null`を受け付けない。APIキーやホットキーの辞書内にある未設定の`null`は維持する。数値のプロパティとオーバーレイの数値設定は`NaN`・無限大（`1e999`などの桁あふれも含む）を保存前に拒否する。不正な保存値は既定値へ戻す。メッセージ欄の比率と大小字幕の設定変更では400の`VALIDATION_CONFIG_VALUE_INVALID`を返し、`data`には保持した設定値を入れる。
 - 読み込みでは、各キーを検証してから設定する。知らないキーは捨て、次に保存するとファイルからも消える。検証に通らないキーは既定値のままにしてerror.logに残す。ただしマイクとスピーカーの選択（`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`）は、読み込む時点でデバイスの一覧がまだ取れていないため、保存値をそのまま受け取る。一覧が取れたあと、サイドカーがデバイスの有無を確かめ、無ければ既定のデバイスに戻す。JSONとして読めない、またはオブジェクトでないときは、そのファイルを名前の重複しない`config.json.unreadable-<日時>-<乱数>`に移して残し、既定値で起動する。UIは`/run/config_file_unreadable`を受けて、既定値で起動したことと残したファイルの場所を知らせる。
 - メモリー上の初期値をすべて用意してからログ用ディレクトリを作る。ログ用ディレクトリを作れなくても、設定の初期化は完了させる。それ以外の初期化が途中で失敗したときは、不完全なインスタンスを公開せず、設定の読み込みも保存も行わない。読み込み中は保存せず、全項目の適用と移行が終わってから1回だけ保存する。読み取り権限の不足や退避の失敗では元のファイルを残し、[保存の失敗通知](cross-cutting.md#サイドカーでの保存)を出して以後の保存を止める。
@@ -266,15 +266,14 @@ APIキーは`config.json`に書かない（0.5.0から）。`AUTH_KEYS`（翻訳
 
 | ファイル | 置き場所 | 内容 |
 |---|---|---|
-| `process.log`、`error.log`、`freeze_trace.log`、`crash_trace.log` | `$VRCT_CONFIG_DIR/logs/`（なければ作業フォルダ） | 診断ログ。`process.log`と`error.log`は10MBで切り詰め、`process.log`は起動のたびに空にする。失敗した実行のあとでUIが中核を起動し直したときだけは空にせず、前の実行の記録に続けて書く。`crash_trace.log`と`freeze_trace.log`（faulthandlerのスタックダンプ）は、起動のときに10MBを超えていたら新しい1MBだけを残す。`freeze_trace.log`には、フロントエンドからのfeedが`WATCHDOG_INTERVAL`＋15秒のあいだ来なかったときに、全スレッドのスタックを1回書く（プロセスは終了しない）。書くのはGILを持ったPythonのスレッドである。GILが返らない固まり方のときだけ、さらに30秒後にfaulthandlerのCのスレッドが書く（`src-python/freeze_dump.py`） |
-| `startup_timing.log` | 同上 | 起動1回につき1行のJSON。段階ごとの実時間とCPU時間、遅かった`/get/data/…`、起動中のPC全体のCPU使用率を残す。`process.log`と違って次の起動でも消えない。段階名、エンドポイント名、数値だけで、パスやデバイス名は書かない。256KBを超えたら起動のときに新しい64KBだけを残す |
+| `process.log`、`error.log` | `$VRCT_CONFIG_DIR/logs/`（なければ作業フォルダ） | 診断ログ。10MBで切り詰め、`process.log`は起動のたびに空にする。失敗した実行のあとでUIが中核を起動し直したときだけは空にせず、前の実行の記録に続けて書く。0.4までのPythonバックエンドは、ほかに`freeze_trace.log`と`crash_trace.log`（faulthandlerのスタックダンプ）、`startup_timing.log`（起動の段階ごとの時間）も書いていた。中核はこの3つを書かない |
 | `startup.log` | 同上（Tauri側） | ウィンドウの起動記録 |
 | 会話ログ `YYYY-MM-DD_HH-MM-SS.log` | `PATH_LOGS` | 「会話ログを自動的に保存する」がオンのときだけ。行頭は`[SENT]`、`[RECEIVED]`、`[OCR]`、`[CHAT]`。画面は新しい1,000件しか残さないが、ファイルには古いものも残る |
 | `downloaded_models/<id>/<版>/`と`receipt.json` | `config.json`と同じフォルダ | 取得したモデル。取得中は`.partial-<16進>/` |
 | `user_models.json` | `config.json`と同じフォルダ | 利用者が名前を付けて登録したモデル（#403）。`{"version": 1, "models": [{id, target, name, files: {役割: {path, size, mtime_ns}}, registered_at}]}`。ファイルの場所と、登録したときの容量と更新時刻だけを持ち、モデルのファイルはコピーしない。一時ファイルに書いて`fsync`してから置き換える。読めない、または版が違うときは書き換えずに残す。PythonとRustのコアは同じ形式を読み書きする |
 | `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCの実行環境（WindowsとLinux。0.4まではSeed-VCも）。`.steps.json`に終わった手順を残す。0.4までのPythonバックエンドは、`setup.log`に`uv`とワーカーの確認の出力も残し、Seed-VCでは`.uv-<版>/`に取得用の`uv`を置いた（0.5.0の中核は`setup.log`を書かない）。RVCは`lib/`（ONNX Runtime。GPU用はCUDA 13とcuDNNのライブラリも）と`assets/`だけで、取得中は`lib.part/`と`downloads/`を使う。RVCの取得が終わると、同じフォルダーにある以前のPyTorch形式の`venv/`、`python/`、`engine/`（中のモデルと音声のファイルは残す）、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`を削除する |
 | weights/whisper/… | PATH_DATA | 以前の版が取得した Whisper の重み。いまの版は読まず、取得もしない。利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](#古い-whisper-の重み)） |
-| weights/ctranslate2/… | PATH_DATA | 内蔵の翻訳モデルと検証記録。取得も既存ファイルの利用もbuiltin_model_pins.pyの全容量・SHA-256を照合する。tokenizerも同じ一式に含む。検証記録はschema=2、repo・revision・全ファイルpinのSHA-256識別値、各ファイルのsize・mtime_ns・ctime_ns・device・inode。古い記録は無効。不一致の既存ファイルは残し、同意済みの再取得に成功した場合だけ既存一式を`.preserved-<weight>-<uuid>`へ移してから新しい一式を公開する |
+| weights/ctranslate2/… | PATH_DATA | 0.4までのPythonバックエンドが取得したCTranslate2の翻訳モデルと検証記録。0.5.0の中核は読まず、起動の後でPythonが作った名前のフォルダだけを消す（リンクやジャンクションはたどらない。`native/core/src/controller/legacy_weights.rs`、[中核の統合](../voice-stack/core-integration.md)の「旧 CTranslate2 の重み」） |
 | `secrets.json` | `config.json`と同じフォルダ | APIキー（[APIキーの保存先](#apiキーの保存先)）。Windowsでは暗号化、Linuxでは権限0600 |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
 | `telemetry_state.json` | `PATH_DATA` | 利用状況の通知をその日（UTC）に送ったかどうかの記録（起動の通知を送った日付と、その日に送ったエラーコード）と、送った内容そのものの直近20件（`sent`: このPCの時刻、本文、受け付けられたか） |

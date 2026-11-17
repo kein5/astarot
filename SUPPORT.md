@@ -1,6 +1,6 @@
 # Getting help
 
-VRCT-VOX is maintained by one person on a best-effort basis. Replies may take some time, and there is no support channel outside GitHub.
+ASTAROT is maintained by one person on a best-effort basis. Replies may take some time, and there is no support channel outside GitHub.
 
 | You want to… | Go to |
 |---|---|
@@ -14,13 +14,13 @@ If the guide does not answer a question about using the app, open a bug report a
 
 Before you open an issue, search the [existing issues](https://github.com/kein5/VRCT-VOX/issues?q=is%3Aissue) in case it has already been reported. Write in English or Japanese. Remove personal data, such as voice recordings, chat text, API keys and log lines you have not checked, from anything you attach.
 
-VRCT-VOX is derived from [VRCT](https://github.com/misyaguziya/VRCT) but is a separate project. Do not send VRCT-VOX questions to the VRCT maintainers.
+ASTAROT (formerly VRCT-VOX) is derived from [VRCT](https://github.com/misyaguziya/VRCT) but is a separate project. Do not send ASTAROT questions to the VRCT maintainers.
 
 Please follow the [code of conduct](CODE_OF_CONDUCT.md) in issues and pull requests. To contribute code or documentation, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 困ったときは（日本語）
 
-VRCT-VOX は1人で保守しています。返事に時間がかかることがあります。GitHub のほかに問い合わせ先はありません。
+ASTAROT は1人で保守しています。返事に時間がかかることがあります。GitHub のほかに問い合わせ先はありません。
 
 | したいこと | 行き先 |
 |---|---|
@@ -34,6 +34,6 @@ VRCT-VOX は1人で保守しています。返事に時間がかかることが�
 
 Issue を出す前に、同じ内容の[既存の Issue](https://github.com/kein5/VRCT-VOX/issues?q=is%3Aissue) がないか探してください。英語でも日本語でも構いません。添付するものからは音声、チャットの本文、API キー、中身を確かめていないログなどの個人情報を取り除いてください。
 
-VRCT-VOX は [VRCT](https://github.com/misyaguziya/VRCT) から派生した別のプロジェクトです。VRCT-VOX についての質問を本家 VRCT の開発者に送らないでください。
+ASTAROT（旧名 VRCT-VOX）は [VRCT](https://github.com/misyaguziya/VRCT) から派生した別のプロジェクトです。ASTAROT についての質問を本家 VRCT の開発者に送らないでください。
 
 Issue や PR では[行動規範](CODE_OF_CONDUCT.md)を守ってください。コードや文書で協力したい場合は [CONTRIBUTING.md](CONTRIBUTING.md) を見てください。

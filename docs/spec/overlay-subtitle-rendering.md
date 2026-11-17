@@ -71,8 +71,9 @@ budgets, not limits on chat input or transmission.
 
 Missing glyphs are detected by comparing each character's mask with that font's
 missing-glyph mask. A whole grapheme uses the first font covering its visible
-characters: the selected bundled Noto font, the other bundled Noto fonts, then
-a locally installed emoji font. Shaping controls and variation selectors do not
+characters: the selected font, the standard fonts for its language, then any
+other installed font that has the characters. No font is bundled (see the
+subtitle font in `use-cases.md`). Shaping controls and variation selectors do not
 require a standalone glyph. Adjacent runs share baseline measurement; the same
 font and metrics are used for wrapping and drawing.
 

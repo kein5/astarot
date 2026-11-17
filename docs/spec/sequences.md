@@ -12,8 +12,7 @@ sequenceDiagram
   participant Net as ネットワーク
   UI->>S: backend_start（0.5.0 からアプリの中の中核。0.4 までは bin/vrct-vox-sidecar）
   Note over S: 受信とワーカー3本が先に動く。<br/>status False の要求は423で待たせる
-  S->>Net: GET https://www.google.com（3秒）
-  S-->>UI: /run/connected_network
+  S-->>UI: /run/connected_network（null。接続の確認は送らない）
   S-->>UI: /run/initialization_progress = 1
   Note over S: モデルは自動では取得しない（0.5.0 で起動時の取得を引退）
   S-->>UI: /run/enable_ai_models（真偽）

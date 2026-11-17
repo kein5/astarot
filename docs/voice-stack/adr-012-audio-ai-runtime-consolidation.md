@@ -5,7 +5,7 @@ Date: 2026-11-17
 Decision owners: リポジトリの保守担当者
 Related: Issue #507、[ADR 001〜003](decisions.md)、[ADR-004](adr-004-audio-integration-boundaries.md)、[ADR-005](adr-005-managed-microphone-lifetime.md)、[ADR-007](adr-007-translated-speech-through-voice-conversion.md)、[ADR-008](adr-008-external-speech-engines.md)、[ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)、[中核の統合](core-integration.md)、[推論ランタイムの比較](inference-runtime-comparison.md)、`AGENTS.md`、`NOTICE.md`
 
-この ADR の「アプリ」は VRCT-VOX を指す。ADR-011 で決めた新しい名前は ASTAROT だが、現行のビルドの名前と識別子は VRCT-VOX のままである。
+この ADR の「アプリ」は本リポジトリのアプリを指す。表示名は ADR-011 で決めた ASTAROT で、実行ファイル名やアプリ ID などの識別子は VRCT-VOX のままである。
 
 ## 1. Context（背景）
 
