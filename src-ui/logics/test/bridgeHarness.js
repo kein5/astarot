@@ -118,6 +118,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
+        "./translation/useTranslationCatalog": { useTranslationCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
         "./_useBackendErrorHandling": errors,
         "./configs/config_page_setter/ui_config_setter": settings,

@@ -9,6 +9,9 @@ import { useConsentDialog } from "../../../../../../logics/common/useConsentDial
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
 import { translationDownloadable } from "../../../../../../logics/main/setupNeeds";
 import { computeDeviceName } from "../_components/compute_device/computeDeviceOptions";
+import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
+import { isUsersWeight, weightLabel } from "../../../../../../logics/translation/translationCatalog";
+import { TranslationCatalogSection } from "./TranslationCatalog";
 
 import {
     useTranslation,
@@ -56,6 +59,7 @@ export const Translation = () => {
             <AITranslation_Container />
             <ExternalTranslationAPI_Container />
             <LocalLLM_Container />
+            <TranslationCatalogSection />
         </div>
     );
 };
@@ -69,11 +73,12 @@ const AITranslation_Container = () => {
     const weight = (currentCTranslate2WeightTypeStatus.data || []).find(item => item.id === selected);
     const device = computeDeviceName(currentSelectedTranslationComputeDevice.data?.device_name);
     const { catalog } = useModelDownloads();
+    const { catalog: translationCatalog } = useTranslationCatalog();
     // false only once the catalog says so; until then the downloads are offered as before.
-    const unavailable = translationDownloadable(catalog, selected) === false;
+    const unavailable = !isUsersWeight(selected ?? "") && translationDownloadable(catalog, selected) === false;
     const state = weight?.is_downloaded ? "setup_downloaded" : unavailable ? "setup_unavailable" : "setup_not_downloaded";
     const status = [
-        selected ? `${selected} · ${t(`config_page.translation.${state}`)}` : null,
+        selected ? `${weightLabel(selected, translationCatalog)} · ${t(`config_page.translation.${state}`)}` : null,
         device || null,
     ].filter(Boolean).join(" · ");
     return (
@@ -185,6 +190,7 @@ const CTranslate2WeightType_Box = () => {
         setSelectedCTranslate2WeightType,
     } = useTranslation();
     const { catalog } = useModelDownloads();
+    const { catalog: translationCatalog } = useTranslationCatalog();
     const [confirming, setConfirming] = useState(null);
     const [downloadReview, setDownloadReview] = useState(null);
     const selection = useRef(null);
@@ -218,11 +224,12 @@ const CTranslate2WeightType_Box = () => {
 
     const c_translate2_weight_types_object = currentCTranslate2WeightTypeStatus.data.map(item => {
         const non_commercial = isNonCommercialWeight(item);
-        // A model the user added: its name is its folder's, and its licence is theirs to check.
+        // A model the user added: its name is its folder's or its catalog entry's, and its
+        // licence is theirs to check.
         if (item.is_custom) {
             return {
                 ...item,
-                label: item.id.slice("custom:".length),
+                label: weightLabel(item.id, translationCatalog),
                 desc: t("config_page.translation.ctranslate2_weight_type.custom_model"),
             };
         }

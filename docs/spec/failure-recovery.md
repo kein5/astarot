@@ -55,6 +55,8 @@
 
 利用者が登録したモデル（`user_models.json`）は、一時ファイルに書いて置き換える。読めない、または版が違うときは書き換えずに残す（`native/ops/src/downloads/user_models.rs` の試験）。登録したファイルの大きさか更新時刻が変わったら、使えるものとして扱わない。
 
+翻訳のカタログに利用者が足した項目（`translation_catalog.json`、#413）も同じく、一時ファイルに書いて置き換え、読めないときは書き換えずに残す（`native/ops/src/downloads/translation_catalog.rs` の試験）。API の項目は、キーを保管場所に書いて読み戻せなかったら項目も足さない。推論エンジン系の項目のフォルダーが読めなくなったら、項目は残したまま重みを一覧から外し、選んでいた設定は既定のモデルに戻る。理由は項目の ID と固定のコードだけで `process.log` に書く（`native/core/tests/translation_catalog.rs`）。
+
 ## アプリの更新
 
 どのコピーがアプリの中で更新するかは、入れ方で決まる（[アプリの更新](external-interfaces.md#アプリの更新)の表）。パッケージマネージャーで入れたコピー（deb、rpm）は確認もしないので、アプリの中の更新とパッケージマネージャーがぶつかることはない。書き込めない場所の AppImage、Windows の ZIP、Linux の tar.gz は知らせるだけで、ファイルを置き換えない。

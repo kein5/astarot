@@ -10,6 +10,7 @@ import * as configs from "@logics_configs";
 import * as voice from "./voice/useVoice";
 import * as speech from "./voice/useSpeechServers";
 import * as downloads from "./voice/useModelDownloads";
+import * as translationCatalog from "./translation/useTranslationCatalog";
 import * as vcRuntimes from "./voice/useVcRuntimes";
 import * as flow from "./flow/useIoFlow";
 import { _useBackendErrorHandling } from "./_useBackendErrorHandling";
@@ -39,6 +40,11 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/register_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
     { endpoint: "/run/remove_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
     { endpoint: "/run/apply_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    // The translation catalog's two groups and the entries the user adds (#413).
+    { endpoint: "/get/data/translation_catalog", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "updateCatalog" },
+    { endpoint: "/run/register_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
+    { endpoint: "/run/remove_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
+    { endpoint: "/run/use_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
     { endpoint: "/get/data/vc_runtime_catalog", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateCatalog" },
     { endpoint: "/get/data/vc_runtime_state", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateState" },
     { endpoint: "/run/start_vc_runtime_setup", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "acknowledge" },
@@ -238,6 +244,11 @@ export const STATIC_ROUTE_META_LIST = [
 const STOP_ACTIONS = ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"];
 const TRANSCRIPTION_TOGGLES = ["/set/enable/transcription_send", "/set/disable/transcription_send",
     "/set/enable/transcription_receive", "/set/disable/transcription_receive"];
+const TRANSLATION_CATALOG_CHANGES = ["/run/register_translation_catalog_entry", "/run/remove_translation_catalog_entry",
+    "/run/use_translation_catalog_entry"];
+const TRANSLATION_CATALOG_READS = ["/get/data/selectable_ctranslate2_weight_type_dict", "/get/data/selected_ctranslate2_weight_type",
+    "/get/data/openai_compatible_url", "/get/data/openai_compatible_auth_key",
+    "/get/data/selectable_openai_compatible_model_list", "/get/data/selected_openai_compatible_model"];
 
 export const useReceiveRoutes = () => {
     const { showNotification_Error, showNotification_Warning, showNotification_Success, dismissNotification } = common.useNotificationStatus();
@@ -282,6 +293,7 @@ export const useReceiveRoutes = () => {
         const timer = setTimeout(expireDownloadRequests, 10000);
         return () => clearTimeout(timer);
     }, [downloadPending, expireDownloadRequests]);
+    const { send: sendTranslationCatalog, fail: failTranslationCatalog, reset: resetTranslationCatalog } = translationCatalog.useTranslationCatalog();
     const { state: runtimeState, pending: runtimePending, send: sendRuntime, updateError: updateRuntimeError, reset: resetRuntimes, backendStopped: stopRuntimePending } = vcRuntimes.useVcRuntimes();
     const runtimeActive = runtimePending || Object.values(runtimeState.jobs).some(job => vcRuntimes.activeSetupPhases.includes(job.phase));
     useEffect(() => {
@@ -366,6 +378,15 @@ export const useReceiveRoutes = () => {
             updateRuntimeError(result?.error_code || "vc_runtime_failed");
             return;
         }
+        if (status !== 200 && endpoint.includes("translation_catalog")) {
+            failTranslationCatalog(result?.error_code);
+            return;
+        }
+        // An entry came, went or was used: the local models and the OpenAI-compatible engine
+        // the settings show may have changed with it.
+        if (status === 200 && TRANSLATION_CATALOG_CHANGES.includes(endpoint)) {
+            for (const read of TRANSLATION_CATALOG_READS) asyncStdoutToPython(read);
+        }
         if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
             updateDownloadError(result?.error_code || "download_failed", endpoint);
             return;
@@ -434,6 +455,8 @@ export const useReceiveRoutes = () => {
             sendDownload("/get/data/model_download_catalog");
             sendDownload("/get/data/model_download_state");
             sendDownload("/get/data/user_models");
+            resetTranslationCatalog();
+            sendTranslationCatalog("/get/data/translation_catalog");
             resetRuntimes();
             resetVoice();
             sendVoice("/get/data/voice_settings");

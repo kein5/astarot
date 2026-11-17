@@ -181,14 +181,18 @@ export const useSettingsLogics = (settingsArray, Category) => {
             };
             result[`updateDownloaded${base}`] = (downloaded_weight_type_status) => {
                 update((old_status) => {
-                    const known = old_status.data.map((item) => ({
-                        ...item,
-                        is_downloaded: downloaded_weight_type_status[item.id] ?? item.is_downloaded,
-                    }));
-                    // Models the user added to the local translation ("custom:<folder>") are
-                    // known only to the backend; they are listed after the built-in ones.
+                    // Models the user added to the local translation (a folder, "custom:<folder>",
+                    // or a translation catalog entry, "user:<id>") are known only to the backend:
+                    // they are listed after the built-in ones, and leave when the backend drops them.
+                    const users = (id) => id.startsWith("custom:") || id.startsWith("user:");
+                    const known = old_status.data
+                        .filter((item) => !users(item.id) || item.id in (downloaded_weight_type_status ?? {}))
+                        .map((item) => ({
+                            ...item,
+                            is_downloaded: downloaded_weight_type_status[item.id] ?? item.is_downloaded,
+                        }));
                     const added = Object.entries(downloaded_weight_type_status ?? {})
-                        .filter(([id]) => id.startsWith("custom:") && !known.some(item => item.id === id))
+                        .filter(([id]) => users(id) && !known.some(item => item.id === id))
                         .map(([id, is_downloaded]) => ({ id, is_custom: true, is_downloaded: is_downloaded === true }));
                     return [...known, ...added];
                 });
