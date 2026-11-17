@@ -24,17 +24,30 @@ test("the same 25% allowance as the advice is added to the model's memory", () =
     assert.equal(hardwareWarning(model(6 * GiB), ready([gpu(8 * GiB)])), null);
 });
 
-test("the largest GPU is compared and GPU memories are never added", () => {
+test("on auto the engine's first GPU is compared and GPU memories are never added", () => {
+    // speech.cpp's auto and gpu run on the first GPU it lists, not on the largest.
     const devices = [gpu(4 * GiB), gpu(12 * GiB, { name: "Vulkan1" })];
-    assert.equal(hardwareWarning(model(8 * GiB), ready(devices)), null);
-    assert.equal(hardwareWarning(model(12 * GiB), ready(devices)).device.name, "Vulkan1");
+    for (const deviceMode of ["auto", "gpu"]) {
+        const warning = hardwareWarning(model(8 * GiB), ready(devices), { deviceMode });
+        assert.equal(warning.device.name, "Vulkan0");
+        assert.equal(warning.available, 4 * GiB);
+    }
 });
 
 test("a GPU named in the engine's settings is the one compared", () => {
     const devices = [gpu(4 * GiB), gpu(12 * GiB, { name: "Vulkan1" })];
     assert.equal(hardwareWarning(model(8 * GiB), ready(devices), { deviceMode: "Vulkan0" }).reason, "low_memory");
-    // A name the probe does not know falls back to every device.
-    assert.equal(hardwareWarning(model(8 * GiB), ready(devices), { deviceMode: "Vulkan9" }), null);
+    assert.equal(hardwareWarning(model(8 * GiB), ready(devices), { deviceMode: "Vulkan1" }), null);
+    // A name the probe does not know is treated as auto.
+    assert.equal(hardwareWarning(model(8 * GiB), ready(devices), { deviceMode: "Vulkan9" }).device.name, "Vulkan0");
+});
+
+test("an integrated GPU's shared memory does not stand in for the chosen GPU", () => {
+    // The beta.5 PC: Vulkan0 an Iris Xe reporting 16 GiB of shared memory, Vulkan1 an 8 GiB RTX.
+    const devices = [gpu(16 * GiB, { kind: "igpu" }), gpu(8 * GiB, { name: "Vulkan1" }), cpu(32 * GiB)];
+    const warning = hardwareWarning(model(10 * GiB), ready(devices), { deviceMode: "Vulkan1" });
+    assert.equal(warning.device.name, "Vulkan1");
+    assert.equal(warning.available, 8 * GiB);
 });
 
 test("a model too slow on a CPU is warned about without a GPU or on the CPU setting", () => {

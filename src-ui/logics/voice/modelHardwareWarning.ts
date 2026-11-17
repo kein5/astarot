@@ -8,6 +8,7 @@
 // memory: free memory changes from moment to moment, and modelHardwareAdvice.ts already
 // suggests the file type that fits it. A model without figures (RVC) gets no warning.
 import type { HardwareDevice, HardwareState, ModelGuidance } from "./modelHardwareAdvice.ts";
+import { engineGpu } from "./modelHardwareAdvice.ts";
 
 export type WarnedModel = {
     profile?: { memory_bytes?: number | null; cpu?: string | null; gpu?: string | null } | null;
@@ -42,9 +43,11 @@ export function hardwareWarning(model: WarnedModel, hardware: HardwareState | nu
     if (hardware?.phase !== "ready") return null;
     const named = DEVICE_CHOICES.includes(deviceMode) ? null : hardware.devices.find(row => row.name === deviceMode);
     const devices = named ? [named] : hardware.devices;
-    const gpus = deviceMode === "cpu" ? [] : devices.filter(row => row.kind === "gpu" || row.kind === "igpu");
+    // The GPU the engine runs on (engineGpu), not the one with the most memory: an integrated
+    // GPU reports the PC's shared memory and used to stand in for the GPU actually chosen.
+    const gpu = engineGpu(hardware, deviceMode);
     const required = requiredMemory(model);
-    if (!gpus.length) {
+    if (!gpu) {
         if (model.profile?.gpu === "recommended" && SLOW_ON_CPU.includes(model.profile?.cpu ?? ""))
             return { reason: deviceMode === "cpu" || named?.kind === "cpu" ? "cpu_setting" : "no_gpu", required, available: null, device: null };
         const cpu = devices.find(row => row.kind === "cpu" && positive(row.memory_total));
@@ -52,11 +55,8 @@ export function hardwareWarning(model: WarnedModel, hardware: HardwareState | nu
             return { reason: "low_memory", required, available: cpu.memory_total, device: cpu };
         return null;
     }
-    if (required === null) return null;
-    // The largest GPU the engine may use; GPU memories are never added together.
-    const measured = gpus.filter(row => positive(row.memory_total));
-    if (!measured.length) return null;
-    const device = measured.reduce((best, row) => row.memory_total! > best.memory_total! ? row : best);
-    return required * ALLOWANCE > device.memory_total!
-        ? { reason: "low_memory", required, available: device.memory_total, device } : null;
+    // GPU memories are never added together.
+    if (required === null || !positive(gpu.memory_total)) return null;
+    return required * ALLOWANCE > gpu.memory_total
+        ? { reason: "low_memory", required, available: gpu.memory_total, device: gpu } : null;
 }

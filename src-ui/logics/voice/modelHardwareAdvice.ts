@@ -29,6 +29,22 @@ export type ModelAdviceReason = "unknown" | "cpu" | "stale" | "shared_memory" | 
 export type ModelAdvice = { recommended: string | null; reason: ModelAdviceReason; device: HardwareDevice | null; multiple: boolean };
 export type ModelAdviceOptions = { now?: number; reserveBytes?: number; deviceMode?: string };
 
+const isGpu = (row: HardwareDevice) => row.kind === 'gpu' || row.kind === 'igpu';
+// The engine's device choices (SpeechServers.jsx); anything else names one device.
+const DEVICE_CHOICES = ['auto', 'cpu', 'gpu'];
+
+// The GPU the speech engine runs on with `deviceMode`, or null on the CPU: the GPU the
+// settings name, else the first one the probe lists. speech.cpp's `auto` and `gpu` take that
+// first GPU, an integrated one included (checked with 0.11.0: Vulkan0, an Iris Xe, before
+// Vulkan1, an RTX 3060 Ti); the advice and the warning describe that device and no other.
+// A name the probe does not list is treated as `auto`.
+export function engineGpu(hardware: { devices: HardwareDevice[] } | null | undefined, deviceMode = 'auto'): HardwareDevice | null {
+    if (!hardware || deviceMode === 'cpu') return null;
+    const named = DEVICE_CHOICES.includes(deviceMode) ? undefined : hardware.devices.find(row => row.name === deviceMode);
+    if (named) return isGpu(named) ? named : null;
+    return hardware.devices.find(isGpu) ?? null;
+}
+
 // Advisory only: measured memory on one GPU plus explicit headroom.
 // Never add GPU memories or change the execution device / saved model path.
 // `memory_free!`/`memory_total!`: Number.isSafeInteger has ruled out null before they are read.
@@ -38,8 +54,8 @@ export function modelAdvice(models: AdvisedModel[], hardware: HardwareState | nu
     if (hardware?.phase !== 'ready') return result;
     if (!Number.isFinite(hardware.measured_at_ms) || now - hardware.measured_at_ms > 120000 || now < hardware.measured_at_ms)
         return { ...result, reason: 'stale' };
-    const devices = hardware.devices.filter(row => ['gpu', 'igpu'].includes(row.kind));
-    const device = devices[0];
+    const devices = hardware.devices.filter(isGpu);
+    const device = engineGpu(hardware, deviceMode);
     if (!device) return { ...result, reason: hardware.devices.some(row => row.kind === 'cpu') ? 'cpu' : 'unknown' };
     const context = { ...result, device, multiple: devices.length > 1 };
     if (device.kind === 'igpu') return { ...context, reason: 'shared_memory' };
