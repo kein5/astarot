@@ -50,7 +50,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
             return { draft, dirty: true, saving: false, navigationDialog: null,
                 setDraft: update => Object.assign(draft, update(draft)), submit: write => write(draft) };
         } },
-        "../../../../../../logics/configs/telemetryToggle": { toggleTelemetryOrAnswer: () => {} },
+        "../../../../../../logics/configs/telemetryToggle": { toggleTelemetryOrAnswer: () => {}, shownTelemetry: value => value, telemetryUnanswered: () => false },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: open => {
             dialogs.push(open);
             return { dialog: { current: null }, close: () => {} };
