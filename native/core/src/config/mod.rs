@@ -8,7 +8,9 @@
 //!   removed local Whisper engine moves to speech.cpp (with a one-time notice), a saved
 //!   `"bundled"` realtime server selects speech.cpp, saved API URLs that are no longer allowed
 //!   are emptied and reported, the release channel follows the running version, and the
-//!   installer's language marker is applied once.
+//!   installer's language marker is applied once. Before a migration rewrites a saved file, a
+//!   copy of what it held (API keys left out) is kept as `config.json.before-migration-<step>`;
+//!   if that copy cannot be written, the saved values are used but the file is not overwritten.
 //! - A file that is not JSON (or not an object, or not UTF-8) is moved aside as
 //!   `config.json.unreadable-<time>-<random>` and the app starts with defaults. Any other read
 //!   failure keeps the file untouched and blocks saving for the run.
@@ -720,11 +722,18 @@ impl Config {
         let result = self.read_file();
         match result {
             Ok(data) => {
+                // A migration rewrites the file below: keep what it held first.
+                let kept = self.keep_before_migration(&data);
                 self.apply_saved(data);
                 // The store takes the file's keys before the file is written without them.
                 self.load_secrets();
                 let mut state = self.state.lock().unwrap();
                 state.loading = false;
+                if kept.is_err() {
+                    // The saved values are used, but the file is not overwritten without its copy.
+                    self.failed(state, "load_failed", false);
+                    return;
+                }
                 state.loaded = true;
                 drop(state);
                 self.save_now();
@@ -836,14 +845,47 @@ impl Config {
         }
     }
 
+    /// Where the file is kept before the migration from `step` rewrites it.
+    pub fn before_migration_path(&self, step: i64) -> PathBuf {
+        self.path().with_file_name(format!("config.json.before-migration-{step}"))
+    }
+
+    /// Before a migration of a saved file, writes `config.json.before-migration-<step>` with what
+    /// the file held, so the settings of the older version can be put back by hand. An existing
+    /// copy is kept (it is the older one). API keys are left out: they move to their own store,
+    /// and a copy would keep them in plain text. Nothing to do for a file already up to date.
+    fn keep_before_migration(&self, saved: &Map<String, Value>) -> io::Result<()> {
+        let step = migration_step(saved);
+        if step >= LOCAL_ASR_MIGRATION_LATEST {
+            return Ok(());
+        }
+        let mut kept = saved.clone();
+        kept.retain(|key, _| !secrets::SECRET_SETTINGS.contains(&key.as_str()));
+        let path = self.before_migration_path(step);
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+        let mut file = match options.open(&path) {
+            Ok(file) => file,
+            // Only a file is a copy; anything else in its place is not.
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                return if fs::symlink_metadata(&path)?.is_file() { Ok(()) } else { Err(error) };
+            }
+            Err(error) => return Err(error),
+        };
+        let written = file.write_all(to_python_json(&Value::Object(kept)).as_bytes()).and_then(|()| file.sync_all());
+        if written.is_err() {
+            // A partial copy is not one: the next start tries again.
+            drop(file);
+            let _ = fs::remove_file(&path);
+        }
+        written
+    }
+
     /// `_migrateLocalASR`: brings the local recognition settings of an older version up to date, once.
     fn migrate_local_asr(&self, saved: &Map<String, Value>) {
-        let step = if saved.is_empty() {
-            Value::from(LOCAL_ASR_MIGRATION_LATEST)
-        } else {
-            saved.get("LOCAL_ASR_MIGRATION").cloned().unwrap_or(Value::from(0))
-        };
-        let step = step.as_i64().filter(|s| step.is_i64() && (0..=LOCAL_ASR_MIGRATION_LATEST).contains(s)).unwrap_or(0);
+        let step = migration_step(saved);
         if step < 1 && self.get("REALTIME_ASR_SETTINGS")["server"] == "bundled" {
             self.set_loading("SELECTED_TRANSCRIPTION_ENGINE", json!(crate::languages::LOCAL_SPEECH_ENGINE));
         }
@@ -909,6 +951,16 @@ impl Drop for Config {
     }
 }
 
+/// The local recognition migration a saved file has had. A new install (nothing saved) needs none.
+fn migration_step(saved: &Map<String, Value>) -> i64 {
+    let step = if saved.is_empty() {
+        Value::from(LOCAL_ASR_MIGRATION_LATEST)
+    } else {
+        saved.get("LOCAL_ASR_MIGRATION").cloned().unwrap_or(Value::from(0))
+    };
+    step.as_i64().filter(|s| step.is_i64() && (0..=LOCAL_ASR_MIGRATION_LATEST).contains(s)).unwrap_or(0)
+}
+
 fn local_stamp() -> String {
     let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
     let (days, rem) = (secs / 86_400, secs % 86_400);
@@ -959,8 +1011,21 @@ fn write_config(path: &Path, value: &Value) -> io::Result<()> {
     })();
     if written.is_err() {
         let _ = fs::remove_file(&temporary);
+    } else {
+        sync_directory(directory);
     }
     written
+}
+
+/// Linux: flushes the folder's entry after a rename, so a power cut does not bring the old file
+/// back. Best effort: the rename has already succeeded, and Windows has no such step.
+fn sync_directory(directory: &Path) {
+    #[cfg(unix)]
+    if let Ok(folder) = File::open(directory) {
+        let _ = folder.sync_all();
+    }
+    #[cfg(not(unix))]
+    let _ = directory;
 }
 
 mod lock {

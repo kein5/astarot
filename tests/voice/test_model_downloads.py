@@ -254,16 +254,74 @@ def test_network_failure_removes_staging_and_preserves_unrelated_files(setup):
     assert not list(m.root.glob(".partial-*"))
 
 
-def test_complete_cache_is_reverified_and_corrupt_cache_is_preserved(setup):
+def test_complete_cache_is_reverified_and_a_damaged_one_is_downloaded_again(setup):
     m, _, content, opened = setup
     start(m)
     path = Path(finish(m)["paths"]["model"])
     start(m)
     assert finish(m)["phase"] == "ready" and len(opened) == 1
-    path.write_bytes(b"bad cache")
+    # Truncated, same size with other bytes, and gone: each is downloaded again in place.
+    for n, damage in enumerate((b"bad cache", b"x" * len(content), None)):
+        if damage is None:
+            path.unlink()
+        else:
+            path.write_bytes(damage)
+        start(m)
+        job = finish(m)
+        assert job["phase"] == "ready", job
+        assert Path(job["paths"]["model"]) == path and path.read_bytes() == content
+        assert len(opened) == n + 2
+        assert not list(m.root.glob(".partial-*"))
+
+
+def test_a_damaged_cache_holding_anything_else_is_kept_and_fails(setup):
+    m, _, _, opened = setup
     start(m)
-    assert finish(m)["phase"] == "failed"
+    path = Path(finish(m)["paths"]["model"])
+    path.write_bytes(b"bad cache")
+    (path.parent / "notes.txt").write_bytes(b"mine")
+    start(m)
+    job = finish(m)
+    assert (job["phase"], job["error_code"]) == ("failed", "size_mismatch")
+    assert path.read_bytes() == b"bad cache"
+    assert (path.parent / "notes.txt").read_bytes() == b"mine"
+    (path.parent / "notes.txt").unlink()
+    # No marker (placed by hand): kept as well.
+    (path.parent / "owner.json").unlink()
+    start(m)
+    assert finish(m)["error_code"] == "size_mismatch"
     assert path.read_bytes() == b"bad cache" and len(opened) == 1
+
+
+def test_a_damaged_cache_whose_staging_name_is_taken_is_kept(setup):
+    import json
+
+    m, _, _, _ = setup
+    start(m)
+    path = Path(finish(m)["paths"]["model"])
+    path.write_bytes(b"bad cache")
+    name = json.loads((path.parent / "owner.json").read_text())["directory"]
+    (m.root / name).mkdir()
+    (m.root / name / "keep").write_bytes(b"keep")
+    start(m)
+    assert finish(m)["error_code"] == "size_mismatch"
+    assert path.read_bytes() == b"bad cache"
+    assert (m.root / name / "keep").read_bytes() == b"keep"
+
+
+def test_a_damaged_cache_moved_aside_by_a_run_that_stopped_is_removed_by_the_next(setup):
+    import json
+
+    m, _, content, _ = setup
+    start(m)
+    path = Path(finish(m)["paths"]["model"])
+    path.write_bytes(b"bad cache")
+    name = json.loads((path.parent / "owner.json").read_text())["directory"]
+    path.parent.rename(m.root / name)
+    assert m.state()["downloaded"] == {}
+    start(m)
+    assert finish(m)["phase"] == "ready" and path.read_bytes() == content
+    assert not list(m.root.glob(".partial-*"))
 
 
 def test_restart_right_after_ready_waits_for_the_finishing_worker(setup, monkeypatch):

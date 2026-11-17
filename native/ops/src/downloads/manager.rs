@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 use super::catalog::{self, artifact_url, Model, CATALOG_VERSION};
 use super::guidance::model_guidance;
 use super::speechcpp::{model_profile, speech_model};
-use super::staging::{mark_owned, recover_owned, RootLease};
+use super::staging::{mark_owned, reclaim_published, recover_owned, RootLease};
 use super::transport::{Aborter, Public, Transport};
 use super::verification::{hex, verify_file_chunked};
 use super::{absolute_root, create_private_dir, directory, is_disk_full, Error};
@@ -562,13 +562,25 @@ impl Inner {
         lease.acquire()?;
         recover_owned(&self.root, &self.entries, &[])?;
         let destination = self.destination(entry);
-        if fs::symlink_metadata(&destination).is_ok() {
+        let mut published = fs::symlink_metadata(&destination).is_ok();
+        if published {
             directory(&destination)?;
             self.set_phase(job_id, &entry.id, "verifying");
-            for artifact in &entry.artifacts {
-                self.verify(&destination.join(&artifact.filename), artifact.size, &artifact.sha256, cancel)?;
+            let checked = entry.artifacts.iter().try_for_each(|artifact| self.verify(&destination.join(&artifact.filename), artifact.size, &artifact.sha256, cancel));
+            match checked {
+                Ok(()) => {}
+                // Files this app published that are now damaged or missing are moved out of the
+                // way and downloaded again; anything it does not recognize stays, and fails.
+                Err(Stop::Failed(error)) if is_damage(&error) => {
+                    if !reclaim_published(&self.root, &destination, entry)? {
+                        return Err(Stop::Failed(error));
+                    }
+                    published = false;
+                }
+                Err(stop) => return Err(stop),
             }
-        } else {
+        }
+        if !published {
             if (self.options.free_space)(&self.root)? < entry.total_bytes() + self.options.reserve_bytes {
                 return Err(Error::Code("insufficient_space").into());
             }
@@ -632,6 +644,7 @@ impl Inner {
             }
             fs::rename(dir, &destination)?;
             *staging = None;
+            super::sync_directory(destination.parent().expect("a destination has a parent"));
         }
         if let Some(job) = state.job(&entry.id).filter(|j| j.job_id == job_id) {
             job.phase = "ready";
@@ -639,6 +652,15 @@ impl Inner {
             job.paths = entry.artifacts.iter().map(|a| (a.role.clone(), destination.join(&a.filename).to_string_lossy().into_owned())).collect();
         }
         Ok(())
+    }
+}
+
+/// A check that found the published files changed or gone, rather than one that could not run.
+fn is_damage(error: &Error) -> bool {
+    match error {
+        Error::Code(code) => ["size_mismatch", "hash_mismatch"].contains(code),
+        Error::Io(io) => io.kind() == io::ErrorKind::NotFound,
+        Error::Other(_) => false,
     }
 }
 

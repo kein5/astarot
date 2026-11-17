@@ -266,7 +266,67 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
     assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), "kept-key", "a saved key is kept even while its engine is unavailable");
     assert_eq!(saved["CTRANSLATE2_LICENSE_NOTICE_SHOWN"], true, "the notice is shown once");
     assert_eq!(saved["LOCAL_ASR_MIGRATION"], 2);
+    // What the file held before the migration is kept, without the API key.
+    let before: Value = serde_json::from_str(&std::fs::read_to_string(ui.dir.join("config.json.before-migration-0")).unwrap()).unwrap();
+    assert_eq!(before["SELECTED_TRANSCRIPTION_ENGINE"], "Whisper");
+    assert_eq!(before["LMSTUDIO_URL"], "http://lan.example/v1");
+    assert_eq!(before.get("AUTH_KEYS"), None, "no key is copied in plain text");
     ui.stop();
+}
+
+#[test]
+fn a_settings_file_that_cannot_be_read_is_left_alone_and_never_overwritten() {
+    // Not a parse failure: something the app cannot read at all (here a folder in its place).
+    let dir = tempfile::tempdir().unwrap();
+    let blocked = dir.path().join("config.json");
+    std::fs::create_dir(&blocked).unwrap();
+    std::fs::write(blocked.join("inside"), "kept").unwrap();
+    let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    ui.ready();
+    assert_eq!(ui.wait_endpoint(0, "/run/config_save_failed")["result"]["reason"], "load_failed");
+    ui.ok("/set/data/main_window_geometry", Some(json!({ "x_pos": 1, "y_pos": 1, "width": 900, "height": 700 })));
+    ui.ok("/run/shutdown", None);
+    assert!(blocked.is_dir(), "not moved aside or replaced");
+    assert_eq!(std::fs::read_to_string(blocked.join("inside")).unwrap(), "kept");
+    assert!(ui.on(0, "/run/config_file_unreadable").is_empty(), "nothing was moved aside");
+    ui.stop();
+}
+
+#[test]
+fn a_copy_before_a_migration_is_written_once_and_only_when_one_runs() {
+    let dir = tempfile::tempdir().unwrap();
+    let copy = dir.path().join("config.json.before-migration-1");
+    std::fs::write(&copy, "{\"kept\": \"from an earlier start\"}").unwrap();
+    let saved = json!({ "LOCAL_ASR_MIGRATION": 1, "UI_LANGUAGE": "ja" });
+    let ui = Ui::with(Setup { saved: Some(saved), dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    ui.ready();
+    assert_eq!(ui.saved()["LOCAL_ASR_MIGRATION"], 2, "migrated and saved");
+    assert_eq!(std::fs::read_to_string(&copy).unwrap(), "{\"kept\": \"from an earlier start\"}", "the older copy stays");
+    ui.stop();
+
+    // The copy cannot be written (a folder in its place): the saved values are used, the file
+    // stays as it was, and the failure is reported.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("config.json.before-migration-0")).unwrap();
+    let saved = json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Whisper", "UI_LANGUAGE": "ja" });
+    let ui = Ui::with(Setup { saved: Some(saved.clone()), dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/ui_language"], "ja");
+    let failed = ui.wait_endpoint(0, "/run/config_save_failed");
+    assert_eq!(failed["result"]["reason"], "load_failed");
+    ui.ok("/set/data/main_window_geometry", Some(json!({ "x_pos": 1, "y_pos": 1, "width": 900, "height": 700 })));
+    assert_eq!(ui.saved(), saved, "not overwritten without its copy");
+    ui.stop();
+
+    // Up to date, or a new install: no copy.
+    for saved in [Some(json!({ "LOCAL_ASR_MIGRATION": 2, "UI_LANGUAGE": "ja" })), None] {
+        let dir = tempfile::tempdir().unwrap();
+        let ui = Ui::with(Setup { saved, dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+        ui.ready();
+        let copies: Vec<_> = std::fs::read_dir(dir.path()).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().contains("before-migration")).collect();
+        assert!(copies.is_empty(), "{copies:?}");
+        ui.stop();
+    }
 }
 
 #[test]
