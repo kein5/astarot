@@ -35,8 +35,8 @@ These stay where they are and plug in through traits:
 | Opening an output device | `playback::OutputFactory`, `playback::OutputSink` | Audio routing (#280): PipeWire, WASAPI, the managed route |
 | Speech monitor (a local copy) | `playback::Monitor`, `scheduler::MonitorFactory` | Audio routing (#280): `MonitorTee` |
 | The running voice conversion | `converted::ConversionSpeaker` | Voice conversion (`DirectVoice`) |
-| A started speech.cpp process | `listener::ProcessExit`, `ListenerMonitors::own`/`forget` | The speech.cpp server owner (#276) |
-| Bundled server URL | `scheduler::ResolveServer` | The speech.cpp server owner (#276) |
+| A started speech.cpp process | `listener::ProcessExit`, `ListenerMonitors::own`/`forget` | The backend core, from the speech server's `on_listener` hook: a run owns its address until it ends |
+| Bundled server URL | `scheduler::ResolveServer` | The backend core, from the speech server hub |
 | Failure reports, flow panel | `BusOptions::on_failure`, `on_first_audio`, `on_monitor_error` | The application core |
 
 The backend core (`native/core`, `controller/voice.rs`) wires the bus to the output
@@ -81,5 +81,9 @@ health check), `test_tts_model_options.py` (the client and the bus),
 `test_external_speech_engines.py` (the settings and the scheduler),
 `test_voice_trace.py`, `test_listener_table_probe.py`, `test_speech_through_conversion.py`
 (the router and the bus) and `src-python/test/test_tts_listener_monitor.py`. They run a
-fake speech.cpp server on localhost; no model, GPU or audio device is needed.
-Controller, IPC and UI tests stay in Python until the speech path is wired in.
+fake speech.cpp server on localhost; no model, GPU or audio device is needed. CI runs
+them on Linux and Windows (`voice-tests.yml`, `core-integration`).
+
+The speech path through the backend core (the endpoints, the start delay, speech one
+after another, stops) is tested in `native/core/tests/voice.rs`. With a real speech.cpp
+server and output device, `native/core/examples/live_speech.rs` measures the same.
