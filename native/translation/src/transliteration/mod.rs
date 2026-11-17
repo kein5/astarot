@@ -257,6 +257,51 @@ mod tests {
     }
 
     #[test]
+    fn readings_shorter_or_longer_than_the_word_split_as_in_python() {
+        // The expected splits are the Python function's output for the same words.
+        let kana = |surface: &str, reading: &str| {
+            split_kanji_okurigana(surface, reading, false).into_iter().map(|p| p.kana).collect::<Vec<_>>()
+        };
+        // Short: a block of one kana keeps it; the kana come off the blocks to its left.
+        assert_eq!(kana("東京の", "トノ"), ["ト", "ノ"]);
+        assert_eq!(kana("美しい", "ウツ"), ["ウ", "ツ"]);
+        // Long: the kanji blocks take one more each, then every block in turn from the left.
+        assert_eq!(kana("取り敢えず", "トリアエズアイ"), ["トリ", "ア", "エズ", "アイ"]);
+        assert_eq!(kana("取り敢えず", "トリアエズアイウ"), ["トリア", "エ", "ズア", "イウ"]);
+        assert_eq!(kana("取り敢えず", "トリアエズアイウエ"), ["トリア", "エズ", "アイ", "ウエ"]);
+    }
+
+    #[test]
+    fn a_next_part_without_a_reading_is_judged_by_its_own_katakana() {
+        // The expected readings are the Python rule's for the same parts.
+        let part = |orig: &str, kana: &str| Reading {
+            orig: orig.into(),
+            kana: kana.into(),
+            hira: "x".into(),
+            hepburn: "x".into(),
+        };
+        for (next, expected) in
+            [(part("デ", ""), "ナン"), (part("カ", ""), "ナニ"), (part("で", ""), "ナニ"), (part("ダ", "カ"), "ナニ")]
+        {
+            let label = format!("{next:?}");
+            let mut results = [part("何", "ナニ"), next];
+            apply_context_rules(&mut results);
+            assert_eq!(results[0].kana, expected, "{label}");
+            assert_eq!((results[0].hira.as_str(), results[0].hepburn.as_str()), ("", ""), "{label}");
+        }
+        // A part with no surface is passed over.
+        let mut results = [part("何", "ナン"), part("", "ノ")];
+        apply_context_rules(&mut results);
+        assert_eq!(results[0].kana, "ナニ");
+    }
+
+    #[test]
+    fn the_unavailable_analyzer_reads_as_its_code_and_gives_no_reason() {
+        assert_eq!(Unavailable.to_string(), "transliteration_unavailable");
+        assert_eq!(NoDictionary.unavailable_reason(), None);
+    }
+
+    #[test]
     fn nan_or_nani_follows_the_next_part() {
         let tokenizer = Fixed(vec![("何", "ナニ", "代名詞"), ("色", "イロ", "名詞"), ("です", "デス", "助動詞")]);
         let readings = analyze(&tokenizer, "", false).unwrap();
