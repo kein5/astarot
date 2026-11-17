@@ -223,9 +223,10 @@ pub struct Services {
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
     pub voice: Arc<dyn voice::VoicePlatform>,
-    /// Where the API keys are kept instead of `config.json`: `secrets.json` in the settings
-    /// folder by default ([`crate::config::secrets`]). Tests give a [`MemoryStore`] to look in
-    /// or to make fail.
+    /// Where the API keys are kept instead of `config.json`: the OS credential store by default,
+    /// with `secrets.json` in the settings folder as the place keys move from
+    /// ([`crate::config::secrets`]). Tests give a [`MemoryStore`] (alone, or standing in for the
+    /// OS store) to look in or to make fail; they never touch the PC's own credentials.
     ///
     /// [`MemoryStore`]: crate::config::secrets::MemoryStore
     pub secret_store: crate::config::secrets::StoreSource,

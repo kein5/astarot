@@ -198,3 +198,24 @@ for (const language of ["en", "ja"]) test(`${language}: a key store failure stay
         options: { hide_duration: null, category_id: "SECRET_STORE_FAILED" } }]);
     assert.deepEqual(s.reads, []);
 });
+
+for (const language of ["en", "ja"]) test(`${language}: a key store failure says what the user can do about it`, async () => {
+    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { [language]: { translation } } });
+    const s = await loadBridgeRoutes(undefined, i18n);
+    const failed = data => s.receiveRoutes({ status: 400, endpoint: "/run/secret_store_failed", result: {
+        error_code: "SECRET_STORE_FAILED", data: { entries: ["AUTH_KEYS/DeepL_API"], store: "secret_service", ...data },
+        message: "The API keys could not be kept in their secure storage.",
+    } });
+    // A key that did not move keeps working where it was, whatever the reason.
+    failed({ operation: "migrate", reason: "locked" });
+    // A store that is locked or not running: the keyring is the user's to open.
+    failed({ operation: "read", reason: "locked" });
+    failed({ operation: "write", reason: "unavailable" });
+    const errors = translation.backend_errors;
+    assert.deepEqual(s.notices.map(notice => notice.key),
+        [errors.SECRET_STORE_FAILED_moving, errors.SECRET_STORE_FAILED_os_store, errors.SECRET_STORE_FAILED_os_store]);
+    assert.ok(s.notices.every(notice => typeof notice.key === "string" && notice.key !== errors.SECRET_STORE_FAILED));
+    assert.ok(s.notices.every(notice => !notice.key.includes("AUTH_KEYS")), "no entry names or keys on screen");
+});
