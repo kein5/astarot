@@ -43,6 +43,8 @@ python tools/dev.py setup --scope headless  # モデルなしの試験に使う�
 python tools/dev.py check                   # 軽量チェック（tooling、node、lint）
 ```
 
+UI の監査、文章の推敲、実機での画面の確認、図の作成などに使う道具は `docs/agent-tools.md` にまとめています。
+
 変更したら、軽量チェックと、変更した箇所に対応するスコープを実行します。影響が広いときは、検証を足します。
 
 | 変更したもの | 追加で実行するもの |
