@@ -1,65 +1,74 @@
 :root {
-    --primary_100_color: #dbeafe;
-    --primary_150_color: #bfdbfe;
-    --primary_200_color: #a9ccff;
-    --primary_250_color: #93bcff;
-    --primary_300_color: #80acff;
-    --primary_350_color: #6e9fff;
-    --primary_400_color: #5b92ff;
-    --primary_450_color: #4d86fa;
-    --primary_500_color: #3f7bf2;
-    --primary_550_color: #3470e8;
-    --primary_600_color: #2865dc;
-    --primary_650_color: #235bcc;
-    --primary_700_color: #2052b8;
-    --primary_750_color: #1d49a4;
-    --primary_800_color: #1b418e;
-    --primary_900_color: #153366;
+    /* ASTAROT brand palette (DESIGN.md "Colors"): Dark Plum #261633, Lilac #A47AF5, Off-White #FAFAFC.
+       The primary scale is the Lilac hue. 600 is the Lilac fill, 450-550 lighter hover fills,
+       650/700 pressed fills; all of 450-700 carry --vox_on_primary (Dark Plum) text at 4.5:1 or more.
+       750-900 are deep violets for fills that carry light text. The light end is text, links and focus.
+       brandPalette.test.js checks these pairs against the canvas and the surface. */
+    --primary_100_color: #efe8fe;
+    --primary_150_color: #e4d8fd;
+    --primary_200_color: #d9c8fc;
+    --primary_250_color: #c8b0fa;
+    --primary_300_color: #b797f8;
+    --primary_350_color: #ad88f6;
+    --primary_400_color: #a47af5;
+    --primary_450_color: #ac85f6;
+    --primary_500_color: #b08bf6;
+    --primary_550_color: #b897f7;
+    --primary_600_color: #a47af5;
+    --primary_650_color: #9f74f2;
+    --primary_700_color: #9a6fee;
+    --primary_750_color: #7551be;
+    --primary_800_color: #6644ad;
+    --primary_900_color: #4a2a8a;
 
-    --primary_600_color_44: #2865dc44;
+    --primary_600_color_44: #a47af544;
 
-    /* primary_300_color 61b4a7 as standard */
+    /* Text and icons on a Lilac fill (primary_450-700): Dark Plum, since white on Lilac is only 3.1:1. */
+    --vox_on_primary: #261633;
+    /* Keyboard focus ring (DESIGN.md "focus"). */
+    --vox_focus: #d9c8fc;
+
     --sent_400_color: #6197b4;
     --received_300_color: #c084cc;
 
     --error_bc_color: #bb4448;
     --error_bc_active_color: #9c3938;
     --success_bc_color: var(--primary_600_color);
-    --warning_color: #cb944f;
+    --warning_color: #cb9c62;
     --warning_bc_color: #cf7b1b;
 
-    --dark_basic_text_color: #edf3ff;
-    --dark_100_color: #f5f8ff;
-    --dark_200_color: #edf3ff;
-    --dark_300_color: #dbe6f7;
-    --dark_350_color: #cbd9ee;
-    --dark_400_color: #bccde2;
-    --dark_450_color: #adbed6;
-    --dark_500_color: #9daec6;
-    --dark_550_color: #8d9fb9;
-    --dark_600_color: #798ca8;
-    --dark_650_color: #6f83a0;
-    --dark_700_color: #657a96;
-    --dark_725_color: #586f8d;
-    --dark_750_color: #4b6280;
-    --dark_775_color: #425975;
-    --dark_800_color: #344662;
-    --dark_825_color: #2d3e58;
-    --dark_850_color: #25364f;
-    --dark_863_color: #213047;
-    --dark_875_color: #1d2940;
-    --dark_888_color: #182438;
-    --dark_900_color: #152032;
-    --dark_925_color: #121c2d;
-    --dark_950_color: #0e1726;
-    --dark_975_color: #0b1322;
-    --dark_1000_color: #080f1b;
+    --dark_basic_text_color: #fafafc;
+    --dark_100_color: #fafafc;
+    --dark_200_color: #ecebf2;
+    --dark_300_color: #dfdbe7;
+    --dark_350_color: #dad4e2;
+    --dark_400_color: #d4ccdc;
+    --dark_450_color: #cfc4d6;
+    --dark_500_color: #bdb2c5;
+    --dark_550_color: #aba0b5;
+    --dark_600_color: #988ba5;
+    --dark_650_color: #857695;
+    --dark_700_color: #736285;
+    --dark_725_color: #6a587d;
+    --dark_750_color: #614e75;
+    --dark_775_color: #58456e;
+    --dark_800_color: #4f3b66;
+    --dark_825_color: #47335e;
+    --dark_850_color: #3f2c56;
+    --dark_863_color: #3b2852;
+    --dark_875_color: #37254e;
+    --dark_888_color: #33214a;
+    --dark_900_color: #2f1d42;
+    --dark_925_color: #261633;
+    --dark_950_color: #1c0f27;
+    --dark_975_color: #170b20;
+    --dark_1000_color: #12081a;
 
-    --dark_550_color_22: #94959922;
-    --dark_825_color_cc: #434447cc;
-    --dark_1000_color_66: #15151766;
-    --dark_1000_color_aa: #151517aa;
-    --dark_1000_color_dd: #151517dd;
+    --dark_550_color_22: #aba0b522;
+    --dark_825_color_cc: #47335ecc;
+    --dark_1000_color_66: #12081a66;
+    --dark_1000_color_aa: #12081aaa;
+    --dark_1000_color_dd: #12081add;
 
 
     --title_bar_height: 3.4rem;
@@ -67,20 +76,20 @@
     --config_page_sidebar_width: 20.8rem;
     --config_page_content_padding_top: 7.2rem;
 
-    --vox_canvas: #111b2c;
-    --vox_rail: #0d1625;
-    --vox_surface: #18253b;
-    --vox_border: #344662;
+    --vox_canvas: #261633;
+    --vox_rail: #1c0f27;
+    --vox_surface: #33214a;
+    --vox_border: #4f3b66;
     --vox_radius: .8rem;
     /* Settings roles (DESIGN.md "Roles in settings"). */
-    --vox_secondary_text: #adbed6;
-    --vox_description_text: #8d9fb9;
-    --vox_state_active: #80acff;
-    --vox_state_warning: #cb944f;
-    --vox_state_failed: #f08a85;
+    --vox_secondary_text: #cfc4d6;
+    --vox_description_text: #aba0b5;
+    --vox_state_active: #b797f8;
+    --vox_state_warning: #cb9c62;
+    --vox_state_failed: #eb938e;
     /* Secondary action hover: readable with both body and secondary text. */
     --vox_secondary_hover: var(--dark_800_color);
-    --vox_readout_rule: #5b92ff;
+    --vox_readout_rule: #a47af5;
     /* Overlays (menus, popovers) float above the page; routine forms stay flat. */
     --vox_shadow_overlay: 0 .8rem 2.4rem #0009;
     /* Motion (DESIGN.md "Motion"): short, and settling with at most a 2% overshoot.
@@ -89,8 +98,8 @@
     --vox_ease_settle: cubic-bezier(.3, 1.25, .4, 1);
     --vox_motion_fast: 120ms;
     --vox_motion: 220ms;
-    --vox_highlight_tint: #5b92ff29;
-    --vox_warning_tint: #cb944f26;
+    --vox_highlight_tint: #a47af529;
+    --vox_warning_tint: #cb9c6226;
     /* VRChat's own chatbox colour, for the message format preview only. */
     --vox_chatbox_preview: #3a4554;
     /* Startup placeholders for values the engine has not sent yet (MainPage [data-skeleton]). */

@@ -102,7 +102,7 @@
     align-items: center;
     border-radius: var(--vox_radius);
     background-color: var(--primary_500_color);
-    color: var(--dark_100_color);
+    color: var(--vox_on_primary);
     box-shadow: 0 0 0 0 var(--primary_500_color);
     animation: update_pulse 2s ease-out infinite;
     transition: opacity 0.2s, background-color 0.2s;

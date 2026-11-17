@@ -1,5 +1,5 @@
 export const ui_configs = {
-    brand_color_hex: "#48A495",
+    brand_color_hex: "#A47AF5",
     mic_threshold_min: 0,
     mic_threshold_max: 2000,
     speaker_threshold_min: 0,

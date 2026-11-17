@@ -16,14 +16,14 @@
 // Where the save bar would be, a page without a form says its changes apply at once:
 // the bar's words, without its frame, since there is nothing to save.
 .applies_now { flex: 1; min-width: 0; display: flex; align-items: center; min-height: 4rem; margin: 0; padding: .4rem 1.4rem; overflow-wrap: anywhere; font-size: 1.3rem; color: var(--dark_400_color); }
-.count { flex-shrink: 0; max-width: 100%; overflow-wrap: anywhere; padding: .1rem .7rem; border-radius: .4rem; font-size: 1.2rem; font-variant-numeric: tabular-nums; color: var(--dark_50_color, #fff); background: var(--primary_600_color); }
+.count { flex-shrink: 0; max-width: 100%; overflow-wrap: anywhere; padding: .1rem .7rem; border-radius: .4rem; font-size: 1.2rem; font-variant-numeric: tabular-nums; color: var(--vox_on_primary); background: var(--primary_600_color); }
 // The changed names never fit the bar in every language; they stay readable
 // for screen readers, and the page marks the rows themselves.
 .changes { position: absolute; width: .1rem; height: .1rem; margin: -.1rem; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; list-style: none; }
 .discard, .save { flex-shrink: 0; max-width: 100%; overflow-wrap: anywhere; min-height: 3.2rem; padding: .4rem 1.4rem; border-radius: var(--vox_radius); font-size: 1.4rem; cursor: pointer; }
 .discard { color: var(--dark_200_color); background: var(--dark_850_color); }
 .discard:hover:not(:disabled) { background: var(--dark_800_color); }
-.save { color: var(--dark_50_color, #fff); background: var(--primary_600_color); }
+.save { color: var(--vox_on_primary); background: var(--primary_600_color); }
 .save:hover:not(:disabled) { background: var(--primary_550_color); }
 .discard:disabled, .save:disabled { opacity: .45; cursor: default; }
 

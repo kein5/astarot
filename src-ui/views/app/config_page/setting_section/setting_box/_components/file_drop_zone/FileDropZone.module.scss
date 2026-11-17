@@ -85,7 +85,7 @@
 .over {
     border-color: var(--vox_state_active);
     background: color-mix(in srgb, var(--vox_highlight_tint), var(--vox_surface));
-    .icon { transform: scale(1.08); background: var(--primary_600_color); color: var(--dark_50_color); }
+    .icon { transform: scale(1.08); background: var(--primary_600_color); color: var(--vox_on_primary); }
 }
 
 // Over this zone, or dropped on it, with only files it does not take.
