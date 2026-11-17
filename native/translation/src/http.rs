@@ -345,12 +345,18 @@ fn read_response(stream: &mut impl Read) -> Result<Response, HttpError> {
     let mut data = Vec::new();
     let mut buffer = [0u8; 16 * 1024];
     // The head first.
+    let mut need_more = true;
     let (status, head_length, framing) = loop {
-        let read = stream.read(&mut buffer).map_err(|e| from_io(&e))?;
-        if read == 0 {
-            return Err(HttpError::Protocol);
+        // After an interim answer the final one may already be here, read in the same go: the
+        // server can have sent it and closed, so parse before reading again.
+        if need_more {
+            let read = stream.read(&mut buffer).map_err(|e| from_io(&e))?;
+            if read == 0 {
+                return Err(HttpError::Protocol);
+            }
+            data.extend_from_slice(&buffer[..read]);
         }
-        data.extend_from_slice(&buffer[..read]);
+        need_more = true;
         let mut headers = [httparse::EMPTY_HEADER; 64];
         let mut response = httparse::Response::new(&mut headers);
         match response.parse(&data) {
@@ -373,6 +379,7 @@ fn read_response(stream: &mut impl Read) -> Result<Response, HttpError> {
                 // An interim answer (100 Continue) is skipped.
                 if status == 100 {
                     data.drain(..length);
+                    need_more = data.is_empty();
                     continue;
                 }
                 break (status, length, framing);
@@ -382,9 +389,11 @@ fn read_response(stream: &mut impl Read) -> Result<Response, HttpError> {
         }
     };
     let mut body: Vec<u8> = data.split_off(head_length);
-    let complete = |body: &[u8]| match framing {
+    // Chunks seen whole so far: each read looks only at what is new.
+    let mut scanned = 0;
+    let mut complete = |body: &[u8]| match framing {
         Framing::Length(length) => body.len() >= length,
-        Framing::Chunked => dechunk(body).is_some(),
+        Framing::Chunked => chunked_done(body, &mut scanned),
         Framing::Close => false,
     };
     while !complete(&body) {
@@ -411,6 +420,31 @@ enum Framing {
     Length(usize),
     Chunked,
     Close,
+}
+
+/// The longest chunk-size line accepted (a size and its extensions).
+const MAX_CHUNK_LINE: usize = 4096;
+
+/// Whether reading a chunked body can stop: its last chunk is here, or it is broken (then
+/// [`dechunk`] refuses it). `at` is where the first chunk not yet seen whole starts; it moves on
+/// as chunks complete, so a long body is not scanned again on every read.
+fn chunked_done(data: &[u8], at: &mut usize) -> bool {
+    loop {
+        let rest = &data[*at..];
+        let Some(line_end) = rest[..rest.len().min(MAX_CHUNK_LINE)].windows(2).position(|w| w == b"\r\n") else {
+            return rest.len() >= MAX_CHUNK_LINE;
+        };
+        let size = std::str::from_utf8(&rest[..line_end]).ok().and_then(|text| usize::from_str_radix(text.split(';').next()?.trim(), 16).ok());
+        let Some(size) = size else { return true };
+        if size == 0 {
+            return true;
+        }
+        let Some(end) = size.checked_add(line_end + 4) else { return true };
+        if rest.len() < end {
+            return false;
+        }
+        *at += end;
+    }
 }
 
 /// The body of a complete chunked transfer; `None` while it is incomplete.
@@ -543,5 +577,52 @@ mod tests {
         assert_eq!((response.status, response.body.as_slice()), (200, &b"ok"[..]));
         let short = b"HTTP/1.1 200 OK\r\nContent-Length: 9\r\n\r\nok";
         assert_eq!(read_response(&mut &short[..]).unwrap_err(), HttpError::Io);
+    }
+
+    #[test]
+    fn a_final_answer_read_together_with_100_continue_is_kept() {
+        // #470: the final answer behind the interim one was dropped, and the closed connection
+        // then failed the request.
+        let raw = b"HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok";
+        let response = read_response(&mut &raw[..]).unwrap();
+        assert_eq!((response.status, response.body.as_slice()), (200, &b"ok"[..]));
+        // Read in pieces, as before.
+        let response = read_response(&mut Trickle(&raw[..], 5)).unwrap();
+        assert_eq!((response.status, response.body.as_slice()), (200, &b"ok"[..]));
+    }
+
+    /// Hands out at most `.1` bytes per read.
+    struct Trickle<'a>(&'a [u8], usize);
+
+    impl Read for Trickle<'_> {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            let count = self.0.len().min(self.1).min(buf.len());
+            buf[..count].copy_from_slice(&self.0[..count]);
+            self.0 = &self.0[count..];
+            Ok(count)
+        }
+    }
+
+    #[test]
+    fn a_chunked_body_is_followed_without_scanning_it_again() {
+        let mut raw = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".to_vec();
+        let mut expected: Vec<u8> = Vec::new();
+        for number in 0..500u32 {
+            let chunk = format!("piece {number};");
+            raw.extend(format!("{:x}\r\n{chunk}\r\n", chunk.len()).as_bytes());
+            expected.extend(chunk.as_bytes());
+        }
+        raw.extend(b"0\r\n\r\nNEXT");
+        for step in [1, 7, 16 * 1024] {
+            let response = read_response(&mut Trickle(&raw, step)).unwrap();
+            assert_eq!(response.body, expected, "{step}");
+        }
+        // The scan moves past whole chunks only, and stops at a broken size line.
+        let mut at = 0;
+        assert!(!chunked_done(b"3\r\nabc\r\n2\r\nd", &mut at));
+        assert_eq!(at, 8);
+        assert!(chunked_done(b"3\r\nabc\r\nzz\r\n", &mut 0));
+        assert!(chunked_done(&vec![b'1'; MAX_CHUNK_LINE], &mut 0));
+        assert!(!chunked_done(b"3", &mut 0));
     }
 }

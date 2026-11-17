@@ -184,12 +184,56 @@ pub fn home_prefixes() -> Vec<String> {
     if home.chars().filter(|c| !matches!(c, '/' | '\\')).count() < 2 {
         return Vec::new();
     }
-    let mut forms = vec![home.clone()];
-    let slashed = home.replace('\\', "/");
-    if slashed != home {
-        forms.push(slashed);
+    let short = short_name(&home);
+    home_forms(&home, short)
+}
+
+/// How a home folder can be written: as it is, with `/`, with each `\` doubled (Rust's `{:?}` and
+/// JSON escapes), and the same for its 8.3 short name (`C:\Users\TARO~1`) when it has one.
+fn home_forms(home: &str, short: Option<String>) -> Vec<String> {
+    let mut forms = Vec::new();
+    for base in std::iter::once(home.to_string()).chain(short) {
+        for form in [base.clone(), base.replace('\\', "/"), base.replace('\\', "\\\\")] {
+            if !forms.contains(&form) {
+                forms.push(form);
+            }
+        }
     }
     forms
+}
+
+/// The 8.3 short form of `path`, when it differs.
+#[cfg(windows)]
+fn short_name(path: &str) -> Option<String> {
+    use windows_sys::Win32::Storage::FileSystem::GetShortPathNameW;
+    let wide: Vec<u16> = path.encode_utf16().chain([0]).collect();
+    let length = unsafe { GetShortPathNameW(wide.as_ptr(), std::ptr::null_mut(), 0) };
+    if length == 0 {
+        return None;
+    }
+    let mut buffer = vec![0u16; length as usize];
+    let written = unsafe { GetShortPathNameW(wide.as_ptr(), buffer.as_mut_ptr(), length) };
+    if written == 0 || written >= length {
+        return None;
+    }
+    let short = String::from_utf16(&buffer[..written as usize]).ok()?;
+    (!short.eq_ignore_ascii_case(path)).then_some(short)
+}
+
+#[cfg(not(windows))]
+fn short_name(_path: &str) -> Option<String> {
+    None
+}
+
+/// Whether the home folder's name ends where `rest` begins: `rest` does not go on with more of a
+/// name (`C:\Users\Taro2`, `C:\Users\TARO~1`). A full stop ends it only before a space or the end.
+fn ends_name(rest: &str) -> bool {
+    let mut chars = rest.chars();
+    match chars.next() {
+        None => true,
+        Some('.') => chars.next().is_none_or(char::is_whitespace),
+        Some(c) => !(c.is_alphanumeric() || matches!(c, '_' | '-' | '~' | '$')),
+    }
 }
 
 /// Every string of a value with the home folder written `~`: the folder's name is the user's
@@ -206,8 +250,9 @@ pub fn redact_home(value: &Value, homes: &[String]) -> Value {
     }
 }
 
-/// `text` with each home folder that starts a path (followed by a separator, a quote or the end)
-/// written `~`. Windows paths are matched without regard to ASCII case.
+/// `text` with each home folder written `~` where its name ends ([`ends_name`]): before a
+/// separator, a quote, a bracket, a line break or the end. Windows paths are matched without
+/// regard to ASCII case.
 pub fn redact_home_in(text: &str, homes: &[String]) -> String {
     let mut out = text.to_string();
     for home in homes {
@@ -224,7 +269,7 @@ fn replace_path_prefix(text: &str, home: &str) -> String {
     while let Some(offset) = haystack[index..].find(&needle) {
         let begin = index + offset;
         let end = begin + needle.len();
-        let boundary = text[end..].chars().next().is_none_or(|c| matches!(c, '/' | '\\' | '"' | '\'' | ' ' | ';' | ','));
+        let boundary = ends_name(&text[end..]);
         out.push_str(&text[index..begin]);
         out.push_str(if boundary { "~" } else { &text[begin..end] });
         index = end;
@@ -337,8 +382,7 @@ impl Log {
 
     /// Writes `home` as `~` instead of the user's home folder (tests).
     pub fn with_home(mut self, home: &str) -> Self {
-        self.homes = vec![home.to_string(), home.replace('\\', "/")];
-        self.homes.dedup();
+        self.homes = home_forms(home, None);
         self
     }
 
@@ -412,6 +456,30 @@ mod tests {
         let value = json!({ "backup": r"C:\Users\Taro\config.json.broken", "list": ["C:/Users/Taro/a"], "n": 1 });
         assert_eq!(redact_home(&value, &homes), json!({ "backup": r"~\config.json.broken", "list": ["~/a"], "n": 1 }));
         assert_eq!(redact_home(&value, &[]), value);
+    }
+
+    #[test]
+    fn the_home_folder_is_found_in_brackets_lines_debug_text_and_its_short_name() {
+        // #470: these ways of writing a path kept the user's name.
+        let homes = home_forms(r"C:\Users\Taro", Some(r"C:\Users\TARO~1".to_string()));
+        for (text, redacted) in [
+            (r"(C:\Users\Taro)", "(~)"),
+            (r"[C:\Users\Taro]", "[~]"),
+            (r"C:\Users\Taro: denied", "~: denied"),
+            ("C:\\Users\\Taro\nnext", "~\nnext"),
+            (r"saved in C:\Users\Taro.", "saved in ~."),
+            (r#"Os { path: "C:\\Users\\Taro\\a.txt" }"#, r#"Os { path: "~\\a.txt" }"#),
+            (r"C:\Users\TARO~1\AppData", r"~\AppData"),
+        ] {
+            assert_eq!(redact_home_in(text, &homes), redacted, "{text}");
+        }
+        if cfg!(windows) {
+            assert_eq!(redact_home_in(r"c:\users\taro~1\x", &homes), r"~\x");
+        }
+        // Other users, and other folders that only start the same, stay.
+        for text in [r"C:\Users\Taro2\a", r"C:\Users\Taro.old\a", r"C:\Users\Taro_b", r"C:\Users\TARO~12\a", r"C:\Users\Taro-x"] {
+            assert_eq!(redact_home_in(text, &homes), text);
+        }
     }
 
     #[test]

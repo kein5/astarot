@@ -42,9 +42,13 @@ struct Stream {
 }
 
 fn open(identity: &str) -> Result<Stream> {
-    let _lock = audio_op_lock().lock();
-    let enumerator = enumerator()?;
-    let device = find_by_identity(&enumerator, eCapture, identity).map_err(|_| Error::runtime("source_bridge_capture_failed"))?;
+    // As in `open_device`: the shared lock covers finding the device only, since opening the
+    // stream can wait for the user to answer Windows' microphone permission.
+    let device = {
+        let _lock = audio_op_lock().lock();
+        let enumerator = enumerator()?;
+        find_by_identity(&enumerator, eCapture, identity).map_err(|_| Error::runtime("source_bridge_capture_failed"))?
+    };
     let format = WAVEFORMATEX { wFormatTag: WAVE_FORMAT_PCM as u16, nChannels: 1, nSamplesPerSec: RATE, nAvgBytesPerSec: RATE * 2, nBlockAlign: 2, wBitsPerSample: 16, cbSize: 0 };
     let failed = |_| Error::runtime("source_bridge_capture_failed");
     unsafe {
@@ -106,6 +110,17 @@ pub struct DeviceCapture {
 
 /// After this long without a packet a loopback delivers silence.
 const SILENCE_AFTER: Duration = Duration::from_millis(60);
+
+/// The longest silence delivered at once. The gap is measured on a clock that keeps running
+/// while the computer sleeps, so after a resume it can be hours long; a second is enough for
+/// a recognition to hear an utterance end, and the next checks keep adding silence in step.
+const MAX_SILENCE: Duration = Duration::from_secs(1);
+
+/// Bytes of 16-bit silence for a `gap` without packets, at most [`MAX_SILENCE`].
+fn silence_bytes(gap: Duration, format: DeviceFormat) -> usize {
+    let frames = (gap.min(MAX_SILENCE).as_secs_f64() * f64::from(format.rate)) as usize;
+    frames * usize::from(format.channels) * 2
+}
 
 struct DeviceStream {
     client: IAudioClient,
@@ -219,8 +234,7 @@ impl DeviceCapture {
                     Ok(Some(false)) => {
                         let gap = last.elapsed();
                         if loopback && gap >= SILENCE_AFTER {
-                            let frames = (gap.as_secs_f64() * f64::from(format.rate)) as usize;
-                            let silence = vec![0u8; frames * usize::from(format.channels) * 2];
+                            let silence = vec![0u8; silence_bytes(gap, format)];
                             last = std::time::Instant::now();
                             if !on_audio(&silence, format) {
                                 break;
@@ -304,7 +318,12 @@ impl Capture for WasapiCapture {
         })
         .map_err(|_| Error::runtime("source_bridge_capture_failed"))?;
         self.worker = Some(worker);
-        started.recv_timeout(Duration::from_secs(5)).unwrap_or(Err(Error::runtime("source_bridge_capture_failed")))
+        started.recv_timeout(Duration::from_secs(5)).unwrap_or_else(|_| {
+            // The open is still waiting (a permission question, a driver that does not answer).
+            // Tell the thread to close the stream as soon as it opens instead of reading it.
+            self.request_stop();
+            Err(Error::runtime("source_bridge_capture_failed"))
+        })
     }
 
     fn request_stop(&self) {
@@ -316,5 +335,26 @@ impl Capture for WasapiCapture {
         if let Some(worker) = self.worker.take() {
             worker.join(Duration::from_secs(1));
         }
+    }
+}
+
+impl Drop for WasapiCapture {
+    /// A capture dropped without `stop` (a start that failed, a caller that returned early)
+    /// must not keep reading the device until the app exits.
+    fn drop(&mut self) {
+        self.request_stop();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn silence_after_a_long_gap_is_capped() {
+        let format = DeviceFormat { rate: 48000, channels: 2 };
+        assert_eq!(silence_bytes(Duration::from_millis(100), format), 4800 * 2 * 2);
+        // Eight hours asleep would be 5.5 GB; one second is delivered instead.
+        assert_eq!(silence_bytes(Duration::from_secs(8 * 3600), format), 48000 * 2 * 2);
     }
 }
