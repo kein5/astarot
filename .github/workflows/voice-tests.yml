@@ -74,6 +74,8 @@ jobs:
       - run: cargo test --locked --manifest-path native/vr-overlay/Cargo.toml
       - run: cargo test --locked --manifest-path native/transcription/Cargo.toml
       - run: cargo test --locked --manifest-path native/voice-conversion/Cargo.toml
+      # Speech requests, the speech queue and the listener monitor (Issue #279).
+      - run: cargo test --locked --manifest-path native/tts/Cargo.toml
   backend-windows:
     runs-on: windows-latest
     timeout-minutes: 30
