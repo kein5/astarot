@@ -121,13 +121,13 @@ test("legacy model information wraps above its action inside the padded row, inc
     assert.match(column, /\.label_heading_wrapper\s*{\s*flex-wrap: wrap/);
     assert.match(column, /\.radio_button_label\s*{[^}]*flex-shrink: 1;[^}]*overflow-wrap: anywhere/);
     assert.match(column, /\.radio_button_desc\s*{[^}]*overflow-wrap: anywhere/);
-    assert.match(download, /\.download_container\s*{[^}]*width: 9rem;[^}]*min-width: 0;[^}]*max-width: 100%/);
+    assert.match(download, /\.download_container\s*{[^}]*width: 10.4rem;[^}]*min-width: 0;[^}]*max-width: 100%/);
     assert.match(download, /\.download_button_label\s*{[^}]*white-space: normal;[^}]*overflow-wrap: anywhere/);
     const labelBasis = Number(/flex: 1 1 ([\d.]+)rem/.exec(column)[1]);
     const actionWidth = Number(/width: ([\d.]+)rem/.exec(download.split(".download_container {")[1])[1]);
     const gap = Number(/gap: ([\d.]+)rem/.exec(radio.split("\n.radio_button_container {")[1])[1]);
-    assert.equal(labelBasis + actionWidth + gap, 34.2);
-    assert.ok(actionWidth >= 6 * 1.2 + 2 * .8, "ダウンロード and its padding fit the action");
+    assert.equal(Math.round((labelBasis + actionWidth + gap) * 10) / 10, 35.6);
+    assert.ok(actionWidth >= 7 * 1.2 + 2 * .8, "取得内容を確認 and its padding fit the action");
     // The reviewer measured a 672px scroller at 800px / 200%. The other
     // case uses the existing 5.6rem compact rail at 400px / 100%.
     for (const [scroller, rem] of [[672, 20], [344, 10]]) {
