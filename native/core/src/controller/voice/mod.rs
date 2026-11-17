@@ -290,11 +290,12 @@ impl Voice {
         options.on_failure = Some(Arc::new(|code: &str| crate::errors::report_failure("tts", code)));
         options.converted_router = Some(Arc::new(ConvertedSpeechRouter::new(Arc::new(Speaker(direct.clone())))));
         let started = weak.clone();
-        options.on_first_audio = Some(Arc::new(move |event, timestamp, converted| {
-            // The flow panel: when this message became audible, and by which path.
+        options.on_first_audio = Some(Arc::new(move |event, timestamp, converted, asked| {
+            // The flow panel: when this message became audible, how long its synthesis took,
+            // and by which path.
             if let Some(voice) = started.upgrade().and_then(|core| core.voice().cloned()) {
                 let conversion = if converted { voice.direct.health().round_trip_ms } else { None };
-                voice.traces.speech_started(&event.event_id, timestamp, converted, conversion);
+                voice.traces.speech_started(&event.event_id, timestamp, converted, conversion, Some(timestamp - asked));
             }
         }));
         let bus = Arc::new(VoiceEventBus::new(settings.clone(), options));
