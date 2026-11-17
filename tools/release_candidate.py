@@ -51,7 +51,7 @@ def stage(output, assets, platform, commit, version):
         name = (
             "VRCT-VOX_setup.exe"
             if platform == "windows"
-            and asset.name == f"VRCT-VOX_{version}_x64-setup.exe"
+            and asset.name == f"ASTAROT_{version}_x64-setup.exe"
             else asset.name
         )
         if name in mapping:

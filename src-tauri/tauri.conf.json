@@ -1,6 +1,6 @@
 {
     "$schema": "https://schema.tauri.app/config/2",
-    "productName": "VRCT-VOX",
+    "productName": "ASTAROT",
     "version": "0.5.1-beta.1",
     "identifier": "io.github.kein5.vrct-vox",
     "build": {
@@ -79,7 +79,7 @@
         "publisher": "kein5",
         "copyright": "Copyright m's software",
         "licenseFile": "../LICENSE",
-        "shortDescription": "VRCT-VOX — speech, voice conversion and translated chat",
+        "shortDescription": "ASTAROT — speech, voice conversion and translated chat",
         "icon": [
             "icons/32x32.png",
             "icons/128x128.png",

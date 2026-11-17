@@ -9,20 +9,20 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 | 対象 | 名称 |
 |---|---|
 | 製品名と、画面・文書・サイトに出す名前 | `ASTAROT` |
+| Tauriの`productName`（0.5.1から。インストーラーの題名、新しく入れるときのインストール先、ショートカット、Windowsのアプリの一覧、実行ファイルの版情報の製品名） | `ASTAROT` |
+| 補助ウィンドウのタイトル（0.5.1から） | `ASTAROT VR Panel`、`ASTAROT Control Panel`、`ASTAROT Hexagram`、`ASTAROT Captions Handle` |
 | 正式なサブタイトル | `Speech, Translation, Accessibility, Revoicing & OCR Toolkit` |
 
 ## 旧名のまま使う名前
 
-次の名前は旧名のままです。リポジトリ名は0.5.0のリリースのときに変える予定です（[リポジトリ名の変更手順](repository-rename.md)）。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。変えるときは、ADR-011のP2として別のADRで移行を決めます。配布物の名前は、インストーラーとupdaterが名前で探します。
+次の名前は旧名のままです。リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました（[リポジトリ名の変更手順](repository-rename.md)）。旧名の`kein5/VRCT-VOX`は、いまは転送ページと0.5.0のリリースの複製だけを持つ別のリポジトリで、GitHubは旧名から転送しません。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。変えるときは、ADR-011のP2として別のADRで移行を決めます。配布物の名前は、インストーラーとupdaterが名前で探します。
 
 | 対象 | 名称 |
 |---|---|
-| GitHubリポジトリ | `kein5/VRCT-VOX` |
 | npm・Cargoパッケージ、本体の実行名 | `vrct-vox` |
 | Pythonバックエンドの実行名（0.4まで。0.5.0の配布物には入らない） | `vrct-vox-sidecar` |
-| Tauriの`productName`（インストーラーとインストール先の名前） | `VRCT-VOX` |
 | Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-release.tar.gz`、同名の`.AppImage`、`.deb`、`.rpm`（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`） |
-| Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_cuda.zip`、`VRCT-VOX_<version>_x64-setup.exe` |
+| Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_cuda.zip`、`VRCT-VOX_setup.exe`（ビルドが作るインストーラーは0.5.1から`ASTAROT_<version>_x64-setup.exe`で、リリースでは`VRCT-VOX_setup.exe`の名前で載せる） |
 | Linuxデスクトップエントリー | `vrct-vox.desktop` |
 
 Windowsの実行ファイルには`.exe`が付きます。
@@ -44,7 +44,7 @@ Windowsの実行ファイルには`.exe`が付きます。
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.vrct-vox`、`~/.local/share/applications/io.github.kein5.vrct-vox.desktop` |
 
-WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読みます。インストーラーの画面とWindowsのアプリの一覧には、`productName`とテンプレートの文言から`VRCT-VOX`と出ます。Windowsでのインストール・更新の実機試験は別途必要です。
+WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読みます。0.5.1から、インストーラーの画面、Windowsのアプリの一覧、ショートカットには`ASTAROT`と出ます。新しく入れるときの既定のインストール先は`%LOCALAPPDATA%\ASTAROT`です。Windowsでは設定とモデルがインストール先に置かれるため、0.5.0以前から更新したときは、インストール先は元の`%LOCALAPPDATA%\VRCT-VOX`のままです。アプリの一覧の登録は同じキーのまま名前だけが変わり、`vrct-vox`という名前のショートカットは`ASTAROT`の名前に置き換わります。
 
 ## 公開
 

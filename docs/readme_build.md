@@ -49,7 +49,7 @@ npm run release-all
 |---|---|
 | Windows標準版 | `VRCT-VOX.zip` |
 | Windows CUDA版 | `VRCT-VOX_cuda.zip` |
-| Windowsインストーラー | `src-tauri/target/release/bundle/nsis/VRCT-VOX_<version>_x64-setup.exe` |
+| Windowsインストーラー | `src-tauri/target/release/bundle/nsis/ASTAROT_<version>_x64-setup.exe` |
 | Linux | `VRCT-VOX-<version>-linux-x64-release.tar.gz`と同名の`.AppImage`、`.deb`、`.rpm`。speech.cppのCPU版とVulkan版を両方入れる（0.4まではビルドごとに別の配布物） |
 
 WindowsのZIPには`vrct-vox.exe`と`_internal/`を収めます。ONNX Runtimeを動的にリンクするクレートがアプリに入った場合は、ビルドが`vrct-vox.exe`の隣に置いたONNX RuntimeとDirectMLのDLLも収めます。Linuxの実行名には`.exe`を付けません。配布物の作成時にはOCR重みなどの禁止資源を検査します。ソースツリー全体をそのまま配布ZIPにしないでください。
