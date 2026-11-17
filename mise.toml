@@ -32,7 +32,7 @@ description = "Show missing tools and dependencies (no downloads)"
 run = "python tools/dev.py doctor"
 
 [tasks.check]
-description = "Quick checks: developer tools, Node tests and Ruff"
+description = "Quick checks: developer tools, UI tests (Vitest) and Ruff"
 run = "python tools/dev.py check"
 
 [tasks."check:all"]
@@ -44,7 +44,7 @@ description = "Voice contract tests without models"
 run = "python tools/dev.py check --scope voice"
 
 [tasks."check:ui"]
-description = "Node tests and the Vite build"
+description = "UI tests (Vitest), the type check and the Vite build"
 run = "python tools/dev.py check --scope ui"
 
 [tasks."check:backend"]

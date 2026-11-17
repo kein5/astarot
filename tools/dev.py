@@ -156,17 +156,17 @@ def checks_plan(args, root):
             if scope == "ui" and "node" in selected:
                 pass
             else:
-                files = sorted({p.relative_to(root).as_posix()
-                    for pattern in ("*.test.js", "*.test.mjs", "*.test.ts")
-                    for p in (root / "src-ui").rglob(pattern)})
-                if not files:
-                    raise DevError("No Node tests found under src-ui; refusing an empty check.")
-                # The i18n gate's own tests sit next to it.
-                files += sorted(p.relative_to(root).as_posix() for p in (root / "tools/i18n_gate").glob("*.test.mjs"))
-                # The UI is moving to TypeScript (ADR-010): the tests import .ts sources directly.
-                # Node 22 strips the types only behind this flag; later versions accept it as well.
-                steps.append(Step("Node tests", ["node", "--experimental-strip-types",
-                    "--disable-warning=ExperimentalWarning", "--test", *files]))
+                # vitest.config.js lists the same patterns (plus the i18n gate's own tests in
+                # tools/i18n_gate); this guard keeps a moved or renamed tree from passing as an
+                # empty run.
+                if not any(p for pattern in ("*.test.js", "*.test.mjs", "*.test.ts")
+                           for p in (root / "src-ui").rglob(pattern)):
+                    raise DevError("No UI tests found under src-ui; refusing an empty check.")
+                # The installed Vitest, run by Node directly: no npx lookup and no download.
+                vitest = root / "node_modules/vitest/vitest.mjs"
+                if not args.dry_run and not vitest.is_file():
+                    raise DevError("Vitest is not installed. Run: python tools/dev.py setup --scope ui")
+                steps.append(Step("UI tests (Vitest)", ["node", vitest.relative_to(root).as_posix(), "run"]))
                 # Issue #515: en/ja keys and {{variables}} agree, every key the UI names exists,
                 # and no new text is written straight into the UI.
                 steps.append(Step("i18n gate", ["node", "--disable-warning=ExperimentalWarning",

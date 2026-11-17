@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { modelAdvice } from '../voice/modelHardwareAdvice.ts';
 const GiB=1024**3;

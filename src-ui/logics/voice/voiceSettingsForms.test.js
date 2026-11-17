@@ -1,7 +1,7 @@
 import * as routeState from "./routeState.ts";
 import * as voiceErrorTextModule from "./voiceErrorText.ts";
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.js";
 import { flush } from "../test/bridgeHarness.js";
 import { rebaseDraft } from "./draftRebase.ts";
@@ -9,9 +9,9 @@ import { changedPaths } from "./saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 
 async function setup(context) {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtimes = [];
-    context.after(() => runtimes.forEach(runtime => runtime.unmount()));
+    context.onTestFinished(() => runtimes.forEach(runtime => runtime.unmount()));
     stubGlobals(context, { window: eventTarget() });
     const owners = createSettingsWriteResponses(), requests = [], entries = [], forms = [];
     const state = { settings: { routing: "external", output_device: "output-a", monitor_volume: "35" }, error: null,
@@ -41,7 +41,7 @@ async function setup(context) {
         });
         forms.push(() => runtime.render(components[name], { title: "Output" }));
     }
-    context.after(() => owners.stop());
+    context.onTestFinished(() => owners.stop());
     const render = () => { forms.forEach(form => form()); return forms.map(form => form()); };
     const edit = (index, value) => { find(render()[index], node => node.type === "select").props.onChange({ target: { value } }); render(); };
     const reply = async (index, status) => {

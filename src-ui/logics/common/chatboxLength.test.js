@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from "./chatboxLength.ts";
 
 test("only text longer than the chatbox limit is reported", () => {

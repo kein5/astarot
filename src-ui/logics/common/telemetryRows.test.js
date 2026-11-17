@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { telemetryRows, sentSummary } from "./telemetryRows.ts";
 
 // i18next's behaviour for the two ways this file calls it: a known key resolves (here, to

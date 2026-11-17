@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 
 const TelemetryContents = () => null;
@@ -16,7 +16,7 @@ async function setup(context, notice) {
         "../../../logics/common/useConsentDialog": { useConsentDialog: open => ({ dialog: { current: null, open } }) },
         "../config_page/setting_section/setting_box/_components/telemetry/TelemetryContents": { TelemetryContents },
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(TelemetryNoticeController);
     const buttons = () => {
         const found = [];
