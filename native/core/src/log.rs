@@ -22,8 +22,9 @@ const LIMIT: u64 = 10 * 1024 * 1024;
 /// Python's markers, `client_id` for the Client ID that goes with Papago's secret (core only),
 /// `user_model`: the names and file paths of the models a user registers (#403), and
 /// `translation_catalog`: the names, folders, addresses and keys of the translation entries a
-/// user adds (#413, core only).
-pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 10] = [
+/// user adds (#413, core only), and `vocabulary`: the term dictionary in the realtime speech
+/// recognition settings, which holds the names of people and places (#446, core only).
+pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 11] = [
     "auth_key",
     "api_key",
     "password",
@@ -34,6 +35,7 @@ pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 10] = [
     "client_id",
     "user_model",
     "translation_catalog",
+    "vocabulary",
 ];
 
 /// Notifications that are never written to the log.
@@ -405,10 +407,11 @@ impl Log {
         !file.path.as_os_str().is_empty()
     }
 
-    /// `printLog(label, data)`: a step, or a request as it arrived.
+    /// `printLog(label, data)`: a step, or a request as it arrived. Secret-looking keys inside
+    /// a request are masked as in an answer (the realtime settings' `vocabulary`, #446).
     pub fn step(&self, label: &str, data: Option<&Value>) {
         let data = data.cloned().unwrap_or(Value::Null);
-        let mut logged = if is_sensitive_endpoint(label) { mask_value(&data) } else { data };
+        let mut logged = if is_sensitive_endpoint(label) { mask_value(&data) } else { mask_sensitive(&data) };
         if CONVERSATION_ENDPOINTS.contains(&label) {
             logged = redact_conversation(&logged);
         }
@@ -510,6 +513,21 @@ mod tests {
         let errors = std::fs::read_to_string(dir.join("error.log")).unwrap();
         assert!(!process.contains("taro") && !errors.contains("taro"), "{process}\n{errors}");
         assert!(process.contains("~/.local/share/vrct-vox/translation-models"), "{process}");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_term_dictionary_is_masked_in_a_request_and_its_answer() {
+        // #446: the vocabulary holds names of people and places.
+        let dir = std::env::temp_dir().join(format!("vrct-log-vocabulary-{}", std::process::id()));
+        let log = Log::new(&dir);
+        let settings = json!({ "model": "haas-ja", "vocabulary": { "builtin": true, "terms": ["猫丸=ねこまる"] } });
+        log.step("/set/data/realtime_asr_settings", Some(&settings));
+        log.response(200, Some("/run/initialization_complete"), &json!({ "realtime_asr_settings": settings }));
+        let process = std::fs::read_to_string(dir.join("process.log")).unwrap();
+        assert!(!process.contains("猫丸"), "{process}");
+        assert_eq!(process.matches("***MASKED***").count(), 2, "{process}");
+        assert!(process.contains("haas-ja"), "the rest of the settings is still logged");
         let _ = std::fs::remove_dir_all(dir);
     }
 }
