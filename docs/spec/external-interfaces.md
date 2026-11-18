@@ -182,7 +182,11 @@ Microsoftの文書（[Data and privacy in WebView2](https://learn.microsoft.com/
 
 - 全ウィンドウの起動引数（`BROWSER_ARGS`）に`--disable-background-networking`を入れて、上の2つを止める。Chromiumのスイッチで、WebView2の公式の一覧にはないため、Runtimeの更新で効かなくなることがある。暫定の対策とし、Runtimeの版が大きく上がったら同じ方法で確かめ直す。
 - 環境変数ではなく起動引数に入れるのは、環境変数がサイドカーや起動した別のプログラムにも受け継がれるためである。WebView2から見ると、どちらも同じ起動引数の並びになる。利用者が`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`を設定していれば、その後ろに足される。
-- Windowsの診断データ（WebView2の文書がいうWindows data reporting）と、クラッシュダンプの送信は、この対策の外にある。前者はネットログに出ず、Windowsの設定に従う。後者を止めるには、WebView2の環境をアプリで作り（`with_environment`）、`IsCustomCrashReportingEnabled`を設定する必要がある。
+- Windowsの診断データ（WebView2の文書がいうWindows data reporting）は、この対策の外にある。ネットログに出ず、Windowsの設定に従う。
+- クラッシュダンプは送らない（#564）。全ウィンドウが共有するWebView2の環境をアプリが作り（`src-tauri/src/webview_environment.rs`）、`IsCustomCrashReportingEnabled`をオンにする。WebView2は異常終了の記録をMicrosoftへ送らず、ユーザーデータのフォルダーに残す。アプリはその記録を読まず、送りもしない。
+  - 環境の中身は、Tauriとwry（0.57）が作るものと同じにする。ユーザーデータのフォルダー（`app_local_data_dir`）、起動引数（`BROWSER_ARGS`）、言語（利用者のUIの言語）、拡張機能はオフ、スクロールバーは既定である。これにクラッシュダンプの設定を足す。
+  - 全ウィンドウがこの1つの環境を使う。同じユーザーデータのフォルダーに別の設定の環境を作ると、WebView2はそのウィンドウを作らない。そのためウィンドウは`webview_environment::window`と`webview_environment::main_window`だけで作る（ほかの場所でTauriのビルダーを直接使っていないことをテストで確かめる）。`main`は`tauri.conf.json`で`"create": false`にして、環境を作った後に`setup`で作る。
+  - 環境を作れなかったときは、起動ログに理由を書き、各ウィンドウはTauriが作る環境で開く（この変更の前と同じ）。そのときのクラッシュダンプの送信はWindowsの設定に従う。
 
 ### アプリの更新
 
@@ -190,7 +194,7 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 
 | 入れ方 | 判定 | 更新でできること（`mode`） |
 |---|---|---|
-| Windowsのインストーラー | 実行ファイルの隣に`uninstall.exe`がある。`_internal/nvidia`があればCUDA版 | 確認して入れる（`install`）。インストーラーを`/P /UPDATE /R /ARGS …`と`/EDITION=cpu`または`/EDITION=gpu`で起動し、アプリは終了する |
+| Windowsのインストーラー | 実行ファイルの隣に`uninstall.exe`がある | 確認して入れる（`install`）。インストーラーを`/P /UPDATE /R /ARGS …`で起動し、アプリは終了する。0.5までのアプリは`/EDITION=cpu`か`/EDITION=gpu`も渡すが、インストーラーはどちらでも`VRCT-VOX.zip`を取る（#288） |
 | WindowsのZIP | 上のどれでもない | 確認して知らせるだけ（`manual`） |
 | AppImage | `APPIMAGE`があり、そのフォルダーに書き込める | 確認して入れる（`install`）。AppImageを置き換えて再起動する |
 | 書き込めない場所のAppImage | `APPIMAGE`のフォルダーに書き込めない | `manual` |
@@ -201,12 +205,12 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 - 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`を読む。この宛先はプロジェクトのCloudflare Workersで、最新のリリース（`https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json`）へ転送する。プレリリースは「latest」にならない。ベータ版は`GET https://api.github.com/repos/kein5/VRCT-VOX/releases`から、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）を選び、取れなければ安定版の`latest.json`を読む。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
 - `latest.json`の`platforms`は`windows-x86_64`（`VRCT-VOX_setup.exe`）と`linux-x86_64`（AppImage）を持つ。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
-- インストーラーは`/UPDATE`のとき、言語とエディションのページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
+- インストーラーは`/UPDATE`のとき、言語のページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
 - 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
 - バックエンドの更新のエンドポイントも同じupdaterを使う（`app_update.rs`の`CoreUpdates`を`backend_host.rs`が中核に渡す。[判断20](../voice-stack/core-integration.md#判断が要ること)）。
   - `/get/data/available_releases`は、上のGitHubのリリースの一覧（新しい30件）から、今の版のチャンネルが取るものを新しい順に`[{tag, version, is_prerelease, published_at}]`で返す。安定版は安定版だけ、ベータ版は両方。下書き、版でないタグ、`latest.json`がないもの、このリポジトリのダウンロードでないものは除く。確認しないコピー（deb、rpm、開発用のビルド）は通信せずに空を返す。
   - 起動時の`/run/software_update_info`（`{is_update_available, new_version}`）は、`CHECK_SOFTWARE_UPDATES`がオンのときだけupdaterで確かめる。オフなら通信せずに「更新なし」を送る。更新の画面の確認と同時に走るので、走っている確認の結果と、終わってから30秒以内の成功した結果は共有する。
-  - `/run/update_software`と`/run/update_cuda_software`は、今のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。エディションはどちらもそのコピーの入れ方のまま変えない。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
+  - `/run/update_software`と`/run/update_cuda_software`は、今のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。配布物は1つなので、2つのエンドポイントは同じ動きである（`/run/update_cuda_software`はIPCの契約として残す。UIは`/run/update_software`だけを使う）。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
 
 ### LLMでの翻訳
 
@@ -228,7 +232,7 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 | 音声認識（REST） | — | `POST /v1/audio/transcriptions` |
 | リアルタイム音声認識 | — | `ws://…/v1/realtime`。`session.update`と`input_audio_buffer.append`、`commit`、`clear` |
 | 話者分離（任意） | `asr`プロファイルに話者分離モデルのパスがあれば、同じサーバーに3つ目のモデルとして読み込ませる | `/v1/models`がCPU以外の装置にある`diarization`を返すサーバーへのスピーカーの接続だけが、`session.update`の`audio.input.diarization`に`{}`を入れる。確定した発話の`speakers`（ラベル、開始、終了）を受け取る。マイクの接続は要求しない |
-| RVCワーカー | `build/vrct-rvc-worker`（Rust、`native/rvc-runtime`）。Linuxでは`build/vrct-vc-worker … rvc-native …`が起動する | stdin・stdoutでPCM（48kHz、3840フレーム単位）。制御はJSON行（32KiBまで）。ONNX RuntimeとCUDAのライブラリは実行環境のフォルダーの`lib/`から読み込む。GPUを使えなければCPUで変換する。readyで変換する場所（`profile`が`low`ならGPU、`cpu`ならCPU）と、加える遅れ（`latency_ms`）を伝える。CPUで追いつかないときは、出力の代わりに`failed`（`vc_capture_overrun`）を送って止まる |
+| RVCワーカー | `build/vrct-rvc-worker`（Rust、`native/rvc-runtime`）。Linuxでは`build/vrct-vc-worker … rvc-native …`が起動する | stdin・stdoutでPCM（48kHz、`--block-ms`の長さのブロック単位。中核は`RVC_BLOCK_MS`を渡し、既定は40 msで1920フレーム。指定がなければワーカーは80 msで3840フレーム。`ready`の`block_frames`で長さを返す）。制御はJSON行（32KiBまで）。ONNX RuntimeとCUDAのライブラリは実行環境のフォルダーの`lib/`から読み込む。GPUを使えなければCPUで変換する。readyで変換する場所（`profile`が`low`ならGPU、`cpu`ならCPU）と、加える遅れ（`latency_ms`）を伝える。CPUで追いつかないときは、出力の代わりに`failed`（`vc_capture_overrun`）を送って止まる |
 
 同梱TTSサーバーの停止・異常終了は、起動ごとの識別子と、その実行を使うTTSの世代を照合して処理する。現在のTTSが使うサーバーが終了したときは、TTSをオフにして待機中・再生中の読み上げを取り消し、従来どおり音声の状態取得でUIに伝える。同じ実行の停止直後と後処理後に通知が重なっても、無効化とTTSの世代更新は一度だけ行う。古い実行からの遅れた通知で、別の接続先や新しいサーバー実行を使うTTSをオフにしない。
 
@@ -294,7 +298,7 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 
 設定画面は別ウィンドウではなく、`main`の中のページである。
 
-WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
+WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。全ウィンドウはアプリが作った1つのWebView2の環境を共有する（[WebView2の通信](#webview2の通信)）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
 
 ### WebviewのContent Security Policy（CSP）
 

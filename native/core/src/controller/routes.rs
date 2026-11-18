@@ -148,6 +148,13 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         b.get(&format!("/get/data/{name}"), OPEN, key);
     }
     b.get("/get/data/voice_settings", OPEN, "VOICE_SETTINGS");
+    // Core only (#531): the block an RVC conversion cuts the microphone into, read when one
+    // starts. Refused unless 20 to 200 ms in steps of 20; the saved value stays.
+    b.get("/get/data/rvc_block_ms", OPEN, "RVC_BLOCK_MS");
+    let rvc_block = integer(core, "RVC_BLOCK_MS", "VALIDATION_RVC_BLOCK_MS", |v, _| {
+        u32::try_from(v).ok().and_then(vrct_voice_conversion::protocol::Block::from_ms).is_some()
+    });
+    b.add("/set/data/rvc_block_ms", OPEN, rvc_block);
 
     // Appearance
     b.get("/get/data/version", OPEN, "VERSION");
@@ -283,12 +290,8 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     // Whether the VAD switches can be turned on: a VAD engine is in this build (decision 13).
     b.with("/get/data/vad_available", OPEN, |core, _| ok(json!(core.services().vad.is_some())));
 
-    // The move from the removed Whisper engine to speech.cpp (#288)
-    b.get("/get/data/local_asr_notice", OPEN, "LOCAL_ASR_NOTICE_PENDING");
-    b.with("/set/disable/local_asr_notice", OPEN, |core, _| {
-        let _ = core.config().set("LOCAL_ASR_NOTICE_PENDING", json!(false));
-        ok(core.config().get("LOCAL_ASR_NOTICE_PENDING"))
-    });
+    // The notice of the move from the removed Whisper engine to speech.cpp
+    // (`/get/data/local_asr_notice`, `/set/disable/local_asr_notice`) went in 0.6.0 (#288).
 
     // The virtual microphone guide (#321); finding the cables and the check are in `audio_devices`.
     b.get("/get/data/virtual_mic_notice", OPEN, "VIRTUAL_MIC_NOTICE_PENDING");

@@ -3,8 +3,8 @@ import { recipe } from "@vanilla-extract/recipes";
 import { vars } from "../theme/vars.css.ts";
 import { colourTransition, disabledLook, focusRing } from "./shared.css.ts";
 
-// One field for typing and choosing (#436 "選択欄が2種類ある"): the surface, a border that
-// reaches 3:1 against it, and 4rem of height even when it holds nothing.
+// One field for typing and choosing (#436 "選択欄が2種類ある"): the surface, the field border
+// (3.5:1 against it), and 4rem of height even when it holds nothing.
 export const field = recipe({
     base: {
         boxSizing: "border-box",
@@ -13,7 +13,7 @@ export const field = recipe({
         minHeight: "4rem",
         padding: ".8rem 1.2rem",
         background: vars.vox_surface,
-        border: `.1rem solid ${vars.dark_650_color}`,
+        border: `.1rem solid ${vars.vox_field_border}`,
         borderRadius: vars.vox_radius,
         color: vars.dark_basic_text_color,
         font: "inherit",

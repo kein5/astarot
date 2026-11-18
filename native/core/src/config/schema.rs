@@ -91,6 +91,11 @@ fn readonly(name: &'static str) -> Key {
     Key { name, serialize: false, readonly: true, immediate: false, check: None }
 }
 
+/// An RVC block a conversion may use: 20 to 200 ms in steps of 20 (`protocol::Block`).
+pub fn is_valid_rvc_block_ms(value: &Value) -> bool {
+    value.is_u64() && value.as_u64().and_then(|ms| u32::try_from(ms).ok()).and_then(vrct_voice_conversion::protocol::Block::from_ms).is_some()
+}
+
 pub fn is_valid_port(value: &Value) -> bool {
     value.as_i64().is_some_and(|port| value.is_i64() && (1..=65535).contains(&port))
 }
@@ -627,6 +632,10 @@ pub fn keys() -> Vec<Key> {
         key("RECEIVED_MESSAGE_FORMAT_PARTS", message_format()),
         key("VOICE_SETTINGS", validated(tts_settings)),
         key("DIRECT_VOICE_SETTINGS", validated(|v, _| voice_settings::load_direct(v))),
+        // Core only (#531): the block, in ms, that an RVC conversion cuts the microphone into
+        // and converts. A key of its own: an older version that reads DIRECT_VOICE_SETTINGS
+        // refuses a field it does not know, and would reset the model and index with it.
+        key("RVC_BLOCK_MS", managed(Ty::Int, false, |v, _| is_valid_rvc_block_ms(v))),
         key("REALTIME_ASR_SETTINGS", validated(|v, _| voice_settings::normalize_realtime(v).ok())),
         key("SPEECH_SERVER_SETTINGS", validated(|v, _| vrct_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
         key("WEBSOCKET_SERVER", b()),
@@ -680,7 +689,6 @@ pub fn keys() -> Vec<Key> {
         key("CTRANSLATE2_WEIGHT_TYPE", one_of("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST")),
         key("CTRANSLATE2_LICENSE_NOTICE_SHOWN", b()),
         key("LOCAL_ASR_MIGRATION", int_in(0, super::LOCAL_ASR_MIGRATION_LATEST)),
-        key("LOCAL_ASR_NOTICE_PENDING", b()),
         key("VIRTUAL_MIC_NOTICE_PENDING", b()),
         key("FIRST_RUN_SETUP_PENDING", b()),
         key("SELECTED_PLAMO_MODEL", in_populated("SELECTABLE_PLAMO_MODEL_LIST")),
@@ -874,6 +882,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("RECEIVED_MESSAGE_FORMAT_PARTS", format_parts),
         ("VOICE_SETTINGS", voice),
         ("DIRECT_VOICE_SETTINGS", voice_settings::default_direct()),
+        ("RVC_BLOCK_MS", json!(vrct_voice_conversion::worker::DEFAULT_BLOCK_MS)),
         ("REALTIME_ASR_SETTINGS", realtime),
         ("SPEECH_SERVER_SETTINGS", speech),
         ("WEBSOCKET_SERVER", json!(false)),
@@ -921,7 +930,6 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("CTRANSLATE2_WEIGHT_TYPE", json!(languages::DEFAULT_TRANSLATION_WEIGHT)),
         ("CTRANSLATE2_LICENSE_NOTICE_SHOWN", json!(false)),
         ("LOCAL_ASR_MIGRATION", json!(super::LOCAL_ASR_MIGRATION_LATEST)),
-        ("LOCAL_ASR_NOTICE_PENDING", json!(false)),
         ("VIRTUAL_MIC_NOTICE_PENDING", json!(true)),
         ("FIRST_RUN_SETUP_PENDING", json!(true)),
         ("SELECTED_PLAMO_MODEL", Value::Null),

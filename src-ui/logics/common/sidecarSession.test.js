@@ -385,7 +385,6 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     const app = await loadModule(new URL("../../views/app/App.tsx", import.meta.url), b.runtime, {
         "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},
         "./_app_controllers/TelemetryNoticeController": {},
-        "./_app_controllers/LocalAsrNoticeController": {},
         "./_app_controllers/VirtualMicGuideController": {},
         "./_app_controllers/FirstRunSetupController": {},
         "./_app_controllers/SwitchBlocksController": {},

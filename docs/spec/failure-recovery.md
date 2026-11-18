@@ -28,14 +28,9 @@
 | 保存 | `config.json` が新しい内容に置き換わる | 前の `config.json` が残る。値はメモリーにあり、その起動では使える。初めの1回だけ `/run/config_save_failed`（理由は `disk_full`、`permission_denied`、`read_only`、`write_failed`）を送り、30秒ごとに書き直す。書けたら `/run/config_save_recovered` を送る | 一時ファイル、`fsync`、置き換え（`config/mod.rs` の `write_config`）。`config.json.lock` のロック | `native/core/tests/lifecycle.rs` の `a_failed_save_is_reported_once_and_its_recovery_too` |
 | 読み込み（JSON として読めない） | — | 元のファイルを `config.json.unreadable-<日時>-<乱数>` に移して残し、既定値で起動する。UI に `/run/config_file_unreadable` で場所を知らせる | `move_aside` | `an_unreadable_settings_file_is_kept_aside_and_reported_after_start_up` |
 | 読み込み（権限がないなど、読めない理由がほかにある） | — | 元のファイルに触れず、その起動では保存しない。`load_failed` で知らせる | `load` | `a_settings_file_that_cannot_be_read_is_left_alone_and_never_overwritten` |
-| 移行（`LOCAL_ASR_MIGRATION` が最新でない保存ファイル） | 移す前の内容を `config.json.before-migration-<段階>` に残してから、移した設定を保存する | 写しを書けなければ、保存してあった値をその起動で使い、`config.json` は書き換えない。`load_failed` で知らせ、次の起動でもう一度試す | `keep_before_migration` | `a_copy_before_a_migration_is_written_once_and_only_when_one_runs`、`settings_of_an_older_version_are_migrated_and_the_user_is_told` |
 | API キーの移し替えと保存 | `secrets.json` に書いて読み戻せたキーだけを `config.json` から除く | キーはどちらかのファイルに残る。メモリーのキーはその起動で使える。`/run/secret_store_failed` で知らせる | [API キーの保存先](data-and-persistence.md#apiキーの保存先) | `native/core/tests/secret_store.rs`、`config/secrets.rs` の単体試験 |
 
-移す前の写しについて:
-
-- 写しには API キー（`AUTH_KEYS`、`TRANSCRIPTION_AUTH_KEYS`、`PAPAGO_CLIENT_ID`）を入れない。キーは専用の保存先に移るので、写しに平文で残さない。
-- 同じ名前の写しがすでにあれば、それを残して書き直さない（先に書いたほうが古い設定である）。
-- 写しを `config.json` に戻すと、前の版の設定に戻せる。いまの版で起動すると、もう一度移行が行われる。前の版に戻すときは、キーを入れ直す必要がある。
+0.5 までは、ローカル音声認識の移行（`LOCAL_ASR_MIGRATION` が最新でない保存ファイル）の前に、移す前の内容を API キーを除いて `config.json.before-migration-<段階>` に残していた。写しを書けなければ `config.json` を書き換えなかった。0.6.0 はこの移行を行わないので、写しを書かない。前の版が残した写しには触れない（`native/core/tests/lifecycle.rs` の `no_copy_before_a_migration_is_written_any_more`。[ローカル音声認識の移行](data-and-persistence.md#ローカル音声認識の移行)）。
 
 ## モデルの取得と適用
 

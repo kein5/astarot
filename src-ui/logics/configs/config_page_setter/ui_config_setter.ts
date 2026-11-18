@@ -1388,6 +1388,15 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set",
         base_endpoint_name: "obs_browser_source_font_outline_color",
     },
+    {
+        // The block an RVC conversion cuts the microphone into, in ms (#531); read at Start.
+        Category: "AdvancedSettings",
+        Base_Name: "RvcBlockMs",
+        default_value: 40,
+        ui_template_id: "input",
+        logics_template_id: "get_set",
+        base_endpoint_name: "rvc_block_ms",
+    },
 
     // { feature_id: bool }, every listed feature off by default (experimentalFeatures.ts).
     {

@@ -68,8 +68,17 @@
     font-size: 1.4rem;
     color: var(--dark_200_color);
     background-color: var(--vox_surface);
-    border: 0.1rem solid var(--dark_650_color);
+    border: 0.1rem solid var(--vox_field_border);
     border-radius: var(--vox_radius);
+}
+
+// What the language is for (#569): one line under the search field, in the description colour.
+.hint {
+    margin-top: .6rem;
+    max-width: 64rem;
+    font-size: 1.2rem;
+    line-height: 1.5;
+    color: var(--vox_description_text);
 }
 
 .no_results {

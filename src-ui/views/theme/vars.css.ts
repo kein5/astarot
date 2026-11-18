@@ -18,7 +18,7 @@ const NAMES = [
     "dark_950_color", "dark_975_color", "dark_1000_color",
     "dark_550_color_22", "dark_825_color_cc", "dark_1000_color_66", "dark_1000_color_aa", "dark_1000_color_dd",
     "title_bar_height", "main_page_topbar_height", "config_page_sidebar_width", "config_page_content_padding_top",
-    "vox_canvas", "vox_rail", "vox_surface", "vox_border", "vox_radius",
+    "vox_canvas", "vox_rail", "vox_surface", "vox_border", "vox_field_border", "vox_radius",
     "vox_secondary_text", "vox_description_text", "vox_state_active", "vox_state_warning", "vox_state_failed",
     "vox_secondary_hover", "vox_readout_rule", "vox_shadow_overlay", "vox_on_primary", "vox_focus",
     "vox_ease", "vox_ease_settle", "vox_motion_fast", "vox_motion",

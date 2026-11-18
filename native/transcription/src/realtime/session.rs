@@ -53,9 +53,10 @@ pub struct Options {
     pub silence_duration_ms: Option<u32>,
 }
 
-/// The silence that ends an utterance unless the settings choose another: speech.cpp's and
-/// OpenAI's default.
-pub const DEFAULT_SILENCE_MS: u32 = 500;
+/// The silence that ends an utterance unless the settings choose another (#556). It is shorter
+/// than speech.cpp's and OpenAI's 500 ms: the utterance comes about 100 ms sooner, at the cost of
+/// a pause inside a sentence ending it more often. A saved choice is kept as it is.
+pub const DEFAULT_SILENCE_MS: u32 = 400;
 /// The padding speech.cpp keeps on either side of an utterance by default (`prefix_padding_ms`).
 const MAX_PADDING_MS: u32 = 300;
 
@@ -730,7 +731,8 @@ mod tests {
             (value["silence_duration_ms"].as_u64().unwrap(), value["prefix_padding_ms"].as_u64().unwrap())
         };
         assert_eq!(turn_detection(None)["type"], "server_vad");
-        assert_eq!(sent(None), (500, 250));
+        assert_eq!(sent(None), (400, 200));
+        assert_eq!(sent(Some(500)), (500, 250));
         assert_eq!(sent(Some(300)), (300, 150));
         assert_eq!(sent(Some(100)), (100, 50));
         // Never more than speech.cpp's own 300 ms.

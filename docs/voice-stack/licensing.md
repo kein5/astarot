@@ -39,7 +39,7 @@ Windows最終実物、Linux製品package、全同梱依存の最終ライセン�
 NScurlと依存部品の通知7点は、`src-tauri/nsis/licenses/nscurl/`の原文を保持し、
 NSISインストーラー内の`$PLUGINSDIR/licenses/nscurl/`へ同梱する。
 アプリ本体の取得に失敗した場合も、setup.exeを7-Zipで展開して読める。
-CPU版・CUDA版のZIPにも`_internal/licenses/nscurl/`として収集し、
+WindowsのZIP（`VRCT-VOX.zip`。0.5まではCUDA版のZIPも）にも`_internal/licenses/nscurl/`として収集し、
 [NOTICE](../../NOTICE.md#windows-installer-download-component)に場所を記載する。
 最終NSIS成果物の検査では、この7点のいずれかが欠けていれば失敗する。
 Windows実物の展開結果と、同梱DLLの版に対応する通知一式かどうかの確認は別途必要。
@@ -576,7 +576,14 @@ Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe
 - PyYAML: 6.0.2から6.0.3へ（MIT）
 - SudachiPy: 0.6.10から0.6.11へ（Apache-2.0）
 
-Seed-VCの実行環境（`integrations/seed_vc/`、Python 3.11）、RVCの参照環境（`native/rvc-runtime/reference/`、Python 3.12）、翻訳モデルを書き出す環境（`tools/translation_onnx/`）は、それぞれのロックを持つ別の環境なので変えていない。
+### 別のロックを持つ環境（2026-11-19）
+
+自分のロックを持つ環境も3.14にそろえた。どれも配布物には入らない。
+
+- Seed-VCの実行環境（`integrations/seed_vc/`）: Pythonのバックエンド（`src-python/`）が利用者の同意のあとで提供元から取得する環境。0.5.0からの中核は提供していない。3.14のwheelがある版にするため、numpy（1.26.4から2.4.6）、scipy（1.13.1から1.16.3、BSD-3-Clause）、librosa（0.10.2から0.10.2.post1、ISC）、PyYAML（6.0.2から6.0.3、MIT）を上げた。PyTorchのCUDA版は2.10.0のままで、cp314のwheelにした。audioreadが3.13から求める`audioop-lts`、`standard-aifc`、`standard-chunk`、`standard-sunau`（どれもPSF-2.0）が増えた。funasr 1.2.7が挙げる`editdistance`（MIT）は3.14のwheelがなく、funasrは精度の計算でしか使わないので、ロックから外した。
+- RVCの参照環境（`native/rvc-runtime/reference/`）: 以前の`integrations/rvc/requirements.in`と同じ依存を`native/rvc-runtime/reference/requirements.in`に移した。numpy、scipy、praat-parselmouth（0.4.6から0.4.7、GPL-3.0-or-later）を上げた。適合の試験の参照を作るためだけの環境で、配布物とアプリの実行には使わない。
+- 翻訳モデルを書き出す環境（`tools/translation_onnx/`）: 固定した版のままで、どの依存にも3.14のwheelがある。
+- チャットボックスの学習環境（`tools/chatbox_lab/`）: PyTorch 2.9（CUDA 12.6）とtorchvision 0.24（どちらもBSD-3-Clause）にした。どちらも3.14のwheelがある最初の版。
 
 ## 読みの解析器と辞書（2026-11-16）
 

@@ -46,10 +46,10 @@ const MANIFEST_NAME: &str = "latest.json";
 pub enum InstallKind {
     /// A debug build: never checks.
     Development,
-    /// Installed by the NSIS installer (`uninstall.exe` beside the binary). `gpu` is the CUDA
-    /// edition, which the installer has to fetch again.
-    WindowsInstaller { gpu: bool },
-    /// Extracted from VRCT-VOX.zip or VRCT-VOX_cuda.zip.
+    /// Installed by the NSIS installer (`uninstall.exe` beside the binary). There is one package
+    /// (#288): a CUDA install from 0.4 or earlier updates as any other.
+    WindowsInstaller,
+    /// Extracted from VRCT-VOX.zip (or VRCT-VOX_cuda.zip up to 0.5).
     WindowsPortable,
     /// A writable AppImage.
     AppImage,
@@ -66,7 +66,7 @@ impl InstallKind {
     fn name(&self) -> &'static str {
         match self {
             Self::Development => "development",
-            Self::WindowsInstaller { .. } => "windows_installer",
+            Self::WindowsInstaller => "windows_installer",
             Self::WindowsPortable => "windows_portable",
             Self::AppImage => "appimage",
             Self::AppImageReadOnly => "appimage_read_only",
@@ -80,7 +80,7 @@ impl InstallKind {
     /// `package_manager`: no check, the package manager updates. `disabled`: no check.
     fn mode(&self) -> &'static str {
         match self {
-            Self::WindowsInstaller { .. } | Self::AppImage => "install",
+            Self::WindowsInstaller | Self::AppImage => "install",
             Self::WindowsPortable | Self::LinuxArchive | Self::AppImageReadOnly => "manual",
             Self::PackageManager(_) => "package_manager",
             Self::Development | Self::Unsupported => "disabled",
@@ -99,7 +99,7 @@ impl InstallKind {
     /// The `platforms` key of latest.json this copy reads.
     fn target(&self) -> Option<&'static str> {
         match self {
-            Self::WindowsInstaller { .. } | Self::WindowsPortable => Some("windows-x86_64"),
+            Self::WindowsInstaller | Self::WindowsPortable => Some("windows-x86_64"),
             Self::AppImage | Self::AppImageReadOnly | Self::LinuxArchive => Some("linux-x86_64"),
             _ => None,
         }
@@ -116,10 +116,7 @@ pub fn detect_install(executable: &Path, appimage: Option<&Path>, debug: bool) -
     };
     if cfg!(windows) {
         if directory.join("uninstall.exe").is_file() {
-            // The CUDA packages up to 0.4 carried the NVIDIA libraries in _internal/nvidia; from
-            // 0.5.0 both packages are the same and an updated CUDA install counts as CPU.
-            let gpu = directory.join("_internal").join("nvidia").is_dir();
-            return InstallKind::WindowsInstaller { gpu };
+            return InstallKind::WindowsInstaller;
         }
         return InstallKind::WindowsPortable;
     }
@@ -341,21 +338,17 @@ fn install_kind<R: Runtime>(app: &AppHandle<R>) -> InstallKind {
 /// one is.
 fn build_updater<R: Runtime>(
     app: &AppHandle<R>,
-    kind: &InstallKind,
     target: &str,
     endpoints: Vec<Url>,
     exactly: Option<semver::Version>,
 ) -> Result<Updater, String> {
+    // The Windows installer fetches VRCT-VOX.zip again; there is no edition to name (#288).
     let mut builder = app
         .updater_builder()
         .target(target)
         .timeout(Duration::from_secs(30))
         .endpoints(endpoints)
         .map_err(|error| error.to_string())?;
-    if let InstallKind::WindowsInstaller { gpu } = kind {
-        // The installer fetches the app package again: keep the edition the user chose.
-        builder = builder.installer_arg(if *gpu { "/EDITION=gpu" } else { "/EDITION=cpu" });
-    }
     if let Some(wanted) = exactly {
         builder = builder.version_comparator(move |_, release| release.version == wanted);
     }
@@ -399,7 +392,7 @@ fn download_error_code(error: &tauri_plugin_updater::Error) -> &'static str {
 }
 
 /// Asks for the newest release of the running version's channel.
-async fn check_channel<R: Runtime>(app: &AppHandle<R>, kind: &InstallKind, target: &str) -> LatestCheck {
+async fn check_channel<R: Runtime>(app: &AppHandle<R>, target: &str) -> LatestCheck {
     let channel = channel_of(&app.package_info().version);
     let stable = Url::parse(STABLE_MANIFEST).map_err(|error| error.to_string())?;
     let mut endpoints = Vec::new();
@@ -412,7 +405,7 @@ async fn check_channel<R: Runtime>(app: &AppHandle<R>, kind: &InstallKind, targe
         }
     }
     endpoints.push(stable);
-    let updater = build_updater(app, kind, target, endpoints, None)?;
+    let updater = build_updater(app, target, endpoints, None)?;
     updater.check().await.map_err(|error| {
         crate::startup_log(&format!("Update check failed: {error}"));
         check_error_code(&error).to_string()
@@ -421,14 +414,14 @@ async fn check_channel<R: Runtime>(app: &AppHandle<R>, kind: &InstallKind, targe
 
 /// [`check_channel`], sharing a check that runs or has just ended (`CHECK_REUSE`). A failed
 /// check is shared only with the checks that waited for it: asking again tries again.
-async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, kind: &InstallKind, target: &str) -> LatestCheck {
+async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, target: &str) -> LatestCheck {
     let mut last = state.last_check.lock().await;
     if let Some((at, result)) = last.as_ref()
         && ((result.is_ok() && at.elapsed() < CHECK_REUSE) || at.elapsed() < Duration::from_secs(1))
     {
         return result.clone();
     }
-    let result = check_channel(app, kind, target).await;
+    let result = check_channel(app, target).await;
     *last = Some((Instant::now(), result.clone()));
     result
 }
@@ -528,7 +521,7 @@ pub async fn app_update_check<R: Runtime>(
         return Err("update_unsupported".into());
     };
     let _busy = acquire(&state)?;
-    let update = check_latest(&app, &state, &kind, target).await?;
+    let update = check_latest(&app, &state, target).await?;
     let result = CheckResult {
         available: update.is_some(),
         version: update.as_ref().map(|update| update.version.clone()),
@@ -619,7 +612,7 @@ impl<R: Runtime> CoreUpdates<R> {
         let state = app.state::<AppUpdateState>();
         let _busy = acquire(&state).map_err(|_| "update_busy")?;
         let update = match target_version {
-            None => check_latest(app, &state, &kind, target).await.map_err(|_| "update_check_failed")?,
+            None => check_latest(app, &state, target).await.map_err(|_| "update_check_failed")?,
             Some(wanted) => {
                 let channel = channel_of(&app.package_info().version);
                 let releases = fetch_releases().await.map_err(|error| {
@@ -627,7 +620,7 @@ impl<R: Runtime> CoreUpdates<R> {
                     "update_check_failed"
                 })?;
                 let (version, manifest) = find_release(&releases, channel, wanted).ok_or("update_not_listed")?;
-                let updater = build_updater(app, &kind, target, vec![manifest], Some(version))
+                let updater = build_updater(app, target, vec![manifest], Some(version))
                     .map_err(|_| "update_check_failed")?;
                 updater.check().await.map_err(|error| {
                     crate::startup_log(&format!("Update check failed: {error}"));
@@ -647,7 +640,7 @@ impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
             return no_update();
         };
         let state = self.app.state::<AppUpdateState>();
-        let result = tauri::async_runtime::block_on(check_latest(&self.app, &state, &kind, target));
+        let result = tauri::async_runtime::block_on(check_latest(&self.app, &state, target));
         update_info(result.as_ref().map(|update| update.as_ref().map(|update| update.version.as_str())).map_err(String::as_str))
     }
 
@@ -668,9 +661,8 @@ impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
         }
     }
 
-    /// The edition stays the one this copy was installed as (`/EDITION=gpu` only for a CUDA
-    /// install, as the update page does); `edition` only tells which endpoint asked.
-    fn install(&self, _edition: &str, target_version: Option<&str>) -> UpdateOutcome {
+    /// Both update endpoints install the one package, as the update page does (#288).
+    fn install(&self, target_version: Option<&str>) -> UpdateOutcome {
         match tauri::async_runtime::block_on(self.install_async(target_version)) {
             Ok(()) => {
                 // Linux: the AppImage is replaced. The restart ends the app through its normal
@@ -782,7 +774,7 @@ mod tests {
 
     #[test]
     fn only_copies_that_check_have_a_target() {
-        assert_eq!(InstallKind::WindowsInstaller { gpu: true }.checking_target(), Some("windows-x86_64"));
+        assert_eq!(InstallKind::WindowsInstaller.checking_target(), Some("windows-x86_64"));
         assert_eq!(InstallKind::WindowsPortable.checking_target(), Some("windows-x86_64"));
         assert_eq!(InstallKind::AppImageReadOnly.checking_target(), Some("linux-x86_64"));
         assert_eq!(InstallKind::PackageManager("deb".into()).checking_target(), None);
@@ -915,9 +907,11 @@ mod tests {
         let binary = directory.join("vrct-vox.exe");
         assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsPortable);
         std::fs::write(directory.join("uninstall.exe"), b"").unwrap();
-        assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller { gpu: false });
+        assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller);
+        // A CUDA install of 0.4 or earlier (NVIDIA's libraries in _internal/nvidia) is the same
+        // kind: it updates to the one package (#288).
         std::fs::create_dir_all(directory.join("_internal").join("nvidia")).unwrap();
-        assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller { gpu: true });
+        assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller);
         std::fs::remove_dir_all(&directory).unwrap();
     }
 

@@ -8,7 +8,6 @@ import * as exitExpectation from "../common/sidecarExitExpectation.ts";
 import * as settingsResponses from "../common/settingsWriteResponses.ts";
 import * as meterValue from "../common/meterValue.ts";
 import * as utils from "../utils.ts";
-import * as localAsrMigration from "../transcription/localAsrMigration.ts";
 import * as virtualMicShapes from "../voice/virtualMic.ts";
 import * as voiceAuditionShapes from "../voice/voiceAudition.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
@@ -101,14 +100,10 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     const downloads = modelDownloads ?? { useModelDownloads: () => feature({ state: { jobs: {} }, hardware: {}, pending: null }) };
     const realtime = { useRealtimeASR: () => feature({ state: {} }) };
     const runtimes = { activeSetupPhases: [], useVcRuntimes: () => feature({ state: { jobs: {} }, pending: false }) };
-    // The real hook: its routes are the notice and the old Whisper weights (#288). Its own
-    // hook slots, on the same store, so a test can read it without disturbing the routes' render.
+    // The real hooks below get their own hook slots, on the same store, so a test can read them
+    // without disturbing the routes' render.
     const localRuntime = hooks();
     localRuntime.store = runtime.store;
-    const localAsr = await loadModule(new URL("../transcription/useLocalAsrMigration.ts", import.meta.url), localRuntime, {
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
-        "./localAsrMigration.ts": localAsrMigration,
-    });
     const virtualMic = await loadModule(new URL("../voice/useVirtualMic.ts", import.meta.url), localRuntime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./virtualMic.ts": virtualMicShapes,
@@ -126,7 +121,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key, i18n: { exists: () => false } } },
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
-        "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
+        "./transcription/useRealtimeASR": realtime, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
         "./setup/useFirstRunSetup": firstRunSetup, "./voice/useVoiceAudition": voiceAudition,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./translation/useTranslationCatalog": { useTranslationCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
@@ -141,7 +136,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./common/settingsWriteResponses.ts": settingsResponses,
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
-    return { ...subject, notices, reads, localAsr: () => localRuntime.render(localAsr.useLocalAsrMigration), virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
+    return { ...subject, notices, reads, virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
         firstRunSetup: () => localRuntime.render(firstRunSetup.useFirstRunSetup),
         voiceAudition: () => localRuntime.render(voiceAudition.useVoiceAudition), auditionSent: sent,
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),

@@ -113,6 +113,8 @@ pub struct DirectHealth {
     pub round_trip_ms: Option<i64>,
     pub conversion_device: Option<String>,
     pub conversion_latency_ms: Option<i64>,
+    /// The block the microphone is cut into before it is converted (#531).
+    pub conversion_block_ms: Option<i64>,
 }
 
 impl DirectHealth {
@@ -134,6 +136,7 @@ impl DirectHealth {
             "round_trip_ms": self.round_trip_ms,
             "conversion_device": self.conversion_device,
             "conversion_latency_ms": self.conversion_latency_ms,
+            "conversion_block_ms": self.conversion_block_ms,
         });
         match value {
             Value::Object(map) => map,
@@ -348,6 +351,7 @@ impl DirectVoice {
             round_trip_ms: if converted { backend_health.round_trip_ms } else { None },
             conversion_device: if converted { backend_health.device } else { None },
             conversion_latency_ms: if converted { backend_health.latency_ms } else { None },
+            conversion_block_ms: if converted { backend_health.block_ms } else { None },
         }
     }
 }

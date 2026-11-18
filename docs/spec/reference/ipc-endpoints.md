@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（460件: 削除 13、取得 206、実行 47、有効化 40、無効化 43、設定 111）
+## 要求（462件: 削除 13、取得 207、実行 47、有効化 40、無効化 43、設定 112）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -251,10 +251,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/speaker_vad_filter` | 無効化 | `setDisableSpeakerVadFilter` | 可 | useDevice.setSuccessSpeakerVadFilter |  |
 | `/set/enable/check_speaker_threshold` | 有効化 | `setEnableCheckSpeakerThreshold` | 可 | useVolume.updateSpeakerThresholdCheckStatus |  |
 | `/set/disable/check_speaker_threshold` | 無効化 | `setDisableCheckSpeakerThreshold` | 可 | useVolume.updateSpeakerThresholdCheckStatus |  |
-| `/get/data/local_asr_notice` | 取得 | `getLocalAsrNotice` | 可 | useLocalAsrMigration.updateNotice |  |
-| `/set/disable/local_asr_notice` | 無効化 | `setDisableLocalAsrNotice` | 可 | useLocalAsrMigration.updateNotice |  |
-| `/get/data/old_whisper_weights` | 取得 | `getOldWhisperWeights` | 可 | useLocalAsrMigration.updateWeights |  |
-| `/run/delete_old_whisper_weights` | 実行 | `deleteOldWhisperWeights` | 可 | useLocalAsrMigration.updateDeleted |  |
+| `/get/data/local_asr_notice` | 取得 | `getLocalAsrNotice` | 可 | — |  |
+| `/set/disable/local_asr_notice` | 無効化 | `setDisableLocalAsrNotice` | 可 | — |  |
+| `/get/data/old_whisper_weights` | 取得 | `getOldWhisperWeights` | 可 | — |  |
+| `/run/delete_old_whisper_weights` | 実行 | `deleteOldWhisperWeights` | 可 | — |  |
 | `/get/data/virtual_mic_notice` | 取得 | `getVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
 | `/set/disable/virtual_mic_notice` | 無効化 | `setDisableVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
 | `/get/data/first_run_setup` | 取得 | `getFirstRunSetup` | 可 | useFirstRunSetup.updateNotice |  |
@@ -475,6 +475,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
+| `/get/data/rvc_block_ms` | 取得 | `core: RVC_BLOCK_MS` | 可 | useAdvancedSettings.updateFromBackendRvcBlockMs | 中核のみ |
+| `/set/data/rvc_block_ms` | 設定 | `core: RVC_BLOCK_MS` | 可 | useAdvancedSettings.setSuccessRvcBlockMs | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）
@@ -574,11 +576,14 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（15件）
+## UIに受信先がないエンドポイント（19件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
+- `/get/data/local_asr_notice`
+- `/get/data/old_whisper_weights`
 - `/run/ctranslate2_license_notice`
+- `/run/delete_old_whisper_weights`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
 - `/run/enable_transcription_send`
@@ -593,6 +598,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/initialization_complete`
 - `/run/message_output_error`
 - `/run/translation_language_unsupported`
+- `/set/disable/local_asr_notice`
 
 
 ## UIだけにあるルート（57件）

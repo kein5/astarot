@@ -3,6 +3,7 @@ aliyun-python-sdk-kms==2.16.5
 annotated-doc==0.0.5
 antlr4-python3-runtime==4.9.3
 anyio==4.16.0
+audioop-lts==0.2.2
 audioread==3.1.0
 certifi==2026.10.23
 cffi==2.1.1
@@ -14,7 +15,6 @@ cryptography==50.0.2
 cuda-bindings==12.9.4
 cuda-pathfinder==1.6.0
 decorator==5.3.1
-editdistance==0.8.1
 einops==0.8.0
 filelock==4.2.4
 fsspec==2026.7.0
@@ -34,7 +34,7 @@ jmespath==1.1.0
 joblib==1.6.0
 kaldiio==2.18.1
 lazy-loader==0.6
-librosa==0.10.2
+librosa==0.10.2.post1
 llvmlite==0.50.0
 markdown-it-py==4.2.0
 markupsafe==3.0.3
@@ -47,7 +47,7 @@ munch==4.0.0
 narwhals==2.28.0
 networkx==3.6.1
 numba==0.68.1
-numpy==1.26.4
+numpy==2.4.6
 nvidia-cublas-cu12==12.8.4.1
 nvidia-cuda-cupti-cu12==12.8.90
 nvidia-cuda-nvrtc-cu12==12.8.93
@@ -75,13 +75,13 @@ pycryptodome==4.2.0
 pygments==2.21.0
 pynndescent==0.7.0
 pytorch-wpe==0.0.1
-pyyaml==6.0.2
+pyyaml==6.0.3
 regex==2026.9.29
 requests==2.34.2
 rich==15.0.0
 safetensors==0.8.0
 scikit-learn==1.9.1
-scipy==1.13.1
+scipy==1.16.3
 sentencepiece==0.2.2
 setuptools==84.2.1
 shellingham==1.5.4
@@ -89,14 +89,17 @@ six==1.17.0
 sounddevice==0.5.0
 soundfile==0.12.1
 soxr==1.1.0
+standard-aifc==3.13.0
+standard-chunk==3.13.0
+standard-sunau==3.13.0
 sympy==1.14.0
 tensorboardx==2.6.5
 threadpoolctl==3.7.0
 tokenizers==0.23.3
-torch @ https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp311-cp311-manylinux_2_28_x86_64.whl
+torch @ https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp314-cp314-manylinux_2_28_x86_64.whl
 torch-complex==0.4.4
-torchaudio @ https://download-r2.pytorch.org/whl/cu128/torchaudio-2.10.0%2Bcu128-cp311-cp311-manylinux_2_28_x86_64.whl
-torchvision @ https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp311-cp311-manylinux_2_28_x86_64.whl
+torchaudio @ https://download-r2.pytorch.org/whl/cu128/torchaudio-2.10.0%2Bcu128-cp314-cp314-manylinux_2_28_x86_64.whl
+torchvision @ https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp314-cp314-manylinux_2_28_x86_64.whl
 tqdm==4.70.1
 transformers==5.22.1
 triton==3.6.0

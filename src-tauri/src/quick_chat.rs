@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindow};
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Request {
@@ -270,7 +270,7 @@ pub async fn quick_chat_show(
     let chat = if let Some(chat) = app.get_webview_window("quick_chat") {
         chat
     } else {
-        WebviewWindowBuilder::new(
+        crate::webview_environment::window(
             &app,
             "quick_chat",
             WebviewUrl::App("quick-chat.html".into()),
@@ -281,7 +281,6 @@ pub async fn quick_chat_show(
         .center()
         .skip_taskbar(true)
         .visible(false)
-        .additional_browser_args(super::BROWSER_ARGS)
         .build()
         .map_err(|e| e.to_string())?
     };

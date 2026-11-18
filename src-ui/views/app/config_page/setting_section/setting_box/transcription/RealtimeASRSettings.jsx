@@ -13,8 +13,9 @@ import { MAX_USER_TERMS, parseTerm, writtenKey } from "../../../../../../logics/
 const key = endpoint => endpoint ? JSON.stringify([endpoint.cookie, endpoint.serial, endpoint.name, endpoint.media_class]) : "";
 // Select value for "follow the system default"; never a JSON endpoint key.
 const FOLLOW = "follow-default";
-// The silences that may end an utterance (ms); none chosen keeps the server's own 500 ms (#556).
-const SILENCES = [300, 400, 700, 1000];
+// The silences that may end an utterance (ms); none chosen follows the core's default of 400 ms
+// (#556). 500 ms, the default before, stays a choice; a saved value off this list is shown too.
+const SILENCES = [300, 500, 700, 1000];
 
 // The message says what to do (shared with the main switches); the code stays for reports.
 const Failure = ({ code, t }) => <p role="alert">{t(`realtime_toggle.${code}`, { defaultValue: "" })} <code className={styles.error_code}>{code}</code></p>;

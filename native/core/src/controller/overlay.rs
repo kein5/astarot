@@ -87,12 +87,16 @@ pub(crate) struct OverlayMessage {
     pub transliteration_translation: Value,
     /// Who spoke a realtime caption of the game audio, by the speech server's labels (#447).
     pub speakers: Vec<String>,
+    /// Only the translations are shown (`OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES` in the snapshot
+    /// the message or the caption's utterance was admitted with; decision 80).
+    pub only_translated: bool,
 }
 
 #[allow(dead_code)]
 impl OverlayMessage {
-    /// What the logs show. Only the translations when `only_translated`.
-    fn subtitle(&self, only_translated: bool) -> Subtitle {
+    /// What the logs show. Only the translations when [`Self::only_translated`].
+    fn subtitle(&self) -> Subtitle {
+        let only_translated = self.only_translated;
         let readings = |i: usize| self.transliteration_translation.get(i).map(Reading::list).unwrap_or_default();
         Subtitle {
             original: (!only_translated).then(|| self.message.clone()),
@@ -490,12 +494,11 @@ impl Core {
     fn show_overlay_logs(&self, message: &OverlayMessage, small: bool, large: bool, current: &dyn Fn() -> bool) -> Result<(), ()> {
         let Some(vr) = self.vr() else { return Ok(()) };
         let config = self.config();
-        let only_translated = config.get_bool("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES");
-        if only_translated && message.translations.is_empty() {
+        if message.only_translated && message.translations.is_empty() {
             return Ok(());
         }
         let mut failed = false;
-        let subtitle = message.subtitle(only_translated);
+        let subtitle = message.subtitle();
         if small && message.small_log && config.get_bool("OVERLAY_SMALL_LOG") && vr.engine.initialized() {
             let token = vr.engine.publication_token(Surface::Small);
             match vr.subtitles.renderer.small_log(&subtitle) {
@@ -551,17 +554,16 @@ impl Core {
         if !(config.get_bool("OVERLAY_LARGE_LOG") && vr.engine.initialized() && current()) {
             return Ok(());
         }
-        let only_translated = config.get_bool("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES");
         let Some(state) = CaptionState::parse(state) else {
             self.step("overlay: a caption update was refused");
             return Err(());
         };
-        if only_translated && message.translations.is_empty() && state != CaptionState::Discarded {
+        if message.only_translated && message.translations.is_empty() && state != CaptionState::Discarded {
             return Ok(());
         }
         let id: CaptionId = (source.to_string(), namespace.to_string(), item.to_string());
         let direction = if source == "mic" { Direction::Send } else { Direction::Receive };
-        let subtitle = message.subtitle(only_translated);
+        let subtitle = message.subtitle();
         let upload_failed = std::cell::Cell::new(false);
         let result = vr.subtitles.publish_caption(id, state, revision, direction, subtitle, &mut |picture| {
             self.try_publish_large(vr, picture, current).unwrap_or_else(|()| {
@@ -741,12 +743,12 @@ mod tests {
             transliteration_translation: json!([[{"orig": "Hello", "hira": "", "hepburn": ""}]]),
             ..OverlayMessage::default()
         };
-        let all = message.subtitle(false);
+        let all = message.subtitle();
         assert_eq!(all.original.as_deref(), Some("こんにちは"));
         assert_eq!(all.translations.len(), 1, "zip stops at the shorter list");
         assert_eq!(all.translations[0].readings.len(), 1);
         assert_eq!(all.readings[0].hepburn, "konnichiha");
-        let only = message.subtitle(true);
+        let only = OverlayMessage { only_translated: true, ..message }.subtitle();
         assert_eq!((only.original, only.language), (None, None));
     }
 }

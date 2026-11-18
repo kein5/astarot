@@ -14,7 +14,6 @@ import {
     useUpdateSoftware,
     useIsSoftwareUpdating,
     useSoftwareVersion,
-    useComputeMode,
     useCopyToClipboard,
 } from "@logics_common";
 import { CloseButton } from "@common_components";
@@ -104,10 +103,9 @@ const SafeActionButtons = () => {
 
 const ActionButtons = () => {
     const { t } = useI18n();
-    const { updateSoftware, updateSoftware_CUDA } = useUpdateSoftware();
+    const { updateSoftware } = useUpdateSoftware();
     const { currentIsSoftwareUpdating, updateIsSoftwareUpdating } = useIsSoftwareUpdating();
     const { currentLatestSoftwareVersionInfo } = useSoftwareVersion();
-    const { currentComputeMode } = useComputeMode();
     const { appUpdate } = useAppUpdate();
 
     // The backend's start-up check (/run/software_update_info) found a newer version, and this
@@ -116,17 +114,12 @@ const ActionButtons = () => {
     const is_update_available = currentLatestSoftwareVersionInfo?.data?.is_update_available === true
         && appUpdate.info?.mode === "install";
     const is_updating = currentIsSoftwareUpdating?.data === true;
-    const is_cpu = currentComputeMode?.data === "cpu";
 
     const onClickUpdate = () => {
         try {
             updateIsSoftwareUpdating(true);
-            // Both keep the edition this copy was installed as (decision 20).
-            if (is_cpu) {
-                updateSoftware();
-            } else {
-                updateSoftware_CUDA();
-            }
+            // One package for every PC (#288).
+            updateSoftware();
         } catch (e) {
             console.error("[AppErrorBoundary] Update failed:", e);
         }

@@ -12,6 +12,10 @@
 //! The start-up check only reaches the network while `CHECK_SOFTWARE_UPDATES` is on; with the
 //! switch off it reports no update without asking the updater. (Python checked at every start,
 //! but its updater never reached the network.)
+//!
+//! `/run/update_cuda_software` stays in the IPC contract and does what `/run/update_software`
+//! does. Python switched to the CUDA package there; from 0.5.0 that package held the same files,
+//! and since #288 there is no CUDA package at all.
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok, ok_true};
@@ -39,10 +43,10 @@ pub trait SoftwareUpdates: Send + Sync {
     /// `listAvailableReleases`: `[{"tag", "version", "is_prerelease", "published_at"}, ...]`,
     /// newest first. May reach the network; the UI asks for it.
     fn releases(&self) -> Vec<Value>;
-    /// `updateSoftware` (`edition` "cpu") and `updateCudaSoftware` ("gpu"), to the latest
-    /// release of the channel or to `target_version`. Runs on its own thread. Downloads,
-    /// verifies and starts the installer; the app then ends or restarts.
-    fn install(&self, edition: &str, target_version: Option<&str>) -> UpdateOutcome;
+    /// `updateSoftware` and `updateCudaSoftware`, to the latest release of the channel or to
+    /// `target_version`. Runs on its own thread. Downloads, verifies and starts the installer;
+    /// the app then ends or restarts.
+    fn install(&self, target_version: Option<&str>) -> UpdateOutcome;
 }
 
 /// The start-up answer when nothing was asked: no update.
@@ -62,7 +66,7 @@ impl SoftwareUpdates for Disabled {
         Vec::new()
     }
 
-    fn install(&self, _edition: &str, _target_version: Option<&str>) -> UpdateOutcome {
+    fn install(&self, _target_version: Option<&str>) -> UpdateOutcome {
         UpdateOutcome::DownloadFailed
     }
 }
@@ -91,14 +95,14 @@ impl Core {
 
     /// `_runSoftwareUpdate`: on its own thread; anything but a launched installer is reported
     /// on the endpoint, with the version asked for as the error's data.
-    fn run_software_update(self: &Arc<Self>, edition: &'static str, endpoint: &'static str, target_version: Option<String>) {
+    fn run_software_update(self: &Arc<Self>, endpoint: &'static str, target_version: Option<String>) {
         let core = Arc::clone(self);
         std::thread::Builder::new()
             .name("software_update".into())
             .spawn(move || {
                 let updates = Arc::clone(&core.services().software_updates);
                 let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    updates.install(edition, target_version.as_deref())
+                    updates.install(target_version.as_deref())
                 }))
                 .unwrap_or(UpdateOutcome::DownloadFailed);
                 let code = match outcome {
@@ -125,11 +129,12 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         ok(Value::Array(updates.releases()))
     });
     b.with("/run/update_software", OPEN, |core, data| {
-        core.run_software_update("cpu", "/run/update_software", target_version(data));
+        core.run_software_update("/run/update_software", target_version(data));
         ok_true()
     });
+    // Kept for the IPC contract; the same update (#288).
     b.with("/run/update_cuda_software", OPEN, |core, data| {
-        core.run_software_update("gpu", "/run/update_cuda_software", target_version(data));
+        core.run_software_update("/run/update_cuda_software", target_version(data));
         ok_true()
     });
 }

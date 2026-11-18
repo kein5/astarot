@@ -2,7 +2,6 @@ import { TranscriptionConsentController } from "./_app_controllers/Transcription
 import { OcrSetupController } from "./_app_controllers/OcrSetupController";
 import { TranslationSetupController } from "./_app_controllers/TranslationSetupController";
 import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeController";
-import { LocalAsrNoticeController } from "./_app_controllers/LocalAsrNoticeController";
 import { VirtualMicGuideController } from "./_app_controllers/VirtualMicGuideController";
 import { FirstRunSetupController } from "./_app_controllers/FirstRunSetupController";
 import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
@@ -109,7 +108,6 @@ const Contents = ({ locked }: { locked: boolean }) => {
                     <TranslationSetupController />
                     <OcrSetupController />
                     <TelemetryNoticeController />
-                    <LocalAsrNoticeController />
                     <FirstRunSetupController />
                     <VirtualMicGuideController />
                 </>}

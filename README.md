@@ -48,7 +48,7 @@ RVC also needs its runtime, HuBERT and RMVPE. See [model downloads](/docs/voice-
 The latest release is on **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** (the release badge above shows its version). Versions count from 0.1.0, separately from upstream VRCT 3.x. Betas are published from `develop`, stable releases from `main`.
 
 - **Linux:** AppImage, tar.gz, deb and rpm (x64, Vulkan). Versions before 0.5 were tested with real models on CachyOS (KDE Plasma Wayland).
-- **Windows:** installer and zip (CPU), and a CUDA zip. Versions before 0.5 were tested with real models on Windows 11 ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
+- **Windows:** installer and zip, one package for every PC (releases up to 0.5 also have a CUDA zip with the same files). Versions before 0.5 were tested with real models on Windows 11 ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
 
 What has been checked for the current version, per package and feature, and what CI covers versus a real PC, is on **[Platform support](https://kein5.github.io/astarot/en/guide/support)**.
 

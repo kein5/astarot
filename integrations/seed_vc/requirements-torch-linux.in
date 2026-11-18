@@ -1,0 +1,6 @@
+# The official CUDA 12.8 builds of PyTorch for Python 3.14 on Linux x86-64, pinned by URL and SHA-256,
+# and the rest of the runtime. README.md shows how the lock is made from this file.
+torch @ https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp314-cp314-manylinux_2_28_x86_64.whl#sha256=37d71feea068776855686a1512058df3f19f6f040a151f055aa746601678744f
+torchaudio @ https://download-r2.pytorch.org/whl/cu128/torchaudio-2.10.0%2Bcu128-cp314-cp314-manylinux_2_28_x86_64.whl#sha256=90852cbeb1f3519b8b5d91ced7945827e92ad53048687384a7a3c401aeb5cced
+torchvision @ https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp314-cp314-manylinux_2_28_x86_64.whl#sha256=5b7ad3fb6cf03ef2a2fd617cb4b4e41efa9bb0143c67f506c2a3e6765c7b12ad
+-r requirements.in
