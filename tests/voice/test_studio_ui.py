@@ -333,6 +333,45 @@ def test_log_font_size_slider_takes_focus_only_once_opened(studio):
     assert page.evaluate(on_slider), "the opened slider is reachable"
 
 
+def test_log_font_size_settings_fit_the_log_in_a_low_window(studio):
+    # #563: the opened panel was 18rem high whatever the log's height, so in a very low window
+    # its slider was cut off by the log's edge. It is now no taller than the log, and its
+    # settings scroll inside it; closed, it shows the same strip as before.
+    from playwright.sync_api import expect
+
+    page, _ = studio
+    gear = page.get_by_role("button", name="ログのフォントサイズ", exact=True)
+    geometry = (
+        "gear => { const panel = gear.parentElement.parentElement, log = panel.parentElement;"
+        " const p = panel.getBoundingClientRect(), l = log.getBoundingClientRect();"
+        " const slider = panel.querySelector('input[type=range], [role=slider]');"
+        " const s = slider && slider.getBoundingClientRect();"
+        " return { panel: [p.top, p.bottom], log: [l.top, l.bottom],"
+        " slider: s && [s.top, s.bottom], rem: parseFloat(getComputedStyle(document.documentElement).fontSize) }; }"
+    )
+    for width, height in ((870, 654), (870, 300), (400, 200)):
+        page.set_viewport_size({"width": width, "height": height})
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(300)
+        closed = gear.evaluate(geometry)
+        assert closed["panel"][1] <= closed["log"][0] + 2 * closed["rem"] + 1, (height, closed)
+        gear.focus()
+        page.keyboard.press("Enter")
+        expect(gear).to_have_attribute("aria-expanded", "true")
+        page.wait_for_timeout(300)
+        opened = gear.evaluate(geometry)
+        assert opened["panel"][0] >= opened["log"][0] - 1, (height, opened)
+        assert opened["panel"][1] <= opened["log"][1] + 1, (height, opened)
+        assert opened["slider"], "the slider is in the panel"
+        slider = page.locator("input[type=range], [role=slider]").first
+        slider.scroll_into_view_if_needed()
+        bounds = gear.evaluate(geometry)
+        assert bounds["log"][0] - 1 <= bounds["slider"][0] and bounds["slider"][1] <= bounds["log"][1] + 1, (height, bounds)
+        screenshot(page, f"log-settings-{height}")
+        page.keyboard.press("Escape")
+        expect(gear).to_have_attribute("aria-expanded", "false")
+
+
 def test_model_warning_in_styled_screen_keeps_explicit_consent(studio):
     from playwright.sync_api import expect
 
