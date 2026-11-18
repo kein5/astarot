@@ -38,7 +38,7 @@ The training environment lives in `~/.cache/vrct-vox-chatbox-lab/train`:
 
 - `yolox-src`: YOLOX at commit `6ddff4824372906469a7fae2dc3206c7aa4bbaee` (main, 2025-06-08). Tag 0.3.0 predates the `get_dataset` API.
 - `yolox_tiny.pth`: from the YOLOX `0.1.1rc0` release, SHA-256 `9de513de589ac98bb92d3bca53b5af7b9acfa9b0bacb831f7999d0f7afaee8f0`.
-- `venv`: Python 3.11 with PyTorch 2.7 (CUDA 12.6), torchvision, pycocotools, onnx, onnxruntime, loguru, thop, tabulate, scikit-image.
+- `venv`: Python 3.14 (the version `mise.toml` pins) with PyTorch 2.9 (CUDA 12.6) and torchvision 0.24, the first releases with Python 3.14 wheels, plus pycocotools, onnx, onnxruntime, loguru, thop, tabulate and scikit-image (0.26 or later on Python 3.14), and the rest of YOLOX's requirements that its modules import: opencv-python, tqdm, psutil and tensorboard. YOLOX's onnx-simplifier is not needed (`export.py` does not use it) and has no Python 3.14 wheels. The published detector was trained with PyTorch 2.7, before this move.
 
 ```sh
 T=~/.cache/vrct-vox-chatbox-lab/train
