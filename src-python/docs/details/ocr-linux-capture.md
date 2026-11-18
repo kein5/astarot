@@ -123,7 +123,7 @@ RapidOCR の `DownloadFile.run` は例外を投げるものに差し替えてあ
 
 | 部品 | 役割 | 持たないもの |
 |---|---|---|
-| UI (`OcrSharedWindow.jsx`、`useOcrSharedWindow.ts`、`OcrSharedWindowController.jsx`) | ボタン、状態の表示、復元トークンの保存、チャット読み取りをオフにしたときの共有の終了、オンにしたときの共有のやり直し、共有が終わったときのお知らせ | 利用者の操作によらずに頼む処理 (起動時、ページを開いたとき、動作中の失敗時のどれでも頼まない) |
+| UI (`OcrSharedWindow.jsx`、`useOcrSharedWindow.ts`、`OcrSharedWindowController.tsx`) | ボタン、状態の表示、復元トークンの保存、チャット読み取りをオフにしたときの共有の終了、オンにしたときの共有のやり直し、共有が終わったときのお知らせ | 利用者の操作によらずに頼む処理 (起動時、ページを開いたとき、動作中の失敗時のどれでも頼まない) |
 | Tauri (`portal_screencast.rs`) | ポータルとのやりとり、ヘルパーの起動と停止、セッションが閉じたことの検出 | 画素 |
 | ヘルパー (`native/screen-capture/main.c`) | PipeWire の映像を受け取り、フレームファイルへ書く | ポータル、D-Bus |
 | バックエンド (`ocr_capture_portal.py`、`ocr_capture.py`) | フレームファイルを読む。共有が終わったことを状態に出す | 共有を始める・終える処理 |
@@ -150,7 +150,7 @@ Request の Response 待ち、期限、取り消し、ポータルの再起動�
   もう一度送る。2 回目の開始では共有中なので、やり直しは繰り返さない。デスクトップが復元せずに選択画面を
   出した場合に備えて 15 秒 (`RESTORE_LIMIT_MS`) で `screencast_stop` を呼び、要求を取り下げる (トークンは空になる)。
   名前で見つかるウィンドウがあれば開始は成功するので、この処理は動かない。やり直している間は共有の状態に
-  `restoring` を立て、`OcrSharedWindowController.jsx` がチャット読み取りのスイッチを待ちの表示に保つ
+  `restoring` を立て、`OcrSharedWindowController.tsx` がチャット読み取りのスイッチを待ちの表示に保つ
   (失敗した 1 回目の開始がオフを報告するため)。あきらめたときはエラー処理がオフに戻す
 
 ### ヘルパー

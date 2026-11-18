@@ -5,7 +5,7 @@ import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 const setup = async () => {
     const runtime = hooks(), changes = [];
     const state = { language: "en", ready: false };
-    const { UiLanguageController } = await loadModule(new URL("./UiLanguageController.jsx", import.meta.url), runtime, {
+    const { UiLanguageController } = await loadModule(new URL("./UiLanguageController.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ i18n: { changeLanguage: language => changes.push(language) } }) },
         "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: state.language } }) },
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }) },

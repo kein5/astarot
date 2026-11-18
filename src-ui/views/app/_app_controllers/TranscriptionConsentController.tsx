@@ -4,9 +4,13 @@ import { useTranscription } from "@logics_configs";
 import { useMainFunction } from "@logics_main";
 import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
+import type { TranscriptionConsentRequest } from "../../../logics/transcription/useTranscriptionConsent";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
+
+// The engine the user chose, and the request it answers.
+type Selection = { engine: string; request: TranscriptionConsentRequest };
 
 export const TranscriptionConsentController = () => {
     const { t } = useI18n();
@@ -16,8 +20,8 @@ export const TranscriptionConsentController = () => {
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const { dialog, close } = useConsentDialog(!!request);
-    const selection = useRef(null);
-    const [choice, setChoice] = useState(null);
+    const selection = useRef<Selection | null>(null);
+    const [choice, setChoice] = useState<Selection | null>(null);
     const cancel = () => { selection.current = null; setChoice(null); close(); setRequest(null); };
 
     useEffect(() => () => { selection.current = null; setRequest(null); }, [setRequest]);
@@ -35,11 +39,12 @@ export const TranscriptionConsentController = () => {
         // Both choices start at once; a missing speech.cpp model is reported by the switch
         // itself, with the way to download it after consent.
         setRequest(null);
-        (request.endpoint.endsWith("_send") ? setTranscriptionSend : setTranscriptionReceive)(true);
+        // The request is the one the choice answers (checked above).
+        (waiting.request.endpoint.endsWith("_send") ? setTranscriptionSend : setTranscriptionReceive)(true);
     }, [request, choice, currentSelectedTranscriptionEngine.data, currentSelectedTranscriptionEngine.state]);
 
     if (!request) return null;
-    const choose = async engine => {
+    const choose = async (engine: string) => {
         if (selection.current) return;
         const waiting = { engine, request };
         selection.current = waiting;

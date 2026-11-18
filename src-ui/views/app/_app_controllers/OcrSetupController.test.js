@@ -7,7 +7,7 @@ import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 async function fixture(context) {
     const runtime = hooks(), events = [];
     const setup = await loadModule(new URL("../../../logics/ocr/useOcrSetup.ts", import.meta.url), runtime);
-    const { OcrSetupController } = await loadModule(new URL("./OcrSetupController.jsx", import.meta.url), runtime, {
+    const { OcrSetupController } = await loadModule(new URL("./OcrSetupController.tsx", import.meta.url), runtime, {
         "@store": {
             useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: value => events.push(["config_page", value]) }),
             useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: value => events.push(["tab", value]) }),

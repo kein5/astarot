@@ -50,7 +50,7 @@ async function fixture(context) {
         "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
     });
     const error = errors._useBackendErrorHandling().errorHandling_Backend;
-    const { TranscriptionConsentController } = await loadModule(new URL("../../views/app/_app_controllers/TranscriptionConsentController.jsx", import.meta.url), runtime, {
+    const { TranscriptionConsentController } = await loadModule(new URL("../../views/app/_app_controllers/TranscriptionConsentController.tsx", import.meta.url), runtime, {
         "@logics_configs": configs, "@logics_main": main,
         "@store": { useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: value => calls.push(["open_config_page", value]) }),
             useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: value => calls.push(["config_tab", value]) }) },

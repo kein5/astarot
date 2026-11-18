@@ -295,6 +295,14 @@ export interface SelectableLanguage {
 // Each hotkey's keys, null when none is set (/get/data/hotkeys).
 export type Hotkeys = Record<string, string[] | null>;
 
+// The main switches that were on when the settings opened (ConfigPageCloseTriggerController).
+// translation is there only once the settings have been opened.
+export interface MainFunctionsStateMemory {
+    translation?: boolean;
+    transcription_send: boolean;
+    transcription_receive: boolean;
+}
+
 // Common
 export const { atomInstance: Atom_IsBackendReady, useHook: useStore_IsBackendReady } = createAtomWithHook(false, "IsBackendReady");
 export const { atomInstance: Atom_BackendStartupState, useHook: useStore_BackendStartupState } = createAtomWithHook(initial<BackendStartupState>("starting"), "BackendStartupState");
@@ -309,10 +317,10 @@ export const { atomInstance: Atom_IsOpenedConfigPage, useHook: useStore_IsOpened
 // Why each main switch cannot be turned on yet (main/switchBlocks.ts): {switch_id: {reason, action}}.
 // The main window works it out once (SwitchBlocksController) and the VR panel reads the same value.
 export const { atomInstance: Atom_SwitchBlocks, useHook: useStore_SwitchBlocks } = createAtomWithHook(initial<SwitchBlocks>({}), "SwitchBlocks", { is_state_ok: true });
-export const { atomInstance: Atom_MainFunctionsStateMemory, useHook: useStore_MainFunctionsStateMemory } = createAtomWithHook({
+export const { atomInstance: Atom_MainFunctionsStateMemory, useHook: useStore_MainFunctionsStateMemory } = createAtomWithHook(initial<MainFunctionsStateMemory>({
     transcription_send: false,
     transcription_receive: false,
-}, "MainFunctionsStateMemory");
+}), "MainFunctionsStateMemory");
 export const { atomInstance: Atom_OpenedQuickSetting, useHook: useStore_OpenedQuickSetting } = createAtomWithHook("", "OpenedQuickSetting");
 export const { atomInstance: Atom_LatestSoftwareVersionInfo, useHook: useStore_LatestSoftwareVersionInfo } = createAtomWithHook({
     is_update_available: false,
