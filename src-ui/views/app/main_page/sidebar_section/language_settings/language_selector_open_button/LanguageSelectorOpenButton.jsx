@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useI18n } from "@useI18n";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import clsx from "clsx";
@@ -13,6 +14,7 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
     const { t, i18n } = useI18n();
     const { updateIsOpenedLanguageSelector, currentIsOpenedLanguageSelector } = useStore_IsOpenedLanguageSelector();
     const { closeOverlay } = useIsMainPageCompactMode();
+    const hint_id = useId();
 
     const {
         currentSelectedPresetTabNumber,
@@ -59,6 +61,10 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
     };
 
     const title = getTitle(selector_key);
+    // What this language is for, in both directions (#569); the swap button no longer says that
+    // the pair is translated both ways. It is the field's tooltip and accessible description, so
+    // the rail keeps its height; the language list shows it as a line.
+    const hint = selector_key === "your_language" ? t("main_page.your_language_hint") : t("main_page.target_language_hint");
 
     if (getVariable(selector_key)[target_key].enable === false) return null;
 
@@ -74,11 +80,13 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
             </div>
             {/* A button so the selector also opens from the keyboard. */}
             <button type="button" className={styles.dropdown_menu_container} onClick={toggleSelector}
-                aria-label={country_text ? `${title}: ${language_text} (${country_text})` : `${title}: ${language_text}`} aria-expanded={is_opened}>
+                aria-label={country_text ? `${title}: ${language_text} (${country_text})` : `${title}: ${language_text}`} aria-expanded={is_opened}
+                title={hint} aria-describedby={hint_id}>
                 <span className={styles.selected_language} data-skeleton="">{language_text}</span>
                 {country_text && <span className={styles.selected_language} data-skeleton="">({country_text})</span>}
                 <ArrowLeftSvg className={arrow_class_names} aria-hidden="true" />
             </button>
+            <span id={hint_id} className={styles.visually_hidden}>{hint}</span>
         </div>
     );
 };

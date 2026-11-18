@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 
 import { useLanguageSettings } from "@logics_main";
@@ -6,10 +6,13 @@ import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/co
 import styles from "./LanguageSelector.module.scss";
 
 import { LanguageSelectorTopBar } from "./language_selector_top_bar/LanguageSelectorTopBar";
-export const LanguageSelector = ({ title, onClickFunction }) => {
+// `hint` says what the language is for, in both directions (#569). It stays in sight above the
+// list and describes the search field, which has the focus when the list opens.
+export const LanguageSelector = ({ title, hint, onClickFunction }) => {
     const { t, i18n } = useI18n();
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
     const { currentSelectableLanguageList } = useLanguageSettings();
+    const hint_id = useId();
 
     // Typing narrows the list by language or country, or by the beginning of an
     // ISO 639 code ("j", "ja", "zh-Hant"), whose languages come first; Enter picks the first
@@ -27,6 +30,7 @@ export const LanguageSelector = ({ title, onClickFunction }) => {
                 <div className={styles.filter_row}>
                     <input ref={filter} type="search" className={styles.filter} value={query}
                         placeholder={t("main_page.language_selector.filter")} aria-label={t("main_page.language_selector.filter")}
+                        aria-describedby={hint ? hint_id : undefined}
                         onChange={event => setQuery(event.target.value)}
                         onKeyDown={event => {
                             if (isLanguagePickKey(event) && shown.length) {
@@ -34,6 +38,7 @@ export const LanguageSelector = ({ title, onClickFunction }) => {
                                 onClickFunction({ language: shown[0].language, country: shown[0].country });
                             }
                         }} />
+                    {hint && <p id={hint_id} className={styles.hint}>{hint}</p>}
                 </div>
                 {shown.length ? (
                     <div className={styles.language_list}>
