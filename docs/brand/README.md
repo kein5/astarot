@@ -16,7 +16,7 @@ The ASTAROT brand set is in `astarot/`. [ADR-011](../adr/adr-011-astarot-brand-a
 | `favicon.svg`, `favicon-<size>.png` | The favicon: the symbol in Dark Plum without a tile. The PNGs are 16 to 64 px. |
 | `brand-board.svg` | One sheet with the logos, the icon, the favicon, the colors and the typeface. |
 
-The PNG files are rendered from the SVG files. No tool in this repository renders them; after changing an SVG, render its PNG again at the same pixel size.
+The symbols, the logos and the brand board also come as PNG files with the same names. The PNG files are rendered from the SVG files. No tool in this repository renders them; after changing an SVG, render its PNG again at the same pixel size.
 
 The wordmark is outlined, so it looks the same without fonts. The subtitle in the logos and the brand board is SVG text in Outfit, which shows correctly only where Outfit is installed. The Outfit license and its use are recorded in `licenses/outfit/`.
 
