@@ -12,13 +12,13 @@
 
 ## 現状の量
 
-第 6 段の 2 回目（`app` の入口と `app/others`）を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の 3 回目（`app/_app_controllers` の 16 本）を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 3 本、106KB | 151 本、606KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 139 本、745KB | 74 本、284KB（うち vanilla-extract の `.css.ts` が 17 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 198 本、1.3MB | 0 本 |
+| `src-ui/logics`（試験を除く） | 3 本、106KB | 149 本、601KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 120 本、711KB | 91 本、314KB（うち vanilla-extract の `.css.ts` が 17 本） |
+| 試験（`*.test.js` と `src-ui/logics/test/`） | 198 本、1.2MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch` は済み。`useReceiveRoutes`、`_useBackendErrorHandling`、`useHotkeys` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）、`app` の入口と `app/others` は済み。`app` の残りの区画が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本は済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -132,7 +132,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 `app` は次の順に区画ごとの PR で移します。
 
 1. `app/others` と `app` の入口
-2. `app/_app_controllers`
+2. `app/_app_controllers`（2 回に分けます）
 3. `app/main_page`（`VrLogWindow` も）
 4. `app/io_flow`（`VrIoFlowWindow` と、`FlowNode` の型の分割も）
 5. `app/config_page`。`setting_box` は区画ごとに分けます。
@@ -143,6 +143,19 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - `app/others/index.ts` は拡張子なしで再輸出します（`common_components/index.ts` と同じ）。移す前と後のどちらのファイルも指せます。
 - 停止とミュートのボタン（`StopActions`）は、音声の状態（`VoiceStatus`、`RouteSnapshot`）の開いたフィールド（`[key: string]: unknown`）を読みます。待ちの数は数値のときだけ、ミュートの要求は `true` か `false` のときだけ使います。
 - 通知（`SnackbarController`）は、通知ごとのクラスを渡すのをやめました。react-toastify 11 は `toastClassName` をコンテナーからしか読まないので、そのクラスは前から画面に付いていませんでした。見た目は変わりません。付けるかどうかは見た目を確かめてから決めます。
+
+2 の 1 回目で、`app/_app_controllers` の 16 本と `index` を移しました。
+
+- 設定画面を開く前のメイン機能の状態（`MainFunctionsStateMemory`）に、ストアで型を付けました。設定画面を開くと、コントローラーが `translation` も書き込むので、型にはそれも含めます。初めの値にはないので、省略できるフィールドです。
+- 角の丸みは、Windows のバージョンを User-Agent Client Hints（`navigator.userAgentData`）から読みます。TypeScript の DOM の型にはまだないので、`src-ui/navigatorUAData.d.ts` で読む所だけを宣言しています。WebKitGTK にはないプロパティなので、省略できるものとして宣言しています。
+- Quick Chat から受け取るメッセージは、ネイティブのコマンドが返す型（`QuickChatRequest`）として受け取ります。`quickChat/bridge.ts` と同じく宣言だけで、実行時には確かめません。
+
+次の 6 本は、型を付ける作業が大きいので 2 回目に移します。
+
+- `FirstRunSetupController`、`VirtualMicGuideController`、`TranslationSetupController`: 設定画面の部品（`LegacyModelDownloadDialog` など、JavaScript）に props を渡します。部品の推論された型では渡せないものがあるので、部品にも型を付けます。
+- `StartPythonController`: 受け取った応答を `useReceiveRoutes`（JavaScript）に渡します。
+- `VrPanelSyncController`: VR パネルから届く送信の要求を、確かめてからバックエンドへ渡します。届く値を確かめる型ガードが要ります。
+- `CaptionOverlayController`: 設定の値から、字幕の窓に渡す値（`CaptionSnapshot`）を組み立てます。
 
 ### 第 7 段：試験とハーネス
 
