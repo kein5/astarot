@@ -3,9 +3,11 @@
 Status: 採用（2026-11-18）。保管先を OS の資格情報ストアへ移すことを決める。実施は Issue #575 で、9 の判断と実施の内容は 10 に書き足した。
 Date: 2026-11-18
 Decision owners: リポジトリの保守担当者
-Related: Issue #575、Issue #517、PR #384、[中核の統合](core-integration.md)の「判断が要ること」の 35 と 37、[データと保存](../spec/data-and-persistence.md#apiキーの保存先)、[横断的な振る舞い](../spec/cross-cutting.md)、[ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)、[名称と識別子](project-rename.md)、`native/core/src/config/secrets.rs`、`NOTICE.md`
+Related: Issue #575、Issue #517、PR #384、[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の 35 と 37、[データと保存](../spec/data-and-persistence.md#apiキーの保存先)、[横断的な振る舞い](../spec/cross-cutting.md)、[ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)、[名称と識別子](../voice-stack/project-rename.md)、`native/core/src/config/secrets.rs`、`NOTICE.md`
 
 この ADR の「アプリ」は本リポジトリのアプリを指す。表示名は ASTAROT（ADR-011）で、保存先やアプリ ID などの識別子は VRCT-VOX のままである。
+
+> **移行の注記**（2026-11-18、Issue #587）：この ADR は `docs/voice-stack/` にあったときに書いた。7 でファイル名だけを書いた `release-candidates.md` は、いまも `docs/voice-stack/` にある（[配布候補](../voice-stack/release-candidates.md)）。本文は書き換えていない。
 
 ## 1. Context（背景）
 
@@ -40,7 +42,7 @@ Windows は DPAPI で暗号化しているので、ファイルが外へ出て�
 
 ### 1.3 未決のまま残っていた判断
 
-保管先の方式は、[中核の統合](core-integration.md)の「判断が要ること」の 35 で「いまの `secrets.json` のまま」と「OS の資格情報の保管庫」の 2 案が並び、決まっていなかった。0.5.0 では後戻りしやすい `secrets.json` を残した。この ADR はその判断を引き取る。
+保管先の方式は、[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の 35 で「いまの `secrets.json` のまま」と「OS の資格情報の保管庫」の 2 案が並び、決まっていなかった。0.5.0 では後戻りしやすい `secrets.json` を残した。この ADR はその判断を引き取る。
 
 ## 2. Decision（決定）
 
@@ -131,7 +133,7 @@ Windows は DPAPI で暗号化しているので、ファイルが外へ出て�
 5. 途中で落ちても、どの項目も古い保管先か OS のストアのどちらかに残る。次の起動で同じ手順を続ける。
 6. 読めない `secrets.json` は、移行の手順では動かさない。いまの `FileStore` の扱い（次にキーを書くときに `.unreadable-` へ移す）は、9 で決める `secrets.json` の扱いに合わせて見直す。
 
-ストアに置く項目の名前（Windows のターゲット名、Secret Service の属性）は、内部識別子の VRCT-VOX を使う。表示名の ASTAROT は使わない。識別子を変えるときは、[名称と識別子](project-rename.md)の方針どおり移行を用意する。
+ストアに置く項目の名前（Windows のターゲット名、Secret Service の属性）は、内部識別子の VRCT-VOX を使う。表示名の ASTAROT は使わない。識別子を変えるときは、[名称と識別子](../voice-stack/project-rename.md)の方針どおり移行を用意する。
 
 ### 4.4 変わらないもの
 
@@ -143,7 +145,7 @@ Windows は DPAPI で暗号化しているので、ファイルが外へ出て�
 ## 5. 非目標
 
 - 同じユーザーで動く悪意のあるプログラムからキーを守ること
-- WebSocket のトークン（`WEBSOCKET_AUTH_TOKEN`）と Linux の画面共有の再開トークン（`OCR_PORTAL_RESTORE_TOKEN`）を移すこと。移すかどうかは[中核の統合](core-integration.md)の 35 の「ほかの秘密の値も移すか」で決める。移すと決めたときは、この ADR の保管先と性質に従う
+- WebSocket のトークン（`WEBSOCKET_AUTH_TOKEN`）と Linux の画面共有の再開トークン（`OCR_PORTAL_RESTORE_TOKEN`）を移すこと。移すかどうかは[中核の統合](../voice-stack/core-integration.md)の 35 の「ほかの秘密の値も移すか」で決める。移すと決めたときは、この ADR の保管先と性質に従う
 - Papago の Client ID を秘密の値として扱い続けるかを決め直すこと（同じ文書の 37）
 - macOS の Keychain に対応すること。アプリは macOS を対象にしていない
 - ネットワーク上の保管先や、パスワードマネージャーとの連携
