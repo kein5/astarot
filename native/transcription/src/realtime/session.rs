@@ -5,8 +5,9 @@
 //! One thread owns the connection: it sends the audio as it comes (48 kHz frames converted to
 //! 24 kHz blocks of 20 ms) and reads the server's events between sends. Audio older than
 //! 250 ms, a mailbox of more than 32 updates, a server that does not finish an utterance in
-//! 15 s (120 s for the first one, while a GPU builds its kernels) or a capture that fails end
-//! the session with a fixed code. Nothing here logs audio or text.
+//! 15 s (120 s for the first one, while a GPU builds its kernels), a capture that fails or a
+//! microphone that delivers nothing (5 s after it opened, 2 s after its last audio) end the
+//! session with a fixed code. Nothing here logs audio or text.
 
 use super::events::{Events, Update};
 use crate::capture::{Capture, CapturePlatform, FrameBuilder, Source, Target};
@@ -31,6 +32,11 @@ const MAX_EVENT: usize = 1024 * 1024;
 const MAILBOX: usize = 32;
 /// Windows can hold a microphone's open until the user answers its question.
 const CAPTURE_OPEN_TIMEOUT: Duration = Duration::from_secs(120);
+/// A microphone that delivers nothing this long after it opened, or this long after its last
+/// audio, has stopped (`_START_TIMEOUT_S` and `_STALL_NS` of `capture_windows.py`, and the
+/// same limits of the Linux helper). A speaker's loopback is filled with silence instead.
+const FIRST_AUDIO_TIMEOUT: Duration = Duration::from_secs(5);
+const STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// What a session asks of the server (`SessionOptions`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -545,6 +551,8 @@ impl Session {
             let mut resampler = Resampler::new(48000, RATE);
             let mut pending_since: HashMap<String, Instant> = HashMap::new();
             let mut first_result_seen = false;
+            let opened = Instant::now();
+            let mut last_audio: Option<Instant> = None;
             while !self.stopped() {
                 // Audio first: it must not wait behind the server's events.
                 let frames: Vec<(Vec<i16>, Instant)> = {
@@ -558,6 +566,17 @@ impl Session {
                     ingress.samples = 0;
                     ingress.frames.drain(..).collect()
                 };
+                if let Some((_, heard)) = frames.last() {
+                    last_audio = Some(*heard);
+                } else if self.inner.source == Source::Mic {
+                    let silent = match last_audio {
+                        Some(heard) => heard.elapsed() >= STALL_TIMEOUT,
+                        None => opened.elapsed() >= FIRST_AUDIO_TIMEOUT,
+                    };
+                    if silent {
+                        return Err(Failure::Session("realtime_capture_failed"));
+                    }
+                }
                 for (frame, heard) in frames {
                     if heard.elapsed() > MAX_AGE {
                         return Err(Failure::Realtime("stale_capture"));
@@ -626,6 +645,78 @@ mod tests {
         assert_eq!(base64(b"f"), "Zg==");
         assert_eq!(base64(b"fo"), "Zm8=");
         assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+    }
+
+    // The ingress between the capture and the connection, after
+    // `src-python/test/test_realtime_ingress_wait.py`.
+
+    struct NoDevice;
+
+    impl CapturePlatform for NoDevice {
+        fn open(&self, _: Source, _: &Target, _: Duration, _: crate::capture::OnAudio, _: crate::capture::OnError) -> Result<Box<dyn Capture>, String> {
+            Err("asr_capture_endpoint_missing".into())
+        }
+        fn endpoints(&self, _: Source) -> Result<Vec<(Endpoint, String)>, String> {
+            Ok(Vec::new())
+        }
+        fn default_endpoint(&self, _: Source) -> Result<Endpoint, String> {
+            Err("realtime_default_endpoint_missing".into())
+        }
+    }
+
+    fn session() -> Session {
+        let options = Options {
+            base_url: "http://127.0.0.1:9".into(),
+            model: "m".into(),
+            language: "ja".into(),
+            vocabulary: Vec::new(),
+            silence_duration_ms: None,
+        };
+        let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
+        Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice), vrct_translation::http::direct())
+    }
+
+    fn refused_for(session: &Session) -> Option<&'static str> {
+        session.inner.ingress.lock().unwrap().reason
+    }
+
+    #[test]
+    fn the_ingress_holds_at_most_200_ms_or_20_frames() {
+        let ten_ms_frames = session();
+        for _ in 0..10 {
+            assert!(ten_ms_frames.push(vec![0; 960], Instant::now()));
+        }
+        assert!(!ten_ms_frames.push(vec![0; 960], Instant::now()), "an 11th frame of 20 ms is past 200 ms");
+        assert_eq!(refused_for(&ten_ms_frames), Some("input_overflow"));
+        assert!(ten_ms_frames.inner.ingress.lock().unwrap().frames.is_empty(), "an overflow drops what waited");
+        assert!(!ten_ms_frames.push(vec![0; 10], Instant::now()), "and refuses everything after");
+
+        let small = session();
+        for _ in 0..20 {
+            assert!(small.push(vec![0; 10], Instant::now()));
+        }
+        assert!(!small.push(vec![0; 10], Instant::now()));
+        assert_eq!(refused_for(&small), Some("input_overflow"));
+    }
+
+    #[test]
+    fn the_ingress_refuses_audio_heard_more_than_250_ms_ago() {
+        let stale = session();
+        let heard = Instant::now().checked_sub(Duration::from_millis(300)).expect("the clock runs");
+        assert!(!stale.push(vec![0; 960], heard));
+        assert_eq!(refused_for(&stale), Some("invalid_capture"));
+    }
+
+    #[test]
+    fn a_stopped_session_takes_no_audio_and_cannot_start_again() {
+        let stopped = session();
+        assert!(stopped.push(vec![0; 960], Instant::now()));
+        stopped.request_stop();
+        assert!(!stopped.push(vec![0; 960], Instant::now()));
+        assert_eq!(refused_for(&stopped), Some("stopped"));
+        assert!(stopped.inner.ingress.lock().unwrap().frames.is_empty(), "the stop dropped what waited");
+        assert_eq!(stopped.start(), Err("realtime_session_single_use"));
+        assert_eq!(stopped.state(), "closed");
     }
 
     #[test]

@@ -58,12 +58,9 @@ def run(argv, *, cwd=ROOT, env=None):
 APP_CRATES = ('core', 'adapters', 'audio-routing', 'ocr-runtime', 'openvr-client', 'ops', 'speech-server', 'transcription',
               'translation', 'translate-onnx', 'tts', 'voice-conversion', 'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
-# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text, and
-# native/vr-overlay checks its layout against the VR page's.
+# the workspace: native/vr-overlay checks its layout against the VR page's.
 # tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
-CRATE_INPUTS = ('src-python/models/model_downloads/speechcpp_models.py',
-                'src-python/models/model_downloads/speechcpp_asr.py',
-                'src-ui/views/vr/vr_layout.json')
+CRATE_INPUTS = ('src-ui/views/vr/vr_layout.json',)
 
 
 def tauri_workspace(work, internal):

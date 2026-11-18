@@ -195,8 +195,8 @@ pub fn catalog() -> Vec<Model> {
             ],
         ),
     ];
-    // Recognizers: every file of each offered speech.cpp name, read from the same text as
-    // speechcpp_asr.py (speechcpp.rs). Ids made before keep their folders.
+    // Recognizers: every file of each offered speech.cpp name (data/speechcpp_asr.json,
+    // speechcpp.rs). Ids made before keep their folders.
     models.extend(speechcpp::asr_models());
     models.extend(vec![
         model(

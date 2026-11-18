@@ -6,7 +6,9 @@ import { CLOUD_TRANSCRIPTION_ENGINES } from "./cloudTranscription.ts";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 const setter = read("./config_page_setter/ui_config_setter.js");
-const mainloop = read("../../../src-python/mainloop.py");
+// The backend's endpoints: the spec's list, which the core's endpoint_coverage test keeps equal
+// to what the core serves.
+const endpoints = read("../../../docs/spec/reference/ipc-endpoints.md");
 
 // Base_Name -> base_endpoint_name for every generated setting.
 const settings = Object.fromEntries([...setter.matchAll(/Base_Name: "(\w+)",[^{}]*?base_endpoint_name: "(\w+)"/gs)]
@@ -22,16 +24,18 @@ test("each cloud engine's settings reach backend endpoints that exist", () => {
         };
         for (const [setting, endpoint] of Object.entries(expected)) {
             assert.equal(settings[setting], endpoint, `${setting} should use ${endpoint}`);
-            assert.ok(mainloop.includes(`"/get/data/${endpoint}"`), `backend has no /get/data/${endpoint}`);
+            assert.ok(endpoints.includes(`\`/get/data/${endpoint}\``), `backend has no /get/data/${endpoint}`);
         }
     }
     assert.equal(settings.SelectableTranscriptionEngines, "selectable_transcription_engines");
 });
 
 test("each cloud engine id is one the backend knows", () => {
-    const providers = read("../../../src-python/models/transcription/transcription_openai_compatible.py");
+    // The OpenAI-compatible engines the core builds a recognizer for (`COMPATIBLE_ENGINES`).
+    const core = read("../../../native/core/src/controller/transcription.rs");
+    const compatible = core.match(/const COMPATIBLE_ENGINES: \[&str; \d+\] = \[([^\]]*)\]/)?.[1] ?? "";
     for (const { id } of CLOUD_TRANSCRIPTION_ENGINES) {
-        assert.ok(id === "Deepgram" || providers.includes(`"${id}"`), `unknown engine ${id}`);
+        assert.ok(id === "Deepgram" || compatible.includes(`"${id}"`), `unknown engine ${id}`);
     }
 });
 

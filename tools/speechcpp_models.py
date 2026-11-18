@@ -6,8 +6,8 @@
 
 The download catalog offers speech.cpp's models at the revisions, sizes and SHA-256 that
 speech.cpp's own catalog pins (`speech models --json`). This tool writes them, as speech.cpp
-answers them, to src-python/models/model_downloads/speechcpp_models.py, so the app holds no
-second, hand-typed copy. Run it with the speech.cpp release the app bundles
+answers them, to native/ops/data/speechcpp_models.json, so the app holds no second, hand-typed
+copy. Run it with the speech.cpp release the app bundles
 (tools/speechcpp_bundle.py VERSION); it refuses any other. The executable is started with an
 empty, temporary model folder, so it reads no model and fetches nothing.
 
@@ -24,14 +24,8 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / 'src-python/models/model_downloads/speechcpp_models.py'
+OUTPUT = ROOT / 'native/ops/data/speechcpp_models.json'
 MANIFEST = ROOT / 'docs/voice-stack/speechcpp-bundle-artifacts.json'
-HEADER = '''"""speech.cpp's model catalog (`speech models --json`), as tools/speechcpp_models.py wrote it.
-
-Generated: do not edit. Run the tool again with the bundled speech.cpp release instead.
-The value is JSON as well as Python, so native/ops reads the same text.
-"""
-SNAPSHOT = '''
 
 
 def _require(condition, what):
@@ -76,10 +70,7 @@ def normalize(data, version):
 
 
 def render(snapshot):
-    # No true, false or null anywhere, so the literal reads the same as Python and as JSON.
-    text = json.dumps(snapshot, ensure_ascii=True, indent=1)
-    _require(not re.search(r'\b(true|false|null)\b', text), 'literal')
-    return HEADER + text + '\n'
+    return json.dumps(snapshot, ensure_ascii=True, indent=1) + '\n'
 
 
 def bundled_version():
@@ -95,9 +86,7 @@ def from_speech(executable):
 
 
 def current():
-    namespace = {}
-    exec(compile(OUTPUT.read_text(encoding='utf-8'), str(OUTPUT), 'exec'), namespace)
-    return namespace['SNAPSHOT']
+    return json.loads(OUTPUT.read_text(encoding='utf-8'))
 
 
 def main(argv=None):

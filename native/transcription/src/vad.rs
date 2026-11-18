@@ -57,10 +57,16 @@ impl Segmenter for EnergyListener {
     }
 }
 
+/// The longest segment a VAD cuts when speech never pauses (`_MAX_SPEECH_DURATION_MS` of
+/// `transcription_recorder.py`). It is fixed whatever `*_RECORD_TIMEOUT` says: on the VAD path
+/// the record timeout only bounded a read, and shorter cuts tried in Python called the engine so
+/// often that recognition got worse.
+pub const MAX_SPEECH_SECONDS: f64 = 7.0;
+
 /// A voice activity detector the recorder can use in place of the energy listener.
 pub trait VadEngine: Send + Sync {
     /// A segmenter for audio of `rate` and `channels`. `max_speech_seconds` is the longest
-    /// segment (`*_RECORD_TIMEOUT`, 0 for none); longer speech ends with [`Cut::Limit`].
+    /// segment ([`MAX_SPEECH_SECONDS`]); longer speech ends with [`Cut::Limit`].
     fn segmenter(&self, rate: u32, channels: usize, max_speech_seconds: f64) -> Box<dyn Segmenter>;
 }
 

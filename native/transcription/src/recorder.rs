@@ -236,10 +236,12 @@ fn listen(shared: Arc<Shared>, receiver: Receiver<Chunk>, settings: Settings, en
         }
         let channels = usize::from(channels.max(1));
         if listener.as_ref().is_none_or(|(_, r, c)| (*r, *c) != (rate, channels)) {
-            let limit = settings.record_timeout.min(settings.phrase_timeout);
             let created: Box<dyn Segmenter> = match &settings.vad {
-                Some(vad) => vad.0.segmenter(rate, channels, limit),
-                None => Box::new(EnergyListener::new(rate, channels, settings.threshold, settings.automatic_threshold, limit)),
+                Some(vad) => vad.0.segmenter(rate, channels, crate::vad::MAX_SPEECH_SECONDS),
+                None => {
+                    let limit = settings.record_timeout.min(settings.phrase_timeout);
+                    Box::new(EnergyListener::new(rate, channels, settings.threshold, settings.automatic_threshold, limit))
+                }
             };
             listener = Some((created, rate, channels));
             shared.clips.lock().unwrap_or_else(|e| e.into_inner()).format = Some((rate, channels));

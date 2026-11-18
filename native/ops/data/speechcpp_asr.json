@@ -1,0 +1,29 @@
+{
+ "offers": [
+  {"name": "qwen3-asr-0.6b", "label": "Qwen3-ASR 0.6B", "provider": "Qwen / sakasegawa", "license": "Apache-2.0", "licenses": ["README.md", "https://www.apache.org/licenses/LICENSE-2.0"], "notice": "qwen_asr"},
+  {"name": "qwen3-asr-1.7b", "label": "Qwen3-ASR 1.7B", "provider": "Qwen / sakasegawa", "license": "Apache-2.0", "licenses": ["README.md", "https://www.apache.org/licenses/LICENSE-2.0"], "notice": "qwen_asr"},
+  {"name": "reazonspeech-v2", "label": "ReazonSpeech v2", "provider": "Reazon Research / sakasegawa", "license": "Apache-2.0", "licenses": ["README.md", "https://www.apache.org/licenses/LICENSE-2.0"], "notice": "reazonspeech"},
+  {"name": "parakeet-tdt_ctc-0.6b-ja", "label": "Parakeet TDT-CTC 0.6B ja", "provider": "NVIDIA / sakasegawa", "license": "CC BY 4.0", "licenses": ["README.md", "https://creativecommons.org/licenses/by/4.0/"], "notice": "parakeet_ja"},
+  {"name": "parakeet-tdt-0.6b-v3", "label": "Parakeet TDT 0.6B v3", "provider": "NVIDIA / sakasegawa", "license": "CC BY 4.0", "licenses": ["README.md", "https://creativecommons.org/licenses/by/4.0/"], "notice": "parakeet_v3"},
+  {"name": "haas-ja-v1.0", "label": "Haas-ja v1.0", "provider": "Third Intelligence / sakasegawa", "license": "Apache-2.0", "licenses": ["README.md", "LICENSE"], "notice": "haas"},
+  {"name": "nemotron-3.5-transcribe", "label": "Nemotron 3.5 Transcribe 30B-A4B", "provider": "NVIDIA / sakasegawa", "license": "OpenMDW-1.1", "licenses": ["README.md", "LICENSE"], "notice": "nemotron_asr"}
+ ],
+ "id_prefixes": {"haas-ja-v1.0": "haas-ja"},
+ "tiers": [["light", 1610612736], ["medium", 4294967296]],
+ "profiles": {
+  "qwen3-asr-0.6b": {"summary": "qwen3_asr_06b", "memory_measured_on": "Apple M5 (Metal)", "cpu": "slow", "gpu": "recommended", "memory": {"q8_0": 1000000000, "q6_k": 840000000, "q5_k": 750000000, "q4_k": 670000000}},
+  "qwen3-asr-1.7b": {"summary": "qwen3_asr_17b", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified", "gpu": "recommended", "memory": {"q8_0": 2340000000, "q6_k": 1850000000, "q5_k": 1580000000, "q4_k": 1320000000}},
+  "reazonspeech-v2": {"summary": "reazonspeech", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified", "gpu": "recommended", "memory": {"f16": 1380000000, "q8_0": 790000000, "q6_k": 640000000, "q5_k": 560000000, "q4_k": 480000000}},
+  "parakeet-tdt_ctc-0.6b-ja": {"summary": "parakeet_ja", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified", "gpu": "recommended", "memory": {"f16": 1350000000, "q8_0": 770000000, "q6_k": 620000000, "q5_k": 530000000, "q4_k": 460000000}},
+  "parakeet-tdt-0.6b-v3": {"summary": "parakeet_v3", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified", "gpu": "recommended", "memory": {"f16": 1370000000, "q8_0": 780000000, "q6_k": 630000000, "q5_k": 540000000, "q4_k": 470000000}},
+  "haas-ja-v1.0": {"summary": "haas", "memory_measured_on": "Apple M5 (Metal)", "cpu": "unverified", "gpu": "recommended", "memory": {"f16": 1385126953, "q8_0": 794568950, "q6_k": 654982513, "q5_k": 569083167, "q4_k": 493921239}},
+  "nemotron-3.5-transcribe": {"summary": "nemotron_asr", "memory_measured_on": "NVIDIA H100 (Vulkan)", "cpu": "unverified", "gpu": "recommended", "memory": {"iq4_nl": 19756849562, "q8_0": 35862976922, "f16": 66142496358}},
+  "silero-vad": {"summary": "silero_vad", "id": "silero-vad-v62", "cpu": "practical", "gpu": "not_needed"},
+  "nemotron-3-diarization": {"summary": "nemotron_diarization", "id": "nemotron-3-diarization-q8", "cpu": "unverified", "gpu": "recommended"},
+  "irodori-tts-mf": {"summary": "irodori_mf", "ids": {"f16": "irodori-v41-f16", "q8_0": "irodori-v41-q8"}, "recommended_for": ["ja"], "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended", "memory": {"f16": 2040000000, "q8_0": 1330000000}},
+  "irodori-tts": {"summary": "irodori_small", "ids": {"f16": "irodori-v41-small-f16"}, "recommended_for": [], "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended", "memory": {"f16": 2030000000}},
+  "irodori-tts-large": {"summary": "irodori_large", "ids": {"q8_0": "irodori-v4-large-q8"}, "recommended_for": [], "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended", "memory": {"q8_0": 4123168604}},
+  "qwen3-tts-0.6b": {"summary": "qwen3_tts_06b", "ids": {"q8_0": "qwen3-06b-q8", "q5_k": "qwen3-06b-q5"}, "recommended_for": ["de", "en", "es", "fr", "it", "ko", "pt", "ru", "zh"], "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended", "memory": {"q8_0": 1370000000, "q5_k": 1030000000}},
+  "qwen3-tts-1.7b": {"summary": "qwen3_tts_17b", "ids": {"q8_0": "qwen3-17b-q8"}, "recommended_for": [], "memory_measured_on": "Apple M5 (Metal)", "cpu": "impractical", "gpu": "recommended", "memory": {"q8_0": 2440000000}}
+ }
+}

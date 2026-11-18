@@ -40,8 +40,8 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 カタログ版 `2026-11-16.1` から、同梱のspeech.cpp（0.11.0）が扱う認識モデル7種を、量子化の種類ごとにすべて取得できる（31件）。対象はqwen3-asr-0.6b、qwen3-asr-1.7b、reazonspeech-v2、parakeet-tdt_ctc-0.6b-ja、parakeet-tdt-0.6b-v3、haas-ja-v1.0、nemotron-3.5-transcribeである。
 
-- revision、ファイル、容量、SHA-256、対応言語、既定のファイルはspeech.cppのカタログ（`speech models --json`）を正とする。`tools/speechcpp_models.py`が同梱するバージョンの出力を`src-python/models/model_downloads/speechcpp_models.py`へ写す。手で書き写さない。speech.cppのバージョンを上げたら、同梱するバージョンでこのツールを実行し直して`CATALOG_VERSION`も上げる。
-- アプリ側に書くのは、どの名前を出すかとライセンスの審査（`speechcpp_asr.py`の`OFFERS`）だけである。審査の記録は[licensing.md](licensing.md#speechcppの音声認識モデル2026-11-16)と`licenses/speechcpp-models/NOTICE.md`にある。
+- revision、ファイル、容量、SHA-256、対応言語、既定のファイルはspeech.cppのカタログ（`speech models --json`）を正とする。`tools/speechcpp_models.py`が同梱するバージョンの出力を`native/ops/data/speechcpp_models.json`へ写す。手で書き写さない。speech.cppのバージョンを上げたら、同梱するバージョンでこのツールを実行し直して`CATALOG_VERSION`も上げる。
+- アプリ側に書くのは、どの名前を出すかとライセンスの審査（`native/ops/data/speechcpp_asr.json`の`offers`）だけである。審査の記録は[licensing.md](licensing.md#speechcppの音声認識モデル2026-11-16)と`licenses/speechcpp-models/NOTICE.md`にある。
 - `native/ops`も同じ2つのファイルの文字列を読む（`downloads/speechcpp.rs`）。`python_reference.json`との照合は従来どおり。
 - エントリのidは`<名前>-<種類>`（例：`reazonspeech-v2-q8`、`nemotron-35-transcribe-iq4nl`）。以前からある`haas-ja-q8`と`qwen3-asr-06b-q8`は同じidのままなので、取得済みのフォルダーをそのまま使える。
 - 画面では「認識モデル」と「ファイルの種類（量子化）」を選ぶ。最初はspeech.cppが名前で取得するファイルを選んだ状態になり、対応言語とspeech.cppの推奨言語を表示する。取得には従来どおり確認画面での同意が要る。選んだだけでは何も取得しない。
