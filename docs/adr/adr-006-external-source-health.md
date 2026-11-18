@@ -1,3 +1,16 @@
+---
+date: 2026-10-28
+status: accepted
+era: python-sidecar
+validity: implementation_changed
+validity_note: 外部入力の接続の確認を変換の成功と見なさない（conversion_verified を false に保つ）決定は変わらない。Python の source_bridge.py は Rust の native/audio-routing（graph.rs、pipewire/bridge.rs）に替わり、引き続き vrct-source-bridge を見張る。
+implementation_status: implemented
+implementation_checked: 2026-11-18
+implementation_note: モデルの要らない基盤の部分である。原文のとおり、実際の VC エンジンの採用と P2 全体の受け入れは済んでいない。
+evidence:
+  - native/audio-routing/README.md
+  - native/audio-routing/src/pipewire/bridge.rs
+---
 # ADR-006: 外部入力の接続確認とVC変換状態を分ける
 
 Status: P2モデル不要の基盤実装として採用。実VCエンジン採用・P2全体受入れは未完了。

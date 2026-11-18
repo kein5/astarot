@@ -1,3 +1,16 @@
+---
+date: 2026-11-16
+status: accepted
+era: python-sidecar
+validity: current
+validity_note: 12 節は追記案（レビュー待ち）として書かれたままで、採否の記録はない。
+implementation_status: partial
+implementation_checked: 2026-11-18
+implementation_note: アプリの表示名は ASTAROT に移した（tauri.conf.json の productName）。識別子の移行（P2）は始まっておらず、アプリ ID と実行ファイル名は vrct-vox のまま。
+evidence:
+  - src-tauri/tauri.conf.json
+  - docs/voice-stack/project-rename.md
+---
 # ADR-011: ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針
 
 Status: **採用（製品方針・ブランド仕様）／素材再生成済み・表示の移行（P1）はアプリの表示を develop に実装済みで、文書とサイトは作業中・識別子の移行（P2）は未着手**

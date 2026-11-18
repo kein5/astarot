@@ -1,3 +1,17 @@
+---
+date: 2026-10-27
+status: accepted
+era: python-sidecar
+validity: implementation_changed
+validity_note: 仮想マイクの寿命を推論から切り離し、ミュートで作って明示の再開を求める決定は変わらない。Python の managed_microphone.py などは Rust の native/audio-routing に替わり、状態の観測は pw-dump の実行から PipeWire のレジストリへの接続に変わった。
+implementation_status: implemented
+implementation_checked: 2026-11-18
+implementation_note: native/audio-routing の pipewire/managed.rs と pipewire/gate.rs が受け持つ。原文のとおり、全 GUI や daemon が消えたときの再接続の受け入れは保留のまま。
+evidence:
+  - native/audio-routing/README.md
+  - native/audio-routing/src/pipewire/managed.rs
+  - native/audio-routing/src/pipewire/gate.rs
+---
 # ADR-005: 仮想マイクの寿命と保持ミュート
 
 Status: ソースcheckout向けLinux実装を採用。host一時導入とVRChat受入は条件付きPASS。

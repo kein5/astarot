@@ -24,12 +24,15 @@ mise run check               # 軽量チェック
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:backend`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
 | `setup:app` | Pythonバックエンド（`src-python/`）の環境を `uv.lock` に合わせる。Windowsは `bat\install.bat`（`.venv` と `.venv_cuda`）、Linuxは `.venv_linux`。配布物には使わない |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
+| `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
 | `changelog:print` | 次のリリースの変更を、書き込まずに表示する |
 | `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
 
 機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）はコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
+
+設計判断の記録（ADR）の索引の表（[docs/adr/README.md](adr/README.md)）は、各 ADR の冒頭の front matter から生成します。ADR を足したり front matter を変えたりしたら `mise run adr` で作り直します。`check` は `tests/devtools/test_adr_catalog.py` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
 
 npmのスクリプト（`npm run doctor`、`npm run check` など）も当面は残します。中身は同じ `tools/dev.py` ですが、miseを通らないので、PATHにあるツールの版で動きます。アプリの起動（`npm run dev-fast` など）とWindowsの配布物のビルド（`npm run release`）は、今までどおりnpmのスクリプトです。miseを有効にしたシェル（`mise activate`）から呼ぶと、固定した版で動きます。
 
@@ -181,6 +184,40 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.js` が食い違いを検出します）。
 - Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.js` がその数を数えています。
+
+### UIのミューテーションテスト
+
+ミューテーションテストは、ソースにわざと小さな変更（ミュータント）を入れ、どれかのテストが失敗するかを確かめます。カバレッジは「実行されたか」しか見ませんが、こちらは「値の違いをテストが見ているか」を測ります。道具は [@mizchi/mutator](https://www.npmjs.com/package/@mizchi/mutator)（0.2.0 に固定）です。CIでは回しません。リファクタリングの節目や、対象のモジュールを変えたときに手で回します（[Issue #550](https://github.com/kein5/astarot/issues/550)）。
+
+```sh
+npm run test:mutation                                                  # 対象の全体
+npm run test:mutation -- --include src-ui/logics/flow/flowGraph.ts    # ファイルを絞る
+npm run test:mutation -- --reporter text --reporter json               # 全件を .mutator/report/mutation.json にも書く
+npm run test:mutation -- --reporter agent > build/mutants.json         # 未検出の一覧（キー、場所、覆うテスト）
+npx mutator accept <キー> --reason "<等価と判断した理由>"               # 等価なミュータントを記録する
+```
+
+対象は `mutator.config.mjs` に書いてあります。テストが import する純粋なロジック（`src-ui/logics` の `.ts` と `views/vr/vrPanelHover.js`）です。mutator は Vite の変換の中で変異を入れるため、Vite を通らない読み込み方のファイルは対象にできません。`loadModule`（`hookHarness.js`）や `loadBridgeRoutes`（`bridgeHarness.js`）で読むフックと橋渡し、文字列として読むファイルは、理由を添えて `exclude` に入れてあります。テストがそのファイルを import するように変えたら、`exclude` から外してください。
+
+結果の読み方:
+
+| 状態 | 意味 | 扱い |
+|---|---|---|
+| Killed / Timeout | どれかのテストが失敗した、または止まった | 検出 |
+| Survived | テストは実行したが、どれも失敗しなかった。`not infected` は、元と変異で値が変わる入力をどのテストも与えていない | 未検出 |
+| NoCoverage | どのテストもその行を実行しない | 未検出 |
+| CompileError | 型が合わないので実行しない（`tsc` で判定） | 分母に入れない |
+| Ignored | ログだけの処理（`console.*` など）か、`mutator.accepted.json` に記録した等価なもの | 分母に入れない |
+
+スコアは「検出 ÷（検出＋未検出）」です。
+
+- 未検出は1件ずつコードを読み、テストの不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。等価なら `npx mutator accept` で理由と一緒に記録し、`mutator.accepted.json` をコミットします。記録した行が変わると、次の実行で「古い」と報告されます。
+- 変異の種類ごとの除外（`excludedMutators`）はしていません。文字列の置き換え（`StringLiteral`）は等価になりやすい一方、表のエンドポイント名やノードのIDなど、本物の穴も多く見つかったためです。
+- テストからは実行されていても、mutator には見えない経路があります。`data:` URL でNodeに直接読ませるモジュール（`useStdoutToPython.test.js`）と、`loadModule` に差し替え品を渡すテストです。未検出が多いファイルは、等価か判断する前に、そのファイルを使うテストの読み込み方を確かめます。
+- Vitest 5 は変換したモジュールを `node_modules/.vitest-cache` に残します（`fsModuleCache`、既定で有効）。mutator はこのキャッシュと自分の計装を区別しません。そのため、対象を変えて回すと計装のないモジュールが読まれ、エラーなしで NoCoverage ばかりになり、スコアが0%近くまで落ちます。`npm run test:mutation` は `vitest.mutator.config.js`（このキャッシュを切った設定）を使います。`npx mutator --config vitest.config.js` のように、ほかの設定で回さないでください。
+- 結果のキャッシュは `.mutator/` にあり（Gitの対象外）、次の実行では関数とテストが変わっていないものを再利用します。0.2.0 は最後の実行の結果だけを持つので、`--include` で絞って回した後の全体の実行は、ほぼ全件を回し直します。`.mutator/` を共有するので、同じ作業ツリーで2つ同時に回さないでください。
+- 全体の実行には数分かかります。結果を報告するときは、対象の範囲と計測した条件（版、並列数、機材）を添え、スコアを品質の保証として書かないでください。
+- 0.2.0 には、Windows でパスの区切りが合わず計装されない問題が報告されています（Issue #550）。手順は Linux で確かめたものです。
 
 ## UIの文言と翻訳の検査
 
