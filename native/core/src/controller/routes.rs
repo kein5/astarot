@@ -290,6 +290,14 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         ok(core.config().get("VIRTUAL_MIC_NOTICE_PENDING"))
     });
 
+    // The first-run setup (#557): whether it may still open by itself. It downloads nothing
+    // without the user's consent in its own dialog.
+    b.get("/get/data/first_run_setup", OPEN, "FIRST_RUN_SETUP_PENDING");
+    b.with("/set/disable/first_run_setup", OPEN, |core, _| {
+        let _ = core.config().set("FIRST_RUN_SETUP_PENDING", json!(false));
+        ok(core.config().get("FIRST_RUN_SETUP_PENDING"))
+    });
+
     // VR: the values the VR UI reads; the overlay itself is not wired yet (#282)
     b.with("/get/data/overlay_vr_panel_opacity", OPEN, |core, _| ok(core.config().get("OVERLAY_VR_PANEL_SETTINGS")["opacity"].clone()));
     b.with("/get/data/overlay_vr_panel_anchor", OPEN, |core, _| ok(core.config().get("OVERLAY_VR_PANEL_SETTINGS")["tracker"].clone()));

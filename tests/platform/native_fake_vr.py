@@ -30,6 +30,8 @@ class FakeVrApp:
         state.mkdir(parents=True, exist_ok=True)
         (state / "config.json").write_text(json.dumps({
             "AUTO_DOWNLOAD_MODELS": False, "ENABLE_TELEMETRY": False, "TELEMETRY_NOTICE": 1, "AUTO_MIC_SELECT": False,
+            # The first-run setup (#557) is a modal dialog over the main page; these tests start past it.
+            "FIRST_RUN_SETUP_PENDING": False,
             "AUTO_SPEAKER_SELECT": False, "SEND_MESSAGE_TO_VRC": False, "VRC_MIC_MUTE_SYNC": False,
             "OSC_IP_ADDRESS": "127.0.0.2", "WEBSOCKET_SERVER": False, "UI_LANGUAGE": "en",
             # Shown at startup, and not only while the (fake) head looks at the wrist.

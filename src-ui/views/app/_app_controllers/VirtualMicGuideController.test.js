@@ -4,6 +4,7 @@ import { test } from "vitest";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import * as shapes from "../../../logics/voice/virtualMic.ts";
+import * as firstRunLogic from "../../../logics/setup/firstRunSetup.ts";
 
 const id = name => JSON.stringify(["Windows WASAPI", name]);
 const CABLE = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording: id("CABLE Output (VB-Audio Virtual Cable)"),
@@ -11,7 +12,8 @@ const CABLE = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording:
 const IDLE = { phase: "idle", playback: null, level: 0, result: null, error: null };
 const status = (extra = {}) => ({ supported: true, cables: [], error: null, tts_output: null, tts_output_is_cable: false, ...extra });
 
-async function setup(context, { notice = true, current = status(), opened = false, telemetryPending = false, localAsr = false, check = IDLE } = {}) {
+async function setup(context, { notice = true, current = status(), opened = false, telemetryPending = false, localAsr = false, check = IDLE,
+    firstRun = { notice: false, settled: false } } = {}) {
     const runtime = hooks(), calls = [];
     const state = { notice, status: current, check, opened,
         refreshStatus: () => calls.push("refresh"), startCheck: playback => calls.push(["check", playback]),
@@ -29,6 +31,8 @@ async function setup(context, { notice = true, current = status(), opened = fals
         "../../../logics/transcription/useLocalAsrMigration": { useLocalAsrMigration: () => ({ notice: localAsr }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => state },
         "../../../logics/voice/virtualMic.ts": shapes,
+        "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => firstRun },
+        "../../../logics/setup/firstRunSetup.ts": firstRunLogic,
     });
     context.onTestFinished(() => runtime.unmount());
     // The first render decides; the second shows what that decision opened.
@@ -51,6 +55,9 @@ test("at start-up it opens by itself only without a cable, and after the other f
     assert.equal((await setup(context, { current: status({ error: "audio_devices_unavailable" }) })).render(), null);
     assert.equal((await setup(context, { telemetryPending: true })).render(), null);
     assert.equal((await setup(context, { localAsr: true })).render(), null);
+    // The first-run setup (#557) goes first while it is pending, until it is put away or not needed.
+    assert.equal((await setup(context, { firstRun: { notice: true, settled: false } })).render(), null);
+    assert.notEqual((await setup(context, { firstRun: { notice: true, settled: true } })).render(), null);
     // From the settings it opens with a cable too.
     assert.notEqual((await setup(context, { notice: false, current: status({ cables: [CABLE] }), opened: true })).render(), null);
 });

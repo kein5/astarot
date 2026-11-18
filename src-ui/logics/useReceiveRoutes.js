@@ -4,6 +4,7 @@ import { useI18n } from "@useI18n";
 import * as realtime from "./transcription/useRealtimeASR";
 import * as localAsr from "./transcription/useLocalAsrMigration";
 import * as virtualMic from "./voice/useVirtualMic";
+import * as firstRunSetup from "./setup/useFirstRunSetup";
 import * as common from "@logics_common";
 import * as main from "@logics_main";
 import * as configs from "@logics_configs";
@@ -73,6 +74,8 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/get/data/virtual_mic_notice", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateNotice" },
     { endpoint: "/set/disable/virtual_mic_notice", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateNotice" },
     { endpoint: "/get/data/virtual_mic_status", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateStatus" },
+    { endpoint: "/get/data/first_run_setup", ns: firstRunSetup, hook_name: "useFirstRunSetup", method_name: "updateNotice" },
+    { endpoint: "/set/disable/first_run_setup", ns: firstRunSetup, hook_name: "useFirstRunSetup", method_name: "updateNotice" },
     { endpoint: "/run/virtual_mic_test", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateResult" },
     { endpoint: "/run/virtual_mic_level", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateLevel" },
     { endpoint: "/get/data/io_flow", ns: flow, hook_name: "useIoFlow", method_name: "updateIoFlow" },
@@ -306,6 +309,7 @@ export const useReceiveRoutes = () => {
     const { state: realtimeState, send: sendRealtime, updateError: updateRealtimeError, reset: resetRealtime, backendStopped: stopRealtimePending } = realtime.useRealtimeASR();
     const { failRequest: failOldWhisperWeights, reset: resetLocalAsr, backendStopped: stopLocalAsrPending } = localAsr.useLocalAsrMigration();
     const { failCheck: failVirtualMicCheck, reset: resetVirtualMic, backendStopped: stopVirtualMicCheck } = virtualMic.useVirtualMic();
+    const { reset: resetFirstRunSetup } = firstRunSetup.useFirstRunSetup();
     const realtimeActive = Object.values(realtimeState).some(value => value.requested);
     useEffect(() => {
         if (!realtimeActive) return;
@@ -470,6 +474,7 @@ export const useReceiveRoutes = () => {
             // The notice and the old weights come in this same result (init_mapping).
             resetLocalAsr();
             resetVirtualMic();
+            resetFirstRunSetup();
             sendRealtime("/get/data/realtime_asr_settings");
             sendRealtime("/get/data/realtime_asr_state");
             sendRealtime("/get/data/realtime_asr_models");

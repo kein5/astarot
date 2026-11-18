@@ -112,11 +112,15 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./virtualMic.ts": virtualMicShapes,
     });
+    const firstRunSetup = await loadModule(new URL("../setup/useFirstRunSetup.js", import.meta.url), localRuntime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
+    });
     const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key, i18n: { exists: () => false } } },
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
+        "./setup/useFirstRunSetup": firstRunSetup,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./translation/useTranslationCatalog": { useTranslationCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
@@ -131,6 +135,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
     return { ...subject, notices, reads, localAsr: () => localRuntime.render(localAsr.useLocalAsrMigration), virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
+        firstRunSetup: () => localRuntime.render(firstRunSetup.useFirstRunSetup),
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
         ...runtime.render(routes.useReceiveRoutes) };
 };
