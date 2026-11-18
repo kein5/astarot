@@ -15,9 +15,10 @@ export const root = style({
     width: "4.4rem",
     height: "2.4rem",
     borderRadius: "999rem",
-    // Off: a dark track whose border reaches 3:1 on the canvas and the surface.
+    // Off: a dark track whose border (the field border) reaches 3:1 on the track, the canvas and
+    // the surface.
     background: vars.dark_850_color,
-    border: `.1rem solid ${vars.dark_650_color}`,
+    border: `.1rem solid ${vars.vox_field_border}`,
     cursor: "pointer",
     transition: colourTransition,
     selectors: {
