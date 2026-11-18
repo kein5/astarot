@@ -112,7 +112,7 @@ test("production realtime and message hooks preserve logs on polls and handle ca
             updateMessageLogs(update) { runtime.store.set(Atom_MessageLogs, value => ({ ...value, data: update(value) })); } }),
         useStore_MessageInputValue: () => ({ currentMessageInputValue: { data: "" }, updateMessageInputValue() {} }),
     };
-    const realtime = await loadModule(new URL("./useRealtimeASR.js", import.meta.url), runtime, {
+    const realtime = await loadModule(new URL("./useRealtimeASR.ts", import.meta.url), runtime, {
         "@store": storeImports, "./realtimeCaptionState": captions,
     });
     const { useMessage } = await loadModule(new URL("../common/useMessage.js", import.meta.url), runtime, {

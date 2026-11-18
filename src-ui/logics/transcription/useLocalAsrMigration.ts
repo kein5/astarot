@@ -2,16 +2,17 @@ import { atom, useAtom, useStore } from "jotai";
 import { useCallback } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { normalizeOutcome, normalizeWeights } from "./localAsrMigration.ts";
+import type { OldWeights, OldWeightsDeleteReply, OldWeightsOutcome, OldWeightsReply } from "./localAsrMigration.ts";
 
 // The one-time notice after a saved choice of the removed Whisper engine moved to
 // speech.cpp, and the Whisper weights an older version left on disk (#288).
 // null: not known yet. The notice never downloads anything; the weights are deleted
 // only when the user asks and confirms.
-const noticeAtom = atom(null);
-const weightsAtom = atom(null);
-const outcomeAtom = atom(null);
+const noticeAtom = atom<boolean | null>(null);
+const weightsAtom = atom<OldWeights | null>(null);
+const outcomeAtom = atom<OldWeightsOutcome | null>(null);
 const deletingAtom = atom(false);
-const errorAtom = atom(null);
+const errorAtom = atom<string | null>(null);
 
 export const useLocalAsrMigration = () => {
     const atoms = useStore();
@@ -22,13 +23,13 @@ export const useLocalAsrMigration = () => {
     const [error, setError] = useAtom(errorAtom);
     const { asyncStdoutToPython } = useStdoutToPython();
 
-    const updateNotice = useCallback(value => setNotice(value === true), [setNotice]);
-    const updateWeights = useCallback(value => {
+    const updateNotice = useCallback((value: unknown) => setNotice(value === true), [setNotice]);
+    const updateWeights = useCallback((value: OldWeightsReply) => {
         const normalized = normalizeWeights(value);
         setWeights(normalized);
         setError(normalized ? null : "invalid");
     }, [setWeights, setError]);
-    const updateDeleted = useCallback(value => {
+    const updateDeleted = useCallback((value: OldWeightsDeleteReply) => {
         setDeleting(false);
         const result = normalizeOutcome(value);
         if (!result) { setError("invalid"); return; }
@@ -37,7 +38,7 @@ export const useLocalAsrMigration = () => {
         setError(null);
     }, [setDeleting, setWeights, setOutcome, setError]);
     // A refused or failed request: the delete button can be pressed again.
-    const failRequest = useCallback(code => {
+    const failRequest = useCallback((code: unknown) => {
         setDeleting(false);
         setError(typeof code === "string" && code ? code : "failed");
     }, [setDeleting, setError]);

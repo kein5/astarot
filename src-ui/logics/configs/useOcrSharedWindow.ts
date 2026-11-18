@@ -7,12 +7,22 @@ import { createSharedWindowActions, shouldRestoreSharing, startErrorKey } from "
 
 const atoms = getDefaultStore();
 
+// The saved restore token. Its atom is made at run time from the settings list
+// (ui_config_setter.js), so its value is not typed; anything but text counts as none.
+const savedRestoreToken = (): string => {
+    const tokenAtom = dynamicStoreRegistry.Atom_OcrPortalRestoreToken;
+    if (!tokenAtom || typeof tokenAtom === "function") return "";
+    const state = atoms.get(tokenAtom);
+    const token = typeof state === "object" && state !== null && "data" in state ? state.data : undefined;
+    return typeof token === "string" ? token : "";
+};
+
 // The notice for a chat-reading start error, given what is known about this desktop when it arrives.
-export const ocrStartErrorKey = error_code => startErrorKey(error_code, atoms.get(Atom_OcrSharedWindow).data);
+export const ocrStartErrorKey = (error_code: unknown) => startErrorKey(error_code, atoms.get(Atom_OcrSharedWindow).data);
 
 // Chat reading could not start with `error_code`: is there a remembered window to share again first?
-export const ocrShouldRestoreSharedWindow = error_code => shouldRestoreSharing(error_code,
-    atoms.get(Atom_OcrSharedWindow).data, atoms.get(dynamicStoreRegistry.Atom_OcrPortalRestoreToken)?.data ?? "");
+export const ocrShouldRestoreSharedWindow = (error_code: unknown) => shouldRestoreSharing(error_code,
+    atoms.get(Atom_OcrSharedWindow).data, savedRestoreToken());
 
 // Sharing a window with chat reading (Linux, Wayland). `share` is for the user's button
 // only: it makes the desktop show its window dialog. `restore` is for the moment the user
@@ -26,7 +36,7 @@ export const useOcrSharedWindow = () => {
         invoke,
         read: () => atoms.get(Atom_OcrSharedWindow).data,
         write: data => atoms.set(Atom_OcrSharedWindow, { state: "ok", data }),
-        token: () => atoms.get(dynamicStoreRegistry.Atom_OcrPortalRestoreToken)?.data ?? "",
+        token: savedRestoreToken,
         saveToken: value => send.current("/set/data/ocr_portal_restore_token", value),
     }), []);
     return { currentOcrSharedWindow, ...actions };

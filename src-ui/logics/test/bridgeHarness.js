@@ -104,7 +104,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     // hook slots, on the same store, so a test can read it without disturbing the routes' render.
     const localRuntime = hooks();
     localRuntime.store = runtime.store;
-    const localAsr = await loadModule(new URL("../transcription/useLocalAsrMigration.js", import.meta.url), localRuntime, {
+    const localAsr = await loadModule(new URL("../transcription/useLocalAsrMigration.ts", import.meta.url), localRuntime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./localAsrMigration.ts": localAsrMigration,
     });

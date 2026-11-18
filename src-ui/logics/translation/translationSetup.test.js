@@ -57,7 +57,7 @@ async function fixture(context) {
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
         "../../../logics/translation/useTranslationSetup": setup,
-        "../../../logics/translation/useOpenTranslatorList": await loadModule(new URL("./useOpenTranslatorList.js", import.meta.url), owner, {
+        "../../../logics/translation/useOpenTranslatorList": await loadModule(new URL("./useOpenTranslatorList.ts", import.meta.url), owner, {
             "@logics_main": { useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
             "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
         }),

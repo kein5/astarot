@@ -10,7 +10,7 @@ export const useGpuMemory = () => {
 
     // Polled every 2 s while the panel is open. The age changes on every answer, so only the
     // state and the numbers decide whether the panel draws again.
-    const updateGpuMemory = useCallback(result => {
+    const updateGpuMemory = useCallback((result: unknown) => {
         const memory = readGpuMemory(result);
         if (!memory) return;
         const atoms = getDefaultStore();
