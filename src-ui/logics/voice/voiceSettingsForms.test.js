@@ -39,6 +39,7 @@ async function setup(context) {
             "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
             "../_components/env_readout/EnvReadout": {}, "../_components/form_row/FormRow": { FormRow: "row" },
             "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
+            "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
         });
         forms.push(() => runtime.render(components[name], { title: "Output" }));
     }

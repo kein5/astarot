@@ -170,21 +170,33 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
     const source = readFileSync(new URL("./setting_section/setting_box/vrchat/Vrchat.jsx", import.meta.url), "utf8");
     assert.doesNotMatch(source, /ocr\/Ocr/);
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
+    const ja = yaml.load(readFileSync(new URL("../../../../locales/ja.yml", import.meta.url), "utf8"));
+    const t = (key, values) => key.split(".").reduce((node, part) => node?.[part], ja).replace(/\{\{(\w+)\}\}/g, (_, name) => values[name]);
+    const store = { "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) } };
+    const pagePointer = await loadModule(new URL("./setting_section/setting_box/_components/page_pointer/PagePointer.jsx", import.meta.url), runtime, {
+        ...store, "@useI18n": { useI18n: () => ({ t }) }, "../form_row/FormRow": { FormRow: () => null },
+        "../../../../../../../logics/configs/revealSetting.ts": { revealSetting() {} },
+        "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
+    });
     const vrchat = await loadModule(new URL("./setting_section/setting_box/vrchat/Vrchat.jsx", import.meta.url), runtime, {
-        ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
-        "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
+        ...dependencies, ...store, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@logics_configs": { useOthers: () => ({ currentEnableNotificationVrcSfx: { data: true }, currentEnableVrcMicMuteSync: { data: false } }) },
+        "../_components/page_pointer/PagePointer": pagePointer,
     });
     const page = runtime.render(vrchat.Vrchat);
     const last = page.props.children.at(-1);
     const pointer = last.type(last.props);
-    const button = find(pointer, node => node.type === "button");
-    assert.equal(button.props.children, "config_page.vrchat.open_chat_reading");
+    // The heading and the button that names the page; no sentence repeats where the settings are.
+    assert.equal(pointer.props.children.length, 2);
+    const link = pointer.props.children[1];
+    assert.equal(link.type, pagePointer.PageLinkButton);
+    const button = find(runtime.render(link.type, link.props), node => node.type === "button");
+    assert.equal(find(button, node => node.type === "span" && typeof node.props.children === "string").props.children, "「チャット読み取り（OCR）」を開く");
     button.props.onClick();
     assert.deepEqual(opened, ["ocr"]);
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8")).config_page;
-        for (const key of ["chat_reading_moved", "open_chat_reading"]) assert.equal(typeof strings.vrchat[key], "string");
+        assert.equal(typeof strings.page_link.open, "string");
         for (const key of ["timing_title", "timing_status"]) assert.equal(typeof strings.transcription[key], "string");
     }
 });
