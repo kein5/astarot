@@ -2,7 +2,8 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: center;
+    align-items: stretch;
+    width: 100%;
     gap: 1rem;
     min-width: 0;
     max-width: 100%;
@@ -11,7 +12,7 @@
 
 .entry_section_wrapper {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     gap: 1rem;
     position: relative;

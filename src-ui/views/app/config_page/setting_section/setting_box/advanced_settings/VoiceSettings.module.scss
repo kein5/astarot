@@ -111,7 +111,7 @@
 .control_column { margin-inline-start: calc((100% - 1.6rem) / 2.6 + 1.6rem); }
 @container (max-width: 35.6rem) { .control_column { margin-inline-start: 0; } }
 @media (max-width: 700px) { .control_column { margin-inline-start: 0; } }
-.error_code { font-size: 1.1rem; color: var(--dark_400_color); overflow-wrap: anywhere; }
+.error_code { font-size: 1.2rem; color: var(--dark_400_color); overflow-wrap: anywhere; }
 // One downloadable model: name, readout, a full-width progress bar, then its actions.
 .download_entry { display: grid; gap: .8rem; min-width: 0; }
 // The model catalog: one group per use (a subheading and space, no frame), one card per model.
@@ -144,7 +144,7 @@
 .warning_mark {
     display: inline-flex; flex: none; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem;
     border-radius: 50%; background: var(--vox_state_warning, #cb944f); color: var(--dark_950_color, #10141c);
-    font-size: 1.1rem; font-weight: 700; line-height: 1;
+    font-size: 1.2rem; font-weight: 700; line-height: 1;
     // Drawn here so the "!" is never part of the words that are read out or searched.
     &::before { content: "!"; }
 }

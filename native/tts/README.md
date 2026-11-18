@@ -22,6 +22,7 @@ until the sidecar is retired. See "Not in this crate" below for what plugs in.
 | `message_hook.py` | `src/message_hook.rs` | Chat and microphone speech events from pipeline values |
 | `external_engine.py`, `voicevox_tts.py`, `coeiroink_tts.py`, `engines.py` | `src/engines.rs` | Installed engines (ADR-008): VOICEVOX, SHAREVOX, AivisSpeech and COEIROINK v2; version, voice list, sentence-by-sentence WAV synthesis with one sentence prefetched |
 | `voice_trace.py` | `src/trace.rs` | Opt-in `VRCT_VOICE_TRACE` timing records |
+| (none) | `src/onset.rs` | speech.cpp speech starts at its first sound: the near-silence before it is dropped (#556) |
 
 Nothing is logged. Text, instructions, audio, server bodies and device names never go
 into errors, status or the trace; failures are short fixed codes.
@@ -43,6 +44,13 @@ The backend core (`native/core`, `controller/voice.rs`) wires the bus to the out
 devices, the speech.cpp servers and the voice conversion.
 
 ## Differences from the Python version
+
+- **Leading silence.** speech.cpp's models begin their audio with near-silence (about
+  0.43 s from Qwen3-TTS 0.6B, up to 0.27 s from Irodori-TTS v4.1), which Python played
+  as it came. Here the samples at or below 64 (about -54 dBFS) before the first louder
+  one are dropped, except the last 20 ms and at most 1 s of them (`src/onset.rs`), so the
+  voice is heard that much sooner. The installed engines keep the silence their own
+  settings put first. The start deadline now counts from that first sound.
 
 - **Resampling for the conversion.** Python used soxr's `HQ` resampler. This crate has
   its own streaming windowed-sinc resampler (Kaiser window, pass band to 95% of the

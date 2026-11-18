@@ -15,6 +15,7 @@ pub mod config;
 pub mod controller;
 pub mod dispatch;
 pub mod errors;
+pub mod gpu_memory;
 pub mod languages;
 pub mod log;
 pub mod net_policy;

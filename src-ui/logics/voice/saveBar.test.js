@@ -13,3 +13,8 @@ test("unchanged settings report nothing and a replaced value is one change", () 
     assert.deepEqual(changedPaths({ b: [1, 2] }, { b: [2] }), [["b"]]);
     assert.deepEqual(changedPaths({ a: 1 }, { a: 1, c: true }), [["c"]]);
 });
+
+test("a setting that was unset and is now filled in is one change", () => {
+    assert.deepEqual(changedPaths({ server: null }, { server: { url: "http://127.0.0.1:50021" } }), [["server"]]);
+    assert.deepEqual(changedPaths({ server: { url: "" } }, { server: null }), [["server"]]);
+});
