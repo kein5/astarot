@@ -267,6 +267,29 @@ test("translation keeps its local model in sight; the APIs and local LLMs it cou
     assert.deepEqual(providers("LocalLLM_Container"), list("LOCAL_LLM_PROVIDERS"));
 });
 
+test("speech recognition shows its engine and the engine's two systems in sight; what is set once is in 「詳細設定」", () => {
+    const source = read("transcription/Transcription.jsx");
+    const { outside, fold } = pageParts(source, "Transcription");
+    // #414: speech.cpp on your PC (its models and server), then the APIs (one fold per provider
+    // with its key), as the translation catalog splits translation (#413). The APIs left
+    // 「詳細設定」; the realtime captions stayed, since they are set once.
+    assert.deepEqual(outside, ["TranscriptionEngine_Container", "EngineGroup", "SpeechServers", "EngineGroup", "CloudTranscription_Container", "OldWhisperWeights"]);
+    assert.deepEqual(fold, ["Mic_Container", "Speaker_Container", "RealtimeASRSettings"]);
+    assert.deepEqual([...source.matchAll(/<EngineGroup group="(\w+)">/g)].map(match => match[1]), ["speechcpp", "api"]);
+    // The search finds both groups by their names, and leads to their headings.
+    assert.match(source, /const ENGINE_GROUPS = \{ speechcpp: "speechcpp_section", api: "cloud_section" \};/);
+    for (const language of ["en", "ja"]) {
+        const texts = locales[language].config_page.transcription;
+        for (const id of ["speechcpp_section", "cloud_section"]) {
+            assert.equal(typeof texts[id].label, "string", `${language}: ${id}`);
+            assert.equal(typeof texts[id].desc, "string", `${language}: ${id}`);
+        }
+        assert.equal(typeof texts.select_transcription_engine.badge_own, "string");
+        assert.match(locales[language].config_page.advanced_status.transcription, /\{\{phrase\}\}[\s\S]*\{\{speaker\}\}/);
+        assert.doesNotMatch(locales[language].config_page.advanced_status.transcription, /\{\{cloud\}\}/);
+    }
+});
+
 test("captions and VR turns the captions on in sight; where they sit, how they look and what they show are in 「詳細設定」", () => {
     const source = read("vr/Vr.jsx");
     const page = source.split("export const Vr = () => {")[1].split("\n};")[0];

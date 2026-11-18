@@ -39,11 +39,21 @@ test("each cloud engine id is one the backend knows", () => {
     }
 });
 
+test("the API engines list the services the app provides, then the user's own server, marked as theirs", () => {
+    // The settings page's API group (#414) and its engine choice draw them in this order.
+    assert.deepEqual(CLOUD_TRANSCRIPTION_ENGINES.map(engine => [engine.id, !!engine.own]),
+        [["Groq_Whisper", false], ["OpenAI_Whisper", false], ["Deepgram", false], ["Custom_Whisper", true]]);
+    // Only the own server takes a URL: it is the user's connection, not a service of the app.
+    assert.deepEqual(CLOUD_TRANSCRIPTION_ENGINES.filter(engine => engine.has_url).map(engine => engine.id), ["Custom_Whisper"]);
+});
+
 for (const language of ["en", "ja"]) {
     test(`${language}: every cloud engine has its labels`, () => {
         const transcription = yaml.load(read(`../../../locales/${language}.yml`)).config_page.transcription;
         assert.ok(transcription.select_transcription_engine.desc);
         assert.ok(transcription.cloud_section.label && transcription.cloud_section.desc);
+        assert.ok(transcription.speechcpp_section.label && transcription.speechcpp_section.desc);
+        assert.ok(transcription.select_transcription_engine.badge_own);
         for (const { key, has_url } of CLOUD_TRANSCRIPTION_ENGINES) {
             assert.ok(transcription.select_transcription_engine.engines[key], `${language}: engine label ${key}`);
             assert.ok(transcription[`${key}_auth_key`]?.label, `${language}: ${key}_auth_key.label`);

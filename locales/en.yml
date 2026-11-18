@@ -513,7 +513,7 @@ config_page:
         device: "Microphone {{mic}} · speaker {{speaker}}"
         ocr: "Every {{interval}} ms · confidence at least {{confidence}}"
         tts: "Monitor {{monitor}} · microphone speech {{mic}}"
-        transcription: "Cloud engines ready: {{cloud}} · microphone pause {{phrase}} s"
+        transcription: "Microphone pause {{phrase}} s · speaker pause {{speaker}} s"
         translation: "Translation APIs ready: {{api}} · local LLMs ready: {{llm}}"
         appearance: "Log text {{log}}% · transparency {{transparency}}%"
         hotkeys_one: "{{count}} has a key"
@@ -777,16 +777,22 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription engine used for speech recognition"
-            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" in this page's \"More settings\". \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its models are under \"Models and servers\" below, and its server under \"Realtime captions\" in \"More settings\"."
+            desc: "An API engine can be chosen after you register its API key under \"API (cloud or your own server)\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its models are under \"Models and servers\" below, and its server under \"Realtime captions\" in \"More settings\"."
+            # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
+            badge_own: "Your server"
             engines:
                 speechcpp: "Local (speech.cpp)"
                 groq_whisper: "Groq Whisper"
                 openai_whisper: "OpenAI Whisper"
                 custom_whisper: "Custom Whisper server"
                 deepgram: "Deepgram"
+        # The engines' two systems (#414), in the order the page shows them.
+        speechcpp_section:
+            label: "On your PC (speech.cpp)"
+            desc: "Audio stays on your PC. Download a model from the catalog, or register a model file of your own that is on your PC."
         cloud_section:
-            label: "Cloud speech recognition"
-            desc: "Register an API key here, then choose the engine under \"Transcription Engine Used For Speech Recognition\" above."
+            label: "API (cloud or your own server)"
+            desc: "Audio is sent to the service or to your own server to be turned into text. Register an API key, then choose the engine under \"Transcription engine used for speech recognition\" above. Keys are kept in the app's key store, not in the settings file."
         groq_whisper_auth_key:
             label: "Groq Whisper API key"
         openai_whisper_auth_key:
