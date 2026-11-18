@@ -42,6 +42,15 @@ test("a heard line names its speakers; the user's own line and malformed labels 
     ]);
 });
 
+test("a heard line carries the names given to its voices, by its session", () => {
+    // #447: names belong to one session (namespace); a voice without one is "".
+    const heard = (id, namespace) => ({ ...row(id, "received", "やあ"), speakers: ["A", "B"], realtime: { namespace } });
+    const speakerNames = { one: { A: "ミカ" }, two: {} };
+    const lines = captionLines([heard(1, "one"), heard(2, "two"), heard(3, "three")], { speakerNames });
+    assert.deepEqual(lines.map(line => line.speaker_names), [["ミカ", ""], undefined, undefined]);
+    assert.deepEqual(lines[0].speakers, ["A", "B"]);
+});
+
 test("long text is cut by characters, and at most three translations are kept", () => {
     const [line] = captionLines([row(1, "sent", "あ".repeat(2500), ["a", "b", "c", "d"])]);
     assert.equal([...line.text].length, 2000);
