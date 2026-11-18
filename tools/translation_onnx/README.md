@@ -35,7 +35,40 @@ build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_4
   | `float16` | ONNX Runtime の `convert_float_to_float16`（`keep_io_types=True`）。入出力は float32 のまま | `encoder_model_fp16.onnx`、`decoder_model_merged_fp16.onnx` | GPU。CPU の実行プロバイダにはほとんどの float16 の演算がないので、ここでは動かさない |
   | `int4` | ONNX Runtime の `MatMulNBitsQuantizer`（32 個ずつの区切り、対称）。重みだけを int4 にする | `encoder_model_int4.onnx`、`decoder_model_merged_int4.onnx` | CPU と CUDA。float32 のグラフとの最大の差を `manifest.json` の `variant_max_difference` に書く |
 
-  実際のモデルで作って計ったのは int8 だけです（下の「比較の結果」）。float32、float16、int4 は同じ手順で書けるようにしましたが、まだ作っていません。作ったら、CTranslate2 との比較（`compare.py`）と、各実行プロバイダでの速さを計ってから使います。各形がどの実行プロバイダで動くかの表は `native/translate-onnx/README.md` にあります。
+  実際のモデルで作って計ったのは int8 だけです（下の「比較の結果」）。float32、float16、int4 は同じ手順で書けるようにしましたが、実際のモデルではまだ作っていません。作ったら、CTranslate2 との比較（`compare.py`）と、各実行プロバイダでの速さを計ってから使います。各形がどの実行プロバイダで動くかの表は `native/translate-onnx/README.md` にあります。
+- `Reshape` はすべて `allowzero=0` で書き出します（`graphs.clear_reshape_allowzero`）。ONNX Runtime の DirectML の実行プロバイダが `allowzero=1` を断るためです。このグラフの形は 0 にならない大きさでできているので、CPU の結果は変わりません。2026-11-18 より前に作ったフォルダは `allowzero=1` のままで、DirectML では動きません。
+- float16 の形は、変換のあとでノードを並べ直してから書きます（`graphs.sort_nodes`）。並べ直す前は、入力の `Cast` が使う側より後ろに置かれて、書き出せませんでした。
+
+### 手元のモデルのフォルダから作る
+
+学習し直した M2M100 や NLLB など、transformers の形のフォルダ（`config.json`、重み、トークナイザのファイル）からも作れます。名前は書き出すフォルダの名前になり、ライセンスはそのまま `manifest.json` に書きます。できたフォルダは、利用者が `<データ>/translation-models/` に置くモデルとして使えます。
+
+```sh
+build/translation-onnx/venv/bin/python tools/translation_onnx/export.py my-m2m100 \
+    --source <モデルのフォルダ> --family m2m100 --license <ライセンス> --output <出力先> --variant int8
+```
+
+### 乱数の小さなモデル
+
+`tiny.py` は、乱数の重みの小さなモデル（NLLB の形、2 層、幅 64、語彙 4400）を `export.py` と同じ道で書き出し、`<出力先>/tiny-nllb-onnx-<形>/` を 4 つの形で作ります。何も取得しません。訳と速さには意味がありませんが、グラフが実行プロバイダで動くかと、CPU と同じ訳の ID になるかを、どの PC でも確かめられます（`native/translate-onnx` の `tests/real.rs` の `a_device_decodes_as_the_cpu_does`）。
+
+```sh
+build/translation-onnx/venv/bin/python tools/translation_onnx/tiny.py --output <出力先>
+```
+
+## 公開してカタログに載せる
+
+`publish.py` が、`export.py` のフォルダを公開してモデル取得のカタログに載せるまでを受け持ちます。公開は外部への操作です。保守担当者が確かめてから行います。
+
+```sh
+python tools/translation_onnx/publish.py stage <フォルダ> --repo <持ち主>/<名前> --out <公開用のフォルダ> [--license-file <ライセンスの文>]
+python tools/translation_onnx/publish.py upload <公開用のフォルダ> --repo <持ち主>/<名前>       # HF_TOKEN が要る
+python tools/translation_onnx/publish.py catalog <フォルダ> --repo <持ち主>/<名前> --revision <コミット> --write
+```
+
+- `stage` は、各ファイルを `manifest.json` と照らし合わせてから写し、モデルカード（`README.md`）を書きます。カードには、元のモデルとその版、ライセンス（変えたものも同じライセンス）、変えたこと、作り方、各ファイルの SHA-256 が入ります。CC-BY-NC-4.0 のモデルには非商用であることも書きます。MIT のモデルはライセンスの文を写しに付ける必要があるので、`--license-file` が要ります。
+- `upload` は、`HF_TOKEN` の書き込みのトークンでリポジトリを作り、公開用のフォルダを 1 つのコミットで上げて、そのコミットを表示します。
+- `catalog` は、そのコミットのファイルの大きさと SHA-256 を Hugging Face から読み（小さなファイルは取得して計算します）、`manifest.json` と食い違えば止めます。`--write` で `native/ops/data/translation_models.json` に項目を書きます。そのあと `CATALOG_VERSION` を上げます（`native/ops/data/README.md`）。
 
 ## 現行の CTranslate2 と比べる
 

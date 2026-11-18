@@ -95,15 +95,75 @@ pub const DETECTOR_SHA256: &str = "160c4a505bee87d101564c569dff7f0bacd416b9006ec
 pub const TARGETS: [&str; 7] = ["japanese", "multilingual", "asr", "vad", "diarization", "rvc", "ocr"];
 
 /// The local translation models (`native/translate-onnx` folders). Kept apart from [`TARGETS`],
-/// which is Python's list: Python had no such entries. The shipped catalog has none until the
-/// models are published; an entry is one folder of `tools/translation_onnx/export.py`, its id
+/// which is Python's list: Python had no such entries. The entries are the reviewed data of
+/// `data/translation_models.json` ([`translation_models`]), which is empty until the models are
+/// published; an entry is one folder of `tools/translation_onnx/export.py`, its id
 /// `<model>-onnx-<variant>` in lower case with `_` and `.` as `-` (`m2m100-418m-onnx-int8`),
 /// its `notice` `translation` (the UI's `model_downloads.notice_translation`), and nothing goes
 /// into the settings when it is applied: the local translation finds verified downloads by
 /// catalog id, as chat reading does.
 pub const TRANSLATION_TARGET: &str = "translation";
-/// The roles of a translation entry's files. `manifest` is required: it names the rest.
+/// The roles of a translation entry's files. `manifest` is required: it names the rest. `data`
+/// (the weights of a graph over 2 GB, `<graph>.onnx_data`) may come once per graph.
 pub const TRANSLATION_ROLES: [&str; 7] = ["manifest", "encoder", "decoder", "tokenizer", "vocabulary", "weights", "data"];
+
+const TRANSLATION_TEXT: &str = include_str!("../../data/translation_models.json");
+
+/// `data/translation_models.json`.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TranslationModels {
+    models: Vec<TranslationModel>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TranslationModel {
+    id: String,
+    name: String,
+    provider: String,
+    repo: String,
+    revision: String,
+    license: String,
+    licenses: Vec<String>,
+    artifacts: Vec<TranslationFile>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TranslationFile {
+    filename: String,
+    size: u64,
+    sha256: String,
+    role: String,
+}
+
+/// The entries of a `translation_models.json` text, in its order.
+fn parse_translation_models(text: &str) -> Result<Vec<Model>, String> {
+    let data: TranslationModels = serde_json::from_str(text).map_err(|error| error.to_string())?;
+    Ok(data
+        .models
+        .into_iter()
+        .map(|entry| Model {
+            id: entry.id,
+            target: TRANSLATION_TARGET.into(),
+            name: entry.name,
+            provider: entry.provider,
+            repo: entry.repo,
+            revision: entry.revision,
+            license: entry.license,
+            licenses: entry.licenses,
+            notice: TRANSLATION_TARGET.into(),
+            artifacts: entry.artifacts.into_iter().map(|file| artifact(&file.filename, file.size, &file.sha256, &file.role)).collect(),
+        })
+        .collect())
+}
+
+/// The published local translation models, from `data/translation_models.json` (written by
+/// `tools/translation_onnx/publish.py catalog`, reviewed like the rest of the catalog).
+pub fn translation_models() -> Vec<Model> {
+    parse_translation_models(TRANSLATION_TEXT).unwrap_or_else(|error| panic!("translation_models.json: {error}"))
+}
 
 /// Whether a catalog entry may name this target.
 pub fn known_target(target: &str) -> bool {
@@ -473,6 +533,7 @@ pub fn catalog() -> Vec<Model> {
             vec![artifact("vrct_vox_chatbox_yolox_tiny.onnx", 20184371, "160c4a505bee87d101564c569dff7f0bacd416b9006ec5aa70f8c9d221470ffd", "detector")],
         ),
     ]);
+    models.extend(translation_models());
     models
 }
 
@@ -531,10 +592,11 @@ pub fn validate_catalog(catalog: &[Model]) -> Result<(), &'static str> {
         for artifact in &model.artifacts {
             let suffix_ok = artifact.filename.rsplit_once('.').is_some_and(|(stem, suffix)| valid_name(stem) && suffixes.contains(&suffix));
             let remote_ok = artifact.remote.as_ref().is_none_or(|r| valid_repo(&r.repo) && hex(&r.revision, 40) && valid_name(&r.path) && !r.path.contains(".."));
+            let repeatable = model.target == TRANSLATION_TARGET && artifact.role == "data";
             if !suffix_ok
                 || artifact.filename.contains("..")
                 || names.contains(&artifact.filename)
-                || seen_roles.contains(&artifact.role)
+                || (seen_roles.contains(&artifact.role) && !repeatable)
                 || !roles.contains(&artifact.role.as_str())
                 || artifact.size == 0
                 || !hex(&artifact.sha256, 64)
@@ -577,8 +639,52 @@ mod translation_tests {
         assert_eq!(validate_catalog(&[entry(complete[1..].to_vec())]), Err("catalog_invalid"));
         assert_eq!(validate_catalog(&[entry(vec![file("manifest.json", "manifest"), file("model.gguf", "encoder")])]), Err("catalog_invalid"));
         assert_eq!(validate_catalog(&[entry(vec![file("manifest.json", "manifest"), file("encoder.onnx", "model")])]), Err("catalog_invalid"));
-        // The shipped catalog has no translation entry until the models are published.
-        assert!(catalog().iter().all(|m| m.target != TRANSLATION_TARGET));
+        // Two graphs over 2 GB each keep their weights beside them; no other role repeats.
+        let large = vec![
+            file("manifest.json", "manifest"),
+            file("encoder_model.onnx", "encoder"),
+            file("encoder_model.onnx_data", "data"),
+            file("decoder_model_merged.onnx", "decoder"),
+            file("decoder_model_merged.onnx_data", "data"),
+            file("tokenizer.json", "tokenizer"),
+            file("vocab.json", "vocabulary"),
+        ];
+        assert_eq!(validate_catalog(&[entry(large)]), Ok(()));
+        let twice = vec![file("manifest.json", "manifest"), file("a.onnx", "encoder"), file("b.onnx", "encoder")];
+        assert_eq!(validate_catalog(&[entry(twice)]), Err("catalog_invalid"));
         assert!(!TARGETS.contains(&TRANSLATION_TARGET) && known_target(TRANSLATION_TARGET));
+    }
+
+    #[test]
+    fn the_shipped_translation_entries_are_the_reviewed_data() {
+        let shipped: Vec<Model> = catalog().into_iter().filter(|m| m.target == TRANSLATION_TARGET).collect();
+        assert_eq!(shipped, translation_models());
+        assert_eq!(validate_catalog(&shipped), Ok(()));
+        for model in &shipped {
+            assert_eq!(model.notice, TRANSLATION_TARGET);
+            let variant = model.id.rsplit_once("-onnx-").map(|(_, variant)| variant);
+            assert!(matches!(variant, Some("float32" | "float16" | "int8" | "int4")), "{}", model.id);
+            assert!(!model.licenses.is_empty(), "{}", model.id);
+        }
+    }
+
+    #[test]
+    fn a_data_file_entry_becomes_a_translation_entry() {
+        let text = format!(
+            r#"{{"models": [{{"id": "m2m100-418m-onnx-int8", "name": "M2M100 418M · int8", "provider": "Meta / VRCT-VOX",
+                "repo": "owner/m2m100_418M-onnx-int8", "revision": "{revision}", "license": "MIT",
+                "licenses": ["https://huggingface.co/owner/m2m100_418M-onnx-int8/blob/{revision}/LICENSE"],
+                "artifacts": [{{"filename": "manifest.json", "size": 3, "sha256": "{hash}", "role": "manifest"}},
+                              {{"filename": "encoder_model_quantized.onnx", "size": 5, "sha256": "{hash}", "role": "encoder"}}]}}]}}"#,
+            revision = "a".repeat(40),
+            hash = "b".repeat(64)
+        );
+        let models = parse_translation_models(&text).unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!((models[0].target.as_str(), models[0].notice.as_str()), (TRANSLATION_TARGET, TRANSLATION_TARGET));
+        assert_eq!(models[0].artifacts[1], artifact("encoder_model_quantized.onnx", 5, &"b".repeat(64), "encoder"));
+        assert_eq!(validate_catalog(&models), Ok(()));
+        // A field the data file does not know is refused, not dropped.
+        assert!(parse_translation_models(r#"{"models": [], "extra": 1}"#).is_err());
     }
 }
