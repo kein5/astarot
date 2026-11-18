@@ -277,6 +277,13 @@ fn load_runtime(runtime: &Path, choice: Choice) -> Result<Device, Failure> {
         Choice::Cuda => true,
         Choice::Auto => has_provider && load_gpu_libraries(&lib),
     };
+    // The app's DirectML runtime (the DirectML build of ONNX Runtime, probed here on the CPU)
+    // needs DirectML.dll loaded first: the loader does not look beside onnxruntime.dll.
+    let directml = lib.join("DirectML.dll");
+    if directml.is_file() && ort::util::preload_dylib(&directml).is_err() {
+        eprintln!("vrct-rvc-worker: DirectML could not be loaded from the runtime");
+        return Err(Failure::RuntimeIncomplete);
+    }
     backend::load_runtime(&lib.join(ORT_LIBRARY)).map_err(|error| {
         eprintln!("vrct-rvc-worker: ONNX Runtime could not be loaded: {error}");
         Failure::RuntimeIncomplete
