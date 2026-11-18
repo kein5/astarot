@@ -98,7 +98,8 @@ pub struct Runtime {
     pub download_bytes: u64,
     pub disk_bytes: u64,
     pub libraries: Vec<Library>,
-    /// What the setup's probe checks: `cuda` or `cpu`.
+    /// The device it is for: `cuda`, `cpu` or `directml`. The setup's probe checks CUDA for
+    /// `cuda` and runs on the CPU for the others.
     pub device: &'static str,
 }
 
@@ -128,12 +129,17 @@ fn ort_package(target: Target, gpu: bool) -> &'static str {
 
 /// A NuGet package and the files taken from its `runtimes/<rid>/native/`.
 fn nuget(package: &str, rid: &str, size: u64, sha256: &str, files: &[(&str, &str)]) -> Library {
+    nuget_at(package, ORT_VERSION, &format!("runtimes/{rid}/native/"), size, sha256, files)
+}
+
+/// A NuGet package of a version and the files taken from a folder of it.
+fn nuget_at(package: &str, version: &str, folder: &str, size: u64, sha256: &str, files: &[(&str, &str)]) -> Library {
     let id = package.to_lowercase();
     Library {
-        url: format!("{NUGET}{id}/{ORT_VERSION}/{id}.{ORT_VERSION}.nupkg"),
+        url: format!("{NUGET}{id}/{version}/{id}.{version}.nupkg"),
         size,
         sha256: sha256.into(),
-        members: files.iter().map(|(source, target)| (format!("runtimes/{rid}/native/{source}"), (*target).to_owned())).collect(),
+        members: files.iter().map(|(source, target)| (format!("{folder}{source}"), (*target).to_owned())).collect(),
     }
 }
 
@@ -361,6 +367,141 @@ fn runtime_with(target: Target, gpu: bool, source: OrtSource) -> Runtime {
         libraries,
         device: if gpu { "cuda" } else { "cpu" },
     }
+}
+
+/// The runtime that holds ONNX Runtime with its CUDA provider for the app's own ONNX Runtime
+/// (local translation and chat reading; decision 2 (c) of docs/voice-stack/core-integration.md).
+pub const ONNX_CUDA: &str = "onnxruntime-cuda";
+/// The runtime that holds the DirectML build of ONNX Runtime and DirectML (Windows, optional).
+pub const ONNX_DIRECTML: &str = "onnxruntime-directml";
+/// The last ONNX Runtime with a DirectML package (DirectML is in sustained engineering), and the
+/// DirectML that package names as its dependency.
+const DML_ORT_VERSION: &str = "1.24.4";
+const DIRECTML_VERSION: &str = "1.15.4";
+
+/// ONNX Runtime 1.31.0 with its CUDA provider and NVIDIA's CUDA 13 and cuDNN 9 libraries, for
+/// the app process: the same pinned files as the RVC GPU runtime's `lib/`, without its networks.
+pub fn onnx_cuda_runtime(target: Target) -> Runtime {
+    let mut libraries = vec![ort(target, true, OrtSource::NuGet)];
+    libraries.extend(nvidia_libraries(target));
+    Runtime {
+        id: ONNX_CUDA,
+        name: "ONNX Runtime · CUDA",
+        download_bytes: libraries.iter().map(|l| l.size).sum(),
+        assets: Vec::new(),
+        license: "MIT, NVIDIA CUDA/cuDNN EULA",
+        licenses: vec![
+            format!("https://www.nuget.org/packages/{}/{ORT_VERSION}/License", ort_package(target, true)),
+            "https://docs.nvidia.com/cuda/eula/index.html".into(),
+            "https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html".into(),
+        ],
+        notice: "onnx_cuda",
+        // The RVC GPU runtime's room without its networks (about 0.55 GB), rounded up.
+        disk_bytes: if target == Target::Windows { 2_200_000_000 } else { 2_800_000_000 },
+        libraries,
+        device: "cuda",
+    }
+}
+
+/// The DirectML build of ONNX Runtime and DirectML itself (Windows on x86-64 only). Not
+/// bundled: fetched from NuGet when the user asks for it.
+pub fn onnx_directml_runtime() -> Runtime {
+    let libraries = vec![
+        nuget_at(
+            "Microsoft.ML.OnnxRuntime.DirectML",
+            DML_ORT_VERSION,
+            "runtimes/win-x64/native/",
+            12458649,
+            "57e9f11b73437bef7a309496135d4c1f96b1a8e9ddba60013fa27bfc1d788681",
+            &[("onnxruntime.dll", "onnxruntime.dll"), ("onnxruntime_providers_shared.dll", "onnxruntime_providers_shared.dll")],
+        ),
+        nuget_at("Microsoft.AI.DirectML", DIRECTML_VERSION, "bin/x64-win/", 202292617, "4e7cb7ddce8cf837a7a75dc029209b520ca0101470fcdf275c1f49736a3615b9", &[("DirectML.dll", "DirectML.dll")]),
+    ];
+    Runtime {
+        id: ONNX_DIRECTML,
+        name: "ONNX Runtime · DirectML",
+        download_bytes: libraries.iter().map(|l| l.size).sum(),
+        assets: Vec::new(),
+        license: "MIT, Microsoft DirectML License",
+        licenses: vec![
+            format!("https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.DirectML/{DML_ORT_VERSION}/License"),
+            format!("https://www.nuget.org/packages/Microsoft.AI.DirectML/{DIRECTML_VERSION}/License"),
+        ],
+        notice: "onnx_directml",
+        // The unpacked libraries (36 MB) and DirectML's package while it is unpacked (202 MB).
+        disk_bytes: 300_000_000,
+        libraries,
+        device: "directml",
+    }
+}
+
+/// The ONNX Runtime GPU runtimes offered on a platform: CUDA where an NVIDIA driver is, and
+/// DirectML on Windows.
+pub fn onnx_runtimes(target: Target, nvidia: bool) -> Vec<Runtime> {
+    let mut runtimes = Vec::new();
+    if nvidia {
+        runtimes.push(onnx_cuda_runtime(target));
+    }
+    if target == Target::Windows {
+        runtimes.push(onnx_directml_runtime());
+    }
+    runtimes
+}
+
+/// The file name of ONNX Runtime's library in a runtime's `lib/`.
+pub fn onnx_runtime_library(target: Target) -> &'static str {
+    if target == Target::Windows {
+        "onnxruntime.dll"
+    } else {
+        "libonnxruntime.so"
+    }
+}
+
+/// The files of a runtime's `lib/` to load before ONNX Runtime itself: NVIDIA's libraries for
+/// the CUDA provider, DirectML for the DirectML build. The loader does not look beside the
+/// library for them.
+pub fn dependencies(runtime: &Runtime) -> Vec<String> {
+    runtime.libraries[1..].iter().flat_map(|l| l.members.iter().map(|(_, name)| name.clone())).collect()
+}
+
+/// Whether `folder` holds a finished setup of one of `runtimes`: its receipt names the version
+/// and every library and network is in place.
+fn set_up(folder: &Path, runtimes: &[Runtime]) -> bool {
+    let Ok(text) = fs::read_to_string(folder.join("receipt.json")) else { return false };
+    let Ok(receipt) = serde_json::from_str::<Value>(&text) else { return false };
+    let Some(version) = receipt.get("version").and_then(Value::as_str) else { return false };
+    let Some(installed) = runtimes.iter().find(|item| version_of(item) == version) else { return false };
+    installed.libraries.iter().all(|l| l.members.iter().all(|(_, name)| folder.join("lib").join(name).is_file())) && installed.assets.iter().all(|a| folder.join("assets").join(&a.path).is_file())
+}
+
+/// A set-up runtime's `lib/` and the runtime whose files it holds.
+#[derive(Debug, Clone)]
+pub struct InstalledLibraries {
+    pub lib: PathBuf,
+    pub runtime: Runtime,
+}
+
+/// The `lib/` folders under `root` (`<state>/vc_runtimes`) that hold ONNX Runtime 1.31.0 with
+/// its CUDA provider and NVIDIA's CUDA 13 and cuDNN 9 libraries, set up and checked: the
+/// app's own CUDA runtime first, then the RVC GPU runtime's (the same files). Anything else in
+/// the app that needs these NVIDIA libraries can find them here.
+pub fn cuda_libraries(root: &Path, target: Target) -> Vec<InstalledLibraries> {
+    let mut found = Vec::new();
+    let own = onnx_cuda_runtime(target);
+    if set_up(&root.join(ONNX_CUDA), std::slice::from_ref(&own)) {
+        found.push(InstalledLibraries { lib: root.join(ONNX_CUDA).join("lib"), runtime: own });
+    }
+    let rvc = [rvc_runtime(target, true), earlier_rvc_runtime(target, true)];
+    if set_up(&root.join("rvc"), &rvc) {
+        found.push(InstalledLibraries { lib: root.join("rvc").join("lib"), runtime: rvc[0].clone() });
+    }
+    found
+}
+
+/// The DirectML runtime's `lib/` under `root`, when it is set up (Windows).
+pub fn directml_libraries(root: &Path) -> Option<InstalledLibraries> {
+    let runtime = onnx_directml_runtime();
+    set_up(&root.join(ONNX_DIRECTML), std::slice::from_ref(&runtime)).then(|| InstalledLibraries { lib: root.join(ONNX_DIRECTML).join("lib"), runtime })
 }
 
 /// `json.dumps(value, sort_keys=True)`: sorted keys, `", "` and `": "`, ASCII only.
@@ -646,7 +787,16 @@ impl Shared {
         // Asking for the driver waits until a setup page needs it, not app start.
         self.entries.get_or_init(|| match &self.options.entries {
             Some(entries) => entries.clone(),
-            None => self.options.target.map(|target| vec![rvc_runtime(target, (self.options.gpu_check)())]).unwrap_or_default(),
+            None => self
+                .options
+                .target
+                .map(|target| {
+                    let gpu = (self.options.gpu_check)();
+                    let mut entries = vec![rvc_runtime(target, gpu)];
+                    entries.extend(onnx_runtimes(target, gpu));
+                    entries
+                })
+                .unwrap_or_default(),
         })
     }
 
@@ -660,6 +810,7 @@ impl Shared {
     fn variants(&self, runtime: &Runtime) -> Vec<Runtime> {
         let mut variants = vec![runtime.clone()];
         if self.options.entries.is_none()
+            && runtime.id == "rvc"
             && let Some(target) = self.options.target
         {
             let gpu = runtime.device != "cpu";
@@ -673,19 +824,26 @@ impl Shared {
     }
 
     fn installed(&self, runtime: &Runtime) -> bool {
-        let folder = self.folder(runtime);
-        let Ok(text) = fs::read_to_string(folder.join("receipt.json")) else { return false };
-        let Ok(receipt) = serde_json::from_str::<Value>(&text) else { return false };
-        let Some(version) = receipt.get("version").and_then(Value::as_str) else { return false };
-        let Some(installed) = self.variants(runtime).into_iter().find(|item| version_of(item) == version) else { return false };
-        installed.libraries.iter().all(|l| l.members.iter().all(|(_, name)| folder.join("lib").join(name).is_file())) && installed.assets.iter().all(|a| folder.join("assets").join(&a.path).is_file())
+        set_up(&self.folder(runtime), &self.variants(runtime))
+    }
+
+    /// Where a runtime is set up: its own folder, or for ONNX Runtime with CUDA also the RVC GPU
+    /// runtime, which holds the same libraries (the app uses those then; nothing to fetch).
+    fn installed_at(&self, runtime: &Runtime) -> Option<PathBuf> {
+        if self.installed(runtime) {
+            return Some(self.folder(runtime));
+        }
+        let target = self.options.target?;
+        (runtime.id == ONNX_CUDA && self.options.entries.is_none())
+            .then(|| cuda_libraries(&self.options.root, target).into_iter().next().and_then(|found| found.lib.parent().map(Path::to_path_buf)))
+            .flatten()
     }
 
     fn state(&self) -> Value {
         let inner = locked(&self.inner);
         let jobs: Map<String, Value> = inner.jobs.iter().map(|(id, job)| (id.clone(), Value::Object(job.clone()))).collect();
         drop(inner);
-        let installed: Map<String, Value> = self.entries().iter().filter(|r| self.installed(r)).map(|r| (r.id.to_owned(), json!(self.folder(r).to_string_lossy()))).collect();
+        let installed: Map<String, Value> = self.entries().iter().filter_map(|r| self.installed_at(r).map(|folder| (r.id.to_owned(), json!(folder.to_string_lossy())))).collect();
         json!({ "observation_id": now_ns().to_string(), "jobs": jobs, "installed": installed })
     }
 
@@ -839,9 +997,10 @@ impl Shared {
     }
 
     /// The worker loads the libraries and runs one operation on the device. The GPU runtime is
-    /// still usable on the CPU when the GPU cannot run it: exit 3 then, and a warning.
+    /// still usable on the CPU when the GPU cannot run it: exit 3 then, and a warning. The
+    /// worker knows no DirectML: the DirectML build is loaded (with DirectML) and run on the CPU.
     fn verifying(&self, runtime: &Runtime, cancel: &AtomicBool) -> Result<(), StepError> {
-        let device = if runtime.device == "cpu" { "cpu" } else { "auto" };
+        let device = if matches!(runtime.device, "cpu" | "directml") { "cpu" } else { "auto" };
         let mut command = Command::new(&self.options.worker);
         command.arg("--runtime").arg(self.folder(runtime)).arg("--probe").arg("--device").arg(device).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
         let owned = child::spawn(command).map_err(|_| StepError::Failed)?;
@@ -867,8 +1026,10 @@ impl Shared {
         match (code, device) {
             (Some(0), _) => Ok(()),
             (Some(3), "auto") => {
+                // ONNX Runtime with CUDA for the app: the translation then runs on the CPU.
+                let warning = if runtime.id == ONNX_CUDA { "onnx_runtime_gpu_unusable" } else { "vc_runtime_gpu_unusable_cpu" };
                 self.update(runtime.id, |job| {
-                    job.insert("warning_code".into(), json!("vc_runtime_gpu_unusable_cpu"));
+                    job.insert("warning_code".into(), json!(warning));
                 });
                 Ok(())
             }
@@ -921,7 +1082,9 @@ impl Shared {
             // Steps resume a setup, not a finished runtime: a repair must run them again.
             let _ = fs::remove_file(&marker);
             let _ = fs::remove_dir_all(folder.join(".cache"));
-            remove_earlier_rvc(&folder);
+            if runtime.id == "rvc" {
+                remove_earlier_rvc(&folder);
+            }
             Ok(())
         })();
         lease.close();
@@ -1157,6 +1320,61 @@ mod tests {
         }
     }
 
+    /// An ONNX Runtime GPU runtime through a whole setup from its sources: fetched, checked
+    /// against its pins, unpacked, and probed by a built `vrct-rvc-worker`
+    /// (`VRCT_TEST_RVC_WORKER`) as the setup probes it, then receipted. `VRCT_TEST_ONNX_RUNTIME`
+    /// is `directml` (the default; Windows; about 215 MB, probed on the CPU with DirectML loaded
+    /// first) or `cuda` (about 1.1 GB; probed with `auto`, and then with `--device cuda`, which
+    /// must take the GPU). With `VRCT_TEST_KEEP_RUNTIME_ROOT` the setup is made there (as
+    /// `<root>/onnxruntime-directml` or `<root>/onnxruntime-cuda`) and kept.
+    ///
+    ///     cargo test --manifest-path native/voice-conversion/Cargo.toml --lib -- --ignored onnx_runtime_sets_up
+    #[test]
+    #[ignore = "fetches the pinned archives from their sources"]
+    fn onnx_runtime_sets_up_from_its_sources() {
+        let Some(target) = Target::current() else { return };
+        let cuda = std::env::var("VRCT_TEST_ONNX_RUNTIME").as_deref() == Ok("cuda");
+        if !cuda && target != Target::Windows {
+            return;
+        }
+        let kept = std::env::var_os("VRCT_TEST_KEEP_RUNTIME_ROOT").map(PathBuf::from);
+        let dir = tempfile::tempdir().unwrap();
+        let root = kept.clone().unwrap_or_else(|| dir.path().to_owned());
+        let worker = std::env::var_os("VRCT_TEST_RVC_WORKER").map(PathBuf::from);
+        let transport = vrct_ops::downloads::transport::Public { timeout: vrct_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() };
+        let runtime = if cuda { onnx_cuda_runtime(target) } else { onnx_directml_runtime() };
+        let setup = RuntimeSetup::new(SetupOptions {
+            root: root.clone(),
+            target: Some(target),
+            transport: Arc::new(transport),
+            gpu_check: Arc::new(move || cuda),
+            worker: worker.clone().unwrap_or_default(),
+            free_space: Arc::new(|_| None),
+            entries: Some(vec![runtime.clone()]),
+        });
+        let cancel = AtomicBool::new(false);
+        setup.shared.libraries(&runtime, &cancel).expect("fetched, checked and unpacked");
+        let folder = root.join(runtime.id);
+        let mut found: Vec<String> = fs::read_dir(folder.join("lib")).unwrap().map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        let mut expected: Vec<String> = runtime.libraries.iter().flat_map(|l| l.members.iter().map(|(_, name)| name.clone())).collect();
+        found.sort();
+        expected.sort();
+        assert_eq!(found, expected);
+        if let Some(worker) = worker {
+            setup.shared.verifying(&runtime, &cancel).expect("the worker loads the runtime as the setup probes it");
+            if cuda {
+                let status = Command::new(&worker).arg("--runtime").arg(&folder).arg("--probe").arg("--device").arg("cuda").status().unwrap();
+                assert!(status.success(), "the worker's probe on CUDA: {status}");
+            }
+            fs::write(folder.join("receipt.json"), json!({ "version": version_of(&runtime), "id": runtime.id }).to_string()).unwrap();
+            if cuda {
+                assert_eq!(cuda_libraries(&root, target).first().map(|found| found.lib.clone()), Some(folder.join("lib")));
+            } else {
+                assert!(directml_libraries(&root).is_some());
+            }
+        }
+    }
+
     fn setup_in(root: &Path, target: Target, gpu: bool) -> RuntimeSetup {
         let offline = |_: &str| -> Result<Box<dyn vrct_ops::downloads::transport::Body>, vrct_ops::downloads::Error> { Err(vrct_ops::downloads::Error::Other("offline".into())) };
         RuntimeSetup::new(SetupOptions {
@@ -1170,9 +1388,9 @@ mod tests {
         })
     }
 
-    /// What a finished setup of `runtime` leaves in `<root>/rvc`.
+    /// What a finished setup of `runtime` leaves in `<root>/<id>`.
     fn place(root: &Path, runtime: &Runtime) {
-        let folder = root.join("rvc");
+        let folder = root.join(runtime.id);
         for (_, name) in runtime.libraries.iter().flat_map(|l| &l.members) {
             fs::create_dir_all(folder.join("lib")).unwrap();
             fs::write(folder.join("lib").join(name), "library").unwrap();
@@ -1182,7 +1400,100 @@ mod tests {
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, "asset").unwrap();
         }
-        fs::write(folder.join("receipt.json"), json!({ "version": version_of(runtime), "id": "rvc" }).to_string()).unwrap();
+        fs::write(folder.join("receipt.json"), json!({ "version": version_of(runtime), "id": runtime.id }).to_string()).unwrap();
+    }
+
+    fn names(runtime: &Runtime) -> Vec<String> {
+        runtime.libraries.iter().flat_map(|l| l.members.iter().map(|(_, name)| name.clone())).collect()
+    }
+
+    #[test]
+    fn the_onnx_runtimes_are_offered_where_they_run() {
+        let ids = |target, nvidia| onnx_runtimes(target, nvidia).iter().map(|r| r.id).collect::<Vec<_>>();
+        assert_eq!(ids(Target::Windows, true), [ONNX_CUDA, ONNX_DIRECTML]);
+        assert_eq!(ids(Target::Windows, false), [ONNX_DIRECTML]);
+        assert_eq!(ids(Target::Linux, true), [ONNX_CUDA]);
+        assert!(ids(Target::Linux, false).is_empty());
+        // The setup offers them after the RVC runtime.
+        let dir = tempfile::tempdir().unwrap();
+        let catalog = setup_in(dir.path(), Target::Windows, true).catalog();
+        let offered: Vec<&str> = catalog["runtimes"].as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap()).collect();
+        assert_eq!(offered, ["rvc", ONNX_CUDA, ONNX_DIRECTML]);
+        assert_eq!(catalog["runtimes"][2]["device"], "directml");
+    }
+
+    #[test]
+    fn the_cuda_runtime_holds_the_rvc_gpu_runtimes_libraries_without_its_networks() {
+        for target in [Target::Windows, Target::Linux] {
+            let (own, rvc) = (onnx_cuda_runtime(target), rvc_runtime(target, true));
+            assert_eq!(own.libraries, rvc.libraries);
+            assert!(own.assets.is_empty() && own.device == "cuda");
+            assert_ne!(version_of(&own), version_of(&rvc));
+            assert_eq!(own.download_bytes, rvc.libraries.iter().map(|l| l.size).sum::<u64>());
+            // What is loaded before ONNX Runtime: NVIDIA's libraries, not ONNX Runtime's own.
+            let first = dependencies(&own);
+            assert!(!first.is_empty() && first.iter().all(|name| !name.contains("onnxruntime")), "{first:?}");
+            assert!(names(&own).contains(&onnx_runtime_library(target).to_string()));
+        }
+    }
+
+    #[test]
+    fn the_directml_runtime_is_pinned_on_nuget() {
+        let runtime = onnx_directml_runtime();
+        assert_eq!(runtime.libraries.len(), 2);
+        for library in &runtime.libraries {
+            assert!(vrct_ops::downloads::transport::validate_url(&library.url, &SOURCE_HOSTS).is_ok(), "{}", library.url);
+            assert_eq!(library.sha256.len(), 64);
+        }
+        assert_eq!(runtime.libraries[0].url, "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg");
+        assert_eq!(runtime.libraries[1].url, "https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg");
+        assert_eq!(names(&runtime), ["onnxruntime.dll", "onnxruntime_providers_shared.dll", "DirectML.dll"]);
+        assert_eq!(runtime.libraries[1].members, [("bin/x64-win/DirectML.dll".to_string(), "DirectML.dll".to_string())]);
+        assert_eq!(dependencies(&runtime), ["DirectML.dll"]);
+        assert_eq!(runtime.download_bytes, 12458649 + 202292617);
+        assert!(runtime.licenses.iter().all(|url| url.starts_with("https://www.nuget.org/packages/")));
+    }
+
+    #[test]
+    fn set_up_onnx_runtimes_are_found_for_the_app_process() {
+        for target in [Target::Windows, Target::Linux] {
+            let dir = tempfile::tempdir().unwrap();
+            assert!(cuda_libraries(dir.path(), target).is_empty());
+            // The RVC GPU runtime holds the same libraries; the CPU one does not count.
+            place(dir.path(), &rvc_runtime(target, false));
+            assert!(cuda_libraries(dir.path(), target).is_empty());
+            place(dir.path(), &earlier_rvc_runtime(target, true));
+            let found = cuda_libraries(dir.path(), target);
+            assert_eq!(found.iter().map(|f| f.lib.clone()).collect::<Vec<_>>(), [dir.path().join("rvc/lib")]);
+            // The app's own CUDA runtime comes first.
+            place(dir.path(), &onnx_cuda_runtime(target));
+            let found = cuda_libraries(dir.path(), target);
+            assert_eq!(found.iter().map(|f| f.lib.clone()).collect::<Vec<_>>(), [dir.path().join(ONNX_CUDA).join("lib"), dir.path().join("rvc/lib")]);
+            assert_eq!(found[0].runtime.id, ONNX_CUDA);
+            // A file missing: not set up.
+            fs::remove_file(dir.path().join(ONNX_CUDA).join("lib").join(onnx_runtime_library(target))).unwrap();
+            assert_eq!(cuda_libraries(dir.path(), target).len(), 1);
+        }
+        let dir = tempfile::tempdir().unwrap();
+        assert!(directml_libraries(dir.path()).is_none());
+        place(dir.path(), &onnx_directml_runtime());
+        assert_eq!(directml_libraries(dir.path()).map(|f| f.lib), Some(dir.path().join(ONNX_DIRECTML).join("lib")));
+        fs::write(dir.path().join(ONNX_DIRECTML).join("receipt.json"), json!({ "version": "0000000000000000", "id": ONNX_DIRECTML }).to_string()).unwrap();
+        assert!(directml_libraries(dir.path()).is_none());
+    }
+
+    #[test]
+    fn the_state_names_the_rvc_gpu_runtime_for_cuda_when_only_it_is_set_up() {
+        let dir = tempfile::tempdir().unwrap();
+        place(dir.path(), &rvc_runtime(Target::Windows, true));
+        let state = setup_in(dir.path(), Target::Windows, true).state();
+        assert_eq!(state["installed"]["rvc"], json!(dir.path().join("rvc").to_string_lossy()));
+        assert_eq!(state["installed"][ONNX_CUDA], json!(dir.path().join("rvc").to_string_lossy()));
+        assert!(state["installed"].get(ONNX_DIRECTML).is_none());
+        // Its own setup, once there, is the one named.
+        place(dir.path(), &onnx_cuda_runtime(Target::Windows));
+        let state = setup_in(dir.path(), Target::Windows, true).state();
+        assert_eq!(state["installed"][ONNX_CUDA], json!(dir.path().join(ONNX_CUDA).to_string_lossy()));
     }
 
     #[test]

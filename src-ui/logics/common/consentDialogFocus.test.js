@@ -65,7 +65,8 @@ async function fixture(context, kind, openerState) {
         "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: null }) },
         "../../../../../../logics/translation/translationCatalog": { isUsersWeight: () => false, weightLabel: weight => weight },
         "./TranslationCatalog": { TranslationCatalogSection: () => null },
-        "../_components/compute_device/computeDeviceOptions": { computeDeviceName: name => name },
+        "./TranslationGpuRuntimes": { TranslationGpuRuntimes: () => null },
+        "../_components/compute_device/computeDeviceOptions": { computeDeviceLabel: device => device?.device_name, needsRestart: () => false },
         "@ui_configs": {}, "@logics_common": {}, "@store": {},
     };
     const paths = { catalog: ["advanced_settings/ModelDownloads.jsx", "ModelDownloads"],

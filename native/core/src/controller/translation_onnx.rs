@@ -287,16 +287,46 @@ pub fn device_entry(provider: Provider, index: u32) -> Value {
 }
 
 /// The devices the local translation can run on: the CPU, and the GPU providers of the ONNX
-/// Runtime library the process loads (`vrct_onnx_runtime::library_path`). Without a library
-/// there nothing is loaded and only the CPU is listed; a provider listed here may still fail to
-/// start on this PC, and then the model runs on the CPU and the user is told
-/// ([`Placement::fallback`]).
+/// Runtime library the process loads. The shipped library is the CPU build, which brings no
+/// other, and the GPU build the start chose brings its own
+/// ([`crate::shipped_libraries::use_libraries`]); neither is loaded to ask. Any other library
+/// (`ORT_DYLIB_PATH`, or one beside the executable) is loaded and asked; without one only the CPU
+/// is listed. A provider listed here may still fail to start, and then the model runs on the CPU
+/// and the user is told ([`Placement::fallback`]).
 pub fn compute_devices() -> Vec<Value> {
+    use crate::shipped_libraries::{onnx_runtime_library, OnnxRuntimeLibrary};
     let mut devices = vec![device_entry(Provider::Cpu, 0)];
-    if vrct_onnx_runtime::library_present()
-        && let Ok(providers) = runtime::available_providers()
-    {
-        devices.extend(providers.into_iter().filter(|p| p.offered() && *p != Provider::Cpu).map(|p| device_entry(p, 0)));
+    match onnx_runtime_library() {
+        OnnxRuntimeLibrary::Shipped => {}
+        OnnxRuntimeLibrary::Gpu(device) => devices.extend(Provider::from_name(device).map(|p| device_entry(p, 0))),
+        OnnxRuntimeLibrary::Other => {
+            if vrct_onnx_runtime::library_present()
+                && let Ok(providers) = runtime::available_providers()
+            {
+                devices.extend(providers.into_iter().filter(|p| p.offered() && *p != Provider::Cpu).map(|p| device_entry(p, 0)));
+            }
+        }
+    }
+    devices
+}
+
+/// `devices`, then the devices of the GPU builds the user set up under `state_dir` that it lacks
+/// ([`crate::shipped_libraries::gpu_builds`]): those this run did not load. These carry
+/// `restart_required`: the app loads its ONNX Runtime library when it starts, so choosing one
+/// takes effect at the next start, and until then the model runs on the CPU.
+pub fn with_gpu_builds(devices: Vec<Value>, state_dir: &Path) -> Vec<Value> {
+    with_restart_devices(devices, crate::shipped_libraries::gpu_builds(state_dir).iter().map(|build| build.device))
+}
+
+/// The devices of `builds` that `devices` lacks, added with `restart_required`.
+fn with_restart_devices<'a>(mut devices: Vec<Value>, builds: impl IntoIterator<Item = &'a str>) -> Vec<Value> {
+    for provider in builds.into_iter().filter_map(Provider::from_name) {
+        if devices.iter().any(|device| device["device"] == provider.name()) {
+            continue;
+        }
+        let mut entry = device_entry(provider, 0);
+        entry["restart_required"] = json!(true);
+        devices.push(entry);
     }
     devices
 }
@@ -410,6 +440,25 @@ impl LocalTranslation for OnnxTranslation {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_gpu_build_this_run_did_not_load_is_listed_for_after_a_restart() {
+        let cpu = device_entry(Provider::Cpu, 0);
+        let directml = device_entry(Provider::DirectMl, 0);
+        // The CUDA build loaded, the DirectML build set up too.
+        let devices = with_restart_devices(vec![cpu.clone(), device_entry(Provider::Cuda, 0)], ["cuda", "directml"]);
+        assert_eq!(devices.len(), 3);
+        assert_eq!(devices[1].get("restart_required"), None);
+        assert_eq!(devices[2]["device"], "directml");
+        assert_eq!(devices[2]["device_name"], directml["device_name"]);
+        assert_eq!(devices[2]["compute_types"], directml["compute_types"]);
+        assert_eq!(devices[2]["restart_required"], true);
+        // The shipped CPU build loaded: both wait for a restart, in the order they were found.
+        let devices = with_restart_devices(vec![cpu.clone()], ["cuda", "directml"]);
+        assert_eq!(devices.iter().map(|d| (d["device"].as_str().unwrap(), d["restart_required"] == true)).collect::<Vec<_>>(), [("cpu", false), ("cuda", true), ("directml", true)]);
+        // Nothing set up: the list is as it was.
+        assert_eq!(with_restart_devices(vec![cpu.clone()], []), vec![cpu]);
+    }
 
     #[test]
     fn catalog_ids_are_lower_case_and_map_back_to_their_weight() {

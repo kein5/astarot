@@ -186,7 +186,16 @@ pub fn routes(core: &Arc<Core>) -> Routes {
 
     // Compute device and the local translation
     b.get("/get/data/compute_mode", OPEN, "COMPUTE_MODE");
-    b.get("/get/data/selectable_translation_compute_device_list", OPEN, "SELECTABLE_COMPUTE_DEVICE_LIST");
+    b.with("/get/data/selectable_translation_compute_device_list", OPEN, |core, _| {
+        // A GPU build of ONNX Runtime set up during the run joins the list, for the next start.
+        let config = core.config();
+        let listed = config.get("SELECTABLE_COMPUTE_DEVICE_LIST").as_array().cloned().unwrap_or_default();
+        let devices = super::translation::with_gpu_builds(listed.clone(), &config.environment().state_dir);
+        if devices != listed {
+            config.put("SELECTABLE_COMPUTE_DEVICE_LIST", Value::Array(devices));
+        }
+        ok(config.get("SELECTABLE_COMPUTE_DEVICE_LIST"))
+    });
     b.get("/get/data/selected_translation_compute_device", OPEN, "SELECTED_TRANSLATION_COMPUTE_DEVICE");
     let device = compute_device(core);
     b.add("/set/data/selected_translation_compute_device", OPEN, device);

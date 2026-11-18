@@ -3,7 +3,16 @@
 // The engine names the processor "cpu"; the screen says CPU, as a GPU keeps its own name.
 export const computeDeviceName = (name) => (typeof name === "string" && name.toLowerCase() === "cpu" ? "CPU" : name);
 
-const transformDeviceArray = (devices = {}) => {
+// A GPU whose ONNX Runtime was set up during this run: chosen now, it is used from the next start.
+export const needsRestart = (device) => device?.restart_required === true;
+
+// The name of a device, saying when it needs the app started again.
+export const computeDeviceLabel = (device, t) => {
+    const name = computeDeviceName(device?.device_name);
+    return name && needsRestart(device) && t ? t("config_page.common.compute_device.after_restart", { device: name }) : name;
+};
+
+const transformDeviceArray = (devices = {}, t) => {
     if (!devices) return {};
     const name_counts = Object.values(devices).reduce((counts, device) => {
         const name = device?.device_name;
@@ -20,14 +29,13 @@ const transformDeviceArray = (devices = {}) => {
         const name = device?.device_name;
         if (!name) return;
 
+        let value = computeDeviceName(name);
         if (name_counts[name] > 1) {
             name_indices[name] = (name_indices[name] || 0);
-            const value = `${computeDeviceName(name)}:${name_indices[name]}`;
+            value = `${value}:${name_indices[name]}`;
             name_indices[name]++;
-            result[key] = value;
-        } else {
-            result[key] = computeDeviceName(name);
         }
+        result[key] = needsRestart(device) && t ? t("config_page.common.compute_device.after_restart", { device: value }) : value;
     });
 
     return result;
@@ -115,7 +123,7 @@ export const buildComputeDeviceOptions = (devices, selected_device, t) => {
         : [];
 
     return {
-        device_labels: transformDeviceArray(devices),
+        device_labels: transformDeviceArray(devices, t),
         selected_device_id,
         compute_type_labels: buildSimpleLabels(sortComputeTypesArray(compute_types), t),
     };

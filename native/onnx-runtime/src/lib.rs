@@ -79,11 +79,56 @@ pub fn library_name() -> String {
 }
 
 static SHIPPED_LIBRARY: OnceLock<PathBuf> = OnceLock::new();
+static DEPENDENCIES: OnceLock<Vec<PathBuf>> = OnceLock::new();
 
 /// The library the app ships (`_internal/onnxruntime`), used when `ORT_DYLIB_PATH` is not set.
 /// Call once, before ONNX Runtime is first used; a later call changes nothing.
 pub fn use_library(path: PathBuf) {
-    let _ = SHIPPED_LIBRARY.set(path);
+    use_library_with(path, Vec::new());
+}
+
+/// As [`use_library`], for a library that needs others loaded before it: the CUDA build of ONNX
+/// Runtime needs NVIDIA's libraries, the DirectML build needs `DirectML.dll`, and the system's
+/// loader does not look for them beside the library. They are loaded first when this library is
+/// the one loaded (not when `ORT_DYLIB_PATH` names another). One that cannot be loaded leaves
+/// ONNX Runtime itself usable on the CPU; the provider that needed it then fails to start.
+pub fn use_library_with(path: PathBuf, dependencies: Vec<PathBuf>) {
+    if SHIPPED_LIBRARY.set(path).is_ok() {
+        let _ = DEPENDENCIES.set(dependencies);
+    }
+}
+
+/// The libraries to load before ONNX Runtime: those of [`use_library_with`], unless the variable
+/// names the library.
+#[cfg_attr(not(feature = "load-dynamic"), allow(dead_code))]
+fn dependencies_to_load(variable: Option<OsString>) -> Vec<PathBuf> {
+    if variable.is_some_and(|path| !path.is_empty()) {
+        Vec::new()
+    } else {
+        DEPENDENCIES.get().cloned().unwrap_or_default()
+    }
+}
+
+/// Loads each library that can be loaded, again until nothing more can (one may need another
+/// listed after it). Returns those that could not be loaded.
+#[cfg(feature = "load-dynamic")]
+fn preload(mut pending: Vec<PathBuf>) -> Vec<PathBuf> {
+    while !pending.is_empty() {
+        let before = pending.len();
+        pending.retain(|path| ort::util::preload_dylib(path).is_err());
+        if pending.len() == before {
+            break;
+        }
+    }
+    pending
+}
+
+static NOT_PRELOADED: OnceLock<usize> = OnceLock::new();
+
+/// How many of the libraries of [`use_library_with`] could not be loaded before ONNX Runtime
+/// (`None` before ONNX Runtime was loaded), for the log.
+pub fn dependencies_missing() -> Option<usize> {
+    NOT_PRELOADED.get().copied()
 }
 
 /// The library [`environment`] loads: `ORT_DYLIB_PATH`, else the shipped one ([`use_library`]),
@@ -123,6 +168,8 @@ fn make(builder: std::result::Result<EnvironmentBuilder, String>) -> std::result
 /// than a panic on first use.
 #[cfg(feature = "load-dynamic")]
 fn default_builder() -> std::result::Result<EnvironmentBuilder, String> {
+    let missing = preload(dependencies_to_load(std::env::var_os(LIBRARY_VARIABLE)));
+    let _ = NOT_PRELOADED.set(missing.len());
     ort::init_from(library_path()).map_err(|error| error.to_string())
 }
 
@@ -173,6 +220,13 @@ mod tests {
         assert_eq!(resolve(None, Some(shipped.clone())), shipped);
         assert_eq!(resolve(None, None), PathBuf::from(library_name()));
         assert_eq!(resolve(Some("".into()), None), PathBuf::from(library_name()));
+    }
+
+    #[test]
+    fn the_variable_also_leaves_out_the_chosen_librarys_dependencies() {
+        // Nothing chosen in this test process: no dependencies either way.
+        assert!(dependencies_to_load(None).is_empty());
+        assert!(dependencies_to_load(Some("/opt/ort/custom".into())).is_empty());
     }
 
     #[test]

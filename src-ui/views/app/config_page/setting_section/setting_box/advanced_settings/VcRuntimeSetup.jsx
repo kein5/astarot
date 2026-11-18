@@ -24,7 +24,9 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
     const job = state.jobs[engine], installed = state.installed[engine];
     const active = activeSetupPhases.includes(job?.phase);
     const busy = !!pending || Object.values(state.jobs).some(item => activeSetupPhases.includes(item.phase));
-    const failure = code => t(`vc_runtime.errors.${code}`, { defaultValue: t("vc_runtime.errors.vc_runtime_failed") });
+    // A runtime may word a step or a failure its own way (DirectML is not CUDA): `<key>_<notice>`.
+    const own = (key, fallback) => t(`${key}_${entry.notice}`, { defaultValue: fallback });
+    const failure = code => own(`vc_runtime.errors.${code}`, t(`vc_runtime.errors.${code}`, { defaultValue: t("vc_runtime.errors.vc_runtime_failed") }));
     const close = () => { closeDialog(); setOpen(false); setConsent(false); setLinkError(null); };
     const openLink = async (event, url) => {
         if (!isTauri()) return;
@@ -43,7 +45,7 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
         {entry.device === "cpu" && !installed && <p>{t("vc_runtime.cpu_only")}</p>}
         {job && <EnvReadout tone={job.phase === "ready" ? "active" : job.phase === "failed" ? "failed" : "neutral"}
             progress={active && job.phase !== "cancelling" ? "working" : job.phase === "ready" ? "done" : undefined}>
-            <p>{t(`vc_runtime.phase_${job.phase}`)}{active && job.step > 0 && ` · ${job.step} / ${job.steps}`}</p>
+            <p>{own(`vc_runtime.phase_${job.phase}`, t(`vc_runtime.phase_${job.phase}`))}{active && job.step > 0 && ` · ${job.step} / ${job.steps}`}</p>
         </EnvReadout>}
         {active && <progress className={styles.progress} aria-label={t("vc_runtime.progress")}
             value={job.total_bytes ? job.received_bytes : job.step} max={job.total_bytes || job.steps} />}
@@ -55,7 +57,8 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
         <div className={styles.actions}>
             {active && <button type="button" disabled={job.phase === "cancelling" || !!pending}
                 onClick={() => send("/run/cancel_vc_runtime_setup", { id: engine, job_id: job.job_id })}>{t("vc_runtime.cancel")}</button>}
-            {installed && installed !== current && <button type="button" disabled={disabled} onClick={() => onUse(installed)}>{t("vc_runtime.use")}</button>}
+            {/* The translation's runtimes are chosen through the compute device, not here. */}
+            {onUse && installed && installed !== current && <button type="button" disabled={disabled} onClick={() => onUse(installed)}>{t("vc_runtime.use")}</button>}
             {!installed && !active && <button type="button" disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
                 onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</button>}
         </div>
@@ -64,7 +67,7 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
             <p>{t(`vc_runtime.notice_${entry.notice}`)}</p>
             <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })}</p>
             <p>{t(`vc_runtime.connection_notice_${entry.notice}`)}</p>
-            <p>{t("vc_runtime.no_start")}</p>
+            <p>{own("vc_runtime.no_start", t("vc_runtime.no_start"))}</p>
             <p>{t("model_downloads.license_links")}: {entry.licenses.map(url => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{url}</a> </span>)}</p>
             {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
             <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{entry.destination}</code></p>

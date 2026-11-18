@@ -119,11 +119,32 @@ CPU版のパッケージに入っているライブラリは、GitHubのアー�
 CUDAプロバイダも、GitHubの`gpu_cuda13`版と同じくcuBLAS 13とcudart 13にリンクしていて、固定したNVIDIAのwheelと合う。
 同意画面のライセンスのリンクはNuGetのパッケージのLicenseのページにした。GitHubから準備した実行環境は、`lib/`の
 ファイルが同じ名前なので導入済みのまま使える（`runtime.rs`の`OrtSource`）。DirectML版はNuGetに1.31.0がない
-（最新は1.24.4）が、どの取得もDirectML版を使っていない。
+（最新は1.24.4）が、RVCの取得はDirectML版を使っていない（ローカル翻訳のDirectML版は下の節）。
 
 ワーカーのRust依存（`ort`、`ort-sys`、`libloading`、`prost`、`rustfft`、`serde_json`、`thiserror`、`hound`など）は
 MIT、Apache-2.0、ISCなどの許容型ライセンス。配布物へのライセンス文書の同梱方法は、Tauri本体のRust依存と同じく
 未整理（残課題）。→ 下の「#322」の節で整備した。
+
+### ローカル翻訳のGPU用のONNX Runtime（2026-11-19、core-integrationの判断2 (c)）
+
+配布物にはONNX RuntimeのCPU版だけを入れる。ローカル翻訳をGPUで動かすためのONNX Runtimeは配布物に含めず、
+上の実行環境と同じ仕組みで、利用者の同意を得てから提供元から取得する（`runtime.rs`の`onnx_cuda_runtime`と
+`onnx_directml_runtime`。保存先は設定フォルダーの`vc_runtimes/onnxruntime-cuda`と`vc_runtimes/onnxruntime-directml`）。
+アプリは、翻訳の処理デバイスにその版が選ばれているときだけ、起動時に同梱のCPU版の代わりに読み込む。チャット読み取りも
+同じライブラリを使う。
+
+| 取得物 | 取得元 | ライセンス |
+|---|---|---|
+| CUDA版（NVIDIAのドライバーがあるとき）: ONNX Runtime 1.31.0（CUDA 13版）と、上の表と同じCUDAとcuDNNのライブラリ | RVCのGPU用と同じNuGetのパッケージとPyPIのwheel（同じ版・SHA-256）。基礎モデルは含まない | MIT、NVIDIAのCUDA EULA、cuDNN SLA |
+| DirectML版（Windowsだけ）: ONNX Runtime 1.24.4（DirectML版）の`onnxruntime.dll`と`onnxruntime_providers_shared.dll`、DirectML 1.15.4の`DirectML.dll` | NuGetのMicrosoft公式パッケージ`Microsoft.ML.OnnxRuntime.DirectML` 1.24.4と`Microsoft.AI.DirectML` 1.15.4 | ONNX RuntimeはMIT。DirectMLはMicrosoft Software License Terms（DirectML） |
+
+DirectMLのライセンス（2026-11-19にNuGetのLicenseのページで確認）は、アプリやサービスに入れて配布することを認め、
+使えるのはWindowsとXboxだけとしている。2aに、ソフトウェアが利用者と使い方の情報を集めてMicrosoftに送ることがある、
+という定めがある。オプトアウトできるのは一部だけとしている。取得の確認の画面にこのことを書いた。DirectML版を同梱しないので、
+配布物の義務は生じない。ONNX RuntimeのDirectML版は1.24.4が最後（DirectMLは保守のみ）で、CPU版とCUDA版の1.31.0より古い。
+
+CUDA版は#288の受け入れ条件（配布物にCUDAのライブラリを入れない）に合わせて同梱しない。RVCのGPU用の実行環境を
+準備済みなら、同じファイルなので取得し直さずにそれを使う（`cuda_libraries`）。
 
 ## アプリ内の更新（2026-11-15、#330）
 

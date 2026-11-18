@@ -88,15 +88,19 @@ fn folders(executable: &Path) -> Folders {
 
 fn environment(executable: &Path, version: String) -> Environment {
     let Folders { state_dir, app_dir, data_dir } = folders(executable);
+    // The ONNX Runtime library first (the shipped CPU build, or the GPU build the user set up
+    // for translation): the compute devices are its execution providers.
+    vrct_core::shipped_libraries::use_libraries(&app_dir, &state_dir);
+    // The CPU, the GPU provider of the library chosen, and the GPU builds set up that need a
+    // restart.
+    let compute_devices = vrct_core::controller::translation::compute_devices_for(&state_dir);
     Environment {
         version,
         state_dir,
         app_dir,
         data_dir,
         platform: Platform::current(),
-        // The CPU, and the GPU execution providers of the ONNX Runtime library beside the app
-        // (none loaded when no library is there).
-        compute_devices: vrct_core::controller::translation::compute_devices(),
+        compute_devices,
         devices: None,
         websocket_token: None,
     }
@@ -165,17 +169,18 @@ fn start_run(
             let _ = exit.send(code);
         }),
     };
+    if cfg!(debug_assertions) {
+        // A development build runs from src-tauri/target; the files a package ships in
+        // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.
+        // Before the environment, which looks for the ONNX Runtime library.
+        vrct_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
+    }
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
     // A run started again keeps the failed run's record in process.log.
     options.continue_logs = continue_logs;
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
     // The update endpoints use the update page's updater (app_update.rs; decision 20).
     options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));
-    if cfg!(debug_assertions) {
-        // A development build runs from src-tauri/target; the files a package ships in
-        // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.
-        vrct_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
-    }
     let backend = Backend::start(options, sink);
     let host = app.state::<BackendHost>();
     *host.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some((session, backend));

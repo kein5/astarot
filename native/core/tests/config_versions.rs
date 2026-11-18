@@ -171,3 +171,39 @@ fn a_file_others_may_read_is_written_at_start_for_the_owner_only() {
     assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
     config.close();
 }
+
+#[test]
+fn a_translation_device_that_needs_a_restart_is_kept_for_the_next_start() {
+    // A GPU build of ONNX Runtime set up during the run is listed with `restart_required`
+    // (decision 2 (c)): it can be chosen, and the next start, which loads it, keeps the choice.
+    let dir = tempfile::tempdir().unwrap();
+    let cpu = Environment::cpu_device();
+    let cuda = json!({ "device": "cuda", "device_index": 0, "device_name": "NVIDIA GPU (CUDA)", "compute_types": ["auto", "float32", "float16", "int4"] });
+    let mut waiting = cuda.clone();
+    waiting["restart_required"] = json!(true);
+    let mut env = environment(dir.path());
+    env.compute_devices = vec![cpu.clone(), waiting.clone()];
+    let config = Config::open_with(env, MemoryStore::new());
+    // Not in use yet.
+    assert_eq!(config.get("COMPUTE_MODE"), "cpu");
+    config.set("SELECTED_TRANSLATION_COMPUTE_DEVICE", json!({ "device": "cuda", "device_index": 0, "device_name": "NVIDIA GPU (CUDA)" })).unwrap();
+    assert_eq!(config.get("SELECTED_TRANSLATION_COMPUTE_DEVICE"), waiting);
+    config.set("SELECTED_TRANSLATION_COMPUTE_TYPE", json!("float16")).unwrap();
+    config.save_now();
+    config.close();
+    drop(config);
+
+    let mut env = environment(dir.path());
+    env.compute_devices = vec![cpu.clone(), cuda.clone()];
+    let config = Config::open_with(env, MemoryStore::new());
+    assert_eq!(config.get("SELECTED_TRANSLATION_COMPUTE_DEVICE"), cuda);
+    assert_eq!(config.get("SELECTED_TRANSLATION_COMPUTE_TYPE"), "float16");
+    assert_eq!(config.get("COMPUTE_MODE"), "cuda");
+    config.close();
+    drop(config);
+
+    // Started without it (the build was removed): the CPU, as with any device that is gone.
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("SELECTED_TRANSLATION_COMPUTE_DEVICE"), cpu);
+    config.close();
+}
