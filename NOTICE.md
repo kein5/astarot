@@ -177,7 +177,7 @@ also contains the backend core and the crates it uses (`native/core`,
 `native/adapters`, `native/audio-routing`, `native/ops`, `native/speech-server`,
 `native/translation`, `native/translate-onnx`, `native/tts`,
 `native/voice-conversion`, `native/vr-overlay`, `native/openvr-client`,
-`native/ocr-runtime`, `native/transcription`); they are VRCT-VOX's own
+`native/ocr-runtime`, `native/onnx-runtime`, `native/transcription`); they are VRCT-VOX's own
 code under `LICENSE`, and the list marks them so.
 
 `native/ocr-runtime` (chat reading) reimplements, so that its results match

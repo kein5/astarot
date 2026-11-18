@@ -35,7 +35,7 @@ are candidates from this workflow, published through the
 
 ## Build locally
 
-Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python 3.11 and uv come from
+Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python and uv come from
 `mise install` at the versions pinned in `mise.toml`, the same versions the workflow uses.
 Run the build from a shell where mise is active (`mise activate`), or through
 `mise run build:linux -- <options>`. Python runs the build tools only.

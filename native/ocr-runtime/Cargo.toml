@@ -19,14 +19,16 @@ default = ["download-binaries"]
 # Link `ort`'s prebuilt ONNX Runtime statically (fetched at build time). The crate's own
 # tests and `ocr-read` use it.
 download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs"]
-# Load the ONNX Runtime library at run time instead: `ORT_DYLIB_PATH`, else
-# `onnxruntime.dll` / `libonnxruntime.so` beside the executable, else by name. A missing
-# library makes the engine unavailable instead of failing the build or the start of the
+# Load the ONNX Runtime library at run time instead (native/onnx-runtime): `ORT_DYLIB_PATH`,
+# else the library the app ships, else `onnxruntime.dll` / `libonnxruntime.so` by name. A
+# missing library makes the engine unavailable instead of failing the build or the start of the
 # process. The application core uses this (docs/voice-stack/core-integration.md, item 2).
-load-dynamic = ["ort/load-dynamic"]
+load-dynamic = ["vrct-onnx-runtime/load-dynamic"]
 
 [dependencies]
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
+# The process's one ONNX Runtime library and environment, shared with local translation.
+vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false }
 png = "0.18"
 serde = { version = "1", features = ["derive"] }
 # Only `ocr-read` writes JSON. The tests parse the reference floats exactly (below); the

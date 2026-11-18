@@ -87,6 +87,16 @@ def test_oversized_prefixed_nested_zip_is_rejected(tmp_path, monkeypatch, contai
         _inspect_payload(tmp_path, container, "_internal/payload.dat", payload)
 
 
+@pytest.mark.parametrize("container", ["zip", "tar", "tree"])
+def test_a_damaged_prefixed_zip_is_not_taken_for_plain_data(tmp_path, container):
+    # The end record is there, the central directory is not. Python 3.14's zipfile.is_zipfile
+    # says this is no ZIP, which must not let the member through unread.
+    payload = _zip_bytes("ocr_onnx/chatbox_yolox_tiny.onnx", prefix=b"MZ executable preamble\n")
+    payload = payload.replace(b"PK\x01\x02", b"XX\x01\x02")
+    with pytest.raises(ValueError, match="Cannot inspect ZIP"):
+        _inspect_payload(tmp_path, container, "_internal/payload.dat", payload)
+
+
 @pytest.mark.parametrize("container", ["zip", "tar"])
 def test_large_non_archive_members_remain_allowed(tmp_path, monkeypatch, container):
     monkeypatch.setattr(guard, "MAX_NESTED_ZIP", 128)

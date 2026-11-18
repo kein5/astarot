@@ -24,7 +24,7 @@ jobs:
         with:
           version: 2026.11.8
           install_args: node python uv cocogitto
-      - run: uv venv --python 3.11
+      - run: uv venv
       - run: uv export --frozen --no-header --no-annotate --format requirements-txt --no-emit-project --only-group voice-test --output-file voice-test-requirements.txt
       - run: uv pip sync --require-hashes voice-test-requirements.txt
       - if: runner.os == 'Linux'
@@ -87,6 +87,8 @@ jobs:
           cargo test --locked --manifest-path native/core/Cargo.toml --lib credential_manager -- --ignored
           cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored
       - run: cargo test --locked --manifest-path native/openvr-client/Cargo.toml
+      # The ONNX Runtime library and environment chat reading, translation and the RVC worker share.
+      - run: cargo test --locked --manifest-path native/onnx-runtime/Cargo.toml
       - run: cargo test --locked --manifest-path native/vr-overlay/Cargo.toml
       - run: cargo test --locked --manifest-path native/transcription/Cargo.toml
       - run: cargo test --locked --manifest-path native/voice-conversion/Cargo.toml
@@ -122,8 +124,8 @@ jobs:
         with:
           version: 2026.11.8
           install_args: python uv
-      - run: uv run --no-project --python 3.11 python tools/dev.py setup --scope backend
-      - run: uv run --no-project --python 3.11 python tools/dev.py check --scope backend
+      - run: uv run --no-project python tools/dev.py setup --scope backend
+      - run: uv run --no-project python tools/dev.py check --scope backend
       - name: Show the native crash trace
         if: failure()
         run: if [ -f crash_trace.log ]; then tail -n 200 crash_trace.log; fi

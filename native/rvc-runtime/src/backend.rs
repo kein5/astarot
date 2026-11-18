@@ -3,7 +3,6 @@
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::OnceLock;
 
 use ort::environment::Environment;
 use ort::session::Session;
@@ -33,45 +32,29 @@ fn backend(error: impl std::fmt::Display) -> Error {
     Error::Backend(error.to_string())
 }
 
-static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
 /// Threads of each session's intra-operator pool; 0 leaves ONNX Runtime's default.
 static INTRA_THREADS: AtomicUsize = AtomicUsize::new(0);
 
+/// The process's ONNX Runtime environment (`vrct-onnx-runtime`), made on first use. The
+/// worker's tools stop ONNX Runtime's usage reports first thing
+/// (`vrct_onnx_runtime::disable_telemetry_for_process`); the app sets the variable for the worker
+/// it starts as well.
 fn environment() -> Result<&'static Environment> {
-    ENVIRONMENT
-        .get_or_init(|| ort::init().with_name("rvc-runtime").with_telemetry(false).build().map_err(|error| error.to_string()))
-        .as_ref()
-        .map_err(backend)
-}
-
-/// Stops ONNX Runtime's usage reports for this process (issue #518): the official Linux build
-/// writes a `deviceid` and sends a first event when the environment is made, before the
-/// environment option (`with_telemetry(false)`, also set here) can apply. The app sets the
-/// variable for the worker it starts as well; the tools set it themselves.
-///
-/// # Safety
-///
-/// Changes the process environment: call at the start of `main`, before other threads run.
-pub unsafe fn disable_telemetry_for_process() {
-    unsafe { std::env::set_var("ORT_DISABLE_TELEMETRY", "1") };
+    vrct_onnx_runtime::environment().map_err(|error| match error {
+        vrct_onnx_runtime::Error::Unavailable(message) => Error::Backend(message),
+        other => backend(other),
+    })
 }
 
 /// Loads ONNX Runtime from `library` (`libonnxruntime.so`, `onnxruntime.dll`) instead of
-/// looking it up by name. Call before anything else of this crate; a second call, or a
-/// call after a network was loaded, returns an error and changes nothing.
+/// looking it up (`ORT_DYLIB_PATH` is ignored). Call before anything else of this crate; a
+/// second call, or a call after a network was loaded, returns an error and changes nothing.
 #[cfg(feature = "load-dynamic")]
 pub fn load_runtime(library: &Path) -> Result<()> {
-    let mut fresh = false;
-    let result = ENVIRONMENT.get_or_init(|| {
-        fresh = true;
-        let builder = ort::init_from(library).map_err(|error| error.to_string())?;
-        builder.with_name("rvc-runtime").with_telemetry(false).build().map_err(|error| error.to_string())
-    });
-    match (fresh, result) {
-        (true, Ok(_)) => Ok(()),
-        (true, Err(error)) => Err(Error::Backend(error.clone())),
-        (false, _) => Err(Error::invalid("ONNX Runtime was already loaded")),
-    }
+    vrct_onnx_runtime::load(library).map_err(|error| match error {
+        vrct_onnx_runtime::Error::Unavailable(message) => Error::Backend(message),
+        vrct_onnx_runtime::Error::AlreadyLoaded => Error::invalid("ONNX Runtime was already loaded"),
+    })
 }
 
 /// Limits the CPU threads each network's session uses within one operator (ONNX

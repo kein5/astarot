@@ -503,6 +503,24 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 
 Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。
 
+## 開発に使うPythonを3.14にした（2026-11-18）
+
+開発の道具と試験に使うPythonを3.14にした（`mise.toml`）。配布物にPythonは入らないので（上の節）、配布物とNOTICEの記載は変わらない。`uv.lock`には次のパッケージが増えた。
+
+| パッケージ | 版 | ライセンス | 入れた理由 |
+|---|---|---|---|
+| `audioop-lts` | 0.2.2 | PSF-2.0 | 3.13で標準ライブラリから外れた`audioop`の代わり。VAD（`src-python/models/transcription/audio_vad.py`）、SpeechRecognitionのフォーク、speech.cppの実時間の試験が使う |
+| `standard-aifc` | 3.13.0 | PSF-2.0 | 3.13で外れた`aifc`の代わり。SpeechRecognitionのフォークが使う |
+| `standard-chunk` | 3.13.0 | PSF-2.0 | `standard-aifc`の依存（3.13で外れた`chunk`） |
+
+3.14用のwheelがある版にするため、次の3つを上げた。ライセンスは前の版と同じ。
+
+- PyAudioWPatch: 0.2.12.6から0.2.12.8へ（Apache-2.0）
+- PyYAML: 6.0.2から6.0.3へ（MIT）
+- SudachiPy: 0.6.10から0.6.11へ（Apache-2.0）
+
+Seed-VCの実行環境（`integrations/seed_vc/`、Python 3.11）、RVCの参照環境（`native/rvc-runtime/reference/`、Python 3.12）、翻訳モデルを書き出す環境（`tools/translation_onnx/`）は、それぞれのロックを持つ別の環境なので変えていない。
+
 ## 読みの解析器と辞書（2026-11-16）
 
 メッセージの読み（ひらがな・ローマ字）は、Pythonと同じくSudachiで解析する。中核は解析器にsudachi.rsを使い、辞書は`_internal/build/sudachi/system.dic`を読む。候補の比較は[中核の統合](core-integration.md)の「判断が要ること」の3にある。

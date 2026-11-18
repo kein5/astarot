@@ -26,7 +26,7 @@ GROUPS = {"quick": ("tooling", "node", "lint"),
           "all": ("tooling", "node", "ui", "voice", "lint", "backend", "rust")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
-                 "native/transcription", "native/openvr-client", "native/vr-overlay", "native/voice-conversion",
+                 "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
                  "native/translate-onnx", "native/tts", "native/core")
 SETUP_SCOPES = ("headless", "ui", "browser", "backend", "rust", "resources")
 OWNER_FILE = ".vrct-vox-dev-env"
@@ -111,6 +111,16 @@ def execute(steps, root, *, dry_run):
 
 def env_python(directory):
     return directory / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+
+def env_series(directory):
+    """(major, minor) of the Python a virtual environment was made with, from its pyvenv.cfg."""
+    try:
+        text = (directory / "pyvenv.cfg").read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    match = re.search(r"^\s*version(?:_info)?\s*=\s*(\d+)\.(\d+)", text, re.M)
+    return (int(match[1]), int(match[2])) if match else None
 
 
 def choose_python(root, explicit=None, *, profile="headless"):
@@ -204,19 +214,31 @@ def checks_plan(args, root):
     return steps
 
 
-def pinned_versions(root):
-    """Tool versions pinned in mise.toml, keyed by the name doctor looks up on PATH."""
+def mise_versions(root):
+    """Tool versions pinned in mise.toml, keyed by mise's tool name; empty without the file."""
     try:
         tools = tomllib.loads((root / "mise.toml").read_text(encoding="utf-8")).get("tools", {})
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
         return {}
     versions = {}
-    for mise_name, command in (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv")):
-        value = tools.get(mise_name)
+    for name, value in tools.items() if isinstance(tools, dict) else ():
         version = value.get("version") if isinstance(value, dict) else value
         if isinstance(version, str):
-            versions[command] = version
+            versions[name] = version
     return versions
+
+
+def pinned_versions(root):
+    """Tool versions pinned in mise.toml, keyed by the name doctor looks up on PATH."""
+    tools = mise_versions(root)
+    return {command: tools[name] for name, command in
+            (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv")) if name in tools}
+
+
+def python_series(root):
+    """(major, minor) of the Python mise.toml pins, which every test environment uses; None without a pin."""
+    match = re.match(r"(\d+)\.(\d+)(?:\.|$)", mise_versions(root).get("python", ""))
+    return (int(match[1]), int(match[2])) if match else None
 
 
 def doctor(args, root, *, preflight=False):
@@ -278,6 +300,7 @@ def doctor(args, root, *, preflight=False):
     for tool_name in sorted(needed_tools):
         tool(tool_name, pinned.get(tool_name))
     python_scopes = set(selected) & {"voice", "lint", "backend", "browser"}
+    series = python_series(root)
     for scope in sorted(python_scopes):
         python = choose_python(root, args.python, profile=scope if scope in ("backend", "browser") else "headless")
         remedy_scope = "backend" if scope == "backend" else "browser" if scope == "browser" else "headless"
@@ -290,8 +313,9 @@ def doctor(args, root, *, preflight=False):
             "browser": ["pytest", "playwright", "python-osc", "requests"]}[scope]
         script = "import sys, importlib.metadata as m; print(sys.version); " + "; ".join(
             f"print({p!r}, m.version({p!r}))" for p in packages)
-        if scope != "lint":
-            script += "; assert sys.version_info[:2] == (3, 11), 'Use Python 3.11 for the test/runtime environment'"
+        if scope != "lint" and series:
+            script += (f"; assert sys.version_info[:2] == {series!r}, "
+                       f"'Use Python {series[0]}.{series[1]} (mise.toml) for the test/runtime environment'")
         result = probe([python, "-c", script], root)
         row(scope, "ok" if result.returncode == 0 else "missing",
             result.stdout.strip() if result.returncode == 0 else f"Missing dependency in {python}: {result.stderr.strip().splitlines()[-1:]}", remedy)
@@ -349,6 +373,9 @@ def setup(args, root):
     requirement = f"build/dev/{args.scope}-requirements.txt"
     target = root / f"build/dev/{args.scope}-venv"
     python = choose_python(root, args.python) if args.python else str(env_python(target))
+    # The Python mise.toml pins; uv finds it on PATH and never fetches one of its own.
+    series = python_series(root)
+    label = f"Python {series[0]}.{series[1]}" if series else "Python"
     if args.python:
         if not args.dry_run and not Path(python).is_file():
             raise DevError(f"Existing Python not found: {python}")
@@ -358,12 +385,15 @@ def setup(args, root):
                 info = json.loads(result.stdout) if result.returncode == 0 else {}
             except ValueError:
                 info = {}
-            if not info.get("venv") or info.get("version") != [3, 11]:
-                raise DevError("Browser dependencies require an existing Python 3.11 virtual environment; system Python is never modified.")
+            if not info.get("venv") or (series and info.get("version") != list(series)):
+                raise DevError(f"Browser dependencies require an existing {label} virtual environment; system Python is never modified.")
     else:
         owned_environment(target, root)
-        if not target.exists():
-            step = Step("isolated Python 3.11 environment", [*uv, "venv", "--python", "3.11",
+        # An owned environment from an earlier pin cannot take the lock's wheels: make it again.
+        stale = bool(series) and target.exists() and env_series(target) != series
+        if not target.exists() or stale:
+            version = ["--python", f"{series[0]}.{series[1]}"] if series else []
+            step = Step(f"isolated {label} environment", [*uv, "venv", *version, *(["--clear"] if stale else []),
                 "--no-python-downloads", str(target)])
             result = execute([step], root, dry_run=args.dry_run)
             if result:
