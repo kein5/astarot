@@ -352,6 +352,42 @@ fn recognised_speech_is_filtered_deduplicated_and_pushed() {
     run.ui.stop();
 }
 
+/// #446: the realtime settings' vocabulary, applied outside realtime recognition too.
+fn with_terms() -> Run {
+    let vocabulary = json!({ "builtin": false, "terms": ["猫丸=ねこまる", "Midnight Rooftop"] });
+    start(json!({ "REALTIME_ASR_SETTINGS": { "vocabulary": vocabulary } }), None)
+}
+
+#[test]
+fn recognised_speech_gets_the_written_forms_of_the_term_dictionary() {
+    let run = with_terms();
+    let core = run.ui.backend.core().clone();
+    let heard =
+        |text: &str| Recognized { text: text.into(), language: Some("Japanese".into()), ..Recognized::default() };
+
+    // A cloud engine's text gets the written forms and the registered letter case.
+    core.config().set("ENABLE_TRANSCRIPTION_SEND", json!(true)).unwrap();
+    let mark = run.ui.lines().len();
+    core.deliver_transcription(Source::Mic, heard("ねこまるとmidnight rooftopへ"), None);
+    let pushed = run.ui.wait_endpoint(mark, "/run/transcription_send_mic_message");
+    assert_eq!(pushed["result"]["original"]["message"], "猫丸とMidnight Rooftopへ");
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("猫丸とMidnight Rooftopへ"));
+    // OCR reads what others typed, as they typed it.
+    core.config().set("ENABLE_OCR_CAPTURE", json!(true)).unwrap();
+    let mark = run.ui.lines().len();
+    core.deliver_transcription(Source::Ocr, Recognized { text: "ねこまる".into(), ..Recognized::default() }, None);
+    let read = run.ui.wait_endpoint(mark, "/run/transcription_ocr_message");
+    assert_eq!(read["result"]["original"]["message"], "ねこまる");
+
+    // The terms stay out of process.log, in the settings sent and answered.
+    let settings = run.ui.ok("/get/data/realtime_asr_settings", None);
+    run.ui.ok("/set/data/realtime_asr_settings", Some(settings));
+    let log = run.process_log();
+    assert!(log.contains("/set/data/realtime_asr_settings"));
+    assert!(!log.contains("猫丸") && !log.contains("Midnight"), "a term reached process.log");
+    run.ui.stop();
+}
+
 #[test]
 fn the_overlay_and_speech_hooks_get_each_message_and_a_failure_is_reported() {
     let run = start(json!({ "OVERLAY_LARGE_LOG": true }), None);
