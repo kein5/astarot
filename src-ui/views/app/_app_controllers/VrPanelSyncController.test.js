@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import * as wire from "../../../logics/common/vrPanelWire.ts";
 import * as windowFailures from "../../../logics/common/windowFailures.ts";
@@ -50,7 +50,7 @@ async function setup(context, { registry = {}, values = {}, settings = [], openF
             pendingTranscriptionSendStatus: () => {},
         }) },
     });
-    context.after(() => { runtime.unmount(); lifecycle.unmount(); });
+    context.onTestFinished(() => { runtime.unmount(); lifecycle.unmount(); });
     const render = () => { runtime.render(VrPanelSyncController); lifecycle.render(ConfigPageCloseTriggerController); };
     const config = value => { listeners.get("vr-panel-config-page")({ payload: value }); render(); };
     render();

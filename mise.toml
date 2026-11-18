@@ -19,6 +19,11 @@ cocogitto = "7.0.0"
 
 # No uv settings in [env]: mise exports [env] to every program it starts. Tasks that create
 # environments set them for themselves instead.
+[env]
+# The onnxruntime wheel in uv.lock (1.32) otherwise writes a device id under ~/.cache/Microsoft
+# and sends usage events from every tool and test that creates a session (#574). Exported to
+# everything mise starts on purpose; the app's own ONNX Runtime sets this itself.
+ORT_DISABLE_TELEMETRY = "1"
 
 # Every task forwards extra arguments to its command, e.g. `mise run check -- --dry-run`.
 
@@ -27,7 +32,7 @@ description = "Show missing tools and dependencies (no downloads)"
 run = "python tools/dev.py doctor"
 
 [tasks.check]
-description = "Quick checks: developer tools, Node tests and Ruff"
+description = "Quick checks: developer tools, UI tests (Vitest) and Ruff"
 run = "python tools/dev.py check"
 
 [tasks."check:all"]
@@ -39,7 +44,7 @@ description = "Voice contract tests without models"
 run = "python tools/dev.py check --scope voice"
 
 [tasks."check:ui"]
-description = "Node tests and the Vite build"
+description = "UI tests (Vitest), the type check and the Vite build"
 run = "python tools/dev.py check --scope ui"
 
 [tasks."check:backend"]

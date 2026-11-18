@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../../../logics/test/hookHarness.js";
 
 test("holding Enter or Space toggles the volume check once, and a pending check ignores presses", async () => {

@@ -666,10 +666,16 @@ export const _useBackendErrorHandling = () => {
             // ============================================================================
             // 汎用エラー (GENERAL_*)
             // ============================================================================
-            // The API keys' file could not be read or written. The keys work for this run.
-            case "SECRET_STORE_FAILED":
-                showNotification_Error(localized, { hide_duration: null, category_id: error_code });
+            // The API keys' store could not be read or written. The keys work for this run.
+            // A key that did not move to the OS store still works where it was; a store that is
+            // locked or not running needs the user's keyring, which the app does not open.
+            case "SECRET_STORE_FAILED": {
+                const context = data?.operation === "migrate" ? "moving"
+                    : ["unavailable", "locked"].includes(data?.reason) ? "os_store" : undefined;
+                const text = context && i18n.exists(`${key}_${context}`) ? t(key, { context }) : localized;
+                showNotification_Error(text, { hide_duration: null, category_id: error_code });
                 return;
+            }
 
             case "GENERAL_EXCEPTION":
             case "GENERAL_UNKNOWN":

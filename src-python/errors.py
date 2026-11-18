@@ -838,7 +838,7 @@ ERROR_METADATA: Dict[ErrorCode, Dict[str, Any]] = {
     # Rust core only: the API keys' store (native/core/src/config/secrets.rs)
     ErrorCode.SECRET_STORE_FAILED: {
         "category": ErrorCategory.AUTH,
-        "message": "The API keys could not be kept in their secure storage. They work until the app closes; check the settings folder, then enter a missing key again",
+        "message": "The API keys could not be kept in their secure storage. They work until the app closes; check the system's credential store and the settings folder, then enter a missing key again",
         "severity": "error",
         "user_action_required": True,
     },

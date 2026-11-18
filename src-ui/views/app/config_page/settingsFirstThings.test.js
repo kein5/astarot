@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
@@ -51,6 +51,8 @@ test("the side menu lists chat reading after VRChat, with an icon of its own and
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
         assert.equal(typeof strings.config_page.side_menu_labels.ocr, "string");
+        // The menu and the settings search both name a page by this key; a missing one showed the raw key.
+        for (const id of tabs) assert.equal(typeof strings.config_page.side_menu_labels[id], "string", `${language}: ${id}`);
         for (const key of ["provider_in_use", "provider_ready", "provider_not_set"]) assert.equal(typeof strings.config_page.translation[key], "string");
     }
 });

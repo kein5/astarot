@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../test/hookHarness.js";
 import * as shapes from "./virtualMic.ts";
 
@@ -52,7 +52,7 @@ async function hook(context, sent = []) {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint, data) => { sent.push([endpoint, data]); return true; } }) },
         "./virtualMic.ts": shapes,
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return () => runtime.render(useVirtualMic);
 }
 

@@ -50,15 +50,6 @@ export const _DownloadButton = ({option, ...props}) => {
                         {t("common.default_label")}
                     </span>
                 );
-            case option.update_button:
-                return (
-                    <button
-                        className={styles.update_button}
-                        onClick={() => props.downloadStartFunction(option.id)}
-                    >
-                        <p className={styles.download_button_label}>Update</p>
-                    </button>
-                );
             default:
                 return null;
         }

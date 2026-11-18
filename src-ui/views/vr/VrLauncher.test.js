@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test, vi } from "vitest";
 import { eventTarget, find, hooks, loadModule } from "../../logics/test/hookHarness.js";
 import * as switchBlocks from "../../logics/main/switchBlocks.ts";
 
 async function launcher(context) {
     const runtime = hooks(), document = eventTarget(), window = eventTarget();
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const previousDocument = globalThis.document, previousWindow = globalThis.window;
     globalThis.document = document;
     globalThis.window = window;
-    context.after(() => {
+    context.onTestFinished(() => {
         runtime.unmount();
         if (previousDocument === undefined) delete globalThis.document;
         else globalThis.document = previousDocument;
@@ -45,7 +45,7 @@ for (const signal of ["outside-release", "document-leave", "pointer-cancel", "wi
         const view = await launcher(context);
         view.render().props.onMouseDown({ button: 0 });
         assert.match(view.render().props.className, /is_holding/);
-        context.mock.timers.tick(599);
+        vi.advanceTimersByTime(599);
         if (signal === "outside-release") view.document.dispatch("mouseup", { button: 0, clientX: -1, clientY: -1 });
         if (signal === "document-leave") view.document.dispatch("mouseleave", {});
         if (signal === "pointer-cancel") view.document.dispatch("pointercancel", {});
@@ -53,7 +53,7 @@ for (const signal of ["outside-release", "document-leave", "pointer-cancel", "wi
         if (signal === "button-leave") view.render().props.onMouseLeave();
         if (signal === "button-blur") view.render().props.onBlur();
         if (signal === "unmount") view.runtime.unmount();
-        context.mock.timers.tick(1000);
+        vi.advanceTimersByTime(1000);
         assert.deepEqual(view.calls, []);
         if (signal !== "unmount") assert.doesNotMatch(view.render().props.className, /is_holding/);
     });
@@ -62,34 +62,34 @@ for (const signal of ["outside-release", "document-leave", "pointer-cancel", "wi
 test("launcher short click and intentional 600 ms hold retain their actions", async context => {
     const view = await launcher(context);
     view.render().props.onMouseDown({ button: 0 });
-    context.mock.timers.tick(100);
+    vi.advanceTimersByTime(100);
     view.document.dispatch("mouseup", { button: 0 });
     view.render().props.onMouseUp();
     view.render().props.onClick();
     assert.deepEqual(view.calls, ["toggleLog"]);
-    context.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     assert.deepEqual(view.calls, ["toggleLog"]);
     view.render().props.onMouseDown({ button: 0 });
-    context.mock.timers.tick(599);
+    vi.advanceTimersByTime(599);
     assert.deepEqual(view.calls, ["toggleLog"]);
-    context.mock.timers.tick(1);
+    vi.advanceTimersByTime(1);
     assert.deepEqual(view.calls, ["toggleLog", "openLog", "/run/vr_panel_recall_log"]);
     view.document.dispatch("mouseup", { button: 0 });
     view.render().props.onClick();
-    context.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     assert.deepEqual(view.calls, ["toggleLog", "openLog", "/run/vr_panel_recall_log"]);
 });
 
 test("a cancelled hold can start again on the next primary press", async context => {
     const view = await launcher(context);
     view.render().props.onMouseDown({ button: 0 });
-    context.mock.timers.tick(300);
+    vi.advanceTimersByTime(300);
     view.document.dispatch("mouseup", { button: 0, clientX: -1, clientY: -1 });
     view.render().props.onMouseDown({ button: 2 });
-    context.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     assert.deepEqual(view.calls, []);
     view.render().props.onMouseDown({ button: 0 });
-    context.mock.timers.tick(600);
+    vi.advanceTimersByTime(600);
     assert.deepEqual(view.calls, ["openLog", "/run/vr_panel_recall_log"]);
 });
 

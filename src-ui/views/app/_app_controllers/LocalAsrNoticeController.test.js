@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import * as migration from "../../../logics/transcription/localAsrMigration.ts";
@@ -22,7 +22,7 @@ async function setup(context, { notice = true, settings = { profiles: { asr: { m
         "../../../logics/transcription/localAsrMigration.ts": migration,
         "../config_page/setting_section/setting_box/transcription/OldWhisperWeights": { OldWhisperWeights },
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(LocalAsrNoticeController);
     const buttons = () => {
         const found = [];

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule } from "../../../test/hookHarness.js";
 
 const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
@@ -489,7 +489,7 @@ test("the voice hotkeys press the controls the main window published", async () 
 });
 
 test("a portal that goes away is said and the keys are bound again once; a second loss soon after is left to the user", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 1_000_000 });
     const subject = await setup(), { state } = subject;
     const hook = await subject.load();
     await hook.registerShortcuts();
@@ -498,41 +498,41 @@ test("a portal that goes away is said and the keys are bound again once; a secon
     subject.lost();
     assert.deepEqual(state.warnings.map(([message]) => message), ["quick_chat.portal_lost_reconnecting"]);
     assert.equal(binds(), 1, "not at once: a restarted portal needs a moment");
-    context.mock.timers.tick(3000);
+    vi.advanceTimersByTime(3000);
     await flush(); await flush(); await flush();
     assert.equal(binds(), 2);
     subject.emit();
     assert.deepEqual(state.actions, ["quick-chat"], "the keys work again");
     // Lost again within a minute: no second automatic bind, the user is told what to do.
-    context.mock.timers.tick(10000);
+    vi.advanceTimersByTime(10000);
     subject.lost();
-    context.mock.timers.tick(3000);
+    vi.advanceTimersByTime(3000);
     await flush(); await flush();
     assert.equal(binds(), 2);
     assert.deepEqual(state.notices.map(([message]) => message), ["quick_chat.portal_lost"]);
 });
 
 test("a portal lost while the shortcuts are paused waits for the next bind", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 1_000_000 });
     const subject = await setup(), { state } = subject;
     const hook = await subject.load();
     await hook.registerShortcuts();
     await hook.unregisterAll();
     subject.lost();
-    context.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     await flush();
     assert.deepEqual(state.warnings, []);
     assert.equal(state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length, 1);
 });
 
 test("a reconnect that is pending when the shortcuts pause is dropped", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 1_000_000 });
     const subject = await setup(), { state } = subject;
     const hook = await subject.load();
     await hook.registerShortcuts();
     subject.lost();
     await hook.unregisterAll();
-    context.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     await flush();
     assert.equal(state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length, 1);
 });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import React from "react";
 import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.js";
 import * as rows from "../../../../../../../logics/common/telemetryRows.ts";
@@ -14,7 +14,7 @@ async function setup(context, preview, props = {}) {
         "@logics_configs": { useOthers: () => ({ currentTelemetryPreview: preview, getTelemetryPreview: () => asked.push(true) }) },
         "../../../../../../../logics/common/telemetryRows": rows,
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return { tree: runtime.render(TelemetryContents, props), asked };
 }
 

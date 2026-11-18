@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import test from "node:test";
+import { test } from "vitest";
 
 // The vanilla-extract contract names custom properties that variables.css defines; a typo or a
 // removed token would otherwise become an empty var() in the built CSS.

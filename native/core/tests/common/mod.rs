@@ -71,6 +71,10 @@ impl Default for Setup {
                 transcription_endpoints: vrct_transcription::providers::Endpoints::all_at("http://provider.invalid"),
                 // No speech output, microphone, gate or worker runtime of the PC.
                 voice: fake_voice::FakeVoice::new().platform(),
+                // The app's key store over `secrets.json`, with a stand-in for the OS store that
+                // lives as long as the test process: keys survive a restart in the same folder,
+                // and the PC's own credentials are never touched.
+                secret_store: shared_vault().system_source(),
                 ..Services::default()
             },
             watchdog: None,
@@ -81,6 +85,12 @@ impl Default for Setup {
             continue_logs: false,
         }
     }
+}
+
+/// The stand-in OS key store of this test process. Each settings folder has its own id in it.
+pub fn shared_vault() -> Arc<vrct_core::config::secrets::MemoryStore> {
+    static VAULT: std::sync::OnceLock<Arc<vrct_core::config::secrets::MemoryStore>> = std::sync::OnceLock::new();
+    Arc::clone(VAULT.get_or_init(vrct_core::config::secrets::MemoryStore::new))
 }
 
 pub fn environment(dir: &Path, platform: Platform) -> Environment {
