@@ -12,7 +12,7 @@ const mount = async (context, { listenFails = false } = {}) => {
     context.onTestFinished(() => runtime.unmount());
     const app = { chatReading: { data: false, state: "ok" }, shared: { supported: true, active: false, busy: false, error: null },
         calls: [], notices: [], listeners: [], unlistened: 0 };
-    const { OcrSharedWindowController } = await loadModule(new URL("./OcrSharedWindowController.jsx", import.meta.url), runtime, {
+    const { OcrSharedWindowController } = await loadModule(new URL("./OcrSharedWindowController.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/event": { listen: async (event, handler) => {
             if (listenFails) throw new Error("not inside the app");
             app.listeners.push([event, handler]);

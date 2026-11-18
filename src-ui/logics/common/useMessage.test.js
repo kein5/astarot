@@ -236,7 +236,7 @@ test("desktop empty submit, user clear, programmatic clear and blur reset typing
 for (const success of [true, false]) test(`Quick Chat handoff resets typing and preserves acceptance=${success}`, async () => {
     const subject = await setup(async () => success), runtime = hooks(), finished = [];
     let receive, request = null;
-    const { QuickChatController } = await loadModule(new URL("../../views/app/_app_controllers/QuickChatController.jsx", import.meta.url), runtime, {
+    const { QuickChatController } = await loadModule(new URL("../../views/app/_app_controllers/QuickChatController.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke: async (name, args) => {
             if (name === "quick_chat_take") { const next = request; request = null; return next; }
             if (name === "quick_chat_finish") finished.push(args);

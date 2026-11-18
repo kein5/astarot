@@ -354,7 +354,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         "@logics_common": common, "@logics_configs": { useHotkeys: () => ({ currentHotkeys: { data: {} },
             registerShortcuts: () => shortcuts.push("register"), unregisterAll: () => shortcuts.push("unregister") }) },
     });
-    const quick = await loadModule(new URL("../../views/app/_app_controllers/QuickChatController.jsx", import.meta.url), quickRuntime, {
+    const quick = await loadModule(new URL("../../views/app/_app_controllers/QuickChatController.tsx", import.meta.url), quickRuntime, {
         "@logics_common": common,
         "@useI18n": { useI18n: () => ({ i18n: { language: "en" } }) },
         "../../../logics/common/useMessage": { useMessage: () => ({ sendMessage: text => { sent.push(text); return true; } }) },

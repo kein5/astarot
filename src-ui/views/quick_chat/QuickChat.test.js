@@ -106,7 +106,7 @@ test('minimum-size layout keeps scrollable overflow, wrapping actions and nonshr
 test('main publishes saved appearance on initial configuration and later changes', async () => {
     const runtime = hooks(), contexts = [];
     let scale = 150, font = 'Noto Sans JP';
-    const { QuickChatController } = await loadModule(new URL('../app/_app_controllers/QuickChatController.jsx', import.meta.url), runtime, {
+    const { QuickChatController } = await loadModule(new URL('../app/_app_controllers/QuickChatController.tsx', import.meta.url), runtime, {
         '@tauri-apps/api/core': { invoke: async (name, args) => { if (name === 'quick_chat_configure') contexts.push(args.context); } },
         '@tauri-apps/api/event': { listen: async () => () => {} },
         '@useI18n': { useI18n: () => ({ i18n: { language: 'ja' } }) },
