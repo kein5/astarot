@@ -1,5 +1,7 @@
 import { cloneElement, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { MutableRefObject, ReactElement, RefObject } from "react";
 import { Virtualizer } from "virtua";
+import type { VirtualizerHandle } from "virtua";
 import styles from "./VrPickerList.module.scss";
 
 // Below 50 choices the native list is small enough to keep tab order for free.
@@ -7,18 +9,41 @@ import styles from "./VrPickerList.module.scss";
 export const VR_PICKER_WINDOW_THRESHOLD = 50;
 const neverDisabled = () => false;
 
+// What the list lets its owner do: bring a choice into view, and focus it.
+export interface VrPickerNavigation {
+    scrollToIndex: (index: number, options?: { focus?: boolean }) => void;
+}
+
+export interface VrPickerListProps<T> {
+    options: readonly T[];
+    // The button for one choice.
+    children: (option: T, index: number) => ReactElement;
+    scrollRef: RefObject<HTMLElement | null>;
+    navigationRef?: MutableRefObject<VrPickerNavigation | null>;
+    columns?: number;
+    initialIndex?: number;
+    stickyHeader?: boolean;
+    isDisabled?: (option: T) => boolean;
+    virtualized?: boolean;
+}
+
+const isElement = (target: EventTarget | null): target is Element => target !== null && "closest" in target;
+// The index a choice's button carries, if the event came from one.
+const pickerIndex = (target: EventTarget | null): string | undefined =>
+    isElement(target) ? target.closest<HTMLElement>("[data-vr-picker-index]")?.dataset.vrPickerIndex : undefined;
+
 // Each child is the existing option button. Two-column pickers virtualize whole
 // grid rows so wrapping, equal cell heights and the 8px gaps remain unchanged.
-export function VrPickerList({ options, children, scrollRef, navigationRef, columns = 1,
-    initialIndex = -1, stickyHeader = false, isDisabled = neverDisabled, virtualized = options.length >= VR_PICKER_WINDOW_THRESHOLD }) {
-    const container = useRef(null);
-    const virtualizer = useRef(null);
-    const buttons = useRef(new Map());
-    const [startMargin, setStartMargin] = useState(null);
-    const [focusedIndex, setFocusedIndex] = useState(null);
-    const [pendingFocus, setPendingFocus] = useState(null);
-    const focusRequest = useRef(null);
-    const focusFrame = useRef(null);
+export function VrPickerList<T>({ options, children, scrollRef, navigationRef, columns = 1,
+    initialIndex = -1, stickyHeader = false, isDisabled = neverDisabled, virtualized = options.length >= VR_PICKER_WINDOW_THRESHOLD }: VrPickerListProps<T>) {
+    const container = useRef<HTMLDivElement>(null);
+    const virtualizer = useRef<VirtualizerHandle>(null);
+    const buttons = useRef(new Map<number, HTMLElement>());
+    const [startMargin, setStartMargin] = useState<number | null>(null);
+    const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+    const [pendingFocus, setPendingFocus] = useState<number | null>(null);
+    const focusRequest = useRef<number | null>(null);
+    const focusFrame = useRef<number | null>(null);
     focusRequest.current = pendingFocus;
     const initialized = useRef(false);
     const rows = useMemo(() => Array.from({ length: Math.ceil(options.length / columns) },
@@ -42,7 +67,7 @@ export function VrPickerList({ options, children, scrollRef, navigationRef, colu
         return () => observer.disconnect();
     }, [scrollRef]);
 
-    const scrollToIndex = (index, { focus = false } = {}) => {
+    const scrollToIndex = (index: number, { focus = false }: { focus?: boolean } = {}) => {
         if (index < 0 || index >= options.length) return;
         const offset = stickyHeader ? -(startMargin ?? 0) : 0;
         if (virtualized) {
@@ -50,7 +75,7 @@ export function VrPickerList({ options, children, scrollRef, navigationRef, colu
         } else {
             const list = scrollRef.current, button = buttons.current.get(index);
             const bounds = list?.getBoundingClientRect();
-            if (button && bounds?.height) list.scrollTop += (button.getBoundingClientRect().top - bounds.top) * list.clientHeight / bounds.height + offset;
+            if (list && button && bounds?.height) list.scrollTop += (button.getBoundingClientRect().top - bounds.top) * list.clientHeight / bounds.height + offset;
         }
         if (focus) setPendingFocus(index);
     };
@@ -67,7 +92,7 @@ export function VrPickerList({ options, children, scrollRef, navigationRef, colu
         queueMicrotask(() => {
             if (cancelled || initialized.current) return;
             initialized.current = true;
-            scrollRef.current.scrollTop = 0;
+            if (scrollRef.current) scrollRef.current.scrollTop = 0;
             scrollToIndex(initialIndex);
         });
         return () => { cancelled = true; };
@@ -76,6 +101,7 @@ export function VrPickerList({ options, children, scrollRef, navigationRef, colu
         if (focusRequest.current === null || focusFrame.current !== null) return;
         focusFrame.current = requestAnimationFrame(() => {
             focusFrame.current = null;
+            if (focusRequest.current === null) return;
             const button = buttons.current.get(focusRequest.current);
             if (!button) return;
             // virtua hides unmeasured rows. A resize notification retries after
@@ -104,24 +130,25 @@ export function VrPickerList({ options, children, scrollRef, navigationRef, colu
     const keepMounted = [...new Set([...tabEdges.map(index => Math.floor(index / columns)),
         focusedIndex === null ? -1 : Math.floor(focusedIndex / columns),
         pendingFocus === null ? -1 : Math.floor(pendingFocus / columns)].filter(index => index >= 0))];
-    const renderRow = (row, rowIndex) => <div key={rowIndex} className={styles.row}
+    const renderRow = (row: readonly T[], rowIndex: number) => <div key={rowIndex} className={styles.row}
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, paddingBottom: rowIndex === rows.length - 1 ? 0 : undefined }}>
         {row.map((option, column) => {
             const index = rowIndex * columns + column;
-            return cloneElement(children(option, index), { "data-vr-picker-index": index,
-                ref: element => { if (element) buttons.current.set(index, element); else buttons.current.delete(index); } });
+            const props = { "data-vr-picker-index": index,
+                ref: (element: HTMLElement | null) => { if (element) buttons.current.set(index, element); else buttons.current.delete(index); } };
+            return cloneElement(children(option, index), props);
         })}
     </div>;
 
     return <div ref={container} className={styles.list}
         onFocusCapture={event => {
-            const index = event.target.closest("[data-vr-picker-index]")?.dataset.vrPickerIndex;
+            const index = pickerIndex(event.target);
             if (index !== undefined) setFocusedIndex(Number(index));
         }}
         onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocusedIndex(null); }}
         onKeyDown={event => {
             if (!virtualized || event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
-            const index = event.target.closest("[data-vr-picker-index]")?.dataset.vrPickerIndex;
+            const index = pickerIndex(event.target);
             if (index === undefined) return;
             const direction = event.shiftKey ? -1 : 1;
             for (let next = Number(index) + direction; next >= 0 && next < options.length; next += direction) {

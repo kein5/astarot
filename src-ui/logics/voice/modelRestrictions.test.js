@@ -68,6 +68,7 @@ async function dialog(context, entry) {
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "./EngineCatalog": { EngineCatalog: "engines" },
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
+        "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
     });
     context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(ModelDownloads, { targets: ["translation"], expected: { translation: {} } });

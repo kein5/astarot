@@ -26,7 +26,7 @@ async function setup(context, base, provider, section) {
     context.onTestFinished(() => { runtime.unmount(); owners.stop(); });
     stubGlobals(context, { window: eventTarget() });
     let entry;
-    const draft = await loadModule(new URL("../voice/useSettingsDraft.jsx", import.meta.url), runtime, {
+    const draft = await loadModule(new URL("../voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry: (_, value) => { entry = value; } },
     });
     const settings = {
