@@ -33,8 +33,12 @@ const render = async device => {
         "@common_components": { Checkbox: () => null },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: () => null },
         "../_components/page_pointer/PagePointer": { PagePointer: () => null },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
-    const page = runtime.render(module.Device);
+    // The page keeps its rows' descriptions out of sight, as hints (#614).
+    const wrapped = runtime.render(module.Device);
+    assert.equal(wrapped.type, "hints");
+    const page = wrapped.props.children;
     // The sensitivity is set once: it is in the page's 「詳細設定」 (#554).
     const fold = page.props.children.find(node => node?.props?.status !== undefined);
     const containers = [fold.props.children].flat().filter(node => typeof node?.type === "function" && node.type.name.endsWith("Container"));

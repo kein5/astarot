@@ -51,8 +51,8 @@ export const VoiceRouteSettings = ({ subheading = false }) => {
         write: value => send("/set/data/voice_settings", value), canSave: !busy, patch: true });
     useEffect(() => { send("/get/data/voice_settings"); }, [send]);
     return <section className={styles.container} aria-label={t("voice.routing")} data-setting-id="voice_route">
-        <SectionLabelComponent sub={subheading} label={t("voice.routing")} />
-        <p>{t(usesOutputDevice(directState) ? "voice_ui.route_hint_device" : "voice_ui.route_hint")}</p>
+        {/* What the route is shared by and when it can change: the heading's line, or its hint on a page reviewed against #614. */}
+        <SectionLabelComponent sub={subheading} label={t("voice.routing")} desc={t(usesOutputDevice(directState) ? "voice_ui.route_hint_device" : "voice_ui.route_hint")} />
         {form.draft && <form onSubmit={e => { e.preventDefault(); if (!busy && form.dirty) form.submit(value => send("/set/data/voice_settings", value)); }}>
             <label>{t("voice.routing")}<select aria-label={t("voice.routing")} value={form.draft.routing} disabled={busy || form.saving}
                 onChange={e => form.setDraft({ ...form.draft, routing: e.target.value })}>

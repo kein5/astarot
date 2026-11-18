@@ -25,6 +25,7 @@ import {
     SectionLabelComponent,
 } from "../_components";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import { HintDescriptions } from "../_components/hint/Hint";
 
 import {
     AutoClearMessageInputBoxContainer,
@@ -38,7 +39,9 @@ export const Appearance = () => {
 
     // The language and the size of the whole window are what a first start may need; the rest
     // is set once to taste, in 「詳細設定」 (#554).
+    // Reviewed against #614: the rows' descriptions are their labels' hints.
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             <div>
                 <SectionLabelComponent label={t("config_page.appearance.section_label_display")} />
@@ -66,6 +69,7 @@ export const Appearance = () => {
                 </div>
             </AdvancedSection>
         </div>
+        </HintDescriptions>
     );
 };
 
@@ -80,6 +84,8 @@ const UiLanguageContainer = () => {
             // i18n-exempt: in English on purpose, so someone who cannot read the current language finds this setting
             label={is_not_en_lang ? "UI Language" : t("config_page.appearance.ui_language.label")}
             desc={is_not_en_lang ? t("config_page.appearance.ui_language.label") : false}
+            // The label in the current language, not an explanation: it stays beside "UI Language".
+            keep_desc
             selectFunction={setUiLanguage}
             name="ui_language"
             options={createLanguageNames(i18n.language).uiOptions(ui_configs.selectable_ui_languages)}
@@ -204,6 +210,7 @@ const TransparencyContainer = () => {
         <SliderContainer
             setting_id="transparency"
             label={t("config_page.appearance.transparency.label")}
+            desc={t("config_page.appearance.transparency.desc")}
             valueLabelFormat="value %"
             state={currentTransparency.state}
             variable={currentTransparency.data}
