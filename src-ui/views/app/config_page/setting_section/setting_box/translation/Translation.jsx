@@ -412,7 +412,6 @@ const PapagoClientID_Box = () => {
             onChangeFunction={onChangeFunction}
             state={currentPapagoClientID.state}
             remove_border_bottom={true}
-            width="24rem"
         />
     );
 };
@@ -785,7 +784,6 @@ const LMStudioURL_Box = () => {
                 onChangeFunction={onChangeFunction}
                 state={currentLMStudioURL.state}
                 remove_border_bottom={true}
-                width="24rem"
             />
         </>
     );
@@ -860,7 +858,6 @@ const OllamaURL_Box = () => {
             onChangeFunction={onChangeFunction}
             state={currentOllamaURL.state}
             remove_border_bottom={true}
-            width="24rem"
         />
     );
 };

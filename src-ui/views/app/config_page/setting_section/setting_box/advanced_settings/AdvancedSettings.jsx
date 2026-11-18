@@ -244,7 +244,6 @@ const WebsocketTlsContainer = () => {
         state: form.saving || currentWebsocketTls.state === "pending" ? "pending" : "ok",
         onChangeFunction: value => form.setDraft(previous => ({ ...previous, [name]: value })),
         saveFunction: () => { if (form.dirty) return form.submit(write); },
-        width: "24rem",
     });
     return <>
         <EntryWithSaveButtonContainer {...field("cert_file")} remove_border_bottom={true} />
