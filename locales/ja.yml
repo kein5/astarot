@@ -831,8 +831,13 @@ config_page:
         x_rotation: "X軸の回転"
         y_rotation: "Y軸の回転"
         z_rotation: "Z軸の回転"
+        position_rotation:
+            label: "位置と回転"
+            desc: "軸ごとにスライダーか横のボタンで動かします。"
         sample_text_button:
-            start: "サンプルの文を\n字幕オーバーレイに送る"
+            label: "見え方の確認"
+            desc: "調整しているあいだ、サンプルの文を1秒ごとに字幕オーバーレイへ送ります。設定を閉じると止まります。"
+            start: "サンプルの文を字幕オーバーレイに送る"
             stop: "送信を停止"
             sample_text: "サンプルテキスト"
         opacity: "透明度"

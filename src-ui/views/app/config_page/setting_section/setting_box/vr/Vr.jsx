@@ -4,6 +4,7 @@ import clsx from "clsx";
 import styles from "./Vr.module.scss";
 import { ui_configs } from "@ui_configs";
 import { Slider } from "../_components";
+import { FormRow } from "../_components/form_row/FormRow";
 import {
     RadioButtonContainer,
     CheckboxContainer,
@@ -212,21 +213,28 @@ const OverlaySettingsContainer = ({
 
     return (
         <>
-            <PageSwitcherContainer
-                toggleFunction={togglePositionRotationController}
-                is_selected={is_opened_position_controller}
-                label_1={t("config_page.vr.position")}
-                label_2={t("config_page.vr.rotation")}
-            />
-
-            <div className={styles.position_rotation_controls_box}>
-                {is_opened_position_controller ? (
-                    <PositionControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} default_ui_configs={default_ui_configs} selectFunction={selectFunction}/>
-                ) : (
-                    <RotationControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} default_ui_configs={default_ui_configs} selectFunction={selectFunction}/>
-                )}
-            <SendSampleTextToggleButton />
-            </div>
+            {/* The axes are one row of the label and field columns: the name and what it does on
+                the left, the position or rotation diagram in the field column (#568). */}
+            <FormRow className={styles.axis_row} group
+                label={t("config_page.vr.position_rotation.label")}
+                description={t("config_page.vr.position_rotation.desc")}>
+                <PageSwitcherContainer
+                    toggleFunction={togglePositionRotationController}
+                    is_selected={is_opened_position_controller}
+                    label_1={t("config_page.vr.position")}
+                    label_2={t("config_page.vr.rotation")}
+                />
+                <div className={styles.position_rotation_controls_box}>
+                    {is_opened_position_controller ? (
+                        <PositionControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} default_ui_configs={default_ui_configs} selectFunction={selectFunction}/>
+                    ) : (
+                        <RotationControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} default_ui_configs={default_ui_configs} selectFunction={selectFunction}/>
+                    )}
+                </div>
+            </FormRow>
+            <FormRow className={styles.sample_row} group label={t("config_page.vr.sample_text_button.label")} description={t("config_page.vr.sample_text_button.desc")}>
+                <SendSampleTextToggleButton />
+            </FormRow>
             <OtherControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} />
             <RadioButtonContainer
                 label={t("config_page.vr.tracker")}
@@ -693,21 +701,22 @@ const SendSampleTextToggleButton = () => {
         ? t("config_page.vr.sample_text_button.stop")
         : t("config_page.vr.sample_text_button.start");
 
+    // A plain button whose words say what pressing it does; the row beside it says why.
     return (
         <div className={styles.sample_text_button_wrapper}>
             <button
                 type="button"
                 className={clsx(styles.sample_text_button, { [styles.is_started]: is_sending })}
                 onClick={toggleFunction}
-                aria-label={label.replace(/\n/g, "")}
+                aria-label={label}
             >
                 {is_sending ? (
-                    <SquareSvg className={styles.sample_text_button_square_svg} />
+                    <SquareSvg className={styles.sample_text_button_square_svg} aria-hidden="true" />
                 ) : (
-                    <TriangleSvg className={styles.sample_text_button_triangle_svg} />
+                    <TriangleSvg className={styles.sample_text_button_triangle_svg} aria-hidden="true" />
                 )}
+                {label}
             </button>
-            <p className={styles.sample_text_button_label}>{label}</p>
         </div>
     );
 };
