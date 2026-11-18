@@ -509,6 +509,11 @@ impl Core {
     /// What a recorder's thread reports (`micMessage`, `speakerMessage`, `progressBar*Energy`,
     /// `_audioPipelineFailed`).
     fn on_recorder_event(self: &Arc<Self>, source: Source, revision: u64, event: Event) {
+        // A transcript's guard is made before the recorder is checked (#278, item 65). Made after,
+        // it could read the epoch of a later run when the switch went off and on between the two,
+        // and the old recorder's text would pass as the new run's. Made before, a stop between them
+        // either fails the check below (the recorder's revision moved) or revokes the guard.
+        let guard = matches!(event, Event::Transcript(_)).then(|| self.transcription.publication_guard(source));
         if self.transcription.revisions[index(source)].load(Ordering::SeqCst) != revision || self.shutdown_requested() {
             return;
         }
@@ -518,7 +523,7 @@ impl Core {
                 self.notify(name, json!(value));
             }
             Event::Transcript(transcript) => {
-                let guard = self.transcription.publication_guard(source);
+                let guard = guard.expect("made above for a transcript");
                 let recognized = Recognized {
                     text: transcript.text,
                     language: transcript.language,
