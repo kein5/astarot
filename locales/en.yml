@@ -1569,6 +1569,17 @@ voice_ui:
             rate_option: "{{rate}} Hz"
             invalid: "Enter a number within the range."
             reset: "Restore defaults"
+        # How VOICEVOX, AivisSpeech and SHAREVOX read: the Scale values of their AudioQuery, one set per engine.
+        audio_query:
+            title: "How {{engine}} reads"
+            status: "Speed {{speed}}"
+            description: "The values used when {{engine}} is asked to read. Fields left at their defaults keep the values the engine returned. Saved values apply from the next message read."
+            speed: "Speed (0.5–2)"
+            volume: "Volume (0–2)"
+            pitch: "Pitch (-0.15–0.15)"
+            intonation: "Intonation (0–2)"
+            invalid: "Enter a number within the range."
+            reset: "Restore defaults"
     check_needs_url: "Enter and save the server URL to check"
     check_needs_server: "Start the bundled server to check"
     setup_rvc: "Models and runtime"
