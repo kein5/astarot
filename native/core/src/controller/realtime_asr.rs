@@ -976,6 +976,7 @@ impl Core {
                 .as_array()
                 .map(|labels| labels.iter().filter_map(Value::as_str).map(str::to_string).collect())
                 .unwrap_or_default(),
+            only_translated: config.get_bool("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES"),
         }
     }
 

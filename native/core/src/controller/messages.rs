@@ -224,6 +224,9 @@ pub struct OverlayMessage {
     pub languages: Value,
     pub transliteration_message: Value,
     pub transliteration_translations: Value,
+    /// Only the translations are shown: the setting as the message was admitted with it, not as
+    /// it is when the log is drawn.
+    pub only_translated: bool,
 }
 
 impl OverlayMessage {
@@ -252,6 +255,7 @@ impl OverlayMessage {
             transliteration_translation: self.transliteration_translations.clone(),
             // Only realtime captions name their speakers (`realtime_asr::caption_message`).
             speakers: Vec::new(),
+            only_translated: self.only_translated,
         }
     }
 }
@@ -818,6 +822,7 @@ impl Core {
                         languages: language_payload(snapshot.destinations()),
                         transliteration_message: readings_message.clone(),
                         transliteration_translations: Value::Array(readings_translations.clone()),
+                        only_translated: snapshot.overlay_only_translated,
                     };
                     if hook(&event).is_err() {
                         let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
