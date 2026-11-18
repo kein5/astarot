@@ -14,6 +14,7 @@ Find the heading closest to what you see. If your voice or text does not reach V
 - If it says none was found, start VRChat, then open its Action Menu and set "Options" → "OSC" to "Enabled". The line changes shortly after.
 - A message marked "Not sent to VRChat (off in settings)" in the log was held back because "Send message to VRChat" is off. Turn it on under Settings → "VRChat".
 - Whether VRChat was found is checked with <Term tip="A way for OSC apps to find each other's ports and the values they accept.">OSCQuery</Term>, on this PC only. So when the destination is another PC, it says VRChat cannot be checked, and messages are still sent. If a firewall blocks discovery on this PC (<Term tip="Finds devices and services on the same computer or local network by name, without a server.">mDNS</Term>), it can say none was found while messages still arrive.
+- With "Use OSCQuery" under Settings → "Advanced" off, VRChat is not checked. Messages are still sent, but VRC mic mute sync is unavailable.
 
 ### VRChat does not hear the speech
 

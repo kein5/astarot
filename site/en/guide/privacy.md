@@ -41,7 +41,7 @@ Turning off usage reporting does not make every feature offline. Services you ch
 | Model downloads | Hugging Face | The download request |
 | Voice changer (RVC) runtime download | Hugging Face, NuGet (`api.nuget.org`, for ONNX Runtime) and PyPI (`files.pythonhosted.org`, for the libraries an NVIDIA GPU needs) | The download request |
 | Sending to the chatbox | VRChat (OSC on your PC) | The text you send |
-| VRChat integration (OSCQuery) | Devices on the same LAN (mDNS) | A notice that the app is running, named `VRCT:<start time>` with its ports. It holds no PC name or user name |
+| VRChat integration (OSCQuery, can be turned off) | Your PC only (mDNS; nothing leaves your PC) | A notice that the app is running, named `VRCT:<start time>` with its ports. It holds no PC name or user name |
 | Usage data (can be turned off) | The developers of ASTAROT (Cloudflare) | That the app started, the kind of an error, and the PC's hardware |
 | Update check (at start, can be turned off) and update download | A stable version asks GitHub through the developers of ASTAROT (Cloudflare); a beta asks the GitHub API directly. The download comes from GitHub | A request for the latest version and the download. No conversation, voice or settings. Not made by deb or rpm installs |
 
