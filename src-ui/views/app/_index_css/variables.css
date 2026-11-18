@@ -2,7 +2,7 @@
     /* ASTAROT brand palette (DESIGN.md "Colors"): Dark Plum #261633, Lilac #A47AF5, Off-White #FAFAFC.
        Every step is Lilac (primary_*) or Dark Plum (dark_*) with only its lightness changed: OKLCH hue
        within 3° of the source, chroma no higher than the source's. The exceptions are the brand's own
-       values (Off-White, the brand-board grey of secondary text) and plain white.
+       values (Off-White and the secondary and description text greys) and plain white.
        The primary scale is the Lilac hue. 600 is the Lilac fill, 450-550 lighter hover fills,
        650/700 pressed fills; all of 450-700 carry --vox_on_primary (Dark Plum) text at 4.5:1 or more.
        750-900 are deep violets for fills that carry light text. The light end is text, links and focus.
