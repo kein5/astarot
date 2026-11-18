@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
@@ -63,7 +63,7 @@ async function setup(context, w = world()) {
         "../../../logics/setup/firstRunSetup.ts": logic,
         "../others/vrchat_presence/VrchatPresence": { VrchatPresence: () => null },
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     // Renders until the effects stop changing what is drawn (each effect may set state).
     const render = () => { let tree; for (let i = 0; i < 4; i += 1) tree = runtime.render(FirstRunSetupController); return tree; };
     const buttons = tree => { const found = []; find(tree, node => { if (node.type === "button") found.push(node); return false; }); return found; };
