@@ -36,6 +36,18 @@ DISPLAY = {
     "nllb-200-3.3B": "NLLB-200 3.3B",
 }
 PROVIDER = "Meta / VRCT-VOX"
+# The creators of each source family, named on the model card as the licences ask (CC-BY).
+AUTHORS = {"m2m100": "Meta AI (FAIR)", "nllb": "Meta AI (the NLLB team)"}
+# What each variant changed in the weights, for the model card's list of changes.
+VARIANT_CHANGES = {
+    "int8": "dynamic int8 weights of every MatMul (ONNX Runtime `quantize_dynamic`); the vocabulary matrix "
+            "(the embeddings, and the output layer transposed) is stored once, in `vocabulary.data`",
+    "float32": "none; the weights are the source model's",
+    "float16": "float16 weights and computation (ONNX Runtime `convert_float_to_float16`); inputs and outputs "
+               "stay float32",
+    "int4": "int4 weights of every MatMul with a constant weight (ONNX Runtime `MatMulNBitsQuantizer`, blocks "
+            "of 32, symmetric)",
+}
 # The licences whose copies must carry the licence text, and those cited by their deed.
 NEEDS_TEXT = {"MIT"}
 DEEDS = {"CC-BY-NC-4.0": "https://creativecommons.org/licenses/by-nc/4.0/"}
@@ -112,6 +124,11 @@ def model_card(manifest, repo):
         "## Source and licence",
         "",
         f"- Source model: [{base}](https://huggingface.co/{base}) at commit `{source.get('revision', 'unknown')}`.",
+    ]
+    if manifest.get("family") in AUTHORS:
+        lines.append(f"- Authors of the source model: {AUTHORS[manifest['family']]}. They did not make or endorse "
+                     "this conversion.")
+    lines += [
         f"- Licence: {license}, the licence of the source model. These files are a modified version of it and stay "
         "under the same licence.",
     ]
@@ -126,7 +143,7 @@ def model_card(manifest, repo):
         "- The model's own layers were exported with `torch.onnx.export` into an encoder graph and a decoder graph "
         "whose first step and cached steps are one graph (`use_cache_branch`); the export was checked against "
         f"transformers' forward pass (largest difference {manifest.get('verified_max_difference')}).",
-        f"- Quantization: `{manifest['variant']}`.",
+        f"- Quantization: `{manifest['variant']}`: {VARIANT_CHANGES.get(manifest['variant'], 'see manifest.json')}.",
         "- `tokenizer.json` and `vocab.json` give the same ids as the source model's tokenizer.",
         "",
         "## How it was made",

@@ -82,6 +82,9 @@ class StageTests(unittest.TestCase):
             self.assertIn("license: cc-by-nc-4.0", card)
             self.assertIn("Non-commercial use only", card)
             self.assertFalse((out / "LICENSE").exists())
+            # CC-BY asks for the creators and the changes to be named.
+            self.assertIn("Authors of the source model: Meta AI (the NLLB team)", card)
+            self.assertIn("ONNX Runtime `quantize_dynamic`", card)
 
 
 class EntryTests(unittest.TestCase):
