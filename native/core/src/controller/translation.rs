@@ -1491,3 +1491,89 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/set/data/selected_ctranslate2_weight_type", OPEN, |core, data| core.set_weight_type(data));
     b.with("/set/enable/translation", WAIT, |core, _| core.enable_translation());
 }
+
+/// What the Python tests of the translation checked against the Python tables and the UI, held
+/// against the core's own tables, so that the checks outlive `src-python/models/translation/`.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::{translation, DEFAULT_TRANSLATION_WEIGHT, TRANSLATION_WEIGHTS};
+
+    const CONTRACT: &str = include_str!("../../../translation/tests/contract/providers.json");
+
+    #[test]
+    fn the_prompt_lists_the_languages_the_contract_recorded() {
+        // The contract recorded each Python client's `supported_languages`; the core passes its
+        // own table's names, which must be the same, in the same order.
+        let contract: Value = serde_json::from_str(CONTRACT).unwrap();
+        let recorded = contract["supported_languages"].as_object().unwrap();
+        assert!(!recorded.is_empty());
+        for (engine, names) in recorded {
+            let names: Vec<String> = names.as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect();
+            assert_eq!(Core::supported_languages(engine), names, "{engine}");
+        }
+    }
+
+    /// The rows of `ctranslate2_weight_type_status` in `src-ui/logics/ui_configs.ts`.
+    fn ui_weight_rows() -> Vec<(String, String)> {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../src-ui/logics/ui_configs.ts");
+        let source = std::fs::read_to_string(path).expect("the UI settings");
+        let start = source.find("export const ctranslate2_weight_type_status").expect("the weight list");
+        let block = &source[start..];
+        let block = &block[..block.find("].map(").expect("the end of the list")];
+        block
+            .lines()
+            .filter_map(|line| {
+                let rest = line.trim().strip_prefix("{ id: \"")?;
+                let (id, rest) = rest.split_once('"')?;
+                Some((id.to_string(), rest.to_string()))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_ui_lists_the_weights_with_their_licenses_and_default() {
+        // `test_ui_weight_list_matches_backend_licenses` of the Python tests.
+        let rows = ui_weight_rows();
+        let ids: Vec<&str> = rows.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(ids, TRANSLATION_WEIGHTS);
+        for (id, rest) in &rows {
+            let license = if super::super::lifecycle::non_commercial(id) { "...CC_BY_NC_4_0" } else { "...MIT" };
+            assert!(rest.contains(license), "{id}: {rest}");
+            assert_eq!(rest.contains("is_default: true"), id == DEFAULT_TRANSLATION_WEIGHT, "{id}");
+        }
+        assert!(!super::super::lifecycle::non_commercial(DEFAULT_TRANSLATION_WEIGHT), "the default allows commercial use");
+    }
+
+    /// `FAIRSEQ_LANGUAGE_CODES["m2m100"]` of transformers' M2M100 tokenizer.
+    const M2M100_CODES: [&str; 100] = [
+        "af", "am", "ar", "ast", "az", "ba", "be", "bg", "bn", "br", "bs", "ca", "ceb", "cs", "cy", "da", "de", "el", "en",
+        "es", "et", "fa", "ff", "fi", "fr", "fy", "ga", "gd", "gl", "gu", "ha", "he", "hi", "hr", "ht", "hu", "hy", "id",
+        "ig", "ilo", "is", "it", "ja", "jv", "ka", "kk", "km", "kn", "ko", "lb", "lg", "ln", "lo", "lt", "lv", "mg", "mk",
+        "ml", "mn", "mr", "ms", "my", "ne", "nl", "no", "ns", "oc", "or", "pa", "pl", "ps", "pt", "ro", "ru", "sd", "si",
+        "sk", "sl", "so", "sq", "sr", "ss", "su", "sv", "sw", "ta", "th", "tl", "tn", "tr", "uk", "ur", "uz", "vi", "wo",
+        "xh", "yi", "yo", "zh", "zu",
+    ];
+
+    #[test]
+    fn every_m2m100_code_is_a_language_of_the_model() {
+        // `M2M100LanguageMappingTests` of the Python tests.
+        let local = &translation()[LOCAL_ENGINE];
+        for weight in ["m2m100_418M-ct2-int8", "m2m100_1.2B-ct2-int8"] {
+            for side in ["source", "target"] {
+                for (language, code) in local[weight][side].as_object().unwrap() {
+                    assert!(M2M100_CODES.contains(&code.as_str().unwrap()), "{weight} {side} {language}: {code}");
+                }
+            }
+        }
+        let m2m100 = &local["m2m100_418M-ct2-int8"]["source"];
+        for (language, code) in [("Javanese", "jv"), ("Burmese", "my"), ("Japanese", "ja"), ("Filipino", "tl")] {
+            assert_eq!(m2m100[language], code, "{language}");
+        }
+        // M2M100 lacks these; NLLB has them, which is why changing the weight checks the languages again.
+        for language in ["Basque", "Telugu"] {
+            assert!(m2m100.get(language).is_none(), "{language}");
+            assert!(local["nllb-200-distilled-600M-ct2-int8"]["source"].get(language).is_some(), "{language}");
+        }
+    }
+}
