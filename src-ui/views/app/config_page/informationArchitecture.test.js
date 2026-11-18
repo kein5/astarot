@@ -217,3 +217,18 @@ test("chat reading keeps what it needs to start in sight; where and how often it
     assert.match(main, /<OcrStatus[\s\S]*<OcrSourceLanguage_Box \/>[\s\S]*<OcrSharedWindow \/>[\s\S]*<OcrModels/);
     for (const language of ["en", "ja"]) assert.equal(typeof locales[language].config_page.advanced_status.ocr, "string");
 });
+
+test("text to speech keeps the engine, the voice and the output in sight; the monitor, generation and microphone speech are in 「詳細設定」", () => {
+    const source = read("advanced_settings/VoiceSettings.jsx");
+    const page = source.split("export const VoiceSettings = () => {")[1].split("\n};")[0];
+    const [before, rest] = page.split("<AdvancedSection");
+    const fold = rest.split("</AdvancedSection>")[0];
+    for (const part of [/aria-label=\{t\("voice\.mode"\)\}/, /t\("voice\.output_device"\)/, /<VirtualMicEntry \/>/, /<TtsEngine /, /input\(`\$\{role\}_voice`\)/])
+        assert.match(before, part);
+    for (const part of [/monitor_heading/, /<GenerationOptions /, /t\("voice\.mic_mode"\)/, /t\("voice\.conversion"\)/]) {
+        assert.match(fold, part);
+        assert.doesNotMatch(before, part);
+    }
+    // The form saves all of it, also what is folded: the fold is inside the form.
+    assert.ok(page.indexOf("<form") < page.indexOf("<AdvancedSection") && page.indexOf("</AdvancedSection>") < page.indexOf("</form>"));
+});
