@@ -158,8 +158,7 @@ pub fn weight_ids(env: &crate::config::Environment) -> Vec<String> {
 }
 
 /// The translation compute devices for [`crate::config::Environment::compute_devices`]: the
-/// CPU, and the GPU execution providers of the ONNX Runtime library beside the app. The host
-/// calls this once at start.
+/// CPU, and the GPU execution providers of the ONNX Runtime library the app loads.
 pub fn compute_devices() -> Vec<Value> {
     #[cfg(feature = "onnx-translation")]
     {
@@ -168,6 +167,27 @@ pub fn compute_devices() -> Vec<Value> {
     #[cfg(not(feature = "onnx-translation"))]
     {
         vec![crate::config::Environment::cpu_device()]
+    }
+}
+
+/// [`compute_devices`] and the GPU builds of ONNX Runtime the user set up under `state_dir` that
+/// need the app started again (`restart_required`). The host calls this once at start, after
+/// [`crate::shipped_libraries::use_libraries`].
+pub fn compute_devices_for(state_dir: &std::path::Path) -> Vec<Value> {
+    with_gpu_builds(compute_devices(), state_dir)
+}
+
+/// `devices` and the devices of the GPU builds set up under `state_dir` that it lacks, which need
+/// the app started again (`restart_required`). The list is asked for again after a setup.
+pub fn with_gpu_builds(devices: Vec<Value>, state_dir: &std::path::Path) -> Vec<Value> {
+    #[cfg(feature = "onnx-translation")]
+    {
+        super::translation_onnx::with_gpu_builds(devices, state_dir)
+    }
+    #[cfg(not(feature = "onnx-translation"))]
+    {
+        let _ = state_dir;
+        devices
     }
 }
 

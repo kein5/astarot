@@ -736,7 +736,8 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
     let engines = languages::translation_engines();
     let transcription_engines = languages::transcription_engines();
     let compute = Value::Array(env.compute_devices.clone());
-    let compute_mode = if env.compute_devices.iter().any(|d| d["device"] == "cuda") { "cuda" } else { "cpu" };
+    // A device that needs the app started again is not in use yet.
+    let compute_mode = if env.compute_devices.iter().any(|d| d["device"] == "cuda" && d["restart_required"] != true) { "cuda" } else { "cpu" };
     let target_slot = |slot: &str| json!({ "language": "English", "country": "United States", "enable": slot == "1" });
     let mut your = Map::new();
     let mut target = Map::new();

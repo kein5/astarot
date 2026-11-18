@@ -79,6 +79,39 @@ fn the_cpu_is_listed_with_its_saved_name_and_the_onnx_compute_types() {
 }
 
 #[test]
+fn a_gpu_build_set_up_during_the_run_is_offered_for_the_next_start() {
+    use vrct_voice_conversion::runtime::{self as runtimes, Target};
+    let Some(target) = Target::current() else { return };
+    let temp = tempfile::tempdir().unwrap();
+    let ui = start_in(temp.path(), None, services());
+    let list = "/get/data/selectable_translation_compute_device_list";
+    assert_eq!(ui.ok(list, None).as_array().unwrap().len(), 1);
+
+    // The CUDA build, as its setup leaves it (the files are empty: nothing loads them here).
+    let runtime = runtimes::onnx_cuda_runtime(target);
+    let folder = temp.path().join("vc_runtimes").join(runtime.id);
+    std::fs::create_dir_all(folder.join("lib")).unwrap();
+    for (_, name) in runtime.libraries.iter().flat_map(|library| &library.members) {
+        std::fs::write(folder.join("lib").join(name), b"").unwrap();
+    }
+    std::fs::write(folder.join("receipt.json"), json!({ "version": runtimes::version_of(&runtime), "id": runtime.id }).to_string()).unwrap();
+
+    let devices = ui.ok(list, None);
+    assert_eq!(devices.as_array().unwrap().len(), 2);
+    let cuda = devices[1].clone();
+    assert_eq!((cuda["device"].as_str(), cuda["restart_required"].as_bool()), (Some("cuda"), Some(true)));
+    let chosen = ui.ok(
+        "/set/data/selected_translation_compute_device",
+        Some(json!({ "device": "cuda", "device_index": 0, "device_name": cuda["device_name"] })),
+    );
+    assert_eq!(chosen, cuda);
+    // Asked again, the list stays as it is.
+    assert_eq!(ui.ok(list, None), devices);
+    // Not in use before the next start.
+    assert_eq!(ui.ok("/get/data/compute_mode", None), "cpu");
+}
+
+#[test]
 fn a_built_in_weight_finds_its_hand_placed_folder_by_compute_type() {
     let temp = tempfile::tempdir().unwrap();
     let folder = temp.path().join("data").join("weights").join("translate-onnx").join("m2m100_418M-onnx-int8");
