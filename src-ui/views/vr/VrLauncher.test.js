@@ -17,7 +17,7 @@ async function launcher(context) {
         else globalThis.window = previousWindow;
     });
     const calls = [];
-    const { VrLauncher } = await loadModule(new URL("./VrLauncher.jsx", import.meta.url), runtime, {
+    const { VrLauncher } = await loadModule(new URL("./VrLauncher.tsx", import.meta.url), runtime, {
         "@logics_common": {
             useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: false } }),
             useVrPanelLogOutOfView: () => ({ currentVrPanelLogOutOfView: { data: false } }),
@@ -107,7 +107,7 @@ test("launcher cancellation listeners stay stable across renders and clean up on
 async function functionButtons({ blocks = {}, statuses = {}, configOpen = false } = {}) {
     const runtime = hooks(), calls = [];
     const status = name => statuses[name] ?? { state: "ok", data: false };
-    const { VrLauncher } = await loadModule(new URL("./VrLauncher.jsx", import.meta.url), runtime, {
+    const { VrLauncher } = await loadModule(new URL("./VrLauncher.tsx", import.meta.url), runtime, {
         "@logics_common": {
             useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: configOpen } }),
             useVrPanelLogOutOfView: () => ({ currentVrPanelLogOutOfView: { data: false } }),

@@ -6,7 +6,7 @@ import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../logics/
 import * as languageNames from "../../logics/common/languageNames.ts";
 import { languageCodes } from "../../logics/common/languageCodes.ts";
 import { languageJumpGroups } from "../../logics/common/languageJumpGroups.ts";
-import { trackVrPointerHover } from "./vrPanelHover.js";
+import { trackVrPointerHover } from "./vrPanelHover.ts";
 
 const fonts = Array.from({ length: 743 }, (_, index) => ({ id: `font-${index}`, label: `Font ${index}` }));
 const languages = Object.entries(languageCodes).flatMap(([language, countries]) =>
@@ -78,7 +78,7 @@ async function pickerHarness(context, { height = 320, margin = 89, scale = 1 } =
         landed.push(index);
     } };
     const Virtualizer = () => null;
-    const module = await loadModule(new URL("./VrPickerList.jsx", import.meta.url), runtime, { virtua: { Virtualizer } });
+    const module = await loadModule(new URL("./VrPickerList.tsx", import.meta.url), runtime, { virtua: { Virtualizer } });
     const navigationRef = { current: null }, scrollRef = { current: scroll };
     const render = (next = props) => {
         props = { scrollRef, navigationRef, ...next };
@@ -156,7 +156,7 @@ async function pickerHarness(context, { height = 320, margin = 89, scale = 1 } =
 
 async function fontPicker(context, selected_id = "font-0", layout) {
     const h = await pickerHarness(context, layout), picked = [];
-    const { Picker } = await loadModule(new URL("./VrSettingsRows.jsx", import.meta.url), hooks(), {
+    const { Picker } = await loadModule(new URL("./VrSettingsRows.tsx", import.meta.url), hooks(), {
         "./VrPickerList": { VrPickerList: h.VrPickerList },
     });
     const tree = Picker({ title: "Fonts", back_label: "Back", options: fonts, selected_id,
@@ -283,7 +283,7 @@ async function languageWindow(context, h, locale = "en") {
         setTargetLanguagesInOrder: entries => { picked.push(entries); return "request-2"; },
     };
     const i18n = { language: locale };
-    const { VrLanguageWindow } = await loadModule(new URL("./VrLanguageWindow.jsx", import.meta.url), runtime, {
+    const { VrLanguageWindow } = await loadModule(new URL("./VrLanguageWindow.tsx", import.meta.url), runtime, {
         "./VrWindow": { VrWindow: () => null },
         "./VrPickerList": { VrPickerList: h.VrPickerList, VR_PICKER_WINDOW_THRESHOLD: h.VR_PICKER_WINDOW_THRESHOLD },
         "@useI18n": { useI18n: () => ({ t: key => key, i18n }) },
@@ -466,10 +466,10 @@ test("jump focus waits for virtua measurement without an idle retry loop and can
 
 test("font selection reaches the existing appearance setter and closes the settings picker", async context => {
     const h = await pickerHarness(context), runtime = hooks(), picked = [];
-    const rows = await loadModule(new URL("./VrSettingsRows.jsx", import.meta.url), hooks(), {
+    const rows = await loadModule(new URL("./VrSettingsRows.tsx", import.meta.url), hooks(), {
         "./VrPickerList": { VrPickerList: h.VrPickerList },
     });
-    const { VrSettingsWindow } = await loadModule(new URL("./VrSettingsWindow.jsx", import.meta.url), runtime, {
+    const { VrSettingsWindow } = await loadModule(new URL("./VrSettingsWindow.tsx", import.meta.url), runtime, {
         "../../logics/common/languageNames.ts": languageNames,
         "../../logics/common/featureLabel.ts": featureLabel,
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },

@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
+import type { TranslatorStatus } from '@ui_configs';
+import type { LanguageNames } from '../../logics/common/languageNames.ts';
 import { VrWindow } from './VrWindow';
 import settingsStyles from './VrSettingsWindow.module.scss';
 import LanguageSvg from '@images/mui_language.svg?react';
@@ -12,29 +14,65 @@ import { LANGUAGE_RESPONSE_WAIT_MS } from '../../logics/main/languageMutations';
 import { createLanguageNames, isLanguagePickKey } from '../../logics/common/languageNames.ts';
 import { languageJumpGroups } from '../../logics/common/languageJumpGroups.ts';
 import { VrPickerList, VR_PICKER_WINDOW_THRESHOLD } from './VrPickerList';
+import type { VrPickerNavigation } from './VrPickerList';
 import styles from './VrLanguageWindow.module.scss';
 
+type Translate = ReturnType<typeof useI18n>['t'];
+type Wording = (key: string, variables?: Record<string, unknown>) => string;
+// A language as the lists hold it.
+type Language = { language: string; country: string };
+
+// What the window shows: the main screen, or a list to pick from (saved languages or all).
+type ViewKind = 'main' | 'your' | 'target-add' | 'target-replace' | 'engine';
+interface View {
+    kind: ViewKind;
+    stage?: 'saved' | 'list';
+    // The target slot a 'target-replace' list changes.
+    index?: number;
+}
+
+// A change sent and not answered yet, and where to go when it is.
+interface PendingAction {
+    preset: string;
+    returnToMain: boolean;
+    focusKey?: string;
+    nextPreset?: string;
+    trigger: Element | null;
+    id?: string | null;
+}
+
+interface SaveOptions {
+    returnToMain?: boolean;
+    focusKey?: string;
+    nextPreset?: string;
+}
+
 const keys = ['1', '2', '3'];
-const same = (a, b) => a?.language === b?.language && a?.country === b?.country;
-const unique = entries => entries.filter((entry, index) => entries.findIndex(other => same(entry, other)) === index);
+const same = (a: Language | null | undefined, b: Language | null | undefined) => a?.language === b?.language && a?.country === b?.country;
+const unique = <T extends Language>(entries: readonly T[]) => entries.filter((entry, index) => entries.findIndex(other => same(entry, other)) === index);
 // A label may break in more than one place; every break becomes a space.
-const engineLabel = engine => engine?.label?.replaceAll('\n', ' ') ?? '';
+const engineLabel = (engine: TranslatorStatus | null | undefined) => engine?.label?.replaceAll('\n', ' ') ?? '';
+// Buttons and the element that had the focus; focus() needs an element that can take it.
+const isFocusable = (element: Element | null | undefined): element is HTMLElement => !!element && 'focus' in element;
 
 // Shares the confirmed settings components; language changes wait for their final backend response.
-export function VrLanguageWindow({ onClose }) {
+export function VrLanguageWindow({ onClose }: { onClose: () => void }) {
     const { t, i18n } = useI18n();
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
     const [query, setQuery] = useState('');
     const [searchEdited, setSearchEdited] = useState(false);
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
-    const c = (key, variables) => t(key === 'busy' ? 'vr_panel.settings.changing' : `vr_panel.language.${key}`, variables);
+    const c: Wording = (key, variables) => t(key === 'busy' ? 'vr_panel.settings.changing' : `vr_panel.language.${key}`, variables);
     const settings = useLanguageSettings();
     const { currentSelectedPresetTabNumber: tab, currentSelectedYourLanguages: your, currentSelectedTargetLanguages: target,
         currentSelectedTranslationEngines: selectedEngines, currentTranslationEngines: engines, currentSelectableLanguageList: selectable, currentLanguageMutation: mutation } = settings;
     const preset = tab.data;
     const source = your.data?.[preset]?.[1];
     const targetSlots = target.data?.[preset];
-    const targets = useMemo(() => keys.filter(key => targetSlots?.[key]?.enable).map(key => targetSlots[key]), [targetSlots]);
+    const targets = useMemo(() => keys.flatMap(key => {
+        const slot = targetSlots?.[key];
+        return slot?.enable ? [slot] : [];
+    }), [targetSlots]);
     const ready = Boolean(source && targetSlots && Array.isArray(selectable.data));
     const [waiting, setWaiting] = useState(false);
     const [unconfirmed, setUnconfirmed] = useState(false);
@@ -44,27 +82,27 @@ export function VrLanguageWindow({ onClose }) {
     const selectedEngine = engines.data.find(engine => engine.id === selectedEngines.data?.[preset]);
     const sameLanguage = targets.some(entry => entry.language === source?.language);
     const duplicates = unique(targets).length !== targets.length;
-    const [view, setView] = useState({ kind: 'main' });
-    const [notice, setNotice] = useState(null);
+    const [view, setView] = useState<View>({ kind: 'main' });
+    const [notice, setNotice] = useState<{ key: string; n?: string } | null>(null);
     const [error, setError] = useState(false);
     const [unavailableOpen, setUnavailableOpen] = useState(!selectedEngine?.is_available);
     const previousPreset = useRef(preset);
     const previousView = useRef('main///');
-    const action = useRef(null);
+    const action = useRef<PendingAction | null>(null);
     const origin = useRef('your');
-    const mainButtons = useRef({});
-    const backButton = useRef(null);
-    const mainBody = useRef(null);
-    const pickerScroll = useRef(null);
-    const languageList = useRef(null);
+    const mainButtons = useRef<Record<string, HTMLButtonElement | null>>({});
+    const backButton = useRef<HTMLButtonElement>(null);
+    const mainBody = useRef<HTMLFieldSetElement>(null);
+    const pickerScroll = useRef<HTMLDivElement>(null);
+    const languageList = useRef<VrPickerNavigation | null>(null);
     const mainScroll = useRef(0);
-    const pickerSnapshot = useRef(null);
+    const pickerSnapshot = useRef<string | null>(null);
     const recoveringOwnChange = useRef(false);
     const currentPickerSnapshot = JSON.stringify({ source, targets });
     const viewKey = `${view.kind}/${view.stage ?? ''}/${view.index ?? ''}/${preset}`;
-    const waitTimer = useRef(null);
-    const retryButton = useRef(null);
-    const errorFocus = useRef(null);
+    const waitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const retryButton = useRef<HTMLButtonElement>(null);
+    const errorFocus = useRef<Element | null>(null);
     useEffect(() => () => clearTimeout(waitTimer.current), []);
 
     useEffect(() => {
@@ -86,7 +124,8 @@ export function VrLanguageWindow({ onClose }) {
     useEffect(() => {
         const accepted = action.current;
         const response = mutation.data.lastVrResult;
-        if (!accepted || response?.requestId !== accepted.id) return;
+        // An accepted change always has an id (save drops one without).
+        if (!accepted || !response || response.requestId !== accepted.id) return;
         if (response.kind === 'unconfirmed') { setUnconfirmed(true); return; }
         action.current = null;
         pickerSnapshot.current = currentPickerSnapshot;
@@ -110,7 +149,8 @@ export function VrLanguageWindow({ onClose }) {
         if (busy || !error || !errorFocus.current) return;
         const trigger = errorFocus.current;
         errorFocus.current = null;
-        (trigger.isConnected && !trigger.matches(':disabled') ? trigger : backButton.current ?? mainButtons.current.your)?.focus({ preventScroll: true });
+        const target = trigger.isConnected && !trigger.matches(':disabled') ? trigger : backButton.current ?? mainButtons.current.your;
+        if (isFocusable(target)) target.focus({ preventScroll: true });
     }, [busy, error]);
     useLayoutEffect(() => {
         if (syncError) retryButton.current?.focus({ preventScroll: true });
@@ -146,8 +186,8 @@ export function VrLanguageWindow({ onClose }) {
         if (selectedEngine && !selectedEngine.is_available) setUnavailableOpen(true);
     }, [selectedEngine?.id, selectedEngine?.is_available]);
 
-    const mainRef = name => element => { mainButtons.current[name] = element; };
-    const open = (next, name) => {
+    const mainRef = (name: string) => (element: HTMLButtonElement | null) => { mainButtons.current[name] = element; };
+    const open = (next: View, name: string) => {
         if (busy || locked || !ready) return;
         origin.current = name;
         mainScroll.current = mainBody.current?.scrollTop ?? 0;
@@ -158,15 +198,16 @@ export function VrLanguageWindow({ onClose }) {
         setSearchEdited(false);
         setView(next);
     };
-    const save = (perform, { returnToMain = false, focusKey, nextPreset } = {}) => {
+    const save = (perform: () => string | null | undefined, { returnToMain = false, focusKey, nextPreset }: SaveOptions = {}) => {
         if (action.current || busy || locked || !ready) return;
-        action.current = { preset, returnToMain, focusKey, nextPreset, trigger: document.activeElement };
+        const pending: PendingAction = { preset, returnToMain, focusKey, nextPreset, trigger: document.activeElement };
+        action.current = pending;
         setWaiting(true);
         setUnconfirmed(false);
         setError(false);
         setNotice(null);
-        action.current.id = perform();
-        if (!action.current.id) {
+        pending.id = perform();
+        if (!pending.id) {
             action.current = null;
             setWaiting(false);
             setError(true);
@@ -181,14 +222,14 @@ export function VrLanguageWindow({ onClose }) {
         if (view.stage === 'list') { setQuery(''); setSearchEdited(false); setView({ ...view, stage: 'saved' }); }
         else setView({ kind: 'main' });
     };
-    const remove = index => save(() => settings.setTargetLanguagesInOrder(targets.filter((_, position) => position !== index)), { focusKey: `target:${Math.min(index, targets.length - 2)}` });
-    const choose = entry => {
+    const remove = (index: number) => save(() => settings.setTargetLanguagesInOrder(targets.filter((_, position) => position !== index)), { focusKey: `target:${Math.min(index, targets.length - 2)}` });
+    const choose = (entry: Language) => {
         if (busy) return;
         if (view.kind === 'your') {
             if (same(source, entry)) return;
             save(() => settings.setSelectedYourLanguages(entry), { returnToMain: true });
         } else if (!targets.some(other => same(other, entry))) {
-            if (view.kind === 'target-replace' && !targets[view.index]) return;
+            if (view.kind === 'target-replace' && !targets[view.index ?? -1]) return;
             const next = view.kind === 'target-add' ? [...targets, entry] : targets.map((old, index) => index === view.index ? entry : old);
             if (next.length > 3) return;
             save(() => settings.setTargetLanguagesInOrder(next), { returnToMain: true });
@@ -196,17 +237,17 @@ export function VrLanguageWindow({ onClose }) {
     };
     const saved = useMemo(() => {
         const entries = ready ? unique(['1', '2', '3'].flatMap(number => [your.data[number]?.[1], ...keys.map(key => target.data[number]?.[key])])
-            .filter(entry => entry && selectable.data.some(option => same(entry, option)))) : [];
+            .filter((entry): entry is NonNullable<typeof entry> => !!entry && selectable.data.some(option => same(entry, option)))) : [];
         for (const entry of [source, ...targets]) {
             if (entry?.language && !entries.some(other => same(entry, other))) entries.push(entry);
         }
         return entries;
     }, [ready, your.data, target.data, selectable.data, source, targets]);
-    const title = view.kind === 'your' ? c('edit_your') : view.kind === 'target-add' ? c('add_title') : view.kind === 'target-replace' ? c('change_target', { n: view.index + 1 }) : t('main_page.translator');
+    const title = view.kind === 'your' ? c('edit_your') : view.kind === 'target-add' ? c('add_title') : view.kind === 'target-replace' ? c('change_target', { n: (view.index ?? 0) + 1 }) : t('main_page.translator');
     const status = syncError ? c('sync_error') : unconfirmed || mutation.data.inFlight?.kind === 'unconfirmed' ? c('unconfirmed') : busy ? c('busy') : error ? c('error') : notice ? c(notice.key, { n: notice.n }) : '';
-    const languageSelected = entry => view.kind === 'your' ? same(entry, source) : targets.some(other => same(other, entry));
-    const pickerSelection = view.kind === 'your' ? source : targets[view.kind === 'target-replace' ? view.index : 0];
-    const selectionLabel = entry => view.kind === 'your' ? c('selected') : c('selected_slots', { n: targets.flatMap((other, index) => same(other, entry) ? [index + 1] : []).join(', ') });
+    const languageSelected = (entry: Language) => view.kind === 'your' ? same(entry, source) : targets.some(other => same(other, entry));
+    const pickerSelection = view.kind === 'your' ? source : targets[view.kind === 'target-replace' ? view.index ?? -1 : 0];
+    const selectionLabel = (entry: Language) => view.kind === 'your' ? c('selected') : c('selected_slots', { n: targets.flatMap((other, index) => same(other, entry) ? [index + 1] : []).join(', ') });
     const choiceSource = view.stage === 'list' ? selectable.data : saved;
     const sortedChoices = useMemo(() => names.sorted(choiceSource ?? []), [names, choiceSource]);
     // As on the desktop selector: languages whose code begins with the query come first,
@@ -214,13 +255,13 @@ export function VrLanguageWindow({ onClose }) {
     const languageChoices = useMemo(() => names.narrow(sortedChoices, query), [names, sortedChoices, query]);
     const jumpGroups = useMemo(() => view.stage === 'list'
         ? languageJumpGroups(languageChoices.map(entry => names.name(entry).language), i18n.language) : [], [view.stage, languageChoices, names, i18n.language]);
-    const jumpTo = index => {
+    const jumpTo = (index: number) => {
         if (busy || locked) return;
         // Keyboard users can choose the destination next. A selected/disabled
         // first entry still scrolls into view, leaving focus on the jump button.
         languageList.current?.scrollToIndex(index, { focus: true });
     };
-    const choiceDisabled = entry => !selectable.data?.some(option => same(entry, option))
+    const choiceDisabled = (entry: Language) => !selectable.data?.some(option => same(entry, option))
         || (!busy && (languageSelected(entry) || (view.kind === 'target-add' && targets.length >= 3)));
     useLayoutEffect(() => {
         if (view.kind === 'engine' && pickerScroll.current) pickerScroll.current.scrollTop = 0;
@@ -230,7 +271,7 @@ export function VrLanguageWindow({ onClose }) {
         // moving the window or the main screen's remembered scroll position.
         const focused = document.activeElement;
         const list = focused?.closest(`.${styles.picker_scroll}`);
-        if (!list) return;
+        if (!focused || !list) return;
         const row = focused.getBoundingClientRect();
         const bounds = list.getBoundingClientRect();
         const scale = list.clientHeight / bounds.height;
@@ -337,11 +378,21 @@ export function VrLanguageWindow({ onClose }) {
     </VrWindow>;
 }
 
-function LanguageText({ entry, names, className }) {
+function LanguageText({ entry, names, className }: { entry: Language | null | undefined; names: LanguageNames; className?: string }) {
     const display = names.name(entry);
     return <span className={clsx(settingsStyles.label, styles.language_text, className)}><span>{display.language}</span><span className={settingsStyles.sub}>{display.country}</span></span>;
 }
-function EngineChoice({ engine, current, busy, t, c, onPick }) {
+
+interface EngineChoiceProps {
+    engine: TranslatorStatus;
+    current?: string;
+    busy: boolean;
+    t: Translate;
+    c: Wording;
+    onPick?: () => void;
+}
+
+function EngineChoice({ engine, current, busy, t, c, onPick }: EngineChoiceProps) {
     const selected = engine.id === current;
     return <button className={clsx(settingsStyles.row, settingsStyles.clickable, settingsStyles.option, styles.choice, selected && settingsStyles.is_selected)} disabled={!engine.is_available || (selected && !busy)} aria-pressed={selected} aria-disabled={busy && engine.is_available ? true : undefined}
         aria-label={`${engineLabel(engine)}${selected ? ` · ${c('selected')}` : ''}`} onClick={() => !busy && onPick?.()}>

@@ -32,7 +32,7 @@ for (const [file, targets] of [
 }
 
 test("launcher and toolbar buttons use the shared pressed style", async () => {
-    for (const file of ["VrLauncher.jsx", "VrToolbar.jsx"]) {
+    for (const file of ["VrLauncher.tsx", "VrToolbar.tsx"]) {
         const source = await readFile(new URL(file, import.meta.url), "utf8");
         assert.match(source, /import shared from "\.\/VrSettingsWindow\.module\.scss"/);
         assert.match(source, /shared\.button/);
