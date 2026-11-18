@@ -50,10 +50,10 @@ pub(crate) fn default_endpoint(graph: &[Value], source: Source) -> Result<Endpoi
     for item in graph.iter() {
         if graph::kind(item) == Some(graph::METADATA) && item["props"]["metadata.name"] == "default" {
             for row in item["metadata"].as_array().into_iter().flatten() {
-                if row["subject"] == 0 {
-                    if let Some(key) = row["key"].as_str() {
-                        entries.insert(key.to_string(), row["value"].clone());
-                    }
+                if row["subject"] == 0
+                    && let Some(key) = row["key"].as_str()
+                {
+                    entries.insert(key.to_string(), row["value"].clone());
                 }
             }
         }

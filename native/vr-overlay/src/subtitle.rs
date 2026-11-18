@@ -997,7 +997,7 @@ mod tests {
         subtitles.discard_captions("mic", "n2", &mut |_| true);
         subtitles.discard_captions("speaker", "n1", &mut |picture| {
             sizes.push((picture.canvas.width, picture.canvas.height));
-            assert!(picture.canvas.pixels.chunks_exact(4).all(|p| p[3] == 0), "an empty log is transparent");
+            assert!(picture.canvas.pixels.as_chunks::<4>().0.iter().all(|p| p[3] == 0), "an empty log is transparent");
             true
         });
         assert_eq!(sizes.last(), Some(&(1, 1)));
