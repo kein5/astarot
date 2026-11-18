@@ -98,7 +98,7 @@ pub fn valid_error_code(code: &str) -> bool {
 }
 
 /// "Windows", "Linux" or "Other", and the OS version as Python's `platform` reports it.
-fn os_and_version() -> (&'static str, Option<String>) {
+pub fn os_and_version() -> (&'static str, Option<String>) {
     #[cfg(windows)]
     {
         ("Windows", windows_version())

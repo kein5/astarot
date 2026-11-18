@@ -98,7 +98,7 @@ pub fn device_allowed(device: &str) -> bool {
     matches!(device, "auto" | "cpu" | "gpu") || is_named_gpu(device)
 }
 
-pub(crate) fn is_named_gpu(device: &str) -> bool {
+pub fn is_named_gpu(device: &str) -> bool {
     device
         .strip_prefix("Vulkan")
         .is_some_and(|digits| (1..=2).contains(&digits.len()) && digits.bytes().all(|byte| byte.is_ascii_digit()))
