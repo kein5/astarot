@@ -12,10 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::{
-    Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow,
-    WebviewWindowBuilder,
-};
+use tauri::{Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow};
 
 pub const LABEL: &str = "caption_overlay";
 const TITLE: &str = "ASTAROT Captions";
@@ -753,7 +750,7 @@ pub async fn caption_overlay_set(
     let created = existing.is_none();
     let overlay = match existing {
         Some(overlay) => overlay,
-        None => WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("caption-overlay.html".into()))
+        None => crate::webview_environment::window(&app, LABEL, WebviewUrl::App("caption-overlay.html".into()))
             .title(TITLE)
             .decorations(false)
             .transparent(true)
@@ -764,7 +761,6 @@ pub async fn caption_overlay_set(
             .focused(false)
             .focusable(false)
             .visible(false)
-            .additional_browser_args(super::BROWSER_ARGS)
             .build()
             .map_err(|error| error.to_string())?,
     };

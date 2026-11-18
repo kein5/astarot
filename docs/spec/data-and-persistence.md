@@ -37,16 +37,18 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ### ローカル音声認識の移行
 
-`LOCAL_ASR_MIGRATION`は、ローカル音声認識の移行をどこまで済ませたかを表す整数で、`config.json`に保存する。新規の設定は最新の段階（いまは2）から始まり、何も移さない。段階が足りない保存ファイルは、読み込みの最後（`Config._migrateLocalASR`）に次を1回ずつ行い、最新の段階を記録する。
+0.6.0 から、ローカル音声認識の移行は行わない（#288 の判断4）。保存済みの`SELECTED_TRANSCRIPTION_ENGINE`が削除した`"Whisper"`なら、外した`"Google"`と同じく未選択として読み込む。利用者は最初の起動と同じくエンジンを選び直す。`REALTIME_ASR_SETTINGS`は保存したとおりに読む。モデルは取得しない。
 
-| 段階 | 行うこと |
+`LOCAL_ASR_MIGRATION`（整数）は`config.json`に`2`を書き続ける。0.5 以前の版はこの値で移行を済ませたかを判断するので、その版へ戻したときに移行をやり直させないためである。いまの版はこの値を読まない。
+
+0.3 から 0.5 までは、段階が足りない保存ファイルを読み込みの最後に移していた（`Config._migrateLocalASR`。Python の版と Rust の中核の 0.5 系）。
+
+| 段階 | 0.5 まで行っていたこと |
 |---|---|
-| 1 | Windows のメインスイッチは、以前はリアルタイム音声認識のサーバーの選択に従い、いまは音声認識エンジンに従う。保存済みの`REALTIME_ASR_SETTINGS.server`が`"bundled"`なら、OSによらず音声認識エンジンを`SpeechCpp`にする。スイッチはそれまでと同じ経路を使う |
-| 2 | 保存済みの`SELECTED_TRANSCRIPTION_ENGINE`が削除した`"Whisper"`なら、`SpeechCpp`にする。Windows では`REALTIME_ASR_SETTINGS.server`を`"bundled"`にし、ほかの項目は保つ。Linux のスイッチはもともとリアルタイムのサーバーを使っていたので、サーバーの選択は変えない。あわせて`LOCAL_ASR_NOTICE_PENDING`を`true`にする |
+| 1 | 保存済みの`REALTIME_ASR_SETTINGS.server`が`"bundled"`なら、音声認識エンジンを`SpeechCpp`にする |
+| 2 | 保存済みの`"Whisper"`を`SpeechCpp`にする。Windows では`REALTIME_ASR_SETTINGS.server`を`"bundled"`にする。あわせて`LOCAL_ASR_NOTICE_PENDING`を`true`にし、メイン画面に「ローカルの音声認識は speech.cpp に変わりました」のお知らせを1回出す（`/get/data/local_asr_notice`、`/set/disable/local_asr_notice`） |
 
-保存済みの`"Whisper"`は、使えないエンジン名として error.log に残さずに読み飛ばし、上の段階2が移す。モデルの取得はどの段階でも行わない。
-
-`LOCAL_ASR_NOTICE_PENDING`（真偽値、既定は`false`、保存する）は、移行のお知らせをまだ出していないことを表す。真の間、メイン画面は「ローカルの音声認識は speech.cpp に変わりました」のお知らせを出す（`LocalAsrNoticeController.jsx`）。お知らせは、Whisper が含まれなくなりローカル（speech.cpp）へ移したこと、同梱の ASR サーバーには認識モデルと VAD モデルが要ることと、それぞれが`asr`プロファイルに設定済みかどうか、設定でライセンスとサイズを確かめて同意するまで何も取得しないことを伝える。「音声認識（ASR）」の設定を開くボタンがあり、古い Whisper の重みが残っていれば、その合計の容量と、確認してから削除するボタンを出す。閉じる、Escape、設定を開くのどれで閉じても`/set/disable/local_asr_notice`を送り、以後は出さない。UIは`/get/data/local_asr_notice`で状態を読む。
+移す前の内容は`config.json.before-migration-<段階>`に残していた。0.6.0 はこの写しを書かず、前の版が残した写しにも触れない。`LOCAL_ASR_NOTICE_PENDING`は引退したキーとして読み込みのときに捨てる。お知らせとその2つのエンドポイントはない（404）。
 
 `VIRTUAL_MIC_NOTICE_PENDING`（真偽値、既定は`true`、保存する）は、仮想マイクの案内（#321）を起動時に自分で開いてよいことを表す。Windowsで仮想ケーブルが1つも見つからないときだけ開く。「完了」か「今後は自動で表示しない」で`/set/disable/virtual_mic_notice`を送り、偽にする。偽でも「テキスト読み上げ（TTS）」の設定から開ける。流れは[UC-17](use-cases.md#uc-17-仮想マイクを用意して確かめるwindows)にある。
 
@@ -54,12 +56,9 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ### 古い Whisper の重み
 
-以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（`models/transcription/old_whisper_weights.py`の`WHISPER_WEIGHT_NAMES`）。いまの版は読まない。
+0.2 以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（`models/transcription/old_whisper_weights.py`の`WHISPER_WEIGHT_NAMES`）。いまの版は読まず、消しもしない。
 
-- `/get/data/old_whisper_weights`は`{"total_bytes": 整数, "folders": [名前, …]}`を返す。容量は、リンクをたどらずに数えた通常のファイルの合計である。
-- `/run/delete_old_whisper_weights`は、上の名前のフォルダーだけを消し、`{"total_bytes", "folders", "freed_bytes", "failed"}`を返す。`total_bytes`と`folders`は消した後に残っているもの、`freed_bytes`は空いた容量、`failed`は消せなかった名前（ほかのプログラムがファイルを開いているときなど）である。シンボリックリンクやジャンクションの先はたどらない。`whisper`フォルダーや名前のフォルダーそのものがリンクなら消さない。知らないファイルは残し、`whisper`フォルダーは空になったときだけ消す。
-- 読み取りに失敗すると500の`{"error_code": "old_whisper_weights_unreadable"}`、削除に失敗すると500の`{"error_code": "old_whisper_weights_delete_failed"}`を返す。
-- 削除は利用者の操作だけで行う。設定の「音声認識（ASR）」は、重みが残っている間「古い Whisper モデル」の欄に合計の容量と削除のボタンを出し、その場で確認してから送る。移行のお知らせにも同じ欄を出す。
+0.3 から 0.5 までは、設定の「音声認識（ASR）」と移行のお知らせに「古い Whisper モデル」の欄があり、合計の容量を見せて、利用者が確かめてから消せた（`/get/data/old_whisper_weights`、`/run/delete_old_whisper_weights`）。0.6.0 でこの欄と2つのエンドポイントを外した（#288 の判断4）。残った重みは、利用者が`weights/whisper`のフォルダーを手で消せる。
 
 ### 音声認識の数値設定
 
@@ -81,7 +80,7 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ローカルの Whisper とともに、`MIC_NO_REPEAT_NGRAM_SIZE`と`SPEAKER_NO_REPEAT_NGRAM_SIZE`は削除した。古い`config.json`にあっても読み込まない。
 
-リアルタイム字幕（speech.cpp の Realtime）では、発話の区切りをサーバーの VAD（`server_vad`）が決める。中核はセッションを始めるときに`turn_detection`の`silence_duration_ms`（話し終わりとみなす無音の長さ）と`prefix_padding_ms`（発話の前後に残す余白）を送る（#556）。無音の長さは`REALTIME_ASR_SETTINGS.silence_duration_ms`で、項目がなければ500ミリ秒（speech.cpp と OpenAI の既定と同じ）である。余白は無音の長さの半分で、300ミリ秒（speech.cpp の既定）を超えない。speech.cpp は、余白の2倍のあいだに次の発話が始まらないと分かってから発話を確定するので、既定の余白300ミリ秒のままでは無音500ミリ秒でも確定まで600ミリ秒かかる。余白を半分以下にすると、無音が続いた時点で確定する。発話をどこで区切るかは無音の長さだけで決まる。`silence_duration_ms`は100〜2000の整数を受け付け、範囲外、小数、文字列、真偽値は`realtime_settings_invalid`で拒否する。選ばなかった項目や`null`は保存しないので、既定のままなら0.4の版も同じ設定を読める。値を変えると、マイクとゲーム音声の両方の字幕を停止する（サーバーやモデルを変えたときと同じ）。設定画面の「リアルタイム字幕」では、既定（0.5秒）、0.3秒、0.4秒、0.7秒、1秒から選ぶ。短くすると確定が早くなるが、文の途中の間でも区切られやすくなる。測った値は[音声パイプラインの遅延](../voice-stack/pipeline-latency-2026-11-18.md)にある。
+リアルタイム字幕（speech.cpp の Realtime）では、発話の区切りをサーバーの VAD（`server_vad`）が決める。中核はセッションを始めるときに`turn_detection`の`silence_duration_ms`（話し終わりとみなす無音の長さ）と`prefix_padding_ms`（発話の前後に残す余白）を送る（#556）。無音の長さは`REALTIME_ASR_SETTINGS.silence_duration_ms`で、項目がなければ既定の400ミリ秒である（speech.cpp と OpenAI の既定の500ミリ秒より短い）。既定を500から400に変えたとき、選んで保存した値は変えず、選んでいない設定だけが新しい既定に従う。余白は無音の長さの半分で、300ミリ秒（speech.cpp の既定）を超えない。speech.cpp は、余白の2倍のあいだに次の発話が始まらないと分かってから発話を確定するので、既定の余白300ミリ秒のままでは無音500ミリ秒でも確定まで600ミリ秒かかる。余白を半分以下にすると、無音が続いた時点で確定する。発話をどこで区切るかは無音の長さだけで決まる。`silence_duration_ms`は100〜2000の整数を受け付け、範囲外、小数、文字列、真偽値は`realtime_settings_invalid`で拒否する。選ばなかった項目や`null`は保存しないので、既定のままなら0.4の版も同じ設定を読める。値を変えると、マイクとゲーム音声の両方の字幕を停止する（サーバーやモデルを変えたときと同じ）。設定画面の「リアルタイム字幕」では、既定（0.4秒）、0.3秒、0.5秒、0.7秒、1秒から選ぶ。この一覧にない値が保存されていれば（既定が0.5秒だった版で選んだ0.4秒など）、その値も選択肢に出す。短くすると確定が早くなるが、文の途中の間でも区切られやすくなる。測った値は[音声パイプラインの遅延](../voice-stack/pipeline-latency-2026-11-18.md)にある。
 
 ### 用語辞書
 
@@ -279,7 +278,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 - 単純な設定プロパティは、未選択を表すモデル名と音声認識エンジンを除き`null`を受け付けない。APIキーやホットキーの辞書内にある未設定の`null`は維持する。数値のプロパティとオーバーレイの数値設定は`NaN`・無限大（`1e999`などの桁あふれも含む）を保存前に拒否する。不正な保存値は既定値へ戻す。メッセージ欄の比率と大小字幕の設定変更では400の`VALIDATION_CONFIG_VALUE_INVALID`を返し、`data`には保持した設定値を入れる。
 - 読み込みでは、各キーを検証してから設定する。知らないキーは使わないが、ファイルにあったままの値を保存する設定の後ろに書き戻す。新しい版の設定を古い版で開いて保存しても、新しい版に戻ったときにその設定が残るようにするためである（#560）。以前の版が保存し、今の版で廃止したキー（`native/core/src/config/mod.rs`の`RETIRED_KEYS`。#288でローカルのWhisperとともに削除した5つ）だけは捨てる。キーを廃止するときは、このリストにも加える。検証に通らないキーは既定値のままにしてerror.logに残す。ただしマイクとスピーカーの選択（`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`）は、読み込む時点でデバイスの一覧がまだ取れていないため、保存値をそのまま受け取る。一覧が取れたあと、サイドカーがデバイスの有無を確かめ、無ければ既定のデバイスに戻す。JSONとして読めない、またはオブジェクトでないときは、そのファイルを名前の重複しない`config.json.unreadable-<日時>-<乱数>`に移して残し、既定値で起動する。UIは`/run/config_file_unreadable`を受けて、既定値で起動したことと残したファイルの場所を知らせる。
 - メモリー上の初期値をすべて用意してからログ用ディレクトリを作る。ログ用ディレクトリを作れなくても、設定の初期化は完了させる。それ以外の初期化が途中で失敗したときは、不完全なインスタンスを公開せず、設定の読み込みも保存も行わない。読み込み中は保存せず、全項目の適用と移行が終わってから1回だけ保存する。ただし、書く内容がファイルと同じなら書かない（キーの順は比べない。Unixでは所有者のほかにも読めるファイルなら書き直す）。Python版は起動のたびに書いていた（#560）。読み取り権限の不足や退避の失敗では元のファイルを残し、[保存の失敗通知](cross-cutting.md#サイドカーでの保存)を出して以後の保存を止める。
-- 版番号はない。ローカル音声認識の移行だけは、済ませた段階を`LOCAL_ASR_MIGRATION`に記録する（[ローカル音声認識の移行](#ローカル音声認識の移行)）。用途（`USAGE_PRESETS`）は段階を記録しない。保存した設定があってこのキーがなければ、前の版から更新したと見なして`["all"]`にする。読めないファイルは何も保存していないのと同じに扱うので、新しく入れたときの`["basic"]`になる。移行する前の内容は、APIキーを除いて`config.json.before-migration-<段階>`に残す（[失敗したときに保つもの](failure-recovery.md#設定)）。入れ子の設定のうち`SPEECH_SERVER_SETTINGS`と`REALTIME_ASR_SETTINGS`は`"version": 1`を持つ。
+- 版番号はない。0.5 まではローカル音声認識の移行の段階を`LOCAL_ASR_MIGRATION`に記録して使っていた。0.6.0 は移行を行わず、0.5 以前の版のために`2`を書くだけである（[ローカル音声認識の移行](#ローカル音声認識の移行)）。用途（`USAGE_PRESETS`）は段階を記録しない。保存した設定があってこのキーがなければ、前の版から更新したと見なして`["all"]`にする。読めないファイルは何も保存していないのと同じに扱うので、新しく入れたときの`["basic"]`になる。0.5 までは移行する前の内容を`config.json.before-migration-<段階>`に残していた（[失敗したときに保つもの](failure-recovery.md#設定)）。入れ子の設定のうち`SPEECH_SERVER_SETTINGS`と`REALTIME_ASR_SETTINGS`は`"version": 1`を持つ。
 - `OVERLAY_VR_LAUNCHER_SETTINGS`の`ui_scaling`は、ランチャーの帯が952px幅だとしたときの横幅（m）である。帯が880px幅になっても意味を変えない。版番号がなく移行済みかどうかを区別できないので保存値は書き換えず、実際の横幅を880/952倍して求める。保存値のまま、ボタンの大きさが変わらない。
 - 保存済みの言語・翻訳エンジンの辞書が壊れているときは、不足・不正なタブや枠を既定値で補い、正常な部分は読み込む。余分なキーは捨てる。実行中の更新に対する構造の検証とは区別し、壊れた辞書で起動を妨げない。
 - 書き込みは[横断的な振る舞い](cross-cutting.md#サイドカーでの保存)のとおり、2秒の遅延、0600の一時ファイル、`fsync`、置き換えの順に行う。
@@ -301,7 +300,7 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 - OSのストアが使えないときも、新しいキーや変えたキーを`secrets.json`に平文で書くことはしない。その起動のあいだだけ使える。
 - キーを消す要求（`/delete/data/*_auth_key`など）は、`secrets.json`の写しを先に除き、それからOSのストアから除く。OSのストアが応答しなくても平文の写しは残らない。
 - JSONとして読めるが項目を復号できない`secrets.json`（別のユーザーのDPAPIなど）は`store_id`をそのまま使い、次にキーを保存するときに`secrets.json.unreadable-<日時>-<乱数>`へ移してIDを引き継いだ新しいファイルを作る。JSONとして読めない`secrets.json`も、キーを保存するときに同じ名前へ移し、新しいIDで作る。どちらも元のファイルは消さない。一時的に読めないファイルには触れず、書き込みを一時的な失敗にする。
-- 翻訳のカタログに利用者が足したAPIの項目（#413）のキーも同じ保管場所に置く。項目の名前は`TRANSLATION_CATALOG/<項目のID>`で、設定（`SECRET_SETTINGS`）には入れない。項目を足すときに書いて読み戻し、読み戻せなければ項目を足さない。項目を削除すると、そのキーも消す。
+- 翻訳のカタログに利用者が足したAPIの項目（#413）のキーも同じ保管場所に置く。項目の名前は`TRANSLATION_CATALOG/<項目のID>`で、設定（`SECRET_SETTINGS`）には入れない。項目を足すときにキーを書いて読み戻す。書けない、読み戻せないときも項目は足し、キーは設定のキーと同じくその起動のあいだだけメモリーに持つ（`native/core/src/config/mod.rs`の`Config::keep_secret`）。`/run/secret_store_failed`で1回だけ知らせ、次の保存、30秒ごと、アプリを閉じるときにもう一度書く。平文のファイルには書かない。項目の`key`は、保管場所がキーを持てたときに`true`になる。保管場所に置けないままアプリを閉じた項目は、次の起動ではキーのない項目になる。画面は「APIキーがありません」と示し、項目を削除して追加し直すよう伝える。使うときは、メモリーに持っているキーを先に使う。保管場所が一時的に読めないとき（`locked`、`unavailable`など）は、キーがないとは扱わず、409の`translation_catalog_key_unreadable`を返して何も変えない。項目を削除すると、メモリーと保管場所のキーも消す。保管場所から消せなければ、設定のキーと同じく次の保存と30秒ごとにやり直す。
 - 0.5.xに戻すと、移したキーは`secrets.json`にないので入れ直しが要る。キーはOSのストアに残っている。0.4以前に戻した場合も同じである。
 ## そのほかのファイル
 
@@ -312,7 +311,7 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | 会話ログ `YYYY-MM-DD_HH-MM-SS.log` | `PATH_LOGS` | 「会話ログを自動的に保存する」がオンのときだけ。行頭は`[SENT]`、`[RECEIVED]`、`[OCR]`、`[CHAT]`。画面は新しい1,000件しか残さないが、ファイルには古いものも残る |
 | `downloaded_models/<id>/<版>/`と`receipt.json` | `config.json`と同じフォルダ | 取得したモデル。取得中は`.partial-<16進>/`。壊れたモデルを取り直すときも、いったんその名前に戻してから消す（[失敗したときに保つもの](failure-recovery.md#モデルの取得と適用)） |
 | `user_models.json` | `config.json`と同じフォルダ | 利用者が名前を付けて登録したモデル（#403）。`{"version": 1, "models": [{id, target, name, files: {役割: {path, size, mtime_ns}}, registered_at}]}`。ファイルの場所と、登録したときの容量と更新時刻だけを持ち、モデルのファイルはコピーしない。一時ファイルに書いて`fsync`してから置き換える。読めない、または版が違うときは書き換えずに残す。PythonとRustのコアは同じ形式を読み書きする |
-| `translation_catalog.json` | `config.json`と同じフォルダ | 翻訳のカタログに利用者が足した項目（#413、中核のみ）。`{"version": 1, "entries": [...]}`。推論エンジン系は`{id, group: "engine", name, runtime, folder, languages, registered_at}`、API系は`{id, group: "api", name, protocol, url, model, key, registered_at}`。`key`はキーがあるかどうかだけで、キーそのものは[APIキーの保存先](#apiキーの保存先)に置く。フォルダーのモデルはコピーしない。書き方と、読めないときに残すことは`user_models.json`と同じ。この版が知らない`runtime`や`protocol`の項目は残し、使えないものとして見せる |
+| `translation_catalog.json` | `config.json`と同じフォルダ | 翻訳のカタログに利用者が足した項目（#413、中核のみ）。`{"version": 1, "entries": [...]}`。推論エンジン系は`{id, group: "engine", name, runtime, folder, languages, registered_at}`、API系は`{id, group: "api", name, protocol, url, model, key, registered_at}`。`key`は[APIキーの保存先](#apiキーの保存先)がキーを持てたかどうかだけで、キーそのものはこのファイルに書かない（保管場所に置けずにメモリーに持っているあいだは`false`）。フォルダーのモデルはコピーしない。書き方と、読めないときに残すことは`user_models.json`と同じ。この版が知らない`runtime`や`protocol`の項目は残し、使えないものとして見せる |
 | `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCの実行環境（WindowsとLinux。0.4まではSeed-VCも）。`.steps.json`に終わった手順を残す。0.4までのPythonバックエンドは、`setup.log`に`uv`とワーカーの確認の出力も残し、Seed-VCでは`.uv-<版>/`に取得用の`uv`を置いた（0.5.0の中核は`setup.log`を書かない）。RVCは`lib/`（ONNX Runtime。GPU用はCUDA 13とcuDNNのライブラリも）と`assets/`だけで、取得中は`lib.part/`と`downloads/`を使う。RVCの取得が終わると、同じフォルダーにある以前のPyTorch形式の`venv/`、`python/`、`engine/`（中のモデルと音声のファイルは残す）、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`を削除する |
 | weights/whisper/… | PATH_DATA | 以前の版が取得した Whisper の重み。いまの版は読まず、取得もしない。利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](#古い-whisper-の重み)） |
 | weights/ctranslate2/… | PATH_DATA | 0.4までのPythonバックエンドが取得したCTranslate2の翻訳モデルと検証記録。0.5.0の中核は読まず、起動の後でPythonが作った名前のフォルダだけを消す（リンクやジャンクションはたどらない。`native/core/src/controller/legacy_weights.rs`、[中核の統合](../voice-stack/core-integration.md)の「旧 CTranslate2 の重み」） |

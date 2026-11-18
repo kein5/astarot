@@ -13,7 +13,7 @@ const SHUTDOWN_WAIT_MS = 2000;
 let closing: Promise<void> | null = null;
 let releaseCloseRequest: (() => void) | null = null;
 
-// The main window, which its entry point (views/app/index.jsx) sets before anything here runs.
+// The main window, which its entry point (views/app/index.tsx) sets before anything here runs.
 // Without it each use fails where it did before, at the window's first call.
 const mainWindow = (appWindow: AppWindow | undefined): AppWindow => {
     if (!appWindow) throw new TypeError("The main window is not set (store.appWindow).");

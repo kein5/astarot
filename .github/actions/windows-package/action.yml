@@ -1,15 +1,12 @@
-# One Windows package for release.yml: check the version fields, set up the toolchains, build
+# The Windows package for release.yml: check the version fields, set up the toolchains, build
 # the package with its npm script and inspect it. The calling job checks out the code first and
-# collects the outputs afterwards. Since 0.5.0 both variants hold the same files: the CUDA
-# libraries were for the Python backend (decision 20 in docs/voice-stack/core-integration.md).
+# collects the outputs afterwards. Up to 0.5 a second job built VRCT-VOX_cuda.zip with these
+# steps; there is one package since #288.
 name: Build a Windows package
-description: Build and inspect VRCT-VOX.zip or VRCT-VOX_cuda.zip
+description: Build and inspect VRCT-VOX.zip
 inputs:
-  variant:
-    description: cpu or cuda
-    required: true
   script:
-    description: npm script that builds the package (release or release-cuda)
+    description: npm script that builds the package (release)
     required: true
   package:
     description: the ZIP the script writes
@@ -72,13 +69,11 @@ runs:
         "UV_PYTHON_PREFERENCE=only-system" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UV_PYTHON_DOWNLOADS=never" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-    # Both variants compile the same Tauri app; only the CPU job saves.
     - name: Cache Rust build
       uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       with:
         workspaces: src-tauri -> target
         shared-key: windows-tauri
-        save-if: ${{ inputs.variant == 'cpu' }}
 
     - name: Install dependencies
       shell: pwsh

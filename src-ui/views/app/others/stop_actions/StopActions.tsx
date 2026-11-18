@@ -15,23 +15,25 @@ import { voiceActions } from "../../../../logics/voice/voiceActions.ts";
 // classes: the host bar's stylesheet (stop_actions, stop, long, short,
 // is_attention, is_pressed, muted_badge); each bar places and sizes them. A bar
 // with a `tiny` class also gets the shortest words, for its narrowest layout.
-export const StopActions = ({ classes }) => {
+export const StopActions = ({ classes }: { classes: Readonly<Record<string, string>> }) => {
     const { t } = useI18n();
     const { status, route, send } = useVoice();
     useEffect(() => { send("/get/data/voice_status"); send("/get/data/voice_route"); }, [send]);
-    const queued = status.queued ?? 0;
+    // The backend reports a count; anything else counts as an empty queue.
+    const queued = typeof status.queued === "number" ? status.queued : 0;
     const speaking = !!status.active || queued > 0;
     const stop = queued > 0 ? t("voice_ui.topbar_stop_count", { count: queued }) : t("voice_ui.topbar_stop");
     const stopShort = queued > 0 ? t("voice_ui.topbar_stop_short_count", { count: queued }) : t("voice_ui.topbar_stop_short");
     const stopTiny = queued > 0 ? t("voice_ui.topbar_stop_tiny_count", { count: queued }) : t("voice_ui.topbar_stop_tiny");
     // Only a reported state makes a toggle; without one this is a plain mute action.
-    const known = typeof route.requested_muted === "boolean";
-    const muted = known && route.requested_muted;
+    const requested = route.requested_muted;
+    const known = typeof requested === "boolean";
+    const muted = known && requested;
     const mute = t("voice_ui.mute_row");
-    const resumeBlocked = muted && (!route.ready || route.pending);
+    const resumeBlocked = muted && (!route.ready || !!route.pending);
     const stopVoice = () => send("/run/stop_voice");
     const toggleMute = () => { if (!resumeBlocked) send(muted ? "/run/resume_voice" : "/run/mute_voice"); };
-    // Hotkeys press these same buttons, with today's state (logics/voice/voiceActions.js).
+    // Hotkeys press these same buttons, with today's state (logics/voice/voiceActions.ts).
     useEffect(() => { voiceActions.stop = stopVoice; voiceActions.toggleMute = toggleMute; });
     return <div className={classes.stop_actions} role="group" aria-label={t("voice_ui.stop_actions")}>
         {/* Narrow windows show the short words, which stay part of the accessible name. */}

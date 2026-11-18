@@ -2,7 +2,6 @@ import { TranscriptionConsentController } from "./_app_controllers/Transcription
 import { OcrSetupController } from "./_app_controllers/OcrSetupController";
 import { TranslationSetupController } from "./_app_controllers/TranslationSetupController";
 import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeController";
-import { LocalAsrNoticeController } from "./_app_controllers/LocalAsrNoticeController";
 import { VirtualMicGuideController } from "./_app_controllers/VirtualMicGuideController";
 import { FirstRunSetupController } from "./_app_controllers/FirstRunSetupController";
 import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
@@ -87,9 +86,9 @@ export const App = () => {
 // While locked, only the main page and the title bar are drawn: the settings
 // page, dialogs and notices that act on the engine's settings wait for them,
 // and the window geometry is not saved over the one the engine will restore.
-const Contents = ({ locked }) => {
+const Contents = ({ locked }: { locked: boolean }) => {
     const { currentIsSoftwareUpdating } = useIsSoftwareUpdating();
-    const mainPage = useRef(null);
+    const mainPage = useRef<HTMLElement>(null);
     return (
         <>
             <WindowGeometryController saveGeometry={!locked} />
@@ -109,7 +108,6 @@ const Contents = ({ locked }) => {
                     <TranslationSetupController />
                     <OcrSetupController />
                     <TelemetryNoticeController />
-                    <LocalAsrNoticeController />
                     <FirstRunSetupController />
                     <VirtualMicGuideController />
                 </>}

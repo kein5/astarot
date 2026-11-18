@@ -4,8 +4,10 @@
 
 ## モデルを作る
 
+リポジトリの直下で実行します。uv は `pyproject.toml` の `requires-python` に合う Python（`mise.toml` の 3.14）を選びます。
+
 ```sh
-uv venv --python 3.11 build/translation-onnx/venv
+uv venv build/translation-onnx/venv
 uv pip install --python build/translation-onnx/venv/bin/python --index-strategy unsafe-best-match \
     --extra-index-url https://download.pytorch.org/whl/cpu -r tools/translation_onnx/requirements.txt
 build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_418M --output <出力先>

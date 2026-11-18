@@ -9,7 +9,7 @@ const setup = async context => {
     const notification = runtime.jotai.atom({ state: "ok", data: { status: "", is_open: false, message: "" } });
     let closes = 0;
     const page = { settings: false };
-    const { SnackbarController } = await loadModule(new URL("./SnackbarController.jsx", import.meta.url), runtime, {
+    const { SnackbarController } = await loadModule(new URL("./SnackbarController.tsx", import.meta.url), runtime, {
         "@common_components": { CloseButton: "close-button" },
         "./ReactToastifyOverrideClass.scss": {},
         "react-toastify": { ToastContainer: "toasts", cssTransition: () => ({}), toast: (message, options) => toasts.push({ message, options }) },

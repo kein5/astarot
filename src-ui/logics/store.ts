@@ -41,7 +41,7 @@ export interface UiStore extends SidecarSessionStore {
     last_executed_time_startTyping: number;
     // The count of expired speech the backend last reported (useReceiveRoutes).
     expired_speech: number | null;
-    // Set by each window's entry point (views/app/index.jsx, views/vr/index.tsx).
+    // Set by each window's entry point (views/app/index.tsx, views/vr/index.tsx).
     appWindow?: AppWindow;
     is_vr_panel?: boolean;
     // Set by CompanionController: closing the main window puts it away in the tray.

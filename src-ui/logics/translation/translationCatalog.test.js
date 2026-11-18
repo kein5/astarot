@@ -54,6 +54,19 @@ test("a card says a problem before whether it is in use", () => {
     assert.equal(entryState({ id: "tr-3", origin: "user", name: "z", status: "ok", in_use: true }), "in_use");
 });
 
+test("an API entry whose key the store never took has no key once the app was closed", () => {
+    const api = (fields) => ({ id: "tr-4", origin: "user", name: "Home", url: "http://192.168.1.5:8000/v1", status: "ok", has_key: true, key_in_memory: false, in_use: false, ...fields });
+    assert.equal(entryState(api({})), "ready");
+    // Held in memory for this run: usable until the app closes.
+    assert.equal(entryState(api({ has_key: false, key_in_memory: true })), "ready");
+    assert.equal(entryState(api({ has_key: false, key_in_memory: true, in_use: true })), "in_use");
+    assert.equal(entryState(api({ has_key: false })), "no_key");
+    assert.equal(entryState(api({ has_key: false, in_use: true })), "no_key", "a problem first");
+    assert.equal(entryState(api({ has_key: false, status: "unsupported" })), "unsupported");
+    // A built-in API says nothing about a key of its own.
+    assert.equal(entryState({ id: "Ollama", origin: "builtin", name: "Ollama", kind: "local_server", available: true }), "ready");
+});
+
 test("the catalog routes stay out of the VR panel relay and resync after a failure", () => {
     for (const path of ["/get/data/translation_catalog", "/run/register_translation_catalog_entry",
         "/run/remove_translation_catalog_entry", "/run/use_translation_catalog_entry"])

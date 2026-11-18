@@ -69,6 +69,14 @@ const ShippedCard = ({ group, item }) => {
     </li>;
 };
 
+// The states of an entry that cannot be used as it is, drawn as a problem.
+const PROBLEMS = ["unavailable", "no_key"];
+
+// Where an API entry's key is: in the key store, held only until the app closes (the store did
+// not take it, ADR-013), or nowhere.
+const keyText = item => item.key_in_memory ? "translation_catalog.key_memory"
+    : item.has_key ? "translation_catalog.key_kept" : "translation_catalog.key_none";
+
 // An entry the user added (or a model folder): what it points at, and Use and Remove.
 const EntryCard = ({ group, item }) => {
     const { t } = useI18n();
@@ -81,7 +89,7 @@ const EntryCard = ({ group, item }) => {
         <div className={styles.card_head}>
             <strong>{item.name}</strong>
             <span className={styles.badge} data-tone="own">{t(`translation_catalog.badge.${folderModel ? "folder" : "user"}`)}</span>
-            <span className={styles.badge} data-tone={state === "unavailable" ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
+            <span className={styles.badge} data-tone={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
         </div>
         <dl className={styles.facts}>
             {group === "engine" ? <>
@@ -92,10 +100,11 @@ const EntryCard = ({ group, item }) => {
             </> : <>
                 <div><dt>{t("translation_catalog.fact.url")}</dt><dd><code>{item.url}</code></dd></div>
                 <div><dt>{t("translation_catalog.fact.model")}</dt><dd>{item.model || t("translation_catalog.model_first")}</dd></div>
-                <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(item.has_key ? "translation_catalog.key_kept" : "translation_catalog.key_none")}</dd></div>
+                <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(keyText(item))}</dd></div>
             </>}
         </dl>
-        {["missing", "unsupported", "unavailable"].includes(state) && <p role="alert">{t(`translation_catalog.state_help.${state}`)}</p>}
+        {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(`translation_catalog.state_help.${state}`)}</p>}
+        {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
         {folderModel ? <p>{t("translation_catalog.folder_help")}</p>
             : removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
                 <p>{t(`translation_catalog.remove_confirm.${group}`)}</p>

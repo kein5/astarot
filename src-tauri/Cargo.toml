@@ -49,6 +49,13 @@ reqwest = { version = "=0.13.5", default-features = false }
 rustls = { version = "=0.23.46", default-features = false, features = ["ring"] }
 semver = "=1.0.28"
 
+[target.'cfg(windows)'.dependencies]
+# Already locked through wry: the app makes the WebView2 environment that every window shares,
+# with WebView2's crash reports to Microsoft turned off (#564; see src/webview_environment.rs).
+# The features are a subset of the ones wry turns on.
+webview2-com = "=0.39.1"
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Com"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "=0.18.2"
 # Already locked through tauri-plugin-opener; used for the GlobalShortcuts portal.

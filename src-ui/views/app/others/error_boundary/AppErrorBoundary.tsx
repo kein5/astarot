@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { ErrorBoundary } from "react-error-boundary";
 
@@ -13,7 +14,6 @@ import {
     useUpdateSoftware,
     useIsSoftwareUpdating,
     useSoftwareVersion,
-    useComputeMode,
     useCopyToClipboard,
 } from "@logics_common";
 import { CloseButton } from "@common_components";
@@ -23,8 +23,8 @@ import styles from "./AppErrorBoundary.module.scss";
 
 const VRCT_STATUS_URL = "https://github.com/kein5/astarot/issues";
 
-export const AppErrorBoundary = ({children}) => {
-    const [errorInfo, setErrorInfo] = useState(null);
+export const AppErrorBoundary = ({children}: { children?: ReactNode }) => {
+    const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null);
 
     return (
         <ErrorBoundary
@@ -38,14 +38,14 @@ export const AppErrorBoundary = ({children}) => {
     );
 };
 
-const ErrorContainer = ({error, errorInfo}) => {
+const ErrorContainer =({error, errorInfo}: { error: unknown; errorInfo: ErrorInfo | null }) => {
     const { t } = useI18n();
     // A broken window is not put away in the tray: this ends the app.
     const { asyncQuitApp } = useWindow();
     const { currentSoftwareVersion } = useSoftwareVersion();
     const { is_copied, copyToClipboard } = useCopyToClipboard({ show_error_notification: false });
 
-    const formatted_stack = error ? formatStackTrace(error.stack) : "Unknown error";
+    const formatted_stack = error ? formatStackTrace(stackOf(error)) : "Unknown error";
     const app_version = currentSoftwareVersion?.data || "Unknown";
 
     const error_log_text = [
@@ -103,10 +103,9 @@ const SafeActionButtons = () => {
 
 const ActionButtons = () => {
     const { t } = useI18n();
-    const { updateSoftware, updateSoftware_CUDA } = useUpdateSoftware();
+    const { updateSoftware } = useUpdateSoftware();
     const { currentIsSoftwareUpdating, updateIsSoftwareUpdating } = useIsSoftwareUpdating();
     const { currentLatestSoftwareVersionInfo } = useSoftwareVersion();
-    const { currentComputeMode } = useComputeMode();
     const { appUpdate } = useAppUpdate();
 
     // The backend's start-up check (/run/software_update_info) found a newer version, and this
@@ -115,17 +114,12 @@ const ActionButtons = () => {
     const is_update_available = currentLatestSoftwareVersionInfo?.data?.is_update_available === true
         && appUpdate.info?.mode === "install";
     const is_updating = currentIsSoftwareUpdating?.data === true;
-    const is_cpu = currentComputeMode?.data === "cpu";
 
     const onClickUpdate = () => {
         try {
             updateIsSoftwareUpdating(true);
-            // Both keep the edition this copy was installed as (decision 20).
-            if (is_cpu) {
-                updateSoftware();
-            } else {
-                updateSoftware_CUDA();
-            }
+            // One package for every PC (#288).
+            updateSoftware();
         } catch (e) {
             console.error("[AppErrorBoundary] Update failed:", e);
         }
@@ -156,7 +150,11 @@ const ActionButtons = () => {
     );
 };
 
-const formatStackTrace = (stack) => {
+// What was thrown is not always an Error; only an Error-like value has a stack.
+const stackOf = (error: unknown): string | undefined =>
+    typeof error === "object" && error !== null && "stack" in error && typeof error.stack === "string" ? error.stack : undefined;
+
+const formatStackTrace = (stack: string | null | undefined) => {
     if (!stack) return "";
     // フルパスの除去（例として window.location.origin や絶対パス部分を削除）
     const formatted = stack.replace(new RegExp(window.location.origin, "g"), "");

@@ -368,9 +368,10 @@ fn the_vocabulary_puts_right_what_the_model_wrote() {
 
 #[test]
 fn the_chosen_silence_ends_utterances_with_at_most_half_of_it_as_padding() {
-    // #556: a shorter silence gives the result sooner; left out, it is 500 ms. The padding is
-    // at most half the silence, so the server gives the utterance once the silence has lasted.
-    for chosen in [None, Some(300)] {
+    // #556: a shorter silence gives the result sooner; left out, it is the default of 400 ms,
+    // and a chosen one is kept, the former default of 500 ms too. The padding is at most half
+    // the silence, so the server gives the utterance once the silence has lasted.
+    for chosen in [None, Some(300), Some(500)] {
         let run = start(Platform::Linux, json!({}), true);
         if let Some(ms) = chosen {
             let mut settings = run.ui.ok("/get/data/realtime_asr_settings", None);
@@ -380,10 +381,14 @@ fn the_chosen_silence_ends_utterances_with_at_most_half_of_it_as_padding() {
         assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
         eventually("the session is configured", || !run.asr.turn_detection.lock().unwrap().is_empty());
         let sent = run.asr.turn_detection.lock().unwrap()[0].clone();
-        match chosen {
-            Some(ms) => assert_eq!(sent, json!({ "type": "server_vad", "silence_duration_ms": ms, "prefix_padding_ms": 150 })),
-            None => assert_eq!(sent, json!({ "type": "server_vad", "silence_duration_ms": 500, "prefix_padding_ms": 250 })),
-        }
+        let (silence, padding) = match chosen {
+            Some(ms) => (ms, ms / 2),
+            None => (400, 200),
+        };
+        assert_eq!(sent, json!({ "type": "server_vad", "silence_duration_ms": silence, "prefix_padding_ms": padding }));
+        // Only a chosen silence is written; the default stays out of the file.
+        run.ui.ok("/run/shutdown", None);
+        assert_eq!(run.ui.saved()["REALTIME_ASR_SETTINGS"].get("silence_duration_ms"), chosen.map(|ms| json!(ms)).as_ref());
         run.ui.stop();
     }
 }

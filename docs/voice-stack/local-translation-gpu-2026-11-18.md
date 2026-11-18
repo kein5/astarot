@@ -62,6 +62,17 @@ DirectML 版の ONNX Runtime は、PyPI の `onnxruntime-directml` 1.24.4 に入
 
 小さなモデルでは int8 と int4 も DirectML で CPU と同じ ID になりました。ただし `accelerate.rs` の表（`support`）は、この 2 つを DirectML の計算型の一覧に出しません。量子化の演算子を DirectML が持たないと、ONNX Runtime はその演算だけを黙って CPU で動かします。今回の試験では、どの演算が GPU で動いたかと速さを確かめていません。表は変えていません（判断 75）。
 
+2026-11-19 の追記: 判断 75 で、この 2 つを DirectML の計算型の一覧に出すことに決まり、表を変えました。ONNX Runtime のプロファイル（`enable_profiling`）で、エンコーダと最初のデコーダのステップで実行したノードの置き場所を数えました（NVIDIA GeForce RTX 3060 Ti、DirectML 版 1.24.4）。
+
+| 形 | DirectML で動いたノード | CPU で動いたノード |
+|---|---:|---|
+| float32 | 205 | 8（`Concat` 7、`Squeeze` 1） |
+| float16 | 216 | 8（同上） |
+| int8 | 203 | 8（同上） |
+| int4 | 205 | 8（同上） |
+
+CPU で動いたのは形の計算だけで、量子化の演算（`MatMulInteger`、`DynamicQuantizeLinear`、`MatMulNBits`）は DirectML で動きました。キャッシュ付きのステップと、実際のモデルでの速さは数えていません。
+
 ## 確かめていないこと
 
 - 実際のモデル（M2M100、NLLB）での GPU の動作、速さ、訳の質。元のモデルの取得には同意が要り、書き出しに 15 GB 以上のメモリーが要ります。

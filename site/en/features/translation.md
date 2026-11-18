@@ -6,6 +6,8 @@ route: translation
 
 Translates what you type and what speech recognition turns into text. Turn it on and off with "Translation" on the main screen, and choose the engine under "Translator". The settings are under Settings → "Translation".
 
+What you say is translated into the "Target language" on the main screen, and what others say into "Your language".
+
 ![Settings → Translation](/screenshots/en/translation.webp)
 
 ## Translate on your PC

@@ -10,7 +10,7 @@ async function setup(context, { presence = null, sends = true, osc_query = true 
     const state = { presence, sends, osc_query };
     stubGlobals(context, { setInterval: (fn, ms) => { timers.push({ fn, ms, cleared: false }); return timers.length - 1; },
         clearInterval: id => { timers[id].cleared = true; } });
-    const { VrchatPresence } = await loadModule(new URL("./VrchatPresence.jsx", import.meta.url), runtime, {
+    const { VrchatPresence } = await loadModule(new URL("./VrchatPresence.tsx", import.meta.url), runtime, {
         "@logics_configs": { useOthers: () => ({ currentVrchatOscPresence: { data: state.presence },
             currentEnableSendMessageToVrc: { data: state.sends }, getVrchatOscPresence: () => asked.push(true) }),
         useAdvancedSettings: () => ({ currentEnableOscQuery: { data: state.osc_query } }) },

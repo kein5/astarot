@@ -258,19 +258,20 @@ fn the_launcher_reset_and_the_overlay_switches() {
 }
 
 #[test]
-fn the_old_whisper_weights_are_shown_and_removed_on_request_only() {
+fn the_old_whisper_weights_are_left_alone() {
+    // Up to 0.5 the settings showed the Whisper weights of 0.2 and earlier and removed them on
+    // request. That screen went in 0.6.0 (#288): nothing looks at the folder or removes it.
     let temp = tempfile::tempdir().unwrap();
     let whisper = temp.path().join("data").join("weights").join("whisper");
     std::fs::create_dir_all(whisper.join("base")).unwrap();
     std::fs::write(whisper.join("base").join("model.bin"), vec![0u8; 64]).unwrap();
-    std::fs::create_dir_all(whisper.join("notes")).unwrap();
     let ui = Ui::with(Setup { dir: Some(temp.path().to_path_buf()), ..Setup::default() });
     let snapshot = ui.ready();
-    assert_eq!(snapshot["/get/data/old_whisper_weights"], json!({ "total_bytes": 64, "folders": ["base"] }));
-    assert!(whisper.join("base").exists(), "nothing is removed at start-up");
-    let result = ui.ok("/run/delete_old_whisper_weights", None);
-    assert_eq!(result, json!({ "total_bytes": 0, "folders": [], "freed_bytes": 64, "failed": [] }));
-    assert!(whisper.join("notes").exists(), "a folder the app did not make stays");
+    assert_eq!(snapshot.get("/get/data/old_whisper_weights"), None);
+    for removed in ["/get/data/old_whisper_weights", "/run/delete_old_whisper_weights"] {
+        assert_eq!(ui.request(removed, None)["status"], 404, "{removed}");
+    }
+    assert_eq!(std::fs::read(whisper.join("base").join("model.bin")).unwrap().len(), 64);
     ui.stop();
 }
 
