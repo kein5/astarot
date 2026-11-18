@@ -510,6 +510,7 @@ config_page:
         ocr: "Every {{interval}} ms · confidence at least {{confidence}}"
         tts: "Monitor {{monitor}} · microphone speech {{mic}}"
         transcription: "Cloud engines ready: {{cloud}} · microphone pause {{phrase}} s"
+        translation: "Translation APIs ready: {{api}} · local LLMs ready: {{llm}}"
         appearance: "Log text {{log}}% · transparency {{transparency}}%"
         hotkeys_one: "{{count}} has a key"
         hotkeys_other: "{{count}} have a key"

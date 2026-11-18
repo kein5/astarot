@@ -202,7 +202,11 @@ test("each translation provider is one fold that says whether it can be used; th
     // Translation's own sections are not exported; draw them through the page.
     const page = runtime.render(translation.Translation);
     const folds = [];
-    for (const section of page.props.children.slice(1)) {
+    // The APIs and local LLMs are in 「詳細設定」 (#554), which opens by itself while a preset uses one.
+    const [, advanced] = page.props.children;
+    assert.equal(advanced.props.attention, true);
+    assert.equal(advanced.props.status, "config_page.advanced_status.translation");
+    for (const section of [advanced.props.children].flat()) {
         const drawn = section.type(section.props);
         for (const provider of all(drawn, node => typeof node.props?.id === "string" && typeof node.type === "function")) {
             const fold = provider.type(provider.props);

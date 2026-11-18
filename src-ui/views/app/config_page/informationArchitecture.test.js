@@ -232,3 +232,33 @@ test("text to speech keeps the engine, the voice and the output in sight; the mo
     // The form saves all of it, also what is folded: the fold is inside the form.
     assert.ok(page.indexOf("<form") < page.indexOf("<AdvancedSection") && page.indexOf("</AdvancedSection>") < page.indexOf("</form>"));
 });
+
+test("「詳細設定」 starts closed, opens by itself for something in use, and can still be closed", async () => {
+    const runtime = hooks();
+    const fold = await loadModule(box("_components/advanced_section/AdvancedSection.jsx"), runtime, {
+        "../setup_section/SetupSection.module.scss": {},
+    });
+    let tree = runtime.render(fold.AdvancedSection, { status: "line", children: "inside" });
+    assert.equal(tree.type, "details");
+    assert.equal(tree.props.open, false);
+    assert.ok("data-advanced" in tree.props);
+    const summary = find(tree, node => node.type === "summary");
+    assert.deepEqual(summary.props.children.map(part => part?.props?.children), ["config_page.common.advanced_section", "line"]);
+    tree = runtime.render(fold.AdvancedSection, { status: "line", attention: true, children: "inside" });
+    tree = runtime.render(fold.AdvancedSection, { status: "line", attention: true, children: "inside" });
+    assert.equal(tree.props.open, true, "a provider in use opens it");
+    tree.props.onToggle({ currentTarget: { open: false } });
+    tree = runtime.render(fold.AdvancedSection, { status: "line", attention: true, children: "inside" });
+    assert.equal(tree.props.open, false, "the user can close it again");
+});
+
+test("translation keeps its local model in sight; the APIs and local LLMs it counts on the fold's line are the ones drawn in it", () => {
+    const source = read("translation/Translation.jsx");
+    const { outside, fold } = pageParts(source, "Translation");
+    assert.deepEqual(outside, ["AITranslation_Container"]);
+    assert.deepEqual(fold, ["ExternalTranslationAPI_Container", "LocalLLM_Container"]);
+    const providers = name => [...source.split(`const ${name} = () => {`)[1].split("\n};")[0].matchAll(/<Provider id="(\w+)">/g)].map(match => match[1]);
+    const list = name => JSON.parse(source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`))[1]);
+    assert.deepEqual(providers("ExternalTranslationAPI_Container"), list("EXTERNAL_API_PROVIDERS"));
+    assert.deepEqual(providers("LocalLLM_Container"), list("LOCAL_LLM_PROVIDERS"));
+});

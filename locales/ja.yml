@@ -510,6 +510,7 @@ config_page:
         ocr: "読み取りの間隔 {{interval}} ms・信頼度の下限 {{confidence}}"
         tts: "モニター {{monitor}}・マイクの字幕の読み上げ {{mic}}"
         transcription: "使えるクラウドのエンジン {{cloud}}件・マイクの区切り {{phrase}}秒"
+        translation: "設定済みの翻訳API {{api}}件・ローカルのLLM {{llm}}件"
         appearance: "ログの文字 {{log}}%・透明度 {{transparency}}%"
         hotkeys_one: "{{count}}件にキーを割り当て済み"
         hotkeys_other: "{{count}}件にキーを割り当て済み"
