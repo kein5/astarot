@@ -119,7 +119,7 @@ export function stubGlobals(context, values) {
     if (!originals) {
         originals = new Map();
         globalsByTest.set(context, originals);
-        context.after(() => {
+        context.onTestFinished(() => {
             for (const [key, descriptor] of originals) {
                 if (descriptor) Object.defineProperty(globalThis, key, descriptor);
                 else delete globalThis[key];

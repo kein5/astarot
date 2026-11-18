@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import i18next from "i18next";
 import yaml from "js-yaml";
 import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
@@ -72,7 +72,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
             useNotificationStatus: () => ({ showNotification_Error: text => notices.push(text) }) },
     });
     b.runtime.render(controller.StartPythonController);
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const line = "ImportError: unchanged diagnostics";
     handlers.stderr(line);
     assert.equal(notices[0], `${t("common_error.recovery_instructions")}\n${t("common_error.last_error_line")}: ${JSON.stringify(line)}`);

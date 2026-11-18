@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 
 const moduleUrl = code => `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
 const atomNames = ["LanguageMutation", "NotificationStatus", "SelectedPresetTabNumber", "SelectedYourLanguages",
@@ -91,17 +91,17 @@ test("failed GETs block stale writes; a successful retry restores editing", asyn
 
 test("timeout cannot start an old GET batch before a late failing write", async context => {
     const {adapter,values,request,calls,send} = await setup();
-    context.mock.timers.enable({apis:["setTimeout"]});
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
         const write=request();adapter.beginLanguageMutation(write);
-        context.mock.timers.tick(adapter.LANGUAGE_RESPONSE_WAIT_MS);
+        vi.advanceTimersByTime(adapter.LANGUAGE_RESPONSE_WAIT_MS);
         assert.equal(values.LanguageMutation.data.inFlight.kind,"unconfirmed");
         assert.equal(calls.length,0);
         assert.equal(adapter.beginLanguageMutation(request("retry")),false);
         adapter.receiveLanguageMutation({endpoint:write.endpoint,status:500},send);
         assert.equal(calls.length,5);
         assert.equal(values.LanguageMutation.data.isResyncing,true);
-    } finally {adapter.resetLanguageMutations();context.mock.timers.reset();}
+    } finally {adapter.resetLanguageMutations();vi.useRealTimers();}
 });
 
 test("uncertain write failures retain ownership without concurrent GETs", async () => {

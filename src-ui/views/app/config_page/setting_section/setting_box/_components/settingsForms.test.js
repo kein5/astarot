@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
@@ -16,7 +16,7 @@ const focusNode = document => ({ focus() { document.activeElement = this; }, blu
 
 for (const index of [0, 1, 2]) test(`word filter names its delete buttons and focuses a neighbour after deleting index ${index}`, async t => {
     const runtime = hooks(), document = { body: {}, activeElement: null };
-    t.after(() => runtime.unmount());
+    t.onTestFinished(() => runtime.unmount());
     stubGlobals(t, { document, window: eventTarget(), requestAnimationFrame: fn => fn() });
     const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.jsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry() {} },

@@ -288,7 +288,9 @@ backend_errors:
     AUTH_OPENAI_COMPATIBLE_INVALID: "OpenAI互換APIキーの形式が正しくありません。"
     AUTH_OPENAI_COMPATIBLE_FAILED: "OpenAI互換エンドポイントに接続できないか、APIキーが受け付けられませんでした。URLとAPIキーを確認してください。"
     CREDENTIAL_REENTRY_REQUIRED: "URLが変わったため、保存済みのキーが別のサーバーへ送られないよう、新しいURLで使うキーを入力してください。キーが不要なサーバーを使う場合は、先に保存済みのキーを削除してからURLを変更してください。"
-    SECRET_STORE_FAILED: "APIキーを保護されたファイルに保存できませんでした。入力したキーはアプリを閉じるまで使えます。設定のフォルダに書き込めるか確かめてから、足りないキーを入れ直してください。"
+    SECRET_STORE_FAILED: "APIキーを保存できませんでした。入力したキーはアプリを閉じるまで使えます。OSの資格情報ストアが使えるかと設定のフォルダに書き込めるかを確かめてから、足りないキーを入れ直してください。"
+    SECRET_STORE_FAILED_moving: "APIキーをOSの資格情報ストアへ移せませんでした。キーはこれまでの保存先に残っていて、そのまま使えます。移行はあとで自動でやり直します。"
+    SECRET_STORE_FAILED_os_store: "OSの資格情報ストアがロックされているか動いていないため、APIキーを読み書きできませんでした。入力したキーはアプリを閉じるまで使えます。Linuxでは鍵束（GNOME KeyringやKWalletなど）を起動してロックを解除し、ASTAROTを再起動してください。"
     MODEL_PLAMO_INVALID: "そのPlamoのモデルは使えません。"
     MODEL_GEMINI_INVALID: "そのGeminiのモデルは使えません。"
     MODEL_OPENAI_INVALID: "そのOpenAIのモデルは使えません。"
@@ -461,6 +463,7 @@ config_page:
             licenses: "ライセンスと表記"
         original_heading: "本家VRCT"
         original_desc: "ASTAROTはVRCTをもとに作られています。VRCTの開発者、貢献者、支えてくださった皆さんに感謝します。"
+        vrchat_disclaimer: "（参考訳）ASTAROTとVRCTはVRChatの承認を受けたものではなく、VRChatやVRChatの制作物の制作と管理に公式に関わる人の見解や意見を表すものでもありません。VRChatとその関連する制作物はすべてVRChat Inc.の商標または登録商標です。VRChat © VRChat Inc."
     search:
         placeholder: "設定を検索..."
         label: "設定を検索"

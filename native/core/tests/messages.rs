@@ -91,6 +91,7 @@ fn start_in(saved: Value, tokenizer: Option<Arc<dyn Tokenizer>>, dir: Option<std
             copied.lock().unwrap().push(text.to_string());
             true
         }),
+        secret_store: common::shared_vault().system_source(),
         ..Services::default()
     };
     if let Some(tokenizer) = tokenizer {

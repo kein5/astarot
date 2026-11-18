@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import { flush } from "../../../logics/test/bridgeHarness.js";
 import * as status from "../../../logics/companion/status.ts";
@@ -49,7 +49,7 @@ async function setup(context, { on = false } = {}) {
     });
     const render = async () => { runtime.render(CompanionController); await flush(); };
     await render(); await render();
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return { state, store, calls, listeners, toggles, notices, render,
         of: name => calls.filter(([command]) => command === name).map(([, args]) => args) };
 }
@@ -113,10 +113,10 @@ test("turned on, it starts the overlay, reports the switches and runs what the t
     assert.deepEqual(reported.ocr, { on: true, pending: false });
     voice.voiceActions.toggleTts = () => s.toggles.push("tts");
     voice.voiceActions.toggleRvc = () => s.toggles.push("rvc");
-    context.after(() => { voice.voiceActions.toggleTts = null; voice.voiceActions.toggleRvc = null; });
+    context.onTestFinished(() => { voice.voiceActions.toggleTts = null; voice.voiceActions.toggleRvc = null; });
     // The main page publishes what its TTS switch shows; the tray and the handle get the same.
     voice.voiceSwitchStates.publish({ tts: { on: true, pending: false }, rvc: { on: false, pending: false } });
-    context.after(() => voice.voiceSwitchStates.publish({ tts: { on: false, pending: false }, rvc: { on: false, pending: false } }));
+    context.onTestFinished(() => voice.voiceSwitchStates.publish({ tts: { on: false, pending: false }, rvc: { on: false, pending: false } }));
     await s.render();
     assert.deepEqual(s.of("companion_publish").at(-1).status.tts, { on: true, pending: false });
     s.state.queue.push("toggle_mic", "toggle_translation", "toggle_listening", "toggle_ocr", "toggle_tts", "toggle_rvc", "unknown");
@@ -194,7 +194,7 @@ test("an error notice that answers a switch pressed from the tray brings the mai
     assert.equal(s.of("companion_show_main").length, 1);
     // Nor does an error long after the press.
     const now = Date.now;
-    context.after(() => { Date.now = now; });
+    context.onTestFinished(() => { Date.now = now; });
     s.state.queue.push("toggle_mic");
     await s.listeners.get("companion-requested")();
     Date.now = () => now() + 31000;

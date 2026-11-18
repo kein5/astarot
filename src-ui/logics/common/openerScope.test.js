@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 
 // Second security audit SEC-02: the main window may open only the URLs listed in
 // src-tauri/capabilities/vrct_capability.json. Every URL written in the UI must be on that list,

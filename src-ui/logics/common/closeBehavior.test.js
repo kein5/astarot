@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../test/hookHarness.js";
 import { flush } from "../test/bridgeHarness.js";
 
@@ -25,7 +25,7 @@ test("the answer follows the tray: asked at start and again when the window gets
         addEventListener: (name, fn) => listeners.set(name, fn),
         removeEventListener: (name, fn) => { if (listeners.get(name) === fn) listeners.delete(name); },
     };
-    context.after(() => { delete globalThis.window; });
+    context.onTestFinished(() => { delete globalThis.window; });
     const runtime = hooks(), calls = [];
     let tray = false;
     const { useCloseHides } = await load(runtime, async name => { calls.push(name); return tray; });
@@ -48,7 +48,7 @@ test("the answer follows the tray: asked at start and again when the window gets
 
 test("a core that cannot be asked means closing quits", async context => {
     globalThis.window = { addEventListener() {}, removeEventListener() {} };
-    context.after(() => { delete globalThis.window; });
+    context.onTestFinished(() => { delete globalThis.window; });
     const runtime = hooks();
     const { useCloseHides } = await load(runtime, async () => { throw Error("no core"); });
     let value;

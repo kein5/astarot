@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, find, eventTarget } from "../test/hookHarness.js";
 
 const componentRoot = "../../views/app/config_page/setting_section/setting_box/_components/";
@@ -9,7 +9,7 @@ const track = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, hei
 test("slider installs listeners once per drag, reads current values/callbacks and cleans up", async t => {
     const runtime = hooks(), window = eventTarget(), changed = [], committed = [];
     globalThis.window = window;
-    t.after(() => { runtime.unmount(); delete globalThis.window; });
+    t.onTestFinished(() => { runtime.unmount(); delete globalThis.window; });
     let version = 0, value = 0;
     const { Slider } = await loadModule(new URL(`${componentRoot}slider/Slider.jsx`, import.meta.url), runtime, {
         "@logics_configs": { useSliderLogic: () => {
@@ -51,10 +51,10 @@ test("slider installs listeners once per drag, reads current values/callbacks an
 });
 
 for (const timing of ["on_change", "on_change_committed"]) test(`slider retains production ${timing} debounce/commit behavior`, async t => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), window = eventTarget(), sent = [];
     globalThis.window = window;
-    t.after(() => { runtime.unmount(); delete globalThis.window; });
+    t.onTestFinished(() => { runtime.unmount(); delete globalThis.window; });
     const settings = await loadModule(new URL("../configs/config_page_setter/useSettingsLogics.js", import.meta.url), runtime, {
         "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
     });
@@ -67,21 +67,21 @@ for (const timing of ["on_change", "on_change_committed"]) test(`slider retains 
     find(render(), node => node.props?.onPointerDown).props.onPointerDown(pointer(10));
     render();
     window.dispatch("pointermove", pointer(20)); render();
-    t.mock.timers.tick(100);
+    vi.advanceTimersByTime(100);
     window.dispatch("pointermove", pointer(30)); render();
-    t.mock.timers.tick(199);
+    vi.advanceTimersByTime(199);
     assert.deepEqual(sent, []);
     window.dispatch("pointerup", pointer(30)); render();
     if (timing === "on_change") {
         assert.deepEqual(sent, []);
-        t.mock.timers.tick(1);
+        vi.advanceTimersByTime(1);
     }
     assert.deepEqual(sent, [30]);
     assert.deepEqual(window.added.map(([type]) => type), ["pointermove", "pointerup"]);
     assert.deepEqual(window.removed, window.added);
     find(render(), node => node.props?.onPointerDown).props.onPointerDown(pointer(40)); render();
     runtime.unmount();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     assert.deepEqual(sent, [30]);
     assert.deepEqual(window.removed, window.added);
 });
@@ -89,7 +89,7 @@ for (const timing of ["on_change", "on_change_committed"]) test(`slider retains 
 test("dropdown keeps open listeners through renders, uses the latest updater and cleans up", async t => {
     const runtime = hooks(), document = eventTarget(), window = { ...eventTarget(), innerHeight: 800 }, updates = [];
     globalThis.document = document; globalThis.window = window;
-    t.after(() => { runtime.unmount(); delete globalThis.document; delete globalThis.window; });
+    t.onTestFinished(() => { runtime.unmount(); delete globalThis.document; delete globalThis.window; });
     let opened = "", version = 0;
     const { _DropdownMenu } = await loadModule(new URL(`${componentRoot}_atoms/_dropdown_menu/_DropdownMenu.jsx`, import.meta.url), runtime, {
         "@store": { useStore_IsOpenedDropdownMenu: () => {

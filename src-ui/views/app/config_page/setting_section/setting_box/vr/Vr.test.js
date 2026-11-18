@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 
 async function setup(context) {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const controls = hooks(), parent = hooks(), writes = [];
     let active = parent;
     const bindings = { ...controls, api: { ...controls.api,
         useState: initial => active.api.useState(initial),
         useRef: initial => active.api.useRef(initial),
     } };
-    context.after(() => controls.unmount());
+    context.onTestFinished(() => controls.unmount());
     const saved = { tracker: "HMD", x_pos: 0, y_pos: 0 };
     const { Vr } = await loadModule(new URL("./Vr.jsx", import.meta.url), bindings, {
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" },
@@ -33,14 +33,14 @@ async function setup(context) {
 for (const reset of [false, true]) test(`VR pending position write preserves the newer ${reset ? "axis reset" : "tracker selection"}`, async context => {
     const s = await setup(context);
     s.handlers().onChangeFunction("x_pos", 0.1);
-    context.mock.timers.tick(10);
+    vi.advanceTimersByTime(10);
     s.handlers().selectFunction(reset ? "x_pos" : "tracker", reset ? 0 : "LeftHand");
-    context.mock.timers.tick(300);
+    vi.advanceTimersByTime(300);
     assert.equal(s.writes.at(-1).tracker, reset ? "HMD" : "LeftHand");
     assert.equal(s.writes.at(-1).x_pos, reset ? 0 : 0.1);
     assert.equal(s.writes.length, 1);
     s.handlers().onChangeFunction("y_pos", 0.2);
-    context.mock.timers.tick(50);
+    vi.advanceTimersByTime(50);
     assert.equal(s.writes.at(-1).tracker, reset ? "HMD" : "LeftHand");
     assert.equal(s.writes.at(-1).y_pos, 0.2);
 });
@@ -48,7 +48,7 @@ for (const reset of [false, true]) test(`VR pending position write preserves the
 test("VR editor cancels delayed writes on unmount", async context => {
     const s = await setup(context);
     s.handlers().onChangeFunction("x_pos", 0.1);
-    s.unmount(); context.mock.timers.tick(300);
+    s.unmount(); vi.advanceTimersByTime(300);
     assert.deepEqual(s.writes, []);
 });
 
@@ -56,7 +56,7 @@ test("an older VR save response cannot replace the latest tracker draft", async 
     const s = await setup(context), requests = [];
     s.props.setOverlaySettings = value => new Promise(resolve => requests.push({ value, resolve }));
     s.handlers().onChangeFunction("x_pos", 0.1);
-    context.mock.timers.tick(50);
+    vi.advanceTimersByTime(50);
     s.props.state = "pending";
     s.handlers().selectFunction("tracker", "LeftHand");
     s.props.current_overlay_settings = requests[0].value;
@@ -71,7 +71,7 @@ test("an older VR save response cannot replace the latest tracker draft", async 
 });
 
 test("closing settings stops the overlay sample text, and reopening does not restart it", async context => {
-    context.mock.timers.enable({ apis: ["setInterval"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     // The settings page stays mounted while closed, so the button sees the
     // closed state instead of unmounting.
     const runtimes = { vr: hooks(), overlay: hooks(), button: hooks() }, sent = [];
@@ -79,7 +79,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
     const delegate = name => (...args) => active.api[name](...args);
     const api = { ...runtimes.button.api };
     for (const name of ["useState", "useRef", "useEffect", "useLayoutEffect", "useMemo", "useCallback", "useId"]) api[name] = delegate(name);
-    context.after(() => Object.values(runtimes).forEach(runtime => runtime.unmount()));
+    context.onTestFinished(() => Object.values(runtimes).forEach(runtime => runtime.unmount()));
     const saved = { tracker: "HMD" };
     const { Vr } = await loadModule(new URL("./Vr.jsx", import.meta.url), { ...runtimes.button, api }, {
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
@@ -100,34 +100,34 @@ test("closing settings stops the overlay sample text, and reopening does not res
     const START = "config_page.vr.sample_text_button.start", STOP = "config_page.vr.sample_text_button.stop";
     button().props.onClick();
     assert.equal(button().props["aria-label"], STOP);
-    context.mock.timers.tick(2000);
+    vi.advanceTimersByTime(2000);
     assert.equal(sent.length, 2);
 
     open = false;
     // The first render after closing already matches what is being sent.
     assert.equal(button().props["aria-label"], START);
-    context.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     assert.equal(sent.length, 2);
 
     // The closed page is inert; even so, nothing can start while it is closed.
     button().props.onClick();
     assert.equal(button().props["aria-label"], START);
-    context.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     assert.equal(sent.length, 2);
 
     open = true;
     assert.equal(button().props["aria-label"], START);
-    context.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     assert.equal(sent.length, 2);
 
     // Only the button starts it again, and it stops the same way.
     button().props.onClick();
     assert.equal(button().props["aria-label"], STOP);
-    context.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     assert.equal(sent.length, 3);
     button().props.onClick();
     assert.equal(button().props["aria-label"], START);
-    context.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     assert.equal(sent.length, 3);
 });
 
@@ -135,7 +135,7 @@ test("restoring all VR defaults cancels the editor's pending position write", as
     const s = await setup(context);
     s.handlers().onChangeFunction("x_pos", 0.1);
     s.props.resetRef.current();
-    context.mock.timers.tick(300);
+    vi.advanceTimersByTime(300);
     assert.deepEqual(s.writes, []);
     assert.equal(s.handlers().settings.x_pos, 0);
 });

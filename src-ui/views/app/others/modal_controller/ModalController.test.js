@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.js";
 
 async function fixture(context) {
@@ -29,7 +29,7 @@ async function fixture(context) {
         const button = find(tree, node => node.type === "button");
         if (button?.ref) button.ref.current = control("close");
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return { render, modal, focus, changes, opener, fallbackControl, runtime,
         setDropdown: value => { dropdown = value; }, setOpened: value => { opened = value; } };
 }

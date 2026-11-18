@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { activeSwitchBlock, switchBlocks } from "./switchBlocks.ts";
 
 const reasons = blocks => Object.fromEntries(Object.entries(blocks).map(([id, block]) => [id, block.reason]));

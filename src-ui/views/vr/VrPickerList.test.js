@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import * as featureLabel from "../../logics/common/featureLabel.ts";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import React from "react";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../logics/test/hookHarness.js";
 import * as languageNames from "../../logics/common/languageNames.ts";
@@ -147,7 +147,7 @@ async function pickerHarness(context, { height = 320, margin = 89, scale = 1 } =
         unmount();
         if (props) props.scrollRef.current = null;
     };
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return { ...module, runtime, render, settle, replayMountEffects, microtasks, landed, frame, frames, navigationRef, scrollRef, scroll, calls, nodes, observers, document,
         get tree() { return tree; }, get virtualProps() { return virtualProps; },
         get rowCount() { return rowTrees.length; }, get measures() { return measures; },
@@ -225,7 +225,7 @@ test("743 fonts create bounded lazy rows; a far selected font scrolls on open an
     assert.equal(h.observers.length, 1);
     h.runtime.unmount();
     assert.ok(h.observers.every(observer => observer.disconnected));
-    context.diagnostic(`743 fonts, selected index 700, viewport 320px, row pitch 80px, buffer 200px: 743 -> ${h.nodes.size} option buttons (${h.rowCount} rows), including keyboard endpoints; simulated layout.`);
+    context.annotate(`743 fonts, selected index 700, viewport 320px, row pitch 80px, buffer 200px: 743 -> ${h.nodes.size} option buttons (${h.rowCount} rows), including keyboard endpoints; simulated layout.`);
 });
 
 test("short lists render all options and scroll the selected entry without scrolling the window", async context => {
@@ -267,7 +267,7 @@ test("Tab crosses unmounted rows, skips disabled entries and retains a focused r
 });
 
 async function languageWindow(context, h, locale = "en") {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), sorts = [], filters = [], picked = [];
     const ok = data => ({ state: "ok", data });
     const source = languages[0];
@@ -312,7 +312,7 @@ async function languageWindow(context, h, locale = "en") {
         find(tree, node => node.type === "button" && node.props.className.includes("all_languages")).props.onClick();
         render();
     };
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return { render, open, settings, sorts, filters, picked, i18n, source,
         get tree() { return tree; }, get list() { return find(tree, node => node.type === h.VrPickerList); } };
 }
@@ -325,7 +325,7 @@ test("the full language grid mounts bounded pairs and group jumps use the filter
     assert.equal(w.list.props.options.length, 135);
     assert.equal(h.virtualProps.data.length, 68);
     assert.ok(h.nodes.size <= 28);
-    context.diagnostic(`135 full language choices (languageCodes.js, English), selected first entry, viewport 320px, heading 38px, row pitch 80px, buffer 200px: 135 buttons / 68 rows -> ${h.nodes.size} buttons / ${h.rowCount} rows, including keyboard endpoints; simulated layout.`);
+    context.annotate(`135 full language choices (languageCodes.js, English), selected first entry, viewport 320px, heading 38px, row pitch 80px, buffer 200px: 135 buttons / 68 rows -> ${h.nodes.size} buttons / ${h.rowCount} rows, including keyboard endpoints; simulated layout.`);
     const expected = w.list.props.options.findIndex(entry => entry.language === "Japanese");
     const jump = find(w.tree, node => node.props["data-vr-language-jump"] === "J");
     const choices = w.list.props.options;
@@ -559,7 +559,7 @@ test("adding a target preserves the existing ordered setter payload", async cont
 
 test("stationary hover follows virtual rows mounting and unmounting, coalescing scroll and layout", async context => {
     let hover;
-    context.after(() => hover?.dispose());
+    context.onTestFinished(() => hover?.dispose());
     const { h } = await fontPicker(context), writes = [], mutations = [];
     const root = { ...eventTarget(), contains: node => [...h.nodes.values()].includes(node), querySelectorAll: () => [] };
     stubGlobals(context, { window: eventTarget(), MutationObserver: class {
