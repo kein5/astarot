@@ -283,6 +283,11 @@ def test_without_a_published_model_only_the_selected_one_and_yours_are_listed(ui
     assert sent(peer, "/run/start_model_download") == []
     if os.environ.get("VRCT_TEST_SCREENSHOTS"):
         page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-models-none.png"))
+    # A narrow window: the list and the note wrap instead of widening the page.
+    page.set_viewport_size({"width": 480, "height": 1600})
+    expect(note).to_be_visible()
+    overflow = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+    assert overflow <= 0, overflow
 
 
 def test_a_published_model_gets_its_row_and_its_review_opens_the_shared_download(ui):
