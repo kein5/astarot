@@ -1915,6 +1915,28 @@ class Config:
             self.LOCAL_ASR_NOTICE_PENDING = True
         self.LOCAL_ASR_MIGRATION = LOCAL_ASR_MIGRATION_LATEST
 
+    def _migrateSpeechServers(self, saved):
+        """Keep the external speech server for a saved file that never chose one (#566).
+
+        New settings speak through the bundled server. Before that change a missing choice
+        meant the external server (Japanese at http://127.0.0.1:8080), so a saved file whose
+        speech settings do not name a server for a role keeps the external server for it: an
+        update does not move anyone off a server they run. Nothing saved, or a file that could
+        not be read, is a new install and stays on the bundled server.
+        """
+        if not saved:
+            return
+        voice = saved.get("VOICE_SETTINGS")
+        if not isinstance(voice, dict):
+            voice = {}
+        missing = {field: "external" for field in ("japanese_server", "multilingual_server") if field not in voice}
+        if missing:
+            try:
+                self.VOICE_SETTINGS = {**self.VOICE_SETTINGS, **missing}
+            except ConfigValidationError:
+                # Not logged: the error carries the settings, instructions included.
+                pass
+
     def _loadConfig(self):
         self._config_data = {}
         # Set when config.json could not be read and was moved aside, so the
@@ -1970,6 +1992,7 @@ class Config:
             except ConfigValidationError:
                 errorLogging()
         self._migrateLocalASR(saved)
+        self._migrateSpeechServers(saved)
 
         # config.json から読み込んだ SELECTED_RELEASE_CHANNEL は、前回起動時に
         # UI でチャンネルを切り替えた「つもり」の値をそのまま引き継いでいる

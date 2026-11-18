@@ -104,6 +104,12 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 `DIRECT_VOICE_SETTINGS`の`engine`は`rvc`だけを受け付け、既定も`rvc`である。Seed-VCはPythonのバックエンドで動いていたので、Pythonとともに終わった。`/set/data/direct_voice_settings`に`engine: "seed-vc"`を送ると、何も保存せず400の`{"error_code": "vc_engine_unavailable", "settings": <保存値>}`を返す。そのほかの不正な値は従来どおり`vc_settings_invalid`である。以前の版が保存した`seed-vc`は、読み込むときに`rvc`へ移す。ほかの項目（`mode`、RVCのパス、Seed-VCの`runtime`と`reference`）はそのまま残すので、0.4の版でも読める。`mode`が`converted`だったときだけ、その起動のあいだ`/get/data/direct_voice_state`に`"notice": "seed_vc_moved_to_rvc"`を付け、RVCのページに「Seed-VCは使えなくなったため、声の変換をRVCに切り替えました」と出す。設定を保存し直すと消える。変換は自動では始めない。RVCのモデルが未設定なら、メイン画面のRVCのスイッチは設定を求める。
 
+### 読み上げのサーバー
+
+`VOICE_SETTINGS`の`japanese_server`と`multilingual_server`はspeech.cppのサーバーを同梱サーバー（`bundled`）と外部サーバー（`external`）のどちらにするかを表す。新しい設定の既定は`bundled`である（#566）。それより前は`external`が既定で、日本語は`japanese_url`の既定の`http://127.0.0.1:8080`に接続していた。
+
+保存した設定があり、その`VOICE_SETTINGS`にこの項目がないときは、その項目を`external`にする（中核の`Config::migrate_speech_servers`、Pythonの`Config._migrateSpeechServers`）。前の版の既定のまま外部サーバーを使っていた人が、更新で同梱サーバーに移らないようにするためである。`VOICE_SETTINGS`がない設定や、オブジェクトでない設定も同じに扱う。2つの項目は別々に決め、保存してある値は変えない。何も保存していない設定と読めないファイルは新しく入れたときと同じで、`bundled`のままになる。段階は記録しない（[config.json](#configjson)）。
+
 ### 計算デバイスと計算型
 
 計算デバイスと計算型を選ぶのは翻訳（CTranslate2）だけである。音声認識の`SELECTED_TRANSCRIPTION_COMPUTE_DEVICE`と`SELECTED_TRANSCRIPTION_COMPUTE_TYPE`はローカルの Whisper とともに削除し、古い`config.json`にあっても読み込まない。
@@ -277,7 +283,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 - 単純な設定プロパティは、未選択を表すモデル名と音声認識エンジンを除き`null`を受け付けない。APIキーやホットキーの辞書内にある未設定の`null`は維持する。数値のプロパティとオーバーレイの数値設定は`NaN`・無限大（`1e999`などの桁あふれも含む）を保存前に拒否する。不正な保存値は既定値へ戻す。メッセージ欄の比率と大小字幕の設定変更では400の`VALIDATION_CONFIG_VALUE_INVALID`を返し、`data`には保持した設定値を入れる。
 - 読み込みでは、各キーを検証してから設定する。知らないキーは使わないが、ファイルにあったままの値を保存する設定の後ろに書き戻す。新しい版の設定を古い版で開いて保存しても、新しい版に戻ったときにその設定が残るようにするためである（#560）。以前の版が保存し、今の版で廃止したキー（`native/core/src/config/mod.rs`の`RETIRED_KEYS`。#288でローカルのWhisperとともに削除した5つ）だけは捨てる。キーを廃止するときは、このリストにも加える。検証に通らないキーは既定値のままにしてerror.logに残す。ただしマイクとスピーカーの選択（`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`）は、読み込む時点でデバイスの一覧がまだ取れていないため、保存値をそのまま受け取る。一覧が取れたあと、サイドカーがデバイスの有無を確かめ、無ければ既定のデバイスに戻す。JSONとして読めない、またはオブジェクトでないときは、そのファイルを名前の重複しない`config.json.unreadable-<日時>-<乱数>`に移して残し、既定値で起動する。UIは`/run/config_file_unreadable`を受けて、既定値で起動したことと残したファイルの場所を知らせる。
 - メモリー上の初期値をすべて用意してからログ用ディレクトリを作る。ログ用ディレクトリを作れなくても、設定の初期化は完了させる。それ以外の初期化が途中で失敗したときは、不完全なインスタンスを公開せず、設定の読み込みも保存も行わない。読み込み中は保存せず、全項目の適用と移行が終わってから1回だけ保存する。ただし、書く内容がファイルと同じなら書かない（キーの順は比べない。Unixでは所有者のほかにも読めるファイルなら書き直す）。Python版は起動のたびに書いていた（#560）。読み取り権限の不足や退避の失敗では元のファイルを残し、[保存の失敗通知](cross-cutting.md#サイドカーでの保存)を出して以後の保存を止める。
-- 版番号はない。ローカル音声認識の移行だけは、済ませた段階を`LOCAL_ASR_MIGRATION`に記録する（[ローカル音声認識の移行](#ローカル音声認識の移行)）。用途（`USAGE_PRESETS`）は段階を記録しない。保存した設定があってこのキーがなければ、前の版から更新したと見なして`["all"]`にする。読めないファイルは何も保存していないのと同じに扱うので、新しく入れたときの`["basic"]`になる。移行する前の内容は、APIキーを除いて`config.json.before-migration-<段階>`に残す（[失敗したときに保つもの](failure-recovery.md#設定)）。入れ子の設定のうち`SPEECH_SERVER_SETTINGS`と`REALTIME_ASR_SETTINGS`は`"version": 1`を持つ。
+- 版番号はない。ローカル音声認識の移行だけは、済ませた段階を`LOCAL_ASR_MIGRATION`に記録する（[ローカル音声認識の移行](#ローカル音声認識の移行)）。用途（`USAGE_PRESETS`）は段階を記録しない。保存した設定があってこのキーがなければ、前の版から更新したと見なして`["all"]`にする。読めないファイルは何も保存していないのと同じに扱うので、新しく入れたときの`["basic"]`になる。読み上げのサーバー（`VOICE_SETTINGS`の`japanese_server`と`multilingual_server`）も同じ考え方で、保存した設定にない項目は前の版の既定の`external`にする（[読み上げのサーバー](#読み上げのサーバー)）。移行する前の内容は、APIキーを除いて`config.json.before-migration-<段階>`に残す（[失敗したときに保つもの](failure-recovery.md#設定)）。入れ子の設定のうち`SPEECH_SERVER_SETTINGS`と`REALTIME_ASR_SETTINGS`は`"version": 1`を持つ。
 - `OVERLAY_VR_LAUNCHER_SETTINGS`の`ui_scaling`は、ランチャーの帯が952px幅だとしたときの横幅（m）である。帯が880px幅になっても意味を変えない。版番号がなく移行済みかどうかを区別できないので保存値は書き換えず、実際の横幅を880/952倍して求める。保存値のまま、ボタンの大きさが変わらない。
 - 保存済みの言語・翻訳エンジンの辞書が壊れているときは、不足・不正なタブや枠を既定値で補い、正常な部分は読み込む。余分なキーは捨てる。実行中の更新に対する構造の検証とは区別し、壊れた辞書で起動を妨げない。
 - 書き込みは[横断的な振る舞い](cross-cutting.md#サイドカーでの保存)のとおり、2秒の遅延、0600の一時ファイル、`fsync`、置き換えの順に行う。

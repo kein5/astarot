@@ -155,6 +155,66 @@ fn a_start_that_changes_nothing_leaves_the_file_alone() {
     config.close();
 }
 
+/// `(japanese_server, multilingual_server)` of the speech settings.
+fn servers(voice: &Value) -> (String, String) {
+    (voice["japanese_server"].as_str().unwrap().into(), voice["multilingual_server"].as_str().unwrap().into())
+}
+
+#[test]
+fn a_saved_file_that_never_chose_a_speech_server_keeps_the_external_one() {
+    // New settings speak through the bundled server (#566). Before that a missing choice meant the
+    // external server, so an update keeps it for a saved file that names none; a new install does
+    // not get it. Python's `_migrateSpeechServers` does the same (tests/voice/test_speech_server_migration.py).
+    let bundled = || ("bundled".to_string(), "bundled".to_string());
+    let cases: [(Option<&str>, (&str, &str)); 8] = [
+        (None, ("bundled", "bundled")),
+        (Some("{}"), ("bundled", "bundled")),
+        (Some("{not json"), ("bundled", "bundled")),
+        (Some(r#"{"UI_LANGUAGE": "ja"}"#), ("external", "external")),
+        (Some(r#"{"VOICE_SETTINGS": "not settings"}"#), ("external", "external")),
+        (Some(r#"{"VOICE_SETTINGS": {"mode": "original", "output_device": "cable", "japanese_url": "http://127.0.0.1:50080"}}"#), ("external", "external")),
+        (Some(r#"{"VOICE_SETTINGS": {"japanese_server": "bundled"}}"#), ("bundled", "external")),
+        (Some(r#"{"VOICE_SETTINGS": {"japanese_server": "external", "multilingual_server": "bundled"}}"#), ("external", "bundled")),
+    ];
+    for (file, (japanese, multilingual)) in cases {
+        let dir = tempfile::tempdir().unwrap();
+        if let Some(text) = file {
+            std::fs::write(dir.path().join("config.json"), text).unwrap();
+        }
+        let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+        let want = (japanese.to_string(), multilingual.to_string());
+        let voice = config.get("VOICE_SETTINGS");
+        assert_eq!(servers(&voice), want, "{file:?}");
+        let written = read(dir.path())["VOICE_SETTINGS"].clone();
+        assert_eq!(servers(&written), want, "{file:?}: the choice is saved");
+        // The rest of the saved settings is kept as it was.
+        let saved = file.and_then(|text| serde_json::from_str::<Value>(text).ok());
+        match saved.as_ref().and_then(|saved| saved["VOICE_SETTINGS"].as_object()) {
+            Some(fields) => {
+                for (field, value) in fields {
+                    assert_eq!(&written[field], value, "{file:?}: {field}");
+                }
+            }
+            None => assert_eq!(written["japanese_url"], "http://127.0.0.1:8080", "{file:?}"),
+        }
+        config.close();
+    }
+
+    // A choice this version saved stays on the next start; a fresh file stays on the bundled server.
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(servers(&config.get("VOICE_SETTINGS")), bundled());
+    let mut voice = config.get("VOICE_SETTINGS");
+    voice["multilingual_server"] = json!("external");
+    config.set("VOICE_SETTINGS", voice).unwrap();
+    config.save_now();
+    config.close();
+    drop(config);
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(servers(&config.get("VOICE_SETTINGS")), ("bundled".to_string(), "external".to_string()));
+    config.close();
+}
+
 #[cfg(unix)]
 #[test]
 fn a_file_others_may_read_is_written_at_start_for_the_owner_only() {
