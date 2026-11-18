@@ -6,8 +6,9 @@
 //! `docs/voice-stack/core-integration.md`), read like this:
 //!
 //! - `CTRANSLATE2_WEIGHT_TYPE` names the model: a built-in name (`m2m100_418M-ct2-int8`, the
-//!   model `m2m100_418M`) or a model the user put in `<data>/translation-models/<folder>/`
-//!   (`custom:<folder>`).
+//!   model `m2m100_418M`), a model the user put in `<data>/translation-models/<folder>/`
+//!   (`custom:<folder>`) or an engine entry the user added to the translation catalog
+//!   (`user:<id>`, #413), whose folder may be anywhere.
 //! - `SELECTED_TRANSLATION_COMPUTE_DEVICE.device` is the ONNX Runtime execution provider
 //!   (`cpu`, `directml`, `cuda`, `openvino`, `migraphx`, `webgpu`) and `device_index` its device.
 //! - `SELECTED_TRANSLATION_COMPUTE_TYPE` chooses the quantization variant among the folders of
@@ -26,6 +27,7 @@ use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use vrct_ops::downloads::catalog::{self, TRANSLATION_TARGET};
+use vrct_ops::downloads::translation_catalog::{self, TranslationCatalog};
 use vrct_translate_onnx::accelerate::{self, compute_types};
 use vrct_translate_onnx::{codes, runtime, Accelerator, Bundle, Fallback, Manifest, Provider, Translator, Variant};
 
@@ -180,20 +182,93 @@ pub fn discover(data_dir: &Path) -> (Vec<CustomModel>, Vec<(String, &'static str
     (models, refused)
 }
 
+/// The weight name of an engine entry of the translation catalog (#413): this and its id.
+pub const USER_PREFIX: &str = "user:";
+
+/// The weight name of a translation catalog entry.
+pub fn entry_weight(id: &str) -> String {
+    format!("{USER_PREFIX}{id}")
+}
+
+/// The language table of a model, limited to the codes an entry offers.
+fn offered_table(manifest: &Manifest, entry: &Value) -> Value {
+    let mut table = custom_languages(manifest);
+    let offered = translation_catalog::offered_languages(entry, &manifest.languages);
+    for side in ["source", "target"] {
+        if let Some(names) = table[side].as_object_mut() {
+            names.retain(|_, code| code.as_str().is_some_and(|c| offered.iter().any(|o| o == c)));
+        }
+    }
+    table
+}
+
+/// Whether a folder holds a model the `onnx` runtime can run with at least one language the
+/// entry offers: the check made before an engine entry is added. The error is a fixed code
+/// (`vrct_translate_onnx::codes`, [`LANGUAGES_UNKNOWN`]). Sizes are checked; hashes when it loads.
+pub fn inspect(folder: &Path, entry: &Value) -> Result<(), &'static str> {
+    let bundle = Bundle::open(folder).map_err(|error| error.code)?;
+    let table = offered_table(bundle.manifest(), entry);
+    if table["source"].as_object().is_none_or(Map::is_empty) {
+        return Err(LANGUAGES_UNKNOWN);
+    }
+    Ok(())
+}
+
+/// The engine entries of the translation catalog that the `onnx` runtime runs, and the entries
+/// refused with their reason (keyed by the entry's id, never its name or folder).
+pub fn registered(env: &Environment) -> (Vec<CustomModel>, Vec<(String, &'static str)>) {
+    let (mut models, mut refused) = (Vec::new(), Vec::new());
+    let rows = TranslationCatalog::new(env.state_dir.join(translation_catalog::FILE_NAME)).rows();
+    for row in rows.iter().filter(|row| row["group"] == "engine" && row["runtime"] == "onnx") {
+        let Some(id) = row["id"].as_str() else { continue };
+        let folder = Path::new(row["folder"].as_str().unwrap_or_default());
+        let bundle = match Bundle::open(folder) {
+            Ok(bundle) => bundle,
+            Err(error) => {
+                refused.push((id.to_string(), error.code));
+                continue;
+            }
+        };
+        let languages = offered_table(bundle.manifest(), row);
+        if languages["source"].as_object().is_none_or(Map::is_empty) {
+            refused.push((id.to_string(), LANGUAGES_UNKNOWN));
+            continue;
+        }
+        models.push(CustomModel { id: entry_weight(id), bundle, languages });
+    }
+    (models, refused)
+}
+
+/// The user's models of both kinds: the folders in `<data>/translation-models/`, then the
+/// engine entries of the translation catalog.
+fn every_custom(env: &Environment) -> Vec<CustomModel> {
+    let mut models = discover(&env.data_dir).0;
+    models.extend(registered(env).0);
+    models
+}
+
 /// Every weight the settings may name: the built-in ones, then the user's models.
 pub fn weight_ids(env: &Environment) -> Vec<String> {
     let mut ids: Vec<String> = TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect();
-    ids.extend(discover(&env.data_dir).0.into_iter().map(|m| m.id));
+    ids.extend(every_custom(env).into_iter().map(|m| m.id));
     ids
 }
 
 /// Whether a weight's model is on this PC: some variant of a built-in model, or a user's
-/// model that passed [`discover`].
+/// model that passed [`discover`] or [`registered`].
 pub fn weight_available(env: &Environment, weight: &str) -> bool {
-    match weight.strip_prefix(CUSTOM_PREFIX) {
-        Some(_) => discover(&env.data_dir).0.iter().any(|m| m.id == weight),
-        None => builtin_model(weight).is_some_and(|model| !installed(env, model).is_empty()),
+    if weight.starts_with(CUSTOM_PREFIX) {
+        return discover(&env.data_dir).0.iter().any(|m| m.id == weight);
     }
+    if weight.starts_with(USER_PREFIX) {
+        return registered(env).0.iter().any(|m| m.id == weight);
+    }
+    builtin_model(weight).is_some_and(|model| !installed(env, model).is_empty())
+}
+
+/// Whether a weight is one of the user's models (a folder or a catalog entry).
+pub fn is_users(weight: &str) -> bool {
+    weight.starts_with(CUSTOM_PREFIX) || weight.starts_with(USER_PREFIX)
 }
 
 // ------------------------------------------------------------------------- devices
@@ -235,27 +310,34 @@ struct Loaded {
 
 pub struct OnnxTranslation {
     env: Environment,
-    custom: Vec<CustomModel>,
+    /// The user's models as last found: at start and after the catalog changes ([`refresh`]).
+    ///
+    /// [`refresh`]: LocalTranslation::refresh
+    custom: Mutex<Vec<CustomModel>>,
     loaded: Mutex<Option<Loaded>>,
 }
 
 impl OnnxTranslation {
     pub fn new(env: &Environment) -> Self {
-        Self { env: env.clone(), custom: discover(&env.data_dir).0, loaded: Mutex::new(None) }
+        Self { env: env.clone(), custom: Mutex::new(every_custom(env)), loaded: Mutex::new(None) }
+    }
+
+    fn custom(&self, weight: &str) -> Option<CustomModel> {
+        self.custom.lock().unwrap().iter().find(|m| m.id == weight).cloned()
     }
 
     /// The folder to load for a setup, where to run it, and a fallback already decided (a
     /// GPU without a variant for it runs a CPU variant).
     fn choose(&self, setup: &LocalSetup) -> Result<(Bundle, Accelerator, Option<Fallback>), LocalError> {
         let requested = accelerator(&setup.device);
-        if setup.weight.starts_with(CUSTOM_PREFIX) {
-            let model = self.custom.iter().find(|m| m.id == setup.weight).ok_or(LocalError::Missing)?;
+        if is_users(&setup.weight) {
+            let model = self.custom(&setup.weight).ok_or(LocalError::Missing)?;
             let variant = model.bundle.manifest().variant();
             if accelerate::support(variant, requested.provider) == vrct_translate_onnx::Support::No {
                 let fallback = Fallback { requested, code: codes::VARIANT_UNSUPPORTED };
-                return Ok((model.bundle.clone(), Accelerator::CPU, Some(fallback)));
+                return Ok((model.bundle, Accelerator::CPU, Some(fallback)));
             }
-            return Ok((model.bundle.clone(), requested, None));
+            return Ok((model.bundle, requested, None));
         }
         let model = builtin_model(&setup.weight).ok_or(LocalError::Missing)?;
         let mut installed = installed(&self.env, model);
@@ -306,7 +388,11 @@ impl LocalTranslation for OnnxTranslation {
     }
 
     fn languages(&self, weight: &str) -> Option<Value> {
-        self.custom.iter().find(|m| m.id == weight).map(|m| m.languages.clone())
+        self.custom(weight).map(|m| m.languages)
+    }
+
+    fn refresh(&self) {
+        *self.custom.lock().unwrap() = every_custom(&self.env);
     }
 
     fn translate(&self, text: &str, source: &str, target: &str) -> Result<String, LocalError> {

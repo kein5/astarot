@@ -22,6 +22,7 @@ mod settings;
 pub mod speech;
 mod telemetry;
 pub mod translation;
+mod translation_catalog;
 mod transcription;
 mod realtime_asr;
 #[cfg(feature = "onnx-translation")]

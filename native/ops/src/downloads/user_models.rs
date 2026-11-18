@@ -49,7 +49,7 @@ fn printable(ch: char) -> bool {
         || (ch.is_whitespace() && ch != ' '))
 }
 
-fn same_path(a: &str, b: &str) -> bool {
+pub(super) fn same_path(a: &str, b: &str) -> bool {
     if cfg!(windows) {
         let norm = |p: &str| p.replace('/', "\\").to_lowercase();
         norm(a) == norm(b)
@@ -96,6 +96,26 @@ fn valid_row(row: &Value) -> bool {
         && files.values().all(|f| f["path"].is_string() && f["size"].is_u64() && f["mtime_ns"].is_i64())
 }
 
+/// Writes a whole file through a temporary file in the same folder and a rename, so that a
+/// reader never sees it half-written. The temporary file is removed when anything fails.
+pub(super) fn write_atomically(path: &Path, text: &str) -> std::io::Result<()> {
+    let parent = path.parent().unwrap_or(Path::new("."));
+    fs::create_dir_all(parent)?;
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let temporary = parent.join(format!(".{name}.{}.tmp", uuid::Uuid::new_v4().simple()));
+    let result = (|| {
+        let mut output = fs::OpenOptions::new().write(true).create_new(true).open(&temporary)?;
+        output.write_all(text.as_bytes())?;
+        output.sync_all()?;
+        drop(output);
+        fs::rename(&temporary, path)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
 /// The registrations of one state directory. Every method is safe to call from any thread.
 pub struct UserModels {
     path: PathBuf,
@@ -122,22 +142,8 @@ impl UserModels {
     }
 
     fn write(&self, models: Vec<Value>) -> Result<(), Error> {
-        let failed = |_| Error::Code("user_models_write_failed");
-        let parent = self.path.parent().unwrap_or(Path::new("."));
-        fs::create_dir_all(parent).map_err(failed)?;
-        let temporary = parent.join(format!(".{FILE_NAME}.{}.tmp", uuid::Uuid::new_v4().simple()));
         let text = serde_json::to_string_pretty(&json!({ "version": FORMAT_VERSION, "models": models })).expect("plain JSON");
-        let result = (|| {
-            let mut output = fs::OpenOptions::new().write(true).create_new(true).open(&temporary)?;
-            output.write_all(text.as_bytes())?;
-            output.sync_all()?;
-            drop(output);
-            fs::rename(&temporary, &self.path)
-        })();
-        if result.is_err() {
-            let _ = fs::remove_file(&temporary);
-        }
-        result.map_err(failed)
+        write_atomically(&self.path, &text).map_err(|_| Error::Code("user_models_write_failed"))
     }
 
     fn view(row: &Value) -> Value {

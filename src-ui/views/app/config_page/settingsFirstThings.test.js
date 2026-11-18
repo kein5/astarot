@@ -203,6 +203,8 @@ test("each translation provider is one fold that says whether it can be used; th
         "@store": { useStore_TranslationEngines: () => ({ currentTranslationEngines: { data: engines } }),
             useStore_SelectedTranslationEngines: () => ({ currentSelectedTranslationEngines: { data: selected } }) },
         "../_components/setup_section/SetupSection": { SetupSection },
+        // The translation catalog (#413) has cards, not provider folds.
+        "./TranslationCatalog": { TranslationCatalogSection: () => null },
     });
     // Translation's own sections are not exported; draw them through the page.
     const page = runtime.render(translation.Translation);
@@ -213,6 +215,7 @@ test("each translation provider is one fold that says whether it can be used; th
     assert.equal(advanced.props.status, "config_page.advanced_status.translation");
     for (const section of [advanced.props.children].flat()) {
         const drawn = section.type(section.props);
+        if (!drawn) continue;
         for (const provider of all(drawn, node => typeof node.props?.id === "string" && typeof node.type === "function")) {
             const fold = provider.type(provider.props);
             assert.equal(fold.type, SetupSection);

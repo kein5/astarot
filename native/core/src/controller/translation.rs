@@ -93,6 +93,8 @@ pub trait LocalTranslation: Send + Sync {
     fn languages(&self, _weight: &str) -> Option<Value> {
         None
     }
+    /// Finds the user's models again: the translation catalog changed (#413).
+    fn refresh(&self) {}
 }
 
 /// No local translation in this build: nothing loads.
@@ -169,11 +171,14 @@ pub fn compute_devices() -> Vec<Value> {
     }
 }
 
-/// The user's model folders that were refused, with the fixed reason, for the log.
+/// The user's model folders that were refused, with the fixed reason, for the log, then the
+/// engine entries of the translation catalog that were refused (by id).
 pub fn refused_models(env: &crate::config::Environment) -> Vec<(String, &'static str)> {
     #[cfg(feature = "onnx-translation")]
     {
-        super::translation_onnx::discover(&env.data_dir).1
+        let mut refused = super::translation_onnx::discover(&env.data_dir).1;
+        refused.extend(super::translation_onnx::registered(env).1);
+        refused
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
@@ -465,6 +470,11 @@ impl Translators {
             .or_else(|| self.local.languages(weight))
     }
 
+    /// The local translation finds the user's models again (the translation catalog changed).
+    pub(crate) fn refresh_local_models(&self) {
+        self.local.refresh();
+    }
+
     fn session(&self, provider: Provider) -> Option<Session> {
         self.clients.lock().unwrap().get(&provider).cloned()
     }
@@ -663,7 +673,7 @@ impl Core {
     }
 
     /// `_setTranslationEngineModel` (and `setOpenAICompatibleModel`).
-    fn set_model(&self, provider: Provider, data: &Value) -> Reply {
+    pub(super) fn set_model(&self, provider: Provider, data: &Value) -> Reply {
         let (_, selected, invalid) = model_keys(provider).expect("a provider with models");
         let model = python_str(data);
         let Some(mut session) = self.translation.session(provider) else {
@@ -720,7 +730,7 @@ impl Core {
 
     /// `_setEndpointCredential` for the OpenAI-compatible endpoint: the URL and the key are
     /// checked together before either is saved.
-    fn set_compatible_key_and_url(&self, data: &Value) -> Reply {
+    pub(super) fn set_compatible_key_and_url(&self, data: &Value) -> Reply {
         let engine = "OpenAI_Compatible";
         let current_key = || self.config().get("AUTH_KEYS")[engine].clone();
         let failed = || error("AUTH_OPENAI_COMPATIBLE_FAILED", current_key());
@@ -926,7 +936,7 @@ impl Core {
 
     /// `setCtranslate2WeightType`: a weight under a non-commercial licence needs the user's
     /// confirmation, unless it is already the selected one.
-    fn set_weight_type(&self, data: &Value) -> Reply {
+    pub(super) fn set_weight_type(&self, data: &Value) -> Reply {
         let (weight, accepted) = match data {
             Value::Object(object) => (
                 object.get("weight_type").map_or_else(|| "None".to_string(), python_str),

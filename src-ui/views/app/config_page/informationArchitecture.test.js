@@ -256,7 +256,8 @@ test("translation keeps its local model in sight; the APIs and local LLMs it cou
     const source = read("translation/Translation.jsx");
     const { outside, fold } = pageParts(source, "Translation");
     assert.deepEqual(outside, ["AITranslation_Container"]);
-    assert.deepEqual(fold, ["ExternalTranslationAPI_Container", "LocalLLM_Container"]);
+    // The translation catalog (#413) adds models and APIs of one's own next to the providers.
+    assert.deepEqual(fold, ["ExternalTranslationAPI_Container", "LocalLLM_Container", "TranslationCatalogSection"]);
     const providers = name => [...source.split(`const ${name} = () => {`)[1].split("\n};")[0].matchAll(/<Provider id="(\w+)">/g)].map(match => match[1]);
     const list = name => JSON.parse(source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`))[1]);
     assert.deepEqual(providers("ExternalTranslationAPI_Container"), list("EXTERNAL_API_PROVIDERS"));

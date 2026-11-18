@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use vrct_ops::downloads::catalog;
 use vrct_ops::downloads::hardware::{BinarySource, HardwareProbe};
+use vrct_ops::downloads::translation_catalog::{self, TranslationCatalog};
 use vrct_ops::downloads::user_models::{self, UserModels};
 use vrct_ops::downloads::{Downloads, Error};
 use vrct_ops::telemetry::Telemetry;
@@ -57,6 +58,8 @@ pub(crate) struct Ops {
     pub(super) telemetry: Telemetry,
     /// The models the user registered under a name (#403).
     pub(super) user_models: UserModels,
+    /// The translation entries the user added to the translation catalog (#413).
+    pub(super) translation_catalog: TranslationCatalog,
     /// Held while an apply checks and writes the settings (Python's `_speech_settings_lock` and
     /// `_voice_settings_lock`).
     apply_lock: Mutex<()>,
@@ -83,7 +86,8 @@ impl Ops {
         let reporter = telemetry.clone();
         let report_hook = crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
         let user_models = UserModels::new(env.state_dir.join(user_models::FILE_NAME));
-        Ops { downloads, hardware, telemetry, user_models, apply_lock: Mutex::new(()), report_hook }
+        let translation_catalog = TranslationCatalog::new(env.state_dir.join(translation_catalog::FILE_NAME));
+        Ops { downloads, hardware, telemetry, user_models, translation_catalog, apply_lock: Mutex::new(()), report_hook }
     }
 
     /// Takes this run's hook away: the error codes of a later run are not counted here.
