@@ -35,7 +35,7 @@ flowchart LR
 
 | 試験 | 確かめること |
 |---|---|
-| `tests/lifecycle.rs` | 起動時の通知の順序と `/run/initialization_complete`、終了と設定の保存、watchdog、入力が閉じたときの終了、古い版の設定の移行と通知、保存の失敗と回復 |
+| `tests/lifecycle.rs` | 起動時の通知の順序と `/run/initialization_complete`、終了と設定の保存、watchdog、入力が閉じたときの終了、古い版の設定の移行と通知（Whisper から speech.cpp への移行の知らせを閉じるまで出すこと）、保存の失敗と回復 |
 | `tests/config_reference.rs` | Python が書いた設定ファイル 50 通りを Windows と Linux の規則で読み、Python と同じ内容を書き戻すこと（基準は Python を実際に動かして作る） |
 | `tests/error_codes.rs` | エラーコードと本体の形が [エラーコード一覧](../spec/reference/error-codes.md) と一致すること。中核のソースが応答・通知・コードの表で使う大文字のコードが、すべて一覧にあること（Python も表の外で返していた `VOICE_SETTINGS_INVALID` を除く） |
 | `tests/dispatch.rs` | 404、500、ロックの順序、20 秒と 30 秒で返す 423、停止の要求の即時処理、VR パネルの中継の制限 |
@@ -54,7 +54,8 @@ flowchart LR
 | `tests/vr_overlay.rs` | 字幕のログと VR パネルのオンとオフ（SteamVR の有無、VR パネルを作れない環境、保存した設定での起動）、設定が動いているオーバーレイに届くこと、VR パネルのエンドポイントと中継、失敗の通知（`OVERLAY_RUNTIME_FAILED`）、送ったメッセージが動いている大きいログに描かれること、コントローラのホバーが `/run/vr_panel_pointer` で届き、トリガーが VR 画面のクリックになり、掴んで動かした位置が保存されること、字幕の書体の設定（`OVERLAY_FONT_NOT_FOUND`、戻す値、足りない言語）、終了。SteamVR と VR 画面は代わりのものを使う。コントローラの操作の細部（スクロール、画面の外で離すこと、拡大縮小の限度、角での大きさの変更と枠、操作バー、ホバーの吹き出し、ロック、コントローラを見失ったとき）は `native/vr-overlay/tests/interaction.rs` が確かめる |
 | `tests/clipboard.rs` | 音声タイピングの貼り付け（#393）。SteamVR のシーンのゲームのウィンドウを前面に出して Ctrl+V を送ること（Windows と X11 の順序）、ゲームを貼り付けのたびに読み直すこと、SteamVR がない・つなげない・ゲームがない・Steam のゲームでない・前面に出せないときはコピーだけ行うこと、オーバーレイと OpenVR の接続を共有すること、文とゲームの名前をログに書かないこと。SteamVR とデスクトップは代わりのものを使う |
 | `tests/ocr.rs` | チャットの読み取り。偽の画像と偽の認識器を使う。ディスクのファイルから見たモデルの準備、オンにできない理由（`OCR_DISABLED_*`）の通知、状態、動いている読み取りに設定が届くこと、言語の切り替えと巻き戻し、読んだ行をメッセージの流れへ渡し `/run/transcription_ocr_message` で UI に届くこと、オフと終了、モデルの読み込み中の終了、読んだ文字がログに出ないこと |
-| `tests/transcription.rs` | 音声認識の録音（クラウドのエンジン）。マイクとスピーカーのスイッチ、エンジンやデバイスがないときの拒否と通知、認識した文が UI・チャットボックス・会話のログに届き `process.log` には出ないこと、44.1 kHz のスピーカーと Whisper の API（言語とセグメントの選別）、音量メーター、エンジンの失敗（`ASR_ERROR`）、開けないデバイス（`AUDIO_OPEN_ERROR`）と別のデバイスへの切り替え、読み取りの失敗（`AUDIO_READ_ERROR`）、抜いたデバイスから別のデバイスへ移ることと最後のデバイスを抜いたときの停止、ミュートの同期、認識のキーと URL の確認と戻す値、起動時のエンジンの確認、保存されていた Google の選択が未選択になること、終了。デバイスは 44.1 kHz と 48 kHz の PCM をデバイスと同じ間隔で渡す偽物、エンジンは 127.0.0.1 の偽のサーバ |
+| `tests/transcription.rs` | 音声認識の録音（クラウドのエンジン）。マイクとスピーカーのスイッチ、エンジンやデバイスがないときの拒否と通知、認識した文が UI・チャットボックス・会話のログに届き `process.log` には出ないこと、44.1 kHz のスピーカーと Whisper の API（言語とセグメントの選別）、音量メーター、エンジンの失敗（`ASR_ERROR`）、開けないデバイス（`AUDIO_OPEN_ERROR`）と別のデバイスへの切り替え、読み取りの失敗（`AUDIO_READ_ERROR`）、抜いたデバイスから別のデバイスへ移ることと最後のデバイスを抜いたときの停止、ミュートの同期、認識のキーと URL の確認と戻す値、起動時のエンジンの確認、保存されていた Google の選択が未選択になること、エンジンでない値を断っても認識が続くこと、終了。デバイスは 44.1 kHz と 48 kHz の PCM をデバイスと同じ間隔で渡す偽物、エンジンは 127.0.0.1 の偽のサーバ |
+| `tests/transcription_engine.rs` | 音声認識のエンジンと言語。エンジンを変えたときにすべてのタブで聞き取れない言語を戻すこと（有効な訳す先を避ける、無効な訳す先に触れない、埋まっていれば戻さない）、言語の一覧の知らせ、Deepgram のモデルを変えたときの同じ扱い（Deepgram を選んでいる間だけ）とモデルの言語に絞った一覧、使えないエンジンとキーを消したエンジンの選択を残すこと、一覧にない値を `VALIDATION_CONFIG_VALUE_INVALID` で断ること。エンジンは 127.0.0.1 の偽のサーバ（Deepgram のモデルと言語は試験ごとに変える） |
 | `tests/realtime_asr.rs` | リアルタイムの音声認識。設定の検査と保存、エンドポイントとモデルの一覧、メインのスイッチ（Linux と Windows の speech.cpp）で字幕（途中・確定・訳・結果）と確定した文がチャットボックスまで届くこと、設定画面からの開始と停止と録音からの引き継ぎ、スイッチが足りないものを `details.reason` で答えること、サーバが断ったときの失敗の通知、終了。speech.cpp はモデルの一覧と Realtime の WebSocket を返す 127.0.0.1 の偽のサーバ |
 | `tests/voice.rs` | TTS のスイッチ（止まっている理由ごとのコード、世代、内蔵サーバを自分で起動して止めること、設定画面から起動したサーバは止めないこと、サーバの停止で TTS が切れること）、音声の設定の検査と拒否したときの答え、入力したチャットを元の文と翻訳で読み上げること、マイクの確定文の読み上げと言語・翻訳の変更での取り消し、停止とミュートと再開、キューで待つ間の停止で古い世代を拒むこと、ミュートの保存と壊れた記録、Linux の管理された経路のゲート、出力先の一覧、モデルの選択肢とインストール済みエンジンの声、直接の音声（素通しと声質変換、世代、失敗、元の声に戻さないこと、変換を通した読み上げ）、声質変換の実行環境の準備（同意、版、手順ごとの失敗、worker の確認）、フローパネル、リアルタイムのマイクの確定文が訳されて読み上げられること、声を流しているケーブルを認識に使わせないこと（`realtime_endpoint_feedback`）、終了。出力とマイクはメモリの中の偽物、speech.cpp とエンジンはループバックの偽物、RVC の worker は `fake-rvc-worker` |
 
@@ -121,6 +122,9 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `src-python/test/test_transcription_provider_regressions.py` | `native/transcription` の `providers.rs` の単体の試験（区分 B）。検出した言語の書き方の違い、知らない言語、1 つだけの言語、中国語と選んだ国、Deepgram の言語の検出、壊れた答えと無音、送信の締め切りと 3 回の試行。Google の部分は 14 と 46 |
 | `src-python/test/test_model_transcription_wait.py`（締め切りの部分）、`test_vrct_transcription_integration.py` | `native/transcription` の `phrases.rs` の単体の試験。締め切りで終えた発話を送り直さないこと、新しいフレーズで締め切りが延びること、境目、VAD の区間で何も聞き取れなかったときに結果を残さないこと。止めたときに要求の結果を待たないことは 15 の (1)、待っている間に何度も目を覚ますことは 69 |
 | `src-python/test/test_realtime_ingress_wait.py` | `native/transcription` の `realtime/session.rs` の単体の試験。200 ms か 20 枚を超えた音声と、250 ms より古い音声を断ること、止めたセッションが音声を受け取らず始め直せないこと。音声を送るまでの待ち方の違いは 67 |
+| `src-python/test/test_controller_transcription_language_fallback.py`、`test_controller_update_transcription_engine.py`、`test_model_transcription_language_support.py` | `transcription_engine.rs`。エンジンを変えると、聞き取れない言語をすべてのタブで日本語、英語の順に戻すこと（有効な訳す先の言語は避け、無効な訳す先には触れない）、何もかも埋まっていれば戻さないこと、言語の一覧を UI に知らせ直すこと。全部の言語を聞けるエンジンでは言語に触れず、同じエンジンを選び直しても何も知らせないこと。Deepgram のモデルを変えたときは、Deepgram を選んでいる間だけ同じことをすること。言語の一覧がモデルの言語（`multi` はすべて）に絞られること。使えないエンジンとキーを消したエンジンの選択を残すこと。言語の表の `Whisper` の列をクラウドの Whisper が使うことは `transcription.rs`。端の扱いは 74 |
+| `src-python/test/test_asr_engine_consent.py` | 選択を読み書きすることは `config_reference.rs` と `transcription.rs`（保存されていた Google）。エンジンでない値を断ることは `transcription_engine.rs` と `transcription.rs`（73）。エンジンがないときと使えないエンジンでスイッチが録音を始めないことは `transcription.rs`。使えないエンジンの選択を残すことは `transcription_engine.rs`。`AudioTranscriber` が黙って Google を使わないことの試験は Google の経路と一緒に引退させる（「決まったこと」の「Google の Web 音声認識」） |
+| `src-python/test/test_local_asr_migration.py` | `lifecycle.rs`。保存されていた Whisper の選択が speech.cpp に移り、知らせが閉じるまで出ること、閉じたら起動し直しても出ないこと、Windows では同梱のサーバに替わり Linux ではサーバの選択を残すこと、外した設定を書かず `MIC_AVG_LOGPROB` を残すこと、外したエンドポイントが 404 になること、新しく入れたときは知らせがないこと。移行の段の細部は `config_reference.rs`、古い Whisper の重みのエンドポイントは `settings_endpoints.rs` |
 
 
 区分 A は上の表のとおり再カバーしました。音声認識の字幕を VR の大きいログに出す部分（`test_realtime_overlay*.py`）は、字幕を出す関数（`Core::show_overlay_caption`）につないでありますが、中核の試験ではまだ確かめていません（「0.6.0 の残りの移行」の 3 の 3-3）。発話の診断のログ（`test_utterance_diagnostics.py`）は移していません（「判断が要ること」の 15）。
@@ -333,8 +337,12 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
   - 中核（アプリと同じ）では、翻訳をオフにしてチャットボックスまで計りました。確定の字幕とほぼ同時（0.10.0 で中央値 785 ms）に届きました。
   - 表は #556（発話を区切る無音のあとの余白を短くし、確定を早める）を取り込む前の中核の値です。develop を取り込んだあと、同じ条件で 0.11.0 を 2 回ずつ計り直しました。発話の終わりから確定までの中央値は、Python のセッションが 817 ms（976）、中核のセッションが 746 ms（901）、中核（アプリと同じ）が 733 ms（894）でした。文ごとの中央値でも、中核は Python より 64〜99 ms 早くなりました。
   - Python のセッションはほかのビルドを止めて計った 9 回のうち 5 回、始めてから約 62 秒で `input_overflow`（受け口に 200 ms を超える音声がたまる）で止まりました。止まる直前に 60 秒ごとの発話の診断の集計が出ていましたが、原因は確かめていません。表の Python の値は止まるまでに届いた文の値です。中核は 2 つの形とも 9 回すべて最後まで続きました。
-- **判断を待つこと**: 64〜72。
-- **残っていること**: 上の表の 3-2〜3-4。フローパネルのマイクの時刻（24）。Linux の実機での確認（PipeWire の録音と `vrct-asr-capture`）。
+- **済んだこと（3-2）**:
+  - 棚卸しの表に載っていなかった `test_controller_transcription_language_fallback.py`、`test_controller_update_transcription_engine.py`、`test_model_transcription_language_support.py`、`test_asr_engine_consent.py`、`test_local_asr_migration.py` を、中核を通した試験で確かめました（`tests/transcription_engine.rs` と、`transcription.rs`、`lifecycle.rs` に足した試験。上の表）。偽の認識サーバの Deepgram は、試験ごとにモデルとその言語を変えられるようにしました。
+  - **エンジンでない値を断るようにしました**（`/set/data/selected_transcription_engine`）。外した Whisper と Google、知らない名前、名前でない値は、仕様（`docs/spec/data-and-persistence.md`）のとおり 400 の `VALIDATION_CONFIG_VALUE_INVALID` で断り、`data` に今の選択を返します。中核はそれまで 200 で今の選択を返し、Python は設定の検査の例外で 500 を返していました。選択も、動いている認識も変わりません。UI はこのコードを受けると選択を読み直して知らせを出します（73）。
+  - エンジンを変えたときの言語の切り替え、Deepgram の言語の一覧、移行の知らせの振る舞いは、Python と同じでした。端の扱いは 74 にあります。
+- **判断を待つこと**: 64〜74。
+- **残っていること**: 上の表の 3-3 と 3-4。フローパネルのマイクの時刻（24）。Linux の実機での確認（PipeWire の録音と `vrct-asr-capture`）。
 
 ## 翻訳の棚卸し
 
@@ -633,3 +641,5 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 70. **Linux のリアルタイム認識で古い音声を判断する時刻**（#278）。Python は補助（`vrct-asr-capture`）が PipeWire の時刻で付けた印から、音声が 250 ms より古いかを判断しました。中核は補助から受け取った時点で印を付け直します（`helper.rs`、`realtime/session.rs`）。そのため PipeWire と補助のパイプでの遅れは数えず、受け取るまでに遅れた音声も送ります。Python では失敗として止まった遅れでも、中核では字幕が遅れて出続けることがあります。補助の印（`CLOCK_MONOTONIC`）と今の時刻の差から受け取った時刻を戻せば Python と同じになりますが、Linux の実機では確かめていません。直すかを決めてください。
 71. **保存したキーをサービスが断るエンジンを選んだとき**（#278）。Python は選んだエンジンをそのまま選び、スイッチを入れたときに失敗を知らせました。中核は選ぶ前にキーを確かめ、断られたら前のエンジンのままにして、そのエンジンを一覧から外します（#457。`docs/spec/cross-cutting.md` に書いてある仕様）。仕様としては決まっていますが、この一覧に載っていなかったので確認のために挙げます。
 72. **Python と違う内部の形（音声認識、報告）**（#278）。利用者から見える違いはない想定です。Windows のリアルタイムの音声の印から 20 ms を引かないこと（Python は時計の刻みのために引きました）。24 kHz への変換が soxr の HQ ではなく窓付きの sinc であること（遅れは約 0.7 ms）。音声を送る締め切りが残りの 250 ms ではなく 1 秒で固定であること。Whisper の API の答えで区間の欄が欠けていたら、Python は例外にし、中核はその区間を捨てること。Deepgram の言語コードから地域を除いた部分（`ja-JP` の `ja`）を取るとき、中核の言語の表の側は `_` でも区切ること（`controller/languages.rs`）。古い Whisper の重みの読み取りと削除の失敗を、中核は 500 で答えず、消せなかった数として 200 で答えること（UI はどちらにも対応しています）。Linux の補助が失敗したとき、標準エラーに書いた決まったコードと、出力が閉じたことを示すコードのどちらが先に届くかが決まっていないこと（どちらもセッションでは `realtime_capture_failed` になります）。
+73. **エンジンでない値を選ぼうとしたときの答え（報告）**（#278）。`/set/data/selected_transcription_engine` は、一覧にない値（外した Whisper と Google、知らない名前、名前でない値）を 400 の `VALIDATION_CONFIG_VALUE_INVALID` で断るようにしました。仕様（`docs/spec/data-and-persistence.md`）に合わせた直しです。それまでの中核は 200 で今の選択を返し、Python は設定の検査の例外で 500 を返していました。UI の選択肢には一覧のエンジンしか出ないので、ふだんの操作では起きません。UI はこのコードを受けると選択を読み直し、「設定の値が正しくない」という知らせを出します。IPC の答えが変わるので挙げます。
+74. **Deepgram の言語の端の扱い**（#278）。どちらも Python と同じで、変えていません。(1) Deepgram のモデルが聞ける言語がどれも訳す先で使われていると、聞けない言語をそのまま残します。その言語は言語の一覧にないので、UI の一覧には出ないまま選ばれています。(2) Deepgram を選んだままキーを消したときや、Deepgram が選ばれているのに起動時に確かめられなかったとき（キーがない、サービスに届かない）は、モデルとその言語がわからないので言語の一覧が空になります。モデルの言語は設定に保存しないので、起動のたびに確かめ直すまでわかりません。キーを消したときは一覧の知らせも送りません。案は (a) このままにする、(b) モデルの言語がわからないときは表のすべての言語を出す、(c) (1) では残した言語を一覧に足す、です。

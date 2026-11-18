@@ -229,6 +229,24 @@ fn changing_the_engine_stops_the_recorder_that_used_the_old_one() {
 }
 
 #[test]
+fn a_value_that_is_not_an_engine_is_refused_and_recognition_goes_on() {
+    // Python's setter raised and the request answered 500; the spec refuses the value.
+    let run = start(cloud());
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let mark = run.ui.lines().len();
+    for value in [json!("Whisper"), json!("unknown"), json!(""), json!(1), Value::Null] {
+        let answer = run.ui.request("/set/data/selected_transcription_engine", Some(value.clone()));
+        assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "VALIDATION_CONFIG_VALUE_INVALID"), "{value}");
+        assert_eq!(answer["result"]["data"], "OpenAI_Whisper", "{value}");
+    }
+    assert!(run.ui.on(mark, "/set/disable/transcription_send").is_empty(), "the switch stays on");
+    assert_eq!(run.capture.running(Source::Mic), 1);
+    run.capture.hear(Source::Mic, &[speech(900), quiet(1200)]);
+    assert_eq!(run.heard(mark, "/run/transcription_send_mic_message")["result"]["original"]["message"], "こんにちは");
+    run.ui.stop();
+}
+
+#[test]
 fn a_failing_engine_turns_recognition_off_with_its_code() {
     let run = start(cloud_and(json!({ "ENABLE_CHECK_ENERGY_SEND": false })));
     run.asr.behaviour.fail.store(true, Ordering::SeqCst);
@@ -463,7 +481,9 @@ fn a_saved_google_engine_loads_as_none_and_google_is_not_offered() {
     assert!(!offered.as_array().unwrap().contains(&json!("Google")), "{offered}");
     assert_eq!(offered, json!(["SpeechCpp"]), "no key saved: only the local engine is ready");
     // Google cannot be chosen again.
-    assert_eq!(run.ui.ok("/set/data/selected_transcription_engine", Some(json!("Google"))), Value::Null);
+    let answer = run.ui.request("/set/data/selected_transcription_engine", Some(json!("Google")));
+    assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "VALIDATION_CONFIG_VALUE_INVALID"));
+    assert_eq!(answer["result"]["data"], Value::Null);
     // A switch asks for an engine, as on a first start, and sends nothing anywhere.
     let answer = run.ui.request("/set/enable/transcription_send", None);
     assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "TRANSCRIPTION_ENGINE_NOT_SELECTED"));
