@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { ctranslate2_weight_type_status } from "../ui_configs.ts";
 import { isNonCommercialWeight, needsLicenseConfirmation, weightRequest, weightIdOfRequest } from "./ctranslate2License.ts";

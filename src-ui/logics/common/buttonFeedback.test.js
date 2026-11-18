@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import Babel from "@babel/standalone";
 import React from "react";
 import * as jsx from "react/jsx-runtime";
@@ -148,7 +148,7 @@ const deferred = () => {
 };
 
 test("action feedback precedes a slow operation and repeated presses send only once", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), work = deferred();
     const { ActionButton } = await load(actionPath, runtime);
     let calls = 0;
@@ -170,7 +170,7 @@ test("action feedback precedes a slow operation and repeated presses send only o
     assert.ok(find(done, node => node.type === props.ClickedIconComponent));
     await initial.props.onClick(); // Success-display cooldown also guards stale handlers.
     assert.equal(calls, 1);
-    context.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     assert.equal(render().props["aria-disabled"], false);
     runtime.unmount();
 });
@@ -200,7 +200,7 @@ test("a rejected action clears pending, reports the error and permits retry with
 });
 
 test("an action settling after its settings page closes does not schedule success feedback", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), work = deferred();
     const { ActionButton } = await load(actionPath, runtime);
     const props = { IconComponent: icon, ClickedIconComponent: () => null, onclickFunction: () => work.promise };
@@ -208,7 +208,7 @@ test("an action settling after its settings page closes does not schedule succes
     runtime.unmount();
     work.resolve();
     await pending;
-    context.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     assert.equal(find(runtime.render(ActionButton, props), node => node.type === props.ClickedIconComponent), null);
 });
 
@@ -322,7 +322,7 @@ test("LogBox subscribes only to its log and resend setting; unchanged row props 
     assert.equal(LogBox.$$typeof, Symbol.for("react.memo"));
     const listeners = [];
     globalThis.document = { addEventListener: (...args) => listeners.push(args), removeEventListener() {} };
-    t.after(() => { delete globalThis.document; });
+    t.onTestFinished(() => { delete globalThis.document; });
     const list = () => find(runtime.render(LogBox.type), node => node.type === Virtualizer).props;
     // virtua renders only the rows in view; build them all here.
     const rows = () => { const { data, children } = list(); return Array.from(data, children); };
@@ -419,7 +419,7 @@ test("the window geometry controller keeps its listeners and only sends layout c
         hasAttribute: name => attributes.has(name),
         toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); },
     } };
-    t.after(() => { delete globalThis.document; });
+    t.onTestFinished(() => { delete globalThis.document; });
     const { WindowGeometryController } = await load("../logics/common/useWindow.js", runtime, {
         "@tauri-apps/api/window": {},
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython() {} }) },
@@ -452,7 +452,7 @@ test("while the engine starts, resizing updates the layout but does not save the
     const attributes = new Set();
     globalThis.document = { documentElement: { hasAttribute: name => attributes.has(name),
         toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); } } };
-    t.after(() => { delete globalThis.document; });
+    t.onTestFinished(() => { delete globalThis.document; });
     const { WindowGeometryController } = await load("../logics/common/useWindow.js", runtime, {
         "@tauri-apps/api/window": {},
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => sent.push([endpoint, data]) }) },

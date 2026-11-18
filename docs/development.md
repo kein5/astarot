@@ -13,7 +13,7 @@ mise run check               # 軽量チェック
 
 タスクの中身は `python tools/dev.py` などの既存のCLIです。miseはその前に固定した版のツールをPATHの先頭に置きます。追加の引数はタスク名の後ろに書きます（`mise run check:voice --dry-run` など）。miseを使わずに `python tools/dev.py` を直接呼んでもかまいません。そのときは、PATHにあるツールの版を自分で合わせます。
 
-`doctor` は不足を表示します。`setup` は指定した依存関係を導入します。`check` の既定値は `quick` で、開発CLIの試験、Nodeの試験、Ruffを実行します。詳しいコマンドは各サブコマンドの `--help` で確認できます。開発CLI自体はPython 3.11以降の標準ライブラリだけで動きます。
+`doctor` は不足を表示します。`setup` は指定した依存関係を導入します。`check` の既定値は `quick` で、開発CLIの試験、UIの試験（Vitest）、Ruffを実行します。詳しいコマンドは各サブコマンドの `--help` で確認できます。開発CLI自体はPython 3.11以降の標準ライブラリだけで動きます。
 
 | タスク | 中身 |
 | --- | --- |
@@ -48,6 +48,8 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
 
 uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
+
+`[env]` に置いているのは `ORT_DISABLE_TELEMETRY=1` だけです。`uv.lock` のONNX Runtime（Python版の1.32）は、何も設定しないとセッションを作った時点で `~/.cache/Microsoft/DeveloperTools/.onnxruntime/` に `deviceid` とイベントのデータベースを作り、Microsoftへ利用状況を送ろうとします。この値はすべてのプログラムに引き継がれてかまわないため、`[env]` に置きます。`tools/dev.py` の子プロセス、`src-python/conftest.py`、翻訳モデルの書き出し（`tools/translation_onnx/`）とHuBERTの書き出し（`native/rvc-runtime/reference/export_hubert_onnx.py`）も、自分で同じ値を設定します。miseを通さずにほかのスクリプトでONNX Runtimeを使うときは、先に `ORT_DISABLE_TELEMETRY=1` を設定してください。アプリに同梱するONNX Runtimeは、アプリが起動時に自分で止めます（`docs/spec/external-interfaces.md`）。
 
 `setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、miseを使わない場合は、Python 3.11を先に用意します。miseを使わない場合の各ツールの公式手順は次のとおりです。
 
@@ -123,10 +125,10 @@ python tools/dev.py check --scope rust --dry-run
 | スコープ | 内容 |
 | --- | --- |
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
-| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` を全列挙して `node --test`。TypeScript のソースを直接読み込めるよう `--experimental-strip-types` を付ける |
+| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`src-python/` の音声まわり、`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験4件 |
-| `ui` | Nodeの試験、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
+| `ui` | UIの試験（Vitest）、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
 | `backend` | 既存 `pytest.ini` による `src-python/test` と、`tests/platform`の単体の試験1件。runtime依存が必要 |
 | `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
@@ -152,16 +154,63 @@ Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探し
 
 ## UIのTypeScriptとスタイル（移行中）
 
-[ADR-010](voice-stack/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
+[ADR-010](adr/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
 
 - 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。新しいスタイルはvanilla-extract（`.css.ts`）で書きます。
 - 型チェックは `npm run typecheck` です。`check --scope ui` も実行し、CIでも動きます。TypeScriptのファイルは `strict` で検査します。JavaScriptのファイルは検査せず、型を推論して読むだけです。
 - `any`、`as unknown as`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。`check --scope tooling` の `test_typescript_strictness.py` がこれらを数えます。
 - 移す順序と残りの範囲は [TypeScript 移行計画](typescript-migration.md) にあります。
-- Nodeの試験はTypeScriptのソースを `node --experimental-strip-types` でそのまま読み込みます。このため、消去できる構文だけを使います（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）。型だけのimportは `import type` にします。相対importは `./name.ts` のように拡張子まで書きます。
+- 一部のUIの試験は、TypeScriptのソースを `data:` URL のモジュール経由でNodeにそのまま読ませます（Nodeの型の除去を使います）。このため、消去できる構文だけを使います（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）。型だけのimportは `import type` にします。相対importは `./name.ts` のように拡張子まで書きます。
+
+### UIの試験（Vitest）
+
+UIの試験は Vitest で動きます。設定は `vitest.config.js` で、アプリの Vite の設定（SVG、YAML、vanilla-extract のプラグイン）は読みません。環境は Node で、DOM はありません。
+
+```sh
+npm test                 # 全件を1回実行する（check --scope node と同じ）
+npx vitest run src-ui/logics/common/meterValue.test.js   # ファイルを絞る
+npm run test:watch       # 変更を監視して実行する
+npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json-summary）
+```
+
+- アサーションは `node:assert/strict` を使います。`test` と `vi` は `vitest` から import します。
+- 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.js` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
+- 時計の偽装は `vi.useFakeTimers({ toFake: [...] })` と `vi.advanceTimersByTime(ms)` です。テストが終わると実時間に戻ります。`vi.spyOn` は次のテストの前に元に戻ります（`restoreMocks`）。
+- `hookHarness.js` の `loadModule` で読むソースは、Babel で変換してから評価します。Vite を通らないため、カバレッジでは実行されていても0%と出ます。カバレッジの数字は、この読み込み方をしていないファイルだけを比べてください。
+- `data:` URL でNodeに直接読ませたモジュールと、テストファイルが import したモジュールは別の実体になります。シングルトンを共有するときは、テストの側も `data:` URL 経由で読みます（`useStdoutToPython.test.js` の `nativeImport`）。
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.js` が食い違いを検出します）。
 - Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.js` がその数を数えています。
+
+## UIの文言と翻訳の検査
+
+利用者に見せる文言は `locales/en.yml` と `locales/ja.yml` が正本です。UIは `t("キー")` で取り出し、コードに直接書きません。対象はラベル、ボタン、説明、通知、ダイアログ、検証のメッセージ、ツールチップ、読み上げ用の名前と説明、バックエンドのエラーを表示する文言です。
+
+`tools/i18n_gate/check.mjs` がこれを検査します。`check --scope node` と `check --scope ui` に含まれ、CIでも動きます。失敗するとファイルと行と原因を表示します。
+
+```sh
+node tools/i18n_gate/check.mjs                    # 検査だけ
+node tools/i18n_gate/check.mjs --inventory        # 既知の直書きを場所と種類ごとに数える
+node tools/i18n_gate/check.mjs --update-baseline  # 直書きを減らしたあとに基準を書き直す
+```
+
+検査する内容は次のとおりです。
+
+- 英語と日本語で、キーの集合が同じこと。値が空でないこと。
+- `{{name}}` の補間変数が英語と同じ名前の組であること。
+- 複数形（`_one`、`_other` など）に、その言語が必要とする形がそろっていること。`$t(キー)` の参照先があること。
+- UIが名指しするキーが `en.yml` にあること。`t()`、`i18n.t()`、`i18nKey`、テンプレートの固定部分（`` t(`main_page.${id}`) `` なら `main_page`）、既知の名前空間のキーに見える文字列が対象です。
+- JSXの文字列、利用者に見える属性（`title`、`placeholder`、`alt`、`label`、`aria-label` など）、選択肢の `label` などに、新しい直書きがないこと。
+
+検査を始めたときにあった直書きは `tools/i18n_gate/baseline.json` にファイルごとの件数で記録してあります。件数が増えると失敗します。減ったときも、消した直書きが戻らないように、`--update-baseline` で基準を書き直すまで失敗します。
+
+翻訳しない文字列は理由を書いて例外にします。
+
+- 製品名、サービス名、プロトコル名、単位は `tools/i18n_gate/exceptions.yml` の `terms` に足します。
+- 1行だけなら、その行の末尾か直前の行に `// i18n-exempt: 理由`（JSXの中では `{/* i18n-exempt: 理由 */}`）と書きます。
+- 続く数行なら `// i18n-exempt-start: 理由` と `// i18n-exempt-end` で囲みます。
+
+利用者の入力、外部から受け取った名前、プロトコルの識別子、ログだけに出す文字列は、もともと翻訳の対象ではありません。検査もそれらを画面の文言とは見なしません。キーを組み立てて渡す箇所（`` t(`backend_errors.${code}`) `` など）は固定部分しか確かめられないので、試験で補います。
 
 ## VRの機器なしでVRの処理を試す
 

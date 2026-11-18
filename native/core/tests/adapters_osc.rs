@@ -139,6 +139,36 @@ fn typing_reaches_vrchat_and_turning_sending_off_ends_it() {
 }
 
 #[test]
+fn only_an_indicator_the_app_turned_on_is_turned_off() {
+    // `test_controller_typing.py`.
+    let (socket, port) = vrchat();
+    let ui = Ui::with(Setup {
+        saved: Some(json!({ "OSC_IP_ADDRESS": DESTINATION, "OSC_PORT": port, "SEND_MESSAGE_TO_VRC": false })),
+        services: Services { osc: Services::default().osc, ..Setup::default().services },
+        ..Setup::default()
+    });
+    ui.ready();
+    // Sending off: typing, stop and turning sending off again send nothing.
+    assert_eq!(ui.ok("/run/typing_message_box", None), true);
+    assert_eq!(ui.ok("/run/stop_typing_message_box", None), true);
+    assert_eq!(ui.ok("/set/disable/send_message_to_vrc", None), false);
+    assert_eq!(received(&socket, Duration::from_millis(300)), None, "the indicator was not the app's");
+
+    // Turning sending on does not start typing by itself.
+    assert_eq!(ui.ok("/set/enable/send_message_to_vrc", None), true);
+    assert_eq!(received(&socket, Duration::from_millis(300)), None);
+    // An indicator the app turned on is turned off even if sending went off in between.
+    ui.ok("/run/typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(true)));
+    ui.backend.core().config().set("SEND_MESSAGE_TO_VRC", json!(false)).unwrap();
+    ui.ok("/run/stop_typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(false)));
+    ui.ok("/run/stop_typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_millis(300)), None, "only once");
+    ui.stop();
+}
+
+#[test]
 fn the_destination_is_checked_and_a_failed_change_keeps_the_saved_one() {
     let run = start(json!({}), true);
     let ui = &run.ui;

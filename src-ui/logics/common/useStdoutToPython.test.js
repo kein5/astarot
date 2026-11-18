@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
-import { test } from "node:test";
-import { pendingRequestRecovery } from "./pendingRequestRecovery.ts";
-import { rejectExpectedExit } from "./sidecarExitExpectation.ts";
-import { settingsWriteResponses } from "./settingsWriteResponses.ts";
+import { test, vi } from "vitest";
 
 const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
+// The adapter under test is loaded from a data: URL, which Node imports itself, while Vitest loads
+// this file through Vite. A static import here would make a second copy of these singletons, so
+// the test takes them from Node too, from the same file URLs the adapter imports.
+const nativeImport = path => import(/* @vite-ignore */ moduleUrl(
+    `export * from ${JSON.stringify(new URL(path, import.meta.url).href)};`));
+const { pendingRequestRecovery } = await nativeImport("./pendingRequestRecovery.ts");
+const { rejectExpectedExit } = await nativeImport("./sidecarExitExpectation.ts");
+const { settingsWriteResponses } = await nativeImport("./settingsWriteResponses.ts");
 async function setup() {
     settingsWriteResponses.stop();
     // Exercise the actual transport adapter; only Tauri, hooks and the language
@@ -86,7 +91,7 @@ test("backend recovery releases pending settings response owners", async () => {
 });
 
 test("an uncertain settings write blocks another send and restores its pending control", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup(), endpoint = "/set/data/hotkeys";
     let writes = 0, restores = 0;
     pendingRequestRecovery.register({ endpoints: [endpoint], restore: () => { restores++; return true; } });
@@ -98,7 +103,7 @@ test("an uncertain settings write blocks another send and restores its pending c
 });
 
 for (const mode of ["missing", "false", "throw", "reject"]) test(`actual transport restores on ${mode} without a success notification`, async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup();
     if (mode !== "missing") subject.store.backend_subprocess = { write: () => {
         if (mode === "throw") throw Error("synchronous");
@@ -127,7 +132,7 @@ test("successful transport preserves the wire format and stays pending until res
 });
 
 test("encoding throws also restore before any write", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup(), cyclic = {};
     cyclic.self = cyclic;
     subject.store.backend_subprocess = { write: () => assert.fail("encoding should fail before write") };
@@ -151,7 +156,7 @@ test("rejected language admission does not fail or release the existing owner", 
 });
 
 test("language preserves uncertain-write versus before-send failure semantics", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     for (const childExists of [false, true]) {
         const subject = await setup();
         if (childExists) subject.store.backend_subprocess = { write: async () => { throw Error("unknown delivery"); } };
@@ -169,7 +174,7 @@ test("failed shutdown does not suppress a subsequent unexpected exit notice", as
 
 for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
     test(`${endpoint} arms this session before writing and disarms on transport failure`, async context => {
-        context.mock.method(console, "error", () => {});
+        vi.spyOn(console, "error").mockImplementation(() => {});
         for (const outcome of [true, false, "throw"]) {
             const subject = await setup(), session = subject.store.backend_session;
             subject.store.backend_subprocess = { write: async () => {
@@ -194,7 +199,7 @@ for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
 }
 
 test("an old rejected write cannot change a replacement session or replay the request", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup();
     let reject;
     subject.store.backend_subprocess = { write: () => new Promise((_, no) => { reject = no; }) };

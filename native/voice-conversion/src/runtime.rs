@@ -29,25 +29,24 @@ const CHUNK: usize = 1024 * 1024;
 const ACTIVE: [&str; 5] = ["queued", "libraries", "assets", "verifying", "cancelling"];
 const STEPS: [&str; 3] = ["libraries", "assets", "verifying"];
 
-/// The hosts the setup may fetch from: Hugging Face (the model downloads' hosts), GitHub's
-/// releases and PyPI's files.
-pub const SOURCE_HOSTS: [&str; 11] = [
+/// The hosts the setup may fetch from: Hugging Face (the model downloads' hosts), NuGet's
+/// packages (ONNX Runtime) and PyPI's files (NVIDIA's libraries).
+pub const SOURCE_HOSTS: [&str; 8] = [
     "huggingface.co",
     "cdn-lfs.huggingface.co",
     "cdn-lfs-us-1.hf.co",
     "cdn-lfs-eu-1.hf.co",
     "cas-bridge.xethub.hf.co",
     "us.aws.cdn.hf.co",
-    "github.com",
-    "codeload.github.com",
-    "objects.githubusercontent.com",
-    "release-assets.githubusercontent.com",
+    "api.nuget.org",
     "files.pythonhosted.org",
 ];
 
 const RVC_REPO: &str = "lj1995/VoiceConversionWebUI";
 const RVC_REVISION: &str = "e6d0c1a17da07c33557852f9dfa2bd44cc75737d";
 const ORT_VERSION: &str = "1.31.0";
+/// NuGet's package content: `<id>/<version>/<id>.<version>.nupkg`, the id in lowercase.
+const NUGET: &str = "https://api.nuget.org/v3-flatcontainer/";
 const PYPI: &str = "https://files.pythonhosted.org/packages/";
 
 /// The platforms a runtime can be set up for (`target()`): Windows and Linux on x86-64.
@@ -107,7 +106,39 @@ fn hf_url(path: &str) -> String {
     format!("https://huggingface.co/{RVC_REPO}/resolve/{RVC_REVISION}/{path}")
 }
 
-fn ort(name: &str, size: u64, sha256: &str, files: &[(&str, &str)]) -> Library {
+/// Where ONNX Runtime comes from. The setup takes Microsoft's NuGet packages. Until
+/// 2026-11-18 it took the same release from Microsoft's GitHub release archives, as the
+/// Python setup of 0.4 did. A runtime set up from those holds the same files under the same
+/// names in `lib/`, so it stays installed ([`Shared::variants`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OrtSource {
+    NuGet,
+    GitHub,
+}
+
+/// The NuGet package of ONNX Runtime: the CUDA 13 build for one platform with a GPU, else
+/// the CPU build (one package for every platform).
+fn ort_package(target: Target, gpu: bool) -> &'static str {
+    match (target, gpu) {
+        (_, false) => "Microsoft.ML.OnnxRuntime",
+        (Target::Windows, true) => "Microsoft.ML.OnnxRuntime.Gpu.Windows",
+        (Target::Linux, true) => "Microsoft.ML.OnnxRuntime.Gpu.Linux",
+    }
+}
+
+/// A NuGet package and the files taken from its `runtimes/<rid>/native/`.
+fn nuget(package: &str, rid: &str, size: u64, sha256: &str, files: &[(&str, &str)]) -> Library {
+    let id = package.to_lowercase();
+    Library {
+        url: format!("{NUGET}{id}/{ORT_VERSION}/{id}.{ORT_VERSION}.nupkg"),
+        size,
+        sha256: sha256.into(),
+        members: files.iter().map(|(source, target)| (format!("runtimes/{rid}/native/{source}"), (*target).to_owned())).collect(),
+    }
+}
+
+/// A GitHub release archive and the files taken from its `lib/`.
+fn github(name: &str, size: u64, sha256: &str, files: &[(&str, &str)]) -> Library {
     let folder = name.rsplit_once('.').map_or(name, |(stem, _)| stem);
     let folder = folder.strip_suffix(".tar").unwrap_or(folder);
     Library {
@@ -115,6 +146,53 @@ fn ort(name: &str, size: u64, sha256: &str, files: &[(&str, &str)]) -> Library {
         size,
         sha256: sha256.into(),
         members: files.iter().map(|(source, target)| (format!("{folder}/lib/{source}"), (*target).to_owned())).collect(),
+    }
+}
+
+const WINDOWS_GPU_ORT: [&str; 3] = ["onnxruntime.dll", "onnxruntime_providers_cuda.dll", "onnxruntime_providers_shared.dll"];
+const LINUX_GPU_ORT: [&str; 3] = ["libonnxruntime.so", "libonnxruntime_providers_cuda.so", "libonnxruntime_providers_shared.so"];
+
+/// ONNX Runtime 1.31.0 for a runtime. The NuGet packages' SHA-512 are the ones NuGet
+/// publishes. Their CPU libraries are byte for byte those of the GitHub archives; the GPU
+/// packages' CUDA provider links against CUDA 13 (cuBLAS 13, cudart 13) as the GitHub
+/// `gpu_cuda13` archives' did.
+fn ort(target: Target, gpu: bool, source: OrtSource) -> Library {
+    let package = ort_package(target, gpu);
+    let so = format!("libonnxruntime.so.{ORT_VERSION}");
+    match (source, target, gpu) {
+        (OrtSource::NuGet, Target::Windows, false) => {
+            nuget(package, "win-x64", 159626085, "7e35fdb4f5adb62f01e60798e2e5ed05108f5fbbe1cca03fbcc37903cf7c5e3b", &[("onnxruntime.dll", "onnxruntime.dll")])
+        }
+        (OrtSource::NuGet, Target::Linux, false) => {
+            nuget(package, "linux-x64", 159626085, "7e35fdb4f5adb62f01e60798e2e5ed05108f5fbbe1cca03fbcc37903cf7c5e3b", &[("libonnxruntime.so", "libonnxruntime.so")])
+        }
+        (OrtSource::NuGet, Target::Windows, true) => {
+            nuget(package, "win-x64", 160447640, "6ef71832859a6fa1cdbd51d36be301641b6de609c72a2ab206b32f6cc209959d", &WINDOWS_GPU_ORT.map(|n| (n, n)))
+        }
+        (OrtSource::NuGet, Target::Linux, true) => {
+            nuget(package, "linux-x64", 244928869, "7cd256a2b6a0713a55bbb7f60b175ff004d462d56a07572a15a2ed07456514d7", &LINUX_GPU_ORT.map(|n| (n, n)))
+        }
+        (OrtSource::GitHub, Target::Windows, false) => github(
+            &format!("onnxruntime-win-x64-{ORT_VERSION}.zip"),
+            82887349,
+            "3958d8a44984160692c1b4ffd0de3cb48f8c39f9d34bb31e433db06e30b82195",
+            &[("onnxruntime.dll", "onnxruntime.dll")],
+        ),
+        (OrtSource::GitHub, Target::Linux, false) => {
+            github(&format!("onnxruntime-linux-x64-{ORT_VERSION}.tgz"), 11408003, "cc5c72baf5ae5c8238a6841f0897227be2d02826b9cf98eaf02fdefaeeb03a57", &[(&so, "libonnxruntime.so")])
+        }
+        (OrtSource::GitHub, Target::Windows, true) => github(
+            &format!("onnxruntime-win-x64-gpu_cuda13-{ORT_VERSION}.zip"),
+            309484217,
+            "d332ccf84acb769a11364cddd4e8d2992a168d16be472d5ba70b279b644552f5",
+            &WINDOWS_GPU_ORT.map(|n| (n, n)),
+        ),
+        (OrtSource::GitHub, Target::Linux, true) => github(
+            &format!("onnxruntime-linux-x64-gpu_cuda13-{ORT_VERSION}.tgz"),
+            244574938,
+            "2867dec99c6a4926e8142361b9d4d1518c16c85b854b4d41d28d65d3b2c81135",
+            &[(&so, "libonnxruntime.so"), ("libonnxruntime_providers_cuda.so", "libonnxruntime_providers_cuda.so"), ("libonnxruntime_providers_shared.so", "libonnxruntime_providers_shared.so")],
+        ),
     }
 }
 
@@ -134,22 +212,13 @@ fn cudnn(windows: bool) -> Vec<String> {
         .collect()
 }
 
-fn gpu_libraries(target: Target) -> Vec<Library> {
+/// NVIDIA's CUDA 13.4 Update 1 and cuDNN 9.26 libraries the CUDA provider loads.
+fn nvidia_libraries(target: Target) -> Vec<Library> {
     match target {
         Target::Linux => {
             let cudnn = cudnn(false);
             let cudnn: Vec<&str> = cudnn.iter().map(String::as_str).collect();
             vec![
-                ort(
-                    &format!("onnxruntime-linux-x64-gpu_cuda13-{ORT_VERSION}.tgz"),
-                    244574938,
-                    "2867dec99c6a4926e8142361b9d4d1518c16c85b854b4d41d28d65d3b2c81135",
-                    &[
-                        (&format!("libonnxruntime.so.{ORT_VERSION}"), "libonnxruntime.so"),
-                        ("libonnxruntime_providers_cuda.so", "libonnxruntime_providers_cuda.so"),
-                        ("libonnxruntime_providers_shared.so", "libonnxruntime_providers_shared.so"),
-                    ],
-                ),
                 wheel(
                     "98/8a/3431271f6344874b8f1ac03f16b3d679c91493f8da63f716160403e6d0a0/nvidia_cuda_runtime-13.4.92-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
                     2494438,
@@ -190,9 +259,7 @@ fn gpu_libraries(target: Target) -> Vec<Library> {
         Target::Windows => {
             let cudnn = cudnn(true);
             let cudnn: Vec<&str> = cudnn.iter().map(String::as_str).collect();
-            let names = ["onnxruntime.dll", "onnxruntime_providers_cuda.dll", "onnxruntime_providers_shared.dll"];
             vec![
-                ort(&format!("onnxruntime-win-x64-gpu_cuda13-{ORT_VERSION}.zip"), 309484217, "d332ccf84acb769a11364cddd4e8d2992a168d16be472d5ba70b279b644552f5", &names.map(|n| (n, n))),
                 wheel(
                     "86/00/d5436004268f049214193659ebc36550b5ef3925c3d13b4cc980e13be6f5/nvidia_cuda_runtime-13.4.92-py3-none-win_amd64.whl",
                     2778543,
@@ -233,20 +300,6 @@ fn gpu_libraries(target: Target) -> Vec<Library> {
     }
 }
 
-fn cpu_libraries(target: Target) -> Vec<Library> {
-    match target {
-        Target::Linux => vec![ort(
-            &format!("onnxruntime-linux-x64-{ORT_VERSION}.tgz"),
-            11408003,
-            "cc5c72baf5ae5c8238a6841f0897227be2d02826b9cf98eaf02fdefaeeb03a57",
-            &[(&format!("libonnxruntime.so.{ORT_VERSION}"), "libonnxruntime.so")],
-        )],
-        Target::Windows => {
-            vec![ort(&format!("onnxruntime-win-x64-{ORT_VERSION}.zip"), 82887349, "3958d8a44984160692c1b4ffd0de3cb48f8c39f9d34bb31e433db06e30b82195", &[("onnxruntime.dll", "onnxruntime.dll")])]
-        }
-    }
-}
-
 /// Only what the worker reads: the HuBERT checkpoint and the RMVPE network.
 fn rvc_assets() -> Vec<Asset> {
     vec![
@@ -263,18 +316,38 @@ fn rvc_assets() -> Vec<Asset> {
 
 /// The GPU runtime on a PC with an NVIDIA driver, else the CPU one; both in the same folder.
 pub fn rvc_runtime(target: Target, gpu: bool) -> Runtime {
-    let libraries = if gpu { gpu_libraries(target) } else { cpu_libraries(target) };
+    runtime_with(target, gpu, OrtSource::NuGet)
+}
+
+/// The same runtime as set up with ONNX Runtime from GitHub ([`OrtSource`]).
+fn earlier_rvc_runtime(target: Target, gpu: bool) -> Runtime {
+    runtime_with(target, gpu, OrtSource::GitHub)
+}
+
+fn runtime_with(target: Target, gpu: bool, source: OrtSource) -> Runtime {
+    let mut libraries = vec![ort(target, gpu, source)];
+    if gpu {
+        libraries.extend(nvidia_libraries(target));
+    }
     let assets = rvc_assets();
-    let mut licenses = vec![format!("https://github.com/microsoft/onnxruntime/blob/v{ORT_VERSION}/LICENSE"), format!("https://huggingface.co/{RVC_REPO}")];
+    let ort_license = match source {
+        OrtSource::NuGet => format!("https://www.nuget.org/packages/{}/{ORT_VERSION}/License", ort_package(target, gpu)),
+        OrtSource::GitHub => format!("https://github.com/microsoft/onnxruntime/blob/v{ORT_VERSION}/LICENSE"),
+    };
+    let mut licenses = vec![ort_license, format!("https://huggingface.co/{RVC_REPO}")];
     if gpu {
         licenses.push("https://docs.nvidia.com/cuda/eula/index.html".into());
         licenses.push("https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html".into());
     }
-    let disk = match (target, gpu) {
-        (Target::Linux, true) => 3_300_000_000,
-        (Target::Windows, true) => 2_700_000_000,
-        (Target::Linux, false) => 700_000_000,
-        (Target::Windows, false) => 800_000_000,
+    // The unpacked libraries and networks, plus the largest archive while it is unpacked,
+    // rounded up. The CPU build's NuGet package holds every platform's libraries (160 MB; the
+    // GitHub archive for Linux was 11 MB).
+    let disk = match (target, gpu, source) {
+        (Target::Linux, true, _) => 3_300_000_000,
+        (Target::Windows, true, _) => 2_700_000_000,
+        (Target::Linux, false, OrtSource::NuGet) => 800_000_000,
+        (Target::Linux, false, OrtSource::GitHub) => 700_000_000,
+        (Target::Windows, false, _) => 800_000_000,
     };
     Runtime {
         id: "rvc",
@@ -582,14 +655,19 @@ impl Shared {
     }
 
     /// What counts as installed: the entry, and for the CPU runtime also the GPU one (it runs
-    /// on the CPU too, so a driver missing for a moment does not make it look gone).
+    /// on the CPU too, so a driver missing for a moment does not make it look gone); each
+    /// also as set up with ONNX Runtime from GitHub ([`OrtSource`]).
     fn variants(&self, runtime: &Runtime) -> Vec<Runtime> {
         let mut variants = vec![runtime.clone()];
-        if runtime.device == "cpu"
-            && self.options.entries.is_none()
+        if self.options.entries.is_none()
             && let Some(target) = self.options.target
         {
-            variants.push(rvc_runtime(target, true));
+            let gpu = runtime.device != "cpu";
+            variants.push(earlier_rvc_runtime(target, gpu));
+            if !gpu {
+                variants.push(rvc_runtime(target, true));
+                variants.push(earlier_rvc_runtime(target, true));
+            }
         }
         variants
     }
@@ -981,14 +1059,152 @@ mod tests {
     use super::*;
 
     #[test]
-    fn versions_are_the_ones_the_python_setup_wrote() {
-        // Computed with `runtime_setup.version_of(rvc_runtime(gpu))` for each platform.
-        assert_eq!(version_of(&rvc_runtime(Target::Windows, true)), "0670490dc81d981c");
-        assert_eq!(version_of(&rvc_runtime(Target::Windows, false)), "eb13d6b8d11ff57b");
-        assert_eq!(version_of(&rvc_runtime(Target::Linux, true)), "6dc6eeaed06a95db");
-        assert_eq!(version_of(&rvc_runtime(Target::Linux, false)), "0b7aa8b46f79b83f");
-        assert_eq!(rvc_runtime(Target::Windows, true).download_bytes, 1809734073);
-        assert_eq!(rvc_runtime(Target::Linux, false).download_bytes, 562304649);
+    fn a_runtime_set_up_from_github_keeps_the_version_its_receipt_names() {
+        // Computed with `runtime_setup.version_of(rvc_runtime(gpu))` for each platform: the
+        // Python setup of 0.4 and this one until 2026-11-18 wrote these into `receipt.json`.
+        assert_eq!(version_of(&earlier_rvc_runtime(Target::Windows, true)), "0670490dc81d981c");
+        assert_eq!(version_of(&earlier_rvc_runtime(Target::Windows, false)), "eb13d6b8d11ff57b");
+        assert_eq!(version_of(&earlier_rvc_runtime(Target::Linux, true)), "6dc6eeaed06a95db");
+        assert_eq!(version_of(&earlier_rvc_runtime(Target::Linux, false)), "0b7aa8b46f79b83f");
+        assert_eq!(earlier_rvc_runtime(Target::Windows, true).download_bytes, 1809734073);
+        assert_eq!(earlier_rvc_runtime(Target::Linux, false).download_bytes, 562304649);
+    }
+
+    #[test]
+    fn onnx_runtime_comes_from_nuget_into_the_same_files() {
+        let names = |runtime: &Runtime| runtime.libraries.iter().flat_map(|l| l.members.iter().map(|(_, name)| name.clone())).collect::<Vec<_>>();
+        for target in [Target::Windows, Target::Linux] {
+            let rid = if target == Target::Windows { "win-x64" } else { "linux-x64" };
+            for gpu in [false, true] {
+                let (runtime, earlier) = (rvc_runtime(target, gpu), earlier_rvc_runtime(target, gpu));
+                let package = ort_package(target, gpu).to_lowercase();
+                assert_eq!(runtime.libraries[0].url, format!("https://api.nuget.org/v3-flatcontainer/{package}/1.31.0/{package}.1.31.0.nupkg"));
+                assert!(runtime.libraries[0].members.iter().all(|(member, _)| member.starts_with(&format!("runtimes/{rid}/native/"))));
+                // The worker finds the same files in lib/; NVIDIA's libraries and the networks are unchanged.
+                assert_eq!(names(&runtime), names(&earlier));
+                assert_eq!(runtime.libraries[1..], earlier.libraries[1..]);
+                assert_eq!(runtime.assets, earlier.assets);
+                assert!(runtime.licenses[0].starts_with("https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime"));
+                for url in runtime.libraries.iter().map(|l| &l.url).chain(runtime.assets.iter().map(|a| &a.url)) {
+                    assert!(vrct_ops::downloads::transport::validate_url(url, &SOURCE_HOSTS).is_ok(), "{url}");
+                }
+                assert!(vrct_ops::downloads::transport::validate_url(&earlier.libraries[0].url, &SOURCE_HOSTS).is_err(), "GitHub is no longer a source");
+            }
+        }
+        assert_eq!(version_of(&rvc_runtime(Target::Windows, true)), "bb4f92c2eb0a3041");
+        assert_eq!(version_of(&rvc_runtime(Target::Windows, false)), "04ac8d519383480b");
+        assert_eq!(version_of(&rvc_runtime(Target::Linux, true)), "0693837c0b632f34");
+        assert_eq!(version_of(&rvc_runtime(Target::Linux, false)), "e432cf274236db5c");
+        assert_eq!(rvc_runtime(Target::Windows, true).download_bytes, 1660697496);
+        assert_eq!(rvc_runtime(Target::Linux, false).download_bytes, 710522731);
+    }
+
+    /// The pinned libraries from their real sources through the setup's own step: fetched with
+    /// the app's transport and hosts, checked against their pins and unpacked into `lib/`.
+    /// With `VRCT_TEST_RVC_WORKER` (a built `vrct-rvc-worker`) the worker then probes them on
+    /// the CPU, or with `VRCT_TEST_RVC_GPU=1` on the GPU (`--device cuda`, no fallback). The CPU
+    /// runtime fetches 160 MB, the GPU one about 1.1 GB. `VRCT_TEST_RVC_TARGET=linux` or
+    /// `windows` fetches another platform's files (no probe then). Archives already in the
+    /// folder `VRCT_TEST_RVC_DOWNLOADS` are taken as a resumed setup takes them: only when
+    /// their size and SHA-256 match. The networks are not fetched: they are models, offered
+    /// only with the user's consent.
+    ///
+    ///     cargo test --manifest-path native/voice-conversion/Cargo.toml --lib -- --ignored pinned_libraries
+    #[test]
+    #[ignore = "fetches the pinned archives from their sources"]
+    fn pinned_libraries_come_from_their_sources() {
+        let current = Target::current();
+        let target = match std::env::var("VRCT_TEST_RVC_TARGET").as_deref() {
+            Ok("linux") => Target::Linux,
+            Ok("windows") => Target::Windows,
+            _ => current.expect("Windows or Linux on x86-64"),
+        };
+        let gpu = std::env::var_os("VRCT_TEST_RVC_GPU").is_some();
+        let mut runtime = rvc_runtime(target, gpu);
+        runtime.assets.clear();
+        let dir = tempfile::tempdir().unwrap();
+        let transport = vrct_ops::downloads::transport::Public { timeout: vrct_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() };
+        let setup = RuntimeSetup::new(SetupOptions {
+            root: dir.path().to_owned(),
+            target: Some(target),
+            transport: Arc::new(transport),
+            gpu_check: Arc::new(move || gpu),
+            worker: PathBuf::new(),
+            free_space: Arc::new(|_| None),
+            entries: Some(vec![runtime.clone()]),
+        });
+        let folder = dir.path().join("rvc");
+        if let Some(kept) = std::env::var_os("VRCT_TEST_RVC_DOWNLOADS") {
+            fs::create_dir_all(folder.join("downloads")).unwrap();
+            for name in runtime.libraries.iter().filter_map(|l| l.url.rsplit('/').next()) {
+                if Path::new(&kept).join(name).is_file() {
+                    fs::copy(Path::new(&kept).join(name), folder.join("downloads").join(name)).unwrap();
+                }
+            }
+        }
+        setup.shared.libraries(&runtime, &AtomicBool::new(false)).expect("fetched, checked and unpacked");
+        let mut found: Vec<String> = fs::read_dir(folder.join("lib")).unwrap().map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        let mut expected: Vec<String> = runtime.libraries.iter().flat_map(|l| l.members.iter().map(|(_, name)| name.clone())).collect();
+        found.sort();
+        expected.sort();
+        assert_eq!(found, expected);
+        if let Some(worker) = std::env::var_os("VRCT_TEST_RVC_WORKER")
+            && Some(target) == current
+        {
+            let device = if gpu { "cuda" } else { "cpu" };
+            let status = Command::new(worker).arg("--runtime").arg(&folder).arg("--probe").arg("--device").arg(device).status().unwrap();
+            assert!(status.success(), "the worker's probe on {device}: {status}");
+        }
+    }
+
+    fn setup_in(root: &Path, target: Target, gpu: bool) -> RuntimeSetup {
+        let offline = |_: &str| -> Result<Box<dyn vrct_ops::downloads::transport::Body>, vrct_ops::downloads::Error> { Err(vrct_ops::downloads::Error::Other("offline".into())) };
+        RuntimeSetup::new(SetupOptions {
+            root: root.to_owned(),
+            target: Some(target),
+            transport: Arc::new(offline),
+            gpu_check: Arc::new(move || gpu),
+            worker: root.join("no-worker"),
+            free_space: Arc::new(|_| None),
+            entries: None,
+        })
+    }
+
+    /// What a finished setup of `runtime` leaves in `<root>/rvc`.
+    fn place(root: &Path, runtime: &Runtime) {
+        let folder = root.join("rvc");
+        for (_, name) in runtime.libraries.iter().flat_map(|l| &l.members) {
+            fs::create_dir_all(folder.join("lib")).unwrap();
+            fs::write(folder.join("lib").join(name), "library").unwrap();
+        }
+        for asset in &runtime.assets {
+            let path = folder.join("assets").join(&asset.path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, "asset").unwrap();
+        }
+        fs::write(folder.join("receipt.json"), json!({ "version": version_of(runtime), "id": "rvc" }).to_string()).unwrap();
+    }
+
+    #[test]
+    fn a_runtime_set_up_from_github_stays_installed() {
+        for target in [Target::Windows, Target::Linux] {
+            // (set up with a GPU, offered with a GPU, installed): the CPU entry also takes the
+            // GPU runtime, as before; the GPU entry does not take the CPU one.
+            for (set_up, offered, installed) in [(false, false, true), (true, true, true), (true, false, true), (false, true, false)] {
+                let dir = tempfile::tempdir().unwrap();
+                place(dir.path(), &earlier_rvc_runtime(target, set_up));
+                let state = setup_in(dir.path(), target, offered).state();
+                assert_eq!(state["installed"].get("rvc").is_some(), installed, "{target:?}, set up {set_up}, offered {offered}");
+            }
+            // A runtime set up from NuGet, and one with a file missing.
+            let dir = tempfile::tempdir().unwrap();
+            place(dir.path(), &rvc_runtime(target, false));
+            assert!(setup_in(dir.path(), target, false).state()["installed"].get("rvc").is_some());
+            let earlier = earlier_rvc_runtime(target, false);
+            place(dir.path(), &earlier);
+            fs::remove_file(dir.path().join("rvc/lib").join(&earlier.libraries[0].members[0].1)).unwrap();
+            assert!(setup_in(dir.path(), target, false).state()["installed"].get("rvc").is_none());
+        }
     }
 
     #[test]

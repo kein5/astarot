@@ -351,6 +351,22 @@ struct ChatboxOrder {
     sent: u64,
 }
 
+impl ChatboxOrder {
+    /// Sends message `sequence` unless a later one already reached the chatbox. Only a message
+    /// that went out moves the order on: one skipped at the last moment (a stop, VRChat turned
+    /// off) leaves room for an earlier one still on its way, as Python did.
+    fn send(&mut self, sequence: u64, send: impl FnOnce() -> std::io::Result<bool>) -> std::io::Result<bool> {
+        if sequence < self.sent {
+            return Ok(false);
+        }
+        let sent = send();
+        if let Ok(true) = sent {
+            self.sent = sequence;
+        }
+        sent
+    }
+}
+
 /// What the pipeline keeps between messages.
 #[derive(Default)]
 pub(crate) struct Messages {
@@ -740,18 +756,12 @@ impl Core {
                         if snapshot.send_only_translated && snapshot.translation_enabled { "" } else { message };
                     let text = format_message(&snapshot.format_parts, &translations, original);
                     let chatbox_current = || current() && self.config().get_bool(gate);
-                    let sent = {
-                        let mut order = self.messages().chatbox.lock().unwrap();
-                        if sequence < order.sent {
-                            Ok(false)
-                        } else {
-                            let sent = self.chatbox_send(&text, &chatbox_current);
-                            if sent.is_ok() {
-                                order.sent = sequence;
-                            }
-                            sent
-                        }
-                    };
+                    let sent = self
+                        .messages()
+                        .chatbox
+                        .lock()
+                        .unwrap()
+                        .send(sequence, || self.chatbox_send(&text, &chatbox_current));
                     if let Ok(sent) = &sent {
                         Self::io_trace_chatbox(trace.as_ref(), Some(*sent));
                     }
@@ -1151,5 +1161,58 @@ mod tests {
         assert_eq!((REALTIME_SPEAKER.chatbox, REALTIME_MIC.chatbox), (None, Some("SEND_MESSAGE_TO_VRC")));
         let readings = [SPEAKER, MIC, REALTIME_MIC].map(|spec| spec.readings_by_own_language);
         assert_eq!(readings, [false, true, false]);
+    }
+
+    #[test]
+    fn only_a_message_that_went_out_moves_the_chatbox_order_on() {
+        // `test_message_delivery_revocation.py` (`osc_lifecycle_wait_rechecks_publication`).
+        let mut order = ChatboxOrder::default();
+        let sent: std::cell::RefCell<Vec<u64>> = Default::default();
+        let mut send = |sequence: u64, goes_out: bool| {
+            order.send(sequence, || {
+                if goes_out {
+                    sent.borrow_mut().push(sequence);
+                }
+                Ok(goes_out)
+            })
+        };
+        // Message 3 is skipped at the last moment: message 2, admitted earlier, still goes out.
+        assert!(!send(3, false).unwrap());
+        assert!(send(2, true).unwrap());
+        // Message 4 went out: message 3 is late and is not sent after it.
+        assert!(send(4, true).unwrap());
+        assert!(!send(3, true).unwrap());
+        // A failed send does not move the order on either.
+        assert!(order.send(6, || Err(std::io::Error::other("closed"))).is_err());
+        let mut send = |sequence: u64| order.send(sequence, || Ok(true));
+        assert!(send(5).unwrap());
+        assert_eq!(*sent.borrow(), [2, 4]);
+    }
+
+    #[test]
+    fn each_start_of_the_conversation_log_writes_its_own_file_and_a_stop_writes_nowhere() {
+        // `test_conversation_logger.py`.
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        let mut log = ConversationLog::default();
+        assert!(!log.write("[CHAT] before").unwrap(), "off: nothing is written");
+        log.start(first.path());
+        assert!(log.write("[CHAT] one").unwrap());
+        // A new start replaces the open file without a stop.
+        log.start(second.path());
+        assert!(log.write("[CHAT] two").unwrap());
+        log.stop();
+        assert!(!log.write("[CHAT] after").unwrap());
+
+        let read = |dir: &tempfile::TempDir| -> String {
+            std::fs::read_dir(dir.path())
+                .unwrap()
+                .flatten()
+                .map(|entry| std::fs::read_to_string(entry.path()).unwrap())
+                .collect()
+        };
+        let (first, second) = (read(&first), read(&second));
+        assert!(first.ends_with(" - log - INFO - [CHAT] one\n") && first.lines().count() == 1, "{first}");
+        assert!(second.ends_with(" - log - INFO - [CHAT] two\n") && second.lines().count() == 1, "{second}");
     }
 }

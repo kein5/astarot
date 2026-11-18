@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../../../../logics/test/hookHarness.js";
 
 const setup = async context => {
     const runtime = hooks(), window = eventTarget(), timers = new Map(), sent = [], edited = [], hovered = [];
     let timerId = 0;
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window, setTimeout: (fn, delay) => {
         assert.equal(delay, 500);
         timers.set(++timerId, fn);

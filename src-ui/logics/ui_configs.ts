@@ -63,8 +63,10 @@ export const ui_configs = {
     get received_message_format_parts() { return { ...this._default_message_format_parts }; },
 
     selectable_ui_languages: [
+        // i18n-exempt-start: each language is named in itself, so people can find theirs in any UI language
         {id: "en", label: "English"},
         {id: "ja", label: "日本語"},
+        // i18n-exempt-end
     ]
 };
 
@@ -78,6 +80,7 @@ export interface TranslatorStatus {
 export const translator_status: TranslatorStatus[] = [
     // Upstream VRCT's web translators (Google, Bing, Papago) are not listed: their module is
     // licensed for the official VRCT only, so VRCT-VOX could never run them.
+    // i18n-exempt-start: names of translation engines and services
     { id: "CTranslate2", label: `AI\nCTranslate2`, is_available: false, is_default: true },
     { id: "DeepL_API", label: `DeepL API`, is_available: false },
     // The official APIs of Google and NAVER, called with the user's own keys (not the web translators).
@@ -90,6 +93,7 @@ export const translator_status: TranslatorStatus[] = [
     { id: "OpenRouter_API", label: `OpenRouter API`, is_available: false },
     { id: "LMStudio", label: `LMStudio`, is_available: false },
     { id: "Ollama", label: `Ollama`, is_available: false },
+    // i18n-exempt-end
     { id: "OpenAI_Compatible", label: `OpenAI Compatible`, is_available: false },
 ];
 

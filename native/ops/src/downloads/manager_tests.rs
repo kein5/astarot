@@ -305,19 +305,87 @@ fn network_failure_removes_staging_and_preserves_unrelated_files() {
 }
 
 #[test]
-fn complete_cache_is_reverified_and_corrupt_cache_is_preserved() {
+fn complete_cache_is_reverified_and_a_damaged_one_is_downloaded_again() {
     let s = setup();
     start(&s.manager).unwrap();
     let path = model_path(&finish(&s.manager));
     start(&s.manager).unwrap();
     assert_eq!(phase(&finish(&s.manager)), "ready");
     assert_eq!(s.opened.lock().unwrap().len(), 1);
+    // Truncated, same size but other bytes (a hash failure), and gone: each is replaced by a
+    // fresh, verified download at the same place, and nothing is left beside it.
+    let same_size = vec![b'x'; CONTENT.len()];
+    for (n, damage) in [Some(b"bad cache".to_vec()), Some(same_size), None].into_iter().enumerate() {
+        match damage {
+            Some(bytes) => fs::write(&path, bytes).unwrap(),
+            None => fs::remove_file(&path).unwrap(),
+        }
+        start(&s.manager).unwrap();
+        let job = finish(&s.manager);
+        assert_eq!(phase(&job), "ready", "{job:?}");
+        assert_eq!(model_path(&job), path);
+        assert_eq!(fs::read(&path).unwrap(), CONTENT);
+        assert_eq!(s.opened.lock().unwrap().len(), n + 2);
+        assert!(partials(&s.root).is_empty());
+    }
+}
+
+#[test]
+fn a_damaged_cache_holding_anything_else_is_kept_and_fails() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    let path = model_path(&finish(&s.manager));
     fs::write(&path, b"bad cache").unwrap();
+    // A file this app did not write: the folder is not only its own, so nothing is moved.
+    fs::write(path.with_file_name("notes.txt"), b"mine").unwrap();
     start(&s.manager).unwrap();
     let job = finish(&s.manager);
     assert_eq!((phase(&job), text(&job, "error_code")), ("failed", "size_mismatch"));
     assert_eq!(fs::read(&path).unwrap(), b"bad cache");
-    assert_eq!(s.opened.lock().unwrap().len(), 1);
+    assert_eq!(fs::read(path.with_file_name("notes.txt")).unwrap(), b"mine");
+    fs::remove_file(path.with_file_name("notes.txt")).unwrap();
+
+    // No marker (placed by hand): kept as well.
+    fs::remove_file(path.with_file_name("owner.json")).unwrap();
+    start(&s.manager).unwrap();
+    assert_eq!(text(&finish(&s.manager), "error_code"), "size_mismatch");
+    assert_eq!(fs::read(&path).unwrap(), b"bad cache");
+    assert_eq!(s.opened.lock().unwrap().len(), 1, "no download over kept files");
+}
+
+#[test]
+fn a_damaged_cache_whose_staging_name_is_taken_is_kept() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    let path = model_path(&finish(&s.manager));
+    fs::write(&path, b"bad cache").unwrap();
+    let marker = fs::read_to_string(path.with_file_name("owner.json")).unwrap();
+    let name = serde_json::from_str::<serde_json::Value>(&marker).unwrap()["directory"].as_str().unwrap().to_string();
+    // Something else of the user's under that name.
+    fs::create_dir(s.root.join(&name)).unwrap();
+    fs::write(s.root.join(&name).join("keep"), b"keep").unwrap();
+    start(&s.manager).unwrap();
+    assert_eq!(text(&finish(&s.manager), "error_code"), "size_mismatch");
+    assert_eq!(fs::read(&path).unwrap(), b"bad cache");
+    assert_eq!(fs::read(s.root.join(&name).join("keep")).unwrap(), b"keep");
+}
+
+#[test]
+fn a_damaged_cache_moved_aside_by_a_run_that_stopped_is_removed_by_the_next() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    let path = model_path(&finish(&s.manager));
+    fs::write(&path, b"bad cache").unwrap();
+    // What a run that stopped right after moving it leaves: the folder under its staging name.
+    let published = path.parent().unwrap().to_path_buf();
+    let marker = fs::read_to_string(published.join("owner.json")).unwrap();
+    let name = serde_json::from_str::<serde_json::Value>(&marker).unwrap()["directory"].as_str().unwrap().to_string();
+    fs::rename(&published, s.root.join(&name)).unwrap();
+    assert_eq!(s.manager.state().get("downloaded"), Some(&Json::from(Object::new())), "not offered while aside");
+    start(&s.manager).unwrap();
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+    assert_eq!(fs::read(&path).unwrap(), CONTENT);
+    assert!(partials(&s.root).is_empty());
 }
 
 #[test]

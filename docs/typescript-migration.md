@@ -1,6 +1,6 @@
 # 画面側の TypeScript 移行計画
 
-画面側（`src-ui`）の JavaScript を TypeScript へ移す順序と切り分けです。目的と進め方の正本は Issue #544、採用の判断は [ADR-010](voice-stack/adr-010-frontend-stack.md) です。混在期の書き方（拡張子つきの import、消去できる構文だけを使うことなど）は [development.md](development.md) の「UIのTypeScriptとスタイル」にあります。
+画面側（`src-ui`）の JavaScript を TypeScript へ移す順序と切り分けです。目的と進め方の正本は Issue #544、採用の判断は [ADR-010](adr/adr-010-frontend-stack.md) です。混在期の書き方（拡張子つきの import、消去できる構文だけを使うことなど）は [development.md](development.md) の「UIのTypeScriptとスタイル」にあります。
 
 ## 方針
 
