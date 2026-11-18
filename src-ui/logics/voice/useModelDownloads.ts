@@ -2,13 +2,66 @@ import { atom, useAtom, useStore } from "jotai";
 import { useCallback, useRef } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { acceptObservation, resetObservations, sameSnapshot } from "../common/polledState.ts";
+import type { ObservedSnapshot } from "../common/polledState.ts";
 
-const catalogAtom = atom(null), stateAtom = atom({ observation_id: "0", jobs: {} });
-const errorAtom = atom(null), pendingAtom = atom(null);
-const hardwareAtom = atom({ phase: 'unknown', devices: [], observation_id: '0' });
+// The model download replies of the core (docs/voice-stack/model-downloads.md), as far as this
+// hook reads them. They are not checked here; the pages read the other fields.
+
+// /get/data/model_download_catalog.
+export interface ModelDownloadCatalog {
+    readonly [key: string]: unknown;
+}
+
+// One download: phase is "queued", "downloading", "verifying", "cancelling", "ready", "failed" and so on.
+export interface ModelDownloadJob {
+    readonly phase?: unknown;
+    readonly error_code?: unknown;
+    readonly [key: string]: unknown;
+}
+
+// /get/data/model_download_state, polled.
+export interface ModelDownloadState extends ObservedSnapshot {
+    readonly jobs: Readonly<Record<string, ModelDownloadJob>>;
+    readonly [key: string]: unknown;
+}
+
+// /get/data/model_download_hardware: phase is "unknown" until asked, then "probing", and so on.
+export interface ModelDownloadHardware extends ObservedSnapshot {
+    readonly phase: string;
+    readonly devices: readonly unknown[];
+    readonly error_code?: unknown;
+    readonly [key: string]: unknown;
+}
+
+// The models the user registered under a name (#403), as the backend sends them.
+export interface UserModels {
+    readonly models: readonly unknown[];
+    readonly [key: string]: unknown;
+}
+
+// What a page sends with a request, as far as it is read here: the model and its download.
+export interface ModelDownloadRequestData {
+    readonly id?: unknown;
+    readonly job_id?: unknown;
+    readonly [key: string]: unknown;
+}
+
+// A command waiting for its answer.
+export interface PendingModelRequest {
+    readonly endpoint: string;
+    readonly id: unknown;
+    readonly job_id: unknown;
+}
+
+const catalogAtom = atom<ModelDownloadCatalog | null>(null), stateAtom = atom<ModelDownloadState>({ observation_id: "0", jobs: {} });
+const errorAtom = atom<string | null>(null), pendingAtom = atom<PendingModelRequest[] | null>(null);
+const hardwareAtom = atom<ModelDownloadHardware>({ phase: 'unknown', devices: [], observation_id: '0' });
 // The models the user registered under a name (#403): {models: [...]} as the backend sends it,
 // null until the first answer.
-const userModelsAtom = atom(null);
+const userModelsAtom = atom<UserModels | null>(null);
+
+const hasDevices = (value: ModelDownloadHardware | null | undefined): value is ModelDownloadHardware => Array.isArray(value?.devices);
+const hasModels = (value: UserModels | null | undefined): value is UserModels => Array.isArray(value?.models);
 
 export const useModelDownloads = () => {
     const store = useStore();
@@ -19,39 +72,39 @@ export const useModelDownloads = () => {
     const { asyncStdoutToPython } = useStdoutToPython();
     const transport = useRef(asyncStdoutToPython);
     transport.current = asyncStdoutToPython;
-    const updateCatalog = useCallback(value => setCatalog(value), [setCatalog]);
-    const updateHardware = useCallback(value => {
-        if (!Array.isArray(value?.devices) || !acceptObservation(store, hardwareAtom, value)) return;
+    const updateCatalog = useCallback((value: ModelDownloadCatalog | null) => setCatalog(value), [setCatalog]);
+    const updateHardware = useCallback((value: ModelDownloadHardware | null | undefined) => {
+        if (!hasDevices(value) || !acceptObservation(store, hardwareAtom, value)) return;
         store.set(hardwareAtom, previous => sameSnapshot(previous, value) ? previous : value);
     }, [store]);
-    const updateState = useCallback(value => {
+    const updateState = useCallback((value: ModelDownloadState | null | undefined) => {
         if (!value?.jobs || !acceptObservation(store, stateAtom, value)) return false;
         store.set(stateAtom, previous => sameSnapshot(previous, value) ? previous : value);
         return true;
     }, [store]);
-    const settle = useCallback(endpoint => {
+    const settle = useCallback((endpoint: string) => {
         setPending(previous => {
             if (!previous?.some(request => request.endpoint === endpoint)) return previous;
             const remaining = previous?.filter(request => request.endpoint !== endpoint);
             return remaining?.length ? remaining : null;
         });
     }, [setPending]);
-    const acknowledge = useCallback((value, endpoint) => {
+    const acknowledge = useCallback((value: ModelDownloadState | null | undefined, endpoint: string) => {
         // A poll can overtake the command response; it must not roll back state.
         updateState(value);
         settle(endpoint);
         setError(previous => previous === "request_unconfirmed" ? null : previous);
     }, [updateState, settle, setError]);
-    const updateUserModels = useCallback(value => {
-        if (Array.isArray(value?.models)) store.set(userModelsAtom, value);
+    const updateUserModels = useCallback((value: UserModels | null | undefined) => {
+        if (hasModels(value)) store.set(userModelsAtom, value);
     }, [store]);
     // The answer to a registration, a removal or a switch: the list as it is now.
-    const acknowledgeUserModels = useCallback((value, endpoint) => {
+    const acknowledgeUserModels = useCallback((value: UserModels | null | undefined, endpoint: string) => {
         updateUserModels(value);
         settle(endpoint);
         setError(previous => previous === "request_unconfirmed" ? null : previous);
     }, [updateUserModels, settle, setError]);
-    const updateError = useCallback((value, endpoint = "") => {
+    const updateError = useCallback((value: string | null, endpoint = "") => {
         setError(value); settle(endpoint);
         if (value && endpoint.includes("model_download_hardware"))
             store.set(hardwareAtom, previous => ({ ...previous, phase: "failed", error_code: value }));
@@ -70,7 +123,7 @@ export const useModelDownloads = () => {
         updateError("backend_unavailable");
         store.set(pendingAtom, null);
         store.set(stateAtom, value => ({ ...value, jobs: Object.fromEntries(Object.entries(value.jobs).map(([id, job]) =>
-            [id, ["queued", "downloading", "verifying", "cancelling"].includes(job.phase)
+            [id, ["queued", "downloading", "verifying", "cancelling"].some(phase => phase === job.phase)
                 ? { ...job, phase: "failed", error_code: "backend_unavailable" } : job])) }));
         store.set(hardwareAtom, value => value.phase === "probing" ? { ...value, phase: "failed", error_code: "backend_unavailable" } : value);
     }, [store, updateError]);
@@ -81,14 +134,15 @@ export const useModelDownloads = () => {
         store.set(errorAtom, null); store.set(pendingAtom, null);
         store.set(hardwareAtom, { phase: 'unknown', devices: [], observation_id: '0' });
     }, [store]);
-    const send = useCallback(async (endpoint, data) => {
+    const send = useCallback(async (endpoint: string, data?: ModelDownloadRequestData): Promise<void> => {
         const isHardware = endpoint.includes('model_download_hardware');
-        let request;
+        let request: PendingModelRequest | undefined;
         if (endpoint.startsWith("/run/") && !isHardware) {
             const pending = store.get(pendingAtom);
+            // Every /run/ command but the hardware probe names its model (data.id).
             if (pending && !(endpoint === "/run/cancel_model_download" && pending.every(item =>
-                item.endpoint === "/run/apply_model_download" && item.id === data.id && item.job_id === data.job_id))) return;
-            request = { endpoint, id: data.id, job_id: data.job_id };
+                item.endpoint === "/run/apply_model_download" && item.id === data?.id && item.job_id === data?.job_id))) return;
+            request = { endpoint, id: data?.id, job_id: data?.job_id };
             setError(null); setPending([...(pending ?? []), request]);
         }
         if (isHardware && endpoint.startsWith('/run/')) store.set(hardwareAtom, { ...store.get(hardwareAtom), phase: 'probing' });

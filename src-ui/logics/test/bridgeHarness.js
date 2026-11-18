@@ -108,7 +108,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./localAsrMigration.ts": localAsrMigration,
     });
-    const virtualMic = await loadModule(new URL("../voice/useVirtualMic.js", import.meta.url), localRuntime, {
+    const virtualMic = await loadModule(new URL("../voice/useVirtualMic.ts", import.meta.url), localRuntime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./virtualMic.ts": virtualMicShapes,
     });
