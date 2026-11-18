@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
 import { flush } from "../../../logics/test/bridgeHarness.js";
 import * as lines from "../../../logics/captionOverlay/lines.ts";
@@ -15,7 +15,7 @@ const row = (id, category, message, status = "ok") => ({
 });
 
 async function setup(context, { supported = true, fail = () => null } = {}) {
-    context.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+    vi.useFakeTimers({ toFake: ["Date"], now: 1_000_000 });
     const runtime = hooks(), calls = [], notices = [];
     const state = { ready: true, enabled: false, rows: [], onlyTranslated: false,
         settings: { position: "bottom", font_size: 28, display_duration: 6, opacity: 0.6 },
@@ -64,8 +64,8 @@ async function setup(context, { supported = true, fail = () => null } = {}) {
         runtime.render(CaptionOverlayController); await flush();
     };
     await render();
-    context.after(() => runtime.unmount());
-    return { state, calls, notices, render, listeners, saved, runtime, tick: ms => context.mock.timers.tick(ms),
+    context.onTestFinished(() => runtime.unmount());
+    return { state, calls, notices, render, listeners, saved, runtime, tick: ms => vi.advanceTimersByTime(ms),
         of: name => calls.filter(([command]) => command === name).map(([, args]) => args) };
 }
 

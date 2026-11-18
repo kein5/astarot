@@ -239,11 +239,11 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 
 TTSのスイッチをオフにしたときは、そのスイッチが起動した同梱サーバーだけを止める。設定画面から起動したサーバーと、独立したRVCのスイッチは維持する。
 
-設計の経緯は`docs/voice-stack/`の ADR にある。
+設計の経緯は[`docs/adr/`](../adr/README.md)の ADR にある。
 
 ### 利用者が入れた合成音声エンジン
 
-日本語の読み上げには、利用者が入れて起動したエンジンも使える（[ADR-008](../voice-stack/adr-008-external-speech-engines.md)）。アプリはエンジンを同梱せず、入れることも起動することもしない。接続先はループバックの`http`だけで、`local_url()`で確かめる。日本語以外は今までどおりspeech.cppで読む。
+日本語の読み上げには、利用者が入れて起動したエンジンも使える（[ADR-008](../adr/adr-008-external-speech-engines.md)）。アプリはエンジンを同梱せず、入れることも起動することもしない。接続先はループバックの`http`だけで、`local_url()`で確かめる。日本語以外は今までどおりspeech.cppで読む。
 
 | エンジン | 既定のURL | 使うAPI |
 |---|---|---|

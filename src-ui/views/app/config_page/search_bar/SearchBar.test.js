@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.js";
 import * as searchTargets from "../../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 
@@ -7,12 +7,12 @@ const key = name => ({ key: name, defaultPrevented: false,
     preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} });
 
 async function setup(t, { reducedMotion = false, control = true, delayed = false, guarded = false } = {}) {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const document = { ...eventTarget(), body: {} }, window = { matchMedia: query => {
         assert.equal(query, "(prefers-reduced-motion: reduce)"); return { matches: reducedMotion };
     } };
     let cleanup;
-    t.after(() => cleanup?.());
+    t.onTestFinished(() => cleanup?.());
     stubGlobals(t, { document, window, CSS: { escape: value => value.replaceAll('"', '\\"') } });
     const ancestors = { tagName: "DETAILS", open: false, parentElement: { tagName: "DETAILS", open: false } };
     const destination = { matches: selector => selector.startsWith("input,"), closest: () => null, getClientRects: () => [1],
@@ -62,8 +62,8 @@ for (const reducedMotion of [false, true]) test(`search Enter opens ancestors an
     s.render().props.onKeyDown(key("ArrowDown"));
     s.render().props.onKeyDown(key("Enter"));
     assert.equal(s.document.activeElement, s.search); // Keep focus until the destination is mounted.
-    t.mock.timers.tick(60);
-    s.setAvailable(); t.mock.timers.tick(40);
+    vi.advanceTimersByTime(60);
+    s.setAvailable(); vi.advanceTimersByTime(40);
     assert.deepEqual(s.tabs, ["advanced_settings"]);
     assert.equal(s.ancestors.open, true); assert.equal(s.ancestors.parentElement.open, true);
     assert.equal(s.document.activeElement, s.destination);
@@ -86,7 +86,7 @@ test("search focuses an empty row temporarily and does not navigate on IME Enter
     const s = await setup(t, { control: false });
     s.render().props.onKeyDown({ ...key("Enter"), nativeEvent: { isComposing: true } });
     assert.deepEqual(s.tabs, []);
-    s.render().props.onKeyDown(key("Enter")); t.mock.timers.tick(60);
+    s.render().props.onKeyDown(key("Enter")); vi.advanceTimersByTime(60);
     assert.equal(s.document.activeElement, s.row);
     assert.equal(s.attributes.get("tabindex"), "-1");
     s.row.dispatch("blur", {});
@@ -97,11 +97,11 @@ test("search focuses an empty row temporarily and does not navigate on IME Enter
 test("search waits for the existing unsaved-changes guard before navigating or moving focus", async t => {
     const s = await setup(t, { guarded: true });
     s.render().props.onKeyDown(key("Enter"));
-    t.mock.timers.tick(2000);
+    vi.advanceTimersByTime(2000);
     assert.deepEqual(s.tabs, []);
     assert.equal(s.document.activeElement, s.search);
     assert.equal(s.ancestors.open, false);
-    s.accept(); t.mock.timers.tick(60);
+    s.accept(); vi.advanceTimersByTime(60);
     assert.deepEqual(s.tabs, ["advanced_settings"]);
     assert.equal(s.document.activeElement, s.destination);
 });

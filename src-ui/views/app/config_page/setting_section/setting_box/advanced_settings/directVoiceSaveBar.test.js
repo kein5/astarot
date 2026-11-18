@@ -5,7 +5,7 @@ import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
 
 // #429: input forwarding under the advanced settings showed a saved RVC conversion as forwarding

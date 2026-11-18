@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, stubGlobals } from "../../../../logics/test/hookHarness.js";
 
 const setup = async context => {
     const runtime = hooks(), toasts = [], timers = [];
     stubGlobals(context, { setTimeout: callback => { timers.push(callback); } });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const notification = runtime.jotai.atom({ state: "ok", data: { status: "", is_open: false, message: "" } });
     let closes = 0;
     const page = { settings: false };
