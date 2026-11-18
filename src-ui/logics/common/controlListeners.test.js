@@ -55,7 +55,7 @@ for (const timing of ["on_change", "on_change_committed"]) test(`slider retains 
     const runtime = hooks(), window = eventTarget(), sent = [];
     globalThis.window = window;
     t.onTestFinished(() => { runtime.unmount(); delete globalThis.window; });
-    const settings = await loadModule(new URL("../configs/config_page_setter/useSettingsLogics.js", import.meta.url), runtime, {
+    const settings = await loadModule(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
         "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
     });
     const { Slider } = await loadModule(new URL(`${componentRoot}slider/Slider.jsx`, import.meta.url), runtime, {

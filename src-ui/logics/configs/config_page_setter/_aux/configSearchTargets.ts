@@ -1,4 +1,4 @@
-// Where the settings search (useConfigSearch.js) leads for each text under config_page.<page>.
+// Where the settings search (useConfigSearch.ts) leads for each text under config_page.<page>.
 
 // Texts under a page's namespace that are not settings: a field's placeholder, an error, an
 // option of a choice. Listed, they would lead nowhere.

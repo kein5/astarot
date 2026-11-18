@@ -15,7 +15,7 @@ for (const [physical, ratio, scaling, narrow] of [
         hasAttribute: name => attributes.has(name),
         toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); },
     } } });
-    const { useWindow } = await loadModule(new URL("./useWindow.js", import.meta.url), hooks(), {
+    const { useWindow } = await loadModule(new URL("./useWindow.ts", import.meta.url), hooks(), {
         "@tauri-apps/api/window": {},
         "@store": { store: { appWindow: { innerSize: async () => ({ width: physical }) } },
             useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
@@ -36,7 +36,7 @@ test("the window is placed before it shows, and the UI does not move it afterwar
     const lib = await read("../../../src-tauri/src/lib.rs");
     const setup = lib.split(".setup(move |app| {")[1].split("main_window.show()")[0];
     assert.match(setup, /window_placement::apply\(&main_window/);
-    const { useWindow } = await loadModule(new URL("./useWindow.js", import.meta.url), hooks(), {
+    const { useWindow } = await loadModule(new URL("./useWindow.ts", import.meta.url), hooks(), {
         "@store": { store: { appWindow: {} }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint() {} }) },
         "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
     });
@@ -45,7 +45,7 @@ test("the window is placed before it shows, and the UI does not move it afterwar
     assert.match(routes, /endpoint: "\/get\/data\/main_window_geometry", ns: null, hook_name: null, method_name: null/);
 });
 
-const loadClosing = async (runtime, appWindow, sent) => loadModule(new URL("./useWindow.js", import.meta.url), runtime, {
+const loadClosing = async (runtime, appWindow, sent) => loadModule(new URL("./useWindow.ts", import.meta.url), runtime, {
     "@tauri-apps/api/window": {},
     "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: endpoint => sent.push(endpoint) }) },
     "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint() {} }) },

@@ -148,7 +148,7 @@ for (const [kind, base] of [["ctranslate2", "CTranslate2"]]) {
     test(`${kind}: the settings download handler sends the reviewed consent unchanged`, async () => {
         const runtime = hooks(), sent = [];
         const name = `${base}WeightTypeStatus`;
-        const { useSettingsLogics } = await loadModule(new URL("./config_page_setter/useSettingsLogics.js", import.meta.url), runtime, {
+        const { useSettingsLogics } = await loadModule(new URL("./config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
             "@store": { getStoreHook: () => () => ({ [`current${name}`]: { data: [] }, [`update${name}`]: () => {} }) },
             "@logics_common": { useNotificationStatus: () => ({}) },
             "@utils": {}, "../../voice/saveBar": {},

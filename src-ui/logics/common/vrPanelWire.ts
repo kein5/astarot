@@ -180,7 +180,7 @@ export interface VrPanelSettingEntry {
     Base_Name: string;
 }
 
-// settingsArray は SETTINGS_ARRAY (src-ui/logics/configs/config_page_setter/ui_config_setter.js)
+// settingsArray は SETTINGS_ARRAY (src-ui/logics/configs/config_page_setter/ui_config_setter.ts)
 export const vrPanelStateNames = (settingsArray: readonly VrPanelSettingEntry[]): Set<string> => {
     const names = new Set(VR_PANEL_STATE_ATOMS);
     for (const setting of settingsArray) {

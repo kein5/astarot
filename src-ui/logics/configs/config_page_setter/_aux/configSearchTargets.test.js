@@ -10,7 +10,7 @@ const pageSource = dir => readdirSync(new URL(box + dir, import.meta.url))
     .filter(name => name.endsWith(".jsx") && !name.includes(".test.")).map(name => read(`${box}${dir}/${name}`)).join("\n");
 const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// The search lists every labelled text under config_page.<page> (useConfigSearch.js) and leads
+// The search lists every labelled text under config_page.<page> (useConfigSearch.ts) and leads
 // to the element whose data-setting-id is its target, or else whose data-setting-label is its
 // label. A text listed but found nowhere on its page is a result that goes nowhere.
 for (const page of ["vr", "hotkeys", "ocr"]) test(`every ${page} result in the settings search has a place on its page`, () => {

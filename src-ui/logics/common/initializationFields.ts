@@ -1,4 +1,4 @@
-// How a setting of SETTINGS_ARRAY (ui_config_setter.js) talks to the backend.
+// How a setting of SETTINGS_ARRAY (ui_config_setter.ts) talks to the backend.
 export type SettingLogicsTemplateId =
     "get_only" | "get_list" | "get_set" | "get_set_delete" | "toggle_enable_disable" | "weight_download_status";
 

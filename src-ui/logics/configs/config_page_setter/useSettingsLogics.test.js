@@ -7,7 +7,7 @@ async function setup(context) {
     const runtime = hooks(), requests = [];
     context.onTestFinished(() => runtime.unmount());
     let entry;
-    const { useSaveButtonLogic } = await loadModule(new URL("./useSettingsLogics.js", import.meta.url), runtime, {
+    const { useSaveButtonLogic } = await loadModule(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
         "@store": {}, "@logics_common": {}, "@utils": {},
         "../../voice/saveBar": { setSaveBarEntry: (_id, value) => { entry = value; } },
     });
@@ -79,7 +79,7 @@ test("VR sliders can hand edits to the parent debounce synchronously", async con
     const writes = [], runtime = hooks();
     const props = { variable: 0, min: 0, max: 1, setter_timing: "on_change", debounce_ms: 0,
         setterFunction: value => writes.push(value) };
-    const { useSliderLogic } = await loadModule(new URL("./useSettingsLogics.js", import.meta.url), runtime, {
+    const { useSliderLogic } = await loadModule(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
         "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
     });
     runtime.render(useSliderLogic, props).onChangeFunction(0.1);

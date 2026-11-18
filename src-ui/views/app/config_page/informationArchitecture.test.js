@@ -13,7 +13,7 @@ const box = path => new URL(`./setting_section/setting_box/${path}`, import.meta
 const read = path => readFileSync(box(path), "utf8");
 const locales = Object.fromEntries(["en", "ja"].map(language =>
     [language, yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"))]));
-const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
+const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
     "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
     "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
     "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
@@ -80,7 +80,7 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     assert.equal(runtime.render(rvc.Rvc).props.children[1].props.status, "voice.input_stopped");
 
     // The settings search still finds it, on the RVC page.
-    const source = readFileSync(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), "utf8");
     assert.match(source, /tab: "rvc", setting_id: "direct_voice_settings", label: t\("voice\.input_title"\)/);
     assert.match(read("advanced_settings/DirectVoiceSettings.jsx"), /data-setting-id=\{variant === "rvc" \? "rvc_settings" : "direct_voice_settings"\}/);
 });
@@ -118,7 +118,7 @@ const searchOver = async language => {
         const text = key.split(".").reduce((node, part) => node?.[part], locales[language]);
         return typeof text === "string" ? text.replace(/\{\{(\w+)\}\}/g, (_, name) => values?.[name] ?? "") : key;
     };
-    const { useConfigSearch } = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
+    const { useConfigSearch } = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: lookup, i18n: { language } }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "translation" }, updateSelectedConfigTabId() {} }) },
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
