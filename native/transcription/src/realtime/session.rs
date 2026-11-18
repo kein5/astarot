@@ -605,4 +605,70 @@ mod tests {
         assert_eq!(base64(b"fo"), "Zm8=");
         assert_eq!(base64(b"foobar"), "Zm9vYmFy");
     }
+
+    // The ingress between the capture and the connection, after
+    // `src-python/test/test_realtime_ingress_wait.py`.
+
+    struct NoDevice;
+
+    impl CapturePlatform for NoDevice {
+        fn open(&self, _: Source, _: &Target, _: Duration, _: crate::capture::OnAudio, _: crate::capture::OnError) -> Result<Box<dyn Capture>, String> {
+            Err("asr_capture_endpoint_missing".into())
+        }
+        fn endpoints(&self, _: Source) -> Result<Vec<(Endpoint, String)>, String> {
+            Ok(Vec::new())
+        }
+        fn default_endpoint(&self, _: Source) -> Result<Endpoint, String> {
+            Err("realtime_default_endpoint_missing".into())
+        }
+    }
+
+    fn session() -> Session {
+        let options = Options { base_url: "http://127.0.0.1:9".into(), model: "m".into(), language: "ja".into(), vocabulary: Vec::new() };
+        let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
+        Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice), vrct_translation::http::direct())
+    }
+
+    fn refused_for(session: &Session) -> Option<&'static str> {
+        session.inner.ingress.lock().unwrap().reason
+    }
+
+    #[test]
+    fn the_ingress_holds_at_most_200_ms_or_20_frames() {
+        let ten_ms_frames = session();
+        for _ in 0..10 {
+            assert!(ten_ms_frames.push(vec![0; 960], Instant::now()));
+        }
+        assert!(!ten_ms_frames.push(vec![0; 960], Instant::now()), "an 11th frame of 20 ms is past 200 ms");
+        assert_eq!(refused_for(&ten_ms_frames), Some("input_overflow"));
+        assert!(ten_ms_frames.inner.ingress.lock().unwrap().frames.is_empty(), "an overflow drops what waited");
+        assert!(!ten_ms_frames.push(vec![0; 10], Instant::now()), "and refuses everything after");
+
+        let small = session();
+        for _ in 0..20 {
+            assert!(small.push(vec![0; 10], Instant::now()));
+        }
+        assert!(!small.push(vec![0; 10], Instant::now()));
+        assert_eq!(refused_for(&small), Some("input_overflow"));
+    }
+
+    #[test]
+    fn the_ingress_refuses_audio_heard_more_than_250_ms_ago() {
+        let stale = session();
+        let heard = Instant::now().checked_sub(Duration::from_millis(300)).expect("the clock runs");
+        assert!(!stale.push(vec![0; 960], heard));
+        assert_eq!(refused_for(&stale), Some("invalid_capture"));
+    }
+
+    #[test]
+    fn a_stopped_session_takes_no_audio_and_cannot_start_again() {
+        let stopped = session();
+        assert!(stopped.push(vec![0; 960], Instant::now()));
+        stopped.request_stop();
+        assert!(!stopped.push(vec![0; 960], Instant::now()));
+        assert_eq!(refused_for(&stopped), Some("stopped"));
+        assert!(stopped.inner.ingress.lock().unwrap().frames.is_empty(), "the stop dropped what waited");
+        assert_eq!(stopped.start(), Err("realtime_session_single_use"));
+        assert_eq!(stopped.state(), "closed");
+    }
 }

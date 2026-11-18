@@ -286,4 +286,58 @@ mod tests {
         assert_eq!(phrases.drain(&mut queue, &mut recognize), Ok(true));
         assert_eq!(*sent.borrow(), vec![(600, 32000, 1000), (600, 16000, 1000)]);
     }
+
+    // The phrase deadline, after `src-python/test/test_model_transcription_wait.py`.
+
+    #[test]
+    fn the_phrase_deadline_ends_the_utterance_without_sending_it_again() {
+        let mut phrases = Phrases::new(1000, 1, 0.05, 10);
+        let mut sent = 0;
+        let mut recognize = |_: &[i16]| -> Result<Option<Transcript>, ()> {
+            sent += 1;
+            Ok(Some(transcript("x")))
+        };
+        let mut queue = VecDeque::from([Clip { samples: vec![1; 100], ended: Instant::now(), cut: Cut::Silence }]);
+        assert_eq!(phrases.drain(&mut queue, &mut recognize), Ok(true));
+        let wait = phrases.wait_timeout().expect("a deadline while the utterance is open");
+        assert!(wait <= Duration::from_millis(50) + Duration::from_micros(1), "{wait:?}");
+        std::thread::sleep(Duration::from_millis(60));
+        // The deadline passed: the utterance ends, and what was already sent is not sent again.
+        assert_eq!(phrases.drain(&mut queue, &mut recognize), Ok(false));
+        assert_eq!(sent, 1);
+        assert_eq!(phrases.wait_timeout(), None, "then it waits for the next phrase");
+    }
+
+    #[test]
+    fn a_new_phrase_moves_the_deadline_and_its_boundary_is_strict() {
+        let mut phrases = Phrases::new(1000, 1, 3.0, 10);
+        let now = Instant::now();
+        let mut recognize = |_: &[i16]| -> Result<Option<Transcript>, ()> { Ok(None) };
+        let mut queue = VecDeque::from([Clip { samples: vec![1; 10], ended: now - Duration::from_secs(2), cut: Cut::Silence }]);
+        phrases.drain(&mut queue, &mut recognize).unwrap();
+        let first = phrases.wait_timeout().unwrap();
+        queue.push_back(Clip { samples: vec![1; 10], ended: now, cut: Cut::Silence });
+        phrases.drain(&mut queue, &mut recognize).unwrap();
+        let second = phrases.wait_timeout().unwrap();
+        assert!(second > first + Duration::from_millis(1900), "the deadline counts from the newest phrase: {first:?}, {second:?}");
+
+        // Exactly at the timeout a microsecond is left; after it nothing.
+        let mut phrases = Phrases::new(1000, 1, 3.0, 10);
+        let mut queue = VecDeque::from([Clip { samples: vec![1; 10], ended: Instant::now() - Duration::from_secs(3), cut: Cut::Silence }]);
+        phrases.drain(&mut queue, &mut recognize).unwrap();
+        assert!(phrases.wait_timeout().unwrap() <= Duration::from_micros(1));
+        let mut phrases = Phrases::new(1000, 1, 3.0, 10);
+        let mut queue = VecDeque::from([Clip { samples: vec![1; 10], ended: Instant::now() - Duration::from_secs(4), cut: Cut::Silence }]);
+        phrases.drain(&mut queue, &mut recognize).unwrap();
+        assert_eq!(phrases.wait_timeout(), Some(Duration::ZERO));
+    }
+
+    #[test]
+    fn a_vad_segment_the_engine_did_not_understand_counts_as_a_round_and_stores_nothing() {
+        // `test_vrct_transcription_integration.py::test_audio_transcriber_reports_asr_failure_after_vad_segment`.
+        let mut phrases = Phrases::new(1000, 1, 3.0, 10).segmented();
+        let mut queue = VecDeque::from([Clip { samples: vec![1; 500], ended: Instant::now(), cut: Cut::Silence }]);
+        assert_eq!(phrases.drain(&mut queue, &mut |_| -> Result<Option<Transcript>, ()> { Ok(None) }), Ok(true));
+        assert!(phrases.take_results().is_empty());
+    }
 }
