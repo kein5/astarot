@@ -7,6 +7,8 @@ import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraf
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
+import { VocabularyBulk } from "./VocabularyBulk.tsx";
+import { MAX_USER_TERMS, parseTerm, writtenKey } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 
 const key = endpoint => endpoint ? JSON.stringify([endpoint.cookie, endpoint.serial, endpoint.name, endpoint.media_class]) : "";
 // Select value for "follow the system default"; never a JSON endpoint key.
@@ -54,11 +56,11 @@ export const RealtimeASRSettings = () => {
     const updateSilence = value => setDraft(({ silence_duration_ms: _, ...previous }) => value ? { ...previous, silence_duration_ms: Number(value) } : previous);
     const vocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
     const updateVocabulary = values => setDraft(previous => ({ ...previous, vocabulary: { ...vocabulary, ...values } }));
-    // One keyword per entry, "written=reading,reading"; the backend validates it on save.
-    const term = newTerm.trim();
-    const written = term.split("=")[0].trim().toLowerCase();
-    const canAdd = term && written && vocabulary.terms.length < 100 && !/[\u0000-\u001f]/.test(term)
-        && !vocabulary.terms.some(row => row.split("=")[0].trim().toLowerCase() === written);
+    // One keyword per entry, "written=reading,reading", made canonical as the backend makes it;
+    // the backend checks it again on save.
+    const term = parseTerm(newTerm);
+    const canAdd = term !== null && vocabulary.terms.length < MAX_USER_TERMS
+        && !vocabulary.terms.some(row => writtenKey(row) === writtenKey(term));
     return <section data-setting-id="realtime_asr" data-unsaved={dirty || undefined} className={styles.container} aria-label={t("realtime.title")}>
         <h3>{t("realtime.title")}</h3>
         <Description text={t("realtime.scope")} />
@@ -145,6 +147,7 @@ export const RealtimeASRSettings = () => {
                 <button type="button" disabled={saving || !canAdd} onClick={() => {
                     updateVocabulary({ terms: [...vocabulary.terms, term] }); setNewTerm("");
                 }}>{t("realtime.vocabulary_add")}</button>
+                <VocabularyBulk terms={vocabulary.terms} disabled={saving} onTerms={terms => updateVocabulary({ terms })} />
             </fieldset>
             <Description text={t("realtime.save_help")} />
             <button type="submit" disabled={saving || !dirty}>{t("realtime.save")}</button>

@@ -87,6 +87,8 @@ Proper nouns such as world names and your friends' names are worth adding. The d
 
 A reading that is also an everyday word changes that word too, so choose readings that no other word shares.
 
+To add many terms, write them one per line under "Terms to add together" and press "Add all". "Copy terms" copies your terms in the same form, to move them to another PC or keep a copy. Added terms are used once you press "Save changes".
+
 ## Paste what you say into an input field
 
 With "Voice typing mode" on under Settings → "Captions and VR", what you say is transcribed and pasted into an input field in VRChat or another app. The paste goes through the clipboard.
