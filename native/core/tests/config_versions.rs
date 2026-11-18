@@ -23,6 +23,18 @@ fn read(dir: &Path) -> Map<String, Value> {
     serde_json::from_str(&std::fs::read_to_string(dir.join("config.json")).unwrap()).unwrap()
 }
 
+/// Makes the file the owner's only, as the app writes it: on Unix a file others may read is
+/// written again at start, which these tests do not want.
+fn owner_only(path: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    #[cfg(not(unix))]
+    let _ = path;
+}
+
 #[test]
 fn a_setting_this_version_does_not_know_is_written_back_as_it_was() {
     let dir = tempfile::tempdir().unwrap();
@@ -63,5 +75,53 @@ fn a_setting_this_version_does_not_know_is_written_back_as_it_was() {
     // And the next start keeps it again.
     let config = Config::open_with(environment(dir.path()), MemoryStore::new());
     assert_eq!(read(dir.path())["SETTING_OF_A_NEWER_VERSION"], newer);
+    config.close();
+}
+
+#[test]
+fn a_start_that_changes_nothing_leaves_the_file_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    // The first start writes every setting.
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    config.close();
+    drop(config);
+    let written = read(dir.path());
+    assert!(!written.is_empty());
+
+    // The same settings in another layout (as another version may write them, the keys in
+    // another order): the next start has nothing to change, so it does not write.
+    let mut reordered: Vec<(String, Value)> = written.clone().into_iter().collect();
+    reordered.reverse();
+    let compact = serde_json::to_string(&Value::Object(reordered.into_iter().collect())).unwrap();
+    std::fs::write(&path, &compact).unwrap();
+    owner_only(&path);
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), compact, "the file was written at start");
+    config.close();
+    drop(config);
+
+    // A start that changes something writes it.
+    let mut older = written.clone();
+    older.shift_remove("USAGE_PRESETS");
+    std::fs::write(&path, serde_json::to_string(&older).unwrap()).unwrap();
+    owner_only(&path);
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(read(dir.path())["USAGE_PRESETS"], json!(["all"]), "the migration was saved");
+    config.close();
+}
+
+#[cfg(unix)]
+#[test]
+fn a_file_others_may_read_is_written_at_start_for_the_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    config.close();
+    drop(config);
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
     config.close();
 }

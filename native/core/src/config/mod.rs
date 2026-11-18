@@ -21,6 +21,8 @@
 //!   old one, under the byte lock of `config.json.lock` that the Python backend also took. Most
 //!   changes are saved 2 s after the last one; a few at once. A failed save is reported once,
 //!   tried again every 30 s while the values stay in memory, and its recovery is reported too.
+//!   At start the file is written only when that changes what it holds (or, on Unix, when others
+//!   may read it): the Python backend wrote it on every start (#560).
 //! - API keys are not written to `config.json` but to a store of their own ([`secrets`]: the OS
 //!   credential store). Keys found in the file (written by an older version), and keys the
 //!   store finds only in `secrets.json` (written by 0.5), are moved there when the settings are
@@ -240,8 +242,8 @@ fn failure_reason(error: &io::Error) -> &'static str {
 }
 
 impl Config {
-    /// Fills in the defaults, reads `config.json` and saves it back, as a start did. The keys
-    /// go to the app's store ([`secrets::default_store`]).
+    /// Fills in the defaults, reads `config.json` and saves it back when that changes it. The
+    /// keys go to the app's store ([`secrets::default_store`]).
     pub fn open(env: Environment) -> Arc<Config> {
         let store = secrets::default_store(&env);
         Self::open_with(env, store)
@@ -685,6 +687,18 @@ impl Config {
 
     /// Writes `config.json` now (`saveConfigToFile`), after handing changed keys to the store.
     pub fn save_now(&self) {
+        self.save(false);
+    }
+
+    /// The start-up save: as [`Config::save_now`], but the file is left alone when it already
+    /// holds what would be written (#560). Starting a version then does not rewrite the file of
+    /// another one, and does not touch it at all when nothing changed. On Unix a file others may
+    /// read is written anyway, so that it becomes the owner's only.
+    fn save_if_changed(&self) {
+        self.save(true);
+    }
+
+    fn save(&self, only_if_changed: bool) {
         let has_secrets = self.state.lock().unwrap().secrets.left();
         if has_secrets {
             self.flush_secrets();
@@ -695,7 +709,12 @@ impl Config {
             if !state.loaded {
                 return;
             }
-            self.snapshot(&state)
+            let snapshot = self.snapshot(&state);
+            // The comparison is by keys and values; the order of the keys does not matter.
+            if only_if_changed && snapshot == state.saved && owner_only(&self.path()) {
+                return;
+            }
+            snapshot
         };
         let result = write_config(&self.path(), &Value::Object(snapshot));
         let mut state = self.state.lock().unwrap();
@@ -789,7 +808,7 @@ impl Config {
                 }
                 state.loaded = true;
                 drop(state);
-                self.save_now();
+                self.save_if_changed();
             }
             Err(_) => {
                 // The file stays as it is; the keys in the store are still used.
@@ -1057,6 +1076,21 @@ pub fn to_python_json(value: &Value) -> String {
     let mut serializer = serde_json::Serializer::with_formatter(&mut out, formatter);
     serde::Serialize::serialize(value, &mut serializer).expect("writing to memory does not fail");
     String::from_utf8(out).expect("serde_json writes UTF-8")
+}
+
+/// Whether only the owner may read the file, as [`write_config`] leaves it. Only Unix is checked:
+/// elsewhere the file keeps the folder's permissions however it is written.
+fn owner_only(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::metadata(path).is_ok_and(|metadata| metadata.permissions().mode() & 0o077 == 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        true
+    }
 }
 
 /// Writes the file under the shared lock, through a fresh temporary file and a rename.
