@@ -6,7 +6,7 @@ import os
 from urllib.parse import urlsplit
 
 import pytest
-from ui_details import open_setup
+from ui_details import open_more_settings, open_setup
 from ui_details import open_engine_settings
 from models.model_downloads.manager import Downloads
 from models.tts.settings import VoiceSettings
@@ -14,6 +14,12 @@ from test_speech_servers_ui import ui as ui
 
 # Shared pytest fixtures are intentionally re-exported for discovery.
 __all__ = ['ui']
+
+
+def rvc_input(page):
+    """The RVC form's input: the RVC page also has input forwarding, in its 「詳細設定」 (#554)."""
+    return page.get_by_role("region", name="Voice changer (RVC)").get_by_label("Input to forward", exact=True)
+
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("VRCT_TEST_SPEECH_UI") != "1", reason="opt-in browser integration"
@@ -213,15 +219,18 @@ def test_separate_pages_search_and_asr_placement(pages):
     assert not any(ep.startswith("/run/start_") for ep, _ in peer.sent)
 
 
-def test_device_route_is_first_and_setup_status_does_not_enable_resume(pages):
+def test_device_route_is_in_more_settings_and_setup_status_does_not_enable_resume(pages):
     from playwright.sync_api import expect
 
     page, peer, reply = pages
     page.get_by_role("button", name="Device", exact=True).click()
+    # The page opens on the microphone; the route is set once, in 「詳細設定」 (#554).
     assert (
         page.locator("main [data-setting-id]").first.get_attribute("data-setting-id")
-        == "voice_route"
+        == "mic_host_device"
     )
+    assert page.locator("details[data-advanced] [data-setting-id='voice_route']").count() == 1
+    open_more_settings(page)
     peer.voice["routing"] = "managed"
     reply(
         "/get/data/voice_route",
@@ -250,7 +259,7 @@ def test_rvc_can_prepare_route_without_losing_model_or_output_settings(pages):
     expect(
         page.get_by_text("Choose an RVC runtime and a trained voice model", exact=False)
     ).to_have_count(1)
-    page.get_by_label("Input to forward", exact=True).select_option(
+    rvc_input(page).select_option(
         label="Test microphone"
     )
     open_setup(page)
@@ -267,7 +276,7 @@ def test_rvc_can_prepare_route_without_losing_model_or_output_settings(pages):
     ).to_have_count(0)
     assert peer.voice == dict(previous, routing="managed")
     expect(model).to_have_value("/permitted/model.pth")
-    expect(page.get_by_label("Input to forward", exact=True)).not_to_have_value("")
+    expect(rvc_input(page)).not_to_have_value("")
     assert not any(ep == "/run/start_direct_voice" for ep, _ in peer.sent)
     reply(
         "/get/data/voice_route",
@@ -358,7 +367,7 @@ def test_input_identity_survives_pages_and_stale_state(pages):
 
     page, peer, reply = pages
     page.get_by_role("button", name="Voice changer (RVC)", exact=True).click()
-    source = page.get_by_label("Input to forward", exact=True)
+    source = rvc_input(page)
     source.select_option(label="Test microphone")
     identity = source.input_value()
     page.get_by_role("button", name="Text to speech (TTS)", exact=True).click()
@@ -381,6 +390,7 @@ def test_input_identity_survives_pages_and_stale_state(pages):
     page.wait_for_function("id => window.received.includes(id)", arg=received)
     expect(source).to_be_disabled()
     page.get_by_role("button", name="Device", exact=True).click()
+    open_more_settings(page)
     expect(
         page.get_by_role("combobox", name="Audio route", exact=True)
     ).to_be_disabled()
@@ -399,7 +409,7 @@ def test_device_page_mic_preselects_rvc_input_until_rvc_page_choice(pages):
 
     peer.preferred = first
     page.get_by_role("button", name="Voice changer (RVC)", exact=True).click()
-    source = page.get_by_label("Input to forward", exact=True)
+    source = rvc_input(page)
     expect(source).to_have_value(key(first))
     # Device page Mic changed: the UI refetches and follows the new default.
     peer.preferred = second

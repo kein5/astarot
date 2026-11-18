@@ -102,7 +102,8 @@ def test_explicit_selection_no_rebind_and_stale_response_ordering(tmp_path):
             print('Unfinished navigation resources:', sorted(pending_requests))
             print('Document state:', page.evaluate('document.readyState'))
             raise
-        page.locator('summary').filter(has_text='Realtime microphone speech').click()
+        # Reading the microphone aloud is in the TTS form's 「詳細設定」 (#554).
+        page.locator('details[data-advanced] > summary').first.click()
         mic_speech = page.get_by_role('combobox', name='Realtime microphone speech', exact=True)
         expect(mic_speech).to_have_value('off')
         mic_speech.select_option('translated')
@@ -114,7 +115,8 @@ def test_explicit_selection_no_rebind_and_stale_response_ordering(tmp_path):
         assert voice_settings['mic_mode'] == 'translated' and voice_settings['direct_policy'] == 'mix'
         assert not any(r['endpoint'].startswith('/run/start') for r in sent)
         page.reload()
-        page.locator('summary').filter(has_text='Realtime microphone speech').click()
+        # Reading the microphone aloud is in the TTS form's 「詳細設定」 (#554).
+        page.locator('details[data-advanced] > summary').first.click()
         expect(mic_speech).to_have_value('translated')
         expect(policy).to_have_value('mix')
         assert not any(r['endpoint'].startswith('/run/start') for r in sent)
