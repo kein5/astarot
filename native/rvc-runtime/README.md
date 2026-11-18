@@ -84,6 +84,12 @@ run on the CPU.
 | `load-dynamic` | no ONNX Runtime at build time: `backend::load_runtime(path)` loads `libonnxruntime.so` / `onnxruntime.dll` at run time |
 | `worker` | `load-dynamic` + `cuda`, and the `vrct-rvc-worker` binary |
 
+The library and the process's one environment come from `native/onnx-runtime`
+(`vrct-onnx-runtime`), the crate the application's chat reading and local translation use
+too. `backend::load_runtime(path)` loads exactly that file (`ORT_DYLIB_PATH` is ignored) and
+refuses once the environment exists. The binaries stop ONNX Runtime's usage reports first
+thing (`vrct_onnx_runtime::disable_telemetry_for_process`).
+
 `backend::set_intra_threads(Some(n))` limits each session's CPU thread pool (ONNX Runtime's
 default is one thread per physical core and ignores the process's CPU affinity);
 `rvc-infer` and `rvc-stream` do not expose it yet, the worker does (`--threads`).
