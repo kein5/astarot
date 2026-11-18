@@ -8,14 +8,14 @@ Windows comes first below; Linux is in [its own section](#linux).
 
 1. On [GitHub Releases](https://github.com/kein5/astarot/releases), open the release marked "Latest" and download `VRCT-VOX_setup.exe` from its "Assets".
 2. Open the file you downloaded. If SmartScreen warns you, continue as the note below says.
-3. On the way, it asks for the CPU or the GPU version. On a PC with an NVIDIA GPU you can choose the GPU (CUDA) version.
+3. On the way, it asks for the CPU or the GPU version. Since 0.5.0 both hold the same files, so either choice works the same.
 4. When it is installed, start ASTAROT and go on to [First setup](./first-setup).
 
 ::: warning SmartScreen warns on first launch
 The Windows build is not code-signed. When "Windows protected your PC" appears, press "More info" and then "Run anyway".
 :::
 
-The CPU version runs on any PC. The GPU (CUDA) version is for PCs with an NVIDIA GPU: local translation can run on the GPU, and the download is larger. Speech and realtime captions (speech.cpp, which comes with the app) can use a GPU in either version.
+Since 0.5.0 the CPU version and the GPU (CUDA) version hold the same files. The GPU version used to be the one that ran local translation on an NVIDIA GPU; now local translation runs on the CPU in both. Speech and realtime captions (speech.cpp, which comes with the app) can use a GPU in either version.
 
 For VRChat to hear your speech, you also need a virtual cable ([Windows audio route](./windows-audio)).
 
@@ -24,7 +24,7 @@ For VRChat to hear your speech, you also need a virtual cable ([Windows audio ro
 To run from an unpacked folder without installing, use a ZIP.
 
 - `VRCT-VOX.zip` (CPU)
-- `VRCT-VOX_cuda.zip` (CUDA, with an NVIDIA GPU)
+- `VRCT-VOX_cuda.zip` (CUDA; since 0.5.0 the same files as `VRCT-VOX.zip`)
 
 ::: details Where settings and data are stored (Windows)
 The settings (`config.json`), logs and downloaded models are inside the folder the app is in.
