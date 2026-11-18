@@ -24,6 +24,7 @@ import {
 import {
     SectionLabelComponent,
 } from "../_components";
+import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 
 import {
     AutoClearMessageInputBoxContainer,
@@ -33,28 +34,37 @@ import {
 
 export const Appearance = () => {
     const { t } = useI18n();
+    const { currentMessageLogUiScaling, currentTransparency } = useAppearance();
 
+    // The language and the size of the whole window are what a first start may need; the rest
+    // is set once to taste, in 「詳細設定」 (#554).
     return (
         <div className={styles.container}>
             <div>
                 <SectionLabelComponent label={t("config_page.appearance.section_label_display")} />
                 <UiLanguageContainer />
                 <UiScalingContainer />
-                <MessageLogUiScalingContainer />
-                <FontFamilyContainer />
-                <TransparencyContainer />
             </div>
-            <div>
-                <SectionLabelComponent label={t("config_page.appearance.section_label_send_buttons")} />
-                <SendMessageButtonTypeContainer />
-                <ShowResendButtonContainer />
-                <AutoClearMessageInputBoxContainer />
-            </div>
-            <div>
-                <SectionLabelComponent label={t("config_page.others.section_label_reading_aids")} />
-                <ConvertMessageToHiraganaContainer />
-                <ConvertMessageToRomajiContainer />
-            </div>
+            <AdvancedSection status={t("config_page.advanced_status.appearance", {
+                log: currentMessageLogUiScaling.data ?? "-", transparency: currentTransparency.data ?? "-" })}>
+                <div>
+                    <SectionLabelComponent sub label={t("config_page.appearance.section_label_display_more")} />
+                    <MessageLogUiScalingContainer />
+                    <FontFamilyContainer />
+                    <TransparencyContainer />
+                </div>
+                <div>
+                    <SectionLabelComponent sub label={t("config_page.appearance.section_label_send_buttons")} />
+                    <SendMessageButtonTypeContainer />
+                    <ShowResendButtonContainer />
+                    <AutoClearMessageInputBoxContainer />
+                </div>
+                <div>
+                    <SectionLabelComponent sub label={t("config_page.others.section_label_reading_aids")} />
+                    <ConvertMessageToHiraganaContainer />
+                    <ConvertMessageToRomajiContainer />
+                </div>
+            </AdvancedSection>
         </div>
     );
 };

@@ -141,3 +141,49 @@ test("the settings search finds the experimental features, the VR panel among th
     assert.deepEqual(search("「実験的機能」を開く"), []);
     assert.deepEqual(search("入力音声の転送"), [["rvc", "direct_voice_settings", null]]);
 });
+
+// A page's own parts, by the names of the components it draws, with 「詳細設定」 as one part
+// that lists its own. Text and headings are left out.
+const pageParts = (source, name) => {
+    const page = source.split(`export const ${name} = () => {`)[1].split("\n};")[0];
+    const body = page.slice(page.indexOf("return ("));
+    const fold = body.includes("<AdvancedSection") ? body.split("<AdvancedSection")[1].split("</AdvancedSection>")[0] : "";
+    const names = text => [...text.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1])
+        .filter(part => !["SectionLabelComponent", "AdvancedSection"].includes(part));
+    const outside = body.replace(fold, "");
+    return { outside: names(outside), fold: names(fold) };
+};
+
+test("IA-03: the VRChat page keeps the chatbox in sight; what is set once, and the rows to the pages that hold VRChat's other settings, are in 「詳細設定」", () => {
+    const { outside, fold } = pageParts(read("vrchat/Vrchat.jsx"), "Vrchat");
+    assert.deepEqual(outside, ["VrchatPresence", "SendMessageToVrcContainer", "SendOnlyTranslatedMessagesContainer", "ChatReadingPointer"]);
+    assert.deepEqual(fold, ["EnableNotificationVrcSfxContainer", "SendReceivedMessageToVrcContainer", "VrcMicMuteSyncContainer",
+        "SendMessageFormatPartsContainer", "ReceivedMessageFormatPartsContainer", "PagePointer", "VoiceRouteSummary", "PagePointer"]);
+    // The voice route and the speech output have one place each; this page only leads there.
+    const source = read("vrchat/Vrchat.jsx");
+    assert.doesNotMatch(source, /<VoiceRouteSettings|<TtsOutputDeviceSettings/);
+    assert.match(source, /tab="tts"/);
+});
+
+test("the design and hotkeys pages keep a first start's settings in sight and fold the rest", () => {
+    const appearance = pageParts(read("appearance/Appearance.jsx"), "Appearance");
+    assert.deepEqual(appearance.outside, ["UiLanguageContainer", "UiScalingContainer"]);
+    assert.deepEqual(appearance.fold, ["MessageLogUiScalingContainer", "FontFamilyContainer", "TransparencyContainer",
+        "SendMessageButtonTypeContainer", "ShowResendButtonContainer", "AutoClearMessageInputBoxContainer",
+        "ConvertMessageToHiraganaContainer", "ConvertMessageToRomajiContainer"]);
+    const hotkeys = pageParts(read("hotkeys/Hotkeys.jsx"), "Hotkeys");
+    assert.deepEqual(hotkeys.outside, ["StopHotkeysContainer"]);
+    assert.deepEqual(hotkeys.fold, ["QuickChatHotkeyContainer", "ToggleHotkeysContainer"]);
+    const source = read("hotkeys/Hotkeys.jsx");
+    // Every hotkey still has its row: stop and mute in sight, the others in the fold.
+    for (const id of ["stop_voice", "toggle_voice_mute", "open_quick_chat", "toggle_vrct_visibility", "toggle_translation",
+        "toggle_transcription_send", "toggle_transcription_receive", "toggle_tts", "toggle_rvc"]) assert.match(source, new RegExp(`"${id}"`), id);
+});
+
+test("each fold's line has its words in both languages", () => {
+    for (const language of ["en", "ja"]) {
+        const status = locales[language].config_page.advanced_status;
+        for (const key of ["on", "off", "appearance", "hotkeys_one", "hotkeys_other", "vrchat"]) assert.equal(typeof status[key], "string", `${language}: ${key}`);
+        assert.equal(typeof locales[language].config_page.common.advanced_section, "string");
+    }
+});

@@ -501,6 +501,14 @@ config_page:
             unable_to_use_osc_query: "OSC受信またはOSCQueryの公開を開始できていません。ローカルのOSC設定を確認し、保存し直してください。"
             unable_to_use_osc_query_remote: "送信先が別のマシンのときは使えません。VRChatのミュート状態を確認できるのは、VRChatが同じPCで動いているときだけです。"
 
+    # The line beside each page's 「詳細設定」 / "More settings" fold: the values in use there.
+    advanced_status:
+        on: "オン"
+        off: "オフ"
+        vrchat: "通知音 {{sfx}}・ミュート同期 {{sync}}"
+        appearance: "ログの文字 {{log}}%・透明度 {{transparency}}%"
+        hotkeys_one: "{{count}}件にキーを割り当て済み"
+        hotkeys_other: "{{count}}件にキーを割り当て済み"
     side_menu_label: "設定のページ"
     # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
     side_menu_groups:
@@ -565,6 +573,7 @@ config_page:
         desc_vad_unavailable: "この版では使えません。発話を検出するモデルをまだ同梱していないためです。音声は「自動」か「手動」の設定で音量から区切ります。"
 
     appearance:
+        section_label_display_more: "文字と透明度"
         section_label_display: "表示"
         section_label_send_buttons: "送信ボタン"
         transparency:
@@ -903,6 +912,10 @@ config_page:
             label: "OSCの送信先"
             desc: "メッセージを送るIPアドレスとポートは「高度な設定」で変えられます。VRChatの初期設定と同じなので、ふつうは変えません。"
         open_advanced_settings: "「高度な設定」を開く"
+        section_label_more: "VRChatとの連携"
+        section_label_elsewhere: "ほかのページにある設定"
+        tts_output_pointer: "読み上げの声をVRChatのマイクへ届ける出力先は、「テキスト読み上げ（TTS）」のページで選びます。"
+        open_tts: "「テキスト読み上げ（TTS）」を開く"
 
     ocr:
         section_title: "VRChatチャット読み取り"
@@ -1005,7 +1018,7 @@ config_page:
         disabled_notice: "※設定画面を開いている間は、キーの誤作動を防ぐためホットキー機能が一時的に無効化されます。"
         section_label_quick_chat: "入力の小窓"
         section_label_toggles: "ウィンドウと機能の切り替え"
-        section_label_voice: "読み上げと声"
+        section_label_stop: "停止とミュート"
         error_in_use: "「{{action_name}}」のホットキー（{{hotkey}}）は他で使用されているため登録できません。"
         error_failed_to_register_at_launch: "「{{action_name}}」のホットキー（{{hotkey}}）は他のアプリケーションで使用されているため利用できません。"
         error_failed_to_register_all: "ホットキーを登録できなかったため、どのホットキーも使えません。設定を開いて閉じると、もう一度登録します。"

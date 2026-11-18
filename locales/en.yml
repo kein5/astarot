@@ -501,6 +501,14 @@ config_page:
             unable_to_use_osc_query: "OSC reception or OSCQuery advertisement is not ready. Check the local OSC settings and save them again."
             unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
 
+    # The line beside each page's 「詳細設定」 / "More settings" fold: the values in use there.
+    advanced_status:
+        on: "on"
+        off: "off"
+        vrchat: "Notification sound {{sfx}} · mute sync {{sync}}"
+        appearance: "Log text {{log}}% · transparency {{transparency}}%"
+        hotkeys_one: "{{count}} has a key"
+        hotkeys_other: "{{count}} have a key"
     side_menu_label: "Settings pages"
     # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
     side_menu_groups:
@@ -565,6 +573,7 @@ config_page:
         desc_vad_unavailable: "Not available in this version: the speech detection model is not included yet. Speech is cut by volume, with the Auto or Manual setting."
 
     appearance:
+        section_label_display_more: "Text and transparency"
         section_label_display: "Display"
         section_label_send_buttons: "Send buttons"
         transparency:
@@ -903,6 +912,10 @@ config_page:
             label: "OSC destination"
             desc: "The IP address and port that messages go to can be changed under Advanced. They match VRChat's defaults, so you usually leave them."
         open_advanced_settings: "Open the Advanced settings"
+        section_label_more: "Working with VRChat"
+        section_label_elsewhere: "Set on other pages"
+        tts_output_pointer: "Where speech is played so that it reaches VRChat's microphone is chosen on the Text to speech (TTS) page."
+        open_tts: "Open the Text to speech (TTS) settings"
 
     ocr:
         section_title: "Reading VRChat's chat"
@@ -1005,7 +1018,7 @@ config_page:
         disabled_notice: "* Hotkeys are temporarily disabled while the settings page is open to prevent unintended actions."
         section_label_quick_chat: "Quick Chat"
         section_label_toggles: "Window and feature toggles"
-        section_label_voice: "Speech and voice"
+        section_label_stop: "Stop and mute"
         error_in_use: "The hotkey ({{hotkey}}) for \"{{action_name}}\" cannot be registered because it is already in use elsewhere."
         error_failed_to_register_at_launch: "The hotkey ({{hotkey}}) for \"{{action_name}}\" is unavailable because it is in use by another application."
         error_failed_to_register_all: "The hotkeys could not be registered, so none of them work. Open and close Settings to register them again."

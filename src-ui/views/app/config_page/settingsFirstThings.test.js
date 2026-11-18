@@ -162,6 +162,7 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
     const vrchat = await loadModule(new URL("./setting_section/setting_box/vrchat/Vrchat.jsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
+        "@logics_configs": { useOthers: () => ({ currentEnableNotificationVrcSfx: { data: true }, currentEnableVrcMicMuteSync: { data: false } }) },
     });
     const page = runtime.render(vrchat.Vrchat);
     const last = page.props.children.at(-1);
