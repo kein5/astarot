@@ -73,8 +73,10 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
     const breakpoint = css => Number(/@container \(max-width: ([\d.]+)rem\)/.exec(css)[1]);
     assert.equal(breakpoint(voice), 16 + 18 + 1.6);
     assert.equal(breakpoint(row), breakpoint(voice));
-    // The legacy row has no side padding, so its label starts on the heading's edge.
-    assert.equal(breakpoint(legacy), 16 + 24 + 2);
+    // The legacy row has no side padding, so its label starts on the heading's edge. It has the
+    // form rows' columns and gap (#567), and stacks once a 16rem label and a 24rem field do not fit.
+    assert.equal(breakpoint(legacy), 16 + 24 + 1.6);
+    assert.match(legacy, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.6fr\)/);
     assert.match(legacy, /\.container\s*{[^}]*padding: 2rem 0;/);
     assert.match(read("setting_section/SettingSection.module.scss"), /container-type: inline-size/);
     assert.match(voice, /form, fieldset\s*{[^}]*container-type: inline-size/);
@@ -83,7 +85,7 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
         assert.match(css, /overflow-wrap: anywhere/);
         assert.ok(css.includes("@media (max-width: 700px)"), "preserve DESIGN.md's narrow-window stacking");
     }
-    assert.match(legacy, /\.container\s*{\s*flex-direction: column; align-items: stretch/);
+    assert.match(legacy, /\.container\s*{\s*grid-template-columns: minmax\(0, 1fr\); align-items: stretch/);
     for (const [width, scale] of [[400, 1], [800, 2]]) {
         const rem = 10 * scale; // root.css: 62.5% of the default 16px, then UI scale.
         const available = width - (5.6 + 2 * 1.6) * rem;

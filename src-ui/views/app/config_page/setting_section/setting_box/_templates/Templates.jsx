@@ -61,6 +61,7 @@ const TemplatesContainerWrapper = ({
     add_break_point = true,
     flex_column = false,
     remove_border_bottom = false,
+    control_align,
     setting_id,
     label,
     ...rest
@@ -71,6 +72,10 @@ const TemplatesContainerWrapper = ({
         [styles.is_break_point]: add_break_point && currentIsBreakPoint.data,
         [styles.flex_column]: flex_column,
         [styles.remove_border_bottom]: remove_border_bottom,
+        // Where the control sits in the field column: a checkbox at its right end (#473),
+        // a lone button at its start; everything else fills it (#567).
+        [styles.control_end]: control_align === "end",
+        [styles.control_start]: control_align === "start",
     });
 
     const target_setting_id = setting_id ?? rest.dropdown_id ?? rest.hotkey_id ?? rest.name ?? rest.id;
@@ -92,6 +97,7 @@ const CommonContainer = ({
     add_break_point = true,
     flex_column = false,
     remove_border_bottom = false,
+    control_align,
     Component,
     setting_id,
     ...props
@@ -105,6 +111,7 @@ const CommonContainer = ({
         add_break_point: add_break_point,
         flex_column: flex_column,
         remove_border_bottom: remove_border_bottom,
+        control_align: control_align,
         setting_id: target_setting_id,
         label: props.label,
     };
@@ -133,11 +140,12 @@ const CommonContainer = ({
 
 
 export const SliderContainer = (props) => (
-    <CommonContainer Component={Slider} {...props} />
+    // Starts where the field column starts, like every other field (#567).
+    <CommonContainer Component={Slider} no_padding={true} {...props} />
 );
 
 export const CheckboxContainer = (props) => (
-    <CommonContainer Component={Checkbox} {...props} add_break_point={false} />
+    <CommonContainer Component={Checkbox} {...props} add_break_point={false} control_align="end" />
 );
 
 export const EntryWithSaveButtonContainer = (props) => (
@@ -152,7 +160,7 @@ export const HotkeysEntryContainer = (props) => (
 );
 
 export const RadioButtonContainer = (props) => (
-    <CommonContainer Component={RadioButton} {...props} />
+    <CommonContainer Component={RadioButton} {...props} control_align="start" />
 );
 
 export const AuthKeyContainer = (props) => {
@@ -169,7 +177,7 @@ export const AuthKeyContainer = (props) => {
 };
 
 export const ActionButtonContainer = (props) => (
-    <CommonContainer Component={ActionButton} {...props} add_break_point={false}/>
+    <CommonContainer Component={ActionButton} {...props} add_break_point={false} control_align="start"/>
 );
 
 
@@ -195,11 +203,11 @@ export const WordFilterContainer = (props) => {
 };
 
 export const DownloadModelsContainer = (props) => (
-    <CommonContainer Component={DownloadModels} {...props} />
+    <CommonContainer Component={DownloadModels} {...props} control_align="start" />
 );
 
 export const ConnectionCheckButtonContainer = (props) => (
-    <CommonContainer Component={ConnectionCheckButton} {...props} />
+    <CommonContainer Component={ConnectionCheckButton} {...props} control_align="start" />
 );
 
 export const MessageFormatContainer = (props) => {

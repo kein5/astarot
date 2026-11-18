@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { test, vi } from "vitest";
 import { hooks, loadModule } from "../test/hookHarness.js";
 import * as captions from "./realtimeCaptionState.ts";
 import { keepRecentLogs } from "../common/messageLogLimit.ts";
@@ -179,4 +179,99 @@ test("production realtime and message hooks preserve logs on polls and handle ca
     render().messages.updateRealtimeCaption({ ...payload, generation: 6, namespace: "restart", revision: 3, state: "outcome", outcome: "delivered" });
     assert.equal(logs(), lostLogs);
     unsubscribe();
+});
+
+const empty = () => ({ rows: [], retired: [] });
+
+test("a caption with a malformed identity is ignored; the limits themselves are accepted", () => {
+    const start = empty();
+    const ok = changes => captions.applyRealtimeCaption(start, { ...payload, ...changes },
+        { mic: { ...owner, namespace: changes.namespace ?? owner.namespace, generation: changes.generation ?? owner.generation } });
+    for (const changes of [{ namespace: "n".repeat(129) }, { item_id: "i".repeat(257) }, { namespace: 5 }, { item_id: 5 },
+        { namespace: "" }, { item_id: "" }, { revision: 0 }, { revision: 1.5 }, { generation: -1 }, { source: "game" }, { state: "done" }]) {
+        assert.equal(ok(changes), start, JSON.stringify(changes));
+    }
+    for (const changes of [{ namespace: "n".repeat(128) }, { item_id: "i".repeat(256) }, { generation: 0 }]) {
+        assert.equal(ok(changes).rows.length, 1, JSON.stringify(changes));
+    }
+});
+
+test("a caption shows only while its own session runs", () => {
+    for (const active of [{ mic: { ...owner, generation: 5 } }, { mic: { ...owner, namespace: "other" } },
+        { mic: { ...owner, requested: false } }, { speaker: owner }]) {
+        const start = empty();
+        assert.equal(captions.applyRealtimeCaption(start, payload, active), start, JSON.stringify(active));
+    }
+});
+
+test("a new caption row reads its time as 24-hour hours and minutes, and its text as the original", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 18, 15, 4));
+    const row = captions.applyRealtimeCaption(empty(), payload, { mic: owner }).rows[0];
+    assert.equal(row.created_at, "15:04");
+    assert.deepEqual(row.messages, { original: { message: "hello", transliteration: [] }, translations: [] });
+    assert.deepEqual([row.category, row.source, row.status], ["sent", "realtime_mic", "pending"]);
+});
+
+test("a blank or discarded caption removes its row, and that caption never comes back", () => {
+    const active = { mic: owner };
+    const shown = captions.applyRealtimeCaption(empty(), payload, active);
+    const other = captions.applyRealtimeCaption(shown, { ...payload, item_id: "two" }, active);
+    const blank = captions.applyRealtimeCaption(other, { ...payload, revision: 2, text: "  " }, active);
+    assert.deepEqual(blank.rows.map(row => row.realtime.item_id), ["two"]);
+    const discarded = captions.applyRealtimeCaption(blank, { ...payload, item_id: "two", revision: 2, state: "discarded" }, active);
+    assert.deepEqual(discarded.rows, []);
+    assert.deepEqual(discarded.retired, [shown.rows[0].id, other.rows[1].id]);
+    for (const item_id of ["one", "two"]) {
+        assert.equal(captions.applyRealtimeCaption(discarded, { ...payload, item_id, revision: 9 }, active), discarded, item_id);
+    }
+});
+
+test("only the latest 256 retired captions are remembered", () => {
+    let log = empty();
+    for (let i = 0; i < 257; i++) {
+        log = captions.applyRealtimeCaption(log, { ...payload, item_id: `item${i}`, state: "discarded" }, { mic: owner });
+    }
+    assert.equal(log.retired.length, 256);
+    assert.equal(log.retired[0], "realtime:mic:4:session:item1");
+    assert.equal(log.retired.at(-1), "realtime:mic:4:session:item256");
+});
+
+test("a caption only moves forward: newer revisions, then final, then translated", () => {
+    const active = { mic: owner };
+    const partial = captions.applyRealtimeCaption(empty(), { ...payload, revision: 2 }, active);
+    for (const revision of [1, 2]) {
+        assert.equal(captions.applyRealtimeCaption(partial, { ...payload, revision, text: "late" }, active), partial, `revision ${revision}`);
+    }
+    const final = captions.applyRealtimeCaption(partial, { ...payload, revision: 3, state: "final", text: "hello there" }, active);
+    assert.equal(final.rows[0].messages.original.message, "hello there");
+    for (const state of ["partial", "final"]) {
+        assert.equal(captions.applyRealtimeCaption(final, { ...payload, revision: 4, state }, active), final, state);
+    }
+    const translated = captions.applyRealtimeCaption(final, { ...payload, revision: 4, state: "translated", text: "hello there" }, active);
+    assert.equal(translated.rows[0].realtime.state, "translated");
+    assert.equal(captions.applyRealtimeCaption(translated, { ...payload, revision: 5, state: "translated" }, active), translated);
+    // A recognized row that was settled before its translation stays settled.
+    const settled = captions.applyRealtimeCaption(final, { ...payload, state: "outcome", revision: 4, outcome: "delivered" }, {});
+    assert.equal(captions.applyRealtimeCaption(settled, { ...payload, revision: 5, state: "translated" }, active), settled);
+});
+
+test("settling one caption keeps the other rows", () => {
+    const active = { mic: owner };
+    const first = captions.applyRealtimeCaption(empty(), { ...payload, state: "final" }, active);
+    const both = captions.applyRealtimeCaption(first, { ...payload, item_id: "two" }, active);
+    const settled = captions.applyRealtimeCaption(both, { ...payload, state: "outcome", revision: 2, outcome: "failed" }, active);
+    assert.deepEqual(settled.rows.map(row => [row.realtime.item_id, row.status]), [["one", "failed"], ["two", "pending"]]);
+});
+
+test("session states: both sources update together, negative generations are refused, and starting replaces any state but ready", () => {
+    const state = { mic: owner, speaker: { ...owner, namespace: "speaker" } };
+    const both = captions.mergeRealtimeState(state, { mic: { ...owner, generation: 5 }, speaker: { ...owner, generation: 6 } });
+    assert.deepEqual([both.mic.generation, both.speaker.generation], [5, 6]);
+    assert.equal(captions.mergeRealtimeState(state, { mic: { ...owner, generation: -1 } }), state);
+    const none = {};
+    assert.equal(captions.mergeRealtimeState(none, { mic: { ...owner, generation: -1 } }), none, "even with no session yet");
+    assert.equal(captions.mergeRealtimeState({}, { mic: { ...owner, generation: 0 } }).mic.generation, 0);
+    const connecting = { mic: { ...owner, state: "connecting" } };
+    assert.equal(captions.mergeRealtimeState(connecting, { mic: { ...owner, state: "starting" } }).mic.state, "starting");
 });
