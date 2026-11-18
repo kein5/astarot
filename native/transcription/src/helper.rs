@@ -4,6 +4,7 @@
 //! that thread). Its standard error carries fixed codes only.
 
 use crate::capture::{Capture, OnAudio, OnError, Source, media_class};
+use crate::endpoint_choice;
 use std::io::Read;
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::path::{Path, PathBuf};
@@ -13,8 +14,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use vrct_audio_routing::graph::Endpoint;
 
-/// VRCT's own nodes, never captured.
-const EXCLUDED: [&str; 3] = ["vrct.managed.", "vrct.source-bridge.", "vrct.asr.capture."];
 const HEADER: usize = 32;
 const FRAME_BYTES: usize = 1920;
 const MAX_AGE_NS: u64 = 250_000_000;
@@ -117,27 +116,13 @@ fn read_graph() -> Result<std::sync::Arc<vrct_audio_routing::graph::Graph>, Stri
     Err("realtime_graph_unavailable".into())
 }
 
-/// `_select`: an endpoint that is not one of VRCT's own.
-fn select(graph: &[serde_json::Value], name: &str, source: Source) -> Result<Endpoint, String> {
-    let endpoint = vrct_audio_routing::graph::endpoint(graph, name, media_class(source)).map_err(|e| e.code)?;
-    if EXCLUDED.iter().any(|prefix| name.starts_with(prefix)) {
-        return Err("asr_capture_endpoint_invalid".into());
-    }
-    let node = vrct_audio_routing::graph::node(graph, name).map_err(|e| e.code)?;
-    let props = vrct_audio_routing::graph::props(node);
-    if props.is_some_and(|p| ["vrct.managed.route", "vrct.source.bridge", "vrct.asr.capture"].iter().any(|k| p.contains_key(*k))) {
-        return Err("asr_capture_feedback_endpoint".into());
-    }
-    Ok(endpoint)
-}
-
 /// `enumerate_endpoints`: explicit microphone sources or speaker sinks.
 pub fn endpoints(source: Source) -> Result<Vec<(Endpoint, String)>, String> {
     let graph = read_graph()?;
     let mut rows = Vec::new();
     for item in vrct_audio_routing::graph::nodes(&graph) {
         let Some(name) = vrct_audio_routing::graph::node_name(item) else { continue };
-        let Ok(endpoint) = select(&graph, name, source) else { continue };
+        let Ok(endpoint) = endpoint_choice::select(&graph, name, source) else { continue };
         let label = vrct_audio_routing::graph::props(item)
             .and_then(|p| p.get("node.description"))
             .and_then(|v| v.as_str())
@@ -149,38 +134,11 @@ pub fn endpoints(source: Source) -> Result<Vec<(Endpoint, String)>, String> {
     Ok(rows)
 }
 
-/// `default_endpoint`: the session's default, or its configured one when the default is VRCT's.
+/// `default_endpoint`: the session's default, or its configured one when the default is VRCT's
+/// (the choice is [`endpoint_choice::default_endpoint`]).
 pub fn default_endpoint(source: Source) -> Result<Endpoint, String> {
     let graph = read_graph().map_err(|_| "realtime_default_endpoint_missing".to_string())?;
-    let kind = if source == Source::Mic { "source" } else { "sink" };
-    let mut entries = std::collections::HashMap::new();
-    for item in graph.iter() {
-        if vrct_audio_routing::graph::kind(item) == Some(vrct_audio_routing::graph::METADATA)
-            && item["props"]["metadata.name"] == "default"
-        {
-            for row in item["metadata"].as_array().into_iter().flatten() {
-                if row["subject"] == 0 {
-                    if let Some(key) = row["key"].as_str() {
-                        entries.insert(key.to_string(), row["value"].clone());
-                    }
-                }
-            }
-        }
-    }
-    let mut blocked = false;
-    for key in [format!("default.audio.{kind}"), format!("default.configured.audio.{kind}")] {
-        let Some(mut value) = entries.get(&key).cloned() else { continue };
-        if let Some(text) = value.as_str() {
-            value = serde_json::from_str(text).unwrap_or(serde_json::Value::Null);
-        }
-        let Some(name) = value["name"].as_str().filter(|n| !n.is_empty()) else { continue };
-        match select(&graph, name, source) {
-            Ok(endpoint) => return Ok(endpoint),
-            Err(code) if code == "asr_capture_endpoint_invalid" || code == "asr_capture_feedback_endpoint" => blocked = true,
-            Err(_) => continue,
-        }
-    }
-    Err(if blocked { "realtime_default_endpoint_feedback" } else { "realtime_default_endpoint_missing" }.into())
+    endpoint_choice::default_endpoint(&graph, source)
 }
 
 pub struct HelperCapture {
@@ -215,11 +173,11 @@ impl HelperCapture {
         mut on_audio: OnAudio,
         mut on_error: OnError,
     ) -> Result<HelperCapture, String> {
-        if endpoint.media_class != media_class(source) || EXCLUDED.iter().any(|p| endpoint.name.starts_with(p)) {
+        if endpoint.media_class != media_class(source) || endpoint_choice::refused_name(&endpoint.name) {
             return Err("asr_capture_endpoint_invalid".into());
         }
         let graph = read_graph().map_err(|_| "asr_capture_endpoint_changed".to_string())?;
-        if select(&graph, &endpoint.name, source).ok().as_ref() != Some(endpoint) {
+        if endpoint_choice::select(&graph, &endpoint.name, source).ok().as_ref() != Some(endpoint) {
             return Err("asr_capture_endpoint_changed".into());
         }
         let stop = Arc::new(AtomicBool::new(false));

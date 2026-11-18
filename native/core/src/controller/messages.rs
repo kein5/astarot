@@ -991,7 +991,9 @@ impl Core {
         }
     }
 
-    fn output_failed(
+    /// One output of a message failed: kept in `failures` and told to the UI while the message
+    /// is still wanted (`_runMessageSink`).
+    pub(super) fn output_failed(
         &self,
         output: &str,
         spec: &Spec,

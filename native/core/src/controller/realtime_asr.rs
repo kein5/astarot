@@ -925,15 +925,22 @@ impl Core {
                         || vrct_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
             };
             let message = self.caption_message(source, &payload, spoken);
-            self.show_overlay_caption(
+            let item = payload["item_id"].as_str().unwrap_or("");
+            let shown = self.show_overlay_caption(
                 source.as_str(),
                 namespace,
-                payload["item_id"].as_str().unwrap_or(""),
+                item,
                 state,
                 payload["revision"].as_u64().unwrap_or(0),
                 &message,
                 &overlay_current,
             );
+            // A failed caption is told like a failed output of a message (`_runMessageSink`
+            // "overlay_large"); the caption still reaches the UI and the final goes on.
+            if shown.is_err() {
+                let id = format!("{namespace}:{item}");
+                self.output_failed("overlay_large", spec(source), Some(&id), &valid, &mut Vec::new());
+            }
         }
         true
     }

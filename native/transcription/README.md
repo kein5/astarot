@@ -15,6 +15,7 @@
 | `terms` | 語彙（用語辞書）を認識した文、読み上げる文、翻訳の指示に当てる（#446） | なし（中核で足した） |
 | `realtime` | speech.cpp の Realtime の WebSocket に音声を流し、字幕と確定した文を届ける | `realtime_session.py`、`speechcpp_realtime.py`、`realtime_audio.py`、`realtime_events.py`、`realtime_delivery.py` |
 | `capture` | 録音の口。Windows は WASAPI（スピーカーはループバック）、Linux は `vrct-asr-capture` | `capture_windows.py`、`capture_pipewire.py`、`capture_packets.py` |
+| `endpoint_choice` | Linux で録るノードの選び方。VRCT 自身のノードを断り、「既定に従う」では既定か、それが VRCT のものなら設定した既定を選ぶ。グラフを受け取るだけなので、どの OS でも試験できる | `capture_pipewire.py` の `_validate`、`_select`、`default_endpoint` |
 | `pcm` | 音量（`audioop.rms`）、モノラル化、サンプリング周波数の変換、WAV | `audioop`、`numpy`、`soxr` |
 
 ## Python と同じにしていること
@@ -25,6 +26,8 @@
 - 失敗の扱い。認識できなかった候補は飛ばし、どの候補でも結果がなくエンジンが失敗したときは `ASR_ERROR` で、最初の失敗の理由（`TRANSCRIPTION_API_*`）を `Failure::cause` に添えます。キーの確認はモデルの一覧が取れるか（Deepgram は `/auth/token`）で決め、待ち時間は 3 秒です。認識の待ち時間は接続 10 秒、読み書き 60 秒です。
 - Realtime の約束事。24 kHz のモノラルを 20 ms ずつ送り、250 ms より古い音声は送りません。字幕の更新は 32 件、確定した文は 4 件まで待たせます。1 つの発話は 15 秒（接続して最初の発話は 120 秒）で終わらなければ失敗です。確定した文は受け取ってから 2 秒以内に届けられなければ「届けなかった」と字幕に書きます。マイクが開いてから 5 秒、最後の音声から 2 秒、何も渡さなければ失敗です（`capture_windows.py` と Linux の補助と同じ。スピーカーは除く）。
 - VAD の区間の最長。話し続ける発話は 7 秒で切ります（`vad::MAX_SPEECH_SECONDS`）。VAD の経路では `MIC_RECORD_TIMEOUT` を使いません。
+- speech.cpp のモデルの一覧。JSON の答え（`Content-Type` が `application/json`）だけを読み、1 MiB を超える答えと形の合わない一覧を断ります。言語の選択肢が `auto` を既定にして 2 つ以上あるモデルを、言語を検出するモデルとします。話者を分けるモデルは、GPU で動いているときだけ使えるとします。
+- Linux で録るノード。VRCT 自身のノード（名前と印）と、NUL を含む名前や 512 バイトを超える名前は録りません。
 
 ## Python と違う点
 
@@ -42,7 +45,7 @@
 cargo test --manifest-path native/transcription/Cargo.toml
 ```
 
-単体の試験は音声の処理（音量、モノラル化、変換、フレーズの切り出しとまとめ方、締め切り）、言語の照合、エンジンの答え（偽の通信で）、語彙、Realtime のイベントと受け口です。エンドポイントを通した試験は中核の `tests/transcription.rs`、`tests/realtime_asr.rs`、`tests/recognition_revocation.rs` にあり、偽のデバイスと 127.0.0.1 の偽のサーバを使います。
+単体の試験は音声の処理（音量、モノラル化、変換、フレーズの切り出しとまとめ方、締め切り）、言語の照合、エンジンの答え（偽の通信で）、speech.cpp のモデルの一覧（言語の検出、話者の分離、断る一覧）、語彙、Realtime のイベント（検出した言語を含む）と受け口、Linux の既定のノードの選び方です。エンドポイントを通した試験は中核の `tests/transcription.rs`、`tests/realtime_asr.rs`、`tests/recognition_revocation.rs` にあり、偽のデバイスと 127.0.0.1 の偽のサーバを使います。
 
 本物の speech.cpp とモデルで遅れを計るときは、中核の `examples/live_asr.rs` を使います（使い方はファイルの先頭）。
 

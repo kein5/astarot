@@ -1001,6 +1001,141 @@ mod tests {
         assert_eq!(subtitles.publish_caption(bad, CaptionState::Final, 1, Direction::Send, text("x"), &mut show), Err(InvalidCaption));
     }
 
+    // The caption cases of `tests/voice/test_realtime_overlay.py` and
+    // `src-python/test/test_realtime_overlay_publication.py`.
+
+    fn caption(source: &str, namespace: &str, item: &str) -> CaptionId {
+        (source.into(), namespace.into(), item.into())
+    }
+
+    fn said(t: &str) -> Subtitle {
+        Subtitle { original: Some(t.into()), ..Subtitle::default() }
+    }
+
+    /// The originals of the log's messages and of the captions still pending, in order.
+    fn held(subtitles: &Subtitles) -> (Vec<String>, Vec<String>) {
+        let state = subtitles.state.lock().unwrap();
+        let text = |e: &Entry| e.subtitle.original.clone().unwrap_or_default();
+        (state.0.entries.iter().map(text).collect(), state.0.pending.iter().map(|(_, e)| text(e)).collect())
+    }
+
+    fn strings(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn a_translation_rewrites_its_final_and_later_updates_change_nothing() {
+        let subtitles = renderer();
+        let id = caption("mic", "n", "1");
+        let mut show = |_: &LargePicture| true;
+        subtitles.publish_caption(id.clone(), CaptionState::Partial, 1, Direction::Send, said("こん"), &mut show).unwrap();
+        assert_eq!(held(&subtitles), (strings(&[]), strings(&["こん"])), "a partial waits, out of the history");
+        subtitles.publish_caption(id.clone(), CaptionState::Partial, 2, Direction::Send, said("こんにち"), &mut show).unwrap();
+        assert_eq!(held(&subtitles), (strings(&[]), strings(&["こんにち"])), "and is replaced in place");
+        subtitles.publish_caption(id.clone(), CaptionState::Final, 3, Direction::Send, said("こんにちは"), &mut show).unwrap();
+        assert_eq!(held(&subtitles), (strings(&["こんにちは"]), strings(&[])));
+        let translated = Subtitle {
+            translations: vec![Translation { text: "Hello".into(), language: "English".into(), readings: Vec::new() }],
+            ..said("こんにちは")
+        };
+        assert_eq!(subtitles.publish_caption(id.clone(), CaptionState::Translated, 4, Direction::Send, translated, &mut show), Ok(Some(true)));
+        {
+            let state = subtitles.state.lock().unwrap();
+            assert_eq!(state.0.entries.len(), 1, "the same entry, not a second one");
+            assert_eq!(state.0.entries[0].subtitle.translations[0].text, "Hello");
+        }
+        // A late partial or final after the translation changes nothing.
+        for (state, revision) in [(CaptionState::Partial, 5), (CaptionState::Final, 6)] {
+            assert_eq!(subtitles.publish_caption(id.clone(), state, revision, Direction::Send, said("late"), &mut show), Ok(None));
+        }
+        assert_eq!(held(&subtitles), (strings(&["こんにちは"]), strings(&[])));
+    }
+
+    #[test]
+    fn discarding_a_namespace_drops_only_its_pending_captions_for_good() {
+        let subtitles = renderer();
+        let mut show = |_: &LargePicture| true;
+        for (id, text) in [(caption("mic", "n1", "a"), "a"), (caption("mic", "n2", "b"), "b"), (caption("speaker", "n1", "c"), "c")] {
+            subtitles.publish_caption(id, CaptionState::Partial, 1, Direction::Send, said(text), &mut show).unwrap();
+        }
+        let mut sizes = Vec::new();
+        subtitles.discard_captions("mic", "n1", &mut |picture| {
+            sizes.push((picture.canvas.width, picture.canvas.height));
+            true
+        });
+        assert_eq!(held(&subtitles).1, strings(&["b", "c"]), "another namespace and the other source stay");
+        // The discarded caption never comes back.
+        let again = subtitles.publish_caption(caption("mic", "n1", "a"), CaptionState::Partial, 2, Direction::Send, said("a2"), &mut show);
+        assert_eq!(again, Ok(None));
+        subtitles.discard_captions("mic", "n2", &mut |_| true);
+        subtitles.discard_captions("speaker", "n1", &mut |picture| {
+            sizes.push((picture.canvas.width, picture.canvas.height));
+            assert!(picture.canvas.pixels.as_chunks::<4>().0.iter().all(|p| p[3] == 0), "an empty log is transparent");
+            true
+        });
+        assert_eq!(sizes.last(), Some(&(1, 1)));
+        assert_eq!(held(&subtitles), (strings(&[]), strings(&[])));
+    }
+
+    #[test]
+    fn a_final_pushed_out_of_the_log_cannot_come_back_as_a_translation() {
+        let subtitles = renderer();
+        let id = caption("speaker", "n", "1");
+        let mut show = |_: &LargePicture| true;
+        subtitles.publish_caption(id.clone(), CaptionState::Final, 1, Direction::Receive, said("old"), &mut show).unwrap();
+        for i in 0..5 {
+            subtitles.publish_message(Direction::Send, said(&format!("m{i}")), &mut show).unwrap();
+        }
+        assert_eq!(held(&subtitles).0, strings(&["m0", "m1", "m2", "m3", "m4"]));
+        let translated = Subtitle {
+            translations: vec![Translation { text: "古い".into(), language: "Japanese".into(), readings: Vec::new() }],
+            ..said("old")
+        };
+        assert_eq!(subtitles.publish_caption(id, CaptionState::Translated, 2, Direction::Receive, translated, &mut show), Ok(None));
+        assert_eq!(held(&subtitles).0, strings(&["m0", "m1", "m2", "m3", "m4"]));
+    }
+
+    #[test]
+    fn a_caption_that_was_not_shown_is_taken_back_and_never_returns() {
+        let subtitles = renderer();
+        let mut show = |_: &LargePicture| true;
+        let kept = caption("mic", "n", "kept");
+        subtitles.publish_caption(kept.clone(), CaptionState::Final, 1, Direction::Send, said("kept"), &mut show).unwrap();
+        for state in [CaptionState::Partial, CaptionState::Final] {
+            let id = caption("mic", "n", if state == CaptionState::Partial { "p" } else { "f" });
+            let refused = subtitles.publish_caption(id.clone(), state, 1, Direction::Send, said("refused"), &mut |_| false);
+            assert_eq!(refused, Ok(Some(false)));
+            assert_eq!(held(&subtitles), (strings(&["kept"]), strings(&[])), "{state:?} was rolled back");
+            assert_eq!(subtitles.publish_caption(id, CaptionState::Partial, 2, Direction::Send, said("again"), &mut show), Ok(None));
+        }
+        // A translation that was not shown leaves the final as it was shown.
+        let translated = Subtitle { translations: vec![Translation { text: "x".into(), ..Translation::default() }], ..said("kept") };
+        assert_eq!(subtitles.publish_caption(kept.clone(), CaptionState::Translated, 2, Direction::Send, translated, &mut |_| false), Ok(Some(false)));
+        // A later change of another source, or a clean-up, renders without the refused texts.
+        let mut rendered = Vec::new();
+        subtitles.publish_caption(caption("speaker", "m", "1"), CaptionState::Partial, 1, Direction::Receive, said("other"), &mut |_| {
+            rendered.push(());
+            true
+        }).unwrap();
+        subtitles.discard_captions("mic", "n", &mut |_| true);
+        assert_eq!(rendered.len(), 1);
+        assert_eq!(held(&subtitles), (strings(&["kept"]), strings(&["other"])));
+        let state = subtitles.state.lock().unwrap();
+        assert!(state.0.entries[0].subtitle.translations.is_empty(), "the refused translation is not kept");
+    }
+
+    #[test]
+    fn at_most_sixteen_captions_wait_and_the_oldest_goes_for_good() {
+        let subtitles = renderer();
+        let mut show = |_: &LargePicture| true;
+        for i in 0..17 {
+            subtitles.publish_caption(caption("mic", "n", &i.to_string()), CaptionState::Partial, 1, Direction::Send, said(&i.to_string()), &mut show).unwrap();
+        }
+        let pending = held(&subtitles).1;
+        assert_eq!((pending.len(), pending[0].as_str(), pending[15].as_str()), (16, "1", "16"));
+        assert_eq!(subtitles.publish_caption(caption("mic", "n", "0"), CaptionState::Final, 2, Direction::Send, said("0"), &mut show), Ok(None));
+    }
+
     #[test]
     fn who_spoke_is_written_with_the_names_given_else_the_labels() {
         let labels = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
