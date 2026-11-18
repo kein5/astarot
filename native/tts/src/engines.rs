@@ -21,7 +21,7 @@ use crate::http::{self, HttpError};
 use crate::model_options::SynthesisOptions;
 use crate::playback::Frames;
 use crate::scheduler::{EngineFactory, Synthesizer};
-use crate::settings::{local_url, CoeiroinkParams, EngineVoice, SettingsError, SpeechRequest};
+use crate::settings::{local_url, AudioQueryScales, CoeiroinkParams, EngineVoice, SettingsError, SpeechRequest};
 
 /// On the project's test PC a 32-character sentence took about 4 s in VOICEVOX 0.26.1 and
 /// 2.4 s in COEIROINK 2.13.0. Microphone speech must start within 5 s, so long sentences
@@ -373,17 +373,18 @@ impl EngineClient {
     }
 
     /// One sentence as a WAV.
-    fn synthesize_piece(&self, text: &str, voice_id: &str, token: &CancelToken, params: &CoeiroinkParams) -> Result<Vec<u8>, SpeechError> {
+    fn synthesize_piece(&self, text: &str, voice_id: &str, token: &CancelToken, reading: &Reading) -> Result<Vec<u8>, SpeechError> {
         let timeout = Some(self.synthesis_timeout);
         match self.api {
             EngineApi::Voicevox => {
                 let path = format!("/audio_query?text={}&speaker={}", quote_plus(text), quote_plus(voice_id));
-                // The AudioQuery goes back unchanged: AivisSpeech may fail on an edited query.
                 let query = self.request("POST", &path, token, None, QUERY_LIMIT, "tts_engine_query_failed", timeout, Some("application/json"))?;
+                let query = with_scales(query, &reading.audio_query)?;
                 let path = format!("/synthesis?speaker={}", quote_plus(voice_id));
                 self.request("POST", &path, token, Some(&query), WAV_LIMIT, "tts_engine_synthesis_failed", timeout, Some("audio/wav"))
             }
             EngineApi::Coeiroink => {
+                let params = &reading.coeiroink;
                 let (speaker, style) = coeiroink_voice(voice_id).ok_or(SpeechError::new("tts_engine_voice_missing"))?;
                 let body = json!({
                     "speedScale": params.speed, "volumeScale": params.volume, "pitchScale": params.pitch, "intonationScale": params.intonation,
@@ -397,14 +398,14 @@ impl EngineClient {
     }
 
     /// Sentence by sentence. The next sentence is synthesized while this one plays.
-    /// COEIROINK reads with its default parameters; see [`Self::synthesize_stream_with`].
+    /// The engine reads with its default parameters; see [`Self::synthesize_stream_with`].
     pub fn synthesize_stream(&self, text: &str, voice: &EngineVoice, language: &str, token: &CancelToken) -> Result<Frames, SpeechError> {
-        self.synthesize_stream_with(text, voice, language, token, &CoeiroinkParams::default())
+        self.synthesize_stream_with(text, voice, language, token, &Reading::default())
     }
 
-    /// As [`Self::synthesize_stream`], with how COEIROINK reads. VOICEVOX ignores `params`.
-    pub fn synthesize_stream_with(&self, text: &str, voice: &EngineVoice, language: &str, token: &CancelToken, params: &CoeiroinkParams) -> Result<Frames, SpeechError> {
-        let params = *params;
+    /// As [`Self::synthesize_stream`], with how the engine reads: each API uses its own part of `reading`.
+    pub fn synthesize_stream_with(&self, text: &str, voice: &EngineVoice, language: &str, token: &CancelToken, reading: &Reading) -> Result<Frames, SpeechError> {
+        let params = *reading;
         if language != "ja" {
             return Err(SpeechError::new("tts_engine_language"));
         }
@@ -532,9 +533,34 @@ impl Drop for EngineFrames {
 impl Synthesizer for EngineClient {
     fn synthesize_stream(&self, request: &SpeechRequest, token: &CancelToken, _options: &SynthesisOptions) -> Result<Frames, TtsError> {
         let voice = request.engine_voice.as_ref().ok_or(SpeechError::new("tts_engine_voice_unset"))?;
-        let params = request.coeiroink.unwrap_or_default();
-        Ok(EngineClient::synthesize_stream_with(self, &request.text, voice, request.language, token, &params)?)
+        let reading = Reading { coeiroink: request.coeiroink.unwrap_or_default(), audio_query: request.audio_query.unwrap_or_default() };
+        Ok(EngineClient::synthesize_stream_with(self, &request.text, voice, request.language, token, &reading)?)
     }
+}
+
+/// How an installed engine reads one message. Each API uses its own part: COEIROINK the values
+/// of its `/v1/synthesis`, an engine with the VOICEVOX API the Scale fields of its AudioQuery.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Reading {
+    pub coeiroink: CoeiroinkParams,
+    pub audio_query: AudioQueryScales,
+}
+
+/// The engine's AudioQuery with the Scale fields that were set away from their defaults.
+/// Nothing else in it is changed (ADR-008 5.2: AivisSpeech may fail on a query edited further),
+/// and a query with every Scale at its default goes back byte for byte.
+fn with_scales(query: Vec<u8>, scales: &AudioQueryScales) -> Result<Vec<u8>, SpeechError> {
+    let changed = scales.changed();
+    if changed.is_empty() {
+        return Ok(query);
+    }
+    let failed = || SpeechError::new("tts_engine_query_failed");
+    let mut value: Value = serde_json::from_slice(&query).map_err(|_| failed())?;
+    let object = value.as_object_mut().ok_or_else(failed)?;
+    for (field, number) in changed {
+        object.insert(field.to_owned(), json!(number));
+    }
+    Ok(serde_json::to_vec(&value).expect("a JSON value serializes"))
 }
 
 /// The factory the speech bus uses for Japanese read by an installed engine.
