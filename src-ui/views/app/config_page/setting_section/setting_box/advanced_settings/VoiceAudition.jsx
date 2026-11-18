@@ -34,15 +34,15 @@ export const AuditionButton = ({ target, status }) => {
         }}>{t(pending ? "voice_audition.pending" : playing ? "voice_audition.stop" : "voice_audition.play")}</button>;
 };
 
-// Under the row: why this card cannot play the audition now, or why the last press failed. A
-// model not downloaded says nothing more: its own action is the download.
+// Under the row: why this card cannot play the audition now, or else why the last press failed.
+// What stands in the way now comes first; an older failure would be stale. A model not
+// downloaded says nothing more: its own action is the download.
 export const AuditionNote = ({ target, status }) => {
     const { t } = useI18n();
     const card = useAuditionCard(target, status);
-    if (!card) return null;
-    const { block, audition, own, playing, pending } = card;
-    if (own && audition.error && block !== "not_in_use" && block !== "not_downloaded")
-        return <p role="alert">{t([`voice_audition.errors.${audition.error}`, "voice_audition.errors.voice_audition_failed"])}</p>;
-    if (!block || block === "not_downloaded" || playing || pending) return null;
-    return <p data-voice-audition-note={block}>{t(`voice_audition.blocked.${block}`)}</p>;
+    if (!card || card.playing || card.pending) return null;
+    const { block, audition, own } = card;
+    if (block) return block === "not_downloaded" ? null : <p data-voice-audition-note={block}>{t(`voice_audition.blocked.${block}`)}</p>;
+    if (!own || !audition.error) return null;
+    return <p role="alert">{t([`voice_audition.errors.${audition.error}`, "voice_audition.errors.voice_audition_failed"])}</p>;
 };

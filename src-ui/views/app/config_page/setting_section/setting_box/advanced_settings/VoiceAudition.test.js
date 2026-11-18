@@ -67,12 +67,16 @@ test("a press waiting for the engine keeps its focus and ignores presses; one pl
     assert.equal(other.button().props.children, "voice_audition.play");
 });
 
-test("a refused or failed audition says why on the card it was pressed on", async context => {
-    const c = await card(context, { monitor: "off", audition: { phase: "idle", profile: "japanese", run: 2, error: "voice_audition_monitor_off" } });
+test("a refused or failed audition says why on the card it was pressed on, until something else stands in the way", async context => {
+    const failed = { phase: "idle", profile: "japanese", run: 2, error: "voice_audition_server_not_ready" };
+    const c = await card(context, { audition: failed });
     const alert = c.note();
     assert.equal(alert.props.role, "alert");
     // Its own text, or the general one when the code has none (the test's t() returns the keys).
-    assert.deepEqual(alert.props.children, ["voice_audition.errors.voice_audition_monitor_off", "voice_audition.errors.voice_audition_failed"]);
+    assert.deepEqual(alert.props.children, ["voice_audition.errors.voice_audition_server_not_ready", "voice_audition.errors.voice_audition_failed"]);
     // Cards that are not in use keep their own note.
     assert.equal(c.note("downloaded").props.children, "voice_audition.blocked.not_in_use");
+    // What stands in the way now replaces the older failure.
+    const muted = await card(context, { muted: true, audition: failed });
+    assert.equal(muted.note().props.children, "voice_audition.blocked.muted");
 });
