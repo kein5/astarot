@@ -27,7 +27,7 @@ async function setup(context) {
         [1, "advanced_settings/VoiceSettings.jsx", "TtsOutputDeviceSettings"]]) {
         const runtime = hooks();
         runtimes.push(runtime);
-        const draft = await loadModule(new URL("./useSettingsDraft.jsx", import.meta.url), runtime, {
+        const draft = await loadModule(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
             "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry: (_, value) => { entries[index] = value; } },
         });
         const components = await loadModule(new URL(`../../views/app/config_page/setting_section/setting_box/${file}`, import.meta.url), runtime, {

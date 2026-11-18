@@ -45,19 +45,10 @@ const PRIMARY_OPTION = "@primary";
 // Features that came from the experimental branch after their hands-on checks. Every one is
 // off until the user turns it on here (Issue #361).
 export const ExperimentalFeatures = () => {
-    const { currentIsEnabledOverlayVrPanel, toggleIsEnabledOverlayVrPanel } =
-        useVr() as { currentIsEnabledOverlayVrPanel: Current; toggleIsEnabledOverlayVrPanel: () => unknown };
-    const { asyncStdoutToPython } = useStdoutToPython() as { asyncStdoutToPython: (endpoint: string) => unknown };
+    const { currentIsEnabledOverlayVrPanel, toggleIsEnabledOverlayVrPanel } = useVr();
+    const { asyncStdoutToPython } = useStdoutToPython();
     const { currentExperimentalFeatures, setExperimentalFeatures, currentTrayCompanionEdge, setTrayCompanionEdge,
-        currentTrayCompanionMonitor, setTrayCompanionMonitor } =
-        useExperimentalFeatures() as {
-            currentExperimentalFeatures: Current;
-            setExperimentalFeatures: ListProps["setValues"];
-            currentTrayCompanionEdge: Current;
-            setTrayCompanionEdge: (edge: string) => unknown;
-            currentTrayCompanionMonitor: Current;
-            setTrayCompanionMonitor: (monitor: string) => unknown;
-        };
+        currentTrayCompanionMonitor, setTrayCompanionMonitor } = useExperimentalFeatures();
     return (
         <ExperimentalFeatureList
             features={EXPERIMENTAL_FEATURES}

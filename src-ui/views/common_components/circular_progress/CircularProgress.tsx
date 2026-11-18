@@ -1,6 +1,14 @@
-import React from "react";
+import type { ComponentPropsWithoutRef, CSSProperties } from "react";
 import styles from "./CircularProgress.module.scss";
 import clsx from "clsx";
+
+export interface CircularProgressProps extends ComponentPropsWithoutRef<"span"> {
+    variant?: "indeterminate" | "determinate";
+    // 0 to 100, for "determinate".
+    value?: number;
+    size?: string;
+    sx?: CSSProperties;
+}
 
 export const CircularProgress = ({
     variant = "indeterminate",
@@ -9,16 +17,13 @@ export const CircularProgress = ({
     sx = {},
     className,
     ...props
-}) => {
-    const rootStyle = {
+}: CircularProgressProps) => {
+    const rootStyle: CSSProperties = {
         width: size,
         height: size,
         color: sx?.color || "inherit",
         ...sx,
     };
-
-    const INDETERMINATE_DASH_ARRAY = "80, 200";
-    const INDETERMINATE_DASH_OFFSET = 0;
 
     // For determinate: dash array is 2 * PI * r = 2 * 3.14159 * 20.2 ≈ 126.92
     const CIRCUMFERENCE = 126.92;

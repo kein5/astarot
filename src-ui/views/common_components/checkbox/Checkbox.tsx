@@ -1,5 +1,24 @@
 import clsx from "clsx";
 import styles from "./Checkbox.module.scss";
+
+// A setting's value as the store holds it, as far as the box reads it.
+export interface CheckboxValue {
+    state?: string;
+    data?: unknown;
+}
+
+export interface CheckboxProps {
+    label?: string;
+    variable: CheckboxValue;
+    is_available?: boolean;
+    toggleFunction?: () => void;
+    show_label?: boolean;
+    size?: string;
+    borderWidth?: string;
+    padding?: string;
+    "aria-describedby"?: string;
+}
+
 // The on/off control of the settings pages (DESIGN.md "Components"). The settings
 // rows name it with their own label; `show_label` also draws the label beside the
 // box, for a checkbox inside a row of other controls (a device's "Auto select").
@@ -13,7 +32,7 @@ export const Checkbox = ({
     borderWidth = "0.2rem",
     padding = "1.8rem",
     "aria-describedby": describedBy,
-}) => {
+}: CheckboxProps) => {
     const is_pending = variable.state === "pending";
     const unavailable = !is_available || is_pending;
 
