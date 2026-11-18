@@ -17,7 +17,7 @@ Find the heading closest to what you see. If your voice or text does not reach V
 
 ### VRChat does not hear the speech
 
-1. If the button at the top of the main screen shows "Muted", the voice is muted. Press "Unmute" under Settings → "Device" → "Audio route".
+1. If the button at the top of the main screen shows "Muted", the voice is muted. Press "Unmute" under Settings → "Device" → "More settings" → "Audio route".
 2. Check that the output under "Text to speech (TTS)" and the microphone chosen in VRChat match (see [Windows audio route](./windows-audio) or [Linux audio route](./linux-audio)).
 3. Check that the bundled server is running. Servers are stopped again after you restart the app.
 4. VRChat's microphone test records for a moment and then plays it back. Start the test while VRChat's microphone input meter is moving.
