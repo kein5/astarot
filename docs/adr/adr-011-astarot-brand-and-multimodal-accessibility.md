@@ -85,7 +85,7 @@ PNGの小さな本文・サブタイトルは利用環境に応じて代替書�
 
 配置先：`docs/brand/astarot/`。シンボルの正本は均一版の `symbol-light.svg`。構図の参照画像（`reference-brand-guide.png` とその切り抜きの `reference-mark-crop.png`）は、ブランドボードのロックアップをそのバランスに合わせたあと、2026-11-17 にリポジトリから削除した。`tools/astarot_brand_from_reference.py` は、Outfit Bold からワードマークを作り、`symbol-light.svg` のシンボルと組んで、ワードマーク、横長・縦長のロゴ、ブランドボードの SVG を生成する。`--check` を付けると、何も書かずに現在のファイルと一致するかを確かめる。シンボル、アイコン、favicon のファイルと PNG は生成しない。使うフォントと実行の方法はツールの先頭に書いてある。`symbol-light.svg` の共有パス形状を SVG の技術原版とし、`app-icon.svg`、`favicon.svg`、`symbol-dark.svg`、`logo-horizontal-light.svg`、`logo-horizontal-dark.svg`、`logo-vertical-light.svg`、`logo-vertical-dark.svg` に**同一パス**を用いる。各 PNG・プレビューは派生物とする。
 
-現行 `docs/brand/` には `VRCT-VOX` のアイコン・ロゴ・生成ツール `tools/brand_assets.py` がある。**移行承認までこれらを上書きしない。** 実装段階で既存パイプラインに ASTAROT 原版を登録して、UI、README、Tauri の OS アイコン、インストーラー、AppImage などを一括生成・検証する。
+`docs/brand/` 直下にあった `VRCT-VOX` のアイコン、ロゴ、機能グリフと生成ツール `tools/brand_assets.py` は、移行の承認まで上書きしないことにしていた。アプリと README の表示が ASTAROT の素材に移ったので、2026-11-18 にリポジトリから削除した。いまの素材の一覧と生成の手順は `docs/brand/README.md` にある。
 
 ## 4. 製品機能の定義と境界
 
