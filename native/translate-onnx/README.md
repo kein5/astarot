@@ -6,7 +6,7 @@
 
 - アプリのローカル翻訳のエンジンです（2026-11-16 に決定。[core-integration.md](../../docs/voice-stack/core-integration.md) の「決まったこと」）。中核（`native/core`）の機能 `onnx-translation`（既定でオン）の裏にあり、アプリ（`src-tauri`）でも有効です。
 - ONNX Runtime は実行時に読み込みます（`ort` の `load-dynamic`）。ビルドでは何も取得もリンクもしません。ライブラリはまだ配布物に入っていないので、ライブラリを置かないかぎりモデルを読み込めません（`translation_runtime_missing`。中核では `TRANSLATION_MODEL_LOAD_FAILED`）。
-- モデルは `tools/translation_onnx/export.py` で作ります。作ったモデルの公開とモデル取得カタログへの登録は、まだしていません（公開は保守担当者の確認が要る外部への操作です）。
+- モデルは `tools/translation_onnx/export.py` で作ります。作ったモデルの公開とモデル取得カタログへの登録は、まだしていません（公開は保守担当者の確認が要る外部への操作です）。公開とカタログの項目の作成には `tools/translation_onnx/publish.py` を使い、項目は `native/ops/data/translation_models.json` に置きます。
 
 ## 対象モデル
 
@@ -47,7 +47,14 @@
 | MIGraphX | × | ○ | AMD の GPU（ROCm を入れた Linux） | AMD の ONNX Runtime（`onnxruntime-migraphx`。ROCm 10 からはプラグイン）と ROCm 一式（システムに入れる） | ONNX Runtime は MIT、ROCm は部品ごと（多くは MIT か Apache-2.0） | AMD が保守。キャッシュ付きのデコーダで問題が出るという報告がある | ライブラリにあれば出す（`migraphx`） |
 | WebGPU | ○ | ○ | Direct3D 12 または Vulkan の GPU | WebGPU の実行プロバイダ（1.31 ではプラグインの別の包み）。公式の zip には入っていない。大きさは計っていない | MIT（Dawn は BSD-3-Clause） | 新しい。生成 AI 向けに盛んに手が入っている | ライブラリにあれば出す（`webgpu`） |
 
-大きさは 2026-11-16 の公式の配布物（GitHub と NuGet）の値です。1 MB は 10^6 バイトです。どのプロバイダも、この PC（Intel の内蔵 GPU）で実際のモデルを動かしてはいません。
+大きさは 2026-11-16 の公式の配布物（GitHub と NuGet）の値です。1 MB は 10^6 バイトです。どのプロバイダも、実際のモデルではまだ動かしていません。
+
+DirectML は、乱数の小さなモデル（`tools/translation_onnx/tiny.py`）で、4 つの形すべてが Intel と NVIDIA の GPU で CPU と同じ訳の ID を出しました（2026-11-18、DirectML 版の ONNX Runtime 1.24.4）。そのために直したことが 2 つあります。
+
+- `export.py` は `Reshape` を `allowzero=0` で書き出します。DirectML は `allowzero=1` を断ります。2026-11-18 より前に作ったフォルダは DirectML では動きません。
+- キャッシュ付きのステップでは、原文の側のキーと値（`present.<層>.encoder.*`。行のない出力）を求めません。DirectML にこれを求めると、同じ実行のロジットとキャッシュがおかしな値になりました。
+
+詳しくは [ローカル翻訳の GPU と公開の準備](../../docs/voice-stack/local-translation-gpu-2026-11-18.md) にあります。
 
 ## 量子化の形
 
@@ -131,6 +138,15 @@ ORT_DYLIB_PATH=<onnxruntime のライブラリ> \
 VRCT_TRANSLATE_M2M100=<m2m100_418M-onnx-int8 のフォルダ> \
 VRCT_TRANSLATE_NLLB=<nllb-200-distilled-600M-onnx-int8 のフォルダ> \
 cargo test --manifest-path native/translate-onnx/Cargo.toml
+```
+
+GPU の実行プロバイダで CPU と同じ訳になるかは、`a_device_decodes_as_the_cpu_does` で確かめます。フォルダは実際のモデルでも、`tools/translation_onnx/tiny.py` が作る乱数の小さなモデルでもかまいません。小さなモデルは取得が要らないので、どの PC でも確かめられます。ライブラリにはその実行プロバイダが要ります。DirectML 版では、`DirectML.dll` のあるフォルダも `PATH` に足します。
+
+```sh
+ORT_DYLIB_PATH=<DirectML 版の onnxruntime.dll> \
+VRCT_TRANSLATE_DEVICE=directml:0 \
+VRCT_TRANSLATE_DEVICE_MODEL=<tiny-nllb-onnx-float32 のフォルダ> \
+cargo test --manifest-path native/translate-onnx/Cargo.toml --test real a_device
 ```
 
 現行の CTranslate2 との訳文の比較は `tools/translation_onnx/compare.py` で行います。手順は同じフォルダの README にあります。

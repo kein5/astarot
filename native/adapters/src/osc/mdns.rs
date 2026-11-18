@@ -8,6 +8,16 @@
 //! - Services are announced on every interface with the address `127.0.0.1`, also on
 //!   the LAN interfaces (a library that publishes only addresses in an interface's
 //!   subnet would drop it there, and VRChat could no longer resolve the service).
+//!   Joining and sending on the loopback interface alone is not enough: VRChat and this
+//!   app then do not find each other (#559, checked with VRChat in desktop mode on
+//!   Windows).
+//! - Nothing goes beyond the PC (#559). The services' only address is `127.0.0.1`, so
+//!   other machines could never use them; they could only learn that the app runs.
+//!   Packets go out with IP TTL 0 ([`MULTICAST_TTL`]): the OS hands them to this PC's
+//!   own members of the group, VRChat included, and does not send them on the network.
+//!   Packets that did not come from this PC are ignored, so another machine's query
+//!   gets no answer and its records are not learnt. python-zeroconf sent with TTL 255,
+//!   as RFC 6762 asks; VRChat and python-zeroconf both take packets with TTL 0.
 //! - PTR and TXT records live 4500 seconds, SRV and A records 120 seconds; a goodbye
 //!   repeats the records with TTL 0.
 //! - Browsing asks at once, then after 1, 2, 4, ... seconds up to an hour, and again
@@ -28,6 +38,10 @@ pub const MDNS_GROUP: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 251);
 pub const MDNS_PORT: u16 = 5353;
 pub const HOST_TTL: u32 = 120;
 pub const OTHER_TTL: u32 = 4500;
+/// The IP time-to-live of every packet sent. 0 keeps multicast on this PC: it is looped back
+/// to the PC's own members of the group and never put on the network (RFC 1112; Linux drops
+/// such a packet after its local copy, and Windows did not send it in a test, #559).
+pub const MULTICAST_TTL: u32 = 0;
 const TYPE_A: u16 = 1;
 const TYPE_PTR: u16 = 12;
 const TYPE_TXT: u16 = 16;
@@ -452,6 +466,21 @@ struct Sockets {
     listen: UdpSocket,
     /// One sending socket for each IPv4 address of the PC.
     respond: Vec<(Ipv4Addr, UdpSocket)>,
+    /// The PC's IPv4 addresses, and when they were read: what a packet from this PC comes from.
+    own: Mutex<(Instant, Vec<Ipv4Addr>)>,
+}
+
+/// How often an unknown sender makes the PC's addresses be read again: an address can change
+/// while the app runs (a new lease, a VPN), and a flood from the network must not cost a
+/// lookup for every packet.
+const OWN_ADDRESSES_REFRESH: Duration = Duration::from_secs(5);
+
+/// Whether `from` is this PC: a loopback address, or one of `own`.
+fn sent_by_this_pc(from: &SocketAddr, own: &[Ipv4Addr]) -> bool {
+    match from.ip() {
+        IpAddr::V4(address) => address.is_loopback() || own.contains(&address),
+        IpAddr::V6(address) => address.is_loopback(),
+    }
 }
 
 fn mdns_socket(bind: Ipv4Addr) -> io::Result<Socket> {
@@ -461,6 +490,17 @@ fn mdns_socket(bind: Ipv4Addr) -> io::Result<Socket> {
     socket.set_reuse_port(true)?;
     socket.bind(&SocketAddr::V4(SocketAddrV4::new(bind, MDNS_PORT)).into())?;
     Ok(socket)
+}
+
+/// The socket that sends from `address`, set up so that its packets stay on this PC; `None`
+/// when that cannot be set up (a socket that would send beyond the PC is not used).
+fn sending_socket(address: Ipv4Addr) -> Option<UdpSocket> {
+    let socket = mdns_socket(address).ok()?;
+    let configured = socket.set_multicast_if_v4(&address).is_ok()
+        && socket.set_multicast_ttl_v4(MULTICAST_TTL).is_ok()
+        && socket.set_multicast_loop_v4(true).is_ok()
+        && socket.set_read_timeout(Some(TICK)).is_ok();
+    configured.then(|| socket.into())
 }
 
 fn local_ipv4_addresses() -> Vec<Ipv4Addr> {
@@ -481,22 +521,32 @@ impl Sockets {
     fn open() -> io::Result<Self> {
         let listen = mdns_socket(Ipv4Addr::UNSPECIFIED)?;
         let mut respond = Vec::new();
-        for address in local_ipv4_addresses() {
+        let own = local_ipv4_addresses();
+        for &address in &own {
             // An interface that cannot join or send is skipped, as python-zeroconf does.
             if listen.join_multicast_v4(&MDNS_GROUP, &address).is_err() {
                 continue;
             }
-            let Ok(socket) = mdns_socket(address) else { continue };
-            let configured = socket.set_multicast_if_v4(&address).is_ok()
-                && socket.set_multicast_ttl_v4(255).is_ok()
-                && socket.set_multicast_loop_v4(true).is_ok()
-                && socket.set_read_timeout(Some(TICK)).is_ok();
-            if configured {
-                respond.push((address, socket.into()));
+            if let Some(socket) = sending_socket(address) {
+                respond.push((address, socket));
             }
         }
         listen.set_read_timeout(Some(TICK))?;
-        Ok(Self { listen: listen.into(), respond })
+        Ok(Self { listen: listen.into(), respond, own: Mutex::new((Instant::now(), own)) })
+    }
+
+    /// Whether `from` is this PC. An unknown sender reads the PC's addresses again, at most
+    /// once every [`OWN_ADDRESSES_REFRESH`].
+    fn is_this_pc(&self, from: &SocketAddr) -> bool {
+        let mut own = self.own.lock().unwrap_or_else(|e| e.into_inner());
+        if sent_by_this_pc(from, &own.1) {
+            return true;
+        }
+        if own.0.elapsed() < OWN_ADDRESSES_REFRESH {
+            return false;
+        }
+        *own = (Instant::now(), local_ipv4_addresses());
+        sent_by_this_pc(from, &own.1)
     }
 
     fn multicast(&self, message: &Message) {
@@ -520,6 +570,10 @@ impl Shared {
     }
 
     fn handle(&self, bytes: &[u8], from: SocketAddr, via: &UdpSocket) {
+        // Another machine's query is not answered and its records are not learnt (#559).
+        if !self.sockets.is_this_pc(&from) {
+            return;
+        }
         let Some(message) = decode(bytes) else { return };
         if message.is_response() {
             self.learn(&message);
@@ -834,5 +888,73 @@ mod tests {
         // The soonest to expire went first; the latest records are kept.
         assert!(state.lookup(&format!("host-{}.local.", MAX_CACHE as u32 + 499), TYPE_A).next().is_some());
         assert!(state.lookup("host-1.local.", TYPE_A).next().is_none());
+    }
+
+    #[test]
+    fn only_this_pc_counts_as_a_sender() {
+        let own = [Ipv4Addr::new(192, 168, 1, 20)];
+        let from = |ip: IpAddr| SocketAddr::new(ip, MDNS_PORT);
+        assert!(sent_by_this_pc(&from(Ipv4Addr::LOCALHOST.into()), &own));
+        assert!(sent_by_this_pc(&from(Ipv4Addr::new(127, 0, 0, 2).into()), &own));
+        assert!(sent_by_this_pc(&from(own[0].into()), &own));
+        assert!(sent_by_this_pc(&from(std::net::Ipv6Addr::LOCALHOST.into()), &own));
+        assert!(!sent_by_this_pc(&from(Ipv4Addr::new(192, 168, 1, 21).into()), &own));
+        assert!(!sent_by_this_pc(&from(Ipv4Addr::new(10, 0, 0, 1).into()), &[]));
+    }
+
+    /// An endpoint whose sockets are on loopback only: these tests open nothing on the network
+    /// (and so raise no firewall question on Windows).
+    fn shared_on_loopback() -> Shared {
+        let sockets = Sockets {
+            listen: UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap(),
+            respond: Vec::new(),
+            own: Mutex::new((Instant::now(), Vec::new())),
+        };
+        Shared { sockets, state: Mutex::new(State::default()), stopping: AtomicBool::new(false) }
+    }
+
+    #[test]
+    fn every_packet_sent_stays_on_this_pc() {
+        // #559: the announcements went out on every network the PC was on.
+        let Some(socket) = sending_socket(Ipv4Addr::LOCALHOST) else {
+            eprintln!("mDNS is not available here; skipped");
+            return;
+        };
+        assert_eq!(socket.multicast_ttl_v4().unwrap(), MULTICAST_TTL);
+        assert!(socket.multicast_loop_v4().unwrap(), "this PC's own members still hear it");
+    }
+
+    #[test]
+    fn a_packet_from_another_machine_is_ignored() {
+        let shared = shared_on_loopback();
+        let answer = encode(&Message { flags: FLAGS_RESPONSE, answers: vec![a_record(7, 120)], ..Default::default() });
+        let via = &shared.sockets.listen;
+        // TEST-NET-1 (RFC 5737) is never one of the PC's own addresses.
+        shared.handle(&answer, SocketAddr::new(Ipv4Addr::new(192, 0, 2, 7).into(), MDNS_PORT), via);
+        assert!(shared.state().cache.is_empty(), "a record from the network was learnt");
+        shared.handle(&answer, SocketAddr::new(Ipv4Addr::LOCALHOST.into(), MDNS_PORT), via);
+        assert_eq!(shared.state().cache.len(), 1);
+    }
+
+    #[test]
+    fn a_query_from_this_pc_is_still_answered() {
+        let shared = shared_on_loopback();
+        shared.state().services.push(ServiceSpec {
+            service_type: "_oscjson._tcp.local.".into(),
+            instance: "VRCT:test._oscjson._tcp.local.".into(),
+            host: "VRCT:test.oscjson.local.".into(),
+            port: 4321,
+            txt: vec!["txtvers=1".into()],
+            address: Ipv4Addr::LOCALHOST,
+        });
+        // A legacy unicast query (not from port 5353) is answered on the asker's own socket.
+        let asker = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        asker.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let query = encode(&ptr_query("_oscjson._tcp.local."));
+        shared.handle(&query, asker.local_addr().unwrap(), &shared.sockets.listen);
+        let mut buffer = [0u8; MAX_PACKET];
+        let (size, _) = asker.recv_from(&mut buffer).expect("an answer");
+        let reply = decode(&buffer[..size]).unwrap();
+        assert_eq!(reply.answers[0].data, RData::Ptr("VRCT:test._oscjson._tcp.local.".into()));
     }
 }

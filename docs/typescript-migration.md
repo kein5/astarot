@@ -12,13 +12,13 @@
 
 ## 現状の量
 
-第 2 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 3 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 50 本、299KB | 86 本、294KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 170 本、829KB | 18 本、60KB（うち vanilla-extract の `.css.ts` が 8 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 175 本、1.1MB | 0 本 |
+| `src-ui/logics`（試験を除く） | 12 本、207KB | 134 本、450KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 174 本、886KB | 34 本、95KB（うち vanilla-extract の `.css.ts` が 15 本） |
+| 試験（`*.test.js` と `src-ui/logics/test/`） | 190 本、1.2MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
@@ -32,11 +32,11 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 |---|---|---|
 | 1 | 未移行の JavaScript を import しない `logics` の葉のモジュール | 済み |
 | 2 | データ層の根（ストアと IPC） | 済み |
-| 3 | ストアと IPC だけに依存する小さなフック | 未着手 |
+| 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段の後 |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 未着手 |
-| 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 未着手 |
+| 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 4 本のうち 3 本は第 3 段で済み。`useSettingsDraft` が残り |
 | 6 | `views` | 未着手 |
-| 7 | 試験とテスト用のハーネス | #550 の Vitest 移行の後 |
+| 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
 ### 第 1 段：`logics` の葉のモジュール
@@ -64,12 +64,18 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 
 ### 第 3 段：小さなフック
 
-ストアと IPC だけに依存する、数十行ほどのフックです。機能ごとにまとめて移します。
+ストアと IPC だけに依存する、数十行ほどのフックです。機能ごとにまとめて移しました（42 本）。
 
-- `common/` の `use*.js`（`useNotificationStatus`、`useMessage`、`useWindow`、`useVolume` など）
-- `main/`、`translation/useOpenTranslatorList`、`transcription/`（`useRealtimeASR`、`useLocalAsrMigration`）、`flow/useIoFlow`
-- `voice/` の `use*.js`（`useVoice`、`useModelDownloads`、`useSpeechServers`、`useVirtualMic`、`useVcRuntimes`）
-- `configs/useOcrSharedWindow`、`configs/config_page_setter/_aux/useSettingBoxScrollPosition`
+- `transcription/`（`useRealtimeASR`、`useLocalAsrMigration`）、`flow/`（`useIoFlow`、`useGpuMemory`）、`translation/`（`useOpenTranslatorList`、`useTranslationCatalog`）、`configs/useOcrSharedWindow`、`configs/config_page_setter/_aux/useSettingBoxScrollPosition`
+- `voice/` のフック（`useVoice`、`useModelDownloads`、`useSpeechServers`、`useVirtualMic`、`useVcRuntimes`）
+- `main/`（`languageMutations`、`useLanguageSettings`、`useMainFunction`、`useIsMainPageCompactMode`、`useMessageInputBoxRatio`、`useMessageLogScroll`）、`setup/useFirstRunSetup`
+- `common/` のフック 19 本（`useMessage`、`useNotificationStatus`、`useVolume`、`useHandleOscQuery` など）。`useNotificationStatus` と `useHandleOscQuery` が使う `TranslatedNotice`、`useMessage` を包む `MessageActions`、JSX を含まない `useIsVrctAvailable` も、第 5 段から前倒しして移しました。
+
+バックエンドの応答を受け取るフックは、フックが読むフィールドを並べた型を持ちます。読まないフィールドは開いたままにし（`[key: string]: unknown`）、設定画面などのビューが読みます。型は中核（`native/core`）が送る形と `docs/spec/` に合わせた宣言で、実行時には確かめません。前からフックが値を確かめていた所（流れの図、音声サーバーの状態の行、モデルの取得のハードウェアの一覧、登録したモデル、翻訳のカタログ）は、その確認を型ガードにしています。受け取る値を実行時に確かめるのは、受け取る側（第 4 段の `useReceiveRoutes`）を移すときに扱います。
+
+次の 5 本は第 4 段で `ui_config_setter.js` を移した後にします。設定のフック（`useTranslation`、`useTranscription`、`useOcr`、`useAppearance`）のフィールドを読みますが、設定のフックは `ui_config_setter.js` が実行時に作るので、型が `{}` と推論され、キャストなしではフィールドを読めないためです。
+
+- `main/useSetupNeeds`、`main/useSwitchBlocks`、`setup/useRecognitionState`、`common/useStartupProgress`、`common/useWindow`
 
 ### 第 4 段：大きなモジュール
 
@@ -84,11 +90,13 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | `configs/config_page_setter/hotkeys/useHotkeys.js` | 約 470 |
 | `configs/config_page_setter/_aux/useConfigSearch.js` | 約 280 |
 
-`useReceiveRoutes.js` と `_useBackendErrorHandling.js` は、バックエンドからの応答とエラーの形を扱います。IPC の契約を型にする作業なので、`docs/spec/` と食い違いがあれば、型で隠さずに報告します。
+`useReceiveRoutes.js` と `_useBackendErrorHandling.js` は、バックエンドからの応答とエラーの形を扱います。IPC の契約を型にする作業なので、`docs/spec/` と食い違いがあれば、型で隠さずに報告します。第 3 段で移したフックは受け取る値の型を引数に宣言しています。`useReceiveRoutes` を移すときは、その型に合うことを確かめてから渡します。
+
+`ui_config_setter.js` を移したら、第 3 段で後に回した 5 本（設定のフックを読むもの）を移します。
 
 ### 第 5 段：`logics` の中の JSX
 
-`common/MessageActions.jsx`、`common/TranslatedNotice.jsx`、`common/useIsVrctAvailable.jsx`、`voice/useSettingsDraft.jsx` を `.tsx` にします。
+`common/MessageActions`、`common/TranslatedNotice`、`common/useIsVrctAvailable` は、第 3 段で移しました（`useIsVrctAvailable` は JSX を含まないので `.ts`）。残りは `voice/useSettingsDraft.jsx` です。設定画面のフォームが使う汎用のフックなので、下書きの型を引数に取る形にします。
 
 ### 第 6 段：`views`
 
@@ -101,12 +109,11 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 
 ### 第 7 段：試験とハーネス
 
-試験のファイル（`*.test.js`）と `src-ui/logics/test/` のハーネスは、Issue #550 で決まった Vitest への移行が済んでから TypeScript にします。それまでは次のように扱います。
+試験のファイル（`*.test.js`）と `src-ui/logics/test/` のハーネスを TypeScript にします。Issue #550 で決まった Vitest への移行は済んだので、着手できます。試験は Vitest で動きます（[development.md](development.md) の「UIの試験（Vitest）」）。試験を TypeScript にするまでは、次のように扱います。
 
 - ソースを移す PR では、試験のうち移したファイルを名指しする行だけを書き換えます（`./saveBar.js` を `./saveBar.ts` にするなど）。試験の書き方、実行の方法、ハーネスの API は変えません。
-- ソースを文字列として読んで書き換えてから読み込む試験（`useStdoutToPython.test.js`）は、`node:module` の `stripTypeScriptTypes` で型を消してから読み込みます。
-- 試験は今のまま `node --test --experimental-strip-types` で `.ts` のソースを読み込みます。ハーネスの `loadModule` は `.ts` を Babel で変換して読み込みます。依存の指定に拡張子がなくても、対応するモックを見つけます。
-- Vitest は `.ts` のソースを拡張子つきで import できるので、ここでの書き換えは Vitest への移行の妨げになりません。
+- ソースを文字列として読んで書き換えてから読み込む試験（`useStdoutToPython.test.js`、`languageMutations.test.js`）は、`node:module` の `stripTypeScriptTypes` で型を消してから import の行を書き換えます。型だけの import は消えるので、書き換えるのは値の import です。
+- ハーネスの `loadModule` は `.ts` と `.tsx` を Babel で変換して読み込みます。型だけの import は消えるので、モックは要りません。依存の指定に拡張子がなくても、対応するモックを見つけます。
 
 ### 第 8 段：仕上げ
 
@@ -120,6 +127,8 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - `tests/devtools/test_typescript_strictness.py` は、`src-ui` の TypeScript のファイルにある `any`、`as unknown as`、`@ts-ignore`、`@ts-nocheck`、`@ts-expect-error` を数えます。まだ外せないものは、ファイルごとの数を `ALLOWED` に書きます。数が増えても減っても失敗するので、外したら一覧も減らします。
 - DOM の要素を扱うところでは、型を決めつけるキャストの代わりに型ガードで確かめます。たとえば `Element` には `focus()` がないので、`useConsentDialog` は `focus` を持つ要素だけを `Focusable` として扱います。
 - TypeScript は計算したキーを `string` として扱うので、`{ [key]: value }` が名前 `K` のキーを持つことを確かめられません。ストアでは `field()` のオーバーロードで 1 か所だけそう宣言しています。名前を 1 つずつ渡すので成り立ちます。同じ形が要るときは `field()` を使い、ほかの場所で宣言を増やしません。
+- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。値を確かめるのは、応答を受け取ってフックに渡す側（`useReceiveRoutes`）です。そこが JavaScript のうちは、確かめずに渡ります。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。
+- `ui_config_setter.js` が作る設定のフックは、型が `{}` と推論されます。`views` の一部（`CompanionController.tsx` など）は結果を `as { ... }` で読んでいますが、`logics` ではこのキャストを足さず、読むフックを第 4 段の後に回しています。
 
 ## 移すときの手順
 

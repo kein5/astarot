@@ -31,8 +31,16 @@ class ToolchainPinTests(unittest.TestCase):
 
     def test_python_satisfies_pyproject(self):
         requires = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["requires-python"]
-        self.assertEqual(requires, "==3.11.*")
-        self.assertTrue(pinned()["python"].startswith("3.11."))
+        major, minor = pinned()["python"].split(".")[:2]
+        self.assertEqual(requires, f"=={major}.{minor}.*")
+
+    def test_uv_is_never_handed_a_python_version_of_its_own(self):
+        # uv takes the interpreter mise put on PATH (UV_PYTHON_PREFERENCE=only-system); a literal
+        # `--python 3.x` in a workflow, a task or a script would be a second place to update.
+        scripts = [*ci_files(), ROOT / "mise.toml", *ROOT.glob("bat/*.bat"), ROOT / "tools/dev.py"]
+        for path in scripts:
+            text = path.read_text(encoding="utf-8")
+            self.assertNotRegex(text, r"--python[ =]\"?\d", path.relative_to(ROOT))
 
     def test_rust_is_not_older_than_the_crates_require(self):
         major_minor = tuple(int(part) for part in pinned()["rust"].split(".")[:2])

@@ -59,8 +59,54 @@ class DeveloperCLITests(unittest.TestCase):
 
     def test_doctor_runs_without_mise_toml(self):
         self.assertEqual(self.dev.pinned_versions(self.root), {})
+        self.assertIsNone(self.dev.python_series(self.root))
         (self.root / "mise.toml").write_text("not = [toml", encoding="utf-8")
         self.assertEqual(self.dev.pinned_versions(self.root), {})
+        self.assertIsNone(self.dev.python_series(self.root))
+
+    def test_the_python_version_comes_from_mise_toml_alone(self):
+        (self.root / "mise.toml").write_text('[tools]\npython = "3.14.10"\n', encoding="utf-8")
+        self.assertEqual(self.dev.python_series(self.root), (3, 14))
+        # A new owned environment asks uv for that version, never for a download.
+        code, output = self.call("setup", "--scope", "headless", "--dry-run")
+        self.assertEqual(code, 0, output)
+        self.assertIn("venv --python 3.14 --no-python-downloads", output)
+        # doctor holds the test environments to it.
+        target = self.root / "build/dev/headless-venv"
+        python = target / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        python.parent.mkdir(parents=True)
+        python.write_text("")
+        with patch.object(self.dev, "probe", return_value=subprocess.CompletedProcess([], 0, "3.14.10", "")) as probe:
+            self.call("doctor", "--scope", "voice", "--json")
+        self.assertIn("sys.version_info[:2] == (3, 14)", probe.call_args.args[0][-1])
+
+    def test_an_owned_environment_of_another_python_is_made_again(self):
+        (self.root / "mise.toml").write_text('[tools]\npython = "3.14.10"\n', encoding="utf-8")
+        target = self.root / "build/dev/headless-venv"
+        python = target / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        python.parent.mkdir(parents=True)
+        python.write_text("")
+        (target / self.dev.OWNER_FILE).write_text(self.dev.OWNER, encoding="utf8")
+        (target / "pyvenv.cfg").write_text("home = x\nversion_info = 3.11.18\n", encoding="utf-8")
+        code, output = self.call("setup", "--scope", "headless", "--dry-run")
+        self.assertEqual(code, 0, output)
+        self.assertIn("venv --python 3.14 --clear --no-python-downloads", output)
+        # One made with the pinned Python is only synced.
+        (target / "pyvenv.cfg").write_text("home = x\nversion_info = 3.14.10\n", encoding="utf-8")
+        code, output = self.call("setup", "--scope", "headless", "--dry-run")
+        self.assertEqual(code, 0, output)
+        self.assertNotIn(" venv ", output)
+        self.assertIn("pip sync", output)
+
+    def test_browser_setup_refuses_a_venv_of_another_python(self):
+        (self.root / "mise.toml").write_text('[tools]\npython = "3.14.10"\n', encoding="utf-8")
+        with patch.object(self.dev, "probe", return_value=subprocess.CompletedProcess(
+            [], 0, '{"venv":true,"version":[3,11]}', '')), \
+                patch.object(self.dev, "execute", return_value=0) as execute:
+            code, output = self.call("setup", "--scope", "browser", "--python", sys.executable)
+        self.assertEqual(code, 2)
+        self.assertIn("Python 3.14 virtual environment", output)
+        execute.assert_not_called()
 
     def test_dry_setup_can_be_reviewed_before_tools_are_installed(self):
         with patch.dict(os.environ, {"PATH": ""}):
@@ -196,7 +242,7 @@ class DeveloperCLITests(unittest.TestCase):
 
     def test_browser_setup_refuses_system_interpreter(self):
         with patch.object(self.dev, "probe", return_value=subprocess.CompletedProcess(
-            [], 0, '{"venv":false,"version":[3,11]}', '')), \
+            [], 0, '{"venv":false,"version":[3,14]}', '')), \
                 patch.object(self.dev, "execute", return_value=0):
             code, output = self.call("setup", "--scope", "browser", "--python", sys.executable)
         self.assertEqual(code, 2)
@@ -208,7 +254,7 @@ class DeveloperCLITests(unittest.TestCase):
         python.parent.mkdir(parents=True)
         python.write_text("")
         with patch.object(self.dev, "probe", return_value=subprocess.CompletedProcess(
-            [], 0, '3.11.17\npytest 8.4.2\nplaywright 1.64.1', '')):
+            [], 0, '3.14.10\npytest 9.2.0\nplaywright 1.65.2', '')):
             code, output = self.call("doctor", "--scope", "browser", "--json")
         self.assertEqual(code, 0, output)
 

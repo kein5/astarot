@@ -310,6 +310,39 @@ def test_narrow_window_keeps_stop_mute_and_the_opened_sidebar_in_reach(studio):
     expect(close).to_have_count(0)
 
 
+def test_stop_and_mute_keep_their_longest_words_in_view_at_the_default_ui_size(studio):
+    # The narrowest bar's longest words come with a queue and a mute (「停止（12）」 and
+    # 「ミュート中」). At the default UI size they still fit beside the icon rail in the smallest
+    # window, in both languages: each button is wholly in view and nothing covers it.
+    from playwright.sync_api import expect
+
+    page, peer = studio
+    studio_answers, observed = peer.extra, [0]
+    busy = {
+        "/get/data/voice_status": {"queued": 12, "active": True},
+        "/get/data/voice_route": {"requested_muted": True, "ready": True, "pending": False, "managed": True},
+    }
+
+    def extra(endpoint, data):
+        if endpoint not in busy:
+            return studio_answers(endpoint, data)
+        observed[0] += 1
+        peer.replies.append(dict(endpoint=endpoint, result=dict(busy[endpoint], observation_id=str(observed[0])), status=200))
+        return True
+
+    peer.extra = extra
+    for lang, stop, mute, title in (("ja", "読み上げを停止（12）", "ミュート", "ここから会話を始めましょう"),
+                                    ("en", "Stop speech (12)", "Mute", "Your conversation starts here")):
+        page.goto(page.url.split("?")[0] + f"?lang={lang}")
+        page.get_by_role("heading", name=title).wait_for()
+        for width in (400, 450):
+            page.set_viewport_size({"width": width, "height": 600})
+            for button in (page.get_by_role("button", name=stop, exact=True),
+                           page.get_by_role("button", name=mute, exact=True, pressed=True)):
+                expect(button).to_be_in_viewport(ratio=1)
+                assert _on_top(button), f"{lang} {width}px: {button} is under another element"
+
+
 def test_log_font_size_slider_takes_focus_only_once_opened(studio):
     from playwright.sync_api import expect
 

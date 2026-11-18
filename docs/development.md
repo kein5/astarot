@@ -28,6 +28,7 @@ mise run check               # 軽量チェック
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
 | `changelog:print` | 次のリリースの変更を、書き込まずに表示する |
+| `changelog:notes` | 正式版のリリースノートの雛形を `docs/release-notes/<版>.md` に作る。既にあれば上書きしない（[リリースノートの書式](release-notes/README.md#雛形から書き始める)） |
 | `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
 
 機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）はコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
@@ -44,17 +45,17 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 | --- | --- | --- |
 | Node.js | 26.13.1 | npmはNodeに付属するもの |
 | Rust | 1.100.0 | rustupを通して入れる（profileはminimal、clippyとrustfmtを追加）。`rust-toolchain.toml` は置かない |
-| Python | 3.11.18 | `pyproject.toml` の `requires-python`（3.11）に合わせる。ビルドの道具と試験に使う。0.5.0から配布物にPythonは入らない |
+| Python | 3.14.10 | ビルドの道具と試験に使う。`pyproject.toml` の `requires-python` には同じマイナー版（3.14）を書く。0.5.0から配布物にPythonは入らない |
 | uv | 0.13.5 | |
 | Cocogitto | 7.0.0 | コマンド名は `cog` |
 
 版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
 
-uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
+uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。uvのコマンドにはPythonの版を書きません（`--python 3.14` などを付けない）。uvは `pyproject.toml` の `requires-python` に合うPythonをPATHから選び、`tools/dev.py` は `mise.toml` の版を読みます。Pythonの版を上げるときに書き換えるのは、`mise.toml`、`mise.lock`、`pyproject.toml` の `requires-python`、`uv.lock` です。`tests/devtools/test_toolchain_pins.py` は、CI、タスク、bat、`tools/dev.py` がuvに版を渡していないことも確かめます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
 
 `[env]` に置いているのは `ORT_DISABLE_TELEMETRY=1` だけです。`uv.lock` のONNX Runtime（Python版の1.32）は、何も設定しないとセッションを作った時点で `~/.cache/Microsoft/DeveloperTools/.onnxruntime/` に `deviceid` とイベントのデータベースを作り、Microsoftへ利用状況を送ろうとします。この値はすべてのプログラムに引き継がれてかまわないため、`[env]` に置きます。`tools/dev.py` の子プロセス、`src-python/conftest.py`、翻訳モデルの書き出し（`tools/translation_onnx/`）とHuBERTの書き出し（`native/rvc-runtime/reference/export_hubert_onnx.py`）も、自分で同じ値を設定します。miseを通さずにほかのスクリプトでONNX Runtimeを使うときは、先に `ORT_DISABLE_TELEMETRY=1` を設定してください。アプリに同梱するONNX Runtimeは、アプリが起動時に自分で止めます（`docs/spec/external-interfaces.md`）。
 
-`setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、miseを使わない場合は、Python 3.11を先に用意します。miseを使わない場合の各ツールの公式手順は次のとおりです。
+`setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、miseを使わない場合は、`mise.toml` と同じマイナー版のPython（3.14）を先に用意します。miseを使わない場合の各ツールの公式手順は次のとおりです。
 
 | ツール | 公式手順 |
 | --- | --- |
@@ -85,7 +86,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 
 `setup --scope ui` は既存の `node_modules` をnpmの仕様どおり作り直します。package.jsonとpackage-lock.jsonに不一致があれば失敗し、lockを更新しません。[npm ciの仕様](https://docs.npmjs.com/cli/v11/commands/npm-ci)を参照してください。
 
-Windowsでも `headless`、`ui`、`browser`、`rust`、`resources` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。WindowsでPythonバックエンド（`src-python/`）とその試験の依存を入れるのは `mise run setup:app`（`npm run setup-python` と同じbat）です。アプリの起動とビルドには使いません。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
+Windowsでも `headless`、`ui`、`browser`、`rust`、`resources` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。WindowsでPythonバックエンド（`src-python/`）とその試験の依存を入れるのは `mise run setup:app`（`npm run setup-python` と同じbat）です。アプリの起動とビルドには使いません。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。別の版のPythonで作った環境は、uvが作り直します。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
 
 ### Tauriが読む資源を用意する
 
@@ -110,7 +111,7 @@ python tools/dev.py setup --scope browser --python .venv_linux/bin/python
 python tools/dev.py doctor --scope browser --python .venv_linux/bin/python
 ```
 
-この操作は選んだPython 3.11のvenvに必要なパッケージを追加・更新します。無関係なパッケージをsyncで削除しません。システムPythonは拒否します。Windowsのvenvなら `.venv\Scripts\python.exe` のように実行ファイルを指定します。
+この操作は選んだvenv（`mise.toml` と同じPython 3.14）に必要なパッケージを追加・更新します。無関係なパッケージをsyncで削除しません。システムPythonは拒否します。Windowsのvenvなら `.venv\Scripts\python.exe` のように実行ファイルを指定します。
 
 PlaywrightのPythonパッケージとChromium実行ファイルは別です。`setup --scope browser` はChromiumやOSライブラリを取得しません。既存ブラウザを使う試験には `VRCT_TEST_CHROMIUM` の指定が必要です。ブラウザ試験の実行条件は[モデル取得UIの検証記録](voice-stack/model-downloads.md)を参照してください。通常の `check` は実機・ブラウザ試験の有効化変数を除外するため、専用試験は個別の手順で実行します。Windowsの長時間運転と実マイクの試験は[Windowsの実機試験](voice-stack/windows-field-tests.md)にあります。
 

@@ -12,7 +12,7 @@ const request = { id: "model", job_id: "job" };
 
 async function setup(t, transport = async () => true) {
     const runtime = hooks(), calls = [];
-    const { useModelDownloads } = await loadModule(new URL("./useModelDownloads.js", import.meta.url), runtime, {
+    const { useModelDownloads } = await loadModule(new URL("./useModelDownloads.ts", import.meta.url), runtime, {
         "../common/polledState.ts": polledState,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args) => {
             calls.push(args); return transport(...args);

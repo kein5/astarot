@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use ort::ep::ExecutionProviderDispatch;
-use ort::session::{Session, SessionInputValue};
+use ort::session::{HasSelectedOutputs, OutputSelector, RunOptions, Session, SessionInputValue};
 use ort::value::Tensor;
 
 use crate::accelerate::{self, Accelerator, Fallback, Provider, Variant};
@@ -192,6 +192,7 @@ impl Translator {
             own: Vec::new(),
             cross: Vec::new(),
             past: 0,
+            cached_step: None,
         };
         steps.vocabulary = steps.probe_vocabulary()?;
         Ok(beam::search(&mut steps, &settings)?.tokens)
@@ -230,6 +231,23 @@ struct Steps<'a> {
     /// Per layer, key then value of the attention to the source: `1 × heads × length × head`.
     cross: Vec<Vec<f32>>,
     past: usize,
+    /// The outputs a cached step fetches, made at the first cached step.
+    cached_step: Option<RunOptions<HasSelectedOutputs>>,
+}
+
+/// What a cached step fetches: every output but the source's keys and values. The graph gives
+/// those with no rows after the first step (the first step's stay in use), and ONNX Runtime's
+/// DirectML provider, asked for an output with no elements, gives wrong values for the other
+/// outputs of the same run (seen with 1.24.4 on Intel and NVIDIA GPUs, 2026-11-18). Left out,
+/// every provider computes the same logits and cache.
+fn cached_step_options(layers: usize) -> Result<RunOptions<HasSelectedOutputs>> {
+    let mut selector = OutputSelector::default();
+    for layer in 0..layers {
+        for kind in ["key", "value"] {
+            selector = selector.without(format!("present.{layer}.encoder.{kind}"));
+        }
+    }
+    Ok(RunOptions::new().map_err(failed)?.with_outputs(selector))
 }
 
 type Inputs = Vec<(Cow<'static, str>, SessionInputValue<'static>)>;
@@ -291,7 +309,14 @@ impl Steps<'_> {
                 inputs.push((format!("past_key_values.{layer}.encoder.{kind}").into(), cross));
             }
         }
-        let outputs = self.decoder.run(inputs).map_err(failed)?;
+        if !first && self.cached_step.is_none() {
+            self.cached_step = Some(cached_step_options(self.layers)?);
+        }
+        let outputs = match (&self.cached_step, first) {
+            (Some(options), false) => self.decoder.run_with_options(inputs, options),
+            _ => self.decoder.run(inputs),
+        }
+        .map_err(failed)?;
         let (shape, logits) = outputs["logits"].try_extract_tensor::<f32>().map_err(failed)?;
         if shape.len() != 3 || shape[0] as usize != beams || shape[1] != 1 || shape[2] as usize != self.vocabulary {
             return Err(Error::new(codes::RUNTIME_FAILED));

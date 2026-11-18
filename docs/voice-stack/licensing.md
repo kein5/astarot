@@ -328,6 +328,34 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 | `fxtranslate` 0.5.0 | MPL-2.0 | Firefoxの翻訳モデル（作者は自分で配り直すよう求めている） | 英語との組だけで、配り直しが要るので候補から外した |
 | Bergamot（translateLocally、`marek_translate_locally` 1.0.1） | AGPL-3.0-or-later | ― | **除外**。AGPLはアプリ全体の配布の条件に及ぶため |
 
+### ローカル翻訳のモデルの候補とNLLBの扱い（2026-11-18、#277）
+
+NLLBを差し替えるかの検討（#288の未決事項）のために、ローカル翻訳のモデルの候補のライセンスを確かめた。ライセンスは2026-11-18にHugging FaceのAPI（`/api/models/<リポジトリ>`）が返したモデルカードの`license`の欄で、版はそのときの`sha`である。カードに欄がないものは、リポジトリのライセンスのファイルを読んだ。調べ方と技術の面の検討は[ローカル翻訳のGPUと公開の準備](local-translation-gpu-2026-11-18.md)にある。
+
+この作業では、モデルも依存も配布物に足していない。`NOTICE.md`とRustの依存の一覧は変わらない。
+
+| モデル | リポジトリと版 | ライセンス | 商用の利用 | 今の`native/translate-onnx`で動くか | 扱い |
+|---|---|---|---|---|---|
+| M2M100 418M、1.2B | `facebook/m2m100_418M`@`55c2e61b`、`facebook/m2m100_1.2B`@`7b361841` | MIT | できる | 動く | 採用済み。既定は418M。モデルは未公開 |
+| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。公開するかは未決（core-integration.mdの判断78） |
+| MADLAD-400 3B MT、7B MT | `google/madlad400-3b-mt`@`fa184c67`、`google/madlad400-7b-mt`@`1ff63ce7` | Apache-2.0 | できる | 動かない（T5の形） | 候補。T5の形とSentencePieceのunigramを足す必要がある。3Bは約29億のパラメータ |
+| SMaLL-100 | `alirezamsh/small100`@`8ab680e2` | MIT | できる | 一部だけ（訳先の言語のトークンを原文の側に付ける） | 候補。約3.3億のパラメータ |
+| mBART-50 many-to-many | `facebook/mbart-large-50-many-to-many-mmt`@`e30b6cb8` | モデルカードにライセンスの記載がない | 確かめられない | 動かない（MBartの形） | 対象外。ライセンスを確かめられないため |
+| Opus-MT（`ja-en`など） | `Helsinki-NLP/opus-mt-ja-en`@`0770961a` | Apache-2.0（このカード。Tatoebaの新しいモデルにはCC-BY-4.0のものがある） | できる | 動かない（Marianの形） | 対象外。言語の組ごとにモデルが要る |
+| SeamlessM4T v2 | `facebook/seamless-m4t-v2-large`@`5f8cc790` | CC-BY-NC-4.0 | できない | 動かない | 対象外 |
+| TranslateGemma 4B | `google/translategemma-4b-it`@`10042cb0` | Gemmaの利用規約（取得に利用規約への同意が要る） | 規約の範囲でできる（規約の本文は今回読んでいない） | 動かない（デコーダだけのLLM） | 今のプロバイダ（Ollama、LM Studio、OpenAI互換）で使える。組み込むなら#413の翻訳カタログのランタイムとして別に審査する |
+| Hunyuan-MT 7B | `tencent/Hunyuan-MT-7B`@`9305c783` | Tencent Hunyuan Community License。欧州連合、英国、韓国では効力がない（`License.txt`の冒頭） | 地域の制限がある | 動かない | 同上。地域の制限があるのでカタログには向かない |
+| PLaMo 2 translate | `pfnet/plamo-2-translate`@`7546b474` | PLaMo Community License | 条件がある（本文は今回読んでいない） | 動かない | 同上 |
+| Aya Expanse 8B | `CohereLabs/aya-expanse-8b`@`5062468b` | CC-BY-NC-4.0 | できない | 動かない | 対象外 |
+
+NLLBのCC-BY-NC-4.0について確かめたこと:
+
+- 作者、ライセンス、変更したことを示せば、写しと改変したものを配れる。営利を主な目的とする使い方には使えない（NonCommercial）。
+- VRCT-VOXは、NLLBを既定にせず、選ぶときに非商用のライセンスを示して同意を得ている（2026-11-14からの方針）。公開するなら、モデルカードに元のモデルと版、CC-BY-NC-4.0、変えたこと（ONNXへの書き出しと量子化）を書く。`tools/translation_onnx/publish.py stage`がこれを書く。
+- 利用者の使い方が非商用の範囲かどうかは、アプリからは判断できない。
+
+公開するモデルの記録は、公開した版とファイルのSHA-256を`native/ops/data/translation_models.json`に固定したときに、この節に足す。
+
 ## Silero VADの同梱（2026-11-15）
 
 マイクとスピーカーの文字起こしで発話区間を見つけるSilero VADのモデルは、これまでfaster-whisper 1.1.1のパッケージに入っていたものを読み込んでいた。faster-whisperをやめる前提作業として（#288）、同じ2ファイルをアプリの一部として同梱する。確率の計算は変わらない。
@@ -502,6 +530,24 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 - CUDA版（20）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
 
 Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。
+
+## 開発に使うPythonを3.14にした（2026-11-18）
+
+開発の道具と試験に使うPythonを3.14にした（`mise.toml`）。配布物にPythonは入らないので（上の節）、配布物とNOTICEの記載は変わらない。`uv.lock`には次のパッケージが増えた。
+
+| パッケージ | 版 | ライセンス | 入れた理由 |
+|---|---|---|---|
+| `audioop-lts` | 0.2.2 | PSF-2.0 | 3.13で標準ライブラリから外れた`audioop`の代わり。VAD（`src-python/models/transcription/audio_vad.py`）、SpeechRecognitionのフォーク、speech.cppの実時間の試験が使う |
+| `standard-aifc` | 3.13.0 | PSF-2.0 | 3.13で外れた`aifc`の代わり。SpeechRecognitionのフォークが使う |
+| `standard-chunk` | 3.13.0 | PSF-2.0 | `standard-aifc`の依存（3.13で外れた`chunk`） |
+
+3.14用のwheelがある版にするため、次の3つを上げた。ライセンスは前の版と同じ。
+
+- PyAudioWPatch: 0.2.12.6から0.2.12.8へ（Apache-2.0）
+- PyYAML: 6.0.2から6.0.3へ（MIT）
+- SudachiPy: 0.6.10から0.6.11へ（Apache-2.0）
+
+Seed-VCの実行環境（`integrations/seed_vc/`、Python 3.11）、RVCの参照環境（`native/rvc-runtime/reference/`、Python 3.12）、翻訳モデルを書き出す環境（`tools/translation_onnx/`）は、それぞれのロックを持つ別の環境なので変えていない。
 
 ## 読みの解析器と辞書（2026-11-16）
 
