@@ -155,6 +155,21 @@ fn a_start_that_changes_nothing_leaves_the_file_alone() {
     config.close();
 }
 
+#[cfg(unix)]
+#[test]
+fn a_file_others_may_read_is_written_at_start_for_the_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    config.close();
+    drop(config);
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+    config.close();
+}
+
 #[test]
 fn a_translation_device_that_needs_a_restart_is_kept_for_the_next_start() {
     // A GPU build of ONNX Runtime set up during the run is listed with `restart_required`
@@ -188,20 +203,5 @@ fn a_translation_device_that_needs_a_restart_is_kept_for_the_next_start() {
     // Started without it (the build was removed): the CPU, as with any device that is gone.
     let config = Config::open_with(environment(dir.path()), MemoryStore::new());
     assert_eq!(config.get("SELECTED_TRANSLATION_COMPUTE_DEVICE"), cpu);
-    config.close();
-}
-
-#[cfg(unix)]
-#[test]
-fn a_file_others_may_read_is_written_at_start_for_the_owner_only() {
-    use std::os::unix::fs::PermissionsExt;
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("config.json");
-    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
-    config.close();
-    drop(config);
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
-    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
-    assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
     config.close();
 }
