@@ -18,14 +18,24 @@ Changes since [v0.5.1](https://github.com/kein5/astarot/compare/v0.5.1...v0.5.2)
 
 #### Bug Fixes
 
+- **rvc:** Fetch ONNX Runtime for the RVC runtime from NuGet ([607a65e](https://github.com/kein5/astarot/commit/607a65ebc28da582ec3b600316e4c4d4dd85114d))
 - **vr:** Stop crashing when a controller is active with a vr overlay on ([7e022c1](https://github.com/kein5/astarot/commit/7e022c11f8ae220335ce58f88f987a0115668a7b))
 
 ### Internal Changes
+
+#### Build & CI
+
+- Take the bundled ONNX Runtime from its NuGet package ([c9f8cfb](https://github.com/kein5/astarot/commit/c9f8cfb97462a3e9d9faf029660b38646b6a1683))
 
 #### Tests
 
 - **openvr:** Check every function-table position the overlay and ocr call ([d6ebb16](https://github.com/kein5/astarot/commit/d6ebb16fed41c3f1626d27df9034c10636c23388))
 - **openvr:** Record pyopenvr's function tables for the crates that call them ([95fe114](https://github.com/kein5/astarot/commit/95fe114616cd7f5f1b1554df87fe0b81cfbbc404))
+
+#### Documentation
+
+- Name NuGet as where ONNX Runtime comes from ([d15c27a](https://github.com/kein5/astarot/commit/d15c27a580c57f55a3a1e46d8bf214f74c1f8239))
+- **release:** Add the 0.5.2 release notes ([3d6e3ff](https://github.com/kein5/astarot/commit/3d6e3ff7ad210a3fdb27b8f691cb42626a5992e6))
 
 ## [0.5.1] - 2026-11-18
 
