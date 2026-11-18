@@ -42,9 +42,19 @@ use std::time::{Duration, Instant};
 
 pub const LOCAL_ASR_MIGRATION_LATEST: i64 = 2;
 const RETIRED_UI_LANGUAGES: [&str; 3] = ["ko", "zh-Hant", "zh-Hans"];
-/// Settings an earlier version saved that this one retired: the only keys a released version
-/// wrote that the schema does not have. They are dropped, where any other unknown key is kept.
-pub const RETIRED_KEYS: [&str; 3] = ["MIC_NO_REPEAT_NGRAM_SIZE", "SPEAKER_NO_REPEAT_NGRAM_SIZE", "WHISPER_WEIGHT_TYPE"];
+/// Settings an earlier version saved that this one retired. They are dropped, where any other
+/// unknown key is kept (#560). These are the keys of the local Whisper engine and its options,
+/// removed with it (#288; `docs/spec/data-and-persistence.md`): every tagged version's settings
+/// (the Python `config.py`, `ManagedProperty` and `ValidatedProperty`, and this schema) were
+/// compared with this schema, and they are the only ones it no longer has. A key retired from
+/// now on goes in this list too, or the file keeps it for ever.
+pub const RETIRED_KEYS: [&str; 5] = [
+    "WHISPER_WEIGHT_TYPE",
+    "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE",
+    "SELECTED_TRANSCRIPTION_COMPUTE_TYPE",
+    "MIC_NO_REPEAT_NGRAM_SIZE",
+    "SPEAKER_NO_REPEAT_NGRAM_SIZE",
+];
 const DEBOUNCE: Duration = Duration::from_secs(2);
 const SAVE_RETRY: Duration = Duration::from_secs(30);
 

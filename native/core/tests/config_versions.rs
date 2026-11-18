@@ -79,6 +79,50 @@ fn a_setting_this_version_does_not_know_is_written_back_as_it_was() {
 }
 
 #[test]
+fn the_settings_of_the_removed_local_whisper_are_not_written_back() {
+    // The local Whisper engine and its options went in #288: a saved file of that time still
+    // names them, and the migration leaves them out of the file (`lifecycle.rs`). They must not
+    // come back as unknown keys kept for a newer version.
+    let retired = json!({
+        "WHISPER_WEIGHT_TYPE": "small",
+        "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE": { "device": "cpu", "device_index": 0 },
+        "SELECTED_TRANSCRIPTION_COMPUTE_TYPE": "int8",
+        "MIC_NO_REPEAT_NGRAM_SIZE": 3,
+        "SPEAKER_NO_REPEAT_NGRAM_SIZE": 3,
+    });
+    assert_eq!(retired.as_object().unwrap().len(), RETIRED_KEYS.len());
+    let known: Vec<&str> = vrct_core::config::schema::keys().iter().map(|key| key.name).collect();
+    for key in RETIRED_KEYS {
+        assert!(retired.get(key).is_some(), "{key} is checked here");
+        assert!(!known.contains(&key), "{key} is retired but still a setting");
+    }
+    for older in [
+        // Before the move to speech.cpp, with its migration and notice.
+        json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Whisper", "LOCAL_ASR_MIGRATION": 1 }),
+        // Already migrated: nothing else to change, so only the retired keys make it written.
+        json!({ "LOCAL_ASR_MIGRATION": 2, "UI_LANGUAGE": "ja" }),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut saved = older.as_object().unwrap().clone();
+        saved.extend(retired.as_object().unwrap().clone());
+        saved.insert("SETTING_OF_A_NEWER_VERSION".into(), json!(true));
+        std::fs::write(dir.path().join("config.json"), serde_json::to_string(&saved).unwrap()).unwrap();
+        owner_only(&dir.path().join("config.json"));
+        let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+        for check in ["at start", "after a change"] {
+            let file = read(dir.path());
+            for key in RETIRED_KEYS {
+                assert!(!file.contains_key(key), "{older} {check}: {key} is still written");
+            }
+            assert_eq!(file["SETTING_OF_A_NEWER_VERSION"], true, "{older} {check}: the unknown key is kept");
+            config.set("UI_LANGUAGE", json!("en")).unwrap();
+            config.save_now();
+        }
+        config.close();
+    }
+}
+
+#[test]
 fn a_start_that_changes_nothing_leaves_the_file_alone() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("config.json");
