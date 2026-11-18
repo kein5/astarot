@@ -8,6 +8,11 @@
 //! ones) and an ONNX Runtime library that has the provider (ORT_DYLIB_PATH):
 //!
 //!     VRCT_TRANSLATE_DEVICE=directml:1 VRCT_TRANSLATE_DEVICE_MODEL=.../tiny-nllb-onnx-float32
+//!
+//! A folder the provider loads but cannot run (on DirectML: one written before 2026-11-18,
+//! whose Reshape nodes have allowzero=1):
+//!
+//!     VRCT_TRANSLATE_DEVICE=directml:1 VRCT_TRANSLATE_UNRUNNABLE_MODEL=.../folder
 
 use vrct_translate_onnx::{codes, Accelerator, Bundle, Provider, Translator};
 
@@ -47,6 +52,30 @@ fn m2m100_translates_both_ways() {
 fn nllb_translates_both_ways() {
     let Some(mut translator) = translator("VRCT_TRANSLATE_NLLB") else { return };
     check(&mut translator, "eng_Latn", "jpn_Jpan");
+}
+
+fn device() -> Option<Accelerator> {
+    let device = std::env::var("VRCT_TRANSLATE_DEVICE").ok()?;
+    let (name, index) = device.split_once(':').unwrap_or((&device, "0"));
+    Some(Accelerator::new(Provider::from_name(name).expect("a provider name"), index.parse().expect("a device index")))
+}
+
+/// The provider loads the graphs, the short translation after loading fails on it, and the
+/// model runs on the CPU, saying why (decision 76). It then translates as the CPU does.
+#[test]
+fn a_folder_the_device_cannot_run_falls_back_to_the_cpu() {
+    let (Some(at), Some(folder)) = (device(), std::env::var_os("VRCT_TRANSLATE_UNRUNNABLE_MODEL")) else {
+        return;
+    };
+    let bundle = Bundle::open(folder).unwrap();
+    bundle.verify().unwrap();
+    let mut translator = Translator::load(&bundle, at).unwrap();
+    assert_eq!(translator.backend(), Accelerator::CPU);
+    let fallback = translator.fallback().map(|f| (f.requested, f.code));
+    assert_eq!(fallback, Some((at, codes::PROVIDER_CHECK_FAILED)));
+    let manifest = bundle.manifest();
+    let ids = translator.source_ids("", &manifest.languages[0]).unwrap();
+    assert!(!translator.translate_ids(&ids, &manifest.languages[manifest.languages.len() - 1]).unwrap().is_empty());
 }
 
 /// The provider runs the model without falling back to the CPU, and its beam search ends with

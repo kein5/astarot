@@ -47,6 +47,9 @@ pub mod codes {
     pub const RUNTIME_MISSING: &str = "translation_runtime_missing";
     /// The loaded ONNX Runtime has no such execution provider, or it failed to start.
     pub const PROVIDER_UNAVAILABLE: &str = "translation_provider_unavailable";
+    /// The provider started, but the short translation run right after loading failed on it or
+    /// gave values that are not numbers of a sane size; the model runs on the CPU instead.
+    pub const PROVIDER_CHECK_FAILED: &str = "translation_provider_check_failed";
     /// The device ran out of memory (GPU memory on a GPU provider).
     pub const OUT_OF_MEMORY: &str = "translation_out_of_memory";
     pub const RUNTIME_FAILED: &str = "translation_runtime_failed";
