@@ -22,6 +22,7 @@ async function render({ enabled, pending }) {
         "../shared_items/SharedItems": { AutoExportMessageLogsContainer: () => null },
         "../_components/description/Description": { Description: () => null },
         "../_components/telemetry/TelemetryContents": { TelemetryContents: () => null },
+        "./GpuCheck.tsx": { GpuCheck: () => null },
         "../../../../../../logics/configs/telemetryToggle": telemetryToggle,
         "../../../../../../logics/configs/networkPortInput": {},
         "../../../../../../logics/configs/obsBrowserSourceUrl": {},

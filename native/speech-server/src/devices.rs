@@ -51,7 +51,7 @@ pub fn parse_devices(text: &str) -> Vec<Gpu> {
 /// Vulkan devices that are not a GPU of this PC to compute on: a software rasterizer, and
 /// Microsoft's mapping of Vulkan onto Direct3D 12, on which models load and the first
 /// compute fails.
-fn not_a_compute_gpu(description: &str) -> bool {
+pub fn not_a_compute_gpu(description: &str) -> bool {
     let text = description.to_ascii_lowercase();
     ["llvmpipe", "lavapipe", "swiftshader", "direct3d 12", "direct3d12", "microsoft basic"]
         .iter()

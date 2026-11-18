@@ -4,6 +4,7 @@ import { useI18n } from "@useI18n";
 import * as realtime from "./transcription/useRealtimeASR";
 import * as virtualMic from "./voice/useVirtualMic";
 import * as voiceAudition from "./voice/useVoiceAudition";
+import * as gpuCheck from "./support/useGpuCheck";
 import * as firstRunSetup from "./setup/useFirstRunSetup";
 import * as common from "@logics_common";
 import * as main from "@logics_main";
@@ -100,6 +101,9 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/get/data/voice_audition_state", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
     { endpoint: "/run/start_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
     { endpoint: "/run/stop_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
+    { endpoint: "/get/data/gpu_check_state", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateState" },
+    { endpoint: "/run/start_gpu_check", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateAnswer" },
+    { endpoint: "/run/stop_gpu_check", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateAnswer" },
     // Common
     { endpoint: "/run/feed_watchdog", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/initialization_progress", ns: common, hook_name: "useInitProgress", method_name: "updateInitProgress" },
@@ -318,6 +322,14 @@ export const useReceiveRoutes = () => {
         const timer = setInterval(() => !store.backend_stopped && pollAudition(), 300);
         return () => clearInterval(timer);
     }, [auditionPlaying, pollAudition]);
+    const { check: gpuCheckState, poll: pollGpuCheck, fail: failGpuCheck, reset: resetGpuCheck, backendStopped: stopGpuCheck } = gpuCheck.useGpuCheck();
+    // Asked only while a GPU check runs (#288), to show its step and, at the end, its report.
+    const gpuCheckRunning = gpuCheckState.phase !== "idle";
+    useEffect(() => {
+        if (!gpuCheckRunning) return;
+        const timer = setInterval(() => !store.backend_stopped && pollGpuCheck(), 1000);
+        return () => clearInterval(timer);
+    }, [gpuCheckRunning, pollGpuCheck]);
     const { reset: resetFirstRunSetup } = firstRunSetup.useFirstRunSetup();
     const realtimeActive = Object.values(realtimeState).some(value => value.requested);
     useEffect(() => {
@@ -445,6 +457,10 @@ export const useReceiveRoutes = () => {
             return;
         }
         // A refused audition says why on its card; a failed stop or poll leaves it as it is.
+        if (status !== 200 && endpoint.includes("gpu_check")) {
+            if (endpoint === "/run/start_gpu_check") failGpuCheck(result?.error_code);
+            return;
+        }
         if (status !== 200 && endpoint.includes("voice_audition")) {
             if (endpoint === "/run/start_voice_audition") failAudition(result?.error_code);
             return;
@@ -488,6 +504,7 @@ export const useReceiveRoutes = () => {
             resetRealtime();
             resetVirtualMic();
             resetAudition();
+            resetGpuCheck();
             resetFirstRunSetup();
             sendRealtime("/get/data/realtime_asr_settings");
             sendRealtime("/get/data/realtime_asr_state");
@@ -604,6 +621,7 @@ export const useReceiveRoutes = () => {
         stopRealtimePending();
         stopVirtualMicCheck();
         stopAudition();
+        stopGpuCheck();
     };
     return { receiveRoutes, backendStopped };
 };

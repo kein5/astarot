@@ -152,6 +152,20 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 - 受け側は送信元のIPアドレスや端末の識別子を保存しない設計である（受け側の担当の説明による）。通信の相手として、Cloudflareは送信元のアドレスを扱う。
 - 受け側は通知ごとに、受信した時刻と接続元の国を記録する。国はクライアントが送る値ではなく、Cloudflareが接続元のアドレスから出す値である（2026-11-14に受け側の読み取り用のビューで確認した）。利用者に見せる説明にもこの2つを含める。
 
+### GPUの動作の報告
+
+設定の「詳細設定」→「GPUの動作の報告」（#288の判断6）。利用状況の通知とは別のもので、アプリは何も送らない。利用者が押したときだけ中核が計測し、結果を画面に出す。送るかどうかは利用者が選び、送るときは利用者自身がGitHubのIssueとして送る。
+
+| 項目 | 内容 |
+|---|---|
+| 始め方 | `/run/start_gpu_check`（設定の「確かめる」）。答えは`{state, run}`だけ。1つずつ動き、動いている間の開始はその回に合流する。`/run/stop_gpu_check`で止める |
+| 状態 | `/get/data/gpu_check_state`は`{state: idle\|running, run, step, outcome: done\|cancelled\|failed\|null, error_code, report, text}`。UIは動いている間だけ1秒ごとに読む。起動時の一覧には入れず、ログにも書かない |
+| 計測 | 同梱のspeech.cppのコマンド（`speech info`、`speech tts`、`speech asr`）を、設定済みの読み上げのモデル（`japanese`か`multilingual`）と音声認識のモデル（`asr`）で、CPUと計算に使えるGPU（4台まで）のそれぞれで動かす。読み上げは決まった短い文（日本語か英語）を一時フォルダのWAVEに書き、音声認識は最初に読み上げられた機器の音声を各機器で文字にする。モデルの取得、マイク、スピーカー、動いているサーバーには触れない。一時フォルダは終わりに消す |
+| `report` | `{report: "astarot-gpu-check", schema: 1, app_version, os, os_version, hardware, speechcpp: {version, builds}, devices: [{device, kind, name, memory_gb}], busy, translation: {devices, measured: false}, tts, asr}`。`hardware`は利用状況の通知の`hw`と同じ形。`tts`と`asr`は`{model, language, runs}`か`{skipped: no_model\|no_audio\|no_voice\|unsupported_language\|model_unreadable}`。`runs`の各行は`{device, ok, ran_on, load_s, audio_s, work_s, rtfx, first_audio_s, total_s, error}`で、音声認識には文との文字の誤り率`cer_to_sentence`とCPUの文字との誤り率`cer_to_cpu`が付く。`error`はspeech.cppの失敗の種類（`out_of_memory`など）か`timed_out`、`cancelled`、`exit_<コード>` |
+| 入れないもの | ファイルの場所、ユーザー名、PCの名前、読み上げた文と聞き取った文、音声、speech.cppが出したメッセージ。モデルはファイルが持つ名前と量子化の種類だけ（ASCIIの64文字まで） |
+| `text` | `report`を整形したJSON。画面に全文を出し、コピーとIssueにはこの文字列をそのまま使う |
+| 送り方 | 「GitHubで報告する」は、Issueの様式`gpu_report.yml`を`template`、タイトル、`report`の欄の値を付けたURLで開き（openerの許可は`https://github.com/kein5/astarot/**`）、同じ内容をクリップボードにも写す。URLが7000文字を超えるときは`report`を付けずに開き、貼り付けてもらう |
+
 ### ONNX Runtimeの利用状況の送信を止める
 
 同梱のONNX Runtime（チャット読み取り、ローカル翻訳、声質変換のワーカー）は、Microsoftの公式ビルドが持つ利用状況の送信を、アプリの同意の設定にかかわらず常に止める（#518）。

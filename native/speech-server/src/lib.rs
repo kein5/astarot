@@ -6,13 +6,16 @@
 //! that owns it lives here.
 //!
 //! Nothing in this crate logs or returns what the server prints, a model path, text
-//! or audio. A failure is one of the fixed codes in [`codes`].
+//! or audio. A failure is one of the fixed codes in [`codes`]. The one exception is
+//! [`check`]: a run of the command line hands its stdout (the recognized text) to the caller,
+//! which compares it and drops it.
 
 mod child;
 mod http;
 
 pub mod builds;
 pub mod bundle;
+pub mod check;
 pub mod devices;
 pub mod server;
 pub mod servers;

@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（465件: 削除 13、取得 208、実行 47、有効化 41、無効化 44、設定 112）
+## 要求（468件: 削除 13、取得 209、実行 49、有効化 41、無効化 44、設定 112）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -477,6 +477,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
 | `/get/data/rvc_block_ms` | 取得 | `core: RVC_BLOCK_MS` | 可 | useAdvancedSettings.updateFromBackendRvcBlockMs | 中核のみ |
 | `/set/data/rvc_block_ms` | 設定 | `core: RVC_BLOCK_MS` | 可 | useAdvancedSettings.setSuccessRvcBlockMs | 中核のみ |
+| `/get/data/gpu_check_state` | 取得 | `core: gpu_check.status` | 可 | useGpuCheck.updateState | 中核のみ |
+| `/run/start_gpu_check` | 実行 | `core: start_gpu_check` | 可 | useGpuCheck.updateAnswer | 中核のみ |
+| `/run/stop_gpu_check` | 実行 | `core: gpu_check.stop` | 可 | useGpuCheck.updateAnswer | 中核のみ |
 | `/get/data/osc_query` | 取得 | `core: OSC_QUERY` | 可 | useAdvancedSettings.updateFromBackendEnableOscQuery | 中核のみ |
 | `/set/enable/osc_query` | 有効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
 | `/set/disable/osc_query` | 無効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
