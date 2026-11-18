@@ -74,10 +74,14 @@ DirectML は、乱数の小さなモデル（`tools/translation_onnx/tiny.py`）
 |---|---|---|---|---|---|---|---|
 | float32 | 動く（計った） | 未確認 | 未確認 | 出さない | 未確認 | 未確認 | 未確認 |
 | float16 | 出さない（CPU にはほとんどの float16 の演算がない） | 未確認 | 未確認 | 出さない | 未確認 | 未確認 | 未確認 |
-| int8（動的量子化、`MatMulInteger`） | 動く（計った） | 出さない（一部の演算だけ） | 出さない（CPU に回る演算が多い） | 出さない | 出さない | 出さない | 出さない |
-| int4（重みだけ、`MatMulNBits`） | 未確認 | 出さない | 未確認 | 出さない | 出さない | 出さない | 出さない |
+| int8（動的量子化、`MatMulInteger`） | 動く（計った） | 未確認 | 出さない（CPU に回る演算が多い） | 出さない | 出さない | 出さない | 出さない |
+| int4（重みだけ、`MatMulNBits`） | 未確認 | 未確認 | 未確認 | 出さない | 出さない | 出さない | 出さない |
 
 「未確認」は ONNX Runtime にその演算の実装があり、計算型の一覧に出すものです。実際のモデルではまだ動かしていません。「出さない」は一覧に出しません。表は `accelerate.rs` の `support` と同じです。
+
+DirectML の int8 と int4 は 2026-11-19 から一覧に出します（`core-integration.md` の判断 75）。乱数の小さなモデル（`tools/translation_onnx/tiny.py`）では、どちらも DirectML で CPU と同じ訳の ID になりました。ONNX Runtime のプロファイルで実行したノードの置き場所を数えると、どの形でもエンコーダと最初のデコーダのステップの演算は DirectML で動き、CPU で動いたのは形の計算（`Concat` 7 つと `Squeeze` 1 つ）だけでした。量子化の演算（`MatMulInteger`、`DynamicQuantizeLinear`、`MatMulNBits`）も DirectML で動いています。実際のモデルでの速さと訳の質は計っていません。
+
+計算型が `auto` のとき、DirectML は float16、float32、int4、int8 の順に、取得済みの形から選びます。float の形がなく int8 だけがあるときは、int8 を DirectML で動かします（2026-11-18 までは CPU で動かして知らせていました）。
 
 ## 自分で用意したモデル
 
