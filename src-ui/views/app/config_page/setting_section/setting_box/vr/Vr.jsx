@@ -7,8 +7,8 @@ import { Slider } from "../_components";
 import {
     RadioButtonContainer,
     CheckboxContainer,
-    ActionButtonContainer,
 } from "../_templates/Templates";
+import { PagePointer } from "../_components/page_pointer/PagePointer";
 
 import {
     SectionLabelComponent,
@@ -20,10 +20,7 @@ import {
     useVr,
 } from "@logics_configs";
 import { useIsOpenedConfigPage } from "@logics_common";
-import { useStdoutToPython } from "@useStdoutToPython";
 
-import RedoSvg from "@images/redo.svg?react";
-import CheckMarkSvg from "@images/check_mark.svg?react";
 import SquareSvg from "@images/square.svg?react";
 import TriangleSvg from "@images/triangle.svg?react";
 import { randomIntMinMax } from "@utils";
@@ -99,7 +96,9 @@ export const Vr = () => {
             </div>
             <DesktopCaptionOverlay />
             <CommonSettingsContainer />
-            <VrUiBetaContainer />
+            {/* The VR panel (VR UI) is on trial: it moved to the experimental features (#554, Q-05). */}
+            <PagePointer label={t("config_page.vr.vr_panel_pointer.label")} description={t("config_page.vr.vr_panel_pointer.desc")}
+                tab="experimental_features" button={t("config_page.vr.open_experimental_features")} />
             <button
                 className={styles.restore_default_settings_button}
                 data-setting-id="restore_default_settings"
@@ -639,37 +638,6 @@ const CommonSettingsContainer = () => {
                 toggleFunction={toggleVoiceTypingMode}
             />
             <OverlayFontFamily />
-        </div>
-    );
-};
-
-
-// 手首のランチャーとウィンドウ (β版機能)。字幕のオーバーレイの設定とは別にまとめる
-const VrUiBetaContainer = () => {
-    const { t } = useI18n();
-    const {
-        currentIsEnabledOverlayVrPanel,
-        toggleIsEnabledOverlayVrPanel,
-    } = useVr();
-    const { asyncStdoutToPython } = useStdoutToPython();
-
-    return (
-        <div className={styles.common_container}>
-            <SectionLabelComponent label={t("config_page.vr.vr_ui_beta")} />
-            <CheckboxContainer
-                label={t("config_page.vr.vr_panel.label")}
-                desc={t("config_page.vr.vr_panel.desc")}
-                variable={currentIsEnabledOverlayVrPanel}
-                toggleFunction={toggleIsEnabledOverlayVrPanel}
-            />
-            <ActionButtonContainer
-                label={t("config_page.vr.reset_launcher.label")}
-                desc={t("config_page.vr.reset_launcher.desc")}
-                IconComponent={RedoSvg}
-                ClickedIconComponent={CheckMarkSvg}
-                clicked_duration={1000}
-                onclickFunction={() => asyncStdoutToPython("/run/vr_launcher_reset")}
-            />
         </div>
     );
 };

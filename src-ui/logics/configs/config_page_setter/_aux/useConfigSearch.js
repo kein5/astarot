@@ -21,6 +21,7 @@ const VALID_TABS = [
     "hotkeys",
     "tts", "rvc",
     "advanced_settings",
+    "experimental_features",
     "others",
 ];
 
@@ -65,6 +66,7 @@ const TAB_LABEL_KEYS = {
     tts: "config_page.side_menu_labels.tts",
     rvc: "config_page.side_menu_labels.rvc",
     advanced_settings: "config_page.side_menu_labels.advanced_settings",
+    experimental_features: "config_page.side_menu_labels.experimental_features",
 };
 
 // 親項目（前提条件）の依存関係。{ 項目: { parent_id, required_label } }。
@@ -188,6 +190,26 @@ export const useConfigSearch = () => {
             ...(models.models?.flatMap(model => model.languages ?? []) ?? []),
             settings?.mic?.language, settings?.speaker?.language,
         ]);
+        // The experimental features' texts are one level down (items.<id>), with their own settings
+        // under them. A feature's own setting shows only while it is on; until then the search
+        // leads to the feature's switch.
+        const experimental = id => curRes.experimental_features?.items?.[id] ?? enRes.experimental_features?.items?.[id];
+        const experimentalIds = new Set([...Object.keys(curRes.experimental_features?.items ?? {}), ...Object.keys(enRes.experimental_features?.items ?? {})]);
+        for (const id of experimentalIds) {
+            const item = experimental(id);
+            const parts = [[`experimental_features.${id}`, item, null],
+                ...Object.entries(item ?? {}).filter(([, value]) => value?.label)
+                    .map(([key, value]) => [`experimental_features.${id}.${key}`, value, { parent_id: `experimental_features.${id}` }])];
+            for (const [setting_id, texts, prereq] of parts) {
+                if (!texts?.label) continue;
+                entries.push({
+                    tab: "experimental_features", setting_id, label: cleanTemplateStr(texts.label), desc: cleanTemplateStr(texts.desc ?? ""),
+                    tab_label: t(TAB_LABEL_KEYS.experimental_features), prereq,
+                    searchTarget: [texts.label, texts.desc].filter(text => typeof text === "string")
+                        .map(text => cleanTemplateStr(text).normalize("NFKC").toLowerCase()),
+                });
+            }
+        }
         // Input forwarding has its texts under voice.*; it is in the RVC page's 「詳細設定」 (#554, Q-07).
         entries.push({
             tab: "rvc", setting_id: "direct_voice_settings", label: t("voice.input_title"),

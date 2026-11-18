@@ -793,7 +793,6 @@ config_page:
         display_duration: "Display duration"
         fadeout_duration: "Fade-out duration"
         common_settings: "Common settings"
-        vr_ui_beta: "VR UI (beta)"
         section_label_overlay: "Subtitle overlay"
         tracker: "Tracker"
         hmd: "HMD"
@@ -821,12 +820,10 @@ config_page:
         desktop_overlay_opacity:
             label: "Caption background darkness"
             desc: "At 0% the plate behind the words disappears and only the outlined text remains."
-        vr_panel:
-            label: "Show the VR UI"
-            desc: "Shows a wrist launcher and windows in VR for turning features on and off, reading the log, and changing languages and settings. Works independently of the subtitle overlays."
-        reset_launcher:
-            label: "Reset the launcher position and size"
-            desc: "Use this if you lose the launcher in VR. It returns to your left wrist at its default position and size."
+        vr_panel_pointer:
+            label: "VR UI (control panel in VR)"
+            desc: "The wrist launcher and windows are still being tested, so they are on the Experimental page."
+        open_experimental_features: "Open the Experimental features"
         voice_typing_mode:
             label: "Voice typing mode"
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
@@ -1053,6 +1050,13 @@ config_page:
                     display: "Display {{number}} ({{width}}×{{height}})"
                     is_primary: "(primary)"
                     missing: "Monitor not connected (chosen before)"
+            # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
+            vr_panel:
+                label: "Show the VR UI"
+                desc: "Shows a wrist launcher and windows in VR for turning features on and off, reading the log, and changing languages and settings. Works independently of the subtitle overlays. This feature is still being tested."
+                reset_launcher:
+                    label: "Reset the launcher position and size"
+                    desc: "Use this if you lose the launcher in VR. It returns to your left wrist at its default position and size."
 
     advanced_settings:
         section_label_osc: "OSC"

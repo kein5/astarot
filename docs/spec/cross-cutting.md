@@ -194,6 +194,7 @@
 - 機能に属するコードはオンのときだけ通る。UIは`useExperimentalFeature(id)`、バックエンドは`experimental_features.is_enabled(config.EXPERIMENTAL_FEATURES, id)`で確かめる。どちらも一覧にない機能やまだ確認できていない値はオフとして扱う。
 - スイッチはその機能の値だけを`/set/data/experimental_features`で送り、応答で確認した値を表示する。保存は即時で、形は[データ形式と保存](data-and-persistence.md#その他)にある。
 - 項目がないときは、試せる機能がないことをページに出す。VRパネルからは変えられない（中継を許す一覧に載せていない）。
+- VRパネル（VR UI）も試験中の機能として、このページに並べる（#554 の Q-05）。ただし`EXPERIMENTAL_FEATURES`の辞書には入れず、前からの保存値`OVERLAY_VR_PANEL`と`/set/enable/overlay_vr_panel`・`/set/disable/overlay_vr_panel`をそのまま使う。保存の形が変わらないので、オンにしていた人はオンのまま引き継ぐ。ランチャーの位置を戻す操作は、VRパネルがオンの間だけその下に出す。「字幕とVR」のページには、ここへ移る行だけを置く。
 
 ### トレイアイコン
 

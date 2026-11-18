@@ -793,7 +793,6 @@ config_page:
         display_duration: "表示時間"
         fadeout_duration: "フェードアウト時間"
         common_settings: "共通設定"
-        vr_ui_beta: "VR UI（β版機能）"
         section_label_overlay: "字幕オーバーレイ"
         tracker: "表示するトラッカーの位置"
         hmd: "HMD"
@@ -821,12 +820,10 @@ config_page:
         desktop_overlay_opacity:
             label: "字幕の背景の濃さ"
             desc: "0%にすると背景の板が消えて、縁取りのある文字だけになります。"
-        vr_panel:
-            label: "VR UIを表示する"
-            desc: "VRの中に、機能のオン／オフやログ・言語・設定を操作できる手首のランチャーとウィンドウを表示します。字幕のオーバーレイとは別に使えます。"
-        reset_launcher:
-            label: "ランチャーの位置と大きさを初期に戻す"
-            desc: "VRの中でランチャーが見つからなくなったときに使います。左手の手首に初期の位置と大きさで戻ります。"
+        vr_panel_pointer:
+            label: "VR UI（VRの中の操作パネル）"
+            desc: "手首のランチャーとウィンドウは試験中の機能なので、「実験的機能」のページにあります。"
+        open_experimental_features: "「実験的機能」を開く"
         voice_typing_mode:
             label: "音声タイピングモード"
             desc: "文字起こしされたテキストをアクティブな入力欄へと自動的に貼り付けます。\n※クリップボードを使います。LinuxではX11／XWaylandのウィンドウ（Protonで動くVRChatなど）に貼り付けます。入力デバイスの操作を許可するか、デスクトップが最初に確認することがあります。"
@@ -1053,6 +1050,13 @@ config_page:
                     display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
                     is_primary: "（メイン）"
                     missing: "接続されていないモニター（前に選んだもの）"
+            # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
+            vr_panel:
+                label: "VR UIを表示する"
+                desc: "VRの中に、機能のオン／オフやログ・言語・設定を操作できる手首のランチャーとウィンドウを表示します。字幕のオーバーレイとは別に使えます。試験中の機能です。"
+                reset_launcher:
+                    label: "ランチャーの位置と大きさを初期に戻す"
+                    desc: "VRの中でランチャーが見つからなくなったときに使います。左手の手首に初期の位置と大きさで戻ります。"
 
     advanced_settings:
         section_label_osc: "OSC"

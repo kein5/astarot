@@ -101,3 +101,43 @@ test("a fold marks its line while a row inside it has unsaved edits", async () =
     section.markUnsavedRows(root, new Set());
     assert.ok(!open.attributes.has("data-unsaved-inside"));
 });
+
+// The settings search over the real texts, in Japanese, with the page names as keys.
+const searchOver = async language => {
+    const runtime = hooks();
+    const resources = { en: locales.en, ja: locales[language] };
+    const lookup = (key, values) => {
+        const text = key.split(".").reduce((node, part) => node?.[part], locales[language]);
+        return typeof text === "string" ? text.replace(/\{\{(\w+)\}\}/g, (_, name) => values?.[name] ?? "") : key;
+    };
+    const { useConfigSearch } = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: lookup, i18n: { language } }) },
+        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "translation" }, updateSelectedConfigTabId() {} }) },
+        "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
+        "../../../transcription/useRealtimeASR": { useRealtimeASR: () => ({ models: {}, settings: {} }) },
+        "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: name => name, searchText: () => "", uiOptions: () => [] }) },
+        "../../../voice/settingsNavigation": { requestSettingsNavigation: fn => fn() },
+        "@ui_configs": { ui_configs: { selectable_ui_languages: [] } },
+        "./configSearchTargets.ts": searchTargets,
+        "@root/locales/config.js": { getResource: lng => resources[lng] },
+    });
+    return query => {
+        runtime.render(useConfigSearch).setQuery(query);
+        return runtime.render(useConfigSearch).results.map(result => [result.tab, result.setting_id, result.prereq?.parent_id ?? null]);
+    };
+};
+
+test("the settings search finds the experimental features, the VR panel among them, and the pointers that lead there", async () => {
+    const search = await searchOver("ja");
+    const vrUi = search("VR UI");
+    assert.ok(vrUi.some(([tab, id]) => tab === "experimental_features" && id === "experimental_features.vr_panel"), JSON.stringify(vrUi));
+    assert.ok(vrUi.some(([tab, id]) => tab === "vr" && id === "vr_panel_pointer"), JSON.stringify(vrUi));
+    // A feature's own setting is shown while the feature is on; until then the search leads to its switch.
+    assert.deepEqual(search("ランチャーの位置").filter(([tab]) => tab === "experimental_features"),
+        [["experimental_features", "experimental_features.vr_panel.reset_launcher", "experimental_features.vr_panel"]]);
+    assert.ok(search("六芒星").some(([, id]) => id === "experimental_features.tray_companion"));
+    // The page's notice and the buttons that open another page are not results.
+    assert.deepEqual(search("試験中の機能です。どれも最初はオフ"), []);
+    assert.deepEqual(search("「実験的機能」を開く"), []);
+    assert.deepEqual(search("入力音声の転送"), [["rvc", "direct_voice_settings", null]]);
+});

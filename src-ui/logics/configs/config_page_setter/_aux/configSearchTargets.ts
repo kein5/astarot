@@ -7,6 +7,10 @@ export const NOT_SETTINGS: ReadonlySet<string> = new Set([
     "hotkeys.error_in_use", "hotkeys.error_failed_to_register_at_launch", "hotkeys.error_failed_to_register_all",
     "hotkeys.error_window_restore_failed", "hotkeys.error_window_minimize_failed",
     "vr.hmd", "vr.left_hand", "vr.right_hand",
+    // Buttons that open another page: the row they sit on is the result (PagePointer).
+    "vr.open_experimental_features", "vrchat.open_advanced_settings",
+    // The experimental features page's notice and empty state; its items are listed one by one.
+    "experimental_features.notice", "experimental_features.empty",
 ]);
 
 // Parts of a larger setting with no place of their own: the search leads to the setting.

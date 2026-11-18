@@ -6,7 +6,7 @@ You can read translations and captions inside VR or on top of your desktop. The 
 |---|---|---|
 | Subtitle overlay | show captions in your VR view | SteamVR |
 | Desktop caption overlay | show captions above VRChat when you play without a headset | Windows or Linux (AppImage) |
-| VR UI (beta feature) | control ASTAROT inside VR | SteamVR |
+| VR UI (experimental) | control ASTAROT inside VR | SteamVR |
 
 ## Show captions in VR (subtitle overlay)
 
@@ -43,11 +43,13 @@ The background is a drawing for this page. In use, the captions sit above whatev
 - They do not appear above an app in exclusive full screen (a mode in which the app takes over the whole display). VRChat's full screen is a borderless window, so they do appear there.
 - On Linux they work when you start the AppImage, also on a Wayland desktop, where the app runs through XWayland. Start the tar.gz with `GDK_BACKEND=x11`; without it the app runs on native Wayland and the section is not shown.
 
-## Use ASTAROT in VR (VR UI, beta feature)
+## Use ASTAROT in VR (VR UI, experimental)
 
-"Show the VR UI" shows a launcher on your wrist (a row of buttons) and windows in VR. From there you can turn features on and off and open the log, languages and settings. It works separately from the subtitle overlay. It comes from upstream VRCT.
+Turn on "Show the VR UI" under Settings → "Experimental". It shows a launcher on your wrist (a row of buttons) and windows in VR. From there you can turn features on and off and open the log, languages and settings. It works separately from the subtitle overlay. It comes from upstream VRCT.
 
-If you lose the launcher, press "Reset the launcher position and size"; it returns to your left wrist.
+The VR UI is still being tested, so it is on the Experimental page with the other features on trial. If you had it on in an earlier version, it stays on.
+
+If you lose the launcher, press "Reset the launcher position and size" on the same page; it returns to your left wrist. The button shows while the VR UI is on.
 
 ::: details What was checked
 - On Linux, an automated test on a test X11 screen (no window manager) checked that the caption window appears without a window manager handling it and shows a sent line. Its place above VRChat in full screen on KDE Plasma, and transparency on an NVIDIA GPU, have not been checked yet.
