@@ -8,6 +8,7 @@ Issue #288「CPU/CUDA 2バリアント解消」の要件、決定、受け入れ
 - ローカル翻訳の実行プロバイダと量子化の形: [`native/translate-onnx/README.md`](../../native/translate-onnx/README.md)
 - ONNX への変換と CTranslate2 との比較: [`tools/translation_onnx/README.md`](../../tools/translation_onnx/README.md)
 - [推論の実行基盤の比較](inference-runtime-comparison.md)、[対応環境の検証の記録](platform-verification.md)
+- [ローカル翻訳の GPU と公開の準備](local-translation-gpu-2026-11-18.md)（DirectML で翻訳のグラフが動くようにした直しと、モデルの公開の道具）
 
 ## 受け入れ条件の状態
 
@@ -109,7 +110,7 @@ CUDA 版を残す場合（判断 3 の (a)）でも、インストーラーの G
 ### 計る前にそろえるもの
 
 1. 音声認識: 同梱の speech.cpp と、カタログの Qwen3-ASR 0.6B Q8_0 と Silero VAD（同意を得て取得します）。計測の道具は #278 の `native/core/examples/live_asr.rs` です。中核をアプリと同じく起動し、デバイスと同じ間隔で音声を流します。#278 のマージを待ちます。
-2. ローカル翻訳: ONNX の翻訳モデルは公開していないので、`tools/translation_onnx/export.py` で作ります。元のモデルの取得に同意が要ります。GPU の実行プロバイダを含む ONNX Runtime は同梱していません（同梱は CPU 版）。DirectML 版（NuGet の 1.24.4）、OpenVINO 版、CUDA 版を `ORT_DYLIB_PATH` で指します。道具は `vrct-translate` と、それを動かす `tools/translation_onnx/compare.py` です。`vrct-translate` は `--device directml:<番号>` などで機器を選び、実際に動いた実行プロバイダと CPU への切り替えを標準エラーに出します。
+2. ローカル翻訳: ONNX の翻訳モデルは公開していないので、`tools/translation_onnx/export.py` で作ります。元のモデルの取得に同意が要ります。GPU の実行プロバイダを含む ONNX Runtime は同梱していません（同梱は CPU 版）。DirectML 版（NuGet の 1.24.4）、OpenVINO 版、CUDA 版を `ORT_DYLIB_PATH` で指します。道具は `vrct-translate` と、それを動かす `tools/translation_onnx/compare.py` です。`vrct-translate` は `--device directml:<番号>` などで機器を選び、実際に動いた実行プロバイダと CPU への切り替えを標準エラーに出します。DirectML では、2026-11-18 より後の `export.py` で作ったフォルダを使います（前のものは `Reshape` の `allowzero=1` のため動きません）。計る前に、`tools/translation_onnx/tiny.py` の小さなモデルと `tests/real.rs` の `a_device_decodes_as_the_cpu_does` で、その GPU で CPU と同じ訳になることを確かめられます。
 
 ### 手順
 
