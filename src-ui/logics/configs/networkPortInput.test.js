@@ -27,7 +27,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
     const runtime = hooks(), drafts = [], sent = [], copied = [], ipc = [], notices = [], dialogs = [];
     let saveOptions, draftOptions;
     const advanced = {};
-    for (const name of ["OscPort", "WebsocketPort", "ObsBrowserSourcePort", ...obsNumeric.map(([name]) => `ObsBrowserSource${name}`)]) {
+    for (const name of ["OscPort", "WebsocketPort", "ObsBrowserSourcePort", "RvcBlockMs", ...obsNumeric.map(([name]) => `ObsBrowserSource${name}`)]) {
         advanced[`current${name}`] = { state: "ok", data: 2231 };
         advanced[`set${name}`] = value => sent.push([name, value]);
     }
@@ -78,7 +78,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
     const ws = runtime.render(child(root, "WebsocketContainer"));
     const obs = runtime.render(child(root, "ObsBrowserSourceContainer"));
     return { runtime, drafts, sent, copied, ipc, notices, dialogs, get saveOptions() { return saveOptions; },
-        get draftOptions() { return draftOptions; },
+        get draftOptions() { return draftOptions; }, root, rvcBlockComponent: module.RvcBlockMsContainer,
         components: [module.OscPortContainer, child(ws, "WebsocketPortContainer"), child(obs, "ObsBrowserSourcePortContainer")],
         urlComponent: child(ws, "WebsocketUrlContainer"),
         obsUrlComponent: child(obs, "ObsBrowserSourceUrlContainer"),
@@ -103,6 +103,21 @@ test("all three production port fields enforce range and send numeric IPC values
         assert.equal(s.sent.at(-1)[1], 80);
         s.saveOptions.setFunction("");
         assert.equal(s.sent.at(-1)[1], null); // backend returns existing localized invalid-port error
+    }
+});
+
+test("the RVC block length is a number from 20 to 200 in steps of 20 under Advanced (#531)", async () => {
+    const s = await settingsHarness();
+    assert.ok(find(s.root, node => node.type === s.rvcBlockComponent), "the Advanced page shows it");
+    const row = s.runtime.render(s.rvcBlockComponent);
+    assert.deepEqual([row.props.type, row.props.min, row.props.max, row.props.step, row.props.setting_id], ["number", 20, 200, 20, "rvc_block_ms"]);
+    // The backend checks the value and answers VALIDATION_RVC_BLOCK_MS with the saved one.
+    s.saveOptions.setFunction("60");
+    assert.deepEqual(s.sent.at(-1), ["RvcBlockMs", "60"]);
+    for (const language of ["en", "ja"]) {
+        const strings = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+        assert.match(strings.config_page.advanced_settings.rvc_block_ms.desc, /20.*200.*40/s, language);
+        assert.equal(typeof strings.backend_errors.VALIDATION_RVC_BLOCK_MS, "string", language);
     }
 });
 

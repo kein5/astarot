@@ -54,7 +54,7 @@ export const button = recipe({
             },
             quiet: {
                 background: "transparent",
-                borderColor: vars.dark_650_color,
+                borderColor: vars.vox_field_border,
                 color: vars.dark_200_color,
                 selectors: {
                     "&:hover:not(:disabled):not([aria-disabled='true'])": { background: vars.dark_850_color },
@@ -63,7 +63,7 @@ export const button = recipe({
             },
             danger: {
                 background: "transparent",
-                borderColor: vars.dark_650_color,
+                borderColor: vars.vox_field_border,
                 color: vars.vox_state_failed,
                 selectors: {
                     "&:hover:not(:disabled):not([aria-disabled='true'])": { background: vars.dark_825_color },

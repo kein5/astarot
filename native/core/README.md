@@ -59,11 +59,12 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 ## ほかの領域から使うもの
 
 - `Core::deliver_transcription(Source::{Mic, Speaker, Ocr}, Recognized, guard)`: 音声認識と OCR の結果をメッセージの経路に渡します。ワードフィルタ、繰り返しの確認、翻訳、読み、チャットボックス、UI への通知、WebSocket、会話のログ、履歴まで行います。
-- `Core::process_message(&messages::REALTIME_MIC など, ...)`: 結果を返す向き（リアルタイムの音声認識）に使います。
+- `Core::process_message(&messages::MIC など, ...)`: どの向き（`messages::Spec`）のメッセージもこの経路を通します。設定はこの呼び出しの時点で控えます。結果を返す向きでは結果を返します。
+- `Core::admit_message(spec, language, chatbox)` と `Core::process_realtime(...)`: リアルタイムの音声認識の確定文は、受け取った時点で設定とチャットボックスの順番を控え（`messages::Admitted`）、翻訳と出力と VR の大きいログの字幕でその控えを使います（`docs/voice-stack/core-integration.md` の判断項目 80）。
 - `Core::realtime_toggles()`、`Core::realtime_requested(source)`、`Core::realtime_uses_bundled_server()`: リアルタイムの音声認識の状態。
 - 音声認識の録音は `AudioDevices::set_capture_owner` に登録してあり、デバイスの変更で移ります。
 - `Core::set_message_hooks(overlay, speech)`: VR のオーバーレイ（`OverlayMessage`）と音声（`SpokenMessage`、翻訳の前後の 2 回）の口です。設定されるまで何もしません。`Err` を返すと出力の失敗として通知します。音声の口は `controller::voice` が設定し、入力したチャットを読み上げます。オーバーレイの口を設定しないときは、メッセージの流れが VR の小さいログと大きいログに直接描きます（`Core::show_overlay_log`）。OCR の行は `Services::ocr_message` の既定（`ocr::pipeline_delivery`）でメッセージの流れに入ります。
-- `Core::mic_voice_snapshot()` と `Core::publish_mic_voice(...)`: リアルタイム認識のマイクの確定文を読み上げます（`_publishMicVoice`）。確定文が届いたときに前者を取り、翻訳のあとで後者を呼びます（`realtime_asr` が `Core::process_realtime_mic` を通して呼びます）。`Core::cancel_mic_voice()` はマイクの読み上げを取り消します（認識の停止や開始のとき）。`Core::set_realtime_mic_probe(...)` はフローパネルに、リアルタイム認識を求めているかを伝えます。
+- `Core::mic_voice_snapshot()` と `Core::publish_mic_voice(...)`: リアルタイム認識のマイクの確定文を読み上げます（`_publishMicVoice`）。確定文が届いたときに前者を取り、翻訳のあとで後者を呼びます（`realtime_asr` が `Core::process_realtime` を通して呼びます）。`Core::cancel_mic_voice()` はマイクの読み上げを取り消します（認識の停止や開始のとき）。`Core::set_realtime_mic_probe(...)` はフローパネルに、リアルタイム認識を求めているかを伝えます。
 - `Core::voice_target_idle(target)`: モデルの取得を適用してよいか（`japanese`・`multilingual` は TTS がそのサーバを使っていないか、`rvc` は声質変換が動いていないか）。
 
 ## 試験

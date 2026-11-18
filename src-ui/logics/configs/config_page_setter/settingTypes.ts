@@ -253,6 +253,8 @@ export interface SettingValues {
     ObsBrowserSourceFontColor: string;
     ObsBrowserSourceFontOutlineThickness: number;
     ObsBrowserSourceFontOutlineColor: string;
+    // The RVC conversion's block in ms (#531).
+    RvcBlockMs: number;
 
     // ExperimentalFeatures
     ExperimentalFeatures: ExperimentalFeatureValues;
