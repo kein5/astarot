@@ -72,6 +72,14 @@ To use it, download and apply the diarization model under "Models and servers" â
 
 Under "Term dictionary", add words you want recognized and how to write them. Common VRChat terms are built in.
 
+Proper nouns such as world names and your friends' names are worth adding. The dictionary is used beyond speech recognition:
+
+- Recognized text from any engine gets the written form you registered. A word written as one of its readings is changed too.
+- Japanese speech reads a term with the reading you registered.
+- AI translators (OpenAI, Gemini, Groq and the like) are told which of your terms a text holds, as names.
+
+A reading that is also an everyday word changes that word too, so choose readings that no other word shares.
+
 ## Paste what you say into an input field
 
 With "Voice typing mode" on under Settings â†’ "Captions and VR", what you say is transcribed and pasted into an input field in VRChat or another app. The paste goes through the clipboard.

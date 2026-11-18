@@ -1364,7 +1364,7 @@ realtime:
   silence_seconds: "{{seconds}} s"
   silence_help: "After this much silence the utterance is final and goes on to translation, the chatbox and speech. A shorter silence gives results sooner, but a pause inside a sentence is more likely to end it, so one sentence may become several messages. Changing it stops both captions."
   vocabulary: "Term dictionary"
-  vocabulary_help: "Terms the recognizer should hear and write as given. Haas-ja takes them as keywords; Qwen3-ASR gets a short hint of them. Write one term per entry, optionally with readings after \"=\" separated by commas, such as VRChat=ブイアールチャット,ブイチャ. List only terms you need: each one adds a small chance of a word that was not said. Changing the dictionary stops running captions."
+  vocabulary_help: "Keeps how terms are written and read the same in speech recognition, speech and translation. Recognized text from any engine gets the written form you registered. Japanese speech reads a term with its first reading. AI translators are told which of your terms a text holds, as names. Write one term per entry, optionally with readings after \"=\" separated by commas, such as VRChat=ブイアールチャット,ブイチャ. A reading that is also an everyday word changes that word too. Haas-ja takes the terms as keywords; Qwen3-ASR gets a short hint of them. List only terms you need: each one adds a small chance of a word that was not said. Changing the dictionary stops running captions."
   vocabulary_builtin: "Use the built-in VRChat terms"
   vocabulary_user: "Your terms"
   vocabulary_term: "Term to add"
