@@ -9,6 +9,16 @@ const hardwareAtom = atom({ phase: 'unknown', devices: [], observation_id: '0' }
 // The models the user registered under a name (#403): {models: [...]} as the backend sends it,
 // null until the first answer.
 const userModelsAtom = atom(null);
+// Apply requests whose reply did not come in time (#563). Each is let go once a later state
+// shows its job no longer verifying: the job was applied, failed or cancelled, or never left
+// "ready", so a new command cannot overlap it. Without this, a lost reply kept every other
+// download command blocked until a restart.
+const overdueApplies = new WeakSet();
+const APPLYING = ["verifying", "cancelling"];
+const stillApplying = (request, jobs) => {
+    const job = jobs?.[request.id];
+    return job?.job_id === request.job_id && APPLYING.includes(job.phase);
+};
 
 export const useModelDownloads = () => {
     const store = useStore();
@@ -27,6 +37,11 @@ export const useModelDownloads = () => {
     const updateState = useCallback(value => {
         if (!value?.jobs || !acceptObservation(store, stateAtom, value)) return false;
         store.set(stateAtom, previous => sameSnapshot(previous, value) ? previous : value);
+        const pending = store.get(pendingAtom);
+        if (pending?.some(request => overdueApplies.has(request) && !stillApplying(request, value.jobs))) {
+            const remaining = pending.filter(request => !overdueApplies.has(request) || stillApplying(request, value.jobs));
+            store.set(pendingAtom, remaining.length ? remaining : null);
+        }
         return true;
     }, [store]);
     const settle = useCallback(endpoint => {
@@ -58,11 +73,13 @@ export const useModelDownloads = () => {
     }, [store, setError, settle]);
     // No reply in time (#431): say so, and release the commands whose effect the state poll
     // shows anyway (start, cancel, the user's models), so the buttons work again. A pending
-    // Apply stays: verifying can take that long, and its Cancel is still allowed meanwhile.
+    // Apply stays while the polls show its job verifying (that can take this long, and its
+    // Cancel is still allowed meanwhile); the next poll that shows it done releases it (#563).
     const expireUnconfirmed = useCallback(() => {
         setError("request_unconfirmed");
         setPending(previous => {
             const remaining = previous?.filter(request => request.endpoint === "/run/apply_model_download");
+            remaining?.forEach(request => overdueApplies.add(request));
             return remaining?.length ? remaining : null;
         });
     }, [setError, setPending]);
