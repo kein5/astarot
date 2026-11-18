@@ -144,7 +144,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - API系の「OpenAI互換の接続先にする」は、`/set/data/openai_compatible_auth_key_and_url`と同じ処理で、アドレスとキーを確かめてからOpenAI互換のエンジンの接続先を替える。項目のモデルがサーバーの一覧になければ、切り替えたうえで`translation_catalog_model_not_listed`を知らせる。項目ごとに別のエンジンとして並べることはしていない（PRの残課題）。
 - 組み込みの項目と、利用者が足した項目と、フォルダーのモデルは`origin`（`builtin`、`user`、`folder`）で見分け、画面では印を付ける。
 - この版が知らない`runtime`や`protocol`の項目（新しい版が書いたもの）は消さずに残し、「この版では使えません」と見せる。新しい推論エンジン（MADLAD-400のようなT5系、TranslateGemmaのようなdecoder-onlyのLLM）や新しい種類のAPIは、中核で動かせるようになったときに`translation_catalog::RUNTIMES`と`PROTOCOLS`に足す。
-- 開発側で推論エンジン系の項目を足すとき（#411、#412）は、これまでどおり固定カタログ（`catalog.rs`、対象`translation`）に版、サイズ、SHA-256、ライセンスを固定して載せ、ライセンス台帳（`licensing.md`）と`NOTICE.md`に記録する。非商用などの制限があるモデルは既定にしない。非商用のモデル（NLLB-200）の取得には、上の[非商用のライセンスの確認](#非商用のライセンスの確認)が要る。載せる予定のNLLB-200の3つとMADLAD-400の扱いは、[ライセンス台帳](licensing.md#翻訳のモデルカタログに載せる予定のモデル2026-11-18411)にある。利用者が足した項目は、出どころとライセンスをアプリでは確かめないことを追加の欄に書いている。
+- 開発側で推論エンジン系の項目を足すとき（#411、#412）は、これまでどおり固定カタログ（`native/ops/data/translation_models.json`、対象`translation`。`tools/translation_onnx/publish.py catalog --write`で書く）に版、サイズ、SHA-256、ライセンスを固定して載せ、ライセンス台帳（`licensing.md`）と`NOTICE.md`に記録する。非商用などの制限があるモデルは既定にしない。非商用のモデル（NLLB-200）の取得には、上の[非商用のライセンスの確認](#非商用のライセンスの確認)が要る。NLLB-200を載せるときのidと決まりは、[ライセンス台帳](licensing.md#nllb-200をカタログに載せるときの決まり2026-11-18411)にある。利用者が足した項目は、出どころとライセンスをアプリでは確かめないことを追加の欄に書いている。
 - 名前、フォルダー、アドレス、キーは利用者のデータなので、IPCの経路名に`translation_catalog`を含め、`process.log`では値を伏せる。フォルダーが読めない項目は、IDと固定のコードだけをログに書く。
 - IPC：`/get/data/translation_catalog`（`{engine, api, runtimes, protocols}`）、`/run/register_translation_catalog_entry`、`/run/remove_translation_catalog_entry`（`{id}`）、`/run/use_translation_catalog_entry`（`{id}`）。どれもカタログ全体を返し、失敗は`{error_code}`で返す。
 
