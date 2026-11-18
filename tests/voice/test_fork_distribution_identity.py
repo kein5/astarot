@@ -132,4 +132,5 @@ def test_release_workflow_cannot_publish_or_inject_upstream_keys():
     for forbidden in ("HF_TOKEN", "TELEMETRY_KEY", "hf upload", "create-release", "upload-release-asset", "ms-software/VRCT"):
         assert forbidden not in text
     assert "--nsis" in text
-    assert "VRCT-VOX.zip" in text and "VRCT-VOX_cuda.zip" in text
+    # One Windows package since #288; VRCT-VOX_cuda.zip was released up to 0.5.
+    assert "VRCT-VOX.zip" in text and "VRCT-VOX_cuda.zip" not in text
