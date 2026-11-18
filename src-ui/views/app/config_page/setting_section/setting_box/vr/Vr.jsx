@@ -127,7 +127,7 @@ export const Vr = () => {
             </AdvancedSection>
             {/* The VR panel (VR UI) is on trial: it moved to the experimental features (#554, Q-05). */}
             <PagePointer label={t("config_page.vr.vr_panel_pointer.label")} description={t("config_page.vr.vr_panel_pointer.desc")}
-                tab="experimental_features" button={t("config_page.vr.open_experimental_features")} />
+                tab="experimental_features" action={t("config_page.vr.vr_panel_pointer.action")} />
         </div>
     );
 };
