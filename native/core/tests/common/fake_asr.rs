@@ -256,6 +256,10 @@ impl FakeAsr {
         let after = self.behaviour.realtime_after.load(Ordering::SeqCst);
         let mut item = 0;
         let mut counted = 0usize;
+        // A session without a transcription detects speech alone (the recorder's VAD): by
+        // volume here, in blocks of 20 ms, with server_vad's padding and silence.
+        let mut detecting: Option<Value> = None;
+        let (mut heard_ms, mut speech_from, mut quiet_since): (f64, Option<f64>, Option<f64>) = (0.0, None, None);
         while let Ok(message) = socket.read() {
             let tungstenite::Message::Text(text) = message else { continue };
             let Ok(value) = serde_json::from_str::<Value>(text.as_str()) else { continue };
@@ -267,7 +271,42 @@ impl FakeAsr {
                     if session["audio"]["input"].get("diarization").is_none() {
                         session["audio"]["input"]["diarization"] = Value::Null;
                     }
+                    if session["audio"]["input"]["transcription"].is_null() {
+                        detecting = Some(session["audio"]["input"]["turn_detection"].clone());
+                    }
                     let _ = socket.send(next("session.updated", json!({ "session": session })));
+                }
+                Some("input_audio_buffer.append") if detecting.is_some() => {
+                    self.appends.fetch_add(1, Ordering::SeqCst);
+                    let turn = detecting.clone().unwrap_or_default();
+                    let pad = turn["prefix_padding_ms"].as_f64().unwrap_or(300.0);
+                    let silence = turn["silence_duration_ms"].as_f64().unwrap_or(500.0);
+                    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, value["audio"].as_str().unwrap_or("")).unwrap_or_default();
+                    let samples: Vec<i16> = bytes.as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect();
+                    for block in samples.chunks(480) {
+                        let loud = block.iter().map(|s| i64::from(*s).abs()).max().unwrap_or(0) > 1000;
+                        if loud {
+                            quiet_since = None;
+                            if speech_from.is_none() {
+                                speech_from = Some(heard_ms);
+                                let started = json!({ "item_id": "vad", "audio_start_ms": (heard_ms - pad).max(0.0) });
+                                if socket.send(next("input_audio_buffer.speech_started", started)).is_err() {
+                                    return;
+                                }
+                            }
+                        } else if speech_from.is_some() {
+                            let since = *quiet_since.get_or_insert(heard_ms);
+                            if heard_ms - since >= silence {
+                                speech_from = None;
+                                quiet_since = None;
+                                let stopped = json!({ "item_id": "vad", "audio_end_ms": since + pad });
+                                if socket.send(next("input_audio_buffer.speech_stopped", stopped)).is_err() {
+                                    return;
+                                }
+                            }
+                        }
+                        heard_ms += block.len() as f64 / 24.0;
+                    }
                 }
                 Some("input_audio_buffer.append") => {
                     self.appends.fetch_add(1, Ordering::SeqCst);

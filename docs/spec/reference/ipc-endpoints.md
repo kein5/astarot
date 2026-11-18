@@ -463,7 +463,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/overlay_font_family` | 取得 | `core: OVERLAY_FONT_FAMILY` | 可 | useVr.updateFromBackendOverlayFontFamily | 中核のみ |
 | `/set/data/overlay_font_family` | 設定 | `core: set_overlay_font_family` | 可 | useVr.setSuccessOverlayFontFamily | 中核のみ |
 | `/get/data/overlay_font_missing_languages` | 取得 | `core: overlay_font_missing_languages` | 可 | useVr.updateFromBackendOverlayFontMissingLanguages | 中核のみ |
-| `/get/data/vad_available` | 取得 | `core: services.vad` | 可 | useDevice.updateFromBackendVadAvailable | 中核のみ |
+| `/get/data/vad_available` | 取得 | `core: vad_unavailable_reason` | 可 | useDevice.updateFromBackendVadAvailable | 中核のみ |
 | `/get/data/translation_catalog` | 取得 | `core: translation_catalog_view` | 可 | useTranslationCatalog.updateCatalog | 中核のみ、ログで伏せる |
 | `/run/register_translation_catalog_entry` | 実行 | `core: register_translation_entry` | 待つ | useTranslationCatalog.acknowledge | 中核のみ、ログで伏せる |
 | `/run/remove_translation_catalog_entry` | 実行 | `core: remove_translation_entry` | 待つ | useTranslationCatalog.acknowledge | 中核のみ、ログで伏せる |

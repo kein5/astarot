@@ -290,12 +290,14 @@ fn set_settings(core: &Core, data: &Value) -> Reply {
     let Ok(settings) = normalize_settings(data) else {
         return refused(400, codes::SETTINGS_INVALID);
     };
+    let vad = core.vad_available();
     {
         let _settings = core.speech.settings_lock.lock().unwrap();
         if core.config().set(SETTINGS_KEY, settings.to_json()).is_err() {
             return refused(400, codes::SETTINGS_INVALID);
         }
     }
+    core.vad_available_since(vad);
     get_settings(core)
 }
 

@@ -15,7 +15,7 @@
     { "endpoint": "/get/data/overlay_font_family", "handler": "core: OVERLAY_FONT_FAMILY", "before_init": true },
     { "endpoint": "/set/data/overlay_font_family", "handler": "core: set_overlay_font_family", "before_init": true },
     { "endpoint": "/get/data/overlay_font_missing_languages", "handler": "core: overlay_font_missing_languages", "before_init": true },
-    { "endpoint": "/get/data/vad_available", "handler": "core: services.vad", "before_init": true },
+    { "endpoint": "/get/data/vad_available", "handler": "core: vad_unavailable_reason", "before_init": true },
     { "endpoint": "/get/data/translation_catalog", "handler": "core: translation_catalog_view", "before_init": true },
     { "endpoint": "/run/register_translation_catalog_entry", "handler": "core: register_translation_entry", "before_init": false },
     { "endpoint": "/run/remove_translation_catalog_entry", "handler": "core: remove_translation_entry", "before_init": false },
@@ -35,7 +35,7 @@
     { "code": "AUTH_PAPAGO_FAILED", "category": "auth", "message": "Authentication failure of Papago Client ID and Client Secret", "severity": "error", "user_action_required": true },
     { "code": "CONNECTION_OLLAMA_URL_INVALID", "category": "connection", "message": "Ollama URL is not valid", "severity": "warning", "user_action_required": true },
     { "code": "OVERLAY_FONT_NOT_FOUND", "category": "general", "message": "The font is not installed on this PC", "severity": "warning", "user_action_required": true },
-    { "code": "VAD_UNAVAILABLE", "category": "transcription", "message": "Voice activity detection is not available in this version; phrases are cut by volume", "severity": "warning", "user_action_required": false }
+    { "code": "VAD_UNAVAILABLE", "category": "transcription", "message": "Voice activity detection needs the speech.cpp server with a recognition model and Silero VAD; phrases are cut by volume", "severity": "warning", "user_action_required": true }
   ],
   "config": [
     { "key": "OLLAMA_URL", "check": "検証 valid_saved_api_url", "default": "'http://localhost:11434'", "save": "2秒後にまとめて" },

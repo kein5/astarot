@@ -171,7 +171,9 @@ impl Core {
                 return Err(Error::Code("settings_changed"));
             }
             settings["profiles"][profile][field] = json!(path("model").unwrap_or_default());
+            let vad = self.vad_available();
             config.set("SPEECH_SERVER_SETTINGS", settings).map_err(|_| Error::Code("download_apply_failed"))?;
+            self.vad_available_since(vad);
         }
         Ok(())
     }

@@ -280,8 +280,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         threshold(core, "SPEAKER_NO_SPEECH_PROB", "Speaker no-speech probability must be finite and between 0 and 1");
     b.add("/set/data/speaker_no_speech_prob", OPEN, speaker_no_speech);
     b.vad_switch("speaker_vad_filter", "SPEAKER_ENABLE_VAD");
-    // Whether the VAD switches can be turned on: a VAD engine is in this build (decision 13).
-    b.with("/get/data/vad_available", OPEN, |core, _| ok(json!(core.services().vad.is_some())));
+    // Whether the VAD switches can be turned on: the speech.cpp server is set up for Silero VAD
+    // (decision 13).
+    b.with("/get/data/vad_available", OPEN, |core, _| ok(json!(core.vad_available())));
 
     // The move from the removed Whisper engine to speech.cpp (#288)
     b.get("/get/data/local_asr_notice", OPEN, "LOCAL_ASR_NOTICE_PENDING");

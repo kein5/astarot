@@ -118,6 +118,8 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "CONNECTION_OLLAMA_URL_INVALID", category: Category::Connection, message: "Ollama URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     // Core only: the subtitles' font is chosen from the system's fonts (none is bundled).
     CodeInfo { code: "OVERLAY_FONT_NOT_FOUND", category: Category::General, message: "The font is not installed on this PC", severity: Severity::Warning, user_action_required: true, reported: true },
-    // Core only (#391): no VAD engine in this build, so the VAD switches cannot be turned on.
-    CodeInfo { code: "VAD_UNAVAILABLE", category: Category::Transcription, message: "Voice activity detection is not available in this version; phrases are cut by volume", severity: Severity::Warning, user_action_required: false, reported: false },
+    // Core only (#391, #278): Silero VAD runs on the speech.cpp server of realtime recognition;
+    // without one set up (a switch is refused) or running (a recording cuts by volume) it is told
+    // with the reason.
+    CodeInfo { code: "VAD_UNAVAILABLE", category: Category::Transcription, message: "Voice activity detection needs the speech.cpp server with a recognition model and Silero VAD; phrases are cut by volume", severity: Severity::Warning, user_action_required: true, reported: false },
 ];
