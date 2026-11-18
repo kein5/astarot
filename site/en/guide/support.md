@@ -85,4 +85,14 @@ How you update depends on the package. The installer and the AppImage update fro
 
 On [Issues](https://github.com/kein5/astarot/issues), give your OS and its version, the package and the ASTAROT version. On Linux, also give the distribution, the desktop and whether it is Wayland or X11. A report that ASTAROT works on a system marked "not verified" also helps us update these tables.
 
+## GPU report
+
+Reports on whether speech and speech recognition run on GPUs the developers do not have, AMD GPUs above all, are wanted. From 0.6.0 the app measures this itself and helps you report it.
+
+1. Download a speech model and a speech recognition model first ([Getting models](models)).
+2. In Settings → "Advanced settings" → "GPU report", press "Run the check". It runs one short fixed sentence on the CPU and on each GPU. It can take a few minutes, and it does not use the microphone, the speakers or VRChat.
+3. When it ends, the results by device and all of the text that would be sent are shown. Read it, then press "Report on GitHub" to open the report form with the text filled in. Sending needs a GitHub account.
+
+The result holds only the app and OS versions, the CPU and GPU names, the amount of memory, the GPU driver versions, the model names, and the times and differences measured. It holds no user name, no file location, and no text spoken or heard. The app sends nothing: you see all of it before you choose whether to send it.
+
 The records behind this page are listed in the developer page [platform verification records](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/platform-verification.md) (Japanese).
