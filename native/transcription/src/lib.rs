@@ -5,6 +5,7 @@
 //!   ([`energy`]), utterances from phrases ([`phrases`]) and the engines ([`providers`]).
 //! - [`realtime`]: realtime recognition on a speech.cpp server, with [`speechcpp`] for what a
 //!   server offers and the vocabulary.
+//! - [`terms`]: the vocabulary applied to recognised, translated and spoken text (#446).
 //! - [`capture`]: the devices behind one trait, so that tests feed PCM of their own.
 //!
 //! Nothing here logs or returns recognised text, audio or a key in a diagnostic.
@@ -19,6 +20,7 @@ pub mod providers;
 pub mod realtime;
 pub mod recorder;
 pub mod speechcpp;
+pub mod terms;
 pub mod vad;
 
 pub use capture::Source;

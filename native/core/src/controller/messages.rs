@@ -547,9 +547,11 @@ impl Core {
             return false;
         }
         let language = recognized.language.as_deref().filter(|l| !l.is_empty());
+        // Speech gets the term dictionary's written forms (#446); OCR reads what others typed.
+        let text = if source == Source::Ocr { recognized.text.clone() } else { self.corrected_recognition(&recognized.text) };
         self.process_message(
             &spec,
-            &recognized.text,
+            &text,
             language,
             recognized.id.clone(),
             recognized.asr_ms,

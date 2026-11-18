@@ -7,7 +7,7 @@ async function setup({ draft, saved = draft, engineVoices = null }) {
     const runtime = hooks();
     const sent = [];
     const state = { draft: { ...draft } };
-    const { TtsEngine, CoeiroinkOptions, validCoeiroinkOptions, COEIROINK_DEFAULTS } = await loadModule(new URL("./TtsEngine.jsx", import.meta.url), runtime, {
+    const { TtsEngine, CoeiroinkOptions, AudioQueryOptions, validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS } = await loadModule(new URL("./TtsEngine.jsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: async () => {} },
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ engineVoices, send: (endpoint, data) => sent.push([endpoint, data]) }) },
@@ -21,8 +21,11 @@ async function setup({ draft, saved = draft, engineVoices = null }) {
     // The harness does not render nested components: the COEIROINK part renders on its own.
     const coeiroink = hooks();
     const renderCoeiroink = () => coeiroink.render(CoeiroinkOptions, { draft: state.draft, setDraft });
-    const unmount = () => { runtime.unmount(); coeiroink.unmount(); };
-    return { runtime: { unmount }, sent, state, render, renderCoeiroink, CoeiroinkOptions, validCoeiroinkOptions, COEIROINK_DEFAULTS };
+    const scales = hooks();
+    const renderScales = engine => scales.render(AudioQueryOptions, { engine, draft: state.draft, setDraft });
+    const unmount = () => { runtime.unmount(); coeiroink.unmount(); scales.unmount(); };
+    return { runtime: { unmount }, sent, state, render, renderCoeiroink, renderScales, CoeiroinkOptions, AudioQueryOptions,
+        validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS };
 }
 
 const selects = tree => {
@@ -111,6 +114,44 @@ test("COEIROINK numbers outside the core's ranges cannot be saved", async () => 
     for (const bad of [{ coeiroink_speed: "0.4" }, { coeiroink_speed: "" }, { coeiroink_speed: "1e0" }, { coeiroink_volume: "-0.1" },
         { coeiroink_pitch: "0.2" }, { coeiroink_intonation: "2.5" }, { coeiroink_pre_phoneme: "1.6" }, { coeiroink_sampling_rate: "22050" }])
         assert.equal(valid(bad), false, JSON.stringify(bad));
+    s.runtime.unmount();
+});
+
+test("VOICEVOX, AivisSpeech and SHAREVOX each show their own reading, from the engine's own values", async () => {
+    const s = await setup({ draft: voicevox, engineVoices: connected });
+    const shown = find(s.render(), node => node.type === s.AudioQueryOptions);
+    assert.equal(shown.props.engine, "voicevox");
+    assert.ok(!find(s.render(), node => node.type === s.CoeiroinkOptions));
+    // A file saved before these fields has none of them: the page shows the engine's defaults.
+    const numbers = tree => {
+        const found = [];
+        find(tree, node => { if (node.type === "input" && node.props.type === "number") found.push(node); return false; });
+        return found;
+    };
+    const fields = numbers(s.renderScales("voicevox"));
+    assert.deepEqual(fields.map(node => node.props.value), ["1.0", "1.0", "0.0", "1.0"]);
+    assert.ok(fields.every(node => node.props["aria-invalid"] === false));
+    fields[0].props.onChange({ target: { value: "1.25" } });
+    assert.equal(s.state.draft.voicevox_speed, "1.25");
+    // AivisSpeech keeps its own values: VOICEVOX's speed is not AivisSpeech's.
+    assert.equal(numbers(s.renderScales("aivis"))[0].props.value, "1.0");
+    const reset = find(s.renderScales("voicevox"), node => node.type === "button" && node.props.children === "voice_ui.engine.audio_query.reset");
+    assert.equal(reset.props.disabled, false);
+    reset.props.onClick();
+    assert.equal(s.state.draft.voicevox_speed, "1.0");
+    s.runtime.unmount();
+    const c = await setup({ draft: { japanese_engine: "coeiroink" } });
+    assert.ok(!find(c.render(), node => node.type === c.AudioQueryOptions), "COEIROINK has its own fields");
+    c.runtime.unmount();
+});
+
+test("VOICEVOX API numbers outside the core's ranges cannot be saved", async () => {
+    const s = await setup({ draft: voicevox });
+    assert.equal(s.validAudioQueryOptions({}), true, "settings saved before these fields");
+    assert.equal(s.validAudioQueryOptions({ voicevox_speed: "2", aivis_pitch: "-0.15", sharevox_intonation: "0" }), true);
+    for (const bad of [{ voicevox_speed: "0.4" }, { voicevox_speed: "" }, { aivis_speed: "1e0" }, { aivis_volume: "-0.1" },
+        { sharevox_pitch: "0.2" }, { sharevox_intonation: "2.5" }])
+        assert.equal(s.validAudioQueryOptions(bad), false, JSON.stringify(bad));
     s.runtime.unmount();
 });
 

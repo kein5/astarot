@@ -72,6 +72,14 @@ To use it, download and apply the diarization model under "Models and servers" �
 
 Under "Term dictionary", add words you want recognized and how to write them. Common VRChat terms are built in.
 
+Proper nouns such as world names and your friends' names are worth adding. The dictionary is used beyond speech recognition:
+
+- Recognized text from any engine gets the written form you registered. A word written as one of its readings is changed too.
+- Japanese speech reads a term with the reading you registered.
+- AI translators (OpenAI, Gemini, Groq and the like) are told which of your terms a text holds, as names.
+
+A reading that is also an everyday word changes that word too, so choose readings that no other word shares.
+
 ## Paste what you say into an input field
 
 With "Voice typing mode" on under Settings → "Captions and VR", what you say is transcribed and pasted into an input field in VRChat or another app. The paste goes through the clipboard.
@@ -85,19 +93,18 @@ On Linux it pastes into apps that run as X11/XWayland windows, such as VRChat un
 
 On Windows, the speech recognition used by the main screen's "Mic input" and "Listening" switches is chosen under Settings → "Speech recognition (ASR)" → "Transcription Engine Used For Speech Recognition". If you turn transcription on before choosing an engine, a "Choose speech recognition" screen opens.
 
-- With "Local (speech.cpp)", audio is turned into text by a speech.cpp server on this PC, and the switches run realtime captions. It needs a recognition model and Silero VAD ([What you need](#what-you-need)).
-- With "Google", your microphone or speaker audio is sent to Google's speech service to be turned into text. No API key is needed.
-- Groq Whisper, OpenAI Whisper, Custom Whisper server and Deepgram can be chosen once you register an API key under "Cloud speech recognition". A Whisper server of your own works too ([Use your own models](../guide/custom-models#whisper-server)).
+- With "Local (speech.cpp)", audio is turned into text by a speech.cpp server on your PC, and the switches run realtime captions. It needs a recognition model and Silero VAD ([What you need](#what-you-need)).
+- Groq Whisper, OpenAI Whisper, Custom Whisper server and Deepgram can be chosen once you register an API key under "Cloud speech recognition". A Whisper server of your own works too ([Use your own models](../guide/custom-models#whisper-server)). At start the app contacts only the engine you have selected and servers running on your PC; any other engine has its key checked when you select it.
 
 The app never switches from the engine you chose to another one on its own. Switching between "Local (speech.cpp)" and another engine turns "Mic input" and "Listening" off if they were on. Turn them on again to start with the new engine.
 
-Local (speech.cpp) transcribes the languages its recognition model supports (30 languages with Qwen3-ASR, Japanese only with Haas-ja, ReazonSpeech and Parakeet ja). For other languages, use Google or a cloud engine.
+Local (speech.cpp) transcribes the languages its recognition model supports (30 languages with Qwen3-ASR, Japanese only with Haas-ja, ReazonSpeech and Parakeet ja). For other languages, use a cloud engine.
 
 On Linux, "Mic input" and "Listening" always run realtime captions, whatever engine is chosen.
 
 ## If you used Whisper in an earlier version {#whisper}
 
-The Whisper that ran inside the app is gone. Speech is now turned into text on this PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
+The Whisper that ran inside the app is gone. Speech is now turned into text on your PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
 
 - If Whisper was your engine under "Transcription Engine Used For Speech Recognition", the first start after the update switches it to "Local (speech.cpp)". On Windows, "ASR server" under "Realtime captions" also becomes "Bundled server".
 - The main screen then shows the notice "Local speech recognition now uses speech.cpp", once. It shows whether the two models it needs (a speech recognition model and a VAD model) are set, with a button "Open Speech recognition (ASR) settings". The notice never downloads a model. Models are downloaded only after you check their license and size under "Models and servers" and agree.

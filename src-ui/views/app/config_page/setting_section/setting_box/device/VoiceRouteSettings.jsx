@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useI18n } from "@useI18n";
-import { useStore_SelectedConfigTabId } from "@store";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { usesOutputDevice } from "../../../../../../logics/voice/routeState";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
@@ -8,19 +7,19 @@ import { SectionLabelComponent } from "../_components/section_label_component/Se
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
+import { PageLinkButton } from "../_components/page_pointer/PagePointer";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
-import { revealSetting } from "../../../../../../logics/configs/revealSetting.ts";
 
 export const VoiceRouteSummary = () => {
     const { t } = useI18n();
     const { settings } = useVoice();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     // A setting row like the others (#478): the label on the left, the route in use under it,
-    // and the button that opens the Device page in the control column. The route is in that
+    // and the button that opens the Device page in the control column. The button names that
+    // page (#537), so the line under the label only says the route. The route is in that
     // page's 「詳細設定」, so the page opens on it (#554).
     const route = settings ? t(`voice.routing_${settings.routing}`) : t("voice.loading");
     return <FormRow group label={t("voice.routing")} description={t("voice_ui.route_current", { route })} fold={false}>
-        <button type="button" onClick={() => { updateSelectedConfigTabId("device"); revealSetting({ setting_id: "voice_route" }); }}>{t("voice_ui.edit_route")}</button>
+        <PageLinkButton tab="device" action={t("voice_ui.edit_route")} target="voice_route" />
     </FormRow>;
 };
 
