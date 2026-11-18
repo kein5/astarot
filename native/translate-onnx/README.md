@@ -22,13 +22,13 @@
 
 ## ONNX Runtime の読み込み
 
-`runtime.rs` が、チャットの読み取り（`native/ocr-runtime`）と同じ順でライブラリを探します。
+ライブラリの探し方と、プロセスに1つだけの環境は、`native/onnx-runtime`（`vrct-onnx-runtime`）が受け持ちます。チャットの読み取り（`native/ocr-runtime`）と声質変換のワーカー（`native/rvc-runtime`）も同じクレートを使います。探す順は次のとおりです。
 
 1. 環境変数 `ORT_DYLIB_PATH`
-2. 実行ファイルの隣の `onnxruntime.dll`（Linux は `libonnxruntime.so`）
-3. 名前だけでの検索
+2. アプリが同梱するライブラリ（`_internal/onnxruntime`。中核の `shipped_libraries.rs` が指定する）
+3. 名前だけでの検索（`ort` はまず実行ファイルの隣を見ます）
 
-`ort` は1つのプロセスで最初に読み込んだライブラリを使い続けます。翻訳とチャットの読み取りは同じライブラリを共有します。どの実行プロバイダがあるかは、そのライブラリのビルドで決まります。`ort` の機能 `cuda`、`tensorrt`、`openvino`、`migraphx`、`webgpu`（Windows では `directml` も）は Rust 側の呼び出しを足すだけで、`load-dynamic` では何もリンクしません。`ort` の機能はアプリ全体で1つにまとまるので、このクレートの既定の機能も `load-dynamic` です。単体で `ort` の配るバイナリにリンクしたいときは `--no-default-features --features download-binaries` を使います。
+`ort` は1つのプロセスで最初に読み込んだライブラリを使い続け、環境も1つしか作れません。翻訳とチャットの読み取りは、どちらが先に始まっても同じライブラリと環境を使います。このクレートの `runtime.rs` は読み込んだライブラリにある実行プロバイダを調べるだけです。どの実行プロバイダがあるかは、そのライブラリのビルドで決まります。`ort` の機能 `cuda`、`tensorrt`、`openvino`、`migraphx`、`webgpu`（Windows では `directml` も）は Rust 側の呼び出しを足すだけで、`load-dynamic` では何もリンクしません。`ort` の機能はアプリ全体で1つにまとまるので、このクレートの既定の機能も `load-dynamic` です。単体で `ort` の配るバイナリにリンクしたいときは `--no-default-features --features download-binaries` を使います。
 
 `vrct-translate --providers` は、読み込んだライブラリの実行プロバイダを表示します。2026-11-16 に公式の `onnxruntime-win-x64-1.31.0.zip` では `["cpu"]`、NuGet の `Microsoft.ML.OnnxRuntime.DirectML` 1.24.4 では `["cpu","directml"]` と出ることを確かめました（Windows 11、モデルなし）。
 

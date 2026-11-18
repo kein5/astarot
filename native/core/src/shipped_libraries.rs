@@ -8,6 +8,9 @@
 //! System32, which cannot read the chat reading's model, and the overlay found no OpenVR at all.
 //!
 //! The variables that name a library (`ORT_DYLIB_PATH`, `VRCT_OPENVR_API`) still win.
+//!
+//! Chat reading and translation take the ONNX Runtime library and its one environment from
+//! `vrct-onnx-runtime`, so they always share them (`ort` allows one environment per process).
 
 use std::path::Path;
 
@@ -24,23 +27,17 @@ pub const OPENVR: &str = if cfg!(windows) { "openvr/libopenvr_api_64.dll" } else
 ///
 /// Changes the process environment: call at the start of the app, before other threads run.
 pub unsafe fn disable_onnx_runtime_telemetry() {
-    unsafe { ocr_runtime::engine::disable_telemetry_for_process() };
+    unsafe { vrct_onnx_runtime::disable_telemetry_for_process() };
 }
 
-/// Points chat reading, translation and OpenVR at the libraries beside the app, and has
-/// translation use chat reading's ONNX Runtime environment: `ort` allows one per process.
-/// Returns a line for the log. Call once, before any of them is used.
+/// Points chat reading, translation and OpenVR at the libraries beside the app. Returns a line
+/// for the log. Call once, before any of them is used.
 pub fn use_shipped(app_dir: &Path) -> String {
     let onnx_runtime = crate::resources::locate(app_dir, ONNX_RUNTIME);
     let onnx_found = onnx_runtime.is_file();
     if onnx_found {
-        ocr_runtime::engine::use_library(onnx_runtime);
+        vrct_onnx_runtime::use_library(onnx_runtime);
     }
-    #[cfg(feature = "onnx-translation")]
-    vrct_translate_onnx::runtime::share(vrct_translate_onnx::runtime::Shared {
-        environment: ocr_runtime::engine::shared_environment,
-        library_path: ocr_runtime::engine::library_path,
-    });
     let openvr = crate::resources::locate(app_dir, OPENVR);
     let openvr_found = openvr.is_file();
     if openvr_found {

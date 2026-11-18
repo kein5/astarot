@@ -287,12 +287,13 @@ pub fn device_entry(provider: Provider, index: u32) -> Value {
 }
 
 /// The devices the local translation can run on: the CPU, and the GPU providers of the ONNX
-/// Runtime library beside the app. Without a library there nothing is loaded and only the CPU
-/// is listed; a provider listed here may still fail to start on this PC, and then the model
-/// runs on the CPU and the user is told ([`Placement::fallback`]).
+/// Runtime library the process loads (`vrct_onnx_runtime::library_path`). Without a library
+/// there nothing is loaded and only the CPU is listed; a provider listed here may still fail to
+/// start on this PC, and then the model runs on the CPU and the user is told
+/// ([`Placement::fallback`]).
 pub fn compute_devices() -> Vec<Value> {
     let mut devices = vec![device_entry(Provider::Cpu, 0)];
-    if runtime::library_present()
+    if vrct_onnx_runtime::library_present()
         && let Ok(providers) = runtime::available_providers()
     {
         devices.extend(providers.into_iter().filter(|p| p.offered() && *p != Provider::Cpu).map(|p| device_entry(p, 0)));

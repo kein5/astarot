@@ -3236,6 +3236,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.21",
  "unicode-bidi",
+ "vrct-onnx-runtime",
  "vrct-openvr-client",
  "windows",
  "x11rb",
@@ -5753,6 +5754,7 @@ dependencies = [
  "serde_json",
  "vrct-adapters",
  "vrct-audio-routing",
+ "vrct-onnx-runtime",
  "vrct-openvr-client",
  "vrct-ops",
  "vrct-speech-server",
@@ -5765,6 +5767,13 @@ dependencies = [
  "windows",
  "windows-sys 0.61.2",
  "zbus",
+]
+
+[[package]]
+name = "vrct-onnx-runtime"
+version = "0.0.0"
+dependencies = [
+ "ort",
 ]
 
 [[package]]
@@ -5820,6 +5829,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tokenizers",
+ "vrct-onnx-runtime",
 ]
 
 [[package]]
