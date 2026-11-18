@@ -46,9 +46,10 @@ pub const UNLOGGED_ENDPOINTS: [&str; 4] = ["/run/vr_panel_pointer", "/run/realti
 
 /// States the UI asks for every 0.5 to 2 s (the flow panel's route map and GPU memory only
 /// while it is shown).
-pub const POLLED_ENDPOINTS: [&str; 11] = [
+pub const POLLED_ENDPOINTS: [&str; 12] = [
     "/get/data/ocr_capture_status",
     "/get/data/voice_status",
+    "/get/data/voice_audition_state",
     "/get/data/voice_route",
     "/get/data/direct_voice_state",
     "/get/data/speech_server_state",

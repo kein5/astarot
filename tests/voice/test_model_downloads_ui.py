@@ -824,3 +824,81 @@ def test_a_model_of_ones_own_is_registered_listed_and_switched_to(ui, tmp_path):
     card.get_by_role("button", name="Remove", exact=True).click()
     expect(page.locator("[data-user-model]")).to_have_count(0)
     assert own.exists()
+
+def test_the_model_in_use_plays_a_sample_on_request_and_the_other_cards_say_why(ui):
+    """#415: a short fixed sentence on the monitor output only, from the card of the model in use."""
+    from playwright.sync_api import expect
+
+    page, peer, reply, _ = ui
+    q8, small = "C:/models/irodori-v41-q8/rev/q8.gguf", "C:/models/irodori-v41-small-f16/rev/small.gguf"
+    peer.downloaded = {"irodori-v41-q8": {"model": q8}, "irodori-v41-small-f16": {"model": small}}
+    peer.settings["profiles"]["japanese"]["model"] = q8
+    peer.state["japanese"] = dict(state="ready", generation=1, error_code=None, base_url="http://127.0.0.1:9")
+    audition = dict(state="idle", run=0, profile=None, last_run=None, outcome=None, error_code=None)
+    held = []
+
+    def extra(ep, data):
+        if ep == "/run/start_voice_audition":
+            held.append(data)  # Answered by the test, so the waiting press can be seen.
+        elif ep == "/run/stop_voice_audition":
+            audition.update(state="idle", profile=None, last_run=audition["run"], outcome="stopped")
+            reply(ep, dict(audition))
+        elif ep == "/get/data/voice_audition_state":
+            reply(ep, dict(audition))
+        else:
+            return False
+        return True
+
+    peer.extra = extra
+    page.reload()
+    open_engine_settings(page)
+    observation = iter(range(1, 100))
+
+    def voice(monitor="on", muted=False):
+        reply("/get/data/voice_settings", dict(monitor=monitor, monitor_device="", monitor_volume="100", output_device="Cable"))
+        reply("/get/data/voice_route", dict(requested_muted=muted, observation_id=str(next(observation))))
+
+    voice(monitor="off")
+    mf = page.get_by_role("group", name=MF, exact=True)
+    small_card = page.get_by_role("group", name="Irodori-TTS v4.1 Small", exact=True)
+    # No dead buttons: each card says what stands in the way.
+    expect(mf).to_contain_text('Samples play on the monitor output. Turn on "Hear it on my speakers" to play one.')
+    expect(small_card).to_contain_text("Only the model in use can play a sample.")
+    expect(page.locator("[data-voice-audition]")).to_have_count(0)
+    expect(page.get_by_role("group", name="Irodori-TTS v4 Large", exact=True)).not_to_contain_text("sample")
+
+    voice()
+    button = mf.locator("[data-voice-audition=japanese]")
+    expect(button).to_have_text("Play sample")
+    # It follows the card's own action in the card's row of actions.
+    assert mf.locator("[data-voice-audition]").evaluate("button => button.previousElementSibling.textContent") == \
+        "Check the files and get ready to use"
+    assert not any(ep == "/run/start_voice_audition" for ep, _ in peer.sent), "it played by itself"
+    button.focus()
+    page.keyboard.press("Enter")
+    # The waiting press shows at once, keeps its focus and ignores more presses.
+    expect(button).to_have_text("Preparing sample")
+    expect(button).to_have_attribute("aria-disabled", "true")
+    expect(button).to_be_focused()
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(200)
+    assert held == [{"kind": "tts", "profile": "japanese", "sentence": "ja"}], "the sentence is named by id, once"
+    audition.update(state="playing", run=1, profile="japanese")
+    reply("/run/start_voice_audition", dict(audition))
+    expect(button).to_have_text("Stop sample")
+    expect(button).to_be_focused()
+    page.keyboard.press("Enter")
+    expect(button).to_have_text("Play sample")
+    assert any(ep == "/run/stop_voice_audition" for ep, _ in peer.sent)
+
+    # A refusal is said on the card.
+    button.click()
+    reply("/run/start_voice_audition", {"error_code": "voice_audition_server_not_ready"}, 409)
+    expect(mf.get_by_role("alert")).to_have_text('This model\'s server is not running. Press "Start server" first.')
+    # Muted: no sample plays until the voice is unmuted.
+    voice(muted=True)
+    expect(mf).to_contain_text('Samples do not play while muted. Press "Unmute" to play one.')
+    expect(page.locator("[data-voice-audition]")).to_have_count(0)
+    # Nothing else was started, switched or saved.
+    assert not any(ep in ("/run/enable_tts", "/run/start_speech_server", "/set/data/voice_settings", "/run/start_direct_voice")
+                   for ep, _ in peer.sent)

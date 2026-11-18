@@ -67,6 +67,19 @@ Why a virtual microphone is needed is in [How voice and text flow](../guide/how-
 - What VRChat receives does not change.
 - Use headphones, so your microphone does not pick up the sound from your speakers.
 
+## Play a sample of the voice
+
+You can hear the voice of the model in use on your own, without turning speech on. After changing the voice or the seed, play it again to compare.
+
+1. Under "Hear it yourself", turn on "Hear it on my speakers" and choose where it plays.
+2. Under "Models and servers", start the server of the model you use.
+3. On the card of the model in use, press "Play sample". A short fixed sentence is read and played only on the monitor output. Japanese models read a Japanese sentence; the other models read an English one.
+
+- The sample is never sent to VRChat. It never plays on the speech output device or on a virtual cable.
+- While it plays, "Stop sample" stops it. "Stop speech" and "Mute" stop it too. No sample plays while muted.
+- Only the model in use can play a sample. The other cards say why they cannot.
+- Voice changer (RVC) models cannot play a sample yet.
+
 ## Start speaking sooner (Japanese, GPU)
 
 "Low-latency standby (Irodori GPU)" shortens the time before speech starts. It is off by default.

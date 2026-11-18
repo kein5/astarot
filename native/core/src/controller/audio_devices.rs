@@ -639,6 +639,14 @@ impl AudioDevices {
         self.check.stop();
     }
 
+    /// The playback sides of the virtual cables found, which an output for the user's ears only
+    /// (the voice audition, #415) must never be. Empty where the PC has no such check (Linux);
+    /// `None` when the list could not be read. Only reads the list.
+    pub(crate) fn cable_playbacks(&self) -> Option<Vec<String>> {
+        let Some(cables) = self.platform.cables() else { return Some(Vec::new()) };
+        cables.find_cables().ok().map(|pairs| pairs.into_iter().map(|pair| pair.playback).collect())
+    }
+
     fn cable_json(pair: &CablePair) -> Value {
         json!({ "playback": pair.playback, "recording": pair.recording, "playback_label": pair.playback_label, "recording_label": pair.recording_label })
     }

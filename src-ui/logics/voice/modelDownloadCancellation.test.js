@@ -146,6 +146,7 @@ const loadCatalog = (s, ui) => loadModule(new URL("../../views/app/config_page/s
     "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
     "./EngineCatalog": { EngineCatalog: "engines" },
     "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
+    "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
 });
 
 // The nodes of a rendered tree that match, in order (find returns only the first).
@@ -231,6 +232,11 @@ test("a model downloaded before a restart says so, and in use only when its file
     assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")).length, 0);
     const dialog = find(render(), node => node.type === "dialog");
     assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
+    // The audition (#415) follows the card's own action in its row, with the card's status.
+    const row = find(cards[0], node => node.props?.className === "actions");
+    assert.deepEqual(row.props.children.map(child => child?.type), ["button", "audition-button"]);
+    assert.deepEqual(cards.map(card => find(card, node => node.type === "audition-note").props), [
+        { target: "rvc", status: "in_use" }, { target: "rvc", status: "downloaded" }, { target: "rvc", status: "not_downloaded" }]);
 });
 
 test("the time of a GPU reading is written in the display language", async t => {

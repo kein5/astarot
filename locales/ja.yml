@@ -2038,6 +2038,34 @@ model_catalog:
             aivis: "日本語の音声合成ソフトです。声のモデルを追加して使い、モデルごとにライセンスがあります。"
             sharevox: "無料で使える日本語の音声合成ソフトで、VOICEVOXと同じ方式でつなぎます。声によってはクレジットが必要です。"
 
+# 読み上げのモデルの試聴（#415）。決まった短い文を、モニター出力先だけで再生する。
+voice_audition:
+    play: "試聴する"
+    pending: "試聴を準備中"
+    stop: "試聴を止める"
+    tooltip: "使用中のモデルが決まった短い文を読み上げます。モニター出力先だけで再生し、VRChatへは送りません。"
+    blocked:
+        not_in_use: "試聴できるのは使用中のモデルだけです。"
+        server_stopped: "下の「サーバーを起動」を押すと試聴できます。"
+        monitor_off: "試聴はモニター出力先で再生します。「自分のスピーカーでも聞く」をオンにすると試聴できます。"
+        muted: "ミュート中は試聴できません。「ミュートを解除」を押すと試聴できます。"
+    errors:
+        voice_audition_failed: "試聴の音声を作れませんでした。サーバーの状態を確かめてもう一度押してください。"
+        voice_audition_unconfirmed: "試聴の応答がありません。もう一度押してください。"
+        voice_audition_request_invalid: "試聴の要求が正しくありません。"
+        voice_audition_closed: "アプリの終了中は試聴できません。"
+        voice_audition_muted: "ミュート中は試聴できません。「ミュートを解除」を押してから試してください。"
+        voice_audition_monitor_off: "モニター出力がオフです。「自分のスピーカーでも聞く」をオンにしてください。"
+        voice_audition_monitor_blocked: "モニター出力先が声の出力先か仮想ケーブルです。スピーカーかヘッドホンを選んでください。"
+        voice_audition_devices_unavailable: "音声デバイスの一覧を読めないため試聴できません。少し待ってからもう一度押してください。"
+        voice_audition_server_not_ready: "このモデルのサーバーが動いていません。先に「サーバーを起動」を押してください。"
+        voice_audition_timeout: "試聴が30秒で終わらなかったので止めました。"
+        monitor_output_missing: "モニター出力先が見つかりません。選び直してください。"
+        monitor_output_disconnected: "モニター出力先が切断されました。"
+        monitor_feedback_blocked: "モニター出力先が声の出力先か仮想ケーブルです。スピーカーかヘッドホンを選んでください。"
+        monitor_output_error: "モニター出力先で再生できませんでした。"
+        backend_unavailable: "エンジンが止まっているため試聴できません。"
+
 # 利用者が用意したモデル（#403）。カタログのカードと同じ一覧に並べる。
 user_models:
     badge: "自分のモデル"

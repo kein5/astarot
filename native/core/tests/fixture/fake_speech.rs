@@ -4,7 +4,9 @@
 //! readiness the owner checks; the stem of MODEL's file name picks what it does:
 //!
 //! - `asr...` serves recognition and detection, anything else synthesis (`/v1/audio/speech`
-//!   answers 0.2 s of a tone as 24 kHz PCM);
+//!   answers 0.2 s of a tone as 24 kHz PCM, and keeps the last request's body in
+//!   `MODEL.speech`);
+//! - `...slow...` answers 3 s of the tone instead, at about a third of real time;
 //! - `...crash...` exits at once with an error;
 //! - `...gate...` prints its ready line only once `MODEL.go` exists;
 //! - `...die...` exits with an error once `MODEL.die` exists.
@@ -31,7 +33,7 @@ fn respond(stream: &mut TcpStream, status: &str, body: &[u8]) {
     let _ = stream.write_all(body);
 }
 
-fn handle(mut stream: TcpStream, asr: bool) {
+fn handle(mut stream: TcpStream, asr: bool, model: &Path, slow: bool) {
     let mut request = Vec::new();
     let mut block = [0u8; 8192];
     while !request.windows(4).any(|four| four == b"\r\n\r\n") {
@@ -64,10 +66,20 @@ fn handle(mut stream: TcpStream, asr: bool) {
                 Ok(read) => request.extend_from_slice(&block[..read]),
             }
         }
-        let pcm: Vec<u8> = (0..4800).flat_map(|i: i32| (((i % 60) - 30) as i16 * 200).to_le_bytes()).collect();
+        let _ = std::fs::write(marker(model, ".speech"), &request[head_end.min(request.len())..]);
+        let samples = if slow { 72000 } else { 4800 };
+        let pcm: Vec<u8> = (0..samples).flat_map(|i: i32| (((i % 60) - 30) as i16 * 200).to_le_bytes()).collect();
         let head = format!("HTTP/1.1 200 OK\r\nContent-Type: audio/pcm\r\nX-Sample-Rate: 24000\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", pcm.len());
         let _ = stream.write_all(head.as_bytes());
-        let _ = stream.write_all(&pcm);
+        // 40 ms of speech every 15 ms when slow, so that a stop comes while it plays.
+        for piece in pcm.chunks(if slow { 1920 } else { pcm.len() }) {
+            if stream.write_all(piece).is_err() {
+                return;
+            }
+            if slow {
+                std::thread::sleep(Duration::from_millis(15));
+            }
+        }
         return;
     }
     respond(&mut stream, "404 Not Found", b"{}");
@@ -139,7 +151,9 @@ fn main() {
     let port = listener.local_addr().expect("address").port();
     eprintln!("    API at http://127.0.0.1:{port}/v1; Ctrl-C stops the server");
     let asr = stem.starts_with("asr");
+    let slow = stem.contains("slow");
     for stream in listener.incoming().flatten() {
-        std::thread::spawn(move || handle(stream, asr));
+        let model = model.clone();
+        std::thread::spawn(move || handle(stream, asr, &model, slow));
     }
 }

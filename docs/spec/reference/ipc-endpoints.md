@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（457件: 削除 13、取得 205、実行 45、有効化 40、無効化 43、設定 111）
+## 要求（460件: 削除 13、取得 206、実行 47、有効化 40、無効化 43、設定 111）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -472,6 +472,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/usage_presets` | 取得 | `core: USAGE_PRESETS` | 可 | useUsagePresets.updateFromBackendUsagePresets | 中核のみ |
 | `/set/data/usage_presets` | 設定 | `core: USAGE_PRESETS` | 可 | useUsagePresets.setSuccessUsagePresets | 中核のみ |
 | `/set/data/speaker_names` | 設定 | `core: speakers::set_names` | 可 | useSpeakerNames.updateNames | 中核のみ、ログで伏せる |
+| `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | useVoiceAudition.updateState | 中核のみ |
+| `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | useVoiceAudition.updateState | 中核のみ |
+| `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
 
 
 ## 通知（サイドカーからUIへ、89件）

@@ -15,6 +15,7 @@ async function form(context, models) {
         "../../../../../../logics/voice/modelCatalog": modelCatalog,
         "../../../../../../logics/common/fileDrop": { extensionOf: () => "" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "drop-zone" },
+        "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
     });
     const render = () => runtime.render(UserModelRegistration, { target: "japanese", busy: false });
     const inputs = () => all(render(), node => node.type === "input");

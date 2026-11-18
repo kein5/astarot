@@ -9,6 +9,7 @@
 //!
 //! Nothing here writes text, audio, device names or paths to the log.
 
+mod audition;
 mod flow;
 pub mod platform;
 
@@ -84,12 +85,15 @@ struct TtsOwner {
     waiting: usize,
 }
 
-/// The speech bus as the route's software mute.
-struct BusMute(Arc<VoiceEventBus>);
+/// The speech bus as the route's software mute. A mute also ends a voice audition.
+struct BusMute(Arc<VoiceEventBus>, Arc<audition::Audition>);
 
 impl MuteBus for BusMute {
     fn set_muted(&self, muted: bool) {
         self.0.set_muted(muted);
+        if muted {
+            self.1.stop();
+        }
     }
 }
 
@@ -114,6 +118,8 @@ pub struct Voice {
     /// A Seed-VC conversion saved by an earlier version was moved to RVC at this start; the
     /// direct voice state says so until the settings are saved again (#391).
     seed_vc_moved: AtomicBool,
+    /// The voice audition of the TTS catalog, on the monitor output only (#415).
+    audition: Arc<audition::Audition>,
 }
 
 // ---------------------------------------------------------------- devices
@@ -303,8 +309,9 @@ impl Voice {
 
         let muted_direct = direct.clone();
         let store = MuteState::new(config.path().with_file_name("voice_mute_state.json"));
+        let audition = audition::Audition::new();
         let route = VoiceRoute::new(
-            Arc::new(BusMute(bus.clone())),
+            Arc::new(BusMute(bus.clone(), audition.clone())),
             platform.gate(&app_dir),
             Arc::new(store),
             RouteOptions { poll_interval: Duration::from_millis(100), on_muted: Some(Arc::new(move |muted| muted_direct.set_monitor_muted(muted))) },
@@ -345,6 +352,7 @@ impl Voice {
             monitor_logged: Mutex::new(None),
             realtime_mic: Mutex::new(None),
             seed_vc_moved: AtomicBool::new(seed_vc_moved),
+            audition,
         });
         let _ = voice.route.configure(settings.routing == "managed", Duration::from_secs(3), voice.gate_suppresses_direct(&settings));
         voice.apply_direct_policy(&settings);
@@ -859,17 +867,51 @@ impl Voice {
 
     fn stop_voice(&self, core: &Core) -> Reply {
         self.bus.cancel();
+        self.audition.stop();
         core.audio_devices().stop_virtual_mic_check();
         ok(self.status())
     }
 
     fn mute(&self, core: &Core) -> Reply {
+        // Before the route: a mute that fails to reach the OS still silences the audition.
+        self.audition.stop();
         if self.route.mute().is_err() {
             // Python let a closed route raise.
             return Reply::status(500, "Internal error");
         }
         core.audio_devices().stop_virtual_mic_check();
         ok(self.route_status())
+    }
+
+    /// A voice audition (#415): the fixed sentence by the profile's running bundled server, on
+    /// the monitor output only. Refused while muted, without that server or without a monitor.
+    fn start_audition(&self, core: &Core, data: &Value) -> Reply {
+        let Some(request) = audition::parse(data) else { return refused(400, "voice_audition_request_invalid") };
+        if self.audition.closed() || self.bus.status().closed {
+            return refused(409, "voice_audition_closed");
+        }
+        // As the virtual microphone check: nothing sounds while the voice is muted.
+        if self.route.status().requested_muted || self.bus.status().muted {
+            return refused(409, "voice_audition_muted");
+        }
+        let settings = self.bus.settings();
+        let target = match audition::monitor_target(&settings, core.audio_devices().cable_playbacks(), self.platform.monitor_output()) {
+            Ok(target) => target,
+            Err(code) => return refused(409, code),
+        };
+        let client = core.speech_servers().hub().binding(profile(request.profile)).ok().and_then(|url| SpeechCppTts::new(&url).ok());
+        let Some(client) = client else { return refused(409, "voice_audition_server_not_ready") };
+        let (voice, options) = audition::speech_options(&settings, request.profile);
+        match self.audition.start(request, audition::Speech { client, voice, options }, target) {
+            Ok(state) => ok(state),
+            Err(code) => refused(409, code),
+        }
+    }
+
+    fn stop_audition(&self) -> Reply {
+        // Answered as it arrives: it only cancels.
+        self.audition.stop();
+        ok(self.audition.status())
     }
 
     fn resume(&self) -> Reply {
@@ -1314,6 +1356,9 @@ impl Core {
     /// before the speech servers close.
     pub(crate) fn close_voice(&self) {
         let Some(voice) = self.voice() else { return };
+        if !voice.audition.close(Duration::from_secs(2)) {
+            self.step("[voice] audition shutdown pending");
+        }
         voice.runtimes.request_close();
         if !voice.runtimes.close(Duration::from_secs(2)) {
             self.step("[voice] runtime setup shutdown pending");
@@ -1432,6 +1477,10 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/get/data/io_flow", OPEN, |core, _| core.io_flow());
     b.with("/run/start_direct_voice", OPEN, |core, data| with_voice(core, |voice| voice.start_direct(data)));
     b.with("/run/stop_direct_voice", OPEN, |core, _| with_voice(core, Voice::stop_direct));
+    // The voice audition of the TTS catalog (#415).
+    b.with("/get/data/voice_audition_state", OPEN, |core, _| with_voice(core, |voice| ok(voice.audition.status())));
+    b.with("/run/start_voice_audition", OPEN, |core, data| with_voice(core, |voice| voice.start_audition(core, data)));
+    b.with("/run/stop_voice_audition", OPEN, |core, _| with_voice(core, Voice::stop_audition));
 
     // The RVC worker's runtime (decision 6 in core-integration.md): set up after consent.
     b.with("/get/data/vc_runtime_catalog", OPEN, |core, _| with_voice(core, |voice| ok(voice.runtimes.catalog())));
