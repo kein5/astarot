@@ -1796,7 +1796,7 @@ vc_runtime:
     warning_title: "実行環境の取得と利用条件"
     notice_rvc: "ONNX Runtime（CUDA 13版）、NVIDIAのCUDA 13とcuDNNのライブラリ、HuBERT、RMVPEを取得します。ONNX RuntimeはMIT、HuBERTとRMVPEの提供元の表示はMITです。CUDAとcuDNNのライブラリはNVIDIAのライセンスに従います。GPUで変換するにはNVIDIAのドライバー580以降が必要です。これらはASTAROTの配布物ではなく、提供元から直接取得します。変換の処理そのものはASTAROTに含まれています。以前の形式の実行環境のファイルが同じフォルダにあれば、取得が終わったあとに削除します。"
     notice_rvc_cpu: "ONNX Runtime（CPU版）、HuBERT、RMVPEを取得します。ONNX RuntimeはMIT、HuBERTとRMVPEの提供元の表示はMITです。これらはASTAROTの配布物ではなく、提供元から直接取得します。変換の処理そのものはASTAROTに含まれています。以前の形式の実行環境のファイルが同じフォルダにあれば、取得が終わったあとに削除します。"
-    notice_seed: "Python 3.11、PyTorch（CUDA版）、Seed-VC本体、5種類のモデルを取得します。Seed-VCの本体とモデルはGPL-3.0、ほかのモデルはApache-2.0、PyTorchはBSD-3-Clauseです。PyTorchのCUDA版にはNVIDIAのライブラリが含まれ、NVIDIAのライセンスに従います。これらはASTAROTの配布物ではなく、提供元から直接取得します。試験的なエンジンで、実時間に間に合わないPCがあります。"
+    notice_seed: "Python 3.14、PyTorch（CUDA版）、Seed-VC本体、5種類のモデルを取得します。Seed-VCの本体とモデルはGPL-3.0、ほかのモデルはApache-2.0、PyTorchはBSD-3-Clauseです。PyTorchのCUDA版にはNVIDIAのライブラリが含まれ、NVIDIAのライセンスに従います。これらはASTAROTの配布物ではなく、提供元から直接取得します。試験的なエンジンで、実時間に間に合わないPCがあります。"
     connection_notice_rvc: "GitHub、Hugging Face、PyPIの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
     connection_notice_rvc_cpu: "GitHubとHugging Faceの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
     connection_notice_seed: "GitHub、Hugging Face、PyPI、PyTorchの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"

@@ -1,0 +1,2 @@
+# Left out of both locks; see requirements.in.
+editdistance
