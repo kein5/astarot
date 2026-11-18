@@ -307,6 +307,38 @@ fn a_session_the_server_refuses_ends_and_the_switch_says_so() {
 }
 
 #[test]
+fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() {
+    // `capture_windows.py`: no audio 2 s after the last, or 5 s after the open, is a stopped
+    // microphone; the user is told instead of seeing no captions.
+    let run = start(Platform::Linux, json!({}), true);
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    let mark = run.ui.lines().len();
+    run.capture.stall(Source::Mic, true);
+    let stopped = std::time::Instant::now();
+    let failed = run.ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/set/enable/transcription_send" && l["status"] == 400);
+    assert_eq!((error_code(&failed), failed["result"]["details"]["reason"].clone()), ("TRANSCRIPTION_SEND_NOT_READY", json!("realtime_capture_failed")));
+    let waited = stopped.elapsed();
+    assert!(waited >= Duration::from_millis(1900) && waited < Duration::from_secs(5), "{waited:?}");
+    eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+
+    // One that never delivers is given 5 s from the open.
+    let mark = run.ui.lines().len();
+    let opened = std::time::Instant::now();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let failed = run.ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/set/enable/transcription_send" && l["status"] == 400);
+    assert_eq!(failed["result"]["details"]["reason"], "realtime_capture_failed");
+    assert!(opened.elapsed() >= Duration::from_millis(4900), "{:?}", opened.elapsed());
+
+    // The speaker's loopback delivers nothing while nothing plays: that is not a failure.
+    run.capture.stall(Source::Speaker, true);
+    assert_eq!(run.ui.ok("/set/enable/transcription_receive", None), true);
+    std::thread::sleep(Duration::from_secs(3));
+    assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["speaker"]["requested"], true);
+    run.ui.stop();
+}
+
+#[test]
 fn both_switches_turned_on_together_share_one_bundled_server_start() {
     // #427: both switches read the server's generation before taking the start lock; the
     // second one's start was then stale and it failed with speech_server_start_failed.

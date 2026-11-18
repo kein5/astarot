@@ -5,8 +5,9 @@
 //! One thread owns the connection: it sends the audio as it comes (48 kHz frames converted to
 //! 24 kHz blocks of 20 ms) and reads the server's events between sends. Audio older than
 //! 250 ms, a mailbox of more than 32 updates, a server that does not finish an utterance in
-//! 15 s (120 s for the first one, while a GPU builds its kernels) or a capture that fails end
-//! the session with a fixed code. Nothing here logs audio or text.
+//! 15 s (120 s for the first one, while a GPU builds its kernels), a capture that fails or a
+//! microphone that delivers nothing (5 s after it opened, 2 s after its last audio) end the
+//! session with a fixed code. Nothing here logs audio or text.
 
 use super::events::{Events, Update};
 use crate::capture::{Capture, CapturePlatform, FrameBuilder, Source, Target};
@@ -31,6 +32,11 @@ const MAX_EVENT: usize = 1024 * 1024;
 const MAILBOX: usize = 32;
 /// Windows can hold a microphone's open until the user answers its question.
 const CAPTURE_OPEN_TIMEOUT: Duration = Duration::from_secs(120);
+/// A microphone that delivers nothing this long after it opened, or this long after its last
+/// audio, has stopped (`_START_TIMEOUT_S` and `_STALL_NS` of `capture_windows.py`, and the
+/// same limits of the Linux helper). A speaker's loopback is filled with silence instead.
+const FIRST_AUDIO_TIMEOUT: Duration = Duration::from_secs(5);
+const STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// What a session asks of the server (`SessionOptions`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -523,6 +529,8 @@ impl Session {
             let mut resampler = Resampler::new(48000, RATE);
             let mut pending_since: HashMap<String, Instant> = HashMap::new();
             let mut first_result_seen = false;
+            let opened = Instant::now();
+            let mut last_audio: Option<Instant> = None;
             while !self.stopped() {
                 // Audio first: it must not wait behind the server's events.
                 let frames: Vec<(Vec<i16>, Instant)> = {
@@ -536,6 +544,17 @@ impl Session {
                     ingress.samples = 0;
                     ingress.frames.drain(..).collect()
                 };
+                if let Some((_, heard)) = frames.last() {
+                    last_audio = Some(*heard);
+                } else if self.inner.source == Source::Mic {
+                    let silent = match last_audio {
+                        Some(heard) => heard.elapsed() >= STALL_TIMEOUT,
+                        None => opened.elapsed() >= FIRST_AUDIO_TIMEOUT,
+                    };
+                    if silent {
+                        return Err(Failure::Session("realtime_capture_failed"));
+                    }
+                }
                 for (frame, heard) in frames {
                     if heard.elapsed() > MAX_AGE {
                         return Err(Failure::Realtime("stale_capture"));
