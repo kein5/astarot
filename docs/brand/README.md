@@ -13,7 +13,9 @@ The ASTAROT brand set is in `astarot/`. [ADR-011](../adr/adr-011-astarot-brand-a
 | `logo-horizontal-light.svg`, `logo-horizontal-dark.svg` | The symbol, the wordmark and the subtitle on one line, for light and dark backgrounds. |
 | `logo-vertical-light.svg`, `logo-vertical-dark.svg` | The symbol above the wordmark, with the subtitle on two lines. |
 | `app-icon.svg`, `app-icon.ico`, `icon-<size>.png` | The app icon: the white symbol on a Dark Plum tile. The PNGs are 16 to 1024 px. |
-| `favicon.svg`, `favicon-<size>.png` | The favicon: the symbol in Dark Plum without a tile. The PNGs are 16 to 64 px. |
+| `favicon.svg`, `favicon-<size>.png` | The favicon: the symbol in Dark Plum without a tile. The PNGs are 32 to 64 px. |
+| `favicon-16.svg`, `favicon-16.png` | The favicon drawn again for 16 px, with one-pixel lines and no dots in the bubble (see [Regenerating](#regenerating)). |
+| `favicon.ico` | The favicon at 16 px from `favicon-16.png`, and at 32 and 48 px from `favicon-32.png` and `favicon-48.png`. The user manual uses it. |
 | `brand-board.svg` | One sheet with the logos, the icon, the favicon, the colors and the typeface. |
 
 The symbols, the logos and the brand board also come as PNG files with the same names. The PNG files are rendered from the SVG files. No tool in this repository renders them; after changing an SVG, render its PNG again at the same pixel size.
@@ -33,7 +35,7 @@ The wordmark is outlined, so it looks the same without fonts. The subtitle in th
 
 - **The app.** `tools/astarot_app_assets.py` builds the Tauri icons in `src-tauri/icons/` and the in-app SVGs in `src-ui/views/assets/brand/` from this set. The AppImage and the Linux packages take their desktop icon from `src-tauri/icons/128x128@2x.png` at build time.
 - **The READMEs.** They show the horizontal logo (`astarot/logo-horizontal-light.png` and `-dark.png`) and switch between them with `prefers-color-scheme`. They use the PNG files because an SVG shown as an image sets the subtitle in another font unless the viewer has Outfit installed.
-- **The user manual.** `site/public/manual/brand/` holds copies of `app-icon.svg` and `favicon.svg`, and WebP wordmarks for the manual's home page. Copy the SVGs again after changing them.
+- **The user manual.** `site/public/manual/brand/` holds copies of `app-icon.svg` and `favicon.ico`, and WebP wordmarks for the manual's home page. Copy `app-icon.svg` again after changing it; `tools/astarot_favicon_small.py` writes the copy of `favicon.ico`.
 
 ## Regenerating
 
@@ -53,3 +55,11 @@ uv run --no-project --with pillow==13.0.0 python tools/astarot_app_assets.py
 ```
 
 Add `--check` to either command to compare with the committed files without writing. `tests/devtools/test_astarot_app_assets.py` checks that the app's files match this set.
+
+The 16 px ASTAROT favicon is its own drawing, not the symbol scaled down: `astarot/favicon-16.svg` is drawn on the 16 px grid with one-pixel lines and no dots in the bubble (ADR-011, 3.1). `tools/astarot_favicon_small.py` builds it with `favicon-16.png` and `favicon.ico` (16 px from this variant, 32 and 48 px from `favicon-32.png` and `favicon-48.png`) and copies the ICO to `site/public/manual/brand/`. Run it after changing its drawing or `favicon-32.png` or `favicon-48.png`:
+
+```sh
+uv run --no-project --with pillow==13.0.0 python tools/astarot_favicon_small.py
+```
+
+Its `--check` compares the SVG byte for byte and the PNG and the ICO by their pixels, because zlib builds compress the same pixels to different bytes. `tests/devtools/test_astarot_favicon_small.py` runs the same comparison.
