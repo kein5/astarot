@@ -5,11 +5,20 @@ import {
 } from "@logics_common";
 import { TranslatedNotice } from "./TranslatedNotice";
 
+// /run/enable_osc_query (docs/spec/external-interfaces.md): whether OSC reception and the
+// OSCQuery advertisement are ready, and if not, why and which functions were switched off.
+export interface OscQueryPayload {
+    data: boolean;
+    disabled_functions: readonly string[];
+    reason?: string | null;
+    microphone_stopped?: boolean;
+}
+
 // Which warning to show: why reception is unavailable, and whether the
 // microphone was stopped because mute sync had been on. One text for all four
 // told people sending to another machine to re-save their local OSC settings,
 // and said the microphone "has also been stopped" when nothing had been.
-const warningKey = (reason, microphone_stopped) => {
+const warningKey = (reason: unknown, microphone_stopped: unknown) => {
     const cause = reason === "remote_destination" ? "remote" : "failed";
     return `common_warning.osc_query_${cause}${microphone_stopped === true ? "_mic_stopped" : ""}`;
 };
@@ -18,7 +27,7 @@ export const useHandleOscQuery = () => {
     const { showNotification_Warning } = useNotificationStatus();
     const { updateIsOscAvailable, updateOscUnavailableReason } = useIsOscAvailable();
 
-    const handleOscQuery = (payload) => {
+    const handleOscQuery = (payload: OscQueryPayload) => {
         const is_osc_query_enabled = payload.data;
         const disabled_functions = payload.disabled_functions;
 

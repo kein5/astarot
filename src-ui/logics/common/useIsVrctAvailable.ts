@@ -6,7 +6,7 @@ import { useStore_IsVrctAvailable } from "@store";
 export const useIsVrctAvailable = () => {
     const { currentIsVrctAvailable, updateIsVrctAvailable } = useStore_IsVrctAvailable();
 
-    const handleAiModelsAvailability = (is_ai_models_available) => {
+    const handleAiModelsAvailability = (is_ai_models_available: boolean) => {
         updateIsVrctAvailable(is_ai_models_available);
     };
 

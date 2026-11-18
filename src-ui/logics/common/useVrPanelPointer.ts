@@ -1,10 +1,16 @@
 import { emit } from "@tauri-apps/api/event";
 import { useStore_VrPanelLogOutOfView, useStore_VrPanelLauncherIntro } from "@store";
 
+// /run/vr_panel_pointer (docs/spec/ipc-protocol.md): where the laser points on the VR panel.
+export interface VrPanelPointer {
+    x: number;
+    y: number;
+}
+
 // バックエンドから届く VR UI 上のポインタ位置 ({x, y} または null) を VR ウィンドウへ転送する。
 // VR ウィンドウはバックエンドと直接つながっていないため、メインウィンドウが中継する。
 export const useVrPanelPointer = () => {
-    const forwardVrPanelPointer = (payload) => {
+    const forwardVrPanelPointer = (payload: VrPanelPointer | null | undefined) => {
         emit("vr-panel-pointer", payload ?? null);
     };
     return { forwardVrPanelPointer };

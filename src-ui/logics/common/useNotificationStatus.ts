@@ -1,11 +1,15 @@
 import { createElement } from "react";
+import type { ReactNode } from "react";
 import { useStore_NotificationStatus } from "@store";
+import type { NotificationOptions } from "@store";
 import { toast } from "react-toastify";
 import { TranslatedNotice } from "./TranslatedNotice";
 
+export type NotificationKind = "warning" | "error" | "success";
+
 export const useNotificationStatus = () => {
     const { currentNotificationStatus, updateNotificationStatus } = useStore_NotificationStatus();
-    const showNotification = (status, message, options = {}) => {
+    const showNotification = (status: NotificationKind, message: ReactNode, options: NotificationOptions = {}) => {
         updateNotificationStatus({
             status,
             is_open: true,
@@ -15,11 +19,11 @@ export const useNotificationStatus = () => {
         });
     };
 
-    const showNotification_Warning = (message, options) => showNotification("warning", message, options);
-    const showNotification_Error = (message, options) => showNotification("error", message, options);
-    const showNotification_Success = (message, options) => showNotification("success", message, options);
+    const showNotification_Warning = (message: ReactNode, options?: NotificationOptions) => showNotification("warning", message, options);
+    const showNotification_Error = (message: ReactNode, options?: NotificationOptions) => showNotification("error", message, options);
+    const showNotification_Success = (message: ReactNode, options?: NotificationOptions) => showNotification("success", message, options);
 
-    const showNotification_SaveSuccess = (options = {}) => {
+    const showNotification_SaveSuccess = (options: NotificationOptions = {}) => {
         options = { hide_duration: 1000, to_hide_progress_bar: true, ...options };
         updateNotificationStatus({
             status: "success",
@@ -34,7 +38,7 @@ export const useNotificationStatus = () => {
 
     // Close one notification by its category_id (the snackbar uses it as the toast id).
     // A notification that never hides blocks a new one with the same id, so close it first.
-    const dismissNotification = (category_id) => toast.dismiss(category_id);
+    const dismissNotification = (category_id: string) => toast.dismiss(category_id);
 
     const closeNotification = () => {
         updateNotificationStatus((prev) => ({

@@ -2,20 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useNotificationStatus } from "./useNotificationStatus";
 
+export interface CopyToClipboardOptions {
+    // How long the button shows "copied", in ms.
+    duration?: number;
+    show_error_notification?: boolean;
+    onErrorFunction?: (error: unknown) => void;
+}
+
 export const useCopyToClipboard = ({
     duration = 1000,
     show_error_notification = true,
     onErrorFunction,
-} = {}) => {
+}: CopyToClipboardOptions = {}) => {
     const { t } = useI18n();
     const { showNotification_Error } = useNotificationStatus();
 
     const [is_copied, setIsCopied] = useState(false);
-    const timer_ref = useRef(null);
+    const timer_ref = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     useEffect(() => () => clearTimeout(timer_ref.current), []);
 
-    const copyToClipboard = async (text) => {
+    const copyToClipboard = async (text: string) => {
         if (is_copied) return;
         try {
             await navigator.clipboard.writeText(text);
@@ -32,5 +39,3 @@ export const useCopyToClipboard = ({
 
     return { is_copied, copyToClipboard };
 };
-
-

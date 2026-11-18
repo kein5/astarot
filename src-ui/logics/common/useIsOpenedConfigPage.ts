@@ -3,7 +3,7 @@ import { useStore_IsOpenedConfigPage } from "@store";
 export const useIsOpenedConfigPage = () => {
     const { currentIsOpenedConfigPage, updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
 
-    const setIsOpenedConfigPage = (is_opened) => {
+    const setIsOpenedConfigPage = (is_opened: boolean) => {
         updateIsOpenedConfigPage(is_opened);
     };
 

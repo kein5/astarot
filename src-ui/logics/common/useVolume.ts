@@ -9,12 +9,16 @@ import { useStdoutToPython } from "@useStdoutToPython";
 import { useSetAtom } from "jotai";
 import { updateMeterValue } from "./meterValue.ts";
 
+// A meter's level: the backend's number, or "0" when a check stops.
+type MeterLevel = number | string;
+
 export const useVolume = () => {
     const { asyncStdoutToPython } = useStdoutToPython();
     const setMicVolume = useSetAtom(Atom_MicVolume);
     const setSpeakerVolume = useSetAtom(Atom_SpeakerVolume);
-    const updateMicVolume = value => setMicVolume(previous => updateMeterValue(previous, value));
-    const updateSpeakerVolume = value => setSpeakerVolume(previous => updateMeterValue(previous, value));
+    // A new level is always confirmed ("ok"), as updateMeterValue's default.
+    const updateMicVolume = (value: MeterLevel) => setMicVolume(previous => updateMeterValue(previous, value, "ok"));
+    const updateSpeakerVolume = (value: MeterLevel) => setSpeakerVolume(previous => updateMeterValue(previous, value, "ok"));
     const {
         currentMicThresholdCheckStatus,
         updateMicThresholdCheckStatus,
@@ -35,11 +39,11 @@ export const useVolume = () => {
             pendingMicThresholdCheckStatus();
             asyncStdoutToPython("/set/disable/check_mic_threshold");
         },
-        updateVolumeVariable_Mic: (payload) => {
+        updateVolumeVariable_Mic: (payload: MeterLevel) => {
             updateMicVolume(payload);
         },
         currentMicThresholdCheckStatus: currentMicThresholdCheckStatus,
-        updateMicThresholdCheckStatus: (payload) => {
+        updateMicThresholdCheckStatus: (payload: boolean) => {
             updateMicThresholdCheckStatus(payload);
             if (payload === false) updateMicVolume("0");
         },
@@ -53,11 +57,11 @@ export const useVolume = () => {
             pendingSpeakerThresholdCheckStatus();
             asyncStdoutToPython("/set/disable/check_speaker_threshold");
         },
-        updateVolumeVariable_Speaker: (payload) => {
+        updateVolumeVariable_Speaker: (payload: MeterLevel) => {
             updateSpeakerVolume(payload);
         },
         currentSpeakerThresholdCheckStatus: currentSpeakerThresholdCheckStatus,
-        updateSpeakerThresholdCheckStatus: (payload) => {
+        updateSpeakerThresholdCheckStatus: (payload: boolean) => {
             updateSpeakerThresholdCheckStatus(payload);
             if (payload === false) updateSpeakerVolume("0");
         }

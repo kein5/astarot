@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def sent_messages(page):
-    """Send requests only: sending first stops the typing indicator (useMessage.js), which is not a send."""
+    """Send requests only: sending first stops the typing indicator (useMessage.ts), which is not a send."""
     return [request for request in page.evaluate("window.sent") if request["endpoint"] == "/run/send_message_box"]
 
 

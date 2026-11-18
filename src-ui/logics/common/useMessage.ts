@@ -4,14 +4,38 @@ import {
     store,
     Atom_MessageLogs,
 } from "@store";
+import type { AtomState } from "@store";
 
 import { useStore } from "jotai";
 import { realtimeStateAtom, realtimeRetiredAtom } from "../transcription/useRealtimeASR";
 import { applyRealtimeCaption } from "../transcription/realtimeCaptionState";
+import type { MessageLogContent, MessageLogRow, RealtimeCaptionPayload } from "../transcription/realtimeCaptionState";
 import { keepRecentLogs } from "./messageLogLimit";
 
 import { useStdoutToPython } from "@useStdoutToPython";
+import type { StdoutResult } from "@useStdoutToPython";
 import { useI18n } from "@useI18n";
+
+// A message of the backend for the log: the user's own (sent) or someone else's (received).
+// The fields are shown as they come; the log rows read them with fallbacks.
+export interface BackendMessage {
+    id?: string;
+    source?: unknown;
+    original?: unknown;
+    translations?: unknown;
+    delivery_reason?: unknown;
+    // A whole row's text at once, which replaces the row's own.
+    messages?: MessageLogContent;
+}
+
+// A notice for the log: a recognition failure or a filtered word. `error_code` and `cause`
+// name a locale text; `message` is the sidecar's English text.
+export interface BackendNotice {
+    cause?: unknown;
+    error_code?: unknown;
+    source?: unknown;
+    message?: unknown;
+}
 
 const COOLDOWN = 2000; // 2 seconds
 
@@ -22,11 +46,11 @@ export const useMessage = () => {
     const { asyncStdoutToPython } = useStdoutToPython();
     const atoms = useStore();
 
-    const addMessageLog = (message_object) => {
+    const addMessageLog = (message_object: MessageLogRow) => {
         updateMessageLogs((current) => keepRecentLogs([...current.data, message_object]));
     };
 
-    const failSentMessageLog = (payload) => {
+    const failSentMessageLog = (payload?: { id?: unknown } | null) => {
         // Legacy terminal errors have no request ID. In that case all pending
         // typed sends are uncertain; realtime rows have their own outcomes.
         updateMessageLogs(current => current.data.map(item => item.category === "sent" && item.status === "pending"
@@ -34,7 +58,7 @@ export const useMessage = () => {
             && (payload?.id === undefined || item.id === payload.id) ? { ...item, status: "failed" } : item));
     };
 
-    const sendMessage = async (message, uuid = crypto.randomUUID()) => {
+    const sendMessage = async (message: unknown, uuid: string = crypto.randomUUID()): Promise<StdoutResult> => {
         // Reset before validation/transport so empty and failed sends also stop typing.
         stopTyping();
         if (typeof message !== "string" || !message.trim()) return false;
@@ -63,7 +87,7 @@ export const useMessage = () => {
         }
     };
 
-    const addSystemMessageLog = (message) => {
+    const addSystemMessageLog = (message: unknown) => {
         const uuid = crypto.randomUUID();
         const date = generateTimeData();
 
@@ -83,34 +107,34 @@ export const useMessage = () => {
     // The context picks the microphone or speaker wording when there is one. When the
     // engine said why it failed (`cause`: a refused key, a rate limit, a timeout, a server
     // error), that text is shown instead of the general one.
-    const addSystemMessageLog_FromBackend = (payload) => {
-        const known = code => typeof code === "string" && /^[A-Z0-9_]+$/.test(code) && i18n?.exists(`backend_errors.${code}`);
+    const addSystemMessageLog_FromBackend = (payload: BackendNotice | null | undefined) => {
+        const known = (code: unknown): code is string => typeof code === "string" && /^[A-Z0-9_]+$/.test(code) && !!i18n?.exists(`backend_errors.${code}`);
         const code = [payload?.cause, payload?.error_code].find(known);
-        addSystemMessageLog(code ? t(`backend_errors.${code}`, { context: payload.source }) : payload?.message);
+        addSystemMessageLog(code ? t(`backend_errors.${code}`, { context: payload?.source }) : payload?.message);
     };
 
-    const updateSentMessageLogById = (payload) => {
+    const updateSentMessageLogById = (payload: BackendMessage | null | undefined) => {
         // Once shutting down, the backend answers a send with null: no row to update.
         if (payload?.id === undefined) return;
         updateMessageLogs(updateItemById(payload.id, payload));
     };
 
-    const addSentMessageLog = (payload) => {
+    const addSentMessageLog = (payload: BackendMessage) => {
         const message_object = generateMessageObject(payload, "sent");
         addMessageLog(message_object);
     };
 
-    const addReceivedMessageLog = (payload) => {
+    const addReceivedMessageLog = (payload: BackendMessage) => {
         const message_object = generateMessageObject(payload, "received");
         addMessageLog(message_object);
     };
 
-    const updateRealtimeCaption = (payload) => {
+    const updateRealtimeCaption = (payload: RealtimeCaptionPayload | null | undefined) => {
         let active = atoms.get(realtimeStateAtom);
-        const owner = active[payload?.source];
+        const owner = payload ? active[payload.source] : undefined;
         // The first caption can beat the first ready-state poll. It may bind
         // only the already accepted backend generation, never revive a stop.
-        if (payload?.state !== "outcome" && owner?.requested && owner.generation === payload.generation && !owner.namespace) {
+        if (payload && payload.state !== "outcome" && owner?.requested && owner.generation === payload.generation && !owner.namespace) {
             active = { ...active, [payload.source]: { ...owner, namespace: payload.namespace } };
             atoms.set(realtimeStateAtom, active);
         }
@@ -166,9 +190,10 @@ const generateTimeData = () => {
 
 // Why a message of the user's own stayed out of the chatbox although nothing failed
 // ("vrchat_off": sending to VRChat is switched off). Absent on every other row.
-const deliveryReason = data => typeof data?.delivery_reason === "string" ? { delivery_reason: data.delivery_reason } : {};
+const deliveryReason = (data: { delivery_reason?: unknown } | null | undefined) =>
+    typeof data?.delivery_reason === "string" ? { delivery_reason: data.delivery_reason } : {};
 
-const generateMessageObject = (data, category, status = "ok") => {
+const generateMessageObject = (data: BackendMessage, category: "sent" | "received", status = "ok"): MessageLogRow => {
     return {
         id: data.id ?? crypto.randomUUID(),
         created_at: generateTimeData(),
@@ -183,7 +208,7 @@ const generateMessageObject = (data, category, status = "ok") => {
     };
 };
 
-const updateItemById = (id, updated_data) => (current_items) => {
+const updateItemById = (id: string, updated_data: BackendMessage) => (current_items: AtomState<MessageLogRow[]>): MessageLogRow[] => {
     return current_items.data.map(item => {
         if (item.id === id) {
             if (updated_data.messages) {
@@ -195,8 +220,8 @@ const updateItemById = (id, updated_data) => (current_items) => {
                 ...deliveryReason(updated_data),
                 messages: {
                     ...item.messages,
-                    original: updated_data.original ?? item.messages.original,
-                    translations: updated_data.translations ?? item.messages.translations,
+                    original: updated_data.original ?? item.messages?.original,
+                    translations: updated_data.translations ?? item.messages?.translations,
                 },
             };
         }

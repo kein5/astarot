@@ -21,7 +21,7 @@ export const useLLMConnection = () => {
         pendingIsLMStudioConnected();
         asyncStdoutToPython("/run/lmstudio_connection");
     };
-    const setConnectionStatus_LMStudio = (is_connected) => {
+    const setConnectionStatus_LMStudio = (is_connected: boolean) => {
         updateIsLMStudioConnected(is_connected);
     };
 
@@ -29,7 +29,7 @@ export const useLLMConnection = () => {
         pendingIsOllamaConnected();
         asyncStdoutToPython("/run/ollama_connection");
     };
-    const setConnectionStatus_Ollama = (is_connected) => {
+    const setConnectionStatus_Ollama = (is_connected: boolean) => {
         updateIsOllamaConnected(is_connected);
     };
 

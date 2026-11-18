@@ -281,7 +281,7 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
 test("message actions keep the same context value and delegate to the latest existing send hook", async () => {
     const runtime = hooks(), sent = [], edited = [], typing = [];
     let version = 0;
-    const { MessageActionsProvider } = await load("../logics/common/MessageActions.jsx", runtime, {
+    const { MessageActionsProvider } = await load("../logics/common/MessageActions.tsx", runtime, {
         "./useMessage": { useMessage: () => {
             const currentVersion = version;
             return {
