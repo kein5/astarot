@@ -573,6 +573,90 @@ def test_unavailable_translators_say_why_and_stay_out_of_the_tab_order(studio):
     assert not group.evaluate("node => node.contains(document.activeElement)")
 
 
+LANGUAGE_ROLES = {
+    "ja": dict(heading="ここから会話を始めましょう", search="言語名やコード（ja、en）で絞り込む",
+               toggle="サイドバーを切り替える", translator="翻訳エンジン", roles=(
+                   ("あなたの言語", "自分が話したり入力したりする言語です。相手の発言はこの言語に訳します。"),
+                   ("相手の言語", "相手が話したり書いたりする言語です。自分の発言はこの言語に訳します。"))),
+    "en": dict(heading="Your conversation starts here", search="Filter by name or code (ja, en)",
+               toggle="Toggle sidebar", translator="Translator", roles=(
+                   ("Your language", "The language you speak or type. What others say is translated into it."),
+                   ("Target language", "The language others speak or write. What you say is translated into it."))),
+}
+
+
+def test_each_language_says_what_it_is_for_in_both_directions(studio):
+    # The swap button said 「双方向に翻訳」 at rest until #602; it now says what it does (#569).
+    # Each language says what it is for, both ways: in the rail as its field's tooltip and
+    # accessible description (no height added), and in the language list as a line under the
+    # search field, which it describes; the search field has the focus when the list opens.
+    from playwright.sync_api import expect
+
+    page, _ = studio
+    for lang, words in LANGUAGE_ROLES.items():
+        page.goto(page.url.split("?")[0] + f"?lang={lang}")
+        page.get_by_role("heading", name=words["heading"]).wait_for()
+        for width, height in ((1200, 850), (640, 600)):
+            page.set_viewport_size({"width": width, "height": height})
+            your, target = (page.locator(f'button[aria-expanded][aria-label^="{name}:"]') for name, _ in words["roles"])
+
+            def rail():
+                # In a narrow window the icon rail is opened over the conversation.
+                if width <= 800 and not your.is_visible():
+                    page.get_by_role("button", name=words["toggle"], exact=True).click()
+                expect(your).to_be_visible()
+
+            if width <= 800:
+                # The narrow layout is in place: the icon rail shows no language fields.
+                expect(your).to_be_hidden()
+            rail()
+            for field, (_, hint) in zip((your, target), words["roles"]):
+                expect(field).to_have_accessible_description(hint)
+                expect(field).to_have_attribute("title", hint)
+            # From the keyboard: your language, the swap button, then the target language.
+            your.focus()
+            page.keyboard.press("Tab")
+            page.keyboard.press("Tab")
+            expect(target).to_be_focused()
+
+            for field, (name, hint) in zip((your, target), words["roles"]):
+                rail()
+                field.focus()
+                page.keyboard.press("Enter")
+                search = page.get_by_role("searchbox", name=words["search"], exact=True)
+                expect(search).to_be_focused()
+                expect(search).to_have_accessible_description(hint)
+                line = page.locator(f'[id="{search.get_attribute("aria-describedby")}"]')
+                expect(line).to_have_text(hint)
+                expect(line).to_be_visible()
+                box = line.bounding_box()
+                assert box["x"] >= 0 and box["x"] + box["width"] <= width + 1, (lang, width, name, box)
+                screenshot(page, f"language-roles-{lang}-{width}-{'your' if field is your else 'target'}")
+                page.locator("[class*=go_back_button_wrapper]").click()
+                expect(search).to_have_count(0)
+
+
+def test_one_target_language_and_the_translator_fit_the_rail_at_1280x720(studio):
+    # DESIGN.md: in the wide rail one target language and the translator fit without scrolling at
+    # 1280×720. #602 made the swap button a framed button about 0.4rem taller and did not measure it.
+    from playwright.sync_api import expect
+
+    page, _ = studio
+    for lang, words in LANGUAGE_ROLES.items():
+        page.goto(page.url.split("?")[0] + f"?lang={lang}")
+        page.get_by_role("heading", name=words["heading"]).wait_for()
+        page.set_viewport_size({"width": 1280, "height": 720})
+        opener = page.locator(f'[role="button"][aria-expanded][aria-label^="{words["translator"]}"]')
+        expect(opener).to_be_visible()
+        fit = opener.evaluate(
+            """node => { const scroll = node.closest('[class*=scrollContainer]');
+                const r = node.getBoundingClientRect(), s = scroll.getBoundingClientRect();
+                return { scrolled: scroll.scrollTop, bottom: Math.round(r.bottom), limit: Math.round(s.bottom) }; }"""
+        )
+        screenshot(page, f"rail-1280x720-{lang}")
+        assert fit["scrolled"] == 0 and fit["bottom"] <= fit["limit"], (lang, fit)
+
+
 def test_translation_model_setup_is_folded_with_its_status(studio):
     from playwright.sync_api import expect
 
