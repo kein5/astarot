@@ -1,9 +1,9 @@
-//! Recognition models offered from speech.cpp's own catalog (`speechcpp_asr.py`).
+//! Recognition models offered from speech.cpp's own catalog.
 //!
-//! The data is not copied here: the crate reads the same text the backend imports, the
-//! snapshot of `speech models --json` (`speechcpp_models.py`, written by
-//! tools/speechcpp_models.py) and the reviewed offers (`OFFERS` in `speechcpp_asr.py`). Both are
-//! JSON literals. `tests/catalog_reference.rs` checks the entries built here against Python's.
+//! The data is in `data/` (its README describes the fields): the snapshot of `speech models
+//! --json` (`speechcpp_models.json`, written by tools/speechcpp_models.py) and the reviewed offers
+//! and profiles (`speechcpp_asr.json`). `tests/catalog_reference.rs` checks the entries built here
+//! against Python's.
 
 use std::sync::OnceLock;
 
@@ -12,8 +12,17 @@ use serde::Deserialize;
 use super::catalog::{Artifact, Model};
 use crate::json::{Json, Object};
 
-const SNAPSHOT_TEXT: &str = include_str!("../../../../src-python/models/model_downloads/speechcpp_models.py");
-const OFFERS_TEXT: &str = include_str!("../../../../src-python/models/model_downloads/speechcpp_asr.py");
+const SNAPSHOT_TEXT: &str = include_str!("../../data/speechcpp_models.json");
+const OFFERS_TEXT: &str = include_str!("../../data/speechcpp_asr.json");
+
+/// `speechcpp_asr.json`.
+#[derive(Deserialize)]
+struct Reviewed {
+    offers: Vec<Offer>,
+    id_prefixes: std::collections::BTreeMap<String, String>,
+    tiers: Vec<(String, u64)>,
+    profiles: std::collections::BTreeMap<String, Profile>,
+}
 
 #[derive(Deserialize)]
 struct Snapshot {
@@ -53,7 +62,7 @@ struct Offer {
     notice: String,
 }
 
-/// What a user compares before choosing (`PROFILES` in `speechcpp_asr.py`).
+/// What a user compares before choosing (`profiles` in `speechcpp_asr.json`).
 #[derive(Deserialize)]
 struct Profile {
     summary: String,
@@ -68,32 +77,26 @@ struct Profile {
     memory: Option<std::collections::BTreeMap<String, u64>>,
 }
 
+fn reviewed() -> &'static Reviewed {
+    static REVIEWED: OnceLock<Reviewed> = OnceLock::new();
+    REVIEWED.get_or_init(|| serde_json::from_str(OFFERS_TEXT).unwrap_or_else(|e| panic!("speechcpp_asr.json: {e}")))
+}
+
 fn profiles() -> &'static std::collections::BTreeMap<String, Profile> {
-    static PROFILES: OnceLock<std::collections::BTreeMap<String, Profile>> = OnceLock::new();
-    PROFILES.get_or_init(|| literal(OFFERS_TEXT, "PROFILES"))
+    &reviewed().profiles
 }
 
 fn tiers() -> &'static [(String, u64)] {
-    static TIERS: OnceLock<Vec<(String, u64)>> = OnceLock::new();
-    TIERS.get_or_init(|| literal(OFFERS_TEXT, "TIERS"))
-}
-
-/// The JSON value assigned to `name` in a Python module (`NAME = <json>`).
-fn literal<T: for<'de> Deserialize<'de>>(text: &str, name: &str) -> T {
-    let marker = format!("\n{name} = ");
-    let start = text.find(&marker).unwrap_or_else(|| panic!("{name} is assigned in the module")) + marker.len();
-    let mut values = serde_json::Deserializer::from_str(&text[start..]).into_iter::<T>();
-    values.next().unwrap_or_else(|| panic!("{name} has a value")).unwrap_or_else(|e| panic!("{name} is JSON: {e}"))
+    &reviewed().tiers
 }
 
 fn snapshot() -> &'static Snapshot {
     static SNAPSHOT: OnceLock<Snapshot> = OnceLock::new();
-    SNAPSHOT.get_or_init(|| literal(SNAPSHOT_TEXT, "SNAPSHOT"))
+    SNAPSHOT.get_or_init(|| serde_json::from_str(SNAPSHOT_TEXT).unwrap_or_else(|e| panic!("speechcpp_models.json: {e}")))
 }
 
 fn offers() -> &'static [Offer] {
-    static OFFERS: OnceLock<Vec<Offer>> = OnceLock::new();
-    OFFERS.get_or_init(|| literal(OFFERS_TEXT, "OFFERS"))
+    &reviewed().offers
 }
 
 fn slug(text: &str) -> String {
@@ -120,10 +123,7 @@ fn type_slug(kind: &str) -> String {
 
 /// The id prefix of a name whose entry existed before the table ("haas-ja-q8").
 fn id_prefix(name: &str) -> String {
-    match name {
-        "haas-ja-v1.0" => "haas-ja".to_string(),
-        _ => slug(name),
-    }
+    reviewed().id_prefixes.get(name).cloned().unwrap_or_else(|| slug(name))
 }
 
 fn entry_id(name: &str, kind: &str) -> String {

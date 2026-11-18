@@ -22,7 +22,7 @@ export type HardwareWarningReason = "low_memory" | "no_gpu" | "cpu_setting";
 export type HardwareWarning = { reason: HardwareWarningReason; required: number | null; available: number | null; device: HardwareDevice | null };
 
 const ALLOWANCE = 1.25;
-// The CPU marks of a model that a CPU does not run at a usable speed (catalog speechcpp_asr.py).
+// The CPU marks of a model that a CPU does not run at a usable speed (native/ops/data/speechcpp_asr.json).
 const SLOW_ON_CPU = ["impractical", "slow"];
 // The engine's device choices (SpeechServers.jsx); anything else names one device.
 const DEVICE_CHOICES = ["auto", "cpu", "gpu"];
