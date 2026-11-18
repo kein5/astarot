@@ -71,6 +71,8 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
             "toggle_transcription_send", "toggle_transcription_receive",
             "stop_voice", "toggle_voice_mute", "toggle_tts", "toggle_rvc"].every(key =>
             value[key] === null || (Array.isArray(value[key]) && value[key].every(string))),
+        // The usage presets: ids the UI filters itself (usagePresets.ts, pickedPresets).
+        usage_presets: value => Array.isArray(value) && value.every(string),
         compute_mode: string,
         version: string,
         message_box_ratio: number,

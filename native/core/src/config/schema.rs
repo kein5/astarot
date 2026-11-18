@@ -457,6 +457,26 @@ fn experimental_features() -> Check {
     })
 }
 
+/// The usage presets the user can pick at the top of the settings menu (#554). Each shows the
+/// features one way of using the app needs, in the settings menu and among the main switches;
+/// "all" shows every feature. The UI keeps what each one shows (`src-ui/logics/configs/usagePresets.ts`).
+pub const USAGE_PRESET_IDS: &[&str] = &["basic", "nonverbal", "multilingual", "voice_changer", "all"];
+
+/// Several presets can be picked; the menu and the switches show what any of them shows. The
+/// value is kept in the order above, each id once. An id this version does not know is left
+/// out (a later version may have one more), and a list with none it knows is refused.
+fn usage_presets() -> Check {
+    validated(|value, _| {
+        let given = value.as_array()?;
+        let mut ids = Vec::with_capacity(given.len());
+        for item in given {
+            ids.push(item.as_str()?);
+        }
+        let picked: Vec<Value> = USAGE_PRESET_IDS.iter().filter(|id| ids.contains(id)).map(|id| json!(id)).collect();
+        (!picked.is_empty()).then_some(Value::Array(picked))
+    })
+}
+
 fn main_window_geometry() -> Check {
     validated(|value, ctx| {
         let value = value.as_object()?;
@@ -568,6 +588,8 @@ pub fn keys() -> Vec<Key> {
         key("MIC_NO_SPEECH_PROB", num_in(0.0, 1.0)),
         immediate("HOTKEYS", hotkeys()),
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
+        // What the settings menu and the main switches show (#554). It changes no feature.
+        immediate("USAGE_PRESETS", usage_presets()),
         // The screen edge the tray companion's hexagram hides at (src-tauri/src/companion.rs).
         key("TRAY_COMPANION_EDGE", one_of("TRAY_COMPANION_EDGE_LIST")),
         // The monitor it shows on, by the system's name for it; empty for the primary monitor.
@@ -813,6 +835,8 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
             "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null,
         })),
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
+        // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
+        ("USAGE_PRESETS", json!(["basic"])),
         ("TRAY_COMPANION_EDGE", json!("right")),
         ("TRAY_COMPANION_MONITOR", json!("")),
         ("SPEAKER_THRESHOLD", json!(300)),

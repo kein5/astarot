@@ -38,6 +38,8 @@ pub struct FakeAsr {
     /// Bodies of the recognition requests (form fields and queries, not audio).
     pub fields: Arc<Mutex<Vec<String>>>,
     pub appends: Arc<AtomicUsize>,
+    /// The `turn_detection` of each `session.update`.
+    pub turn_detection: Arc<Mutex<Vec<Value>>>,
 }
 
 pub fn recognition_model(id: &str, languages: &[&str], detects: bool, options: &[&str]) -> Value {
@@ -64,6 +66,7 @@ impl FakeAsr {
             requests: Arc::default(),
             fields: Arc::default(),
             appends: Arc::default(),
+            turn_detection: Arc::default(),
         };
         let serving = fake.clone();
         std::thread::spawn(move || {
@@ -245,6 +248,7 @@ impl FakeAsr {
             let Ok(value) = serde_json::from_str::<Value>(text.as_str()) else { continue };
             match value["type"].as_str() {
                 Some("session.update") => {
+                    self.turn_detection.lock().unwrap().push(value["session"]["audio"]["input"]["turn_detection"].clone());
                     let mut session = value["session"].clone();
                     if session["audio"]["input"].get("diarization").is_none() {
                         session["audio"]["input"]["diarization"] = Value::Null;

@@ -31,7 +31,7 @@ PAGES = {
     "chat-reading": {"ja": "チャット読み取り（OCR）", "en": "Chat reading (OCR)"},
     "tts": {"ja": "テキスト読み上げ（TTS）", "en": "Text to speech (TTS)"},
     "rvc": {"ja": "ボイスチェンジャー（RVC）", "en": "Voice changer (RVC)"},
-    "vr": {"ja": "VR", "en": "VR"},
+    "vr": {"ja": "字幕とVR", "en": "Captions and VR"},
     "hotkeys": {"ja": "ホットキー", "en": "Hotkeys"},
     "advanced": {"ja": "高度な設定", "en": "Advanced"},
 }
@@ -149,6 +149,9 @@ def test_docs_screenshots(studio, tmp_path, lang):  # noqa: F811
     page.clock.set_fixed_time(CLOCK)
     page.goto(f"{origin.scheme}://{origin.netloc}/tests/voice/studio-entry/?lang={lang}")
     page.get_by_role("heading", name=TITLE[lang]).wait_for()
+    # Every use picked, as after an update: the pictures show every switch and settings page,
+    # and the "Used for" button names the uses instead of waiting for them (#554).
+    push(peer, "/get/data/usage_presets", ["all"])
     main_page_in_use(page, peer, lang)
     save(page, out / "main.webp")
 

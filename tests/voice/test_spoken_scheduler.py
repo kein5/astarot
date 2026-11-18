@@ -19,7 +19,7 @@ def mic_event(identity="session:utterance", **kwargs):
 
 def test_mic_mode_is_independent_and_never_falls_back_to_original():
     settings = VoiceSettings.from_dict(dict(
-        mic_mode="translated", routing="managed", multilingual_url="http://127.0.0.1:8081"))
+        mic_mode="translated", routing="managed", multilingual_server="external", multilingual_url="http://127.0.0.1:8081"))
     assert settings.mode == "off"
     assert settings.direct_policy == "suppress"
     assert VoiceSettings.from_dict(settings.to_dict()) == settings
@@ -49,7 +49,9 @@ def test_external_mic_speech_requires_explicit_mixing_choice():
 
 
 def speech_settings(**kwargs):
-    return VoiceSettings(mic_mode="translated", direct_policy="mix", output_device="cable", **kwargs)
+    # These tests speak through the servers they start, not the bundled one new settings use (#566).
+    return VoiceSettings(mic_mode="translated", direct_policy="mix", output_device="cable",
+                         japanese_server="external", multilingual_server="external", **kwargs)
 
 
 def test_final_mic_translation_is_spoken_once_and_remote_partial_missing_are_rejected(pcm_server):

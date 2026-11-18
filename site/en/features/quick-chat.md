@@ -8,7 +8,7 @@ Quick Chat is a small window for sending text while you stay in your game, and h
 
 You can send text from the Quick Chat window without bringing ASTAROT's main window forward. It works even while the main window is minimized. While Quick Chat is open, it stays in front of other windows.
 
-- To open it, assign a key to "Open quick chat" under Settings → "Hotkeys". No key is assigned at first. The "Open input window" button opens it too.
+- To open it, assign a key to "Open quick chat" under Settings → "Hotkeys" → "More settings". No key is assigned at first. The "Open input window" button opens it too.
 - Enter sends the text, and Shift+Enter adds a line break.
 - Esc closes it. Your draft is kept.
 
@@ -24,7 +24,7 @@ On native Wayland, keys are registered through the desktop's shortcut service (G
 
 ## Hotkeys
 
-Under Settings → "Hotkeys" you can assign keys to the actions below. None has a key assigned at first.
+Under Settings → "Hotkeys" you can assign keys to the actions below. "Stop speech" and "Mute or unmute" are at the top of the page; the others are in "More settings". None has a key assigned at first.
 
 | Action | What it does |
 |---|---|

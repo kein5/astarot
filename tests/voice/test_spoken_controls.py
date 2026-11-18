@@ -17,8 +17,9 @@ def configure(c, m, url, **overrides):
     m.model.getInputTranslate.return_value = (["Hello", "こんにちは"], [True, True], ['translated', 'translated'])
     m.model.getOutputTranslate.return_value = (["Hello"], [True], ['translated'])
     c.changeToCTranslate2Process = MagicMock()
+    # These tests speak through the servers they start, not the bundled one new settings use (#566).
     settings = dict(mic_mode="translated", direct_policy="mix", output_device="cable",
-                    multilingual_url=url)
+                    japanese_server="external", multilingual_server="external", multilingual_url=url)
     settings.update(overrides)
     assert c.setVoiceSettings(settings)['status'] == 200
     # These delivery tests begin after explicit TTS opt-in. Startup and

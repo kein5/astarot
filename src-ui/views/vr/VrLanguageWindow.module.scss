@@ -11,6 +11,7 @@
 .language_window button:active:not(:disabled):not([aria-disabled='true']),
 .language_window summary:active:not(:disabled):not([aria-disabled='true']) {
     background-color: var(--primary_600_color);
+    color: var(--vox_on_primary);
     transition: none;
 }
 .language_window summary:focus-visible { outline: 3px solid var(--primary_100_color); outline-offset: -3px; }

@@ -11,7 +11,7 @@ import { useSaveBarEntries } from "../../../../logics/voice/saveBar";
 // template rows and FormRow carry data-setting-label, and the voice forms' plain
 // <label> rows start with their label text. Rows re-render freely, so the marks
 // are reapplied whenever the page's DOM changes.
-const markUnsavedRows = (root, names) => {
+export const markUnsavedRows = (root, names) => {
     root.querySelectorAll("[data-setting-label]").forEach(row => {
         row.toggleAttribute("data-unsaved", names.has(row.dataset.settingLabel));
     });
@@ -19,6 +19,11 @@ const markUnsavedRows = (root, names) => {
         if (row.closest("[data-setting-label]")) return;
         const text = row.firstChild?.nodeType === Node.TEXT_NODE ? row.firstChild.textContent.trim() : null;
         row.toggleAttribute("data-unsaved", text !== null && names.has(text));
+    });
+    // A fold (「詳細設定」, 「モデルとサーバー」) marks its line while a row inside it has
+    // unsaved edits, so a change is not hidden when the fold is closed (#554).
+    root.querySelectorAll("details").forEach(fold => {
+        fold.toggleAttribute("data-unsaved-inside", fold.querySelector("[data-unsaved]") !== null);
     });
 };
 

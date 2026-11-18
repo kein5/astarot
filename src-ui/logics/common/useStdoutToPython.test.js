@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
 
 const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
@@ -31,7 +32,7 @@ async function setup() {
         export const failLanguageRead = endpoint => events.push(['read-failed', endpoint]);
     `) + `#${crypto.randomUUID()}`;
     const deps = await import(dependencies);
-    let source = await readFile(new URL("./useStdoutToPython.js", import.meta.url), "utf8");
+    let source = stripTypeScriptTypes(await readFile(new URL("./useStdoutToPython.ts", import.meta.url), "utf8"));
     for (const name of ["@store", "js-base64", "./useNotificationStatus", "@useI18n", "./vrPanelSend.ts", "../main/languageMutations"])
         source = source.replace(JSON.stringify(name), JSON.stringify(dependencies));
     source = source.replace('"./pendingRequestRecovery.ts"', JSON.stringify(new URL("./pendingRequestRecovery.ts", import.meta.url).href));

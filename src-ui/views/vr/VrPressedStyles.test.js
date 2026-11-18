@@ -22,8 +22,10 @@ for (const [file, targets] of [
                 }
                 assert.match(body, /background-color:\s*var\(--primary_600_color\)/);
                 assert.match(body, /transition:\s*none/);
+                // Text on the Lilac fill is Dark Plum (DESIGN.md); colour does not move the layout.
+                assert.match(body, /(^|;)\s*color:\s*var\(--vox_on_primary\)/);
                 const properties = [...body.matchAll(/([\w-]+):/g)].map(([, property]) => property);
-                assert.deepEqual(properties.sort(), ["background-color", "transition"]);
+                assert.deepEqual(properties.sort(), ["background-color", "color", "transition"]);
             }
         }
     });

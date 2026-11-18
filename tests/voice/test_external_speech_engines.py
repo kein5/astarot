@@ -294,7 +294,7 @@ def test_japanese_goes_to_the_chosen_engine_and_other_languages_stay_on_speechcp
     settings = VoiceSettings.from_dict({"mode": "original", "output_device": "cable", "japanese_engine": "voicevox",
                                         "engine_voice_id": "3", "engine_voice_speaker": "ずんだもん",
                                         "engine_voice_style": "ノーマル", "japanese_seed": "7",
-                                        "multilingual_url": "http://127.0.0.1:8081"})
+                                        "multilingual_server": "external", "multilingual_url": "http://127.0.0.1:8081"})
     url, voice, language, text = settings.request_for(event())
     assert (url, voice, language) == ("http://127.0.0.1:50021", EngineVoice("3", "ずんだもん", "ノーマル"), "ja")
     assert settings.engine_for("Japanese") == "voicevox" and settings.engine_for("English") == "speechcpp"

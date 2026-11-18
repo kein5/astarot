@@ -239,8 +239,9 @@ class RecordingRouter:
 
 
 def bus_for(settings, router, factory, **kwargs):
-    return VoiceEventBus(VoiceSettings.from_dict(settings), provider_factory=FakeProvider, router=router,
-                         monitor_factory=factory, **kwargs)
+    # The fake provider stands in for an external server, not the bundled one new settings use (#566).
+    return VoiceEventBus(VoiceSettings.from_dict({"japanese_server": "external", **settings}), provider_factory=FakeProvider,
+                         router=router, monitor_factory=factory, **kwargs)
 
 
 def say(bus, id="one"):

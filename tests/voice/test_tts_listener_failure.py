@@ -97,7 +97,7 @@ def test_server_loss_aborts_real_scheduler_output_instead_of_draining():
             closed.append(drain)
 
     with buffered_server() as (url, sent, _finish, stop):
-        bus = VoiceEventBus(VoiceSettings(mode='original', output_device='test', japanese_url=url),
+        bus = VoiceEventBus(VoiceSettings(mode='original', output_device='test', japanese_server='external', japanese_url=url),
                             router=AudioRouter(lambda *args: SlowOutput()))
         try:
             assert bus.publish(SpeechMessageEvent('fault', 'chat', 'test', source_language='ja'))

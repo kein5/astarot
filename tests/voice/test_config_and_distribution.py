@@ -16,7 +16,9 @@ def test_old_config_migrates_silently_and_settings_roundtrip(tmp_path):
     try:
         cfg.load_config()
         assert cfg.VOICE_SETTINGS["mode"] == "off"
-        assert cfg.VOICE_SETTINGS["japanese_server"] == "external"
+        # A config that never saved TTS settings starts on the bundled server (#566).
+        assert cfg.VOICE_SETTINGS["japanese_server"] == "bundled"
+        assert cfg.VOICE_SETTINGS["multilingual_server"] == "bundled"
         assert cfg.REALTIME_ASR_SETTINGS["server"] == "external"
         assert cfg.SPEECH_SERVER_SETTINGS["profiles"]["asr"]["model"] == ""
         cfg.SPEECH_SERVER_SETTINGS = {"profiles": {"asr": {"model": "/missing/model.gguf"}}}

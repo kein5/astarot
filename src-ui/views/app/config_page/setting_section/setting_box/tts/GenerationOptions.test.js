@@ -73,6 +73,7 @@ test("TTS form supplies an existing error ID to both language groups", async () 
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },
         "../_components/form_row/FormRow": { FormRow: "row" },
+        "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
     });
     const tree = runtime.render(VoiceSettings), alert = find(tree, node => node.props?.role === "alert");
     const groups = [];

@@ -29,18 +29,26 @@ import {
 
 import { Description } from "../_components/description/Description";
 import { SetupSection } from "../_components/setup_section/SetupSection";
+import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 
 export const Transcription = () => {
+    const { t } = useI18n();
+    const { currentSelectableTranscriptionEngines, currentMicPhraseTimeout } = useTranscription();
+    const cloudReady = CLOUD_TRANSCRIPTION_ENGINES.filter(engine => (currentSelectableTranscriptionEngines.data || []).includes(engine.id)).length;
     return (
         <div className={styles.container}>
             {/* Which engine listens comes first: it decides what else on this page applies.
-                The timing numbers for the microphone and the speaker follow it, folded. */}
+                Its models and server follow. The cloud engines' keys, the word filter, how speech
+                is cut into messages and the realtime captions' server are set once, in
+                「詳細設定」 (#554), whose line shows the cloud engines ready and the microphone's pause. */}
             <TranscriptionEngine_Container />
-            <CloudTranscription_Container />
-            <Mic_Container />
-            <Speaker_Container />
-            <RealtimeASRSettings />
             <SpeechServers profiles={["asr"]} />
+            <AdvancedSection status={t("config_page.advanced_status.transcription", { cloud: cloudReady, phrase: currentMicPhraseTimeout.data ?? "-" })}>
+                <CloudTranscription_Container />
+                <Mic_Container />
+                <Speaker_Container />
+                <RealtimeASRSettings />
+            </AdvancedSection>
             {/* Only while Whisper weights from an earlier version are on this PC (#288). */}
             <OldWhisperWeights />
         </div>
@@ -68,7 +76,7 @@ const Mic_Container = () => {
     const { currentMicRecordTimeout, currentMicPhraseTimeout, currentMicMaxWords } = useTranscription();
     return (
         <div>
-            <SectionLabelComponent label={t("config_page.transcription.section_label_mic")} />
+            <SectionLabelComponent sub label={t("config_page.transcription.section_label_mic")} />
             <MicWordFilter_Box />
             <TimingFold record={currentMicRecordTimeout.data} phrase={currentMicPhraseTimeout.data} queue={currentMicMaxWords.data}>
                 <MicRecordTimeout_Box />
@@ -159,7 +167,7 @@ const Speaker_Container = () => {
     const { currentSpeakerRecordTimeout, currentSpeakerPhraseTimeout, currentSpeakerMaxWords } = useTranscription();
     return (
         <div>
-            <SectionLabelComponent label={t("config_page.transcription.section_label_speaker")} />
+            <SectionLabelComponent sub label={t("config_page.transcription.section_label_speaker")} />
             <TimingFold record={currentSpeakerRecordTimeout.data} phrase={currentSpeakerPhraseTimeout.data} queue={currentSpeakerMaxWords.data}>
                 <SpeakerRecordTimeout_Box />
                 <SpeakerPhraseTimeout_Box />
@@ -294,7 +302,7 @@ const CloudTranscription_Container = () => {
 
     return (
         <div data-setting-id="cloud_section">
-            <SectionLabelComponent label={t("config_page.transcription.cloud_section.label")} />
+            <SectionLabelComponent sub label={t("config_page.transcription.cloud_section.label")} />
             <Description text={t("config_page.transcription.cloud_section.desc")} />
             {/* One line per provider, as on the translation page: the line says whether it can
                 be used, and the one that is selected above stays open. */}

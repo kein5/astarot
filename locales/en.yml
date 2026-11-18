@@ -351,6 +351,10 @@ main_page:
     quick_settings: "Quick settings"
     quick_settings_on: "{{count}} on"
     quick_settings_all_off: "All off"
+    # The row under the main switches that shows the ones the usage presets hide (#554, Q-10).
+    more_features: "Other features ({{number}})"
+    more_features_hide: "Hide other features"
+    more_features_hint: "Features the usage setting in Settings hides. Showing them here changes no setting."
 
     # The icon button beside each main switch: its name and tooltip.
     # A switch whose setup is missing sends the icon to the place that provides it.
@@ -376,7 +380,6 @@ main_page:
     language_settings: "Language settings"
     language_pair: "{{from}} → {{to}}"
     your_language: "Your language"
-    translate_each_other_label: "Translate both languages"
     swap_button_label: "Switch languages"
     help_link: "Open the ASTAROT guide"
     target_language: "Target language"
@@ -472,6 +475,8 @@ config_page:
         requires: "Requires: {{name}}"
         no_results: "No matching settings found"
     common:
+        # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.jsx).
+        advanced_section: "More settings"
         open_color_picker: "Choose color: {{label}}"
         duration_seconds_one: "{{count}} second"
         duration_seconds_other: "{{count}} seconds"
@@ -499,6 +504,50 @@ config_page:
             unable_to_use_osc_query: "OSC reception or OSCQuery advertisement is not ready. Check the local OSC settings and save them again."
             unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
 
+    # The line beside each page's 「詳細設定」 / "More settings" fold: the values in use there.
+    advanced_status:
+        on: "on"
+        off: "off"
+        vrchat: "Notification sound {{sfx}} · mute sync {{sync}}"
+        vr: "Translation only {{only}} · voice typing {{typing}}"
+        device: "Microphone {{mic}} · speaker {{speaker}}"
+        ocr: "Every {{interval}} ms · confidence at least {{confidence}}"
+        tts: "Monitor {{monitor}} · microphone speech {{mic}}"
+        transcription: "Cloud engines ready: {{cloud}} · microphone pause {{phrase}} s"
+        translation: "Translation APIs ready: {{api}} · local LLMs ready: {{llm}}"
+        appearance: "Log text {{log}}% · transparency {{transparency}}%"
+        hotkeys_one: "{{count}} has a key"
+        hotkeys_other: "{{count}} have a key"
+    # The usage presets at the top of the settings menu (src-ui/logics/configs/usagePresets.ts, #554).
+    # The names are provisional until users have tried them (Q-14).
+    usage_presets:
+        title: "Used for"
+        button_label: "Used for: {{names}}. Choose the features the main page and this menu show"
+        list_separator: ", "
+        help: "Shows only the features the chosen uses need: the main page's switches and this menu. Pick as many as you like. No feature is turned on or off, and no setting changes. The search above still finds hidden pages."
+        items:
+            basic:
+                label: "Basic"
+                desc: "Your voice, recognized and translated, to the captions and the chatbox"
+            nonverbal:
+                label: "Nonverbal"
+                desc: "Talk in text without speaking; read others' voices and chat"
+            multilingual:
+                label: "Multilingual conversation"
+                desc: "Talk by voice with people of several languages"
+            voice_changer:
+                label: "Voice changer (RVC)"
+                desc: "Talk in a changed voice, with or without translation"
+            all:
+                label: "Everything"
+                desc: "Every feature and page"
+    side_menu_label: "Settings pages"
+    # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
+    side_menu_groups:
+        conversation: "Conversation"
+        voice_and_reading: "Voice and reading"
+        comfort: "Ease of use"
+        app: "App"
     side_menu_labels:
         vrchat: "VRChat"
         device: "Device"
@@ -514,7 +563,7 @@ config_page:
         updater: "Updater"
         about_vrct: "About ASTAROT"
         ocr: "Chat reading (OCR)"
-        vr: "VR"
+        vr: "Captions and VR"
 
     tts:
         tts_settings:
@@ -527,6 +576,10 @@ config_page:
     device:
         section_label_mic: "Mic"
         section_label_speaker: "Speaker"
+        section_label_mic_sensitivity: "Microphone sensitivity"
+        section_label_speaker_sensitivity: "Speaker sensitivity"
+        mute_sync_pointer: "Pauses speech recognition from the microphone while you are muted in VRChat. It is set on the VRChat page."
+        open_vrchat: "Open the VRChat settings"
         check_volume: "Check volume"
         label_auto_select: "Auto select"
         label_host: "Host/driver"
@@ -556,6 +609,7 @@ config_page:
         desc_vad_unavailable: "Not available in this version: the speech detection model is not included yet. Speech is cut by volume, with the Auto or Manual setting."
 
     appearance:
+        section_label_display_more: "Text and transparency"
         section_label_display: "Display"
         section_label_send_buttons: "Send buttons"
         transparency:
@@ -716,7 +770,7 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription engine used for speech recognition"
-            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
+            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" in this page's \"More settings\". \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its models are under \"Models and servers\" below, and its server under \"Realtime captions\" in \"More settings\"."
             engines:
                 speechcpp: "Local (speech.cpp)"
                 groq_whisper: "Groq Whisper"
@@ -765,7 +819,8 @@ config_page:
     vr:
         single_line: "Single line"
         multi_lines: "Multiple lines"
-        overlay_enable: "Enable"
+        overlay_enable_single: "Show subtitles (single line)"
+        overlay_enable_multi: "Show subtitles (multiple lines)"
         restore_default_settings: "Reset to default settings"
         position: "Position"
         rotation: "Rotation"
@@ -789,8 +844,8 @@ config_page:
         display_duration: "Display duration"
         fadeout_duration: "Fade-out duration"
         common_settings: "Common settings"
-        vr_ui_beta: "VR UI (beta)"
         section_label_overlay: "Subtitle overlay"
+        section_label_overlay_look: "Subtitle overlay position and look"
         tracker: "Tracker"
         hmd: "HMD"
         left_hand: "Left hand"
@@ -817,12 +872,10 @@ config_page:
         desktop_overlay_opacity:
             label: "Caption background darkness"
             desc: "At 0% the plate behind the words disappears and only the outlined text remains."
-        vr_panel:
-            label: "Show the VR UI"
-            desc: "Shows a wrist launcher and windows in VR for turning features on and off, reading the log, and changing languages and settings. Works independently of the subtitle overlays."
-        reset_launcher:
-            label: "Reset the launcher position and size"
-            desc: "Use this if you lose the launcher in VR. It returns to your left wrist at its default position and size."
+        vr_panel_pointer:
+            label: "VR UI (control panel in VR)"
+            desc: "The wrist launcher and windows are still being tested, so they are on the Experimental page."
+        open_experimental_features: "Open the Experimental features"
         voice_typing_mode:
             label: "Voice typing mode"
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
@@ -898,6 +951,14 @@ config_page:
         section_label_tts_output: "Speech output"
         chat_reading_moved: "The settings for reading VRChat's chat are on the Chat reading (OCR) page."
         open_chat_reading: "Open the Chat reading (OCR) settings"
+        osc_pointer:
+            label: "OSC destination"
+            desc: "The IP address and port that messages go to can be changed under Advanced. They match VRChat's defaults, so you usually leave them."
+        open_advanced_settings: "Open the Advanced settings"
+        section_label_more: "Working with VRChat"
+        section_label_elsewhere: "Set on other pages"
+        tts_output_pointer: "Where speech is played so that it reaches VRChat's microphone is chosen on the Text to speech (TTS) page."
+        open_tts: "Open the Text to speech (TTS) settings"
 
     ocr:
         section_title: "Reading VRChat's chat"
@@ -1000,7 +1061,7 @@ config_page:
         disabled_notice: "* Hotkeys are temporarily disabled while the settings page is open to prevent unintended actions."
         section_label_quick_chat: "Quick Chat"
         section_label_toggles: "Window and feature toggles"
-        section_label_voice: "Speech and voice"
+        section_label_stop: "Stop and mute"
         error_in_use: "The hotkey ({{hotkey}}) for \"{{action_name}}\" cannot be registered because it is already in use elsewhere."
         error_failed_to_register_at_launch: "The hotkey ({{hotkey}}) for \"{{action_name}}\" is unavailable because it is in use by another application."
         error_failed_to_register_all: "The hotkeys could not be registered, so none of them work. Open and close Settings to register them again."
@@ -1045,6 +1106,13 @@ config_page:
                     display: "Display {{number}} ({{width}}×{{height}})"
                     is_primary: "(primary)"
                     missing: "Monitor not connected (chosen before)"
+            # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
+            vr_panel:
+                label: "Show the VR UI"
+                desc: "Shows a wrist launcher and windows in VR for turning features on and off, reading the log, and changing languages and settings. Works independently of the subtitle overlays. This feature is still being tested."
+                reset_launcher:
+                    label: "Reset the launcher position and size"
+                    desc: "Use this if you lose the launcher in VR. It returns to your left wrist at its default position and size."
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1291,6 +1359,10 @@ realtime:
   follow_default_mic: "Follow the system default input"
   follow_default_speaker: "Follow the system default output"
   follow_default_help: "The system default is read when captions start and kept until they stop. ASTAROT's own virtual devices, and a virtual cable set as the default microphone, are never captured."
+  silence: "Silence that ends an utterance"
+  silence_default: "Default (0.5 s)"
+  silence_seconds: "{{seconds}} s"
+  silence_help: "After this much silence the utterance is final and goes on to translation, the chatbox and speech. A shorter silence gives results sooner, but a pause inside a sentence is more likely to end it, so one sentence may become several messages. Changing it stops both captions."
   vocabulary: "Term dictionary"
   vocabulary_help: "Terms the recognizer should hear and write as given. Haas-ja takes them as keywords; Qwen3-ASR gets a short hint of them. Write one term per entry, optionally with readings after \"=\" separated by commas, such as VRChat=ブイアールチャット,ブイチャ. List only terms you need: each one adds a small chance of a word that was not said. Changing the dictionary stops running captions."
   vocabulary_builtin: "Use the built-in VRChat terms"
@@ -1458,7 +1530,7 @@ voice_ui:
     engine:
         label: "Engine that reads Japanese"
         description: "Install and start an engine such as VOICEVOX yourself, and Japanese is read in its voices. The app does not install or start the engine."
-        description_speechcpp: "AI voice reads with a speech.cpp TTS server. Under Models and servers below, choose the bundled server and download its model, or enter the URL of a server you started yourself."
+        description_speechcpp: "AI voice reads with a speech.cpp TTS server. It starts with the bundled server, so download its model under Models and servers below. To use a server you started yourself, choose External server and enter its URL."
         speechcpp: "AI voice (speech.cpp)"
         url: "Engine URL"
         url_hint: "Where the engine runs on your PC. The engine's default usually works."
@@ -1518,6 +1590,7 @@ voice_ui:
     mute_row: "Mute"
     mute_row_description: "{{scope}} The same as Mute at the top of the window."
     monitor_heading: "Monitor"
+    generation_heading: "Generation"
     topbar_stop: "Stop speech"
     topbar_stop_count: "Stop speech ({{count}})"
     topbar_stop_short: "Stop speech"

@@ -15,7 +15,7 @@ from test_scheduler import until
 
 
 def run_message(url, sink, *, event_id=None):
-    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="test",
+    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="test", japanese_server="external",
                                      japanese_url=url), router=AudioRouter(lambda *args: sink))
     event = SpeechMessageEvent(event_id or str(uuid4()), "chat", "PRIVATE TEXT",
                                source_language="ja")

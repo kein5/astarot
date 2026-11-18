@@ -74,7 +74,7 @@ Under "Term dictionary", add words you want recognized and how to write them. Co
 
 ## Paste what you say into an input field
 
-With "Voice typing mode" on under Settings → "VR", what you say is transcribed and pasted into an input field in VRChat or another app. The paste goes through the clipboard.
+With "Voice typing mode" on under Settings → "Captions and VR", what you say is transcribed and pasted into an input field in VRChat or another app. The paste goes through the clipboard.
 
 - While SteamVR is running, it brings the window of the app SteamVR is running (VRChat, for example) to the front and pastes there.
 - When SteamVR is not running, the text is only copied to the clipboard.

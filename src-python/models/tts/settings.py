@@ -51,12 +51,14 @@ class VoiceSettings:
     mic_mode: str = "off"  # off | translated (Realtime mic finals only)
     direct_policy: str = "suppress"  # suppress managed direct voice | mix explicitly
     target_slot: str = "1"
-    japanese_server: str = "external"  # external | bundled
+    # external | bundled. New settings use the bundled server, so the default engine
+    # ("AI voice (speech.cpp)") only needs its model (#566); saved choices are kept.
+    japanese_server: str = "bundled"
     japanese_url: str = "http://127.0.0.1:8080"
     japanese_voice: str = "none"
     multilingual_url: str = ""
     multilingual_voice: str = "ryan"
-    multilingual_server: str = "external"
+    multilingual_server: str = "bundled"
     japanese_seed: str = ""
     multilingual_seed: str = ""
     japanese_instructions: str = ""

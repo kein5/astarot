@@ -31,10 +31,13 @@ const exampleFiles = { runtime: "seed-vc-runtime", reference: "reference.wav",
 // The example a cleared number field shows: an octave up, and most of the index.
 const exampleNumbers = { rvc_pitch: 12, rvc_index_rate: 0.75 };
 
-export const DirectVoiceSettings = ({ variant = "all" }) => {
+// subheading: the form sits in a fold of its page (the RVC page's 「詳細設定」), so its title is
+// a subheading there rather than the page's category heading (DESIGN.md "Roles in settings").
+export const DirectVoiceSettings = ({ variant = "all", subheading = false }) => {
     const { t, i18n } = useI18n();
     // A code's sentence with the code kept for reports, as on the main screen (#460).
-    const errorText = (code, first) => voiceErrorText(code, t(`config_page.side_menu_labels.${variant === "rvc" ? "rvc" : "advanced_settings"}`),
+    // Both forms are on the RVC page: the conversion, and input forwarding in its 「詳細設定」 (#554, Q-07).
+    const errorText = (code, first) => voiceErrorText(code, t("config_page.side_menu_labels.rvc"),
         t, key => i18n.exists(key), first);
     const { settings, route, error, directState, directOwner, directPending, directSources, directError, updateDirectError, send, setDirectDraftBlocked,
         selectedSource: selected, setSelectedSource: setSelected } = useVoice();
@@ -106,7 +109,8 @@ export const DirectVoiceSettings = ({ variant = "all" }) => {
     const tone = status === "voice.input_failed" ? "failed" : status === "voice.input_pending" ? "pending" :
         ["voice.input_active", "voice.vc_idle", "voice.vc_active", "voice.vc_ready"].includes(status) ? "active" : "idle";
     return <section className={styles.container} aria-label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} data-setting-id={variant === "rvc" ? "rvc_settings" : "direct_voice_settings"}>
-        <SectionLabelComponent label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} />
+        {subheading ? <h3>{t("voice.input_title")}</h3>
+            : <SectionLabelComponent label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} />}
         <StatusLine tone={tone}>{t(status)}</StatusLine>
         {/* Where RVC converts and how far behind the voice it is, once it runs. */}
         {delay && <p>{t(delay.device === "cpu" ? "voice_ui.rvc_running_cpu" : "voice_ui.rvc_running_gpu", { seconds: delay.seconds })}</p>}
