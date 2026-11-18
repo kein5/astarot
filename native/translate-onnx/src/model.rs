@@ -450,7 +450,9 @@ mod tests {
 
     #[test]
     fn a_failed_check_falls_back_to_the_cpu_and_says_why() {
-        let gpu = Accelerator::new(Provider::DirectMl, 1);
+        // A provider every platform builds in (DirectML is Windows only: elsewhere it is
+        // unavailable before any check runs).
+        let gpu = Accelerator::new(Provider::Cuda, 1);
         let opened = accelerate::open_with_fallback(gpu, |at| {
             if at.provider == Provider::Cpu {
                 Ok(at)
