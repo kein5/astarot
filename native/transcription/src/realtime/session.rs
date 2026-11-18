@@ -137,7 +137,7 @@ fn namespace() -> String {
 
 const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-fn base64(bytes: &[u8]) -> String {
+pub(crate) fn base64(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
         let n = (u32::from(chunk[0]) << 16)
@@ -160,7 +160,25 @@ fn percent(text: &str) -> String {
         .collect()
 }
 
-type Socket = WebSocket<TcpStream>;
+pub(crate) type Socket = WebSocket<TcpStream>;
+
+/// Opens `/v1/realtime` of a speech.cpp server on this computer, with `model` as the query when
+/// one is named (the server's recognition model otherwise). Reads wait at most 2 s.
+pub(crate) fn open_socket(base_url: &str, model: Option<&str>) -> Option<Socket> {
+    let base = base_url.trim_end_matches('/');
+    let url = vrct_translation::http::Url::parse(base).ok()?;
+    let address = (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()?.next()?;
+    let stream = TcpStream::connect_timeout(&address, Duration::from_secs(2)).ok()?;
+    let _ = stream.set_nodelay(true);
+    stream.set_read_timeout(Some(Duration::from_secs(2))).ok()?;
+    stream.set_write_timeout(Some(Duration::from_secs(1))).ok()?;
+    let mut target = format!("{}/v1/realtime", base.replacen("http://", "ws://", 1));
+    if let Some(model) = model {
+        target.push_str(&format!("?model={}", percent(model)));
+    }
+    let config = WebSocketConfig::default().max_message_size(Some(MAX_EVENT)).max_frame_size(Some(MAX_EVENT));
+    tungstenite::client::client_with_config(target, stream, Some(config)).ok().map(|(socket, _)| socket)
+}
 
 impl Session {
     pub fn new(
@@ -443,23 +461,7 @@ impl Session {
     }
 
     fn connect(&self) -> Result<Socket, Failure> {
-        let base = self.inner.options.base_url.trim_end_matches('/');
-        let url = vrct_translation::http::Url::parse(base).map_err(|_| Failure::Realtime("connection_failed"))?;
-        let address = (url.host.trim_start_matches('[').trim_end_matches(']'), url.port)
-            .to_socket_addrs()
-            .ok()
-            .and_then(|mut addresses| addresses.next())
-            .ok_or(Failure::Realtime("connection_failed"))?;
-        let stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))
-            .map_err(|_| Failure::Realtime("connection_failed"))?;
-        let _ = stream.set_nodelay(true);
-        stream.set_read_timeout(Some(Duration::from_secs(2))).map_err(|_| Failure::Realtime("connection_failed"))?;
-        stream.set_write_timeout(Some(Duration::from_secs(1))).map_err(|_| Failure::Realtime("connection_failed"))?;
-        let target = format!("{}/v1/realtime?model={}", base.replacen("http://", "ws://", 1), percent(&self.inner.options.model));
-        let config = WebSocketConfig::default().max_message_size(Some(MAX_EVENT)).max_frame_size(Some(MAX_EVENT));
-        let (socket, _) = tungstenite::client::client_with_config(target, stream, Some(config))
-            .map_err(|_| Failure::Realtime("connection_failed"))?;
-        Ok(socket)
+        open_socket(&self.inner.options.base_url, Some(&self.inner.options.model)).ok_or(Failure::Realtime("connection_failed"))
     }
 
     fn recv_setup(socket: &mut Socket, deadline: Instant) -> Result<Value, Failure> {

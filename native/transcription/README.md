@@ -8,7 +8,8 @@
 |---|---|---|
 | `recorder` | 1 つの音源の録音。音量メーター、フレーズの切り出し、認識をまとめて動かす | `model.py` の `_AudioDeviceSession`、`transcription_recorder.py` |
 | `energy` | 音量によるフレーズの切り出し（しきい値、自動しきい値、`MIC_RECORD_TIMEOUT`） | `speech_recognition` の `listen_energy_and_audio` |
-| `vad` | VAD を差し込む口（`VadEngine`、`Segmenter`）。この版のエンジンはなし | `audio_vad.py` の `VadSegmenter` |
+| `vad` | VAD を差し込む口（`VadEngine`、`Segmenter`） | `audio_vad.py` の `VadRecognizerAdapter` |
+| `server_vad` | speech.cpp の Silero VAD で区切る VAD のエンジン（Realtime の `server_vad` だけのセッション）。使えないときは音量の区切りに替える | `audio_vad.py` の `VadSegmenter`、`SileroFrameProbability` |
 | `phrases` | フレーズをつないで発話にする（`MIC_PHRASE_TIMEOUT`、15 秒の上限、`MIC_MAX_PHRASES`） | `transcription_transcriber.py` の `transcribeAudioQueue` |
 | `providers` | OpenAI 互換の API（Groq、OpenAI、カスタム）と Deepgram。キーの確認とモデルの一覧 | `transcription_providers.py`、`transcription_openai_compatible.py`、`transcription_deepgram.py` |
 | `speechcpp` | speech.cpp のモデルの一覧と語彙（VRChat の用語を含む） | `speechcpp_asr.py`、`asr_vocabulary.py`、`vrchat_terms.py` |
@@ -37,7 +38,7 @@
 - **OpenAI 互換の API の再試行**。SDK と同じく、通信の失敗と 408、409、429、5xx のときに 2 回まで再試行します。Python の SDK の待ち時間（揺らぎつき）とは少し違います。
 - **Google のエンジン**。Python には API キーなしで使える Google のエンジンがありました。`speech_recognition` が持つ汎用のキーで非公式の Web 音声認識の窓口に音声を送るものです。公式の窓口ではなく、キーもほかのアプリに発行されたものではないので、移植していません（[core-integration.md](../../docs/voice-stack/core-integration.md) の「決まったこと」）。
 - **Realtime の発話の区切り**。Python は`turn_detection`に`server_vad`だけを送り、無音の長さと余白はサーバーの既定（500 ms と 300 ms）でした。ここでは無音の長さ（既定 500 ms、`REALTIME_ASR_SETTINGS.silence_duration_ms`で変更できる）と、その半分で 300 ms を超えない余白（`prefix_padding_ms`）を送ります。speech.cpp は余白の 2 倍のあいだに次の発話が始まらないと分かるまで発話を確定しないため、既定のままでも確定が早くなります。計測した PC では p50 で約 60 ms でした（#556、[音声パイプラインの遅延](../../docs/voice-stack/pipeline-latency-2026-11-18.md)）。
-- **VAD**。Python は `MIC_ENABLE_VAD` のときに Silero VAD でフレーズを切っていました。`vad` に差し込み口があります。`VadEngine` を録音の設定（`Settings::vad`）に渡すと、音量の代わりにその `Segmenter` で切り、`Phrases::segmented` が Python の VAD の経路と同じにまとめます。自然な区切りで発話を確定し、上限で切れた区間は次とつなぎ（15 秒まで）、認識に送る音声の前に 0.3 秒、後に 0.5 秒の無音を足します。モデルと推論の仕組みが決まっていないので、`vad::bundled()` は何も返さず、音量による切り出しを使います（[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 13）。
+- **VAD**。Python は `MIC_ENABLE_VAD` のときに Silero VAD でフレーズを切っていました。`vad` に差し込み口があります。`VadEngine` を録音の設定（`Settings::vad`）に渡すと、音量の代わりにその `Segmenter` で切り、`Phrases::segmented` が Python の VAD の経路と同じにまとめます。自然な区切りで発話を確定し、上限で切れた区間は次とつなぎ（15 秒まで）、認識に送る音声の前に 0.3 秒、後に 0.5 秒の無音を足します。エンジンは `server_vad` です（[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 13 の (c)）。speech.cpp のサーバーに文字起こしをしない Realtime のセッションを開き、Python と同じしきい値（0.25）、前の余白（160 ms）、無音（768 ms）を送って、`speech_started` と `speech_stopped` の時刻で録音の音声を切ります。Python と違うのは、最短の発話がサーバーの値（既定 250 ms、Python は 64 ms）であること、区間の終わりに含める無音がサーバーの余白までであること（Python は 768 ms すべて）、サーバーを使えないときに認識を止めず音量で区切ることです（同じ文書の 85、87）。
 
 ## 試験
 

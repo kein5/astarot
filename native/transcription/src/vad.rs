@@ -2,11 +2,11 @@
 //! `SPEAKER_ENABLE_VAD`).
 //!
 //! Python cut phrases with Silero VAD when the switch was on (`audio_vad.VadSegmenter`) and with
-//! the energy listener otherwise. Which runtime and model run Silero VAD here is not decided yet
-//! (decisions 2 and 13 in `docs/voice-stack/core-integration.md`), so [`bundled`] offers no
-//! engine and the recorder keeps cutting by energy. A VAD engine implements [`VadEngine`]; the
-//! recorder then asks it for a [`Segmenter`] per device format, and the transcriber treats what
-//! it cuts as Python's VAD path did ([`crate::phrases::Phrases::segmented`]).
+//! the energy listener otherwise. Here Silero VAD runs in speech.cpp, as its GGUF model
+//! (decision 13 in `docs/voice-stack/core-integration.md`): [`crate::server_vad`] is the engine.
+//! A VAD engine implements [`VadEngine`]; the recorder then asks it for a [`Segmenter`] per
+//! device format, handing it the energy listener it would have used, and the transcriber treats
+//! what it cuts as Python's VAD path did ([`crate::phrases::Phrases::segmented`]).
 
 use crate::energy::{EnergyListener, Heard};
 use std::fmt;
@@ -66,8 +66,10 @@ pub const MAX_SPEECH_SECONDS: f64 = 7.0;
 /// A voice activity detector the recorder can use in place of the energy listener.
 pub trait VadEngine: Send + Sync {
     /// A segmenter for audio of `rate` and `channels`. `max_speech_seconds` is the longest
-    /// segment ([`MAX_SPEECH_SECONDS`]); longer speech ends with [`Cut::Limit`].
-    fn segmenter(&self, rate: u32, channels: usize, max_speech_seconds: f64) -> Box<dyn Segmenter>;
+    /// segment ([`MAX_SPEECH_SECONDS`]); longer speech ends with [`Cut::Limit`]. `fallback` is
+    /// the energy listener the recorder uses without VAD: an engine that cannot detect cuts
+    /// with it rather than not at all, and may read the volume meter's energies from it.
+    fn segmenter(&self, rate: u32, channels: usize, max_speech_seconds: f64, fallback: Box<dyn Segmenter>) -> Box<dyn Segmenter>;
 }
 
 /// A shared VAD engine, as the recorder's settings hold it.
@@ -84,10 +86,4 @@ impl PartialEq for Vad {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
     }
-}
-
-/// The VAD engine this build ships: none until the runtime and the model of Silero VAD are
-/// decided (decisions 2 and 13).
-pub fn bundled() -> Option<Vad> {
-    None
 }
