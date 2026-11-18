@@ -11,11 +11,28 @@ Issues and pull requests are welcome in English or Japanese. Report security vul
 
 Create a topic branch from `develop` (for example `fix/quick-chat-focus`) and open a pull request to `develop`.
 
-A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose only changes are the version (`X.Y.Z`, set with `utils/update_version.py`) and its CHANGELOG section. Its pull request to `main` must pass the required checks; after the release, `main` is merged back into `develop` and `develop` moves to the next `-beta.N`. See [Changelog and releases](#changelog-and-releases) and [release candidates](docs/voice-stack/release-candidates.md).
+A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose only changes are the version (`X.Y.Z`, set with `utils/update_version.py`) and its CHANGELOG section. Its pull request to `main` must pass the required checks; after the release, `main` is merged back into `develop` and `develop` moves to the next `-beta.N`. See [Changelog and releases](#changelog-and-releases) and [release candidates](docs/voice-stack/release-candidates.md), which draws the whole release flow, betas included, as [one diagram](docs/voice-stack/release-candidates.md#全体の流れ).
 
 To fix a published release in a hurry while `develop` already holds the next version's work, cut `release/X.Y.Z` from `main` instead and bring in only the fix and what `main` needs to build. The steps are in [release candidates](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す).
 
 ## Pull requests
+
+From an issue to a change in `develop`:
+
+```mermaid
+flowchart TD
+    issue["Issue: a bug report, an idea or a task<br>a small, clear fix may start at the branch"] --> branch["Topic branch from develop<br>e.g. fix/quick-chat-focus"]
+    branch --> commit["Commits as Conventional Commits<br>checked by the commit-msg hook"]
+    commit --> pr["Pull request to develop<br>what changed, what was verified and what was not"]
+    pr --> checks["Required checks<br>contract tests, backend tests,<br>commit messages, dependency review"]
+    checks --> review["Review<br>every conversation resolved"]
+    review --> merge["Merged into develop<br>with a merge commit"]
+    merge --> ship["Ships in the next beta,<br>then in the stable release"]
+    checks -->|a check fails| commit
+    review -->|changes asked| commit
+```
+
+When a pull request changes this flow or the release flow, it updates the diagram in the same pull request: this one, or the release flow in [release candidates](docs/voice-stack/release-candidates.md#全体の流れ).
 
 - Write every commit message as a [Conventional Commit](#commit-messages). The commit-msg hook and CI check them.
 - Add or update tests for behavior changes, and describe what you verified and what you could not.
@@ -161,6 +178,7 @@ Issue や PR は日本語でも構いません。作業ブランチは `develop`
 - 形式の検査は commit-msg フックで行います。Cocogitto 7 を入れて、複製ごとに `cog install-hook commit-msg` を一度実行してください。CI も PR と、develop・main への push を検査します。
 - `CHANGELOG.md` に載せるのは正式版だけです。正式版のリリースを準備するときに `npm run changelog` で書きます。ベータ版の変更は GitHub のプレリリースのノートに載せます。機能のブランチでは編集しません。手順と分類は上の「Changelog and releases」にあります。
 - テストと確認した内容を PR に書いてください。
+- Issue から develop への統合までの流れは上の「Pull requests」に、リリースの流れは[配布候補とリリース下書き](docs/voice-stack/release-candidates.md#全体の流れ)に図があります。流れを変える PR では図も同じ PR で直します。
 - OS に依存する変更や、対応する範囲（配布形式、OS、ランタイム）を変える変更では、影響する OS、確かめた環境（CI か、実機なら OS と版と配布形式）、確かめていない環境、後方互換性への影響を PR に書きます。CI の成功は実機での確認に数えません。[サポートマトリクス](site/ja/guide/support.md)と[検証の記録](docs/voice-stack/platform-verification.md)も合わせて直します。
 - 表示する文言は `locales/` の英語と日本語の両方に、同じ PR で足します。訳せない文言を推測で埋めません。
 - UI は文言を `t()` で取り出し、コードに直接書きません。`python tools/dev.py check` と CI が `tools/i18n_gate/check.mjs` で検査します。片方の言語にないキー、空の値、言語で食い違う補間変数、存在しないキーの参照、新しい直書きがあると失敗します。わざと訳さない文字列（製品名や単位など）には理由を書きます。書き方は [docs/development.md](docs/development.md#uiの文言と翻訳の検査) にあります。
