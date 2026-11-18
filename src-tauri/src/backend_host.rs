@@ -111,11 +111,14 @@ static STARTING: tauri::async_runtime::Mutex<()> = tauri::async_runtime::Mutex::
 
 /// Starts a run for the UI session `session`. Its lines go to `lines`, its end to `exit`.
 ///
-/// Async, so that waiting for a failed run to stop (up to `RETRY_STOP_LIMIT`) does not hold up
-/// the main thread, which every window, the tray and the hotkeys need (Issue #456). The run itself
-/// is still started on the main thread, as it was when this command was synchronous: the compute
-/// devices start ONNX Runtime there, and moving that elsewhere is left until its effect on the
-/// Windows COM state is known (#433).
+/// Async, so that neither waiting for a failed run to stop (up to `RETRY_STOP_LIMIT`) nor the
+/// start itself holds up the main thread, which every window, the tray and the hotkeys need
+/// (Issues #456, #561). The start runs on a blocking worker thread. What it does before the run's
+/// own threads take over uses no COM and nothing tied to its thread: ONNX Runtime's environment
+/// and its list of execution providers (the compute devices), the log, `config.json` and the key
+/// store (DPAPI and the credential store). Audio devices (WASAPI) are listed later, on the run's
+/// threads, which set up their own COM. The tests and the example programs have always started
+/// runs from threads without COM.
 #[tauri::command]
 pub async fn backend_start(
     window: tauri::WebviewWindow,
@@ -138,18 +141,14 @@ pub async fn backend_start(
         .await
         .map_err(|error| error.to_string())?;
     }
-    let (started, result) = std::sync::mpsc::channel();
     let target = app.clone();
-    app.run_on_main_thread(move || {
-        let _ = started.send(start_run(&target, session, lines, exit, continue_logs));
-    })
-    .map_err(|error| error.to_string())?;
-    tauri::async_runtime::spawn_blocking(move || result.recv().unwrap_or_else(|_| Err("backend_start_failed".into())))
+    // A start that panics answers as one that never reported back did on the main thread.
+    tauri::async_runtime::spawn_blocking(move || start_run(&target, session, lines, exit, continue_logs))
         .await
-        .map_err(|error| error.to_string())?
+        .unwrap_or_else(|_| Err("backend_start_failed".into()))
 }
 
-/// The start itself, on the main thread.
+/// The start itself, on a blocking worker thread.
 fn start_run(
     app: &tauri::AppHandle,
     session: String,
