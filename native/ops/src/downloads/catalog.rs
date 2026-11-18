@@ -57,6 +57,35 @@ impl Model {
     pub fn total_bytes(&self) -> u64 {
         self.artifacts.iter().map(|a| a.size).sum()
     }
+
+    /// What the user acknowledges for this entry apart from the general consent
+    /// ([`license_restrictions`] of its license).
+    pub fn restrictions(&self) -> Vec<&'static str> {
+        license_restrictions(&self.license)
+    }
+}
+
+/// The kinds of restriction a user acknowledges one by one, apart from the general consent,
+/// before a download starts (`acknowledged` of `/run/start_model_download`), in the order they
+/// are listed. `non_commercial`: a Creative Commons NonCommercial license (CC-BY-NC-4.0 and its
+/// -SA and -ND variants). A new kind (terms such as Gemma's) is added here, in `catalog.py`'s
+/// `RESTRICTIONS` and in the UI's texts.
+pub const RESTRICTIONS: [&str; 1] = ["non_commercial"];
+
+/// The restrictions a catalog license string carries, in [`RESTRICTIONS`] order. A license of
+/// several parts (`MIT + Apache-2.0`) carries those of every part. Derived from the reviewed
+/// string, so no field is added to [`Model`] or to `receipt.json`.
+pub fn license_restrictions(license: &str) -> Vec<&'static str> {
+    let non_commercial = license.split(['+', ',']).any(|part| {
+        let words: Vec<String> = part.split(|c: char| !c.is_ascii_alphanumeric()).filter(|w| !w.is_empty()).map(str::to_ascii_uppercase).collect();
+        // "CC-BY-NC-SA-4.0", "CC BY-NC 4.0"; "Attribution-NonCommercial" spelled out.
+        (words.first().is_some_and(|w| w == "CC") && words.iter().any(|w| w == "NC")) || words.concat().contains("NONCOMMERCIAL")
+    });
+    if non_commercial {
+        vec!["non_commercial"]
+    } else {
+        Vec::new()
+    }
 }
 
 pub const IRODORI_REV: &str = "9db7da1bec3d1069ef8e29732e0497be60c7b047";
@@ -686,5 +715,21 @@ mod translation_tests {
         assert_eq!(validate_catalog(&models), Ok(()));
         // A field the data file does not know is refused, not dropped.
         assert!(parse_translation_models(r#"{"models": [], "extra": 1}"#).is_err());
+    }
+
+    #[test]
+    fn a_non_commercial_license_is_a_restriction_and_the_others_are_not() {
+        let non_commercial = ["CC-BY-NC-4.0", "CC-BY-NC-SA-4.0", "CC-BY-NC-ND-4.0", "CC BY-NC 4.0", "CC BY-NC-SA 4.0", "cc-by-nc-4.0", "MIT + CC-BY-NC-4.0"];
+        for license in non_commercial.into_iter().chain(["Creative Commons Attribution-NonCommercial 4.0"]) {
+            assert_eq!(license_restrictions(license), ["non_commercial"], "{license}");
+        }
+        for license in ["MIT + Apache-2.0", "CC BY 4.0", "CC-BY-SA-4.0", "CC0-1.0", "Gemma Terms of Use + MIT + Apache-2.0", "OpenMDW-1.1", "MIT", "Apache-2.0", ""] {
+            assert!(license_restrictions(license).is_empty(), "{license}");
+        }
+        assert_eq!(entry(Vec::new()).restrictions(), Vec::<&str>::new());
+        assert_eq!(Model { license: "CC-BY-NC-4.0".into(), ..entry(Vec::new()) }.restrictions(), ["non_commercial"]);
+        // Only a translation model (NLLB-200, translation_models.json) may carry one; the speech,
+        // voice and chat-reading models the catalog offers carry none.
+        assert!(catalog().iter().filter(|m| m.target != TRANSLATION_TARGET).all(|m| m.restrictions().is_empty()));
     }
 }

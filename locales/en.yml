@@ -1835,6 +1835,16 @@ model_downloads:
     connection_notice: "This connects to Hugging Face and its file hosting service. Large downloads use disk space and may incur network charges."
     no_start: "Downloading and applying a path do not load a model, speak, start a server or enable the microphone."
     consent: "I have reviewed the source, usage terms, size and save location and agree to download."
+    # What a model's license restricts (the catalog row's restrictions). The review says it and
+    # asks for a checkbox of its own besides the consent above (#411).
+    restriction:
+        non_commercial:
+            title: "Non-commercial use only."
+            note: "This model's license, {{license}}, allows only non-commercial use. You cannot use it for commercial purposes. Read the license before downloading."
+            acknowledge: "I will use this model only for non-commercial purposes, as {{license}} requires."
+        other:
+            title: "Its license restricts its use."
+            note: "This model's license, {{license}}, has conditions that this version of the app cannot show or ask you to accept. It cannot be downloaded here."
     start: "Agree and download"
     back: "Back"
     cancel: "Cancel download"
@@ -1906,6 +1916,7 @@ model_downloads:
         download_not_ready: "The model is not verified and ready to apply."
         catalog_changed: "The model catalog changed. Reopen the download review."
         consent_required: "Review the model terms and explicitly agree before downloading."
+        model_download_restriction_unacknowledged: "This model's license restricts its use. Open the download review again and tick the checkbox for that restriction as well."
         stale_job: "This download request is no longer current. Refresh and retry."
         downloads_closed: "The ASTAROT engine is shutting down. Downloading is unavailable."
         download_apply_failed: "The model path could not be saved. Check file access and retry."

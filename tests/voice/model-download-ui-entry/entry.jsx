@@ -14,12 +14,14 @@ function App() {
         const poll = async () => { for (const response of await window.sidecarRead()) receiver.current(response); if (active) setTimeout(poll, 20); };
         poll(); return () => { active = false; };
     }, []);
-    const asr = new URLSearchParams(location.search).get("view") === "asr";
+    const view = new URLSearchParams(location.search).get("view");
     return <main style={{ maxWidth: 900, margin: 24, color: "#222", background: "#fff" }}>
         <SaveBar />
-        {asr ? <SpeechServers profiles={["asr"]} /> : <>
-            <SpeechServers profiles={["japanese"]} /><ModelDownloads targets={["rvc"]} expected={{ rvc: { model: "", index: "" } }} />
-        </>}
+        {view === "asr" ? <SpeechServers profiles={["asr"]} />
+            // The translation catalog as LegacyModelDownloadDialog shows it.
+            : view === "translation" ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} /> : <>
+                <SpeechServers profiles={["japanese"]} /><ModelDownloads targets={["rvc"]} expected={{ rvc: { model: "", index: "" } }} />
+            </>}
     </main>;
 }
 createRoot(document.getElementById("root")).render(<App />);

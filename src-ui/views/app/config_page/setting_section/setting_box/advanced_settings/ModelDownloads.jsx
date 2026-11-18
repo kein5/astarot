@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
 import { modelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice";
 import { hardwareWarning } from "../../../../../../logics/voice/modelHardwareWarning";
+import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
 import { catalogFamilies, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
 import styles from "./VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
@@ -123,6 +124,22 @@ const WarningNote = ({ warning }) => {
     </p>;
 };
 
+// What a model's license restricts (modelRestrictions.ts), said before the consent: marked
+// like a warning, and naming the license. The checkbox under the consent acknowledges it.
+const RestrictionNote = ({ kind, license, id }) => {
+    const { t } = useI18n();
+    const key = RESTRICTIONS.includes(kind) ? kind : "other";
+    // The title on its own line, so the two sentences need no joining rule per language; the
+    // space between them is kept for the text a screen reader reads.
+    return <p id={id} className={styles.restriction}>
+        <span className={styles.warning_mark} aria-hidden="true" />
+        <span className={styles.restriction_text}>
+            <strong>{t(`model_downloads.restriction.${key}.title`)}</strong>{" "}
+            <span>{t(`model_downloads.restriction.${key}.note`, { license })}</span>
+        </span>
+    </p>;
+};
+
 // Every downloadable model of one use (a target), one card per model with its file types.
 // The download, verification and apply steps are the same as before; only the choice is laid out
 // as a catalog. Nothing here starts a download or changes a setting by itself.
@@ -132,6 +149,9 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const languages = useLanguageList();
     const { catalog, state, hardware, error, pending, send, ensureHardware } = useModelDownloads();
     const [selected, setSelected] = useState(null), [consent, setConsent] = useState(false);
+    // The restrictions of the selected model the user ticked, apart from the consent.
+    const [acknowledged, setAcknowledged] = useState([]);
+    const restrictionId = useId();
     const [linkError, setLinkError] = useState(null);
     const [choices, setChoices] = useState({}), [ownReserve, setReserve] = useState('vr');
     const shared = sharedReserve !== undefined, reserve = shared ? sharedReserve : ownReserve;
@@ -151,7 +171,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         return () => clearInterval(timer);
     }, [hasTTS]);
     const busy = !!pending || Object.values(state.jobs).some(job => activePhases.includes(job.phase));
-    const close = () => { closeDialog(); setSelected(null); setConsent(false); setLinkError(null); };
+    const close = () => { closeDialog(); setSelected(null); setConsent(false); setAcknowledged([]); setLinkError(null); };
     const openLink = async (event, url) => {
         if (!isTauri()) return;
         event.preventDefault();
@@ -171,6 +191,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const status = entry => downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
     const warningOf = entry => hardwareWarning(entry, hardware, { deviceMode });
     const selectedWarning = selected && warningOf(selected);
+    const selectedRestrictions = restrictionsOf(selected);
+    // The consent and every restriction ticked: only then may the review start.
+    const agreed = !!selected && canStart(selected, consent, acknowledged);
+    const acknowledge = (kind, checked) => setAcknowledged(previous => checked ? [...previous.filter(k => k !== kind), kind] : previous.filter(k => k !== kind));
 
     // One card: the chosen file of a model, its facts and its download.
     const card = (target, family) => {
@@ -244,6 +268,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <div className={styles.actions}>
                 <button type="button" disabled={busy} onClick={() => {
                     setConsent(false);
+                    setAcknowledged([]);
                     setSelected({ ...current, catalog_version: catalog.catalog_version, downloaded });
                 }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
             </div>
@@ -301,6 +326,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <h3>{t("model_downloads.warning_title")}</h3>
             <p>{selected.name} · {selected.provider}</p>
             <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
+            {selectedRestrictions.map(kind => <RestrictionNote key={kind} kind={kind} license={selected.license} id={`${restrictionId}-${kind}`} />)}
             {selected.downloaded && <p>{t("model_catalog.prepare_notice")}</p>}
             {selectedWarning && <WarningNote warning={selectedWarning} />}
             <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
@@ -316,11 +342,16 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
             <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
+            {/* One more checkbox per restriction, each ticked on its own (#411). */}
+            {selectedRestrictions.filter(kind => RESTRICTIONS.includes(kind)).map(kind => <label key={kind} className={styles.checkLabel}>
+                <input type="checkbox" checked={acknowledged.includes(kind)} aria-describedby={`${restrictionId}-${kind}`}
+                    onChange={event => acknowledge(kind, event.target.checked)} />
+                {t(`model_downloads.restriction.${kind}.acknowledge`, { license: selected.license })}</label>)}
             <div className={styles.actions}>
                 <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
-                <button type="button" className="primary" disabled={!consent || busy} onClick={() => {
-                    if (!consent || busy) return;
-                    send("/run/start_model_download", { id: selected.id, consent: true, catalog_version: selected.catalog_version }); close();
+                <button type="button" className="primary" disabled={!agreed || busy} onClick={() => {
+                    if (!agreed || busy) return;
+                    send("/run/start_model_download", startRequest(selected, acknowledged)); close();
                 }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</button>
             </div>
         </dialog>}
