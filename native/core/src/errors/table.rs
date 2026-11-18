@@ -120,4 +120,6 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "OVERLAY_FONT_NOT_FOUND", category: Category::General, message: "The font is not installed on this PC", severity: Severity::Warning, user_action_required: true, reported: true },
     // Core only (#391): no VAD engine in this build, so the VAD switches cannot be turned on.
     CodeInfo { code: "VAD_UNAVAILABLE", category: Category::Transcription, message: "Voice activity detection is not available in this version; phrases are cut by volume", severity: Severity::Warning, user_action_required: false, reported: false },
+    // Core only (#531): the RVC block length of the Advanced settings.
+    CodeInfo { code: "VALIDATION_RVC_BLOCK_MS", category: Category::Validation, message: "RVC block length must be 20 to 200 ms in steps of 20", severity: Severity::Warning, user_action_required: true, reported: true },
 ];

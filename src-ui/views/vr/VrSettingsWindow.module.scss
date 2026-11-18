@@ -27,7 +27,7 @@
     align-items: center;
     gap: 10px;
     padding: 10px 20px;
-    font-size: 17px;
+    font-size: 16px;
     color: var(--primary_200_color);
     background-color: var(--dark_950_color);
 }
@@ -157,7 +157,7 @@
 // 幅は約100px。英語の "Translation" など長い名前は2行まで折り返し、それ以上は切る
 .category_label {
     min-width: 0;
-    font-size: 17px;
+    font-size: 16px;
     text-align: left;
     line-height: 1.2;
     word-break: keep-all;
@@ -170,7 +170,7 @@
 // The short name in brackets, on its own line under the name.
 .category_abbr {
     display: block;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 // ---- 右の一覧の行 ----
@@ -178,7 +178,7 @@
 .section_label {
     flex-shrink: 0;
     margin-top: 8px;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--primary_300_color);
 }
@@ -215,7 +215,7 @@
 }
 
 .sub {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 400;
     color: var(--dark_350_color);
 }
@@ -287,7 +287,7 @@
     height: 64px;
     min-width: 88px;
     padding: 0 14px;
-    font-size: 18px;
+    font-size: 19px;
 }
 
 .stepper {
@@ -300,7 +300,7 @@
 .step {
     width: 64px;
     height: 64px;
-    font-size: 30px;
+    font-size: 26px;
     &[aria-disabled="true"] {
         color: var(--dark_450_color);
         background-color: var(--dark_900_color);
@@ -310,7 +310,7 @@
 .value {
     width: 84px;
     text-align: center;
-    font-size: 21px;
+    font-size: 22px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     display: flex;
@@ -341,7 +341,7 @@
 .automatic {
     min-width: 88px;
     padding: 0 14px;
-    font-size: 18px;
+    font-size: 19px;
 }
 
 .check {
@@ -407,7 +407,7 @@
 
 .picker_title {
     min-width: 0;
-    font-size: 17px;
+    font-size: 16px;
     color: var(--dark_250_color);
     white-space: normal;
     overflow-wrap: anywhere;
@@ -427,7 +427,7 @@
 }
 
 .step_status {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 400;
     line-height: 1.2;
     color: var(--primary_200_color);
@@ -451,7 +451,7 @@
 
 .expand_label {
     color: var(--primary_200_color);
-    font-size: 17px;
+    font-size: 16px;
     white-space: nowrap;
 }
 

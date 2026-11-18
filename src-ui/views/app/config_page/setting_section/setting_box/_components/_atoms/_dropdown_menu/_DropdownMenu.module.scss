@@ -12,7 +12,7 @@
     display: flex;
     align-items: center;
     background-color: var(--vox_surface, #18253b);
-    border: 0.1rem solid var(--dark_650_color, #5e6570);
+    border: 0.1rem solid var(--vox_field_border, #5e6570);
     width: 100%;
     min-width: min(20rem, 100%);
     min-height: 4rem;

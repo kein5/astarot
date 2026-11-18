@@ -16,14 +16,18 @@ use common::net::eventually;
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::net::UdpSocket;
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc::{Sender, channel};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use vrct_adapters::osc::{OscArg, decode_packet};
 use vrct_core::config::Platform;
 use vrct_core::controller::Services;
 use vrct_core::vr_overlay::runtime::fake::FakeVr;
+use vrct_translation::fake::FakeProviders;
 use vrct_transcription::capture::Source;
+
+const TRANSLATE: &str = "/deepl-free/v2/translate";
 
 struct Run {
     ui: Ui,
@@ -47,6 +51,23 @@ fn start(platform: Platform, saved: Value, configure: bool) -> Run {
 
 /// [`start`] with a SteamVR that runs (`FakeVr::running`), for the VR logs.
 fn start_with_vr(platform: Platform, saved: Value, configure: bool, vr: Option<FakeVr>) -> Run {
+    start_with(platform, saved, configure, vr, None)
+}
+
+/// Linux, where the main switch runs realtime recognition, with translation on through DeepL on
+/// `providers`.
+fn start_translating(providers: &FakeProviders) -> Run {
+    let key = format!("{}:fx", "d".repeat(36));
+    providers.key("/deepl-free", &key);
+    let run = start_with(Platform::Linux, json!({ "AUTH_KEYS": { "DeepL_API": key } }), true, None, Some(providers));
+    let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("DeepL_API");
+    run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    run
+}
+
+fn start_with(platform: Platform, saved: Value, configure: bool, vr: Option<FakeVr>, providers: Option<&FakeProviders>) -> Run {
     let asr = FakeAsr::start();
     let capture = FakeCapture::new();
     capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
@@ -63,6 +84,9 @@ fn start_with_vr(platform: Platform, saved: Value, configure: bool, vr: Option<F
     let mut services = Services { transcription_capture: capture.factory(), ..Setup::default().services };
     if let Some(vr) = vr {
         services.vr = Arc::new(vr);
+    }
+    if let Some(providers) = providers {
+        services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&providers.url());
     }
     let ui = Ui::with(Setup { saved: Some(saved), services, platform, ..Setup::default() });
     ui.ready();
@@ -86,6 +110,24 @@ impl Run {
     /// Waits for a caption row in `state`.
     fn caption(&self, from: usize, state: &str) -> Value {
         self.ui.wait_from(from, state, |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == state)["result"].clone()
+    }
+
+    /// Waits for the row in `state` of the caption `item`.
+    fn caption_of(&self, from: usize, item: &str, state: &str) -> Value {
+        self.ui.wait_from(from, state, |l| {
+            l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == state && l["result"]["item_id"] == item
+        })["result"]
+            .clone()
+    }
+
+    /// Reads the chatbox until a text that contains `part` arrives.
+    fn chatbox_until(&self, part: &str) -> Option<String> {
+        loop {
+            let text = self.chatbox_text(Duration::from_secs(5))?;
+            if text.contains(part) {
+                return Some(text);
+            }
+        }
     }
 
     fn process_log(&self) -> String {
@@ -229,6 +271,80 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
     let state = run.ui.ok("/get/data/realtime_asr_state", None);
     assert_eq!((state["mic"]["state"].clone(), state["mic"]["requested"].clone()), (json!("ready"), json!(true)));
     assert!(run.ui.on(mark, "/set/disable/transcription_send").is_empty());
+    run.ui.stop();
+}
+
+/// Holds the translations of `text` until the returned sender sends; drop it then, so that
+/// later ones go through at once. Other texts are translated at once.
+fn hold(providers: &FakeProviders, text: &'static str) -> Sender<()> {
+    let (release, held) = channel::<()>();
+    let held = Mutex::new(held);
+    providers.reply(move |_, _, source| {
+        if source == text {
+            let _ = held.lock().unwrap().recv_timeout(Duration::from_secs(5));
+        }
+        None
+    });
+    release
+}
+
+/// Turns the microphone on, holds the next translation of a final, and waits for a final that
+/// arrives while it is held: that one waits for translation. Returns its item id, the mark
+/// before it, and the sender that lets the held translation finish.
+fn a_final_waiting_for_translation(run: &Run, providers: &FakeProviders) -> (String, usize, Sender<()>) {
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    let release = hold(providers, "こんにちは");
+    let before = providers.seen_under(TRANSLATE).len();
+    run.capture.hear(Source::Mic, &[speech(2000)]);
+    eventually("a final is being translated", || providers.seen_under(TRANSLATE).len() > before);
+    let mark = run.ui.lines().len();
+    let item = run.caption(mark, "final")["item_id"].as_str().unwrap().to_string();
+    (item, mark, release)
+}
+
+#[test]
+fn a_final_keeps_the_languages_it_arrived_with_while_it_waits_to_be_translated() {
+    // Decision 80 (`MessageSnapshot.capture` in Python's `admit`): a final takes the settings as
+    // it arrives. One that waits behind another final's translation while the user picks
+    // another language is still translated to the language it arrived with, and its caption
+    // row says so. A final that arrives after the change takes the new language.
+    let providers = FakeProviders::start();
+    let run = start_translating(&providers);
+    let (item, mark, release) = a_final_waiting_for_translation(&run, &providers);
+    let mut targets = run.ui.ok("/get/data/selected_target_languages", None);
+    targets["1"]["1"]["language"] = json!("German");
+    targets["1"]["1"]["country"] = json!("Germany");
+    assert_eq!(run.ui.ok("/set/data/selected_target_languages", Some(targets))["1"]["1"]["language"], "German");
+    let changed = run.ui.lines().len();
+    release.send(()).unwrap();
+    drop(release);
+
+    let waited = run.caption_of(mark, &item, "translated");
+    assert_eq!(waited["translations"], json!([{ "message": "deepl-free:EN-US:こんにちは", "transliteration": [] }]));
+    run.ui.wait_from(changed, "a later final in German", |l| {
+        l["endpoint"] == "/run/realtime_caption"
+            && l["result"]["state"] == "translated"
+            && l["result"]["translations"][0]["message"] == "deepl-free:DE:こんにちは"
+    });
+    run.ui.stop();
+}
+
+#[test]
+fn a_chat_typed_while_a_final_waits_is_not_replaced_by_that_final_in_the_chatbox() {
+    // Decision 80: a final takes its place in the chatbox order as it arrives
+    // (`chatbox_order.admit()` in Python's `admit`), not when its translation starts. A chat
+    // typed while the final waits goes out, and the older final does not replace it.
+    let providers = FakeProviders::start();
+    let run = start_translating(&providers);
+    let (item, mark, release) = a_final_waiting_for_translation(&run, &providers);
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "c-1", "message": "打った文" })));
+    assert!(run.chatbox_until("打った文").is_some(), "the typed chat was not sent");
+    release.send(()).unwrap();
+    drop(release);
+
+    let outcome = run.caption_of(mark, &item, "outcome");
+    assert_eq!((outcome["outcome"].clone(), outcome["reason"].clone()), (json!("not_delivered"), json!("superseded")), "{outcome}");
     run.ui.stop();
 }
 

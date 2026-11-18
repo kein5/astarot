@@ -9,6 +9,7 @@
 //! lines leave through [`Services::ocr_message`](super::Services::ocr_message) to the message
 //! pipeline; nothing here logs them.
 
+pub use super::messages::Guard;
 use super::routes::{Builder, OPEN, WAIT};
 use super::settings::{python_str, store, switch};
 use super::{Core, error, ok, python_float, python_int, python_round, run_endpoint};
@@ -109,28 +110,26 @@ impl std::fmt::Debug for OcrMessage {
 /// Hands a read line to the message pipeline: `_processMessage(OCR_MESSAGE_SPEC, ...)`, which
 /// translates it, writes the log, sends the `transcription_ocr` notification and the WebSocket
 /// and overlay copies, and never sends it to VRChat's chatbox. The third argument tells whether
-/// the message may still be published (false once chat reading was turned off or the backend
-/// shuts down); the pipeline asks it before each output.
-pub type OcrDelivery = Arc<dyn Fn(&Arc<Core>, &OcrMessage, &dyn Fn() -> bool) + Send + Sync>;
+/// the message may still be published: it belongs to the run of chat reading that read the line,
+/// so it turns false once chat reading is turned off, stays false when it is turned on again,
+/// and turns false when the backend shuts down. The pipeline asks it before each output.
+pub type OcrDelivery = Arc<dyn Fn(&Arc<Core>, &OcrMessage, &Guard) + Send + Sync>;
 
 /// The default [`OcrDelivery`]: the message pipeline with the OCR direction
-/// ([`Core::deliver_transcription`]). The line stays current while the run that read it does.
-pub(crate) fn pipeline_delivery(core: &Arc<Core>, message: &OcrMessage, current: &dyn Fn() -> bool) {
+/// ([`Core::deliver_transcription`]), watched by the guard it was given. The run is not read
+/// again here: a line read before chat reading was turned off and on would then pass as one of
+/// the new run (#278, item 65).
+pub fn pipeline_delivery(core: &Arc<Core>, message: &OcrMessage, current: &Guard) {
     if !current() {
         return;
     }
-    let generation = core.ocr.generation.load(Ordering::SeqCst);
-    let weak = Arc::downgrade(core);
-    let guard: super::messages::Guard = Arc::new(move || {
-        weak.upgrade().is_some_and(|core| core.ocr.generation.load(Ordering::SeqCst) == generation && !core.ocr.shutting_down())
-    });
     let recognized = super::messages::Recognized {
         text: message.text.clone(),
         language: message.language.clone(),
         id: Some(message.id.clone()),
         asr_ms: None,
     };
-    core.deliver_transcription(super::messages::Source::Ocr, recognized, Some(guard));
+    core.deliver_transcription(super::messages::Source::Ocr, recognized, Some(Arc::clone(current)));
 }
 
 /// The default [`OcrPlatform`].
@@ -246,10 +245,23 @@ impl Core {
         (region_value(&self.config().get("OCR_CAPTURE_REGION")), region_value(&self.config().get("OCR_VR_CAPTURE_REGION")))
     }
 
+    /// Whether a line read now may still be published: true while the run of chat reading it
+    /// belongs to lasts and the backend is not shutting down. Turning chat reading off starts a new
+    /// run, so the guard never turns true again.
+    fn ocr_guard(self: &Arc<Self>) -> Guard {
+        let generation = self.ocr.generation.load(Ordering::SeqCst);
+        let weak = Arc::downgrade(self);
+        Arc::new(move || {
+            weak.upgrade().is_some_and(|core| core.ocr.generation.load(Ordering::SeqCst) == generation && !core.ocr.shutting_down())
+        })
+    }
+
     /// `Controller.ocrMessage`: a read line goes to the message pipeline while chat reading is on.
     fn ocr_message(self: &Arc<Self>, message: &Message) -> bool {
-        let generation = self.ocr.generation.load(Ordering::SeqCst);
-        let current = || self.ocr.generation.load(Ordering::SeqCst) == generation && !self.ocr.shutting_down();
+        // The run is read once, here, as Python's `ocrMessage` did: the guard the line travels
+        // with is made from this reading, so turning chat reading off revokes the line even if it
+        // is turned on again before the line reaches the pipeline.
+        let current = self.ocr_guard();
         if self.ocr.shutting_down() || self.config().get("ENABLE_OCR_CAPTURE") != json!(true) || message.text.is_empty() {
             return false;
         }

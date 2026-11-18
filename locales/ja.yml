@@ -266,6 +266,7 @@ backend_errors:
     AUDIO_READ_ERROR: "デバイスのエラーで、音声の取り込みが止まりました。デバイスがつながっているかを確かめてからもう一度試してください。"
     VAD_INFERENCE_ERROR: "発話の検出に失敗したため、音声認識を止めました。もう一度試してください。繰り返し起きるときはASTAROTを再起動してください。"
     VAD_UNAVAILABLE: "この版ではVADを使えないため、オンにしませんでした。音声は音量で区切ります。"
+    VALIDATION_RVC_BLOCK_MS: "20で割り切れる20〜200の整数を入力してください。"
     TRANSCRIBER_INIT_ERROR: "音声認識を開始できませんでした。設定の「音声認識（ASR）」でエンジンとモデルを確かめてから、もう一度試してください。"
     ASR_ERROR: "音声認識に失敗したため、認識を止めました。設定の「音声認識（ASR）」でエンジンを確かめてください。オンラインのエンジンなら、ネットワークの接続も確かめてから、もう一度試してください。"
     TRANSCRIPTION_API_AUTH_FAILED: "音声認識のサービスがAPIキーを受け付けなかったため、認識を止めました。設定の「音声認識（ASR）」でキーを確かめてください。"
@@ -1209,6 +1210,10 @@ config_page:
             desc: "0〜20の整数を入力してください。"
         obs_browser_source_font_outline_color:
             label: "縁取りの色（#RRGGBB）"
+        section_label_rvc: "ボイスチェンジャー（RVC）"
+        rvc_block_ms:
+            label: "変換する単位の長さ（ms）"
+            desc: "マイクの音声をこの長さずつ区切って変換します。短いほど声の遅れは小さくなりますが、GPUの処理が間に合わないと声が途切れやすくなります。20で割り切れる20〜200の整数を入力してください。既定は40です。次に変換を開始したときから使います。"
 
     notifications:
         save_success: "設定を保存しました。"
@@ -1740,7 +1745,7 @@ voice_ui:
     invalid_rvc_numbers: "ピッチは−24〜24の整数、検索結果の混合率は0〜1の数値、CPUのスレッド数は0〜64の整数で指定してください。"
     rvc_worker_title: "変換に使うデバイスと処理"
     rvc_worker_status: "{{device}} · スレッド {{threads}} · ハイパス{{highpass}}"
-    rvc_worker_hint: "ここの設定は「開始」を押したときに使います。NVIDIAのGPUを選ぶと、GPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。"
+    rvc_worker_hint: "ここの設定は「開始」を押したときに使います。NVIDIAのGPUを選ぶと、GPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。変換する単位の長さは「高度な設定」で変えられます。"
     rvc_threads_auto: "自動"
     rvc_highpass_on: "あり"
     rvc_highpass_off: "なし"

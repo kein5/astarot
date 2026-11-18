@@ -16,7 +16,7 @@ Python modules stay until the sidecar is retired.
 |---|---|---|
 | `voice_conversion/direct_voice.py` | `src/direct.rs` | Same rules: one producer, generations that refuse a late start, a failed backend stops the request, never a fallback to the original voice. |
 | `voice_conversion/protocol.py` | `src/protocol.rs` | The "VVC1" pipe contract, the same checks of the `ready`, `failed`, `input` and `output` packets. |
-| `voice_conversion/process.py`, `rvc_process.py` | `src/process.rs`, `src/worker.rs` | Capture in 80 ms blocks, the worker's checked answer to the output, late blocks dropped on a device route, speech in place of the microphone, the monitor. |
+| `voice_conversion/process.py`, `rvc_process.py` | `src/process.rs`, `src/worker.rs` | Capture in blocks of the start's `block_ms` (40 ms unless chosen, from the Advanced setting `RVC_BLOCK_MS`; Python's were 80 ms), the worker's checked answer to the output, late blocks dropped on a device route, speech in place of the microphone, the monitor. |
 | `voice_conversion/isolated.py`, `router_worker.py`, `router_protocol.py` | — | Python ran the owner in a router process of its own, away from its garbage collector and global lock. Here it runs on a thread of the app; the worker is still a process. |
 | `voice_conversion/runtime_setup.py` (the `native` kind) | `src/runtime.rs`, `src/archive.rs` | The same pinned files, sizes, hashes, steps, resume and version text (a runtime the Python setup installed stays installed). |
 | `voice_conversion/runtime_setup.py` (Seed-VC), `seed_process.py` | — | Seed-VC needs Python and ends with it. |

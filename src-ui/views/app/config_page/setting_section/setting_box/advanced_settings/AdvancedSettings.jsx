@@ -63,7 +63,40 @@ export const AdvancedSettings = () => {
             </div>
             <WebsocketContainer />
             <ObsBrowserSourceContainer />
+            <div>
+                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_rvc")} />
+                <RvcBlockMsContainer />
+            </div>
         </div>
+    );
+};
+
+// The block an RVC conversion cuts the microphone into (#531). The backend refuses anything but
+// 20 to 200 ms in steps of 20 and keeps the saved value; the next Start reads it.
+export const RvcBlockMsContainer = () => {
+    const { t } = useI18n();
+    const { currentRvcBlockMs, setRvcBlockMs } = useAdvancedSettings();
+
+    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+        variable: currentRvcBlockMs.data,
+        state: currentRvcBlockMs.state,
+        setFunction: setRvcBlockMs,
+        label: t("config_page.advanced_settings.rvc_block_ms.label"),
+    });
+
+    return (
+        <EntryWithSaveButtonContainer
+            setting_id="rvc_block_ms"
+            label={t("config_page.advanced_settings.rvc_block_ms.label")}
+            desc={t("config_page.advanced_settings.rvc_block_ms.desc")}
+            variable={variable}
+            saveFunction={saveFunction}
+            onChangeFunction={onChangeFunction}
+            state={currentRvcBlockMs.state}
+            width="10rem"
+            type="number"
+            min={20} max={200} step={20}
+        />
     );
 };
 

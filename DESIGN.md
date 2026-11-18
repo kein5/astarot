@@ -9,7 +9,7 @@ colors:
   rail: "#1c0f27"
   surface: "#332341"
   border: "#4e3d5d"
-  field-border: "#777082"
+  field-border: "#877a94"
   text: "#fafafc"
   secondary-text: "#cfc4d6"
   description-text: "#aba0b5"
@@ -53,6 +53,14 @@ typography:
   display:
     fontSize: "2.4rem"
     fontWeight: 650
+  vr-small:
+    fontSize: "16px"
+  vr-body:
+    fontSize: "19px"
+  vr-title:
+    fontSize: "22px"
+  vr-symbol:
+    fontSize: "26px"
 rounded:
   hairline: "2px"
   small: "4px"
@@ -112,8 +120,7 @@ The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): D
 |---|---|
 | `canvas` | Dark Plum |
 | `rail` | Dark Plum, darker |
-| `surface`, `border` | Dark Plum, lighter |
-| `field-border` | The grey of the small labels on the brand board |
+| `surface`, `border`, `field-border` | Dark Plum, lighter |
 | `primary`, `readout-rule` | Lilac |
 | `primary-hover`, `state-active`, `focus` | Lilac, lighter |
 | `text` | Off-White |
@@ -121,17 +128,30 @@ The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): D
 | `description-text` | The subtitle of the dark horizontal logo |
 | `state-warning`, `state-failed` | None; see below |
 
+The grey and lilac steps that components use directly (`dark_*` and `primary_*` in `variables.css`) are derived the same way, the greys from Dark Plum and the lilacs from Lilac, and the greys get darker as their number grows. Only the brand's own values (Off-White and the secondary and description text greys) and plain white are taken as they are. `brandPalette.test.js` checks every step.
+
 Use the canvas for conversation and settings, the deeper rail for navigation, and raised surfaces for fields. Borders separate working regions without heavy cards. Enable state is also expressed by labels and switch position.
 
 The brand has no warning or error colors. Warning and failed keep amber and red, the hues that carry their meaning, since a lilac or plum one would read as the active state. They take the OKLCH lightness of the active lilac (0.74) and a lower chroma (0.10), so the three readout states carry the same weight and Lilac stays the most vivid color.
 
-Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border (`field-border`) reaches 3:1 against the surface and the canvas; hairlines between regions (`border`) may stay below that. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
+Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border (`field-border`, `--vox_field_border`) is also the only edge of an outlined control: a switch's track and the quiet and danger buttons. It reaches 3.5:1 against the surface, the field's own fill, and 3:1 against every ground a field sits on: the canvas, the rail, the dialogs and the language list (`dark_875`) and a switch's track (`dark_850`). The brand board's label grey (`#777082`) reached only 3.04:1 on the surface and 2.86:1 in a dialog, so the field border is Dark Plum made lighter instead. Hairlines between regions (`border`) may stay below 3:1. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
 
 ## Typography
 
 Keep the user's configured UI font, scaling and log-font preferences. Local Noto/system fallbacks support Japanese without remote font requests. Section headings give long forms a readable hierarchy; technical paths wrap inside their containers.
 
-Text in the app window takes the sizes in the front matter's `typography` (#568): 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2 and 2.4rem (the last only for the empty conversation's greeting). A size in between is moved to the nearest step, not added; small marks and tooltips use 1.2rem. Sizes relative to their parent (em, %) follow the parent, such as the log, whose base size the log font size setting replaces. The VR windows draw into the headset at fixed pixel sizes and the caption overlay at the size its user picks; neither is on these steps. `src-ui/views/app/fontSteps.test.js` checks the app window.
+Text in the app window takes the sizes in the front matter's `typography` (#568): 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2 and 2.4rem (the last only for the empty conversation's greeting). A size in between is moved to the nearest step, not added; small marks and tooltips use 1.2rem. Sizes relative to their parent (em, %) follow the parent, such as the log, whose base size the log font size setting replaces. The desktop caption overlay draws its captions at the size its user picks; its one fixed text, the size shown while the overlay is moved, takes a step in px (1.4rem is 14px), because that window does not follow the UI size. `src-ui/views/app/fontSteps.test.js` checks the app window and the caption overlay.
+
+The VR panel draws into the headset in pixels of its own, which the window's width in VR scales: at the default sizes a pixel is about 0.44 mm (the log window is 0.4 m wide for 900px, and the toolbar keeps that scale). It has four steps of its own, the front matter's `vr-*` (#568):
+
+| Step | Use |
+|---|---|
+| 16px | Small text: the line under a name, notes and reasons, the settings' menu and section names, tooltips, marks such as L and R |
+| 19px | Body: a row's name and value, the words on buttons |
+| 22px | Window titles, and numbers read at a glance (presets, the steppers' and the toolbar's values) |
+| 26px | Buttons that are only a symbol (−, +, A−, A＋, ›) |
+
+Each step is about 1.17 times the one under it, so two steps differ at a glance; weight and color tell text of one step apart. 16px is the smallest: running text such as notes and tooltip help was already 16px, and only marks and short abbreviations were smaller. A size in between moves to the nearest step, not added. Left out are the log's text, which is the size picked with A−／A＋ (14 to 28px, 17px by default); the inputs and outputs window, which draws the desktop flow view (rem) 1.1 times larger; and the one-line and multi-line subtitle overlays, pictures that the native overlay draws at sizes of their own (`native/vr-overlay/src/subtitle.rs`). `src-ui/views/vr/fontSteps.test.js` checks the VR panel.
 
 ## Layout
 
