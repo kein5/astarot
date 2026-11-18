@@ -43,7 +43,8 @@ def playback():
         return monitor
 
     settings = VoiceSettings(mode="original", mic_mode="translated", output_device="cable",
-                             monitor="on", monitor_device="speakers")
+                             monitor="on", monitor_device="speakers",
+                             japanese_server="external", multilingual_server="external")
     bus = VoiceEventBus(settings, provider_factory=Provider, router=AudioRouter(lambda *args: main),
                         monitor_factory=monitor_factory)
     try:
@@ -275,7 +276,7 @@ def test_dispatched_stale_timeout_cannot_cancel_the_next_utterance(monkeypatch):
             yield AudioFrame(b"\x01\x00", 48000)
 
     monkeypatch.setattr(tts_scheduler, "Timer", DispatchedTimer)
-    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable"),
+    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_server="external"),
                         provider_factory=HeldProvider, router=AudioRouter(lambda *args: sink))
     try:
         assert bus.publish(event("first"))
@@ -305,7 +306,7 @@ def test_real_timeout_still_cancels_its_own_utterance():
             token.check()
             yield AudioFrame(b"\x01\x00", 48000)
 
-    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable"),
+    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_server="external"),
                         provider_factory=WaitingProvider, router=AudioRouter(lambda *args: sink),
                         request_timeout=0.05)
     try:

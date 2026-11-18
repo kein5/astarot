@@ -268,6 +268,7 @@ def test_mic_translation_uses_target_language_generation_options(pcm_server):
                 mic_mode="translated",
                 direct_policy="mix",
                 output_device="cable",
+                multilingual_server="external",
                 multilingual_url=url,
                 japanese_seed="1",
                 multilingual_seed="2",
@@ -302,7 +303,7 @@ def test_controller_returns_catalog_identity_and_does_not_change_settings(
         try:
             c.setVoiceSettings(
                 dict(
-                    japanese_url=url, japanese_seed="42", japanese_instructions="softly"
+                    japanese_server="external", japanese_url=url, japanese_seed="42", japanese_instructions="softly"
                 )
             )
             state = c.getTtsModelOptions({"role": "japanese"})
@@ -354,7 +355,7 @@ def test_catalog_request_id_is_echoed_without_changing_options(
     c = controller_module.Controller()
     with pcm_server(model_document=card()) as (url, _):
         try:
-            c.setVoiceSettings(dict(japanese_url=url))
+            c.setVoiceSettings(dict(japanese_server="external", japanese_url=url))
             response = c.getTtsModelOptions(
                 {"role": "japanese", "request_id": "page-17"}
             )

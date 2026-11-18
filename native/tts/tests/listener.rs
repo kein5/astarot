@@ -98,7 +98,7 @@ fn server_loss_aborts_real_scheduler_output_instead_of_draining() {
     let (factory_writing, factory_closed) = (writing.clone(), closed.clone());
     let factory = move |_: &str, _: u32, _: u16| -> Result<Box<dyn OutputSink>, TtsError> { Ok(Box::new(SlowOutput { writing: factory_writing.clone(), closed: factory_closed.clone() })) };
     let mut server = BufferedServer::start(pcm());
-    let settings = VoiceSettings { mode: "original".into(), output_device: "test".into(), japanese_url: server.url().to_owned(), ..Default::default() };
+    let settings = VoiceSettings { mode: "original".into(), output_device: "test".into(), japanese_url: server.url().to_owned(), ..external() };
     let bus = VoiceEventBus::new(settings, BusOptions::new(Arc::new(AudioRouter::new(Arc::new(factory)))));
     let event = SpeechMessageEvent { source_language: Some("ja".into()), ..SpeechMessageEvent::new("fault", Source::Chat, "test") };
     assert!(bus.publish(event, None, None));

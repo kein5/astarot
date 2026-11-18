@@ -24,7 +24,7 @@ You can turn speech on and off separately from sending text to the chatbox.
 4. Under "Output device", choose where the speech plays. Try it with your own earphones first. If a device is missing, press "Refresh devices".
 5. Go back to the main screen and turn on "Text to speech (TTS)". Text you send is now spoken.
 
-With a bundled server selected, turning it on from the main screen also starts the server.
+Japanese and the other languages start on the bundled server. With a bundled server selected, turning it on from the main screen also starts the server. To use a server you started yourself, choose "External server" and enter its URL.
 
 ## Read Japanese with VOICEVOX or another engine
 

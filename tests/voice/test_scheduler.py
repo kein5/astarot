@@ -38,7 +38,8 @@ def test_fake_http_to_explicit_output_once(pcm_server):
         opens.append((device, rate, channels))
         return sink
     with pcm_server(rate="24000") as (url, requests):
-        settings = VoiceSettings.from_dict({"mode": "original", "output_device": "virtual-cable", "japanese_url": url})
+        settings = VoiceSettings.from_dict({"mode": "original", "output_device": "virtual-cable", "japanese_server": "external",
+                                            "japanese_url": url})
         bus = VoiceEventBus(settings, router=AudioRouter(output))
         try:
             assert bus.publish(event())
@@ -75,7 +76,8 @@ def test_bounded_queue_cancel_and_old_generation():
             token.wait(2)
             token.check()
             yield AudioFrame(b"\x01\x00", 48000)
-    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable"), provider_factory=BlockingProvider)
+    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_server="external"),
+                        provider_factory=BlockingProvider)
     try:
         old = bus.generation()
         bus.publish(event())
@@ -115,7 +117,8 @@ def test_stopping_speech_is_not_reported_as_expired():
             token.wait(2)
             token.check()
             yield AudioFrame(b"\x01\x00", 48000)
-    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable"), provider_factory=BlockingProvider)
+    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_server="external"),
+                        provider_factory=BlockingProvider)
     try:
         bus.publish(event())
         assert entered.wait(1)
@@ -139,7 +142,7 @@ def test_errors_are_private_and_worker_recovers():
             if len(attempts) == 1:
                 raise RuntimeError("secret spoken text / path / token")
             yield AudioFrame(b"\x01\x00", 48000)
-    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable"),
+    bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_server="external"),
                         provider_factory=Provider, router=AudioRouter(lambda *args: sink))
     try:
         bus.publish(event())
@@ -155,7 +158,8 @@ def test_errors_are_private_and_worker_recovers():
 def test_whole_request_deadline(pcm_server):
     release = Event()
     with pcm_server(before_chunk=lambda i: release.wait(1)) as (url, _):
-        bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_url=url), request_timeout=0.05)
+        bus = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_server="external", japanese_url=url),
+                            request_timeout=0.05)
         try:
             bus.publish(event())
             until(lambda: bus.status()["errors"] == 1)

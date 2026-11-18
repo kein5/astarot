@@ -16,7 +16,8 @@ def test_chat_speech_time_reaches_the_message_trace(controller_module, pcm_serve
         sent = []
         controller.run = lambda status, endpoint, payload: sent.append((endpoint, payload))
         controller.messageFormatter = MagicMock(return_value="hello")
-        controller.voice_events = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_url=url),
+        controller.voice_events = VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_server="external",
+                                                              japanese_url=url),
                                                 router=AudioRouter(lambda *args: sink))
         controller.voice_events.on_first_audio = controller._ioSpeechStarted
         try:

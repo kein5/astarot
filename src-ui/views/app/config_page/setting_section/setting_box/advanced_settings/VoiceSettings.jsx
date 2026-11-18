@@ -54,7 +54,7 @@ export const VoiceSettings = () => {
         </label>;
     };
     const server = role => <label>{t(`speech_servers.${role}_selection`)}
-        <select aria-label={t(`speech_servers.${role}_selection`)} value={draft[`${role}_server`] || "external"} onChange={e => field(`${role}_server`, e.target.value)}>
+        <select aria-label={t(`speech_servers.${role}_selection`)} value={draft[`${role}_server`] || "bundled"} onChange={e => field(`${role}_server`, e.target.value)}>
             {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
         </select>
     </label>;

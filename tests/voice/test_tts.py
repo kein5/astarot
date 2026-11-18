@@ -135,7 +135,10 @@ def test_local_only(url):
 
 def test_defaults_and_language_routing():
     assert VoiceSettings.from_dict({}).mode == "off"
-    settings = VoiceSettings.from_dict({"mode": "original", "output_device": "cable"})
+    # New settings start on the bundled server; a saved external server keeps its URL (#566).
+    assert (VoiceSettings().japanese_server, VoiceSettings().multilingual_server) == ("bundled", "bundled")
+    settings = VoiceSettings.from_dict({"mode": "original", "output_device": "cable", "japanese_server": "external",
+                                        "multilingual_server": "external"})
     ja = SpeechMessageEvent("1", "chat", "こんにちは", source_language="Japanese")
     assert settings.request_for(ja)[1:3] == ("none", "ja")
     en = SpeechMessageEvent("2", "chat", "hello", source_language="English")
