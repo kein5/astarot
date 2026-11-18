@@ -1,6 +1,6 @@
 #[cfg(not(target_os = "linux"))]
 use tauri::PhysicalPosition;
-use tauri::{Manager, RunEvent, Runtime, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{Manager, RunEvent, Runtime, WebviewUrl, WindowEvent};
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::{Error, Write};
 use std::path::{Path, PathBuf};
@@ -12,6 +12,7 @@ mod companion;
 mod quick_chat;
 mod single_instance;
 mod vr_panel_state;
+mod webview_environment;
 mod window_placement;
 #[cfg(test)]
 mod opener_scope_tests;
@@ -64,12 +65,14 @@ mod portal_shortcuts {
 // --disable-background-networking は、画面と関係なくMicrosoftへ出る通信 (Edgeの実験の設定の取得
 // config.edge.skype.com と、コンポーネント更新の繰り返し) を止める暫定対策。WebView2の公式の一覧に
 // ないChromiumのスイッチなので、Runtimeの更新で効かなくなることがある (docs/spec/external-interfaces.md)。
+// Windows では、全ウィンドウが共有する WebView2 の環境をアプリが作るときにも、この値を使う
+// (webview_environment.rs。クラッシュダンプを Microsoft へ送らない設定とあわせて渡す)。
 pub(crate) const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-networking";
 
 // VRオーバーレイに映す画面。Python側 (models/overlay) が撮影・入力する (Windows はタイトルで見つける)。
 // VR UI が ON の間だけ作る (set_vr_panel_window)。OFF の間も動かしておくと、使わない人にも負荷がかかる
 fn create_vr_panel_window<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<tauri::WebviewWindow<R>> {
-    let window = WebviewWindowBuilder::new(manager, "vr_panel", WebviewUrl::App("vr.html".into()))
+    let window = webview_environment::window(manager, "vr_panel", WebviewUrl::App("vr.html".into()))
         .title("ASTAROT VR Panel")
         // 既定の並び (src-ui/views/vr/vr_layout.json の atlas)。ログの大きさを変えると Python が合わせて変える
         .inner_size(1628.0, 880.0)
@@ -78,7 +81,6 @@ fn create_vr_panel_window<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Resu
         .skip_taskbar(true)
         .focused(false)
         .visible(false)
-        .additional_browser_args(BROWSER_ARGS)
         .build()?;
     // 画面外に置く。Windows ではビルダーの .position() が効かず既定の位置 (画面内) に出るため、
     // 作ってから動かし、動かした後で表示する (撮影のため、表示状態で画面外に置いておく)。
@@ -195,9 +197,12 @@ pub fn run() {
     }
     let result = builder
         .setup(move |app| {
-            let main_window = app.get_webview_window("main").ok_or_else(|| {
-                Error::other("main webview window was not created")
-            })?;
+            // The WebView2 environment every window shares comes first (Windows; #564). The main
+            // window is made here, not by Tauri ("create": false), so that it gets it too.
+            webview_environment::prepare(app);
+            let main_config = app.config().app.windows.iter().find(|window| window.label == "main").cloned()
+                .ok_or_else(|| Error::other("main webview window has no configuration"))?;
+            let main_window = webview_environment::main_window(app, &main_config)?;
             // Made hidden (tauri.conf.json): it goes to its saved place before it is first shown,
             // so it does not show centred and then jump there once the engine is ready.
             if let Ok(executable) = std::env::current_exe() {
@@ -414,6 +419,32 @@ mod tests {
         let main = config["app"]["windows"].as_array().unwrap().iter()
             .find(|window| window.get("label").map_or(true, |label| label == "main")).expect("the main window");
         assert_eq!(main["additionalBrowserArgs"], BROWSER_ARGS);
+    }
+
+    #[test]
+    fn every_window_is_made_with_the_shared_webview2_environment() {
+        // #564: a window made with Tauri's own builder would get a WebView2 environment of its own,
+        // without the crash report option; WebView2 refuses that next to the shared one, so the
+        // window would not open. Windows are made only in webview_environment.rs.
+        let builders = [concat!("WebviewWindowBuilder", "::new("), concat!("WebviewWindowBuilder", "::from_config(")];
+        let folder = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut read = 0;
+        for entry in std::fs::read_dir(&folder).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_none_or(|extension| extension != "rs") || path.ends_with("webview_environment.rs") {
+                continue;
+            }
+            let source = std::fs::read_to_string(&path).unwrap();
+            read += 1;
+            for builder in builders {
+                assert!(!source.contains(builder), "{} calls {builder}", path.display());
+            }
+        }
+        assert!(read > 5, "the sources were not found in {}", folder.display());
+        // The main window is made in `setup`, after the environment; Tauri must not make it first.
+        let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let windows = config["app"]["windows"].as_array().unwrap();
+        assert!(windows.iter().all(|window| window["create"] == false), "{windows:?}");
     }
 
     #[test]

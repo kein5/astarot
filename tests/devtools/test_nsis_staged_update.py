@@ -42,8 +42,7 @@ class NsisStagedUpdateTests(unittest.TestCase):
         install = block("Section", "Install")
         tar = next(line for line in install.splitlines() if "-xvf" in line)
         self.assertEqual(tar.strip(), """nsExec::ExecToLog '"$SYSDIR\\tar.exe" -xvf "..\\$file_name"'""")
-        for name in ('SOFTWARE_DOWNLOAD_FILENAME "', 'SOFTWARE_DOWNLOAD_FILENAME_GPU "'):
-            self.assertTrue(install.split(name, 1)[1].split('"', 1)[0].isascii())
+        self.assertTrue(install.split('SOFTWARE_DOWNLOAD_FILENAME "', 1)[1].split('"', 1)[0].isascii())
         before, after = install.split(tar, 1)
         before = before.rsplit('DetailPrint "Extracting', 1)[1]
         self.assertRegex(before, r'Rename "\$TEMP\\\$file_name" "\$INSTDIR\\\.upd\\\$file_name"\n\s*IfErrors attempt_failed')

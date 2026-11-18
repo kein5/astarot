@@ -181,7 +181,9 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     result.insert("base_url".into(), base_url.into());
     result.insert("model".into(), model(object.get("model"))?.into());
     result.insert("vocabulary".into(), normalize_vocabulary(object.get("vocabulary"))?);
-    // The silence that ends an utterance (#556): absent or null keeps the server's own (500 ms).
+    // The silence that ends an utterance (#556): absent or null follows the default
+    // (`vrct_transcription`'s `DEFAULT_SILENCE_MS`, 400 ms), so changing the default moves
+    // only the settings that never chose one.
     match object.get("silence_duration_ms") {
         None | Some(Value::Null) => {}
         Some(value) => {
@@ -388,11 +390,14 @@ mod tests {
 
     #[test]
     fn the_silence_that_ends_an_utterance_is_left_out_unless_chosen() {
-        // Left out, the file stays as 0.4 reads it and the server keeps its own 500 ms (#556).
+        // Left out, the file stays as 0.4 reads it and the default applies (#556). A chosen
+        // value stays as chosen, the former default of 500 ms too.
         let defaults = normalize_realtime(&json!({})).unwrap();
         assert!(defaults.get("silence_duration_ms").is_none(), "{defaults}");
         assert!(normalize_realtime(&json!({ "silence_duration_ms": null })).unwrap().get("silence_duration_ms").is_none());
-        assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": 300 })).unwrap()["silence_duration_ms"], 300);
+        for chosen in [300, 400, 500] {
+            assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": chosen })).unwrap()["silence_duration_ms"], chosen);
+        }
         for bad in [json!(99), json!(2001), json!(300.5), json!("300"), json!(-1), json!(true)] {
             assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": bad })), Err("realtime_silence_invalid"), "{bad}");
         }

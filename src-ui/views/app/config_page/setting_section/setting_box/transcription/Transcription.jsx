@@ -5,7 +5,6 @@ import { useI18n } from "@useI18n";
 import styles from "./Transcription.module.scss";
 import catalogStyles from "../advanced_settings/VoiceSettings.module.scss";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
-import { OldWhisperWeights } from "./OldWhisperWeights";
 import { genNumObjArray } from "@utils";
 import { useEffect } from "react";
 
@@ -56,8 +55,6 @@ export const Transcription = () => {
                 <Speaker_Container />
                 <RealtimeASRSettings />
             </AdvancedSection>
-            {/* Only while Whisper weights from an earlier version are on this PC (#288). */}
-            <OldWhisperWeights />
         </div>
     );
 };

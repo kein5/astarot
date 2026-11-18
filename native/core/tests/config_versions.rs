@@ -89,6 +89,8 @@ fn the_settings_of_the_removed_local_whisper_are_not_written_back() {
         "SELECTED_TRANSCRIPTION_COMPUTE_TYPE": "int8",
         "MIC_NO_REPEAT_NGRAM_SIZE": 3,
         "SPEAKER_NO_REPEAT_NGRAM_SIZE": 3,
+        // The notice of the move to speech.cpp, retired in 0.6.0 (#288).
+        "LOCAL_ASR_NOTICE_PENDING": true,
     });
     assert_eq!(retired.as_object().unwrap().len(), RETIRED_KEYS.len());
     let known: Vec<&str> = vrct_core::config::schema::keys().iter().map(|key| key.name).collect();
@@ -97,7 +99,7 @@ fn the_settings_of_the_removed_local_whisper_are_not_written_back() {
         assert!(!known.contains(&key), "{key} is retired but still a setting");
     }
     for older in [
-        // Before the move to speech.cpp, with its migration and notice.
+        // Before the move to speech.cpp (migrated with a notice up to 0.5).
         json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Whisper", "LOCAL_ASR_MIGRATION": 1 }),
         // Already migrated: nothing else to change, so only the retired keys make it written.
         json!({ "LOCAL_ASR_MIGRATION": 2, "UI_LANGUAGE": "ja" }),

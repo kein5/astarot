@@ -203,8 +203,7 @@ def prepare(port):
     template.write_text(source.replace(RELEASE_URL, f"http://127.0.0.1:{port}/$release_revision"), encoding="utf-8")
     # The hash of the package served for the installer's own version, as release.yml builds in.
     released = sha256(payloads()[OWN]).hexdigest()
-    (ROOT / "src-tauri/nsis/package-hashes.nsh").write_text(
-        f'!define PACKAGE_SHA256_CPU "{released}"\n!define PACKAGE_SHA256_GPU "{released}"\n', encoding="ascii")
+    (ROOT / "src-tauri/nsis/package-hashes.nsh").write_text(f'!define PACKAGE_SHA256 "{released}"\n', encoding="ascii")
     for name, data in {
         "dist/index.html": b"<!doctype html><title>Installer test stub</title>",
         "src-tauri/bin/_internal/stub.txt": b"resource build stub",
@@ -333,13 +332,28 @@ def silent_scenarios(installer, work, server):
     expect_updated(updated, before)
     print("PASS update success and user data retention", flush=True)
 
-    # The in-app updater (src-tauri/src/app_update.rs) adds /UPDATE and the edition. The app's
-    # language setting stays: no installer_language.txt for the app to apply at start.
+    # The in-app updater (src-tauri/src/app_update.rs) adds /UPDATE. The app's language setting
+    # stays: no installer_language.txt for the app to apply at start.
     directory = clone("in-app update")
     (directory / "installer_language.txt").unlink()
-    run_install(installer, directory, "new", work / "temp-in-app", True, extra="/UPDATE /EDITION=cpu ")
+    run_install(installer, directory, "new", work / "temp-in-app", True, extra="/UPDATE ")
     expect_updated(directory, {k: v for k, v in before.items() if k != "installer_language.txt"})
     print("PASS in-app update keeps the language setting", flush=True)
+
+    # Apps up to 0.5 name their edition; a CUDA install passes /EDITION=gpu. There is no CUDA
+    # package any more (#288): the installer takes the one package (the server has no other).
+    for edition in ("cpu", "gpu"):
+        directory = clone(f"in-app update from the {edition} edition")
+        (directory / "installer_language.txt").unlink()
+        with server.request_lock:
+            seen = len(server.requests)
+        run_install(installer, directory, "new", work / f"temp-edition-{edition}", True,
+                    extra=f"/UPDATE /EDITION={edition} ")
+        expect_updated(directory, {k: v for k, v in before.items() if k != "installer_language.txt"})
+        with server.request_lock:
+            names = {request["path"].rsplit("/", 1)[-1] for request in server.requests[seen:]}
+        assert names <= {PACKAGE, PACKAGE + ".sha256"}, names
+    print("PASS /EDITION=cpu and /EDITION=gpu install the one package", flush=True)
 
     # The installer's own version: the package is checked against the built-in hash, and the
     # .sha256 file next to it is not even fetched.
