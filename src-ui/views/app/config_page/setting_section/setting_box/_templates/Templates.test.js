@@ -88,6 +88,28 @@ test("a radio choice that waits on the engine keeps its radios focusable but ign
     assert.deepEqual(chosen, ["b"], "a press while waiting changes nothing");
 });
 
+test("a radio row split into groups keeps one choice: a labelled group around radiogroups named by their visible labels", async () => {
+    const s = await setup();
+    const groups = [{ id: "local", label: "On your PC", options: [{ id: "a", label: "Engine A" }] },
+        { id: "api", label: "API", options: [{ id: "b", label: "Engine B" }, { id: "c", label: "Engine C", disabled: true }] }];
+    const chosen = [];
+    const tree = s.render("RadioButtonContainer", { label: "Recognition engine", desc: "Choose one", name: "engine", groups,
+        selectFunction: id => chosen.push(id), checked_variable: { state: "ok", data: "a" } });
+    const label = tree.props.children[0], control = tree.props.children[1];
+    const group = control.type(control.props);
+    assert.equal(group.props.role, "group");
+    assert.equal(group.props["aria-labelledby"], label.props.label_id);
+    assert.equal(group.props["aria-describedby"], label.props.description_id);
+    const systems = all(group, node => node.props?.role === "radiogroup");
+    assert.deepEqual(systems.map(node => find(group, other => other.props?.id === node.props["aria-labelledby"]).props.children), ["On your PC", "API"]);
+    // One native set (one name): the arrow keys move across the groups, and Tab stops once.
+    const inputs = all(group, node => node.type === "input").map(node => node.props);
+    assert.deepEqual(inputs.map(input => [input.value, input.name, input.checked, input.disabled]),
+        [["a", "engine", true, false], ["b", "engine", false, false], ["c", "engine", false, true]]);
+    inputs[1].onChange();
+    assert.deepEqual(chosen, ["b"]);
+});
+
 test("multi-select row has a group label and each dropdown receives the shared help", async () => {
     const s = await setup();
     const tree = s.render("MultiDropdownMenuContainer", { label: "Compute device", desc: "Help", dropdown_settings: [
