@@ -47,7 +47,7 @@ Turning off usage reporting does not make every feature offline. Services you ch
 
 The translation engine you choose also translates what the speaker transcription hears from others and the chat bubbles that chat reading reads.
 
-On Windows, the component that draws the window (WebView2) connects to Microsoft's servers. This is WebView2's own traffic, not the app's: safety checks (SmartScreen) and checks for updates to its components. The app's settings cannot stop it. The optional diagnostic data WebView2 collects follows Windows' Settings → "Privacy & security" → "Diagnostics & feedback" → "Diagnostic data".
+On Windows, the component that draws the window (WebView2) connects to Microsoft's servers. This is WebView2's own traffic, not the app's: safety checks (SmartScreen) and checks for updates to its components. The app's settings cannot stop it. WebView2's crash reports (crash dumps) are not sent to Microsoft; they stay on your PC. The optional diagnostic data WebView2 collects follows Windows' Settings → "Privacy & security" → "Diagnostics & feedback" → "Diagnostic data".
 
 Local translation models, the bundled speech.cpp servers (speech, local speech recognition and realtime captions), the voice changer (RVC) and chat reading run on your PC. The picture of a window you share for chat reading stays on your PC too.
 

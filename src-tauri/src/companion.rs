@@ -23,7 +23,7 @@ use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Runtime, State, WebviewUrl,
-    WebviewWindow, WebviewWindowBuilder, Window, WindowEvent,
+    WebviewWindow, Window, WindowEvent,
 };
 
 pub const PANEL: &str = "companion_panel";
@@ -326,7 +326,7 @@ fn place(anchor: Anchor, size: (u32, u32), work: (i32, i32, u32, u32)) -> (i32, 
 }
 
 fn build_panel<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewWindow<R>> {
-    WebviewWindowBuilder::new(manager, PANEL, WebviewUrl::App("companion-panel.html".into()))
+    crate::webview_environment::window(manager, PANEL, WebviewUrl::App("companion-panel.html".into()))
         .title(PANEL_TITLE)
         .inner_size(PANEL_SIZE.0, PANEL_SIZE.1)
         .decorations(false)
@@ -336,7 +336,6 @@ fn build_panel<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewW
         // Made hidden ahead of time; it must not take the focus from the window in use.
         .focused(false)
         .visible(false)
-        .additional_browser_args(crate::BROWSER_ARGS)
         .build()
 }
 
@@ -512,7 +511,7 @@ fn panel_beside(edge: Edge, centre: (i32, i32), plate: f64, size: (u32, u32), wo
 }
 
 fn build_handle<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<WebviewWindow<R>> {
-    WebviewWindowBuilder::new(manager, HANDLE, WebviewUrl::App("companion-handle.html".into()))
+    crate::webview_environment::window(manager, HANDLE, WebviewUrl::App("companion-handle.html".into()))
         .title(HANDLE_TITLE)
         .decorations(false)
         .transparent(true)
@@ -524,7 +523,6 @@ fn build_handle<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Result<Webview
         // Clicked, never focused: the game keeps the keyboard.
         .focusable(false)
         .visible(false)
-        .additional_browser_args(crate::BROWSER_ARGS)
         .build()
 }
 
