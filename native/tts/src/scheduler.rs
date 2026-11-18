@@ -745,6 +745,9 @@ fn speak(inner: &Arc<Inner>, job: &Job, token: &CancelToken, first_write: &mut O
     };
     let options = settings.options_for(request.language)?;
     let frames = provider.synthesize_stream(&request, token, &options)?;
+    // speech.cpp's models put near-silence before the voice; it is heard as a wait (#556). The
+    // installed engines keep the silence their own settings put there.
+    let frames = if request.engine == SPEECHCPP { crate::onset::skip_leading_silence(frames) } else { frames };
     let (converted_router, on_first_audio) = {
         let hooks = inner.hooks.read().unwrap_or_else(|p| p.into_inner());
         (hooks.converted_router.clone(), hooks.on_first_audio.clone())

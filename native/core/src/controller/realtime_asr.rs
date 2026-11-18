@@ -148,7 +148,13 @@ fn session_options(settings: &Value, source: Source) -> Result<Options, &'static
         model: model.to_string(),
         language: settings[source.as_str()]["language"].as_str().unwrap_or("auto").to_string(),
         vocabulary: speechcpp::merged_terms(&settings["vocabulary"]),
+        silence_duration_ms: silence_duration(settings),
     })
+}
+
+/// The saved silence that ends an utterance, if the user chose one.
+fn silence_duration(settings: &Value) -> Option<u32> {
+    settings.get("silence_duration_ms").and_then(Value::as_u64).and_then(|ms| u32::try_from(ms).ok())
 }
 
 impl Core {
@@ -265,7 +271,9 @@ impl Core {
             {
                 let mut state = self.realtime().state();
                 let old = state.settings.clone();
-                let shared = ["server", "base_url", "model", "vocabulary"].iter().any(|key| settings[*key] != old[*key]);
+                // The silence is sent when a session starts, so a change starts both again.
+                let shared =
+                    ["server", "base_url", "model", "vocabulary", "silence_duration_ms"].iter().any(|key| settings[*key] != old[*key]);
                 for source in [Source::Mic, Source::Speaker] {
                     if shared || settings[source.as_str()] != old[source.as_str()] {
                         self.invalidate_locked(&mut state, source);
@@ -581,7 +589,13 @@ impl Core {
         if !speechcpp::language_supported(&chosen, &language) {
             return Err(if language == "auto" { "realtime_language_auto_unsupported" } else { "realtime_language_unsupported" }.into());
         }
-        Ok(Options { base_url, model: chosen.id, language, vocabulary: speechcpp::merged_terms(&settings["vocabulary"]) })
+        Ok(Options {
+            base_url,
+            model: chosen.id,
+            language,
+            vocabulary: speechcpp::merged_terms(&settings["vocabulary"]),
+            silence_duration_ms: silence_duration(&settings),
+        })
     }
 
     /// `_enableRealtimeToggle`.

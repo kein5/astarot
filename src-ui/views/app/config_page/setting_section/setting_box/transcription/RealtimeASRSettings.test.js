@@ -183,3 +183,23 @@ test("rejected and unconfirmed saves keep edits visible and guarded; refresh doe
     s.entries()[0].discard(); s.render();
     assert.equal(s.status(), "voice_ui.saved");
 });
+
+test("the silence that ends an utterance is saved when chosen and left out for the default", async context => {
+    const s = await fixture(context);
+    const select = () => find(s.render(), node => node.type === "select" && node.props["aria-label"] === "realtime.silence").props;
+    assert.equal(select().value, "", "the server's own by default");
+    select().onChange({ target: { value: "300" } });
+    assert.equal(select().value, 300);
+    assert.deepEqual(s.entries()[0].changes, ["realtime.silence"]);
+    s.entries()[0].save(); s.render();
+    assert.equal(s.writes()[0][1].silence_duration_ms, 300);
+    await s.acknowledge(s.writes()[0][1]);
+    assert.equal(s.entries()[0].dirty, false);
+    // Back to the server's own: the field goes, as the backend leaves it out.
+    select().onChange({ target: { value: "" } });
+    s.render(); s.entries()[0].save(); s.render();
+    assert.equal("silence_duration_ms" in s.writes()[1][1], false);
+    await s.acknowledge(s.writes()[1][1]);
+    assert.equal(s.entries()[0].dirty, false);
+    assert.equal(select().value, "");
+});
