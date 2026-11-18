@@ -10,6 +10,7 @@
 //! Nothing here logs or returns recognised text, audio or a key in a diagnostic.
 
 pub mod capture;
+mod endpoint_choice;
 pub mod energy;
 #[cfg(target_os = "linux")]
 pub mod helper;
