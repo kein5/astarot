@@ -8,6 +8,7 @@ import { ui_configs } from "@ui_configs";
 import i18n from "@root/locales/config.js";
 import { requestSettingsNavigation } from "../../../voice/settingsNavigation";
 import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
+import { revealSetting } from "../../revealSetting.ts";
 
 // 検索の元にする config_page 以下の文言の名前空間
 const VALID_TABS = [
@@ -36,7 +37,8 @@ const NAMESPACE_TABS = {
 const SETTING_TABS = {
     "others.auto_clear_the_message_box": ["appearance"],
     "others.auto_export_message_logs": ["advanced_settings"],
-    "others.vrc_mic_mute_sync": ["vrchat", "device"],
+    // On the VRChat page; the Device page has a row that leads there (#554, IA-03).
+    "others.vrc_mic_mute_sync": ["vrchat"],
     "others.section_label_reading_aids": ["appearance"],
     "others.common_convert_message_hiragana_romaji": ["appearance"],
     "others.convert_message_to_romaji": ["appearance"],
@@ -246,53 +248,7 @@ export const useConfigSearch = () => {
                 updateSelectedConfigTabId(result.tab, { voice_navigation_confirmed: true });
             }
 
-            let attempts = 0;
-            const findAndScroll = () => {
-                let target =
-                    document.querySelector(`[data-setting-id="${CSS.escape(result.setting_id)}"]`) ||
-                    document.querySelector(`[data-setting-label="${CSS.escape(result.label)}"]`);
-
-                // 条件付き非表示などでDOMにない場合、親項目へフォールバック
-                if (!target && result.prereq) {
-                    target = document.querySelector(`[data-setting-id="${CSS.escape(result.prereq.parent_id)}"]`);
-                }
-
-                if (target) {
-                    // Native details keep their children mounted even when folded.
-                    for (let ancestor = target.parentElement; ancestor; ancestor = ancestor.parentElement) {
-                        if (ancestor.tagName === "DETAILS") ancestor.open = true;
-                    }
-                    const controls = target.querySelectorAll("input:not([type='hidden']), select, textarea, button, a[href], summary, [tabindex]");
-                    const available = Array.from(controls).filter(node => !node.matches(":disabled, [aria-disabled='true'], [tabindex='-1']") &&
-                        !node.closest("[hidden], [inert]") && node.getClientRects().length > 0);
-                    // Help disclosures and documentation links may precede the actual field.
-                    const control = available.find(node => node.matches("input, select, textarea, [role='switch'], [role='combobox'], [role='slider']")) ?? available[0];
-                    if (control) {
-                        control.focus({ preventScroll: true });
-                    } else {
-                        const previousTabIndex = target.getAttribute("tabindex");
-                        target.setAttribute("tabindex", "-1");
-                        target.addEventListener("blur", () => {
-                            if (previousTabIndex === null) target.removeAttribute("tabindex");
-                            else target.setAttribute("tabindex", previousTabIndex);
-                        }, { once: true });
-                        target.focus({ preventScroll: true });
-                    }
-                    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-                    target.scrollIntoView({ behavior: reducedMotion ? "instant" : "smooth", block: "center" });
-                    target.classList.remove("search_target_highlight");
-                    void target.offsetWidth; // trigger reflow
-                    target.classList.add("search_target_highlight");
-                    setTimeout(() => {
-                        target.classList.remove("search_target_highlight");
-                    }, 2500);
-                } else if (attempts < 25) {
-                    attempts++;
-                    setTimeout(findAndScroll, 40);
-                }
-            };
-
-            setTimeout(findAndScroll, 60);
+            revealSetting(result);
         };
         if (currentSelectedConfigTabId.data !== result.tab) requestSettingsNavigation(navigate);
         else navigate();

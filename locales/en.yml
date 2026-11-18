@@ -506,6 +506,7 @@ config_page:
         on: "on"
         off: "off"
         vrchat: "Notification sound {{sfx}} · mute sync {{sync}}"
+        device: "Microphone {{mic}} · speaker {{speaker}}"
         appearance: "Log text {{log}}% · transparency {{transparency}}%"
         hotkeys_one: "{{count}} has a key"
         hotkeys_other: "{{count}} have a key"
@@ -544,6 +545,10 @@ config_page:
     device:
         section_label_mic: "Mic"
         section_label_speaker: "Speaker"
+        section_label_mic_sensitivity: "Microphone sensitivity"
+        section_label_speaker_sensitivity: "Speaker sensitivity"
+        mute_sync_pointer: "Pauses speech recognition from the microphone while you are muted in VRChat. It is set on the VRChat page."
+        open_vrchat: "Open the VRChat settings"
         check_volume: "Check volume"
         label_auto_select: "Auto select"
         label_host: "Host/driver"

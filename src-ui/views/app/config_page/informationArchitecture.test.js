@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
+import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";
 
 // Where each setting lives after the information architecture review (#554,
 // docs/design/information-architecture/README.md and the decisions on the Issue).
@@ -15,7 +16,7 @@ const locales = Object.fromEntries(["en", "ja"].map(language =>
 const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
     "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
     "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
-    "./configSearchTargets.ts": searchTargets,
+    "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
 });
 
 test("Q-06: the OSC address and port are under Advanced; the VRChat page leads there", async () => {
@@ -27,16 +28,22 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
     assert.doesNotMatch(vrchat, /OscIpAddressContainer|OscPortContainer/);
     assert.match(vrchat, /<VrchatPresence \/>/, "the page still says whether VRChat is found, with the step that turns OSC on");
 
-    const runtime = hooks(), opened = [];
+    const runtime = hooks(), opened = [], revealed = [];
     const pointer = await loadModule(box("_components/page_pointer/PagePointer.jsx"), runtime, {
         "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
         "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
+        "../../../../../../../logics/configs/revealSetting.ts": { revealSetting: target => revealed.push(target) },
     });
     const row = runtime.render(pointer.PagePointer, { label: "OSC", description: "", tab: "advanced_settings", button: "Open Advanced" });
     const button = find(row, node => node.type === "button");
     assert.equal(button.props.children, "Open Advanced");
     button.props.onClick();
     assert.deepEqual(opened, ["advanced_settings"]);
+    assert.deepEqual(revealed, [], "without a target the page opens at its top");
+    const toSetting = runtime.render(pointer.PagePointer, { label: "Sync", tab: "vrchat", target: "vrc_mic_mute_sync", button: "Open VRChat" });
+    find(toSetting, node => node.type === "button").props.onClick();
+    assert.deepEqual(opened, ["advanced_settings", "vrchat"]);
+    assert.deepEqual(revealed, [{ setting_id: "vrc_mic_mute_sync" }], "a setting in a fold is opened and shown");
     assert.match(vrchat, /<PagePointer [^>]*tab="advanced_settings"/);
 
     const search = await loadSearch(hooks());
@@ -118,7 +125,7 @@ const searchOver = async language => {
         "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: name => name, searchText: () => "", uiOptions: () => [] }) },
         "../../../voice/settingsNavigation": { requestSettingsNavigation: fn => fn() },
         "@ui_configs": { ui_configs: { selectable_ui_languages: [] } },
-        "./configSearchTargets.ts": searchTargets,
+        "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
         "@root/locales/config.js": { getResource: lng => resources[lng] },
     });
     return query => {
@@ -186,4 +193,17 @@ test("each fold's line has its words in both languages", () => {
         for (const key of ["on", "off", "appearance", "hotkeys_one", "hotkeys_other", "vrchat"]) assert.equal(typeof status[key], "string", `${language}: ${key}`);
         assert.equal(typeof locales[language].config_page.common.advanced_section, "string");
     }
+});
+
+test("the Device page chooses the microphone and the speaker first; their sensitivity, the voice route and mute sync are in 「詳細設定」", () => {
+    const source = read("device/Device.jsx");
+    const page = source.split("export const Device = () => {")[1].split("\n};")[0];
+    const [outside, fold] = page.split("<AdvancedSection");
+    assert.deepEqual([...outside.matchAll(/<(\w+Container) part="(\w+)"/g)].map(match => match.slice(1)), [["MicContainer", "device"], ["SpeakerContainer", "device"]]);
+    assert.deepEqual([...fold.matchAll(/<(\w+)(?: part="(\w+)")?/g)].map(match => match.slice(1).filter(Boolean).join(":")),
+        ["MicContainer:sensitivity", "SpeakerContainer:sensitivity", "VoiceRouteSettings", "PagePointer"]);
+    assert.match(fold, /tab="vrchat" target="vrc_mic_mute_sync"/);
+    assert.doesNotMatch(source, /<VrcMicMuteSyncContainer/, "mute sync has one place, the VRChat page");
+    // A row elsewhere that changes the route opens this page on it.
+    assert.match(read("device/VoiceRouteSettings.jsx"), /updateSelectedConfigTabId\("device"\); revealSetting\(\{ setting_id: "voice_route" \}\)/);
 });

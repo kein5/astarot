@@ -8,9 +8,9 @@ export const NOT_SETTINGS: ReadonlySet<string> = new Set([
     "hotkeys.error_window_restore_failed", "hotkeys.error_window_minimize_failed",
     "vr.hmd", "vr.left_hand", "vr.right_hand",
     // Buttons that open another page: the row they sit on is the result (PagePointer).
-    "vr.open_experimental_features", "vrchat.open_advanced_settings", "vrchat.open_tts",
+    "vr.open_experimental_features", "vrchat.open_advanced_settings", "vrchat.open_tts", "device.open_vrchat",
     // The sentence of a row that leads to another page; the row is found by its label.
-    "vrchat.tts_output_pointer",
+    "vrchat.tts_output_pointer", "device.mute_sync_pointer",
     // The experimental features page's notice and empty state; its items are listed one by one.
     "experimental_features.notice", "experimental_features.empty",
 ]);

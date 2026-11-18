@@ -34,7 +34,7 @@ async function setup(context) {
             "@store": {}, "../../../../../../logics/voice/useVoice": { useVoice: () => state },
             "../../../../../../logics/voice/routeState": routeState,
             "../../../../../../logics/voice/useSettingsDraft": draft,
-            "../tts/GenerationOptions": { validGenerationOptions: () => true }, "../tts/TtsEngine": { TTS_ENGINES: {}, validCoeiroinkOptions: () => true }, "../device/VoiceRouteSettings": {}, "../tts/VirtualMicEntry": { VirtualMicEntry: () => null }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule,
+            "../tts/GenerationOptions": { validGenerationOptions: () => true }, "../tts/TtsEngine": { TTS_ENGINES: {}, validCoeiroinkOptions: () => true }, "../device/VoiceRouteSettings": {}, "../tts/VirtualMicEntry": { VirtualMicEntry: () => null }, "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorTextModule, "../../../../../../logics/configs/revealSetting.ts": { revealSetting: () => {} },
             "./StatusLine": {}, "../_components/description/Description": {},
             "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
             "../_components/env_readout/EnvReadout": {}, "../_components/form_row/FormRow": { FormRow: "row" },

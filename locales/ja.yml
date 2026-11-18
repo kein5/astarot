@@ -506,6 +506,7 @@ config_page:
         on: "オン"
         off: "オフ"
         vrchat: "通知音 {{sfx}}・ミュート同期 {{sync}}"
+        device: "マイクの感度 {{mic}}・スピーカーの感度 {{speaker}}"
         appearance: "ログの文字 {{log}}%・透明度 {{transparency}}%"
         hotkeys_one: "{{count}}件にキーを割り当て済み"
         hotkeys_other: "{{count}}件にキーを割り当て済み"
@@ -544,6 +545,10 @@ config_page:
     device:
         section_label_mic: "マイク"
         section_label_speaker: "スピーカー"
+        section_label_mic_sensitivity: "マイクの感度"
+        section_label_speaker_sensitivity: "スピーカーの感度"
+        mute_sync_pointer: "VRChatでミュートしている間は、マイクの音声認識を止めます。設定は「VRChat」のページにあります。"
+        open_vrchat: "「VRChat」を開く"
         check_volume: "音量チェック"
         label_auto_select: "自動選択"
         label_host: "ホスト/ドライバー"
