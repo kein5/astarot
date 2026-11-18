@@ -122,6 +122,10 @@ run = "python tools/build_linux.py"
 description = "Show the next release's changes without writing anything"
 run = "python tools/changelog.py print"
 
+[tasks."changelog:notes"]
+description = "Start docs/release-notes/<version>.md for a stable release (never overwrites)"
+run = "python tools/changelog.py scaffold-notes"
+
 [tasks."dev:web"]
 description = "Web UI development server (Vite)"
 run = "npm run dev:web"
