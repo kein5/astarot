@@ -13,6 +13,7 @@
         "enableGTKAppId": false,
         "windows": [
             {
+                "create": false,
                 "title": "ASTAROT",
                 "center": true,
                 "visible": false,
