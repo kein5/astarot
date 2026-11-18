@@ -182,7 +182,11 @@ Microsoftの文書（[Data and privacy in WebView2](https://learn.microsoft.com/
 
 - 全ウィンドウの起動引数（`BROWSER_ARGS`）に`--disable-background-networking`を入れて、上の2つを止める。Chromiumのスイッチで、WebView2の公式の一覧にはないため、Runtimeの更新で効かなくなることがある。暫定の対策とし、Runtimeの版が大きく上がったら同じ方法で確かめ直す。
 - 環境変数ではなく起動引数に入れるのは、環境変数がサイドカーや起動した別のプログラムにも受け継がれるためである。WebView2から見ると、どちらも同じ起動引数の並びになる。利用者が`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`を設定していれば、その後ろに足される。
-- Windowsの診断データ（WebView2の文書がいうWindows data reporting）と、クラッシュダンプの送信は、この対策の外にある。前者はネットログに出ず、Windowsの設定に従う。後者を止めるには、WebView2の環境をアプリで作り（`with_environment`）、`IsCustomCrashReportingEnabled`を設定する必要がある。
+- Windowsの診断データ（WebView2の文書がいうWindows data reporting）は、この対策の外にある。ネットログに出ず、Windowsの設定に従う。
+- クラッシュダンプは送らない（#564）。全ウィンドウが共有するWebView2の環境をアプリが作り（`src-tauri/src/webview_environment.rs`）、`IsCustomCrashReportingEnabled`をオンにする。WebView2は異常終了の記録をMicrosoftへ送らず、ユーザーデータのフォルダーに残す。アプリはその記録を読まず、送りもしない。
+  - 環境の中身は、Tauriとwry（0.57）が作るものと同じにする。ユーザーデータのフォルダー（`app_local_data_dir`）、起動引数（`BROWSER_ARGS`）、言語（利用者のUIの言語）、拡張機能はオフ、スクロールバーは既定である。これにクラッシュダンプの設定を足す。
+  - 全ウィンドウがこの1つの環境を使う。同じユーザーデータのフォルダーに別の設定の環境を作ると、WebView2はそのウィンドウを作らない。そのためウィンドウは`webview_environment::window`と`webview_environment::main_window`だけで作る（ほかの場所でTauriのビルダーを直接使っていないことをテストで確かめる）。`main`は`tauri.conf.json`で`"create": false`にして、環境を作った後に`setup`で作る。
+  - 環境を作れなかったときは、起動ログに理由を書き、各ウィンドウはTauriが作る環境で開く（この変更の前と同じ）。そのときのクラッシュダンプの送信はWindowsの設定に従う。
 
 ### アプリの更新
 
@@ -294,7 +298,7 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 
 設定画面は別ウィンドウではなく、`main`の中のページである。
 
-WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
+WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。全ウィンドウはアプリが作った1つのWebView2の環境を共有する（[WebView2の通信](#webview2の通信)）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
 
 ### WebviewのContent Security Policy（CSP）
 
