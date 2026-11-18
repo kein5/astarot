@@ -104,6 +104,10 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://github.com/pytorch/pytorch/blob/main/LICENSE",
         "https://docs.nvidia.com/cuda/eula/index.html",
         "https://github.com/microsoft/onnxruntime/blob/v1.31.0/LICENSE",
+        // ONNX Runtime's license on the NuGet packages the voice changer runtime setup fetches.
+        "https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime/1.31.0/License",
+        "https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.Gpu.Windows/1.31.0/License",
+        "https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.Gpu.Linux/1.31.0/License",
         "https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html",
         // The virtual cable's download page in the virtual microphone guide (#321).
         "https://vb-audio.com/Cable/",
@@ -125,6 +129,7 @@ fn other_urls_and_other_schemes_are_refused() {
         "https://github.com/kein5/astarot\\..\\..\\someone",
         "https://github.com/kein5/astarot/%5c..",
         "https://huggingface.co.example.com/",
+        "https://www.nuget.org/packages/Someone.Else/1.0.0/License",
         "https://vb-audio.com/Cable/../../other",
         "https://vb-audio.com/Voicemeeter/",
         "https://huggingface.co@example.com/",
