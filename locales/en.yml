@@ -1106,6 +1106,7 @@ config_page:
                     display: "Display {{number}} ({{width}}×{{height}})"
                     is_primary: "(primary)"
                     missing: "Monitor not connected (chosen before)"
+                    unknown: "Monitor chosen before (the monitor list cannot be read)"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "Show the VR UI"
