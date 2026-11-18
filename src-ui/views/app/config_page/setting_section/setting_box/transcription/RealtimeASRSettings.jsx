@@ -11,6 +11,8 @@ import { Description } from "../_components/description/Description";
 const key = endpoint => endpoint ? JSON.stringify([endpoint.cookie, endpoint.serial, endpoint.name, endpoint.media_class]) : "";
 // Select value for "follow the system default"; never a JSON endpoint key.
 const FOLLOW = "follow-default";
+// The silences that may end an utterance (ms); none chosen keeps the server's own 500 ms (#556).
+const SILENCES = [300, 400, 700, 1000];
 
 // The message says what to do (shared with the main switches); the code stays for reports.
 const Failure = ({ code, t }) => <p role="alert">{t(`realtime_toggle.${code}`, { defaultValue: "" })} <code className={styles.error_code}>{code}</code></p>;
@@ -24,7 +26,7 @@ export const RealtimeASRSettings = () => {
     const label = ([group, field]) => {
         if (["mic", "speaker"].includes(group)) return t(`realtime.${group}_${field === "language" ? "language" : "input"}`);
         if (group === "vocabulary") return t(field === "builtin" ? "realtime.vocabulary_builtin" : "realtime.vocabulary_user");
-        return t({ server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model" }[group] ?? "realtime.title");
+        return t({ server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence" }[group] ?? "realtime.title");
     };
     const write = value => send("/set/data/realtime_asr_settings", value);
     const form = useSettingsDraft(settings, error, updateError, { label, write });
@@ -48,6 +50,8 @@ export const RealtimeASRSettings = () => {
     const knownModels = modelsCurrent ? models.models ?? [] : [];
     const selectedModel = knownModels.find(row => row.id === draft?.model);
     const updateSource = (source, values) => setDraft(previous => ({ ...previous, [source]: { ...previous[source], ...values } }));
+    // Left out unless chosen, as the backend saves it.
+    const updateSilence = value => setDraft(({ silence_duration_ms: _, ...previous }) => value ? { ...previous, silence_duration_ms: Number(value) } : previous);
     const vocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
     const updateVocabulary = values => setDraft(previous => ({ ...previous, vocabulary: { ...vocabulary, ...values } }));
     // One keyword per entry, "written=reading,reading"; the backend validates it on save.
@@ -81,6 +85,14 @@ export const RealtimeASRSettings = () => {
             <button type="button" onClick={() => send("/get/data/realtime_asr_models")}>{t("realtime.refresh_models")}</button>
             <Description text={t("realtime.auto_help")} />
             {models.error_code && <Failure code={models.error_code} t={t} />}
+            <label>{t("realtime.silence")}<select disabled={saving} aria-label={t("realtime.silence")} value={draft.silence_duration_ms ?? ""}
+                onChange={event => updateSilence(event.target.value)}>
+                <option value="">{t("realtime.silence_default")}</option>
+                {draft.silence_duration_ms && !SILENCES.includes(draft.silence_duration_ms) &&
+                    <option value={draft.silence_duration_ms}>{t("realtime.silence_seconds", { seconds: draft.silence_duration_ms / 1000 })}</option>}
+                {SILENCES.map(ms => <option key={ms} value={ms}>{t("realtime.silence_seconds", { seconds: ms / 1000 })}</option>)}
+            </select></label>
+            <Description text={t("realtime.silence_help")} />
             <button type="button" onClick={refreshDevices}>{t("realtime.refresh_devices")}</button>
             {["mic", "speaker"].map(source => {
                 const choices = endpoints[source]?.endpoints ?? [];

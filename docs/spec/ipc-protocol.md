@@ -36,7 +36,7 @@ flowchart LR
 | `endpoint` | 文字列 | 要求するエンドポイント |
 | `data` | 文字列（省略可） | 値を`JSON.stringify`したものをBase64にした文字列。値がない要求では省略する |
 
-- 1行に1つのJSONを書き、改行で終える（`src-ui/logics/common/useStdoutToPython.js`）。
+- 1行に1つのJSONを書き、改行で終える（`src-ui/logics/common/useStdoutToPython.ts`）。
 - サイドカーは`data`をBase64から戻してJSONとして読む（`encodeBase64`、`src-python/utils.py`）。読めないときは空の辞書になる。
 - 要求に通し番号はない。応答は`endpoint`で対応づける。言語の変更は後述の所有者で管理する。音声・RVC・音声サーバー・リアルタイム音声認識の設定とホットキーの保存は、同じエンドポイント内で送信順に応答を対応づける。状態の取得応答では保存を確定しない。書き込み中の輸送エラーで到達したか分からなくなった場合は、その応答が届くかセッションが終わるまで、同じ保存先への追加送信を止める。
 
@@ -159,7 +159,7 @@ sequenceDiagram
 ```
 
 1. サイドカーは受信スレッド、処理ワーカー、監視の知らせを処理するスレッドを動かしてから`controller.init()`を実行する。初期化の間に届いた要求のうち、`mapping`で`"status": False`のもの（翻訳・音声認識のオンオフ、メッセージ送信など）はロック中として扱う。
-2. 初期化の最後に、ほぼすべての`/get/data/…`の結果を1つにまとめた`/run/initialization_complete`を送る。ネットワークを使う`available_releases`と`realtime_asr_models`、画面の調査をする`ocr_readiness`、実行中の状態を示す`ocr_capture_status`、`vrchat_osc_presence`、`telemetry_preview`、`tts_engine_voices`、システムの書体を調べる`overlay_font_missing_languages`の8つは含めない（中核の`controller/lifecycle.rs`の`INIT_EXCLUDED`）。`realtime_asr_models`は、UIが`/run/initialization_complete`を受けた後に要求する。値を取れなかった項目は`null`になる。
+2. 初期化の最後に、ほぼすべての`/get/data/…`の結果を1つにまとめた`/run/initialization_complete`を送る。ネットワークを使う`available_releases`と`realtime_asr_models`、画面の調査をする`ocr_readiness`、実行中の状態を示す`ocr_capture_status`、`vrchat_osc_presence`、`telemetry_preview`、`tts_engine_voices`、システムの書体を調べる`overlay_font_missing_languages`、GPUのメモリーを読む`gpu_memory`の9つは含めない（中核の`controller/lifecycle.rs`の`INIT_EXCLUDED`）。`realtime_asr_models`は、UIが`/run/initialization_complete`を受けた後に要求する。値を取れなかった項目は`null`になる。
 3. UIは`/run/initialization_complete`の各項目を対応する受信先に配り、`IsBackendReady`を真にしてメイン画面の操作を有効にする（それまでは操作できない仮の表示。[初期化中の扱い](cross-cutting.md#初期化中オフライン能力の不足)）。各取得先が必要とする配列・オブジェクト・文字列・数値・真偽値の形を先に確かめる。APIキーや未選択のモデルなど、未設定を表す`null`は受け付ける。必須の値が欠けている、形が違う、または反映時に例外が出た場合は、その項目の安全な初期値を残して後続の項目へ進む。言語の初期値には全タブの表示枠を用意し、取得できていない言語名は既存の読み込み中の表示にする。失敗した項目名と理由を1回ずつコンソールに記録し、値自体は記録しない。失敗があれば、同じ結果に含まれるUIの言語で、一部の設定を読み込めなかったことを既存の消えない警告通知で知らせる。音声・音声サーバー・リアルタイム音声認識・モデル取得の状態は、このときUIから改めて取りに行く。
 4. 全エンドポイントのロックが外れるのは`init()`が戻ったあとである。
 

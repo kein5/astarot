@@ -485,15 +485,17 @@ fn start_deadline_includes_inference_and_output_open() {
     }
 }
 
-/// The start deadline of the two tests below. The first chunk must reach the output before it:
-/// connecting and opening the output can take more than Python's 150 ms on a loaded machine,
-/// and the deadline would then expire before the order these tests check.
+/// The start deadline of the two tests below. The first chunk must reach the bus before it (and,
+/// when it is sound, the output): connecting and opening the output can take more than Python's
+/// 150 ms on a loaded machine, and the deadline would then expire before the order these tests
+/// check.
 const START_DEADLINE: Duration = Duration::from_secs(1);
 
 #[test]
 fn start_deadline_never_truncates_started_speech() {
+    // Samples loud enough to be sound: near-silence before the voice is not written (#556).
     let server = PcmServer::start(ServerOptions {
-        chunks: vec![vec![1, 0], vec![2, 0]],
+        chunks: vec![vec![0, 16], vec![0, 32]],
         before_chunk: Some(Arc::new(|i| {
             if i == 1 {
                 // Past the deadline: audible speech has started, so it is not cut.
@@ -506,7 +508,7 @@ fn start_deadline_never_truncates_started_speech() {
     let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = START_DEADLINE);
     assert!(bus.publish(mic("session:utterance"), None, None));
     until(|| bus.status().completed == 1, Duration::from_secs(5));
-    assert_eq!(sink.bytes(), [1, 0, 2, 0]);
+    assert_eq!(sink.bytes(), [0, 16, 0, 32]);
     assert_eq!(bus.status().errors, 0);
     close(&bus);
 }
@@ -516,7 +518,7 @@ fn silent_pcm_does_not_disable_start_deadline() {
     let release = Event::new();
     let gate = release.clone();
     let server = PcmServer::start(ServerOptions {
-        chunks: vec![vec![0, 0], vec![1, 0]],
+        chunks: vec![vec![0, 0], vec![0, 16]],
         before_chunk: Some(Arc::new(move |i| {
             if i == 1 {
                 gate.wait(Some(Duration::from_secs(10)));
@@ -529,7 +531,8 @@ fn silent_pcm_does_not_disable_start_deadline() {
     assert!(bus.publish(mic("session:utterance"), None, None));
     until(|| bus.status().errors == 1, Duration::from_secs(5));
     assert_eq!(bus.status().last_error.as_deref(), Some("speech_expired"));
-    assert_eq!(sink.bytes(), [0, 0]);
+    // The silence before the voice is held back, not played (#556).
+    assert_eq!(sink.bytes(), Vec::<u8>::new());
     assert_eq!(bus.status().last_first_write_ms, None);
     release.set();
     close(&bus);
@@ -693,7 +696,7 @@ fn run_conversion(conversion: &str, available: bool) -> (usize, usize, Vec<bool>
     let mut options = BusOptions::new(device.clone());
     options.provider_factory = provider(|_, _, _| Ok(frames([1, 0].repeat(480))));
     options.converted_router = Some(converted.clone());
-    options.on_first_audio = Some(Arc::new(move |_event: &SpeechMessageEvent, _at: i64, through: bool| record.lock().unwrap().push(through)));
+    options.on_first_audio = Some(Arc::new(move |_event: &SpeechMessageEvent, _at: i64, through: bool, _asked: i64| record.lock().unwrap().push(through)));
     let settings = VoiceSettings { japanese_server: "external".into(), conversion: conversion.into(), ..original() };
     let bus = VoiceEventBus::new(settings, options);
     assert!(bus.publish(chat("e1"), None, None));
@@ -718,12 +721,35 @@ fn a_panicking_first_audio_readout_never_stops_speech() {
     let sink = Sink::default();
     let bus = bus(original(), &sink, |o| {
         o.provider_factory = provider(|_, _, _| Ok(frames(vec![1, 0])));
-        o.on_first_audio = Some(Arc::new(|_: &SpeechMessageEvent, _: i64, _: bool| panic!("readout failure")));
+        o.on_first_audio = Some(Arc::new(|_: &SpeechMessageEvent, _: i64, _: bool, _: i64| panic!("readout failure")));
     });
     assert!(bus.publish(chat("one"), None, None));
     until2(|| bus.status().completed == 1);
     assert_eq!(sink.bytes(), [1, 0]);
     close(&bus);
+}
+
+#[test]
+fn the_first_audio_readout_tells_when_synthesis_was_asked_for() {
+    let sink = Sink::default();
+    let times: Arc<Mutex<Vec<(i64, i64, i64)>>> = Arc::default();
+    let record = times.clone();
+    let bus = bus(original(), &sink, |o| {
+        o.provider_factory = provider(|_, _, _| {
+            thread::sleep(Duration::from_millis(30));
+            Ok(frames(vec![1, 0]))
+        });
+        o.on_first_audio = Some(Arc::new(move |event: &SpeechMessageEvent, at: i64, _: bool, asked: i64| record.lock().unwrap().push((event.timestamp_ns, asked, at))));
+    });
+    assert!(bus.publish(chat("one"), None, None));
+    until2(|| bus.status().completed == 1);
+    close(&bus);
+    let times = times.lock().unwrap().clone();
+    assert_eq!(times.len(), 1);
+    let (published, asked, at) = times[0];
+    assert!(published <= asked && asked <= at, "{times:?}");
+    // The engine's 30 ms come after the request, so they count as synthesis.
+    assert!(at - asked >= 25_000_000, "{times:?}");
 }
 
 #[test]

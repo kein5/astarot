@@ -31,7 +31,7 @@ ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み
 | 名前、識別子、保存先、上流 VRCT との関係 | `docs/voice-stack/project-rename.md`、`docs/voice-stack/publication-and-upstream.md`、ASTAROT への改名は `docs/adr/adr-011-astarot-brand-and-multimodal-accessibility.md` |
 | モデル取得の画面と同意 | `docs/voice-stack/model-downloads.md` |
 | Linux のビルド、AppImage、実機での GUI 試験 | `docs/voice-stack/linux-build-pipeline.md`、`docs/voice-stack/appimage.md` |
-| 設計判断（ADR） | `docs/adr/README.md`（索引）と各 ADR（状態欄で、採用済みか提案かを確認する） |
+| 設計判断（ADR） | `docs/adr/README.md`（索引、項目の意味、新しい ADR の書き方）と各 ADR。状態は冒頭の front matter で確かめる |
 
 ## 開発と検証の入口
 
@@ -84,6 +84,16 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 - `CHANGELOG.md` は `tools/changelog.py` が書くファイルで、載せるのは正式版だけです。正式版のリリースの準備を頼まれたとき以外は編集しません。書いた節を直すときは、まず `python tools/changelog.py print` の結果と比べます。ベータ版の変更は GitHub のプレリリースのノートに載せ、CHANGELOG には書きません。
 - `cog bump` は使いません。タグは作らず、push もしません。タグは保守担当者が GitHub Releases の下書きを公開したときにできます。
 - リリースの準備を頼まれたら、`package.json` の版、`npm run update-version` の順に進めます。正式版のときだけ、続けて `npm run changelog` を実行します。`chore(release): version X.Y.Z` で1つのコミットにします。
+
+## 設計判断の記録（ADR）
+
+書き方と項目の意味の正本は `docs/adr/README.md` です。ここには要点だけを挙げます。
+
+- ADR は `docs/adr/` だけに置きます。新しい ADR は `docs/adr/TEMPLATE.md` から作り、番号は使い直しません。
+- 冒頭の front matter で、採用の状態（`status`）と実装の確認状況（`implementation_status`）を分けて書きます。`accepted` だけを根拠に実装済みとはみなしません。裏付けのない値は作らず、確かめていなければ `unknown` にします。
+- 古い ADR を読むときは、先に `era`（書いた時点の前提）と `validity`（いまも有効か、実装の方式だけが変わったか、後続の ADR で置き換えられたか）を見ます。本文は書いた時点の記録なので書き換えず、変わったことは front matter、注記、後続の ADR で示します。
+- ADR を足したり front matter を変えたりしたら、`python tools/adr_catalog.py --write` で索引の表を作り直します。`check` の `tooling` が `--check` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
+- ファイルの移動やメタデータだけの変更と、判断の内容を変える変更は、別のプルリクエストに分けます。
 
 ## 既存の重要な境界
 

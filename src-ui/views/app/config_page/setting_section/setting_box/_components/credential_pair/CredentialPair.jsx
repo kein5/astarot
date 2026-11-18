@@ -64,7 +64,7 @@ export const CredentialPair = ({ settings, base, provider, section }) => {
         remove_border_bottom: true,
     });
     return <>
-        <EntryWithSaveButtonContainer {...field("url")} width="24rem"
+        <EntryWithSaveButtonContainer {...field("url")}
             desc={endpointDescription(form.draft.url, t(`config_page.${section}.${provider}_url.desc`), t)} />
         <AuthKeyContainer {...field("auth_key")}
             add_warnings={requiresKey(form.draft) ? [{ label: t("config_page.common.credential_reentry_required") }] : []}

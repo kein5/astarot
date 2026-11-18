@@ -28,7 +28,7 @@ export const loadBridgeStore = async (runtime = hooks()) => {
         useAtomValue: target => { subscriptions.push(target); return runtime.store.get(target); },
         useSetAtom: target => value => runtime.store.set(target, value),
     };
-    const stores = await loadModule(new URL("../store.js", import.meta.url), runtime, {
+    const stores = await loadModule(new URL("../store.ts", import.meta.url), runtime, {
         jotai,
         "./_test_data.ts": {}, "@ui_configs": {},
         "./common/vrPanelTooltip": { keepNewestVrLayout: (_, next) => next },
@@ -119,6 +119,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
+        "./flow/useGpuMemory": { useGpuMemory: () => feature({}) },
         "./_useBackendErrorHandling": errors,
         "./configs/config_page_setter/ui_config_setter": settings,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },

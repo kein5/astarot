@@ -142,11 +142,14 @@ fn language(value: &Value) -> Result<String, &'static str> {
     if primary_ok && rest_ok { Ok(text.into()) } else { Err(INVALID) }
 }
 
-/// `realtime_settings.normalize_settings`.
+/// The silences that may end an utterance in realtime recognition, in milliseconds.
+pub const SILENCE_DURATION_MS: std::ops::RangeInclusive<u64> = 100..=2000;
+
+/// `realtime_settings.normalize_settings`, with `silence_duration_ms` of the core's own (#556).
 pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     const INVALID: &str = "realtime_settings_invalid";
     let object = value.as_object().ok_or(INVALID)?;
-    const KEYS: [&str; 8] = ["version", "server", "start_server", "base_url", "model", "mic", "speaker", "vocabulary"];
+    const KEYS: [&str; 9] = ["version", "server", "start_server", "base_url", "model", "mic", "speaker", "vocabulary", "silence_duration_ms"];
     if object.keys().any(|k| !KEYS.contains(&k.as_str())) {
         return Err(INVALID);
     }
@@ -178,6 +181,14 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     result.insert("base_url".into(), base_url.into());
     result.insert("model".into(), model(object.get("model"))?.into());
     result.insert("vocabulary".into(), normalize_vocabulary(object.get("vocabulary"))?);
+    // The silence that ends an utterance (#556): absent or null keeps the server's own (500 ms).
+    match object.get("silence_duration_ms") {
+        None | Some(Value::Null) => {}
+        Some(value) => {
+            let ms = value.as_u64().filter(|ms| SILENCE_DURATION_MS.contains(ms)).ok_or("realtime_silence_invalid")?;
+            result.insert("silence_duration_ms".into(), ms.into());
+        }
+    }
     for (source, default_language) in [("mic", "ja"), ("speaker", "auto")] {
         let empty = Map::new();
         let row = match object.get(source) {
@@ -328,6 +339,18 @@ mod tests {
         assert_eq!((loaded["mode"].clone(), loaded["engine"].clone(), loaded["runtime"].clone()), (json!("converted"), json!("rvc"), json!("/seed")));
         assert_eq!(normalize_direct(&saved), None);
         assert_eq!(default_direct()["engine"], "rvc");
+    }
+
+    #[test]
+    fn the_silence_that_ends_an_utterance_is_left_out_unless_chosen() {
+        // Left out, the file stays as 0.4 reads it and the server keeps its own 500 ms (#556).
+        let defaults = normalize_realtime(&json!({})).unwrap();
+        assert!(defaults.get("silence_duration_ms").is_none(), "{defaults}");
+        assert!(normalize_realtime(&json!({ "silence_duration_ms": null })).unwrap().get("silence_duration_ms").is_none());
+        assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": 300 })).unwrap()["silence_duration_ms"], 300);
+        for bad in [json!(99), json!(2001), json!(300.5), json!("300"), json!(-1), json!(true)] {
+            assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": bad })), Err("realtime_silence_invalid"), "{bad}");
+        }
     }
 
     #[test]

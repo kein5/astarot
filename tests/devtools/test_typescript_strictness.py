@@ -16,10 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "src-ui"
 
 # path (relative to the repository) -> uses that remain
-ALLOWED = {
-    # The stores in src-ui/logics/store.js are JavaScript; the casts go when the store is typed.
-    "src-ui/views/app/_app_controllers/CompanionController.tsx": 2,
-}
+ALLOWED = {}
 
 DIRECTIVE = re.compile(r"@ts-(?:ignore|nocheck|expect-error)\b")
 LINE_COMMENT = re.compile(r"(?<![:\\])//[^\n]*")

@@ -49,7 +49,7 @@ LINT_PATHS = [
     "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py", "tools/vrchat_voice_host.py",
     "tools/prepare_release.py", "tools/changelog.py", "tools/dev.py", "tools/build_linux.py",
     "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/app_resources.py",
-    "tools/measure_backend_startup.py", "tests/devtools",
+    "tools/measure_backend_startup.py", "tools/adr_catalog.py", "tests/devtools",
 ]
 
 
