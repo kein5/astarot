@@ -3,8 +3,8 @@
 import copy
 import os
 import pytest
-from ui_details import open_setup
-from test_voice_pages_ui import pages as pages, ui as ui
+from ui_details import open_more_settings, open_setup
+from test_voice_pages_ui import pages as pages, ui as ui, rvc_input
 
 # Shared pytest fixtures are intentionally re-exported for discovery.
 __all__ = ['pages']
@@ -31,7 +31,7 @@ def configure(page, peer, reply):
         dict(peer.direct, observation_id=str(peer.sequence)),
     )
     page.get_by_role("button", name="Voice changer (RVC)", exact=True).click()
-    page.get_by_label("Input to forward", exact=True).select_option(
+    rvc_input(page).select_option(
         label="Test microphone"
     )
     expect(page.get_by_role("switch", name="Voice changer (RVC)", exact=True)).to_have_attribute(
@@ -194,7 +194,7 @@ def test_rvc_numbers_preserve_seed_paths_and_lock_during_start(pages):
     assert peer.direct["settings"]["rvc_index_rate"] == 1
     peer.voice["routing"] = "managed"
     reply("/get/data/voice_settings", peer.voice)
-    source = page.get_by_label("Input to forward", exact=True)
+    source = rvc_input(page)
     source.select_option(label="Test microphone")
     peer.hold_direct = True
     page.get_by_role("switch", name="Voice changer (RVC)", exact=True).click()
@@ -217,12 +217,15 @@ def test_rvc_does_not_cancel_other_engine_start_request(pages, mode):
         "/get/data/direct_voice_state",
         dict(peer.direct, observation_id=str(peer.sequence)),
     )
-    page.get_by_role("button", name="Advanced", exact=True).click()
-    page.get_by_label("Input to forward", exact=True).select_option(
+    # Input forwarding is in the RVC page's 「詳細設定」 (#554).
+    page.get_by_role("button", name="Voice changer (RVC)", exact=True).click()
+    open_more_settings(page)
+    forwarding = page.get_by_role("region", name="Input forwarding")
+    forwarding.get_by_label("Input to forward", exact=True).select_option(
         label="Test microphone"
     )
     peer.hold_direct = True
-    page.get_by_role("button", name="Start input forwarding", exact=True).click()
+    forwarding.get_by_role("button", name="Start input forwarding", exact=True).click()
     rvc = page.get_by_role("switch", name="Voice changer (RVC)", exact=True)
     rvc.click()
     expect(
@@ -267,7 +270,7 @@ def test_rvc_stop_timeout_keeps_owner_and_pending_until_drained(pages):
     expect(
         page.get_by_role("alert").filter(has_text="voice_request_unconfirmed").first
     ).to_be_visible()
-    expect(page.get_by_label("Input to forward", exact=True)).to_be_disabled()
+    expect(rvc_input(page)).to_be_disabled()
     peer.direct["stopping"] = False
     peer.sequence += 1
     reply(

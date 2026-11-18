@@ -581,7 +581,7 @@ mod tests {
     }
 
     fn ok(body: Value) -> Result<Response, HttpError> {
-        Ok(Response { status: 200, body: body.to_string().into_bytes() })
+        Ok(Response::new(200, body.to_string().into_bytes()))
     }
 
     fn openai(model: &str) -> Engine {
@@ -705,7 +705,7 @@ mod tests {
             let failed = recognize(deepgram(&["ja"]), transport, &[candidate("Japanese", "ja-JP", "ja")]);
             assert_eq!(failed, Err(AsrFailed { error: ApiError::Server }));
         }
-        let (transport, _) = answering(|_| Ok(Response { status: 200, body: b"not json".to_vec() }));
+        let (transport, _) = answering(|_| Ok(Response::new(200, b"not json".to_vec())));
         assert_eq!(recognize(deepgram(&["ja"]), transport, &[candidate("Japanese", "ja-JP", "ja")]), Err(AsrFailed { error: ApiError::Server }));
         // Silence: nothing understood, not a failure.
         let silent = json!({ "results": { "channels": [{ "alternatives": [{ "transcript": "", "confidence": 0.0 }] }] } });

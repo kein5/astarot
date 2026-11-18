@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import * as usagePresetsModule from "../configs/usagePresets.ts";
 import { readFile } from "node:fs/promises";
 import { test, vi } from "vitest";
 import Babel from "@babel/standalone";
@@ -254,6 +255,8 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
         "../../startupContext": { useIsStartingUp: () => false },
         "@logics_main": { useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: false } }) },
+        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
+        "../../../../../logics/configs/usagePresets.ts": usagePresetsModule,
         "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
     });
     let calls = 0;

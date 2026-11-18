@@ -19,13 +19,13 @@ def test_mute_latch_survives_settings_and_stop_and_resume_invalidates_muted_chat
             yield AudioFrame(b'\x01\x00' * 48, 48000)
 
     sink = Sink()
-    bus = VoiceEventBus(VoiceSettings(mode='original', output_device='cable'),
+    bus = VoiceEventBus(VoiceSettings(mode='original', output_device='cable', japanese_server='external'),
                         provider_factory=Provider, router=AudioRouter(lambda *a: sink))
     try:
         bus.set_muted(True)
         muted_epoch = bus.generation()
         assert not bus.publish(event('muted'))
-        bus.configure(VoiceSettings(mode='original', output_device='new'))
+        bus.configure(VoiceSettings(mode='original', output_device='new', japanese_server='external'))
         bus.cancel()
         assert bus.status()['muted']
         queued_during_mute = bus.generation()

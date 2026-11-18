@@ -157,6 +157,41 @@ def test_pyav_and_gpl_encoders_are_rejected(tmp_path, name, reason):
         guard.check([tmp_path])
 
 
+@pytest.mark.parametrize("container", ["zip", "tar", "tree", "linux_tree"])
+@pytest.mark.parametrize("name,reason", [
+    # The 0.4 Windows package: the CTranslate2 wheel's own folder.
+    ("_internal/ctranslate2/ctranslate2.dll", "CTranslate2"),
+    ("_internal/ctranslate2/_ext.cp311-win_amd64.pyd", "CTranslate2"),
+    ("_internal/ctranslate2/libiomp5md.dll", "CTranslate2"),
+    # The Linux wheel keeps its libraries beside the package.
+    ("_internal/ctranslate2.libs/libgomp-a34b3233.so.1.0.0", "CTranslate2"),
+    ("_internal/ctranslate2.libs/libctranslate2-bc15bf3f.so.4.9.0", "CTranslate2"),
+    # The `cuda` extra (nvidia-cublas-cu12, nvidia-cudnn-cu12) and the same libraries elsewhere.
+    ("_internal/nvidia/cublas/bin/cublas64_12.dll", "CUDA"),
+    ("_internal/nvidia/cudnn/bin/cudnn_ops64_9.dll", "CUDA"),
+    ("_internal/nvidia/cuda_nvrtc/lib/libnvrtc.so.12", "CUDA"),
+    ("_internal/build/speechcpp/cudart64_12.dll", "CUDA"),
+    ("_internal/onnxruntime/cublasLt64_12.dll", "CUDA"),
+    ("usr/lib/vrct-vox/_internal/libcudnn.so.9", "CUDA"),
+])
+def test_ctranslate2_and_cuda_libraries_are_rejected(tmp_path, container, name, reason):
+    with pytest.raises(ValueError, match=reason):
+        _inspect_payload(tmp_path, container, name, b"synthetic library")
+
+
+def test_single_package_runtimes_and_cuda_notices_remain_allowed(tmp_path):
+    with zipfile.ZipFile(tmp_path / "package.zip", "w") as archive:
+        # What the 0.5 Windows package carries for local inference.
+        archive.writestr("_internal/onnxruntime/onnxruntime.dll", b"ort")
+        archive.writestr("_internal/onnxruntime/onnxruntime_providers_shared.dll", b"ort")
+        archive.writestr("_internal/build/speechcpp/speech.exe", b"speech.cpp")
+        archive.writestr("_internal/build/speechcpp/ggml-vulkan.dll", b"ggml")
+        # Notices may name the libraries; only the libraries themselves are refused.
+        archive.writestr("_internal/licenses/nvidia/cudnn-LICENSE.txt", "notice")
+        archive.writestr("_internal/licenses/ctranslate2/LICENSE", "notice")
+    guard.check([tmp_path])
+
+
 def test_lgpl_opencv_ffmpeg_libraries_remain_allowed(tmp_path):
     with zipfile.ZipFile(tmp_path / "package.zip", "w") as archive:
         archive.writestr("_internal/opencv_python_headless.libs/libavcodec-9aae324f.so.59.37.100", b"lgpl")

@@ -70,7 +70,7 @@ def test_text_to_osc_websocket_history_and_pcm_once(controller_module, pcm_serve
     with pcm_server() as (url, requests):
         controller = module.Controller()
         controller.messageFormatter = MagicMock(return_value="こんにちは")
-        settings = VoiceSettings(mode="original", output_device="cable", japanese_url=url)
+        settings = VoiceSettings(mode="original", output_device="cable", japanese_server="external", japanese_url=url)
         controller.voice_events = VoiceEventBus(settings, router=AudioRouter(lambda *args: sink))
         try:
             result = controller.chatMessage({"id": "chat-1", "message": "こんにちは"})
@@ -161,7 +161,7 @@ def test_original_speaks_before_translation_but_translated_waits(controller_modu
     controller = module.Controller()
     controller.messageFormatter = MagicMock(return_value="text")
     controller.voice_events = VoiceEventBus(
-        VoiceSettings(mode=mode, output_device="cable", target_slot="2"),
+        VoiceSettings(mode=mode, output_device="cable", target_slot="2", japanese_server="external"),
         provider_factory=Provider, router=AudioRouter(lambda *args: sink))
     result = []
     worker = Thread(target=lambda: result.append(controller.chatMessage({"id": mode, "message": "原文"})))
@@ -223,7 +223,7 @@ def test_blocked_translation_never_revives_old_speech_and_new_chat_still_works(c
     module.model.getInputTranslate.side_effect = translate
     controller = module.Controller()
     controller.messageFormatter = MagicMock(return_value='text')
-    settings = VoiceSettings(mode='translated', output_device='cable', target_slot='2')
+    settings = VoiceSettings(mode='translated', output_device='cable', target_slot='2', japanese_server='external')
     controller.voice_events = VoiceEventBus(settings, provider_factory=Provider,
                                           router=AudioRouter(lambda *args: sink))
     worker = Thread(target=lambda: controller.chatMessage({'id': 'old', 'message': 'original'}))

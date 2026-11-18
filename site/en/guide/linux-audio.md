@@ -10,7 +10,7 @@ For VRChat to hear speech or converted voice, ASTAROT's audio has to reach VRCha
 
 ## Using the managed virtual microphone
 
-1. Under Settings → "Device" → "Audio route", choose "Managed virtual microphone (Linux)" and save. Setup starts automatically. You can also start it with "Prepare and use virtual microphone" on the "Voice changer (RVC)" page.
+1. Under Settings → "Device" → "More settings" → "Audio route", choose "Managed virtual microphone (Linux)" and save. Setup starts automatically. You can also start it with "Prepare and use virtual microphone" on the "Voice changer (RVC)" page.
 2. When it is ready, press "Unmute". The virtual microphone is created muted.
 3. In VRChat, choose "VRCT Managed Virtual Microphone" as your microphone.
 
@@ -30,7 +30,7 @@ You do not need administrator rights. You need PipeWire and systemd user service
 
 ## Mute and resume
 
-"Mute now" under "Device" → "Audio route" stops both speech and the voice changer going through this virtual microphone. Press "Unmute" to unmute. When you start ASTAROT again, it starts muted.
+"Mute now" under "Device" → "More settings" → "Audio route" stops both speech and the voice changer going through this virtual microphone. Press "Unmute" to unmute. When you start ASTAROT again, it starts muted.
 
 ## Removing the virtual microphone
 

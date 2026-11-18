@@ -20,13 +20,23 @@ import { OcrModels } from "./OcrModels";
 import { OCR_MODELS_SETTING_ID } from "../../../../../../logics/ocr/useOcrSetup";
 import { OcrStatus } from "./OcrStatus";
 import { OcrSharedWindow } from "./OcrSharedWindow";
+import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 
+// What chat reading needs to start is in sight: its state, the language, the models, and on
+// Wayland the window to share. Where on the screen it reads and how often are set once, in
+// 「詳細設定」, whose line shows the interval and the confidence (#554).
 export const Ocr = () => {
+    const { t } = useI18n();
+    const { currentOcrPollIntervalMs, currentOcrMinConfidence } = useOcr();
     return (
         <div className={styles.container}>
             <Main_Container />
-            <Detection_Container />
-            <Advanced_Container />
+            <AdvancedSection status={t("config_page.advanced_status.ocr", {
+                interval: currentOcrPollIntervalMs.data ?? "-", confidence: currentOcrMinConfidence.data ?? "-" })}>
+                <Detection_Container />
+                <CaptureTarget_Container />
+                <Performance_Container />
+            </AdvancedSection>
         </div>
     );
 };
@@ -50,6 +60,8 @@ const Main_Container = () => {
             <SectionLabelComponent label={t("config_page.ocr.section_title")} desc={t("config_page.ocr.section_desc")} />
             <OcrStatus readiness={readiness} onRefresh={refresh} />
             <OcrSourceLanguage_Box />
+            {/* Wayland only: without a shared window there is nothing to read. */}
+            <OcrSharedWindow />
             {readiness && readiness.required_models.length > 0 &&
                 <OcrModels ids={readiness.required_models} missing={readiness.missing_models} onChanged={refresh}
                     settingId={OCR_MODELS_SETTING_ID}
@@ -63,7 +75,7 @@ const Detection_Container = () => {
     const { t } = useI18n();
     return (
         <div>
-            <SectionLabelComponent label={t("config_page.ocr.detection")} />
+            <SectionLabelComponent sub label={t("config_page.ocr.detection")} />
             <OcrChatboxDetector_Box />
             <OcrRegions />
             <OcrChatboxFilter_Box />
@@ -146,21 +158,11 @@ const OcrSourceLanguage_Box = () => {
 };
 
 
-const Advanced_Container = () => {
-    return (
-        <>
-            <CaptureTarget_Container />
-            <Performance_Container />
-        </>
-    );
-};
-
 const CaptureTarget_Container = () => {
     const { t } = useI18n();
     return (
         <div>
-            <SectionLabelComponent label={t("config_page.ocr.capture_target")} />
-            <OcrSharedWindow />
+            <SectionLabelComponent sub label={t("config_page.ocr.capture_target")} />
             <OcrWindowTitle_Box />
         </div>
     );
@@ -170,7 +172,7 @@ const Performance_Container = () => {
     const { t } = useI18n();
     return (
         <div>
-            <SectionLabelComponent label={t("config_page.ocr.performance")} />
+            <SectionLabelComponent sub label={t("config_page.ocr.performance")} />
             <OcrPollIntervalMs_Box />
             <OcrMinConfidence_Box />
             <OcrBubbleMinTextLength_Box />

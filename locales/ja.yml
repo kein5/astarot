@@ -351,6 +351,10 @@ main_page:
     quick_settings: "クイック設定"
     quick_settings_on: "{{count}}件オン"
     quick_settings_all_off: "すべてオフ"
+    # The row under the main switches that shows the ones the usage presets hide (#554, Q-10).
+    more_features: "ほかの機能（{{number}}）"
+    more_features_hide: "ほかの機能を隠す"
+    more_features_hint: "設定の「用途」で隠している機能です。ここで出しても、設定は変わりません。"
 
     # The icon button beside each main switch: its name and tooltip.
     # A switch whose setup is missing sends the icon to the place that provides it.
@@ -471,6 +475,8 @@ config_page:
         requires: "要: {{name}}"
         no_results: "一致する設定が見つかりませんでした"
     common:
+        # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.jsx).
+        advanced_section: "詳細設定"
         open_color_picker: "{{label}}の色を選択"
         duration_seconds_one: "{{count}}秒"
         duration_seconds_other: "{{count}}秒"
@@ -498,6 +504,50 @@ config_page:
             unable_to_use_osc_query: "OSC受信またはOSCQueryの公開を開始できていません。ローカルのOSC設定を確認し、保存し直してください。"
             unable_to_use_osc_query_remote: "送信先が別のマシンのときは使えません。VRChatのミュート状態を確認できるのは、VRChatが同じPCで動いているときだけです。"
 
+    # The line beside each page's 「詳細設定」 / "More settings" fold: the values in use there.
+    advanced_status:
+        on: "オン"
+        off: "オフ"
+        vrchat: "通知音 {{sfx}} · ミュート同期 {{sync}}"
+        vr: "翻訳だけ表示 {{only}} · 音声タイピング {{typing}}"
+        device: "マイクの感度 {{mic}} · スピーカーの感度 {{speaker}}"
+        ocr: "読み取りの間隔 {{interval}} ms · 信頼度の下限 {{confidence}}"
+        tts: "モニター {{monitor}} · マイクの字幕の読み上げ {{mic}}"
+        transcription: "使えるクラウドのエンジン {{cloud}}件 · マイクの区切り {{phrase}}秒"
+        translation: "設定済みの翻訳API {{api}}件 · ローカルのLLM {{llm}}件"
+        appearance: "ログの文字 {{log}}% · 透明度 {{transparency}}%"
+        hotkeys_one: "{{count}}件にキーを割り当て済み"
+        hotkeys_other: "{{count}}件にキーを割り当て済み"
+    # The usage presets at the top of the settings menu (src-ui/logics/configs/usagePresets.ts, #554).
+    # The names are provisional until users have tried them (Q-14).
+    usage_presets:
+        title: "用途"
+        button_label: "用途：{{names}}。メイン画面とこのメニューに出す機能を選びます"
+        list_separator: "、"
+        help: "選んだ用途で使う機能だけを、メイン画面のスイッチとこのメニューに出します。いくつ選んでもかまいません。機能のオン・オフや設定は変わりません。隠したページも、上の検索で見つかります。"
+        items:
+            basic:
+                label: "基本"
+                desc: "自分の声を認識して翻訳し、字幕とチャットボックスに出す"
+            nonverbal:
+                label: "無言勢向け"
+                desc: "声を出さずに文字で話す。相手の声やチャットを読む"
+            multilingual:
+                label: "多言語会話向け"
+                desc: "いくつもの言語の相手と、声で会話する"
+            voice_changer:
+                label: "RVC向け"
+                desc: "自分の声を変えて話す。翻訳は使っても使わなくてもよい"
+            all:
+                label: "すべて表示"
+                desc: "すべての機能とページを出す"
+    side_menu_label: "設定のページ"
+    # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
+    side_menu_groups:
+        conversation: "会話の基本"
+        voice_and_reading: "声と読み取り"
+        comfort: "使い心地"
+        app: "アプリ"
     side_menu_labels:
         vrchat: "VRChat"
         device: "デバイス"
@@ -513,7 +563,7 @@ config_page:
         updater: "アップデート"
         about_vrct: "ASTAROTについて"
         ocr: "チャット読み取り（OCR）"
-        vr: "VR"
+        vr: "字幕とVR"
 
     tts:
         tts_settings:
@@ -526,6 +576,10 @@ config_page:
     device:
         section_label_mic: "マイク"
         section_label_speaker: "スピーカー"
+        section_label_mic_sensitivity: "マイクの感度"
+        section_label_speaker_sensitivity: "スピーカーの感度"
+        mute_sync_pointer: "VRChatでミュートしている間は、マイクの音声認識を止めます。設定は「VRChat」のページにあります。"
+        open_vrchat: "「VRChat」を開く"
         check_volume: "音量チェック"
         label_auto_select: "自動選択"
         label_host: "ホスト/ドライバー"
@@ -555,6 +609,7 @@ config_page:
         desc_vad_unavailable: "この版では使えません。発話を検出するモデルをまだ同梱していないためです。音声は「自動」か「手動」の設定で音量から区切ります。"
 
     appearance:
+        section_label_display_more: "文字と透明度"
         section_label_display: "表示"
         section_label_send_buttons: "送信ボタン"
         transparency:
@@ -715,7 +770,7 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "クラウドエンジンは、下の「クラウド音声認識」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」は、お使いのPCのspeech.cppサーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
+            desc: "クラウドエンジンは、このページの「詳細設定」にある「クラウド音声認識」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」は、お使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
@@ -764,7 +819,8 @@ config_page:
     vr:
         single_line: "一行"
         multi_lines: "複数行"
-        overlay_enable: "有効にする"
+        overlay_enable_single: "字幕（一行）を表示する"
+        overlay_enable_multi: "字幕（複数行）を表示する"
         restore_default_settings: "初期値に戻す"
         position: "位置"
         rotation: "回転"
@@ -788,8 +844,8 @@ config_page:
         display_duration: "表示時間"
         fadeout_duration: "フェードアウト時間"
         common_settings: "共通設定"
-        vr_ui_beta: "VR UI（β版機能）"
         section_label_overlay: "字幕オーバーレイ"
+        section_label_overlay_look: "字幕オーバーレイの位置と見た目"
         tracker: "表示するトラッカーの位置"
         hmd: "HMD"
         left_hand: "左手"
@@ -816,12 +872,10 @@ config_page:
         desktop_overlay_opacity:
             label: "字幕の背景の濃さ"
             desc: "0%にすると背景の板が消えて、縁取りのある文字だけになります。"
-        vr_panel:
-            label: "VR UIを表示する"
-            desc: "VRの中に、機能のオン／オフやログ・言語・設定を操作できる手首のランチャーとウィンドウを表示します。字幕のオーバーレイとは別に使えます。"
-        reset_launcher:
-            label: "ランチャーの位置と大きさを初期に戻す"
-            desc: "VRの中でランチャーが見つからなくなったときに使います。左手の手首に初期の位置と大きさで戻ります。"
+        vr_panel_pointer:
+            label: "VR UI（VRの中の操作パネル）"
+            desc: "手首のランチャーとウィンドウは試験中の機能なので、「実験的機能」のページにあります。"
+        open_experimental_features: "「実験的機能」を開く"
         voice_typing_mode:
             label: "音声タイピングモード"
             desc: "文字起こしされたテキストをアクティブな入力欄へと自動的に貼り付けます。\n※クリップボードを使います。LinuxではX11／XWaylandのウィンドウ（Protonで動くVRChatなど）に貼り付けます。入力デバイスの操作を許可するか、デスクトップが最初に確認することがあります。"
@@ -897,6 +951,14 @@ config_page:
         section_label_tts_output: "読み上げの出力先"
         chat_reading_moved: "VRChatのチャットを読み取る設定は、「チャット読み取り（OCR）」のページにあります。"
         open_chat_reading: "「チャット読み取り（OCR）」の設定を開く"
+        osc_pointer:
+            label: "OSCの送信先"
+            desc: "メッセージを送るIPアドレスとポートは「高度な設定」で変えられます。VRChatの初期設定と同じなので、ふつうは変えません。"
+        open_advanced_settings: "「高度な設定」を開く"
+        section_label_more: "VRChatとの連携"
+        section_label_elsewhere: "ほかのページにある設定"
+        tts_output_pointer: "読み上げの声をVRChatのマイクへ届ける出力先は、「テキスト読み上げ（TTS）」のページで選びます。"
+        open_tts: "「テキスト読み上げ（TTS）」を開く"
 
     ocr:
         section_title: "VRChatチャット読み取り"
@@ -999,7 +1061,7 @@ config_page:
         disabled_notice: "※設定画面を開いている間は、キーの誤作動を防ぐためホットキー機能が一時的に無効化されます。"
         section_label_quick_chat: "入力の小窓"
         section_label_toggles: "ウィンドウと機能の切り替え"
-        section_label_voice: "読み上げと声"
+        section_label_stop: "停止とミュート"
         error_in_use: "「{{action_name}}」のホットキー（{{hotkey}}）は他で使用されているため登録できません。"
         error_failed_to_register_at_launch: "「{{action_name}}」のホットキー（{{hotkey}}）は他のアプリケーションで使用されているため利用できません。"
         error_failed_to_register_all: "ホットキーを登録できなかったため、どのホットキーも使えません。設定を開いて閉じると、もう一度登録します。"
@@ -1044,6 +1106,13 @@ config_page:
                     display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
                     is_primary: "（メイン）"
                     missing: "接続されていないモニター（前に選んだもの）"
+            # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
+            vr_panel:
+                label: "VR UIを表示する"
+                desc: "VRの中に、機能のオン／オフやログ・言語・設定を操作できる手首のランチャーとウィンドウを表示します。字幕のオーバーレイとは別に使えます。試験中の機能です。"
+                reset_launcher:
+                    label: "ランチャーの位置と大きさを初期に戻す"
+                    desc: "VRの中でランチャーが見つからなくなったときに使います。左手の手首に初期の位置と大きさで戻ります。"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1290,6 +1359,10 @@ realtime:
   follow_default_mic: "システムの既定の入力に従う"
   follow_default_speaker: "システムの既定の出力に従う"
   follow_default_help: "字幕の開始時にシステムの既定を読み取り、停止するまでそのデバイスを使います。ASTAROTの仮想デバイスと、既定のマイクになっている仮想ケーブルは対象にしません。"
+  silence: "話し終わりとみなす無音の長さ"
+  silence_default: "既定（0.5秒）"
+  silence_seconds: "{{seconds}}秒"
+  silence_help: "この長さの無音が続くと発話を確定し、翻訳やチャットボックス、読み上げに送ります。短くすると結果が早く出ますが、文の途中の間でも区切られやすくなり、1つの文が複数のメッセージに分かれることがあります。変更すると両方の字幕を停止します。"
   vocabulary: "用語辞書"
   vocabulary_help: "認識モデルに聞き取ってほしい用語とその書き方です。Haas-jaにはキーワードとして、Qwen3-ASRには短いヒントとして渡します。1項目に1語を書き、必要なら「=」のあとに読みをカンマ区切りで続けます（例: VRChat=ブイアールチャット,ブイチャ）。登録した語ごとに、言っていない語が書かれる可能性が少し増えるため、必要な語だけにしてください。辞書を変えると動作中の字幕は停止します。"
   vocabulary_builtin: "内蔵のVRChat用語を使う"
@@ -1457,7 +1530,7 @@ voice_ui:
     engine:
         label: "日本語を読み上げるエンジン"
         description: "VOICEVOXなどのエンジンを自分で入れて起動すると、その声で日本語を読み上げられます。アプリはエンジンを入れたり起動したりしません。"
-        description_speechcpp: "AIボイスは、speech.cppのTTSサーバーで読み上げます。下の「モデルとサーバー」で、同梱サーバーを選んでモデルを取得するか、自分で起動したサーバーのURLを入れてください。"
+        description_speechcpp: "AIボイスはspeech.cppのTTSサーバーで読み上げます。はじめは同梱サーバーを使うので、下の「モデルとサーバー」でモデルを取得してください。自分で起動したサーバーを使うときは「外部サーバー」を選んでURLを入れます。"
         speechcpp: "AIボイス（speech.cpp）"
         url: "エンジンのURL"
         url_hint: "お使いのPCで動くエンジンのURLです。ふつうはエンジンの既定のままで使えます。"
@@ -1517,6 +1590,7 @@ voice_ui:
     mute_row: "ミュート"
     mute_row_description: "{{scope}}画面上部の「ミュート」と同じ操作です。"
     monitor_heading: "モニター"
+    generation_heading: "生成の設定"
     topbar_stop: "読み上げを停止"
     topbar_stop_count: "読み上げを停止（{{count}}）"
     topbar_stop_short: "読み上げを停止"

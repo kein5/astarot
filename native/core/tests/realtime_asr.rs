@@ -176,6 +176,28 @@ fn the_main_switch_streams_the_microphone_and_its_final_goes_out() {
 }
 
 #[test]
+fn the_chosen_silence_ends_utterances_with_at_most_half_of_it_as_padding() {
+    // #556: a shorter silence gives the result sooner; left out, it is 500 ms. The padding is
+    // at most half the silence, so the server gives the utterance once the silence has lasted.
+    for chosen in [None, Some(300)] {
+        let run = start(Platform::Linux, json!({}), true);
+        if let Some(ms) = chosen {
+            let mut settings = run.ui.ok("/get/data/realtime_asr_settings", None);
+            settings["silence_duration_ms"] = json!(ms);
+            assert_eq!(run.ui.ok("/set/data/realtime_asr_settings", Some(settings))["silence_duration_ms"], ms);
+        }
+        assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+        eventually("the session is configured", || !run.asr.turn_detection.lock().unwrap().is_empty());
+        let sent = run.asr.turn_detection.lock().unwrap()[0].clone();
+        match chosen {
+            Some(ms) => assert_eq!(sent, json!({ "type": "server_vad", "silence_duration_ms": ms, "prefix_padding_ms": 150 })),
+            None => assert_eq!(sent, json!({ "type": "server_vad", "silence_duration_ms": 500, "prefix_padding_ms": 250 })),
+        }
+        run.ui.stop();
+    }
+}
+
+#[test]
 fn a_saved_google_engine_leaves_realtime_recognition_as_it_was() {
     // Linux with a config.json that chose the retired Google engine: the main switch still streams.
     let run = start(Platform::Linux, json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google", "LOCAL_ASR_MIGRATION": 2 }), true);

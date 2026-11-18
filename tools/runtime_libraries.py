@@ -10,7 +10,8 @@ backend; since 0.5.0 they ship on their own, in the versions 0.4 shipped:
   the GitHub release archives; the package's libraries are byte for byte the same.
 - The OpenVR client library 2.12.14, from the pyopenvr 2.12.1401 wheel pinned in uv.lock. The
   core's function tables are those of this SDK (native/vr-overlay/src/openvr.rs,
-  native/ocr-runtime/src/capture/openvr.rs).
+  native/ocr-runtime/src/capture/openvr.rs), checked against the wheel's own tables
+  (native/openvr-client/reference/dump_reference.py; rerun it when the wheel changes).
 
     python tools/runtime_libraries.py --platform windows --download --output build
 

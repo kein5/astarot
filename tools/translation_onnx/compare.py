@@ -57,7 +57,11 @@ def load_pins():
 
 
 def check_app_constants():
-    source = (ROOT / "src-python/models/translation/translation_translator.py").read_text(encoding="utf-8")
+    path = ROOT / "src-python/models/translation/translation_translator.py"
+    if not path.exists():
+        # The Python translator has been removed; the constants above are its last values.
+        return
+    source = path.read_text(encoding="utf-8")
     for line in (f"_CTRANSLATE2_MAX_INPUT_LENGTH = {MAX_INPUT_LENGTH}",
                  f"_CTRANSLATE2_MAX_DECODING_LENGTH = {MAX_DECODING_LENGTH}",
                  f"_M2M100_BEAM_SIZE = {M2M100_BEAM_SIZE}",

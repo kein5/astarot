@@ -108,7 +108,8 @@ def test_stop_invalidates_generation_and_start_validates_files(app, owned):
 
 @pytest.mark.parametrize('field', ['japanese_server', 'multilingual_server'])
 def test_voice_endpoint_selection_is_explicit(field):
-    assert VoiceSettings.from_dict({}).to_dict()[field] == 'external'
+    # New settings start on the bundled server (#566); the choice is still explicit.
+    assert VoiceSettings.from_dict({}).to_dict()[field] == 'bundled'
     with pytest.raises(ValueError):
         VoiceSettings.from_dict({field: 'automatic'})
 

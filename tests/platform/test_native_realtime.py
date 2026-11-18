@@ -132,11 +132,9 @@ def open_captions(ui):
     notice = ui.evaluate("return [...document.querySelectorAll('.Toastify__toast')].find(e => e.textContent.startsWith('Network is not connected.'))?.querySelector('button svg')")
     if notice:
         ui.element_command(notice, "click")
-    ui.open_settings()
-    if not ui.evaluate("return !!document.querySelector('section[aria-label=\"Realtime captions\"]')"):
-        tab = ui.evaluate("return [...document.querySelectorAll('p')].find(e => e.textContent === 'Speech recognition (ASR)')?.parentElement")
-        ui.element_command(tab, "click")
-    ui.wait("return !!document.querySelector('section[aria-label=\"Realtime captions\"] select')")
+    # The realtime captions' settings are in the speech recognition page's 「詳細設定」 (#554);
+    # open_voice_page finds the tab by its full name and opens the fold.
+    ui.open_voice_page("Speech recognition (ASR)", 'section[aria-label="Realtime captions"] select')
 
 
 def instrument_rows(ui):

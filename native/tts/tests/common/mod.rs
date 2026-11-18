@@ -334,3 +334,10 @@ pub fn mic(id: &str) -> SpeechMessageEvent {
         ..SpeechMessageEvent::new(id, Source::Mic, "こんにちは")
     }
 }
+
+/// Settings that speak through the external servers these tests start: new settings use the
+/// bundled server (#566).
+#[allow(dead_code)]
+pub fn external() -> vrct_tts::settings::VoiceSettings {
+    vrct_tts::settings::VoiceSettings { japanese_server: "external".into(), multilingual_server: "external".into(), ..Default::default() }
+}

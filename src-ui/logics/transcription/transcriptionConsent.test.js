@@ -190,7 +190,7 @@ test("settings keep the selected engine inside the radio row's accessible help",
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
         "../_templates/Templates": { RadioButtonContainer: "radio-options" }, "../_components": {},
         "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
-        "../_components/setup_section/SetupSection": {},
+        "../_components/setup_section/SetupSection": {}, "../_components/advanced_section/AdvancedSection": {},
     });
     s.transcription.currentSelectedTranscriptionEngine = { data: "SpeechCpp", state: "ok" };
     const tree = s.runtime.render(TranscriptionEngine_Box);

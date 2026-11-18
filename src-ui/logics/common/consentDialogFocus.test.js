@@ -50,7 +50,7 @@ async function fixture(context, kind, openerState) {
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../../../../../../logics/configs/ctranslate2License": {},
         "@logics_configs": {}, "../_templates/Templates": {}, "../_components": {},
-        "../_components/compute_device/ComputeDevice": {}, "../_components/setup_section/SetupSection": {},
+        "../_components/compute_device/ComputeDevice": {}, "../_components/setup_section/SetupSection": {}, "../_components/advanced_section/AdvancedSection": {},
         "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
         "../_components/credential_pair/CredentialPair": {},
         "../_components/download_models/LegacyModelDownloadDialog": {}, "../shared_items/SharedItems": {},

@@ -68,7 +68,11 @@ jobs:
           install_args: rust
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
-          workspaces: native/core
+          workspaces: |
+            native/core
+            native/translation
+            native/translate-onnx
+            native/tts
       - run: cargo test --locked --manifest-path native/core/Cargo.toml
       # The OS stores the API keys go to (ADR-013). Linux: GNOME Keyring with an unlocked login
       # keyring on a private session bus. Windows: the runner user's Credential Manager. Each test
@@ -86,6 +90,10 @@ jobs:
       - run: cargo test --locked --manifest-path native/vr-overlay/Cargo.toml
       - run: cargo test --locked --manifest-path native/transcription/Cargo.toml
       - run: cargo test --locked --manifest-path native/voice-conversion/Cargo.toml
+      # The translation providers and the readings, held to the contract recorded from the Python
+      # clients (native/translation/tests/contract/), and the local translation without a model.
+      - run: cargo test --locked --manifest-path native/translation/Cargo.toml
+      - run: cargo test --locked --manifest-path native/translate-onnx/Cargo.toml
       # Speech requests, the speech queue and the listener monitor (Issue #279).
       - run: cargo test --locked --manifest-path native/tts/Cargo.toml
   backend-windows:

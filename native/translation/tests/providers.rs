@@ -298,27 +298,38 @@ fn canned(answer: serde_json::Value) -> (Transport, std::sync::Arc<std::sync::at
     let seen = count.clone();
     let transport: Transport = std::sync::Arc::new(move |_request, _timeouts| {
         seen.fetch_add(1, Ordering::SeqCst);
-        Ok(http::Response { status: 200, body: serde_json::to_vec(&answer).unwrap() })
+        Ok(http::Response::new(200, serde_json::to_vec(&answer).unwrap()))
     });
     (transport, count)
 }
 
 #[test]
 fn only_openai_and_the_compatible_endpoint_read_incomplete_details() {
+    // A Responses API answer (gpt-5-pro has only that API) cut by the output limit.
     let answer = serde_json::json!({
-        "choices": [{ "message": { "content": "訳" }, "finish_reason": "stop" }],
+        "status": "incomplete",
         "incomplete_details": { "reason": "max_output_tokens" },
+        "output": [{ "type": "message", "content": [{ "type": "output_text", "text": "訳" }] }],
     });
     let (net, _) = canned(answer);
     let supported = languages();
     let request = ask("文", &supported, &[]);
-    let access = Access::at("https://api.example.com/v1").key("k").model("m");
+    let access = Access::at("https://api.example.com/v1").key("k").model("gpt-5-pro");
     assert_eq!(OpenAi::translate(&net, &access, &request).unwrap(), "");
     assert_eq!(OpenAiCompatible::translate(&net, &access, &request).unwrap(), "");
     assert_eq!(Groq::translate(&net, &access, &request).unwrap(), "訳");
     assert_eq!(OpenRouter::translate(&net, &access, &request).unwrap(), "訳");
     assert_eq!(Plamo::translate(&net, &access, &request).unwrap(), "訳");
     assert_eq!(LmStudio::translate(&net, &access, &request).unwrap(), "訳");
+
+    // Chat Completions has no incomplete_details: one that comes anyway is not read.
+    let answer = serde_json::json!({
+        "choices": [{ "message": { "content": "訳" }, "finish_reason": "stop" }],
+        "incomplete_details": { "reason": "max_output_tokens" },
+    });
+    let (net, _) = canned(answer);
+    let access = Access::at("https://api.example.com/v1").key("k").model("gpt-4o");
+    assert_eq!(OpenAi::translate(&net, &access, &request).unwrap(), "訳");
 }
 
 #[test]

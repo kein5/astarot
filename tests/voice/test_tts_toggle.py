@@ -54,7 +54,7 @@ def test_disabled_bus_rejects_both_sources_until_explicit_enable():
             yield AudioFrame(b"\x01\x00", 48000)
 
     bus = VoiceEventBus(
-        VoiceSettings(mode="original", mic_mode="translated", output_device="cable"),
+        VoiceSettings(mode="original", mic_mode="translated", output_device="cable", japanese_server="external", multilingual_server="external"),
         enabled=False,
         provider_factory=Provider,
         router=AudioRouter(lambda *a: sink),
@@ -106,7 +106,7 @@ def test_off_cancels_active_and_queue_and_invalidates_delayed_enable():
             yield AudioFrame(b"\x01\x00", 48000)
 
     bus = VoiceEventBus(
-        VoiceSettings(mode="original", output_device="cable"), provider_factory=Provider
+        VoiceSettings(mode="original", output_device="cable", japanese_server="external", multilingual_server="external"), provider_factory=Provider
     )
     try:
         bus.publish(event("active"))
@@ -152,7 +152,7 @@ def test_enable_checks_generation_settings_and_health_without_resuming_mute(
     assert (
         c.enableTts({"generation": generation})["status"] == 409
     )  # No source mode selected.
-    c.setVoiceSettings({"mode": "original", "output_device": "cable"})
+    c.setVoiceSettings({"mode": "original", "output_device": "cable", "japanese_server": "external"})
     c.voice_events.set_muted(False)
     checked = []
     monkeypatch.setattr(
@@ -198,7 +198,7 @@ def test_enable_names_each_blocking_condition(app, monkeypatch):
     monkeypatch.setattr(module.SpeechCppTTS, "check_health", unhealthy)
     assert code() == "speech_server_not_ready"  # External server unreachable.
     monkeypatch.setattr(module.SpeechCppTTS, "check_health", lambda self: None)
-    c.setVoiceSettings({"mode": "translated", "output_device": "cable"})
+    c.setVoiceSettings({"mode": "translated", "output_device": "cable", "japanese_server": "external", "multilingual_server": "external"})
     c._config.ENABLE_TRANSLATION = False
     assert code() == "tts_translation_not_ready"
     assert not c.voice_events.status()["tts_enabled"]
@@ -208,7 +208,7 @@ def test_disable_during_health_check_cannot_be_undone_by_delayed_enable(
 ):
     c, _, _, module = app
     entered, release = Event(), Event()
-    c.setVoiceSettings({"mode": "original", "output_device": "cable"})
+    c.setVoiceSettings({"mode": "original", "output_device": "cable", "japanese_server": "external"})
     c.voice_events.set_muted(False)
 
     def health(self):

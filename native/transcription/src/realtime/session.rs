@@ -47,6 +47,28 @@ pub struct Options {
     pub language: String,
     /// The merged vocabulary terms.
     pub vocabulary: Vec<String>,
+    /// The silence that ends an utterance (`server_vad`'s `silence_duration_ms`); `None` is
+    /// [`DEFAULT_SILENCE_MS`].
+    pub silence_duration_ms: Option<u32>,
+}
+
+/// The silence that ends an utterance unless the settings choose another: speech.cpp's and
+/// OpenAI's default.
+pub const DEFAULT_SILENCE_MS: u32 = 500;
+/// The padding speech.cpp keeps on either side of an utterance by default (`prefix_padding_ms`).
+const MAX_PADDING_MS: u32 = 300;
+
+/// `server_vad` with the silence that ends an utterance and a padding of at most half of it.
+///
+/// speech.cpp gives an utterance once no other can start within twice its padding of its end
+/// (its record "a detection of audio given a piece at a time gives speech_detect()'s regions,
+/// each once it is certain"). With its defaults, 500 ms of silence and 300 ms of padding, that
+/// is 600 ms after the speech, not 500 (#556). With the padding at most half the silence the
+/// utterance comes when the silence has lasted, and the silence alone still decides where
+/// utterances are cut.
+pub fn turn_detection(silence_duration_ms: Option<u32>) -> Value {
+    let silence = silence_duration_ms.unwrap_or(DEFAULT_SILENCE_MS);
+    json!({ "type": "server_vad", "silence_duration_ms": silence, "prefix_padding_ms": (silence / 2).min(MAX_PADDING_MS) })
 }
 
 #[derive(Clone, Debug)]
@@ -353,7 +375,7 @@ impl Session {
         let mut audio = json!({
             "format": { "type": "audio/pcm", "rate": RATE },
             "transcription": transcription,
-            "turn_detection": { "type": "server_vad" },
+            "turn_detection": turn_detection(self.inner.options.silence_duration_ms),
             "noise_reduction": null,
         });
         if diarization {
@@ -643,7 +665,13 @@ mod tests {
     }
 
     fn session() -> Session {
-        let options = Options { base_url: "http://127.0.0.1:9".into(), model: "m".into(), language: "ja".into(), vocabulary: Vec::new() };
+        let options = Options {
+            base_url: "http://127.0.0.1:9".into(),
+            model: "m".into(),
+            language: "ja".into(),
+            vocabulary: Vec::new(),
+            silence_duration_ms: None,
+        };
         let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
         Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice), vrct_translation::http::direct())
     }
@@ -689,5 +717,19 @@ mod tests {
         assert!(stopped.inner.ingress.lock().unwrap().frames.is_empty(), "the stop dropped what waited");
         assert_eq!(stopped.start(), Err("realtime_session_single_use"));
         assert_eq!(stopped.state(), "closed");
+    }
+
+    #[test]
+    fn the_padding_is_at_most_half_the_silence_so_the_utterance_comes_when_it_has_lasted() {
+        let sent = |silence| {
+            let value = turn_detection(silence);
+            (value["silence_duration_ms"].as_u64().unwrap(), value["prefix_padding_ms"].as_u64().unwrap())
+        };
+        assert_eq!(turn_detection(None)["type"], "server_vad");
+        assert_eq!(sent(None), (500, 250));
+        assert_eq!(sent(Some(300)), (300, 150));
+        assert_eq!(sent(Some(100)), (100, 50));
+        // Never more than speech.cpp's own 300 ms.
+        assert_eq!(sent(Some(1000)), (1000, 300));
     }
 }

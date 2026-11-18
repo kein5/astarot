@@ -15,7 +15,7 @@ async function setup(context) {
     const { Vr } = await loadModule(new URL("./Vr.jsx", import.meta.url), bindings, {
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
-        "@common_components": { ResetButton: "reset" }, "@utils": {},
+        "@common_components": { ResetButton: "reset" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": {},
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
         "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: saved, state: "ok" } }) },
@@ -86,7 +86,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
-        "@common_components": { ResetButton: "reset" }, "@utils": { randomIntMinMax: () => 1 },
+        "@common_components": { ResetButton: "reset" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },
         "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: saved, state: "ok" },
             sendTextToOverlay: text => sent.push(text) }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
