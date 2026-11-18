@@ -5,7 +5,7 @@
 ## 現在の状態
 
 - アプリのローカル翻訳のエンジンです（2026-11-16 に決定。[core-integration.md](../../docs/voice-stack/core-integration.md) の「決まったこと」）。中核（`native/core`）の機能 `onnx-translation`（既定でオン）の裏にあり、アプリ（`src-tauri`）でも有効です。
-- ONNX Runtime は実行時に読み込みます（`ort` の `load-dynamic`）。ビルドでは何も取得もリンクもしません。ライブラリはまだ配布物に入っていないので、ライブラリを置かないかぎりモデルを読み込めません（`translation_runtime_missing`。中核では `TRANSLATION_MODEL_LOAD_FAILED`）。
+- ONNX Runtime は実行時に読み込みます（`ort` の `load-dynamic`）。ビルドでは何も取得もリンクもしません。配布物には公式の CPU 版 1.31.0 が入っています（`_internal/onnxruntime`）。GPU で動かすための CUDA 版と DirectML 版は同梱せず、利用者が同意してから取得します（2026-11-19。[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 2）。ライブラリが見つからないときはモデルを読み込めません（`translation_runtime_missing`。中核では `TRANSLATION_MODEL_LOAD_FAILED`）。
 - モデルは `tools/translation_onnx/export.py` で作ります。作ったモデルの公開とモデル取得カタログへの登録は、まだしていません（公開は保守担当者の確認が要る外部への操作です）。公開とカタログの項目の作成には `tools/translation_onnx/publish.py` を使い、項目は `native/ops/data/translation_models.json` に置きます。
 
 ## 対象モデル
@@ -25,7 +25,7 @@
 ライブラリの探し方と、プロセスに1つだけの環境は、`native/onnx-runtime`（`vrct-onnx-runtime`）が受け持ちます。チャットの読み取り（`native/ocr-runtime`）と声質変換のワーカー（`native/rvc-runtime`）も同じクレートを使います。探す順は次のとおりです。
 
 1. 環境変数 `ORT_DYLIB_PATH`
-2. アプリが同梱するライブラリ（`_internal/onnxruntime`。中核の `shipped_libraries.rs` が指定する）
+2. 中核の `shipped_libraries.rs` が起動時に指定するライブラリ。翻訳の処理デバイスに CUDA か DirectML が選ばれていて、その版を準備済みなら設定フォルダーの `vc_runtimes/` にある GPU 版（先に読み込むライブラリと一緒に指定する）。そうでなければアプリが同梱する CPU 版（`_internal/onnxruntime`）
 3. 名前だけでの検索（`ort` はまず実行ファイルの隣を見ます）
 
 `ort` は1つのプロセスで最初に読み込んだライブラリを使い続け、環境も1つしか作れません。翻訳とチャットの読み取りは、どちらが先に始まっても同じライブラリと環境を使います。このクレートの `runtime.rs` は読み込んだライブラリにある実行プロバイダを調べるだけです。どの実行プロバイダがあるかは、そのライブラリのビルドで決まります。`ort` の機能 `cuda`、`tensorrt`、`openvino`、`migraphx`、`webgpu`（Windows では `directml` も）は Rust 側の呼び出しを足すだけで、`load-dynamic` では何もリンクしません。`ort` の機能はアプリ全体で1つにまとまるので、このクレートの既定の機能も `load-dynamic` です。単体で `ort` の配るバイナリにリンクしたいときは `--no-default-features --features download-binaries` を使います。
@@ -41,8 +41,8 @@ CPU 以外のプロバイダで読み込んだときは、使う前に一度だ�
 | 実行プロバイダ | Windows | Linux | 使える機器 | 要るもの（x64） | ライセンス | 保守の状況 | 計算デバイスの一覧 |
 |---|---|---|---|---|---|---|---|
 | CPU | ○ | ○ | すべての CPU | 公式の ONNX Runtime。`onnxruntime.dll` 17.3 MB（zip 82.9 MB）、Linux は tgz 11.4 MB | MIT | 主流 | いつも出す（`cpu`） |
-| DirectML | ○ | × | DirectX 12 の GPU（NVIDIA、AMD、Intel、Qualcomm） | NuGet の `Microsoft.ML.OnnxRuntime.DirectML`（1.24.4。`onnxruntime.dll` 17.3 MB）と `Microsoft.AI.DirectML`（1.15.4。`DirectML.dll` 18.5 MB） | ONNX Runtime は MIT。DirectML は Microsoft の再配布できるライセンス | 維持のみ（sustained engineering）。新しい機能は Windows ML へ移った。DirectML 版の ONNX Runtime は 1.24.4 で止まっている | ライブラリにあれば出す（`directml`） |
-| CUDA | ○ | ○ | NVIDIA | 公式の GPU 版（`gpu_cuda13`。Windows zip 309.5 MB、Linux tgz 244.6 MB）と CUDA 13 のランタイム、cuBLAS、cuDNN（合わせて 1 GB 前後。声質変換の実行環境と同じもの） | ONNX Runtime は MIT。CUDA と cuDNN は NVIDIA の EULA | 主流。1.31 からはプラグインの形も出ている | ライブラリにあれば出す（`cuda`） |
+| DirectML | ○ | × | DirectX 12 の GPU（NVIDIA、AMD、Intel、Qualcomm） | NuGet の `Microsoft.ML.OnnxRuntime.DirectML`（1.24.4。`onnxruntime.dll` 17.3 MB）と `Microsoft.AI.DirectML`（1.15.4。`DirectML.dll` 18.5 MB）。アプリは同意を得てから取得する（`vc_runtimes/onnxruntime-directml`） | ONNX Runtime は MIT。DirectML は Microsoft の再配布できるライセンス（Windows だけ。使用状況のデータを送ることがあるという定めがある） | 維持のみ（sustained engineering）。新しい機能は Windows ML へ移った。DirectML 版の ONNX Runtime は 1.24.4 で止まっている | 読み込んだ版にあれば出す（`directml`）。準備済みで読み込んでいなければ、再起動が要ると示して出す |
+| CUDA | ○ | ○ | NVIDIA | 公式の GPU 版（`gpu_cuda13`。Windows zip 309.5 MB、Linux tgz 244.6 MB）と CUDA 13 のランタイム、cuBLAS、cuDNN（合わせて 1 GB 前後。声質変換の実行環境と同じもの）。アプリは NuGet の包みと NVIDIA の wheel から、同意を得てから取得する（`vc_runtimes/onnxruntime-cuda`。RVC の GPU 用の実行環境があればそれを使う） | ONNX Runtime は MIT。CUDA と cuDNN は NVIDIA の EULA | 主流。1.31 からはプラグインの形も出ている | 読み込んだ版にあれば出す（`cuda`）。準備済みで読み込んでいなければ、再起動が要ると示して出す |
 | TensorRT | ○ | ○ | NVIDIA | CUDA 版に加えて TensorRT のライブラリ | NVIDIA の EULA | 主流 | 出さない。入力の形ごとにエンジンを作るので、ステップごとにキャッシュが伸びるデコーダに向かない |
 | OpenVINO | ○ | ○ | Intel の CPU、GPU、NPU | Intel の ONNX Runtime（Windows は NuGet の `Intel.ML.OnnxRuntime.OpenVino` 1.24.1、41.0 MB。Linux は `onnxruntime-openvino`）と OpenVINO のランタイム | ONNX Runtime は MIT、OpenVINO は Apache-2.0 | Intel が保守 | ライブラリにあれば出す（`openvino`、GPU を使う） |
 | ROCm | ― | ― | AMD | ― | ― | ONNX Runtime 1.23 で消えた | 出さない |

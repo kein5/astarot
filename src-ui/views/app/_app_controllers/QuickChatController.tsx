@@ -5,6 +5,8 @@ import { useI18n } from '@useI18n';
 import { useMessage } from '../../../logics/common/useMessage';
 import { useIsBackendReady, useIsOpenedConfigPage, useIsSoftwareUpdating } from '@logics_common';
 import { useAppearance, useOthers } from '@logics_configs';
+import type { QuickChatRequest } from '../../../logics/quickChat/bridge';
+import type { StdoutResult } from '@useStdoutToPython';
 
 export const QuickChatController = () => {
     const { sendMessage } = useMessage();
@@ -15,15 +17,15 @@ export const QuickChatController = () => {
     const { currentSendMessageButtonType, currentUiScaling, currentSelectedFontFamily } = useAppearance();
     const { currentEnableAutoClearMessageInputBox } = useOthers();
     const ready = currentIsBackendReady.data && !currentIsSoftwareUpdating.data && !currentIsOpenedConfigPage.data;
-    const current = useRef();
+    const current = useRef({ ready, sendMessage });
     current.current = { ready, sendMessage };
     useEffect(() => {
         const receive = async () => {
             try {
                 // Notification payloads are ignored. Only native, label-validated requests can be taken.
-                const request = await invoke('quick_chat_take');
+                const request = await invoke<QuickChatRequest | null>('quick_chat_take');
                 if (!request) return;
-                let accepted = false;
+                let accepted: StdoutResult = false;
                 try { if (current.current.ready) accepted = await current.current.sendMessage(request.message, request.id); }
                 finally { await invoke('quick_chat_finish', { id: request.id, accepted: accepted === true }); }
             } catch (error) { console.error('Quick chat handoff failed', error); }

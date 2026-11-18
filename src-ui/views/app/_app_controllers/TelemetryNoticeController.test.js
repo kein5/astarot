@@ -7,7 +7,7 @@ const TelemetryContents = () => null;
 async function setup(context, notice) {
     const runtime = hooks(), sent = [], refreshed = [];
     const state = { current: notice };
-    const { TelemetryNoticeController } = await loadModule(new URL("./TelemetryNoticeController.jsx", import.meta.url), runtime, {
+    const { TelemetryNoticeController } = await loadModule(new URL("./TelemetryNoticeController.tsx", import.meta.url), runtime, {
         "@logics_configs": { useOthers: () => ({
             currentTelemetryNotice: state.current,
             setTelemetryNotice: async value => { sent.push(value); },

@@ -212,7 +212,7 @@ async function owner(platform = "native") {
     subject.state.platformGate = platform;
     const useHotkeys = await subject.load();
     let latest;
-    const { GlobalHotKeyController } = await loadModule(new URL("../../../../views/app/_app_controllers/GlobalHotKeyController.jsx", import.meta.url), runtime, {
+    const { GlobalHotKeyController } = await loadModule(new URL("../../../../views/app/_app_controllers/GlobalHotKeyController.tsx", import.meta.url), runtime, {
         "@logics_configs": { useHotkeys: () => { latest = useHotkeys(); return latest; } },
         "@logics_common": {
             useIsBackendReady: () => ({ currentIsBackendReady: { data: subject.state.ready } }),
@@ -305,7 +305,7 @@ test("portal reconciliation observes acknowledged content and does not rebind on
 });
 
 test("Settings close controller leaves registration to its single owner", async () => {
-    const source = await readFile(new URL("../../../../views/app/_app_controllers/ConfigPageCloseTriggerController.jsx", import.meta.url), "utf8");
+    const source = await readFile(new URL("../../../../views/app/_app_controllers/ConfigPageCloseTriggerController.tsx", import.meta.url), "utf8");
     assert.doesNotMatch(source, /useHotkeys|registerShortcuts|unregisterAll/);
 });
 

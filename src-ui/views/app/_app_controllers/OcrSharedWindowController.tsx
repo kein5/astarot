@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { useI18n } from "@useI18n";
 import { useNotificationStatus } from "@logics_common";
 import { useMainFunction } from "@logics_main";
@@ -15,16 +16,18 @@ export const OcrSharedWindowController = () => {
     const { currentOcrCaptureStatus, pendingOcrCaptureStatus } = useMainFunction();
     const { currentOcrSharedWindow, refresh, stop, ended } = useOcrSharedWindow();
     const { showNotification_Warning, showNotification_Error } = useNotificationStatus();
-    const latest = useRef(null);
+    const latest = useRef({ t, ended, showNotification_Warning, showNotification_Error });
     latest.current = { t, ended, showNotification_Warning, showNotification_Error };
 
     useEffect(() => {
         refresh();
-        let disposed = false, unlisten = null;
-        listen("screencast-ended", ({ payload }) => {
+        let disposed = false, unlisten: UnlistenFn | null = null;
+        listen<unknown>("screencast-ended", ({ payload }) => {
             const { t, ended, showNotification_Warning, showNotification_Error } = latest.current;
             ended();
-            const notice = endedNotice(payload?.reason);
+            // The reason, when the payload is an object that has one; endedNotice reads anything else as an error.
+            const reason = typeof payload === "object" && payload !== null && "reason" in payload ? payload.reason : undefined;
+            const notice = endedNotice(reason);
             const show = notice.status === "warning" ? showNotification_Warning : showNotification_Error;
             show(t(notice.key), { category_id: "ocr_shared_window" });
         }).then(stopListening => {

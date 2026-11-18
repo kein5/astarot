@@ -19,7 +19,7 @@ import noticeStyles from "./TelemetryNoticeController.module.scss";
 // without it the app could not even be closed from its title bar.
 //
 // Put away for this run, outside the component: changing the UI language draws the main page
-// again (App.jsx), and a notice put away must not open again then (#563).
+// again (App.tsx), and a notice put away must not open again then (#563).
 const laterAtom = atom(false);
 
 export const TelemetryNoticeController = () => {
@@ -34,7 +34,7 @@ export const TelemetryNoticeController = () => {
         [currentTelemetryNotice.state, currentTelemetryNotice.data]);
 
     if (!pending) return null;
-    const answer = async send => {
+    const answer = async (send: boolean) => {
         if (answered) return;
         setAnswered(true);
         await setTelemetryNotice({ send });
