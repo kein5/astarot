@@ -98,6 +98,12 @@ The user chose a complete redesign on 2026-10-30. Its navy palette gave way to t
 - Lilac identifies primary actions, selected navigation and keyboard focus.
 - Shared forms make TTS, RVC and model downloads feel part of the same application.
 
+## Principles
+
+**The layout explains, not the text (#614).** What a part of the screen is, what it belongs to and what state it is in are shown by where it sits and by its shape, size, color and motion. A secondary label or a line of explanation is added only where the layout cannot carry the meaning. A longer explanation is not kept on screen: it goes in a tooltip that opens on mouse-over (and on keyboard focus), and its words stay in the control's accessible name or description.
+
+This takes away no word that carries a meaning: a control keeps its name, a readout still states its condition in words, consent stays visible, and color never says something alone. New screens, the information architecture (#554) and the components (#452) start from this principle. Rules below that predate it, such as the visible first sentence of a general description, stay until the screens are reviewed against it.
+
 ## Colors
 
 The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): Dark Plum `#261633`, Lilac `#A47AF5` and Off-White `#FAFAFC`. Where the brand has a color that fits a role, the token takes that color as it is. Where it has none, the token is Dark Plum or Lilac with only its lightness changed: its OKLCH hue stays within 3° of that brand color's (Dark Plum 308°, Lilac 297°), and its chroma does not exceed the brand color's. So no derived color leans toward another hue or is more vivid than its source.
@@ -194,6 +200,13 @@ There is no splash screen. While the engine starts, the main page is drawn at it
 
 Quick Chat and the VR panel inherit shared colors without changing input/audio contracts. TTS/RVC/download forms share field, action and status styling. A persistent saved compact-mode preference remains separate from the temporary narrow-window layout.
 
+Two references come first when a component is designed (#614), each for its own part. Neither is taken in as a dependency.
+
+- [shadcn.io](https://www.shadcn.io/) for how a component is put together and how it looks. Its parts built on Radix translate as they are, with the same Radix primitives in the same arrangement (a Radix part that adds a `<style>` at run time needs the CSP step in `docs/development.md`). Its Tailwind styling is rewritten in vanilla-extract, and its colors are replaced with the ASTAROT palette above. Where it offers a component on more than one base (its React default is Base UI), read the Radix one.
+- [OptiAxiom](https://github.com/optimizely-axiom/optiaxiom) for how a component is written in vanilla-extract: how the tokens are cut, sprinkles, recipes and how the files are split.
+
+Code from either is copied in only after its license is checked and recorded (`docs/voice-stack/licensing.md`); shadcn.io names no license for its free components.
+
 ## The user guide (site/)
 
 The guide is a reading surface in the same Dark Studio, chosen on 2026-11-15 after an impeccable and unslop audit found it read as stock VitePress. The world owns the frame, and the reading column stays calm: about 40 Japanese characters a line, the reader's own fonts (no web font, VitePress's Inter removed), real contrast.
@@ -210,5 +223,6 @@ The guide is a reading surface in the same Dark Studio, chosen on 2026-11-15 aft
 - Do preserve model consent, dirty-form guards, independent switches and stop/mute behavior.
 - Do check Japanese labels, long paths, keyboard navigation and narrow windows using production components.
 - Do retain the distinction between configured, pending, active and failed states.
+- Don't add a secondary label or an always-visible explanation where the layout can carry the meaning; a longer explanation goes in a tooltip.
 - Don't introduce remote fonts or a new UI framework for this redesign.
 - Don't imply connection, model readiness or microphone activity through decorative indicators.

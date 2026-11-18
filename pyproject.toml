@@ -8,9 +8,9 @@
 # uv.lock together.
 [project]
 name = "vrct-vox"
-version = "0.5.1"
+version = "0.5.2"
 description = "VRCT-VOX backend: speech, voice conversion and translated chat"
-requires-python = "==3.11.*"
+requires-python = "==3.14.*"
 dependencies = [
     # NOTE: torch was dropped on 2026-09-18. It was pulled in by EasyOCR (now
     # replaced by RapidOCR) and used only to enumerate CUDA devices, which
@@ -25,9 +25,9 @@ dependencies = [
     "ctranslate2==4.9.0",
     "transformers==5.23.0",
     "pillow==13.0.0",
-    "PyAudioWPatch==0.2.12.6 ; sys_platform=='win32'",
+    "PyAudioWPatch==0.2.12.8 ; sys_platform=='win32'",  # 0.2.12.8: the first with Python 3.14 wheels
     "python-osc==1.10.2",
-    "PyYAML==6.0.2",
+    "PyYAML==6.0.3",  # 6.0.3: the first with Python 3.14 wheels
     "deepl==1.33.0",
     "flashtext==2.7",
     "pyinstaller==6.22.3",
@@ -45,6 +45,12 @@ dependencies = [
     # Optional at runtime: without it the overlay falls back to PrintWindow.
     "windows-capture==2.0.1 ; sys_platform=='win32'",
     "pydub==0.25.1",
+    # audioop and aifc left the standard library in Python 3.13. The VAD
+    # (models/transcription/audio_vad.py) and the SpeechRecognition fork import
+    # them; these PSF-2.0 packages put the same modules back (standard-aifc
+    # brings standard-chunk).
+    "audioop-lts==0.2.2",
+    "standard-aifc==3.13.0",
     "psutil==7.2.2",
     "pycaw==20260927 ; sys_platform=='win32'",
     "websockets==17.4",
@@ -64,7 +70,7 @@ dependencies = [
     "google-genai==2.34.0",
     "grpcio==1.85.1",  # >=1.83.0: google-auth PQC support (min requirement from 2026-10)
     "langchain-ollama==1.1.0",
-    "SudachiPy==0.6.10",
+    "SudachiPy==0.6.11",  # 0.6.11: the first with Python 3.14 wheels
     "SudachiDict-core==20250825",
     "SudachiDict-full==20250825",
     "aiohttp==3.14.5",
@@ -124,7 +130,7 @@ linux-build = [
 voice-test = [
     "pytest==9.2.0",
     "requests==2.34.2",
-    "PyYAML==6.0.2",
+    "PyYAML==6.0.3",
     "ruff==0.17.5",
     "numpy==2.4.6",
     "soxr==1.1.0",
@@ -132,6 +138,8 @@ voice-test = [
     "pillow==13.0.0",
     "websockets==17.4",
     "tqdm==4.70.1",
+    # audioop for the speech.cpp realtime test (it left the standard library in Python 3.13).
+    "audioop-lts==0.2.2",
     # Verifies updater signatures in the release-draft tests (tools/updater_manifest.py).
     "cryptography==50.0.2",
 ]
@@ -156,6 +164,12 @@ exclude-dependencies = ["opencv-python"]
 # tinyoscquery pins zeroconf==0.39.1, which has known vulnerabilities; the
 # API it uses (Zeroconf, ServiceInfo, ServiceBrowser) is unchanged since.
 override-dependencies = ["zeroconf==0.152.0"]
+
+[tool.uv.extra-build-dependencies]
+# The SpeechRecognition fork's setup.py imports the package to read its version,
+# and the package imports aifc and audioop, which left the standard library in
+# Python 3.13. Its build needs the same replacements as the app.
+speechrecognition = ["standard-aifc==3.13.0", "audioop-lts==0.2.2"]
 
 [tool.ruff.lint]
 # Ruff 0.14's default rules, named so that a Ruff upgrade does not widen the check.

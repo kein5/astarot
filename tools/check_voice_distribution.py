@@ -25,6 +25,26 @@ NSCURL_NOTICES = (
 
 
 ZIP_SIGNATURES = (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
+ZIP_END_RECORD = b"PK\x05\x06"
+ZIP_END_RECORD_SIZE = 22
+# The end record and its comment (at most 65535 bytes) close every ZIP.
+ZIP_END_WINDOW = ZIP_END_RECORD_SIZE + 65535
+
+
+def _has_zip_end_record(tail):
+    """Whether the last bytes of a file hold a ZIP end record, as zipfile.is_zipfile checked in
+    Python 3.11. Python 3.14's is_zipfile also reads the central directory the record points to: it
+    misses a ZIP in the tail kept of an oversized member and passes a damaged one, both of which
+    this check must stop."""
+    tail = tail[-ZIP_END_WINDOW:]
+    start = tail.rfind(ZIP_END_RECORD)
+    return start >= 0 and len(tail) - start >= ZIP_END_RECORD_SIZE
+
+
+def _file_tail(path):
+    with open(path, "rb") as file:
+        file.seek(max(0, file.seek(0, 2) - ZIP_END_WINDOW))
+        return file.read()
 
 
 class _InspectionBudget:
@@ -58,14 +78,10 @@ def _inspect_member(source, size, name, context, depth, budget):
                 raise ValueError(f"Cannot inspect member with inconsistent size: {context}: {name}")
             if size <= MAX_NESTED_ZIP:
                 nested.write(chunk)
-            else:
-                tail = (tail + chunk)[-(65535 + 22):]
+            tail = (tail + chunk)[-ZIP_END_WINDOW:]
         if total != size:
             raise ValueError(f"Cannot inspect truncated member: {context}: {name}")
-        if size > MAX_NESTED_ZIP:
-            nested.write(tail)
-        nested.seek(0)
-        if name.lower().endswith(".zip") or signature in ZIP_SIGNATURES or zipfile.is_zipfile(nested):
+        if name.lower().endswith(".zip") or signature in ZIP_SIGNATURES or _has_zip_end_record(tail):
             if size > MAX_NESTED_ZIP:
                 raise ValueError(f"Cannot inspect oversized nested ZIP: {context}: {name}")
             nested.seek(0)
@@ -106,7 +122,7 @@ def check(paths, *, root=None):
             raise ValueError(f"Cannot inspect symlink in distribution: {path}")
         if path.is_dir():
             check(path.iterdir(), root=artifact_root)
-        elif path.suffix.lower() == ".zip" or zipfile.is_zipfile(path):
+        elif path.suffix.lower() == ".zip" or _has_zip_end_record(_file_tail(path)):
             _zip(path, path, prefix=name)
         elif str(path).lower().endswith(ARCHIVE_SUFFIXES):
             raise ValueError(f"Cannot inspect unsupported archive: {path}")

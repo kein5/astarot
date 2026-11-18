@@ -14,8 +14,8 @@ for (const language of ["en", "ja"]) {
         const { runtime, stores } = await loadBridgeStore();
         const notices = [];
         const useI18n = { useI18n: () => ({ t: i18n.t.bind(i18n) }) };
-        const subject = await loadModule(new URL("./useHandleOscQuery.js", import.meta.url), runtime, {
-            "./TranslatedNotice": await loadModule(new URL("./TranslatedNotice.jsx", import.meta.url), runtime, { "@useI18n": useI18n }),
+        const subject = await loadModule(new URL("./useHandleOscQuery.ts", import.meta.url), runtime, {
+            "./TranslatedNotice": await loadModule(new URL("./TranslatedNotice.tsx", import.meta.url), runtime, { "@useI18n": useI18n }),
             "@logics_common": {
                 useIsOscAvailable: () => ({ ...stores.useStore_IsOscAvailable(), ...stores.useStore_OscUnavailableReason() }),
                 // The text is chosen when the notice is drawn: startup notices arrive
@@ -69,7 +69,7 @@ for (const language of ["en", "ja"]) {
         const i18n = i18next.createInstance();
         await i18n.init({ lng: language, resources: { [language]: { translation } } });
         const { runtime, stores } = await loadBridgeStore();
-        const subject = await loadModule(new URL("./useIsOscAvailable.js", import.meta.url), runtime, { "@store": stores });
+        const subject = await loadModule(new URL("./useIsOscAvailable.ts", import.meta.url), runtime, { "@store": stores });
         assert.equal(subject.oscUnavailableLabelKey("remote_destination"), "config_page.common.warning_labels.unable_to_use_osc_query_remote");
         for (const why of ["setup_failed", null, undefined])
             assert.equal(subject.oscUnavailableLabelKey(why), "config_page.common.warning_labels.unable_to_use_osc_query");

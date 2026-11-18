@@ -33,18 +33,18 @@ checksum = "sha256:e2edda75bfb089654705cf65a13b58933bfd5f57148e8ebda916f58a2474f
 url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-win-x64.zip"
 
 [[tools.python]]
-version = "3.11.18"
+version = "3.14.10"
 backend = "core:python"
-specifiers = ["3.11.18"]
+specifiers = ["3.14.10"]
 
 [tools.python."platforms.linux-x64"]
-checksum = "sha256:3288c54cea3db350052019b3f8b558dd8a3da8afa6fda573f5fd2bcb37635b4a"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.11.18+20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+checksum = "sha256:c2ff2e97422f5d3896a16e0317fd212ba977bbf2688d93a6f7a03d817506bd30"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10+20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.windows-x64"]
-checksum = "sha256:f31751f4a8483f5ac7cd77ad83f8dfb80d9f2a7245bff1585e27516c777fb46f"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.11.18+20261110-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+checksum = "sha256:32b6cf90a03e2bc15fda8d2ab7ff78c4870f138887d612932650ce764efaab8f"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.14.10+20261110-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [[tools.rust]]

@@ -51,8 +51,11 @@ export type RealtimeRowState = {
     reason?: unknown;
 };
 
+// What a message log row shows: the original text and its translations.
+export type MessageLogContent = { original?: unknown; translations?: unknown; [key: string]: unknown };
+
 // A row of the message log. Only realtime rows carry `realtime`.
-export type MessageLogRow = { id: string; realtime?: RealtimeRowState; [key: string]: unknown };
+export type MessageLogRow = { id: string; realtime?: RealtimeRowState; messages?: MessageLogContent; [key: string]: unknown };
 
 export type RealtimeCaptionRow = {
     id: string;

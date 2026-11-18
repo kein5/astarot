@@ -29,6 +29,9 @@ serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 # Chat reading. ONNX Runtime is loaded when chat reading starts, not linked: see
 # docs/voice-stack/core-integration.md, item 2 of "判断が要ること".
 ocr-runtime = { path = "../ocr-runtime", default-features = false, features = ["load-dynamic"] }
+# The one ONNX Runtime library and environment of the process, which chat reading and the local
+# translation share (shipped_libraries.rs points it at the library the packages ship).
+vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false, features = ["load-dynamic"] }
 vrct-adapters = { path = "../adapters" }
 # The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
 # build that way and need no PipeWire; the application turns it on.

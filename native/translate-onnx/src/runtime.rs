@@ -1,99 +1,20 @@
-//! The ONNX Runtime library, loaded once for the process.
+//! The ONNX Runtime library of the process and the execution providers it was built with.
 //!
-//! With `load-dynamic` (the default, and the only form the app uses) the library is found the
-//! way chat reading finds it (`native/ocr-runtime`): `ORT_DYLIB_PATH`, else `onnxruntime.dll`
-//! (`libonnxruntime.so`) beside the executable, else by name. `ort` keeps the first library a
-//! process loads, so chat reading and translation always share one; which execution providers
+//! The library and the environment come from `vrct-onnx-runtime`, which chat reading
+//! (`native/ocr-runtime`) uses too: `ort` keeps the first library a process loads and allows one
+//! environment per process, so the two always share them (issue #509). With `load-dynamic` (the
+//! default, and the only form the app uses) the library is `ORT_DYLIB_PATH`, else the one the
+//! app ships, else `onnxruntime.dll` (`libonnxruntime.so`) by name. Which execution providers
 //! exist depends on that library (the CPU build, the DirectML build, the CUDA build, ...).
-//!
-//! `ort` also allows only one environment per process. In the app, chat reading makes it and
-//! translation uses it ([`share`]): two crates each building their own left the second one
-//! without ONNX Runtime for the whole run (issue #509). The comparison command and the tests,
-//! which run translation alone, build their own here.
-
-use std::path::PathBuf;
-use std::sync::OnceLock;
 
 use ort::environment::Environment;
 
 use crate::accelerate::Provider;
 use crate::{codes, Error, Result};
 
-/// The environment and library of the process, from whoever made them (in the app,
-/// `ocr_runtime::engine`).
-#[derive(Clone, Copy)]
-pub struct Shared {
-    /// The process's one environment, made on first use.
-    pub environment: fn() -> std::result::Result<&'static Environment, String>,
-    /// The library that environment loads.
-    pub library_path: fn() -> PathBuf,
-}
-
-static SHARED: OnceLock<Shared> = OnceLock::new();
-
-/// Uses `shared` instead of an environment of this crate's own. Call once, before translation
-/// is first used; a later call changes nothing.
-pub fn share(shared: Shared) {
-    let _ = SHARED.set(shared);
-}
-
-/// Stops ONNX Runtime's usage reports for this process (issue #518): the official Linux build
-/// writes a `deviceid` and sends a first event when the environment is made, before the
-/// environment option (`with_telemetry(false)`, also set here) can apply. The app sets the
-/// variable at startup (`ocr_runtime::engine::disable_telemetry_for_process`); the tools call this.
-///
-/// # Safety
-///
-/// Changes the process environment: call at the start of `main`, before other threads run.
-pub unsafe fn disable_telemetry_for_process() {
-    unsafe { std::env::set_var("ORT_DISABLE_TELEMETRY", "1") };
-}
-
-/// The file name of the library on this platform.
-pub fn library_name() -> String {
-    format!("{}onnxruntime{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX)
-}
-
-/// The library to load: the shared one ([`share`]), else `ORT_DYLIB_PATH` when set, else the
-/// bare name (which `ort` resolves beside the executable first).
-pub fn library_path() -> PathBuf {
-    if let Some(shared) = SHARED.get() {
-        return (shared.library_path)();
-    }
-    std::env::var_os("ORT_DYLIB_PATH").filter(|path| !path.is_empty()).map(PathBuf::from).unwrap_or_else(|| library_name().into())
-}
-
-/// Whether a library is where [`library_path`] points without searching the system: the
-/// given file, or the file beside the executable. Cheap; loads nothing.
-pub fn library_present() -> bool {
-    let path = library_path();
-    if path.is_absolute() {
-        return path.is_file();
-    }
-    std::env::current_exe().ok().and_then(|exe| exe.parent().map(|dir| dir.join(&path))).is_some_and(|p| p.is_file())
-}
-
-#[cfg(feature = "load-dynamic")]
-fn builder() -> std::result::Result<ort::environment::EnvironmentBuilder, ()> {
-    ort::init_from(library_path()).map_err(|_| ())
-}
-
-#[cfg(not(feature = "load-dynamic"))]
-fn builder() -> std::result::Result<ort::environment::EnvironmentBuilder, ()> {
-    Ok(ort::init())
-}
-
-/// The process's ONNX Runtime environment: the shared one, or one of this crate's own, made on
-/// first use.
+/// The process's ONNX Runtime environment, made on first use.
 pub(crate) fn environment() -> Result<&'static Environment> {
-    if let Some(shared) = SHARED.get() {
-        return (shared.environment)().map_err(|_| Error::new(codes::RUNTIME_MISSING));
-    }
-    static ENVIRONMENT: OnceLock<std::result::Result<Environment, ()>> = OnceLock::new();
-    ENVIRONMENT
-        .get_or_init(|| builder()?.with_name("vrct-translate").with_telemetry(false).build().map_err(|_| ()))
-        .as_ref()
-        .map_err(|_| Error::new(codes::RUNTIME_MISSING))
+    vrct_onnx_runtime::environment().map_err(|_| Error::new(codes::RUNTIME_MISSING))
 }
 
 /// Whether the loaded library was built with a provider.

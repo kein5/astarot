@@ -11,9 +11,11 @@ node = "26.13.1"
 # Installed through rustup. Cargo.toml's rust-version (1.92) is the oldest that builds;
 # this is the version development and CI use.
 rust = { version = "1.100.0", profile = "minimal", components = "clippy,rustfmt" }
-# pyproject.toml requires 3.11.*: the build tools, the tests and the Python backend kept as the
-# specification until it is removed (the packages carry no Python since 0.5.0).
-python = "3.11.18"
+# The one place the Python version is set: the build tools, the tests and the Python backend kept
+# as the specification until it is removed (the packages carry no Python since 0.5.0).
+# pyproject.toml's requires-python names the same minor version (tests/devtools/test_toolchain_pins.py),
+# and uv takes this interpreter from PATH instead of choosing a version of its own.
+python = "3.14.10"
 uv = "0.13.5"
 cocogitto = "7.0.0"
 
@@ -88,9 +90,9 @@ run = "python tools/dev.py setup --scope resources"
 
 [tasks."setup:app"]
 description = "App Python environments from uv.lock: .venv and .venv_cuda on Windows, .venv_linux on Linux"
-run = "uv sync --frozen --python 3.11"
+run = "uv sync --frozen"
 run_windows = "bat\\install.bat"
-env = { UV_PROJECT_ENVIRONMENT = ".venv_linux", UV_PYTHON_PREFERENCE = "only-system" }
+env = { UV_PROJECT_ENVIRONMENT = ".venv_linux", UV_PYTHON_PREFERENCE = "only-system", UV_PYTHON_DOWNLOADS = "never" }
 
 [tasks.spec]
 description = "Regenerate the spec reference (docs/spec/reference/) from the code"

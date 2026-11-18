@@ -1,0 +1,28 @@
+[package]
+name = "vrct-onnx-runtime"
+version = "0.0.0"
+description = "The one ONNX Runtime library and environment of a VRCT-VOX process, shared by chat reading, local translation and the RVC worker"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT"
+publish = false
+
+[lib]
+name = "vrct_onnx_runtime"
+
+[features]
+default = ["load-dynamic"]
+# Load the ONNX Runtime library at run time: `ORT_DYLIB_PATH`, else the library the app ships
+# (`use_library`), else `onnxruntime.dll` / `libonnxruntime.so` by name. A missing library is an
+# error value. The app and the RVC worker use this. Crates turn it on through this crate, never
+# as `ort/load-dynamic`: `ort` features are unified across a build, and this crate decides how the
+# environment is made from its own feature.
+load-dynamic = ["ort/load-dynamic"]
+
+[dependencies]
+# The same binding and version as every crate that runs ONNX graphs (native/ocr-runtime,
+# native/translate-onnx, native/rvc-runtime).
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]
