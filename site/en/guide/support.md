@@ -30,8 +30,8 @@ How it was checked:
 |---|---|---|---|---|
 | Windows 11 (x64) | Installer (`VRCT-VOX_setup.exe`) | Supported | Contents checked. Install, update and rollback tested with a small stand-in payload | 0.5.1: update from 0.5.0 and start after the update. A fresh install is not verified |
 | Windows 11 (x64) | ZIP (`VRCT-VOX.zip`) | Supported | Contents checked | 0.5.1: unpacked and started |
-| Windows 11 (x64) | CUDA ZIP (`VRCT-VOX_cuda.zip`) | Supported | Contents checked | Not verified. Since 0.5.0 it holds the same files as the CPU ZIP |
-| Windows 10 (x64) | The three above | Best effort | None | Not verified |
+| Windows 11 (x64) | CUDA ZIP (releases up to 0.5 only) | Ended with 0.5 | None | Since 0.5.0 it holds the same files as the ZIP. The next version no longer makes it; every PC uses the ZIP or the installer above |
+| Windows 10 (x64) | The installer and the ZIP | Best effort | None | Not verified |
 | Ubuntu 24.04, Debian 13 (x64) | deb | Supported | Installed on a clean system: the libraries resolve, the bundled speech engine starts, removal leaves nothing. The window is not opened | Not verified |
 | Fedora 44 (x64) | rpm | Supported | Same as the deb | Not verified |
 | Linux (x64, glibc 2.39 or later) | AppImage | Supported | On a virtual X11 display on Ubuntu 24.04, started by extraction: start, drawing, the settings screen and shutdown. Starting through FUSE is not tested | Not verified on 0.5. Checked before 0.5 (CachyOS) |
