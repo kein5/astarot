@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useStore_MessageLogs } from "@store";
+import { useStore_MessageLogs, useStore_SpeakerNames } from "@store";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady, useNotificationStatus } from "@logics_common";
 import { useAppearance, useVr, useExperimentalFeature } from "@logics_configs";
@@ -24,6 +24,7 @@ export const CaptionOverlayController = () => {
         currentIoFlowOverlaySettings, currentOverlayDesktopPlacement, setOverlayDesktopSettings,
         setOverlayDesktopPlacement } = useVr();
     const { currentMessageLogs } = useStore_MessageLogs();
+    const { currentSpeakerNames } = useStore_SpeakerNames();
     // The tray companion (an experimental feature) has no window of its own to show captions in.
     const trayCompanion = useExperimentalFeature("tray_companion");
     const { currentSelectedFontFamily } = useAppearance();
@@ -98,7 +99,9 @@ export const CaptionOverlayController = () => {
             return;
         }
         const lines = captions
-            ? captionLines(currentMessageLogs.data, { onlyTranslated: currentOverlayShowOnlyTranslatedMessages.data === true })
+            ? captionLines(currentMessageLogs.data, {
+                onlyTranslated: currentOverlayShowOnlyTranslatedMessages.data === true, speakerNames: currentSpeakerNames.data,
+            })
             : [];
         stamps.current = stampLines(stamps.current, lines, Date.now(), settings.display_duration * 1000);
         invoke("caption_overlay_update", { snapshot: {
@@ -111,7 +114,7 @@ export const CaptionOverlayController = () => {
             console.error("Caption overlay could not be updated", error);
             notifyFailure("update", error);
         });
-    }, [enabled, captions, flowShown, count, currentMessageLogs.data, currentOverlayShowOnlyTranslatedMessages.data,
+    }, [enabled, captions, flowShown, count, currentMessageLogs.data, currentSpeakerNames.data, currentOverlayShowOnlyTranslatedMessages.data,
         settings.position, settings.font_size, settings.opacity, settings.display_duration, currentSelectedFontFamily.data,
         currentIoTraces.data, currentIoFlow.data?.conversion_round_trip_ms, t]);
 

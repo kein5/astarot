@@ -62,11 +62,11 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         ...await loadCommon(subject),
     });
     const send = async endpoint => { reads.push(endpoint); return true; };
-    const settingsLogics = await loadModule(new URL("../configs/config_page_setter/useSettingsLogics.js", import.meta.url), runtime, {
+    const settingsLogics = await loadModule(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
         "@store": stores, "@utils": utils, "@logics_common": common,
         "../../voice/saveBar": { setSaveBarEntry: noop },
     });
-    const settings = await loadModule(new URL("../configs/config_page_setter/ui_config_setter.js", import.meta.url), runtime, {
+    const settings = await loadModule(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {
         jotai, "@store": stores, "../../common/pendingRequestRecovery.ts": recovery,
         "../../../views/vr/vr_layout.json": {},
         "@ui_configs": { ui_configs: { send_message_format_parts: messageFormat, received_message_format_parts: messageFormat },

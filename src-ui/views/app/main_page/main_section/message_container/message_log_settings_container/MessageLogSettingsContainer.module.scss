@@ -1,30 +1,35 @@
 $container_height: 18rem;
 $toggle_config_size: 3rem;
+// The panel hangs above the log and slides down into it. In a very low window it is no taller
+// than the log (#563): the offsets are fractions of its own height, so the same strip shows
+// while it is closed, and its settings scroll inside it instead of being cut off.
 .container {
     position: absolute;
-    top: calc(-#{$container_height} + -#{$toggle_config_size});
+    top: 0;
     left: 0;
     height: $container_height;
+    max-height: 100%;
     width: 100%;
     background-color: var(--dark_825_color);
-    transition: top 0.12s ease-out;
+    transform: translateY(calc(-100% - #{$toggle_config_size}));
+    transition: transform 0.12s ease-out;
     padding: 0.6rem;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     &.to_visible_toggle_bar {
-        top: calc(-#{$container_height} + 1rem);
+        transform: translateY(calc(-100% + 1rem));
         & .config_svg_wrapper {
             transform: translate(-50%, -50%) rotate(180deg);
         }
 
     }
     &.is_hovered {
-        top: calc(-#{$container_height} + 2rem);
+        transform: translateY(calc(-100% + 2rem));
     }
     &.is_opened {
-        top: 0;
+        transform: none;
         background-color: var(--dark_825_color_cc);
         backdrop-filter: blur(0.6rem);
         & .config_svg_wrapper {
@@ -63,9 +68,14 @@ $toggle_config_size: 3rem;
     color: var(--dark_500_color);
 }
 
-// Lays out as if it were not there; hidden things leave the tab order.
+// Hidden things leave the tab order. In a panel lower than its settings, they scroll.
 .settings {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-height: 0;
+    overflow-y: auto;
     visibility: hidden;
     &[data-opened="true"] { visibility: visible; }
 }

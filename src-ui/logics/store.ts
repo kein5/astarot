@@ -30,6 +30,7 @@ import type { IoFlow, Trace } from "./flow/ioFlow.ts";
 import type { LanguageMutationState } from "./main/languageMutationCoordinator.ts";
 import type { SwitchBlocks } from "./main/switchBlocks.ts";
 import type { MessageLogRow } from "./transcription/realtimeCaptionState.ts";
+import type { SpeakerNames } from "./common/speakerNames.ts";
 
 // What the windows share outside the atoms: the backend's session, elements and callbacks.
 export interface UiStore extends SidecarSessionStore {
@@ -365,6 +366,8 @@ export const { atomInstance: Atom_SelectableLanguageList, useHook: useStore_Sele
 
 // Message Container
 export const { atomInstance: Atom_MessageLogs, useHook: useStore_MessageLogs } = createAtomWithHook(initial<MessageLogRow[]>([]), "MessageLogs");
+// The names the user gave the voices of the latest realtime sessions (#447); not saved.
+export const { atomInstance: Atom_SpeakerNames, useHook: useStore_SpeakerNames } = createAtomWithHook(initial<SpeakerNames>({}), "SpeakerNames", { is_state_ok: true });
 // export const { atomInstance: Atom_MessageLogs, useHook: useStore_MessageLogs } = createAtomWithHook(generateTestConversationData(20), "MessageLogs"); // For testing
 export const { atomInstance: Atom_MessageInputBoxRatio, useHook: useStore_MessageInputBoxRatio } = createAtomWithHook(20, "MessageInputBoxRatio");
 export const { atomInstance: Atom_MessageInputValue, useHook: useStore_MessageInputValue } = createAtomWithHook("", "MessageInputValue");

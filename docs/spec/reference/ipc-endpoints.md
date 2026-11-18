@@ -7,11 +7,11 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 列の意味:
 
 - 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。
-- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
+- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（459件: 削除 13、取得 206、実行 47、有効化 40、無効化 43、設定 110）
+## 要求（460件: 削除 13、取得 206、実行 47、有効化 40、無効化 43、設定 111）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -471,6 +471,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/gpu_memory` | 取得 | `core: gpu_memory` | 可 | useGpuMemory.updateGpuMemory | 中核のみ |
 | `/get/data/usage_presets` | 取得 | `core: USAGE_PRESETS` | 可 | useUsagePresets.updateFromBackendUsagePresets | 中核のみ |
 | `/set/data/usage_presets` | 設定 | `core: USAGE_PRESETS` | 可 | useUsagePresets.setSuccessUsagePresets | 中核のみ |
+| `/set/data/speaker_names` | 設定 | `core: speakers::set_names` | 可 | useSpeakerNames.updateNames | 中核のみ、ログで伏せる |
 | `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
@@ -596,7 +597,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 
 ## UIだけにあるルート（57件）
 
-UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
+UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
 - `/get/data/ctranslate2_weight`
 - `/run/io_trace`

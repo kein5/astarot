@@ -9,6 +9,29 @@ import i18n from "@root/locales/config.js";
 import { requestSettingsNavigation } from "../../../voice/settingsNavigation";
 import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
 import { revealSetting } from "../../revealSetting.ts";
+import type { SettingTarget } from "../../revealSetting.ts";
+
+// The locale texts (en.yml, ja.yml), read as they are: a text or a group of texts.
+type Texts = { readonly [key: string]: unknown };
+const isTexts = (value: unknown): value is Texts => typeof value === "object" && value !== null;
+const textsOf = (value: unknown): Texts => isTexts(value) ? value : {};
+const isText = (value: unknown): value is string => typeof value === "string";
+
+// A setting shown only under another one (SettingTarget.prereq).
+interface Prerequisite {
+    parent_id: string;
+    required_label?: string;
+}
+
+// One result of the settings search.
+export interface ConfigSearchEntry extends SettingTarget {
+    tab: string;
+    label: string;
+    desc: string;
+    tab_label: string;
+    searchTarget: string[];
+    prereq: Prerequisite | null;
+}
 
 // 検索の元にする config_page 以下の文言の名前空間
 const VALID_TABS = [
@@ -28,13 +51,13 @@ const VALID_TABS = [
 
 // 名前空間と実際のページが違うもの。旧「その他」の項目は VRChat ページにある。
 // チャット読み取りの項目は、同じ名前のページにだけある。
-const NAMESPACE_TABS = {
+const NAMESPACE_TABS: Readonly<Record<string, string[]>> = {
     others: ["vrchat"],
 };
 
 // 名前空間の既定と違うページに置いた項目。複数のページに置いた項目は、
 // 検索結果にもページごとに出す。
-const SETTING_TABS = {
+const SETTING_TABS: Readonly<Record<string, string[]>> = {
     "others.auto_clear_the_message_box": ["appearance"],
     "others.auto_export_message_logs": ["advanced_settings"],
     // On the VRChat page; the Device page has a row that leads there (#554, IA-03).
@@ -45,18 +68,18 @@ const SETTING_TABS = {
     "others.convert_message_to_hiragana": ["appearance"],
 };
 
-export const settingTabs = (namespace, key) =>
+export const settingTabs = (namespace: string, key: string): string[] =>
     SETTING_TABS[`${namespace}.${key}`] ?? NAMESPACE_TABS[namespace] ?? [namespace];
 
 // Labels that name another text, filled in as the page fills them.
-const labelValues = t => ({
+const labelValues = (t: (key: string) => string): Readonly<Record<string, Record<string, string>>> => ({
     "hotkeys.toggle_translation": { translation: t("main_page.translation") },
     "hotkeys.toggle_transcription_send": { transcription_send: t("main_page.transcription_send") },
     "hotkeys.toggle_transcription_receive": { transcription_receive: t("main_page.transcription_receive") },
     "hotkeys.toggle_voice_switch": { name: `${t("main_page.tts")} / ${t("main_page.rvc")}` },
 });
 
-const TAB_LABEL_KEYS = {
+const TAB_LABEL_KEYS: Readonly<Record<string, string>> = {
     vrchat: "config_page.side_menu_labels.vrchat",
     ocr: "config_page.side_menu_labels.ocr",
     device: "config_page.side_menu_labels.device",
@@ -73,11 +96,11 @@ const TAB_LABEL_KEYS = {
 
 // 親項目（前提条件）の依存関係。{ 項目: { parent_id, required_label } }。
 // 今はない（Whisper のモデルと処理デバイスの項目は #288 で削除した）。
-const PREREQUISITES = {};
+const PREREQUISITES: Readonly<Record<string, Prerequisite>> = {};
 
 // オブジェクト内のすべての文字列値を再帰的に収集
-const collectStrings = (obj) => {
-    const list = [];
+const collectStrings = (obj: unknown): string[] => {
+    const list: string[] = [];
     if (!obj) return list;
     if (typeof obj === "string") {
         list.push(obj);
@@ -92,9 +115,13 @@ const collectStrings = (obj) => {
 };
 
 // 文字列内の {{variable}} などのテンプレート変数を整理
-const cleanTemplateStr = (str) => {
+const cleanTemplateStr = (str: unknown): string => {
     return typeof str === "string" ? str.replace(/\{\{[^}]+\}\}/g, "").trim() : "";
 };
+
+// The texts of one locale under config_page. i18next's types ask for a key; with none ("")
+// getResource returns the whole namespace, as with no key at all.
+const configPageTexts = (language: string): Texts => textsOf(textsOf(i18n.getResource(language, "translation", "")).config_page);
 
 export const useConfigSearch = () => {
     const { t, i18n: i18nHook } = useI18n();
@@ -106,18 +133,18 @@ export const useConfigSearch = () => {
     // config_page 以下のリソースから動的に検索インデックスを生成
     const allEntries = useMemo(() => {
         const currentLng = i18nHook.language;
-        const curRes = i18n.getResource(currentLng, "translation")?.config_page || {};
-        const enRes = i18n.getResource("en", "translation")?.config_page || {};
+        const curRes = configPageTexts(currentLng);
+        const enRes = configPageTexts("en");
         const isEn = currentLng === "en";
 
         const names = createLanguageNames(currentLng);
         const english = createLanguageNames("en");
         const values = labelValues(t);
-        const entries = [];
+        const entries: ConfigSearchEntry[] = [];
 
         for (const tab of VALID_TABS) {
-            const curTab = curRes[tab] || {};
-            const enTab = enRes[tab] || {};
+            const curTab = textsOf(curRes[tab]);
+            const enTab = textsOf(enRes[tab]);
             const allKeys = new Set([...Object.keys(curTab), ...Object.keys(enTab)]);
 
             for (const key of allKeys) {
@@ -128,7 +155,7 @@ export const useConfigSearch = () => {
                 if (NOT_SETTINGS.has(`${tab}.${key}`)) continue;
                 // A group of texts with no label of its own (status messages, model
                 // notes) is not a setting; listing it would show its raw key.
-                const labelled = (v) => typeof v === "string" || (v && (v.label || v.label_for_automatic || v.label_for_manual));
+                const labelled = (v: unknown) => typeof v === "string" || (isTexts(v) && (v.label || v.label_for_automatic || v.label_for_manual));
                 if (!labelled(curVal) && !labelled(enVal)) continue;
                 // A section's description string belongs to its title (section_desc
                 // → section_title); on its own it would be listed under its full text.
@@ -137,20 +164,21 @@ export const useConfigSearch = () => {
                 const sectionDesc = descKey !== key && typeof (curTab[descKey] ?? enTab[descKey]) === "string" ? { cur: curTab[descKey], en: enTab[descKey] } : null;
 
                 // label の抽出（currentLng → en フォールバック）。ほかの文言を名前に含むものは、ページと同じ値で埋める
-                const filled = values[`${tab}.${key}`] && typeof (curVal ?? enVal) === "object"
-                    ? t(`config_page.${tab}.${key}.label`, values[`${tab}.${key}`]) : null;
-                const rawLabel = filled ?? (typeof curVal === "object" ? (curVal.label || curVal.label_for_automatic || curVal.label_for_manual) : null)
-                    ?? (typeof enVal === "object" ? (enVal.label || enVal.label_for_automatic || enVal.label_for_manual) : null)
+                const labelValuesOf = values[`${tab}.${key}`];
+                const filled = labelValuesOf && typeof (curVal ?? enVal) === "object"
+                    ? t(`config_page.${tab}.${key}.label`, labelValuesOf) : null;
+                const rawLabel = filled ?? (isTexts(curVal) ? (curVal.label || curVal.label_for_automatic || curVal.label_for_manual) : null)
+                    ?? (isTexts(enVal) ? (enVal.label || enVal.label_for_automatic || enVal.label_for_manual) : null)
                     ?? (typeof curVal === "string" ? curVal : (typeof enVal === "string" ? enVal : key));
 
                 // desc の抽出
-                const rawDesc = (typeof curVal === "object" ? (curVal.desc || curVal.desc_for_automatic || curVal.desc_for_manual) : null)
-                    ?? (typeof enVal === "object" ? (enVal.desc || enVal.desc_for_automatic || enVal.desc_for_manual) : null)
+                const rawDesc = (isTexts(curVal) ? (curVal.desc || curVal.desc_for_automatic || curVal.desc_for_manual) : null)
+                    ?? (isTexts(enVal) ? (enVal.desc || enVal.desc_for_automatic || enVal.desc_for_manual) : null)
                     ?? sectionDesc?.cur ?? sectionDesc?.en
                     ?? "";
 
                 // 検索対象テキストの収集（現在言語 + en の両方を包含）
-                const searchStrings = [];
+                const searchStrings: unknown[] = [];
                 if (curVal) {
                     searchStrings.push(...collectStrings(curVal));
                 }
@@ -189,25 +217,27 @@ export const useConfigSearch = () => {
             }
         }
         const realtimeLanguages = new Set([
-            ...(models.models?.flatMap(model => model.languages ?? []) ?? []),
-            settings?.mic?.language, settings?.speaker?.language,
+            ...(models.models?.flatMap(model => textsOf(model).languages ?? []) ?? []),
+            textsOf(settings?.mic).language, textsOf(settings?.speaker).language,
         ]);
         // The experimental features' texts are one level down (items.<id>), with their own settings
         // under them. A feature's own setting shows only while it is on; until then the search
         // leads to the feature's switch.
-        const experimental = id => curRes.experimental_features?.items?.[id] ?? enRes.experimental_features?.items?.[id];
-        const experimentalIds = new Set([...Object.keys(curRes.experimental_features?.items ?? {}), ...Object.keys(enRes.experimental_features?.items ?? {})]);
+        const curItems = textsOf(textsOf(curRes.experimental_features).items);
+        const enItems = textsOf(textsOf(enRes.experimental_features).items);
+        const experimental = (id: string) => curItems[id] ?? enItems[id];
+        const experimentalIds = new Set([...Object.keys(curItems), ...Object.keys(enItems)]);
         for (const id of experimentalIds) {
             const item = experimental(id);
-            const parts = [[`experimental_features.${id}`, item, null],
-                ...Object.entries(item ?? {}).filter(([, value]) => value?.label)
-                    .map(([key, value]) => [`experimental_features.${id}.${key}`, value, { parent_id: `experimental_features.${id}` }])];
+            const parts: [string, unknown, Prerequisite | null][] = [[`experimental_features.${id}`, item, null],
+                ...Object.entries(textsOf(item)).filter(([, value]) => isTexts(value) && value.label)
+                    .map(([key, value]): [string, unknown, Prerequisite] => [`experimental_features.${id}.${key}`, value, { parent_id: `experimental_features.${id}` }])];
             for (const [setting_id, texts, prereq] of parts) {
-                if (!texts?.label) continue;
+                if (!isTexts(texts) || !texts.label) continue;
                 entries.push({
                     tab: "experimental_features", setting_id, label: cleanTemplateStr(texts.label), desc: cleanTemplateStr(texts.desc ?? ""),
                     tab_label: t(TAB_LABEL_KEYS.experimental_features), prereq,
-                    searchTarget: [texts.label, texts.desc].filter(text => typeof text === "string")
+                    searchTarget: [texts.label, texts.desc].filter(isText)
                         .map(text => cleanTemplateStr(text).normalize("NFKC").toLowerCase()),
                 });
             }
@@ -223,9 +253,9 @@ export const useConfigSearch = () => {
             tab: "transcription", setting_id: "realtime_asr", label: t("realtime.title"),
             desc: t("realtime.auto_help"), tab_label: t(TAB_LABEL_KEYS.transcription), prereq: null,
             searchTarget: [t("realtime.title"), t("realtime.mic_language"), t("realtime.speaker_language"),
-                ...[...realtimeLanguages].filter(Boolean).flatMap(code => code === "auto"
+                ...[...realtimeLanguages].filter(isText).filter(Boolean).flatMap(code => code === "auto"
                     ? [t("realtime.auto_language"), "auto"] : [code, names.fromCode(code), english.fromCode(code)])]
-                .map(text => text.normalize("NFKC").toLowerCase()),
+                .filter(isText).map(text => text.normalize("NFKC").toLowerCase()),
         });
         return entries;
     }, [i18nHook.language, t, currentSelectableOcrSourceLanguageList.data, currentOcrSourceLanguage.data, models, settings]);
@@ -241,7 +271,7 @@ export const useConfigSearch = () => {
 
     const clearQuery = useCallback(() => setQuery(""), []);
 
-    const navigateToSetting = useCallback((result) => {
+    const navigateToSetting = useCallback((result: ConfigSearchEntry) => {
         const navigate = () => {
             clearQuery();
             if (currentSelectedConfigTabId.data !== result.tab) {

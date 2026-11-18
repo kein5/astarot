@@ -32,6 +32,10 @@
         align-items: center;
         gap: 0.6rem;
     }
+    // The same voices as the row above (#447): drawn close under it, as one run.
+    &.continues {
+        padding-top: 0;
+    }
 }
 
 .info_box {

@@ -10,6 +10,7 @@ import * as chatboxLength from "./chatboxLength.ts";
 import * as voiceErrorText from "../voice/voiceErrorText.ts";
 import * as featureLabel from "./featureLabel.ts";
 import { nextLogView, rowsBetween } from "./messageLogView.ts";
+import { speakerContinuations } from "./speakerNames.ts";
 import * as switchBlocksModule from "../main/switchBlocks.ts";
 import { typeScriptAware } from "../test/hookHarness.js";
 
@@ -313,13 +314,16 @@ test("LogBox subscribes only to its log and resend setting; unchanged row props 
     const message = { id: "first", messages: { original: { message: "hello" }, translations: [] } };
     let logs = [message];
     const actions = { sendMessage() {}, updateMessageInputValue() {} };
+    // The speakers' names (#447): one stable function, so the rows' props stay the same.
+    const naming = { speakerNames: {}, nameSpeakers() {} };
     const Virtualizer = () => null;
     const { LogBox } = await load("app/main_page/main_section/message_container/log_box/LogBox.jsx", runtime, {
         "virtua": { Virtualizer },
         "./message_container/MessageContainer": { MessageContainer: React.memo(icon) }, "./EmptyState": { EmptyState: () => null },
         "jotai": { useAtomValue: atom => { assert.equal(atom, "logs"); subscriptions.push(atom); return { data: logs }; } },
         "@store": { store: {}, Atom_MessageLogs: "logs" },
-        "@logics_common": { useMessageActions: () => actions, nextLogView, rowsBetween },
+        "@logics_common": { useMessageActions: () => actions, nextLogView, rowsBetween, speakerContinuations,
+            useSpeakerNaming: () => naming },
         "@logics_configs": { useSettingValue: name => { subscriptions.push(name); return { data: true }; } },
     });
     assert.equal(LogBox.$$typeof, Symbol.for("react.memo"));
@@ -423,7 +427,7 @@ test("the window geometry controller keeps its listeners and only sends layout c
         toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); },
     } };
     t.onTestFinished(() => { delete globalThis.document; });
-    const { WindowGeometryController } = await load("../logics/common/useWindow.js", runtime, {
+    const { WindowGeometryController } = await load("../logics/common/useWindow.ts", runtime, {
         "@tauri-apps/api/window": {},
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython() {} }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
@@ -456,7 +460,7 @@ test("while the engine starts, resizing updates the layout but does not save the
     globalThis.document = { documentElement: { hasAttribute: name => attributes.has(name),
         toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); } } };
     t.onTestFinished(() => { delete globalThis.document; });
-    const { WindowGeometryController } = await load("../logics/common/useWindow.js", runtime, {
+    const { WindowGeometryController } = await load("../logics/common/useWindow.ts", runtime, {
         "@tauri-apps/api/window": {},
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => sent.push([endpoint, data]) }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
@@ -509,6 +513,7 @@ test("memoized log rows expose pending status and keep edit/resend explicit", as
     const { MessageContainer } = await load("app/main_page/main_section/message_container/log_box/message_container/MessageContainer.jsx", runtime, {
         "@store": { store: {} },
         "./message_sub_menu_container/MessageSubMenuContainer": { MessageSubMenuContainer: menu },
+        "./SpeakerNames": { speakersText: () => "", SpeakerNamesEditor: () => null },
         // A row must not subscribe to the global log/input or settings hooks.
     });
     assert.equal(MessageContainer.$$typeof, Symbol.for("react.memo"));

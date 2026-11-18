@@ -410,6 +410,14 @@ main_page:
         received_ocr: "受信(チャット読み取り)"
         speakers: "話者{{speakers}}"
         speakers_separator: "・"
+        speaker_label: "話者{{label}}"
+        speaker_names_edit: "{{speakers}}に名前を付ける"
+        speaker_names_tooltip: "声の記号に名前を付けます。名前はログ、デスクトップの字幕、VRの大きいログに出します。"
+        speaker_name_field: "話者{{label}}の名前"
+        speaker_names_hint: "名前は今の聞き取りの間だけ使い、保存しません。空にすると記号に戻ります。"
+        speaker_names_save: "名前を付ける"
+        speaker_names_cancel: "キャンセル"
+        speaker_names_failed: "話者の名前を付けられませんでした。名前は32文字までです。"
         system: "システム"
 
         resend_button_on_hover_desc: "長押しで送信"
@@ -513,7 +521,7 @@ config_page:
         device: "マイクの感度 {{mic}} · スピーカーの感度 {{speaker}}"
         ocr: "読み取りの間隔 {{interval}} ms · 信頼度の下限 {{confidence}}"
         tts: "モニター {{monitor}} · マイクの字幕の読み上げ {{mic}}"
-        transcription: "使えるクラウドのエンジン {{cloud}}件 · マイクの区切り {{phrase}}秒"
+        transcription: "マイクの区切り {{phrase}}秒 · スピーカーの区切り {{speaker}}秒"
         translation: "設定済みの翻訳API {{api}}件 · ローカルのLLM {{llm}}件"
         appearance: "ログの文字 {{log}}% · 透明度 {{transparency}}%"
         hotkeys_one: "{{count}}件にキーを割り当て済み"
@@ -647,7 +655,7 @@ config_page:
         setup_not_downloaded: "未ダウンロード"
         setup_unavailable: "まだダウンロードできません"
         download_unavailable: "まだ取得できません"
-        models_unavailable: "下のモデルは、まだダウンロードできません。翻訳には、外部翻訳APIかローカルLLMのエンジンを使ってください。"
+        models_unavailable: "標準の翻訳モデルはまだダウンロードできません。翻訳には下の「詳細設定」にある外部翻訳APIかローカルLLMを使ってください。"
         provider_in_use: "使用中"
         provider_ready: "使用できます"
         provider_not_set: "未設定"
@@ -657,8 +665,8 @@ config_page:
         llm_privacy_desc: "LLMのエンジンには翻訳する文とプロンプトのほかに、直近の会話を最大5件送ります。会話はチャットとマイクの自分の発言と、スピーカーから聞き取った相手の発言です。どれにも言った時刻（時:分）が付きます。会話はメモリにだけ置き、エンジンや接続先やモデルを変えたときと翻訳をオフにしたときに消します。"
 
         ctranslate2_weight_type:
-            label: "{{ctranslate2}}のモデルタイプ"
-            desc: "翻訳エンジン「{{ctranslate2}}」で翻訳する際に使用する翻訳モデルを選択できます。"
+            label: "翻訳モデル"
+            desc: "お使いのPCで翻訳するモデルを選びます。ダウンロード済みのモデル、ダウンロードできるモデル、自分で追加したモデルが並びます。"
             small: "通常モデル（{{capacity}}）"
             large: "高精度モデル（{{capacity}}）"
             license_commercial: "ライセンス: {{license}}（商用利用可）"
@@ -777,16 +785,22 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "クラウドエンジンは、このページの「詳細設定」にある「クラウド音声認識」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」は、お使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            desc: "APIのエンジンは下の「API（クラウドや自分のサーバー）」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」はお使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」に、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
+            badge_own: "自分のサーバー"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
                 openai_whisper: "OpenAI Whisper"
                 custom_whisper: "カスタムWhisperサーバー"
                 deepgram: "Deepgram"
+        # The engines' two systems (#414), in the order the page shows them.
+        speechcpp_section:
+            label: "お使いのPCで動かす（speech.cpp）"
+            desc: "音声はお使いのPCの外に出ません。カタログのモデルを取得するか、お使いのPCにある自分のモデルのファイルを登録して使います。"
         cloud_section:
-            label: "クラウド音声認識"
-            desc: "ここでAPIキーを登録すると、上の「音声認識で使用するエンジン」で選べるようになります。"
+            label: "API（クラウドや自分のサーバー）"
+            desc: "音声をサービスや自分のサーバーへ送って文字にします。APIキーを登録すると、上の「音声認識で使用するエンジン」で選べます。キーは設定のファイルではなくアプリのキーの保管場所に置きます。"
         groq_whisper_auth_key:
             label: "Groq Whisper APIキー"
         openai_whisper_auth_key:
@@ -1111,6 +1125,7 @@ config_page:
                     display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
                     is_primary: "（メイン）"
                     missing: "接続されていないモニター（前に選んだもの）"
+                    unknown: "前に選んだモニター（一覧を読み取れません）"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "VR UIを表示する"

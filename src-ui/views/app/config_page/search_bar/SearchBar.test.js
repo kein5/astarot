@@ -29,7 +29,7 @@ async function setup(t, { reducedMotion = false, control = true, delayed = false
     document.querySelector = selector => available && selector.includes('data-setting-id="osc"') ? row : null;
     const hookRuntime = hooks(), tabs = [];
     let proceed;
-    const { useConfigSearch } = await loadModule(new URL("../../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), hookRuntime, {
+    const { useConfigSearch } = await loadModule(new URL("../../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), hookRuntime, {
         "@useI18n": { useI18n: () => ({ t: name => name, i18n: { language: "ja" } }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "appearance" }, updateSelectedConfigTabId: tab => tabs.push(tab) }) },
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },

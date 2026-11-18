@@ -964,6 +964,11 @@ impl Core {
             target_languages,
             transliteration_message: original["transliteration"].clone(),
             transliteration_translation: Value::Array(rows.iter().map(|row| row["transliteration"].clone()).collect()),
+            // The labels of a final and of its translation (#447); a partial has none.
+            speakers: payload["speakers"]
+                .as_array()
+                .map(|labels| labels.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                .unwrap_or_default(),
         }
     }
 

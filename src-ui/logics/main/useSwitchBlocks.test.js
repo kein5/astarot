@@ -8,7 +8,7 @@ const load = async () => {
     const state = { ready: true, needs: [], language: "Japanese", fullReadiness: null, jobs: {},
         ocr: { language: "Japanese", language_supported: true, required_models: ["a"], missing_models: ["a"] },
         voiceSettings: null, directState: {}, published: {} };
-    const mod = await loadModule(new URL("./useSwitchBlocks.js", import.meta.url), runtime, {
+    const mod = await loadModule(new URL("./useSwitchBlocks.ts", import.meta.url), runtime, {
         "@logics_configs": { useOcr: () => ({
             currentOcrModelReadiness: { data: state.ocr }, currentOcrSourceLanguage: { data: state.language },
             currentOcrReadiness: { data: state.fullReadiness }, getOcrModelReadiness: () => calls.push("get"),

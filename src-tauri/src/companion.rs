@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Runtime, State, WebviewUrl,
@@ -48,6 +48,9 @@ const HIDE_AFTER: Duration = Duration::from_millis(450);
 const WATCH_EVERY: Duration = Duration::from_millis(80);
 /// How long the pointer stays near the edge before the hexagram comes out (a few looks).
 const COME_OUT_AFTER: Duration = Duration::from_millis(160);
+/// How far the pointer may move toward or away from the edge and still count as staying
+/// (logical px). Resting at the end of the desktop it does not move across the edge at all.
+const STAY_STILL: f64 = 4.0;
 /// The panel's distance from the hexagram's plate.
 const PANEL_GAP: f64 = 10.0;/// A click on the tray icon first takes the focus from the open panel, which hides
 /// it; the click that follows must not open it again.
@@ -73,6 +76,8 @@ static ENABLED: AtomicBool = AtomicBool::new(false);
 /// What the main window last asked for. Turning the feature on takes a moment (two windows are
 /// made); a request to turn it off in that moment is kept here and carried out once it is on.
 static WANTED: AtomicBool = AtomicBool::new(false);
+/// Held while `companion_set` turns the feature on or off.
+static SWITCHING: Mutex<()> = Mutex::new(());
 
 /// The feature is on in this run.
 pub fn enabled() -> bool {
@@ -452,15 +457,33 @@ fn near_edge(edge: Edge, work: Rect, scale: f64, cursor: (f64, f64)) -> bool {
     }
 }
 
-/// The pointer has stayed near the edge for `COME_OUT_AFTER`. Between two monitors the edge is
-/// not the end of the desktop: a pointer passing over it to the other monitor is near for one
-/// look or two, and must not bring the hexagram out.
-fn held_near(near: bool, since: &mut Option<Instant>, now: Instant) -> bool {
-    if !near {
+/// How far the pointer is from the edge, inward (physical px).
+fn depth(edge: Edge, work: Rect, cursor: (f64, f64)) -> f64 {
+    let (left, top) = (f64::from(work.0), f64::from(work.1));
+    let (right, bottom) = (left + f64::from(work.2), top + f64::from(work.3));
+    match edge {
+        Edge::Right => right - cursor.0,
+        Edge::Left => cursor.0 - left,
+        Edge::Top => cursor.1 - top,
+        Edge::Bottom => bottom - cursor.1,
+    }
+}
+
+/// The pointer has stayed near the edge for `COME_OUT_AFTER`, at about the same depth (`near`
+/// is its depth, `None` when it is not near). Between two monitors the edge is not the end of
+/// the desktop: a pointer passing over it to the other monitor is near for one look or two,
+/// and must not bring the hexagram out. One that passes slowly is near for longer, but keeps
+/// moving across the strip, so the wait starts again each time it has moved `still` (#563).
+fn held_near(near: Option<f64>, since: &mut Option<(Instant, f64)>, now: Instant, still: f64) -> bool {
+    let Some(depth) = near else {
         *since = None;
         return false;
+    };
+    match *since {
+        Some((_, anchor)) if (depth - anchor).abs() <= still => {}
+        _ => *since = Some((now, depth)),
     }
-    now.duration_since(*since.get_or_insert(now)) >= COME_OUT_AFTER
+    since.is_some_and(|(started, _)| now.duration_since(started) >= COME_OUT_AFTER)
 }
 
 fn inside(rect: Rect, cursor: (f64, f64), margin: f64) -> bool {
@@ -623,7 +646,7 @@ fn watch(app: AppHandle) {
     }
     std::thread::spawn(move || {
         let mut away_since: Option<Instant> = None;
-        let mut near_since: Option<Instant> = None;
+        let mut near_since: Option<(Instant, f64)> = None;
         let mut round: u32 = 0;
         while enabled() {
             std::thread::sleep(WATCH_EVERY);
@@ -645,8 +668,9 @@ fn watch(app: AppHandle) {
             }) else { continue };
             let (edge, out, Some((work, scale))) = inner else { continue };
             let cursor = (cursor.x, cursor.y);
+            let near = near_edge(edge, work, scale, cursor).then(|| depth(edge, work, cursor));
             let result = match out {
-                None if held_near(near_edge(edge, work, scale, cursor), &mut near_since, Instant::now()) => {
+                None if held_near(near, &mut near_since, Instant::now(), STAY_STILL * scale) => {
                     away_since = None;
                     near_since = None;
                     come_out(&app, edge, work, scale)
@@ -731,6 +755,22 @@ pub(crate) fn install(app: &AppHandle) -> Result<(), String> {
     if let Err(error) = install_tray(app) {
         crate::startup_log(&format!("Tray icon could not be made: {error}"));
     }
+    if let Err(error) = make_windows(app) {
+        // A start that failed half way leaves no window behind: the feature stays off, and
+        // turning it off later would find nothing to undo (#563).
+        if !enabled() {
+            destroy_windows(app);
+        }
+        return Err(error);
+    }
+    // Only now: a failed start leaves the feature off for every command.
+    ENABLED.store(true, Ordering::SeqCst);
+    tray::refresh_feature(app);
+    watch(app.clone());
+    Ok(())
+}
+
+fn make_windows(app: &AppHandle) -> Result<(), String> {
     if app.get_webview_window(PANEL).is_none() {
         build_panel(app).map_err(|error| error.to_string())?;
     }
@@ -738,11 +778,15 @@ pub(crate) fn install(app: &AppHandle) -> Result<(), String> {
     if app.get_webview_window(HANDLE).is_none() {
         build_handle(app).map_err(|error| error.to_string())?;
     }
-    // Only now: a failed start leaves the feature off for every command.
-    ENABLED.store(true, Ordering::SeqCst);
-    tray::refresh_feature(app);
-    watch(app.clone());
     Ok(())
+}
+
+fn destroy_windows(app: &AppHandle) {
+    for label in [PANEL, HANDLE] {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.destroy();
+        }
+    }
 }
 
 /// At launch with the feature on: whether the main window may stay hidden in the tray. Only a
@@ -786,11 +830,7 @@ pub(crate) fn uninstall(app: &AppHandle) -> Result<(), String> {
         inner.panel_hidden_at = None;
         inner.out = None;
     }
-    for label in [PANEL, HANDLE] {
-        if let Some(window) = app.get_webview_window(label) {
-            let _ = window.destroy();
-        }
-    }
+    destroy_windows(app);
     tray::refresh_feature(app);
     show_main(app)
 }
@@ -1009,6 +1049,13 @@ pub async fn companion_set(window: WebviewWindow, enabled: bool) -> Result<(), S
     }
     let app = window.app_handle().clone();
     WANTED.store(enabled, Ordering::SeqCst);
+    // One change at a time: on, off and on again in quick succession ran two installs at once,
+    // and the second failed on the window labels the first had just taken (#563).
+    let _one_at_a_time = SWITCHING.lock().unwrap_or_else(PoisonError::into_inner);
+    // A later request came while this one waited: that one decides.
+    if WANTED.load(Ordering::SeqCst) != enabled {
+        return Ok(());
+    }
     if enabled {
         install(&app).inspect_err(|error| crate::startup_log(&format!("Tray companion could not start: {error}")))?;
         // Turned off while it was being made: the off request found nothing to undo yet.
@@ -1290,13 +1337,46 @@ mod tests {
         let start = Instant::now();
         let mut since = None;
         // Passing to the next monitor: near for one look, then gone.
-        assert!(!held_near(true, &mut since, start));
-        assert!(!held_near(false, &mut since, start + WATCH_EVERY));
+        assert!(!held_near(Some(5.0), &mut since, start, STAY_STILL));
+        assert!(!held_near(None, &mut since, start + WATCH_EVERY, STAY_STILL));
         assert_eq!(since, None);
         // Resting at the edge: out after a few looks.
-        assert!(!held_near(true, &mut since, start + WATCH_EVERY * 2));
-        assert!(!held_near(true, &mut since, start + WATCH_EVERY * 3));
-        assert!(held_near(true, &mut since, start + WATCH_EVERY * 2 + COME_OUT_AFTER));
+        assert!(!held_near(Some(1.0), &mut since, start + WATCH_EVERY * 2, STAY_STILL));
+        assert!(!held_near(Some(1.0), &mut since, start + WATCH_EVERY * 3, STAY_STILL));
+        assert!(held_near(Some(1.0), &mut since, start + WATCH_EVERY * 2 + COME_OUT_AFTER, STAY_STILL));
+    }
+
+    #[test]
+    fn a_pointer_crossing_the_strip_slowly_does_not_bring_the_hexagram_out() {
+        // #563: crossing the 14 px strip to the next monitor at 3 px a look (about 40 px a
+        // second) kept the pointer near for 400 ms, and the hexagram came out on the way.
+        let start = Instant::now();
+        let mut since = None;
+        let mut looked = start;
+        for step in 0..5 {
+            let depth = HOT_DEPTH - 3.0 * f64::from(step);
+            assert!(!held_near(Some(depth), &mut since, looked, STAY_STILL), "look {step}");
+            looked += WATCH_EVERY;
+        }
+        assert!(!held_near(None, &mut since, looked, STAY_STILL));
+        // Stopping inside the strip, or sliding along the edge at the same depth, still does.
+        let mut since = None;
+        for step in 0..3 {
+            let near = held_near(Some(6.0 + 0.5 * f64::from(step)), &mut since, start + WATCH_EVERY * step, STAY_STILL);
+            assert_eq!(near, WATCH_EVERY * step >= COME_OUT_AFTER, "look {step}");
+        }
+        // At 150 % the pointer may move further in physical px.
+        let mut since = None;
+        assert!(!held_near(Some(10.0), &mut since, start, STAY_STILL * 1.5));
+        assert!(held_near(Some(5.0), &mut since, start + COME_OUT_AFTER, STAY_STILL * 1.5));
+    }
+
+    #[test]
+    fn depth_is_measured_inward_from_each_edge() {
+        assert_eq!(depth(Edge::Right, WORK, (1919.0, 500.0)), 1.0);
+        assert_eq!(depth(Edge::Left, WORK, (3.0, 500.0)), 3.0);
+        assert_eq!(depth(Edge::Top, WORK, (900.0, 2.0)), 2.0);
+        assert_eq!(depth(Edge::Bottom, WORK, (900.0, 1030.0)), f64::from(WORK.1) + f64::from(WORK.3) - 1030.0);
     }
 
     #[test]

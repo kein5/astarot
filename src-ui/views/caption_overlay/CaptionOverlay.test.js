@@ -98,6 +98,18 @@ test("a heard line leads with who spoke and takes that voice's colour", async co
     for (const index of [3, 4, 5]) assert.doesNotMatch(classes[index], /voice_/);
 });
 
+test("a voice with a name is written by its name and keeps its label's colour", async context => {
+    // #447: the names given to the voices of the session.
+    const heard = (id, speakers, speaker_names) =>
+        ({ id, kind: "received", text: "やあ", translations: [], pending: false, until: 9000, speakers, speaker_names });
+    const s = await setup(context, { ...base, lines: [
+        heard("a", ["A", "B"], ["ミカ", ""]), heard("b", ["B"], ["ユウ"]), heard("c", ["A"], ["ミカ", "x"]),
+    ] });
+    assert.deepEqual(s.texts().map(child => child[0].props.children), ["ミカ·B", "ユウ", "A"]);
+    const classes = s.lineClasses();
+    assert.match(classes[0], /voice_0/); assert.match(classes[1], /voice_1/);
+});
+
 test("each voice has a colour of its own, none of them the user's blue", async () => {
     const scss = await readFile(new URL("./CaptionOverlay.module.scss", import.meta.url), "utf8");
     const ink = name => scss.match(new RegExp(`^\\.${name} \\{[^}]*--caption_ink: (#[0-9a-f]{6});`, "m"))?.[1];

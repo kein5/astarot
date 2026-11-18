@@ -36,7 +36,8 @@ async function setup(context, { supported = true, fail = () => null } = {}) {
         "@tauri-apps/api/core": { invoke },
         "@tauri-apps/api/event": { listen },
         "../../../logics/captionOverlay/adjust": adjust,
-        "@store": { useStore_MessageLogs: () => ({ currentMessageLogs: { data: state.rows } }) },
+        "@store": { useStore_MessageLogs: () => ({ currentMessageLogs: { data: state.rows } }),
+            useStore_SpeakerNames: () => ({ currentSpeakerNames: { data: state.speakerNames ?? {} } }) },
         "@useI18n": { useI18n: () => ({ t }) },
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }),
             useNotificationStatus: () => ({ showNotification_Error: (message, options) => notices.push([message, options]) }) },
@@ -107,6 +108,23 @@ test("where the overlay is not supported, nothing is opened or sent", async cont
     s.state.enabled = true; s.state.rows = [row(1, "sent", "こんにちは")];
     await s.render();
     assert.deepEqual(s.calls.map(([command]) => command), ["caption_overlay_supported"]);
+});
+
+test("a name given to a voice goes to the window, and the line keeps its display time", async context => {
+    // #447: naming a voice redraws the captions; the words did not change, so the time stays.
+    const s = await setup(context);
+    s.state.enabled = true;
+    await s.render();
+    s.state.rows = [{ ...row("heard", "received", "やあ"), speakers: ["A"], realtime: { namespace: "one" } }];
+    await s.render();
+    const before = s.of("caption_overlay_update").at(-1).snapshot.lines[0];
+    assert.equal(before.speaker_names, undefined);
+    s.tick(1000);
+    s.state.speakerNames = { one: { A: "ミカ" } };
+    await s.render();
+    const after = s.of("caption_overlay_update").at(-1).snapshot.lines[0];
+    assert.deepEqual(after.speaker_names, ["ミカ"]);
+    assert.equal(after.until, before.until);
 });
 
 test("rows already in the log are not shown; new rows get the display time and carry the look", async context => {

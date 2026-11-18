@@ -13,7 +13,7 @@ const box = path => new URL(`./setting_section/setting_box/${path}`, import.meta
 const read = path => readFileSync(box(path), "utf8");
 const locales = Object.fromEntries(["en", "ja"].map(language =>
     [language, yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"))]));
-const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
+const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
     "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
     "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
     "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
@@ -80,7 +80,7 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     assert.equal(runtime.render(rvc.Rvc).props.children[1].props.status, "voice.input_stopped");
 
     // The settings search still finds it, on the RVC page.
-    const source = readFileSync(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), "utf8");
     assert.match(source, /tab: "rvc", setting_id: "direct_voice_settings", label: t\("voice\.input_title"\)/);
     assert.match(read("advanced_settings/DirectVoiceSettings.jsx"), /data-setting-id=\{variant === "rvc" \? "rvc_settings" : "direct_voice_settings"\}/);
 });
@@ -118,7 +118,7 @@ const searchOver = async language => {
         const text = key.split(".").reduce((node, part) => node?.[part], locales[language]);
         return typeof text === "string" ? text.replace(/\{\{(\w+)\}\}/g, (_, name) => values?.[name] ?? "") : key;
     };
-    const { useConfigSearch } = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
+    const { useConfigSearch } = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: lookup, i18n: { language } }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "translation" }, updateSelectedConfigTabId() {} }) },
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
@@ -265,6 +265,29 @@ test("translation keeps its local model in sight; the APIs and local LLMs it cou
     const list = name => JSON.parse(source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`))[1]);
     assert.deepEqual(providers("ExternalTranslationAPI_Container"), list("EXTERNAL_API_PROVIDERS"));
     assert.deepEqual(providers("LocalLLM_Container"), list("LOCAL_LLM_PROVIDERS"));
+});
+
+test("speech recognition shows its engine and the engine's two systems in sight; what is set once is in 「詳細設定」", () => {
+    const source = read("transcription/Transcription.jsx");
+    const { outside, fold } = pageParts(source, "Transcription");
+    // #414: speech.cpp on your PC (its models and server), then the APIs (one fold per provider
+    // with its key), as the translation catalog splits translation (#413). The APIs left
+    // 「詳細設定」; the realtime captions stayed, since they are set once.
+    assert.deepEqual(outside, ["TranscriptionEngine_Container", "EngineGroup", "SpeechServers", "EngineGroup", "CloudTranscription_Container", "OldWhisperWeights"]);
+    assert.deepEqual(fold, ["Mic_Container", "Speaker_Container", "RealtimeASRSettings"]);
+    assert.deepEqual([...source.matchAll(/<EngineGroup group="(\w+)">/g)].map(match => match[1]), ["speechcpp", "api"]);
+    // The search finds both groups by their names, and leads to their headings.
+    assert.match(source, /const ENGINE_GROUPS = \{ speechcpp: "speechcpp_section", api: "cloud_section" \};/);
+    for (const language of ["en", "ja"]) {
+        const texts = locales[language].config_page.transcription;
+        for (const id of ["speechcpp_section", "cloud_section"]) {
+            assert.equal(typeof texts[id].label, "string", `${language}: ${id}`);
+            assert.equal(typeof texts[id].desc, "string", `${language}: ${id}`);
+        }
+        assert.equal(typeof texts.select_transcription_engine.badge_own, "string");
+        assert.match(locales[language].config_page.advanced_status.transcription, /\{\{phrase\}\}[\s\S]*\{\{speaker\}\}/);
+        assert.doesNotMatch(locales[language].config_page.advanced_status.transcription, /\{\{cloud\}\}/);
+    }
 });
 
 test("captions and VR turns the captions on in sight; where they sit, how they look and what they show are in 「詳細設定」", () => {

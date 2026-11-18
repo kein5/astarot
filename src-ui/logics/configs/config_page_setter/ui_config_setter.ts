@@ -1,5 +1,7 @@
 import { useAtomValue } from "jotai";
-import { createAtomWithHook, dynamicStoreRegistry } from "@store";
+import type { Atom } from "jotai";
+import { createAtomWithHook } from "@store";
+import type { AtomState } from "@store";
 import { settingPendingControl } from "../../common/pendingRequestRecovery.ts";
 import vr_layout from "../../../views/vr/vr_layout.json";
 
@@ -12,8 +14,12 @@ import {
     useSettingsLogics,
     useConfigFunctions,
 } from "./useSettingsLogics";
+import type { SettingFields, SettingLogicsEntry } from "./useSettingsLogics";
+import type { AnySettingDefinition, CategoryApi, ConfigFunctions, SettingCategory, SettingName, SettingValues } from "./settingTypes.ts";
 
 
+// Each entry's default_value is checked against its setting's type (SettingValues in settingTypes.ts).
+// Tests and tools/spec_catalog.py read these entries as text, so keep their keys in the order written.
 export const SETTINGS_ARRAY = [
     {
         Category: "Device",
@@ -1422,20 +1428,34 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "usage_presets",
     },
 
-];
+] satisfies readonly AnySettingDefinition[];
 
 
-
+const settingAtoms = new Map<SettingName, Atom<unknown>>();
 for (const setting_data of SETTINGS_ARRAY) {
-    createAtomWithHook(setting_data.default_value, setting_data.Base_Name, { pending_control: settingPendingControl(setting_data) });
+    const { atomInstance } = createAtomWithHook(setting_data.default_value, setting_data.Base_Name, { pending_control: settingPendingControl(setting_data) });
+    settingAtoms.set(setting_data.Base_Name, atomInstance);
 }
 
 // Read-only views subscribe to the setting they display, rather than every
 // setting and setter in a category (which also includes window geometry).
-export const useSettingValue = baseName => useAtomValue(dynamicStoreRegistry[`Atom_${baseName}`]);
+// The overload states the value's type: the atom starts at the entry's default_value,
+// which `satisfies` checks against SettingValues, and only the setting's hooks write it.
+export function useSettingValue<N extends SettingName>(baseName: N): AtomState<SettingValues[N]>;
+export function useSettingValue(baseName: SettingName): unknown {
+    const atom = settingAtoms.get(baseName);
+    if (!atom) throw new TypeError(`No setting is named ${baseName}`);
+    return useAtomValue(atom);
+}
 
-const buildCategoryApiFromSettings = (settings, settingsArray, Category, extraFunctions = {}) => {
-    const api = {};
+// The fields are named at run time, from the entries; TypeScript types a computed key as
+// string and cannot follow them. The overload states which fields there are (CategoryApi, worked
+// out from the same entries), as field() in store.ts does for the fields of one atom.
+function buildCategoryApiFromSettings<C extends SettingCategory>(settings: SettingFields,
+    settingsArray: readonly SettingLogicsEntry[], Category: C, extraFunctions: ConfigFunctions): CategoryApi<C>;
+function buildCategoryApiFromSettings(settings: SettingFields, settingsArray: readonly SettingLogicsEntry[],
+    Category: SettingCategory, extraFunctions: ConfigFunctions): SettingFields {
+    const api: SettingFields = {};
     const filtered = settingsArray.filter((s) => s.Category === Category);
     const COMMON_PROPS = [ "current", "update", "get", "set", "toggle", "setSuccess", "delete", "deleteSuccess", "updateFromBackend" ];
 
@@ -1469,9 +1489,9 @@ const buildCategoryApiFromSettings = (settings, settingsArray, Category, extraFu
         }
     }
     return { ...api, ...extraFunctions };
-};
+}
 
-export const createCategoryHook = (Category) => {
+export const createCategoryHook = <C extends SettingCategory>(Category: C): () => CategoryApi<C> => {
     return () => {
         const { settings } = useSettingsLogics(SETTINGS_ARRAY, Category);
         const extraFunctions = useConfigFunctions(Category);

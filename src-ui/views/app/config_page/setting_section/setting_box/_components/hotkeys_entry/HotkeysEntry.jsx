@@ -5,6 +5,10 @@ import DeleteSvg from "@images/cancel.svg?react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 
+// The symbol keys by their code, as the global shortcut parser names them without Shift.
+const SYMBOL_KEYS = { Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]",
+    Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/" };
+
 export const HotkeysEntry = (props) => {
     const { t } = useI18n();
     const [isAcceptingInput, setIsAcceptingInput] = useState(false);
@@ -35,12 +39,15 @@ export const HotkeysEntry = (props) => {
     // Key names as stored and as the shortcut parsers read them ("Ctrl", "Q").
     // Space is spelled out: " " cannot be joined into "Control+Space". A digit
     // is taken from the key itself, since Shift turns "1" into "!" on keydown
-    // but not on a keyup after Shift was released.
-    const processKey = ({ key, code }) => {
+    // but not on a keyup after Shift was released. A symbol typed with Shift is
+    // taken from its key too ("Ctrl+Shift+/", not "?"): the registrar reads only
+    // the unshifted symbols, and refused "?" as a key already in use (#563).
+    const processKey = ({ key, code, shiftKey }) => {
         if (key === " " || code === "Space") return "Space";
         if (/^[a-zA-Z]$/.test(key)) return key.toUpperCase();
         if (/^Digit[0-9]$/.test(code ?? "")) return code.slice(-1);
         if (key === "Meta") return "Super";
+        if (shiftKey && Object.hasOwn(SYMBOL_KEYS, code ?? "")) return SYMBOL_KEYS[code];
         return key;
     };
     // Which physical key is held. A symbol changes with Shift ("?" down, "/" up once Shift
