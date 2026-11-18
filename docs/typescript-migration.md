@@ -12,13 +12,13 @@
 
 ## 現状の量
 
-第 3 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 4 段の 1 回目（設定の一覧と、それを読むフック）を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 12 本、207KB | 134 本、450KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 174 本、886KB | 34 本、95KB（うち vanilla-extract の `.css.ts` が 15 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 190 本、1.2MB | 0 本 |
+| `src-ui/logics`（試験を除く） | 4 本、111KB | 143 本、570KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 174 本、887KB | 34 本、95KB（うち vanilla-extract の `.css.ts` が 15 本） |
+| 試験（`*.test.js` と `src-ui/logics/test/`） | 191 本、1.2MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
@@ -32,8 +32,8 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 |---|---|---|
 | 1 | 未移行の JavaScript を import しない `logics` の葉のモジュール | 済み |
 | 2 | データ層の根（ストアと IPC） | 済み |
-| 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段の後 |
-| 4 | `logics` の大きなモジュール（1 本ずつ） | 未着手 |
+| 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
+| 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch` は済み。`useReceiveRoutes`、`_useBackendErrorHandling`、`useHotkeys` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 4 本のうち 3 本は第 3 段で済み。`useSettingsDraft` が残り |
 | 6 | `views` | 未着手 |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
@@ -60,7 +60,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 - ストアのフックが返すフィールドは、atom の名前から作る名前（`currentX`、`updateX`、`pendingX`、`errorX`）のまま型が付きます。`useStore_SwitchBlocks()` の `currentSwitchBlocks.data` は `SwitchBlocks` です。
 - `CompanionController.tsx` の 2 つのキャストを外し、型の厳しさの検査の `ALLOWED` を空にしました。
 - `useStdoutToPython` の結果は `false`、`true`、設定の書き込みへの応答のどれかで、型は `StdoutResult` です。
-- 設定から実行時に作る atom（`ui_config_setter.js`）は、値の型が `unknown` です。名前で引くフック（`getStoreHook`）は、フィールドの名前も値の型も分からない形で返します。
+- 設定から実行時に作る atom（`ui_config_setter`）は、ストアから見ると値の型が `unknown` です。名前で引くフック（`getStoreHook`）は、フィールドの名前も値の型も分からない形で返します。設定の値の型は第 4 段で `ui_config_setter` の側に付けました。
 
 ### 第 3 段：小さなフック
 
@@ -73,26 +73,33 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 
 バックエンドの応答を受け取るフックは、フックが読むフィールドを並べた型を持ちます。読まないフィールドは開いたままにし（`[key: string]: unknown`）、設定画面などのビューが読みます。型は中核（`native/core`）が送る形と `docs/spec/` に合わせた宣言で、実行時には確かめません。前からフックが値を確かめていた所（流れの図、音声サーバーの状態の行、モデルの取得のハードウェアの一覧、登録したモデル、翻訳のカタログ）は、その確認を型ガードにしています。受け取る値を実行時に確かめるのは、受け取る側（第 4 段の `useReceiveRoutes`）を移すときに扱います。
 
-次の 5 本は第 4 段で `ui_config_setter.js` を移した後にします。設定のフック（`useTranslation`、`useTranscription`、`useOcr`、`useAppearance`）のフィールドを読みますが、設定のフックは `ui_config_setter.js` が実行時に作るので、型が `{}` と推論され、キャストなしではフィールドを読めないためです。
+次の 5 本は設定のフック（`useTranslation`、`useTranscription`、`useOcr`、`useAppearance`）のフィールドを読みます。設定のフックは `ui_config_setter` が実行時に作るので、移す前は型が `{}` と推論され、キャストなしではフィールドを読めませんでした。そのため、第 4 段で `ui_config_setter` を移してから、この 5 本を移しました。
 
 - `main/useSetupNeeds`、`main/useSwitchBlocks`、`setup/useRecognitionState`、`common/useStartupProgress`、`common/useWindow`
 
 ### 第 4 段：大きなモジュール
 
-1 本で 1 回の PR にします。行数は移行計画を書いた時点のものです。
+1 本で 1 回の PR にするのが基本です。行数は移行計画を書いた時点のものです。
 
-| ファイル | 行数 |
-|---|---|
-| `configs/config_page_setter/ui_config_setter.js` | 約 1,470 |
-| `useReceiveRoutes.js` | 約 750 |
-| `_useBackendErrorHandling.js` | 約 690 |
-| `configs/config_page_setter/useSettingsLogics.js` | 約 470 |
-| `configs/config_page_setter/hotkeys/useHotkeys.js` | 約 470 |
-| `configs/config_page_setter/_aux/useConfigSearch.js` | 約 280 |
+| ファイル | 行数 | 状態 |
+|---|---|---|
+| `configs/config_page_setter/ui_config_setter` | 約 1,470 | 済み |
+| `useReceiveRoutes.js` | 約 750 | 残り |
+| `_useBackendErrorHandling.js` | 約 690 | 残り |
+| `configs/config_page_setter/useSettingsLogics` | 約 470 | 済み |
+| `configs/config_page_setter/hotkeys/useHotkeys.js` | 約 470 | 残り |
+| `configs/config_page_setter/_aux/useConfigSearch` | 約 280 | 済み |
 
-`useReceiveRoutes.js` と `_useBackendErrorHandling.js` は、バックエンドからの応答とエラーの形を扱います。IPC の契約を型にする作業なので、`docs/spec/` と食い違いがあれば、型で隠さずに報告します。第 3 段で移したフックは受け取る値の型を引数に宣言しています。`useReceiveRoutes` を移すときは、その型に合うことを確かめてから渡します。
+`ui_config_setter` は `useSettingsLogics` が作るフィールドに型を付けるので、2 本を 1 回の PR で移しました。設定のフックを読む `useConfigSearch` と、第 3 段で後に回した 5 本も同じ PR で移しています。
 
-`ui_config_setter.js` を移したら、第 3 段で後に回した 5 本（設定のフックを読むもの）を移します。
+- 設定ごとの値の型は `configs/config_page_setter/settingTypes.ts` の `SettingValues` にあります。`SETTINGS_ARRAY` は `satisfies` でこの型と照らし合わせるので、既定値の型が違えば型の誤りになります。
+- 設定を足すときは、`SETTINGS_ARRAY` の項目と `SettingValues` の型の両方を書きます。`SettingValues` にない名前の項目は型の誤りになります。
+- 設定のフック（`createCategoryHook`）が返すフィールドの型（`CategoryApi`）は、`SETTINGS_ARRAY` の `Category`、`Base_Name`、`logics_template_id`、`response_transform` から組み立てます。
+- 試験と `tools/spec_catalog.py` は `SETTINGS_ARRAY` の項目を文字列として読みます。型の定義を `settingTypes.ts` に分けたのはそのためです。項目のキーの並びも変えないでください。
+
+`useReceiveRoutes.js` と `_useBackendErrorHandling.js` は、バックエンドからの応答とエラーの形を扱います。どちらも受け取った値をそのまま設定の atom などに書き込みます。そのため型を付けるには、受け取る値を実行時にどこまで確かめるかを先に決める必要があります。IPC の契約を型にする作業なので、`docs/spec/` と食い違いがあれば、型で隠さずに報告します。第 3 段で移したフックと設定のフックは、受け取る値の型を引数に宣言しています。`useReceiveRoutes` を移すときは、その型に合うことを確かめてから渡します。
+
+`useHotkeys.js` は設定の一覧に依存しないので、ほかとは別に移せます。
 
 ### 第 5 段：`logics` の中の JSX
 
@@ -126,9 +133,13 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - `tsconfig.json` は `strict` です。TypeScript のファイルだけを検査し、JavaScript のファイルは型を推論して読むだけです。
 - `tests/devtools/test_typescript_strictness.py` は、`src-ui` の TypeScript のファイルにある `any`、`as unknown as`、`@ts-ignore`、`@ts-nocheck`、`@ts-expect-error` を数えます。まだ外せないものは、ファイルごとの数を `ALLOWED` に書きます。数が増えても減っても失敗するので、外したら一覧も減らします。
 - DOM の要素を扱うところでは、型を決めつけるキャストの代わりに型ガードで確かめます。たとえば `Element` には `focus()` がないので、`useConsentDialog` は `focus` を持つ要素だけを `Focusable` として扱います。
-- TypeScript は計算したキーを `string` として扱うので、`{ [key]: value }` が名前 `K` のキーを持つことを確かめられません。ストアでは `field()` のオーバーロードで 1 か所だけそう宣言しています。名前を 1 つずつ渡すので成り立ちます。同じ形が要るときは `field()` を使い、ほかの場所で宣言を増やしません。
-- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。値を確かめるのは、応答を受け取ってフックに渡す側（`useReceiveRoutes`）です。そこが JavaScript のうちは、確かめずに渡ります。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。
-- `ui_config_setter.js` が作る設定のフックは、型が `{}` と推論されます。`views` の一部（`CompanionController.tsx` など）は結果を `as { ... }` で読んでいますが、`logics` ではこのキャストを足さず、読むフックを第 4 段の後に回しています。
+- TypeScript は計算したキーを `string` として扱うので、`{ [key]: value }` が名前 `K` のキーを持つことを確かめられません。ストアでは `field()` のオーバーロードで 1 か所だけそう宣言しています。名前を 1 つずつ渡すので成り立ちます。
+- 同じ理由で、設定の一覧（`ui_config_setter.ts`）に 2 か所の宣言があります。どちらも `SETTINGS_ARRAY` の項目からループで作るフィールドや atom の型で、TypeScript はその名前を追えません。
+  - `buildCategoryApiFromSettings` のオーバーロードは、設定のフックが返すフィールドが `CategoryApi` のとおりであることを宣言します。フィールドを作る `useSettingsLogics` と、型を組み立てる `CategoryApi` は同じ項目から名前を作ります。
+  - `useSettingValue` のオーバーロードは、設定の atom の値が `SettingValues` の型であることを宣言します。atom は `satisfies` で確かめた既定値から始まり、その設定のフックだけが書き込みます。
+- これ以外の場所では宣言を増やしません。同じ形が要るときは `field()` か、この 2 つの型（`CategoryApi` と `SettingValues`）を使います。
+- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。値を確かめるのは、応答を受け取ってフックに渡す側（`useReceiveRoutes`）です。そこが JavaScript のうちは、確かめずに渡ります。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
+- 設定のフックは型の付いたフィールドを返します。`views` の一部（`CompanionController.tsx`、`ExperimentalFeatures.tsx`、`UsagePresetSelector.tsx`）には、型がなかったころの `as { ... }` が残っています。外すのは `views` を移すとき（第 6 段）にします。
 
 ## 移すときの手順
 
