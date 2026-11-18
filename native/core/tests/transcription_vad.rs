@@ -119,10 +119,11 @@ fn with_a_vad_engine_the_switch_reaches_the_recorder() {
     run.hears_a_message("こんにちは");
     assert!(engine.made.lock().unwrap().is_empty());
 
-    // On: the next start asks the engine, with the record timeout as the longest segment.
+    // On: the next start asks the engine. The longest segment is Python's fixed 7 s, not the
+    // record timeout (`transcription_recorder.py`, `_MAX_SPEECH_DURATION_MS`).
     assert_eq!(run.ui.ok("/set/enable/speaker_vad_filter", None), true);
     run.hears_a_message("こんばんは");
-    assert_eq!(*engine.made.lock().unwrap(), vec![(44100, 2, 2.0)]);
+    assert_eq!(*engine.made.lock().unwrap(), vec![(44100, 2, 7.0)]);
     eventually("the switch is saved on", || run.ui.saved()["SPEAKER_ENABLE_VAD"] == true);
     run.ui.stop();
 }
