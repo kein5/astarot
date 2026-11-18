@@ -2,7 +2,7 @@
 
 Status: **準備（0.5.0 のリリース時に実行する予定。まだ実行しない）**
 Date: 2026-11-16
-Related: [ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)、[表示名の棚卸し](astarot-rename-inventory.md)、[名称と識別子](project-rename.md)、[配布候補](release-candidates.md)
+Related: [ADR-011](../adr/adr-011-astarot-brand-and-multimodal-accessibility.md)、[表示名の棚卸し](astarot-rename-inventory.md)、[名称と識別子](project-rename.md)、[配布候補](release-candidates.md)
 
 GitHub のリポジトリ名を `kein5/VRCT-VOX` から ASTAROT の名前に変える手順と影響の範囲をまとめる。変えるのは 0.5.0 のリリースのときである。0.4.0 は現行の名前で出すので、それまでは変えない。
 
