@@ -29,6 +29,9 @@ pub struct Behaviour {
     pub realtime_after: AtomicUsize,
     /// The status of the Realtime handshake; 0 accepts.
     pub realtime_refuse: AtomicU16,
+    /// Realtime: who spoke each utterance, as a diarizing server says it
+    /// (`[{"speaker": "A", "start_ms": 0, "end_ms": 900}, ...]`); null sends none.
+    pub speakers: Mutex<Value>,
 }
 
 #[derive(Clone)]
@@ -42,6 +45,13 @@ pub struct FakeAsr {
     pub appends: Arc<AtomicUsize>,
     /// The `turn_detection` of each `session.update`.
     pub turn_detection: Arc<Mutex<Vec<Value>>>,
+    /// The `diarization` each `session.update` asked for (null when it asked for none).
+    pub diarization: Arc<Mutex<Vec<Value>>>,
+}
+
+/// A speaker diarization model as `/v1/models` lists it, on `device`.
+pub fn diarization_model(id: &str, device: &str) -> Value {
+    json!({ "id": id, "speech": { "task": "diarization", "device": device } })
 }
 
 pub fn recognition_model(id: &str, languages: &[&str], detects: bool, options: &[&str]) -> Value {
@@ -74,6 +84,7 @@ impl FakeAsr {
             fields: Arc::default(),
             appends: Arc::default(),
             turn_detection: Arc::default(),
+            diarization: Arc::default(),
         };
         let serving = fake.clone();
         std::thread::spawn(move || {
@@ -251,6 +262,7 @@ impl FakeAsr {
             match value["type"].as_str() {
                 Some("session.update") => {
                     self.turn_detection.lock().unwrap().push(value["session"]["audio"]["input"]["turn_detection"].clone());
+                    self.diarization.lock().unwrap().push(value["session"]["audio"]["input"]["diarization"].clone());
                     let mut session = value["session"].clone();
                     if session["audio"]["input"].get("diarization").is_none() {
                         session["audio"]["input"]["diarization"] = Value::Null;
@@ -267,10 +279,15 @@ impl FakeAsr {
                         let text = self.behaviour.text.lock().unwrap().clone();
                         let half: String = text.chars().take(text.chars().count() / 2).collect();
                         let prefix = "conversation.item.input_audio_transcription.";
+                        let mut completed = json!({ "item_id": id, "transcript": text, "stop": "complete", "languages": [{ "code": "ja" }] });
+                        let speakers = self.behaviour.speakers.lock().unwrap().clone();
+                        if !speakers.is_null() {
+                            completed["speakers"] = speakers;
+                        }
                         for message in [
                             next("input_audio_buffer.speech_started", json!({ "item_id": id })),
                             next(&format!("{prefix}delta"), json!({ "item_id": id, "delta": half })),
-                            next(&format!("{prefix}completed"), json!({ "item_id": id, "transcript": text, "stop": "complete", "languages": [{ "code": "ja" }] })),
+                            next(&format!("{prefix}completed"), completed),
                         ] {
                             if socket.send(message).is_err() {
                                 return;

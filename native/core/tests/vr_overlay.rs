@@ -490,6 +490,87 @@ fn the_subtitle_font_is_chosen_from_the_system_and_checked() {
 }
 
 #[test]
+fn a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names() {
+    // #447 end to end: a server with a diarization model on a GPU, the game audio's captions
+    // with speakers, a name given to one voice, and the VR large log drawn again with it.
+    use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
+    use common::fake_capture::{FakeCapture, speech};
+    use vrct_transcription::capture::Source;
+
+    let asr = FakeAsr::start();
+    *asr.behaviour.models.lock().unwrap() = json!({ "data": [
+        recognition_model("haas-ja", &["ja"], false, &["keywords"]),
+        diarization_model("nemotron-3-diarization", "Vulkan0"),
+    ] });
+    *asr.behaviour.speakers.lock().unwrap() = json!([
+        { "speaker": "A", "start_ms": 0, "end_ms": 900 },
+        { "speaker": "B", "start_ms": 1000, "end_ms": 1800 },
+        // Too short to count while others spoke longer.
+        { "speaker": "C", "start_ms": 1800, "end_ms": 1900 },
+    ]);
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.add_endpoint(Source::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    capture.set_default(Source::Speaker, Some("alsa.out"));
+    let fake = FakeVr::running();
+    let base = Setup::default();
+    let services = Services { vr: Arc::new(fake.clone()), transcription_capture: capture.factory(), ..base.services };
+    let saved = json!({
+        "OVERLAY_LARGE_LOG": true,
+        "OSC_IP_ADDRESS": "127.0.0.2",
+        "REALTIME_ASR_SETTINGS": {
+            "server": "external", "base_url": asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+            "vocabulary": { "builtin": false, "terms": [] },
+        },
+    });
+    let ui = Ui::with(Setup { services, saved: Some(saved), platform: vrct_core::config::Platform::Linux, ..Setup::default() });
+    ui.ready();
+    wait("the large log made", || fake.handle("VRCT1").is_some());
+    let large = fake.handle("VRCT1").unwrap();
+
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+    wait("the game audio is captured", || capture.opened() == vec![(Source::Speaker, "alsa.out".to_string())]);
+    // The game audio's session asks the server to tell the voices apart.
+    wait("the session is configured", || !asr.diarization.lock().unwrap().is_empty());
+    assert_eq!(asr.diarization.lock().unwrap()[0], json!({}));
+    let before = fake.calls_on(large, "raw").len();
+    capture.hear(Source::Speaker, &[speech(2000)]);
+    let caption = |state: &str| {
+        ui.wait_from(mark, state, |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == state)["result"].clone()
+    };
+    let final_ = caption("final");
+    assert_eq!(final_["speakers"], json!(["A", "B"]), "the voices that spoke long enough, in order");
+    assert_eq!(caption("partial")["speakers"], json!([]), "a partial caption names no one");
+    assert_eq!(caption("translated")["speakers"], json!(["A", "B"]));
+    wait("the caption drawn on the large log", || fake.calls_on(large, "raw").len() > before);
+
+    // Listening stops, so that no newer caption draws the log; the captions shown stay.
+    let namespace = final_["namespace"].as_str().unwrap().to_string();
+    assert_eq!(ui.ok("/set/disable/transcription_receive", None), false);
+    wait("the capture stopped", || capture.running(Source::Speaker) == 0);
+    std::thread::sleep(Duration::from_millis(300));
+    // A name for one voice of this session: answered as kept, and the large log drawn again.
+    let drawn = fake.calls_on(large, "raw").len();
+    let named = ui.ok("/set/data/speaker_names", Some(json!({ "namespace": namespace, "names": { "A": "ミカ" } })));
+    assert_eq!(named, json!({ "namespace": namespace, "names": { "A": "ミカ" } }));
+    wait("the large log drawn with the name", || fake.calls_on(large, "raw").len() > drawn);
+    // Another session's names change nothing on screen.
+    std::thread::sleep(Duration::from_millis(200));
+    let drawn = fake.calls_on(large, "raw").len();
+    ui.ok("/set/data/speaker_names", Some(json!({ "namespace": "another", "names": { "A": "別の人" } })));
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(fake.calls_on(large, "raw").len(), drawn);
+
+    let log = std::fs::read_to_string(ui.dir.join("logs").join("process.log")).unwrap_or_default();
+    assert!(!log.contains("ミカ") && !log.contains("別の人"), "a name reached process.log");
+    ui.stop();
+}
+
+#[test]
 fn a_sent_message_is_drawn_on_the_running_large_log() {
     let fake = FakeVr::running();
     let ui = with_vr(Arc::new(fake.clone()), false, Some(json!({ "OVERLAY_LARGE_LOG": true })));
