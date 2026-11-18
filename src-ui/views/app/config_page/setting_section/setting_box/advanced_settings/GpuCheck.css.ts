@@ -1,4 +1,4 @@
-import { style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 
 // The GPU check (#288): its text, its buttons on one row (wrapping in a narrow window), the
@@ -32,9 +32,11 @@ export const tableScroll = style({
 export const table = style({
     borderCollapse: "collapse",
     minWidth: "100%",
-    selectors: {
-        "& th, & td": { textAlign: "left", padding: ".4rem .8rem", borderBottom: `1px solid ${vars.vox_border}`, verticalAlign: "top" },
-    },
+});
+
+// A selector of a style() block may only target the class itself, so the cells are styled here.
+globalStyle(`${table} th, ${table} td`, {
+    textAlign: "left", padding: ".4rem .8rem", borderBottom: `1px solid ${vars.vox_border}`, verticalAlign: "top",
 });
 
 export const failed = style({
