@@ -65,6 +65,8 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/start_realtime_asr", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
     { endpoint: "/run/stop_realtime_asr", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
     { endpoint: "/run/realtime_caption", ns: common, hook_name: "useMessage", method_name: "updateRealtimeCaption" },
+    // Names for the voices speaker diarization tells apart (#447).
+    { endpoint: "/set/data/speaker_names", ns: common, hook_name: "useSpeakerNames", method_name: "updateNames" },
     // The move from the removed Whisper engine to speech.cpp (#288).
     { endpoint: "/get/data/local_asr_notice", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateNotice" },
     { endpoint: "/set/disable/local_asr_notice", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateNotice" },
@@ -386,6 +388,11 @@ export const useReceiveRoutes = () => {
         }
         if (status !== 200 && endpoint.includes("translation_catalog")) {
             failTranslationCatalog(result?.error_code);
+            return;
+        }
+        // A name the core refused: the names stay as they were, and the editor is closed.
+        if (status !== 200 && endpoint === "/set/data/speaker_names") {
+            showNotification_Error(t("main_page.message_log.speaker_names_failed"), { category_id: "speaker_names" });
             return;
         }
         // An entry came, went or was used: the local models and the OpenAI-compatible engine

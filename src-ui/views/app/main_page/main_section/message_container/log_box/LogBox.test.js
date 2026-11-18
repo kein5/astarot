@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../../logics/test/hookHarness.js";
 import { nextLogView, rowsBetween } from "../../../../../../logics/common/messageLogView.ts";
+import { speakerContinuations } from "../../../../../../logics/common/speakerNames.ts";
 
 async function setup(context, savedView, initialRows) {
     const runtime = hooks(), store = {}, observers = [];
@@ -26,7 +27,8 @@ async function setup(context, savedView, initialRows) {
         jotai: { useAtomValue: () => { subscriptions++; return { data: rows }; } },
         virtua: { Virtualizer }, "@store": { store, Atom_MessageLogs: {} },
         "./message_container/MessageContainer": {}, "./EmptyState": { EmptyState: () => null },
-        "@logics_common": { useMessageActions: () => null, nextLogView, rowsBetween },
+        "@logics_common": { useMessageActions: () => null, nextLogView, rowsBetween, speakerContinuations,
+            useSpeakerNaming: () => ({ speakerNames: {}, nameSpeakers() {} }) },
         "@logics_configs": { useSettingValue: () => ({ data: false }) },
     });
     const cache = { measured: true };

@@ -157,8 +157,8 @@ export const VR_PANEL_STATE_CATEGORIES: readonly string[] = Object.freeze([
     "Appearance", "Device", "Ocr", "Others", "Transcription", "Translation", "Vr",
 ]);
 export const VR_PANEL_STATE_ATOMS: readonly string[] = Object.freeze([
-    // The log, the launcher and its switches.
-    "MessageLogs", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
+    // The log (and the names given to its speakers, #447), the launcher and its switches.
+    "MessageLogs", "SpeakerNames", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
     "OcrCaptureStatus", "ForegroundStatus", "IsBackendReady", "IsOpenedConfigPage", "NotificationStatus",
     "IsOscAvailable", "OscUnavailableReason", "VrPanelLauncherIntro", "VrPanelLogOutOfView",
     // Which switches cannot be turned on yet and why (reason codes only; worked out in the main window).

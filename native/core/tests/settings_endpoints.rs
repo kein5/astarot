@@ -380,3 +380,20 @@ fn the_tray_companion_monitor_is_a_name_and_starts_empty_for_the_primary_one() {
     assert_eq!(ui.saved()["TRAY_COMPANION_MONITOR"], json!("\\\\.\\DISPLAY2"));
     ui.stop();
 }
+
+#[test]
+fn speaker_names_are_checked_answered_kept_out_of_the_log_and_not_saved() {
+    // #447: names for the voices of one realtime session.
+    let ui = Ui::with(Setup::default());
+    ui.ready();
+    let named = ui.ok("/set/data/speaker_names", Some(json!({ "namespace": "0a1b2c", "names": { "A": " ミカ ", "B": "" } })));
+    assert_eq!(named, json!({ "namespace": "0a1b2c", "names": { "A": "ミカ" } }));
+    let answer = ui.request("/set/data/speaker_names", Some(json!({ "namespace": "0a1b2c", "names": { "a": "x" } })));
+    assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "speaker_names_invalid"));
+    ui.ok("/run/shutdown", None);
+    let logs = std::fs::read_to_string(ui.dir.join("logs").join("process.log")).unwrap();
+    assert!(logs.contains("/set/data/speaker_names"));
+    assert!(!logs.contains("ミカ"), "a name reached the log");
+    assert!(!ui.saved().to_string().contains("ミカ"), "a name was saved");
+    ui.stop();
+}

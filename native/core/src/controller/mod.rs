@@ -19,6 +19,7 @@ mod lifecycle;
 pub mod messages;
 mod routes;
 mod settings;
+mod speakers;
 pub mod speech;
 mod telemetry;
 mod terms;

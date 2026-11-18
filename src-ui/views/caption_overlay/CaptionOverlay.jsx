@@ -53,9 +53,12 @@ export const CaptionOverlay = ({ bridge = captionOverlayBridge, now = Date.now }
     const captions = (
         <div className={clsx(styles.container, { [styles.is_top]: snapshot?.position === "top" })}>
             {lines.map(line => {
-                // Who spoke, where the game audio's voices were told apart: "A", or "A·B" for two in one line.
+                // Who spoke, where the game audio's voices were told apart: "A", or "A·B" for two in one
+                // line, with the names the user gave them (#447). The colour stays the label's.
                 const speakers = line.kind === "received" ? speakerLabels(line.speakers) : [];
-                const who = speakers.length ? <span key="who" className={styles.who}>{speakers.join("·")}</span> : null;
+                const names = Array.isArray(line.speaker_names) && line.speaker_names.length === speakers.length ? line.speaker_names : [];
+                const shown = speakers.map((label, index) => (typeof names[index] === "string" && names[index]) || label);
+                const who = speakers.length ? <span key="who" className={styles.who}>{shown.join("·")}</span> : null;
                 // The label leads the first paragraph of the line, the original or else the translation.
                 const lead = (text, first) => first && who ? [who, text] : text;
                 return (

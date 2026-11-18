@@ -8,6 +8,8 @@ export { useIsSoftwareUpdating } from "./useIsSoftwareUpdating";
 export { useNotificationStatus } from "./useNotificationStatus";
 export { useOpenFolder } from "./useOpenFolder";
 export { useMessage } from "./useMessage";
+export { useSpeakerNames, useSpeakerNaming } from "./useSpeakerNames.ts";
+export { speakerContinuations } from "./speakerNames.ts";
 export { MessageActionsProvider, useMessageActions } from "./MessageActions";
 export { nextLogView, rowsBetween } from "./messageLogView";
 export { useUpdateSoftware } from "./useUpdateSoftware";

@@ -85,6 +85,8 @@ pub(crate) struct OverlayMessage {
     pub transliteration_message: Value,
     /// Each translation's readings: a list of such lists.
     pub transliteration_translation: Value,
+    /// Who spoke a realtime caption of the game audio, by the speech server's labels (#447).
+    pub speakers: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -103,6 +105,7 @@ impl OverlayMessage {
                 .enumerate()
                 .map(|(i, (text, language))| Translation { text: text.clone(), language: language.clone(), readings: readings(i) })
                 .collect(),
+            speakers: self.speakers.clone(),
         }
     }
 }
@@ -558,6 +561,13 @@ impl Core {
         if result.is_err() {
             self.step("overlay: a caption update was refused");
         }
+    }
+
+    /// The names the user gave the voices of a realtime session (#447): the large log draws
+    /// them in place of the labels, also on the captions it shows already.
+    pub(crate) fn name_overlay_speakers(&self, namespace: &str, names: Vec<(String, String)>) {
+        let Some(vr) = self.vr() else { return };
+        vr.subtitles.set_speaker_names(namespace, names, &mut |picture| self.publish_large(vr, picture, &|| true));
     }
 
     /// Drops the captions still being recognised for a source's namespace

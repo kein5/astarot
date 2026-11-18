@@ -13,6 +13,7 @@ export interface CaptionSourceRow {
     category?: unknown;
     status?: unknown;
     speakers?: unknown;
+    realtime?: { namespace?: unknown } | null;
     messages?: {
         original?: CaptionMessage | null;
         translations?: readonly (CaptionMessage | null | undefined)[] | null;
@@ -22,6 +23,8 @@ export interface CaptionSourceRow {
 export interface CaptionOptions {
     onlyTranslated?: boolean;
     max?: number;
+    // The names given to the voices of each realtime session (#447): namespace, label, name.
+    speakerNames?: Readonly<Record<string, Readonly<Record<string, string>>>>;
 }
 
 export interface CaptionLine {
@@ -31,6 +34,8 @@ export interface CaptionLine {
     translations: string[];
     pending: boolean;
     speakers?: string[];
+    // Each speaker's name, or "" for a voice without one; only when one has a name.
+    speaker_names?: string[];
 }
 
 // When a line stops being shown; `key` tells whether its words changed.
@@ -54,7 +59,7 @@ const clip = (text: string): string => [...text].slice(0, MAX_TEXT).join("");
 // A realtime row keeps its id while it is being recognized, so its line is
 // rewritten in place.
 export const captionLines = (rows: readonly (CaptionSourceRow | null | undefined)[],
-    { onlyTranslated = false, max = MAX_CAPTION_LINES }: CaptionOptions = {}): CaptionLine[] => {
+    { onlyTranslated = false, max = MAX_CAPTION_LINES, speakerNames = {} }: CaptionOptions = {}): CaptionLine[] => {
     const lines: CaptionLine[] = [];
     for (let index = rows.length - 1; index >= 0 && lines.length < max; index--) {
         const row = rows[index];
@@ -66,8 +71,10 @@ export const captionLines = (rows: readonly (CaptionSourceRow | null | undefined
         if (!text && !translations.length) continue;
         // Where the game audio's voices were told apart, the line says who spoke (A, B, ...).
         const speakers: string[] = row.category === "received" ? speakerLabels(row.speakers) : [];
+        const session = typeof row.realtime?.namespace === "string" ? speakerNames[row.realtime.namespace] : undefined;
+        const names = speakers.map(label => session?.[label] ?? "");
         lines.unshift({ id: String(row.id), kind: row.category, text, translations, pending: row.status === "pending",
-            ...(speakers.length ? { speakers } : {}) });
+            ...(speakers.length ? { speakers } : {}), ...(names.some(Boolean) ? { speaker_names: names } : {}) });
     }
     return lines;
 };
