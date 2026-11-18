@@ -37,7 +37,7 @@ export const AuthKey = (props) => {
     return (
         <div className={styles.container}>
             <div className={styles.entry_section_wrapper}>
-                <_Entry ref={entryRef} label={props.label} width="24rem" spellCheck={false} autoComplete="off" onChange={onChangeEntryAuthKey} onEnterPressed={handleEnterPressed} ui_variable={props.variable} readOnly={is_disabled} aria-busy={is_disabled} aria-disabled={is_disabled} aria-describedby={props["aria-describedby"]}/>
+                <_Entry ref={entryRef} label={props.label} spellCheck={false} autoComplete="off" onChange={onChangeEntryAuthKey} onEnterPressed={handleEnterPressed} ui_variable={props.variable} readOnly={is_disabled} aria-busy={is_disabled} aria-disabled={is_disabled} aria-describedby={props["aria-describedby"]}/>
                 {is_editable
                 ? null
                 :

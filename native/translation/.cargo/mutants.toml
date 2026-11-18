@@ -1,0 +1,11 @@
+# cargo-mutants for this crate (Issue #550). Not run in CI: run it by hand at a refactoring
+# milestone or when these files change, from this directory:
+#
+#   cargo mutants -j 3
+#
+# Only the readings' pure logic is examined; its tests have no timing in them. The providers
+# reach the network and stay out until a mutant run is worth their time.
+examine_globs = [
+    "src/transliteration/hepburn.rs",
+    "src/transliteration/mod.rs",
+]

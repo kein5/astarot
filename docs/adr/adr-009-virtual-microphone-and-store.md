@@ -1,3 +1,15 @@
+---
+date: 2026-11-15
+status: accepted
+era: python-sidecar
+validity: current
+implementation_status: partial
+implementation_checked: 2026-11-18
+implementation_note: アプリでの導入の支援（4.2）は 0.4.0 で実装し、中核では controller/audio_devices.rs の仮想マイクの案内が引き継いだ。Store への申請（4.1）は、申請するときの作業として残っている。
+evidence:
+  - docs/adr/adr-009-virtual-microphone-and-store.md
+  - native/core/src/controller/audio_devices.rs
+---
 # ADR-009: Windows の仮想マイクは外部のドライバに頼り、Microsoft Store では依存を開示する
 
 Status: 採用（2026-11-15）。アプリ側の導入支援（4.2）は 0.4.0 で実装した。Store への申請（4.1）は、申請するときの作業とする。
