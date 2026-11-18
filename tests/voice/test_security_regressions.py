@@ -127,6 +127,37 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         assert "github.ref == 'refs/heads/develop'" in deploy["if"]
         assert "github.event_name != 'pull_request'" in deploy["if"]
         assert all("run" not in step for step in deploy["steps"])
+    elif workflow.name == "release-draft-auto.yml":
+        # Issue #417: after a release merge it starts the candidate workflows and prepare-release.yml,
+        # which keeps every check. It may start workflows; it cannot write the repository or publish.
+        assert set(document["on"]) == {"pull_request", "workflow_dispatch"}
+        assert document["on"]["pull_request"] == {"types": ["closed"], "branches": ["main"]}
+        assert document["permissions"] == {"contents": "read"}
+        assert set(document["jobs"]) == {"draft"}
+        job = document["jobs"]["draft"]
+        assert job["permissions"] == {"contents": "read", "actions": "write"}
+        for condition in ("github.repository == 'kein5/astarot'", "github.event.pull_request.merged == true",
+                          "startsWith(github.event.pull_request.head.ref, 'release/')",
+                          "github.event.pull_request.head.repo.full_name == github.repository",
+                          "github.ref == 'refs/heads/main'", "github.ref == 'refs/heads/develop'"):
+            assert condition in job["if"], condition
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        assert "tools.release_automation draft" in commands
+        assert "gh release" not in commands and "gh pr" not in commands
+    elif workflow.name == "release-back-merge.yml":
+        # Issue #417: a published stable release opens the pull request from main back into develop.
+        # It creates that branch and the pull request, and merges nothing.
+        assert set(document["on"]) == {"release"}
+        assert document["on"]["release"] == {"types": ["published"]}
+        assert document["permissions"] == {"contents": "read"}
+        assert set(document["jobs"]) == {"back-merge"}
+        job = document["jobs"]["back-merge"]
+        assert job["permissions"] == {"contents": "write", "pull-requests": "write"}
+        assert "github.repository == 'kein5/astarot'" in job["if"]
+        assert "github.event.release.prerelease == false" in job["if"]
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        assert "tools.release_automation back-merge" in commands
+        assert "gh pr merge" not in commands and "git push" not in commands
     elif workflow.name in ATTESTING_JOBS:
         # The candidate job signs build provenance (second security audit SEC-04): only that job
         # gets id-token and attestations, and only a manual run uses them.
