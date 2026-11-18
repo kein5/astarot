@@ -9,7 +9,7 @@ const endpoints = new Set([
     "osc_ip_address", "osc_port", "websocket_host", "websocket_port", "websocket_tls", "ocr_window_title",
     "obs_browser_source_port", "obs_browser_source_max_messages", "obs_browser_source_display_duration",
     "obs_browser_source_fadeout_duration", "obs_browser_source_font_size", "obs_browser_source_font_color",
-    "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color",
+    "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color", "rvc_block_ms",
 ].map(name => `/set/data/${name}`).concat([
     // A new connection key: the button says it is done only when the backend says so.
     "/run/regenerate_websocket_auth_token",

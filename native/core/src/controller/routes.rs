@@ -148,6 +148,13 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         b.get(&format!("/get/data/{name}"), OPEN, key);
     }
     b.get("/get/data/voice_settings", OPEN, "VOICE_SETTINGS");
+    // Core only (#531): the block an RVC conversion cuts the microphone into, read when one
+    // starts. Refused unless 20 to 200 ms in steps of 20; the saved value stays.
+    b.get("/get/data/rvc_block_ms", OPEN, "RVC_BLOCK_MS");
+    let rvc_block = integer(core, "RVC_BLOCK_MS", "VALIDATION_RVC_BLOCK_MS", |v, _| {
+        u32::try_from(v).ok().and_then(vrct_voice_conversion::protocol::Block::from_ms).is_some()
+    });
+    b.add("/set/data/rvc_block_ms", OPEN, rvc_block);
 
     // Appearance
     b.get("/get/data/version", OPEN, "VERSION");
