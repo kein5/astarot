@@ -88,6 +88,7 @@ for (const language of ["en", "ja"]) {
             "../_components": { Slider: "slider", SectionLabelComponent: "heading" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
             "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
             "@common_components": { ResetButton: "reset" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 0 },
+            "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
             "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
             "./OverlayFontFamily": { OverlayFontFamily: "font" },
             "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: settings }, currentOverlayLargeLogSettings: {} }) },
