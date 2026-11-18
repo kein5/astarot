@@ -1118,8 +1118,15 @@ impl Core {
         }
         let Some(session) = self.translation.session(provider) else { return Attempt::Failed };
         let supported = Self::supported_languages(engine);
-        let request =
-            providers::Translation { text, source: &source, target: &target, supported_languages: &supported, history };
+        let glossary = self.translation_glossary(text);
+        let request = providers::Translation {
+            text,
+            source: &source,
+            target: &target,
+            supported_languages: &supported,
+            history,
+            glossary: &glossary,
+        };
         match self.translation.translate(provider, &session, &request) {
             Ok(text) => Attempt::Text(text),
             // Papago translates only some pairs of its languages directly.

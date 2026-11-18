@@ -483,6 +483,9 @@ pub struct Translation<'a> {
     /// The source languages of the engine, for the prompt.
     pub supported_languages: &'a [String],
     pub history: &'a [HistoryItem],
+    /// Names and terms from the user's term dictionary that appear in `text` (#446), for the
+    /// prompt; only the AI providers read it. Empty adds nothing to the prompt.
+    pub glossary: &'a [String],
 }
 
 // ------------------------------------------------------------------------- leaf helpers

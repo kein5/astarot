@@ -8,8 +8,8 @@ use std::thread;
 use std::time::Duration;
 
 use serde_json::{json, Value};
-use vrct_tts::engines::{EngineApi, EngineClient, VoiceRow};
-use vrct_tts::settings::{CoeiroinkParams, EngineVoice};
+use vrct_tts::engines::{EngineApi, EngineClient, Reading, VoiceRow};
+use vrct_tts::settings::{AudioQueryScales, CoeiroinkParams, EngineVoice};
 use vrct_tts::CancelToken;
 
 type Seen = Arc<Mutex<Vec<(String, String, Vec<u8>)>>>;
@@ -123,6 +123,51 @@ fn voicevox_lists_talking_styles_and_reads_sentence_by_sentence() {
 }
 
 #[test]
+fn a_voicevox_api_engine_gets_its_query_back_with_only_the_scales_that_were_set() {
+    // The engine's query, with fields of its own (AivisSpeech's tempoDynamicsScale) and numbers
+    // written its own way: what was not set must reach /synthesis as the engine wrote it.
+    let query = r#"{"accent_phrases":[{"moras":[]}],"speedScale":1.0,"pitchScale":0.0,"intonationScale":1.0,"volumeScale":1.0,"prePhonemeLength":0.1,"postPhonemeLength":0.1,"tempoDynamicsScale":1.00,"outputSamplingRate":44100,"outputStereo":false,"kana":"ヤ'ア"}"#.as_bytes();
+    let route: Route = Arc::new(move |method, path, _| match (method, path.split('?').next().unwrap()) {
+        ("GET", "/speakers") => (200, "application/json", serde_json::to_vec(&json!([{"name": "まお", "styles": [{"id": 888753760, "name": "ノーマル"}]}])).unwrap()),
+        ("POST", "/audio_query") => (200, "application/json", query.to_vec()),
+        ("POST", "/synthesis") => (200, "audio/wav", wav(2400)),
+        _ => (404, "text/plain", Vec::new()),
+    });
+    let (url, seen) = serve(route);
+    let client = EngineClient::new("aivis", &url).unwrap();
+    let voice = EngineVoice { id: "888753760".into(), speaker: "まお".into(), style: "ノーマル".into() };
+    let last_query = || {
+        let requests = seen.lock().unwrap();
+        requests.iter().rev().find(|(_, path, _)| path.starts_with("/synthesis")).unwrap().2.clone()
+    };
+
+    // All at their defaults: the query goes back byte for byte, as before these could be set.
+    client.synthesize_stream_with("やあ", &voice, "ja", &CancelToken::new(), &Reading::default()).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(last_query(), query.to_vec());
+
+    let scales = AudioQueryScales { speed: 1.25, volume: 0.5, pitch: -0.05, intonation: 1.0 };
+    let reading = Reading { audio_query: scales, ..Reading::default() };
+    client.synthesize_stream_with("やあ", &voice, "ja", &CancelToken::new(), &reading).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+    let sent: Value = serde_json::from_slice(&last_query()).unwrap();
+    let mut expected: Value = serde_json::from_slice(query).unwrap();
+    for (field, value) in [("speedScale", json!(1.25)), ("volumeScale", json!(0.5)), ("pitchScale", json!(-0.05))] {
+        expected[field] = value;
+    }
+    assert_eq!(sent, expected, "only the Scale fields that were set change");
+    assert!(String::from_utf8(last_query()).unwrap().contains(r#""tempoDynamicsScale":1.00"#), "numbers not set keep how the engine wrote them");
+
+    // A query that is not an object cannot take them: the step fails with its code.
+    let (url, _) = serve(Arc::new(|method, path, _| match (method, path.split('?').next().unwrap()) {
+        ("GET", "/speakers") => (200, "application/json", serde_json::to_vec(&json!([{"name": "まお", "styles": [{"id": 888753760, "name": "ノーマル"}]}])).unwrap()),
+        ("POST", "/audio_query") => (200, "application/json", b"[]".to_vec()),
+        _ => (404, "text/plain", Vec::new()),
+    }));
+    let client = EngineClient::new("voicevox", &url).unwrap();
+    let error = client.synthesize_stream_with("やあ", &voice, "ja", &CancelToken::new(), &reading).unwrap().collect::<Result<Vec<_>, _>>().unwrap_err();
+    assert_eq!(error.code(), "tts_engine_query_failed");
+}
+
+#[test]
 fn coeiroink_sends_its_synthesis_parameters() {
     let route: Route = Arc::new(|method, path, _| match (method, path) {
         ("GET", "/v1/engine_info") => (200, "application/json", br#"{"version":"2.13.0"}"#.to_vec()),
@@ -150,7 +195,9 @@ fn coeiroink_sends_its_synthesis_parameters() {
     drop(requests);
 
     let params = CoeiroinkParams { speed: 1.5, volume: 0.8, pitch: -0.05, intonation: 1.2, pre_phoneme: 0.0, post_phoneme: 0.3, sampling_rate: 48_000 };
-    client.synthesize_stream_with("やあ", &voice, "ja", &CancelToken::new(), &params).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+    // The Scale fields are a VOICEVOX API engine's; COEIROINK leaves them alone.
+    let reading = Reading { coeiroink: params, audio_query: AudioQueryScales { speed: 0.5, ..AudioQueryScales::default() } };
+    client.synthesize_stream_with("やあ", &voice, "ja", &CancelToken::new(), &reading).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
     let requests = seen.lock().unwrap();
     let body: Value = serde_json::from_slice(&requests.iter().rev().find(|(_, path, _)| path == "/v1/synthesis").unwrap().2).unwrap();
     assert_eq!(

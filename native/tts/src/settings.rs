@@ -220,6 +220,53 @@ const COEIROINK_RANGES: [(&str, f64, f64); 6] = [
     ("coeiroink_post_phoneme", 0.0, 1.5),
 ];
 
+/// The engines with the VOICEVOX API, whose reading is set with their AudioQuery's Scale fields.
+pub const AUDIO_QUERY_ENGINES: [&str; 3] = ["voicevox", "aivis", "sharevox"];
+
+/// How an engine with the VOICEVOX API reads: the Scale fields of its AudioQuery, the only part
+/// of the query the app may change (ADR-008 5.2). The defaults are the engine's own, and a field
+/// left at its default is not written, so a query whose fields are all at their defaults goes back
+/// to the engine byte for byte, as before these could be set.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AudioQueryScales {
+    pub speed: f64,
+    pub volume: f64,
+    pub pitch: f64,
+    pub intonation: f64,
+}
+
+// Only built from validated, finite numbers.
+impl Eq for AudioQueryScales {}
+
+impl Default for AudioQueryScales {
+    fn default() -> Self {
+        Self { speed: 1.0, volume: 1.0, pitch: 0.0, intonation: 1.0 }
+    }
+}
+
+impl AudioQueryScales {
+    /// `(AudioQuery field, value)` of the fields set away from their default.
+    pub fn changed(&self) -> Vec<(&'static str, f64)> {
+        let defaults = Self::default();
+        [("speedScale", self.speed, defaults.speed), ("volumeScale", self.volume, defaults.volume),
+            ("pitchScale", self.pitch, defaults.pitch), ("intonationScale", self.intonation, defaults.intonation)]
+            .into_iter()
+            .filter(|(_, value, default)| value != default)
+            .map(|(field, value, _)| (field, value))
+            .collect()
+    }
+}
+
+/// `(suffix, minimum, maximum)` of the saved Scale numbers, `<engine>_<suffix>` for each of
+/// [`AUDIO_QUERY_ENGINES`]: the ranges of VOICEVOX's own sliders, which AivisSpeech and
+/// SHAREVOX share.
+const AUDIO_QUERY_RANGES: [(&str, f64, f64); 4] = [
+    ("speed", 0.5, 2.0),
+    ("volume", 0.0, 2.0),
+    ("pitch", -0.15, 0.15),
+    ("intonation", 0.0, 2.0),
+];
+
 /// A plain decimal such as `1`, `0.25` or `-0.05` within `min..=max`. No exponent, `inf` or
 /// `NaN`: the text goes to the engine as a number.
 fn decimal_in(text: &str, min: f64, max: f64) -> Option<f64> {
@@ -244,11 +291,13 @@ pub struct SpeechRequest {
     pub engine_voice: Option<EngineVoice>,
     /// How COEIROINK reads, when it is the engine.
     pub coeiroink: Option<CoeiroinkParams>,
+    /// How an engine with the VOICEVOX API reads, when one is the engine.
+    pub audio_query: Option<AudioQueryScales>,
 }
 
 impl SpeechRequest {
     fn speechcpp(url: String, voice: &str, language: &'static str, text: String) -> Self {
-        Self { url, voice: voice.to_owned(), language, text, engine: SPEECHCPP, engine_voice: None, coeiroink: None }
+        Self { url, voice: voice.to_owned(), language, text, engine: SPEECHCPP, engine_voice: None, coeiroink: None, audio_query: None }
     }
 }
 
@@ -318,6 +367,20 @@ voice_settings! {
     coeiroink_pre_phoneme = "0.1",
     coeiroink_post_phoneme = "0.1",
     coeiroink_sampling_rate = "24000", // one of COEIROINK_RATES
+    // How the engines with the VOICEVOX API read (their AudioQuery's Scale fields), as plain
+    // decimals, one set per engine; see AUDIO_QUERY_RANGES.
+    voicevox_speed = "1.0",
+    voicevox_volume = "1.0",
+    voicevox_pitch = "0.0",
+    voicevox_intonation = "1.0",
+    aivis_speed = "1.0",
+    aivis_volume = "1.0",
+    aivis_pitch = "0.0",
+    aivis_intonation = "1.0",
+    sharevox_speed = "1.0",
+    sharevox_volume = "1.0",
+    sharevox_pitch = "0.0",
+    sharevox_intonation = "1.0",
 }
 
 impl VoiceSettings {
@@ -406,6 +469,9 @@ impl VoiceSettings {
         {
             return Err(SettingsError("Invalid COEIROINK reading settings"));
         }
+        if AUDIO_QUERY_ENGINES.iter().any(|engine| AUDIO_QUERY_RANGES.iter().any(|(name, min, max)| decimal_in(self.scale_text(engine, name), *min, *max).is_none())) {
+            return Err(SettingsError("Invalid reading settings"));
+        }
         for voice in [&self.japanese_voice, &self.multilingual_voice] {
             if is_blank(voice) || voice.chars().count() > 128 || has_control(voice) {
                 return Err(SettingsError("Invalid voice name"));
@@ -462,6 +528,40 @@ impl VoiceSettings {
             pre_phoneme: number("coeiroink_pre_phoneme", defaults.pre_phoneme),
             post_phoneme: number("coeiroink_post_phoneme", defaults.post_phoneme),
             sampling_rate: self.coeiroink_sampling_rate.parse().ok().filter(|rate| COEIROINK_RATES.contains(rate)).unwrap_or(defaults.sampling_rate),
+        }
+    }
+
+    /// The saved text of `<engine>_<name>`, one of the Scale numbers of [`AUDIO_QUERY_ENGINES`].
+    fn scale_text(&self, engine: &str, name: &str) -> &str {
+        match (engine, name) {
+            ("voicevox", "speed") => &self.voicevox_speed,
+            ("voicevox", "volume") => &self.voicevox_volume,
+            ("voicevox", "pitch") => &self.voicevox_pitch,
+            ("voicevox", _) => &self.voicevox_intonation,
+            ("aivis", "speed") => &self.aivis_speed,
+            ("aivis", "volume") => &self.aivis_volume,
+            ("aivis", "pitch") => &self.aivis_pitch,
+            ("aivis", _) => &self.aivis_intonation,
+            (_, "speed") => &self.sharevox_speed,
+            (_, "volume") => &self.sharevox_volume,
+            (_, "pitch") => &self.sharevox_pitch,
+            _ => &self.sharevox_intonation,
+        }
+    }
+
+    /// How an engine with the VOICEVOX API (`voicevox`, `aivis`, `sharevox`) reads. Validated
+    /// settings always parse; anything else is the default.
+    pub fn audio_query_scales(&self, engine: &str) -> AudioQueryScales {
+        let defaults = AudioQueryScales::default();
+        let number = |name: &str, fallback: f64| {
+            let (_, min, max) = AUDIO_QUERY_RANGES.iter().find(|(field, _, _)| *field == name).expect("a listed field");
+            decimal_in(self.scale_text(engine, name), *min, *max).unwrap_or(fallback)
+        };
+        AudioQueryScales {
+            speed: number("speed", defaults.speed),
+            volume: number("volume", defaults.volume),
+            pitch: number("pitch", defaults.pitch),
+            intonation: number("intonation", defaults.intonation),
         }
     }
 
@@ -534,7 +634,8 @@ impl VoiceSettings {
             }
             let voice = EngineVoice { id: self.engine_voice_id.clone(), speaker: self.engine_voice_speaker.clone(), style: self.engine_voice_style.clone() };
             let coeiroink = (engine == "coeiroink").then(|| self.coeiroink_params());
-            return Ok(SpeechRequest { url: local_url(self.engine_url(engine))?, voice: voice.id.clone(), language, text, engine, engine_voice: Some(voice), coeiroink });
+            let audio_query = AUDIO_QUERY_ENGINES.contains(&engine).then(|| self.audio_query_scales(engine));
+            return Ok(SpeechRequest { url: local_url(self.engine_url(engine))?, voice: voice.id.clone(), language, text, engine, engine_voice: Some(voice), coeiroink, audio_query });
         }
         let (server, voice) = if japanese { (&self.japanese_server, &self.japanese_voice) } else { (&self.multilingual_server, &self.multilingual_voice) };
         if server == "bundled" {
@@ -824,6 +925,37 @@ mod tests {
             ("coeiroink_volume", "-0.1"), ("coeiroink_pitch", "0.2"), ("coeiroink_intonation", "2.5"),
             ("coeiroink_pre_phoneme", "1.6"), ("coeiroink_post_phoneme", "-1"),
             ("coeiroink_sampling_rate", "22050"), ("coeiroink_sampling_rate", "24000.0"), ("coeiroink_sampling_rate", ""),
+        ] {
+            assert!(VoiceSettings::from_value_on(&json!({ field: bad }), Platform::Other).is_err(), "{field}={bad}");
+        }
+    }
+
+    #[test]
+    fn each_voicevox_api_engine_has_its_own_scales_that_default_to_the_engines_own() {
+        assert!(AudioQueryScales::default().changed().is_empty(), "a query at its defaults is not touched");
+        for engine in AUDIO_QUERY_ENGINES {
+            assert_eq!(VoiceSettings::default().audio_query_scales(engine), AudioQueryScales::default());
+        }
+        let value = settings(json!({"mode": "original", "output_device": "cable", "japanese_engine": "aivis", "engine_voice_id": "888753760",
+            "aivis_speed": "1.25", "aivis_volume": "0", "aivis_pitch": "-0.05", "aivis_intonation": "2", "voicevox_speed": "0.5"}));
+        let scales = AudioQueryScales { speed: 1.25, volume: 0.0, pitch: -0.05, intonation: 2.0 };
+        assert_eq!(value.audio_query_scales("aivis"), scales);
+        assert_eq!(value.audio_query_scales("voicevox"), AudioQueryScales { speed: 0.5, ..AudioQueryScales::default() }, "VOICEVOX keeps its own");
+        assert_eq!(value.audio_query_scales("sharevox"), AudioQueryScales::default());
+        let request = value.request_for(&chat("x", "ja"), None).unwrap();
+        assert_eq!((request.audio_query, request.coeiroink), (Some(scales), None));
+        assert_eq!(scales.changed(), [("speedScale", 1.25), ("volumeScale", 0.0), ("pitchScale", -0.05), ("intonationScale", 2.0)]);
+        assert_eq!(AudioQueryScales { pitch: 0.1, ..AudioQueryScales::default() }.changed(), [("pitchScale", 0.1)], "only what was set");
+        assert_eq!(settings(value.to_value()), value);
+        // COEIROINK and speech.cpp carry none.
+        let coeiroink = settings(json!({"mode": "original", "output_device": "cable", "japanese_engine": "coeiroink", "engine_voice_id": "ab-12:0"}));
+        assert_eq!(coeiroink.request_for(&chat("x", "ja"), None).unwrap().audio_query, None);
+        let speechcpp = settings(json!({"mode": "original", "output_device": "cable", "japanese_server": "external"}));
+        assert_eq!(speechcpp.request_for(&chat("x", "ja"), None).unwrap().audio_query, None);
+        for (field, bad) in [
+            ("voicevox_speed", "0.4"), ("voicevox_speed", "2.01"), ("voicevox_speed", "1e0"), ("voicevox_speed", "NaN"), ("voicevox_speed", ""),
+            ("aivis_volume", "-0.1"), ("aivis_volume", "2.5"), ("aivis_pitch", "0.2"), ("sharevox_pitch", "-0.16"),
+            ("sharevox_intonation", "2.5"), ("sharevox_intonation", "+1"),
         ] {
             assert!(VoiceSettings::from_value_on(&json!({ field: bad }), Platform::Other).is_err(), "{field}={bad}");
         }

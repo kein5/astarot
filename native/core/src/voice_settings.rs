@@ -250,6 +250,31 @@ pub fn file_direct(value: &Value) -> Value {
     value
 }
 
+/// The fields 0.6 added to the speech settings: how VOICEVOX, AivisSpeech and SHAREVOX read
+/// (the Scale fields of their AudioQuery, #392).
+const VOICE_ADDED_IN_0_6: [&str; 12] = [
+    "voicevox_speed", "voicevox_volume", "voicevox_pitch", "voicevox_intonation",
+    "aivis_speed", "aivis_volume", "aivis_pitch", "aivis_intonation",
+    "sharevox_speed", "sharevox_volume", "sharevox_pitch", "sharevox_intonation",
+];
+
+/// The speech settings as `config.json` holds them: the fields 0.6 added are left out while they
+/// hold their defaults, which a load fills in again. 0.5 refuses the whole value when it finds a
+/// field it does not know and would reset every speech setting; so a file saved without those
+/// values changed stays readable by 0.5. A changed value is saved, and 0.5 then still resets.
+pub fn file_voice(value: &Value) -> Value {
+    let defaults = vrct_tts::settings::VoiceSettings::default().to_value();
+    let mut value = value.clone();
+    if let Value::Object(object) = &mut value {
+        for field in VOICE_ADDED_IN_0_6 {
+            if object.get(field) == defaults.get(field) {
+                object.remove(field);
+            }
+        }
+    }
+    value
+}
+
 /// The saved direct voice settings as they load: a Seed-VC engine saved by an earlier version
 /// moves to RVC. The other fields stay, as 0.4 knew both engines ([`file_direct`]).
 pub fn load_direct(value: &Value) -> Option<Value> {
@@ -330,6 +355,26 @@ mod tests {
         let chosen = normalize_direct(&json!({ "rvc_device": "cpu", "rvc_threads": 0, "rvc_highpass": true })).unwrap();
         assert_eq!(file_direct(&chosen)["rvc_device"], "cpu");
         assert_eq!(load_direct(&file_direct(&chosen)).unwrap(), chosen);
+    }
+
+    #[test]
+    fn the_file_leaves_out_unchanged_engine_readings_so_0_5_still_reads_it() {
+        // 0.5 refuses VOICE_SETTINGS with a field it does not know, like 0.4 did with the direct
+        // voice settings (#428), and would reset every speech setting after a downgrade.
+        use vrct_tts::settings::VoiceSettings;
+        let settings = VoiceSettings::from_value(&json!({ "japanese_engine": "aivis", "engine_voice_id": "1", "coeiroink_speed": "1.5" })).unwrap().to_value();
+        let file = file_voice(&settings);
+        for field in VOICE_ADDED_IN_0_6 {
+            assert!(settings.get(field).is_some(), "{field} is a speech setting");
+            assert!(file.get(field).is_none(), "{field}");
+        }
+        assert_eq!(file["coeiroink_speed"], "1.5", "fields 0.5 knows stay");
+        assert_eq!(VoiceSettings::from_value(&file).unwrap().to_value(), settings, "loads back the same");
+        // A changed value is kept.
+        let chosen = VoiceSettings::from_value(&json!({ "aivis_speed": "1.25", "voicevox_pitch": "0.0" })).unwrap().to_value();
+        assert_eq!(file_voice(&chosen)["aivis_speed"], "1.25");
+        assert!(file_voice(&chosen).get("voicevox_pitch").is_none());
+        assert_eq!(VoiceSettings::from_value(&file_voice(&chosen)).unwrap().to_value(), chosen);
     }
 
     #[test]

@@ -1081,7 +1081,7 @@ impl Voice {
         let targets = targets_of(&event.destinations);
         let translations: Vec<Option<String>> = event.translations.iter().map(|t| Some(t.clone())).collect();
         let provenance: Vec<String> = event.provenance.iter().map(|p| (*p).to_owned()).collect();
-        let message = chat_event(
+        let mut message = chat_event(
             &event.message,
             &translations,
             &event.success,
@@ -1093,6 +1093,9 @@ impl Voice {
             &event.target_slots,
             &settings.target_slot,
         );
+        if let Some(core) = self.core.upgrade() {
+            super::terms::read_terms(&mut message, &core.term_dictionary());
+        }
         let queued = (settings.mode == "original" || message.translated_text.is_some()) && self.bus.publish(message, Some(generation), None);
         if let Some(trace) = event.id.as_deref().and_then(|id| self.traces.get(id)) {
             trace.speech_queued(queued);
@@ -1197,7 +1200,8 @@ impl Core {
         }
         let usable: Vec<bool> = success.iter().zip(provenance).map(|(ok, origin)| *ok && *origin == "translated").collect();
         let translations: Vec<Option<String>> = translations.iter().map(|t| Some(t.clone())).collect();
-        let Some(event) = microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot) else { return false };
+        let Some(mut event) = microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot) else { return false };
+        super::terms::read_terms(&mut event, &self.term_dictionary());
         voice.bus.publish(event, Some(snapshot.generation), Some(snapshot.source_generation))
     }
 

@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { GenerationOptions, validGenerationOptions } from "../tts/GenerationOptions";
-import { TtsEngine, TTS_ENGINES, validCoeiroinkOptions } from "../tts/TtsEngine";
+import { TtsEngine, TTS_ENGINES, AUDIO_QUERY_ENGINES, validCoeiroinkOptions, validAudioQueryOptions } from "../tts/TtsEngine";
 import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { StatusLine } from "./StatusLine";
@@ -15,8 +15,9 @@ import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 
-// Every field the page can make invalid: speech.cpp's seed and instructions, COEIROINK's numbers.
-const validVoiceSettings = draft => validGenerationOptions(draft) && validCoeiroinkOptions(draft);
+// Every field the page can make invalid: speech.cpp's seed and instructions, the installed
+// engines' reading numbers.
+const validVoiceSettings = draft => validGenerationOptions(draft) && validCoeiroinkOptions(draft) && validAudioQueryOptions(draft);
 
 export const VoiceSettings = () => {
     const { t, i18n } = useI18n();
@@ -27,6 +28,8 @@ export const VoiceSettings = () => {
         if (Object.values(TTS_ENGINES).some(engine => engine.url === key)) return t("voice_ui.engine.url");
         if (key.startsWith("engine_voice_")) return t("voice_ui.engine.voice");
         if (key.startsWith("coeiroink_")) return `COEIROINK: ${t(`voice_ui.engine.coeiroink.${key}`)}`;
+        const reader = AUDIO_QUERY_ENGINES.find(engine => key.startsWith(`${engine}_`));
+        if (reader) return `${TTS_ENGINES[reader].name}: ${t(`voice_ui.engine.audio_query.${key.slice(reader.length + 1)}`)}`;
         const role = ["japanese", "multilingual"].find(name => key.startsWith(`${name}_`));
         if (key === `${role}_server`) return t(`speech_servers.${role}_selection`);
         if (key === `${role}_seed`) return `${t(`speech_servers.${role}`)}: ${t("voice_ui.seed_mode")}`;

@@ -159,6 +159,19 @@ fn typed_chat_is_spoken_once_to_the_chosen_output_and_never_logged() {
 }
 
 #[test]
+fn japanese_speech_reads_the_terms_with_their_readings() {
+    // #446: the built-in "VRChat=ブイアールチャット,…" and a term of the user's.
+    let saved = json!({ "REALTIME_ASR_SETTINGS": { "vocabulary": { "builtin": true, "terms": ["猫丸=ねこまる"] } } });
+    let run = start(saved, Platform::Windows);
+    let server = FakeTts::speechcpp(0.2);
+    speaking(&run, &server);
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "m-1", "message": "猫丸とVRChatで" })));
+    eventually("the speech is asked for", || !server.requests().is_empty());
+    assert_eq!(spoken_inputs(&server)[0], "ねこまるとブイアールチャットで");
+    run.ui.stop();
+}
+
+#[test]
 fn a_stop_or_mute_cancels_speech_and_a_stale_stamp_is_refused() {
     let run = start(json!({}), Platform::Windows);
     let server = FakeTts::speechcpp(3.0);

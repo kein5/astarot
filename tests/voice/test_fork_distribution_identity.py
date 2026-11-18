@@ -101,8 +101,9 @@ def test_download_sources_belong_to_fork():
 # must name the current repository, or downloads newer than 0.5.0 return 404.
 OLD_REPOSITORY = re.compile(r"(github\.com|repos)/kein5/VRCT-VOX\b", re.IGNORECASE)
 SHIPPED = ("src-tauri", "native", "src-ui", "src-python", "spec", "bat")
-RELEASE_FILES = (".github/workflows/prepare-release.yml", "tools/release_candidate.py",
-                 "tools/updater_manifest.py", "tools/linux_packages.py")
+RELEASE_FILES = (".github/workflows/prepare-release.yml", ".github/workflows/release-draft-auto.yml",
+                 ".github/workflows/release-back-merge.yml", "tools/release_candidate.py",
+                 "tools/release_automation.py", "tools/updater_manifest.py", "tools/linux_packages.py")
 
 
 def test_shipped_code_does_not_name_the_old_repository():
