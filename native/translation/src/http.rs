@@ -74,20 +74,31 @@ fn from_io(error: &io::Error) -> HttpError {
     }
 }
 
-/// An answer: the status and the body (chunks joined).
-#[derive(Clone, Debug)]
+/// An answer: the status, the headers (names in lower case) and the body (chunks joined).
+#[derive(Clone, Debug, Default)]
 pub struct Response {
     pub status: u16,
+    pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
 }
 
 impl Response {
+    /// An answer without headers.
+    pub fn new(status: u16, body: Vec<u8>) -> Response {
+        Response { status, headers: Vec::new(), body }
+    }
+
     pub fn ok(&self) -> bool {
         (200..300).contains(&self.status)
     }
 
     pub fn json(&self) -> Option<serde_json::Value> {
         serde_json::from_slice(&self.body).ok()
+    }
+
+    /// The first header of that name (any case).
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, v)| v.as_str())
     }
 }
 
@@ -346,7 +357,7 @@ fn read_response(stream: &mut impl Read) -> Result<Response, HttpError> {
     let mut buffer = [0u8; 16 * 1024];
     // The head first.
     let mut need_more = true;
-    let (status, head_length, framing) = loop {
+    let (status, head_length, framing, headers) = loop {
         // After an interim answer the final one may already be here, read in the same go: the
         // server can have sent it and closed, so parse before reading again.
         if need_more {
@@ -382,7 +393,12 @@ fn read_response(stream: &mut impl Read) -> Result<Response, HttpError> {
                     need_more = data.is_empty();
                     continue;
                 }
-                break (status, length, framing);
+                let headers = response
+                    .headers
+                    .iter()
+                    .map(|h| (h.name.to_ascii_lowercase(), String::from_utf8_lossy(h.value).trim().to_string()))
+                    .collect::<Vec<_>>();
+                break (status, length, framing, headers);
             }
             Ok(httparse::Status::Partial) if data.len() < 64 * 1024 => continue,
             _ => return Err(HttpError::Protocol),
@@ -412,7 +428,7 @@ fn read_response(stream: &mut impl Read) -> Result<Response, HttpError> {
         Framing::Chunked => dechunk(&body).ok_or(HttpError::Io)?,
         Framing::Close => body,
     };
-    Ok(Response { status, body })
+    Ok(Response { status, headers, body })
 }
 
 #[derive(Clone, Copy)]

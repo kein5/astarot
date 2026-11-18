@@ -161,6 +161,8 @@
 - OpenAI、OpenAI互換、Groq、Plamo、OpenRouter、Gemini、OpenAI互換ASR、Deepgram、DeepLの認証・モデル一覧取得は通信待機を3秒、SDKの再試行を0回にする。Geminiは試行回数1を指定する。設定画面からの確認は8秒後にクライアントを閉じる。起動時は上記の30秒の確認段階に所有をまとめる。Geminiのページ送りも同じ期限内で済ませ、一覧をメモリーへ移してから閉じる。期限後に新しい要求やページ取得を始めない。OSのDNS解決など、中断できない処理の完了時刻を保証する値ではない。
 - 実行時のネットワーク翻訳は、SDK・HTTPクライアント自身で待機時間を制限する。OpenAI、OpenAI互換、OpenRouter、Groq、Plamoは接続5秒・読み取り30秒・書き込み10秒・接続プール待ち5秒、OllamaとLM Studioは初回のモデル読み込みを考慮して読み取りだけ120秒とする。GeminiはSDKの秒単位の設定を使い、各通信待機を30秒にする。DeepLは接続5秒・読み取り10秒とする（`translation_timeouts.py`、`translation_deepl.py`）。上流VRCTのGoogle・Bing・PapagoのWeb翻訳は、ASTAROTでは配布できないので翻訳エンジンの一覧に出さない。
 - クラウド翻訳（OpenAI、OpenAI互換、OpenRouter、Groq、Plamo、Gemini、DeepL）は、SDKが再試行できると判断した一時的なエラーを1回だけ再試行する（初回を含め最大2回）。SDK自身のエラー判定とバックオフを使い、認証拒否など再試行しないエラーの扱いも保つ。OpenAI系は`max_retries=1`、Geminiは試行回数を指定するため`max_retries=2`とする。DeepLもSDKの判定を使い、再試行を1回までに制限する。OllamaとLM Studioは再試行しない。失敗が続いた場合は、タイムアウトも他の翻訳失敗と同じCTranslate2へのフォールバックに進む。
+    - 中核はSDKを使わず、各SDKの判定とバックオフを`native/translation/src/providers/retry.rs`に写している。OpenAIのSDKの規則（408・409・429・5xxと通信の失敗、`x-should-retry`、`retry-after-ms`と`retry-after`）、DeepLのSDKの規則（429と5xxと通信の失敗）、GoogleのSDKの規則（408・429・500・502・503・504と通信の失敗）である。中核で足したGoogle Cloud TranslationとPapagoはOpenAIのSDKの規則に従う。
+    - 判定、待ち時間、バックオフが現行のPythonのクライアントと同じであることは、`native/translation/tests/contract/providers.json`の契約テストで確かめる。
 - Ollamaには非ストリーミングを明示する。タイムアウト用に呼び出しごとのスレッドを作らない。DeepLは短い制限を持つ認証用クライアントを閉じてから、専用HTTPクライアントに実行時の制限を設定する。SDK全体の既定値は変えない。
 - これらは通信待機の制限であり、翻訳全体の厳密な経過時間の上限ではない。少量ずつデータが届く場合、DNS解決、CTranslate2のロック待ち・ローカル推論までをまとめて中断する仕組みはない。プロバイダー例外にはキーや要求本文が含まれることがあるため、実行時のネットワーク翻訳の失敗ログにはエンジン名と例外クラス名だけを残す。
 
