@@ -4,7 +4,6 @@ import { useStdoutToPython } from "@useStdoutToPython";
 import styles from "./AdvancedSettings.module.scss";
 import voiceStyles from "./VoiceSettings.module.scss";
 import dialogStyles from "../_components/download_models/LegacyModelDownloadDialog.module.scss";
-import { DirectVoiceSettings } from "./DirectVoiceSettings";
 import { AutoExportMessageLogsContainer } from "../shared_items/SharedItems";
 import { Description } from "../_components/description/Description";
 import { TelemetryContents } from "../_components/telemetry/TelemetryContents";
@@ -62,7 +61,6 @@ export const AdvancedSettings = () => {
                 <OscPortContainer />
             </div>
             <WebsocketContainer />
-            <DirectVoiceSettings variant="legacy" />
             <ObsBrowserSourceContainer />
         </div>
     );

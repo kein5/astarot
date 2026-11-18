@@ -188,6 +188,13 @@ export const useConfigSearch = () => {
             ...(models.models?.flatMap(model => model.languages ?? []) ?? []),
             settings?.mic?.language, settings?.speaker?.language,
         ]);
+        // Input forwarding has its texts under voice.*; it is in the RVC page's 「詳細設定」 (#554, Q-07).
+        entries.push({
+            tab: "rvc", setting_id: "direct_voice_settings", label: t("voice.input_title"),
+            desc: t("voice.input_description"), tab_label: t(TAB_LABEL_KEYS.rvc), prereq: null,
+            searchTarget: [t("voice.input_title"), t("voice.input_source"), t("voice.input_start")]
+                .map(text => text.normalize("NFKC").toLowerCase()),
+        });
         entries.push({
             tab: "transcription", setting_id: "realtime_asr", label: t("realtime.title"),
             desc: t("realtime.auto_help"), tab_label: t(TAB_LABEL_KEYS.transcription), prereq: null,

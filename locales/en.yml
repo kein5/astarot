@@ -472,6 +472,8 @@ config_page:
         requires: "Requires: {{name}}"
         no_results: "No matching settings found"
     common:
+        # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.jsx).
+        advanced_section: "More settings"
         open_color_picker: "Choose color: {{label}}"
         duration_seconds_one: "{{count}} second"
         duration_seconds_other: "{{count}} seconds"
