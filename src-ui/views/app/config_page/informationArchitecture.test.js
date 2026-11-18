@@ -262,3 +262,21 @@ test("translation keeps its local model in sight; the APIs and local LLMs it cou
     assert.deepEqual(providers("ExternalTranslationAPI_Container"), list("EXTERNAL_API_PROVIDERS"));
     assert.deepEqual(providers("LocalLLM_Container"), list("LOCAL_LLM_PROVIDERS"));
 });
+
+test("captions and VR turns the captions on in sight; where they sit, how they look and what they show are in 「詳細設定」", () => {
+    const source = read("vr/Vr.jsx");
+    const page = source.split("export const Vr = () => {")[1].split("\n};")[0];
+    const [before, rest] = page.split("<AdvancedSection");
+    const [fold, after] = rest.split("</AdvancedSection>");
+    assert.match(before, /setting_id="overlay_small_log"[\s\S]*toggleIsEnabledOverlaySmallLog[\s\S]*setting_id="overlay_large_log"[\s\S]*toggleIsEnabledOverlayLargeLog/);
+    assert.match(before, /<DesktopCaptionOverlay part="enable" \/>/);
+    for (const part of [/data-setting-id="vr_overlay"/, /<OverlaySettingsContainer/, /<DesktopCaptionOverlay part="details" \/>/, /<CommonSettingsContainer \/>/, /restore_default_settings/])
+        assert.match(fold, part);
+    assert.match(after, /<PagePointer [^>]*tab="experimental_features"/);
+    // The overlay editor no longer carries its own switch: it is the one in sight.
+    assert.doesNotMatch(source.split("const OverlaySettingsContainer = (")[1].split("\n};")[0], /CheckboxContainer/);
+    const desktop = readFileSync(box("vr/DesktopCaptionOverlay.jsx"), "utf8");
+    const enable = desktop.split('if (part === "enable") return (')[1].split("\n    );")[0];
+    assert.match(enable, /setting_id="desktop_overlay"/);
+    assert.doesNotMatch(enable, /desktop_overlay_position|desktop_overlay_font_size/);
+});

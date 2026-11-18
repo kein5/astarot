@@ -13,7 +13,9 @@ import styles from "./Vr.module.scss";
 // Captions over the desktop, for VRChat without a headset. The section is
 // shown only where the overlay window exists (Windows for now), so nobody is
 // offered a switch that does nothing.
-export const DesktopCaptionOverlay = () => {
+// part: "enable" is the switch, in sight on the page; "details" is where the captions sit and
+// how they look, in the page's 「詳細設定」 (#554).
+export const DesktopCaptionOverlay = ({ part }) => {
     const { t } = useI18n();
     const {
         currentIsEnabledOverlayDesktop,
@@ -55,7 +57,7 @@ export const DesktopCaptionOverlay = () => {
     const flow = currentIoFlowOverlaySettings.data;
     const flowState = currentIoFlowOverlaySettings.state;
     const changeFlow = (key, value) => setIoFlowOverlaySettings({ ...flow, [key]: value });
-    return (
+    if (part === "enable") return (
         <div className={styles.common_container}>
             <SectionLabelComponent label={t("config_page.vr.section_label_desktop_overlay")} />
             <CheckboxContainer
@@ -65,6 +67,11 @@ export const DesktopCaptionOverlay = () => {
                 variable={currentIsEnabledOverlayDesktop}
                 toggleFunction={toggleIsEnabledOverlayDesktop}
             />
+        </div>
+    );
+    return (
+        <div className={styles.common_container}>
+            <SectionLabelComponent sub label={t("config_page.vr.section_label_desktop_overlay")} />
             <RadioButtonContainer
                 setting_id="desktop_overlay_position"
                 label={t("config_page.vr.desktop_overlay_position.label")}

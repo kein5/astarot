@@ -9,6 +9,7 @@ import {
     CheckboxContainer,
 } from "../_templates/Templates";
 import { PagePointer } from "../_components/page_pointer/PagePointer";
+import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 
 import {
     SectionLabelComponent,
@@ -44,7 +45,10 @@ export const Vr = () => {
         setOverlayLargeLogSettings,
         currentOverlaySmallLogSettings,
         setOverlaySmallLogSettings,
+        currentOverlayShowOnlyTranslatedMessages,
+        currentVoiceTypingMode,
     } = useVr();
+    const onOff = current => t(current?.data === true ? "config_page.advanced_status.on" : "config_page.advanced_status.off");
 
 
     const restoreDefaultSettings = () => {
@@ -53,11 +57,31 @@ export const Vr = () => {
         setOverlayLargeLogSettings(ui_configs.overlay_large_log_default_settings);
     };
 
+    // What a first start turns on is in sight: the captions in VR and on the desktop. Where they
+    // sit, how they look and what they show are set once, in 「詳細設定」 (#554).
     return (
         <div className={styles.container}>
+            <div>
+                <SectionLabelComponent label={t("config_page.vr.section_label_overlay")} />
+                <CheckboxContainer
+                    setting_id="overlay_small_log"
+                    label={t("config_page.vr.overlay_enable_single")}
+                    variable={currentIsEnabledOverlaySmallLog}
+                    toggleFunction={toggleIsEnabledOverlaySmallLog}
+                />
+                <CheckboxContainer
+                    setting_id="overlay_large_log"
+                    label={t("config_page.vr.overlay_enable_multi")}
+                    variable={currentIsEnabledOverlayLargeLog}
+                    toggleFunction={toggleIsEnabledOverlayLargeLog}
+                />
+            </div>
+            <DesktopCaptionOverlay part="enable" />
+            <AdvancedSection status={t("config_page.advanced_status.vr", {
+                only: onOff(currentOverlayShowOnlyTranslatedMessages), typing: onOff(currentVoiceTypingMode) })}>
             {/* The settings search leads here for the overlay's position, rotation, size and timing. */}
             <div className={styles.overlay_section} data-setting-id="vr_overlay">
-                <SectionLabelComponent label={t("config_page.vr.section_label_overlay")} />
+                <SectionLabelComponent sub label={t("config_page.vr.section_label_overlay_look")} />
                 <div className={styles.wrapper}>
                     <PageSwitcherContainer
                         toggleFunction={toggleIsOpenedSmallSettings}
@@ -75,8 +99,6 @@ export const Vr = () => {
                             state={currentOverlaySmallLogSettings.state}
                             current_overlay_settings={currentOverlaySmallLogSettings.data}
                             setOverlaySettings={setOverlaySmallLogSettings}
-                            current_is_enabled_overlay={currentIsEnabledOverlaySmallLog}
-                            toggle_is_enabled_overlay={toggleIsEnabledOverlaySmallLog}
                         />
                     ) : (
                         <OverlaySettingsContainer
@@ -88,17 +110,12 @@ export const Vr = () => {
                             state={currentOverlayLargeLogSettings.state}
                             current_overlay_settings={currentOverlayLargeLogSettings.data}
                             setOverlaySettings={setOverlayLargeLogSettings}
-                            current_is_enabled_overlay={currentIsEnabledOverlayLargeLog}
-                            toggle_is_enabled_overlay={toggleIsEnabledOverlayLargeLog}
                         />
                     )}
                 </div>
             </div>
-            <DesktopCaptionOverlay />
+            <DesktopCaptionOverlay part="details" />
             <CommonSettingsContainer />
-            {/* The VR panel (VR UI) is on trial: it moved to the experimental features (#554, Q-05). */}
-            <PagePointer label={t("config_page.vr.vr_panel_pointer.label")} description={t("config_page.vr.vr_panel_pointer.desc")}
-                tab="experimental_features" button={t("config_page.vr.open_experimental_features")} />
             <button
                 className={styles.restore_default_settings_button}
                 data-setting-id="restore_default_settings"
@@ -106,6 +123,10 @@ export const Vr = () => {
             >
                 {t("config_page.vr.restore_default_settings")}
             </button>
+            </AdvancedSection>
+            {/* The VR panel (VR UI) is on trial: it moved to the experimental features (#554, Q-05). */}
+            <PagePointer label={t("config_page.vr.vr_panel_pointer.label")} description={t("config_page.vr.vr_panel_pointer.desc")}
+                tab="experimental_features" button={t("config_page.vr.open_experimental_features")} />
         </div>
     );
 };
@@ -114,8 +135,6 @@ const OverlaySettingsContainer = ({
     current_overlay_settings,
     state,
     setOverlaySettings,
-    current_is_enabled_overlay,
-    toggle_is_enabled_overlay,
     ui_configs,
     default_ui_configs,
     id,
@@ -193,11 +212,6 @@ const OverlaySettingsContainer = ({
 
     return (
         <>
-            <CheckboxContainer
-                label={t("config_page.vr.overlay_enable")}
-                variable={current_is_enabled_overlay}
-                toggleFunction={toggle_is_enabled_overlay}
-            />
             <PageSwitcherContainer
                 toggleFunction={togglePositionRotationController}
                 is_selected={is_opened_position_controller}
@@ -625,7 +639,7 @@ const CommonSettingsContainer = () => {
 
     return (
         <div className={styles.common_container}>
-            <SectionLabelComponent label={t("config_page.vr.common_settings")} />
+            <SectionLabelComponent sub label={t("config_page.vr.common_settings")} />
             <CheckboxContainer
                 label={t("config_page.vr.overlay_show_only_translated_messages.label")}
                 variable={currentOverlayShowOnlyTranslatedMessages}
