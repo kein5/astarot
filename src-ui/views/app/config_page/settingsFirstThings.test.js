@@ -26,7 +26,7 @@ test("chat reading has a page of its own, and search lists it there", async () =
     assert.equal(runtime.render(SettingBox).type, "Ocr");
     for (const id of ["vrchat", "others"]) { tab = id; assert.equal(runtime.render(SettingBox).type, "Vrchat"); }
 
-    const search = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
+    const search = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
         "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
         "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,

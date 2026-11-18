@@ -46,7 +46,7 @@
 
 操作できる行（設定、操作のボタン、リンク）を数えると、「ASTAROTについて」を除く 13 タブで約 240 行あります。多いのは音声認識（約 42 行）、TTS（約 40 行）、翻訳、VR、高度な設定（それぞれ約 25 行）です。条件で出る行と、畳みの中の行も含めています。
 
-設定には検索欄があり、すべてのタブの項目を探せます（`search_bar/SearchBar.jsx`）。結果を選ぶと、まわりの畳み（`<details>`）を開いてその項目へ移ります（`logics/configs/config_page_setter/_aux/useConfigSearch.js`）。
+設定には検索欄があり、すべてのタブの項目を探せます（`search_bar/SearchBar.jsx`）。結果を選ぶと、まわりの畳み（`<details>`）を開いてその項目へ移ります（`logics/configs/config_page_setter/_aux/useConfigSearch.ts`）。
 
 設定画面のほかに、VR パネルの中にも設定の窓があります。そこにはデバイス、デザイン、翻訳、音声認識、VRChat、VR の一部が出ます（`views/vr/VrSettingsWindow.jsx`）。
 

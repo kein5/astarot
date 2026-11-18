@@ -18,7 +18,7 @@ export { useOcrSharedWindow, ocrStartErrorKey, ocrShouldRestoreSharedWindow } fr
 export { useExperimentalFeature } from "./useExperimentalFeature.ts";
 
 export { useSettingBoxScrollPosition } from "./config_page_setter/_aux/useSettingBoxScrollPosition";
-export { useConfigSearch } from "./config_page_setter/_aux/useConfigSearch.js";
+export { useConfigSearch } from "./config_page_setter/_aux/useConfigSearch";
 
 
 export {
