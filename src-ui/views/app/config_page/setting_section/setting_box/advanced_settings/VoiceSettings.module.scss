@@ -60,8 +60,8 @@
     button:hover:enabled { background: var(--vox_secondary_hover); }
     // The forms mark their primary action with the plain class name "primary" (className="primary"),
     // so it is matched globally; a module class would be renamed and never match.
-    button:global(.primary) { background: var(--primary_600_color, #2865dc); color: var(--dark_50_color, #fff); }
-    button:global(.primary):hover:enabled { background: var(--primary_550_color, #3470e8); }
+    button:global(.primary) { background: var(--primary_600_color, #a47af5); color: var(--vox_on_primary, #261633); }
+    button:global(.primary):hover:enabled { background: var(--primary_550_color, #b897f7); }
     // A secondary action beside a primary one: an outline, not a filled button.
     button.quiet { background: transparent; border-color: var(--dark_775_color); }
     button.quiet:hover:enabled { background: var(--dark_850_color); }

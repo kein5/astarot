@@ -93,6 +93,7 @@
     }
     &:active:not(:disabled):not([aria-disabled="true"]) {
         background-color: var(--primary_600_color);
+        color: var(--vox_on_primary);
         transition: none;
     }
     &:disabled, &[aria-disabled="true"] {
@@ -116,7 +117,7 @@
     color: var(--dark_basic_text_color);
     font-weight: 700;
     &.is_on {
-        background-color: var(--primary_700_color);
+        background-color: var(--primary_800_color);
     }
 }
 
@@ -131,7 +132,7 @@
     padding: 0 12px;
     background-color: var(--dark_825_color);
     &.is_selected {
-        background-color: var(--primary_700_color);
+        background-color: var(--primary_800_color);
         &::before {
             content: "";
             position: absolute;
@@ -198,7 +199,7 @@
 .clickable {
     @extend %hoverable;
     &.is_selected {
-        background-color: var(--primary_700_color);
+        background-color: var(--primary_800_color);
     }
 }
 

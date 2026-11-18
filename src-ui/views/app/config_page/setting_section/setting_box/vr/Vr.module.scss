@@ -107,6 +107,7 @@
     }
     &.is_started {
         background-color: var(--primary_600_color);
+        color: var(--vox_on_primary);
         &:hover {
             background-color: var(--primary_500_color);
         }
@@ -196,9 +197,11 @@
 
     &:hover {
         background-color: var(--primary_500_color);
+        color: var(--vox_on_primary);
     }
     &:active {
         background-color: var(--primary_600_color);
+        color: var(--vox_on_primary);
     }
     &.is_disabled {
         pointer-events: none;
