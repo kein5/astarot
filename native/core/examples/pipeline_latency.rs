@@ -482,6 +482,27 @@ fn percentile(values: &[f64], p: f64) -> f64 {
     sorted[rank.min(sorted.len()) - 1]
 }
 
+/// Puts the translation model where the core looks for it, without copying it where that can
+/// be helped: a symbolic link on Unix; on Windows, where a symbolic link needs Developer Mode or
+/// administrator rights, a hard link to each file, or a copy when the model is on another drive.
+fn place_model(model: &Path, place: &Path) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(model, place).expect("the translation model can be linked");
+    #[cfg(not(unix))]
+    {
+        std::fs::create_dir_all(place).expect("the translation model's folder can be made");
+        for entry in std::fs::read_dir(model).expect("the translation model can be read") {
+            let entry = entry.expect("the translation model can be read");
+            if entry.file_type().is_ok_and(|kind| kind.is_file()) {
+                let target = place.join(entry.file_name());
+                if std::fs::hard_link(entry.path(), &target).is_err() {
+                    std::fs::copy(entry.path(), &target).expect("the translation model can be copied");
+                }
+            }
+        }
+    }
+}
+
 fn main() {
     let args = args();
     let clips = load_clips(&args.clips);
@@ -492,7 +513,7 @@ fn main() {
     std::fs::create_dir_all(&state).unwrap();
     let weights = data.join("weights").join("translate-onnx");
     std::fs::create_dir_all(&weights).unwrap();
-    std::os::unix::fs::symlink(&args.translation, weights.join("m2m100_418M-onnx-int8")).expect("the translation model can be linked");
+    place_model(&args.translation, &weights.join("m2m100_418M-onnx-int8"));
 
     let chatbox = UdpSocket::bind(("127.0.0.2", 0)).expect("a chatbox socket on 127.0.0.2");
     let chatbox_port = chatbox.local_addr().unwrap().port();
