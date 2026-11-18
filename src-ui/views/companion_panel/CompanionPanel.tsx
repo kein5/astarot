@@ -49,7 +49,7 @@ export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: Companio
     return (
         <main className={styles.panel} aria-labelledby={titleId}>
             <header className={styles.header}>
-                <h1 id={titleId} className={styles.title}>VRCT-VOX</h1>
+                <h1 id={titleId} className={styles.title}>ASTAROT</h1>
                 <p role="status" className={styles.state} data-state={state}>
                     <span className={styles.dot} aria-hidden="true" />
                     {t(`companion.state_${state}`)}

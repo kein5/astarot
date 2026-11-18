@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import * as shapes from "../../../logics/voice/virtualMic.ts";
@@ -30,7 +30,7 @@ async function setup(context, { notice = true, current = status(), opened = fals
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => state },
         "../../../logics/voice/virtualMic.ts": shapes,
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     // The first render decides; the second shows what that decision opened.
     const render = () => { runtime.render(VirtualMicGuideController); return runtime.render(VirtualMicGuideController); };
     const all = (tree, type) => {

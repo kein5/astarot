@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 import * as modelCatalog from "../../../../../../logics/voice/modelCatalog.ts";
 
@@ -8,7 +8,7 @@ const all = (tree, predicate, found = []) => { find(tree, node => { if (predicat
 async function form(context, models) {
     const runtime = hooks(), sent = [];
     const state = { models };
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const { UserModelRegistration } = await loadModule(new URL("./UserModels.jsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({
             userModels: { models: state.models }, send: (path, data) => sent.push([path, data]) }) },

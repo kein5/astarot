@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { loadModule } from "../test/hookHarness.js";
 import { loadBridgeStore } from "../test/bridgeHarness.js";
 import * as meterValue from "./meterValue.ts";

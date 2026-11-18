@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import yaml from "js-yaml";
 
 // Codes the servers report as a notice, not a failure (native/speech-server/src/lib.rs).

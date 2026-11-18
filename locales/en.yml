@@ -288,7 +288,9 @@ backend_errors:
     AUTH_OPENAI_COMPATIBLE_INVALID: "The OpenAI-compatible API key is not in a valid format."
     AUTH_OPENAI_COMPATIBLE_FAILED: "Could not reach the OpenAI-compatible endpoint, or it rejected the API key. Check the URL and the key."
     CREDENTIAL_REENTRY_REQUIRED: "The URL has changed. To keep your saved key from being sent to a different server, enter the key for the new URL. For a server without a key, delete the saved key first, then change the URL."
-    SECRET_STORE_FAILED: "Your API keys could not be saved to their protected file. The keys work until you close the app. Check that the settings folder can be written, then enter any missing key again."
+    SECRET_STORE_FAILED: "Your API keys could not be saved. The keys work until you close the app. Check that the system's credential store works and that the settings folder can be written, then enter any missing key again."
+    SECRET_STORE_FAILED_moving: "Your API keys could not be moved to the system's credential store. They stay where they were saved and keep working. ASTAROT will try again automatically."
+    SECRET_STORE_FAILED_os_store: "The system's credential store is locked or not running, so your API keys could not be read or saved. Keys you enter work until you close the app. On Linux, start and unlock your keyring (such as GNOME Keyring or KWallet), then restart ASTAROT."
     MODEL_PLAMO_INVALID: "That Plamo model cannot be used."
     MODEL_GEMINI_INVALID: "That Gemini model cannot be used."
     MODEL_OPENAI_INVALID: "That OpenAI model cannot be used."
@@ -460,6 +462,7 @@ config_page:
             licenses: "Licenses and notices"
         original_heading: "Original VRCT"
         original_desc: "ASTAROT is built on VRCT. Thanks to the VRCT developers, contributors and everyone who supported it."
+        vrchat_disclaimer: "ASTAROT and VRCT are not endorsed by VRChat and do not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc."
     search:
         placeholder: "Search settings..."
         label: "Search settings"

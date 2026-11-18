@@ -251,17 +251,21 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 
 ### APIキーの保存先
 
-APIキーは`config.json`に書かない（0.5.0から）。`AUTH_KEYS`（翻訳）と`TRANSCRIPTION_AUTH_KEYS`（音声認識）の値は、同じフォルダの`secrets.json`に1件ずつ保存する。項目の名前は`AUTH_KEYS/DeepL_API`のように辞書の名前とプロバイダ名をつないだものである。どちらの辞書に足したプロバイダも同じ扱いになる。キーを持つ設定を新しく足すときは`native/core/src/config/secrets.rs`の`SECRET_SETTINGS`に名前を加える。
+APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格情報ストアに保存する（Issue #575）（[ADR-013](../adr/adr-013-secret-store.md)）。Windowsは資格情報マネージャー、LinuxはSecret Service（GNOME Keyring、KWalletなど）である。`AUTH_KEYS`（翻訳）と`TRANSCRIPTION_AUTH_KEYS`（音声認識）の値と`PAPAGO_CLIENT_ID`を1件ずつ保存する。項目の名前は`AUTH_KEYS/DeepL_API`のように辞書の名前とプロバイダ名をつないだものである。どちらの辞書に足したプロバイダも同じ扱いになる。キーを持つ設定を新しく足すときは`native/core/src/config/secrets.rs`の`SECRET_SETTINGS`に名前を加える。
 
 - メモリー上の設定はいままでどおりで、`/get/data/*_auth_key`は同じ値を返す。`/run/initialization_complete`の一覧にも同じ値が入る。
-- `secrets.json`は`{"version": 1, "protection": …, "entries": …}`である。Windowsではキーの一覧をDPAPI（そのPCのそのユーザーだけが戻せる暗号化）で包み、Base64にして`entries`に入れる（`"protection": "dpapi"`）。Linuxでは一覧をそのまま入れ、ファイルの権限を0600にする（`"protection": "none"`）。書き込みは`config.json`と同じく、新しい一時ファイル、`fsync`、置き換えの順で行う。
-- 読めない`secrets.json`（別のユーザーやPCのDPAPI、壊れた内容）は、次にキーを書くときに`secrets.json.unreadable-<日時>-<乱数>`へ移して新しく作る。
-- 移行: 起動時、`config.json`にキーがあれば（0.4以前のPythonや以前の中核が書いたもの）、1件ずつ`secrets.json`に書いて読み戻し、同じ値が読めたものだけを`config.json`から除いて書き直す。途中で落ちてもキーはどちらかに残る。
-- 保存先に書けない、読み戻せない、消せないときは、キーをメモリーに残してその起動のあいだ使えるようにし、`/run/secret_store_failed`に400の`SECRET_STORE_FAILED`を送る。`data`は`{operation, entries, reason, store}`で、`operation`は`migrate`、`write`、`delete`、`read`のどれか、`entries`は項目の名前（キーの値は入れない）である。移行できなかったキーは`config.json`に残す。次の保存と30秒ごとにもう一度試し、移せたら`config.json`から除く。同じ項目の失敗は直るまで1回だけ知らせる。
-- 読めないときは、そのキーを空として起動し、保存先の中身には触れない。
-- キーを消す要求（`/delete/data/*_auth_key`など）は`secrets.json`からも消す。
-- 0.4以前の版に戻すと、キーは`config.json`にないので入れ直しが要る。
-
+- 設定のフォルダごとに16桁の16進のIDを作り、`secrets.json`の`store_id`に置く。OSのストアの項目はこのIDで分けるので、`VRCT_CONFIG_DIR`で分けた設定どうしはキーを共有しない。IDは最初のキーを保存したときに作る。IDがないうちはOSのストアに問い合わせない。
+- Windowsの項目は汎用の資格情報で、名前は`VRCT-VOX/<ID>/<項目の名前>`、保存の範囲は`CRED_PERSIST_LOCAL_MACHINE`（移動プロファイルで送られない）。値はキーのUTF-8で、2,560バイトまで。
+- Linuxの項目は既定のコレクションに置き、属性`application=vrct-vox`、`vrct-vox-store=<ID>`、`entry=<項目の名前>`で探す。ラベルは`VRCT-VOX <項目の名前>`。既定のコレクションがないときは作らない（作ると利用者に尋ねることになる）。
+- アプリは鍵束を開くダイアログを出さない。ロックされたストアは`locked`、ストアがない、セッションバスがない、5秒以内に応答しないときは`unavailable`の一時的な失敗として扱い、`secrets.json`にもOSのストアにも触れない。
+- `secrets.json`は`{"version": 1, "protection": …, "entries": …, "store_id": …}`である。0.5.xが保存したキーを持っていることがあり、移行の元として読む。Windowsではキーの一覧をDPAPI（暗号化したユーザーだけが戻せる）で包み、Base64にして`entries`に入れる（`"protection": "dpapi"`）。Linuxでは一覧をそのまま入れ、ファイルの権限を0600にする（`"protection": "none"`）。いまの版はこのファイルに新しくキーを書かない。書き込みは`config.json`と同じく、新しい一時ファイル、`fsync`、置き換えの順で行う。
+- 移行: 起動時、`secrets.json`だけにあるキーはそのまま使い、1件ずつOSのストアに書いて読み戻す。同じ値が読めたものだけを`secrets.json`から除く。`config.json`にキーがあれば（0.4以前のPythonや以前の中核が書いたもの）、同じ手順でOSのストアへ移し、`config.json`から除いて書き直す。途中で落ちてもキーはどちらかに残り、次の起動で続きから移す。両方にあるときはOSのストアの値を使い、同じ値のときだけ`secrets.json`の写しを除く。
+- OSのストアから読めなかったキーは、`secrets.json`に残っていればそちらを使う。残っていなければその起動のあいだは空として扱い、保存先の中身には触れない。読み出しはその起動のあいだにはやり直さず、次の起動で読む。
+- 保存先に書けない、読み戻せない、消せないときは、キーをメモリーに残してその起動のあいだ使えるようにし、`/run/secret_store_failed`に400の`SECRET_STORE_FAILED`を送る。`data`は`{operation, entries, reason, store}`で、`operation`は`migrate`、`write`、`delete`、`read`のどれか、`entries`は項目の名前（キーの値は入れない）、`reason`は`unreadable`、`write_failed`、`unavailable`、`locked`のどれか、`store`は`credential_manager`か`secret_service`である。移せなかったキーは元の場所（`config.json`か`secrets.json`）に残す。次の保存と30秒ごとにもう一度試し、移せたら元の場所から除く。同じ項目の失敗は直るまで1回だけ知らせる。画面の通知は、`migrate`ならキーが元の場所で使えること、`unavailable`と`locked`なら鍵束を起動してロックを解除し再起動することを伝える。
+- OSのストアが使えないときも、新しいキーや変えたキーを`secrets.json`に平文で書くことはしない。その起動のあいだだけ使える。
+- キーを消す要求（`/delete/data/*_auth_key`など）は、`secrets.json`の写しを先に除き、それからOSのストアから除く。OSのストアが応答しなくても平文の写しは残らない。
+- JSONとして読めるが項目を復号できない`secrets.json`（別のユーザーのDPAPIなど）は`store_id`をそのまま使い、次にキーを保存するときに`secrets.json.unreadable-<日時>-<乱数>`へ移してIDを引き継いだ新しいファイルを作る。JSONとして読めない`secrets.json`も、キーを保存するときに同じ名前へ移し、新しいIDで作る。どちらも元のファイルは消さない。一時的に読めないファイルには触れず、書き込みを一時的な失敗にする。
+- 0.5.xに戻すと、移したキーは`secrets.json`にないので入れ直しが要る。キーはOSのストアに残っている。0.4以前に戻した場合も同じである。
 ## そのほかのファイル
 
 | ファイル | 置き場所 | 内容 |

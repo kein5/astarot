@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { createStore } from "jotai/vanilla";
 import { hooks, loadModule } from "../test/hookHarness.js";
 import * as polledState from "../common/polledState.ts";
@@ -88,12 +88,12 @@ for (const [field, update, pending, error, command, first, acknowledged] of [
     ["directState", "updateDirectState", "directPending", "directError", "/run/start_direct_voice",
         { generation: 3, requested: false, mode: "off" }, { generation: 4, requested: true, mode: "converted", settings: { engine: "rvc" } }],
 ]) test(`${pending}: acknowledgement runs even when the accepted snapshot keeps its reference`, async t => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const { runtime, render } = await setup("./useVoice.js", "useVoice");
     render()[update]({ ...first, observation_id: "100" });
     await render().send(command, { mode: "converted", options: { engine: "rvc" } });
     const request = render()[pending], pendingTarget = observe(runtime, request).target;
-    t.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     assert.equal(render()[error], "voice_request_unconfirmed");
     render()[update]({ ...acknowledged, observation_id: "102" });
     assert.equal(render()[pending], null);
@@ -112,7 +112,7 @@ for (const [field, update, pending, error, command, first, acknowledged] of [
 });
 
 test("TTS generation guard and direct stop/error acknowledgement conditions remain intact", async t => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const { render } = await setup("./useVoice.js", "useVoice");
     render().updateStatus({ observation_id: "1", tts_generation: 5, tts_enabled: true });
     const status = render().status;

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
 import { flush } from "../../../../../../logics/test/bridgeHarness.js";
@@ -15,7 +15,7 @@ const fakeRegistry = { ...registry,
 
 async function load(context, registryModule = registry) {
     const runtime = hooks();
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const writes = [];
     const current = { state: "ok", data: {} };
     const module = await loadModule(new URL("./ExperimentalFeatures.tsx", import.meta.url), runtime, {
@@ -124,7 +124,7 @@ test("while the tray companion is on, the edge its hexagram hides at can be chos
 });
 
 test("the monitor is chosen under the edge: the primary one by default, one connected now, or one unplugged", async context => {
-    context.mock.timers.enable({ apis: ["setInterval"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const s = await load(context);
     const saved = [];
     let reads = 0;
@@ -154,7 +154,7 @@ test("the monitor is chosen under the edge: the primary one by default, one conn
     assert.deepEqual(saved, ["\\\\.\\DISPLAY2", ""], "the primary option saves an empty name");
     // The list is read again while the page is open.
     const before = reads;
-    context.mock.timers.tick(3000);
+    vi.advanceTimersByTime(3000);
     assert.equal(reads, before + 1);
     // A chosen monitor that is unplugged stays chosen, listed as not connected.
     item = chooser(monitor("\\\\.\\DISPLAY3"));

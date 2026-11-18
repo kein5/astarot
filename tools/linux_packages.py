@@ -30,8 +30,12 @@ ROOT = Path(__file__).resolve().parents[1]
 NAME = 'vrct-vox'
 PREFIX = Path('opt/vrct-vox')
 SUMMARY = 'Speech recognition, speech, voice conversion and translated chat for VRChat'
-DESCRIPTION = ('VRCT-VOX translates and speaks your chat and voice in VRChat, with speech '
+# The display name. NAME, PREFIX and the file names stay vrct-vox: they are identifiers that
+# installed systems and updates rely on (docs/voice-stack/project-rename.md).
+DISPLAY_NAME = 'ASTAROT'
+DESCRIPTION = (f'{DISPLAY_NAME} translates and speaks your chat and voice in VRChat, with speech '
                'recognition, text to speech, voice conversion and chat reading.')
+MAINTAINER = f'{DISPLAY_NAME} maintainers <https://github.com/kein5/astarot/issues>'
 HOMEPAGE = 'https://github.com/kein5/astarot'
 # Debian and Fedora names of what the tar.gz needs from the host.
 # The app links libpipewire-0.3.so.0 itself (the core's audio devices, #285), so the library is
@@ -127,7 +131,7 @@ def deb_control(version, variant, glibc, size_kib):
         f'Package: {NAME}',
         f'Version: {package_version(version)}',
         'Architecture: amd64',
-        'Maintainer: VRCT-VOX maintainers <https://github.com/kein5/astarot/issues>',
+        f'Maintainer: {MAINTAINER}',
         f'Installed-Size: {size_kib}',
         f'Depends: {", ".join(required)}',
         f'Recommends: {", ".join(recommended)}',
