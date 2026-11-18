@@ -114,7 +114,7 @@ requires identical texts and boxes and scores within 1e-5; with
 and `ORT_DYLIB_PATH`) it requires everything to be identical.
 
 ```sh
-ORT_DYLIB_PATH=$REF/venv/lib/python3.11/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1 \
+ORT_DYLIB_PATH=$REF/venv/lib/python3.14/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1 \
 OCR_EXACT_REFERENCE=1 cargo test --release --features ort/load-dynamic --test engine_conformance
 ```
 

@@ -18,7 +18,7 @@ Pythonは標準ライブラリだけで発声でき、`pw-cat` / `pw-dump` が�
 
 ### Pythonバックエンド用の開発環境
 
-固定SpeechRecognition forkが使う`aifc`/`audioop`、既存NumPy/Pillowの版に合わせてPython 3.11を使う。
+Pythonは`mise.toml`の版（3.14）を使う。固定SpeechRecognition forkとVADが使う`aifc`と`audioop`は3.13で標準ライブラリから外れたため、同じモジュールを持つ`audioop-lts`と`standard-aifc`を依存に入れている。
 既存の`.venv`と`.venv_cuda`を変更せず、Linux用環境を明示選択する。
 Python、uv、Rustの版は`mise.toml`で固定している（[開発ガイド](../development.md#用意するツール)）。
 
@@ -28,7 +28,7 @@ mise run setup:app        # .venv_linux を uv.lock に合わせる（uv sync --
 mise run setup:resources  # tauri dev と cargo check が読む src-tauri/bin/_internal
 ```
 
-`setup:app`は`UV_PROJECT_ENVIRONMENT=.venv_linux uv sync --frozen --python 3.11`を、miseのPythonで実行する。
+`setup:app`は`UV_PROJECT_ENVIRONMENT=.venv_linux uv sync --frozen`を、miseのPythonで実行する（`UV_PYTHON_PREFERENCE=only-system`、`UV_PYTHON_DOWNLOADS=never`）。別の版のPythonで作った`.venv_linux`は、uvが作り直す。
 `setup:resources`については[開発ガイド](../development.md#tauriが読む資源を用意する)を参照。
 
 ### 同梱サーバーと音声ヘルパーを用意する
