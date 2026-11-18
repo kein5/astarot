@@ -10,7 +10,8 @@ override with RVC_REFERENCE_DIR). Nothing here is shipped with the application.
   audio/    two CC BY 4.0 16 kHz speech clips
   assets/eval/  speaker verification, speech recognition and naturalness models for
                 objective_compare.py
-  venv/     CPU PyTorch plus the hash-locked inference dependencies
+  venv/     the Python mise.toml pins, with CPU PyTorch plus the hash-locked inference
+            dependencies (requirements.lock next to this file)
 
 Every download is pinned by SHA-256. Standard library only; needs `uv` on PATH.
 """
@@ -140,18 +141,23 @@ def engine(root):
 def venv(root):
     python = root / 'venv' / 'bin' / 'python'
     marker = root / 'venv' / '.ready'
-    wanted = '\n'.join(TORCH + EXPORT) + '\n'
+    lock = Path(__file__).resolve().parent / 'requirements.lock'
+    # The lock is part of what the environment was made from: a new lock makes it again.
+    wanted = '\n'.join(TORCH + EXPORT) + '\n' + lock.read_text(encoding='utf-8')
     if marker.exists() and marker.read_text() == wanted:
         return python
     uv = shutil.which('uv')
     if not uv:
         raise SystemExit('uv is required to create the reference environment')
-    run = lambda *argv: subprocess.run(argv, check=True)
-    run(uv, 'venv', '--python', '3.12', '--clear', str(root / 'venv'))
+    def run(*argv):
+        subprocess.run(argv, check=True)
+
+    # From the repository, uv picks the Python that pyproject.toml's requires-python names: the
+    # lock holds wheels for that version only.
+    subprocess.run([uv, 'venv', '--clear', str(root / 'venv')], cwd=REPO_ROOT, check=True)
     run(uv, 'pip', 'install', '--python', str(python), '--index-url',
         'https://download.pytorch.org/whl/cpu', *TORCH)
-    run(uv, 'pip', 'install', '--python', str(python), '--require-hashes', '-r',
-        str(REPO_ROOT / 'integrations' / 'rvc' / 'requirements.lock'))
+    run(uv, 'pip', 'install', '--python', str(python), '--require-hashes', '-r', str(lock))
     run(uv, 'pip', 'install', '--python', str(python), *EXPORT)
     marker.write_text(wanted)
     return python
