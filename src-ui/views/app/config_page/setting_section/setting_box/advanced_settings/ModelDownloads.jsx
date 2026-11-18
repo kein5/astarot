@@ -126,7 +126,8 @@ const WarningNote = ({ warning }) => {
 // Every downloadable model of one use (a target), one card per model with its file types.
 // The download, verification and apply steps are the same as before; only the choice is laid out
 // as a catalog. Nothing here starts a download or changes a setting by itself.
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false }) => {
+// only: the catalog ids to show, when the caller asks about one model (a translation weight's row).
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only }) => {
     const { t, i18n } = useI18n();
     const languages = useLanguageList();
     const { catalog, state, hardware, error, pending, send, ensureHardware } = useModelDownloads();
@@ -163,7 +164,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         : url.startsWith("https://huggingface.co/") ? url.split("/").pop() : `${selected.license} (${i})`;
     const request = (endpoint, entry, job) => send(endpoint, { id: entry.id, job_id: job.job_id });
     const failure = code => t(`model_downloads.errors.${code}`, { defaultValue: t("model_downloads.errors.download_failed") });
-    const matching = catalog?.models.filter(entry => targets.includes(entry.target)) ?? [];
+    const matching = catalog?.models.filter(entry => targets.includes(entry.target) && (!only || only.includes(entry.id))) ?? [];
     const advice = Object.fromEntries(targets.map(target => [target, modelAdvice(matching.filter(entry => entry.target === target),
         hardware, { now: Date.now(), deviceMode, reserveBytes: reserveBytes(reserve) })]));
     const memory = value => Number.isFinite(value) ? `${(value / 1024 ** 3).toFixed(2)} GiB` : t('model_downloads.hardware_unknown');

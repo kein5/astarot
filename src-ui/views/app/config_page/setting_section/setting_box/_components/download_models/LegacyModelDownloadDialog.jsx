@@ -7,6 +7,7 @@ import { legacyDownloadRequest, legacyReviewSize } from "../../../../../../../lo
 import styles from "../../advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "./LegacyModelDownloadDialog.module.scss";
 import { useConsentDialog } from "../../../../../../../logics/common/useConsentDialog";
+import { translationCatalogIds } from "../../../../../../../logics/main/setupNeeds";
 import { ModelDownloads } from "../../advanced_settings/ModelDownloads";
 import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 
@@ -17,6 +18,8 @@ import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 // The translation models of the ONNX engine come through the shared consent catalog
 // (target "translation"): this review lists them there, or says that none is published yet
 // and where a model of one's own goes, instead of waiting for a review that never comes.
+// It shows the variants of the model it was opened for, or every translation model when the
+// catalog has none of that one.
 export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null }) => {
     const { t } = useI18n();
     const { catalog, error, send } = useModelDownloads();
@@ -43,6 +46,8 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
     const request = legacyDownloadRequest(entry, consent);
     const translation = kind === "ctranslate2" && !!catalog && !entry;
     const translationRows = translation ? (catalog.models ?? []).filter(model => model.target === "translation") : [];
+    const variants = translationCatalogIds(weightType);
+    const ownRows = translationRows.filter(model => variants.includes(model.id));
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); cancel(); }}>
             <h3>{t("model_downloads.warning_title")}</h3>
@@ -88,7 +93,8 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
                         ? "legacy_model_downloads.consent" : "legacy_model_downloads.consent_without_extra_files")}</label>
             </> : translation ? <>
                 {translationRows.length > 0
-                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} />
+                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }}
+                        only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 <p>{t("legacy_model_downloads.translation_own_model")}</p>
                 <CustomModelLink section="translation" />

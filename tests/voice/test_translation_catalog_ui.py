@@ -1,7 +1,11 @@
 """The translation catalog (#413) with the production component, hook and IPC routes, an
 offline backend peer and a headless browser: the two groups, the built-in entries told apart
 from the user's, adding an entry of each group, using one and removing one. Nothing leaves this
-PC; the peer answers as the core does (native/core/tests/translation_catalog.rs)."""
+PC; the peer answers as the core does (native/core/tests/translation_catalog.rs).
+
+The translation page's model list (#565) is drawn here too (tests/voice/translation-page-ui-entry):
+it lists only the models the user can use or download, and a model the download catalog offers
+opens the shared download review."""
 
 import base64
 from contextlib import ExitStack
@@ -31,6 +35,26 @@ BUILTIN_API = [
     dict(id="DeepL_API", origin="builtin", name="DeepL_API", kind="cloud", available=False),
     dict(id="Ollama", origin="builtin", name="Ollama", kind="local_server", available=True),
 ]
+# The built-in weights of the local translation (TRANSLATION_WEIGHTS in native/core/src/languages.rs).
+WEIGHTS = ["m2m100_418M-ct2-int8", "m2m100_1.2B-ct2-int8", "nllb-200-distilled-600M-ct2-int8",
+           "nllb-200-distilled-1.3B-ct2-int8", "nllb-200-3.3B-ct2-int8"]
+REVISION = "a" * 40
+
+
+def translation_entry(model_id, name, license="MIT"):
+    """A download catalog entry of target `translation`, shaped as the core sends it
+    (Downloads::catalog). Nothing is published: the repository and the files are fake."""
+    repo = f"example/{model_id}"
+    artifacts = [dict(filename=filename, size=size, sha256="b" * 64, role=role, remote=[]) for filename, size, role in [
+        ("manifest.json", 2_048, "manifest"), ("encoder_model_quantized.onnx", 150_000_000, "encoder"),
+        ("decoder_model_merged_quantized.onnx", 200_000_000, "decoder"), ("vocabulary.data", 128_000_000, "weights"),
+        ("tokenizer.json", 4_000_000, "tokenizer"), ("vocab.json", 2_000_000, "vocabulary")]]
+    return dict(id=model_id, target="translation", name=name, provider="Meta / ASTAROT", repo=repo, revision=REVISION,
+                license=license, licenses=[f"https://huggingface.co/{repo}/blob/{REVISION}/README.md"], notice="translation",
+                artifacts=artifacts, total_bytes=sum(a["size"] for a in artifacts),
+                destination=f"C:\\Data\\downloaded_models\\{model_id}\\{REVISION}",
+                source=f"https://huggingface.co/{repo}/tree/{REVISION}", guidance=None, speech=None, profile=None,
+                sources=[f"https://huggingface.co/{repo}/tree/{REVISION}"])
 
 
 @pytest.fixture
@@ -67,7 +91,8 @@ def ui(tmp_path):
         page = browser.new_page(viewport={"width": 1000, "height": 1800})
         page.set_default_timeout(5000)
         page.set_default_navigation_timeout(60000)
-        peer = SimpleNamespace(sent=[], replies=[], errors=[], entries=[], refuse=None, sequence=0)
+        peer = SimpleNamespace(sent=[], replies=[], errors=[], entries=[], refuse=None, sequence=0,
+                               selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[])
         page.on("pageerror", lambda error: peer.errors.append(str(error)))
 
         def catalog():
@@ -105,6 +130,23 @@ def ui(tmp_path):
             elif ep == "/run/remove_translation_catalog_entry":
                 peer.entries = [e for e in peer.entries if e["id"] != data["id"]]
                 reply(ep, catalog())
+            # The translation page (?view=translation): the local model and its downloads.
+            elif ep == "/get/data/selected_ctranslate2_weight_type":
+                reply(ep, peer.selected)
+            elif ep == "/get/data/selectable_ctranslate2_weight_type_dict":
+                reply(ep, peer.weights)
+            elif ep == "/get/data/model_download_catalog":
+                reply(ep, dict(catalog_version="test-catalog", models=peer.models, legacy_models=[],
+                               translation_models_folder="C:\\Data\\translation-models"))
+            elif ep == "/get/data/model_download_state":
+                peer.sequence += 1
+                reply(ep, dict(observation_id=str(peer.sequence), jobs={}, downloaded={}))
+            elif ep == "/get/data/user_models":
+                reply(ep, dict(models=[]))
+            elif ep == "/run/start_model_download":
+                peer.sequence += 1
+                job = dict(job_id="job-1", phase="queued", received_bytes=0, total_bytes=1, paths={}, error_code=None)
+                reply(ep, dict(observation_id=str(peer.sequence), jobs={data["id"]: job}, downloaded={}))
 
         def read():
             result, peer.replies = peer.replies, []
@@ -200,6 +242,87 @@ def test_an_api_entry_sends_its_key_once_and_shows_only_that_it_is_kept(ui):
     card.get_by_role("button", name="Remove", exact=True).last.click()
     expect(page.locator("[data-catalog-item='tr-1']")).to_have_count(0)
     assert sent(peer, "/run/remove_translation_catalog_entry") == [dict(id="tr-1")]
+
+
+def open_translation_page(page):
+    """The whole translation page; its 「モデルと処理デバイス」 opened as a user would."""
+    page.goto(page.url.replace("/translation-catalog-ui-entry/", "/translation-page-ui-entry/"))
+    # A cold Vite may optimize the page's dependencies and load it again; wait until that is over.
+    page.wait_for_load_state("networkidle")
+    setup = page.locator("details[data-setup]").first
+    summary = setup.locator(":scope > summary")
+    summary.wait_for(timeout=60000)
+    if setup.get_attribute("open") is None:
+        summary.click()
+    return setup
+
+
+def test_without_a_published_model_only_the_selected_one_and_yours_are_listed(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    peer.weights["custom:my-model"] = True
+    # Another target's entry offers no translation model.
+    peer.models = [dict(translation_entry("rvc-example", "Example voice"), target="rvc")]
+    setup = open_translation_page(page)
+    expect(setup.locator(":scope > summary")).to_contain_text("m2m100_418M-ct2-int8 · cannot be downloaded yet")
+    models = setup.get_by_role("radiogroup", name="Translation model")
+    expect(models.get_by_role("radio")).to_have_count(2)
+    expect(models.get_by_text("m2m100_418M-ct2-int8", exact=True)).to_be_visible()
+    expect(models.get_by_text("my-model", exact=True)).to_be_visible()
+    for weight in WEIGHTS[1:]:
+        expect(models.get_by_text(weight, exact=True)).to_have_count(0)
+    # The selected model stays, marked; nothing in the list leads to a review that offers nothing.
+    expect(models.get_by_text("Not available yet")).to_be_visible()
+    expect(models.get_by_role("button")).to_have_count(0)
+    # The note points to the other engines, in sight: not folded under "Details".
+    note = setup.get_by_text("The included translation models cannot be downloaded yet.")
+    expect(note).to_be_visible()
+    expect(note).to_contain_text('use an external translation API or a local LLM under "More settings" below')
+    expect(page.get_by_text("CTranslate2")).to_have_count(0)
+    assert sent(peer, "/run/start_model_download") == []
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-models-none.png"))
+
+
+def test_a_published_model_gets_its_row_and_its_review_opens_the_shared_download(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    peer.models = [translation_entry("m2m100-418m-onnx-int8", "M2M100 418M · int8"),
+                   translation_entry("nllb-200-distilled-600m-onnx-int8", "NLLB-200 distilled 600M · int8", "CC-BY-NC-4.0")]
+    setup = open_translation_page(page)
+    expect(setup.locator(":scope > summary")).to_contain_text("m2m100_418M-ct2-int8 · not downloaded")
+    models = setup.get_by_role("radiogroup", name="Translation model")
+    expect(models.get_by_role("radio")).to_have_count(2)
+    expect(models.get_by_text("nllb-200-distilled-600M-ct2-int8", exact=True)).to_be_visible()
+    expect(models.get_by_text("m2m100_1.2B-ct2-int8", exact=True)).to_have_count(0)
+    expect(models.get_by_text("Not available yet")).to_have_count(0)
+    expect(setup.get_by_text("The included translation models cannot be downloaded yet.")).to_have_count(0)
+    reviews = models.get_by_role("button", name="Review download")
+    expect(reviews).to_have_count(2)
+    screenshots = os.environ.get("VRCT_TEST_SCREENSHOTS")
+    if screenshots:
+        page.screenshot(path=os.path.join(screenshots, "translation-models-published.png"))
+
+    reviews.first.click()
+    review = page.get_by_role("dialog", name="Model download and terms").first
+    expect(review).to_be_visible()
+    if screenshots:
+        page.screenshot(path=os.path.join(screenshots, "translation-models-review.png"))
+    # The review shows the model of the row it was opened from.
+    expect(review.get_by_role("group", name="M2M100 418M")).to_be_visible()
+    expect(review.get_by_role("group", name="NLLB-200 distilled 600M")).to_have_count(0)
+    review.get_by_role("group", name="M2M100 418M").get_by_role("button", name="Review download").click()
+    consent = page.get_by_role("dialog", name="Model download and terms").last
+    expect(consent.get_by_text("Meta / ASTAROT", exact=False)).to_be_visible()
+    start = consent.get_by_role("button", name="Agree and download")
+    expect(start).to_be_disabled()
+    consent.get_by_role("checkbox").check()
+    start.click()
+    expect(page.locator("dialog[open]").filter(has_text="I have reviewed the source")).to_have_count(0)
+    assert sent(peer, "/run/start_model_download") == [
+        dict(id="m2m100-418m-onnx-int8", consent=True, catalog_version="test-catalog")]
 
 
 def test_the_catalog_fits_a_narrow_window(ui, tmp_path):

@@ -5,8 +5,9 @@ import { legacyDownloadPhase, useLegacyDownloadStatus } from "../../../../../../
 
 export const _DownloadButton = ({option, ...props}) => {
     const { t } = useI18n();
-    // The built-in downloads are the CTranslate2 translation weights (Whisper's were removed in #288).
-    const model = `CTranslate2 ${option.label ?? option.id}`;
+    // The built-in downloads are the local translation models (Whisper's were removed in #288).
+    // Their row names the model; the engine's old name is not shown (#565).
+    const model = option.label ?? option.id;
     const progressName = t("legacy_model_downloads.progress_name", { model });
     const status = useLegacyDownloadStatus(option, model, t);
     const phase = legacyDownloadPhase(option);

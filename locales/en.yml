@@ -640,7 +640,7 @@ config_page:
         setup_not_downloaded: "not downloaded"
         setup_unavailable: "cannot be downloaded yet"
         download_unavailable: "Not available yet"
-        models_unavailable: "The models below cannot be downloaded yet. To translate, use an external translation API or a local LLM engine."
+        models_unavailable: "The included translation models cannot be downloaded yet. To translate, use an external translation API or a local LLM under \"More settings\" below."
         provider_in_use: "in use"
         provider_ready: "ready"
         provider_not_set: "not set up"
@@ -650,8 +650,8 @@ config_page:
         llm_privacy_desc: "LLM engines receive the text to translate and the prompt, plus up to five recent messages of the conversation: what you said in chat or into the microphone, and what the speaker transcription heard from others, each with the time it was said (hours and minutes). The conversation is kept in memory only and cleared when you change the engine, server or model, or turn translation off."
 
         ctranslate2_weight_type:
-            label: "{{ctranslate2}} model"
-            desc: "You can choose the translation model when using the {{ctranslate2}} translation engine."
+            label: "Translation model"
+            desc: "Choose the model that translates on your PC. The list shows the models you have downloaded, the ones you can download and the ones you added."
             small: "Basic model ({{capacity}})"
             large: "High accuracy model ({{capacity}})"
             license_commercial: "License: {{license}} (commercial use allowed)"
