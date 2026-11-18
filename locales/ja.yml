@@ -1111,6 +1111,7 @@ config_page:
                     display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
                     is_primary: "（メイン）"
                     missing: "接続されていないモニター（前に選んだもの）"
+                    unknown: "前に選んだモニター（一覧を読み取れません）"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "VR UIを表示する"

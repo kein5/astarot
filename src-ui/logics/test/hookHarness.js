@@ -52,6 +52,12 @@ export function hooks() {
             return tree;
         },
         unmount: () => { for (const slot of slots) { slot?.cleanup?.(); if (slot) slot.cleanup = undefined; } },
+        // Drawn again from scratch, as a changed React key does: the component's own state
+        // goes; the atoms' store stays.
+        remount: () => {
+            for (const slot of slots) slot?.cleanup?.();
+            slots.length = 0;
+        },
     };
 }
 

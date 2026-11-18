@@ -42,7 +42,7 @@ async function setup(context, { notice = true, current = status(), opened = fals
         find(tree, node => { if (node.type === type) found.push(node); return false; });
         return found;
     };
-    return { render, all, calls, state, url: VB_CABLE_URL };
+    return { render, all, calls, state, url: VB_CABLE_URL, remount: runtime.remount };
 }
 
 const text = node => [node.props.children].flat().filter(item => typeof item === "string").join("");
@@ -90,6 +90,16 @@ test("Later puts it away for this run; Don't show again stops it opening by itse
     const never = await setup(context);
     never.all(never.render(), "button")[2].props.onClick();
     assert.ok(never.calls.includes("dismiss"));
+});
+
+// #563: changing the UI language draws the main page again (App.jsx), and the guide put away
+// with Later opened again at once.
+test("a guide put away with Later stays away when the main page is drawn again", async context => {
+    const s = await setup(context);
+    s.all(s.render(), "button")[0].props.onClick();
+    s.remount();
+    assert.equal(s.render(), null);
+    assert.ok(!s.calls.includes("dismiss"), "Later is not Don't show again");
 });
 
 test("with a cable it shows both ends, checks with the tone and ends at VRChat's microphone", async context => {

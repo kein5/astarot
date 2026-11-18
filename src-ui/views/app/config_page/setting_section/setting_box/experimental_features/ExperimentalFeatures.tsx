@@ -155,9 +155,16 @@ const TrayCompanionMonitor = ({ current, set, list }: NonNullable<ListProps["mon
     const { t } = useI18n();
     // null until the first list arrives: the saved monitor is not called unplugged before then.
     const [monitors, setMonitors] = useState<MonitorInfo[] | null>(null);
+    // The last read failed. Without a list the saved monitor said "Loading" for as long as the
+    // reads kept failing (#563); it now says that the list cannot be read.
+    const [failed, setFailed] = useState(false);
     useEffect(() => {
         let live = true;
-        const read = () => list().then(next => { if (live) setMonitors(next); }, () => {});
+        const read = () => list().then(next => {
+            if (!live) return;
+            setMonitors(next);
+            setFailed(false);
+        }, () => { if (live) setFailed(true); });
         read();
         const timer = setInterval(read, MONITORS_EVERY_MS);
         return () => { live = false; clearInterval(timer); };
@@ -170,7 +177,9 @@ const TrayCompanionMonitor = ({ current, set, list }: NonNullable<ListProps["mon
         const name = t(`${key}.display`, { number: item.number, width: item.width, height: item.height });
         options[item.id] = item.primary ? `${name} ${t(`${key}.is_primary`)}` : name;
     }
-    if (selected && !(selected in options)) options[selected] = t(monitors ? `${key}.missing` : "common.loading");
+    if (selected && !(selected in options)) {
+        options[selected] = t(monitors ? `${key}.missing` : failed ? `${key}.unknown` : "common.loading");
+    }
     return (
         <DropdownMenuContainer
             setting_id="experimental_features.tray_companion.monitor"
