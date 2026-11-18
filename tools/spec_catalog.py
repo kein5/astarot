@@ -159,6 +159,8 @@ def render_endpoints() -> str:
     for entry in core:
         endpoint = entry["endpoint"]
         notes = ["中核のみ"]
+        if entry.get("immediate"):
+            notes.append("即時（キューを通らない）")
         if any(m in endpoint.lower() for m in markers):
             notes.append("ログで伏せる")
         requests.append([code(endpoint), kind_of(endpoint), code(entry["handler"]), "可" if entry["before_init"] else "待つ",

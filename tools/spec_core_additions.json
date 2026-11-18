@@ -1,5 +1,5 @@
 {
-  "_comment": "What the Rust core (native/core) has and the Python backend never had. tools/spec_catalog.py appends these to the catalogs it reads from src-python. Error codes must be in the order of native/core/src/errors/table.rs, after Python's.",
+  "_comment": "What the Rust core (native/core) has and the Python backend never had. tools/spec_catalog.py appends these to the catalogs it reads from src-python. An endpoint with \"immediate\": true skips the queue (IMMEDIATE_ENDPOINTS in native/core/src/dispatch.rs). Error codes must be in the order of native/core/src/errors/table.rs, after Python's.",
   "sensitive_markers": ["client_id", "translation_catalog"],
   "endpoints": [
     { "endpoint": "/get/data/ollama_url", "handler": "core: OLLAMA_URL", "before_init": true },
@@ -22,7 +22,10 @@
     { "endpoint": "/run/use_translation_catalog_entry", "handler": "core: use_translation_entry", "before_init": false },
     { "endpoint": "/get/data/gpu_memory", "handler": "core: gpu_memory", "before_init": true },
     { "endpoint": "/get/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true },
-    { "endpoint": "/set/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true }
+    { "endpoint": "/set/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true },
+    { "endpoint": "/get/data/voice_audition_state", "handler": "core: audition.status", "before_init": true },
+    { "endpoint": "/run/start_voice_audition", "handler": "core: start_audition", "before_init": true },
+    { "endpoint": "/run/stop_voice_audition", "handler": "core: stop_audition", "before_init": true, "immediate": true }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },

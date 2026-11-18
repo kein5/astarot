@@ -393,6 +393,147 @@ fn speech_servers_the_switch_starts_are_its_own_and_go_with_it() {
     run.ui.stop();
 }
 
+const MONITOR: &str = "Windows WASAPI: Headphones (Realtek Audio)";
+
+/// A run whose Japanese bundled server serves `stem.gguf` (see the fixture), with `voice` saved.
+fn auditioning(stem: &str, voice: Value, audio: FakeAudio) -> (Run, tempfile::TempDir, std::path::PathBuf) {
+    let models = tempfile::tempdir().unwrap();
+    let model = models.path().join(format!("{stem}.gguf"));
+    std::fs::write(&model, b"GGUF\0\0\0\0\0\0\0\0").unwrap();
+    let model = model.canonicalize().unwrap();
+    let row = |model: &str| json!({ "model": model, "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false });
+    let speech = json!({ "version": 1, "profiles": { "japanese": row(model.to_str().unwrap()), "multilingual": row(""), "asr": row("") } });
+    let run = start_with(json!({ "SPEECH_SERVER_SETTINGS": speech, "VOICE_SETTINGS": voice }), Platform::Windows, FakeVoice::new(), audio, true);
+    (run, models, model)
+}
+
+impl Run {
+    fn start_japanese_server(&self) {
+        let state = self.ui.ok("/get/data/speech_server_state", None);
+        self.ui.ok("/run/start_speech_server", Some(json!({ "profile": "japanese", "generation": state["japanese"]["generation"] })));
+        eventually("the server is ready", || self.ui.ok("/get/data/speech_server_state", None)["japanese"]["state"] == "ready");
+    }
+
+    fn audition(&self) -> Value {
+        self.ui.request("/run/start_voice_audition", Some(json!({ "kind": "tts", "profile": "japanese", "sentence": "ja" })))
+    }
+
+    fn audition_state(&self) -> Value {
+        self.ui.ok("/get/data/voice_audition_state", None)
+    }
+
+    /// Waits until audition `run` has ended, and gives its outcome.
+    fn audition_outcome(&self, run: &Value) -> Value {
+        let run = run.as_u64().expect("a run number");
+        eventually("the audition ends", || self.audition_state()["last_run"].as_u64().is_some_and(|last| last >= run));
+        let state = self.audition_state();
+        assert_eq!(state["last_run"], run, "a later audition ended first: {state}");
+        json!([state["outcome"], state["error_code"]])
+    }
+}
+
+/// The 16-bit samples an output received.
+fn samples(bytes: &[u8]) -> Vec<i16> {
+    bytes.chunks_exact(2).map(|pair| i16::from_le_bytes([pair[0], pair[1]])).collect()
+}
+
+#[test]
+fn a_voice_audition_plays_on_the_monitor_only_and_never_logs_its_sentence() {
+    // #415: the TTS catalog's audition. Only the monitor hears it, at the monitor's volume; the
+    // speech output (the virtual cable) is never opened, and TTS itself stays off and untouched.
+    let voice = json!({ "output_device": OUTPUT, "monitor": "on", "monitor_device": MONITOR, "monitor_volume": "50", "japanese_voice": "aoi" });
+    let (run, _models, model) = auditioning("tts", voice, FakeAudio::new());
+    for bad in [json!(null), json!({ "kind": "tts", "profile": "japanese", "sentence": "en" }), json!({ "kind": "tts", "profile": "japanese", "sentence": "ja", "text": "spoken" })] {
+        let answer = run.ui.request("/run/start_voice_audition", Some(bad));
+        assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "voice_audition_request_invalid"), "{answer}");
+    }
+    // The profile's bundled server must run: the audition never starts one.
+    let answer = run.audition();
+    assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(409), "voice_audition_server_not_ready"));
+    assert_eq!(run.ui.ok("/get/data/speech_server_state", None)["japanese"]["state"], "stopped");
+
+    run.start_japanese_server();
+    let answer = run.audition();
+    assert_eq!(answer["status"], 200, "{answer}");
+    assert_eq!((answer["result"]["state"].clone(), answer["result"]["profile"].clone()), (json!("playing"), json!("japanese")));
+    assert_eq!(run.audition_outcome(&answer["result"]["run"]), json!(["completed", null]));
+
+    let monitor = format!("monitor:{MONITOR}");
+    let played = run.voice.played();
+    assert!(played.iter().all(|p| p.device == monitor), "the audition reached another output: {:?}", played.iter().map(|p| &p.device).collect::<Vec<_>>());
+    let heard: Vec<i16> = played.iter().flat_map(|p| samples(&p.bytes)).collect();
+    assert!(heard.len() >= 2400, "the sentence was not played: {} samples", heard.len());
+    assert!(played.iter().all(|p| p.closed && (p.rate, p.channels) == (24000, 1)));
+    // At half volume: the tone's peak of 6000 plays at 3000.
+    assert_eq!(heard.iter().map(|s| s.unsigned_abs()).max(), Some(3000));
+
+    // The server got the sentence with the profile's voice; the UI's request and the log never did.
+    let sent: Value = serde_json::from_slice(&std::fs::read(model.with_extension("gguf.speech")).unwrap()).unwrap();
+    let sentence = sent["input"].as_str().unwrap().to_owned();
+    assert!(!sentence.trim().is_empty());
+    assert_eq!((sent["language"].as_str(), sent["voice"].as_str()), (Some("ja"), Some("aoi")));
+    let status = run.status();
+    assert_eq!((status["tts_enabled"].clone(), status["accepted"].clone()), (json!(false), json!(0)), "the audition went through TTS: {status}");
+    let log = run.process_log();
+    assert!(log.contains("/run/start_voice_audition"));
+    assert!(!log.contains(&sentence), "the sentence reached the log");
+    assert!(!log.contains("/get/data/voice_audition_state"), "a polled state was logged, or the start-up snapshot has it");
+    run.ui.stop();
+}
+
+#[test]
+fn stop_mute_and_a_new_press_end_a_voice_audition_and_a_mute_refuses_one() {
+    let audio = FakeAudio::new();
+    let voice = json!({ "output_device": OUTPUT, "monitor": "on", "monitor_device": "" });
+    let (run, _models, _model) = auditioning("tts-slow", voice, audio.clone());
+    run.start_japanese_server();
+    let monitor_bytes = || run.voice.played().iter().filter(|p| p.device == "monitor:").map(|p| p.bytes.len()).sum::<usize>();
+    let whole = 72000 * 2;
+
+    // Its own stop, which skips the queue.
+    let first = run.audition();
+    assert_eq!(first["status"], 200, "{first}");
+    eventually("the audition plays on the OS default monitor", || monitor_bytes() > 0);
+    run.ui.ok("/run/stop_voice_audition", None);
+    assert_eq!(run.audition_outcome(&first["result"]["run"]), json!(["stopped", null]));
+    assert!(monitor_bytes() < whole, "it played to its end");
+
+    // Stop speech, from the top bar or a hotkey.
+    let second = run.audition();
+    eventually("it plays", || run.audition_state()["state"] == "playing");
+    run.ui.ok("/run/stop_voice", None);
+    assert_eq!(run.audition_outcome(&second["result"]["run"]), json!(["stopped", null]));
+
+    // A new press replaces the one playing; one plays at a time.
+    let third = run.audition();
+    let fourth = run.audition();
+    assert_eq!(run.audition_outcome(&third["result"]["run"]), json!(["stopped", null]));
+    let state = run.audition_state();
+    assert_eq!((state["state"].clone(), state["run"].clone()), (json!("playing"), fourth["result"]["run"].clone()));
+
+    // Mute ends it, and refuses a new one until the voice is unmuted.
+    run.ui.ok("/run/mute_voice", None);
+    assert_eq!(run.audition_outcome(&fourth["result"]["run"]), json!(["stopped", null]));
+    assert_eq!(error_code(&run.audition()), "voice_audition_muted");
+    run.ui.ok("/run/resume_voice", None);
+    eventually("the bus is unmuted", || run.status()["muted"] == false);
+    assert!(run.played_on(OUTPUT) == 0, "the audition reached the speech output");
+
+    // Without a monitor there is no output it may use: no fallback to any other.
+    let cables = common::fake_audio::CableSetup { unreadable: true, ..Default::default() };
+    audio.set_cables(Some(cables));
+    assert_eq!(error_code(&run.audition()), "voice_audition_devices_unavailable");
+    audio.set_cables(None);
+    assert_eq!(run.settings(json!({ "monitor": "off" }))["status"], 200);
+    assert_eq!(error_code(&run.audition()), "voice_audition_monitor_off");
+    assert_eq!(run.played_on(OUTPUT), 0);
+    // The end of the run ends an audition in progress.
+    run.settings(json!({ "monitor": "on" }));
+    let last = run.audition();
+    assert_eq!(last["status"], 200, "{last}");
+    run.ui.stop();
+}
+
 #[test]
 fn model_options_and_installed_engines_are_asked_without_speaking() {
     let run = start(json!({}), Platform::Windows);
