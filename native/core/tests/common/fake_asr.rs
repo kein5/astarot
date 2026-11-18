@@ -23,6 +23,8 @@ pub struct Behaviour {
     pub text: Mutex<String>,
     /// The speech.cpp model list (`/v1/models`).
     pub models: Mutex<Value>,
+    /// Deepgram's speech models (`/deepgram/v1/models`, the `stt` rows).
+    pub deepgram_models: Mutex<Value>,
     /// Realtime: audio blocks to receive before an utterance is announced (0: never).
     pub realtime_after: AtomicUsize,
     /// The status of the Realtime handshake; 0 accepts.
@@ -59,6 +61,11 @@ impl FakeAsr {
         let behaviour = Arc::new(Behaviour::default());
         *behaviour.text.lock().unwrap() = "こんにちは".into();
         *behaviour.models.lock().unwrap() = json!({ "data": [recognition_model("haas-ja", &["ja"], false, &["keywords"])] });
+        *behaviour.deepgram_models.lock().unwrap() = json!([
+            { "name": "nova-3", "batch": true, "languages": ["en", "ja"] },
+            { "name": "nova-2", "batch": true, "languages": ["multi"] },
+            { "name": "flux", "batch": false, "languages": ["en"] },
+        ]);
         behaviour.realtime_after.store(25, Ordering::SeqCst);
         let fake = FakeAsr {
             port,
@@ -191,15 +198,10 @@ impl FakeAsr {
                 let status = if authorization == format!("Token {KEY}") { 200 } else { 401 };
                 Self::json(&mut stream, status, json!({}))
             }
-            ("GET", "/deepgram/v1/models") => Self::json(
-                &mut stream,
-                200,
-                json!({ "stt": [
-                    { "name": "nova-3", "batch": true, "languages": ["en", "ja"] },
-                    { "name": "nova-2", "batch": true, "languages": ["multi"] },
-                    { "name": "flux", "batch": false, "languages": ["en"] },
-                ] }),
-            ),
+            ("GET", "/deepgram/v1/models") => {
+                let models = self.behaviour.deepgram_models.lock().unwrap().clone();
+                Self::json(&mut stream, 200, json!({ "stt": models }))
+            }
             ("POST", "/deepgram/v1/listen") => {
                 self.fields.lock().unwrap().push(target.clone());
                 if authorization != format!("Token {KEY}") {
