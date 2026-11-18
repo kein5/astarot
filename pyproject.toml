@@ -165,6 +165,12 @@ exclude-dependencies = ["opencv-python"]
 # API it uses (Zeroconf, ServiceInfo, ServiceBrowser) is unchanged since.
 override-dependencies = ["zeroconf==0.152.0"]
 
+[tool.uv.extra-build-dependencies]
+# The SpeechRecognition fork's setup.py imports the package to read its version,
+# and the package imports aifc and audioop, which left the standard library in
+# Python 3.13. Its build needs the same replacements as the app.
+speechrecognition = ["standard-aifc==3.13.0", "audioop-lts==0.2.2"]
+
 [tool.ruff.lint]
 # Ruff 0.14's default rules, named so that a Ruff upgrade does not widen the check.
 # Ruff 0.17 added hundreds of findings (import order, dict() calls...) under its new defaults.
