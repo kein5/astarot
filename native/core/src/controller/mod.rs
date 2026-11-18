@@ -22,6 +22,7 @@ mod settings;
 mod speakers;
 pub mod speech;
 mod telemetry;
+mod terms;
 pub mod translation;
 mod translation_catalog;
 mod transcription;

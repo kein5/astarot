@@ -29,3 +29,15 @@ speech.cpp のカタログにないことだけを書きます。手で書くデ
   - `recommended_for`: speech.cpp の開始の言語の代わりに使う言語です。日本語は Irodori、ほかの言語は Qwen3-TTS で読むためです（読み上げの `japanese` と `multilingual` のプロファイル）。開始の言語と同じく、speech.cpp が最初に取得するファイルにだけ付けます。
 
 Python のバックエンド（`src-python/models/model_downloads/speechcpp_asr.py`、`speechcpp_models.py`）も、`src-python/` を消すまでは同じファイルを読みます。
+
+## `translation_models.json`
+
+ローカル翻訳のモデル（`native/translate-onnx` のフォルダ）を取得する項目です。`src/downloads/catalog.rs` の `translation_models` が読み、カタログの末尾に足します。対象は `translation`、`notice` も `translation` で、どちらもファイルには書きません。モデルを公開するまでは空です。
+
+項目は手で書かず、公開したリポジトリの固定した版から `tools/translation_onnx/publish.py catalog --write` で作ります。道具は、公開されたファイルの大きさと SHA-256 をフォルダの `manifest.json` と照らし合わせてから書きます。
+
+- `id`: `<モデル>-onnx-<形>` を小文字にし、`_` と `.` を `-` にしたものです（`m2m100-418m-onnx-int8`）。中核はこの id から組み込みのモデルと形を決めます（`controller/translation_onnx.rs` の `catalog_id`）。
+- `artifacts`: `manifest.json` と、マニフェストにあるすべてのファイルです。役割は `manifest`、`encoder`、`decoder`、`tokenizer`、`vocabulary`、`weights`（`vocabulary.data`）、`data`（2 GB を超えるグラフの `.onnx_data`。グラフごとに 1 つ）です。
+- `licenses`: 固定した版のモデルカードと、MIT なら `LICENSE`、CC-BY-NC-4.0 なら Creative Commons の説明のページです。
+
+項目を足したり変えたりしたら、`catalog.rs` の `CATALOG_VERSION` を上げます。`src-python/` がある間は、`src-python/models/model_downloads/catalog.py` の `CATALOG_VERSION` と `tests/data/python_reference.json`（`reference/dump_reference.py`）も合わせます。Python の側には翻訳の項目がないので、Python との比較の試験（`tests/catalog_reference.rs`）は翻訳の項目を除いて比べます。

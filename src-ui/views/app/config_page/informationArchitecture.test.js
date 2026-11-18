@@ -33,15 +33,16 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
         "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
         "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting: target => revealed.push(target) },
+        "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
     });
-    const row = runtime.render(pointer.PagePointer, { label: "OSC", description: "", tab: "advanced_settings", button: "Open Advanced" });
-    const button = find(row, node => node.type === "button");
-    assert.equal(button.props.children, "Open Advanced");
-    button.props.onClick();
+    const press = row => {
+        const link = find(row, node => node.type === pointer.PageLinkButton);
+        find(runtime.render(link.type, link.props), node => node.type === "button").props.onClick();
+    };
+    press(runtime.render(pointer.PagePointer, { label: "OSC", description: "", tab: "advanced_settings", action: "Change" }));
     assert.deepEqual(opened, ["advanced_settings"]);
     assert.deepEqual(revealed, [], "without a target the page opens at its top");
-    const toSetting = runtime.render(pointer.PagePointer, { label: "Sync", tab: "vrchat", target: "vrc_mic_mute_sync", button: "Open VRChat" });
-    find(toSetting, node => node.type === "button").props.onClick();
+    press(runtime.render(pointer.PagePointer, { label: "Sync", tab: "vrchat", target: "vrc_mic_mute_sync", action: "Set up" }));
     assert.deepEqual(opened, ["advanced_settings", "vrchat"]);
     assert.deepEqual(revealed, [{ setting_id: "vrc_mic_mute_sync" }], "a setting in a fold is opened and shown");
     assert.match(vrchat, /<PagePointer [^>]*tab="advanced_settings"/);
@@ -51,7 +52,7 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
     for (const language of ["en", "ja"]) {
         const vrchatTexts = locales[language].config_page.vrchat;
         assert.equal(typeof vrchatTexts.osc_pointer.label, "string");
-        assert.equal(typeof vrchatTexts.open_advanced_settings, "string");
+        assert.equal(typeof vrchatTexts.osc_pointer.action, "string");
     }
 });
 
@@ -143,9 +144,11 @@ test("the settings search finds the experimental features, the VR panel among th
     assert.deepEqual(search("ランチャーの位置").filter(([tab]) => tab === "experimental_features"),
         [["experimental_features", "experimental_features.vr_panel.reset_launcher", "experimental_features.vr_panel"]]);
     assert.ok(search("六芒星").some(([, id]) => id === "experimental_features.tray_companion"));
-    // The page's notice and the buttons that open another page are not results.
+    // The page's notice and the buttons that open another page are not results; a button's
+    // words lead to the row it sits on when they are in that row's group.
     assert.deepEqual(search("試験中の機能です。どれも最初はオフ"), []);
-    assert.deepEqual(search("「実験的機能」を開く"), []);
+    assert.deepEqual(search("ミュート同期を設定"), []);
+    assert.deepEqual(search("VR UIを設定"), [["vr", "vr_panel_pointer", null]]);
     assert.deepEqual(search("入力音声の転送"), [["rvc", "direct_voice_settings", null]]);
 });
 
@@ -205,7 +208,7 @@ test("the Device page chooses the microphone and the speaker first; their sensit
     assert.match(fold, /tab="vrchat" target="vrc_mic_mute_sync"/);
     assert.doesNotMatch(source, /<VrcMicMuteSyncContainer/, "mute sync has one place, the VRChat page");
     // A row elsewhere that changes the route opens this page on it.
-    assert.match(read("device/VoiceRouteSettings.jsx"), /updateSelectedConfigTabId\("device"\); revealSetting\(\{ setting_id: "voice_route" \}\)/);
+    assert.match(read("device/VoiceRouteSettings.jsx"), /<PageLinkButton tab="device" action=\{t\("voice_ui\.edit_route"\)\} target="voice_route" \/>/);
 });
 
 test("chat reading keeps what it needs to start in sight; where and how often it reads are in 「詳細設定」", () => {

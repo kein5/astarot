@@ -1,0 +1,47 @@
+# After a release pull request is merged into main, gets the Linux and Windows candidates built at
+# the merge commit and starts "Prepare verified ASTAROT release draft" with their run IDs
+# (tools/release_automation.py, issue #417). That workflow keeps every check (successful manual runs,
+# hashes, build provenance) and makes a draft only; publishing stays with a maintainer.
+# Run it by hand on main to try again, or on develop to prepare a beta's draft the same way.
+name: Start ASTAROT release draft
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-draft-auto
+  cancel-in-progress: false
+jobs:
+  draft:
+    # Only a merged release/X.Y.Z pull request from this repository, or a manual run on main or develop.
+    if: >-
+      github.repository == 'kein5/astarot' && (
+        (github.event_name == 'pull_request' && github.event.pull_request.merged == true &&
+         startsWith(github.event.pull_request.head.ref, 'release/') &&
+         github.event.pull_request.head.repo.full_name == github.repository) ||
+        (github.event_name == 'workflow_dispatch' &&
+         (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')))
+    runs-on: ubuntu-24.04
+    # The Windows candidate alone may take three hours (release.yml).
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      # Starts the candidate workflows and prepare-release.yml (workflow_dispatch). A run started with
+      # this job's token is a manual run, so the candidates get their build provenance as before.
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - name: Build the candidates at the commit, then prepare the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_BRANCH: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.ref_name }}
+          RELEASE_COMMIT: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+        # 300 minutes for the candidates and 30 for the draft, inside the job's 350.
+        run: python -m tools.release_automation draft --branch "$RELEASE_BRANCH" --commit "$RELEASE_COMMIT" --wait-minutes 300

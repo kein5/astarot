@@ -34,6 +34,19 @@ export const COEIROINK_NUMBERS = [
 export const COEIROINK_RATES = ["16000", "24000", "44100", "48000"];
 export const COEIROINK_DEFAULTS = { ...Object.fromEntries(COEIROINK_NUMBERS.map(item => [item.key, item.fallback])), coeiroink_sampling_rate: "24000" };
 
+// How an engine with the VOICEVOX API reads: the Scale fields of its AudioQuery, one set per
+// engine. The defaults are the engines' own, and the core leaves a field at its default as the
+// engine wrote it (native/tts/src/settings.rs, AUDIO_QUERY_RANGES; ADR-008 5.2).
+export const AUDIO_QUERY_ENGINES = ["voicevox", "aivis", "sharevox"];
+const SCALE_NUMBERS = [
+    { name: "speed", min: 0.5, max: 2, step: 0.05, fallback: "1.0" },
+    { name: "volume", min: 0, max: 2, step: 0.05, fallback: "1.0" },
+    { name: "pitch", min: -0.15, max: 0.15, step: 0.01, fallback: "0.0" },
+    { name: "intonation", min: 0, max: 2, step: 0.05, fallback: "1.0" },
+];
+export const audioQueryNumbers = engine => SCALE_NUMBERS.map(item => ({ ...item, key: `${engine}_${item.name}` }));
+const AUDIO_QUERY_NUMBERS = AUDIO_QUERY_ENGINES.flatMap(audioQueryNumbers);
+
 const validNumber = ({ key, min, max }, draft) => {
     const text = draft[key] ?? "";
     const value = Number(text);
@@ -42,6 +55,41 @@ const validNumber = ({ key, min, max }, draft) => {
 // Missing fields are the defaults: settings saved before these fields keep working.
 export const validCoeiroinkOptions = draft => COEIROINK_NUMBERS.every(item => draft[item.key] === undefined || validNumber(item, draft)) &&
     (draft.coeiroink_sampling_rate === undefined || COEIROINK_RATES.includes(draft.coeiroink_sampling_rate));
+export const validAudioQueryOptions = draft => AUDIO_QUERY_NUMBERS.every(item => draft[item.key] === undefined || validNumber(item, draft));
+
+// One number field per value, marked while it is out of its range. Called in place, not as a
+// component, so the fields are part of the section that holds them.
+const numberFields = ({ t, numbers, label, value, set, errorId }) =>
+    numbers.map(item => {
+        const invalid = !validNumber(item, { [item.key]: value(item.key) });
+        return <label key={item.key}>{label(item)}
+            <input type="number" min={item.min} max={item.max} step={item.step} value={value(item.key)}
+                placeholder={t("voice_ui.example", { value: item.fallback })}
+                aria-invalid={invalid} aria-describedby={invalid ? errorId : undefined}
+                onChange={event => set(item.key, event.target.value)} />
+        </label>;
+    });
+
+// The reading of VOICEVOX, AivisSpeech or SHAREVOX, each with its own values.
+export const AudioQueryOptions = ({ engine, draft, setDraft }) => {
+    const { t } = useI18n();
+    const errorId = useId();
+    const numbers = audioQueryNumbers(engine);
+    const defaults = Object.fromEntries(numbers.map(item => [item.key, item.fallback]));
+    const value = key => draft[key] ?? defaults[key];
+    const set = (key, text) => setDraft(current => ({ ...current, [key]: text }));
+    const changed = numbers.some(item => value(item.key) !== item.fallback);
+    const name = TTS_ENGINES[engine].name;
+    return <SetupSection title={t("voice_ui.engine.audio_query.title", { engine: name })}
+        status={t("voice_ui.engine.audio_query.status", { speed: value(`${engine}_speed`) })}>
+        <Description text={t("voice_ui.engine.audio_query.description", { engine: name })} />
+        {numberFields({ t, numbers, label: item => t(`voice_ui.engine.audio_query.${item.name}`), value, set, errorId })}
+        {!validAudioQueryOptions({ ...defaults, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.audio_query.invalid")}</p>}
+        {/* Back to the engine's own values; saved from the save bar. */}
+        <button type="button" disabled={!changed} onClick={() => setDraft(current => ({ ...current, ...defaults }))}>
+            {t("voice_ui.engine.audio_query.reset")}</button>
+    </SetupSection>;
+};
 
 export const CoeiroinkOptions = ({ draft, setDraft }) => {
     const { t } = useI18n();
@@ -52,15 +100,7 @@ export const CoeiroinkOptions = ({ draft, setDraft }) => {
     return <SetupSection title={t("voice_ui.engine.coeiroink.title")}
         status={t("voice_ui.engine.coeiroink.status", { speed: value("coeiroink_speed"), rate: value("coeiroink_sampling_rate") })}>
         <Description text={t("voice_ui.engine.coeiroink.description")} />
-        {COEIROINK_NUMBERS.map(item => {
-            const invalid = !validNumber(item, { [item.key]: value(item.key) });
-            return <label key={item.key}>{t(`voice_ui.engine.coeiroink.${item.key}`)}
-                <input type="number" min={item.min} max={item.max} step={item.step} value={value(item.key)}
-                    placeholder={t("voice_ui.example", { value: item.fallback })}
-                    aria-invalid={invalid} aria-describedby={invalid ? errorId : undefined}
-                    onChange={event => set(item.key, event.target.value)} />
-            </label>;
-        })}
+        {numberFields({ t, numbers: COEIROINK_NUMBERS, label: item => t(`voice_ui.engine.coeiroink.${item.key}`), value, set, errorId })}
         <label>{t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")}
             <select aria-label={t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")} value={value("coeiroink_sampling_rate")}
                 onChange={event => set("coeiroink_sampling_rate", event.target.value)}>
@@ -152,6 +192,7 @@ export const TtsEngine = ({ draft, setDraft, saved }) => {
             </label>
             {state === "connected" && !voices.length && <p>{t("voice_ui.engine.no_voices")}</p>}
             {engine === "coeiroink" && <CoeiroinkOptions draft={draft} setDraft={setDraft} />}
+            {AUDIO_QUERY_ENGINES.includes(engine) && <AudioQueryOptions key={engine} engine={engine} draft={draft} setDraft={setDraft} />}
             <Description text={t(`voice_ui.engine.credit.${engine}`)} />
         </>}
     </>;

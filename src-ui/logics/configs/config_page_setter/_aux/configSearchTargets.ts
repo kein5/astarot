@@ -7,8 +7,9 @@ export const NOT_SETTINGS: ReadonlySet<string> = new Set([
     "hotkeys.error_in_use", "hotkeys.error_failed_to_register_at_launch", "hotkeys.error_failed_to_register_all",
     "hotkeys.error_window_restore_failed", "hotkeys.error_window_minimize_failed",
     "vr.hmd", "vr.left_hand", "vr.right_hand",
-    // Buttons that open another page: the row they sit on is the result (PagePointer).
-    "vr.open_experimental_features", "vrchat.open_advanced_settings", "vrchat.open_tts", "device.open_vrchat",
+    // What the buttons that open another page say is done there: the row they sit on is the
+    // result (PagePointer). The others are in their row's group (vr_panel_pointer, osc_pointer).
+    "vrchat.tts_output_action", "device.mute_sync_action",
     // The sentence of a row that leads to another page; the row is found by its label.
     "vrchat.tts_output_pointer", "device.mute_sync_pointer",
     // The experimental features page's notice and empty state; its items are listed one by one.
