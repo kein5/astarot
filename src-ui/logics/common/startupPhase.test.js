@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { startupPhase, isStartupLocked, describeStartupFailure, startupDownloads } from "./startupPhase.ts";
 
 test("the phase comes from the session's startup state and readiness, nothing else", () => {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { MESSAGE_LOG_LIMIT, keepRecentLogs } from "./messageLogLimit.ts";
 
 test("the log keeps only the most recent rows", () => {

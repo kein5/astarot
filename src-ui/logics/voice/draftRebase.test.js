@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { rebaseDraft } from "./draftRebase.ts";
 
 const profile = { model: "", vad_model: "", voice_file: "", device: "auto", low_latency: false };

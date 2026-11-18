@@ -3,7 +3,7 @@
 Status: **採用（製品方針・ブランド仕様）／素材再生成済み・表示の移行（P1）はアプリの表示を develop に実装済みで、文書とサイトは作業中・識別子の移行（P2）は未着手**
 Date: 2026-11-16
 Reference: `docs/brand/astarot/symbol-light.svg`（均一な幾何で作り直したシンボルの正本）
-Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`docs/voice-stack/project-rename.md`、`docs/voice-stack/adr-010-frontend-stack.md`、`docs/voice-stack/decisions.md`
+Related: `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、`docs/brand/README.md`、`docs/voice-stack/project-rename.md`、`docs/adr/adr-010-frontend-stack.md`、`docs/adr/README.md`
 
 ## 1. 背景と目的
 
@@ -173,8 +173,8 @@ PNGの小さな本文・サブタイトルは利用環境に応じて代替書�
 
 ### 帰結（案）
 
-- 表示名が出てくる場所の棚卸しは [astarot-rename-inventory.md](astarot-rename-inventory.md) にある。
-- リポジトリ名の変更の順序、影響、確認の項目は [repository-rename.md](repository-rename.md) にある。
+- 表示名が出てくる場所の棚卸しは [astarot-rename-inventory.md](../voice-stack/astarot-rename-inventory.md) にある。
+- リポジトリ名の変更の順序、影響、確認の項目は [repository-rename.md](../voice-stack/repository-rename.md) にある。
 - 名前を変えると、GitHub Pages の URL が変わる。古い URL は GitHub が転送しない。0.4.x のアプリのヘルプのリンクが開けなくなるので、扱いを決めてから名前を変える。
 - 名前を変えた後、`kein5/VRCT-VOX` という名前のリポジトリを作り直さない。作ると、GitHub の転送が止まり、0.4.x の更新とインストールが切れる。
 - 6節5項に従い、P1 を始めるときに `PRODUCT.md`、`DESIGN.md`、`AGENTS.md`、仕様のカタログに反映する。

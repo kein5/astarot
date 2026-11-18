@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 const variables = Object.fromEntries([...read("../_index_css/variables.css").matchAll(/(--[\w-]+):\s*([^;]+);/g)]
@@ -41,7 +41,7 @@ const pairs = [
 for (const [name, foreground, background] of pairs) {
     test(`${name}: actual CSS pair meets 4.5:1 for small text`, context => {
         const ratio = contrast(foreground, background);
-        context.diagnostic(`${color(foreground)} on ${color(background)}: ${ratio.toFixed(3)}:1 (opaque sRGB)`);
+        context.annotate(`${color(foreground)} on ${color(background)}: ${ratio.toFixed(3)}:1 (opaque sRGB)`);
         assert.ok(ratio >= 4.5, `${name}: ${ratio}`);
     });
 }

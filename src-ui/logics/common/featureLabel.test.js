@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { splitFeatureLabel } from "./featureLabel.ts";
 
 test("splits a feature name before its abbreviation", () => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 
 // Security audit SEC-05: the windows get only the native permissions the UI uses. The UI reads
 // and writes no files, makes no HTTP requests of its own and starts no programs, so the fs, http

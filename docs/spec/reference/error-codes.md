@@ -87,7 +87,7 @@
 | `CONNECTION_OPENAI_COMPATIBLE_URL_INVALID` | connection | OpenAI-compatible endpoint URL is not valid | warning | 要 | あり |
 | `CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID` | connection | Custom transcription server URL is not valid | warning | 要 | あり |
 | `CREDENTIAL_REENTRY_REQUIRED` | auth | Enter the API key again for the new URL, or delete the saved key before changing the URL for a server without a key | warning | 要 | あり |
-| `SECRET_STORE_FAILED` | auth | The API keys could not be kept in their secure storage. They work until the app closes; check the settings folder, then enter a missing key again | error | 要 | あり |
+| `SECRET_STORE_FAILED` | auth | The API keys could not be kept in their secure storage. They work until the app closes; check the system's credential store and the settings folder, then enter a missing key again | error | 要 | あり |
 | `WEBSOCKET_HOST_INVALID` | websocket | WebSocket server host is not available | error | 要 | あり |
 | `WEBSOCKET_PORT_UNAVAILABLE` | websocket | WebSocket server port is not available | error | 要 | あり |
 | `WEBSOCKET_PORT_INVALID` | websocket | WebSocket server port must be a number | warning | 要 | あり |

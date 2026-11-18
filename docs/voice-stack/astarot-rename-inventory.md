@@ -2,7 +2,7 @@
 
 Status: **準備（0.5.0 で実行する予定）**
 Date: 2026-11-16
-Related: [ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)、[リポジトリ名の変更手順](repository-rename.md)、[名称と識別子](project-rename.md)
+Related: [ADR-011](../adr/adr-011-astarot-brand-and-multimodal-accessibility.md)、[リポジトリ名の変更手順](repository-rename.md)、[名称と識別子](project-rename.md)
 
 0.5.0 で表示名を `VRCT-VOX` から `ASTAROT` に移す。その準備として、表示名が出てくる場所を洗い出した。この文書は棚卸しだけで、書き換えはまだしていない。
 
@@ -136,7 +136,7 @@ git grep -n -I -P "kein5/VRCT-VOX|kein5\.github\.io/VRCT-VOX|base = '/VRCT-VOX/'
 | `docs/voice-stack/platform-constraints.md` | 5 |
 | `docs/voice-stack/publication-and-upstream.md` | 3 |
 | `docs/voice-stack/model-downloads.md` | 2 |
-| `docs/voice-stack/decisions.md`、`local-setup-windows.md` | 各 1 |
+| `docs/adr/README.md`、`local-setup-windows.md` | 各 1 |
 
 これらの中には E の値（配布物の名前、所有マーカーなど）の説明が混ざっている。書き換えるときは 1 行ずつ、表示名か識別子かを見分ける。`project-rename.md` は名称の正本なので、表示名と識別子の表を分けて書き直す。
 
@@ -156,7 +156,7 @@ git grep -n -I -P "kein5/VRCT-VOX|kein5\.github\.io/VRCT-VOX|base = '/VRCT-VOX/'
 |---|---:|---|
 | `CHANGELOG.md` | 142 | 出荷済みの版の記録。過去の節は変えない |
 | `docs/release-notes/0.4.0.md` | 3 | 現行名で出す版のノート |
-| `docs/voice-stack/` の日付付きの記録（`architecture-evaluation-2026-10-27.md`、`windows-voice-report.md`、`windows-pending-checks.md`、`adr-009-virtual-microphone-and-store.md`） | 16 | 書いた時点の記録 |
+| `docs/voice-stack/` の日付付きの記録（`architecture-evaluation-2026-10-27.md`、`windows-voice-report.md`、`windows-pending-checks.md`）と `docs/adr/adr-009-virtual-microphone-and-store.md` | 16 | 書いた時点の記録 |
 | `LICENSE` | 4 | 著作権表示「kein5 (VRCT-VOX changes)」と経緯の説明 |
 | `NOTICE.md` | 18 | 帰属と同梱物の説明 |
 | `licenses/speechcpp-models/NOTICE.md`、`licenses/speech.cpp/NOTICE.md`、`licenses/silero-vad/NOTICE.md` | 8 / 1 / 1 | 同梱の経緯の説明 |

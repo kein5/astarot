@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, find, stubGlobals } from "../../logics/test/hookHarness.js";
 import { flush } from "../../logics/test/bridgeHarness.js";
 import * as lines from "../../logics/captionOverlay/lines.ts";
@@ -16,7 +16,7 @@ const findAll = (tree, match, found = []) => {
 };
 
 async function setup(context, snapshot) {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), properties = new Map(), callbacks = {}, removed = [];
     let clock = 1000, current = snapshot, reads = 0;
     stubGlobals(context, { document: { documentElement: { style: { setProperty: (key, value) => properties.set(key, value) } } } });
@@ -31,12 +31,12 @@ async function setup(context, snapshot) {
     });
     const render = () => runtime.render(CaptionOverlay, { bridge, now: () => clock });
     render(); await flush(); render();
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return { runtime, render, properties, callbacks, removed,
         texts: () => findAll(render(), node => node.type === "p").map(node => node.props.children),
         lineClasses: () => findAll(render(), node => node.type === "div" && node.key !== null && node.key !== undefined).map(node => node.props.className),
         container: () => find(render(), node => node.type === "div"),
-        advance: ms => { clock += ms; context.mock.timers.tick(ms); },
+        advance: ms => { clock += ms; vi.advanceTimersByTime(ms); },
         set: next => { current = next; },
         get reads() { return reads; },
     };
