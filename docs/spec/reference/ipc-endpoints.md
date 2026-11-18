@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（460件: 削除 13、取得 206、実行 47、有効化 40、無効化 43、設定 111）
+## 要求（463件: 削除 13、取得 207、実行 47、有効化 41、無効化 44、設定 111）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -475,6 +475,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
+| `/get/data/osc_query` | 取得 | `core: OSC_QUERY` | 可 | — | 中核のみ |
+| `/set/enable/osc_query` | 有効化 | `core: set_osc_query` | 可 | — | 中核のみ |
+| `/set/disable/osc_query` | 無効化 | `core: set_osc_query` | 可 | — | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）
@@ -574,10 +577,11 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（15件）
+## UIに受信先がないエンドポイント（18件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
+- `/get/data/osc_query`
 - `/run/ctranslate2_license_notice`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
@@ -593,6 +597,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/initialization_complete`
 - `/run/message_output_error`
 - `/run/translation_language_unsupported`
+- `/set/disable/osc_query`
+- `/set/enable/osc_query`
 
 
 ## UIだけにあるルート（57件）
