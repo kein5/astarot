@@ -5,7 +5,7 @@
 //! notice the same things (a file moved aside, URLs dropped, the local ASR notice). The expected
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
 //!
-//! Four differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
+//! Five differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
 //! `config.json` for the key store (`vrct_core::config::secrets`): the settings are compared
 //! without them, and the keys Python kept in the file must be in the store instead. A saved
 //! choice of the retired Google recognition engine loads as none (`retire_google_engine`). The
@@ -13,7 +13,9 @@
 //! settings added after the Python backend (Issue #390) are written with their defaults into the
 //! voice settings Python wrote: [`added`] lists them, and they are added to the expected results
 //! before the comparison. The RVC worker's choices added to the direct voice settings are not:
-//! left at their defaults they stay out of the file, which 0.4 reads (#428).
+//! left at their defaults they stay out of the file, which 0.4 reads (#428). And a key the core
+//! does not know stays in the file as it was, where Python dropped it, so that the version that
+//! wrote it finds it again (#560): [`without_unknown_keys`] checks that and leaves it out.
 
 use serde_json::{json, Map, Value};
 
@@ -39,7 +41,7 @@ fn with_added(settings: &mut Map<String, Value>) {
 }
 use std::path::Path;
 use vrct_core::config::secrets::{MemoryStore, SECRET_SETTINGS};
-use vrct_core::config::{Config, Environment, Platform};
+use vrct_core::config::{Config, Environment, Platform, RETIRED_KEYS};
 
 fn reference() -> Value {
     serde_json::from_str(include_str!("data/python_config_reference.json")).unwrap()
@@ -123,6 +125,25 @@ fn retire_google_engine(want: &mut Value) {
     }
 }
 
+/// The fifth intended difference (#560): each key of the input the core does not know must be in
+/// the saved file with the input's value. Those keys are taken out of `saved`, which then holds
+/// what Python wrote.
+fn without_unknown_keys(mut saved: Map<String, Value>, input: &Value, case: &str, failures: &mut Vec<String>) -> Map<String, Value> {
+    let known: Vec<&str> = vrct_core::config::schema::keys().iter().map(|key| key.name).collect();
+    // Only a saved object has keys; `raw` and `raw_bytes` describe a file that is not one.
+    let saved_object = input.as_object().filter(|object| !object.contains_key("raw") && !object.contains_key("raw_bytes"));
+    for (key, value) in saved_object.into_iter().flatten() {
+        if known.contains(&key.as_str()) || RETIRED_KEYS.contains(&key.as_str()) {
+            continue;
+        }
+        match saved.shift_remove(key) {
+            Some(kept) if kept == *value => {}
+            kept => failures.push(format!("{case}: the unknown key {key} was not kept as it was: {kept:?}")),
+        }
+    }
+    saved
+}
+
 fn changes(saved:&Map<String, Value>, defaults: &Map<String, Value>) -> Map<String, Value> {
     saved.iter().filter(|(k, v)| defaults.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), v.clone())).collect()
 }
@@ -149,9 +170,12 @@ fn check_platform(name: &str, platform: Platform) {
         write_input(dir.path(), &reference["inputs"][case], &expected["defaults"]);
         let store = MemoryStore::new();
         let config = Config::open_with(environment(dir.path(), platform, &reference), store.clone());
-        let saved: Map<String, Value> = without_core_additions(
+        let saved: Map<String, Value> = without_core_additions(without_unknown_keys(
             serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap()).unwrap(),
-        );
+            &reference["inputs"][case],
+            &format!("{name}/{case}"),
+            &mut failures,
+        ));
         let got_changes = changes(&saved, defaults);
         let mut want = want.clone();
         retire_google_engine(&mut want);
