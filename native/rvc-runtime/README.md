@@ -420,9 +420,11 @@ vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.
 vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
 ```
 
-- **Runtime folder** (set up by `src-python/models/voice_conversion/runtime_setup.py` after
-  consent). On a PC with an NVIDIA driver: `lib/` holds ONNX Runtime 1.31.0 (CUDA 13 build,
-  Microsoft's release) with CUDA 13.4 Update 1 and cuDNN 9.26 (NVIDIA's PyPI wheels; driver
+- **Runtime folder** (set up by `native/voice-conversion/src/runtime.rs` after consent; up to
+  0.4 by `src-python/models/voice_conversion/runtime_setup.py`). On a PC with an NVIDIA
+  driver: `lib/` holds ONNX Runtime 1.31.0 (CUDA 13 build, Microsoft's NuGet package
+  `Microsoft.ML.OnnxRuntime.Gpu.Windows` or `.Gpu.Linux`; its GitHub release until
+  2026-11-18) with CUDA 13.4 Update 1 and cuDNN 9.26 (NVIDIA's PyPI wheels; driver
   580 or later; the provider has kernels for sm_75 to sm_120, Turing and later). Without
   one: only ONNX Runtime's CPU build. `assets/` holds `hubert_base` and `rmvpe.onnx`. The
   worker loads the CUDA libraries from `lib/` itself, then ONNX Runtime, so nothing depends
