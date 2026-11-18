@@ -1564,6 +1564,17 @@ voice_ui:
             rate_option: "{{rate}} Hz"
             invalid: "範囲内の数値を入れてください。"
             reset: "初期値に戻す"
+        # VOICEVOX、AivisSpeech、SHAREVOXの読み方。AudioQueryのScaleの値で、エンジンごとに持つ。
+        audio_query:
+            title: "{{engine}}の読み方"
+            status: "話速 {{speed}}"
+            description: "{{engine}}に読み上げを頼むときの値です。初期値のままの項目はエンジンが返した値で読みます。保存すると次の読み上げから使います。"
+            speed: "話速（0.5〜2）"
+            volume: "音量（0〜2）"
+            pitch: "音高（-0.15〜0.15）"
+            intonation: "抑揚（0〜2）"
+            invalid: "範囲内の数値を入れてください。"
+            reset: "初期値に戻す"
     check_needs_url: "サーバーURLを入力して保存すると確認できます"
     check_needs_server: "同梱サーバーが起動すると確認できます"
     setup_rvc: "モデルと実行環境"
