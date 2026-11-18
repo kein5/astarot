@@ -85,6 +85,8 @@ pub(crate) struct OverlayMessage {
     pub transliteration_message: Value,
     /// Each translation's readings: a list of such lists.
     pub transliteration_translation: Value,
+    /// Who spoke a realtime caption of the game audio, by the speech server's labels (#447).
+    pub speakers: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -103,6 +105,7 @@ impl OverlayMessage {
                 .enumerate()
                 .map(|(i, (text, language))| Translation { text: text.clone(), language: language.clone(), readings: readings(i) })
                 .collect(),
+            speakers: self.speakers.clone(),
         }
     }
 }

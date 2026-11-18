@@ -250,6 +250,8 @@ impl OverlayMessage {
             target_languages,
             transliteration_message: self.transliteration_message.clone(),
             transliteration_translation: self.transliteration_translations.clone(),
+            // Only realtime captions name their speakers (`realtime_asr::caption_message`).
+            speakers: Vec::new(),
         }
     }
 }
