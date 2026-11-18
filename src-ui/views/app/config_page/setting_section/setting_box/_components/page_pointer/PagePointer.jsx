@@ -1,5 +1,6 @@
 import { useStore_SelectedConfigTabId } from "@store";
 import { FormRow } from "../form_row/FormRow";
+import styles from "./PagePointer.module.scss";
 import { revealSetting } from "../../../../../../../logics/configs/revealSetting.ts";
 
 // A row that only leads to another page, where the setting lives (#554, IA-03): what is set
@@ -15,6 +16,6 @@ export const PagePointer = ({ label, description, tab, button, target = null }) 
         if (target) revealSetting({ setting_id: target });
     };
     return <FormRow group label={label} description={description} fold={false}>
-        <button type="button" data-page-pointer={tab} onClick={open}>{button}</button>
+        <button type="button" className={styles.open_page} data-page-pointer={tab} onClick={open}>{button}</button>
     </FormRow>;
 };

@@ -12,6 +12,12 @@
     width: 100%;
 }
 
+// The page's own parts span it like on every other settings page: the switches in sight,
+// 「詳細設定」 and the row that leads to the experimental features (#554).
+.container > * {
+    width: 100%;
+}
+
 // Setting rows span the page like on every other settings page; the
 // position and rotation controls keep their own centered width.
 .wrapper {
@@ -357,7 +363,9 @@
 }
 
 // The same secondary button as the other settings forms (VoiceSettings).
+// Last in 「詳細設定」, centred under the overlay editor like it.
 .restore_default_settings_button {
+    justify-self: center;
     margin-top: 6rem;
     font-size: 1.4rem; font-weight: 600; min-height: 4rem; padding: .9rem 1.2rem;
     color: var(--dark_200_color); background: var(--dark_850_color); border: .1rem solid transparent;

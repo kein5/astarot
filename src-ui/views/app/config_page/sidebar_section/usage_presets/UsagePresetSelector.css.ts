@@ -111,7 +111,11 @@ export const item = style({
     },
 });
 
+// The reset takes the native look off every input (reset.css); the box is drawn by the system
+// again, as in the voice forms, so its checked state reads as a checkbox's.
 export const checkbox = style({
+    appearance: "auto",
+    WebkitAppearance: "checkbox",
     width: "1.6rem",
     height: "1.6rem",
     marginTop: ".2rem",
