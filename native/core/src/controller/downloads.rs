@@ -60,8 +60,9 @@ pub(crate) struct Ops {
     pub(super) telemetry: Telemetry,
     /// The models the user registered under a name (#403).
     pub(super) user_models: UserModels,
-    /// The translation entries the user added to the translation catalog (#413).
-    pub(super) translation_catalog: TranslationCatalog,
+    /// The translation entries the user added to the translation catalog (#413). Shared with
+    /// the settings, which record when the key store takes an entry's key.
+    pub(super) translation_catalog: Arc<TranslationCatalog>,
     /// Held while an apply checks and writes the settings (Python's `_speech_settings_lock` and
     /// `_voice_settings_lock`).
     apply_lock: Mutex<()>,
@@ -88,7 +89,7 @@ impl Ops {
         let reporter = telemetry.clone();
         let report_hook = crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
         let user_models = UserModels::new(env.state_dir.join(user_models::FILE_NAME));
-        let translation_catalog = TranslationCatalog::new(env.state_dir.join(translation_catalog::FILE_NAME));
+        let translation_catalog = Arc::new(TranslationCatalog::new(env.state_dir.join(translation_catalog::FILE_NAME)));
         Ops { downloads, hardware, telemetry, user_models, translation_catalog, apply_lock: Mutex::new(()), report_hook }
     }
 

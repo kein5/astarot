@@ -168,9 +168,13 @@ pub fn support(variant: Variant, provider: Provider) -> Support {
         (DirectMl | Cuda | OpenVino | MiGraphX | WebGpu, Float32 | Float16) => Untested,
         // MatMulNBits has CUDA kernels.
         (Cuda, Int4) => Untested,
-        // Dynamic int8 (MatMulInteger, DynamicQuantizeLinear) and int4 on the GPU providers
-        // are partly or not implemented; not offered until measured.
-        (DirectMl | Cuda | OpenVino | MiGraphX | WebGpu, Int8 | Int4) => No,
+        // Offered since 2026-11-19 (decision 75 in docs/voice-stack/core-integration.md): a tiny
+        // model gave the CPU's ids on DirectML with both. ONNX Runtime runs any of their
+        // operators DirectML lacks on the CPU, quietly; which ones and how fast is not measured.
+        (DirectMl, Int8 | Int4) => Untested,
+        // Dynamic int8 (MatMulInteger, DynamicQuantizeLinear) and int4 on the other GPU
+        // providers are partly or not implemented; not offered until measured.
+        (Cuda | OpenVino | MiGraphX | WebGpu, Int8 | Int4) => No,
         (TensorRt, _) => No,
     }
 }
@@ -260,8 +264,9 @@ mod tests {
     #[test]
     fn the_cpu_keeps_its_saved_compute_types() {
         assert_eq!(compute_types(Provider::Cpu), ["auto", "float32", "int8", "int8_float32", "int4"]);
-        assert_eq!(compute_types(Provider::DirectMl), ["auto", "float32", "float16"]);
+        assert_eq!(compute_types(Provider::DirectMl), ["auto", "float32", "float16", "int8", "int4"]);
         assert_eq!(compute_types(Provider::Cuda), ["auto", "float32", "float16", "int4"]);
+        assert_eq!(compute_types(Provider::OpenVino), ["auto", "float32", "float16"]);
         assert_eq!(compute_types(Provider::TensorRt), ["auto"]);
     }
 
@@ -271,8 +276,15 @@ mod tests {
         assert_eq!(choose_variant("auto", Provider::Cpu, &all), Some(Variant::Int8));
         assert_eq!(choose_variant("auto", Provider::Cpu, &[Variant::Float32, Variant::Float16]), Some(Variant::Float32));
         assert_eq!(choose_variant("auto", Provider::DirectMl, &all), Some(Variant::Float16));
-        // A GPU never runs the int8 folder, even when it is the only one.
-        assert_eq!(choose_variant("auto", Provider::DirectMl, &[Variant::Int8]), None);
+        // DirectML takes a float variant first and runs a quantized one when that is all there is.
+        assert_eq!(choose_variant("auto", Provider::DirectMl, &[Variant::Int8, Variant::Float32]), Some(Variant::Float32));
+        assert_eq!(choose_variant("auto", Provider::DirectMl, &[Variant::Int8]), Some(Variant::Int8));
+        assert_eq!(choose_variant("auto", Provider::DirectMl, &[Variant::Int4, Variant::Int8]), Some(Variant::Int4));
+        assert_eq!(choose_variant("int8", Provider::DirectMl, &all), Some(Variant::Int8));
+        assert_eq!(choose_variant("int4", Provider::DirectMl, &all), Some(Variant::Int4));
+        // Other GPUs never run the int8 folder, even when it is the only one.
+        assert_eq!(choose_variant("auto", Provider::OpenVino, &[Variant::Int8]), None);
+        assert_eq!(choose_variant("auto", Provider::Cuda, &[Variant::Int8]), None);
         assert_eq!(choose_variant("int8_float32", Provider::Cpu, &all), Some(Variant::Int8));
         assert_eq!(choose_variant("float16", Provider::Cpu, &all), None);
         assert_eq!(choose_variant("int4", Provider::Cuda, &[Variant::Int4]), Some(Variant::Int4));

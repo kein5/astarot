@@ -91,7 +91,7 @@ def ui(tmp_path):
         page = browser.new_page(viewport={"width": 1000, "height": 1800})
         page.set_default_timeout(5000)
         page.set_default_navigation_timeout(60000)
-        peer = SimpleNamespace(sent=[], replies=[], errors=[], entries=[], refuse=None, sequence=0,
+        peer = SimpleNamespace(sent=[], replies=[], errors=[], entries=[], refuse=None, sequence=0, key_store_works=True,
                                selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[])
         page.on("pageerror", lambda error: peer.errors.append(str(error)))
 
@@ -120,7 +120,9 @@ def ui(tmp_path):
                 entry = {k: v for k, v in data.items() if k != "auth_key"}
                 entry.update(id=f"tr-{peer.sequence}", status="ok", registered_at=None)
                 if data["group"] == "api":
-                    entry.update(has_key=bool(data.get("auth_key")), in_use=False)
+                    # A key store that refuses the key: the core holds it in memory for the run.
+                    stored = peer.key_store_works and bool(data.get("auth_key"))
+                    entry.update(has_key=stored, key_in_memory=not stored, in_use=False)
                 peer.entries.append(entry)
                 reply(ep, catalog())
             elif ep == "/run/use_translation_catalog_entry":
@@ -244,6 +246,38 @@ def test_an_api_entry_sends_its_key_once_and_shows_only_that_it_is_kept(ui):
     assert sent(peer, "/run/remove_translation_catalog_entry") == [dict(id="tr-1")]
 
 
+def test_an_api_entry_whose_key_the_store_refused_says_how_long_its_key_lasts(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    # The key store does not take the key (a locked keyring): the entry is added all the same
+    # and the core holds the key until the app closes (ADR-013).
+    peer.key_store_works = False
+    form = page.locator("[data-catalog-add=api]")
+    form.locator("summary").click()
+    form.get_by_label("Display name").fill("Home server")
+    form.get_by_label("Address (URL)").fill("http://192.168.1.5:8000/v1")
+    form.get_by_label("API key").fill("secret-key")
+    form.get_by_role("button", name="Add").click()
+    card = page.locator("[data-catalog-item='tr-1']")
+    expect(card.get_by_text("Only until you close the app (not saved)")).to_be_visible()
+    expect(card.get_by_text("the app holds it only until you close it")).to_be_visible()
+    expect(card.get_by_text("Kept in the app's key store")).to_have_count(0)
+    expect(card.get_by_role("button", name="Use as the OpenAI-compatible connection")).to_be_enabled()
+    expect(form.get_by_label("API key")).to_have_value("")
+    assert "secret-key" not in card.inner_text()
+
+    # The app was closed before the store took the key: the entry stays, without a key, and
+    # says what to do instead of offering a switch that cannot work.
+    peer.entries[0].update(key_in_memory=False)
+    page.reload()
+    card = page.locator("[data-catalog-item='tr-1']")
+    expect(card.get_by_text("No API key", exact=True)).to_be_visible()
+    expect(card.get_by_role("alert")).to_contain_text("Remove the entry and add it again.")
+    expect(card.get_by_role("button", name="Use as the OpenAI-compatible connection")).to_be_disabled()
+    expect(card.get_by_role("button", name="Remove")).to_be_enabled()
+
+
 def open_translation_page(page):
     """The whole translation page; its 「モデルと処理デバイス」 opened as a user would."""
     page.goto(page.url.replace("/translation-catalog-ui-entry/", "/translation-page-ui-entry/"))
@@ -337,10 +371,15 @@ def test_the_catalog_fits_a_narrow_window(ui, tmp_path):
     peer.entries.append(dict(id="tr-9", group="engine", name="長い名前の自分の翻訳モデル（NLLB-200 3.3B 蒸留していない版）",
                              runtime="onnx", folder="C:\\Users\\someone\\Documents\\とても長いフォルダーの名前\\translation\\nllb-200-3.3B-onnx-int8",
                              languages=[], status="ok", registered_at=None))
+    # An API entry whose key is held only until the app closes: the longest key text.
+    peer.entries.append(dict(id="tr-10", group="api", name="家の翻訳サーバー（LANの中のOpenAI互換のAPI）", protocol="openai_compatible",
+                             url="http://192.168.1.5:8000/v1/a/very/long/path/that/keeps/going", model="", has_key=False,
+                             key_in_memory=True, in_use=False, status="ok", registered_at=None))
     page.set_viewport_size({"width": 480, "height": 1600})
     page.goto(page.url.split("?")[0] + "?width=440")
     card = page.locator("[data-catalog-item='tr-9']")
     expect(card).to_be_visible()
+    expect(page.locator("[data-catalog-item='tr-10']").get_by_text("Only until you close the app (not saved)")).to_be_visible()
     overflow = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
     assert overflow <= 0, overflow
     if os.environ.get("VRCT_TEST_SCREENSHOTS"):
