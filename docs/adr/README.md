@@ -60,6 +60,8 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 
 ADR は 2026-11-18 まで `docs/voice-stack/` にあった。対象が音声の外（フロントエンド、ブランド、秘密情報など）に広がったので、このディレクトリに集めた（Issue #587）。番号とファイル名は変えていない。古いパスには、ここへの案内だけを残している。
 
+> **追記**（2026-11-18、Issue #587）：古いパスに残していた案内のページ（`docs/voice-stack/decisions.md` と `docs/voice-stack/adr-004〜013-*.md`）は、保守担当者の判断で削除した。リポジトリの中の参照は、その前にすべて `docs/adr/` へ直してある。古いパスへのリンクはもう開けないので、下の表で新しいパスを引く。
+
 | 古いパス | いまのパス |
 |---|---|
 | `docs/voice-stack/decisions.md`（ADR 001〜003 と索引） | [`adr-001-external-speechcpp-and-voice-worker.md`](adr-001-external-speechcpp-and-voice-worker.md)、[`adr-002-output-and-lifetime.md`](adr-002-output-and-lifetime.md)、[`adr-003-voice-conversion-selection-deferred.md`](adr-003-voice-conversion-selection-deferred.md)、このページ |
