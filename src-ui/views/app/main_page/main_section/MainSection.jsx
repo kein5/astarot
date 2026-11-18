@@ -70,6 +70,7 @@ const HandleLanguageSelector = () => {
         return (
             <LanguageSelector
                 title={title}
+                hint={t("main_page.your_language_hint")}
                 onClickFunction={onclickFunction_YourLanguage}
             />
         );
@@ -86,6 +87,7 @@ const HandleLanguageSelector = () => {
         return (
             <LanguageSelector
                 title={title}
+                hint={t("main_page.target_language_hint")}
                 onClickFunction={onclickFunction_TargetLanguage}
             />
         );
