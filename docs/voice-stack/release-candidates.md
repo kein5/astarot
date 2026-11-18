@@ -2,6 +2,30 @@
 
 配布候補の作成と公開を分けています。最初の公開版は2026-10-31の`v0.1.0-beta.1`（developからのプレリリース）です。Linux・Windowsの候補を同じブランチの同じコミットから作り、検査後にGitHub Releasesの下書きへまとめます。公開は保守担当者が下書きを確認して行います。
 
+## 全体の流れ
+
+```mermaid
+flowchart TD
+    topic["トピックブランチ"] -->|"PR・必須のチェック"| develop[("develop")]
+
+    develop -->|"版を X.Y.Z-beta.N にする"| betaBuild["候補をビルド<br>Linux・Windows"]
+    betaBuild --> betaDraft["下書きを準備<br>Prepare verified ASTAROT release draft"]
+    betaDraft --> betaPublish["人が確かめて公開<br>プレリリース vX.Y.Z-beta.N"]
+
+    develop -->|"release/X.Y.Z を切る<br>版と CHANGELOG の節"| release["release/X.Y.Z"]
+    main[("main")] -.->|"急ぎの修正だけ<br>公開済みの版から切る"| release
+    release -->|"PR・必須のチェック<br>候補のビルドを含む"| main
+    main -->|"マージのコミット"| stableBuild["候補をビルド<br>Linux・Windows"]
+    stableBuild --> stableDraft["下書きを準備<br>Prepare verified ASTAROT release draft"]
+    stableDraft --> stablePublish["人が確かめて公開<br>正式版 vX.Y.Z"]
+    stablePublish --> back["main を develop へ戻す PR"]
+    back --> develop
+```
+
+ベータ版は`develop`から作ります。正式版は`develop`から切った`release/X.Y.Z`をPRで`main`へ統合し、そのマージのコミットから作ります。公開済みの版を急いで直すときだけ、`release/X.Y.Z`を`main`から切ります（[公開済みの版を急いで直す](#公開済みの版を急いで直す)）。ベータ版も正式版も、公開の前にタグ名、リリースノート、実機での動きを人が確かめます。各段の手順はこの下の節にあります。
+
+リリースの流れを変えたときは、この図も同じPRで直します。参加の流れの図は[CONTRIBUTING.md](../../CONTRIBUTING.md#pull-requests)にあります。
+
 ## ブランチとチャンネル
 
 | ブランチ | チャンネル | 版の形式 | GitHub Releases |
