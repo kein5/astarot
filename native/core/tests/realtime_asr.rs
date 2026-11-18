@@ -16,11 +16,13 @@ use common::net::eventually;
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::net::UdpSocket;
+use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use vrct_adapters::osc::{OscArg, decode_packet};
 use vrct_core::config::Platform;
 use vrct_core::controller::Services;
+use vrct_core::vr_overlay::runtime::fake::FakeVr;
 use vrct_transcription::capture::Source;
 
 struct Run {
@@ -40,6 +42,11 @@ fn settings(asr: &FakeAsr) -> Value {
 }
 
 fn start(platform: Platform, saved: Value, configure: bool) -> Run {
+    start_with_vr(platform, saved, configure, None)
+}
+
+/// [`start`] with a SteamVR that runs (`FakeVr::running`), for the VR logs.
+fn start_with_vr(platform: Platform, saved: Value, configure: bool, vr: Option<FakeVr>) -> Run {
     let asr = FakeAsr::start();
     let capture = FakeCapture::new();
     capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
@@ -53,7 +60,10 @@ fn start(platform: Platform, saved: Value, configure: bool) -> Run {
     if configure {
         saved["REALTIME_ASR_SETTINGS"] = settings(&asr);
     }
-    let services = Services { transcription_capture: capture.factory(), ..Setup::default().services };
+    let mut services = Services { transcription_capture: capture.factory(), ..Setup::default().services };
+    if let Some(vr) = vr {
+        services.vr = Arc::new(vr);
+    }
     let ui = Ui::with(Setup { saved: Some(saved), services, platform, ..Setup::default() });
     ui.ready();
     Run { ui, capture, asr, chatbox }
@@ -172,6 +182,53 @@ fn the_main_switch_streams_the_microphone_and_its_final_goes_out() {
     assert!(run.ui.on(mark, "/set/enable/transcription_send").is_empty(), "no failure was told");
     assert!(!run.process_log().contains("こんにちは"), "recognised text reached process.log");
     assert!(!run.process_log().contains("realtime_caption"), "captions are not logged");
+    run.ui.stop();
+}
+
+#[test]
+fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
+    // `test_realtime_overlay*.py` and the realtime cases of `test_overlay_lifecycle_publication.py`
+    // through the core: each caption state draws the large log; a picture SteamVR refuses is
+    // told as the caption's `overlay_large` output failure, and the final still goes out.
+    let fake = FakeVr::running();
+    let run = start_with_vr(Platform::Linux, json!({ "OVERLAY_LARGE_LOG": true }), true, Some(fake.clone()));
+    eventually("the large log made", || fake.handle("VRCT1").is_some());
+    let large = fake.handle("VRCT1").unwrap();
+    let drawn = || fake.calls_on(large, "raw");
+    let before = drawn().len();
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    run.capture.hear(Source::Mic, &[speech(600)]);
+    for state in ["partial", "final", "translated"] {
+        run.caption(mark, state);
+    }
+    eventually("each state drew the log", || drawn().len() >= before + 3);
+    let last = drawn().last().cloned().unwrap();
+    assert!(!last.ends_with(" 1x1"), "the log shows the caption: {last}");
+    assert!(run.ui.on(mark, "/run/message_output_error").is_empty());
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは"));
+
+    // SteamVR refuses the pictures from now on.
+    fake.with(|s| s.fail_pictures = true);
+    let mark = run.ui.lines().len();
+    run.capture.hear(Source::Mic, &[speech(600)]);
+    let partial = run.caption(mark, "partial");
+    let failure = run.ui.wait_from(mark, "the caption's output failure", |l| l["endpoint"] == "/run/message_output_error");
+    assert_eq!(failure["status"], 400);
+    let data = failure["result"]["data"].clone();
+    assert_eq!((data["source"].clone(), data["output"].clone(), data["error_code"].clone()), (json!("mic"), json!("overlay_large"), json!("MESSAGE_OUTPUT_FAILED")));
+    // The id is the caption's (`namespace:item`); the fake server keeps speaking, so it may be a
+    // later state of an earlier utterance.
+    let namespace = partial["namespace"].as_str().unwrap();
+    let item = data["id"].as_str().unwrap().strip_prefix(&format!("{namespace}:")).expect("the session's namespace").to_string();
+    assert!(run.ui.lines().iter().any(|l| l["endpoint"] == "/run/realtime_caption" && l["result"]["item_id"] == item.as_str()), "{item}");
+    // The caption rows still reach the UI, the final still goes out, and recognition goes on.
+    run.caption(mark, "translated");
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは"));
+    let state = run.ui.ok("/get/data/realtime_asr_state", None);
+    assert_eq!((state["mic"]["state"].clone(), state["mic"]["requested"].clone()), (json!("ready"), json!(true)));
+    assert!(run.ui.on(mark, "/set/disable/transcription_send").is_empty());
     run.ui.stop();
 }
 
@@ -335,6 +392,9 @@ fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() 
     let run = start(Platform::Linux, json!({}), true);
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
     eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    // Audio has reached the server: what follows is the 2 s rule, not the 5 s one of a
+    // microphone that never delivered (a busy test run may open it late).
+    eventually("audio reached the server", || run.asr.appends.load(Ordering::SeqCst) > 0);
     let mark = run.ui.lines().len();
     run.capture.stall(Source::Mic, true);
     let stopped = std::time::Instant::now();
