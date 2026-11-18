@@ -48,7 +48,8 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
     assert.match(vrchat, /<PagePointer [^>]*tab="advanced_settings"/);
 
     const search = await loadSearch(hooks());
-    for (const key of ["section_label_osc", "osc_ip_address", "osc_port"]) assert.deepEqual(search.settingTabs("advanced_settings", key), ["advanced_settings"]);
+    // The OSCQuery switch (#559) sits with them.
+    for (const key of ["section_label_osc", "osc_ip_address", "osc_port", "osc_query"]) assert.deepEqual(search.settingTabs("advanced_settings", key), ["advanced_settings"]);
     for (const language of ["en", "ja"]) {
         const vrchatTexts = locales[language].config_page.vrchat;
         assert.equal(typeof vrchatTexts.osc_pointer.label, "string");

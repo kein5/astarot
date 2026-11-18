@@ -475,9 +475,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
-| `/get/data/osc_query` | 取得 | `core: OSC_QUERY` | 可 | — | 中核のみ |
-| `/set/enable/osc_query` | 有効化 | `core: set_osc_query` | 可 | — | 中核のみ |
-| `/set/disable/osc_query` | 無効化 | `core: set_osc_query` | 可 | — | 中核のみ |
+| `/get/data/osc_query` | 取得 | `core: OSC_QUERY` | 可 | useAdvancedSettings.updateFromBackendEnableOscQuery | 中核のみ |
+| `/set/enable/osc_query` | 有効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
+| `/set/disable/osc_query` | 無効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）
@@ -577,11 +577,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（18件）
+## UIに受信先がないエンドポイント（15件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
-- `/get/data/osc_query`
 - `/run/ctranslate2_license_notice`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
@@ -597,11 +596,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/initialization_complete`
 - `/run/message_output_error`
 - `/run/translation_language_unsupported`
-- `/set/disable/osc_query`
-- `/set/enable/osc_query`
 
 
-## UIだけにあるルート（57件）
+## UIだけにあるルート（58件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
@@ -626,6 +623,7 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/obs_browser_source`
 - `/set/data/ocr_chatbox_filter`
 - `/set/data/ocr_use_chatbox_detector`
+- `/set/data/osc_query`
 - `/set/data/overlay_desktop`
 - `/set/data/overlay_large_log`
 - `/set/data/overlay_show_only_translated_messages`

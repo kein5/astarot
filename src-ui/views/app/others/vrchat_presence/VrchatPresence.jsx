@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useI18n } from "@useI18n";
-import { useOthers } from "@logics_configs";
+import { useAdvancedSettings, useOthers } from "@logics_configs";
 import { EnvReadout } from "../../config_page/setting_section/setting_box/_components/env_readout/EnvReadout";
 
 // "Sent" in the log only means the message left: VRChat does not answer. A
@@ -11,17 +11,23 @@ import { EnvReadout } from "../../config_page/setting_section/setting_box/_compo
 export const VrchatPresence = ({ className }) => {
     const { t } = useI18n();
     const { currentVrchatOscPresence, getVrchatOscPresence, currentEnableSendMessageToVrc } = useOthers();
+    const { currentEnableOscQuery } = useAdvancedSettings();
     // The hook hands out a new function on every render; keep the latest without restarting the timer.
     const ask = useRef(getVrchatOscPresence);
     ask.current = getVrchatOscPresence;
     const sends = currentEnableSendMessageToVrc.data !== false;
+    // OSCQuery turned off (#559): the backend can only answer "unknown", so it is not asked.
+    const osc_query_off = currentEnableOscQuery.data === false;
     useEffect(() => {
-        if (!sends) return;
+        if (!sends || osc_query_off) return;
         ask.current();
         const timer = setInterval(() => ask.current(), 5000);
         return () => clearInterval(timer);
-    }, [sends]);
+    }, [sends, osc_query_off]);
     if (!sends) return <EnvReadout className={className}><p>{t("vrchat_presence.sending_off")}</p></EnvReadout>;
+    if (osc_query_off) {
+        return <EnvReadout className={className}><p>{t("vrchat_presence.osc_query_off")}</p></EnvReadout>;
+    }
     const state = ["found", "not_found", "unknown"].includes(currentVrchatOscPresence.data) ? currentVrchatOscPresence.data : "checking";
     return (
         <EnvReadout className={className} tone={{ found: "active", not_found: "warning" }[state] ?? "neutral"}>

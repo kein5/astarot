@@ -5,14 +5,15 @@ import yaml from "js-yaml";
 import { hooks, loadModule, find, stubGlobals } from "../../../../logics/test/hookHarness.js";
 
 const EnvReadout = () => null;
-async function setup(context, { presence = null, sends = true } = {}) {
+async function setup(context, { presence = null, sends = true, osc_query = true } = {}) {
     const runtime = hooks(), asked = [], timers = [];
-    const state = { presence, sends };
+    const state = { presence, sends, osc_query };
     stubGlobals(context, { setInterval: (fn, ms) => { timers.push({ fn, ms, cleared: false }); return timers.length - 1; },
         clearInterval: id => { timers[id].cleared = true; } });
     const { VrchatPresence } = await loadModule(new URL("./VrchatPresence.jsx", import.meta.url), runtime, {
         "@logics_configs": { useOthers: () => ({ currentVrchatOscPresence: { data: state.presence },
-            currentEnableSendMessageToVrc: { data: state.sends }, getVrchatOscPresence: () => asked.push(true) }) },
+            currentEnableSendMessageToVrc: { data: state.sends }, getVrchatOscPresence: () => asked.push(true) }),
+        useAdvancedSettings: () => ({ currentEnableOscQuery: { data: state.osc_query } }) },
         "../../config_page/setting_section/setting_box/_components/env_readout/EnvReadout": { EnvReadout },
     });
     const draw = () => {
@@ -60,9 +61,24 @@ test("with sending to VRChat off it says so and does not look for VRChat", async
     assert.equal(s.asked.length, 1, "turning sending on starts looking");
 });
 
+test("with OSCQuery turned off it says that is why VRChat cannot be checked, and does not ask", async context => {
+    // #559: the backend can only answer "unknown" then.
+    const s = await setup(context, { osc_query: false, presence: "unknown" });
+    assert.deepEqual(s.draw(), { tone: "neutral", lines: ["vrchat_presence.osc_query_off"], className: "placed" });
+    assert.equal(s.asked.length, 0);
+    assert.equal(s.timers.length, 0);
+    s.state.osc_query = true;
+    s.draw();
+    assert.equal(s.asked.length, 1, "turning OSCQuery on starts looking");
+    // Sending off comes first: nothing is sent, whatever OSCQuery does.
+    s.state.sends = false;
+    s.state.osc_query = false;
+    assert.deepEqual(s.draw().lines, ["vrchat_presence.sending_off"]);
+});
+
 test("every state has words in English and Japanese", () => {
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8")).vrchat_presence;
-        for (const key of ["checking", "found", "not_found", "not_found_hint", "unknown", "sending_off"]) assert.equal(typeof strings[key], "string");
+        for (const key of ["checking", "found", "not_found", "not_found_hint", "unknown", "sending_off", "osc_query_off"]) assert.equal(typeof strings[key], "string");
     }
 });

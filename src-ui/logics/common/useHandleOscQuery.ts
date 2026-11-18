@@ -18,8 +18,10 @@ export interface OscQueryPayload {
 // microphone was stopped because mute sync had been on. One text for all four
 // told people sending to another machine to re-save their local OSC settings,
 // and said the microphone "has also been stopped" when nothing had been.
+// OSCQuery turned off by the user (#559) has nothing to fix but the switch.
+const CAUSES: Readonly<Record<string, string>> = { remote_destination: "remote", turned_off: "off" };
 const warningKey = (reason: unknown, microphone_stopped: unknown) => {
-    const cause = reason === "remote_destination" ? "remote" : "failed";
+    const cause = (typeof reason === "string" && CAUSES[reason]) || "failed";
     return `common_warning.osc_query_${cause}${microphone_stopped === true ? "_mic_stopped" : ""}`;
 };
 
