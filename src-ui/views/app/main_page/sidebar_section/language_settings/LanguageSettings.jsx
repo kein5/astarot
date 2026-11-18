@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useI18n } from "@useI18n";
 import styles from "./LanguageSettings.module.scss";
 import { PresetTabSelector } from "./preset_tab_selector/PresetTabSelector";
@@ -20,9 +21,27 @@ export const LanguageSettings = () => {
     const { t } = useI18n();
     const { updateIsOpenedTranslatorSelector } = useStore_IsOpenedTranslatorSelector();
     // The translator list closes when the pointer leaves the language settings, but not for
-    // the rail's scrollbar, which scrolls the list into view.
+    // the rail's scrollbar, which scrolls the list into view. From the scrollbar the pointer
+    // can go straight on to the conversation, and no mouseleave comes here again then: so the
+    // list closes as soon as the pointer is over anything outside this part (#563).
+    const stopWatching = useRef(null);
+    const endWatch = () => { stopWatching.current?.(); stopWatching.current = null; };
+    useEffect(() => endWatch, []);
     const closeTranslatorSelector = event => {
-        if (!isOnAncestorScrollbar(event)) updateIsOpenedTranslatorSelector(false);
+        endWatch();
+        if (!isOnAncestorScrollbar(event)) {
+            updateIsOpenedTranslatorSelector(false);
+            return;
+        }
+        const container = event.currentTarget;
+        const page = container.ownerDocument;
+        if (!page) return;
+        const movedOn = over => {
+            endWatch();
+            if (!container.contains(over.target)) updateIsOpenedTranslatorSelector(false);
+        };
+        page.addEventListener("mouseover", movedOn, true);
+        stopWatching.current = () => page.removeEventListener("mouseover", movedOn, true);
     };
 
     return (

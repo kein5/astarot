@@ -81,6 +81,37 @@ test("an unanswered start is released when it times out; a pending Apply stays w
     assert.equal(s.calls.length, 5, "its Cancel can be sent again");
 });
 
+// #563: an Apply whose reply was lost kept every other download command blocked, even after
+// the polls showed it had ended.
+test("an unanswered Apply is released once a later poll shows its job no longer verifying", async t => {
+    const s = await setup(t);
+    s.render().updateState({ observation_id: "1", jobs: { model: { ...request, phase: "ready" } } });
+    await s.render().send(apply, request);
+    s.render().expireUnconfirmed();
+    s.render().updateState({ observation_id: "2", jobs: { model: { ...request, phase: "verifying" } } });
+    assert.deepEqual(s.render().pending.map(item => item.endpoint), [apply], "still verifying: it stays");
+    await s.render().send("/run/start_model_download", { id: "other" });
+    assert.equal(s.calls.length, 1, "competing actions stay blocked while it verifies");
+    // An older observation than the one shown says nothing about it.
+    s.render().updateState({ observation_id: "1", jobs: { model: { ...request, phase: "applied" } } });
+    assert.ok(s.render().pending);
+    s.render().updateState({ observation_id: "3", jobs: { model: { ...request, phase: "applied" } } });
+    assert.equal(s.render().pending, null);
+    assert.equal(s.render().error, "request_unconfirmed", "the missing reply is still reported");
+    await s.render().send("/run/start_model_download", { id: "other" });
+    assert.equal(s.calls.length, 2, "the user can act again");
+});
+
+test("a poll does not release an Apply that has not timed out, nor one of another job", async t => {
+    const s = await setup(t);
+    await s.render().send(apply, request);
+    s.render().updateState({ observation_id: "1", jobs: { model: { ...request, phase: "applied" } } });
+    assert.ok(s.render().pending, "the reply may still come: only a timed-out Apply is let go");
+    s.render().expireUnconfirmed();
+    s.render().updateState({ observation_id: "2", jobs: { model: { ...request, job_id: "new-job", phase: "verifying" } } });
+    assert.equal(s.render().pending, null, "a job that was replaced is not this Apply's");
+});
+
 test("a failed Cancel write retains pending Apply", async t => {
     const s = await setup(t, async endpoint => endpoint !== cancel);
     await s.render().send(apply, request);

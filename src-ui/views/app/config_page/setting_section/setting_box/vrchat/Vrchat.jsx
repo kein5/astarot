@@ -14,10 +14,8 @@ import {
 import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { useOthers } from "@logics_configs";
-import { useStore_SelectedConfigTabId } from "@store";
-import { Description } from "../_components/description/Description";
 import { VrchatPresence } from "../../../../others/vrchat_presence/VrchatPresence";
-import { PagePointer } from "../_components/page_pointer/PagePointer";
+import { PagePointer, PageLinkButton } from "../_components/page_pointer/PagePointer";
 
 // What goes to VRChat: the chatbox first, as a first conversation needs it. What is set once
 // (the notification sound, mute sync, the message formats) is in 「詳細設定」, with the rows that
@@ -54,10 +52,10 @@ export const Vrchat = () => {
                 <div>
                     <SectionLabelComponent sub label={t("config_page.vrchat.section_label_elsewhere")} />
                     <PagePointer label={t("config_page.vrchat.osc_pointer.label")} description={t("config_page.vrchat.osc_pointer.desc")}
-                        tab="advanced_settings" button={t("config_page.vrchat.open_advanced_settings")} />
+                        tab="advanced_settings" action={t("config_page.vrchat.osc_pointer.action")} />
                     <VoiceRouteSummary />
                     <PagePointer label={t("config_page.vrchat.section_label_tts_output")} description={t("config_page.vrchat.tts_output_pointer")}
-                        tab="tts" button={t("config_page.vrchat.open_tts")} />
+                        tab="tts" action={t("config_page.vrchat.tts_output_action")} />
                 </div>
             </AdvancedSection>
             <ChatReadingPointer />
@@ -65,16 +63,14 @@ export const Vrchat = () => {
     );
 };
 
+// The heading and a button that names the page say it all (#614): no sentence repeats where
+// the settings are.
 const ChatReadingPointer = () => {
     const { t } = useI18n();
-    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     return (
         <div>
             <SectionLabelComponent label={t("config_page.side_menu_labels.ocr")} />
-            <Description text={t("config_page.vrchat.chat_reading_moved")} />
-            <button type="button" className={styles.open_page} onClick={() => updateSelectedConfigTabId("ocr")}>
-                {t("config_page.vrchat.open_chat_reading")}
-            </button>
+            <PageLinkButton tab="ocr" className={styles.chat_reading_link} />
         </div>
     );
 };

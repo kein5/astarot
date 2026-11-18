@@ -565,6 +565,13 @@ config_page:
         ocr: "Chat reading (OCR)"
         vr: "Captions and VR"
 
+    # A button that opens another settings page names the page and what is done there (#537).
+    # page is the tab's name above; action says what is done there ("Change the audio route").
+    # Without an action the page as a whole is the reason to go.
+    page_link:
+        do: "{{action}} on the {{page}} page"
+        open: "Open the {{page}} page"
+
     tts:
         tts_settings:
             label: "Text to speech (TTS)"
@@ -578,8 +585,8 @@ config_page:
         section_label_speaker: "Speaker"
         section_label_mic_sensitivity: "Microphone sensitivity"
         section_label_speaker_sensitivity: "Speaker sensitivity"
-        mute_sync_pointer: "Pauses speech recognition from the microphone while you are muted in VRChat. It is set on the VRChat page."
-        open_vrchat: "Open the VRChat settings"
+        mute_sync_pointer: "Pauses speech recognition from the microphone while you are muted in VRChat."
+        mute_sync_action: "Set up mute sync"
         check_volume: "Check volume"
         label_auto_select: "Auto select"
         label_host: "Host/driver"
@@ -874,8 +881,8 @@ config_page:
             desc: "At 0% the plate behind the words disappears and only the outlined text remains."
         vr_panel_pointer:
             label: "VR UI (control panel in VR)"
-            desc: "The wrist launcher and windows are still being tested, so they are on the Experimental page."
-        open_experimental_features: "Open the Experimental features"
+            desc: "The wrist launcher and windows, still being tested."
+            action: "Set up the VR UI"
         voice_typing_mode:
             label: "Voice typing mode"
             desc: "Automatically pastes transcribed text into the active input field.\n*Uses the clipboard. On Linux it pastes into X11/XWayland windows (such as VRChat under Proton), and the desktop may ask once whether the app may control input devices."
@@ -949,16 +956,14 @@ config_page:
     vrchat:
         section_label_chatbox: "Chatbox"
         section_label_tts_output: "Speech output"
-        chat_reading_moved: "The settings for reading VRChat's chat are on the Chat reading (OCR) page."
-        open_chat_reading: "Open the Chat reading (OCR) settings"
         osc_pointer:
             label: "OSC destination"
-            desc: "The IP address and port that messages go to can be changed under Advanced. They match VRChat's defaults, so you usually leave them."
-        open_advanced_settings: "Open the Advanced settings"
+            desc: "The IP address and port that messages go to. They match VRChat's defaults, so you usually leave them."
+            action: "Change the destination"
         section_label_more: "Working with VRChat"
         section_label_elsewhere: "Set on other pages"
-        tts_output_pointer: "Where speech is played so that it reaches VRChat's microphone is chosen on the Text to speech (TTS) page."
-        open_tts: "Open the Text to speech (TTS) settings"
+        tts_output_pointer: "Where speech is played so that it reaches VRChat's microphone."
+        tts_output_action: "Choose the output"
 
     ocr:
         section_title: "Reading VRChat's chat"
@@ -1106,6 +1111,7 @@ config_page:
                     display: "Display {{number}} ({{width}}×{{height}})"
                     is_primary: "(primary)"
                     missing: "Monitor not connected (chosen before)"
+                    unknown: "Monitor chosen before (the monitor list cannot be read)"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "Show the VR UI"
@@ -1364,7 +1370,7 @@ realtime:
   silence_seconds: "{{seconds}} s"
   silence_help: "After this much silence the utterance is final and goes on to translation, the chatbox and speech. A shorter silence gives results sooner, but a pause inside a sentence is more likely to end it, so one sentence may become several messages. Changing it stops both captions."
   vocabulary: "Term dictionary"
-  vocabulary_help: "Terms the recognizer should hear and write as given. Haas-ja takes them as keywords; Qwen3-ASR gets a short hint of them. Write one term per entry, optionally with readings after \"=\" separated by commas, such as VRChat=ブイアールチャット,ブイチャ. List only terms you need: each one adds a small chance of a word that was not said. Changing the dictionary stops running captions."
+  vocabulary_help: "Keeps how terms are written and read the same in speech recognition, speech and translation. Recognized text from any engine gets the written form you registered. Japanese speech reads a term with its first reading. AI translators are told which of your terms a text holds, as names. Write one term per entry, optionally with readings after \"=\" separated by commas, such as VRChat=ブイアールチャット,ブイチャ. A reading that is also an everyday word changes that word too. Haas-ja takes the terms as keywords; Qwen3-ASR gets a short hint of them. List only terms you need: each one adds a small chance of a word that was not said. Changing the dictionary stops running captions."
   vocabulary_builtin: "Use the built-in VRChat terms"
   vocabulary_user: "Your terms"
   vocabulary_term: "Term to add"
@@ -1564,6 +1570,17 @@ voice_ui:
             rate_option: "{{rate}} Hz"
             invalid: "Enter a number within the range."
             reset: "Restore defaults"
+        # How VOICEVOX, AivisSpeech and SHAREVOX read: the Scale values of their AudioQuery, one set per engine.
+        audio_query:
+            title: "How {{engine}} reads"
+            status: "Speed {{speed}}"
+            description: "The values used when {{engine}} is asked to read. Fields left at their defaults keep the values the engine returned. Saved values apply from the next message read."
+            speed: "Speed (0.5–2)"
+            volume: "Volume (0–2)"
+            pitch: "Pitch (-0.15–0.15)"
+            intonation: "Intonation (0–2)"
+            invalid: "Enter a number within the range."
+            reset: "Restore defaults"
     check_needs_url: "Enter and save the server URL to check"
     check_needs_server: "Start the bundled server to check"
     setup_rvc: "Models and runtime"
@@ -1604,8 +1621,8 @@ voice_ui:
     tts_description: "Read typed messages and final microphone translations. After saving, turn it on with the Text to speech (TTS) switch on the main screen. With a bundled server selected, turning TTS on starts that server if it is stopped, and turning TTS off stops it again. A server you start yourself keeps running."
     tts_server_starting: "Starting server…"
     output_hint: "Choose headphones to listen locally, or a virtual cable for VRChat. The managed route shares its output with direct voice."
-    edit_route: "Change audio route"
-    route_current: "In use: {{route}}. Change it on the Device page."
+    edit_route: "Change the audio route"
+    route_current: "In use: {{route}}"
     route_hint_device: "TTS and direct voice both play on the output device chosen on the Text to speech (TTS) page. Stop direct input before changing it."
     route_hint: "This route is shared by TTS and direct voice. Stop direct input before changing it. Switching to an external cable removes the managed input connection."
     save_route: "Save audio route"

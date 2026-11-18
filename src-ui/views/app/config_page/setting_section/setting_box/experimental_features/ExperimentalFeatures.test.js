@@ -183,6 +183,30 @@ test("before the monitor list arrives, the chosen monitor is not called unplugge
     assert.equal(dropdown.props.list["\\\\.\\DISPLAY2"], "common.loading");
 });
 
+// #563: the errors were dropped, so a list that kept failing showed "Loading" for good.
+test("when the monitor list cannot be read, the chosen monitor says so instead of loading for good", async context => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    context.onTestFinished(() => vi.useRealTimers());
+    const s = await load(context);
+    const features = [{ id: "tray_companion" }];
+    const on = { state: "ok", data: { tray_companion: true } };
+    let answer = () => Promise.reject(new Error("read_failed"));
+    const props = { current: { state: "ok", data: "\\\\.\\DISPLAY2" }, set: () => {}, list: () => answer() };
+    const list = s.render({ features, current: on, setValues: () => {}, edge: undefined, monitor: props });
+    const item = children(list).find(entry => typeof entry.type === "function");
+    s.runtime.render(item.type, item.props);
+    await flush();
+    let dropdown = s.runtime.render(item.type, item.props);
+    assert.equal(dropdown.props.selected_id, "\\\\.\\DISPLAY2", "the choice itself stays");
+    assert.equal(dropdown.props.list["\\\\.\\DISPLAY2"], "config_page.experimental_features.items.tray_companion.monitor.unknown");
+    // The next read that works shows the list again.
+    answer = async () => [{ id: "\\\\.\\DISPLAY2", number: 1, width: 1920, height: 1080, primary: false }];
+    vi.advanceTimersByTime(3000);
+    await flush();
+    dropdown = s.runtime.render(item.type, item.props);
+    assert.match(dropdown.props.list["\\\\.\\DISPLAY2"], /monitor\.display/);
+});
+
 test("#554 (Q-05): the VR panel is listed with the features on trial and keeps its own saved switch", async context => {
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
