@@ -9,14 +9,14 @@
         "displayName": "ASTAROT Lilac",
         "canonical": "#a47af5",
         "tonalRamp": [
-          "#25075f",
-          "#380b8e",
-          "#4e0fc7",
-          "#702eef",
+          "#4e2888",
+          "#6644ad",
+          "#7551be",
+          "#9a70ea",
           "#a47af5",
-          "#bea0f8",
-          "#d8c6fb",
-          "#efe7fd"
+          "#b797f8",
+          "#d9c8fc",
+          "#eee8fe"
         ]
       }
     },
@@ -53,7 +53,7 @@
       "refersTo": "",
       "description": "Secondary action used by the studio forms.",
       "html": "<button class=\"ds-secondary\">Discard changes</button>",
-      "css": ".ds-secondary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#3f2c57;border:0}.ds-secondary:hover{background:#4e3d5d}.ds-secondary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
+      "css": ".ds-secondary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#3f2f4e;border:0}.ds-secondary:hover{background:#4e3d5d}.ds-secondary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Text field",
@@ -61,7 +61,7 @@
       "refersTo": "input",
       "description": "Text field used by the studio forms.",
       "html": "<label class=\"ds-field\">Model path<input value=\"models/irodori.gguf\"></label>",
-      "css": ".ds-field{display:grid;gap:8px;color:#fafafc;font:14px system-ui}.ds-field input{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#332341;border:1px solid #777082}.ds-field input:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
+      "css": ".ds-field{display:grid;gap:8px;color:#fafafc;font:14px system-ui}.ds-field input{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#332341;border:1px solid #877a94}.ds-field input:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Settings navigation",
@@ -69,7 +69,7 @@
       "refersTo": "",
       "description": "Settings navigation used by the studio forms.",
       "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">TTS</button><button>RVC</button></nav>",
-      "css": ".ds-nav{display:grid;gap:4px;background:#1c0f27;padding:10px}.ds-nav button{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;text-align:left;border:0;background:transparent}.ds-nav [aria-current]{background:#45306a}.ds-nav button:hover{background:#3f2c57}.ds-nav button:focus-visible{outline:2px solid #d9c8fc;outline-offset:2px}"
+      "css": ".ds-nav{display:grid;gap:4px;background:#1c0f27;padding:10px}.ds-nav button{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;text-align:left;border:0;background:transparent}.ds-nav [aria-current]{background:#45306a}.ds-nav button:hover{background:#3f2f4e}.ds-nav button:focus-visible{outline:2px solid #d9c8fc;outline-offset:2px}"
     },
     {
       "name": "Explicit consent",

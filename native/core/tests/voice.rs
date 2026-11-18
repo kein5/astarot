@@ -717,6 +717,58 @@ fn a_conversion_runs_through_the_worker_and_never_passes_the_microphone_through(
 }
 
 #[test]
+fn a_conversion_converts_in_the_block_of_the_advanced_settings() {
+    // #531: 40 ms unless chosen. The worker is asked for the saved block when a conversion
+    // starts, and the state says which one runs.
+    let run = converting_run();
+    let mic = source("Mic (Realtek)").id.to_json();
+    let (files, options) = rvc_files("convert");
+    let asked = || std::fs::read_to_string(files.path().join("rvc").join("asked-block-ms")).unwrap();
+    let converts_in = |ms: i64| {
+        assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
+        eventually("the conversion is verified", || run.ui.ok("/get/data/direct_voice_state", None)["conversion_verified"] == true);
+        assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["conversion_block_ms"], ms);
+        assert_eq!(asked(), ms.to_string());
+        run.ui.ok("/run/stop_direct_voice", None);
+        eventually("the conversion stops", || {
+            let state = run.ui.ok("/get/data/direct_voice_state", None);
+            state["requested"] == false && state["pending"] == false
+        });
+        assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["conversion_block_ms"], Value::Null);
+    };
+    assert_eq!(run.ui.ok("/get/data/rvc_block_ms", None), 40);
+    converts_in(40);
+    assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(120))), 120);
+    converts_in(120);
+    // Anything but 20 to 200 ms in steps of 20 is refused, and the saved block stays.
+    for bad in [json!(30), json!(0), json!(10), json!(220), json!(-40), json!("forty"), json!(null)] {
+        let answer = run.ui.request("/set/data/rvc_block_ms", Some(bad.clone()));
+        assert_eq!((error_code(&answer), answer["result"]["data"].clone()), ("VALIDATION_RVC_BLOCK_MS", json!(120)), "{bad}");
+    }
+    run.ui.ok("/run/shutdown", None);
+    assert_eq!(run.ui.saved()["RVC_BLOCK_MS"], 120);
+    run.ui.stop();
+}
+
+#[test]
+fn a_worker_that_would_use_another_block_is_refused_and_a_bad_saved_block_loads_as_the_default() {
+    let voice = FakeVoice::new();
+    voice.set_sources(Some(&["Mic (Realtek)"]));
+    voice.set_outputs(&[OUTPUT]);
+    // Edited by hand: not a block a conversion may use.
+    let run = start_with(json!({ "RVC_BLOCK_MS": 30 }), Platform::Windows, voice, FakeAudio::new(), false);
+    run.settings(json!({ "output_device": OUTPUT }));
+    assert_eq!(run.ui.ok("/get/data/rvc_block_ms", None), 40);
+    let mic = source("Mic (Realtek)").id.to_json();
+    // The worker confirms 80 ms when it was asked for 40: its blocks would not be the owner's.
+    let (_files, options) = rvc_files("block:80");
+    assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
+    eventually("the mismatch is refused", || run.ui.ok("/get/data/direct_voice_state", None)["error"] == "vc_ready_invalid");
+    assert_eq!(run.voice.captures(), 0, "the microphone was opened");
+    run.ui.stop();
+}
+
+#[test]
 fn a_conversion_that_cannot_start_says_why_and_opens_nothing() {
     let run = converting_run();
     let mic = source("Mic (Realtek)").id.to_json();

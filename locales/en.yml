@@ -265,6 +265,7 @@ backend_errors:
     AUDIO_READ_ERROR: "Audio capture stopped after a device error. Check that the device is still connected, then try again."
     VAD_INFERENCE_ERROR: "Speech detection failed, so recognition stopped. Try again. If this keeps happening, restart ASTAROT."
     VAD_UNAVAILABLE: "VAD is not available in this version, so it was not turned on. Speech is cut by volume."
+    VALIDATION_RVC_BLOCK_MS: "Enter a multiple of 20 from 20 to 200."
     TRANSCRIBER_INIT_ERROR: "The speech recognizer could not start. Check the engine and model under Settings → Speech recognition (ASR), then try again."
     ASR_ERROR: "Speech recognition failed, so recognition stopped. Check the engine under Settings → Speech recognition (ASR) and, for an online engine, the network connection, then try again."
     TRANSCRIPTION_API_AUTH_FAILED: "The speech recognition service refused the API key, so recognition stopped. Check the key under Settings → Speech recognition (ASR)."
@@ -1233,6 +1234,10 @@ config_page:
             desc: "Enter a whole number from 0 to 20."
         obs_browser_source_font_outline_color:
             label: "Outline color (#RRGGBB)"
+        section_label_rvc: "Voice changer (RVC)"
+        rvc_block_ms:
+            label: "Conversion block length (ms)"
+            desc: "The microphone is converted in pieces of this length. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Enter a multiple of 20 from 20 to 200. The default is 40. It applies from the next time conversion starts."
 
     notifications:
         save_success: "Settings have been saved."
@@ -1764,7 +1769,7 @@ voice_ui:
     invalid_rvc_numbers: "Pitch must be an integer from -24 to 24, retrieval blend a number from 0 to 1, and CPU threads an integer from 0 to 64."
     rvc_worker_title: "Device and processing"
     rvc_worker_status: "{{device}} · threads {{threads}} · high-pass {{highpass}}"
-    rvc_worker_hint: "Used when you press Start. With the NVIDIA GPU chosen, Start fails when the GPU cannot be used. With 0 threads, the GPU uses 1 and the CPU half the logical CPUs (2 to 6). Turning the high-pass filter off sounds like the earlier external runtime."
+    rvc_worker_hint: "Used when you press Start. With the NVIDIA GPU chosen, Start fails when the GPU cannot be used. With 0 threads, the GPU uses 1 and the CPU half the logical CPUs (2 to 6). Turning the high-pass filter off sounds like the earlier external runtime. The conversion block length is under Advanced."
     rvc_threads_auto: "automatic"
     rvc_highpass_on: "on"
     rvc_highpass_off: "off"
