@@ -135,7 +135,8 @@
         border-width: 0.6rem;
     }
 
-    &:disabled {
+    // aria-disabled: the radios of a choice that waits on the engine (RadioButton.jsx).
+    &:disabled, &[aria-disabled="true"] {
         border-color: var(--dark_825_color);
     }
 }

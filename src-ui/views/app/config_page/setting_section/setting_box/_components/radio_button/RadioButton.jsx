@@ -5,6 +5,7 @@ import { useI18n } from "@useI18n";
 export const RadioButton = (props) => {
     const { t } = useI18n();
     const has_desc = props.options.some((option) => Boolean(option.desc));
+    const pending = props.checked_variable.state === "pending";
     const containerClass = clsx(styles.container, {
         [styles.column]: props.column === true,
         [styles.has_desc]: has_desc,
@@ -13,7 +14,7 @@ export const RadioButton = (props) => {
     return (
         <div className={containerClass} role="radiogroup" aria-labelledby={props["aria-labelledby"]}
             aria-label={props["aria-labelledby"] ? undefined : props.label} aria-describedby={props["aria-describedby"]}>
-            {props.checked_variable.state === "pending" && <span className={styles.loader}></span>}
+            {pending && <span className={styles.loader}></span>}
             {props.options.map((option) => {
                 const radioWrapperClass = clsx(styles.radio_button_container, {
                     [styles.is_selected]: props.checked_variable.data === option.id,
@@ -21,7 +22,7 @@ export const RadioButton = (props) => {
 
                 const labelClass = clsx(styles.radio_button_wrapper, {
                     [styles.is_selected]: props.checked_variable.data === option.id,
-                    [styles.disabled]: option.disabled === true || props.checked_variable.state === "pending",
+                    [styles.disabled]: option.disabled === true || pending,
                     [styles.has_desc]: Boolean(option.desc),
                 });
 
@@ -29,14 +30,18 @@ export const RadioButton = (props) => {
                     <div key={option.id} className={radioWrapperClass}>
                         <label className={labelClass}>
                             <div className={styles.radio_button_header}>
+                                {/* While a choice waits on the engine the radios look and read as disabled and
+                                    ignore presses, but stay focusable: a disabled radio would drop the
+                                    keyboard focus of the one just chosen. */}
                                 <input
                                     type="radio"
                                     className={styles.radio_button_input}
                                     name={props.name}
                                     value={option.id}
-                                    onChange={() => props.selectFunction(option.id)}
+                                    onChange={() => { if (!pending) props.selectFunction(option.id); }}
                                     checked={props.checked_variable.data === option.id}
-                                    disabled={option.disabled === true || props.checked_variable.state === "pending"}
+                                    disabled={option.disabled === true}
+                                    aria-disabled={pending && option.disabled !== true ? true : undefined}
                                 />
                                 <div className={styles.label_heading_wrapper}>
                                     <p className={styles.radio_button_label}>{option.label}</p>

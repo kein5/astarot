@@ -69,6 +69,25 @@ for (const name of ["RadioButton", "DownloadModels"]) test(`${name} exposes a la
     assert.equal(find(group, node => node.type === "input").props.name, "engine");
 });
 
+test("a radio choice that waits on the engine keeps its radios focusable but ignores presses until it settles", async () => {
+    const s = await setup();
+    const chosen = [];
+    const tree = s.render("RadioButtonContainer", { label: "Recognition engine", name: "engine", selectFunction: id => chosen.push(id),
+        checked_variable: { state: "ok", data: "a" }, options: [{ id: "a", label: "Engine A" }, { id: "b", label: "Engine B" },
+            { id: "c", label: "Engine C", disabled: true }] });
+    const control = tree.props.children[1];
+    const inputs = state => all(control.type({ ...control.props, checked_variable: { state, data: "a" } }), node => node.type === "input")
+        .map(node => node.props);
+    assert.deepEqual(inputs("ok").map(input => [input.disabled, input["aria-disabled"]]), [[false, undefined], [false, undefined], [true, undefined]]);
+    inputs("ok")[1].onChange();
+    assert.deepEqual(chosen, ["b"]);
+    // A disabled radio would drop the keyboard focus of the one just chosen; aria-disabled keeps it.
+    const waiting = inputs("pending");
+    assert.deepEqual(waiting.map(input => [input.disabled, input["aria-disabled"]]), [[false, true], [false, true], [true, undefined]]);
+    waiting[0].onChange();
+    assert.deepEqual(chosen, ["b"], "a press while waiting changes nothing");
+});
+
 test("multi-select row has a group label and each dropdown receives the shared help", async () => {
     const s = await setup();
     const tree = s.render("MultiDropdownMenuContainer", { label: "Compute device", desc: "Help", dropdown_settings: [
