@@ -7,7 +7,7 @@ import { useStdoutToPython } from "@useStdoutToPython";
 // opened: it was opened by hand (from the first screen), whatever the notice says.
 // settled: for this run it has been put away, or it will not open by itself. The virtual
 // microphone guide, which may also open by itself, waits for this: one dialog at a time.
-const noticeAtom = atom(null);
+const noticeAtom = atom<boolean | null>(null);
 const openedAtom = atom(false);
 const settledAtom = atom(false);
 
@@ -17,7 +17,7 @@ export const useFirstRunSetup = () => {
     const [settled, setSettled] = useAtom(settledAtom);
     const { asyncStdoutToPython } = useStdoutToPython();
 
-    const updateNotice = useCallback(value => setNotice(value === true), [setNotice]);
+    const updateNotice = useCallback((value: unknown) => setNotice(value === true), [setNotice]);
     // Finished, or "do not show again": it does not open by itself any more.
     const dismissNotice = useCallback(() => {
         setNotice(false);

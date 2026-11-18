@@ -22,7 +22,7 @@ async function fixture(context) {
             },
         });
     }
-    const main = await loadModule(new URL("../main/useMainFunction.js", import.meta.url), runtime, {
+    const main = await loadModule(new URL("../main/useMainFunction.ts", import.meta.url), runtime, {
         "@store": mainStore,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args) => { calls.push(args); return true; } }) },
     });

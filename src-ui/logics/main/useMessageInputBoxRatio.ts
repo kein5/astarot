@@ -12,7 +12,9 @@ export const useMessageInputBoxRatio = () => {
         asyncStdoutToPython("/get/data/message_box_ratio");
     };
 
-    const asyncSetMessageInputBoxRatio = async (ratio) => {
+    const asyncSetMessageInputBoxRatio = async (ratio: number) => {
+        // The main window sets store.appWindow at its start, before the box can be resized.
+        if (!appWindow) throw new TypeError("This window's handle is not set");
         const minimized = await appWindow.isMinimized();
         if (minimized === true) return; // don't save while the window is minimized.
         const parsed = parseFloat(ratio.toFixed(2));

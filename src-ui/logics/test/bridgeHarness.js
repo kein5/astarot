@@ -76,7 +76,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         .map(category => [`use${category}`, settings.createCategoryHook(category)])),
         ocrStartErrorKey: code => sharedWindow.startErrorKey(code, runtime.store.get(stores.Atom_OcrSharedWindow).data),
         ...overrides.configs });
-    const languages = await loadModule(new URL("../main/useLanguageSettings.js", import.meta.url), runtime, {
+    const languages = await loadModule(new URL("../main/useLanguageSettings.ts", import.meta.url), runtime, {
         "@store": stores, "@ui_configs": { translator_status: [] },
         "./languageMutations": { canChangeLanguageSettings: () => true, createLanguageRequestId: () => "test" },
     });
@@ -112,7 +112,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./virtualMic.ts": virtualMicShapes,
     });
-    const firstRunSetup = await loadModule(new URL("../setup/useFirstRunSetup.js", import.meta.url), localRuntime, {
+    const firstRunSetup = await loadModule(new URL("../setup/useFirstRunSetup.ts", import.meta.url), localRuntime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
     });
     const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {

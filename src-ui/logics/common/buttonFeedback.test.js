@@ -98,7 +98,7 @@ test("Settings pauses transcription with intent and restores it; user OFF has no
             [`update${name}`]: () => {},
         });
     }
-    const { useMainFunction } = await load("../logics/main/useMainFunction.js", runtime, {
+    const { useMainFunction } = await load("../logics/main/useMainFunction.ts", runtime, {
         "@store": stores,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => requests.push([endpoint, data]) }) },
     });
