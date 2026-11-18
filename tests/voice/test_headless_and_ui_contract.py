@@ -1,4 +1,5 @@
 import ast
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -28,7 +29,11 @@ def test_voice_endpoints_exist_on_both_sides():
     backend = {n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)
                and ("/voice_" in n.value or n.value in {"/run/stop_voice", "/run/mute_voice", "/run/resume_voice"})}
     routes = (ROOT / "src-ui/logics/useReceiveRoutes.js").read_text(encoding="utf-8")
-    frontend = set(re.findall(r'endpoint: "([^"]*(?:/voice_[^"/]+|/(?:stop|mute|resume)_voice))"', routes))
+    # Endpoints only the Rust core has (the voice audition of #415) are listed in
+    # tools/spec_core_additions.json and have no counterpart in the Python backend.
+    additions = json.loads((ROOT / "tools/spec_core_additions.json").read_text(encoding="utf-8"))
+    core_only = {entry["endpoint"] for entry in additions["endpoints"]}
+    frontend = set(re.findall(r'endpoint: "([^"]*(?:/voice_[^"/]+|/(?:stop|mute|resume)_voice))"', routes)) - core_only
     assert backend == frontend
     assert backend == {'/get/data/voice_settings', '/set/data/voice_settings', '/get/data/voice_status',
                        '/get/data/voice_output_devices', '/get/data/voice_route',
