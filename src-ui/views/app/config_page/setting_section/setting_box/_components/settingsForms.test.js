@@ -18,7 +18,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     const runtime = hooks(), document = { body: {}, activeElement: null };
     t.onTestFinished(() => runtime.unmount());
     stubGlobals(t, { document, window: eventTarget(), requestAnimationFrame: fn => fn() });
-    const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.jsx", import.meta.url), runtime, {
+    const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry() {} },
     });
     const state = { currentMicWordFilterList: { data: ["alpha", "日本語", "gamma"] },
