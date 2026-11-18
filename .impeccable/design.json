@@ -61,7 +61,7 @@
       "refersTo": "input",
       "description": "Text field used by the studio forms.",
       "html": "<label class=\"ds-field\">Model path<input value=\"models/irodori.gguf\"></label>",
-      "css": ".ds-field{display:grid;gap:8px;color:#fafafc;font:14px system-ui}.ds-field input{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#332341;border:1px solid #777082}.ds-field input:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
+      "css": ".ds-field{display:grid;gap:8px;color:#fafafc;font:14px system-ui}.ds-field input{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#332341;border:1px solid #877a94}.ds-field input:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Settings navigation",

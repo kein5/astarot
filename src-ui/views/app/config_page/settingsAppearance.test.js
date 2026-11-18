@@ -265,9 +265,9 @@ test("#436: the legacy dropdown is the same field as the forms' select, so an em
     const legacy = read(box + "_components/_atoms/_dropdown_menu/_DropdownMenu.module.scss");
     const field = legacy.split(".dropdown_toggle_button {")[1].split("\n}")[0];
     const form = read(box + "advanced_settings/VoiceSettings.module.scss");
-    assert.match(form, /input, select, textarea \{ width: 100%; min-width: 0; background: var\(--vox_surface, #18253b\); border: \.1rem solid var\(--dark_650_color, #5e6570\); \}/);
+    assert.match(form, /input, select, textarea \{ width: 100%; min-width: 0; background: var\(--vox_surface, #18253b\); border: \.1rem solid var\(--vox_field_border, #5e6570\); \}/);
     assert.match(field, /background-color: var\(--vox_surface, #18253b\)/);
-    assert.match(field, /border: 0\.1rem solid var\(--dark_650_color, #5e6570\)/);
+    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border, #5e6570\)/);
     assert.match(field, /border-radius: var\(--vox_radius, 0\.8rem\)/);
     assert.match(field, /min-height: 4rem/, "the field keeps its height without a value");
     assert.match(field, /&:focus-visible\s*{\s*outline: 0\.2rem solid var\(--primary_200_color\)/);

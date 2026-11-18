@@ -9,7 +9,7 @@ colors:
   rail: "#1c0f27"
   surface: "#332341"
   border: "#4e3d5d"
-  field-border: "#777082"
+  field-border: "#877a94"
   text: "#fafafc"
   secondary-text: "#cfc4d6"
   description-text: "#aba0b5"
@@ -112,8 +112,7 @@ The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): D
 |---|---|
 | `canvas` | Dark Plum |
 | `rail` | Dark Plum, darker |
-| `surface`, `border` | Dark Plum, lighter |
-| `field-border` | The grey of the small labels on the brand board |
+| `surface`, `border`, `field-border` | Dark Plum, lighter |
 | `primary`, `readout-rule` | Lilac |
 | `primary-hover`, `state-active`, `focus` | Lilac, lighter |
 | `text` | Off-White |
@@ -125,7 +124,7 @@ Use the canvas for conversation and settings, the deeper rail for navigation, an
 
 The brand has no warning or error colors. Warning and failed keep amber and red, the hues that carry their meaning, since a lilac or plum one would read as the active state. They take the OKLCH lightness of the active lilac (0.74) and a lower chroma (0.10), so the three readout states carry the same weight and Lilac stays the most vivid color.
 
-Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border (`field-border`) reaches 3:1 against the surface and the canvas; hairlines between regions (`border`) may stay below that. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
+Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border (`field-border`, `--vox_field_border`) is also the only edge of an outlined control: a switch's track and the quiet and danger buttons. It reaches 3.5:1 against the surface, the field's own fill, and 3:1 against every ground a field sits on: the canvas, the rail, the dialogs and the language list (`dark_875`) and a switch's track (`dark_850`). The brand board's label grey (`#777082`) reached only 3.04:1 on the surface and 2.86:1 in a dialog, so the field border is Dark Plum made lighter instead. Hairlines between regions (`border`) may stay below 3:1. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
 
 ## Typography
 

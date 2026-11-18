@@ -59,8 +59,7 @@ test("every DESIGN.md colour is the value of its token", () => {
         "rail": "--vox_rail",
         "surface": "--vox_surface",
         "border": "--vox_border",
-        // The forms and the kit draw a field's border with dark_650.
-        "field-border": "--dark_650_color",
+        "field-border": "--vox_field_border",
         "text": "--dark_basic_text_color",
         "secondary-text": "--vox_secondary_text",
         "description-text": "--vox_description_text",
@@ -83,7 +82,7 @@ test("every grey and Lilac step is its brand colour with only the lightness chan
     // DESIGN.md "Colors": the OKLCH hue stays within 3° of Dark Plum (dark_*) or Lilac (primary_*),
     // and the chroma does not exceed theirs. The brand's own values DESIGN.md takes as they are,
     // and plain white, which has no hue, are not derived.
-    const asIs = new Set(["text", "secondary-text", "description-text", "field-border"].map(designColor));
+    const asIs = new Set(["text", "secondary-text", "description-text"].map(designColor));
     asIs.add("#ffffff");
     const sources = { dark: oklch("#261633"), primary: oklch("#a47af5") };
     const steps = Object.keys(variables).filter(token => /^--(dark|primary)_\d+_color$/.test(token));
@@ -128,12 +127,33 @@ test("every Lilac fill carries Dark Plum text at 4.5:1, and the deep violets car
     assert.match(read("../app/_index_css/root.css"), /::selection \{ color: var\(--dark_100_color\); background: var\(--primary_800_color\); \}/);
 });
 
-test("a field's border reaches 3:1 against the surface and the canvas, and the focus ring is visible on every ground", () => {
-    // DESIGN.md: a field's border (field-border, dark_650 in the forms) reaches 3:1 on both grounds.
-    for (const bg of ["--vox_surface", "--vox_canvas"]) {
-        assert.ok(contrast("--dark_650_color", bg) >= 3, `field border on ${bg}: ${contrast("--dark_650_color", bg).toFixed(2)}`);
+test("a field's border reaches 3.5:1 on the surface and 3:1 on every ground, and the focus ring is visible on every ground", () => {
+    // DESIGN.md: 3.5:1 against the surface, the field's own fill, and 3:1 against the grounds fields
+    // sit on: the canvas, the rail, the dialogs and the language list (dark_875), the switch's track
+    // and Quick Chat's box (dark_850, dark_925).
+    const border = "--vox_field_border";
+    assert.ok(contrast(border, "--vox_surface") >= 3.5, `field border on the surface: ${contrast(border, "--vox_surface").toFixed(2)}`);
+    for (const bg of ["--vox_canvas", "--vox_rail", "--dark_875_color", "--dark_850_color", "--dark_925_color"]) {
+        assert.ok(contrast(border, bg) >= 3, `field border on ${bg}: ${contrast(border, bg).toFixed(2)}`);
     }
     for (const bg of ["--vox_canvas", "--vox_surface", "--vox_rail"]) assert.ok(contrast("--vox_focus", bg) >= 3, bg);
+});
+
+test("fields and outlined controls draw their edge with the field border", () => {
+    const views = "../";
+    for (const path of [
+        "kit/Field.css.ts", "kit/Switch.css.ts",
+        "app/config_page/setting_section/setting_box/_components/_atoms/_dropdown_menu/_DropdownMenu.module.scss",
+        "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.module.scss",
+        "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss",
+        "app/main_page/main_section/language_selector/LanguageSelector.module.scss",
+        "quick_chat/QuickChat.module.scss",
+    ]) assert.match(read(views + path), /vox_field_border/, path);
+    // The outline buttons have no fill, so the border is their only edge.
+    const buttons = read(views + "kit/Button.css.ts");
+    for (const tone of ["quiet", "danger"]) {
+        assert.match(buttons.slice(buttons.indexOf(`${tone}: {`)), /^[^}]*borderColor: vars\.vox_field_border/, tone);
+    }
 });
 
 test("no navy value of the old palette is left in the tokens", () => {

@@ -2,7 +2,7 @@
     /* ASTAROT brand palette (DESIGN.md "Colors"): Dark Plum #261633, Lilac #A47AF5, Off-White #FAFAFC.
        Every step is Lilac (primary_*) or Dark Plum (dark_*) with only its lightness changed: OKLCH hue
        within 3° of the source, chroma no higher than the source's. The exceptions are the brand's own
-       values (Off-White, the brand-board greys DESIGN.md names) and plain white.
+       values (Off-White, the brand-board grey of secondary text) and plain white.
        The primary scale is the Lilac hue. 600 is the Lilac fill, 450-550 lighter hover fills,
        650/700 pressed fills; all of 450-700 carry --vox_on_primary (Dark Plum) text at 4.5:1 or more.
        750-900 are deep violets for fills that carry light text. The light end is text, links and focus.
@@ -50,7 +50,7 @@
     --dark_500_color: #bcb2c6;
     --dark_550_color: #aba0b5;
     --dark_600_color: #988ba5;
-    --dark_650_color: #777082;
+    --dark_650_color: #787081;
     --dark_700_color: #746284;
     --dark_725_color: #6a597b;
     --dark_750_color: #614f70;
@@ -83,6 +83,9 @@
     --vox_rail: #1c0f27;
     --vox_surface: #332341;
     --vox_border: #4e3d5d;
+    /* A field's border, and the only edge of an outlined control (DESIGN.md "field-border"):
+       3.5:1 on the surface, the field's own fill, and 3:1 on every ground a field sits on. */
+    --vox_field_border: #877a94;
     --vox_radius: .8rem;
     /* Settings roles (DESIGN.md "Roles in settings"). */
     --vox_secondary_text: #cfc4d6;
