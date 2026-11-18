@@ -7,7 +7,7 @@
 //! VR large log; finals go through the message pipeline (`REALTIME_MIC`, `REALTIME_SPEAKER`).
 
 use super::audio_devices::Source;
-use super::messages::{REALTIME_MIC, REALTIME_SPEAKER};
+use super::messages::{REALTIME_MIC, REALTIME_SPEAKER, Snapshot};
 use super::routes::{Builder, OPEN};
 use super::transcription::{direction, flags, index};
 use super::{Core, ok};
@@ -927,36 +927,37 @@ impl Core {
                 } else {
                     language.clone()
                 };
+                // The settings as the update arrived (`MessageSnapshot.capture` in `admit`), and
+                // a final's place in the chatbox order: its caption rows, its translation and its
+                // outputs all use them, whatever changes while it waits (decision 80).
+                let arrival = core.as_ref().map(|core| core.admit_message(spec(source), spoken.as_deref(), update.is_final));
                 let publish = {
-                    let (weak, current, admitted, session, spoken) =
-                        (weak.clone(), current.clone(), admitted.clone(), session.clone(), spoken.clone());
+                    let (weak, current, admitted, session, arrival) =
+                        (weak.clone(), current.clone(), admitted.clone(), session.clone(), arrival.clone());
                     Arc::new(move |payload: Value| -> bool {
-                        let Some(core) = weak.upgrade() else { return false };
-                        core.publish_caption(source, generation, payload, &*current, &*admitted, &session, spoken.as_deref())
+                        let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.as_ref()) else { return false };
+                        core.publish_caption(source, generation, payload, &*current, &*admitted, &session, &arrival.snapshot)
                     })
                 };
                 // The voice settings when the final arrived (`snapshot_voice`): its speech is
                 // refused if they change before the translation is done.
                 let voice_snapshot = if source == Source::Mic { core.as_ref().and_then(|core| core.mic_voice_snapshot()) } else { None };
                 let process = {
-                    let (weak, current, admitted, spoken) = (weak.clone(), current.clone(), admitted.clone(), spoken.clone());
+                    let (weak, current, admitted) = (weak.clone(), current.clone(), admitted.clone());
                     let voice_snapshot = std::sync::Mutex::new(voice_snapshot);
                     Arc::new(move |update: &Update, valid: vrct_transcription::realtime::delivery::Current| -> Result<Option<Value>, ()> {
-                        let Some(core) = weak.upgrade() else { return Ok(None) };
+                        let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.clone()) else { return Ok(None) };
                         if !(current() && valid() && admitted()) {
                             return Ok(None);
                         }
                         let (current, admitted) = (current.clone(), admitted.clone());
                         let guard: super::messages::Guard = Arc::new(move || current() && valid() && admitted());
                         let id = format!("{}:{}", update.namespace, update.item_id);
-                        if source == Source::Mic {
-                            let mic_voice = voice_snapshot.lock().unwrap().take().map(|snapshot| super::messages::MicVoice {
-                                snapshot,
-                                update: speech_update(update),
-                            });
-                            return Ok(core.process_realtime_mic(&update.text, spoken.as_deref(), Some(id), Some(guard), mic_voice));
-                        }
-                        Ok(core.process_message(spec(source), &update.text, spoken.as_deref(), Some(id), None, Some(guard)))
+                        let mic_voice = voice_snapshot.lock().unwrap().take().map(|snapshot| super::messages::MicVoice {
+                            snapshot,
+                            update: speech_update(update),
+                        });
+                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice))
                     })
                 };
                 Admission { publish, process, admitted }
@@ -986,7 +987,8 @@ impl Core {
         Delivery::new(session.clone(), admit, on_error, on_stopped)
     }
 
-    /// `publish` of `_startRealtime`: a caption row to the UI and the VR large log.
+    /// `publish` of `_startRealtime`: a caption row to the UI and the VR large log, drawn with
+    /// the settings its update arrived with.
     #[allow(clippy::too_many_arguments)]
     fn publish_caption(
         &self,
@@ -996,7 +998,7 @@ impl Core {
         current: &(dyn Fn() -> bool + Send + Sync),
         admitted: &(dyn Fn() -> bool + Send + Sync),
         session: &Session,
-        spoken: Option<&str>,
+        snapshot: &Snapshot,
     ) -> bool {
         let mut shown_payload = payload.clone();
         shown_payload["generation"] = json!(generation);
@@ -1021,7 +1023,7 @@ impl Core {
                     && (state == "discarded"
                         || vrct_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
             };
-            let message = self.caption_message(source, &payload, spoken);
+            let message = caption_message(source, &payload, snapshot);
             let item = payload["item_id"].as_str().unwrap_or("");
             let shown = self.show_overlay_caption(
                 source.as_str(),
@@ -1040,40 +1042,6 @@ impl Core {
             }
         }
         true
-    }
-
-    /// The VR large log's view of a caption (`publishRealtimeCaptionOverlay`).
-    fn caption_message(&self, source: Source, payload: &Value, spoken: Option<&str>) -> super::overlay::OverlayMessage {
-        let config = self.config();
-        let tab = config.get_str("SELECTED_TAB_NO");
-        // The destinations of the direction: the targets for the microphone, the own languages
-        // for the speaker.
-        let key = if source == Source::Mic { "SELECTED_TARGET_LANGUAGES" } else { "SELECTED_YOUR_LANGUAGES" };
-        let destinations = config.get(key)[&tab].clone();
-        let target_languages = destinations
-            .as_object()
-            .into_iter()
-            .flat_map(|o| o.values())
-            .filter(|slot| slot["enable"] == true)
-            .filter_map(|slot| slot["language"].as_str().map(str::to_string))
-            .collect();
-        let rows = payload["translations"].as_array().cloned().unwrap_or_default();
-        let original = payload.get("original").cloned().unwrap_or_else(|| json!({ "message": payload["text"], "transliteration": [] }));
-        super::overlay::OverlayMessage {
-            received: source == Source::Speaker,
-            small_log: false,
-            message: original["message"].as_str().unwrap_or("").to_string(),
-            source_language: spoken.map(str::to_string),
-            translations: rows.iter().map(|row| row["message"].as_str().unwrap_or("").to_string()).collect(),
-            target_languages,
-            transliteration_message: original["transliteration"].clone(),
-            transliteration_translation: Value::Array(rows.iter().map(|row| row["transliteration"].clone()).collect()),
-            // The labels of a final and of its translation (#447); a partial has none.
-            speakers: payload["speakers"]
-                .as_array()
-                .map(|labels| labels.iter().filter_map(Value::as_str).map(str::to_string).collect())
-                .unwrap_or_default(),
-        }
     }
 
     /// The end of the bundled ASR server (`_speechServerEnded` for "asr"): sessions that used
@@ -1145,6 +1113,31 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/stop_realtime_asr", OPEN, |core, data| core.stop_realtime(data));
 }
 
+/// The VR large log's view of a caption (`publishRealtimeCaptionOverlay`): the original's
+/// language, the names of the translations and "only the translations" come from the snapshot
+/// the caption's update arrived with, not from the settings when it is drawn (decision 80).
+/// The destinations are the targets for the microphone and the own languages for the speaker.
+fn caption_message(source: Source, payload: &Value, snapshot: &Snapshot) -> super::overlay::OverlayMessage {
+    let rows = payload["translations"].as_array().cloned().unwrap_or_default();
+    let original = payload.get("original").cloned().unwrap_or_else(|| json!({ "message": payload["text"], "transliteration": [] }));
+    super::overlay::OverlayMessage {
+        received: source == Source::Speaker,
+        small_log: false,
+        message: original["message"].as_str().unwrap_or("").to_string(),
+        source_language: snapshot.source_language.clone(),
+        translations: rows.iter().map(|row| row["message"].as_str().unwrap_or("").to_string()).collect(),
+        target_languages: snapshot.target_languages(),
+        transliteration_message: original["transliteration"].clone(),
+        transliteration_translation: Value::Array(rows.iter().map(|row| row["transliteration"].clone()).collect()),
+        // The labels of a final and of its translation (#447); a partial has none.
+        speakers: payload["speakers"]
+            .as_array()
+            .map(|labels| labels.iter().filter_map(Value::as_str).map(str::to_string).collect())
+            .unwrap_or_default(),
+        only_translated: snapshot.overlay_only_translated,
+    }
+}
+
 /// A realtime final as speech sees it (`TranscriptUpdate`), on speech's clock.
 fn speech_update(update: &Update) -> vrct_tts::message_hook::TranscriptUpdate {
     let now = vrct_tts::clock::monotonic_ns();
@@ -1158,5 +1151,58 @@ fn speech_update(update: &Update) -> vrct_tts::message_hook::TranscriptUpdate {
         text: update.text.clone(),
         revision: i64::try_from(update.revision).unwrap_or(i64::MAX),
         received_ns: now.saturating_sub(age),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Japanese to English and German (slot 2 off), as a final might have arrived with.
+    fn arrived_with(multi_target: bool, only_translated: bool) -> Snapshot {
+        let slot = |language: &str, enable: bool| json!({ "language": language, "country": "", "enable": enable });
+        Snapshot {
+            tab: "1".into(),
+            source_language: Some("Japanese".into()),
+            your: json!({ "1": slot("Japanese", true), "2": slot("French", true), "3": slot("Korean", false) }),
+            target: json!({ "1": slot("English", true), "2": slot("Korean", false), "3": slot("German", true) }),
+            translation_enabled: true,
+            engine: "DeepL_API".into(),
+            weight: String::new(),
+            hiragana: false,
+            romaji: false,
+            send_only_translated: false,
+            overlay_only_translated: only_translated,
+            format_parts: Value::Null,
+            multi_target,
+            history_generation: 0,
+        }
+    }
+
+    #[test]
+    fn a_caption_is_drawn_with_the_settings_its_utterance_arrived_with() {
+        // Decision 80: the large log names the translations by the destinations the final was
+        // translated to, so that none is dropped or named after a language chosen later.
+        let translated = json!({
+            "state": "translated",
+            "original": { "message": "こんにちは", "transliteration": [] },
+            "translations": [{ "message": "Hello", "transliteration": [] }, { "message": "Hallo", "transliteration": [] }],
+            "speakers": [],
+        });
+        let mic = caption_message(Source::Mic, &translated, &arrived_with(true, false));
+        assert_eq!(mic.target_languages, ["English", "German"]);
+        assert_eq!((mic.source_language.as_deref(), mic.only_translated, mic.received), (Some("Japanese"), false, false));
+        assert_eq!(mic.translations, ["Hello", "Hallo"]);
+
+        // The speaker's destinations are the own languages; "only the translations" is the one
+        // the utterance arrived with.
+        let speaker = caption_message(Source::Speaker, &translated, &arrived_with(false, true));
+        assert_eq!(speaker.target_languages, ["Japanese", "French"]);
+        assert!(speaker.only_translated && speaker.received);
+
+        // A final shown before its translation has the recognised text only.
+        let final_ = json!({ "state": "final", "text": "こんにちは", "translations": [] });
+        let shown = caption_message(Source::Mic, &final_, &arrived_with(true, false));
+        assert_eq!((shown.message.as_str(), shown.translations.len()), ("こんにちは", 0));
     }
 }
