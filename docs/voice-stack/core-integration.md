@@ -88,7 +88,7 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `tests/voice/test_model_download_controller.py`、`test_model_download_policy.py` | `downloads.rs` |
 | `tests/voice/test_telemetry_client.py`（エンドポイントの部分） | `telemetry.rs` |
 | `tests/voice/test_security_regressions.py`（WebSocket と OBS の部分）と `src-python/test/` の WebSocket・OBS・OSC の試験 | `adapters_servers.rs`、`adapters_osc.rs` |
-| `src-python/test/test_old_whisper_weights.py` | `settings_endpoints.rs`、`src/controller/files.rs` の単体の試験 |
+| `src-python/test/test_old_whisper_weights.py` | 0.6.0 で画面とエンドポイントを外した（#288）。`settings_endpoints.rs` は重みに触れず、エンドポイントが 404 になることを確かめる |
 | `src-python/test/test_controller_vr_panel_opacity.py`、`test_credential_commits.py` と `test_controller_transcription_api_endpoints.py`（キーの削除と URL の変更の部分） | `settings_endpoints.rs` |
 | `tests/voice/test_virtual_mic_controller.py`、`src-python/test/test_controller_audio.py`（Auto Select と終了時の停止の部分）、`test_config_saved_device_selection.py` | `audio_devices.rs` |
 | `src-python/test/test_controller_ocr_enable.py`、`test_controller_ocr_readiness.py`、`test_controller_ocr_settings.py`、`test_model_stop_ocr_capture.py`、`test_ocr_language_and_shutdown.py`（中核の部分） | `ocr.rs`、`settings_endpoints.rs`。パイプラインそのものの振る舞いは `native/ocr-runtime` の試験が持つ |
@@ -127,7 +127,7 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `src-python/test/test_realtime_ingress_wait.py` | `native/transcription` の `realtime/session.rs` の単体の試験。200 ms か 20 枚を超えた音声と、250 ms より古い音声を断ること、止めたセッションが音声を受け取らず始め直せないこと。音声を送るまでの待ち方の違いは 67 |
 | `src-python/test/test_controller_transcription_language_fallback.py`、`test_controller_update_transcription_engine.py`、`test_model_transcription_language_support.py` | `transcription_engine.rs`。エンジンを変えると、聞き取れない言語をすべてのタブで日本語、英語の順に戻すこと（有効な訳す先の言語は避け、無効な訳す先には触れない）、何もかも埋まっていれば戻さないこと、言語の一覧を UI に知らせ直すこと。全部の言語を聞けるエンジンでは言語に触れず、同じエンジンを選び直しても何も知らせないこと。Deepgram のモデルを変えたときは、Deepgram を選んでいる間だけ同じことをすること。言語の一覧がモデルの言語（`multi` はすべて）に絞られること。使えないエンジンとキーを消したエンジンの選択を残すこと。言語の表の `Whisper` の列をクラウドの Whisper が使うことは `transcription.rs`。端の扱いは 74 |
 | `src-python/test/test_asr_engine_consent.py` | 選択を読み書きすることは `config_reference.rs` と `transcription.rs`（保存されていた Google）。エンジンでない値を断ることは `transcription_engine.rs` と `transcription.rs`（73）。エンジンがないときと使えないエンジンでスイッチが録音を始めないことは `transcription.rs`。使えないエンジンの選択を残すことは `transcription_engine.rs`。`AudioTranscriber` が黙って Google を使わないことの試験は Google の経路と一緒に引退させる（「決まったこと」の「Google の Web 音声認識」） |
-| `src-python/test/test_local_asr_migration.py` | `lifecycle.rs`。保存されていた Whisper の選択が speech.cpp に移り、知らせが閉じるまで出ること、閉じたら起動し直しても出ないこと、Windows では同梱のサーバに替わり Linux ではサーバの選択を残すこと、外した設定を書かず `MIC_AVG_LOGPROB` を残すこと、外したエンドポイントが 404 になること、新しく入れたときは知らせがないこと。移行の段の細部は `config_reference.rs`、古い Whisper の重みのエンドポイントは `settings_endpoints.rs` |
+| `src-python/test/test_local_asr_migration.py` | 0.6.0 で移行と知らせを外した（#288）。`lifecycle.rs` の `a_saved_whisper_choice_loads_as_none_without_a_notice` が、保存されていた Whisper の選択が未選択になること、サーバの選択を残すこと、外した設定と知らせのキーを書かず `MIC_AVG_LOGPROB` を残すこと、外したエンドポイント（知らせと古い重みのものを含む）が 404 になること、0.5 以前のために `LOCAL_ASR_MIGRATION` を 2 で書くことを確かめる。Python との違いは `config_reference.rs` の 6 つ目の意図した違い |
 
 
 区分 A は上の表のとおり再カバーしました。音声認識の字幕を VR の大きいログに出す部分（`test_realtime_overlay*.py`）は、3-3 で中核と `native/vr-overlay` の試験に移しました。発話の診断のログ（`test_utterance_diagnostics.py`）は移していません（「判断が要ること」の 15）。`src-python/test/test_pipewire_graph_readers.py` は声質変換と音声の経路（4）の試験です。
@@ -225,6 +225,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 
 <!-- retired-endpoints:begin -->
 - 旧 CTranslate2 の重みの取得（1 件）: `/run/download_ctranslate2_weight`。起動時の自動取得と、カタログの `legacy_models` も移しません。
+- faster-whisper の移行の画面（4 件。0.6.0、#288 の判断4）: 知らせの `/get/data/local_asr_notice` と `/set/disable/local_asr_notice`、古い Whisper の重みの `/get/data/old_whisper_weights` と `/run/delete_old_whisper_weights`。0.5 系の中核にはありました。設定の引き継ぎ（`LOCAL_ASR_MIGRATION` の段階 1 と 2）も外しました。
 <!-- retired-endpoints:end -->
 
 ## Python の削除に伴うもの
