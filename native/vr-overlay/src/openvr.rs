@@ -52,7 +52,7 @@ mod system {
     pub const IS_CONNECTED: usize = 20;
     pub const STRING_PROPERTY: usize = 27;
     pub const POLL_NEXT_EVENT: usize = 29;
-    pub const CONTROLLER_STATE: usize = 33;
+    pub const CONTROLLER_STATE: usize = 34;
 }
 mod render_models {
     pub const COMPONENT_STATE: usize = 14;
