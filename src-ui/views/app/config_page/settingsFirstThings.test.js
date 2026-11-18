@@ -64,7 +64,7 @@ test("the side menu groups its pages in the order a conversation uses them, each
     const tabs = menuTabs(runtime, tree).map(node => node.props.tab_id);
     assert.deepEqual(tabs, groups.flatMap(group => group.tabs));
     assert.equal(settingsMenu.FIRST_SETTINGS_TAB, "translation");
-    assert.match(readFileSync(new URL("../../../logics/store.js", import.meta.url), "utf8"),
+    assert.match(readFileSync(new URL("../../../logics/store.ts", import.meta.url), "utf8"),
         /createAtomWithHook\("translation", "SelectedConfigTabId"\)/, "settings open on the first page of the menu");
     const shown = id => sidebar.TabIcon({ tab_id: id, className: "" });
     assert.ok(shown("ocr"));

@@ -450,8 +450,9 @@ fn start_deadline_includes_inference_and_output_open() {
 
 #[test]
 fn start_deadline_never_truncates_started_speech() {
+    // Samples loud enough to be sound: near-silence before the voice is not written (#556).
     let server = PcmServer::start(ServerOptions {
-        chunks: vec![vec![1, 0], vec![2, 0]],
+        chunks: vec![vec![0, 16], vec![0, 32]],
         before_chunk: Some(Arc::new(|i| {
             if i == 1 {
                 thread::sleep(ms(250));
@@ -463,7 +464,7 @@ fn start_deadline_never_truncates_started_speech() {
     let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = ms(150));
     assert!(bus.publish(mic("session:utterance"), None, None));
     until2(|| bus.status().completed == 1);
-    assert_eq!(sink.bytes(), [1, 0, 2, 0]);
+    assert_eq!(sink.bytes(), [0, 16, 0, 32]);
     assert_eq!(bus.status().errors, 0);
     close(&bus);
 }
@@ -473,7 +474,7 @@ fn silent_pcm_does_not_disable_start_deadline() {
     let release = Event::new();
     let gate = release.clone();
     let server = PcmServer::start(ServerOptions {
-        chunks: vec![vec![0, 0], vec![1, 0]],
+        chunks: vec![vec![0, 0], vec![0, 16]],
         before_chunk: Some(Arc::new(move |i| {
             if i == 1 {
                 gate.wait(Some(Duration::from_secs(10)));
@@ -486,7 +487,8 @@ fn silent_pcm_does_not_disable_start_deadline() {
     assert!(bus.publish(mic("session:utterance"), None, None));
     until(|| bus.status().errors == 1, Duration::from_secs(3));
     assert_eq!(bus.status().last_error.as_deref(), Some("speech_expired"));
-    assert_eq!(sink.bytes(), [0, 0]);
+    // The silence before the voice is held back, not played (#556).
+    assert_eq!(sink.bytes(), Vec::<u8>::new());
     assert_eq!(bus.status().last_first_write_ms, None);
     release.set();
     close(&bus);

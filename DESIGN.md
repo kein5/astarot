@@ -7,14 +7,15 @@ colors:
   focus: "#d9c8fc"
   canvas: "#261633"
   rail: "#1c0f27"
-  surface: "#33214a"
-  border: "#4f3b66"
+  surface: "#332341"
+  border: "#4e3d5d"
+  field-border: "#777082"
   text: "#fafafc"
   secondary-text: "#cfc4d6"
   description-text: "#aba0b5"
   state-active: "#b797f8"
-  state-warning: "#cb9c62"
-  state-failed: "#eb938e"
+  state-warning: "#d4a162"
+  state-failed: "#e4938e"
   readout-rule: "#a47af5"
 typography:
   body:
@@ -99,11 +100,26 @@ The user chose a complete redesign on 2026-10-30. Its navy palette gave way to t
 
 ## Colors
 
-The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): Dark Plum `#261633`, Lilac `#A47AF5` and Off-White `#FAFAFC`. Dark Plum is the canvas itself; the rail is darker and the surface and borders lighter, all in its hue. Lilac is the primary action and the readout rule; hover, focus and the active state are lighter lilacs in the same hue. Off-White is the text; the secondary and description text are the brand board's plum-tinted greys.
+The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): Dark Plum `#261633`, Lilac `#A47AF5` and Off-White `#FAFAFC`. Where the brand has a color that fits a role, the token takes that color as it is. Where it has none, the token is Dark Plum or Lilac with only its lightness changed: its OKLCH hue stays within 3° of that brand color's (Dark Plum 308°, Lilac 297°), and its chroma does not exceed the brand color's. So no derived color leans toward another hue or is more vivid than its source.
 
-Use the canvas for conversation and settings, the deeper rail for navigation, and raised surfaces for fields. Borders separate working regions without heavy cards. Amber and red retain warning/error meanings; they keep their hues, toned to sit with the plum. Enable state is also expressed by labels and switch position.
+| Token | From the brand |
+|---|---|
+| `canvas` | Dark Plum |
+| `rail` | Dark Plum, darker |
+| `surface`, `border` | Dark Plum, lighter |
+| `field-border` | The grey of the small labels on the brand board |
+| `primary`, `readout-rule` | Lilac |
+| `primary-hover`, `state-active`, `focus` | Lilac, lighter |
+| `text` | Off-White |
+| `secondary-text` | The grey that outlines the color swatches on the brand board |
+| `description-text` | The subtitle of the dark horizontal logo |
+| `state-warning`, `state-failed` | None; see below |
 
-Contrast (WCAG 2.x, measured on the canvas and the surface): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border reaches 3:1 against the surface; hairlines between regions may stay below that. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
+Use the canvas for conversation and settings, the deeper rail for navigation, and raised surfaces for fields. Borders separate working regions without heavy cards. Enable state is also expressed by labels and switch position.
+
+The brand has no warning or error colors. Warning and failed keep amber and red, the hues that carry their meaning, since a lilac or plum one would read as the active state. They take the OKLCH lightness of the active lilac (0.74) and a lower chroma (0.10), so the three readout states carry the same weight and Lilac stays the most vivid color.
+
+Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border (`field-border`) reaches 3:1 against the surface and the canvas; hairlines between regions (`border`) may stay below that. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
 
 ## Typography
 

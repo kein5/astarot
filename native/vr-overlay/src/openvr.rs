@@ -3,7 +3,9 @@
 //! The library is not linked: a build needs no OpenVR SDK, and a machine without it runs
 //! everything else. The function tables are those of OpenVR 2.12 (`IVRSystem_023`,
 //! `IVROverlay_028`, `IVRApplications_007`, `IVRRenderModels_006`), the version the Python sidecar's pyopenvr
-//! 2.12.1401 shipped.
+//! 2.12.1401 shipped. They are called by position; each position is declared with its
+//! function's name, and the tests check every one against pyopenvr's tables
+//! ([`vrct_openvr_client::fn_table!`]).
 //!
 //! Where the library is looked for (the first that loads): `VRCT_OPENVR_API`, the folders the
 //! host gives, next to the executable, the Python bundle's copy (`_internal/openvr`), then the
@@ -17,15 +19,12 @@ use crate::runtime::{
 };
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::path::PathBuf;
+use vrct_openvr_client::FnTable;
 
-const SYSTEM_VERSION: &str = "FnTable:IVRSystem_023";
-const OVERLAY_VERSION: &str = "FnTable:IVROverlay_028";
-const APPLICATIONS_VERSION: &str = "FnTable:IVRApplications_007";
 /// `k_unMaxApplicationKeyLength`.
 const MAX_APPLICATION_KEY: usize = 128;
 /// `VRApplicationProperty_Name_String`.
 const PROPERTY_NAME: i32 = 0;
-const RENDER_MODELS_VERSION: &str = "FnTable:IVRRenderModels_006";
 /// `Prop_RenderModelName_String`.
 const PROP_RENDER_MODEL_NAME: i32 = 1003;
 /// `sizeof(VRControllerState_t)`: packed to 4 bytes outside Windows, like `VREvent_t`.
@@ -44,39 +43,53 @@ const COLOR_SPACE_AUTO: i32 = 0;
 /// `k_EDeviceActivityLevel_Unknown`, `_UserInteraction`, `_UserInteraction_Timeout`.
 const WORN_LEVELS: [i32; 3] = [-1, 1, 2];
 
-// Indices in the function tables (the order of openvr_capi.h).
+// Positions in the function tables (the order of openvr_capi.h), each with the name of the
+// function there in pyopenvr. The tests below check every one: a wrong position calls another
+// function without any error (#610).
 mod system {
-    pub const DEVICE_TO_ABSOLUTE_TRACKING_POSE: usize = 11;
-    pub const ACTIVITY_LEVEL: usize = 15;
-    pub const INDEX_FOR_CONTROLLER_ROLE: usize = 17;
-    pub const IS_CONNECTED: usize = 20;
-    pub const STRING_PROPERTY: usize = 27;
-    pub const POLL_NEXT_EVENT: usize = 29;
-    pub const CONTROLLER_STATE: usize = 33;
+    vrct_openvr_client::fn_table! {
+        pub TABLE = "IVRSystem_023";
+        DEVICE_TO_ABSOLUTE_TRACKING_POSE = 11 => "getDeviceToAbsoluteTrackingPose",
+        ACTIVITY_LEVEL = 15 => "getTrackedDeviceActivityLevel",
+        INDEX_FOR_CONTROLLER_ROLE = 17 => "getTrackedDeviceIndexForControllerRole",
+        IS_CONNECTED = 20 => "isTrackedDeviceConnected",
+        STRING_PROPERTY = 27 => "getStringTrackedDeviceProperty",
+        POLL_NEXT_EVENT = 29 => "pollNextEvent",
+        CONTROLLER_STATE = 34 => "getControllerState",
+    }
 }
 mod render_models {
-    pub const COMPONENT_STATE: usize = 14;
+    vrct_openvr_client::fn_table! {
+        pub TABLE = "IVRRenderModels_006";
+        COMPONENT_STATE = 14 => "getComponentState",
+    }
 }
 mod overlay {
-    pub const CREATE: usize = 1;
-    pub const DESTROY: usize = 3;
-    pub const SET_COLOR: usize = 14;
-    pub const SET_ALPHA: usize = 16;
-    pub const SET_SORT_ORDER: usize = 20;
-    pub const SET_WIDTH: usize = 22;
-    pub const SET_TEXTURE_BOUNDS: usize = 30;
-    pub const SET_TRANSFORM_ABSOLUTE: usize = 33;
-    pub const SET_TRANSFORM_RELATIVE: usize = 35;
-    pub const SHOW: usize = 43;
-    pub const HIDE: usize = 44;
-    pub const COMPUTE_INTERSECTION: usize = 53;
-    pub const SET_TEXTURE: usize = 60;
-    pub const SET_RAW: usize = 62;
+    vrct_openvr_client::fn_table! {
+        pub TABLE = "IVROverlay_028";
+        CREATE = 1 => "createOverlay",
+        DESTROY = 3 => "destroyOverlay",
+        SET_COLOR = 14 => "setOverlayColor",
+        SET_ALPHA = 16 => "setOverlayAlpha",
+        SET_SORT_ORDER = 20 => "setOverlaySortOrder",
+        SET_WIDTH = 22 => "setOverlayWidthInMeters",
+        SET_TEXTURE_BOUNDS = 30 => "setOverlayTextureBounds",
+        SET_TRANSFORM_ABSOLUTE = 33 => "setOverlayTransformAbsolute",
+        SET_TRANSFORM_RELATIVE = 35 => "setOverlayTransformTrackedDeviceRelative",
+        SHOW = 43 => "showOverlay",
+        HIDE = 44 => "hideOverlay",
+        COMPUTE_INTERSECTION = 53 => "computeOverlayIntersection",
+        SET_TEXTURE = 60 => "setOverlayTexture",
+        SET_RAW = 62 => "setOverlayRaw",
+    }
 }
 mod applications {
-    pub const KEY_BY_PROCESS_ID: usize = 5;
-    pub const PROPERTY_STRING: usize = 14;
-    pub const CURRENT_SCENE_PROCESS_ID: usize = 29;
+    vrct_openvr_client::fn_table! {
+        pub TABLE = "IVRApplications_007";
+        KEY_BY_PROCESS_ID = 5 => "getApplicationKeyByProcessId",
+        PROPERTY_STRING = 14 => "getApplicationPropertyString",
+        CURRENT_SCENE_PROCESS_ID = 29 => "getCurrentSceneProcessId",
+    }
 }
 
 #[repr(C)]
@@ -193,17 +206,18 @@ impl Vr for OpenVr {
 
     fn connect(&self) -> Result<Box<dyn Session>, VrError> {
         let lease = vrct_openvr_client::acquire(&self.candidates()).map_err(|error| VrError(error.to_string()))?;
-        let table = |name: &str| -> Result<*const *const c_void, VrError> {
-            lease.interface(name).map_err(|error| VrError(format!("interface {name} error {error}")))
+        let table = |wanted: &FnTable| -> Result<*const *const c_void, VrError> {
+            let name = format!("FnTable:{}", wanted.interface);
+            lease.interface(&name).map_err(|error| VrError(format!("interface {name} error {error}")))
         };
         // A failure here drops the lease, which shuts OpenVR down only when nobody else holds it.
-        let system = table(SYSTEM_VERSION)?;
-        let overlay = table(OVERLAY_VERSION)?;
+        let system = table(&system::TABLE)?;
+        let overlay = table(&overlay::TABLE)?;
         // Only the clipboard reads the scene application; the overlays work without it.
-        let applications = table(APPLICATIONS_VERSION).unwrap_or(std::ptr::null());
+        let applications = table(&applications::TABLE).unwrap_or(std::ptr::null());
         // Only the laser's tip needs the render models; without them it points from the
         // controller's body.
-        let render_models = table(RENDER_MODELS_VERSION).ok();
+        let render_models = table(&render_models::TABLE).ok();
         Ok(Box::new(OpenVrSession { system, overlay, applications, render_models, textures: [None, None], lease }))
     }
 }
@@ -573,4 +587,26 @@ mod d3d {
 #[cfg(not(windows))]
 mod d3d {
     pub struct SharedTexture;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The names of `interface`'s functions in table order, from pyopenvr 2.12.1401.
+    fn reference(interface: &str) -> Vec<String> {
+        let tables: serde_json::Value = serde_json::from_str(vrct_openvr_client::REFERENCE_FN_TABLES).unwrap();
+        let names = tables["tables"][interface]
+            .as_array()
+            .unwrap_or_else(|| panic!("no {interface} in the reference: add it to native/openvr-client/reference/dump_reference.py"));
+        names.iter().map(|name| name.as_str().unwrap().to_owned()).collect()
+    }
+
+    #[test]
+    fn every_position_called_holds_the_function_meant() {
+        for table in [system::TABLE, overlay::TABLE, applications::TABLE, render_models::TABLE] {
+            let wrong = table.mismatches(&reference(table.interface));
+            assert!(wrong.is_empty(), "{wrong:#?}");
+        }
+    }
 }

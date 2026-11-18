@@ -9,7 +9,7 @@ import { useMainFunction } from "@logics_main";
 import { useBackendStartup } from "../../../logics/common/useBackendStartup";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
 import { useTranslationSetup } from "../../../logics/translation/useTranslationSetup";
-import { activeSwitchBlock, type SwitchBlock } from "../../../logics/main/switchBlocks.ts";
+import { activeSwitchBlock } from "../../../logics/main/switchBlocks.ts";
 import { companionStatus, runAction, SWITCH_IDS, type Feature } from "../../../logics/companion/status.ts";
 import { watchOpenDialogs } from "../../../logics/companion/dialogs.ts";
 import { voiceActions, voiceSwitchStates, type VoiceSwitchStates } from "../../../logics/voice/voiceActions.ts";
@@ -28,10 +28,6 @@ type MainFunction = {
     toggleTranscriptionReceive: () => void;
     toggleOcrCapture: () => void;
 };
-// store.js is untyped; this controller adds the one hook useWindow.js reads.
-type CompanionStore = { companion_hide?: () => Promise<unknown> };
-type Notice = { status?: string; is_open?: boolean } | null | undefined;
-
 // How long after a switch pressed in the tray, the hexagram or its panel an error notice is
 // taken as that switch's answer. The engine may wait about 20 s for a busy lock before it
 // refuses, and starting the microphone takes a few seconds more.
@@ -61,9 +57,8 @@ export const CompanionController = () => {
     const { request: translationSetup } = useTranslationSetup();
     const { startupState } = useBackendStartup();
     const needsUser = !!consent || !!translationSetup;
-    // store.js names its hooks' fields at run time, so their types are unknown here.
-    const { currentSwitchBlocks } = useStore_SwitchBlocks() as unknown as { currentSwitchBlocks: { data?: Record<string, SwitchBlock | undefined> } };
-    const { currentNotificationStatus } = useStore_NotificationStatus() as unknown as { currentNotificationStatus: { data?: Notice } };
+    const { currentSwitchBlocks } = useStore_SwitchBlocks();
+    const { currentNotificationStatus } = useStore_NotificationStatus();
     const { showNotification_Error } = useNotificationStatus() as { showNotification_Error: (message: string, options?: object) => void };
     // The TTS and voice changer switches, as the main page's own switches work them out.
     const [voiceStates, setVoiceStates] = useState<VoiceSwitchStates>(voiceSwitchStates.get());
@@ -122,14 +117,13 @@ export const CompanionController = () => {
     // Closing the main window puts it away in the tray, in every run; the tray menu's Quit ends the
     // app. Without a tray icon nothing could bring the window back, so it quits as before.
     useEffect(() => {
-        const shared = store as CompanionStore;
-        shared.companion_hide = async () => {
+        store.companion_hide = async () => {
             try {
                 if (await invoke<boolean>("companion_hide_main") === true) return;
             } catch (error) { console.error("Main window could not be hidden", error); }
             latest.current.asyncQuitApp();
         };
-        return () => { delete shared.companion_hide; };
+        return () => { delete store.companion_hide; };
     }, []);
 
     useEffect(() => {

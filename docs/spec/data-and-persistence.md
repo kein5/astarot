@@ -77,6 +77,8 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ローカルの Whisper とともに、`MIC_NO_REPEAT_NGRAM_SIZE`と`SPEAKER_NO_REPEAT_NGRAM_SIZE`は削除した。古い`config.json`にあっても読み込まない。
 
+リアルタイム字幕（speech.cpp の Realtime）では、発話の区切りをサーバーの VAD（`server_vad`）が決める。中核はセッションを始めるときに`turn_detection`の`silence_duration_ms`（話し終わりとみなす無音の長さ）と`prefix_padding_ms`（発話の前後に残す余白）を送る（#556）。無音の長さは`REALTIME_ASR_SETTINGS.silence_duration_ms`で、項目がなければ500ミリ秒（speech.cpp と OpenAI の既定と同じ）である。余白は無音の長さの半分で、300ミリ秒（speech.cpp の既定）を超えない。speech.cpp は、余白の2倍のあいだに次の発話が始まらないと分かってから発話を確定するので、既定の余白300ミリ秒のままでは無音500ミリ秒でも確定まで600ミリ秒かかる。余白を半分以下にすると、無音が続いた時点で確定する。発話をどこで区切るかは無音の長さだけで決まる。`silence_duration_ms`は100〜2000の整数を受け付け、範囲外、小数、文字列、真偽値は`realtime_settings_invalid`で拒否する。選ばなかった項目や`null`は保存しないので、既定のままなら0.4の版も同じ設定を読める。値を変えると、マイクとゲーム音声の両方の字幕を停止する（サーバーやモデルを変えたときと同じ）。設定画面の「リアルタイム字幕」では、既定（0.5秒）、0.3秒、0.4秒、0.7秒、1秒から選ぶ。短くすると確定が早くなるが、文の途中の間でも区切られやすくなる。測った値は[音声パイプラインの遅延](../voice-stack/pipeline-latency-2026-11-18.md)にある。
+
 ### 直接音声の設定（声の変換）
 
 `DIRECT_VOICE_SETTINGS`の`engine`は`rvc`だけを受け付け、既定も`rvc`である。Seed-VCはPythonのバックエンドで動いていたので、Pythonとともに終わった。`/set/data/direct_voice_settings`に`engine: "seed-vc"`を送ると、何も保存せず400の`{"error_code": "vc_engine_unavailable", "settings": <保存値>}`を返す。そのほかの不正な値は従来どおり`vc_settings_invalid`である。以前の版が保存した`seed-vc`は、読み込むときに`rvc`へ移す。ほかの項目（`mode`、RVCのパス、Seed-VCの`runtime`と`reference`）はそのまま残すので、0.4の版でも読める。`mode`が`converted`だったときだけ、その起動のあいだ`/get/data/direct_voice_state`に`"notice": "seed_vc_moved_to_rvc"`を付け、RVCのページに「Seed-VCは使えなくなったため、声の変換をRVCに切り替えました」と出す。設定を保存し直すと消える。変換は自動では始めない。RVCのモデルが未設定なら、メイン画面のRVCのスイッチは設定を求める。
