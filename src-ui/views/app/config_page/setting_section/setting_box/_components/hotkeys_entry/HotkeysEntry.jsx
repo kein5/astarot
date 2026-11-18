@@ -151,7 +151,6 @@ export const HotkeysEntry = (props) => {
                 onKeyUp={handleKeyUp}
                 placeholder={t(isAcceptingInput ? "config_page.hotkeys.input_placeholder" : "config_page.hotkeys.unassigned_placeholder")}
                 ui_variable={displayValue}
-                width="20rem"
                 is_activated={isAcceptingInput}
                 is_disabled={is_pending}
                 readOnly

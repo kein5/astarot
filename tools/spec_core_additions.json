@@ -19,7 +19,8 @@
     { "endpoint": "/get/data/translation_catalog", "handler": "core: translation_catalog_view", "before_init": true },
     { "endpoint": "/run/register_translation_catalog_entry", "handler": "core: register_translation_entry", "before_init": false },
     { "endpoint": "/run/remove_translation_catalog_entry", "handler": "core: remove_translation_entry", "before_init": false },
-    { "endpoint": "/run/use_translation_catalog_entry", "handler": "core: use_translation_entry", "before_init": false }
+    { "endpoint": "/run/use_translation_catalog_entry", "handler": "core: use_translation_entry", "before_init": false },
+    { "endpoint": "/get/data/gpu_memory", "handler": "core: gpu_memory", "before_init": true }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },

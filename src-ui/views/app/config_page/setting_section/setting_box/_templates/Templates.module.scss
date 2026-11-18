@@ -1,34 +1,40 @@
+// One setting row: the label column and the field column, the same 1fr / 1.6fr split and
+// 1.6rem gap as the form rows (FormRow), so a field starts at the same place on every page
+// (#567). The field fills its column unless it holds a short value (DESIGN.md, "Field widths").
+// No side padding: the label starts on the section heading's edge and the control ends on the
+// content's edge.
 .container {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
     width: 100%;
-    justify-content: space-between;
     align-items: center;
-    // No side padding: the label starts on the section heading's edge and the
-    // control ends on the content's edge, like the FormRow rows on the same pages.
     padding: 2rem 0;
-    gap: 2rem;
+    column-gap: 1.6rem;
+    row-gap: .8rem;
     min-width: 0;
-    flex-wrap: wrap;
     > * { min-width: 0; max-width: 100%; }
+    > :nth-child(2) { justify-self: stretch; }
+    // A row without a label (the word list, the message format's fields) spans both columns.
+    > :only-child { grid-column: 1 / -1; }
+    &.control_end > :nth-child(2) { justify-self: end; }
+    &.control_start > :nth-child(2) { justify-self: start; }
     &.flex_column {
-        flex-direction: column;
+        grid-template-columns: minmax(0, 1fr);
     }
     &:not(.remove_border_bottom) {
         border-bottom: solid 0.1rem var(--dark_800_color);
     }
 
     &.is_break_point {
-        flex-direction: column;
-        gap: 2rem;
+        grid-template-columns: minmax(0, 1fr);
         align-items: start;
     }
 }
 
-// 16rem label + 24rem URL/key + 2rem gap (the row has no side padding).
-// Includes rows whose JSX opts out of the old viewport breakpoint.
-@container (max-width: 42rem) {
-    .container { flex-direction: column; align-items: stretch; }
+// 16rem label + 24rem field + 1.6rem gap: below that the field goes under its label.
+@container (max-width: 41.6rem) {
+    .container { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
 }
 @media (max-width: 700px) {
-    .container { flex-direction: column; align-items: stretch; }
+    .container { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
 }

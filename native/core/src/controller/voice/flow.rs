@@ -257,10 +257,15 @@ impl IoTraces {
     }
 
     /// The first audio of a message's speech was written (or sent to the conversion).
-    pub fn speech_started(&self, id: &str, timestamp_ns: i64, converted: bool, conversion_ms: Option<i64>) -> bool {
+    /// `synthesis_ns`: from asking the engine for this message to that first write, without
+    /// the wait in the speech queue.
+    pub fn speech_started(&self, id: &str, timestamp_ns: i64, converted: bool, conversion_ms: Option<i64>, synthesis_ns: Option<i64>) -> bool {
         let traces = self.traces.lock().unwrap();
         let Some(trace) = traces.iter().find(|t| t.id == id).cloned() else { return false };
         let mut detail = vec![("converted", json!(converted))];
+        if let Some(synthesis) = synthesis_ns {
+            detail.push(("synthesis_ms", json!(ms(synthesis))));
+        }
         if converted && let Some(conversion) = conversion_ms {
             detail.push(("conversion_ms", json!(conversion)));
         }
