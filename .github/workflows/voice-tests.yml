@@ -87,6 +87,8 @@ jobs:
           cargo test --locked --manifest-path native/core/Cargo.toml --lib credential_manager -- --ignored
           cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored
       - run: cargo test --locked --manifest-path native/openvr-client/Cargo.toml
+      # The ONNX Runtime library and environment chat reading, translation and the RVC worker share.
+      - run: cargo test --locked --manifest-path native/onnx-runtime/Cargo.toml
       - run: cargo test --locked --manifest-path native/vr-overlay/Cargo.toml
       - run: cargo test --locked --manifest-path native/transcription/Cargo.toml
       - run: cargo test --locked --manifest-path native/voice-conversion/Cargo.toml
