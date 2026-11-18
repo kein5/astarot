@@ -1,4 +1,5 @@
-// Which rows of the message log become captions over the desktop, and for how long.
+// Which rows of the message log become captions over the desktop, and for how long, and the
+// shape of the captions the overlay page draws (CaptionSnapshot, at the end).
 // Pure: the main window's controller and the overlay page both use it.
 import { speakerLabels } from "../common/speakerLabels.ts";
 
@@ -106,3 +107,84 @@ export const nextChange = (lines: readonly { until: number }[], now: number): nu
     const times = lines.flatMap(line => [line.until - FADE_MS, line.until]).filter(time => time > now);
     return times.length ? Math.min(...times) : null;
 };
+
+// The captions the overlay page draws, as the native command returns them
+// (src-tauri/src/caption_overlay.rs, Snapshot). The native side checks them before it keeps
+// them; the page checks their shape again before it draws, since the command's answer has no type.
+
+export interface CaptionSnapshotLine {
+    id: string;
+    // "sent" for the user's own words, "received" for what was heard or read.
+    kind: string;
+    text: string;
+    translations: string[];
+    pending: boolean;
+    // Labels such as "A", and the names the user gave them; read through speakerLabels.
+    speakers?: unknown;
+    speaker_names?: unknown;
+    // Milliseconds since the epoch after which the line is no longer shown.
+    until: number;
+}
+
+// One row of a flow item: a stage or an output.
+export interface CaptionFlowRow {
+    // "stage", "chatbox", "speech" or "conversion".
+    kind: string;
+    label: string;
+    value: string;
+    start?: number;
+    end?: number;
+    off?: boolean;
+}
+
+// One of the user's own recent inputs: where it went and how long each step took.
+export interface CaptionFlowItem {
+    id: string;
+    // "voice" or "chat".
+    input: string;
+    label: string;
+    text: string;
+    scale?: number;
+    rows: CaptionFlowRow[];
+}
+
+export interface CaptionSnapshot {
+    lines: CaptionSnapshotLine[];
+    // "bottom" or "top" of the monitor.
+    position: string;
+    font_size: number;
+    // How dark the plate behind the words is, 0 to 1.
+    opacity: number;
+    font_family: string;
+    flow?: CaptionFlowItem[];
+    flow_note?: string;
+    adjusting?: boolean;
+}
+
+type Fields = { readonly [key: string]: unknown };
+
+const isFields = (value: unknown): value is Fields => typeof value === "object" && value !== null && !Array.isArray(value);
+const isText = (value: unknown): value is string => typeof value === "string";
+const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const optional = <T>(value: unknown, check: (value: unknown) => value is T): boolean => value === undefined || check(value);
+const isListOf = <T>(value: unknown, check: (item: unknown) => item is T): value is T[] => Array.isArray(value) && value.every(check);
+const isBoolean = (value: unknown): value is boolean => typeof value === "boolean";
+
+const isLine = (value: unknown): value is CaptionSnapshotLine => isFields(value)
+    && isText(value.id) && isText(value.kind) && isText(value.text)
+    && isListOf(value.translations, isText) && isBoolean(value.pending) && isNumber(value.until);
+
+const isFlowRow = (value: unknown): value is CaptionFlowRow => isFields(value)
+    && isText(value.kind) && isText(value.label) && isText(value.value)
+    && optional(value.start, isNumber) && optional(value.end, isNumber) && optional(value.off, isBoolean);
+
+const isFlowItem = (value: unknown): value is CaptionFlowItem => isFields(value)
+    && isText(value.id) && isText(value.input) && isText(value.label) && isText(value.text)
+    && optional(value.scale, isNumber) && isListOf(value.rows, isFlowRow);
+
+const isFlow = (value: unknown): value is CaptionFlowItem[] => isListOf(value, isFlowItem);
+
+export const isCaptionSnapshot = (value: unknown): value is CaptionSnapshot => isFields(value)
+    && isListOf(value.lines, isLine) && isText(value.position) && isNumber(value.font_size)
+    && isNumber(value.opacity) && isText(value.font_family)
+    && optional(value.flow, isFlow) && optional(value.flow_note, isText) && optional(value.adjusting, isBoolean);

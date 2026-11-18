@@ -17,17 +17,6 @@ import { voiceActions, voiceSwitchStates, type VoiceSwitchStates } from "../../.
 // The experimental feature that keeps the app in the system tray (src-tauri/src/companion.rs).
 export const TRAY_COMPANION = "tray_companion";
 
-type StoreValue = { state?: string; data?: unknown };
-type MainFunction = {
-    currentTranscriptionSendStatus: StoreValue;
-    currentTranslationStatus: StoreValue;
-    currentTranscriptionReceiveStatus: StoreValue;
-    currentOcrCaptureStatus: StoreValue;
-    toggleTranscriptionSend: () => void;
-    toggleTranslation: () => void;
-    toggleTranscriptionReceive: () => void;
-    toggleOcrCapture: () => void;
-};
 // How long after a switch pressed in the tray, the hexagram or its panel an error notice is
 // taken as that switch's answer. The engine may wait about 20 s for a busy lock before it
 // refuses, and starting the microphone takes a few seconds more.
@@ -44,22 +33,17 @@ export const CompanionController = () => {
     const { t, i18n } = useI18n();
     const on = useExperimentalFeature(TRAY_COMPANION);
     const { currentTrayCompanionEdge: edge, setTrayCompanionEdge, currentTrayCompanionMonitor: monitor,
-        setTrayCompanionMonitor } = useExperimentalFeatures() as {
-        currentTrayCompanionEdge: StoreValue;
-        setTrayCompanionEdge: (edge: string) => unknown;
-        currentTrayCompanionMonitor: StoreValue;
-        setTrayCompanionMonitor: (monitor: string) => unknown;
-    };
-    const { currentIsBackendReady } = useIsBackendReady() as { currentIsBackendReady: StoreValue };
-    const main = useMainFunction() as MainFunction;
-    const { asyncQuitApp } = useWindow() as { asyncQuitApp: () => unknown };
+        setTrayCompanionMonitor } = useExperimentalFeatures();
+    const { currentIsBackendReady } = useIsBackendReady();
+    const main = useMainFunction();
+    const { asyncQuitApp } = useWindow();
     const { request: consent } = useTranscriptionConsent();
     const { request: translationSetup } = useTranslationSetup();
     const { startupState } = useBackendStartup();
     const needsUser = !!consent || !!translationSetup;
     const { currentSwitchBlocks } = useStore_SwitchBlocks();
     const { currentNotificationStatus } = useStore_NotificationStatus();
-    const { showNotification_Error } = useNotificationStatus() as { showNotification_Error: (message: string, options?: object) => void };
+    const { showNotification_Error } = useNotificationStatus();
     // The TTS and voice changer switches, as the main page's own switches work them out.
     const [voiceStates, setVoiceStates] = useState<VoiceSwitchStates>(voiceSwitchStates.get());
     useEffect(() => {

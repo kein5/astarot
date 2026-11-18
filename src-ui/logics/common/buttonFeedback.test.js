@@ -216,7 +216,7 @@ test("an action settling after its settings page closes does not schedule succes
 
 test("settings checkboxes reject pointer and keyboard repeats while retaining the confirmed value", async () => {
     const runtime = hooks();
-    const { Checkbox } = await load("common_components/checkbox/Checkbox.jsx", runtime);
+    const { Checkbox } = await load("common_components/checkbox/Checkbox.tsx", runtime);
     let calls = 0;
     const props = { label: "Auto select", variable: { state: "pending", data: false }, toggleFunction: () => calls++ };
     const input = tree => find(tree, node => node.type === "input");

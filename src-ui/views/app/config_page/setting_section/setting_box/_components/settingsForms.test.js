@@ -18,7 +18,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     const runtime = hooks(), document = { body: {}, activeElement: null };
     t.onTestFinished(() => runtime.unmount());
     stubGlobals(t, { document, window: eventTarget(), requestAnimationFrame: fn => fn() });
-    const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.jsx", import.meta.url), runtime, {
+    const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry() {} },
     });
     const state = { currentMicWordFilterList: { data: ["alpha", "日本語", "gamma"] },
@@ -70,7 +70,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
 test("checkbox input stays mounted and focused through pending, including rejection", async t => {
     const runtime = hooks(), document = { body: {} };
     stubGlobals(t, { document });
-    const { Checkbox } = await loadModule(new URL("../../../../../common_components/checkbox/Checkbox.jsx", import.meta.url), runtime);
+    const { Checkbox } = await loadModule(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
     let toggles = 0;
     const props = { label: "Show resend button", variable: { state: "ok", data: false }, toggleFunction: () => toggles++ };
     const render = () => runtime.render(Checkbox, props);
@@ -106,7 +106,7 @@ test("checkbox input stays mounted and focused through pending, including reject
 for (const label of ["WebSocket locked by OBS", "Mic mute sync without OSC", "OCR detector not installed"]) {
     test(`unavailable checkbox ignores click, Space and change: ${label}`, async () => {
         const runtime = hooks();
-        const { Checkbox } = await loadModule(new URL("../../../../../common_components/checkbox/Checkbox.jsx", import.meta.url), runtime);
+        const { Checkbox } = await loadModule(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
         let calls = 0;
         const tree = runtime.render(Checkbox, { label, variable: { state: "ok", data: false }, is_available: false,
             "aria-describedby": "warning", toggleFunction: () => calls++ });

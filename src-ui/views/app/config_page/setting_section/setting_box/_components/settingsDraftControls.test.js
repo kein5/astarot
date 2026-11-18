@@ -4,7 +4,7 @@ import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../.
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 
-const draftPath = "../../../../../../logics/voice/useSettingsDraft.jsx";
+const draftPath = "../../../../../../logics/voice/useSettingsDraft.tsx";
 const importsPath = "../../../../../../../logics/voice/useSettingsDraft";
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 
