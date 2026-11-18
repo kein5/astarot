@@ -22,8 +22,9 @@ const LIMIT: u64 = 10 * 1024 * 1024;
 /// Python's markers, `client_id` for the Client ID that goes with Papago's secret (core only),
 /// `user_model`: the names and file paths of the models a user registers (#403), and
 /// `translation_catalog`: the names, folders, addresses and keys of the translation entries a
-/// user adds (#413, core only).
-pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 10] = [
+/// user adds (#413, core only), and `speaker_names`: the names a user gives the voices that
+/// speaker diarization tells apart (#447, core only).
+pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 11] = [
     "auth_key",
     "api_key",
     "password",
@@ -34,6 +35,7 @@ pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 10] = [
     "client_id",
     "user_model",
     "translation_catalog",
+    "speaker_names",
 ];
 
 /// Notifications that are never written to the log.

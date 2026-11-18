@@ -4,7 +4,7 @@ import { Virtualizer } from "virtua";
 import styles from "./LogBox.module.scss";
 import { MessageContainer } from "./message_container/MessageContainer";
 import { EmptyState } from "./EmptyState";
-import { useMessageActions, nextLogView, rowsBetween } from "@logics_common";
+import { useMessageActions, nextLogView, rowsBetween, speakerContinuations, useSpeakerNaming } from "@logics_common";
 import { useSettingValue } from "@logics_configs";
 import { useI18n } from "@useI18n";
 import { store, Atom_MessageLogs } from "@store";
@@ -33,6 +33,10 @@ export const LogBox = memo(function LogBox({ savedView } = {}) {
     latestView.current = { view, startMargin };
     const selection = useSelectedRows();
     const keepMounted = useMemo(() => rowsBetween(view.rows, selection), [view.rows, selection]);
+    // Speakers (#447): the names given to the voices of each session, and the rows that go on
+    // with the voices of the row above them. Only the main window names voices.
+    const { speakerNames, nameSpeakers } = useSpeakerNaming();
+    const continuing = useMemo(() => speakerContinuations(view.rows), [view.rows]);
 
     // An empty log shows the empty state, which is read from its top: following its end
     // scrolled the greeting up whenever the list under it grew past the log's height at startup.
@@ -110,6 +114,8 @@ export const LogBox = memo(function LogBox({ savedView } = {}) {
                 data={view.rows} shift={view.shift} scrollRef={logContainerRef} startMargin={startMargin} onResize={follow}
                 keepMounted={keepMounted}>
                 {message => message.gone ? <div key={message.id} /> : <MessageContainer key={message.id} {...message}
+                    speaker_names={message.realtime ? speakerNames[message.realtime.namespace] : undefined}
+                    continues={continuing.has(message.id)} nameSpeakers={store.is_vr_panel ? undefined : nameSpeakers}
                     showResendButton={showResendButton} sendMessage={actions?.sendMessage}
                     updateMessageInputValue={actions?.updateMessageInputValue} />}
             </Virtualizer>

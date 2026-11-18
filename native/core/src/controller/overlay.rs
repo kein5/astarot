@@ -563,6 +563,13 @@ impl Core {
         }
     }
 
+    /// The names the user gave the voices of a realtime session (#447): the large log draws
+    /// them in place of the labels, also on the captions it shows already.
+    pub(crate) fn name_overlay_speakers(&self, namespace: &str, names: Vec<(String, String)>) {
+        let Some(vr) = self.vr() else { return };
+        vr.subtitles.set_speaker_names(namespace, names, &mut |picture| self.publish_large(vr, picture, &|| true));
+    }
+
     /// Drops the captions still being recognised for a source's namespace
     /// (`clearRealtimeCaptionOverlay`).
     #[allow(dead_code)]
