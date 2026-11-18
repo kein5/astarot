@@ -423,7 +423,7 @@ test("the window geometry controller keeps its listeners and only sends layout c
         toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); },
     } };
     t.onTestFinished(() => { delete globalThis.document; });
-    const { WindowGeometryController } = await load("../logics/common/useWindow.js", runtime, {
+    const { WindowGeometryController } = await load("../logics/common/useWindow.ts", runtime, {
         "@tauri-apps/api/window": {},
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython() {} }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
@@ -456,7 +456,7 @@ test("while the engine starts, resizing updates the layout but does not save the
     globalThis.document = { documentElement: { hasAttribute: name => attributes.has(name),
         toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); } } };
     t.onTestFinished(() => { delete globalThis.document; });
-    const { WindowGeometryController } = await load("../logics/common/useWindow.js", runtime, {
+    const { WindowGeometryController } = await load("../logics/common/useWindow.ts", runtime, {
         "@tauri-apps/api/window": {},
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => sent.push([endpoint, data]) }) },
         "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },

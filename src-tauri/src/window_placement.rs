@@ -5,7 +5,7 @@
 //! started, through the UI: the window showed centred, then jumped to the saved place, or to the
 //! top left on a first launch. Here it is read and applied before the window is shown, so the
 //! window appears once, where it stays. The rules are the ones the UI used
-//! (`src-ui/logics/common/useWindow.js`, `windowGeometry.ts`), except that a first launch is
+//! (`src-ui/logics/common/useWindow.ts`, `windowGeometry.ts`), except that a first launch is
 //! centred on its monitor instead of put at the top left.
 
 use serde_json::Value;

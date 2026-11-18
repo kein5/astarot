@@ -1,5 +1,8 @@
 import { useEffect, useRef } from "react";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import type { Window as AppWindow } from "@tauri-apps/api/window";
 import { useStdoutToPython } from "@useStdoutToPython";
+import type { AsyncStdoutToPython } from "@useStdoutToPython";
 import { useStore_IsBreakPoint } from "@store";
 import { useAppearance } from "@logics_configs";
 import { store } from "@store";
@@ -7,13 +10,28 @@ import { store } from "@store";
 // Time the backend gets to save the settings after /run/shutdown. Closing the
 // window ends the app, and the shell plugin then kills the backend.
 const SHUTDOWN_WAIT_MS = 2000;
-let closing = null;
-let releaseCloseRequest = null;
+let closing: Promise<void> | null = null;
+let releaseCloseRequest: (() => void) | null = null;
+
+// The main window, which its entry point (views/app/index.jsx) sets before anything here runs.
+// Without it each use fails where it did before, at the window's first call.
+const mainWindow = (appWindow: AppWindow | undefined): AppWindow => {
+    if (!appWindow) throw new TypeError("The main window is not set (store.appWindow).");
+    return appWindow;
+};
+
+// The main window's position and size, as /set/data/main_window_geometry takes them.
+export interface WindowGeometry {
+    x_pos: number;
+    y_pos: number;
+    width: number;
+    height: number;
+}
 
 // Every way of closing the main window (the title bar button, Alt+F4, the
 // taskbar) asks the backend to shut down once, waits, then destroys the window.
 // Closing without it lost the settings changed in the last two seconds.
-const closeAfterShutdown = (appWindow, sendToPython) => {
+const closeAfterShutdown = (appWindow: AppWindow | undefined, sendToPython: (path: string) => unknown): Promise<void> => {
     if (closing) return closing;
     closing = (async () => {
         try {
@@ -23,12 +41,12 @@ const closeAfterShutdown = (appWindow, sendToPython) => {
         }
         await new Promise(resolve => setTimeout(resolve, SHUTDOWN_WAIT_MS));
         try {
-            await appWindow.destroy();
+            await mainWindow(appWindow).destroy();
         } catch (error) {
             // Without our close-requested listener the window closes as usual.
             console.error("Could not destroy the window; closing it instead:", error);
             releaseCloseRequest?.();
-            await appWindow.close();
+            await mainWindow(appWindow).close();
         }
     })();
     return closing;
@@ -41,12 +59,12 @@ export const useWindow = () => {
 
     const appWindow = store.appWindow;
 
-    const asyncGetWindowGeometry = async () => {
+    const asyncGetWindowGeometry = async (): Promise<WindowGeometry | undefined> => {
         try {
-            const position = await appWindow.outerPosition();
+            const position = await mainWindow(appWindow).outerPosition();
             const { x: x_pos, y: y_pos } = position;
 
-            const size = await appWindow.outerSize();
+            const size = await mainWindow(appWindow).outerSize();
             const { width, height } = size;
 
             return {
@@ -61,7 +79,7 @@ export const useWindow = () => {
     };
 
     const asyncSaveWindowGeometry = async () => {
-        const minimized = await appWindow.isMinimized();
+        const minimized = await mainWindow(appWindow).isMinimized();
         if (minimized === true) return; // don't save while the window is minimized.
         const data = await asyncGetWindowGeometry();
         asyncStdoutToPython("/set/data/main_window_geometry", data);
@@ -71,7 +89,7 @@ export const useWindow = () => {
     // (src-tauri/src/window_placement.rs), not here.
 
     const asyncUpdateBreakPoint = async () => {
-        const size = await appWindow.innerSize();
+        const size = await mainWindow(appWindow).innerSize();
         // innerSize is in physical pixels; the breakpoint, like the CSS
         // (max-width: 800px) queries, is in CSS pixels. At 150% display
         // scaling an 800px-wide window is 1200 physical pixels.
@@ -87,16 +105,16 @@ export const useWindow = () => {
     };
 
     const asyncToggleMaximizeApp = async () => {
-        const maximizeState = await appWindow.isMaximized();
+        const maximizeState = await mainWindow(appWindow).isMaximized();
         if (!maximizeState) {
-            await appWindow.maximize();
+            await mainWindow(appWindow).maximize();
         } else {
-            await appWindow.unmaximize();
+            await mainWindow(appWindow).unmaximize();
         }
     };
 
     const asyncMinimizeApp = async () => {
-        await appWindow.minimize();
+        await mainWindow(appWindow).minimize();
     };
 
     // The app lives in the tray: closing the window only puts it away there, and the tray menu's Quit
@@ -126,10 +144,10 @@ export const useWindow = () => {
 // It runs from the first frame, so the narrow layout is right while the engine
 // starts. Until the engine is ready (saveGeometry false) it only updates the
 // layout: the geometry the engine restores at readiness is not overwritten.
-export const WindowGeometryController = ({ saveGeometry = true } = {}) => {
+export const WindowGeometryController = ({ saveGeometry = true }: { saveGeometry?: boolean } = {}) => {
     const { asyncSaveWindowGeometry, asyncUpdateBreakPoint } = useWindow();
     const { currentUiScaling } = useAppearance();
-    const latest = useRef(null);
+    const latest = useRef({ asyncSaveWindowGeometry, asyncUpdateBreakPoint, saveGeometry });
     latest.current = { asyncSaveWindowGeometry, asyncUpdateBreakPoint, saveGeometry };
 
     // Also decide at startup and once the saved UI size arrives: a window that opens
@@ -139,8 +157,8 @@ export const WindowGeometryController = ({ saveGeometry = true } = {}) => {
     }, [currentUiScaling.data]);
 
     useEffect(() => {
-        const appWindow = store.appWindow;
-        let resizeTimeout = null, moveTimeout = null;
+        const appWindow = mainWindow(store.appWindow);
+        let resizeTimeout: ReturnType<typeof setTimeout> | undefined, moveTimeout: ReturnType<typeof setTimeout> | undefined;
         const unlistenResize = appWindow.onResized(() => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
@@ -170,12 +188,12 @@ export const WindowGeometryController = ({ saveGeometry = true } = {}) => {
 // Tauri leaves the closing to it.
 export const WindowCloseController = () => {
     const { asyncStdoutToPython } = useStdoutToPython();
-    const latest = useRef(asyncStdoutToPython);
+    const latest = useRef<AsyncStdoutToPython>(asyncStdoutToPython);
     latest.current = asyncStdoutToPython;
 
     useEffect(() => {
-        const appWindow = store.appWindow;
-        let active = true, dispose = null;
+        const appWindow = mainWindow(store.appWindow);
+        let active = true, dispose: UnlistenFn | null = null;
         const release = () => {
             active = false;
             dispose?.();
@@ -184,7 +202,7 @@ export const WindowCloseController = () => {
         appWindow.onCloseRequested(event => {
             event.preventDefault();
             if (store.companion_hide) store.companion_hide();
-            else closeAfterShutdown(appWindow, (...args) => latest.current(...args));
+            else closeAfterShutdown(appWindow, (...args: Parameters<AsyncStdoutToPython>) => latest.current(...args));
         }).then(unlisten => {
             dispose = unlisten;
             if (!active) release();

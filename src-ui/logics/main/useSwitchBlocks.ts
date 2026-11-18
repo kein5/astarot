@@ -3,15 +3,17 @@ import { useOcr } from "@logics_configs";
 import { useStore_IsBackendReady, useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId, useStore_SwitchBlocks } from "@store";
 import { useSetupNeeds } from "./useSetupNeeds";
 import { switchBlocks } from "./switchBlocks";
+import type { SwitchBlockAction, SwitchBlocks } from "./switchBlocks";
 import { useVoice } from "../voice/useVoice";
 import { useModelDownloads } from "../voice/useModelDownloads";
-import { useTranslationSetup } from "../translation/useTranslationSetup";import { focusOcrModels } from "../ocr/useOcrSetup";
+import { useTranslationSetup } from "../translation/useTranslationSetup";
+import { focusOcrModels } from "../ocr/useOcrSetup";
 
 // Main window only, once (SwitchBlocksController). Why each main switch cannot be turned on
-// yet (switchBlocks.js), kept in the SwitchBlocks atom. The main window's switches and the VR
+// yet (switchBlocks.ts), kept in the SwitchBlocks atom. The main window's switches and the VR
 // panel's launcher both read that atom, so the two never disagree. A block follows the
 // settings as they change, so a switch comes back as soon as what it needs is there.
-export const useSwitchBlocksSource = () => {
+export const useSwitchBlocksSource = (): SwitchBlocks => {
     const { currentIsBackendReady } = useStore_IsBackendReady();
     const { needs } = useSetupNeeds();
     const { currentOcrModelReadiness, getOcrModelReadiness, currentOcrSourceLanguage, currentOcrReadiness } = useOcr();
@@ -30,9 +32,10 @@ export const useSwitchBlocksSource = () => {
 
     // Until the engine has sent its settings, nothing is known to be missing.
     const blocks = ready ? switchBlocks({ needs, ocr: currentOcrModelReadiness.data, voiceSettings, directState }) : {};
-    // Written only when a block changes: the VR panel is sent every change of the atom.
+    // Written only when a block changes: the VR panel is sent every change of the atom. The
+    // blocks of the render whose key changed are the ones the key was made from.
     const key = JSON.stringify(blocks);
-    useEffect(() => { updateSwitchBlocks(JSON.parse(key)); }, [key]);
+    useEffect(() => { updateSwitchBlocks(blocks); }, [key]);
     // Nothing is blocked once nothing works it out (the window's contents are gone).
     useEffect(() => () => updateSwitchBlocks({}), []);
     return blocks;
@@ -48,7 +51,7 @@ export const useSwitchBlocks = () => {
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const translationSetup = useTranslationSetup();
-    const prepare = action => {
+    const prepare = (action: SwitchBlockAction | null | undefined) => {
         if (!action) return;
         if (action === "translation") return translationSetup.open(false);
         if (action === "translator") return translationSetup.chooseTranslator();

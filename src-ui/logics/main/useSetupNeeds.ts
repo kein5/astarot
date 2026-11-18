@@ -2,6 +2,7 @@ import { useTranslation, useTranscription } from "@logics_configs";
 import { useStore_IsBackendReady, useStore_SelectedPresetTabNumber, useStore_SelectedTranslationEngines,
     useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { setupNeeds, translationDownloadable } from "./setupNeeds";
+import type { SetupNeed } from "./setupNeeds";
 import { useTranslationSetup } from "../translation/useTranslationSetup";
 import { useModelDownloads } from "../voice/useModelDownloads";
 import { useRealtimeASR } from "../transcription/useRealtimeASR";
@@ -24,7 +25,7 @@ export const useSetupNeeds = () => {
     const translationSetup = useTranslationSetup();
     const { catalog } = useModelDownloads();
     // Until the engine has sent its settings, "not downloaded" is only the list's default.
-    const needs = currentIsBackendReady.data !== true ? [] : setupNeeds({
+    const needs: SetupNeed[] = currentIsBackendReady.data !== true ? [] : setupNeeds({
         translationEngine: currentSelectedTranslationEngines.data?.[currentSelectedPresetTabNumber.data],
         translationWeights: currentCTranslate2WeightTypeStatus.data,
         translationWeight: currentSelectedCTranslate2WeightType.data,
@@ -33,7 +34,7 @@ export const useSetupNeeds = () => {
         realtimeServer: realtimeSettings?.server,
         asrProfile: serverSettings?.profiles?.asr,
     });
-    const start = id => {
+    const start = (id: string) => {
         if (id === "translation") {
             // No model to download yet: the way forward is another translator.
             if (needs.find(need => need.id === id)?.action === "choose") return translationSetup.chooseTranslator();

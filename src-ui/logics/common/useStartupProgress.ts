@@ -1,13 +1,19 @@
 import { useStore_InitProgress } from "@store";
 import { useTranslation } from "@logics_configs";
 import { startupDownloads } from "./startupPhase.ts";
+import type { StartupDownload } from "./startupPhase.ts";
 
 // The engine reports four startup steps (/run/initialization_progress).
 export const STARTUP_STEPS = 4;
 
+export interface StartupProgress {
+    step: number;
+    downloads: StartupDownload[];
+}
+
 // How far the engine's start has come: its step (0 until the first report)
 // and the models it is fetching before it is ready.
-export const useStartupProgress = () => {
+export const useStartupProgress = (): StartupProgress => {
     const { currentInitProgress } = useStore_InitProgress();
     const { currentCTranslate2WeightTypeStatus } = useTranslation();
     const reported = Number(currentInitProgress.data);
