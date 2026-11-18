@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
 
 const text = node => [node?.props?.children].flat(Infinity)
