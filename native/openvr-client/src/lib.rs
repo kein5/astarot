@@ -13,6 +13,10 @@
 //! anew.
 //!
 //! The library (`openvr_api`, BSD-3-Clause, Valve) is loaded on the first lease and kept loaded.
+//!
+//! The crates call the library's function tables by position. They declare each position with
+//! the name of its function ([`fn_table!`]), and their tests check every one against pyopenvr's
+//! tables ([`REFERENCE_FN_TABLES`]).
 
 use std::ffi::{CString, c_char, c_void};
 use std::fmt;
@@ -47,6 +51,69 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+/// The positions a crate calls in one OpenVR function table, declared with [`fn_table!`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FnTable {
+    /// The interface version, such as `IVRSystem_023`. [`Lease::interface`] takes it after
+    /// `FnTable:`.
+    pub interface: &'static str,
+    /// Each position called, with the name of the function there in pyopenvr's table
+    /// (`IVRSystem_FnTable` and so on, the order of `openvr_capi.h`).
+    pub functions: &'static [(usize, &'static str)],
+}
+
+impl FnTable {
+    /// The positions whose function in `reference` (the table's function names, in order) is
+    /// not the declared one, such as `IVRSystem_023[33] is getHiddenAreaMesh, not getControllerState`.
+    pub fn mismatches<S: AsRef<str>>(&self, reference: &[S]) -> Vec<String> {
+        let interface = self.interface;
+        self.functions
+            .iter()
+            .filter_map(|&(index, name)| match reference.get(index).map(AsRef::as_ref) {
+                Some(found) if found == name => None,
+                Some(found) => Some(format!("{interface}[{index}] is {found}, not {name}")),
+                None => Some(format!("{interface}[{index}] is past the end of the table ({} functions), not {name}", reference.len())),
+            })
+            .collect()
+    }
+}
+
+/// pyopenvr 2.12.1401's function tables, as JSON: for each interface version the crates call,
+/// the names of its functions in table order (`tables`). Written by
+/// `reference/dump_reference.py`; for the tests of the crates that call the tables.
+pub const REFERENCE_FN_TABLES: &str = include_str!("../tests/data/pyopenvr_fn_tables.json");
+
+/// Declares positions in an OpenVR function table, each with the name of the function there.
+///
+/// The client library's tables are arrays of function pointers in the order of `openvr_capi.h`,
+/// and the crates call them by position. A wrong position calls another function with the same
+/// arguments and no error: #610 called `GetHiddenAreaMesh` (33) for `GetControllerState` (34),
+/// which took the controller's index for the address of its result and crashed the app. The
+/// macro makes a constant for each position and a [`FnTable`] that lists them all with their
+/// names, so that the tests can check every one against [`REFERENCE_FN_TABLES`].
+///
+/// ```
+/// vrct_openvr_client::fn_table! {
+///     SYSTEM = "IVRSystem_023";
+///     POLL_NEXT_EVENT = 29 => "pollNextEvent",
+///     #[cfg(windows)]
+///     DXGI_OUTPUT_INFO = 7 => "getDXGIOutputInfo",
+/// }
+/// assert_eq!(POLL_NEXT_EVENT, 29);
+/// assert_eq!(SYSTEM.functions, [(29, "pollNextEvent"), (7, "getDXGIOutputInfo")]);
+/// ```
+///
+/// Attributes apply to the constant only: a position under `#[cfg(...)]` stays in the
+/// [`FnTable`], so a build for one system checks the other systems' positions too.
+#[macro_export]
+macro_rules! fn_table {
+    ($vis:vis $table:ident = $interface:expr; $($(#[$attr:meta])* $name:ident = $index:literal => $function:literal),+ $(,)?) => {
+        #[allow(dead_code)]
+        $vis const $table: $crate::FnTable = $crate::FnTable { interface: $interface, functions: &[$(($index, $function)),+] };
+        $($(#[$attr])* $vis const $name: usize = $index;)+
+    };
+}
 
 /// The three entry points the connection needs; the real one is the client library.
 trait Backend: Send + Sync {
@@ -353,6 +420,42 @@ mod tests {
     fn no_candidate_means_no_library() {
         let missing = std::env::temp_dir().join("vrct-openvr-client-test").join("no_such_openvr_api.dll");
         assert_eq!(load(&[missing]).err(), Some(Error::LibraryNotFound));
+    }
+
+    fn_table! {
+        SYSTEM = "IVRSystem_023";
+        HIDDEN_AREA_MESH = 33 => "getHiddenAreaMesh",
+        #[cfg(any())]
+        NEVER_BUILT = 34 => "getControllerState",
+    }
+
+    #[test]
+    fn a_table_lists_every_position_with_its_function() {
+        assert_eq!(HIDDEN_AREA_MESH, 33);
+        assert_eq!(SYSTEM.interface, "IVRSystem_023");
+        assert_eq!(SYSTEM.functions, [(33, "getHiddenAreaMesh"), (34, "getControllerState")], "a position left out of the build is listed too");
+    }
+
+    #[test]
+    fn a_position_holding_another_function_is_named() {
+        let mut names: Vec<String> = (0..35).map(|index| format!("function{index}")).collect();
+        names[33] = "getHiddenAreaMesh".into();
+        names[34] = "getControllerState".into();
+        assert!(SYSTEM.mismatches(&names).is_empty());
+        let wrong = FnTable { interface: "IVRSystem_023", functions: &[(33, "getControllerState"), (35, "getControllerState")] };
+        assert_eq!(wrong.mismatches(&names), [
+            "IVRSystem_023[33] is getHiddenAreaMesh, not getControllerState",
+            "IVRSystem_023[35] is past the end of the table (35 functions), not getControllerState",
+        ]);
+    }
+
+    #[test]
+    fn the_reference_has_the_tables_the_crates_call() {
+        // The crates parse it in their tests; here only that it was written and names the
+        // versions they ask for.
+        for interface in ["IVRSystem_023", "IVROverlay_028", "IVRApplications_007", "IVRRenderModels_006", "IVRCompositor_029"] {
+            assert!(REFERENCE_FN_TABLES.contains(&format!("\"{interface}\": [")), "{interface}");
+        }
     }
 
     #[test]
