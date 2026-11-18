@@ -98,11 +98,12 @@ RVCの変換は、本家の推論を再実装した`native/rvc-runtime`（MIT、
 
 ワーカーはONNX Runtimeを自分では持たず、実行時に読み込む。ONNX Runtime、CUDAとcuDNNのライブラリ、
 基礎モデルは配布物に含めず、利用者の同意を得てから提供元から直接取得する（版・サイズ・SHA-256を
-`src-python/models/voice_conversion/runtime_setup.py`と、Rustの中核が使う`native/voice-conversion/src/runtime.rs`に固定。値は同じ）。
+Rustの中核が使う`native/voice-conversion/src/runtime.rs`に固定する。0.4までの`src-python/models/voice_conversion/runtime_setup.py`は
+ONNX RuntimeをGitHubから取得していたときの値のまま残す）。
 
 | 取得物 | 取得元 | ライセンス |
 |---|---|---|
-| ONNX Runtime 1.31.0（NVIDIAのドライバーがあるPCはCUDA 13版、ないPCはCPU版） | GitHubのMicrosoft公式リリース | MIT |
+| ONNX Runtime 1.31.0（NVIDIAのドライバーがあるPCはCUDA 13版、ないPCはCPU版） | NuGetのMicrosoft公式パッケージ（CPU版は`Microsoft.ML.OnnxRuntime`、CUDA 13版は`Microsoft.ML.OnnxRuntime.Gpu.Windows`と`Microsoft.ML.OnnxRuntime.Gpu.Linux`）。2026-11-18まではGitHubのMicrosoft公式リリース | MIT |
 | CUDA runtime、cuBLAS、cuRAND、NVRTC（CUDA 13.4 Update 1）、cuDNN 9.26（GPU用だけ） | PyPIのNVIDIA公式wheel（`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`）から必要なファイルだけ | NVIDIAのCUDA EULA、cuDNN SLA |
 | HuBERT（`hubert_base`の`config.json`と`pytorch_model.bin`）、`rmvpe.onnx` | Hugging Faceの`lj1995/VoiceConversionWebUI`（以前と同じ固定revision） | モデルカードの表示はMIT（本文は空）。HuBERT/ContentVecの上流条件は未確認のまま（同梱しないので取得の形を保つ）。2026-11-15に確認した（下の「#322」の節） |
 
@@ -111,6 +112,15 @@ CUDA 12（PyTorch実行環境と同じ12.8系）からCUDA 13へ移し（ドラ�
 CPU版の実行環境を加えた。CPU版にはNVIDIAのファイルを含まない。新しい実行環境の取得が終わると、同じフォルダーにある
 以前のPyTorch実行環境のファイル（venv、python、engine、固定の`rmvpe.pt`など）をアプリが削除する（`remove_earlier_rvc`）。HuBERTはONNXに
 変換した物を配らず、取得した`pytorch_model.bin`からワーカーが読み込み時にグラフを組み立てる。
+
+GitHubの`microsoft/onnxruntime`がリポジトリもリリースの資産も404を返すようになったので、2026-11-18にONNX Runtimeの
+取得元をGitHubのリリースからNuGetのパッケージに移した。版は1.31.0のままで、ライセンス（MIT）も変わらない。
+CPU版のパッケージに入っているライブラリは、GitHubのアーカイブのものとバイト単位で同じ。CUDA 13版のパッケージの
+CUDAプロバイダも、GitHubの`gpu_cuda13`版と同じくcuBLAS 13とcudart 13にリンクしていて、固定したNVIDIAのwheelと合う。
+同意画面のライセンスのリンクはNuGetのパッケージのLicenseのページにした。GitHubから準備した実行環境は、`lib/`の
+ファイルが同じ名前なので導入済みのまま使える（`runtime.rs`の`OrtSource`）。DirectML版はNuGetに1.31.0がない
+（最新は1.24.4）が、どの取得もDirectML版を使っていない。
+
 ワーカーのRust依存（`ort`、`ort-sys`、`libloading`、`prost`、`rustfft`、`serde_json`、`thiserror`、`hound`など）は
 MIT、Apache-2.0、ISCなどの許容型ライセンス。配布物へのライセンス文書の同梱方法は、Tauri本体のRust依存と同じく
 未整理（残課題）。→ 下の「#322」の節で整備した。
@@ -273,7 +283,7 @@ librosa、libsndfile等を含む最終runtime配布条件の監査は引き続�
 
 Windows版にも固定speech.cpp 0.10.0の公式Vulkan版`speech.exe`と通知を同梱する。元ZIPのサイズとSHA-256は[固定台帳](speechcpp-bundle-artifacts.json)にある。ZIP内の`speech.dll`、`speech.h`、`speech.lib`は使わないので含めない。`speech.exe`はMSVCのビルド情報を持ち、Cランタイムの動的ライブラリを読み込まないので、GCCのランタイムは含まない。GCCの文書はLinux版のための通知で、同じ通知一式に残る。`vulkan-1.dll`とGPUドライバーは配布物に含まない。
 
-RVCとSeed-VCの実行環境、基礎モデル、声のモデルは、WindowsでもLinuxでも配布物に含まない。アプリの準備機能は、利用者の同意を得て提供元からこのPCへ直接取得するだけで、再配布はしない。取得先はGitHub（uv、Python、エンジン本体、ONNX Runtime）、PyPI、PyTorch、Hugging Faceで、同意画面にライセンスのリンクとサイズを示す。2026-11-15からRVCの実行環境はONNX Runtime（GPU用はNVIDIAのライブラリも）だけになり、変換は同梱の`vrct-rvc-worker`が行う（上の「RVC同梱ワーカー」）。0.4.xまでのWindowsの配布物の`_internal/voice_worker/integrations/seed_vc/`にはGPL-3.0-onlyのアダプターを、`_internal/licenses/python/`には凍結したPythonパッケージのライセンス文書を含んでいた。0.5.0の中核はSeed-VCの実行環境を準備せず、RVCの実行環境だけをGitHub（ONNX Runtime）、PyPI（NVIDIAのライブラリ）、Hugging Face（基礎モデル）から取得する（`native/voice-conversion/src/runtime.rs`）。0.5.0の配布物の中身は下の「Pythonの同梱の終了」の節にある。
+RVCとSeed-VCの実行環境、基礎モデル、声のモデルは、WindowsでもLinuxでも配布物に含まない。アプリの準備機能は、利用者の同意を得て提供元からこのPCへ直接取得するだけで、再配布はしない。取得先はGitHub（uv、Python、エンジン本体、ONNX Runtime）、PyPI、PyTorch、Hugging Faceで、同意画面にライセンスのリンクとサイズを示す。2026-11-15からRVCの実行環境はONNX Runtime（GPU用はNVIDIAのライブラリも）だけになり、変換は同梱の`vrct-rvc-worker`が行う（上の「RVC同梱ワーカー」）。0.4.xまでのWindowsの配布物の`_internal/voice_worker/integrations/seed_vc/`にはGPL-3.0-onlyのアダプターを、`_internal/licenses/python/`には凍結したPythonパッケージのライセンス文書を含んでいた。0.5.0の中核はSeed-VCの実行環境を準備せず、RVCの実行環境だけをNuGet（ONNX Runtime。2026-11-18まではGitHub）、PyPI（NVIDIAのライブラリ）、Hugging Face（基礎モデル）から取得する（`native/voice-conversion/src/runtime.rs`）。0.5.0の配布物の中身は下の「Pythonの同梱の終了」の節にある。
 
 Linuxの配布物も、2026-11-11から同じ準備機能を持つ（以下のuvとSeed-VCの記述は0.4.xまでのもの）。取得するuvはLinux用の公式リリース（x86-64、glibc版）で、版・サイズ・SHA-256を固定する。そのために`_internal/integrations/seed_vc/`へ（2026-11-15まではRVCの`_internal/integrations/rvc/`にも）、ハッシュを固定した依存の一覧（`requirements-cuda.lock`、`requirements.lock`）と、Seed-VCのパッチ（`offline-loader.patch`、GPL-3.0-only）を加えた。Linux用のPyTorch（CUDA版）は、NVIDIAのライブラリを別のパッケージ（`nvidia-*-cu12`など）として取得する。これらもNVIDIAのライセンスに従い、配布物には含まない。
 
@@ -484,7 +494,7 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 - フォント（`*.ttf`）。0.4.xまではVRの字幕のためにNoto SansのJP・KR・SC・TC（SIL Open Font License 1.1）を`_internal`に入れていた。Rustの中核は書体を同梱せず、利用者のPCの書体を使う（[中核の統合](core-integration.md)の「決まったこと」の「字幕の書体」）。そのため書体のライセンスは配布物に関係しない。Outfitの節はブランドの文字のためのもので、これとは別。
 - Sudachiの辞書（SudachiPyの`sudachidict_core`と`sudachidict_full`）。Rustの中核は同じ辞書をsudachi.rsで読む。入れる版は下の「読みの解析器と辞書」の節。
 
-- ONNX Runtime（2026-11-17に決定、#509）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`load-dynamic`でONNX Runtimeを実行時に読み込み、プロセスで1つの環境を共有する。配布物には公式のCPU版1.31.0（MIT、Microsoft。声質変換の実行環境の準備が取得するものと同じアーカイブ）を`_internal/onnxruntime`に入れ、ライセンスと`ThirdPartyNotices.txt`を`_internal/licenses/onnxruntime`に置く（`tools/runtime_libraries.py`）。DirectML、CUDA、OpenVINOなどの実行プロバイダの入った版は入れない。0.5.0-beta.4までは何も入れておらず、WindowsではSystem32の古いONNX Runtime（1.17）が読み込まれてOCRのモデル（IR 10）を読めなかった。
+- ONNX Runtime（2026-11-17に決定、#509）。翻訳（`translate-onnx`）とOCR（`ocr-runtime`）は`ort`の`load-dynamic`でONNX Runtimeを実行時に読み込み、プロセスで1つの環境を共有する。配布物には公式のCPU版1.31.0（MIT、Microsoft）を`_internal/onnxruntime`に入れ、ライセンスと`ThirdPartyNotices.txt`を`_internal/licenses/onnxruntime`に置く（`tools/runtime_libraries.py`）。取得元はNuGetの`Microsoft.ML.OnnxRuntime`で、声質変換の実行環境の準備がCPU用に取得するものと同じパッケージ。2026-11-18まではGitHubのリリースのアーカイブから取っていた。取り出すライブラリはそのときとバイト単位で同じ。Linuxの配布物のライセンスの文書だけは、改行がCRLFになった（本文は同じ）。DirectML、CUDA、OpenVINOなどの実行プロバイダの入った版は入れない。0.5.0-beta.4までは何も入れておらず、WindowsではSystem32の古いONNX Runtime（1.17）が読み込まれてOCRのモデル（IR 10）を読めなかった。
 - OpenVRのクライアントライブラリ（2026-11-17に決定、#509）。VRのオーバーレイとOCRのVRの映像が実行時に読み込む。0.4.xと同じpyopenvr 2.12.1401のwheel（BSD-3-Clause、Christopher Bruns）から、OpenVR SDK 2.12.14の`libopenvr_api_64`（BSD-3-Clause、Valve Corporation）を`_internal/openvr`に入れる。ライセンスは、Valveの同じ版のもの（`LICENSE`）とpyopenvrのもの（`pyopenvr-LICENSE`）を`_internal/licenses/openvr`に置く。
 
 まだ決まっていないもの（[中核の統合](core-integration.md)の「判断が要ること」）:
