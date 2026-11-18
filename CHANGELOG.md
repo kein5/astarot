@@ -10,6 +10,23 @@ changes for developers follow.
 A section is written when its release is prepared (`python tools/changelog.py write`), not on
 every commit. See [Changelog and releases](CONTRIBUTING.md#changelog-and-releases).
 
+## [0.5.2] - 2026-11-18
+
+Changes since [v0.5.1](https://github.com/kein5/astarot/compare/v0.5.1...v0.5.2).
+
+### User-facing Changes
+
+#### Bug Fixes
+
+- **vr:** Stop crashing when a controller is active with a vr overlay on ([7e022c1](https://github.com/kein5/astarot/commit/7e022c11f8ae220335ce58f88f987a0115668a7b))
+
+### Internal Changes
+
+#### Tests
+
+- **openvr:** Check every function-table position the overlay and ocr call ([d6ebb16](https://github.com/kein5/astarot/commit/d6ebb16fed41c3f1626d27df9034c10636c23388))
+- **openvr:** Record pyopenvr's function tables for the crates that call them ([95fe114](https://github.com/kein5/astarot/commit/95fe114616cd7f5f1b1554df87fe0b81cfbbc404))
+
 ## [0.5.1] - 2026-11-18
 
 Changes since [v0.5.0](https://github.com/kein5/astarot/compare/v0.5.0...v0.5.1).
