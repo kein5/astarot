@@ -187,7 +187,7 @@ test("settings keep the selected engine inside the radio row's accessible help",
     const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), s.runtime, {
         "@logics_configs": s.configs, "@utils": {},
         "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
-        "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {}, "./OldWhisperWeights": {},
+        "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {},
         "../_components/credential_pair/CredentialPair": {},
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,

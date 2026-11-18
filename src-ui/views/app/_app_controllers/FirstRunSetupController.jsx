@@ -5,7 +5,6 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useOthers, useTranscription, useSettingValue } from "@logics_configs";
 import { useStore_IsBackendReady, useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
-import { useLocalAsrMigration } from "../../../logics/transcription/useLocalAsrMigration";
 import { useRealtimeASR } from "../../../logics/transcription/useRealtimeASR";
 import { useModelDownloads } from "../../../logics/voice/useModelDownloads";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
@@ -46,7 +45,6 @@ export const FirstRunSetupController = () => {
     const setup = useFirstRunSetup();
     const { currentIsBackendReady } = useStore_IsBackendReady();
     const { currentTelemetryNotice } = useOthers();
-    const { notice: localAsrNotice } = useLocalAsrMigration();
     const { setSelectedTranscriptionEngine } = useTranscription();
     const realtime = useRealtimeASR();
     const downloads = useModelDownloads();
@@ -54,7 +52,7 @@ export const FirstRunSetupController = () => {
     const { state: recognition, engine, server, paths } = useRecognitionState();
 
     // Other first-run notices come first; one dialog at a time.
-    const othersFirst = (currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true) || localAsrNotice === true;
+    const othersFirst = currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true;
     const byItself = ready && !setup.settled && !othersFirst && setupOpensByItself(setup.notice, recognition);
     // Once open by itself it stays open until the user closes it, even when the run makes it ready.
     const [shown, setShown] = useState(false);

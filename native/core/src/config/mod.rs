@@ -7,13 +7,13 @@
 //! - A key this version does not know is not used, but it is written back as the file had it, so
 //!   the setting of a newer version is still there when that version runs again (#560). Keys an
 //!   earlier version saved and this one retired ([`RETIRED_KEYS`]) are dropped.
-//! - The same migrations when the file is read: a removed UI language falls back to English, the
-//!   removed local Whisper engine moves to speech.cpp (with a one-time notice), a saved
-//!   `"bundled"` realtime server selects speech.cpp, saved API URLs that are no longer allowed
-//!   are emptied and reported, the release channel follows the running version, and the
-//!   installer's language marker is applied once. Before a migration rewrites a saved file, a
-//!   copy of what it held (API keys left out) is kept as `config.json.before-migration-<step>`;
-//!   if that copy cannot be written, the saved values are used but the file is not overwritten.
+//! - The same migrations when the file is read: a removed UI language falls back to English,
+//!   saved API URLs that are no longer allowed are emptied and reported, the release channel
+//!   follows the running version, and the installer's language marker is applied once. A saved
+//!   choice of a removed recognition engine (the local Whisper of 0.2 and earlier, Google) loads
+//!   as none, so the user chooses again. Up to 0.5 the Whisper choice moved to speech.cpp with a
+//!   one-time notice (`LOCAL_ASR_MIGRATION`, with a copy `config.json.before-migration-<step>`);
+//!   that migration and its notice went in 0.6.0 (#288).
 //! - A file that is not JSON (or not an object, or not UTF-8) is moved aside as
 //!   `config.json.unreadable-<time>-<random>` and the app starts with defaults. Any other read
 //!   failure keeps the file untouched and blocks saving for the run.
@@ -40,20 +40,25 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
+/// The last step of the local recognition migration of 0.3 to 0.5. This version no longer
+/// migrates (#288), but it still writes this step as `LOCAL_ASR_MIGRATION`: 0.5 and earlier
+/// read it, and without it they would migrate the file again when someone goes back to them.
 pub const LOCAL_ASR_MIGRATION_LATEST: i64 = 2;
 const RETIRED_UI_LANGUAGES: [&str; 3] = ["ko", "zh-Hant", "zh-Hans"];
 /// Settings an earlier version saved that this one retired. They are dropped, where any other
 /// unknown key is kept (#560). These are the keys of the local Whisper engine and its options,
 /// removed with it (#288; `docs/spec/data-and-persistence.md`): every tagged version's settings
 /// (the Python `config.py`, `ManagedProperty` and `ValidatedProperty`, and this schema) were
-/// compared with this schema, and they are the only ones it no longer has. A key retired from
-/// now on goes in this list too, or the file keeps it for ever.
-pub const RETIRED_KEYS: [&str; 5] = [
+/// compared with this schema, and they were the only ones it no longer had. The notice of that
+/// removal went in 0.6.0 (`LOCAL_ASR_NOTICE_PENDING`, #288). A key retired from now on goes in
+/// this list too, or the file keeps it for ever.
+pub const RETIRED_KEYS: [&str; 6] = [
     "WHISPER_WEIGHT_TYPE",
     "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE",
     "SELECTED_TRANSCRIPTION_COMPUTE_TYPE",
     "MIC_NO_REPEAT_NGRAM_SIZE",
     "SPEAKER_NO_REPEAT_NGRAM_SIZE",
+    "LOCAL_ASR_NOTICE_PENDING",
 ];
 const DEBOUNCE: Duration = Duration::from_secs(2);
 const SAVE_RETRY: Duration = Duration::from_secs(30);
@@ -808,18 +813,11 @@ impl Config {
         let result = self.read_file();
         match result {
             Ok(data) => {
-                // A migration rewrites the file below: keep what it held first.
-                let kept = self.keep_before_migration(&data);
                 self.apply_saved(data);
                 // The store takes the file's keys before the file is written without them.
                 self.load_secrets();
                 let mut state = self.state.lock().unwrap();
                 state.loading = false;
-                if kept.is_err() {
-                    // The saved values are used, but the file is not overwritten without its copy.
-                    self.failed(state, "load_failed", false);
-                    return;
-                }
                 state.loaded = true;
                 drop(state);
                 self.save_if_changed();
@@ -898,11 +896,13 @@ impl Config {
             if key == "UI_LANGUAGE" && value.as_str().is_some_and(|v| RETIRED_UI_LANGUAGES.contains(&v)) {
                 continue;
             }
-            if key == "SELECTED_TRANSCRIPTION_ENGINE" && value.as_str() == Some(crate::languages::RETIRED_WHISPER_ENGINE) {
-                continue;
-            }
-            // The retired Google engine loads as none: the user chooses again, as on a first start.
-            if key == "SELECTED_TRANSCRIPTION_ENGINE" && value.as_str() == Some(crate::languages::RETIRED_GOOGLE_ENGINE) {
+            // The retired engines load as none: the user chooses again, as on a first start. Up
+            // to 0.5 a saved Whisper moved to speech.cpp instead (#288).
+            if key == "SELECTED_TRANSCRIPTION_ENGINE"
+                && [crate::languages::RETIRED_WHISPER_ENGINE, crate::languages::RETIRED_GOOGLE_ENGINE]
+                    .iter()
+                    .any(|retired| value.as_str() == Some(retired))
+            {
                 continue;
             }
             let Some(definition) = self.key(key) else {
@@ -925,7 +925,8 @@ impl Config {
             state.invalid_saved_api_urls = invalid_urls;
             state.unknown = unknown;
         }
-        self.migrate_local_asr(&saved);
+        // Written for 0.5 and earlier, which migrate a file without it (`LOCAL_ASR_MIGRATION_LATEST`).
+        self.put_loading("LOCAL_ASR_MIGRATION", json!(LOCAL_ASR_MIGRATION_LATEST));
         self.migrate_usage_presets(&saved);
         let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
         self.put_loading("SELECTED_RELEASE_CHANNEL", json!(channel));
@@ -941,62 +942,6 @@ impl Config {
         if let Ok(stored) = self.check(&state, name, &value) {
             Self::store(&mut state, name, stored);
         }
-    }
-
-    /// Where the file is kept before the migration from `step` rewrites it.
-    pub fn before_migration_path(&self, step: i64) -> PathBuf {
-        self.path().with_file_name(format!("config.json.before-migration-{step}"))
-    }
-
-    /// Before a migration of a saved file, writes `config.json.before-migration-<step>` with what
-    /// the file held, so the settings of the older version can be put back by hand. An existing
-    /// copy is kept (it is the older one). API keys are left out: they move to their own store,
-    /// and a copy would keep them in plain text. Nothing to do for a file already up to date.
-    fn keep_before_migration(&self, saved: &Map<String, Value>) -> io::Result<()> {
-        let step = migration_step(saved);
-        if step >= LOCAL_ASR_MIGRATION_LATEST {
-            return Ok(());
-        }
-        let mut kept = saved.clone();
-        kept.retain(|key, _| !secrets::SECRET_SETTINGS.contains(&key.as_str()));
-        let path = self.before_migration_path(step);
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-        let mut file = match options.open(&path) {
-            Ok(file) => file,
-            // Only a file is a copy; anything else in its place is not.
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                return if fs::symlink_metadata(&path)?.is_file() { Ok(()) } else { Err(error) };
-            }
-            Err(error) => return Err(error),
-        };
-        let written = file.write_all(to_python_json(&Value::Object(kept)).as_bytes()).and_then(|()| file.sync_all());
-        if written.is_err() {
-            // A partial copy is not one: the next start tries again.
-            drop(file);
-            let _ = fs::remove_file(&path);
-        }
-        written
-    }
-
-    /// `_migrateLocalASR`: brings the local recognition settings of an older version up to date, once.
-    fn migrate_local_asr(&self, saved: &Map<String, Value>) {
-        let step = migration_step(saved);
-        if step < 1 && self.get("REALTIME_ASR_SETTINGS")["server"] == "bundled" {
-            self.set_loading("SELECTED_TRANSCRIPTION_ENGINE", json!(crate::languages::LOCAL_SPEECH_ENGINE));
-        }
-        if step < 2 && saved.get("SELECTED_TRANSCRIPTION_ENGINE").and_then(Value::as_str) == Some(crate::languages::RETIRED_WHISPER_ENGINE) {
-            self.set_loading("SELECTED_TRANSCRIPTION_ENGINE", json!(crate::languages::LOCAL_SPEECH_ENGINE));
-            if self.env.platform == Platform::Windows {
-                let mut realtime = self.get("REALTIME_ASR_SETTINGS");
-                realtime["server"] = json!("bundled");
-                self.set_loading("REALTIME_ASR_SETTINGS", realtime);
-            }
-            self.set_loading("LOCAL_ASR_NOTICE_PENDING", json!(true));
-        }
-        self.set_loading("LOCAL_ASR_MIGRATION", json!(LOCAL_ASR_MIGRATION_LATEST));
     }
 
     /// The usage presets came in a later version (#554). Someone who updates keeps seeing every
@@ -1056,16 +1001,6 @@ impl Drop for Config {
         }
         self.wake.notify_all();
     }
-}
-
-/// The local recognition migration a saved file has had. A new install (nothing saved) needs none.
-fn migration_step(saved: &Map<String, Value>) -> i64 {
-    let step = if saved.is_empty() {
-        Value::from(LOCAL_ASR_MIGRATION_LATEST)
-    } else {
-        saved.get("LOCAL_ASR_MIGRATION").cloned().unwrap_or(Value::from(0))
-    };
-    step.as_i64().filter(|s| step.is_i64() && (0..=LOCAL_ASR_MIGRATION_LATEST).contains(s)).unwrap_or(0)
 }
 
 fn local_stamp() -> String {

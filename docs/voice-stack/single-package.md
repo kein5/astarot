@@ -16,7 +16,7 @@ Issue #288「CPU/CUDA 2バリアント解消」の要件、決定、受け入れ
 |---|---|---|
 | Windows の配布物が単一パッケージで、CPU と CUDA の区別がない | 満たす（次の版から） | 0.5.1 の `VRCT-VOX.zip` と `VRCT-VOX_cuda.zip` は同じ 729 個のファイル（展開して 102,141,609 バイト）でした。中身が違うのは別々にビルドした `vrct-vox.exe` と `_internal/build/vrct-rvc-worker.exe` の2つで、大きさは同じでした。判断 3 で CUDA 版をやめ、リリースの工程は `VRCT-VOX.zip` だけを作ります（「C. パッケージの一本化」） |
 | NVIDIA、AMD、Intel の各 GPU で、音声認識とローカル翻訳の GPU 実行を実測 | 未実施 | 2026-11-15 の決定で 0.4.0 の前提から外した。計画は「GPU ベンダーの実測の計画」。ローカル翻訳は GPU で動かす手段がまだない（判断 5） |
-| 既存利用者の設定が引き継がれ、faster-whisper の廃止の案内がある | 満たす（0.3.0 から） | 「既存の利用者への配慮」 |
+| 既存利用者の設定が引き継がれ、faster-whisper の廃止の案内がある | 0.3.0 から 0.5 系まで満たした。0.6.0 で外す（判断 4） | 「既存の利用者への配慮」 |
 | 同梱物に CTranslate2 と CUDA のライブラリがない | 満たす（0.5.0 から） | 0.5.0 で Python を配布物から外した。2026-11-18 から、配布物の検査（`tools/distribution_policy.py`）が CTranslate2 と CUDA の数学ライブラリを見つけると候補を止める |
 
 ## A. 音声認識の棚卸し（faster-whisper と speech.cpp）
@@ -42,20 +42,26 @@ speech.cpp にだけある機能は語彙の指定と話者の区別です。
 
 ## 既存の利用者への配慮
 
-設定の引き継ぎ、お知らせ、古い Whisper の重みの削除は 0.3.0 から入っていて、0.5.0 で中核に移しました。
+設定の引き継ぎ、お知らせ、古い Whisper の重みの削除は 0.3.0 から 0.5 系まで入っていました（0.5.0 で中核に移しました）。判断 4 により 0.6.0 で外しました。
 
-- 保存した設定の `LOCAL_ASR_MIGRATION` が 2 より小さいとき、設定を一度だけ引き継ぎます（`native/core/src/config/mod.rs` の `migrate_local_asr`）。
-  - エンジンが `Whisper` なら `SpeechCpp`（ローカル）にします。Windows ではリアルタイム認識の接続先を同梱のサーバにします。お知らせの印（`LOCAL_ASR_NOTICE_PENDING`）を立てます。
-  - 引き継ぐ前の設定を `config.json.before-migration-<段階>` に写します。API キーは写しません。
-  - 保存した段階で判断するので、0.2 以前から 0.5 系へ直接更新しても同じように引き継ぎます。
-  - 試験は `native/core/tests/lifecycle.rs` と、Python の結果と照らし合わせる `native/core/tests/config_reference.rs`（Windows と Linux）です。
-- 起動時に一度だけお知らせを出します（`src-ui/views/app/_app_controllers/LocalAsrNoticeController.jsx`）。Whisper がなくなったことと、必要なモデル（音声認識と VAD）が取得済みかを示し、設定を開くボタンを置きます。モデルは取得の画面でライセンスと大きさを見せ、同意を得てから取ります。お知らせから自動では取得しません。
-- 古い Whisper の重みは、`<データ>/weights/whisper/` の下の 9 種の名前のフォルダだけを数え、利用者が頼んだときだけ消します（`native/core/src/controller/files.rs`、設定の `OldWhisperWeights.jsx`）。リンクとジャンクションはたどりません。設定の「音声認識（ASR）」とお知らせの両方から消せます。
+0.5 系までの形は次のとおりでした。
+
+- 保存した設定の `LOCAL_ASR_MIGRATION` が 2 より小さいとき、設定を一度だけ引き継ぎました。エンジンが `Whisper` なら `SpeechCpp`（ローカル）にし、Windows ではリアルタイム認識の接続先を同梱のサーバにして、お知らせの印（`LOCAL_ASR_NOTICE_PENDING`）を立てました。引き継ぐ前の設定は `config.json.before-migration-<段階>` に写しました。
+- 起動時に一度だけお知らせを出しました（`LocalAsrNoticeController.jsx`）。Whisper がなくなったことと、必要なモデル（音声認識と VAD）が取得済みかを示し、設定を開くボタンを置いていました。
+- 古い Whisper の重み（`<データ>/weights/whisper/` の下の 9 種の名前のフォルダ）を、利用者が頼んだときだけ消せました（設定の `OldWhisperWeights.jsx` とお知らせ）。
+
+0.6.0 からは次のとおりです。
+
+- 引き継ぎをしません。保存された `Whisper` は、外した Google と同じく未選択として読み込みます。利用者は最初の起動と同じくエンジンを選び直します（エンジンを選んでいないと初期設定の画面が開きます）。0.2 以前から 0.6.0 へ直接更新した利用者は、エンジンが引き継がれません。
+- `LOCAL_ASR_MIGRATION` は `2` を書き続けます。0.5 以前の版へ戻したときに、その版が引き継ぎをやり直さないためです。`LOCAL_ASR_NOTICE_PENDING` は引退したキーとして捨てます。引き継ぐ前の写しは書きません。
+- お知らせ、古い重みの欄、4 つのエンドポイント（`/get/data/local_asr_notice`、`/set/disable/local_asr_notice`、`/get/data/old_whisper_weights`、`/run/delete_old_whisper_weights`）はありません。古い重みのフォルダには触れません。
+- 試験は `native/core/tests/lifecycle.rs` の `a_saved_whisper_choice_loads_as_none_without_a_notice` と `no_copy_before_a_migration_is_written_any_more`、`settings_endpoints.rs` の `the_old_whisper_weights_are_left_alone`、Python の結果との違いを決める `config_reference.rs` です。
+- マニュアルの「以前の版でWhisperを使っていた場合」（`site/*/features/transcription.md`）は、0.6.0 のリリースに合わせてサイトの PR で直します。
+
+ほかの利用者への配慮は次のとおりです。
+
 - 旧 CTranslate2 の翻訳の重みは、0.5.0 から起動の後に知らせずに消します（core-integration の「決まったこと」）。知らせるかどうかは core-integration の 26 で未決です。
-- 廃止は 0.3.0 のリリースノートの Breaking Changes と、マニュアルの「以前の版でWhisperを使っていた場合」（`site/ja/features/transcription.md`）で知らせています。
 - CUDA 版を入れていた利用者は、0.5.0 への更新で `_internal` が置き換わり、`_internal/nvidia` が消えます。次の更新からは標準版として更新します（core-integration の 20）。
-
-#278 の区切り 3-2 には、「ローカルの音声認識への移行の知らせ」を中核を通して確かめる試験が入っています。お知らせや引き継ぎの動きを変えるときは #278 と合わせます。この文書の作業では引き継ぎのコードを変えていません。
 
 ## C. パッケージの一本化の計画
 

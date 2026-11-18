@@ -195,6 +195,8 @@ def test_uv_runs_isolated_and_only_from_the_hash_locks(world):
     assert venv[1:5] == ['venv', '--no-config', '--managed-python', '--clear']
     assert '--require-hashes' in first and first[first.index('--index-url') + 1] == 'https://index'
     assert '--require-hashes' in second and '--index-url' not in second
+    # A lock is installed as it is; uv resolves nothing the lock leaves out.
+    assert '--no-deps' in first and '--no-deps' in second
     assert check[1:] == ['-c', rs.CUDA_CHECK]
     folder = world.setup.folder(world.runtime)
     assert world.env['UV_CACHE_DIR'] == str(folder / '.cache')
@@ -397,6 +399,16 @@ def test_each_platform_installs_from_its_own_hash_locked_files(platform):
             entries = re.split(r'\n(?=[A-Za-z0-9])', (ROOT / path).read_text(encoding='utf-8'))
             entries = [entry for entry in entries if not entry.startswith('#')]
             assert len(entries) > 5 and all('--hash=sha256:' in entry or '#sha256=' in entry for entry in entries)
+
+
+def test_seed_vc_runs_on_the_python_the_repository_pins(platform):
+    # mise.toml sets the Python of the repository; the runtime and its PyTorch wheels follow it.
+    pinned = re.search(r'^python\s*=\s*"(\d+)\.(\d+)\.', (ROOT / 'mise.toml').read_text(encoding='utf-8'), re.M)
+    seed = {runtime.id: runtime for runtime in rs.runtimes()}['seed-vc']
+    assert seed.python == f'{pinned[1]}.{pinned[2]}'
+    for path, _ in seed.locks:
+        tags = re.findall(r'^torch\w* @ \S+?-(cp\d+)-cp\d+-', (ROOT / path).read_text(encoding='utf-8'), re.M)
+        assert len(tags) == 3 and set(tags) == {f'cp{pinned[1]}{pinned[2]}'}
 
 
 def test_the_pinned_uv_is_the_release_file_of_each_platform(platform):

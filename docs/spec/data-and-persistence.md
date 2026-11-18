@@ -37,16 +37,18 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ### ローカル音声認識の移行
 
-`LOCAL_ASR_MIGRATION`は、ローカル音声認識の移行をどこまで済ませたかを表す整数で、`config.json`に保存する。新規の設定は最新の段階（いまは2）から始まり、何も移さない。段階が足りない保存ファイルは、読み込みの最後（`Config._migrateLocalASR`）に次を1回ずつ行い、最新の段階を記録する。
+0.6.0 から、ローカル音声認識の移行は行わない（#288 の判断4）。保存済みの`SELECTED_TRANSCRIPTION_ENGINE`が削除した`"Whisper"`なら、外した`"Google"`と同じく未選択として読み込む。利用者は最初の起動と同じくエンジンを選び直す。`REALTIME_ASR_SETTINGS`は保存したとおりに読む。モデルは取得しない。
 
-| 段階 | 行うこと |
+`LOCAL_ASR_MIGRATION`（整数）は`config.json`に`2`を書き続ける。0.5 以前の版はこの値で移行を済ませたかを判断するので、その版へ戻したときに移行をやり直させないためである。いまの版はこの値を読まない。
+
+0.3 から 0.5 までは、段階が足りない保存ファイルを読み込みの最後に移していた（`Config._migrateLocalASR`。Python の版と Rust の中核の 0.5 系）。
+
+| 段階 | 0.5 まで行っていたこと |
 |---|---|
-| 1 | Windows のメインスイッチは、以前はリアルタイム音声認識のサーバーの選択に従い、いまは音声認識エンジンに従う。保存済みの`REALTIME_ASR_SETTINGS.server`が`"bundled"`なら、OSによらず音声認識エンジンを`SpeechCpp`にする。スイッチはそれまでと同じ経路を使う |
-| 2 | 保存済みの`SELECTED_TRANSCRIPTION_ENGINE`が削除した`"Whisper"`なら、`SpeechCpp`にする。Windows では`REALTIME_ASR_SETTINGS.server`を`"bundled"`にし、ほかの項目は保つ。Linux のスイッチはもともとリアルタイムのサーバーを使っていたので、サーバーの選択は変えない。あわせて`LOCAL_ASR_NOTICE_PENDING`を`true`にする |
+| 1 | 保存済みの`REALTIME_ASR_SETTINGS.server`が`"bundled"`なら、音声認識エンジンを`SpeechCpp`にする |
+| 2 | 保存済みの`"Whisper"`を`SpeechCpp`にする。Windows では`REALTIME_ASR_SETTINGS.server`を`"bundled"`にする。あわせて`LOCAL_ASR_NOTICE_PENDING`を`true`にし、メイン画面に「ローカルの音声認識は speech.cpp に変わりました」のお知らせを1回出す（`/get/data/local_asr_notice`、`/set/disable/local_asr_notice`） |
 
-保存済みの`"Whisper"`は、使えないエンジン名として error.log に残さずに読み飛ばし、上の段階2が移す。モデルの取得はどの段階でも行わない。
-
-`LOCAL_ASR_NOTICE_PENDING`（真偽値、既定は`false`、保存する）は、移行のお知らせをまだ出していないことを表す。真の間、メイン画面は「ローカルの音声認識は speech.cpp に変わりました」のお知らせを出す（`LocalAsrNoticeController.jsx`）。お知らせは、Whisper が含まれなくなりローカル（speech.cpp）へ移したこと、同梱の ASR サーバーには認識モデルと VAD モデルが要ることと、それぞれが`asr`プロファイルに設定済みかどうか、設定でライセンスとサイズを確かめて同意するまで何も取得しないことを伝える。「音声認識（ASR）」の設定を開くボタンがあり、古い Whisper の重みが残っていれば、その合計の容量と、確認してから削除するボタンを出す。閉じる、Escape、設定を開くのどれで閉じても`/set/disable/local_asr_notice`を送り、以後は出さない。UIは`/get/data/local_asr_notice`で状態を読む。
+移す前の内容は`config.json.before-migration-<段階>`に残していた。0.6.0 はこの写しを書かず、前の版が残した写しにも触れない。`LOCAL_ASR_NOTICE_PENDING`は引退したキーとして読み込みのときに捨てる。お知らせとその2つのエンドポイントはない（404）。
 
 `VIRTUAL_MIC_NOTICE_PENDING`（真偽値、既定は`true`、保存する）は、仮想マイクの案内（#321）を起動時に自分で開いてよいことを表す。Windowsで仮想ケーブルが1つも見つからないときだけ開く。「完了」か「今後は自動で表示しない」で`/set/disable/virtual_mic_notice`を送り、偽にする。偽でも「テキスト読み上げ（TTS）」の設定から開ける。流れは[UC-17](use-cases.md#uc-17-仮想マイクを用意して確かめるwindows)にある。
 
@@ -54,12 +56,9 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ### 古い Whisper の重み
 
-以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（`models/transcription/old_whisper_weights.py`の`WHISPER_WEIGHT_NAMES`）。いまの版は読まない。
+0.2 以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（`models/transcription/old_whisper_weights.py`の`WHISPER_WEIGHT_NAMES`）。いまの版は読まず、消しもしない。
 
-- `/get/data/old_whisper_weights`は`{"total_bytes": 整数, "folders": [名前, …]}`を返す。容量は、リンクをたどらずに数えた通常のファイルの合計である。
-- `/run/delete_old_whisper_weights`は、上の名前のフォルダーだけを消し、`{"total_bytes", "folders", "freed_bytes", "failed"}`を返す。`total_bytes`と`folders`は消した後に残っているもの、`freed_bytes`は空いた容量、`failed`は消せなかった名前（ほかのプログラムがファイルを開いているときなど）である。シンボリックリンクやジャンクションの先はたどらない。`whisper`フォルダーや名前のフォルダーそのものがリンクなら消さない。知らないファイルは残し、`whisper`フォルダーは空になったときだけ消す。
-- 読み取りに失敗すると500の`{"error_code": "old_whisper_weights_unreadable"}`、削除に失敗すると500の`{"error_code": "old_whisper_weights_delete_failed"}`を返す。
-- 削除は利用者の操作だけで行う。設定の「音声認識（ASR）」は、重みが残っている間「古い Whisper モデル」の欄に合計の容量と削除のボタンを出し、その場で確認してから送る。移行のお知らせにも同じ欄を出す。
+0.3 から 0.5 までは、設定の「音声認識（ASR）」と移行のお知らせに「古い Whisper モデル」の欄があり、合計の容量を見せて、利用者が確かめてから消せた（`/get/data/old_whisper_weights`、`/run/delete_old_whisper_weights`）。0.6.0 でこの欄と2つのエンドポイントを外した（#288 の判断4）。残った重みは、利用者が`weights/whisper`のフォルダーを手で消せる。
 
 ### 音声認識の数値設定
 
@@ -285,7 +284,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 - 単純な設定プロパティは、未選択を表すモデル名と音声認識エンジンを除き`null`を受け付けない。APIキーやホットキーの辞書内にある未設定の`null`は維持する。数値のプロパティとオーバーレイの数値設定は`NaN`・無限大（`1e999`などの桁あふれも含む）を保存前に拒否する。不正な保存値は既定値へ戻す。メッセージ欄の比率と大小字幕の設定変更では400の`VALIDATION_CONFIG_VALUE_INVALID`を返し、`data`には保持した設定値を入れる。
 - 読み込みでは、各キーを検証してから設定する。知らないキーは使わないが、ファイルにあったままの値を保存する設定の後ろに書き戻す。新しい版の設定を古い版で開いて保存しても、新しい版に戻ったときにその設定が残るようにするためである（#560）。以前の版が保存し、今の版で廃止したキー（`native/core/src/config/mod.rs`の`RETIRED_KEYS`。#288でローカルのWhisperとともに削除した5つ）だけは捨てる。キーを廃止するときは、このリストにも加える。検証に通らないキーは既定値のままにしてerror.logに残す。ただしマイクとスピーカーの選択（`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`）は、読み込む時点でデバイスの一覧がまだ取れていないため、保存値をそのまま受け取る。一覧が取れたあと、サイドカーがデバイスの有無を確かめ、無ければ既定のデバイスに戻す。JSONとして読めない、またはオブジェクトでないときは、そのファイルを名前の重複しない`config.json.unreadable-<日時>-<乱数>`に移して残し、既定値で起動する。UIは`/run/config_file_unreadable`を受けて、既定値で起動したことと残したファイルの場所を知らせる。
 - メモリー上の初期値をすべて用意してからログ用ディレクトリを作る。ログ用ディレクトリを作れなくても、設定の初期化は完了させる。それ以外の初期化が途中で失敗したときは、不完全なインスタンスを公開せず、設定の読み込みも保存も行わない。読み込み中は保存せず、全項目の適用と移行が終わってから1回だけ保存する。ただし、書く内容がファイルと同じなら書かない（キーの順は比べない。Unixでは所有者のほかにも読めるファイルなら書き直す）。Python版は起動のたびに書いていた（#560）。読み取り権限の不足や退避の失敗では元のファイルを残し、[保存の失敗通知](cross-cutting.md#サイドカーでの保存)を出して以後の保存を止める。
-- 版番号はない。ローカル音声認識の移行だけは、済ませた段階を`LOCAL_ASR_MIGRATION`に記録する（[ローカル音声認識の移行](#ローカル音声認識の移行)）。用途（`USAGE_PRESETS`）は段階を記録しない。保存した設定があってこのキーがなければ、前の版から更新したと見なして`["all"]`にする。読めないファイルは何も保存していないのと同じに扱うので、新しく入れたときの`["basic"]`になる。移行する前の内容は、APIキーを除いて`config.json.before-migration-<段階>`に残す（[失敗したときに保つもの](failure-recovery.md#設定)）。入れ子の設定のうち`SPEECH_SERVER_SETTINGS`と`REALTIME_ASR_SETTINGS`は`"version": 1`を持つ。
+- 版番号はない。0.5 まではローカル音声認識の移行の段階を`LOCAL_ASR_MIGRATION`に記録して使っていた。0.6.0 は移行を行わず、0.5 以前の版のために`2`を書くだけである（[ローカル音声認識の移行](#ローカル音声認識の移行)）。用途（`USAGE_PRESETS`）は段階を記録しない。保存した設定があってこのキーがなければ、前の版から更新したと見なして`["all"]`にする。読めないファイルは何も保存していないのと同じに扱うので、新しく入れたときの`["basic"]`になる。0.5 までは移行する前の内容を`config.json.before-migration-<段階>`に残していた（[失敗したときに保つもの](failure-recovery.md#設定)）。入れ子の設定のうち`SPEECH_SERVER_SETTINGS`と`REALTIME_ASR_SETTINGS`は`"version": 1`を持つ。
 - `OVERLAY_VR_LAUNCHER_SETTINGS`の`ui_scaling`は、ランチャーの帯が952px幅だとしたときの横幅（m）である。帯が880px幅になっても意味を変えない。版番号がなく移行済みかどうかを区別できないので保存値は書き換えず、実際の横幅を880/952倍して求める。保存値のまま、ボタンの大きさが変わらない。
 - 保存済みの言語・翻訳エンジンの辞書が壊れているときは、不足・不正なタブや枠を既定値で補い、正常な部分は読み込む。余分なキーは捨てる。実行中の更新に対する構造の検証とは区別し、壊れた辞書で起動を妨げない。
 - 書き込みは[横断的な振る舞い](cross-cutting.md#サイドカーでの保存)のとおり、2秒の遅延、0600の一時ファイル、`fsync`、置き換えの順に行う。
