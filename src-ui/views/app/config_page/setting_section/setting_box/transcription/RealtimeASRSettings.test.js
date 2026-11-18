@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { hooks, loadModule, find, stubGlobals } from "../../../../../../logics/test/hookHarness.js";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
+import * as vocabularyTerms from "../../../../../../logics/transcription/vocabularyTerms.ts";
 
 async function fixture(context) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -40,6 +41,8 @@ async function fixture(context) {
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },
+        "./VocabularyBulk.tsx": { VocabularyBulk: "vocabulary-bulk" },
+        "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
     const { SaveBar } = await loadModule(new URL("../../../topbar/Topbar.jsx", import.meta.url), barRuntime, {
         "@logics_common": {}, "../../../../logics/voice/saveBar": saveBar, "../../others/stop_actions/StopActions": {},
@@ -93,6 +96,31 @@ test("realtime drafts register and unregister with the shared save bar, includin
     assert.deepEqual(s.entries(), []);
     s.barRuntime.unmount();
     assert.equal(s.listeners.length, 0);
+});
+
+test("terms added together join the draft and the save bar like one added term", async context => {
+    // #446: the bulk add hands the whole list to the form; nothing is saved until the bar saves.
+    const s = await fixture(context);
+    let tree = s.render();
+    const bulk = find(tree, node => node.type === "vocabulary-bulk");
+    assert.deepEqual(bulk.props.terms, []);
+    bulk.props.onTerms(["VRChat=ブイアールチャット", "Midnight Rooftop"]);
+    tree = s.render();
+    assert.deepEqual(find(tree, node => node.type === "vocabulary-bulk").props.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
+    assert.deepEqual(s.entries()[0].changes, ["realtime.vocabulary_user"]);
+    assert.deepEqual(s.writes(), [], "adding never submits");
+    // The single add takes an entry in the canonical form and refuses one already listed.
+    const input = () => find(s.render(), node => node.type === "input" && node.props.maxLength === 320).props;
+    const add = () => find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add").props;
+    input().onChange({ target: { value: "vrchat = ぶいちゃ" } });
+    assert.equal(add().disabled, true, "the written form is listed already");
+    input().onChange({ target: { value: " 猫丸 = ねこまる " } });
+    add().onClick();
+    assert.deepEqual(find(s.render(), node => node.type === "vocabulary-bulk").props.terms,
+        ["VRChat=ブイアールチャット", "Midnight Rooftop", "猫丸=ねこまる"]);
+    // The form's listeners go while the window stub is still there.
+    s.runtime.unmount();
+    s.barRuntime.unmount();
 });
 
 test("the shared leave guard blocks category navigation until discard; keep editing preserves the draft", async context => {
