@@ -12,13 +12,13 @@
 
 ## 現状の量
 
-第 4 段の 1 回目（設定の一覧と、それを読むフック）を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 5 段と第 6 段の 1 回目（共通の部品、小さな窓、VR パネル）を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 4 本、111KB | 143 本、570KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 174 本、887KB | 34 本、95KB（うち vanilla-extract の `.css.ts` が 15 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 191 本、1.2MB | 0 本 |
+| `src-ui/logics`（試験を除く） | 3 本、105KB | 147 本、594KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 151 本、771KB | 59 本、247KB（うち vanilla-extract の `.css.ts` が 16 本） |
+| 試験（`*.test.js` と `src-ui/logics/test/`） | 193 本、1.2MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
@@ -34,8 +34,8 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 2 | データ層の根（ストアと IPC） | 済み |
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch` は済み。`useReceiveRoutes`、`_useBackendErrorHandling`、`useHotkeys` が残り |
-| 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 4 本のうち 3 本は第 3 段で済み。`useSettingsDraft` が残り |
-| 6 | `views` | 未着手 |
+| 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）は済み。`app` が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -103,7 +103,9 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 
 ### 第 5 段：`logics` の中の JSX
 
-`common/MessageActions`、`common/TranslatedNotice`、`common/useIsVrctAvailable` は、第 3 段で移しました（`useIsVrctAvailable` は JSX を含まないので `.ts`）。残りは `voice/useSettingsDraft.jsx` です。設定画面のフォームが使う汎用のフックなので、下書きの型を引数に取る形にします。
+`common/MessageActions`、`common/TranslatedNotice`、`common/useIsVrctAvailable` は、第 3 段で移しました（`useIsVrctAvailable` は JSX を含まないので `.ts`）。
+
+`voice/useSettingsDraft` は第 6 段の 1 回目と同じ PR で移しました。設定画面のフォームが使う汎用のフックで、下書きの型を引数（`T`）に取ります。下書き、`canSave`、`pending`、`savedFromResponse` が同じ型を使います。書き込みが送る値は下書きか、`patch` のときは変わったフィールドだけです（`DraftWriteValue<T>`）。
 
 ### 第 6 段：`views`
 
@@ -113,6 +115,27 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 2. `quick_chat`、`caption_overlay`、`companion_handle`、`companion_panel`
 3. `vr`
 4. `app`。最も大きい範囲なので、設定画面の `setting_box` は区画ごとに分けて移します。
+
+1 から 3 は済みました（`theme`、`companion_handle`、`companion_panel` は前から TypeScript でした）。
+
+- 部品ごとに props の型を置きました。
+- `caption_overlay` はネイティブのコマンドから受け取る字幕（`CaptionSnapshot`、`captionOverlay/lines.ts`）の形を確かめてから描きます。形の合わない字幕は描かず、中身を含まない警告だけを出します。
+- VR の設定の窓は AI の翻訳のモデルのフィールドを、名前の文字列で引く代わりに小さな関数で読みます。VR パネルが送る操作を確かめる試験がソースの名前を拾うので、名前は組み立てずに書いたままにしています。
+- 型がなかったころに `views` の TypeScript（`CompanionController.tsx`、`ExperimentalFeatures.tsx`、`UsagePresetSelector.tsx`）が書いていた `as { ... }` は外しました。
+
+`vr` の次の 3 本は JavaScript のままです。
+
+- `VrApp.jsx`: メインウィンドウから届く状態をそのまま atom に書き込む受け取り口（`VrStateReceiver`）を含みます。`useReceiveRoutes` と同じく、受け取る値をどこまで実行時に確かめるかが決まってから移します。
+- `VrLogWindow.jsx`: `LogBox`（`app/main_page`、JavaScript）に `savedView` を渡します。`LogBox` の推論された型では渡せないので、`main_page` と一緒に移します。
+- `VrIoFlowWindow.jsx`: `IoFlowView`（`app/io_flow`、JavaScript）を使います。`io_flow` のビューに型を付けるには、フローの図の節点（`FlowNode`、`flow/flowGraph.ts`）を種類ごとに分けた型にする作業が要ります。そのため `io_flow` と一緒に移します。
+
+`app` は次の順に区画ごとの PR で移します。
+
+1. `app/others` と `app` の入口
+2. `app/_app_controllers`
+3. `app/main_page`（`VrLogWindow` も）
+4. `app/io_flow`（`VrIoFlowWindow` と、`FlowNode` の型の分割も）
+5. `app/config_page`。`setting_box` は区画ごとに分けます。
 
 ### 第 7 段：試験とハーネス
 
@@ -137,9 +160,11 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 同じ理由で、設定の一覧（`ui_config_setter.ts`）に 2 か所の宣言があります。どちらも `SETTINGS_ARRAY` の項目からループで作るフィールドや atom の型で、TypeScript はその名前を追えません。
   - `buildCategoryApiFromSettings` のオーバーロードは、設定のフックが返すフィールドが `CategoryApi` のとおりであることを宣言します。フィールドを作る `useSettingsLogics` と、型を組み立てる `CategoryApi` は同じ項目から名前を作ります。
   - `useSettingValue` のオーバーロードは、設定の atom の値が `SettingValues` の型であることを宣言します。atom は `satisfies` で確かめた既定値から始まり、その設定のフックだけが書き込みます。
-- これ以外の場所では宣言を増やしません。同じ形が要るときは `field()` か、この 2 つの型（`CategoryApi` と `SettingValues`）を使います。
+- 計算したキーについては、これ以外の場所で宣言を増やしません。同じ形が要るときは `field()` か、この 2 つの型（`CategoryApi` と `SettingValues`）を使います。
+- 下書きのフック（`useSettingsDraft.tsx`）の `answeredValue` も確かめられない宣言です。書き込みにバックエンドが答えた値を、保存した値と同じ型（`T`）として受け取ります（`savedFromResponse` があればその戻り値）。atom の値と同じく、宣言だけで確かめません。
+- `src-ui/cssProperties.d.ts` は、React の `CSSProperties` に `--` で始まる名前を足しています。インラインの style で CSS のカスタムプロパティ（`--checkbox-size` など）を渡すときに、`as CSSProperties` は要りません。
 - バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。値を確かめるのは、応答を受け取ってフックに渡す側（`useReceiveRoutes`）です。そこが JavaScript のうちは、確かめずに渡ります。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
-- 設定のフックは型の付いたフィールドを返します。`views` の一部（`CompanionController.tsx`、`ExperimentalFeatures.tsx`、`UsagePresetSelector.tsx`）には、型がなかったころの `as { ... }` が残っています。外すのは `views` を移すとき（第 6 段）にします。
+- 設定のフックは型の付いたフィールドを返します。`views` の TypeScript が型のなかったころに書いた `as { ... }` は、第 6 段で外しました。
 
 ## 移すときの手順
 

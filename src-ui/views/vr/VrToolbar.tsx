@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -15,7 +16,8 @@ const PATHS = {
     unlock: "M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7-1",
     opacity: "M4 4h16v16H4zM4 12h16M12 4v16",
 };
-const ANCHORS = [["Playspace", "anchor_playspace", "world"], ["LeftHand", "anchor_left_hand", "hand"],
+type IconName = keyof typeof PATHS;
+const ANCHORS: readonly [string, string, IconName][] = [["Playspace", "anchor_playspace", "world"], ["LeftHand", "anchor_left_hand", "hand"],
     ["RightHand", "anchor_right_hand", "hand"], ["HMD", "anchor_head", "head"]];
 const OPACITY_STEPS = [1.0, 0.8, 0.6, 0.4];
 const FONT_SIZE = { min: 14, max: 28 };
@@ -69,7 +71,21 @@ export const VrToolbar = () => {
     </div>;
 };
 
-const Button = ({ children, className, label, tipTitle = label, tipState, tipHelp, selected, state, disabled, onClick }) => {
+interface ButtonProps {
+    children?: ReactNode;
+    className?: string;
+    label: string;
+    tipTitle?: string;
+    tipState?: string;
+    tipHelp?: string;
+    selected?: boolean;
+    // The setting the button changes; pending while the change is not confirmed.
+    state?: { state?: string };
+    disabled?: boolean;
+    onClick: () => void;
+}
+
+const Button = ({ children, className, label, tipTitle = label, tipState, tipHelp, selected, state, disabled, onClick }: ButtonProps) => {
     const { t } = useI18n();
     const busy = state?.state === "pending";
     return <VrTooltipButton className={clsx(shared.button, styles.button, className, {
@@ -79,5 +95,5 @@ const Button = ({ children, className, label, tipTitle = label, tipState, tipHel
         tipHelp={busy ? t("vr_panel.tooltip.busy_help") : tipHelp}
         onClick={() => { if (!busy && !disabled) onClick(); }}>{children}</VrTooltipButton>;
 };
-const Icon = ({ name, right = false }) => <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true"
+const Icon = ({ name, right = false }: { name: IconName; right?: boolean }) => <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true"
     style={right ? { transform: "scaleX(-1)" } : undefined}><path d={PATHS[name]} /></svg>;
