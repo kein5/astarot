@@ -1,6 +1,6 @@
-# VR and overlay
+# Captions and VR
 
-You can read translations and captions inside VR or on top of your desktop. The settings are under Settings → "VR".
+You can read translations and captions inside VR or on top of your desktop. The settings are under Settings → "Captions and VR".
 
 | Feature | Use it to | Needs |
 |---|---|---|
@@ -12,7 +12,7 @@ You can read translations and captions inside VR or on top of your desktop. The 
 
 Turn on "Subtitle overlay" in "Quick settings" at the top right of the main screen to show translations and captions in your VR view. It comes from upstream VRCT.
 
-![Settings → VR](/screenshots/en/vr.webp)
+![Settings → Captions and VR](/screenshots/en/vr.webp)
 
 - Switch between "Single line" and "Multiple lines".
 - Adjust position and rotation, opacity, size, display time and fade-out time.
@@ -22,13 +22,13 @@ Turn on "Subtitle overlay" in "Quick settings" at the top right of the main scre
 
 ## Show captions over the screen (desktop caption overlay)
 
-Turn on "Show captions on the desktop" under Settings → "VR" → "Desktop caption overlay". The lines of the message log are drawn above other windows.
+Turn on "Show captions on the desktop" under Settings → "Captions and VR" → "Desktop caption overlay". The lines of the message log are drawn above other windows.
 
 ![Captions at the bottom of the screen. Two other speakers are marked A and B, and your own words are blue](/screenshots/en/captions-on-screen.webp)
 
 The background is a drawing for this page. In use, the captions sit above whatever is on your screen, such as VRChat.
 
-![The desktop caption overlay section of Settings → VR](/screenshots/en/desktop-captions.webp)
+![The desktop caption overlay section of Settings → Captions and VR](/screenshots/en/desktop-captions.webp)
 
 - Your own words (microphone or typing) are blue and the other side's (speakers or chat reading) are purple, the same colours as the message log. The coloured bar beside each line sits at the right for your own words and at the left for the other side.
 - When [telling speakers apart](transcription#tell-speakers-apart) is in use, a game audio caption starts with a letter for who spoke (A, B, …) and each person gets their own colour (purple, amber, green, rose, then the same colours again from the fifth person).

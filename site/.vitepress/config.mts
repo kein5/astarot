@@ -71,7 +71,7 @@ function sidebarJa(): DefaultTheme.SidebarItem[] {
     {
       text: '画面と連携',
       items: [
-        { text: 'VRとオーバーレイ', link: '/ja/features/vr' },
+        { text: '字幕とVR', link: '/ja/features/vr' },
         { text: '入力と出力', link: '/ja/features/io-flow' },
         { text: '入力の小窓とホットキー', link: '/ja/features/quick-chat' },
         { text: 'OBSとWebSocket', link: '/ja/features/integrations' },
@@ -124,7 +124,7 @@ function sidebarEn(): DefaultTheme.SidebarItem[] {
     {
       text: 'Screens and integrations',
       items: [
-        { text: 'VR and overlay', link: '/en/features/vr' },
+        { text: 'Captions and VR', link: '/en/features/vr' },
         { text: 'Inputs and outputs', link: '/en/features/io-flow' },
         { text: 'Quick Chat and hotkeys', link: '/en/features/quick-chat' },
         { text: 'OBS and WebSocket', link: '/en/features/integrations' },

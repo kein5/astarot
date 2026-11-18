@@ -31,7 +31,7 @@ PAGES = {
     "chat-reading": {"ja": "チャット読み取り（OCR）", "en": "Chat reading (OCR)"},
     "tts": {"ja": "テキスト読み上げ（TTS）", "en": "Text to speech (TTS)"},
     "rvc": {"ja": "ボイスチェンジャー（RVC）", "en": "Voice changer (RVC)"},
-    "vr": {"ja": "VR", "en": "VR"},
+    "vr": {"ja": "字幕とVR", "en": "Captions and VR"},
     "hotkeys": {"ja": "ホットキー", "en": "Hotkeys"},
     "advanced": {"ja": "高度な設定", "en": "Advanced"},
 }
