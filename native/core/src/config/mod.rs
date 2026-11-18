@@ -3,7 +3,10 @@
 //! The file and its rules stay what the Python backend used, so a user's settings carry over:
 //!
 //! - The same keys, defaults and checks ([`schema`]). A saved value that fails its check is
-//!   dropped and the default kept; unknown keys, fixed values and runtime state are ignored.
+//!   dropped and the default kept; fixed values and runtime state are ignored.
+//! - A key this version does not know is not used, but it is written back as the file had it, so
+//!   the setting of a newer version is still there when that version runs again (#560). Keys an
+//!   earlier version saved and this one retired ([`RETIRED_KEYS`]) are dropped.
 //! - The same migrations when the file is read: a removed UI language falls back to English, the
 //!   removed local Whisper engine moves to speech.cpp (with a one-time notice), a saved
 //!   `"bundled"` realtime server selects speech.cpp, saved API URLs that are no longer allowed
@@ -37,6 +40,9 @@ use std::time::{Duration, Instant};
 
 pub const LOCAL_ASR_MIGRATION_LATEST: i64 = 2;
 const RETIRED_UI_LANGUAGES: [&str; 3] = ["ko", "zh-Hant", "zh-Hans"];
+/// Settings an earlier version saved that this one retired: the only keys a released version
+/// wrote that the schema does not have. They are dropped, where any other unknown key is kept.
+pub const RETIRED_KEYS: [&str; 3] = ["MIC_NO_REPEAT_NGRAM_SIZE", "SPEAKER_NO_REPEAT_NGRAM_SIZE", "WHISPER_WEIGHT_TYPE"];
 const DEBOUNCE: Duration = Duration::from_secs(2);
 const SAVE_RETRY: Duration = Duration::from_secs(30);
 
@@ -175,6 +181,9 @@ struct State {
     loaded: bool,
     loading: bool,
     saved: Map<String, Value>,
+    /// The keys of the file this version does not know, in the file's order: written back as
+    /// they were (#560).
+    unknown: Map<String, Value>,
     save_due: Option<Instant>,
     retry_due: Option<Instant>,
     save_failed: bool,
@@ -251,6 +260,7 @@ impl Config {
                 loaded: false,
                 loading: false,
                 saved: Map::new(),
+                unknown: Map::new(),
                 save_due: None,
                 retry_due: None,
                 save_failed: false,
@@ -650,9 +660,10 @@ impl Config {
         }
     }
 
-    /// The saved values, in the file's order.
+    /// The saved values, in the file's order, then the keys this version does not know.
     fn snapshot(&self, state: &State) -> Map<String, Value> {
-        self.keys
+        let mut snapshot: Map<String, Value> = self
+            .keys
             .iter()
             .filter(|k| k.serialize && !k.readonly)
             .filter_map(|k| {
@@ -667,7 +678,9 @@ impl Config {
                 }
                 Some((k.name.to_string(), value))
             })
-            .collect()
+            .collect();
+        snapshot.extend(state.unknown.iter().map(|(key, value)| (key.clone(), value.clone())));
+        snapshot
     }
 
     /// Writes `config.json` now (`saveConfigToFile`), after handing changed keys to the store.
@@ -841,6 +854,7 @@ impl Config {
             data.insert("OCR_VR_CAPTURE_REGION".into(), json!({ "x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0 }));
         }
         let mut invalid_urls = Vec::new();
+        let mut unknown = Map::new();
         for (key, value) in &data {
             if crate::net_policy::CUSTOM_URL_KEYS.contains(&key.as_str()) && !crate::net_policy::valid_saved_api_url(value) {
                 // Empty turns the lookup off; a saved key never moves to another host.
@@ -858,7 +872,13 @@ impl Config {
             if key == "SELECTED_TRANSCRIPTION_ENGINE" && value.as_str() == Some(crate::languages::RETIRED_GOOGLE_ENGINE) {
                 continue;
             }
-            let Some(definition) = self.key(key) else { continue };
+            let Some(definition) = self.key(key) else {
+                // Not used, but kept for the version that wrote it (#560).
+                if !RETIRED_KEYS.contains(&key.as_str()) {
+                    unknown.insert(key.clone(), value.clone());
+                }
+                continue;
+            };
             if definition.readonly || !definition.serialize {
                 continue;
             }
@@ -867,7 +887,11 @@ impl Config {
                 Self::store(&mut state, key, stored);
             }
         }
-        self.state.lock().unwrap().invalid_saved_api_urls = invalid_urls;
+        {
+            let mut state = self.state.lock().unwrap();
+            state.invalid_saved_api_urls = invalid_urls;
+            state.unknown = unknown;
+        }
         self.migrate_local_asr(&saved);
         self.migrate_usage_presets(&saved);
         let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
