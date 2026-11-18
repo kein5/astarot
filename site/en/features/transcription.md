@@ -60,8 +60,15 @@ Game audio captions can show who is speaking. ASTAROT tells the voices apart and
 
 To use it, download and apply the diarization model under "Models and servers" → "ASR + VAD". This is the model that tells speakers apart (Nemotron 3 Diarization, about 106 MB, OpenMDW-1.1). It is used from the next time the server starts. To stop using it, clear "Diarization GGUF path (optional)".
 
-- The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour.
+- The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour. The VR large log shows it after "Receive".
+- When the same person keeps talking, the conversation log shows who it is on the first line only, so their lines read as one run.
 - Speakers are told apart by the sound of their voices, so their names are not known. People with similar voices can be taken for one person.
+
+### Name the speakers
+
+Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR large log.
+
+Names last while this listening session runs and are not saved. When listening starts again, the letters are handed out again, so name the voices again too. The VR panel's conversation log cannot name voices.
 - When two people speak with little pause, their words end up in one caption. It then shows both, as "Speaker A, B".
 - Each time you turn on "Listening", the letters are handed out again, so "Speaker A" may not be the same person as last time.
 - Each caption takes about 0.3 seconds longer to be finalized (measured on an RTX 3060 Ti).
