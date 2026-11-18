@@ -48,8 +48,8 @@ test("the repaired selectors use the measured tokens; shared token values are th
     assert.match(word, /&\.delete\s*{[^}]*&:hover\s*{\s*background-color: var\(--dark_825_color\)/);
     assert.match(word, /\.add_button\s*{[^}]*color: var\(--vox_on_primary\)[^}]*&:hover\s*{\s*background-color: var\(--primary_650_color\)/);
     for (const [token, expected] of Object.entries({
-        "--error_bc_color": "#bb4448", "--vox_state_failed": "#eb938e",
-        "--dark_200_color": "#ecebf2", "--dark_600_color": "#988ba5", "--dark_800_color": "#4f3b66",
+        "--error_bc_color": "#bb4448", "--vox_state_failed": "#e4938e",
+        "--dark_200_color": "#ecebf2", "--dark_600_color": "#988ba5", "--dark_800_color": "#4e3d5d",
         "--dark_825_color": "#47335e", "--primary_500_color": "#b08bf6", "--primary_650_color": "#9f74f2",
     })) assert.equal(color(token), expected, token);
     // Inherited secondary text is also safe on the new hover; Lilac primary

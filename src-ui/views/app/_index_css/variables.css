@@ -34,7 +34,7 @@
     --error_bc_color: #bb4448;
     --error_bc_active_color: #9c3938;
     --success_bc_color: var(--primary_600_color);
-    --warning_color: #cb9c62;
+    --warning_color: #d4a162;
     --warning_bc_color: #cf7b1b;
 
     --dark_basic_text_color: #fafafc;
@@ -47,17 +47,17 @@
     --dark_500_color: #bdb2c5;
     --dark_550_color: #aba0b5;
     --dark_600_color: #988ba5;
-    --dark_650_color: #857695;
+    --dark_650_color: #777082;
     --dark_700_color: #736285;
     --dark_725_color: #6a587d;
     --dark_750_color: #614e75;
     --dark_775_color: #58456e;
-    --dark_800_color: #4f3b66;
+    --dark_800_color: #4e3d5d;
     --dark_825_color: #47335e;
     --dark_850_color: #3f2c56;
     --dark_863_color: #3b2852;
     --dark_875_color: #37254e;
-    --dark_888_color: #33214a;
+    --dark_888_color: #332341;
     --dark_900_color: #2f1d42;
     --dark_925_color: #261633;
     --dark_950_color: #1c0f27;
@@ -78,15 +78,15 @@
 
     --vox_canvas: #261633;
     --vox_rail: #1c0f27;
-    --vox_surface: #33214a;
-    --vox_border: #4f3b66;
+    --vox_surface: #332341;
+    --vox_border: #4e3d5d;
     --vox_radius: .8rem;
     /* Settings roles (DESIGN.md "Roles in settings"). */
     --vox_secondary_text: #cfc4d6;
     --vox_description_text: #aba0b5;
     --vox_state_active: #b797f8;
-    --vox_state_warning: #cb9c62;
-    --vox_state_failed: #eb938e;
+    --vox_state_warning: #d4a162;
+    --vox_state_failed: #e4938e;
     /* Secondary action hover: readable with both body and secondary text. */
     --vox_secondary_hover: var(--dark_800_color);
     --vox_readout_rule: #a47af5;
@@ -99,7 +99,7 @@
     --vox_motion_fast: 120ms;
     --vox_motion: 220ms;
     --vox_highlight_tint: #a47af529;
-    --vox_warning_tint: #cb9c6226;
+    --vox_warning_tint: #d4a16226;
     /* VRChat's own chatbox colour, for the message format preview only. */
     --vox_chatbox_preview: #3a4554;
     /* Startup placeholders for values the engine has not sent yet (MainPage [data-skeleton]). */

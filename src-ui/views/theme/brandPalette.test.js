@@ -40,6 +40,8 @@ test("every DESIGN.md colour is the value of its token", () => {
         "rail": "--vox_rail",
         "surface": "--vox_surface",
         "border": "--vox_border",
+        // The forms and the kit draw a field's border with dark_650.
+        "field-border": "--dark_650_color",
         "text": "--dark_basic_text_color",
         "secondary-text": "--vox_secondary_text",
         "description-text": "--vox_description_text",
@@ -58,10 +60,10 @@ test("the three brand colours are where DESIGN.md puts them", () => {
     assert.equal(color("--vox_on_primary"), "#261633", "text on Lilac is Dark Plum");
 });
 
-test("text, secondary text, description text and the states reach 4.5:1 on the canvas and the surface", () => {
+test("text, secondary text, description text and the states reach 4.5:1 on the canvas, the surface and the rail", () => {
     for (const fg of ["--dark_basic_text_color", "--vox_secondary_text", "--vox_description_text",
         "--vox_state_active", "--vox_state_warning", "--vox_state_failed"]) {
-        for (const bg of ["--vox_canvas", "--vox_surface"]) {
+        for (const bg of ["--vox_canvas", "--vox_surface", "--vox_rail"]) {
             assert.ok(contrast(fg, bg) >= 4.5, `${fg} on ${bg}: ${contrast(fg, bg).toFixed(2)}`);
         }
     }
@@ -81,9 +83,11 @@ test("every Lilac fill carries Dark Plum text at 4.5:1, and the deep violets car
     assert.match(read("../app/_index_css/root.css"), /::selection \{ color: var\(--dark_100_color\); background: var\(--primary_800_color\); \}/);
 });
 
-test("a field's border reaches 3:1 against the surface and the focus ring is visible on both grounds", () => {
-    // DESIGN.md: a field's border reaches 3:1; the forms draw fields with dark_650.
-    assert.ok(contrast("--dark_650_color", "--vox_surface") >= 3, `field border: ${contrast("--dark_650_color", "--vox_surface").toFixed(2)}`);
+test("a field's border reaches 3:1 against the surface and the canvas, and the focus ring is visible on every ground", () => {
+    // DESIGN.md: a field's border (field-border, dark_650 in the forms) reaches 3:1 on both grounds.
+    for (const bg of ["--vox_surface", "--vox_canvas"]) {
+        assert.ok(contrast("--dark_650_color", bg) >= 3, `field border on ${bg}: ${contrast("--dark_650_color", bg).toFixed(2)}`);
+    }
     for (const bg of ["--vox_canvas", "--vox_surface", "--vox_rail"]) assert.ok(contrast("--vox_focus", bg) >= 3, bg);
 });
 
