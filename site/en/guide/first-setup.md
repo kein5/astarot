@@ -24,10 +24,12 @@ By default ASTAROT sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>900
 
 ## 3. Choose your languages
 
-In "Language settings" on the left of the main screen, choose:
+In "Language settings" on the left of the main screen, choose the two below. Translation goes both ways between them.
 
-- "Your language" is the language you speak or type.
-- "Target language" is the language to translate into. You can choose up to three.
+- "Your language" is the language you speak or type. What others say is translated into it.
+- "Target language" is the language others speak or write. What you say is translated into it. You can choose up to three.
+
+"Switch languages" between the two swaps them.
 
 ## 4. Turn on Translation and send
 
