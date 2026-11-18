@@ -35,7 +35,6 @@ Linuxでアプリが管理する音声経路を使うには、Linux 6.9以降、
 | 翻訳、チャット読み取り | 必要ありません。CPUで動きます |
 | 読み上げ、ローカルの音声認識とリアルタイム字幕、話した人を見分ける機能（アプリに入っているspeech.cpp） | <Term tip="GPUで描画や計算をするための仕組みです。NVIDIA、AMD、IntelのGPUのドライバーが対応しています。">Vulkan</Term>に対応したGPU。NVIDIA、AMD、Intelのどれでも、内蔵GPUでも動きます。GPUがなければCPUで動きますが、遅くなります |
 | ボイスチェンジャー（RVC） | GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降（CUDA 13）。GPUがなければCPUで動きますが、声の遅れが約0.2秒から約1.3秒になります（[次の節](#nvidiaのgpuでrvcを使うとき)） |
-| ローカルの翻訳をGPUで（WindowsのCUDA版） | NVIDIAのGPU |
 
 ## NVIDIAのGPUでRVCを使うとき
 
@@ -77,8 +76,7 @@ GeForce RTX 3060 Ti（8 GB）で読み上げ、字幕、RVC（0.3以前の実行
 
 | もの | 大きさ |
 |---|---|
-| アプリ（WindowsのCPU版） | ZIPが約0.4 GB、展開すると約1.1 GB |
-| アプリ（WindowsのCUDA版） | ZIPが約1.7 GB、展開すると約3.0 GB |
+| アプリ（Windows。CPU版とCUDA版は同じ） | ZIPが約36 MB、展開すると約0.1 GB |
 | アプリ（Linux） | ダウンロードが約0.5 GB、展開すると約1.3 GB |
 | 翻訳のモデル（1つ） | 0.4〜3.3 GB |
 | 読み上げのモデル（日本語とほかの言語で1つずつ） | 1つ0.8〜1.8 GiB |

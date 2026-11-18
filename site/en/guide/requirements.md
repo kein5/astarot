@@ -35,7 +35,6 @@ The second row was measured with the RVC runtime of 0.3 and earlier. In 0.4.0, R
 | Translation, chat reading | None; they run on the CPU |
 | Speech, local speech recognition and realtime captions, telling speakers apart (speech.cpp, included in the app) | A GPU with <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> support: NVIDIA, AMD or Intel, integrated GPUs included. Without one they run on the CPU, more slowly |
 | Voice changer (RVC) | An NVIDIA GeForce GTX 16 or RTX 20 series GPU or later with driver 580 or later (CUDA 13). Without one it runs on the CPU, but the voice comes about 1.3 s late instead of about 0.2 s ([next section](#rvc-on-an-nvidia-gpu)) |
-| Local translation on the GPU (the Windows CUDA version) | An NVIDIA GPU |
 
 ## RVC on an NVIDIA GPU
 
@@ -77,8 +76,7 @@ The only CPU tested is an Intel Core i7-1255U (a laptop CPU with 10 cores and 12
 
 | Item | Size |
 |---|---|
-| App (Windows, CPU version) | ZIP about 0.4 GB, about 1.1 GB unpacked |
-| App (Windows, CUDA version) | ZIP about 1.7 GB, about 3.0 GB unpacked |
+| App (Windows; the CPU and CUDA versions are the same) | ZIP about 36 MB, about 0.1 GB unpacked |
 | App (Linux) | about 0.5 GB to download, about 1.3 GB unpacked |
 | Translation model (one) | 0.4–3.3 GB |
 | Speech models (one for Japanese, one for other languages) | 0.8–1.8 GiB each |
