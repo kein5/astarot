@@ -139,7 +139,7 @@ test("Escape closes the menu and returns focus; a press or focus outside closes 
 test("the main bar leads with stop and mute, drawn with its own short and shortest words", async () => {
     const runtime = hooks(), sent = [];
     const voice = { status: { queued: 2, active: true }, route: { requested_muted: true, ready: true, pending: false, managed: true }, send: path => sent.push(path) };
-    const actions = await loadModule(new URL("../../../others/stop_actions/StopActions.jsx", import.meta.url), runtime, {
+    const actions = await loadModule(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
@@ -188,7 +188,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
 test("the settings bar draws the same actions without the shortest words", async () => {
     const runtime = hooks();
     const voice = { status: {}, route: {}, send() {} };
-    const { StopActions } = await loadModule(new URL("../../../others/stop_actions/StopActions.jsx", import.meta.url), runtime, {
+    const { StopActions } = await loadModule(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });

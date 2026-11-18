@@ -10,7 +10,7 @@ const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "
 
 const load = async phase => {
     const runtime = hooks();
-    const { App } = await loadModule(new URL("./App.jsx", import.meta.url), runtime, {
+    const { App } = await loadModule(new URL("./App.tsx", import.meta.url), runtime, {
         "./_app_controllers/TranscriptionConsentController": { TranscriptionConsentController: parts.TranscriptionConsentController },
         "./_app_controllers/TranslationSetupController": { TranslationSetupController: parts.TranslationSetupController },
         "./_app_controllers/TelemetryNoticeController": { TelemetryNoticeController: parts.TelemetryNoticeController },

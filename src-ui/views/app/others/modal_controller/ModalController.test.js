@@ -12,7 +12,7 @@ async function fixture(context) {
     const fallback = { current: { ...control("main page"), querySelectorAll: () => [fallbackControl] } };
     stubGlobals(context, { document: { ...eventTarget(), activeElement: opener }, HTMLElement: Object });
     const dialogHooks = await loadModule(new URL("../../../../logics/common/useConsentDialog.ts", import.meta.url), runtime);
-    const { ModalController } = await loadModule(new URL("./ModalController.jsx", import.meta.url), runtime, {
+    const { ModalController } = await loadModule(new URL("./ModalController.tsx", import.meta.url), runtime, {
         "../../../../logics/common/useConsentDialog": dialogHooks,
         "@store": {
             useStore_OpenedQuickSetting: () => ({ currentOpenedQuickSetting: { data: opened },

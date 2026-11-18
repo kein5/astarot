@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import type { ReactNode } from "react";
 import clsx from "clsx";
 import styles from "./EnvReadout.module.scss";
 
@@ -10,7 +11,19 @@ import styles from "./EnvReadout.module.scss";
 // `progress` adds a mark before the words for work that ends in success (a download, a server
 // start): "working" spins, "done" is a check. The check only fills in and draws itself when the
 // work finishes while the page is open; one that was done already just shows.
-export const EnvReadout = ({ tone = "neutral", live = true, actions = null, progress, className, children }) => {
+export type EnvReadoutTone = "neutral" | "active" | "warning" | "failed";
+export type EnvReadoutProgress = "working" | "done";
+
+type EnvReadoutProps = {
+    tone?: EnvReadoutTone;
+    live?: boolean;
+    actions?: ReactNode;
+    progress?: EnvReadoutProgress;
+    className?: string;
+    children?: ReactNode;
+};
+
+export const EnvReadout = ({ tone = "neutral", live = true, actions = null, progress, className, children }: EnvReadoutProps) => {
     const last = useRef(progress);
     const arrived = useRef(false);
     if (last.current !== progress) {
@@ -25,7 +38,7 @@ export const EnvReadout = ({ tone = "neutral", live = true, actions = null, prog
     </div>;
 };
 
-const ProgressMark = ({ state, arrived }) =>
+const ProgressMark = ({ state, arrived }: { state: EnvReadoutProgress; arrived: boolean }) =>
     <span className={clsx(styles.mark, styles[`mark_${state}`], arrived && styles.arrived)} aria-hidden="true"
         data-progress={state} data-arrived={arrived || undefined}>
         <svg viewBox="0 0 16 16">

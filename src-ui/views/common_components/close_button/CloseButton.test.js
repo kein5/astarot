@@ -40,7 +40,7 @@ test("the error fallback names the close-application action", async () => {
         const common = { useWindow: () => ({ asyncQuitApp: () => closed++ }),
             useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }),
             useCopyToClipboard: () => ({ is_copied: false }) };
-        const exports = await loadModule(new URL(`../../app/others/error_boundary/${name}.jsx`, import.meta.url), runtime, {
+        const exports = await loadModule(new URL(`../../app/others/error_boundary/${name}.tsx`, import.meta.url), runtime, {
             "@common_components": { CloseButton: "close-button" }, "@logics_common": common,
             "react-error-boundary": { ErrorBoundary: "error-boundary" },
             "./contacts_container/ContactsContainer": { ContactsContainer: "contacts" },
@@ -64,7 +64,7 @@ test("notification close names dismissal and retains its toast callback", async 
     let options, dismissed = 0;
     stubGlobals(context, { setTimeout: callback => { callback(); } });
     const notification = runtime.jotai.atom({ state: "ok", data: { is_open: true, status: "info", message: "notice" } });
-    const { SnackbarController } = await loadModule(new URL("../../app/others/snackbar_controller/SnackbarController.jsx", import.meta.url), runtime, {
+    const { SnackbarController } = await loadModule(new URL("../../app/others/snackbar_controller/SnackbarController.tsx", import.meta.url), runtime, {
         "@common_components": { CloseButton: "close-button" },
         "./ReactToastifyOverrideClass.scss": {},
         "react-toastify": { ToastContainer: "toasts", cssTransition: () => ({}), toast: (_, value) => { options = value; } },

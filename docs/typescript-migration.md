@@ -12,13 +12,13 @@
 
 ## 現状の量
 
-第 5 段と第 6 段の 1 回目（共通の部品、小さな窓、VR パネル）を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の 2 回目（`app` の入口と `app/others`）を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 3 本、105KB | 147 本、594KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 151 本、771KB | 59 本、247KB（うち vanilla-extract の `.css.ts` が 16 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 193 本、1.2MB | 0 本 |
+| `src-ui/logics`（試験を除く） | 3 本、106KB | 151 本、606KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 139 本、745KB | 74 本、284KB（うち vanilla-extract の `.css.ts` が 17 本） |
+| 試験（`*.test.js` と `src-ui/logics/test/`） | 198 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch` は済み。`useReceiveRoutes`、`_useBackendErrorHandling`、`useHotkeys` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）は済み。`app` が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）、`app` の入口と `app/others` は済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -136,6 +136,13 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 3. `app/main_page`（`VrLogWindow` も）
 4. `app/io_flow`（`VrIoFlowWindow` と、`FlowNode` の型の分割も）
 5. `app/config_page`。`setting_box` は区画ごとに分けます。
+
+1 は済みました。
+
+- `app/others` の `VrchatPresence` が使う設定画面の部品 `EnvReadout`（`setting_box/_components/env_readout`）も、前倒しして移しました。`tone` と `progress` はページが渡す値のユニオン型（`EnvReadoutTone`、`EnvReadoutProgress`）です。
+- `app/others/index.ts` は拡張子なしで再輸出します（`common_components/index.ts` と同じ）。移す前と後のどちらのファイルも指せます。
+- 停止とミュートのボタン（`StopActions`）は、音声の状態（`VoiceStatus`、`RouteSnapshot`）の開いたフィールド（`[key: string]: unknown`）を読みます。待ちの数は数値のときだけ、ミュートの要求は `true` か `false` のときだけ使います。
+- 通知（`SnackbarController`）は、通知ごとのクラスを渡すのをやめました。react-toastify 11 は `toastClassName` をコンテナーからしか読まないので、そのクラスは前から画面に付いていませんでした。見た目は変わりません。付けるかどうかは見た目を確かめてから決めます。
 
 ### 第 7 段：試験とハーネス
 

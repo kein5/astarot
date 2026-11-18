@@ -27,7 +27,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     const runtime = hooks(), copies = [];
     stubGlobals(context, { window: { location: { origin: "http://localhost" } } });
     let updating = false, mode = "install";
-    const errorModule = await loadModule(new URL("../../views/app/others/error_boundary/AppErrorBoundary.jsx", import.meta.url), runtime, {
+    const errorModule = await loadModule(new URL("../../views/app/others/error_boundary/AppErrorBoundary.tsx", import.meta.url), runtime, {
         "@useI18n": translations, "react-error-boundary": { ErrorBoundary: icon },
         "./contacts_container/ContactsContainer": { ContactsContainer: icon }, "@common_components": { CloseButton: icon },
         "../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate: { info: { mode } } }) },

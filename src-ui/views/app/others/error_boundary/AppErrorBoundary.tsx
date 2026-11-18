@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { ErrorBoundary } from "react-error-boundary";
 
@@ -22,8 +23,8 @@ import styles from "./AppErrorBoundary.module.scss";
 
 const VRCT_STATUS_URL = "https://github.com/kein5/astarot/issues";
 
-export const AppErrorBoundary = ({children}) => {
-    const [errorInfo, setErrorInfo] = useState(null);
+export const AppErrorBoundary = ({children}: { children?: ReactNode }) => {
+    const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null);
 
     return (
         <ErrorBoundary
@@ -37,14 +38,14 @@ export const AppErrorBoundary = ({children}) => {
     );
 };
 
-const ErrorContainer = ({error, errorInfo}) => {
+const ErrorContainer =({error, errorInfo}: { error: unknown; errorInfo: ErrorInfo | null }) => {
     const { t } = useI18n();
     // A broken window is not put away in the tray: this ends the app.
     const { asyncQuitApp } = useWindow();
     const { currentSoftwareVersion } = useSoftwareVersion();
     const { is_copied, copyToClipboard } = useCopyToClipboard({ show_error_notification: false });
 
-    const formatted_stack = error ? formatStackTrace(error.stack) : "Unknown error";
+    const formatted_stack = error ? formatStackTrace(stackOf(error)) : "Unknown error";
     const app_version = currentSoftwareVersion?.data || "Unknown";
 
     const error_log_text = [
@@ -149,7 +150,11 @@ const ActionButtons = () => {
     );
 };
 
-const formatStackTrace = (stack) => {
+// What was thrown is not always an Error; only an Error-like value has a stack.
+const stackOf = (error: unknown): string | undefined =>
+    typeof error === "object" && error !== null && "stack" in error && typeof error.stack === "string" ? error.stack : undefined;
+
+const formatStackTrace = (stack: string | null | undefined) => {
     if (!stack) return "";
     // フルパスの除去（例として window.location.origin や絶対パス部分を削除）
     const formatted = stack.replace(new RegExp(window.location.origin, "g"), "");

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { ToastContainer, toast, cssTransition } from "react-toastify";
+import type { TypeOptions } from "react-toastify";
+import type { TFunction } from "i18next";
 import { useStore } from "jotai";
 import clsx from "clsx";
 
@@ -12,6 +14,7 @@ import CheckMarkSvg from "@images/check_mark.svg?react";
 import ErrorSvg from "@images/error.svg?react";
 
 import { Atom_NotificationStatus } from "@store";
+import type { NotificationStatus } from "@store";
 import { useNotificationStatus, useIsOpenedConfigPage } from "@logics_common";
 import { CloseButton } from "@common_components";
 import { useI18n } from "@useI18n";
@@ -22,17 +25,14 @@ const CustomTransition = cssTransition({
     collapse: false,
 });
 
-const showToast = (settings, latest) => {
-    const snackbar_classname = clsx(
-        styles.snackbar_content,
-        {
-            [styles.is_success]: settings.status === "success",
-            [styles.is_warning]: settings.status === "warning",
-            [styles.is_error]:   settings.status === "error",
-        }
-    );
+// What the toast's callbacks read when they run: the words and the close of the latest render.
+type Latest = { t: TFunction; closeNotification: () => void };
 
-    let hide_duration = 5000;
+const TOAST_TYPES: readonly TypeOptions[] = ["info", "success", "warning", "error", "default"];
+const toastType = (status: string): TypeOptions | undefined => TOAST_TYPES.find(type => type === status);
+
+const showToast = (settings: NotificationStatus, latest: { readonly current: Latest }) => {
+    let hide_duration: number | false = 5000;
     if (settings.options?.hide_duration === null) {
         hide_duration = false;
     } else if (Number(settings.options?.hide_duration)) {
@@ -40,17 +40,20 @@ const showToast = (settings, latest) => {
     }
 
     const message_text = settings.message;
-    const category_id = settings.category_id ? settings.category_id : message_text;
+    // A notice without its own category is known by its words. A notice whose message is an
+    // element has no words to go by, so the library gives it an id of its own.
+    const category_id = settings.category_id
+        ? settings.category_id
+        : typeof message_text === "string" || typeof message_text === "number" ? message_text : undefined;
 
     const to_hide_progress_bar = (settings.options?.to_hide_progress_bar === true) ? true : false;
 
     setTimeout(() => {
         toast(message_text, {
             toastId: category_id,
-            type: settings.status,
+            type: toastType(settings.status),
             autoClose: hide_duration,
             transition: CustomTransition,
-            toastClassName: snackbar_classname,
             hideProgressBar: to_hide_progress_bar,
             progressClassName: styles.toast_progress,
             closeButton: ({ closeToast }) => <CloseButton size="small" aria-label={latest.current.t("common.dismiss_notification")} onClick={closeToast} />,
@@ -66,7 +69,7 @@ export const SnackbarController = () => {
     const { closeNotification } = useNotificationStatus();
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
     const atoms = useStore();
-    const latest = useRef(null);
+    const latest = useRef<Latest>({ t, closeNotification });
     latest.current = { t, closeNotification };
 
     // Every notification is one write to a single atom. Several written in the
@@ -74,7 +77,7 @@ export const SnackbarController = () => {
     // saw only the last of them. The store reports each write. A write that
     // keeps the same notification object (a republish) is not a new one.
     useEffect(() => {
-        let shown = null;
+        let shown: NotificationStatus | null = null;
         const showLatest = () => {
             const settings = atoms.get(Atom_NotificationStatus).data;
             if (settings === shown) return;
