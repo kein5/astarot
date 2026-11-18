@@ -528,6 +528,11 @@ fn stop_mute_and_a_new_press_end_a_voice_audition_and_a_mute_refuses_one() {
     run.ui.ok("/run/mute_voice", None);
     assert_eq!(run.audition_outcome(&fourth["result"]["run"]), json!(["stopped", null]));
     assert_eq!(error_code(&run.audition()), "voice_audition_muted");
+    // The route takes a resume only once the mute is confirmed and saved (voice_route_not_ready before).
+    eventually("the mute is confirmed", || {
+        let route = run.ui.ok("/get/data/voice_route", None);
+        route["requested_muted"] == true && route["pending"] == false && route["ready"] == true
+    });
     run.ui.ok("/run/resume_voice", None);
     eventually("the bus is unmuted", || run.status()["muted"] == false);
     assert!(run.played_on(OUTPUT) == 0, "the audition reached the speech output");
