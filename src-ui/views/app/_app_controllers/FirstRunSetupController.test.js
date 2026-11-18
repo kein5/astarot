@@ -18,7 +18,7 @@ const CATALOG = {
 
 // A world the dialog reads: the saved settings, the download state and what it sent.
 function world(values = {}) {
-    return { notice: true, settled: false, opened: false, telemetryPending: false, localAsr: false,
+    return { notice: true, settled: false, opened: false, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
         downloadError: null, realtimeError: null, sent: [], calls: [], ...values };
 }
@@ -41,7 +41,6 @@ async function setup(context, w = world()) {
             useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: value => w.calls.push(["tab", value]) }),
         },
         "../../../logics/common/useConsentDialog": { useConsentDialog: open => ({ dialog: { current: null, open }, close: () => w.calls.push("closed") }) },
-        "../../../logics/transcription/useLocalAsrMigration": { useLocalAsrMigration: () => ({ notice: w.localAsr }) },
         "../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({
             settings: { version: 1, server: w.server, base_url: "http://127.0.0.1:8080" }, error: w.realtimeError,
             send: async (endpoint, data) => { record(endpoint, data); w.realtimeError = null; return true; } }) },
@@ -76,7 +75,6 @@ test("it opens by itself only while pending, after the other notices, and when t
     assert.notEqual((await setup(context)).render(), null);
     assert.equal((await setup(context, world({ notice: false }))).render(), null);
     assert.equal((await setup(context, world({ telemetryPending: true }))).render(), null);
-    assert.equal((await setup(context, world({ localAsr: true }))).render(), null);
     assert.equal((await setup(context, world({ engine: "Deepgram" }))).render(), null);
     assert.equal((await setup(context, world({ engine: "SpeechCpp", server: "external" }))).render(), null);
     // Opened from the first screen it shows whatever the notice says.
