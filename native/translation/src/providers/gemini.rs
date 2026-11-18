@@ -11,12 +11,13 @@
 //! thought parts are left out of the reply.
 
 use super::{
-    checked, form_value, join, json_of, reply_text, Access, Api, Error, Provider, Translation, DISCOVERY,
+    checked, form_value, join, json_of, reply_text, retry, Access, Api, Error, Provider, Translation, DISCOVERY,
     DISCOVERY_DEADLINE,
 };
-use crate::http::{Deadline, Request, Timeouts, Transport};
+use crate::http::{Deadline, Request, Response, Timeouts, Transport};
 use crate::prompt;
 use serde_json::{json, Value};
+use std::time::Duration;
 
 pub const BASE_URL: &str = "https://generativelanguage.googleapis.com";
 
@@ -46,9 +47,9 @@ impl Api for Gemini {
     const TRANSLATE_WAIT: Timeouts = TRANSLATE_WAIT;
 
     /// The Google SDK's rule: a connection that failed or timed out, and 408, 429, 500, 502, 503
-    /// and 504 (not 409).
-    fn retry(error: Error) -> bool {
-        error.retryable_with(|status| matches!(status, 408 | 429 | 500 | 502 | 503 | 504))
+    /// and 504 (not 409), after 1 to 2 seconds.
+    fn backoff(error: Error, _answer: Option<&Response>, _since_start: Duration) -> Option<Duration> {
+        retry::google(error)
     }
 
     /// The models fit for translation, every page, sorted; the answer also checks the key.
@@ -83,9 +84,9 @@ impl Api for Gemini {
             "safetySettings": [],
             "generationConfig": { "temperature": TEMPERATURE, "candidateCount": 1 },
         });
-        Self::attempt(a.base, |wait| {
+        Self::attempt(transport, a.base, |send, wait| {
             let request = Request::post_json(&url, &body).header("x-goog-api-key", a.key);
-            let answer = json_of(&checked(transport(&request, wait)?)?)?;
+            let answer = json_of(&checked(send(&request, wait)?)?)?;
             let candidate = &answer["candidates"][0];
             if candidate["finishReason"] == "MAX_TOKENS" {
                 return Ok(String::new());

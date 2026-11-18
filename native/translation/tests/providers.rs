@@ -298,7 +298,7 @@ fn canned(answer: serde_json::Value) -> (Transport, std::sync::Arc<std::sync::at
     let seen = count.clone();
     let transport: Transport = std::sync::Arc::new(move |_request, _timeouts| {
         seen.fetch_add(1, Ordering::SeqCst);
-        Ok(http::Response { status: 200, body: serde_json::to_vec(&answer).unwrap() })
+        Ok(http::Response::new(200, serde_json::to_vec(&answer).unwrap()))
     });
     (transport, count)
 }

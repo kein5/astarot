@@ -31,7 +31,7 @@ pub(crate) const NOT_FOR_TEXT: [&str; 9] =
     ["whisper", "embedding", "image", "tts", "audio", "search", "transcribe", "diarize", "vision"];
 
 /// The model names LangChain sends to the Responses API (`_RESPONSES_API_ONLY_PREFIXES` of
-/// langchain-openai 1.7.3, the version the Python client locked).
+/// langchain-openai 1.8.0, the version `uv.lock` pins for the Python client).
 pub const RESPONSES_ONLY_PREFIXES: [&str; 5] =
     ["gpt-5-pro", "gpt-5.2-pro", "gpt-5.4-pro", "gpt-5.5-pro", "gpt-5.6-sol"];
 
@@ -104,9 +104,9 @@ pub trait ChatCompletions: Api {
             "stream": false,
             "messages": [{ "role": "system", "content": system }, { "role": "user", "content": t.text }],
         });
-        Self::attempt(access.base, |wait| {
+        Self::attempt(transport, access.base, |send, wait| {
             let request = Request::post_json(&url, &body).header("Authorization", Self::authorization(access.key));
-            let answer = json_of(&checked(transport(&request, wait)?)?)?;
+            let answer = json_of(&checked(send(&request, wait)?)?)?;
             let choice = &answer["choices"][0];
             if choice["finish_reason"] == "length" {
                 return Ok(String::new());
@@ -136,9 +136,9 @@ pub trait ChatCompletions: Api {
                 { "content": text, "role": "user", "type": "message" },
             ],
         });
-        Self::attempt(access.base, |wait| {
+        Self::attempt(transport, access.base, |send, wait| {
             let request = Request::post_json(&url, &body).header("Authorization", Self::authorization(access.key));
-            let answer = json_of(&checked(transport(&request, wait)?)?)?;
+            let answer = json_of(&checked(send(&request, wait)?)?)?;
             if Self::INCOMPLETE_DETAILS && answer["incomplete_details"]["reason"] == "max_output_tokens" {
                 return Ok(String::new());
             }

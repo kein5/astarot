@@ -38,10 +38,12 @@ pub mod openrouter;
 pub mod papago;
 pub mod plamo;
 
+pub mod retry;
+
 use crate::http::{HttpError, Response, Timeouts, Transport};
 use crate::prompt::HistoryItem;
 use serde_json::Value;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub use deepl::DeepL;
 pub use gemini::Gemini;
@@ -146,23 +148,41 @@ pub trait Api {
     /// Translates one text. Codes as the engine's language table gives them.
     fn translate(transport: &Transport, access: &Access<'_>, request: &Translation<'_>) -> Result<String, Error>;
 
-    /// Whether a failed translation is worth one more try: the rule of the SDK the Python client
-    /// used. The default is the OpenAI SDK's ([`Error::retryable`]).
-    fn retry(error: Error) -> bool {
-        error.retryable()
+    /// Whether a failed translation is tried once more, and after how long: the rule of the SDK
+    /// the Python client used (`docs/spec/cross-cutting.md`: the SDK's own judgement and
+    /// backoff). `answer` is what the provider answered, if it answered; `since_start` the time
+    /// since the first try began. The default is the OpenAI SDK's ([`retry::openai`]).
+    fn backoff(error: Error, answer: Option<&Response>, since_start: Duration) -> Option<Duration> {
+        let _ = since_start;
+        retry::openai(error, answer)
     }
 
     /// Runs one translation request: a local address once with [`LOCAL_CHAT`], else with
-    /// [`Api::TRANSLATE_WAIT`] and one more try when [`Api::retry`] says the failure is worth it
-    /// (the SDKs' `max_retries=1`).
-    fn attempt<T>(base: &str, mut once: impl FnMut(Timeouts) -> Result<T, Error>) -> Result<T, Error> {
+    /// [`Api::TRANSLATE_WAIT`] and, when [`Api::backoff`] says so, once more after its pause (the
+    /// SDKs' `max_retries=1`). `once` sends through the transport it is given, so that the
+    /// answer's retry headers can be read.
+    fn attempt<T>(
+        transport: &Transport,
+        base: &str,
+        mut once: impl FnMut(&Transport, Timeouts) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         if Self::local(base) {
-            once(LOCAL_CHAT)
-        } else {
-            match once(Self::TRANSLATE_WAIT) {
-                Err(error) if Self::retry(error) => once(Self::TRANSLATE_WAIT),
-                other => other,
+            return once(transport, LOCAL_CHAT);
+        }
+        let (watching, last) = retry::watch(transport);
+        let started = Instant::now();
+        match once(&watching, Self::TRANSLATE_WAIT) {
+            Err(error) => {
+                let answer = last.lock().unwrap_or_else(|e| e.into_inner()).take();
+                match Self::backoff(error, answer.as_ref(), started.elapsed()) {
+                    Some(pause) => {
+                        std::thread::sleep(pause);
+                        once(transport, Self::TRANSLATE_WAIT)
+                    }
+                    None => Err(error),
+                }
             }
+            done => done,
         }
     }
 }
@@ -396,9 +416,10 @@ impl Error {
         matches!(self, Error::Http(HttpError::Unreachable))
     }
 
-    /// Worth one more try at run time by the OpenAI SDK's rule (`max_retries=1`): a connection
-    /// that failed or timed out, and the statuses 408, 409, 429 and 5xx. The providers whose
-    /// Python client used another SDK say so in [`Api::retry`].
+    /// Worth one more try by the OpenAI SDK's statuses (`max_retries=1`): a connection that
+    /// failed or timed out, and 408, 409, 429 and 5xx. The answer's headers can say otherwise
+    /// ([`retry::openai`]); the providers whose Python client used another SDK have their own
+    /// rule in [`Api::backoff`].
     pub fn retryable(self) -> bool {
         self.retryable_with(|status| matches!(status, 408 | 409 | 429) || status >= 500)
     }

@@ -5,9 +5,10 @@
 //! the DeepL SDK of the Python client did (the answer then also says how many characters were
 //! billed; nothing reads it).
 
-use super::{checked, join, json_of, Access, Api, Error, Provider, Translation, DISCOVERY, MACHINE_TRANSLATION};
-use crate::http::{Request, Timeouts, Transport};
+use super::{checked, join, json_of, retry, Access, Api, Error, Provider, Translation, DISCOVERY, MACHINE_TRANSLATION};
+use crate::http::{Request, Response, Timeouts, Transport};
 use serde_json::json;
+use std::time::Duration;
 
 pub struct DeepL;
 
@@ -33,9 +34,10 @@ impl Api for DeepL {
     const MODELS: bool = false;
     const TRANSLATE_WAIT: Timeouts = MACHINE_TRANSLATION;
 
-    /// The DeepL SDK's rule: a connection that failed or timed out, 429 and 5xx (not 408 or 409).
-    fn retry(error: Error) -> bool {
-        error.retryable_with(|status| status == 429 || status >= 500)
+    /// The DeepL SDK's rule: a connection that failed or timed out, 429 and 5xx (not 408 or
+    /// 409); the second try starts 1 second after the first began.
+    fn backoff(error: Error, _answer: Option<&Response>, since_start: Duration) -> Option<Duration> {
+        retry::deepl(error, since_start)
     }
 
     /// Checks a key by translating `" "`.
@@ -54,8 +56,8 @@ impl Api for DeepL {
             "text": [t.text],
             "show_billed_characters": true,
         });
-        Self::attempt(a.base, |wait| {
-            let response = checked(transport(&request(&url, a.key, &body), wait)?)?;
+        Self::attempt(transport, a.base, |send, wait| {
+            let response = checked(send(&request(&url, a.key, &body), wait)?)?;
             let body = json_of(&response)?;
             body["translations"][0]["text"].as_str().map(str::to_string).ok_or(Error::Answer)
         })

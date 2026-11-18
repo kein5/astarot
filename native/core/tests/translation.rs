@@ -588,7 +588,9 @@ fn the_fallback_waits_for_a_loaded_model_only() {
     // `test_model_translate_fallback_no_wait.py`.
     let fake = FakeProviders::start();
     let (ui, local) = deepl_with_local_behind(&fake);
-    fake.fail("/deepl-free", 503);
+    // A refusal DeepL does not try again, so that only the local model's waits are timed (a
+    // retried failure would add the DeepL SDK's one-second backoff).
+    fake.fail("/deepl-free", 400);
     *local.answer.lock().unwrap() = Some(Err(LocalError::Failed));
 
     // A loaded model that fails is tried 20 times, 100 ms apart.

@@ -54,8 +54,8 @@ impl Api for Ollama {
             "messages": [{ "role": "system", "content": system }, { "role": "user", "content": t.text }],
             "tools": [],
         });
-        Self::attempt(a.base, |wait| {
-            let answer = json_of(&checked(transport(&Request::post_json(&url, &body), wait)?)?)?;
+        Self::attempt(transport, a.base, |send, wait| {
+            let answer = json_of(&checked(send(&Request::post_json(&url, &body), wait)?)?)?;
             if answer["done_reason"] == "length" {
                 return Ok(String::new());
             }

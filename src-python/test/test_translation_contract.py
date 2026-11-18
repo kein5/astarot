@@ -14,6 +14,7 @@ to the network; the keys in the file are made up.
 import json
 import os
 import sys
+import time
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlsplit, urlunsplit
@@ -104,6 +105,7 @@ class Network:
     def __init__(self, answers):
         self.answers = [dict(answer, at=0) for answer in answers]
         self.seen = []
+        self.times = []
 
     def reply(self, method, url):
         key = url_without_query(url)
@@ -116,6 +118,7 @@ class Network:
         return {"status": 404, "body": {"error": "no answer in the contract"}}
 
     def record(self, method, url, headers, body, timeout):
+        self.times.append(time.monotonic())
         self.seen.append({
             "method": method,
             "url": normalized_url(url),
@@ -131,7 +134,7 @@ class Network:
         reply = self.reply(request.method, str(request.url))
         if "error" in reply and "status" not in reply:
             raise httpx.ConnectError("contract: no connection", request=request)
-        return httpx.Response(reply["status"], json=reply["body"], request=request)
+        return httpx.Response(reply["status"], json=reply["body"], headers=reply.get("headers", {}), request=request)
 
     def requests(self, adapter, request, **kwargs):
         body = normalized_body(request.body)
@@ -143,6 +146,7 @@ class Network:
         response.status_code = reply["status"]
         response._content = json.dumps(reply["body"]).encode("utf-8")
         response.headers["Content-Type"] = "application/json"
+        response.headers.update(reply.get("headers", {}))
         response.url = request.url
         response.request = request
         response.encoding = "utf-8"
@@ -278,7 +282,8 @@ def run(case):
         finally:
             for quieting in quiet:
                 quieting.stop()
-    return {"requests": network.seen, "outcome": outcome}
+    pause = network.times[1] - network.times[0] if len(network.times) >= 2 else None
+    return {"requests": network.seen, "outcome": outcome}, pause
 
 
 # ----------------------------------------------------------------------------- the tests
@@ -317,7 +322,11 @@ def _comparable(record):
 
 @pytest.mark.parametrize("case", CASES, ids=[case["id"] for case in CASES])
 def test_the_python_client_keeps_the_contract(case, recorded):
-    record = run(case)
+    record, pause = run(case)
+    if "retry_pause" in case:
+        # The SDK's pause before its retry has a random part: the case gives its range.
+        low, high = case["retry_pause"]
+        assert pause is not None and low - 0.05 <= pause <= high + 0.6, pause
     recorded[case["id"]] = record
     if WRITE:
         return

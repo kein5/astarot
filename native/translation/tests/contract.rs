@@ -7,10 +7,13 @@
 //! headers, JSON body, timeouts) and returned must equal the case's `python` record, which
 //! `src-python/test/test_translation_contract.py` recorded from the Python clients. A case may
 //! carry `rust` instead, where the core differs on purpose (the case's `note` and the
-//! `differences` entry say why), or `expect`, for a provider Python never had.
+//! `differences` entry say why), or `expect`, for a provider Python never had. A case with
+//! `retry_pause` also checks the time between the first two requests: the SDK's pause before its
+//! retry, which has a random part.
 
 use serde_json::{json, Map, Value};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use vrct_translation::http::{HttpError, Request, Response, Timeouts, Transport};
 use vrct_translation::prompt::HistoryItem;
 use vrct_translation::providers::{deepl, Access, Endpoints, Provider, Translation};
@@ -79,9 +82,12 @@ fn record(request: &Request<'_>, timeouts: Timeouts) -> Value {
     })
 }
 
+/// What the stand-in network saw: each request as the record keeps it, and when it was sent.
+type Seen = Arc<Mutex<Vec<(Value, Instant)>>>;
+
 /// A network that answers from the case's `answers` and keeps every request.
-fn network(answers: &Value) -> (Transport, Arc<Mutex<Vec<Value>>>) {
-    let seen = Arc::new(Mutex::new(Vec::new()));
+fn network(answers: &Value) -> (Transport, Seen) {
+    let seen: Seen = Arc::new(Mutex::new(Vec::new()));
     let script: Vec<(String, String, Vec<Value>)> = answers
         .as_array()
         .expect("answers")
@@ -95,10 +101,10 @@ fn network(answers: &Value) -> (Transport, Arc<Mutex<Vec<Value>>>) {
     let used = Arc::new(Mutex::new(vec![0usize; script.len()]));
     let kept = Arc::clone(&seen);
     let transport: Transport = Arc::new(move |request: &Request<'_>, timeouts: Timeouts| {
-        kept.lock().unwrap().push(record(request, timeouts));
+        kept.lock().unwrap().push((record(request, timeouts), Instant::now()));
         let url = without_query(request.url);
         let Some(at) = script.iter().position(|(m, u, _)| m == request.method && *u == url) else {
-            return Ok(Response { status: 404, body: br#"{"error":"no answer in the contract"}"#.to_vec() });
+            return Ok(Response::new(404, br#"{"error":"no answer in the contract"}"#.to_vec()));
         };
         let mut used = used.lock().unwrap();
         let replies = &script[at].2;
@@ -107,8 +113,14 @@ fn network(answers: &Value) -> (Transport, Arc<Mutex<Vec<Value>>>) {
         if reply.get("status").is_none() {
             return Err(HttpError::Unreachable);
         }
+        let headers = reply["headers"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(name, value)| (name.to_ascii_lowercase(), value.as_str().unwrap_or_default().to_string()))
+            .collect();
         let status = reply["status"].as_u64().unwrap() as u16;
-        Ok(Response { status, body: serde_json::to_vec(&reply["body"]).unwrap() })
+        Ok(Response { status, headers, body: serde_json::to_vec(&reply["body"]).unwrap() })
     });
     (transport, seen)
 }
@@ -137,8 +149,9 @@ fn strings(value: &Value) -> Vec<String> {
     value.as_array().into_iter().flatten().filter_map(|v| v.as_str().map(str::to_string)).collect()
 }
 
-/// Runs one case against the Rust provider: what it sent and what it returned.
-fn run(document: &Value, case: &Value) -> Value {
+/// Runs one case against the Rust provider: what it sent and returned, and the pause between
+/// its first two requests.
+fn run(document: &Value, case: &Value) -> (Value, Option<f64>) {
     let engine = case["provider"].as_str().unwrap();
     let provider = Provider::from_engine(engine).unwrap_or_else(|| panic!("{engine} is a provider"));
     let (transport, seen) = network(&case["answers"]);
@@ -183,9 +196,14 @@ fn run(document: &Value, case: &Value) -> Value {
         }
         other => panic!("unknown operation {other}"),
     };
-    let requests = seen.lock().unwrap().clone();
-    json!({ "requests": requests, "outcome": outcome })
+    let seen = seen.lock().unwrap().clone();
+    let pause = (seen.len() >= 2).then(|| (seen[1].1 - seen[0].1).as_secs_f64());
+    let requests: Vec<Value> = seen.into_iter().map(|(request, _)| request).collect();
+    (json!({ "requests": requests, "outcome": outcome }), pause)
 }
+
+/// Slack for the time a test machine takes besides the pause itself.
+const PAUSE_SLACK: f64 = 0.6;
 
 /// What the Rust provider must have done: `rust` or `expect` when the case has one, else the
 /// Python record. A timeout Python's library did not have (requests has no write timeout) is
@@ -248,19 +266,44 @@ fn differences(path: &str, wanted: &Value, actual: &Value, out: &mut Vec<String>
     }
 }
 
+/// What is wrong with one case, if anything.
+fn check(document: &Value, case: &Value) -> Vec<String> {
+    let (actual, pause) = run(document, case);
+    let actual = comparable(&actual);
+    let wanted = comparable(&expected(case, &actual));
+    let mut found = Vec::new();
+    differences("", &wanted, &actual, &mut found);
+    // The pause before a retry is the SDK's rule, with a random part: a range, not a record.
+    if let Some(range) = case["retry_pause"].as_array() {
+        let (low, high) = (range[0].as_f64().unwrap(), range[1].as_f64().unwrap());
+        match pause {
+            Some(pause) if pause >= low - 0.05 && pause <= high + PAUSE_SLACK => {}
+            other => found.push(format!("the pause before the retry was {other:?} s, not {low} to {high} s")),
+        }
+    }
+    found
+}
+
 #[test]
 fn every_provider_keeps_the_contract() {
     let document = document();
-    let mut broken = Vec::new();
-    for case in document["cases"].as_array().unwrap() {
-        let actual = comparable(&run(&document, case));
-        let wanted = comparable(&expected(case, &actual));
-        let mut found = Vec::new();
-        differences("", &wanted, &actual, &mut found);
-        if !found.is_empty() {
-            broken.push(format!("{}\n    {}", case["id"].as_str().unwrap(), found.join("\n    ")));
-        }
-    }
+    let cases = document["cases"].as_array().unwrap();
+    // The cases wait as the SDKs did before a retry, so they run side by side.
+    let results: Vec<(String, Vec<String>)> = std::thread::scope(|scope| {
+        let running: Vec<_> = cases
+            .iter()
+            .map(|case| {
+                let document = &document;
+                scope.spawn(move || (case["id"].as_str().unwrap().to_string(), check(document, case)))
+            })
+            .collect();
+        running.into_iter().map(|r| r.join().expect("a case panicked")).collect()
+    });
+    let broken: Vec<String> = results
+        .into_iter()
+        .filter(|(_, found)| !found.is_empty())
+        .map(|(id, found)| format!("{id}\n    {}", found.join("\n    ")))
+        .collect();
     assert!(broken.is_empty(), "{} case(s) broke the contract:\n{}", broken.len(), broken.join("\n"));
 }
 

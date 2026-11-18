@@ -5,7 +5,8 @@
     "Each case gives what is asked of a provider (operation, access, translation) and what the provider answers (answers: replies in order per method and URL; the last reply repeats; {\"error\": \"connect\"} is a connection that fails).",
     "`python` is what the Python clients of src-python/models/translation/ sent and returned for the case, recorded by src-python/test/test_translation_contract.py (VRCT_TRANSLATION_CONTRACT_WRITE=1 records again).",
     "native/translation/tests/contract.rs runs every case against the Rust providers and compares with `python`, after the differences the case names. `rust` replaces `python` where the core behaves differently on purpose; `expect` is the record of a provider Python never had, written from the provider's documentation.",
-    "Requests are compared by method, URL, headers other than transport noise, JSON body and timeouts. Outcomes: check {accepted, models}, models {models}, translate {text} or {failed: true}."
+    "Requests are compared by method, URL, headers other than transport noise, JSON body and timeouts. Outcomes: check {accepted, models}, models {models}, translate {text} or {failed: true}.",
+    "A reply may carry headers (retry-after, x-should-retry). `retry_pause` is the range of seconds the SDK waits before its retry (its rule has a random part); both tests check the time between the first two requests against it."
   ],
   "differences": {
     "local-openai-compatible": {
@@ -772,6 +773,10 @@
             }
           ]
         }
+      ],
+      "retry_pause": [
+        1.0,
+        1.0
       ],
       "python": {
         "requests": [
@@ -1633,6 +1638,10 @@
           ]
         }
       ],
+      "retry_pause": [
+        1.0,
+        2.0
+      ],
       "python": {
         "requests": [
           {
@@ -2240,6 +2249,10 @@
           ]
         }
       ],
+      "retry_pause": [
+        0.375,
+        0.5
+      ],
       "python": {
         "requests": [
           {
@@ -2333,6 +2346,10 @@
           ]
         }
       ],
+      "retry_pause": [
+        0.375,
+        0.5
+      ],
       "python": {
         "requests": [
           {
@@ -2419,6 +2436,10 @@
             }
           ]
         }
+      ],
+      "retry_pause": [
+        0.375,
+        0.5
       ],
       "python": {
         "requests": [
@@ -3279,6 +3300,10 @@
             }
           ]
         }
+      ],
+      "retry_pause": [
+        0.375,
+        0.5
       ],
       "python": {
         "requests": [
@@ -4279,6 +4304,10 @@
           ]
         }
       ],
+      "retry_pause": [
+        1.0,
+        1.0
+      ],
       "python": {
         "requests": [
           {
@@ -4472,6 +4501,10 @@
           ]
         }
       ],
+      "retry_pause": [
+        1.0,
+        2.0
+      ],
       "python": {
         "requests": [
           {
@@ -4578,6 +4611,10 @@
             }
           ]
         }
+      ],
+      "retry_pause": [
+        1.0,
+        2.0
       ],
       "python": {
         "requests": [
@@ -4709,6 +4746,10 @@
             }
           ]
         }
+      ],
+      "retry_pause": [
+        0.375,
+        0.5
       ],
       "python": {
         "requests": [
@@ -5145,6 +5186,10 @@
             }
           ]
         }
+      ],
+      "retry_pause": [
+        0.375,
+        0.5
       ],
       "python": {
         "requests": [
@@ -5726,6 +5771,10 @@
           ]
         }
       ],
+      "retry_pause": [
+        0.375,
+        0.5
+      ],
       "expect": {
         "requests": [
           {
@@ -6032,6 +6081,777 @@
         "requests": [],
         "outcome": {
           "failed": true
+        }
+      }
+    },
+    {
+      "id": "openai/translate-retry-after",
+      "provider": "OpenAI_API",
+      "operation": "translate",
+      "note": "The OpenAI SDK waits as long as retry-after says, up to 120 seconds.",
+      "access": {
+        "key": "contract-key-0123456789abcdef",
+        "model": "gpt-4o-mini"
+      },
+      "translation": {
+        "text": "こんにちは、元気？",
+        "source": "Japanese",
+        "target": "English",
+        "history": []
+      },
+      "answers": [
+        {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/chat/completions",
+          "replies": [
+            {
+              "status": 429,
+              "body": {
+                "error": {
+                  "message": "refused"
+                }
+              },
+              "headers": {
+                "retry-after": "1.2"
+              }
+            },
+            {
+              "status": 200,
+              "body": {
+                "id": "chatcmpl-contract",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                  {
+                    "index": 0,
+                    "message": {
+                      "role": "assistant",
+                      "content": "Hello"
+                    },
+                    "finish_reason": "stop"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "retry_pause": [
+        1.2,
+        1.2
+      ],
+      "python": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {
+              "authorization": "Bearer contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "model": "gpt-4o-mini",
+              "stream": false,
+              "messages": [
+                {
+                  "content": "You are a helpful translation assistant.\nSupported languages:\n['Afrikaans', 'Arabic', 'Armenian', 'Azerbaijani', 'Belarusian', 'Bosnian', 'Bulgarian', 'Catalan', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Filipino', 'Finnish', 'French', 'Galician', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Icelandic', 'Indonesian', 'Italian', 'Japanese', 'Kannada', 'Kazakh', 'Korean', 'Latvian', 'Lithuanian', 'Macedonian', 'Malay', 'Marathi', 'Maori', 'Nepali', 'Norwegian', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swahili', 'Swedish', 'Tagalog', 'Tamil', 'Thai', 'Turkish', 'Ukrainian', 'Urdu', 'Vietnamese', 'Welsh']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n",
+                  "role": "system"
+                },
+                {
+                  "content": "こんにちは、元気？",
+                  "role": "user"
+                }
+              ]
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 30.0,
+              "write": 10.0
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {
+              "authorization": "Bearer contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "model": "gpt-4o-mini",
+              "stream": false,
+              "messages": [
+                {
+                  "content": "You are a helpful translation assistant.\nSupported languages:\n['Afrikaans', 'Arabic', 'Armenian', 'Azerbaijani', 'Belarusian', 'Bosnian', 'Bulgarian', 'Catalan', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Filipino', 'Finnish', 'French', 'Galician', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Icelandic', 'Indonesian', 'Italian', 'Japanese', 'Kannada', 'Kazakh', 'Korean', 'Latvian', 'Lithuanian', 'Macedonian', 'Malay', 'Marathi', 'Maori', 'Nepali', 'Norwegian', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swahili', 'Swedish', 'Tagalog', 'Tamil', 'Thai', 'Turkish', 'Ukrainian', 'Urdu', 'Vietnamese', 'Welsh']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n",
+                  "role": "system"
+                },
+                {
+                  "content": "こんにちは、元気？",
+                  "role": "user"
+                }
+              ]
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 30.0,
+              "write": 10.0
+            }
+          }
+        ],
+        "outcome": {
+          "text": "Hello"
+        }
+      }
+    },
+    {
+      "id": "openai/translate-retry-after-ms",
+      "provider": "OpenAI_API",
+      "operation": "translate",
+      "note": "retry-after-ms comes before retry-after.",
+      "access": {
+        "key": "contract-key-0123456789abcdef",
+        "model": "gpt-4o-mini"
+      },
+      "translation": {
+        "text": "こんにちは、元気？",
+        "source": "Japanese",
+        "target": "English",
+        "history": []
+      },
+      "answers": [
+        {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/chat/completions",
+          "replies": [
+            {
+              "status": 503,
+              "body": {
+                "error": {
+                  "message": "refused"
+                }
+              },
+              "headers": {
+                "retry-after-ms": "700",
+                "retry-after": "5"
+              }
+            },
+            {
+              "status": 200,
+              "body": {
+                "id": "chatcmpl-contract",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                  {
+                    "index": 0,
+                    "message": {
+                      "role": "assistant",
+                      "content": "Hello"
+                    },
+                    "finish_reason": "stop"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "retry_pause": [
+        0.7,
+        0.7
+      ],
+      "python": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {
+              "authorization": "Bearer contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "model": "gpt-4o-mini",
+              "stream": false,
+              "messages": [
+                {
+                  "content": "You are a helpful translation assistant.\nSupported languages:\n['Afrikaans', 'Arabic', 'Armenian', 'Azerbaijani', 'Belarusian', 'Bosnian', 'Bulgarian', 'Catalan', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Filipino', 'Finnish', 'French', 'Galician', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Icelandic', 'Indonesian', 'Italian', 'Japanese', 'Kannada', 'Kazakh', 'Korean', 'Latvian', 'Lithuanian', 'Macedonian', 'Malay', 'Marathi', 'Maori', 'Nepali', 'Norwegian', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swahili', 'Swedish', 'Tagalog', 'Tamil', 'Thai', 'Turkish', 'Ukrainian', 'Urdu', 'Vietnamese', 'Welsh']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n",
+                  "role": "system"
+                },
+                {
+                  "content": "こんにちは、元気？",
+                  "role": "user"
+                }
+              ]
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 30.0,
+              "write": 10.0
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {
+              "authorization": "Bearer contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "model": "gpt-4o-mini",
+              "stream": false,
+              "messages": [
+                {
+                  "content": "You are a helpful translation assistant.\nSupported languages:\n['Afrikaans', 'Arabic', 'Armenian', 'Azerbaijani', 'Belarusian', 'Bosnian', 'Bulgarian', 'Catalan', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Filipino', 'Finnish', 'French', 'Galician', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Icelandic', 'Indonesian', 'Italian', 'Japanese', 'Kannada', 'Kazakh', 'Korean', 'Latvian', 'Lithuanian', 'Macedonian', 'Malay', 'Marathi', 'Maori', 'Nepali', 'Norwegian', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swahili', 'Swedish', 'Tagalog', 'Tamil', 'Thai', 'Turkish', 'Ukrainian', 'Urdu', 'Vietnamese', 'Welsh']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n",
+                  "role": "system"
+                },
+                {
+                  "content": "こんにちは、元気？",
+                  "role": "user"
+                }
+              ]
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 30.0,
+              "write": 10.0
+            }
+          }
+        ],
+        "outcome": {
+          "text": "Hello"
+        }
+      }
+    },
+    {
+      "id": "openai/translate-retry-after-too-long",
+      "provider": "OpenAI_API",
+      "operation": "translate",
+      "note": "A retry-after over 120 seconds means no retry.",
+      "access": {
+        "key": "contract-key-0123456789abcdef",
+        "model": "gpt-4o-mini"
+      },
+      "translation": {
+        "text": "こんにちは、元気？",
+        "source": "Japanese",
+        "target": "English",
+        "history": []
+      },
+      "answers": [
+        {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/chat/completions",
+          "replies": [
+            {
+              "status": 429,
+              "body": {
+                "error": {
+                  "message": "refused"
+                }
+              },
+              "headers": {
+                "retry-after": "600"
+              }
+            },
+            {
+              "status": 200,
+              "body": {
+                "id": "chatcmpl-contract",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                  {
+                    "index": 0,
+                    "message": {
+                      "role": "assistant",
+                      "content": "Hello"
+                    },
+                    "finish_reason": "stop"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "python": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {
+              "authorization": "Bearer contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "model": "gpt-4o-mini",
+              "stream": false,
+              "messages": [
+                {
+                  "content": "You are a helpful translation assistant.\nSupported languages:\n['Afrikaans', 'Arabic', 'Armenian', 'Azerbaijani', 'Belarusian', 'Bosnian', 'Bulgarian', 'Catalan', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Filipino', 'Finnish', 'French', 'Galician', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Icelandic', 'Indonesian', 'Italian', 'Japanese', 'Kannada', 'Kazakh', 'Korean', 'Latvian', 'Lithuanian', 'Macedonian', 'Malay', 'Marathi', 'Maori', 'Nepali', 'Norwegian', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swahili', 'Swedish', 'Tagalog', 'Tamil', 'Thai', 'Turkish', 'Ukrainian', 'Urdu', 'Vietnamese', 'Welsh']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n",
+                  "role": "system"
+                },
+                {
+                  "content": "こんにちは、元気？",
+                  "role": "user"
+                }
+              ]
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 30.0,
+              "write": 10.0
+            }
+          }
+        ],
+        "outcome": {
+          "failed": true
+        }
+      }
+    },
+    {
+      "id": "openai/translate-should-not-retry",
+      "provider": "OpenAI_API",
+      "operation": "translate",
+      "access": {
+        "key": "contract-key-0123456789abcdef",
+        "model": "gpt-4o-mini"
+      },
+      "translation": {
+        "text": "こんにちは、元気？",
+        "source": "Japanese",
+        "target": "English",
+        "history": []
+      },
+      "answers": [
+        {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/chat/completions",
+          "replies": [
+            {
+              "status": 503,
+              "body": {
+                "error": {
+                  "message": "refused"
+                }
+              },
+              "headers": {
+                "x-should-retry": "false"
+              }
+            },
+            {
+              "status": 200,
+              "body": {
+                "id": "chatcmpl-contract",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                  {
+                    "index": 0,
+                    "message": {
+                      "role": "assistant",
+                      "content": "Hello"
+                    },
+                    "finish_reason": "stop"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "python": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {
+              "authorization": "Bearer contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "model": "gpt-4o-mini",
+              "stream": false,
+              "messages": [
+                {
+                  "content": "You are a helpful translation assistant.\nSupported languages:\n['Afrikaans', 'Arabic', 'Armenian', 'Azerbaijani', 'Belarusian', 'Bosnian', 'Bulgarian', 'Catalan', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Filipino', 'Finnish', 'French', 'Galician', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Icelandic', 'Indonesian', 'Italian', 'Japanese', 'Kannada', 'Kazakh', 'Korean', 'Latvian', 'Lithuanian', 'Macedonian', 'Malay', 'Marathi', 'Maori', 'Nepali', 'Norwegian', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swahili', 'Swedish', 'Tagalog', 'Tamil', 'Thai', 'Turkish', 'Ukrainian', 'Urdu', 'Vietnamese', 'Welsh']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n",
+                  "role": "system"
+                },
+                {
+                  "content": "こんにちは、元気？",
+                  "role": "user"
+                }
+              ]
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 30.0,
+              "write": 10.0
+            }
+          }
+        ],
+        "outcome": {
+          "failed": true
+        }
+      }
+    },
+    {
+      "id": "openai/translate-should-retry",
+      "provider": "OpenAI_API",
+      "operation": "translate",
+      "note": "x-should-retry decides over the status.",
+      "access": {
+        "key": "contract-key-0123456789abcdef",
+        "model": "gpt-4o-mini"
+      },
+      "translation": {
+        "text": "こんにちは、元気？",
+        "source": "Japanese",
+        "target": "English",
+        "history": []
+      },
+      "answers": [
+        {
+          "method": "POST",
+          "url": "https://api.openai.com/v1/chat/completions",
+          "replies": [
+            {
+              "status": 400,
+              "body": {
+                "error": {
+                  "message": "refused"
+                }
+              },
+              "headers": {
+                "x-should-retry": "true"
+              }
+            },
+            {
+              "status": 200,
+              "body": {
+                "id": "chatcmpl-contract",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "m",
+                "choices": [
+                  {
+                    "index": 0,
+                    "message": {
+                      "role": "assistant",
+                      "content": "Hello"
+                    },
+                    "finish_reason": "stop"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "retry_pause": [
+        0.375,
+        0.5
+      ],
+      "python": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {
+              "authorization": "Bearer contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "model": "gpt-4o-mini",
+              "stream": false,
+              "messages": [
+                {
+                  "content": "You are a helpful translation assistant.\nSupported languages:\n['Afrikaans', 'Arabic', 'Armenian', 'Azerbaijani', 'Belarusian', 'Bosnian', 'Bulgarian', 'Catalan', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Filipino', 'Finnish', 'French', 'Galician', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Icelandic', 'Indonesian', 'Italian', 'Japanese', 'Kannada', 'Kazakh', 'Korean', 'Latvian', 'Lithuanian', 'Macedonian', 'Malay', 'Marathi', 'Maori', 'Nepali', 'Norwegian', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swahili', 'Swedish', 'Tagalog', 'Tamil', 'Thai', 'Turkish', 'Ukrainian', 'Urdu', 'Vietnamese', 'Welsh']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n",
+                  "role": "system"
+                },
+                {
+                  "content": "こんにちは、元気？",
+                  "role": "user"
+                }
+              ]
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 30.0,
+              "write": 10.0
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://api.openai.com/v1/chat/completions",
+            "headers": {
+              "authorization": "Bearer contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "model": "gpt-4o-mini",
+              "stream": false,
+              "messages": [
+                {
+                  "content": "You are a helpful translation assistant.\nSupported languages:\n['Afrikaans', 'Arabic', 'Armenian', 'Azerbaijani', 'Belarusian', 'Bosnian', 'Bulgarian', 'Catalan', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Filipino', 'Finnish', 'French', 'Galician', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Icelandic', 'Indonesian', 'Italian', 'Japanese', 'Kannada', 'Kazakh', 'Korean', 'Latvian', 'Lithuanian', 'Macedonian', 'Malay', 'Marathi', 'Maori', 'Nepali', 'Norwegian', 'Persian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swahili', 'Swedish', 'Tagalog', 'Tamil', 'Thai', 'Turkish', 'Ukrainian', 'Urdu', 'Vietnamese', 'Welsh']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n",
+                  "role": "system"
+                },
+                {
+                  "content": "こんにちは、元気？",
+                  "role": "user"
+                }
+              ]
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 30.0,
+              "write": 10.0
+            }
+          }
+        ],
+        "outcome": {
+          "text": "Hello"
+        }
+      }
+    },
+    {
+      "id": "deepl/translate-retry-after",
+      "provider": "DeepL_API",
+      "operation": "translate",
+      "note": "The DeepL SDK does not read retry-after.",
+      "access": {
+        "key": "contract-key-0123456789abcdef"
+      },
+      "translation": {
+        "text": "こんにちは、元気？",
+        "source": "ja",
+        "target": "en-US",
+        "history": []
+      },
+      "answers": [
+        {
+          "method": "POST",
+          "url": "https://api.deepl.com/v2/translate",
+          "replies": [
+            {
+              "status": 429,
+              "body": {
+                "error": {
+                  "message": "refused"
+                }
+              },
+              "headers": {
+                "retry-after": "5"
+              }
+            },
+            {
+              "status": 200,
+              "body": {
+                "translations": [
+                  {
+                    "detected_source_language": "JA",
+                    "text": "Hello",
+                    "billed_characters": 5
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "retry_pause": [
+        1.0,
+        1.0
+      ],
+      "python": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://api.deepl.com/v2/translate",
+            "headers": {
+              "authorization": "DeepL-Auth-Key contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "target_lang": "EN-US",
+              "source_lang": "JA",
+              "text": [
+                "こんにちは、元気？"
+              ],
+              "show_billed_characters": true
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 10.0,
+              "write": null
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://api.deepl.com/v2/translate",
+            "headers": {
+              "authorization": "DeepL-Auth-Key contract-key-0123456789abcdef",
+              "content-type": "application/json"
+            },
+            "body": {
+              "target_lang": "EN-US",
+              "source_lang": "JA",
+              "text": [
+                "こんにちは、元気？"
+              ],
+              "show_billed_characters": true
+            },
+            "timeout": {
+              "connect": 5.0,
+              "read": 10.0,
+              "write": null
+            }
+          }
+        ],
+        "outcome": {
+          "text": "Hello"
+        }
+      }
+    },
+    {
+      "id": "gemini/translate-retry-after",
+      "provider": "Gemini_API",
+      "operation": "translate",
+      "note": "The Google SDK does not read retry-after.",
+      "access": {
+        "key": "contract-key-0123456789abcdef",
+        "model": "gemini-2.5-flash"
+      },
+      "translation": {
+        "text": "こんにちは、元気？",
+        "source": "Japanese",
+        "target": "English",
+        "history": []
+      },
+      "answers": [
+        {
+          "method": "POST",
+          "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+          "replies": [
+            {
+              "status": 429,
+              "body": {
+                "error": {
+                  "message": "refused"
+                }
+              },
+              "headers": {
+                "retry-after": "5"
+              }
+            },
+            {
+              "status": 200,
+              "body": {
+                "candidates": [
+                  {
+                    "content": {
+                      "role": "model",
+                      "parts": [
+                        {
+                          "text": "Hello"
+                        }
+                      ]
+                    },
+                    "finishReason": "STOP",
+                    "index": 0
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "retry_pause": [
+        1.0,
+        2.0
+      ],
+      "python": {
+        "requests": [
+          {
+            "method": "POST",
+            "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            "headers": {
+              "content-type": "application/json",
+              "x-goog-api-key": "contract-key-0123456789abcdef"
+            },
+            "body": {
+              "contents": [
+                {
+                  "parts": [
+                    {
+                      "text": "こんにちは、元気？"
+                    }
+                  ],
+                  "role": "user"
+                }
+              ],
+              "systemInstruction": {
+                "parts": [
+                  {
+                    "text": "You are a helpful translation assistant.\nSupported languages:\n['Arabic', 'Bengali', 'Bulgarian', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Finnish', 'French', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Indonesian', 'Italian', 'Japanese', 'Korean', 'Latvian', 'Lithuanian', 'Norwegian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swedish', 'Thai', 'Turkish', 'Ukrainian', 'Vietnamese']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n"
+                  }
+                ]
+              },
+              "safetySettings": [],
+              "generationConfig": {
+                "temperature": 0.7,
+                "candidateCount": 1
+              }
+            },
+            "timeout": {
+              "connect": 30.0,
+              "read": 30.0,
+              "write": 30.0
+            }
+          },
+          {
+            "method": "POST",
+            "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            "headers": {
+              "content-type": "application/json",
+              "x-goog-api-key": "contract-key-0123456789abcdef"
+            },
+            "body": {
+              "contents": [
+                {
+                  "parts": [
+                    {
+                      "text": "こんにちは、元気？"
+                    }
+                  ],
+                  "role": "user"
+                }
+              ],
+              "systemInstruction": {
+                "parts": [
+                  {
+                    "text": "You are a helpful translation assistant.\nSupported languages:\n['Arabic', 'Bengali', 'Bulgarian', 'Chinese Simplified', 'Chinese Traditional', 'Croatian', 'Czech', 'Danish', 'Dutch', 'English', 'Estonian', 'Finnish', 'French', 'German', 'Greek', 'Hebrew', 'Hindi', 'Hungarian', 'Indonesian', 'Italian', 'Japanese', 'Korean', 'Latvian', 'Lithuanian', 'Norwegian', 'Polish', 'Portuguese', 'Romanian', 'Russian', 'Serbian', 'Slovak', 'Slovenian', 'Spanish', 'Swedish', 'Thai', 'Turkish', 'Ukrainian', 'Vietnamese']\n\nTranslate the user provided text from Japanese to English.\nReturn ONLY the translated text. Do not add quotes or extra commentary.\n\n\nConversation context (recent 5 messages):\n\n"
+                  }
+                ]
+              },
+              "safetySettings": [],
+              "generationConfig": {
+                "temperature": 0.7,
+                "candidateCount": 1
+              }
+            },
+            "timeout": {
+              "connect": 30.0,
+              "read": 30.0,
+              "write": 30.0
+            }
+          }
+        ],
+        "outcome": {
+          "text": "Hello"
         }
       }
     }
