@@ -37,7 +37,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:mutation": "mutator"
   },
   "dependencies": {
     "@babel/standalone": "7.27.0",
@@ -62,6 +63,7 @@
     "virtua": "0.54.2"
   },
   "devDependencies": {
+    "@mizchi/mutator": "0.2.0",
     "@rollup/plugin-yaml": "4.1.2",
     "@tauri-apps/cli": "2.12.4",
     "@types/react": "18.3.31",
