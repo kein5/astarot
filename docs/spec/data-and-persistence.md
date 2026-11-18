@@ -76,7 +76,13 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 2つのタイムアウトの意味は次のとおりである（`native/transcription`の`energy.rs`と`phrases.rs`）。`RECORD_TIMEOUT`は1回の録音（音量で切り出した1つのフレーズ）の長さの上限で、0は上限なしである。上限で切れたフレーズも、間をあけずに続けば同じ発話につながる。`PHRASE_TIMEOUT`は、最後のフレーズからこの秒数が過ぎると、それまでの音声を1つの発話として区切る値である。フレーズの間の無音がこれより長いときも新しい発話になる。発話は音声が15秒になったときも区切る。設定画面のラベルと説明はこの意味で書く（「1回の録音の長さの上限」と「発話を区切るまでの待ち時間」）。
 
-`MIC_ENABLE_VAD`と`SPEAKER_ENABLE_VAD`は、音量の代わりに VAD でフレーズを区切るスイッチである。次に録音を始めたときから効く。VAD で区切るときは`PHRASE_TIMEOUT`を使わず、自然に区切れた区間ごとに1つの発話として認識する。長さの上限で切れた区間は次の区間とつなぐ（15秒まで）。認識に送る音声の前に0.3秒、後に0.5秒の無音を足す。いまの版は VAD のエンジンを持たない（`/get/data/vad_available`が`false`）。この間、`/set/enable/mic_vad_filter`と`/set/enable/speaker_vad_filter`は値を変えず、400の`VAD_UNAVAILABLE`と保存値を返す。オフにする操作は受け付ける。以前の版で保存したオンの値はそのまま残し、録音は音量で区切る。設定画面は VAD の選択肢を選べない状態にして理由を示し、保存値がオンでも「自動」か「手動」の表示にする。
+`MIC_ENABLE_VAD`と`SPEAKER_ENABLE_VAD`は、音量の代わりに VAD でフレーズを区切るスイッチである。次に録音を始めたときから効く。VAD で区切るときは`PHRASE_TIMEOUT`を使わず、自然に区切れた区間ごとに1つの発話として認識する。長さの上限（7秒）で切れた区間は次の区間とつなぐ（15秒まで）。認識に送る音声の前に0.3秒、後に0.5秒の無音を足す。
+
+VAD は、リアルタイム字幕と同じ speech.cpp のサーバーの Silero VAD を使う（`native/transcription`の`server_vad.rs`）。スイッチがオンで文字起こしの録音を始めると、中核はそのサーバーに文字起こしをしない Realtime のセッションを開く。`session.update`では`transcription`を`null`、`turn_detection`を`server_vad`（しきい値0.25、前の余白160ミリ秒、無音768ミリ秒。Python の VAD の経路と同じ値）にする。録音の音声を24 kHz のモノラルで送り、`input_audio_buffer.speech_started`の`audio_start_ms`から`speech_stopped`の`audio_end_ms`までを1つの区間として切る。同梱のサーバーは、動いているときだけ使い、録音のためには起動しない。音量メーターだけのときはセッションを開かない。
+
+`/get/data/vad_available`は、サーバーの設定がそろっているかを返す。リアルタイム字幕のサーバーが同梱なら、音声サーバーの`asr`プロファイルに認識モデルと VAD モデルのパスがあるとき、外部なら URL がループバックのアドレス（`speechcpp::local_url`）のときに`true`である。サーバーが動いているかは録音を始めるまで確かめない。リアルタイム字幕の設定、音声サーバーの設定、取得したモデルの適用でこの値が変わると、中核は`/get/data/vad_available`を UI へ送り直す。`false`の間、`/set/enable/mic_vad_filter`と`/set/enable/speaker_vad_filter`は値を変えず、400の`VAD_UNAVAILABLE`と保存値を返す。`details.reason`は足りないもの（`realtime_asr_model_missing`、`realtime_vad_model_missing`、`realtime_base_url_invalid`）である。オフにする操作は受け付ける。以前の版で保存したオンの値はそのまま残す。設定画面は VAD の選択肢を選べない状態にして理由を示し、保存値がオンでも「自動」か「手動」の表示にする。
+
+スイッチがオンでもサーバーを使えないときは、音量で区切り、`/run/vad_unavailable`に400の`VAD_UNAVAILABLE`（`data`は`{"source": "mic"}`か`{"source": "speaker"}`、`details.reason`は理由）を1回送る。理由は、上の設定の不足のほか、サーバーが動いていない・接続できない（`speech_server_not_ready`）、サーバーに VAD モデルがない（`realtime_vad_model_missing`）、セッションが途中で切れた（`realtime_session_failed`）である。セッションを開いている間に音量で切った区間は、開けなかったときに認識へ回し、開けたときは捨てる。途中で切れたときは、それ以降を音量で区切る。UI は`details.reason`に対応するリアルタイム字幕の案内（`realtime_toggle.*`）があれば、知らせの後ろに付ける。
 
 ローカルの Whisper とともに、`MIC_NO_REPEAT_NGRAM_SIZE`と`SPEAKER_NO_REPEAT_NGRAM_SIZE`は削除した。古い`config.json`にあっても読み込まない。
 

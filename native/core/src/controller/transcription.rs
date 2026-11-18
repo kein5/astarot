@@ -344,7 +344,8 @@ impl Core {
     }
 
     /// The settings of a source's recorder (`_create_recorder`, `_create_transcriber`).
-    fn recorder_settings(&self, source: Source) -> Settings {
+    /// `transcribing` is false for a recorder that only feeds the volume meter.
+    fn recorder_settings(self: &Arc<Self>, source: Source, transcribing: bool) -> Settings {
         let config = self.config();
         let number = |key: &str| super::python_float(&config.get(&format!("{}_{key}", upper(source)))).unwrap_or(0.0);
         let phrase_timeout = number("PHRASE_TIMEOUT");
@@ -354,9 +355,10 @@ impl Core {
             record_timeout: number("RECORD_TIMEOUT").min(phrase_timeout),
             phrase_timeout,
             max_phrases: number("MAX_PHRASES").max(0.0) as usize,
-            // The switch takes effect at the next start, as in Python. Without a VAD engine the
-            // saved switch is kept and the energy listener cuts phrases.
-            vad: config.get_bool(&format!("{}_ENABLE_VAD", upper(source))).then(|| self.services().vad.clone()).flatten(),
+            // The switch takes effect at the next start, as in Python. When the speech.cpp server
+            // cannot detect speech the energy listener cuts phrases and the user is told. The
+            // volume meter alone needs no detection.
+            vad: (transcribing && config.get_bool(&format!("{}_ENABLE_VAD", upper(source)))).then(|| self.recorder_vad(source)).flatten(),
         }
     }
 
@@ -479,7 +481,7 @@ impl Core {
             (self.services().transcription_capture)(self.config().environment()).as_ref(),
             source,
             &self.candidate_devices(source, &requested),
-            self.recorder_settings(source),
+            self.recorder_settings(source, new_transcript),
             recognize,
             new_energy,
             paused,

@@ -82,6 +82,9 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("translation_compute_device_fallback", "/run/translation_compute_device_fallback"),
     ("word_filter", "/run/word_filter"),
     ("transcription_recognition_error", "/run/transcription_recognition_error"),
+    // The core's own (#278): the recorder's VAD could not use the speech.cpp server and cuts by
+    // volume (`VAD_UNAVAILABLE`, with the reason).
+    ("vad_unavailable", "/run/vad_unavailable"),
     ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),
     ("downloaded_ctranslate2_weight", "/run/downloaded_ctranslate2_weight"),
     ("error_ctranslate2_weight", "/run/error_ctranslate2_weight"),
@@ -222,8 +225,9 @@ pub struct Services {
     pub transcription_capture: TranscriptionCapture,
     /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
     pub transcription_endpoints: vrct_transcription::providers::Endpoints,
-    /// The VAD engine the recorders use while `*_ENABLE_VAD` is on: none in this build
-    /// ([`vrct_transcription::vad::bundled`], decision 13). Tests give a fake.
+    /// A VAD engine the recorders use while `*_ENABLE_VAD` is on, in place of Silero VAD on the
+    /// speech.cpp server of realtime recognition ([`vrct_transcription::server_vad`], decision
+    /// 13). `None` uses the server. Tests give a fake.
     pub vad: Option<vrct_transcription::vad::Vad>,
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
@@ -272,7 +276,7 @@ impl Default for Services {
             software_updates: Arc::new(updates::Disabled),
             transcription_capture: Arc::new(default_transcription_capture),
             transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
-            vad: vrct_transcription::vad::bundled(),
+            vad: None,
             voice: Arc::new(voice::NativeVoice),
             secret_store: Arc::new(crate::config::secrets::default_store),
             gpu_memory: crate::gpu_memory::native_reader(),

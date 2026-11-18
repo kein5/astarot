@@ -653,12 +653,18 @@ export const _useBackendErrorHandling = () => {
                 showNotification_Error(t("common_error.invalid_hex_color", { brand_color_hex: ui_configs.brand_color_hex }), { category_id: error_code });
                 return;
 
-            // No VAD engine in this build: the switch keeps its saved value, read again.
-            case "VAD_UNAVAILABLE":
-                if (endpoint === "/set/enable/mic_vad_filter") asyncStdoutToPython("/get/data/mic_vad_filter");
-                else if (endpoint === "/set/enable/speaker_vad_filter") asyncStdoutToPython("/get/data/speaker_vad_filter");
-                showNotification_Warning(localized, { category_id: error_code });
+            // The VAD runs on the speech.cpp server of speech recognition. A switch refused while
+            // that server is not set up keeps its saved value, read again; a recording that cannot
+            // use it cuts by volume. details.reason names the next step when there is one.
+            case "VAD_UNAVAILABLE": {
+                const refused = endpoint === "/set/enable/mic_vad_filter" || endpoint === "/set/enable/speaker_vad_filter";
+                if (refused) asyncStdoutToPython(endpoint.replace("/set/enable/", "/get/data/"));
+                const reason = typeof result?.details?.reason === "string" ? result.details.reason : "";
+                const next = reason && i18n.exists(`realtime_toggle.${reason}`) ? t(`realtime_toggle.${reason}`) : "";
+                const text = refused ? localized : t(key, { context: "recording" });
+                showNotification_Warning(next ? `${text} ${next}` : text, { category_id: error_code });
                 return;
+            }
 
             // ============================================================================
             // VRC連携エラー (VRC_*)

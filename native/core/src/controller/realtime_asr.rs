@@ -20,7 +20,9 @@ use std::time::{Duration, Instant};
 use vrct_audio_routing::graph::{Endpoint, SourceId};
 use vrct_speech_server::Profile;
 use vrct_transcription::realtime::{Admission, Delivery, Options, Session, Update};
+use vrct_transcription::server_vad::{self, ServerVad};
 use vrct_transcription::speechcpp;
+use vrct_transcription::vad::Vad;
 
 const SETTINGS_KEY: &str = "REALTIME_ASR_SETTINGS";
 /// A started server enforces its own start timeout; this only bounds a switch's wait.
@@ -162,6 +164,99 @@ impl Core {
         &self.transcription().realtime
     }
 
+    /// Why the recorder's VAD cannot be turned on, or `None` (decision 13). Silero VAD runs on
+    /// the speech.cpp server of realtime recognition: the bundled one needs its recognition
+    /// model and its VAD model set; an external one, an address on this computer. Whether the
+    /// server runs is known only when a recording starts. A VAD engine of the services (tests)
+    /// is always there.
+    pub(crate) fn vad_unavailable_reason(&self) -> Option<&'static str> {
+        if self.services().vad.is_some() {
+            return None;
+        }
+        let settings = self.vad_server_settings();
+        if settings["server"] == "bundled" {
+            let profile = &self.config().get("SPEECH_SERVER_SETTINGS")["profiles"]["asr"];
+            let missing = |key: &str| profile[key].as_str().unwrap_or("").trim().is_empty();
+            return if missing("model") {
+                Some("realtime_asr_model_missing")
+            } else if missing("vad_model") {
+                Some("realtime_vad_model_missing")
+            } else {
+                None
+            };
+        }
+        match settings["base_url"].as_str().and_then(speechcpp::local_url) {
+            Some(_) => None,
+            None => Some("realtime_base_url_invalid"),
+        }
+    }
+
+    /// `/get/data/vad_available`.
+    pub(crate) fn vad_available(&self) -> bool {
+        self.vad_unavailable_reason().is_none()
+    }
+
+    /// Tells the UI when a save changed whether the VAD can be turned on: the UI reads it at
+    /// start-up, and the realtime settings, the servers' settings and an applied download can
+    /// change it later.
+    pub(crate) fn vad_available_since(&self, before: bool) {
+        let now = self.vad_available();
+        if now != before {
+            self.run(200, "/get/data/vad_available", json!(now));
+        }
+    }
+
+    /// The VAD a source's recorder cuts with while its switch is on: the services' engine, else
+    /// Silero VAD on the speech.cpp server ([`vrct_transcription::server_vad`]). A server that is
+    /// not set up, or one the recording cannot use, is told (`/run/vad_unavailable`), and the
+    /// energy listener cuts.
+    pub(crate) fn recorder_vad(self: &Arc<Self>, source: Source) -> Option<Vad> {
+        if let Some(vad) = self.services().vad.clone() {
+            return Some(vad);
+        }
+        if let Some(reason) = self.vad_unavailable_reason() {
+            self.vad_unavailable(source, reason);
+            return None;
+        }
+        let weak = Arc::downgrade(self);
+        let resolve: server_vad::Resolve = Arc::new({
+            let weak = weak.clone();
+            move || weak.upgrade().ok_or_else(|| "realtime_session_failed".to_string())?.vad_server_url()
+        });
+        let report: server_vad::Report = Arc::new(move |code: &str| {
+            if let Some(core) = weak.upgrade() {
+                core.vad_unavailable(source, code);
+            }
+        });
+        Some(Vad(Arc::new(ServerVad::new(resolve, report, server_vad::PYTHON))))
+    }
+
+    /// The speech.cpp server the recorder's VAD uses: the bundled one while it runs (a recording
+    /// does not start it), or the external one of the settings.
+    fn vad_server_url(&self) -> Result<String, String> {
+        let settings = self.vad_server_settings();
+        let base = if settings["server"] == "bundled" {
+            self.speech_servers().hub().binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?
+        } else {
+            settings["base_url"].as_str().unwrap_or("").to_string()
+        };
+        speechcpp::local_url(&base).ok_or_else(|| "realtime_base_url_invalid".to_string())
+    }
+
+    /// The realtime settings as saved, normalized. Read from the settings, not the realtime
+    /// state, so that a recorder's lock is never held while the realtime lock is taken.
+    fn vad_server_settings(&self) -> Value {
+        crate::voice_settings::normalize_realtime(&self.config().get(SETTINGS_KEY))
+            .or_else(|_| crate::voice_settings::normalize_realtime(&json!({})))
+            .unwrap_or_default()
+    }
+
+    fn vad_unavailable(&self, source: Source, reason: &str) {
+        self.step(&format!("{}: the VAD cannot use the speech.cpp server ({reason}); phrases are cut by volume", source.as_str()));
+        let error = ErrorReply::new("VAD_UNAVAILABLE", json!({ "source": source.as_str() })).details(json!({ "reason": reason }));
+        self.notify_error(super::run_endpoint("vad_unavailable"), error);
+    }
+
     /// `_realtimeLanguage`: the language name of a speech.cpp code (Google's column first).
     fn realtime_language(code: &str) -> Option<String> {
         for engine in ["Google", "Whisper"] {
@@ -266,6 +361,7 @@ impl Core {
         let Ok(settings) = crate::voice_settings::normalize_realtime(data) else {
             return refused(400, "realtime_settings_invalid");
         };
+        let vad = self.vad_available();
         {
             let _settings = self.realtime().settings_lock.lock().unwrap_or_else(|e| e.into_inner());
             {
@@ -283,6 +379,7 @@ impl Core {
             }
             let _ = self.config().set(SETTINGS_KEY, settings);
         }
+        self.vad_available_since(vad);
         for source in [Source::Mic, Source::Speaker] {
             self.publish_realtime_toggle(source, None);
         }
