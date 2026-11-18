@@ -146,14 +146,23 @@ pub trait Api {
     /// Translates one text. Codes as the engine's language table gives them.
     fn translate(transport: &Transport, access: &Access<'_>, request: &Translation<'_>) -> Result<String, Error>;
 
+    /// Whether a failed translation is worth one more try: the rule of the SDK the Python client
+    /// used. The default is the OpenAI SDK's ([`Error::retryable`]).
+    fn retry(error: Error) -> bool {
+        error.retryable()
+    }
+
     /// Runs one translation request: a local address once with [`LOCAL_CHAT`], else with
-    /// [`Api::TRANSLATE_WAIT`] and one more try when the failure is worth it (the SDKs'
-    /// `max_retries=1`).
+    /// [`Api::TRANSLATE_WAIT`] and one more try when [`Api::retry`] says the failure is worth it
+    /// (the SDKs' `max_retries=1`).
     fn attempt<T>(base: &str, mut once: impl FnMut(Timeouts) -> Result<T, Error>) -> Result<T, Error> {
         if Self::local(base) {
             once(LOCAL_CHAT)
         } else {
-            retry_once(|| once(Self::TRANSLATE_WAIT))
+            match once(Self::TRANSLATE_WAIT) {
+                Err(error) if Self::retry(error) => once(Self::TRANSLATE_WAIT),
+                other => other,
+            }
         }
     }
 }
@@ -387,12 +396,19 @@ impl Error {
         matches!(self, Error::Http(HttpError::Unreachable))
     }
 
-    /// Worth one more try at run time (`max_retries=1`; the SDKs' retry rules).
+    /// Worth one more try at run time by the OpenAI SDK's rule (`max_retries=1`): a connection
+    /// that failed or timed out, and the statuses 408, 409, 429 and 5xx. The providers whose
+    /// Python client used another SDK say so in [`Api::retry`].
     pub fn retryable(self) -> bool {
+        self.retryable_with(|status| matches!(status, 408 | 409 | 429) || status >= 500)
+    }
+
+    /// Worth one more try: a connection that failed or timed out, or a status `statuses` takes.
+    pub fn retryable_with(self, statuses: impl Fn(u16) -> bool) -> bool {
         match self {
             Error::Http(HttpError::Url) => false,
             Error::Http(_) => true,
-            Error::Status(status) => matches!(status, 408 | 409 | 429) || status >= 500,
+            Error::Status(status) => statuses(status),
             _ => false,
         }
     }
@@ -468,14 +484,6 @@ pub(crate) fn json_of(response: &Response) -> Result<Value, Error> {
     response.json().ok_or(Error::Answer)
 }
 
-/// Runs a request once more when the first failure is worth it (the SDKs' `max_retries=1`).
-pub(crate) fn retry_once<T>(mut attempt: impl FnMut() -> Result<T, Error>) -> Result<T, Error> {
-    match attempt() {
-        Err(error) if error.retryable() => attempt(),
-        other => other,
-    }
-}
-
 /// Percent-encodes a query or path value.
 pub(crate) fn percent(text: &str) -> String {
     let mut out = String::new();
@@ -487,6 +495,12 @@ pub(crate) fn percent(text: &str) -> String {
         }
     }
     out
+}
+
+/// A query value as a form encodes it (Python's `quote_plus`, which the Google SDK used): a
+/// space becomes `+`, the rest as [`percent`].
+pub(crate) fn form_value(text: &str) -> String {
+    text.split(' ').map(percent).collect::<Vec<_>>().join("+")
 }
 
 /// The sorted `field` of each entry of `array` in the answer of a local server, without a key;

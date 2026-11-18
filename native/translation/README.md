@@ -43,9 +43,14 @@ Google、Bing、Papago の Web 翻訳は、上流のライセンスにより VRC
 
 - キーの確かめ方。DeepL は `" "` を `EN-US` に訳してみます。`:fx` で終わるキーは無料版の API へ送ります。OpenRouter は `/auth/key` を、ほかはモデルの一覧を取得して確かめます。
 - モデルの絞り込み。各クライアントが除いていた語（`whisper`、`embedding` など）と、OpenAI の `gpt-` の条件をそのまま使います。一覧は名前の順に並べます。
-- 待ち時間。キーの確認とモデルの一覧は 3 秒（1 回の確認全体で 8 秒）、クラウドの翻訳は接続 5 秒・読み取り 30 秒、PC の中のサーバは読み取り 120 秒、DeepL は接続 5 秒・読み取り 10 秒です。LM Studio と Ollama が動いているかは 0.2 秒で確かめます。
-- 再試行。クラウドのプロバイダは、通信の失敗と 408、409、429、5xx のときに 1 回だけ再試行します。LM Studio と Ollama は再試行しません。
-- 長さの上限で切れた応答（`finish_reason` が `length`、Gemini の `MAX_TOKENS`）は、訳せなかったものとして空の文字列を返します。
+- 待ち時間。キーの確認とモデルの一覧は 3 秒（1 回の確認全体で 8 秒）、クラウドの翻訳は接続 5 秒・読み取り 30 秒、PC の中のサーバは読み取り 120 秒、DeepL は接続 5 秒・読み取り 10 秒です。Gemini の翻訳は、Google の SDK と同じく接続も含めて 30 秒です。LM Studio と Ollama が動いているかは 0.2 秒で確かめます。
+- 再試行。クラウドのプロバイダは、通信の失敗と次の状態コードのときに 1 回だけ再試行します。コードは Python のクライアントが使っていた SDK の規則です。LM Studio と Ollama は再試行しません。
+  - OpenAI の SDK（PLaMo、OpenAI、Groq、OpenRouter、OpenAI 互換）: 408、409、429、5xx
+  - DeepL の SDK: 429、5xx
+  - Google の SDK（Gemini）: 408、429、500、502、503、504
+- 長さの上限で切れた応答（`finish_reason` が `length`、Gemini の `MAX_TOKENS`、Ollama の `done_reason` が `length`、OpenAI と OpenAI 互換の Responses API の `incomplete_details`）は、訳せなかったものとして空の文字列を返します。
+- 要求の本文。Gemini には LangChain が送っていた生成の設定（`temperature` 0.7、候補 1 つ、空の `safetySettings`）を送ります。DeepL には SDK と同じく `show_billed_characters` を付け、Ollama には空の `options` と `tools` を付けます。
+- Responses API。LangChain は、名前が `gpt-5-pro`、`gpt-5.2-pro`、`gpt-5.4-pro`、`gpt-5.5-pro`、`gpt-5.6-sol` で始まるか `codex` を含むモデルを Chat Completions ではなく Responses API（`POST /responses`）で呼んでいました。OpenAI 形式のチャットのプロバイダは同じ規則で選びます（`chat::responses_only`）。
 - プロンプトの文面、言語の一覧の書き方（Python のリストの表記）、履歴の件数（5 件）と文字数（4000 字）。
 
 ## 公式の翻訳 API（中核で足したもの）
@@ -73,7 +78,8 @@ LM Studio と Ollama はこの PC か LAN のサーバとして、再試行せ�
 ## Python と違う点
 
 - **プロキシ**。Python はクラウドのプロバイダへの通信で `HTTP(S)_PROXY` を使っていました。このクレートはプロキシを使いません（`native/ops` と同じ）。
-- **SDK の細かな違い**。LangChain や各社の SDK ではなく、各 API を直接呼びます。OpenAI は Chat Completions だけを使い、一部のモデルで SDK が選んでいた Responses API は使いません。
+- **SDK の細かな違い**。LangChain や各社の SDK ではなく、各 API を直接呼びます。送る中身は Python のクライアントと同じにしてあり、契約テスト（下の「試験」）で確かめます。SDK が自分で付けるヘッダー（`User-Agent`、`x-stainless-*` など）は送りません。再試行までの待ち（SDK の指数的な待ち）はありません。
+- **この PC と LAN の OpenAI 互換のエンドポイント**。LM Studio と同じ待ち時間で再試行しません（上の「この PC と LAN」）。
 
 ## 読み（transliteration）
 
