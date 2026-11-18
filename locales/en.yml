@@ -2159,12 +2159,14 @@ translation_catalog:
         missing: "Folder not found"
         unsupported: "Not supported by this version"
         unavailable: "Cannot be read"
+        no_key: "No API key"
         not_downloaded: "Not downloaded"
         not_set: "Not set up"
     state_help:
         missing: "The folder cannot be found. If you moved it, remove the entry and add it again."
         unsupported: "This entry was added with a newer version of the app. This version cannot use it."
         unavailable: "The model in the folder cannot be read, or none of its languages are offered. The log names the reason."
+        no_key: "The API key could not be saved in the app's key store, so it was lost when the app closed. Remove the entry and add it again."
     fact:
         runtime: "Inference engine"
         folder: "Folder"
@@ -2179,6 +2181,8 @@ translation_catalog:
     languages_all: "Every language the model has"
     model_first: "The first model the server lists"
     key_kept: "Kept in the app's key store"
+    key_memory: "Only until you close the app (not saved)"
+    key_memory_help: "The API key could not be saved in the app's key store, so the app holds it only until you close it. Once the key store works again, the app saves the key there by itself."
     key_none: "None"
     folder_help: "This model is in the translation-models folder. To remove it, move its folder out of that folder."
     use:
@@ -2243,7 +2247,6 @@ translation_catalog:
         translation_catalog_unreadable: "The list of entries (translation_catalog.json) cannot be read. The file was left as it is."
         translation_catalog_write_failed: "The list of entries could not be saved. Check the permissions of its folder."
         translation_catalog_key_required: "Enter the API key."
-        translation_catalog_key_store_failed: "The API key could not be kept in the app's key store, so the entry was not added."
         translation_catalog_key_missing: "The entry's API key is no longer in the app's key store. Remove the entry and add it again."
         translation_catalog_key_unreadable: "The entry's API key could not be read from the app's key store. Nothing was changed. On Linux, start and unlock your keyring (such as GNOME Keyring or KWallet), then try again."
         translation_catalog_unusable: "This entry cannot be used now. Check its folder or remove it."
