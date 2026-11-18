@@ -88,9 +88,9 @@ run = "python tools/dev.py setup --scope resources"
 
 [tasks."setup:app"]
 description = "App Python environments from uv.lock: .venv and .venv_cuda on Windows, .venv_linux on Linux"
-run = "uv sync --frozen --python 3.11"
+run = "uv sync --frozen"
 run_windows = "bat\\install.bat"
-env = { UV_PROJECT_ENVIRONMENT = ".venv_linux", UV_PYTHON_PREFERENCE = "only-system" }
+env = { UV_PROJECT_ENVIRONMENT = ".venv_linux", UV_PYTHON_PREFERENCE = "only-system", UV_PYTHON_DOWNLOADS = "never" }
 
 [tasks.spec]
 description = "Regenerate the spec reference (docs/spec/reference/) from the code"
