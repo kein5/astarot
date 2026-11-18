@@ -5,8 +5,11 @@ import { USER_MODEL_FILES, USER_MODEL_NAME_LIMIT, registrationRequest, userModel
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import styles from "./VoiceSettings.module.scss";
+import { AuditionButton, AuditionNote } from "./VoiceAudition";
 
 const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
+// A registered model's files are there, as a downloaded one's; a missing or changed one cannot play.
+const auditionStatus = status => status === "registered" ? "downloaded" : status === "in_use" ? "in_use" : "not_downloaded";
 
 // The cards of the models the user registered for one target (#403), in the same list as the
 // catalog's cards. "Use" writes the model's paths into the settings through the same checks as
@@ -45,8 +48,11 @@ export const UserModelCards = ({ target, expected, blocked, busy }) => {
                 {status !== "in_use" && <button type="button" className="primary"
                     disabled={busy || !!blocked || status !== "registered" || !expected?.[target]}
                     onClick={() => send("/run/apply_user_model", { id: model.id, expected: expected[target] })}>{t("user_models.use")}</button>}
+                {/* A TTS model in use can be heard on the monitor output (#415). */}
+                <AuditionButton target={target} status={auditionStatus(status)} />
                 <button type="button" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</button>
             </div>}
+            {removing !== model.id && <AuditionNote target={target} status={auditionStatus(status)} />}
         </li>;
     });
 };

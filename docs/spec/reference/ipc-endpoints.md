@@ -471,9 +471,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/gpu_memory` | 取得 | `core: gpu_memory` | 可 | useGpuMemory.updateGpuMemory | 中核のみ |
 | `/get/data/usage_presets` | 取得 | `core: USAGE_PRESETS` | 可 | useUsagePresets.updateFromBackendUsagePresets | 中核のみ |
 | `/set/data/usage_presets` | 設定 | `core: USAGE_PRESETS` | 可 | useUsagePresets.setSuccessUsagePresets | 中核のみ |
-| `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | — | 中核のみ |
-| `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | — | 中核のみ |
-| `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | — | 中核のみ、即時（キューを通らない） |
+| `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | useVoiceAudition.updateState | 中核のみ |
+| `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | useVoiceAudition.updateState | 中核のみ |
+| `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
 
 
 ## 通知（サイドカーからUIへ、89件）
@@ -573,11 +573,10 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（18件）
+## UIに受信先がないエンドポイント（15件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
-- `/get/data/voice_audition_state`
 - `/run/ctranslate2_license_notice`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
@@ -592,8 +591,6 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/error_translation_speaker_vram_overflow`
 - `/run/initialization_complete`
 - `/run/message_output_error`
-- `/run/start_voice_audition`
-- `/run/stop_voice_audition`
 - `/run/translation_language_unsupported`
 
 

@@ -12,6 +12,7 @@ import { useConsentDialog } from "../../../../../../logics/common/useConsentDial
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
 import { UserModelCards, UserModelRegistration } from "./UserModels";
+import { AuditionButton, AuditionNote } from "./VoiceAudition";
 import { USER_MODEL_FILES } from "../../../../../../logics/voice/modelCatalog";
 
 const activePhases = ["queued", "downloading", "verifying", "cancelling"];
@@ -245,8 +246,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     setConsent(false);
                     setSelected({ ...current, catalog_version: catalog.catalog_version, downloaded });
                 }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
+                {/* The TTS models: a short sentence on the monitor output only (#415). */}
+                <AuditionButton target={target} status={shownStatus} />
             </div>
             {downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>}
+            <AuditionNote target={target} status={shownStatus} />
         </li>;
     };
 

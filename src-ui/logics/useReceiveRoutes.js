@@ -4,6 +4,7 @@ import { useI18n } from "@useI18n";
 import * as realtime from "./transcription/useRealtimeASR";
 import * as localAsr from "./transcription/useLocalAsrMigration";
 import * as virtualMic from "./voice/useVirtualMic";
+import * as voiceAudition from "./voice/useVoiceAudition";
 import * as firstRunSetup from "./setup/useFirstRunSetup";
 import * as common from "@logics_common";
 import * as main from "@logics_main";
@@ -98,6 +99,10 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/get/data/direct_voice_state", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
     { endpoint: "/run/start_direct_voice", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
     { endpoint: "/run/stop_direct_voice", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
+    // The voice audition of the TTS catalog (#415).
+    { endpoint: "/get/data/voice_audition_state", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
+    { endpoint: "/run/start_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
+    { endpoint: "/run/stop_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
     // Common
     { endpoint: "/run/feed_watchdog", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/initialization_progress", ns: common, hook_name: "useInitProgress", method_name: "updateInitProgress" },
@@ -309,6 +314,14 @@ export const useReceiveRoutes = () => {
     const { state: realtimeState, send: sendRealtime, updateError: updateRealtimeError, reset: resetRealtime, backendStopped: stopRealtimePending } = realtime.useRealtimeASR();
     const { failRequest: failOldWhisperWeights, reset: resetLocalAsr, backendStopped: stopLocalAsrPending } = localAsr.useLocalAsrMigration();
     const { failCheck: failVirtualMicCheck, reset: resetVirtualMic, backendStopped: stopVirtualMicCheck } = virtualMic.useVirtualMic();
+    const { audition, poll: pollAudition, fail: failAudition, reset: resetAudition, backendStopped: stopAudition } = voiceAudition.useVoiceAudition();
+    // Asked only while an audition plays, to show when it has ended.
+    const auditionPlaying = audition.phase === "playing";
+    useEffect(() => {
+        if (!auditionPlaying) return;
+        const timer = setInterval(() => !store.backend_stopped && pollAudition(), 300);
+        return () => clearInterval(timer);
+    }, [auditionPlaying, pollAudition]);
     const { reset: resetFirstRunSetup } = firstRunSetup.useFirstRunSetup();
     const realtimeActive = Object.values(realtimeState).some(value => value.requested);
     useEffect(() => {
@@ -434,6 +447,11 @@ export const useReceiveRoutes = () => {
             failVirtualMicCheck(result?.error_code);
             return;
         }
+        // A refused audition says why on its card; a failed stop or poll leaves it as it is.
+        if (status !== 200 && endpoint.includes("voice_audition")) {
+            if (endpoint === "/run/start_voice_audition") failAudition(result?.error_code);
+            return;
+        }
         if (status !== 200 && endpoint.includes("realtime_asr")) {
             updateRealtimeError(result?.error_code || "realtime_request_failed");
             return;
@@ -474,6 +492,7 @@ export const useReceiveRoutes = () => {
             // The notice and the old weights come in this same result (init_mapping).
             resetLocalAsr();
             resetVirtualMic();
+            resetAudition();
             resetFirstRunSetup();
             sendRealtime("/get/data/realtime_asr_settings");
             sendRealtime("/get/data/realtime_asr_state");
@@ -590,6 +609,7 @@ export const useReceiveRoutes = () => {
         stopRealtimePending();
         stopLocalAsrPending();
         stopVirtualMicCheck();
+        stopAudition();
     };
     return { receiveRoutes, backendStopped };
 };

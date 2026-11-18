@@ -10,6 +10,7 @@ import * as meterValue from "../common/meterValue.ts";
 import * as utils from "../utils.ts";
 import * as localAsrMigration from "../transcription/localAsrMigration.ts";
 import * as virtualMicShapes from "../voice/virtualMic.ts";
+import * as voiceAuditionShapes from "../voice/voiceAudition.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
 
 const messageFormat = { message: { prefix: "", suffix: "" }, separator: "\n",
@@ -115,12 +116,18 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     const firstRunSetup = await loadModule(new URL("../setup/useFirstRunSetup.ts", import.meta.url), localRuntime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
     });
+    // The voice audition (#415): the real hook, which sends what the cards press.
+    const sent = [];
+    const voiceAudition = await loadModule(new URL("../voice/useVoiceAudition.ts", import.meta.url), localRuntime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint, data) => { sent.push([endpoint, data]); return true; } }) },
+        "./voiceAudition.ts": voiceAuditionShapes,
+    });
     const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key, i18n: { exists: () => false } } },
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
-        "./setup/useFirstRunSetup": firstRunSetup,
+        "./setup/useFirstRunSetup": firstRunSetup, "./voice/useVoiceAudition": voiceAudition,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./translation/useTranslationCatalog": { useTranslationCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
@@ -136,6 +143,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     });
     return { ...subject, notices, reads, localAsr: () => localRuntime.render(localAsr.useLocalAsrMigration), virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
         firstRunSetup: () => localRuntime.render(firstRunSetup.useFirstRunSetup),
+        voiceAudition: () => localRuntime.render(voiceAudition.useVoiceAudition), auditionSent: sent,
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
         ...runtime.render(routes.useReceiveRoutes) };
 };
