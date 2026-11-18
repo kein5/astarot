@@ -354,10 +354,14 @@ fn shared_probe_cancels_only_confirmed_address() {
         let registry = ListenerMonitors::new();
         let attempted = Event::new();
         let confirmed: Address = ("127.0.0.1".into(), a.server.port);
+        // The failing connect is put in only after both requests subscribed, as the Python test
+        // patched `create_connection` after counting the watches: a refusal before that ends the
+        // monitor before it can be counted.
+        let armed = Arc::new(AtomicBool::new(false));
         let probe: Probe = {
-            let (attempted, confirmed) = (attempted.clone(), confirmed.clone());
+            let (attempted, confirmed, armed) = (attempted.clone(), confirmed.clone(), armed.clone());
             Arc::new(move |address: &Address, _: &Event| {
-                if *address == confirmed {
+                if *address == confirmed && armed.load(Ordering::SeqCst) {
                     attempted.set();
                     return refused;
                 }
@@ -372,6 +376,7 @@ fn shared_probe_cancels_only_confirmed_address() {
             assert!(active.next().unwrap().is_ok());
         }
         assert_eq!(registry.external(&confirmed).unwrap().watch_count(), 2);
+        armed.store(true, Ordering::SeqCst);
         assert!(attempted.wait(Some(millis(500))));
         if refused {
             assert!(tokens[0].wait(millis(200)) && tokens[1].wait(millis(200)));
@@ -501,5 +506,10 @@ fn the_default_probe_is_inconclusive_for_a_live_listener() {
     let address: Address = ("127.0.0.1".into(), listener.local_addr().unwrap().port());
     assert!(!listener_missing(&address, &Event::new()));
     drop(listener);
+    // Windows proves absence from the TCP table, and a probe reuses a table read begun within
+    // the last 20 ms: until then it still sees the listener of the first probe. Let that read
+    // age past the freshness, as the next 20 ms probe of a monitor would.
+    #[cfg(windows)]
+    thread::sleep(millis(50));
     assert!(listener_missing(&address, &Event::new()));
 }
