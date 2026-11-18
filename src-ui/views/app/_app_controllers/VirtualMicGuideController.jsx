@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { atom, useAtom } from "jotai";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -33,6 +34,11 @@ const CHECK_ERRORS = ["virtual_mic_voice_muted", "virtual_mic_recording_unavaila
 //
 // "Later" and Escape put it away for this run. "Don't show again" and "Done" stop it from
 // opening by itself; the entry in the settings stays.
+//
+// Put away for this run, outside the component: changing the UI language draws the main page
+// again (App.jsx), and a guide put away must not open again then (#563).
+const laterAtom = atom(false);
+
 export const VirtualMicGuideController = () => {
     const { t } = useI18n();
     const { notice, status, check, opened, refreshStatus, startCheck, resetCheck, dismissNotice, closeGuide } = useVirtualMic();
@@ -41,7 +47,7 @@ export const VirtualMicGuideController = () => {
     const firstRunSetup = useFirstRunSetup();
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
-    const [later, setLater] = useState(false);
+    const [later, setLater] = useAtom(laterAtom);
     // Once open by itself it stays open while a cable is installed, until the user closes it.
     const [shown, setShown] = useState(false);
     const [chosen, setChosen] = useState(null);

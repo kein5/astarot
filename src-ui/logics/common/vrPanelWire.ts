@@ -157,8 +157,8 @@ export const VR_PANEL_STATE_CATEGORIES: readonly string[] = Object.freeze([
     "Appearance", "Device", "Ocr", "Others", "Transcription", "Translation", "Vr",
 ]);
 export const VR_PANEL_STATE_ATOMS: readonly string[] = Object.freeze([
-    // The log, the launcher and its switches.
-    "MessageLogs", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
+    // The log (and the names given to its speakers, #447), the launcher and its switches.
+    "MessageLogs", "SpeakerNames", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
     "OcrCaptureStatus", "ForegroundStatus", "IsBackendReady", "IsOpenedConfigPage", "NotificationStatus",
     "IsOscAvailable", "OscUnavailableReason", "VrPanelLauncherIntro", "VrPanelLogOutOfView",
     // Which switches cannot be turned on yet and why (reason codes only; worked out in the main window).
@@ -180,7 +180,7 @@ export interface VrPanelSettingEntry {
     Base_Name: string;
 }
 
-// settingsArray は SETTINGS_ARRAY (src-ui/logics/configs/config_page_setter/ui_config_setter.js)
+// settingsArray は SETTINGS_ARRAY (src-ui/logics/configs/config_page_setter/ui_config_setter.ts)
 export const vrPanelStateNames = (settingsArray: readonly VrPanelSettingEntry[]): Set<string> => {
     const names = new Set(VR_PANEL_STATE_ATOMS);
     for (const setting of settingsArray) {

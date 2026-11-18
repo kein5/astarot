@@ -688,6 +688,10 @@ impl Config {
                     // Readable by 0.4 while the new choices are unchanged.
                     return Some((k.name.to_string(), crate::voice_settings::file_direct(&value)));
                 }
+                if k.name == "VOICE_SETTINGS" {
+                    // Readable by 0.5 while the new engine readings are unchanged.
+                    return Some((k.name.to_string(), crate::voice_settings::file_voice(&value)));
+                }
                 Some((k.name.to_string(), value))
             })
             .collect();

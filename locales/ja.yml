@@ -410,6 +410,14 @@ main_page:
         received_ocr: "受信(チャット読み取り)"
         speakers: "話者{{speakers}}"
         speakers_separator: "・"
+        speaker_label: "話者{{label}}"
+        speaker_names_edit: "{{speakers}}に名前を付ける"
+        speaker_names_tooltip: "声の記号に名前を付けます。名前はログ、デスクトップの字幕、VRの大きいログに出します。"
+        speaker_name_field: "話者{{label}}の名前"
+        speaker_names_hint: "名前は今の聞き取りの間だけ使い、保存しません。空にすると記号に戻ります。"
+        speaker_names_save: "名前を付ける"
+        speaker_names_cancel: "キャンセル"
+        speaker_names_failed: "話者の名前を付けられませんでした。名前は32文字までです。"
         system: "システム"
 
         resend_button_on_hover_desc: "長押しで送信"
@@ -513,7 +521,7 @@ config_page:
         device: "マイクの感度 {{mic}} · スピーカーの感度 {{speaker}}"
         ocr: "読み取りの間隔 {{interval}} ms · 信頼度の下限 {{confidence}}"
         tts: "モニター {{monitor}} · マイクの字幕の読み上げ {{mic}}"
-        transcription: "使えるクラウドのエンジン {{cloud}}件 · マイクの区切り {{phrase}}秒"
+        transcription: "マイクの区切り {{phrase}}秒 · スピーカーの区切り {{speaker}}秒"
         translation: "設定済みの翻訳API {{api}}件 · ローカルのLLM {{llm}}件"
         appearance: "ログの文字 {{log}}% · 透明度 {{transparency}}%"
         hotkeys_one: "{{count}}件にキーを割り当て済み"
@@ -565,6 +573,13 @@ config_page:
         ocr: "チャット読み取り（OCR）"
         vr: "字幕とVR"
 
+    # A button that opens another settings page names the page and what is done there (#537).
+    # page is the tab's name above; action says what is done there (「音声経路を変更」).
+    # Without an action the page as a whole is the reason to go.
+    page_link:
+        do: "「{{page}}」で{{action}}"
+        open: "「{{page}}」を開く"
+
     tts:
         tts_settings:
             label: "テキスト読み上げ（TTS）"
@@ -578,8 +593,8 @@ config_page:
         section_label_speaker: "スピーカー"
         section_label_mic_sensitivity: "マイクの感度"
         section_label_speaker_sensitivity: "スピーカーの感度"
-        mute_sync_pointer: "VRChatでミュートしている間は、マイクの音声認識を止めます。設定は「VRChat」のページにあります。"
-        open_vrchat: "「VRChat」を開く"
+        mute_sync_pointer: "VRChatでミュートしている間は、マイクの音声認識を止めます。"
+        mute_sync_action: "ミュート同期を設定"
         check_volume: "音量チェック"
         label_auto_select: "自動選択"
         label_host: "ホスト/ドライバー"
@@ -640,7 +655,7 @@ config_page:
         setup_not_downloaded: "未ダウンロード"
         setup_unavailable: "まだダウンロードできません"
         download_unavailable: "まだ取得できません"
-        models_unavailable: "下のモデルは、まだダウンロードできません。翻訳には、外部翻訳APIかローカルLLMのエンジンを使ってください。"
+        models_unavailable: "標準の翻訳モデルはまだダウンロードできません。翻訳には下の「詳細設定」にある外部翻訳APIかローカルLLMを使ってください。"
         provider_in_use: "使用中"
         provider_ready: "使用できます"
         provider_not_set: "未設定"
@@ -650,8 +665,8 @@ config_page:
         llm_privacy_desc: "LLMのエンジンには翻訳する文とプロンプトのほかに、直近の会話を最大5件送ります。会話はチャットとマイクの自分の発言と、スピーカーから聞き取った相手の発言です。どれにも言った時刻（時:分）が付きます。会話はメモリにだけ置き、エンジンや接続先やモデルを変えたときと翻訳をオフにしたときに消します。"
 
         ctranslate2_weight_type:
-            label: "{{ctranslate2}}のモデルタイプ"
-            desc: "翻訳エンジン「{{ctranslate2}}」で翻訳する際に使用する翻訳モデルを選択できます。"
+            label: "翻訳モデル"
+            desc: "お使いのPCで翻訳するモデルを選びます。ダウンロード済みのモデル、ダウンロードできるモデル、自分で追加したモデルが並びます。"
             small: "通常モデル（{{capacity}}）"
             large: "高精度モデル（{{capacity}}）"
             license_commercial: "ライセンス: {{license}}（商用利用可）"
@@ -770,16 +785,22 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "クラウドエンジンは、このページの「詳細設定」にある「クラウド音声認識」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」は、お使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            desc: "APIのエンジンは下の「API（クラウドや自分のサーバー）」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」はお使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」に、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
+            badge_own: "自分のサーバー"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
                 openai_whisper: "OpenAI Whisper"
                 custom_whisper: "カスタムWhisperサーバー"
                 deepgram: "Deepgram"
+        # The engines' two systems (#414), in the order the page shows them.
+        speechcpp_section:
+            label: "お使いのPCで動かす（speech.cpp）"
+            desc: "音声はお使いのPCの外に出ません。カタログのモデルを取得するか、お使いのPCにある自分のモデルのファイルを登録して使います。"
         cloud_section:
-            label: "クラウド音声認識"
-            desc: "ここでAPIキーを登録すると、上の「音声認識で使用するエンジン」で選べるようになります。"
+            label: "API（クラウドや自分のサーバー）"
+            desc: "音声をサービスや自分のサーバーへ送って文字にします。APIキーを登録すると、上の「音声認識で使用するエンジン」で選べます。キーは設定のファイルではなくアプリのキーの保管場所に置きます。"
         groq_whisper_auth_key:
             label: "Groq Whisper APIキー"
         openai_whisper_auth_key:
@@ -874,8 +895,8 @@ config_page:
             desc: "0%にすると背景の板が消えて、縁取りのある文字だけになります。"
         vr_panel_pointer:
             label: "VR UI（VRの中の操作パネル）"
-            desc: "手首のランチャーとウィンドウは試験中の機能なので、「実験的機能」のページにあります。"
-        open_experimental_features: "「実験的機能」を開く"
+            desc: "手首のランチャーとウィンドウで、まだ試験中の機能です。"
+            action: "VR UIを設定"
         voice_typing_mode:
             label: "音声タイピングモード"
             desc: "文字起こしされたテキストをアクティブな入力欄へと自動的に貼り付けます。\n※クリップボードを使います。LinuxではX11／XWaylandのウィンドウ（Protonで動くVRChatなど）に貼り付けます。入力デバイスの操作を許可するか、デスクトップが最初に確認することがあります。"
@@ -949,16 +970,14 @@ config_page:
     vrchat:
         section_label_chatbox: "チャットボックスへの送信"
         section_label_tts_output: "読み上げの出力先"
-        chat_reading_moved: "VRChatのチャットを読み取る設定は、「チャット読み取り（OCR）」のページにあります。"
-        open_chat_reading: "「チャット読み取り（OCR）」の設定を開く"
         osc_pointer:
             label: "OSCの送信先"
-            desc: "メッセージを送るIPアドレスとポートは「高度な設定」で変えられます。VRChatの初期設定と同じなので、ふつうは変えません。"
-        open_advanced_settings: "「高度な設定」を開く"
+            desc: "メッセージを送るIPアドレスとポートです。VRChatの初期設定と同じなので、ふつうは変えません。"
+            action: "送信先を変更"
         section_label_more: "VRChatとの連携"
         section_label_elsewhere: "ほかのページにある設定"
-        tts_output_pointer: "読み上げの声をVRChatのマイクへ届ける出力先は、「テキスト読み上げ（TTS）」のページで選びます。"
-        open_tts: "「テキスト読み上げ（TTS）」を開く"
+        tts_output_pointer: "読み上げの声をVRChatのマイクへ届ける出力先です。"
+        tts_output_action: "出力先を選ぶ"
 
     ocr:
         section_title: "VRChatチャット読み取り"
@@ -1106,6 +1125,7 @@ config_page:
                     display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
                     is_primary: "（メイン）"
                     missing: "接続されていないモニター（前に選んだもの）"
+                    unknown: "前に選んだモニター（一覧を読み取れません）"
             # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
             vr_panel:
                 label: "VR UIを表示する"
@@ -1364,7 +1384,7 @@ realtime:
   silence_seconds: "{{seconds}}秒"
   silence_help: "この長さの無音が続くと発話を確定し、翻訳やチャットボックス、読み上げに送ります。短くすると結果が早く出ますが、文の途中の間でも区切られやすくなり、1つの文が複数のメッセージに分かれることがあります。変更すると両方の字幕を停止します。"
   vocabulary: "用語辞書"
-  vocabulary_help: "認識モデルに聞き取ってほしい用語とその書き方です。Haas-jaにはキーワードとして、Qwen3-ASRには短いヒントとして渡します。1項目に1語を書き、必要なら「=」のあとに読みをカンマ区切りで続けます（例: VRChat=ブイアールチャット,ブイチャ）。登録した語ごとに、言っていない語が書かれる可能性が少し増えるため、必要な語だけにしてください。辞書を変えると動作中の字幕は停止します。"
+  vocabulary_help: "音声認識と読み上げと翻訳で、用語の書き方と読みをそろえます。音声認識の結果はどのエンジンでも登録した書き方に直し、日本語の読み上げは登録した読みで読みます。AIの翻訳エンジンには文に出てくる語を名前として伝えます。1項目に1語を書き、必要なら「=」のあとに読みをカンマ区切りで続けます（例: VRChat=ブイアールチャット,ブイチャ）。読みが普段の言葉と同じだと、その言葉も書き換わります。Haas-jaにはキーワードとして、Qwen3-ASRには短いヒントとして渡します。登録した語ごとに、言っていない語が書かれる可能性が少し増えるため、必要な語だけにしてください。辞書を変えると動作中の字幕は停止します。"
   vocabulary_builtin: "内蔵のVRChat用語を使う"
   vocabulary_user: "追加した用語"
   vocabulary_term: "追加する用語"
@@ -1564,6 +1584,17 @@ voice_ui:
             rate_option: "{{rate}} Hz"
             invalid: "範囲内の数値を入れてください。"
             reset: "初期値に戻す"
+        # VOICEVOX、AivisSpeech、SHAREVOXの読み方。AudioQueryのScaleの値で、エンジンごとに持つ。
+        audio_query:
+            title: "{{engine}}の読み方"
+            status: "話速 {{speed}}"
+            description: "{{engine}}に読み上げを頼むときの値です。初期値のままの項目はエンジンが返した値で読みます。保存すると次の読み上げから使います。"
+            speed: "話速（0.5〜2）"
+            volume: "音量（0〜2）"
+            pitch: "音高（-0.15〜0.15）"
+            intonation: "抑揚（0〜2）"
+            invalid: "範囲内の数値を入れてください。"
+            reset: "初期値に戻す"
     check_needs_url: "サーバーURLを入力して保存すると確認できます"
     check_needs_server: "同梱サーバーが起動すると確認できます"
     setup_rvc: "モデルと実行環境"
@@ -1605,7 +1636,7 @@ voice_ui:
     tts_server_starting: "サーバー起動中…"
     output_hint: "自分で聞く場合はイヤホン、VRChatへ送る場合は仮想ケーブルを選びます。管理された経路では直接音声と出力先を共有します。"
     edit_route: "音声経路を変更"
-    route_current: "いまの経路: {{route}}。変えるときは「デバイス」のページで選びます。"
+    route_current: "いまの経路: {{route}}"
     route_hint_device: "TTSと直接音声はどちらも「テキスト読み上げ（TTS）」の設定で選んだ出力デバイスで再生します。変更前に直接入力を停止してください。"
     route_hint: "TTSと直接音声で共有する経路です。変更前に直接入力を停止してください。外部ケーブルへ切り替えると管理された入力接続を解除します。"
     save_route: "音声経路を保存"

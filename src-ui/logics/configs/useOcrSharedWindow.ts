@@ -8,7 +8,8 @@ import { createSharedWindowActions, shouldRestoreSharing, startErrorKey } from "
 const atoms = getDefaultStore();
 
 // The saved restore token. Its atom is made at run time from the settings list
-// (ui_config_setter.js), so its value is not typed; anything but text counts as none.
+// (ui_config_setter.ts) and read here through the registry, which does not know its
+// type; anything but text counts as none.
 const savedRestoreToken = (): string => {
     const tokenAtom = dynamicStoreRegistry.Atom_OcrPortalRestoreToken;
     if (!tokenAtom || typeof tokenAtom === "function") return "";

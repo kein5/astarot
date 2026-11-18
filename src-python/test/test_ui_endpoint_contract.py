@@ -30,7 +30,7 @@ _CORE_ONLY_ENDPOINTS = {
 
 _UI_CONFIG_SETTER = (
     Path(__file__).resolve().parents[2]
-    / "src-ui" / "logics" / "configs" / "config_page_setter" / "ui_config_setter.js"
+    / "src-ui" / "logics" / "configs" / "config_page_setter" / "ui_config_setter.ts"
 )
 
 

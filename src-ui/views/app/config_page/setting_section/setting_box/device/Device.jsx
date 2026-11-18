@@ -51,7 +51,7 @@ export const Device = () => {
                 <VoiceRouteSettings subheading />
                 {/* Mute sync lives on the VRChat page, which it is about (IA-03). */}
                 <PagePointer label={t("config_page.others.vrc_mic_mute_sync.label")} description={t("config_page.device.mute_sync_pointer")}
-                    tab="vrchat" target="vrc_mic_mute_sync" button={t("config_page.device.open_vrchat")} />
+                    tab="vrchat" target="vrc_mic_mute_sync" action={t("config_page.device.mute_sync_action")} />
             </AdvancedSection>
         </div>
     );

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { atom, useAtom } from "jotai";
 import { useI18n } from "@useI18n";
 import { useOthers } from "@logics_configs";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
@@ -16,10 +17,15 @@ import noticeStyles from "./TelemetryNoticeController.module.scss";
 // run without an answer: nothing is sent, and the next start asks again. While a modal
 // dialog is open the window's own buttons, drawn in this page, cannot be pressed, so
 // without it the app could not even be closed from its title bar.
+//
+// Put away for this run, outside the component: changing the UI language draws the main page
+// again (App.jsx), and a notice put away must not open again then (#563).
+const laterAtom = atom(false);
+
 export const TelemetryNoticeController = () => {
     const { t } = useI18n();
     const { currentTelemetryNotice, setTelemetryNotice, getTelemetry } = useOthers();
-    const [later, setLater] = useState(false);
+    const [later, setLater] = useAtom(laterAtom);
     const pending = !later && currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true;
     const { dialog } = useConsentDialog(pending);
     const [answered, setAnswered] = useState(false);

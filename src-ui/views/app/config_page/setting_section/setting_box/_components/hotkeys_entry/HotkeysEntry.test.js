@@ -93,17 +93,39 @@ test("Shift+digit records the digit, even when Shift is released first", async (
     assert.deepEqual(subject.saves, [{ open_quick_chat: ["Ctrl", "Shift", "1"] }]);
 });
 
-test("Shift with a symbol key saves the chord when Shift is released first", async () => {
+// #563: "?" is no key name the global shortcut parser reads, so the chord was refused as one
+// already in use. The key under it ("/") is recorded instead, as for a digit.
+test("Shift with a symbol key records the key under it and saves when Shift is released first", async () => {
     const subject = await setup();
     subject.field().onKeyDown({ key: "Control", code: "ControlLeft", ctrlKey: true, preventDefault() {} });
     subject.field().onKeyDown({ key: "Shift", code: "ShiftLeft", ctrlKey: true, shiftKey: true, preventDefault() {} });
     subject.field().onKeyDown({ key: "?", code: "Slash", ctrlKey: true, shiftKey: true, preventDefault() {} });
-    assert.equal(subject.field().ui_variable, "Ctrl + Shift + ?");
+    assert.equal(subject.field().ui_variable, "Ctrl + Shift + /");
     subject.field().onKeyUp({ key: "Shift", code: "ShiftLeft", ctrlKey: true });
     subject.field().onKeyUp({ key: "Control", code: "ControlLeft" });
     // Without Shift the same key reports "/".
     subject.field().onKeyUp({ key: "/", code: "Slash" });
-    assert.deepEqual(subject.saves, [{ open_quick_chat: ["Ctrl", "Shift", "?"] }]);
+    assert.deepEqual(subject.saves, [{ open_quick_chat: ["Ctrl", "Shift", "/"] }]);
+});
+
+test("every symbol key typed with Shift is recorded by a name the global shortcut parser reads", async () => {
+    // The punctuation names global-hotkey's parse_key accepts (src-tauri's tauri-plugin-global-shortcut).
+    const accepted = new Set(["`", "\\", "[", "]", ",", "=", "-", ".", "'", ";", "/"]);
+    const shifted = { Backquote: "~", Minus: "_", Equal: "+", BracketLeft: "{", BracketRight: "}", Backslash: "|",
+        Semicolon: ":", Quote: "\"", Comma: "<", Period: ">", Slash: "?" };
+    for (const [code, key] of Object.entries(shifted)) {
+        const subject = await setup();
+        subject.key(key, { code, ctrlKey: true, shiftKey: true });
+        const saved = subject.saves[0].open_quick_chat;
+        assert.deepEqual(saved.slice(0, 2), ["Ctrl", "Shift"], code);
+        assert.ok(accepted.has(saved[2]), `${code}: ${saved[2]}`);
+    }
+    // Unshifted symbols and other keys keep what the key gives.
+    const plain = await setup();
+    plain.key(";", { code: "Semicolon", ctrlKey: true });
+    plain.field().onFocus();
+    plain.key("F5", { code: "F5", shiftKey: true });
+    assert.deepEqual(plain.saves, [{ open_quick_chat: ["Ctrl", ";"] }, { open_quick_chat: ["Shift", "F5"] }]);
 });
 
 for (const newerEdit of [false, true]) test(`rejected hotkey restores committed display without overwriting a newer edit: ${newerEdit}`, async () => {

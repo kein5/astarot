@@ -23,7 +23,7 @@ async function setup(context, notice) {
         find(render(), node => { if (node.type === "button") found.push(node); return false; });
         return found;
     };
-    return { render, buttons, sent, refreshed, state };
+    return { render, buttons, sent, refreshed, state, remount: runtime.remount };
 }
 
 test("the notice is asked only while the backend says it is pending", async context => {
@@ -83,4 +83,14 @@ test("Decide later and Escape put the notice away for this run without answering
     assert.equal(prevented, true);
     assert.equal(escape.render(), null);
     assert.deepEqual(escape.sent, []);
+});
+
+// #563: changing the UI language draws the main page again (App.jsx), and the notice put away
+// opened again at once.
+test("a notice put away stays away when the main page is drawn again", async context => {
+    const s = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
+    s.buttons()[2].props.onClick();
+    s.remount();
+    assert.equal(s.render(), null);
+    assert.deepEqual(s.sent, []);
 });

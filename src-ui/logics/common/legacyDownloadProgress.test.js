@@ -30,7 +30,7 @@ async function fixture(context, language = "en", name = "ctranslate2_weight_type
         status: tree => find(tree, node => node.props?.role === "status").props };
 }
 
-// The built-in downloads are the CTranslate2 weights; the Whisper ones went with the engine (#288).
+// The built-in downloads are the local translation weights; the Whisper ones went with the engine (#288).
 for (const language of ["en", "ja"]) for (const kind of ["ctranslate2"]) {
     test(`${language} ${kind}: named progress exposes exact values and keeps pending/finalizing indeterminate`, async context => {
         const s = await fixture(context, language, `${kind}_weight_type`);
@@ -38,7 +38,8 @@ for (const language of ["en", "ja"]) for (const kind of ["ctranslate2"]) {
         s.option.is_pending = true;
         let tree = s.render();
         let bar = s.progress(tree);
-        const model = "CTranslate2 base";
+        // The row's own name: the engine's old name is not shown (#565).
+        const model = "base";
         assert.equal(bar["aria-label"], language === "en" ? `${model} download` : `${model} のダウンロード`);
         assert.equal(bar["aria-valuenow"], undefined);
         assert.equal(bar["aria-valuemin"], undefined);
@@ -88,7 +89,7 @@ test("percent announcements are bucketed and throttled, with a trailing update a
     vi.advanceTimersByTime(2000);
     assert.equal(s.status(s.render()).children, finishing, "stale percentage is cancelled on phase change");
     s.option.progress = null; s.option.is_pending = false;
-    assert.equal(s.status(s.render()).children, "CTranslate2 base download stopped.");
+    assert.equal(s.status(s.render()).children, "base download stopped.");
 });
 
 test("an already installed model stays quiet; unmount cancels pending announcements", async context => {

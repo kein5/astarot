@@ -233,6 +233,24 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
 }
 
 #[test]
+fn the_vocabulary_puts_right_what_the_model_wrote() {
+    // #446: a reading the model wrote becomes its written form, in the captions and what goes out.
+    let run = start(Platform::Linux, json!({}), true);
+    let mut wanted = settings(&run.asr);
+    wanted["vocabulary"] = json!({ "builtin": false, "terms": ["今日は=こんにちは"] });
+    run.ui.ok("/set/data/realtime_asr_settings", Some(wanted));
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || !run.capture.opened().is_empty());
+    run.capture.hear(Source::Mic, &[speech(2000)]);
+    assert_eq!(run.caption(mark, "final")["text"], "今日は");
+    assert_eq!(run.caption(mark, "translated")["original"]["message"], "今日は");
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("今日は"));
+    assert!(!run.process_log().contains("今日は"), "a term reached process.log");
+    run.ui.stop();
+}
+
+#[test]
 fn the_chosen_silence_ends_utterances_with_at_most_half_of_it_as_padding() {
     // #556: a shorter silence gives the result sooner; left out, it is 500 ms. The padding is
     // at most half the silence, so the server gives the utterance once the silence has lasted.

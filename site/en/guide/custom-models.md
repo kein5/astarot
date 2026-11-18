@@ -7,8 +7,8 @@ What you can use depends on the feature.
 | Feature | What you can use | Where to set it |
 |---|---|---|
 | Text to speech (TTS) | A <Term tip="A file format that holds an AI model in one file. speech.cpp reads it; the file name ends in .gguf.">GGUF</Term> model, and a voice GGUF (optional). Or a server you run on this computer | "Text to speech (TTS)" → "Models and servers" |
-| Speech recognition (ASR) | A GGUF recognition model, VAD and diarization (optional). Or a server you run on this computer | "Speech recognition (ASR)" → "Models and servers" → "ASR + VAD" |
-| Whisper | A Whisper server of your own (OpenAI compatible) | "Speech recognition (ASR)" → "More settings" → "Cloud speech recognition" → "Custom Whisper server" |
+| Speech recognition (ASR) | A GGUF recognition model, VAD and diarization (optional). Or a server you run on your PC | "Speech recognition (ASR)" → "On your PC (speech.cpp)" → "Models and servers" → "ASR + VAD" |
+| Whisper | A Whisper server of your own (OpenAI compatible) | "Speech recognition (ASR)" → "API (cloud or your own server)" → "Custom Whisper server" |
 | Voice changer (RVC) | A `.pth` model and a `.index` (optional) | "Voice changer (RVC)" |
 | Translation | A model you load into LM Studio, Ollama or an OpenAI-compatible server | "Translation" → "Local LLM and compatible server" |
 | Chat reading (OCR) | Not possible | — |
@@ -58,7 +58,7 @@ A wrong voice name gives an error with a number when speech plays. For a voice G
 
 ### Set it
 
-1. Open "Models and servers" near the bottom of Settings → "Speech recognition (ASR)", and look at "ASR + VAD".
+1. Open "Models and servers" under "On your PC (speech.cpp)" in Settings → "Speech recognition (ASR)", and look at "ASR + VAD".
 2. Enter the file locations in "Model GGUF path" and "VAD GGUF path". To tell speakers apart, also enter "Diarization GGUF path (optional)".
 3. Press "Save changes".
 4. Turn on "Mic input" or "Listening" on the main screen.
@@ -77,7 +77,7 @@ If you run a recognition server of your own on this computer, choose the externa
 
 Whisper does not run inside the app ([If you used Whisper in an earlier version](../features/transcription#whisper)). To use a Whisper model, run an OpenAI-compatible Whisper server (`/v1/audio/transcriptions`) yourself and connect to it.
 
-1. Open "Custom Whisper server" in Settings → "Speech recognition (ASR)" → "More settings" → "Cloud speech recognition".
+1. Open "Custom Whisper server" under "API (cloud or your own server)" in Settings → "Speech recognition (ASR)". It is the line marked "Your server".
 2. Enter the URL and a key, and save. If the server needs no key, enter any text as the key. With the key empty, the app only remembers the URL: it does not check the server or read its models.
    Saving checks that the server can be reached and reads its list of models.
 3. Choose a model, and choose "Custom Whisper server" as the engine above.

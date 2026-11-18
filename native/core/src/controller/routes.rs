@@ -414,6 +414,7 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::credentials::add,
     super::ocr::add,
     super::overlay::add,
+    super::speakers::add,
     super::files::add,
     super::translation::add,
     super::translation_catalog::add,

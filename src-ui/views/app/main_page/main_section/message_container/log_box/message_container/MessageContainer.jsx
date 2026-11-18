@@ -1,15 +1,22 @@
-import { memo, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
 import styles from "./MessageContainer.module.scss";
+import * as speakerStyles from "./SpeakerNames.css.ts";
+import { SpeakerNamesEditor, speakersText } from "./SpeakerNames.tsx";
 import { MessageSubMenuContainer } from "./message_sub_menu_container/MessageSubMenuContainer";
 import { store } from "@store";
 
+// `speaker_names`: the names given to the voices of this row's session (#447). `continues`: the
+// row goes on with the voices of the row above, so who spoke is shown there only (read aloud
+// here). `nameSpeakers`: names this row's voices; absent where nothing can be typed (VR panel).
 export const MessageContainer = memo(function MessageContainer({ id, messages, status, category, created_at, source, realtime, delivery_reason,
-    speakers, sendMessage, updateMessageInputValue, showResendButton }) {
+    speakers, speaker_names, continues, nameSpeakers, sendMessage, updateMessageInputValue, showResendButton }) {
     const { t } = useI18n();
     const [is_hovered, setIsHovered] = useState(false);
     const [is_locked, setIsLocked] = useState(false);
+    const [is_naming, setIsNaming] = useState(false);
+    const who_button = useRef(null);
 
     const resendFunction = () => {
         sendMessage(messages.original.message);
@@ -59,10 +66,14 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
         : is_ocr_message
         ? t("main_page.message_log.received_ocr")
         : t("main_page.message_log.received");
-    // Who spoke, where the server told the voices apart: "A", or "A・B" when two share a caption.
-    const speakers_text = !is_sent_message && speakers?.length
-        ? t("main_page.message_log.speakers", { speakers: speakers.join(t("main_page.message_log.speakers_separator")) })
-        : null;
+    // Who spoke, where the server told the voices apart: "A", or "A・B" when two share a caption,
+    // with the names the user gave them.
+    const speakers_text = !is_sent_message && speakers?.length ? speakersText(t, speakers, speaker_names) : null;
+    const can_name = !!speakers_text && !!nameSpeakers && !!realtime?.namespace && !store.is_vr_panel;
+    const closeNaming = () => {
+        setIsNaming(false);
+        who_button.current?.focus();
+    };
 
     const message_type_class_name = clsx({
         [styles.sent_message]: is_sent_message,
@@ -77,17 +88,26 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
         >
-            <div className={clsx(styles.message_wrapper, message_type_class_name)}>
+            <div className={clsx(styles.message_wrapper, message_type_class_name, { [styles.continues]: continues })}>
                 <div className={clsx(styles.info_box, message_type_class_name)}>
                     <p className={styles.time}>{created_at}</p>
-                    <p className={clsx(styles.category, message_type_class_name, {
+                    {/* A row that goes on with the same voices shows only its time; who spoke is read aloud. */}
+                    {!continues && <p className={clsx(styles.category, message_type_class_name, {
                         [styles.ocr_category]: is_ocr_message, [styles.failed]: is_failed,
                         [styles.not_sent]: is_not_sent, [styles.vrchat_off]: is_vrchat_off,
-                    })}>{category_text}</p>
-                    {speakers_text && <p className={clsx(styles.category, message_type_class_name)}>{speakers_text}</p>}
+                    })}>{category_text}</p>}
+                    {speakers_text && continues && <span className={speakerStyles.hidden}>{speakers_text}</span>}
+                    {speakers_text && !continues && (can_name
+                        ? <button ref={who_button} type="button" className={speakerStyles.who} aria-expanded={is_naming}
+                            aria-label={t("main_page.message_log.speaker_names_edit", { speakers: speakers_text })}
+                            title={t("main_page.message_log.speaker_names_tooltip")}
+                            onClick={() => setIsNaming(open => !open)}>{speakers_text}</button>
+                        : <p className={clsx(styles.category, message_type_class_name)}>{speakers_text}</p>)}
                     {/* The VR atlas needs static pixels while a send is pending. Its label above shows the state. */}
                     {(is_sent_message || is_realtime) && is_pending && !store.is_vr_panel && <span className={styles.loader} aria-hidden="true"></span>}
                 </div>
+                {can_name && is_naming && !continues && <SpeakerNamesEditor labels={speakers} names={speaker_names}
+                    onSave={names => nameSpeakers(realtime.namespace, names)} onClose={closeNaming} />}
                 <div className={clsx(styles.message_box, message_type_class_name)}>
                     {is_system_message ? (
                         <p className={styles.message_main_system}>{messages.original.message}</p>

@@ -1,0 +1,30 @@
+# When a stable release is published, opens the pull request that merges main back into develop
+# (tools/release_automation.py, issue #417). It never merges; conflicts are resolved on the branch.
+# A pull request opened with this job's token starts no pull request workflows: a maintainer closes
+# and reopens it, or pushes to it, to run the checks.
+name: Open ASTAROT back-merge pull request
+on:
+  release:
+    types: [published]
+permissions:
+  contents: read
+jobs:
+  back-merge:
+    # Betas come from develop and need no back-merge.
+    if: github.repository == 'kein5/astarot' && github.event.release.prerelease == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      # Creates the branch chore/merge-main-back-X.Y.Z at the release's commit.
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Open the pull request from main back into develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: python -m tools.release_automation back-merge --tag "$RELEASE_TAG"

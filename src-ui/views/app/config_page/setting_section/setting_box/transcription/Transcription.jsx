@@ -3,6 +3,7 @@ import { CustomModelLink } from "../_components/custom_model_link/CustomModelLin
 import { SpeechServers } from "../advanced_settings/SpeechServers";
 import { useI18n } from "@useI18n";
 import styles from "./Transcription.module.scss";
+import catalogStyles from "../advanced_settings/VoiceSettings.module.scss";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
 import { OldWhisperWeights } from "./OldWhisperWeights";
 import { genNumObjArray } from "@utils";
@@ -33,24 +34,48 @@ import { AdvancedSection } from "../_components/advanced_section/AdvancedSection
 
 export const Transcription = () => {
     const { t } = useI18n();
-    const { currentSelectableTranscriptionEngines, currentMicPhraseTimeout } = useTranscription();
-    const cloudReady = CLOUD_TRANSCRIPTION_ENGINES.filter(engine => (currentSelectableTranscriptionEngines.data || []).includes(engine.id)).length;
+    const { currentMicPhraseTimeout, currentSpeakerPhraseTimeout } = useTranscription();
     return (
         <div className={styles.container}>
             {/* Which engine listens comes first: it decides what else on this page applies.
-                Its models and server follow. The cloud engines' keys, the word filter, how speech
-                is cut into messages and the realtime captions' server are set once, in
-                「詳細設定」 (#554), whose line shows the cloud engines ready and the microphone's pause. */}
+                Then the two systems it chooses from, as the translation catalog splits them
+                (#413, #414): speech.cpp on your PC, with its models (the catalog's and your own)
+                and its server, and the APIs, one fold per provider with its key. The word filter,
+                how speech is cut into messages and the realtime captions' server are set once, in
+                「詳細設定」 (#554), whose line shows the pauses that end a message. */}
             <TranscriptionEngine_Container />
-            <SpeechServers profiles={["asr"]} />
-            <AdvancedSection status={t("config_page.advanced_status.transcription", { cloud: cloudReady, phrase: currentMicPhraseTimeout.data ?? "-" })}>
+            <EngineGroup group="speechcpp">
+                <SpeechServers profiles={["asr"]} />
+            </EngineGroup>
+            <EngineGroup group="api">
                 <CloudTranscription_Container />
+            </EngineGroup>
+            <AdvancedSection status={t("config_page.advanced_status.transcription", {
+                phrase: currentMicPhraseTimeout.data ?? "-", speaker: currentSpeakerPhraseTimeout.data ?? "-" })}>
                 <Mic_Container />
                 <Speaker_Container />
                 <RealtimeASRSettings />
             </AdvancedSection>
             {/* Only while Whisper weights from an earlier version are on this PC (#288). */}
             <OldWhisperWeights />
+        </div>
+    );
+};
+
+// The engines' two systems (#414), each under its subheading with what it is. The ids are where
+// the settings search leads for the texts config_page.transcription.<id>.
+const ENGINE_GROUPS = { speechcpp: "speechcpp_section", api: "cloud_section" };
+
+const EngineGroup = ({ group, children }) => {
+    const { t } = useI18n();
+    const id = ENGINE_GROUPS[group];
+    return (
+        <div className={styles.engine_group} data-engine-group={group}>
+            <div data-setting-id={id}>
+                <SectionLabelComponent sub label={t(`config_page.transcription.${id}.label`)} />
+                <Description text={t(`config_page.transcription.${id}.desc`)} className={styles.group_desc} />
+            </div>
+            {children}
         </div>
     );
 };
@@ -254,16 +279,16 @@ export const TranscriptionEngine_Box = () => {
     const { t } = useI18n();
     const { currentSelectedTranscriptionEngine, setSelectedTranscriptionEngine, currentSelectableTranscriptionEngines } = useTranscription();
     const available = currentSelectableTranscriptionEngines.data || [];
+    const engineLabel = key => t(`config_page.transcription.select_transcription_engine.engines.${key}`);
 
-    // A cloud engine can be chosen once the backend has accepted its key.
-    const cloud_options = CLOUD_TRANSCRIPTION_ENGINES.map(engine => {
+    const local = { id: "SpeechCpp", label: engineLabel("speechcpp") };
+    // An API engine can be chosen once the backend has accepted its key.
+    const api_options = CLOUD_TRANSCRIPTION_ENGINES.map(engine => {
         const usable = available.includes(engine.id) || currentSelectedTranscriptionEngine.data === engine.id;
-        return {
-            id: engine.id,
-            label: t(`config_page.transcription.select_transcription_engine.engines.${engine.key}`),
-            disabled: !usable,
-        };
+        return { id: engine.id, label: engineLabel(engine.key), disabled: !usable };
     });
+    // The engine in use in the screen's words, not its id.
+    const selected = [local, ...api_options].find(option => option.id === currentSelectedTranscriptionEngine.data);
 
     return (
         <RadioButtonContainer
@@ -271,22 +296,25 @@ export const TranscriptionEngine_Box = () => {
             desc={<span className={styles.engine_help}>
                 <span>{t("config_page.transcription.select_transcription_engine.desc")}</span>
                 <span role="status">{t("transcription_consent.selected", {
-                    engine: currentSelectedTranscriptionEngine.data === "SpeechCpp"
-                        ? t("config_page.transcription.select_transcription_engine.engines.speechcpp")
-                        : currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
+                    engine: selected?.label || currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
                 })}</span>
             </span>}
             selectFunction={setSelectedTranscriptionEngine}
             name="select_transcription_engine"
-            options={[
-                { id: "SpeechCpp", label: t("config_page.transcription.select_transcription_engine.engines.speechcpp") },
-                ...cloud_options,
+            // One choice, its options under the two systems' names, in the order the page shows
+            // the systems below (#414).
+            groups={[
+                { id: "speechcpp", label: t("config_page.transcription.speechcpp_section.label"), options: [local] },
+                { id: "api", label: t("config_page.transcription.cloud_section.label"), options: api_options },
             ]}
             checked_variable={currentSelectedTranscriptionEngine}
         />
     );
 };
 
+// The APIs (#414): one fold per provider, as on the translation page, then the filter for what
+// the Whisper ones return. The user's own Whisper server comes last and is marked as theirs,
+// as the catalogs mark what the user added.
 const CloudTranscription_Container = () => {
     const { t } = useI18n();
     const transcription = useTranscription();
@@ -301,16 +329,16 @@ const CloudTranscription_Container = () => {
     }, watched);
 
     return (
-        <div data-setting-id="cloud_section">
-            <SectionLabelComponent sub label={t("config_page.transcription.cloud_section.label")} />
-            <Description text={t("config_page.transcription.cloud_section.desc")} />
-            {/* One line per provider, as on the translation page: the line says whether it can
-                be used, and the one that is selected above stays open. */}
+        <>
+            {/* The line says whether the provider can be used, and the one selected above stays open. */}
             {CLOUD_TRANSCRIPTION_ENGINES.map(engine => {
                 const in_use = transcription.currentSelectedTranscriptionEngine.data === engine.id;
                 const usable = (transcription.currentSelectableTranscriptionEngines.data || []).includes(engine.id);
+                const name = t(`config_page.transcription.select_transcription_engine.engines.${engine.key}`);
                 return (
-                    <SetupSection key={engine.id} title={t(`config_page.transcription.select_transcription_engine.engines.${engine.key}`)} attention={in_use}
+                    <SetupSection key={engine.id} attention={in_use}
+                        title={engine.own ? <>{name} <span className={catalogStyles.badge} data-tone="own">
+                            {t("config_page.transcription.select_transcription_engine.badge_own")}</span></> : name}
                         status={t(`config_page.translation.provider_${in_use ? "in_use" : usable ? "ready" : "not_set"}`)}>
                         {engine.has_url
                             ? <CredentialPair settings={transcription} base={engine.base} provider={engine.key} section="transcription" />
@@ -322,7 +350,7 @@ const CloudTranscription_Container = () => {
                 );
             })}
             <WhisperSegmentFilter_Box />
-        </div>
+        </>
     );
 };
 
