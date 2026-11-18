@@ -509,6 +509,7 @@ config_page:
         device: "Microphone {{mic}} · speaker {{speaker}}"
         ocr: "Every {{interval}} ms · confidence at least {{confidence}}"
         tts: "Monitor {{monitor}} · microphone speech {{mic}}"
+        transcription: "Cloud engines ready: {{cloud}} · microphone pause {{phrase}} s"
         appearance: "Log text {{log}}% · transparency {{transparency}}%"
         hotkeys_one: "{{count}} has a key"
         hotkeys_other: "{{count}} have a key"
@@ -741,7 +742,7 @@ config_page:
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription engine used for speech recognition"
-            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its model and server are set under \"Realtime captions\" and \"Models and servers\" further down this page."
+            desc: "Cloud engines can be chosen after you register an API key under \"Cloud speech recognition\" in this page's \"More settings\". \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its models are under \"Models and servers\" below, and its server under \"Realtime captions\" in \"More settings\"."
             engines:
                 speechcpp: "Local (speech.cpp)"
                 groq_whisper: "Groq Whisper"

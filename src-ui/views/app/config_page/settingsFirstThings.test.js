@@ -102,13 +102,15 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
     assert.equal(find(runtime.render(device.type, device.props), node => node.type === "button").props.title, undefined);
 });
 
-test("speech recognition opens on the engine choice; the timing numbers follow, folded under a line that shows them", async () => {
+test("speech recognition opens on the engine choice and its models; the rest is in 「詳細設定」, the timing numbers folded under a line that shows them", async () => {
     const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), "utf8");
     const page = source.split("export const Transcription = () => {")[1].split("\n};")[0];
     const order = [...page.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1]);
-    // The old Whisper models come last, and only while some are on this PC (#288).
-    assert.deepEqual(order, ["TranscriptionEngine_Container", "CloudTranscription_Container", "Mic_Container", "Speaker_Container",
-        "RealtimeASRSettings", "SpeechServers", "OldWhisperWeights"]);
+    // The old Whisper models come last, and only while some are on this PC (#288). The cloud
+    // engines, the word filter, the timing and the realtime captions' server are set once (#554).
+    assert.deepEqual(order, ["TranscriptionEngine_Container", "SpeechServers", "AdvancedSection", "CloudTranscription_Container", "Mic_Container",
+        "Speaker_Container", "RealtimeASRSettings", "OldWhisperWeights"]);
+    assert.match(page, /<AdvancedSection [^>]*>\s*<CloudTranscription_Container \/>\s*<Mic_Container \/>\s*<Speaker_Container \/>\s*<RealtimeASRSettings \/>\s*<\/AdvancedSection>/);
     const section = name => source.split(`const ${name} = () => {`)[1].split("\n};")[0];
     // The word filter is a list people edit; it stays in sight. The three numbers are folded.
     assert.match(section("Mic_Container"), /<MicWordFilter_Box \/>\s*<TimingFold record=\{currentMicRecordTimeout\.data\} phrase=\{currentMicPhraseTimeout\.data\} queue=\{currentMicMaxWords\.data\}>\s*<MicRecordTimeout_Box \/>\s*<MicPhraseTimeout_Box \/>\s*<MicMaxWords_Box \/>\s*<\/TimingFold>/);
@@ -122,10 +124,12 @@ test("speech recognition opens on the engine choice; the timing numbers follow, 
     const t = (key, options) => options ? `${key}:${Object.values(options).join(",")}` : key;
     const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t }) },
-        "@logics_configs": { useTranscription: () => ({ currentMicRecordTimeout: { data: 3 }, currentMicPhraseTimeout: { data: 5 }, currentMicMaxWords: { data: 10 } }) },
+        "@logics_configs": { useTranscription: () => ({ currentMicRecordTimeout: { data: 3 }, currentMicPhraseTimeout: { data: 5 }, currentMicMaxWords: { data: 10 },
+            currentSelectableTranscriptionEngines: { data: [] } }) },
+        "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "../_components/setup_section/SetupSection": { SetupSection },
     });
-    const mic = runtime.render(transcription.Transcription).props.children.find(node => node?.type?.name === "Mic_Container");
+    const mic = find(runtime.render(transcription.Transcription), node => node?.type?.name === "Mic_Container");
     const fold = find(mic.type(mic.props), node => node.type?.name === "TimingFold");
     const drawn = fold.type(fold.props);
     assert.equal(drawn.type, SetupSection);
@@ -142,7 +146,7 @@ test("each cloud speech recognition provider is one fold; the selected one stays
     const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" }, { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true },
         { id: "Deepgram", base: "Deepgram", key: "deepgram" }];
     const state = { currentSelectedTranscriptionEngine: { data: "Deepgram" }, currentSelectableTranscriptionEngines: { data: ["SpeechCpp", "Groq_Whisper", "Deepgram"] },
-        currentCustomWhisperURL: { data: "" }, getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
+        currentCustomWhisperURL: { data: "" }, currentMicPhraseTimeout: { data: 5 }, getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
         ...Object.fromEntries(engines.map(engine => [`current${engine.base}AuthKey`, { data: null }])) };
     const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
@@ -150,7 +154,7 @@ test("each cloud speech recognition provider is one fold; the selected one stays
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
         "../_components/setup_section/SetupSection": { SetupSection },
     });
-    const cloud = runtime.render(transcription.Transcription).props.children.find(node => node?.type?.name === "CloudTranscription_Container");
+    const cloud = find(runtime.render(transcription.Transcription), node => node?.type?.name === "CloudTranscription_Container");
     const folds = all(runtime.render(cloud.type, cloud.props), node => node.type === SetupSection)
         .map(node => [node.props.title.split(".").at(-1), node.props.status.split(".").at(-1), node.props.attention]);
     assert.deepEqual(folds, [["groq_whisper", "provider_ready", false], ["custom_whisper", "provider_not_set", false], ["deepgram", "provider_in_use", true]]);
