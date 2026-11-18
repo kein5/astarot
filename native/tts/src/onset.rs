@@ -3,7 +3,7 @@
 //! A speech.cpp synthesis passes its first audio within tens of milliseconds, but that audio
 //! begins with near-silence the model makes before the voice: about 0.43 s from Qwen3-TTS
 //! 0.6B in every sentence, and 0 to 0.27 s from Irodori-TTS v4.1, measured on 2026-11-18
-//! (`docs/voice-stack/pipeline-latency.md`). Played as it comes, that silence is heard as a
+//! (`docs/voice-stack/pipeline-latency-2026-11-18.md`). Played as it comes, that silence is heard as a
 //! wait. [`skip_leading_silence`] drops it, keeping the last [`KEEP_MS`] before the first
 //! sample louder than [`THRESHOLD`], so the voice and its onset are the same as before, only
 //! sooner.
