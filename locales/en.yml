@@ -351,6 +351,10 @@ main_page:
     quick_settings: "Quick settings"
     quick_settings_on: "{{count}} on"
     quick_settings_all_off: "All off"
+    # The row under the main switches that shows the ones the usage presets hide (#554, Q-10).
+    more_features: "Other features ({{number}})"
+    more_features_hide: "Hide other features"
+    more_features_hint: "Features the usage setting in Settings hides. Showing them here changes no setting."
 
     # The icon button beside each main switch: its name and tooltip.
     # A switch whose setup is missing sends the icon to the place that provides it.
@@ -515,6 +519,29 @@ config_page:
         appearance: "Log text {{log}}% · transparency {{transparency}}%"
         hotkeys_one: "{{count}} has a key"
         hotkeys_other: "{{count}} have a key"
+    # The usage presets at the top of the settings menu (src-ui/logics/configs/usagePresets.ts, #554).
+    # The names are provisional until users have tried them (Q-14).
+    usage_presets:
+        title: "Used for"
+        button_label: "Used for: {{names}}. Choose the features the main page and this menu show"
+        list_separator: ", "
+        help: "Shows only the features the chosen uses need: the main page's switches and this menu. Pick as many as you like. No feature is turned on or off, and no setting changes. The search above still finds hidden pages."
+        items:
+            basic:
+                label: "Basic"
+                desc: "Your voice, recognized and translated, to the captions and the chatbox"
+            nonverbal:
+                label: "Nonverbal"
+                desc: "Talk in text without speaking; read others' voices and chat"
+            multilingual:
+                label: "Multilingual conversation"
+                desc: "Talk by voice with people of several languages"
+            voice_changer:
+                label: "Voice changer (RVC)"
+                desc: "Talk in a changed voice, with or without translation"
+            all:
+                label: "Everything"
+                desc: "Every feature and page"
     side_menu_label: "Settings pages"
     # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
     side_menu_groups:

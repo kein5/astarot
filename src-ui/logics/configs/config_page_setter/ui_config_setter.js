@@ -1411,6 +1411,17 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "tray_companion_monitor",
     },
 
+    // The usage presets the user picked (usagePresets.ts, #554). null until the engine answers:
+    // nothing is hidden while it is not known.
+    {
+        Category: "UsagePresets",
+        Base_Name: "UsagePresets",
+        default_value: null,
+        ui_template_id: "list",
+        logics_template_id: "get_set",
+        base_endpoint_name: "usage_presets",
+    },
+
 ];
 
 

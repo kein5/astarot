@@ -351,6 +351,10 @@ main_page:
     quick_settings: "クイック設定"
     quick_settings_on: "{{count}}件オン"
     quick_settings_all_off: "すべてオフ"
+    # The row under the main switches that shows the ones the usage presets hide (#554, Q-10).
+    more_features: "ほかの機能（{{number}}）"
+    more_features_hide: "ほかの機能を隠す"
+    more_features_hint: "設定の「用途」で隠している機能です。ここで出しても、設定は変わりません。"
 
     # The icon button beside each main switch: its name and tooltip.
     # A switch whose setup is missing sends the icon to the place that provides it.
@@ -515,6 +519,29 @@ config_page:
         appearance: "ログの文字 {{log}}%・透明度 {{transparency}}%"
         hotkeys_one: "{{count}}件にキーを割り当て済み"
         hotkeys_other: "{{count}}件にキーを割り当て済み"
+    # The usage presets at the top of the settings menu (src-ui/logics/configs/usagePresets.ts, #554).
+    # The names are provisional until users have tried them (Q-14).
+    usage_presets:
+        title: "用途"
+        button_label: "用途：{{names}}。メイン画面とこのメニューに出す機能を選びます"
+        list_separator: "、"
+        help: "選んだ用途で使う機能だけを、メイン画面のスイッチとこのメニューに出します。いくつ選んでもかまいません。機能のオン・オフや設定は変わりません。隠したページも、上の検索で見つかります。"
+        items:
+            basic:
+                label: "基本"
+                desc: "自分の声を認識して翻訳し、字幕とチャットボックスに出す"
+            nonverbal:
+                label: "無言勢向け"
+                desc: "声を出さずに文字で話す。相手の声やチャットを読む"
+            multilingual:
+                label: "多言語会話向け"
+                desc: "いくつもの言語の相手と、声で会話する"
+            voice_changer:
+                label: "RVC向け"
+                desc: "自分の声を変えて話す。翻訳は使っても使わなくてもよい"
+            all:
+                label: "すべて表示"
+                desc: "すべての機能とページを出す"
     side_menu_label: "設定のページ"
     # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
     side_menu_groups:
