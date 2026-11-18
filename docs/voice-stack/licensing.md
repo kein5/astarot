@@ -343,7 +343,7 @@ NLLBを差し替えるかの検討（#288の未決事項）のために、ロー
 | mBART-50 many-to-many | `facebook/mbart-large-50-many-to-many-mmt`@`e30b6cb8` | モデルカードにライセンスの記載がない | 確かめられない | 動かない（MBartの形） | 対象外。ライセンスを確かめられないため |
 | Opus-MT（`ja-en`など） | `Helsinki-NLP/opus-mt-ja-en`@`0770961a` | Apache-2.0（このカード。Tatoebaの新しいモデルにはCC-BY-4.0のものがある） | できる | 動かない（Marianの形） | 対象外。言語の組ごとにモデルが要る |
 | SeamlessM4T v2 | `facebook/seamless-m4t-v2-large`@`5f8cc790` | CC-BY-NC-4.0 | できない | 動かない | 対象外 |
-| TranslateGemma 4B | `google/translategemma-4b-it`@`10042cb0` | Gemmaの利用規約（取得に利用規約への同意が要る） | 規約の範囲でできる（規約の本文は今回読んでいない） | 動かない（デコーダだけのLLM） | 今のプロバイダ（Ollama、LM Studio、OpenAI互換）で使える。組み込むなら#413の翻訳カタログのランタイムとして別に審査する |
+| TranslateGemma 4B | `google/translategemma-4b-it`@`10042cb0` | Gemmaの利用規約（取得に利用規約への同意が要る） | 規約の範囲でできる（規約の本文は今回読んでいない） | 動かない（デコーダだけのLLM） | 今のプロバイダ（Ollama、LM Studio、OpenAI互換）で使える。組み込むなら#413の翻訳カタログのランタイムとして別に審査する。規約と取り込み方は下の「TranslateGemma（2026-11-18、#412）」 |
 | Hunyuan-MT 7B | `tencent/Hunyuan-MT-7B`@`9305c783` | Tencent Hunyuan Community License。欧州連合、英国、韓国では効力がない（`License.txt`の冒頭） | 地域の制限がある | 動かない | 同上。地域の制限があるのでカタログには向かない |
 | PLaMo 2 translate | `pfnet/plamo-2-translate`@`7546b474` | PLaMo Community License | 条件がある（本文は今回読んでいない） | 動かない | 同上 |
 | Aya Expanse 8B | `CohereLabs/aya-expanse-8b`@`5062468b` | CC-BY-NC-4.0 | できない | 動かない | 対象外 |
@@ -371,6 +371,19 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 上の表のMADLAD-400 3B MTの元の重み（`model.safetensors`）は11,761,587,872 bytesである。ライセンスはApache-2.0なので、載せるときに追加の確認は要らない。
 
 公開するモデルの記録は、公開した版とファイルのSHA-256を`native/ops/data/translation_models.json`に固定したときに、この節に足す。
+
+### TranslateGemma（2026-11-18、#412）
+
+翻訳のカタログに載せる候補として、上の表の行より詳しく調べた。**載せていない**。カタログ（`native/ops/data/translation_models.json`）、NOTICE、`tools/rust_licenses.py`の一覧は変わらない。重みは取得しておらず、大きさはHugging FaceとOllamaのレジストリのAPIが2026-11-18に返した値である。経路と重みの入手の比較は[TranslateGemmaを翻訳に使う道筋](translategemma.md)にある。
+
+| 項目 | 内容 |
+|---|---|
+| モデル | Googleの翻訳用のLLM。Gemma 3をもとにしたdecoder-onlyで、4B、12B、27Bがある。モデルカードは55言語を対象とする |
+| ライセンス | Gemma Terms of Use（2026-04-01の版。付録にTranslateGemmaがある）と、3.2節で規約に組み込まれたGemma Prohibited Use Policy（2024-02-21の版）。OSIのライセンスではない。禁止用途の制限は使う人にも及ぶ |
+| 公式の重み | [google/translategemma-4b-it](https://huggingface.co/google/translategemma-4b-it/tree/10042cb0e6e7fdce748996a71dc3dc432a4e0c89) @ `10042cb0e6e7fdce748996a71dc3dc432a4e0c89`、12b @ `d1b225e1caa17f1ddc7e62065d8637d0923f34e2`、27b @ `7d10f0b72f89a2d0f268cea30727d8b77c0d25c2`。3つともゲート付き（`gated: manual`）で、取得にはHugging Faceのアカウントと規約への同意が要る。中身は16ビットのsafetensorsだけで、重みは4Bが8,600,277,880 bytes、12Bが24,374,793,024 bytes、27Bが54,864,980,440 bytes。ログインしないとSHA-256を読めない |
+| 第三者の変換 | [onnx-community/translategemma-text-4b-it-ONNX](https://huggingface.co/onnx-community/translategemma-text-4b-it-ONNX/tree/f7874a1ac60758872a4f78aac0df95b17b776994) @ `f7874a1ac60758872a4f78aac0df95b17b776994`はゲートがなく、q4が3,091,548,551 bytes。ライセンスの表示も規約の写しもない。ゲートのないGGUFの変換も多いが、規約の写しを添えたものは少ない。Ollamaの`translategemma:4b`は3,298,866,368 bytesで、Gemma Terms of Useをライセンスの層に持つ |
+| 再配布の条件 | 3.1節。利用の制限を強制できる条項として課すこと、規約の写しを渡すこと、変更したファイルにその旨を示すこと、決まった一文の`Notice`ファイルを添えること |
+| 扱い | 候補。カタログには載せていない。載せるなら既定にはしない。アプリの中で動かすには`native/translate-onnx`にdecoder-onlyの生成を足す必要があり、重みはプロジェクトが変換して規約を添えて公開する形を推奨した（公開は保守担当者が決める）。規約の写しを添えていない第三者の変換からは取得しない |
 
 ## Silero VADの同梱（2026-11-15）
 

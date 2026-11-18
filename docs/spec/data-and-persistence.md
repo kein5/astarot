@@ -33,6 +33,8 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 選べるエンジンは`SELECTABLE_TRANSCRIPTION_ENGINE_LIST`のとおり、ローカル（speech.cpp、`SpeechCpp`）、クラウドのGroq Whisper、OpenAI Whisper、カスタムWhisperサーバー、Deepgramである。ローカルの`Whisper`（faster-whisper）は #288 で削除した。言語表の`Whisper`の列は、クラウドのWhisperのエンジンが言語コードに使うので残している。キーなしの`Google`（Web 音声認識）は、非公式の窓口と`speech_recognition`の汎用のキーを使っていたので外した。言語表の`Google`の列は地域つきの言語タグに使うので残している。
 
+設定の「音声認識（ASR）」は選べるエンジンを2つの系の名前の下に分けて並べる（#414）。「お使いのPCで動かす（speech.cpp）」に`SpeechCpp`を、「API（クラウドや自分のサーバー）」にGroq Whisper、OpenAI Whisper、Deepgram、カスタムWhisperサーバーをこの順に置く。並べ方だけで、保存する値と上のエンドポイントは変わらない。
+
 ### ローカル音声認識の移行
 
 `LOCAL_ASR_MIGRATION`は、ローカル音声認識の移行をどこまで済ませたかを表す整数で、`config.json`に保存する。新規の設定は最新の段階（いまは2）から始まり、何も移さない。段階が足りない保存ファイルは、読み込みの最後（`Config._migrateLocalASR`）に次を1回ずつ行い、最新の段階を記録する。
@@ -61,7 +63,7 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ### 音声認識の数値設定
 
-マイクとスピーカーの`avg_logprob`と`no_speech_prob`は、OpenAI互換のクラウドエンジン（Groq Whisper、OpenAI Whisper、カスタムWhisperサーバー）が返した区間を捨てるときのしきい値である。設定の「音声認識（ASR）」では、「クラウド音声認識」の下の「Whisperの認識結果のふるい分け」で4つとも変えられる。スライダーは0.05刻みで、値を確定したときに`/set/data/mic_avg_logprob`などへ送る。`avg_logprob`は−2以上0以下、`no_speech_prob`は0以上1以下の有限の数値を受け付ける。IPCでは数値に変換できる文字列も受け付ける。`NaN`・無限大、範囲外、真偽値などは変更や保存をせず400の`VALIDATION_CONFIG_VALUE_INVALID`で拒否し、`data`に元の値を返す。保存済みの不正な値は読み込み時に既定値へ戻す。
+マイクとスピーカーの`avg_logprob`と`no_speech_prob`は、OpenAI互換のクラウドエンジン（Groq Whisper、OpenAI Whisper、カスタムWhisperサーバー）が返した区間を捨てるときのしきい値である。設定の「音声認識（ASR）」では、「API（クラウドや自分のサーバー）」の中の「Whisperの認識結果のふるい分け」で4つとも変えられる。スライダーは0.05刻みで、値を確定したときに`/set/data/mic_avg_logprob`などへ送る。`avg_logprob`は−2以上0以下、`no_speech_prob`は0以上1以下の有限の数値を受け付ける。IPCでは数値に変換できる文字列も受け付ける。`NaN`・無限大、範囲外、真偽値などは変更や保存をせず400の`VALIDATION_CONFIG_VALUE_INVALID`で拒否し、`data`に元の値を返す。保存済みの不正な値は読み込み時に既定値へ戻す。
 
 `MIC_`と`SPEAKER_`の整数設定は、保存値の読み込みと設定プロパティへの代入で次の範囲を検証する。`null`、真偽値、小数、文字列は受け付けない。IPCで整数に変換する従来の処理は維持し、範囲外の値には既存の`VALIDATION_MIC_*`・`VALIDATION_SPEAKER_*`と元の値を返す。
 

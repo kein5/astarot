@@ -21,7 +21,11 @@ TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄�
 
 ## 内蔵CTranslate2と文章分割ファイル
 
-0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。モデルはまだ公開していないので、カタログに項目はない。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルを置くフォルダ（`translation-models`）を示す。経緯は[中核の統合](core-integration.md)の「判断が要ること」の1、29、33。この節の以下の記述は、0.4までのPythonの取得のもの。
+0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。モデルはまだ公開していないので、カタログに項目はない。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルを置くフォルダ（`translation-models`）を示す。
+
+設定の「翻訳」のモデルの一覧（#565）には、取得済みのモデル、自分で追加したモデル、カタログに項目がある組み込みのモデルだけを並べる。組み込みのモデルに項目があるかは、そのモデルのカタログのID（`<モデル>-onnx-<形>`）で決める。ダウンロードのボタンが出るのは項目がある行だけで、押すとそのモデルの項目を共通の取得の画面で示す。選んでいるモデルは、取得できなくても「まだ取得できません」を付けて残す。組み込みのモデルを1つも取得できず、選んでいるモデルも使えないときは、外部翻訳APIかローカルLLMを使うよう案内する。モデルを公開してカタログに載せる手順は`tools/translation_onnx/README.md`の「公開の手順」にある。
+
+経緯は[中核の統合](core-integration.md)の「判断が要ること」の1、29、33。この節の以下の記述は、0.4までのPythonの取得のもの。
 
 内蔵モデルの取得は、いまは翻訳（CTranslate2）だけである。以前の版は設定の「文字起こし」でローカルの Whisper の重みも同じ確認画面から取得していたが、#288 でローカルの Whisper を削除し、その取得もやめた。ローカルの音声認識（speech.cpp）のモデルは、上のカタログ取得で「音声認識（ASR）」の「モデルとサーバー」から取得する。以前の版が取得した`weights/whisper/`の重みは読まず、利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](../spec/data-and-persistence.md#古い-whisper-の重み)）。
 
@@ -143,10 +147,20 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 推論エンジン系の「お使いのPCの翻訳に使う」は、その重み（`user:<ID>`）を`/set/data/selected_ctranslate2_weight_type`と同じ処理で選ぶ。計算に使う機器（CPU、DirectML、CUDAなど）は、ほかのローカルの重みと同じ欄で選ぶ。利用者のモデルは量子化の形を1つだけ持ち、その形がGPUで動かないときはCPUで動かして知らせる（既存の`custom:`と同じ）。選んでいるモデルの項目は削除できない。
 - API系の「OpenAI互換の接続先にする」は、`/set/data/openai_compatible_auth_key_and_url`と同じ処理で、アドレスとキーを確かめてからOpenAI互換のエンジンの接続先を替える。項目のモデルがサーバーの一覧になければ、切り替えたうえで`translation_catalog_model_not_listed`を知らせる。項目ごとに別のエンジンとして並べることはしていない（PRの残課題）。
 - 組み込みの項目と、利用者が足した項目と、フォルダーのモデルは`origin`（`builtin`、`user`、`folder`）で見分け、画面では印を付ける。
-- この版が知らない`runtime`や`protocol`の項目（新しい版が書いたもの）は消さずに残し、「この版では使えません」と見せる。新しい推論エンジン（MADLAD-400のようなT5系、TranslateGemmaのようなdecoder-onlyのLLM）や新しい種類のAPIは、中核で動かせるようになったときに`translation_catalog::RUNTIMES`と`PROTOCOLS`に足す。
+- この版が知らない`runtime`や`protocol`の項目（新しい版が書いたもの）は消さずに残し、「この版では使えません」と見せる。新しい推論エンジン（MADLAD-400のようなT5系、TranslateGemmaのようなdecoder-onlyのLLM）や新しい種類のAPIは、中核で動かせるようになったときに`translation_catalog::RUNTIMES`と`PROTOCOLS`に足す。TranslateGemmaの実行の経路と重みの入手は[TranslateGemmaを翻訳に使う道筋](translategemma.md)で比べた（提案、#412）。
 - 開発側で推論エンジン系の項目を足すとき（#411、#412）は、これまでどおり固定カタログ（`native/ops/data/translation_models.json`、対象`translation`。`tools/translation_onnx/publish.py catalog --write`で書く）に版、サイズ、SHA-256、ライセンスを固定して載せ、ライセンス台帳（`licensing.md`）と`NOTICE.md`に記録する。非商用などの制限があるモデルは既定にしない。非商用のモデル（NLLB-200）の取得には、上の[非商用のライセンスの確認](#非商用のライセンスの確認)が要る。NLLB-200を載せるときのidと決まりは、[ライセンス台帳](licensing.md#nllb-200をカタログに載せるときの決まり2026-11-18411)にある。利用者が足した項目は、出どころとライセンスをアプリでは確かめないことを追加の欄に書いている。
 - 名前、フォルダー、アドレス、キーは利用者のデータなので、IPCの経路名に`translation_catalog`を含め、`process.log`では値を伏せる。フォルダーが読めない項目は、IDと固定のコードだけをログに書く。
 - IPC：`/get/data/translation_catalog`（`{engine, api, runtimes, protocols}`）、`/run/register_translation_catalog_entry`、`/run/remove_translation_catalog_entry`（`{id}`）、`/run/use_translation_catalog_entry`（`{id}`）。どれもカタログ全体を返し、失敗は`{error_code}`で返す。
+
+#### 音声認識の2つの系（#414）
+
+音声認識のページも翻訳のカタログと同じ考え方で、エンジンを2つの系に分けて見せる。画面の並べ方だけを変えた。設定のキー、IPC、エンジンのID、中核は変えていない。
+
+- **speech.cpp系**（「お使いのPCで動かす（speech.cpp）」）：エンジン「ローカル（speech.cpp）」と、その「モデルとサーバー」。上のカタログの「音声認識」「発話区間の検出（VAD）」「話者の区別（任意）」のカードと、利用者が登録したモデル（#403、#407。「自分のモデル」の印）がここに並ぶ。足すときはファイルの場所を登録する。
+- **API系**（「API（クラウドや自分のサーバー）」）：Groq Whisper、OpenAI Whisper、Deepgramと、利用者のWhisperサーバー（カスタムWhisperサーバー）。プロバイダごとに1行の畳みで、キー（自分のサーバーはURLとキー）とモデルを入れる。「Whisperの認識結果のふるい分け」もこの系に置く。自分のサーバーは最後に並べ、利用者の接続先であることを「自分のサーバー」の印（カタログと同じ破線の印）で示す。アプリが用意したプロバイダには印を付けない。キーは`config.json`ではなくほかのAPIキーと同じ保管場所（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)）に置く。これまでと同じである。
+- エンジンの選択（`/set/data/selected_transcription_engine`）は1つのままで、選択肢を2つの系の名前の下に分けて並べる。ラジオボタンは1組なので、矢印キーで系をまたいで動き、Tabで止まるのは1回である。APIのエンジンは、中核がキーを受け付けるまで選べない（`/get/data/selectable_transcription_engines`）。選択の同意の画面（`TranscriptionConsentController`）は変えていない。
+- リアルタイム字幕の設定は、一度決めたら触らないものなので「詳細設定」に残した。その「ASRサーバー」の「同梱サーバー」と「外部サーバー」は、どちらもspeech.cpp系である。同梱サーバーは上の「モデルとサーバー」のモデルで動く。外部サーバーは利用者がお使いのPCで別に起動したspeech.cppのサーバーで、アドレスはループバック（`localhost`、`127.0.0.1`など）の`http://`に限る（`speechcpp::local_url`）。音声はお使いのPCの外に出ないので、API系には入れない。Windowsでエンジンに「ローカル（speech.cpp）」を選ぶと、メイン画面のスイッチはこのサーバーでリアルタイム字幕を動かす。APIのエンジンを選んでいるときは従来の録音を使い、リアルタイム字幕はその欄にある開始ボタンで始める。Linuxのスイッチはエンジンの選択にかかわらずいつもリアルタイム字幕を使う。
+- 翻訳のカタログとの違い：APIの項目は利用者のWhisperサーバーの1枠だけで、翻訳のように何件も足すことはできない。speech.cppのモデルはファイルの場所で登録する（翻訳はフォルダーで足す）。新しい推論の実行部は加えていない。
 
 ## 固定カタログ
 

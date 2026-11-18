@@ -308,7 +308,7 @@ const TranslationSettings = ({ t, openPicker }) => {
     const weights = (tl.currentCTranslate2WeightTypeStatus.data ?? [])
         .filter(w => w.is_downloaded && (!isNonCommercialWeight(w) || w.id === selected_weight.data))
         .map(w => ({ id: w.id, label: isNonCommercialWeight(w) ? `${w.id} (${w.capacity}, ${w.license})` : `${w.id} (${w.capacity})` }));
-    const ct2_label = t("config_page.translation.ctranslate2_weight_type.label", { ctranslate2: "CTranslate2" });
+    const ct2_label = t("config_page.translation.ctranslate2_weight_type.label");
     return (
         <>
             <SelectRow label={ct2_label} value={selected_weight.data} is_pending={selected_weight.state === "pending"}

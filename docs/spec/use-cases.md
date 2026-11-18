@@ -116,6 +116,7 @@
 - うまくいかないとき: キーを確かめられなければ知らせて、欄を保存してあるキーに戻す。保存してあるキーは消さない（確認の失敗はオフラインや一時的な障害でも起きる）。利用者がキーを消すと、そのエンジンを選んでいた場合は既定のエンジンに戻る。
 - 関係: `/set/data/*_auth_key`、`/delete/data/*_auth_key`、`/get/data/selectable_transcription_engines`。
 - 翻訳のカタログ（#413）: 翻訳のページの「翻訳のカタログ」に、翻訳に使うものが2つのグループで並ぶ。お使いのPCで動かすモデル（推論エンジン系）と、API（API系）である。アプリに含まれる項目と、利用者が足した項目は印で見分ける。推論エンジン系にはモデルのフォルダーと推論エンジンと言語（省略するとモデルのすべて）を、API系には名前とOpenAI互換のアドレスとモデルとキーを入れて足す。足しても覚えるだけで、取得も切り替えもしない。「お使いのPCの翻訳に使う」はその重み（`user:<ID>`）を選ぶ。「OpenAI互換の接続先にする」はアドレスとキーを確かめてから、OpenAI互換のエンジンの接続先をその項目に替える。使用中のモデルは削除できない。関係: `/get/data/translation_catalog`、`/run/register_translation_catalog_entry`、`/run/use_translation_catalog_entry`、`/run/remove_translation_catalog_entry`。
+- 音声認識の2つの系（#414）: 音声認識のページはエンジンの選択の下に「お使いのPCで動かす（speech.cpp）」と「API（クラウドや自分のサーバー）」をこの順に並べる。speech.cpp系には「モデルとサーバー」（カタログのモデルと、ファイルの場所で登録した自分のモデル）が、API系にはプロバイダごとの畳み（キー、モデル）と「Whisperの認識結果のふるい分け」が入る。エンジンの選択も同じ2つの名前の下に選択肢を分けるが、選ぶのは1つで、APIのエンジンはキーが受け付けられるまで選べない。利用者のWhisperサーバーは最後に並び、自分の接続先の印が付く。APIの項目を何件も足す形にはなっていない（自分のサーバーの1枠）。関係: `/set/data/selected_transcription_engine`、`/get/data/selectable_transcription_engines`、[音声認識の2つの系](../voice-stack/model-downloads.md#音声認識の2つの系414)。
 
 ## UC-11 モデルを取得する
 
