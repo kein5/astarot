@@ -1,3 +1,16 @@
+---
+date: 2026-11-15
+status: accepted
+era: python-sidecar
+validity: implementation_changed
+validity_note: 利用者が入れたエンジンにループバックの HTTP で接続し、同梱も取得もしない決定は変わらない。4 章の Python のモジュール構成は、Rust の native/tts の src/engines.rs に替わった。
+implementation_status: implemented
+implementation_checked: 2026-11-18
+implementation_note: 0.3.0 で実装し（#272、#313）、Rust の native/tts が引き継いだ。
+evidence:
+  - native/tts/README.md
+  - native/tts/src/engines.rs
+---
 # ADR-008: 外部の合成音声エンジン（VOICEVOX系、COEIROINK）を読み上げに使う
 
 Status: 採用（2026-11-15）。0.3.0で実装済み（#272、#313）。

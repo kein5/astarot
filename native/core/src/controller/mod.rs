@@ -10,6 +10,7 @@ pub mod audio_devices;
 pub mod clipboard;
 mod credentials;
 mod files;
+mod gpu_memory;
 pub mod ocr;
 mod overlay;
 mod languages;
@@ -230,6 +231,8 @@ pub struct Services {
     ///
     /// [`MemoryStore`]: crate::config::secrets::MemoryStore
     pub secret_store: crate::config::secrets::StoreSource,
+    /// Reads the GPUs' memory for the flow panel ([`crate::gpu_memory`]); tests give a fixed one.
+    pub gpu_memory: crate::gpu_memory::Reader,
 }
 
 impl Default for Services {
@@ -268,6 +271,7 @@ impl Default for Services {
             vad: vrct_transcription::vad::bundled(),
             voice: Arc::new(voice::NativeVoice),
             secret_store: Arc::new(crate::config::secrets::default_store),
+            gpu_memory: crate::gpu_memory::native_reader(),
         }
     }
 }
@@ -303,6 +307,8 @@ pub struct Core {
     transcription: Arc<transcription::Transcription>,
     /// Speech, direct voice and the voice route, made with the routes ([`voice`]).
     pub(crate) voice: std::sync::OnceLock<Arc<voice::Voice>>,
+    /// The GPU memory readings of the flow panel ([`gpu_memory`]).
+    gpu_memory: gpu_memory::GpuMemory,
 }
 
 /// The captures of speech recognition for the settings' environment.
@@ -344,6 +350,7 @@ impl Core {
             ocr: Arc::default(),
             transcription,
             voice: std::sync::OnceLock::new(),
+            gpu_memory: gpu_memory::GpuMemory::default(),
         })
     }
 

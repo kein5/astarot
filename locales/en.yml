@@ -775,8 +775,13 @@ config_page:
         x_rotation: "X-axis rotation"
         y_rotation: "Y-axis rotation"
         z_rotation: "Z-axis rotation"
+        position_rotation:
+            label: "Position and rotation"
+            desc: "Move the subtitles along each axis with its slider or the buttons beside it."
         sample_text_button:
-            start: "Send sample text\nto the subtitle overlay"
+            label: "Check how it looks"
+            desc: "While you adjust, sample text is sent to the subtitle overlay every second. It stops when settings close."
+            start: "Send sample text to the subtitle overlay"
             stop: "Stop sending"
             sample_text: "Sample text."
         opacity: "Opacity"
@@ -2175,6 +2180,22 @@ io_flow:
     median: "Median of the last {{count}}: {{value}}"
     conversion_guide: "Voice changer (guide)"
     conversion_live: "Voice changer round trip {{ms}} ms (recent median)"
+    synthesis: "Speech synthesis"
+    gpu:
+        title: "GPU memory (VRAM)"
+        app: "ASTAROT uses {{size}}"
+        app_shared: "ASTAROT uses {{size}} of shared memory"
+        whole: "Whole GPU {{used}} / {{total}}"
+        none: "No GPU with memory of its own was found."
+        note: "Read every 2 seconds, only while this panel is open. “Other” is the app itself: translation, chat reading and the window."
+        part:
+            speech: "Recognition and speech {{size}}"
+            conversion: "Voice changer {{size}}"
+            other: "Other {{size}}"
+        state:
+            measuring: "Reading the VRAM in use."
+            unsupported: "No GPU that reports its VRAM use was found."
+            failed: "Could not read the VRAM in use."
     stage:
         recognition: "Speech recognition"
         wait: "Waiting"

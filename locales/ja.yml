@@ -775,8 +775,13 @@ config_page:
         x_rotation: "X軸の回転"
         y_rotation: "Y軸の回転"
         z_rotation: "Z軸の回転"
+        position_rotation:
+            label: "位置と回転"
+            desc: "軸ごとにスライダーか横のボタンで動かします。"
         sample_text_button:
-            start: "サンプルの文を\n字幕オーバーレイに送る"
+            label: "見え方の確認"
+            desc: "調整しているあいだ、サンプルの文を1秒ごとに字幕オーバーレイへ送ります。設定を閉じると止まります。"
+            start: "サンプルの文を字幕オーバーレイに送る"
             stop: "送信を停止"
             sample_text: "サンプルテキスト"
         opacity: "透明度"
@@ -2175,6 +2180,22 @@ io_flow:
     median: "直近 {{count}} 件の中央値 {{value}}"
     conversion_guide: "ボイスチェンジャー（目安）"
     conversion_live: "ボイスチェンジャーの往復 {{ms}} ms（直近の中央値）"
+    synthesis: "音声合成"
+    gpu:
+        title: "GPUのメモリ（VRAM）"
+        app: "ASTAROTが使う量 {{size}}"
+        app_shared: "ASTAROTが使う共有メモリ {{size}}"
+        whole: "GPU全体 {{used}} / {{total}}"
+        none: "専用のメモリを持つGPUが見つかりませんでした。"
+        note: "このパネルを開いている間だけ、2秒ごとに読み取ります。「そのほか」はアプリ本体（翻訳、チャットの読み取り、画面）の分です。"
+        part:
+            speech: "音声認識と読み上げ {{size}}"
+            conversion: "ボイスチェンジャー {{size}}"
+            other: "そのほか {{size}}"
+        state:
+            measuring: "VRAMの使用量を読み取っています。"
+            unsupported: "VRAMの使用量を読めるGPUが見つかりませんでした。"
+            failed: "VRAMの使用量を読めませんでした。"
     stage:
         recognition: "音声認識"
         wait: "待ち"

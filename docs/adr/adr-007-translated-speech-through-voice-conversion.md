@@ -1,3 +1,17 @@
+---
+date: 2026-11-14
+status: accepted
+era: python-sidecar
+validity: implementation_changed
+validity_note: 読み上げを変換の入力へ送り、ミュートと直接音声の抑制を分ける決定は変わらない。Rust の中核では変換の持ち主がアプリのスレッドで動き、router_protocol.py の制御の枠の代わりに直接の呼び出しで読み上げを渡す。Seed-VC は 0.5.0 で外れた。
+implementation_status: partial
+implementation_checked: 2026-11-18
+implementation_note: Windows のデバイスの経路では動く。Linux の管理対象の経路は、native/audio-routing に PipeWire での録音がまだないので、変換を始めると vc_start_failed になる。
+evidence:
+  - native/voice-conversion/README.md
+  - native/voice-conversion/src/process.rs
+  - native/tts/src/converted.rs
+---
 # ADR-007: 訳文の読み上げを声の変換に通す
 
 Status: 採用（2026-11-14）。WindowsではこのPCの実物のRVCで確かめた。Linuxの管理対象の経路は、実機ではまだ確かめていない。

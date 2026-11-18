@@ -123,6 +123,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "./setup/useFirstRunSetup": firstRunSetup,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
+        "./flow/useGpuMemory": { useGpuMemory: () => feature({}) },
         "./_useBackendErrorHandling": errors,
         "./configs/config_page_setter/ui_config_setter": settings,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },

@@ -8,7 +8,7 @@
     display: flex;
     flex-wrap: wrap;
     column-gap: 1.2rem;
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     color: var(--vox_secondary_text, #adbed6);
     // A label stays with its value; Japanese labels are not broken inside a word.
     > span { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }

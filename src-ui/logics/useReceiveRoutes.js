@@ -13,6 +13,7 @@ import * as speech from "./voice/useSpeechServers";
 import * as downloads from "./voice/useModelDownloads";
 import * as vcRuntimes from "./voice/useVcRuntimes";
 import * as flow from "./flow/useIoFlow";
+import * as gpuMemory from "./flow/useGpuMemory";
 import { _useBackendErrorHandling } from "./_useBackendErrorHandling";
 import { SETTINGS_ARRAY } from "./configs/config_page_setter/ui_config_setter";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -73,6 +74,7 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/run/virtual_mic_level", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateLevel" },
     { endpoint: "/get/data/io_flow", ns: flow, hook_name: "useIoFlow", method_name: "updateIoFlow" },
     { endpoint: "/run/io_trace", ns: flow, hook_name: "useIoFlow", method_name: "addIoTrace" },
+    { endpoint: "/get/data/gpu_memory", ns: gpuMemory, hook_name: "useGpuMemory", method_name: "updateGpuMemory" },
     { endpoint: "/get/data/tts_model_options", ns: voice, hook_name: "useVoice", method_name: "updateModelOptions" },
     { endpoint: "/get/data/tts_engine_voices", ns: voice, hook_name: "useVoice", method_name: "updateEngineVoices" },
     { endpoint: "/get/data/voice_settings", ns: voice, hook_name: "useVoice", method_name: "updateSettings" },

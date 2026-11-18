@@ -1,3 +1,14 @@
+---
+date: 2026-10-27
+status: proposed
+era: python-sidecar
+validity: unknown
+validity_note: 製品として採用するかが決まっていない（原文の Status）。いまの構成（別プロセスの speech.cpp と、Rust と OS の音声経路）は案 B の形に近いが、本文の確認表の項目を Rust の中核で確かめた記録はない。
+implementation_status: unknown
+implementation_note: 限定の PoC と局所の修正は Python の実装で行った（本文の追記）。採用の範囲が決まっていないので、実装済みとする基準も決まっていない。
+evidence:
+  - docs/adr/adr-012-audio-ai-runtime-consolidation.md
+---
 # ADR 004: 外部推論と音声経路の境界を条件付きで選ぶ
 
 Status: **proposed for product adoption / B validation authorized**, 2026-10-27。依頼者がBの検証とモデル不要の先行試験を承認。限定PoCを実行済みで、製品採用は未確定。

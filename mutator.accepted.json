@@ -1,0 +1,114 @@
+{
+  "106m20fdv9u": {
+    "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
+    "where": "src-ui/logics/common/pendingRequestRecovery.ts:82:31 settingsWithoutRead.has(name) -> false"
+  },
+  "14ttwg4pcti": {
+    "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
+    "where": "src-ui/logics/flow/flowGraph.ts:62:78 { on: false } -> {}"
+  },
+  "19oho4g4eyp": {
+    "reason": "Number.isFinite is false for every value that is not a number.",
+    "where": "src-ui/logics/common/initializationFields.ts:32:36 typeof value === \"number\" -> true"
+  },
+  "19yyz18l3v0": {
+    "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
+    "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:89 value !== id -> true"
+  },
+  "1f1qquh6mls": {
+    "reason": "An empty name and a placeholder that is not kana both find no kana row.",
+    "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
+  },
+  "1m3wsjorz8j": {
+    "reason": "NFKD puts combining marks after their base letter, so only a name that begins with a combining mark tells these apart; language names never do.",
+    "where": "src-ui/logics/common/languageJumpGroups.ts:35:75 \"\" -> \"Stryker was here!\""
+  },
+  "1mbm68uwthq": {
+    "reason": "matches() reads only the type of each default, so any string works.",
+    "where": "src-ui/logics/common/initializationFields.ts:60:52 \"\" -> \"Stryker was here!\""
+  },
+  "1mdmx30681m": {
+    "reason": "NFKD puts combining marks after their base letter, so only a name that begins with a combining mark tells these apart; language names never do.",
+    "where": "src-ui/logics/common/languageJumpGroups.ts:43:69 \"\" -> \"Stryker was here!\""
+  },
+  "1mxigs6fh67": {
+    "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
+    "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:65 retired.filter(value => value !== id) -> retired"
+  },
+  "1n2n6gzpwtl": {
+    "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
+    "where": "src-ui/logics/flow/flowGraph.ts:62:114 { on: false } -> {}"
+  },
+  "1pouqqozbmh": {
+    "reason": "Download items always have a string id, so an undefined id matches none of them.",
+    "where": "src-ui/logics/common/pendingRequestRecovery.ts:28:22 id !== undefined -> true"
+  },
+  "1r5ljzqc0ht": {
+    "reason": "A character below U+3041 shifted by 0x60 stays below U+30A1, the first katakana in the table, so it finds no row either way.",
+    "where": "src-ui/logics/common/languageJumpGroups.ts:37:17 code >= 0x3041 -> true"
+  },
+  "1rwl7gcc3lw": {
+    "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
+    "where": "src-ui/logics/flow/flowGraph.ts:70:41 ?. -> ."
+  },
+  "1rwz6jofrjj": {
+    "reason": "A lane without outputs gets a key named 'undefined', which no output id looks up.",
+    "where": "src-ui/logics/flow/flowGraph.ts:52:42 [] -> [\"Stryker was here!\"]"
+  },
+  "1ycrsi5wglg": {
+    "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
+    "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
+  },
+  "21rl54zeu0": {
+    "reason": "An unset UI language and any other unsupported one both give no groups.",
+    "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
+  },
+  "26tln7651q6": {
+    "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
+    "where": "src-ui/logics/flow/flowGraph.ts:69:37 ?. -> ."
+  },
+  "28gyzbr6231": {
+    "reason": "With min === max the formula gives min as well.",
+    "where": "src-ui/logics/utils.ts:50:6 min === max -> false"
+  },
+  "5za6bbt3n3": {
+    "reason": "outputArrivals lists chatbox before speech, already in sorted order.",
+    "where": "src-ui/logics/flow/flowGraph.ts:133:44 Object.keys(arrivals[newest.input]).sort() -> Object.keys(arrivals[newest.input])"
+  },
+  "79znk3ng2h": {
+    "reason": "matches() reads only the type of each default, so any string works.",
+    "where": "src-ui/logics/common/initializationFields.ts:60:66 \"\" -> \"Stryker was here!\""
+  },
+  "7vs82sochd": {
+    "reason": "Versions are only compared for equality; counting down tells requests apart the same way.",
+    "where": "src-ui/logics/common/pendingRequestRecovery.ts:154:51 control.version++ -> control.version--"
+  },
+  "d6gn3xaczg": {
+    "reason": "flow is not nullish here: the check before it returned for that.",
+    "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
+  },
+  "sumx19h5ss": {
+    "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
+    "where": "src-ui/logics/common/languageJumpGroups.ts:35:87 /^ー+/ -> /ー+/"
+  },
+  "td8mxcxf2i": {
+    "reason": "matches() reads only the type of each default, so any string works.",
+    "where": "src-ui/logics/common/initializationFields.ts:60:59 \"\" -> \"Stryker was here!\""
+  },
+  "tkbl6f4ole": {
+    "reason": "A registration without endpoints is never looked up, so a placeholder endpoint is never sent.",
+    "where": "src-ui/logics/common/pendingRequestRecovery.ts:145:61 [] -> [\"Stryker was here!\"]"
+  },
+  "x4nhkm2ead": {
+    "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
+    "where": "src-ui/logics/flow/flowGraph.ts:69:74 ?. -> ."
+  },
+  "xr35ya3osj": {
+    "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
+    "where": "src-ui/logics/flow/flowGraph.ts:72:74 ?. -> ."
+  },
+  "ybbgw54urq": {
+    "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
+    "where": "src-ui/logics/flow/flowGraph.ts:75:72 ?. -> ."
+  }
+}
