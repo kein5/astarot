@@ -18,7 +18,7 @@ const rvcSettings = { mode: "converted", engine: "rvc", runtime: "", reference: 
 async function open(variant, settings) {
     const runtime = hooks(), entries = new Map(), writes = [];
     const ui = { "@useI18n": { useI18n: () => ({ t: key => key }) } };
-    const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.jsx", import.meta.url), runtime, {
+    const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
         "./saveBar": { changedPaths, setSaveBarEntry: (id, entry) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
     });

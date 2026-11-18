@@ -13,18 +13,13 @@ import {
     usagePresetDescKey,
 } from "../../../../../logics/configs/usagePresets.ts";
 
-type Current = { state?: string; data?: unknown };
-
 // The uses at the top of the settings menu (#554, Q-13): which features the main page's switches
 // and this menu show. Several can be picked (Q-09). Picking changes what is shown, never a
 // setting (usagePresets.ts). The list opens under its button inside the rail; the icon rail
 // closes it, as it has no room for the words.
 export const UsagePresetSelector = ({ isCompact }: { isCompact: boolean }) => {
     const { t } = useI18n();
-    const { currentUsagePresets, setUsagePresets } = useUsagePresets() as {
-        currentUsagePresets: Current;
-        setUsagePresets: (value: string[]) => unknown;
-    };
+    const { currentUsagePresets, setUsagePresets } = useUsagePresets();
     const picked = pickedPresets(currentUsagePresets.data);
     const pending = currentUsagePresets.state === "pending";
     const [open, setOpen] = useState(false);

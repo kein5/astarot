@@ -1,11 +1,27 @@
 import { useRef, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import styles from "./MarqueeText.module.scss";
 
-const MarqueeText = ({ children, speed = 40 /* px/s */, shouldAnimate = false, className = "",
-    minOverflow = 12 /* px, minimum overflow to trigger */, paddingRight = 24 /* px */, initialDelay = 800 /* ms */, startImmediately = false }) => {
-    const containerRef = useRef(null);
-    const contentRef = useRef(null);
-    const timers = useRef([]);
+export interface MarqueeTextProps {
+    children?: ReactNode;
+    // px/s
+    speed?: number;
+    shouldAnimate?: boolean;
+    className?: string;
+    // px, minimum overflow to trigger
+    minOverflow?: number;
+    // px
+    paddingRight?: number;
+    // ms
+    initialDelay?: number;
+    startImmediately?: boolean;
+}
+
+const MarqueeText = ({ children, speed = 40, shouldAnimate = false, className = "",
+    minOverflow = 12, paddingRight = 24, initialDelay = 800, startImmediately = false }: MarqueeTextProps) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLSpanElement>(null);
+    const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
     const [isActive, setIsActive] = useState(false);
 
     useEffect(() => {
