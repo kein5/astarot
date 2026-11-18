@@ -8,7 +8,7 @@ const windowRegion = { x: 0.6, y: 0.1, width: 0.2, height: 0.2 };
 const vrRegion = { x: 0.1, y: 0.5, width: 0.3, height: 0.4 };
 const prefix = "config_page.ocr.";
 
-async function setup(t, status) {
+async function setup(t, status, hints = false) {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const runtime = hooks(), sent = [], polled = [];
     const value = data => ({ data, state: "ok" });
@@ -26,6 +26,7 @@ async function setup(t, status) {
         "../../../../../../logics/configs/ocrReadiness": helpers,
         "../_templates/Templates": { SliderContainer: "slider" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
+        "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => hints },
     };
     const components = await loadModule(new URL("./OcrRegions.jsx", import.meta.url), runtime, imports);
     const { OcrStatus } = await loadModule(new URL("./OcrStatus.jsx", import.meta.url), runtime, imports);
@@ -149,4 +150,19 @@ test("English and Japanese have source status and separate region labels", async
             assert.match(ocr, new RegExp(`^\\s+${key}: \\S`, "m"), `${language}: ${key}`);
         }
     }
+});
+
+test("on a page reviewed against #614 a region's lines are its name's hint, the switching note with the first", async t => {
+    const s = await setup(t, { active: true, source: "vr", available_sources: ["window", "vr"] }, true);
+    const tree = s.render();
+    assert.ok(!find(tree, node => node.type === "p"), "no line of text over the regions");
+    const titleOf = source => {
+        const editor = s.runtime.render(s.OcrRegionEditor, s.editor(source, tree).props);
+        const title = find(editor, node => node.type === s.RegionTitle);
+        return s.runtime.render(title.type, title.props);
+    };
+    const first = find(titleOf("window"), node => node.type === "hint");
+    assert.equal(first.props.text, `${prefix}region.source_switch\n${prefix}region.desc`);
+    assert.equal(first.props.focusable, true, "no single field stands for the region: the mark takes focus");
+    assert.equal(find(titleOf("vr"), node => node.type === "hint").props.text, `${prefix}region.vr_desc`);
 });
