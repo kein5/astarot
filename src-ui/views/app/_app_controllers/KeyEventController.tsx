@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 export const KeyEventController = () => {
     useEffect(() => {
-        const handleKeydown = (event) => {
+        const handleKeydown = (event: KeyboardEvent) => {
             if (
                 event.key === "F5" || // Page reload
                 event.key === "F10" || // Focus thw window menu (maybe)
@@ -14,7 +14,7 @@ export const KeyEventController = () => {
             }
         };
 
-        const handleContextmenu = (event) => {
+        const handleContextmenu = (event: MouseEvent) => {
             event.preventDefault();
         };
 

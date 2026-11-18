@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import { store } from "@store";
 
 export const CornerRadiusController = () => {
@@ -13,7 +14,8 @@ export const CornerRadiusController = () => {
             navigator.userAgentData
                 .getHighEntropyValues(["platformVersion"])
                 .then(({ platformVersion }) => {
-                    const major = parseInt(platformVersion.split(".")[0], 10);
+                    // Without a version the major is NaN, which is not Windows 11.
+                    const major = parseInt((platformVersion ?? "").split(".")[0], 10);
                     setIsWin11(major >= 13);
                 })
                 .catch(() => {
@@ -27,8 +29,10 @@ export const CornerRadiusController = () => {
 
 
     useEffect(() => {
-        let unlisten;
+        let unlisten: UnlistenFn | undefined;
         const setup = async () => {
+            // The entry point sets the main window before anything is drawn (views/app/index.tsx).
+            if (!appWindow) throw new TypeError("The main window is not set (store.appWindow).");
             // 初期状態取得
             setIsMaximized(await appWindow.isMaximized());
             // リサイズ時にも再取得

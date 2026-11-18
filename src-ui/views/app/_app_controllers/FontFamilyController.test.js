@@ -10,7 +10,7 @@ test("the selected font family is set as one CSS string, so non-identifier names
         removeProperty: name => properties.delete(name),
     } } } });
     context.onTestFinished(() => runtime.unmount());
-    const { FontFamilyController } = await loadModule(new URL("./FontFamilyController.jsx", import.meta.url), runtime, {
+    const { FontFamilyController } = await loadModule(new URL("./FontFamilyController.tsx", import.meta.url), runtime, {
         "@logics_configs": { useAppearance: () => ({ currentSelectedFontFamily: { data: font } }) },
     });
     for (const [name, css] of [
