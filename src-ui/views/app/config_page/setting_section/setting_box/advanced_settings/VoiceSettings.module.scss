@@ -148,12 +148,15 @@
     // Drawn here so the "!" is never part of the words that are read out or searched.
     &::before { content: "!"; }
 }
-.hardware_warning {
+// A model that may be too heavy, and what a model's license restricts (#411, in the download
+// review): the same amber edge and mark, with the words beside them.
+.hardware_warning, .restriction {
     display: flex; align-items: flex-start; gap: .8rem; margin: 0; padding: .6rem .8rem;
     border-left: .3rem solid var(--vox_state_warning, #cb944f); color: var(--dark_200_color);
     overflow-wrap: anywhere;
     > .warning_mark { margin-top: .2rem; }
 }
+.restriction_text { display: grid; gap: .2rem; min-width: 0; }
 // What a user compares: a term and its value per row; the rows stack in a narrow card.
 .facts {
     display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .4rem 1.6rem; margin: 0; min-width: 0;

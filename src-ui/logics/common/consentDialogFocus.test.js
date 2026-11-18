@@ -6,6 +6,7 @@ import * as endpointPrivacy from "./endpointPrivacy.ts";
 import * as languageNames from "./languageNames.ts";
 import * as modelCatalog from "../voice/modelCatalog.ts";
 import * as modelHardwareWarning from "../voice/modelHardwareWarning.ts";
+import * as modelRestrictions from "../voice/modelRestrictions.ts";
 
 const boxes = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
 const entry = { id: "reviewed-model", name: "Reviewed model", target: "rvc", total_bytes: 100,
@@ -43,6 +44,7 @@ async function fixture(context, kind, openerState) {
         "../../../../../../logics/voice/modelHardwareAdvice": { modelAdvice: () => ({}) },
         "../../../../../../logics/voice/modelCatalog": modelCatalog,
         "../../../../../../logics/voice/modelHardwareWarning": modelHardwareWarning,
+        "../../../../../../logics/voice/modelRestrictions": modelRestrictions,
         "./EngineCatalog": { EngineCatalog: "engines" },
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "../../../../../../logics/common/languageNames": languageNames,

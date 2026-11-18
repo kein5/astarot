@@ -152,6 +152,70 @@ fn only_fixed_catalog_requests_are_accepted() {
     assert!(s.opened.lock().unwrap().is_empty());
 }
 
+/// The test entry under a non-commercial license (as NLLB-200's CC-BY-NC-4.0).
+fn non_commercial() -> Model {
+    Model { license: "CC-BY-NC-4.0".into(), ..entry() }
+}
+
+fn with_acknowledged(acknowledged: Option<serde_json::Value>, consent: bool) -> serde_json::Value {
+    let mut request = json!({"id": "test-model", "consent": consent, "catalog_version": CATALOG_VERSION});
+    if let Some(acknowledged) = acknowledged {
+        request["acknowledged"] = acknowledged;
+    }
+    request
+}
+
+fn restrictions(m: &Downloads) -> Json {
+    m.catalog().get("models").unwrap().as_array().unwrap()[0].get("restrictions").cloned().unwrap()
+}
+
+#[test]
+fn a_non_commercial_entry_starts_only_with_its_acknowledgement() {
+    let s = setup_with(non_commercial(), None);
+    assert_eq!(restrictions(&s.manager), Json::from(vec![Json::from("non_commercial")]));
+    for (acknowledged, consent, expected) in [
+        (None, true, "model_download_restriction_unacknowledged"),
+        (Some(json!([])), true, "model_download_restriction_unacknowledged"),
+        // The acknowledgement does not stand in for the consent.
+        (Some(json!(["non_commercial"])), false, "consent_required"),
+        // Not a list of distinct known kinds.
+        (Some(json!(["non_commercial", "non_commercial"])), true, "download_request_invalid"),
+        (Some(json!(["non_commercial", "gemma_terms"])), true, "download_request_invalid"),
+        (Some(json!("non_commercial")), true, "download_request_invalid"),
+        (Some(json!([true])), true, "download_request_invalid"),
+        (Some(json!(null)), true, "download_request_invalid"),
+    ] {
+        let request = with_acknowledged(acknowledged, consent);
+        assert_eq!(code(s.manager.start(&request).unwrap_err()), expected, "{request}");
+    }
+    assert!(s.opened.lock().unwrap().is_empty() && !s.root.exists(), "a refused start writes and fetches nothing");
+    assert_eq!(s.manager.state().get("jobs"), Some(&Json::Object(Object::new())));
+    s.manager.start(&with_acknowledged(Some(json!(["non_commercial"])), true)).unwrap();
+    let job = finish(&s.manager);
+    assert_eq!(phase(&job), "ready");
+    // The receipt stays the entry itself: the acknowledgement is not recorded in it.
+    let receipt = fs::read_to_string(model_path(&job).with_file_name("receipt.json")).unwrap();
+    assert_eq!(receipt, Json::from_serialize(&non_commercial()).to_python_indented());
+}
+
+#[test]
+fn an_unrestricted_entry_takes_the_request_as_before_and_no_acknowledgement_it_does_not_carry() {
+    let s = setup();
+    assert_eq!(restrictions(&s.manager), Json::from(Vec::<Json>::new()));
+    // Acknowledging what the entry does not carry, or what no entry can, is not a request
+    // the dialog makes.
+    for acknowledged in [json!(["non_commercial"]), json!(["other"]), json!(null)] {
+        let request = with_acknowledged(Some(acknowledged), true);
+        assert_eq!(code(s.manager.start(&request).unwrap_err()), "download_request_invalid", "{request}");
+    }
+    assert!(s.opened.lock().unwrap().is_empty() && !s.root.exists());
+    // An empty list names nothing, as leaving it out does.
+    s.manager.start(&with_acknowledged(Some(json!([])), true)).unwrap();
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+    start(&s.manager).unwrap();
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+}
+
 #[test]
 fn verified_completion_does_not_apply_or_load_and_can_be_applied_explicitly() {
     let s = setup();

@@ -93,6 +93,62 @@ def test_only_fixed_catalog_requests_are_accepted(setup, overrides):
     assert not opened
 
 
+@pytest.mark.parametrize(
+    "license, restrictions",
+    [
+        ("CC-BY-NC-4.0", ["non_commercial"]),
+        ("CC-BY-NC-SA-4.0", ["non_commercial"]),
+        ("CC BY-NC-ND 4.0", ["non_commercial"]),
+        ("Creative Commons Attribution-NonCommercial 4.0", ["non_commercial"]),
+        ("MIT + Apache-2.0", []),
+        ("CC BY 4.0", []),
+        ("CC0-1.0", []),
+        ("Gemma Terms of Use + MIT + Apache-2.0", []),
+    ],
+)
+def test_restrictions_come_from_the_license(license, restrictions):
+    from models.model_downloads.catalog import license_restrictions
+
+    assert license_restrictions(license) == restrictions
+
+
+def test_a_non_commercial_entry_starts_only_with_its_acknowledgement(setup, tmp_path):
+    """The same cases as native/ops manager_tests.rs."""
+    from models.model_downloads.manager import Downloads
+
+    m, entry, content, opened = setup
+    assert m.catalog()["models"][0]["restrictions"] == []
+    for acknowledged in (["non_commercial"], ["other"], None):
+        with pytest.raises(ValueError, match="download_request_invalid"):
+            start(m, acknowledged=acknowledged)
+    restricted = replace(entry, license="CC-BY-NC-4.0")
+    nc = Downloads(
+        tmp_path / "nc",
+        catalog=(restricted,),
+        transport=lambda url: opened.append(url) or io.BytesIO(content),
+        reserve_bytes=0,
+    )
+    try:
+        assert nc.catalog()["models"][0]["restrictions"] == ["non_commercial"]
+        for overrides, code in (
+            ({}, "model_download_restriction_unacknowledged"),
+            ({"acknowledged": []}, "model_download_restriction_unacknowledged"),
+            ({"acknowledged": ["non_commercial"], "consent": False}, "consent_required"),
+            ({"acknowledged": ["non_commercial", "non_commercial"]}, "download_request_invalid"),
+            ({"acknowledged": ["non_commercial", "gemma_terms"]}, "download_request_invalid"),
+            ({"acknowledged": "non_commercial"}, "download_request_invalid"),
+        ):
+            with pytest.raises(ValueError, match=code):
+                start(nc, **overrides)
+        assert not opened and not nc.root.exists()
+        start(nc, acknowledged=["non_commercial"])
+        assert finish(nc)["phase"] == "ready"
+    finally:
+        nc.close()
+    start(m, acknowledged=[])
+    assert finish(m)["phase"] == "ready"
+
+
 def test_verified_completion_does_not_apply_or_load_and_can_be_applied_explicitly(
     setup,
 ):
