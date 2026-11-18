@@ -182,6 +182,9 @@ SEED_PLATFORM = {
 # With an NVIDIA GPU: the CUDA 13 build of ONNX Runtime, CUDA 13.4 Update 1 and cuDNN 9.26
 # (both released before ONNX Runtime 1.31.0; they need the NVIDIA driver 580 or later).
 # Without one: the CPU build only. Only the files the worker loads are kept.
+# Since 0.5.0 the app sets up the runtime in the core (native/voice-conversion/src/runtime.rs),
+# which takes ONNX Runtime from Microsoft's NuGet packages since 2026-11-18. The pins here stay
+# those this setup wrote: the core still counts a runtime set up from them as installed.
 ORT_VERSION = '1.31.0'
 ORT_RELEASE = f'https://github.com/microsoft/onnxruntime/releases/download/v{ORT_VERSION}/'
 PYPI = 'https://files.pythonhosted.org/packages/'
