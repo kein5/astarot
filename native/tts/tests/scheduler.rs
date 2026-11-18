@@ -650,7 +650,7 @@ fn run_conversion(conversion: &str, available: bool) -> (usize, usize, Vec<bool>
     let mut options = BusOptions::new(device.clone());
     options.provider_factory = provider(|_, _, _| Ok(frames([1, 0].repeat(480))));
     options.converted_router = Some(converted.clone());
-    options.on_first_audio = Some(Arc::new(move |_event: &SpeechMessageEvent, _at: i64, through: bool| record.lock().unwrap().push(through)));
+    options.on_first_audio = Some(Arc::new(move |_event: &SpeechMessageEvent, _at: i64, through: bool, _asked: i64| record.lock().unwrap().push(through)));
     let settings = VoiceSettings { japanese_server: "external".into(), conversion: conversion.into(), ..original() };
     let bus = VoiceEventBus::new(settings, options);
     assert!(bus.publish(chat("e1"), None, None));
@@ -675,12 +675,35 @@ fn a_panicking_first_audio_readout_never_stops_speech() {
     let sink = Sink::default();
     let bus = bus(original(), &sink, |o| {
         o.provider_factory = provider(|_, _, _| Ok(frames(vec![1, 0])));
-        o.on_first_audio = Some(Arc::new(|_: &SpeechMessageEvent, _: i64, _: bool| panic!("readout failure")));
+        o.on_first_audio = Some(Arc::new(|_: &SpeechMessageEvent, _: i64, _: bool, _: i64| panic!("readout failure")));
     });
     assert!(bus.publish(chat("one"), None, None));
     until2(|| bus.status().completed == 1);
     assert_eq!(sink.bytes(), [1, 0]);
     close(&bus);
+}
+
+#[test]
+fn the_first_audio_readout_tells_when_synthesis_was_asked_for() {
+    let sink = Sink::default();
+    let times: Arc<Mutex<Vec<(i64, i64, i64)>>> = Arc::default();
+    let record = times.clone();
+    let bus = bus(original(), &sink, |o| {
+        o.provider_factory = provider(|_, _, _| {
+            thread::sleep(Duration::from_millis(30));
+            Ok(frames(vec![1, 0]))
+        });
+        o.on_first_audio = Some(Arc::new(move |event: &SpeechMessageEvent, at: i64, _: bool, asked: i64| record.lock().unwrap().push((event.timestamp_ns, asked, at))));
+    });
+    assert!(bus.publish(chat("one"), None, None));
+    until2(|| bus.status().completed == 1);
+    close(&bus);
+    let times = times.lock().unwrap().clone();
+    assert_eq!(times.len(), 1);
+    let (published, asked, at) = times[0];
+    assert!(published <= asked && asked <= at, "{times:?}");
+    // The engine's 30 ms come after the request, so they count as synthesis.
+    assert!(at - asked >= 25_000_000, "{times:?}");
 }
 
 #[test]
