@@ -31,9 +31,13 @@ const render = async device => {
         "../_components": { SectionLabelComponent: () => null, LabelComponent: () => null, DropdownMenu: () => null,
             ThresholdComponent, RadioButton },
         "@common_components": { Checkbox: () => null },
+        "../_components/advanced_section/AdvancedSection": { AdvancedSection: () => null },
+        "../_components/page_pointer/PagePointer": { PagePointer: () => null },
     });
     const page = runtime.render(module.Device);
-    const containers = page.props.children.filter(node => typeof node?.type === "function" && node.type.name.endsWith("Container"));
+    // The sensitivity is set once: it is in the page's 「詳細設定」 (#554).
+    const fold = page.props.children.find(node => node?.props?.status !== undefined);
+    const containers = [fold.props.children].flat().filter(node => typeof node?.type === "function" && node.type.name.endsWith("Container"));
     return { toggled, sources: containers.map(node => {
         const tree = node.type(node.props);
         return { radio: find(tree, item => item.type === RadioButton).props, threshold: find(tree, item => item.type === ThresholdComponent).props };

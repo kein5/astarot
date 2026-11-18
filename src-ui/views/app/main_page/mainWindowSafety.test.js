@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import * as usagePresetsModule from "../../../logics/configs/usagePresets.ts";
 import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import { loadBridgeStore } from "../../../logics/test/bridgeHarness.js";
@@ -37,6 +38,8 @@ const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false 
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: setup.blocks, prepare: action => setup.prepared?.push(action) }) },
         "../../startupContext": { useIsStartingUp: () => starting },
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: setup.compact } }) },
+        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: "presets" in setup ? setup.presets : ["all"] } }) },
+        "../../../../../logics/configs/usagePresets.ts": usagePresetsModule,
         "../../../../common_components/toggle_switch/ToggleSwitch": { ToggleSwitch: icon },
     });
     return { ...switches, ...main, requests };
@@ -347,4 +350,45 @@ test("while the engine is away no switch is blocked for a missing setup", async 
     const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
     assert.equal(rows.some(node => node.type === "button"), false);
     assert.equal(rows.find(node => node.props.switch_id === "ocr").props.blockedReason, null);
+});
+
+test("#554: the uses picked in settings choose the switches in sight; one that is on stays, and 「ほかの機能」 shows the rest", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = {};
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const voice = { status: { tts_enabled: false, tts_generation: 1 }, directState: { observation_id: "one" }, send() {} };
+    const s = await loadSwitches(b, voice, { compact: false, blocks: {}, presets: ["basic"] });
+    const draw = () => b.runtime.render(s.MainFunctionSwitch).props.children;
+    const ids = rows => rows.filter(node => node.props.switch_id).map(node => node.props.switch_id);
+    let rows = draw();
+    assert.deepEqual(ids(rows), ["translation", "transcription_send", "transcription_receive"]);
+    let more = rows.at(-1);
+    assert.equal(more.type, s.MoreFeaturesButton);
+    assert.equal(more.props.count, 3);
+    assert.equal(more.props.expanded, false);
+    // Chat reading turned on elsewhere (a hotkey, the VR panel) is in sight, so it can be turned off.
+    b.runtime.store.set(b.stores.Atom_OcrCaptureStatus, { data: true, state: "ok" });
+    rows = draw();
+    assert.deepEqual(ids(rows), ["translation", "transcription_send", "transcription_receive", "ocr"]);
+    assert.equal(rows.at(-1).props.count, 2);
+    // 「ほかの機能」 shows every switch in its usual order; it saves nothing.
+    rows.at(-1).props.onToggle();
+    rows = draw();
+    assert.deepEqual(ids(rows), ["translation", "transcription_send", "transcription_receive", "ocr", "tts", "rvc"]);
+    more = rows.at(-1);
+    assert.equal(more.props.expanded, true);
+    const button = b.runtime.render(s.MoreFeaturesButton, more.props);
+    assert.equal(button.props["aria-expanded"], true);
+    assert.equal(button.props["aria-label"], "main_page.more_features_hide");
+});
+
+test("#554: every switch is in sight while the uses are not known, and with everything picked", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = {};
+    const voice = { status: { tts_generation: 1 }, directState: { observation_id: "one" }, send() {} };
+    for (const presets of [null, ["all"], ["basic", "nonverbal", "voice_changer"]]) {
+        const s = await loadSwitches(b, voice, { compact: false, blocks: {}, presets });
+        const rows = b.runtime.render(s.MainFunctionSwitch).props.children;
+        assert.deepEqual(rows.map(node => node.props.switch_id), ["translation", "transcription_send", "transcription_receive", "ocr", "tts", "rvc"], JSON.stringify(presets));
+    }
 });

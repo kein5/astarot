@@ -34,7 +34,7 @@ You need: a speech recognition (ASR) model, and SteamVR to see them in VR {.need
 2. Turn on "Listening" on the main screen. Captions appear in the main screen's log.
 3. To lay them over the screen, turn on the desktop caption overlay; to see them in VR, turn on the caption overlay.
 
-See [Speech recognition (ASR) and realtime captions](../features/transcription) and [VR and overlay](../features/vr).
+See [Speech recognition (ASR) and realtime captions](../features/transcription) and [Captions and VR](../features/vr).
 
 ## Read and translate the other players' chatbox
 

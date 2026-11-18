@@ -32,7 +32,8 @@ async function setup(context, { settings = DEFAULT_SETTINGS, placement = { x: nu
         "@images/redo.svg?react": "redo", "@images/check_mark.svg?react": "check",
         "./Vr.module.scss": {},
     });
-    const render = () => runtime.render(DesktopCaptionOverlay);
+    // Where the captions sit and how they look are the "details" part, in 「詳細設定」 (#554).
+    const render = () => runtime.render(DesktopCaptionOverlay, { part: "details" });
     render(); await flush();
     context.onTestFinished(() => runtime.unmount());
     const item = id => find(render(), node => node.props?.setting_id === id);

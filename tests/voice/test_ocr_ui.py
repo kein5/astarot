@@ -17,6 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 from models.model_downloads.manager import Downloads
+from ui_details import open_more_settings
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.skipif(os.environ.get("VRCT_TEST_OCR_UI") != "1", reason="opt-in browser test")
@@ -121,6 +122,8 @@ def ui(tmp_path):
                                 ("/get/data/ocr_bubble_min_text_length", 2)):
             reply(endpoint, value)
         page.goto(f"http://127.0.0.1:{port}/tests/voice/ocr-ui-entry/")
+        # The detector, the reading area and the timing are in the page's 「詳細設定」 (#554).
+        open_more_settings(page)
         yield page, peer, reply, state
         screenshot = os.environ.get("VRCT_TEST_OCR_UI_SCREENSHOT")
         if screenshot:

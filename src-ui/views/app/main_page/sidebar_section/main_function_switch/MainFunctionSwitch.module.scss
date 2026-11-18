@@ -214,3 +214,33 @@ $pending_label_color: var(--dark_500_color);
         opacity: .5;
     }
 }
+
+// Under the switches: shows the ones the uses picked in settings leave out (#554, Q-10). Quieter
+// than a switch: no surface at rest, the secondary text, the same height as a row's icon button.
+.more_features {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    min-height: 3.2rem;
+    padding: .4rem 1.2rem;
+    border-radius: var(--vox_radius);
+    color: var(--vox_secondary_text);
+    font-size: 1.3rem;
+    text-align: left;
+    cursor: pointer;
+    &:hover { background-color: var(--dark_800_color); }
+    &:active { background-color: var(--dark_875_color); }
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: -.2rem; }
+    &.is_compact_mode { justify-content: center; padding: .4rem; }
+}
+.more_features_svg {
+    width: 1rem;
+    flex: none;
+    color: var(--dark_400_color);
+    transition: transform .12s ease-out;
+    &.is_open { transform: rotate(180deg); }
+}
+.more_features_label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}

@@ -13,6 +13,7 @@ import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
 import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
+import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 
 // Every field the page can make invalid: speech.cpp's seed and instructions, COEIROINK's numbers.
 const validVoiceSettings = draft => validGenerationOptions(draft) && validCoeiroinkOptions(draft);
@@ -57,6 +58,8 @@ export const VoiceSettings = () => {
             {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
         </select>
     </label>;
+    // speech.cpp makes the voice of this language: Japanese may come from an engine the user installed.
+    const speechcpp = role => role !== "japanese" || (draft.japanese_engine || "speechcpp") === "speechcpp";
     const deviceList = devices.devices || [];
     // The monitor never offers the virtual microphone's own endpoints or output.
     const monitorList = deviceList.filter(d => !d.id.startsWith("vrct.") && d.id !== (draft.routing === "managed" ? "" : draft.output_device));
@@ -88,6 +91,17 @@ export const VoiceSettings = () => {
                     </select>
                 </FormRow>
                 <VirtualMicEntry />
+                {["japanese", "multilingual"].map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
+                    <legend>{t(`speech_servers.${role}`)}</legend>
+                    {/* Japanese can also come from an engine the user installed (ADR-008); its fields replace speech.cpp's. */}
+                    {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} saved={settings} />}
+                    {speechcpp(role) && <>{server(role)}{draft[`${role}_server`] !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}</>}
+                </fieldset>)}
+                {/* Set once to taste (#554): the monitor, how speech.cpp generates, reading the
+                    microphone's translations aloud and the conversion. The line shows the first two. */}
+                <AdvancedSection status={t("config_page.advanced_status.tts", {
+                    monitor: t(draft.monitor === "on" ? "config_page.advanced_status.on" : "config_page.advanced_status.off"),
+                    mic: t(draft.mic_mode === "translated" ? "config_page.advanced_status.on" : "config_page.advanced_status.off") })}>
                 <fieldset className={styles.group} aria-label={t("voice_ui.monitor_heading")}>
                     <legend>{t("voice_ui.monitor_heading")}</legend>
                     <Description text={t("voice.monitor_hint")} />
@@ -105,28 +119,22 @@ export const VoiceSettings = () => {
                         disabled={draft.monitor !== "on"} value={draft.monitor_volume ?? "100"} onChange={e => field("monitor_volume", String(e.target.value))} /></label>
                     {status.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${status.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
                 </fieldset>
-                {["japanese", "multilingual"].map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
-                    <legend>{t(`speech_servers.${role}`)}</legend>
-                    {/* Japanese can also come from an engine the user installed (ADR-008); its fields replace speech.cpp's. */}
-                    {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} saved={settings} />}
-                    {(role !== "japanese" || (draft.japanese_engine || "speechcpp") === "speechcpp") && <>
-                        {server(role)}{draft[`${role}_server`] !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}
-                        <GenerationOptions errorId={optionsErrorId} role={role} draft={draft} field={field} />
-                    </>}
+                {["japanese", "multilingual"].filter(speechcpp).map(role => <fieldset key={role} className={styles.group}
+                    aria-label={`${t(`speech_servers.${role}`)} · ${t("voice_ui.generation_heading")}`}>
+                    <legend>{t(`speech_servers.${role}`)} · {t("voice_ui.generation_heading")}</legend>
+                    <GenerationOptions errorId={optionsErrorId} role={role} draft={draft} field={field} />
                 </fieldset>)}
-                <details><summary>{t("voice.mic_mode")}</summary>
-                    <FormRow label={t("voice.mic_mode")} description={t("voice.mic_hint")}>
-                        <select aria-label={t("voice.mic_mode")} value={draft.mic_mode || "off"} onChange={e => field("mic_mode", e.target.value)}>
-                            <option value="off">{t("voice.off")}</option><option value="translated">{t("voice.mic_translated")}</option>
-                        </select>
-                    </FormRow>
-                    <label>{t("voice.direct_policy")}<select aria-label={t("voice.direct_policy")} disabled={draft.mic_mode !== "translated"} value={draft.direct_policy || "suppress"}
-                        onChange={e => field("direct_policy", e.target.value)}>
-                        <option value="suppress">{t("voice.direct_suppress")}</option>
-                        {/* Speech through the conversion replaces the voice; the two cannot mix (ADR-007). */}
-                        <option value="mix" disabled={draft.conversion === "on"}>{t("voice.direct_mix")}</option>
-                    </select></label>
-                </details>
+                <FormRow label={t("voice.mic_mode")} description={t("voice.mic_hint")}>
+                    <select aria-label={t("voice.mic_mode")} value={draft.mic_mode || "off"} onChange={e => field("mic_mode", e.target.value)}>
+                        <option value="off">{t("voice.off")}</option><option value="translated">{t("voice.mic_translated")}</option>
+                    </select>
+                </FormRow>
+                <label>{t("voice.direct_policy")}<select aria-label={t("voice.direct_policy")} disabled={draft.mic_mode !== "translated"} value={draft.direct_policy || "suppress"}
+                    onChange={e => field("direct_policy", e.target.value)}>
+                    <option value="suppress">{t("voice.direct_suppress")}</option>
+                    {/* Speech through the conversion replaces the voice; the two cannot mix (ADR-007). */}
+                    <option value="mix" disabled={draft.conversion === "on"}>{t("voice.direct_mix")}</option>
+                </select></label>
                 <FormRow label={t("voice.conversion")} description={t("voice.conversion_hint")}>
                     <select aria-label={t("voice.conversion")} value={draft.conversion || "off"}
                         onChange={e => setDraft(current => ({ ...current, conversion: e.target.value,
@@ -135,6 +143,7 @@ export const VoiceSettings = () => {
                         <option value="off">{t("voice.conversion_off")}</option><option value="on">{t("voice.conversion_on")}</option>
                     </select>
                 </FormRow>
+                </AdvancedSection>
             </fieldset>
         </form>
         {!validGenerationOptions(draft) && <p id={optionsErrorId} role="alert">{t("voice_ui.invalid_options")}</p>}
@@ -157,6 +166,8 @@ export const TtsOutputDeviceSettings = ({ title }) => {
         send("/get/data/voice_settings");
         send("/get/data/voice_output_devices");
     }, [send]);
+    // speech.cpp makes the voice of this language: Japanese may come from an engine the user installed.
+    const speechcpp = role => role !== "japanese" || (draft.japanese_engine || "speechcpp") === "speechcpp";
     const deviceList = devices.devices || [];
     return <section className={styles.container} aria-label={title} data-setting-id="tts_output_device">
         <SectionLabelComponent label={title} />

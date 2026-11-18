@@ -20,7 +20,7 @@ ASTAROT sends text to the VRChat chatbox over OSC. In VRChat, open the Action Me
 
 !["Quick settings" open, saying that VRChat was found](/screenshots/en/quick-settings.webp)
 
-By default ASTAROT sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>9000</CopyText>, which is also VRChat's default, so you usually don't need to change it. To change it, use "OSC" under Settings → "VRChat".
+By default ASTAROT sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>9000</CopyText>, which is also VRChat's default, so you usually don't need to change it. To change it, use "OSC" under Settings → "Advanced".
 
 ## 3. Choose your languages
 
@@ -36,7 +36,7 @@ Turn on "Translation" on the left of the main screen. If the translation model h
 Type in the box at the bottom and send. The original and its translation appear in the log, and the same text appears in the VRChat chatbox.
 
 ::: tip Without a local model
-Choose an external translation API under Settings → "Translation". See [Translation](../features/translation).
+Choose an external translation API under Settings → "Translation" → "More settings". See [Translation](../features/translation).
 :::
 
 Models you have not downloaded yet are also listed under "Before you start", which the main screen shows while the conversation log is empty.
@@ -49,6 +49,25 @@ Do this before you use a voice feature (captions, text to speech, the voice chan
 - "Speaker" is the output device ASTAROT listens to when it turns other players' voices into text.
 
 "Auto select" uses the device set as the default in your OS.
+
+## 6. Show the features you use
+
+At the top of the settings menu, "Used for" lets you choose how you use ASTAROT. The main screen's switches and the settings menu then show only the features those uses need.
+
+| Use | What it is for |
+|---|---|
+| Basic | Your voice, recognized and translated, to the captions and the chatbox. A new install starts here |
+| Nonverbal | Talk in text without speaking; read others' voices and chat |
+| Multilingual conversation | Talk by voice with people of several languages |
+| Voice changer (RVC) | Talk in a changed voice, with or without translation |
+| Everything | Every feature and page. An update from an earlier version starts here |
+
+- Pick as many as you like. What any of them needs is shown.
+- Changing the uses turns no feature on or off and changes no setting. The switch of a feature that is on is shown whatever you pick.
+- "Other features" under the switches shows the hidden ones. The settings search still finds hidden pages.
+- Each settings page starts with what you need first. What you set once is under the page's "More settings".
+
+The names of the uses may change after we hear from people who tried them.
 
 ## Next
 

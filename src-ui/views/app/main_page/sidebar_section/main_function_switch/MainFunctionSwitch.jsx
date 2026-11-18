@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useVoice, sourceKey } from "../../../../../logics/voice/useVoice";
 import { directRouteReady, usesOutputDevice } from "../../../../../logics/voice/routeState";
 import { rvcStartOptions } from "../../../../../logics/voice/rvcStartOptions";
@@ -11,6 +11,9 @@ import { activeSwitchBlock } from "../../../../../logics/main/switchBlocks";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady } from "@logics_common";
 import { useIsStartingUp } from "../../startupContext";
+import { useUsagePresets } from "@logics_configs";
+import { isSwitchShown, pickedPresets } from "../../../../../logics/configs/usagePresets.ts";
+import ArrowDownSvg from "@images/narrow_arrow_down.svg?react";
 import { store } from "@store";
 import clsx from "clsx";
 import styles from "./MainFunctionSwitch.module.scss";
@@ -117,6 +120,16 @@ export const MainFunctionSwitch = () => {
           currentState: { data: rvcOwnsInput && !!voice.directState.requested,
             state: rvcOwnsInput && (voice.directPending || voice.directState.pending || voice.directState.stopping) ? "pending" : "ok" } },
     ];
+    // The uses picked in settings choose the switches in sight (usagePresets.ts, #554). A switch
+    // that is on, or on its way on or off, always stays: it can always be turned off. The others
+    // are under 「ほかの機能」, which shows them all in their usual order; showing them is not
+    // saved and changes no setting (Q-10).
+    const { currentUsagePresets } = useUsagePresets();
+    const picked = pickedPresets(currentUsagePresets.data);
+    const [showOthers, setShowOthers] = useState(false);
+    const inSight = item => isSwitchShown(picked, item.switch_id, item.currentState?.data === true || item.currentState?.state === "pending");
+    const hiddenCount = switch_items.filter(item => !inSight(item)).length;
+    const rows = showOthers ? switch_items : switch_items.filter(inSight);
     // Other views of these switches (the tray companion) read the TTS and voice changer state here.
     const switchState = id => { const value = switch_items.find(item => item.switch_id === id)?.currentState;
         return { on: value?.data === true, pending: value?.state === "pending" }; };
@@ -124,7 +137,8 @@ export const MainFunctionSwitch = () => {
 
     return (
         <div className={styles.container}>
-            {switch_items.map(item => {
+            {/* One list of rows, the 「ほかの機能」 button last when some switch is left out. */}
+            {[...rows.map(item => {
                 // Only a switch that is off and waits for nothing is held off (activeSwitchBlock).
                 const ready = currentIsBackendReady.data === true;
                 const block = ready ? activeSwitchBlock(blocks, item.switch_id, item.currentState) : undefined;
@@ -147,8 +161,26 @@ export const MainFunctionSwitch = () => {
                     settingsLabel={settingsLabel(destination, t)}
                     openSettings={() => prepare(destination)}
                 />;
-            })}
+            }), ...(hiddenCount > 0 ? [<MoreFeaturesButton key="more_features" count={hiddenCount} expanded={showOthers}
+                onToggle={() => setShowOthers(value => !value)} />] : [])]}
         </div>
+    );
+};
+
+// Shows or hides the switches the uses picked in settings leave out. In the icon rail it is an
+// icon whose tooltip and name say the same.
+export const MoreFeaturesButton = ({ count, expanded, onToggle }) => {
+    const { t } = useI18n();
+    const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
+    const compact = currentIsMainPageCompactMode.data;
+    const label = expanded ? t("main_page.more_features_hide") : t("main_page.more_features", { number: count });
+    return (
+        <button type="button" className={clsx(styles.more_features, { [styles.is_compact_mode]: compact })}
+            aria-expanded={expanded} aria-label={label} title={`${label}: ${t("main_page.more_features_hint")}`}
+            data-more-features onClick={onToggle}>
+            <ArrowDownSvg aria-hidden="true" className={clsx(styles.more_features_svg, { [styles.is_open]: expanded })} />
+            {!compact && <span className={styles.more_features_label}>{label}</span>}
+        </button>
     );
 };
 

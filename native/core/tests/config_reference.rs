@@ -94,7 +94,8 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 
 /// What the core saves that Python never had (#277): the Ollama URL, Papago's Client ID, the subtitles' font and the
 /// keys of the official machine translation APIs. They are left out before comparing.
-const CORE_ONLY_KEYS: [&str; 3] = ["OLLAMA_URL", "PAPAGO_CLIENT_ID", "OVERLAY_FONT_FAMILY"];
+// USAGE_PRESETS (#554) is also one: the Python backend has no usage presets.
+const CORE_ONLY_KEYS: [&str; 4] = ["OLLAMA_URL", "PAPAGO_CLIENT_ID", "OVERLAY_FONT_FAMILY", "USAGE_PRESETS"];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 /// The engines the core adds after DeepL (the official APIs, #277).
 const CORE_ONLY_ENGINES: [&str; 2] = ["Google_Cloud_API", "Papago_API"];

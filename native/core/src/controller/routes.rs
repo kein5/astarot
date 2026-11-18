@@ -217,6 +217,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/experimental_features", OPEN, "EXPERIMENTAL_FEATURES");
     let experimental = store(core, "EXPERIMENTAL_FEATURES", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/experimental_features", OPEN, experimental);
+    b.get("/get/data/usage_presets", OPEN, "USAGE_PRESETS");
+    let presets = store(core, "USAGE_PRESETS", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/usage_presets", OPEN, presets);
     b.get("/get/data/tray_companion_edge", OPEN, "TRAY_COMPANION_EDGE");
     let edge = store(core, "TRAY_COMPANION_EDGE", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/tray_companion_edge", OPEN, edge);

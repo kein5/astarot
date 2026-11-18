@@ -61,7 +61,8 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
     state = initial_state(tmp_path)
     with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
         ui.wait_main_ready()
-        ui.open_voice_page("VR", '[data-setting-id="desktop_overlay"] input[type=checkbox]')
+        # The page was renamed from "VR" (#554); the desktop captions' switch is in sight on it.
+        ui.open_voice_page("Captions and VR", '[data-setting-id="desktop_overlay"] input[type=checkbox]')
         assert ui.evaluate("return document.querySelector('[data-setting-id=\"desktop_overlay\"] input').checked") is False
         ui.evaluate("document.querySelector('[data-setting-id=\"desktop_overlay\"] input').click(); return true;")
         ui.wait("return document.querySelector('[data-setting-id=\"desktop_overlay\"] input').checked === true")
