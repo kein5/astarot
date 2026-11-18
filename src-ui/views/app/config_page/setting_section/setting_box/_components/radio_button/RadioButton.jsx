@@ -62,7 +62,9 @@ export const RadioButton = (props) => {
                             {option.capacity && (
                                 <span className={styles.capacity_label}>{option.capacity}</span>
                             )}
-                            {hint && <Hint text={option.desc} id={hintId} />}
+                            {/* A disabled radio takes neither the pointer nor focus: the mark of an
+                                option that cannot be chosen takes both, so why it cannot is still read. */}
+                            {hint && <Hint text={option.desc} id={hintId} focusable={option.disabled === true} />}
                         </div>
                     </div>
                     {option.desc && !hint && (

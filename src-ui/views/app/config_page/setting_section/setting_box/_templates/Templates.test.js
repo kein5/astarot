@@ -192,6 +192,9 @@ test("with hints on, an option's description is its hint and its radio's descrip
         assert.equal(option.props["data-hint-host"], true);
         assert.ok(!hintOf(option).props.row, "focus on one option opens only its own bubble");
     }
+    // A disabled radio takes no focus: the mark of an option that cannot be chosen takes it, so
+    // why it cannot is still read; the others need no extra stop.
+    assert.deepEqual(options.slice(0, 2).map(option => hintOf(option).props.focusable), [false, true]);
     assert.deepEqual(options.slice(2).map(option => [Boolean(hintOf(option)), radioOf(option).props["aria-describedby"]]), [[false, undefined], [false, undefined]]);
     assert.equal(all(group, node => node.type === "p" && /Needs 8 GB|Non-commercial/.test(node.props.children)).length, 2);
 });
