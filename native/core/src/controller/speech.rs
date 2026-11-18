@@ -6,9 +6,9 @@
 //! the settings never starts a server: only `/run/start_speech_server` (or a feature through
 //! [`SpeechServers::hub`]) does.
 //!
-//! What is not here yet: TTS and realtime ASR, which in Python also start and stop these servers
-//! and react to their end. They hook in through [`SpeechServers::on_end`],
-//! [`SpeechServers::on_listener`], [`SpeechServers::hub`] and [`SpeechServers::start_options`].
+//! TTS and realtime ASR start and stop these servers and react to their end through
+//! [`SpeechServers::on_end`], [`SpeechServers::on_listener`] (TTS: a request to a started
+//! server ends with its run), [`SpeechServers::hub`] and [`SpeechServers::start_options`].
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok};
