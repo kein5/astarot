@@ -508,6 +508,7 @@ config_page:
             type_template_auto: "Automatic"
             type_template_low: "{{type_name}} (lower accuracy, faster processing)"
             type_template_high: "{{type_name}} (higher accuracy, slower processing)"
+            after_restart: "{{device}} (after a restart)"
         warning_labels:
             unable_to_use_osc_query: "OSC reception or OSCQuery advertisement is not ready. Check the local OSC settings and save them again."
             unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
@@ -683,6 +684,10 @@ config_page:
             non_commercial_notice: "Your {{ctranslate2}} model, {{weight_type}}, has a non-commercial license ({{license}}). It was the default in earlier versions, and your setting has not been changed. For commercial use, select an M2M100 model (MIT) in Settings > Translation."
         translation_compute_device:
             label: "Processing device for AI translation"
+            restart_note: "The processing device you chose is used once ASTAROT restarts. Until then, translation runs on the CPU."
+        gpu_runtimes:
+            label: "ONNX Runtime for translating on the GPU"
+            desc: "To run AI translation on the GPU, fetch a GPU build of ONNX Runtime. Then choose it as the processing device above and restart ASTAROT. Chat reading uses the same ONNX Runtime."
 
         deepl_auth_key:
             label: "DeepL API key"
@@ -1784,6 +1789,8 @@ vc_runtime:
     help_rvc_cpu: "ONNX Runtime (CPU build) and the base models (HuBERT and RMVPE) used for conversion. Review what it contains, then fetch it."
     cpu_only: "No NVIDIA driver was found, so this fetches the runtime that converts on the CPU. On the CPU the converted voice comes about 1.3 s after your voice."
     help_seed: "The Python environment and engine used for conversion. It needs an NVIDIA GPU. Review what it contains, then fetch it."
+    help_onnx_cuda: "ONNX Runtime (CUDA 13 build) and NVIDIA's CUDA and cuDNN libraries, for running AI translation on an NVIDIA GPU. It needs NVIDIA driver 580 or later. Review what it contains, then fetch it."
+    help_onnx_directml: "ONNX Runtime (DirectML build) and DirectML, for running AI translation on the GPU through DirectML. It also works with AMD and Intel GPUs. Review what it contains, then fetch it."
     outdated: "The runtime in this folder is of an earlier kind and can no longer be used. Review the download and set it up again."
     size: "Download about {{download}} · Free space needed about {{disk}}"
     gpu_missing: "No NVIDIA driver was found. This runtime only works with an NVIDIA GPU."
@@ -1800,7 +1807,13 @@ vc_runtime:
     connection_notice_rvc: "This connects to the download servers of GitHub, Hugging Face and PyPI. It is a large transfer and may cost data. Expect minutes to tens of minutes, depending on your connection."
     connection_notice_rvc_cpu: "This connects to the download servers of GitHub and Hugging Face. It may cost data. Expect a few minutes, depending on your connection."
     connection_notice_seed: "This connects to GitHub, Hugging Face, PyPI and PyTorch's download servers. It is a large transfer and may cost data. Expect minutes to tens of minutes, depending on your connection."
+    notice_onnx_cuda: "This fetches ONNX Runtime (CUDA 13 build) and NVIDIA's CUDA 13 and cuDNN libraries. ONNX Runtime is MIT. The CUDA and cuDNN libraries are under NVIDIA's license. It needs NVIDIA driver 580 or later. None of this is part of the ASTAROT distribution: it comes straight from its providers. Once you choose it as the processing device, chat reading also runs on this ONNX Runtime."
+    notice_onnx_directml: "This fetches ONNX Runtime (DirectML build 1.24.4) and DirectML 1.15.4. ONNX Runtime is MIT. DirectML is under Microsoft's license and may be used on Windows only. That license says DirectML may collect information about you and your use of it and send it to Microsoft. None of this is part of the ASTAROT distribution: it comes straight from its providers. Once you choose it as the processing device, chat reading also runs on this ONNX Runtime."
+    connection_notice_onnx_cuda: "This connects to the download servers of NuGet and PyPI. It is a large transfer and may cost data. Expect minutes to tens of minutes, depending on your connection."
+    connection_notice_onnx_directml: "This connects to NuGet's download servers. It may cost data. Expect a few minutes, depending on your connection."
     no_start: "Fetching does not start conversion or use the microphone."
+    no_start_onnx_cuda: "Fetching does not change the processing device translation uses."
+    no_start_onnx_directml: "Fetching does not change the processing device translation uses."
     consent: "I have reviewed the provider, license terms, size and location, and I agree to the download."
     start: "Agree and download"
     phase_queued: "Starting"
@@ -1811,6 +1824,8 @@ vc_runtime:
     phase_libraries: "Fetching ONNX Runtime and the CUDA libraries. This takes a while"
     phase_assets: "Fetching the base models"
     phase_verifying: "Checking that it runs on the GPU"
+    phase_libraries_onnx_directml: "Fetching ONNX Runtime and DirectML"
+    phase_verifying_onnx_directml: "Checking that it loads"
     phase_cancelling: "Stopping"
     phase_cancelled: "Stopped. Resuming skips the steps already done"
     phase_failed: "Setup failed. Resuming skips the steps already done"
@@ -1825,12 +1840,14 @@ vc_runtime:
         vc_runtime_packages_failed: "The packages could not be fetched. Check your network and free space. Details are in setup.log in the destination folder."
         vc_runtime_source_failed: "The engine could not be fetched, or it does not match the pinned version."
         vc_runtime_libraries_failed: "ONNX Runtime or the CUDA libraries could not be fetched, or they do not match the pinned version. Check your network and free space."
+        vc_runtime_libraries_failed_onnx_directml: "ONNX Runtime or DirectML could not be fetched, or they do not match the pinned version. Check your network and free space."
         vc_runtime_assets_failed: "The base models could not be fetched, or they do not match the pinned version."
         vc_runtime_gpu_unusable: "The runtime cannot use the GPU. Update your NVIDIA driver to 580 or later."
         vc_runtime_check_failed: "The runtime that was fetched could not be loaded. Fetch it again. If this repeats, setup.log in the destination folder has the details."
         backend_unavailable: "The ASTAROT engine has stopped."
     warnings:
         vc_runtime_gpu_unusable_cpu: "The GPU could not be used, so conversion runs on the CPU, about 1.3 s behind your voice. Converting on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. After updating the driver, start again to convert on the GPU."
+        onnx_runtime_gpu_unusable: "It is set up, but the GPU could not be used. If you choose it as the processing device, translation runs on the CPU. Translating on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later."
 
 model_downloads:
     hardware_title: "GPU and memory"

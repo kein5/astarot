@@ -8,11 +8,12 @@ import { isNonCommercialWeight, needsLicenseConfirmation, weightRequest } from "
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
 import { translationDownloadable } from "../../../../../../logics/main/setupNeeds";
-import { computeDeviceName } from "../_components/compute_device/computeDeviceOptions";
+import { computeDeviceLabel, needsRestart } from "../_components/compute_device/computeDeviceOptions";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
 import { isUsersWeight, weightLabel } from "../../../../../../logics/translation/translationCatalog";
 import { localModelList } from "../../../../../../logics/translation/localModelList";
 import { TranslationCatalogSection } from "./TranslationCatalog";
+import { TranslationGpuRuntimes } from "./TranslationGpuRuntimes";
 
 import {
     useTranslation,
@@ -91,7 +92,7 @@ const AITranslation_Container = () => {
     const { currentCTranslate2WeightTypeStatus, currentSelectedCTranslate2WeightType, currentSelectedTranslationComputeDevice } = useTranslation();
     const selected = currentSelectedCTranslate2WeightType.data;
     const weight = (currentCTranslate2WeightTypeStatus.data || []).find(item => item.id === selected);
-    const device = computeDeviceName(currentSelectedTranslationComputeDevice.data?.device_name);
+    const device = computeDeviceLabel(currentSelectedTranslationComputeDevice.data, t);
     const { catalog } = useModelDownloads();
     const { catalog: translationCatalog } = useTranslationCatalog();
     // false only once the catalog says so; until then the downloads are offered as before.
@@ -114,6 +115,8 @@ const AITranslation_Container = () => {
                 {nothingToGet && <Description text={t("config_page.translation.models_unavailable")} fold={false} />}
                 <CTranslate2WeightType_Box />
                 <TranslationComputeDevice_Box />
+                {/* The GPU builds of ONNX Runtime, fetched only when asked for (decision 2 (c)). */}
+                <TranslationGpuRuntimes />
             </SetupSection>
         </div>
     );
@@ -351,15 +354,20 @@ const TranslationComputeDevice_Box = () => {
     } = useTranslation();
 
     return (
-        <ComputeDevice
-            label={t("config_page.translation.translation_compute_device.label")}
-            dropdownIdPrefix="translation"
-            currentDeviceList={currentSelectableTranslationComputeDeviceList}
-            currentSelectedDevice={currentSelectedTranslationComputeDevice}
-            setSelectedDevice={setSelectedTranslationComputeDevice}
-            currentSelectedComputeType={currentSelectedTranslationComputeType}
-            setSelectedComputeType={setSelectedTranslationComputeType}
-        />
+        <>
+            <ComputeDevice
+                label={t("config_page.translation.translation_compute_device.label")}
+                dropdownIdPrefix="translation"
+                currentDeviceList={currentSelectableTranslationComputeDeviceList}
+                currentSelectedDevice={currentSelectedTranslationComputeDevice}
+                setSelectedDevice={setSelectedTranslationComputeDevice}
+                currentSelectedComputeType={currentSelectedTranslationComputeType}
+                setSelectedComputeType={setSelectedTranslationComputeType}
+            />
+            {/* A GPU whose ONNX Runtime was set up during this run is used from the next start. */}
+            {needsRestart(currentSelectedTranslationComputeDevice.data) &&
+                <p role="status">{t("config_page.translation.translation_compute_device.restart_note")}</p>}
+        </>
     );
 };
 

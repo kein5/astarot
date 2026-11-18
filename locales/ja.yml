@@ -508,6 +508,7 @@ config_page:
             type_template_auto: "自動"
             type_template_low: "{{type_name}}（精度が悪く、処理は早い）"
             type_template_high: "{{type_name}}（精度が良く、処理は遅い）"
+            after_restart: "{{device}}（再起動後に使えます）"
         warning_labels:
             unable_to_use_osc_query: "OSC受信またはOSCQueryの公開を開始できていません。ローカルのOSC設定を確認し、保存し直してください。"
             unable_to_use_osc_query_remote: "送信先が別のマシンのときは使えません。VRChatのミュート状態を確認できるのは、VRChatが同じPCで動いているときだけです。"
@@ -683,6 +684,10 @@ config_page:
             non_commercial_notice: "現在の{{ctranslate2}}モデル{{weight_type}}は非商用ライセンス（{{license}}）です。以前のバージョンの既定値で、設定は変更していません。商用利用する場合は、設定 > 翻訳でM2M100モデル（MIT）を選んでください。"
         translation_compute_device:
             label: "AI翻訳の処理デバイス"
+            restart_note: "選んだ処理デバイスは、ASTAROTを再起動すると使えます。それまで翻訳はCPUで動きます。"
+        gpu_runtimes:
+            label: "GPUで翻訳するためのONNX Runtime"
+            desc: "AI翻訳をGPUで動かすには、ONNX RuntimeのGPU版を取得します。取得したら上の処理デバイスで選び、ASTAROTを再起動してください。チャット読み取りも同じONNX Runtimeを使います。"
 
         deepl_auth_key:
             label: "DeepL APIキー"
@@ -1784,6 +1789,8 @@ vc_runtime:
     help_rvc_cpu: "変換に使うONNX Runtime（CPU版）と、基礎モデル（HuBERTとRMVPE）です。内容を確認してから取得します。"
     cpu_only: "NVIDIAのドライバーが見つからないので、CPUで変換する実行環境を取得します。CPUでは、変換した声が約1.3秒遅れて届きます。"
     help_seed: "変換に使うPython環境とエンジン本体です。NVIDIAのGPUが必要です。内容を確認してから取得します。"
+    help_onnx_cuda: "AI翻訳をNVIDIAのGPUで動かすためのONNX Runtime（CUDA 13版）と、NVIDIAのCUDAとcuDNNのライブラリです。NVIDIAのドライバー580以降が必要です。内容を確認してから取得します。"
+    help_onnx_directml: "DirectMLを通してAI翻訳をGPUで動かすためのONNX Runtime（DirectML版）とDirectMLです。AMDやIntelのGPUでも使えます。内容を確認してから取得します。"
     outdated: "このフォルダの実行環境は以前の形式のため、もう使えません。内容を確認して取得し直してください。"
     size: "通信量 約{{download}} · 必要な空き容量 約{{disk}}"
     gpu_missing: "NVIDIAのドライバーが見つかりません。この実行環境はNVIDIAのGPUでだけ動きます。"
@@ -1800,7 +1807,13 @@ vc_runtime:
     connection_notice_rvc: "GitHub、Hugging Face、PyPIの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
     connection_notice_rvc_cpu: "GitHubとHugging Faceの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
     connection_notice_seed: "GitHub、Hugging Face、PyPI、PyTorchの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
+    notice_onnx_cuda: "ONNX Runtime（CUDA 13版）と、NVIDIAのCUDA 13とcuDNNのライブラリを取得します。ONNX RuntimeはMITです。CUDAとcuDNNのライブラリはNVIDIAのライセンスに従います。NVIDIAのドライバー580以降が必要です。これらはASTAROTの配布物ではなく、提供元から直接取得します。処理デバイスで選ぶと、チャット読み取りも同じONNX Runtimeで動きます。"
+    notice_onnx_directml: "ONNX Runtime（DirectML版 1.24.4）とDirectML 1.15.4を取得します。ONNX RuntimeはMITです。DirectMLはMicrosoftのライセンスに従い、Windowsでだけ使えます。このライセンスには、DirectMLが利用者と使い方の情報を集めてMicrosoftに送ることがあると書かれています。これらはASTAROTの配布物ではなく、提供元から直接取得します。処理デバイスで選ぶと、チャット読み取りも同じONNX Runtimeで動きます。"
+    connection_notice_onnx_cuda: "NuGetとPyPIの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
+    connection_notice_onnx_directml: "NuGetの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
     no_start: "取得だけでは変換の開始やマイクの使用は行いません。"
+    no_start_onnx_cuda: "取得だけでは、翻訳に使う処理デバイスは変わりません。"
+    no_start_onnx_directml: "取得だけでは、翻訳に使う処理デバイスは変わりません。"
     consent: "提供元・利用条件・容量・保存先を確認し、取得に同意します。"
     start: "同意して取得"
     phase_queued: "開始しています"
@@ -1811,6 +1824,8 @@ vc_runtime:
     phase_libraries: "ONNX RuntimeとCUDAのライブラリを取得しています。時間がかかります"
     phase_assets: "基礎モデルを取得しています"
     phase_verifying: "GPUで動くか確認しています"
+    phase_libraries_onnx_directml: "ONNX RuntimeとDirectMLを取得しています"
+    phase_verifying_onnx_directml: "読み込めるか確認しています"
     phase_cancelling: "中止しています"
     phase_cancelled: "中止しました。再開すると終わった手順は飛ばします"
     phase_failed: "準備できませんでした。再開すると終わった手順は飛ばします"
@@ -1825,12 +1840,14 @@ vc_runtime:
         vc_runtime_packages_failed: "パッケージを取得できませんでした。ネットワークと空き容量を確認してください。詳細は保存先のsetup.logにあります。"
         vc_runtime_source_failed: "エンジン本体を取得できないか、内容が固定の版と一致しません。"
         vc_runtime_libraries_failed: "ONNX RuntimeかCUDAのライブラリを取得できないか、内容が固定の版と一致しません。ネットワークと空き容量を確認してください。"
+        vc_runtime_libraries_failed_onnx_directml: "ONNX RuntimeかDirectMLを取得できないか、内容が固定の版と一致しません。ネットワークと空き容量を確認してください。"
         vc_runtime_assets_failed: "基礎モデルを取得できないか、内容が固定の版と一致しません。"
         vc_runtime_gpu_unusable: "実行環境からGPUを使えません。NVIDIAのドライバーを580以降に更新してください。"
         vc_runtime_check_failed: "取得した実行環境を読み込めませんでした。もう一度取得してください。繰り返すときは、保存先のsetup.logに詳細があります。"
         backend_unavailable: "ASTAROTの処理部分が停止しています。"
     warnings:
         vc_runtime_gpu_unusable_cpu: "GPUを使えなかったため、CPUで変換します。声の遅れは約1.3秒です。GPUで変換するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。ドライバーを更新したら、開始し直すとGPUで変換します。"
+        onnx_runtime_gpu_unusable: "準備はできましたが、GPUを使えませんでした。処理デバイスで選んでも、翻訳はCPUで動きます。GPUで翻訳するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。"
 
 model_downloads:
     hardware_title: "GPUとメモリ"
