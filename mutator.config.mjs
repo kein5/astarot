@@ -11,7 +11,7 @@ export default {
     vitestConfig: "vitest.mutator.config.js",
     include: [
         "src-ui/logics/**/*.ts",
-        "src-ui/views/vr/vrPanelHover.js",
+        "src-ui/views/vr/vrPanelHover.ts",
     ],
     exclude: [
         "src-ui/**/*.test.*",

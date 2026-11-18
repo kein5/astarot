@@ -1,5 +1,6 @@
 import { createLanguageNames } from "../../logics/common/languageNames.ts";
 import { useLayoutEffect, useRef, useState } from "react";
+import type { ComponentType, SVGProps } from "react";
 import clsx from "clsx";
 
 import { useI18n } from "@useI18n";
@@ -20,15 +21,30 @@ import WarningSvg from "@images/warning.svg?react";
 
 import { VrWindow } from "./VrWindow";
 import { Disclosure, Picker, SectionLabel, SegmentRow, SelectRow, StepperRow, ThresholdRow, ToggleRow } from "./VrSettingsRows";
+import type { PickerOption, RowValue } from "./VrSettingsRows";
 import { buildComputeDeviceOptions } from "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "../../logics/configs/cloudTranscription";
 import { isNonCommercialWeight } from "../../logics/configs/ctranslate2License";
 import styles from "./VrSettingsWindow.module.scss";
 import { splitFeatureLabel } from "../../logics/common/featureLabel.ts";
 
+type Translate = ReturnType<typeof useI18n>["t"];
+type Translation = ReturnType<typeof useTranslation>;
+type LanguageKind = "ui" | "ocr";
+type OpenPicker = (title: string, options: readonly PickerOption[], selected_id: unknown, onPick: (id: string) => unknown, languageKind?: LanguageKind) => void;
+
+// The list open in place of the settings: its title, choices, the current one and what picking does.
+interface PickerState {
+    title: string;
+    options: readonly PickerOption[];
+    selected_id: unknown;
+    onPick: (id: string) => unknown;
+    languageKind?: LanguageKind;
+}
+
 // 左のカテゴリはデスクトップの設定画面と同じ順序・名前・アイコン。VRでは文字入力が要る項目
 // (APIキー、URL、単語フィルターなど) と、モデルのダウンロードは載せない
-const CATEGORIES = [
+const CATEGORIES: readonly { id: string; Icon: ComponentType<SVGProps<SVGSVGElement>> }[] = [
     { id: "device", Icon: MicSvg },
     { id: "appearance", Icon: AppearanceSvg },
     { id: "translation", Icon: TranslationSvg },
@@ -37,37 +53,55 @@ const CATEGORIES = [
     { id: "vr", Icon: HmdSvg },
 ];
 
+// An AI translator: its models, the chosen one and how to choose, read from useTranslation.
+interface AiProvider {
+    i18n: string;
+    list: (tl: Translation) => RowValue;
+    selected: (tl: Translation) => RowValue;
+    set: (tl: Translation) => (id: string) => unknown;
+}
+
 // 翻訳のAIのうち、接続済み (モデルの一覧が取れている) ものだけモデルを選べる
 // 呼ぶ関数の名前は組み立てずに書く。VR から送れる操作の一覧 (vrPanelWire.ts) と照らす試験が、
 // ソースに書かれた名前を拾うため (組み立てた名前は拾えず、一覧から漏れても試験が通ってしまう)
-const AI_PROVIDERS = [
-    { i18n: "plamo", list: "currentSelectablePlamoModelList", selected: "currentSelectedPlamoModel", set: "setSelectedPlamoModel" },
-    { i18n: "gemini", list: "currentSelectableGeminiModelList", selected: "currentSelectedGeminiModel", set: "setSelectedGeminiModel" },
-    { i18n: "openai", list: "currentSelectableOpenAIModelList", selected: "currentSelectedOpenAIModel", set: "setSelectedOpenAIModel" },
-    { i18n: "groq", list: "currentSelectableGroqModelList", selected: "currentSelectedGroqModel", set: "setSelectedGroqModel" },
-    { i18n: "openrouter", list: "currentSelectableOpenRouterModelList", selected: "currentSelectedOpenRouterModel", set: "setSelectedOpenRouterModel" },
-    { i18n: "lmstudio", list: "currentSelectableLMStudioModelList", selected: "currentSelectedLMStudioModel", set: "setSelectedLMStudioModel" },
-    { i18n: "openai_compatible", list: "currentSelectableOpenAICompatibleModelList", selected: "currentSelectedOpenAICompatibleModel",
-        set: "setSelectedOpenAICompatibleModel" },
-    { i18n: "ollama", list: "currentSelectableOllamaModelList", selected: "currentSelectedOllamaModel", set: "setSelectedOllamaModel" },
+const AI_PROVIDERS: readonly AiProvider[] = [
+    { i18n: "plamo", list: tl => tl.currentSelectablePlamoModelList, selected: tl => tl.currentSelectedPlamoModel, set: tl => tl.setSelectedPlamoModel },
+    { i18n: "gemini", list: tl => tl.currentSelectableGeminiModelList, selected: tl => tl.currentSelectedGeminiModel, set: tl => tl.setSelectedGeminiModel },
+    { i18n: "openai", list: tl => tl.currentSelectableOpenAIModelList, selected: tl => tl.currentSelectedOpenAIModel, set: tl => tl.setSelectedOpenAIModel },
+    { i18n: "groq", list: tl => tl.currentSelectableGroqModelList, selected: tl => tl.currentSelectedGroqModel, set: tl => tl.setSelectedGroqModel },
+    { i18n: "openrouter", list: tl => tl.currentSelectableOpenRouterModelList, selected: tl => tl.currentSelectedOpenRouterModel,
+        set: tl => tl.setSelectedOpenRouterModel },
+    { i18n: "lmstudio", list: tl => tl.currentSelectableLMStudioModelList, selected: tl => tl.currentSelectedLMStudioModel,
+        set: tl => tl.setSelectedLMStudioModel },
+    { i18n: "openai_compatible", list: tl => tl.currentSelectableOpenAICompatibleModelList, selected: tl => tl.currentSelectedOpenAICompatibleModel,
+        set: tl => tl.setSelectedOpenAICompatibleModel },
+    { i18n: "ollama", list: tl => tl.currentSelectableOllamaModelList, selected: tl => tl.currentSelectedOllamaModel, set: tl => tl.setSelectedOllamaModel },
 ];
 
 const THRESHOLD_STEP = 50;
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
+const isElement = (target: EventTarget | null): target is Element => target !== null && "closest" in target;
 // 一覧 ({ id: label }) を Picker の形にする
-const toOptions = (list) => Object.entries(list ?? {}).map(([id, label]) => ({ id, label }));
+const toOptions = (list: unknown): PickerOption[] => Object.entries(isRecord(list) ? list : {})
+    .map(([id, label]) => ({ id, label: typeof label === "string" ? label : String(label) }));
+// The label a list ({ id: label }) gives an id, if it has one.
+const labelIn = (list: unknown, id: unknown): string | undefined => {
+    const label = isRecord(list) && typeof id === "string" ? list[id] : undefined;
+    return typeof label === "string" ? label : undefined;
+};
 
 // VR設定ウィンドウ。開いている間はデスクトップで設定画面を開いたのと同じ扱いで、
 // 翻訳と文字起こしが止まる (VrApp / VrPanelSyncController)
-export const VrSettingsWindow = ({ onClose }) => {
+export const VrSettingsWindow = ({ onClose }: { onClose: () => void }) => {
     const { t, i18n } = useI18n();
     const names = createLanguageNames(i18n.language);
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
     const [category, setCategory] = useState("device");
     // 選択肢の一覧を開いているとき: { title, options, selected_id, onPick }
-    const [picker, setPicker] = useState(null);
-    const listRef = useRef(null);
-    const pickerRef = useRef(null);
-    const triggerRef = useRef(null);
+    const [picker, setPicker] = useState<PickerState | null>(null);
+    const listRef = useRef<HTMLDivElement>(null);
+    const pickerRef = useRef<HTMLDivElement>(null);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
     const savedScroll = useRef(0);
     // Picker 中も設定を保持し、戻ったら元の位置と操作行へ戻す。
     useLayoutEffect(() => {
@@ -77,9 +111,9 @@ export const VrSettingsWindow = ({ onClose }) => {
             listRef.current.scrollTop = savedScroll.current;
             if (triggerRef.current) {
                 const trigger = triggerRef.current;
-                const disclosure_button = trigger.closest(`.${styles.disclosure}`)?.querySelector(`.${styles.disclosure_toggle}`);
-                const fallback = listRef.current.contains(disclosure_button) && !disclosure_button.disabled
-                    ? disclosure_button : listRef.current.querySelector("button:not(:disabled)");
+                const disclosure_button = trigger.closest(`.${styles.disclosure}`)?.querySelector<HTMLButtonElement>(`.${styles.disclosure_toggle}`);
+                const fallback = disclosure_button && listRef.current.contains(disclosure_button) && !disclosure_button.disabled
+                    ? disclosure_button : listRef.current.querySelector<HTMLButtonElement>("button:not(:disabled)");
                 const can_restore = listRef.current.contains(trigger) && !trigger.disabled;
                 (can_restore ? trigger : fallback)?.focus({ preventScroll: true });
             }
@@ -88,7 +122,7 @@ export const VrSettingsWindow = ({ onClose }) => {
 
     // メインが設定画面を開いてメイン機能を止めるまでは操作させない (音量の確認がマイクを奪い合わないように)
     const is_ready = currentIsOpenedConfigPage.data === true;
-    const openPicker = (title, options, selected_id, onPick, languageKind) => {
+    const openPicker: OpenPicker = (title, options, selected_id, onPick, languageKind) => {
         savedScroll.current = listRef.current?.scrollTop ?? 0;
         setPicker({ title, options, selected_id, onPick, languageKind });
     };
@@ -99,7 +133,7 @@ export const VrSettingsWindow = ({ onClose }) => {
             label: option.id === "auto" ? t("config_page.ocr.source_language.auto") : names.language(option.id) })) : picker?.options;
     const pickerTitle = picker?.languageKind === "ui" ? t("config_page.appearance.ui_language.label")
         : picker?.languageKind === "ocr" ? t("config_page.ocr.source_language.label") : picker?.title;
-    const category_label = (id) => (id === "vr" ? "VR" : t(`config_page.side_menu_labels.${id}`));
+    const category_label = (id: string) => (id === "vr" ? "VR" : t(`config_page.side_menu_labels.${id}`));
 
     return (
         <VrWindow Icon={ConfigurationSvg} title={t("vr_panel.window_settings")} onClose={onClose} close_label={t("vr_panel.settings.close")} is_lockable={false}>
@@ -122,11 +156,11 @@ export const VrSettingsWindow = ({ onClose }) => {
                         ))}
                     </div>
                     <div key={category} ref={listRef} className={styles.list} hidden={Boolean(picker)} data-vr-settings-list="settings"
-                        onClickCapture={(event) => { triggerRef.current = event.target.closest("button"); }}>
+                        onClickCapture={(event) => { triggerRef.current = isElement(event.target) ? event.target.closest("button") : null; }}>
                         <Category id={category} t={t} openPicker={openPicker} />
                     </div>
                     {picker && <div ref={pickerRef} className={styles.list} data-vr-settings-list="picker" onKeyDown={(event) => { if (event.key === "Escape") setPicker(null); }}>
-                        <Picker {...picker} options={languageOptions} scrollRef={pickerRef} title={`${category_label(category)} › ${pickerTitle}`} back_label={t("common.go_back_button_label")}
+                        <Picker {...picker} options={languageOptions ?? picker.options} scrollRef={pickerRef} title={`${category_label(category)} › ${pickerTitle}`} back_label={t("common.go_back_button_label")}
                             onPick={(id) => { picker.onPick(id); setPicker(null); }} onBack={() => setPicker(null)} />
                     </div>}
                 </fieldset>
@@ -135,7 +169,12 @@ export const VrSettingsWindow = ({ onClose }) => {
     );
 };
 
-const Category = ({ id, t, openPicker }) => {
+interface CategoryProps {
+    t: Translate;
+    openPicker: OpenPicker;
+}
+
+const Category = ({ id, t, openPicker }: CategoryProps & { id: string }) => {
     switch (id) {
         case "device": return <DeviceSettings t={t} openPicker={openPicker} />;
         case "appearance": return <AppearanceSettings t={t} openPicker={openPicker} />;
@@ -147,16 +186,16 @@ const Category = ({ id, t, openPicker }) => {
     }
 };
 
-const DeviceSettings = ({ t, openPicker }) => {
+const DeviceSettings = ({ t, openPicker }: CategoryProps) => {
     const d = useDevice();
     const v = useVolume();
     const { currentMicVolume } = useStore_MicVolume();
     const { currentSpeakerVolume } = useStore_SpeakerVolume();
     // 機器の選択はデスクトップと同じく、自動選択がONの間 (と切り替え中) は押せない
-    const deviceRow = (label, list, selected, setSelected, auto_select) => {
+    const deviceRow = (label: string, list: RowValue, selected: { state?: string; data?: string }, setSelected: (id: string) => unknown, auto_select: RowValue) => {
         const options = toOptions(list.data);
         return (
-            <SelectRow label={label} value={list.data?.[selected.data] ?? selected.data}
+            <SelectRow label={label} value={labelIn(list.data, selected.data) ?? selected.data}
                 is_pending={selected.state === "pending" || auto_select.state === "pending" || list.state === "pending"}
                 is_disabled={auto_select.data === true || options.length === 0}
                 disabled_reason={t(auto_select.data === true ? "vr_panel.settings.auto_device" : "vr_panel.settings.unavailable")}
@@ -196,7 +235,7 @@ const DeviceSettings = ({ t, openPicker }) => {
 };
 
 // UIの言語・フォントはデスクトップと共通 (VR UIの表示にも使う)
-const AppearanceSettings = ({ t, openPicker }) => {
+const AppearanceSettings = ({ t, openPicker }: CategoryProps) => {
     const { i18n } = useI18n();
     const names = createLanguageNames(i18n.language);
     const { currentUiLanguage, setUiLanguage, currentSelectedFontFamily, setSelectedFontFamily } = useAppearance();
@@ -225,22 +264,32 @@ const AppearanceSettings = ({ t, openPicker }) => {
     );
 };
 
+interface ComputeSettingsProps extends CategoryProps {
+    device_list: RowValue;
+    device: RowValue;
+    setDevice: (device: unknown) => unknown;
+    compute_type: { state?: string; data?: string };
+    setComputeType: (id: string) => unknown;
+    is_pending?: boolean;
+}
+
 // デバイス/精度のどちらかが切替中なら両方ロックする。デバイス変更後の精度はバックエンドが更新する。
-const ComputeSettings = ({ t, openPicker, device_list, device, setDevice, compute_type, setComputeType, is_pending: is_parent_pending = false }) => {
+const ComputeSettings = ({ t, openPicker, device_list, device, setDevice, compute_type, setComputeType, is_pending: is_parent_pending = false }: ComputeSettingsProps) => {
     const { device_labels, selected_device_id, compute_type_labels } = buildComputeDeviceOptions(device_list.data, device.data, t);
     const devices = toOptions(device_labels);
     const types = toOptions(compute_type_labels);
     const device_label = t("config_page.common.compute_device.label_device");
     const type_label = t("config_page.common.compute_device.label_type");
     const is_pending = is_parent_pending || device.state === "pending" || compute_type.state === "pending" || device_list.state === "pending";
-    const selected_device_label = device_labels[selected_device_id] ?? device.data?.device_name;
-    const selected_type_label = compute_type_labels[compute_type.data] ?? compute_type.data;
+    const device_name = isRecord(device.data) ? device.data.device_name : undefined;
+    const selected_device_label = labelIn(device_labels, String(selected_device_id)) ?? (typeof device_name === "string" ? device_name : undefined);
+    const selected_type_label = labelIn(compute_type_labels, compute_type.data) ?? compute_type.data;
     return (
         <Disclosure label={t("vr_panel.settings.processing")} summary={[selected_device_label, selected_type_label].filter(Boolean).join(" · ")} is_pending={is_pending}>
             <SelectRow label={device_label} value={selected_device_label}
                 is_pending={is_pending} is_disabled={devices.length === 0} disabled_reason={t("vr_panel.settings.devices_unavailable")}
                 onOpen={() => openPicker(device_label, devices, String(selected_device_id), (id) => {
-                    const selected = device_list.data?.[id];
+                    const selected = isRecord(device_list.data) ? device_list.data[id] : undefined;
                     if (selected) setDevice(selected);
                 })} />
             <SelectRow label={type_label} value={selected_type_label}
@@ -250,7 +299,14 @@ const ComputeSettings = ({ t, openPicker, device_list, device, setDevice, comput
     );
 };
 
-const TranscriptionSettings = ({ t, openPicker }) => {
+// One source's three timeouts, with the setters written out (as AI_PROVIDERS).
+interface TimeoutRows {
+    record: { variable: RowValue; set: (value: number) => unknown };
+    phrase: { variable: RowValue; set: (value: number) => unknown };
+    maxWords: { variable: RowValue; set: (value: number) => unknown };
+}
+
+const TranscriptionSettings = ({ t, openPicker }: CategoryProps) => {
     const tr = useTranscription();
     // Cloud engines appear once their key is registered in the settings page.
     const available = tr.currentSelectableTranscriptionEngines.data || [];
@@ -261,7 +317,7 @@ const TranscriptionSettings = ({ t, openPicker }) => {
     const engine_label = t("config_page.transcription.select_transcription_engine.label");
     // 区切りの秒数は「記録の上限 ≦ 無音で区切る秒数」でないとバックエンドが受け付けない
     // 関数の名前は組み立てずに書く (AI_PROVIDERS と同じ理由)
-    const timeoutRows = (lower, rows, max_words) => {
+    const timeoutRows = (lower: string, rows: TimeoutRows, max_words: number) => {
         const { record, phrase, maxWords } = rows;
         return (
             <>
@@ -275,12 +331,12 @@ const TranscriptionSettings = ({ t, openPicker }) => {
             </>
         );
     };
-    const micRows = {
+    const micRows: TimeoutRows = {
         record: { variable: tr.currentMicRecordTimeout, set: tr.setMicRecordTimeout },
         phrase: { variable: tr.currentMicPhraseTimeout, set: tr.setMicPhraseTimeout },
         maxWords: { variable: tr.currentMicMaxWords, set: tr.setMicMaxWords },
     };
-    const speakerRows = {
+    const speakerRows: TimeoutRows = {
         record: { variable: tr.currentSpeakerRecordTimeout, set: tr.setSpeakerRecordTimeout },
         phrase: { variable: tr.currentSpeakerPhraseTimeout, set: tr.setSpeakerPhraseTimeout },
         maxWords: { variable: tr.currentSpeakerMaxWords, set: tr.setSpeakerMaxWords },
@@ -299,15 +355,20 @@ const TranscriptionSettings = ({ t, openPicker }) => {
     );
 };
 
-const TranslationSettings = ({ t, openPicker }) => {
+const TranslationSettings = ({ t, openPicker }: CategoryProps) => {
     const tl = useTranslation();
     // CTranslate2 はダウンロード済みのモデルだけ選べる (ダウンロードはデスクトップで行う)。
     // 非商用ライセンス (NLLB) のモデルは確認ダイアログが必要なので、デスクトップの
     // 設定 > 翻訳 でのみ選べる。既に選択中なら表示はする (ライセンス表記付き)。
     const selected_weight = tl.currentSelectedCTranslate2WeightType;
+    // A model the user added has no size or license of its own, and is never non-commercial.
     const weights = (tl.currentCTranslate2WeightTypeStatus.data ?? [])
-        .filter(w => w.is_downloaded && (!isNonCommercialWeight(w) || w.id === selected_weight.data))
-        .map(w => ({ id: w.id, label: isNonCommercialWeight(w) ? `${w.id} (${w.capacity}, ${w.license})` : `${w.id} (${w.capacity})` }));
+        .filter(w => w.is_downloaded && (!("non_commercial" in w && isNonCommercialWeight(w)) || w.id === selected_weight.data))
+        .map(w => {
+            const capacity = "capacity" in w ? w.capacity : undefined;
+            const license = "license" in w ? w.license : undefined;
+            return { id: w.id, label: "non_commercial" in w && isNonCommercialWeight(w) ? `${w.id} (${capacity}, ${license})` : `${w.id} (${capacity})` };
+        });
     const ct2_label = t("config_page.translation.ctranslate2_weight_type.label");
     return (
         <>
@@ -319,20 +380,21 @@ const TranslationSettings = ({ t, openPicker }) => {
                 device={tl.currentSelectedTranslationComputeDevice} setDevice={tl.setSelectedTranslationComputeDevice}
                 compute_type={tl.currentSelectedTranslationComputeType} setComputeType={tl.setSelectedTranslationComputeType} />
             {AI_PROVIDERS.map((provider) => {
-                const options = toOptions(tl[provider.list].data);
+                const options = toOptions(provider.list(tl).data);
                 if (options.length === 0) return null;
-                const selected = tl[provider.selected];
+                const selected = provider.selected(tl);
                 const label = t(`config_page.translation.select_${provider.i18n}_model.label`);
+                const value = typeof selected.data === "string" ? selected.data : undefined;
                 return (
-                    <SelectRow key={provider.i18n} label={label} value={selected.data} is_pending={selected.state === "pending"}
-                        onOpen={() => openPicker(label, options, selected.data, tl[provider.set])} />
+                    <SelectRow key={provider.i18n} label={label} value={value} is_pending={selected.state === "pending"}
+                        onOpen={() => openPicker(label, options, selected.data, provider.set(tl))} />
                 );
             })}
         </>
     );
 };
 
-const VrSettings = ({ t }) => {
+const VrSettings = ({ t }: { t: Translate }) => {
     const vr = useVr();
     const opacity = vr.currentOverlayVrPanelOpacity;
     // VR UI 自体のON/OFFはここに置かない (VRの中で消すと戻せなくなる。デスクトップの設定で行う)
@@ -365,7 +427,7 @@ const VrSettings = ({ t }) => {
 };
 
 // デスクトップと同じく、デバイスとVRChatの両方から同じ設定を操作する。
-const VrcMicMuteSyncRow = ({ t }) => {
+const VrcMicMuteSyncRow = ({ t }: { t: Translate }) => {
     const o = useOthers();
     const { currentIsOscAvailable, oscUnavailableLabelKey } = useIsOscAvailable();
     return (
@@ -376,10 +438,10 @@ const VrcMicMuteSyncRow = ({ t }) => {
     );
 };
 
-const VrchatSettings = ({ t, openPicker }) => {
+const VrchatSettings = ({ t, openPicker }: CategoryProps) => {
     const o = useOthers();
     // 関数の名前は組み立てずに書く (AI_PROVIDERS と同じ理由)
-    const toggle = (key, variable, onToggle) => (
+    const toggle = (key: string, variable: RowValue, onToggle: () => void) => (
         <ToggleRow label={t(`config_page.others.${key}.label`)} variable={variable} onToggle={onToggle} />
     );
     return (
@@ -397,10 +459,10 @@ const VrchatSettings = ({ t, openPicker }) => {
 };
 
 // チャット読み取りのON/OFFは機能の切り替えなので、ここには置かない (ランチャーで行う)
-const OcrSettings = ({ t, openPicker }) => {
+const OcrSettings = ({ t, openPicker }: CategoryProps) => {
     const { i18n } = useI18n();
     const names = createLanguageNames(i18n.language);
-    const languageLabel = id => id === "auto" ? t("config_page.ocr.source_language.auto") : names.language(id);
+    const languageLabel = (id: string) => id === "auto" ? t("config_page.ocr.source_language.auto") : names.language(id);
     const ocr = useOcr();
     const languages = ocr.currentSelectableOcrSourceLanguageList.data ?? {};
     const language = ocr.currentOcrSourceLanguage;
@@ -421,7 +483,7 @@ const OcrSettings = ({ t, openPicker }) => {
 };
 
 // A long name breaks before its short name in brackets, never inside a word.
-const CategoryName = ({ text }) => {
+const CategoryName = ({ text }: { text: string }) => {
     const { name, abbr } = splitFeatureLabel(text);
     return <span className={styles.category_label}>{name}{abbr && <span className={styles.category_abbr}>{abbr}</span>}</span>;
 };

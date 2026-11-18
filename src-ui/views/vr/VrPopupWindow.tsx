@@ -2,8 +2,11 @@ import { VrLanguageWindow } from "./VrLanguageWindow";
 import { VrSettingsWindow } from "./VrSettingsWindow";
 import { VrIoFlowWindow } from "./VrIoFlowWindow";
 
+// The temporary windows; one at a time.
+export type VrPopup = "language" | "settings" | "io_flow";
+
 // 一時ウィンドウ (言語 / VR設定 / 入力と出力)。同時に1つだけ開く
-export const VrPopupWindow = ({ popup, onClose }) => {
+export const VrPopupWindow = ({ popup, onClose }: { popup: VrPopup | null; onClose: () => void }) => {
     if (popup === "language") {
         return <VrLanguageWindow onClose={onClose} />;
     }

@@ -48,7 +48,7 @@
 
 設定には検索欄があり、すべてのタブの項目を探せます（`search_bar/SearchBar.jsx`）。結果を選ぶと、まわりの畳み（`<details>`）を開いてその項目へ移ります（`logics/configs/config_page_setter/_aux/useConfigSearch.ts`）。
 
-設定画面のほかに、VR パネルの中にも設定の窓があります。そこにはデバイス、デザイン、翻訳、音声認識、VRChat、VR の一部が出ます（`views/vr/VrSettingsWindow.jsx`）。
+設定画面のほかに、VR パネルの中にも設定の窓があります。そこにはデバイス、デザイン、翻訳、音声認識、VRChat、VR の一部が出ます（`views/vr/VrSettingsWindow.tsx`）。
 
 ### 初回に出る案内
 
