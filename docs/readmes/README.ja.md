@@ -48,7 +48,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 最新の版は **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** にあります（上のreleaseのバッジに番号が出ます）。バージョン番号は本家VRCT（3.x）とは別に0.1.0から数えます。ベータ版は`develop`から、正式版は`main`から公開します。
 
 - **Linux**: AppImage、tar.gz、deb、rpm（x64、Vulkan）。0.5より前の版は、CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しました。
-- **Windows**: インストーラーとzip（CPU版）、CUDA版のzip。0.5より前の版は、Windows 11の実機で実際のモデルを使って試験しました（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
+- **Windows**: インストーラーとzip。どのPCも同じ配布物です（0.5までのリリースには、同じ中身のCUDA版のzipもあります）。0.5より前の版は、Windows 11の実機で実際のモデルを使って試験しました（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
 
 いまの版で配布形式と機能ごとにどこまで確かめたか、CIで確かめたことと実機で確かめたことの違いは、**[対応環境と検証の範囲](https://kein5.github.io/astarot/ja/guide/support)** にあります。
 

@@ -39,7 +39,7 @@ Windows最終実物、Linux製品package、全同梱依存の最終ライセン�
 NScurlと依存部品の通知7点は、`src-tauri/nsis/licenses/nscurl/`の原文を保持し、
 NSISインストーラー内の`$PLUGINSDIR/licenses/nscurl/`へ同梱する。
 アプリ本体の取得に失敗した場合も、setup.exeを7-Zipで展開して読める。
-CPU版・CUDA版のZIPにも`_internal/licenses/nscurl/`として収集し、
+WindowsのZIP（`VRCT-VOX.zip`。0.5まではCUDA版のZIPも）にも`_internal/licenses/nscurl/`として収集し、
 [NOTICE](../../NOTICE.md#windows-installer-download-component)に場所を記載する。
 最終NSIS成果物の検査では、この7点のいずれかが欠けていれば失敗する。
 Windows実物の展開結果と、同梱DLLの版に対応する通知一式かどうかの確認は別途必要。
