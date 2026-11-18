@@ -34,8 +34,9 @@ fn without_a_host_updater_an_update_reports_that_it_could_not_download() {
         ("/run/update_cuda_software", Some(json!("0.5.1-beta.1")), json!("0.5.1-beta.1")),
     ] {
         let mark = ui.send(endpoint, data);
-        let answer = ui.wait_endpoint(mark, endpoint);
-        assert_eq!((answer["status"].clone(), answer["result"].clone()), (json!(200), json!(true)), "{endpoint}");
+        // The update runs on its own thread, so its failure can come before the answer.
+        let answer = ui.wait_from(mark, "the answer", |l| l["endpoint"] == endpoint && l["status"] == 200);
+        assert_eq!(answer["result"], json!(true), "{endpoint}");
         let failed = ui.wait_from(mark, "the failure", |l| l["endpoint"] == endpoint && l["status"] == 400);
         assert_eq!(error_code(&failed), "UPDATE_SOFTWARE_DOWNLOAD");
         assert_eq!(failed["result"]["data"], version, "{endpoint}");
