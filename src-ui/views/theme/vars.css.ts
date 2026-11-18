@@ -20,7 +20,7 @@ const NAMES = [
     "title_bar_height", "main_page_topbar_height", "config_page_sidebar_width", "config_page_content_padding_top",
     "vox_canvas", "vox_rail", "vox_surface", "vox_border", "vox_radius",
     "vox_secondary_text", "vox_description_text", "vox_state_active", "vox_state_warning", "vox_state_failed",
-    "vox_secondary_hover", "vox_readout_rule", "vox_shadow_overlay",
+    "vox_secondary_hover", "vox_readout_rule", "vox_shadow_overlay", "vox_on_primary", "vox_focus",
     "vox_ease", "vox_ease_settle", "vox_motion_fast", "vox_motion",
     "vox_highlight_tint", "vox_warning_tint", "vox_chatbox_preview", "vox_skeleton",
     "font_family",

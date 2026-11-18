@@ -3,7 +3,8 @@
 //!
 //! The key is checked by listing the models at the saved URL. Every model is kept except those
 //! whose id (lower-cased) has a word the Python client left out. Translation is one Chat
-//! Completions request; a reply cut by `max_output_tokens` also counts as no translation. A
+//! Completions request (the Responses API for the models that have only it, as for OpenAI); a
+//! Responses API answer cut by `max_output_tokens` also counts as no translation. A
 //! cloud address gets the cloud waits and one retry, as in Python; an address on this PC or the
 //! LAN ([`crate::http::is_local_host`]) gets the waits of LM Studio and no retry, because such a
 //! server may first load its model.

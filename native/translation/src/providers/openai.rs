@@ -2,7 +2,8 @@
 //!
 //! The key is checked by listing the models. Only `gpt-` models (and fine-tunes of them) are
 //! kept, without the words the Python client left out (case-sensitive, as in Python).
-//! Translation is one Chat Completions request with one retry; a reply cut by
+//! Translation is one Chat Completions request with one retry (the Responses API for the models
+//! that have only it, [`super::chat::responses_only`]); a Responses API answer cut by
 //! `max_output_tokens` also counts as no translation.
 
 use super::chat::{ChatCompletions, NOT_FOR_TEXT};

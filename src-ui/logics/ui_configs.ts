@@ -1,5 +1,5 @@
 export const ui_configs = {
-    brand_color_hex: "#48A495",
+    brand_color_hex: "#A47AF5",
     mic_threshold_min: 0,
     mic_threshold_max: 2000,
     speaker_threshold_min: 0,
@@ -97,10 +97,11 @@ export const translator_status: TranslatorStatus[] = [
     { id: "OpenAI_Compatible", label: `OpenAI Compatible`, is_available: false },
 ];
 
-// license/non_commercial mirror ctranslate2_weights in
-// src-python/models/translation/translation_utils.py (a pytest checks they
-// agree). non_commercial weights need the confirmation dialog in
-// Config -> Translation before they are downloaded or selected.
+// license/non_commercial mirror the core's weights (TRANSLATION_WEIGHTS in
+// native/core/src/languages.rs, non_commercial in controller/lifecycle.rs; a test
+// in native/core/src/controller/translation.rs checks they agree).
+// non_commercial weights need the confirmation dialog in Config -> Translation
+// before they are downloaded or selected.
 const CC_BY_NC_4_0 = { license: "CC-BY-NC-4.0", non_commercial: true, license_url: "https://creativecommons.org/licenses/by-nc/4.0/" };
 const MIT = { license: "MIT", non_commercial: false };
 

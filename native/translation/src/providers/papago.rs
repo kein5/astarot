@@ -76,8 +76,8 @@ impl Api for Papago {
         }
         let url = join(a.base, "/nmt/v1/translation");
         let body = json!({ "source": t.source, "target": t.target, "text": t.text });
-        Self::attempt(a.base, |wait| {
-            let answer = json_of(&checked(transport(&request(&url, a.client_id, a.key, &body), wait)?)?)?;
+        Self::attempt(transport, a.base, |send, wait| {
+            let answer = json_of(&checked(send(&request(&url, a.client_id, a.key, &body), wait)?)?)?;
             answer["message"]["result"]["translatedText"].as_str().map(str::to_string).ok_or(Error::Answer)
         })
     }
