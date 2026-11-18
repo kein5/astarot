@@ -8,6 +8,7 @@ import yaml from "js-yaml";
 import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
 import * as consentLogic from "./legacyModelConsent.ts";
+import * as setupNeeds from "../main/setupNeeds.ts";
 
 const componentURL = new URL("../../views/app/config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.jsx", import.meta.url);
 const entry = { kind: "ctranslate2", weight_type: "nllb-200-distilled-600M-ct2-int8", name: "CTranslate2 NLLB 600M",
@@ -38,6 +39,7 @@ async function dialogFixture(context, language, reviewedEntry, catalog = { legac
         "@tauri-apps/plugin-opener": { openUrl: () => { throw new Error("No links should open in this test"); } },
         "../../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },
         "../../../../../../../logics/configs/legacyModelConsent": consentLogic,
+        "../../../../../../../logics/main/setupNeeds": setupNeeds,
         "../../../../../../../logics/common/useConsentDialog": dialogHooks,
         "../../advanced_settings/ModelDownloads": { ModelDownloads: function ModelDownloads() { return null; } },
         "../custom_model_link/CustomModelLink": { CustomModelLink: function CustomModelLink() { return null; } },
@@ -270,6 +272,15 @@ for (const language of ["en", "ja"]) {
         const card = find(tree, node => node.type?.name === "ModelDownloads");
         assert.deepEqual(card.props.targets, ["translation"]);
         assert.deepEqual(card.props.expected, { translation: {} });
+        // Opened for NLLB, which the catalog does not offer: every translation model is shown.
+        assert.equal(card.props.only, undefined);
         assert.equal(find(tree, node => node.type === "p" && node.props.children === s.t("legacy_model_downloads.translation_not_published")), null);
+    });
+    test(`${language}: the review opened from a model's row shows that model's variants`, async context => {
+        const models = ["m2m100-418m-onnx-int8", "m2m100-418m-onnx-float16", "nllb-200-distilled-600m-onnx-int8"]
+            .map(id => ({ id, target: "translation", name: id, artifacts: [] }));
+        const s = await dialogFixture(context, language, entry, { legacy_models: [], models, translation_models_folder: folder });
+        const card = find(s.render(), node => node.type?.name === "ModelDownloads");
+        assert.deepEqual(card.props.only, ["nllb-200-distilled-600m-onnx-int8"]);
     });
 }

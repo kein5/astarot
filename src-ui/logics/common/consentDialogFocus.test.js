@@ -57,6 +57,8 @@ async function fixture(context, kind, openerState) {
         "../../advanced_settings/ModelDownloads": { ModelDownloads: () => null },
         "../custom_model_link/CustomModelLink": { CustomModelLink: () => null },
         "../../../../../../logics/main/setupNeeds": { translationDownloadable: () => null },
+        "../../../../../../../logics/main/setupNeeds": { translationCatalogIds: () => [] },
+        "../../../../../../logics/translation/localModelList": { localModelList: rows => ({ rows: rows ?? [], unavailable: false }) },
         "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: null }) },
         "../../../../../../logics/translation/translationCatalog": { isUsersWeight: () => false, weightLabel: weight => weight },
         "./TranslationCatalog": { TranslationCatalogSection: () => null },

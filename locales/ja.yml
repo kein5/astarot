@@ -647,7 +647,7 @@ config_page:
         setup_not_downloaded: "未ダウンロード"
         setup_unavailable: "まだダウンロードできません"
         download_unavailable: "まだ取得できません"
-        models_unavailable: "下のモデルは、まだダウンロードできません。翻訳には、外部翻訳APIかローカルLLMのエンジンを使ってください。"
+        models_unavailable: "標準の翻訳モデルはまだダウンロードできません。翻訳には下の「詳細設定」にある外部翻訳APIかローカルLLMを使ってください。"
         provider_in_use: "使用中"
         provider_ready: "使用できます"
         provider_not_set: "未設定"
@@ -657,8 +657,8 @@ config_page:
         llm_privacy_desc: "LLMのエンジンには翻訳する文とプロンプトのほかに、直近の会話を最大5件送ります。会話はチャットとマイクの自分の発言と、スピーカーから聞き取った相手の発言です。どれにも言った時刻（時:分）が付きます。会話はメモリにだけ置き、エンジンや接続先やモデルを変えたときと翻訳をオフにしたときに消します。"
 
         ctranslate2_weight_type:
-            label: "{{ctranslate2}}のモデルタイプ"
-            desc: "翻訳エンジン「{{ctranslate2}}」で翻訳する際に使用する翻訳モデルを選択できます。"
+            label: "翻訳モデル"
+            desc: "お使いのPCで翻訳するモデルを選びます。ダウンロード済みのモデル、ダウンロードできるモデル、自分で追加したモデルが並びます。"
             small: "通常モデル（{{capacity}}）"
             large: "高精度モデル（{{capacity}}）"
             license_commercial: "ライセンス: {{license}}（商用利用可）"

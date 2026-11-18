@@ -11,6 +11,7 @@ import { translationDownloadable } from "../../../../../../logics/main/setupNeed
 import { computeDeviceName } from "../_components/compute_device/computeDeviceOptions";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
 import { isUsersWeight, weightLabel } from "../../../../../../logics/translation/translationCatalog";
+import { localModelList } from "../../../../../../logics/translation/localModelList";
 import { TranslationCatalogSection } from "./TranslationCatalog";
 
 import {
@@ -100,12 +101,17 @@ const AITranslation_Container = () => {
         selected ? `${weightLabel(selected, translationCatalog)} · ${t(`config_page.translation.${state}`)}` : null,
         device || null,
     ].filter(Boolean).join(" · ");
+    // No built-in model can be downloaded and the selected one cannot translate: say so, and
+    // point to the engines in 「詳細設定」 below.
+    const nothingToGet = localModelList(currentCTranslate2WeightTypeStatus.data, selected, catalog).unavailable;
     return (
         <div>
             <SectionLabelComponent label={t("config_page.translation.section_label_ai_translation")} />
-            {/* Open while the selected model is missing and can be downloaded: the download is the first thing to do here. */}
-            <SetupSection title={t("config_page.translation.setup_title")} status={status} attention={!!weight && !weight.is_downloaded && !unavailable}>
-                {unavailable && <Description text={t("config_page.translation.models_unavailable")} />}
+            {/* Open while the selected model is missing and a model can be downloaded (it, or another one
+                listed below): the download is the first thing to do here. */}
+            <SetupSection title={t("config_page.translation.setup_title")} status={status} attention={!!weight && !weight.is_downloaded && !(unavailable && nothingToGet)}>
+                {/* Unfolded: the way forward is its second sentence. */}
+                {nothingToGet && <Description text={t("config_page.translation.models_unavailable")} fold={false} />}
                 <CTranslate2WeightType_Box />
                 <TranslationComputeDevice_Box />
             </SetupSection>
@@ -241,7 +247,11 @@ const CTranslate2WeightType_Box = () => {
     };
 
 
-    const c_translate2_weight_types_object = currentCTranslate2WeightTypeStatus.data.map(item => {
+    // Only the models the user can use or get (#565): the ones on their PC, the ones the catalog
+    // offers, and the selected one, which the line above names. That one carries
+    // download_unavailable when it cannot be had: no download button that would only open a dead end.
+    const listed = localModelList(currentCTranslate2WeightTypeStatus.data, currentSelectedCTranslate2WeightType.data, catalog).rows;
+    const c_translate2_weight_types_object = listed.map(item => {
         const non_commercial = isNonCommercialWeight(item);
         // A model the user added: its name is its folder's or its catalog entry's, and its
         // licence is theirs to check.
@@ -255,8 +265,6 @@ const CTranslate2WeightType_Box = () => {
         return {
             ...item,
             label: item.id,
-            // No download button for a model the catalog does not offer: it would only open a dead end.
-            download_unavailable: translationDownloadable(catalog, item.id) === false,
             desc: t(
                 non_commercial
                     ? "config_page.translation.ctranslate2_weight_type.license_non_commercial"
@@ -269,7 +277,7 @@ const CTranslate2WeightType_Box = () => {
 
 
     return (
-        <div ref={selection} tabIndex={-1} role="group" aria-label={t("config_page.translation.ctranslate2_weight_type.label", { ctranslate2: "CTranslate2" })}>
+        <div ref={selection} tabIndex={-1} role="group" aria-label={t("config_page.translation.ctranslate2_weight_type.label")}>
             {downloadReview && <LegacyModelDownloadDialog kind="ctranslate2" weightType={downloadReview}
                 onCancel={() => setDownloadReview(null)} onDownload={download} />}
             {confirming && (
@@ -282,14 +290,8 @@ const CTranslate2WeightType_Box = () => {
                 />
             )}
             <DownloadModelsContainer
-                label={t(
-                    "config_page.translation.ctranslate2_weight_type.label",
-                    {ctranslate2: "CTranslate2"}
-                )}
-                desc={t(
-                    "config_page.translation.ctranslate2_weight_type.desc",
-                    {ctranslate2: "CTranslate2"}
-                )}
+                label={t("config_page.translation.ctranslate2_weight_type.label")}
+                desc={t("config_page.translation.ctranslate2_weight_type.desc")}
                 name="ctranslate2_weight_type"
                 options={c_translate2_weight_types_object}
                 checked_variable={currentSelectedCTranslate2WeightType}
