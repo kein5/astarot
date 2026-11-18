@@ -5,9 +5,13 @@ import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
 import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
+import * as settingsMenu from "../../../logics/configs/settingsMenu.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const icon = name => Object.assign(() => null, { icon: name });
+// The menu's tabs, group by group: SidebarSection draws the groups, each group its tabs.
+const menuTabs = (runtime, tree) => all(tree, node => node.props?.group?.tabs)
+    .flatMap(group => all(runtime.render(group.type, group.props), node => typeof node.props?.tab_id === "string"));
 
 test("chat reading has a page of its own, and search lists it there", async () => {
     const runtime = hooks();
@@ -31,7 +35,7 @@ test("chat reading has a page of its own, and search lists it there", async () =
     assert.deepEqual(search.settingTabs("translation", "deepl_auth_key"), ["translation"]);
 });
 
-test("the side menu lists chat reading after VRChat, with an icon of its own and a name in both languages", async () => {
+test("the side menu groups its pages in the order a conversation uses them, each page with an icon and a name in both languages", async () => {
     const runtime = hooks();
     const svg = name => (name.endsWith(".svg?react") ? icon(name) : name);
     const images = ["mic", "tts_speaker", "voice_conversion", "mui_palette", "translation", "mui_graphic_eq", "mui_head_mounted_device",
@@ -41,10 +45,22 @@ test("the side menu lists chat reading after VRChat, with an icon of its own and
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
-        "../../../../logics/common/featureLabel.ts": featureLabel,
+        "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
     });
-    const tabs = all(runtime.render(sidebar.SidebarSection), node => typeof node.props?.tab_id === "string").map(node => node.props.tab_id);
-    assert.deepEqual(tabs.slice(tabs.indexOf("vrchat"), tabs.indexOf("vrchat") + 3), ["vrchat", "ocr", "vr"]);
+    const tree = runtime.render(sidebar.SidebarSection);
+    const groups = all(tree, node => node.props?.group?.tabs).map(node => node.props.group);
+    // #554 (Q-02, Q-03): four groups with headings; the devices are with the settings set once.
+    assert.deepEqual(groups.map(group => [group.id, group.tabs]), [
+        ["conversation", ["translation", "transcription", "vrchat", "vr"]],
+        ["voice_and_reading", ["tts", "rvc", "ocr"]],
+        ["comfort", ["device", "appearance", "hotkeys"]],
+        ["app", ["updater", "advanced_settings", "experimental_features", "about_vrct"]],
+    ]);
+    const tabs = menuTabs(runtime, tree).map(node => node.props.tab_id);
+    assert.deepEqual(tabs, groups.flatMap(group => group.tabs));
+    assert.equal(settingsMenu.FIRST_SETTINGS_TAB, "translation");
+    assert.match(readFileSync(new URL("../../../logics/store.js", import.meta.url), "utf8"),
+        /createAtomWithHook\("translation", "SelectedConfigTabId"\)/, "settings open on the first page of the menu");
     const shown = id => sidebar.TabIcon({ tab_id: id, className: "" });
     assert.ok(shown("ocr"));
     assert.notEqual(shown("ocr").type, shown("vrchat").type);
@@ -53,6 +69,7 @@ test("the side menu lists chat reading after VRChat, with an icon of its own and
         assert.equal(typeof strings.config_page.side_menu_labels.ocr, "string");
         // The menu and the settings search both name a page by this key; a missing one showed the raw key.
         for (const id of tabs) assert.equal(typeof strings.config_page.side_menu_labels[id], "string", `${language}: ${id}`);
+        for (const group of groups) assert.equal(typeof strings.config_page.side_menu_groups[group.id], "string", `${language}: ${group.id}`);
         for (const key of ["provider_in_use", "provider_ready", "provider_not_set"]) assert.equal(typeof strings.config_page.translation[key], "string");
     }
 });
@@ -69,9 +86,9 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
-        "../../../../logics/common/featureLabel.ts": featureLabel,
+        "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
     });
-    const [tab] = all(runtime.render(sidebar.SidebarSection), node => node.props?.tab_id === "transcription");
+    const [tab] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "transcription");
     const tree = runtime.render(tab.type, tab.props);
     const button = find(tree, node => node.type === "button");
     assert.equal(button.props["aria-label"], "Speech recognition (ASR)");
@@ -79,7 +96,7 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
     assert.ok(find(tree, node => node.type === "p" && node.props?.children === "Speech recognition"));
     assert.equal(find(tree, node => node.type === "span"), null, "the short name has no second line");
     // A tab without a short name needs no tooltip: its text is its whole name.
-    const [device] = all(runtime.render(sidebar.SidebarSection), node => node.props?.tab_id === "device");
+    const [device] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "device");
     assert.equal(find(runtime.render(device.type, device.props), node => node.type === "button").props.title, undefined);
 });
 

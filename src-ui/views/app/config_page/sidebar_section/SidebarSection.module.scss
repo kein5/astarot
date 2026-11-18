@@ -60,7 +60,52 @@
     width: 100%;
     display: flex;
     flex-direction: column;
+    gap: 1.2rem;
+}
+
+.tab_group {
+    display: flex;
+    flex-direction: column;
     gap: .4rem;
+}
+
+// A group's heading: quieter than the tabs under it, one line like them. In the icon rail the
+// words have no room; a hairline in the same place stands for the heading, so the tabs do not
+// move when the rail expands over the page.
+.group_label {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 2.4rem;
+    padding: 0 1.2rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--vox_secondary_text);
+    white-space: nowrap;
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: 1.2rem;
+        right: 1.2rem;
+        top: 50%;
+        height: .1rem;
+        background-color: var(--vox_border);
+        opacity: 0;
+        transition: opacity 0.12s ease-out;
+    }
+    &.is_compact {
+        .group_label_text { opacity: 0; }
+        &::before { opacity: 1; }
+    }
+}
+
+.group_label_text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.12s ease-out;
 }
 
 .tab_container {
@@ -164,8 +209,4 @@
         opacity: 0;
 
     }
-}
-
-.separated_tabs_wrapper {
-    margin-top: 0.8rem;
 }

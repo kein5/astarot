@@ -499,6 +499,13 @@ config_page:
             unable_to_use_osc_query: "OSC reception or OSCQuery advertisement is not ready. Check the local OSC settings and save them again."
             unable_to_use_osc_query_remote: "Not available while messages go to another machine. VRChat's mute state can be checked only when VRChat runs on the same PC."
 
+    side_menu_label: "Settings pages"
+    # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
+    side_menu_groups:
+        conversation: "Conversation"
+        voice_and_reading: "Voice and reading"
+        comfort: "Ease of use"
+        app: "App"
     side_menu_labels:
         vrchat: "VRChat"
         device: "Device"

@@ -25,6 +25,7 @@ import vrct_vox_icon from "@images/brand/icon-small.svg";
 
 import { VersionLabel } from "../version_label/VersionLabel.jsx";
 import { splitFeatureLabel } from "../../../../logics/common/featureLabel.ts";
+import { SETTINGS_MENU_GROUPS } from "../../../../logics/configs/settingsMenu.ts";
 
 // Keyboard focus expands the rail; focus from a click or from opening the page does
 // not, or the rail would stay over the page after the pointer left. A focus counts as
@@ -39,6 +40,7 @@ const isKeyboardFocus = (element) =>
     || performance.now() - lastKeyDownAt < 1000;
 
 export const SidebarSection = () => {
+    const { t } = useI18n();
     const { currentIsBreakPoint } = useStore_IsBreakPoint();
     const [isPointerOver, setIsPointerOver] = useState(false);
     const [hasKeyboardFocus, setHasKeyboardFocus] = useState(false);
@@ -62,24 +64,12 @@ export const SidebarSection = () => {
         >
             <div className={styles.scroll_container}>
                 <div className={styles.scroll_content}>
-                    <div className={styles.tabs_wrapper}>
-                        <Tab tab_id="device" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="appearance" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="translation" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="transcription" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="vrchat" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="ocr" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="vr" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="hotkeys" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="tts" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="rvc" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="advanced_settings" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="experimental_features" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                        <Tab tab_id="updater" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                    </div>
-                    <div className={styles.separated_tabs_wrapper}>
-                        <Tab tab_id="about_vrct" isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
-                    </div>
+                    {/* Four groups, each under its heading, in the order a conversation uses them (#554). */}
+                    <nav className={styles.tabs_wrapper} aria-label={t("config_page.side_menu_label")}>
+                        {SETTINGS_MENU_GROUPS.map(group => (
+                            <TabGroup key={group.id} group={group} isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
+                        ))}
+                    </nav>
                 </div>
                 <VersionLabel isCompact={isCompact} />
             </div>
@@ -105,6 +95,23 @@ export const TabIcon = ({ tab_id, className }) => {
         case "about_vrct": return <img alt="" src={vrct_vox_icon} className={clsx(className, styles.about_vrct_icon)} />;
         default: return null;
     }
+};
+
+// One group of the menu: its heading, then its pages. The icon rail has no room for the
+// heading's words; a thin rule stands for it there, and the group keeps its name for
+// screen readers.
+const TabGroup = ({ group, isSmall, isHovered }) => {
+    const { t } = useI18n();
+    const headingId = `settings_menu_group_${group.id}`;
+    const isCompact = isSmall && !isHovered;
+    return (
+        <div role="group" aria-labelledby={headingId} className={styles.tab_group}>
+            <p id={headingId} className={clsx(styles.group_label, { [styles.is_compact]: isCompact })}>
+                <span className={styles.group_label_text}>{t(`config_page.side_menu_groups.${group.id}`)}</span>
+            </p>
+            {group.tabs.map(tab_id => <Tab key={tab_id} tab_id={tab_id} isSmall={isSmall} isHovered={isHovered} />)}
+        </div>
+    );
 };
 
 const Tab = (props) => {

@@ -499,6 +499,13 @@ config_page:
             unable_to_use_osc_query: "OSC受信またはOSCQueryの公開を開始できていません。ローカルのOSC設定を確認し、保存し直してください。"
             unable_to_use_osc_query_remote: "送信先が別のマシンのときは使えません。VRChatのミュート状態を確認できるのは、VRChatが同じPCで動いているときだけです。"
 
+    side_menu_label: "設定のページ"
+    # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
+    side_menu_groups:
+        conversation: "会話の基本"
+        voice_and_reading: "声と読み取り"
+        comfort: "使い心地"
+        app: "アプリ"
     side_menu_labels:
         vrchat: "VRChat"
         device: "デバイス"
