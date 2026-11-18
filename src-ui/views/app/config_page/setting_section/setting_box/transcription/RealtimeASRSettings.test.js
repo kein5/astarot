@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, find, stubGlobals } from "../../../../../../logics/test/hookHarness.js";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 
 async function fixture(context) {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), barRuntime = hooks(), calls = [], listeners = [], responses = [];
     const window = {
         addEventListener(type, fn, options) { listeners.push({ type, fn, capture: !!options?.capture }); },
@@ -14,7 +14,7 @@ async function fixture(context) {
     };
     stubGlobals(context, { window });
     runtime.api.useSyncExternalStore = (_, snapshot) => snapshot();
-    const saveBar = await loadModule(new URL("../../../../../../logics/voice/saveBar.js", import.meta.url), runtime);
+    const saveBar = await loadModule(new URL("../../../../../../logics/voice/saveBar.ts", import.meta.url), runtime);
     const draftHooks = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.jsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": saveBar,
     });
@@ -70,7 +70,7 @@ async function fixture(context) {
         for (let i = 0; i < 10; i++) await Promise.resolve();
         render();
     };
-    context.after(() => { runtime.unmount(); barRuntime.unmount(); });
+    context.onTestFinished(() => { runtime.unmount(); barRuntime.unmount(); });
     render();
     return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, writes, acknowledge, refuse, window, modal, listeners };
 }
@@ -156,7 +156,7 @@ test("canonical vocabulary acknowledgement clears the save bar and enables realt
     assert.equal(s.entries()[0].dirty, false);
     assert.equal(s.status(), "voice_ui.saved");
     assert.equal(find(s.render(), node => node.type === "button" && node.props.children === "realtime.start_mic").props.disabled, false);
-    context.mock.timers.tick(5000); s.render();
+    vi.advanceTimersByTime(5000); s.render();
     assert.equal(s.asr.error, null);
 });
 
@@ -172,7 +172,7 @@ test("rejected and unconfirmed saves keep edits visible and guarded; refresh doe
     assert.equal(s.entries()[0].edited, true);
     assert.equal(s.field("realtime.url").readOnly, false);
     s.entries()[0].save(); s.render();
-    context.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     s.render();
     assert.equal(s.asr.error, "save_unconfirmed");
     assert.equal(s.status(), "voice_ui.save_failed");

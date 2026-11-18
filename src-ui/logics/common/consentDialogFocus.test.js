@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
 import * as legacyConsent from "../configs/legacyModelConsent.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
@@ -24,7 +24,7 @@ async function fixture(context, kind, openerState) {
     stubGlobals(context, { document: { activeElement: opener } });
     const modal = { open: false, showModal() { this.open = true; },
         close() { this.open = false; order.push("close"); } };
-    const dialogHooks = await loadModule(new URL("./useConsentDialog.js", import.meta.url), runtime);
+    const dialogHooks = await loadModule(new URL("./useConsentDialog.ts", import.meta.url), runtime);
     const downloads = { catalog: { models: [{ ...entry, target: kind === "ocr" ? "ocr" : "rvc" }],
         legacy_models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {}, ensureHardware: () => {}, send: (endpoint, data) => {
         calls.push([endpoint, data]);
@@ -75,7 +75,7 @@ async function fixture(context, kind, openerState) {
         if (dialog) dialog.ref.current = modal;
         if (tree.type === "section") tree.ref.current = section;
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     let tree = render();
     if (["catalog", "ocr"].includes(kind)) {
         find(tree, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();

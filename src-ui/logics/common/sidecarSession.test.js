@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { createSidecarSessionOwner } from "./sidecarSession.ts";
 import * as startupPhase from "./startupPhase.ts";
 import { expectBackendExit } from "./sidecarExitExpectation.ts";
@@ -82,7 +82,7 @@ test("unmount before spawn resolves installs no late watchdog; remount resumes f
 });
 
 test("failed spawn has no automatic retry; repeated retry clicks start one new attempt", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
     s.attempts[0].spawn.reject(Error("missing executable"));
@@ -108,7 +108,7 @@ test("failed spawn has no automatic retry; repeated retry clicks start one new a
 });
 
 test("command error retires a late child before retry; stale events cannot affect the replacement", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
     const a = s.attempts[0], kill = deferred();
@@ -143,7 +143,7 @@ test("command error retires a late child before retry; stale events cannot affec
 });
 
 test("failed cleanup prevents replacement until the child can be retired", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
     const a = s.attempts[0];
@@ -163,7 +163,7 @@ test("failed cleanup prevents replacement until the child can be retired", async
 });
 
 test("a command error while running is logged and keeps the live sidecar", async context => {
-    const logged = context.mock.method(console, "error", () => {});
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
     const a = s.attempts[0];
@@ -174,7 +174,7 @@ test("a command error while running is logged and keeps the live sidecar", async
     assert.equal(s.store.backend_stopped, false);
     assert.equal(a.child.kills, 0);
     assert.equal(s.states.at(-1), "running");
-    assert.equal(logged.mock.callCount(), 1);
+    assert.equal(logged.mock.calls.length, 1);
     a.stdout.data('{"endpoint":"still-live"}');
     assert.deepEqual(s.messages, [{ endpoint: "still-live" }]);
     detach();
@@ -195,7 +195,7 @@ test("expected exits release pending state without a crash notice and do not sur
 });
 
 test("exit after spawn but before initialization fails startup and permits only an explicit retry", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
     const first = s.attempts[0];
@@ -261,7 +261,7 @@ test("lines that overtake spawn() wait for the child, so their replies can send 
 });
 
 test("lines held before a failed spawn are dropped", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
     const a = s.attempts[0];
@@ -275,10 +275,10 @@ test("lines held before a failed spawn are dropped", async context => {
 });
 
 test("production controller publishes startup failure and the failure dialog says why and offers a working retry", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), b = await loadBridgeStore();
-    context.mock.method(globalThis, "setInterval", s.timerTools.setInterval);
-    context.mock.method(globalThis, "clearInterval", s.timerTools.clearInterval);
+    vi.spyOn(globalThis, "setInterval").mockImplementation(s.timerTools.setInterval);
+    vi.spyOn(globalThis, "clearInterval").mockImplementation(s.timerTools.clearInterval);
     const common = { useNotificationStatus: () => ({ showNotification_Error: () => {} }),
         useIsBackendReady: b.stores.useStore_IsBackendReady, useWindow: () => ({ asyncCloseApp: () => {} }) };
     const module = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
@@ -324,10 +324,10 @@ test("production controller publishes startup failure and the failure dialog say
 });
 
 for (const initialized of [false, true]) test(`production exit ${initialized ? "after" : "before"} initialization clears readiness and keeps the main page, locked only before`, async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), b = await loadBridgeRoutes();
-    context.mock.method(globalThis, "setInterval", s.timerTools.setInterval);
-    context.mock.method(globalThis, "clearInterval", s.timerTools.clearInterval);
+    vi.spyOn(globalThis, "setInterval").mockImplementation(s.timerTools.setInterval);
+    vi.spyOn(globalThis, "clearInterval").mockImplementation(s.timerTools.clearInterval);
     const common = { useNotificationStatus: () => ({ showNotification_Error() {} }),
         useIsBackendReady: b.stores.useStore_IsBackendReady,
         useIsSoftwareUpdating: b.stores.useStore_IsSoftwareUpdating,

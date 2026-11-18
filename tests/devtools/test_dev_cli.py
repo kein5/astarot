@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -92,6 +93,15 @@ class DeveloperCLITests(unittest.TestCase):
         with patch.dict(os.environ, {"UV_NO_VERIFY_HASHES": "1"}):
             self.assertEqual(self.dev.child_environment()["UV_NO_VERIFY_HASHES"], "0")
 
+    def test_children_run_with_onnx_runtime_usage_reports_off(self):
+        # The onnxruntime wheel (1.32) sends usage events unless this is set (#574).
+        with patch.dict(os.environ, {"ORT_DISABLE_TELEMETRY": "0"}):
+            self.assertEqual(self.dev.child_environment()["ORT_DISABLE_TELEMETRY"], "1")
+
+    def test_mise_exports_onnx_runtime_usage_reports_off(self):
+        mise = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
+        self.assertEqual(mise["env"], {"ORT_DISABLE_TELEMETRY": "1"})
+
     def test_missing_python_dependency_is_a_prerequisite_error(self):
         target = self.root / "build/dev/headless-venv"
         python = target / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
@@ -122,19 +132,36 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(list(external.iterdir()), [])
 
-    def test_node_scope_discovers_new_tests_without_shell_globs(self):
+    def test_node_scope_runs_the_installed_vitest(self):
         folder = self.root / "src-ui/area with spaces"
         folder.mkdir(parents=True)
+        # Any one of the patterns in vitest.config.js counts as a test.
         for name in ("one.test.js", "future.test.mjs", "typed.test.ts"):
             (folder / name).write_text('')
+            code, output = self.call("check", "--scope", "node", "--dry-run")
+            self.assertEqual(code, 0, name)
+            # Vitest finds the files itself; Node runs the local copy.
+            self.assertIn("node_modules/vitest/vitest.mjs run", output)
+            self.assertNotIn("npx", output)
+            self.assertNotIn("npm ci", output)
+            (folder / name).unlink()
+
+    def test_node_scope_asks_for_setup_when_vitest_is_missing(self):
+        (self.root / "src-ui").mkdir(parents=True)
+        (self.root / "src-ui/one.test.js").write_text('')
+        code, output = self.call("check", "--scope", "node")
+        self.assertEqual(code, 2)
+        self.assertIn("setup --scope ui", output)
+
+    def test_node_scope_runs_the_i18n_gate_and_its_tests(self):
+        (self.root / "src-ui").mkdir(parents=True)
+        (self.root / "src-ui/one.test.js").write_text('')
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 0)
-        self.assertIn("one.test.js", output)
-        self.assertIn("future.test.mjs", output)
-        self.assertIn("typed.test.ts", output)
-        # The tests import TypeScript sources directly (ADR-010).
-        self.assertIn("--experimental-strip-types", output)
-        self.assertNotIn("npm ci", output)
+        # The gate runs after the tests; Vitest runs the gate's own tests (vitest.config.js).
+        self.assertLess(output.index("vitest.mjs run"), output.index("tools/i18n_gate/check.mjs"))
+        config = (Path(__file__).resolve().parents[2] / "vitest.config.js").read_text(encoding="utf-8")
+        self.assertIn("tools/i18n_gate/**/*.test.mjs", config)
 
     def test_ui_scope_runs_the_type_check_before_the_build(self):
         folder = self.root / "src-ui"
@@ -147,7 +174,7 @@ class DeveloperCLITests(unittest.TestCase):
     def test_node_scope_does_not_pass_when_no_tests_were_found(self):
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 2)
-        self.assertIn("No Node tests", output)
+        self.assertIn("No UI tests", output)
 
     def test_rust_check_uses_only_locked_cached_dependencies(self):
         code, output = self.call("check", "--scope", "rust", "--dry-run")

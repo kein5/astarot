@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Children } from "react";
 import i18next from "i18next";
@@ -30,7 +30,7 @@ async function dialogFixture(context, language, reviewedEntry, catalog = { legac
     stubGlobals(context, { document: { activeElement: { isConnected: true, getAttribute: () => null,
         closest: () => null, focus: () => events.focused++ } } });
     const runtime = hooks(), requests = [], reads = [];
-    const dialogHooks = await loadModule(new URL("../common/useConsentDialog.js", import.meta.url), runtime);
+    const dialogHooks = await loadModule(new URL("../common/useConsentDialog.ts", import.meta.url), runtime);
     const downloads = { catalog, send: (...args) => reads.push(args) };
     const { LegacyModelDownloadDialog } = await loadModule(componentURL, runtime, {
         "@useI18n": { useI18n: () => ({ t: translations.t.bind(translations) }) },
@@ -48,7 +48,7 @@ async function dialogFixture(context, language, reviewedEntry, catalog = { legac
     const render = () => runtime.render(LegacyModelDownloadDialog, props, tree => {
         find(tree, node => node.type === "dialog").ref.current = modal;
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     render();
     return { runtime, requests, reads, downloads, events, render, t: translations.t.bind(translations) };
 }

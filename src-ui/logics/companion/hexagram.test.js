@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { angleOf, baseRotation, dockAt, EDGES, facesInward, innerHexagon, inwardSide, pointAngle, pointTriangle, polygon, TURN } from "./hexagram.ts";
 
 const close = (actual, expected, label) => assert.ok(Math.abs(actual - expected) < 0.01, `${label}: ${actual} != ${expected}`);

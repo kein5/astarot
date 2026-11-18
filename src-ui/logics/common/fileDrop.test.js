@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { addDropZone, extensionOf, handleDragDrop, nameOf, sortFiles, watchDrag, zoneAt } from "./fileDrop.js";
+import { test } from "vitest";
+import { addDropZone, extensionOf, handleDragDrop, nameOf, sortFiles, watchDrag, zoneAt } from "./fileDrop.ts";
 
 // Page boxes for fake zones (getBoundingClientRect in CSS pixels).
 const box = (left, top, width, height) => ({ left, top, width, height, right: left + width, bottom: top + height });

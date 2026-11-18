@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 
 async function fixture(context) {
     const runtime = hooks(), events = [];
-    const setup = await loadModule(new URL("../../../logics/ocr/useOcrSetup.js", import.meta.url), runtime);
+    const setup = await loadModule(new URL("../../../logics/ocr/useOcrSetup.ts", import.meta.url), runtime);
     const { OcrSetupController } = await loadModule(new URL("./OcrSetupController.jsx", import.meta.url), runtime, {
         "@store": {
             useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: value => events.push(["config_page", value]) }),
@@ -15,7 +15,7 @@ async function fixture(context) {
         "../../../logics/ocr/useOcrSetup": { ...setup, focusOcrModels: () => events.push(["focus_models"]) },
         "../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close: () => events.push(["close"]) }) },
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(OcrSetupController);
     const click = key => find(render(), node => node.type === "button" && node.props.children === `ocr_setup.${key}`).props.onClick();
     const show = () => { runtime.render(setup.useOcrSetup).show(); return render(); };
@@ -51,7 +51,7 @@ test("closing, or Escape, leaves everything as it was", async context => {
 });
 
 test("focusing the models waits for the section and lands on its first enabled action", async () => {
-    const { focusOcrModels } = await loadModule(new URL("../../../logics/ocr/useOcrSetup.js", import.meta.url), hooks());
+    const { focusOcrModels } = await loadModule(new URL("../../../logics/ocr/useOcrSetup.ts", import.meta.url), hooks());
     const focused = [], timers = [];
     const button = (disabled, inDialog = false) => ({ disabled, closest: () => inDialog ? {} : null, focus: () => focused.push(disabled ? "disabled" : "review") });
     let section = null;

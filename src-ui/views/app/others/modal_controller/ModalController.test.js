@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.js";
 
 async function fixture(context) {
@@ -11,7 +11,7 @@ async function fixture(context) {
     const opener = control("opener"), fallbackControl = control("main control");
     const fallback = { current: { ...control("main page"), querySelectorAll: () => [fallbackControl] } };
     stubGlobals(context, { document: { ...eventTarget(), activeElement: opener }, HTMLElement: Object });
-    const dialogHooks = await loadModule(new URL("../../../../logics/common/useConsentDialog.js", import.meta.url), runtime);
+    const dialogHooks = await loadModule(new URL("../../../../logics/common/useConsentDialog.ts", import.meta.url), runtime);
     const { ModalController } = await loadModule(new URL("./ModalController.jsx", import.meta.url), runtime, {
         "../../../../logics/common/useConsentDialog": dialogHooks,
         "@store": {
@@ -29,7 +29,7 @@ async function fixture(context) {
         const button = find(tree, node => node.type === "button");
         if (button?.ref) button.ref.current = control("close");
     });
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return { render, modal, focus, changes, opener, fallbackControl, runtime,
         setDropdown: value => { dropdown = value; }, setOpened: value => { opened = value; } };
 }

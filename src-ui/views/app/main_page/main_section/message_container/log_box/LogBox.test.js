@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../../logics/test/hookHarness.js";
 import { nextLogView, rowsBetween } from "../../../../../../logics/common/messageLogView.ts";
 

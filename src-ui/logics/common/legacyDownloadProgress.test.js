@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import i18next from "i18next";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 
 async function fixture(context, language = "en", name = "ctranslate2_weight_type") {
-    context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 0 });
     const runtime = hooks(), messages = [];
     const translations = i18next.createInstance();
     const resource = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
     const t = (key, values) => { messages.push(key); return translations.t(key, values); };
-    const statusHook = await loadModule(new URL("./useLegacyDownloadStatus.js", import.meta.url), runtime);
+    const statusHook = await loadModule(new URL("./useLegacyDownloadStatus.ts", import.meta.url), runtime);
     const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.jsx", import.meta.url), runtime);
     const { _DownloadButton } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "@common_components": { CircularProgress },
@@ -21,7 +21,7 @@ async function fixture(context, language = "en", name = "ctranslate2_weight_type
     const option = { id: "base", label: "base", progress: null, is_pending: false, is_downloaded: false };
     const props = { option, name, downloadStartFunction: () => assert.fail("no automatic download") };
     const render = () => { runtime.render(_DownloadButton, props); return runtime.render(_DownloadButton, props); };
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     return { option, render, runtime, messages,
         progress: tree => {
             const node = find(tree, node => node.type === CircularProgress);
@@ -70,22 +70,22 @@ test("percent announcements are bucketed and throttled, with a trailing update a
     s.option.progress = 0;
     let last = s.status(s.render()).children;
     for (let percent = 1; percent <= 29; percent++) {
-        context.mock.timers.tick(20);
+        vi.advanceTimersByTime(20);
         s.option.progress = percent;
         assert.equal(s.status(s.render()).children, last);
         assert.equal(s.progress(s.render())["aria-valuenow"], percent);
     }
-    context.mock.timers.tick(419); // 999ms
+    vi.advanceTimersByTime(419); // 999ms
     assert.equal(s.status(s.render()).children, last);
-    context.mock.timers.tick(1);
+    vi.advanceTimersByTime(1);
     last = s.status(s.render()).children;
     assert.ok(last.includes("20%"));
     s.option.progress = 30; s.render();
-    context.mock.timers.tick(100);
+    vi.advanceTimersByTime(100);
     s.option.progress = 100;
     const finishing = s.status(s.render()).children;
     assert.notEqual(finishing, last);
-    context.mock.timers.tick(2000);
+    vi.advanceTimersByTime(2000);
     assert.equal(s.status(s.render()).children, finishing, "stale percentage is cancelled on phase change");
     s.option.progress = null; s.option.is_pending = false;
     assert.equal(s.status(s.render()).children, "CTranslate2 base download stopped.");
@@ -99,7 +99,7 @@ test("an already installed model stays quiet; unmount cancels pending announceme
     s.option.progress = 10; s.render();
     s.runtime.unmount();
     const count = s.messages.length;
-    context.mock.timers.tick(2000);
+    vi.advanceTimersByTime(2000);
     assert.equal(s.messages.length, count);
 });
 

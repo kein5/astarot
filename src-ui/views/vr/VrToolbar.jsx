@@ -39,6 +39,7 @@ export const VrToolbar = () => {
                 tipHelp={anchor.data === id ? "" : t("vr_panel.tooltip.choose_anchor")}
                 selected={anchor.data === id} state={anchor} onClick={() => { if (anchor.data !== id) setOverlayVrPanelAnchor(id); }}>
                 <Icon name={icon} right={id === "RightHand"} />
+                {/* i18n-exempt: a mark on the hand icon, hidden from screen readers; the button's label names the hand */}
                 {(id === "LeftHand" || id === "RightHand") && <span className={styles.hand_side} aria-hidden="true">{id === "LeftHand" ? "L" : "R"}</span>}
             </Button>)}
         </div>
@@ -54,11 +55,11 @@ export const VrToolbar = () => {
         <div className={styles.group} role="group" aria-label={t("vr_panel.tooltip.font")}>
             <Button className={styles.font_button} label={t("vr_panel.tooltip.smaller")} state={font}
                 tipState={t("vr_panel.tooltip.font_current", { size: font.data })} tipHelp={t(`vr_panel.tooltip.${font.data <= FONT_SIZE.min ? "font_limit" : "font_help"}`)}
-                disabled={font.data <= FONT_SIZE.min} onClick={() => setOverlayVrPanelFontSize(font.data - 1)}>A−</Button>
+                disabled={font.data <= FONT_SIZE.min} onClick={() => setOverlayVrPanelFontSize(font.data - 1)}>A−</Button>{/* i18n-exempt: a font-size symbol; the button's label says smaller */}
             <span className={styles.value} aria-label={`${t("vr_panel.tooltip.font")}: ${font.data}`}>{font.data}</span>
             <Button className={styles.font_button} label={t("vr_panel.tooltip.larger")} state={font}
                 tipState={t("vr_panel.tooltip.font_current", { size: font.data })} tipHelp={t(`vr_panel.tooltip.${font.data >= FONT_SIZE.max ? "font_limit" : "font_help"}`)}
-                disabled={font.data >= FONT_SIZE.max} onClick={() => setOverlayVrPanelFontSize(font.data + 1)}>A＋</Button>
+                disabled={font.data >= FONT_SIZE.max} onClick={() => setOverlayVrPanelFontSize(font.data + 1)}>A＋</Button>{/* i18n-exempt: a font-size symbol; the button's label says larger */}
         </div>
         <div className={styles.group}>
             <Button className={styles.opacity_button} label={`${t("vr_panel.log_opacity")}: ${percent}%`} tipTitle={t("vr_panel.log_opacity")}

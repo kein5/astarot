@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { loadBridgeRoutes } from "./test/bridgeHarness.js";
 import { expectBackendExit } from "./common/sidecarExitExpectation.ts";
 import { createSidecarSessionOwner } from "./common/sidecarSession.ts";
@@ -30,7 +30,7 @@ test("skipped speech warns when the backend count rises, not for earlier counts"
 });
 
 test("failed required initialization maps and scalars retain renderable defaults and warn", async context => {
-    const errors = context.mock.method(console, "error", () => {});
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     const fields = ["selected_your_languages", "selected_target_languages", "selected_tab_no",
         "selected_translation_engines", "ui_scaling", "auto_mic_select", "ui_language"];
@@ -52,11 +52,11 @@ test("failed required initialization maps and scalars retain renderable defaults
     }
     assert.equal(s.notices.length, 1);
     assert.equal(s.notices[0].key, "common_warning.startup_degraded");
-    assert.equal(errors.mock.calls.filter(call => call.arguments[0] === "Sidecar initialization field unavailable").length, fields.length);
+    assert.equal(errors.mock.calls.filter(call => call[0] === "Sidecar initialization field unavailable").length, fields.length);
 });
 
 test("malformed nested language maps and required scalar types cannot replace defaults", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     const your = s.runtime.store.get(s.stores.Atom_SelectedYourLanguages);
     const target = s.runtime.store.get(s.stores.Atom_SelectedTargetLanguages);
@@ -108,7 +108,7 @@ test("message format objects from the backend survive initialization", async () 
 });
 
 test("a failed message format getter keeps a format the settings page can render", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200, result: {
         "/get/data/send_message_format_parts": null,
@@ -120,7 +120,7 @@ test("a failed message format getter keeps a format the settings page can render
 });
 
 test("null init getter retains its real default, applies later fields, reaches ready and warns once", async context => {
-    const errors = context.mock.method(console, "error", () => {});
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     const hostAtom = s.stores.dynamicStoreRegistry.Atom_MicHostList;
     const before = s.runtime.store.get(hostAtom);
@@ -136,13 +136,13 @@ test("null init getter retains its real default, applies later fields, reaches r
     assert.equal(s.runtime.store.get(s.stores.Atom_IsBackendReady).data, true);
     assert.deepEqual(s.notices, [{ type: "warning", key: "common_warning.startup_degraded",
         options: { hide_duration: null, category_id: "startup_degraded" } }]);
-    const fieldErrors = errors.mock.calls.filter(call => call.arguments[0] === "Sidecar initialization field unavailable");
+    const fieldErrors = errors.mock.calls.filter(call => call[0] === "Sidecar initialization field unavailable");
     assert.equal(fieldErrors.length, 1);
-    assert.equal(fieldErrors[0].arguments[1], "/get/data/selectable_mic_host_list");
+    assert.equal(fieldErrors[0][1], "/get/data/selectable_mic_host_list");
 });
 
 test("malformed arrays and individual handler errors do not abort remaining initialization", async context => {
-    const errors = context.mock.method(console, "error", () => {});
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200, result: {
         "/get/data/selectable_mic_host_list": {},
@@ -154,7 +154,7 @@ test("malformed arrays and individual handler errors do not abort remaining init
     assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_SelectedMicHost).data, "System");
     assert.equal(s.runtime.store.get(s.stores.Atom_IsBackendReady).data, true);
     assert.equal(s.notices.length, 1);
-    assert.equal(errors.mock.calls.filter(call => call.arguments[0] === "Sidecar initialization field unavailable").length, 2);
+    assert.equal(errors.mock.calls.filter(call => call[0] === "Sidecar initialization field unavailable").length, 2);
 });
 
 test("a valid initialization finishes without a degraded notice", async () => {
@@ -168,7 +168,7 @@ test("a valid initialization finishes without a degraded notice", async () => {
 });
 
 test("unset scalar values (no API key, no model) are applied and do not warn", async context => {
-    const errors = context.mock.method(console, "error", () => {});
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200, result: {
         "/get/data/deepl_auth_key": null, "/get/data/selected_openai_model": null,
@@ -176,12 +176,12 @@ test("unset scalar values (no API key, no model) are applied and do not warn", a
     } });
     assert.equal(s.runtime.store.get(s.stores.Atom_IsBackendReady).data, true);
     assert.deepEqual(s.notices, []);
-    assert.equal(errors.mock.calls.filter(call => call.arguments[0] === "Sidecar initialization field unavailable").length, 0);
+    assert.equal(errors.mock.calls.filter(call => call[0] === "Sidecar initialization field unavailable").length, 0);
 });
 
 for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
     for (const status of [400, 404, 409, 423, 500]) test(`${endpoint} ${status} clears expected exit and a later crash is reported`, async context => {
-        context.mock.method(console, "error", () => {});
+        vi.spyOn(console, "error").mockImplementation(() => {});
         const s = await loadBridgeRoutes(), events = {}, crashes = [];
         const owner = createSidecarSessionOwner({ store: s.stores.store,
             createCommand: () => ({ on: (name, fn) => { events[name] = fn; },

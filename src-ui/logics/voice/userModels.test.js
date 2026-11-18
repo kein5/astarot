@@ -1,4 +1,4 @@
-import test from "node:test";
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { USER_MODEL_FILES, cleanPath, registrationRequest, userModelStatus } from "./modelCatalog.ts";
 import { isRelayAllowed } from "../common/vrPanelWire.ts";

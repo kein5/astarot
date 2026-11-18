@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
@@ -51,7 +51,7 @@ for (const mode of ["false", "throw", "reject"]) test(`send ${mode} resolves onl
 });
 
 for (const status of [400, 404, 423, 500]) test(`terminal ${status} response clears pending and a late success can settle an uncertain row`, async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup();
     await subject.message.sendMessage("First", "first");
     await subject.message.sendMessage("Second", "second");
@@ -65,7 +65,7 @@ for (const status of [400, 404, 423, 500]) test(`terminal ${status} response cle
 });
 
 test("a correlated error only settles that pending row", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup();
     await subject.message.sendMessage("First", "first");
     await subject.message.sendMessage("Second", "second");
@@ -116,7 +116,7 @@ test("late transport failure cannot downgrade success; backend stop settles rema
 
 test("submit resets typing before an outstanding send and keeps the two-second start cooldown", async context => {
     let now = 2000;
-    context.mock.method(Date, "now", () => now);
+    vi.spyOn(Date, "now").mockImplementation(() => now);
     const write = deferred(), subject = await setup(() => write.promise);
     subject.message.startTyping();
     const sent = subject.message.sendMessage("Hello", "pending");
@@ -199,7 +199,7 @@ async function composer(subject, autoClear = false) {
 
 for (const success of [true, false]) for (const autoClear of [true, false]) {
     test(`desktop Enter resets typing with success=${success}, auto-clear=${autoClear}`, async context => {
-        context.mock.method(globalThis, "setTimeout", () => 0);
+        vi.spyOn(globalThis, "setTimeout").mockImplementation(() => 0);
         const subject = await setup(async () => success), input = await composer(subject, autoClear);
         input.change("Hello");
         input.enter();
@@ -334,7 +334,7 @@ for (const language of ["en", "ja"]) test(`${language}: a cloud engine's reason 
 });
 
 for (const accepted of [true, false]) test(`holding Enter and duplicate clicks send once until handoff settles (${accepted})`, async context => {
-    context.mock.method(globalThis, "setTimeout", () => 0);
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(() => 0);
     const handoff = deferred(), subject = await setup(() => handoff.promise), input = await composer(subject);
     input.change("同じ下書き");
     input.enter();

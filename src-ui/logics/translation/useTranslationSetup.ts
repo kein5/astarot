@@ -1,24 +1,42 @@
-import { atom, useAtom } from "jotai";
+import { atom, useAtom, type SetStateAction } from "jotai";
+
+export interface TranslationSetupRequest {
+    // Try the switch again once the model is there.
+    resume: boolean;
+    // The model to review when it is not the selected one; null reviews the selected model.
+    weightType: string | null;
+}
+
+export interface TranslationSetup {
+    request: TranslationSetupRequest | null;
+    open: (resume?: boolean, weightType?: string | null) => void;
+    setRequest: (request: SetStateAction<TranslationSetupRequest | null>) => void;
+    waiting: string | null;
+    setWaiting: (weightType: SetStateAction<string | null>) => void;
+    chooseRequests: number;
+    chooseTranslator: () => void;
+}
 
 // Main-window only. The request to review and fetch the built-in translation
 // model: raised when the user turns Translation on without it, or asks from the
 // empty conversation. `resume` is true when the switch should be tried again
 // once the model is there. `weightType` names the model to review when it is not
 // the selected one (retrying a failed download); null reviews the selected model.
-const requestAtom = atom(null);
+const requestAtom = atom<TranslationSetupRequest | null>(null);
 // The model whose arrival turns the switch on; null when nobody is waiting. Kept
 // outside the controller: changing the UI language draws the main page again, and
 // the user who asked for the switch is still waiting for it.
-const waitingAtom = atom(null);
+const waitingAtom = atom<string | null>(null);
 // Counts the requests to open the translator list (the model cannot be downloaded yet,
 // so another engine is the way forward). TranslationSetupController opens the list; the
 // sidebar's state stays out of the hooks the VR panel's views import.
 const chooseAtom = atom(0);
-export const useTranslationSetup = () => {
+export const useTranslationSetup = (): TranslationSetup => {
     const [request, setRequest] = useAtom(requestAtom);
     const [waiting, setWaiting] = useAtom(waitingAtom);
     const [chooseRequests, setChooseRequests] = useAtom(chooseAtom);
-    const open = (resume = false, weightType = null) => setRequest(previous => previous ?? { resume, weightType });
-    const chooseTranslator = () => setChooseRequests(count => count + 1);
+    const open = (resume = false, weightType: string | null = null): void =>
+        setRequest(previous => previous ?? { resume, weightType });
+    const chooseTranslator = (): void => setChooseRequests(count => count + 1);
     return { request, open, setRequest, waiting, setWaiting, chooseRequests, chooseTranslator };
 };

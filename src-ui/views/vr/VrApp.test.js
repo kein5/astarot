@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find, stubGlobals } from "../../logics/test/hookHarness.js";
 import * as wire from "../../logics/common/vrPanelWire.ts";
 import { keepNewestVrLayout } from "../../logics/common/vrPanelTooltip.ts";
@@ -44,7 +44,7 @@ test("closed log region is inert and unpainted while the receiver keeps its data
     assert.equal(find(opened, node => node.type === VrLogWindow).props.open, true);
     runtime.unmount();
     // Run the receiver's standalone effect, without rendering any log body.
-    runtime.api.useEffect = effect => { context.after(effect()); };
+    runtime.api.useEffect = effect => { context.onTestFinished(effect()); };
     receiver.type();
     // SEC-03: the state arrives on the panel's own channel; the panel asks for it once subscribed.
     assert.equal(listeners.has("vr-panel-state"), false);
