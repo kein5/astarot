@@ -446,7 +446,6 @@ impl Core {
         ok(data.clone())
     }
 
-    #[allow(dead_code)]
     fn publish_large(&self, vr: &VrOverlay, picture: &LargePicture, current: &dyn Fn() -> bool) -> bool {
         self.try_publish_large(vr, picture, current).unwrap_or(false)
     }
@@ -530,7 +529,10 @@ impl Core {
 
     /// Adds or updates a realtime caption in the large log (`publishRealtimeCaptionOverlay`).
     /// `source` is "mic" or "speaker"; `state` "partial", "final", "translated" or "discarded".
-    #[allow(clippy::too_many_arguments, dead_code)]
+    /// `Err` when the caption was refused or its picture could not be shown (Python raised, and
+    /// the caption's `overlay_large` sink reported `MESSAGE_OUTPUT_FAILED`); the history then
+    /// stays as it was shown.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn show_overlay_caption(
         &self,
         source: &str,
@@ -540,29 +542,39 @@ impl Core {
         revision: u64,
         message: &OverlayMessage,
         current: &dyn Fn() -> bool,
-    ) {
-        let Some(vr) = self.vr() else { return };
+    ) -> Result<(), ()> {
+        let Some(vr) = self.vr() else { return Ok(()) };
         let config = self.config();
         if !(config.get_bool("OVERLAY_LARGE_LOG") && vr.engine.initialized() && current()) {
-            return;
+            return Ok(());
         }
         let only_translated = config.get_bool("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES");
-        let Some(state) = CaptionState::parse(state) else { return };
+        let Some(state) = CaptionState::parse(state) else {
+            self.step("overlay: a caption update was refused");
+            return Err(());
+        };
         if only_translated && message.translations.is_empty() && state != CaptionState::Discarded {
-            return;
+            return Ok(());
         }
         let id: CaptionId = (source.to_string(), namespace.to_string(), item.to_string());
         let direction = if source == "mic" { Direction::Send } else { Direction::Receive };
         let subtitle = message.subtitle(only_translated);
-        let result = vr.subtitles.publish_caption(id, state, revision, direction, subtitle, &mut |picture| self.publish_large(vr, picture, current));
+        let upload_failed = std::cell::Cell::new(false);
+        let result = vr.subtitles.publish_caption(id, state, revision, direction, subtitle, &mut |picture| {
+            self.try_publish_large(vr, picture, current).unwrap_or_else(|()| {
+                upload_failed.set(true);
+                false
+            })
+        });
         if result.is_err() {
             self.step("overlay: a caption update was refused");
+            return Err(());
         }
+        if upload_failed.get() { Err(()) } else { Ok(()) }
     }
 
     /// Drops the captions still being recognised for a source's namespace
     /// (`clearRealtimeCaptionOverlay`).
-    #[allow(dead_code)]
     pub(crate) fn discard_overlay_captions(&self, source: &str, namespace: &str) {
         let Some(vr) = self.vr() else { return };
         vr.subtitles.discard_captions(source, namespace, &mut |picture| self.publish_large(vr, picture, &|| true));
