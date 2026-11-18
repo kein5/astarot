@@ -38,8 +38,11 @@ def main():
     model.head.decode_in_inference = True
     dummy = torch.randn(1, 3, *exp.test_size)
     # Variable height and width: captures are not square, and the padding can be trimmed.
+    # dynamo=False: PyTorch 2.9 made the dynamo exporter the default; the detector was exported
+    # with the TorchScript one (PyTorch 2.7), which this keeps.
     torch.onnx.export(model, dummy, args.output, input_names=['images'], output_names=['output'],
-                      opset_version=args.opset, dynamic_axes={'images': {2: 'height', 3: 'width'}})
+                      opset_version=args.opset, dynamic_axes={'images': {2: 'height', 3: 'width'}},
+                      dynamo=False)
     print(f'wrote {args.output}')
 
 

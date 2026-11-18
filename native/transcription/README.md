@@ -36,7 +36,7 @@
 - **停止**。Python は止めるときに認識の要求が終わるのを最大 15 秒待ちました。ここでは録音だけを止めて戻り、途中の要求の結果は捨てます。
 - **OpenAI 互換の API の再試行**。SDK と同じく、通信の失敗と 408、409、429、5xx のときに 2 回まで再試行します。Python の SDK の待ち時間（揺らぎつき）とは少し違います。
 - **Google のエンジン**。Python には API キーなしで使える Google のエンジンがありました。`speech_recognition` が持つ汎用のキーで非公式の Web 音声認識の窓口に音声を送るものです。公式の窓口ではなく、キーもほかのアプリに発行されたものではないので、移植していません（[core-integration.md](../../docs/voice-stack/core-integration.md) の「決まったこと」）。
-- **Realtime の発話の区切り**。Python は`turn_detection`に`server_vad`だけを送り、無音の長さと余白はサーバーの既定（500 ms と 300 ms）でした。ここでは無音の長さ（既定 500 ms、`REALTIME_ASR_SETTINGS.silence_duration_ms`で変更できる）と、その半分で 300 ms を超えない余白（`prefix_padding_ms`）を送ります。speech.cpp は余白の 2 倍のあいだに次の発話が始まらないと分かるまで発話を確定しないため、既定のままでも確定が早くなります。計測した PC では p50 で約 60 ms でした（#556、[音声パイプラインの遅延](../../docs/voice-stack/pipeline-latency-2026-11-18.md)）。
+- **Realtime の発話の区切り**。Python は`turn_detection`に`server_vad`だけを送り、無音の長さと余白はサーバーの既定（500 ms と 300 ms）でした。ここでは無音の長さ（既定 400 ms、`REALTIME_ASR_SETTINGS.silence_duration_ms`で変更できる）と、その半分で 300 ms を超えない余白（`prefix_padding_ms`）を送ります。speech.cpp は余白の 2 倍のあいだに次の発話が始まらないと分かるまで発話を確定しないため、サーバーの既定と同じ無音 500 ms でも確定が早くなります。計測した PC では p50 で約 60 ms でした。既定の無音を 500 ms から 400 ms にすると、さらに約 100 ms 早くなります。そのかわり文の途中の間でも区切られやすくなります（#556、[音声パイプラインの遅延](../../docs/voice-stack/pipeline-latency-2026-11-18.md)）。
 - **VAD**。Python は `MIC_ENABLE_VAD` のときに Silero VAD でフレーズを切っていました。`vad` に差し込み口があります。`VadEngine` を録音の設定（`Settings::vad`）に渡すと、音量の代わりにその `Segmenter` で切り、`Phrases::segmented` が Python の VAD の経路と同じにまとめます。自然な区切りで発話を確定し、上限で切れた区間は次とつなぎ（15 秒まで）、認識に送る音声の前に 0.3 秒、後に 0.5 秒の無音を足します。モデルと推論の仕組みが決まっていないので、`vad::bundled()` は何も返さず、音量による切り出しを使います（[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 13）。
 
 ## 試験

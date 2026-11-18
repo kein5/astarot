@@ -295,7 +295,7 @@ def seed_runtime():
     manifest = json.loads(worker_file(SEED_MANIFEST).read_text(encoding='utf-8'))
     locks, download, disk = SEED_PLATFORM[target()]
     return Runtime(
-        'seed-vc', 'Seed-VC', '3.11', locks, SEED_SOURCE, SEED_DIGEST,
+        'seed-vc', 'Seed-VC', '3.14', locks, SEED_SOURCE, SEED_DIGEST,
         'integrations/seed_vc/offline-loader.patch', seed_assets(manifest),
         'GPL-3.0, Apache-2.0, BSD-3-Clause, NVIDIA CUDA EULA',
         (f'https://github.com/jiaheguo521/seed-vc-realtime/blob/{SEED_COMMIT}/LICENSE',
@@ -807,7 +807,9 @@ class RuntimeSetup:
     def _packages(self, runtime, event, job):
         python = runtime_python(self.folder(runtime))
         for path, index in runtime.locks:
-            args = [self._uv(), 'pip', 'install', '--no-config', '--python', python, '--require-hashes']
+            # A lock is the whole set to install: --no-deps keeps uv from looking for a package one of
+            # them declares but the lock leaves out (Seed-VC: editdistance, see its requirements.in).
+            args = [self._uv(), 'pip', 'install', '--no-config', '--python', python, '--require-hashes', '--no-deps']
             self._run(runtime, event, args + (['--index-url', index] if index else []) + ['-r', worker_file(path)])
 
     def _engine(self, runtime, event, job):

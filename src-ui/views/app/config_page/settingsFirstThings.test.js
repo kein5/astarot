@@ -113,10 +113,10 @@ test("speech recognition opens on the engine choice and its two systems; the res
     const order = [...page.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1]);
     // The engine, then its two systems as the translation catalog splits them (#414): speech.cpp
     // on your PC with its models and server, then the APIs with their keys. The word filter, the
-    // timing and the realtime captions' server are set once (#554). The old Whisper models come
-    // last, and only while some are on this PC (#288).
+    // timing and the realtime captions' server are set once (#554). The old Whisper models'
+    // screen went in 0.6.0 (#288).
     assert.deepEqual(order, ["TranscriptionEngine_Container", "EngineGroup", "SpeechServers", "EngineGroup", "CloudTranscription_Container",
-        "AdvancedSection", "Mic_Container", "Speaker_Container", "RealtimeASRSettings", "OldWhisperWeights"]);
+        "AdvancedSection", "Mic_Container", "Speaker_Container", "RealtimeASRSettings"]);
     assert.match(page, /<EngineGroup group="speechcpp">\s*<SpeechServers profiles=\{\["asr"\]\} \/>\s*<\/EngineGroup>\s*<EngineGroup group="api">\s*<CloudTranscription_Container \/>\s*<\/EngineGroup>/);
     assert.match(page, /<AdvancedSection [^>]*>\s*<Mic_Container \/>\s*<Speaker_Container \/>\s*<RealtimeASRSettings \/>\s*<\/AdvancedSection>/);
     const section = name => source.split(`const ${name} = () => {`)[1].split("\n};")[0];

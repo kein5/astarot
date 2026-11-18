@@ -1,7 +1,10 @@
-# Separate Python 3.11 environment; install the official CUDA trio first.
+# Separate Python 3.14 environment; install the official CUDA trio first.
 # torch==2.10.0+cu128, torchaudio==2.10.0+cu128, torchvision==0.25.0+cu128
-scipy==1.13.1
-librosa==0.10.2
+# The locks are made from this file and the trio's cp314 wheels (see README.md).
+# editdistance, which funasr 1.2.7 lists, is left out of them: it has no Python 3.14
+# wheels, and funasr imports it only in its accuracy metrics, which this engine never calls.
+scipy==1.16.3
+librosa==0.10.2.post1
 huggingface-hub==2.4.0
 munch==4.0.0
 einops==0.8.0
@@ -9,5 +12,5 @@ transformers==5.22.1
 soundfile==0.12.1
 sounddevice==0.5.0
 funasr==1.2.7
-numpy==1.26.4
-PyYAML==6.0.2
+numpy==2.4.6
+PyYAML==6.0.3

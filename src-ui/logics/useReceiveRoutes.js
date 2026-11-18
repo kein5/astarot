@@ -2,7 +2,6 @@ import { store } from "@store";
 import { useEffect } from "react";
 import { useI18n } from "@useI18n";
 import * as realtime from "./transcription/useRealtimeASR";
-import * as localAsr from "./transcription/useLocalAsrMigration";
 import * as virtualMic from "./voice/useVirtualMic";
 import * as voiceAudition from "./voice/useVoiceAudition";
 import * as gpuCheck from "./support/useGpuCheck";
@@ -70,10 +69,6 @@ export const STATIC_ROUTE_META_LIST = [
     // Names for the voices speaker diarization tells apart (#447).
     { endpoint: "/set/data/speaker_names", ns: common, hook_name: "useSpeakerNames", method_name: "updateNames" },
     // The move from the removed Whisper engine to speech.cpp (#288).
-    { endpoint: "/get/data/local_asr_notice", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateNotice" },
-    { endpoint: "/set/disable/local_asr_notice", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateNotice" },
-    { endpoint: "/get/data/old_whisper_weights", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateWeights" },
-    { endpoint: "/run/delete_old_whisper_weights", ns: localAsr, hook_name: "useLocalAsrMigration", method_name: "updateDeleted" },
     // The virtual microphone guide and its check on Windows (#321).
     { endpoint: "/get/data/virtual_mic_notice", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateNotice" },
     { endpoint: "/set/disable/virtual_mic_notice", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateNotice" },
@@ -318,7 +313,6 @@ export const useReceiveRoutes = () => {
         return () => clearInterval(timer);
     }, [runtimeActive, sendRuntime]);
     const { state: realtimeState, send: sendRealtime, updateError: updateRealtimeError, reset: resetRealtime, backendStopped: stopRealtimePending } = realtime.useRealtimeASR();
-    const { failRequest: failOldWhisperWeights, reset: resetLocalAsr, backendStopped: stopLocalAsrPending } = localAsr.useLocalAsrMigration();
     const { failCheck: failVirtualMicCheck, reset: resetVirtualMic, backendStopped: stopVirtualMicCheck } = virtualMic.useVirtualMic();
     const { audition, poll: pollAudition, fail: failAudition, reset: resetAudition, backendStopped: stopAudition } = voiceAudition.useVoiceAudition();
     // Asked only while an audition plays, to show when it has ended.
@@ -458,10 +452,6 @@ export const useReceiveRoutes = () => {
             sendSpeech("/get/data/speech_server_state");
             sendRealtime("/get/data/realtime_asr_state");
         }
-        if (status !== 200 && endpoint.includes("old_whisper_weights")) {
-            failOldWhisperWeights(result?.error_code);
-            return;
-        }
         if (status !== 200 && endpoint === "/run/virtual_mic_test") {
             failVirtualMicCheck(result?.error_code);
             return;
@@ -512,8 +502,6 @@ export const useReceiveRoutes = () => {
             sendSpeech("/get/data/speech_server_settings");
             sendSpeech("/get/data/speech_server_state");
             resetRealtime();
-            // The notice and the old weights come in this same result (init_mapping).
-            resetLocalAsr();
             resetVirtualMic();
             resetAudition();
             resetGpuCheck();
@@ -631,7 +619,6 @@ export const useReceiveRoutes = () => {
         stopDownloadPending();
         stopRuntimePending();
         stopRealtimePending();
-        stopLocalAsrPending();
         stopVirtualMicCheck();
         stopAudition();
         stopGpuCheck();

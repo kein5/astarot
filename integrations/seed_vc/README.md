@@ -25,20 +25,36 @@ Linux has not been tried with them.
 On Linux (x86-64) the app sets the runtime up the same way from `requirements.lock`; see
 the [Linux notes](../../docs/voice-stack/local-setup-linux.md).
 
-To build it by hand, use an isolated **Linux x86-64 Python 3.11** environment with uv. The lock is
+To build it by hand, use an isolated **Linux x86-64 Python 3.14** environment with uv (the
+minor version `mise.toml` pins; the app's setup asks uv for the same). The lock is
 platform-specific; it pins the three CUDA wheels by official URL/hash and the
 remaining dependencies by version/hash. Do not subsequently install upstream's
 original requirements, which request torch 2.4 while naming the CUDA 12.8 index.
 The 2026-11-02 refresh (Pillow 13, Transformers 5, huggingface-hub 2) was rechecked
-with `smoke` and `convert`.
+with `smoke` and `convert`; so was the 2026-11-19 move to Python 3.14 (Windows, CUDA).
 
 ```bash
-uv venv --python 3.11 tmp/seed-runtime
+uv venv --python 3.14 tmp/seed-runtime
 uv pip sync --python tmp/seed-runtime/bin/python --require-hashes integrations/seed_vc/requirements.lock
 git -C "$SEED_ENGINE" apply "$PWD/integrations/seed_vc/offline-loader.patch"
 uv run --no-project --python tmp/seed-runtime/bin/python python -m integrations.seed_vc.smoke \
   --engine "$SEED_ENGINE" --assets "$SEED_ASSETS" --reference "$PERMITTED_REFERENCE" \
   --report tmp/seed-load.json
+```
+
+The locks are made from `requirements.in` and the CUDA trio for each platform
+(`requirements-torch-linux.in`, `requirements-torch-windows.in`). `editdistance`, which
+funasr 1.2.7 lists, is left out (`requirements-excludes.txt`): it has no Python 3.14
+wheels, and funasr imports it only in its accuracy metrics. A lock is therefore the whole
+set to install; the app's setup installs it with `--no-deps`.
+
+```bash
+uv pip compile --python-version 3.14 --python-platform x86_64-manylinux_2_28 --generate-hashes \
+  --excludes integrations/seed_vc/requirements-excludes.txt \
+  integrations/seed_vc/requirements-torch-linux.in -o integrations/seed_vc/requirements.lock
+uv pip compile --python-version 3.14 --python-platform x86_64-pc-windows-msvc --generate-hashes \
+  --no-header --no-annotate --excludes integrations/seed_vc/requirements-excludes.txt \
+  integrations/seed_vc/requirements-torch-windows.in -o integrations/seed_vc/requirements-windows.lock
 ```
 
 Asset layout is produced by `tools/seedvc_artifacts.py`, after user consent for

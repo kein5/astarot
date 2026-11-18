@@ -23,8 +23,6 @@
     "analyze-error": "node utils/analyze_ui_error.js",
     "build": "npm run task-kill && npm run clean-soft && npm run update-version && npm run build-resources && npm run vite-build && npm run tauri build",
     "release": "npm run update-version && npm run build && python utils\\zip.py --zip_name VRCT-VOX.zip",
-    "release-cuda": "npm run update-version && npm run build && python utils\\zip.py --zip_name VRCT-VOX_cuda.zip",
-    "release-all": "npm run update-version && npm run release && npm run release-cuda",
     "doctor": "python tools/dev.py doctor",
     "check": "python tools/dev.py check",
     "check:all": "python tools/dev.py check --scope all",
