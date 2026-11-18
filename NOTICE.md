@@ -208,7 +208,12 @@ CUDA, OpenVINO, MIGraphX, WebGPU) are not bundled. No translation model is bundl
 (MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
 consented model catalog once published, and a model the user places in the
 `translation-models` folder is under its own license, which the user is
-responsible for.
+responsible for. A model under a non-commercial license, such as NLLB-200, is
+never the default and downloads only after the user has also ticked a separate
+acknowledgement that names its license and allows only non-commercial use; the
+backend refuses the download without it. Selecting an NLLB-200 model keeps its
+own license confirmation. The planned entries are recorded in
+`docs/voice-stack/licensing.md`.
 
 `native/transcription` (speech recognition) reimplements, so that phrases are
 cut as before, the energy-based listening of SpeechRecognition 3.10.4

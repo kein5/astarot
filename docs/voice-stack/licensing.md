@@ -354,6 +354,22 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 - VRCT-VOXは、NLLBを既定にせず、選ぶときに非商用のライセンスを示して同意を得ている（2026-11-14からの方針）。公開するなら、モデルカードに元のモデルと版、CC-BY-NC-4.0、変えたこと（ONNXへの書き出しと量子化）を書く。`tools/translation_onnx/publish.py stage`がこれを書く。
 - 利用者の使い方が非商用の範囲かどうかは、アプリからは判断できない。
 
+#### NLLB-200をカタログに載せるときの決まり（2026-11-18、#411）
+
+公開して`publish.py catalog --write`で`native/ops/data/translation_models.json`に載せると、idは次のようになる（`<モデル>-onnx-<形>`を小文字にし、`_`と`.`を`-`にする）。大きさは`tools/translation_onnx/README.md`の「モデルの大きさ」のint8の値で、公開したファイルの値ではない。
+
+| 予定のid | 元のモデル | 大きさ（int8） |
+|---|---|---|
+| `nllb-200-distilled-600m-onnx-int8` | `facebook/nllb-200-distilled-600M` | 643 MB |
+| `nllb-200-distilled-1-3b-onnx-int8` | `facebook/nllb-200-distilled-1.3B` | 1,402 MB |
+| `nllb-200-3-3b-onnx-int8` | `facebook/nllb-200-3.3B` | 3,380 MB |
+
+- 非商用のライセンスなので、既定のモデルにしない。
+- 取得にはふつうの同意とは別に、非商用に限ることの確認が要る。カタログの行の`restrictions`はライセンスの文字列から決まり、CC-BY-NC-4.0なら`non_commercial`になる。確認の画面はライセンスの名前を示して2つ目のチェックを求め、開始の要求にその確認（`acknowledged`）がなければ何も書かずに断る（`model_download_restriction_unacknowledged`）。仕組みは[モデル取得](model-downloads.md#非商用のライセンスの確認)にある。
+- 選ぶときの確認（翻訳の設定のNLLBの確認と、中核の`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`）は残す。取得のときの確認とは別にもう一度求める。
+
+上の表のMADLAD-400 3B MTの元の重み（`model.safetensors`）は11,761,587,872 bytesである。ライセンスはApache-2.0なので、載せるときに追加の確認は要らない。
+
 公開するモデルの記録は、公開した版とファイルのSHA-256を`native/ops/data/translation_models.json`に固定したときに、この節に足す。
 
 ## Silero VADの同梱（2026-11-15）
