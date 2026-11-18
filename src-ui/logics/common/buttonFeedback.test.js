@@ -103,7 +103,7 @@ test("Settings pauses transcription with intent and restores it; user OFF has no
         "@store": stores,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => requests.push([endpoint, data]) }) },
     });
-    const { ConfigPageCloseTriggerController } = await load("app/_app_controllers/ConfigPageCloseTriggerController.jsx", runtime, {
+    const { ConfigPageCloseTriggerController } = await load("app/_app_controllers/ConfigPageCloseTriggerController.tsx", runtime, {
         "@store": { useStore_MainFunctionsStateMemory: () => ({
             currentMainFunctionsStateMemory: { data: memory },
             updateMainFunctionsStateMemory: value => { memory = value; },

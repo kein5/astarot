@@ -350,7 +350,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
 
     const shortcuts = [], quickCalls = [], sent = [], hotRuntime = hooks(), quickRuntime = hooks();
     let receive, request;
-    const hot = await loadModule(new URL("../../views/app/_app_controllers/GlobalHotKeyController.jsx", import.meta.url), hotRuntime, {
+    const hot = await loadModule(new URL("../../views/app/_app_controllers/GlobalHotKeyController.tsx", import.meta.url), hotRuntime, {
         "@logics_common": common, "@logics_configs": { useHotkeys: () => ({ currentHotkeys: { data: {} },
             registerShortcuts: () => shortcuts.push("register"), unregisterAll: () => shortcuts.push("unregister") }) },
     });

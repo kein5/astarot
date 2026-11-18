@@ -39,7 +39,7 @@ async function setup(context, { registry = {}, values = {}, settings = [], openF
         "@useI18n": { useI18n: () => ({ t: key => key }) },
         "../../../logics/main/languageMutations": { isLanguageMutation: () => false, rejectLanguageMutation: () => {} },
     });
-    const { ConfigPageCloseTriggerController } = await loadModule(new URL("./ConfigPageCloseTriggerController.jsx", import.meta.url), lifecycle, {
+    const { ConfigPageCloseTriggerController } = await loadModule(new URL("./ConfigPageCloseTriggerController.tsx", import.meta.url), lifecycle, {
         "@logics_common": common,
         "@store": { useStore_MainFunctionsStateMemory: () => ({ currentMainFunctionsStateMemory: { data: memory },
             updateMainFunctionsStateMemory: value => { memory = value; } }) },
