@@ -13,6 +13,7 @@ use super::events::{Events, Update};
 use crate::capture::{Capture, CapturePlatform, FrameBuilder, Source, Target};
 use crate::pcm::{self, Resampler};
 use crate::speechcpp;
+use crate::terms::Dictionary;
 use serde_json::{Value, json};
 use std::collections::{HashMap, VecDeque};
 use std::net::{TcpStream, ToSocketAddrs};
@@ -536,6 +537,8 @@ impl Session {
         diarization: bool,
     ) -> Result<(), Failure> {
         socket.get_mut().set_read_timeout(Some(Duration::from_millis(10))).map_err(|_| Failure::Realtime("stream_failed"))?;
+        // The vocabulary also puts right what the model wrote (#446): partials and finals alike.
+        let terms = Dictionary::new(&self.inner.options.vocabulary);
         let mut capture = self.open_capture()?;
         let result = (|| {
             if self.stopped() {
@@ -601,6 +604,7 @@ impl Session {
                     if update.is_final {
                         first_result |= !first_result_seen;
                     }
+                    update.text = terms.corrected(&update.text);
                     update.received = Some(Instant::now());
                     let mut mailbox = self.inner.updates.lock().unwrap_or_else(|e| e.into_inner());
                     if self.stopped() {

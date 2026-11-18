@@ -46,7 +46,7 @@ impl Api for Ollama {
     fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
         let model = a.chosen_model()?;
         let url = join(a.base, "/api/chat");
-        let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history);
+        let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history, t.glossary);
         let body = json!({
             "model": model,
             "stream": false,

@@ -12,6 +12,7 @@
 | `phrases` | フレーズをつないで発話にする（`MIC_PHRASE_TIMEOUT`、15 秒の上限、`MIC_MAX_PHRASES`） | `transcription_transcriber.py` の `transcribeAudioQueue` |
 | `providers` | OpenAI 互換の API（Groq、OpenAI、カスタム）と Deepgram。キーの確認とモデルの一覧 | `transcription_providers.py`、`transcription_openai_compatible.py`、`transcription_deepgram.py` |
 | `speechcpp` | speech.cpp のモデルの一覧と語彙（VRChat の用語を含む） | `speechcpp_asr.py`、`asr_vocabulary.py`、`vrchat_terms.py` |
+| `terms` | 語彙（用語辞書）を認識した文、読み上げる文、翻訳の指示に当てる（#446） | なし（中核で足した） |
 | `realtime` | speech.cpp の Realtime の WebSocket に音声を流し、字幕と確定した文を届ける | `realtime_session.py`、`speechcpp_realtime.py`、`realtime_audio.py`、`realtime_events.py`、`realtime_delivery.py` |
 | `capture` | 録音の口。Windows は WASAPI（スピーカーはループバック）、Linux は `vrct-asr-capture` | `capture_windows.py`、`capture_pipewire.py`、`capture_packets.py` |
 | `pcm` | 音量（`audioop.rms`）、モノラル化、サンプリング周波数の変換、WAV | `audioop`、`numpy`、`soxr` |

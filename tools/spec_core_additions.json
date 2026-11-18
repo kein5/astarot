@@ -1,6 +1,6 @@
 {
   "_comment": "What the Rust core (native/core) has and the Python backend never had. tools/spec_catalog.py appends these to the catalogs it reads from src-python. Error codes must be in the order of native/core/src/errors/table.rs, after Python's.",
-  "sensitive_markers": ["client_id", "translation_catalog"],
+  "sensitive_markers": ["client_id", "translation_catalog", "vocabulary"],
   "endpoints": [
     { "endpoint": "/get/data/ollama_url", "handler": "core: OLLAMA_URL", "before_init": true },
     { "endpoint": "/set/data/ollama_url", "handler": "core: set_server_url", "before_init": true },
