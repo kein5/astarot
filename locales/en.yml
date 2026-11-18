@@ -264,7 +264,8 @@ backend_errors:
     AUDIO_OPEN_ERROR_speaker: "The speaker's audio could not be captured. Check that the speaker is connected, then try again."
     AUDIO_READ_ERROR: "Audio capture stopped after a device error. Check that the device is still connected, then try again."
     VAD_INFERENCE_ERROR: "Speech detection failed, so recognition stopped. Try again. If this keeps happening, restart ASTAROT."
-    VAD_UNAVAILABLE: "VAD is not available in this version, so it was not turned on. Speech is cut by volume."
+    VAD_UNAVAILABLE: "VAD uses Silero VAD on the speech recognition server (speech.cpp). The server is not set up, so VAD was not turned on."
+    VAD_UNAVAILABLE_recording: "The VAD of the speech recognition server (speech.cpp) cannot be used, so speech is cut by volume."
     TRANSCRIBER_INIT_ERROR: "The speech recognizer could not start. Check the engine and model under Settings → Speech recognition (ASR), then try again."
     ASR_ERROR: "Speech recognition failed, so recognition stopped. Check the engine under Settings → Speech recognition (ASR) and, for an online engine, the network connection, then try again."
     TRANSCRIPTION_API_AUTH_FAILED: "The speech recognition service refused the API key, so recognition stopped. Check the key under Settings → Speech recognition (ASR)."
@@ -610,7 +611,7 @@ config_page:
             option_vad: "VAD (auto)"
             option_auto: "Auto"
             option_manual: "Manual"
-            desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time you finish speaking. Reduces background music and ambient noise."
+            desc_for_vad: "Detects speech with Silero VAD on the speech recognition server (speech.cpp) and sends audio to transcription each time you finish speaking. Reduces background music and ambient noise. The bundled server does not start by itself: start it in Settings → Speech recognition (ASR) → Models and servers."
         speaker_device:
             label: "Speaker device"
         speaker_dynamic_energy_threshold:
@@ -620,8 +621,8 @@ config_page:
             option_vad: "VAD (auto)"
             option_auto: "Auto"
             option_manual: "Manual"
-            desc_for_vad: "Detects speech using AI (Silero VAD) and sends audio to transcription each time speech ends. Reduces background music and ambient noise."
-        desc_vad_unavailable: "Not available in this version: the speech detection model is not included yet. Speech is cut by volume, with the Auto or Manual setting."
+            desc_for_vad: "Detects speech with Silero VAD on the speech recognition server (speech.cpp) and sends audio to transcription each time speech ends. Reduces background music and game sound. The bundled server does not start by itself: start it in Settings → Speech recognition (ASR) → Models and servers."
+        desc_vad_unavailable: "Needs a speech recognition server (speech.cpp) with a recognition model and Silero VAD. Download and apply both in Settings → Speech recognition (ASR) → Models and servers → ASR + VAD. Until then, speech is cut by volume with the Auto or Manual setting."
 
     appearance:
         section_label_display_more: "Text and transparency"

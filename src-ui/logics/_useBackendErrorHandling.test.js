@@ -185,6 +185,29 @@ for (const language of ["en", "ja"]) test(`${language}: a VR UI that this system
     assert.deepEqual(s.reads, ["/get/data/overlay_vr_panel"]);
 });
 
+// Decision 13 of #278: the VAD runs on the speech.cpp server, and details.reason names the next step.
+for (const language of ["en", "ja"]) test(`${language}: a VAD that cannot use its server says why and re-reads only a refused switch`, async () => {
+    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, resources: { [language]: { translation } } });
+    const s = await loadBridgeRoutes(undefined, i18n);
+    const vad = (endpoint, data, reason) => s.receiveRoutes({ status: 400, endpoint, result: {
+        error_code: "VAD_UNAVAILABLE", data, details: { reason }, message: "Voice activity detection needs the speech.cpp server",
+    } });
+    // Turning a switch on is refused while the server is not set up.
+    vad("/set/enable/speaker_vad_filter", false, "realtime_vad_model_missing");
+    // A recording that cannot use the server cuts by volume; a reason with no text adds nothing.
+    vad("/run/vad_unavailable", { source: "mic" }, "speech_server_not_ready");
+    vad("/run/vad_unavailable", { source: "mic" }, "realtime_session_failed");
+    const errors = translation.backend_errors, next = translation.realtime_toggle;
+    assert.deepEqual(s.notices.map(notice => [notice.type, notice.key]), [
+        ["warning", `${errors.VAD_UNAVAILABLE} ${next.realtime_vad_model_missing}`],
+        ["warning", `${errors.VAD_UNAVAILABLE_recording} ${next.speech_server_not_ready}`],
+        ["warning", errors.VAD_UNAVAILABLE_recording],
+    ]);
+    assert.deepEqual(s.reads, ["/get/data/speaker_vad_filter"]);
+});
+
 for (const language of ["en", "ja"]) test(`${language}: a key store failure stays on screen and changes no setting`, async () => {
     const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
     const i18n = i18next.createInstance();
