@@ -2,7 +2,8 @@
 //! and APIs), the built-in entries next to the user's, and adding, using and removing an entry
 //! of each group. The OpenAI-compatible endpoint is a stand-in on a loopback port
 //! (`vrct_translation::fake`); the engine models are folders of tiny fake files, as in
-//! `translation_models.rs`. Nothing leaves this PC.
+//! `translation_models.rs`. The OS credential store the keys go to is in memory, as in
+//! `secret_store.rs`: the PC's own is never touched. Nothing leaves this PC.
 
 mod common;
 
@@ -10,9 +11,9 @@ use common::{Setup, Ui};
 use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::Arc;
+use vrct_core::config::secrets::{FILE_NAME, Faults, MemoryStore};
 use vrct_core::controller::Services;
 use vrct_translation::fake::FakeProviders;
-use vrct_translation::http;
 use vrct_translation::providers::Endpoints;
 
 const FILES: [(&str, &str); 4] = [("encoder.onnx", "a"), ("decoder.onnx", "b"), ("tokenizer.json", "c"), ("vocab.json", "d")];
@@ -59,18 +60,27 @@ fn user_entries(catalog: &Value, group: &str) -> Vec<Value> {
     catalog[group].as_array().unwrap().iter().filter(|e| e["origin"] == "user").cloned().collect()
 }
 
+/// The app's key store over `secrets.json`, with `vault` standing in for the OS credential store,
+/// and the providers at `fake`.
+fn api_services(fake: &FakeProviders, vault: &Arc<MemoryStore>) -> Services {
+    Services { translation_endpoints: Endpoints::all_at(&fake.url()), secret_store: vault.system_source(), ..Setup::default().services }
+}
+
+/// An API entry's key in the stand-in OS store, under the id `secrets.json` gives this settings
+/// folder.
+fn in_vault(vault: &MemoryStore, dir: &Path, id: &str) -> Option<String> {
+    let file: Value = serde_json::from_str(&std::fs::read_to_string(dir.join(FILE_NAME)).unwrap()).unwrap();
+    let scope = file["store_id"].as_str().expect("an id once a key is kept");
+    vault.get(&MemoryStore::scoped(scope, &format!("TRANSLATION_CATALOG/{id}")))
+}
+
 #[test]
 fn an_api_entry_keeps_its_key_in_the_store_and_switches_the_compatible_engine() {
     let fake = FakeProviders::start();
     fake.key("/compatible/v1", "lan-key").models("/compatible/v1", &["mistral", "qwen"]);
-    let services = Services {
-        osc: common::fake_osc::factory(false).0,
-        translation_transport: http::loopback_only(),
-        translation_endpoints: Endpoints::all_at(&fake.url()),
-        ..Services::default()
-    };
+    let vault = MemoryStore::new();
     let temp = tempfile::tempdir().unwrap();
-    let ui = start_in(temp.path(), services);
+    let ui = start_in(temp.path(), api_services(&fake, &vault));
     let url = fake.url_of("/compatible/v1");
 
     // The built-in entries of both groups, told apart from the user's by `origin`.
@@ -97,8 +107,12 @@ fn an_api_entry_keeps_its_key_in_the_store_and_switches_the_compatible_engine() 
     let id = entry["id"].as_str().unwrap().to_string();
     let store = ui.backend.core().config().secret_store();
     assert_eq!(store.read(&format!("TRANSLATION_CATALOG/{id}")).unwrap().as_deref(), Some("lan-key"));
-    let file = std::fs::read_to_string(temp.path().join("translation_catalog.json")).unwrap();
-    assert!(!file.contains("lan-key"), "the key stays out of the catalog file");
+    // In the OS store under this settings folder's id, and in no file.
+    assert_eq!(in_vault(&vault, temp.path(), &id).as_deref(), Some("lan-key"));
+    for file in ["translation_catalog.json", FILE_NAME] {
+        let text = std::fs::read_to_string(temp.path().join(file)).unwrap();
+        assert!(!text.contains("lan-key"), "the key stays out of {file}");
+    }
     assert_eq!(refused(&ui, register, request("LAN server", &url, json!("lan-key"))), (409, "translation_catalog_exists".into()));
 
     // Using it checks the address with the key, then points the compatible engine at it.
@@ -120,6 +134,7 @@ fn an_api_entry_keeps_its_key_in_the_store_and_switches_the_compatible_engine() 
     let catalog = ui.ok("/run/remove_translation_catalog_entry", Some(json!({ "id": id })));
     assert_eq!(user_entries(&catalog, "api").len(), 1);
     assert_eq!(store.read(&format!("TRANSLATION_CATALOG/{id}")).unwrap(), None);
+    assert_eq!(in_vault(&vault, temp.path(), &id), None);
     assert_eq!(ui.ok("/get/data/openai_compatible_url", None), json!(url));
     assert_eq!(refused(&ui, "/run/use_translation_catalog_entry", json!({ "id": id })), (400, "translation_catalog_unknown".into()));
 
@@ -133,6 +148,34 @@ fn an_api_entry_keeps_its_key_in_the_store_and_switches_the_compatible_engine() 
     let leaks: Vec<&str> = log.lines().filter(|line| line.contains("translation_catalog") && line.contains("/compatible/v1")).collect();
     assert!(leaks.is_empty(), "{leaks:?}");
     ui.stop();
+}
+
+#[test]
+fn an_api_entry_whose_key_the_os_store_does_not_take_is_not_added() {
+    // A locked keyring, and an OS store that is not there (Linux without a Secret Service).
+    let fake = FakeProviders::start();
+    fake.key("/compatible/v1", "lan-key").models("/compatible/v1", &["qwen"]);
+    let url = fake.url_of("/compatible/v1");
+    for faults in [Faults { locked: true, ..Faults::default() }, Faults { unavailable: true, ..Faults::default() }] {
+        let vault = MemoryStore::new();
+        vault.set_faults(faults);
+        let temp = tempfile::tempdir().unwrap();
+        let ui = start_in(temp.path(), api_services(&fake, &vault));
+
+        let request = json!({ "group": "api", "name": "LAN server", "protocol": "openai_compatible", "url": url, "model": "qwen", "auth_key": "lan-key" });
+        assert_eq!(refused(&ui, "/run/register_translation_catalog_entry", request), (400, "translation_catalog_key_store_failed".into()), "{faults:?}");
+        assert!(user_entries(&ui.ok("/get/data/translation_catalog", None), "api").is_empty(), "{faults:?}: no entry without its key");
+        assert!(vault.snapshot().is_empty(), "{faults:?}");
+        for file in ["translation_catalog.json", FILE_NAME, "config.json"] {
+            let text = std::fs::read_to_string(temp.path().join(file)).unwrap_or_default();
+            assert!(!text.contains("lan-key"), "{faults:?}: the key reached {file}");
+        }
+        let log = process_log(&ui);
+        for secret in ["lan-key", "LAN server"] {
+            assert!(!log.contains(secret), "{faults:?}: {secret} reached the log");
+        }
+        ui.stop();
+    }
 }
 
 #[cfg(feature = "onnx-translation")]
