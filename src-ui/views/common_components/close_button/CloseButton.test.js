@@ -64,7 +64,7 @@ test("notification close names dismissal and retains its toast callback", async 
     let options, dismissed = 0;
     stubGlobals(context, { setTimeout: callback => { callback(); } });
     const notification = runtime.jotai.atom({ state: "ok", data: { is_open: true, status: "info", message: "notice" } });
-    const { SnackbarController } = await loadModule(new URL("../../app/others/snackbar_controller/SnackbarController.jsx", import.meta.url), runtime, {
+    const { SnackbarController } = await loadModule(new URL("../../app/others/snackbar_controller/SnackbarController.tsx", import.meta.url), runtime, {
         "@common_components": { CloseButton: "close-button" },
         "./ReactToastifyOverrideClass.scss": {},
         "react-toastify": { ToastContainer: "toasts", cssTransition: () => ({}), toast: (_, value) => { options = value; } },
