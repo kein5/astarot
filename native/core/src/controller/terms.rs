@@ -5,6 +5,7 @@
 //! - Recognition: a realtime session corrects its own captions; the recorder's engines (cloud
 //!   Whisper, Deepgram) are corrected here, as their text enters the pipeline.
 //! - Speech: Japanese text is read with the terms' readings, just before it is queued.
+//! - Translation: the AI translators are told which of the user's own terms the text holds.
 //!
 //! Nothing here logs a term or a text.
 
@@ -14,6 +15,8 @@ use vrct_transcription::terms::Dictionary;
 use vrct_tts::SpeechMessageEvent;
 
 const SETTINGS_KEY: &str = "REALTIME_ASR_SETTINGS";
+/// The most terms one translation's prompt lists.
+const MAX_GLOSSARY: usize = 20;
 const JAPANESE: &str = "Japanese";
 
 impl Core {
@@ -26,6 +29,18 @@ impl Core {
     /// its own captions).
     pub(crate) fn corrected_recognition(&self, text: &str) -> String {
         self.term_dictionary().corrected(text)
+    }
+
+    /// The user's own terms that appear in a text to translate. The built-in VRChat terms are
+    /// left to the translator; they are mostly ordinary words.
+    pub(crate) fn translation_glossary(&self, text: &str) -> Vec<String> {
+        let vocabulary = &self.config().get(SETTINGS_KEY)["vocabulary"];
+        let own: Vec<String> =
+            vocabulary["terms"].as_array().into_iter().flatten().filter_map(|t| t.as_str()).map(str::to_string).collect();
+        if own.is_empty() {
+            return Vec::new();
+        }
+        Dictionary::new(&own).occurring(text, MAX_GLOSSARY)
     }
 }
 

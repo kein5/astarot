@@ -19,11 +19,11 @@ fn languages() -> Vec<String> {
 
 /// A machine translation: codes, no prompt.
 fn plain<'a>(text: &'a str, source: &'a str, target: &'a str) -> Translation<'a> {
-    Translation { text, source, target, supported_languages: &[], history: &[] }
+    Translation { text, source, target, supported_languages: &[], history: &[], glossary: &[] }
 }
 
 fn ask<'a>(text: &'a str, supported: &'a [String], history: &'a [HistoryItem]) -> Translation<'a> {
-    Translation { text, source: "Japanese", target: "English", supported_languages: supported, history }
+    Translation { text, source: "Japanese", target: "English", supported_languages: supported, history, glossary: &[] }
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn deepl_checks_the_key_and_translates_with_upper_case_codes() {
     assert_eq!(check.body["target_lang"], "EN-US");
 
     let ask_deepl =
-        Translation { text: "こんにちは", source: "ja", target: "en-US", supported_languages: &[], history: &[] };
+        Translation { text: "こんにちは", source: "ja", target: "en-US", supported_languages: &[], history: &[], glossary: &[] };
     assert_eq!(
         DeepL::translate(&net(), &Access::at(base).key("good:fx"), &ask_deepl).unwrap(),
         "deepl-free:EN-US:こんにちは"

@@ -389,6 +389,28 @@ fn recognised_speech_gets_the_written_forms_of_the_term_dictionary() {
 }
 
 #[test]
+fn an_ai_translator_is_told_the_users_terms_that_the_text_holds() {
+    let run = with_terms();
+    let key = format!("gsk{}", "q".repeat(40));
+    run.fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
+    assert_eq!(run.ui.ok("/set/data/groq_auth_key", Some(json!(key))), json!(key));
+    let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("Groq_API");
+    run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    let system = |text: &str| {
+        run.chat("m", text);
+        let sent = run.fake.seen_under("/groq/v1/chat").pop().unwrap();
+        sent.body["messages"][0]["content"].as_str().unwrap().to_string()
+    };
+    let with_term = system("猫丸と行く");
+    assert!(with_term.contains("Treat each as a proper noun") && with_term.contains("\n- 猫丸\n"), "{with_term}");
+    assert!(!with_term.contains("Midnight Rooftop"), "a term not in the text was sent");
+    assert!(!system("こんにちは").contains("Treat each as a proper noun"));
+    run.ui.stop();
+}
+
+#[test]
 fn the_overlay_and_speech_hooks_get_each_message_and_a_failure_is_reported() {
     let run = start(json!({ "OVERLAY_LARGE_LOG": true }), None);
     let overlays: Arc<Mutex<Vec<OverlayMessage>>> = Arc::default();

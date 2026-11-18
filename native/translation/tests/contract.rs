@@ -188,6 +188,7 @@ fn run(document: &Value, case: &Value) -> (Value, Option<f64>) {
                 target: t["target"].as_str().unwrap(),
                 supported_languages: &supported,
                 history: &history,
+                glossary: &[],
             };
             match provider.translate(&transport, &call, &request) {
                 Ok(text) => json!({ "text": text }),
