@@ -15,7 +15,8 @@
     { "endpoint": "/get/data/overlay_font_family", "handler": "core: OVERLAY_FONT_FAMILY", "before_init": true },
     { "endpoint": "/set/data/overlay_font_family", "handler": "core: set_overlay_font_family", "before_init": true },
     { "endpoint": "/get/data/overlay_font_missing_languages", "handler": "core: overlay_font_missing_languages", "before_init": true },
-    { "endpoint": "/get/data/vad_available", "handler": "core: services.vad", "before_init": true }
+    { "endpoint": "/get/data/vad_available", "handler": "core: services.vad", "before_init": true },
+    { "endpoint": "/get/data/gpu_memory", "handler": "core: gpu_memory", "before_init": true }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },

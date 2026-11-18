@@ -101,7 +101,7 @@ PNGの小さな本文・サブタイトルは利用環境に応じて代替書�
 
 16 px の光学補正版 `favicon-16.svg` だけは共有パスを使わない。`tools/astarot_favicon_small.py` が幾何から描き、`favicon-16.png` と `favicon.ico` も作る。`favicon.ico` には、16 px にこの版を、32 px と 48 px に `favicon-32.png` と `favicon-48.png` を入れる。マニュアルのページはこの ICO を favicon にする。SVG の favicon を置くと、ブラウザーは 16 px のタブにも SVG を縮小して使うためである。`--check` を付けると、何も書かずに現在のファイルと一致するかを確かめる。
 
-現行 `docs/brand/` には `VRCT-VOX` のアイコン・ロゴ・生成ツール `tools/brand_assets.py` がある。**移行承認までこれらを上書きしない。** 実装段階で既存パイプラインに ASTAROT 原版を登録して、UI、README、Tauri の OS アイコン、インストーラー、AppImage などを一括生成・検証する。
+`docs/brand/` 直下にあった `VRCT-VOX` のアイコン、ロゴ、機能グリフと生成ツール `tools/brand_assets.py` は、移行の承認まで上書きしないことにしていた。アプリと README の表示が ASTAROT の素材に移ったので、2026-11-18 にリポジトリから削除した。いまの素材の一覧と生成の手順は `docs/brand/README.md` にある。
 
 ## 4. 製品機能の定義と境界
 

@@ -32,7 +32,7 @@ test("stages run one after another from the origin; outputs carry their own arri
     }, { wait: 12, translate: 210 });
     assert.deepEqual(stageSegments(row), [{ kind: "wait", start: 0, ms: 12 }, { kind: "translate", start: 12, ms: 210 }]);
     assert.deepEqual(outputArrivals(row), [{ kind: "chatbox", at: 240 },
-        { kind: "speech", at: 820, conversion: 31, end: 851 }]);
+        { kind: "speech", at: 820, conversion: 31, synthesis: null, end: 851 }]);
     assert.equal(traceTotal(row), 851);
 });
 
@@ -44,7 +44,17 @@ test("outputs that did not go out have no arrival, and the total falls back to t
     assert.equal(traceTotal(trace("b")), null);
     // Speech without the conversion adds nothing.
     assert.deepEqual(outputArrivals(trace("c", "chat", { speech: { state: "playing", at_ms: 500, converted: false } })),
-        [{ kind: "speech", at: 500, conversion: null, end: 500 }]);
+        [{ kind: "speech", at: 500, conversion: null, synthesis: null, end: 500 }]);
+});
+
+test("speech tells how much of its time was the synthesis, never more than its arrival", () => {
+    const speech = (synthesis_ms) => outputArrivals(trace("s", "chat", { speech: { state: "playing", at_ms: 500, converted: false, synthesis_ms } }))[0];
+    assert.equal(speech(180).synthesis, 180);
+    assert.equal(speech(900).synthesis, 500, "a clock step never draws it before the origin");
+    assert.equal(speech(undefined).synthesis, null);
+    assert.equal(speech(-1).synthesis, null);
+    assert.equal(speech(1.5).synthesis, null);
+    assert.equal(speech(180).end, 500, "the synthesis is part of the way, not added to it");
 });
 
 test("durations are whole ms, and the axis rounds up to a readable step", () => {
