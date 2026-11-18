@@ -13,7 +13,7 @@ async function fixture(context, language = "en", name = "ctranslate2_weight_type
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
     const t = (key, values) => { messages.push(key); return translations.t(key, values); };
     const statusHook = await loadModule(new URL("./useLegacyDownloadStatus.ts", import.meta.url), runtime);
-    const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.jsx", import.meta.url), runtime);
+    const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), runtime);
     const { _DownloadButton } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.jsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "@common_components": { CircularProgress },
         "../../../../../../../../logics/common/useLegacyDownloadStatus": statusHook,
@@ -105,7 +105,7 @@ test("an already installed model stays quiet; unmount cancels pending announceme
 });
 
 test("shared circular progress clamps determinate values and omits unknown values", async () => {
-    const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.jsx", import.meta.url), hooks());
+    const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), hooks());
     for (const [value, expected] of [[-5, 0], [108, 100], [NaN, undefined], [null, undefined]]) {
         const tree = CircularProgress({ variant: "determinate", value, "aria-label": "Test download" });
         assert.equal(tree.props["aria-valuenow"], expected);

@@ -24,7 +24,7 @@ async function setup(context, snapshot) {
         snapshot: async () => { reads++; return current; },
         onChanged: async callback => { callbacks.changed = callback; return () => removed.push("changed"); },
     };
-    const { CaptionOverlay } = await loadModule(new URL("./CaptionOverlay.jsx", import.meta.url), runtime, {
+    const { CaptionOverlay } = await loadModule(new URL("./CaptionOverlay.tsx", import.meta.url), runtime, {
         "../../logics/captionOverlay/bridge": { captionOverlayBridge: bridge },
         "../../logics/captionOverlay/lines": lines,
         "../../logics/common/speakerLabels": speakerLabels,

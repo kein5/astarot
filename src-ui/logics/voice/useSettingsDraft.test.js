@@ -10,7 +10,7 @@ async function setup(context, savedFromResponse) {
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window: eventTarget() });
     const state = { saved: { vocabulary: { terms: [] }, model: "old" }, error: null };
-    const { useSettingsDraft } = await loadModule(new URL("./useSettingsDraft.jsx", import.meta.url), runtime, {
+    const { useSettingsDraft } = await loadModule(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
     });
     const write = value => new Promise(resolve => requests.push({ value, resolve }));
