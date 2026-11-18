@@ -50,10 +50,17 @@ vrct-vr-overlay = { path = "../vr-overlay" }
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"
 
+# The API keys in the Secret Service (src/config/secrets/secret_service.rs). The same version the
+# application already locks for its portals; pure Rust, no libdbus.
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = "=5.19.0"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "=0.61.2", features = [
     "Win32_Foundation",
-    # DPAPI for the API keys' file (src/config/secrets.rs).
+    # The API keys in the Credential Manager (src/config/secrets/credential_manager.rs).
+    "Win32_Security_Credentials",
+    # DPAPI for the API keys' file that keys move from (src/config/secrets.rs).
     "Win32_Security_Cryptography",
     "Win32_Storage_FileSystem",
     "Win32_System_IO",

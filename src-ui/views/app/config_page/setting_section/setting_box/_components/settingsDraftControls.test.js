@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.js";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
@@ -9,9 +9,9 @@ const importsPath = "../../../../../../../logics/voice/useSettingsDraft";
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 
 async function setup(context, kind) {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests = [];
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window: eventTarget(), document: { body: {} }, requestAnimationFrame: fn => fn() });
     let entry;
     const { useSettingsDraft } = await loadModule(new URL(draftPath, import.meta.url), runtime, {
@@ -89,7 +89,7 @@ for (const action of ["reset", "swap"]) test(`message format ${action} shares th
     assert.equal(leave.defaultPrevented, true);
     if (action === "reset") find(s.input(), node => node.type === "reset").props.onClickFunction();
     else find(s.input(), node => node.props?.className === "swap_button_wrapper").props.onClick();
-    s.render(); context.mock.timers.tick(600); s.render();
+    s.render(); vi.advanceTimersByTime(600); s.render();
     assert.equal(s.requests.length, 0);
     assert.equal(prefix().props.ui_variable, action === "reset" ? "" : "draft");
     if (action === "reset") prefix().props.onChange({ target: { value: "retry" } });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
 
 // The top bar's stop and mute (and their hotkeys) are pressed away from the settings page that

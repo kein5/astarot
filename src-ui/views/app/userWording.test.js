@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { readFileSync } from "node:fs";
 
 const locale = language => readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8");

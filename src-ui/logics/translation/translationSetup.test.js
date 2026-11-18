@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../test/hookHarness.js";
 import { downloadProgress } from "../main/setupNeeds.ts";
 
@@ -83,7 +83,7 @@ async function fixture(context) {
     };
     const accept = review => { review.props.onDownload({ weight_type: "small", consent: true }); review.props.onCancel(); render(); };
     const enables = () => calls.filter(([path]) => path === "/set/enable/translation").length;
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     render();
     return { render, remount, press, accept, enables, calls, notices, states, weight, setup, error, expanded, selector: () => selector };
 }

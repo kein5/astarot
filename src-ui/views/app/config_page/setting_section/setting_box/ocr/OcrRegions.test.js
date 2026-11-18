@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 import * as helpers from "../../../../../../logics/configs/ocrReadiness.ts";
@@ -9,7 +9,7 @@ const vrRegion = { x: 0.1, y: 0.5, width: 0.3, height: 0.4 };
 const prefix = "config_page.ocr.";
 
 async function setup(t, status) {
-    t.mock.timers.enable({ apis: ["setInterval"] });
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const runtime = hooks(), sent = [], polled = [];
     const value = data => ({ data, state: "ok" });
     const ocr = {
@@ -29,7 +29,7 @@ async function setup(t, status) {
     };
     const components = await loadModule(new URL("./OcrRegions.jsx", import.meta.url), runtime, imports);
     const { OcrStatus } = await loadModule(new URL("./OcrStatus.jsx", import.meta.url), runtime, imports);
-    t.after(() => runtime.unmount());
+    t.onTestFinished(() => runtime.unmount());
     return { ...components, runtime, ocr, sent, polled,
         render: () => runtime.render(components.OcrRegions),
         status: (props = {}) => runtime.render(OcrStatus, props),
@@ -46,7 +46,7 @@ test("region editors share capture status without polling or adding a second rea
         assert.deepEqual(s.editor("window", tree).props.variable.data, windowRegion);
         assert.deepEqual(s.editor("vr", tree).props.variable.data, vrRegion);
     }
-    t.mock.timers.tick(3000);
+    vi.advanceTimersByTime(3000);
     assert.deepEqual(s.polled, []);
     assert.deepEqual(s.sent, []);
 });
@@ -111,12 +111,12 @@ test("status polling uses the current getter, starts once, and stops when the pa
     assert.deepEqual(s.polled, ["initial"]);
     s.ocr.getOcrCaptureStatus = () => s.polled.push("new");
     s.status();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     assert.deepEqual(s.polled, ["initial", "new"]);
-    t.mock.timers.tick(2000);
+    vi.advanceTimersByTime(2000);
     assert.deepEqual(s.polled, ["initial", "new", "new", "new"]);
     s.runtime.unmount();
-    t.mock.timers.tick(5000);
+    vi.advanceTimersByTime(5000);
     assert.deepEqual(s.polled, ["initial", "new", "new", "new"]);
     assert.deepEqual(s.sent, []);
 });

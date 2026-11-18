@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { changedPaths } from "./saveBar.ts";
 
 test("only the edited leaves of nested settings are reported", () => {

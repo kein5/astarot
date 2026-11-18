@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { isSidecarWarning } from "./sidecarDiagnostics.ts";
 
 test("structured Python warnings keep multiline messages out of fatal notifications", () => {

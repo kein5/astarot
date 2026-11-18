@@ -1,5 +1,6 @@
-//! Taking named files out of a pinned archive: a zip (a wheel, ONNX Runtime for Windows) or a
-//! gzip tar (ONNX Runtime for Linux), as `unpack_members` in `runtime_setup.py` did.
+//! Taking named files out of a pinned archive: a zip (a wheel, a NuGet package of ONNX
+//! Runtime) or a gzip tar (ONNX Runtime's GitHub archive for Linux until 2026-11-18), as
+//! `unpack_members` in `runtime_setup.py` did.
 //!
 //! The archive's hash is checked before this runs. A name that is missing, a link, a folder,
 //! an encrypted entry, or a file name that could leave the target refuses the whole archive.

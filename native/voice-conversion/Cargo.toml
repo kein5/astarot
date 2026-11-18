@@ -18,7 +18,8 @@ flate2 = "=1.1.11"
 crc32fast = "=1.5.5"
 serde_json = "=1.0.154"
 sha2 = "=0.10.9"
-# The runtime's .tgz archives (ONNX Runtime for Linux). Without xattr: only file data is read.
+# Gzip tar archives (ONNX Runtime for Linux came as one until 2026-11-18; every pinned source
+# is a zip now). Without xattr: only file data is read.
 tar = { version = "=0.4.46", default-features = false }
 uuid = { version = "=1.29.0", features = ["v4"] }
 # Routes, capture and outputs; the PipeWire client is chosen by the application.
