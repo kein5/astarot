@@ -109,7 +109,7 @@ ONNX Runtime の上で LLM の生成を受け持つ Microsoft のライブラリ
 5. 生成: 貪欲法で生成し、トークン 1 か 106 で止める。今の `beam.rs` は encoder-decoder の CTranslate2 の規則に合わせたもので、そのままは使えない。入力と出力の上限（今は 1024 と 256）を決め直す。
 6. マニフェスト: 新しい `family`（例: `gemma3`）を足す。今のマニフェストは `encoder`、`decoder`、`decoder_layers` などの encoder-decoder の欄を必須にしているので、schema を分ける。外部データのファイルが複数あるので、カタログの役割 `data` を複数持てるようにする。
 7. 中核: `family_of`、`weight_of_catalog_id`、`languages::TRANSLATION_WEIGHTS`、言語の表、翻訳のカタログの `RUNTIMES` に足す。
-8. カタログ: `catalog.rs` の対象 `translation` に、版、ファイルごとの大きさと SHA-256、ライセンスのリンク（規約、禁止用途のポリシー、`NOTICE`）、専用の `notice` を固定して載せ、`CATALOG_VERSION` を上げる。`NOTICE.md` と[ライセンス台帳](licensing.md)に書く。既定にはしない。
+8. カタログ: 翻訳の項目は `native/ops/data/translation_models.json` に置き、`tools/translation_onnx/publish.py catalog --write` で公開した版のファイルを照らして書く（#277）。版、ファイルごとの大きさと SHA-256、ライセンスのリンク（規約、禁止用途のポリシー、`NOTICE`）を固定し、`CATALOG_VERSION` を上げる。今のデータの形では翻訳の項目の `notice` が `translation` に決まっているので、規約の注記を出すには項目ごとの `notice` を持てるようにする。`NOTICE.md` と[ライセンス台帳](licensing.md)に書く。既定にはしない。
 9. ハードウェアの目安: 翻訳の項目には、今は目安の数値がない（`guidance.rs`）。計測の値を足して、性能不足の警告（#405）の対象にする。
 10. 計測: 4B の int4 と int8 を、CPU と DirectML などで動かし、読み込みの時間、メモリーと VRAM のピーク、1発話あたりの時間を測る。VRChat、音声認識、読み上げと同時に動かした値も要る（ADR-012 の 2.6）。Windows と Linux の両方で測る（2.7）。実行プロバイダごとの int4 の動作は、`native/translate-onnx/README.md` の表でも「未確認」である。
 
