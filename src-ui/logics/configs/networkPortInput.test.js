@@ -41,6 +41,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         "../shared_items/SharedItems": { AutoExportMessageLogsContainer: () => null },
         "../_components/description/Description": { Description: () => null },
         "../_components/telemetry/TelemetryContents": { TelemetryContents: () => null },
+        "./GpuCheck.tsx": { GpuCheck: () => null },
         "../../../../../../logics/configs/obsBrowserSourceUrl": { buildObsBrowserSourceUrl, buildWebsocketUrl },
         "../../../../../../logics/configs/networkPortInput": { parsePortInput, PORT_INPUT_LIMITS },
         // A minimal draft: the saved pair, edited in place, submitted through the given write.

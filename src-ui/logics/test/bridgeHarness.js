@@ -11,6 +11,7 @@ import * as utils from "../utils.ts";
 import * as localAsrMigration from "../transcription/localAsrMigration.ts";
 import * as virtualMicShapes from "../voice/virtualMic.ts";
 import * as voiceAuditionShapes from "../voice/voiceAudition.ts";
+import * as gpuCheckShapes from "../support/gpuCheck.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
 
 const messageFormat = { message: { prefix: "", suffix: "" }, separator: "\n",
@@ -122,12 +123,17 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint, data) => { sent.push([endpoint, data]); return true; } }) },
         "./voiceAudition.ts": voiceAuditionShapes,
     });
+    // The GPU check (#288): the real hook.
+    const gpuCheck = await loadModule(new URL("../support/useGpuCheck.ts", import.meta.url), localRuntime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
+        "./gpuCheck.ts": gpuCheckShapes,
+    });
     const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key, i18n: { exists: () => false } } },
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "./transcription/useRealtimeASR": realtime, "./transcription/useLocalAsrMigration": localAsr, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
-        "./setup/useFirstRunSetup": firstRunSetup, "./voice/useVoiceAudition": voiceAudition,
+        "./setup/useFirstRunSetup": firstRunSetup, "./voice/useVoiceAudition": voiceAudition, "./support/useGpuCheck": gpuCheck,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./translation/useTranslationCatalog": { useTranslationCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
@@ -144,6 +150,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     return { ...subject, notices, reads, localAsr: () => localRuntime.render(localAsr.useLocalAsrMigration), virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
         firstRunSetup: () => localRuntime.render(firstRunSetup.useFirstRunSetup),
         voiceAudition: () => localRuntime.render(voiceAudition.useVoiceAudition), auditionSent: sent,
+        gpuCheck: () => localRuntime.render(gpuCheck.useGpuCheck),
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
         ...runtime.render(routes.useReceiveRoutes) };
 };

@@ -7,6 +7,7 @@ import dialogStyles from "../_components/download_models/LegacyModelDownloadDial
 import { AutoExportMessageLogsContainer } from "../shared_items/SharedItems";
 import { Description } from "../_components/description/Description";
 import { TelemetryContents } from "../_components/telemetry/TelemetryContents";
+import { GpuCheck } from "./GpuCheck.tsx";
 import { parsePortInput, PORT_INPUT_LIMITS } from "../../../../../../logics/configs/networkPortInput";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "../../../../../../logics/configs/obsBrowserSourceUrl";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
@@ -52,6 +53,12 @@ export const AdvancedSettings = () => {
             <div>
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_telemetry")} />
                 <TelemetryContainer />
+            </div>
+            {/* The GPU check, next to the usage data: both say what leaves the PC (#288). It
+                sends nothing itself; the user reads the report and may send it on GitHub. */}
+            <div>
+                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_gpu_check")} />
+                <GpuCheck />
             </div>
             {/* Where messages go to VRChat: set once, if ever, like the other connections below.
                 The VRChat page says whether VRChat is found and leads here (#554, Q-06). */}
