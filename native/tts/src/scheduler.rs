@@ -80,8 +80,11 @@ pub type MonitorFactory = Arc<dyn Fn(MonitorRequest) -> Result<Arc<dyn Monitor>,
 /// Receives a short fixed code (a failure or a monitor notice).
 pub type Notice = Arc<dyn Fn(&str) + Send + Sync>;
 
-/// `(event, first audible write in monotonic ns, spoken through the conversion)`.
-pub type FirstAudioHook = Arc<dyn Fn(&SpeechMessageEvent, i64, bool) + Send + Sync>;
+/// `(event, first audible write in monotonic ns, spoken through the conversion, when this
+/// message's synthesis was asked for in monotonic ns)`. The last one is taken when the worker
+/// picks the message from the queue, before the engine is reached, so that the time from it to
+/// the first write is the synthesis alone, without the wait in the queue.
+pub type FirstAudioHook = Arc<dyn Fn(&SpeechMessageEvent, i64, bool, i64) + Send + Sync>;
 
 /// Construction options. The defaults are the application's.
 pub struct BusOptions {
@@ -728,6 +731,7 @@ fn work(inner: &Arc<Inner>) {
 }
 
 fn speak(inner: &Arc<Inner>, job: &Job, token: &CancelToken, first_write: &mut Option<(i64, u32)>, monitor_slot: &mut Option<Arc<dyn Monitor>>) -> Result<(), TtsError> {
+    let synthesis_started = monotonic_ns();
     let event = &job.event;
     let settings = &job.settings;
     let resolve = inner.resolve_server.clone();
@@ -757,7 +761,7 @@ fn speak(inner: &Arc<Inner>, job: &Job, token: &CancelToken, first_write: &mut O
         if let Some(hook) = &on_first_audio {
             // The flow panel: when this message became audible, and by which
             // path. A readout never stops speech.
-            let _ = catch_unwind(AssertUnwindSafe(|| hook(event, timestamp, converted)));
+            let _ = catch_unwind(AssertUnwindSafe(|| hook(event, timestamp, converted, synthesis_started)));
         }
         Ok(())
     };

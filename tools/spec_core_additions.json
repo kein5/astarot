@@ -16,6 +16,7 @@
     { "endpoint": "/set/data/overlay_font_family", "handler": "core: set_overlay_font_family", "before_init": true },
     { "endpoint": "/get/data/overlay_font_missing_languages", "handler": "core: overlay_font_missing_languages", "before_init": true },
     { "endpoint": "/get/data/vad_available", "handler": "core: services.vad", "before_init": true },
+    { "endpoint": "/get/data/gpu_memory", "handler": "core: gpu_memory", "before_init": true },
     { "endpoint": "/get/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true },
     { "endpoint": "/set/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true }
   ],

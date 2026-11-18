@@ -406,4 +406,5 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::updates::add,
     super::transcription::add,
     super::voice::add,
+    super::gpu_memory::add,
 ];

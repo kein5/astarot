@@ -171,6 +171,57 @@ def test_navigation_keyboard_and_all_settings(studio):
     expect(device).not_to_be_visible()
 
 
+SETTINGS_TABS = ("デバイス", "デザイン", "翻訳", "音声認識（ASR）", "VRChat", "字幕とVR", "ホットキー",
+                 "テキスト読み上げ（TTS）", "ボイスチェンジャー（RVC）", "高度な設定")
+
+# Every field a settings row offers: the forms' selects and inputs, and the older choice field.
+_FIELDS = """() => [...document.querySelectorAll(
+    '[data-setting-id] select, [data-setting-id] input:not([type=checkbox]):not([type=range]):not([type=radio]):not([type=color]),'
+    + ' [data-setting-id] [class*=dropdown_toggle_button]')]
+    .filter(el => el.getClientRects().length && !el.closest('details:not([open])') && !el.closest('[role=dialog]'))
+    .map(el => { const r = el.getBoundingClientRect();
+        const id = el.closest('[data-setting-id]').getAttribute('data-setting-id');
+        return { id, short: el.matches('[data-field-width=short], [data-field-width=short] *'),
+            tag: el.tagName, type: el.type || '', left: Math.round(r.left), width: Math.round(r.width) }; })"""
+
+
+def _settings_fields(page, width):
+    found = {}
+    for label in SETTINGS_TABS:
+        tab = page.get_by_role("button", name=label, exact=True)
+        tab.click()
+        page.wait_for_timeout(300)
+        screenshot(page, f"fields-{SHOT_NAMES.get(label, label)}-{width}")
+        found[label] = page.evaluate(_FIELDS)
+    return found
+
+
+def test_settings_fields_follow_the_width_rule(studio):
+    # Fields were 556, 280, 200-240, 140 or 100 px wide depending on the page (#567). Now every
+    # field lies in the field column, which starts at the same x on every page, and fills it
+    # beside at most its own checkbox or buttons (a device's 自動選択, a hotkey's delete),
+    # unless it holds a short value (a port, an address, a number: at most 14rem).
+    # Rows without a label (the message format, the word list) and the threshold's number
+    # beside its meter are composed controls and are left out.
+    page, _ = studio
+    page.get_by_role("button", name="設定を開く", exact=True).click()
+    off = []
+    for window in (1200, 870):
+        page.set_viewport_size({"width": window, "height": 850})
+        found = _settings_fields(page, window)
+        columns = {(field["left"], field["width"]) for fields in found.values() for field in fields if field["tag"] == "SELECT"}
+        assert len(columns) == 1, (window, columns)
+        left, width = columns.pop()
+        for label, fields in found.items():
+            for field in fields:
+                if field["id"] in ("send_message_format", "received_message_format", "mic_word_filter") or "threshold" in field["id"]:
+                    continue
+                inside = field["left"] >= left - 1 and field["left"] + field["width"] <= left + width + 1
+                if not inside or not (field["width"] >= .6 * width or field["width"] <= 145):
+                    off.append((window, left, width, label, field))
+    assert not off, "\n".join(str(row) for row in off)
+
+
 def test_small_window_and_reduced_motion(studio):
     from playwright.sync_api import expect
 
