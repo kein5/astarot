@@ -5893,6 +5893,8 @@ dependencies = [
  "tauri-plugin-updater",
  "vrct-core",
  "webkit2gtk",
+ "webview2-com",
+ "windows",
  "zbus",
 ]
 

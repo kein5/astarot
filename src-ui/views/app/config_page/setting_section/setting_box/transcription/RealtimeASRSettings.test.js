@@ -212,10 +212,19 @@ test("rejected and unconfirmed saves keep edits visible and guarded; refresh doe
     assert.equal(s.status(), "voice_ui.saved");
 });
 
+const silenceSelect = tree => find(tree, node => node.type === "select" && node.props["aria-label"] === "realtime.silence");
+const optionValues = node => {
+    const values = [];
+    find(node, child => { if (child.type === "option") values.push(child.props.value); return false; });
+    return values;
+};
+
 test("the silence that ends an utterance is saved when chosen and left out for the default", async context => {
     const s = await fixture(context);
-    const select = () => find(s.render(), node => node.type === "select" && node.props["aria-label"] === "realtime.silence").props;
-    assert.equal(select().value, "", "the server's own by default");
+    const select = () => silenceSelect(s.render()).props;
+    assert.equal(select().value, "", "the default by default");
+    // The default (0.4 s) comes first; the default before, 0.5 s, can still be chosen.
+    assert.deepEqual(optionValues(silenceSelect(s.render())), ["", 300, 500, 700, 1000]);
     select().onChange({ target: { value: "300" } });
     assert.equal(select().value, 300);
     assert.deepEqual(s.entries()[0].changes, ["realtime.silence"]);
@@ -223,11 +232,23 @@ test("the silence that ends an utterance is saved when chosen and left out for t
     assert.equal(s.writes()[0][1].silence_duration_ms, 300);
     await s.acknowledge(s.writes()[0][1]);
     assert.equal(s.entries()[0].dirty, false);
-    // Back to the server's own: the field goes, as the backend leaves it out.
+    // Back to the default: the field goes, as the backend leaves it out.
     select().onChange({ target: { value: "" } });
     s.render(); s.entries()[0].save(); s.render();
     assert.equal("silence_duration_ms" in s.writes()[1][1], false);
     await s.acknowledge(s.writes()[1][1]);
     assert.equal(s.entries()[0].dirty, false);
     assert.equal(select().value, "");
+});
+
+test("a silence saved before the default became 0.4 s stays chosen", async context => {
+    // 0.4 s was a choice of its own before it became the default: a saved 400 stays saved and
+    // shows as itself, so the setting does not move when the default changes again.
+    const s = await fixture(context);
+    s.asr.settings = { ...s.asr.settings, silence_duration_ms: 400 };
+    s.render();
+    const select = silenceSelect(s.render());
+    assert.equal(select.props.value, 400);
+    assert.deepEqual(optionValues(select), ["", 400, 300, 500, 700, 1000]);
+    assert.equal(s.entries()[0].dirty, false);
 });

@@ -1386,7 +1386,7 @@ realtime:
   follow_default_speaker: "Follow the system default output"
   follow_default_help: "The system default is read when captions start and kept until they stop. ASTAROT's own virtual devices, and a virtual cable set as the default microphone, are never captured."
   silence: "Silence that ends an utterance"
-  silence_default: "Default (0.5 s)"
+  silence_default: "Default (0.4 s)"
   silence_seconds: "{{seconds}} s"
   silence_help: "After this much silence the utterance is final and goes on to translation, the chatbox and speech. A shorter silence gives results sooner, but a pause inside a sentence is more likely to end it, so one sentence may become several messages. Changing it stops both captions."
   vocabulary: "Term dictionary"

@@ -1386,7 +1386,7 @@ realtime:
   follow_default_speaker: "システムの既定の出力に従う"
   follow_default_help: "字幕の開始時にシステムの既定を読み取り、停止するまでそのデバイスを使います。ASTAROTの仮想デバイスと、既定のマイクになっている仮想ケーブルは対象にしません。"
   silence: "話し終わりとみなす無音の長さ"
-  silence_default: "既定（0.5秒）"
+  silence_default: "既定（0.4秒）"
   silence_seconds: "{{seconds}}秒"
   silence_help: "この長さの無音が続くと発話を確定し、翻訳やチャットボックス、読み上げに送ります。短くすると結果が早く出ますが、文の途中の間でも区切られやすくなり、1つの文が複数のメッセージに分かれることがあります。変更すると両方の字幕を停止します。"
   vocabulary: "用語辞書"
