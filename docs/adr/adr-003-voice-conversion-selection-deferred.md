@@ -1,8 +1,22 @@
+---
+date: 2026-10-27
+status: accepted
+era: python-sidecar
+validity: replaced
+validity_note: VC の選定は自前の実装（native/rvc-runtime と別プロセスの vrct-rvc-worker、ONNX Runtime）に決まり、ADR-012 の 6.1 が管理対象の例外として引き継いだ。VC の本体とモデルを同梱しない線引きも 6.1 に残っている。
+superseded_by:
+  - ADR-012
+implementation_status: not_applicable
+implementation_note: 選定を保留する判断なので、それ自体の実装はない。いまの VC の実装の状態は ADR-012 の 6.1 と native/voice-conversion/README.md にある。
+evidence:
+  - docs/adr/adr-012-audio-ai-runtime-consolidation.md
+  - native/voice-conversion/README.md
+---
 # ADR 003: VCは選定保留
 
 > **状態の注記**（2026-11-18 追記、Issue #587）：VC の選定は、その後、ここに挙げた候補（VCClient、Seed-VC Realtime）ではなく、自前の実装に決まった。いまの声質変換（RVC）は `native/rvc-runtime` の Rust の実装で、別プロセスの `vrct-rvc-worker` が ONNX Runtime で推論する。この実装は [ADR-012](adr-012-audio-ai-runtime-consolidation.md) の 6.1 で、管理対象の例外として登録してある。VC の本体やモデルを同梱せず、同意を得てから取得するという線引きは、いまも守っている。Seed-VC は 0.5.0 から配布物に入っていない。以下の本文は書き換えていない。
 
-> **移行の注記**（2026-11-18、Issue #587）：この文書は、旧 `docs/voice-stack/decisions.md` の「ADR 003」の節を、1件ずつのファイルに分けたものである。原文は 2026-10-27 に書かれ（コミット `ad977081`）、分けるまで変わっていない。本文は原文のままで、変えたのは見出しの階層（`##` から `#`）と、注記を足したことだけである。
+> **移行の注記**（2026-11-18、Issue #587）：この文書は、旧 `docs/voice-stack/decisions.md` の「ADR 003」の節を、1件ずつのファイルに分けたものである。原文は 2026-10-27 に書かれ（コミット `ad977081`）、分けるまで変わっていない。本文は原文のままで、分けるときに変えたのは見出しの階層（`##` から `#`）と、注記を足したことだけである。冒頭の front matter は、その後に足した機械可読の項目である。
 >
 > 原文には、この ADR だけの採用状態の行はない。旧ファイルにあった採用状態の行は、ADR 001 の節の「Status: accepted for P1, 2026-10-27.」だけである。[ADR 004](adr-004-audio-integration-boundaries.md) は ADR 001〜003 をまとめて、採用済み（accepted）の ADR として扱っている。
 
