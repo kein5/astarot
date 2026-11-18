@@ -67,6 +67,8 @@ struct Args {
     out: Option<PathBuf>,
     device: String,
     label: String,
+    /// Realtime recognition's `silence_duration_ms`; the server's own when absent.
+    silence_ms: Option<u64>,
 }
 
 fn args() -> Args {
@@ -91,6 +93,7 @@ fn args() -> Args {
         out: found.get("out").map(PathBuf::from),
         device: found.get("device").cloned().unwrap_or_else(|| "auto".into()),
         label: found.get("label").cloned().unwrap_or_default(),
+        silence_ms: found.get("silence-ms").map(|v| v.parse().expect("--silence-ms takes a number")),
     }
 }
 
@@ -528,6 +531,11 @@ fn main() {
             "output_device": OUTPUT_DEVICE, "multilingual_server": "bundled", "multilingual_voice": args.tts_voice, "multilingual_seed": "1",
         },
     });
+    let mut saved = saved;
+    if let Some(ms) = args.silence_ms {
+        // Only when asked: a core before #556 refuses the field and drops the settings.
+        saved["REALTIME_ASR_SETTINGS"]["silence_duration_ms"] = json!(ms);
+    }
     std::fs::write(state.join("config.json"), serde_json::to_string_pretty(&saved).unwrap()).unwrap();
 
     let mic = Mic::default();
@@ -625,6 +633,15 @@ fn main() {
         let first_partial = lines.iter().find(|(_, l)| caption_state(l) == Some("partial")).map(|(at, _)| *at);
         let traces: Vec<&Value> = lines.iter().filter(|(_, l)| l["endpoint"] == "/run/io_trace").map(|(_, l)| &l["result"]).collect();
         let recognised: String = finals.iter().filter_map(|(_, l)| l["result"]["text"].as_str()).collect::<Vec<_>>().join("");
+        // Whether the last final's text was already the latest partial before it, and how long
+        // before: how much a translation started on that partial could have saved.
+        let partial_matches = finals.last().map(|(final_at, final_line)| {
+            let latest = lines.iter().filter(|(at, l)| at < final_at && caption_state(l) == Some("partial")).last();
+            match latest {
+                Some((at, partial)) if partial["result"]["text"] == final_line["result"]["text"] => json!(ms(final_at - at)),
+                _ => Value::Null,
+            }
+        });
         let audio = speaker.first_audio.lock().unwrap()[audio_from..].to_vec();
         let chats = chatbox_times.lock().unwrap()[chat_from..].to_vec();
         let last_final = finals.last().map(|(at, _)| *at);
@@ -647,6 +664,7 @@ fn main() {
             "clip_ms": ms(clip.samples.len() as i64 * 1_000_000_000 / i64::from(RATE)),
             "utterances": finals.len(),
             "cer": cer(&clip.expected, &recognised),
+            "final_was_partial_ms_before": partial_matches.unwrap_or(Value::Null),
             "first_partial_after_end_ms": since_end(first_partial),
             "final_after_end_ms": since_end(last_final),
             "pipeline_start_after_end_ms": since_end(pipeline_start),
@@ -681,6 +699,7 @@ fn main() {
     let summary = json!({
         "label": args.label,
         "summary": true,
+        "silence_duration_ms": args.silence_ms,
         "final_after_end_ms": summary_of(&|r| r["final_after_end_ms"].as_f64()),
         "pipeline_start_after_end_ms": summary_of(&|r| r["pipeline_start_after_end_ms"].as_f64()),
         "translate_ms": summary_of(&|r| r["trace"]["translate_ms"].as_f64()),
