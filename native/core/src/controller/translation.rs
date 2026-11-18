@@ -1499,13 +1499,13 @@ mod tests {
     use super::*;
     use crate::languages::{translation, DEFAULT_TRANSLATION_WEIGHT, TRANSLATION_WEIGHTS};
 
-    const CONTRACT: &str = include_str!("../../../translation/tests/contract/providers.json");
-
     #[test]
     fn the_prompt_lists_the_languages_the_contract_recorded() {
         // The contract recorded each Python client's `supported_languages`; the core passes its
-        // own table's names, which must be the same, in the same order.
-        let contract: Value = serde_json::from_str(CONTRACT).unwrap();
+        // own table's names, which must be the same, in the same order. Read when the test runs,
+        // so that the file is no input of the core's build.
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../translation/tests/contract/providers.json");
+        let contract: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("the contract")).unwrap();
         let recorded = contract["supported_languages"].as_object().unwrap();
         assert!(!recorded.is_empty());
         for (engine, names) in recorded {
