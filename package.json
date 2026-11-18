@@ -42,11 +42,13 @@
   },
   "dependencies": {
     "@babel/standalone": "7.27.0",
+    "@radix-ui/react-switch": "1.4.1",
     "@radix-ui/react-visually-hidden": "1.2.13",
     "@tauri-apps/api": "2.12.4",
     "@tauri-apps/plugin-global-shortcut": "2.4.1",
     "@tauri-apps/plugin-opener": "2.7.3",
     "@vanilla-extract/css": "1.21.3",
+    "@vanilla-extract/recipes": "0.5.7",
     "clsx": "2.1.1",
     "i18next": "25.0.1",
     "jotai": "3.0.2",

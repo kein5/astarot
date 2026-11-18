@@ -16,21 +16,26 @@ const fakeRegistry = { ...registry,
 async function load(context, registryModule = registry) {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
-    const writes = [];
+    const writes = [], vrPanelToggles = [], sent = [];
     const current = { state: "ok", data: {} };
+    const vrPanel = { state: "ok", data: false };
     const module = await loadModule(new URL("./ExperimentalFeatures.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke: async () => [] },
         "@logics_configs": { useExperimentalFeatures: () => ({
             currentExperimentalFeatures: current,
             setExperimentalFeatures: value => { writes.push(value); },
+        }), useVr: () => ({
+            currentIsEnabledOverlayVrPanel: vrPanel,
+            toggleIsEnabledOverlayVrPanel: () => { vrPanelToggles.push(!vrPanel.data); },
         }) },
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async endpoint => { sent.push(endpoint); } }) },
         [REGISTRY_PATH]: registryModule,
-        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown" },
+        "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", ActionButtonContainer: "action" },
         "../_components": { SectionLabelComponent: "heading" },
         "../../../../../../logics/companion/hexagram.ts": hexagram,
     });
     const render = props => runtime.render(module.ExperimentalFeatureList, props);
-    return { module, runtime, render, writes, current };
+    return { module, runtime, render, writes, current, vrPanel, vrPanelToggles, sent };
 }
 
 const flat = tree => [tree.props.children].flat(Infinity).filter(Boolean);
@@ -176,4 +181,42 @@ test("before the monitor list arrives, the chosen monitor is not called unplugge
     const dropdown = s.runtime.render(item.type, item.props);
     assert.equal(dropdown.props.selected_id, "\\\\.\\DISPLAY2");
     assert.equal(dropdown.props.list["\\\\.\\DISPLAY2"], "common.loading");
+});
+
+test("#554 (Q-05): the VR panel is listed with the features on trial and keeps its own saved switch", async context => {
+    const s = await load(context);
+    const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
+    const list = tree.type(tree.props);
+    const item = flat(list).find(node => typeof node.type === "function" && node.props.current === s.vrPanel);
+    assert.ok(item, "the page lists the VR panel");
+    const off = s.runtime.render(item.type, item.props);
+    const [checkbox, ...rest] = flat(off);
+    assert.equal(checkbox.type, "checkbox");
+    assert.equal(checkbox.props.setting_id, "experimental_features.vr_panel");
+    assert.equal(checkbox.props.label, "config_page.experimental_features.items.vr_panel.label");
+    // The value is the VR panel's own (OVERLAY_VR_PANEL): whoever had it on keeps it on.
+    assert.equal(checkbox.props.variable, s.vrPanel);
+    assert.deepEqual(rest, [], "the launcher's reset shows only while the panel is on");
+    checkbox.props.toggleFunction();
+    assert.deepEqual(s.vrPanelToggles, [true]);
+    assert.deepEqual(s.writes, [], "the experimental features' dictionary is not written");
+
+    s.vrPanel.data = true;
+    const on = s.runtime.render(item.type, item.props);
+    const action = flat(on).find(node => node.type === "action");
+    assert.equal(action.props.label, "config_page.experimental_features.items.vr_panel.reset_launcher.label");
+    await action.props.onclickFunction();
+    assert.deepEqual(s.sent, ["/run/vr_launcher_reset"]);
+
+    // The VR page no longer carries the switch: it leads here.
+    const vr = readFileSync(new URL("../vr/Vr.jsx", import.meta.url), "utf8");
+    assert.doesNotMatch(vr, /IsEnabledOverlayVrPanel|vr_launcher_reset/);
+    assert.match(vr, /<PagePointer [^>]*tab="experimental_features"/);
+});
+
+test("the page is not empty while the VR panel is listed", async context => {
+    const s = await load(context);
+    const vrPanel = { current: { state: "ok", data: false }, toggle: () => {}, resetLauncher: () => {} };
+    const list = s.render({ features: [], current: s.current, setValues: () => {}, vrPanel });
+    assert.equal(children(list).some(item => item.props?.children === "config_page.experimental_features.empty"), false);
 });

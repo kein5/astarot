@@ -659,7 +659,7 @@ def test_a_failed_speech_request_is_reported_by_its_code_and_a_refused_text_is_n
 
         def close(self, *, drain, token):
             pass
-    bus = tts_scheduler.VoiceEventBus(VoiceSettings(mode="original", output_device="cable"),
+    bus = tts_scheduler.VoiceEventBus(VoiceSettings(mode="original", output_device="cable", japanese_server="external"),
                                       provider_factory=Provider, router=AudioRouter(lambda *args: Sink()))
     try:
         for number in range(3):

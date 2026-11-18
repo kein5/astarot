@@ -28,7 +28,7 @@ export const loadBridgeStore = async (runtime = hooks()) => {
         useAtomValue: target => { subscriptions.push(target); return runtime.store.get(target); },
         useSetAtom: target => value => runtime.store.set(target, value),
     };
-    const stores = await loadModule(new URL("../store.js", import.meta.url), runtime, {
+    const stores = await loadModule(new URL("../store.ts", import.meta.url), runtime, {
         jotai,
         "./_test_data.ts": {}, "@ui_configs": {},
         "./common/vrPanelTooltip": { keepNewestVrLayout: (_, next) => next },

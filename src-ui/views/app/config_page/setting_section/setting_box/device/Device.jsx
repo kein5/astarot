@@ -1,5 +1,6 @@
 import { VoiceRouteSettings } from "./VoiceRouteSettings";
-import { VrcMicMuteSyncContainer } from "../shared_items/SharedItems";
+import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import { PagePointer } from "../_components/page_pointer/PagePointer";
 import { useI18n } from "@useI18n";
 import styles from "./Device.module.scss";
 import clsx from "clsx";
@@ -29,17 +30,34 @@ export const AutoSelectCheckbox = ({ secondary_label, variable, toggleFunction }
         size="2.4rem" padding="0.8rem" />
 );
 
+// The microphone and the speaker are chosen first; how sensitive each is, and the voice route,
+// are set once, in 「詳細設定」, whose line shows them (#554). A part of MicContainer and
+// SpeakerContainer is drawn in each place, so each keeps its state in one component.
 export const Device = () => {
+    const { t } = useI18n();
+    const { currentMicVadFilter, currentEnableAutomaticMicThreshold, currentSpeakerVadFilter,
+        currentEnableAutomaticSpeakerThreshold, currentVadAvailable } = useDevice();
+    const mode = (vad, automatic) => currentVadAvailable.data === true && vad.data === true ? "option_vad"
+        : automatic.data === true ? "option_auto" : "option_manual";
     return (
         <div className={styles.container}>
-            <VoiceRouteSettings />
-            <MicContainer />
-            <SpeakerContainer />
+            <MicContainer part="device" />
+            <SpeakerContainer part="device" />
+            <AdvancedSection status={t("config_page.advanced_status.device", {
+                mic: t(`config_page.device.mic_dynamic_energy_threshold.${mode(currentMicVadFilter, currentEnableAutomaticMicThreshold)}`),
+                speaker: t(`config_page.device.speaker_dynamic_energy_threshold.${mode(currentSpeakerVadFilter, currentEnableAutomaticSpeakerThreshold)}`) })}>
+                <MicContainer part="sensitivity" />
+                <SpeakerContainer part="sensitivity" />
+                <VoiceRouteSettings subheading />
+                {/* Mute sync lives on the VRChat page, which it is about (IA-03). */}
+                <PagePointer label={t("config_page.others.vrc_mic_mute_sync.label")} description={t("config_page.device.mute_sync_pointer")}
+                    tab="vrchat" target="vrc_mic_mute_sync" button={t("config_page.device.open_vrchat")} />
+            </AdvancedSection>
         </div>
     );
 };
 
-const MicContainer = () => {
+const MicContainer = ({ part }) => {
     const { t } = useI18n();
     const {
         currentEnableAutoMicSelect,
@@ -96,7 +114,7 @@ const MicContainer = () => {
         state: currentMicVadFilter.state === "pending" || currentEnableAutomaticMicThreshold.state === "pending" ? "pending" : currentMicVadFilter.state,
     };
 
-    return (
+    if (part === "device") return (
         <div className={styles.mic_container}>
             <SectionLabelComponent label={t("config_page.device.section_label_mic")} />
             <MultiDropdownMenuContainer
@@ -134,6 +152,12 @@ const MicContainer = () => {
                     }
                 ]}
             />
+        </div>
+    );
+
+    return (
+        <div className={styles.mic_container}>
+            <SectionLabelComponent sub label={t("config_page.device.section_label_mic_sensitivity")} />
             <div className={styles.threshold_container} data-setting-id="mic_dynamic_energy_threshold">
                 <div className={styles.threshold_switch_section}>
                     <LabelComponent label={t("config_page.device.mic_dynamic_energy_threshold.label")} />
@@ -172,13 +196,11 @@ const MicContainer = () => {
                     />
                 </div>
             </div>
-            {/* Also on the VRChat page: it pauses this mic while VRChat is muted. */}
-            <VrcMicMuteSyncContainer />
         </div>
     );
 };
 
-const SpeakerContainer = () => {
+const SpeakerContainer = ({ part }) => {
     const { t } = useI18n();
     const {
         currentEnableAutoSpeakerSelect,
@@ -230,7 +252,7 @@ const SpeakerContainer = () => {
         state: currentSpeakerVadFilter.state === "pending" || currentEnableAutomaticSpeakerThreshold.state === "pending" ? "pending" : currentSpeakerVadFilter.state,
     };
 
-    return (
+    if (part === "device") return (
         <div className={styles.speaker_container}>
             <SectionLabelComponent label={t("config_page.device.section_label_speaker")} />
             <div className={device_container_class} data-setting-id="speaker_device">
@@ -253,6 +275,12 @@ const SpeakerContainer = () => {
                     />
                 </div>
             </div>
+        </div>
+    );
+
+    return (
+        <div className={styles.speaker_container}>
+            <SectionLabelComponent sub label={t("config_page.device.section_label_speaker_sensitivity")} />
             <div className={styles.threshold_container} data-setting-id="speaker_dynamic_energy_threshold">
                 <div className={styles.threshold_switch_section}>
                     <LabelComponent label={t("config_page.device.speaker_dynamic_energy_threshold.label")} />

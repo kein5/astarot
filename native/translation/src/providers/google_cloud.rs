@@ -36,9 +36,9 @@ impl Api for GoogleCloud {
     fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
         let url = join(a.base, "/language/translate/v2");
         let body = json!({ "q": [t.text], "source": t.source, "target": t.target, "format": "text" });
-        Self::attempt(a.base, |wait| {
+        Self::attempt(transport, a.base, |send, wait| {
             let request = Request::post_json(&url, &body).header("x-goog-api-key", a.key);
-            let answer = json_of(&checked(transport(&request, wait)?)?)?;
+            let answer = json_of(&checked(send(&request, wait)?)?)?;
             answer["data"]["translations"][0]["translatedText"].as_str().map(str::to_string).ok_or(Error::Answer)
         })
     }

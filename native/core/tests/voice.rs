@@ -65,7 +65,14 @@ impl Run {
         self.ui.request("/run/enable_tts", Some(json!({ "generation": generation })))
     }
 
-    fn settings(&self, changes: Value) -> Value {
+    fn settings(&self, mut changes: Value) -> Value {
+        // New settings start on the bundled server (#566). These runs speak through fake servers
+        // at the URLs they give, so a URL also chooses the external server, as in the settings page.
+        for role in ["japanese", "multilingual"] {
+            if changes.get(format!("{role}_url")).is_some() && changes.get(format!("{role}_server")).is_none() {
+                changes[format!("{role}_server")] = json!("external");
+            }
+        }
         self.ui.request("/set/data/voice_settings", Some(changes))
     }
 

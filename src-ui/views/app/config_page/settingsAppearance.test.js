@@ -27,7 +27,7 @@ const pairs = [
     ["save failure", "--error_bc_color", "--dark_900_color", "--vox_state_failed", "--dark_900_color", 4.5],
     ["secondary voice hover", "--dark_200_color", "--dark_600_color", "--dark_200_color", "--vox_secondary_hover", 4.5],
     ["OCR reset/refresh hover", "--dark_200_color", "--dark_600_color", "--dark_200_color", "--vox_secondary_hover", 4.5],
-    ["word Add hover", "--dark_200_color", "--primary_500_color", "--dark_200_color", "--primary_650_color", 4.5],
+    ["word Add hover", "--dark_200_color", "--primary_500_color", "--vox_on_primary", "--primary_650_color", 4.5],
     ["delete resting", "--error_bc_color", "--dark_800_color", "--vox_state_failed", "--dark_800_color", 3],
     ["delete hover", "--error_bc_color", "--dark_750_color", "--vox_state_failed", "--dark_825_color", 3],
     ["delete pressed", "--error_bc_color", "--dark_850_color", "--vox_state_failed", "--dark_850_color", 3],
@@ -39,23 +39,23 @@ for (const [name, oldFg, oldBg, fg, bg, minimum] of pairs) {
     });
 }
 
-test("the repaired selectors use the measured tokens; existing shared token values stay unchanged", () => {
+test("the repaired selectors use the measured tokens; shared token values are the brand palette's", () => {
     assert.match(read("topbar/Topbar.module.scss"), /\.state\.is_failed\s*{\s*color: var\(--vox_state_failed\)/);
     assert.match(read(box + "advanced_settings/VoiceSettings.module.scss"), /button:hover:enabled\s*{\s*background: var\(--vox_secondary_hover\)/);
     assert.equal((read(box + "ocr/Ocr.module.scss").match(/background: var\(--vox_secondary_hover\)/g) ?? []).length, 2);
     const word = read(box + "_components/word_filter/WordFilter.module.scss");
     assert.match(word, /\.delete_svg\s*{[^}]*color: var\(--vox_state_failed\)/);
     assert.match(word, /&\.delete\s*{[^}]*&:hover\s*{\s*background-color: var\(--dark_825_color\)/);
-    assert.match(word, /\.add_button\s*{[^}]*&:hover\s*{\s*background-color: var\(--primary_650_color\)/);
+    assert.match(word, /\.add_button\s*{[^}]*color: var\(--vox_on_primary\)[^}]*&:hover\s*{\s*background-color: var\(--primary_650_color\)/);
     for (const [token, expected] of Object.entries({
-        "--error_bc_color": "#bb4448", "--vox_state_failed": "#f08a85",
-        "--dark_200_color": "#edf3ff", "--dark_600_color": "#798ca8", "--dark_800_color": "#344662",
-        "--dark_825_color": "#2d3e58", "--primary_500_color": "#3f7bf2", "--primary_650_color": "#235bcc",
+        "--error_bc_color": "#bb4448", "--vox_state_failed": "#e4938e",
+        "--dark_200_color": "#ecebf2", "--dark_600_color": "#988ba5", "--dark_800_color": "#4e3d5d",
+        "--dark_825_color": "#47335e", "--primary_500_color": "#b08bf6", "--primary_650_color": "#9f74f2",
     })) assert.equal(color(token), expected, token);
-    // Inherited secondary text is also safe on the new hover; white primary
-    // actions keep their own hover rule and retain their AA contrast.
+    // Inherited secondary text is also safe on the new hover; Lilac primary
+    // actions carry Dark Plum text, which keeps AA contrast on their hover.
     assert.ok(contrast("--vox_secondary_text", "--vox_secondary_hover") >= 4.5);
-    assert.ok(contrast("--dark_50_color", "--primary_550_color") >= 4.5);
+    assert.ok(contrast("--vox_on_primary", "--primary_550_color") >= 4.5);
 });
 
 test("NLLB consent restores a native checkbox and visible keyboard focus", () => {
@@ -243,7 +243,7 @@ test("header width budgets leave search usable even with queued/muted actions at
     assert.ok(wideSave > 10 + 2 * (5 * 1.4 + 2 * 1.4) + 1.6 + 2);
 });
 
-test("the forms' primary action is blue: the plain class name primary is matched globally", () => {
+test("the forms' primary action is Lilac: the plain class name primary is matched globally", () => {
     const css = read(box + "advanced_settings/VoiceSettings.module.scss");
     // CSS Modules renames .primary, and the forms write className="primary", so only :global matches.
     assert.doesNotMatch(css, /button\.primary/);

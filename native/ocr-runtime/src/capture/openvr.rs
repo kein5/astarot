@@ -36,23 +36,31 @@ pub const GL_RETRY_SEC: f64 = 30.0;
 /// After SteamVR asked applications to quit, connect again no sooner than this.
 pub const QUIT_RETRY_SEC: f64 = 10.0;
 
-// Function table indices (openvr_capi.h, SDK 2.12.14).
-const COMPOSITOR_GET_CURRENT_SCENE_FOCUS_PROCESS: usize = 24;
-const COMPOSITOR_GET_LAST_FRAME_RENDERER: usize = 25;
-#[cfg(windows)]
-const COMPOSITOR_GET_MIRROR_TEXTURE_D3D11: usize = 35;
-#[cfg(windows)]
-const COMPOSITOR_RELEASE_MIRROR_TEXTURE_D3D11: usize = 36;
-#[cfg(not(windows))]
-const COMPOSITOR_GET_MIRROR_TEXTURE_GL: usize = 37;
-#[cfg(not(windows))]
-const COMPOSITOR_RELEASE_SHARED_GL_TEXTURE: usize = 38;
-#[cfg(not(windows))]
-const COMPOSITOR_LOCK_GL_SHARED_TEXTURE: usize = 39;
-#[cfg(not(windows))]
-const COMPOSITOR_UNLOCK_GL_SHARED_TEXTURE: usize = 40;
-#[cfg(windows)]
-const SYSTEM_GET_DXGI_OUTPUT_INFO: usize = 7;
+// Positions in the function tables (openvr_capi.h, SDK 2.12.14), each with the name of the
+// function there in pyopenvr. The tests below check every one, on either system: a wrong
+// position calls another function without any error (#610).
+vrct_openvr_client::fn_table! {
+    COMPOSITOR_TABLE = COMPOSITOR_VERSION;
+    COMPOSITOR_GET_CURRENT_SCENE_FOCUS_PROCESS = 24 => "getCurrentSceneFocusProcess",
+    COMPOSITOR_GET_LAST_FRAME_RENDERER = 25 => "getLastFrameRenderer",
+    #[cfg(windows)]
+    COMPOSITOR_GET_MIRROR_TEXTURE_D3D11 = 35 => "getMirrorTextureD3D11",
+    #[cfg(windows)]
+    COMPOSITOR_RELEASE_MIRROR_TEXTURE_D3D11 = 36 => "releaseMirrorTextureD3D11",
+    #[cfg(not(windows))]
+    COMPOSITOR_GET_MIRROR_TEXTURE_GL = 37 => "getMirrorTextureGL",
+    #[cfg(not(windows))]
+    COMPOSITOR_RELEASE_SHARED_GL_TEXTURE = 38 => "releaseSharedGLTexture",
+    #[cfg(not(windows))]
+    COMPOSITOR_LOCK_GL_SHARED_TEXTURE = 39 => "lockGLSharedTextureForAccess",
+    #[cfg(not(windows))]
+    COMPOSITOR_UNLOCK_GL_SHARED_TEXTURE = 40 => "unlockGLSharedTextureForAccess",
+}
+vrct_openvr_client::fn_table! {
+    SYSTEM_TABLE = SYSTEM_VERSION;
+    #[cfg(windows)]
+    SYSTEM_GET_DXGI_OUTPUT_INFO = 7 => "getDXGIOutputInfo",
+}
 
 fn library_name() -> &'static str {
     if cfg!(windows) {
@@ -644,6 +652,28 @@ mod gl {
                     self.display = std::ptr::null_mut();
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The names of `interface`'s functions in table order, from pyopenvr 2.12.1401.
+    fn reference(interface: &str) -> Vec<String> {
+        let tables: serde_json::Value = serde_json::from_str(vrct_openvr_client::REFERENCE_FN_TABLES).unwrap();
+        let names = tables["tables"][interface]
+            .as_array()
+            .unwrap_or_else(|| panic!("no {interface} in the reference: add it to native/openvr-client/reference/dump_reference.py"));
+        names.iter().map(|name| name.as_str().unwrap().to_owned()).collect()
+    }
+
+    #[test]
+    fn every_position_called_holds_the_function_meant() {
+        for table in [COMPOSITOR_TABLE, SYSTEM_TABLE] {
+            let wrong = table.mismatches(&reference(table.interface));
+            assert!(wrong.is_empty(), "{wrong:#?}");
         }
     }
 }

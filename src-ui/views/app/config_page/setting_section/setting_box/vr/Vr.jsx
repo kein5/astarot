@@ -4,11 +4,13 @@ import clsx from "clsx";
 import styles from "./Vr.module.scss";
 import { ui_configs } from "@ui_configs";
 import { Slider } from "../_components";
+import { FormRow } from "../_components/form_row/FormRow";
 import {
     RadioButtonContainer,
     CheckboxContainer,
-    ActionButtonContainer,
 } from "../_templates/Templates";
+import { PagePointer } from "../_components/page_pointer/PagePointer";
+import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 
 import {
     SectionLabelComponent,
@@ -20,10 +22,7 @@ import {
     useVr,
 } from "@logics_configs";
 import { useIsOpenedConfigPage } from "@logics_common";
-import { useStdoutToPython } from "@useStdoutToPython";
 
-import RedoSvg from "@images/redo.svg?react";
-import CheckMarkSvg from "@images/check_mark.svg?react";
 import SquareSvg from "@images/square.svg?react";
 import TriangleSvg from "@images/triangle.svg?react";
 import { randomIntMinMax } from "@utils";
@@ -47,7 +46,10 @@ export const Vr = () => {
         setOverlayLargeLogSettings,
         currentOverlaySmallLogSettings,
         setOverlaySmallLogSettings,
+        currentOverlayShowOnlyTranslatedMessages,
+        currentVoiceTypingMode,
     } = useVr();
+    const onOff = current => t(current?.data === true ? "config_page.advanced_status.on" : "config_page.advanced_status.off");
 
 
     const restoreDefaultSettings = () => {
@@ -56,11 +58,31 @@ export const Vr = () => {
         setOverlayLargeLogSettings(ui_configs.overlay_large_log_default_settings);
     };
 
+    // What a first start turns on is in sight: the captions in VR and on the desktop. Where they
+    // sit, how they look and what they show are set once, in 「詳細設定」 (#554).
     return (
         <div className={styles.container}>
+            <div>
+                <SectionLabelComponent label={t("config_page.vr.section_label_overlay")} />
+                <CheckboxContainer
+                    setting_id="overlay_small_log"
+                    label={t("config_page.vr.overlay_enable_single")}
+                    variable={currentIsEnabledOverlaySmallLog}
+                    toggleFunction={toggleIsEnabledOverlaySmallLog}
+                />
+                <CheckboxContainer
+                    setting_id="overlay_large_log"
+                    label={t("config_page.vr.overlay_enable_multi")}
+                    variable={currentIsEnabledOverlayLargeLog}
+                    toggleFunction={toggleIsEnabledOverlayLargeLog}
+                />
+            </div>
+            <DesktopCaptionOverlay part="enable" />
+            <AdvancedSection status={t("config_page.advanced_status.vr", {
+                only: onOff(currentOverlayShowOnlyTranslatedMessages), typing: onOff(currentVoiceTypingMode) })}>
             {/* The settings search leads here for the overlay's position, rotation, size and timing. */}
             <div className={styles.overlay_section} data-setting-id="vr_overlay">
-                <SectionLabelComponent label={t("config_page.vr.section_label_overlay")} />
+                <SectionLabelComponent sub label={t("config_page.vr.section_label_overlay_look")} />
                 <div className={styles.wrapper}>
                     <PageSwitcherContainer
                         toggleFunction={toggleIsOpenedSmallSettings}
@@ -78,8 +100,6 @@ export const Vr = () => {
                             state={currentOverlaySmallLogSettings.state}
                             current_overlay_settings={currentOverlaySmallLogSettings.data}
                             setOverlaySettings={setOverlaySmallLogSettings}
-                            current_is_enabled_overlay={currentIsEnabledOverlaySmallLog}
-                            toggle_is_enabled_overlay={toggleIsEnabledOverlaySmallLog}
                         />
                     ) : (
                         <OverlaySettingsContainer
@@ -91,15 +111,12 @@ export const Vr = () => {
                             state={currentOverlayLargeLogSettings.state}
                             current_overlay_settings={currentOverlayLargeLogSettings.data}
                             setOverlaySettings={setOverlayLargeLogSettings}
-                            current_is_enabled_overlay={currentIsEnabledOverlayLargeLog}
-                            toggle_is_enabled_overlay={toggleIsEnabledOverlayLargeLog}
                         />
                     )}
                 </div>
             </div>
-            <DesktopCaptionOverlay />
+            <DesktopCaptionOverlay part="details" />
             <CommonSettingsContainer />
-            <VrUiBetaContainer />
             <button
                 className={styles.restore_default_settings_button}
                 data-setting-id="restore_default_settings"
@@ -107,6 +124,10 @@ export const Vr = () => {
             >
                 {t("config_page.vr.restore_default_settings")}
             </button>
+            </AdvancedSection>
+            {/* The VR panel (VR UI) is on trial: it moved to the experimental features (#554, Q-05). */}
+            <PagePointer label={t("config_page.vr.vr_panel_pointer.label")} description={t("config_page.vr.vr_panel_pointer.desc")}
+                tab="experimental_features" button={t("config_page.vr.open_experimental_features")} />
         </div>
     );
 };
@@ -115,8 +136,6 @@ const OverlaySettingsContainer = ({
     current_overlay_settings,
     state,
     setOverlaySettings,
-    current_is_enabled_overlay,
-    toggle_is_enabled_overlay,
     ui_configs,
     default_ui_configs,
     id,
@@ -194,26 +213,28 @@ const OverlaySettingsContainer = ({
 
     return (
         <>
-            <CheckboxContainer
-                label={t("config_page.vr.overlay_enable")}
-                variable={current_is_enabled_overlay}
-                toggleFunction={toggle_is_enabled_overlay}
-            />
-            <PageSwitcherContainer
-                toggleFunction={togglePositionRotationController}
-                is_selected={is_opened_position_controller}
-                label_1={t("config_page.vr.position")}
-                label_2={t("config_page.vr.rotation")}
-            />
-
-            <div className={styles.position_rotation_controls_box}>
-                {is_opened_position_controller ? (
-                    <PositionControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} default_ui_configs={default_ui_configs} selectFunction={selectFunction}/>
-                ) : (
-                    <RotationControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} default_ui_configs={default_ui_configs} selectFunction={selectFunction}/>
-                )}
-            <SendSampleTextToggleButton />
-            </div>
+            {/* The axes are one row of the label and field columns: the name and what it does on
+                the left, the position or rotation diagram in the field column (#568). */}
+            <FormRow className={styles.axis_row} group
+                label={t("config_page.vr.position_rotation.label")}
+                description={t("config_page.vr.position_rotation.desc")}>
+                <PageSwitcherContainer
+                    toggleFunction={togglePositionRotationController}
+                    is_selected={is_opened_position_controller}
+                    label_1={t("config_page.vr.position")}
+                    label_2={t("config_page.vr.rotation")}
+                />
+                <div className={styles.position_rotation_controls_box}>
+                    {is_opened_position_controller ? (
+                        <PositionControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} default_ui_configs={default_ui_configs} selectFunction={selectFunction}/>
+                    ) : (
+                        <RotationControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} default_ui_configs={default_ui_configs} selectFunction={selectFunction}/>
+                    )}
+                </div>
+            </FormRow>
+            <FormRow className={styles.sample_row} group label={t("config_page.vr.sample_text_button.label")} description={t("config_page.vr.sample_text_button.desc")}>
+                <SendSampleTextToggleButton />
+            </FormRow>
             <OtherControls settings={settings} onChangeFunction={onChangeFunction} ui_configs={ui_configs} />
             <RadioButtonContainer
                 label={t("config_page.vr.tracker")}
@@ -626,7 +647,7 @@ const CommonSettingsContainer = () => {
 
     return (
         <div className={styles.common_container}>
-            <SectionLabelComponent label={t("config_page.vr.common_settings")} />
+            <SectionLabelComponent sub label={t("config_page.vr.common_settings")} />
             <CheckboxContainer
                 label={t("config_page.vr.overlay_show_only_translated_messages.label")}
                 variable={currentOverlayShowOnlyTranslatedMessages}
@@ -639,37 +660,6 @@ const CommonSettingsContainer = () => {
                 toggleFunction={toggleVoiceTypingMode}
             />
             <OverlayFontFamily />
-        </div>
-    );
-};
-
-
-// 手首のランチャーとウィンドウ (β版機能)。字幕のオーバーレイの設定とは別にまとめる
-const VrUiBetaContainer = () => {
-    const { t } = useI18n();
-    const {
-        currentIsEnabledOverlayVrPanel,
-        toggleIsEnabledOverlayVrPanel,
-    } = useVr();
-    const { asyncStdoutToPython } = useStdoutToPython();
-
-    return (
-        <div className={styles.common_container}>
-            <SectionLabelComponent label={t("config_page.vr.vr_ui_beta")} />
-            <CheckboxContainer
-                label={t("config_page.vr.vr_panel.label")}
-                desc={t("config_page.vr.vr_panel.desc")}
-                variable={currentIsEnabledOverlayVrPanel}
-                toggleFunction={toggleIsEnabledOverlayVrPanel}
-            />
-            <ActionButtonContainer
-                label={t("config_page.vr.reset_launcher.label")}
-                desc={t("config_page.vr.reset_launcher.desc")}
-                IconComponent={RedoSvg}
-                ClickedIconComponent={CheckMarkSvg}
-                clicked_duration={1000}
-                onclickFunction={() => asyncStdoutToPython("/run/vr_launcher_reset")}
-            />
         </div>
     );
 };
@@ -711,21 +701,22 @@ const SendSampleTextToggleButton = () => {
         ? t("config_page.vr.sample_text_button.stop")
         : t("config_page.vr.sample_text_button.start");
 
+    // A plain button whose words say what pressing it does; the row beside it says why.
     return (
         <div className={styles.sample_text_button_wrapper}>
             <button
                 type="button"
                 className={clsx(styles.sample_text_button, { [styles.is_started]: is_sending })}
                 onClick={toggleFunction}
-                aria-label={label.replace(/\n/g, "")}
+                aria-label={label}
             >
                 {is_sending ? (
-                    <SquareSvg className={styles.sample_text_button_square_svg} />
+                    <SquareSvg className={styles.sample_text_button_square_svg} aria-hidden="true" />
                 ) : (
-                    <TriangleSvg className={styles.sample_text_button_triangle_svg} />
+                    <TriangleSvg className={styles.sample_text_button_triangle_svg} aria-hidden="true" />
                 )}
+                {label}
             </button>
-            <p className={styles.sample_text_button_label}>{label}</p>
         </div>
     );
 };

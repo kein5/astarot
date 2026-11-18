@@ -318,6 +318,42 @@ fn experimental_features_are_all_off_and_a_bad_value_is_refused() {
 }
 
 #[test]
+fn usage_presets_start_with_the_basic_one_and_keep_the_known_ids_in_order() {
+    // Nothing saved: a new install shows the basic features (#554, Q-15).
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/usage_presets"], json!(["basic"]));
+    let picked = json!(["nonverbal", "voice_changer"]);
+    // Several can be picked; each is kept once, in the list's order, and an id this version
+    // does not know is left out.
+    assert_eq!(ui.ok("/set/data/usage_presets", Some(json!(["voice_changer", "nonverbal", "nonverbal", "a_later_one"]))), picked);
+    for bad in [json!([]), json!(["a_later_one"]), json!("basic"), json!([1]), json!(null)] {
+        let answer = ui.request("/set/data/usage_presets", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+        assert_eq!(answer["result"]["data"], picked, "{bad}");
+    }
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["USAGE_PRESETS"], picked);
+    ui.stop();
+}
+
+#[test]
+fn an_update_from_a_version_without_usage_presets_shows_every_feature() {
+    // Settings saved by an earlier version: what the screens show stays as it was (#554, Q-15).
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "OVERLAY_VR_PANEL": true })), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/usage_presets"], json!(["all"]));
+    assert_eq!(snapshot["/get/data/overlay_vr_panel"], json!(true), "the VR panel keeps its saved value");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["USAGE_PRESETS"], json!(["all"]));
+    ui.stop();
+    // A saved choice is kept, also when it is not the default.
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "USAGE_PRESETS": ["basic", "multilingual"] })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/usage_presets"], json!(["basic", "multilingual"]));
+    ui.stop();
+}
+
+#[test]
 fn the_tray_companion_edge_is_one_of_the_four_and_starts_at_the_right() {
     let ui = Ui::with(Setup::default());
     let snapshot = ui.ready();

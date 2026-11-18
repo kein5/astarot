@@ -6,7 +6,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（136件）
+## config.jsonに保存するキー（137件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -146,6 +146,7 @@
 | `OLLAMA_URL` | 検証 valid_saved_api_url（中核のみ） | `'http://localhost:11434'` | 2秒後にまとめて |
 | `PAPAGO_CLIENT_ID` | str（256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
 | `OVERLAY_FONT_FAMILY` | str（空は自動。256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
+| `USAGE_PRESETS` | list（basic、nonverbal、multilingual、voice_changer、all から1つ以上。知らない id は除き、この順に重複なしで保存）（中核のみ） | `['basic']（前の版から更新したときは ['all']）` | 即時 |
 
 
 ## 保存しないキー（46件）

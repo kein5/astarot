@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（452件: 削除 13、取得 203、実行 45、有効化 40、無効化 42、設定 109）
+## 要求（454件: 削除 13、取得 204、実行 45、有効化 40、無効化 42、設定 110）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -467,6 +467,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/remove_translation_catalog_entry` | 実行 | `core: remove_translation_entry` | 待つ | useTranslationCatalog.acknowledge | 中核のみ、ログで伏せる |
 | `/run/use_translation_catalog_entry` | 実行 | `core: use_translation_entry` | 待つ | useTranslationCatalog.acknowledge | 中核のみ、ログで伏せる |
 | `/get/data/gpu_memory` | 取得 | `core: gpu_memory` | 可 | useGpuMemory.updateGpuMemory | 中核のみ |
+| `/get/data/usage_presets` | 取得 | `core: USAGE_PRESETS` | 可 | useUsagePresets.updateFromBackendUsagePresets | 中核のみ |
+| `/set/data/usage_presets` | 設定 | `core: USAGE_PRESETS` | 可 | useUsagePresets.setSuccessUsagePresets | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）

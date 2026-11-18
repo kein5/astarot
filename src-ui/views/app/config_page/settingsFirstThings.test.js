@@ -5,9 +5,15 @@ import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
 import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
+import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";
+import * as settingsMenu from "../../../logics/configs/settingsMenu.ts";
+import * as usagePresets from "../../../logics/configs/usagePresets.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const icon = name => Object.assign(() => null, { icon: name });
+// The menu's tabs, group by group: SidebarSection draws the groups, each group its tabs.
+const menuTabs = (runtime, tree) => all(tree, node => node.props?.group?.tabs)
+    .flatMap(group => all(runtime.render(group.type, group.props), node => typeof node.props?.tab_id === "string"));
 
 test("chat reading has a page of its own, and search lists it there", async () => {
     const runtime = hooks();
@@ -23,15 +29,16 @@ test("chat reading has a page of its own, and search lists it there", async () =
     const search = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.js", import.meta.url), runtime, {
         "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
         "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
-        "./configSearchTargets.ts": searchTargets,
+        "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
     });
     assert.deepEqual(search.settingTabs("ocr", "source_language"), ["ocr"]);
     assert.deepEqual(search.settingTabs("others", "send_message_to_vrc"), ["vrchat"]);
-    assert.deepEqual(search.settingTabs("others", "vrc_mic_mute_sync"), ["vrchat", "device"]);
+    // The Device page leads to it on the VRChat page (#554, IA-03).
+    assert.deepEqual(search.settingTabs("others", "vrc_mic_mute_sync"), ["vrchat"]);
     assert.deepEqual(search.settingTabs("translation", "deepl_auth_key"), ["translation"]);
 });
 
-test("the side menu lists chat reading after VRChat, with an icon of its own and a name in both languages", async () => {
+test("the side menu groups its pages in the order a conversation uses them, each page with an icon and a name in both languages", async () => {
     const runtime = hooks();
     const svg = name => (name.endsWith(".svg?react") ? icon(name) : name);
     const images = ["mic", "tts_speaker", "voice_conversion", "mui_palette", "translation", "mui_graphic_eq", "mui_head_mounted_device",
@@ -41,10 +48,24 @@ test("the side menu lists chat reading after VRChat, with an icon of its own and
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
-        "../../../../logics/common/featureLabel.ts": featureLabel,
+        "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
+        "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
+        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
     });
-    const tabs = all(runtime.render(sidebar.SidebarSection), node => typeof node.props?.tab_id === "string").map(node => node.props.tab_id);
-    assert.deepEqual(tabs.slice(tabs.indexOf("vrchat"), tabs.indexOf("vrchat") + 3), ["vrchat", "ocr", "vr"]);
+    const tree = runtime.render(sidebar.SidebarSection);
+    const groups = all(tree, node => node.props?.group?.tabs).map(node => node.props.group);
+    // #554 (Q-02, Q-03): four groups with headings; the devices are with the settings set once.
+    assert.deepEqual(groups.map(group => [group.id, group.tabs]), [
+        ["conversation", ["translation", "transcription", "vrchat", "vr"]],
+        ["voice_and_reading", ["tts", "rvc", "ocr"]],
+        ["comfort", ["device", "appearance", "hotkeys"]],
+        ["app", ["updater", "advanced_settings", "experimental_features", "about_vrct"]],
+    ]);
+    const tabs = menuTabs(runtime, tree).map(node => node.props.tab_id);
+    assert.deepEqual(tabs, groups.flatMap(group => group.tabs));
+    assert.equal(settingsMenu.FIRST_SETTINGS_TAB, "translation");
+    assert.match(readFileSync(new URL("../../../logics/store.ts", import.meta.url), "utf8"),
+        /createAtomWithHook\("translation", "SelectedConfigTabId"\)/, "settings open on the first page of the menu");
     const shown = id => sidebar.TabIcon({ tab_id: id, className: "" });
     assert.ok(shown("ocr"));
     assert.notEqual(shown("ocr").type, shown("vrchat").type);
@@ -53,6 +74,7 @@ test("the side menu lists chat reading after VRChat, with an icon of its own and
         assert.equal(typeof strings.config_page.side_menu_labels.ocr, "string");
         // The menu and the settings search both name a page by this key; a missing one showed the raw key.
         for (const id of tabs) assert.equal(typeof strings.config_page.side_menu_labels[id], "string", `${language}: ${id}`);
+        for (const group of groups) assert.equal(typeof strings.config_page.side_menu_groups[group.id], "string", `${language}: ${group.id}`);
         for (const key of ["provider_in_use", "provider_ready", "provider_not_set"]) assert.equal(typeof strings.config_page.translation[key], "string");
     }
 });
@@ -69,9 +91,11 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
-        "../../../../logics/common/featureLabel.ts": featureLabel,
+        "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
+        "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
+        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
     });
-    const [tab] = all(runtime.render(sidebar.SidebarSection), node => node.props?.tab_id === "transcription");
+    const [tab] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "transcription");
     const tree = runtime.render(tab.type, tab.props);
     const button = find(tree, node => node.type === "button");
     assert.equal(button.props["aria-label"], "Speech recognition (ASR)");
@@ -79,17 +103,19 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
     assert.ok(find(tree, node => node.type === "p" && node.props?.children === "Speech recognition"));
     assert.equal(find(tree, node => node.type === "span"), null, "the short name has no second line");
     // A tab without a short name needs no tooltip: its text is its whole name.
-    const [device] = all(runtime.render(sidebar.SidebarSection), node => node.props?.tab_id === "device");
+    const [device] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "device");
     assert.equal(find(runtime.render(device.type, device.props), node => node.type === "button").props.title, undefined);
 });
 
-test("speech recognition opens on the engine choice; the timing numbers follow, folded under a line that shows them", async () => {
+test("speech recognition opens on the engine choice and its models; the rest is in 「詳細設定」, the timing numbers folded under a line that shows them", async () => {
     const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), "utf8");
     const page = source.split("export const Transcription = () => {")[1].split("\n};")[0];
     const order = [...page.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1]);
-    // The old Whisper models come last, and only while some are on this PC (#288).
-    assert.deepEqual(order, ["TranscriptionEngine_Container", "CloudTranscription_Container", "Mic_Container", "Speaker_Container",
-        "RealtimeASRSettings", "SpeechServers", "OldWhisperWeights"]);
+    // The old Whisper models come last, and only while some are on this PC (#288). The cloud
+    // engines, the word filter, the timing and the realtime captions' server are set once (#554).
+    assert.deepEqual(order, ["TranscriptionEngine_Container", "SpeechServers", "AdvancedSection", "CloudTranscription_Container", "Mic_Container",
+        "Speaker_Container", "RealtimeASRSettings", "OldWhisperWeights"]);
+    assert.match(page, /<AdvancedSection [^>]*>\s*<CloudTranscription_Container \/>\s*<Mic_Container \/>\s*<Speaker_Container \/>\s*<RealtimeASRSettings \/>\s*<\/AdvancedSection>/);
     const section = name => source.split(`const ${name} = () => {`)[1].split("\n};")[0];
     // The word filter is a list people edit; it stays in sight. The three numbers are folded.
     assert.match(section("Mic_Container"), /<MicWordFilter_Box \/>\s*<TimingFold record=\{currentMicRecordTimeout\.data\} phrase=\{currentMicPhraseTimeout\.data\} queue=\{currentMicMaxWords\.data\}>\s*<MicRecordTimeout_Box \/>\s*<MicPhraseTimeout_Box \/>\s*<MicMaxWords_Box \/>\s*<\/TimingFold>/);
@@ -103,10 +129,12 @@ test("speech recognition opens on the engine choice; the timing numbers follow, 
     const t = (key, options) => options ? `${key}:${Object.values(options).join(",")}` : key;
     const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t }) },
-        "@logics_configs": { useTranscription: () => ({ currentMicRecordTimeout: { data: 3 }, currentMicPhraseTimeout: { data: 5 }, currentMicMaxWords: { data: 10 } }) },
+        "@logics_configs": { useTranscription: () => ({ currentMicRecordTimeout: { data: 3 }, currentMicPhraseTimeout: { data: 5 }, currentMicMaxWords: { data: 10 },
+            currentSelectableTranscriptionEngines: { data: [] } }) },
+        "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "../_components/setup_section/SetupSection": { SetupSection },
     });
-    const mic = runtime.render(transcription.Transcription).props.children.find(node => node?.type?.name === "Mic_Container");
+    const mic = find(runtime.render(transcription.Transcription), node => node?.type?.name === "Mic_Container");
     const fold = find(mic.type(mic.props), node => node.type?.name === "TimingFold");
     const drawn = fold.type(fold.props);
     assert.equal(drawn.type, SetupSection);
@@ -123,7 +151,7 @@ test("each cloud speech recognition provider is one fold; the selected one stays
     const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" }, { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true },
         { id: "Deepgram", base: "Deepgram", key: "deepgram" }];
     const state = { currentSelectedTranscriptionEngine: { data: "Deepgram" }, currentSelectableTranscriptionEngines: { data: ["SpeechCpp", "Groq_Whisper", "Deepgram"] },
-        currentCustomWhisperURL: { data: "" }, getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
+        currentCustomWhisperURL: { data: "" }, currentMicPhraseTimeout: { data: 5 }, getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
         ...Object.fromEntries(engines.map(engine => [`current${engine.base}AuthKey`, { data: null }])) };
     const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
@@ -131,7 +159,7 @@ test("each cloud speech recognition provider is one fold; the selected one stays
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
         "../_components/setup_section/SetupSection": { SetupSection },
     });
-    const cloud = runtime.render(transcription.Transcription).props.children.find(node => node?.type?.name === "CloudTranscription_Container");
+    const cloud = find(runtime.render(transcription.Transcription), node => node?.type?.name === "CloudTranscription_Container");
     const folds = all(runtime.render(cloud.type, cloud.props), node => node.type === SetupSection)
         .map(node => [node.props.title.split(".").at(-1), node.props.status.split(".").at(-1), node.props.attention]);
     assert.deepEqual(folds, [["groq_whisper", "provider_ready", false], ["custom_whisper", "provider_not_set", false], ["deepgram", "provider_in_use", true]]);
@@ -145,6 +173,7 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
     const vrchat = await loadModule(new URL("./setting_section/setting_box/vrchat/Vrchat.jsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
+        "@logics_configs": { useOthers: () => ({ currentEnableNotificationVrcSfx: { data: true }, currentEnableVrcMicMuteSync: { data: false } }) },
     });
     const page = runtime.render(vrchat.Vrchat);
     const last = page.props.children.at(-1);
@@ -180,7 +209,11 @@ test("each translation provider is one fold that says whether it can be used; th
     // Translation's own sections are not exported; draw them through the page.
     const page = runtime.render(translation.Translation);
     const folds = [];
-    for (const section of page.props.children.slice(1)) {
+    // The APIs and local LLMs are in 「詳細設定」 (#554), which opens by itself while a preset uses one.
+    const [, advanced] = page.props.children;
+    assert.equal(advanced.props.attention, true);
+    assert.equal(advanced.props.status, "config_page.advanced_status.translation");
+    for (const section of [advanced.props.children].flat()) {
         const drawn = section.type(section.props);
         if (!drawn) continue;
         for (const provider of all(drawn, node => typeof node.props?.id === "string" && typeof node.type === "function")) {

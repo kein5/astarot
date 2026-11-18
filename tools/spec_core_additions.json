@@ -20,7 +20,9 @@
     { "endpoint": "/run/register_translation_catalog_entry", "handler": "core: register_translation_entry", "before_init": false },
     { "endpoint": "/run/remove_translation_catalog_entry", "handler": "core: remove_translation_entry", "before_init": false },
     { "endpoint": "/run/use_translation_catalog_entry", "handler": "core: use_translation_entry", "before_init": false },
-    { "endpoint": "/get/data/gpu_memory", "handler": "core: gpu_memory", "before_init": true }
+    { "endpoint": "/get/data/gpu_memory", "handler": "core: gpu_memory", "before_init": true },
+    { "endpoint": "/get/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true },
+    { "endpoint": "/set/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },
@@ -34,6 +36,7 @@
   "config": [
     { "key": "OLLAMA_URL", "check": "検証 valid_saved_api_url", "default": "'http://localhost:11434'", "save": "2秒後にまとめて" },
     { "key": "PAPAGO_CLIENT_ID", "check": "str（256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" },
-    { "key": "OVERLAY_FONT_FAMILY", "check": "str（空は自動。256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" }
+    { "key": "OVERLAY_FONT_FAMILY", "check": "str（空は自動。256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" },
+    { "key": "USAGE_PRESETS", "check": "list（basic、nonverbal、multilingual、voice_changer、all から1つ以上。知らない id は除き、この順に重複なしで保存）", "default": "['basic']（前の版から更新したときは ['all']）", "save": "即時" }
   ]
 }

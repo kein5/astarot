@@ -17,9 +17,14 @@ export interface TooltipGeometry {
     arrow_x: number;
 }
 
-// Both the main window and VR WebView discard delayed layout/session snapshots.
-export const keepNewestVrLayout = <T extends VrLayoutSnapshot>(previous: T | null | undefined, next: T | null | undefined) =>
-    (next?.tooltip_epoch ?? 0) < (previous?.tooltip_epoch ?? 0) ? previous : next;
+// The epoch of a snapshot (VrLayoutSnapshot), 0 when it has none.
+const tooltipEpoch = (snapshot: unknown): number => typeof snapshot === "object" && snapshot !== null
+    && "tooltip_epoch" in snapshot && typeof snapshot.tooltip_epoch === "number" ? snapshot.tooltip_epoch : 0;
+
+// Both the main window and VR WebView discard delayed layout/session snapshots. The store
+// calls this for any value of its VrPanelLayout atom, so the snapshot is checked, not assumed.
+export const keepNewestVrLayout = <T>(previous: T, next: T): T =>
+    tooltipEpoch(next) < tooltipEpoch(previous) ? previous : next;
 
 export const tooltipMarker = (epoch: number, revision: number): number[] => [
     ...Array.from({ length: 48 }, (_, bit) => Math.floor(epoch / 2 ** (47 - bit)) % 2),

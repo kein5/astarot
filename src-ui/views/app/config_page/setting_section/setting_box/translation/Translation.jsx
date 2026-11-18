@@ -37,6 +37,7 @@ import { ComputeDevice } from "../_components/compute_device/ComputeDevice";
 import { Description } from "../_components/description/Description";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { SetupSection } from "../_components/setup_section/SetupSection";
+import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { LegacyModelDownloadDialog } from "../_components/download_models/LegacyModelDownloadDialog";
 
 import {
@@ -53,13 +54,31 @@ import {
 import { useLLMConnection } from "@logics_common";
 import { useStore_TranslationEngines, useStore_SelectedTranslationEngines } from "@store";
 
+// The providers in 「詳細設定」, by the lists they are drawn in below.
+export const EXTERNAL_API_PROVIDERS = ["DeepL_API", "Google_Cloud_API", "Papago_API", "Plamo_API", "Gemini_API", "OpenAI_API", "Groq_API", "OpenRouter_API"];
+export const LOCAL_LLM_PROVIDERS = ["LMStudio", "Ollama", "OpenAI_Compatible"];
+
+// The local AI translation is what a first start uses; its model is the first thing here. The
+// translation APIs and local LLMs are set up once by those who use them, in 「詳細設定」 (#554).
+// Its line counts the ones ready; it opens by itself while a language preset uses one of them.
 export const Translation = () => {
+    const { t } = useI18n();
+    const { currentTranslationEngines } = useStore_TranslationEngines();
+    const { currentSelectedTranslationEngines } = useStore_SelectedTranslationEngines();
+    const engines = currentTranslationEngines.data ?? [];
+    const ready = ids => engines.filter(engine => ids.includes(engine.id) && engine.is_available === true).length;
+    const inUse = Object.values(currentSelectedTranslationEngines.data ?? {})
+        .some(id => EXTERNAL_API_PROVIDERS.includes(id) || LOCAL_LLM_PROVIDERS.includes(id));
     return (
         <div className={styles.container}>
             <AITranslation_Container />
-            <ExternalTranslationAPI_Container />
-            <LocalLLM_Container />
-            <TranslationCatalogSection />
+            <AdvancedSection attention={inUse} status={t("config_page.advanced_status.translation", {
+                api: ready(EXTERNAL_API_PROVIDERS), llm: ready(LOCAL_LLM_PROVIDERS) })}>
+                <ExternalTranslationAPI_Container />
+                <LocalLLM_Container />
+                {/* The models and APIs users add (#413), next to the providers they extend. */}
+                <TranslationCatalogSection />
+            </AdvancedSection>
         </div>
     );
 };
@@ -112,7 +131,7 @@ const ExternalTranslationAPI_Container = () => {
     const { t } = useI18n();
     return (
         <div>
-            <SectionLabelComponent label={t("config_page.translation.section_label_external_api")} />
+            <SectionLabelComponent sub label={t("config_page.translation.section_label_external_api")} />
             <Description text={t("config_page.translation.llm_privacy_desc")} className={styles.privacy_description} />
 
             <Provider id="DeepL_API">
@@ -153,7 +172,7 @@ const LocalLLM_Container = () => {
     const { t } = useI18n();
     return (
         <div>
-            <SectionLabelComponent label={t("config_page.translation.section_label_local_llm")} />
+            <SectionLabelComponent sub label={t("config_page.translation.section_label_local_llm")} />
             <Description text={t("config_page.translation.llm_privacy_desc")} className={styles.privacy_description} />
             {/* A model you load into one of these servers yourself is how to translate with your own model. */}
             <CustomModelLink section="translation" />

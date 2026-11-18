@@ -24,7 +24,7 @@ You can turn speech on and off separately from sending text to the chatbox.
 4. Under "Output device", choose where the speech plays. Try it with your own earphones first. If a device is missing, press "Refresh devices".
 5. Go back to the main screen and turn on "Text to speech (TTS)". Text you send is now spoken.
 
-With a bundled server selected, turning it on from the main screen also starts the server.
+Japanese and the other languages start on the bundled server. With a bundled server selected, turning it on from the main screen also starts the server. To use a server you started yourself, choose "External server" and enter its URL.
 
 ## Read Japanese with VOICEVOX or another engine
 
@@ -81,7 +81,7 @@ There are three ways to stop, each with a different scope. "Stop speech" and "Mu
 |---|---|
 | Turn off "Text to speech (TTS)" on the main screen | New speech, the speech playing now and the speech waiting its turn. Text sending, the voice changer and translation continue |
 | "Stop speech" | The speech playing now and the speech waiting its turn, nothing else. "Stop speech" under Settings → "Text to speech (TTS)" does the same |
-| "Mute" | Everything ASTAROT sends to VRChat (with the managed virtual microphone, both speech and the voice changer). It lasts until you unmute, and the button shows "Muted" meanwhile. Press it again to unmute. "Mute now" and "Unmute" under Settings → "Device" → "Audio route" do the same |
+| "Mute" | Everything ASTAROT sends to VRChat (with the managed virtual microphone, both speech and the voice changer). It lasts until you unmute, and the button shows "Muted" meanwhile. Press it again to unmute. "Mute now" and "Unmute" under Settings → "Device" → "More settings" → "Audio route" do the same |
 
 All can be assigned to [hotkeys](./quick-chat#hotkeys). After a restart, speech and the bundled servers start off.
 

@@ -869,6 +869,7 @@ impl Config {
         }
         self.state.lock().unwrap().invalid_saved_api_urls = invalid_urls;
         self.migrate_local_asr(&saved);
+        self.migrate_usage_presets(&saved);
         let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
         self.put_loading("SELECTED_RELEASE_CHANNEL", json!(channel));
         self.apply_installer_language();
@@ -939,6 +940,15 @@ impl Config {
             self.set_loading("LOCAL_ASR_NOTICE_PENDING", json!(true));
         }
         self.set_loading("LOCAL_ASR_MIGRATION", json!(LOCAL_ASR_MIGRATION_LATEST));
+    }
+
+    /// The usage presets came in a later version (#554). Someone who updates keeps seeing every
+    /// feature, as before; a new install (nothing saved) keeps the default, the basic preset. A
+    /// file that could not be read loads as nothing saved, so it counts as a new install.
+    fn migrate_usage_presets(&self, saved: &Map<String, Value>) {
+        if !saved.is_empty() && !saved.contains_key("USAGE_PRESETS") {
+            self.set_loading("USAGE_PRESETS", json!(["all"]));
+        }
     }
 
     /// The UI language the installer chose, written as a plain marker next to the app; used once.

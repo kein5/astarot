@@ -1,11 +1,14 @@
 //! DeepL API (`translation_translator.py`'s DeepL branch and `authenticationDeepLAuthKey`).
 //!
 //! A key ending in `:fx` belongs to the free API. A key is checked by translating `" "` to
-//! `EN-US`. The codes are sent in capitals.
+//! `EN-US`. The codes are sent in capitals. Every request asks for `show_billed_characters`, as
+//! the DeepL SDK of the Python client did (the answer then also says how many characters were
+//! billed; nothing reads it).
 
-use super::{checked, join, json_of, Access, Api, Error, Provider, Translation, DISCOVERY, MACHINE_TRANSLATION};
-use crate::http::{Request, Timeouts, Transport};
+use super::{checked, join, json_of, retry, Access, Api, Error, Provider, Translation, DISCOVERY, MACHINE_TRANSLATION};
+use crate::http::{Request, Response, Timeouts, Transport};
 use serde_json::json;
+use std::time::Duration;
 
 pub struct DeepL;
 
@@ -31,20 +34,30 @@ impl Api for DeepL {
     const MODELS: bool = false;
     const TRANSLATE_WAIT: Timeouts = MACHINE_TRANSLATION;
 
+    /// The DeepL SDK's rule: a connection that failed or timed out, 429 and 5xx (not 408 or
+    /// 409); the second try starts 1 second after the first began.
+    fn backoff(error: Error, _answer: Option<&Response>, since_start: Duration) -> Option<Duration> {
+        retry::deepl(error, since_start)
+    }
+
     /// Checks a key by translating `" "`.
     fn reach(transport: &Transport, a: &Access<'_>) -> Result<(), Error> {
         let url = join(a.base, "/v2/translate");
-        let body = json!({ "text": [" "], "target_lang": "EN-US" });
+        let body = json!({ "target_lang": "EN-US", "text": [" "], "show_billed_characters": true });
         checked(transport(&request(&url, a.key, &body), DISCOVERY)?)?;
         Ok(())
     }
 
     fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
         let url = join(a.base, "/v2/translate");
-        let body =
-            json!({ "text": [t.text], "source_lang": t.source.to_uppercase(), "target_lang": t.target.to_uppercase() });
-        Self::attempt(a.base, |wait| {
-            let response = checked(transport(&request(&url, a.key, &body), wait)?)?;
+        let body = json!({
+            "target_lang": t.target.to_uppercase(),
+            "source_lang": t.source.to_uppercase(),
+            "text": [t.text],
+            "show_billed_characters": true,
+        });
+        Self::attempt(transport, a.base, |send, wait| {
+            let response = checked(send(&request(&url, a.key, &body), wait)?)?;
             let body = json_of(&response)?;
             body["translations"][0]["text"].as_str().map(str::to_string).ok_or(Error::Answer)
         })

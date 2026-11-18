@@ -13,3 +13,4 @@
 // A row with an unsaved change: a short blue rule left of it, outside its box
 // so the row does not move. Blue matches the save bar's unsaved border.
 .container :global([data-unsaved]) { box-shadow: -1.2rem 0 0 -.9rem var(--primary_500_color); }
+.container :global(details[data-unsaved-inside] > summary) { box-shadow: -1.2rem 0 0 -.9rem var(--primary_500_color); }

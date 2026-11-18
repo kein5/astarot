@@ -8,6 +8,7 @@ import { ui_configs } from "@ui_configs";
 import i18n from "@root/locales/config.js";
 import { requestSettingsNavigation } from "../../../voice/settingsNavigation";
 import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
+import { revealSetting } from "../../revealSetting.ts";
 
 // 検索の元にする config_page 以下の文言の名前空間
 const VALID_TABS = [
@@ -21,6 +22,7 @@ const VALID_TABS = [
     "hotkeys",
     "tts", "rvc",
     "advanced_settings",
+    "experimental_features",
     "others",
 ];
 
@@ -35,14 +37,12 @@ const NAMESPACE_TABS = {
 const SETTING_TABS = {
     "others.auto_clear_the_message_box": ["appearance"],
     "others.auto_export_message_logs": ["advanced_settings"],
-    "others.vrc_mic_mute_sync": ["vrchat", "device"],
+    // On the VRChat page; the Device page has a row that leads there (#554, IA-03).
+    "others.vrc_mic_mute_sync": ["vrchat"],
     "others.section_label_reading_aids": ["appearance"],
     "others.common_convert_message_hiragana_romaji": ["appearance"],
     "others.convert_message_to_romaji": ["appearance"],
     "others.convert_message_to_hiragana": ["appearance"],
-    "advanced_settings.section_label_osc": ["vrchat"],
-    "advanced_settings.osc_ip_address": ["vrchat"],
-    "advanced_settings.osc_port": ["vrchat"],
 };
 
 export const settingTabs = (namespace, key) =>
@@ -68,6 +68,7 @@ const TAB_LABEL_KEYS = {
     tts: "config_page.side_menu_labels.tts",
     rvc: "config_page.side_menu_labels.rvc",
     advanced_settings: "config_page.side_menu_labels.advanced_settings",
+    experimental_features: "config_page.side_menu_labels.experimental_features",
 };
 
 // 親項目（前提条件）の依存関係。{ 項目: { parent_id, required_label } }。
@@ -191,6 +192,33 @@ export const useConfigSearch = () => {
             ...(models.models?.flatMap(model => model.languages ?? []) ?? []),
             settings?.mic?.language, settings?.speaker?.language,
         ]);
+        // The experimental features' texts are one level down (items.<id>), with their own settings
+        // under them. A feature's own setting shows only while it is on; until then the search
+        // leads to the feature's switch.
+        const experimental = id => curRes.experimental_features?.items?.[id] ?? enRes.experimental_features?.items?.[id];
+        const experimentalIds = new Set([...Object.keys(curRes.experimental_features?.items ?? {}), ...Object.keys(enRes.experimental_features?.items ?? {})]);
+        for (const id of experimentalIds) {
+            const item = experimental(id);
+            const parts = [[`experimental_features.${id}`, item, null],
+                ...Object.entries(item ?? {}).filter(([, value]) => value?.label)
+                    .map(([key, value]) => [`experimental_features.${id}.${key}`, value, { parent_id: `experimental_features.${id}` }])];
+            for (const [setting_id, texts, prereq] of parts) {
+                if (!texts?.label) continue;
+                entries.push({
+                    tab: "experimental_features", setting_id, label: cleanTemplateStr(texts.label), desc: cleanTemplateStr(texts.desc ?? ""),
+                    tab_label: t(TAB_LABEL_KEYS.experimental_features), prereq,
+                    searchTarget: [texts.label, texts.desc].filter(text => typeof text === "string")
+                        .map(text => cleanTemplateStr(text).normalize("NFKC").toLowerCase()),
+                });
+            }
+        }
+        // Input forwarding has its texts under voice.*; it is in the RVC page's 「詳細設定」 (#554, Q-07).
+        entries.push({
+            tab: "rvc", setting_id: "direct_voice_settings", label: t("voice.input_title"),
+            desc: t("voice.input_description"), tab_label: t(TAB_LABEL_KEYS.rvc), prereq: null,
+            searchTarget: [t("voice.input_title"), t("voice.input_source"), t("voice.input_start")]
+                .map(text => text.normalize("NFKC").toLowerCase()),
+        });
         entries.push({
             tab: "transcription", setting_id: "realtime_asr", label: t("realtime.title"),
             desc: t("realtime.auto_help"), tab_label: t(TAB_LABEL_KEYS.transcription), prereq: null,
@@ -220,53 +248,7 @@ export const useConfigSearch = () => {
                 updateSelectedConfigTabId(result.tab, { voice_navigation_confirmed: true });
             }
 
-            let attempts = 0;
-            const findAndScroll = () => {
-                let target =
-                    document.querySelector(`[data-setting-id="${CSS.escape(result.setting_id)}"]`) ||
-                    document.querySelector(`[data-setting-label="${CSS.escape(result.label)}"]`);
-
-                // 条件付き非表示などでDOMにない場合、親項目へフォールバック
-                if (!target && result.prereq) {
-                    target = document.querySelector(`[data-setting-id="${CSS.escape(result.prereq.parent_id)}"]`);
-                }
-
-                if (target) {
-                    // Native details keep their children mounted even when folded.
-                    for (let ancestor = target.parentElement; ancestor; ancestor = ancestor.parentElement) {
-                        if (ancestor.tagName === "DETAILS") ancestor.open = true;
-                    }
-                    const controls = target.querySelectorAll("input:not([type='hidden']), select, textarea, button, a[href], summary, [tabindex]");
-                    const available = Array.from(controls).filter(node => !node.matches(":disabled, [aria-disabled='true'], [tabindex='-1']") &&
-                        !node.closest("[hidden], [inert]") && node.getClientRects().length > 0);
-                    // Help disclosures and documentation links may precede the actual field.
-                    const control = available.find(node => node.matches("input, select, textarea, [role='switch'], [role='combobox'], [role='slider']")) ?? available[0];
-                    if (control) {
-                        control.focus({ preventScroll: true });
-                    } else {
-                        const previousTabIndex = target.getAttribute("tabindex");
-                        target.setAttribute("tabindex", "-1");
-                        target.addEventListener("blur", () => {
-                            if (previousTabIndex === null) target.removeAttribute("tabindex");
-                            else target.setAttribute("tabindex", previousTabIndex);
-                        }, { once: true });
-                        target.focus({ preventScroll: true });
-                    }
-                    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-                    target.scrollIntoView({ behavior: reducedMotion ? "instant" : "smooth", block: "center" });
-                    target.classList.remove("search_target_highlight");
-                    void target.offsetWidth; // trigger reflow
-                    target.classList.add("search_target_highlight");
-                    setTimeout(() => {
-                        target.classList.remove("search_target_highlight");
-                    }, 2500);
-                } else if (attempts < 25) {
-                    attempts++;
-                    setTimeout(findAndScroll, 40);
-                }
-            };
-
-            setTimeout(findAndScroll, 60);
+            revealSetting(result);
         };
         if (currentSelectedConfigTabId.data !== result.tab) requestSettingsNavigation(navigate);
         else navigate();

@@ -283,12 +283,14 @@ voice_settings! {
     mic_mode = "off",              // off | translated (Realtime microphone finals only)
     direct_policy = "suppress",    // suppress the managed direct voice | mix explicitly
     target_slot = "1",
-    japanese_server = "external",  // external | bundled
+    // external | bundled. New settings use the bundled server, so the default engine
+    // ("AI voice (speech.cpp)") only needs its model (#566); saved choices are kept.
+    japanese_server = "bundled",
     japanese_url = "http://127.0.0.1:8080",
     japanese_voice = "none",
     multilingual_url = "",
     multilingual_voice = "ryan",
-    multilingual_server = "external",
+    multilingual_server = "bundled",
     japanese_seed = "",
     multilingual_seed = "",
     japanese_instructions = "",
@@ -616,7 +618,9 @@ mod tests {
     #[test]
     fn defaults_and_language_routing() {
         assert_eq!(settings(json!({})).mode, "off");
-        let original = settings(json!({"mode": "original", "output_device": "cable"}));
+        // New settings start on the bundled server; a saved external server keeps its URL (#566).
+        assert_eq!((VoiceSettings::default().japanese_server.as_str(), VoiceSettings::default().multilingual_server.as_str()), ("bundled", "bundled"));
+        let original = settings(json!({"mode": "original", "output_device": "cable", "japanese_server": "external", "multilingual_server": "external"}));
         let ja = chat("こんにちは", "Japanese");
         let request = original.request_for(&ja, None).unwrap();
         assert_eq!((request.voice.as_str(), request.language), ("none", "ja"));
@@ -633,7 +637,8 @@ mod tests {
 
     #[test]
     fn same_external_server_for_both_roles_is_rejected() {
-        let both = settings(json!({"mode": "original", "output_device": "c", "multilingual_url": "http://localhost:8080"}));
+        let both = settings(json!({"mode": "original", "output_device": "c", "japanese_server": "external",
+            "multilingual_server": "external", "multilingual_url": "http://localhost:8080"}));
         assert_eq!(both.request_for(&chat("hi", "en"), None), Err(TtsError::Unavailable("Japanese and multilingual TTS require separate servers")));
     }
 
@@ -679,7 +684,8 @@ mod tests {
 
     #[test]
     fn mic_mode_is_independent_and_never_falls_back_to_original() {
-        let mic_settings = settings(json!({"mic_mode": "translated", "routing": "managed", "multilingual_url": "http://127.0.0.1:8081"}));
+        let mic_settings = settings(json!({"mic_mode": "translated", "routing": "managed", "multilingual_server": "external",
+            "multilingual_url": "http://127.0.0.1:8081"}));
         assert_eq!(mic_settings.mode, "off");
         assert_eq!(mic_settings.direct_policy, "suppress");
         assert_eq!(settings(mic_settings.to_value()), mic_settings);
@@ -761,7 +767,7 @@ mod tests {
     fn japanese_goes_to_the_chosen_engine_and_other_languages_stay_on_speechcpp() {
         let value = settings(json!({"mode": "original", "output_device": "cable", "japanese_engine": "voicevox",
             "engine_voice_id": "3", "engine_voice_speaker": "ずんだもん", "engine_voice_style": "ノーマル",
-            "japanese_seed": "7", "multilingual_url": "http://localhost:8080"}));
+            "japanese_seed": "7", "multilingual_server": "external", "multilingual_url": "http://localhost:8080"}));
         let request = value.request_for(&chat("こんにちは", "Japanese"), None).unwrap();
         assert_eq!((request.url.as_str(), request.language, request.engine), ("http://127.0.0.1:50021", "ja", "voicevox"));
         assert_eq!(request.engine_voice, Some(EngineVoice { id: "3".into(), speaker: "ずんだもん".into(), style: "ノーマル".into() }));
