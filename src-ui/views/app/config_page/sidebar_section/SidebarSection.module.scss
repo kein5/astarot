@@ -46,7 +46,7 @@
 .scroll_content {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     overflow-y: auto;
     flex: 1;
     padding: 0 1rem;

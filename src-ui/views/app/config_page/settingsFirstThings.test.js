@@ -7,6 +7,7 @@ import * as featureLabel from "../../../logics/common/featureLabel.ts";
 import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";
 import * as settingsMenu from "../../../logics/configs/settingsMenu.ts";
+import * as usagePresets from "../../../logics/configs/usagePresets.ts";
 
 const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
 const icon = name => Object.assign(() => null, { icon: name });
@@ -48,6 +49,8 @@ test("the side menu groups its pages in the order a conversation uses them, each
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
         "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
+        "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
+        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
     });
     const tree = runtime.render(sidebar.SidebarSection);
     const groups = all(tree, node => node.props?.group?.tabs).map(node => node.props.group);
@@ -89,6 +92,8 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
         "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
         "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
+        "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
+        "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
     });
     const [tab] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "transcription");
     const tree = runtime.render(tab.type, tab.props);

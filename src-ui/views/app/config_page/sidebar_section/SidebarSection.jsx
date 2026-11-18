@@ -6,6 +6,7 @@ import {
     useStore_SelectedConfigTabId,
     useStore_IsBreakPoint,
 } from "@store";
+import { useUsagePresets } from "@logics_configs";
 
 import MicSvg from "@images/mic.svg?react";
 import TtsSpeakerSvg from "@images/tts_speaker.svg?react";
@@ -25,7 +26,9 @@ import vrct_vox_icon from "@images/brand/icon-small.svg";
 
 import { VersionLabel } from "../version_label/VersionLabel.jsx";
 import { splitFeatureLabel } from "../../../../logics/common/featureLabel.ts";
-import { SETTINGS_MENU_GROUPS } from "../../../../logics/configs/settingsMenu.ts";
+import { visibleMenuGroups } from "../../../../logics/configs/settingsMenu.ts";
+import { isTabShown, pickedPresets } from "../../../../logics/configs/usagePresets.ts";
+import { UsagePresetSelector } from "./usage_presets/UsagePresetSelector.tsx";
 
 // Keyboard focus expands the rail; focus from a click or from opening the page does
 // not, or the rail would stay over the page after the pointer left. A focus counts as
@@ -53,6 +56,12 @@ export const SidebarSection = () => {
     });
 
     const isCompact = currentIsBreakPoint.data && !isHovered;
+    // The uses picked at the top choose the pages in the menu (usagePresets.ts). The page open
+    // now stays in it, also when the search or a main page button opened it.
+    const { currentUsagePresets } = useUsagePresets();
+    const { currentSelectedConfigTabId } = useStore_SelectedConfigTabId();
+    const picked = pickedPresets(currentUsagePresets.data);
+    const groups = visibleMenuGroups(tab => isTabShown(picked, tab, tab === currentSelectedConfigTabId.data));
 
     return (
         <div
@@ -64,9 +73,10 @@ export const SidebarSection = () => {
         >
             <div className={styles.scroll_container}>
                 <div className={styles.scroll_content}>
+                    <UsagePresetSelector isCompact={isCompact} />
                     {/* Four groups, each under its heading, in the order a conversation uses them (#554). */}
                     <nav className={styles.tabs_wrapper} aria-label={t("config_page.side_menu_label")}>
-                        {SETTINGS_MENU_GROUPS.map(group => (
+                        {groups.map(group => (
                             <TabGroup key={group.id} group={group} isSmall={currentIsBreakPoint.data} isHovered={isHovered} />
                         ))}
                     </nav>
