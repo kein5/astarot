@@ -44,7 +44,9 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
 - The OpenVR client library is loaded at run time: `VRCT_OPENVR_API`, else
   `openvr_api.dll` / `libopenvr_api.so` beside the executable, else by name. The
   interface versions are those of pyopenvr 2.12.1401 (`IVRCompositor_029`,
-  `IVRSystem_023`).
+  `IVRSystem_023`). Their functions are called by position; each position is declared
+  with its function's name (`vrct_openvr_client::fn_table!`) and checked against
+  pyopenvr's tables (`native/openvr-client/tests/data/pyopenvr_fn_tables.json`).
 - On Linux the mirror's OpenGL context comes from EGL (an offscreen pbuffer) instead of
   a hidden GLFW window.
 - The derived keys file (`downloaded_models/.ocr-keys/`) is not written; the character
