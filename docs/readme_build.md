@@ -4,7 +4,7 @@ Windows向けのビルド手順と、現在のCIを説明します。Linuxでは
 
 ## Windowsの準備
 
-Git、[mise](https://mise.jdx.dev/getting-started.html)、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。Node.js、Rust、Python 3.11、uvは、`mise.toml`で固定した版をmiseが入れます。CIも同じ版を使います（[開発ガイド](development.md#用意するツール)）。依存関係は`package-lock.json`、`src-tauri/Cargo.lock`、`native/`の各`Cargo.lock`で管理しています。
+Git、[mise](https://mise.jdx.dev/getting-started.html)、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。Node.js、Rust、Python、uvは、`mise.toml`で固定した版をmiseが入れます。CIも同じ版を使います（[開発ガイド](development.md#用意するツール)）。依存関係は`package-lock.json`、`src-tauri/Cargo.lock`、`native/`の各`Cargo.lock`で管理しています。
 
 ```sh
 git clone https://github.com/kein5/VRCT-VOX.git

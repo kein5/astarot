@@ -7,7 +7,8 @@ override with OCR_REFERENCE_DIR). Nothing here is shipped with the application.
   downloaded_models/  the OCR catalog entries, in the layout the application uses
                       (<id>/<revision>/<file>), fetched at the catalog's pinned
                       revision and checked against its size and SHA-256
-  venv/               Python 3.11 with the application's own pins of RapidOCR,
+  venv/               the application's Python (requires-python in pyproject.toml,
+                      the version mise.toml pins) with its own pins of RapidOCR,
                       ONNX Runtime and OpenCV, installed with the hashes in uv.lock
 
 The models are the same consented downloads the application offers (Apache-2.0
@@ -111,7 +112,9 @@ def venv(root):
     uv = shutil.which('uv')
     if not uv:
         raise SystemExit('uv is required to create the reference environment')
-    subprocess.run([uv, 'venv', '--python', '3.11', '--clear', str(root / 'venv')], check=True)
+    # Run from the repository so uv picks the Python that pyproject.toml's requires-python names:
+    # uv.lock holds wheels for that version only.
+    subprocess.run([uv, 'venv', '--clear', str(root / 'venv')], cwd=REPO_ROOT, check=True)
     with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False) as handle:
         handle.write(wanted)
     try:
