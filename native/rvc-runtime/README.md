@@ -414,15 +414,19 @@ small change if the specification decides otherwise.
 ## Application worker (Phase 3)
 
 `vrct-rvc-worker` is what the application starts for the voice changer. It speaks the
-application's fixed live-VC pipe contract (`src-python/models/voice_conversion/protocol.py`,
-"VVC1"): a `ready` packet, or a `failed` packet with a fixed code, then one `output` packet
-of 80 ms of 48 kHz mono 16-bit audio for every `input` packet. The owner, the Linux launch
-helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink, mute
-and the speech-through-conversion path are the same as with the external runtime.
+application's live-VC pipe contract (`native/voice-conversion/src/protocol.rs`, "VVC1"; up
+to 0.4 `src-python/models/voice_conversion/protocol.py`): a `ready` packet, or a `failed`
+packet with a fixed code, then one `output` packet of 48 kHz mono 16-bit audio for every
+`input` packet. Every packet is one block of `--block-ms` (20 to 200 ms in steps of 20; 80 ms
+when it is not given, the external runtime's). The application passes its Advanced setting
+(`RVC_BLOCK_MS`, 40 ms by default, #531), and the `ready` packet confirms the block in
+`block_frames`; the owner refuses a worker that confirms another. The owner, the Linux
+launch helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink,
+mute and the speech-through-conversion path are the same as with the external runtime.
 
 ```sh
 python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/vrct-rvc-worker
-vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|cpu]
+vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|cpu] [--block-ms 40]
 vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
 ```
 
@@ -441,15 +445,20 @@ vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs
   the worker adds (`latency_ms`); the application shows both. `--device cuda` keeps the
   strict form (`vc_gpu_unavailable`). Missing or broken libraries are
   `vc_runtime_incomplete`.
-- **GPU layout**: the external runtime's profile: 80 ms blocks, 40 ms crossfade searched
-  over 10 ms, 2 s of context (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`),
-  every packet converted before it is answered. Added delay 52 ms (crossfade, search and
-  the two rate conversions).
+- **GPU layout**: one stream block per packet, a crossfade of half the block searched over
+  10 ms, 2 s of context, every packet converted before it is answered. At 80 ms this is the
+  external runtime's profile (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`,
+  added delay 52 ms: crossfade, search and the two rate conversions); at 40 ms it is
+  `Layout { block: 4, crossfade: 2, search: 1, extra: 200 }` with an added delay of 32 ms.
+  The 2026-11-18 measurements of `rvc-stream` ([pipeline latency](../../docs/voice-stack/pipeline-latency-2026-11-18.md),
+  "声の変換") converted a 40 ms block in about 11 ms on average, but a few blocks per run
+  took 55 to 72 ms and came too late.
 - **CPU layout**: 0.5 s blocks, 50 ms crossfade, 10 ms search, 2.5 s of context, the only
   layout of the Phase 2 measurements in which every CPU block took less time than it lasts.
-  The blocks are converted on a thread of their own; every packet is answered at once from
-  what that thread finished, a fixed 14 packets (1.12 s) later, which leaves a whole block's
-  time for converting each block. Added delay 1182 ms. Until the first converted audio is
+  The blocks are converted on a thread of their own, whatever the packets' length; every
+  packet is answered at once from what that thread finished, a fixed 14 packets (1.12 s) of
+  80 ms later (26 packets, 1.04 s, of 40 ms), which leaves a whole block's time for
+  converting each block. Added delay 1182 ms with 80 ms packets. Until the first converted audio is
   due, the answers are silence (`vad_silence`). A block that comes after its place was
   answered is dropped, and when more than three blocks of input wait, the oldest is dropped
   unconverted. When more than half of the last eight blocks were late or dropped, the

@@ -110,6 +110,8 @@ VAD は、リアルタイム字幕と同じ speech.cpp のサーバーの Silero
 
 `DIRECT_VOICE_SETTINGS`の`engine`は`rvc`だけを受け付け、既定も`rvc`である。Seed-VCはPythonのバックエンドで動いていたので、Pythonとともに終わった。`/set/data/direct_voice_settings`に`engine: "seed-vc"`を送ると、何も保存せず400の`{"error_code": "vc_engine_unavailable", "settings": <保存値>}`を返す。そのほかの不正な値は従来どおり`vc_settings_invalid`である。以前の版が保存した`seed-vc`は、読み込むときに`rvc`へ移す。ほかの項目（`mode`、RVCのパス、Seed-VCの`runtime`と`reference`）はそのまま残すので、0.4の版でも読める。`mode`が`converted`だったときだけ、その起動のあいだ`/get/data/direct_voice_state`に`"notice": "seed_vc_moved_to_rvc"`を付け、RVCのページに「Seed-VCは使えなくなったため、声の変換をRVCに切り替えました」と出す。設定を保存し直すと消える。変換は自動では始めない。RVCのモデルが未設定なら、メイン画面のRVCのスイッチは設定を求める。
 
+RVCの変換でマイクの音声を区切る長さは、`DIRECT_VOICE_SETTINGS`とは別の`RVC_BLOCK_MS`に保存する（#531）。値はミリ秒の整数で、20〜200の20の倍数を受け付け、既定は40である。`DIRECT_VOICE_SETTINGS`に入れないのは、知らない項目があると以前の版がその値全体を読まず、モデルとインデックスのパスまで既定に戻すためである。最上位のキーなので、知らないキーを残す版（#629）はこのキーを残す。それより前の版は知らないキーとして消して保存するが、ほかの設定は変えない。設定画面の「高度な設定」で`/set/data/rvc_block_ms`を使って変える。範囲外、20の倍数でない値、整数に読めない値は保存せず、400の`VALIDATION_RVC_BLOCK_MS`と保存値を返す。`config.json`に範囲外の値があれば、読み込むときに既定の40に戻す。中核は変換を始めるたびにこの値を読み、ワーカーに`--block-ms`で渡す。ワーカーは`ready`の`block_frames`でその長さを返し、違えば開始は`vc_ready_invalid`で失敗する。動いている変換の長さは`/get/data/direct_voice_state`の`conversion_block_ms`にあり、RVCのページの遅れの目安はこの値を足して出す。値を変えても、動いている変換は変えない。次に開始したときから使う。GPUでは1ブロックを1回で変換するので、短いほど遅れは小さいが、変換が間に合わないブロックが増える。CPUでは、この長さにかかわらず0.5秒ずつまとめて変換する。
+
 ### 計算デバイスと計算型
 
 計算デバイスと計算型を選ぶのは翻訳（CTranslate2）だけである。音声認識の`SELECTED_TRANSCRIPTION_COMPUTE_DEVICE`と`SELECTED_TRANSCRIPTION_COMPUTE_TYPE`はローカルの Whisper とともに削除し、古い`config.json`にあっても読み込まない。

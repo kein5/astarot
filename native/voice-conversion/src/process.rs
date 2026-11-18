@@ -1,8 +1,9 @@
 //! One conversion session: the worker's owner (`process.py`, `rvc_process.py`, `isolated.py`).
 //!
-//! The microphone is captured in 80 ms blocks, each block goes to the worker, and only its
-//! checked, fresh answer reaches the output. No original-audio fallback exists. Capture never
-//! waits for the worker.
+//! The microphone is captured in blocks of the session's length (`block_ms` of the start, 40 ms
+//! unless chosen; Python's were 80 ms), each block goes to the worker, and only its checked,
+//! fresh answer reaches the output. No original-audio fallback exists. Capture never waits for
+//! the worker.
 //!
 //! Python ran this in a router process of its own, to keep its garbage collector and global
 //! lock away from the app. Here it runs on a thread of the app; the worker is still a process.
@@ -21,20 +22,25 @@ use vrct_audio_routing::sync::monotonic_ns;
 use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WindowsRoute};
 
 use crate::protocol::{self as p, ProtocolError};
-use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, DEVICES, MAX_THREADS};
+use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, DEFAULT_BLOCK_MS, DEVICES, MAX_THREADS};
 
-/// Device route: a block older than this is dropped instead of sent. More than half of six
-/// seconds of blocks late means this PC cannot keep up, and the voice stops.
+/// Device route: a block older than this is dropped instead of sent. More than half of the
+/// blocks of the last six seconds late means the PC cannot keep up, and the voice stops.
 pub const LATE_NS: i64 = 240_000_000;
-pub const LATE_WINDOW: usize = 75;
-/// 20 ms parts of the microphone at 48 kHz mono s16le.
+const LATE_WINDOW_NS: i64 = 6_000_000_000;
+/// 20 ms parts of the microphone at 48 kHz mono s16le; a block is a whole number of them.
 pub const PART: usize = 1920;
 const PART_NS: i64 = 20_000_000;
-/// Speech through the conversion (ADR-007): what may wait to replace the microphone.
-const SPEECH_LIMIT: usize = p::PCM_BYTES * 25;
-/// One 80 ms block per send, at most this far ahead of real time, waited out by about two
+/// Speech through the conversion (ADR-007): what may wait to replace the microphone (2 s).
+const SPEECH_LIMIT: usize = 2 * p::RATE as usize * 2;
+/// 80 ms of speech per send, at most this far ahead of real time, waited out by about two
 /// conversion blocks.
 const SPEECH_FRAME: usize = 7680;
+
+/// The blocks of the last six seconds: what the lateness and the round trips are judged on.
+pub fn late_window(block: p::Block) -> usize {
+    (LATE_WINDOW_NS / block.ns()) as usize
+}
 const SPEECH_LEAD_NS: i64 = 400_000_000;
 const SPEECH_TAIL_NS: i64 = 250_000_000;
 
@@ -116,6 +122,8 @@ pub struct Health {
     /// `gpu` or `cpu`, from the worker's ready packet.
     pub device: Option<String>,
     pub latency_ms: Option<i64>,
+    /// The session's block, once the worker has confirmed it.
+    pub block_ms: Option<i64>,
 }
 
 /// Why speech could not go through the conversion.
@@ -182,6 +190,8 @@ struct Shared {
     args: Vec<String>,
     session: String,
     engine: &'static str,
+    block: p::Block,
+    late_window: usize,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -203,12 +213,13 @@ fn new_session() -> String {
 }
 
 /// The checked options of an RVC start (`start_options('converted', ...)` with engine `rvc`).
-/// `device` (`auto`), `threads` (0: the worker's choice) and `highpass` (true) may be left out.
+/// `device` (`auto`), `threads` (0: the worker's choice), `highpass` (true) and `block_ms`
+/// ([`DEFAULT_BLOCK_MS`]) may be left out.
 pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
     let invalid = || "vc_options_invalid".to_owned();
     let object = options.as_object().ok_or_else(invalid)?;
     const REQUIRED: [&str; 6] = ["engine", "index", "index_rate", "model", "pitch", "runtime"];
-    const OPTIONAL: [&str; 3] = ["device", "threads", "highpass"];
+    const OPTIONAL: [&str; 4] = ["device", "threads", "highpass", "block_ms"];
     if !REQUIRED.iter().all(|key| object.contains_key(*key)) || object.keys().any(|key| !REQUIRED.contains(&key.as_str()) && !OPTIONAL.contains(&key.as_str())) || object["engine"] != "rvc" {
         return Err(invalid());
     }
@@ -226,6 +237,10 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         Some(Value::Bool(on)) => *on,
         Some(_) => return Err(invalid()),
     };
+    let block_ms = match object.get("block_ms") {
+        None => DEFAULT_BLOCK_MS,
+        Some(value) => value.as_u64().filter(|_| value.is_u64()).and_then(|ms| u32::try_from(ms).ok()).and_then(p::Block::from_ms).ok_or_else(invalid)?.ms(),
+    };
     let text = |key: &str| -> Result<String, String> {
         let value = object[key].as_str().ok_or_else(invalid)?;
         if value.chars().count() > 4096 || value.chars().any(|c| (c as u32) < 32) {
@@ -241,7 +256,7 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         return Err(invalid());
     }
     let rate = rate_text(index_rate, !rate.is_f64());
-    Ok((RvcOptions { runtime: PathBuf::from(runtime), model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass }, rate))
+    Ok((RvcOptions { runtime: PathBuf::from(runtime), model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass, block_ms }, rate))
 }
 
 fn resolve(path: &Path) -> Option<PathBuf> {
@@ -282,10 +297,11 @@ impl VcProcess {
         }
         let session = new_session();
         let args = arguments(&options, &rate, &session);
-        Ok(Self::with(worker.to_path_buf(), args, session, "rvc", route, monitor))
+        let block = p::Block::from_ms(options.block_ms).ok_or("vc_options_invalid")?;
+        Ok(Self::with(worker.to_path_buf(), args, session, "rvc", route, monitor, block))
     }
 
-    fn with(worker: PathBuf, args: Vec<String>, session: String, engine: &'static str, route: Arc<dyn VcRoute>, monitor_choice: Option<MonitorSpec>) -> Self {
+    fn with(worker: PathBuf, args: Vec<String>, session: String, engine: &'static str, route: Arc<dyn VcRoute>, monitor_choice: Option<MonitorSpec>, block: p::Block) -> Self {
         Self {
             shared: Arc::new(Shared {
                 state: Mutex::new(State {
@@ -326,6 +342,8 @@ impl VcProcess {
                 args,
                 session,
                 engine,
+                block,
+                late_window: late_window(block),
             }),
         }
     }
@@ -388,6 +406,8 @@ impl VcProcess {
             round_trip_ms: median_ms(&state.rounds),
             device: state.device.clone(),
             latency_ms: state.latency_ms,
+            // Known once the worker's ready packet has confirmed it.
+            block_ms: state.device.as_ref().map(|_| i64::from(self.shared.block.ms())),
         }
     }
 
@@ -530,15 +550,15 @@ fn fail(shared: &Shared, code: &str) {
     stop(shared);
 }
 
-fn too_late(state: &mut State, late: bool) -> bool {
+fn too_late(state: &mut State, late: bool, window: usize) -> bool {
     state.late.push_back(late);
-    while state.late.len() > LATE_WINDOW {
+    while state.late.len() > window {
         state.late.pop_front();
     }
-    state.late.iter().filter(|&&late| late).count() > LATE_WINDOW / 2
+    state.late.iter().filter(|&&late| late).count() > window / 2
 }
 
-/// Capture thread: cut the audio into 20 ms parts and the parts into 80 ms blocks.
+/// Capture thread: cut the audio into 20 ms parts and the parts into the session's blocks.
 fn audio(shared: &Shared, pcm: &[u8]) -> bool {
     let mut fault = None;
     {
@@ -567,10 +587,10 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
                 part
             };
             state.partial.extend_from_slice(&part);
-            if state.partial.len() == p::PCM_BYTES {
-                let info = match p::input_info(&shared.session, state.sequence, state.first) {
+            if state.partial.len() == shared.block.pcm_bytes() {
+                let info = match p::input_info(&shared.session, state.sequence, state.first, shared.block) {
                     Ok(mut info) => {
-                        info.insert("pcm_bytes".into(), json!(p::PCM_BYTES));
+                        info.insert("pcm_bytes".into(), json!(shared.block.pcm_bytes()));
                         info
                     }
                     Err(error) => {
@@ -588,7 +608,7 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
                 } else {
                     state.queue.pop_front();
                     state.queue.push_back(block);
-                    if too_late(&mut state, true) {
+                    if too_late(&mut state, true, shared.late_window) {
                         fault = Some("vc_capture_overrun".to_owned());
                         break;
                     }
@@ -611,7 +631,7 @@ fn next_block(shared: &Shared, info: p::Info) -> Result<Option<p::Info>, String>
     let end = info.get("end_ns").and_then(Value::as_i64).unwrap_or(0);
     let age = monotonic_ns() as i64 - end;
     let late = age > LATE_NS;
-    if too_late(&mut state, late) {
+    if too_late(&mut state, late, shared.late_window) {
         return Err("vc_capture_overrun".into());
     }
     if late {
@@ -775,7 +795,7 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
     let worker = worker_slot.insert(WorkerPipe::start(&shared.worker, &shared.args, None).map_err(|_| "vc_worker_failed".to_owned())?);
     let check = || -> Result<(), ProtocolError> { cancelled(shared).map_err(ProtocolError) };
     let (info, pcm) = worker.read(route.ready_timeout(), &mut || check()).map_err(|e| e.0)?;
-    let (device, latency) = p::require_ready(&info, &pcm, &shared.session, shared.engine).map_err(|e| e.0)?;
+    let (device, latency) = p::require_ready(&info, &pcm, &shared.session, shared.engine, shared.block).map_err(|e| e.0)?;
     {
         let mut state = lock(&shared.state);
         state.device = device.map(str::to_owned);
@@ -858,11 +878,11 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
         {
             let mut state = lock(&shared.state);
             state.rounds.push_back(monotonic_ns() as i64 - sent_at);
-            while state.rounds.len() > LATE_WINDOW {
+            while state.rounds.len() > shared.late_window {
                 state.rounds.pop_front();
             }
         }
-        let converted_state = p::require_output(&result, &converted, &info, &pcm, monotonic_ns() as i64, route.max_age_ns()).map_err(|e| e.0)?;
+        let converted_state = p::require_output(&result, &converted, &info, &pcm, monotonic_ns() as i64, route.max_age_ns(), shared.block).map_err(|e| e.0)?;
         fresh().map_err(|e| e.0)?;
         let audible = audible(shared, converted, speech);
         output.write(&audible, &deadline).map_err(code_of)?;
@@ -881,7 +901,29 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
 
 #[cfg(test)]
 mod tests {
-    use super::without_verbatim_prefix;
+    use super::{late_window, rvc_options, without_verbatim_prefix, PART};
+    use crate::protocol::Block;
+
+    #[test]
+    fn blocks_are_judged_on_six_seconds_whatever_their_length() {
+        // 75 blocks of 80 ms, as before the block could be chosen.
+        assert_eq!(late_window(Block::default()), 75);
+        assert_eq!(late_window(Block::from_ms(40).unwrap()), 150);
+        assert_eq!(late_window(Block::from_ms(200).unwrap()), 30);
+    }
+
+    #[test]
+    fn a_start_converts_in_40_ms_blocks_unless_it_chooses_another_length() {
+        let base = serde_json::json!({ "engine": "rvc", "runtime": "/r", "model": "/v.pth", "index": "", "pitch": 0, "index_rate": 0 });
+        assert_eq!(rvc_options(&base).unwrap().0.block_ms, 40);
+        let mut chosen = base.clone();
+        chosen["block_ms"] = serde_json::json!(120);
+        assert_eq!(rvc_options(&chosen).unwrap().0.block_ms, 120);
+        // Every block holds whole 20 ms capture parts.
+        for ms in [20, 40, 120, 200] {
+            assert_eq!(Block::from_ms(ms).unwrap().pcm_bytes() % PART, 0, "{ms}");
+        }
+    }
 
     #[test]
     fn a_share_keeps_its_double_backslash_and_a_drive_loses_the_verbatim_prefix() {

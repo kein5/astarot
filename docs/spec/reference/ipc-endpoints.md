@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（460件: 削除 13、取得 206、実行 47、有効化 40、無効化 43、設定 111）
+## 要求（462件: 削除 13、取得 207、実行 47、有効化 40、無効化 43、設定 112）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -475,6 +475,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | useVoiceAudition.updateState | 中核のみ |
 | `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
+| `/get/data/rvc_block_ms` | 取得 | `core: RVC_BLOCK_MS` | 可 | useAdvancedSettings.updateFromBackendRvcBlockMs | 中核のみ |
+| `/set/data/rvc_block_ms` | 設定 | `core: RVC_BLOCK_MS` | 可 | useAdvancedSettings.setSuccessRvcBlockMs | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）

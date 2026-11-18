@@ -152,6 +152,7 @@ export const _useBackendErrorHandling = () => {
         updateObsBrowserSourceFontColor,
         updateObsBrowserSourceFontOutlineThickness,
         updateObsBrowserSourceFontOutlineColor,
+        updateRvcBlockMs,
     } = useAdvancedSettings();
 
     const {
@@ -403,6 +404,10 @@ export const _useBackendErrorHandling = () => {
             case "VALIDATION_SPEAKER_MAX_PHRASES":
                 updateSpeakerMaxWords(data);
                 showNotification_Error(t("common_error.invalid_value_speaker_max_phrase"), { category_id: error_code });
+                return;
+            case "VALIDATION_RVC_BLOCK_MS":
+                updateRvcBlockMs(data);
+                showNotification_Error(localized, { category_id: error_code });
                 return;
             case "VALIDATION_INVALID_IP":
             case "VALIDATION_CANNOT_SET_IP":

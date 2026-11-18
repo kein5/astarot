@@ -242,6 +242,7 @@ impl Voice {
         let converted: ConvertedFactory = {
             let platform = platform.clone();
             let worker = platform.rvc_worker(&app_dir);
+            let settings = weak.clone();
             Arc::new(move |options, monitor, output| {
                 // Seed-VC ran on Python and ended with it; a start of it fails as one whose
                 // runtime is missing did.
@@ -253,7 +254,8 @@ impl Voice {
                 let output = output.ok_or("vc_engine_unavailable")?;
                 let devices = platform.route_devices().ok_or("vc_engine_unavailable")?;
                 let route = Arc::new(DeviceRoute::new(output, devices, platform.monitor_output()));
-                Ok(Box::new(VcProcess::rvc(options, &worker, route, monitor)?) as Box<dyn vrct_voice_conversion::DirectBackend>)
+                let options = with_block(options, settings.upgrade().map(|core| core.config().get("RVC_BLOCK_MS")));
+                Ok(Box::new(VcProcess::rvc(&options, &worker, route, monitor)?) as Box<dyn vrct_voice_conversion::DirectBackend>)
             })
         };
         let direct = Arc::new(DirectVoice::new(passthrough, Some(converted)));
@@ -1038,6 +1040,16 @@ impl Voice {
         let state = self.direct.health();
         !(self.direct_closed.load(Ordering::SeqCst) || state.requested || state.pending || state.stopping)
     }
+}
+
+/// An RVC start with the block of the settings (`RVC_BLOCK_MS`, #531) when the start does not
+/// name one. The Advanced settings keep it, not the start options the UI sends.
+fn with_block(options: &Value, saved: Option<Value>) -> Value {
+    let mut options = options.clone();
+    if let (Some(object), Some(ms)) = (options.as_object_mut(), saved.filter(crate::config::schema::is_valid_rvc_block_ms)) {
+        object.entry("block_ms").or_insert(ms);
+    }
+    options
 }
 
 /// `start_options(mode, options)`: nothing for a passthrough; the engine's fields for a
