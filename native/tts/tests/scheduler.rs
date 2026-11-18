@@ -485,21 +485,27 @@ fn start_deadline_includes_inference_and_output_open() {
     }
 }
 
+/// The start deadline of the two tests below. The first chunk must reach the output before it:
+/// connecting and opening the output can take more than Python's 150 ms on a loaded machine,
+/// and the deadline would then expire before the order these tests check.
+const START_DEADLINE: Duration = Duration::from_secs(1);
+
 #[test]
 fn start_deadline_never_truncates_started_speech() {
     let server = PcmServer::start(ServerOptions {
         chunks: vec![vec![1, 0], vec![2, 0]],
         before_chunk: Some(Arc::new(|i| {
             if i == 1 {
-                thread::sleep(ms(250));
+                // Past the deadline: audible speech has started, so it is not cut.
+                thread::sleep(START_DEADLINE + ms(250));
             }
         })),
         ..Default::default()
     });
     let sink = Sink::default();
-    let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = ms(150));
+    let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = START_DEADLINE);
     assert!(bus.publish(mic("session:utterance"), None, None));
-    until2(|| bus.status().completed == 1);
+    until(|| bus.status().completed == 1, Duration::from_secs(5));
     assert_eq!(sink.bytes(), [1, 0, 2, 0]);
     assert_eq!(bus.status().errors, 0);
     close(&bus);
@@ -519,9 +525,9 @@ fn silent_pcm_does_not_disable_start_deadline() {
         ..Default::default()
     });
     let sink = Sink::default();
-    let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = ms(150));
+    let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = START_DEADLINE);
     assert!(bus.publish(mic("session:utterance"), None, None));
-    until(|| bus.status().errors == 1, Duration::from_secs(3));
+    until(|| bus.status().errors == 1, Duration::from_secs(5));
     assert_eq!(bus.status().last_error.as_deref(), Some("speech_expired"));
     assert_eq!(sink.bytes(), [0, 0]);
     assert_eq!(bus.status().last_first_write_ms, None);

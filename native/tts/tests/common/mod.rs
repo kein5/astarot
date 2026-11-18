@@ -33,6 +33,8 @@ pub struct ServerOptions {
     pub before_get: Option<GetHook>,
     /// Called after the chunks, before the body's terminator.
     pub before_end: Option<Hook>,
+    /// Bytes the response socket must be able to queue before the client reads them.
+    pub send_buffer: Option<usize>,
 }
 
 impl Default for ServerOptions {
@@ -52,6 +54,7 @@ impl Default for ServerOptions {
             models_body: None,
             before_get: None,
             before_end: None,
+            send_buffer: None,
         }
     }
 }
@@ -117,6 +120,13 @@ impl Drop for PcmServer {
 }
 
 fn handle(socket: TcpStream, options: &ServerOptions, requests: &Requests) {
+    // On Windows an accepted socket inherits the listener's non-blocking mode (Linux does not).
+    // A non-blocking write then fails with WouldBlock once the client has not read for a while,
+    // and the response would end cut short, unlike a real server that waits for the reader.
+    socket.set_nonblocking(false).unwrap();
+    if let Some(bytes) = options.send_buffer {
+        reserve_send_buffer(&socket, bytes);
+    }
     let mut reader = BufReader::new(socket.try_clone().unwrap());
     let mut socket = socket;
     let mut line = String::new();
@@ -188,6 +198,24 @@ fn handle(socket: TcpStream, options: &ServerOptions, requests: &Requests) {
     })();
 }
 
+/// Lets the socket queue `bytes` unread by the peer. Linux tunes loopback buffers up to
+/// megabytes by itself, and fixing `SO_SNDBUF` there would stop that tuning. A blocking send on
+/// Windows returns only once the data fits its send buffer (64 KiB by default), so a response
+/// larger than that would wait for the client instead of being queued.
+fn reserve_send_buffer(socket: &TcpStream, bytes: usize) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::AsRawSocket;
+        use windows_sys::Win32::Networking::WinSock::{setsockopt, SOL_SOCKET, SO_SNDBUF};
+        let size = i32::try_from(bytes).expect("a send buffer below 2 GiB");
+        // SAFETY: the socket is open for this call, and `size` lives across it.
+        let status = unsafe { setsockopt(socket.as_raw_socket() as usize, SOL_SOCKET, SO_SNDBUF, (&size as *const i32).cast(), 4) };
+        assert_eq!(status, 0, "SO_SNDBUF");
+    }
+    #[cfg(not(windows))]
+    let _ = (socket, bytes);
+}
+
 /// A server that sends `pcm` in one chunk, then waits for `finish` before
 /// ending the response. Stopping it closes the listener but keeps the response
 /// socket alive, as a real TCP backlog would.
@@ -206,9 +234,12 @@ impl BufferedServer {
         let sent = vrct_tts::sync::Event::new();
         let finish = vrct_tts::sync::Event::new();
         let (hook_sent, hook_finish) = (sent.clone(), finish.clone());
+        // The whole response, framing included, is queued before `sent`.
+        let send_buffer = Some(pcm.len() + 64 * 1024);
         let server = PcmServer::start_on(
             host,
             ServerOptions {
+                send_buffer,
                 chunks: vec![pcm],
                 before_end: Some(Arc::new(move || {
                     hook_sent.set();
