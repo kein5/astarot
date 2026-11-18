@@ -9,7 +9,8 @@
 //!   language the model lists).
 //! - **api**: an API the app calls. The user names the protocol (`openai_compatible`), the
 //!   address (this PC, the LAN or the internet) and the model. The key never comes here: the
-//!   core keeps it in the secret store and this file records only whether there is one.
+//!   core keeps it in the secret store and this file records only whether the store holds it
+//!   (`key`: false while the core holds it in memory because the store did not take it).
 //!
 //! The entries the app ships with are not in this file; the core lists them next to these
 //! (`controller/translation_catalog.rs`). New runtimes and protocols (MADLAD-400, a
@@ -198,7 +199,7 @@ impl TranslationCatalog {
     ///
     /// Engine: exactly `{group, name, runtime, folder}` and, optionally, `languages`.
     /// API: exactly `{group, name, protocol, url, model, key}`, where `key` says whether the
-    /// core keeps a key for it.
+    /// secret store holds a key for it.
     pub fn normalize(request: &Value) -> Result<Value, Error> {
         let invalid = Error::Code(codes::INVALID);
         let Some(fields) = request.as_object() else { return Err(invalid) };
@@ -263,6 +264,19 @@ impl TranslationCatalog {
         entries.push(row);
         self.write(entries)?;
         Ok((id, self.state_locked()))
+    }
+
+    /// Records whether the secret store holds the key of the API entry `id`. An entry that is
+    /// gone, or already says so, is left as it is.
+    pub fn set_key(&self, id: &str, kept: bool) -> Result<(), Error> {
+        let _held = self.lock.lock().unwrap();
+        let mut entries = self.read()?;
+        let Some(row) = entries.iter_mut().find(|row| row["id"] == id && row["group"] == "api") else { return Ok(()) };
+        if row["key"] == kept {
+            return Ok(());
+        }
+        row["key"] = json!(kept);
+        self.write(entries)
     }
 
     /// Forgets `{id}`. Returns the row removed (the core deletes its key) and the state. The
@@ -334,6 +348,15 @@ mod tests {
         assert_eq!(entries[0]["status"], "ok");
         assert_eq!((entries[1]["has_key"].as_bool(), entries[1].get("key")), (Some(true), None));
         assert_eq!(catalog.entry(&api_id).unwrap()["key"], true);
+        // Whether the store holds the key: changed for an API entry only.
+        catalog.set_key(&api_id, false).unwrap();
+        assert_eq!(catalog.entry(&api_id).unwrap()["key"], false);
+        assert_eq!(catalog.state()["entries"][1]["has_key"], false);
+        catalog.set_key(&api_id, true).unwrap();
+        assert_eq!(catalog.entry(&api_id).unwrap()["key"], true);
+        catalog.set_key(&engine_id, false).unwrap();
+        assert!(catalog.entry(&engine_id).unwrap().get("key").is_none(), "an engine entry has no key");
+        catalog.set_key("tr-gone", false).unwrap();
         let (removed, state) = catalog.remove(&json!({ "id": engine_id })).unwrap();
         assert_eq!(removed["name"], "Mine");
         assert_eq!(state["entries"].as_array().unwrap().len(), 1);

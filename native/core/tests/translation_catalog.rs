@@ -104,6 +104,8 @@ fn an_api_entry_keeps_its_key_in_the_store_and_switches_the_compatible_engine() 
     let catalog = ui.ok(register, Some(request("LAN server", &url, json!(" lan-key "))));
     let entry = user_entries(&catalog, "api")[0].clone();
     assert_eq!((entry["name"].clone(), entry["has_key"].clone(), entry["in_use"].clone()), (json!("LAN server"), json!(true), json!(false)));
+    assert_eq!(entry["key_in_memory"], false, "the store took it");
+    assert!(ui.on(0, "/run/secret_store_failed").is_empty());
     let id = entry["id"].as_str().unwrap().to_string();
     let store = ui.backend.core().config().secret_store();
     assert_eq!(store.read(&format!("TRANSLATION_CATALOG/{id}")).unwrap().as_deref(), Some("lan-key"));
@@ -150,32 +152,119 @@ fn an_api_entry_keeps_its_key_in_the_store_and_switches_the_compatible_engine() 
     ui.stop();
 }
 
+/// `{id, has_key, key_in_memory}` of the user's API entries.
+fn api_keys(catalog: &Value) -> Vec<(String, Value, Value)> {
+    user_entries(catalog, "api").iter().map(|e| (e["id"].as_str().unwrap().to_string(), e["has_key"].clone(), e["key_in_memory"].clone())).collect()
+}
+
+/// The `key` flag `translation_catalog.json` holds for `id`.
+fn key_flag(dir: &Path, id: &str) -> Value {
+    let file: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("translation_catalog.json")).unwrap()).unwrap();
+    file["entries"].as_array().unwrap().iter().find(|e| e["id"] == id).map(|e| e["key"].clone()).unwrap_or_default()
+}
+
+/// The key store failures reported for `entry` (`/run/secret_store_failed`).
+fn store_failures(ui: &Ui, entry: &str) -> Vec<Value> {
+    ui.on(0, "/run/secret_store_failed")
+        .into_iter()
+        .filter(|line| line["result"]["data"]["entries"].as_array().is_some_and(|e| e.iter().any(|e| e == entry)))
+        .collect()
+}
+
+/// No file of the settings folder and no line of the log holds `secret`.
+fn nowhere(dir: &Path, ui: &Ui, secret: &str) {
+    for file in ["translation_catalog.json", FILE_NAME, "config.json"] {
+        let text = std::fs::read_to_string(dir.join(file)).unwrap_or_default();
+        assert!(!text.contains(secret), "{secret} reached {file}");
+    }
+    assert!(!process_log(ui).contains(secret), "{secret} reached the log");
+}
+
 #[test]
-fn an_api_entry_whose_key_the_os_store_does_not_take_is_not_added() {
+fn an_api_entry_whose_key_the_os_store_does_not_take_keeps_it_in_memory_for_the_run() {
     // A locked keyring, and an OS store that is not there (Linux without a Secret Service).
     let fake = FakeProviders::start();
-    fake.key("/compatible/v1", "lan-key").models("/compatible/v1", &["qwen"]);
+    fake.key("/compatible/v1", "lan-key").models("/compatible/v1", &["qwen", "llama"]);
     let url = fake.url_of("/compatible/v1");
     for faults in [Faults { locked: true, ..Faults::default() }, Faults { unavailable: true, ..Faults::default() }] {
+        let reason = if faults.locked { "locked" } else { "unavailable" };
         let vault = MemoryStore::new();
         vault.set_faults(faults);
         let temp = tempfile::tempdir().unwrap();
         let ui = start_in(temp.path(), api_services(&fake, &vault));
+        let config = Arc::clone(ui.backend.core().config());
 
-        let request = json!({ "group": "api", "name": "LAN server", "protocol": "openai_compatible", "url": url, "model": "qwen", "auth_key": "lan-key" });
-        assert_eq!(refused(&ui, "/run/register_translation_catalog_entry", request), (400, "translation_catalog_key_store_failed".into()), "{faults:?}");
-        assert!(user_entries(&ui.ok("/get/data/translation_catalog", None), "api").is_empty(), "{faults:?}: no entry without its key");
+        // Added all the same: the key is held in memory, and the failure is reported as a
+        // setting's key is (ADR-013), naming the entry and not the key.
+        let request = |name: &str, model: &str| json!({ "group": "api", "name": name, "protocol": "openai_compatible", "url": url, "model": model, "auth_key": "lan-key" });
+        let catalog = ui.ok("/run/register_translation_catalog_entry", Some(request("LAN server", "qwen")));
+        let [(id, has_key, in_memory)] = api_keys(&catalog).try_into().unwrap();
+        assert_eq!((has_key, in_memory), (json!(false), json!(true)), "{faults:?}");
+        let entry = format!("TRANSLATION_CATALOG/{id}");
+        let failures = store_failures(&ui, &entry);
+        assert_eq!(failures.len(), 1, "{faults:?}");
+        let data = &failures[0]["result"]["data"];
+        assert_eq!((data["operation"].clone(), data["reason"].clone()), (json!("write"), json!(reason)), "{faults:?}: {data}");
+        assert_eq!(failures[0]["status"], 400);
+        assert_eq!(key_flag(temp.path(), &id), false, "{faults:?}: the file does not claim a stored key");
         assert!(vault.snapshot().is_empty(), "{faults:?}");
-        for file in ["translation_catalog.json", FILE_NAME, "config.json"] {
-            let text = std::fs::read_to_string(temp.path().join(file)).unwrap_or_default();
-            assert!(!text.contains("lan-key"), "{faults:?}: the key reached {file}");
-        }
-        let log = process_log(&ui);
-        for secret in ["lan-key", "LAN server"] {
-            assert!(!log.contains(secret), "{faults:?}: {secret} reached the log");
-        }
+        nowhere(temp.path(), &ui, "lan-key");
+
+        // Usable for the run: the key held in memory switches the compatible engine.
+        ui.ok("/run/use_translation_catalog_entry", Some(json!({ "id": id })));
+        assert_eq!(ui.ok("/get/data/openai_compatible_url", None), json!(url), "{faults:?}");
+
+        // Removing an entry whose key is in memory drops the key there too.
+        let other = ui.ok("/run/register_translation_catalog_entry", Some(request("Other", "llama")));
+        let other_id = api_keys(&other)[1].0.clone();
+        let other_entry = format!("TRANSLATION_CATALOG/{other_id}");
+        assert!(config.secret_in_memory(&other_entry));
+        ui.ok("/run/remove_translation_catalog_entry", Some(json!({ "id": other_id })));
+        assert!(!config.secret_in_memory(&other_entry), "{faults:?}");
+        assert_eq!(config.secret(&other_entry), Ok(None), "{faults:?}");
+
+        // Once the store answers, the next try keeps the key there and the entry says so.
+        vault.set_faults(Faults::default());
+        config.save_now();
+        assert_eq!(in_vault(&vault, temp.path(), &id).as_deref(), Some("lan-key"), "{faults:?}");
+        assert_eq!(in_vault(&vault, temp.path(), &other_id), None, "{faults:?}: the removed entry's key is not kept");
+        assert_eq!(api_keys(&ui.ok("/get/data/translation_catalog", None)), [(id.clone(), json!(true), json!(false))], "{faults:?}");
+        assert_eq!(key_flag(temp.path(), &id), true, "{faults:?}");
+        assert_eq!(store_failures(&ui, &entry).len(), 1, "{faults:?}: reported once");
+        nowhere(temp.path(), &ui, "lan-key");
+        assert!(!process_log(&ui).contains("LAN server"), "{faults:?}: the name reached the log");
         ui.stop();
     }
+}
+
+#[test]
+fn a_key_held_in_memory_is_gone_after_a_restart_and_the_entry_says_so() {
+    let fake = FakeProviders::start();
+    fake.key("/compatible/v1", "lan-key").models("/compatible/v1", &["qwen"]);
+    let url = fake.url_of("/compatible/v1");
+    let vault = MemoryStore::new();
+    vault.set_faults(Faults { locked: true, ..Faults::default() });
+    let temp = tempfile::tempdir().unwrap();
+    let ui = start_in(temp.path(), api_services(&fake, &vault));
+    let request = json!({ "group": "api", "name": "LAN server", "protocol": "openai_compatible", "url": url, "model": "qwen", "auth_key": "lan-key" });
+    let id = api_keys(&ui.ok("/run/register_translation_catalog_entry", Some(request)))[0].0.clone();
+    // The store is still locked when the app closes: the last try fails too.
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    assert!(vault.snapshot().is_empty());
+    for file in ["translation_catalog.json", FILE_NAME, "config.json"] {
+        assert!(!std::fs::read_to_string(temp.path().join(file)).unwrap_or_default().contains("lan-key"), "no plain-text copy in {file}");
+    }
+
+    // Started again, with the store working: the entry stays, without a key.
+    vault.set_faults(Faults::default());
+    let ui = start_in(temp.path(), api_services(&fake, &vault));
+    assert_eq!(api_keys(&ui.ok("/get/data/translation_catalog", None)), [(id.clone(), json!(false), json!(false))]);
+    assert_eq!(refused(&ui, "/run/use_translation_catalog_entry", json!({ "id": id })), (400, "translation_catalog_key_missing".into()));
+    let catalog = ui.ok("/run/remove_translation_catalog_entry", Some(json!({ "id": id })));
+    assert!(user_entries(&catalog, "api").is_empty());
+    nowhere(temp.path(), &ui, "lan-key");
+    ui.stop();
 }
 
 #[cfg(feature = "onnx-translation")]

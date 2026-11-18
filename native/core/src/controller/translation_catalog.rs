@@ -12,28 +12,29 @@
 //!   key as typing them in.
 //!
 //! An API entry's key is kept in the secret store (`TRANSLATION_CATALOG/<id>`), never in
-//! `translation_catalog.json` or `config.json`. The routes carry `translation_catalog`, so the
-//! process log masks their values (names, folders, addresses and keys:
-//! `log::SENSITIVE_ENDPOINT_MARKERS`). Nothing here logs them either.
+//! `translation_catalog.json` or `config.json`. When the store does not take it, the key is held
+//! in memory for this run, reported and tried again, as a setting's key is (ADR-013,
+//! `Config::keep_secret`); the entry records `key: false` until the store holds the key. The
+//! routes carry `translation_catalog`, so the process log masks their values (names, folders,
+//! addresses and keys: `log::SENSITIVE_ENDPOINT_MARKERS`). Nothing here logs them either.
 
 use super::languages::LOCAL_ENGINE;
 use super::routes::{Builder, OPEN, WAIT};
 use super::{Core, ok};
-use crate::config::secrets;
+use crate::config::Kept;
 use crate::net_policy::validate_api_url;
 use crate::protocol::Reply;
 use serde_json::{Map, Value, json};
+use std::sync::Arc;
 use vrct_ops::downloads::Error;
 use vrct_ops::downloads::translation_catalog::{self as catalog, TranslationCatalog, codes};
 use vrct_translation::providers::Provider;
 
 /// The engine the API entries switch.
 const COMPATIBLE_ENGINE: &str = "OpenAI_Compatible";
-/// An API entry's key could not be kept: nothing was added.
-pub const KEY_STORE_FAILED: &str = "translation_catalog_key_store_failed";
 /// An OpenAI-compatible entry needs a key, as the engine it switches does.
 pub const KEY_REQUIRED: &str = "translation_catalog_key_required";
-/// The entry's key is no longer in the secret store.
+/// The entry's key is neither in memory nor in the secret store.
 pub const KEY_MISSING: &str = "translation_catalog_key_missing";
 /// The entry cannot be used now: its folder is gone or its runtime or protocol is unknown.
 pub const UNUSABLE: &str = "translation_catalog_unusable";
@@ -86,7 +87,7 @@ fn entry_weight(id: &str) -> String {
 }
 
 impl Core {
-    fn translation_catalog(&self) -> &TranslationCatalog {
+    fn translation_catalog(&self) -> &Arc<TranslationCatalog> {
         &self.ops().translation_catalog
     }
 
@@ -150,6 +151,9 @@ impl Core {
             let mut item = entry.as_object().cloned().unwrap_or_default();
             let same_model = entry["model"] == "" || entry["model"] == model;
             item.insert("origin".into(), json!("user"));
+            // The store did not take the key: held until the app closes, and tried again.
+            let in_memory = config.secret_in_memory(&key_entry(entry["id"].as_str().unwrap_or_default()));
+            item.insert("key_in_memory".into(), json!(in_memory));
             // What the OpenAI-compatible engine points at now.
             item.insert("in_use".into(), json!(keyed && entry["url"] == url.as_str() && same_model));
             api.push(Value::Object(item));
@@ -191,7 +195,9 @@ impl Core {
     }
 
     /// Adds an entry. Engine: `{group, name, runtime, folder, languages?}`. API: `{group, name,
-    /// protocol, url, model, auth_key}`; the key goes to the secret store.
+    /// protocol, url, model, auth_key}`; the key goes to the secret store. When the store does
+    /// not take it, the entry is added all the same and its key is held in memory for this run
+    /// (reported through `/run/secret_store_failed` and tried again, as a setting's key is).
     fn register_translation_entry(&self, data: &Value) -> Reply {
         let Some(mut request) = data.as_object().cloned() else { return failure(codes::INVALID) };
         let api = request.get("group") == Some(&json!("api"));
@@ -205,7 +211,8 @@ impl Core {
             None
         };
         if api {
-            request.insert("key".into(), json!(key.is_some()));
+            // Whether the store holds the key: set once it does (below).
+            request.insert("key".into(), json!(false));
         }
         let row = match TranslationCatalog::normalize(&Value::Object(request)) {
             Ok(row) => row,
@@ -226,13 +233,15 @@ impl Core {
             Ok((id, _)) => id,
             Err(error) => return failure(code_of(error)),
         };
-        if let Some(key) = &key
-            && secrets::write_verified(self.config().secret_store().as_ref(), &key_entry(&id), key).is_err()
-        {
-            // No entry without its key: take it out again.
-            let _ = catalog.remove(&json!({ "id": id }));
-            let _ = self.config().secret_store().delete(&key_entry(&id));
-            return failure(KEY_STORE_FAILED);
+        if let Some(key) = &key {
+            let (catalog, marked) = (Arc::clone(catalog), id.clone());
+            // Recorded for the next start, once the store holds the key (now or later this run).
+            let on_stored = Box::new(move || {
+                let _ = catalog.set_key(&marked, true);
+            });
+            if self.config().keep_secret(&key_entry(&id), key, on_stored) == Kept::InMemory {
+                self.step("Translation catalog: the key store did not take an API entry's key; it is held in memory for this run");
+            }
         }
         if !api {
             self.refresh_translation_weights();
@@ -253,9 +262,9 @@ impl Core {
             Err(error) => return failure(code_of(error)),
         };
         if removed["group"] == "api" {
-            if self.config().secret_store().delete(&key_entry(id)).is_err() {
-                self.step("Translation catalog: a removed entry's key could not be deleted from the key store");
-            }
+            // Gone from memory now; from the store now or with the tries a deleted setting's key
+            // gets (reported through `/run/secret_store_failed`).
+            self.config().forget_secret(&key_entry(id));
         } else {
             self.refresh_translation_weights();
         }
@@ -286,7 +295,8 @@ impl Core {
             }
             return ok(self.translation_catalog_view());
         }
-        let key = match self.config().secret_store().read(&key_entry(id)) {
+        // The key held in memory when the store did not take it, else the store's.
+        let key = match self.config().secret(&key_entry(id)) {
             Ok(Some(key)) => key,
             _ => return failure(KEY_MISSING),
         };
