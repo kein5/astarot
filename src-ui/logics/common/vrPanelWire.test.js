@@ -84,7 +84,7 @@ test("an endpoint the list does not name is not relayed", () => {
 // something new, this fails until the path is added to VR_PANEL_RELAY_PATHS on purpose.
 test("everything the VR windows send is relayed", () => {
     const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
-    const settings = new Map([...read("../configs/config_page_setter/ui_config_setter.js")
+    const settings = new Map([...read("../configs/config_page_setter/ui_config_setter.ts")
         .matchAll(/\{[^{}]*?Base_Name:\s*"(\w+)"[^{}]*?logics_template_id:\s*"(\w+)"[^{}]*?base_endpoint_name:\s*"(\w+)"[^{}]*?\}/gs)]
         .map(([, base, template, endpoint]) => [base, { template, endpoint }]));
     const handWritten = {

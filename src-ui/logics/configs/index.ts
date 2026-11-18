@@ -1,5 +1,5 @@
-import { createCategoryHook } from "./config_page_setter/ui_config_setter.js";
-export { useSettingValue } from "./config_page_setter/ui_config_setter.js";
+import { createCategoryHook } from "./config_page_setter/ui_config_setter";
+export { useSettingValue } from "./config_page_setter/ui_config_setter";
 
 export const useAppearance = createCategoryHook("Appearance");
 export const useDevice = createCategoryHook("Device");
@@ -24,4 +24,4 @@ export { useConfigSearch } from "./config_page_setter/_aux/useConfigSearch.js";
 export {
     useSliderLogic,
     useSaveButtonLogic,
-} from "./config_page_setter/useSettingsLogics.js";
+} from "./config_page_setter/useSettingsLogics";

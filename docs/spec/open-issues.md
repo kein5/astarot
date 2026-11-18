@@ -6,7 +6,7 @@
 |---|---|---|---|
 | OI-03 | VRChatへ送る文に長さの上限や分割の処理がない。VRChatのチャットボックスに表示されるのは144文字まで | `src-python/models/osc/osc.py`、`src-ui/logics/common/chatboxLength.ts` | 切り詰めと分割はしないと決めた（2026-11-03）。入力が144文字を超えたら、メイン画面の入力欄とQuick Chatの入力欄のそばに警告を出す。翻訳を付けて送る文の長さは数えていない |
 | OI-06 | `/run/enable_ai_models`を受けて更新する`IsVrctAvailable`を読む画面がない。以前はお知らせを出していたが、足りないモデルを会話が空の画面に出すようにしたので（2026-11-13、`src-ui/logics/main/useSetupNeeds.js`）、いまは値を保存するだけである | `src-ui/logics/common/useIsVrctAvailable.ts` | 未決。エンドポイントごと外すか決めていない |
-| OI-07 | UIだけにあるルートが57件ある。多くは`ui_config_setter.js`の定義が機械的に作るもので、使われない | [IPCエンドポイント一覧](reference/ipc-endpoints.md)の「UIだけにあるルート」 | 整理するか未決 |
+| OI-07 | UIだけにあるルートが57件ある。多くは`ui_config_setter.ts`の定義が機械的に作るもので、使われない | [IPCエンドポイント一覧](reference/ipc-endpoints.md)の「UIだけにあるルート」 | 整理するか未決 |
 | OI-08 | 要求に通し番号がなく、応答はエンドポイント名で対応づける。同じエンドポイントへの要求が重なると、どの応答がどの要求のものか分からない。言語の変更だけはUIが対応づけを補っている | [IPCプロトコル](ipc-protocol.md#言語の変更の対応づけ) | 設計上の制約。変えるならプロトコルの版を上げる |
 | OI-09 | `config.json`に版番号がない。キーの意味を変えるときに移行の手がかりがない。ローカル音声認識の移行だけは、`LOCAL_ASR_MIGRATION`に済ませた段階を記録している（[ローカル音声認識の移行](data-and-persistence.md#ローカル音声認識の移行)） | [データ形式と保存](data-and-persistence.md#configjson) | 未決 |
 | OI-21 | チャット読み取りの設定の場所が、デスクトップとVRで違う。デスクトップは「チャット読み取り」のページに分けた（2026-11-13）。VRの設定は「VRChat」のページの中に置いたままである。OI-11で一度そろえた構成が、また分かれた | `src-ui/views/app/config_page/setting_section/setting_box/SettingBox.jsx`、`src-ui/views/vr/VrSettingsWindow.jsx` | 未決。VRの設定は項目が4つだけなので、そのままにしている |

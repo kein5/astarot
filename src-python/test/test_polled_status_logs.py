@@ -82,7 +82,7 @@ class PolledResponseLogTests(unittest.TestCase):
         logics = Path(__file__).resolve().parents[2] / "src-ui/logics"
         source = (logics / "useReceiveRoutes.js").read_text(encoding="utf-8").replace("'", '"')
         # Settings routes are generated from base_endpoint_name entries.
-        generated = (logics / "configs/config_page_setter/ui_config_setter.js").read_text(encoding="utf-8").replace("'", '"')
+        generated = (logics / "configs/config_page_setter/ui_config_setter.ts").read_text(encoding="utf-8").replace("'", '"')
         for endpoint in utils.POLLED_ENDPOINTS:
             with self.subTest(endpoint=endpoint):
                 base = endpoint.removeprefix("/get/data/")

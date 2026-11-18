@@ -5,7 +5,7 @@ import yaml from "js-yaml";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "./cloudTranscription.ts";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
-const setter = read("./config_page_setter/ui_config_setter.js");
+const setter = read("./config_page_setter/ui_config_setter.ts");
 // The backend's endpoints: the spec's list, which the core's endpoint_coverage test keeps equal
 // to what the core serves.
 const endpoints = read("../../../docs/spec/reference/ipc-endpoints.md");
