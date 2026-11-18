@@ -511,8 +511,8 @@ def main():
                'src-python/mainloop.py', 'src-python/controller.py',
                'src-python/models/tts/speechcpp_tts.py', 'src-python/models/tts/tts_scheduler.py',
                'src-python/models/audio_routing/managed_route.py', 'src-python/models/audio_routing/audio_router.py',
-               'src-ui/logics/common/useStdoutToPython.ts', 'src-ui/logics/common/useMessage.js',
-               'src-ui/logics/useReceiveRoutes.js', 'src-ui/logics/voice/useVoice.js',
+               'src-ui/logics/common/useStdoutToPython.ts', 'src-ui/logics/common/useMessage.ts',
+               'src-ui/logics/useReceiveRoutes.js', 'src-ui/logics/voice/useVoice.ts',
                'src-ui/views/app/main_page/main_section/message_container/message_input_box/MessageInputBox.jsx',
                'src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.jsx']
     report['source_sha256'] = {s: hashlib.sha256((ROOT / s).read_bytes()).hexdigest() for s in sources}

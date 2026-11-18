@@ -3,7 +3,10 @@
 //! The file and its rules stay what the Python backend used, so a user's settings carry over:
 //!
 //! - The same keys, defaults and checks ([`schema`]). A saved value that fails its check is
-//!   dropped and the default kept; unknown keys, fixed values and runtime state are ignored.
+//!   dropped and the default kept; fixed values and runtime state are ignored.
+//! - A key this version does not know is not used, but it is written back as the file had it, so
+//!   the setting of a newer version is still there when that version runs again (#560). Keys an
+//!   earlier version saved and this one retired ([`RETIRED_KEYS`]) are dropped.
 //! - The same migrations when the file is read: a removed UI language falls back to English, the
 //!   removed local Whisper engine moves to speech.cpp (with a one-time notice), a saved
 //!   `"bundled"` realtime server selects speech.cpp, saved API URLs that are no longer allowed
@@ -18,6 +21,8 @@
 //!   old one, under the byte lock of `config.json.lock` that the Python backend also took. Most
 //!   changes are saved 2 s after the last one; a few at once. A failed save is reported once,
 //!   tried again every 30 s while the values stay in memory, and its recovery is reported too.
+//!   At start the file is written only when that changes what it holds (or, on Unix, when others
+//!   may read it): the Python backend wrote it on every start (#560).
 //! - API keys are not written to `config.json` but to a store of their own ([`secrets`]: the OS
 //!   credential store). Keys found in the file (written by an older version), and keys the
 //!   store finds only in `secrets.json` (written by 0.5), are moved there when the settings are
@@ -37,6 +42,19 @@ use std::time::{Duration, Instant};
 
 pub const LOCAL_ASR_MIGRATION_LATEST: i64 = 2;
 const RETIRED_UI_LANGUAGES: [&str; 3] = ["ko", "zh-Hant", "zh-Hans"];
+/// Settings an earlier version saved that this one retired. They are dropped, where any other
+/// unknown key is kept (#560). These are the keys of the local Whisper engine and its options,
+/// removed with it (#288; `docs/spec/data-and-persistence.md`): every tagged version's settings
+/// (the Python `config.py`, `ManagedProperty` and `ValidatedProperty`, and this schema) were
+/// compared with this schema, and they are the only ones it no longer has. A key retired from
+/// now on goes in this list too, or the file keeps it for ever.
+pub const RETIRED_KEYS: [&str; 5] = [
+    "WHISPER_WEIGHT_TYPE",
+    "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE",
+    "SELECTED_TRANSCRIPTION_COMPUTE_TYPE",
+    "MIC_NO_REPEAT_NGRAM_SIZE",
+    "SPEAKER_NO_REPEAT_NGRAM_SIZE",
+];
 const DEBOUNCE: Duration = Duration::from_secs(2);
 const SAVE_RETRY: Duration = Duration::from_secs(30);
 
@@ -175,6 +193,9 @@ struct State {
     loaded: bool,
     loading: bool,
     saved: Map<String, Value>,
+    /// The keys of the file this version does not know, in the file's order: written back as
+    /// they were (#560).
+    unknown: Map<String, Value>,
     save_due: Option<Instant>,
     retry_due: Option<Instant>,
     save_failed: bool,
@@ -231,8 +252,8 @@ fn failure_reason(error: &io::Error) -> &'static str {
 }
 
 impl Config {
-    /// Fills in the defaults, reads `config.json` and saves it back, as a start did. The keys
-    /// go to the app's store ([`secrets::default_store`]).
+    /// Fills in the defaults, reads `config.json` and saves it back when that changes it. The
+    /// keys go to the app's store ([`secrets::default_store`]).
     pub fn open(env: Environment) -> Arc<Config> {
         let store = secrets::default_store(&env);
         Self::open_with(env, store)
@@ -251,6 +272,7 @@ impl Config {
                 loaded: false,
                 loading: false,
                 saved: Map::new(),
+                unknown: Map::new(),
                 save_due: None,
                 retry_due: None,
                 save_failed: false,
@@ -650,9 +672,10 @@ impl Config {
         }
     }
 
-    /// The saved values, in the file's order.
+    /// The saved values, in the file's order, then the keys this version does not know.
     fn snapshot(&self, state: &State) -> Map<String, Value> {
-        self.keys
+        let mut snapshot: Map<String, Value> = self
+            .keys
             .iter()
             .filter(|k| k.serialize && !k.readonly)
             .filter_map(|k| {
@@ -667,11 +690,25 @@ impl Config {
                 }
                 Some((k.name.to_string(), value))
             })
-            .collect()
+            .collect();
+        snapshot.extend(state.unknown.iter().map(|(key, value)| (key.clone(), value.clone())));
+        snapshot
     }
 
     /// Writes `config.json` now (`saveConfigToFile`), after handing changed keys to the store.
     pub fn save_now(&self) {
+        self.save(false);
+    }
+
+    /// The start-up save: as [`Config::save_now`], but the file is left alone when it already
+    /// holds what would be written (#560). Starting a version then does not rewrite the file of
+    /// another one, and does not touch it at all when nothing changed. On Unix a file others may
+    /// read is written anyway, so that it becomes the owner's only.
+    fn save_if_changed(&self) {
+        self.save(true);
+    }
+
+    fn save(&self, only_if_changed: bool) {
         let has_secrets = self.state.lock().unwrap().secrets.left();
         if has_secrets {
             self.flush_secrets();
@@ -682,7 +719,12 @@ impl Config {
             if !state.loaded {
                 return;
             }
-            self.snapshot(&state)
+            let snapshot = self.snapshot(&state);
+            // The comparison is by keys and values; the order of the keys does not matter.
+            if only_if_changed && snapshot == state.saved && owner_only(&self.path()) {
+                return;
+            }
+            snapshot
         };
         let result = write_config(&self.path(), &Value::Object(snapshot));
         let mut state = self.state.lock().unwrap();
@@ -776,7 +818,7 @@ impl Config {
                 }
                 state.loaded = true;
                 drop(state);
-                self.save_now();
+                self.save_if_changed();
             }
             Err(_) => {
                 // The file stays as it is; the keys in the store are still used.
@@ -841,6 +883,7 @@ impl Config {
             data.insert("OCR_VR_CAPTURE_REGION".into(), json!({ "x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0 }));
         }
         let mut invalid_urls = Vec::new();
+        let mut unknown = Map::new();
         for (key, value) in &data {
             if crate::net_policy::CUSTOM_URL_KEYS.contains(&key.as_str()) && !crate::net_policy::valid_saved_api_url(value) {
                 // Empty turns the lookup off; a saved key never moves to another host.
@@ -858,7 +901,13 @@ impl Config {
             if key == "SELECTED_TRANSCRIPTION_ENGINE" && value.as_str() == Some(crate::languages::RETIRED_GOOGLE_ENGINE) {
                 continue;
             }
-            let Some(definition) = self.key(key) else { continue };
+            let Some(definition) = self.key(key) else {
+                // Not used, but kept for the version that wrote it (#560).
+                if !RETIRED_KEYS.contains(&key.as_str()) {
+                    unknown.insert(key.clone(), value.clone());
+                }
+                continue;
+            };
             if definition.readonly || !definition.serialize {
                 continue;
             }
@@ -867,7 +916,11 @@ impl Config {
                 Self::store(&mut state, key, stored);
             }
         }
-        self.state.lock().unwrap().invalid_saved_api_urls = invalid_urls;
+        {
+            let mut state = self.state.lock().unwrap();
+            state.invalid_saved_api_urls = invalid_urls;
+            state.unknown = unknown;
+        }
         self.migrate_local_asr(&saved);
         self.migrate_usage_presets(&saved);
         let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
@@ -1033,6 +1086,21 @@ pub fn to_python_json(value: &Value) -> String {
     let mut serializer = serde_json::Serializer::with_formatter(&mut out, formatter);
     serde::Serialize::serialize(value, &mut serializer).expect("writing to memory does not fail");
     String::from_utf8(out).expect("serde_json writes UTF-8")
+}
+
+/// Whether only the owner may read the file, as [`write_config`] leaves it. Only Unix is checked:
+/// elsewhere the file keeps the folder's permissions however it is written.
+fn owner_only(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::metadata(path).is_ok_and(|metadata| metadata.permissions().mode() & 0o077 == 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        true
+    }
 }
 
 /// Writes the file under the shared lock, through a fresh temporary file and a rename.

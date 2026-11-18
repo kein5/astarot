@@ -48,7 +48,7 @@ test("the cable TTS already plays into is checked first, even under a cut MME na
 
 async function hook(context, sent = []) {
     const runtime = hooks();
-    const { useVirtualMic } = await loadModule(new URL("./useVirtualMic.js", import.meta.url), runtime, {
+    const { useVirtualMic } = await loadModule(new URL("./useVirtualMic.ts", import.meta.url), runtime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint, data) => { sent.push([endpoint, data]); return true; } }) },
         "./virtualMic.ts": shapes,
     });

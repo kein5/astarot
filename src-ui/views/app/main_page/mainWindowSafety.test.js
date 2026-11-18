@@ -20,7 +20,7 @@ const keydown = (control, key, repeat = false) => {
 };
 const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false }, starting = false) => {
     const requests = [];
-    const main = await loadModule(new URL("../../../logics/main/useMainFunction.js", import.meta.url), b.runtime, {
+    const main = await loadModule(new URL("../../../logics/main/useMainFunction.ts", import.meta.url), b.runtime, {
         "@store": b.stores,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: endpoint => requests.push(endpoint) }) },
     });

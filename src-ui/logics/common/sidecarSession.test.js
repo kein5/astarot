@@ -297,7 +297,7 @@ test("production controller publishes startup failure and the failure dialog say
     assert.equal(b.runtime.store.get(b.stores.Atom_IsBackendReady).data, false);
     // The failure dialog says why: here the program never started.
     assert.deepEqual(b.runtime.store.get(b.stores.Atom_BackendStartupFailure).data, { kind: "spawn", message: "not found" });
-    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
+    const startup = await loadModule(new URL("./useBackendStartup.ts", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
     const screen = await loadModule(new URL("../../views/app/others/startup/StartupFailedDialog.jsx", import.meta.url), b.runtime, {
         "@logics_common": common,
         "../../../../logics/common/useBackendStartup": startup,
@@ -380,7 +380,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     assert.deepEqual(sent, []);
     assert.deepEqual(quickCalls.at(-1), ["quick_chat_finish", { id: "after-exit", accepted: false }]);
 
-    const startup = await loadModule(new URL("./useBackendStartup.js", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
+    const startup = await loadModule(new URL("./useBackendStartup.ts", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
     const StartupFailedDialog = () => null, StartupAnnouncer = () => null;
     const app = await loadModule(new URL("../../views/app/App.jsx", import.meta.url), b.runtime, {
         "./_app_controllers/TranscriptionConsentController": {}, "./_app_controllers/TranslationSetupController": {}, "./_app_controllers/OcrSetupController": {}, "./_app_controllers": {},

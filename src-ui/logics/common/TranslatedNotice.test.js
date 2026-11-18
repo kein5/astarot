@@ -13,7 +13,7 @@ const setup = async () => {
     // The app starts in English and applies the saved language once the engine has sent it.
     await i18n.init({ lng: "en", fallbackLng: "en", resources });
     const runtime = hooks();
-    const translated = await loadModule(new URL("./TranslatedNotice.jsx", import.meta.url), runtime,
+    const translated = await loadModule(new URL("./TranslatedNotice.tsx", import.meta.url), runtime,
         { "@useI18n": { useI18n: () => ({ t: i18n.t.bind(i18n) }) } });
     const draw = notice => notice.type(notice.props);
     return { i18n, runtime, translated, draw };
@@ -35,7 +35,7 @@ test("the save notice is translated when drawn", async () => {
     const s = await setup();
     let raised;
     const status = s.runtime.jotai.atom({ state: "ok", data: {} });
-    const common = await loadModule(new URL("./useNotificationStatus.js", import.meta.url), s.runtime, {
+    const common = await loadModule(new URL("./useNotificationStatus.ts", import.meta.url), s.runtime, {
         "@store": { useStore_NotificationStatus: () => ({ currentNotificationStatus: s.runtime.store.get(status),
             updateNotificationStatus: value => { raised = value; } }) },
         "react-toastify": { toast: { dismiss() {} } }, "./TranslatedNotice": s.translated,

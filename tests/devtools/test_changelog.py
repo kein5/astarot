@@ -1,5 +1,6 @@
 """tools/changelog.py: how commits are sorted, how CHANGELOG.md is written, and the release notes."""
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -199,6 +200,59 @@ class ReleaseNotesTest(unittest.TestCase):
             cl.section_text("# Changelog\n", "0.2.0")
 
 
+class NotesScaffoldTest(unittest.TestCase):
+    """docs/release-notes/<version>.md starts from the format of docs/release-notes/README.md."""
+
+    def test_pull_requests_go_to_the_group_of_their_most_user_facing_commit(self):
+        pulls = {"1" * 40: cl.PullRequest(12, "feat(ui): show the flow"), "2" * 40: cl.PullRequest(12, "feat(ui): show the flow"),
+                 "3" * 40: cl.PullRequest(5, "docs: explain the route"),
+                 "4" * 40: cl.PullRequest(30, "fix(api)!: change the reply"),
+                 "6" * 40: cl.PullRequest(8, "chore(release): version 0.2.0")}
+        entries = cl.notes_entries([
+            commit("test", "cover the flow", id_="1" * 40), commit("feat", "show the flow", scope="ui", id_="2" * 40),
+            commit("docs", "explain the route", id_="3" * 40),
+            commit("fix", "change the reply", scope="api", breaking=True, id_="4" * 40),
+            commit("fix", "keep the queue", scope="tts", id_="5" * 40),
+            commit("chore", "version 0.2.0", scope="release", id_="6" * 40),
+            commit("test", "rename a test", footers=[("Changelog", "skip")], id_="7" * 40),
+        ], pulls)
+        self.assertEqual(entries, [
+            cl.NotesEntry("internal", "docs: explain the route", "#5"),
+            cl.NotesEntry("user", "feat(ui): show the flow", "#12"),
+            cl.NotesEntry("breaking", "fix(api)!: change the reply", "#30"),
+            cl.NotesEntry("user", "fix(tts): keep the queue", "5555555"),
+        ])
+
+    def test_the_scaffold_follows_the_order_of_the_format(self):
+        notes = cl.notes_scaffold("0.6.0", "2026-11-20", "v0.5.2", [
+            cl.NotesEntry("internal", "docs: explain the route", "#5"),
+            cl.NotesEntry("user", "feat(ui): show the flow", "#12"),
+            cl.NotesEntry("breaking", "fix(api)!: change the reply", "#30"),
+        ], repo_url=REPO)
+        body = notes.split("-->", 1)[1].lstrip("\n")
+        self.assertTrue(body.startswith("ASTAROT 0.6.0では"), body)
+        order = [notes.index(text) for text in (
+            "## （絵文字1つ）", "## ⚠️ 更新するときの注意", "## 🐞 既知の問題", "## 🔧 内部の変更",
+            "- fix(api)!: change the reply（#30）", "- feat(ui): show the flow（#12）", "- docs: explain the route（#5）",
+            "すべての変更は [CHANGELOG.md]")]
+        self.assertEqual(order, sorted(order))
+        self.assertEqual(len(order), len(set(order)))
+        # Every heading is ## and sits flat, as the format asks.
+        self.assertEqual(re.findall(r"^#+ ", notes, re.M), ["## "] * 4)
+        self.assertTrue(notes.rstrip().endswith(f"({REPO}/blob/main/CHANGELOG.md#060---2026-11-20) にあります。"))
+        self.assertIn("v0.5.2から0.6.0まで", notes)
+
+    def test_a_release_without_pull_requests_says_so(self):
+        notes = cl.notes_scaffold("0.6.0", "2026-11-20", "v0.5.2", [], repo_url=REPO)
+        self.assertIn("見つかりませんでした", notes.split("## 🔧 内部の変更")[1])
+
+    def test_the_changelog_link_reaches_the_heading_github_makes(self):
+        self.assertEqual(cl.changelog_anchor("0.5.1", "2026-11-18"), "051---2026-11-18")
+        self.assertEqual(cl.changelog_anchor("1.10.0", "2027-01-02"), "1100---2027-01-02")
+        # The notes written by hand before the scaffold link the same way.
+        self.assertIn("CHANGELOG.md#051---2026-11-18", (ROOT / "docs/release-notes/0.5.1.md").read_text(encoding="utf-8"))
+
+
 class VersionTest(unittest.TestCase):
     def test_accepts_the_release_channels_and_nothing_else(self):
         for good in ("0.1.0", "0.2.0-beta.1", "1.10.3-rc.2"):
@@ -310,6 +364,43 @@ class EndToEndTest(unittest.TestCase):
         result = self.run_tool("write")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("v0.2.0", result.stderr)
+
+    def merge_pull_request(self, number, branch, title, *rows):
+        self.git("checkout", "-q", "-b", branch)
+        self.commit_files(*rows)
+        self.git("checkout", "-q", "develop")
+        self.git("merge", "-q", "--no-ff", branch, "-m", f"Merge pull request #{number} from someone/{branch}", "-m", title)
+
+    def test_the_notes_scaffold_lists_the_pull_requests_and_never_overwrites(self):
+        self.merge_pull_request(12, "flow", "Show the flow in one place", ("c", "feat(ui): show the flow in one place"),
+                                ("d", "test: cover the flow in one place"))
+        self.merge_pull_request(14, "deps", "build(deps): update the tools", ("e", "build(deps): update the tools"))
+        self.set_version("0.2.0")
+        first = self.run_tool("scaffold-notes", "--date", "2026-11-14")
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertIn("no section for 0.2.0 yet", first.stderr)
+        path = self.repo / "docs" / "release-notes" / "0.2.0.md"
+        notes = path.read_text(encoding="utf-8")
+        user, internal = notes.split("## 🔧 内部の変更")[1].split("<!-- 内部の変更だけ")
+        # One line per pull request, under its most user-facing commit; its test commit is folded in.
+        self.assertIn("- Show the flow in one place（#12）", user)
+        self.assertNotIn("cover the flow in one place", notes)
+        self.assertIn("- build(deps): update the tools（#14）", internal)
+        # The commits made on develop itself have no pull request; their ids stand in.
+        self.assertRegex(user, r"- feat\(ui\): show the flow（[0-9a-f]{7}）")
+        self.assertRegex(internal, r"- test: cover the flow（[0-9a-f]{7}）")
+        self.assertIn("CHANGELOG.md#020---2026-11-14", notes)
+        path.write_text("written by hand\n", encoding="utf-8")
+        again = self.run_tool("scaffold-notes")
+        self.assertNotEqual(again.returncode, 0)
+        self.assertIn("never overwritten", again.stderr)
+        self.assertEqual(path.read_text(encoding="utf-8"), "written by hand\n")
+
+    def test_the_notes_scaffold_is_for_stable_releases(self):
+        result = self.run_tool("scaffold-notes")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pre-release", result.stderr)
+        self.assertFalse((self.repo / "docs").exists())
 
 
 if __name__ == "__main__":

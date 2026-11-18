@@ -7,7 +7,7 @@ import * as endpointPrivacy from "./endpointPrivacy.ts";
 
 test("a lost network connection is told in the UI language, and only when it is known to be lost", async () => {
     const runtime = hooks(), shown = [];
-    const { useHandleNetworkConnection } = await loadModule(new URL("./useHandleNetworkConnection.js", import.meta.url), runtime, {
+    const { useHandleNetworkConnection } = await loadModule(new URL("./useHandleNetworkConnection.ts", import.meta.url), runtime, {
         "./endpointPrivacy": endpointPrivacy,
         "@logics_common": { useNotificationStatus: () => ({ showNotification_Error: (message, options) => shown.push([message, options]) }) },
         "@useI18n": { useI18n: () => ({ t: key => `t:${key}` }) },
