@@ -20,7 +20,7 @@ ASTAROT sends text to the VRChat chatbox over OSC. In VRChat, open the Action Me
 
 !["Quick settings" open, saying that VRChat was found](/screenshots/en/quick-settings.webp)
 
-By default ASTAROT sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>9000</CopyText>, which is also VRChat's default, so you usually don't need to change it. To change it, use "OSC" under Settings → "VRChat".
+By default ASTAROT sends to <CopyText>127.0.0.1</CopyText> on port <CopyText>9000</CopyText>, which is also VRChat's default, so you usually don't need to change it. To change it, use "OSC" under Settings → "Advanced".
 
 ## 3. Choose your languages
 

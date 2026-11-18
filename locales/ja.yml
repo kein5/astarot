@@ -900,6 +900,10 @@ config_page:
         section_label_tts_output: "読み上げの出力先"
         chat_reading_moved: "VRChatのチャットを読み取る設定は、「チャット読み取り（OCR）」のページにあります。"
         open_chat_reading: "「チャット読み取り（OCR）」の設定を開く"
+        osc_pointer:
+            label: "OSCの送信先"
+            desc: "メッセージを送るIPアドレスとポートは「高度な設定」で変えられます。VRChatの初期設定と同じなので、ふつうは変えません。"
+        open_advanced_settings: "「高度な設定」を開く"
 
     ocr:
         section_title: "VRChatチャット読み取り"

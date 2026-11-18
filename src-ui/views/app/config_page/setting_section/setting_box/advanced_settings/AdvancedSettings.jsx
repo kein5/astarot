@@ -42,7 +42,6 @@ export const AdvancedSettings = () => {
 
     return (
         <div className={styles.container}>
-            {/* OSC moved to the VRChat page, which it addresses. */}
             <div>
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_logs")} />
                 <AutoExportMessageLogsContainer />
@@ -54,6 +53,13 @@ export const AdvancedSettings = () => {
             <div>
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_telemetry")} />
                 <TelemetryContainer />
+            </div>
+            {/* Where messages go to VRChat: set once, if ever, like the other connections below.
+                The VRChat page says whether VRChat is found and leads here (#554, Q-06). */}
+            <div>
+                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_osc")} />
+                <OscIpAddressContainer />
+                <OscPortContainer />
             </div>
             <WebsocketContainer />
             <DirectVoiceSettings variant="legacy" />

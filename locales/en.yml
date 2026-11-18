@@ -900,6 +900,10 @@ config_page:
         section_label_tts_output: "Speech output"
         chat_reading_moved: "The settings for reading VRChat's chat are on the Chat reading (OCR) page."
         open_chat_reading: "Open the Chat reading (OCR) settings"
+        osc_pointer:
+            label: "OSC destination"
+            desc: "The IP address and port that messages go to can be changed under Advanced. They match VRChat's defaults, so you usually leave them."
+        open_advanced_settings: "Open the Advanced settings"
 
     ocr:
         section_title: "Reading VRChat's chat"

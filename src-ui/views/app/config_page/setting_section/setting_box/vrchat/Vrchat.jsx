@@ -11,15 +11,15 @@ import {
     SendMessageFormatPartsContainer,
     ReceivedMessageFormatPartsContainer,
 } from "../shared_items/SharedItems";
-import { OscIpAddressContainer, OscPortContainer } from "../advanced_settings/AdvancedSettings";
 import { VoiceRouteSettings } from "../device/VoiceRouteSettings";
 import { TtsOutputDeviceSettings } from "../advanced_settings/VoiceSettings";
 import { useStore_SelectedConfigTabId } from "@store";
 import { Description } from "../_components/description/Description";
 import { VrchatPresence } from "../../../../others/vrchat_presence/VrchatPresence";
+import { PagePointer } from "../_components/page_pointer/PagePointer";
 
-// What goes to VRChat: the chatbox, OSC and the voice that reaches VRChat's
-// microphone. The voice route, the TTS output device and mic mute sync also
+// What goes to VRChat: the chatbox and the voice that reaches VRChat's
+// microphone. The OSC address and port are under Advanced. The voice route, the TTS output device and mic mute sync also
 // stay on their own pages. Reading VRChat's chatbox has a page of its own,
 // named like its switch on the main page; this page ends with the way there.
 export const Vrchat = () => {
@@ -41,11 +41,11 @@ export const Vrchat = () => {
                 <SendMessageFormatPartsContainer />
                 <ReceivedMessageFormatPartsContainer />
             </div>
-            <div>
-                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_osc")} />
-                <OscIpAddressContainer />
-                <OscPortContainer />
-            </div>
+            {/* Whether VRChat is found, and the step that turns its OSC on, open the page (above).
+                Where the messages go is set once, if ever: under Advanced, with the other
+                connections to other software (#554, Q-06). */}
+            <PagePointer label={t("config_page.vrchat.osc_pointer.label")} description={t("config_page.vrchat.osc_pointer.desc")}
+                tab="advanced_settings" button={t("config_page.vrchat.open_advanced_settings")} />
             <VoiceRouteSettings />
             <TtsOutputDeviceSettings title={t("config_page.vrchat.section_label_tts_output")} />
             <ChatReadingPointer />

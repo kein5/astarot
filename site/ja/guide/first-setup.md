@@ -20,7 +20,7 @@ ASTAROTはOSCという仕組みでVRChatのチャットボックスへ文字を�
 
 ![「クイック設定」を開いたところ。VRChatを検出したと表示されている](/screenshots/ja/quick-settings.webp)
 
-送信先は初期設定で<CopyText>127.0.0.1</CopyText>のポート<CopyText>9000</CopyText>です。VRChatの初期設定と同じなので、ふつうは変えません。変えるときは「設定」→「VRChat」の「OSC」で変更します。
+送信先は初期設定で<CopyText>127.0.0.1</CopyText>のポート<CopyText>9000</CopyText>です。VRChatの初期設定と同じなので、ふつうは変えません。変えるときは「設定」→「高度な設定」の「OSC」で変更します。
 
 ## 3. 言語を選ぶ
 
