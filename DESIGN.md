@@ -9,6 +9,7 @@ colors:
   rail: "#1c0f27"
   surface: "#332341"
   border: "#4e3d5d"
+  field-border: "#777082"
   text: "#fafafc"
   secondary-text: "#cfc4d6"
   description-text: "#aba0b5"
@@ -103,6 +104,7 @@ The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): D
 | `canvas` | Dark Plum |
 | `rail` | Dark Plum, darker |
 | `surface`, `border` | Dark Plum, lighter |
+| `field-border` | The grey of the small labels on the brand board |
 | `primary`, `readout-rule` | Lilac |
 | `primary-hover`, `state-active`, `focus` | Lilac, lighter |
 | `text` | Off-White |
@@ -112,7 +114,7 @@ The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): D
 
 Use the canvas for conversation and settings, the deeper rail for navigation, and raised surfaces for fields. Borders separate working regions without heavy cards. Amber and red retain warning/error meanings; they keep their hues, toned to sit with the plum. Enable state is also expressed by labels and switch position.
 
-Contrast (WCAG 2.x, measured on the canvas and the surface): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border reaches 3:1 against the surface; hairlines between regions may stay below that. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
+Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border (`field-border`) reaches 3:1 against the surface and the canvas; hairlines between regions (`border`) may stay below that. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
 
 ## Typography
 
