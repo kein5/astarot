@@ -8,6 +8,17 @@ TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄�
 
 適用の再検証中も、同じジョブのキャンセルボタンを使える。適用とキャンセルの応答はそれぞれ確認し、両方の待機が終わるまで別の適用や取得を始めない。状態の定期取得や応答待ちの警告だけでは、操作の待機を解除しない。
 
+## 非商用のライセンスの確認
+
+非商用のライセンスのモデル（NLLB-200など）は、上の同意のほかに非商用に限ることの確認を求める（#411）。
+
+- 中核（`native/ops`の`catalog.rs`）がカタログの各行に`restrictions`を付ける。ライセンスの文字列から決まり、Creative CommonsのNonCommercial（CC-BY-NC-4.0と、-SAや-NDの付くもの）なら`["non_commercial"]`、ほかは`[]`になる。`Model`の項目と`receipt.json`の形は変えない。Gemmaの規約のような別の種類を足すときも、この一覧に種類を足す。
+- 確認の画面はライセンスの名前を挙げ、非商用の利用だけが認められていることを警告の印を付けた段落で示す。同意のチェックの下に2つめのチェックを出し、両方にチェックが入るまで開始できない。画面を開き直すと、どちらのチェックも外れている。
+- 開始の要求（`/run/start_model_download`）は確かめた種類を`acknowledged`に入れる。制限のあるモデルでその種類が欠けていると`model_download_restriction_unacknowledged`で断り、ファイルを書かず通信もしない。知らない種類、同じ種類の重複、そのモデルにない種類を入れた要求は`download_request_invalid`で断る。制限のないモデルの要求は今までと同じで、`acknowledged`は付けなくてよい（空の一覧も受け付ける）。
+- 確認は記録しない。`receipt.json`はカタログの項目のままで、取得のたびに確認を求める。
+- Pythonのバックエンドの`manager.py`も同じ要求を受け付け、同じ行を返す（`native/ops`の参照ファイルとの照合のため）。
+- 翻訳の設定でNLLBを選ぶときの確認（`CTranslate2LicenseDialog`と中核の`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`）は別にあり、そのまま残る。
+
 ## 内蔵CTranslate2と文章分割ファイル
 
 0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。モデルはまだ公開していないので、カタログに項目はない。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルを置くフォルダ（`translation-models`）を示す。経緯は[中核の統合](core-integration.md)の「判断が要ること」の1、29、33。この節の以下の記述は、0.4までのPythonの取得のもの。
@@ -133,7 +144,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - API系の「OpenAI互換の接続先にする」は、`/set/data/openai_compatible_auth_key_and_url`と同じ処理で、アドレスとキーを確かめてからOpenAI互換のエンジンの接続先を替える。項目のモデルがサーバーの一覧になければ、切り替えたうえで`translation_catalog_model_not_listed`を知らせる。項目ごとに別のエンジンとして並べることはしていない（PRの残課題）。
 - 組み込みの項目と、利用者が足した項目と、フォルダーのモデルは`origin`（`builtin`、`user`、`folder`）で見分け、画面では印を付ける。
 - この版が知らない`runtime`や`protocol`の項目（新しい版が書いたもの）は消さずに残し、「この版では使えません」と見せる。新しい推論エンジン（MADLAD-400のようなT5系、TranslateGemmaのようなdecoder-onlyのLLM）や新しい種類のAPIは、中核で動かせるようになったときに`translation_catalog::RUNTIMES`と`PROTOCOLS`に足す。
-- 開発側で推論エンジン系の項目を足すとき（#411、#412）は、これまでどおり固定カタログ（`catalog.rs`、対象`translation`）に版、サイズ、SHA-256、ライセンスを固定して載せ、ライセンス台帳（`licensing.md`）と`NOTICE.md`に記録する。非商用などの制限があるモデルは既定にしない。利用者が足した項目は、出どころとライセンスをアプリでは確かめないことを追加の欄に書いている。
+- 開発側で推論エンジン系の項目を足すとき（#411、#412）は、これまでどおり固定カタログ（`catalog.rs`、対象`translation`）に版、サイズ、SHA-256、ライセンスを固定して載せ、ライセンス台帳（`licensing.md`）と`NOTICE.md`に記録する。非商用などの制限があるモデルは既定にしない。非商用のモデル（NLLB-200）の取得には、上の[非商用のライセンスの確認](#非商用のライセンスの確認)が要る。載せる予定のNLLB-200の3つとMADLAD-400の扱いは、[ライセンス台帳](licensing.md#翻訳のモデルカタログに載せる予定のモデル2026-11-18411)にある。利用者が足した項目は、出どころとライセンスをアプリでは確かめないことを追加の欄に書いている。
 - 名前、フォルダー、アドレス、キーは利用者のデータなので、IPCの経路名に`translation_catalog`を含め、`process.log`では値を伏せる。フォルダーが読めない項目は、IDと固定のコードだけをログに書く。
 - IPC：`/get/data/translation_catalog`（`{engine, api, runtimes, protocols}`）、`/run/register_translation_catalog_entry`、`/run/remove_translation_catalog_entry`（`{id}`）、`/run/use_translation_catalog_entry`（`{id}`）。どれもカタログ全体を返し、失敗は`{error_code}`で返す。
 

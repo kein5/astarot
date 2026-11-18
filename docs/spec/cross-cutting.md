@@ -82,6 +82,7 @@
 ## 同意と外部への送信
 
 - モデルの取得は、名前、提供元、正確な容量、ライセンスを画面に示し、利用者がチェックして開始したときだけ行う。カタログは版、サイズ、SHA-256、ライセンスを固定する（`src-python/models/model_downloads/catalog.py`）。ローカル翻訳（ONNX Runtime）のモデルも、公開したあとはカタログの対象`translation`から同じ確認を経て取得する（0.4までのCTranslate2の固定の重みの取得は0.5.0で引退した）。別リポジトリやHubキャッシュからの暗黙の取得は行わない。
+- 非商用のライセンスのモデル（NLLB-200など）は、同意とは別に非商用に限ることの確認を求める（#411）。カタログの行の`restrictions`はライセンスの文字列から決まり、Creative CommonsのNonCommercialなら`["non_commercial"]`になる。確認の画面はライセンスの名前と非商用に限ることを示し、同意の下に2つめのチェックを出す。`/run/start_model_download`の要求は`{id, consent, catalog_version}`に、確かめた種類の`acknowledged`を足す。欠けていれば400の`model_download_restriction_unacknowledged`、知らない種類や重複やそのモデルにない種類があれば400の`download_request_invalid`で断り、ファイルを書かず通信もしない。制限のないモデルの要求は変わらない。確認は`receipt.json`にも設定にも記録しない（[モデル取得](../voice-stack/model-downloads.md#非商用のライセンスの確認)）。
 - 取得済みモデルのパスを適用する際の再検証は、Applyの応答待ちでも同じモデル・ジョブのキャンセルを受け付ける。Applyとキャンセルの応答は別々に待ち、片方の応答で他方の待機を解除しない。待機中は別の適用や取得を開始できない。10秒間応答がなくても警告だけを表示し、処理が終わったとは扱わない。
 - 内蔵モデルの取得要求には`consent: true`と、そのモデルの`manifest_version`が必要である。欠けているか現在の一覧と一致しなければ、400の`WEIGHT_DOWNLOAD_CONSENT_REQUIRED`で取得を拒否する。保存済みの選択、NLLBの利用条件への選択時の同意、起動時取得のスイッチだけでは取得に同意したことにならない。NLLBは非商用の制限を必ず表示し、既定にしない。
 - 起動時にモデルを自動では取得しない。起動時の自動取得（`AUTO_DOWNLOAD_MODELS`）は 0.5.0 で旧 CTranslate2 の重みと一緒に引退した（[中核の統合](../voice-stack/core-integration.md)）。設定のキーと`/get/data/auto_download_models`などのエンドポイントは互換のために残すが、中核は値を読まず、設定画面にスイッチを出さない。取得は、設定や確認画面で利用者が同意した明示の取得だけで行う（[モデル取得](../voice-stack/model-downloads.md)）。
