@@ -13,10 +13,29 @@ const color = token => {
     const alias = /^var\((--[\w-]+)\)$/.exec(value);
     return (alias ? color(alias[1]) : value).toLowerCase();
 };
+const linear = token => color(token).slice(1, 7).match(/../g).map(channel => parseInt(channel, 16) / 255)
+    .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
 const luminance = token => {
-    const rgb = color(token).slice(1, 7).match(/../g).map(channel => parseInt(channel, 16) / 255)
-        .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
+    const rgb = linear(token);
     return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+};
+// OKLCH as CSS Color 4 converts it, for DESIGN.md's derivation rule.
+const oklch = token => {
+    const [r, g, b] = linear(token);
+    const l = Math.cbrt(.4122214708 * r + .5363325363 * g + .0514459929 * b);
+    const m = Math.cbrt(.2119034982 * r + .6806995451 * g + .1073969566 * b);
+    const s = Math.cbrt(.0883024619 * r + .2817188376 * g + .6299787005 * b);
+    const a = 1.9779984951 * l - 2.4285922050 * m + .4505937099 * s;
+    const bb = .0259040371 * l + .7827717662 * m - .8086757660 * s;
+    return {
+        lightness: .2104542553 * l + .7936177850 * m - .0040720468 * s,
+        chroma: Math.hypot(a, bb),
+        hue: (Math.atan2(bb, a) * 180 / Math.PI + 360) % 360,
+    };
+};
+const hueApart = (x, y) => {
+    const turn = Math.abs(x - y) % 360;
+    return Math.min(turn, 360 - turn);
 };
 const contrast = (a, b) => {
     const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
@@ -58,6 +77,32 @@ test("the three brand colours are where DESIGN.md puts them", () => {
     assert.equal(color("--primary_600_color"), "#a47af5", "Lilac is the primary fill");
     assert.equal(color("--dark_basic_text_color"), "#fafafc", "Off-White is the text");
     assert.equal(color("--vox_on_primary"), "#261633", "text on Lilac is Dark Plum");
+});
+
+test("every grey and Lilac step is its brand colour with only the lightness changed", () => {
+    // DESIGN.md "Colors": the OKLCH hue stays within 3° of Dark Plum (dark_*) or Lilac (primary_*),
+    // and the chroma does not exceed theirs. The brand's own values DESIGN.md takes as they are,
+    // and plain white, which has no hue, are not derived.
+    const asIs = new Set(["text", "secondary-text", "description-text", "field-border"].map(designColor));
+    asIs.add("#ffffff");
+    const sources = { dark: oklch("#261633"), primary: oklch("#a47af5") };
+    const steps = Object.keys(variables).filter(token => /^--(dark|primary)_\d+_color$/.test(token));
+    assert.ok(steps.length > 40, "variables.css has its grey and Lilac steps");
+    for (const token of steps) {
+        if (asIs.has(color(token))) continue;
+        const source = sources[token.slice(2).split("_")[0]];
+        const { chroma, hue } = oklch(token);
+        assert.ok(hueApart(hue, source.hue) <= 3, `${token} ${color(token)}: hue ${hue.toFixed(1)}°, ${source.hue.toFixed(1)}° ± 3°`);
+        assert.ok(chroma <= source.chroma, `${token} ${color(token)}: chroma ${chroma.toFixed(4)} > ${source.chroma.toFixed(4)}`);
+    }
+});
+
+test("the grey steps get darker as their number grows", () => {
+    const greys = Object.keys(variables).filter(token => /^--dark_\d+_color$/.test(token))
+        .sort((x, y) => Number(x.split("_")[1]) - Number(y.split("_")[1]));
+    for (let i = 1; i < greys.length; i++) {
+        assert.ok(oklch(greys[i]).lightness < oklch(greys[i - 1]).lightness, `${greys[i]} is lighter than ${greys[i - 1]}`);
+    }
 });
 
 test("text, secondary text, description text and the states reach 4.5:1 on the canvas, the surface and the rail", () => {
