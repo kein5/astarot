@@ -7,6 +7,8 @@ Related: Issue #507、[ADR 001〜003](README.md)、[ADR-004](adr-004-audio-integ
 
 この ADR の「アプリ」は本リポジトリのアプリを指す。表示名は ADR-011 で決めた ASTAROT で、実行ファイル名やアプリ ID などの識別子は VRCT-VOX のままである。
 
+> **移行の注記**（2026-11-18、Issue #587）：この ADR は `docs/voice-stack/` にあったときに書いた。本文でファイル名だけを書いた `core-integration.md`、`model-downloads.md`、`release-candidates.md` は、いまも `docs/voice-stack/` にある（[中核の統合](../voice-stack/core-integration.md)、[モデルの取得](../voice-stack/model-downloads.md)、[配布候補](../voice-stack/release-candidates.md)）。本文は書き換えていない。
+
 ## 1. Context（背景）
 
 ### 1.1 ランタイムが増えることのコスト

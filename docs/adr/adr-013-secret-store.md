@@ -7,6 +7,8 @@ Related: Issue #575、Issue #517、PR #384、[中核の統合](../voice-stack/co
 
 この ADR の「アプリ」は本リポジトリのアプリを指す。表示名は ASTAROT（ADR-011）で、保存先やアプリ ID などの識別子は VRCT-VOX のままである。
 
+> **移行の注記**（2026-11-18、Issue #587）：この ADR は `docs/voice-stack/` にあったときに書いた。7 でファイル名だけを書いた `release-candidates.md` は、いまも `docs/voice-stack/` にある（[配布候補](../voice-stack/release-candidates.md)）。本文は書き換えていない。
+
 ## 1. Context（背景）
 
 ### 1.1 現在の保管（0.5.0 から）

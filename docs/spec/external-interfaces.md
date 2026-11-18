@@ -239,7 +239,7 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 
 TTSのスイッチをオフにしたときは、そのスイッチが起動した同梱サーバーだけを止める。設定画面から起動したサーバーと、独立したRVCのスイッチは維持する。
 
-設計の経緯は`docs/voice-stack/`の ADR にある。
+設計の経緯は[`docs/adr/`](../adr/README.md)の ADR にある。
 
 ### 利用者が入れた合成音声エンジン
 
