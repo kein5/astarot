@@ -4,12 +4,14 @@ import { createElement } from "react";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 import * as needsLogic from "../../../../../../logics/main/setupNeeds.ts";
 
-async function setup({ needs = [], sends = true, vr = false, startup = null, settings = {} } = {}) {
+async function setup({ needs = [], sends = true, vr = false, startup = null, settings = {}, recognition = "ready" } = {}) {
     const runtime = hooks(), started = [];
     const { EmptyState } = await loadModule(new URL("./EmptyState.jsx", import.meta.url), runtime, {
         "@store": { store: { is_vr_panel: vr } },
         "@logics_configs": { useSettingValue: name => settings[name] ?? ({ data: name === "EnableSendMessageToVrc" ? sends : undefined }) },
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs, start: id => started.push(id) }) },
+        "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: recognition }) },
+        "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => started.push("first_run") }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => startup },
     });
@@ -54,6 +56,17 @@ test("a model on its way shows its progress instead of the button", async () => 
     assert.deepEqual(status, ["studio.setup_preparing", "studio.setup_downloading"]);
 });
 
+test("a recognition not set up yet offers the first-run setup in place of the other needs", async () => {
+    const s = await setup({ recognition: "needs_setup", needs: [{ id: "transcription", weight: null, action: "settings" }] });
+    assert.deepEqual(s.texts.filter(text => text.startsWith("studio.setup_")), ["studio.setup_first_run", "studio.setup_first_run_open"]);
+    const button = find(s.tree, node => node.type === "button");
+    button.props.onClick();
+    assert.deepEqual(s.started, ["first_run"], "the button opens the setup; it does not download");
+    for (const recognition of ["ready", "cloud", "own_server", "unknown"]) {
+        assert.ok(!(await setup({ recognition })).texts.includes("studio.setup_first_run"), recognition);
+    }
+});
+
 test("nothing to prepare leaves the greeting and the VRChat hint", async () => {
     const s = await setup();
     assert.equal(find(s.tree, node => node.type === "ul"), null);
@@ -89,6 +102,8 @@ test("the greeting waits for the language and the narrow layout that the saved s
         "@store": { store: {} },
         "@logics_configs": { useSettingValue: () => null },
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
+        "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: "ready" }) },
+        "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
     });
@@ -115,6 +130,8 @@ test("a language or layout that does not follow holds the greeting back for a se
         "@logics_configs": { useSettingValue: name => name === "UiScaling" ? { state: "ok", data: 120 }
             : name === "UiLanguage" ? { state: "ok", data: "ja" } : { data: undefined } },
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
+        "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: "ready" }) },
+        "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
     });

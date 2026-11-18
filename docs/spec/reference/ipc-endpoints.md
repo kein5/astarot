@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（450件: 削除 13、取得 203、実行 42、有効化 40、無効化 42、設定 110）
+## 要求（452件: 削除 13、取得 204、実行 42、有効化 40、無効化 43、設定 110）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -257,6 +257,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/run/delete_old_whisper_weights` | 実行 | `deleteOldWhisperWeights` | 可 | useLocalAsrMigration.updateDeleted |  |
 | `/get/data/virtual_mic_notice` | 取得 | `getVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
 | `/set/disable/virtual_mic_notice` | 無効化 | `setDisableVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
+| `/get/data/first_run_setup` | 取得 | `getFirstRunSetup` | 可 | useFirstRunSetup.updateNotice |  |
+| `/set/disable/first_run_setup` | 無効化 | `setDisableFirstRunSetup` | 可 | useFirstRunSetup.updateNotice |  |
 | `/get/data/virtual_mic_status` | 取得 | `getVirtualMicStatus` | 可 | useVirtualMic.updateStatus |  |
 | `/run/virtual_mic_test` | 実行 | `runVirtualMicTest` | 可 | useVirtualMic.updateResult |  |
 | `/get/data/overlay_small_log` | 取得 | `getOverlaySmallLog` | 可 | useVr.updateFromBackendIsEnabledOverlaySmallLog |  |

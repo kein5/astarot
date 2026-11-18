@@ -5977,6 +5977,21 @@ class Controller:
         config.VIRTUAL_MIC_NOTICE_PENDING = False
         return {"status": 200, "result": config.VIRTUAL_MIC_NOTICE_PENDING}
 
+    @staticmethod
+    def getFirstRunSetup(*args, **kwargs) -> dict:
+        """Whether the first-run setup may still open by itself (#557).
+
+        The UI opens it only while the basic features lack something it can prepare. The setup
+        downloads nothing without the user's consent in its own dialog.
+        """
+        return {"status": 200, "result": config.FIRST_RUN_SETUP_PENDING}
+
+    @staticmethod
+    def setDisableFirstRunSetup(*args, **kwargs) -> dict:
+        """The user finished the setup or asked not to see it again. It can still be opened by hand."""
+        config.FIRST_RUN_SETUP_PENDING = False
+        return {"status": 200, "result": config.FIRST_RUN_SETUP_PENDING}
+
     def _stopVirtualMicCheck(self):
         # After the voice itself is stopped or muted: this must never keep those from working.
         check = getattr(self, 'virtual_mic_check', None)

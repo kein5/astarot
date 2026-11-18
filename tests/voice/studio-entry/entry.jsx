@@ -10,9 +10,12 @@ import { WindowTitleBar } from "../../../src-ui/views/app/others/window_title_ba
 import { SnackbarController } from "../../../src-ui/views/app/others/snackbar_controller/SnackbarController";
 import styles from "../../../src-ui/views/app/App.module.scss";
 import "../../../src-ui/views/app/_index_css/root.css";
+import { FirstRunSetupController } from "../../../src-ui/views/app/_app_controllers/FirstRunSetupController";
 import i18n from "../../../locales/config";
 
 i18n.changeLanguage(new URLSearchParams(location.search).get("lang") || "ja");
+// ?first_run also mounts the first-run setup dialog (#557), which the app mounts beside the pages.
+const firstRun = new URLSearchParams(location.search).has("first_run");
 const atoms = getDefaultStore();
 for (const [name, atom] of Object.entries(dynamicStoreRegistry)) {
     if (name.startsWith("Atom_")) atoms.set(atom, { ...atoms.get(atom), state: "ok" });
@@ -51,6 +54,7 @@ function Studio() {
         poll();
         return () => { active = false; window.removeEventListener("resize", resize); };
     }, []);
-    return <div className={styles.container}><WindowTitleBar /><div className={styles.pages_wrapper}><ConfigPage /><MainPage /></div><SnackbarController /></div>;
+    return <div className={styles.container}><WindowTitleBar /><div className={styles.pages_wrapper}><ConfigPage /><MainPage /></div><SnackbarController />
+        {firstRun && <FirstRunSetupController />}</div>;
 }
 createRoot(document.getElementById("root")).render(<Studio />);

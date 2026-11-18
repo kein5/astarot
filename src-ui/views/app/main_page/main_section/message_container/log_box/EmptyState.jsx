@@ -4,6 +4,8 @@ import { store } from "@store";
 import { useSettingValue } from "@logics_configs";
 import { useSetupNeeds } from "../../../../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../../../../logics/main/setupNeeds";
+import { useRecognitionState } from "../../../../../../logics/setup/useRecognitionState";
+import { useFirstRunSetup } from "../../../../../../logics/setup/useFirstRunSetup";
 import { useStartupPlaceholder } from "../../../startupContext";
 import styles from "./LogBox.module.scss";
 
@@ -88,8 +90,19 @@ const Setup = () => {
     const { t } = useI18n();
     const { needs, start } = useSetupNeeds();
     const sends = useSettingValue("EnableSendMessageToVrc");
+    // Nothing chosen for the recognition yet, or the bundled server without its models:
+    // the first-run setup prepares it in one go (#557).
+    const { state: recognition } = useRecognitionState();
+    const { openSetup } = useFirstRunSetup();
+    const firstRun = recognition === "needs_setup";
     return <>
-        {needs.length > 0 && <ul className={styles.setup} aria-label={t("studio.setup_label")}>
+        {firstRun && <ul className={styles.setup} aria-label={t("studio.setup_label")}>
+            <li>
+                <span>{t("studio.setup_first_run")}</span>
+                <button type="button" onClick={openSetup}>{t("studio.setup_first_run_open")}</button>
+            </li>
+        </ul>}
+        {!firstRun && needs.length > 0 && <ul className={styles.setup} aria-label={t("studio.setup_label")}>
             {needs.map(({ id, weight, action }) => {
                 const progress = downloadProgress(weight);
                 // "choose": the translation model cannot be downloaded yet, so another translator is offered.

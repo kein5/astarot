@@ -5,7 +5,7 @@ import * as startupPhase from "../../logics/common/startupPhase.ts";
 
 const named = name => Object.defineProperty(() => null, "name", { value: name });
 const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "TranscriptionConsentController",
-    "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "TelemetryNoticeController", "LocalAsrNoticeController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
+    "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "TelemetryNoticeController", "LocalAsrNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
     "UpdatingComponent", "StartupFailedDialog", "StartupAnnouncer", "UiLanguageController"].map(name => [name, named(name)]));
 
 const load = async phase => {
@@ -17,6 +17,7 @@ const load = async phase => {
         "./_app_controllers/OcrSetupController": { OcrSetupController: parts.OcrSetupController },
         "./_app_controllers/LocalAsrNoticeController": { LocalAsrNoticeController: parts.LocalAsrNoticeController },
         "./_app_controllers/VirtualMicGuideController": { VirtualMicGuideController: parts.VirtualMicGuideController },
+        "./_app_controllers/FirstRunSetupController": { FirstRunSetupController: parts.FirstRunSetupController },
         "./_app_controllers/SwitchBlocksController": { SwitchBlocksController: parts.SwitchBlocksController },
         "./_app_controllers": { UiLanguageController: parts.UiLanguageController },
         "./_app_controllers/QuickChatController": {}, "./_app_controllers/CaptionOverlayController": {}, "./_app_controllers/CompanionController": {}, "./_app_controllers/IoFlowController": {},
@@ -51,7 +52,7 @@ test("from the first frame the main page and title bar are drawn, locked until t
         // The settings page and the dialogs that act on the engine's settings wait for them.
         for (const part of [parts.ConfigPage, parts.ModalController, parts.TranscriptionConsentController,
             parts.TranslationSetupController, parts.OcrSetupController, parts.TelemetryNoticeController,
-            parts.LocalAsrNoticeController, parts.VirtualMicGuideController, parts.SwitchBlocksController]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
+            parts.LocalAsrNoticeController, parts.FirstRunSetupController, parts.VirtualMicGuideController, parts.SwitchBlocksController]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
         assert.equal(find(inner, node => node.type === parts.WindowGeometryController).props.saveGeometry, !locked);
         assert.equal(find(tree, node => node.type === parts.UiLanguageController).props.waitForEngine, true);
     }
