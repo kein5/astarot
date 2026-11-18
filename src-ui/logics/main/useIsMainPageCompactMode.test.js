@@ -17,7 +17,7 @@ async function fixture(saved, context) {
             updateIsOpenedLanguageSelector: value => { selector = value; } }),
     };
     let selector = {};
-    const logic = await loadModule(new URL("./useIsMainPageCompactMode.js", import.meta.url), runtime, {
+    const logic = await loadModule(new URL("./useIsMainPageCompactMode.ts", import.meta.url), runtime, {
         "@store": store, "@useStdoutToPython": { useStdoutToPython: () => ({
             asyncStdoutToPython: endpoint => requests.push(endpoint) }) },
     });

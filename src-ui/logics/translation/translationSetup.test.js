@@ -22,7 +22,7 @@ async function fixture(context) {
             },
         });
     }
-    const main = await loadModule(new URL("../main/useMainFunction.js", import.meta.url), runtime, {
+    const main = await loadModule(new URL("../main/useMainFunction.ts", import.meta.url), runtime, {
         "@store": mainStore,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args) => { calls.push(args); return true; } }) },
     });
@@ -57,7 +57,7 @@ async function fixture(context) {
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
         "../../../logics/translation/useTranslationSetup": setup,
-        "../../../logics/translation/useOpenTranslatorList": await loadModule(new URL("./useOpenTranslatorList.js", import.meta.url), owner, {
+        "../../../logics/translation/useOpenTranslatorList": await loadModule(new URL("./useOpenTranslatorList.ts", import.meta.url), owner, {
             "@logics_main": { useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
             "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
         }),

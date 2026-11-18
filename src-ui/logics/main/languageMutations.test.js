@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
 
 const moduleUrl = code => `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
@@ -29,7 +30,7 @@ async function setup() {
     const atomsUrl = moduleUrl(atomNames.map(name => `export const Atom_${name} = "${name}";`).join("\n"));
     const translationUrl = moduleUrl("export default {t: key => key};");
     const coordinatorUrl = new URL("./languageMutationCoordinator.ts", import.meta.url).href;
-    const source = (await readFile(new URL("./languageMutations.js", import.meta.url), "utf8"))
+    const source = stripTypeScriptTypes(await readFile(new URL("./languageMutations.ts", import.meta.url), "utf8"))
         .replace('"jotai"', JSON.stringify(storageUrl))
         .replace('"@store"', JSON.stringify(atomsUrl))
         .replace('"i18next"', JSON.stringify(translationUrl))

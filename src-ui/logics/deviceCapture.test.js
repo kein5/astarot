@@ -39,7 +39,7 @@ for (const language of ["en", "ja"]) for (const source of ["mic", "speaker"]) {
 for (const source of ["mic", "speaker"]) test(`${source}: terminal device error clears the meter and its enabled state`, async () => {
     const kind = source === "mic" ? "Mic" : "Speaker";
     const s = await loadBridgeRoutes(async subject => {
-        const volume = await loadModule(new URL("./common/useVolume.js", import.meta.url), subject.runtime, {
+        const volume = await loadModule(new URL("./common/useVolume.ts", import.meta.url), subject.runtime, {
             "@store": subject.stores, jotai: subject.jotai,
             "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: () => {} }) },
             "./meterValue.ts": meterValue,

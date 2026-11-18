@@ -82,7 +82,7 @@ CUDA 版の ZIP には、0.5.0 から標準版にないものが何もありま�
 1. インストーラー（`src-tauri/nsis/template.nsi`）: `/EDITION=gpu` を受け付けたまま標準の ZIP を取ります。版の選択の画面、`PACKAGE_SHA256_GPU`、GPU 版の容量の目安（`REQ_DOWNLOAD_MB_GPU`、`REQ_EXTRACT_MB_GPU`）をなくします。`tests/installer/windows_update_scenarios.py` に、GPU の版から更新しても標準の ZIP を取る場合を足します。
 2. ハッシュの組み込み（`tools/installer_package_hashes.py`）: `--gpu` をなくします。
 3. リリースの工程: `release.yml` の `build-cuda` をなくし、`candidate` の検査と `tools/release_candidate.py` の期待する資産から `VRCT-VOX_cuda.zip` を外します。`package.json` の `release-cuda` と `release-all`、`.github/actions/windows-package/action.yml` の `variant`、`docs/release-draft-template.md` も直します。
-4. アプリ: `src-tauri/src/app_update.rs` は `/EDITION=gpu` を渡さないようにします（`_internal/nvidia` の判定をなくします）。中核の `/run/update_cuda_software` は IPC の契約なので残し、`/run/update_software` と同じ動きのままにします。引退させるなら `!` と `BREAKING CHANGE:` が要ります。エラー画面の呼び分け（`src-ui/logics/common/useUpdateSoftware.js`）は、残すエンドポイントに合わせます。
+4. アプリ: `src-tauri/src/app_update.rs` は `/EDITION=gpu` を渡さないようにします（`_internal/nvidia` の判定をなくします）。中核の `/run/update_cuda_software` は IPC の契約なので残し、`/run/update_software` と同じ動きのままにします。引退させるなら `!` と `BREAKING CHANGE:` が要ります。エラー画面の呼び分け（`src-ui/logics/common/useUpdateSoftware.ts`）は、残すエンドポイントに合わせます。
 5. サイト: `site/.vitepress/theme/releases.mjs` と `tools/check_site_downloads.mjs` は、CUDA 版のない新しいリリースと、CUDA 版のある古いリリースの両方を扱うようにします。`site/*/guide/install.md`、`requirements.md`、`support.md` から CUDA 版を消します。
 6. 試験と文書: `tests/devtools/test_installer_package_hashes.py`、`tests/voice/test_release_candidate.py`、`tests/voice/test_installer_build_order.py`、`tests/voice/test_fork_distribution_identity.py` を直します。文書は `docs/readme_build.md`、`docs/development.md`、`release-candidates.md`、`platform-verification.md` の `release.yml` の行、core-integration の 20 です。
 

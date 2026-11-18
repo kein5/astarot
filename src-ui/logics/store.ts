@@ -344,7 +344,7 @@ export const { atomInstance: Atom_OcrSharedWindow, useHook: useStore_OcrSharedWi
     initial<SharedWindowState>({ supported: null, active: false, busy: false, error: null, restoring: false }), "OcrSharedWindow", {is_state_ok: true});
 
 export const { atomInstance: Atom_SelectedPresetTabNumber, useHook: useStore_SelectedPresetTabNumber } = createAtomWithHook("1", "SelectedPresetTabNumber");
-// The language write in flight and the VR panel's last result (main/languageMutations.js).
+// The language write in flight and the VR panel's last result (main/languageMutations.ts).
 export const { atomInstance: Atom_LanguageMutation, useHook: useStore_LanguageMutation } = createAtomWithHook(
     initial<LanguageMutationState & { isResyncing: boolean }>({ inFlight: null, lastVrResult: null, isResyncing: false }), "LanguageMutation", { is_state_ok: true }
 );

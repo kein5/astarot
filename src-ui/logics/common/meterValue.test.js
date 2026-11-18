@@ -33,7 +33,7 @@ test("both meter atoms preserve equal wrappers but publish state and value chang
 
 test("useVolume only writes meter atoms; repeated samples and stop resets preserve wrappers", async () => {
     const { runtime, stores, jotai, subscriptions } = await loadBridgeStore();
-    const { useVolume } = await loadModule(new URL("./useVolume.js", import.meta.url), runtime, {
+    const { useVolume } = await loadModule(new URL("./useVolume.ts", import.meta.url), runtime, {
         "@store": stores, jotai, "./meterValue.ts": meterValue,
     });
     const volume = runtime.render(useVolume);
