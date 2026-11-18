@@ -26,6 +26,7 @@ ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリ
 | [011](adr-011-astarot-brand-and-multimodal-accessibility.md) | ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針 | 2026-11-16 | 採用 | 一部 | 有効 | Python のサイドカー |
 | [012](adr-012-audio-ai-runtime-consolidation.md) | Audio AI Runtime Consolidation | 2026-11-17 | 採用 | 対象外 | 有効 | Rust の中核 |
 | [013](adr-013-secret-store.md) | API キーを OS の資格情報ストアに保管する | 2026-11-18 | 採用 | 実装済み | 有効 | Rust の中核 |
+| [014](adr-014-internal-identifier-migration.md) | 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
 
 <!-- adr-index:end -->
 
@@ -130,6 +131,8 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 [ADR-012: Audio AI Runtime Consolidation](adr-012-audio-ai-runtime-consolidation.md)は2026-11-17に開発の原則として採用した。新しい音声AIモデルは、まずspeech.cppへの上流の貢献で入れる。VRCT-VOX固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめたときだけ採用する。機能ごとの責務の分担は、音声AIの推論（ASR、TTS、VAD、話者、音声強調）がspeech.cpp、OCRとローカル翻訳がONNX Runtime、音声の入出力とAIでないDSPがRustとOSの機能、字幕やOSCなど固有の制御がアプリとした。RVCは管理対象の例外としてONNX Runtimeの実装を続け、移行は義務にしない。新しいモデルの評価の手順、例外のADRに書くこと、非機能要件、検証、見直す条件も定めた。
 
 [ADR-013: API キーを OS の資格情報ストアに保管する](adr-013-secret-store.md)は2026-11-18に採用した。`SECRET_SETTINGS`の項目（APIキー、PapagoのClient ID）の保管先を、`secrets.json`（WindowsはDPAPI、Linuxは0600の平文）から、Windowsの資格情報マネージャーとLinuxのSecret Serviceへ移す。現状維持とアプリが管理する鍵での暗号化を比べ、Linuxの平文をなくせることと、両OSで守られ方が揃うことから選んだ。移行は読み戻せた項目だけを移す段階的な形にし、失敗してもキーを失わない。実施はIssue #575で、そのときに残っていた4つの判断（Secret Serviceのない環境、移行した後の`secrets.json`、ストアの障害、読めない`secrets.json`）も決めた。どれもキーを失わず平文を増やさない側を選び、ADR-013の「実施で決めたこと」に書いた。
+
+[ADR-014: 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ](adr-014-internal-identifier-migration.md)は2026-11-19に採用した。ADR-011 の P2 にあたる。アプリ ID、保存先、Windows のインストール先とレジストリのキー、実行ファイル名、Linux のパッケージと音声経路、資格情報の名前、環境変数、配布物の名前を、0.6.0 で ASTAROT の名前へ移す。判断の項目は Issue #635 の決定のとおりである。Windows のインストール先を移すこととレジストリのキーを変えることは、#635 で推奨した案と逆の決定である。どちらも移行の処理（フォルダーを移すことと、旧のキーを読んで新しいキーへ移すこと）と一緒に入れる。移せないときは旧の場所と名前で動き続け、旧の名前は 0.6.x の間は読む。更新確認とテレメトリの送信先、チャット欄検出モデルの ID、設定と IPC と OSC の契約は変えない。実装は 0.6.0 で行い、12 の PR に分ける。
 
 ## 配置の移行（2026-11-18）
 
