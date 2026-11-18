@@ -6,7 +6,6 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useOthers } from "@logics_configs";
 import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
-import { useLocalAsrMigration } from "../../../logics/transcription/useLocalAsrMigration";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { setupComesFirst } from "../../../logics/setup/firstRunSetup.ts";
@@ -24,8 +23,8 @@ const CHECK_ERRORS = ["virtual_mic_voice_muted", "virtual_mic_recording_unavaila
 
 // The virtual microphone guide on Windows (#321). VRChat hears TTS and converted voice only
 // through a virtual cable, which the app cannot install. At start-up the guide opens by
-// itself only when no cable is found (and after the usage notice and the speech recognition
-// notice); it can also be opened from Settings → Text to speech at any time.
+// itself only when no cable is found (and after the usage notice and the first-run setup); it
+// can also be opened from Settings → Text to speech at any time.
 //
 // It leads with what is needed and why, points to the cable's own download page, looks
 // again every few seconds until a cable appears, plays a test tone through the cable while
@@ -43,7 +42,6 @@ export const VirtualMicGuideController = () => {
     const { t } = useI18n();
     const { notice, status, check, opened, refreshStatus, startCheck, resetCheck, dismissNotice, closeGuide } = useVirtualMic();
     const { currentTelemetryNotice } = useOthers();
-    const { notice: localAsrNotice } = useLocalAsrMigration();
     const firstRunSetup = useFirstRunSetup();
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
@@ -55,7 +53,7 @@ export const VirtualMicGuideController = () => {
 
     // Other first-run notices and the first-run setup come first; one dialog at a time.
     const othersFirst = (currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true)
-        || localAsrNotice === true || setupComesFirst(firstRunSetup);
+        || setupComesFirst(firstRunSetup);
     const byItself = !later && !othersFirst && guideOpensByItself(notice, status);
     useEffect(() => { if (byItself) setShown(true); }, [byItself]);
     const open = opened || shown;

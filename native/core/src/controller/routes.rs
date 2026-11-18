@@ -283,12 +283,8 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     // Whether the VAD switches can be turned on: a VAD engine is in this build (decision 13).
     b.with("/get/data/vad_available", OPEN, |core, _| ok(json!(core.services().vad.is_some())));
 
-    // The move from the removed Whisper engine to speech.cpp (#288)
-    b.get("/get/data/local_asr_notice", OPEN, "LOCAL_ASR_NOTICE_PENDING");
-    b.with("/set/disable/local_asr_notice", OPEN, |core, _| {
-        let _ = core.config().set("LOCAL_ASR_NOTICE_PENDING", json!(false));
-        ok(core.config().get("LOCAL_ASR_NOTICE_PENDING"))
-    });
+    // The notice of the move from the removed Whisper engine to speech.cpp
+    // (`/get/data/local_asr_notice`, `/set/disable/local_asr_notice`) went in 0.6.0 (#288).
 
     // The virtual microphone guide (#321); finding the cables and the check are in `audio_devices`.
     b.get("/get/data/virtual_mic_notice", OPEN, "VIRTUAL_MIC_NOTICE_PENDING");

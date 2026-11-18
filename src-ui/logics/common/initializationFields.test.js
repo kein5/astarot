@@ -90,7 +90,7 @@ test("the start-up values that no setting describes have their own checks", () =
     assert.deepEqual(["1", "3", "4", 1].map(value => check("selected_tab_no", value)), [true, true, false, false]);
     assert.equal(check("main_window_geometry", { x_pos: 0, y_pos: 0, width: 800, height: 600 }), true);
     assert.equal(check("main_window_geometry", { x_pos: 0, y_pos: 0, width: 800 }), false);
-    assert.deepEqual([check("local_asr_notice", true), check("local_asr_notice", 1)], [true, false]);
+    assert.deepEqual([check("virtual_mic_notice", true), check("virtual_mic_notice", 1)], [true, false]);
     assert.deepEqual([check("version", "1.0"), check("version", 1)], [true, false]);
     assert.deepEqual([check("message_box_ratio", 0.5), check("message_box_ratio", Number.NaN)], [true, false]);
     for (const name of ["voice_settings", "voice_status", "voice_route", "voice_output_devices", "tts_model_options",
