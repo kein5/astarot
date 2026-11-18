@@ -152,12 +152,25 @@ pub type SaveRecovered = Arc<dyn Fn() + Send + Sync>;
 /// Where a failure of the key store is reported: what failed (`"read"`, `"write"`, `"delete"`,
 /// `"migrate"`), the entries (names such as `AUTH_KEYS/DeepL_API`, never values) and the reason.
 pub type SecretFailed = Arc<dyn Fn(&str, &[String], &str) + Send + Sync>;
+/// Called once the store holds a key given to [`Config::keep_secret`].
+pub type SecretStored = Box<dyn FnOnce() + Send>;
+
+/// Where a key given to [`Config::keep_secret`] is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kept {
+    /// The store holds it.
+    Stored,
+    /// The store did not take it: it is in memory for this run, and tried again.
+    InMemory,
+}
 
 /// The keys on their way to or from the store.
 #[derive(Default)]
 struct Secrets {
     /// Changes not yet in the store: `Some` to write, `None` to delete.
     pending: std::collections::BTreeMap<String, Option<String>>,
+    /// What to do once the store holds a key of [`Config::keep_secret`].
+    on_stored: std::collections::BTreeMap<String, SecretStored>,
     /// Keys read from `config.json` that the store has not taken yet: they stay in the file.
     in_file: std::collections::BTreeSet<String>,
     /// Keys the store read from an older place of its own (`secrets.json`) that have not moved
@@ -391,11 +404,20 @@ impl Config {
     /// keeps the key in memory (usable), is reported once per entry, and is tried again with the
     /// next save and every 30 s. Returns whether a key left the file (the file needs writing).
     fn flush_secrets(&self) -> bool {
+        let (left_file, stored) = self.flush_secrets_locked();
+        // Told after the exchange with the store, so that they may use the settings again.
+        for hook in stored {
+            hook();
+        }
+        left_file
+    }
+
+    fn flush_secrets_locked(&self) -> (bool, Vec<SecretStored>) {
         let _io = self.store_lock.lock().unwrap();
         let (pending, in_file, unmoved) = {
             let state = self.state.lock().unwrap();
             if !state.secrets.ready {
-                return false;
+                return (false, Vec::new());
             }
             let with_values = |entries: &std::collections::BTreeSet<String>| -> Vec<(String, Option<String>)> {
                 entries.iter().map(|entry| (entry.clone(), self.secret_value(&state, entry))).collect()
@@ -404,6 +426,7 @@ impl Config {
         };
         let mut failures = Vec::new();
         let mut recovered = Vec::new();
+        let mut stored = Vec::new();
         for (entry, value) in pending {
             let (operation, result) = match &value {
                 Some(key) => ("write", secrets::write_verified(self.store.as_ref(), &entry, key)),
@@ -414,6 +437,9 @@ impl Config {
                 Ok(()) => {
                     if state.secrets.pending.get(&entry) == Some(&value) {
                         state.secrets.pending.remove(&entry);
+                        if value.is_some() {
+                            stored.extend(state.secrets.on_stored.remove(&entry));
+                        }
                     }
                     recovered.push(entry);
                 }
@@ -451,7 +477,48 @@ impl Config {
             }
         }
         self.secret_results(failures, recovered);
-        left_file
+        (left_file, stored)
+    }
+
+    /// Keeps a key that is not a setting (the key of a translation catalog entry, #413) as a
+    /// changed setting's key is kept (ADR-013): written to the store and read back now. When the
+    /// store does not take it, the key stays in memory for this run ([`Config::secret`] gives
+    /// it), the failure is reported once through the secret callback, and the write is tried
+    /// again with every save, every 30 s and at close. The key is never written to a file.
+    /// `on_stored` runs once the store holds it, now or with a later try.
+    pub fn keep_secret(&self, entry: &str, value: &str, on_stored: SecretStored) -> Kept {
+        {
+            let mut state = self.state.lock().unwrap();
+            state.secrets.pending.insert(entry.to_string(), Some(value.to_string()));
+            state.secrets.on_stored.insert(entry.to_string(), on_stored);
+        }
+        self.flush_secrets();
+        if self.secret_in_memory(entry) { Kept::InMemory } else { Kept::Stored }
+    }
+
+    /// Forgets a key given to [`Config::keep_secret`]: from memory now, and from the store now
+    /// or, when the store does not answer, with the same tries as a deleted setting's key.
+    pub fn forget_secret(&self, entry: &str) {
+        {
+            let mut state = self.state.lock().unwrap();
+            state.secrets.pending.insert(entry.to_string(), None);
+            state.secrets.on_stored.remove(entry);
+        }
+        self.flush_secrets();
+    }
+
+    /// Whether a key given to [`Config::keep_secret`] waits in memory for the store.
+    pub fn secret_in_memory(&self, entry: &str) -> bool {
+        matches!(self.state.lock().unwrap().secrets.pending.get(entry), Some(Some(_)))
+    }
+
+    /// The key of an entry that is not a setting: the one waiting in memory for the store, else
+    /// the store's.
+    pub fn secret(&self, entry: &str) -> Result<Option<String>, secrets::StoreError> {
+        if let Some(waiting) = self.state.lock().unwrap().secrets.pending.get(entry) {
+            return Ok(waiting.clone());
+        }
+        self.store.read(entry)
     }
 
     /// The value of one entry in memory.

@@ -31,7 +31,10 @@ export type ApiItem = {
     protocol?: string;
     url?: string;
     model?: string;
+    // Whether the key store holds the entry's key.
     has_key?: boolean;
+    // The key store did not take the key: the app holds it until it closes, and tries again.
+    key_in_memory?: boolean;
     in_use?: boolean;
     status?: EntryStatus;
 };
@@ -104,9 +107,11 @@ export function weightLabel(weight: string, catalog: TranslationCatalog | null |
     return weight;
 }
 
-// What an entry's card says, in order: a problem first, then whether it is in use.
-export function entryState(item: EngineItem | ApiItem): "unsupported" | "missing" | "unavailable" | "in_use" | "ready" {
+// What an entry's card says, in order: a problem first, then whether it is in use. An API
+// entry whose key the store never took has no key once the app was closed ("no_key").
+export function entryState(item: EngineItem | ApiItem): "unsupported" | "missing" | "unavailable" | "no_key" | "in_use" | "ready" {
     if (item.status === "unsupported" || item.status === "missing") return item.status;
     if ("weight" in item && item.origin === "user" && !item.available) return "unavailable";
+    if ("has_key" in item && item.origin === "user" && item.has_key === false && !item.key_in_memory) return "no_key";
     return item.in_use ? "in_use" : "ready";
 }
