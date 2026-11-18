@@ -7,8 +7,8 @@ colors:
   focus: "#d9c8fc"
   canvas: "#261633"
   rail: "#1c0f27"
-  surface: "#33214a"
-  border: "#4f3b66"
+  surface: "#332341"
+  border: "#4e3d5d"
   text: "#fafafc"
   secondary-text: "#cfc4d6"
   description-text: "#aba0b5"
@@ -96,7 +96,19 @@ The user chose a complete redesign on 2026-10-30. Its navy palette gave way to t
 
 ## Colors
 
-The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): Dark Plum `#261633`, Lilac `#A47AF5` and Off-White `#FAFAFC`. Dark Plum is the canvas itself; the rail is darker and the surface and borders lighter, all in its hue. Lilac is the primary action and the readout rule; hover, focus and the active state are lighter lilacs in the same hue. Off-White is the text; the secondary and description text are the brand board's plum-tinted greys.
+The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): Dark Plum `#261633`, Lilac `#A47AF5` and Off-White `#FAFAFC`. Where the brand has a color that fits a role, the token takes that color as it is. Where it has none, the token is Dark Plum or Lilac with only its lightness changed: its OKLCH hue stays within 3° of that brand color's (Dark Plum 308°, Lilac 297°), and its chroma does not exceed the brand color's. So no derived color leans toward another hue or is more vivid than its source.
+
+| Token | From the brand |
+|---|---|
+| `canvas` | Dark Plum |
+| `rail` | Dark Plum, darker |
+| `surface`, `border` | Dark Plum, lighter |
+| `primary`, `readout-rule` | Lilac |
+| `primary-hover`, `state-active`, `focus` | Lilac, lighter |
+| `text` | Off-White |
+| `secondary-text` | The grey that outlines the color swatches on the brand board |
+| `description-text` | The subtitle of the dark horizontal logo |
+| `state-warning`, `state-failed` | None; see below |
 
 Use the canvas for conversation and settings, the deeper rail for navigation, and raised surfaces for fields. Borders separate working regions without heavy cards. Amber and red retain warning/error meanings; they keep their hues, toned to sit with the plum. Enable state is also expressed by labels and switch position.
 
