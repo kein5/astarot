@@ -210,9 +210,15 @@ def remote_pins(repo, revision, filenames):
     return pins
 
 
-def entry(manifest, repo, revision, pins):
-    """The translation_models.json entry, after checking the published files."""
+def entry(manifest, repo, revision, pins, notice=None):
+    """The translation_models.json entry, after checking the published files.
+
+    notice: the download review's text for this model, one of TRANSLATION_NOTICES in catalog.rs
+    (`model_downloads.notice_<notice>` in locales/); None for the general `translation`.
+    """
     license = manifest["license"]
+    if notice is not None and not (notice.replace("_", "").isalnum() and notice == notice.lower()):
+        raise SystemExit("the notice is a lower-case name such as translation_nllb_600m")
     if len(revision) != 40 or any(c not in "0123456789abcdef" for c in revision):
         raise SystemExit("the revision is a full commit hash")
     files = [MANIFEST, *sorted(manifest["files"])]
@@ -228,7 +234,7 @@ def entry(manifest, repo, revision, pins):
     if license in DEEDS:
         licenses.append(DEEDS[license])
     name = source_name(manifest)
-    return {
+    new = {
         "id": catalog_id(manifest),
         "name": f"{DISPLAY.get(name, name)} · {manifest['variant']}",
         "provider": PROVIDER,
@@ -236,11 +242,14 @@ def entry(manifest, repo, revision, pins):
         "revision": revision,
         "license": license,
         "licenses": licenses,
-        "artifacts": [
-            {"filename": filename, "size": pins[filename][0], "sha256": pins[filename][1], "role": role(filename, manifest)}
-            for filename in files
-        ],
     }
+    if notice not in (None, "translation"):
+        new["notice"] = notice
+    new["artifacts"] = [
+        {"filename": filename, "size": pins[filename][0], "sha256": pins[filename][1], "role": role(filename, manifest)}
+        for filename in files
+    ]
+    return new
 
 
 def write_entry(new, path=CATALOG_DATA):
@@ -267,6 +276,8 @@ def main():
     listed.add_argument("--repo", required=True)
     listed.add_argument("--revision", required=True)
     listed.add_argument("--write", action="store_true")
+    listed.add_argument("--notice", help="the download review's text for this model, a name in "
+                                          "TRANSLATION_NOTICES of catalog.rs (default: translation)")
     args = parser.parse_args()
     if args.command == "stage":
         print(stage(args.folder, args.repo, args.out, args.license_file))
@@ -275,7 +286,7 @@ def main():
     else:
         manifest = read_manifest(args.folder)
         pins = remote_pins(args.repo, args.revision, [MANIFEST, *manifest["files"]])
-        new = entry(manifest, args.repo, args.revision, pins)
+        new = entry(manifest, args.repo, args.revision, pins, args.notice)
         if args.write:
             write_entry(new)
         print(json.dumps(new, indent=2, ensure_ascii=False))
