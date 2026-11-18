@@ -254,6 +254,8 @@ impl Downloads {
                 sources.sort();
                 sources.dedup();
                 row.insert("sources", sources.into_iter().map(Json::from).collect::<Vec<_>>());
+                // What the user acknowledges apart from the consent before it downloads.
+                row.insert("restrictions", m.restrictions().into_iter().map(Json::from).collect::<Vec<_>>());
                 Json::Object(row)
             })
             .collect::<Vec<_>>();
@@ -280,13 +282,20 @@ impl Downloads {
     }
 
     /// Starts downloading one entry. The request is exactly `{id, consent, catalog_version}`,
-    /// `consent` is `true`, and the version is the current catalog's.
+    /// with `acknowledged` besides when the entry carries restrictions ([`Model::restrictions`]):
+    /// `consent` is `true`, the version is the current catalog's, and `acknowledged` names exactly
+    /// the entry's restrictions. Left out, it names none, so a request for an unrestricted entry
+    /// is the same as before restrictions existed.
     ///
-    /// Errors: `download_request_invalid`, `consent_required`, `catalog_changed`,
-    /// `downloads_closed`, `download_busy`.
+    /// Errors: `download_request_invalid` (also for an `acknowledged` that is not a list of
+    /// distinct [`catalog::RESTRICTIONS`], or that names one the entry does not carry),
+    /// `consent_required`, `catalog_changed`, `model_download_restriction_unacknowledged`,
+    /// `downloads_closed`, `download_busy`. A refused request writes nothing.
     pub fn start(&self, request: &serde_json::Value) -> Result<Json, Error> {
-        let fields = request.as_object().filter(|o| o.len() == 3 && ["id", "consent", "catalog_version"].iter().all(|k| o.contains_key(*k)));
+        const REQUIRED: [&str; 3] = ["id", "consent", "catalog_version"];
+        let fields = request.as_object().filter(|o| REQUIRED.iter().all(|k| o.contains_key(*k)) && o.keys().all(|k| REQUIRED.contains(&k.as_str()) || k == "acknowledged"));
         let Some(fields) = fields else { return Err(Error::Code("download_request_invalid")) };
+        let Some(acknowledged) = fields.get("acknowledged").map_or(Some(Vec::new()), acknowledgement) else { return Err(Error::Code("download_request_invalid")) };
         if fields["consent"] != serde_json::Value::Bool(true) {
             return Err(Error::Code("consent_required"));
         }
@@ -295,6 +304,13 @@ impl Downloads {
             _ => None,
         };
         let Some(entry) = entry.cloned() else { return Err(Error::Code("catalog_changed")) };
+        let restrictions = entry.restrictions();
+        if acknowledged.iter().any(|kind| !restrictions.contains(kind)) {
+            return Err(Error::Code("download_request_invalid"));
+        }
+        if restrictions.iter().any(|kind| !acknowledged.contains(kind)) {
+            return Err(Error::Code("model_download_restriction_unacknowledged"));
+        }
         let mut state = self.inner.state.lock().unwrap();
         if state.closed || self.inner.closing.load(Ordering::SeqCst) {
             return Err(Error::Code("downloads_closed"));
@@ -653,6 +669,19 @@ impl Inner {
         }
         Ok(())
     }
+}
+
+/// The restrictions a start request acknowledges: a list of distinct known kinds, or `None`.
+fn acknowledgement(value: &serde_json::Value) -> Option<Vec<&'static str>> {
+    let mut kinds = Vec::new();
+    for item in value.as_array()? {
+        let kind = catalog::RESTRICTIONS.into_iter().find(|k| item.as_str() == Some(*k))?;
+        if kinds.contains(&kind) {
+            return None;
+        }
+        kinds.push(kind);
+    }
+    Some(kinds)
 }
 
 /// A check that found the published files changed or gone, rather than one that could not run.

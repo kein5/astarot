@@ -1,8 +1,10 @@
 //! Model downloads and the hardware probe behind them (`controller.py`: `getModelDownload*`,
 //! `startModelDownload`, `cancelModelDownload`, `applyModelDownload`; `vrct_ops::downloads`).
 //!
-//! A download starts only from the user's consent to one entry of the current catalog; nothing
-//! here reaches the network or the disk otherwise. Applying a finished download is a separate
+//! A download starts only from the user's consent to one entry of the current catalog, and for
+//! an entry with restrictions (a non-commercial license) from their separate acknowledgement
+//! too ([`vrct_ops::downloads::Downloads::start`]); nothing here reaches the network or the disk
+//! otherwise. Applying a finished download is a separate
 //! request that writes the verified paths into the settings, and only when the settings still
 //! hold what the user saw (`expected`) and nothing runs on that target. The failures answer
 //! `{"error_code": ...}` without the error body, as Python's `_modelDownloadFailure` did: 409

@@ -12,7 +12,7 @@ from threading import Event, RLock, Thread
 import time
 from uuid import uuid4
 
-from .catalog import CATALOG, CATALOG_VERSION, artifact_url, validate_catalog
+from .catalog import CATALOG, CATALOG_VERSION, RESTRICTIONS, artifact_url, license_restrictions, validate_catalog
 from .guidance import model_guidance
 from .speechcpp_asr import model_profile, speech_model
 from .transport import open_public
@@ -62,7 +62,8 @@ class Downloads:
                 total_bytes=sum(a.size for a in m.artifacts), destination=str(self.destination(m)),
                 source=f'https://huggingface.co/{m.repo}/tree/{m.revision}', guidance=model_guidance(m.id),
                 speech=speech_model(m.id), profile=model_profile(m.id), sources=sorted({f'https://huggingface.co/{r}/tree/{v}' for r, v, _ in
-                                (a.remote or (m.repo, m.revision, a.filename) for a in m.artifacts)})) for m in self.entries.values()]}
+                                (a.remote or (m.repo, m.revision, a.filename) for a in m.artifacts)}),
+                restrictions=license_restrictions(m.license)) for m in self.entries.values()]}
 
     def _present(self, entry):
         """The paths of an entry published in an earlier run, or None.
@@ -103,13 +104,25 @@ class Downloads:
         return job
 
     def start(self, request):
-        if not isinstance(request, dict) or set(request) != {'id', 'consent', 'catalog_version'}:
+        """`{id, consent, catalog_version}`, with `acknowledged` naming exactly the entry's
+        restrictions when it carries any (left out, it names none)."""
+        required = {'id', 'consent', 'catalog_version'}
+        if not isinstance(request, dict) or not required <= set(request) <= required | {'acknowledged'}:
+            raise ValueError('download_request_invalid')
+        acknowledged = request.get('acknowledged', [])
+        if (not isinstance(acknowledged, list) or not all(isinstance(kind, str) and kind in RESTRICTIONS for kind in acknowledged)
+                or len(set(acknowledged)) != len(acknowledged)):
             raise ValueError('download_request_invalid')
         if request['consent'] is not True:
             raise ValueError('consent_required')
         if (not isinstance(request['id'], str) or request['catalog_version'] != self.catalog_version
                 or request['id'] not in self.entries):
             raise ValueError('catalog_changed')
+        restrictions = license_restrictions(self.entries[request['id']].license)
+        if set(acknowledged) - set(restrictions):
+            raise ValueError('download_request_invalid')
+        if set(restrictions) - set(acknowledged):
+            raise ValueError('model_download_restriction_unacknowledged')
         with self.lock:
             if self.closed or self.closing.is_set():
                 raise ValueError('downloads_closed')
