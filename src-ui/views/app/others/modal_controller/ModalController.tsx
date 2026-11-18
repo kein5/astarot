@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { useI18n } from "@useI18n";
 import { useConsentDialog } from "../../../../logics/common/useConsentDialog";
 import styles from "./ModalController.module.scss";
@@ -7,7 +8,7 @@ import { Vr, Updater } from "@setting_box";
 // A modal dialog for the quick settings. It closes with its button, Escape
 // (unless a dropdown inside is open, which Escape closes first) or a click
 // outside. Focus moves to the close button and back to the opener.
-export const ModalController = ({ fallback }) => {
+export const ModalController = ({ fallback }: { fallback?: RefObject<HTMLElement> | null }) => {
     const { t } = useI18n();
     const { currentOpenedQuickSetting, updateOpenedQuickSetting } = useStore_OpenedQuickSetting();
     const { currentIsOpenedDropdownMenu } = useStore_IsOpenedDropdownMenu();

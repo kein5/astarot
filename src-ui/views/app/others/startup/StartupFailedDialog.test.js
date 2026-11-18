@@ -10,7 +10,7 @@ const load = async (failure, language = "en") => {
     const translation = yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const t = i18n.t.bind(i18n), calls = [];
-    const { StartupFailedDialog } = await loadModule(new URL("./StartupFailedDialog.jsx", import.meta.url), hooks(), {
+    const { StartupFailedDialog } = await loadModule(new URL("./StartupFailedDialog.tsx", import.meta.url), hooks(), {
         "@useI18n": { useI18n: () => ({ t }) },
         "@logics_common": { useWindow: () => ({ asyncQuitApp: () => calls.push("quit") }) },
         "../../../../logics/common/useBackendStartup": { useBackendStartup: () => ({ failure, retryStartup: () => calls.push("retry") }) },

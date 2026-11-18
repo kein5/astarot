@@ -298,7 +298,7 @@ test("production controller publishes startup failure and the failure dialog say
     // The failure dialog says why: here the program never started.
     assert.deepEqual(b.runtime.store.get(b.stores.Atom_BackendStartupFailure).data, { kind: "spawn", message: "not found" });
     const startup = await loadModule(new URL("./useBackendStartup.ts", import.meta.url), b.runtime, { "@store": b.stores, "./startupPhase.ts": startupPhase });
-    const screen = await loadModule(new URL("../../views/app/others/startup/StartupFailedDialog.jsx", import.meta.url), b.runtime, {
+    const screen = await loadModule(new URL("../../views/app/others/startup/StartupFailedDialog.tsx", import.meta.url), b.runtime, {
         "@logics_common": common,
         "../../../../logics/common/useBackendStartup": startup,
     });

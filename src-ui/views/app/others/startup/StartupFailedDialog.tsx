@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { useWindow } from "@logics_common";
 import { useBackendStartup } from "../../../../logics/common/useBackendStartup";
@@ -16,7 +17,7 @@ import styles from "./StartupFailedDialog.module.scss";
 const STARTUP_FAILED_EXIT = 101;
 const STARTUP_TIMEOUT_EXIT = 124;
 
-const exitReason = (t, code) => {
+const exitReason = (t: TFunction, code: unknown) => {
     if (code === STARTUP_FAILED_EXIT) return t("common_error.backend_startup_reason_internal");
     if (code === STARTUP_TIMEOUT_EXIT) return t("common_error.backend_startup_reason_timeout");
     return t("common_error.backend_startup_reason_exit", { code: code ?? "?" });
