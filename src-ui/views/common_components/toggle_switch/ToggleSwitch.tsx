@@ -1,5 +1,18 @@
+import type { CSSProperties, MouseEvent } from "react";
 import clsx from "clsx";
 import styles from "./ToggleSwitch.module.scss";
+
+export interface ToggleSwitchProps {
+    isActive?: boolean;
+    isPending?: boolean;
+    width?: string;
+    height?: string;
+    style?: CSSProperties;
+    toggleFunction?: () => void;
+    showLoader?: boolean;
+    className?: string;
+    skeleton?: boolean;
+}
 
 export const ToggleSwitch = ({
     isActive = false,
@@ -11,7 +24,7 @@ export const ToggleSwitch = ({
     showLoader = false,
     className,
     skeleton = false,
-}) => {
+}: ToggleSwitchProps) => {
     const containerClasses = clsx(
         styles.toggle_switch_container,
         {
@@ -26,13 +39,13 @@ export const ToggleSwitch = ({
         [styles.is_pending]: isPending,
     });
 
-    const customStyles = {
+    const customStyles: CSSProperties = {
         ...(width ? { "--toggle_width": width } : {}),
         ...(height ? { "--toggle_height": height } : {}),
         ...style,
     };
 
-    const handleClick = (e) => {
+    const handleClick = (e: MouseEvent<HTMLDivElement>) => {
         if (toggleFunction) {
             e.stopPropagation();
             toggleFunction();

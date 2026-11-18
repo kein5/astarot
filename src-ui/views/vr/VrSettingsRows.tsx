@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import type { ComponentType, ReactNode, RefObject, SVGProps } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
 import { VrPickerList } from "./VrPickerList";
@@ -9,9 +10,30 @@ import styles from "./VrSettingsWindow.module.scss";
 // ON/OFF はトグル、選択肢は一覧の画面 (Picker)、数値は −/＋ にする。
 // variable は設定の atom ({ state, data })。処理中 (pending) は押せない。
 
-export const SectionLabel = ({ label }) => <h2 className={styles.section_label}>{label}</h2>;
+// A setting as the store holds it, as far as the rows read it.
+export interface RowValue {
+    state?: string;
+    data?: unknown;
+}
 
-export const ToggleRow = ({ label, sub, variable, onToggle, is_disabled = false, disabled_reason }) => {
+// One choice of a list: its id and what it shows.
+export interface PickerOption {
+    id: string;
+    label: string;
+}
+
+export const SectionLabel = ({ label }: { label: string }) => <h2 className={styles.section_label}>{label}</h2>;
+
+interface ToggleRowProps {
+    label: string;
+    sub?: string;
+    variable: RowValue;
+    onToggle: () => void;
+    is_disabled?: boolean;
+    disabled_reason?: string;
+}
+
+export const ToggleRow = ({ label, sub, variable, onToggle, is_disabled = false, disabled_reason }: ToggleRowProps) => {
     const { t } = useI18n();
     const is_pending = variable.state === "pending";
     const is_locked = is_pending || is_disabled;
@@ -32,7 +54,16 @@ export const ToggleRow = ({ label, sub, variable, onToggle, is_disabled = false,
     );
 };
 
-export const SelectRow = ({ label, value, is_pending = false, is_disabled = false, disabled_reason, onOpen }) => {
+interface SelectRowProps {
+    label: string;
+    value?: ReactNode;
+    is_pending?: boolean;
+    is_disabled?: boolean;
+    disabled_reason?: string;
+    onOpen: () => void;
+}
+
+export const SelectRow = ({ label, value, is_pending = false, is_disabled = false, disabled_reason, onOpen }: SelectRowProps) => {
     const { t } = useI18n();
     const reason = is_pending ? t("vr_panel.settings.changing") : is_disabled ? (disabled_reason ?? t("vr_panel.settings.unavailable")) : null;
     const is_long = String(value ?? "").length > 24;
@@ -49,11 +80,23 @@ export const SelectRow = ({ label, value, is_pending = false, is_disabled = fals
     );
 };
 
-export const StepperRow = ({ label, sub, variable, setValue, min, max, step, format = (v) => v, is_disabled = false }) => {
+interface StepperRowProps {
+    label: string;
+    sub?: string;
+    variable: RowValue;
+    setValue: (value: number) => unknown;
+    min: number;
+    max: number;
+    step: number;
+    format?: (value: number) => ReactNode;
+    is_disabled?: boolean;
+}
+
+export const StepperRow = ({ label, sub, variable, setValue, min, max, step, format = (v) => v, is_disabled = false }: StepperRowProps) => {
     // 小数の刻み (0.05 など) の誤差を丸める
     const decimals = (String(step).split(".")[1] ?? "").length;
     const value = Number(variable.data);
-    const stepValue = (sign) => {
+    const stepValue = (sign: number) => {
         const next = Number((value + sign * step).toFixed(decimals));
         setValue(Math.min(Math.max(next, min), max));
     };
@@ -75,8 +118,16 @@ export const StepperRow = ({ label, sub, variable, setValue, min, max, step, for
     );
 };
 
+interface SegmentRowProps {
+    label: string;
+    sub?: string;
+    variable: RowValue;
+    options: readonly PickerOption[];
+    onSelect: (id: string) => unknown;
+}
+
 // 2〜3択を並べて直接選ぶ (選んでいるものは塗り)。options: [{ id, label }]
-export const SegmentRow = ({ label, sub, variable, options, onSelect }) => {
+export const SegmentRow = ({ label, sub, variable, options, onSelect }: SegmentRowProps) => {
     const { t } = useI18n();
     const is_pending = variable.state === "pending";
     return (
@@ -101,7 +152,17 @@ export const SegmentRow = ({ label, sub, variable, options, onSelect }) => {
     );
 };
 
-const Stepper = ({ label, value, is_pending, is_disabled = false, can_decrease, can_increase, onStep }) => {
+interface StepperProps {
+    label: string;
+    value: ReactNode;
+    is_pending: boolean;
+    is_disabled?: boolean;
+    can_decrease: boolean;
+    can_increase: boolean;
+    onStep: (sign: number) => void;
+}
+
+const Stepper = ({ label, value, is_pending, is_disabled = false, can_decrease, can_increase, onStep }: StepperProps) => {
     const is_locked = is_pending || is_disabled;
     const { t } = useI18n();
     return (
@@ -116,7 +177,14 @@ const Stepper = ({ label, value, is_pending, is_disabled = false, can_decrease, 
     );
 };
 
-const StepButton = ({ label, accessibleLabel, is_enabled, onClick }) => (
+interface StepButtonProps {
+    label: string;
+    accessibleLabel: string;
+    is_enabled: boolean;
+    onClick: () => void;
+}
+
+const StepButton = ({ label, accessibleLabel, is_enabled, onClick }: StepButtonProps) => (
     <button
         className={clsx(styles.button, styles.step, { [styles.is_disabled]: !is_enabled })}
         aria-disabled={!is_enabled} aria-label={accessibleLabel}
@@ -126,12 +194,30 @@ const StepButton = ({ label, accessibleLabel, is_enabled, onClick }) => (
     </button>
 );
 
+interface ThresholdRowProps {
+    label: string;
+    automatic_label: string;
+    CheckIcon: ComponentType<SVGProps<SVGSVGElement>>;
+    threshold: { state?: string; data: number };
+    setThreshold: (value: number) => unknown;
+    automatic: RowValue;
+    toggleAutomatic: () => void;
+    check_status: RowValue;
+    startCheck: () => void;
+    stopCheck: () => void;
+    // The meter's level as the backend reports it.
+    volume: unknown;
+    min: number;
+    max: number;
+    step: number;
+}
+
 // 自動がONの間は値を変えられない (デスクトップの設定画面と同じ)。
 // 音量の確認はデスクトップと同じく、設定画面を閉じると止まる (ConfigPageCloseTriggerController)
 export const ThresholdRow = ({
     label, automatic_label, CheckIcon, threshold, setThreshold, automatic, toggleAutomatic,
     check_status, startCheck, stopCheck, volume, min, max, step,
-}) => {
+}: ThresholdRowProps) => {
     const { t } = useI18n();
     const is_automatic = automatic.data === true;
     const is_pending = threshold.state === "pending" || automatic.state === "pending";
@@ -180,8 +266,18 @@ export const ThresholdRow = ({
     );
 };
 
+interface PickerProps {
+    title: string;
+    options: readonly PickerOption[];
+    selected_id: unknown;
+    back_label: string;
+    onPick: (id: string) => void;
+    onBack: () => void;
+    scrollRef: RefObject<HTMLElement | null>;
+}
+
 // 選択肢の一覧 (右側の一覧の代わりに表示する)。options: [{ id, label }]
-export const Picker = ({ title, options, selected_id, back_label, onPick, onBack, scrollRef }) => (
+export const Picker = ({ title, options, selected_id, back_label, onPick, onBack, scrollRef }: PickerProps) => (
     <>
         <div className={styles.picker_head}>
             <button className={clsx(styles.button, styles.back)} onClick={onBack}>‹ {back_label}</button>
@@ -202,7 +298,14 @@ export const Picker = ({ title, options, selected_id, back_label, onPick, onBack
     </>
 );
 
-export const Disclosure = ({ label, summary, is_pending = false, children }) => {
+interface DisclosureProps {
+    label: string;
+    summary?: ReactNode;
+    is_pending?: boolean;
+    children?: ReactNode;
+}
+
+export const Disclosure = ({ label, summary, is_pending = false, children }: DisclosureProps) => {
     const [expanded, setExpanded] = useState(false);
     const id = useId();
     const { t } = useI18n();
