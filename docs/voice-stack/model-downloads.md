@@ -102,7 +102,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 #### 外部の音声合成エンジン
 
-日本語の読み上げのまとまりの下に、VOICEVOX、COEIROINK、AivisSpeech、SHAREVOXのカードを並べる（[ADR-008](adr-008-external-speech-engines.md)）。
+日本語の読み上げのまとまりの下に、VOICEVOX、COEIROINK、AivisSpeech、SHAREVOXのカードを並べる（[ADR-008](../adr/adr-008-external-speech-engines.md)）。
 
 - ダウンロードはしない。カードには公式サイトと利用規約へのリンクを置き、利用条件は各エンジンと声の公式の規約に従うことを書く。
 - 取得の状態の代わりに、保存済みの接続先に接続できるかを出す。問い合わせは`/get/data/tts_engine_voices`で、版と声の一覧を聞くだけである。保存済みの設定が届いたときに1回と、「再確認」を押したときに問い合わせる。`request_id`は`catalog-`で始め、「日本語を読み上げるエンジン」の欄の問い合わせとは別に持つ。

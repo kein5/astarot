@@ -4,8 +4,8 @@
 
 設計判断はここには書きません。この制約から導いた判断は、それぞれの ADR にあります。
 
-- 仮想マイクと Microsoft Store: [ADR-009](adr-009-virtual-microphone-and-store.md)
-- 外部の合成音声エンジン: [ADR-008](adr-008-external-speech-engines.md)
+- 仮想マイクと Microsoft Store: [ADR-009](../adr/adr-009-virtual-microphone-and-store.md)
+- 外部の合成音声エンジン: [ADR-008](../adr/adr-008-external-speech-engines.md)
 
 ## 1. コード署名
 

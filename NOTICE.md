@@ -13,10 +13,10 @@ carry its CPU build and its Vulkan build of the same release side by side, each
 with the same notices. RVC voice conversion is the fork's own
 reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
 Rust dependencies are listed with the app's (see "Rust crates in VRCT-VOX
-builds" below). The ONNX Runtime the worker runs on,
-the NVIDIA CUDA and cuDNN libraries and the HuBERT and RMVPE weights it uses are
-not bundled: the app fetches them from their providers after the user's
-consent (see "RVC base models" below). Voice recordings and additional TTS/ASR/VC model weights are not
+builds" below). The ONNX Runtime the worker runs on (Microsoft's NuGet
+packages), the NVIDIA CUDA and cuDNN libraries (NVIDIA's PyPI wheels) and the
+HuBERT and RMVPE weights it uses are not bundled: the app fetches them from
+their providers after the user's consent (see "RVC base models" below). Voice recordings and additional TTS/ASR/VC model weights are not
 bundled. Mia2026 is validation-only. The Seed-VC integration kept in the
 repository (`integrations/seed_vc/`) contains files marked GPL-3.0-only; builds
 up to 0.4.x carried it, and 0.5.0 and later builds do not. Engine dependencies
@@ -188,9 +188,10 @@ pyclipper 1.4.0 (Boost Software License 1.0, Angus Johnson); it follows GEOS's
 order of operations for two area and length formulas. No source file of these
 projects is included. ONNX Runtime is not built into the application: chat
 reading loads the library at run time. The packages ship the official CPU build
-of ONNX Runtime 1.31.0 (MIT, Microsoft Corporation) for it in
-`_internal/onnxruntime`, with its license and third-party notices in
-`_internal/licenses/onnxruntime` (`LICENSE`, `ThirdPartyNotices.txt`).
+of ONNX Runtime 1.31.0 (MIT, Microsoft Corporation), taken from Microsoft's
+NuGet package `Microsoft.ML.OnnxRuntime` 1.31.0, for it in
+`_internal/onnxruntime`, with its license and third-party notices from the same
+package in `_internal/licenses/onnxruntime` (`LICENSE`, `ThirdPartyNotices.txt`).
 
 The VR overlay and chat reading's headset view load the OpenVR client library
 at run time. The packages ship `libopenvr_api_64` of OpenVR SDK 2.12.14

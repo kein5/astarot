@@ -2,7 +2,7 @@
 
 Status: 採用（2026-11-15）。アプリ側の導入支援（4.2）は 0.4.0 で実装した。Store への申請（4.1）は、申請するときの作業とする。
 Date: 2026-11-15
-Related: [ADR-005](adr-005-managed-microphone-lifetime.md)、[ADR-008](adr-008-external-speech-engines.md)、[プラットフォームの制約](platform-constraints.md)、Issue #321
+Related: [ADR-005](adr-005-managed-microphone-lifetime.md)、[ADR-008](adr-008-external-speech-engines.md)、[プラットフォームの制約](../voice-stack/platform-constraints.md)、Issue #321
 
 Issue #321 への 2026-11-15 のコメントで、利用者が方針 A+B を決めた。この ADR はその方針と理由を記録する。
 
@@ -12,13 +12,13 @@ VRCT-VOX は、読み上げ（TTS）や声の変換（RVC）の音声を VRChat 
 
 Linux では、PipeWire のループバックでドライバなしに仮想マイクを作れる。VRCT-VOX は利用者の操作で自動作成する（ADR-005）。
 
-Windows では、VRCT-VOX は仮想マイクを作れない。今は、利用者が VB-CABLE などの仮想ケーブルを自分で入れ、TTS の出力にケーブルの再生側（例: CABLE Input）を、VRChat のマイクに録音側（例: CABLE Output）を選ぶ（[Windows のローカル準備](local-setup-windows.md)）。ケーブルを入れていない利用者は、どこでつまずいたかが分からないまま、VRChat に声が届かない。
+Windows では、VRCT-VOX は仮想マイクを作れない。今は、利用者が VB-CABLE などの仮想ケーブルを自分で入れ、TTS の出力にケーブルの再生側（例: CABLE Input）を、VRChat のマイクに録音側（例: CABLE Output）を選ぶ（[Windows のローカル準備](../voice-stack/local-setup-windows.md)）。ケーブルを入れていない利用者は、どこでつまずいたかが分からないまま、VRChat に声が届かない。
 
 将来、Microsoft Store で配布することも考えている。Store 版でこの依存をどう扱うかを、ここで決める。
 
 ## 2. プラットフォームの制約
 
-詳しくは[プラットフォームの制約](platform-constraints.md)の 2 節と 3 節にある。この判断に効くのは次の 4 つである。
+詳しくは[プラットフォームの制約](../voice-stack/platform-constraints.md)の 2 節と 3 節にある。この判断に効くのは次の 4 つである。
 
 1. **MSIX はドライバをインストールできない。** ドライバを入れるマニフェスト拡張もない。Store 版（MSIX）に仮想マイクのドライバを同梱する方法はない。
 2. **他のアプリから選べるマイクの端点は、カーネルモードのドライバでしか作れない。** ユーザーモードの API はない。自前のドライバを読み込ませるには Microsoft の署名が要り、それには Hardware Dev Center のアカウント（EV コード署名証明書と組織の実在確認）が要る。
@@ -35,7 +35,7 @@ Windows では、VRCT-VOX は仮想マイクを作れない。今は、利用者
 | 自前のドライバを作って同梱する | 仮想マイクのドライバを開発し、署名して配布する | 採らない。署名に要る Hardware Dev Center の登録（EV コード署名証明書と組織の実在確認）を、このプロジェクトは今は満たしていない。MSIX には同梱できないので、Store 版では別に導入してもらう点も変わらない |
 | 既存のドライバを同梱する | VB-CABLE などをインストーラーに入れる | 採らない。提供元との契約が要る。MSIX には同梱できない |
 | 仮想マイクのない構成だけを Store に出す | 仮想マイクに頼る機能を Store 版から外す | 採らない。読み上げと声の変換を VRChat に届けられず、製品の目的を満たさない |
-| Store を諦める | Store には出さず、GitHub Releases だけで配布する | 採らない。Store 版には、Store が再署名するので署名なしのインストーラーの警告を避けられるという利点がある（[制約](platform-constraints.md) 1 節）。開示で認められる可能性があるうちは、選択肢を残す |
+| Store を諦める | Store には出さず、GitHub Releases だけで配布する | 採らない。Store 版には、Store が再署名するので署名なしのインストーラーの警告を避けられるという利点がある（[制約](../voice-stack/platform-constraints.md) 1 節）。開示で認められる可能性があるうちは、選択肢を残す |
 | **外部のドライバに頼り、開示する（A）と、アプリで導入を支える（B）** | 下の 4 章 | **採る** |
 
 ## 4. 決定
@@ -92,7 +92,7 @@ Voicemeeter など別の仮想ミキサーを使っている利用者は、TTS �
 
 ## 8. 参考資料
 
-- [プラットフォームの制約](platform-constraints.md)（この ADR の前提の出典をまとめている）
+- [プラットフォームの制約](../voice-stack/platform-constraints.md)（この ADR の前提の出典をまとめている）
 - [Microsoft Store Policies](https://learn.microsoft.com/windows/apps/publish/store-policies)（10.2.4 依存関係、10.2.9）
-- [Windows のローカル準備](local-setup-windows.md)
+- [Windows のローカル準備](../voice-stack/local-setup-windows.md)
 - Issue #321（2026-11-15 のコメント「仮想マイクの扱い（Store を見据えた方針 A+B）」）
