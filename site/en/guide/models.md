@@ -13,6 +13,8 @@ ASTAROT packages contain no models for text to speech, speech recognition, the v
 
 Downloading or applying does not start a server, speech or the microphone.
 
+For a speech model, once its server runs, "Play sample" on the card of the model in use lets you hear the voice on your own ([Play a sample of the voice](../features/tts#play-a-sample-of-the-voice)).
+
 ::: info File checks
 Downloaded files are checked by size and SHA-256 before use. They come only from Hugging Face repositories chosen in advance, at a fixed version of each.
 :::
