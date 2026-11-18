@@ -1,7 +1,9 @@
 """The 16 px ASTAROT favicon keeps the symbol's rules (tools/astarot_favicon_small.py)."""
 import importlib.util
+import io
 import math
 from pathlib import Path
+import tempfile
 import unittest
 
 
@@ -92,7 +94,47 @@ class AstarotFaviconSmallTests(unittest.TestCase):
     def test_png_and_ico_are_built_by_the_tool(self):
         for path, data in favicon.files().items():
             with self.subTest(path=path.relative_to(ROOT).as_posix()):
-                self.assertEqual(path.read_bytes(), data, "run tools/astarot_favicon_small.py")
+                self.assertTrue(favicon.matches(path, data), "run tools/astarot_favicon_small.py")
+
+    @unittest.skipIf(PIL is None, "Pillow is not installed")
+    def test_check_compares_pixels_not_compressed_bytes(self):
+        # zlib builds differ between machines, so the same pixels can come back as other bytes.
+        from PIL import Image
+
+        def recompressed(data):
+            # The same ICO with every PNG frame stored without compression.
+            count = int.from_bytes(data[4:6], "little")
+            entries = [data[6 + 16 * i:22 + 16 * i] for i in range(count)]
+            frames = []
+            for entry in entries:
+                length, offset = int.from_bytes(entry[8:12], "little"), int.from_bytes(entry[12:16], "little")
+                out = io.BytesIO()
+                Image.open(io.BytesIO(data[offset:offset + length])).save(out, format="PNG", compress_level=0)
+                frames.append(out.getvalue())
+            head, offset = bytearray(data[:6]), 6 + 16 * count
+            for entry, frame in zip(entries, frames):
+                head += entry[:8] + len(frame).to_bytes(4, "little") + offset.to_bytes(4, "little")
+                offset += len(frame)
+            return bytes(head) + b"".join(frames)
+
+        built = favicon.files()
+        icon = built[favicon.BRAND_ICO]
+        other = recompressed(icon)
+        self.assertNotEqual(other, icon)
+        self.assertEqual(favicon.pixels(other), favicon.pixels(icon))
+        self.assertEqual([size for size, _ in favicon.pixels(icon)[1]], [(s, s) for s in favicon.ICO_SIZES])
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "favicon.ico"
+            path.write_bytes(other)
+            self.assertTrue(favicon.matches(path, icon))
+            small = favicon.png_16()
+            small.putpixel((0, 0), (0, 0, 0, 255))
+            path.write_bytes(favicon.ico(small))
+            self.assertFalse(favicon.matches(path, icon), "a changed pixel must count as a difference")
+            path = Path(folder) / "favicon-16.svg"
+            path.write_bytes(built[favicon.BRAND / "favicon-16.svg"].replace(b"16 px", b"16px"))
+            self.assertFalse(favicon.matches(path, built[favicon.BRAND / "favicon-16.svg"]))
 
     def test_manual_uses_the_ico(self):
         config = (ROOT / "site/.vitepress/config.mts").read_text(encoding="utf-8")

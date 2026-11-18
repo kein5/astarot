@@ -25,6 +25,11 @@ Outputs, all in docs/brand/astarot/ unless noted:
 
 --check builds every file in memory, compares it with the committed one and
 writes nothing. The exit code is 1 when a file differs.
+
+The SVG is compared byte for byte, the PNG and the ICO by their pixels: the same
+Pillow compresses the same pixels to other bytes where zlib is built differently
+(the 16 px frame of the ICO came out 477 bytes on Windows, 482 on Ubuntu). For the
+same reason a file whose pixels already match is left as it is.
 """
 
 from __future__ import annotations
@@ -38,6 +43,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BRAND = ROOT / "docs" / "brand" / "astarot"
 SITE_BRAND = ROOT / "site" / "public" / "manual" / "brand"
+BRAND_ICO = BRAND / "favicon.ico"
+MANUAL_ICO = SITE_BRAND / "favicon.ico"
 
 PLUM = "#261633"
 SIZE = 16  # the grid, in pixels
@@ -178,14 +185,36 @@ def ico(small) -> bytes:
     return buffer.getvalue()
 
 
+def pixels(data: bytes) -> tuple[str, list[tuple[tuple[int, int], bytes]]]:
+    """What a PNG or an ICO shows: its format, and each image's size and RGBA pixels."""
+    from PIL import Image
+
+    with Image.open(io.BytesIO(data)) as image:
+        if image.format == "ICO":
+            frames = [image.ico.getimage(size) for size in sorted(image.info["sizes"])]
+        else:
+            frames = [image]
+        return image.format, [(frame.size, frame.convert("RGBA").tobytes()) for frame in frames]
+
+
+def matches(path: Path, data: bytes) -> bool:
+    """Whether the file on disk is the built one: the same bytes for the SVG, the same pixels otherwise."""
+    if not path.is_file():
+        return False
+    on_disk = path.read_bytes()
+    if on_disk == data or path.suffix == ".svg":
+        return on_disk == data
+    return pixels(on_disk) == pixels(data)
+
+
 def files() -> dict[Path, bytes]:
     small = png_16()
     icon = ico(small)
     return {
         BRAND / "favicon-16.svg": svg(),
         BRAND / "favicon-16.png": encode_png(small),
-        BRAND / "favicon.ico": icon,
-        SITE_BRAND / "favicon.ico": icon,
+        BRAND_ICO: icon,
+        MANUAL_ICO: icon,
     }
 
 
@@ -195,12 +224,18 @@ def main() -> int:
     args = parser.parse_args()
     built = files()
     if args.check:
-        stale = [path for path, data in built.items() if not path.is_file() or path.read_bytes() != data]
+        stale = [path for path, data in built.items() if not matches(path, data)]
+        if not {BRAND_ICO, MANUAL_ICO} & set(stale) and MANUAL_ICO.read_bytes() != BRAND_ICO.read_bytes():
+            stale.append(MANUAL_ICO)
         for path in stale:
             print(f"differs: {path.relative_to(ROOT).as_posix()}")
         return 1 if stale else 0
     for path, data in built.items():
-        path.write_bytes(data)
+        if not matches(path, data):
+            path.write_bytes(data)
+    # The manual's ICO is a copy of the brand one, whichever bytes the brand one was kept with.
+    if MANUAL_ICO.read_bytes() != BRAND_ICO.read_bytes():
+        MANUAL_ICO.write_bytes(BRAND_ICO.read_bytes())
     return 0
 
 
