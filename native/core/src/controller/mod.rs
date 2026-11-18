@@ -10,6 +10,7 @@ pub mod audio_devices;
 pub mod clipboard;
 mod credentials;
 mod files;
+pub mod gpu_check;
 mod gpu_memory;
 pub mod ocr;
 mod overlay;
@@ -312,6 +313,8 @@ pub struct Core {
     pub(crate) voice: std::sync::OnceLock<Arc<voice::Voice>>,
     /// The GPU memory readings of the flow panel ([`gpu_memory`]).
     gpu_memory: gpu_memory::GpuMemory,
+    /// The GPU check the user starts to report how speech.cpp runs here ([`gpu_check`], #288).
+    gpu_check: gpu_check::GpuCheck,
 }
 
 /// The captures of speech recognition for the settings' environment.
@@ -354,6 +357,7 @@ impl Core {
             transcription,
             voice: std::sync::OnceLock::new(),
             gpu_memory: gpu_memory::GpuMemory::default(),
+            gpu_check: gpu_check::GpuCheck::default(),
         })
     }
 
@@ -426,6 +430,7 @@ impl Core {
         }
         *done = true;
         self.step("Shutdown");
+        self.close_gpu_check();
         self.stop_transcription();
         self.close_voice();
         self.close_speech_servers();

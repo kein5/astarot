@@ -227,6 +227,16 @@ impl SpeechServers {
         json!({ "devices": rows, "cpu_build": survey.cpu_build, "gpu_build": survey.gpu_build })
     }
 
+    /// The builds the GPU check runs and the environment they start with: the checked bundles,
+    /// or a fixed executable (tests) as the one build.
+    pub(crate) fn check_builds(&self) -> (builds::Builds, devices::Environment) {
+        let builds = match &self.launch.binary {
+            Binary::Bundled(_) => self.launch.builds(),
+            Binary::Fixed(binary) => builds::Builds { vulkan: Some(binary.clone()), cpu: None },
+        };
+        (builds, self.environment.clone())
+    }
+
     fn stop(&self, profile: Profile) {
         // Not joined: the answer goes out at once, and the end is told to the listeners now,
         // with the run this Stop ended.

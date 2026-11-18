@@ -18,6 +18,17 @@
 //! A copy in a stand-in bundle (with `bundle.json` beside it) also answers `devices --json`;
 //! `cpu-only` beside it lists no GPU, `no-loader` makes it fail as a Vulkan build without
 //! `libvulkan.so.1` does.
+//!
+//! For the GPU check (`tests/gpu_check.rs`) it also answers the command line, with the lines
+//! speech.cpp 0.11 prints on stderr:
+//!
+//! - `info MODEL --json`: a TTS model (Japanese, the voice `none`) or, for a stem starting
+//!   with `asr`, a recognition model; `...unreadable...` fails.
+//! - `tts MODEL -o FILE ... -- TEXT`: a short WAVE file, and the text in `FILE.text` for the
+//!   fake recognition to hear. `...gpufail...` fails on a GPU with `out_of_memory`, and
+//!   `...slow...` takes 20 s.
+//! - `asr MODEL --format json --device D ... FILE`: the text of `FILE.text`; `...garble...`
+//!   hears it backwards on a GPU.
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -103,8 +114,96 @@ fn beside(name: &str) -> bool {
     std::env::current_exe().ok().and_then(|exe| exe.parent().map(|dir| dir.join(name).is_file())).unwrap_or(false)
 }
 
+fn option(args: &[String], name: &str) -> Option<String> {
+    args.iter().position(|arg| arg == name).and_then(|at| args.get(at + 1)).cloned()
+}
+
+/// The device as speech.cpp names it when it loads: `CPU` or the Vulkan device.
+fn loaded_on(device: &str) -> String {
+    if device == "cpu" { "CPU".into() } else { device.into() }
+}
+
+/// `speech info`, `speech tts` and `speech asr` for the GPU check.
+fn command_line(args: &[String]) -> ! {
+    let model = PathBuf::from(args.get(2).cloned().unwrap_or_default());
+    let stem = model.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default();
+    let device = option(args, "--device").unwrap_or_else(|| "auto".into());
+    match args[1].as_str() {
+        "info" => {
+            if stem.contains("unreadable") {
+                eprintln!("speech: model_invalid: {} is not a model", model.display());
+                std::process::exit(1);
+            }
+            if stem.starts_with("asr") {
+                println!(r#"{{"name":"Fake-ASR","weight_type":"Q8_0","task":"recognition","languages":["ja","en"],"options":[{{"name":"language"}}]}}"#);
+            } else {
+                println!(r#"{{"name":"Fake-TTS","weight_type":"Q8_0","task":"synthesis","languages":["ja"],"voices":[{{"name":"none"}}],"voice_files":true,"options":[{{"name":"voice"}},{{"name":"seed"}},{{"name":"language"}}]}}"#);
+            }
+        }
+        "tts" => {
+            let out = PathBuf::from(option(args, "-o").unwrap_or_default());
+            let text = args.iter().position(|arg| arg == "--").and_then(|at| args.get(at + 1)).cloned().unwrap_or_default();
+            if stem.contains("slow") {
+                std::thread::sleep(Duration::from_secs(20));
+            }
+            eprintln!("Loaded Fake-TTS on {} in 0.10 s", loaded_on(&device));
+            if stem.contains("gpufail") && device != "cpu" {
+                eprintln!("speech: out_of_memory (device): vk::Device::allocateMemory failed for {}", out.display());
+                std::process::exit(1);
+            }
+            // 0.5 s of silence, 16-bit mono at 16 kHz.
+            let samples = 8000u32;
+            let mut wave = Vec::new();
+            wave.extend_from_slice(b"RIFF");
+            wave.extend_from_slice(&(36 + samples * 2).to_le_bytes());
+            wave.extend_from_slice(b"WAVEfmt ");
+            wave.extend_from_slice(&[16, 0, 0, 0, 1, 0, 1, 0]);
+            wave.extend_from_slice(&16000u32.to_le_bytes());
+            wave.extend_from_slice(&32000u32.to_le_bytes());
+            wave.extend_from_slice(&[2, 0, 16, 0]);
+            wave.extend_from_slice(b"data");
+            wave.extend_from_slice(&(samples * 2).to_le_bytes());
+            wave.resize(wave.len() + samples as usize * 2, 0);
+            std::fs::write(&out, wave).expect("the WAVE file");
+            std::fs::write(marker(&out, ".text"), text).expect("the text");
+            eprintln!("{}: 0.50 s of audio in 0.050 s, RTFx 10.0, time to first audio 0.020 s", out.display());
+        }
+        "asr" => {
+            let file = PathBuf::from(args.last().cloned().unwrap_or_default());
+            let mut text = std::fs::read_to_string(marker(&file, ".text")).unwrap_or_default();
+            if stem.contains("garble") && device != "cpu" {
+                text = text.chars().rev().collect();
+            }
+            eprintln!("Loaded Fake-ASR on {} in 0.10 s", loaded_on(&device));
+            let answer = format!(r#"{{"file":{},"text":{},"stop":"end"}}"#, json_string(&file.display().to_string()), json_string(&text));
+            println!("{answer}");
+            eprintln!("{}: 0.50 s of audio in 0.040 s, RTFx 12.5", file.display());
+        }
+        _ => std::process::exit(2),
+    }
+    std::process::exit(0);
+}
+
+/// A JSON string of `text`.
+fn json_string(text: &str) -> String {
+    let mut quoted = String::from("\"");
+    for c in text.chars() {
+        match c {
+            '"' => quoted.push_str("\\\""),
+            '\\' => quoted.push_str("\\\\"),
+            c if (c as u32) < 0x20 => quoted.push_str(&format!("\\u{:04x}", c as u32)),
+            c => quoted.push(c),
+        }
+    }
+    quoted.push('"');
+    quoted
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if matches!(args.get(1).map(String::as_str), Some("info" | "tts" | "asr")) {
+        command_line(&args);
+    }
     if beside("no-loader") {
         eprintln!("speech: error while loading shared libraries: libvulkan.so.1: cannot open shared object file: No such file or directory");
         std::process::exit(127);

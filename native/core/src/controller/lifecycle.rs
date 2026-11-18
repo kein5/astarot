@@ -14,7 +14,7 @@ use serde_json::{Map, Value, json};
 
 /// Left out of `/run/initialization_complete`: they reach the network, a device or a server, or
 /// they describe what runs. The UI asks for them itself (`_INIT_MAPPING_EXCLUDED_ENDPOINTS`).
-pub const INIT_EXCLUDED: [&str; 10] = [
+pub const INIT_EXCLUDED: [&str; 11] = [
     "/get/data/available_releases",
     "/get/data/ocr_readiness",
     "/get/data/ocr_capture_status",
@@ -28,6 +28,8 @@ pub const INIT_EXCLUDED: [&str; 10] = [
     "/get/data/gpu_memory",
     // Core only: whether a voice audition plays (#415); asked only while one is pressed.
     "/get/data/voice_audition_state",
+    // Core only: the GPU check (#288); asked only on its section of the settings.
+    "/get/data/gpu_check_state",
 ];
 
 /// The weights under a non-commercial license (CC-BY-NC-4.0).

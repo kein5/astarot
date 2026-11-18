@@ -111,6 +111,8 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html",
         // The virtual cable's download page in the virtual microphone guide (#321).
         "https://vb-audio.com/Cable/",
+        // The GPU report's new issue, with the report filled in (#288).
+        "https://github.com/kein5/astarot/issues/new?template=gpu_report.yml&title=GPU%20report%3A%20AMD%20Radeon&report=%7B%0A%20%20%22schema%22%3A%201%0A%7D",
     ] {
         assert!(allowed(url), "{url} should open");
     }

@@ -28,7 +28,10 @@
     { "endpoint": "/run/start_voice_audition", "handler": "core: start_audition", "before_init": true },
     { "endpoint": "/run/stop_voice_audition", "handler": "core: stop_audition", "before_init": true, "immediate": true },
     { "endpoint": "/get/data/rvc_block_ms", "handler": "core: RVC_BLOCK_MS", "before_init": true },
-    { "endpoint": "/set/data/rvc_block_ms", "handler": "core: RVC_BLOCK_MS", "before_init": true }
+    { "endpoint": "/set/data/rvc_block_ms", "handler": "core: RVC_BLOCK_MS", "before_init": true },
+    { "endpoint": "/get/data/gpu_check_state", "handler": "core: gpu_check.status", "before_init": true },
+    { "endpoint": "/run/start_gpu_check", "handler": "core: start_gpu_check", "before_init": true },
+    { "endpoint": "/run/stop_gpu_check", "handler": "core: gpu_check.stop", "before_init": true }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },
