@@ -1,0 +1,44 @@
+# Text the i18n gate (tools/i18n_gate/check.mjs) does not ask to translate.
+#
+# terms: words that read the same in every language: product and service names, protocol
+#   and format names, units. A string made only of these (plus digits and punctuation)
+#   passes; anything else in it still needs a translation.
+# paths: files or folders (ending in "/") under src-ui the gate does not scan for hard-coded
+#   text. Only for code that never reaches a user, such as developer tools.
+#
+# For one line in the code, write a comment on that line or the line above instead:
+#   // i18n-exempt: <why this text is not translated>
+#   {/* i18n-exempt: <why> */}
+# and for a run of lines (a table of service names, say):
+#   // i18n-exempt-start: <why>
+#   ...
+#   // i18n-exempt-end
+# Every entry and every comment needs a reason.
+terms:
+  - text: ASTAROT
+    reason: the product name, written the same in every language
+  - text: VRCT
+    reason: name of the upstream project ASTAROT comes from
+  - text: VRChat
+    reason: name of the service the app is made for
+  - text: WebSocket
+    reason: protocol name
+  - text: URL
+    reason: written the same in English and Japanese UI text
+  - text: LM Studio
+    reason: name of an external program
+  - text: CUDA
+    reason: name of NVIDIA's GPU platform; marks the CUDA build
+  - text: VOICEVOX
+    reason: name of an external speech engine
+  - text: COEIROINK
+    reason: name of an external speech engine
+  - text: AivisSpeech
+    reason: name of an external speech engine
+  - text: SHAREVOX
+    reason: name of an external speech engine
+  - text: ms
+    reason: unit (milliseconds)
+  - text: px
+    reason: unit (pixels)
+paths: []

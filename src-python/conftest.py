@@ -20,6 +20,15 @@ collect_ignore = [
 ]
 
 
+# --- ONNX Runtime の利用状況の送信を止める (#574) -----------------------------------------
+# uv.lock の onnxruntime (1.32) は、何も設定しないとセッションを作った時点で
+# ~/.cache/Microsoft の下に deviceid を作り、利用状況を送ろうとする。pytest を直接実行した
+# ときにも効くよう、テストが onnxruntime を読み込む前に設定する。呼び出し側が決めた値は残す。
+import os as _os
+
+_os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
+
+
 # --- テストが開発者の実際の config.json を書き換えないようにする -------------------------
 # `config` はシングルトンで、import 時に src-python/config.json を読む。テストが
 # `config.AUTH_KEYS = ...` のように代入すると、保存 (saveConfigToFile) が同じ実際のファイルへ

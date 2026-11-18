@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
@@ -19,7 +19,7 @@ for (const language of ["en", "ja"]) {
     const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
     for (const [endpoint, error_code, field, previous] of failures) {
         test(`${language}: ${error_code} on ${endpoint} settles only its initiating field`, async context => {
-            context.mock.method(console, "error", () => {});
+            vi.spyOn(console, "error").mockImplementation(() => {});
             const i18n = i18next.createInstance();
             await i18n.init({ lng: language, resources: { [language]: { translation } } });
             const s = await loadBridgeRoutes(undefined, i18n);
@@ -50,7 +50,7 @@ for (const language of ["en", "ja"]) {
 }
 
 test("a standalone WebSocket enable failure still settles its own switch", async context => {
-    context.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     const ws = s.stores.dynamicStoreRegistry.Atom_EnableWebsocket;
     const obs = s.stores.dynamicStoreRegistry.Atom_EnableObsBrowserSource;

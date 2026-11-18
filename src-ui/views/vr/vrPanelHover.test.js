@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { eventTarget, stubGlobals } from "../../logics/test/hookHarness.js";
 import { trackVrPointerHover } from "./vrPanelHover.js";
 
 function setup(context) {
     let hover;
-    context.after(() => hover?.dispose());
+    context.onTestFinished(() => hover?.dispose());
     const frames = new Map(), observers = [], hits = [], writes = [];
     let sequence = 0, hit = null;
     const root = { ...eventTarget(), contains: target => !target.outside, querySelectorAll: () => ["panel", "popup"] };
-    context.mock.method(root, "addEventListener");
+    vi.spyOn(root, "addEventListener");
     const window = eventTarget(), fonts = eventTarget();
     const document = { fonts, documentElement: {}, body: {}, elementFromPoint: (x, y) => { hits.push([x, y]); return hit; } };
     class Observer {
@@ -35,7 +35,7 @@ function setup(context) {
 
 test("scroll under a stationary pointer re-hit-tests once per frame, with no unchanged-target writes", context => {
     const s = setup(context), first = s.button("first"), second = s.button("second");
-    assert.equal(s.root.addEventListener.mock.calls[0].arguments[2], true);
+    assert.equal(s.root.addEventListener.mock.calls[0][2], true);
     s.setHit(first);
     for (let i = 0; i < 100; i++) s.hover.setPointer({ x: 10, y: 20 });
     assert.equal(s.frames.size, 1);

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
 import { loadBridgeRoutes } from "../test/bridgeHarness.js";
 import * as polledState from "../common/polledState.ts";
@@ -19,7 +19,7 @@ async function setup(t, transport = async () => true) {
         } }) },
     });
     const render = () => runtime.render(useModelDownloads);
-    t.after(() => runtime.unmount());
+    t.onTestFinished(() => runtime.unmount());
     return { runtime, render, calls };
 }
 
@@ -92,7 +92,7 @@ test("a failed Cancel write retains pending Apply", async t => {
 test("the receive router correlates Apply and Cancel acknowledgements", async t => {
     const s = await setup(t);
     const bridge = await loadBridgeRoutes(undefined, null, { useModelDownloads: s.render });
-    t.after(() => bridge.runtime.unmount());
+    t.onTestFinished(() => bridge.runtime.unmount());
     await s.render().send(apply, request);
     await s.render().send(cancel, request);
     bridge.receiveRoutes({ status: 200, endpoint: cancel, result: { observation_id: "1", jobs: {} } });
@@ -130,7 +130,7 @@ const all = (tree, predicate) => {
 
 test("the production model card enables matching Cancel during Apply verification", async t => {
     const s = await setup(t), ui = hooks();
-    t.after(() => ui.unmount());
+    t.onTestFinished(() => ui.unmount());
     const { ModelDownloads } = await loadCatalog(s, ui);
     s.render().updateCatalog({ models: [{ id: "model", target: "rvc", name: "Model", total_bytes: 10 }] });
     s.render().updateState({ observation_id: "1", jobs: { model: { job_id: "job", phase: "ready" } } });
@@ -150,7 +150,7 @@ test("the production model card enables matching Cancel during Apply verificatio
 
 test("the catalog groups models by use, one card per recognizer with its file types", async t => {
     const s = await setup(t), ui = hooks();
-    t.after(() => ui.unmount());
+    t.onTestFinished(() => ui.unmount());
     const { ModelDownloads } = await loadCatalog(s, ui);
     const row = (id, name, type, isDefault, languages) => ({ id, target: "asr", name: `${name} · ${type}`, total_bytes: 1,
         speech: { name, label: name, type: type.toLowerCase(), default: isDefault, languages, start: [] } });
@@ -182,7 +182,7 @@ test("the catalog groups models by use, one card per recognizer with its file ty
 
 test("a model downloaded before a restart says so, and in use only when its file is the saved path", async t => {
     const s = await setup(t), ui = hooks();
-    t.after(() => ui.unmount());
+    t.onTestFinished(() => ui.unmount());
     const { ModelDownloads } = await loadCatalog(s, ui);
     const model = id => ({ id, target: "rvc", name: `${id} · RVC v2`, total_bytes: 1, licenses: [], artifacts: [] });
     s.render().updateCatalog({ catalog_version: "v", models: [model("a"), model("b"), model("c")] });
@@ -202,7 +202,7 @@ test("a model downloaded before a restart says so, and in use only when its file
 
 test("the time of a GPU reading is written in the display language", async t => {
     const ui = hooks();
-    t.after(() => ui.unmount());
+    t.onTestFinished(() => ui.unmount());
     const { measuredTime } = await loadCatalog({ render: () => ({}) }, ui);
     const at = Date.UTC(2026, 0, 10, 16, 5, 9);
     assert.equal(measuredTime(at, "ja"), new Date(at).toLocaleTimeString("ja"));

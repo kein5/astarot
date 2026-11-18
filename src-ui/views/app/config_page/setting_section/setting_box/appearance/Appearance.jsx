@@ -67,6 +67,7 @@ const UiLanguageContainer = () => {
     return (
         <RadioButtonContainer
             setting_id="ui_language"
+            // i18n-exempt: in English on purpose, so someone who cannot read the current language finds this setting
             label={is_not_en_lang ? "UI Language" : t("config_page.appearance.ui_language.label")}
             desc={is_not_en_lang ? t("config_page.appearance.ui_language.label") : false}
             selectFunction={setUiLanguage}

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 import { loadBridgeStore } from "../../../logics/test/bridgeHarness.js";
 import { chunkArray } from "../../../logics/utils.ts";
 import * as routeState from "../../../logics/voice/routeState.ts";
-import * as rvcStartOptions from "../../../logics/voice/rvcStartOptions.js";
+import * as rvcStartOptions from "../../../logics/voice/rvcStartOptions.ts";
 import { voiceActions, voiceSwitchStates } from "../../../logics/voice/voiceActions.ts";
 import * as voiceErrorText from "../../../logics/voice/voiceErrorText.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";

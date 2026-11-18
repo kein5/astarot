@@ -1,11 +1,11 @@
 import * as routeState from "../../../../../../logics/voice/routeState.ts";
-import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.js";
+import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.ts";
 import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDraft.ts";
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.js";
+import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
 
 // #429: input forwarding under the advanced settings showed a saved RVC conversion as forwarding

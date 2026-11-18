@@ -35,7 +35,11 @@ fn spec() -> Vec<Spec> {
 
 fn routes() -> Routes {
     let dir = tempfile::tempdir().unwrap();
-    let config = vrct_core::config::Config::open(common::environment(dir.path(), vrct_core::config::Platform::current()));
+    // Only the routes are listed; the keys stay in memory, never in the PC's credential store.
+    let config = vrct_core::config::Config::open_with(
+        common::environment(dir.path(), vrct_core::config::Platform::current()),
+        vrct_core::config::secrets::MemoryStore::new(),
+    );
     struct Quiet;
     impl vrct_core::dispatch::Output for Quiet {
         fn answer(&self, _: u16, _: Option<&str>, _: &serde_json::Value) {}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { rvcStartOptions } from "./rvcStartOptions.js";
+import { test } from "vitest";
+import { rvcStartOptions } from "./rvcStartOptions.ts";
 
 const saved = { rvc_runtime: "/r", rvc_model: "/v.pth", rvc_index: "", rvc_pitch: 3, rvc_index_rate: 0 };
 

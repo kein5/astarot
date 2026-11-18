@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { changedPaths } from "./saveBar.js";
+import { test } from "vitest";
+import { changedPaths } from "./saveBar.ts";
 
 test("only the edited leaves of nested settings are reported", () => {
     const saved = { mode: "translated", profiles: { japanese: { model: "/a.gguf", device: "auto" }, asr: { model: "" } } };

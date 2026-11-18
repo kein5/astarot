@@ -68,7 +68,9 @@ def child_environment():
     env = {key: value for key, value in os.environ.items()
            if not key.startswith("VRCT_") and key not in (
                "PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONPATH", "PYTHONHOME")}
-    env.update(HF_HUB_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1",
+    # ORT_DISABLE_TELEMETRY: the onnxruntime wheel (1.32) otherwise writes a device id under
+    # ~/.cache/Microsoft and sends usage events when a test creates a session (#574).
+    env.update(HF_HUB_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1", ORT_DISABLE_TELEMETRY="1",
                TRANSFORMERS_OFFLINE="1", SPEECH_NO_UPDATE_CHECK="1",
                CARGO_NET_OFFLINE="true", RUSTUP_AUTO_INSTALL="0",
                PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", UV_NO_VERIFY_HASHES="0")
@@ -154,15 +156,21 @@ def checks_plan(args, root):
             if scope == "ui" and "node" in selected:
                 pass
             else:
-                files = sorted({p.relative_to(root).as_posix()
-                    for pattern in ("*.test.js", "*.test.mjs", "*.test.ts")
-                    for p in (root / "src-ui").rglob(pattern)})
-                if not files:
-                    raise DevError("No Node tests found under src-ui; refusing an empty check.")
-                # The UI is moving to TypeScript (ADR-010): the tests import .ts sources directly.
-                # Node 22 strips the types only behind this flag; later versions accept it as well.
-                steps.append(Step("Node tests", ["node", "--experimental-strip-types",
-                    "--disable-warning=ExperimentalWarning", "--test", *files]))
+                # vitest.config.js lists the same patterns (plus the i18n gate's own tests in
+                # tools/i18n_gate); this guard keeps a moved or renamed tree from passing as an
+                # empty run.
+                if not any(p for pattern in ("*.test.js", "*.test.mjs", "*.test.ts")
+                           for p in (root / "src-ui").rglob(pattern)):
+                    raise DevError("No UI tests found under src-ui; refusing an empty check.")
+                # The installed Vitest, run by Node directly: no npx lookup and no download.
+                vitest = root / "node_modules/vitest/vitest.mjs"
+                if not args.dry_run and not vitest.is_file():
+                    raise DevError("Vitest is not installed. Run: python tools/dev.py setup --scope ui")
+                steps.append(Step("UI tests (Vitest)", ["node", vitest.relative_to(root).as_posix(), "run"]))
+                # Issue #515: en/ja keys and {{variables}} agree, every key the UI names exists,
+                # and no new text is written straight into the UI.
+                steps.append(Step("i18n gate", ["node", "--disable-warning=ExperimentalWarning",
+                    "tools/i18n_gate/check.mjs"]))
             if scope == "ui":
                 steps.append(Step("TypeScript", ["npm", "--ignore-scripts", "run", "typecheck"]))
                 steps.append(Step("Vite build", ["npm", "--ignore-scripts", "run", "vite-build"]))

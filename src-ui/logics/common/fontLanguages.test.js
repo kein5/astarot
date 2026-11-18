@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { missingLanguagesText } from "./fontLanguages.js";
+import { test } from "vitest";
+import { missingLanguagesText } from "./fontLanguages.ts";
 
 test("missing languages are named and joined in the UI language", () => {
     assert.equal(missingLanguagesText(["Japanese", "Korean"], "en"), "Japanese and Korean");

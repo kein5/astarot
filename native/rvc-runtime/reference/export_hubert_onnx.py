@@ -13,12 +13,17 @@ engine is involved.
 Run with the reference environment's interpreter; writes <reference>/assets/hubert_base/hubert.onnx.
 """
 import json
+import os
 import sys
 from pathlib import Path
 
-import numpy as np
-import torch
-from transformers import HubertConfig, HubertModel
+# The onnxruntime wheel of the reference environment (1.32) otherwise writes a device id under
+# ~/.cache/Microsoft and sends usage events when the check below starts a session (#574).
+os.environ.setdefault('ORT_DISABLE_TELEMETRY', '1')
+
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+from transformers import HubertConfig, HubertModel  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from setup_reference import reference_dir  # noqa: E402

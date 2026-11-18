@@ -47,15 +47,15 @@ export const VersionLabel = ({ isCompact = false }) => {
             >
                 {isCompact ? (
                     <div className={styles.compact_content}>
-                        <p className={styles.compact_version_label}>{`v${base_version}`}</p>
-                        {is_beta && <span className={styles.compact_badge}>Beta</span>}
+                        <p className={styles.compact_version_label}>{`v${base_version}`}</p>{/* i18n-exempt: the version number's prefix, the same in every language */}
+                        {is_beta && <span className={styles.compact_badge}>Beta</span>}{/* i18n-exempt: a badge for the version's "-beta" suffix, kept as the same mark in every language like the CUDA badge */}
                         {is_cuda && <span className={styles.compact_badge}>CUDA</span>}
                     </div>
                 ) : (
                     <div className={styles.expanded_row}>
                         <div className={styles.version_text_block}>
                             <p className={styles.version_label}>
-                                {`v${software_version_number}`}
+                                {`v${software_version_number}`}{/* i18n-exempt: the version number's prefix */}
                                 {!is_beta && is_cuda && <span className={styles.inline_cuda}> CUDA</span>}
                             </p>
                             {is_two_line_expanded && (
