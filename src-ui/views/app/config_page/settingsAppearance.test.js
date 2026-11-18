@@ -249,7 +249,7 @@ test("the forms' primary action is Lilac: the plain class name primary is matche
     assert.doesNotMatch(css, /button\.primary/);
     assert.match(css, /button:global\(\.primary\)\s*{[^}]*background: var\(--primary_600_color/);
     const downloads = read(box + "advanced_settings/ModelDownloads.jsx");
-    assert.match(downloads, /className="primary" disabled=\{!consent \|\| busy\}/, "agreeing to a download is the primary action");
+    assert.match(downloads, /className="primary" disabled=\{!agreed \|\| busy\}/, "agreeing to a download is the primary action");
 });
 
 test("a guide link reads as a link wherever it sits", () => {

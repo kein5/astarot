@@ -659,6 +659,108 @@ def test_installed_engines_link_to_their_sites_and_show_whether_they_answer(ui):
     assert not any(ep.startswith("/set/") or (ep.startswith("/run/") and "hardware" not in ep) for ep, _ in peer.sent)
 
 
+def _non_commercial_translation_row(catalog):
+    """A translation entry under NLLB-200's license, shaped as the backend lists it (#411).
+
+    The shipped catalog has no translation entry yet; the row borrows the RVC row's keys and
+    takes its restrictions from the same derivation the managers use.
+    """
+    from models.model_downloads.catalog import license_restrictions
+
+    model_id, revision = "nllb-200-distilled-600m-onnx-int8", "a" * 40
+    files = [("manifest.json", 1203, "manifest"), ("encoder_model_quantized.onnx", 419430400, "encoder"),
+             ("decoder_model_merged_quantized.onnx", 255852544, "decoder"), ("tokenizer.json", 17331176, "tokenizer")]
+    row = copy.deepcopy(next(m for m in catalog["models"] if m["target"] == "rvc"))
+    row.update(
+        id=model_id, target="translation", name="NLLB-200 distilled 600M · int8", provider="Meta / ASTAROT",
+        repo="example/nllb-200-distilled-600M-onnx", revision=revision, license="CC-BY-NC-4.0",
+        licenses=[f"https://huggingface.co/example/nllb-200-distilled-600M-onnx/blob/{revision}/README.md",
+                  "https://creativecommons.org/licenses/by-nc/4.0/"],
+        notice="translation",
+        artifacts=[dict(filename=name, size=size, sha256="b" * 64, role=role, remote=[]) for name, size, role in files],
+        total_bytes=sum(size for _, size, _ in files),
+        destination=f"/models/{model_id}/{revision}",
+        source=f"https://huggingface.co/example/nllb-200-distilled-600M-onnx/tree/{revision}",
+        sources=[f"https://huggingface.co/example/nllb-200-distilled-600M-onnx/tree/{revision}"],
+        speech=None, profile=None, restrictions=license_restrictions("CC-BY-NC-4.0"),
+    )
+    assert row["restrictions"] == ["non_commercial"]
+    return row
+
+
+def test_a_non_commercial_model_needs_its_own_checkbox_by_keyboard(ui):
+    """#411: the review names the license, and Start waits for the consent and the second checkbox."""
+    from playwright.sync_api import expect
+
+    page, peer, _, _ = ui
+    peer.catalog["models"].append(_non_commercial_translation_row(peer.catalog))
+    page.goto(page.url + "?view=translation")
+    card = page.get_by_role("group", name="NLLB-200 distilled 600M", exact=True)
+    card.get_by_role("button", name="Review download", exact=True).click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("Non-commercial use only.")
+    expect(dialog).to_contain_text("This model's license, CC-BY-NC-4.0, allows only non-commercial use.")
+    consent = dialog.get_by_role("checkbox", name="I have reviewed the source, usage terms, size and save location and agree to download.", exact=True)
+    acknowledgement = dialog.get_by_role(
+        "checkbox", name="I will use this model only for non-commercial purposes, as CC-BY-NC-4.0 requires.", exact=True)
+    expect(acknowledgement).to_have_accessible_description(
+        "Non-commercial use only. This model's license, CC-BY-NC-4.0, allows only non-commercial use. "
+        "You cannot use it for commercial purposes. Read the license before downloading.")
+    start = dialog.get_by_role("button", name="Agree and download", exact=True)
+    back = dialog.get_by_role("button", name="Back", exact=True)
+    expect(start).to_be_disabled()
+    # Keyboard only, from wherever the review put the focus: Tab reaches the consent, the
+    # second checkbox right after it, then Back and Start.
+    for _ in range(20):
+        if consent.evaluate("box => box === document.activeElement"):
+            break
+        page.keyboard.press("Tab")
+    expect(consent).to_be_focused()
+    page.keyboard.press("Space")
+    expect(consent).to_be_checked()
+    expect(start).to_be_disabled()  # the consent alone does not start it
+    page.keyboard.press("Tab")
+    expect(acknowledgement).to_be_focused()
+    page.keyboard.press("Space")
+    expect(acknowledgement).to_be_checked()
+    expect(start).to_be_enabled()
+    assert not any(ep == "/run/start_model_download" for ep, _ in peer.sent)
+    page.keyboard.press("Tab")
+    expect(back).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(start).to_be_focused()
+    page.keyboard.press("Enter")
+    expect(page.get_by_role("progressbar")).to_be_visible()
+    sent = [data for ep, data in peer.sent if ep == "/run/start_model_download"]
+    assert sent == [{"id": "nllb-200-distilled-600m-onnx-int8", "consent": True,
+                     "catalog_version": peer.catalog["catalog_version"], "acknowledged": ["non_commercial"]}]
+
+
+def test_the_non_commercial_review_fits_a_narrow_window_in_japanese(ui):
+    """Long Japanese wraps inside a 400px window; nothing scrolls sideways, both checkboxes stay in reach."""
+    from playwright.sync_api import expect
+
+    page, peer, _, _ = ui
+    peer.catalog["models"].append(_non_commercial_translation_row(peer.catalog))
+    page.add_init_script("Object.defineProperty(navigator, 'language', { get: () => 'ja-JP' })")
+    page.set_viewport_size({"width": 400, "height": 800})
+    page.goto(page.url + "?view=translation")
+    page.get_by_role("group", name="NLLB-200 distilled 600M", exact=True).get_by_role(
+        "button", name="取得内容を確認", exact=True).click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("非商用の利用に限ります。")
+    expect(dialog).to_contain_text("このモデルのライセンス（CC-BY-NC-4.0）は非商用の利用だけを認めています。")
+    assert dialog.evaluate("d => d.scrollWidth <= d.clientWidth && d.getBoundingClientRect().right <= innerWidth")
+    for name in ("提供元・利用条件・容量・保存先を確認し、ダウンロードに同意します。",
+                 "CC-BY-NC-4.0に従い、このモデルを非商用の目的にだけ使います。"):
+        box = dialog.get_by_role("checkbox", name=name, exact=True)
+        box.check()
+        expect(box).to_be_checked()
+    expect(dialog.get_by_role("button", name="同意してダウンロード", exact=True)).to_be_enabled()
+    dialog.get_by_role("button", name="戻る", exact=True).click()
+    assert not any(ep == "/run/start_model_download" for ep, _ in peer.sent)
+
+
 def test_a_model_of_ones_own_is_registered_listed_and_switched_to(ui, tmp_path):
     """#403: the registration form, the card next to the catalog's and the switch."""
     from playwright.sync_api import expect

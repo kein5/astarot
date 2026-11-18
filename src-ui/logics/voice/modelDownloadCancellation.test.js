@@ -6,6 +6,7 @@ import * as polledState from "../common/polledState.ts";
 import * as languageNames from "../common/languageNames.ts";
 import * as modelCatalog from "./modelCatalog.ts";
 import * as modelHardwareWarning from "./modelHardwareWarning.ts";
+import * as modelRestrictions from "./modelRestrictions.ts";
 
 const apply = "/run/apply_model_download", cancel = "/run/cancel_model_download";
 const request = { id: "model", job_id: "job" };
@@ -108,6 +109,7 @@ const loadCatalog = (s, ui) => loadModule(new URL("../../views/app/config_page/s
     "../../../../../../logics/voice/modelHardwareAdvice": { modelAdvice: () => ({}) },
     "../../../../../../logics/voice/modelCatalog": modelCatalog,
     "../../../../../../logics/voice/modelHardwareWarning": modelHardwareWarning,
+    "../../../../../../logics/voice/modelRestrictions": modelRestrictions,
     "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null } }) },
     "../../../../../../logics/common/languageNames": languageNames,
     "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
