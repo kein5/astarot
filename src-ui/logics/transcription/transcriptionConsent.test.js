@@ -182,11 +182,14 @@ test("only enable errors can open the chooser", async context => {
 
 test("settings keep the selected engine inside the radio row's accessible help", async context => {
     const s = await fixture(context);
+    const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" },
+        { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true, own: true }];
     const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), s.runtime, {
         "@logics_configs": s.configs, "@utils": {},
+        "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {}, "./OldWhisperWeights": {},
         "../_components/credential_pair/CredentialPair": {},
-        "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
+        "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
         "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
         "../_templates/Templates": { RadioButtonContainer: "radio-options" }, "../_components": {},
         "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
@@ -196,10 +199,19 @@ test("settings keep the selected engine inside the radio row's accessible help",
     const tree = s.runtime.render(TranscriptionEngine_Box);
     assert.equal(tree.type, "radio-options", "help belongs inside the row, not after its divider");
     assert.equal(tree.props.checked_variable.data, "SpeechCpp");
-    // The local speech.cpp engine and the cloud engines; the local Whisper (#288) and the
-    // retired Google web speech engine are gone.
-    assert.deepEqual(tree.props.options.map(option => option.id), ["SpeechCpp"]);
+    // One choice under the two systems' names (#414): speech.cpp on your PC, then the APIs. The
+    // local Whisper (#288) and the retired Google web speech engine are gone. An API engine is
+    // offered but cannot be chosen until the backend has accepted its key.
+    assert.deepEqual(tree.props.groups.map(group => [group.id, group.label, group.options.map(option => [option.id, !!option.disabled])]), [
+        ["speechcpp", "config_page.transcription.speechcpp_section.label", [["SpeechCpp", false]]],
+        ["api", "config_page.transcription.cloud_section.label", [["Groq_Whisper", true], ["Custom_Whisper", true]]],
+    ]);
+    assert.equal(tree.props.options, undefined, "the groups are the only list of options");
     assert.ok(find(tree.props.desc, node => node.props?.role === "status"));
+    s.transcription.currentSelectableTranscriptionEngines = { data: ["SpeechCpp", "Custom_Whisper"] };
+    const keyed = s.runtime.render(TranscriptionEngine_Box).props.groups[1].options;
+    assert.deepEqual(keyed.map(option => [option.id, !!option.disabled]), [["Groq_Whisper", true], ["Custom_Whisper", false]]);
+    s.transcription.currentSelectableTranscriptionEngines = { data: ["SpeechCpp"] };
 
     // Use the real row, label and radio group to verify their help relationship.
     const rowRuntime = hooks();
@@ -222,10 +234,29 @@ test("settings keep the selected engine inside the radio row's accessible help",
     const control = find(row, node => node.type === RadioButton);
     const group = rowRuntime.render(control.type, control.props);
     const help = find(rowRuntime.render(label.type, label.props), node => node.props?.id === group.props["aria-describedby"]);
-    assert.equal(group.props.role, "radiogroup");
+    // The row's name and help are on the group around both systems; each system is a
+    // radiogroup named by the label shown above its options.
+    assert.equal(group.props.role, "group");
+    assert.equal(group.props["aria-labelledby"], label.props.label_id);
     assert.ok(group.props["aria-describedby"]);
     assert.ok(find(help, node => node.props?.role === "status"));
+    const systems = [];
+    find(group, node => { if (node.props?.role === "radiogroup") systems.push(node); return false; });
+    assert.deepEqual(systems.map(node => find(group, other => other.props?.id === node.props["aria-labelledby"])?.props.children),
+        ["config_page.transcription.speechcpp_section.label", "config_page.transcription.cloud_section.label"]);
+    const radios = [];
+    find(group, node => { if (node.type === "input") radios.push(node.props); return false; });
+    // One native set: the arrow keys move through both systems and Tab stops once.
+    assert.deepEqual(radios.map(radio => [radio.value, radio.name, radio.checked, radio.disabled]), [
+        ["SpeechCpp", "select_transcription_engine", true, false],
+        ["Groq_Whisper", "select_transcription_engine", false, true],
+        ["Custom_Whisper", "select_transcription_engine", false, true],
+    ]);
 
+    // The engine in use is named in the screen's words, not by its id.
+    s.transcription.currentSelectedTranscriptionEngine = { data: "Custom_Whisper", state: "ok" };
+    const named = find(s.runtime.render(TranscriptionEngine_Box).props.desc, node => node.props?.role === "status");
+    assert.match(JSON.stringify(named.props.children), /config_page\.transcription\.select_transcription_engine\.engines\.custom_whisper/);
     // A selection the backend no longer offers (a saved Google loads as none) shows as unselected.
     s.transcription.currentSelectedTranscriptionEngine = { data: null, state: "ok" };
     const unselectedHelp = s.runtime.render(TranscriptionEngine_Box).props.desc;

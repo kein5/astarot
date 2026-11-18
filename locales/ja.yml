@@ -513,7 +513,7 @@ config_page:
         device: "マイクの感度 {{mic}} · スピーカーの感度 {{speaker}}"
         ocr: "読み取りの間隔 {{interval}} ms · 信頼度の下限 {{confidence}}"
         tts: "モニター {{monitor}} · マイクの字幕の読み上げ {{mic}}"
-        transcription: "使えるクラウドのエンジン {{cloud}}件 · マイクの区切り {{phrase}}秒"
+        transcription: "マイクの区切り {{phrase}}秒 · スピーカーの区切り {{speaker}}秒"
         translation: "設定済みの翻訳API {{api}}件 · ローカルのLLM {{llm}}件"
         appearance: "ログの文字 {{log}}% · 透明度 {{transparency}}%"
         hotkeys_one: "{{count}}件にキーを割り当て済み"
@@ -777,16 +777,22 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "クラウドエンジンは、このページの「詳細設定」にある「クラウド音声認識」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」は、お使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            desc: "APIのエンジンは下の「API（クラウドや自分のサーバー）」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」はお使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」に、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
+            badge_own: "自分のサーバー"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
                 openai_whisper: "OpenAI Whisper"
                 custom_whisper: "カスタムWhisperサーバー"
                 deepgram: "Deepgram"
+        # The engines' two systems (#414), in the order the page shows them.
+        speechcpp_section:
+            label: "お使いのPCで動かす（speech.cpp）"
+            desc: "音声はお使いのPCの外に出ません。カタログのモデルを取得するか、お使いのPCにある自分のモデルのファイルを登録して使います。"
         cloud_section:
-            label: "クラウド音声認識"
-            desc: "ここでAPIキーを登録すると、上の「音声認識で使用するエンジン」で選べるようになります。"
+            label: "API（クラウドや自分のサーバー）"
+            desc: "音声をサービスや自分のサーバーへ送って文字にします。APIキーを登録すると、上の「音声認識で使用するエンジン」で選べます。キーは設定のファイルではなくアプリのキーの保管場所に置きます。"
         groq_whisper_auth_key:
             label: "Groq Whisper APIキー"
         openai_whisper_auth_key:
