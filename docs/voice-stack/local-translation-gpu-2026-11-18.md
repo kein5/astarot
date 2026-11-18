@@ -29,7 +29,7 @@ DirectML 版の ONNX Runtime は、PyPI の `onnxruntime-directml` 1.24.4 に入
 
 `allowzero` の 0 と 1 が違うのは、目標の形に 0 があるときだけです。このグラフの形は、バッチ、原文と訳文の長さ、ヘッドの数と幅でできていて、どれも 0 になりません。そこで `graphs.py` の `export_float` が、書き出した 3 つの float32 のグラフのすべての `Reshape` を `allowzero=0` にします（`clear_reshape_allowzero`）。量子化した形も同じグラフから作るので、すべての形に効きます。CPU の結果は変わりません。transformers の計算との照合（`verify`）も、この変更のあとのグラフで行います。
 
-2026-11-18 より前に `export.py` で作ったフォルダは `allowzero=1` のままです。DirectML では読み込みは通り、最初の翻訳で失敗します。CPU への切り替えは読み込みのときだけなので、この場合は翻訳の失敗になります（判断 74）。
+2026-11-18 より前に `export.py` で作ったフォルダは `allowzero=1` のままです。DirectML では読み込みは通り、最初の翻訳で失敗します。CPU への切り替えは読み込みのときだけなので、この場合は翻訳の失敗になります（判断 76）。
 
 ### 原因 2: 要素のない出力
 
@@ -60,7 +60,7 @@ DirectML 版の ONNX Runtime は、PyPI の `onnxruntime-directml` 1.24.4 に入
 
 ### int8 と int4 の DirectML
 
-小さなモデルでは int8 と int4 も DirectML で CPU と同じ ID になりました。ただし `accelerate.rs` の表（`support`）は、この 2 つを DirectML の計算型の一覧に出しません。量子化の演算子を DirectML が持たないと、ONNX Runtime はその演算だけを黙って CPU で動かします。今回の試験では、どの演算が GPU で動いたかと速さを確かめていません。表は変えていません（判断 73）。
+小さなモデルでは int8 と int4 も DirectML で CPU と同じ ID になりました。ただし `accelerate.rs` の表（`support`）は、この 2 つを DirectML の計算型の一覧に出しません。量子化の演算子を DirectML が持たないと、ONNX Runtime はその演算だけを黙って CPU で動かします。今回の試験では、どの演算が GPU で動いたかと速さを確かめていません。表は変えていません（判断 75）。
 
 ## 確かめていないこと
 
@@ -92,7 +92,7 @@ DirectML 版の ONNX Runtime は、PyPI の `onnxruntime-directml` 1.24.4 に入
 5. `publish.py catalog --write` が、公開された版のファイルの大きさと SHA-256 を `manifest.json` と照らし合わせ、`native/ops/data/translation_models.json` に項目を書きます。
 6. `CATALOG_VERSION` を上げます（`native/ops/data/README.md`）。
 
-決めることは、どのモデルとどの形を公開するか（少なくとも M2M100 418M の int8、GPU 用に float16 か）、公開先のリポジトリの持ち主と名前、NLLB を公開するかです（判断 1、76）。
+決めることは、どのモデルとどの形を公開するか（少なくとも M2M100 418M の int8、GPU 用に float16 か）、公開先のリポジトリの持ち主と名前、NLLB を公開するかです（判断 1、78）。
 
 ## NLLB
 
@@ -109,4 +109,4 @@ DirectML 版の ONNX Runtime は、PyPI の `onnxruntime-directml` 1.24.4 に入
 - SMaLL-100（MIT、M2M100 の形、約 330M）は、訳先の言語のトークンを原文の側に付ける点が M2M100 と違うので、その読み替えが要ります。
 - 翻訳向けの LLM（TranslateGemma、Hunyuan-MT、PLaMo 2 translate など）は、ライセンスに使える地域や用途の条件があります。どれも Ollama、LM Studio、OpenAI 互換の今のプロバイダを通して使えます。アプリに組み込む案は、#413 の翻訳カタログのランタイムの追加として扱います。
 
-NLLB は今のまま、既定にせず、選ぶときに非商用のライセンスを示して同意を得る形を続けるのが、変える所が一番少ない案です（判断 76）。
+NLLB は今のまま、既定にせず、選ぶときに非商用のライセンスを示して同意を得る形を続けるのが、変える所が一番少ない案です（判断 78）。

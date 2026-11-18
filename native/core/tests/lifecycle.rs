@@ -6,6 +6,7 @@ use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use vrct_core::config::Platform;
 use vrct_core::controller::Services;
 
 #[test]
@@ -271,6 +272,84 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
     assert_eq!(before["SELECTED_TRANSCRIPTION_ENGINE"], "Whisper");
     assert_eq!(before["LMSTUDIO_URL"], "http://lan.example/v1");
     assert_eq!(before.get("AUTH_KEYS"), None, "no key is copied in plain text");
+    ui.stop();
+}
+
+#[test]
+fn the_notice_about_local_recognition_stays_until_it_is_closed() {
+    // `test_local_asr_migration.py`: a saved choice of the removed Whisper engine moves to
+    // speech.cpp once, with a notice. On Windows the bundled server takes over; the Linux
+    // switches always used the realtime server, whose choice stays.
+    for (platform, server) in [(Platform::Windows, "bundled"), (Platform::Linux, "external")] {
+        let dir = tempfile::tempdir().unwrap();
+        let saved = json!({
+            "SELECTED_TRANSCRIPTION_ENGINE": "Whisper",
+            "LOCAL_ASR_MIGRATION": 1,
+            "REALTIME_ASR_SETTINGS": { "server": "external" },
+            "WHISPER_WEIGHT_TYPE": "small",
+            "SELECTED_TRANSCRIPTION_COMPUTE_TYPE": "int8",
+            "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE": { "device": "cpu" },
+            "MIC_NO_REPEAT_NGRAM_SIZE": 3,
+            "SPEAKER_NO_REPEAT_NGRAM_SIZE": 3,
+            "MIC_AVG_LOGPROB": -0.5,
+        });
+        let setup = || Setup { platform, dir: Some(dir.path().to_path_buf()), ..Setup::default() };
+        let ui = Ui::with(Setup { saved: Some(saved), ..setup() });
+        let snapshot = ui.ready();
+        assert_eq!(snapshot["/get/data/selected_transcription_engine"], "SpeechCpp", "{platform:?}");
+        assert_eq!(snapshot["/get/data/local_asr_notice"], true);
+        assert_eq!(ui.ok("/get/data/realtime_asr_settings", None)["server"], server, "{platform:?}");
+        // The cloud engines still filter segments with this threshold.
+        assert_eq!(ui.ok("/get/data/mic_avg_logprob", None), -0.5);
+        // The endpoints of the removed engine are gone.
+        for removed in [
+            "/get/data/selectable_whisper_weight_type_dict",
+            "/get/data/selected_whisper_weight_type",
+            "/set/data/selected_whisper_weight_type",
+            "/get/data/selected_transcription_compute_type",
+            "/set/data/selected_transcription_compute_type",
+            "/get/data/selectable_transcription_compute_device_list",
+            "/get/data/selected_transcription_compute_device",
+            "/set/data/selected_transcription_compute_device",
+            "/run/download_whisper_weight",
+        ] {
+            assert_eq!(ui.request(removed, None)["status"], 404, "{removed}");
+        }
+
+        // Closed, it is not shown again, even after a restart.
+        assert_eq!(ui.ok("/set/disable/local_asr_notice", None), false);
+        assert_eq!(ui.ok("/get/data/local_asr_notice", None), false);
+        ui.ok("/run/shutdown", None);
+        let file = ui.saved();
+        assert_eq!((file["LOCAL_ASR_NOTICE_PENDING"].clone(), file["LOCAL_ASR_MIGRATION"].clone()), (json!(false), json!(2)));
+        assert_eq!(file["SELECTED_TRANSCRIPTION_ENGINE"], "SpeechCpp");
+        assert_eq!(file["MIC_AVG_LOGPROB"], -0.5);
+        for gone in [
+            "WHISPER_WEIGHT_TYPE",
+            "SELECTED_TRANSCRIPTION_COMPUTE_TYPE",
+            "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE",
+            "MIC_NO_REPEAT_NGRAM_SIZE",
+            "SPEAKER_NO_REPEAT_NGRAM_SIZE",
+        ] {
+            assert!(file.get(gone).is_none(), "{gone} is still written");
+        }
+        ui.stop();
+
+        let ui = Ui::with(setup());
+        let snapshot = ui.ready();
+        assert_eq!(snapshot["/get/data/local_asr_notice"], false);
+        assert_eq!(snapshot["/get/data/selected_transcription_engine"], "SpeechCpp");
+        assert_eq!(ui.ok("/get/data/realtime_asr_settings", None)["server"], server);
+        ui.stop();
+    }
+
+    // A new install has nothing to move and no notice.
+    let ui = Ui::start();
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/local_asr_notice"], false);
+    assert_eq!(snapshot["/get/data/selected_transcription_engine"], Value::Null);
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["LOCAL_ASR_MIGRATION"], 2);
     ui.stop();
 }
 

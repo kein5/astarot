@@ -14,11 +14,12 @@ path = "src/bin/translate.rs"
 
 [features]
 default = ["load-dynamic"]
-# Load the ONNX Runtime library at run time, as chat reading (native/ocr-runtime) does in the
-# app: `ORT_DYLIB_PATH`, else `onnxruntime.dll` / `libonnxruntime.so` beside the executable,
-# else by name. `ort` features are unified across the app, so this crate must not link ONNX
-# Runtime there. A missing library is an error value (`translation_runtime_missing`).
-load-dynamic = ["ort/load-dynamic"]
+# Load the ONNX Runtime library at run time through native/onnx-runtime, the library and
+# environment chat reading (native/ocr-runtime) uses in the app: `ORT_DYLIB_PATH`, else the
+# library the app ships, else `onnxruntime.dll` / `libonnxruntime.so` by name. `ort` features
+# are unified across the app, so this crate must not link ONNX Runtime there. A missing library
+# is an error value (`translation_runtime_missing`).
+load-dynamic = ["vrct-onnx-runtime/load-dynamic"]
 # Link `ort`'s prebuilt ONNX Runtime instead (fetched at build time). Only for running the
 # comparison command by hand: `--no-default-features --features download-binaries`.
 download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs"]
@@ -28,6 +29,8 @@ download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs
 # execution provider features only add the Rust side of each provider (no linking with
 # `load-dynamic`): whether one is there depends on the ONNX Runtime library that is loaded.
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17", "cuda", "tensorrt", "openvino", "migraphx", "webgpu"] }
+# The process's one ONNX Runtime library and environment, shared with chat reading.
+vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
 sha2 = "=0.10.9"

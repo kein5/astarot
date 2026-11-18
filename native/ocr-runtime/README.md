@@ -15,10 +15,15 @@ ONNX Runtime is linked in one of two ways, chosen by a feature:
   time and linked statically. This crate's tests and `ocr-read` use it. On Windows the
   build links `DirectML.dll`, which is copied next to the binaries.
 - `load-dynamic`: the library is loaded when the engine is first used, from
-  `ORT_DYLIB_PATH`, else `onnxruntime.dll` / `libonnxruntime.so` beside the executable,
-  else by name. A missing library is an error value (`engine::is_available()` is false),
-  not a panic. The core uses this; which ONNX Runtime the application ships is open
-  (`docs/voice-stack/core-integration.md`, item 2).
+  `ORT_DYLIB_PATH`, else the library the application ships (`_internal/onnxruntime`), else
+  `onnxruntime.dll` / `libonnxruntime.so` by name. A missing library is an error value
+  (`engine::is_available()` is false), not a panic. The core uses this.
+
+Either way the library and the process's one environment come from `native/onnx-runtime`
+(`vrct-onnx-runtime`), which the local translation (`native/translate-onnx`) and the RVC
+worker use too: `ort` keeps the first library a process loads and allows one environment per
+process. The binaries stop ONNX Runtime's usage reports first thing
+(`vrct_onnx_runtime::disable_telemetry_for_process`).
 
 ## What it does
 
@@ -114,7 +119,7 @@ requires identical texts and boxes and scores within 1e-5; with
 and `ORT_DYLIB_PATH`) it requires everything to be identical.
 
 ```sh
-ORT_DYLIB_PATH=$REF/venv/lib/python3.11/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1 \
+ORT_DYLIB_PATH=$REF/venv/lib/python3.14/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1 \
 OCR_EXACT_REFERENCE=1 cargo test --release --features ort/load-dynamic --test engine_conformance
 ```
 

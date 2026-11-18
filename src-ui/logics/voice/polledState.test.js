@@ -29,7 +29,7 @@ for (const [field, update, first, change] of [
     ["route", "updateRoute", { generation: 2, requested_muted: false, observed_muted: false }, { requested_muted: true }],
     ["directState", "updateDirectState", { generation: 2, requested: true, mode: "converted", settings: { engine: "rvc" } }, { requested: false }],
 ]) test(`${field}: equal polls do not notify; an overtaken response cannot roll back state`, async () => {
-    const { runtime, render } = await setup("./useVoice.js", "useVoice");
+    const { runtime, render } = await setup("./useVoice.ts", "useVoice");
     render()[update]({ ...first, observation_id: "100" });
     const before = render()[field], subscription = observe(runtime, before);
     // The cursor advances even though the rendered state keeps its old ID.
@@ -55,7 +55,7 @@ for (const [field, update, first, change] of [
 });
 
 test("separate voice hook instances share ordering before another render", async () => {
-    const { runtime, useHook } = await setup("./useVoice.js", "useVoice");
+    const { runtime, useHook } = await setup("./useVoice.ts", "useVoice");
     const render = () => runtime.render(() => [useHook(), useHook()]);
     const [first, second] = render();
     first.updateRoute({ observation_id: "100", observed_muted: false });
@@ -67,7 +67,7 @@ test("separate voice hook instances share ordering before another render", async
 });
 
 test("observation cursors are isolated by store and atom", async () => {
-    const { runtime, render } = await setup("./useVoice.js", "useVoice");
+    const { runtime, render } = await setup("./useVoice.ts", "useVoice");
     const firstStore = runtime.store;
     const first = { observation_id: "100", tts_generation: 1, tts_enabled: true };
     render().updateStatus(first);
@@ -89,7 +89,7 @@ for (const [field, update, pending, error, command, first, acknowledged] of [
         { generation: 3, requested: false, mode: "off" }, { generation: 4, requested: true, mode: "converted", settings: { engine: "rvc" } }],
 ]) test(`${pending}: acknowledgement runs even when the accepted snapshot keeps its reference`, async t => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const { runtime, render } = await setup("./useVoice.js", "useVoice");
+    const { runtime, render } = await setup("./useVoice.ts", "useVoice");
     render()[update]({ ...first, observation_id: "100" });
     await render().send(command, { mode: "converted", options: { engine: "rvc" } });
     const request = render()[pending], pendingTarget = observe(runtime, request).target;
@@ -113,7 +113,7 @@ for (const [field, update, pending, error, command, first, acknowledged] of [
 
 test("TTS generation guard and direct stop/error acknowledgement conditions remain intact", async t => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const { render } = await setup("./useVoice.js", "useVoice");
+    const { render } = await setup("./useVoice.ts", "useVoice");
     render().updateStatus({ observation_id: "1", tts_generation: 5, tts_enabled: true });
     const status = render().status;
     render().updateStatus({ observation_id: "2", tts_generation: 4, tts_enabled: false });
@@ -130,7 +130,7 @@ test("TTS generation guard and direct stop/error acknowledgement conditions rema
 });
 
 test("downloads and hardware skip equal observations, reject overtaken responses and reset their cursors", async () => {
-    const { runtime, render } = await setup("./useModelDownloads.js", "useModelDownloads");
+    const { runtime, render } = await setup("./useModelDownloads.ts", "useModelDownloads");
     for (const [field, update, first, changed] of [
         ["state", "updateState", { jobs: { model: { phase: "downloading", bytes: 10 } } }, { jobs: { model: { phase: "downloading", bytes: 20 } } }],
         ["hardware", "updateHardware", { phase: "ready", devices: [{ name: "gpu", memory: 8 }] }, { phase: "failed", devices: [] }],
@@ -161,7 +161,7 @@ test("downloads and hardware skip equal observations, reject overtaken responses
 });
 
 test("speech servers preserve rows and pending objects while retaining generation/phase guards", async () => {
-    const { runtime, render } = await setup("./useSpeechServers.js", "useSpeechServers");
+    const { runtime, render } = await setup("./useSpeechServers.ts", "useSpeechServers");
     const first = { japanese: { generation: 2, state: "ready", base_url: "local" }, asr: { generation: 1, state: "stopped" } };
     render().updateState(first);
     const state = render().state, pending = render().pending, subscription = observe(runtime, state);
@@ -192,7 +192,7 @@ test("speech servers preserve rows and pending objects while retaining generatio
 });
 
 test("speech server devices keep what the CPU and GPU choices run on, and nothing unknown", async () => {
-    const { render } = await setup("./useSpeechServers.js", "useSpeechServers");
+    const { render } = await setup("./useSpeechServers.ts", "useSpeechServers");
     assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
     // Linux: the CPU build of its own, and a Vulkan build that does not start on this PC.
     render().updateDevices({ devices: [], cpu_build: "separate", gpu_build: "unavailable" });

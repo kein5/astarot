@@ -49,7 +49,7 @@ class LinuxDependencyTests(unittest.TestCase):
         self.write_lock(INDEX_PACKAGE + GIT_PACKAGE + PROJECT)
 
     def write_lock(self, packages):
-        self.lock.write_text('version = 1\nrevision = 5\nrequires-python = "==3.11.*"\n' + packages,
+        self.lock.write_text('version = 1\nrevision = 5\nrequires-python = "==3.14.*"\n' + packages,
                              encoding='utf-8')
 
     def test_valid_archives_git_and_uninstalled_root_are_accepted(self):

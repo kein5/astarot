@@ -84,6 +84,13 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/selected_transcription_engine", WAIT, "SELECTED_TRANSCRIPTION_ENGINE");
     b.with("/set/data/selected_transcription_engine", WAIT, |core, data| {
         let engine = super::settings::python_str(data);
+        // Only an engine of the list can be chosen. Anything else (the retired Whisper and
+        // Google, an unknown name, a value that is not a name) is refused and nothing stops:
+        // Python's setter raised and the request answered 500 (#278).
+        let listed = core.config().get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST");
+        if !listed.as_array().is_some_and(|engines| engines.contains(&json!(engine))) {
+            return super::error("VALIDATION_CONFIG_VALUE_INVALID", core.config().get("SELECTED_TRANSCRIPTION_ENGINE"));
+        }
         // An engine the start-up left unchecked is checked first (#457); one that fails is
         // not selected.
         if !core.ensure_transcription_engine(&engine) {

@@ -13,7 +13,7 @@ async function setup(send = async () => true, reset = async () => true, i18n = n
     let useMessage;
     const writes = [], typingWrites = [], endpoints = [];
     const subject = await loadBridgeRoutes(async ({ runtime, stores }) => {
-        ({ useMessage } = await loadModule(new URL("./useMessage.js", import.meta.url), runtime, {
+        ({ useMessage } = await loadModule(new URL("./useMessage.ts", import.meta.url), runtime, {
             "@store": stores,
             ...i18n && { "@useI18n": { useI18n: () => ({ t: i18n.t.bind(i18n), i18n }) } },
             "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args) => {

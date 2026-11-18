@@ -337,7 +337,7 @@ NLLBを差し替えるかの検討（#288の未決事項）のために、ロー
 | モデル | リポジトリと版 | ライセンス | 商用の利用 | 今の`native/translate-onnx`で動くか | 扱い |
 |---|---|---|---|---|---|
 | M2M100 418M、1.2B | `facebook/m2m100_418M`@`55c2e61b`、`facebook/m2m100_1.2B`@`7b361841` | MIT | できる | 動く | 採用済み。既定は418M。モデルは未公開 |
-| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。公開するかは未決（core-integration.mdの判断76） |
+| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。公開するかは未決（core-integration.mdの判断78） |
 | MADLAD-400 3B MT、7B MT | `google/madlad400-3b-mt`@`fa184c67`、`google/madlad400-7b-mt`@`1ff63ce7` | Apache-2.0 | できる | 動かない（T5の形） | 候補。T5の形とSentencePieceのunigramを足す必要がある。3Bは約29億のパラメータ |
 | SMaLL-100 | `alirezamsh/small100`@`8ab680e2` | MIT | できる | 一部だけ（訳先の言語のトークンを原文の側に付ける） | 候補。約3.3億のパラメータ |
 | mBART-50 many-to-many | `facebook/mbart-large-50-many-to-many-mmt`@`e30b6cb8` | モデルカードにライセンスの記載がない | 確かめられない | 動かない（MBartの形） | 対象外。ライセンスを確かめられないため |
@@ -530,6 +530,24 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 - CUDA版（20）。中身は標準版と同じになった。NVIDIAのライブラリは入らない。
 
 Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe`、`shared_child`、`encoding_rs`など）が消えた。UIがプログラムを起動しなくなったため。
+
+## 開発に使うPythonを3.14にした（2026-11-18）
+
+開発の道具と試験に使うPythonを3.14にした（`mise.toml`）。配布物にPythonは入らないので（上の節）、配布物とNOTICEの記載は変わらない。`uv.lock`には次のパッケージが増えた。
+
+| パッケージ | 版 | ライセンス | 入れた理由 |
+|---|---|---|---|
+| `audioop-lts` | 0.2.2 | PSF-2.0 | 3.13で標準ライブラリから外れた`audioop`の代わり。VAD（`src-python/models/transcription/audio_vad.py`）、SpeechRecognitionのフォーク、speech.cppの実時間の試験が使う |
+| `standard-aifc` | 3.13.0 | PSF-2.0 | 3.13で外れた`aifc`の代わり。SpeechRecognitionのフォークが使う |
+| `standard-chunk` | 3.13.0 | PSF-2.0 | `standard-aifc`の依存（3.13で外れた`chunk`） |
+
+3.14用のwheelがある版にするため、次の3つを上げた。ライセンスは前の版と同じ。
+
+- PyAudioWPatch: 0.2.12.6から0.2.12.8へ（Apache-2.0）
+- PyYAML: 6.0.2から6.0.3へ（MIT）
+- SudachiPy: 0.6.10から0.6.11へ（Apache-2.0）
+
+Seed-VCの実行環境（`integrations/seed_vc/`、Python 3.11）、RVCの参照環境（`native/rvc-runtime/reference/`、Python 3.12）、翻訳モデルを書き出す環境（`tools/translation_onnx/`）は、それぞれのロックを持つ別の環境なので変えていない。
 
 ## 読みの解析器と辞書（2026-11-16）
 

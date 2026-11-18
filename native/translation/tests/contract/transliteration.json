@@ -9,7 +9,7 @@
   "dictionary": {
     "name": "SudachiDict full",
     "version": "20250825",
-    "analyzer": "SudachiPy 0.6.10",
+    "analyzer": "SudachiPy 0.6.11",
     "split_mode": "C"
   },
   "sentences": [
