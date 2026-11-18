@@ -66,6 +66,15 @@ windows-sys = { version = "=0.61.2", features = [
     "Win32_System_IO",
     "Win32_UI_Shell",
 ] }
+# The GPU memory of the flow panel (src/gpu_memory/windows.rs): DXGI's adapters, the performance
+# counters and the process list. The same version the VR overlay already builds.
+windows = { version = "=0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Performance",
+] }
 
 [dev-dependencies]
 # Certificates for the WebSocket TLS settings are made at test time; no key is committed.

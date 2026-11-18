@@ -292,3 +292,5 @@ export const { atomInstance: Atom_Hotkeys, useHook: useStore_Hotkeys } = createA
 export const { atomInstance: Atom_IoFlow, useHook: useStore_IoFlow } = createAtomWithHook(null, "IoFlow");
 export const { atomInstance: Atom_IoTraces, useHook: useStore_IoTraces } = createAtomWithHook([], "IoTraces", { is_state_ok: true });
 export const { atomInstance: Atom_IsOpenedIoFlowPanel, useHook: useStore_IsOpenedIoFlowPanel } = createAtomWithHook(false, "IsOpenedIoFlowPanel", { is_state_ok: true });
+// The GPUs' memory (VRAM) the panel reads every 2 s while it is open (#448). Not mirrored to VR.
+export const { atomInstance: Atom_GpuMemory, useHook: useStore_GpuMemory } = createAtomWithHook(null, "GpuMemory");

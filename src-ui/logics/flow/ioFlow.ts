@@ -52,6 +52,9 @@ export interface TraceOutput {
     at_ms?: unknown;
     converted?: unknown;
     conversion_ms?: unknown;
+    // Speech only: from asking the engine for this message to its first sound, without the
+    // wait in the speech queue.
+    synthesis_ms?: unknown;
 }
 
 // A trace from /run/io_trace, as isTrace accepts it.
@@ -81,7 +84,7 @@ export interface StageSegment {
 
 export type OutputArrival =
     | { kind: "chatbox"; at: number; conversion?: undefined; end?: undefined }
-    | { kind: "speech"; at: number; conversion: number | null; end: number };
+    | { kind: "speech"; at: number; conversion: number | null; synthesis: number | null; end: number };
 
 export interface OverlaySettings {
     count?: unknown;
@@ -128,6 +131,7 @@ export const stageSegments = (trace: Trace | null | undefined): StageSegment[] =
 
 // When each output was reached, from the origin. The conversion's round trip is added to
 // speech that went through it, as a guide (it is the recent median, not this message's own).
+// Speech also tells how much of its time was the synthesis, which ends at its first sound.
 export const outputArrivals = (trace: Trace | null | undefined): OutputArrival[] => {
     const rows: OutputArrival[] = [];
     const chatbox = trace?.outputs?.chatbox;
@@ -135,7 +139,8 @@ export const outputArrivals = (trace: Trace | null | undefined): OutputArrival[]
     const speech = trace?.outputs?.speech;
     if (speech?.state === "playing" && isMs(speech.at_ms)) {
         const conversion = speech.converted === true && isMs(speech.conversion_ms) ? speech.conversion_ms : null;
-        rows.push({ kind: "speech", at: speech.at_ms, conversion, end: speech.at_ms + (conversion ?? 0) });
+        const synthesis = isMs(speech.synthesis_ms) ? Math.min(speech.synthesis_ms, speech.at_ms) : null;
+        rows.push({ kind: "speech", at: speech.at_ms, conversion, synthesis, end: speech.at_ms + (conversion ?? 0) });
     }
     return rows;
 };
