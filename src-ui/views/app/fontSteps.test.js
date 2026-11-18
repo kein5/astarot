@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test } from "node:test";
+import { test } from "vitest";
 
 // The app window's text takes the steps DESIGN.md names (#568). The VR windows draw into the
 // headset at fixed pixel sizes and the caption overlay at the size its user picks; both are
