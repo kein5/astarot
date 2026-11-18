@@ -87,9 +87,9 @@ export const App = () => {
 // While locked, only the main page and the title bar are drawn: the settings
 // page, dialogs and notices that act on the engine's settings wait for them,
 // and the window geometry is not saved over the one the engine will restore.
-const Contents = ({ locked }) => {
+const Contents = ({ locked }: { locked: boolean }) => {
     const { currentIsSoftwareUpdating } = useIsSoftwareUpdating();
-    const mainPage = useRef(null);
+    const mainPage = useRef<HTMLElement>(null);
     return (
         <>
             <WindowGeometryController saveGeometry={!locked} />
