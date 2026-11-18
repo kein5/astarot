@@ -507,6 +507,7 @@ config_page:
         off: "オフ"
         vrchat: "通知音 {{sfx}}・ミュート同期 {{sync}}"
         device: "マイクの感度 {{mic}}・スピーカーの感度 {{speaker}}"
+        ocr: "読み取りの間隔 {{interval}} ms・信頼度の下限 {{confidence}}"
         appearance: "ログの文字 {{log}}%・透明度 {{transparency}}%"
         hotkeys_one: "{{count}}件にキーを割り当て済み"
         hotkeys_other: "{{count}}件にキーを割り当て済み"

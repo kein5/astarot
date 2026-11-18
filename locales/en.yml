@@ -507,6 +507,7 @@ config_page:
         off: "off"
         vrchat: "Notification sound {{sfx}} · mute sync {{sync}}"
         device: "Microphone {{mic}} · speaker {{speaker}}"
+        ocr: "Every {{interval}} ms · confidence at least {{confidence}}"
         appearance: "Log text {{log}}% · transparency {{transparency}}%"
         hotkeys_one: "{{count}} has a key"
         hotkeys_other: "{{count}} have a key"

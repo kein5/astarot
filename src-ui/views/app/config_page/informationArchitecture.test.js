@@ -207,3 +207,13 @@ test("the Device page chooses the microphone and the speaker first; their sensit
     // A row elsewhere that changes the route opens this page on it.
     assert.match(read("device/VoiceRouteSettings.jsx"), /updateSelectedConfigTabId\("device"\); revealSetting\(\{ setting_id: "voice_route" \}\)/);
 });
+
+test("chat reading keeps what it needs to start in sight; where and how often it reads are in 「詳細設定」", () => {
+    const source = read("ocr/Ocr.jsx");
+    const { outside, fold } = pageParts(source, "Ocr");
+    assert.deepEqual(outside, ["Main_Container"]);
+    assert.deepEqual(fold, ["Detection_Container", "CaptureTarget_Container", "Performance_Container"]);
+    const main = source.split("const Main_Container = () => {")[1].split("\n};")[0];
+    assert.match(main, /<OcrStatus[\s\S]*<OcrSourceLanguage_Box \/>[\s\S]*<OcrSharedWindow \/>[\s\S]*<OcrModels/);
+    for (const language of ["en", "ja"]) assert.equal(typeof locales[language].config_page.advanced_status.ocr, "string");
+});
