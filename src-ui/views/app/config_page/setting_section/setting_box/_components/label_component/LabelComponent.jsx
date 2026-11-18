@@ -2,12 +2,19 @@ import styles from "./LabelComponent.module.scss";
 import { _OpenWebpageButton } from "../_atoms/_open_webpage_button/_OpenWebpageButton";
 import WarningSvg from "@images/warning.svg?react";
 import { Description } from "../description/Description";
+import { Hint, useHintDescriptions } from "../hint/Hint";
 
 export const LabelComponent = (props) => {
+    // On a page that keeps descriptions out of sight (#614), a text description becomes the
+    // label's hint; keep_desc keeps one on screen, such as the label in a second language.
+    const hint = useHintDescriptions() && typeof props.desc === "string" && !props.keep_desc;
+    const label = <p id={props.label_id} className={styles.label}>{props.label}</p>;
     return (
         <div className={styles.label_component}>
-            <p id={props.label_id} className={styles.label}>{props.label}</p>
-            {props.desc
+            {hint
+                ? <div className={styles.label_line} data-hint-host>{label}<Hint text={props.desc} id={props.description_id} row /></div>
+                : label}
+            {props.desc && !hint
                 ? typeof props.desc === "string" ? <Description id={props.description_id} text={props.desc} className={styles.desc} /> : <p id={props.description_id} className={styles.desc}>{props.desc}</p>
                 : null
             }

@@ -1,0 +1,73 @@
+// The question mark after a label: quiet, in the description color, the size of a small mark.
+.hint {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin-left: .6rem;
+    vertical-align: middle;
+}
+
+.mark {
+    display: block;
+    width: 1.4rem;
+    height: 1.4rem;
+    fill: var(--vox_description_text);
+    cursor: help;
+}
+
+.focus_mark {
+    display: inline-flex;
+    border-radius: 50%;
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
+}
+
+// The bubble, drawn like the app's other tooltips (common_components/tooltip): anchored to the
+// label line that holds it ([data-hint-host] is positioned), under it, as wide as its words up
+// to a measure that reads comfortably.
+.tip {
+    display: none;
+    position: absolute;
+    z-index: 1500;
+    top: calc(100% + .6rem);
+    left: 0;
+    width: max-content;
+    max-width: min(40rem, 100cqi, 100%);
+    padding: .8rem 1.2rem;
+    border-radius: var(--vox_radius, .8rem);
+    background-color: var(--dark_700_color);
+    color: var(--dark_basic_text_color);
+    font-size: 1.2rem;
+    font-weight: 500;
+    line-height: 1.6;
+    text-align: left;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+    animation: appear var(--vox_motion_fast, 120ms) var(--vox_ease, ease-out);
+    @media (prefers-reduced-motion: reduce) { animation: none; }
+}
+
+:global([data-hint-host]) { position: relative; }
+
+// The pointer on the label (or the option) opens its bubble; so does keyboard focus on what
+// the host holds, such as an option's radio.
+:global([data-hint-host]):hover .tip,
+:global([data-hint-host]):has(:focus-visible) .tip,
+// Keyboard focus in a row opens the hint of the row's label, not those of its options.
+:global([data-hint-row]):has(:focus-visible) .tip_row {
+    display: block;
+}
+
+// Where a row's field goes under its label (narrow content or window), a bubble under the
+// label would cover the field being used: it opens above the label instead.
+@container (max-width: 41.6rem) {
+    .tip { top: auto; bottom: calc(100% + .6rem); }
+}
+@media (max-width: 800px) {
+    .tip { top: auto; bottom: calc(100% + .6rem); }
+}
+
+@keyframes appear {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

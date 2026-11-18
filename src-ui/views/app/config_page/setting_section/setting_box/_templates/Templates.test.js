@@ -8,13 +8,15 @@ const all = (tree, predicate) => {
     find(tree, node => { if (predicate(node)) result.push(node); return false; });
     return result;
 };
-async function setup() {
+// The hint module (#614): `on` is whether the page keeps descriptions out of sight.
+const hintModule = on => ({ "../hint/Hint": { Hint: "hint", useHintDescriptions: () => on } });
+async function setup(hints = false) {
     const runtime = hooks();
     const { LabelComponent } = await loadModule(new URL(base + "label_component/LabelComponent.jsx", import.meta.url), hooks(), {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
-        "../description/Description": { Description: "description" },
+        "../description/Description": { Description: "description" }, ...hintModule(hints),
     });
-    const { RadioButton } = await loadModule(new URL(base + "radio_button/RadioButton.jsx", import.meta.url), hooks());
+    const { RadioButton } = await loadModule(new URL(base + "radio_button/RadioButton.jsx", import.meta.url), hooks(), hintModule(hints));
     const { DownloadModels } = await loadModule(new URL(base + "download_models/DownloadModels.jsx", import.meta.url), hooks(), {
         "../index": { RadioButton }, "../_atoms/_download_button/_DownloadButton": { _DownloadButton: "download" },
     });
@@ -138,7 +140,7 @@ for (const name of ["WordFilter", "MessageFormat"]) test(`${name} shares one lab
 test("FormRow preserves a field's error relation while adding its description", async () => {
     const runtime = hooks();
     const { FormRow } = await loadModule(new URL(base + "form_row/FormRow.jsx", import.meta.url), runtime, {
-        "../description/Description": { Description: "description" },
+        "../description/Description": { Description: "description" }, ...hintModule(false),
     });
     const child = runtime.api.createElement("textarea", { "aria-describedby": "error", "aria-invalid": true });
     const tree = runtime.render(FormRow, { label: "Instructions", description: "Help", children: child });
@@ -146,4 +148,66 @@ test("FormRow preserves a field's error relation while adding its description", 
     assert.equal(input.props["aria-describedby"], `error ${description.props.id}`);
     assert.equal(input.props["aria-invalid"], true);
     assert.equal(find(tree, node => node.type === "label").props.htmlFor, input.props.id);
+});
+
+// #614: on a page that keeps descriptions out of sight, a row's description is its label's hint.
+test("with hints on, a label's description is its hint, still the control's description, unless kept", async () => {
+    const s = await setup(true);
+    const tree = s.render("CheckboxContainer", { label: "Setting", desc: "Help" });
+    const label = find(tree, node => node.type === s.components.LabelComponent);
+    const control = tree.props.children[1];
+    const rendered = label.type(label.props);
+    const hint = find(rendered, node => node.type === "hint");
+    assert.equal(hint.props.text, "Help");
+    assert.equal(hint.props.id, control.props["aria-describedby"], "the bubble is what the control's description points at");
+    assert.equal(hint.props.row, true);
+    assert.ok(!find(rendered, node => node.type === "description"), "no line of text under the label");
+    // The label's own element holds the label only: the hint is beside it, not in its name.
+    assert.equal(find(rendered, node => node.props?.id === label.props.label_id).props.children, "Setting");
+    assert.equal(find(rendered, node => node.props?.["data-hint-host"]).props["data-hint-host"], true);
+    const kept = s.render("CheckboxContainer", { label: "UI Language", desc: "UIの言語", keep_desc: true });
+    const keptLabel = find(kept, node => node.type === s.components.LabelComponent);
+    const keptRendered = keptLabel.type(keptLabel.props);
+    assert.ok(find(keptRendered, node => node.type === "description"));
+    assert.ok(!find(keptRendered, node => node.type === "hint"));
+    // A row is the host of keyboard focus for its label's hint.
+    assert.equal(s.runtime.render(tree.type, tree.props).props["data-hint-row"], true);
+});
+
+test("with hints on, an option's description is its hint and its radio's description; a warning stays in sight", async () => {
+    const s = await setup(true);
+    const tree = s.render("RadioButtonContainer", { label: "Mode", name: "mode", checked_variable: { state: "ok", data: "a" }, options: [
+        { id: "a", label: "Auto", desc: "Adjusts by itself." },
+        { id: "b", label: "VAD", desc: "Needs a model.", disabled: true },
+        { id: "c", label: "Large", desc: "Needs 8 GB.", desc_tone: "warning" },
+        { id: "d", label: "Licensed", desc: "Non-commercial license.", keep_desc: true },
+    ] });
+    const control = tree.props.children[1];
+    const group = control.type(control.props);
+    const options = all(group, node => node.type === "label");
+    const hintOf = option => find(option, node => node.type === "hint");
+    const radioOf = option => find(option, node => node.type === "input");
+    for (const option of options.slice(0, 2)) {
+        assert.equal(hintOf(option).props.id, radioOf(option).props["aria-describedby"]);
+        assert.equal(option.props["data-hint-host"], true);
+        assert.ok(!hintOf(option).props.row, "focus on one option opens only its own bubble");
+    }
+    assert.deepEqual(options.slice(2).map(option => [Boolean(hintOf(option)), radioOf(option).props["aria-describedby"]]), [[false, undefined], [false, undefined]]);
+    assert.equal(all(group, node => node.type === "p" && /Needs 8 GB|Non-commercial/.test(node.props.children)).length, 2);
+});
+
+test("with hints on, a FormRow's description is its label's hint unless the row keeps it (a value in use)", async () => {
+    const runtime = hooks();
+    const { FormRow } = await loadModule(new URL(base + "form_row/FormRow.jsx", import.meta.url), runtime, {
+        "../description/Description": { Description: "description" }, ...hintModule(true),
+    });
+    const child = runtime.api.createElement("input", {});
+    const tree = runtime.render(FormRow, { label: "Mute", description: "Mutes the speech.", children: child });
+    const input = find(tree, node => node.type === "input"), hint = find(tree, node => node.type === "hint");
+    assert.equal(input.props["aria-describedby"], hint.props.id);
+    assert.ok(!find(tree, node => node.type === "description"));
+    assert.equal(tree.props["data-hint-row"], true);
+    const kept = runtime.render(FormRow, { label: "Audio route", description: "In use: cable", keepDescription: true, group: true, children: "button" });
+    assert.ok(find(kept, node => node.type === "description"));
+    assert.ok(!find(kept, node => node.type === "hint"));
 });
