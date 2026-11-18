@@ -59,6 +59,9 @@ test("run connection checks use their actual get names", () => {
         subject.recovery.receive({ endpoint: `/run/${name}_connection`, status: 500 }, subject.send);
         assert.deepEqual(subject.reads, [`/get/data/connected_${name}`]);
     }
+    const hotkeys = setup(staticPendingControls.Hotkeys);
+    hotkeys.recovery.receive({ endpoint: "/set/data/hotkeys", status: 500 }, hotkeys.send);
+    assert.deepEqual(hotkeys.reads, ["/get/data/hotkeys"]);
 });
 
 test("delete and both toggle directions restore without synthesizing a success", () => {
@@ -220,4 +223,102 @@ test("exit cancels queued recovery reads, including late send rejections", async
     reject(Error("sidecar exited"));
     await Promise.resolve();
     assert.deepEqual(subject.reads, []);
+});
+
+const backendEndpoints = () => {
+    const mapping = readFileSync(new URL("../../../src-python/mainloop.py", import.meta.url), "utf8");
+    const core = JSON.parse(readFileSync(new URL("../../../tools/spec_core_additions.json", import.meta.url), "utf8"));
+    return new Set([...mapping.matchAll(/^\s*"([^"]+)"\s*:/gm)].map(match => match[1])
+        .concat(core.endpoints.map(entry => entry.endpoint)));
+};
+
+test("each kind of setting is released by its own writes and read back with its getter", () => {
+    const control = template => settingPendingControl({ base_endpoint_name: "osc_port", logics_template_id: template });
+    assert.deepEqual(control("get_only"), { endpoints: ["/get/data/osc_port"], read: "/get/data/osc_port" });
+    assert.deepEqual(control("get_list"), { endpoints: ["/get/data/osc_port"], read: "/get/data/osc_port" });
+    assert.deepEqual(control("get_set"), { endpoints: ["/get/data/osc_port", "/set/data/osc_port"], read: "/get/data/osc_port" });
+    assert.deepEqual(control("get_set_delete").endpoints, ["/get/data/osc_port", "/set/data/osc_port", "/delete/data/osc_port"]);
+    assert.deepEqual(control("toggle_enable_disable").endpoints, ["/get/data/osc_port", "/set/enable/osc_port", "/set/disable/osc_port"]);
+    assert.deepEqual(control("weight_download_status"), { endpoints: ["/run/download_osc_port", "/get/data/selectable_osc_port_type_dict"],
+        read: "/get/data/selectable_osc_port_type_dict", download: true, parallel: true });
+});
+
+test("the fixed controls and resync reads name endpoints the backend has", () => {
+    const mapped = backendEndpoints();
+    for (const [name, control] of Object.entries(staticPendingControls)) {
+        assert.ok(control.endpoints.length > 0, name);
+        for (const endpoint of control.endpoints) assert.ok(mapped.has(endpoint), `${name}: ${endpoint}`);
+        if (control.read) assert.ok(control.endpoints.includes(control.read), `${name} is released by its own read`);
+    }
+    // A switch is released by both directions.
+    for (const name of ["TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus", "OcrCaptureStatus",
+        "MicThresholdCheckStatus", "SpeakerThresholdCheckStatus"]) {
+        const [enable, disable] = staticPendingControls[name].endpoints;
+        assert.equal(disable, enable.replace("/set/enable/", "/set/disable/"), name);
+    }
+    for (const [write, read] of Object.entries(featureResyncReads)) {
+        assert.ok(mapped.has(write), write);
+        assert.ok(mapped.has(read), `${write} reads ${read}`);
+    }
+});
+
+test("a download is released only where it is pending, and nothing else is replaced", () => {
+    const idle = { id: "idle", is_pending: false, progress: null };
+    const value = { state: "ok", data: [idle, { id: "resumed", is_pending: false, progress: 40 }] };
+    const untouched = restoreDownloadPending(value, "idle");
+    assert.equal(untouched.data, value.data, "an idle item keeps the list as it is");
+    assert.equal(restoreDownloadPending(value, { weight_type: "missing" }), value);
+    const released = restoreDownloadPending(value, "resumed");
+    assert.deepEqual(released.data[1], { id: "resumed", is_pending: false, progress: null }, "progress alone counts as pending");
+    assert.equal(released.data[0], idle);
+});
+
+test("the recovery read itself does not count as a newer request", () => {
+    const subject = setup();
+    subject.recovery.beginSend("/set/data/osc_port");
+    subject.recovery.receive({ endpoint: "/set/data/osc_port", status: 500 }, subject.send);
+    // The transport sends the read through beginSend like any other request.
+    subject.recovery.beginSend("/get/data/osc_port");
+    assert.equal(subject.recovery.acceptResponse("/get/data/osc_port"), true);
+});
+
+test("a failed read is released without republishing; a failed write republishes", () => {
+    const recovery = createPendingRequestRecovery(), calls = [];
+    recovery.register({ ...settingPendingControl({ base_endpoint_name: "osc_port", logics_template_id: "get_set" }),
+        restore: (...args) => { calls.push(args); return true; } });
+    recovery.failSend("/get/data/osc_port", undefined, undefined);
+    recovery.failSend("/set/data/osc_port", 8000, undefined);
+    assert.deepEqual(calls, [[undefined, false, false], [8000, false, true]]);
+});
+
+test("a recovery read that could not be sent leaves the next failure free to read again", async () => {
+    for (const unsent of [() => false, () => { throw Error("sync"); }, () => Promise.reject(Error("async"))]) {
+        const subject = setup();
+        subject.recovery.receive({ endpoint: "/set/data/osc_port", status: 500 }, unsent);
+        await Promise.resolve();
+        await Promise.resolve();
+        subject.recovery.receive({ endpoint: "/set/data/osc_port", status: 500 }, subject.send);
+        assert.deepEqual(subject.reads, ["/get/data/osc_port"]);
+    }
+});
+
+test("a recovery read that was sent waits for its answer", async () => {
+    const subject = setup();
+    subject.recovery.beginSend("/set/data/osc_port");
+    subject.recovery.receive({ endpoint: "/set/data/osc_port", status: 500 }, subject.send);
+    await Promise.resolve();
+    await Promise.resolve();
+    subject.recovery.beginSend("/set/data/osc_port");
+    assert.equal(subject.recovery.acceptResponse("/get/data/osc_port"), false, "a newer write keeps its own state");
+});
+
+test("a refused download releases that weight only, with the store's own restore", () => {
+    const recovery = createPendingRequestRecovery();
+    let value = { state: "ok", data: ["small", "large"].map(id => ({ id, is_pending: true, progress: 10 })) };
+    recovery.register({ ...settingPendingControl({ base_endpoint_name: "whisper_weight", logics_template_id: "weight_download_status" }),
+        restore: (request, all) => { value = restoreDownloadPending(value, request, all); return true; } });
+    recovery.failSend("/run/download_whisper_weight", { weight_type: "small" }, undefined);
+    assert.deepEqual(value.data.map(item => item.is_pending), [false, true]);
+    recovery.receive({ endpoint: "/run/download_whisper_weight", status: 404, result: { data: "medium" } }, () => true);
+    assert.deepEqual(value.data.map(item => item.is_pending), [false, true]);
 });

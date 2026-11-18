@@ -13,25 +13,27 @@
     flex-direction: column;
 }
 
+// The same label and field columns as the other setting rows (#567).
 .device_container {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+    column-gap: 1.6rem;
+    row-gap: 2rem;
     width: 100%;
-    justify-content: space-between;
     align-items: center;
     padding: 2rem 0;
     margin-bottom: 0rem;
     border-bottom: solid 0.1rem var(--dark_800_color);
     &.is_break_point {
-        flex-direction: column;
-        gap: 2rem;
+        grid-template-columns: minmax(0, 1fr);
         align-items: start;
-        & .device_contents {
-            display: flex;
-            width: 100%;
-            justify-content: space-between;
-            padding-left: 0rem;
-        }
     }
+}
+@container (max-width: 41.6rem) {
+    .device_container { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+    .device_container { grid-template-columns: minmax(0, 1fr); }
 }
 
 .threshold_container {
@@ -69,12 +71,14 @@
     font-size: 1.8rem;
 }
 
+// 自動選択 beside the list, which takes the rest of the field column.
 .device_contents {
     display: flex;
     width: 100%;
-    justify-content: end;
-    padding-left: 2rem;
+    min-width: 0;
+    justify-content: start;
     gap: 2rem;
+    > :last-child { flex: 1 1 auto; }
 }
 
 .device_auto_select_wrapper {
