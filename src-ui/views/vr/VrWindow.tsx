@@ -1,3 +1,4 @@
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useI18n } from "@useI18n";
 import { useIsOpenedConfigPage } from "@logics_common";
 
@@ -6,13 +7,24 @@ import WarningSvg from "@images/warning.svg?react";
 
 import styles from "./VrWindow.module.scss";
 
+export interface VrWindowProps {
+    Icon: ComponentType<SVGProps<SVGSVGElement>>;
+    title: string;
+    onClose: () => void;
+    close_label?: string;
+    is_lockable?: boolean;
+    is_grab_locked?: boolean;
+    is_resizable?: boolean;
+    children?: ReactNode;
+}
+
 // VR UIのウィンドウ共通の枠 (タイトルバー・閉じるボタン・設定画面中のロック表示)。
 // ロックは本文だけを覆い、閉じる操作は残す (状態を変えないため)。
 // VR設定ウィンドウは設定画面そのものなのでロックしない (is_lockable=false)。
 // is_grab_locked: 操作バーのロック中 (掴めない)。タイトルバーに錠と「ロック中」を出す
 // is_resizable: 角を掴んで大きさを変えられる (ログ)。指している間だけ角に取っ手を出す。
 // 当たり判定と大きさの変更は Python 側 (models/overlay/overlay.py panelCornerAt)。右上は閉じるボタンなので出さない
-export const VrWindow = ({ Icon, title, onClose, close_label, is_lockable = true, is_grab_locked = false, is_resizable = false, children }) => {
+export const VrWindow = ({ Icon, title, onClose, close_label, is_lockable = true, is_grab_locked = false, is_resizable = false, children }: VrWindowProps) => {
     const { t, i18n } = useI18n();
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
 

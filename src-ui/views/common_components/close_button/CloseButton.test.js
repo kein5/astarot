@@ -11,7 +11,7 @@ for (const language of ["en", "ja"]) {
         const resource = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
         await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
         const runtime = hooks();
-        const { CloseButton } = await loadModule(new URL("./CloseButton.jsx", import.meta.url), runtime, {
+        const { CloseButton } = await loadModule(new URL("./CloseButton.tsx", import.meta.url), runtime, {
             "@useI18n": { useI18n: () => ({ t: translations.t.bind(translations) }) },
         });
         let clicks = 0;

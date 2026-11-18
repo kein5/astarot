@@ -21,7 +21,7 @@ async function setup(testContext) {
         submit: request => { submissions.push(request); return bridge.handoff.promise; },
         handoff: deferred(),
     };
-    const { QuickChat } = await loadModule(new URL('./QuickChat.jsx', import.meta.url), runtime, {
+    const { QuickChat } = await loadModule(new URL('./QuickChat.tsx', import.meta.url), runtime, {
         '@useI18n': { useI18n: () => ({ t: key => key, i18n }) },
         '../../logics/quickChat/bridge': { quickChatBridge: bridge },
         '../../logics/common/chatboxLength': chatboxLength,

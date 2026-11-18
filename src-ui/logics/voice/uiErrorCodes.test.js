@@ -32,7 +32,7 @@ for (const language of ["en", "ja"]) test(`${language}: every code the UI makes 
 
 // The codes listed above are the ones the UI's source makes; a new one fails here until it is listed.
 test("the list covers the codes the UI makes", () => {
-    const sources = ["../useReceiveRoutes.js", "./useSettingsDraft.jsx",
+    const sources = ["../useReceiveRoutes.js", "./useSettingsDraft.tsx",
         "../../views/app/config_page/setting_section/setting_box/advanced_settings/SpeechServers.jsx"];
     const listed = new Set(PAGES.flatMap(page => page.codes));
     for (const file of sources) {

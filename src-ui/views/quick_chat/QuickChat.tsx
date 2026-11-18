@@ -1,16 +1,23 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '@useI18n';
 import { quickChatBridge } from '../../logics/quickChat/bridge';
+import type { QuickChatContext } from '../../logics/quickChat/bridge';
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from '../../logics/common/chatboxLength';
 import styles from './QuickChat.module.scss';
 
-export const QuickChat = ({ bridge = quickChatBridge }) => {
+// The bridge to the main window. A host without a resizable window leaves out growBy.
+export type QuickChatBridge = Omit<typeof quickChatBridge, 'growBy'> & Partial<Pick<typeof quickChatBridge, 'growBy'>>;
+
+// The settings until the main window's first answer: Enter sends, and a sent message is cleared.
+type Context = Partial<QuickChatContext> & Pick<QuickChatContext, 'enter_to_send' | 'clear_on_send'>;
+
+export const QuickChat = ({ bridge = quickChatBridge }: { bridge?: QuickChatBridge }) => {
     const { t, i18n } = useI18n();
-    const [value, setValue] = useState(''), [pending, setPending] = useState(false), [error, setError] = useState(null);
-    const [context, setContext] = useState({ enter_to_send: true, clear_on_send: true });
-    const field = useRef(null), composing = useRef(false), sending = useRef(false);
+    const [value, setValue] = useState(''), [pending, setPending] = useState(false), [error, setError] = useState<string | null>(null);
+    const [context, setContext] = useState<Context>({ enter_to_send: true, clear_on_send: true });
+    const field = useRef<HTMLTextAreaElement>(null), composing = useRef(false), sending = useRef(false);
     const lengthWarningId = useId(), overflowLength = chatboxOverflowLength(value);
-    const container = useRef(null), warning = useRef(null), grown = useRef(0), isOverflowing = overflowLength !== null;
+    const container = useRef<HTMLElement>(null), warning = useRef<HTMLParagraphElement>(null), grown = useRef(0), isOverflowing = overflowLength !== null;
     useLayoutEffect(() => {
         // This document has its own root. Font names stay a single CSS string,
         // with the local Noto/system fallbacks supplied by root.css.
@@ -22,7 +29,7 @@ export const QuickChat = ({ bridge = quickChatBridge }) => {
     // The warning gets room below the field: grow the window by its height and
     // shrink back when it goes, so the field itself never gets smaller.
     useLayoutEffect(() => {
-        const height = isOverflowing && warning.current
+        const height = isOverflowing && warning.current && container.current
             ? warning.current.offsetHeight + parseFloat(getComputedStyle(container.current).rowGap || '0') : 0;
         const delta = height - grown.current;
         if (!delta || !bridge.growBy) return;
