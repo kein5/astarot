@@ -25,6 +25,7 @@ import type { PendingControlSpec, PendingDownloadItem, PendingDownloadRequest, P
 import type { SidecarSessionOwner, SidecarSessionStore } from "./common/sidecarSession.ts";
 import type { BackendStartupState, StartupFailure } from "./common/startupPhase.ts";
 import type { SharedWindowState } from "./configs/ocrSharedWindow.ts";
+import type { GpuMemory } from "./flow/gpuMemory.ts";
 import type { IoFlow, Trace } from "./flow/ioFlow.ts";
 import type { LanguageMutationState } from "./main/languageMutationCoordinator.ts";
 import type { SwitchBlocks } from "./main/switchBlocks.ts";
@@ -419,3 +420,5 @@ export const { atomInstance: Atom_Hotkeys, useHook: useStore_Hotkeys } = createA
 export const { atomInstance: Atom_IoFlow, useHook: useStore_IoFlow } = createAtomWithHook(initial<IoFlow | null>(null), "IoFlow");
 export const { atomInstance: Atom_IoTraces, useHook: useStore_IoTraces } = createAtomWithHook(initial<Trace[]>([]), "IoTraces", { is_state_ok: true });
 export const { atomInstance: Atom_IsOpenedIoFlowPanel, useHook: useStore_IsOpenedIoFlowPanel } = createAtomWithHook(false, "IsOpenedIoFlowPanel", { is_state_ok: true });
+// The GPUs' memory (VRAM) the panel reads every 2 s while it is open (#448). Not mirrored to VR.
+export const { atomInstance: Atom_GpuMemory, useHook: useStore_GpuMemory } = createAtomWithHook(initial<GpuMemory | null>(null), "GpuMemory");

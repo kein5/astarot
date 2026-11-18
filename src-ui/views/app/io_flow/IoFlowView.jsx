@@ -5,6 +5,7 @@ import { createLanguageNames } from "../../../logics/common/languageNames.ts";
 import { formatMs, latestTraces, median, timelineScale, traceTotal } from "../../../logics/flow/ioFlow.ts";
 import { flowNote, offGroups, timelineRows } from "../../../logics/flow/flowText.ts";
 import { buildFlowGraph } from "../../../logics/flow/flowGraph.ts";
+import { gpuRows } from "../../../logics/flow/gpuMemory.ts";
 import { FlowGraph } from "./FlowGraph";
 import styles from "./IoFlowView.module.scss";
 
@@ -14,7 +15,8 @@ const HISTORY = 20;
 // and how long the latest of each took. Shared by the main window's panel and the VR
 // window; it only reads, and changes nothing. Every duration is in ms.
 // Compact (VR, which cannot scroll): one timeline, for the newest input of either lane.
-export const IoFlowView = ({ flow, traces, compact = false }) => {
+// The GPU memory is the main window's only (`gpuMemory` from /get/data/gpu_memory).
+export const IoFlowView = ({ flow, traces, gpuMemory, compact = false }) => {
     const { t, i18n } = useI18n();
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
     const graph = useMemo(() => buildFlowGraph(flow, traces), [flow, traces]);
@@ -36,7 +38,43 @@ export const IoFlowView = ({ flow, traces, compact = false }) => {
                     trace={latestTraces(traces, 1, lane)[0] ?? null} history={latestTraces(traces, HISTORY, lane)} />)}
             </div>}
         {note && <p className={styles.live}>{note}</p>}
+        {!compact && gpuMemory !== undefined && <GpuMemorySection memory={gpuMemory} />}
     </div>;
+};
+
+// How much GPU memory the app holds on each GPU, by what holds it, and the GPU's whole use.
+const GpuMemorySection = ({ memory }) => {
+    const { t } = useI18n();
+    const rows = gpuRows(memory, t);
+    const state = memory?.state ?? "measuring";
+    const message = state !== "ready" ? t(`io_flow.gpu.state.${state}`) : rows.length === 0 ? t("io_flow.gpu.none") : null;
+    return <section className={styles.gpu} aria-labelledby="io_flow_gpu_title">
+        <h3 id="io_flow_gpu_title" className={styles.latest_title}>{t("io_flow.gpu.title")}</h3>
+        {message
+            ? <p className={styles.no_trace} role="status">{message}</p>
+            : <ul className={styles.gpu_list}>
+                {rows.map((row, index) => <li key={`${index}:${row.name}`} className={styles.gpu_row}>
+                    <p className={styles.gpu_head}>
+                        <span className={styles.gpu_name}>{row.name}</span>
+                        {row.whole && <span className={styles.gpu_whole}>{row.whole}</span>}
+                    </p>
+                    {row.segments.length > 0 && <span className={styles.gpu_track} aria-hidden="true">
+                        {row.segments.map(segment => <span key={segment.part}
+                            className={clsx(styles.gpu_segment, styles[`gpu_${segment.part}`])}
+                            style={{ width: `${segment.share * 100}%` }} />)}
+                    </span>}
+                    <p className={styles.gpu_app}>
+                        {t(row.memory === "shared" ? "io_flow.gpu.app_shared" : "io_flow.gpu.app", { size: row.app })}
+                    </p>
+                    {row.parts.length > 0 && <ul className={styles.gpu_parts}>
+                        {row.parts.map(part => <li key={part.part}>
+                            <span className={clsx(styles.gpu_swatch, styles[`gpu_${part.part}`])} aria-hidden="true" />{part.text}
+                        </li>)}
+                    </ul>}
+                </li>)}
+            </ul>}
+        <p className={styles.origin}>{t("io_flow.gpu.note")}</p>
+    </section>;
 };
 
 const Latest = ({ trace, history, lane = null, compact = false }) => {

@@ -5762,6 +5762,7 @@ dependencies = [
  "vrct-tts",
  "vrct-voice-conversion",
  "vrct-vr-overlay",
+ "windows",
  "windows-sys 0.61.2",
  "zbus",
 ]

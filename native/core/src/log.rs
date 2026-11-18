@@ -27,8 +27,9 @@ pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 9] =
 /// Notifications that are never written to the log.
 pub const UNLOGGED_ENDPOINTS: [&str; 4] = ["/run/vr_panel_pointer", "/run/realtime_caption", "/run/word_filter", "/run/io_trace"];
 
-/// States the UI asks for every 0.5 to 1 s.
-pub const POLLED_ENDPOINTS: [&str; 9] = [
+/// States the UI asks for every 0.5 to 2 s (the flow panel's route map and GPU memory only
+/// while it is shown).
+pub const POLLED_ENDPOINTS: [&str; 11] = [
     "/get/data/ocr_capture_status",
     "/get/data/voice_status",
     "/get/data/voice_route",
@@ -38,6 +39,8 @@ pub const POLLED_ENDPOINTS: [&str; 9] = [
     "/get/data/model_download_state",
     "/get/data/model_download_hardware",
     "/get/data/vc_runtime_state",
+    "/get/data/io_flow",
+    "/get/data/gpu_memory",
 ];
 
 const METER_ENDPOINTS: [&str; 2] = ["/run/check_mic_volume", "/run/check_speaker_volume"];
