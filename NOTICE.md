@@ -204,7 +204,19 @@ at run time. The packages ship `libopenvr_api_64` of OpenVR SDK 2.12.14
 uses `tokenizers` (Apache-2.0, Hugging Face) for SentencePiece segmentation and
 loads the same ONNX Runtime library as chat reading at run time (the CPU build
 above); the builds of ONNX Runtime with other execution providers (DirectML,
-CUDA, OpenVINO, MIGraphX, WebGPU) are not bundled. No translation model is bundled: the M2M100
+CUDA, OpenVINO, MIGraphX, WebGPU) are not bundled. For running translation on a
+GPU the app offers two of them, fetched from their providers only after the
+user's consent and kept in the settings folder (`vc_runtimes/`): the CUDA 13
+build of ONNX Runtime 1.31.0 (MIT, Microsoft's NuGet package) with NVIDIA's
+CUDA and cuDNN libraries (NVIDIA's PyPI wheels, under the CUDA EULA and the
+cuDNN license), the same files as the RVC GPU runtime, where an NVIDIA driver
+is found; and, on Windows, the DirectML build of ONNX Runtime 1.24.4 (MIT,
+NuGet package `Microsoft.ML.OnnxRuntime.DirectML`) with DirectML 1.15.4 (NuGet
+package `Microsoft.AI.DirectML`, under the Microsoft Software License Terms for
+DirectML, which allow its use on Windows only and say it may send usage data to
+Microsoft). The app loads one of them instead of the shipped CPU build at start
+when the user chose its device for translation; chat reading then uses it too.
+No translation model is bundled: the M2M100
 (MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
 consented model catalog once published, and a model the user places in the
 `translation-models` folder is under its own license, which the user is
