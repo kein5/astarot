@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
@@ -80,7 +80,7 @@ for (const language of ["en", "ja"]) {
     });
 
     test(`${language}: rejected mute sync uses the existing localized error protocol`, async context => {
-        context.mock.method(console, "error", () => {});
+        vi.spyOn(console, "error").mockImplementation(() => {});
         const i18n = i18next.createInstance();
         await i18n.init({ lng: language, resources: { [language]: { translation } } });
         const s = await loadBridgeRoutes(undefined, i18n);

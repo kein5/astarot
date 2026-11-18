@@ -131,8 +131,12 @@ export const AboutVrct = () => {
 
 
             <div className={styles.vrchat_disclaimer_section}>
-                {/* VRChat's trademark notice stays in its original English wording; lang lets screen readers read it as English. */}
-                <p className={styles.vrchat_disclaimer} lang="en">ASTAROT and VRCT are not endorsed by VRChat and do not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc.</p>
+                {/* VRChat's trademark notice is always shown in its original English wording (from en.yml);
+                    lang lets screen readers read it as English. Other UI languages add their translation below it. */}
+                <p className={styles.vrchat_disclaimer} lang="en">{t("config_page.about_vrct.vrchat_disclaimer", { lng: "en" })}</p>
+                {currentUiLanguage.data !== "en" && (
+                    <p className={styles.vrchat_disclaimer_translation}>{t("config_page.about_vrct.vrchat_disclaimer")}</p>
+                )}
             </div>
 
 

@@ -7,11 +7,17 @@
 //! kept the same way without more code; a new setting that holds a key only needs its name in
 //! [`SECRET_SETTINGS`].
 //!
-//! The store of the app is [`FileStore`]: `secrets.json` next to `config.json`. On Windows its
+//! The store of the app is the OS credential store (ADR-013, issue #575): the Windows Credential
+//! Manager, the Secret Service on Linux. [`SystemStore`] keeps the keys there and reads
+//! `secrets.json` next to `config.json` (the [`FileStore`] that kept them before) as the place
+//! keys move from: a key found only there is used, written to the OS store, read back, and only
+//! then removed from the file. The file also holds the id that names this settings folder's
+//! entries in the OS store, so two settings folders never share keys. In the file, on Windows the
 //! entries are encrypted for the signed-in user with DPAPI (`CryptProtectData`); on Linux the file
-//! is readable by its owner only (0600). Tests use a [`MemoryStore`]. The keys are to move to the
-//! OS credential stores (Windows Credential Manager, the Secret Service on Linux):
-//! `docs/voice-stack/adr-013-secret-store.md`, carried out in issue #575.
+//! is readable by its owner only (0600). Tests use a [`MemoryStore`], also as a stand-in OS store.
+//!
+//! The OS store is never asked to show a dialog: a locked keyring, a store that does not answer
+//! or that is not there is a passing failure, which changes nothing in either place.
 //!
 //! Nothing here logs or returns a key in an error: an error names its reason only.
 
@@ -21,6 +27,13 @@ use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+
+mod system;
+pub use system::SystemStore;
+#[cfg(windows)]
+mod credential_manager;
+#[cfg(target_os = "linux")]
+mod secret_service;
 
 /// The settings whose values are keys: kept in the store, never in `config.json`.
 pub const SECRET_SETTINGS: [&str; 3] = ["AUTH_KEYS", "TRANSCRIPTION_AUTH_KEYS", "PAPAGO_CLIENT_ID"];
@@ -32,6 +45,11 @@ pub enum StoreError {
     Unreadable,
     /// The store could not be written.
     WriteFailed,
+    /// The OS store is not there or did not answer in time (no Secret Service on the session
+    /// bus, no session bus, no signed-in user's credentials). It may answer later.
+    Unavailable,
+    /// The OS store is locked (a keyring not opened). The app does not ask to open it.
+    Locked,
 }
 
 impl StoreError {
@@ -39,26 +57,75 @@ impl StoreError {
         match self {
             StoreError::Unreadable => "unreadable",
             StoreError::WriteFailed => "write_failed",
+            StoreError::Unavailable => "unavailable",
+            StoreError::Locked => "locked",
         }
     }
 }
 
 /// A place for keys, one string per entry name.
 pub trait SecretStore: Send + Sync {
-    /// What the store is, for the error notification (`"file"`, `"memory"`).
+    /// What the store is, for the error notification (`"credential_manager"`,
+    /// `"secret_service"`, `"file"`, `"memory"`).
     fn kind(&self) -> &'static str;
     fn read(&self, entry: &str) -> Result<Option<String>, StoreError>;
     fn write(&self, entry: &str, value: &str) -> Result<(), StoreError>;
     /// Removing an entry that is not there succeeds.
     fn delete(&self, entry: &str) -> Result<(), StoreError>;
+    /// The entries [`SecretStore::read`] answered from an older place that still holds them (they
+    /// have not moved yet); each is named once. Writing such an entry moves it.
+    fn take_unmoved(&self) -> Vec<String> {
+        Vec::new()
+    }
+}
+
+/// An OS credential store: entries under a scope (this settings folder's id).
+pub trait Vault: Send + Sync {
+    /// What the store is, for the error notification.
+    fn label(&self) -> &'static str;
+    fn fetch(&self, scope: &str, entry: &str) -> Result<Option<String>, StoreError>;
+    fn put(&self, scope: &str, entry: &str, value: &str) -> Result<(), StoreError>;
+    /// Removing an entry that is not there succeeds.
+    fn remove(&self, scope: &str, entry: &str) -> Result<(), StoreError>;
 }
 
 /// Makes the store for the settings' environment (a [`crate::controller::Services`] field).
 pub type StoreSource = Arc<dyn Fn(&super::Environment) -> Arc<dyn SecretStore> + Send + Sync>;
 
-/// The app's store: `secrets.json` in the settings folder.
+/// The app's store: the OS credential store, with `secrets.json` in the settings folder as the
+/// place keys move from.
 pub fn default_store(env: &super::Environment) -> Arc<dyn SecretStore> {
-    Arc::new(FileStore::new(env.state_dir.join(FILE_NAME)))
+    Arc::new(SystemStore::new(FileStore::new(env.state_dir.join(FILE_NAME)), os_vault()))
+}
+
+/// The OS credential store of this platform.
+pub fn os_vault() -> Arc<dyn Vault> {
+    #[cfg(windows)]
+    return Arc::new(credential_manager::CredentialManager);
+    #[cfg(target_os = "linux")]
+    return Arc::new(secret_service::SecretService::new());
+    #[cfg(not(any(windows, target_os = "linux")))]
+    return Arc::new(NoVault);
+}
+
+/// No OS store on this platform: every call is a passing failure, so keys stay where they are.
+#[cfg(not(any(windows, target_os = "linux")))]
+struct NoVault;
+
+#[cfg(not(any(windows, target_os = "linux")))]
+impl Vault for NoVault {
+    fn label(&self) -> &'static str {
+        "none"
+    }
+    fn fetch(&self, _: &str, _: &str) -> Result<Option<String>, StoreError> {
+        Err(StoreError::Unavailable)
+    }
+    fn put(&self, _: &str, _: &str, _: &str) -> Result<(), StoreError> {
+        Err(StoreError::Unavailable)
+    }
+    fn remove(&self, _: &str, _: &str) -> Result<(), StoreError> {
+        Err(StoreError::Unavailable)
+    }
 }
 
 pub const FILE_NAME: &str = "secrets.json";
@@ -119,7 +186,8 @@ pub fn file_value(name: &str, value: &Value, kept: &std::collections::BTreeSet<S
     }
 }
 
-/// Keys in memory, for tests and for hosts that keep nothing. It can be told to fail.
+/// Keys in memory, for tests and for hosts that keep nothing. It can be told to fail. As a
+/// [`Vault`] (a stand-in OS store) it keeps each entry as `<scope>/<entry>` ([`MemoryStore::scoped`]).
 #[derive(Default)]
 pub struct MemoryStore {
     entries: Mutex<BTreeMap<String, String>>,
@@ -134,6 +202,22 @@ pub struct Faults {
     pub delete: bool,
     /// Writes answer success but keep nothing (caught by reading back).
     pub lose_writes: bool,
+    /// Every call fails as a store that is not there or does not answer.
+    pub unavailable: bool,
+    /// Every call fails as a locked keyring.
+    pub locked: bool,
+}
+
+impl Faults {
+    fn passing(self) -> Result<(), StoreError> {
+        if self.unavailable {
+            return Err(StoreError::Unavailable);
+        }
+        if self.locked {
+            return Err(StoreError::Locked);
+        }
+        Ok(())
+    }
 }
 
 impl MemoryStore {
@@ -163,6 +247,21 @@ impl MemoryStore {
     pub fn insert(&self, entry: &str, value: &str) {
         self.entries.lock().unwrap().insert(entry.to_string(), value.to_string());
     }
+
+    /// The name an entry has when this store stands in for an OS store.
+    pub fn scoped(scope: &str, entry: &str) -> String {
+        format!("{scope}/{entry}")
+    }
+
+    /// A [`StoreSource`] for the app's store over `secrets.json`, with this store standing in for
+    /// the OS store: what the app does, without touching the PC's own credentials.
+    pub fn system_source(self: &Arc<Self>) -> StoreSource {
+        let vault = Arc::clone(self);
+        Arc::new(move |env| {
+            Arc::new(SystemStore::new(FileStore::new(env.state_dir.join(FILE_NAME)), Arc::clone(&vault) as Arc<dyn Vault>))
+                as Arc<dyn SecretStore>
+        })
+    }
 }
 
 impl SecretStore for MemoryStore {
@@ -171,7 +270,9 @@ impl SecretStore for MemoryStore {
     }
 
     fn read(&self, entry: &str) -> Result<Option<String>, StoreError> {
-        if self.faults.lock().unwrap().read {
+        let faults = *self.faults.lock().unwrap();
+        faults.passing()?;
+        if faults.read {
             return Err(StoreError::Unreadable);
         }
         Ok(self.get(entry))
@@ -179,6 +280,7 @@ impl SecretStore for MemoryStore {
 
     fn write(&self, entry: &str, value: &str) -> Result<(), StoreError> {
         let faults = *self.faults.lock().unwrap();
+        faults.passing()?;
         if faults.write {
             return Err(StoreError::WriteFailed);
         }
@@ -189,7 +291,9 @@ impl SecretStore for MemoryStore {
     }
 
     fn delete(&self, entry: &str) -> Result<(), StoreError> {
-        if self.faults.lock().unwrap().delete {
+        let faults = *self.faults.lock().unwrap();
+        faults.passing()?;
+        if faults.delete {
             return Err(StoreError::WriteFailed);
         }
         self.entries.lock().unwrap().remove(entry);
@@ -197,15 +301,36 @@ impl SecretStore for MemoryStore {
     }
 }
 
-/// `secrets.json`: `{"version": 1, "protection": ..., "entries": ...}`. With `"dpapi"` (Windows)
-/// `entries` is the base64 of the DPAPI-encrypted JSON object of the entries; with `"none"`
-/// (Linux, where the file is 0600) it is the object itself. Written like `config.json`: a new
-/// temporary file, flushed, renamed over the old one.
+impl Vault for MemoryStore {
+    fn label(&self) -> &'static str {
+        "memory"
+    }
+
+    fn fetch(&self, scope: &str, entry: &str) -> Result<Option<String>, StoreError> {
+        SecretStore::read(self, &Self::scoped(scope, entry))
+    }
+
+    fn put(&self, scope: &str, entry: &str, value: &str) -> Result<(), StoreError> {
+        SecretStore::write(self, &Self::scoped(scope, entry), value)
+    }
+
+    fn remove(&self, scope: &str, entry: &str) -> Result<(), StoreError> {
+        SecretStore::delete(self, &Self::scoped(scope, entry))
+    }
+}
+
+/// `secrets.json`: `{"version": 1, "protection": ..., "entries": ..., "store_id": ...}`. With
+/// `"dpapi"` (Windows) `entries` is the base64 of the DPAPI-encrypted JSON object of the entries;
+/// with `"none"` (Linux, where the file is 0600) it is the object itself. `store_id` (added with the
+/// OS store) names this settings folder's entries there; it is not secret. 0.5, which kept the
+/// keys in this file, reads it and ignores the id. Written like `config.json`: a new temporary file, flushed, renamed
+/// over the old one.
 pub struct FileStore {
     path: PathBuf,
     lock: Mutex<()>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ReadFailure {
     Io,
     Undecodable,
@@ -224,15 +349,75 @@ impl FileStore {
         self.read_entries().map_err(|_| StoreError::Unreadable)
     }
 
+    /// The file's bytes, `None` when there is no file.
+    fn read_bytes(&self) -> Result<Option<Vec<u8>>, ReadFailure> {
+        match fs::read(&self.path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(_) => Err(ReadFailure::Io),
+        }
+    }
+
     /// The entries, or why there are none: the file could not be read now (it may be readable
     /// again later), or what it holds cannot be decoded.
     fn read_entries(&self) -> Result<Map<String, Value>, ReadFailure> {
-        let bytes = match fs::read(&self.path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Map::new()),
-            Err(_) => return Err(ReadFailure::Io),
-        };
-        Self::decode(&bytes, protect::open)
+        match self.read_bytes()? {
+            Some(bytes) => Self::decode(&bytes, protect::open),
+            None => Ok(Map::new()),
+        }
+    }
+
+    /// One entry, or why the file cannot say.
+    fn lookup(&self, entry: &str) -> Result<Option<String>, ReadFailure> {
+        let _guard = self.lock.lock().unwrap();
+        Ok(self.read_entries()?.get(entry).and_then(Value::as_str).map(str::to_string))
+    }
+
+    /// The id of this settings folder's entries in the OS store; `None` until a key was kept
+    /// there. A file that is not JSON has none that can be read.
+    fn store_id(&self) -> Result<Option<String>, ReadFailure> {
+        let _guard = self.lock.lock().unwrap();
+        match self.read_bytes()? {
+            Some(bytes) => Self::decode_id(&bytes),
+            None => Ok(None),
+        }
+    }
+
+    /// The store id of a file's bytes. It is read apart from the entries, so that a file whose
+    /// entries cannot be decrypted (another user's DPAPI) keeps naming the same OS entries.
+    fn decode_id(bytes: &[u8]) -> Result<Option<String>, ReadFailure> {
+        let file: Value = serde_json::from_slice(bytes).map_err(|_| ReadFailure::Undecodable)?;
+        if !file.is_object() || file["version"] != 1 {
+            return Err(ReadFailure::Undecodable);
+        }
+        Ok(file["store_id"].as_str().filter(|id| valid_store_id(id)).map(str::to_string))
+    }
+
+    /// The store id, made and written now if the file has none. The entries are left exactly as
+    /// they are (they may be sealed for another user). A file that is not JSON is moved aside
+    /// first, as a change does; a file that cannot be read now is left alone and this fails.
+    fn ensure_store_id(&self) -> Result<String, StoreError> {
+        let _guard = self.lock.lock().unwrap();
+        let _file = super::lock::FileLock::acquire(&self.path.with_file_name(format!("{FILE_NAME}.lock")))
+            .map_err(|_| StoreError::WriteFailed)?;
+        let bytes = self.read_bytes().map_err(|_| StoreError::WriteFailed)?;
+        if let Some(bytes) = &bytes {
+            match Self::decode_id(bytes) {
+                Ok(Some(id)) => return Ok(id),
+                Ok(None) => {
+                    let mut file: Value = serde_json::from_slice(bytes).map_err(|_| StoreError::WriteFailed)?;
+                    let id = new_store_id();
+                    file["store_id"] = Value::String(id.clone());
+                    let text = super::to_python_json(&file);
+                    write_private(&self.path, text.as_bytes()).map_err(|_| StoreError::WriteFailed)?;
+                    return Ok(id);
+                }
+                Err(_) => self.move_aside()?,
+            }
+        }
+        let id = new_store_id();
+        self.write_all(&Map::new(), Some(&id))?;
+        Ok(id)
     }
 
     /// The entries of a file's bytes; `open` decrypts DPAPI-sealed entries. A DPAPI that cannot
@@ -260,8 +445,8 @@ impl FileStore {
         }
     }
 
-    fn write_all(&self, entries: &Map<String, Value>) -> Result<(), StoreError> {
-        let body = if protect::AVAILABLE {
+    fn write_all(&self, entries: &Map<String, Value>, store_id: Option<&str>) -> Result<(), StoreError> {
+        let mut body = if protect::AVAILABLE {
             use base64::Engine;
             let plain = serde_json::to_vec(entries).expect("writing to memory does not fail");
             let sealed = protect::seal(&plain).ok_or(StoreError::WriteFailed)?;
@@ -269,25 +454,41 @@ impl FileStore {
         } else {
             json!({ "version": 1, "protection": "none", "entries": entries })
         };
+        if let Some(id) = store_id {
+            body["store_id"] = Value::String(id.to_string());
+        }
         let text = super::to_python_json(&body);
         write_private(&self.path, text.as_bytes()).map_err(|_| StoreError::WriteFailed)
     }
 
     /// Changes one entry. A file that cannot be decoded any more (another user's or another
-    /// PC's DPAPI, or a broken file) is moved aside first, so that new keys can be kept. A file
-    /// that could not be read just now (locked, a passing I/O error, or DPAPI not answering) is
-    /// left as it is and the change fails: writing only this entry would drop every other key.
+    /// PC's DPAPI, or a broken file) is moved aside first, so that new keys can be kept; its
+    /// store id, when it can still be read, carries over. A file that could not be read just now
+    /// (locked, a passing I/O error, or DPAPI not answering) is left as it is and the change
+    /// fails: writing only this entry would drop every other key.
     fn change(&self, entry: &str, value: Option<&str>) -> Result<(), StoreError> {
         let _guard = self.lock.lock().unwrap();
         let _file = super::lock::FileLock::acquire(&self.path.with_file_name(format!("{FILE_NAME}.lock")))
             .map_err(|_| StoreError::WriteFailed)?;
-        let mut entries = match self.read_entries() {
+        let read = self.read_bytes();
+        let store_id = match &read {
+            Ok(Some(bytes)) => Self::decode_id(bytes).ok().flatten(),
+            _ => None,
+        };
+        let decoded = match read {
+            Ok(Some(bytes)) => Self::decode(&bytes, protect::open),
+            Ok(None) => Ok(Map::new()),
+            Err(failure) => Err(failure),
+        };
+        let mut moved_aside = false;
+        let mut entries = match decoded {
             Ok(entries) => entries,
             // Removing from a file that is gone meanwhile is done.
             Err(ReadFailure::Io) if value.is_none() && !self.path.exists() => Map::new(),
             Err(ReadFailure::Io) => return Err(StoreError::WriteFailed),
             Err(ReadFailure::Undecodable) => {
                 self.move_aside()?;
+                moved_aside = true;
                 Map::new()
             }
         };
@@ -295,10 +496,11 @@ impl FileStore {
             Some(value) => entries.insert(entry.to_string(), Value::String(value.to_string())) != Some(Value::String(value.to_string())),
             None => entries.remove(entry).is_some(),
         };
-        if !changed {
+        // A file moved aside leaves its store id behind in a new one.
+        if !changed && !(moved_aside && store_id.is_some()) {
             return Ok(());
         }
-        self.write_all(&entries)
+        self.write_all(&entries, store_id.as_deref())
     }
 
     fn move_aside(&self) -> Result<(), StoreError> {
@@ -328,6 +530,19 @@ impl SecretStore for FileStore {
     fn delete(&self, entry: &str) -> Result<(), StoreError> {
         self.change(entry, None)
     }
+}
+
+/// A new store id: 16 random hex digits.
+fn new_store_id() -> String {
+    let mut bytes = [0u8; 8];
+    getrandom::fill(&mut bytes).expect("the OS gives random bytes");
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// A store id as [`new_store_id`] makes them. Anything else in the file is ignored, so that a
+/// hand-edited id cannot reach the OS store's names.
+fn valid_store_id(id: &str) -> bool {
+    id.len() == 16 && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// Writes a file only its owner can read (0600 on Unix), through a new temporary file and a

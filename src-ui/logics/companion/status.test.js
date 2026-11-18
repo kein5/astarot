@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { actionFor, companionStatus, edgeAction, FEATURES, panelState, runAction, SWITCH_IDS } from "./status.ts";
 
 const t = key => `t:${key}`;

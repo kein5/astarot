@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { createLanguageMutationCoordinator } from "./languageMutationCoordinator.ts";
 
 const snapshot = { tab: "1", your: { 1: "Japanese" }, target: { 1: "English" }, selectedEngines: { 1: "CTranslate2" } };

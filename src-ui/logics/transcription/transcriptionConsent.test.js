@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../test/hookHarness.js";
@@ -65,7 +65,7 @@ async function fixture(context) {
         error({ error_code: "TRANSCRIPTION_ENGINE_NOT_SELECTED", endpoint: `/set/enable/transcription_${direction === "Send" ? "send" : "receive"}`, data: false });
         render();
     };
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     render();
     return { runtime, render, calls, states, transcription, configs, click, acknowledge, firstEnable, error, consent };
 }

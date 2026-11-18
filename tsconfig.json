@@ -18,7 +18,7 @@
         "noImplicitOverride": true,
         "skipLibCheck": true,
         "resolveJsonModule": true,
-        // The Node tests import the sources as they are (node --experimental-strip-types),
+        // Some UI tests have Node import the sources as they are (Node's type stripping),
         // so imports name the .ts file and only syntax that can be erased is allowed.
         "allowImportingTsExtensions": true,
         "erasableSyntaxOnly": true,

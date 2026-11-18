@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 import { flush } from "../../../../../../logics/test/bridgeHarness.js";
 import * as adjust from "../../../../../../logics/captionOverlay/adjust.ts";
@@ -34,7 +34,7 @@ async function setup(context, { settings = DEFAULT_SETTINGS, placement = { x: nu
     });
     const render = () => runtime.render(DesktopCaptionOverlay);
     render(); await flush();
-    context.after(() => runtime.unmount());
+    context.onTestFinished(() => runtime.unmount());
     const item = id => find(render(), node => node.props?.setting_id === id);
     return { saved, item };
 }

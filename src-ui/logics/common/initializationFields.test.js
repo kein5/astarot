@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { applyInitializationFields, createInitializationValidators } from "./initializationFields.ts";
 
 const PLACEMENT = "/get/data/overlay_desktop_placement";

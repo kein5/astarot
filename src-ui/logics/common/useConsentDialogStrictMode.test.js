@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { loadModule, hooks, stubGlobals } from "../test/hookHarness.js";
 
 // StrictMode runs mount, cleanup and mount again with the same refs. The native

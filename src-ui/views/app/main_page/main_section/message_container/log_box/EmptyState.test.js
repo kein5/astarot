@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { createElement } from "react";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
 import * as needsLogic from "../../../../../../logics/main/setupNeeds.ts";
@@ -108,7 +108,7 @@ test("the greeting waits for the language and the narrow layout that the saved s
 });
 
 test("a language or layout that does not follow holds the greeting back for a second at most", async context => {
-    context.mock.timers.enable({ apis: ["setTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks();
     const { EmptyState, GREETING_FOLLOW_MS } = await loadModule(new URL("./EmptyState.jsx", import.meta.url), runtime, {
         "@store": { store: {} },
@@ -121,10 +121,10 @@ test("a language or layout that does not follow holds the greeting back for a se
     const stub = { innerWidth: 871, document: { documentElement: { hasAttribute: () => false } } };
     const saved = Object.fromEntries(Object.keys(stub).map(key => [key, globalThis[key]]));
     Object.assign(globalThis, stub);
-    context.after(() => Object.assign(globalThis, saved));
+    context.onTestFinished(() => Object.assign(globalThis, saved));
     const greeting = () => find(runtime.render(EmptyState), node => node.props?.children?.[0]?.type === "h1");
     assert.equal(greeting().props["data-waiting"], true, "871 px at 120% is narrow, the root is not marked yet");
-    context.mock.timers.tick(GREETING_FOLLOW_MS);
+    vi.advanceTimersByTime(GREETING_FOLLOW_MS);
     assert.equal(greeting().props["data-waiting"], undefined, "drawn after a second all the same");
     runtime.unmount();
 });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { conversionDelaySeconds } from "./conversionLatency.ts";
 
 test("the delay adds the app's block, the worker's delay and the round trip", () => {
