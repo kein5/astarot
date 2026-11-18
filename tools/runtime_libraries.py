@@ -4,8 +4,10 @@ Chat reading and local translation load ONNX Runtime at run time, and the VR ove
 chat reading's headset view load the OpenVR client library. Until 0.4 both came with the Python
 backend; since 0.5.0 they ship on their own, in the versions 0.4 shipped:
 
-- ONNX Runtime 1.31.0, the official CPU build: the same archives the RVC runtime setup uses
-  (`ORT_VERSION` in native/voice-conversion/src/runtime.rs).
+- ONNX Runtime 1.31.0, the official CPU build, from Microsoft's NuGet package
+  Microsoft.ML.OnnxRuntime: the same package the RVC runtime setup takes its CPU build from
+  (`ORT_VERSION` in native/voice-conversion/src/runtime.rs). Until 2026-11-18 it came from
+  the GitHub release archives; the package's libraries are byte for byte the same.
 - The OpenVR client library 2.12.14, from the pyopenvr 2.12.1401 wheel pinned in uv.lock. The
   core's function tables are those of this SDK (native/vr-overlay/src/openvr.rs,
   native/ocr-runtime/src/capture/openvr.rs), checked against the wheel's own tables
@@ -34,37 +36,30 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / 'build/runtime-libraries'
 ORT_VERSION = '1.31.0'
-ORT_RELEASE = f'https://github.com/microsoft/onnxruntime/releases/download/v{ORT_VERSION}/'
+# NuGet's package content URL: lowercase id, version, `<id>.<version>.nupkg`.
+ORT_PACKAGE = f'https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/{ORT_VERSION}/microsoft.ml.onnxruntime.{ORT_VERSION}.nupkg'
 OPENVR_WHEEL = ('https://files.pythonhosted.org/packages/46/a2/e6cb89bd1803ffe70a25c20121ad8bb533fa1f1334ce7f0f7585d35e5096/'
                 'openvr-2.12.1401-py3-none-any.whl')
+# One package holds the libraries of every platform (runtimes/<rid>/native/). Its SHA-512 is
+# the one NuGet publishes: J7arTn+7nrWdZ+PF2Sl9aNW1/Ba5DCt1ywZ3r5l3LKqzj3w8oC7Cl/uagG3Xp1ivuYJYQAMSuew0ef/74f7XCw==
+ORT = {'url': ORT_PACKAGE, 'name': f'microsoft.ml.onnxruntime.{ORT_VERSION}.nupkg', 'size': 159626085,
+       'sha256': '7e35fdb4f5adb62f01e60798e2e5ed05108f5fbbe1cca03fbcc37903cf7c5e3b'}
 
 # Each archive: where it comes from, its exact size and SHA-256, and {member: path under build/}.
 ARCHIVES = {
-    'onnxruntime-windows': {
-        'url': ORT_RELEASE + f'onnxruntime-win-x64-{ORT_VERSION}.zip',
-        'name': f'onnxruntime-win-x64-{ORT_VERSION}.zip',
-        'size': 82887349,
-        'sha256': '3958d8a44984160692c1b4ffd0de3cb48f8c39f9d34bb31e433db06e30b82195',
-        'files': {
-            f'onnxruntime-win-x64-{ORT_VERSION}/lib/onnxruntime.dll': 'onnxruntime/onnxruntime.dll',
-            f'onnxruntime-win-x64-{ORT_VERSION}/lib/onnxruntime_providers_shared.dll': 'onnxruntime/onnxruntime_providers_shared.dll',
-            f'onnxruntime-win-x64-{ORT_VERSION}/LICENSE': 'licenses/onnxruntime/LICENSE',
-            f'onnxruntime-win-x64-{ORT_VERSION}/ThirdPartyNotices.txt': 'licenses/onnxruntime/ThirdPartyNotices.txt',
-        },
-    },
-    'onnxruntime-linux': {
-        'url': ORT_RELEASE + f'onnxruntime-linux-x64-{ORT_VERSION}.tgz',
-        'name': f'onnxruntime-linux-x64-{ORT_VERSION}.tgz',
-        'size': 11408003,
-        'sha256': 'cc5c72baf5ae5c8238a6841f0897227be2d02826b9cf98eaf02fdefaeeb03a57',
-        'files': {
-            # The real file, not the archive's symlinks: the core loads it by its full path.
-            f'onnxruntime-linux-x64-{ORT_VERSION}/lib/libonnxruntime.so.{ORT_VERSION}': 'onnxruntime/libonnxruntime.so',
-            f'onnxruntime-linux-x64-{ORT_VERSION}/lib/libonnxruntime_providers_shared.so': 'onnxruntime/libonnxruntime_providers_shared.so',
-            f'onnxruntime-linux-x64-{ORT_VERSION}/LICENSE': 'licenses/onnxruntime/LICENSE',
-            f'onnxruntime-linux-x64-{ORT_VERSION}/ThirdPartyNotices.txt': 'licenses/onnxruntime/ThirdPartyNotices.txt',
-        },
-    },
+    'onnxruntime-windows': dict(ORT, files={
+        'runtimes/win-x64/native/onnxruntime.dll': 'onnxruntime/onnxruntime.dll',
+        'runtimes/win-x64/native/onnxruntime_providers_shared.dll': 'onnxruntime/onnxruntime_providers_shared.dll',
+        'LICENSE': 'licenses/onnxruntime/LICENSE',
+        'ThirdPartyNotices.txt': 'licenses/onnxruntime/ThirdPartyNotices.txt',
+    }),
+    'onnxruntime-linux': dict(ORT, files={
+        # A real file in the package (the GitHub archive had libonnxruntime.so.1.31.0 and links).
+        'runtimes/linux-x64/native/libonnxruntime.so': 'onnxruntime/libonnxruntime.so',
+        'runtimes/linux-x64/native/libonnxruntime_providers_shared.so': 'onnxruntime/libonnxruntime_providers_shared.so',
+        'LICENSE': 'licenses/onnxruntime/LICENSE',
+        'ThirdPartyNotices.txt': 'licenses/onnxruntime/ThirdPartyNotices.txt',
+    }),
     'openvr-windows': {
         'url': OPENVR_WHEEL,
         'name': 'openvr-2.12.1401-py3-none-any.whl',
@@ -145,21 +140,22 @@ def fetch(archive, cache=CACHE, *, opener=urlopen):
             temporary.unlink(missing_ok=True)
 
 
-def _members(data, archive):
-    """{member name: bytes} of the regular files in a verified zip or tar.gz archive."""
+def _members(data, archive, wanted=None):
+    """{member name: bytes} of the regular files in a verified zip (a wheel or a NuGet package
+    too) or tar.gz archive; only those in `wanted` when it is given."""
     name = archive['name']
     if archive.get('raw'):
         return {next(iter(archive['files'])): data}
     files = {}
-    if name.endswith(('.zip', '.whl')):
+    if name.endswith(('.zip', '.whl', '.nupkg')):
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             for info in archive.infolist():
-                if not info.is_dir():
+                if not info.is_dir() and (wanted is None or info.filename in wanted):
                     files[info.filename] = archive.read(info)
     else:
         with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
             for info in archive.getmembers():
-                if info.isfile():
+                if info.isfile() and (wanted is None or info.name in wanted):
                     files[info.name] = archive.extractfile(info).read()
     return files
 
@@ -175,7 +171,7 @@ def stage(platform, build, cache=CACHE, *, download=False, opener=urlopen):
             path = fetch(archive, cache, opener=opener)
         elif not path.exists():
             raise FileNotFoundError(f'{path} is missing; run tools/runtime_libraries.py --download')
-        members = _members(_read_verified(path, archive), archive)
+        members = _members(_read_verified(path, archive), archive, archive['files'])
         for member, target in archive['files'].items():
             if member not in members:
                 raise ValueError(f'{archive["name"]} has no {member}')
