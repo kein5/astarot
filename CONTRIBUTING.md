@@ -13,6 +13,8 @@ Create a topic branch from `develop` (for example `fix/quick-chat-focus`) and op
 
 A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose only changes are the version (`X.Y.Z`, set with `utils/update_version.py`) and its CHANGELOG section. Its pull request to `main` must pass the required checks; after the release, `main` is merged back into `develop` and `develop` moves to the next `-beta.N`. See [Changelog and releases](#changelog-and-releases) and [release candidates](docs/voice-stack/release-candidates.md).
 
+To fix a published release in a hurry while `develop` already holds the next version's work, cut `release/X.Y.Z` from `main` instead and bring in only the fix and what `main` needs to build. The steps are in [release candidates](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す).
+
 ## Pull requests
 
 - Write every commit message as a [Conventional Commit](#commit-messages). The commit-msg hook and CI check them.
@@ -153,7 +155,7 @@ VRCT-VOX is derived from [VRCT](https://github.com/misyaguziya/VRCT) and no long
 
 ## 日本語での概要
 
-Issue や PR は日本語でも構いません。作業ブランチは `develop` から作り、PR は `develop` へ出してください。`main` は保護されています。正式版のときだけ、`develop` から切った `release/X.Y.Z` ブランチ（版の変更と CHANGELOG の節だけ）を PR で統合します。
+Issue や PR は日本語でも構いません。作業ブランチは `develop` から作り、PR は `develop` へ出してください。`main` は保護されています。正式版のときだけ、`develop` から切った `release/X.Y.Z` ブランチ（版の変更と CHANGELOG の節だけ）を PR で統合します。公開済みの版を急いで直すときは、`main` から切ります（[手順](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す)）。
 
 - コミットは Conventional Commits の形式で書きます。種別の選び方と例は上の「Commit messages」にあります。
 - 形式の検査は commit-msg フックで行います。Cocogitto 7 を入れて、複製ごとに `cog install-hook commit-msg` を一度実行してください。CI も PR と、develop・main への push を検査します。
