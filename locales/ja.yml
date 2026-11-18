@@ -2245,6 +2245,7 @@ translation_catalog:
         translation_catalog_key_required: "APIキーを入れてください。"
         translation_catalog_key_store_failed: "APIキーをアプリのキーの保管場所に置けなかったので、項目を追加しませんでした。"
         translation_catalog_key_missing: "この項目のAPIキーがキーの保管場所にありません。項目を削除して追加し直してください。"
+        translation_catalog_key_unreadable: "アプリのキーの保管場所からこの項目のAPIキーを読めませんでした。何も変えていません。Linuxでは鍵束（GNOME KeyringやKWalletなど）を起動してロックを解除してから、もう一度試してください。"
         translation_catalog_unusable: "この項目はいま使えません。フォルダーを確かめるか項目を削除してください。"
         translation_catalog_in_use: "このモデルは使用中です。先に別の翻訳のモデルを選んでください。"
         translation_catalog_connect_failed: "アドレスが応答しないか、APIキーが受け付けられませんでした。何も変えていません。"

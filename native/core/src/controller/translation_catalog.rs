@@ -36,6 +36,9 @@ const COMPATIBLE_ENGINE: &str = "OpenAI_Compatible";
 pub const KEY_REQUIRED: &str = "translation_catalog_key_required";
 /// The entry's key is neither in memory nor in the secret store.
 pub const KEY_MISSING: &str = "translation_catalog_key_missing";
+/// The secret store could not be read now (locked, not running, a file it cannot read): the
+/// key may well be there, so nothing is changed.
+pub const KEY_UNREADABLE: &str = "translation_catalog_key_unreadable";
 /// The entry cannot be used now: its folder is gone or its runtime or protocol is unknown.
 pub const UNUSABLE: &str = "translation_catalog_unusable";
 /// The engine entry is the selected local model: choose another before removing it.
@@ -47,7 +50,7 @@ pub const USE_FAILED: &str = "translation_catalog_use_failed";
 /// The API entry's model is not in the endpoint's list; another model was chosen.
 pub const MODEL_NOT_LISTED: &str = "translation_catalog_model_not_listed";
 /// The codes answered with 409: the request may pass once the state changes.
-const CONFLICTS: [&str; 3] = [IN_USE, UNUSABLE, codes::EXISTS];
+const CONFLICTS: [&str; 4] = [IN_USE, UNUSABLE, KEY_UNREADABLE, codes::EXISTS];
 
 fn failure(code: &str) -> Reply {
     Reply::status(if CONFLICTS.contains(&code) { 409 } else { 400 }, json!({ "error_code": code }))
@@ -298,7 +301,9 @@ impl Core {
         // The key held in memory when the store did not take it, else the store's.
         let key = match self.config().secret(&key_entry(id)) {
             Ok(Some(key)) => key,
-            _ => return failure(KEY_MISSING),
+            Ok(None) => return failure(KEY_MISSING),
+            // Locked or not answering: a temporary failure, not a missing key (ADR-013).
+            Err(_) => return failure(KEY_UNREADABLE),
         };
         let url = entry["url"].clone();
         if self.set_compatible_key_and_url(&json!({ "url": url, "auth_key": key })).status != 200 {

@@ -2245,6 +2245,7 @@ translation_catalog:
         translation_catalog_key_required: "Enter the API key."
         translation_catalog_key_store_failed: "The API key could not be kept in the app's key store, so the entry was not added."
         translation_catalog_key_missing: "The entry's API key is no longer in the app's key store. Remove the entry and add it again."
+        translation_catalog_key_unreadable: "The entry's API key could not be read from the app's key store. Nothing was changed. On Linux, start and unlock your keyring (such as GNOME Keyring or KWallet), then try again."
         translation_catalog_unusable: "This entry cannot be used now. Check its folder or remove it."
         translation_catalog_in_use: "This model is in use. Choose another translation model first."
         translation_catalog_connect_failed: "The address did not answer, or the API key was not accepted. Nothing was changed."

@@ -267,6 +267,33 @@ fn a_key_held_in_memory_is_gone_after_a_restart_and_the_entry_says_so() {
     ui.stop();
 }
 
+#[test]
+fn a_key_store_that_cannot_be_read_now_is_not_taken_for_a_missing_key() {
+    let fake = FakeProviders::start();
+    fake.key("/compatible/v1", "lan-key").models("/compatible/v1", &["qwen"]);
+    let url = fake.url_of("/compatible/v1");
+    let vault = MemoryStore::new();
+    let temp = tempfile::tempdir().unwrap();
+    let ui = start_in(temp.path(), api_services(&fake, &vault));
+    let request = json!({ "group": "api", "name": "LAN server", "protocol": "openai_compatible", "url": url, "model": "qwen", "auth_key": "lan-key" });
+    let id = api_keys(&ui.ok("/run/register_translation_catalog_entry", Some(request)))[0].0.clone();
+    let before = ui.ok("/get/data/openai_compatible_url", None);
+
+    // Locked, or not answering: the key may well be there, so nothing changes and the entry
+    // is not called keyless (which would ask the user to remove it).
+    for faults in [Faults { locked: true, ..Faults::default() }, Faults { unavailable: true, ..Faults::default() }] {
+        vault.set_faults(faults);
+        assert_eq!(refused(&ui, "/run/use_translation_catalog_entry", json!({ "id": id })), (409, "translation_catalog_key_unreadable".into()), "{faults:?}");
+        assert_eq!(ui.ok("/get/data/openai_compatible_url", None), before, "{faults:?}");
+        assert_eq!(api_keys(&ui.ok("/get/data/translation_catalog", None)), [(id.clone(), json!(true), json!(false))], "{faults:?}");
+    }
+    vault.set_faults(Faults::default());
+    ui.ok("/run/use_translation_catalog_entry", Some(json!({ "id": id })));
+    assert_eq!(ui.ok("/get/data/openai_compatible_url", None), json!(url));
+    nowhere(temp.path(), &ui, "lan-key");
+    ui.stop();
+}
+
 #[cfg(feature = "onnx-translation")]
 #[test]
 fn an_engine_entry_is_a_local_weight_with_the_languages_it_offers() {
