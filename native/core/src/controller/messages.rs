@@ -385,7 +385,8 @@ pub(crate) struct Messages {
     no_readings_noted: AtomicBool,
 }
 
-/// The settings a message keeps from its admission to its last output (`MessageSnapshot`).
+/// The settings a message keeps from its admission to its last output (`MessageSnapshot`):
+/// its translation, its outputs and, for a realtime final, its caption rows all use them.
 #[derive(Clone, Debug)]
 pub(crate) struct Snapshot {
     pub tab: String,
@@ -405,7 +406,7 @@ pub(crate) struct Snapshot {
 }
 
 impl Snapshot {
-    fn capture(core: &Core, spec: &Spec, language: Option<&str>) -> Snapshot {
+    pub(crate) fn capture(core: &Core, spec: &Spec, language: Option<&str>) -> Snapshot {
         let _guard = core.language_lock.lock().unwrap();
         let config = core.config();
         let generation = config.history_generation();
@@ -455,6 +456,29 @@ impl Snapshot {
             .map(|o| o.iter().filter(|(_, t)| t["enable"] == true).map(|(slot, _)| slot.clone()).collect())
             .unwrap_or_default()
     }
+
+    /// The languages of the enabled destination slots, in order: the names the VR logs give the
+    /// translations.
+    pub(crate) fn target_languages(&self) -> Vec<String> {
+        self.destinations()
+            .as_object()
+            .into_iter()
+            .flat_map(|o| o.values())
+            .filter(|slot| slot["enable"] == true)
+            .filter_map(|slot| slot["language"].as_str().map(str::to_string))
+            .collect()
+    }
+}
+
+/// What a message is admitted with: its settings and its place in the chatbox order
+/// (`MessageSnapshot.capture` and `chatbox_order.admit()`). A realtime final takes it when it
+/// arrives, before it waits for translation (decision 80 in
+/// `docs/voice-stack/core-integration.md`); other messages when the pipeline takes them.
+#[derive(Clone, Debug)]
+pub(crate) struct Admitted {
+    pub snapshot: Snapshot,
+    /// `None` for a direction that never sends to the chatbox.
+    pub sequence: Option<u64>,
 }
 
 /// `messageFormatter`: the original and the translations joined as the format parts say.
@@ -577,24 +601,39 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None)
     }
 
-    /// A realtime microphone final: the pipeline, then its translated speech when the voice
-    /// settings let microphone finals speak (`mic_snapshot` and `speech_update` of
-    /// `_processMessage`).
-    pub(crate) fn process_realtime_mic(
+    /// Takes the settings of a message and its place in the chatbox order. `chatbox` false
+    /// leaves the order alone (a realtime partial, which is only shown).
+    pub(crate) fn admit_message(&self, spec: &Spec, language: Option<&str>, chatbox: bool) -> Admitted {
+        let snapshot = Snapshot::capture(self, spec, language);
+        let sequence = spec.chatbox.filter(|_| chatbox).map(|_| {
+            let mut order = self.messages().chatbox.lock().unwrap();
+            order.admitted += 1;
+            order.admitted
+        });
+        Admitted { snapshot, sequence }
+    }
+
+    /// A realtime final with what it was admitted with when it arrived (`settings_snapshot` and
+    /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its translated
+    /// speech when the voice settings let microphone finals speak (`mic_snapshot` and
+    /// `speech_update`).
+    pub(crate) fn process_realtime(
         self: &Arc<Self>,
+        spec: &Spec,
         message: &str,
-        language: Option<&str>,
-        id: Option<String>,
-        guard: Option<Guard>,
+        id: String,
+        guard: Guard,
+        admitted: Admitted,
         mic_voice: Option<MicVoice>,
     ) -> Option<Value> {
-        self.process_message_stamped(&REALTIME_MIC, message, language, id, None, guard, None, mic_voice.as_ref())
+        self.process_message_stamped(spec, message, None, Some(id), None, Some(guard), None, Some(admitted), mic_voice.as_ref())
     }
 
-    /// [`Core::process_message`] with the speech generation the receiver stamped.
+    /// [`Core::process_message`] with the speech generation the receiver stamped, or with what
+    /// a realtime final was admitted with when it arrived (`language` is then in the snapshot).
     #[allow(clippy::too_many_arguments)]
     fn process_message_stamped(
         self: &Arc<Self>,
@@ -605,6 +644,7 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
         voice_generation: Option<u64>,
+        admitted: Option<Admitted>,
         mic_voice: Option<&MicVoice>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
@@ -621,13 +661,8 @@ impl Core {
         }
         let config = self.config();
         let feature_enabled = spec.feature.is_none_or(|key| config.get_bool(key));
-        let snapshot = Snapshot::capture(self, spec, language);
+        let Admitted { snapshot, sequence } = admitted.unwrap_or_else(|| self.admit_message(spec, language, true));
         let voice_generation = voice_generation.or_else(|| self.voice_generation());
-        let sequence = spec.chatbox.map(|_| {
-            let mut order = self.messages().chatbox.lock().unwrap();
-            order.admitted += 1;
-            order.admitted
-        });
         let mut failures: Vec<Value> = Vec::new();
 
         if spec.word_filter && word_filtered(&config.get("MIC_WORD_FILTER"), message) {
@@ -1087,7 +1122,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();
