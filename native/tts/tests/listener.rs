@@ -4,7 +4,7 @@
 mod common;
 
 use std::io;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -354,10 +354,14 @@ fn shared_probe_cancels_only_confirmed_address() {
         let registry = ListenerMonitors::new();
         let attempted = Event::new();
         let confirmed: Address = ("127.0.0.1".into(), a.server.port);
+        // The failing connect is put in only after both requests subscribed, as the Python test
+        // patched `create_connection` after counting the watches: a refusal before that ends the
+        // monitor before it can be counted.
+        let armed = Arc::new(AtomicBool::new(false));
         let probe: Probe = {
-            let (attempted, confirmed) = (attempted.clone(), confirmed.clone());
+            let (attempted, confirmed, armed) = (attempted.clone(), confirmed.clone(), armed.clone());
             Arc::new(move |address: &Address, _: &Event| {
-                if *address == confirmed {
+                if *address == confirmed && armed.load(Ordering::SeqCst) {
                     attempted.set();
                     return refused;
                 }
@@ -372,6 +376,7 @@ fn shared_probe_cancels_only_confirmed_address() {
             assert!(active.next().unwrap().is_ok());
         }
         assert_eq!(registry.external(&confirmed).unwrap().watch_count(), 2);
+        armed.store(true, Ordering::SeqCst);
         assert!(attempted.wait(Some(millis(500))));
         if refused {
             assert!(tokens[0].wait(millis(200)) && tokens[1].wait(millis(200)));
@@ -441,6 +446,9 @@ fn stop_during_probe_prevents_late_cancellation_and_overlapping_probes() {
     old.close();
     let new = registry.watch(&address, &new_token, Event::new(), probe, None);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
+    // The new request joins the monitor whose probe is in flight (`new._monitor is old._monitor`).
+    assert_eq!(registry.external_count(), 1);
+    assert_eq!(old.monitor().watch_count(), 1, "the new request started another monitor");
     release.set();
     assert!(second_entered.wait(Some(millis(500))));
     // A new request must not receive the old request's in-flight observation.
@@ -467,10 +475,41 @@ fn a_stopped_subscription_never_cancels() {
 }
 
 #[test]
+fn the_last_subscriptions_stop_flag_ends_the_monitor_without_cancelling() {
+    // The `stopped` ending of `test_external_monitor_stops_only_after_last_subscription`: the
+    // first request has gone, then the last one's own stop flag is set while its server is gone.
+    let registry = ListenerMonitors::new();
+    let address: Address = ("127.0.0.1".into(), 9);
+    let gone = Arc::new(AtomicBool::new(false));
+    let probe: Probe = {
+        let gone = gone.clone();
+        Arc::new(move |_: &Address, _: &Event| gone.load(Ordering::SeqCst))
+    };
+    let tokens = [CancelToken::new(), CancelToken::new()];
+    let stops = [Event::new(), Event::new()];
+    let first = registry.watch(&address, &tokens[0], stops[0].clone(), probe.clone(), None);
+    let second = registry.watch(&address, &tokens[1], stops[1].clone(), probe, None);
+    let monitor = registry.external(&address).unwrap();
+    first.close();
+    assert!(!monitor.finished() && monitor.watch_count() == 1);
+    stops[1].set();
+    gone.store(true, Ordering::SeqCst);
+    assert!(monitor.join(millis(300)), "the monitor outlived its last subscription");
+    assert_eq!(registry.external_count(), 0);
+    assert!(!tokens[0].is_set() && !tokens[1].is_set(), "a stopped subscription was cancelled");
+    second.close();
+}
+
+#[test]
 fn the_default_probe_is_inconclusive_for_a_live_listener() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let address: Address = ("127.0.0.1".into(), listener.local_addr().unwrap().port());
     assert!(!listener_missing(&address, &Event::new()));
     drop(listener);
+    // Windows proves absence from the TCP table, and a probe reuses a table read begun within
+    // the last 20 ms: until then it still sees the listener of the first probe. Let that read
+    // age past the freshness, as the next 20 ms probe of a monitor would.
+    #[cfg(windows)]
+    thread::sleep(millis(50));
     assert!(listener_missing(&address, &Event::new()));
 }

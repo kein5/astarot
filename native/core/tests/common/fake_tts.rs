@@ -129,6 +129,11 @@ impl FakeTts {
         *self.state.pace.lock().unwrap() = pace;
     }
 
+    /// How many seconds of speech each later request answers with.
+    pub fn set_seconds(&self, seconds: f64) {
+        *self.state.seconds.lock().unwrap() = seconds;
+    }
+
     pub fn requests(&self) -> Vec<Value> {
         self.state.requests.lock().unwrap().clone()
     }

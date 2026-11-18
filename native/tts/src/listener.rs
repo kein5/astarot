@@ -368,6 +368,16 @@ pub type ListenerRows = Arc<HashSet<(String, u16)>>;
 /// Winsock may retry a refused connect beyond the short probe timeout, so on
 /// Windows a successful table query establishes absence without a connect.
 pub fn table_listener_missing(address: &Address, stopped: &Event, table: &ListenerTableProbe) -> Option<bool> {
+    table_listener_missing_within(address, stopped, table, TABLE_BUDGET)
+}
+
+/// How long one probe waits for the listener table, in seconds: the read and the
+/// confirmation of an absence together.
+const TABLE_BUDGET: f64 = 0.05;
+
+/// [`table_listener_missing`] with its time budget in seconds (tests that check the
+/// matching, not the budget, give the table worker time to be scheduled).
+fn table_listener_missing_within(address: &Address, stopped: &Event, table: &ListenerTableProbe, budget: f64) -> Option<bool> {
     let (host, port) = (address.0.as_str(), address.1);
     let mut addresses: Vec<&str> = if host == "::1" { vec!["::1", "::"] } else { vec!["127.0.0.1", "0.0.0.0", "::"] };
     if host == "localhost" {
@@ -375,11 +385,11 @@ pub fn table_listener_missing(address: &Address, stopped: &Event, table: &Listen
     }
     let listening = |rows: &ListenerRows| rows.iter().any(|(ip, local)| *local == port && addresses.contains(&ip.as_str()));
     let started = table.now();
-    let mut rows = table.read(stopped, 0.05, None)?;
+    let mut rows = table.read(stopped, budget, None)?;
     if !listening(&rows) {
         // A newly opened listener can be absent from another address's
         // cached snapshot. Confirm absence with a query begun during this probe.
-        let timeout = (0.05 - (table.now() - started)).max(0.0);
+        let timeout = (budget - (table.now() - started)).max(0.0);
         rows = table.read(stopped, timeout, Some(started))?;
     }
     Some(!listening(&rows))
@@ -611,6 +621,38 @@ mod windows_table {
         }
         Some(endpoints)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        const ESTABLISHED: u32 = 5;
+
+        #[test]
+        fn listening_rows_include_an_unknown_state_without_a_peer() {
+            // `test_tts_listener_monitor.py::test_listening_rows_include_unknown_state_without_a_peer`
+            // and the ESTABLISHED row of `test_windows_listener_table_requires_exact_port_and_listen_state`.
+            // The ports are in network byte order, as the table holds them.
+            let peer = u32::from(9u16.to_be());
+            assert!(listening(MIB_TCP_STATE_LISTEN, 0));
+            assert!(listening(0, 0), "a listening socket reported with state 0");
+            assert!(!listening(0, peer), "a state-0 row with a peer is a connection");
+            assert!(!listening(ESTABLISHED, peer));
+            assert!(!listening(ESTABLISHED, 0), "a known state other than LISTEN");
+            assert_eq!(port(u32::from(8080u16.to_be())), 8080);
+        }
+
+        #[test]
+        fn the_query_sees_a_real_listener_and_not_its_connection() {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let client = std::net::TcpStream::connect(address).unwrap();
+            let rows = query().expect("the TCP table is readable");
+            assert!(rows.contains(&("127.0.0.1".to_owned(), address.port())));
+            // The client's own end is a connection, never a listener.
+            assert!(!rows.contains(&("127.0.0.1".to_owned(), client.local_addr().unwrap().port())));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -620,6 +662,15 @@ mod tests {
 
     fn rows(items: &[(&str, u16)]) -> HashSet<(String, u16)> {
         items.iter().map(|(ip, port)| (ip.to_string(), *port)).collect()
+    }
+
+    /// A read budget for tests of what a read returns, not of how long it may take: the
+    /// table worker starts on the first read, and a loaded CI machine can take longer than
+    /// the 50 ms of a probe to schedule it.
+    const AMPLE: f64 = 1.0;
+
+    fn missing(address: &Address, table: &ListenerTableProbe) -> Option<bool> {
+        table_listener_missing_within(address, &Event::new(), table, AMPLE)
     }
 
     #[test]
@@ -642,9 +693,13 @@ mod tests {
                 0.02,
             )
         };
+        // Each read gives up at its own deadline while the query stalls. When the query starts
+        // is up to the scheduler; the read is bounded either way.
         let started = Instant::now();
         assert!(probe.read(&Event::new(), 0.03, None).is_none());
-        assert!(entered.is_set());
+        assert!(started.elapsed() < Duration::from_millis(300));
+        assert!(entered.wait(Some(Duration::from_secs(1))), "the query never started");
+        let started = Instant::now();
         for _ in 0..3 {
             assert!(probe.read(&Event::new(), 0.02, None).is_none());
         }
@@ -693,8 +748,11 @@ mod tests {
         let calls = Arc::new(AtomicUsize::new(0));
         let counter = calls.clone();
         let probe = ListenerTableProbe::new(move || (counter.fetch_add(1, Ordering::SeqCst) > 0).then(HashSet::new), 0.02);
-        assert!(probe.read(&Event::new(), 0.05, None).is_none());
-        assert_eq!(*probe.read(&Event::new(), 0.05, None).unwrap(), HashSet::new());
+        // The failed query itself answers `None`, not a read that ran out of time.
+        assert!(probe.read(&Event::new(), AMPLE, None).is_none());
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert_eq!(*probe.read(&Event::new(), AMPLE, None).unwrap(), HashSet::new());
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
         assert!(probe.close(Duration::from_millis(500)));
     }
 
@@ -737,10 +795,10 @@ mod tests {
         assert_eq!(calls.load(Ordering::SeqCst), 1);
         let address: Address = ("127.0.0.1".into(), 8080);
         *lock(&clock) += 0.019;
-        assert_eq!(table_listener_missing(&address, &Event::new(), &probe), Some(false));
+        assert_eq!(missing(&address, &probe), Some(false));
         assert_eq!(calls.load(Ordering::SeqCst), 1);
         *lock(&clock) += 0.002;
-        assert_eq!(table_listener_missing(&address, &Event::new(), &probe), Some(false));
+        assert_eq!(missing(&address, &probe), Some(false));
         assert_eq!(calls.load(Ordering::SeqCst), 2);
         let stopped = Event::new();
         stopped.set();
@@ -762,9 +820,9 @@ mod tests {
                 0.02,
             )
         };
-        assert_eq!(*probe.read(&Event::new(), 0.05, None).unwrap(), HashSet::new());
+        assert_eq!(*probe.read(&Event::new(), AMPLE, None).unwrap(), HashSet::new());
         lock(&listening).insert(("127.0.0.1".to_string(), 8080));
-        assert_eq!(table_listener_missing(&("127.0.0.1".into(), 8080), &Event::new(), &probe), Some(false));
+        assert_eq!(missing(&("127.0.0.1".into(), 8080), &probe), Some(false));
         assert_eq!(calls.load(Ordering::SeqCst), 2);
         assert!(probe.close(Duration::from_millis(500)));
     }
@@ -785,8 +843,8 @@ mod tests {
                 now,
             )
         };
-        assert!(probe.read(&Event::new(), 0.05, None).is_some());
-        assert!(probe.read(&Event::new(), 0.05, None).is_some());
+        assert!(probe.read(&Event::new(), AMPLE, None).is_some());
+        assert!(probe.read(&Event::new(), AMPLE, None).is_some());
         assert_eq!(calls.load(Ordering::SeqCst), 2);
         assert!(probe.close(Duration::from_millis(500)));
     }
@@ -797,10 +855,10 @@ mod tests {
             let table = Arc::new(Mutex::new(rows(&[(listener_ip, 1234)])));
             let reader = table.clone();
             let probe = ListenerTableProbe::new(move || Some(lock(&reader).clone()), 0.0);
-            assert_eq!(table_listener_missing(&(host.into(), 1234), &Event::new(), &probe), Some(false), "{host} {listener_ip}");
-            assert_eq!(table_listener_missing(&(host.into(), 1235), &Event::new(), &probe), Some(true));
+            assert_eq!(missing(&(host.into(), 1234), &probe), Some(false), "{host} {listener_ip}");
+            assert_eq!(missing(&(host.into(), 1235), &probe), Some(true));
             *lock(&table) = rows(&[("192.0.2.1", 1234)]);
-            assert_eq!(table_listener_missing(&(host.into(), 1234), &Event::new(), &probe), Some(true));
+            assert_eq!(missing(&(host.into(), 1234), &probe), Some(true));
             assert!(probe.close(Duration::from_millis(500)));
         }
     }
@@ -840,7 +898,16 @@ mod tests {
         let address: Address = ("127.0.0.1".into(), listener.local_addr().unwrap().port());
         assert!(!listener_missing_with(&address, &Event::new(), Some(&probe)));
         drop(listener);
-        assert!(listener_missing_with(&address, &Event::new(), Some(&probe)));
+        let started = Instant::now();
+        let missing = listener_missing_with(&address, &Event::new(), Some(&probe));
+        assert!(started.elapsed() < Duration::from_millis(500), "the connect fallback is not bounded");
+        // A refused connect proves absence. Winsock retries a refused loopback connect for
+        // longer than the 100 ms probe, so on Windows only the table proves it and an
+        // unreadable table leaves the answer inconclusive.
+        #[cfg(not(windows))]
+        assert!(missing);
+        #[cfg(windows)]
+        assert!(!missing);
         let stopped = Event::new();
         stopped.set();
         assert!(!listener_missing_with(&address, &stopped, Some(&probe)));

@@ -115,6 +115,8 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `src-python/test/test_translation_history_destination.py` | `messages.rs`（同じエンジンを保存し直しても履歴が残ること、ほかのエンジンやタブへ移って戻ると履歴が始まり直すこと）。8 つのプロバイダで同じことを試す Python の形は移さない（履歴はどのプロバイダにも同じ道で渡る） |
 | `src-python/test/test_conversation_logger.py` | `messages.rs`（オンの間だけ書くこと、オンにするたびに別のファイル）、`src/controller/messages.rs` の単体の試験 |
 | `src-python/test/test_message_delivery_revocation.py`（終了とチャットボックスの順番の部分） | `messages.rs`（訳している間に終了したメッセージがどこにも届かないこと）、`src/controller/messages.rs` の単体の試験（送らなかったメッセージで順番が進まないこと）。ミュートの扱いは 55 と 56。認識の停止と無効化での取り消しは「0.6.0 の残りの移行」の 1 |
+| `tests/voice/test_tts.py`、`test_scheduler.py`、`test_spoken_scheduler.py`、`test_tts_playback_ownership.py` | `native/tts` の `tests/client.rs`、`tests/scheduler.rs`、`tests/monitors.rs` と、`settings.rs`・`scheduler.rs` の単体の試験（区分 B。引数と確かめる値ごとに照らし合わせた）。中核を通した開始の遅れ、続けての発話、停止と設定の保存での割り込みは `voice.rs` |
+| `tests/voice/test_tts_listener_failure.py`、`src-python/test/test_tts_listener_monitor.py` | `native/tts` の `tests/listener.rs` と `listener.rs` の単体の試験（区分 B）。中核が起動したサーバの走りを持ち主にすることは `src/controller/voice/mod.rs` の単体の試験と `voice.rs`。探りが毎秒 50 回であることそのものは確かめていない（20 ms の間隔はコードの定数） |
 
 
 区分 A は上の表のとおり再カバーしました。音声認識の字幕を VR の大きいログに出す部分（`test_realtime_overlay*.py`）は、字幕を出す関数（`Core::show_overlay_caption`）につないでありますが、中核の試験ではまだ確かめていません。発話の診断のログ（`test_utterance_diagnostics.py`）は移していません（「判断が要ること」の 15）。
@@ -235,7 +237,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 - `voice-tests.yml` の `backend-windows` と `backend-linux`。`headless` の `check --scope voice` は残る試験だけにする。
 - `tools/dev.py` の `backend` のスコープ、`LINT_PATHS` と `PLATFORM_BACKEND_TESTS` の `src-python` の部分、`pyproject.toml` のアプリの依存と `cuda` の extra（`uv.lock` も）、`linux-build` のグループ、`bat/install.bat` と `mise run setup:app`、`.venv`・`.venv_cuda`・`.venv_linux`。
 - 中核の基準データを Python で作る道具（`native/core/reference/dump_reference.py`、`native/ocr-runtime/reference/`、`native/ops` の `python_reference.json` を作る手順）。データは残し、作り直す道具だけを引退させる。
-- `src-python` を読み込む開発用の道具（`tools/voice_cli.py`、`voice_route.py`、`voice_acceptance.py`、`native_acceptance.py`、`vrchat_voice_host.py`、`live_tts_acceptance.py`、`windows_field/`、`fake_vr_site/`、`chatbox_lab/`、`translation_onnx/compare.py` など）。中核で同じことをする道具に置き換えるか引退させる。
+- `src-python` を読み込む開発用の道具（`tools/voice_cli.py`、`voice_route.py`、`voice_acceptance.py`、`native_acceptance.py`、`vrchat_voice_host.py`、`live_tts_acceptance.py`、`windows_field/`、`fake_vr_site/`、`chatbox_lab/`、`translation_onnx/compare.py` など）。中核で同じことをする道具に置き換えるか引退させる。`live_tts_acceptance.py` のうち、本物の speech.cpp と出力で開始の遅れ、続けての発話、停止を測る部分は `native/core/examples/live_speech.rs` に移した（Windows で確かめた）。PipeWire のゲートと VRChat の画面を使う Linux の部分は移していない（「0.6.0 の残りの移行」の 2）。
 - `integrations/seed_vc/`（Python の Seed-VC。「判断が要ること」の 6）。
 - `src-python/models/overlay/fonts/` の Noto Sans の 4 書体（29.6 MB）。中核は書体を同梱しないので使いません（「決まったこと」の「字幕の書体」）。
 - `.github/CODEOWNERS` の例の `src-python/`。
@@ -260,7 +262,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 | 順 | 領域 | Issue | 残っていること | 先にする理由 |
 |---|---|---|---|---|
 | 1 | メッセージ送信 | #285 | 下の 1 | ほかの 3 領域は、認識した文や読み上げの口をこの流れに渡す。ここを先に固めると、後の領域の試験がこの流れを前提にできる |
-| 2 | 読み上げ（TTS） | #279 | 棚卸しの表にない試験（`tests/voice/test_tts.py`、`test_scheduler.py`、`test_spoken_scheduler.py`、`test_tts_playback_ownership.py`、`test_tts_listener_failure.py`、`src-python/test/test_tts_listener_monitor.py`）の再カバー。開始の遅れ、割り込み、続けての発話の実機での確認（#279 の受け入れ条件） | サーバの管理は済んでいて、残りは合成の要求と順番の振る舞いだけ。メッセージ送信の音声の口に依る |
+| 2 | 読み上げ（TTS） | #279 | 下の 2 | サーバの管理は済んでいて、残りは合成の要求と順番の振る舞いだけ。メッセージ送信の音声の口に依る |
 | 3 | リアルタイム音声認識 | #278 | VAD のエンジン（13。ADR-012 の 2.1 により、speech.cpp の VAD を先に検討する）、Python との違い（15）、フローパネルの時刻（24）、字幕を VR の大きいログに出すことの試験（`test_realtime_overlay*.py`）、`test_realtime_ingress_wait.py`、`native/ops` が `include_str!` で読む `src-python/models/model_downloads/speechcpp_asr.py` と `speechcpp_models.py` を `native/ops` へ移すこと | 確定した文をメッセージ送信と読み上げへ渡すので、その 2 つの後にする |
 | 4 | 声質変換 | #275（完了）の続き | Linux の管理された経路（11。`vrct-audio-routing` に PipeWire の録音を足す）、router を分けるか（12）、`test_vc_*.py` と `test_monitor_*.py` の再カバー、Seed-VC の引退（区分 D、`integrations/seed_vc/`） | 残りが一番大きく、Linux の音声の経路の作業を含む。RVC は ADR-012 で管理された例外（ONNX Runtime）なので、speech.cpp へ移す作業は含めない |
 | 最後 | `src-python` の削除 | #285 | 「Python の削除に伴うもの」 | 4 領域が終わってから |
@@ -272,6 +274,27 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 - **済んだこと**: 上の表に足した行のとおり、中核にあって試験のなかった振る舞いを試験で確かめました。送らなかったメッセージでチャットボックスの順番が進み、先に受け付けたメッセージが落ちていたのを、Python と同じ動きに直しました。
 - **判断を待つこと**: ミュートを解いたあとの取り消し（55）、リアルタイムの確定文の音声の世代（56）、入力中の表示を消せなかったときの答え（57）、ログの行（58）。
 - **残っている試験**: 認識（マイク、スピーカー、OCR、リアルタイム）の途中で、利用者が無効にしたとき、デバイスやエンジンが失敗したとき、リアルタイムへの引き継ぎに失敗したときに、届く前の文を取り消すこと。中核には実装があります（`Transcription::revoke`、`publication_guard`）が、`native/core/tests/` からは偽の録音と偽の認識サーバ（`transcription.rs`、`realtime_asr.rs` の部品）を使わないと届かないので、読み上げとリアルタイム音声認識の領域の作業で一緒に確かめます。設定のための一時停止（`reason: "settings_pause"`）では取り消さないことも同じです。
+
+### 2. 読み上げ
+
+棚卸しの表に載っていなかった読み上げの Python の試験 6 本を、引数と確かめる値ごとに `native/tts` の試験と照らし合わせました（2026-11-18）。ほとんどは同じ名前で移植済みでした。
+
+- **済んだこと**:
+  - `native/tts` に足りなかった試験を足しました。Windows の TCP 表で待ち受けとみなす行（状態 0 で相手のない行、接続の行）、合成の途中のパニック（Python の任意の例外）、最後の購読の停止、探りの途中で来た要求が同じ監視に入ること、終わった発話のタイマーが締め切りを過ぎても次の発話を取り消さないこと。
+  - 中核を通した試験を `voice.rs` に足しました。サーバが音声を送り終える前に読み上げが始まること、続けて送った文が 1 件ずつ最後まで順に読まれること、停止と設定の保存で読んでいる文が止まり、待っている文も捨てられ、スイッチはオンのままで次の文は読まれること。
+  - **起動したサーバの走りを持ち主にする配線を移しました**（`src/controller/voice/mod.rs`）。中核は `SpeechServers::on_listener` を誰にもつないでいなかったので、自分で起動した speech.cpp も外部のサーバとして扱い、読み上げの間はそのポートへ 20 ms ごとに接続して確かめていました。Python（`runtime.py` の `listener_monitors.own`）と同じく、走りが終わったらそのサーバへの要求を `server_unavailable` で終え、ポートは探らないようにしました。
+  - `native/tts` の試験はどの CI でも動いていなかったので、`voice-tests.yml` の `core-integration`（Linux と Windows）と `check --scope rust` に足しました。Windows では閉じたポートへの接続の拒否が 100 ms の探りでは返らないので、表が読めないときの接続の試験をその性質に合わせました。
+- **実機での確認**（#279 の受け入れ条件）: `native/core/examples/live_speech.rs` で、中核をアプリと同じく起動し、同梱の speech.cpp 0.11.0（Vulkan）と Irodori 866M Q8_0 で読み上げ、出力は無音の `Steam Streaming Speakers` にしました。2026-11-18、Windows 11 の PC（i7-1255U、RTX 3060 Ti を Thunderbolt でつなぎ `Vulkan1` を指定）で、ほかのプログラムが CPU を 80〜100% 使っている状態です。この PC での値で、一般の保証ではありません。
+  - 開始の遅れ（文を受けてから最初に聞こえる書き込みまで）: 4 回の計測で 17 件、113〜1,268 ms。#556（出だしの無音を書かずに飛ばす）が入る前のコードでの値です。
+  - 続けての発話: 約 1.5 秒の文 3 件は 3 回とも 3 件が順に読まれました。約 5 秒の文 3 件は、2 件目と 3 件目がキューで 5 秒を超えて待ち、読まれずに捨てられました（61）。
+  - 停止: 要求への答えは 0.2〜0.6 ms、読み上げが止まるまで 5〜33 ms。待っていた文も捨て、スイッチはオンのまま、次の文は読まれました。
+  - 途中で途切れること: 17 件中 2 件が、合成が実時間に追いつかず `output_underflow` で途中で止まりました。途中で打ち切った別の回にも 1 件ありました（62）。
+  - サーバの終了: 読み上げの途中で中核が起動した speech.exe を強制終了すると、この PC ではプロセスが 15 秒たっても消えず（GPU の後始末と見ています）、その間はポートも開いたままでした。読み上げは HTTP の読み取りの締め切りで止まりました（2 回で 2.1 秒 `output_underflow` と 8.7 秒 `transport_error`）。Python もプロセスの終わりを待つ仕組みなので、同じ条件では同じです。CPU で動かすと合成が遅すぎて読み上げが成り立たず、この場合の確認はできませんでした。
+- **判断を待つこと**: 待ちが 5 秒を超えた読み上げの破棄（61）、途中で途切れたときの扱い（62）、内部の形の違い（63）。
+- **残っていること**:
+  - `live_tts_acceptance.py` の Linux の部分（PipeWire のゲートのミュート、VRChat の画面での録音と再生）。Python の道具は、強制終了から無音までを p95 100 ms、最大 250 ms と見ていました。Linux の実機で `live_speech.rs` に PipeWire の部分を足すか、引退させるかを決めます。
+  - `native/tts` の時間に敏感な試験（50 ms の締め切りを使うもの）は、CPU が飽和したこの PC では Windows で落ちることがありました。CI の Windows で安定するかを見ます。
+  - 1 の「残っている試験」（認識の途中の取り消し）は、偽の録音と偽の認識サーバが要るので、リアルタイム音声認識の領域で確かめます。
 
 ## 翻訳の棚卸し
 
@@ -558,3 +581,6 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 58. **翻訳のログの行**。Python はプロバイダが失敗したとき、ログにプロバイダの名前を書きました。中核は「Translation: the provider failed」とだけ書きます。また、選んだエンジンが言語の組を持たず、ローカルのモデルも失敗したとき、Python は一度ログに書きましたが、中核は書きません。どちらも文やキーは含みません。名前を足すかを決めてください（プロバイダの名前は利用者のデータではありません）。
 59. **Responses API に回すモデルの決め方**（#277）。Python と同じくモデルの名前だけで決めます（`native/translation/src/providers/chat.rs` の `responses_only`）。名前の一覧は langchain-openai 1.8.0 のものを写したので、OpenAI が Responses API だけのモデルを新しく出したら、手で足す必要があります。規則は名前だけを見るので、OpenRouter、LM Studio、OpenAI 互換で名前に `codex` を含むモデルも、Python と同じく `/responses` に送ります。案は (a) このまま Python と同じにする、(b) OpenAI と OpenAI 互換だけにする、(c) Chat Completions が断ったときに Responses API で試し直す、です。(c) は一覧を手で足さなくてよくなりますが、断られるたびに要求が 1 回増えます。
 60. **Gemini の生成の設定**（#277）。Python は LangChain の既定の `temperature` 0.7 で訳していたので、中核も同じ値を送るようにしました。それまでの中核は何も送らず、モデルの既定（Gemini 2.5 は 1.0）で訳していました。0.7 のままにするか、設定で選べるようにするか、ほかの LLM のプロバイダ（既定ではどれも `temperature` を送らない）とそろえるかを決めてください。
+61. **待ちが 5 秒を超えた読み上げの破棄**（#279）。Python と同じく、キューで 5 秒を超えて待った発話は読まずに捨てます（`expired`。容量は 4 件）。この決まりは打ち込んだチャットにもかかります。実機では、約 5 秒の文を 3 件続けて送ると 2 件目と 3 件目が捨てられ、約 1.5 秒の文なら 3 件とも読まれました（「0.6.0 の残りの移行」の 2）。#279 の「連続発話が現行と同等」は満たしますが、長めの文を続けて送ると後の文が黙って消えます。案は (a) このままにする（遅れて届く音声を出さない）、(b) チャットは待ちの上限を長くするか、前の発話が話している間は数えない、(c) 捨てたことを UI に出す、です。
+62. **読み上げの途中で出力が途切れたとき**（#279）。Python（PortAudio の `exception_on_underflow`）と同じく、読み上げの出力でバッファが空になると、その発話を `output_underflow` で止めます。CPU が飽和した PC では合成が実時間に追いつかず、17 件中 2 件が途中で止まりました。案は (a) このままにする、(b) 出だしにためる量を増やす（開始の遅れが延びる）、(c) 途切れを無音で埋めて続ける（相手には途切れた音声が届く）、です。
+63. **Python と違う内部の形（読み上げ、報告）**（#279）。利用者から見える違いはない想定です。Windows の TCP 表で待ち受けとみなす行（Python は状態が LISTEN か、psutil の NONE で相手のアドレスがない行。中核は状態 2 か、1〜12 以外で相手のポートが 0 の行）。最初の音声までの締め切りを、ヘッダの読み取りにもかけること（Python はヘッダを少しずつ送るサーバで締め切りを越えることがありました）。`X-Sample-Rate` は ASCII の数字だけを読むこと（Python の `int()` は `48_000` なども読みました）。モニターを閉じるのを状態のロックの外で行うこと。

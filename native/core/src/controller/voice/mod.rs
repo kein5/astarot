@@ -34,6 +34,7 @@ use vrct_audio_routing::voice_route::{MuteBus, RouteOptions, VoiceRoute};
 use vrct_speech_server::Profile;
 use vrct_tts::converted::{Chunks, ConversionSpeaker, ConvertedSpeechRouter, SpeakError};
 use vrct_tts::engines::EngineClient;
+use vrct_tts::listener::{ListenerMonitor, ListenerMonitors, ProcessExit};
 use vrct_tts::message_hook::{TranscriptUpdate, TranslationTarget, chat_event, microphone_event};
 use vrct_tts::playback::{AudioRouter, FirstAudio, Monitor, OutputSink};
 use vrct_tts::scheduler::{BusOptions, MonitorRequest};
@@ -1340,6 +1341,38 @@ fn uuid_text() -> String {
     format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..])
 }
 
+/// The end of a server run, as the speech server reports it: the run's listener is gone when
+/// its child has exited or is being stopped.
+struct RunEnd(vrct_tts::sync::Event);
+
+impl ProcessExit for RunEnd {
+    fn wait(&self) -> std::io::Result<()> {
+        self.0.wait(None);
+        Ok(())
+    }
+}
+
+/// The TTS servers this app started, each with the monitor its requests subscribe to.
+#[derive(Default)]
+struct ServerOwners(Mutex<HashMap<Profile, (ListenerMonitor, vrct_tts::sync::Event)>>);
+
+impl ServerOwners {
+    /// A server of `profile` listens on `(port, pid)`, or no longer does (`None`).
+    fn heard(&self, registry: &ListenerMonitors, profile: Profile, listener: Option<(u16, u32)>) {
+        let mut owners = self.0.lock().unwrap();
+        // A new run replaces an older one whose end was not told; that end is told now.
+        if let Some((monitor, end)) = owners.remove(&profile) {
+            end.set();
+            registry.forget(&monitor);
+        }
+        if let Some((port, _pid)) = listener {
+            let end = vrct_tts::sync::Event::new();
+            let monitor = registry.own(("127.0.0.1".to_owned(), port), Arc::new(RunEnd(end.clone())));
+            owners.insert(profile, (monitor, end));
+        }
+    }
+}
+
 fn with_voice(core: &Arc<Core>, handler: impl FnOnce(&Voice) -> Reply) -> Reply {
     match core.voice() {
         Some(voice) => handler(voice),
@@ -1360,6 +1393,10 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     core.set_realtime_mic_probe(Arc::new(move || {
         realtime.upgrade().is_some_and(|core| core.realtime_requested(super::audio_devices::Source::Mic))
     }));
+    // A request to a TTS server this app started ends when the server does, and its port is not
+    // probed while it speaks (`listener_monitors.own` in `runtime.py`).
+    let owners = ServerOwners::default();
+    core.speech_servers().on_listener(Arc::new(move |profile, listener| owners.heard(vrct_tts::listener::listener_monitors(), profile, listener)));
     // A TTS server that ends turns TTS off.
     let ended = Arc::downgrade(core);
     core.speech_servers().on_end(Arc::new(move |end| {
@@ -1416,4 +1453,65 @@ pub(crate) fn add(b: &mut Builder<'_>) {
 /// 409 for a conflict, 400 for the rest (`_vcRuntimeFailure`).
 fn runtime_status(code: &str) -> u16 {
     if ["vc_runtime_busy", "vc_runtime_closed", "stale_job"].contains(&code) { 409 } else { 400 }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vrct_tts::listener::{Address, Probe};
+    use vrct_tts::sync::Event;
+
+    /// A probe that must never run: an owned server's port is not probed.
+    fn no_probe() -> Probe {
+        Arc::new(|_: &Address, _: &Event| panic!("an owned server's port was probed"))
+    }
+
+    #[test]
+    fn a_request_to_a_started_server_ends_with_its_run_and_never_probes() {
+        // `test_tts_listener_monitor.py::test_owned_exit_interrupts_suspended_stream_without_connects`
+        // and `test_runtime_registers_owner_before_standby_uses_synthesis`, at the hook the
+        // speech server calls when its run listens and when it ends.
+        let registry = ListenerMonitors::new();
+        let owners = ServerOwners::default();
+        let address: Address = ("127.0.0.1".into(), 4321);
+        owners.heard(&registry, Profile::Japanese, Some((4321, 7)));
+        let owner = registry.owned(&address).expect("the started server is owned");
+        let tokens = [CancelToken::new(), CancelToken::new()];
+        let watches: Vec<_> = tokens.iter().map(|token| registry.watch(&address, token, Event::new(), no_probe(), Some(owner.clone()))).collect();
+        // The other profile's server is someone else's.
+        owners.heard(&registry, Profile::Multilingual, Some((4322, 8)));
+        owners.heard(&registry, Profile::Multilingual, None);
+        assert!(!tokens[0].wait(Duration::from_millis(50)), "another server's end cancelled the request");
+        assert!(registry.owned(&address).is_some());
+
+        owners.heard(&registry, Profile::Japanese, None);
+        for token in &tokens {
+            assert!(token.wait(Duration::from_secs(2)), "the server's end did not reach the request");
+            assert_eq!(token.reason(), "server_unavailable");
+        }
+        assert!(owner.join(Duration::from_secs(2)), "the run's waiter is left behind");
+        assert!(registry.owned(&address).is_none() && registry.external_count() == 0);
+        drop(watches);
+    }
+
+    #[test]
+    fn a_new_run_on_the_same_port_belongs_to_its_own_process() {
+        // `test_owned_exit_before_first_pcm_and_port_reuse_keep_process_identity`: a request
+        // sent to the new run is not cancelled by the old run's end.
+        let registry = ListenerMonitors::new();
+        let owners = ServerOwners::default();
+        let address: Address = ("127.0.0.1".into(), 4323);
+        owners.heard(&registry, Profile::Japanese, Some((4323, 7)));
+        let old = registry.owned(&address).unwrap();
+        // A restart whose old end was not told: the old run ends as the new one listens.
+        owners.heard(&registry, Profile::Japanese, Some((4323, 9)));
+        assert!(old.join(Duration::from_secs(2)));
+        let new = registry.owned(&address).expect("the new run is owned");
+        let token = CancelToken::new();
+        let _watch = registry.watch(&address, &token, Event::new(), no_probe(), Some(new.clone()));
+        assert!(!token.wait(Duration::from_millis(50)), "the old run's end cancelled a request to the new one");
+        owners.heard(&registry, Profile::Japanese, None);
+        assert!(token.wait(Duration::from_secs(2)));
+        assert!(new.join(Duration::from_secs(2)));
+    }
 }
