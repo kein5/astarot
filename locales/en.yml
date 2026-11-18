@@ -775,8 +775,13 @@ config_page:
         x_rotation: "X-axis rotation"
         y_rotation: "Y-axis rotation"
         z_rotation: "Z-axis rotation"
+        position_rotation:
+            label: "Position and rotation"
+            desc: "Move the subtitles along each axis with its slider or the buttons beside it."
         sample_text_button:
-            start: "Send sample text\nto the subtitle overlay"
+            label: "Check how it looks"
+            desc: "While you adjust, sample text is sent to the subtitle overlay every second. It stops when settings close."
+            start: "Send sample text to the subtitle overlay"
             stop: "Stop sending"
             sample_text: "Sample text."
         opacity: "Opacity"

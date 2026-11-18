@@ -13,7 +13,7 @@ async function setup(context) {
     context.onTestFinished(() => controls.unmount());
     const saved = { tracker: "HMD", x_pos: 0, y_pos: 0 };
     const { Vr } = await loadModule(new URL("./Vr.jsx", import.meta.url), bindings, {
-        "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" },
+        "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
         "@common_components": { ResetButton: "reset" }, "@utils": {},
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
@@ -27,7 +27,7 @@ async function setup(context) {
     const props = { ...node.props, default_ui_configs: saved, setOverlaySettings: value => { writes.push(value); return true; } };
     const render = () => { controls.render(target, props); return controls.render(target, props); };
     const handlers = () => find(render(), item => item.props?.selectFunction && item.props?.onChangeFunction).props;
-    return { props, handlers, writes, unmount: controls.unmount };
+    return { props, handlers, writes, render, unmount: controls.unmount };
 }
 
 for (const reset of [false, true]) test(`VR pending position write preserves the newer ${reset ? "axis reset" : "tracker selection"}`, async context => {
@@ -84,7 +84,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
     const { Vr } = await loadModule(new URL("./Vr.jsx", import.meta.url), { ...runtimes.button, api }, {
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
-        "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" },
+        "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
         "@common_components": { ResetButton: "reset" }, "@utils": { randomIntMinMax: () => 1 },
         "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: saved, state: "ok" },
@@ -138,4 +138,16 @@ test("restoring all VR defaults cancels the editor's pending position write", as
     vi.advanceTimersByTime(300);
     assert.deepEqual(s.writes, []);
     assert.equal(s.handlers().settings.x_pos, 0);
+});
+
+test("the position and rotation diagram and the sample text are rows of the label and field columns (#568)", async context => {
+    const rendered = (await setup(context)).render();
+    const row = label => find(rendered, item => item.type === "form-row" && item.props.label === label);
+    const axes = row("config_page.vr.position_rotation.label");
+    assert.ok(axes, "the axes have a labelled row");
+    assert.equal(axes.props.description, "config_page.vr.position_rotation.desc");
+    assert.ok(find(axes, item => item.type?.name === "PositionControls"), "the diagram is in the row's field column");
+    assert.ok(find(axes, item => item.type?.name === "PageSwitcherContainer"), "so is the position/rotation switch");
+    const sample = row("config_page.vr.sample_text_button.label");
+    assert.ok(sample && find(sample, item => item.type?.name === "SendSampleTextToggleButton"));
 });
