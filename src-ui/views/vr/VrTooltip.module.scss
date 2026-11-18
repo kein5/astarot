@@ -9,6 +9,6 @@
 }
 .title {
     display: flex; align-items: baseline; justify-content: space-between; gap: 10px; line-height: 22px;
-    strong { font-size: 18px; font-weight: 600; }
-    span { font-size: 15px; color: var(--primary_100_color); text-align: right; }
+    strong { font-size: 16px; font-weight: 600; }
+    span { font-size: 16px; color: var(--primary_100_color); text-align: right; }
 }
