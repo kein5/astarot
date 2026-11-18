@@ -105,3 +105,17 @@ cargo test --locked --manifest-path native/translation/Cargo.toml
 `tests/providers.rs` は、ループバックに立てた偽のプロバイダ（機能 `fake-server` の `fake::FakeProviders`）を相手に、各プロバイダの型を直接呼んで、キーの確認、モデルの一覧、翻訳、失敗と再試行、Google Cloud Translation と Papago の要求の形を確かめます。実行時の名前からの呼び出しが型からの呼び出しと同じ要求を送ること、`incomplete_details` を見るのが OpenAI と OpenAI 互換だけであること、モデルのないチャットは何も送らないことも確かめます。外のネットワークには出ません。
 
 `tests/sudachi.rs` は、sudachi.rs の辞書の作成機能で数語の辞書をその場で作り、Sudachi の解析から読みまでを確かめます。ない辞書と壊れた辞書も確かめます。SudachiDict は取得しません。ビルドでは sudachi.rs を GitHub から取得します（C の依存はありません）。
+
+### 契約テスト（Python との同等性）
+
+Python の実装と同じに動くことは、`tests/contract/` の 2 つのファイルで確かめます。どちらも Python の実装から記録したもので、Python を消したあとはこのファイルが仕様になります。
+
+| ファイル | 中身 | Rust の試験 | 記録する Python の試験 |
+|---|---|---|---|
+| `providers.json` | プロバイダごとの場面（頼む操作と、プロバイダが返す応答）と、そのとき Python のクライアントが送った要求（メソッド、URL、ヘッダー、本文、待ち時間）と返した結果 | `tests/contract.rs` | `src-python/test/test_translation_contract.py` |
+| `transliteration.json` | 文ごとの Sudachi の形態素と読み（マクロンありとなし）、かなごとのヘボン式 | `tests/transliteration_contract.rs` | `src-python/test/test_transliteration_contract.py` |
+
+- プロバイダの契約は、通信を差し替えて実際のアドレスのまま記録します。外のネットワークには出ません。キーは作り物です。比べないのは、HTTP のライブラリや SDK が自分で付けるヘッダー（`User-Agent`、`Accept`、`x-stainless-*` など）と、本文のない要求の `Content-Type` だけです。Python の requests には書き込みの待ち時間がないので、その欄も比べません。
+- 中核が意図して Python と違う場面は、`python` の記録を残したまま `rust` に中核の記録を書き、`differences` にその理由と決めた場所を書きます（いまは、この PC と LAN の OpenAI 互換のエンドポイントの待ち時間と再試行だけです）。Google Cloud Translation と Papago は Python になかったので、各社の文書から書いた `expect` と比べます。
+- 読みの契約は、記録した形態素を Rust の読みに渡して比べるので、辞書なしで動きます。`VRCT_SUDACHI_DICTIONARY` に SudachiDict の `system.dic`（ファイルに書いた版）を指定すると、sudachi.rs の解析結果も記録と比べます。2026-11-18 に、Python の環境の SudachiDict full 20250825 で 170 文すべてが一致しました。
+- 場面を変えたときは、Python の環境で `VRCT_TRANSLATION_CONTRACT_WRITE=1` を付けて 2 つの Python の試験を流すと、記録を書き直します。Python のない環境では、場面と記録を手で書きます。
