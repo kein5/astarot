@@ -4,25 +4,30 @@
     max-width: 100%;
 }
 
+// The same field as the kit's TextField and the forms' inputs (DESIGN.md "input", shadcn/ui's
+// Input): the surface, the field border (3.5:1 against it), the control radius and 4rem of height.
 .entry_wrapper {
-    height: 100%;
-    background-color: var(--dark_875_color);
-    border: 0.1rem solid var(--dark_750_color);
-    border-radius: 0.4rem;
+    display: flex;
+    min-height: 4rem;
+    background-color: var(--vox_surface);
+    border: 0.1rem solid var(--vox_field_border);
+    border-radius: var(--vox_radius);
     &.is_activated {
-        border: 0.1rem solid var(--primary_400_color);
+        border-color: var(--primary_400_color);
     }
 }
 
 .entry_input_area {
+    // Stretched to the box's height, so a click anywhere in the box reaches the input.
+    flex: 1 1 auto;
     width: 100%;
     min-width: 0;
-    height: 100%;
-    // The padding belongs to the input, so a click anywhere in the box reaches it.
     padding: 0.6rem;
     font-size: 1.4rem;
     resize: none;
     font-family: inherit;
+    // The focus ring is drawn around the input; its corners follow the box's.
+    border-radius: calc(var(--vox_radius) - 0.1rem);
     &.is_disabled {
         color: var(--dark_500_color);
         pointer-events: none;

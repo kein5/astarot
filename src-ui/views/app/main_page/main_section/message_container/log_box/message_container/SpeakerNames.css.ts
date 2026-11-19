@@ -79,6 +79,7 @@ export const actions = style({
 
 const button = {
     font: "inherit",
+    fontWeight: 500,
     padding: ".3em .9em",
     borderRadius: vars.vox_radius,
     cursor: "pointer",

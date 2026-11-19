@@ -20,7 +20,7 @@
     flex-shrink: 0;
     display: inline-flex; align-items: center; gap: .6rem; min-height: 3.6rem; padding: .4rem 1.2rem;
     border: .1rem solid var(--vox_border); border-radius: var(--vox_radius);
-    font-size: 1.3rem; font-variant-numeric: tabular-nums; white-space: nowrap;
+    font-size: 1.3rem; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap;
     color: var(--dark_200_color); background: var(--vox_surface); cursor: pointer;
     transition: background-color .12s ease, border-color .12s ease, color .12s ease;
 }
@@ -29,7 +29,7 @@
 .stop:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
 // Amber while something is spoken or queued, and while muted; the words say which.
 .stop.is_attention, .stop.is_pressed { color: var(--vox_state_warning); border-color: var(--vox_state_warning); }
-.stop:disabled { opacity: .6; cursor: not-allowed; }
+.stop:disabled { opacity: .5; cursor: not-allowed; }
 .muted_badge { padding: .1rem .6rem; border-radius: .4rem; font-size: 1.2rem; color: var(--dark_1000_color); background: var(--vox_state_warning); }
 // This bar has no room for the long words. A narrow conversation column draws the
 // shortest ones; the accessible name and the tooltip stay the full words. The

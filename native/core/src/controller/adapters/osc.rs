@@ -43,6 +43,8 @@ pub(super) fn add(b: &mut Builder<'_>) {
     b.with("/get/data/vrchat_osc_presence", OPEN, |core, _| with(core, |a| ok(a.vrchat_presence())));
     b.with("/set/data/osc_ip_address", OPEN, |core, data| with(core, |a| a.set_osc_ip_address(data)));
     b.with("/set/data/osc_port", OPEN, |core, data| with(core, |a| a.set_osc_port(data)));
+    b.with("/set/enable/osc_query", OPEN, |core, _| with(core, |a| a.set_osc_query(true)));
+    b.with("/set/disable/osc_query", OPEN, |core, _| with(core, |a| a.set_osc_query(false)));
 }
 
 pub(super) fn with(core: &Arc<crate::controller::Core>, f: impl FnOnce(&Arc<Adapters>) -> Reply) -> Reply {
@@ -124,8 +126,44 @@ impl Adapters {
         // The saved destination never opened: open the new one.
         let port = port.unwrap_or_else(|| port_of(&self.config.get("OSC_PORT")));
         let osc = (self.services.osc)(ip, port).map_err(OscError::from)?;
+        if !self.config.get_bool("OSC_QUERY") {
+            osc.set_query_allowed(false)?;
+        }
         *self.osc.lock().unwrap() = Some(osc);
         Ok(())
+    }
+
+    /// The OSCQuery setting (`OSC_QUERY`, #559). Off, receiving VRChat's parameters, the mDNS
+    /// advertisement and the discovery stop; mic mute sync then cannot run and is turned off as
+    /// when OSCQuery could not start, and VRChat's presence reads unknown. Messages are still
+    /// sent. On, receiving starts again for the destination; sync stays as it was left.
+    fn set_osc_query(self: &Arc<Self>, on: bool) -> Reply {
+        let generation = {
+            let _control = self.osc_control.lock().unwrap();
+            if self.config.get_bool("OSC_QUERY") != on {
+                let _ = self.config.set("OSC_QUERY", json!(on));
+            }
+            let running = || self.osc().is_some_and(|osc| osc.query_enabled());
+            let was_running = running();
+            let changed = match self.osc() {
+                Some(osc) if !self.shutting_down() => osc.set_query_allowed(on),
+                Some(_) => Err(OscError::ShutDown),
+                // No destination is open; the next one opens with the setting.
+                None => Ok(()),
+            };
+            if changed.is_err() {
+                self.step(if on { "OSC: OSCQuery could not start" } else { "OSC: OSCQuery did not stop cleanly" });
+            }
+            // Off with sync on: the microphone stops and sync goes off, as when OSCQuery fails.
+            self.publish_osc_readiness(false);
+            // Started again with sync still on: held back until VRChat answers, as at start-up.
+            let started = !was_running && running();
+            self.with_mute(|state| (started && self.config.get_bool("VRC_MIC_MUTE_SYNC")).then(|| self.invalidate(state)))
+        };
+        if let Some(generation) = generation {
+            self.query_mute_now(generation);
+        }
+        ok(self.config.get("OSC_QUERY"))
     }
 
     // ---------------------------------------------------------------- typing and sending
@@ -239,8 +277,18 @@ impl Adapters {
             return;
         }
         let remote = !uses_osc_query(&self.config.get_str("OSC_IP_ADDRESS"));
-        // Sending to another machine is a choice made in the settings: at start-up, with nothing
-        // stopped, the UI gets no warning to show.
+        // OSCQuery turned off is the reason first: it would not run for this PC either (#559).
+        let turned_off = !self.config.get_bool("OSC_QUERY");
+        let reason = if turned_off {
+            "turned_off"
+        } else if remote {
+            "remote_destination"
+        } else {
+            "setup_failed"
+        };
+        // Sending to another machine and turning OSCQuery off are choices made in the settings:
+        // at start-up, with nothing stopped, the UI gets no warning to show.
+        let chosen = remote || turned_off;
         let (warn, stopped) = self.with_mute(|state| {
             if self.config.get_bool("VRC_MIC_MUTE_SYNC") {
                 self.invalidate(state);
@@ -251,7 +299,7 @@ impl Adapters {
                 self.run(200, "/set/disable/vrc_mic_mute_sync", json!(false));
                 (true, true)
             } else {
-                (!(startup && remote), false)
+                (!(startup && chosen), false)
             }
         });
         let disabled: Vec<&str> = if warn { vec!["vrc_mic_mute_sync"] } else { Vec::new() };
@@ -261,7 +309,7 @@ impl Adapters {
             json!({
                 "data": false,
                 "disabled_functions": disabled,
-                "reason": if remote { "remote_destination" } else { "setup_failed" },
+                "reason": reason,
                 "microphone_stopped": stopped,
             }),
         );

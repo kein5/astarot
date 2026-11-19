@@ -17,8 +17,10 @@ export const colourTransition = [
     `color ${vars.vox_motion_fast} ${vars.vox_ease}`,
 ].join(", ");
 
-// A control that cannot be used keeps its place and its words, only dimmer.
+// A control that cannot be used keeps its place and its words, only dimmer: half, as in
+// shadcn/ui (disabled:opacity-50). Whether it also stops taking the pointer, as shadcn/ui's
+// buttons do, is still open (D-07 of the shadcn/ui inventory, docs/design/components/).
 export const disabledLook = {
     cursor: "not-allowed",
-    opacity: .55,
+    opacity: .5,
 } as const;

@@ -65,6 +65,8 @@ export const LOCAL_LLM_PROVIDERS = ["LMStudio", "Ollama", "OpenAI_Compatible"];
 // The local AI translation is what a first start uses; its model is the first thing here. The
 // translation APIs and local LLMs are set up once by those who use them, in 「詳細設定」 (#554).
 // Its line counts the ones ready; it opens by itself while a language preset uses one of them.
+// The translation catalog (#413), where users add models and APIs of their own, is a section of
+// its own after the fold, always in sight (#597).
 export const Translation = () => {
     const { t } = useI18n();
     const { currentTranslationEngines } = useStore_TranslationEngines();
@@ -80,9 +82,8 @@ export const Translation = () => {
                 api: ready(EXTERNAL_API_PROVIDERS), llm: ready(LOCAL_LLM_PROVIDERS) })}>
                 <ExternalTranslationAPI_Container />
                 <LocalLLM_Container />
-                {/* The models and APIs users add (#413), next to the providers they extend. */}
-                <TranslationCatalogSection />
             </AdvancedSection>
+            <TranslationCatalogSection />
         </div>
     );
 };

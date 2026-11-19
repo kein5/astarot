@@ -14,6 +14,23 @@ use std::time::Duration;
 
 pub const KEY: &str = "good-key";
 
+/// How the Realtime stand-in fails a session once it is set up (the failures decision 81 found
+/// without tests).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RealtimeFault {
+    #[default]
+    None,
+    /// `session.updated` names another model than the one asked for.
+    OtherModel,
+    /// After this many finished utterances, one starts and gets a partial but never finishes;
+    /// no other utterance comes after it.
+    NeverFinish(usize),
+    /// The connection is closed, without a close frame, when the first audio arrives.
+    Drop,
+    /// An event larger than 1 MiB is sent when the first audio arrives.
+    Oversized,
+}
+
 /// What the fake answers.
 #[derive(Default)]
 pub struct Behaviour {
@@ -23,12 +40,18 @@ pub struct Behaviour {
     pub text: Mutex<String>,
     /// The speech.cpp model list (`/v1/models`).
     pub models: Mutex<Value>,
+    /// `/v1/models` is held without an answer until the client goes or 10 s pass.
+    pub models_silent: AtomicBool,
     /// Deepgram's speech models (`/deepgram/v1/models`, the `stt` rows).
     pub deepgram_models: Mutex<Value>,
     /// Realtime: audio blocks to receive before an utterance is announced (0: never).
     pub realtime_after: AtomicUsize,
     /// The status of the Realtime handshake; 0 accepts.
     pub realtime_refuse: AtomicU16,
+    /// Realtime: the connection is held without an answer to its handshake, as a server that
+    /// is going away may do, until the client goes or 10 s pass.
+    pub realtime_silent: AtomicBool,
+    pub realtime_fault: Mutex<RealtimeFault>,
     /// Realtime: who spoke each utterance, as a diarizing server says it
     /// (`[{"speaker": "A", "start_ms": 0, "end_ms": 900}, ...]`); null sends none.
     pub speakers: Mutex<Value>,
@@ -165,6 +188,11 @@ impl FakeAsr {
         let bearer = authorization == format!("Bearer {KEY}");
         match (method, path.as_str()) {
             ("GET", "/v1/models") => {
+                if self.behaviour.models_silent.load(Ordering::SeqCst) {
+                    let mut sink = [0u8; 64];
+                    while matches!(stream.read(&mut sink), Ok(size) if size > 0) {}
+                    return;
+                }
                 let models = self.behaviour.models.lock().unwrap().clone();
                 Self::json(&mut stream, 200, models)
             }
@@ -235,6 +263,11 @@ impl FakeAsr {
     fn realtime(&self, stream: TcpStream) {
         let refuse = self.behaviour.realtime_refuse.load(Ordering::SeqCst);
         let mut stream = stream;
+        if self.behaviour.realtime_silent.load(Ordering::SeqCst) {
+            let mut sink = [0u8; 4096];
+            while matches!(stream.read(&mut sink), Ok(size) if size > 0) {}
+            return;
+        }
         if refuse != 0 {
             let mut head = [0u8; 4096];
             let _ = stream.read(&mut head);
@@ -254,8 +287,10 @@ impl FakeAsr {
             return;
         }
         let after = self.behaviour.realtime_after.load(Ordering::SeqCst);
+        let fault = *self.behaviour.realtime_fault.lock().unwrap();
         let mut item = 0;
         let mut counted = 0usize;
+        let (mut unfinished, mut large_sent) = (false, false);
         // A session without a transcription detects speech alone (the recorder's VAD): by
         // volume here, in blocks of 20 ms, with server_vad's padding and silence.
         let mut detecting: Option<Value> = None;
@@ -270,6 +305,9 @@ impl FakeAsr {
                     let mut session = value["session"].clone();
                     if session["audio"]["input"].get("diarization").is_none() {
                         session["audio"]["input"]["diarization"] = Value::Null;
+                    }
+                    if fault == RealtimeFault::OtherModel {
+                        session["audio"]["input"]["transcription"]["model"] = json!("another-model");
                     }
                     if session["audio"]["input"]["transcription"].is_null() {
                         detecting = Some(session["audio"]["input"]["turn_detection"].clone());
@@ -310,7 +348,19 @@ impl FakeAsr {
                 }
                 Some("input_audio_buffer.append") => {
                     self.appends.fetch_add(1, Ordering::SeqCst);
+                    match fault {
+                        RealtimeFault::Drop => return,
+                        RealtimeFault::Oversized if !large_sent => {
+                            large_sent = true;
+                            let event = json!({ "event_id": "large", "type": "rate_limits.updated", "padding": "x".repeat(1024 * 1024) });
+                            let _ = socket.send(tungstenite::Message::text(event.to_string()));
+                        }
+                        _ => {}
+                    }
                     counted += 1;
+                    if unfinished {
+                        continue;
+                    }
                     if after > 0 && counted == after {
                         counted = 0;
                         item += 1;
@@ -322,6 +372,18 @@ impl FakeAsr {
                         let speakers = self.behaviour.speakers.lock().unwrap().clone();
                         if !speakers.is_null() {
                             completed["speakers"] = speakers;
+                        }
+                        if fault == RealtimeFault::NeverFinish(item - 1) {
+                            unfinished = true;
+                            for message in [
+                                next("input_audio_buffer.speech_started", json!({ "item_id": id })),
+                                next(&format!("{prefix}delta"), json!({ "item_id": id, "delta": half })),
+                            ] {
+                                if socket.send(message).is_err() {
+                                    return;
+                                }
+                            }
+                            continue;
                         }
                         for message in [
                             next("input_audio_buffer.speech_started", json!({ "item_id": id })),

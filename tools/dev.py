@@ -25,7 +25,7 @@ SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "backend", "rust", 
 GROUPS = {"quick": ("tooling", "node", "lint"),
           "all": ("tooling", "node", "ui", "voice", "lint", "backend", "rust")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
-NATIVE_CRATES = ("native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
+NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
                  "native/translate-onnx", "native/tts", "native/core")
 SETUP_SCOPES = ("headless", "ui", "browser", "backend", "rust", "resources")

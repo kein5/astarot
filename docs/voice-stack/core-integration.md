@@ -55,8 +55,9 @@ flowchart LR
 | `tests/clipboard.rs` | 音声タイピングの貼り付け（#393）。SteamVR のシーンのゲームのウィンドウを前面に出して Ctrl+V を送ること（Windows と X11 の順序）、ゲームを貼り付けのたびに読み直すこと、SteamVR がない・つなげない・ゲームがない・Steam のゲームでない・前面に出せないときはコピーだけ行うこと、オーバーレイと OpenVR の接続を共有すること、文とゲームの名前をログに書かないこと。SteamVR とデスクトップは代わりのものを使う |
 | `tests/ocr.rs` | チャットの読み取り。偽の画像と偽の認識器を使う。ディスクのファイルから見たモデルの準備、オンにできない理由（`OCR_DISABLED_*`）の通知、状態、動いている読み取りに設定が届くこと、言語の切り替えと巻き戻し、読んだ行をメッセージの流れへ渡し `/run/transcription_ocr_message` で UI に届くこと、オフと終了、モデルの読み込み中の終了、読んだ文字がログに出ないこと |
 | `tests/transcription.rs` | 音声認識の録音（クラウドのエンジン）。マイクとスピーカーのスイッチ、エンジンやデバイスがないときの拒否と通知、認識した文が UI・チャットボックス・会話のログに届き `process.log` には出ないこと、44.1 kHz のスピーカーと Whisper の API（言語とセグメントの選別）、音量メーター、エンジンの失敗（`ASR_ERROR`）、開けないデバイス（`AUDIO_OPEN_ERROR`）と別のデバイスへの切り替え、読み取りの失敗（`AUDIO_READ_ERROR`）、抜いたデバイスから別のデバイスへ移ることと最後のデバイスを抜いたときの停止、ミュートの同期、認識のキーと URL の確認と戻す値、起動時のエンジンの確認、保存されていた Google の選択が未選択になること、エンジンでない値を断っても認識が続くこと、終了。デバイスは 44.1 kHz と 48 kHz の PCM をデバイスと同じ間隔で渡す偽物、エンジンは 127.0.0.1 の偽のサーバ |
+| `tests/recognition_revocation.rs` | 認識した文を届ける前に止めたときの扱い。翻訳を待つ間にスイッチを切る、デバイスを失う、読み取りが失敗する、リアルタイムのセッションが自分で終わる、VRChat でミュートする（同期がオンのとき）と、UI、チャットボックス、会話のログのどこにも届かないこと。設定のための一時停止、デバイスの移動、リアルタイム認識への引き継ぎ、ミュートの間のスピーカーと打ったチャットは届くこと。翻訳は `FakeProviders` で止めておき、録音は偽物、認識は 127.0.0.1 の偽のサーバ、OSC は偽の接続 |
 | `tests/transcription_engine.rs` | 音声認識のエンジンと言語。エンジンを変えたときにすべてのタブで聞き取れない言語を戻すこと（有効な訳す先を避ける、無効な訳す先に触れない、埋まっていれば戻さない）、言語の一覧の知らせ、Deepgram のモデルを変えたときの同じ扱い（Deepgram を選んでいる間だけ）とモデルの言語に絞った一覧、使えないエンジンとキーを消したエンジンの選択を残すこと、一覧にない値を `VALIDATION_CONFIG_VALUE_INVALID` で断ること。エンジンは 127.0.0.1 の偽のサーバ（Deepgram のモデルと言語は試験ごとに変える） |
-| `tests/realtime_asr.rs` | リアルタイムの音声認識。設定の検査と保存、エンドポイントとモデルの一覧、メインのスイッチ（Linux と Windows の speech.cpp）で字幕（途中・確定・訳・結果）と確定した文がチャットボックスまで届くこと、設定画面からの開始と停止と録音からの引き継ぎ、スイッチが足りないものを `details.reason` で答えること、サーバが断ったときの失敗の通知、字幕が VR の大きいログに描かれることと描けなかったときの通知、終了。speech.cpp はモデルの一覧と Realtime の WebSocket を返す 127.0.0.1 の偽のサーバ、SteamVR は代わりのもの |
+| `tests/realtime_asr.rs` | リアルタイムの音声認識。設定の検査と保存、エンドポイントとモデルの一覧、メインのスイッチ（Linux と Windows の speech.cpp）で字幕（途中・確定・訳・結果）と確定した文がチャットボックスまで届くこと、設定画面からの開始と停止と録音からの引き継ぎ、スイッチが足りないものを `details.reason` で答えること、サーバが断ったときの失敗の通知、字幕が VR の大きいログに描かれることと描けなかったときの通知、マイクの確定文のフローパネルの記録が確定から測られること（24）、終了。speech.cpp はモデルの一覧と Realtime の WebSocket を返す 127.0.0.1 の偽のサーバ、SteamVR は代わりのもの |
 | `tests/voice.rs` | TTS のスイッチ（止まっている理由ごとのコード、世代、内蔵サーバを自分で起動して止めること、設定画面から起動したサーバは止めないこと、サーバの停止で TTS が切れること）、音声の設定の検査と拒否したときの答え、入力したチャットを元の文と翻訳で読み上げること、マイクの確定文の読み上げと言語・翻訳の変更での取り消し、停止とミュートと再開、キューで待つ間の停止で古い世代を拒むこと、ミュートの保存と壊れた記録、Linux の管理された経路のゲート、出力先の一覧、モデルの選択肢とインストール済みエンジンの声、直接の音声（素通しと声質変換、世代、失敗、元の声に戻さないこと、変換を通した読み上げ）、声質変換の実行環境の準備（同意、版、手順ごとの失敗、worker の確認）、フローパネル、リアルタイムのマイクの確定文が訳されて読み上げられること、声を流しているケーブルを認識に使わせないこと（`realtime_endpoint_feedback`）、終了。出力とマイクはメモリの中の偽物、speech.cpp とエンジンはループバックの偽物、RVC の worker は `fake-rvc-worker` |
 
 Python の `src-python/test/test_native_core_reference.py` は、Python 側の設定の規則が変わったのに基準データを作り直していないとき失敗します。
@@ -97,7 +98,7 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `src-python/test/test_model_transcript_wiring.py`、`test_model_api_transcription_wiring.py`、`test_model_energy_consumer.py`、`test_model_transcript_stop.py`、`test_device_capture_lifecycle.py`、`test_controller_vrc_mic_mute_sync_init.py`（認識の部分） | `transcription.rs` |
 | `tests/voice/test_realtime_controls.py`、`test_realtime_toggles.py`、`test_realtime_settings.py`（移行以外）、`test_realtime_delivery.py`、`src-python/test/test_realtime_toggle_generation.py`、`test_realtime_legacy_handoff.py`、`test_realtime_delivery_outcomes.py` | `realtime_asr.rs` |
 | 区分 A-u だった `tests/voice/test_realtime_session.py`、`test_realtime_events.py`、`test_realtime_audio.py`、`test_speechcpp_realtime.py`、`test_speechcpp_asr.py`、`test_asr_vocabulary.py`、`test_capture_packets.py` と、`src-python/test/test_transcription_recorder.py`、`test_transcription_transcriber.py`、`test_transcription_providers.py`、`test_transcription_openai_compatible.py`、`test_transcription_deepgram.py` | `realtime_asr.rs`、`transcription.rs` と `native/transcription` の単体の試験。`test_speechcpp_asr.py` と `test_speechcpp_realtime.py` の細部は次の行 |
-| `tests/voice/test_speechcpp_asr.py`、`test_speechcpp_realtime.py`、`test_realtime_language.py`（3-3 で関数ごとに照らし直した分） | `native/transcription` の `speechcpp.rs` の単体の試験。言語の選択肢から検出するモデルを決めること（5 通り）、一覧から認識のモデルだけを取り検出のモデルの行を落とすこと、話者を分けるモデルを GPU のときだけ数えること（`CPU`、空、なし、数）、形の合わない一覧と JSON でない答えを断ること。`realtime/events.rs` の単体の試験。検出した言語を確定の文だけが持ち、形の合わないコードを捨てること。「auto」に検出するモデルが要ることは `realtime_asr.rs` の `a_switch_says_what_is_missing`。設定の応答が違うときの拒否、1 件目 120 秒と以後 15 秒の締め切り、止めたときに接続の待ちを切り上げることは確かめていない（81）。REST の `transcribe()`（アプリは使っていない）、手動の commit と clear（中核は `server_vad` だけ）、実験用の `tools/speechcpp_asr_poc.py` の試験は Python と一緒に引退させる |
+| `tests/voice/test_speechcpp_asr.py`、`test_speechcpp_realtime.py`、`test_realtime_language.py`（3-3 で関数ごとに照らし直した分） | `native/transcription` の `speechcpp.rs` の単体の試験。言語の選択肢から検出するモデルを決めること（5 通り）、一覧から認識のモデルだけを取り検出のモデルの行を落とすこと、話者を分けるモデルを GPU のときだけ数えること（`CPU`、空、なし、数）、形の合わない一覧と JSON でない答えを断ること。`realtime/events.rs` の単体の試験。検出した言語を確定の文だけが持ち、形の合わないコードを捨てること。「auto」に検出するモデルが要ることは `realtime_asr.rs` の `a_switch_says_what_is_missing`。設定の応答が違うときの拒否、1 件目 120 秒と以後 15 秒の締め切り、止めたときに接続の待ちを切り上げることは、`realtime_asr.rs` と `realtime/session.rs` の試験で確かめる（81。2026-11-19 に足した）。REST の `transcribe()`（アプリは使っていない）、手動の commit と clear（中核は `server_vad` だけ）、実験用の `tools/speechcpp_asr_poc.py` の試験は Python と一緒に引退させる |
 | `tests/voice/test_realtime_overlay.py`、`src-python/test/test_realtime_overlay_publication.py`、`test_overlay_lifecycle_publication.py` と `test_message_snapshot_and_sinks.py`（字幕の部分） | `native/vr-overlay` の `subtitle.rs` の単体の試験。途中の字幕は履歴の外で待って置き換わること、訳が同じ行を書き換え、そのあとの遅れた更新は何も変えないこと、名前空間ごとに待っている字幕を捨てて戻さないこと、ログから押し出された確定の文が訳として戻らないこと、見せられなかった更新を履歴から戻して後の描画にも出さないこと、待つ字幕は 16 件までで古いものから捨てること。`realtime_asr.rs` の `captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told`。字幕の状態ごとに大きいログを描き直し、SteamVR が画像を断ると `overlay_large` の `MESSAGE_OUTPUT_FAILED` を知らせ、確定の文はそのまま届くこと（79）。描いた画像の版の比較（`isCurrentLargeLog`）は、中核が描画と表示を 1 つのロックの中で行うので要らず、引退させる。字幕の言語を受け取ったときの設定で描くことは 80 |
 | `tests/voice/test_capture_pipewire.py`、`test_capture_diagnostics.py` と `test_realtime_language.py`（既定のノード） | `native/transcription` の `endpoint_choice.rs` の単体の試験。既定の出力が VRCT のミックスなら設定した既定に替えること、VRCT のノードしかなければ `realtime_default_endpoint_feedback`、なければ `realtime_default_endpoint_missing`、既定の入力をメタデータの JSON の文字列から読むこと、VRCT のノードと NUL を含む名前や 512 バイトを超える名前を断ること。グラフを受け取るだけなので Windows でも動く。補助（`HelperCapture`）を動かす部分（雑音の多い標準エラー、5 秒の起動の締め切り、2 秒の止まり）は PipeWire の要る Linux の試験で、確かめていない（82）。作ってから始める 2 段の API の試験は Python と一緒に引退させる |
 | `src-python/test/test_controller_message_pipeline.py`、`test_message_snapshot_and_sinks.py`（送信、翻訳、読み、出力の失敗の部分） | `messages.rs`、`src/controller/messages.rs` の単体の試験 |
@@ -111,7 +112,9 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `src-python/test/test_clipboard_focus_and_paste.py`（コントローラから見た貼り付け）、`test_openvr_session.py`（オーバーレイとクリップボードの部分。OCR の部分は「判断が要ること」の 9） | `clipboard.rs`、`native/vr-overlay` の `shared` の試験、`native/adapters` の `tests/clipboard.rs` |
 | `tests/voice/test_tts_toggle.py`、`test_tts_toggle_server.py`、`test_speech_server_end_owner.py`（TTS の部分）、`test_tts_model_options.py`（コントローラの部分） | `voice.rs` |
 | `tests/voice/test_spoken_controls.py`、`test_io_flow_controller.py`、`src-python/test/test_voice_settings_patches.py` | `voice.rs` |
-| `tests/voice/test_direct_voice_controller.py`、`test_managed_controller.py`、`src-python/test/test_voice_route_monitor_mute.py` | `voice.rs`。経路のゲートと保存は `native/audio-routing` の試験も持つ |
+| `tests/voice/test_direct_voice_controller.py`、`test_managed_controller.py` | `voice.rs`。経路のゲートと保存は `native/audio-routing` の試験も持つ |
+| `src-python/test/test_voice_route_monitor_mute.py` | `native/audio-routing` の `voice_route/tests.rs`。保存したミュートが始める前にモニターへ届くこと、再開はミュートの状態を保存し終えるまでモニターを開かないこと、保存できなければ開かないこと、保存したミュートの解除を補助なしで伝え、閉じるときにミュートすること |
+| 声質変換とモニターの Python の試験（「0.6.0 の残りの移行」の 4 の表） | `native/voice-conversion` の単体の試験、`native/audio-routing` の試験、`voice.rs` |
 | `tests/voice/test_external_speech_engines.py` | `voice.rs`（エンドポイントと TTS のスイッチ）、`native/tts/tests/engines.rs`（クライアント） |
 | `tests/voice/test_vc_runtime_setup.py`（RVC の部分） | `voice.rs`、`native/voice-conversion` の単体の試験（版、アーカイブ、以前の実行環境の削除）。uv、Python、Seed-VC の部分は区分 D |
 | `src-python/test/test_controller_typing.py`、`test_mainloop_typing_order.py` | `adapters_osc.rs`（アプリが付けた入力中の表示だけを消すこと）、`dispatch.rs`（止める要求が始める要求を追い越さないこと）。表示を消すのに失敗したときの答えは「判断が要ること」の 57 |
@@ -121,7 +124,7 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `src-python/test/test_message_delivery_revocation.py`（終了とチャットボックスの順番の部分） | `messages.rs`（訳している間に終了したメッセージがどこにも届かないこと）、`src/controller/messages.rs` の単体の試験（送らなかったメッセージで順番が進まないこと）。ミュートの扱いは 55 と 56。認識の停止と無効化での取り消しは「0.6.0 の残りの移行」の 1 |
 | `tests/voice/test_tts.py`、`test_scheduler.py`、`test_spoken_scheduler.py`、`test_tts_playback_ownership.py` | `native/tts` の `tests/client.rs`、`tests/scheduler.rs`、`tests/monitors.rs` と、`settings.rs`・`scheduler.rs` の単体の試験（区分 B。引数と確かめる値ごとに照らし合わせた）。中核を通した開始の遅れ、続けての発話、停止と設定の保存での割り込みは `voice.rs` |
 | `tests/voice/test_tts_listener_failure.py`、`src-python/test/test_tts_listener_monitor.py` | `native/tts` の `tests/listener.rs` と `listener.rs` の単体の試験（区分 B）。中核が起動したサーバの走りを持ち主にすることは `src/controller/voice/mod.rs` の単体の試験と `voice.rs`。探りが毎秒 50 回であることそのものは確かめていない（20 ms の間隔はコードの定数） |
-| `src-python/test/test_message_delivery_revocation.py`（認識の部分） | `recognition_revocation.rs`。翻訳を待つ間にスイッチを切る、デバイスを失う、読み取りが失敗するときは届けない。設定のための一時停止、デバイスの移動、リアルタイム認識への引き継ぎでは届ける。打ったチャットは影響を受けない。エンジンの失敗は読み取りの失敗と同じ経路（`recorder_failed`）で、翻訳を待つ間は認識のスレッドが次の発話を扱わないので（Python と同じ）、その時点では起きない。OCR の部分は 65 |
+| `src-python/test/test_message_delivery_revocation.py`（認識の部分） | `recognition_revocation.rs`。翻訳を待つ間にスイッチを切る、デバイスを失う、読み取りが失敗するときは届けない（マイクとスピーカー）。設定のための一時停止、デバイスの移動、リアルタイム認識への引き継ぎでは届ける。打ったチャットは影響を受けない。エンジンの失敗は読み取りの失敗と同じ経路（`recorder_failed`）で、翻訳を待つ間は認識のスレッドが次の発話を扱わないので（Python と同じ）、その時点では起きない。リアルタイムのセッションが自分で終わったとき（サーバが発話を終えない）も、翻訳を待つ確定文は届けない。VRChat のミュート（ミュートの同期がオン）は、翻訳を待つマイクの文（録音とリアルタイム）を届けず、スピーカーの文と打ったチャットは届ける。ミュートの間はリアルタイムのマイクの字幕も出さず、解いたあとに聞いた文は届ける。同期がオフならミュートはマイクの文に効かない。ミュートを解いたあとにミュートの前の文を届けるかは 55、確定文の音声の世代は 56 で、どちらも試験していない。引き継ぎで録音を止められなかったとき（`realtime_legacy_stop_failed`）の取り消しは、偽の録音では止まらない録音を作れないので試験していない。OCR の部分は 65 |
 | `src-python/test/test_transcription_provider_regressions.py` | `native/transcription` の `providers.rs` の単体の試験（区分 B）。検出した言語の書き方の違い、知らない言語、1 つだけの言語、中国語と選んだ国、Deepgram の言語の検出、壊れた答えと無音、送信の締め切りと 3 回の試行。Google の部分は 14 と 46 |
 | `src-python/test/test_model_transcription_wait.py`（締め切りの部分）、`test_vrct_transcription_integration.py` | `native/transcription` の `phrases.rs` の単体の試験。締め切りで終えた発話を送り直さないこと、新しいフレーズで締め切りが延びること、境目、VAD の区間で何も聞き取れなかったときに結果を残さないこと。止めたときに要求の結果を待たないことは 15 の (1)、待っている間に何度も目を覚ますことは 69 |
 | `src-python/test/test_realtime_ingress_wait.py` | `native/transcription` の `realtime/session.rs` の単体の試験。200 ms か 20 枚を超えた音声と、250 ms より古い音声を断ること、止めたセッションが音声を受け取らず始め直せないこと。音声を送るまでの待ち方の違いは 67 |
@@ -281,7 +284,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 | 1 | メッセージ送信 | #285 | 下の 1 | ほかの 3 領域は、認識した文や読み上げの口をこの流れに渡す。ここを先に固めると、後の領域の試験がこの流れを前提にできる |
 | 2 | 読み上げ（TTS） | #279 | 下の 2 | サーバの管理は済んでいて、残りは合成の要求と順番の振る舞いだけ。メッセージ送信の音声の口に依る |
 | 3 | 音声認識（リアルタイムと録音） | #278 | 下の 3 | 確定した文をメッセージ送信と読み上げへ渡すので、その 2 つの後にする |
-| 4 | 声質変換 | #275（完了）の続き | Linux の管理された経路（11。`vrct-audio-routing` に PipeWire の録音を足す）、router を分けるか（12）、`test_vc_*.py` と `test_monitor_*.py` の再カバー、Seed-VC の引退（区分 D、`integrations/seed_vc/`） | 残りが一番大きく、Linux の音声の経路の作業を含む。RVC は ADR-012 で管理された例外（ONNX Runtime）なので、speech.cpp へ移す作業は含めない |
+| 4 | 声質変換 | #275（完了）の続き | 下の 4 | 残りが一番大きく、Linux の音声の経路の作業を含む。RVC は ADR-012 で管理された例外（ONNX Runtime）なので、speech.cpp へ移す作業は含めない |
 | 最後 | `src-python` の削除 | #285 | 「Python の削除に伴うもの」 | 4 領域が終わってから |
 
 ### 1. メッセージ送信
@@ -290,7 +293,8 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 
 - **済んだこと**: 上の表に足した行のとおり、中核にあって試験のなかった振る舞いを試験で確かめました。送らなかったメッセージでチャットボックスの順番が進み、先に受け付けたメッセージが落ちていたのを、Python と同じ動きに直しました。
 - **判断を待つこと**: ミュートを解いたあとの取り消し（55）、リアルタイムの確定文の音声の世代（56）、入力中の表示を消せなかったときの答え（57）、ログの行（58）。
-- **残っている試験**: 認識（マイク、スピーカー、OCR、リアルタイム）の途中で、利用者が無効にしたとき、デバイスやエンジンが失敗したとき、リアルタイムへの引き継ぎに失敗したときに、届く前の文を取り消すこと。中核には実装があります（`Transcription::revoke`、`publication_guard`）が、`native/core/tests/` からは偽の録音と偽の認識サーバ（`transcription.rs`、`realtime_asr.rs` の部品）を使わないと届かないので、読み上げとリアルタイム音声認識の領域の作業で一緒に確かめます。設定のための一時停止（`reason: "settings_pause"`）では取り消さないことも同じです。
+- **済んだこと（2026-11-19）**: #581 で残した試験（認識の途中で利用者が無効にしたとき、デバイスやエンジンが失敗したとき、リアルタイムへの引き継ぎのときに、届く前の文を取り消すこと）は、3-1 の `tests/recognition_revocation.rs` と、そのあとに足した試験で確かめました。スピーカーの一時停止、喪失、読み取りの失敗、リアルタイムのセッションが自分で終わったとき、VRChat のミュートの間に訳している文（録音とリアルタイム）、ミュートの間のリアルタイムの字幕、ミュートの同期がオフのときです。ミュートを解いたあとの扱いは 55 と 56 を待ちます。
+- **確かめていないこと**: 引き継ぎで録音を止められなかったときの取り消し（`realtime_legacy_stop_failed`）と、各出力の直前にミュートを確かめ直すこと（Python の `test_every_legacy_publication_rechecks_epoch`）は、偽の録音と偽の出力では起こせないので、中核を通した試験にしていません。実装は `realtime_asr.rs` の `fail_start` と、`messages.rs` の `process_message_stamped` が出力ごとに呼ぶ `current` です。
 
 ### 2. 読み上げ
 
@@ -354,7 +358,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
   - **字幕を VR の大きいログに出せなかったことを知らせるようにしました**。Python は字幕の画像を SteamVR が断ると、確定の文の出力の失敗と同じく `/run/message_output_error`（`output` は `overlay_large`）で知らせました。中核は黙って履歴を戻すだけでした（79）。
   - **speech.cpp のモデルの一覧で JSON でない答えを断るようにしました**（`expected_json`）。Python と同じです。
   - **Linux で録るノードの選び方を、グラフを受け取る関数に分けました**（`native/transcription` の `endpoint_choice.rs`）。どの OS の CI でも試験できます。Python と同じく、NUL を含む名前と 512 バイトを超える名前も VRCT のノードと同じく断るようにしました。
-  - 字幕を描く順序、モデルの一覧と言語の検出、既定のノードの選び方は、ほかは Python と同じでした。違いのうち直していないものは 81 と 82 です（80 は決定のあとで直しました）。
+  - 字幕を描く順序、モデルの一覧と言語の検出、既定のノードの選び方は、ほかは Python と同じでした。違いのうち直していないものは 82 です（80 と 81 は決定のあとで直しました）。
 - **済んだこと（3-4）**:
   - **録音の VAD を speech.cpp の Silero VAD で動かすようにしました**（13 の (c)。`native/transcription` の `server_vad.rs`）。speech.cpp 0.11.0 には、検出のモデルだけで、流れてくる音声から区間を返す方法がありません。worker の手順は検出のモデルを断り、`speech vad` は WAVE のファイルしか読みません。そこで、リアルタイム字幕と同じサーバーに、文字起こしをしない Realtime のセッション（`transcription` は `null`、`turn_detection` は `server_vad`）を開き、`speech_started` と `speech_stopped` の時刻で録音の音声を切ります。しきい値 0.25、前の余白 160 ms、無音 768 ms は Python の VAD の経路の値です。7 秒を超えた発話はアプリの側で切って続けます。新しいランタイムも、配布物に入れるモデルもありません（ADR-012）。
   - サーバーを使えないときは、音量で区切り、理由を `/run/vad_unavailable`（400 の `VAD_UNAVAILABLE`、`details.reason`）で 1 回知らせます。スイッチは、サーバーの設定がそろっているとき（同梱なら認識モデルと VAD モデルのパス、外部ならループバックの URL）だけオンにでき、そろっていなければ理由を付けて断ります。設定やモデルの適用でそろったり外れたりすると、`/get/data/vad_available` を UI に送り直します。UI はリアルタイム字幕の案内を知らせに付け、設定の説明もこの形に書き直しました。仕様は `docs/spec/data-and-persistence.md` にあります。
@@ -369,8 +373,66 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
     | 同: 区間を渡した時点 | 1.600 s | 4.320 s | 7.560 s |
   - 1 と 2 は `speech vad` と同じ区間でした。3 は `speech vad` がファイルの終わり（7.460 s）で開いた区間を閉じたためで、中核は音声のあとの無音で話し終わりを見つけました。話し終わりから区間を渡すまでは、Python より 40 ms 遅くなりました（サーバーとの往復と 200 ms ずつ送る分）。Python の区間が約 0.5 秒長いのは、話し終わりのあとの無音を 768 ms すべて含めるためです（中核はサーバーの余白の 160 ms だけ）。話し終わりの位置は、3 つとも Python と 1 フレーム（32 ms）以内で同じでした。2 と 3 の始まりは、Python のほうが 0.1 秒ほど遅くなりました。Python では前の区間が無音を含めて終わるので、前の余白がその分だけ削られるためです。認識の結果までは比べていません（85）。値はこの環境とこの音声のもので、ほかの PC や声での値を示すものではありません。
   - 止めたときの区間（68）は、15 の (1) で中核が止めたあとの認識を捨てるので、入れていません。新しい判断は 83〜88 です。
-- **判断を待つこと**: 66〜74、79、81〜88（75〜78 は翻訳の項目）。
-- **残っていること**: フローパネルのマイクの時刻（24）。Linux の実機での確認（PipeWire の録音と `vrct-asr-capture`）。
+- **済んだこと（2026-11-19）**:
+  - **フローパネルのマイクの時刻を Python に合わせました**（24）。リアルタイムのマイクの確定文は、確定を受け取った時刻から測り、メッセージの流れが受け取るまでの待ちを「待ち」の段に出します（起点は「音声認識の確定から」）。読み上げの設定でマイクの確定文を読まないときも同じです。UI はこの起点と段をすでに持っていました。`realtime_asr.rs` の `the_main_switch_streams_the_microphone_and_its_final_goes_out` で確かめます。
+  - 1〜3-4 で見つけた Python との違いを、下の「Python との違いの一覧」に 1 つの表にまとめました。
+  - #278 のうち、字幕を VR の大きいログに出すこと（`test_realtime_overlay*.py`）は 3-3 で、`native/ops` が読んでいた `speechcpp_asr.py` と `speechcpp_models.py` の移動は 3-1 で済んでいます。どちらも 2026-11-19 の develop で確かめ直しました（`native/ops` の `include_str!` は `native/ops/data/` の JSON だけを読みます）。
+- **判断を待つこと**: 15、66〜68、70、74、81〜85、87、88。報告だけのものは 69、72、73、79、86。71 は仕様の確認です（75〜78 は翻訳の項目）。
+- **残っていること**: Linux の実機での確認（PipeWire の録音と `vrct-asr-capture`）。`native/core/examples/live_asr.rs` は WAVE を偽の録音で流すので、この部分を通りません。私用の PipeWire に音声を流す音源を置き、中核に補助で録らせる形が要ります。
+
+#### Python との違いの一覧（音声認識、2026-11-19）
+
+番号は「判断が要ること」の番号です。「直した」は Python に合わせたもの、「判断待ち」は案を挙げて決定を待つもの、「報告」は利用者から見える違いがない想定か、仕様どおりで決めることのないものです。
+
+| 番号 | 違い | 扱い |
+|---|---|---|
+| 13 | VAD のエンジン。Python は同梱の Silero VAD（ONNX）、中核は speech.cpp のサーバーの VAD（Realtime の `server_vad`） | 決定（(c)）、3-4 で実装 |
+| 15 | 認識をオフにしたときに途中の結果を待たない、マイクがないときの知らせ、ループバックの無音、プロキシ、移していない診断のログ | 判断待ち |
+| 24 | フローパネルのマイクの時刻 | 直した（2026-11-19） |
+| 64 | `src-python/models/transcription/` を消す時期 | 決定（4 領域の後で `src-python` ごと） |
+| 65 | OCR の取り消しの見張りで世代を読み直していたこと | 決定、直した |
+| 66 | リアルタイムのマイクが音を渡さなくなったら止めること | 直した（0.5.0 の動きを変えるので判断待ち） |
+| 67 | リアルタイムの音声の送り方（10 ms の待ち） | 判断待ち（遅れは Python と同じ幅） |
+| 68 | VAD の区間の最長と、止めたときの区間 | 最長は直した。止めたときの区間は判断待ち |
+| 69 | 録音の経路が待つ間に目を覚ますこと | 報告 |
+| 70 | Linux のリアルタイム認識で古い音声を判断する時刻 | 判断待ち |
+| 71 | 保存したキーをサービスが断るエンジンを選んだとき | 仕様どおり（#457）、確認のため |
+| 72 | 内部の形（印、変換、締め切り、答えの欄、言語コード、補助の失敗の順） | 報告 |
+| 73 | エンジンでない値を選ぼうとしたときの答え | 報告（仕様に合わせた） |
+| 74 | Deepgram の言語の端の扱い | 判断待ち（Python と同じ） |
+| 79 | 字幕を VR の大きいログに出せなかったときの知らせ | 報告（Python に合わせた） |
+| 80 | 字幕と確定の文に使う設定を読む時点 | 決定、直した |
+| 81 | speech.cpp への接続と一覧を待つ間の停止 | 判断待ち（上流に Issue） |
+| 82 | Linux の補助を動かす部分の試験と細部 | 判断待ち |
+| 83〜88 | VAD のための認識モデルとサーバー、区間の違い、試験の置き場所、音量への切り替え、既定の URL | 判断待ち（86 は報告） |
+
+### 4. 声質変換
+
+対象は、声質変換、モニター、管理された経路の Python の試験 18 ファイルです（`tests/voice/test_vc_*.py`、`test_monitor_vc.py`、`test_monitor_output.py`、`test_audio_router.py`、`test_managed_route.py`、`test_rvc_integration.py`、`test_spoken_route_native.py`、`test_native_vc_collection.py`、`test_voice_route_watch.py`、`test_voice_route_cli.py`、`src-python/test/test_voice_route_monitor_mute.py`）。関数ごとに、引数と確かめる値を `native/voice-conversion`、`native/audio-routing`、`native/tts`、中核の試験と照らし合わせました（2026-11-19）。RVC は ADR-012 の管理された例外（ONNX Runtime）なので、speech.cpp へ移す作業は含めません。
+
+- **済んだこと**:
+  - 中核を通した試験を `voice.rs` に足しました。変換した声がモニターにも同じブロックで届き、モニターがオフなら何も開かないこと。ミュートでモニターが止まり、変換は続くこと。再開でモニターに戻ること。答えない worker は `vc_block_expired` か `vc_worker_stalled` で止まり、マイクの音を出さないこと。無音だけを答える worker は変換を確かめたことにならないこと。CPU で変換するときに状態がそれを示すこと。読み上げのモニターがオフなら何も開かないこと。
+  - `native/voice-conversion` の単体の試験を足しました。プロトコルでは、worker が始められない理由の 7 つのコードだけを信じること、`ready` の固定の形（セッション、エンジン、版、標本化周波数、チャンネル、プロファイル、遅れの範囲、ブロック、余分な項目）、ブロックに答えない出力を断ること、無音は 0 であること、未来と古すぎるブロック、途中で切れた枠と形の誤りです。変換の過程（`process.rs`）では、発話がマイクを部分ごとに置き換え、発話の中の隙間は無音でマイクにならないこと、待てる発話は 2 秒までであること、マイクをセッションのブロックに切ること、セッションは 1 回だけで失敗はそのコードで終わること、`rvc_options` の不正な値 22 通り、起動の前に worker、モデル、インデックス、実行環境を確かめることです。子プロセス（`child.rs`）では、起動したスレッドが終わると worker が終わること（Linux）、止めるときは先に SIGTERM、聞かなければ SIGKILL で終わらせることです。
+  - `native/audio-routing` の経路の試験に、`test_voice_route_monitor_mute.py` の 3 本を移しました（上の棚卸しの表）。
+- **照らし合わせた結果**:
+
+  | Python の試験 | 中核とクレートの試験 | 扱い |
+  |---|---|---|
+  | `test_vc_protocol.py` | `protocol.rs` の単体の試験 | 再カバーした。worker の標準入力の扱いは Python の worker のもの |
+  | `test_vc_isolated.py`、`test_vc_worker_native.py` | `process.rs`、`child.rs` の単体の試験 | 再カバーした。制御の相手を断る 9 通りと router の入口は Python の router のもの（12） |
+  | `test_vc_speech_through.py` | `process.rs` の単体の試験、`voice.rs`（変換を通した読み上げ） | 再カバーした。不正なチャンクの扱いは違う（90）。管理された経路での動きは 11 |
+  | `test_vc_monitor_mute.py`、`test_monitor_vc.py` | `voice.rs`、`process.rs` | 変換したブロック、オフ、ミュートと再開は再カバーした。コントローラの 3 本と Linux の 4 本は管理された経路の変換（11）にしかない。制御パイプの失敗は 12 |
+  | `test_monitor_output.py`、`test_audio_router.py` | `native/audio-routing` の `router/tests.rs`、`native/tts/tests/monitors.rs`、`voice.rs` | 再カバー済み（オフのときは今回足した）。Windows と PipeWire の本物の出力は区分 E（`wasapi_live.rs`、`pipewire_live.rs`） |
+  | `test_managed_route.py`、`test_voice_route_monitor_mute.py` | `voice_route/tests.rs` | 再カバー済み（モニターのミュートは今回足した） |
+  | `test_rvc_integration.py` | `process.rs`、`worker.rs` の単体の試験、`voice.rs` | 不正な値、起動前の確認、止まる worker、無音、CPU を再カバーした。以前の版が保存した Seed-VC を RVC へ移す形は 10 で判断を待っている |
+  | `test_vc_settings.py` | `config_reference.rs`、`voice_settings.rs`、`voice.rs` | 再カバー済み |
+  | `test_vc_router_protocol.py`、`test_vc_router_worker.py` | なし | router のプロセスは中核にない（12） |
+  | `test_spoken_route_native.py` | `pipewire/gate.rs` の単体の試験（偽の補助） | 本物の補助（C の `vrct-voice-gate`）が自分で断ることは確かめていない（89） |
+  | `test_native_vc_collection.py`、`test_voice_route_watch.py`、`test_voice_route_cli.py` | なし | Python の試験の集め方と `tools/voice_route.py` の道具。道具と一緒に引退させる |
+  | `test_seedvc_*.py` | なし | 区分 D。`test_seedvc_live.py` の汎用の部分（止めること、片付けの失敗、無音、捕捉の失敗のコード）は上の試験が持つ |
+- **Seed-VC の引退**: `integrations/seed_vc/` は Python の実行環境の準備（`src-python/models/voice_conversion/runtime_setup.py`）と Python の試験、`tests/devtools/test_toolchain_pins.py` が読んでいます。いま消すと `check --scope voice` が壊れるので、`src-python` と一緒に消します（「Python の削除に伴うもの」）。中核は Seed-VC を選ばせず、保存値を RVC に移します（10）。
+- **判断を待つこと**: Seed-VC の保存値の移し方（10）、Linux の管理された経路の変換（11）、router のプロセス（12）、C の補助の試験（89）、発話のチャンクの扱い（90、報告）。`vrct-vc-worker` を配布物から外すことは 5 にあります。
+- **残っていること**: `native/audio-routing` の試験はどの CI でも動いていません（`check --scope rust` だけ）。README のとおり、Windows ではまだ動かしたことがありません。
 
 ## 翻訳の棚卸し
 
@@ -586,7 +648,7 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 21. **開発用に Python のサイドカーへ戻す抜け道**。作りませんでした。`externalBin` を残すと、開発用のビルドでも `src-tauri/bin` にサイドカーの実行ファイルが要り（tauri-build が確かめます）、shell の権限も残ります。Python の振る舞いと比べたいときは、0.4.x の配布物か、そのタグの checkout を使います。`src-python/` を消すまでは、Python の試験（`check --scope backend`）でも比べられます。
 22. **AppImage で中核が起動するプログラムの環境**。AppImage の `AppRun` は GUI のために `LD_LIBRARY_PATH`（`usr/lib` を先頭に）や GTK・GIO の変数を変えます。0.4 までは、サイドカーを起動するスクリプトが元の環境（`VRCT_APPIMAGE_HOST_*`）に戻してから Python と補助プログラムを動かしていました。0.5.0 では中核がアプリのプロセスの中にあるので、speech.cpp、RVC の worker、補助プログラム、`xdg-open` が GUI の環境を受け継ぎます。AppImage が同梱したライブラリを先に読み、起動に失敗するおそれがあります。直し方は、子プロセスを起動するところ（`native/speech-server`、`native/audio-routing` の `ProcessEnv`、フォルダを開く処理、RVC の worker、`vrct-asr-capture`、`portal_screencast.rs`）で、`VRCT_APPIMAGE_HOST_*` から元の値を戻す共通の関数を使うことです。今は `portal_screencast.rs` が `LD_LIBRARY_PATH` だけを戻しています。実機の AppImage で確かめていません。
 23. **フォルダを開く操作の Linux での動き**。Python は Windows の `explorer` だけを起動していたので、Linux では失敗していました。中核は Linux で `xdg-open` を使います。
-24. **フローパネルのマイクの時刻**。Python はリアルタイム認識の確定を受け取った時刻（`received_ns`）から測り、待ち時間を `wait` として出していました。中核のメッセージの流れは認識の時間（`asr_ms`）か受け取った時刻から測ります。マイクの読み上げには確定の時刻を渡していますが（`TranscriptUpdate::received_ns`）、フローパネルの記録にはまだ渡していません。マイクがオンかどうかは `ENABLE_TRANSCRIPTION_SEND` と、リアルタイム認識を求めているか（`Core::set_realtime_mic_probe`）で決めます。
+24. **フローパネルのマイクの時刻**。**直しました**（2026-11-19。下の本文はその前の状態です。今の動きは 3 の「済んだこと（2026-11-19）」にあります）。Python はリアルタイム認識の確定を受け取った時刻（`received_ns`）から測り、待ち時間を `wait` として出していました。中核のメッセージの流れは認識の時間（`asr_ms`）か受け取った時刻から測ります。マイクの読み上げには確定の時刻を渡していますが（`TranscriptUpdate::received_ns`）、フローパネルの記録にはまだ渡していません。マイクがオンかどうかは `ENABLE_TRANSCRIPTION_SEND` と、リアルタイム認識を求めているか（`Core::set_realtime_mic_probe`）で決めます。
 25. **起動時の確認に失敗したエンジンの API キー**。キーは Python と同じく残します。Python は「確認の失敗は、キーが拒まれたのか通信できないだけなのかを区別できない」ため、起動時にキーを消しませんでした。オーナーの決定の文面は「キーも消す」と読めるので、確認を求めています。
 26. **旧 CTranslate2 の重みを知らせずに消すか**。古い Whisper の重みは、利用者が設定画面で頼んだときだけ消していました。CTranslate2 の重みは知らせずに消します。知らせるか、頼まれたときだけ消すかを決めてください（1 の「消すのを遅らせるか」と一緒に）。
 27. **`src-python/` を消す時期**。配布物からは外しましたが、ソースと試験は移植の仕様として残しています。消すときに一緒に片付けるものは「Python の削除に伴うもの」にあります。**決定**: 0.6.0 で中核への移行が終わったときに消します。0.5.0 の間は比較の相手として残します。
@@ -705,6 +767,13 @@ PR の残課題と同じものです。決まったら、この節を更新し�
     - それまでの中核は、メッセージの流れは翻訳を始める時点で、VR の字幕は描く時点で設定を読んでいました。文を受け取ってから訳し終えるまでに言語を変えると、VR のログで訳の行が落ちたり、別の言語の名前が付いたりすることがありました（訳は翻訳を始めた時点の言語で作り、字幕の言語の名前は描く時点の設定から付けたため）。検討した案は (a) このままにする、(b) Python と同じく受け取った時点で控えた設定を、メッセージの流れと字幕の両方に渡す、でした。
     - デスクトップの字幕（UI が描く）は表示している行に今の「訳だけ表示」を当てはめます。行ごとの控えを持たないので変えていません。そろえるなら、UI に届くメッセージに控えた値を載せる変更が要ります。
 81. **speech.cpp への接続と一覧を待つ間の停止、試していない締め切り**（#278）。Python はモデルの一覧の要求と接続を 0.5 秒以内に取り消せました。中核の一覧の要求（`speechcpp::survey`）は取り消せず、接続と読み取りのそれぞれで最大 5 秒待ちます。リアルタイムの認識を止めてすぐに始め直すと、前のセッションの片付けの待ち（3 秒）を越えて `realtime_previous_owner_busy` になることがあります。セッションの準備（接続 2 秒、設定の応答 2 秒）も、止める要求を準備のあとで見ます。サーバが返す設定の応答が違うときの拒否（`configuration_rejected`）、1 件目 120 秒と以後 15 秒の締め切り、切断と大きすぎるイベントでの失敗は、実装は Python と同じですが、試験がありません（締め切りの秒数を試験から変えられないため）。案は (a) このままにする、(b) 一覧の要求を取り消せるようにし、締め切りを試験から変えられるようにして試験を足す、です。上流には 2026-11-19 に Issue を出しました（[nyosegawa/speech.cpp#224](https://github.com/nyosegawa/speech.cpp/issues/224)）。頼んだのは、途中の一覧の要求を取り消せるようにすること、一覧の要求に短く変えられる締め切りを設けること、接続が切れたらすぐに前のセッションの持ち主を放すこと、のどれかです。
+    - **決まりました（2026-11-19）: (b)**。上流の Issue は、待っているのは中核の側で speech.cpp に直すところはない、という説明を付けて 2026-11-19 に閉じました。speech.cpp 0.11.0 の `GET /v1/models` は推論の終わりを待たずに答え（Linux の CPU 版に Qwen3-ASR 0.6B を読み込み、推論中と Realtime のクライアントが切れた直後に計って 1.4 ms 以内）、5 秒は中核が一覧の要求に渡す締め切りでした。止めてすぐに始め直して `realtime_previous_owner_busy` になるのは、speech.cpp が答えないとき（起動や終了の途中など）に、セッションのスレッドが止める要求を見ない待ちの中にいる場合です。中核を次のように直しました。
+    - 止める要求（`Session::request_stop`）は、セッションの WebSocket の接続、ハンドシェイク、設定の応答の待ちを終えます。HTTP の送信（`vrct_translation::http`）に取り消し（`Cancel`）を足し、一覧の要求にも使います。読み取りは 20 ms ずつ区切り、その間に取り消しを確かめます。読み上げの HTTP（`native/tts/src/http.rs`）と同じ作りで、別のスレッドからソケットを `shutdown` しても、待っている受信を Winsock が起こすとは限らないためです。標準ライブラリには途中でやめられる接続がないので、接続は別のスレッドで行います。取り消すとそのスレッドを残して戻り、残ったスレッドは接続の締め切りで終わります。つながっていれば、その時点で閉じます。
+    - スイッチと設定画面の開始が取る一覧の要求は、ソースの世代に結んだ取り消しを持ちます。止める、設定を変える、終了するなどで世代が進むと要求が終わり、開始は `realtime_stale_start` で答えます。設定画面のモデルの一覧（`/get/data/realtime_asr_models`）はソースの世代を持たないので、取り消しません。Python もここは取り消しませんでした。
+    - セッションは一覧を取り直しません。開始の準備（`realtime_asr.rs` の `prepare_realtime`）が取った一覧から、モデル（`speechcpp::Model`）と GPU の話者分離があるかを `realtime::Options` で渡し、セッションのスレッドは WebSocket だけを待ちます。Python の `_preflight` はセッションのスレッドで一覧を取ったので、この点は Python と違います。一覧を取ってから接続するまでにサーバーのモデルが替わったときは、speech.cpp が `/v1/realtime?model=` を断るか、設定の応答の検査（`configuration_rejected`）で分かります。
+    - 設定画面の開始（`/run/start_realtime_asr`）も、セッションを置く前に一覧を取ります。サーバーが答えないとき、保存したモデルが一覧にないとき、そのモデルが言語に対応しないときは、開始の答え（409 の `realtime_models_unavailable`、`realtime_model_unavailable`、`realtime_language_*`）で返します。それまでの中核と Python は、セッションを始めたあとにセッションの失敗として状態の `error_code` に出しました。
+    - 締め切りは `Services::realtime_limits`（一覧の各段 5 秒、前のセッションの片付けの待ち 3 秒）と `realtime::Options::limits`（準備 2 秒、1 件目 120 秒、以後 15 秒）にまとめ、試験から変えられるようにしました。値と、締め切りを段ごとに数える形は変えていません。値を短くするか、一覧の締め切りを Python と同じく全体で数えるかは決めていません。
+    - 試験は `native/core/tests/realtime_asr.rs` に足しました。答えない偽のサーバーでスイッチを入れて切って入れ直しても `realtime_previous_owner_busy` にならないこと、一覧を待つ開始が止める要求で終わること、設定の応答の食い違い、1 件目と以後の締め切り、切断と 1 MiB を超えるイベントです。セッションと HTTP の単体の試験（`session.rs`、`speechcpp.rs`、`http.rs`）は、取り消しから 100 ms 以内に戻ることを確かめます。Windows の実機では確かめていません（20 ms ずつの読み取り、接続のスレッド、閉じたループバックのポートへの接続の取り消し）。
 82. **Linux の補助を動かす部分の試験と細部（報告）**（#278）。補助（`vrct-asr-capture`）を起動して読む部分（`helper.rs` の `HelperCapture`）は、PipeWire の要る Linux でしか動かず、試験がありません（Python の `test_capture_diagnostics.py` は偽の補助で確かめていました）。細部の違いは 2 つです。最初の音声の前に補助が失敗すると、中核は開始の失敗だけを返し、失敗の知らせ（`on_error`）は呼びません（Python は両方。セッションの答えは同じ）。標準エラーに UTF-8 でないバイトが来ると、そこで読むのをやめます（決まったコードは ASCII なので、読み落とすのはそのあとのコードだけです）。72 の最後の項目（コードと出力の終わりのどちらが先か）も同じ部分です。Linux の CI で偽の補助を使う試験を足すかを決めてください。
 83. **VAD のために認識モデルを読み込むこと**（#278）。speech.cpp 0.11.0 の Realtime は、認識のモデルを読み込んでいないサーバーではセッションを開けません（404）。そのため、クラウドのエンジン（Groq、OpenAI、Deepgram など）で認識していても、VAD を使うには認識モデルを読み込んだ ASR サーバーを動かす必要があります。Qwen3-ASR 0.6B なら、そのメモリーを VAD のためだけに使います。検出のモデルだけで区間を返す方法は、speech.cpp にありません（worker の手順は検出のモデルを断り、`speech vad` はファイルしか読まず 1 回に約 1 秒かかり、区間を流して返す C API はライブラリとして配られていません）。案は (a) このままにする、(b) 検出のモデルだけで開ける Realtime のセッションか、標準入力から読む `speech vad` を speech.cpp に提案する（ADR-012 の上流優先。上流への連絡は指示があるときだけ行うので、まだ連絡していません）、です。
 84. **VAD のために同梱のサーバーを起動しないこと**（#278）。リアルタイム字幕は、設定（`start_server`）がオンなら、スイッチを入れたときに同梱のサーバーを起動します。録音の VAD は起動せず、サーバーが止まっていれば音量で区切って `speech_server_not_ready` を知らせます。設定の「VAD（自動）」の説明に、先に起動しておくことを書きました。起動すると認識モデルを読み込むので（83）、利用者が頼んでいないメモリーと時間を使うためです。案は (a) このままにする、(b) リアルタイム字幕と同じく `start_server` に従って起動する、です。
@@ -712,3 +781,5 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 86. **VAD のエンジンの試験の置き場所（報告）**（#278）。区間を決める状態機械は speech.cpp にあるので、Python の `test_audio_vad.py` の状態機械の試験（しきい値、短い区間、余白、2 つのしきい値の間）に当たる試験はアプリにありません。中核の試験は偽のサーバー（`tests/common/fake_asr.rs`。音量で区間を返す）で、アプリの側の扱い（切る時刻、最長、知らせ、音量への切り替え）を確かめます。本物のサーバーでは、上の比較のように手で確かめました。案は (a) このままにする、(b) 本物のサーバーで区間を比べる試験を、区分 E（`tests/voice/test_speechcpp_realtime_vad_live.py` と同じく、モデルがあるときだけ動く）として足す、です。
 87. **サーバーを使えないときの音量の区切りのまとめ方**（#278）。設定がそろわないうちは VAD を使わず、スイッチがオフのときと同じに音量で区切ってまとめます。設定がそろっていて録音を始めたあとにサーバーを使えないと分かったとき（動いていない、セッションが切れた）は、音量で区切りますが、まとめ方は VAD の経路のままです。`PHRASE_TIMEOUT` でフレーズをつながず、音量で切れた区間ごとに 1 つの発話として認識します（区切りの秒数は録音の区切りとフレーズの区切りの短いほう）。Python は VAD のモデルが動かないと認識を止めたので（`VAD_INFERENCE_ERROR`）、同じ場面がありません。案は (a) このままにする、(b) 音量に切り替えたら、まとめ方もスイッチがオフのときと同じにする、です。
 88. **外部のサーバーの既定の URL で VAD を選べること**（#278）。新しい設定のリアルタイム字幕は外部のサーバー（`http://127.0.0.1:8080`）なので、何も動いていなくても `/get/data/vad_available` は `true` で、VAD を選べます。録音を始めると、Windows では接続が断られるまで約 2 秒かかり、その間は音量で区切った区間を持っておき、`speech_server_not_ready` を知らせてから認識に回します。スイッチを入れるときにサーバーへつながるかは確かめていません（UI を待たせないため）。案は (a) このままにする、(b) スイッチを入れるときに外部のサーバーへつながるかを確かめ、つながらなければ断る、です。
+89. **C のゲートの補助が自分で断ることの試験**（#275 の続き）。中核は Linux の管理された経路のミュートと再開に、C の補助（`vrct-voice-gate`）を使い続けます。補助が識別子の誤りや読めないノードを自分で断ることは、Python の `test_spoken_route_native.py`（私用の PipeWire と本物の補助）だけが確かめていました。中核の試験（`pipewire/gate.rs`）は偽の補助で引数と確認を確かめます。案は (a) Python と一緒に引退させ、`native/core/examples/live_speech.rs --private-pipewire` で手で確かめる、(b) 私用の PipeWire を立てる Rust の試験（既定では動かさないか、Linux の CI だけ）に移す、です。
+90. **変換を通す発話のチャンク（報告）**（#275 の続き）。Python は 80 ms に揃わないチャンクを `ValueError` で断りました。中核は 80 ms ずつに詰め直し、最後の奇数の 1 バイトを捨てます（`process.rs` の `speak`）。発話は合成した音声で、利用者から見える違いはない想定です。

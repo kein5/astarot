@@ -12,8 +12,8 @@ export const Switch = forwardRef<ElementRef<typeof RadixSwitch.Root>, SwitchProp
     ref,
 ) {
     return (
-        <RadixSwitch.Root ref={ref} className={clsx(root, className)} {...rest}>
-            <RadixSwitch.Thumb className={thumb} />
+        <RadixSwitch.Root ref={ref} data-slot="switch" className={clsx(root, className)} {...rest}>
+            <RadixSwitch.Thumb data-slot="switch-thumb" className={thumb} />
         </RadixSwitch.Root>
     );
 });

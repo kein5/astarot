@@ -73,6 +73,8 @@ jobs:
             native/translation
             native/translate-onnx
             native/tts
+      # The names the app goes by outside its code, and the VRCT-VOX ones they replace (ADR-014).
+      - run: cargo test --locked --manifest-path native/app-identity/Cargo.toml
       - run: cargo test --locked --manifest-path native/core/Cargo.toml
       # The OS stores the API keys go to (ADR-013). Linux: GNOME Keyring with an unlocked login
       # keyring on a private session bus. Windows: the runner user's Credential Manager. Each test

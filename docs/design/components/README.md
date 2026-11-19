@@ -11,9 +11,9 @@
 
 | 部品 | 中身 | 振る舞いの出どころ |
 |---|---|---|
-| `Button` | 4 つの見た目（primary、plain、quiet、danger）と 2 つの大きさ（regular、compact） | ネイティブの `<button>`。既定は `type="button"` |
+| `Button` | 4 つの見た目（primary、plain、quiet、danger）と 3 つの大きさ（regular、compact、アイコンだけの icon） | ネイティブの `<button>`。既定は `type="button"` |
 | `TextField` | 入力欄。値が正しくないときは `invalid` で赤い枠。住所やポートは `mono` で等幅 | ネイティブの `<input>` |
-| `Select` | 入力欄と同じ枠の選択欄。矢印は SVG | ネイティブの `<select>` |
+| `Select` | 入力欄と同じ枠の選択欄。矢印は SVG。選択肢は `SelectOption` と `SelectOptGroup` で書く | ネイティブの `<select>`、`<option>`、`<optgroup>` |
 | `Switch` | オンとオフ。オンでは Lilac の溝に Dark Plum のつまみ | Radix UI の Switch |
 | `SettingGroup` と `SettingRow` | 見出し付きのまとまりと、その中の 1 行 | — |
 
@@ -51,6 +51,18 @@
 - **Lilac の上の文字**: Dark Plum（`--vox_on_primary`）を使います。白では 3.1:1 にしかなりません。
 - **選択欄**: ネイティブの `<select>` を使います。Radix Select は Viewport に `<style>` 要素を実行時に差し込みます（2.2.6 で確認）。アプリの CSP は差し込まれるスタイルをハッシュで許可しているため、足すと CSP の更新が要ります。開いた一覧の操作も、OS と VR パネルのポインタでの扱いが今と変わらないほうが安全と判断しました。
 - **Macaw UI の `sprinkles`（属性で余白や色を指定する仕組み）**: 取り入れていません。今のアプリは部品ごとのスタイルの書き方で、ADR-010 もその形を前提にしているためです。
+
+## shadcn/ui に寄せたこと（2026-11-19）
+
+DESIGN.md の「Components」で、部品の設計、見た目、構造を shadcn/ui に寄せる方針になりました（#680）。kit では、判断の要らない次の差を寄せました。ほかの差と判断項目は、棚卸しの文書（#683）にあります。
+
+- 各部品のパーツに、shadcn/ui の同じ部品と同じ `data-slot` を付けました（`button`、`input`、`native-select-wrapper`、`native-select`、`native-select-icon`、`switch`、`switch-thumb`）。
+- `Select` の選択肢に、shadcn/ui の `NativeSelectOption` と `NativeSelectOptGroup` に当たるパーツ（`SelectOption` と `SelectOptGroup`）を足し、`native-select-option` と `native-select-optgroup` を付けました（#691）。
+- `Select` は shadcn/ui の NativeSelect に当たります。シェブロンを 1.6rem にして右から 1.4rem に置き、使えないときは包む要素ごと薄くします。
+- ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にしました。
+- `Button` に、アイコンだけのボタンの `icon` の大きさ（4rem の正方形）を足しました。アイコンの付いたボタンは、左右の余白を regular で 1.2rem、compact で 1rem にします（#694）。
+
+コードはそのまま写さず、Tailwind のクラスを vanilla-extract に読み替えています。shadcn/ui（MIT）の表示は `NOTICE.md` とライセンス台帳に載せました。
 
 ## 確かめたこと
 

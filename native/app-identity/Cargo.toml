@@ -1,0 +1,17 @@
+[package]
+name = "app-identity"
+version = "0.0.0"
+description = "The names ASTAROT goes by outside its own code (folders, IDs, saved keys, markers, environment variables), with the VRCT-VOX spelling each replaces"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT"
+publish = false
+
+[lib]
+name = "app_identity"
+
+# No dependencies: every crate of the app may depend on this one.
+[dependencies]
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]

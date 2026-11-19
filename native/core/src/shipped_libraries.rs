@@ -16,7 +16,8 @@
 //! the shipped one, at start: a process loads one ONNX Runtime library, and chat reading uses
 //! the same one.
 //!
-//! The variables that name a library (`ORT_DYLIB_PATH`, `VRCT_OPENVR_API`) still win.
+//! The variables that name a library (`ORT_DYLIB_PATH`, `ASTAROT_OPENVR_API` or
+//! `VRCT_OPENVR_API`) still win.
 //!
 //! Chat reading and translation take the ONNX Runtime library and its one environment from
 //! `vrct-onnx-runtime`, so they always share them (`ort` allows one environment per process).

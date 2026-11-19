@@ -94,14 +94,14 @@ fn create_vr_panel_window<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Resu
 }
 
 fn startup_log_path(executable_path: &Path) -> PathBuf {
-    if let Some(directory) = std::env::var_os("VRCT_CONFIG_DIR").filter(|v| !v.is_empty()) {
+    if let Some(directory) = app_identity::env::CONFIG_DIR.value_os() {
         return PathBuf::from(directory).join("logs/startup.log");
     }
     if cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1") {
         let base = std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from).filter(|p| p.is_absolute())
             .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config"));
-        return base.join("vrct-vox/logs/startup.log");
+        return base.join(app_identity::LINUX_FOLDER.current()).join("logs/startup.log");
     }
     executable_path
         .parent()
@@ -177,7 +177,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default();
     if single_instance::single_instance_enabled(
         cfg!(debug_assertions),
-        std::env::var_os("VRCT_CONFIG_DIR").as_deref(),
+        app_identity::env::CONFIG_DIR.value_os().as_deref(),
     ) {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let Some(window) = app.get_webview_window("main") else {

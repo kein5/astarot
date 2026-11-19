@@ -23,12 +23,10 @@ use std::time::{Duration, Instant};
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::{Message, WebSocket};
 use vrct_audio_routing::graph::Endpoint;
-use vrct_translation::http::Transport;
+use vrct_translation::http::{Cancel, Watched};
 
 pub const RATE: u32 = 24000;
 const MAX_AGE: Duration = Duration::from_millis(250);
-const PENDING_TIMEOUT: Duration = Duration::from_secs(15);
-const FIRST_RESULT_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_EVENT: usize = 1024 * 1024;
 const MAILBOX: usize = 32;
 /// Windows can hold a microphone's open until the user answers its question.
@@ -39,11 +37,14 @@ const CAPTURE_OPEN_TIMEOUT: Duration = Duration::from_secs(120);
 const FIRST_AUDIO_TIMEOUT: Duration = Duration::from_secs(5);
 const STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// What a session asks of the server (`SessionOptions`).
+/// What a session asks of the server (`SessionOptions`), and what the server listed for it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Options {
     pub base_url: String,
-    pub model: String,
+    /// The recognition model, as the server listed it when the start was checked. The session
+    /// does not ask for the list again (decision 81 in `docs/voice-stack/core-integration.md`):
+    /// a model the server no longer has is refused when the session connects.
+    pub model: speechcpp::Model,
     /// A code, or "auto".
     pub language: String,
     /// The merged vocabulary terms.
@@ -51,6 +52,29 @@ pub struct Options {
     /// The silence that ends an utterance (`server_vad`'s `silence_duration_ms`); `None` is
     /// [`DEFAULT_SILENCE_MS`].
     pub silence_duration_ms: Option<u32>,
+    /// Whether that list had a diarization model on a GPU: a speaker's session then asks who
+    /// speaks.
+    pub diarizes: bool,
+    pub limits: Limits,
+}
+
+/// How long a session waits for the server. The app keeps [`Limits::default`], Python's values;
+/// tests shorten them (decision 81 in `docs/voice-stack/core-integration.md`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limits {
+    /// Connecting to `/v1/realtime`, each read while the session is set up, and the setup as a
+    /// whole from before the connection to `session.updated` (2 s).
+    pub setup: Duration,
+    /// The first utterance's result, while a GPU builds its kernels (120 s).
+    pub first_result: Duration,
+    /// The result of each utterance after the first (15 s).
+    pub pending: Duration,
+}
+
+impl Default for Limits {
+    fn default() -> Limits {
+        Limits { setup: Duration::from_secs(2), first_result: Duration::from_secs(120), pending: Duration::from_secs(15) }
+    }
 }
 
 /// The silence that ends an utterance unless the settings choose another (#556). It is shorter
@@ -91,9 +115,11 @@ struct Inner {
     options: Options,
     endpoint: Endpoint,
     platform: Arc<dyn CapturePlatform>,
-    transport: Transport,
     status: Mutex<Status>,
     stop: AtomicBool,
+    /// Ends the connection and the reads of the setup when the session is stopped, so that a
+    /// server that does not answer cannot hold the thread (decision 81).
+    cancel: Cancel,
     updates: Mutex<VecDeque<Update>>,
     arrived: Condvar,
     ingress: Mutex<Ingress>,
@@ -161,18 +187,24 @@ fn percent(text: &str) -> String {
         .collect()
 }
 
-pub(crate) type Socket = WebSocket<TcpStream>;
+pub(crate) type Socket = WebSocket<Watched>;
 
 /// Opens `/v1/realtime` of a speech.cpp server on this computer, with `model` as the query when
-/// one is named (the server's recognition model otherwise). Reads wait at most 2 s.
-pub(crate) fn open_socket(base_url: &str, model: Option<&str>) -> Option<Socket> {
+/// one is named (the server's recognition model otherwise). Connecting and each read wait at
+/// most `wait`. A `cancel` gives the connection up, and ends the handshake and each read
+/// within 20 ms until the socket is released ([`Watched::release`]).
+pub(crate) fn open_socket(base_url: &str, model: Option<&str>, wait: Duration, cancel: Option<&Cancel>) -> Option<Socket> {
     let base = base_url.trim_end_matches('/');
     let url = vrct_translation::http::Url::parse(base).ok()?;
     let address = (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()?.next()?;
-    let stream = TcpStream::connect_timeout(&address, Duration::from_secs(2)).ok()?;
+    let stream = match cancel {
+        Some(cancel) => cancel.connect(address, wait).ok()?,
+        None => TcpStream::connect_timeout(&address, wait).ok()?,
+    };
     let _ = stream.set_nodelay(true);
-    stream.set_read_timeout(Some(Duration::from_secs(2))).ok()?;
+    stream.set_read_timeout(Some(wait)).ok()?;
     stream.set_write_timeout(Some(Duration::from_secs(1))).ok()?;
+    let stream = Watched::new(stream, cancel.cloned(), Some(wait));
     let mut target = format!("{}/v1/realtime", base.replacen("http://", "ws://", 1));
     if let Some(model) = model {
         target.push_str(&format!("?model={}", percent(model)));
@@ -182,22 +214,16 @@ pub(crate) fn open_socket(base_url: &str, model: Option<&str>) -> Option<Socket>
 }
 
 impl Session {
-    pub fn new(
-        source: Source,
-        options: Options,
-        endpoint: Endpoint,
-        platform: Arc<dyn CapturePlatform>,
-        transport: Transport,
-    ) -> Session {
+    pub fn new(source: Source, options: Options, endpoint: Endpoint, platform: Arc<dyn CapturePlatform>) -> Session {
         Session {
             inner: Arc::new(Inner {
                 source,
                 options,
                 endpoint,
                 platform,
-                transport,
                 status: Mutex::new(Status { state: "idle", error: None, namespace: None }),
                 stop: AtomicBool::new(false),
+                cancel: Cancel::new(),
                 updates: Mutex::new(VecDeque::new()),
                 arrived: Condvar::new(),
                 ingress: Mutex::new(Ingress { frames: VecDeque::new(), samples: 0, reason: None }),
@@ -261,9 +287,11 @@ impl Session {
         Ok(())
     }
 
-    /// Invalidates the output now; [`close`](Self::close) waits for the resources.
+    /// Invalidates the output now and ends a wait for the server; [`close`](Self::close) waits
+    /// for the resources.
     pub fn request_stop(&self) {
         self.inner.stop.store(true, Ordering::SeqCst);
+        self.inner.cancel.cancel();
         self.inner.updates.lock().unwrap_or_else(|e| e.into_inner()).clear();
         {
             let mut status = self.status();
@@ -369,26 +397,25 @@ impl Session {
         self.inner.stop.load(Ordering::SeqCst)
     }
 
-    /// `_preflight`: the request options and whether to ask who speaks.
+    /// `_preflight` without its list request: the request options and whether to ask who
+    /// speaks, from the model the start listed. The start lists the models on its own thread,
+    /// where a stop of the source ends it, and checks the model and the language; the session's
+    /// thread only waits for the WebSocket (decision 81).
     fn preflight(&self) -> Result<(serde_json::Map<String, Value>, bool), Failure> {
-        let (models, diarizes) = speechcpp::survey(&self.inner.transport, &self.inner.options.base_url, Duration::from_secs(5))
-            .map_err(|_| Failure::Realtime("preflight_failed"))?;
-        let Some(model) = models.iter().find(|m| m.id == self.inner.options.model) else {
-            return Err(Failure::Session("realtime_model_unavailable"));
-        };
-        if !speechcpp::language_supported(model, &self.inner.options.language) {
-            return Err(Failure::Session(if self.inner.options.language == "auto" {
+        let options = &self.inner.options;
+        if !speechcpp::language_supported(&options.model, &options.language) {
+            return Err(Failure::Session(if options.language == "auto" {
                 "realtime_language_auto_unsupported"
             } else {
                 "realtime_language_unsupported"
             }));
         }
-        let options = speechcpp::request_options(&model.options, &self.inner.options.vocabulary);
-        Ok((options, diarizes && self.inner.source == Source::Speaker))
+        let request = speechcpp::request_options(&options.model.options, &options.vocabulary);
+        Ok((request, options.diarizes && self.inner.source == Source::Speaker))
     }
 
     fn settings(&self, options: &serde_json::Map<String, Value>, diarization: bool) -> Value {
-        let mut transcription = json!({ "model": self.inner.options.model, "language": self.inner.options.language });
+        let mut transcription = json!({ "model": self.inner.options.model.id, "language": self.inner.options.language });
         for (key, value) in options {
             transcription[key] = value.clone();
         }
@@ -424,7 +451,7 @@ impl Session {
         event["type"] == "session.updated"
             && event["session"]["type"] == "transcription"
             && audio["format"] == json!({ "type": "audio/pcm", "rate": RATE })
-            && transcription["model"] == self.inner.options.model.as_str()
+            && transcription["model"] == self.inner.options.model.id.as_str()
             && transcription["language"] == self.inner.options.language.as_str()
             && options.iter().all(|(key, value)| transcription.get(key) == Some(value))
             && audio.get("noise_reduction").is_none_or(Value::is_null)
@@ -462,16 +489,29 @@ impl Session {
     }
 
     fn connect(&self) -> Result<Socket, Failure> {
-        open_socket(&self.inner.options.base_url, Some(&self.inner.options.model)).ok_or(Failure::Realtime("connection_failed"))
+        let options = &self.inner.options;
+        let socket = open_socket(&options.base_url, Some(&options.model.id), options.limits.setup, Some(&self.inner.cancel));
+        match socket {
+            Some(socket) => Ok(socket),
+            None if self.stopped() => Err(Failure::Stopped),
+            None => Err(Failure::Realtime("connection_failed")),
+        }
     }
 
-    fn recv_setup(socket: &mut Socket, deadline: Instant) -> Result<Value, Failure> {
+    /// The next event of the setup. A stop ends the wait within 20 ms.
+    fn recv_setup(&self, socket: &mut Socket, deadline: Instant) -> Result<Value, Failure> {
         loop {
+            if self.stopped() {
+                return Err(Failure::Stopped);
+            }
             if Instant::now() >= deadline {
                 return Err(Failure::Realtime("connection_failed"));
             }
-            if let Some(event) = Self::receive(socket)? {
-                return Ok(event);
+            match Self::receive(socket) {
+                Ok(Some(event)) => return Ok(event),
+                Ok(None) => {}
+                Err(_) if self.stopped() => return Err(Failure::Stopped),
+                Err(failure) => return Err(failure),
             }
         }
     }
@@ -484,20 +524,23 @@ impl Session {
         let namespace = namespace();
         let mut events = Events::new(self.inner.source.as_str(), namespace.clone());
         self.status().namespace = Some(namespace);
-        let deadline = Instant::now() + Duration::from_secs(2);
+        let deadline = Instant::now() + self.inner.options.limits.setup;
         let mut socket = self.connect()?;
-        let created = Self::recv_setup(&mut socket, deadline)?;
+        let created = self.recv_setup(&mut socket, deadline)?;
         if created["type"] != "session.created" {
             return Err(Failure::Realtime("session_not_created"));
         }
         let update = json!({ "type": "session.update", "session": self.settings(&options, diarization) });
         socket.send(Message::text(update.to_string())).map_err(|_| Failure::Realtime("send_failed"))?;
-        let answer = Self::recv_setup(&mut socket, deadline)?;
+        let answer = self.recv_setup(&mut socket, deadline)?;
         self.check_config(&answer, &options, diarization)?;
         if self.stopped() {
             let _ = socket.close(None);
             return Err(Failure::Stopped);
         }
+        // From here the stream looks at the stop itself every 10 ms, and closes the socket
+        // with a close frame.
+        socket.get_mut().release().map_err(|_| Failure::Realtime("stream_failed"))?;
         let result = self.stream(&mut socket, &mut events, &options, diarization);
         events.close();
         let _ = socket.close(None);
@@ -593,7 +636,8 @@ impl Session {
                         socket.send(Message::text(message.to_string())).map_err(|_| Failure::Realtime("send_failed"))?;
                     }
                 }
-                let limit = if first_result_seen { PENDING_TIMEOUT } else { FIRST_RESULT_TIMEOUT };
+                let limits = self.inner.options.limits;
+                let limit = if first_result_seen { limits.pending } else { limits.first_result };
                 if pending_since.values().any(|since| since.elapsed() > limit) {
                     return Err(Failure::Realtime("utterance_timeout"));
                 }
@@ -672,15 +716,7 @@ mod tests {
     }
 
     fn session() -> Session {
-        let options = Options {
-            base_url: "http://127.0.0.1:9".into(),
-            model: "m".into(),
-            language: "ja".into(),
-            vocabulary: Vec::new(),
-            silence_duration_ms: None,
-        };
-        let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
-        Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice), vrct_translation::http::direct())
+        session_at("http://127.0.0.1:9", Limits::default())
     }
 
     fn refused_for(session: &Session) -> Option<&'static str> {
@@ -724,6 +760,90 @@ mod tests {
         assert!(stopped.inner.ingress.lock().unwrap().frames.is_empty(), "the stop dropped what waited");
         assert_eq!(stopped.start(), Err("realtime_session_single_use"));
         assert_eq!(stopped.state(), "closed");
+    }
+
+    /// Where a stand-in speech.cpp stops answering.
+    #[derive(Clone, Copy, PartialEq)]
+    enum Silent {
+        /// The Realtime WebSocket's handshake.
+        Handshake,
+        /// The setup, after the handshake (`session.created` never comes).
+        Setup,
+    }
+
+    /// A speech.cpp stand-in on a loopback port that holds each connection open without a word
+    /// from where it falls `silent`. Gives its base URL, how many connections it holds and how
+    /// many asked for the model list.
+    fn unanswering(silent: Silent) -> (String, Arc<AtomicU64>, Arc<AtomicU64>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+        let (held, listed) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU64::new(0)));
+        let (holding, listing) = (held.clone(), listed.clone());
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let (holding, listing) = (holding.clone(), listing.clone());
+                std::thread::spawn(move || {
+                    let mut head = [0u8; 64];
+                    let size = stream.peek(&mut head).unwrap_or(0);
+                    if head[..size].starts_with(b"GET /v1/models") {
+                        listing.fetch_add(1, Ordering::SeqCst);
+                    }
+                    holding.fetch_add(1, Ordering::SeqCst);
+                    let _kept = match silent {
+                        Silent::Handshake => Some(stream),
+                        Silent::Setup => tungstenite::accept(stream).ok().map(WebSocket::into_inner),
+                    };
+                    std::thread::sleep(Duration::from_secs(30));
+                });
+            }
+        });
+        (base, held, listed)
+    }
+
+    fn session_at(base_url: &str, limits: Limits) -> Session {
+        let model = speechcpp::Model {
+            id: "m".into(),
+            languages: vec!["ja".into()],
+            accepts_language: true,
+            detects_language: false,
+            options: vec!["language".into()],
+        };
+        let options = Options {
+            base_url: base_url.into(),
+            model,
+            language: "ja".into(),
+            vocabulary: Vec::new(),
+            silence_duration_ms: None,
+            diarizes: false,
+            limits,
+        };
+        let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
+        Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice))
+    }
+
+    #[test]
+    fn a_stop_ends_a_session_whose_server_does_not_answer_within_100_ms() {
+        // Decision 81: the session's thread waited for the WebSocket's setup without looking at
+        // the stop, and a start right after a stop then found the previous session busy
+        // (`realtime_previous_owner_busy`). A setup of 5 s shows a wait that a stop does not end.
+        let limits = Limits { setup: Duration::from_secs(5), ..Limits::default() };
+        for silent in [Silent::Handshake, Silent::Setup] {
+            let (base, held, listed) = unanswering(silent);
+            let session = session_at(&base, limits);
+            session.start().unwrap();
+            let started = Instant::now();
+            while held.load(Ordering::SeqCst) == 0 {
+                assert!(started.elapsed() < Duration::from_secs(5), "the server never got the connection");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            // In the wait, not just before it.
+            std::thread::sleep(Duration::from_millis(50));
+            assert_eq!(session.state(), "starting");
+            assert!(session.close(Duration::from_millis(100)), "a stop did not end the wait for the server");
+            assert_eq!((session.state(), session.error()), ("closed", None), "a stop is not a failure");
+            // The start listed the models; the session only connects.
+            assert_eq!(listed.load(Ordering::SeqCst), 0, "the session asked for the model list again");
+        }
     }
 
     #[test]
