@@ -49,3 +49,21 @@ fn streamed_speech_with_short_pauses_plays_to_the_end() {
     let result = AudioRouter::default().play(parts, &device, &CancelToken::default(), |_, _| {}, None);
     assert!(result.is_ok(), "{result:?}");
 }
+
+/// Decision 62 (c): speech whose next part comes after the buffer ran dry plays silence there
+/// and goes on to the end, instead of ending with `output_underflow`.
+#[test]
+#[ignore = "needs a Windows output device"]
+fn speech_that_runs_dry_goes_on_after_silence() {
+    let device = device();
+    let rate = 48_000;
+    let parts = (0..4).map(move |i| {
+        if i > 0 {
+            // Longer than the 0.1 s part and the output's buffer: the device runs dry.
+            std::thread::sleep(std::time::Duration::from_millis(400));
+        }
+        Ok(Frame { pcm: tone(0.1, rate), sample_rate: rate, channels: 1 })
+    });
+    let result = AudioRouter::default().play(parts, &device, &CancelToken::default(), |_, _| {}, None);
+    assert!(result.is_ok(), "{result:?}");
+}

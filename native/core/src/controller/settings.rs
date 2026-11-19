@@ -25,13 +25,15 @@ pub fn switch(core: &Arc<Core>, key: &'static str, on: bool) -> impl Fn(&Value) 
 }
 
 /// The VAD switch of a source (`setEnableMicVadFilter`). Turning it on needs the speech.cpp
-/// server set up for VAD ([`Core::vad_unavailable_reason`]); without it the answer is
+/// server set up for VAD ([`Core::vad_unavailable_reason`]), and an external one answering a
+/// connection (decision 88, [`Core::vad_server_unreachable`]); without it the answer is
 /// `VAD_UNAVAILABLE` with the saved value, which stays as it was, and the reason. Turning it off
 /// always works.
 pub fn vad_switch(core: &Arc<Core>, key: &'static str, on: bool) -> impl Fn(&Value) -> Reply + Send + Sync + 'static {
     let core = Arc::clone(core);
     move |_| {
-        if let Some(reason) = core.vad_unavailable_reason().filter(|_| on) {
+        let refused = || core.vad_unavailable_reason().or_else(|| core.vad_server_unreachable());
+        if let Some(reason) = on.then(refused).flatten() {
             return Reply::error(ErrorReply::new("VAD_UNAVAILABLE", core.config().get(key)).details(json!({ "reason": reason })));
         }
         if core.config().get_bool(key) != on {
