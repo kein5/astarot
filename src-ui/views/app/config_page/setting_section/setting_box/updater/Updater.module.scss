@@ -26,10 +26,12 @@
     gap: 1.2rem;
 }
 
+// An outline beside Install: with no fill, its border is its only edge, so it is the field
+// border (DESIGN.md "Colors"), like the forms' quiet buttons.
 .check_button {
     background-color: transparent;
     color: var(--dark_basic_text_color);
-    border: 0.1rem solid var(--dark_700_color);
+    border: 0.1rem solid var(--vox_field_border);
     border-radius: 0.4rem;
     padding: 1.2rem 2.4rem;
     font-size: 1.4rem;
