@@ -109,6 +109,9 @@ fn the_links_the_app_shows_can_be_opened() {
         "https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.Gpu.Windows/1.31.0/License",
         "https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.Gpu.Linux/1.31.0/License",
         "https://docs.nvidia.com/deeplearning/cudnn/backend/latest/reference/eula.html",
+        // The licenses of llama.cpp's server for the translation LLMs (ADR-015).
+        "https://github.com/ggml-org/llama.cpp/blob/b12125/LICENSE",
+        "https://github.com/llvm/llvm-project/blob/llvmorg-20.1.8/openmp/LICENSE.TXT",
         // The virtual cable's download page in the virtual microphone guide (#321).
         "https://vb-audio.com/Cable/",
         // The GPU report's new issue, with the report filled in (#288).
@@ -132,6 +135,8 @@ fn other_urls_and_other_schemes_are_refused() {
         "https://github.com/kein5/astarot/%5c..",
         "https://huggingface.co.example.com/",
         "https://www.nuget.org/packages/Someone.Else/1.0.0/License",
+        "https://github.com/llvm/llvm-project/blob/main/README.md",
+        "https://github.com/ggml-org/other",
         "https://vb-audio.com/Cable/../../other",
         "https://vb-audio.com/Voicemeeter/",
         "https://huggingface.co@example.com/",

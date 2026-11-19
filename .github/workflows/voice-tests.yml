@@ -11,7 +11,7 @@ env:
   UV_PYTHON_DOWNLOADS: never
 jobs:
   headless:
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -19,11 +19,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Cocogitto too: the tooling scope runs tools/changelog.py against real commits.
+      # Cocogitto too: the tooling scope runs tools/changelog.py against real commits. Rust on
+      # Linux: the voice gate helper's test on a private PipeWire graph (below).
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.11.8
-          install_args: node python uv cocogitto
+          install_args: ${{ runner.os == 'Linux' && 'node python uv cocogitto rust' || 'node python uv cocogitto' }}
       - run: uv venv
       - run: uv export --frozen --no-header --no-annotate --format requirements-txt --no-emit-project --only-group voice-test --output-file voice-test-requirements.txt
       - run: uv pip sync --require-hashes voice-test-requirements.txt
@@ -31,7 +32,7 @@ jobs:
         # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
         run: |
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev && break
+            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done
@@ -43,6 +44,12 @@ jobs:
           echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
       - if: runner.os == 'Linux'
         run: uv run --no-project python tools/build_voice_gate.py
+      # The real vrct-voice-gate refuses what it was not given, on a PipeWire and WirePlumber of
+      # its own (decision 89 in docs/voice-stack/core-integration.md). libclang: the crate binds
+      # libpipewire-0.3.
+      - name: Voice gate helper on a private PipeWire graph
+        if: runner.os == 'Linux'
+        run: cargo test --locked --manifest-path native/audio-routing/Cargo.toml --test voice_gate_private -- --ignored
       - run: uv run --no-project python tools/dev.py check --scope tooling
       - run: uv run --no-project python tools/dev.py check --scope voice
       - run: uv run --no-project python tools/dev.py check --scope lint
