@@ -10,6 +10,8 @@
     }
 }
 
+// shadcn/ui's Slider: a .6rem groove (h-1.5) with its filled part (Range) in the primary
+// colour. The padding keeps the 3rem the pointer could already reach.
 .sliderRoot {
     position: relative;
     box-sizing: border-box;
@@ -17,15 +19,21 @@
     touch-action: none;
     &.horizontal {
         width: 100%;
-        height: 0.4rem;
-        padding: 1.3rem 0;
+        height: 0.6rem;
+        padding: 1.2rem 0;
         margin: 0.8rem 0;
     }
     &.vertical {
         height: 100%;
-        width: 0.4rem;
-        padding: 0 1.3rem;
+        width: 0.6rem;
+        padding: 0 1.2rem;
         margin: 0 0.8rem;
+    }
+    // shadcn/ui's data-[disabled]:opacity-50; its thumb takes no hover ring then.
+    &[data-disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+        .thumb:hover { box-shadow: none; }
     }
 }
 
@@ -37,31 +45,32 @@
         top: 50%;
         left: 0;
         right: 0;
-        height: 0.4rem;
+        height: 0.6rem;
         transform: translateY(-50%);
     }
     .vertical & {
         left: 50%;
         top: 0;
         bottom: 0;
-        width: 0.4rem;
+        width: 0.6rem;
         transform: translateX(-50%);
     }
 }
 
+// The filled part, from the start to the value (shadcn/ui's Range).
 .track {
     position: absolute;
-    // background-color: var(--primary_600_color);
+    background-color: var(--primary_600_color);
     border-radius: 1rem;
     border: none;
     .horizontal & {
         top: 50%;
-        height: 0.4rem;
+        height: 0.6rem;
         transform: translateY(-50%);
     }
     .vertical & {
         left: 50%;
-        width: 0.4rem;
+        width: 0.6rem;
         transform: translateX(-50%);
     }
 }
@@ -155,10 +164,11 @@
     font-size: 1.4rem;
 }
 
+// A tick across the groove, as tall as the groove.
 .mark {
     position: absolute;
     width: 0.1rem;
-    height: 0.4rem;
+    height: 0.6rem;
     border-radius: 50%;
     background-color: var(--dark_650_color);
     .horizontal & {

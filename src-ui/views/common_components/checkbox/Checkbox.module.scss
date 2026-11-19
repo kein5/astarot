@@ -67,7 +67,9 @@
     fill: none;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke: var(--dark_basic_text_color);
+    // The check sits on the Lilac fill, so it is Dark Plum, as text on Lilac is (DESIGN.md
+    // "Colors": 5.4:1, where white is 3.1:1) and as shadcn/ui's primary-foreground check is.
+    stroke: var(--vox_on_primary);
     stroke-width: 1.4;
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
