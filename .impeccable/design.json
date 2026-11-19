@@ -23,8 +23,8 @@
     "motion": [
       {
         "name": "control-transition",
-        "value": "160ms ease",
-        "purpose": "Color feedback; disabled with reduced motion."
+        "value": "120ms cubic-bezier(.2, 0, 0, 1)",
+        "purpose": "Color feedback on hover and focus (--vox_motion_fast, --vox_ease); a pressed control changes color at once; disabled with reduced motion."
       }
     ],
     "breakpoints": [
