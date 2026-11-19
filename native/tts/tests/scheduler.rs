@@ -832,3 +832,48 @@ fn a_panic_outside_an_utterance_leaves_the_bus_usable() {
     until2(|| bus.status().completed == 1);
     close(&bus);
 }
+
+#[test]
+fn typed_chat_waiting_behind_a_long_utterance_does_not_expire_but_microphone_speech_does() {
+    // Decision 61 (b): typed chat leaves out the time it waited while the worker spoke an earlier
+    // message, so messages sent one after another are all spoken. Microphone speech keeps
+    // Python's rule and expires after `max_age` in the queue. `max_age` is 300 ms here; the first
+    // message takes 600 ms.
+    let (entered, release) = (Event::new(), Event::new());
+    let spoken: Arc<Mutex<Vec<String>>> = Arc::default();
+    let (record, hook_entered, hook_release) = (spoken.clone(), entered.clone(), release.clone());
+    let settings = VoiceSettings { mode: "original".into(), multilingual_url: "http://localhost:8081".into(), ..speech_settings() };
+    let bus = bus(settings, &Sink::default(), |o| {
+        o.max_age = ms(300);
+        o.provider_factory = provider(move |text, token, _| {
+            record.lock().unwrap().push(text.to_owned());
+            if text == "long" {
+                hook_entered.set();
+                assert!(hook_release.wait(Some(Duration::from_secs(2))));
+            }
+            token.check()?;
+            Ok(frames(vec![1, 0]))
+        });
+    });
+    let chat_event = |id: &str| SpeechMessageEvent { source_language: Some("ja".into()), ..SpeechMessageEvent::new(id, Source::Chat, id) };
+    assert!(bus.publish(chat_event("long"), None, None));
+    assert!(entered.wait(Some(Duration::from_secs(1))));
+    assert!(bus.publish(chat_event("next"), None, None));
+    assert!(bus.publish(chat_event("last"), None, None));
+    assert!(bus.publish(mic_event("heard", "heard"), None, None));
+    thread::sleep(ms(600));
+    release.set();
+    until2(|| {
+        let status = bus.status();
+        status.completed + status.dropped == 4 && !status.active && status.queued == 0
+    });
+    assert_eq!(*spoken.lock().unwrap(), ["long", "next", "last"]);
+    let status = bus.status();
+    assert_eq!((status.completed, status.expired), (3, 1), "only the microphone's message expired");
+
+    // Chat that waits while nothing speaks still expires (`expired_jobs_do_not_speak`).
+    assert!(bus.publish(SpeechMessageEvent { timestamp_ns: monotonic_ns() - 400_000_000, ..chat_event("stale") }, None, None));
+    until2(|| bus.status().expired == 2);
+    assert_eq!(spoken.lock().unwrap().len(), 3);
+    close(&bus);
+}

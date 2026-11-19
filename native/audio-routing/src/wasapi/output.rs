@@ -79,8 +79,9 @@ fn lost(_: windows::core::Error) -> Error {
 }
 
 impl WindowsOutput {
-    /// `strict_underflow`: report a buffer that ran dry (the virtual microphone does);
-    /// a monitor tolerates it.
+    /// `strict_underflow`: report a buffer that ran dry (the virtual microphone check's tone
+    /// does); speech and a monitor tolerate it, and the engine plays silence until the next
+    /// write (decision 62).
     pub fn open(identity: &str, rate: u32, channels: u16, strict_underflow: bool) -> Result<Self> {
         let _com = Com::init()?;
         let mta = MtaUsage::new()?;

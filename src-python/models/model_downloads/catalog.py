@@ -6,7 +6,7 @@ from urllib.parse import quote
 from . import speechcpp_asr
 
 # 2026-11-16.1 was the recognizers alone, .2 the speech models alone; .3 holds both.
-CATALOG_VERSION = '2026-11-16.3'
+CATALOG_VERSION = '2026-11-19.1'
 
 
 @dataclass(frozen=True)

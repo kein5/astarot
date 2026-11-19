@@ -82,6 +82,33 @@ struct Toggle {
     /// The run of the bundled ASR server a switch started.
     asr_owned: Option<u64>,
     starting: usize,
+    /// Recorders whose VAD may use the bundled server ([`VadUser`]): it is not stopped while
+    /// one lives (decision 84).
+    vad_users: usize,
+}
+
+/// A recorder's hold on the bundled ASR server for its VAD (decision 84). Counted while the
+/// recorder's VAD lives; the last one gone lets [`Core::release_asr_server`] stop a server a
+/// switch or a VAD started.
+struct VadUser(std::sync::Weak<Core>);
+
+impl VadUser {
+    fn new(core: &Arc<Core>) -> VadUser {
+        core.realtime().toggle().vad_users += 1;
+        VadUser(Arc::downgrade(core))
+    }
+}
+
+impl Drop for VadUser {
+    fn drop(&mut self) {
+        let Some(core) = self.0.upgrade() else { return };
+        {
+            let mut toggle = core.realtime().toggle();
+            toggle.vad_users = toggle.vad_users.saturating_sub(1);
+        }
+        // A recorder may go while its owner holds other locks: the release runs on its own.
+        let _ = std::thread::Builder::new().name("vrct-vad-release".into()).spawn(move || core.release_asr_server());
+    }
 }
 
 pub(crate) struct Realtime {
@@ -221,6 +248,28 @@ impl Core {
         }
     }
 
+    /// Decision 88: whether an external server of the settings answers a connection, checked
+    /// when a VAD switch is turned on (within a second). `None` when it does, or when the
+    /// server is the bundled one (started or told when a recording starts) or the services' VAD.
+    pub(crate) fn vad_server_unreachable(&self) -> Option<&'static str> {
+        if self.services().vad.is_some() {
+            return None;
+        }
+        let settings = self.vad_server_settings();
+        if settings["server"] == "bundled" {
+            return None;
+        }
+        let reachable = settings["base_url"]
+            .as_str()
+            .and_then(|url| vrct_translation::http::Url::parse(url).ok())
+            .and_then(|url| {
+                use std::net::ToSocketAddrs;
+                (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()
+            })
+            .is_some_and(|mut addresses| addresses.any(|address| std::net::TcpStream::connect_timeout(&address, Duration::from_secs(1)).is_ok()));
+        (!reachable).then_some("realtime_models_unavailable")
+    }
+
     /// `/get/data/vad_available`.
     pub(crate) fn vad_available(&self) -> bool {
         self.vad_unavailable_reason().is_none()
@@ -249,9 +298,13 @@ impl Core {
             return None;
         }
         let weak = Arc::downgrade(self);
+        let user = VadUser::new(self);
         let resolve: server_vad::Resolve = Arc::new({
             let weak = weak.clone();
-            move || weak.upgrade().ok_or_else(|| "realtime_session_failed".to_string())?.vad_server_url()
+            move || {
+                let _holds = &user;
+                weak.upgrade().ok_or_else(|| "realtime_session_failed".to_string())?.vad_server_url()
+            }
         });
         let report: server_vad::Report = Arc::new(move |code: &str| {
             if let Some(core) = weak.upgrade() {
@@ -261,11 +314,19 @@ impl Core {
         Some(Vad(Arc::new(ServerVad::new(resolve, report, server_vad::PYTHON))))
     }
 
-    /// The speech.cpp server the recorder's VAD uses: the bundled one while it runs (a recording
-    /// does not start it), or the external one of the settings.
+    /// The speech.cpp server the recorder's VAD uses: the bundled one, which a recording starts
+    /// when the realtime settings let a switch start it (`start_server`, decision 84) and waits
+    /// for, or the external one of the settings. Called where the VAD opens its session, not
+    /// on the recording's thread.
     fn vad_server_url(&self) -> Result<String, String> {
         let settings = self.vad_server_settings();
         let base = if settings["server"] == "bundled" {
+            let ready = self.speech_servers().state()["asr"]["state"] == "ready";
+            if !ready && settings["start_server"] != false
+                && let Some(code) = self.ensure_asr_server(true, &|| !self.realtime().state().closed)
+            {
+                return Err(code);
+            }
             self.speech_servers().hub().binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?
         } else {
             settings["base_url"].as_str().unwrap_or("").to_string()
@@ -580,7 +641,7 @@ impl Core {
     fn release_asr_server(&self) {
         let mut toggle = self.realtime().toggle();
         let Some(owned) = toggle.asr_owned else { return };
-        if toggle.starting > 0 {
+        if toggle.starting > 0 || toggle.vad_users > 0 {
             return;
         }
         {
@@ -600,7 +661,14 @@ impl Core {
 
     /// `_awaitAsrServer`: starts the bundled server when allowed and waits until it is ready.
     fn await_asr_server(&self, source: Source, expected: u64, start: bool) -> Option<String> {
-        if !self.realtime_start_current(source, expected) {
+        self.ensure_asr_server(start, &|| self.realtime_start_current(source, expected))
+    }
+
+    /// Starts the bundled ASR server when `start` allows it and waits until it is ready, while
+    /// `current` holds (else `realtime_stale_start`). A server it starts is owned as a switch's
+    /// ([`Core::release_asr_server`]).
+    fn ensure_asr_server(&self, start: bool, current: &dyn Fn() -> bool) -> Option<String> {
+        if !current() {
             return Some("realtime_stale_start".into());
         }
         let row = self.speech_servers().state()["asr"].clone();
@@ -642,7 +710,7 @@ impl Core {
         }
         let deadline = Instant::now() + ASR_SERVER_WAIT;
         loop {
-            if !self.realtime_start_current(source, expected) {
+            if !current() {
                 return Some("realtime_stale_start".into());
             }
             let row = self.speech_servers().state()["asr"].clone();
