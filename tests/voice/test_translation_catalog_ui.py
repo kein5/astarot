@@ -291,6 +291,26 @@ def open_translation_page(page):
     return setup
 
 
+def test_the_catalog_is_a_section_of_its_own_after_more_settings(ui):
+    from playwright.sync_api import expect
+
+    page, _peer = ui
+    open_translation_page(page)
+    catalog = page.get_by_role("region", name="Translation catalog")
+    advanced = page.locator("details[data-advanced]")
+    # In sight without opening 「詳細設定」, which stays closed (#597).
+    expect(catalog).to_be_visible()
+    expect(advanced).to_have_count(1)
+    assert advanced.get_attribute("open") is None
+    expect(advanced.get_by_role("region", name="Translation catalog")).to_have_count(0)
+    after = page.evaluate("""() => {
+        const fold = document.querySelector('details[data-advanced]');
+        const catalog = document.querySelector('section[aria-label="Translation catalog"]');
+        return Boolean(fold.compareDocumentPosition(catalog) & Node.DOCUMENT_POSITION_FOLLOWING);
+    }""")
+    assert after, "the catalog comes after 「詳細設定」"
+
+
 def test_without_a_published_model_only_the_selected_one_and_yours_are_listed(ui):
     from playwright.sync_api import expect
 
