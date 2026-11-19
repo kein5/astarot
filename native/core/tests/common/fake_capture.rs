@@ -186,7 +186,7 @@ impl CapturePlatform for FakeCapture {
                 };
                 let samples: Vec<i16> =
                     (0..block * usize::from(channels)).map(|i| if (i / usize::from(channels)) % 2 == 0 { level } else { -level }).collect();
-                if !on_audio(&samples, rate, channels) {
+                if !on_audio(&samples, rate, channels, None) {
                     break;
                 }
             }

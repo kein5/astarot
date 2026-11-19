@@ -283,14 +283,15 @@ impl HelperCapture {
                         Err(_) => break Some("asr_capture_failed".into()),
                     };
                     let mut closed = false;
-                    // The frames are stamped again where they are received; they are fresh
-                    // (the decoder refused anything older than 250 ms).
-                    for (frame, _stamp) in frames {
+                    // Each frame goes with how long ago its first sample was captured (decision
+                    // 70): the receiver judges its age from the helper's stamp, as Python did.
+                    for (frame, stamp) in frames {
                         if flag.load(Ordering::SeqCst) {
                             break;
                         }
                         last_frame = Some(Instant::now());
-                        if !on_audio(&crate::pcm::samples(&frame), 48000, 1) {
+                        let captured_ago = Duration::from_nanos(monotonic_ns().saturating_sub(stamp));
+                        if !on_audio(&crate::pcm::samples(&frame), 48000, 1, Some(captured_ago)) {
                             closed = true;
                             break;
                         }
