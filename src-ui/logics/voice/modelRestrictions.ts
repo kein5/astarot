@@ -1,14 +1,15 @@
 // What a user acknowledges one by one, apart from the general consent, before a catalog model
 // downloads (#411). The catalog row's `restrictions` comes from the model's license
 // (native/ops/src/downloads/catalog.rs `license_restrictions`): `non_commercial` for a Creative
-// Commons NonCommercial license such as NLLB-200's CC-BY-NC-4.0. The start request names every
-// one in `acknowledged`; the backend refuses the download without them
+// Commons NonCommercial license such as NLLB-200's CC-BY-NC-4.0, `gemma_terms` for the Gemma
+// Terms of Use, whose Prohibited Use Policy binds the user too (ADR-015). The start request
+// names every one in `acknowledged`; the backend refuses the download without them
 // (`model_download_restriction_unacknowledged`). A model without restrictions sends the same
 // request as before.
-export type Restriction = "non_commercial";
+export type Restriction = "non_commercial" | "gemma_terms";
 
 // The kinds the dialog has words for (model_downloads.restriction.<kind> in locales/).
-export const RESTRICTIONS: readonly Restriction[] = ["non_commercial"];
+export const RESTRICTIONS: readonly Restriction[] = ["non_commercial", "gemma_terms"];
 
 export type RestrictedModel = { id: string; catalog_version: string; restrictions?: unknown };
 
