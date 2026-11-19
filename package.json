@@ -80,5 +80,13 @@
     "vite": "6.4.5",
     "vite-plugin-svgr": "4.3.0",
     "vitest": "5.1.0"
+  },
+  "overrides": {
+    "i18next": {
+      "typescript": "$typescript"
+    },
+    "react-i18next": {
+      "typescript": "$typescript"
+    }
   }
 }
