@@ -513,3 +513,95 @@ fn the_default_probe_is_inconclusive_for_a_live_listener() {
     thread::sleep(millis(50));
     assert!(listener_missing(&address, &Event::new()));
 }
+
+#[test]
+fn a_listener_table_decides_before_any_connect() {
+    // `windows_monitor_distinguishes_absent_listener_from_connect_failure`: with a listener table
+    // (Windows'), its answer is taken without a connect. A port missing from the table is gone
+    // although it listens, and a listed port is there although it is closed. The table's reads
+    // have 50 ms; one that misses it falls back to a connect, which would answer the other way,
+    // so each answer is waited for.
+    use std::collections::HashSet;
+    use vrct_tts::listener::{listener_missing_with, ListenerTableProbe};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let address: Address = ("127.0.0.1".into(), port);
+    let empty = ListenerTableProbe::new(|| Some(HashSet::new()), 0.0);
+    until2(|| listener_missing_with(&address, &Event::new(), Some(&empty)));
+    drop(listener);
+    let listed = ListenerTableProbe::new(move || Some(HashSet::from([("127.0.0.1".to_owned(), port)])), 0.0);
+    until2(|| !listener_missing_with(&address, &Event::new(), Some(&listed)));
+    // A watch on that table's answer ends both requests to the server it says is gone.
+    let registry = ListenerMonitors::new();
+    let probe: Probe = {
+        let empty = empty.clone();
+        Arc::new(move |address: &Address, stopped: &Event| listener_missing_with(address, stopped, Some(&empty)))
+    };
+    let tokens = [CancelToken::new(), CancelToken::new()];
+    let watches: Vec<_> = tokens.iter().map(|token| registry.watch(&address, token, Event::new(), probe.clone(), None)).collect();
+    assert!(tokens.iter().all(|token| token.wait(Duration::from_secs(2))));
+    assert!(tokens.iter().all(|token| token.reason() == "server_unavailable"));
+    for watch in &watches {
+        watch.close();
+    }
+    until2(|| registry.external_count() == 0);
+    assert!(empty.close(millis(500)) && listed.close(millis(500)));
+}
+
+#[test]
+fn headers_past_the_first_audio_budget_end_the_request_without_a_watch() {
+    // `header_time_counts_against_first_audio_budget`: headers that come after the 60 ms budget
+    // end the request with `first_audio_timeout` (decision 63: the budget covers the headers),
+    // before they come. The request never subscribed to a listener monitor and nothing probed
+    // the server.
+    let server = PcmServer::start(ServerOptions { before_headers: Some(Arc::new(|| thread::sleep(millis(300)))), ..Default::default() });
+    let registry = ListenerMonitors::new();
+    let (probe, calls) = counting_probe();
+    let client = SpeechCppTts::with_timeouts(&server.url, Duration::from_secs(2), millis(60)).unwrap().with_listener(registry.clone(), probe);
+    let token = CancelToken::new();
+    let started = Instant::now();
+    let error = stream(&client, &token).find_map(Result::err).expect("the request failed");
+    assert_eq!(error.code(), "first_audio_timeout");
+    assert!(started.elapsed() < millis(250), "{:?}", started.elapsed());
+    assert_eq!(registry.external_count(), 0);
+    thread::sleep(millis(100));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn one_probe_runs_per_address_whatever_the_number_of_requests() {
+    // `one_second_probe_counts`: a server's requests share one probe every 20 ms. Two requests
+    // to the same address in half a second are about 25 probes, not twice that.
+    let registry = ListenerMonitors::new();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let probe: Probe = {
+        let calls = calls.clone();
+        Arc::new(move |_: &Address, _: &Event| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            false
+        })
+    };
+    let address: Address = ("127.0.0.1".into(), 9);
+    let tokens = [CancelToken::new(), CancelToken::new()];
+    let watches: Vec<_> = tokens.iter().map(|token| registry.watch(&address, token, Event::new(), probe.clone(), None)).collect();
+    assert_eq!(registry.external(&address).unwrap().watch_count(), 2);
+    thread::sleep(millis(500));
+    for watch in &watches {
+        watch.close();
+    }
+    until2(|| registry.external_count() == 0);
+    let probes = calls.load(Ordering::SeqCst);
+    assert!((5..=35).contains(&probes), "{probes} probes in 500 ms for two requests");
+    assert!(tokens.iter().all(|token| !token.is_set()));
+}
+
+#[test]
+fn a_connect_that_times_out_or_fails_otherwise_proves_nothing() {
+    // `inconclusive_probe[TimeoutError, OSError]` with the default connect: only a refusal proves
+    // a server gone. An address nothing answers (TEST-NET-1: a timeout, or an unreachable
+    // network where there is no route) is inconclusive, within the 100 ms connect.
+    use vrct_tts::listener::listener_missing_with;
+    let started = Instant::now();
+    assert!(!listener_missing_with(&("192.0.2.1".into(), 9), &Event::new(), None));
+    assert!(started.elapsed() < millis(500), "{:?}", started.elapsed());
+}

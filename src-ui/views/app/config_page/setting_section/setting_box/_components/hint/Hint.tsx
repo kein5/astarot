@@ -37,6 +37,6 @@ export const Hint = ({ text, id, row = false, focusable = false }: HintProps) =>
         {focusable
             ? <span className={styles.focus_mark} tabIndex={0} role="img" aria-label={text}><HelpSvg className={styles.mark} aria-hidden="true" /></span>
             : <HelpSvg className={styles.mark} aria-hidden="true" />}
-        <span id={id} role="tooltip" aria-hidden="true" className={row ? `${styles.tip} ${styles.tip_row}` : styles.tip}>{text}</span>
+        <span id={id} role="tooltip" aria-hidden="true" data-slot="tooltip-content" className={row ? `${styles.tip} ${styles.tip_row}` : styles.tip}>{text}</span>
     </span>
 );

@@ -161,3 +161,44 @@ fn device_manager_lists_the_same_inputs_as_the_graph() {
     assert!(listed.iter().all(|d| d.id.as_deref() == Some(format!("pipewire:{}", d.node_name.as_deref().unwrap()).as_str())));
     assert_eq!(snapshot.default_mic_device.device.node_name, default.unwrap().node_name);
 }
+
+#[test]
+#[ignore = "needs a running PipeWire session"]
+fn objects_that_come_and_go_leave_the_observation_fresh() {
+    // Short-lived streams, as the gate helper's own while it mutes or resumes the managed
+    // source: the observation may bind one just as it goes. Each read that asks for an
+    // observation taken after it still gets one, while 30 streams come and go.
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use vrct_audio_routing::pipewire::read_graph_data;
+    use vrct_audio_routing::sync::monotonic;
+    read_graph(true, None).expect("graph");
+    let (stop, started) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(0)));
+    let churn = {
+        let (stop, started) = (stop.clone(), started.clone());
+        std::thread::spawn(move || {
+            while !stop.load(Ordering::SeqCst) {
+                let _ = Command::new("pw-cat")
+                    .args(["--playback", "--raw", "--rate", "48000", "--channels", "1", "-"])
+                    .stdin(std::process::Stdio::null())
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+                started.fetch_add(1, Ordering::SeqCst);
+            }
+        })
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    let (mut reads, mut failed) = (0, 0);
+    while started.load(Ordering::SeqCst) < 30 && std::time::Instant::now() < deadline {
+        reads += 1;
+        if read_graph_data(true, Some(monotonic())).is_err() {
+            failed += 1;
+        }
+    }
+    stop.store(true, Ordering::SeqCst);
+    churn.join().unwrap();
+    let started = started.load(Ordering::SeqCst);
+    assert!(started >= 30, "only {started} streams came and went");
+    assert_eq!(failed, 0, "{failed} of {reads} reads found no fresh observation while {started} streams came and went");
+}
