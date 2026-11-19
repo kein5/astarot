@@ -145,6 +145,7 @@ test("fields and outlined controls draw their edge with the field border", () =>
         "kit/Field.css.ts", "kit/Switch.css.ts",
         "app/config_page/setting_section/setting_box/_components/_atoms/_dropdown_menu/_DropdownMenu.module.scss",
         "app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.module.scss",
+        "app/config_page/search_bar/SearchBar.module.scss",
         "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.module.scss",
         "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss",
         "app/main_page/main_section/language_selector/LanguageSelector.module.scss",

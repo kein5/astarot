@@ -2,7 +2,7 @@
 
 アプリの部品を shadcn/ui の部品と照らし合わせ、差分を一覧にした文書です。DESIGN.md の「Components」の節にある、部品を shadcn/ui に寄せる方針（#680）を進めるための下調べです。棚卸しの時点では、部品のコードを変えていませんでした。その後に寄せた差は、表の「扱い」の列に PR の番号を添えて「寄せた」と書いています。
 
-- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694 で寄せました。
+- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694、検索欄は #695 で寄せました。
 - 照合した shadcn/ui: [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`、2026-11-17）。MIT ライセンスです。どのスタイルに寄せるかは D-01 で決めます。
 - 照合したアプリ: develop（#676 と #677 のマージ後）
 - 関係する文書: [設定画面の部品の実験](README.md)（#452、`src-ui/views/kit/`）、[ADR-010](../../adr/adr-010-frontend-stack.md)
@@ -62,7 +62,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 |---|---|---|---|
 | ファイル | kit は部品ごとに `Name.tsx` と `Name.css.ts`。ほかは `Name.jsx` と `Name.module.scss` | 1つの部品を1つの `.tsx` に書く | 残す（vanilla-extract のスタイルは `.css.ts` に置く）。`.tsx` と `.css.ts` の組にそろえる |
 | パーツ | ダイアログやカードはパーツに分けず、使う側がマークアップを書く | `DialogHeader`、`DialogTitle` のように、パーツを名前付きで export する | 寄せる。新しく作るときと置き換えるときにパーツに分ける |
-| `data-slot` | kit の部品（#684、#691）と `_Entry` の入力欄（#691）。ほかはなし | すべてのパーツに付ける | 寄せる |
+| `data-slot` | kit の部品（#684、#691）、`_Entry` の入力欄（#691）、設定の検索の InputGroup のパーツと言語の一覧の検索欄、Empty（#695）。ほかはなし | すべてのパーツに付ける | 寄せる |
 | variant | kit は `recipe()`（`button` の `tone` と `size`、`field` の `kind` と `mono`、`row` の `layout`） | `cva()`。`buttonVariants` のように部品の隣で export する | recipe は既にある。export の名前と variant の名前は、部品ごとの判断（ボタンは D-10）で決める |
 | ref | kit は `forwardRef` | React 19 の `ref` の props | 残す（React 18） |
 | Radix | `@radix-ui/react-switch` と `@radix-ui/react-visually-hidden` だけ | 多くの部品が Radix（統合パッケージの `radix-ui`） | パッケージは個別のまま（DESIGN.md）。どの部品を Radix にするかは、下の部品ごとの判断で決める |
@@ -137,8 +137,8 @@ shadcn/ui には、Radix の Select と、ネイティブの `<select>` を包�
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | 土台 | 自作の ARIA combobox | Combobox は Base UI（`@base-ui/react`）、Command は cmdk で書かれている。new-york-v4 には、どちらも Radix で書いたものがない | 判断（D-36）。DESIGN.md は Radix で書いたものを読むとしているが、この2つにはそれがない |
-| 検索欄の枠 | 外側の要素が 4rem の枠（`dark_875`、`dark_750` の枠、8px）を持ち、中の入力欄は枠なし。虫眼鏡のアイコンと消すボタン（✕）がある。中にフォーカスがあると枠が `primary_400` | InputGroup（`h-9`、`input` の枠。中の入力欄にフォーカスがあると輪が付く。アイコンやボタンは `InputGroupAddon` で左右に置く） | 形は一致。`data-slot` と、塗りと枠のトークン（D-02）は寄せる。高さは D-03、輪は D-06 |
-| 結果の一覧 | `dark_900`、`dark_750` の枠、8px、影。行はホバー中と選択中に `dark_800` | Command の一覧は `popover`。行は `px-2 py-1.5`、`rounded-sm`、選択中は `accent`。見出しは `text-xs` の `muted-foreground` | 地を `--vox_surface` にするのは寄せる。選択中の `dark_800` は `accent`（`--vox_secondary_hover`）と同じ値。角丸は D-04 |
+| 検索欄の枠 | 設定の検索は、外側の要素が 4rem の枠（`--vox_surface`、`--vox_field_border` の枠、8px。#695 で `dark_875` と `dark_750` から寄せた）を持ち、中の入力欄は枠なし。虫眼鏡のアイコン（1.5rem、左の余白 .8rem）と消すボタン（✕）がある。入力欄の文字は 1.3rem。ホバーで枠が `dark_550`、中にフォーカスがあると `primary_400`。言語の一覧の検索欄は、塗りと枠が入力欄と同じ1つの入力欄 | InputGroup（`h-9`、`input` の枠。中の入力欄にフォーカスがあると輪が付く。アイコンやボタンは `InputGroupAddon` で左右に置く。アイコンは `size-4`、左の余白は `pl-3`、文字は `text-sm`） | 形は一致。`data-slot`（`input-group`、`input-group-control`、`input-group-addon`。言語の一覧は `input`）と、塗りと枠のトークン（D-02 の案）は寄せた（#695）。高さは D-03、輪は D-06。アイコンの大きさ、左の余白、文字の大きさは D-40 |
+| 結果の一覧 | `--vox_surface`（#695 で `dark_900` から寄せた）、`dark_750` の枠、8px、影。行はホバー中と選択中に `dark_800`。結果がないときは Empty（#695） | Command の一覧は `popover`。行は `px-2 py-1.5`、`rounded-sm`、選択中は `accent`。見出しは `text-xs` の `muted-foreground`。結果がないときは CommandEmpty（`py-6 text-center text-sm`） | 地は寄せた（#695）。選択中の `dark_800` は `accent`（`--vox_secondary_hover`）と同じ値。角丸は D-04。結果がないときは下の Empty の行 |
 
 ### Checkbox
 
@@ -319,7 +319,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 | 部品 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
-| Empty | 会話の空の画面（`EmptyState.jsx`）、試験的な機能の点線の枠、検索の「結果なし」 | Empty（中央寄せ、`p-6`、Header、Media、Title、Description、Content） | 会話の空の画面は残す（DESIGN.md「Layout」が位置と出し方を決めている）。ほかの「結果なし」を Empty の形にそろえるのは寄せる |
+| Empty | 会話の空の画面（`EmptyState.jsx`）、試験的な機能の点線の枠、検索の「結果なし」。設定の検索と言語の一覧の「結果なし」は、`common_components` の `Empty` と `EmptyDescription`（中央寄せ、余白 2.4rem、1.4rem の説明の色の文、#695） | Empty（中央寄せ、`p-6`、幅 768px 以上で `md:p-12`、Header、Media、Title、Description、Content） | 会話の空の画面は残す（DESIGN.md「Layout」が位置と出し方を決めている）。ほかの「結果なし」を Empty の形にそろえるのは寄せる（検索の2か所は #695 で寄せた。`md:p-12` は D-39） |
 | Sidebar | メインのレール（24rem。狭いと 7.2rem のアイコンのレール、さらに狭いと会話に重なる）と設定のレール（5.6rem。ホバーとフォーカスで広がる） | Sidebar（25.6rem、アイコンだけで 4.8rem。`collapsible`: offcanvas、icon、none。Ctrl/Cmd+B で開閉し、状態を Cookie に保存） | 幅と振る舞いは残す（DESIGN.md「Layout」が決めている。小さいレールの好みは設定に保存する）。狭いウィンドウで会話に重なるレールは Sheet（Radix Dialog）に近いが、これも残す。メニューの行の高さと選んだ行の表し方は判断（D-35） |
 
 ### そのほか
@@ -371,6 +371,8 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | D-36 | 設定の検索と言語の一覧を、Combobox（Base UI）や Command（cmdk）にするか、自作のまま見た目だけを寄せるか。どちらにも Radix で書いたものがない | Combobox、Command |
 | D-37 | `_Entry` に残った kit との差をどうするか。左右の余白は .6rem で、kit と DESIGN.md の `input` は 1.2rem。1.2rem にすると、幅 6rem のしきい値の欄では文字の入る幅が 4.6rem から 3.4rem に減る。使えない状態は文字の色だけを変え、kit は全体を .5 に薄くする。待ちの状態も同じ見た目を使うので、待ちの表し方（DESIGN.md）とあわせて決める | Input |
 | D-38 | ボタンの文字を 500 のままにするか。既定の UI フォントの Yu Gothic UI と、選べる Meiryo UI には 500 の字面がなく、CSS の字面の選び方では 400 で描かれる見込み（Windows では確かめていない）。フォームのボタンは 600 から 500 にしたので、それらのフォントでは太字が標準の太さに変わる | Button |
+| D-39 | Empty の広い画面での余白（`md:p-12`、4.8rem）を取り入れるか。shadcn/ui はウィンドウの幅 768px 以上で 2.4rem から 4.8rem に広げる。アプリの Empty は検索の結果の一覧や言語の一覧の中に開くので、2.4rem のままにした | Empty |
+| D-40 | 設定の検索欄の中身を InputGroup に寄せるか。虫眼鏡のアイコンは 1.5rem で `size-4`（1.6rem）より小さく、左の余白は .8rem で `pl-3`（1.2rem）より狭く、文字は 1.3rem で入力欄の 1.4rem より小さい。広いウィンドウの検索欄は設定のレールの幅（20.8rem）から左右の余白を引いた 17.6rem で、文字を大きくすると入る文字が減る | Combobox、InputGroup |
 
 ほかに、#680 の判断項目（寄せる先を本家の shadcn/ui にすること、ADR-010 の7章への注記、ライセンスの記録の範囲）と、設定画面の部品の実験の残課題 K-01（kit を本採用するか）が、この棚卸しに関係します。
 
@@ -390,12 +392,12 @@ kit（画面ではまだ使っていない部品）:
 5. チェックボックスのチェックの線を `--vox_on_primary` にする。
 6. スライダーの満ちた部分を描き、溝を .6rem にし、使えない状態を足す。
 7. `_Entry` の塗り、枠、角丸、高さを kit の入力欄にそろえる（#691。左右の余白と使えない状態は D-37）。
-8. 色のポップオーバーと、設定の検索の結果の一覧の地を `--vox_surface` にする。
+8. 色のポップオーバーと、設定の検索の結果の一覧の地を `--vox_surface` にする（設定の検索の結果の一覧は #695。色のポップオーバーは残っている）。
 9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。
 10. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする。
 11. プリセットの切り替えの `div role="button"` を `button` にする。
 12. `Separator`、`Badge`、`Spinner` をそれぞれ1つの部品にまとめる（見た目は今のまま）。
-13. 検索の「結果なし」を Empty の形にそろえる。
+13. 検索の「結果なし」を Empty の形にそろえる（設定の検索と言語の一覧は #695。`Empty` の部品を `common_components` に作った）。
 14. フォームの選択欄のシェブロンを、kit の `Select` と同じ形、大きさ、位置にする（#691。色は D-02）。
 
 kit の差で、表では「寄せる」にしていたのにこの一覧から漏れていたもの:
@@ -403,9 +405,13 @@ kit の差で、表では「寄せる」にしていたのにこの一覧から�
 15. `Button` に、アイコンだけのボタンの `icon` の size を足す（#694。高さは D-03）。
 16. アイコンの付いた `Button` の左右の余白を、regular で 1.2rem（`px-3`）、compact で 1rem（sm の `px-2.5`）にする（#694）。
 
+画面の差で、表では「寄せる」にしていたのにこの一覧から漏れていたもの:
+
+17. 設定の検索欄の塗りと枠を入力欄のトークン（`--vox_surface`、`--vox_field_border`）にし、InputGroup の `data-slot` を付ける。言語の一覧の検索欄に Input の `data-slot` を付ける（#695）。
+
 ## 段階の案
 
 1. 段 1: kit をそろえる（上の 1〜3。一覧から漏れていた 15 と 16 は #694 で寄せた）。kit は画面でまだ使っていないので、画面は変わりません。最初に寄せる部品の PR なので、ライセンス台帳と `NOTICE.md` に shadcn/ui を載せます（#680）。
-2. 段 2: 画面で使っている部品のうち、判断の要らない見た目の差（上の 4〜14）。部品ごとに PR を分けます。
+2. 段 2: 画面で使っている部品のうち、判断の要らない見た目の差（上の 4〜14 と 17）。部品ごとに PR を分けます。
 3. 段 3: 判断項目が決まったものから。Radix への置き換え（D-14、D-16、D-19〜D-21、D-23、D-25〜D-27）は、ADR-010 の順（自作ではアクセシビリティを保ちにくい部品から）で進めます。CSP に触れる部品は、入れる前に `<style>` を差し込むかを確かめます。
 4. 設定の行（D-34）は、#554 の情報設計で設定画面を組み直すときに合わせます。

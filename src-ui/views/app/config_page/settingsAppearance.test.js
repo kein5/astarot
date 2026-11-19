@@ -291,6 +291,25 @@ test("the settings text entry is the same field as the kit's text field and the 
     // The API key's edit cover lies over the field, so it has the field's corners.
     assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_edit_cover\s*{[^}]*border-radius: var\(--vox_radius\)/);
 });
+test("the settings search is the same field as the other inputs, with InputGroup's parts", () => {
+    // docs/design/components/shadcn-alignment.md, Combobox, Command and InputGroup.
+    const css = read("search_bar/SearchBar.module.scss");
+    const field = css.split(".search_input_container {")[1].split("\n}")[0];
+    assert.match(field, /background-color: var\(--vox_surface\)/);
+    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border\)/);
+    assert.match(field, /border-radius: var\(--vox_radius\)/);
+    // Hover makes the edge lighter, never darker than the field border.
+    assert.match(field, /&:hover\s*{\s*border-color: var\(--dark_550_color\)/);
+    const jsx = read("search_bar/SearchBar.jsx");
+    assert.match(jsx, /className=\{styles\.search_input_container\} data-slot="input-group"/);
+    assert.match(jsx, /data-slot="input-group-control"/);
+    assert.equal((jsx.match(/data-slot="input-group-addon"/g) ?? []).length, 2, "the icon and the clear button");
+    // The results open on the surface, like the other lists that drop from a field.
+    assert.match(css.split(".dropdown_results {")[1].split("\n}")[0], /background-color: var\(--vox_surface\)/);
+    // A search that finds nothing says so in shadcn/ui's Empty, inside the status the list becomes.
+    assert.match(jsx, /<Empty>\s*<EmptyDescription>\{t\("config_page\.search\.no_results"\)\}<\/EmptyDescription>\s*<\/Empty>/);
+    assert.doesNotMatch(css, /\.no_results/);
+});
 test("the forms' select draws the kit select's chevron, at its size and place", () => {
     // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
     const form = read(box + "advanced_settings/VoiceSettings.module.scss");
