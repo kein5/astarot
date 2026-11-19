@@ -199,3 +199,69 @@ fn an_engine_of_the_services_reaches_the_recorder_of_its_source_only() {
     eventually("the switch is saved on", || run.ui.saved()["SPEAKER_ENABLE_VAD"] == true);
     run.ui.stop();
 }
+
+#[test]
+fn a_recording_with_the_vad_starts_the_bundled_server_when_the_settings_let_it() {
+    // Decision 84 (b): as the realtime switch does, a recording whose VAD needs the bundled
+    // server starts it when the realtime settings allow (`start_server`), and the server is
+    // stopped once no recording uses it. With `start_server` off, the recording is told the
+    // server is not running (`speech_server_not_ready`) and cuts by volume.
+    let models = tempfile::tempdir().unwrap();
+    let gguf = |name: &str| {
+        let path = models.path().join(format!("{name}.gguf"));
+        std::fs::write(&path, b"GGUF\0\0\0\0\0\0\0\0").unwrap();
+        path.canonicalize().unwrap().to_str().unwrap().to_owned()
+    };
+    let row = |model: String, vad: String| json!({ "model": model, "vad_model": vad, "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false });
+    let empty = || row(String::new(), String::new());
+    let speech_settings = json!({ "version": 1, "profiles": { "japanese": empty(), "multilingual": empty(), "asr": row(gguf("asr_gate"), gguf("vad")) } });
+    for start_server in [true, false] {
+        let asr = FakeAsr::start();
+        let capture = FakeCapture::new();
+        let audio = FakeAudio::with(windows(&[("Mic A", "{a}")], Some("{a}"), &[("Speakers", "{s}")], Some("{s}")));
+        let mut realtime = bundled_without_models();
+        realtime["start_server"] = json!(start_server);
+        let saved = json!({
+            "LOCAL_ASR_MIGRATION": 2, "SELECTED_TRANSCRIPTION_ENGINE": "Groq_Whisper", "SPEAKER_ENABLE_VAD": true,
+            "TRANSCRIPTION_AUTH_KEYS": { "Groq_Whisper": KEY, "OpenAI_Whisper": null, "Custom_Whisper": null, "Deepgram": null },
+            "REALTIME_ASR_SETTINGS": realtime, "SPEECH_SERVER_SETTINGS": speech_settings,
+        });
+        let fake = env!("CARGO_BIN_EXE_fake-speech-core");
+        let services = Services {
+            audio: audio.platform(),
+            transcription_capture: capture.factory(),
+            transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+            speech_server_launch: Arc::new(move |_| {
+                let mut launch = vrct_speech_server::server::Launch::fixed(fake);
+                launch.start_timeout = std::time::Duration::from_secs(10);
+                launch
+            }),
+            ..Setup::default().services
+        };
+        let ui = Ui::with(Setup { saved: Some(saved), services, platform: Platform::Windows, ..Setup::default() });
+        ui.ready();
+        let asr_state = || ui.ok("/get/data/speech_server_state", None)["asr"]["state"].as_str().unwrap_or("").to_string();
+        let mark = ui.lines().len();
+        assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+        capture.hear(Source::Speaker, &[quiet(300), speech(1000), quiet(1500)]);
+        if start_server {
+            eventually("the recording starts the server", || asr_state() == "preparing");
+            std::fs::write(models.path().join("asr_gate.gguf.go"), b"").unwrap();
+            eventually("the server is ready", || asr_state() == "ready");
+            // The stand-in does not speak the Realtime API: the VAD falls back to volume, and
+            // the server stays while the recording uses it.
+            ui.wait_endpoint(mark, "/run/vad_unavailable");
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            assert_eq!(asr_state(), "ready");
+            assert_eq!(ui.ok("/set/disable/transcription_receive", None), false);
+            eventually("the server stops once no recording uses it", || matches!(asr_state().as_str(), "stopped" | "stopping" | "idle"));
+        } else {
+            let told = ui.wait_endpoint(mark, "/run/vad_unavailable");
+            assert_eq!(told["result"]["details"]["reason"], "speech_server_not_ready");
+            assert!(!matches!(asr_state().as_str(), "preparing" | "ready"), "the server was started");
+            assert_eq!(ui.ok("/set/disable/transcription_receive", None), false);
+        }
+        ui.stop();
+        let _ = std::fs::remove_file(models.path().join("asr_gate.gguf.go"));
+    }
+}
