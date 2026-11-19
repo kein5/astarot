@@ -37,6 +37,32 @@ export function requiredMemory(model: WarnedModel): number | null {
     return figures.length ? Math.max(...figures) : null;
 }
 
+// The saved device of the local translation (SELECTED_TRANSLATION_COMPUTE_DEVICE): `device` is
+// the ONNX Runtime provider (cpu, directml, cuda...), `device_index` its own count of devices.
+export type TranslationDevice = { device?: string | null; device_index?: number | null } | "" | null | undefined;
+
+// The GPUs a provider counts, by the probe's description; the others count every GPU.
+const PROVIDER_VENDORS: Record<string, RegExp> = { cuda: /nvidia/i, tensorrt: /nvidia/i, migraphx: /amd|radeon/i };
+// Providers that may run on the CPU or on a GPU: the probe cannot tell which.
+const UNPLACED_PROVIDERS = ["openvino"];
+
+// The deviceMode of hardwareWarning for the local translation, which runs where its own setting
+// says, not where the speech engine does: "cpu" for the CPU (the default, also while the setting
+// has not arrived), else the probe's name of the GPU the provider uses. The provider numbers the
+// GPUs it sees in the system's order, which the probe's order follows on the PCs checked so far.
+// null when that GPU is not among the probe's rows: then nothing is compared.
+export function translationDeviceMode(device: TranslationDevice, hardware: HardwareState | null | undefined): string | null {
+    const provider = device && typeof device === "object" ? device.device : null;
+    if (!provider || provider === "cpu") return "cpu";
+    if (hardware?.phase !== "ready" || UNPLACED_PROVIDERS.includes(provider)) return null;
+    const index = Number.isSafeInteger(device && typeof device === "object" ? device.device_index : null)
+        ? (device as { device_index: number }).device_index : 0;
+    const vendor = PROVIDER_VENDORS[provider];
+    const gpus = hardware.devices.filter(row => (row.kind === "gpu" || row.kind === "igpu")
+        && (!vendor || vendor.test(row.description ?? "")));
+    return (index >= 0 ? gpus[index]?.name : null) ?? null;
+}
+
 export function hardwareWarning(model: WarnedModel, hardware: HardwareState | null | undefined,
     { deviceMode = "auto" }: { deviceMode?: string } = {}): HardwareWarning | null {
     // Nothing measured, nothing to say: an unknown PC is never shown as too weak.
