@@ -10,7 +10,7 @@
 
 mod common;
 
-use common::fake_asr::{FakeAsr, recognition_model};
+use common::fake_asr::{FakeAsr, RealtimeFault, recognition_model};
 use common::fake_capture::{FakeCapture, speech};
 use common::net::eventually;
 use common::{Setup, Ui, error_code};
@@ -565,6 +565,85 @@ fn a_session_the_server_refuses_ends_and_the_switch_says_so() {
     });
     assert_eq!(run.capture.running(Source::Speaker), 0);
     run.ui.stop();
+}
+
+/// Turns the microphone on and waits for the failure the switch tells; gives its reason.
+fn switch_failure(run: &Run, mark: usize) -> String {
+    let failed = run.ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/set/enable/transcription_send" && l["status"] == 400);
+    assert_eq!(error_code(&failed), "TRANSCRIPTION_SEND_NOT_READY", "{failed}");
+    failed["result"]["details"]["reason"].as_str().unwrap_or_default().to_string()
+}
+
+#[test]
+fn a_session_the_server_sets_up_otherwise_ends_before_it_opens_the_device() {
+    // Decision 81 (`_check_config`): a `session.updated` that is not what was asked for
+    // (another model here) ends the session as `configuration_rejected`, before the capture.
+    let run = start(Platform::Linux, json!({}), true);
+    *run.asr.behaviour.realtime_fault.lock().unwrap() = RealtimeFault::OtherModel;
+    let mark = run.ui.send("/set/enable/transcription_send", None);
+    assert_eq!(switch_failure(&run, mark), "realtime_session_failed");
+    assert_eq!(run.asr.turn_detection.lock().unwrap().len(), 1, "the session asked for its settings");
+    assert!(run.capture.opened().is_empty(), "the device was opened for a session set up otherwise");
+    assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["requested"], false);
+    run.ui.stop();
+}
+
+#[test]
+fn an_utterance_the_server_never_finishes_ends_the_session_after_its_limit() {
+    // Decision 81: the first result may take 120 s (a GPU builds its kernels) and each later one
+    // 15 s; shortened here. The limit is counted from the utterance's start.
+    let limits = |first: u64, later: u64| RealtimeLimits {
+        session: vrct_transcription::realtime::Limits {
+            first_result: Duration::from_millis(first),
+            pending: Duration::from_millis(later),
+            ..Default::default()
+        },
+        ..RealtimeLimits::default()
+    };
+    // The first utterance never finishes: the first limit, not the later one.
+    let run = start_with(Platform::Linux, json!({}), true, None, None, limits(1000, 30_000));
+    *run.asr.behaviour.realtime_fault.lock().unwrap() = RealtimeFault::NeverFinish(0);
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    run.caption(mark, "partial");
+    let began = Instant::now();
+    assert_eq!(switch_failure(&run, mark), "realtime_asr_timeout");
+    let waited = began.elapsed();
+    assert!(waited >= Duration::from_millis(800) && waited < Duration::from_secs(5), "{waited:?}");
+    eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+    run.ui.stop();
+
+    // After a first result, an utterance that never finishes gets the later limit.
+    let run = start_with(Platform::Linux, json!({}), true, None, None, limits(30_000, 1000));
+    *run.asr.behaviour.realtime_fault.lock().unwrap() = RealtimeFault::NeverFinish(1);
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let first = run.caption(mark, "final")["item_id"].clone();
+    let second = run.ui.wait_from(mark, "the second utterance", |l| {
+        l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "partial" && l["result"]["item_id"] != first
+    });
+    let began = Instant::now();
+    assert_eq!(switch_failure(&run, mark), "realtime_asr_timeout", "{second}");
+    let waited = began.elapsed();
+    assert!(waited >= Duration::from_millis(800) && waited < Duration::from_secs(5), "{waited:?}");
+    run.ui.stop();
+}
+
+#[test]
+fn a_connection_that_breaks_or_an_event_too_large_ends_the_session() {
+    // Decision 81: a server that goes away without closing the WebSocket, or sends an event over
+    // 1 MiB, ends the session, and the switch says so.
+    for fault in [RealtimeFault::Drop, RealtimeFault::Oversized] {
+        let run = start(Platform::Linux, json!({}), true);
+        *run.asr.behaviour.realtime_fault.lock().unwrap() = fault;
+        let mark = run.ui.send("/set/enable/transcription_send", None);
+        assert_eq!(switch_failure(&run, mark), "realtime_session_failed", "{fault:?}");
+        eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+        assert!(run.asr.appends.load(Ordering::SeqCst) >= 1, "{fault:?}: no audio reached the server");
+        let state = run.ui.ok("/get/data/realtime_asr_state", None);
+        assert_eq!((state["mic"]["requested"].clone(), state["mic"]["error_code"].clone()), (json!(false), json!("realtime_session_failed")));
+        run.ui.stop();
+    }
 }
 
 #[test]
