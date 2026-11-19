@@ -47,6 +47,7 @@ async function setup(t, { reducedMotion = false, control = true, delayed = false
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "@logics_configs": { useConfigSearch: () => hook },
         "../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
+        "@common_components": { Empty: "empty", EmptyDescription: "empty-description" },
     });
     const search = { focus: () => { document.activeElement = search; }, blur: () => { document.activeElement = document.body; } };
     const render = () => find(runtime.render(SearchBar, {}, tree => {

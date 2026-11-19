@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { useStore_IsBreakPoint } from "@store";
 import { useConfigSearch } from "@logics_configs";
+import { Empty, EmptyDescription } from "@common_components";
 import styles from "./SearchBar.module.scss";
 
 import SearchSvg from "@images/search.svg?react";
@@ -211,9 +212,9 @@ export const SearchBar = () => {
                             </div>
                         ))
                     ) : (
-                        <div className={styles.no_results}>
-                            {t("config_page.search.no_results")}
-                        </div>
+                        <Empty>
+                            <EmptyDescription>{t("config_page.search.no_results")}</EmptyDescription>
+                        </Empty>
                     )}
                 </div>
             )}

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 
 import { useLanguageSettings } from "@logics_main";
+import { Empty, EmptyDescription } from "@common_components";
 import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.ts";
 import styles from "./LanguageSelector.module.scss";
 
@@ -48,7 +49,9 @@ export const LanguageSelector = ({ title, hint, onClickFunction }) => {
                         ))}
                     </div>
                 ) : (
-                    <p role="status" className={styles.no_results}>{t("main_page.language_selector.no_results")}</p>
+                    <Empty role="status">
+                        <EmptyDescription>{t("main_page.language_selector.no_results")}</EmptyDescription>
+                    </Empty>
                 )}
             </div>
         </div>

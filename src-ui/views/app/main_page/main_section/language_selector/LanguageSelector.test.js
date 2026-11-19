@@ -12,6 +12,7 @@ async function selector(props) {
             isLanguagePickKey: () => false,
         },
         "./language_selector_top_bar/LanguageSelectorTopBar": { LanguageSelectorTopBar: "top-bar" },
+        "@common_components": { Empty: "empty", EmptyDescription: "empty-description" },
     });
     return runtime.render(LanguageSelector, { title: "main_page.language_selector.title_your_language", onClickFunction: () => {}, ...props });
 }
@@ -38,4 +39,12 @@ test("without a hint the search field has no description", async () => {
 test("the language search field is named as shadcn/ui's Input", async () => {
     const tree = await selector({});
     assert.equal(find(tree, node => node.type === "input").props["data-slot"], "input");
+});
+
+test("a search that finds no language says so in shadcn/ui's Empty, as a status", async () => {
+    // The mocked names find nothing, whatever is typed.
+    const tree = await selector({});
+    const empty = find(tree, node => node.type === "empty");
+    assert.equal(empty.props.role, "status");
+    assert.equal(find(empty, node => node.type === "empty-description").props.children, "main_page.language_selector.no_results");
 });

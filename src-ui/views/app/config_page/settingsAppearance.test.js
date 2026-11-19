@@ -306,6 +306,9 @@ test("the settings search is the same field as the other inputs, with InputGroup
     assert.equal((jsx.match(/data-slot="input-group-addon"/g) ?? []).length, 2, "the icon and the clear button");
     // The results open on the surface, like the other lists that drop from a field.
     assert.match(css.split(".dropdown_results {")[1].split("\n}")[0], /background-color: var\(--vox_surface\)/);
+    // A search that finds nothing says so in shadcn/ui's Empty, inside the status the list becomes.
+    assert.match(jsx, /<Empty>\s*<EmptyDescription>\{t\("config_page\.search\.no_results"\)\}<\/EmptyDescription>\s*<\/Empty>/);
+    assert.doesNotMatch(css, /\.no_results/);
 });
 test("the forms' select draws the kit select's chevron, at its size and place", () => {
     // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
