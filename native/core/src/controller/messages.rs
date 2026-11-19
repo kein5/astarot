@@ -304,6 +304,10 @@ pub struct SpokenMessage {
 /// An output the other areas plug in. `Err` reports a failed output.
 pub type Hook<T> = Arc<dyn Fn(&T) -> Result<(), ()> + Send + Sync>;
 
+/// Runs an output of a realtime final through its delivery (`output_progress`): the action
+/// gives true when what it sent went out ([`vrct_transcription::realtime::delivery::Output`]).
+pub(crate) type RunOutput<'a> = &'a dyn Fn(&mut dyn FnMut() -> bool) -> bool;
+
 /// The outbound hooks; unset ones do nothing.
 #[derive(Clone, Default)]
 pub struct MessageHooks {
@@ -602,7 +606,7 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None)
     }
 
     /// Takes the settings of a message and its place in the chatbox order. `chatbox` false
@@ -632,8 +636,21 @@ impl Core {
         admitted: Admitted,
         mic_voice: Option<MicVoice>,
         received_ns: i64,
+        output: RunOutput<'_>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, None, Some(id), None, Some(guard), None, Some(admitted), mic_voice.as_ref(), Some(received_ns))
+        self.process_message_stamped(
+            spec,
+            message,
+            None,
+            Some(id),
+            None,
+            Some(guard),
+            None,
+            Some(admitted),
+            mic_voice.as_ref(),
+            Some(received_ns),
+            Some(output),
+        )
     }
 
     /// [`Core::process_message`] with the speech generation the receiver stamped, or with what
@@ -651,6 +668,7 @@ impl Core {
         admitted: Option<Admitted>,
         mic_voice: Option<&MicVoice>,
         received_ns: Option<i64>,
+        output: Option<RunOutput<'_>>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
         // A message refused at admission stays refused after unmute.
@@ -808,12 +826,20 @@ impl Core {
                         if snapshot.send_only_translated && snapshot.translation_enabled { "" } else { message };
                     let text = format_message(&snapshot.format_parts, &translations, original);
                     let chatbox_current = || current() && self.config().get_bool(gate);
-                    let sent = self
-                        .messages()
-                        .chatbox
-                        .lock()
-                        .unwrap()
-                        .send(sequence, || self.chatbox_send(&text, &chatbox_current));
+                    let send = || self.messages().chatbox.lock().unwrap().send(sequence, || self.chatbox_send(&text, &chatbox_current));
+                    // A realtime final that reached the chatbox is delivered even if it expires
+                    // after (`output_progress`, decision 15).
+                    let sent = match output {
+                        Some(output) => {
+                            let mut sent = Ok(false);
+                            output(&mut || {
+                                sent = send();
+                                matches!(sent, Ok(true))
+                            });
+                            sent
+                        }
+                        None => send(),
+                    };
                     if let Ok(sent) = &sent {
                         Self::io_trace_chatbox(trace.as_ref(), Some(*sent));
                     }
@@ -1153,7 +1179,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();
