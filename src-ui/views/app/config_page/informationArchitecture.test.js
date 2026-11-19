@@ -202,7 +202,7 @@ test("each fold's line has its words in both languages", () => {
 });
 
 test("the Device page chooses the microphone and the speaker first; their sensitivity, the voice route and mute sync are in 「詳細設定」", () => {
-    const source = read("device/Device.jsx");
+    const source = read("device/Device.tsx");
     const page = source.split("export const Device = () => {")[1].split("\n};")[0];
     const [outside, fold] = page.split("<AdvancedSection");
     assert.deepEqual([...outside.matchAll(/<(\w+Container) part="(\w+)"/g)].map(match => match.slice(1)), [["MicContainer", "device"], ["SpeakerContainer", "device"]]);
@@ -211,7 +211,7 @@ test("the Device page chooses the microphone and the speaker first; their sensit
     assert.match(fold, /tab="vrchat" target="vrc_mic_mute_sync"/);
     assert.doesNotMatch(source, /<VrcMicMuteSyncContainer/, "mute sync has one place, the VRChat page");
     // A row elsewhere that changes the route opens this page on it.
-    assert.match(read("device/VoiceRouteSettings.jsx"), /<PageLinkButton tab="device" action=\{t\("voice_ui\.edit_route"\)\} target="voice_route" \/>/);
+    assert.match(read("device/VoiceRouteSettings.tsx"), /<PageLinkButton tab="device" action=\{t\("voice_ui\.edit_route"\)\} target="voice_route" \/>/);
 });
 
 test("chat reading keeps what it needs to start in sight; where and how often it reads are in 「詳細設定」", () => {
