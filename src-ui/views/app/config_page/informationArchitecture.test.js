@@ -100,7 +100,7 @@ test("a fold marks its line while a row inside it has unsaved edits", async () =
     const open = element({}, [changed]), closed = element({}, [untouched]);
     const root = { querySelectorAll: selector => ({ "[data-setting-label]": [changed, untouched], label: [], details: [open, closed] })[selector] };
     const runtime = hooks();
-    const section = await loadModule(new URL("./setting_section/SettingSection.jsx", import.meta.url), runtime, {
+    const section = await loadModule(new URL("./setting_section/SettingSection.tsx", import.meta.url), runtime, {
         "./setting_box/SettingBox": {}, "@store": {}, "@logics_configs": {}, "../../../../logics/voice/saveBar": {},
     });
     section.markUnsavedRows(root, new Set(["Pitch"]));

@@ -20,7 +20,7 @@ test("chat reading has a page of its own, and search lists it there", async () =
     let tab = "ocr";
     const pages = Object.fromEntries(["Device", "Tts", "Rvc", "Appearance", "Translation", "Transcription", "Vrchat", "Ocr",
         "AdvancedSettings", "Vr", "Hotkeys", "AboutVrct", "Updater"].map(name => [name, name]));
-    const { SettingBox } = await loadModule(new URL("./setting_section/setting_box/SettingBox.jsx", import.meta.url), runtime, {
+    const { SettingBox } = await loadModule(new URL("./setting_section/setting_box/SettingBox.tsx", import.meta.url), runtime, {
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: tab } }) }, "@setting_box": pages,
     });
     assert.equal(runtime.render(SettingBox).type, "Ocr");
