@@ -68,8 +68,12 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
         "../../../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
-    const [conversion, fold] = runtime.render(rvc.Rvc).props.children;
+    const page = runtime.render(rvc.Rvc);
+    // The page keeps its descriptions out of sight, as hints (#614), the fold's form included.
+    assert.equal(page.type, "hints");
+    const [conversion, fold] = page.props.children;
     assert.equal(conversion.type, DirectVoiceSettings);
     assert.equal(conversion.props.variant, "rvc");
     assert.equal(fold.type, AdvancedSection);

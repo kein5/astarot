@@ -115,3 +115,39 @@ test("#436: saving an RVC field with forwarding saved keeps forwarding", async (
     assert.equal(page.writes[0].mode, "passthrough");
     page.runtime.unmount();
 });
+
+// #614: what each form is for, what to expect of the conversion and what the input does not do are
+// its heading's description (a hint on the RVC page); nothing repeats them as a paragraph. What
+// Start waits for and the monitor's line stay in sight.
+const all = (tree, predicate, found = []) => {
+    if (!tree || typeof tree !== "object") return found;
+    if (predicate(tree)) found.push(tree);
+    for (const child of [tree.props?.children].flat()) all(child, predicate, found);
+    return found;
+};
+for (const [variant, heading, intro] of [
+    ["rvc", "config_page.rvc.rvc_settings.label", "voice.vc_rvc_hint\nvoice_ui.rvc_latency_hint\nvoice.input_scope"],
+    ["legacy", "voice.input_title", "voice.input_description\nvoice.input_scope"],
+]) test(`${variant}: the form's description is its heading's`, async () => {
+    const page = await open(variant, rvcSettings);
+    const [label] = all(page.tree, node => node.type === "heading");
+    assert.equal(label.props.label, heading);
+    assert.equal(label.props.desc, intro);
+    // Not in a fold here, so a category heading; in the RVC page's fold it is a subheading.
+    assert.equal(label.props.sub, false);
+    const paragraphs = all(page.tree, node => node.type === "description").map(node => node.props.text);
+    for (const text of ["voice.vc_rvc_hint", "voice.input_description", "voice_ui.rvc_latency_hint", "voice.input_scope"]) assert.ok(!paragraphs.includes(text), text);
+    if (variant === "rvc") {
+        const [worker] = all(page.tree, node => node.type === "setup" && node.props.title === "voice_ui.rvc_worker_title");
+        assert.equal(worker.props.desc, "voice_ui.rvc_worker_hint");
+    }
+    page.runtime.unmount();
+});
+
+test("#614: that the input does not use RVC yet stays in sight beside its button", async () => {
+    const page = await open("rvc", { ...rvcSettings, mode: "passthrough" });
+    const [row] = all(page.tree, node => node.type === "row" && node.props.label === "voice_ui.select_rvc_label");
+    assert.equal(row.props.description, "voice_ui.select_rvc_pending");
+    assert.equal(row.props.keepDescription, true);
+    page.runtime.unmount();
+});
