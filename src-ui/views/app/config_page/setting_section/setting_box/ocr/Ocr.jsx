@@ -21,6 +21,7 @@ import { OCR_MODELS_SETTING_ID } from "../../../../../../logics/ocr/useOcrSetup"
 import { OcrStatus } from "./OcrStatus";
 import { OcrSharedWindow } from "./OcrSharedWindow";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import { HintDescriptions } from "../_components/hint/Hint";
 
 // What chat reading needs to start is in sight: its state, the language, the models, and on
 // Wayland the window to share. Where on the screen it reads and how often are set once, in
@@ -28,7 +29,10 @@ import { AdvancedSection } from "../_components/advanced_section/AdvancedSection
 export const Ocr = () => {
     const { t } = useI18n();
     const { currentOcrPollIntervalMs, currentOcrMinConfidence } = useOcr();
+    // Reviewed against #614: the rows' descriptions are their labels' hints, and the page's
+    // opening line is its heading's. What the readouts and the model download say stays in sight.
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             <Main_Container />
             <AdvancedSection status={t("config_page.advanced_status.ocr", {
@@ -38,6 +42,7 @@ export const Ocr = () => {
                 <Performance_Container />
             </AdvancedSection>
         </div>
+        </HintDescriptions>
     );
 };
 

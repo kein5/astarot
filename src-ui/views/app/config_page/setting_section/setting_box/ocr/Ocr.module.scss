@@ -62,6 +62,12 @@
     flex-wrap: wrap;
 }
 
+// A region's name and its hint mark on one line (#614).
+.regionTitle {
+    display: flex;
+    align-items: center;
+}
+
 .regionLabel {
     font-size: 1.4rem;
     color: var(--dark_200_color, #e5e7eb);

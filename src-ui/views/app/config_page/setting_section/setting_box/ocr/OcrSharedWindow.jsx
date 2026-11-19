@@ -3,6 +3,7 @@ import { useI18n } from "@useI18n";
 import { useOcrSharedWindow } from "@logics_configs";
 import { sharedWindowView } from "../../../../../../logics/configs/ocrSharedWindow";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
+import { RegionTitle } from "./OcrRegions";
 import styles from "./Ocr.module.scss";
 
 // Linux on Wayland: share one window with chat reading through the desktop's own dialog.
@@ -18,8 +19,7 @@ export const OcrSharedWindow = () => {
     const active = currentOcrSharedWindow.data.active === true;
     return (
         <section className={styles.region} aria-label={label} data-setting-id="shared_window">
-            <p className={styles.regionLabel}>{label}</p>
-            <p className={styles.regionDesc}>{t("config_page.ocr.shared_window.desc")}</p>
+            <RegionTitle label={label} desc={t("config_page.ocr.shared_window.desc")} />
             <EnvReadout className={styles.sharedStatus} tone={view.tone}>
                 <p>{t(view.statusKey)}</p>
                 {view.errorKey && <p>{t(view.errorKey, { code: view.errorCode })}</p>}
