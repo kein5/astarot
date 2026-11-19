@@ -158,6 +158,27 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         commands = "\n".join(step.get("run", "") for step in job["steps"])
         assert "tools.release_automation back-merge" in commands
         assert "gh pr merge" not in commands and "git push" not in commands
+    elif workflow.name == "pipeline-latency.yml":
+        # Issue #738: after voice-tests.yml it sends the pipeline's measured times to Bencher. It
+        # runs from develop's copy of the file, never a pull request's, checks out nothing, and
+        # sends only develop's pushes and this repository's pull requests. Its job may read the
+        # measuring run's artifacts and write the Bencher check and comment, nothing else; the
+        # Bencher key reaches the two sending steps, and the step that sees whether it is set.
+        assert set(document["on"]) == {"workflow_run"}
+        assert document["on"]["workflow_run"] == {"workflows": ["VRCT-VOX voice contracts (no models)"], "types": ["completed"]}
+        assert document["permissions"] == {"contents": "read"}
+        assert set(document["jobs"]) == {"send"}
+        job = document["jobs"]["send"]
+        assert job["permissions"] == {"actions": "read", "checks": "write", "pull-requests": "write"}
+        for condition in ("github.repository == 'kein5/astarot'",
+                          "github.event.workflow_run.head_repository.full_name == github.repository",
+                          "github.event.workflow_run.head_branch == 'develop'"):
+            assert condition in job["if"], condition
+        assert all(not step.get("uses", "").startswith("actions/checkout@") for step in job["steps"])
+        assert "secrets." not in json.dumps({key: value for key, value in job.items() if key != "steps"})
+        keyed = [step for step in job["steps"] if "BENCHER_API_KEY" in step.get("env", {})]
+        assert len(keyed) == 2
+        assert all(step["run"].startswith("bencher run ") and "--error-on-alert" not in step["run"] for step in keyed)
     elif workflow.name in ATTESTING_JOBS:
         # The candidate job signs build provenance (second security audit SEC-04): only that job
         # gets id-token and attestations, and only a manual run uses them.
@@ -179,7 +200,12 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
             if "uses" in step and not step["uses"].startswith("./"):
                 assert re.fullmatch(r"[\w-]+/[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
             assert "${{" not in step.get("run", ""), step.get("name", workflow.name)
-            # Repository secrets: only the updater signing step of the release draft uses any.
+            # Repository secrets: only the updater signing step of the release draft uses any, and
+            # the Bencher key the steps of pipeline-latency.yml that send with it.
             if "secrets." in json.dumps(step):
-                assert workflow.name == "prepare-release.yml", step.get("name")
-                assert set(step["env"]) == {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"}
+                assert workflow.name in ("prepare-release.yml", "pipeline-latency.yml"), step.get("name")
+                if workflow.name == "prepare-release.yml":
+                    assert set(step["env"]) == {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"}
+                else:
+                    assert set(re.findall(r"secrets\.\w+", json.dumps(step))) == {"secrets.BENCHER_API_KEY"}, step.get("name")
+                    assert "secrets." not in json.dumps({key: value for key, value in step.items() if key != "env"})

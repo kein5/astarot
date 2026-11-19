@@ -56,7 +56,9 @@ VRCT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path nati
 
 ## Bencherへの送り方
 
-`voice-tests.yml`の`pipeline-latency`ジョブが送ります。`core-integration`が残した結果をOSごとに受け取り、Bencher CLI（`bencherdev/bencher`）の`bencher run --adapter json`で送ります。
+ワークフロー`pipeline-latency.yml`が送ります。`voice-tests.yml`が終わると動き、`core-integration`が残した結果をOSごとに受け取って、Bencher CLI（`bencherdev/bencher`）の`bencher run --adapter json`で送ります。
+
+このワークフローは`workflow_run`で動くので、プルリクエストの版ではなく、常にdevelopにある版が動きます。そのため、プルリクエストでこのファイルを変えても、Bencherの鍵を持つ処理は変わりません。変更はdevelopにマージしてから効きます。リポジトリのコードはチェックアウトせず、計測の結果のJSONだけを受け取ります。プルリクエストの番号、ブランチ、コミットは、GitHubがその実行について記録した値から読みます。リポジトリの安全の試験（`tests/voice/test_security_regressions.py`）が、このワークフローの権限と、鍵を受け取る手順を確かめます。
 
 | きっかけ | 送り方 |
 |---|---|
@@ -70,11 +72,11 @@ VRCT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path nati
 - 比べる履歴: 直近の64件まで
 - 上側の境界: 0.99。下側（速くなったとき）はアラートを出しません。
 
-アラートが出ても、`bencher run`は失敗しません（`--error-on-alert`を付けていません）。送る手順は`continue-on-error`なので、Bencherに届かないときもジョブは失敗しません。ただし`--github-actions`を付けて送ると、Bencherが「Bencher Report」というチェックを作り、アラートがあるとそのチェックが失敗になります。このチェックはdevelopのルールセットの必須のチェックに入っていないので、マージは止まりません。
+アラートが出ても、`bencher run`は失敗しません（`--error-on-alert`を付けていません）。送る手順は`continue-on-error`なので、Bencherに届かないときもワークフローは失敗しません。ただし`--github-actions`を付けて送ると、Bencherが「Bencher Report」というチェックを作り、アラートがあるとそのチェックが失敗になります。このチェックはdevelopのルールセットの必須のチェックに入っていないので、マージは止まりません。
 
 ### 保守担当者がする準備
 
-リポジトリにBencherの鍵とプロジェクトがないあいだは、`pipeline-latency`ジョブは何も送らず、送らなかった理由を注記に出します。送るには、次の準備が要ります。
+リポジトリにBencherの鍵とプロジェクトがないあいだは、`pipeline-latency.yml`は何も送らず、送らなかった理由を注記に出します。送るには、次の準備が要ります。
 
 1. Bencher Cloudで公開のプロジェクトを作ります。公開のプロジェクトは無料のプランで使えます。無料のプランの上限は1日65,535メトリクスで、CIの1回の送信は8メトリクス（ベンチマーク2つ×measure 2つ×OS 2つ）です。課金の設定はしません。
 2. measureの`latency-p50`と`latency-p95`を、単位をミリ秒にして作ります。Bencherは知らないmeasureを自動で作りますが、そのときの単位は決められません。

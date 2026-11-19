@@ -88,7 +88,7 @@ jobs:
       - run: cargo test --locked --manifest-path native/core/Cargo.toml
       # The time the voice pipeline adds of its own, on stand-ins for the engines (#738;
       # docs/voice-stack/pipeline-latency-tracking.md). A measurement: its result never fails the
-      # job. The `pipeline-latency` job sends it to Bencher.
+      # job. pipeline-latency.yml sends it to Bencher once this workflow has finished.
       - name: Measure the pipeline's own time
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -127,79 +127,6 @@ jobs:
       - run: cargo test --locked --manifest-path native/translate-onnx/Cargo.toml
       # Speech requests, the speech queue and the listener monitor (Issue #279).
       - run: cargo test --locked --manifest-path native/tts/Cargo.toml
-  # Sends the pipeline's times to Bencher (#738; docs/voice-stack/pipeline-latency-tracking.md),
-  # one testbed for each OS. develop's pushes build the history and its thresholds, a statistical
-  # test (t-test) on each percentile; a pull request is compared with its base and told in a
-  # comment. An alert never fails this workflow, and no required check waits for this job. It
-  # needs the project's key, which a pull request from a fork does not get; without the key or
-  # the project nothing is sent.
-  pipeline-latency:
-    needs: core-integration
-    if: >-
-      ${{ !cancelled() && (
-        (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-        (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)) }}
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # The Bencher Report check and the comment on the pull request.
-      checks: write
-      pull-requests: write
-    env:
-      BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
-      BENCHER_PROJECT: ${{ vars.BENCHER_PROJECT }}
-      BENCHER_TESTBED: ${{ matrix.os }}
-      RESULTS: results/pipeline-latency.json
-    steps:
-      - id: results
-        continue-on-error: true
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: pipeline-latency-${{ matrix.os }}
-          path: results
-      - id: ready
-        run: |
-          if [ -z "$BENCHER_API_KEY" ] || [ -z "$BENCHER_PROJECT" ]; then
-            echo "::notice title=Pipeline latency::Not sent to Bencher: the repository has no BENCHER_API_KEY secret or BENCHER_PROJECT variable."
-          elif [ ! -f "$RESULTS" ]; then
-            echo "::notice title=Pipeline latency::Not sent to Bencher: the measurement on $BENCHER_TESTBED left no results."
-          else
-            echo "send=true" >> "$GITHUB_OUTPUT"
-          fi
-      # The CLI's version follows Bencher Cloud, as Bencher advises for it.
-      - if: steps.ready.outputs.send == 'true'
-        uses: bencherdev/bencher@7de3c69a85380826613050826b4bce062be2f07d # v0.6.16
-      - name: Send develop's times and keep its thresholds
-        if: steps.ready.outputs.send == 'true' && github.event_name == 'push'
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          bencher run --branch develop --hash "$GITHUB_SHA" --adapter json --file "$RESULTS"
-          --threshold-measure latency-p50 --threshold-test t_test --threshold-max-sample-size 64
-          --threshold-lower-boundary _ --threshold-upper-boundary 0.99
-          --threshold-measure latency-p95 --threshold-test t_test --threshold-max-sample-size 64
-          --threshold-lower-boundary _ --threshold-upper-boundary 0.99
-          --thresholds-reset --github-actions "$GITHUB_TOKEN"
-      - name: Send the pull request's times
-        if: steps.ready.outputs.send == 'true' && github.event_name == 'pull_request'
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HEAD_REF: ${{ github.head_ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          BASE_REF: ${{ github.base_ref }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: >-
-          bencher run --branch "$HEAD_REF" --hash "$HEAD_SHA"
-          --start-point "$BASE_REF" --start-point-hash "$BASE_SHA"
-          --start-point-clone-thresholds --start-point-reset
-          --adapter json --file "$RESULTS" --github-actions "$GITHUB_TOKEN"
   backend-windows:
     runs-on: windows-latest
     timeout-minutes: 30

@@ -1,7 +1,7 @@
 //! The voice pipeline's times in Bencher Metric Format (#738,
 //! <https://bencher.dev/docs/reference/bencher-metric-format/>): each benchmark carries the 50th
 //! and 95th percentiles of its times, nearest rank, in milliseconds. `tests/pipeline_overhead.rs`
-//! and `examples/pipeline_latency.rs` write it; CI sends it to Bencher (`voice-tests.yml`).
+//! and `examples/pipeline_latency.rs` write it; CI sends it to Bencher (`pipeline-latency.yml`).
 // Each user takes what it needs.
 #![allow(dead_code)]
 

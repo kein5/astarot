@@ -17,8 +17,9 @@
 //! ```
 //!
 //! The percentiles go to the file `VRCT_PIPELINE_BMF` names, in Bencher Metric Format
-//! (`bmf`); CI sends them to Bencher (`voice-tests.yml`). It fails only when an utterance does
-//! not reach both outputs. Only times are printed, never a message.
+//! (`bmf`). CI measures in `voice-tests.yml` and sends them to Bencher in
+//! `pipeline-latency.yml`. It fails only when an utterance does not reach both outputs. Only
+//! times are printed, never a message.
 
 mod bmf;
 mod common;
