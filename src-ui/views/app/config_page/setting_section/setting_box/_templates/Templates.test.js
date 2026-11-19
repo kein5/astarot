@@ -27,7 +27,7 @@ async function setup(hints = false) {
         EntryWithSaveButton: "save-entry", AuthKey: "auth", ColorEntryWithSaveButton: "color",
         Slider: "slider", WordFilter: "word-filter", WordFilterListToggleComponent: "word-toggle",
         HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check" };
-    const templates = await loadModule(new URL("./Templates.jsx", import.meta.url), runtime, {
+    const templates = await loadModule(new URL("./Templates.tsx", import.meta.url), runtime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "../_components": components, "@common_components": { Checkbox: "checkbox" },
     });
