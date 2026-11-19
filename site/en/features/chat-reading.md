@@ -36,7 +36,7 @@ With "Use the chatbox detector (recommended when installed)" on, ASTAROT's own d
 - You can do without this model. Chatboxes are then looked for within the reading area.
 - The model is a YOLOX-Tiny (about 19 MB, MIT) published on [Hugging Face](https://huggingface.co/kein5/vrct-vox-chatbox-detector). It was trained on ASTAROT's own screenshots; it is not the upstream VRCT model.
 - Download it from "Chatbox detector" on the same page after reviewing its terms and agreeing ([Model downloads](../guide/models)). The file is used only after its contents are checked against the published file (by its hash).
-- The detector runs on this computer's CPU. Screen contents are never sent anywhere.
+- The detector runs on your PC's CPU. Screen contents are never sent anywhere.
 - The reading area and "Only read chatbox-style text" still apply when the detector is used.
 
 ## Supported environments
@@ -56,7 +56,7 @@ When VRChat runs as a native Wayland window (inside gamescope, or with Wine's Wa
 - Sharing ends when you press "Stop sharing", turn chat reading off, or close ASTAROT.
 - When you turn chat reading on again and no VRChat window is found by its name, the window your desktop remembers is shared again. If the desktop remembers it, no dialog appears. If a dialog stays open for 15 seconds, ASTAROT stops trying and tells you; share from "Share a window…" in that case.
 - If the shared window is closed, or you stop sharing from the desktop, ASTAROT tells you. Share a window again and reading continues.
-- The shared picture stays on this computer. A few frames per second are copied, and the mouse pointer is left out of the picture.
+- The shared picture stays on your PC. A few frames per second are copied, and the mouse pointer is left out of the picture.
 - The shared picture includes the window's title bar. The reading area is the same setting used when the window is found by name, applied to the picture with the title bar in it.
 
 ## Stop

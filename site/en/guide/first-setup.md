@@ -16,7 +16,7 @@ On the first start, a screen asks whether to send usage data. Choose "Send", "Do
 
 ASTAROT sends text to the VRChat chatbox over OSC. In VRChat, open the Action Menu, go to "Options" → "OSC" and choose "Enabled".
 
-"Quick settings" at the top right of the main screen says whether a VRChat with OSC enabled was found on this PC. The top of Settings → "VRChat" says the same.
+"Quick settings" at the top right of the main screen says whether a VRChat with OSC enabled was found on your PC. The top of Settings → "VRChat" says the same.
 
 !["Quick settings" open, saying that VRChat was found](/screenshots/en/quick-settings.webp)
 

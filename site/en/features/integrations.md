@@ -1,6 +1,6 @@
 # OBS and WebSocket
 
-You can pass translations and captions to streaming software or your own tools. The settings are under Settings → "Advanced". By default, both can be reached only from this PC (`127.0.0.1`).
+You can pass translations and captions to streaming software or your own tools. The settings are under Settings → "Advanced". By default, both can be reached only from the PC that runs ASTAROT (`127.0.0.1`).
 
 ![Settings → Advanced](/screenshots/en/advanced.webp)
 
@@ -24,17 +24,17 @@ While the OBS browser source is on, the WebSocket settings cannot be changed. Tu
 
 ## Use it from other PCs
 
-From OBS or tools on other PCs, the connection is encrypted. For that you need a certificate and private key (PEM) for this PC's LAN IP address. Without a certificate, other PCs cannot connect.
+From OBS or tools on other PCs, the connection is encrypted. For that you need a certificate and private key (PEM) for the LAN IP address of the PC that runs ASTAROT. Without a certificate, other PCs cannot connect.
 
 ![The WebSocket rows under Advanced](/screenshots/en/websocket.webp)
 
 1. Enter the paths under "Certificate file" and "Private key file" and save. A pair that does not work is not saved, and the reason is shown.
-2. Enter the LAN IP address of the PC that runs the app (for example `192.168.1.10`) under "WebSocket host (IPv4)" and save.
+2. Enter the LAN IP address of the PC that runs ASTAROT (for example `192.168.1.10`) under "WebSocket host (IPv4)" and save.
 3. Copy the WebSocket and OBS URLs again. They now start with `wss://` and `https://`.
 
 The PCs and OBS that connect must trust the certificate. If you made the certificate yourself, add its issuer's certificate on the PCs that connect. A private key with a passphrase cannot be used.
 
-With the host set back to `127.0.0.1`, it works on this PC only, without a certificate. If an earlier version had a LAN address set, the host goes back to `127.0.0.1` at startup and the app tells you.
+With the host set back to `127.0.0.1`, it works only on the PC that runs ASTAROT, without a certificate. If an earlier version had a LAN address set, the host goes back to `127.0.0.1` at startup and the app tells you.
 
 ::: warning Exposing it to other devices
 Other devices on your network can then connect too. Change it only when you need to.

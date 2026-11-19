@@ -49,7 +49,7 @@ For speech recognition you can choose every model the bundled speech.cpp handles
 
 Translation models are downloaded under Settings → "Translation" (see [Translation](../features/translation)). The list there shows the models you can download, and "Review download" opens a screen showing the source, license and size. Nothing is downloaded until you tick the consent box.
 
-The Whisper models of earlier versions can no longer be downloaded. Speech recognition on this PC uses the speech recognition models and Silero VAD in the table above ([If you used Whisper in an earlier version](../features/transcription#whisper)). Old Whisper models still on the PC can be deleted under "Old Whisper models" in Settings → "Speech recognition (ASR)".
+The Whisper models of earlier versions can no longer be downloaded. Speech recognition that runs on your PC uses the speech recognition models and Silero VAD in the table above ([If you used Whisper in an earlier version](../features/transcription#whisper)). Old Whisper models still on the PC can be deleted under "Old Whisper models" in Settings → "Speech recognition (ASR)".
 
 ## GPU and memory guidance
 
