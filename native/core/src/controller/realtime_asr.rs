@@ -814,6 +814,7 @@ impl Core {
             silence_duration_ms: silence_duration(&settings),
             diarizes,
             limits: limits.session,
+            diagnostics: Some(self.transcription().diagnostics.clone()),
         })
     }
 

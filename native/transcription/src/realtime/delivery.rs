@@ -5,6 +5,7 @@
 
 use super::events::Update;
 use super::session::Session;
+use crate::diagnostics::{Event, Stage};
 use serde_json::{Value, json};
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -313,30 +314,59 @@ impl Delivery {
             let (guarded, still_admitted) = (update.clone(), admission.admitted.clone());
             let current: Current =
                 Arc::new(move || delivery.current(&guarded) && (still_admitted)() && Instant::now() < deadline);
+            let received = update.received.unwrap_or_else(Instant::now);
+            let queue_ms = received.elapsed().as_secs_f64() * 1000.0;
+            if let Some(diagnostics) = self.inner.session.diagnostics() {
+                diagnostics.record(
+                    update.source,
+                    Event::RealtimeDelivery,
+                    &[(Stage::RealtimeQueue, queue_ms)],
+                    Some(format!("[ASR-queue][{}] realtime wait={queue_ms:.1}ms", update.source)),
+                    false,
+                );
+            }
             if !current() {
                 self.settle(&update, "not_delivered", None, None);
                 continue;
             }
-            match (admission.process)(&update, current.clone()) {
-                Ok(None) => self.settle(&update, "not_delivered", Some("filtered"), None),
-                Ok(Some(result)) => {
-                    let outcome = match result["delivery_outcome"].as_str() {
-                        Some("failed") => "failed",
-                        Some("not_delivered") => "not_delivered",
-                        _ => "delivered",
-                    };
-                    let reason = result["delivery_reason"].as_str().map(str::to_string);
-                    let result = (outcome != "failed").then_some(result);
-                    self.settle(&update, outcome, reason.as_deref(), result);
-                }
-                Err(()) => {
-                    self.settle(&update, "failed", Some("processing_failed"), None);
-                    if current() {
-                        self.report("realtime_final_failed", false);
-                    }
+            self.process(&update, &admission, current);
+            if let Some(diagnostics) = self.inner.session.diagnostics() {
+                let total_ms = received.elapsed().as_secs_f64() * 1000.0;
+                diagnostics.record(
+                    update.source,
+                    Event::RealtimeProcessed,
+                    &[(Stage::RealtimeTotal, total_ms)],
+                    Some(format!("[latency][{}] realtime delivery={total_ms:.1}ms queue={queue_ms:.1}ms", update.source)),
+                    false,
+                );
+            }
+        }
+        if let Some(diagnostics) = self.inner.session.diagnostics() {
+            diagnostics.flush(Some(self.inner.session.source().as_str()), "stop");
+        }
+        self.finish();
+    }
+
+    /// Runs the message pipeline on a final and settles its caption with the outcome.
+    fn process(&self, update: &Update, admission: &Admission, current: Current) {
+        match (admission.process)(update, current.clone()) {
+            Ok(None) => self.settle(update, "not_delivered", Some("filtered"), None),
+            Ok(Some(result)) => {
+                let outcome = match result["delivery_outcome"].as_str() {
+                    Some("failed") => "failed",
+                    Some("not_delivered") => "not_delivered",
+                    _ => "delivered",
+                };
+                let reason = result["delivery_reason"].as_str().map(str::to_string);
+                let result = (outcome != "failed").then_some(result);
+                self.settle(update, outcome, reason.as_deref(), result);
+            }
+            Err(()) => {
+                self.settle(update, "failed", Some("processing_failed"), None);
+                if current() {
+                    self.report("realtime_final_failed", false);
                 }
             }
         }
-        self.finish();
     }
 }

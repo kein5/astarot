@@ -23,6 +23,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 use vrct_audio_routing::identity::{Device, capture_key};
 use vrct_transcription::providers::{self, Candidate, Engine, Recognizer};
+use vrct_transcription::diagnostics::{Diagnostics, Event as Diagnosed, Stage};
 use vrct_transcription::recorder::{Event, Failure, Recorder, Settings};
 
 /// The Whisper APIs whose models come from `/models` (`TRANSCRIPTION_API_ENGINES`).
@@ -104,17 +105,29 @@ pub struct Transcription {
     /// Whether mic mute sync holds the microphone back now.
     mic_paused: Arc<AtomicBool>,
     pub(crate) realtime: super::realtime_asr::Realtime,
+    /// `utterance_diagnostics`: the speech timings of both paths, summed up in `process.log`
+    /// (decision 15).
+    pub(crate) diagnostics: Diagnostics,
 }
 
 impl Transcription {
     pub(crate) fn new(config: &crate::config::Config) -> Arc<Transcription> {
-        Arc::new(Transcription {
-            core: OnceLock::new(),
-            legacy: [Mutex::default(), Mutex::default()],
-            revisions: [AtomicU64::new(0), AtomicU64::new(0)],
-            epochs: [AtomicU64::new(0), AtomicU64::new(0)],
-            mic_paused: Arc::new(AtomicBool::new(false)),
-            realtime: super::realtime_asr::Realtime::new(config),
+        Arc::new_cyclic(|area: &Weak<Transcription>| {
+            let area = area.clone();
+            let log = Arc::new(move |line: &str| {
+                if let Some(core) = area.upgrade().and_then(|area| area.core()) {
+                    core.step(line);
+                }
+            });
+            Transcription {
+                core: OnceLock::new(),
+                legacy: [Mutex::default(), Mutex::default()],
+                revisions: [AtomicU64::new(0), AtomicU64::new(0)],
+                epochs: [AtomicU64::new(0), AtomicU64::new(0)],
+                mic_paused: Arc::new(AtomicBool::new(false)),
+                realtime: super::realtime_asr::Realtime::new(config),
+                diagnostics: Diagnostics::new(log),
+            }
         })
     }
 
@@ -387,6 +400,7 @@ impl Core {
             // cannot detect speech the energy listener cuts phrases and the user is told. The
             // volume meter alone needs no detection.
             vad: (transcribing && config.get_bool(&format!("{}_ENABLE_VAD", upper(source)))).then(|| self.recorder_vad(source)).flatten(),
+            diagnostics: transcribing.then(|| self.transcription.diagnostics.clone()),
         }
     }
 
@@ -472,6 +486,8 @@ impl Core {
             match self.recognizer() {
                 Ok(recognizer) => {
                     let core = Arc::downgrade(self);
+                    // `asr_attempts` and `asr_successes` of this recorder, for `[ASR-stats]`.
+                    let (mut attempts, mut successes) = (0u64, 0u64);
                     let recognize: vrct_transcription::recorder::Recognize = Box::new(move |mono: &[i16], rate: u32| {
                         let Some(core) = core.upgrade() else { return Ok(None) };
                         let engine = recognizer.engine.name().to_string();
@@ -480,9 +496,32 @@ impl Core {
                             super::python_float(&core.config().get(&format!("{}_AVG_LOGPROB", upper(source)))).unwrap_or(-0.8),
                             super::python_float(&core.config().get(&format!("{}_NO_SPEECH_PROB", upper(source)))).unwrap_or(0.6),
                         );
+                        let asked = std::time::Instant::now();
                         let result = recognizer.recognize(mono, rate, &candidates, logprob, silence, table());
-                        if let Err(failed) = &result {
-                            core.step(&format!("[ASR-error][{}][{engine}] {}", source.as_str(), failed.error.code()));
+                        let asr_ms = asked.elapsed().as_millis();
+                        let diagnostics = &core.transcription.diagnostics;
+                        let name = source.as_str();
+                        match &result {
+                            Err(failed) => {
+                                diagnostics.record(name, Diagnosed::AsrError, &[(Stage::Asr, asr_ms as f64)], None, false);
+                                core.step(&format!("[ASR-error][{name}][{engine}] {}", failed.error.code()));
+                            }
+                            Ok(heard) => {
+                                attempts += 1;
+                                successes += u64::from(heard.is_some());
+                                let outcome = if heard.is_some() { "success" } else { "failure" };
+                                diagnostics.record(
+                                    name,
+                                    if heard.is_some() { Diagnosed::AsrSuccess } else { Diagnosed::AsrFailure },
+                                    &[(Stage::Asr, asr_ms as f64)],
+                                    Some(format!(
+                                        "[ASR-stats][{name}][{engine}] this_call={outcome} attempts={attempts} successes={successes} rate={:.1}% asr={asr_ms}ms",
+                                        successes as f64 * 100.0 / attempts as f64
+                                    )),
+                                    // A call that heard nothing is told at once, as in Python.
+                                    heard.is_none(),
+                                );
+                            }
                         }
                         result
                     });
@@ -761,6 +800,7 @@ impl Core {
                 self.step("shutdown: a recorder did not stop in time");
             }
         }
+        self.transcription.diagnostics.flush(None, "shutdown");
     }
 
     // ------------------------------------------------------------------------- keys

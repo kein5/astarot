@@ -152,15 +152,35 @@ fn a_recognised_utterance_reaches_the_ui_the_chatbox_and_the_log_but_not_the_dia
     assert!(fields.iter().any(|f| f == "model=distil-whisper&language=ja&response_format=verbose_json"), "{fields:?}");
     assert!(run.asr.requested("POST /openai/v1/audio/transcriptions") >= 1);
 
-    // The latency line is written without the text, once the message has gone everywhere.
-    eventually("the latency line", || run.process_log().contains("[latency][mic] asr="));
-
     // Off: the capture stops and nothing more is delivered.
     assert_eq!(run.ui.ok("/set/disable/transcription_send", None), false);
     eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
     assert_eq!(run.ui.ok("/get/data/mic_word_filter", None), json!([]));
+    // Decision 15 (`utterance_diagnostics`): a quick utterance writes no line of its own; its
+    // timings are counted and written, without the text, as one summary when recognition stops.
     let log = run.process_log();
+    assert!(!log.contains("[latency][mic]") && !log.contains("[ASR-stats]"), "{log}");
+    let summary = log.lines().find(|line| line.contains("[utterance-summary][mic] reason=stop")).expect("the summary at the stop");
+    for part in ["asr_success=", "audio_chunk=", "message=", "asr_ms(n=", "queue_ms(n=", "total_ms(n="] {
+        assert!(summary.contains(part), "{part} in {summary}");
+    }
     assert!(!log.contains("こんにちは"), "recognised text reached process.log");
+    run.ui.stop();
+}
+
+#[test]
+fn an_utterance_the_engine_did_not_understand_is_written_at_once_without_text() {
+    // `test_no_match_and_provider_failure_remain_visible` (decision 15): a call that heard
+    // nothing is not left to the summary.
+    let run = start(cloud());
+    *run.asr.behaviour.text.lock().unwrap() = String::new();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    run.capture.hear(Source::Mic, &[quiet(200), speech(900), quiet(1200)]);
+    eventually("the no-match line", || run.process_log().contains("[ASR-stats][mic][OpenAI_Whisper] this_call=failure attempts=1 successes=0 rate=0.0% asr="));
+    assert_eq!(run.ui.ok("/set/disable/transcription_send", None), false);
+    let log = run.process_log();
+    let summary = log.lines().find(|line| line.contains("[utterance-summary][mic] reason=stop")).expect("the summary at the stop");
+    assert!(summary.contains("asr_failure=") && !summary.contains("asr_success="), "{summary}");
     run.ui.stop();
 }
 
