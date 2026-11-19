@@ -805,7 +805,6 @@ dependencies = [
 name = "vrct-transcription"
 version = "0.0.0"
 dependencies = [
- "libc",
  "serde_json",
  "tungstenite",
  "vrct-audio-routing",
