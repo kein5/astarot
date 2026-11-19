@@ -125,6 +125,11 @@ test("every Lilac fill carries Dark Plum text at 4.5:1, and the deep violets car
     }
     // Selection keeps light text, so it sits on a deep violet.
     assert.match(read("../app/_index_css/root.css"), /::selection \{ color: var\(--dark_100_color\); background: var\(--primary_800_color\); \}/);
+    // A checked box's check is on the same Lilac fill, so it is Dark Plum too (shadcn/ui's
+    // primary-foreground check).
+    const checkbox = read("../common_components/checkbox/Checkbox.module.scss");
+    assert.match(checkbox, /:checked \+ \.cbx\s*\{\s*background-color: var\(--checkbox-color, var\(--primary_600_color\)\)/);
+    assert.match(checkbox, /\.cbx svg\s*\{[^}]*stroke: var\(--vox_on_primary\);/);
 });
 
 test("a field's border reaches 3.5:1 on the surface and 3:1 on every ground, and the focus ring is visible on every ground", () => {
