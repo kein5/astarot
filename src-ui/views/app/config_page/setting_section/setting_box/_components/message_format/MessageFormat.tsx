@@ -1,0 +1,351 @@
+import styles from "./MessageFormat.module.scss";
+import clsx from "clsx";
+import { useTranslation } from "react-i18next";
+import { _Entry } from "../_atoms/_entry/_Entry";
+import SwapSvg from "@images/swap_horizontal.svg?react";
+import ArrowLeftSvg from "@images/arrow_left.svg?react";
+import {
+    useStore_IsBreakPoint,
+    useStore_MessageFormat_ExampleViewFilter,
+} from "@store";
+import { useAppearance } from "@logics_configs";
+import { ui_configs } from "@ui_configs";
+import { ResetButton } from "@common_components";
+import { useState } from "react";
+import type { ChangeEvent } from "react";
+import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
+import type { DraftWrite } from "../../../../../../../logics/voice/useSettingsDraft";
+import type { MessageFormatParts } from "../../../../../../../logics/configs/config_page_setter/settingTypes";
+
+// The chatbox message format of the messages sent, or of the messages received.
+export type MessageFormatId = "send" | "received";
+
+export interface MessageFormatProps {
+    // The saved format, as the store holds it.
+    variable: { state?: string; data: MessageFormatParts };
+    setFunction: DraftWrite<MessageFormatParts>;
+    format_id: MessageFormatId;
+    // Names the format in the save bar's list of changes.
+    label?: string;
+    "aria-labelledby"?: string;
+    "aria-describedby"?: string;
+}
+
+const ENTRY_WIDTH = "8rem";
+
+const EXAMPLE_TEXTS: Readonly<Record<string, string>> = {
+    en: "Hello",
+    ja: "こんにちは",
+    ko: "안녕하세요",
+    fr: "Bonjour",
+};
+
+export const MessageFormat = (props: MessageFormatProps) => {
+    const { currentIsBreakPoint } = useStore_IsBreakPoint();
+    const { t } = useTranslation();
+    const [error, setError] = useState<string | null>(null);
+    const form = useSettingsDraft(props.variable.data, error, setError, {
+        write: props.setFunction,
+        label: () => props.label ?? t(`config_page.others.${props.format_id}_message_format.label`),
+    });
+    const format = form.draft ?? props.variable.data;
+    const message_format_container_class = clsx(styles.container, {
+        [styles.is_break_point]: currentIsBreakPoint.data,
+    });
+
+    return (
+        <div className={message_format_container_class} role="group" aria-labelledby={props["aria-labelledby"]} aria-describedby={props["aria-describedby"]}>
+            <ExampleComponent
+                format={format}
+                format_id={props.format_id}
+            />
+            {form.navigationDialog}
+            <div className={styles.border}></div>
+            <InputComponent
+                variable={format}
+                setFunction={form.setDraft}
+                saveFunction={() => form.submit(props.setFunction)}
+                format_id={props.format_id}
+            />
+        </div>
+    );
+};
+
+const ExampleComponent = ({ format, format_id }: { format: MessageFormatParts; format_id: MessageFormatId }) => {
+    const { currentUiLanguage } = useAppearance();
+    const { t } = useTranslation();
+    const {
+        currentMessageFormat_ExampleViewFilter,
+        updateMessageFormat_ExampleViewFilter,
+    } = useStore_MessageFormat_ExampleViewFilter();
+
+    const locale_base_path = "config_page.others.message_format_common.example_view.";
+
+    const label_title = t(locale_base_path + "title");
+
+    const label_original_translated = t(locale_base_path + "original_translated");
+    const label_original_translated_multi = t(locale_base_path + "original_translated_multi");
+    const label_translated_only_multi = t(locale_base_path + "translated_only_multi");
+    const label_translated_only = t(locale_base_path + "translated_only");
+    const label_original_only = t(locale_base_path + "original_only");
+
+    const createExampleMessage = (id: string) => {
+        // 言語順序を決定
+        let example_text_order: string[] = [];
+        switch (currentUiLanguage.data) {
+            case "ja":
+                example_text_order = ["ja", "en", "ko", "fr"];
+                break;
+            default: // en
+                example_text_order = ["en", "ja", "ko", "fr"];
+                break;
+        }
+
+        const original = EXAMPLE_TEXTS[example_text_order[0]];
+        const translations = example_text_order.slice(1).map(lang => EXAMPLE_TEXTS[lang]);
+
+        const originalPart = `${format.message.prefix}${original}${format.message.suffix}`;
+        const translationSingle = `${format.translation.prefix}${translations[0]}${format.translation.suffix}`;
+        const translationMulti = `${format.translation.prefix}${translations.join(format.translation.separator)}${format.translation.suffix}`;
+
+        switch (id) {
+            case "original_translated":
+                return format.translation_first
+                    ? `${translationSingle}${format.separator}${originalPart}`
+                    : `${originalPart}${format.separator}${translationSingle}`;
+
+            case "original_only":
+                return originalPart;
+
+            case "translated_only":
+                return translationSingle;
+
+            case "translated_only_multi":
+                return translationMulti;
+
+            case "original_translated_multi":
+                return format.translation_first
+                    ? `${translationMulti}${format.separator}${originalPart}`
+                    : `${originalPart}${format.separator}${translationMulti}`;
+
+            default:
+                throw new Error(`Unexpected id: ${id}`);
+        }
+    };
+
+    // Plain render functions, not components: a component defined in here is a
+    // new type on every render, so React would remount it (and drop its focus).
+    const renderExampleBox = (label: string, example_text_id: string) => {
+        return (
+            <div key={example_text_id} className={styles.example_wrapper}>
+                <p className={styles.example_label}>{label}</p>
+                <div className={styles.example_chatbox}>
+                    <p className={styles.example_text}>{createExampleMessage(example_text_id)}</p>
+                </div>
+            </div>
+        );
+
+    };
+
+    const svg_class_names = clsx(styles.arrow_left_svg, {
+        [styles.to_down]: currentMessageFormat_ExampleViewFilter.data[format_id] === "Simplified",
+        [styles.to_up]: currentMessageFormat_ExampleViewFilter.data[format_id] === "All"
+    });
+
+
+    const renderFilteredExampleBox = (format_id: MessageFormatId, id: string) => {
+        if (format_id === "send" && id === "Simplified") {
+            return (
+                <>
+                    {renderExampleBox(label_original_translated, "original_translated")}
+                    {renderExampleBox(label_original_translated_multi, "original_translated_multi")}
+                </>
+            );
+        } else if ( format_id === "send" && id === "All") {
+            return (
+                <>
+                    {renderExampleBox(label_original_translated, "original_translated")}
+                    {renderExampleBox(label_original_translated_multi, "original_translated_multi")}
+                    {renderExampleBox(label_translated_only_multi, "translated_only_multi")}
+                    {renderExampleBox(label_translated_only, "translated_only")}
+                    {renderExampleBox(label_original_only, "original_only")}
+                </>
+            );
+
+        } else if (format_id === "received") {
+            return (
+                <>
+                    {renderExampleBox(label_original_translated, "original_translated")}
+                    {renderExampleBox(label_original_only, "original_only")}
+                    {renderExampleBox(label_translated_only, "translated_only")}
+                </>
+            );
+        }
+    };
+
+    const exampleViewFilterToggleFunction = (format_id: MessageFormatId) => {
+        if (["send", "received"].includes(format_id) === false) return console.error(`format_id should be small case 'send' or 'received'. got format_id: ${format_id}`);
+
+        updateMessageFormat_ExampleViewFilter({
+            ...currentMessageFormat_ExampleViewFilter.data,
+            [format_id]: currentMessageFormat_ExampleViewFilter.data[format_id] === "Simplified"
+                ? "All"
+                : "Simplified"
+        });
+    };
+
+    return (
+        <div className={styles.example_container}>
+            <p className={styles.section_title}>{label_title}</p>
+            <div className={styles.example_view_container}>
+                {renderFilteredExampleBox(format_id, currentMessageFormat_ExampleViewFilter.data[format_id])}
+            </div>
+            { format_id === "send" &&
+                <div className={styles.show_more_container} onClick={() => exampleViewFilterToggleFunction(format_id)}
+                    role="button" tabIndex={0}
+                    aria-expanded={currentMessageFormat_ExampleViewFilter.data[format_id] === "All"}
+                    aria-label={t(currentMessageFormat_ExampleViewFilter.data[format_id] === "All"
+                        ? "config_page.others.message_format_common.example_view.show_fewer"
+                        : "config_page.others.message_format_common.example_view.show_all")}
+                    onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); exampleViewFilterToggleFunction(format_id); } }}>
+                    <ArrowLeftSvg className={svg_class_names} aria-hidden="true"/>
+                </div>
+            }
+        </div>
+    );
+};
+
+
+interface InputComponentProps {
+    variable: MessageFormatParts;
+    setFunction: (value: MessageFormatParts) => void;
+    saveFunction: () => void;
+    format_id: MessageFormatId;
+}
+
+const InputComponent = ({ variable: local_var, setFunction, saveFunction, format_id }: InputComponentProps) => {
+    const { t } = useTranslation();
+
+    const locale_base_path = "config_page.others.message_format_common.settings.";
+    const label_title = t(locale_base_path + "title");
+
+    const LABEL_ORIGINAL = t(locale_base_path + "original");
+    const LABEL_TRANSLATED = t(locale_base_path + "translated");
+    const LABEL_FOR_MULTI_TRANSLATION = t(locale_base_path + "for_multi_translation");
+
+    const replaceValue = (value: string) => {
+        if (value === "") return "";
+
+        const replaced = value.replace(/\\n/g, "\n");
+        return replaced;
+    };
+
+    const handleChange = (parent_key: "message" | "translation" | "separator", child_key?: "prefix" | "suffix" | "separator") => (e: ChangeEvent<HTMLInputElement>) => {
+        const raw_value = e.target.value;
+        const parsed_value = replaceValue(raw_value);
+
+        if (child_key !== undefined && parent_key !== "separator") {
+            const new_var = {
+                ...local_var,
+                [parent_key]: {
+                    ...local_var[parent_key],
+                    [child_key]: parsed_value,
+                },
+            };
+            setFunction(new_var);
+        } else {
+            const new_var = {
+                ...local_var,
+                [parent_key]: parsed_value,
+            };
+            setFunction(new_var);
+        }
+    };
+
+    const toUiValue = (v: string | undefined) => {
+        if (typeof v === "string") {
+            return v.replace(/\n/g, "\\n");
+        }
+        return v ?? "";
+    };
+
+    const resetFunction = () => {
+        const new_val = format_id === "send" ? ui_configs.send_message_format_parts : ui_configs.received_message_format_parts;
+        setFunction(new_val);
+    };
+
+    // Rendered by a call, not as <SwapButton />, so pressing it keeps the keyboard focus.
+    const renderSwapButton = (variable: MessageFormatParts) => {
+        const swapMessageAndTranslate = () => {
+            const new_var = { ...variable, translation_first: !variable.translation_first };
+            setFunction(new_var);
+        };
+
+        return (
+            <div className={styles.swap_button_wrapper} onClick={swapMessageAndTranslate} role="button" tabIndex={0}
+                aria-label={t(locale_base_path + "swap_order", { first: variable.translation_first ? LABEL_TRANSLATED : LABEL_ORIGINAL })}
+                onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); swapMessageAndTranslate(); } }}>
+                <p className={styles.swap_text}>{variable.translation_first ? LABEL_TRANSLATED : LABEL_ORIGINAL}</p>
+                <SwapSvg className={styles.swap_img} aria-hidden="true" />
+                <p className={styles.swap_text}>{variable.translation_first ? LABEL_ORIGINAL : LABEL_TRANSLATED}</p>
+            </div>
+        );
+    };
+
+    return (
+        <div className={styles.message_format_settings_container}>
+            <p className={styles.section_title}>{label_title}</p>
+            <div className={styles.message_format_settings_wrapper}>
+                <div className={styles.swap_button_container}>
+                    {renderSwapButton(local_var)}
+                </div>
+                { !local_var.translation_first ?
+                <div className={styles.input_wrapper}>
+                    <div className={styles.input_contents}>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.before_original")} ui_variable={toUiValue(local_var.message.prefix)} width={ENTRY_WIDTH} onChange={handleChange("message", "prefix")} />
+                        <p className={styles.preset_text}>{LABEL_ORIGINAL}</p>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.after_original")} ui_variable={toUiValue(local_var.message.suffix)} width={ENTRY_WIDTH} onChange={handleChange("message", "suffix")} />
+                    </div>
+                    <div className={styles.input_contents}>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.between")} ui_variable={toUiValue(local_var.separator)} width={ENTRY_WIDTH} onChange={handleChange("separator")} />
+                    </div>
+                    <div className={styles.input_contents}>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.before_translation")} ui_variable={toUiValue(local_var.translation.prefix)} width={ENTRY_WIDTH} onChange={handleChange("translation", "prefix")} />
+                        <p className={styles.preset_text}>{LABEL_TRANSLATED}</p>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.after_translation")} ui_variable={toUiValue(local_var.translation.suffix)} width={ENTRY_WIDTH} onChange={handleChange("translation", "suffix")} />
+                    </div>
+                </div>
+                :
+                <div className={styles.input_wrapper}>
+                    <div className={styles.input_contents}>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.before_translation")} ui_variable={toUiValue(local_var.translation.prefix)} width={ENTRY_WIDTH} onChange={handleChange("translation", "prefix")} />
+                        <p className={styles.preset_text}>{LABEL_TRANSLATED}</p>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.after_translation")} ui_variable={toUiValue(local_var.translation.suffix)} width={ENTRY_WIDTH} onChange={handleChange("translation", "suffix")} />
+                    </div>
+                    <div className={styles.input_contents}>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.between")} ui_variable={toUiValue(local_var.separator)} width={ENTRY_WIDTH} onChange={handleChange("separator")} />
+                    </div>
+                    <div className={styles.input_contents}>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.before_original")} ui_variable={toUiValue(local_var.message.prefix)} width={ENTRY_WIDTH} onChange={handleChange("message", "prefix")} />
+                        <p className={styles.preset_text}>{LABEL_ORIGINAL}</p>
+                        <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.after_original")} ui_variable={toUiValue(local_var.message.suffix)} width={ENTRY_WIDTH} onChange={handleChange("message", "suffix")} />
+                    </div>
+                </div>
+                }
+                { format_id === "send" &&
+                    <div className={styles.multi_translation_input_wrapper}>
+                        <p className={styles.multi_translation_title}>{LABEL_FOR_MULTI_TRANSLATION}</p>
+                        <div className={styles.input_contents}>
+                            <p className={styles.preset_text}>{LABEL_TRANSLATED}</p>
+                            <_Entry onEnterPressed={saveFunction} aria-label={t("config_page.others.message_format_common.settings.between_translations")} ui_variable={toUiValue(local_var.translation.separator)} width={ENTRY_WIDTH} onChange={handleChange("translation", "separator")} />
+                            <p className={styles.preset_text}>{LABEL_TRANSLATED}</p>
+                        </div>
+                    </div>
+                }
+                <div className={styles.reset_button_wrapper}>
+                    <ResetButton onClickFunction={resetFunction} label={`${label_title}: ${t("common.reset_to_default")}`}/>
+                </div>
+            </div>
+        </div>
+    );
+};

@@ -11,7 +11,7 @@ const RadioButton = () => null, ThresholdComponent = () => null;
 const render = async device => {
     const runtime = hooks();
     const toggled = [];
-    const module = await loadModule(new URL("./Device.jsx", import.meta.url), runtime, {
+    const module = await loadModule(new URL("./Device.tsx", import.meta.url), runtime, {
         "./VoiceRouteSettings": { VoiceRouteSettings: () => null },
         "../shared_items/SharedItems": { VrcMicMuteSyncContainer: () => null },
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },

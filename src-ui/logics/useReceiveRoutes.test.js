@@ -39,7 +39,7 @@ test("failed required initialization maps and scalars retain renderable defaults
     assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_UiScaling).data, 100);
     assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_EnableAutoMicSelect).data, true);
     assert.equal(s.runtime.store.get(s.stores.Atom_SelectedPresetTabNumber).data, "1");
-    const { LanguageSelectorOpenButton } = await loadModule(new URL("../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.jsx", import.meta.url), s.runtime, {
+    const { LanguageSelectorOpenButton } = await loadModule(new URL("../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.tsx", import.meta.url), s.runtime, {
         "@store": s.stores,
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: value => value }) },

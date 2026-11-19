@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = { position: "bottom", font_size: 28, display_duration: 
 
 async function setup(context, { settings = DEFAULT_SETTINGS, placement = { x: null, y: null } } = {}) {
     const runtime = hooks(), saved = [];
-    const { DesktopCaptionOverlay } = await loadModule(new URL("./DesktopCaptionOverlay.jsx", import.meta.url), runtime, {
+    const { DesktopCaptionOverlay } = await loadModule(new URL("./DesktopCaptionOverlay.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke: async () => true },
         "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@ui_configs": { ui_configs: {

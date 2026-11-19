@@ -7,17 +7,17 @@ import yaml from "js-yaml";
 // and the sections each page looks them up in, in order. Without a text the page shows the
 // bare code, or nothing.
 const PAGES = [
-    { page: "SpeechServers.jsx", sections: ["speech_servers.errors", "voice_ui.errors"],
+    { page: "SpeechServers.tsx", sections: ["speech_servers.errors", "voice_ui.errors"],
         codes: ["speech_server_request_unconfirmed", "speech_server_request_failed", "save_unconfirmed", "backend_unavailable"] },
-    { page: "DirectVoiceSettings.jsx", sections: ["voice_setup_errors", "voice_ui.errors"],
+    { page: "DirectVoiceSettings.tsx", sections: ["voice_setup_errors", "voice_ui.errors"],
         codes: ["source_bridge_request_failed", "save_unconfirmed", "backend_unavailable"] },
-    { page: "RealtimeControls.jsx", sections: ["realtime_toggle", "voice_ui.errors"],
+    { page: "RealtimeControls.tsx", sections: ["realtime_toggle", "voice_ui.errors"],
         codes: ["realtime_request_failed", "save_unconfirmed", "backend_unavailable"] },
-    { page: "RealtimeASRSettings.jsx", sections: ["realtime_toggle"],
+    { page: "RealtimeASRSettings.tsx", sections: ["realtime_toggle"],
         codes: ["realtime_request_failed", "save_unconfirmed", "backend_unavailable"] },
-    { page: "VoiceSettings.jsx (voiceErrorText)", sections: ["voice_ui.errors", "voice.input_errors"],
+    { page: "VoiceSettings.tsx (voiceErrorText)", sections: ["voice_ui.errors", "voice.input_errors"],
         codes: ["save_unconfirmed", "voice_request_failed", "voice_request_unconfirmed", "backend_unavailable"] },
-    { page: "ModelDownloads.jsx", sections: ["model_downloads.errors"], codes: ["request_unconfirmed", "backend_unavailable"] },
+    { page: "ModelDownloads.tsx", sections: ["model_downloads.errors"], codes: ["request_unconfirmed", "backend_unavailable"] },
 ];
 
 for (const language of ["en", "ja"]) test(`${language}: every code the UI makes has a text where its page looks`, () => {
@@ -32,8 +32,8 @@ for (const language of ["en", "ja"]) test(`${language}: every code the UI makes 
 
 // The codes listed above are the ones the UI's source makes; a new one fails here until it is listed.
 test("the list covers the codes the UI makes", () => {
-    const sources = ["../useReceiveRoutes.js", "./useSettingsDraft.tsx",
-        "../../views/app/config_page/setting_section/setting_box/advanced_settings/SpeechServers.jsx"];
+    const sources = ["../useReceiveRoutes.ts", "./useSettingsDraft.tsx",
+        "../../views/app/config_page/setting_section/setting_box/advanced_settings/SpeechServers.tsx"];
     const listed = new Set(PAGES.flatMap(page => page.codes));
     for (const file of sources) {
         const source = readFileSync(new URL(file, import.meta.url), "utf8");

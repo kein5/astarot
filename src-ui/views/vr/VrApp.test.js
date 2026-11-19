@@ -10,7 +10,7 @@ test("closed log region is inert and unpainted while the receiver keeps its data
     class Channel { onmessage = () => {}; }
     const layout = { atlas: [2000, 1000], regions: { panel: [0, 0, 900, 900] } };
     const VrLogWindow = () => null, VrLauncher = () => null;
-    const { VrApp } = await loadModule(new URL("./VrApp.jsx", import.meta.url), runtime, {
+    const { VrApp } = await loadModule(new URL("./VrApp.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { Channel, invoke: async (name, args) => { subscriptions.push([name, args.channel]); } },
         "@tauri-apps/api/event": { emit: (...args) => { emitted.push(args); }, listen: (name, handler) => {
             listeners.set(name, handler);

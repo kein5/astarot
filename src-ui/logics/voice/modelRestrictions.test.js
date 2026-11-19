@@ -55,7 +55,7 @@ async function dialog(context, entry) {
     const runtime = hooks(), sent = [];
     const downloads = { catalog: { models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {},
         ensureHardware: () => {}, send: (endpoint, data) => sent.push([endpoint, data]) };
-    const { ModelDownloads } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.jsx", import.meta.url), runtime, {
+    const { ModelDownloads } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": {},
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },

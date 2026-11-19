@@ -5,7 +5,7 @@
 `src-python/errors.py`の`ErrorCode`と`ERROR_METADATA`から生成した。中核（`native/core`）だけにあるコードは`tools/spec_core_additions.json`から表の末尾に足した。応答の形とUIでの見せ方は[横断的な振る舞い](../cross-cutting.md#エラーの扱い)にある。
 
 - 既定メッセージ: サイドカーが返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。
-- UIの個別処理: `_useBackendErrorHandling.js`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。空欄のコードは、音声やモデル取得など別の経路で処理されるか、汎用の通知になる。
+- UIの個別処理: `_useBackendErrorHandling.ts`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。空欄のコードは、音声やモデル取得など別の経路で処理されるか、汎用の通知になる。
 
 ## コード（113件）
 

@@ -238,7 +238,10 @@ mod windows_capture {
         let deliver = Box::new(move |bytes: &[u8], format: vrct_audio_routing::wasapi::capture::DeviceFormat| {
             on_audio(&pcm::samples(bytes), format.rate, format.channels, None)
         });
-        let (capture, _) = DeviceCapture::start(device, source == Source::Speaker, timeout, deliver, on_error)
+        // Decision 15 (3): only realtime recognition (an endpoint) gets silence while the
+        // speaker plays nothing; the recorder (a device) hears only what is played, as in Python.
+        let fill_silence = matches!(target, Target::Endpoint(_));
+        let (capture, _) = DeviceCapture::start(device, source == Source::Speaker, fill_silence, timeout, deliver, on_error)
             .map_err(|error| error.code)?;
         Ok(Box::new(Wasapi(capture)))
     }

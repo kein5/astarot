@@ -12,7 +12,7 @@ async function setup(context) {
     } };
     context.onTestFinished(() => controls.unmount());
     const saved = { tracker: "HMD", x_pos: 0, y_pos: 0 };
-    const { Vr } = await loadModule(new URL("./Vr.jsx", import.meta.url), bindings, {
+    const { Vr } = await loadModule(new URL("./Vr.tsx", import.meta.url), bindings, {
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
         "@common_components": { ResetButton: "reset" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": {},
@@ -82,7 +82,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
     for (const name of ["useState", "useRef", "useEffect", "useLayoutEffect", "useMemo", "useCallback", "useId"]) api[name] = delegate(name);
     context.onTestFinished(() => Object.values(runtimes).forEach(runtime => runtime.unmount()));
     const saved = { tracker: "HMD" };
-    const { Vr } = await loadModule(new URL("./Vr.jsx", import.meta.url), { ...runtimes.button, api }, {
+    const { Vr } = await loadModule(new URL("./Vr.tsx", import.meta.url), { ...runtimes.button, api }, {
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },

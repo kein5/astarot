@@ -10,7 +10,7 @@ import { loadBridgeRoutes } from "../test/bridgeHarness.js";
 import * as consentLogic from "./legacyModelConsent.ts";
 import * as setupNeeds from "../main/setupNeeds.ts";
 
-const componentURL = new URL("../../views/app/config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.jsx", import.meta.url);
+const componentURL = new URL("../../views/app/config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.tsx", import.meta.url);
 const entry = { kind: "ctranslate2", weight_type: "nllb-200-distilled-600M-ct2-int8", name: "CTranslate2 NLLB 600M",
     provider: "JustFrederik", repo: "JustFrederik/nllb-200-distilled-600M-ct2-int8", license: "CC-BY-NC-4.0",
     non_commercial: true, total_bytes: 642903406, tokenizer_size_unknown: true,

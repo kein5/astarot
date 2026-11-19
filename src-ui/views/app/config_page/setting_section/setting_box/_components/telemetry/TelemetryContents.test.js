@@ -10,7 +10,7 @@ const ERROR = { ...EVENT, event: "error", error_code: "speech_server_out_of_memo
 
 async function setup(context, preview, props = {}) {
     const runtime = hooks(), asked = [];
-    const { TelemetryContents } = await loadModule(new URL("./TelemetryContents.jsx", import.meta.url), runtime, {
+    const { TelemetryContents } = await loadModule(new URL("./TelemetryContents.tsx", import.meta.url), runtime, {
         "@logics_configs": { useOthers: () => ({ currentTelemetryPreview: preview, getTelemetryPreview: () => asked.push(true) }) },
         "../../../../../../../logics/common/telemetryRows": rows,
     });

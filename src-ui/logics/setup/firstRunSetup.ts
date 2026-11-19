@@ -12,10 +12,10 @@ import type { CatalogEntry } from "../voice/modelCatalog";
 export type SetupEntry = CatalogEntry & {
     provider?: string;
     license?: string;
-    licenses?: string[];
+    licenses?: readonly string[];
 };
 
-export type SetupCatalog = { catalog_version?: string; models?: SetupEntry[] } | null | undefined;
+export type SetupCatalog = { catalog_version?: string; models?: readonly SetupEntry[] } | null | undefined;
 
 export type AsrPaths = { model?: unknown; vad_model?: unknown } | null | undefined;
 

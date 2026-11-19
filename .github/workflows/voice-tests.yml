@@ -2,6 +2,8 @@ name: VRCT-VOX voice contracts (no models)
 on:
   push:
   pull_request:
+  # The merge queue checks the commit it builds with the same jobs before it merges.
+  merge_group:
 permissions:
   contents: read
 # The toolchains come from mise.toml and mise.lock (jdx/mise-action). uv takes the Python mise

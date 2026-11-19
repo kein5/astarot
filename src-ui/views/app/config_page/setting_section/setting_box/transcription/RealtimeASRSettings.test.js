@@ -33,7 +33,7 @@ async function fixture(context) {
         updateError: error => { asr.error = error; },
     };
     const speech = { state: {}, send: () => {} };
-    const { RealtimeASRSettings } = await loadModule(new URL("./RealtimeASRSettings.jsx", import.meta.url), runtime, {
+    const { RealtimeASRSettings } = await loadModule(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "ja" } }) },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: code => code }) },
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
@@ -44,7 +44,7 @@ async function fixture(context) {
         "./VocabularyBulk.tsx": { VocabularyBulk: "vocabulary-bulk" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
-    const { SaveBar } = await loadModule(new URL("../../../topbar/Topbar.jsx", import.meta.url), barRuntime, {
+    const { SaveBar } = await loadModule(new URL("../../../topbar/Topbar.tsx", import.meta.url), barRuntime, {
         "@logics_common": {}, "../../../../logics/voice/saveBar": saveBar, "../../others/stop_actions/StopActions": {},
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "transcription" } }) },
     });

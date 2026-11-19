@@ -697,7 +697,7 @@ if robust_overlay.safeStartOverlay():
 ```
 Tauri (src-tauri/src/lib.rs)  set_vr_panel_window
   └─ "ASTAROT VR Panel" ウィンドウ (画面外 / src-ui/vr.html / src-ui/views/vr/)   … VR UI が ON の間だけ作る
-        ↑ 状態は VrPanelSyncController.jsx が全 atom を一方向に同期（メイン → VR）
+        ↑ 状態は VrPanelSyncController.tsx が全 atom を一方向に同期（メイン → VR）
 Python (src-python/models/overlay/)
   ├─ overlay.py          Overlay クラス (1 本の mainloop スレッドが全オーバーレイを動かす)
   ├─ window_capture.py   ウィンドウ撮影 (Windows.Graphics.Capture) と入力 (PostMessage)

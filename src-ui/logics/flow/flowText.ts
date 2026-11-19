@@ -47,8 +47,9 @@ export interface StripItem {
 
 const ENGINE_NAMES: Partial<Record<string, string>> = { rvc: "RVC", "seed-vc": "Seed-VC" };
 
-// What an output of the route map does now, or why it is not used.
-export const outputDetail = (row: FlowOutputRow, t: Translate, names: FlowNames): string => {
+// What an output of the route map does now, or why it is not used. The graph's live voice may
+// pass what stands in for a row the voice lane does not have (FlowRouteRow), so any field may be missing.
+export const outputDetail = (row: Partial<FlowOutputRow>, t: Translate, names: FlowNames): string => {
     if (!row.on) return t(`io_flow.reason.${row.reason}`);
     if (row.id === "chatbox") return t(`io_flow.content.${row.content}`);
     if (row.id === "speech") {

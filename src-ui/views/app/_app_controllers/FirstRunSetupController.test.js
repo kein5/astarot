@@ -26,7 +26,7 @@ function world(values = {}) {
 async function setup(context, w = world()) {
     const runtime = hooks();
     const record = (endpoint, data) => { w.sent.push([endpoint, data]); };
-    const { FirstRunSetupController } = await loadModule(new URL("./FirstRunSetupController.jsx", import.meta.url), runtime, {
+    const { FirstRunSetupController } = await loadModule(new URL("./FirstRunSetupController.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => Array.isArray(key) ? key[0] : key, i18n: { language: "ja" } }) },
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: () => assert.fail("no link opens in this test") },
@@ -187,7 +187,7 @@ test("Later puts it away for this run without dismissing it; Don't show again do
 });
 
 test("every string it uses is in both languages", () => {
-    const source = readFileSync(new URL("./FirstRunSetupController.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./FirstRunSetupController.tsx", import.meta.url), "utf8");
     const keys = new Set([...source.matchAll(/"(first_run_setup\.[a-z_.]+)"/g)].map(match => match[1]));
     for (const state of ["waiting", "working", "done", "failed"]) keys.add(`first_run_setup.recognition.state_${state}`);
     for (const state of ["ready", "cloud", "own_server", "needs_setup", "unknown"]) keys.add(`first_run_setup.found.recognition_${state}`);

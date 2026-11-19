@@ -6,7 +6,7 @@ import * as needsLogic from "../../../../../../logics/main/setupNeeds.ts";
 
 async function setup({ needs = [], sends = true, vr = false, startup = null, settings = {}, recognition = "ready" } = {}) {
     const runtime = hooks(), started = [];
-    const { EmptyState } = await loadModule(new URL("./EmptyState.jsx", import.meta.url), runtime, {
+    const { EmptyState } = await loadModule(new URL("./EmptyState.tsx", import.meta.url), runtime, {
         "@store": { store: { is_vr_panel: vr } },
         "@logics_configs": { useSettingValue: name => settings[name] ?? ({ data: name === "EnableSendMessageToVrc" ? sends : undefined }) },
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs, start: id => started.push(id) }) },
@@ -98,7 +98,7 @@ test("the greeting keeps its room but is drawn only once the saved UI size and l
 });
 
 test("the greeting waits for the language and the narrow layout that the saved settings bring", async () => {
-    const { greetingWaits } = await loadModule(new URL("./EmptyState.jsx", import.meta.url), hooks(), {
+    const { greetingWaits } = await loadModule(new URL("./EmptyState.tsx", import.meta.url), hooks(), {
         "@store": { store: {} },
         "@logics_configs": { useSettingValue: () => null },
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
@@ -125,7 +125,7 @@ test("the greeting waits for the language and the narrow layout that the saved s
 test("a language or layout that does not follow holds the greeting back for a second at most", async context => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks();
-    const { EmptyState, GREETING_FOLLOW_MS } = await loadModule(new URL("./EmptyState.jsx", import.meta.url), runtime, {
+    const { EmptyState, GREETING_FOLLOW_MS } = await loadModule(new URL("./EmptyState.tsx", import.meta.url), runtime, {
         "@store": { store: {} },
         "@logics_configs": { useSettingValue: name => name === "UiScaling" ? { state: "ok", data: 120 }
             : name === "UiLanguage" ? { state: "ok", data: "ja" } : { data: undefined } },

@@ -17,7 +17,7 @@ async function render({ enabled, pending }) {
         getTelemetry: () => calls.push(["read"]),
     };
     const CheckboxContainer = () => null;
-    const module = await loadModule(new URL("./AdvancedSettings.jsx", import.meta.url), runtime, {
+    const module = await loadModule(new URL("./AdvancedSettings.tsx", import.meta.url), runtime, {
         "./DirectVoiceSettings": { DirectVoiceSettings: () => null },
         "../shared_items/SharedItems": { AutoExportMessageLogsContainer: () => null },
         "../_components/description/Description": { Description: () => null },

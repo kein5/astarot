@@ -814,6 +814,7 @@ impl Core {
             silence_duration_ms: silence_duration(&settings),
             diarizes,
             limits: limits.session,
+            diagnostics: Some(self.transcription().diagnostics.clone()),
         })
     }
 
@@ -1063,7 +1064,7 @@ impl Core {
                 let process = {
                     let (weak, current, admitted) = (weak.clone(), current.clone(), admitted.clone());
                     let voice_snapshot = std::sync::Mutex::new(voice_snapshot);
-                    Arc::new(move |update: &Update, valid: vrct_transcription::realtime::delivery::Current| -> Result<Option<Value>, ()> {
+                    Arc::new(move |update: &Update, valid: vrct_transcription::realtime::delivery::Current, output: vrct_transcription::realtime::delivery::Output| -> Result<Option<Value>, ()> {
                         let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.clone()) else { return Ok(None) };
                         if !(current() && valid() && admitted()) {
                             return Ok(None);
@@ -1074,7 +1075,7 @@ impl Core {
                         let arrived = speech_update(update);
                         let received_ns = arrived.received_ns;
                         let mic_voice = voice_snapshot.lock().unwrap().take().map(|snapshot| super::messages::MicVoice { snapshot, update: arrived });
-                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice, received_ns))
+                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice, received_ns, &*output))
                     })
                 };
                 Admission { publish, process, admitted }

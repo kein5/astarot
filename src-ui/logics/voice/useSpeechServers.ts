@@ -11,25 +11,47 @@ import type { AsrProfile } from "../main/setupNeeds.ts";
 export type SpeechProfile = "japanese" | "multilingual" | "asr";
 export type SpeechServerPhase = "stopped" | "preparing" | "ready" | "stopping" | "failed";
 
-// /get/data/speech_server_settings: one profile for each server, and what else the page edits.
+// One profile of /get/data/speech_server_settings (native/speech-server/src/settings.rs, to_json):
+// the core sends every field of every profile.
+export interface SpeechServerProfileSettings extends AsrProfile {
+    readonly model: string;
+    readonly vad_model: string;
+    readonly diarization_model: string;
+    readonly voice_file: string;
+    readonly device: string;
+    readonly low_latency: boolean;
+}
+
+// /get/data/speech_server_settings: one profile for each server.
 export interface SpeechServerSettings {
-    readonly profiles?: { readonly asr?: AsrProfile | null; readonly [profile: string]: unknown } | null;
+    readonly profiles: Readonly<Record<SpeechProfile, SpeechServerProfileSettings>>;
     readonly [key: string]: unknown;
 }
 
 // One server as /get/data/speech_server_state reports it; generation counts its starts and stops.
+// low_latency: the low-latency mode of the Japanese server, notice: why it runs other than asked
+// (native/core/src/controller/speech.rs). Declared, not checked.
 export interface SpeechServerRow {
     readonly generation: number;
     readonly state: SpeechServerPhase;
-    readonly error_code?: unknown;
+    readonly error_code?: string | null;
+    readonly low_latency?: { readonly state?: string; readonly error_code?: unknown } | null;
+    readonly notice?: string | null;
     readonly [key: string]: unknown;
 }
 
 export type SpeechServerStates = Partial<Record<SpeechProfile, SpeechServerRow>>;
 
+// One device `speech devices` lists: kind "gpu" is a separate GPU, name its device name (Vulkan0).
+export interface SpeechServerDevice {
+    readonly kind: string;
+    readonly name: string;
+    readonly label: string;
+}
+
 // /get/data/speech_server_devices: the GPUs, and what the CPU and GPU choices run on.
 export interface SpeechServerDevices {
-    readonly devices?: unknown;
+    readonly devices?: readonly SpeechServerDevice[];
     readonly cpu_build?: unknown;
     readonly gpu_build?: unknown;
     readonly [key: string]: unknown;
@@ -49,7 +71,7 @@ export interface SpeechServerRequestData {
 }
 
 const settingsAtom = atom<SpeechServerSettings | null>(null), stateAtom = atom<SpeechServerStates>({});
-const pendingAtom = atom<Partial<Record<string, { generation: number }>>>({}), errorAtom = atom<string | null>(null), devicesAtom = atom<readonly unknown[]>([]);
+const pendingAtom = atom<Partial<Record<string, { generation: number }>>>({}), errorAtom = atom<string | null>(null), devicesAtom = atom<readonly SpeechServerDevice[]>([]);
 const buildsAtom = atom<SpeechServerBuilds>({ cpu_build: null, gpu_build: null });
 const BUILD_STATES: Readonly<Record<keyof SpeechServerBuilds, readonly string[]>> = { cpu_build: ["separate", "shared", "missing"], gpu_build: ["ready", "unavailable", "missing"] };
 const phases: Readonly<Record<SpeechServerPhase, number>> = { stopped: 0, preparing: 1, ready: 2, stopping: 3, failed: 4 };
@@ -124,7 +146,8 @@ export const useSpeechServers = () => {
         atoms.set(devicesAtom, []);
         atoms.set(buildsAtom, { cpu_build: null, gpu_build: null });
     }, [atoms]);
-    const send = useCallback(async (endpoint: string, data?: SpeechServerRequestData): Promise<StdoutResult> => {
+    // data: what the page sends; a settings form sends its draft as it is.
+    const send = useCallback(async (endpoint: string, data?: SpeechServerRequestData | null): Promise<StdoutResult> => {
         if (!["/get/data/speech_server_state", "/get/data/speech_server_devices"].includes(endpoint)) setError(null);
         if (["/run/start_speech_server", "/run/stop_speech_server"].includes(endpoint)) {
             const known = profiles.find(name => name === data?.profile);

@@ -162,7 +162,7 @@
         border-width: 0.6rem;
     }
 
-    // aria-disabled: the radios of a choice that waits on the engine (RadioButton.jsx).
+    // aria-disabled: the radios of a choice that waits on the engine (RadioButton.tsx).
     &:disabled, &[aria-disabled="true"] {
         border-color: var(--dark_825_color);
     }

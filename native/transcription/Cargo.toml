@@ -17,7 +17,7 @@ serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 # The device rows and endpoints, and the WASAPI capture on Windows.
 vrct-audio-routing = { path = "../audio-routing", default-features = false }
-# The HTTP client of the cloud engines (TLS with the Mozilla roots, no proxy, no redirects).
+# The HTTP client of the cloud engines (TLS with the Mozilla roots, no redirects, the system proxy).
 vrct-translation = { path = "../translation" }
 
 [features]

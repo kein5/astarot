@@ -22,7 +22,7 @@ import { SETTINGS_MENU_TABS } from "./settingsMenu.ts";
 
 export type UsagePreset = { readonly id: string; readonly switches: readonly string[]; readonly tabs: readonly string[] };
 
-// The main page's switches, in their order (MainFunctionSwitch.jsx).
+// The main page's switches, in their order (MainFunctionSwitch.tsx).
 export const MAIN_SWITCHES: readonly string[] = Object.freeze(["translation", "transcription_send", "transcription_receive", "ocr", "tts", "rvc"]);
 
 export const USAGE_PRESETS: readonly UsagePreset[] = Object.freeze([

@@ -4,7 +4,7 @@ import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarne
 
 // llama.cpp's server for the translation LLMs (ADR-015): offered only where the backend offers
 // it, set up through the runtime setup after the user's consent, never fetched unasked.
-const load = async runtime => (await loadModule(new URL("./TranslationLlamaRuntimes.jsx", import.meta.url), runtime, {
+const load = async runtime => (await loadModule(new URL("./TranslationLlamaRuntimes.tsx", import.meta.url), runtime, {
     "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => vc },
     "../advanced_settings/VcRuntimeSetup": { VcRuntimeSetup: "runtime-setup" },
 })).TranslationLlamaRuntimes;

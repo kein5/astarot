@@ -5848,6 +5848,7 @@ dependencies = [
  "serde_json",
  "sudachi",
  "webpki-roots",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

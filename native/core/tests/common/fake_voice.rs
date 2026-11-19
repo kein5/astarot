@@ -51,6 +51,8 @@ struct Inner {
     no_managed_vc: AtomicBool,
     /// The monitor's device does not open.
     monitor_fails: AtomicBool,
+    /// A capture fails to start with this code.
+    capture_fails: Mutex<Option<String>>,
 }
 
 /// The fake; clone it to keep a handle after giving it to [`super::Setup`].
@@ -114,6 +116,11 @@ impl FakeVoice {
 
     pub fn passthrough_starts(&self) -> Vec<Option<String>> {
         self.0.passthrough.lock().unwrap().clone()
+    }
+
+    /// Captures fail to start with `code` (`None`: they start).
+    pub fn fail_capture(&self, code: Option<&str>) {
+        *self.0.capture_fails.lock().unwrap() = code.map(str::to_owned);
     }
 
     pub fn fail_monitor(&self, fail: bool) {
@@ -215,6 +222,8 @@ impl Gate for FakeGate {
 
 /// A microphone that gives 10 ms of a quiet tone every 10 ms until stopped.
 struct ToneCapture {
+    /// Its start fails with this code.
+    fails: Option<String>,
     callbacks: Option<CaptureCallbacks>,
     stop: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
@@ -222,6 +231,9 @@ struct ToneCapture {
 
 impl Capture for ToneCapture {
     fn start(&mut self) -> Result<()> {
+        if let Some(code) = &self.fails {
+            return Err(Error::runtime(code));
+        }
         let mut callbacks = self.callbacks.take().ok_or_else(|| Error::runtime("vc_capture_failed"))?;
         let stop = self.stop.clone();
         self.thread = Some(std::thread::spawn(move || {
@@ -255,7 +267,8 @@ impl RouteDevices for FakeVoice {
     }
     fn capture(&self, _: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture> {
         *self.0.captures.lock().unwrap() += 1;
-        Box::new(ToneCapture { callbacks: Some(callbacks), stop: Arc::new(AtomicBool::new(false)), thread: None })
+        let fails = self.0.capture_fails.lock().unwrap().clone();
+        Box::new(ToneCapture { fails, callbacks: Some(callbacks), stop: Arc::new(AtomicBool::new(false)), thread: None })
     }
 }
 

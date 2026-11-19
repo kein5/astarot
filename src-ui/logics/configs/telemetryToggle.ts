@@ -17,7 +17,8 @@ export const telemetryUnanswered = (notice: TelemetryNoticeValue): boolean => no
 // What the switch shows. ENABLE_TELEMETRY starts true, so before the notice is answered the
 // switch looked on although nothing was sent. Until the answer it shows off, as sending is.
 // While the answer given here is on its way, the switch waits as it does for its own requests.
-export const shownTelemetry = (telemetry: TelemetryValue, notice: TelemetryNoticeValue): TelemetryValue => {
+// A switch value given (the setting's atom) gives a switch value back.
+export const shownTelemetry = <T extends TelemetryValue>(telemetry: T, notice: TelemetryNoticeValue): T | NonNullable<TelemetryValue> => {
     const shown = telemetryUnanswered(notice) ? { ...telemetry, data: false } : telemetry;
     return notice?.state === "pending" ? { ...shown, state: "pending" } : shown;
 };
