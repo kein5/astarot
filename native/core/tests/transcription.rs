@@ -157,13 +157,19 @@ fn a_recognised_utterance_reaches_the_ui_the_chatbox_and_the_log_but_not_the_dia
     eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
     assert_eq!(run.ui.ok("/get/data/mic_word_filter", None), json!([]));
     // Decision 15 (`utterance_diagnostics`): a quick utterance writes no line of its own; its
-    // timings are counted and written, without the text, as one summary when recognition stops.
-    let log = run.process_log();
-    assert!(!log.contains("[latency][mic]") && !log.contains("[ASR-stats]"), "{log}");
-    let summary = log.lines().find(|line| line.contains("[utterance-summary][mic] reason=stop")).expect("the summary at the stop");
+    // timings are counted and written, without the text, when recognition stops. A message
+    // still being delivered then is counted once its outputs are done, and written when the
+    // transcriber ends: the parts may be in two summaries.
+    let summaries = || -> String {
+        run.process_log().lines().filter(|line| line.contains("[utterance-summary][mic] reason=stop")).collect::<Vec<_>>().join("\n")
+    };
+    eventually("the message is counted", || summaries().contains("message="));
+    let summary = summaries();
     for part in ["asr_success=", "audio_chunk=", "message=", "asr_ms(n=", "queue_ms(n=", "total_ms(n="] {
         assert!(summary.contains(part), "{part} in {summary}");
     }
+    let log = run.process_log();
+    assert!(!log.contains("[latency][mic]") && !log.contains("[ASR-stats]"), "{log}");
     assert!(!log.contains("こんにちは"), "recognised text reached process.log");
     run.ui.stop();
 }
