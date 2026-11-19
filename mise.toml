@@ -11,8 +11,8 @@ node = "26.13.1"
 # Installed through rustup. Cargo.toml's rust-version (1.92) is the oldest that builds;
 # this is the version development and CI use.
 rust = { version = "1.100.0", profile = "minimal", components = "clippy,rustfmt" }
-# The one place the Python version is set: the build tools, the tests and the Python backend kept
-# as the specification until it is removed (the packages carry no Python since 0.5.0).
+# The one place the Python version is set: the build tools and the tests (the packages carry no
+# Python since 0.5.0, and the Python backend went in 0.6.0).
 # pyproject.toml's requires-python names the same minor version (tests/devtools/test_toolchain_pins.py),
 # and uv takes this interpreter from PATH instead of choosing a version of its own.
 python = "3.14.10"
@@ -22,9 +22,10 @@ cocogitto = "7.0.0"
 # No uv settings in [env]: mise exports [env] to every program it starts. Tasks that create
 # environments set them for themselves instead.
 [env]
-# The onnxruntime wheel in uv.lock (1.32) otherwise writes a device id under ~/.cache/Microsoft
-# and sends usage events from every tool and test that creates a session (#574). Exported to
-# everything mise starts on purpose; the app's own ONNX Runtime sets this itself.
+# ONNX Runtime otherwise writes a device id under ~/.cache/Microsoft and sends usage events from
+# every tool and test that creates a session (#574): the Rust tests that load it, and the Python
+# environments of the translation export and the RVC reference. Exported to everything mise starts
+# on purpose; the app's own ONNX Runtime sets this itself.
 ORT_DISABLE_TELEMETRY = "1"
 
 # Every task forwards extra arguments to its command, e.g. `mise run check -- --dry-run`.
@@ -49,10 +50,6 @@ run = "python tools/dev.py check --scope voice"
 description = "UI tests (Vitest), the type check and the Vite build"
 run = "python tools/dev.py check --scope ui"
 
-[tasks."check:backend"]
-description = "Backend tests (pass --python for a venv with the app dependencies)"
-run = "python tools/dev.py check --scope backend"
-
 [tasks."check:rust"]
 description = "cargo check and cargo test of the Tauri app and the native crates"
 run = "python tools/dev.py check --scope rust"
@@ -75,11 +72,6 @@ description = "Python packages for the browser tests (build/dev/browser-venv)"
 run = "python tools/dev.py setup --scope browser"
 env = { UV_PYTHON_PREFERENCE = "only-system" }
 
-[tasks."setup:backend"]
-description = "Python packages for the backend tests on Linux (build/dev/backend-venv)"
-run = "python tools/dev.py setup --scope backend"
-env = { UV_PYTHON_PREFERENCE = "only-system" }
-
 [tasks."setup:rust"]
 description = "cargo fetch --locked for the Tauri app and the native crates"
 run = "python tools/dev.py setup --scope rust"
@@ -87,12 +79,6 @@ run = "python tools/dev.py setup --scope rust"
 [tasks."setup:resources"]
 description = "src-tauri/bin/_internal for tauri dev and cargo check (stages what build/ has)"
 run = "python tools/dev.py setup --scope resources"
-
-[tasks."setup:app"]
-description = "App Python environments from uv.lock: .venv and .venv_cuda on Windows, .venv_linux on Linux"
-run = "uv sync --frozen"
-run_windows = "bat\\install.bat"
-env = { UV_PROJECT_ENVIRONMENT = ".venv_linux", UV_PYTHON_PREFERENCE = "only-system", UV_PYTHON_DOWNLOADS = "never" }
 
 [tasks.spec]
 description = "Regenerate the spec reference (docs/spec/reference/) from the code"
