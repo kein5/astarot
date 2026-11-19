@@ -216,6 +216,13 @@ fn the_main_switch_streams_the_microphone_and_its_final_goes_out() {
     let outcome = run.caption(mark, "outcome");
     assert_eq!((outcome["outcome"].clone(), outcome["reason"].clone(), outcome["revision"].clone()), (json!("delivered"), Value::Null, json!(4)));
     assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは"));
+    // Decision 24 (`_beginIoTrace`): the flow panel times the final from when it arrived, with
+    // its wait before the message pipeline took it.
+    let trace = run.ui.wait_from(mark, "the flow panel's trace", |l| l["endpoint"] == "/run/io_trace" && l["result"]["input"] == "voice")["result"].clone();
+    assert_eq!(trace["origin"], "final", "{trace}");
+    let wait = trace["stages"]["wait"].as_f64().expect("a wait stage");
+    assert!((0.0..5000.0).contains(&wait), "{wait}");
+    assert!(trace["stages"].get("recognition").is_none(), "{trace}");
     // The session asked for its model and sent the vocabulary as keywords; audio was 24 kHz.
     assert!(run.asr.requested("GET /v1/realtime?model=haas-ja") >= 1);
     // The switch listed the models once; the session took that list (decision 81).

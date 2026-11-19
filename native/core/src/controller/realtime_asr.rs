@@ -1003,11 +1003,10 @@ impl Core {
                         let (current, admitted) = (current.clone(), admitted.clone());
                         let guard: super::messages::Guard = Arc::new(move || current() && valid() && admitted());
                         let id = format!("{}:{}", update.namespace, update.item_id);
-                        let mic_voice = voice_snapshot.lock().unwrap().take().map(|snapshot| super::messages::MicVoice {
-                            snapshot,
-                            update: speech_update(update),
-                        });
-                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice))
+                        let arrived = speech_update(update);
+                        let received_ns = arrived.received_ns;
+                        let mic_voice = voice_snapshot.lock().unwrap().take().map(|snapshot| super::messages::MicVoice { snapshot, update: arrived });
+                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice, received_ns))
                     })
                 };
                 Admission { publish, process, admitted }
