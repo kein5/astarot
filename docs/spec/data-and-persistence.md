@@ -323,9 +323,10 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | 会話ログ `YYYY-MM-DD_HH-MM-SS.log` | `PATH_LOGS` | 「会話ログを自動的に保存する」がオンのときだけ。行頭は`[SENT]`、`[RECEIVED]`、`[OCR]`、`[CHAT]`。画面は新しい1,000件しか残さないが、ファイルには古いものも残る |
 | `downloaded_models/<id>/<版>/`と`receipt.json` | `config.json`と同じフォルダ | 取得したモデル。取得中は`.partial-<16進>/`。壊れたモデルを取り直すときも、いったんその名前に戻してから消す（[失敗したときに保つもの](failure-recovery.md#モデルの取得と適用)） |
 | `user_models.json` | `config.json`と同じフォルダ | 利用者が名前を付けて登録したモデル（#403）。`{"version": 1, "models": [{id, target, name, files: {役割: {path, size, mtime_ns}}, registered_at}]}`。ファイルの場所と、登録したときの容量と更新時刻だけを持ち、モデルのファイルはコピーしない。一時ファイルに書いて`fsync`してから置き換える。読めない、または版が違うときは書き換えずに残す。PythonとRustのコアは同じ形式を読み書きする |
-| `translation_catalog.json` | `config.json`と同じフォルダ | 翻訳のカタログに利用者が足した項目（#413、中核のみ）。`{"version": 1, "entries": [...]}`。推論エンジン系は`{id, group: "engine", name, runtime, folder, languages, registered_at}`、API系は`{id, group: "api", name, protocol, url, model, key, registered_at}`。`key`は[APIキーの保存先](#apiキーの保存先)がキーを持てたかどうかだけで、キーそのものはこのファイルに書かない（保管場所に置けずにメモリーに持っているあいだは`false`）。フォルダーのモデルはコピーしない。書き方と、読めないときに残すことは`user_models.json`と同じ。この版が知らない`runtime`や`protocol`の項目は残し、使えないものとして見せる |
+| `translation_catalog.json` | `config.json`と同じフォルダ | 翻訳のカタログに利用者が足した項目（#413、中核のみ）。`{"version": 1, "entries": [...]}`。推論エンジン系は`{id, group: "engine", name, runtime, folder, languages, registered_at}`で、`runtime`が`llamacpp`（TranslateGemmaのような翻訳のLLM、ADR-015）の項目は`folder`の代わりに`file`にGGUFのファイルのパスを入れ、`device`（`auto`、`cpu`、`Vulkan1`など）を足す。`file`を持つ項目が1つでもあると、ファイルの`version`は`2`になる。`version`が`1`しか読めない以前の版は、そのファイル全体を読めないものとして扱い、上書きしない（足した項目を一覧に出さず、その重みを選んでいた設定は既定のモデルに戻る）。新しい版で`llamacpp`の項目をすべて削除すると、ファイルは`version: 1`に戻り、以前の版でもまた読める。API系は`{id, group: "api", name, protocol, url, model, key, registered_at}`。`key`は[APIキーの保存先](#apiキーの保存先)がキーを持てたかどうかだけで、キーそのものはこのファイルに書かない（保管場所に置けずにメモリーに持っているあいだは`false`）。フォルダーのモデルはコピーしない。書き方と、読めないときに残すことは`user_models.json`と同じ。この版が知らない`runtime`や`protocol`の項目は残し、使えないものとして見せる |
 | `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCの実行環境（WindowsとLinux。0.4まではSeed-VCも）。`.steps.json`に終わった手順を残す。0.4までのPythonバックエンドは、`setup.log`に`uv`とワーカーの確認の出力も残し、Seed-VCでは`.uv-<版>/`に取得用の`uv`を置いた（0.5.0の中核は`setup.log`を書かない）。RVCは`lib/`（ONNX Runtime。GPU用はCUDA 13とcuDNNのライブラリも）と`assets/`だけで、取得中は`lib.part/`と`downloads/`を使う。RVCの取得が終わると、同じフォルダーにある以前のPyTorch形式の`venv/`、`python/`、`engine/`（中のモデルと音声のファイルは残す）、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`を削除する |
 | `vc_runtimes/onnxruntime-cuda/`、`vc_runtimes/onnxruntime-directml/`と`receipt.json` | `config.json`と同じフォルダ | ローカル翻訳をGPUで動かすためのONNX Runtime（0.5.2の後から。利用者が同意して取得したときだけ）。`onnxruntime-cuda/`はCUDA 13版とNVIDIAのライブラリ、`onnxruntime-directml/`はDirectML版と`DirectML.dll`（Windowsだけ）。どちらも`lib/`だけで、取得と確認はRVCの実行環境と同じ。アプリは起動時に、翻訳の処理デバイスに合う版を同梱のCPU版の代わりに読み込む |
+| `vc_runtimes/llamacpp-vulkan/`と`receipt.json` | `config.json`と同じフォルダ | 翻訳のLLMを動かすllama.cppの`llama-server`（ADR-015。利用者が同意して取得したときだけ）。llama.cppのGitHubのリリース（b12125）のVulkan版のアーカイブから、サーバーが読むファイルだけを`lib/`に取り出す。CPUだけで動かすときも同じ版を使う。取得と確認はRVCの実行環境と同じで、確認では`llama-server --list-devices`を一度動かす。モデルは含まない。サーバーは、そのモデルを選んだ翻訳を始めたときだけ起動する |
 | weights/whisper/… | PATH_DATA | 以前の版が取得した Whisper の重み。いまの版は読まず、取得もしない。利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](#古い-whisper-の重み)） |
 | weights/ctranslate2/… | PATH_DATA | 0.4までのPythonバックエンドが取得したCTranslate2の翻訳モデルと検証記録。0.5.0の中核は読まず、起動の後でPythonが作った名前のフォルダだけを消す（リンクやジャンクションはたどらない。`native/core/src/controller/legacy_weights.rs`、[中核の統合](../voice-stack/core-integration.md)の「旧 CTranslate2 の重み」） |
 | `translation-models/<フォルダー>/` | PATH_DATA | 以前の中核が読んだ、利用者が置いた翻訳のモデル（重みの名前は`custom:<フォルダー>`）。#597からは一覧に出さず、読み込まない。フォルダーとファイルは消さず動かさない。中核はこのフォルダーにフォルダーがあるかどうかだけを`/get/data/translation_catalog`の`retired_folder_used`で伝え、翻訳のページはそのあいだ翻訳のカタログの「自分のモデルを追加」への案内を出す。名前やパスは伝えない |
@@ -358,7 +359,8 @@ ASR/翻訳5,000ms、従来のtotal 10,000ms。
 これらは処理を打ち切る制限ではない。キュー落ちは最初の1件を即時記録し、連続した回数は集約し、
 次の正常投入で復旧を記録する。停止まで正常投入がなければ`recovery=unconfirmed`とする。
 音声や認識文は診断に含めず、文字起こしのIPC応答の既存の伏字処理も維持する。
-新しい設定や環境変数はない。実装は`models/transcription/utterance_diagnostics.py`。
+新しい設定や環境変数はない。実装は`native/transcription/src/diagnostics.rs`（2026-11-19に`models/transcription/utterance_diagnostics.py`から移した）。
+中核では、Pythonと違って、エンジンの詳細行に言語ごとの呼び出しの一覧を出さない。`vad_wait_ms`は、speech.cppのサーバーが話し終わりを知らせた時点で話し終わりのあとに聞いていた音声の長さ。
 
 ## 環境変数
 
@@ -373,6 +375,7 @@ ASR/翻訳5,000ms、従来のtotal 10,000ms。
 | `DISPLAY` | X11でのOCRのキャプチャ |
 | `VRCT_VR_PANEL_DIR` | Tauriが起動時に決める、このプロセス専用の場所（`$XDG_RUNTIME_DIR/vrct-vox/vr-panel-<pid>`、Linux）。バックエンドはここでVR画面の画素（`frame`）と、共有されたウィンドウの画素（`screen-frame`）を読む。利用者が設定するものではない |
 | `APPIMAGE`と`WEBKIT_DISABLE_DMABUF_RENDERER=1` | NVIDIA環境のAppImageでメインウィンドウを不透明にする |
+| `HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY`（小文字の名前が先） | 音声認識のクラウドのエンジンへの通信が通るHTTPのプロキシと、通さない宛先。`*_proxy`がどれもないときは、Windowsのインターネットの設定を読む。ローカルとLANの宛先は通さない。翻訳は使わない（`native/translation/src/proxy.rs`） |
 
 `HF_HUB_OFFLINE`などのオフライン用の変数は、アプリは読まない。`tools/dev.py`が開発用の子プロセスに設定する。
 

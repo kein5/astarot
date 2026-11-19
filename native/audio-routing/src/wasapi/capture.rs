@@ -200,9 +200,13 @@ impl DeviceCapture {
     /// Opens `target` (a speaker's loopback when `loopback`) and starts delivering. Waits up
     /// to `open_timeout` for the device: Windows can hold the open until the user answers its
     /// microphone question. `on_audio` returns false to stop; `on_error` gets a fixed code.
+    /// `fill_silence`: a loopback that delivers nothing while the speaker plays nothing is
+    /// filled with silence (realtime recognition needs a steady stream; Python did this on that
+    /// path only, decision 15 (3)).
     pub fn start(
         target: DeviceTarget,
         loopback: bool,
+        fill_silence: bool,
         open_timeout: Duration,
         mut on_audio: Box<dyn FnMut(&[u8], DeviceFormat) -> bool + Send>,
         mut on_error: Box<dyn FnMut(&str) + Send>,
@@ -233,7 +237,7 @@ impl DeviceCapture {
                     Ok(Some(true)) => last = std::time::Instant::now(),
                     Ok(Some(false)) => {
                         let gap = last.elapsed();
-                        if loopback && gap >= SILENCE_AFTER {
+                        if loopback && fill_silence && gap >= SILENCE_AFTER {
                             let silence = vec![0u8; silence_bytes(gap, format)];
                             last = std::time::Instant::now();
                             if !on_audio(&silence, format) {

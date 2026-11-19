@@ -4,7 +4,7 @@ import { hooks, loadModule, eventTarget } from "../../../../../logics/test/hookH
 
 async function settings() {
     const runtime = hooks(), closed = [];
-    const { LanguageSettings } = await loadModule(new URL("./LanguageSettings.jsx", import.meta.url), runtime, {
+    const { LanguageSettings } = await loadModule(new URL("./LanguageSettings.tsx", import.meta.url), runtime, {
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => closed.push(value) }) },
         "@logics_main": { useMainFunction: () => ({}) },
         "./preset_tab_selector/PresetTabSelector": { PresetTabSelector: "presets" },

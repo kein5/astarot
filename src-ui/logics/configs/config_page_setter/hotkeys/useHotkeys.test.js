@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
 import { hooks, loadModule } from "../../../test/hookHarness.js";
 
@@ -65,7 +66,7 @@ async function setup() {
     const { state, hot } = await import(dependencies);
     let instance = 0;
     const load = async () => {
-        let source = await readFile(new URL("./useHotkeys.js", import.meta.url), "utf8");
+        let source = stripTypeScriptTypes(await readFile(new URL("./useHotkeys.ts", import.meta.url), "utf8"));
         source = source.replace(/from "[^"]+"/g, `from ${JSON.stringify(dependencies)}`);
         source = `import { hot } from ${JSON.stringify(dependencies)};\n` + source.replaceAll("import.meta.hot", "hot");
         const module = await import(moduleUrl(source) + `#${instance++}`);

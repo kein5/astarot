@@ -9,7 +9,7 @@ import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarne
 async function setup({ seed = "invalid", instructions = "\u0001", modelOptions = {} } = {}) {
     const runtime = hooks();
     const draft = { japanese_seed: seed, japanese_instructions: instructions, japanese_server: "external", japanese_url: "" };
-    const { GenerationOptions, validGenerationOptions } = await loadModule(new URL("./GenerationOptions.jsx", import.meta.url), runtime, {
+    const { GenerationOptions, validGenerationOptions } = await loadModule(new URL("./GenerationOptions.tsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: draft, modelOptions, send: () => {} }) },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: {} }) },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
@@ -62,7 +62,7 @@ test("TTS model-specific seed range error is associated without changing the sav
 
 // hints: whether the page keeps descriptions out of sight (#614).
 const loadVoiceSettings = (s, runtime, hints = false) =>
-    loadModule(new URL("../advanced_settings/VoiceSettings.jsx", import.meta.url), runtime, {
+    loadModule(new URL("../advanced_settings/VoiceSettings.tsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: s.draft, status: {}, devices: {}, send: () => {} }) },
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: s.draft }) },
         "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions },
@@ -114,7 +114,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
     const runtime = hooks();
     const draft = { mode: "converted", engine: "rvc", rvc_pitch: pitch, rvc_index_rate: rate,
         rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_device: "auto", rvc_threads: threads, rvc_highpass: true };
-    const { DirectVoiceSettings } = await loadModule(new URL("../advanced_settings/DirectVoiceSettings.jsx", import.meta.url), runtime, {
+    const { DirectVoiceSettings } = await loadModule(new URL("../advanced_settings/DirectVoiceSettings.tsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft }) },
         "../../../../../../logics/voice/routeState": routeState,
         "../../../../../../logics/voice/directVoiceDraft": directVoiceDraft,

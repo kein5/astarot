@@ -34,7 +34,7 @@ async function setup(context, base, provider, section, hints = false) {
         [`current${base}URL`]: { state: "ok", data: "https://provider-a.example/v1" },
         [`current${base}AuthKey`]: { state: "ok", data: "FAKE-KEY-A" },
     };
-    const component = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.jsx", import.meta.url), runtime, {
+    const component = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx", import.meta.url), runtime, {
         "../../../../../../../logics/voice/useSettingsDraft": draft,
         "../../../../../../../logics/common/endpointPrivacy": { endpointDescription, endpointNotices },
         "../../_templates/Templates": { EntryWithSaveButtonContainer: "url", AuthKeyContainer: "key" },

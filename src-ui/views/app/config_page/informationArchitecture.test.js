@@ -20,20 +20,20 @@ const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config
 });
 
 test("Q-06: the OSC address and port are under Advanced; the VRChat page leads there", async () => {
-    const advanced = read("advanced_settings/AdvancedSettings.jsx");
+    const advanced = read("advanced_settings/AdvancedSettings.tsx");
     const page = advanced.split("export const AdvancedSettings = () => {")[1].split("\n};")[0];
     assert.match(page, /section_label_osc[\s\S]*<OscIpAddressContainer \/>\s*<OscPortContainer \/>/);
 
-    const vrchat = read("vrchat/Vrchat.jsx");
+    const vrchat = read("vrchat/Vrchat.tsx");
     assert.doesNotMatch(vrchat, /OscIpAddressContainer|OscPortContainer/);
     assert.match(vrchat, /<VrchatPresence \/>/, "the page still says whether VRChat is found, with the step that turns OSC on");
 
     const runtime = hooks(), opened = [], revealed = [];
-    const pointer = await loadModule(box("_components/page_pointer/PagePointer.jsx"), runtime, {
+    const pointer = await loadModule(box("_components/page_pointer/PagePointer.tsx"), runtime, {
         "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
         "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting: target => revealed.push(target) },
-        "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
+        "../../../../sidebar_section/SidebarSection.tsx": { TabIcon: () => null },
     });
     const press = row => {
         const link = find(row, node => node.type === pointer.PageLinkButton);
@@ -58,13 +58,13 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
 });
 
 test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer under Advanced", async () => {
-    const advanced = read("advanced_settings/AdvancedSettings.jsx");
+    const advanced = read("advanced_settings/AdvancedSettings.tsx");
     assert.doesNotMatch(advanced, /DirectVoiceSettings/);
 
     const runtime = hooks();
     const DirectVoiceSettings = () => null, AdvancedSection = () => null;
     let voice = { directState: { active: true, mode: "passthrough" }, directOwner: "passthrough" };
-    const rvc = await loadModule(box("rvc/Rvc.jsx"), runtime, {
+    const rvc = await loadModule(box("rvc/Rvc.tsx"), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection },
@@ -87,14 +87,14 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     // The settings search still finds it, on the RVC page.
     const source = readFileSync(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), "utf8");
     assert.match(source, /tab: "rvc", setting_id: "direct_voice_settings", label: t\("voice\.input_title"\)/);
-    assert.match(read("advanced_settings/DirectVoiceSettings.jsx"), /data-setting-id=\{variant === "rvc" \? "rvc_settings" : "direct_voice_settings"\}/);
+    assert.match(read("advanced_settings/DirectVoiceSettings.tsx"), /data-setting-id=\{variant === "rvc" \? "rvc_settings" : "direct_voice_settings"\}/);
 });
 
 // #614: the TTS page keeps its descriptions out of sight, as hints, its servers' part included.
 test("the TTS page wraps its form and its servers in the hints", async () => {
     const runtime = hooks();
     const VoiceSettings = () => null, SpeechServers = () => null;
-    const tts = await loadModule(box("tts/Tts.jsx"), runtime, {
+    const tts = await loadModule(box("tts/Tts.tsx"), runtime, {
         "../advanced_settings/VoiceSettings": { VoiceSettings }, "../advanced_settings/SpeechServers": { SpeechServers },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
@@ -120,7 +120,7 @@ test("a fold marks its line while a row inside it has unsaved edits", async () =
     const open = element({}, [changed]), closed = element({}, [untouched]);
     const root = { querySelectorAll: selector => ({ "[data-setting-label]": [changed, untouched], label: [], details: [open, closed] })[selector] };
     const runtime = hooks();
-    const section = await loadModule(new URL("./setting_section/SettingSection.jsx", import.meta.url), runtime, {
+    const section = await loadModule(new URL("./setting_section/SettingSection.tsx", import.meta.url), runtime, {
         "./setting_box/SettingBox": {}, "@store": {}, "@logics_configs": {}, "../../../../logics/voice/saveBar": {},
     });
     section.markUnsavedRows(root, new Set(["Pitch"]));
@@ -187,27 +187,27 @@ const pageParts = (source, name) => {
 };
 
 test("IA-03: the VRChat page keeps the chatbox in sight; what is set once, and the rows to the pages that hold VRChat's other settings, are in 「詳細設定」", () => {
-    const { outside, fold } = pageParts(read("vrchat/Vrchat.jsx"), "Vrchat");
+    const { outside, fold } = pageParts(read("vrchat/Vrchat.tsx"), "Vrchat");
     assert.deepEqual(outside, ["VrchatPresence", "SendMessageToVrcContainer", "SendOnlyTranslatedMessagesContainer", "ChatReadingPointer"]);
     assert.deepEqual(fold, ["EnableNotificationVrcSfxContainer", "SendReceivedMessageToVrcContainer", "VrcMicMuteSyncContainer",
         "SendMessageFormatPartsContainer", "ReceivedMessageFormatPartsContainer", "PagePointer", "VoiceRouteSummary", "PagePointer"]);
     // The voice route and the speech output have one place each; this page only leads there.
-    const source = read("vrchat/Vrchat.jsx");
+    const source = read("vrchat/Vrchat.tsx");
     assert.doesNotMatch(source, /<VoiceRouteSettings|<TtsOutputDeviceSettings/);
     assert.match(source, /tab="tts"/);
 });
 
 test("the design and hotkeys pages keep a first start's settings in sight and fold the rest", () => {
-    const appearance = pageParts(read("appearance/Appearance.jsx"), "Appearance");
+    const appearance = pageParts(read("appearance/Appearance.tsx"), "Appearance");
     assert.deepEqual(appearance.outside, ["UiLanguageContainer", "UiScalingContainer"]);
     assert.deepEqual(appearance.fold, ["MessageLogUiScalingContainer", "FontFamilyContainer", "TransparencyContainer",
         "SendMessageButtonTypeContainer", "ShowResendButtonContainer", "AutoClearMessageInputBoxContainer",
         "ConvertMessageToHiraganaContainer", "ConvertMessageToRomajiContainer"]);
-    const hotkeys = pageParts(read("hotkeys/Hotkeys.jsx"), "Hotkeys");
+    const hotkeys = pageParts(read("hotkeys/Hotkeys.tsx"), "Hotkeys");
     // That hotkeys are paused while settings are open is said by a readout, before the rows (#614).
     assert.deepEqual(hotkeys.outside, ["EnvReadout", "StopHotkeysContainer"]);
     assert.deepEqual(hotkeys.fold, ["QuickChatHotkeyContainer", "ToggleHotkeysContainer"]);
-    const source = read("hotkeys/Hotkeys.jsx");
+    const source = read("hotkeys/Hotkeys.tsx");
     // Every hotkey still has its row: stop and mute in sight, the others in the fold.
     for (const id of ["stop_voice", "toggle_voice_mute", "open_quick_chat", "toggle_vrct_visibility", "toggle_translation",
         "toggle_transcription_send", "toggle_transcription_receive", "toggle_tts", "toggle_rvc"]) assert.match(source, new RegExp(`"${id}"`), id);
@@ -222,7 +222,7 @@ test("each fold's line has its words in both languages", () => {
 });
 
 test("the Device page chooses the microphone and the speaker first; their sensitivity, the voice route and mute sync are in 「詳細設定」", () => {
-    const source = read("device/Device.jsx");
+    const source = read("device/Device.tsx");
     const page = source.split("export const Device = () => {")[1].split("\n};")[0];
     const [outside, fold] = page.split("<AdvancedSection");
     assert.deepEqual([...outside.matchAll(/<(\w+Container) part="(\w+)"/g)].map(match => match.slice(1)), [["MicContainer", "device"], ["SpeakerContainer", "device"]]);
@@ -231,11 +231,11 @@ test("the Device page chooses the microphone and the speaker first; their sensit
     assert.match(fold, /tab="vrchat" target="vrc_mic_mute_sync"/);
     assert.doesNotMatch(source, /<VrcMicMuteSyncContainer/, "mute sync has one place, the VRChat page");
     // A row elsewhere that changes the route opens this page on it.
-    assert.match(read("device/VoiceRouteSettings.jsx"), /<PageLinkButton tab="device" action=\{t\("voice_ui\.edit_route"\)\} target="voice_route" \/>/);
+    assert.match(read("device/VoiceRouteSettings.tsx"), /<PageLinkButton tab="device" action=\{t\("voice_ui\.edit_route"\)\} target="voice_route" \/>/);
 });
 
 test("chat reading keeps what it needs to start in sight; where and how often it reads are in 「詳細設定」", () => {
-    const source = read("ocr/Ocr.jsx");
+    const source = read("ocr/Ocr.tsx");
     const { outside, fold } = pageParts(source, "Ocr");
     assert.deepEqual(outside, ["Main_Container"]);
     assert.deepEqual(fold, ["Detection_Container", "CaptureTarget_Container", "Performance_Container"]);
@@ -245,7 +245,7 @@ test("chat reading keeps what it needs to start in sight; where and how often it
 });
 
 test("text to speech keeps the engine, the voice and the output in sight; the monitor, generation and microphone speech are in 「詳細設定」", () => {
-    const source = read("advanced_settings/VoiceSettings.jsx");
+    const source = read("advanced_settings/VoiceSettings.tsx");
     const page = source.split("export const VoiceSettings = () => {")[1].split("\n};")[0];
     const [before, rest] = page.split("<AdvancedSection");
     const fold = rest.split("</AdvancedSection>")[0];
@@ -261,7 +261,7 @@ test("text to speech keeps the engine, the voice and the output in sight; the mo
 
 test("「詳細設定」 starts closed, opens by itself for something in use, and can still be closed", async () => {
     const runtime = hooks();
-    const fold = await loadModule(box("_components/advanced_section/AdvancedSection.jsx"), runtime, {
+    const fold = await loadModule(box("_components/advanced_section/AdvancedSection.tsx"), runtime, {
         "../setup_section/SetupSection.module.scss": {},
     });
     let tree = runtime.render(fold.AdvancedSection, { status: "line", children: "inside" });
@@ -279,7 +279,7 @@ test("「詳細設定」 starts closed, opens by itself for something in use, an
 });
 
 test("translation keeps its local model and its catalog in sight; the APIs and local LLMs it counts on the fold's line are the ones drawn in it", () => {
-    const source = read("translation/Translation.jsx");
+    const source = read("translation/Translation.tsx");
     const { outside, fold } = pageParts(source, "Translation");
     // The translation catalog (#413) is a section of its own after the fold (#597), not inside it.
     assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalogSection"]);
@@ -292,7 +292,7 @@ test("translation keeps its local model and its catalog in sight; the APIs and l
 });
 
 test("speech recognition shows its engine and the engine's two systems in sight; what is set once is in 「詳細設定」", () => {
-    const source = read("transcription/Transcription.jsx");
+    const source = read("transcription/Transcription.tsx");
     const { outside, fold } = pageParts(source, "Transcription");
     // #414: speech.cpp on your PC (its models and server), then the APIs (one fold per provider
     // with its key), as the translation catalog splits translation (#413). The APIs left
@@ -315,7 +315,7 @@ test("speech recognition shows its engine and the engine's two systems in sight;
 });
 
 test("captions and VR turns the captions on in sight; where they sit, how they look and what they show are in 「詳細設定」", () => {
-    const source = read("vr/Vr.jsx");
+    const source = read("vr/Vr.tsx");
     const page = source.split("export const Vr = () => {")[1].split("\n};")[0];
     const [before, rest] = page.split("<AdvancedSection");
     const [fold, after] = rest.split("</AdvancedSection>");
@@ -326,7 +326,7 @@ test("captions and VR turns the captions on in sight; where they sit, how they l
     assert.match(after, /<PagePointer [^>]*tab="experimental_features"/);
     // The overlay editor no longer carries its own switch: it is the one in sight.
     assert.doesNotMatch(source.split("const OverlaySettingsContainer = (")[1].split("\n};")[0], /CheckboxContainer/);
-    const desktop = readFileSync(box("vr/DesktopCaptionOverlay.jsx"), "utf8");
+    const desktop = readFileSync(box("vr/DesktopCaptionOverlay.tsx"), "utf8");
     const enable = desktop.split('if (part === "enable") return (')[1].split("\n    );")[0];
     assert.match(enable, /setting_id="desktop_overlay"/);
     assert.doesNotMatch(enable, /desktop_overlay_position|desktop_overlay_font_size/);

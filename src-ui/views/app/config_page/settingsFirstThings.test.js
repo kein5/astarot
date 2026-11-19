@@ -20,7 +20,7 @@ test("chat reading has a page of its own, and search lists it there", async () =
     let tab = "ocr";
     const pages = Object.fromEntries(["Device", "Tts", "Rvc", "Appearance", "Translation", "Transcription", "Vrchat", "Ocr",
         "AdvancedSettings", "Vr", "Hotkeys", "AboutVrct", "Updater"].map(name => [name, name]));
-    const { SettingBox } = await loadModule(new URL("./setting_section/setting_box/SettingBox.jsx", import.meta.url), runtime, {
+    const { SettingBox } = await loadModule(new URL("./setting_section/setting_box/SettingBox.tsx", import.meta.url), runtime, {
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: tab } }) }, "@setting_box": pages,
     });
     assert.equal(runtime.render(SettingBox).type, "Ocr");
@@ -43,11 +43,11 @@ test("the side menu groups its pages in the order a conversation uses them, each
     const svg = name => (name.endsWith(".svg?react") ? icon(name) : name);
     const images = ["mic", "tts_speaker", "voice_conversion", "mui_palette", "translation", "mui_graphic_eq", "mui_head_mounted_device",
         "mui_keyboard_alt", "mui_code_blocks", "refresh", "chat_transcribe", "mui_document_scanner"];
-    const sidebar = await loadModule(new URL("./sidebar_section/SidebarSection.jsx", import.meta.url), runtime, {
+    const sidebar = await loadModule(new URL("./sidebar_section/SidebarSection.tsx", import.meta.url), runtime, {
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "device" }, updateSelectedConfigTabId() {} }),
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
-        "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
+        "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.tsx": { VersionLabel: "version" },
         "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
         "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
@@ -85,12 +85,12 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
     const svg = name => icon(name);
     const images = ["mic", "tts_speaker", "voice_conversion", "mui_palette", "translation", "mui_graphic_eq", "mui_head_mounted_device",
         "mui_keyboard_alt", "mui_code_blocks", "refresh", "chat_transcribe", "mui_document_scanner"];
-    const sidebar = await loadModule(new URL("./sidebar_section/SidebarSection.jsx", import.meta.url), runtime, {
+    const sidebar = await loadModule(new URL("./sidebar_section/SidebarSection.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => names[key] ?? key }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "device" }, updateSelectedConfigTabId() {} }),
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
-        "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
+        "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.tsx": { VersionLabel: "version" },
         "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
         "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
@@ -108,7 +108,7 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
 });
 
 test("speech recognition opens on the engine choice and its two systems; the rest is in 「詳細設定」, the timing numbers folded under a line that shows them", async () => {
-    const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), "utf8");
     const page = source.split("export const Transcription = () => {")[1].split("\n};")[0];
     const order = [...page.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1]);
     // The engine, then its two systems as the translation catalog splits them (#414): speech.cpp
@@ -130,7 +130,7 @@ test("speech recognition opens on the engine choice and its two systems; the res
     const SetupSection = () => null;
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const t = (key, options) => options ? `${key}:${Object.values(options).join(",")}` : key;
-    const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
+    const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t }) },
         "@logics_configs": { useTranscription: () => ({ currentMicRecordTimeout: { data: 3 }, currentMicPhraseTimeout: { data: 5 }, currentMicMaxWords: { data: 10 },
             currentSpeakerPhraseTimeout: { data: 4 }, currentSelectableTranscriptionEngines: { data: [] } }) },
@@ -153,7 +153,7 @@ test("speech recognition opens on the engine choice and its two systems; the res
 test("each API speech recognition provider is one fold; the selected one stays open, and the user's own server is marked as theirs", async () => {
     const runtime = hooks();
     const SetupSection = () => null;
-    const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), "utf8");
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" }, { id: "Deepgram", base: "Deepgram", key: "deepgram" },
         { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true, own: true }];
@@ -161,7 +161,7 @@ test("each API speech recognition provider is one fold; the selected one stays o
         currentCustomWhisperURL: { data: "" }, currentMicPhraseTimeout: { data: 5 }, currentSpeakerPhraseTimeout: { data: 4 },
         getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
         ...Object.fromEntries(engines.map(engine => [`current${engine.base}AuthKey`, { data: null }])) };
-    const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
+    const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@logics_configs": { useTranscription: () => state },
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
@@ -189,18 +189,18 @@ test("each API speech recognition provider is one fold; the selected one stays o
 
 test("the VRChat page no longer carries chat reading; it ends with the way to that page", async () => {
     const runtime = hooks(), opened = [];
-    const source = readFileSync(new URL("./setting_section/setting_box/vrchat/Vrchat.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./setting_section/setting_box/vrchat/Vrchat.tsx", import.meta.url), "utf8");
     assert.doesNotMatch(source, /ocr\/Ocr/);
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const ja = yaml.load(readFileSync(new URL("../../../../locales/ja.yml", import.meta.url), "utf8"));
     const t = (key, values) => key.split(".").reduce((node, part) => node?.[part], ja).replace(/\{\{(\w+)\}\}/g, (_, name) => values[name]);
     const store = { "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) } };
-    const pagePointer = await loadModule(new URL("./setting_section/setting_box/_components/page_pointer/PagePointer.jsx", import.meta.url), runtime, {
+    const pagePointer = await loadModule(new URL("./setting_section/setting_box/_components/page_pointer/PagePointer.tsx", import.meta.url), runtime, {
         ...store, "@useI18n": { useI18n: () => ({ t }) }, "../form_row/FormRow": { FormRow: () => null },
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting() {} },
-        "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
+        "../../../../sidebar_section/SidebarSection.tsx": { TabIcon: () => null },
     });
-    const vrchat = await loadModule(new URL("./setting_section/setting_box/vrchat/Vrchat.jsx", import.meta.url), runtime, {
+    const vrchat = await loadModule(new URL("./setting_section/setting_box/vrchat/Vrchat.tsx", import.meta.url), runtime, {
         ...dependencies, ...store, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@logics_configs": { useOthers: () => ({ currentEnableNotificationVrcSfx: { data: true }, currentEnableVrcMicMuteSync: { data: false } }) },
         "../_components/page_pointer/PagePointer": pagePointer,
@@ -233,9 +233,9 @@ test("each translation provider is one fold that says whether it can be used; th
         { id: "Ollama", label: "Ollama", is_available: true }];
     let selected = { 1: "CTranslate2", 2: "Ollama", 3: "CTranslate2" };
     const SetupSection = () => null;
-    const source = readFileSync(new URL("./setting_section/setting_box/translation/Translation.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./setting_section/setting_box/translation/Translation.tsx", import.meta.url), "utf8");
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
-    const translation = await loadModule(new URL("./setting_section/setting_box/translation/Translation.jsx", import.meta.url), runtime, {
+    const translation = await loadModule(new URL("./setting_section/setting_box/translation/Translation.tsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api,
         "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@store": { useStore_TranslationEngines: () => ({ currentTranslationEngines: { data: engines } }),

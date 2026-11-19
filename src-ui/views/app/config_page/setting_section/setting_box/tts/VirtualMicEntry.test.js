@@ -7,7 +7,7 @@ import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js"
 for (const [cables, text, kept] of [[[{ name: "CABLE Input" }], "virtual_mic.entry.found", false], [[], "virtual_mic.entry.missing", true]])
     test(`virtual microphone row with ${cables.length} cable(s): ${kept ? "kept in sight" : "a hint"}`, async () => {
         const runtime = hooks();
-        const { VirtualMicEntry } = await loadModule(new URL("./VirtualMicEntry.jsx", import.meta.url), runtime, {
+        const { VirtualMicEntry } = await loadModule(new URL("./VirtualMicEntry.tsx", import.meta.url), runtime, {
             "../../../../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables }, openGuide() {} }) },
             "../_components/form_row/FormRow": { FormRow: "row" },
         });

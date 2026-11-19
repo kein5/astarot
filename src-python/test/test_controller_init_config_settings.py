@@ -26,7 +26,7 @@ class TestInitMappingExcludesNetworkEndpoints(unittest.TestCase):
     def test_available_releases_is_not_collected_at_startup(self) -> None:
         """GitHub API を叩くエンドポイントが起動時の一括取得に含まれないこと。
 
-        UI 側は Updater.jsx のマウント時に自分で
+        UI 側は Updater.tsx のマウント時に自分で
         `/get/data/available_releases` を要求するため、ここから外しても
         取得経路は失われない。
         """

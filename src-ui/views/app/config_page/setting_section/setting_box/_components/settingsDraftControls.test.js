@@ -26,13 +26,13 @@ async function setup(context, kind) {
     if (kind === "word") {
         const state = { currentMicWordFilterList: saved, setMicWordFilterList: send,
             updateMicWordFilterList: fn => { saved.data = fn(saved); saved.state = "ok"; } };
-        ({ WordFilter: Component } = await loadModule(new URL("./word_filter/WordFilter.jsx", import.meta.url), runtime, {
+        ({ WordFilter: Component } = await loadModule(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
             ...common, "@logics_configs": { useTranscription: () => state },
             "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true }, updateIsOpenedMicWordFilterList() {} }) },
         }));
         props = {};
     } else {
-        ({ MessageFormat: Component } = await loadModule(new URL("./message_format/MessageFormat.jsx", import.meta.url), runtime, {
+        ({ MessageFormat: Component } = await loadModule(new URL("./message_format/MessageFormat.tsx", import.meta.url), runtime, {
             ...common, "react-i18next": { useTranslation: () => ({ t: key => key }) },
             "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
             "@logics_configs": {}, "@common_components": { ResetButton: "reset" },

@@ -130,7 +130,7 @@ test("all configured recovery reads exist in the backend mapping and have UI rou
     const mappedEndpoints = new Set([...mapping.matchAll(/^\s*"([^"]+)"\s*:/gm)].map(match => match[1])
         .concat(core.endpoints.map(entry => entry.endpoint)));
     const settings = readFileSync(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), "utf8").split("for (const setting_data")[0];
-    const routes = readFileSync(new URL("../useReceiveRoutes.js", import.meta.url), "utf8");
+    const routes = readFileSync(new URL("../useReceiveRoutes.ts", import.meta.url), "utf8");
     for (const read of [...Object.values(staticPendingControls).map(control => control.read), ...Object.values(featureResyncReads)]) if (read) {
         assert.ok(mappedEndpoints.has(read), read);
         assert.ok(routes.includes(`endpoint: "${read}"`), read);

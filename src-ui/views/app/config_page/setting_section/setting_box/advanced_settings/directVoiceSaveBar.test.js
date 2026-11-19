@@ -22,7 +22,7 @@ async function open(variant, settings) {
         ...ui, "./draftRebase": draftRebase,
         "./saveBar": { changedPaths, setSaveBarEntry: (id, entry) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
     });
-    const { DirectVoiceSettings } = await loadModule(new URL("./DirectVoiceSettings.jsx", import.meta.url), runtime, { ...ui,
+    const { DirectVoiceSettings } = await loadModule(new URL("./DirectVoiceSettings.tsx", import.meta.url), runtime, { ...ui,
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "../../../../../../logics/voice/routeState": routeState,
         "../../../../../../logics/voice/directVoiceDraft": directVoiceDraft,

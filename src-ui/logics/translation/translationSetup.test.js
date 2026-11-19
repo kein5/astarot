@@ -41,7 +41,7 @@ async function fixture(context) {
         showNotification_Success: (message, options) => notices.push(["success", message]),
     }) };
     for (const name of ["Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule(new URL("../_useBackendErrorHandling.js", import.meta.url), runtime, {
+    const errors = await loadModule(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
         "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
@@ -52,7 +52,7 @@ async function fixture(context) {
     const error = errors._useBackendErrorHandling().errorHandling_Backend;
     let selector = false;
     const expanded = [];
-    const controller = async owner => loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.jsx", import.meta.url), owner, {
+    const controller = async owner => loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.tsx", import.meta.url), owner, {
         "@logics_configs": configs, "@logics_common": common,
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },

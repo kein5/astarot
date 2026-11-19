@@ -198,11 +198,11 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 |---|---|---|---|
 | 土台 | CSS の hover と focus で開く。`Hint` は `:has(:focus-visible)` で開き、`aria-describedby` で読まれる | Radix Tooltip（Provider、Trigger、Content、Arrow。ポータルに描く） | 判断（D-21）。ADR-010 が Radix に置き換える候補に挙げている部品 |
 | 開くまで | `Tooltip` は .1 秒待って .15 秒で現れる。`Hint` は 120ms で現れる | `delayDuration` は 0 | D-21 に含める |
-| 見た目 | `Tooltip` と `Hint` は1つの見た目（`common_css/mixins.scss` の `tooltip_content`。#721）。`dark_700` の塗りに明るい文字、1.2rem/500、行の高さ 1.6、余白 `.6rem 1.2rem`、8px、言葉の幅で最大 36rem、文の改行を保つ。前は `Tooltip` が余白 `.4rem .8rem` と 4px の1行（中の段落は `root.css` で折り返すので、ボタンの幅の中で数文字ずつに折れていた）、`Hint` が `.8rem 1.2rem`。矢印なし | `foreground` の塗りに `background` の文字（色が反転）、`text-xs`（1.2rem、行の高さ 1.33）、太さの指定なし、`px-3 py-1.5`（1.2rem、.6rem）、8px、`text-balance`。矢印あり | 余白と角丸は寄せ、`Tooltip` と `Hint` の見た目を1つにした（#721）。色の反転と矢印は判断（D-22）。文字の太さ、行の高さ、`text-balance` は D-42 |
+| 見た目 | `Tooltip` と `Hint` は1つの見た目（`common_css/mixins.scss` の `tooltip_content`。#721）。`dark_700` の塗りに明るい文字、1.2rem/500、行の高さ 1.6、余白 `.6rem 1.2rem`、8px、言葉の幅で最大 36rem、文の改行を保つ。前は `Tooltip` が余白 `.4rem .8rem` と 4px の1行（中の段落は `root.css` で折り返すので、ボタンの幅の中で数文字ずつに折れていた）、`Hint` が `.8rem 1.2rem`。矢印なし | `foreground` の塗りに `background` の文字（色が反転）、`text-xs`（1.2rem、行の高さ 1.33）、太さの指定なし、`px-3 py-1.5`（1.2rem、.6rem）、8px、`text-balance`。矢印あり | 余白と角丸は寄せ、`Tooltip` と `Hint` の見た目を1つにした（#721）。色の反転と矢印は判断（D-22）。文字の太さ、行の高さ、`text-balance` は今のまま（D-42、2026-11-19 に決定） |
 
 ### Dialog と AlertDialog
 
-アプリ: ネイティブの `<dialog>` を `showModal()` で開きます（`useConsentDialog.ts`）。見た目は `VoiceSettings.module.scss` と `LegacyModelDownloadDialog.module.scss` の `dialog` の規則で決まり、`Topbar.jsx`、`Translation.jsx`、`useSettingsDraft.tsx` が同じ見た目を写しています。クイック設定のモーダル（`ModalController.tsx`）は別です。起動の失敗は、モーダルでない `<dialog open role="alertdialog">`（`StartupFailedDialog.tsx`）です。
+アプリ: ネイティブの `<dialog>` を `showModal()` で開きます（`useConsentDialog.ts`）。見た目は `VoiceSettings.module.scss` と `LegacyModelDownloadDialog.module.scss` の `dialog` の規則で決まり、`Topbar.tsx`、`Translation.tsx`、`useSettingsDraft.tsx` が同じ見た目を写しています。クイック設定のモーダル（`ModalController.tsx`）は別です。起動の失敗は、モーダルでない `<dialog open role="alertdialog">`（`StartupFailedDialog.tsx`）です。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -304,7 +304,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 ### Field と Label
 
-アプリ: kit の `SettingGroup` と `SettingRow`、`FormRow`、`_templates/Templates.jsx` の約20種類の `*Container`、`LabelComponent`、`SectionLabelComponent`、`Description`、`Hint`。#676 と #677 で、説明を吹き出し（`Hint`）に入れるページが増えました。
+アプリ: kit の `SettingGroup` と `SettingRow`、`FormRow`、`_templates/Templates.tsx` の約20種類の `*Container`、`LabelComponent`、`SectionLabelComponent`、`Description`、`Hint`。#676 と #677 で、説明を吹き出し（`Hint`）に入れるページが増えました。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -319,7 +319,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 | 部品 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
-| Empty | 会話の空の画面（`EmptyState.jsx`）、試験的な機能の点線の枠、検索の「結果なし」。設定の検索と言語の一覧の「結果なし」は、`common_components` の `Empty` と `EmptyDescription`（中央寄せ、余白 2.4rem、1.4rem の説明の色の文、#695） | Empty（中央寄せ、`p-6`、幅 768px 以上で `md:p-12`、Header、Media、Title、Description、Content） | 会話の空の画面は残す（DESIGN.md「Layout」が位置と出し方を決めている）。ほかの「結果なし」を Empty の形にそろえるのは寄せる（検索の2か所は #695 で寄せた。`md:p-12` は D-39） |
+| Empty | 会話の空の画面（`EmptyState.tsx`）、試験的な機能の点線の枠、検索の「結果なし」。設定の検索と言語の一覧の「結果なし」は、`common_components` の `Empty` と `EmptyDescription`（中央寄せ、余白 2.4rem、1.4rem の説明の色の文、#695） | Empty（中央寄せ、`p-6`、幅 768px 以上で `md:p-12`、Header、Media、Title、Description、Content） | 会話の空の画面は残す（DESIGN.md「Layout」が位置と出し方を決めている）。ほかの「結果なし」を Empty の形にそろえるのは寄せる（検索の2か所は #695 で寄せた。`md:p-12` は D-39） |
 | Sidebar | メインのレール（24rem。狭いと 7.2rem のアイコンのレール、さらに狭いと会話に重なる）と設定のレール（5.6rem。ホバーとフォーカスで広がる） | Sidebar（25.6rem、アイコンだけで 4.8rem。`collapsible`: offcanvas、icon、none。Ctrl/Cmd+B で開閉し、状態を Cookie に保存） | 幅と振る舞いは残す（DESIGN.md「Layout」が決めている。小さいレールの好みは設定に保存する）。狭いウィンドウで会話に重なるレールは Sheet（Radix Dialog）に近いが、これも残す。メニューの行の高さと選んだ行の表し方は判断（D-35） |
 
 ### そのほか
@@ -387,6 +387,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | ID | 決定 | 決めた日 | 文書と実装への反映 |
 |---|---|---|---|
 | D-41 | しきい値の部品（音量のメーターに重ねた細いつまみ）は、共通の Slider に寄せない。メーターと一体のアプリだけの部品として、照合の外にする | 2026-11-19 | 実装は変えない。Slider の節と「そのほか」に照合の外と書いた |
+| D-42 | ツールチップの文字の細部は今のままにする。太さは 500、行の高さは 1.6 で、`text-balance` は付けない。`Hint` は複数行の説明を出すので、行の高さは DESIGN.md の説明の 1.6 を保つ | 2026-11-19 | 実装の値は変えない（`common_css/mixins.scss` の `tooltip_content`、#721 のまま）。その値の横に決定をコメントで書いた。Tooltip の節の「見た目」の行と、一覧の 10 の注記にも書いた |
 
 ## 判断なしで寄せられる差
 
@@ -406,7 +407,7 @@ kit（画面ではまだ使っていない部品）:
 7. `_Entry` の塗り、枠、角丸、高さを kit の入力欄にそろえる（#691。左右の余白と使えない状態は D-37）。
 8. 色のポップオーバーと、設定の検索の結果の一覧の地を `--vox_surface` にする（設定の検索の結果の一覧は #695。色のポップオーバーは残っている）。
 9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。
-10. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする（#721。文字の細部は D-42）。
+10. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする（#721。文字の細部は今のまま。D-42）。
 11. プリセットの切り替えの `div role="button"` を `button` にする。
 12. `Separator`、`Badge`、`Spinner` をそれぞれ1つの部品にまとめる（見た目は今のまま）。
 13. 検索の「結果なし」を Empty の形にそろえる（設定の検索と言語の一覧は #695。`Empty` の部品を `common_components` に作った）。

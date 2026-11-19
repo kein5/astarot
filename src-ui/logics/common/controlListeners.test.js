@@ -11,7 +11,7 @@ test("slider installs listeners once per drag, reads current values/callbacks an
     globalThis.window = window;
     t.onTestFinished(() => { runtime.unmount(); delete globalThis.window; });
     let version = 0, value = 0;
-    const { Slider } = await loadModule(new URL(`${componentRoot}slider/Slider.jsx`, import.meta.url), runtime, {
+    const { Slider } = await loadModule(new URL(`${componentRoot}slider/Slider.tsx`, import.meta.url), runtime, {
         "@logics_configs": { useSliderLogic: () => {
             const current = version;
             return { ui_value: value, onChangeFunction: next => { value = next; changed.push([current, next]); },
@@ -58,7 +58,7 @@ for (const timing of ["on_change", "on_change_committed"]) test(`slider retains 
     const settings = await loadModule(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
         "@store": {}, "@logics_common": {}, "@utils": {}, "../../voice/saveBar": {},
     });
-    const { Slider } = await loadModule(new URL(`${componentRoot}slider/Slider.jsx`, import.meta.url), runtime, {
+    const { Slider } = await loadModule(new URL(`${componentRoot}slider/Slider.tsx`, import.meta.url), runtime, {
         "@logics_configs": settings,
     });
     const props = { min: 0, max: 100, step: 1, variable: 0, state: "ok", setter_timing: timing,
@@ -91,7 +91,7 @@ test("dropdown keeps open listeners through renders, uses the latest updater and
     globalThis.document = document; globalThis.window = window;
     t.onTestFinished(() => { runtime.unmount(); delete globalThis.document; delete globalThis.window; });
     let opened = "", version = 0;
-    const { _DropdownMenu } = await loadModule(new URL(`${componentRoot}_atoms/_dropdown_menu/_DropdownMenu.jsx`, import.meta.url), runtime, {
+    const { _DropdownMenu } = await loadModule(new URL(`${componentRoot}_atoms/_dropdown_menu/_DropdownMenu.tsx`, import.meta.url), runtime, {
         "@store": { useStore_IsOpenedDropdownMenu: () => {
             const current = version++;
             return { currentIsOpenedDropdownMenu: { data: opened },

@@ -28,8 +28,8 @@ async function setup(t, status, hints = false) {
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => hints },
     };
-    const components = await loadModule(new URL("./OcrRegions.jsx", import.meta.url), runtime, imports);
-    const { OcrStatus } = await loadModule(new URL("./OcrStatus.jsx", import.meta.url), runtime, imports);
+    const components = await loadModule(new URL("./OcrRegions.tsx", import.meta.url), runtime, imports);
+    const { OcrStatus } = await loadModule(new URL("./OcrStatus.tsx", import.meta.url), runtime, imports);
     t.onTestFinished(() => runtime.unmount());
     return { ...components, runtime, ocr, sent, polled,
         render: () => runtime.render(components.OcrRegions),

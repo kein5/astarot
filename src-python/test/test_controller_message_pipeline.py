@@ -766,7 +766,7 @@ class TestOcrMessage(_MessagePipelineTestBase):
         self._model.getOutputTranslate.assert_not_called()
 
     def test_payload_carries_the_ocr_source_and_id(self) -> None:
-        # UIは source でOCR由来のメッセージにバッジを出す (MessageContainer.jsx)。
+        # UIは source でOCR由来のメッセージにバッジを出す (MessageContainer.tsx)。
         self._model.getOutputTranslate.return_value = (["hello"], [True], ['translated'])
         self.controller.ocrMessage({"text": "こんにちは", "language": "Japanese",
                                     "segment_id": "abc123"})

@@ -10,18 +10,27 @@ TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄�
 
 ## 非商用のライセンスの確認
 
-非商用のライセンスのモデル（NLLB-200など）は、上の同意のほかに非商用に限ることの確認を求める（#411）。
+非商用のライセンスのモデル（NLLB-200など）は、上の同意のほかに非商用に限ることの確認を求める（#411）。Gemmaの利用規約に従う翻訳のモデルも、同じ仕組みで規約の確認を求める（下の「Gemmaの利用規約の確認」）。
 
-- 中核（`native/ops`の`catalog.rs`）がカタログの各行に`restrictions`を付ける。ライセンスの文字列から決まり、Creative CommonsのNonCommercial（CC-BY-NC-4.0と、-SAや-NDの付くもの）なら`["non_commercial"]`、ほかは`[]`になる。`Model`の項目と`receipt.json`の形は変えない。Gemmaの規約のような別の種類を足すときも、この一覧に種類を足す。
-- 確認の画面はライセンスの名前を挙げ、非商用の利用だけが認められていることを警告の印を付けた段落で示す。同意のチェックの下に2つめのチェックを出し、両方にチェックが入るまで開始できない。画面を開き直すと、どちらのチェックも外れている。
+- 中核（`native/ops`の`catalog.rs`）がカタログの各行に`restrictions`を付ける。ライセンスの文字列から決まり、Creative CommonsのNonCommercial（CC-BY-NC-4.0と、-SAや-NDの付くもの）なら`non_commercial`、Gemma Terms of Use（Hugging Faceのライセンスの表示`gemma`だけのものも）の翻訳のモデル（`target`が`translation`）なら`gemma_terms`を含む。読み上げなどほかの対象のモデルには`gemma_terms`を付けない（`restrictions_for`）。両方なら`["non_commercial", "gemma_terms"]`の順で、ほかは`[]`になる。`Model`の項目と`receipt.json`の形は変えない。別の種類を足すときも、この一覧に種類を足す。
+- 確認の画面はライセンスの名前を挙げ、非商用の利用だけが認められていることを警告の印を付けた段落で示す。同意のチェックの下に種類ごとのチェックを出し、すべてにチェックが入るまで開始できない。画面を開き直すと、どのチェックも外れている。
 - 開始の要求（`/run/start_model_download`）は確かめた種類を`acknowledged`に入れる。制限のあるモデルでその種類が欠けていると`model_download_restriction_unacknowledged`で断り、ファイルを書かず通信もしない。知らない種類、同じ種類の重複、そのモデルにない種類を入れた要求は`download_request_invalid`で断る。制限のないモデルの要求は今までと同じで、`acknowledged`は付けなくてよい（空の一覧も受け付ける）。
 - 確認は記録しない。`receipt.json`はカタログの項目のままで、取得のたびに確認を求める。
 - Pythonのバックエンドの`manager.py`も同じ要求を受け付け、同じ行を返す（`native/ops`の参照ファイルとの照合のため）。
 - 翻訳の設定でNLLBを選ぶときの確認（`CTranslate2LicenseDialog`と中核の`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`）は別にあり、そのまま残る。
 
+### Gemmaの利用規約の確認
+
+Gemmaの重みと、そこから作ったモデルはGemma Terms of Useに従う。規約の一部である禁止用途のポリシーは、配る側だけでなくモデルを使う人にも及ぶ（ADR-015、[TranslateGemmaを翻訳に使う道筋](translategemma.md)）。
+
+- `gemma_terms`の確認の画面は、ライセンスにGemmaの利用規約と禁止用途のポリシーが含まれること、その条件が使う人にも及ぶことを警告の印を付けた段落で示す。規約とポリシーは、確認の画面の「利用条件・ライセンス」に項目ごとのリンクとして並ぶ。
+- 同意とは別のチェック「Gemmaの利用規約と禁止用途のポリシーを読み、その条件に従ってこのモデルを使います。」が要る。開始の要求は`acknowledged: ["gemma_terms"]`を付け、欠けていれば中核が`model_download_restriction_unacknowledged`で断る。
+- この確認を求めるのは翻訳のモデルだけである（2026-11-19に決定。[翻訳のLLMの実行基盤の計画](translation-llm-runtime-plan.md)の判断項目4）。Irodori-TTS v4 Large（`irodori-v4-large-q8`、`Gemma Terms of Use + MIT + Apache-2.0`）は文章を読む部分がGemmaに由来するが、この確認は付かない。確認の画面はライセンスと規約のリンク（`GEMMA_TERMS_OF_USE.md`と`GEMMA_PROHIBITED_USE_POLICY.md`）を今までどおり示し、同意のチェックだけで取得できる。
+- TranslateGemmaの組み込みの項目は、プロジェクトが変換して公開するまで載せていない（判断項目3）。そのため2026-11-19の固定カタログにはこの確認が付く項目がない。
+
 ## 内蔵CTranslate2と文章分割ファイル
 
-0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。モデルはまだ公開していないので、カタログに項目はない。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルは翻訳のカタログの「自分のモデルを追加」で足せることを示す（#597までは置き場所の`translation-models`フォルダーを示した）。
+0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。2026-11-19に、M2M100 418Mのint8（既定、MIT、約506 MB）とNLLB-200 distilled 600Mのint8（CC-BY-NC-4.0、約643 MB）を公開し、カタログに載せた（#687）。NLLBの確認には、非商用のライセンス、取得に要る空き容量、翻訳中のメモリー（約1.4 GiB）を書いた専用の文面を出す。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルは翻訳のカタログの「自分のモデルを追加」で足せることを示す（#597までは置き場所の`translation-models`フォルダーを示した）。
 
 設定の「翻訳」のモデルの一覧（#565）には、取得済みのモデル、自分で追加したモデル、カタログに項目がある組み込みのモデルだけを並べる。組み込みのモデルに項目があるかは、そのモデルのカタログのID（`<モデル>-onnx-<形>`）で決める。ダウンロードのボタンが出るのは項目がある行だけで、押すとそのモデルの項目を共通の取得の画面で示す。選んでいるモデルは、取得できなくても「まだ取得できません」を付けて残す。組み込みのモデルを1つも取得できず、選んでいるモデルも使えないときは、外部翻訳APIかローカルLLMを使うよう案内する。モデルを公開してカタログに載せる手順は`tools/translation_onnx/README.md`の「公開の手順」にある。
 
@@ -103,10 +112,30 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 利用者のPCで動きそうにないモデルには、カードの見出しに「!」の印と「性能不足の可能性」を付け、カードの中に理由を書いた注記を出す（`src-ui/logics/voice/modelHardwareWarning.ts`）。目安なので、選ぶこと、取得、適用は止めない。取得の確認画面にも同じ注記を出す。ファイルの種類の選択肢にも「性能不足の可能性」を添え、軽い種類を見分けられるようにする。
 
 - 比べるのは、ハードウェアの検出（`hardware.py`）が返すメモリーの総量である。空き容量は時々で変わり、空き容量に合う種類は上の「空きメモリーに合う」が示すためである。
-- モデルのメモリーは、`profile.memory_bytes`、`guidance.reference_memory_bytes`、検証済みの`sampled_peak_bytes`のうち最も大きい値である。案内と同じく25%を足し、GPUのメモリーの総量を超えれば警告する（`low_memory`）。GPUが複数あれば最も大きいものと比べ、メモリーを足し合わせない。エンジンの設定でGPUを名前で選んでいれば、そのGPUと比べる。
-- GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリーの総量が分かれば、それとも比べる。
+- モデルのメモリーは、`profile.memory_bytes`、`guidance.reference_memory_bytes`、検証済みの`sampled_peak_bytes`のうち最も大きい値である。案内と同じく25%を足し、さらにVRChatの分として4 GiBを足した値が、GPUのメモリーの総量を超えれば警告する（`low_memory`、`GPU_RESERVE`。2026-11-20の決定）。GPUが複数あれば最も大きいものと比べ、メモリーを足し合わせない。エンジンの設定でGPUを名前で選んでいれば、そのGPUと比べる。
+- GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリー（RAM）の総量が分かれば、それとも比べる。
+- RAMと比べるときは、モデルのメモリーに25%を足した値に、OSの5 GiBとVRChatの8 GiB、合わせて13 GiBを足す（`RAM_RESERVE`）。余裕を足すことは2026-11-19に決まり、すべてのモデルに効かせることと、値を最小要件から見直すことが2026-11-20に決まった。注記には残す分も書く。
+  - OSの5 GiB：8 GBのノートPCで起動した直後のWindows 11は5.3 GB（25H2）、26H2では4.1 GBを使った（[Windows Central](https://www.windowscentral.com/microsoft/windows-11/windows-11-25h2-26h2-tested-8gb-pc)）。メモリーの多いPCほど使う量は増えるが、そのPCには余裕もあるので、8 GBのPCの値に合わせた。
+  - VRChatの8 GiB：VRChatの使う量はワールドと周りのアバターで大きく変わる。メモリーが16 GB、32 GB、64 GBのPCでVRChatをVRで試した例（2025年12月の記事。ブラウザー、Discord、Unityも開いたまま）では、PC全体の使用量が16 GBで12.6〜14.3 GB、32 GBと64 GBで17.9〜21.1 GBだった（[VRChatに必要なメモリ容量の実測](https://note.com/jackvrclove/n/n473be2e7d494)）。32 GB以上のPCの値からOSとほかのアプリの分を除くと、VRChatは8 GB以上を使っていると見られる（推定）。16 GBのPCでは使える量に抑えられ、余裕がなかった。この下のほうの値として8 GiBにした。
+  - それまでの値（OSとVRChatそれぞれ4 GiB）は、Windows 11とSteamのVRChatのページの最小要件のメモリー（どちらも4 GB）だった。最小要件は実際に使う量よりかなり少ないので見直した。
+  - この余裕を足すと、NLLB-200 distilled 600M（約1.39 GiB）には約14.7 GiB、M2M100 418M（約0.97 GiB）には約14.2 GiBのRAMが要る。8 GBのPCでは警告が出る。16 GBのPC（Windowsで約15.8 GiBと出る）では出ないが、内蔵GPUにメモリーを分けて15 GiBを下回るPCでは出る。
+- GPUのVRChatの4 GiBは決定の値である。このリポジトリの計測では、RTX 3060 Ti（8 GB）で読み上げ、字幕、RVCを動かした約4.8 GBが、デスクトップ表示のVRChatを足すと約6.1 GB、いちばん多いときで約7.2 GBになった（[動作環境](../../site/ja/guide/requirements.md)）。VRChatが増やした量は約1.3〜2.4 GBなので、デスクトップ表示には足りる。VRのヘッドセットで動かしたときの量は測っていない。
 - 検出していない、失敗した、メモリーが分からないときと、数値のないモデル（RVCなど）には警告しない。分からないことを性能不足とは書かない。
 - このため、音声認識やボイスチェンジャーのページでも、開いたときにハードウェアの検出（`/run/refresh_model_download_hardware`）を1回走らせる。検出はspeech.cppの`devices --json`を動かすだけで、モデルの取得や設定の変更はしない。
+##### ローカル翻訳のモデル（#597）
+
+翻訳の取得の確認画面（`LegacyModelDownloadDialog`から開くカタログの`translation`）でも同じ警告を出す。2026-11-19の決定による。
+
+- 目安の値は中核の`native/ops/src/downloads/guidance.rs`がカタログのIDごとに返す。Pythonのバックエンドには翻訳の項目がないので足していない。
+- NLLB-200 distilled 600M int8（`nllb-200-distilled-600m-onnx-int8`）は1,490,300,928バイト（約1.39 GiB）。アプリと同じ実行部`vrct-translate`で英日と日英を各30文訳したときの作業集合の最大で、Windows 11、Intel Core i7-1255U、CPUの4スレッド、ONNX Runtime 1.32.0で測った。PR #687の取得の注記（約1.4 GiB）と同じ値である。
+- 既定のM2M100 418M int8（`m2m100-418m-onnx-int8`）は1,044,295,680バイト（約0.97 GiB）。同じ方法と環境で測った（PR #687）。M2M100は翻訳の共通の注記を使うので、注記には数値を書いていない。
+- ほかの翻訳のモデル（NLLB-200 distilled 1.3Bなど）は測っていないので`unknown`のままにする。カードには「まだ測っていません」と出し、警告もしない。測ったら`guidance.rs`に足す。
+- カードの「使うメモリ」の行に、翻訳の間に使うメモリを出す。「必要メモリと動作確認」の中は、読み上げのモデル向けの文（GPU、提供元の測定）ではなく、翻訳用の文を出す（`tier`が`translation`）。
+- 比べる相手は翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）で決める（`translationDeviceMode`）。既定のCPUならハードウェアの検出のCPUの行（RAMの総量）と比べる。GPUを選んでいればそのGPUのメモリの総量と比べる。CUDAとTensorRTはNVIDIAのGPUを、MIGraphXはAMDのGPUを、DirectMLとWebGPUはすべてのGPUを、検出の順に`device_index`番目として数える。そのGPUが検出の行にないときと、CPUでもGPUでも動くOpenVINOのときは比べない。
+- 読み上げのモデル向けの「空きメモリーに合う」の案内（`modelHardwareAdvice.ts`）は、空いているGPUのメモリを見るので翻訳には出さない。
+- RAMは検出（speech.cppの`devices --json`）のCPUの行で分かる。翻訳そのものはspeech.cppを使わない。同梱のspeech.cppが見つからず検出が失敗したときは、ほかのモデルと同じく警告しない。
+- 警告の基準はほかのモデルと同じく、モデルのメモリに25%を足し、RAMと比べるときはOSとVRChatの分の13 GiB（上の`RAM_RESERVE`）、GPUと比べるときはVRChatの分の4 GiB（`GPU_RESERVE`）も足す。
+- 翻訳の項目は、PR #687（2026-11-19）が`translation_models.json`にM2M100とNLLBを書いたときにカタログに入った。それより前は目安を返すIDがカタログになく、画面に出なかった。
 
 #### 再起動後の取得済み
 
@@ -156,7 +185,28 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 推論エンジン系の「お使いのPCの翻訳に使う」は、その重み（`user:<ID>`）を`/set/data/selected_ctranslate2_weight_type`と同じ処理で選ぶ。計算に使う機器（CPU、DirectML、CUDAなど）は、ほかのローカルの重みと同じ欄で選ぶ。利用者のモデルは量子化の形を1つだけ持ち、その形がGPUで動かないときはCPUで動かして知らせる。選んでいるモデルの項目は削除できない。
 - API系の「OpenAI互換の接続先にする」は、`/set/data/openai_compatible_auth_key_and_url`と同じ処理で、アドレスとキーを確かめてからOpenAI互換のエンジンの接続先を替える。項目のモデルがサーバーの一覧になければ、切り替えたうえで`translation_catalog_model_not_listed`を知らせる。項目ごとに別のエンジンとして並べることはしていない（PRの残課題）。
 - 組み込みの項目と、利用者が足した項目は`origin`（`builtin`、`user`）で見分け、画面では印を付ける。#597までは`translation-models`フォルダーのモデルを`folder`として並べた。
-- この版が知らない`runtime`や`protocol`の項目（新しい版が書いたもの）は消さずに残し、「この版では使えません」と見せる。新しい推論エンジン（MADLAD-400のようなT5系、TranslateGemmaのようなdecoder-onlyのLLM）や新しい種類のAPIは、中核で動かせるようになったときに`translation_catalog::RUNTIMES`と`PROTOCOLS`に足す。TranslateGemmaの実行の経路と重みの入手は[TranslateGemmaを翻訳に使う道筋](translategemma.md)で比べた（提案、#412）。
+- この版が知らない`runtime`や`protocol`の項目（新しい版が書いたもの）は消さずに残し、「この版では使えません」と見せる。新しい推論エンジン（MADLAD-400のようなT5系）や新しい種類のAPIは、中核で動かせるようになったときに`translation_catalog::RUNTIMES`と`PROTOCOLS`に足す。TranslateGemmaの実行の経路と重みの入手は[TranslateGemmaを翻訳に使う道筋](translategemma.md)で比べた（#412）。
+- **翻訳のLLM（`llamacpp`、ADR-015）**：推論エンジンにllama.cppを選ぶと、フォルダーの代わりにTranslateGemmaのGGUFのファイル1つ（項目の`file`）と、計算に使う機器（`auto`か`cpu`。中核は`Vulkan1`のような名前も受け付ける）を入れる。足すとき、中核はファイルの頭を読み、GGUFで`general.architecture`が`gemma3`であることを確かめる（違えば`translation_catalog_gguf_invalid`）。言語のコードはTranslateGemmaのテンプレートの符号（`ja`、`zh-Hans`など）で、省略するとアプリが名前を付けられるすべての言語になる。ファイルの出どころとライセンスは、ほかの自分のモデルと同じく利用者が確かめる。
+- この項目はllama.cppの`llama-server`で動く。サーバーはアプリに含めず、カタログの推論エンジン系の欄で同意して取得する（Vulkan版だけ。下の「llama.cppのサーバーの取得」）。サーバーがないあいだ、項目は「llama.cppのサーバーが必要です」と出て使えない（`server_ready: false`）。カタログを開くたびに、中核は項目とサーバーを確かめ直す。
+- 「お使いのPCの翻訳に使う」はその重み（`user:<ID>`）を選ぶだけで、サーバーは起動しない。翻訳を有効にしたとき（またはその重みでメッセージを訳すとき）に、中核がサーバーをお使いのPCの中だけで起動する（`127.0.0.1`、ポート0、起動ごとのAPIキー、Webの画面なし）。機器の`auto`は、speech.cppのサーバーが選ぶGPU（独立したGPUのうちメモリーが最も多いもの）をllama.cppの一覧で名前と説明から探し、なければCPUで動かす。別のモデルを読み込むとサーバーを止め、ONNX Runtimeのモデルも同時には持たない。
+- 訳すときは、TranslateGemmaの公式のテンプレートの英文（原文と訳文の言語の名前とISOの符号）と原文を`/completion`に送る。systemの役割も会話の文脈も送らず、温度0（貪欲法）で生成する。訳す文と訳文はログに出さない。
+
+#### llama.cppのサーバーの取得
+
+翻訳のLLMを動かす`llama-server`は、RVCの実行環境と同じ取得の仕組み（`native/voice-conversion/src/runtime.rs`）で、利用者が同意したときだけ取得する。
+
+| ID | 中身 | 取得元 | 大きさ / SHA-256 |
+|---|---|---|---|
+| `llamacpp-vulkan`（Windows） | `llama-b12125-bin-win-vulkan-x64.zip` | GitHub `ggml-org/llama.cpp`のリリース b12125 | 37,683,656 / `29db801266e784d17fbc9dd7ff9b6a350d2b665bdc5658216f37d91c09918f07` |
+| `llamacpp-vulkan`（Linux x64） | `llama-b12125-bin-ubuntu-vulkan-x64.tar.gz` | 同上 | 35,883,040 / `455ec2f079e0d175b29beef93975aeacd119d8c74bd3e40298afa9a98e5a75f1` |
+
+- 出すのはVulkan版だけである（2026-11-19に決定。計画の判断項目5）。Vulkan版はCPUの処理部も含み、機器に`cpu`を選んだ項目やGPUのないPCでは`--device none`でCPUだけで動く。CPU版との差は取得量で約13 MBだけなので、CPU版は出さない。
+- b12125は2026-11-04に公開されたリリースで、選んだ日（2026-11-19）より2週間以上前のものである。値はGitHubが示すダイジェストと、実際に取得したファイルの両方で確かめた。
+- 取得元はGitHubのリリースのままとする（2026-11-19に決定。計画の判断項目2）。ホストは`github.com`と、そのリダイレクト先の`release-assets.githubusercontent.com`を足した（取得の許可の一覧`SOURCE_HOSTS`）。
+- アーカイブからは、サーバーが読むファイルだけを`lib/`に取り出す。サーバー、`llama-server-impl`、`llama-common`、`llama`、`mtmd`、`ggml`、`ggml-base`、CPUの処理部14種、`ggml-vulkan`、Windowsでは`libomp.dll`と`LICENSE-LLVM-OpenMP`、Linuxでは`LICENSE`である。CLI、量子化の道具、RPCのサーバーなどは取り出さない。Linuxのアーカイブは版付きのファイルへのリンク（`libllama.so.0`→`libllama.so.0.9.0`）を含むので、リンクの名前でファイルを取り出す。
+- 確認では`llama-server --list-devices`を一度動かす。モデルは読まない。VulkanのGPUが見つからなければ、準備はできたままで「GPUが見つかりませんでした」と知らせる（`llamacpp_no_gpu`）。
+- Linuxのサーバーは、ディストリビューションのOpenSSL 3（`libssl.so.3`、`libcrypto.so.3`）、`libgomp.so.1`、`libvulkan.so.1`を使う。アプリはこれらを取得しない。
+- 2026-11-19に、Windowsで固定のアーカイブ（当時はCPU版も含む4つ）を取得し、Windowsの版を取得の仕組みそのもので展開して`--list-devices`まで通した（`llamacpp_sets_up_from_its_release`、無視の付いた試験）。Linuxの実機の確認はまだである。
 - 開発側で推論エンジン系の項目を足すとき（#411、#412）は、これまでどおり固定カタログ（`native/ops/data/translation_models.json`、対象`translation`。`tools/translation_onnx/publish.py catalog --write`で書く）に版、サイズ、SHA-256、ライセンスを固定して載せ、ライセンス台帳（`licensing.md`）と`NOTICE.md`に記録する。非商用などの制限があるモデルは既定にしない。非商用のモデル（NLLB-200）の取得には、上の[非商用のライセンスの確認](#非商用のライセンスの確認)が要る。NLLB-200を載せるときのidと決まりは、[ライセンス台帳](licensing.md#nllb-200をカタログに載せるときの決まり2026-11-18411)にある。利用者が足した項目は、出どころとライセンスをアプリでは確かめないことを追加の欄に書いている。
 - 名前、フォルダー、アドレス、キーは利用者のデータなので、IPCの経路名に`translation_catalog`を含め、`process.log`では値を伏せる。フォルダーが読めない項目は、IDと固定のコードだけをログに書く。
 - IPC：`/get/data/translation_catalog`（`{engine, api, runtimes, protocols}`）、`/run/register_translation_catalog_entry`、`/run/remove_translation_catalog_entry`（`{id}`）、`/run/use_translation_catalog_entry`（`{id}`）。どれもカタログ全体を返し、失敗は`{error_code}`で返す。
@@ -248,7 +298,7 @@ overlay relayは新しいcatalog/state/start/cancel/applyとhardware取得/更�
 ## 実装と試験
 
 - `src-python/models/model_downloads/{catalog,transport,staging,manager,hardware,guidance}.py` とController/stdioの7ルート。
-- `ModelDownloads.jsx` / `useModelDownloads.ts`、SpeechServers/DirectVoiceSettingsへの小さな挿入。en/jaの独立namespace。
+- `ModelDownloads.tsx` / `useModelDownloads.ts`、SpeechServers/DirectVoiceSettingsへの小さな挿入。en/jaの独立namespace。
 - `modelHardwareAdvice.js`で取得値と候補から案内を算出。CPU・共有メモリ・容量不明/ゼロ・複数GPU・測定期限を区別する。
 - IPC送信関数を安定させ、再描画に伴うcatalog/state再取得ループを修正。idle時の取得回数不変をブラウザで確認。
 - Apply後の確認済み保存値がcleanフォームへ反映されない問題は、`useSettingsDraft.tsx`で直前の保存値とdraftを比較する形に修正。未保存の編集は保持する。

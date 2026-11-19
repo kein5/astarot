@@ -23,8 +23,8 @@ async function setup(context) {
             return owner.response;
         },
     };
-    for (const [index, file, name] of [[0, "device/VoiceRouteSettings.jsx", "VoiceRouteSettings"],
-        [1, "advanced_settings/VoiceSettings.jsx", "TtsOutputDeviceSettings"]]) {
+    for (const [index, file, name] of [[0, "device/VoiceRouteSettings.tsx", "VoiceRouteSettings"],
+        [1, "advanced_settings/VoiceSettings.tsx", "TtsOutputDeviceSettings"]]) {
         const runtime = hooks();
         runtimes.push(runtime);
         const draft = await loadModule(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {

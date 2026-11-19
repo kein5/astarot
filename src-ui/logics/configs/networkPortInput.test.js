@@ -36,7 +36,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         currentWebsocketTls: { state: "ok", data: { cert_file: "C:/certs/vox.pem", key_file: "C:/certs/vox-key.pem" } },
         setWebsocketTls: async value => { sent.push(["WebsocketTls", value]); return { status: 200, result: value }; },
     });
-    const module = await loadModule(new URL(box + "advanced_settings/AdvancedSettings.jsx", import.meta.url), runtime, {
+    const module = await loadModule(new URL(box + "advanced_settings/AdvancedSettings.tsx", import.meta.url), runtime, {
         "./DirectVoiceSettings": { DirectVoiceSettings: () => null },
         "../shared_items/SharedItems": { AutoExportMessageLogsContainer: () => null },
         "../_components/description/Description": { Description: () => null },
@@ -125,8 +125,8 @@ test("the RVC block length is a number from 20 to 200 in steps of 20 under Advan
 test("native number input receives min, max and step through the shared components", async () => {
     const runtime = hooks();
     runtime.api.useImperativeHandle = () => {};
-    const { _Entry } = await loadModule(new URL(box + "_components/_atoms/_entry/_Entry.jsx", import.meta.url), runtime);
-    const { EntryWithSaveButton } = await loadModule(new URL(box + "_components/entry_with_save_button/EntryWithSaveButton.jsx", import.meta.url), runtime,
+    const { _Entry } = await loadModule(new URL(box + "_components/_atoms/_entry/_Entry.tsx", import.meta.url), runtime);
+    const { EntryWithSaveButton } = await loadModule(new URL(box + "_components/entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime,
         { "../_atoms/_entry/_Entry": { _Entry } });
     const wrapper = runtime.render(EntryWithSaveButton, { type: "number", variable: 2231, ...PORT_INPUT_LIMITS });
     const entry = find(wrapper, node => node.type === _Entry);

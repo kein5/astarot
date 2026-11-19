@@ -5,7 +5,7 @@ import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHa
 async function setup() {
     const runtime = hooks(), saves = [];
     const Entry = () => null;
-    const { HotkeysEntry } = await loadModule(new URL("./HotkeysEntry.jsx", import.meta.url), runtime, {
+    const { HotkeysEntry } = await loadModule(new URL("./HotkeysEntry.tsx", import.meta.url), runtime, {
         "../_atoms/_entry/_Entry": { _Entry: Entry },
     });
     const props = { value: { open_quick_chat: ["Ctrl", "Q"] }, hotkey_id: "open_quick_chat", label: "クイックチャット",

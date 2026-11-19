@@ -55,7 +55,7 @@ async function dialog(context, entry) {
     const runtime = hooks(), sent = [];
     const downloads = { catalog: { models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {},
         ensureHardware: () => {}, send: (endpoint, data) => sent.push([endpoint, data]) };
-    const { ModelDownloads } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.jsx", import.meta.url), runtime, {
+    const { ModelDownloads } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": {},
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },
@@ -113,6 +113,37 @@ test("the review of a non-commercial model asks for a second checkbox and sends 
     start(tree).props.onClick();
     assert.deepEqual(s.sent.filter(([endpoint]) => endpoint.startsWith("/run/")), [["/run/start_model_download",
         { id: nllb.id, consent: true, catalog_version: "reviewed-catalog", acknowledged: ["non_commercial"] }]]);
+});
+
+// A translation model under the Gemma Terms of Use (TranslateGemma), and one that carries both
+// kinds. Only translation entries carry `gemma_terms`; the backend leaves it out of a speech
+// model such as Irodori-TTS v4 Large.
+const gemma = { ...m2m, id: "translategemma-4b-q4km", name: "TranslateGemma 4B · Q4_K_M", target: "translation",
+    license: "Gemma Terms of Use", restrictions: ["gemma_terms"] };
+
+test("the Gemma terms are a checkbox of their own, apart from the consent", async context => {
+    assert.equal(canStart(gemma, true, []), false);
+    assert.equal(canStart(gemma, true, ["non_commercial"]), false);
+    assert.equal(canStart(gemma, true, ["gemma_terms"]), true);
+    const both = { ...gemma, restrictions: ["non_commercial", "gemma_terms"] };
+    assert.equal(canStart(both, true, ["gemma_terms"]), false);
+    assert.equal(canStart(both, true, ["gemma_terms", "non_commercial"]), true);
+    assert.deepEqual(startRequest({ ...both, catalog_version: "v" }, ["gemma_terms", "non_commercial"]).acknowledged, ["non_commercial", "gemma_terms"]);
+    const s = await dialog(context, gemma);
+    let tree = s.render();
+    const note = find(tree, node => node.type?.name === "RestrictionNote");
+    assert.deepEqual([note.props.kind, note.props.license], ["gemma_terms", gemma.license]);
+    const boxes = checkboxes(tree);
+    assert.equal(boxes.length, 2);
+    assert.equal(boxes[1].props["aria-describedby"], note.props.id);
+    boxes[0].props.onChange({ target: { checked: true } });
+    tree = s.render();
+    assert.equal(start(tree).props.disabled, true, "the consent alone does not accept the terms");
+    checkboxes(tree)[1].props.onChange({ target: { checked: true } });
+    tree = s.render();
+    start(tree).props.onClick();
+    assert.deepEqual(s.sent.filter(([endpoint]) => endpoint.startsWith("/run/")), [["/run/start_model_download",
+        { id: gemma.id, consent: true, catalog_version: "reviewed-catalog", acknowledged: ["gemma_terms"] }]]);
 });
 
 test("the review of an unrestricted model keeps its one checkbox and its request", async context => {

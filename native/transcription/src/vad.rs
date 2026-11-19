@@ -22,11 +22,31 @@ pub enum Cut {
     Limit,
 }
 
+impl Cut {
+    /// Python's name of the reason (`SegmentEndReason`).
+    pub fn reason(self) -> &'static str {
+        match self {
+            Cut::Silence => "silence",
+            Cut::Limit => "max_duration",
+        }
+    }
+}
+
 /// One cut piece of audio: interleaved samples at the device's format.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Segment {
     pub samples: Vec<i16>,
     pub cut: Cut,
+}
+
+/// What a VAD noticed of the speech, for the diagnostics ([`crate::diagnostics`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Noted {
+    /// Speech started.
+    Start,
+    /// A segment ended: how long it is, and how long after the end of speech the VAD knew it
+    /// (the silence it waited for; nothing for a cut at the limit).
+    End { cut: Cut, length: std::time::Duration, waited: std::time::Duration },
 }
 
 /// What a segmenter found in the audio it was given.
@@ -35,6 +55,8 @@ pub struct Segments {
     /// The rms of each buffer of 1024 frames, in order, for the volume meter.
     pub energies: Vec<u32>,
     pub segments: Vec<Segment>,
+    /// What a VAD noticed; the energy listener notices nothing.
+    pub noted: Vec<Noted>,
 }
 
 /// Cuts a device's audio into segments. One lives on the recorder's listener thread.
@@ -49,7 +71,11 @@ impl Segmenter for EnergyListener {
     fn feed(&mut self, samples: &[i16]) -> Segments {
         let Heard { energies, phrases } = EnergyListener::feed(self, samples);
         // The energy path joins phrases by time (`Phrases::drain`), so how one ended is not used.
-        Segments { energies, segments: phrases.into_iter().map(|samples| Segment { samples, cut: Cut::Silence }).collect() }
+        Segments {
+            energies,
+            segments: phrases.into_iter().map(|samples| Segment { samples, cut: Cut::Silence }).collect(),
+            noted: Vec::new(),
+        }
     }
 
     fn reset(&mut self) {

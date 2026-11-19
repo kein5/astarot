@@ -5,7 +5,7 @@ import { missingLanguagesText } from "../../../../../../logics/common/fontLangua
 
 async function render({ selected = "", missing = [], open = true, fonts = { "Noto Sans": "Noto Sans" } } = {}) {
     const runtime = hooks(), asked = [], chosen = [];
-    const { OverlayFontFamily } = await loadModule(new URL("./OverlayFontFamily.jsx", import.meta.url), runtime, {
+    const { OverlayFontFamily } = await loadModule(new URL("./OverlayFontFamily.tsx", import.meta.url), runtime, {
         "@store": { useStore_SelectableFontFamilyList: () => ({ currentSelectableFontFamilyList: { data: fonts } }) },
         "@logics_configs": { useVr: () => ({
             currentOverlayFontFamily: { data: selected, state: "ok" },

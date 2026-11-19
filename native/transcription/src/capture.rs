@@ -20,7 +20,11 @@ pub enum Target {
 }
 
 /// Interleaved 16-bit samples at `rate` and `channels`; return false to stop the capture.
-pub type OnAudio = Box<dyn FnMut(&[i16], u32, u16) -> bool + Send>;
+///
+/// The last argument is how long before the call the first sample was captured, when the
+/// capture knows it (the Linux helper stamps its packets with `CLOCK_MONOTONIC`); `None`: as it
+/// is delivered.
+pub type OnAudio = Box<dyn FnMut(&[i16], u32, u16, Option<Duration>) -> bool + Send>;
 /// A fixed code when the capture fails while running.
 pub type OnError = Box<dyn FnMut(&str) + Send>;
 
@@ -135,9 +139,12 @@ mod windows_capture {
             Target::Endpoint(endpoint) => DeviceTarget::Identity(endpoint.name.clone()),
         };
         let deliver = Box::new(move |bytes: &[u8], format: vrct_audio_routing::wasapi::capture::DeviceFormat| {
-            on_audio(&pcm::samples(bytes), format.rate, format.channels)
+            on_audio(&pcm::samples(bytes), format.rate, format.channels, None)
         });
-        let (capture, _) = DeviceCapture::start(device, source == Source::Speaker, timeout, deliver, on_error)
+        // Decision 15 (3): only realtime recognition (an endpoint) gets silence while the
+        // speaker plays nothing; the recorder (a device) hears only what is played, as in Python.
+        let fill_silence = matches!(target, Target::Endpoint(_));
+        let (capture, _) = DeviceCapture::start(device, source == Source::Speaker, fill_silence, timeout, deliver, on_error)
             .map_err(|error| error.code)?;
         Ok(Box::new(Wasapi(capture)))
     }

@@ -23,7 +23,7 @@ async function setup(context, savedView, initialRows) {
         getComputedStyle: () => ({ paddingTop: "16px" }),
     });
     const Virtualizer = () => null;
-    const { LogBox } = await loadModule(new URL("./LogBox.jsx", import.meta.url), runtime, {
+    const { LogBox } = await loadModule(new URL("./LogBox.tsx", import.meta.url), runtime, {
         jotai: { useAtomValue: () => { subscriptions++; return { data: rows }; } },
         virtua: { Virtualizer }, "@store": { store, Atom_MessageLogs: {} },
         "./message_container/MessageContainer": {}, "./EmptyState": { EmptyState: () => null },

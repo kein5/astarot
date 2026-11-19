@@ -56,6 +56,8 @@ pub struct Options {
     /// speaks.
     pub diarizes: bool,
     pub limits: Limits,
+    /// Where the finals' waits are counted (`utterance_diagnostics`); `None` counts nothing.
+    pub diagnostics: Option<crate::diagnostics::Diagnostics>,
 }
 
 /// How long a session waits for the server. The app keeps [`Limits::default`], Python's values;
@@ -156,6 +158,12 @@ impl Failure {
 
 static NAMESPACES: AtomicU64 = AtomicU64::new(0);
 
+/// When audio delivered at `now` was heard: `captured_ago` earlier when the capture says so,
+/// else as it is delivered.
+fn heard_at(now: Instant, captured_ago: Option<Duration>) -> Instant {
+    captured_ago.and_then(|ago| now.checked_sub(ago)).unwrap_or(now)
+}
+
 fn namespace() -> String {
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
     let count = NAMESPACES.fetch_add(1, Ordering::SeqCst);
@@ -231,6 +239,11 @@ impl Session {
                 finished: AtomicBool::new(false),
             }),
         }
+    }
+
+    /// Where its finals are counted.
+    pub fn diagnostics(&self) -> Option<&crate::diagnostics::Diagnostics> {
+        self.inner.options.diagnostics.as_ref()
     }
 
     pub fn source(&self) -> Source {
@@ -551,8 +564,10 @@ impl Session {
     fn open_capture(&self) -> Result<Box<dyn Capture>, Failure> {
         let builder = Arc::new(Mutex::new(None::<FrameBuilder>));
         let feeding = self.clone();
-        let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16| {
-            let received = Instant::now();
+        let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16, captured_ago: Option<Duration>| {
+            // Decision 70 (`RealtimeSession` took the helper's stamp): audio is as old as its
+            // capture says, so a delay before it got here counts against the 250 ms.
+            let received = heard_at(Instant::now(), captured_ago);
             let mut builder = builder.lock().unwrap_or_else(|e| e.into_inner());
             let frames = builder.get_or_insert_with(|| FrameBuilder::new(rate, usize::from(channels))).feed(samples, received);
             for (frame, heard) in frames {
@@ -650,6 +665,9 @@ impl Session {
                 for mut update in updates {
                     if update.is_final {
                         first_result |= !first_result_seen;
+                        if let Some(diagnostics) = &self.inner.options.diagnostics {
+                            final_waited(diagnostics, &update, pending_since.get(&update.item_id));
+                        }
                     }
                     update.text = terms.corrected(&update.text);
                     update.received = Some(Instant::now());
@@ -684,6 +702,23 @@ impl Session {
         }
         result
     }
+}
+
+/// How long a final waited from the start of its utterance (`[ASR-realtime]`); unknown for an
+/// item never seen pending.
+fn final_waited(diagnostics: &crate::diagnostics::Diagnostics, update: &Update, since: Option<&Instant>) {
+    use crate::diagnostics::{Event, Stage};
+    let event = if update.text.trim().is_empty() { Event::RealtimeEmptyFinal } else { Event::RealtimeFinal };
+    let pending = since.map(|since| since.elapsed().as_secs_f64() * 1000.0);
+    let stages: Vec<(Stage, f64)> = pending.map(|ms| (Stage::RealtimePending, ms)).into_iter().collect();
+    let shown = pending.map_or_else(|| "unknown".to_string(), |ms| format!("{ms:.1}ms"));
+    diagnostics.record(
+        update.source,
+        event,
+        &stages,
+        Some(format!("[ASR-realtime][{}] state={} pending={shown}", update.source, update.state)),
+        false,
+    );
 }
 
 #[cfg(test)]
@@ -740,6 +775,17 @@ mod tests {
         }
         assert!(!small.push(vec![0; 10], Instant::now()));
         assert_eq!(refused_for(&small), Some("input_overflow"));
+    }
+
+    #[test]
+    fn audio_is_as_old_as_its_capture_says() {
+        // Decision 70: the helper's stamp, not the delivery, says when audio was heard; audio the
+        // pipe held back is refused as Python's ingress refused it.
+        let now = Instant::now();
+        assert_eq!(heard_at(now, None), now);
+        assert_eq!(heard_at(now, Some(Duration::from_millis(40))), now - Duration::from_millis(40));
+        let held_back = heard_at(now, Some(Duration::from_millis(300)));
+        assert!(held_back.elapsed() > MAX_AGE);
     }
 
     #[test]
@@ -816,6 +862,7 @@ mod tests {
             silence_duration_ms: None,
             diarizes: false,
             limits,
+            diagnostics: None,
         };
         let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
         Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice))

@@ -9,7 +9,7 @@ const engines = [
 
 async function setup(selected = [], closed = []) {
     const runtime = hooks();
-    const { TranslatorSelector } = await loadModule(new URL("./TranslatorSelector.jsx", import.meta.url), runtime, {
+    const { TranslatorSelector } = await loadModule(new URL("./TranslatorSelector.tsx", import.meta.url), runtime, {
         "@utils": { chunkArray: (items, size) => Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, i * size + size)) },
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => closed.push(value) }) },
         "@logics_main": { useLanguageSettings: () => ({ canChangeLanguageSettings: () => true, isLanguageSettingsBusy: false,

@@ -26,6 +26,7 @@ mod telemetry;
 mod terms;
 pub mod translation;
 mod translation_catalog;
+pub mod translation_llama;
 mod transcription;
 mod realtime_asr;
 #[cfg(feature = "onnx-translation")]
@@ -188,8 +189,13 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
-    /// How the translation providers reach the network ([`vrct_translation::http::direct`]).
+    /// How the translation providers reach the network ([`vrct_translation::http::direct`]),
+    /// and speech.cpp's server on this PC is asked for its models.
     pub translation_transport: vrct_translation::http::Transport,
+    /// How the cloud recognition engines reach the network: through the proxy of the
+    /// environment or Windows' Internet Settings ([`vrct_translation::http::system_proxy`],
+    /// decision 15 (4)). Tests keep it on this PC.
+    pub transcription_transport: vrct_translation::http::Transport,
     /// Where the providers with a fixed address are.
     pub translation_endpoints: vrct_translation::providers::Endpoints,
     /// The local translation model ([`translation::default_local_translation`]).
@@ -245,6 +251,9 @@ pub struct Services {
     /// How long realtime recognition waits for speech.cpp and for its previous session; tests
     /// shorten them.
     pub realtime_limits: RealtimeLimits,
+    /// How long turning a recorder off waits for an engine request in flight
+    /// ([`vrct_transcription::recorder::STOP_WAIT`], 15 s); tests shorten it.
+    pub recorder_stop_wait: Duration,
 }
 
 impl Default for Services {
@@ -266,6 +275,7 @@ impl Default for Services {
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
             translation_transport: vrct_translation::http::direct(),
+            transcription_transport: vrct_translation::http::system_proxy(),
             translation_endpoints: vrct_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
             transliteration: Arc::new(messages::shipped_readings),
@@ -285,6 +295,7 @@ impl Default for Services {
             secret_store: Arc::new(crate::config::secrets::default_store),
             gpu_memory: crate::gpu_memory::native_reader(),
             realtime_limits: RealtimeLimits::default(),
+            recorder_stop_wait: vrct_transcription::recorder::STOP_WAIT,
         }
     }
 }
@@ -405,6 +416,12 @@ impl Core {
 
     pub fn step(&self, text: &str) {
         self.log.step(text, None);
+    }
+
+    /// [`Core::step`] with data on the line (masked as every logged value is). Never text or
+    /// keys of the user.
+    pub(crate) fn step_with(&self, text: &str, data: &Value) {
+        self.log.step(text, Some(data));
     }
 
     /// Stamps a request before it waits in the queue (generations of the voice features).

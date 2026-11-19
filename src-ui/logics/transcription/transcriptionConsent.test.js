@@ -41,7 +41,7 @@ async function fixture(context) {
     for (const name of ["Translation", "Others", "Ocr", "OcrSharedWindow", "AdvancedSettings"]) configs[`use${name}`] = () => api({});
     const common = {};
     for (const name of ["NotificationStatus", "Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule(new URL("../_useBackendErrorHandling.js", import.meta.url), runtime, {
+    const errors = await loadModule(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
         "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
@@ -186,7 +186,7 @@ test("settings keep the selected engine in sight under the radio row's label and
         { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true, own: true }];
     // A runtime of its own: the row's ids come from useId, whose slots the chooser's hooks would fill.
     const boxRuntime = hooks();
-    const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), boxRuntime, {
+    const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), boxRuntime, {
         "@logics_configs": s.configs, "@utils": {},
         "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {},
@@ -223,15 +223,15 @@ test("settings keep the selected engine in sight under the radio row's label and
     // Use the real row, label and radio group to verify their help relationship.
     const rowRuntime = hooks();
     const root = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
-    const { LabelComponent } = await loadModule(new URL("_components/label_component/LabelComponent.jsx", root), rowRuntime, {
+    const { LabelComponent } = await loadModule(new URL("_components/label_component/LabelComponent.tsx", root), rowRuntime, {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
         "../description/Description": { Description: "description" },
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
     });
-    const { RadioButton } = await loadModule(new URL("_components/radio_button/RadioButton.jsx", root), rowRuntime, {
+    const { RadioButton } = await loadModule(new URL("_components/radio_button/RadioButton.tsx", root), rowRuntime, {
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
     });
-    const { RadioButtonContainer } = await loadModule(new URL("_templates/Templates.jsx", root), rowRuntime, {
+    const { RadioButtonContainer } = await loadModule(new URL("_templates/Templates.tsx", root), rowRuntime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "../_components": { LabelComponent, RadioButton }, "@common_components": { Checkbox: "checkbox" },
     });

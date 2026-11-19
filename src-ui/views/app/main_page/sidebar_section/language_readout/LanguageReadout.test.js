@@ -9,7 +9,7 @@ const t = (key, options) => options ? `${options.from} → ${options.to}` : key;
 
 async function setup({ ui = "ja", yours = entry("Japanese", "Japan"), targets = { 1: entry("English", "United States"), 2: entry("Korean", "South Korea", false), 3: entry("French", "France", false) }, preset = "1" } = {}) {
     const runtime = hooks(), toggled = [];
-    const { LanguageReadout } = await loadModule(new URL("./LanguageReadout.jsx", import.meta.url), runtime, {
+    const { LanguageReadout } = await loadModule(new URL("./LanguageReadout.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t, i18n: { language: ui } }) },
         "../../../../../logics/common/languageNames.ts": languageNames,
         "@logics_main": {
@@ -59,6 +59,6 @@ test("long names end in an ellipsis; on is tinted and named in the rail", () => 
     const switches = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.module.scss", import.meta.url), "utf8");
     assert.match(switches, /&\.is_active \{\s*background-color: var\(--vox_highlight_tint\);/);
     assert.match(switches, /&\.is_active:not\(\.is_pending\) \{\s*color: var\(--vox_state_active\);/);
-    const jsx = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.jsx", import.meta.url), "utf8");
+    const jsx = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.tsx", import.meta.url), "utf8");
     assert.match(jsx, /title=\{blockedTitle \?\? statusText \?\? \(currentIsMainPageCompactMode\.data \? switchLabel : undefined\)\}/);
 });

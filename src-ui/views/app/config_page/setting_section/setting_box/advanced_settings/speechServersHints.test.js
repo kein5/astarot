@@ -14,7 +14,7 @@ async function render({ cpuBuild = "separate", gpuBuild = "ready", devices = [{ 
     const runtime = hooks();
     const profile = { model: "", voice_file: "", vad_model: "", diarization_model: "", device: "auto", low_latency: false };
     const settings = { profiles: { japanese: { ...profile }, asr: { ...profile } } };
-    const { SpeechServers } = await loadModule(new URL("./SpeechServers.jsx", import.meta.url), runtime, {
+    const { SpeechServers } = await loadModule(new URL("./SpeechServers.tsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings, state: {}, devices,
             builds: { cpu_build: cpuBuild, gpu_build: gpuBuild }, pending: {}, error: null, send() {}, updateError() {} }) },
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: settings, setDraft() {}, saving: false, dirty: false, submit() {}, navigationDialog: null }) },

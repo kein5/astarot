@@ -165,9 +165,12 @@ pub fn open_output(device: &str, rate: u32, channels: u16) -> Result<Box<dyn Out
     if device.is_empty() {
         return Err(Error::speech("output_not_selected"));
     }
+    // Decision 62 (c): speech that cannot keep up with the output plays silence where it ran dry
+    // and goes on, instead of ending with `output_underflow` (Python's PortAudio
+    // `exception_on_underflow`). PipeWire's stream already plays silence when it is starved.
     #[cfg(windows)]
     {
-        Ok(Box::new(crate::wasapi::output::WindowsOutput::open(device, rate, channels, true)?))
+        Ok(Box::new(crate::wasapi::output::WindowsOutput::open(device, rate, channels, false)?))
     }
     #[cfg(all(target_os = "linux", feature = "pipewire"))]
     {

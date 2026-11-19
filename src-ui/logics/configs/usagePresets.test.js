@@ -20,7 +20,7 @@ test("the presets are the ones the engine keeps, in the same order", () => {
 });
 
 test("each preset names main switches and settings pages that exist", () => {
-    const view = read("src-ui/views/app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.jsx");
+    const view = read("src-ui/views/app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.tsx");
     const drawn = [...view.matchAll(/switch_id: "(\w+)"/g)].map(match => match[1]);
     assert.deepEqual([...MAIN_SWITCHES], drawn, "the switches in the main page's order");
     for (const preset of USAGE_PRESETS) {

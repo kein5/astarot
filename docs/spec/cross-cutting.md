@@ -8,7 +8,7 @@
 
 | 経路 | 形 | 例 | UIでの見せ方 |
 |---|---|---|---|
-| 要求への400応答 | `{"status": 400, "result": {"error_code", "message", "data", …}}` | 設定値の検証、APIキーの拒否 | `errorHandling_Backend`（`src-ui/logics/_useBackendErrorHandling.js`）が`data`で画面の値を戻し、翻訳した文言を通知で出す |
+| 要求への400応答 | `{"status": 400, "result": {"error_code", "message", "data", …}}` | 設定値の検証、APIキーの拒否 | `errorHandling_Backend`（`src-ui/logics/_useBackendErrorHandling.ts`）が`data`で画面の値を戻し、翻訳した文言を通知で出す |
 | サイドカーからの400通知 | 同じ形で`/run/error_…`などに届く | VRAM不足、入力デバイスなし、翻訳エンジンの上限 | 同上。オンにした機能を自動でオフにした場合は、そのスイッチの表示も戻す |
 | 認識エラーの通知 | 200の`/run/transcription_recognition_error`に`{error_code, stage, source, message, recoverable}`。クラウドのエンジンが失敗の理由を返したときは、中核が`cause`（`TRANSCRIPTION_API_AUTH_FAILED`・`_RATE_LIMITED`・`_TIMEOUT`・`_SERVER_ERROR`）を足す。`error_code`は`ASR_ERROR`のまま | 音声認識の失敗 | 会話ログにシステムメッセージとして残す。`cause`に`backend_errors`の文言があればそれを、なければ`backend_errors.<コード>`の文言を出し、`<コード>_mic`・`<コード>_speaker`があれば`source`に合うほうを使う。文言がなければ英語の`message`を出す |
 | 機能ごとのエラー状態 | 409などで`{"error_code": …}` | 読み上げ、RVC、音声サーバー、モデル取得、リアルタイム音声認識 | 各設定画面の状態欄に、`error_code`に対応する文言を出す |
@@ -44,7 +44,7 @@
 | 音声の設定フォーム（TTS、RVC、音声サーバー、デバイスの音声経路） | 保存バーの「保存」を押したとき | 声の名前、モデルのパス |
 
 - 保存バーは保存の入口を1つにまとめたもので、画面の上部に固定されている。未保存の件数を数え、変更した行に印を付ける（`DESIGN.md`）。
-- 未保存の変更があるまま別のページへ移るか設定を閉じると、確認のダイアログを出す。「編集を続ける」なら留まり、「破棄して移動」なら変更を捨てて移る（`src-ui/views/app/config_page/topbar/Topbar.jsx`）。
+- 未保存の変更があるまま別のページへ移るか設定を閉じると、確認のダイアログを出す。「編集を続ける」なら留まり、「破棄して移動」なら変更を捨てて移る（`src-ui/views/app/config_page/topbar/Topbar.tsx`）。
 - 単語フィルターの追加・削除と送受信メッセージの書式も、保存バーで保存・破棄する。書式のリセットと原文・訳文の順序変更は編集中の値に反映し、入力欄のEnterでその書式を保存できる。
 - 文字入力欄、単語フィルター、メッセージ書式は、送った要求への成功応答で保存を確定する。送信失敗・拒否・応答待ちの期限切れでは「保存済み」にせず、編集内容を残して再試行または破棄できる。確定済みの値は失敗した編集で上書きしない。
 - RVCページを開いたときの「RVCに切り替える」という保留中の変更は、編集ではないので確認しない。
@@ -82,7 +82,8 @@
 ## 同意と外部への送信
 
 - モデルの取得は、名前、提供元、正確な容量、ライセンスを画面に示し、利用者がチェックして開始したときだけ行う。カタログは版、サイズ、SHA-256、ライセンスを固定する（`src-python/models/model_downloads/catalog.py`）。ローカル翻訳（ONNX Runtime）のモデルも、公開したあとはカタログの対象`translation`から同じ確認を経て取得する（0.4までのCTranslate2の固定の重みの取得は0.5.0で引退した）。別リポジトリやHubキャッシュからの暗黙の取得は行わない。
-- 非商用のライセンスのモデル（NLLB-200など）は、同意とは別に非商用に限ることの確認を求める（#411）。カタログの行の`restrictions`はライセンスの文字列から決まり、Creative CommonsのNonCommercialなら`["non_commercial"]`になる。確認の画面はライセンスの名前と非商用に限ることを示し、同意の下に2つめのチェックを出す。`/run/start_model_download`の要求は`{id, consent, catalog_version}`に、確かめた種類の`acknowledged`を足す。欠けていれば400の`model_download_restriction_unacknowledged`、知らない種類や重複やそのモデルにない種類があれば400の`download_request_invalid`で断り、ファイルを書かず通信もしない。制限のないモデルの要求は変わらない。確認は`receipt.json`にも設定にも記録しない（[モデル取得](../voice-stack/model-downloads.md#非商用のライセンスの確認)）。
+- 非商用のライセンスのモデル（NLLB-200など）は、同意とは別に非商用に限ることの確認を求める（#411）。カタログの行の`restrictions`はライセンスの文字列から決まり、Creative CommonsのNonCommercialなら`["non_commercial"]`になる。Gemma Terms of Useを含むライセンスの翻訳のモデル（TranslateGemma）は`gemma_terms`を持つ（ADR-015）。読み上げのIrodori-TTS v4 LargeもGemma Terms of Useに従うが、この確認は付かない（翻訳のモデルだけに限ると2026-11-19に決めた）。確認の画面はライセンスの名前と制限の中身を示し、同意の下に種類ごとのチェックを出す。`gemma_terms`では、Gemmaの利用規約と禁止用途のポリシーがモデルを使う人にも及ぶことを示す。`/run/start_model_download`の要求は`{id, consent, catalog_version}`に、確かめた種類の`acknowledged`を足す。欠けていれば400の`model_download_restriction_unacknowledged`、知らない種類や重複やそのモデルにない種類があれば400の`download_request_invalid`で断り、ファイルを書かず通信もしない。制限のないモデルの要求は変わらない。確認は`receipt.json`にも設定にも記録しない（[モデル取得](../voice-stack/model-downloads.md#非商用のライセンスの確認)）。
+- ローカル翻訳のモデルのカードには、翻訳の間に使うメモリを示す（`guidance.reference_memory_bytes`）。測っていないモデルは「まだ測っていません」と示し、数値を作らない。翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）がCPUならRAMの総量と、GPUならそのGPUのメモリの総量と比べる。RAMと比べるときはOSとVRChatの分（13 GiB）を、GPUと比べるときはVRChatの分（4 GiB）を残した量と比べる（読み上げや音声認識のモデルも同じ）。足りなければカードと取得の確認画面に性能不足の可能性を出す。目安なので選ぶことも取得も止めない（#405、#597、[モデル取得](../voice-stack/model-downloads.md#性能不足の可能性の警告405)）。
 - 取得済みモデルのパスを適用する際の再検証は、Applyの応答待ちでも同じモデル・ジョブのキャンセルを受け付ける。Applyとキャンセルの応答は別々に待ち、片方の応答で他方の待機を解除しない。待機中は別の適用や取得を開始できない。10秒間応答がなくても警告だけを表示し、処理が終わったとは扱わない。その後の状態の問い合わせで、そのジョブが検証中（`verifying`、`cancelling`）でなくなったと分かったときだけ、Applyの待機を解除する（#563）。応答が失われても、ほかの操作がアプリを起動し直すまで止まったままにはならない。
 - 内蔵モデルの取得要求には`consent: true`と、そのモデルの`manifest_version`が必要である。欠けているか現在の一覧と一致しなければ、400の`WEIGHT_DOWNLOAD_CONSENT_REQUIRED`で取得を拒否する。保存済みの選択、NLLBの利用条件への選択時の同意、起動時取得のスイッチだけでは取得に同意したことにならない。NLLBは非商用の制限を必ず表示し、既定にしない。
 - 起動時にモデルを自動では取得しない。起動時の自動取得（`AUTO_DOWNLOAD_MODELS`）は 0.5.0 で旧 CTranslate2 の重みと一緒に引退した（[中核の統合](../voice-stack/core-integration.md)）。設定のキーと`/get/data/auto_download_models`などのエンドポイントは互換のために残すが、中核は値を読まず、設定画面にスイッチを出さない。取得は、設定や確認画面で利用者が同意した明示の取得だけで行う（[モデル取得](../voice-stack/model-downloads.md)）。
