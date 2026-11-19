@@ -602,6 +602,15 @@ fn the_output_list_comes_from_the_audio_devices() {
 }
 
 
+/// Waits until the route has confirmed what it was last asked (`ready`, nothing `pending`): a
+/// resume is refused before that (`voice_route_not_ready`).
+fn route_settled(run: &Run) {
+    eventually("the route confirms", || {
+        let route = run.ui.ok("/get/data/voice_route", None);
+        route["ready"] == true && route["pending"] == false
+    });
+}
+
 fn start_direct(run: &Run, body: Value) -> Value {
     // The receiver stamps the generation; the UI never sends it.
     run.ui.request("/run/start_direct_voice", Some(body))
@@ -771,7 +780,7 @@ fn a_linux_conversion_is_monitored_and_its_gate_holds_the_monitor_but_not_the_co
     let run = start_with(json!({}), Platform::Linux, voice, FakeAudio::new(), false);
     const HEADPHONES: &str = "alsa_output.headphones";
     assert_eq!(run.settings(json!({ "routing": "managed", "monitor": "on", "monitor_device": HEADPHONES }))["status"], 200);
-    eventually("the managed route is ready", || run.ui.ok("/get/data/voice_route", None)["ready"] == true);
+    route_settled(&run);
     run.ui.ok("/run/resume_voice", None);
     eventually("the gate opens", || !*gate.source_muted.lock().unwrap());
     let mic = source("Mic").id.to_json();
@@ -796,6 +805,7 @@ fn a_linux_conversion_is_monitored_and_its_gate_holds_the_monitor_but_not_the_co
     let (heard, written) = (monitor_bytes(), converted());
     eventually("the conversion goes on while muted", || converted() > written + 7680);
     assert_eq!(monitor_bytes(), heard, "the monitor went on while muted");
+    route_settled(&run);
     run.ui.ok("/run/resume_voice", None);
     eventually("the monitor hears it again", || monitor_bytes() > heard);
 
@@ -823,8 +833,10 @@ fn a_linux_conversion_is_monitored_and_its_gate_holds_the_monitor_but_not_the_co
     let (source_muted, direct_muted) = (*gate.source_muted.lock().unwrap(), *gate.direct_muted.lock().unwrap());
     assert_eq!(error_code(&start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))), "source_bridge_managed_required");
     run.ui.ok("/run/mute_voice", None);
+    route_settled(&run);
     run.ui.ok("/run/resume_voice", None);
-    std::thread::sleep(Duration::from_millis(200));
+    route_settled(&run);
+    assert_eq!(run.status()["muted"], false);
     assert_eq!((*gate.source_muted.lock().unwrap(), *gate.direct_muted.lock().unwrap()), (source_muted, direct_muted), "the external route touched the gate");
     run.ui.stop();
 }
@@ -837,7 +849,7 @@ fn a_monitor_that_does_not_open_never_stops_a_linux_conversion() {
     voice.fail_monitor(true);
     let run = start_with(json!({}), Platform::Linux, voice, FakeAudio::new(), false);
     assert_eq!(run.settings(json!({ "routing": "managed", "monitor": "on", "monitor_device": "alsa_output.headphones" }))["status"], 200);
-    eventually("the managed route is ready", || run.ui.ok("/get/data/voice_route", None)["ready"] == true);
+    route_settled(&run);
     run.ui.ok("/run/resume_voice", None);
     let mic = source("Mic").id.to_json();
     let (_files, options) = rvc_files("convert");
