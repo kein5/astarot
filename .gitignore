@@ -69,9 +69,10 @@ voice_mute_state.json
 # Personal Claude Code settings (not shared with the team)
 .claude/settings.local.json
 
-# Claude Code environment setup (not committed)
+# Agent environment setup (not committed), except the link to the shared skills in skills/
 CLAUDE.md
-.claude/
+.claude/*
+!/.claude/skills
 # Local review notes and probe output from audit/fix worktrees
 /.review/
 src-python/docs/ref/
