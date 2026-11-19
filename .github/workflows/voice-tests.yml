@@ -44,12 +44,13 @@ jobs:
           echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
       - if: runner.os == 'Linux'
         run: uv run --no-project python tools/build_voice_gate.py
-      # The real vrct-voice-gate refuses what it was not given, on a PipeWire and WirePlumber of
-      # its own (decision 89 in docs/voice-stack/core-integration.md). libclang: the crate binds
-      # libpipewire-0.3.
-      - name: Voice gate helper on a private PipeWire graph
+      # On a PipeWire and WirePlumber of their own: the real vrct-voice-gate refuses what it was
+      # not given (decision 89), and a conversion on the managed route captures its microphone
+      # and plays into the managed VC input (decision 11; docs/voice-stack/core-integration.md).
+      # libclang: the crate binds libpipewire-0.3.
+      - name: Voice gate helper and managed conversion devices on a private PipeWire graph
         if: runner.os == 'Linux'
-        run: cargo test --locked --manifest-path native/audio-routing/Cargo.toml --test voice_gate_private -- --ignored
+        run: cargo test --locked --manifest-path native/audio-routing/Cargo.toml --test voice_gate_private --test managed_vc_private -- --ignored
       - run: uv run --no-project python tools/dev.py check --scope tooling
       - run: uv run --no-project python tools/dev.py check --scope voice
       - run: uv run --no-project python tools/dev.py check --scope lint
