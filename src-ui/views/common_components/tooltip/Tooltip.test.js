@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 // The declarations a rule writes itself, before any nested rule.
@@ -42,4 +43,19 @@ test("the common tooltip and the settings' Hint draw the same bubble, and only i
     // The resend button's words take the bubble's size and colour, not their own.
     const resend = "../../app/main_page/main_section/message_container/log_box/message_container/message_sub_menu_container/";
     assert.doesNotMatch(read(resend + "MessageSubMenuContainer.module.scss"), /\.tooltip_title/);
+});
+
+test("the tooltip's parts carry shadcn/ui's data-slot", async () => {
+    const runtime = hooks();
+    const { Tooltip } = await loadModule(new URL("./Tooltip.tsx", import.meta.url), runtime);
+    const props = { title: "words", children: "button" };
+    const trigger = runtime.render(Tooltip, props);
+    assert.equal(trigger.props["data-slot"], "tooltip-trigger");
+    assert.equal(find(trigger, node => node.props?.["data-slot"] === "tooltip-content"), null, "closed at first");
+    trigger.props.onMouseEnter();
+    const content = find(runtime.render(Tooltip, props), node => node.props?.["data-slot"] === "tooltip-content");
+    assert.equal(content.props.children, "words");
+    runtime.unmount();
+    // The settings' Hint: its bubble is the content.
+    assert.match(read("../../app/config_page/setting_section/setting_box/_components/hint/Hint.jsx"), /role="tooltip" aria-hidden="true" data-slot="tooltip-content"/);
 });
