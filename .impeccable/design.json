@@ -67,9 +67,9 @@
       "name": "Settings navigation",
       "kind": "nav",
       "refersTo": "",
-      "description": "Settings navigation used by the studio forms.",
-      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">TTS</button><button>RVC</button></nav>",
-      "css": ".ds-nav{display:grid;gap:4px;background:#1c0f27;padding:10px}.ds-nav button{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;text-align:left;border:0;background:transparent}.ds-nav [aria-current]{background:#45306a}.ds-nav button:hover{background:#3f2f4e}.ds-nav button:focus-visible{outline:2px solid #d9c8fc;outline-offset:2px}"
+      "description": "The settings menu on the rail: one-line tabs under quiet group headings; the open page takes a deep Lilac fill, light Lilac text and a thin Lilac mark.",
+      "html": "<nav class=\"ds-nav\"><p>Voice and reading</p><button aria-current=\"page\">Text to speech</button><button>Voice changer</button></nav>",
+      "css": ".ds-nav{display:grid;gap:4px;background:#1c0f27;padding:10px}.ds-nav p{display:flex;align-items:center;min-height:24px;margin:0;padding:0 12px;font:600 12px/1.4 system-ui;color:#cfc4d6;white-space:nowrap}.ds-nav button{position:relative;display:flex;align-items:center;min-height:40px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:#fafafc;font:14px/1.4 system-ui;text-align:left;overflow:hidden;cursor:pointer}.ds-nav button:hover{background:#4e3d5d}.ds-nav button:active{background:#1c0f27}.ds-nav button[aria-current]{background:#4e2888;color:#d9c8fc;cursor:default}.ds-nav button[aria-current]::before{content:\"\";position:absolute;left:2px;top:50%;width:1px;height:20px;border-radius:1px;background:#b797f8;transform:translate(-50%,-50%)}.ds-nav button:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Explicit consent",
