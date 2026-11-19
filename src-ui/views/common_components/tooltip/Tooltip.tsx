@@ -27,8 +27,11 @@ export const Tooltip = ({ title, children, placement = "top", className, slotPro
     } catch {}
 
     return (
+        // Named as shadcn/ui's Tooltip parts: the wrapper takes the pointer and the focus, so it is
+        // the trigger; the bubble is the content.
         <div
             className={clsx(styles.tooltipWrapper, className)}
+            data-slot="tooltip-trigger"
             onMouseEnter={() => setIsVisible(true)}
             onMouseLeave={() => setIsVisible(false)}
             onFocus={() => setIsVisible(true)}
@@ -37,6 +40,7 @@ export const Tooltip = ({ title, children, placement = "top", className, slotPro
             {children}
             {isVisible && (
                 <div
+                    data-slot="tooltip-content"
                     className={clsx(styles.tooltipBox, styles[`placement-${placement}`])}
                     style={{ "--margin-bottom": marginBottom }}
                 >
