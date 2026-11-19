@@ -130,11 +130,16 @@ export const SearchBar = () => {
                 if (!e.currentTarget.contains(e.relatedTarget)) setIsFocused(false);
             }}
         >
-            <div className={styles.search_input_container}>
-                <SearchSvg className={styles.search_icon} />
+            {/* shadcn/ui's InputGroup, named by its data-slot. The addons only hold the icon and the
+                clear button; they do not take InputGroupAddon's role or its click-to-focus. */}
+            <div className={styles.search_input_container} data-slot="input-group">
+                <span className={styles.search_addon} data-slot="input-group-addon" data-align="inline-start">
+                    <SearchSvg className={styles.search_icon} />
+                </span>
                 <input
                     ref={inputRef}
                     type="text"
+                    data-slot="input-group-control"
                     className={styles.search_input}
                     role="combobox"
                     aria-label={t("config_page.search.label")}
@@ -149,15 +154,17 @@ export const SearchBar = () => {
                     onKeyDown={handleKeyDown}
                 />
                 {query.length > 0 && (
-                    <button
-                        type="button"
-                        className={styles.clear_button}
-                        onClick={handleClear}
-                        tabIndex={-1}
-                        aria-label={t("config_page.search.clear")}
-                    >
-                        <CancelSvg className={styles.clear_icon} />
-                    </button>
+                    <span className={styles.search_addon} data-slot="input-group-addon" data-align="inline-end">
+                        <button
+                            type="button"
+                            className={styles.clear_button}
+                            onClick={handleClear}
+                            tabIndex={-1}
+                            aria-label={t("config_page.search.clear")}
+                        >
+                            <CancelSvg className={styles.clear_icon} />
+                        </button>
+                    </span>
                 )}
             </div>
 

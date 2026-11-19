@@ -28,7 +28,7 @@ export const LanguageSelector = ({ title, hint, onClickFunction }) => {
             <LanguageSelectorTopBar title={title}/>
             <div className={styles.language_list_scroll_wrapper}>
                 <div className={styles.filter_row}>
-                    <input ref={filter} type="search" className={styles.filter} value={query}
+                    <input ref={filter} type="search" data-slot="input" className={styles.filter} value={query}
                         placeholder={t("main_page.language_selector.filter")} aria-label={t("main_page.language_selector.filter")}
                         aria-describedby={hint ? hint_id : undefined}
                         onChange={event => setQuery(event.target.value)}

@@ -34,3 +34,8 @@ test("without a hint the search field has no description", async () => {
     assert.equal(search.props["aria-describedby"], undefined);
     assert.equal(find(tree, node => node.type === "p" && node.props.className === "hint"), null);
 });
+
+test("the language search field is named as shadcn/ui's Input", async () => {
+    const tree = await selector({});
+    assert.equal(find(tree, node => node.type === "input").props["data-slot"], "input");
+});
