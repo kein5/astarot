@@ -5,7 +5,9 @@ import { useI18n } from "@useI18n";
 import { Hint, useHintDescriptions } from "../hint/Hint";
 
 export interface RadioOption {
-    id: string;
+    // A string as a rule. The flow strip's caption count has numbers, which the choice sends back
+    // as they are.
+    id: string | number;
     label: ReactNode;
     desc?: ReactNode;
     // "warning" keeps the description on screen, in the warning color.
@@ -28,7 +30,7 @@ export interface RadioButtonProps<O extends RadioOption = RadioOption> {
     groups?: readonly RadioGroup<O>[];
     // The chosen option's id, as the store holds it: "pending" while a choice waits on the engine.
     checked_variable: { state?: string; data?: unknown };
-    selectFunction: (id: string) => void;
+    selectFunction: (id: O["id"]) => void;
     column?: boolean;
     // Names the choice when no aria-labelledby is given.
     label?: string;

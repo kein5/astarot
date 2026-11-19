@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import type { MutableRefObject } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
 import styles from "./Vr.module.scss";
@@ -29,11 +30,29 @@ import TriangleSvg from "@images/triangle.svg?react";
 import { randomIntMinMax } from "@utils";
 import { DesktopCaptionOverlay } from "./DesktopCaptionOverlay";
 import { OverlayFontFamily } from "./OverlayFontFamily";
+import type { AtomState } from "@store";
+import type { StdoutResult } from "../../../../../../logics/common/useStdoutToPython.ts";
+import type { OverlayLogSettings } from "../../../../../../logics/configs/config_page_setter/settingTypes.ts";
+
+// The steps and limits of an overlay log's sliders (ui_configs.overlay_small_log, the same for both logs).
+type OverlayLimits = typeof ui_configs.overlay_small_log;
+// The settings that have a slider with step buttons: the position, the rotation and the size.
+type OverlayAxis = keyof OverlayLimits;
+// Changes one setting of the overlay log being edited.
+type ChangeOverlay = <K extends keyof OverlayLogSettings>(key: K, value: OverlayLogSettings[K]) => void;
+type Timer = ReturnType<typeof setTimeout>;
+
+// The settings the backend saved, as it answered a write. Declared, not checked, like the
+// setting's atom and the settings draft's answeredValue (useSettingsDraft.tsx).
+function answeredSettings(result: unknown): OverlayLogSettings;
+function answeredSettings(result: unknown): unknown {
+    return result;
+}
 
 export const Vr = () => {
     const { t } = useI18n();
     const [is_opened_small_settings, setIsOpenedSmallSettings] = useState(true);
-    const resetEditor = useRef(null);
+    const resetEditor = useRef<(() => void) | null>(null);
     const toggleIsOpenedSmallSettings = () => {
         setIsOpenedSmallSettings(!is_opened_small_settings);
     };
@@ -50,7 +69,7 @@ export const Vr = () => {
         currentOverlayShowOnlyTranslatedMessages,
         currentVoiceTypingMode,
     } = useVr();
-    const onOff = current => t(current?.data === true ? "config_page.advanced_status.on" : "config_page.advanced_status.off");
+    const onOff = (current: AtomState<boolean>) => t(current?.data === true ? "config_page.advanced_status.on" : "config_page.advanced_status.off");
 
 
     const restoreDefaultSettings = () => {
@@ -136,6 +155,17 @@ export const Vr = () => {
     );
 };
 
+// One overlay log's editor. `resetRef` lets the page's "restore defaults" put the editor back too.
+type OverlaySettingsContainerProps = {
+    current_overlay_settings: OverlayLogSettings;
+    state: string;
+    setOverlaySettings: (value?: unknown) => Promise<StdoutResult>;
+    ui_configs: OverlayLimits;
+    default_ui_configs: OverlayLogSettings;
+    id: string;
+    resetRef: MutableRefObject<(() => void) | null>;
+};
+
 const OverlaySettingsContainer = ({
     current_overlay_settings,
     state,
@@ -144,11 +174,11 @@ const OverlaySettingsContainer = ({
     default_ui_configs,
     id,
     resetRef,
-}) => {
+}: OverlaySettingsContainerProps) => {
     const { t } = useI18n();
     const [settings, setSettings] = useState(current_overlay_settings);
     const settingsRef = useRef(settings);
-    const timerRef = useRef(null);
+    const timerRef = useRef<Timer | null>(null);
     const editVersion = useRef(0);
     const pendingWrites = useRef(0);
     const confirmedRef = useRef(current_overlay_settings);
@@ -167,10 +197,10 @@ const OverlaySettingsContainer = ({
         setIsOpenedPositionController(!is_opened_position_controller);
     };
 
-    useEffect(() => () => { clearTimeout(timerRef.current); editVersion.current++; }, []);
+    useEffect(() => () => { clearTimeout(timerRef.current ?? undefined); editVersion.current++; }, []);
     useEffect(() => {
         resetRef.current = () => {
-            clearTimeout(timerRef.current);
+            clearTimeout(timerRef.current ?? undefined);
             timerRef.current = null;
             editVersion.current++;
             settingsRef.current = default_ui_configs;
@@ -179,8 +209,8 @@ const OverlaySettingsContainer = ({
         return () => { resetRef.current = null; };
     }, [resetRef, default_ui_configs]);
 
-    const updateSettings = (key, value) => {
-        clearTimeout(timerRef.current);
+    const updateSettings: ChangeOverlay = (key, value) => {
+        clearTimeout(timerRef.current ?? undefined);
         timerRef.current = null;
         editVersion.current++;
         settingsRef.current = { ...settingsRef.current, [key]: value };
@@ -192,8 +222,9 @@ const OverlaySettingsContainer = ({
         try {
             const response = await setOverlaySettings(settingsRef.current);
             if (version !== editVersion.current) return;
-            const confirmed = response?.status === 200 ? response.result
-                : response === false || response?.status ? confirmedRef.current : null;
+            const reply = typeof response === "object" && response !== null ? response : null;
+            const confirmed = reply?.status === 200 ? answeredSettings(reply.result)
+                : response === false || reply?.status ? confirmedRef.current : null;
             if (confirmed) {
                 settingsRef.current = confirmed;
                 setSettings(confirmed);
@@ -202,14 +233,14 @@ const OverlaySettingsContainer = ({
             pendingWrites.current--;
         }
     };
-    const onChangeFunction = (key, value) => {
+    const onChangeFunction: ChangeOverlay = (key, value) => {
         updateSettings(key, value);
         timerRef.current = setTimeout(() => {
             timerRef.current = null;
             sendSettings();
         }, 50);
     };
-    const selectFunction = (key, value) => {
+    const selectFunction: ChangeOverlay = (key, value) => {
         updateSettings(key, value);
         sendSettings();
     };
@@ -257,7 +288,15 @@ const OverlaySettingsContainer = ({
 };
 
 
-const PageSwitcherContainer = (props) => {
+type PageSwitcherContainerProps = {
+    toggleFunction: () => void;
+    // true while the first half is shown.
+    is_selected: boolean;
+    label_1: string;
+    label_2: string;
+};
+
+const PageSwitcherContainer = (props: PageSwitcherContainerProps) => {
     const toggle_button_class_names__position = clsx(styles.controller_type_switcher, {
         [styles.is_selected]: props.is_selected,
     });
@@ -266,7 +305,7 @@ const PageSwitcherContainer = (props) => {
     });
 
     // Two pressable halves; choosing the shown half changes nothing.
-    const half = (selected, className, label) => {
+    const half = (selected: boolean, className: string, label: string) => {
         const choose = () => { if (!selected) props.toggleFunction(); };
         return (
             <div className={className} role="button" tabIndex={0} aria-pressed={selected} onClick={choose}
@@ -285,7 +324,16 @@ const PageSwitcherContainer = (props) => {
 };
 
 
-export const PositionControls = ({ settings, onChangeFunction, selectFunction, ui_configs, default_ui_configs }) => {
+// The sliders of the position or the rotation; `selectFunction` sends a value at once (a reset).
+type AxisControlsProps = {
+    settings: OverlayLogSettings;
+    onChangeFunction: ChangeOverlay;
+    selectFunction: ChangeOverlay;
+    ui_configs: OverlayLimits;
+    default_ui_configs: OverlayLogSettings;
+};
+
+export const PositionControls = ({ settings, onChangeFunction, selectFunction, ui_configs, default_ui_configs }: AxisControlsProps) => {
     const { t } = useI18n();
 
     const {
@@ -406,7 +454,7 @@ export const PositionControls = ({ settings, onChangeFunction, selectFunction, u
     );
 };
 
-export const RotationControls = ({ settings, onChangeFunction, selectFunction, ui_configs, default_ui_configs }) => {
+export const RotationControls = ({ settings, onChangeFunction, selectFunction, ui_configs, default_ui_configs }: AxisControlsProps) => {
     const { t } = useI18n();
 
     const {
@@ -530,9 +578,19 @@ export const RotationControls = ({ settings, onChangeFunction, selectFunction, u
 };
 
 // Step buttons beside a VR position or rotation slider; `label` names the axis.
-const AdjustButtonContainer = ({ wrapper_class_name, is_max, is_min, countUp, countDown, label, up_decreases = false }) => {
+type AdjustButtonContainerProps = {
+    wrapper_class_name?: string;
+    is_max: boolean;
+    is_min: boolean;
+    countUp: () => void;
+    countDown: () => void;
+    label?: string;
+    up_decreases?: boolean;
+};
+
+const AdjustButtonContainer = ({ wrapper_class_name, is_max, is_min, countUp, countDown, label, up_decreases = false }: AdjustButtonContainerProps) => {
     const { t } = useI18n();
-    const step = (disabled, run, key, extra) => (
+    const step = (disabled: boolean, run: () => void, key: string, extra: Record<string, boolean>) => (
         <div
             className={clsx(styles.button_wrapper, { [styles.is_disabled]: disabled, ...extra })}
             role="button" tabIndex={0} aria-disabled={disabled || undefined}
@@ -553,7 +611,13 @@ const AdjustButtonContainer = ({ wrapper_class_name, is_max, is_min, countUp, co
 };
 
 
-const OtherControls = ({settings, onChangeFunction, ui_configs}) => {
+type OtherControlsProps = {
+    settings: OverlayLogSettings;
+    onChangeFunction: ChangeOverlay;
+    ui_configs: OverlayLimits;
+};
+
+const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsProps) => {
     const { t } = useI18n();
 
     const ui_variable_opacity = (settings.opacity * 100).toFixed(0);
@@ -609,7 +673,7 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}) => {
                     className={clsx(styles.other_controls_slider, styles.display_duration_slider)}
                     no_padding={true}
                     variable={settings.display_duration}
-                    valueLabelFormat={value => t("config_page.common.duration_seconds", { count: value })}
+                    valueLabelFormat={value => t("config_page.common.duration_seconds", { count: Number(value) })}
                     step={1}
                     min={1}
                     max={60}
@@ -626,7 +690,7 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}) => {
                     className={clsx(styles.other_controls_slider, styles.fadeout_duration_slider)}
                     no_padding={true}
                     variable={settings.fadeout_duration}
-                    valueLabelFormat={value => t("config_page.common.duration_seconds", { count: value })}
+                    valueLabelFormat={value => t("config_page.common.duration_seconds", { count: Number(value) })}
                     step={1}
                     min={0}
                     max={5}
@@ -727,13 +791,13 @@ const SendSampleTextToggleButton = () => {
 
 
 
-const useVariableControl = (key, settings, onChangeFunction, ui_configs) => {
+const useVariableControl = (key: OverlayAxis, settings: OverlayLogSettings, onChangeFunction: ChangeOverlay, ui_configs: OverlayLimits) => {
     const [variable_display, setVariableDisplay] = useState("auto");
 
     const [is_max, setIsMax] = useState(settings[key] >= ui_configs[key].max);
     const [is_min, setIsMin] = useState(settings[key] <= ui_configs[key].min);
 
-    const timerRef = useRef();
+    const timerRef = useRef<Timer | undefined>(undefined);
 
     useEffect(() => {
         return () => {

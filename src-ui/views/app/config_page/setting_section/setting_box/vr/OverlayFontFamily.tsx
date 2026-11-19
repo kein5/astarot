@@ -26,7 +26,7 @@ export const OverlayFontFamily = () => {
 
     const fonts = currentSelectableFontFamilyList.data ?? {};
     const selected = currentOverlayFontFamily.data ?? "";
-    const list = { "": t("config_page.vr.overlay_font_family.auto") };
+    const list: Record<string, string> = { "": t("config_page.vr.overlay_font_family.auto") };
     // A saved font that is gone stays listed with a note (the subtitles use the automatic fonts).
     if (selected !== "" && Object.keys(fonts).length && !(selected in fonts)) {
         list[selected] = t("config_page.vr.overlay_font_family.not_installed", { name: selected });

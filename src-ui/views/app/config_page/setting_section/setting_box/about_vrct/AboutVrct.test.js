@@ -82,7 +82,7 @@ for (const language of ["en", "ja"]) {
         const translation = await translate(language), runtime = hooks();
         const settings = { opacity: 1, ui_scaling: 1, display_duration: 1, fadeout_duration: 2 };
         const controls = { ui_scaling: {}, display_duration: {}, fadeout_duration: {} };
-        const { Vr } = await loadModule(new URL("../vr/Vr.jsx", import.meta.url), runtime, {
+        const { Vr } = await loadModule(new URL("../vr/Vr.tsx", import.meta.url), runtime, {
             "@useI18n": { useI18n: () => translation },
             "@ui_configs": { ui_configs: { overlay_small_log: controls } },
             "../_components": { Slider: "slider", SectionLabelComponent: "heading" }, "../_components/form_row/FormRow": { FormRow: "form-row" },

@@ -6,6 +6,7 @@ import { ui_configs } from "@ui_configs";
 import { SectionLabelComponent } from "../_components";
 import { ActionButtonContainer, CheckboxContainer, RadioButtonContainer, SliderContainer } from "../_templates/Templates";
 import { placementOf } from "../../../../../../logics/captionOverlay/adjust";
+import type { OverlayDesktopSettings, SettingValues } from "../../../../../../logics/configs/config_page_setter/settingTypes.ts";
 import RedoSvg from "@images/redo.svg?react";
 import CheckMarkSvg from "@images/check_mark.svg?react";
 import styles from "./Vr.module.scss";
@@ -15,7 +16,13 @@ import styles from "./Vr.module.scss";
 // offered a switch that does nothing.
 // part: "enable" is the switch, in sight on the page; "details" is where the captions sit and
 // how they look, in the page's 「詳細設定」 (#554).
-export const DesktopCaptionOverlay = ({ part }) => {
+type IoFlowOverlaySettings = SettingValues["IoFlowOverlaySettings"];
+
+type DesktopCaptionOverlayProps = {
+    part: "enable" | "details";
+};
+
+export const DesktopCaptionOverlay = ({ part }: DesktopCaptionOverlayProps) => {
     const { t } = useI18n();
     const {
         currentIsEnabledOverlayDesktop,
@@ -37,11 +44,12 @@ export const DesktopCaptionOverlay = ({ part }) => {
 
     const settings = currentOverlayDesktopSettings.data;
     const state = currentOverlayDesktopSettings.state;
-    const change = (key, value) => setOverlayDesktopSettings({ ...settings, [key]: value });
+    const change = <K extends keyof OverlayDesktopSettings>(key: K, value: OverlayDesktopSettings[K]) =>
+        setOverlayDesktopSettings({ ...settings, [key]: value });
     const moved = placementOf(currentOverlayDesktopPlacement?.data) !== null;
     const unplace = () => setOverlayDesktopPlacement(ui_configs.overlay_desktop_default_placement);
     // Choosing an edge puts a dragged window back on it, so the choice is seen to work.
-    const choosePosition = value => {
+    const choosePosition = (value: string) => {
         change("position", value);
         if (moved) unplace();
     };
@@ -56,7 +64,8 @@ export const DesktopCaptionOverlay = ({ part }) => {
     // The flow strip shares the caption window; it can be on while captions are off.
     const flow = currentIoFlowOverlaySettings.data;
     const flowState = currentIoFlowOverlaySettings.state;
-    const changeFlow = (key, value) => setIoFlowOverlaySettings({ ...flow, [key]: value });
+    const changeFlow = <K extends keyof IoFlowOverlaySettings>(key: K, value: IoFlowOverlaySettings[K]) =>
+        setIoFlowOverlaySettings({ ...flow, [key]: value });
     if (part === "enable") return (
         <div className={styles.common_container}>
             <SectionLabelComponent label={t("config_page.vr.section_label_desktop_overlay")} />
@@ -109,7 +118,7 @@ export const DesktopCaptionOverlay = ({ part }) => {
             <SliderContainer
                 setting_id="desktop_overlay_display_duration"
                 label={t("config_page.vr.desktop_overlay_display_duration.label")}
-                valueLabelFormat={value => t("config_page.common.duration_seconds", { count: value })}
+                valueLabelFormat={value => t("config_page.common.duration_seconds", { count: Number(value) })}
                 state={state}
                 variable={settings.display_duration}
                 setterFunction={value => change("display_duration", value)}
