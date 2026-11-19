@@ -71,18 +71,19 @@ struct Folders {
 fn folders(executable: &Path) -> Folders {
     let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     let linux_bundle = cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1");
-    let xdg = |variable: &str, override_variable: &str, fallback: &str| {
-        if let Some(dir) = std::env::var_os(override_variable).filter(|v| !v.is_empty()) {
+    // ASTAROT_CONFIG_DIR and ASTAROT_DATA_DIR, or the VRCT_ names 0.5.x documented.
+    let xdg = |variable: &str, configured: app_identity::env::Variable, fallback: &str| {
+        if let Some(dir) = configured.value_os() {
             return PathBuf::from(dir);
         }
         let base = std::env::var_os(variable).map(PathBuf::from).filter(|p| p.is_absolute());
         base.unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(fallback)).join(app_identity::LINUX_FOLDER.current())
     };
-    let configured = std::env::var_os("VRCT_CONFIG_DIR").filter(|v| !v.is_empty()).map(PathBuf::from);
+    let configured = app_identity::env::CONFIG_DIR.value_os().map(PathBuf::from);
     let state_dir = configured.unwrap_or_else(|| {
-        if linux_bundle { xdg("XDG_CONFIG_HOME", "VRCT_CONFIG_DIR", ".config") } else { app_dir.clone() }
+        if linux_bundle { xdg("XDG_CONFIG_HOME", app_identity::env::CONFIG_DIR, ".config") } else { app_dir.clone() }
     });
-    let data_dir = if linux_bundle { xdg("XDG_DATA_HOME", "VRCT_DATA_DIR", ".local/share") } else { app_dir.clone() };
+    let data_dir = if linux_bundle { xdg("XDG_DATA_HOME", app_identity::env::DATA_DIR, ".local/share") } else { app_dir.clone() };
     Folders { state_dir, app_dir, data_dir }
 }
 
