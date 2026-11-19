@@ -23,11 +23,23 @@ import {
     RadioButton,
 } from "../_components";
 import { Checkbox } from "@common_components";
+import type { CheckboxValue } from "../../../../../common_components/checkbox/Checkbox";
+import type { AtomState } from "@store";
+import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+
+// Which part of a device container a place draws: the device rows, or the sensitivity in 「詳細設定」.
+type ContainerPart = "device" | "sensitivity";
+
+export interface AutoSelectCheckboxProps {
+    secondary_label?: string;
+    variable: CheckboxValue;
+    toggleFunction?: () => void;
+}
 
 // "Auto select" in a device row: a settings checkbox with its name beside it, like
 // every other on/off setting (#436). It heads the field column, over the lists it chooses for,
 // on the microphone and the speaker alike, so which choice it makes is read from where it is.
-export const AutoSelectCheckbox = ({ secondary_label, variable, toggleFunction }) => (
+export const AutoSelectCheckbox = ({ secondary_label, variable, toggleFunction }: AutoSelectCheckboxProps) => (
     <div className={styles.auto_select}>
         <Checkbox show_label label={secondary_label} variable={variable} toggleFunction={toggleFunction}
             size="2.4rem" padding="0.8rem" />
@@ -41,7 +53,7 @@ export const Device = () => {
     const { t } = useI18n();
     const { currentMicVadFilter, currentEnableAutomaticMicThreshold, currentSpeakerVadFilter,
         currentEnableAutomaticSpeakerThreshold, currentVadAvailable } = useDevice();
-    const mode = (vad, automatic) => currentVadAvailable.data === true && vad.data === true ? "option_vad"
+    const mode = (vad: AtomState<boolean>, automatic: AtomState<boolean>) => currentVadAvailable.data === true && vad.data === true ? "option_vad"
         : automatic.data === true ? "option_auto" : "option_manual";
     // Reviewed against #614: the rows' descriptions are their labels' hints.
     return (
@@ -64,7 +76,7 @@ export const Device = () => {
     );
 };
 
-const MicContainer = ({ part }) => {
+const MicContainer = ({ part }: { part: ContainerPart }) => {
     const { t } = useI18n();
     const {
         currentEnableAutoMicSelect,
@@ -84,11 +96,11 @@ const MicContainer = ({ part }) => {
         currentVadAvailable,
     } = useDevice();
 
-    const selectFunction_host = (selected_data) => {
+    const selectFunction_host = (selected_data: DropdownSelection) => {
         setSelectedMicHost(selected_data.selected_id);
     };
 
-    const selectFunction_device = (selected_data) => {
+    const selectFunction_device = (selected_data: DropdownSelection) => {
         setSelectedMicDeviceId(selected_data.selected_id);
     };
 
@@ -104,7 +116,7 @@ const MicContainer = ({ part }) => {
         return "manual";
     };
 
-    const setMicSensitivityMode = (id) => {
+    const setMicSensitivityMode = (id: string) => {
         if (id === "vad") {
             if (!currentMicVadFilter.data) toggleMicVadFilter();
             return;
@@ -207,7 +219,7 @@ const MicContainer = ({ part }) => {
     );
 };
 
-const SpeakerContainer = ({ part }) => {
+const SpeakerContainer = ({ part }: { part: ContainerPart }) => {
     const { t } = useI18n();
     const {
         currentEnableAutoSpeakerSelect,
@@ -222,7 +234,7 @@ const SpeakerContainer = ({ part }) => {
         currentVadAvailable,
     } = useDevice();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedSpeakerDeviceId(selected_data.selected_id);
     };
 
@@ -237,7 +249,7 @@ const SpeakerContainer = ({ part }) => {
         return "manual";
     };
 
-    const setSpeakerSensitivityMode = (id) => {
+    const setSpeakerSensitivityMode = (id: string) => {
         if (id === "vad") {
             if (!currentSpeakerVadFilter.data) toggleSpeakerVadFilter();
             return;

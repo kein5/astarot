@@ -108,7 +108,7 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
 });
 
 test("speech recognition opens on the engine choice and its two systems; the rest is in 「詳細設定」, the timing numbers folded under a line that shows them", async () => {
-    const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), "utf8");
     const page = source.split("export const Transcription = () => {")[1].split("\n};")[0];
     const order = [...page.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1]);
     // The engine, then its two systems as the translation catalog splits them (#414): speech.cpp
@@ -130,7 +130,7 @@ test("speech recognition opens on the engine choice and its two systems; the res
     const SetupSection = () => null;
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const t = (key, options) => options ? `${key}:${Object.values(options).join(",")}` : key;
-    const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
+    const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t }) },
         "@logics_configs": { useTranscription: () => ({ currentMicRecordTimeout: { data: 3 }, currentMicPhraseTimeout: { data: 5 }, currentMicMaxWords: { data: 10 },
             currentSpeakerPhraseTimeout: { data: 4 }, currentSelectableTranscriptionEngines: { data: [] } }) },
@@ -153,7 +153,7 @@ test("speech recognition opens on the engine choice and its two systems; the res
 test("each API speech recognition provider is one fold; the selected one stays open, and the user's own server is marked as theirs", async () => {
     const runtime = hooks();
     const SetupSection = () => null;
-    const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), "utf8");
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" }, { id: "Deepgram", base: "Deepgram", key: "deepgram" },
         { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true, own: true }];
@@ -161,7 +161,7 @@ test("each API speech recognition provider is one fold; the selected one stays o
         currentCustomWhisperURL: { data: "" }, currentMicPhraseTimeout: { data: 5 }, currentSpeakerPhraseTimeout: { data: 4 },
         getSelectableTranscriptionEngines() {}, getSelectedTranscriptionEngine() {},
         ...Object.fromEntries(engines.map(engine => [`current${engine.base}AuthKey`, { data: null }])) };
-    const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), runtime, {
+    const transcription = await loadModule(new URL("./setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@logics_configs": { useTranscription: () => state },
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },

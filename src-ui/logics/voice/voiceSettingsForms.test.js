@@ -23,7 +23,7 @@ async function setup(context) {
             return owner.response;
         },
     };
-    for (const [index, file, name] of [[0, "device/VoiceRouteSettings.jsx", "VoiceRouteSettings"],
+    for (const [index, file, name] of [[0, "device/VoiceRouteSettings.tsx", "VoiceRouteSettings"],
         [1, "advanced_settings/VoiceSettings.jsx", "TtsOutputDeviceSettings"]]) {
         const runtime = hooks();
         runtimes.push(runtime);

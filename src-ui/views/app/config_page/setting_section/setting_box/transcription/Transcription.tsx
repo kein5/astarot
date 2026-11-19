@@ -7,6 +7,8 @@ import catalogStyles from "../advanced_settings/VoiceSettings.module.scss";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
 import { genNumObjArray } from "@utils";
 import { useEffect } from "react";
+import type { ReactNode } from "react";
+import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
 
 import {
     useTranscription,
@@ -14,6 +16,7 @@ import {
 } from "@logics_configs";
 
 import { CLOUD_TRANSCRIPTION_ENGINES } from "../../../../../../logics/configs/cloudTranscription";
+import type { CloudTranscriptionEngine } from "../../../../../../logics/configs/cloudTranscription";
 
 import {
     WordFilterContainer,
@@ -63,7 +66,7 @@ export const Transcription = () => {
 // the settings search leads for the texts config_page.transcription.<id>.
 const ENGINE_GROUPS = { speechcpp: "speechcpp_section", api: "cloud_section" };
 
-const EngineGroup = ({ group, children }) => {
+const EngineGroup = ({ group, children }: { group: "speechcpp" | "api"; children?: ReactNode }) => {
     const { t } = useI18n();
     const id = ENGINE_GROUPS[group];
     return (
@@ -83,7 +86,9 @@ const EngineGroup = ({ group, children }) => {
 // short and nothing has to be opened to see what is set.
 // `record` is the longest single recording (RECORD_TIMEOUT); `phrase` is how long after the
 // last speech the gathered audio becomes one message (PHRASE_TIMEOUT).
-const TimingFold = ({ record, phrase, queue, children }) => {
+type TimingFoldProps = { record?: number; phrase?: number; queue?: number; children?: ReactNode };
+
+const TimingFold = ({ record, phrase, queue, children }: TimingFoldProps) => {
     const { t } = useI18n();
     return (
         <SetupSection title={t("config_page.transcription.timing_title")}
@@ -113,7 +118,7 @@ const MicRecordTimeout_Box = () => {
     const { t } = useI18n();
     const { currentMicRecordTimeout, setMicRecordTimeout } = useTranscription();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setMicRecordTimeout(selected_data.selected_id);
     };
 
@@ -133,7 +138,7 @@ const MicPhraseTimeout_Box = () => {
     const { t } = useI18n();
     const { currentMicPhraseTimeout, setMicPhraseTimeout } = useTranscription();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setMicPhraseTimeout(selected_data.selected_id);
     };
 
@@ -153,7 +158,7 @@ const MicMaxWords_Box = () => {
     const { t } = useI18n();
     const { currentMicMaxWords, setMicMaxWords } = useTranscription();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setMicMaxWords(selected_data.selected_id);
     };
 
@@ -203,7 +208,7 @@ const SpeakerRecordTimeout_Box = () => {
     const { t } = useI18n();
     const { currentSpeakerRecordTimeout, setSpeakerRecordTimeout } = useTranscription();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSpeakerRecordTimeout(selected_data.selected_id);
     };
 
@@ -223,7 +228,7 @@ const SpeakerPhraseTimeout_Box = () => {
     const { t } = useI18n();
     const { currentSpeakerPhraseTimeout, setSpeakerPhraseTimeout } = useTranscription();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSpeakerPhraseTimeout(selected_data.selected_id);
     };
     return (
@@ -242,7 +247,7 @@ const SpeakerMaxWords_Box = () => {
     const { t } = useI18n();
     const { currentSpeakerMaxWords, setSpeakerMaxWords } = useTranscription();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSpeakerMaxWords(selected_data.selected_id);
     };
 
@@ -276,7 +281,7 @@ export const TranscriptionEngine_Box = () => {
     const { t } = useI18n();
     const { currentSelectedTranscriptionEngine, setSelectedTranscriptionEngine, currentSelectableTranscriptionEngines } = useTranscription();
     const available = currentSelectableTranscriptionEngines.data || [];
-    const engineLabel = key => t(`config_page.transcription.select_transcription_engine.engines.${key}`);
+    const engineLabel = (key: string) => t(`config_page.transcription.select_transcription_engine.engines.${key}`);
 
     const local = { id: "SpeechCpp", label: engineLabel("speechcpp") };
     // An API engine can be chosen once the backend has accepted its key.
@@ -309,6 +314,10 @@ export const TranscriptionEngine_Box = () => {
     );
 };
 
+// The engine whose settings hold a URL beside its key (has_url): the user's own Whisper server.
+const withUrl = (engine: CloudTranscriptionEngine): engine is CloudTranscriptionEngine & { base: "CustomWhisper" } =>
+    engine.has_url === true && engine.base === "CustomWhisper";
+
 // The APIs (#414): one fold per provider, as on the translation page, then the filter for what
 // the Whisper ones return. The user's own Whisper server comes last and is marked as theirs,
 // as the catalogs mark what the user added.
@@ -337,7 +346,7 @@ const CloudTranscription_Container = () => {
                         title={engine.own ? <>{name} <span className={catalogStyles.badge} data-tone="own">
                             {t("config_page.transcription.select_transcription_engine.badge_own")}</span></> : name}
                         status={t(`config_page.translation.provider_${in_use ? "in_use" : usable ? "ready" : "not_set"}`)}>
-                        {engine.has_url
+                        {withUrl(engine)
                             ? <CredentialPair settings={transcription} base={engine.base} provider={engine.key} section="transcription" />
                             : <CloudAuthKey_Box engine={engine} />}
                         <CloudModel_Box engine={engine} />
@@ -358,12 +367,13 @@ const WHISPER_FILTERS = [
     { base: "MicNoSpeechProb", key: "mic_no_speech_prob", min: 0, max: 1, step: 0.05, labels: [0, 0.25, 0.5, 0.75, 1] },
     { base: "SpeakerAvgLogprob", key: "speaker_avg_logprob", min: -2, max: 0, step: 0.05, labels: [-2, -1.5, -1, -0.5, 0] },
     { base: "SpeakerNoSpeechProb", key: "speaker_no_speech_prob", min: 0, max: 1, step: 0.05, labels: [0, 0.25, 0.5, 0.75, 1] },
-];
+] as const;
+type WhisperFilterBase = typeof WHISPER_FILTERS[number]["base"];
 
 const WhisperSegmentFilter_Box = () => {
     const { t } = useI18n();
     const transcription = useTranscription();
-    const value = base => transcription[`current${base}`].data;
+    const value = (base: WhisperFilterBase) => transcription[`current${base}`].data;
     return (
         <SetupSection title={t("config_page.transcription.whisper_filter.title")}
             status={t("config_page.transcription.whisper_filter.status", {
@@ -389,7 +399,12 @@ const WhisperSegmentFilter_Box = () => {
     );
 };
 
-const CloudAuthKey_Box = ({ engine }) => {
+// The key as the entry shows it. The save logic keeps whatever the backend answered with; React
+// shows any value other than text, null and undefined as its text, so it is turned into that.
+const entryText = (value: unknown): string | null | undefined =>
+    value === null || value === undefined || typeof value === "string" ? value : String(value);
+
+const CloudAuthKey_Box = ({ engine }: { engine: CloudTranscriptionEngine }) => {
     const { t } = useI18n();
     const transcription = useTranscription();
     const current = transcription[`current${engine.base}AuthKey`];
@@ -408,7 +423,7 @@ const CloudAuthKey_Box = ({ engine }) => {
             label={label}
             desc={engine.has_url ? t(`config_page.transcription.${engine.key}_auth_key.desc`) : undefined}
             webpage_url={engine.webpage_url}
-            variable={variable}
+            variable={entryText(variable)}
             state={current.state}
             onChangeFunction={onChangeFunction}
             saveFunction={saveFunction}
@@ -417,7 +432,7 @@ const CloudAuthKey_Box = ({ engine }) => {
     );
 };
 
-const CloudModel_Box = ({ engine }) => {
+const CloudModel_Box = ({ engine }: { engine: CloudTranscriptionEngine }) => {
     const { t } = useI18n();
     const transcription = useTranscription();
     const auth_key = transcription[`current${engine.base}AuthKey`];

@@ -184,7 +184,7 @@ test("settings keep the selected engine inside the radio row's accessible help",
     const s = await fixture(context);
     const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" },
         { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true, own: true }];
-    const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.jsx", import.meta.url), s.runtime, {
+    const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), s.runtime, {
         "@logics_configs": s.configs, "@utils": {},
         "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {},

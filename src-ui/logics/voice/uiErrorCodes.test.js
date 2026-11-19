@@ -13,7 +13,7 @@ const PAGES = [
         codes: ["source_bridge_request_failed", "save_unconfirmed", "backend_unavailable"] },
     { page: "RealtimeControls.tsx", sections: ["realtime_toggle", "voice_ui.errors"],
         codes: ["realtime_request_failed", "save_unconfirmed", "backend_unavailable"] },
-    { page: "RealtimeASRSettings.jsx", sections: ["realtime_toggle"],
+    { page: "RealtimeASRSettings.tsx", sections: ["realtime_toggle"],
         codes: ["realtime_request_failed", "save_unconfirmed", "backend_unavailable"] },
     { page: "VoiceSettings.jsx (voiceErrorText)", sections: ["voice_ui.errors", "voice.input_errors"],
         codes: ["save_unconfirmed", "voice_request_failed", "voice_request_unconfirmed", "backend_unavailable"] },

@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の `app/_app_controllers` の 2 回目を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の設定の「機器」と「音声認識」のページを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、636KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 46 本、406KB | 171 本、694KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、638KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 42 本、355KB | 175 本、749KB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers`（`StartPythonController` を除く）、`app/io_flow`、`app/main_page`、設定画面の部品とテンプレートは済み。`app` の残りの区画が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers`（`StartPythonController` を除く）、`app/io_flow`、`app/main_page`、設定画面の部品とテンプレート、設定のページの一部は済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -196,6 +196,12 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - プルダウンの一覧は `DropdownList`（届くまでは `[]`）、選択肢は `RadioOption` です。選択肢の型を引数に取るので、モデルの選択では各モデルの下の部品がそのモデルの選択肢を受け取ります。
 - 組み込みモデルの取得の確認（`LegacyModelDownloadDialog`）は、カタログをこの窓が読むフィールドだけの型（`ReviewCatalog`）として読みます。フックのカタログと同じく、宣言だけで実行時には確かめません。
 - 認証情報の組（`CredentialPair`）は、提供元の名前から `current${B}URL` と `current${B}AuthKey` のキーを組み立てて型にしています。
+
+設定のページは区画ごとに移します。1 回目で「機器」（`device/`）と「音声認識」（`transcription/`）を移しました。
+
+- `useRealtimeASR.ts` の型を、フックが読むフィールドだけを並べた形から、中核が送る形の宣言に変えました（`RealtimeAsrSettings` など）。宣言だけで、実行時には確かめません。
+- cloud の音声認識のエンジンの `base` は、4 つの値のユニオン型 `CloudTranscriptionBase`（`configs/cloudTranscription.ts`）です。
+- 保存のロジック（`useSaveButtonLogic`）が返す欄の値は `unknown` です。ページは、欄が表示するのと同じ文字列にしてから入力欄に渡します（`entryText`）。
 
 ### 第 7 段：試験とハーネス
 

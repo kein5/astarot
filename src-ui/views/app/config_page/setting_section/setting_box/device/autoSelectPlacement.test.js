@@ -9,7 +9,7 @@ const MultiDropdownMenuContainer = () => null, DropdownMenu = () => null, Checkb
 
 const load = async () => {
     const runtime = hooks();
-    const device = await loadModule(new URL("./Device.jsx", import.meta.url), runtime, {
+    const device = await loadModule(new URL("./Device.tsx", import.meta.url), runtime, {
         "./VoiceRouteSettings": { VoiceRouteSettings: () => null },
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "@ui_configs": { ui_configs: {} },
