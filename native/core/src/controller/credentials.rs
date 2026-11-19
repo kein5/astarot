@@ -123,6 +123,11 @@ impl Core {
         self.forget_models(service.list, service.selected);
         self.mark_unavailable("SELECTABLE_TRANSCRIPTION_ENGINE_STATUS", service.engine);
         self.update_transcription_engine(None);
+        // Decision 74 (b): with Deepgram selected, its languages are unknown now and the list
+        // grows to the whole table; Python did not tell the list again.
+        if service.engine == "Deepgram" && self.config().get_str("SELECTED_TRANSCRIPTION_ENGINE") == "Deepgram" {
+            self.notify("selectable_language_list", json!(self.language_and_country_list()));
+        }
         ok(self.config().get("TRANSCRIPTION_AUTH_KEYS")[service.engine].clone())
     }
 
