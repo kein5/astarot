@@ -35,6 +35,11 @@ impl Renamed {
         Renamed { legacy, astarot, writes_astarot: false }
     }
 
+    /// A name this build writes under its ASTAROT spelling, with the migration it needs.
+    const fn moved(legacy: &'static str, astarot: &'static str) -> Self {
+        Renamed { legacy, astarot, writes_astarot: true }
+    }
+
     /// The spelling this build writes, registers and creates.
     pub const fn current(&self) -> &'static str {
         if self.writes_astarot {
@@ -68,8 +73,9 @@ pub const APP_ID: Renamed = Renamed::not_moved("io.github.kein5.vrct-vox", "io.g
 pub const DESKTOP_FILE_MARKER: Renamed = Renamed::not_moved("X-VRCT-VOX-Generated", "X-ASTAROT-Generated");
 
 /// The folder the Linux packages keep settings, logs and models in, under `$XDG_CONFIG_HOME` and
-/// under `$XDG_DATA_HOME` (ADR-014, 2.4).
-pub const LINUX_FOLDER: Renamed = Renamed::not_moved("vrct-vox", "astarot");
+/// under `$XDG_DATA_HOME` (ADR-014, 2.4). The app moves the VRCT-VOX folder at its start and
+/// leaves a link with the old name (`vrct_core::storage::linux`).
+pub const LINUX_FOLDER: Renamed = Renamed::moved("vrct-vox", "astarot");
 
 /// The app's executable without `.exe` (`mainBinaryName` in `src-tauri/tauri.conf.json`), and the
 /// Linux window class, which follows it (`StartupWMClass`; ADR-014, 2.5 and 2.6).
@@ -192,22 +198,25 @@ mod tests {
     const VARIABLES: [Variable; 4] = [env::CONFIG_DIR, env::DATA_DIR, env::TELEMETRY, env::OPENVR_API];
     use env::Variable;
 
-    /// No name has moved yet: each moves in its own pull request, with its migration (ADR-014,
-    /// 5). The pull request that moves one changes its line here.
+    /// The names that moved, each in its own pull request with its migration (ADR-014, 5). The
+    /// pull request that moves another one adds it here.
+    const MOVED: [&str; 1] = ["LINUX_FOLDER"];
+
     #[test]
-    fn every_name_is_still_written_the_way_0_5_wrote_it() {
+    fn only_the_names_with_their_migration_are_written_the_astarot_way() {
         for (what, name) in ALL {
-            assert!(!name.writes_astarot, "{what}");
-            assert_eq!(name.current(), name.legacy, "{what}");
-            assert_eq!(name.other(), name.astarot, "{what}");
+            let moved = MOVED.contains(&what);
+            assert_eq!(name.writes_astarot, moved, "{what}");
+            assert_eq!(name.current(), if moved { name.astarot } else { name.legacy }, "{what}");
+            assert_eq!(name.other(), if moved { name.legacy } else { name.astarot }, "{what}");
         }
     }
 
     #[test]
-    fn the_values_written_are_those_of_0_5() {
+    fn the_values_written_are_those_of_0_5_but_the_linux_folder() {
         assert_eq!(APP_ID.current(), "io.github.kein5.vrct-vox");
         assert_eq!(DESKTOP_FILE_MARKER.current(), "X-VRCT-VOX-Generated");
-        assert_eq!(LINUX_FOLDER.current(), "vrct-vox");
+        assert_eq!(LINUX_FOLDER.current(), "astarot");
         assert_eq!(EXECUTABLE.current(), "vrct-vox");
         assert_eq!(LINUX_PACKAGE.current(), "vrct-vox");
         assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "VRCT-VOX-model-download-v1");
@@ -246,7 +255,7 @@ mod tests {
 
     #[test]
     fn a_moved_name_writes_astarot_and_still_knows_the_old_one() {
-        let moved = Renamed { writes_astarot: true, ..LINUX_FOLDER };
+        let moved = Renamed { writes_astarot: true, ..LINUX_PACKAGE };
         assert_eq!(moved.current(), "astarot");
         assert_eq!(moved.other(), "vrct-vox");
         assert!(moved.accepts("vrct-vox") && moved.accepts("astarot"));

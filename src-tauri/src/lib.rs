@@ -93,21 +93,9 @@ fn create_vr_panel_window<R: Runtime, M: Manager<R>>(manager: &M) -> tauri::Resu
     Ok(window)
 }
 
+/// `logs/startup.log` in the settings folder the backend uses.
 fn startup_log_path(executable_path: &Path) -> PathBuf {
-    if let Some(directory) = app_identity::env::CONFIG_DIR.value_os() {
-        return PathBuf::from(directory).join("logs/startup.log");
-    }
-    if cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1") {
-        let base = std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from).filter(|p| p.is_absolute())
-            .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config"));
-        return base.join(app_identity::LINUX_FOLDER.current()).join("logs/startup.log");
-    }
-    executable_path
-        .parent()
-        .unwrap_or(Path::new("."))
-        .join("logs")
-        .join("startup.log")
+    backend_host::state_dir(executable_path).join("logs").join("startup.log")
 }
 
 pub(crate) fn startup_log(message: &str) {
@@ -135,10 +123,19 @@ pub fn run() {
     // SAFETY: before Tauri, the backend or any other thread starts. ONNX Runtime reads the
     // variable when chat reading or translation first loads it; the RVC worker inherits it.
     unsafe { vrct_core::shipped_libraries::disable_onnx_runtime_telemetry() };
-    startup_log("VRCT startup began");
     // Before the backend starts: it learns from its environment where the VR page will be served.
     #[cfg(target_os = "linux")]
-    if vr_panel_surface::prepare().is_none() {
+    let vr_panel = vr_panel_surface::prepare();
+    // The folders, before anything reads them (the log below is in one of them) and after the
+    // environment above is set: on Linux the folders of 0.5.x move to their new names here.
+    let storage = std::env::current_exe().ok().and_then(|executable| backend_host::settle_folders(&executable));
+    startup_log("VRCT startup began");
+    if let Some(line) = storage {
+        // Result codes only: no path, no setting.
+        startup_log(&format!("Storage folders: {line}"));
+    }
+    #[cfg(target_os = "linux")]
+    if vr_panel.is_none() {
         startup_log("VR panel surface unavailable: no runtime directory");
     }
     let context = tauri::generate_context!();
