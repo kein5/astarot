@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
 import { ENTRY_NAME_LIMIT, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
 import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
 import { SectionLabelComponent } from "../_components";
+import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 
 // The translation catalog (#413): what translates, in two groups. The entries the app ships
@@ -34,6 +35,9 @@ const errorText = (t, code) => t([`translation_catalog.errors.${code}`, "transla
 
 const CatalogGroup = ({ group, catalog }) => {
     const { t } = useI18n();
+    const { send } = useTranslationCatalog();
+    // Which llama.cpp entries can run follows the server builds set up below.
+    const askAgain = useCallback(() => send("/get/data/translation_catalog"), [send]);
     const items = catalog[group] ?? [];
     const shipped = items.filter(item => item.origin === "builtin");
     const own = items.filter(item => item.origin !== "builtin");
@@ -48,6 +52,7 @@ const CatalogGroup = ({ group, catalog }) => {
                 <summary>{t("translation_catalog.shipped_title", { count: shipped.length })}</summary>
                 <ul className={styles.catalog}>{shipped.map(item => <ShippedCard key={item.id} group={group} item={item} />)}</ul>
             </details>
+            {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
         </div>
     );
