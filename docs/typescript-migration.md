@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の設定画面を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 4 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、643KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 2 本、12KB | 215 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/logics`（試験を除く） | 0 本 | 155 本、739KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 1 本、9KB | 216 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -33,9 +33,9 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 1 | 未移行の JavaScript を import しない `logics` の葉のモジュール | 済み |
 | 2 | データ層の根（ストアと IPC） | 済み |
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
-| 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
+| 4 | `logics` の大きなモジュール（1 本ずつ） | 済み。受け取る値は実行時に新しく確かめず、宣言で渡す（下の第 4 段） |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `VrApp` と `StartPythonController` を除いて済み。この 2 本は第 4 段の `useReceiveRoutes` と一緒に移す |
+| 6 | `views` | `VrApp` を除いて済み |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -71,7 +71,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 - `main/`（`languageMutations`、`useLanguageSettings`、`useMainFunction`、`useIsMainPageCompactMode`、`useMessageInputBoxRatio`、`useMessageLogScroll`）、`setup/useFirstRunSetup`
 - `common/` のフック 19 本（`useMessage`、`useNotificationStatus`、`useVolume`、`useHandleOscQuery` など）。`useNotificationStatus` と `useHandleOscQuery` が使う `TranslatedNotice`、`useMessage` を包む `MessageActions`、JSX を含まない `useIsVrctAvailable` も、第 5 段から前倒しして移しました。
 
-バックエンドの応答を受け取るフックは、フックが読むフィールドを並べた型を持ちます。読まないフィールドは開いたままにし（`[key: string]: unknown`）、設定画面などのビューが読みます。型は中核（`native/core`）が送る形と `docs/spec/` に合わせた宣言で、実行時には確かめません。前からフックが値を確かめていた所（流れの図、音声サーバーの状態の行、モデルの取得のハードウェアの一覧、登録したモデル、翻訳のカタログ）は、その確認を型ガードにしています。受け取る値を実行時に確かめるのは、受け取る側（第 4 段の `useReceiveRoutes`）を移すときに扱います。
+バックエンドの応答を受け取るフックは、フックが読むフィールドを並べた型を持ちます。読まないフィールドは開いたままにし（`[key: string]: unknown`）、設定画面などのビューが読みます。型は中核（`native/core`）が送る形と `docs/spec/` に合わせた宣言で、実行時には確かめません。前からフックが値を確かめていた所（流れの図、音声サーバーの状態の行、モデルの取得のハードウェアの一覧、登録したモデル、翻訳のカタログ）は、その確認を型ガードにしています。受け取る側（第 4 段の `useReceiveRoutes`）も、実行時に新しく確かめずに渡します。
 
 次の 5 本は設定のフック（`useTranslation`、`useTranscription`、`useOcr`、`useAppearance`）のフィールドを読みます。設定のフックは `ui_config_setter` が実行時に作るので、移す前は型が `{}` と推論され、キャストなしではフィールドを読めませんでした。そのため、第 4 段で `ui_config_setter` を移してから、この 5 本を移しました。
 
@@ -84,8 +84,8 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | ファイル | 行数 | 状態 |
 |---|---|---|
 | `configs/config_page_setter/ui_config_setter` | 約 1,470 | 済み |
-| `useReceiveRoutes.js` | 約 750 | 残り |
-| `_useBackendErrorHandling.js` | 約 690 | 残り |
+| `useReceiveRoutes` | 約 750 | 済み |
+| `_useBackendErrorHandling` | 約 690 | 済み |
 | `configs/config_page_setter/useSettingsLogics` | 約 470 | 済み |
 | `configs/config_page_setter/hotkeys/useHotkeys` | 約 470 | 済み |
 | `configs/config_page_setter/_aux/useConfigSearch` | 約 280 | 済み |
@@ -97,7 +97,12 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 - 設定のフック（`createCategoryHook`）が返すフィールドの型（`CategoryApi`）は、`SETTINGS_ARRAY` の `Category`、`Base_Name`、`logics_template_id`、`response_transform` から組み立てます。
 - 試験と `tools/spec_catalog.py` は `SETTINGS_ARRAY` の項目を文字列として読みます。型の定義を `settingTypes.ts` に分けたのはそのためです。項目のキーの並びも変えないでください。
 
-`useReceiveRoutes.js` と `_useBackendErrorHandling.js` は、バックエンドからの応答とエラーの形を扱います。どちらも受け取った値をそのまま設定の atom などに書き込みます。そのため型を付けるには、受け取る値を実行時にどこまで確かめるかを先に決める必要があります。IPC の契約を型にする作業なので、`docs/spec/` と食い違いがあれば、型で隠さずに報告します。第 3 段で移したフックと設定のフックは、受け取る値の型を引数に宣言しています。`useReceiveRoutes` を移すときは、その型に合うことを確かめてから渡します。
+`useReceiveRoutes` と `_useBackendErrorHandling` は、バックエンドからの応答とエラーの形を扱います。どちらも受け取った値をそのまま設定の atom などに書き込みます。振る舞いを変えないように、受け取る値を実行時に新しく確かめることはせず、すでにあった確認（初期化の値の確認、フックの中の型ガード）だけを残しました。どこまで確かめるかは、あとで決め直せるように宣言を 1 か所ずつに閉じ込めています（下の「型の厳しさ」）。`StartPythonController` も同じ PR で移しました。
+
+- 応答の枠は `readBackendResponse` で `BackendResponse`（`endpoint`、`status`、`result`）として読みます。ログ（348）には `endpoint` がないので、前と同じく `""` として読みます。数値の `status` がないものと、文字列でない `endpoint` を持つものは、入口で名前の付いた `TypeError` で止まり、セッションが記録します。
+- 応答の中の値をこのファイル自身が読む所（エラーコード、`data?.x` など）は、`fieldOf` で `?.` と同じように読み、型を確かめてから使います。仕様どおりの値では前と同じです。
+- cloud の音声認識の認証キーを書き戻す先は、`CloudTranscriptionBase` から名前を組み立てるので、宣言を足さずに型が付きます。
+- `tools/spec_catalog.py` は 2 本のソースを文字列として読み、経路の表とエラーコードを拾います。表の書き方は変えていません。
 
 `useHotkeys` は設定の一覧に依存しないので、ほかとは別に移しました。
 
@@ -154,7 +159,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 次の 6 本は、型を付ける作業が大きいので 2 回目に回しました。2 回目で、`StartPythonController` を除く 5 本を、設定画面の部品の後に移しました。`StartPythonController` は `useReceiveRoutes` と一緒に移します。
 
 - `FirstRunSetupController`、`VirtualMicGuideController`、`TranslationSetupController`: 設定画面の部品（`LegacyModelDownloadDialog` など、JavaScript）に props を渡します。部品の推論された型では渡せないものがあるので、部品にも型を付けます。
-- `StartPythonController`: 受け取った応答を `useReceiveRoutes`（JavaScript）に渡します。
+- `StartPythonController`: 受け取った応答を `useReceiveRoutes` に渡します（`useReceiveRoutes` と一緒に移しました）。
 - `VrPanelSyncController`: VR パネルから届く送信の要求を、確かめてからバックエンドへ渡します。届く値を確かめる型ガードが要ります。
 - `CaptionOverlayController`: 設定の値から、字幕の窓に渡す値（`CaptionSnapshot`）を組み立てます。
 
@@ -261,7 +266,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 下書きのフック（`useSettingsDraft.tsx`）の `answeredValue` も確かめられない宣言です。書き込みにバックエンドが答えた値を、保存した値と同じ型（`T`）として受け取ります（`savedFromResponse` があればその戻り値）。atom の値と同じく、宣言だけで確かめません。
 - VR の字幕のページ（`Vr.tsx`）の `answeredSettings` も同じ宣言です。書き込みにバックエンドが答えた設定を、オーバーレイのログの設定（`OverlayLogSettings`）として受け取ります。
 - `src-ui/cssProperties.d.ts` は、React の `CSSProperties` に `--` で始まる名前を足しています。インラインの style で CSS のカスタムプロパティ（`--checkbox-size` など）を渡すときに、`as CSSProperties` は要りません。
-- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。値を確かめるのは、応答を受け取ってフックに渡す側（`useReceiveRoutes`）です。そこが JavaScript のうちは、確かめずに渡ります。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
+- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。応答を受け取ってフックに渡す側（`useReceiveRoutes`）は、確かめずに渡します。経路の表が文字列で名指すフックと関数に `result` を届いたまま渡すことは、`useReceiveRoutes.ts` の型ガード `isCallable`（`(...args: unknown[]) => unknown`）の 1 か所で宣言しています。確かめるのは関数であることだけで、前と同じです。400 応答の `data` を設定に書き戻すときは、`_useBackendErrorHandling.ts` の `keptValue` のオーバーロードで、渡す先の `update…` の型として宣言します。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
 - 設定のフックは型の付いたフィールドを返します。`views` の TypeScript が型のなかったころに書いた `as { ... }` は、第 6 段で外しました。
 
 ## 移すときの手順
