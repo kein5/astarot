@@ -775,6 +775,20 @@ fn offer_monitor(shared: &Arc<Shared>, converted: &[u8], start_ns: i64) {
     }
 }
 
+/// `_capture_failed`: how a capture's failure ends the conversion. One of the capture's fixed
+/// codes is shown as it is, as Python showed it (the settings explain some of them); a code it
+/// does not know, or its generic `asr_capture_failed`, is `vc_capture_failed`. A conversion's own
+/// code (`vc_*`) is kept.
+fn capture_failure(code: &str) -> String {
+    if code.starts_with("vc_") {
+        return code.to_owned();
+    }
+    match vrct_audio_routing::windows_route::capture_code(code) {
+        "asr_capture_failed" => "vc_capture_failed".to_owned(),
+        known => known.to_owned(),
+    }
+}
+
 fn code_of(error: vrct_audio_routing::Error) -> String {
     if error.code.starts_with("vc_") || error.code.starts_with("source_bridge_") || error.code.starts_with("output_") {
         error.code
@@ -860,7 +874,7 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
         on_audio: Box::new(move |pcm| audio_to.upgrade().is_some_and(|shared| audio(&shared, pcm))),
         on_error: Box::new(move |code| {
             if let Some(shared) = errors_to.upgrade() {
-                fail(&shared, if code.starts_with("vc_") { code } else { "vc_capture_failed" });
+                fail(&shared, &capture_failure(code));
             }
         }),
     };
@@ -873,7 +887,7 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
         }
     }
     cancelled(shared)?;
-    lock(&capture).start().map_err(|e| if e.code.starts_with("vc_") { e.code } else { "vc_capture_failed".into() })?;
+    lock(&capture).start().map_err(|e| capture_failure(&e.code))?;
     {
         let mut state = lock(&shared.state);
         cancelled(shared)?;
@@ -1101,6 +1115,18 @@ mod tests {
         assert!(arrived - end >= 1_000_000 && arrived - end < 20_000_000, "{}", arrived - end);
         assert_eq!(end - start, 40_000_000);
         crate::protocol::require_fresh(end, arrived, crate::protocol::MANAGED_MAX_AGE_NS).expect("a block handed over whole is fresh");
+    }
+
+    #[test]
+    fn a_capture_failure_is_shown_by_the_captures_own_code_as_python_showed_it() {
+        // `_capture_failed` over `capture_error_code` (decision 3 of #733).
+        assert_eq!(super::capture_failure("asr_capture_start_timeout"), "asr_capture_start_timeout");
+        assert_eq!(super::capture_failure("asr_capture_stream_create_failed"), "asr_capture_stream_create_failed");
+        assert_eq!(super::capture_failure("asr_capture_stalled"), "asr_capture_stalled");
+        assert_eq!(super::capture_failure("asr_capture_failed"), "vc_capture_failed");
+        assert_eq!(super::capture_failure("asr_capture_endpoint_invalid"), "vc_capture_failed");
+        assert_eq!(super::capture_failure("a driver's own words"), "vc_capture_failed");
+        assert_eq!(super::capture_failure("vc_source_changed"), "vc_source_changed");
     }
 
     #[test]

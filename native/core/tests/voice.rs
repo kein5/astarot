@@ -865,6 +865,29 @@ fn a_monitor_that_does_not_open_never_stops_a_linux_conversion() {
 }
 
 #[test]
+fn a_capture_that_fails_ends_the_conversion_with_its_own_code() {
+    // Decision 3 of #733 (`_capture_failed`): a capture's fixed code is shown as it is; the
+    // settings explain some of them (`asr_capture_start_timeout`). Anything else is
+    // `vc_capture_failed`.
+    let run = converting_run();
+    let mic = source("Mic (Realtek)").id.to_json();
+    let (_files, options) = rvc_files("convert");
+    for (code, shown) in [
+        ("asr_capture_start_timeout", "asr_capture_start_timeout"),
+        ("asr_capture_stream_create_failed", "asr_capture_stream_create_failed"),
+        ("asr_capture_failed", "vc_capture_failed"),
+        ("the device said something", "vc_capture_failed"),
+    ] {
+        run.voice.fail_capture(Some(code));
+        assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options.clone() }))["status"], 200);
+        eventually("the conversion fails", || run.ui.ok("/get/data/direct_voice_state", None)["error"] == shown);
+        let state = run.ui.ok("/get/data/direct_voice_state", None);
+        assert_eq!((state["requested"].clone(), state["active"].clone()), (json!(false), json!(false)), "{code}: {state}");
+    }
+    run.ui.stop();
+}
+
+#[test]
 fn a_conversion_converts_in_the_block_of_the_advanced_settings() {
     // #531: 40 ms unless chosen. The worker is asked for the saved block when a conversion
     // starts, and the state says which one runs.
