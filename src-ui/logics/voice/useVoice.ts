@@ -31,8 +31,8 @@ export interface VoiceStatus extends RouteSnapshot {
 // The saved direct voice settings in its state. The RVC fields are what the main switch
 // starts RVC with (rvcStartOptions).
 export interface DirectVoiceSettings extends RvcSettings {
-    readonly mode?: unknown;
-    readonly engine?: unknown;
+    readonly mode?: string;
+    readonly engine?: string;
     readonly [key: string]: unknown;
 }
 
@@ -46,6 +46,12 @@ export interface DirectVoiceState extends RouteSnapshot {
     stopping?: unknown;
     error?: unknown;
     output_route?: unknown;
+    // The conversion while it runs: where it converts and its delays in ms, null until measured (conversionLatency.ts).
+    active?: unknown;
+    conversion_device?: unknown;
+    conversion_latency_ms?: number | null;
+    conversion_block_ms?: number | null;
+    round_trip_ms?: number | null;
     settings?: DirectVoiceSettings | null;
 }
 
@@ -74,7 +80,7 @@ export interface VoiceSource {
 // One input in the list: its identity and the name it is shown with.
 export interface VoiceSourceRow {
     readonly id: VoiceSource;
-    readonly label?: unknown;
+    readonly label?: string;
     readonly [key: string]: unknown;
 }
 
@@ -144,7 +150,8 @@ export interface VoiceRequestData {
     readonly url?: unknown;
     readonly catalog?: unknown;
     readonly mode?: unknown;
-    readonly options?: { readonly engine?: unknown } | null;
+    // A start's options: RVC's name their engine, Seed-VC's are its runtime and reference voice.
+    readonly options?: object | null;
     readonly request_id?: string;
     readonly [key: string]: unknown;
 }
@@ -171,6 +178,8 @@ const ttsPendingAtom = atom<VoiceRequest | null>(null), directPendingAtom = atom
 const directOwnerAtom = atom<unknown>(null);
 const directDraftBlockedAtom = atom(false);
 const inputOwner = (mode: unknown, engine: unknown): unknown => mode === "converted" ? engine || "rvc" : "passthrough";
+// The engine a start names in its options, as reading options.engine gave it.
+const engineOf = (options: object | null | undefined): unknown => options && "engine" in options ? options.engine : undefined;
 const isModelRole = (role: unknown): role is VoiceModelRole => role === "japanese" || role === "multilingual";
 // Keep the complete backend identity. Refresh never rebinds a selected name.
 export const sourceKey = (id: VoiceSource) => JSON.stringify([id.cookie, id.serial, id.name, id.media_class]);
@@ -293,7 +302,7 @@ export const useVoice = () => {
             const request: VoiceRequest = { intent: endpoint === "/run/enable_tts" || endpoint === "/run/start_direct_voice",
                 generation: (ttsCommand ? atoms.get(statusAtom).tts_generation : atoms.get(directStateAtom).generation) ?? -1 };
             if (directCommand) {
-                request.owner = request.intent ? inputOwner(data?.mode, data?.options?.engine) : atoms.get(directOwnerAtom);
+                request.owner = request.intent ? inputOwner(data?.mode, engineOf(data?.options)) : atoms.get(directOwnerAtom);
                 atoms.set(directOwnerAtom, request.owner);
             }
             pendingTarget = target;

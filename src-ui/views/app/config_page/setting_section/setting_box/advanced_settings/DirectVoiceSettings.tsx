@@ -21,10 +21,43 @@ import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { conversionDelaySeconds } from "../../../../../../logics/voice/conversionLatency";
 import { pathExample } from "../../../../../../logics/common/pathExample";
 import { MAX_RVC_THREADS, RVC_DEVICES, RVC_WORKER_DEFAULTS, rvcStartOptions } from "../../../../../../logics/voice/rvcStartOptions";
+import type { DirectVoiceSelection, DirectVoiceVariant } from "../../../../../../logics/voice/directVoiceDraft";
+import type { DirectVoiceSettings as SavedDirectVoice } from "../../../../../../logics/voice/useVoice";
+
+// The direct voice form: the mode, Seed-VC's and RVC's paths and RVC's numbers.
+interface DirectVoiceDraft extends DirectVoiceSelection {
+    mode: string;
+    runtime: string;
+    reference: string;
+    engine: string;
+    rvc_runtime: string;
+    rvc_model: string;
+    rvc_index: string;
+    rvc_pitch: number;
+    rvc_index_rate: number;
+    rvc_device: string;
+    rvc_threads: number;
+    rvc_highpass: boolean;
+}
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
+// The saved settings the backend answers a write with ({settings}). Like the atoms' values they are
+// declared, not checked. An answer that is not an object stops with a TypeError, as reading its
+// settings did before.
+const answeredSettings = (value: unknown): Partial<DirectVoiceDraft> | undefined => {
+    if (!isRecord(value)) throw new TypeError("The answer to the direct voice settings is not an object.");
+    return isRecord(value.settings) ? value.settings : undefined;
+};
+// The saved form. A draft exists only once it has arrived; without it the page stops with a
+// TypeError, as reading its paths did before.
+const savedForm = (saved: DirectVoiceDraft | null): DirectVoiceDraft => {
+    if (!saved) throw new TypeError("The direct voice settings are not loaded.");
+    return saved;
+};
 
 // RVC is the only conversion engine: Seed-VC ended with the Python backend (#391).
 const defaults = { mode: "passthrough", runtime: "", reference: "", engine: "rvc",
-    rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0, ...RVC_WORKER_DEFAULTS };
+    rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0, ...RVC_WORKER_DEFAULTS } satisfies DirectVoiceDraft;
 // The example in each path field (voice_ui.example), written the way this OS writes paths.
 const exampleFiles = { runtime: "seed-vc-runtime", reference: "reference.wav",
     rvc_runtime: "rvc-runtime", rvc_model: "voice.pth", rvc_index: "voice.index" };
@@ -33,25 +66,30 @@ const exampleNumbers = { rvc_pitch: 12, rvc_index_rate: 0.75 };
 
 // subheading: the form sits in a fold of its page (the RVC page's 「詳細設定」), so its title is
 // a subheading there rather than the page's category heading (DESIGN.md "Roles in settings").
-export const DirectVoiceSettings = ({ variant = "all", subheading = false }) => {
+export interface DirectVoiceSettingsProps {
+    variant?: DirectVoiceVariant;
+    subheading?: boolean;
+}
+
+export const DirectVoiceSettings = ({ variant = "all", subheading = false }: DirectVoiceSettingsProps) => {
     const { t, i18n } = useI18n();
     // A code's sentence with the code kept for reports, as on the main screen (#460).
     // Both forms are on the RVC page: the conversion, and input forwarding in its 「詳細設定」 (#554, Q-07).
-    const errorText = (code, first) => voiceErrorText(code, t("config_page.side_menu_labels.rvc"),
+    const errorText = (code: string, first?: string[]) => voiceErrorText(code, t("config_page.side_menu_labels.rvc"),
         t, key => i18n.exists(key), first);
     const { settings, route, error, directState, directOwner, directPending, directSources, directError, updateDirectError, send, setDirectDraftBlocked,
         selectedSource: selected, setSelectedSource: setSelected } = useVoice();
-    const saved = useMemo(() => directSavedDraft(defaults, directState.settings, variant), [directState.settings, variant]);
-    const busy = !!directPending || directState.requested || directState.pending || directState.stopping;
-    const validThreads = draft => Number.isInteger(draft.rvc_threads) && draft.rvc_threads >= 0 && draft.rvc_threads <= MAX_RVC_THREADS;
-    const validNumbers = draft => Number.isInteger(draft.rvc_pitch) && Math.abs(draft.rvc_pitch) <= 24 &&
+    const saved = useMemo<DirectVoiceDraft | null>(() => directSavedDraft(defaults, directState.settings, variant), [directState.settings, variant]);
+    const busy = !!directPending || !!directState.requested || !!directState.pending || !!directState.stopping;
+    const validThreads = (draft: DirectVoiceDraft) => Number.isInteger(draft.rvc_threads) && draft.rvc_threads >= 0 && draft.rvc_threads <= MAX_RVC_THREADS;
+    const validNumbers = (draft: DirectVoiceDraft) => Number.isInteger(draft.rvc_pitch) && Math.abs(draft.rvc_pitch) <= 24 &&
         Number.isFinite(draft.rvc_index_rate) && draft.rvc_index_rate >= 0 && draft.rvc_index_rate <= 1 && validThreads(draft);
     // The RVC page edits converted RVC. Until it is selected the page offers a button for
     // it; the save bar only saves the edits, with the mode as saved (#436).
-    const needsSelection = draft => directSelectionPending(draft, directState.settings, variant);
-    const label = ([name]) => t(name === "mode" ? "voice.direct_mode" : name === "engine" ? "voice.vc_engine" : `voice.vc_${name}`, { defaultValue: name });
+    const needsSelection = (draft: DirectVoiceDraft) => directSelectionPending(draft, directState.settings, variant);
+    const label = ([name]: string[]) => t(name === "mode" ? "voice.direct_mode" : name === "engine" ? "voice.vc_engine" : `voice.vc_${name}`, { defaultValue: name });
     const form = useSettingsDraft(saved, directError, updateDirectError, { label,
-        savedFromResponse: value => ({ ...defaults, ...value.settings }),
+        savedFromResponse: value => ({ ...defaults, ...answeredSettings(value) }),
         write: value => send("/set/data/direct_voice_settings", value), canSave: draft => !busy && validNumbers(draft) });
     const { draft, setDraft, saving, dirty } = form;
     const [selecting, setSelecting] = useState(false);
@@ -99,7 +137,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }) => 
     const startBlocked = !routeReady ? (deviceRoute ? "start_needs_output" : "start_needs_mic") : !source ? "start_needs_input" : !complete ? "start_needs_setup" :
         needsSelection(draft) ? "start_needs_rvc" : dirty || saving ? "start_needs_save" : !route.ready || route.pending || !directState.observation_id ? "start_waiting_route" :
         directSources.error ? "start_input_unavailable" : busy ? "start_running" : null;
-    const savedPaths = directState.settings || {};
+    const savedPaths: SavedDirectVoice = directState.settings || {};
     const setupStatus = [
         ...(converted ? [t(rvc ? (savedPaths.rvc_runtime ? "voice_ui.runtime_set" : "voice_ui.runtime_unset") : (savedPaths.runtime ? "voice_ui.runtime_set" : "voice_ui.runtime_unset")),
             t((rvc ? /\.pth$/i.test(savedPaths.rvc_model || "") : !!savedPaths.reference) ? "speech_servers.model_set" : "speech_servers.model_unset")] : []),
@@ -133,7 +171,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }) => 
                 <option value="converted">{t("voice.direct_converted")}</option>
             </select>
         </label>}
-        {converted && rvc && [["rvc_pitch", -24, 24, 1], ["rvc_index_rate", 0, 1, 0.05]].map(([name, min, max, step]) =>
+        {converted && rvc && ([["rvc_pitch", -24, 24, 1], ["rvc_index_rate", 0, 1, 0.05]] as const).map(([name, min, max, step]) =>
             <label key={name}>{t(`voice.vc_${name}`)}
                 <input type="number" min={min} max={max} step={step} disabled={busy}
                     placeholder={t("voice_ui.example", { value: exampleNumbers[name] })}
@@ -183,7 +221,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }) => 
         {/* In the control column, under the input it starts (#473, #478). */}
         <div className={`${styles.actions} ${styles.control_column}`}>
             <button type="button" className="primary" disabled={!!startBlocked} aria-describedby={startBlocked ? reasonId : undefined}
-                onClick={() => send("/run/start_direct_voice", converted ? {
+                onClick={() => source && send("/run/start_direct_voice", converted ? {
                     source: source.id, mode: "converted", options,
                 } : { source: source.id })}>{t("voice.input_start")}</button>
             <button type="button" className={styles.quiet} disabled={!ownsInput || !busy} onClick={() => send("/run/stop_direct_voice")}>{t("voice.input_stop")}</button>
@@ -199,9 +237,9 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }) => 
                     onFiles={paths => {
                         const model = paths.find(path => extensionOf(path) === ".pth");
                         const index = paths.find(path => extensionOf(path) === ".index");
-                        setDraft(current => ({ ...current, ...(model && { rvc_model: model }), ...(index && { rvc_index: index }) }));
+                        setDraft(current => current && ({ ...current, ...(model && { rvc_model: model }), ...(index && { rvc_index: index }) }));
                     }} />}
-                {(rvc ? ["rvc_runtime", "rvc_model", "rvc_index"] : ["runtime", "reference"]).map(name => <label key={name}>{t(`voice.vc_${name}`)}
+                {(rvc ? (["rvc_runtime", "rvc_model", "rvc_index"] as const) : (["runtime", "reference"] as const)).map(name => <label key={name}>{t(`voice.vc_${name}`)}
                     <input type="text" value={draft[name]} disabled={busy} maxLength={4096}
                         placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[name]) })}
                         onChange={e => setDraft({ ...draft, [name]: e.target.value })} />
@@ -213,7 +251,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }) => 
                 onUse={path => setDraft({ ...draft, [rvc ? "rvc_runtime" : "runtime"]: path })} />}
             {/* Other unsaved edits survive an apply; only edited model or index paths conflict. */}
             {rvc && <ModelDownloads targets={["rvc"]} blocked={busy || saving ? "busy" :
-                draft.rvc_model !== saved.rvc_model || draft.rvc_index !== saved.rvc_index ? "edited" : false}
+                draft.rvc_model !== savedForm(saved).rvc_model || draft.rvc_index !== savedForm(saved).rvc_index ? "edited" : false}
                 expected={{ rvc: { model: directState.settings?.rvc_model || "", index: directState.settings?.rvc_index || "" } }} />}
             {deviceRoute && !routeReady && <Description text={t("voice.input_requires_output")} />}
             {/* The route is unknown until the first state arrives, and Windows has no microphone to prepare. */}
@@ -229,9 +267,9 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }) => 
         {form.navigationDialog}
         {/* The TTS monitor setting also covers converted voice; it is fixed at Start. */}
         <p>{t(!converted ? "voice.vc_monitor_passthrough" : settings?.monitor === "on" ? "voice.vc_monitor_on" : "voice.vc_monitor_off")}</p>
-        {directState.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${directState.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
+        {!!directState.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${directState.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
         <Description text={t("voice.input_scope")} />
         {/* An unconfirmed save is not a reason the input cannot be forwarded: its sentence stands alone (#460). */}
-        {unavailable && <p role="alert">{unavailable.startsWith("save_") ? "" : `${t("voice.input_error")}: `}{errorText(unavailable)}</p>}
+        {!!unavailable && <p role="alert">{String(unavailable).startsWith("save_") ? "" : `${t("voice.input_error")}: `}{errorText(String(unavailable))}</p>}
     </section>;
 };

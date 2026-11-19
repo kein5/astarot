@@ -64,7 +64,7 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     const runtime = hooks();
     const DirectVoiceSettings = () => null, AdvancedSection = () => null;
     let voice = { directState: { active: true, mode: "passthrough" }, directOwner: "passthrough" };
-    const rvc = await loadModule(box("rvc/Rvc.jsx"), runtime, {
+    const rvc = await loadModule(box("rvc/Rvc.tsx"), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection },
@@ -83,7 +83,7 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     // The settings search still finds it, on the RVC page.
     const source = readFileSync(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), "utf8");
     assert.match(source, /tab: "rvc", setting_id: "direct_voice_settings", label: t\("voice\.input_title"\)/);
-    assert.match(read("advanced_settings/DirectVoiceSettings.jsx"), /data-setting-id=\{variant === "rvc" \? "rvc_settings" : "direct_voice_settings"\}/);
+    assert.match(read("advanced_settings/DirectVoiceSettings.tsx"), /data-setting-id=\{variant === "rvc" \? "rvc_settings" : "direct_voice_settings"\}/);
 });
 
 test("a fold marks its line while a row inside it has unsaved edits", async () => {

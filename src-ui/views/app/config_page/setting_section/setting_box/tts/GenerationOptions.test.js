@@ -87,7 +87,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
     const runtime = hooks();
     const draft = { mode: "converted", engine: "rvc", rvc_pitch: pitch, rvc_index_rate: rate,
         rvc_runtime: "", rvc_model: "", rvc_index: "", rvc_device: "auto", rvc_threads: threads, rvc_highpass: true };
-    const { DirectVoiceSettings } = await loadModule(new URL("../advanced_settings/DirectVoiceSettings.jsx", import.meta.url), runtime, {
+    const { DirectVoiceSettings } = await loadModule(new URL("../advanced_settings/DirectVoiceSettings.tsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft }) },
         "../../../../../../logics/voice/routeState": routeState,
         "../../../../../../logics/voice/directVoiceDraft": directVoiceDraft,
