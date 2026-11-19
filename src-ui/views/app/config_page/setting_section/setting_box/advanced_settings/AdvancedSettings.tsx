@@ -13,6 +13,8 @@ import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "../../../../../../l
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { shownTelemetry, telemetryUnanswered, toggleTelemetryOrAnswer } from "../../../../../../logics/configs/telemetryToggle";
+import type { DraftWriteValue } from "../../../../../../logics/voice/useSettingsDraft";
+import type { StdoutResult } from "@useStdoutToPython";
 
 import { useCopyToClipboard, useOpenFolder, useNotificationStatus } from "@logics_common";
 import {
@@ -36,6 +38,23 @@ import OpenFolderSvg from "@images/open_folder.svg?react";
 import CopyThinSvg from "@images/copy_thin.svg?react";
 import CheckMarkSvg from "@images/check_mark.svg?react";
 import RefreshSvg from "@images/refresh.svg?react";
+
+// The value in a field as the entry shows it: the saved value (a string or a number), what was
+// typed, or the value the backend answered a save with, written as React writes it into the field.
+const fieldValue = (value: unknown): string | number | null | undefined =>
+    typeof value === "string" || typeof value === "number" || value === null || value === undefined ? value : String(value);
+const fieldText = (value: unknown): string | null | undefined => value === null || value === undefined ? value : String(value);
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
+// The backend's answer to a request, when it answered with one (not a bare true or false).
+const answerOf = (response: StdoutResult | undefined) => typeof response === "object" && response !== null ? response : null;
+// The error code in a refused answer's result, if it names one.
+const errorCodeOf = (result: unknown): string | undefined =>
+    isRecord(result) && typeof result.error_code === "string" ? result.error_code : undefined;
+
+// The two paths of the TLS pair.
+type TlsField = "cert_file" | "key_file";
+type TlsPaths = Readonly<Record<TlsField, string>>;
 
 export const AdvancedSettings = () => {
     const { t } = useI18n();
@@ -96,7 +115,7 @@ export const RvcBlockMsContainer = () => {
             setting_id="rvc_block_ms"
             label={t("config_page.advanced_settings.rvc_block_ms.label")}
             desc={t("config_page.advanced_settings.rvc_block_ms.desc")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentRvcBlockMs.state}
@@ -121,7 +140,7 @@ export const OscIpAddressContainer = () => {
     return (
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.osc_ip_address.label")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentOscIpAddress.state}
@@ -137,18 +156,18 @@ export const OscPortContainer = () => {
     const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
         variable: currentOscPort.data,
         state: currentOscPort.state,
-        setFunction: (value) => setOscPort(parsePortInput(value)),
+        setFunction: (value: unknown) => setOscPort(parsePortInput(value)),
         label: t("config_page.advanced_settings.osc_port.label"),
     });
 
-    const onChangeFunction = (value) => {
+    const onChangeFunction = (value: string) => {
         if (value === "" || parsePortInput(value) !== null) rawOnChange(value);
     };
 
     return (
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.osc_port.label")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentOscPort.state}
@@ -272,7 +291,7 @@ const WebsocketHostContainer = () => {
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.websocket_host.label")}
             desc={t("config_page.advanced_settings.websocket_host.desc")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentWebsocketHost.state}
@@ -286,25 +305,27 @@ const WebsocketHostContainer = () => {
 const WebsocketTlsContainer = () => {
     const { t } = useI18n();
     const { currentWebsocketTls, setWebsocketTls } = useAdvancedSettings();
-    const [error, updateError] = useState(null);
-    const saved = useMemo(() => ({
+    const [error, updateError] = useState<string | null>(null);
+    const saved = useMemo<TlsPaths>(() => ({
         cert_file: currentWebsocketTls.data?.cert_file ?? "", key_file: currentWebsocketTls.data?.key_file ?? "",
     }), [currentWebsocketTls.data]);
-    const label = name => t(`config_page.advanced_settings.websocket_tls_${name}.label`);
-    const write = async value => {
+    const label = (name: string) => t(`config_page.advanced_settings.websocket_tls_${name}.label`);
+    const write = async (value: DraftWriteValue<TlsPaths>) => {
         const response = await setWebsocketTls(value);
-        if (response?.status !== 200) updateError(response?.result?.error_code || "save_unconfirmed");
+        const answer = answerOf(response);
+        if (answer?.status !== 200) updateError(errorCodeOf(answer?.result) || "save_unconfirmed");
         return response;
     };
     const form = useSettingsDraft(saved, error, updateError, { write, label: ([name]) => label(name) });
-    if (!form.draft) return null;
-    const field = name => ({
+    const draft = form.draft;
+    if (!draft) return null;
+    const field = (name: TlsField) => ({
         setting_id: `websocket_tls_${name}`,
         label: label(name),
         desc: t(`config_page.advanced_settings.websocket_tls_${name}.desc`),
-        variable: form.draft[name],
+        variable: draft[name],
         state: form.saving || currentWebsocketTls.state === "pending" ? "pending" : "ok",
-        onChangeFunction: value => form.setDraft(previous => ({ ...previous, [name]: value })),
+        onChangeFunction: (value: string) => form.setDraft(previous => previous && ({ ...previous, [name]: value })),
         saveFunction: () => { if (form.dirty) return form.submit(write); },
     });
     return <>
@@ -321,18 +342,18 @@ const WebsocketPortContainer = () => {
     const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
         variable: currentWebsocketPort.data,
         state: currentWebsocketPort.state,
-        setFunction: (value) => setWebsocketPort(parsePortInput(value)),
+        setFunction: (value: unknown) => setWebsocketPort(parsePortInput(value)),
         label: t("config_page.advanced_settings.websocket_port.label"),
     });
 
-    const onChangeFunction = (value) => {
+    const onChangeFunction = (value: string) => {
         if (value === "" || parsePortInput(value) !== null) rawOnChange(value);
     };
 
     return (
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.websocket_port.label")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentWebsocketPort.state}
@@ -370,7 +391,7 @@ const WebsocketUrlContainer = () => {
 // again, so the button asks first, says what stops working, and leaves a way back.
 const WebsocketTokenContainer = () => {
     const { t } = useI18n();
-    const key = name => t(`config_page.advanced_settings.websocket_token.${name}`);
+    const key = (name: string) => t(`config_page.advanced_settings.websocket_token.${name}`);
     const { asyncStdoutToPython } = useStdoutToPython();
     const { showNotification_Success } = useNotificationStatus();
     const [open, setOpen] = useState(false);
@@ -379,7 +400,7 @@ const WebsocketTokenContainer = () => {
     const regenerate = async () => {
         close(); setOpen(false);
         const response = await asyncStdoutToPython("/run/regenerate_websocket_auth_token");
-        if (response?.status === 200) showNotification_Success(key("done"), { category_id: "websocket_token_regenerated" });
+        if (answerOf(response)?.status === 200) showNotification_Success(key("done"), { category_id: "websocket_token_regenerated" });
     };
     return <>
         <ActionButtonContainer
@@ -472,18 +493,18 @@ const ObsBrowserSourcePortContainer = () => {
     const { variable, onChangeFunction: rawOnChange, saveFunction } = useSaveButtonLogic({
         variable: currentObsBrowserSourcePort.data,
         state: currentObsBrowserSourcePort.state,
-        setFunction: (value) => setObsBrowserSourcePort(parsePortInput(value)),
+        setFunction: (value: unknown) => setObsBrowserSourcePort(parsePortInput(value)),
         label: t("config_page.advanced_settings.obs_browser_source_port.label"),
     });
 
-    const onChangeFunction = (value) => {
+    const onChangeFunction = (value: string) => {
         if (value === "" || parsePortInput(value) !== null) rawOnChange(value);
     };
 
     return (
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.obs_browser_source_port.label")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourcePort.state}
@@ -505,7 +526,7 @@ const ObsBrowserSourceMaxMessagesContainer = () => {
         label: t("config_page.advanced_settings.obs_browser_source_max_messages.label"),
     });
 
-    const onChangeFunction = (value) => {
+    const onChangeFunction = (value: string) => {
         rawOnChange(value);
     };
 
@@ -513,7 +534,7 @@ const ObsBrowserSourceMaxMessagesContainer = () => {
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.obs_browser_source_max_messages.label")}
             desc={t("config_page.advanced_settings.obs_browser_source_max_messages.desc")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceMaxMessages.state}
@@ -535,7 +556,7 @@ const ObsBrowserSourceDisplayDurationContainer = () => {
         label: t("config_page.advanced_settings.obs_browser_source_display_duration.label"),
     });
 
-    const onChangeFunction = (value) => {
+    const onChangeFunction = (value: string) => {
         rawOnChange(value);
     };
 
@@ -543,7 +564,7 @@ const ObsBrowserSourceDisplayDurationContainer = () => {
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.obs_browser_source_display_duration.label")}
             desc={t("config_page.advanced_settings.obs_browser_source_display_duration.desc")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceDisplayDuration.state}
@@ -565,7 +586,7 @@ const ObsBrowserSourceFadeoutDurationContainer = () => {
         label: t("config_page.advanced_settings.obs_browser_source_fadeout_duration.label"),
     });
 
-    const onChangeFunction = (value) => {
+    const onChangeFunction = (value: string) => {
         rawOnChange(value);
     };
 
@@ -573,7 +594,7 @@ const ObsBrowserSourceFadeoutDurationContainer = () => {
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.obs_browser_source_fadeout_duration.label")}
             desc={t("config_page.advanced_settings.obs_browser_source_fadeout_duration.desc")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFadeoutDuration.state}
@@ -595,7 +616,7 @@ const ObsBrowserSourceFontSizeContainer = () => {
         label: t("config_page.advanced_settings.obs_browser_source_font_size.label"),
     });
 
-    const onChangeFunction = (value) => {
+    const onChangeFunction = (value: string) => {
         rawOnChange(value);
     };
 
@@ -603,7 +624,7 @@ const ObsBrowserSourceFontSizeContainer = () => {
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.obs_browser_source_font_size.label")}
             desc={t("config_page.advanced_settings.obs_browser_source_font_size.desc")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFontSize.state}
@@ -628,7 +649,7 @@ const ObsBrowserSourceFontColorContainer = () => {
     return (
         <ColorEntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.obs_browser_source_font_color.label")}
-            variable={variable}
+            variable={fieldText(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFontColor.state}
@@ -648,7 +669,7 @@ const ObsBrowserSourceFontOutlineThicknessContainer = () => {
         label: t("config_page.advanced_settings.obs_browser_source_font_outline_thickness.label"),
     });
 
-    const onChangeFunction = (value) => {
+    const onChangeFunction = (value: string) => {
         rawOnChange(value);
     };
 
@@ -656,7 +677,7 @@ const ObsBrowserSourceFontOutlineThicknessContainer = () => {
         <EntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.obs_browser_source_font_outline_thickness.label")}
             desc={t("config_page.advanced_settings.obs_browser_source_font_outline_thickness.desc")}
-            variable={variable}
+            variable={fieldValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFontOutlineThickness.state}
@@ -681,7 +702,7 @@ const ObsBrowserSourceFontOutlineColorContainer = () => {
     return (
         <ColorEntryWithSaveButtonContainer
             label={t("config_page.advanced_settings.obs_browser_source_font_outline_color.label")}
-            variable={variable}
+            variable={fieldText(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentObsBrowserSourceFontOutlineColor.state}

@@ -20,7 +20,7 @@ const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config
 });
 
 test("Q-06: the OSC address and port are under Advanced; the VRChat page leads there", async () => {
-    const advanced = read("advanced_settings/AdvancedSettings.jsx");
+    const advanced = read("advanced_settings/AdvancedSettings.tsx");
     const page = advanced.split("export const AdvancedSettings = () => {")[1].split("\n};")[0];
     assert.match(page, /section_label_osc[\s\S]*<OscIpAddressContainer \/>\s*<OscPortContainer \/>/);
 
@@ -58,7 +58,7 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
 });
 
 test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer under Advanced", async () => {
-    const advanced = read("advanced_settings/AdvancedSettings.jsx");
+    const advanced = read("advanced_settings/AdvancedSettings.tsx");
     assert.doesNotMatch(advanced, /DirectVoiceSettings/);
 
     const runtime = hooks();
