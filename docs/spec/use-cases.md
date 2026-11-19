@@ -187,7 +187,7 @@
 - 見つけ方: WASAPIの出力と入力のうち、同じ仮想ドライバーの両端を組にする（`models/audio_routing/virtual_mic.py`、Rustの中核では `native/audio-routing/src/virtual_mic.rs`）。Steam Streaming Microphone は帰還の判定では仮想ケーブルとして扱うが、Remote Play のものなので案内には出さない。Linuxでは案内を出さない（アプリが仮想マイクを作る）。
 - 守ること: テスト音は押したときだけ流す。ミュート中は流さず（`virtual_mic_voice_muted`）、読み上げ停止とミュートで止める。録音側の音はその場で音量にするだけで、保存、ログ、テレメトリーに出さない。デバイスの選択と設定は変えない。VRChatで同じマイクをすでに使っていれば、テスト音はほかの人にも聞こえることを案内に書く。
 - 閉じ方: 「後で」とEscapeは、この起動の間だけ閉じる。「完了」と「今後は自動で表示しない」は`/set/disable/virtual_mic_notice`を送り、以後は自分では開かない。テストの間は閉じられない。
-- 関係: `/get/data/virtual_mic_notice`、`/set/disable/virtual_mic_notice`、`/get/data/virtual_mic_status`、`/run/virtual_mic_test`、`/run/virtual_mic_level`、`src-ui/views/app/_app_controllers/VirtualMicGuideController.jsx`。Rustの中核は一覧とテストも持つ（`native/core/src/controller/audio_devices.rs`）。録音側の読み方の違いは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の12にある。
+- 関係: `/get/data/virtual_mic_notice`、`/set/disable/virtual_mic_notice`、`/get/data/virtual_mic_status`、`/run/virtual_mic_test`、`/run/virtual_mic_level`、`src-ui/views/app/_app_controllers/VirtualMicGuideController.tsx`。Rustの中核は一覧とテストも持つ（`native/core/src/controller/audio_devices.rs`）。録音側の読み方の違いは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の12にある。
 
 ## UC-18 初期設定で基本機能を準備する
 

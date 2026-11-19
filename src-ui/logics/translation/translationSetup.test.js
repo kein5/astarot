@@ -52,7 +52,7 @@ async function fixture(context) {
     const error = errors._useBackendErrorHandling().errorHandling_Backend;
     let selector = false;
     const expanded = [];
-    const controller = async owner => loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.jsx", import.meta.url), owner, {
+    const controller = async owner => loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.tsx", import.meta.url), owner, {
         "@logics_configs": configs, "@logics_common": common,
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },

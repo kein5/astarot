@@ -19,7 +19,7 @@ async function setup(context, { notice = true, current = status(), opened = fals
         refreshStatus: () => calls.push("refresh"), startCheck: playback => calls.push(["check", playback]),
         resetCheck: () => calls.push("reset"), dismissNotice: () => { calls.push("dismiss"); state.notice = false; },
         closeGuide: () => { calls.push("close"); state.opened = false; } };
-    const { VirtualMicGuideController, VB_CABLE_URL } = await loadModule(new URL("./VirtualMicGuideController.jsx", import.meta.url), runtime, {
+    const { VirtualMicGuideController, VB_CABLE_URL } = await loadModule(new URL("./VirtualMicGuideController.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: () => assert.fail("no link opens in this test") },
         "@logics_configs": { useOthers: () => ({ currentTelemetryNotice: { state: "ok", data: { pending: telemetryPending } } }) },
@@ -135,7 +135,7 @@ test("while a check runs the meter follows it and the dialog cannot be put away"
 
 test("every text the guide shows exists in English and Japanese", () => {
     const keys = new Set();
-    const source = readFileSync(new URL("./VirtualMicGuideController.jsx", import.meta.url), "utf8")
+    const source = readFileSync(new URL("./VirtualMicGuideController.tsx", import.meta.url), "utf8")
         + readFileSync(new URL("../config_page/setting_section/setting_box/tts/VirtualMicEntry.jsx", import.meta.url), "utf8");
     for (const [, key] of source.matchAll(/"(virtual_mic\.[a-z_.]+)"/g)) keys.add(key);
     for (const code of [...source.matchAll(/"(virtual_mic_[a-z_]+|audio_devices_unavailable)"/g)].map(match => match[1]).concat("other"))
