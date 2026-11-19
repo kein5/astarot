@@ -76,7 +76,7 @@ fn folders(executable: &Path) -> Folders {
             return PathBuf::from(dir);
         }
         let base = std::env::var_os(variable).map(PathBuf::from).filter(|p| p.is_absolute());
-        base.unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(fallback)).join("vrct-vox")
+        base.unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(fallback)).join(app_identity::LINUX_FOLDER.current())
     };
     let configured = std::env::var_os("VRCT_CONFIG_DIR").filter(|v| !v.is_empty()).map(PathBuf::from);
     let state_dir = configured.unwrap_or_else(|| {

@@ -208,7 +208,7 @@ carries the license texts each crate publishes in
 the list from the lock files (`src-tauri/Cargo.lock`,
 `native/rvc-runtime/Cargo.lock`) when the package is built. The application
 also contains the backend core and the crates it uses (`native/core`,
-`native/adapters`, `native/audio-routing`, `native/ops`, `native/speech-server`,
+`native/adapters`, `native/app-identity`, `native/audio-routing`, `native/ops`, `native/speech-server`,
 `native/translation`, `native/translate-onnx`, `native/tts`,
 `native/voice-conversion`, `native/vr-overlay`, `native/openvr-client`,
 `native/ocr-runtime`, `native/onnx-runtime`, `native/transcription`); they are VRCT-VOX's own

@@ -157,7 +157,7 @@ fn helper_candidates(executable: &Path, checkout: Option<&Path>) -> Vec<PathBuf>
     if let Some(directory) = executable.parent() {
         candidates.push(directory.join("_internal/build").join(HELPER));
         if let Some(prefix) = directory.parent() {
-            candidates.push(prefix.join("lib/vrct-vox/_internal/build").join(HELPER));
+            candidates.push(prefix.join("lib").join(app_identity::LINUX_PACKAGE.current()).join("_internal/build").join(HELPER));
         }
     }
     if let Some(checkout) = checkout {

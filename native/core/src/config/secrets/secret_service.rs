@@ -25,7 +25,9 @@ const COLLECTION_INTERFACE: &str = "org.freedesktop.Secret.Collection";
 const ITEM_INTERFACE: &str = "org.freedesktop.Secret.Item";
 /// How long one call may take before the store counts as not answering.
 const TIMEOUT: Duration = Duration::from_secs(5);
-const APPLICATION: &str = "vrct-vox";
+const APPLICATION: &str = app_identity::credentials::APPLICATION.current();
+/// The attribute that holds the store ID.
+const STORE_ATTRIBUTE: &str = app_identity::credentials::STORE_ATTRIBUTE.current();
 
 /// A secret as the spec sends it: (session, parameters, value, content type).
 type Secret = (OwnedObjectPath, Vec<u8>, Vec<u8>, String);
@@ -92,7 +94,12 @@ fn classify(error: &zbus::Error) -> Failure {
 }
 
 fn attributes<'a>(scope: &'a str, entry: &'a str) -> HashMap<&'static str, &'a str> {
-    HashMap::from([("application", APPLICATION), ("vrct-vox-store", scope), ("entry", entry)])
+    HashMap::from([("application", APPLICATION), (STORE_ATTRIBUTE, scope), ("entry", entry)])
+}
+
+/// The label the keyring shows for `entry`.
+fn item_label(entry: &str) -> String {
+    format!("{} {entry}", app_identity::credentials::LABEL_PREFIX.current())
 }
 
 /// A path the spec uses for "none" (no prompt, no collection).
@@ -178,7 +185,7 @@ impl Vault for SecretService {
                 return Err(Failure::Unavailable);
             }
             let properties: HashMap<&str, Value<'_>> = HashMap::from([
-                ("org.freedesktop.Secret.Item.Label", Value::from(format!("VRCT-VOX {entry}"))),
+                ("org.freedesktop.Secret.Item.Label", Value::from(item_label(entry))),
                 ("org.freedesktop.Secret.Item.Attributes", Value::from(attributes(scope, entry))),
             ]);
             let secret = (&link.session, Vec::<u8>::new(), value.as_bytes(), "text/plain; charset=utf8");
@@ -216,6 +223,16 @@ impl Vault for SecretService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The names the builds since ADR-013 wrote. The keys saved under them must still be found
+    /// until ADR-014 moves them, with a copy to the new names.
+    #[test]
+    fn items_are_named_as_before() {
+        let attributes = attributes("0123456789abcdef", "AUTH_KEYS/DeepL_API");
+        let expected = HashMap::from([("application", "vrct-vox"), ("vrct-vox-store", "0123456789abcdef"), ("entry", "AUTH_KEYS/DeepL_API")]);
+        assert_eq!(attributes, expected);
+        assert_eq!(item_label("AUTH_KEYS/DeepL_API"), "VRCT-VOX AUTH_KEYS/DeepL_API");
+    }
 
     #[test]
     fn a_store_that_is_not_there_or_locked_is_a_passing_failure() {
