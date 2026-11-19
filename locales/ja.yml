@@ -2107,7 +2107,7 @@ model_catalog:
         option: "性能不足の可能性"
         note: "お使いのPCでは性能が足りない可能性があります。{{reason}}あくまで目安なので、選んで試すこともできます。"
         low_memory_gpu: "このモデルはメモリを約{{required}}使います。GPUのメモリは全部で{{available}}なので余裕がありません。"
-        low_memory_cpu: "このモデルはメモリを約{{required}}使います。見つかったメモリは全部で{{available}}なので余裕がありません。"
+        low_memory_cpu: "このモデルはメモリを約{{required}}使います。OSとVRChatの分として約{{reserve}}を残すと、見つかったメモリ（全部で{{available}}）では余裕がありません。"
         no_gpu: "GPUが見つかりませんでした。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
         cpu_setting: "エンジンがCPUで動かす設定になっています。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
     variant: "ファイルの種類"
