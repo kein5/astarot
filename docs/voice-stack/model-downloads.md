@@ -121,7 +121,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 読み上げのモデル向けの「空きメモリーに合う」の案内（`modelHardwareAdvice.ts`）は、空いているGPUのメモリを見るので翻訳には出さない。
 - RAMは検出（speech.cppの`devices --json`）のCPUの行で分かる。翻訳そのものはspeech.cppを使わない。同梱のspeech.cppが見つからず検出が失敗したときは、ほかのモデルと同じく警告しない。
 - 警告の基準はほかのモデルと同じく、RAMと比べるときはモデルのメモリに25%を足し、OSとVRChatの分の8 GiBも足す（上の`RAM_RESERVE`）。GPUと比べるときは25%だけを足す。
-- カタログに翻訳の項目が入るのはPR #687が`translation_models.json`にNLLBの項目を書いたときである。それまでは目安を返すIDがカタログになく、画面には出ない。
+- 翻訳の項目は、PR #687（2026-11-19）が`translation_models.json`にM2M100とNLLBを書いたときにカタログに入った。それより前は目安を返すIDがカタログになく、画面に出なかった。
 
 #### 再起動後の取得済み
 
