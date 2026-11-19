@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "@useI18n";
+import RefreshSvg from "@images/refresh.svg?react";
 import { Button, Select, SelectOption, SettingGroup, SettingRow, Switch, TextField } from "../kit/index.ts";
 import * as styles from "./KitLab.css.ts";
 
@@ -83,6 +84,8 @@ export const KitLab = () => {
                 <Button tone="danger">{t("realtime.vocabulary_remove_short")}</Button>
                 <Button tone="primary" disabled>{t("voice_ui.save_changes")}</Button>
                 <Button size="compact">{t("model_downloads.review")}</Button>
+                <Button><RefreshSvg className={styles.icon} aria-hidden="true" />{t("realtime.refresh_devices")}</Button>
+                <Button size="icon" aria-label={t("realtime.refresh_devices")}><RefreshSvg className={styles.icon} aria-hidden="true" /></Button>
             </div>
         </main>
     );

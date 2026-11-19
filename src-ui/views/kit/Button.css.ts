@@ -72,10 +72,21 @@ export const button = recipe({
                 },
             },
         },
+        // shadcn/ui's Button sizes: a button that starts or ends with an icon has less room at its
+        // sides (has-[>svg]:px-3 at the default size, px-2.5 at sm), and a button that is only an
+        // icon is square (icon, size-9). Its side is the regular height, which D-03 of the
+        // shadcn/ui inventory (docs/design/components/) may still change.
         size: {
-            regular: {},
+            regular: { selectors: { "&:has(> svg)": { paddingInline: "1.2rem" } } },
             // Inside a row beside a field: the field's 4rem stays the tallest thing in the row.
-            compact: { minHeight: "3.2rem", padding: ".4rem 1.2rem", fontSize: "1.3rem" },
+            compact: {
+                minHeight: "3.2rem",
+                padding: ".4rem 1.2rem",
+                fontSize: "1.3rem",
+                selectors: { "&:has(> svg)": { paddingInline: "1rem" } },
+            },
+            // Only an icon: the button's name is its aria-label.
+            icon: { width: "4rem", height: "4rem", padding: 0 },
         },
     },
     defaultVariants: { tone: "plain", size: "regular" },
