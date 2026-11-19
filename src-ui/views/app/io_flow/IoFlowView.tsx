@@ -2,10 +2,13 @@ import { useMemo } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { createLanguageNames } from "../../../logics/common/languageNames.ts";
-import { formatMs, latestTraces, median, timelineScale, traceTotal } from "../../../logics/flow/ioFlow.ts";
+import { formatMs, INPUTS, latestTraces, median, timelineScale, traceTotal } from "../../../logics/flow/ioFlow.ts";
 import { flowNote, offGroups, timelineRows } from "../../../logics/flow/flowText.ts";
 import { buildFlowGraph } from "../../../logics/flow/flowGraph.ts";
 import { gpuRows } from "../../../logics/flow/gpuMemory.ts";
+import type { FlowInput, FlowLane, IoFlow, Trace } from "../../../logics/flow/ioFlow.ts";
+import type { TimelineRow } from "../../../logics/flow/flowText.ts";
+import type { GpuMemory } from "../../../logics/flow/gpuMemory.ts";
 import { FlowGraph } from "./FlowGraph";
 import styles from "./IoFlowView.module.scss";
 
@@ -16,13 +19,23 @@ const HISTORY = 20;
 // window; it only reads, and changes nothing. Every duration is in ms.
 // Compact (VR, which cannot scroll): one timeline, for the newest input of either lane.
 // The GPU memory is the main window's only (`gpuMemory` from /get/data/gpu_memory).
-export const IoFlowView = ({ flow, traces, gpuMemory, compact = false }) => {
+type IoFlowViewProps = {
+    flow: IoFlow | null;
+    traces: Trace[];
+    // Left out in VR, which shows no GPU memory; null until the first answer.
+    gpuMemory?: GpuMemory | null;
+    compact?: boolean;
+};
+
+export const IoFlowView = ({ flow, traces, gpuMemory, compact = false }: IoFlowViewProps) => {
     const { t, i18n } = useI18n();
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
     const graph = useMemo(() => buildFlowGraph(flow, traces), [flow, traces]);
-    if (!graph) return <p className={styles.waiting} role="status">{t("io_flow.loading")}</p>;
+    // The graph is there exactly when both lanes are (buildFlowGraph).
+    if (!graph || !flow?.voice || !flow.chat) return <p className={styles.waiting} role="status">{t("io_flow.loading")}</p>;
+    const lanes: Record<FlowInput, FlowLane> = { voice: flow.voice, chat: flow.chat };
     const note = flowNote(flow, t);
-    const unused = ["voice", "chat"].flatMap(lane => offGroups(flow[lane].outputs, t)
+    const unused = INPUTS.flatMap(lane => offGroups(lanes[lane].outputs, t)
         .map(group => ({ lane, ...group })));
     return <div className={clsx(styles.view, { [styles.compact]: compact })}>
         <div className={styles.graph_scroll}><FlowGraph graph={graph} names={names} compact={compact} /></div>
@@ -34,7 +47,7 @@ export const IoFlowView = ({ flow, traces, gpuMemory, compact = false }) => {
         {compact
             ? <Latest trace={latestTraces(traces, 1)[0] ?? null} history={[]} compact />
             : <div className={styles.latest_pair}>
-                {["voice", "chat"].map(lane => <Latest key={lane} lane={lane}
+                {INPUTS.map(lane => <Latest key={lane} lane={lane}
                     trace={latestTraces(traces, 1, lane)[0] ?? null} history={latestTraces(traces, HISTORY, lane)} />)}
             </div>}
         {note && <p className={styles.live}>{note}</p>}
@@ -43,7 +56,7 @@ export const IoFlowView = ({ flow, traces, gpuMemory, compact = false }) => {
 };
 
 // How much GPU memory the app holds on each GPU, by what holds it, and the GPU's whole use.
-const GpuMemorySection = ({ memory }) => {
+const GpuMemorySection = ({ memory }: { memory: GpuMemory | null }) => {
     const { t } = useI18n();
     const rows = gpuRows(memory, t);
     const state = memory?.state ?? "measuring";
@@ -77,14 +90,21 @@ const GpuMemorySection = ({ memory }) => {
     </section>;
 };
 
-const Latest = ({ trace, history, lane = null, compact = false }) => {
+type LatestProps = {
+    trace: Trace | null;
+    history: Trace[];
+    lane?: FlowInput | null;
+    compact?: boolean;
+};
+
+const Latest = ({ trace, history, lane = null, compact = false }: LatestProps) => {
     const { t } = useI18n();
     const title = lane ? t(`io_flow.${lane}`) : trace ? t(`io_flow.${trace.input}`) : t("io_flow.newest");
     if (!trace) return <section className={styles.latest}><h3 className={styles.latest_title}>{title}</h3>
         <p className={styles.no_trace}>{t("io_flow.no_trace")}</p></section>;
     const total = traceTotal(trace);
     const scale = timelineScale(total ?? 0);
-    const totals = history.map(traceTotal).filter(Number.isInteger);
+    const totals = history.map(traceTotal).filter((value): value is number => Number.isInteger(value));
     return <section className={clsx(styles.latest, styles[`latest_${trace.input}`])} aria-label={title}>
         <h3 className={styles.latest_title}>{title}</h3>
         <p className={styles.latest_head}>
@@ -98,7 +118,7 @@ const Latest = ({ trace, history, lane = null, compact = false }) => {
 };
 
 // One row per stage or output. Bars share the axis, rounded up to a readable step.
-export const Timeline = ({ rows, scale, className }) => {
+export const Timeline = ({ rows, scale, className }: { rows: TimelineRow[]; scale: number; className?: string }) => {
     const { t } = useI18n();
     return <div className={clsx(styles.timeline, className)} role="list" aria-label={t("io_flow.timeline", { scale })}>
         {rows.map((row, index) => <div key={index} role="listitem" className={clsx(styles.row, { [styles.is_off]: row.off })}>
@@ -116,7 +136,7 @@ export const Timeline = ({ rows, scale, className }) => {
 };
 
 // The totals of recent messages, oldest on the left, with their median.
-const History = ({ totals, middle }) => {
+const History = ({ totals, middle }: { totals: number[]; middle: number | null }) => {
     const { t } = useI18n();
     const top = Math.max(...totals, 1);
     return <div className={styles.history}>
