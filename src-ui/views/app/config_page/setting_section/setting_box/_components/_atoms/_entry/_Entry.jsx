@@ -39,6 +39,7 @@ const _Entry = forwardRef((props, ref) => {
         >
             <div className={input_wrapper_class_names}>
                 <input
+                    data-slot="input"
                     id={props.id}
                     aria-labelledby={props["aria-labelledby"]}
                     aria-describedby={props["aria-describedby"]}
