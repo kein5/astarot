@@ -27,6 +27,7 @@ ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリ
 | [012](adr-012-audio-ai-runtime-consolidation.md) | Audio AI Runtime Consolidation | 2026-11-17 | 採用 | 対象外 | 有効 | Rust の中核 |
 | [013](adr-013-secret-store.md) | API キーを OS の資格情報ストアに保管する | 2026-11-18 | 採用 | 実装済み | 有効 | Rust の中核 |
 | [014](adr-014-internal-identifier-migration.md) | 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
+| [015](adr-015-translation-llm-runtime-exception.md) | TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外） | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
 
 <!-- adr-index:end -->
 

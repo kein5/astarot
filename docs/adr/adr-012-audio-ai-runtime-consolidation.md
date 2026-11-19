@@ -219,6 +219,8 @@ ONNX Runtime 系の OCR とローカル翻訳は、2.2 の分担どおりなの�
 
 新しい例外は、2.4 に従って例外ごとの ADR で承認する。承認の前に、2.3 の手順の1から3を調べた結果を記録する。
 
+> **例外の追記**（2026-11-19、Issue #412）：TranslateGemma のような decoder-only の翻訳の LLM を LLM 用の実行基盤（ONNX Runtime GenAI や llama.cpp など）で動かすことを新しい例外とした（[ADR-015](adr-015-translation-llm-runtime-exception.md)）。2.2 でローカル翻訳の担当を ONNX Runtime としたことの例外で、範囲は decoder-only の翻訳の LLM に限る。M2M100 と NLLB-200 は ONNX Runtime のままである。理由は今の `native/translate-onnx` が encoder-decoder の形だけを動かし、LLM の生成を自前で書くと LLM の実行基盤が持つ機能を作り直すことになるため。speech.cpp は機械翻訳を扱わない（5）ので、2.3 の上流への貢献の道もない。どの実行基盤にするか、配布の大きさ、ライセンスは ADR-015 の段階 2 で示す。本文は書き換えていない。
+
 ## 7. Verification / Acceptance criteria（検証と受け入れの条件）
 
 新しいモデル、ランタイム、例外を採用する変更は、次を確かめる。
