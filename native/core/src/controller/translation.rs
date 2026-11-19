@@ -1165,7 +1165,8 @@ impl Core {
             // Papago translates only some pairs of its languages directly.
             Err(providers::Error::UnsupportedPair) => Attempt::Unsupported,
             Err(_) => {
-                self.step("Translation: the provider failed");
+                // Decision 58: the provider's name, as Python's `errorLogging(provider=...)`.
+                self.step_with("Translation: the provider failed", &json!({ "provider": engine }));
                 Attempt::Failed
             }
         }
@@ -1259,10 +1260,17 @@ impl Core {
                 Ok(Translated { text: text.to_string(), success: true, provenance: "unsupported" })
             }
             Attempt::Unsupported => {
-                self.step("Translation failed and the local model cannot translate this language pair");
+                self.step_with("Translation failed and the local model cannot translate this language pair", &json!({ "provider": engine }));
                 Ok(Translated { text: text.to_string(), success: false, provenance: "failed" })
             }
-            Attempt::Failed => Ok(Translated { text: text.to_string(), success: false, provenance: "failed" }),
+            Attempt::Failed => {
+                // Decision 58: the engine lacked the pair and the local model failed too (Python
+                // logged the local failure once). A provider failure was logged as it failed.
+                if !primary_failed {
+                    self.step_with("Translation: the engine lacks the language pair and the local model failed", &json!({ "provider": engine }));
+                }
+                Ok(Translated { text: text.to_string(), success: false, provenance: "failed" })
+            }
         }
     }
 }

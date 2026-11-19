@@ -121,6 +121,12 @@ impl Transcription {
         let area = Arc::downgrade(self);
         services.vrc_mic_mute = Arc::new(move |held| {
             if let Some(area) = area.upgrade() {
+                // Decision 55 (`_applyMuteStatusLocked`): when VRChat starts holding the
+                // microphone back, what it had admitted is not delivered, even once the mute is
+                // lifted. Called on each change only, under the mute lock.
+                if held {
+                    area.revoke(Source::Mic);
+                }
                 area.mic_paused.store(held, Ordering::SeqCst);
             }
             muted(held);
