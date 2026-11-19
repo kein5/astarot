@@ -407,6 +407,12 @@ impl Core {
         self.log.step(text, None);
     }
 
+    /// [`Core::step`] with data on the line (masked as every logged value is). Never text or
+    /// keys of the user.
+    pub(crate) fn step_with(&self, text: &str, data: &Value) {
+        self.log.step(text, Some(data));
+    }
+
     /// Stamps a request before it waits in the queue (generations of the voice features).
     pub fn stamp(&self, endpoint: &str, data: &mut Value) {
         self.stamp_realtime(endpoint, data);
