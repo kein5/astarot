@@ -66,8 +66,8 @@ def module_dict(tree: ast.Module, name: str) -> ast.Dict:
 # --- IPC endpoints -------------------------------------------------------------
 
 def ui_routes() -> dict[str, str]:
-    """Endpoint -> UI handler, mirroring buildRouteMetaList() in useReceiveRoutes.js."""
-    routes_js = (UI / "useReceiveRoutes.js").read_text(encoding="utf-8")
+    """Endpoint -> UI handler, mirroring buildRouteMetaList() in useReceiveRoutes.ts."""
+    routes_js = (UI / "useReceiveRoutes.ts").read_text(encoding="utf-8")
     setter_js = (UI / "configs" / "config_page_setter" / "ui_config_setter.ts").read_text(encoding="utf-8")
     routes: dict[str, str] = {}
     static = re.findall(r'\{\s*endpoint:\s*"([^"]+)",\s*ns:\s*\w+,\s*hook_name:\s*(?:"(\w+)"|null),\s*method_name:\s*(?:"(\w+)"|null)', routes_js)
@@ -186,7 +186,7 @@ def render_endpoints() -> str:
            "メッセージの形、状態コード、ロックと再試行の規則は[IPCプロトコル](../ipc-protocol.md)にある。\n",
            "列の意味:\n",
            "- 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。",
-           "- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。",
+           "- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。",
            "- ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。",
            "- 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。\n",
            f"## 要求（{len(requests)}件: {summary}）\n",
@@ -219,7 +219,7 @@ def render_errors() -> str:
     codes = class_constants(tree, "ErrorCode")
     categories = class_constants(tree, "ErrorCategory")
     metadata = module_dict(tree, "ERROR_METADATA")
-    handler_js = (UI / "_useBackendErrorHandling.js").read_text(encoding="utf-8")
+    handler_js = (UI / "_useBackendErrorHandling.ts").read_text(encoding="utf-8")
     handled = set(re.findall(r'case "([A-Z0-9_]+)"', handler_js)) | set(re.findall(r"^\s+([A-Z0-9_]+):\s*\"common_error", handler_js, re.M))
 
     rows, described = [], set()
@@ -242,7 +242,7 @@ def render_errors() -> str:
            "中核（`native/core`）だけにあるコードは`tools/spec_core_additions.json`から表の末尾に足した。"
            "応答の形とUIでの見せ方は[横断的な振る舞い](../cross-cutting.md#エラーの扱い)にある。\n",
            "- 既定メッセージ: サイドカーが返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。",
-           "- UIの個別処理: `_useBackendErrorHandling.js`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。"
+           "- UIの個別処理: `_useBackendErrorHandling.ts`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。"
            "空欄のコードは、音声やモデル取得など別の経路で処理されるか、汎用の通知になる。\n",
            f"## コード（{len(rows)}件）\n",
            table(["コード", "分類", "既定メッセージ", "重大度", "利用者の対処", "UIの個別処理"], rows)]

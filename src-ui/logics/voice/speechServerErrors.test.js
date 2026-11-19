@@ -15,7 +15,7 @@ const serverCodes = () => {
     const core = read("../../../native/core/src/controller/speech.rs");
     const codes = new Set([...library.matchAll(/"((?:speech_server|speech_bundle)_[a-z_]+)"/g)].map(([, code]) => code));
     for (const [, code] of core.matchAll(/const [A-Z_]+: &str = "(speech_server_[a-z_]+)"/g)) codes.add(code);
-    codes.add("speech_server_request_failed"); // src-ui/logics/useReceiveRoutes.js, when a reply has no code
+    codes.add("speech_server_request_failed"); // src-ui/logics/useReceiveRoutes.ts, when a reply has no code
     // Standby has its own line on the page (speech_servers.low_latency_failed).
     codes.delete("speech_server_low_latency_failed");
     return codes;

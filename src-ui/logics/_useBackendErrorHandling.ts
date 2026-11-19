@@ -34,6 +34,32 @@ import { ui_configs } from "./ui_configs";
 import { clearLegacyConsentPending, clearLegacyDownloadFailure, legacyDownloadFailure } from "./configs/legacyModelConsent";
 import * as noticeStyles from "./common/noticeAction.css.ts";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "./configs/cloudTranscription";
+import type { CloudTranscriptionBase } from "./configs/cloudTranscription";
+
+// A 400 answer, as useReceiveRoutes passes it on (docs/spec/cross-cutting.md): the code and the
+// backend's English message, `data` (the value the refused request leaves in place, or what the
+// error is about) and the whole answer.
+export interface BackendErrorReport {
+    error_code: string | undefined;
+    message: string | undefined;
+    data: unknown;
+    endpoint: string;
+    result: unknown;
+}
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
+// A field of a value the backend sent, read as `value?.[name]` reads it.
+const fieldOf = (value: unknown, name: string): unknown => isRecord(value) ? value[name] : undefined;
+
+// The value a refused request leaves in place. The 400 answer carries it in `data`, in the form
+// the setting's or the switch's own answers have (docs/spec/cross-cutting.md), and it goes back
+// to the setting as it came, unchecked, as the answers to the requests that succeeded do
+// (useReceiveRoutes). This overload is the one place in this file that says so: the type is the
+// one the update it is passed to takes.
+function keptValue<T>(data: unknown): T;
+function keptValue(data: unknown): unknown {
+    return data;
+}
 
 const OCR_ERROR_KEYS = {
     OCR_DISABLED_ENGINE_UNAVAILABLE: "common_error.ocr_engine_unavailable",
@@ -46,6 +72,9 @@ const OCR_ERROR_KEYS = {
 };
 
 const CLOUD_TRANSCRIPTION_BASES = Object.fromEntries(CLOUD_TRANSCRIPTION_ENGINES.map(engine => [engine.key, engine.base]));
+// The engine an endpoint's name points to, e.g. "groq_whisper" in /set/data/groq_whisper_auth_key.
+const cloudTranscriptionBase = (key: string | undefined): CloudTranscriptionBase | undefined =>
+    key === undefined ? undefined : CLOUD_TRANSCRIPTION_BASES[key];
 
 const UI_OWNED_SETTINGS = new Set(["main_window_geometry", "message_box_ratio"]);
 
@@ -59,14 +88,20 @@ const ENDPOINT_URL_ERRORS = new Set([
 
 // Saved URL repairs can arrive before the UI applies its saved language.
 // Keep the key in the toast and subscribe to language changes when it renders.
-const EndpointUrlErrorNotice = ({ translationKey, fallback }) => {
+const EndpointUrlErrorNotice = ({ translationKey, fallback }: { translationKey: string; fallback: string | undefined }) => {
     const { t, i18n } = useI18n();
     return i18n.exists(translationKey) ? t(translationKey) : fallback;
 };
 
+type DownloadFailureNoticeProps = {
+    titleKey: string;
+    reasonKey: string;
+    onRetry: (() => void) | null;
+};
+
 // A failed download says why and offers to try again where the user is. Retrying
 // reopens the review for that model, so the download still starts from consent.
-const DownloadFailureNotice = ({ titleKey, reasonKey, onRetry }) => {
+const DownloadFailureNotice = ({ titleKey, reasonKey, onRetry }: DownloadFailureNoticeProps) => {
     const { t } = useI18n();
     return createElement("span", { className: noticeStyles.notice },
         createElement("span", null, `${t(titleKey)} ${t(reasonKey)}`),
@@ -160,20 +195,20 @@ export const _useBackendErrorHandling = () => {
         updateIsLMStudioConnected,
     } = useLLMConnection();
 
-    const errorHandling_Backend = ({error_code, message, data, endpoint, result}) => {
+    const errorHandling_Backend = ({error_code, message, data, endpoint, result}: BackendErrorReport) => {
         // The sidecar's `message` is English for the log; show the UI language
         // when a translation exists for the code.
         const key = `backend_errors.${error_code}`;
-        const localized = ENDPOINT_URL_ERRORS.has(error_code)
+        const localized = error_code !== undefined && ENDPOINT_URL_ERRORS.has(error_code)
             ? createElement(EndpointUrlErrorNotice, { translationKey: key, fallback: message })
             : typeof error_code === "string" && i18n.exists(key) ? t(key) : message;
         const settleObsLifecycleError = () => {
             // The cause can be a dependent service. `data` belongs to the
             // initiating endpoint, never to a field inferred from that cause.
-            if (endpoint === "/set/data/websocket_host") updateWebsocketHost(data);
-            else if (endpoint === "/set/data/obs_browser_source_port") updateObsBrowserSourcePort(data);
+            if (endpoint === "/set/data/websocket_host") updateWebsocketHost(keptValue(data));
+            else if (endpoint === "/set/data/obs_browser_source_port") updateObsBrowserSourcePort(keptValue(data));
             else if (endpoint === "/set/enable/obs_browser_source" || endpoint === "/set/disable/obs_browser_source") {
-                updateEnableObsBrowserSource(data);
+                updateEnableObsBrowserSource(keptValue(data));
             }
             // Rollback may have disabled a service if its old address was
             // taken too. Read the dependent switches instead of guessing.
@@ -199,7 +234,8 @@ export const _useBackendErrorHandling = () => {
                 break;
             case "MESSAGE_OUTPUT_FAILED": {
                 const outputs = ["osc", "overlay_small", "overlay_large", "clipboard", "ui", "websocket", "logger", "history", "tts"];
-                const output = outputs.includes(data?.output) ? data.output : "unknown";
+                const requested = fieldOf(data, "output");
+                const output = typeof requested === "string" && outputs.includes(requested) ? requested : "unknown";
                 showNotification_Warning(t(key, { output: t(`message_outputs.${output}`) }),
                     { category_id: `${error_code}.${output}` });
                 break;
@@ -229,7 +265,7 @@ export const _useBackendErrorHandling = () => {
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "TRANSLATION_MODEL_MISSING":
-                updateTranslationStatus(data);
+                updateTranslationStatus(keptValue(data));
                 // The user pressed the switch: open the review that fetches the model,
                 // where they are (main window, as the mic's engine choice does).
                 // Any other request says what is missing.
@@ -238,18 +274,20 @@ export const _useBackendErrorHandling = () => {
                 return;
             case "TRANSLATION_DISABLED_VRAM":
             case "TRANSLATION_MODEL_LOAD_FAILED":
-                updateTranslationStatus(data);
+                updateTranslationStatus(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
-            case "TRANSLATION_LANGUAGE_UNSUPPORTED":
+            case "TRANSLATION_LANGUAGE_UNSUPPORTED": {
                 // The backend already pushed the reset language selection; this
                 // only explains why it changed.
+                const languages = fieldOf(data, "languages") ?? [];
                 showNotification_Warning(t("common_error.translation_language_unsupported", {
-                    model: data?.weight_type ?? data?.engine,
-                    languages: (data?.languages ?? []).join(", "),
+                    model: fieldOf(data, "weight_type") ?? fieldOf(data, "engine"),
+                    languages: Array.isArray(languages) ? languages.join(", ") : "",
                     ctranslate2: "CTranslate2",
                 }), { category_id: error_code, hide_duration: null });
                 return;
+            }
 
             // ============================================================================
             // 音声認識関連エラー (TRANSCRIPTION_*)
@@ -268,7 +306,8 @@ export const _useBackendErrorHandling = () => {
             case "TRANSCRIPTION_SEND_NOT_READY":
             case "TRANSCRIPTION_RECEIVE_NOT_READY": {
                 (error_code === "TRANSCRIPTION_SEND_NOT_READY" ? updateTranscriptionSendStatus : updateTranscriptionReceiveStatus)(false);
-                const reason = typeof result?.details?.reason === "string" ? result.details.reason : "";
+                const named = fieldOf(fieldOf(result, "details"), "reason");
+                const reason = typeof named === "string" ? named : "";
                 showNotification_Error(t(`realtime_toggle.${reason || "generic"}`, {
                     reason, defaultValue: t("realtime_toggle.generic", { reason }),
                 }), { category_id: error_code });
@@ -287,9 +326,9 @@ export const _useBackendErrorHandling = () => {
             case "OCR_DISABLED_UNKNOWN": {
                 // 理由ごとに、次に何をすればよいか (モデルのダウンロード、VRChatの起動) を出す
                 if (endpoint === "/set/data/ocr_source_language") {
-                    updateOcrSourceLanguage(data);
+                    updateOcrSourceLanguage(keptValue(data));
                 } else {
-                    updateOcrCaptureStatus(data);
+                    updateOcrCaptureStatus(keptValue(data));
                 }
                 // The user pressed the switch: say what is missing where they are and lead to
                 // the models section, whose review asks before downloading. A language change
@@ -320,18 +359,22 @@ export const _useBackendErrorHandling = () => {
             // ============================================================================
             case "WEIGHT_DOWNLOAD_CONSENT_REQUIRED":
                 if (endpoint === "/run/download_ctranslate2_weight") {
-                    updateCTranslate2WeightTypeStatus(old => clearLegacyConsentPending(old.data, data?.weight_type));
+                    updateCTranslate2WeightTypeStatus(old => clearLegacyConsentPending(old.data, fieldOf(data, "weight_type")));
                 }
-                showNotification_Warning(t(data?.startup ? "legacy_model_downloads.startup_skipped" : "backend_errors.WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
-                    { model: data?.weight_type }), { category_id: `${error_code}:${data?.kind}:${data?.weight_type}`, hide_duration: null });
+                showNotification_Warning(t(fieldOf(data, "startup") ? "legacy_model_downloads.startup_skipped" : "backend_errors.WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
+                    { model: fieldOf(data, "weight_type") }), { category_id: `${error_code}:${fieldOf(data, "kind")}:${fieldOf(data, "weight_type")}`, hide_duration: null });
                 return;
             case "WEIGHT_CTRANSLATE2_DOWNLOAD": {
-                updateCTranslate2WeightTypeStatus(old => clearLegacyDownloadFailure(old.data, data));
+                // The failure's {weight_type, job_id, reason, ...}, as `data?.` reads it.
+                const failure = isRecord(data) ? data : undefined;
+                updateCTranslate2WeightTypeStatus(old => clearLegacyDownloadFailure(old.data, failure));
                 // CTranslate2 goes away with #288; this only keeps today's users from a dead end.
-                const { notify, reasonKey, retryable } = legacyDownloadFailure(data);
+                const { notify, reasonKey, retryable } = legacyDownloadFailure(failure);
                 if (!notify) return;
-                const category_id = `${error_code}:${data?.weight_type}`;
-                const onRetry = retryable ? () => { dismissNotification(category_id); translationSetup.open(false, data.weight_type); } : null;
+                const weightType = failure?.weight_type;
+                const category_id = `${error_code}:${weightType}`;
+                // Only a failure that names its model is retryable (legacyDownloadFailure).
+                const onRetry = retryable ? () => { dismissNotification(category_id); translationSetup.open(false, typeof weightType === "string" ? weightType : null); } : null;
                 // A notice that never hides keeps its id; close an older one so this one shows its reason.
                 dismissNotification(category_id);
                 showNotification_Error(createElement(DownloadFailureNotice, {
@@ -343,19 +386,19 @@ export const _useBackendErrorHandling = () => {
                 // Normally unreachable: Config -> Translation asks before sending.
                 // Undo the optimistic UI state of whichever request was refused.
                 if (endpoint === "/set/data/selected_ctranslate2_weight_type") {
-                    updateSelectedCTranslate2WeightType(data?.selected);
+                    updateSelectedCTranslate2WeightType(keptValue(fieldOf(data, "selected")));
                 } else {
                     updateCTranslate2WeightTypeStatus((old_status) => old_status.data.map((item) =>
-                        item.id === data?.weight_type ? { ...item, is_pending: false, progress: null } : item
+                        item.id === fieldOf(data, "weight_type") ? { ...item, is_pending: false, progress: null } : item
                     ));
                 }
-                showNotification_Warning(t("common_error.ctranslate2_license_consent_required", { weight_type: data?.weight_type }), { category_id: error_code });
+                showNotification_Warning(t("common_error.ctranslate2_license_consent_required", { weight_type: fieldOf(data, "weight_type") }), { category_id: error_code });
                 return;
             case "WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE":
                 showNotification_Warning(t("config_page.translation.ctranslate2_weight_type.non_commercial_notice", {
                     ctranslate2: "CTranslate2",
-                    weight_type: data?.weight_type,
-                    license: data?.license,
+                    weight_type: fieldOf(data, "weight_type"),
+                    license: fieldOf(data, "license"),
                 }), { category_id: error_code, hide_duration: null });
                 return;
 
@@ -382,39 +425,39 @@ export const _useBackendErrorHandling = () => {
                 showNotification_Error(t("common_error.threshold_invalid_value", { min: ui_configs.speaker_threshold_min, max: ui_configs.speaker_threshold_max }), { category_id: error_code });
                 return;
             case "VALIDATION_MIC_RECORD_TIMEOUT":
-                updateMicRecordTimeout(data);
+                updateMicRecordTimeout(keptValue(data));
                 showNotification_Error(t("common_error.invalid_value_mic_record_timeout", { mic_phrase_timeout_label: t("config_page.transcription.mic_phrase_timeout.label") }), { category_id: error_code });
                 return;
             case "VALIDATION_MIC_PHRASE_TIMEOUT":
-                updateMicPhraseTimeout(data);
+                updateMicPhraseTimeout(keptValue(data));
                 showNotification_Error(t("common_error.invalid_value_mic_phrase_timeout", { mic_record_timeout_label: t("config_page.transcription.mic_record_timeout.label") }), { category_id: error_code });
                 return;
             case "VALIDATION_MIC_MAX_PHRASES":
-                updateMicMaxWords(data);
+                updateMicMaxWords(keptValue(data));
                 showNotification_Error(t("common_error.invalid_value_mic_max_phrase"), { category_id: error_code });
                 return;
             case "VALIDATION_SPEAKER_RECORD_TIMEOUT":
-                updateSpeakerRecordTimeout(data);
+                updateSpeakerRecordTimeout(keptValue(data));
                 showNotification_Error(t("common_error.invalid_value_speaker_record_timeout", { speaker_phrase_timeout_label: t("config_page.transcription.speaker_phrase_timeout.label") }), { category_id: error_code });
                 return;
             case "VALIDATION_SPEAKER_PHRASE_TIMEOUT":
-                updateSpeakerPhraseTimeout(data);
+                updateSpeakerPhraseTimeout(keptValue(data));
                 showNotification_Error(t("common_error.invalid_value_speaker_phrase_timeout", { speaker_record_timeout_label: t("config_page.transcription.speaker_record_timeout.label") }), { category_id: error_code });
                 return;
             case "VALIDATION_SPEAKER_MAX_PHRASES":
-                updateSpeakerMaxWords(data);
+                updateSpeakerMaxWords(keptValue(data));
                 showNotification_Error(t("common_error.invalid_value_speaker_max_phrase"), { category_id: error_code });
                 return;
             case "VALIDATION_RVC_BLOCK_MS":
-                updateRvcBlockMs(data);
+                updateRvcBlockMs(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "VALIDATION_INVALID_IP":
             case "VALIDATION_CANNOT_SET_IP":
                 if (endpoint === "/set/data/websocket_host") {
-                    updateWebsocketHost(data);
+                    updateWebsocketHost(keptValue(data));
                 } else if (endpoint === "/set/data/osc_ip_address") {
-                    updateOscIpAddress(data);
+                    updateOscIpAddress(keptValue(data));
                 }
                 showNotification_Error(localized, { category_id: error_code });
                 return;
@@ -428,7 +471,7 @@ export const _useBackendErrorHandling = () => {
                 return;
             }
             case "VALIDATION_OSC_PORT_INVALID":
-                updateOscPort(data);
+                updateOscPort(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
 
@@ -436,71 +479,71 @@ export const _useBackendErrorHandling = () => {
             // 認証エラー (AUTH_*)
             // ============================================================================
             case "AUTH_DEEPL_LENGTH":
-                updateDeepLAuthKey(data);
+                updateDeepLAuthKey(keptValue(data));
                 showNotification_Error(t("common_error.deepl_auth_key_invalid_length"), { category_id: error_code });
                 return;
             case "AUTH_DEEPL_FAILED":
-                updateDeepLAuthKey(data);
+                updateDeepLAuthKey(keptValue(data));
                 showNotification_Error(t("common_error.deepl_auth_key_failed_authentication"), { category_id: error_code });
                 return;
             case "AUTH_GOOGLE_CLOUD_INVALID":
             case "AUTH_GOOGLE_CLOUD_FAILED":
-                updateGoogleCloudAuthKey(data);
+                updateGoogleCloudAuthKey(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "AUTH_PAPAGO_INVALID":
             case "AUTH_PAPAGO_FAILED":
                 // The Client ID and the secret share the codes; the endpoint says which field to restore.
-                if (endpoint === "/set/data/papago_client_id") updatePapagoClientID(data ?? "");
-                else updatePapagoAuthKey(data);
+                if (endpoint === "/set/data/papago_client_id") updatePapagoClientID(keptValue(data ?? ""));
+                else updatePapagoAuthKey(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "AUTH_PLAMO_LENGTH":
             case "AUTH_PLAMO_FAILED":
-                updatePlamoAuthKey(data);
+                updatePlamoAuthKey(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "AUTH_GEMINI_LENGTH":
             case "AUTH_GEMINI_FAILED":
-                updateGeminiAuthKey(data);
+                updateGeminiAuthKey(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "AUTH_OPENAI_INVALID":
             case "AUTH_OPENAI_FAILED":
-                updateOpenAIAuthKey(data);
+                updateOpenAIAuthKey(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "AUTH_GROQ_INVALID":
             case "AUTH_GROQ_FAILED":
-                updateGroqAuthKey(data);
+                updateGroqAuthKey(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "AUTH_OPENROUTER_INVALID":
             case "AUTH_OPENROUTER_FAILED":
-                updateOpenRouterAuthKey(data);
+                updateOpenRouterAuthKey(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             // Cloud transcription: the endpoint names the engine, e.g.
             // /set/data/groq_whisper_auth_key -> GroqWhisperAuthKey.
             case "TRANSCRIPTION_API_AUTH_FAILED": {
-                const base = CLOUD_TRANSCRIPTION_BASES[endpoint?.match(/^\/set\/data\/(\w+?)_auth_key(?:_and_url)?$/)?.[1]];
-                if (base) transcription[`update${base}AuthKey`](data ?? "");
+                const base = cloudTranscriptionBase(endpoint?.match(/^\/set\/data\/(\w+?)_auth_key(?:_and_url)?$/)?.[1]);
+                if (base) transcription[`update${base}AuthKey`](keptValue(data ?? ""));
                 showNotification_Error(t("common_error.transcription_api_auth_failed"), { category_id: error_code });
                 return;
             }
             case "MODEL_TRANSCRIPTION_INVALID": {
-                const base = CLOUD_TRANSCRIPTION_BASES[endpoint?.match(/^\/set\/data\/selected_(\w+?)_model$/)?.[1]];
-                if (base) transcription[`updateSelected${base}Model`](data);
+                const base = cloudTranscriptionBase(endpoint?.match(/^\/set\/data\/selected_(\w+?)_model$/)?.[1]);
+                if (base) transcription[`updateSelected${base}Model`](keptValue(data));
                 showNotification_Error(t("common_error.transcription_model_invalid"), { category_id: error_code });
                 return;
             }
             case "CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID":
-                transcription.updateCustomWhisperURL(data ?? "");
+                transcription.updateCustomWhisperURL(keptValue(data ?? ""));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "AUTH_OPENAI_COMPATIBLE_INVALID":
             case "AUTH_OPENAI_COMPATIBLE_FAILED":
-                updateOpenAICompatibleAuthKey(data);
+                updateOpenAICompatibleAuthKey(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
 
@@ -508,35 +551,35 @@ export const _useBackendErrorHandling = () => {
             // モデル選択エラー (MODEL_*)
             // ============================================================================
             case "MODEL_PLAMO_INVALID":
-                updateSelectedPlamoModel(data);
+                updateSelectedPlamoModel(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "MODEL_GEMINI_INVALID":
-                updateSelectedGeminiModel(data);
+                updateSelectedGeminiModel(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "MODEL_OPENAI_INVALID":
-                updateSelectedOpenAIModel(data);
+                updateSelectedOpenAIModel(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "MODEL_GROQ_INVALID":
-                updateSelectedGroqModel(data);
+                updateSelectedGroqModel(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "MODEL_OPENROUTER_INVALID":
-                updateSelectedOpenRouterModel(data);
+                updateSelectedOpenRouterModel(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "MODEL_LMSTUDIO_INVALID":
-                updateSelectedLMStudioModel(data);
+                updateSelectedLMStudioModel(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "MODEL_OPENAI_COMPATIBLE_INVALID":
-                updateSelectedOpenAICompatibleModel(data);
+                updateSelectedOpenAICompatibleModel(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "MODEL_OLLAMA_INVALID":
-                updateSelectedOllamaModel(data);
+                updateSelectedOllamaModel(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
 
@@ -544,31 +587,31 @@ export const _useBackendErrorHandling = () => {
             // 接続エラー (CONNECTION_*)
             // ============================================================================
             case "CONNECTION_LMSTUDIO_FAILED":
-                updateIsLMStudioConnected(data);
+                updateIsLMStudioConnected(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "CONNECTION_OLLAMA_FAILED":
-                updateIsOllamaConnected(data);
+                updateIsOllamaConnected(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "CONNECTION_LMSTUDIO_URL_INVALID":
-                updateLMStudioURL(data);
+                updateLMStudioURL(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "CONNECTION_OLLAMA_URL_INVALID":
-                updateOllamaURL(data);
+                updateOllamaURL(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID":
-                updateOpenAICompatibleURL(data);
+                updateOpenAICompatibleURL(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "CREDENTIAL_REENTRY_REQUIRED":
-                if (endpoint === "/set/data/openai_compatible_url") updateOpenAICompatibleURL(data);
-                else if (endpoint === "/set/data/custom_whisper_url") transcription.updateCustomWhisperURL(data);
+                if (endpoint === "/set/data/openai_compatible_url") updateOpenAICompatibleURL(keptValue(data));
+                else if (endpoint === "/set/data/custom_whisper_url") transcription.updateCustomWhisperURL(keptValue(data));
                 else if (endpoint === "/set/data/papago_client_id") {
                     // The URL wording does not fit: a new Client ID needs the secret again.
-                    updatePapagoClientID(data);
+                    updatePapagoClientID(keptValue(data));
                     showNotification_Error(t("config_page.translation.papago_client_id.reentry_required"), { category_id: error_code });
                     return;
                 }
@@ -581,8 +624,8 @@ export const _useBackendErrorHandling = () => {
             case "WEBSOCKET_HOST_INVALID":
             case "WEBSOCKET_PORT_UNAVAILABLE":
             case "WEBSOCKET_PORT_INVALID":
-                if (error_code === "WEBSOCKET_HOST_INVALID") updateWebsocketHost(data);
-                else updateWebsocketPort(data);
+                if (error_code === "WEBSOCKET_HOST_INVALID") updateWebsocketHost(keptValue(data));
+                else updateWebsocketPort(keptValue(data));
                 // 変更に失敗して元のアドレスでも立て直せないと、サイドカーはサーバーと OBS をオフにする
                 asyncStdoutToPython("/get/data/websocket_server");
                 asyncStdoutToPython("/get/data/obs_browser_source");
@@ -592,25 +635,25 @@ export const _useBackendErrorHandling = () => {
                 if (endpoint === "/set/enable/obs_browser_source") settleObsLifecycleError();
                 else if (endpoint === "/set/data/websocket_tls") {
                     // The servers could not restart with the new certificate and went back to the old one.
-                    updateWebsocketTls(data);
+                    updateWebsocketTls(keptValue(data));
                     asyncStdoutToPython("/get/data/websocket_server");
                     asyncStdoutToPython("/get/data/obs_browser_source");
-                } else updateEnableWebsocket(data);
+                } else updateEnableWebsocket(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             // Beyond this PC only over TLS. From the host field, the certificate fields, or at
             // startup, when a saved LAN host without a usable certificate went back to 127.0.0.1.
             case "WEBSOCKET_HOST_NEEDS_TLS":
-                if (endpoint === "/set/data/websocket_tls") updateWebsocketTls(data);
-                else updateWebsocketHost(data);
+                if (endpoint === "/set/data/websocket_tls") updateWebsocketTls(keptValue(data));
+                else updateWebsocketHost(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "WEBSOCKET_HOST_RESET_WITHOUT_TLS":
-                updateWebsocketHost(data);
+                updateWebsocketHost(keptValue(data));
                 showNotification_Warning(localized, { category_id: error_code, hide_duration: null });
                 return;
             case "WEBSOCKET_TLS_INVALID":
-                updateWebsocketTls(data);
+                updateWebsocketTls(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
 
@@ -625,31 +668,31 @@ export const _useBackendErrorHandling = () => {
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "OBS_BROWSER_SOURCE_MAX_MESSAGES_INVALID":
-                updateObsBrowserSourceMaxMessages(data);
+                updateObsBrowserSourceMaxMessages(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "OBS_BROWSER_SOURCE_DISPLAY_DURATION_INVALID":
-                updateObsBrowserSourceDisplayDuration(data);
+                updateObsBrowserSourceDisplayDuration(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "OBS_BROWSER_SOURCE_FADEOUT_DURATION_INVALID":
-                updateObsBrowserSourceFadeoutDuration(data);
+                updateObsBrowserSourceFadeoutDuration(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "OBS_BROWSER_SOURCE_FONT_SIZE_INVALID":
-                updateObsBrowserSourceFontSize(data);
+                updateObsBrowserSourceFontSize(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "OBS_BROWSER_SOURCE_FONT_COLOR_INVALID":
-                updateObsBrowserSourceFontColor(data);
+                updateObsBrowserSourceFontColor(keptValue(data));
                 showNotification_Error(t("common_error.invalid_hex_color", { brand_color_hex: ui_configs.brand_color_hex }), { category_id: error_code });
                 return;
             case "OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS_INVALID":
-                updateObsBrowserSourceFontOutlineThickness(data);
+                updateObsBrowserSourceFontOutlineThickness(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
             case "OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR_INVALID":
-                updateObsBrowserSourceFontOutlineColor(data);
+                updateObsBrowserSourceFontOutlineColor(keptValue(data));
                 showNotification_Error(t("common_error.invalid_hex_color", { brand_color_hex: ui_configs.brand_color_hex }), { category_id: error_code });
                 return;
 
@@ -659,7 +702,8 @@ export const _useBackendErrorHandling = () => {
             case "VAD_UNAVAILABLE": {
                 const refused = endpoint === "/set/enable/mic_vad_filter" || endpoint === "/set/enable/speaker_vad_filter";
                 if (refused) asyncStdoutToPython(endpoint.replace("/set/enable/", "/get/data/"));
-                const reason = typeof result?.details?.reason === "string" ? result.details.reason : "";
+                const named = fieldOf(fieldOf(result, "details"), "reason");
+                const reason = typeof named === "string" ? named : "";
                 const next = reason && i18n.exists(`realtime_toggle.${reason}`) ? t(`realtime_toggle.${reason}`) : "";
                 const text = refused ? localized : t(key, { context: "recording" });
                 showNotification_Warning(next ? `${text} ${next}` : text, { category_id: error_code });
@@ -670,7 +714,7 @@ export const _useBackendErrorHandling = () => {
             // VRC連携エラー (VRC_*)
             // ============================================================================
             case "VRC_MIC_MUTE_SYNC_OSC_DISABLED":
-                updateEnableVrcMicMuteSync(data);
+                updateEnableVrcMicMuteSync(keptValue(data));
                 showNotification_Error(localized, { category_id: error_code });
                 return;
 
@@ -681,8 +725,9 @@ export const _useBackendErrorHandling = () => {
             // A key that did not move to the OS store still works where it was; a store that is
             // locked or not running needs the user's keyring, which the app does not open.
             case "SECRET_STORE_FAILED": {
-                const context = data?.operation === "migrate" ? "moving"
-                    : ["unavailable", "locked"].includes(data?.reason) ? "os_store" : undefined;
+                const reason = fieldOf(data, "reason");
+                const context = fieldOf(data, "operation") === "migrate" ? "moving"
+                    : reason === "unavailable" || reason === "locked" ? "os_store" : undefined;
                 const text = context && i18n.exists(`${key}_${context}`) ? t(key, { context }) : localized;
                 showNotification_Error(text, { hide_duration: null, category_id: error_code });
                 return;

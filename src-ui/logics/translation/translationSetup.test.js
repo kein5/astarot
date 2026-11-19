@@ -41,7 +41,7 @@ async function fixture(context) {
         showNotification_Success: (message, options) => notices.push(["success", message]),
     }) };
     for (const name of ["Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule(new URL("../_useBackendErrorHandling.js", import.meta.url), runtime, {
+    const errors = await loadModule(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
         "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },

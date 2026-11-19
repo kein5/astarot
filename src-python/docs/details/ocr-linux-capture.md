@@ -143,7 +143,7 @@ Request の Response 待ち、期限、取り消し、ポータルの再起動�
 - 共有中の「別のウィンドウを選ぶ…」はトークンを送らない。送ると同じウィンドウが黙って復元され、
   選び直せないため
 - アプリ ID の登録に失敗するポータル (古い版) でも共有はできるので、登録の失敗では止めない
-- オンにしたときの共有のやり直し (`_useBackendErrorHandling.js`、`ocrSharedWindow.ts` の `shouldRestoreSharing` と
+- オンにしたときの共有のやり直し (`_useBackendErrorHandling.ts`、`ocrSharedWindow.ts` の `shouldRestoreSharing` と
   `restore`): チャット読み取りをオフにすると共有は終わる。利用者がオンにし直して、開始が
   `OCR_DISABLED_WINDOW_NOT_FOUND` か `OCR_DISABLED_CAPTURE_UNAVAILABLE` で断られたとき、保存したトークンがあり、
   共有中でも要求中でもなければ、そのトークンで `screencast_start` を呼び、成功したら `/set/enable/ocr_capture` を

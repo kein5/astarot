@@ -41,7 +41,7 @@ test("the window is placed before it shows, and the UI does not move it afterwar
         "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
     });
     assert.equal(useWindow().restoreWindowGeometry, undefined);
-    const routes = await read("../useReceiveRoutes.js");
+    const routes = await read("../useReceiveRoutes.ts");
     assert.match(routes, /endpoint: "\/get\/data\/main_window_geometry", ns: null, hook_name: null, method_name: null/);
 });
 

@@ -427,7 +427,7 @@ UIは言語の待機を解除してその値へ戻し、稼働スイッチと既
   - エンジンを選ぶ設定は持たない。実装が1つしか無いのに保存値と判定値がずれてOCRが起動しなくなる事故を起こしたため (2026-09-18)
 - `/get/data/selectable_ocr_source_languages` — OCRで選べる言語の一覧（UIのドロップダウンの中身）
 - `/get/data/ocr_capture_status` — 取り込み元、実行状態、実際に使う検出器をまとめて返す読み出し専用の状態取得。停止中でも問い合わせられる
-- `/run/transcription_ocr_message` — OCR 結果を UI ログに配送（`useReceiveRoutes.js`）
+- `/run/transcription_ocr_message` — OCR 結果を UI ログに配送（`useReceiveRoutes.ts`）
 
 ## Controller 連携
 

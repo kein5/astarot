@@ -7111,7 +7111,7 @@ class Controller:
         # (バグ等で) 無期限にハングした場合、watchdog 自体がまだ起動して
         # おらず自動復旧が一切効かなかった。フロントエンドは Python
         # プロセスを spawn した直後から 20s 間隔で /run/feed_watchdog を
-        # 送り続けており (StartPythonController.jsx)、このエンドポイントは
+        # 送り続けており (StartPythonController.tsx)、このエンドポイントは
         # 初期化中でも処理可能 (mainloop.py の "status": True) なため、
         # init() をメインスレッドで実行している間も 3 本のハンドラワーカー
         # がフィードを処理できる。よってここで起動しても安全。
