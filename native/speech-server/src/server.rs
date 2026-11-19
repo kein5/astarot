@@ -365,18 +365,7 @@ impl Inner {
     }
 
     fn arguments(&self, options: &StartOptions) -> Vec<String> {
-        let mut args = vec!["serve".to_owned(), options.model.clone()];
-        for model in [&options.vad_model, &options.diarization_model] {
-            if !model.is_empty() {
-                args.push(model.clone());
-            }
-        }
-        args.extend(["--host", "127.0.0.1", "--port", "0", "--device"].map(str::to_owned));
-        args.push(options.device.clone());
-        if !options.voice_file.is_empty() {
-            args.extend(["--add-voice".to_owned(), format!("custom={}", options.voice_file)]);
-        }
-        args
+        arguments(options)
     }
 
     /// The server answered on `port`: check what it serves, then warm it up off this thread.
@@ -667,9 +656,45 @@ impl Inner {
     }
 }
 
+/// The shortest speech the detection model of a server counts, in ms (decision 85 of
+/// `docs/voice-stack/core-integration.md`): Python's VAD took 64 ms; speech.cpp's default is
+/// 250 ms, which left short replies unrecognised.
+pub const MIN_SPEECH_MS: u32 = 64;
+
+/// The command line of `speech serve` for `options`.
+fn arguments(options: &StartOptions) -> Vec<String> {
+    let mut args = vec!["serve".to_owned(), options.model.clone()];
+    for model in [&options.vad_model, &options.diarization_model] {
+        if !model.is_empty() {
+            args.push(model.clone());
+        }
+    }
+    args.extend(["--host", "127.0.0.1", "--port", "0", "--device"].map(str::to_owned));
+    args.push(options.device.clone());
+    if !options.vad_model.is_empty() {
+        args.extend(["--min-speech-duration-ms".to_owned(), MIN_SPEECH_MS.to_string()]);
+    }
+    if !options.voice_file.is_empty() {
+        args.extend(["--add-voice".to_owned(), format!("custom={}", options.voice_file)]);
+    }
+    args
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_server_with_a_detection_model_counts_speech_from_64_ms() {
+        // Decision 85 (c): the VAD of realtime captions and of the recorder.
+        let options = |vad: &str| StartOptions { model: "/m/asr.gguf".into(), vad_model: vad.into(), device: "auto".into(), ..Default::default() };
+        let with_vad = arguments(&options("/m/vad.gguf"));
+        assert_eq!(with_vad[..3], ["serve", "/m/asr.gguf", "/m/vad.gguf"]);
+        let at = with_vad.iter().position(|a| a == "--min-speech-duration-ms").expect("the option");
+        assert_eq!(with_vad[at + 1], "64");
+        // A server without one (speech, or recognition alone) is started as before.
+        assert!(!arguments(&options("")).iter().any(|a| a == "--min-speech-duration-ms"));
+    }
 
     #[test]
     fn the_ready_line_gives_its_port_and_nothing_else_does() {

@@ -156,6 +156,12 @@ impl Failure {
 
 static NAMESPACES: AtomicU64 = AtomicU64::new(0);
 
+/// When audio delivered at `now` was heard: `captured_ago` earlier when the capture says so,
+/// else as it is delivered.
+fn heard_at(now: Instant, captured_ago: Option<Duration>) -> Instant {
+    captured_ago.and_then(|ago| now.checked_sub(ago)).unwrap_or(now)
+}
+
 fn namespace() -> String {
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
     let count = NAMESPACES.fetch_add(1, Ordering::SeqCst);
@@ -551,8 +557,10 @@ impl Session {
     fn open_capture(&self) -> Result<Box<dyn Capture>, Failure> {
         let builder = Arc::new(Mutex::new(None::<FrameBuilder>));
         let feeding = self.clone();
-        let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16| {
-            let received = Instant::now();
+        let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16, captured_ago: Option<Duration>| {
+            // Decision 70 (`RealtimeSession` took the helper's stamp): audio is as old as its
+            // capture says, so a delay before it got here counts against the 250 ms.
+            let received = heard_at(Instant::now(), captured_ago);
             let mut builder = builder.lock().unwrap_or_else(|e| e.into_inner());
             let frames = builder.get_or_insert_with(|| FrameBuilder::new(rate, usize::from(channels))).feed(samples, received);
             for (frame, heard) in frames {
@@ -740,6 +748,17 @@ mod tests {
         }
         assert!(!small.push(vec![0; 10], Instant::now()));
         assert_eq!(refused_for(&small), Some("input_overflow"));
+    }
+
+    #[test]
+    fn audio_is_as_old_as_its_capture_says() {
+        // Decision 70: the helper's stamp, not the delivery, says when audio was heard; audio the
+        // pipe held back is refused as Python's ingress refused it.
+        let now = Instant::now();
+        assert_eq!(heard_at(now, None), now);
+        assert_eq!(heard_at(now, Some(Duration::from_millis(40))), now - Duration::from_millis(40));
+        let held_back = heard_at(now, Some(Duration::from_millis(300)));
+        assert!(held_back.elapsed() > MAX_AGE);
     }
 
     #[test]
