@@ -199,7 +199,7 @@ def _settings_fields(page, width):
 def test_settings_fields_follow_the_width_rule(studio):
     # Fields were 556, 280, 200-240, 140 or 100 px wide depending on the page (#567). Now every
     # field lies in the field column, which starts at the same x on every page, and fills it
-    # beside at most its own checkbox or buttons (a device's 自動選択, a hotkey's delete),
+    # beside at most its own buttons (a hotkey's delete; a device's 自動選択 is over its lists),
     # unless it holds a short value (a port, an address, a number: at most 14rem).
     # Rows without a label (the message format, the word list) and the threshold's number
     # beside its meter are composed controls and are left out.

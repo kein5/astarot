@@ -13,6 +13,11 @@
 //!   as expired. Microphone speech must also become audible within `max_age`
 //!   of its recognition, or it ends with `speech_expired`; speech that has
 //!   started is never cut short by that deadline.
+//! - Typed chat does not count the time it waited while the worker spoke an
+//!   earlier message (decision 61 of `docs/voice-stack/core-integration.md`):
+//!   messages sent one after another are spoken however long the earlier ones
+//!   are, and only one left waiting while nothing speaks expires. Python
+//!   counted that time for chat too.
 //! - Every utterance ends within `request_timeout` (`request_timeout`).
 //! - Stop, mute, unmute, disable, reconfigure and close cancel the utterance
 //!   in progress, empty the queue, silence speech monitors and advance the
@@ -176,6 +181,34 @@ struct Job {
     event: Arc<SpeechMessageEvent>,
     settings: Arc<VoiceSettings>,
     epoch: u64,
+    /// [`Busy::total`] when the message was queued.
+    busy_at_queue: i64,
+}
+
+/// How long the worker has spent on utterances, so that typed chat can leave out the time it
+/// waited behind them (decision 61).
+#[derive(Default)]
+struct Busy {
+    /// Nanoseconds of finished utterances.
+    done: i64,
+    /// When the utterance in progress was taken.
+    since: Option<i64>,
+}
+
+impl Busy {
+    fn total(&self, now: i64) -> i64 {
+        self.done + self.since.map_or(0, |since| (now - since).max(0))
+    }
+
+    fn start(&mut self, now: i64) {
+        self.since = Some(now);
+    }
+
+    fn end(&mut self, now: i64) {
+        if let Some(since) = self.since.take() {
+            self.done += (now - since).max(0);
+        }
+    }
 }
 
 type SeenKey = (Source, String);
@@ -196,6 +229,7 @@ struct State {
     epoch: u64,
     source_epochs: HashMap<Source, u64>,
     stats: Stats,
+    busy: Busy,
 }
 
 struct Hooks {
@@ -276,6 +310,7 @@ impl VoiceEventBus {
                     epoch: 0,
                     source_epochs: HashMap::new(),
                     stats: Stats::default(),
+                    busy: Busy::default(),
                 }),
                 changed: Condvar::new(),
                 hooks: RwLock::new(Hooks { converted_router: options.converted_router, on_first_audio: options.on_first_audio, monitor_factory: options.monitor_factory }),
@@ -464,7 +499,8 @@ impl VoiceEventBus {
             let (key, _) = state.seen_order.pop_front().expect("longer than 512");
             state.seen.remove(&key);
         }
-        let job = Job { event: Arc::new(event), settings: state.settings.clone(), epoch: state.epoch };
+        let busy_at_queue = state.busy.total(monotonic_ns());
+        let job = Job { event: Arc::new(event), settings: state.settings.clone(), epoch: state.epoch, busy_at_queue };
         state.queue.push_back(job);
         state.stats.accepted += 1;
         if state.worker.is_none() {
@@ -479,6 +515,7 @@ impl VoiceEventBus {
                     if catch_unwind(AssertUnwindSafe(|| work(&inner))).is_err() {
                         let mut state = inner.state();
                         state.worker = None;
+                        state.busy.end(monotonic_ns());
                         state.active = None;
                         state.active_source = None;
                         inner.changed.notify_all();
@@ -661,13 +698,17 @@ fn next_job(inner: &Arc<Inner>) -> Option<(Job, CancelToken, Option<i64>)> {
         let next = state.queue.iter().position(|job| job.event.source == Source::Chat).unwrap_or(0);
         let job = state.queue.remove(next).expect("the queue is not empty");
         let max_age_ns = inner.max_age.as_nanos() as i64;
-        if monotonic_ns() - job.event.timestamp_ns > max_age_ns {
+        let now = monotonic_ns();
+        // Chat leaves out the time it waited behind earlier utterances (decision 61).
+        let behind = if job.event.source == Source::Chat { state.busy.total(now) - job.busy_at_queue } else { 0 };
+        if now - job.event.timestamp_ns - behind > max_age_ns {
             state.stats.dropped += 1;
             state.stats.expired += 1;
             continue;
         }
         let deadline = (job.event.source == Source::Mic).then(|| job.event.timestamp_ns + max_age_ns);
         let token = CancelToken::with_start_deadline(deadline);
+        state.busy.start(now);
         state.active = Some(token.clone());
         state.active_source = Some(job.event.source.clone());
         return Some((job, token, deadline));
@@ -724,6 +765,7 @@ fn work(inner: &Arc<Inner>) {
         }
         write_voice_trace(&job.event.event_id, job.event.timestamp_ns, first_write, outcome);
         let mut state = inner.state();
+        state.busy.end(monotonic_ns());
         state.active = None;
         state.active_source = None;
         inner.changed.notify_all();

@@ -82,6 +82,9 @@ class StageTests(unittest.TestCase):
             self.assertIn("license: cc-by-nc-4.0", card)
             self.assertIn("Non-commercial use only", card)
             self.assertFalse((out / "LICENSE").exists())
+            # CC-BY asks for the creators and the changes to be named.
+            self.assertIn("Authors of the source model: Meta AI (the NLLB team)", card)
+            self.assertIn("ONNX Runtime `quantize_dynamic`", card)
 
 
 class EntryTests(unittest.TestCase):
@@ -116,6 +119,17 @@ class EntryTests(unittest.TestCase):
             new = publish.entry(manifest, "owner/nllb", REVISION, pins_of(folder, manifest))
             self.assertEqual(new["id"], "nllb-200-distilled-600m-onnx-float16")
             self.assertIn("https://creativecommons.org/licenses/by-nc/4.0/", new["licenses"])
+            self.assertNotIn("notice", new)
+
+    def test_a_model_may_name_its_own_notice(self):
+        with tempfile.TemporaryDirectory() as root:
+            folder, manifest = make_folder(root, name="nllb-200-distilled-600M", license="CC-BY-NC-4.0")
+            pins = pins_of(folder, manifest)
+            new = publish.entry(manifest, "owner/nllb", REVISION, pins, "translation_nllb_600m")
+            self.assertEqual(new["notice"], "translation_nllb_600m")
+            self.assertNotIn("notice", publish.entry(manifest, "owner/nllb", REVISION, pins, "translation"))
+            with self.assertRaises(SystemExit):
+                publish.entry(manifest, "owner/nllb", REVISION, pins, "Not a name")
 
     def test_writing_replaces_the_same_id_and_keeps_the_order(self):
         with tempfile.TemporaryDirectory() as root:

@@ -106,10 +106,13 @@ impl Core {
         }
         let config = self.config();
         let model = config.get_str("SELECTED_DEEPGRAM_MODEL");
-        let codes: Vec<String> = config.get("DEEPGRAM_MODEL_LANGUAGES")[&model]
-            .as_array()
-            .map(|a| a.iter().filter_map(|c| c.as_str().map(str::to_string)).collect())
-            .unwrap_or_default();
+        // Decision 74 (b): languages of a model not checked yet (no key, no answer from the
+        // service at start-up) are unknown, and every language of the table is offered rather
+        // than none.
+        let Some(codes) = config.get("DEEPGRAM_MODEL_LANGUAGES")[&model].as_array().cloned() else {
+            return true;
+        };
+        let codes: Vec<String> = codes.iter().filter_map(|c| c.as_str().map(str::to_string)).collect();
         codes.iter().any(|c| c.to_lowercase() == "multi") || deepgram_code(language, country, &codes).is_some()
     }
 
@@ -130,6 +133,16 @@ impl Core {
                 if self.transcription_supports(&engine, language, country) {
                     list.push(json!({ "language": language, "country": country }));
                 }
+            }
+        }
+        // Decision 74 (c): an own language the engine cannot hear, kept because every language it
+        // hears is an enabled target, is listed too, so that the UI can show what is selected.
+        let your = self.config().get("SELECTED_YOUR_LANGUAGES");
+        for tab in your.as_object().into_iter().flat_map(|tabs| tabs.values()) {
+            let (language, country) = (tab["1"]["language"].as_str().unwrap_or(""), tab["1"]["country"].as_str().unwrap_or(""));
+            let kept = json!({ "language": language, "country": country });
+            if languages::known_language(language, country) && translatable.contains(language) && !list.contains(&kept) {
+                list.push(kept);
             }
         }
         list.sort_by(|a, b| a["language"].as_str().cmp(&b["language"].as_str()));

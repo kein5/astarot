@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 use super::speechcpp;
 use crate::net::quote;
 
-pub const CATALOG_VERSION: &str = "2026-11-16.3";
+pub const CATALOG_VERSION: &str = "2026-11-19.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Artifact {
@@ -128,10 +128,14 @@ pub const TARGETS: [&str; 7] = ["japanese", "multilingual", "asr", "vad", "diari
 /// `data/translation_models.json` ([`translation_models`]), which is empty until the models are
 /// published; an entry is one folder of `tools/translation_onnx/export.py`, its id
 /// `<model>-onnx-<variant>` in lower case with `_` and `.` as `-` (`m2m100-418m-onnx-int8`),
-/// its `notice` `translation` (the UI's `model_downloads.notice_translation`), and nothing goes
-/// into the settings when it is applied: the local translation finds verified downloads by
-/// catalog id, as chat reading does.
+/// its `notice` `translation` (the UI's `model_downloads.notice_translation`) unless the entry
+/// names one of [`TRANSLATION_NOTICES`], and nothing goes into the settings when it is applied:
+/// the local translation finds verified downloads by catalog id, as chat reading does.
 pub const TRANSLATION_TARGET: &str = "translation";
+/// The notices a translation entry may name (`model_downloads.notice_<notice>` in locales/):
+/// the general one, and one per model whose download review says more, such as the size and
+/// memory of an NLLB-200 model next to its non-commercial licence.
+pub const TRANSLATION_NOTICES: [&str; 2] = [TRANSLATION_TARGET, "translation_nllb_600m"];
 /// The roles of a translation entry's files. `manifest` is required: it names the rest. `data`
 /// (the weights of a graph over 2 GB, `<graph>.onnx_data`) may come once per graph.
 pub const TRANSLATION_ROLES: [&str; 7] = ["manifest", "encoder", "decoder", "tokenizer", "vocabulary", "weights", "data"];
@@ -155,6 +159,9 @@ struct TranslationModel {
     revision: String,
     license: String,
     licenses: Vec<String>,
+    /// One of [`TRANSLATION_NOTICES`]; left out, the general `translation`.
+    #[serde(default)]
+    notice: Option<String>,
     artifacts: Vec<TranslationFile>,
 }
 
@@ -167,25 +174,31 @@ struct TranslationFile {
     role: String,
 }
 
-/// The entries of a `translation_models.json` text, in its order.
+/// The entries of a `translation_models.json` text, in its order. A notice that is not one of
+/// [`TRANSLATION_NOTICES`] is refused: the review would show a text the UI does not have.
 fn parse_translation_models(text: &str) -> Result<Vec<Model>, String> {
     let data: TranslationModels = serde_json::from_str(text).map_err(|error| error.to_string())?;
-    Ok(data
-        .models
+    data.models
         .into_iter()
-        .map(|entry| Model {
-            id: entry.id,
-            target: TRANSLATION_TARGET.into(),
-            name: entry.name,
-            provider: entry.provider,
-            repo: entry.repo,
-            revision: entry.revision,
-            license: entry.license,
-            licenses: entry.licenses,
-            notice: TRANSLATION_TARGET.into(),
-            artifacts: entry.artifacts.into_iter().map(|file| artifact(&file.filename, file.size, &file.sha256, &file.role)).collect(),
+        .map(|entry| {
+            let notice = entry.notice.unwrap_or_else(|| TRANSLATION_TARGET.into());
+            if !TRANSLATION_NOTICES.contains(&notice.as_str()) {
+                return Err(format!("{}: unknown notice {notice}", entry.id));
+            }
+            Ok(Model {
+                id: entry.id,
+                target: TRANSLATION_TARGET.into(),
+                name: entry.name,
+                provider: entry.provider,
+                repo: entry.repo,
+                revision: entry.revision,
+                license: entry.license,
+                licenses: entry.licenses,
+                notice,
+                artifacts: entry.artifacts.into_iter().map(|file| artifact(&file.filename, file.size, &file.sha256, &file.role)).collect(),
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// The published local translation models, from `data/translation_models.json` (written by
@@ -690,7 +703,7 @@ mod translation_tests {
         assert_eq!(shipped, translation_models());
         assert_eq!(validate_catalog(&shipped), Ok(()));
         for model in &shipped {
-            assert_eq!(model.notice, TRANSLATION_TARGET);
+            assert!(TRANSLATION_NOTICES.contains(&model.notice.as_str()), "{}", model.id);
             let variant = model.id.rsplit_once("-onnx-").map(|(_, variant)| variant);
             assert!(matches!(variant, Some("float32" | "float16" | "int8" | "int4")), "{}", model.id);
             assert!(!model.licenses.is_empty(), "{}", model.id);
@@ -715,6 +728,11 @@ mod translation_tests {
         assert_eq!(validate_catalog(&models), Ok(()));
         // A field the data file does not know is refused, not dropped.
         assert!(parse_translation_models(r#"{"models": [], "extra": 1}"#).is_err());
+        // An entry may name a notice of its own, but only one the UI has words for.
+        let named = text.replace(r#""license": "MIT","#, r#""license": "MIT", "notice": "translation_nllb_600m","#);
+        assert_eq!(parse_translation_models(&named).unwrap()[0].notice, "translation_nllb_600m");
+        let unknown = text.replace(r#""license": "MIT","#, r#""license": "MIT", "notice": "something_else","#);
+        assert!(parse_translation_models(&unknown).unwrap_err().contains("unknown notice"));
     }
 
     #[test]
