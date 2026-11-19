@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 use super::speechcpp;
 use crate::net::quote;
 
-pub const CATALOG_VERSION: &str = "2026-11-16.3";
+pub const CATALOG_VERSION: &str = "2026-11-19.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Artifact {
