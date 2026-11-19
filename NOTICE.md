@@ -84,6 +84,40 @@ bundle Outfit font files for the subtitle and other brand text; that is part
 of the P1 UI work, and no build ships them yet. The license text and the
 sources are in `licenses/outfit/`.
 
+## shadcn/ui (component design)
+
+The app's components are aligned with the components of
+[shadcn/ui](https://github.com/shadcn-ui/ui) (`DESIGN.md`, "Components"):
+their parts, `data-slot` names, sizes and state styles follow shadcn/ui's
+Radix and native components, translated from Tailwind into vanilla-extract
+and drawn in the ASTAROT colors. No shadcn/ui package is a dependency. The
+first aligned components are the settings kit in `src-ui/views/kit/`.
+shadcn/ui is licensed under the MIT License:
+
+```text
+MIT License
+
+Copyright (c) 2023 shadcn
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Whisper weights from earlier versions
 
 VRCT-VOX no longer uses or downloads Whisper weights. Local speech
@@ -175,7 +209,7 @@ carries the license texts each crate publishes in
 the list from the lock files (`src-tauri/Cargo.lock`,
 `native/rvc-runtime/Cargo.lock`) when the package is built. The application
 also contains the backend core and the crates it uses (`native/core`,
-`native/adapters`, `native/audio-routing`, `native/ops`, `native/speech-server`,
+`native/adapters`, `native/app-identity`, `native/audio-routing`, `native/ops`, `native/speech-server`,
 `native/translation`, `native/translate-onnx`, `native/tts`,
 `native/voice-conversion`, `native/vr-overlay`, `native/openvr-client`,
 `native/ocr-runtime`, `native/onnx-runtime`, `native/transcription`); they are VRCT-VOX's own
@@ -223,9 +257,9 @@ No translation model is bundled: the int8 ONNX conversions of M2M100 418M
 `kein5/nllb-200-distilled-600M-onnx-int8`) are offered only through the
 consented model catalog, pinned by revision, size and SHA-256 in
 `native/ops/data/translation_models.json`, each with a model card that names
-the source model, its authors (Meta AI) and the changes made. A model the user places in the
-`translation-models` folder is under its own license, which the user is
-responsible for. A model under a non-commercial license, such as NLLB-200, is
+the source model, its authors (Meta AI) and the changes made. A model the user
+adds to the translation catalog from a folder of their own is under its own
+license, which the user is responsible for. A model under a non-commercial license, such as NLLB-200, is
 never the default and downloads only after the user has also ticked a separate
 acknowledgement that names its license and allows only non-commercial use; the
 backend refuses the download without it. Selecting an NLLB-200 model keeps its

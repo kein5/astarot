@@ -17,6 +17,7 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
         <input
             ref={ref}
             type={type}
+            data-slot="input"
             aria-invalid={invalid || undefined}
             className={clsx(field({ kind: "text", mono }), className)}
             {...rest}

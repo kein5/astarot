@@ -19,6 +19,8 @@ pipewire = ["vrct-audio-routing/pipewire", "vrct-transcription/pipewire"]
 onnx-translation = ["dep:vrct-translate-onnx"]
 
 [dependencies]
+# The names the app goes by outside its code (ADR-014): the saved keys, the package folder.
+app-identity = { path = "../app-identity" }
 base64 = "=0.22.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
 getrandom = "=0.3.4"

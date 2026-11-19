@@ -11,6 +11,8 @@ publish = false
 name = "vrct_tts"
 
 [dependencies]
+# The names the app goes by outside its code (ADR-014): the timing record's variables.
+app-identity = { path = "../app-identity" }
 serde = { version = "1", features = ["derive"] }
 # arbitrary_precision keeps integer literals beyond u64 as integers, as Python's json does.
 serde_json = { version = "1", features = ["arbitrary_precision"] }

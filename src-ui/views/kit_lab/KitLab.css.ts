@@ -26,3 +26,5 @@ export const section = style({
 // Room on the left for the changed rows' rule, which sits just outside the row.
 export const column = style({ maxWidth: "72rem", paddingInlineStart: "1.2rem" });
 export const buttons = style({ display: "flex", flexWrap: "wrap", gap: ".8rem", maxWidth: "72rem" });
+// An icon inside a kit button: shadcn/ui's size-4, drawn in the button's text colour.
+export const icon = style({ width: "1.6rem", height: "1.6rem", flexShrink: 0, fill: "currentColor" });

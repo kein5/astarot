@@ -157,7 +157,7 @@ fn helper_candidates(executable: &Path, checkout: Option<&Path>) -> Vec<PathBuf>
     if let Some(directory) = executable.parent() {
         candidates.push(directory.join("_internal/build").join(HELPER));
         if let Some(prefix) = directory.parent() {
-            candidates.push(prefix.join("lib/vrct-vox/_internal/build").join(HELPER));
+            candidates.push(prefix.join("lib").join(app_identity::LINUX_PACKAGE.current()).join("_internal/build").join(HELPER));
         }
     }
     if let Some(checkout) = checkout {
@@ -233,8 +233,8 @@ impl Helper {
             .stdin(Stdio::from(remote))
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        let recorded = std::env::var("VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET").ok();
-        let host = std::env::var("VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH").ok();
+        let recorded = std::env::var(app_identity::env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET).ok();
+        let host = std::env::var(app_identity::env::APPIMAGE_HOST_LD_LIBRARY_PATH).ok();
         match host_library_path(recorded.as_deref(), host.as_deref()) {
             Some(Some(path)) => { command.env("LD_LIBRARY_PATH", path); }
             Some(None) => { command.env_remove("LD_LIBRARY_PATH"); }

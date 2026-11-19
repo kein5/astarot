@@ -91,8 +91,9 @@ enum Link {
 /// Opens and configures a session, or says why not.
 fn open(resolve: &Resolve, options: Options) -> Result<Socket, String> {
     let base = resolve()?;
-    let mut socket = open_socket(&base, None).ok_or_else(|| "speech_server_not_ready".to_string())?;
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let setup = Duration::from_secs(2);
+    let mut socket = open_socket(&base, None, setup, None).ok_or_else(|| "speech_server_not_ready".to_string())?;
+    let deadline = Instant::now() + setup;
     let created = read_setup(&mut socket, deadline)?;
     if created["type"] != "session.created" {
         return Err("realtime_session_failed".into());

@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（465件: 削除 13、取得 208、実行 49、有効化 40、無効化 43、設定 112）
+## 要求（468件: 削除 13、取得 209、実行 49、有効化 41、無効化 44、設定 112）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -480,6 +480,9 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/gpu_check_state` | 取得 | `core: gpu_check.status` | 可 | useGpuCheck.updateState | 中核のみ |
 | `/run/start_gpu_check` | 実行 | `core: start_gpu_check` | 可 | useGpuCheck.updateAnswer | 中核のみ |
 | `/run/stop_gpu_check` | 実行 | `core: gpu_check.stop` | 可 | useGpuCheck.updateAnswer | 中核のみ |
+| `/get/data/osc_query` | 取得 | `core: OSC_QUERY` | 可 | useAdvancedSettings.updateFromBackendEnableOscQuery | 中核のみ |
+| `/set/enable/osc_query` | 有効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
+| `/set/disable/osc_query` | 無効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）
@@ -604,7 +607,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/set/disable/local_asr_notice`
 
 
-## UIだけにあるルート（57件）
+## UIだけにあるルート（58件）
 
 UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
@@ -629,6 +632,7 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/obs_browser_source`
 - `/set/data/ocr_chatbox_filter`
 - `/set/data/ocr_use_chatbox_detector`
+- `/set/data/osc_query`
 - `/set/data/overlay_desktop`
 - `/set/data/overlay_large_log`
 - `/set/data/overlay_show_only_translated_messages`

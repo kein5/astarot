@@ -5,16 +5,161 @@
 //! else goes over TLS with the Mozilla roots. Errors carry a fixed kind, never the URL, a header
 //! or a body: the URL of a provider may carry a key in Python's SDKs, and the bodies carry the
 //! user's text.
+//!
+//! A request given a [`Cancel`] ends within about 20 ms of its cancel, whether it is connecting
+//! or waiting for the answer (decision 81 in `docs/voice-stack/core-integration.md`).
 
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, StreamOwned};
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, TcpStream, ToSocketAddrs};
-use std::sync::{Arc, OnceLock};
+use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock, mpsc};
 use std::time::{Duration, Instant};
 
 /// The most a response body may have. A model list or a translation is far smaller.
 const MAX_BODY: usize = 16 * 1024 * 1024;
+
+/// How often a cancellable wait looks at its [`Cancel`].
+const POLL: Duration = Duration::from_millis(20);
+
+/// Stops the requests and connections it is given, as the `CancelToken` that Python's
+/// `SpeechCppASR._request` registered its socket with: a connection being made is given up, and a
+/// read waiting for the peer ends, within about 20 ms. Clones share it; a cancel is final.
+///
+/// Reads wait in slices of 20 ms and look at the cancel between them, as `native/tts/src/http.rs`
+/// does, instead of relying on a socket shut down from another thread to wake them: Winsock does
+/// not promise that. The standard library has no connection that can be given up, so a
+/// connection is made on a thread of its own; one that is given up ends there by its own timeout,
+/// and is closed if it is made.
+#[derive(Clone, Debug, Default)]
+pub struct Cancel(Arc<AtomicBool>);
+
+impl Cancel {
+    pub fn new() -> Cancel {
+        Cancel::default()
+    }
+
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+
+    /// Runs `work` on a thread of its own and waits for it; `None` when this is cancelled first,
+    /// or when no thread could be started. What `work` gives after a cancel is dropped there.
+    fn run<T: Send + 'static>(&self, work: impl FnOnce() -> T + Send + 'static) -> Option<T> {
+        if self.is_cancelled() {
+            return None;
+        }
+        let (sender, receiver) = mpsc::sync_channel(1);
+        std::thread::Builder::new()
+            .name("cancellable-connect".into())
+            .spawn(move || {
+                let _ = sender.send(work());
+            })
+            .ok()?;
+        loop {
+            match receiver.recv_timeout(POLL) {
+                Ok(value) => return Some(value),
+                Err(mpsc::RecvTimeoutError::Timeout) if !self.is_cancelled() => {}
+                Err(_) => return None,
+            }
+        }
+    }
+
+    /// [`TcpStream::connect_timeout`], given up when cancelled (then `ConnectionAborted`).
+    pub fn connect(&self, address: SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
+        self.run(move || TcpStream::connect_timeout(&address, timeout)).unwrap_or_else(|| Err(cancelled()))
+    }
+}
+
+/// The error of a read or a connection a [`Cancel`] ended.
+fn cancelled() -> io::Error {
+    io::Error::new(io::ErrorKind::ConnectionAborted, "cancelled")
+}
+
+/// A connected TCP stream whose reads a [`Cancel`] can end. With a cancel, each read waits at
+/// most `limit`, in slices of 20 ms, and fails with `ConnectionAborted` once cancelled; the
+/// stream must stay blocking then. Without one it reads as the stream does, with the stream's
+/// own read timeout. Writes are the stream's.
+#[derive(Debug)]
+pub struct Watched {
+    stream: TcpStream,
+    cancel: Option<Cancel>,
+    limit: Option<Duration>,
+}
+
+impl Watched {
+    /// `limit` is how long one read may wait; `None` waits without end.
+    pub fn new(stream: TcpStream, cancel: Option<Cancel>, limit: Option<Duration>) -> Watched {
+        Watched { stream, cancel, limit }
+    }
+
+    /// From now on the reads are the stream's own, with `limit` as its read timeout: the cancel
+    /// no longer ends them.
+    pub fn release(&mut self) -> io::Result<()> {
+        self.cancel = None;
+        self.stream.set_read_timeout(self.limit)
+    }
+}
+
+impl std::ops::Deref for Watched {
+    type Target = TcpStream;
+
+    fn deref(&self) -> &TcpStream {
+        &self.stream
+    }
+}
+
+impl std::ops::DerefMut for Watched {
+    fn deref_mut(&mut self) -> &mut TcpStream {
+        &mut self.stream
+    }
+}
+
+impl Read for Watched {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let Some(cancel) = &self.cancel else { return self.stream.read(buf) };
+        let deadline = self.limit.map(|limit| Instant::now() + limit);
+        loop {
+            if cancel.is_cancelled() {
+                return Err(cancelled());
+            }
+            let wait = match deadline {
+                None => POLL,
+                Some(deadline) => {
+                    let left = deadline.saturating_duration_since(Instant::now());
+                    if left.is_zero() {
+                        return Err(io::ErrorKind::TimedOut.into());
+                    }
+                    left.min(POLL)
+                }
+            };
+            self.stream.set_read_timeout(Some(wait))?;
+            match self.stream.read(buf) {
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut | io::ErrorKind::Interrupted
+                    ) => {}
+                other => return other,
+            }
+        }
+    }
+}
+
+impl Write for Watched {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.stream.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.stream.flush()
+    }
+}
 
 /// How long each step may take.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,6 +190,8 @@ pub enum HttpError {
     Io,
     /// The answer was not HTTP, or too large.
     Protocol,
+    /// The request's [`Cancel`] ended it.
+    Cancelled,
 }
 
 impl HttpError {
@@ -55,6 +202,7 @@ impl HttpError {
             HttpError::Timeout => "timeout",
             HttpError::Io => "connection_failed",
             HttpError::Protocol => "protocol_error",
+            HttpError::Cancelled => "cancelled",
         }
     }
 }
@@ -225,11 +373,14 @@ pub struct Request<'a> {
     pub url: &'a str,
     pub headers: Vec<(&'a str, String)>,
     pub body: Option<Vec<u8>>,
+    /// Ends the request when it is cancelled ([`HttpError::Cancelled`]); without one, the
+    /// request runs until its answer or its timeouts.
+    pub cancel: Option<Cancel>,
 }
 
 impl<'a> Request<'a> {
     pub fn get(url: &'a str) -> Request<'a> {
-        Request { method: "GET", url, headers: Vec::new(), body: None }
+        Request { method: "GET", url, headers: Vec::new(), body: None, cancel: None }
     }
 
     pub fn post_json(url: &'a str, body: &serde_json::Value) -> Request<'a> {
@@ -238,11 +389,18 @@ impl<'a> Request<'a> {
             url,
             headers: vec![("Content-Type", "application/json".to_string())],
             body: Some(serde_json::to_vec(body).unwrap_or_default()),
+            cancel: None,
         }
     }
 
     pub fn header(mut self, name: &'a str, value: impl Into<String>) -> Request<'a> {
         self.headers.push((name, value.into()));
+        self
+    }
+
+    /// The request ends when `cancel` is cancelled.
+    pub fn cancellable(mut self, cancel: &Cancel) -> Request<'a> {
+        self.cancel = Some(cancel.clone());
         self
     }
 }
@@ -263,8 +421,8 @@ fn tls_config() -> Arc<ClientConfig> {
 }
 
 enum Stream {
-    Plain(TcpStream),
-    Tls(Box<StreamOwned<ClientConnection, TcpStream>>),
+    Plain(Watched),
+    Tls(Box<StreamOwned<ClientConnection, Watched>>),
 }
 
 impl Read for Stream {
@@ -295,7 +453,8 @@ impl Write for Stream {
     }
 }
 
-fn connect(url: &Url, timeouts: Timeouts) -> Result<Stream, HttpError> {
+/// Looks the host up and connects to the first of its addresses that answers within `wait`.
+fn open(url: &Url, wait: Duration) -> Result<TcpStream, HttpError> {
     let addresses = (url.host.as_str(), url.port).to_socket_addrs().map_err(|_| HttpError::Unreachable)?;
     // Plain HTTP stays on this PC and the LAN even when a name (`localhost`, `.local`) is looked
     // up to somewhere else.
@@ -306,17 +465,29 @@ fn connect(url: &Url, timeouts: Timeouts) -> Result<Stream, HttpError> {
     // A refused connection and one that timed out both mean nothing answered (requests'
     // ConnectTimeout is a ConnectionError too). Windows answers a closed loopback port only
     // after its retries, so a short wait ends as a timeout there.
-    let mut tcp = None;
-    for address in addresses {
-        if let Ok(stream) = TcpStream::connect_timeout(&address, timeouts.connect) {
-            tcp = Some(stream);
-            break;
+    addresses
+        .into_iter()
+        .find_map(|address| TcpStream::connect_timeout(&address, wait).ok())
+        .ok_or(HttpError::Unreachable)
+}
+
+fn connect(url: &Url, timeouts: Timeouts, cancel: Option<&Cancel>) -> Result<Stream, HttpError> {
+    let tcp = match cancel {
+        None => open(url, timeouts.connect)?,
+        // The look-up and the connection both block: both run where a cancel can leave them.
+        Some(cancel) => {
+            let target = url.clone();
+            match cancel.run(move || open(&target, timeouts.connect)) {
+                Some(result) => result?,
+                None if cancel.is_cancelled() => return Err(HttpError::Cancelled),
+                None => return Err(HttpError::Io),
+            }
         }
-    }
-    let tcp = tcp.ok_or(HttpError::Unreachable)?;
+    };
     tcp.set_read_timeout(Some(timeouts.read)).map_err(|e| from_io(&e))?;
     tcp.set_write_timeout(Some(timeouts.write)).map_err(|e| from_io(&e))?;
     let _ = tcp.set_nodelay(true);
+    let tcp = Watched::new(tcp, cancel.cloned(), Some(timeouts.read));
     if !url.tls {
         return Ok(Stream::Plain(tcp));
     }
@@ -325,10 +496,22 @@ fn connect(url: &Url, timeouts: Timeouts) -> Result<Stream, HttpError> {
     Ok(Stream::Tls(Box::new(StreamOwned::new(connection, tcp))))
 }
 
-/// Sends one request and reads the whole answer.
+/// Sends one request and reads the whole answer. A request whose [`Cancel`] is cancelled fails
+/// with [`HttpError::Cancelled`], unless its whole answer was already read.
 pub fn send(request: &Request<'_>, timeouts: Timeouts) -> Result<Response, HttpError> {
+    let cancelled = || request.cancel.as_ref().is_some_and(Cancel::is_cancelled);
+    if cancelled() {
+        return Err(HttpError::Cancelled);
+    }
+    match exchange(request, timeouts) {
+        Err(_) if cancelled() => Err(HttpError::Cancelled),
+        other => other,
+    }
+}
+
+fn exchange(request: &Request<'_>, timeouts: Timeouts) -> Result<Response, HttpError> {
     let url = Url::parse(request.url)?;
-    let mut stream = connect(&url, timeouts)?;
+    let mut stream = connect(&url, timeouts, request.cancel.as_ref())?;
     let mut head = format!("{} {} HTTP/1.1\r\nHost: {}\r\n", request.method, url.target, url.host_header());
     head.push_str("User-Agent: VRCT-VOX\r\nAccept: application/json\r\nConnection: close\r\n");
     for (name, value) in &request.headers {
@@ -617,6 +800,114 @@ mod tests {
             self.0 = &self.0[count..];
             Ok(count)
         }
+    }
+
+    /// A server on a loopback port that takes connections and holds them open without a word.
+    fn silent() -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://127.0.0.1:{}/v1/models", listener.local_addr().unwrap().port());
+        std::thread::spawn(move || {
+            let mut held = Vec::new();
+            for stream in listener.incoming().flatten() {
+                held.push(stream);
+            }
+        });
+        url
+    }
+
+    /// Cancels `cancel` after `delay`; the thread gives the instant it did.
+    fn cancel_after(cancel: &Cancel, delay: Duration) -> std::thread::JoinHandle<Instant> {
+        let cancel = cancel.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(delay);
+            let at = Instant::now();
+            cancel.cancel();
+            at
+        })
+    }
+
+    #[test]
+    fn a_cancel_ends_a_request_whose_answer_never_comes() {
+        // Decision 81: Python shut the socket of a list request down when its session stopped.
+        let url = silent();
+        let cancel = Cancel::new();
+        let timer = cancel_after(&cancel, Duration::from_millis(100));
+        let result = send(&Request::get(&url).cancellable(&cancel), Timeouts::all(5.0));
+        let ended = Instant::now();
+        let cancelled_at = timer.join().unwrap();
+        assert_eq!(result.unwrap_err(), HttpError::Cancelled);
+        let late = ended.saturating_duration_since(cancelled_at);
+        assert!(late < Duration::from_millis(100), "ended {late:?} after the cancel");
+
+        // A request cancelled before it starts sends nothing.
+        let started = Instant::now();
+        assert_eq!(send(&Request::get(&url).cancellable(&cancel), Timeouts::all(5.0)).unwrap_err(), HttpError::Cancelled);
+        assert!(started.elapsed() < Duration::from_millis(100));
+    }
+
+    #[test]
+    fn a_cancel_gives_up_a_connection_being_made() {
+        // A peer that never answers the connection (Windows' closed loopback port, a host that
+        // drops it) holds `connect_timeout` until its timeout; a cancel leaves it there.
+        let cancel = Cancel::new();
+        let timer = cancel_after(&cancel, Duration::from_millis(50));
+        let given = cancel.run(|| {
+            std::thread::sleep(Duration::from_secs(2));
+            7
+        });
+        let ended = Instant::now();
+        let cancelled_at = timer.join().unwrap();
+        assert_eq!(given, None);
+        let late = ended.saturating_duration_since(cancelled_at);
+        assert!(late < Duration::from_millis(100), "ended {late:?} after the cancel");
+        // Once cancelled, nothing more is tried.
+        let refused = cancel.connect(SocketAddr::from(([127, 0, 0, 1], 9)), Duration::from_secs(1)).unwrap_err();
+        assert_eq!(refused.kind(), io::ErrorKind::ConnectionAborted);
+        // What ends before any cancel is given.
+        assert_eq!(Cancel::new().run(|| 7), Some(7));
+    }
+
+    #[test]
+    fn a_cancel_gives_up_a_connection_to_a_closed_loopback_port() {
+        // Windows answers a closed loopback port only after its retries (a speech.cpp that is
+        // not listening yet, or any more); Linux refuses it at once. Either way the request ends
+        // soon after the cancel instead of waiting out the connection's timeout.
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        let url = format!("http://127.0.0.1:{port}/v1/models");
+        let cancel = Cancel::new();
+        let timer = cancel_after(&cancel, Duration::from_millis(50));
+        let started = Instant::now();
+        let result = send(&Request::get(&url).cancellable(&cancel), Timeouts::all(5.0));
+        let waited = started.elapsed();
+        timer.join().unwrap();
+        assert!(matches!(result, Err(HttpError::Cancelled | HttpError::Unreachable)), "{result:?}");
+        assert!(waited < Duration::from_millis(500), "{waited:?}");
+    }
+
+    #[test]
+    fn a_request_that_may_be_cancelled_still_waits_for_a_slow_answer_up_to_its_read_timeout() {
+        // An answer that comes in pieces over several slices of 20 ms is read whole.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://127.0.0.1:{}/v1/models", listener.local_addr().unwrap().port());
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut head = [0u8; 1024];
+            let _ = stream.read(&mut head);
+            std::thread::sleep(Duration::from_millis(150));
+            stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n").unwrap();
+            std::thread::sleep(Duration::from_millis(80));
+            stream.write_all(b"ok").unwrap();
+        });
+        let cancel = Cancel::new();
+        let response = send(&Request::get(&url).cancellable(&cancel), Timeouts::all(5.0)).unwrap();
+        assert_eq!((response.status, response.body.as_slice()), (200, &b"ok"[..]));
+
+        // Each read still waits at most the read timeout.
+        let timeouts = Timeouts { connect: Duration::from_secs(1), read: Duration::from_millis(200), write: Duration::from_secs(1) };
+        let started = Instant::now();
+        assert_eq!(send(&Request::get(&silent()).cancellable(&cancel), timeouts).unwrap_err(), HttpError::Timeout);
+        let waited = started.elapsed();
+        assert!(waited >= Duration::from_millis(190) && waited < Duration::from_secs(1), "{waited:?}");
     }
 
     #[test]

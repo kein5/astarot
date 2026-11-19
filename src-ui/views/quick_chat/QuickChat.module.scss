@@ -5,8 +5,8 @@
         color: inherit; background: var(--dark_925_color); border: .1rem solid var(--vox_field_border); border-radius: var(--vox_radius); }
     // The same hint as the main window's composer, in the settings' placeholder colour.
     textarea::placeholder { color: var(--vox_description_text); opacity: 1; }
-    button { font: inherit; padding: .6rem 1.4rem; min-height: 3.6rem; border-radius: var(--vox_radius); color: var(--vox_on_primary); background: var(--primary_600_color); cursor: pointer; }
-    button:disabled { opacity: .6; cursor: default; }
+    button { font: inherit; font-weight: 500; padding: .6rem 1.4rem; min-height: 3.6rem; border-radius: var(--vox_radius); color: var(--vox_on_primary); background: var(--primary_600_color); cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
     :focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
 }
 .actions {

@@ -635,3 +635,13 @@ Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe
 - linderaのSudachiDictの埋め込み（`lindera-sudachidict`）は、ビルドのたびに配布元ではないlindera.devから辞書を取得する。ライセンスはSudachiDictと同じ。読みの質と実行ファイルの大きさ（+593 MB）で外した。
 
 ライセンスを理由に外した候補はない。
+
+## shadcn/ui（部品の設計、2026-11-19）
+
+部品の設計、見た目、構造を shadcn/ui の部品に寄せる方針にした（DESIGN.md「Components」）。最初に寄せたのは設定画面の部品の実験の kit（`src-ui/views/kit/`）で、パーツの `data-slot` の名前、選択欄のシェブロンの大きさと位置、ボタンの文字の太さ、使えない状態の不透明度を shadcn/ui に合わせた。コードはそのまま写さず、Tailwind のクラスを vanilla-extract に読み替え、色は ASTAROT のトークンにした。読み替えた部品も MIT の著作権表示の対象とみなし、`NOTICE.md` に表示とライセンス文を載せた。依存は増えていない。
+
+| 項目 | 内容 |
+|---|---|
+| 参照元 | [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`）。MIT、Copyright (c) 2023 shadcn |
+| 参照しなかったもの | shadcn.io。shadcn/ui の上に作られた別のサイトで、無料の部品にライセンスの名前がない |
+| 配布物 | kit はまだ画面で使っておらず、見本のページ（`kit-lab.html`）もビルドに入らない。配布物には `NOTICE.md` が `licenses/VRCT/NOTICE.md` として入る（`tools/app_resources.py`）ので、画面の部品を寄せるときも、表示は `NOTICE.md` のこの節で足りる |

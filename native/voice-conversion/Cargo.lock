@@ -18,6 +18,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "app-identity"
+version = "0.0.0"
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -579,6 +583,7 @@ dependencies = [
 name = "vrct-ops"
 version = "0.0.0"
 dependencies = [
+ "app-identity",
  "chrono",
  "httparse",
  "libc",

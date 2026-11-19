@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 
 import { useLanguageSettings } from "@logics_main";
+import { Empty, EmptyDescription } from "@common_components";
 import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.ts";
 import styles from "./LanguageSelector.module.scss";
 
@@ -28,7 +29,7 @@ export const LanguageSelector = ({ title, hint, onClickFunction }) => {
             <LanguageSelectorTopBar title={title}/>
             <div className={styles.language_list_scroll_wrapper}>
                 <div className={styles.filter_row}>
-                    <input ref={filter} type="search" className={styles.filter} value={query}
+                    <input ref={filter} type="search" data-slot="input" className={styles.filter} value={query}
                         placeholder={t("main_page.language_selector.filter")} aria-label={t("main_page.language_selector.filter")}
                         aria-describedby={hint ? hint_id : undefined}
                         onChange={event => setQuery(event.target.value)}
@@ -48,7 +49,9 @@ export const LanguageSelector = ({ title, hint, onClickFunction }) => {
                         ))}
                     </div>
                 ) : (
-                    <p role="status" className={styles.no_results}>{t("main_page.language_selector.no_results")}</p>
+                    <Empty role="status">
+                        <EmptyDescription>{t("main_page.language_selector.no_results")}</EmptyDescription>
+                    </Empty>
                 )}
             </div>
         </div>

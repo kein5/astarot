@@ -94,7 +94,8 @@ pub trait DeviceLists: Send + Sync {
 #[derive(Clone)]
 pub struct Environment {
     pub version: String,
-    /// Where `config.json` and `logs/` live (`VRCT_CONFIG_DIR`, or the app's own folder).
+    /// Where `config.json` and `logs/` live (`ASTAROT_CONFIG_DIR` or `VRCT_CONFIG_DIR`, or the
+    /// app's own folder).
     pub state_dir: PathBuf,
     /// The application folder: where the installer leaves `installer_language.txt`.
     pub app_dir: PathBuf,

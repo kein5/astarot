@@ -405,6 +405,8 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     // Advanced settings
     b.get("/get/data/osc_ip_address", OPEN, "OSC_IP_ADDRESS");
     b.get("/get/data/osc_port", OPEN, "OSC_PORT");
+    // Turned on and off with the OSC link (`adapters::osc`, #559).
+    b.get("/get/data/osc_query", OPEN, "OSC_QUERY");
     b.switch("notification_vrc_sfx", "NOTIFICATION_VRC_SFX", true);
     b.with("/run/feed_watchdog", OPEN, |core, _| {
         core.feed_watchdog();

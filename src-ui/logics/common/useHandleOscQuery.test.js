@@ -33,13 +33,17 @@ for (const language of ["en", "ja"]) {
         handleOscQuery({ data: true, disabled_functions: [] });
         assert.deepEqual([available(), reason()], [true, null]);
 
+        // The last column: whether the text sends people to the settings tab.
         const cases = [
-            ["setup_failed", true, "osc_query_failed_mic_stopped"],
-            ["setup_failed", false, "osc_query_failed"],
-            ["remote_destination", true, "osc_query_remote_mic_stopped"],
-            ["remote_destination", false, "osc_query_remote"],
+            ["setup_failed", true, "osc_query_failed_mic_stopped", true],
+            ["setup_failed", false, "osc_query_failed", true],
+            ["remote_destination", true, "osc_query_remote_mic_stopped", false],
+            ["remote_destination", false, "osc_query_remote", false],
+            // #559: turned off by the user; the switch is on the settings tab.
+            ["turned_off", true, "osc_query_off_mic_stopped", false],
+            ["turned_off", false, "osc_query_off", true],
         ];
-        for (const [why, microphone_stopped, key] of cases) {
+        for (const [why, microphone_stopped, key, names_settings] of cases) {
             notices.length = 0;
             handleOscQuery({ data: false, disabled_functions: ["vrc_mic_mute_sync"], reason: why, microphone_stopped });
             assert.deepEqual([available(), reason()], [false, why]);
@@ -48,7 +52,7 @@ for (const language of ["en", "ja"]) {
             // The names of the switch and the tab are the ones on screen, and nothing is left unfilled.
             assert.ok(text.includes(names.sync) && !text.includes("{{"), text);
             assert.equal(text.includes(names.microphone), microphone_stopped, text);
-            assert.equal(text.includes(names.settings), why === "setup_failed", text);
+            assert.equal(text.includes(names.settings), names_settings, text);
         }
 
         // Started with another machine as the destination and nothing switched
@@ -71,9 +75,10 @@ for (const language of ["en", "ja"]) {
         const { runtime, stores } = await loadBridgeStore();
         const subject = await loadModule(new URL("./useIsOscAvailable.ts", import.meta.url), runtime, { "@store": stores });
         assert.equal(subject.oscUnavailableLabelKey("remote_destination"), "config_page.common.warning_labels.unable_to_use_osc_query_remote");
+        assert.equal(subject.oscUnavailableLabelKey("turned_off"), "config_page.common.warning_labels.unable_to_use_osc_query_off");
         for (const why of ["setup_failed", null, undefined])
             assert.equal(subject.oscUnavailableLabelKey(why), "config_page.common.warning_labels.unable_to_use_osc_query");
-        for (const why of ["remote_destination", "setup_failed"]) assert.equal(i18n.exists(subject.oscUnavailableLabelKey(why)), true);
+        for (const why of ["remote_destination", "setup_failed", "turned_off"]) assert.equal(i18n.exists(subject.oscUnavailableLabelKey(why)), true);
         runtime.store.set(stores.Atom_OscUnavailableReason, { state: "ok", data: "remote_destination" });
         assert.equal(runtime.render(subject.useIsOscAvailable).oscUnavailableLabelKey,
             "config_page.common.warning_labels.unable_to_use_osc_query_remote");

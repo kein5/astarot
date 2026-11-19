@@ -12,7 +12,7 @@ use windows_sys::Win32::Security::Credentials::{
 /// The largest value a credential holds (`CRED_MAX_CREDENTIAL_BLOB_SIZE`).
 const MAX_VALUE: usize = 5 * 512;
 /// The names start with the internal identifier, not the display name (ADR-013 4.3).
-const PREFIX: &str = "VRCT-VOX";
+const PREFIX: &str = app_identity::credentials::WINDOWS_PREFIX.current();
 
 pub struct CredentialManager;
 

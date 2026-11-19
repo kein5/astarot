@@ -24,9 +24,9 @@ use std::path::PathBuf;
 use crate::failure::Failure;
 use crate::image::BgrImage;
 
-pub const DIRECTORY_ENV: &str = "VRCT_VR_PANEL_DIR";
+pub const DIRECTORY_ENV: &str = app_identity::env::VR_PANEL_DIR;
 pub const FRAME_NAME: &str = "screen-frame";
-const MAGIC: &[u8; 8] = b"VRCTSCR1";
+const MAGIC: &[u8; 8] = app_identity::handoff::SCREEN_FRAME;
 const HEADER_SIZE: usize = 64;
 const MAX_SIDE: u32 = 16384;
 const READ_TRIES: usize = 4;

@@ -73,6 +73,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
+name = "app-identity"
+version = "0.0.0"
+
+[[package]]
 name = "async-broadcast"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1306,6 +1310,7 @@ dependencies = [
 name = "ocr-runtime"
 version = "0.1.0"
 dependencies = [
+ "app-identity",
  "caseless",
  "libloading 0.8.9",
  "ort",
@@ -2376,6 +2381,7 @@ dependencies = [
 name = "vrct-core"
 version = "0.0.0"
 dependencies = [
+ "app-identity",
  "base64 0.22.1",
  "chrono",
  "getrandom 0.3.4",
@@ -2421,6 +2427,7 @@ dependencies = [
 name = "vrct-ops"
 version = "0.0.0"
 dependencies = [
+ "app-identity",
  "chrono",
  "httparse",
  "libc",
@@ -2482,6 +2489,7 @@ dependencies = [
 name = "vrct-tts"
 version = "0.1.0"
 dependencies = [
+ "app-identity",
  "libc",
  "serde",
  "serde_json",
@@ -2510,6 +2518,7 @@ name = "vrct-vr-overlay"
 version = "0.0.0"
 dependencies = [
  "ab_glyph",
+ "app-identity",
  "libc",
  "serde_json",
  "unicode-segmentation",

@@ -8,13 +8,19 @@
 //! (`disable_during_translation_drops_all_outputs_but_keeps_typed_chat`,
 //! `user_off_while_settings_paused_revokes_inflight_delivery`,
 //! `internal_pause_preserves_inflight_legacy_delivery`, `error_disable_revokes_before_cleanup`,
-//! `realtime_toggle_off_revokes_source_but_settings_pause_keeps_epoch`). The translation is
-//! DeepL on `FakeProviders`, held until the test releases it; recognition is `common::fake_asr`
-//! with the devices of `common::fake_capture`.
+//! `realtime_toggle_off_revokes_source_but_settings_pause_keeps_epoch`,
+//! `terminal_realtime_failure_only_revokes_its_current_owner`, and the VRChat mute:
+//! `legacy_mute_during_translation_revokes_every_output[resume=False]`,
+//! `mic_mute_does_not_revoke_other_sources`, `vrc_mute_sync_off_leaves_mic_delivery_unchanged`,
+//! `realtime_muted_captions_and_new_results_after_unmute`). What a mute does to text admitted
+//! before it once it is lifted is decision 55 of `docs/voice-stack/core-integration.md`, and is
+//! not tested here. The translation is DeepL on `FakeProviders`, held until the test releases
+//! it; recognition is `common::fake_asr` with the devices of `common::fake_capture`, and OSC is
+//! `common::fake_osc`.
 
 mod common;
 
-use common::fake_asr::{FakeAsr, KEY};
+use common::fake_asr::{FakeAsr, KEY, RealtimeFault};
 use common::fake_audio::{FakeAudio, windows};
 use common::fake_capture::{FakeCapture, quiet, speech};
 use common::net::eventually;
@@ -24,14 +30,15 @@ use std::net::UdpSocket;
 use std::sync::Mutex;
 use std::sync::mpsc::{Sender, channel};
 use std::time::{Duration, Instant};
-use vrct_adapters::osc::{OscArg, decode_packet};
+use vrct_adapters::osc::{OscArg, PARAMETER_MUTE_SELF, decode_packet};
 use vrct_audio_routing::manager::Topology;
 use vrct_core::config::Platform;
-use vrct_core::controller::Services;
+use vrct_core::controller::{RealtimeLimits, Services};
 use vrct_translation::fake::FakeProviders;
 use vrct_transcription::capture::Source;
 
-const VRCHAT: &str = "127.0.0.2";
+/// VRChat on this PC: OSCQuery runs (the fake link has no mDNS), which mute sync needs.
+const VRCHAT: &str = "127.0.0.1";
 const TRANSLATE: &str = "/deepl-free/v2/translate";
 
 fn deepl_key() -> String {
@@ -45,11 +52,16 @@ struct Run {
     audio: FakeAudio,
     providers: FakeProviders,
     chatbox: UdpSocket,
+    osc: common::fake_osc::Opened,
     /// Releases the translation the test holds.
     release: Mutex<Option<Sender<()>>>,
 }
 
 fn start(platform: Platform, saved: Value) -> Run {
+    start_with(platform, saved, RealtimeLimits::default())
+}
+
+fn start_with(platform: Platform, saved: Value, realtime_limits: RealtimeLimits) -> Run {
     let asr = FakeAsr::start();
     let providers = FakeProviders::start();
     providers.key("/deepl-free", &deepl_key());
@@ -75,12 +87,14 @@ fn start(platform: Platform, saved: Value) -> Run {
             saved[key] = value;
         }
     }
+    let (osc, opened) = common::fake_osc::factory(false);
     let services = Services {
-        osc: common::fake_osc::factory(false).0,
+        osc,
         audio: audio.platform(),
         transcription_capture: capture.factory(),
         transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
         translation_endpoints: vrct_translation::providers::Endpoints::all_at(&providers.url()),
+        realtime_limits,
         ..Setup::default().services
     };
     let ui = Ui::with(Setup { saved: Some(saved), services, platform, ..Setup::default() });
@@ -89,7 +103,7 @@ fn start(platform: Platform, saved: Value) -> Run {
     engines["1"] = json!("DeepL_API");
     ui.ok("/set/data/selected_translation_engines", Some(engines));
     assert_eq!(ui.ok("/set/enable/translation", None), true);
-    Run { ui, capture, asr, audio, providers, chatbox, release: Mutex::new(None) }
+    Run { ui, capture, asr, audio, providers, chatbox, osc: opened, release: Mutex::new(None) }
 }
 
 /// The recognition switch of a source and the message it delivers.
@@ -101,6 +115,19 @@ fn switch(source: Source) -> (&'static str, &'static str) {
 }
 
 impl Run {
+    /// Turns VRChat mic mute sync on; it needs OSCQuery, which starts in the background.
+    fn mute_sync(&self) {
+        assert_eq!(self.ui.wait_endpoint(0, "/run/enable_osc_query")["result"]["data"], true);
+        assert_eq!(self.ui.ok("/set/enable/vrc_mic_mute_sync", None), true);
+    }
+
+    /// VRChat says the user is muted; an unmute is confirmed by OSCQuery, as VRChat does.
+    fn vrchat_mutes(&self, muted: bool) {
+        let osc = self.osc.last();
+        *osc.mute.lock().unwrap() = Some(muted);
+        osc.vrchat_sends(PARAMETER_MUTE_SELF, vec![OscArg::Bool(muted)]);
+    }
+
     /// Holds every translation until [`Run::release`].
     fn hold(&self) {
         let (release, held) = channel::<()>();
@@ -206,28 +233,31 @@ fn turning_recognition_off_while_its_text_is_translated_drops_it_but_not_typed_c
 
 #[test]
 fn a_settings_pause_keeps_what_was_heard_and_turning_off_after_it_drops_it() {
-    // The settings page pauses recognition while it is open: what was already heard is sent.
-    let run = start(Platform::Windows, json!({}));
-    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
-    run.hold();
-    let mark = run.ui.lines().len();
-    run.heard_and_translating(Source::Mic);
-    assert_eq!(run.ui.ok("/set/disable/transcription_send", Some(json!({ "reason": "settings_pause" }))), false);
-    run.release();
-    run.delivered(mark, Source::Mic);
-    run.ui.stop();
+    for source in [Source::Mic, Source::Speaker] {
+        let (name, _) = switch(source);
+        // The settings page pauses recognition while it is open: what was already heard is sent.
+        let run = start(Platform::Windows, json!({}));
+        assert_eq!(run.ui.ok(&format!("/set/enable/{name}"), None), true);
+        run.hold();
+        let mark = run.ui.lines().len();
+        run.heard_and_translating(source);
+        assert_eq!(run.ui.ok(&format!("/set/disable/{name}"), Some(json!({ "reason": "settings_pause" }))), false);
+        run.release();
+        run.delivered(mark, source);
+        run.ui.stop();
 
-    // The user turns it off for good while it is paused: dropped.
-    let run = start(Platform::Windows, json!({}));
-    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
-    run.hold();
-    let mark = run.ui.lines().len();
-    run.heard_and_translating(Source::Mic);
-    run.ui.ok("/set/disable/transcription_send", Some(json!({ "reason": "settings_pause" })));
-    run.ui.ok("/set/disable/transcription_send", None);
-    run.release();
-    run.delivered_nothing(mark, Source::Mic);
-    run.ui.stop();
+        // The user turns it off for good while it is paused: dropped.
+        let run = start(Platform::Windows, json!({}));
+        assert_eq!(run.ui.ok(&format!("/set/enable/{name}"), None), true);
+        run.hold();
+        let mark = run.ui.lines().len();
+        run.heard_and_translating(source);
+        run.ui.ok(&format!("/set/disable/{name}"), Some(json!({ "reason": "settings_pause" })));
+        run.ui.ok(&format!("/set/disable/{name}"), None);
+        run.release();
+        run.delivered_nothing(mark, source);
+        run.ui.stop();
+    }
 }
 
 /// A failing engine takes the path of a failing read (`recorder_failed`). It cannot fail while
@@ -250,16 +280,86 @@ fn a_lost_device_or_a_failing_read_drops_what_was_heard() {
     run.delivered_nothing(mark, Source::Mic);
     run.ui.stop();
 
-    // The device is still listed but its reads fail.
+    // The last speaker is unplugged.
     let run = start(Platform::Windows, json!({}));
+    assert_eq!(run.ui.ok("/set/enable/transcription_receive", None), true);
+    run.hold();
+    let mark = run.ui.lines().len();
+    run.heard_and_translating(Source::Speaker);
+    run.audio.set(windows(&[("Mic A", "{a}"), ("Mic B", "{b}")], Some("{a}"), &[], None));
+    run.capture.break_device(Source::Speaker);
+    run.audio.event(Topology::DeviceChanged);
+    run.ui.wait_endpoint(mark, "/set/disable/transcription_receive");
+    run.release();
+    run.delivered_nothing(mark, Source::Speaker);
+    run.ui.stop();
+
+    // The device is still listed but its reads fail.
+    for source in [Source::Mic, Source::Speaker] {
+        let (name, _) = switch(source);
+        let run = start(Platform::Windows, json!({}));
+        assert_eq!(run.ui.ok(&format!("/set/enable/{name}"), None), true);
+        run.hold();
+        let mark = run.ui.lines().len();
+        run.heard_and_translating(source);
+        run.capture.break_device(source);
+        assert_eq!(run.ui.wait_endpoint(mark, "/run/transcription_recognition_error")["result"]["error_code"], "AUDIO_READ_ERROR");
+        run.release();
+        run.delivered_nothing(mark, source);
+        run.ui.stop();
+    }
+}
+
+#[test]
+fn a_vrchat_mute_while_the_microphone_text_is_translated_drops_it_but_not_typed_chat() {
+    // `legacy_mute_during_translation_revokes_every_output[resume=False]`: with mute sync on,
+    // the user mutes in VRChat while what the microphone heard is translated. It goes nowhere.
+    // Lifting the mute before the translation ends is decision 55 and not checked here.
+    let run = start(Platform::Windows, json!({}));
+    run.mute_sync();
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
     run.hold();
     let mark = run.ui.lines().len();
     run.heard_and_translating(Source::Mic);
-    run.capture.break_device(Source::Mic);
-    assert_eq!(run.ui.wait_endpoint(mark, "/run/transcription_recognition_error")["result"]["error_code"], "AUDIO_READ_ERROR");
+    run.vrchat_mutes(true);
     run.release();
     run.delivered_nothing(mark, Source::Mic);
+
+    // `mic_mute_does_not_revoke_other_sources[chat]`: typed chat still goes out while muted.
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "c-1", "message": "打ったチャット" })));
+    let sent = run.chatbox_text(Duration::from_secs(5)).expect("the typed chat was not sent");
+    assert!(sent.contains("打ったチャット"), "{sent}");
+    run.ui.stop();
+}
+
+#[test]
+fn a_vrchat_mute_leaves_what_the_speaker_heard() {
+    // `mic_mute_does_not_revoke_other_sources[speaker]`: the mute holds back the microphone only.
+    let run = start(Platform::Windows, json!({}));
+    run.mute_sync();
+    assert_eq!(run.ui.ok("/set/enable/transcription_receive", None), true);
+    run.hold();
+    let mark = run.ui.lines().len();
+    run.heard_and_translating(Source::Speaker);
+    run.vrchat_mutes(true);
+    run.release();
+    run.delivered(mark, Source::Speaker);
+    run.ui.stop();
+}
+
+#[test]
+fn without_mute_sync_a_vrchat_mute_leaves_the_microphone_text() {
+    // `vrc_mute_sync_off_leaves_mic_delivery_unchanged`: mute sync is off (the default).
+    let run = start(Platform::Windows, json!({}));
+    assert_eq!(run.ui.wait_endpoint(0, "/run/enable_osc_query")["result"]["data"], true);
+    assert_eq!(run.ui.ok("/get/data/vrc_mic_mute_sync", None), false);
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    run.hold();
+    let mark = run.ui.lines().len();
+    run.heard_and_translating(Source::Mic);
+    run.vrchat_mutes(true);
+    run.release();
+    run.delivered(mark, Source::Mic);
     run.ui.stop();
 }
 
@@ -353,6 +453,113 @@ fn turning_the_realtime_switch_off_while_a_final_is_translated_drops_it() {
         .map(|l| l["result"].clone())
         .collect();
     assert!(outcomes.iter().all(|o| o["outcome"] != "delivered"), "{outcomes:?}");
+    assert!(run.chatbox_text(Duration::from_millis(300)).is_none(), "the chat box got it");
+    assert!(!run.conversation_log().contains("こんにちは"), "the conversation log got it");
+    run.ui.stop();
+}
+
+#[test]
+fn a_realtime_session_that_fails_while_its_final_is_translated_drops_it() {
+    // `terminal_realtime_failure_only_revokes_its_current_owner`: the session ends on its own
+    // (here the server never finishes the next utterance) while a final waits for translation.
+    // The switch says so, and the final goes nowhere.
+    let limits = RealtimeLimits {
+        session: vrct_transcription::realtime::Limits {
+            first_result: Duration::from_secs(30),
+            pending: Duration::from_millis(1000),
+            ..Default::default()
+        },
+        ..RealtimeLimits::default()
+    };
+    let run = start_with(Platform::Linux, json!({}), limits);
+    let settings = realtime(&run.asr);
+    run.ui.ok("/set/data/realtime_asr_settings", Some(settings));
+    *run.asr.behaviour.realtime_fault.lock().unwrap() = RealtimeFault::NeverFinish(1);
+    run.hold();
+    let mark = run.ui.lines().len();
+    let before = run.providers.seen_under(TRANSLATE).len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let first = run.ui.wait_from(mark, "the final", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "final");
+    eventually("the final is translated", || run.providers.seen_under(TRANSLATE).len() > before);
+    let failed = run.ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/set/enable/transcription_send" && l["status"] == 400);
+    assert_eq!(failed["result"]["details"]["reason"], "realtime_asr_timeout", "{failed}");
+    run.release();
+    std::thread::sleep(Duration::from_millis(500));
+    let item = &first["result"]["item_id"];
+    let rows: Vec<Value> =
+        run.ui.on(mark, "/run/realtime_caption").into_iter().map(|l| l["result"].clone()).filter(|r| &r["item_id"] == item).collect();
+    assert!(rows.iter().all(|r| r["state"] != "translated" && r["outcome"] != "delivered"), "{rows:?}");
+    assert!(run.chatbox_text(Duration::from_millis(300)).is_none(), "the chat box got it");
+    assert!(!run.conversation_log().contains("こんにちは"), "the conversation log got it");
+    run.ui.stop();
+}
+
+#[test]
+fn a_vrchat_mute_holds_realtime_microphone_results_back_but_not_the_speakers() {
+    // `realtime_muted_captions_and_new_results_after_unmute`: while VRChat mutes the user, the
+    // microphone's captions and finals go nowhere and the speaker's still do; once the mute is
+    // lifted, what the microphone hears next goes out again. Received speech stays out of the
+    // chat box here, so that the chat box shows the microphone alone.
+    let run = start(Platform::Linux, json!({ "SEND_RECEIVED_MESSAGE_TO_VRC": false }));
+    let settings = realtime(&run.asr);
+    run.ui.ok("/set/data/realtime_asr_settings", Some(settings));
+    run.mute_sync();
+    let delivered = |from: usize, source: &str| {
+        run.ui.wait_from(from, "a delivered final", |l| {
+            l["endpoint"] == "/run/realtime_caption" && l["result"]["source"] == source && l["result"]["outcome"] == "delivered"
+        })
+    };
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    assert_eq!(run.ui.ok("/set/enable/transcription_receive", None), true);
+    delivered(mark, "mic");
+    delivered(mark, "speaker");
+
+    run.vrchat_mutes(true);
+    // What was already on its way when the mute came may still end; then the chat box is empty.
+    std::thread::sleep(Duration::from_millis(500));
+    while run.chatbox_text(Duration::from_millis(200)).is_some() {}
+    let mark = run.ui.lines().len();
+    delivered(mark, "speaker");
+    std::thread::sleep(Duration::from_millis(1500));
+    let mic: Vec<Value> = run
+        .ui
+        .on(mark, "/run/realtime_caption")
+        .into_iter()
+        .map(|l| l["result"].clone())
+        .filter(|r| r["source"] == "mic" && r["state"] != "outcome")
+        .collect();
+    assert!(mic.is_empty(), "the microphone's captions were shown while muted: {mic:?}");
+    assert!(run.chatbox_text(Duration::from_millis(300)).is_none(), "the chat box got the microphone while muted");
+
+    let mark = run.ui.lines().len();
+    run.vrchat_mutes(false);
+    delivered(mark, "mic");
+    assert!(run.chatbox_text(Duration::from_secs(5)).is_some_and(|t| t.contains("こんにちは")));
+    run.ui.stop();
+}
+
+#[test]
+fn a_vrchat_mute_while_a_realtime_final_is_translated_drops_it() {
+    // `realtime_mute_during_translation_revokes_every_late_output[resume=False]`. Lifting the
+    // mute before the translation ends is decision 55 and not checked here.
+    let run = start(Platform::Linux, json!({}));
+    let settings = realtime(&run.asr);
+    run.ui.ok("/set/data/realtime_asr_settings", Some(settings));
+    run.mute_sync();
+    run.hold();
+    let mark = run.ui.lines().len();
+    let before = run.providers.seen_under(TRANSLATE).len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let first = run.ui.wait_from(mark, "the final", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "final");
+    eventually("the final is translated", || run.providers.seen_under(TRANSLATE).len() > before);
+    run.vrchat_mutes(true);
+    run.release();
+    std::thread::sleep(Duration::from_millis(500));
+    let item = &first["result"]["item_id"];
+    let rows: Vec<Value> =
+        run.ui.on(mark, "/run/realtime_caption").into_iter().map(|l| l["result"].clone()).filter(|r| &r["item_id"] == item).collect();
+    assert!(rows.iter().all(|r| r["state"] != "translated" && r["outcome"] != "delivered"), "{rows:?}");
     assert!(run.chatbox_text(Duration::from_millis(300)).is_none(), "the chat box got it");
     assert!(!run.conversation_log().contains("こんにちは"), "the conversation log got it");
     run.ui.stop();
