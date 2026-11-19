@@ -7,7 +7,7 @@ export const notice = style({ display: "grid", gap: ".6rem", justifyItems: "star
 
 export const action = style({
     boxSizing: "border-box", minHeight: "3.2rem", padding: ".6rem 1.2rem", maxWidth: "100%", whiteSpace: "normal",
-    font: "inherit", fontSize: "1.3rem", fontWeight: 600, color: "inherit", cursor: "pointer",
+    font: "inherit", fontSize: "1.3rem", fontWeight: 500, color: "inherit", cursor: "pointer",
     background: fallbackVar(vars.dark_850_color, "#25364f"),
     border: `.1rem solid ${fallbackVar(vars.dark_775_color, "#3b4b63")}`,
     borderRadius: fallbackVar(vars.vox_radius, ".8rem"),

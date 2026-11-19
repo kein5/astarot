@@ -27,6 +27,15 @@ test("buttons are medium weight and a disabled control is half as strong, as in 
     assert.match(read("shared.css.ts"), /opacity: \.5,/);
 });
 
+test("a button with an icon has shadcn/ui's narrower sides, and an icon button is square", () => {
+    const css = read("Button.css.ts");
+    // has-[>svg]:px-3 at the regular size, px-2.5 at compact (shadcn/ui's sm).
+    assert.match(css, /regular: \{ selectors: \{ "&:has\(> svg\)": \{ paddingInline: "1\.2rem" \} \} \}/);
+    assert.match(css, /compact: \{[^}]*selectors: \{ "&:has\(> svg\)": \{ paddingInline: "1rem" \} \}/);
+    // size="icon": as wide as it is high, the regular height until D-03 is decided.
+    assert.match(css, /icon: \{ width: "4rem", height: "4rem", padding: 0 \}/);
+});
+
 test("the switch is Radix's, the select is the system's", () => {
     assert.match(read("Switch.tsx"), /from "@radix-ui\/react-switch"/);
     assert.match(read("Switch.css.ts"), /"&\[data-state='checked'\]": \{ transform: "translateX\(2\.2rem\)", background: vars\.vox_on_primary \}/);

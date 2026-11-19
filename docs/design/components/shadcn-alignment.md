@@ -2,7 +2,7 @@
 
 アプリの部品を shadcn/ui の部品と照らし合わせ、差分を一覧にした文書です。DESIGN.md の「Components」の節にある、部品を shadcn/ui に寄せる方針（#680）を進めるための下調べです。棚卸しの時点では、部品のコードを変えていませんでした。その後に寄せた差は、表の「扱い」の列に PR の番号を添えて「寄せた」と書いています。
 
-- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691 で寄せました。
+- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694 で寄せました。
 - 照合した shadcn/ui: [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`、2026-11-17）。MIT ライセンスです。どのスタイルに寄せるかは D-01 で決めます。
 - 照合したアプリ: develop（#676 と #677 のマージ後）
 - 関係する文書: [設定画面の部品の実験](README.md)（#452、`src-ui/views/kit/`）、[ADR-010](../../adr/adr-010-frontend-stack.md)
@@ -43,7 +43,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 | 操作の高さ | ボタン、入力欄、選択欄は 4rem（DESIGN.md の 40px）。kit の `compact` は 3.2rem | 既定は `h-9`（3.6rem）、`sm` は `h-8`（3.2rem）、`lg` は `h-10`（4rem） | 判断（D-03）。`compact` は `sm` と同じ高さ |
 | 角丸 | 2、4、8、12px の段。`--vox_radius` は 8px。ダイアログとメッセージの入力欄は 12px | `--radius` は 10px。`rounded-md` は 8px、`rounded-lg` は 10px、`rounded-xl` は 14px、`rounded-sm` は 6px、`rounded-xs` は 2px。チェックボックスは 4px | `rounded-md` は一致。`rounded-xl` は 12px に寄せる。`rounded-lg`（10px）と `rounded-sm`（6px）は段のちょうど中間なので判断（D-04） |
 | 文字の大きさ | 1.2〜2.4rem の段 | `text-xs` 1.2rem、`text-sm` 1.4rem、`text-base` 1.6rem、`text-lg` 1.8rem | どれも段の上にある。寄せる |
-| ボタンの文字の太さ | 600 | 500（`font-medium`） | 寄せる |
+| ボタンの文字の太さ | 500（kit は #684、画面の操作のボタンは #694）。前は、フォームのボタンとその写しが 600、ほかの操作のボタンが 400 だった | 500（`font-medium`） | 寄せた。既定の UI フォント（Yu Gothic UI）には 500 の字面がないので、500 をそのまま使うかは D-38 |
 | 影 | 浮かぶものにだけ `--vox_shadow_overlay` | 入力欄と outline のボタンに `shadow-xs`、カードに `shadow-sm`、一覧に `shadow-md`、ダイアログに `shadow-lg` | 判断（D-05）。DESIGN.md「Elevation & Depth」は、普段のフォームに飾りの影を使わないとしている |
 
 ### 状態の表し方
@@ -52,7 +52,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 |---|---|---|---|
 | フォーカス | `--vox_focus` の `.2rem` の outline。kit は外に `.2rem` 離す。部品によって `.1rem`〜`.3rem` 離すもの、内側に引くもの（レール）がある | 枠が `ring` になり、外に 3px の `ring` の 50% の影が付く（離さない） | 判断（D-06）。50% の輪が地に対して 3:1 に届くか（`brandPalette.test.js` の基準）を確かめてから決める。離す量の不ぞろいは D-06 のあとでそろえる |
 | 値が正しくない | kit の `TextField` と `Select` は `invalid` で `aria-invalid` を付け、`[aria-invalid='true']` で枠を `--vox_state_failed` にする | `aria-invalid` で枠が `destructive` になる。フォーカス中は輪も赤みを帯びる | 枠は一致。フォーカス中の輪は D-06 |
-| 使えない | kit は不透明度 .5（#684 で .55 から寄せた）。フォーム（`VoiceSettings.module.scss`）は入力欄、選択欄、ボタンに共通の規則で .6。`_Entry` は文字の色だけを変える。チェックボックスは灰色にする filter | 不透明度 .5。ボタンは `pointer-events: none` | 不透明度は .5 に寄せる。`_Entry` は D-37。`pointer-events: none` は判断（D-07）。使えないスイッチや機能のボタンがツールチップで理由を示す規則（DESIGN.md「Layout」）とぶつかる |
+| 使えない | kit、フォーム（`VoiceSettings.module.scss`。入力欄、選択欄、ボタンに共通の規則）、画面の操作のボタンは不透明度 .5（#684、#694。前は kit が .55、フォームと多くのボタンが .6、設定の上のバーの保存と取り消しが .45）。`_Entry` は文字の色だけを変える。チェックボックスは灰色にする filter。トグル、開閉のボタン、待ちの表示は .55〜.6 のまま | 不透明度 .5。ボタンは `pointer-events: none` | 不透明度は .5 に寄せる（操作のボタンとフォームは寄せた）。トグルは D-27、開閉のボタンは D-26 と一緒に扱う。`_Entry` は D-37。`pointer-events: none` は判断（D-07）。使えないスイッチや機能のボタンがツールチップで理由を示す規則（DESIGN.md「Layout」）とぶつかる |
 | ホバーと押下 | 部品ごとに `dark_*` と `primary_*` の段を選ぶ | `accent` の塗り、または `primary/90` のように同じ色を薄める | 判断（D-08）。不透明度で薄める作り方は、明度だけを変えるアプリの色の作り方（DESIGN.md「Colors」）と違う |
 | 開閉の動き | `--vox_motion`（220ms）と `--vox_ease_settle`。一覧は欄から落ちて落ち着き、行が続いて現れる | `fade-in`、`zoom-in-95`、出る向きからの slide-in | 判断（D-09）。DESIGN.md の「Motion」が一覧の開き方を決めている |
 
@@ -78,11 +78,11 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | variant | `tone`: primary、plain（既定）、quiet、danger（DESIGN.md #474 の役割） | `variant`: default、secondary、outline、ghost、destructive、link | 判断（D-10） |
-| size | `size`: regular（4rem）、compact（3.2rem） | default（3.6rem）、xs、sm（3.2rem）、lg（4rem）、icon、icon-xs、icon-sm、icon-lg | 高さは D-03。アイコンだけのボタンを `icon` の size にまとめるのは寄せる |
+| size | `size`: regular（4rem）、compact（3.2rem）、icon（4rem の正方形、#694） | default（3.6rem）、xs、sm（3.2rem）、lg（4rem）、icon、icon-xs、icon-sm、icon-lg | 高さは D-03。kit に `icon` の size を足した（#694）。画面のアイコンだけのボタン（`ActionButton`、`reset_button`、`close_button`）をまとめるのは、kit を画面で使うと決めてから（K-01）。`icon-sm` などを足すかは D-03 と D-10 に含める |
 | 別の要素で描く | なし（リンクのボタンは `<a>` を別に描く） | `asChild`（Radix の `Slot`） | 判断（D-12） |
-| 余白 | `.8rem 1.6rem` | default は `px-4 py-2`（1.6rem、.8rem）。アイコンがあると `px-3` | 一致。アイコン付きの `px-3` は寄せる |
+| 余白 | `.8rem 1.6rem`。アイコンがあると左右は 1.2rem、compact では 1rem（#694） | default は `px-4 py-2`（1.6rem、.8rem）。アイコンがあると `px-3`。sm は `px-3`、アイコンがあると `px-2.5` | 一致。アイコン付きの余白は寄せた（#694） |
 | 角丸 | 8px | `rounded-md`（8px） | 一致 |
-| 文字 | 1.4rem、600。長い日本語は折り返す | `text-sm`（1.4rem）、500、`whitespace-nowrap` | 太さは寄せる。折り返しは残す（長い日本語の表示） |
+| 文字 | 1.4rem、500（kit は #684、画面の操作のボタンは #694）。長い日本語は折り返す | `text-sm`（1.4rem）、500、`whitespace-nowrap` | 太さは寄せた（字面は D-38）。折り返しは残す（長い日本語の表示） |
 | primary | Lilac の塗りに Dark Plum の文字。ホバーは `primary_550`、押下は `primary_700` | `bg-primary`、ホバーは `primary/90` | D-08 |
 | danger | 塗らずに赤い文字と `--vox_field_border` の枠 | destructive は赤の塗り（暗い配色では 60%）に白い文字 | D-10 |
 
@@ -115,7 +115,7 @@ shadcn/ui には、Radix の Select と、ネイティブの `<select>` を包�
 | `data-slot` | `native-select-wrapper`、`native-select`、`native-select-icon`（#684）。`native-select-option` と `native-select-optgroup` は `SelectOption` と `SelectOptGroup` のパーツに付けた（#691） | `native-select-wrapper`、`native-select`、`native-select-icon`、`native-select-option`、`native-select-optgroup` | 寄せた |
 | size | なし（4rem） | `size`: default（3.6rem）、sm（3.2rem） | D-03 と D-10 に含める（kit のボタンは 3.2rem の大きさを `compact` と呼んでいる） |
 | 右の余白とシェブロン | 右の余白は 3.6rem。シェブロンは 1.6rem で右から 1.4rem（#684）、`--vox_secondary_text`。フォームの選択欄も同じ形、大きさ、位置（#691）で、色は背景の画像に `#9daec6` を直に書いている | 右の余白は `pr-9`（3.6rem）。シェブロンは `size-4`（1.6rem）で右から 1.4rem、`muted-foreground` の 50% | 余白、シェブロンの大きさと位置は寄せた。色は D-02 |
-| 使えない | kit は包む要素ごと不透明度 .5（#684）。フォームの選択欄はシェブロンが背景の画像なので一緒に薄くなるが、不透明度はフォームに共通の .6 | 包む要素ごと不透明度 .5 | kit は寄せた。フォームの .6 はボタンと共通の規則なので、ボタン（下の一覧の 4）と一緒に .5 にする |
+| 使えない | kit は包む要素ごと不透明度 .5（#684）。フォームの選択欄はシェブロンが背景の画像なので一緒に薄くなり、不透明度はフォームに共通の .5（#694） | 包む要素ごと不透明度 .5 | 寄せた |
 | 幅 | 列いっぱい（`width: 100%`） | `w-fit` | 残す（DESIGN.md の欄の幅の規則、#567） |
 | 一覧の行の色 | `option` の地を `--vox_surface` にする | `bg-[Canvas] text-[CanvasText]`（システムの色） | 残す（一覧は欄と同じ面に開く。DESIGN.md「Components」） |
 
@@ -370,6 +370,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | D-35 | レールのメニューの行の高さ（`h-8`）と、選んだ行の表し方（`data-active`）を寄せるか | Sidebar、設定のメニュー |
 | D-36 | 設定の検索と言語の一覧を、Combobox（Base UI）や Command（cmdk）にするか、自作のまま見た目だけを寄せるか。どちらにも Radix で書いたものがない | Combobox、Command |
 | D-37 | `_Entry` に残った kit との差をどうするか。左右の余白は .6rem で、kit と DESIGN.md の `input` は 1.2rem。1.2rem にすると、幅 6rem のしきい値の欄では文字の入る幅が 4.6rem から 3.4rem に減る。使えない状態は文字の色だけを変え、kit は全体を .5 に薄くする。待ちの状態も同じ見た目を使うので、待ちの表し方（DESIGN.md）とあわせて決める | Input |
+| D-38 | ボタンの文字を 500 のままにするか。既定の UI フォントの Yu Gothic UI と、選べる Meiryo UI には 500 の字面がなく、CSS の字面の選び方では 400 で描かれる見込み（Windows では確かめていない）。フォームのボタンは 600 から 500 にしたので、それらのフォントでは太字が標準の太さに変わる | Button |
 
 ほかに、#680 の判断項目（寄せる先を本家の shadcn/ui にすること、ADR-010 の7章への注記、ライセンスの記録の範囲）と、設定画面の部品の実験の残課題 K-01（kit を本採用するか）が、この棚卸しに関係します。
 
@@ -385,7 +386,7 @@ kit（画面ではまだ使っていない部品）:
 
 画面で使っている部品:
 
-4. ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にそろえる。フォーム（`VoiceSettings.module.scss`）の `:disabled` は入力欄と選択欄にも共通の規則なので、一緒に .5 になる。
+4. ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にそろえる。フォーム（`VoiceSettings.module.scss`）の `:disabled` は入力欄と選択欄にも共通の規則なので、一緒に .5 になる（#694。対象は、言葉があり塗りか枠のある操作のボタン。トグル、開閉のボタン、ナビゲーション、一覧の行、待ちの表示、照合の外の画面は含めていない）。
 5. チェックボックスのチェックの線を `--vox_on_primary` にする。
 6. スライダーの満ちた部分を描き、溝を .6rem にし、使えない状態を足す。
 7. `_Entry` の塗り、枠、角丸、高さを kit の入力欄にそろえる（#691。左右の余白と使えない状態は D-37）。
@@ -397,9 +398,14 @@ kit（画面ではまだ使っていない部品）:
 13. 検索の「結果なし」を Empty の形にそろえる。
 14. フォームの選択欄のシェブロンを、kit の `Select` と同じ形、大きさ、位置にする（#691。色は D-02）。
 
+kit の差で、表では「寄せる」にしていたのにこの一覧から漏れていたもの:
+
+15. `Button` に、アイコンだけのボタンの `icon` の size を足す（#694。高さは D-03）。
+16. アイコンの付いた `Button` の左右の余白を、regular で 1.2rem（`px-3`）、compact で 1rem（sm の `px-2.5`）にする（#694）。
+
 ## 段階の案
 
-1. 段 1: kit をそろえる（上の 1〜3）。kit は画面でまだ使っていないので、画面は変わりません。最初に寄せる部品の PR なので、ライセンス台帳と `NOTICE.md` に shadcn/ui を載せます（#680）。
+1. 段 1: kit をそろえる（上の 1〜3。一覧から漏れていた 15 と 16 は #694 で寄せた）。kit は画面でまだ使っていないので、画面は変わりません。最初に寄せる部品の PR なので、ライセンス台帳と `NOTICE.md` に shadcn/ui を載せます（#680）。
 2. 段 2: 画面で使っている部品のうち、判断の要らない見た目の差（上の 4〜14）。部品ごとに PR を分けます。
 3. 段 3: 判断項目が決まったものから。Radix への置き換え（D-14、D-16、D-19〜D-21、D-23、D-25〜D-27）は、ADR-010 の順（自作ではアクセシビリティを保ちにくい部品から）で進めます。CSP に触れる部品は、入れる前に `<style>` を差し込むかを確かめます。
 4. 設定の行（D-34）は、#554 の情報設計で設定画面を組み直すときに合わせます。

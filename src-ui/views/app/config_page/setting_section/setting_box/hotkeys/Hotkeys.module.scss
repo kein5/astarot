@@ -7,7 +7,7 @@
 .platform_readout { margin: .8rem 0; }
 // The same secondary button as the other settings forms (VoiceSettings).
 .open_quick_chat {
-    align-self: flex-start; font-size: 1.4rem; font-weight: 600; min-height: 4rem; padding: .9rem 1.2rem; margin: .4rem 0 1.6rem;
+    align-self: flex-start; font-size: 1.4rem; font-weight: 500; min-height: 4rem; padding: .9rem 1.2rem; margin: .4rem 0 1.6rem;
     color: var(--dark_200_color); background: var(--dark_850_color); border: .1rem solid transparent; border-radius: var(--vox_radius); cursor: pointer;
     &:hover { background: var(--dark_600_color); }
     &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
