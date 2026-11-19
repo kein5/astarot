@@ -5855,6 +5855,7 @@ dependencies = [
 name = "vrct-tts"
 version = "0.1.0"
 dependencies = [
+ "app-identity",
  "libc",
  "serde",
  "serde_json",

@@ -233,8 +233,8 @@ impl Helper {
             .stdin(Stdio::from(remote))
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        let recorded = std::env::var("VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET").ok();
-        let host = std::env::var("VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH").ok();
+        let recorded = std::env::var(app_identity::env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET).ok();
+        let host = std::env::var(app_identity::env::APPIMAGE_HOST_LD_LIBRARY_PATH).ok();
         match host_library_path(recorded.as_deref(), host.as_deref()) {
             Some(Some(path)) => { command.env("LD_LIBRARY_PATH", path); }
             Some(None) => { command.env_remove("LD_LIBRARY_PATH"); }

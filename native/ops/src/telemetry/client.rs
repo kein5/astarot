@@ -25,7 +25,7 @@ pub const ENDPOINT: &str = "https://vrct-vox-telemetry.kei9d09.workers.dev/v1/ev
 pub const INGEST_KEY: &str = "e77471acded45435be55c2fed04a05636e4eb00be5a277fb";
 /// A developer's stand-in receiver on this PC. Only a loopback HTTP address is taken, so the
 /// variable cannot send anyone's events to another host.
-pub const ENDPOINT_OVERRIDE: &str = "VRCT_TELEMETRY_URL";
+pub const ENDPOINT_OVERRIDE: &str = app_identity::env::TELEMETRY_URL;
 pub const EVENTS: [&str; 2] = ["app_started", "error"];
 /// The version of the event's shape. 1 had no "v" and no "hw".
 pub const SCHEMA: u64 = 2;

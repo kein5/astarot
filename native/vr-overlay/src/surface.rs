@@ -260,8 +260,8 @@ mod imp {
     use std::path::PathBuf;
     use std::sync::Mutex;
 
-    const DIRECTORY_ENV: &str = "VRCT_VR_PANEL_DIR";
-    const MAGIC: &[u8; 8] = b"VRCTVRP1";
+    const DIRECTORY_ENV: &str = app_identity::env::VR_PANEL_DIR;
+    const MAGIC: &[u8; 8] = app_identity::handoff::VR_PANEL_FRAME;
     const HEADER_SIZE: usize = 64;
     const MAX_SIDE: u32 = 8192;
 

@@ -147,7 +147,8 @@ pub mod env {
     pub const TELEMETRY_URL: &str = "VRCT_TELEMETRY_URL";
     /// A local file the speech timings are appended to while measuring.
     pub const VOICE_TRACE: &str = "VRCT_VOICE_TRACE";
-    /// `1` adds the allocator's figures to [`VOICE_TRACE`].
+    /// `1` adds the `gc_pauses` field to the records of [`VOICE_TRACE`] (empty in Rust; Python
+    /// filled it).
     pub const VOICE_GC_DIAGNOSTICS: &str = "VRCT_VOICE_GC_DIAGNOSTICS";
     /// The folder through which the Linux app hands the VR panel's frames and the captured
     /// screen to the VR overlay and chat reading in the same process tree.
@@ -155,7 +156,7 @@ pub mod env {
     /// The host's `LD_LIBRARY_PATH`, which `packaging/appimage/AppRun` keeps before it points the
     /// variable at the AppImage's own libraries.
     pub const APPIMAGE_HOST_LD_LIBRARY_PATH: &str = "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH";
-    /// `1` when the host had [`APPIMAGE_HOST_LD_LIBRARY_PATH`] set at all, `0` when not
+    /// `x` when the host had `LD_LIBRARY_PATH` set at all (even to nothing), empty when not
     /// (`packaging/appimage/AppRun`).
     pub const APPIMAGE_HOST_LD_LIBRARY_PATH_SET: &str = "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET";
 }
