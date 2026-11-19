@@ -14,7 +14,7 @@ import clsx from "clsx";
 
 import { useLanguageSettings } from "@logics_main";
 
-const Tab = (props) => {
+const Tab = (props: { preset_number: string }) => {
     const { canChangeLanguageSettings, isLanguageSettingsBusy, currentSelectedPresetTabNumber, setSelectedPresetTabNumber } = useLanguageSettings();
     const onclickFunction = () => {
         if (!canChangeLanguageSettings()) return;

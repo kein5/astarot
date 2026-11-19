@@ -199,12 +199,12 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
         "./translator_selector/TranslatorSelector": {}, "@setting_box": { MessageLogUiScalingContainer: icon },
         "../../../../../../logics/main/sameLanguage.ts": sameLanguage };
     const cases = [
-        ["sidebar_section/language_settings/preset_tab_selector/PresetTabSelector.jsx", "PresetTabSelector", {}],
-        ["sidebar_section/language_settings/translator_selector_open_button/TranslatorSelectorOpenButton.jsx", "TranslatorSelectorOpenButton", {}],
-        ["sidebar_section/language_settings/translator_selector_open_button/translator_selector/TranslatorSelector.jsx", "TranslatorSelector",
+        ["sidebar_section/language_settings/preset_tab_selector/PresetTabSelector.tsx", "PresetTabSelector", {}],
+        ["sidebar_section/language_settings/translator_selector_open_button/TranslatorSelectorOpenButton.tsx", "TranslatorSelectorOpenButton", {}],
+        ["sidebar_section/language_settings/translator_selector_open_button/translator_selector/TranslatorSelector.tsx", "TranslatorSelector",
             { translation_engines: [{ id: "two", label: "Two", is_available: true }], selected_id: "one" }],
-        ["sidebar_section/language_settings/language_swap_button/LanguageSwapButton.jsx", "LanguageSwapButton", {}],
-        ["sidebar_section/language_settings/add_remove_target_language_buttons/AddRemoveTargetLanguageButtons.jsx", "AddRemoveTargetLanguageButtons", {}],
+        ["sidebar_section/language_settings/language_swap_button/LanguageSwapButton.tsx", "LanguageSwapButton", {}],
+        ["sidebar_section/language_settings/add_remove_target_language_buttons/AddRemoveTargetLanguageButtons.tsx", "AddRemoveTargetLanguageButtons", {}],
         ["main_section/message_container/message_log_settings_container/MessageLogSettingsContainer.jsx", "MessageLogSettingsContainer", {}],
     ];
     const controls = tree => {

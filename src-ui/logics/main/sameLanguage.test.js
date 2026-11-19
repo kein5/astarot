@@ -18,7 +18,7 @@ test("a turned-off target or another language is not the same language", () => {
 });
 
 test("the sidebar uses this rule", () => {
-    const source = readFileSync(new URL("../../views/app/main_page/sidebar_section/language_settings/translator_selector_open_button/TranslatorSelectorOpenButton.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("../../views/app/main_page/sidebar_section/language_settings/translator_selector_open_button/TranslatorSelectorOpenButton.tsx", import.meta.url), "utf8");
     assert.match(source, /isSameLanguageSelected\(/);
     assert.doesNotMatch(source, /\.country/);
 });

@@ -9,7 +9,7 @@ const t = (key, options) => options ? `${options.from} → ${options.to}` : key;
 
 async function setup({ ui = "ja", yours = entry("Japanese", "Japan"), targets = { 1: entry("English", "United States"), 2: entry("Korean", "South Korea", false), 3: entry("French", "France", false) }, preset = "1" } = {}) {
     const runtime = hooks(), toggled = [];
-    const { LanguageReadout } = await loadModule(new URL("./LanguageReadout.jsx", import.meta.url), runtime, {
+    const { LanguageReadout } = await loadModule(new URL("./LanguageReadout.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t, i18n: { language: ui } }) },
         "../../../../../logics/common/languageNames.ts": languageNames,
         "@logics_main": {

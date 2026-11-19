@@ -6,8 +6,15 @@ import { useI18n } from "@useI18n";
 import { chunkArray } from "@utils";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useLanguageSettings } from "@logics_main";
+import type { TranslatorStatus } from "@ui_configs";
 
-export const TranslatorSelector = ({selected_id, translation_engines, is_selected_same_language}) => {
+type TranslatorSelectorProps = {
+    selected_id: string | undefined;
+    translation_engines: TranslatorStatus[];
+    is_selected_same_language: boolean;
+};
+
+export const TranslatorSelector = ({selected_id, translation_engines, is_selected_same_language}: TranslatorSelectorProps) => {
     const { t } = useI18n();
     const columns = chunkArray(translation_engines, 2);
     // Unavailable engines leave the tab order, so their reason cannot wait for
@@ -15,7 +22,7 @@ export const TranslatorSelector = ({selected_id, translation_engines, is_selecte
     const reason_id = useId();
     const has_unavailable = translation_engines.some(engine => !engine.is_available);
     // It opens under its button at the foot of the rail: bring it into view.
-    const container = useRef(null);
+    const container = useRef<HTMLDivElement>(null);
     useEffect(() => { container.current?.scrollIntoView?.({ block: "nearest" }); }, []);
 
     return (
@@ -59,7 +66,16 @@ export const TranslatorSelector = ({selected_id, translation_engines, is_selecte
     );
 };
 
-const TranslatorBox = (props) => {
+type TranslatorBoxProps = {
+    id: string;
+    label: string;
+    is_available: boolean;
+    is_default: boolean | undefined;
+    is_selected: boolean;
+    reason_id: string;
+};
+
+const TranslatorBox = (props: TranslatorBoxProps) => {
     const { t } = useI18n();
     const { canChangeLanguageSettings, isLanguageSettingsBusy, setSelectedTranslationEngines} = useLanguageSettings();
     const { updateIsOpenedTranslatorSelector} = useStore_IsOpenedTranslatorSelector();

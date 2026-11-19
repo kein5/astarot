@@ -32,7 +32,7 @@ async function fixture(saved, context) {
         "@logics_main": logic,
     });
     const english = { language: "English", country: "United States", enable: true };
-    const { LanguageSelectorOpenButton } = await loadModule(new URL("../../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.jsx", import.meta.url), runtime, {
+    const { LanguageSelectorOpenButton } = await loadModule(new URL("../../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: () => ({ language: "English", country: "" }) }) },
         "@store": store, "@logics_main": { ...logic, useLanguageSettings: () => ({ currentSelectedPresetTabNumber: { data: "1" },
