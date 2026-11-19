@@ -1,13 +1,8 @@
-import asyncio
-import importlib
 import json
 from pathlib import Path
 import re
 import subprocess
-import sys
 import tomllib
-from types import SimpleNamespace
-from unittest.mock import Mock
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -64,33 +59,8 @@ def test_installer_never_skips_the_package_checksum():
     assert "size-only" not in script
 
 
-def test_upstream_telemetry_stays_unused_even_with_stale_upstream_key(monkeypatch):
-    # Deliberately simulate an ignored key file left behind by an old build.
-    # VRCT-VOX has usage events of its own now; upstream's key and SDK must still never be used.
-    sdk = Mock()
-    monkeypatch.setitem(sys.modules, "telemetry_keys", SimpleNamespace(APP_KEYS={"stable": "test", "beta": "test"}))
-    monkeypatch.setitem(sys.modules, "aptabase", SimpleNamespace(Aptabase=sdk))
-    import models.telemetry.client as client
-    importlib.reload(client)
-    assert not hasattr(client, "AptabaseWrapper")
-    # A closed port on this PC: the event goes nowhere, and never to upstream.
-    wrapper = client.IngestClient(endpoint="http://127.0.0.1:9/v1/events", timeout=0.5)
-    async def lifecycle():
-        await wrapper.start("test", "ja")
-        await wrapper.track("app_started", {})
-        await wrapper.stop()
-    asyncio.run(lifecycle())
-    sdk.assert_not_called()
-    source = (ROOT / "src-python/models/telemetry/client.py").read_text(encoding="utf-8")
-    assert "import aptabase" not in source and "import telemetry_keys" not in source and "from telemetry_keys" not in source
-    assert client.ENDPOINT.startswith("https://vrct-vox-telemetry.") and "aptabase" not in client.ENDPOINT
-
-
-def test_download_sources_belong_to_fork():
-    from config import config
-    assert "/repos/kein5/astarot/releases" in config.GITHUB_URL
-    assert "/repos/kein5/astarot/releases" in config.GITHUB_RELEASES_LIST_URL
-    assert config.setupDownloadUrl("3.6.0", tag="v3.6.0") == "https://github.com/kein5/astarot/releases/download/v3.6.0/VRCT-VOX_setup.exe"
+def test_installer_downloads_belong_to_fork():
+    # The app's own release URLs are checked by native/core/tests/updates.rs.
     script = (ROOT / "src-tauri/nsis/template.nsi").read_text(encoding="utf-8")
     assert "ms-software/VRCT" not in script
     assert "https://github.com/kein5/astarot/releases/download/" in script
@@ -100,7 +70,7 @@ def test_download_sources_belong_to_fork():
 # release (Issue #534), so GitHub no longer forwards it. Shipped code and the release workflow
 # must name the current repository, or downloads newer than 0.5.0 return 404.
 OLD_REPOSITORY = re.compile(r"(github\.com|repos)/kein5/VRCT-VOX\b", re.IGNORECASE)
-SHIPPED = ("src-tauri", "native", "src-ui", "src-python", "spec", "bat")
+SHIPPED = ("src-tauri", "native", "src-ui", "spec", "bat")
 RELEASE_FILES = (".github/workflows/prepare-release.yml", ".github/workflows/release-draft-auto.yml",
                  ".github/workflows/release-back-merge.yml", "tools/release_candidate.py",
                  "tools/release_automation.py", "tools/updater_manifest.py", "tools/linux_packages.py")

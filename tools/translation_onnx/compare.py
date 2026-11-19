@@ -2,11 +2,11 @@
 
     python tools/translation_onnx/compare.py m2m100_418M --onnx DIR --cli PATH --out RESULT.json
 
-Run it with the Python packages the app pins in uv.lock (ctranslate2, transformers,
-tokenizers, sentencepiece) and sacrebleu. The CTranslate2 side downloads the app's pinned
-model, checks it against src-python/models/builtin_model_pins.py, and translates as
-models/translation/translation_translator.py does: the same tokenizer files, the same
-options and the same checks. Both sides run on the CPU with 4 threads.
+Run it with the packages of tools/translation_onnx/requirements.txt (ctranslate2, transformers,
+tokenizers, sentencepiece and sacrebleu; uv.lock held the Python backend's own pins until it went
+in 0.6.0). The CTranslate2 side downloads the backend's pinned model, checks it against
+ctranslate2_pins.py, and translates as its translation_translator.py did: the same tokenizer
+files, the same options and the same checks. Both sides run on the CPU with 4 threads.
 
 For each direction it takes the first N sentences of the WMT20 test set and reports:
 
@@ -51,23 +51,9 @@ CPU_COMPUTE_TYPES = ["int8_bfloat16", "int8_float16", "int8", "bfloat16", "float
 
 
 def load_pins():
-    sys.path.insert(0, str(ROOT / "src-python"))
-    from models.builtin_model_pins import MODEL_PINS, tokenizerFilePins, verifyPinnedFile
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from ctranslate2_pins import MODEL_PINS, tokenizerFilePins, verifyPinnedFile
     return MODEL_PINS, tokenizerFilePins, verifyPinnedFile
-
-
-def check_app_constants():
-    path = ROOT / "src-python/models/translation/translation_translator.py"
-    if not path.exists():
-        # The Python translator has been removed; the constants above are its last values.
-        return
-    source = path.read_text(encoding="utf-8")
-    for line in (f"_CTRANSLATE2_MAX_INPUT_LENGTH = {MAX_INPUT_LENGTH}",
-                 f"_CTRANSLATE2_MAX_DECODING_LENGTH = {MAX_DECODING_LENGTH}",
-                 f"_M2M100_BEAM_SIZE = {M2M100_BEAM_SIZE}",
-                 "max_input_length=0", "return_end_token=True", "intra_threads=4"):
-        if line not in source:
-            raise SystemExit(f"translation_translator.py changed; this comparison no longer matches it: {line}")
 
 
 class AppTranslator:
@@ -171,7 +157,6 @@ def main():
                         help="a CTranslate2 model folder in place of the app's, such as a float32 conversion")
     parser.add_argument("--compute-type", help="CTranslate2's compute type in place of the app's choice")
     args = parser.parse_args()
-    check_app_constants()
 
     directions = [d for d in args.directions.split(",") if d]
     if not directions or any(d not in DIRECTIONS for d in directions):

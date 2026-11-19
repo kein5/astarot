@@ -1,33 +1,15 @@
-import ast
 import json
 from pathlib import Path
 import re
-import subprocess
-import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_headless_cli_does_not_import_windows_or_heavy_model_runtime():
-    code = """
-import runpy, sys
-sys.argv = ['voice_cli.py', '--help']
-try:
-    runpy.run_path('tools/voice_cli.py', run_name='__main__')
-except SystemExit as exc:
-    assert exc.code == 0
-for name in ('pyaudiowpatch', 'pycaw', 'windows_capture', 'model', 'config', 'torch', 'numpy'):
-    assert name not in sys.modules, name
-"""
-    result = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, timeout=5)
-    assert result.returncode == 0, result.stderr
-    assert "speak" in result.stdout
-
-
 def test_voice_endpoints_exist_on_both_sides():
-    tree = ast.parse((ROOT / "src-python/mainloop.py").read_text(encoding="utf-8"))
-    backend = {n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)
-               and ("/voice_" in n.value or n.value in {"/run/stop_voice", "/run/mute_voice", "/run/resume_voice"})}
+    # The Python backend's endpoints and notifications, as the specification keeps them.
+    python = json.loads((ROOT / "tools/spec_python_baseline.json").read_text(encoding="utf-8"))
+    names = [entry["endpoint"] for entry in python["endpoints"] + python["notifications"]]
+    backend = {name for name in names if "/voice_" in name or name in {"/run/stop_voice", "/run/mute_voice", "/run/resume_voice"}}
     routes = (ROOT / "src-ui/logics/useReceiveRoutes.ts").read_text(encoding="utf-8")
     # Endpoints only the Rust core has (the voice audition of #415) are listed in
     # tools/spec_core_additions.json and have no counterpart in the Python backend.
