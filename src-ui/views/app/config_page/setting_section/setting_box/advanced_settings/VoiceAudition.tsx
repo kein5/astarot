@@ -7,7 +7,7 @@ import styles from "./VoiceSettings.module.scss";
 
 // The voice audition of one TTS card (#415): the model its profile's running server uses reads a
 // short fixed sentence on the monitor output only. `status` is the card's download status.
-const useAuditionCard = (target, status) => {
+const useAuditionCard = (target: string, status: string) => {
     const { settings, route, status: voiceStatus } = useVoice();
     const { state } = useSpeechServers();
     const { audition, start, stop } = useVoiceAudition();
@@ -15,13 +15,20 @@ const useAuditionCard = (target, status) => {
     const muted = route?.requested_muted === true || voiceStatus?.muted === true;
     const block = auditionBlock({ status, server: state?.[target]?.state, monitor: settings?.monitor, muted });
     const own = audition.profile === target;
-    return { block, audition, start, stop, own,
+    // The target as a profile, which start takes.
+    return { profile: target, block, audition, start, stop, own,
         playing: own && audition.phase === "playing", pending: own && audition.phase === "pending" };
 };
 
 // In the card's row of actions, after the card's own action. While it plays it is the stop; while
 // the press waits for the engine it says so and ignores more presses, keeping its focus.
-export const AuditionButton = ({ target, status }) => {
+// `target` is the card's catalog target; only the TTS targets have an audition.
+export interface AuditionProps {
+    target: string;
+    status: string;
+}
+
+export const AuditionButton = ({ target, status }: AuditionProps) => {
     const { t } = useI18n();
     const card = useAuditionCard(target, status);
     if (!card || (card.block && !card.playing && !card.pending)) return null;
@@ -30,14 +37,14 @@ export const AuditionButton = ({ target, status }) => {
         aria-disabled={pending || undefined} aria-busy={pending || undefined} title={t("voice_audition.tooltip")}
         onClick={() => {
             if (pending) return;
-            if (playing) card.stop(); else card.start(target);
+            if (playing) card.stop(); else card.start(card.profile);
         }}>{t(pending ? "voice_audition.pending" : playing ? "voice_audition.stop" : "voice_audition.play")}</button>;
 };
 
 // Under the row: why this card cannot play the audition now, or else why the last press failed.
 // What stands in the way now comes first; an older failure would be stale. A model not
 // downloaded says nothing more: its own action is the download.
-export const AuditionNote = ({ target, status }) => {
+export const AuditionNote = ({ target, status }: AuditionProps) => {
     const { t } = useI18n();
     const card = useAuditionCard(target, status);
     if (!card || card.playing || card.pending) return null;

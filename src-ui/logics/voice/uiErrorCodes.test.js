@@ -17,7 +17,7 @@ const PAGES = [
         codes: ["realtime_request_failed", "save_unconfirmed", "backend_unavailable"] },
     { page: "VoiceSettings.jsx (voiceErrorText)", sections: ["voice_ui.errors", "voice.input_errors"],
         codes: ["save_unconfirmed", "voice_request_failed", "voice_request_unconfirmed", "backend_unavailable"] },
-    { page: "ModelDownloads.jsx", sections: ["model_downloads.errors"], codes: ["request_unconfirmed", "backend_unavailable"] },
+    { page: "ModelDownloads.tsx", sections: ["model_downloads.errors"], codes: ["request_unconfirmed", "backend_unavailable"] },
 ];
 
 for (const language of ["en", "ja"]) test(`${language}: every code the UI makes has a text where its page looks`, () => {

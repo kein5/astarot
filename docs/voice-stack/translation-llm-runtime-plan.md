@@ -70,7 +70,7 @@ TranslateGemma をアプリの中で動かす LLM 用の実行基盤を選び、
 
 | 段 | 中身 | おもな場所 |
 |---|---|---|
-| 3-1 | 規約の確認の種類 `gemma_terms`（5.2） | `native/ops/src/downloads/catalog.rs`、`manager.rs`、`ModelDownloads.jsx`、`locales/` |
+| 3-1 | 規約の確認の種類 `gemma_terms`（5.2） | `native/ops/src/downloads/catalog.rs`、`manager.rs`、`ModelDownloads.tsx`、`locales/` |
 | 3-2 | `llama-server` の取得と検証（版、大きさ、SHA-256 の固定、同意、取得元のホスト） | `native/ops` か、声質変換の実行環境と同じ形の新しいモジュール |
 | 3-3 | `llama-server` のプロセスの管理（起動、ポート 0、準備の確認、停止、落ちたときの知らせ）。偽のサーバーで試験する | speech.cpp のサーバーの管理（`native/speech-server`）にならう |
 | 3-4 | 翻訳のプロバイダ。TranslateGemma のテンプレートの文を組み立てて `/completion` に送る（system を送らない、言語は ISO の符号、会話の文脈を送らない、温度 0）。訳す文と訳文はログに出さない | `native/translation` |

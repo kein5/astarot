@@ -3,43 +3,72 @@ import { useCallback, useRef } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { acceptObservation, resetObservations, sameSnapshot } from "../common/polledState.ts";
 import type { ObservedSnapshot } from "../common/polledState.ts";
+import type { CatalogEntry, UserModel } from "./modelCatalog.ts";
+import type { HardwareState, ModelGuidance, ModelValidation } from "./modelHardwareAdvice.ts";
 
 // The model download replies of the core (docs/voice-stack/model-downloads.md), as far as this
 // hook reads them. They are not checked here; the pages read the other fields.
 
+// A model's measured guidance as the catalog sends it: always with its validation
+// (native/ops/src/downloads/guidance.rs).
+export interface ModelCatalogGuidance extends ModelGuidance {
+    readonly validation: ModelValidation;
+}
+
+// The speech.cpp model a catalog row is a file of, with the languages it reads.
+export interface CatalogSpeech extends NonNullable<CatalogEntry["speech"]> {
+    readonly languages?: readonly string[];
+}
+
+// One downloadable file of a model in the catalog (native/ops/src/downloads/catalog.rs), as the
+// catalog page reads it.
+export interface ModelCatalogRow extends CatalogEntry {
+    readonly speech?: CatalogSpeech | null;
+    readonly provider: string;
+    readonly license: string;
+    readonly licenses: readonly string[];
+    readonly source: string;
+    readonly repo: string;
+    readonly destination: string;
+    readonly notice: string;
+    readonly artifacts: readonly { readonly filename: string; readonly size: number }[];
+    readonly guidance?: ModelCatalogGuidance | null;
+    readonly restrictions?: unknown;
+}
+
 // /get/data/model_download_catalog.
 export interface ModelDownloadCatalog {
+    readonly catalog_version: string;
+    readonly models: readonly ModelCatalogRow[];
     readonly [key: string]: unknown;
 }
 
-// One download: phase is "queued", "downloading", "verifying", "cancelling", "ready", "failed" and so on.
+// One download (native/ops/src/downloads/manager.rs): phase is "queued", "downloading",
+// "verifying", "cancelling", "ready", "failed" and so on. paths: where an applied download put its files.
 // The fields the first-run setup reads too (DownloadJob in setup/firstRunSetup.ts).
 export interface ModelDownloadJob {
-    readonly job_id?: string;
-    readonly phase?: string;
+    readonly job_id: string;
+    readonly phase: string;
     readonly error_code?: string | null;
-    readonly received_bytes?: number;
-    readonly total_bytes?: number;
+    readonly received_bytes: number;
+    readonly total_bytes: number;
+    readonly paths?: Readonly<Record<string, string>>;
     readonly [key: string]: unknown;
 }
 
-// /get/data/model_download_state, polled.
+// /get/data/model_download_state, polled. downloaded: the files of each model on disk, by role.
 export interface ModelDownloadState extends ObservedSnapshot {
     readonly jobs: Readonly<Record<string, ModelDownloadJob>>;
+    readonly downloaded?: Readonly<Record<string, Readonly<Record<string, string>>>>;
     readonly [key: string]: unknown;
 }
 
 // /get/data/model_download_hardware: phase is "unknown" until asked, then "probing", and so on.
-export interface ModelDownloadHardware extends ObservedSnapshot {
-    readonly phase: string;
-    readonly devices: readonly unknown[];
-    readonly error_code?: unknown;
-    readonly [key: string]: unknown;
-}
+export type ModelDownloadHardware = ObservedSnapshot & HardwareState;
 
 // The models the user registered under a name (#403), as the backend sends them.
 export interface UserModels {
-    readonly models: readonly unknown[];
+    readonly models: readonly UserModel[];
     readonly [key: string]: unknown;
 }
 

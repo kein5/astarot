@@ -69,7 +69,7 @@ async function fixture(context, kind, openerState) {
         "../_components/compute_device/computeDeviceOptions": { computeDeviceLabel: device => device?.device_name, needsRestart: () => false },
         "@ui_configs": {}, "@logics_common": {}, "@store": {},
     };
-    const paths = { catalog: ["advanced_settings/ModelDownloads.jsx", "ModelDownloads"],
+    const paths = { catalog: ["advanced_settings/ModelDownloads.tsx", "ModelDownloads"],
         ocr: ["ocr/OcrModels.jsx", "OcrModels"], nllb: ["translation/Translation.jsx", "CTranslate2LicenseDialog"],
         legacy: ["_components/download_models/LegacyModelDownloadDialog.tsx", "LegacyModelDownloadDialog"] };
     const [path, name] = paths[kind];
