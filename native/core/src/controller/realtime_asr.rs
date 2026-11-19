@@ -248,6 +248,28 @@ impl Core {
         }
     }
 
+    /// Decision 88: whether an external server of the settings answers a connection, checked
+    /// when a VAD switch is turned on (within a second). `None` when it does, or when the
+    /// server is the bundled one (started or told when a recording starts) or the services' VAD.
+    pub(crate) fn vad_server_unreachable(&self) -> Option<&'static str> {
+        if self.services().vad.is_some() {
+            return None;
+        }
+        let settings = self.vad_server_settings();
+        if settings["server"] == "bundled" {
+            return None;
+        }
+        let reachable = settings["base_url"]
+            .as_str()
+            .and_then(|url| vrct_translation::http::Url::parse(url).ok())
+            .and_then(|url| {
+                use std::net::ToSocketAddrs;
+                (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()
+            })
+            .is_some_and(|mut addresses| addresses.any(|address| std::net::TcpStream::connect_timeout(&address, Duration::from_secs(1)).is_ok()));
+        (!reachable).then_some("realtime_models_unavailable")
+    }
+
     /// `/get/data/vad_available`.
     pub(crate) fn vad_available(&self) -> bool {
         self.vad_unavailable_reason().is_none()

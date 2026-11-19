@@ -128,9 +128,10 @@ fn without_a_server_set_up_a_switch_is_not_turned_on_and_a_saved_one_is_kept() {
     eventually("the switch is saved off", || run.ui.saved()["MIC_ENABLE_VAD"] == false);
     assert_eq!(run.ui.saved()["SPEAKER_ENABLE_VAD"], true, "the other switch is untouched");
 
-    // A server set up later (an external one here) is told to the UI, and the switch turns on.
+    // A server set up later (an external one here, which answers) is told to the UI, and the
+    // switch turns on.
     let mark = run.ui.lines().len();
-    run.ui.ok("/set/data/realtime_asr_settings", Some(external("http://127.0.0.1:8080")));
+    run.ui.ok("/set/data/realtime_asr_settings", Some(external(&run.asr.base())));
     assert_eq!(run.ui.wait_endpoint(mark, "/get/data/vad_available")["result"], true);
     assert_eq!(run.ui.ok("/set/enable/mic_vad_filter", None), true);
     // A save that changes nothing about it says nothing; one that takes it away says so.
@@ -197,6 +198,27 @@ fn an_engine_of_the_services_reaches_the_recorder_of_its_source_only() {
     run.hears_a_message("こんばんは");
     assert_eq!(*engine.made.lock().unwrap(), vec![(44100, 2, 7.0)]);
     eventually("the switch is saved on", || run.ui.saved()["SPEAKER_ENABLE_VAD"] == true);
+    run.ui.stop();
+}
+
+#[test]
+fn an_external_server_that_does_not_answer_cannot_turn_a_switch_on() {
+    // Decision 88 (b): turning a switch on checks, within a second, that the external server of
+    // the settings answers a connection; otherwise it is refused with the reason the realtime
+    // switch gives for it, and the saved value stays.
+    let gone = format!("http://127.0.0.1:{}", free_port());
+    let run = start(json!({}), None, |_| external(&gone));
+    assert_eq!(run.ui.ok("/get/data/vad_available", None), true, "set up as far as the settings go");
+    let started = std::time::Instant::now();
+    let answer = run.ui.request("/set/enable/speaker_vad_filter", None);
+    assert!(started.elapsed() < std::time::Duration::from_secs(3), "{:?}", started.elapsed());
+    assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "VAD_UNAVAILABLE"));
+    assert_eq!((answer["result"]["data"].clone(), answer["result"]["details"]["reason"].clone()), (json!(false), json!("realtime_models_unavailable")));
+    assert_eq!(run.ui.ok("/get/data/speaker_vad_filter", None), false);
+    // Off always works; with a server that answers, on works.
+    assert_eq!(run.ui.ok("/set/disable/speaker_vad_filter", None), false);
+    run.ui.ok("/set/data/realtime_asr_settings", Some(external(&run.asr.base())));
+    assert_eq!(run.ui.ok("/set/enable/speaker_vad_filter", None), true);
     run.ui.stop();
 }
 
