@@ -60,7 +60,7 @@ test("only the main window may emit events; the VR panel only listens", () => {
         for (const window of capability.windows ?? []) assert.equal(window, "main", `${file}: ${window} may emit events`);
     }
     assert.deepEqual(granted.get("vr_panel")?.sort(), ["core:event:allow-listen", "core:event:allow-unlisten"]);
-    for (const file of ["../../views/vr/VrApp.jsx", "./useStdoutToPython.ts"]) {
+    for (const file of ["../../views/vr/VrApp.tsx", "./useStdoutToPython.ts"]) {
         const source = readFileSync(new URL(file, import.meta.url), "utf8");
         assert.doesNotMatch(source, /\bemit\s*\(/, `${file} sends an event`);
     }
@@ -162,7 +162,7 @@ test("the VR panel is not sent credentials, advanced settings, updates or hotkey
 test("the state is pushed to the VR panel's channel, not emitted as an event", () => {
     const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
     const sender = read("../../views/app/_app_controllers/VrPanelSyncController.tsx");
-    const receiver = read("../../views/vr/VrApp.jsx");
+    const receiver = read("../../views/vr/VrApp.tsx");
     assert.match(sender, /invoke\("vr_panel_state_push"/);
     assert.match(receiver, /invoke\("vr_panel_state_subscribe"/);
     for (const source of [sender, receiver]) assert.doesNotMatch(source, /["']vr-panel-state["']/);

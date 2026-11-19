@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getDefaultStore } from "jotai";
+import type { Atom, WritableAtom } from "jotai";
 
 import { dynamicStoreRegistry } from "@store";
+import type { AtomState, RegisteredStoreHook } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useIsOpenedConfigPage } from "@logics_common";
 
@@ -22,6 +25,11 @@ import { keepNewestVrLayout } from "../../logics/common/vrPanelTooltip";
 import { decodeLogUpdate, decodeOrdered, isLogUpdate } from "../../logics/common/vrPanelWire";
 import { trackVrPointerHover } from "./vrPanelHover";
 import { sendToMain } from "../../logics/common/vrPanelSend.ts";
+import type { ReceivedLog } from "../../logics/common/vrPanelWire";
+import type { VrPointer } from "./vrPanelHover";
+import type { VrWindows } from "./VrLauncher";
+import type { VrPopup } from "./VrPopupWindow";
+import type { VrPanelLayout } from "../../logics/configs/config_page_setter/settingTypes.ts";
 
 import styles from "./VrApp.module.scss";
 
@@ -29,7 +37,14 @@ import styles from "./VrApp.module.scss";
 // Python 側 (models/overlay/overlay.py) が1回だけ撮影し、領域ごとに別のオーバーレイとして表示する。
 // VRでは px で固定する (デスクトップのUI倍率 UiSizeController は使わない。
 // 大きさはVR内で掴んで拡大縮小できる)。
-const Region = ({ layout, name, children, hidden = false }) => {
+type RegionProps = {
+    layout: VrPanelLayout;
+    name: keyof VrPanelLayout["regions"];
+    children?: ReactNode;
+    hidden?: boolean;
+};
+
+const Region = ({ layout, name, children, hidden = false }: RegionProps) => {
     const [x, y, w, h] = layout.regions[name];
     return (
         <div className={styles.region} data-vr-region={name} inert={hidden ? "" : undefined} aria-hidden={hidden || undefined}
@@ -40,7 +55,7 @@ const Region = ({ layout, name, children, hidden = false }) => {
 };
 
 export const VrApp = () => {
-    const atlas = useRef(null);
+    const atlas = useRef<HTMLDivElement>(null);
     // 並びはログの大きさで変わる (Python が決めて知らせる。models/overlay/overlay.py computeVrLayout)
     const { currentVrPanelLayout } = useVr();
     const layout = currentVrPanelLayout.data;
@@ -51,7 +66,7 @@ export const VrApp = () => {
     // 並びはログの大きさで決まるので、ログの大きさを送る (全体の大きさはログを縮めても変わらないことがある)。
     // 描画が画面に反映されるのを待つため、2フレーム後に送る
     useEffect(() => {
-        let second = null;
+        let second: number | null = null;
         const first = requestAnimationFrame(() => {
             second = requestAnimationFrame(() => asyncStdoutToPython("/run/vr_panel_layout_rendered", [panel_width, panel_height]));
         });
@@ -63,7 +78,7 @@ export const VrApp = () => {
     // 開いているウィンドウはこの画面の中だけで持つ (同期される atom に置くとメインの値で上書きされる)。
     // 表示・非表示の結果だけを Python に伝える。一時ウィンドウは同時に1つだけ
     // 起動時はランチャーだけを出す (ログは必要なときにランチャーから開く)
-    const [windows, setWindows] = useState({ log: false, popup: null });
+    const [windows, setWindows] = useState<VrWindows>({ log: false, popup: null });
     useEffect(() => {
         asyncStdoutToPython("/run/vr_panel_windows", { log: windows.log, popup: windows.popup !== null });
     }, [windows.log, windows.popup]);
@@ -87,7 +102,7 @@ export const VrApp = () => {
 
     const toggleLog = () => setWindows(w => ({ ...w, log: !w.log }));
     const openLog = () => setWindows(w => ({ ...w, log: true }));
-    const togglePopup = (name) => setWindows(w => ({ ...w, popup: w.popup === name ? null : name }));
+    const togglePopup = (name: VrPopup) => setWindows(w => ({ ...w, popup: w.popup === name ? null : name }));
     const closePopup = () => setWindows(w => ({ ...w, popup: null }));
 
     return (
@@ -108,10 +123,13 @@ export const VrApp = () => {
 
 // WebView2 はOSの本物のカーソル位置でホバーを判定するため、VRのポインタでは :hover が付かない。
 // Python から届くポインタ位置 (この画面の論理px) にある要素へ data-vr-hover を付けて代わりにする。
-const VrPointerHover = ({ atlasRef }) => {
+const VrPointerHover = ({ atlasRef }: { atlasRef: RefObject<HTMLDivElement | null> }) => {
     useEffect(() => {
+        // The atlas is drawn before its effects run.
+        if (atlasRef.current === null) throw new TypeError("The VR panel's atlas is not drawn");
         const hover = trackVrPointerHover(atlasRef.current);
-        const unlisten = listen("vr-panel-pointer", ({ payload }) => hover.setPointer(payload));
+        // A position or null (useVrPanelPointer), as the main window forwards it: declared, not checked.
+        const unlisten = listen<VrPointer | null>("vr-panel-pointer", ({ payload }) => hover.setPointer(payload));
         return () => {
             hover.dispose();
             unlisten.then(f => f());
@@ -120,6 +138,18 @@ const VrPointerHover = ({ atlasRef }) => {
     return null;
 };
 
+// The atom of a name in this window's store, which the main window mirrors here
+// (VrPanelSyncController, vrPanelWire.ts). The registry keeps every atom as Atom<unknown> and the
+// channel carries no types: what arrives for a name is the value the main window's atom of that
+// name holds, so this window's atom takes it as it is. This guard is the one place that says so.
+// It checks only that the registry has an atom there, as the receiver always did.
+type MirroredAtom = WritableAtom<AtomState<unknown>, [(previous: AtomState<unknown>) => unknown], void>;
+const isMirroredAtom = (target: RegisteredStoreHook | Atom<unknown> | undefined): target is MirroredAtom =>
+    Boolean(target) && typeof target !== "function";
+
+// The data of an atom's value, read as `value.data` reads it.
+const dataOf = (value: unknown): unknown => typeof value === "object" && value !== null && "data" in value ? value.data : undefined;
+
 // メインウィンドウから送られてくるatomの値を、このウィンドウのatomへそのまま反映する。
 // 会話ログは差分で届くので、前に受け取ったログに当てる。差分の元を受け取っていなければ、全件を頼み直す。
 // 状態はこのウィンドウが開いたチャンネルだけで届く (SEC-03。src-tauri/src/vr_panel_state.rs)。
@@ -127,14 +157,15 @@ const VrPointerHover = ({ atlasRef }) => {
 const VrStateReceiver = () => {
     useEffect(() => {
         const jotai = getDefaultStore();
-        let receivedLog = null;
+        let receivedLog: ReceivedLog | null = null;
         let isAwaitingFullLog = true; // 起動時の vr-panel-ready で全件が届く
         let active = true;
-        const channel = new Channel();
+        // The atoms' names and their encoded values, as VrPanelSyncController pushes them: declared, not checked.
+        const channel = new Channel<Readonly<Record<string, unknown>>>();
         channel.onmessage = (payload) => {
             if (!active) return;
             for (const [name, encoded] of Object.entries(payload)) {
-                let value;
+                let value: unknown;
                 if (isLogUpdate(encoded)) {
                     const log = decodeLogUpdate(receivedLog, encoded);
                     if (!log) {
@@ -149,8 +180,8 @@ const VrStateReceiver = () => {
                     value = decodeOrdered(encoded);
                 }
                 const atom = dynamicStoreRegistry[`Atom_${name}`];
-                if (atom) jotai.set(atom, previous => name === "VrPanelLayout" &&
-                    keepNewestVrLayout(previous.data, value.data) === previous.data ? previous : value);
+                if (isMirroredAtom(atom)) jotai.set(atom, previous => name === "VrPanelLayout" &&
+                    keepNewestVrLayout(previous.data, dataOf(value)) === previous.data ? previous : value);
             }
         };
         // 受信の準備ができてから全状態を要求する (メインが先に起動していた場合)
