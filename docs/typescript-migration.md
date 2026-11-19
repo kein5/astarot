@@ -18,7 +18,7 @@
 |---|---|---|
 | `src-ui/logics`（試験を除く） | 0 本 | 155 本、739KB（うち `.css.ts` が 1 本） |
 | `src-ui/views`（試験を除く） | 0 本 | 217 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
+| 試験（`*.test.js` と `src-ui/logics/test/`） | 206 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
