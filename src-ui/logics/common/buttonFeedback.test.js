@@ -317,7 +317,7 @@ test("LogBox subscribes only to its log and resend setting; unchanged row props 
     // The speakers' names (#447): one stable function, so the rows' props stay the same.
     const naming = { speakerNames: {}, nameSpeakers() {} };
     const Virtualizer = () => null;
-    const { LogBox } = await load("app/main_page/main_section/message_container/log_box/LogBox.jsx", runtime, {
+    const { LogBox } = await load("app/main_page/main_section/message_container/log_box/LogBox.tsx", runtime, {
         "virtua": { Virtualizer },
         "./message_container/MessageContainer": { MessageContainer: React.memo(icon) }, "./EmptyState": { EmptyState: () => null },
         "jotai": { useAtomValue: atom => { assert.equal(atom, "logs"); subscriptions.push(atom); return { data: logs }; } },
@@ -510,7 +510,7 @@ test("opening and closing settings keeps the same MainSection type and key mount
 test("memoized log rows expose pending status and keep edit/resend explicit", async () => {
     const runtime = hooks(), sent = [], edited = [];
     const menu = () => null;
-    const { MessageContainer } = await load("app/main_page/main_section/message_container/log_box/message_container/MessageContainer.jsx", runtime, {
+    const { MessageContainer } = await load("app/main_page/main_section/message_container/log_box/message_container/MessageContainer.tsx", runtime, {
         "@store": { store: {} },
         "./message_sub_menu_container/MessageSubMenuContainer": { MessageSubMenuContainer: menu },
         "./SpeakerNames": { speakersText: () => "", SpeakerNamesEditor: () => null },

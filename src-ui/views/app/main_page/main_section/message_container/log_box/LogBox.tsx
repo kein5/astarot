@@ -1,6 +1,8 @@
 import { memo, useRef, useState, useLayoutEffect, useEffect, useCallback, useMemo } from "react";
+import type { MutableRefObject } from "react";
 import { useAtomValue } from "jotai";
 import { Virtualizer } from "virtua";
+import type { CacheSnapshot, VirtualizerHandle } from "virtua";
 import styles from "./LogBox.module.scss";
 import { MessageContainer } from "./message_container/MessageContainer";
 import { EmptyState } from "./EmptyState";
@@ -8,6 +10,9 @@ import { useMessageActions, nextLogView, rowsBetween, speakerContinuations, useS
 import { useSettingValue } from "@logics_configs";
 import { useI18n } from "@useI18n";
 import { store, Atom_MessageLogs } from "@store";
+import type { GoneRow, LogView, RowEnds } from "../../../../../../logics/common/messageLogView.ts";
+import type { TargetHolder } from "../../../../../../logics/common/targetHolder.ts";
+import type { MessageLogRow } from "../../../../../../logics/transcription/realtimeCaptionState";
 
 // Within this many pixels of the end, the log keeps following new rows.
 const FOLLOW_THRESHOLD = 5;
@@ -15,9 +20,31 @@ const FOLLOW_THRESHOLD = 5;
 const USER_SCROLL_MS = 300;
 const SCROLL_KEYS = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
 
+// The rows handed to virtua, and the log's rows they were made from.
+type LogViewState = LogView<MessageLogRow> & { source: MessageLogRow[] };
+
+// What the VR log window keeps of the log while it is closed, to open it again as it was.
+export interface SavedLogView {
+    view: LogViewState;
+    startMargin: number;
+    follow: boolean;
+    scrollTop: number;
+    cache: CacheSnapshot | undefined;
+}
+
+type LogBoxProps = {
+    savedView?: MutableRefObject<SavedLogView | null>;
+};
+
+// An empty row where a row was removed while the user reads above it (nextLogView).
+const isGone = (row: MessageLogRow | GoneRow<string>): row is GoneRow<string> => !!row.gone;
+
+// The keys are read from the window's keydown events only.
+const isKeyboardEvent = (event: Event): event is KeyboardEvent => "key" in event;
+
 // Only the rows in view (plus a margin) are in the DOM, so a full log no longer
 // slows down typing, layout or the style recalculation when settings open.
-export const LogBox = memo(function LogBox({ savedView } = {}) {
+export const LogBox = memo(function LogBox({ savedView }: LogBoxProps = {}) {
     const { t } = useI18n();
     // Only the VR window supplies a snapshot. Restore its old rows and measured
     // sizes together before reconciling the log received while it was closed.
@@ -26,10 +53,10 @@ export const LogBox = memo(function LogBox({ savedView } = {}) {
     const view = useLogView(useAtomValue(Atom_MessageLogs).data, followRef, restored?.view);
     const currentShowResendButton = useSettingValue("ShowResendButton");
     const actions = useMessageActions();
-    const logContainerRef = useRef(null);
-    const virtualizerRef = useRef(null);
+    const logContainerRef = useRef<HTMLDivElement>(null);
+    const virtualizerRef = useRef<VirtualizerHandle>(null);
     const [startMargin, setStartMargin] = useState(restored?.startMargin ?? 0);
-    const latestView = useRef(null);
+    const latestView = useRef({ view, startMargin });
     latestView.current = { view, startMargin };
     const selection = useSelectedRows();
     const keepMounted = useMemo(() => rowsBetween(view.rows, selection), [view.rows, selection]);
@@ -58,13 +85,15 @@ export const LogBox = memo(function LogBox({ savedView } = {}) {
         // After a click in the log, PageUp and friends may scroll it with the focus on
         // <body>, so listen on the window. Keys another control handled, keys aimed
         // elsewhere and keys while settings cover the log (inert) are not for it.
-        const onKeyDown = (event) => {
+        const log: TargetHolder = element;
+        const onKeyDown = (event: Event) => {
+            if (!isKeyboardEvent(event)) return;
             if (!SCROLL_KEYS.has(event.key) || event.defaultPrevented || element.closest("[inert]")
-                || !(element.contains(event.target) || event.target === document.body)) return;
+                || !(log.contains(event.target) || event.target === document.body)) return;
             onInput();
             // End scrolls smoothly toward an end that moves while virtua measures
             // the newest rows; go there and follow them as the send button does.
-            if (event.key === "End") store.scroll_log_to_bottom();
+            if (event.key === "End") store.scroll_log_to_bottom?.();
         };
         const onPointerDown = () => { pointerDown = true; };
         // A short drag can be released before its scroll event arrives.
@@ -86,7 +115,7 @@ export const LogBox = memo(function LogBox({ savedView } = {}) {
             setStartMargin(parseFloat(getComputedStyle(element).paddingTop) || 0);
             follow();
         });
-        const listeners = [[element, "scroll", onScroll], [element, "wheel", onInput], [element, "touchmove", onInput],
+        const listeners: [EventTarget, string, EventListener][] = [[element, "scroll", onScroll], [element, "wheel", onInput], [element, "touchmove", onInput],
             [window, "keydown", onKeyDown], [element, "pointerdown", onPointerDown],
             [window, "pointerup", onPointerUp], [window, "pointercancel", onPointerUp]];
         listeners.forEach(([target, type, listener]) => target.addEventListener(type, listener, { passive: true }));
@@ -113,7 +142,7 @@ export const LogBox = memo(function LogBox({ savedView } = {}) {
             <Virtualizer ref={virtualizerRef} cache={restored?.cache}
                 data={view.rows} shift={view.shift} scrollRef={logContainerRef} startMargin={startMargin} onResize={follow}
                 keepMounted={keepMounted}>
-                {message => message.gone ? <div key={message.id} /> : <MessageContainer key={message.id} {...message}
+                {message => isGone(message) ? <div key={message.id} /> : <MessageContainer key={message.id} {...message}
                     speaker_names={message.realtime ? speakerNames[message.realtime.namespace] : undefined}
                     continues={continuing.has(message.id)} nameSpeakers={store.is_vr_panel ? undefined : nameSpeakers}
                     showResendButton={showResendButton} sendMessage={actions?.sendMessage}
@@ -126,8 +155,8 @@ export const LogBox = memo(function LogBox({ savedView } = {}) {
 // The rows handed to virtua (see nextLogView). When the oldest rows leave,
 // virtua has to see that on its own, so that step is committed before the rest.
 // Removed rows stay as empty rows only while the user reads above the end.
-const useLogView = (rows, followRef, restoredView) => {
-    const [view, setView] = useState(() => restoredView ?? { rows, shift: false, source: rows });
+const useLogView = (rows: MessageLogRow[], followRef: MutableRefObject<boolean>, restoredView: LogViewState | undefined) => {
+    const [view, setView] = useState<LogViewState>(() => restoredView ?? { rows, shift: false, source: rows });
     const restoring = view === restoredView;
     const next = restoring || view.source === rows || view.shift ? view
         : { ...nextLogView(view.rows, rows, !followRef.current), source: rows };
@@ -142,15 +171,16 @@ const useLogView = (rows, followRef, restoredView) => {
 // The rows at both ends of a text selection in the log. The rows between them
 // stay mounted, so a selection dragged across several screens keeps its start.
 const useSelectedRows = () => {
-    const [ends, setEnds] = useState(null);
+    const [ends, setEnds] = useState<RowEnds | null>(null);
     useEffect(() => {
-        const rowOf = node => (node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement)
-            ?.closest("[data-log-row]")?.dataset.logRow;
+        const isElement = (node: Node): node is Element => node.nodeType === Node.ELEMENT_NODE;
+        const rowOf = (node: Node | null) => (node && isElement(node) ? node : node?.parentElement)
+            ?.closest<HTMLElement>("[data-log-row]")?.dataset.logRow;
         const onSelectionChange = () => {
             const selection = document.getSelection();
             const from = selection && !selection.isCollapsed ? rowOf(selection.anchorNode) : undefined;
-            const to = from && rowOf(selection.focusNode);
-            setEnds(current => !to ? null : current?.from === from && current?.to === to ? current : { from, to });
+            const to = from && selection ? rowOf(selection.focusNode) : undefined;
+            setEnds(current => !from || !to ? null : current?.from === from && current?.to === to ? current : { from, to });
         };
         document.addEventListener("selectionchange", onSelectionChange);
         return () => document.removeEventListener("selectionchange", onSelectionChange);
@@ -163,8 +193,9 @@ const MessageLogUiSizeController = memo(function MessageLogUiSizeController() {
     const font_size = currentMessageLogUiScaling.data / 100;
 
     useEffect(() => {
+        // Drawn inside the log's container, so the container is there.
         const log_container_el = document.getElementById("log_container");
-        log_container_el.style.setProperty("font-size", `${font_size}rem`);
+        log_container_el?.style.setProperty("font-size", `${font_size}rem`);
     }, [currentMessageLogUiScaling.data]);
 
     return null;

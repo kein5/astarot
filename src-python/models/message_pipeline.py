@@ -74,7 +74,7 @@ class MessageDirectionSpec:
     delivery: str  # "push" (self.run() で配信、mic/speaker) | "return" (戻り値で返す、chat)
     run_mapping_key: Optional[str]  # delivery="push" のみ使用
     # 配信ペイロードに載せる source。UIはこれでOCR由来のメッセージにバッジを出す
-    # (src-ui の MessageContainer.jsx)。mic/speaker/chat は付けない (None)。
+    # (src-ui の MessageContainer.tsx)。mic/speaker/chat は付けない (None)。
     payload_source: Optional[str] = None
     render_overlay: bool = True
 
