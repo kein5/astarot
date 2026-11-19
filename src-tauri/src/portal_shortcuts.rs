@@ -27,14 +27,13 @@ use worker::{Backend, Mailbox, Operation, Worker};
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 
 /// Must match a desktop file the portal can find; see `ensure_desktop_file`.
-pub(crate) const APP_ID: &str = "io.github.kein5.vrct-vox";
+pub(crate) const APP_ID: &str = app_identity::APP_ID.current();
 pub(crate) const DESTINATION: &str = "org.freedesktop.portal.Desktop";
 pub(crate) const DESKTOP: &str = "/org/freedesktop/portal/desktop";
 const INTERFACE: &str = "org.freedesktop.portal.GlobalShortcuts";
 /// The desktop's own portal processes (`...desktop.kde`, `...desktop.gnome`). They hold the
 /// dialog and the key grabs; the frontend keeps its name and our session when one restarts.
 pub(crate) const BACKENDS: &str = "org.freedesktop.impl.portal.desktop";
-const MARKER: &str = "X-VRCT-VOX-Generated=true";
 /// The desktop may show a confirmation dialog while binding.
 const BIND_TIMEOUT: Duration = Duration::from_secs(180);
 const ACTIONS: [(&str, &str); 9] = [
@@ -177,6 +176,24 @@ fn quote(path: &str) -> String {
     out
 }
 
+/// The line that marks a desktop file as this app's: only such a file is rewritten.
+fn desktop_marker() -> String {
+    format!("{}=true", app_identity::DESKTOP_FILE_MARKER.current())
+}
+
+/// The desktop file for the portals, starting `executable`.
+fn desktop_entry(executable: &str) -> String {
+    format!(
+        "[Desktop Entry]\nType=Application\nName=ASTAROT\n\
+         Comment=Speech, voice conversion and translated chat\nExec={}\nIcon={}\n\
+         Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass={}\n{}\n",
+        quote(executable),
+        app_identity::LINUX_PACKAGE.current(),
+        app_identity::EXECUTABLE.current(),
+        desktop_marker(),
+    )
+}
+
 /// The portal identifies a host app only by an installed desktop file. Write
 /// one for this executable unless a packager or the user already provides it.
 pub(crate) fn ensure_desktop_file() -> Result<(), String> {
@@ -196,14 +213,9 @@ pub(crate) fn ensure_desktop_file() -> Result<(), String> {
         .filter(|path| mounted && path.is_absolute())
         .unwrap_or(current);
     let executable = executable.to_str().ok_or("portal_desktop_file_failed")?;
-    let content = format!(
-        "[Desktop Entry]\nType=Application\nName=ASTAROT\n\
-         Comment=Speech, voice conversion and translated chat\nExec={}\nIcon=vrct-vox\n\
-         Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=vrct-vox\n{MARKER}\n",
-        quote(executable)
-    );
+    let (content, marker) = (desktop_entry(executable), desktop_marker());
     match std::fs::read_to_string(&path) {
-        Ok(existing) if existing == content || !existing.contains(MARKER) => return Ok(()),
+        Ok(existing) if existing == content || !existing.contains(&marker) => return Ok(()),
         Ok(_) => {}
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(_) => return Err("portal_desktop_file_failed".into()),
@@ -683,6 +695,20 @@ mod tests {
 
     fn keys(names: &[&str]) -> Vec<String> {
         names.iter().map(|name| (*name).to_owned()).collect()
+    }
+
+    /// The file 0.5.x wrote. The app rewrites a file of its own whenever the text differs, so
+    /// until ADR-014 moves these names the text stays the same, byte for byte.
+    #[test]
+    fn the_desktop_file_is_the_one_0_5_wrote() {
+        assert_eq!(APP_ID, "io.github.kein5.vrct-vox");
+        assert_eq!(
+            desktop_entry("/opt/vrct-vox/vrct-vox"),
+            "[Desktop Entry]\nType=Application\nName=ASTAROT\n\
+             Comment=Speech, voice conversion and translated chat\nExec=\"/opt/vrct-vox/vrct-vox\"\nIcon=vrct-vox\n\
+             Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=vrct-vox\nX-VRCT-VOX-Generated=true\n"
+        );
+        assert_eq!(desktop_marker(), "X-VRCT-VOX-Generated=true");
     }
 
     #[test]

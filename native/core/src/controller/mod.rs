@@ -174,7 +174,7 @@ pub struct Services {
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// The usage-event sender, to VRCT-VOX's own receiver by default.
     pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
-    /// `VRCT_TELEMETRY=off` by default.
+    /// `ASTAROT_TELEMETRY=off` or `VRCT_TELEMETRY=off` by default.
     pub telemetry_forced_off: Arc<dyn Fn() -> bool + Send + Sync>,
     /// Opens the OSC link to VRChat for an address and a port ([`adapters::open_osc`]).
     pub osc: adapters::OpenOsc,

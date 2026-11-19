@@ -8,6 +8,8 @@ publish = false
 # Versions are pinned to the ones src-tauri/Cargo.lock already holds, so linking this crate into
 # the app later adds no second copy of any of them.
 [dependencies]
+# The names the app goes by outside its code (ADR-014): the owner marker of a download.
+app-identity = { path = "../app-identity" }
 chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
 httparse = "=1.10.1"
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
