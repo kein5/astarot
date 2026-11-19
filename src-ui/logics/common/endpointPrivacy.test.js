@@ -42,7 +42,7 @@ test("all three URL settings use the draft warning and save bar", () => {
     const pair = readFileSync(new URL("_components/credential_pair/CredentialPair.tsx", root), "utf8");
     assert.match(pair, /desc=\{endpointDescription\(form.draft.url,/);
     assert.match(pair, /useSettingsDraft\(saved,/);
-    for (const file of ["translation/Translation.jsx", "transcription/Transcription.jsx"]) {
+    for (const file of ["translation/Translation.jsx", "transcription/Transcription.tsx"]) {
         assert.match(readFileSync(new URL(file, root), "utf8"), /<CredentialPair /);
     }
 });

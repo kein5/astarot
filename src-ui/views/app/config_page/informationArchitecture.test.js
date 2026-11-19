@@ -272,7 +272,7 @@ test("translation keeps its local model and its catalog in sight; the APIs and l
 });
 
 test("speech recognition shows its engine and the engine's two systems in sight; what is set once is in 「詳細設定」", () => {
-    const source = read("transcription/Transcription.jsx");
+    const source = read("transcription/Transcription.tsx");
     const { outside, fold } = pageParts(source, "Transcription");
     // #414: speech.cpp on your PC (its models and server), then the APIs (one fold per provider
     // with its key), as the translation catalog splits translation (#413). The APIs left

@@ -9,29 +9,36 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { VocabularyBulk } from "./VocabularyBulk.tsx";
 import { MAX_USER_TERMS, parseTerm, writtenKey } from "../../../../../../logics/transcription/vocabularyTerms.ts";
+import type { TFunction } from "i18next";
+import type { CaptionSource } from "../../../../../../logics/transcription/realtimeCaptionState";
+import type { RealtimeAsrEndpointId, RealtimeAsrSettings, RealtimeAsrSourceSettings, RealtimeAsrVocabulary }
+    from "../../../../../../logics/transcription/useRealtimeASR";
+import type { DraftWriteValue } from "../../../../../../logics/voice/useSettingsDraft";
 
-const key = endpoint => endpoint ? JSON.stringify([endpoint.cookie, endpoint.serial, endpoint.name, endpoint.media_class]) : "";
+const key = (endpoint: RealtimeAsrEndpointId | null | undefined) => endpoint ? JSON.stringify([endpoint.cookie, endpoint.serial, endpoint.name, endpoint.media_class]) : "";
 // Select value for "follow the system default"; never a JSON endpoint key.
 const FOLLOW = "follow-default";
 // The silences that may end an utterance (ms); none chosen follows the core's default of 400 ms
 // (#556). 500 ms, the default before, stays a choice; a saved value off this list is shown too.
 const SILENCES = [300, 500, 700, 1000];
+const SOURCES: readonly CaptionSource[] = ["mic", "speaker"];
 
 // The message says what to do (shared with the main switches); the code stays for reports.
-const Failure = ({ code, t }) => <p role="alert">{t(`realtime_toggle.${code}`, { defaultValue: "" })} <code className={styles.error_code}>{code}</code></p>;
+const Failure = ({ code, t }: { code: string; t: TFunction }) => <p role="alert">{t(`realtime_toggle.${code}`, { defaultValue: "" })} <code className={styles.error_code}>{code}</code></p>;
 
 export const RealtimeASRSettings = () => {
     const { t, i18n } = useI18n();
     const names = createLanguageNames(i18n.language);
-    const languageLabel = code => code === "auto" ? t("realtime.auto_language") : names.fromCode(code);
+    const languageLabel = (code: string) => code === "auto" ? t("realtime.auto_language") : names.fromCode(code);
     const { settings, state, endpoints, models, error, send, updateError } = useRealtimeASR();
     const { state: servers, send: sendSpeech } = useSpeechServers();
-    const label = ([group, field]) => {
+    const label = ([group, field]: string[]) => {
         if (["mic", "speaker"].includes(group)) return t(`realtime.${group}_${field === "language" ? "language" : "input"}`);
         if (group === "vocabulary") return t(field === "builtin" ? "realtime.vocabulary_builtin" : "realtime.vocabulary_user");
-        return t({ server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence" }[group] ?? "realtime.title");
+        const fields: Partial<Record<string, string>> = { server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence" };
+        return t(fields[group] ?? "realtime.title");
     };
-    const write = value => send("/set/data/realtime_asr_settings", value);
+    const write = (value: DraftWriteValue<RealtimeAsrSettings>) => send("/set/data/realtime_asr_settings", value);
     const form = useSettingsDraft(settings, error, updateError, { label, write });
     const { draft, setDraft, dirty, saving } = form;
     const [newTerm, setNewTerm] = useState("");
@@ -52,11 +59,17 @@ export const RealtimeASRSettings = () => {
             models.server_generation === servers.asr.generation : models.base_url === settings?.base_url);
     const knownModels = modelsCurrent ? models.models ?? [] : [];
     const selectedModel = knownModels.find(row => row.id === draft?.model);
-    const updateSource = (source, values) => setDraft(previous => ({ ...previous, [source]: { ...previous[source], ...values } }));
+    // The form is drawn only with a draft, so these never change a missing one.
+    const updateSource = (source: CaptionSource, values: Partial<RealtimeAsrSourceSettings>) =>
+        setDraft(previous => previous && { ...previous, [source]: { ...previous[source], ...values } });
     // Left out unless chosen, as the backend saves it.
-    const updateSilence = value => setDraft(({ silence_duration_ms: _, ...previous }) => value ? { ...previous, silence_duration_ms: Number(value) } : previous);
-    const vocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
-    const updateVocabulary = values => setDraft(previous => ({ ...previous, vocabulary: { ...vocabulary, ...values } }));
+    const updateSilence = (value: string) => setDraft(draftNow => {
+        if (!draftNow) return draftNow;
+        const { silence_duration_ms: _, ...previous } = draftNow;
+        return value ? { ...previous, silence_duration_ms: Number(value) } : previous;
+    });
+    const vocabulary: RealtimeAsrVocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
+    const updateVocabulary = (values: Partial<RealtimeAsrVocabulary>) => setDraft(previous => previous && { ...previous, vocabulary: { ...vocabulary, ...values } });
     // One keyword per entry, "written=reading,reading", made canonical as the backend makes it;
     // the backend checks it again on save.
     const term = parseTerm(newTerm);
@@ -97,7 +110,7 @@ export const RealtimeASRSettings = () => {
             </select></label>
             <Description text={t("realtime.silence_help")} />
             <button type="button" onClick={refreshDevices}>{t("realtime.refresh_devices")}</button>
-            {["mic", "speaker"].map(source => {
+            {SOURCES.map(source => {
                 const choices = endpoints[source]?.endpoints ?? [];
                 const follow = !draft[source].endpoint && draft[source].follow_default !== false;
                 const selected = follow || choices.find(row => key(row.endpoint) === key(draft[source].endpoint));
@@ -127,10 +140,10 @@ export const RealtimeASRSettings = () => {
                         onClick={() => send("/run/start_realtime_asr", { source })}>{t(`realtime.start_${source}`)}</button>
                     <button type="button" onClick={() => send("/run/stop_realtime_asr", { source })}>{t(`realtime.stop_${source}`)}</button>
                     <EnvReadout tone={owner?.state === "ready" ? "active" : owner?.state === "failed" ? "failed" :
-                        ["starting", "stopping"].includes(owner?.state) ? "warning" : "neutral"}>
+                        ["starting", "stopping"].includes(owner?.state ?? "") ? "warning" : "neutral"}>
                         <p>{t(`realtime.state_${owner?.state ?? "unknown"}`)}</p>
                     </EnvReadout>
-                    {failure && <Failure code={failure} t={t} />}
+                    {!!failure && <Failure code={String(failure)} t={t} />}
                 </fieldset>;
             })}
             <fieldset>
@@ -146,7 +159,8 @@ export const RealtimeASRSettings = () => {
                 <label>{t("realtime.vocabulary_term")}<input readOnly={saving} value={newTerm} maxLength={320} spellCheck={false}
                     placeholder="VRChat=ブイアールチャット" onChange={event => setNewTerm(event.target.value)} /></label>
                 <button type="button" disabled={saving || !canAdd} onClick={() => {
-                    updateVocabulary({ terms: [...vocabulary.terms, term] }); setNewTerm("");
+                    if (term !== null) updateVocabulary({ terms: [...vocabulary.terms, term] });
+                    setNewTerm("");
                 }}>{t("realtime.vocabulary_add")}</button>
                 <VocabularyBulk terms={vocabulary.terms} disabled={saving} onTerms={terms => updateVocabulary({ terms })} />
             </fieldset>
