@@ -121,6 +121,13 @@ fn a_switch_needs_an_engine_and_a_device() {
     assert_eq!(run.ui.on(mark, "/set/disable/transcription_receive")[0]["result"], false);
     assert_eq!(error_code(&run.heard(mark, "/run/error_device")), "DEVICE_NO_SPEAKER");
     assert_eq!(run.capture.opened(), vec![]);
+    // The microphone's recognition alone is turned off again without a device notice, as in
+    // Python (decision 15 (2)); its volume meter tells it (the test below).
+    let mark = run.ui.send("/set/enable/transcription_send", None);
+    assert_eq!(run.ui.wait_endpoint(mark, "/set/enable/transcription_send")["result"], false);
+    assert_eq!(run.ui.on(mark, "/set/disable/transcription_send")[0]["result"], false);
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(run.ui.on(mark, "/run/error_device").is_empty(), "the microphone's recognition told a missing device");
     run.ui.stop();
 }
 

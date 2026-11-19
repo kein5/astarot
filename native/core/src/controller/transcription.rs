@@ -431,11 +431,15 @@ impl Core {
             return Ok(Reconfigured::Off);
         }
         let Some(requested) = resolved else {
-            // `_start(device=None)`: no device to listen to.
+            // `_start(device=None)`: no device to listen to. Decision 15 (2): as in Python, the
+            // microphone's recognition alone tells nothing here (its message came after its
+            // delivery was revoked); the speaker and the volume meters say which device is missing.
             legacy.transcript = false;
             legacy.energy = false;
             drop(legacy);
-            self.notify_device_error(source);
+            if source == Source::Speaker || new_energy {
+                self.notify_device_error(source);
+            }
             return Err(StartError::Device);
         };
         let recognize = if new_transcript {
