@@ -239,7 +239,7 @@ What does not change: the styles are written in vanilla-extract, and Tailwind is
 - shadcn/ui's enter and exit animations (`animate-in`, `fade-in`, `zoom-in`) become keyframes on the motion tokens (`--vox_motion` and the rest), off under reduced motion.
 - A Radix part that adds a `<style>` at run time needs the CSP step in `docs/development.md`.
 
-Where a shadcn component and a rule in this file differ, such as the button looks (#474), a checkbox for a setting (#436), the 40px field or the focus ring, the rule here stays until it is changed on purpose. Components are compared with shadcn/ui one by one before any of them is changed, and a difference that needs a decision is decided there, not by the translation.
+Where a shadcn component and a rule in this file differ, such as the button looks (#474), a checkbox for a setting (#436), the 40px field or the focus ring, the rule here stays until it is changed on purpose. Components are compared with shadcn/ui one by one before any of them is changed (`docs/design/components/shadcn-alignment.md`), and a difference that needs a decision is decided there, not by the translation.
 
 [OptiAxiom](https://github.com/optimizely-axiom/optiaxiom) stays the reference for what shadcn/ui, written in Tailwind, has no counterpart for: how the tokens are cut in vanilla-extract and how recipes and sprinkles are written.
 
