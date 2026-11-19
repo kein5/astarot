@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 4 段の `useHotkeys`を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の `app/io_flow`を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 2 本、87KB | 152 本、630KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 122 本、724KB | 95 本、326KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/logics`（試験を除く） | 2 本、87KB | 152 本、632KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 118 本、706KB | 99 本、347KB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本は済み。`app` の残りの区画が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本、`app/io_flow` は済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -126,11 +126,10 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - VR の設定の窓は AI の翻訳のモデルのフィールドを、名前の文字列で引く代わりに小さな関数で読みます。VR パネルが送る操作を確かめる試験がソースの名前を拾うので、名前は組み立てずに書いたままにしています。
 - 型がなかったころに `views` の TypeScript（`CompanionController.tsx`、`ExperimentalFeatures.tsx`、`UsagePresetSelector.tsx`）が書いていた `as { ... }` は外しました。
 
-`vr` の次の 3 本は JavaScript のままです。
+`vr` の次の 2 本は JavaScript のままです。
 
 - `VrApp.jsx`: メインウィンドウから届く状態をそのまま atom に書き込む受け取り口（`VrStateReceiver`）を含みます。`useReceiveRoutes` と同じく、受け取る値をどこまで実行時に確かめるかが決まってから移します。
 - `VrLogWindow.jsx`: `LogBox`（`app/main_page`、JavaScript）に `savedView` を渡します。`LogBox` の推論された型では渡せないので、`main_page` と一緒に移します。
-- `VrIoFlowWindow.jsx`: `IoFlowView`（`app/io_flow`、JavaScript）を使います。`io_flow` のビューに型を付けるには、フローの図の節点（`FlowNode`、`flow/flowGraph.ts`）を種類ごとに分けた型にする作業が要ります。そのため `io_flow` と一緒に移します。
 
 `app` は次の順に区画ごとの PR で移します。
 
@@ -159,6 +158,11 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - `StartPythonController`: 受け取った応答を `useReceiveRoutes`（JavaScript）に渡します。
 - `VrPanelSyncController`: VR パネルから届く送信の要求を、確かめてからバックエンドへ渡します。届く値を確かめる型ガードが要ります。
 - `CaptionOverlayController`: 設定の値から、字幕の窓に渡す値（`CaptionSnapshot`）を組み立てます。
+
+4（`app/io_flow`）は 3 より先に移しました。`VrIoFlowWindow` と、メイン画面の `IoFlowPanel` も同じ PR で移しています。
+
+- フローの図の節点（`FlowNode`、`flow/flowGraph.ts`）を、種類ごとの型（`InputNode`、`RecognitionNode`、`TranslateNode`、`SpeechNode`、`ConversionNode`、`LiveVoiceNode`、`OutputNode`）のユニオンに分けました。作る節点のフィールドと並びは前と同じです。
+- 流れの図の型（`ioFlow.ts`）は、中核が必ず送る形に合わせ、レーンの `translation` と `targets` を省略できないものにしました。宣言だけで、実行時に確かめるのは前と同じく `useIoFlow` の型ガード（2 つのレーンがあること）だけです。
 
 ### 第 7 段：試験とハーネス
 
