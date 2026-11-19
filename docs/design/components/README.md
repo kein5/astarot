@@ -11,7 +11,7 @@
 
 | 部品 | 中身 | 振る舞いの出どころ |
 |---|---|---|
-| `Button` | 4 つの見た目（primary、plain、quiet、danger）と 2 つの大きさ（regular、compact） | ネイティブの `<button>`。既定は `type="button"` |
+| `Button` | 4 つの見た目（primary、plain、quiet、danger）と 3 つの大きさ（regular、compact、アイコンだけの icon） | ネイティブの `<button>`。既定は `type="button"` |
 | `TextField` | 入力欄。値が正しくないときは `invalid` で赤い枠。住所やポートは `mono` で等幅 | ネイティブの `<input>` |
 | `Select` | 入力欄と同じ枠の選択欄。矢印は SVG。選択肢は `SelectOption` と `SelectOptGroup` で書く | ネイティブの `<select>`、`<option>`、`<optgroup>` |
 | `Switch` | オンとオフ。オンでは Lilac の溝に Dark Plum のつまみ | Radix UI の Switch |
@@ -60,6 +60,7 @@ DESIGN.md の「Components」で、部品の設計、見た目、構造を shadc
 - `Select` の選択肢に、shadcn/ui の `NativeSelectOption` と `NativeSelectOptGroup` に当たるパーツ（`SelectOption` と `SelectOptGroup`）を足し、`native-select-option` と `native-select-optgroup` を付けました（#691）。
 - `Select` は shadcn/ui の NativeSelect に当たります。シェブロンを 1.6rem にして右から 1.4rem に置き、使えないときは包む要素ごと薄くします。
 - ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にしました。
+- `Button` に、アイコンだけのボタンの `icon` の大きさ（4rem の正方形）を足しました。アイコンの付いたボタンは、左右の余白を regular で 1.2rem、compact で 1rem にします（#694）。
 
 コードはそのまま写さず、Tailwind のクラスを vanilla-extract に読み替えています。shadcn/ui（MIT）の表示は `NOTICE.md` とライセンス台帳に載せました。
 
