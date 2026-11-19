@@ -20,21 +20,10 @@ vrct-audio-routing = { path = "../audio-routing", default-features = false }
 # The HTTP client of the cloud engines (TLS with the Mozilla roots, no redirects, the system proxy).
 vrct-translation = { path = "../translation" }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-libc = "=0.2.191"
-
 [features]
-# Linux: list the PipeWire endpoints for realtime recognition (through vrct-audio-routing).
-# Without it no endpoint is listed; the capture itself runs in the vrct-asr-capture helper.
+# Linux: list the PipeWire endpoints for realtime recognition and capture them, through
+# vrct-audio-routing. Without it nothing is listed and nothing opens.
 pipewire = ["vrct-audio-routing/pipewire"]
-
-# A stand-in for the vrct-asr-capture helper, for the tests of the Linux capture (decision 82).
-# Never part of an application build.
-[[bin]]
-name = "fake-asr-capture"
-path = "tests/fixture/fake_asr_capture.rs"
-test = false
-doc = false
 
 # This crate is not part of any workspace (the application crate lives in src-tauri).
 [workspace]

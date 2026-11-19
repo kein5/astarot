@@ -58,6 +58,11 @@ jobs:
       - run: uv run --no-project python tools/dev.py check --scope tooling
       - run: uv run --no-project python tools/dev.py check --scope voice
       - run: uv run --no-project python tools/dev.py check --scope lint
+      # Realtime recognition reads a microphone and a speaker's monitor through the PipeWire
+      # capture of vrct-audio-routing (decision 2 of #733), on a private graph.
+      - name: Realtime recognition's capture on a private PipeWire graph
+        if: runner.os == 'Linux'
+        run: cargo test --locked --manifest-path native/transcription/Cargo.toml --features pipewire --test pipewire_capture_private -- --ignored
       - run: uv run --no-project python tools/voice_cli.py --help
       - run: uv run --no-project python tools/voice_route.py --help
       - run: npm ci --ignore-scripts
