@@ -20,7 +20,7 @@ const mount = async (context, state) => {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
     const page = { state: { ...sharedWindow.INITIAL_SHARED_WINDOW, ...state }, calls: [] };
-    const { OcrSharedWindow } = await loadModule(new URL("./OcrSharedWindow.jsx", import.meta.url), runtime, {
+    const { OcrSharedWindow } = await loadModule(new URL("./OcrSharedWindow.tsx", import.meta.url), runtime, {
         "@logics_configs": { useOcrSharedWindow: () => ({
             currentOcrSharedWindow: { data: page.state },
             refresh: () => page.calls.push(["refresh"]),

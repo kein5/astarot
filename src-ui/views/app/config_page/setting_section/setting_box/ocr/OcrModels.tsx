@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -8,19 +9,57 @@ import styles from "./Ocr.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 
-const activePhases = ["queued", "downloading", "verifying", "cancelling"];
-const megabytes = value => `${(Number(value) / 1048576).toFixed(1)} MB`;
+const activePhases: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
+const megabytes = (value: number) => `${(Number(value) / 1048576).toFixed(1)} MB`;
+// A byte count of a download's job, for its progress bar.
+const bytesOf = (value: unknown) => typeof value === "number" ? value : undefined;
+
+// What this page reads of a model in /get/data/model_download_catalog (the catalog of the core,
+// native/ops/src/downloads/manager.rs). Declared, not checked, like the hook's catalog.
+interface OcrCatalogModel {
+    id: string;
+    target: string;
+    name: string;
+    provider: string;
+    license: string;
+    licenses: readonly string[];
+    notice: string;
+    artifacts: readonly { filename: string; size: number }[];
+    total_bytes: number;
+    destination: string;
+    source: string;
+    sources?: readonly string[];
+}
+interface OcrCatalog {
+    catalog_version?: string;
+    models?: readonly OcrCatalogModel[];
+}
+// The model whose terms the dialog shows, with the catalog it came from.
+type ReviewedModel = OcrCatalogModel & { catalog_version: string | undefined };
+
+type OcrModelsProps = {
+    // The models the page needs, and those of them not installed yet.
+    ids: readonly string[];
+    missing: readonly string[];
+    // Asks for the page's readiness again once one of them is ready.
+    onChanged: () => unknown;
+    title: string;
+    desc?: string;
+    note: string;
+    settingId?: string;
+};
 
 // Chat reading downloads (PP-OCR for the current language, or the optional chatbox
 // detector). Same consent flow as the other default models: review source, terms,
 // size and destination, then agree. Nothing needs applying afterwards: chat
 // reading finds verified files by id.
-export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId }) => {
+export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId }: OcrModelsProps) => {
     const { t } = useI18n();
-    const { catalog, state, error, pending, send } = useModelDownloads();
-    const [selected, setSelected] = useState(null), [consent, setConsent] = useState(false);
-    const [linkError, setLinkError] = useState(null);
-    const section = useRef(null);
+    const { catalog: downloadCatalog, state, error, pending, send } = useModelDownloads();
+    const catalog: OcrCatalog | null = downloadCatalog;
+    const [selected, setSelected] = useState<ReviewedModel | null>(null), [consent, setConsent] = useState(false);
+    const [linkError, setLinkError] = useState<string | null>(null);
+    const section = useRef<HTMLElement>(null);
     const { dialog, close: closeDialog } = useConsentDialog(!!selected, section);
     const hasCatalog = !!catalog;
 
@@ -35,8 +74,8 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
 
     const busy = !!pending || Object.values(state.jobs).some(job => activePhases.includes(job.phase));
     const close = () => { closeDialog(); setSelected(null); setConsent(false); setLinkError(null); };
-    const failure = code => t(`model_downloads.errors.${code}`, { defaultValue: t("model_downloads.errors.download_failed") });
-    const openLink = async (event, url) => {
+    const failure = (code: unknown) => t(`model_downloads.errors.${code}`, { defaultValue: t("model_downloads.errors.download_failed") });
+    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(url); setLinkError(null); }
@@ -56,13 +95,13 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
                 <EnvReadout tone={installed ? "active" : job?.phase === "failed" ? "failed" : "warning"}>
                     <p>{installed ? t("config_page.ocr.models.installed") : job ? t(`model_downloads.phase_${job.phase}`) : t("config_page.ocr.models.missing")}</p>
                 </EnvReadout>
-                {active && <><progress aria-label={t("model_downloads.progress")} value={job.received_bytes} max={job.total_bytes} />
+                {active && job && <><progress aria-label={t("model_downloads.progress")} value={bytesOf(job.received_bytes)} max={bytesOf(job.total_bytes)} />
                     <button type="button" disabled={!!pending || job.phase === "cancelling"}
                         onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</button></>}
-                {job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
+                {!!job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
                 {/* Opening a review is not the download itself: the same plain button as everywhere (#474). */}
                 {!installed && !active && <button type="button" disabled={busy}
-                    onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog.catalog_version }); }}>
+                    onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog?.catalog_version }); }}>
                     {t("model_downloads.review")}</button>}
             </div>;
         })}

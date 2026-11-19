@@ -123,7 +123,7 @@ RapidOCR の `DownloadFile.run` は例外を投げるものに差し替えてあ
 
 | 部品 | 役割 | 持たないもの |
 |---|---|---|
-| UI (`OcrSharedWindow.jsx`、`useOcrSharedWindow.ts`、`OcrSharedWindowController.tsx`) | ボタン、状態の表示、復元トークンの保存、チャット読み取りをオフにしたときの共有の終了、オンにしたときの共有のやり直し、共有が終わったときのお知らせ | 利用者の操作によらずに頼む処理 (起動時、ページを開いたとき、動作中の失敗時のどれでも頼まない) |
+| UI (`OcrSharedWindow.tsx`、`useOcrSharedWindow.ts`、`OcrSharedWindowController.tsx`) | ボタン、状態の表示、復元トークンの保存、チャット読み取りをオフにしたときの共有の終了、オンにしたときの共有のやり直し、共有が終わったときのお知らせ | 利用者の操作によらずに頼む処理 (起動時、ページを開いたとき、動作中の失敗時のどれでも頼まない) |
 | Tauri (`portal_screencast.rs`) | ポータルとのやりとり、ヘルパーの起動と停止、セッションが閉じたことの検出 | 画素 |
 | ヘルパー (`native/screen-capture/main.c`) | PipeWire の映像を受け取り、フレームファイルへ書く | ポータル、D-Bus |
 | バックエンド (`ocr_capture_portal.py`、`ocr_capture.py`) | フレームファイルを読む。共有が終わったことを状態に出す | 共有を始める・終える処理 |

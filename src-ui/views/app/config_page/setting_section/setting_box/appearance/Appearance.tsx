@@ -26,6 +26,7 @@ import {
 } from "../_components";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { HintDescriptions } from "../_components/hint/Hint";
+import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
 
 import {
     AutoClearMessageInputBoxContainer,
@@ -177,7 +178,7 @@ const FontFamilyContainer = () => {
     const { t } = useI18n();
     const { currentSelectedFontFamily, setSelectedFontFamily } = useAppearance();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedFontFamily(selected_data.selected_id);
     };
     const { currentSelectableFontFamilyList } = useStore_SelectableFontFamilyList();

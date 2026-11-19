@@ -11,7 +11,7 @@ import styles from "./Ocr.module.scss";
 export const OcrSharedWindow = () => {
     const { t } = useI18n();
     const { currentOcrSharedWindow, refresh, share, stop } = useOcrSharedWindow();
-    const shareButton = useRef(null);
+    const shareButton = useRef<HTMLButtonElement>(null);
     useEffect(() => { refresh(); }, []);
     const view = sharedWindowView(currentOcrSharedWindow.data);
     if (!view.visible) return null;

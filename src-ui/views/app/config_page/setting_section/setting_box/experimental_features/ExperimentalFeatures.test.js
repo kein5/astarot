@@ -233,7 +233,7 @@ test("#554 (Q-05): the VR panel is listed with the features on trial and keeps i
     assert.deepEqual(s.sent, ["/run/vr_launcher_reset"]);
 
     // The VR page no longer carries the switch: it leads here.
-    const vr = readFileSync(new URL("../vr/Vr.jsx", import.meta.url), "utf8");
+    const vr = readFileSync(new URL("../vr/Vr.tsx", import.meta.url), "utf8");
     assert.doesNotMatch(vr, /IsEnabledOverlayVrPanel|vr_launcher_reset/);
     assert.match(vr, /<PagePointer [^>]*tab="experimental_features"/);
 });

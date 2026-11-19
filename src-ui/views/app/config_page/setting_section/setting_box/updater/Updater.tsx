@@ -4,6 +4,9 @@ import { useSoftwareVersion, useNotificationStatus } from "@logics_common";
 import { useOthers } from "@logics_configs";
 import { useAppUpdate } from "../../../../../../logics/common/useAppUpdate";
 import { downloadPercent } from "../../../../../../logics/common/appUpdate.ts";
+import type { AppUpdateInfo, AppUpdateState, AppUpdateStatus } from "../../../../../../logics/common/appUpdate.ts";
+import type { TFunction } from "i18next";
+import type { EnvReadoutTone } from "../_components/env_readout/EnvReadout";
 import styles from "./Updater.module.scss";
 import { SectionLabelComponent } from "../_components";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
@@ -11,13 +14,13 @@ import { _OpenWebpageButton } from "../_components/_atoms/_open_webpage_button/_
 import { CheckboxContainer } from "../_templates/Templates";
 
 const RELEASES_URL = "https://github.com/kein5/astarot/releases";
-const BUSY = ["checking", "downloading", "installing"];
-const OFFERED = ["available", "downloading", "installing"];
+const BUSY: readonly AppUpdateStatus[] = ["checking", "downloading", "installing"];
+const OFFERED: readonly AppUpdateStatus[] = ["available", "downloading", "installing"];
 
 // What this copy can do about updates, from how it was installed (src-tauri/src/app_update.rs):
 // the installer and the AppImage update here, the ZIP and the tar.gz are told and link to the
 // release page, a deb or rpm is updated by its package manager and never checks.
-const policyKey = info => {
+const policyKey = (info: AppUpdateInfo | null) => {
     if (!info) return null;
     if (info.mode === "install") return "install";
     if (info.mode === "package_manager") return "package_manager";
@@ -25,7 +28,7 @@ const policyKey = info => {
     return "disabled";
 };
 
-const statusLine = (t, state) => {
+const statusLine = (t: TFunction, state: AppUpdateState) => {
     switch (state.status) {
         case "checking": return t("app_update.status.checking");
         case "up_to_date": return t("app_update.status.up_to_date");
@@ -41,7 +44,7 @@ const statusLine = (t, state) => {
     }
 };
 
-const toneOf = state => {
+const toneOf = (state: AppUpdateState): EnvReadoutTone => {
     if (state.error) return "failed";
     if (OFFERED.includes(state.status)) return "active";
     return "neutral";

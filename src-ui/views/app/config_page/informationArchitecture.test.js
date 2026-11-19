@@ -24,7 +24,7 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
     const page = advanced.split("export const AdvancedSettings = () => {")[1].split("\n};")[0];
     assert.match(page, /section_label_osc[\s\S]*<OscIpAddressContainer \/>\s*<OscPortContainer \/>/);
 
-    const vrchat = read("vrchat/Vrchat.jsx");
+    const vrchat = read("vrchat/Vrchat.tsx");
     assert.doesNotMatch(vrchat, /OscIpAddressContainer|OscPortContainer/);
     assert.match(vrchat, /<VrchatPresence \/>/, "the page still says whether VRChat is found, with the step that turns OSC on");
 
@@ -167,27 +167,27 @@ const pageParts = (source, name) => {
 };
 
 test("IA-03: the VRChat page keeps the chatbox in sight; what is set once, and the rows to the pages that hold VRChat's other settings, are in 「詳細設定」", () => {
-    const { outside, fold } = pageParts(read("vrchat/Vrchat.jsx"), "Vrchat");
+    const { outside, fold } = pageParts(read("vrchat/Vrchat.tsx"), "Vrchat");
     assert.deepEqual(outside, ["VrchatPresence", "SendMessageToVrcContainer", "SendOnlyTranslatedMessagesContainer", "ChatReadingPointer"]);
     assert.deepEqual(fold, ["EnableNotificationVrcSfxContainer", "SendReceivedMessageToVrcContainer", "VrcMicMuteSyncContainer",
         "SendMessageFormatPartsContainer", "ReceivedMessageFormatPartsContainer", "PagePointer", "VoiceRouteSummary", "PagePointer"]);
     // The voice route and the speech output have one place each; this page only leads there.
-    const source = read("vrchat/Vrchat.jsx");
+    const source = read("vrchat/Vrchat.tsx");
     assert.doesNotMatch(source, /<VoiceRouteSettings|<TtsOutputDeviceSettings/);
     assert.match(source, /tab="tts"/);
 });
 
 test("the design and hotkeys pages keep a first start's settings in sight and fold the rest", () => {
-    const appearance = pageParts(read("appearance/Appearance.jsx"), "Appearance");
+    const appearance = pageParts(read("appearance/Appearance.tsx"), "Appearance");
     assert.deepEqual(appearance.outside, ["UiLanguageContainer", "UiScalingContainer"]);
     assert.deepEqual(appearance.fold, ["MessageLogUiScalingContainer", "FontFamilyContainer", "TransparencyContainer",
         "SendMessageButtonTypeContainer", "ShowResendButtonContainer", "AutoClearMessageInputBoxContainer",
         "ConvertMessageToHiraganaContainer", "ConvertMessageToRomajiContainer"]);
-    const hotkeys = pageParts(read("hotkeys/Hotkeys.jsx"), "Hotkeys");
+    const hotkeys = pageParts(read("hotkeys/Hotkeys.tsx"), "Hotkeys");
     // That hotkeys are paused while settings are open is said by a readout, before the rows (#614).
     assert.deepEqual(hotkeys.outside, ["EnvReadout", "StopHotkeysContainer"]);
     assert.deepEqual(hotkeys.fold, ["QuickChatHotkeyContainer", "ToggleHotkeysContainer"]);
-    const source = read("hotkeys/Hotkeys.jsx");
+    const source = read("hotkeys/Hotkeys.tsx");
     // Every hotkey still has its row: stop and mute in sight, the others in the fold.
     for (const id of ["stop_voice", "toggle_voice_mute", "open_quick_chat", "toggle_vrct_visibility", "toggle_translation",
         "toggle_transcription_send", "toggle_transcription_receive", "toggle_tts", "toggle_rvc"]) assert.match(source, new RegExp(`"${id}"`), id);
@@ -215,7 +215,7 @@ test("the Device page chooses the microphone and the speaker first; their sensit
 });
 
 test("chat reading keeps what it needs to start in sight; where and how often it reads are in 「詳細設定」", () => {
-    const source = read("ocr/Ocr.jsx");
+    const source = read("ocr/Ocr.tsx");
     const { outside, fold } = pageParts(source, "Ocr");
     assert.deepEqual(outside, ["Main_Container"]);
     assert.deepEqual(fold, ["Detection_Container", "CaptureTarget_Container", "Performance_Container"]);
@@ -295,7 +295,7 @@ test("speech recognition shows its engine and the engine's two systems in sight;
 });
 
 test("captions and VR turns the captions on in sight; where they sit, how they look and what they show are in 「詳細設定」", () => {
-    const source = read("vr/Vr.jsx");
+    const source = read("vr/Vr.tsx");
     const page = source.split("export const Vr = () => {")[1].split("\n};")[0];
     const [before, rest] = page.split("<AdvancedSection");
     const [fold, after] = rest.split("</AdvancedSection>");
@@ -306,7 +306,7 @@ test("captions and VR turns the captions on in sight; where they sit, how they l
     assert.match(after, /<PagePointer [^>]*tab="experimental_features"/);
     // The overlay editor no longer carries its own switch: it is the one in sight.
     assert.doesNotMatch(source.split("const OverlaySettingsContainer = (")[1].split("\n};")[0], /CheckboxContainer/);
-    const desktop = readFileSync(box("vr/DesktopCaptionOverlay.jsx"), "utf8");
+    const desktop = readFileSync(box("vr/DesktopCaptionOverlay.tsx"), "utf8");
     const enable = desktop.split('if (part === "enable") return (')[1].split("\n    );")[0];
     assert.match(enable, /setting_id="desktop_overlay"/);
     assert.doesNotMatch(enable, /desktop_overlay_position|desktop_overlay_font_size/);
