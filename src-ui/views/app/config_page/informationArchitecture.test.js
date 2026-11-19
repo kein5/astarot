@@ -258,12 +258,13 @@ test("「詳細設定」 starts closed, opens by itself for something in use, an
     assert.equal(tree.props.open, false, "the user can close it again");
 });
 
-test("translation keeps its local model in sight; the APIs and local LLMs it counts on the fold's line are the ones drawn in it", () => {
+test("translation keeps its local model and its catalog in sight; the APIs and local LLMs it counts on the fold's line are the ones drawn in it", () => {
     const source = read("translation/Translation.jsx");
     const { outside, fold } = pageParts(source, "Translation");
-    assert.deepEqual(outside, ["AITranslation_Container"]);
-    // The translation catalog (#413) adds models and APIs of one's own next to the providers.
-    assert.deepEqual(fold, ["ExternalTranslationAPI_Container", "LocalLLM_Container", "TranslationCatalogSection"]);
+    // The translation catalog (#413) is a section of its own after the fold (#597), not inside it.
+    assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalogSection"]);
+    assert.ok(source.indexOf("<TranslationCatalogSection />") > source.indexOf("</AdvancedSection>"), "the catalog comes after 「詳細設定」");
+    assert.deepEqual(fold, ["ExternalTranslationAPI_Container", "LocalLLM_Container"]);
     const providers = name => [...source.split(`const ${name} = () => {`)[1].split("\n};")[0].matchAll(/<Provider id="(\w+)">/g)].map(match => match[1]);
     const list = name => JSON.parse(source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`))[1]);
     assert.deepEqual(providers("ExternalTranslationAPI_Container"), list("EXTERNAL_API_PROVIDERS"));
