@@ -8,6 +8,7 @@
 //! - [`transliteration`]: kana and Hepburn readings over a morphological analyzer given from
 //!   outside (the dictionary is not chosen yet).
 //! - [`http`]: the small HTTP/1.1 client the providers use.
+//! - [`proxy`]: the proxy speech recognition's requests go through (not translation's).
 //!
 //! Nothing here logs. Errors are fixed codes: no key, URL or text is in them.
 
@@ -16,4 +17,5 @@ pub mod fake;
 pub mod http;
 pub mod prompt;
 pub mod providers;
+pub mod proxy;
 pub mod transliteration;

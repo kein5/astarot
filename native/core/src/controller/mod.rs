@@ -188,8 +188,13 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
-    /// How the translation providers reach the network ([`vrct_translation::http::direct`]).
+    /// How the translation providers reach the network ([`vrct_translation::http::direct`]),
+    /// and speech.cpp's server on this PC is asked for its models.
     pub translation_transport: vrct_translation::http::Transport,
+    /// How the cloud recognition engines reach the network: through the proxy of the
+    /// environment or Windows' Internet Settings ([`vrct_translation::http::system_proxy`],
+    /// decision 15 (4)). Tests keep it on this PC.
+    pub transcription_transport: vrct_translation::http::Transport,
     /// Where the providers with a fixed address are.
     pub translation_endpoints: vrct_translation::providers::Endpoints,
     /// The local translation model ([`translation::default_local_translation`]).
@@ -269,6 +274,7 @@ impl Default for Services {
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
             translation_transport: vrct_translation::http::direct(),
+            transcription_transport: vrct_translation::http::system_proxy(),
             translation_endpoints: vrct_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
             transliteration: Arc::new(messages::shipped_readings),

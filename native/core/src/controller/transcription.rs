@@ -368,7 +368,7 @@ impl Core {
             // The local engine listens through realtime recognition, not this recorder.
             _ => return Err("TRANSCRIPTION_ENGINE_UNAVAILABLE"),
         };
-        Ok(Recognizer::new(built, self.services().translation_transport.clone()))
+        Ok(Recognizer::new(built, self.services().transcription_transport.clone()))
     }
 
     /// The settings of a source's recorder (`_create_recorder`, `_create_transcriber`).
@@ -779,7 +779,7 @@ impl Core {
         if key.is_empty() {
             return refused(self);
         }
-        let transport = &self.services().translation_transport;
+        let transport = &self.services().transcription_transport;
         let (models, languages) = if engine == "Deepgram" {
             if !providers::deepgram_key_valid(transport, &base_url, &key) {
                 return refused(self);
@@ -865,7 +865,7 @@ impl Core {
         };
         let checked = match &key {
             Some(key) => {
-                let Ok(models) = providers::compatible_models(&self.services().translation_transport, &url, key, false) else {
+                let Ok(models) = providers::compatible_models(&self.services().transcription_transport, &url, key, false) else {
                     return refused(self);
                 };
                 if models.is_empty() || models.iter().any(|m| m.trim().is_empty()) {
@@ -951,7 +951,7 @@ impl Core {
     fn check_transcription_engine(&self, engine: &str) -> TranscriptionCheck {
         let config = self.config();
         let key = config.get("TRANSCRIPTION_AUTH_KEYS")[engine].as_str().unwrap_or("").to_string();
-        let transport = &self.services().translation_transport;
+        let transport = &self.services().transcription_transport;
         let endpoints = &self.services().transcription_endpoints;
         let none = TranscriptionCheck::default();
         match engine {
