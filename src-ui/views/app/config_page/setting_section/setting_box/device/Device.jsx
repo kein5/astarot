@@ -25,10 +25,13 @@ import {
 import { Checkbox } from "@common_components";
 
 // "Auto select" in a device row: a settings checkbox with its name beside it, like
-// every other on/off setting (#436).
+// every other on/off setting (#436). It heads the field column, over the lists it chooses for,
+// on the microphone and the speaker alike, so which choice it makes is read from where it is.
 export const AutoSelectCheckbox = ({ secondary_label, variable, toggleFunction }) => (
-    <Checkbox show_label label={secondary_label} variable={variable} toggleFunction={toggleFunction}
-        size="2.4rem" padding="0.8rem" />
+    <div className={styles.auto_select}>
+        <Checkbox show_label label={secondary_label} variable={variable} toggleFunction={toggleFunction}
+            size="2.4rem" padding="0.8rem" />
+    </div>
 );
 
 // The microphone and the speaker are chosen first; how sensitive each is, and the voice route,
@@ -127,6 +130,7 @@ const MicContainer = ({ part }) => {
                 // Say what this choice drives; only Linux lists PipeWire inputs.
                 desc={currentSelectedMicHost.data === "PipeWire" ? t("config_page.device.mic_host_device.desc_pipewire") : t("config_page.device.mic_host_device.desc")}
                 dropdown_settings={[
+                    // First in the column of lists, over the host and the device it chooses.
                     {
                         insert_component: AutoSelectCheckbox,
                         insert_component_props: {
@@ -134,7 +138,6 @@ const MicContainer = ({ part }) => {
                             variable: currentEnableAutoMicSelect,
                             toggleFunction: toggleEnableAutoMicSelect,
                         },
-                        insert_to: "before",
                     },
                     {
                         dropdown_id: "mic_host",
