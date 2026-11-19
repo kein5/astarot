@@ -17,7 +17,7 @@ test("credential reentry notices and field hints exist in every supported locale
 // A branch that shows `localized` falls back to the backend's English message when the code has
 // no text, so a Japanese UI would show English (the GPU memory notices once did).
 test("every code shown with its backend_errors text has one in every supported locale", () => {
-    const source = readFileSync(new URL("./_useBackendErrorHandling.js", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./_useBackendErrorHandling.ts", import.meta.url), "utf8");
     const codes = new Set();
     for (const [, labels, body] of source.matchAll(/((?:case "[A-Z0-9_]+":\s*)+)([\s\S]*?)(?=case "|default:)/g)) {
         if (/\blocalized\b/.test(body)) for (const [, code] of labels.matchAll(/case "([A-Z0-9_]+)"/g)) codes.add(code);

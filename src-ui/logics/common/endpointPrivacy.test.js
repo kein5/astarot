@@ -48,7 +48,7 @@ test("all three URL settings use the draft warning and save bar", () => {
 });
 
 test("URL errors restore the correct field and have actionable text in both locales", () => {
-    const errors = readFileSync(new URL("../_useBackendErrorHandling.js", import.meta.url), "utf8");
+    const errors = readFileSync(new URL("../_useBackendErrorHandling.ts", import.meta.url), "utf8");
     for (const [code, setter] of [
         ["CONNECTION_LMSTUDIO_URL_INVALID", "updateLMStudioURL"],
         ["CONNECTION_OLLAMA_URL_INVALID", "updateOllamaURL"],

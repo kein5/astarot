@@ -76,7 +76,9 @@ const LEGACY_REASONS = new Set(["download_deadline", "verification_failed"]);
 // Another download of the same model is running, or the backend is closing: a retry now would be refused.
 const NOT_RETRYABLE = new Set(["download_busy", "downloads_closed"]);
 
-export type LegacyDownloadFailure = { notify: boolean; reasonKey: string | null; retryable: boolean };
+export type LegacyDownloadFailure =
+    | { notify: false; reasonKey: null; retryable: false }
+    | { notify: true; reasonKey: string; retryable: boolean };
 
 // A stopped download is not a failure: nothing is reported (`notify` false). Today the
 // backend stops one only when the app closes or before it retries at startup.

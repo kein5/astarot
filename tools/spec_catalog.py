@@ -219,7 +219,7 @@ def render_errors() -> str:
     codes = class_constants(tree, "ErrorCode")
     categories = class_constants(tree, "ErrorCategory")
     metadata = module_dict(tree, "ERROR_METADATA")
-    handler_js = (UI / "_useBackendErrorHandling.js").read_text(encoding="utf-8")
+    handler_js = (UI / "_useBackendErrorHandling.ts").read_text(encoding="utf-8")
     handled = set(re.findall(r'case "([A-Z0-9_]+)"', handler_js)) | set(re.findall(r"^\s+([A-Z0-9_]+):\s*\"common_error", handler_js, re.M))
 
     rows, described = [], set()
@@ -242,7 +242,7 @@ def render_errors() -> str:
            "中核（`native/core`）だけにあるコードは`tools/spec_core_additions.json`から表の末尾に足した。"
            "応答の形とUIでの見せ方は[横断的な振る舞い](../cross-cutting.md#エラーの扱い)にある。\n",
            "- 既定メッセージ: サイドカーが返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。",
-           "- UIの個別処理: `_useBackendErrorHandling.js`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。"
+           "- UIの個別処理: `_useBackendErrorHandling.ts`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。"
            "空欄のコードは、音声やモデル取得など別の経路で処理されるか、汎用の通知になる。\n",
            f"## コード（{len(rows)}件）\n",
            table(["コード", "分類", "既定メッセージ", "重大度", "利用者の対処", "UIの個別処理"], rows)]
