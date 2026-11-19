@@ -285,7 +285,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 
 ## config.json
 
-- 置き場所は`$VRCT_CONFIG_DIR`、なければ実行ファイルのあるフォルダ（開発中は`src-tauri/target/debug/`など。0.4までのPythonバックエンドでは`src-python/`）。Linuxの配布版では`$XDG_CONFIG_HOME/vrct-vox`（なければ`~/.config/vrct-vox`）である。フォルダ名は保存先の識別子なので、変えるには移行の処理がいる（`docs/voice-stack/project-rename.md`）。
+- 置き場所は`$ASTAROT_CONFIG_DIR`（0.6.xの間は`$VRCT_CONFIG_DIR`も読む）、なければ実行ファイルのあるフォルダ（開発中は`src-tauri/target/debug/`など。0.4までのPythonバックエンドでは`src-python/`）。Linuxの配布版では0.6.0から`$XDG_CONFIG_HOME/astarot`（なければ`~/.config/astarot`）である。0.5.x までの`vrct-vox`のフォルダーは、起動の最初に移す（[Linuxの保存先の移動](#linuxの保存先の移動)）。フォルダ名は保存先の識別子なので、変えるには移行の処理がいる（`docs/voice-stack/project-rename.md`）。
 - 設定は中核の`native/core/src/config/schema.rs`の`keys()`で宣言し、既定値は`defaults()`にある（0.4までのPythonの`Config`クラスの`ManagedProperty`と`ValidatedProperty`を写したもの）。`serialize`が真のものだけを保存する。オンオフの状態（`ENABLE_*`）や選択肢の一覧は保存しない。
 - 単純な設定プロパティは、未選択を表すモデル名と音声認識エンジンを除き`null`を受け付けない。APIキーやホットキーの辞書内にある未設定の`null`は維持する。数値のプロパティとオーバーレイの数値設定は`NaN`・無限大（`1e999`などの桁あふれも含む）を保存前に拒否する。不正な保存値は既定値へ戻す。メッセージ欄の比率と大小字幕の設定変更では400の`VALIDATION_CONFIG_VALUE_INVALID`を返し、`data`には保持した設定値を入れる。
 - 読み込みでは、各キーを検証してから設定する。知らないキーは使わないが、ファイルにあったままの値を保存する設定の後ろに書き戻す。新しい版の設定を古い版で開いて保存しても、新しい版に戻ったときにその設定が残るようにするためである（#560）。以前の版が保存し、今の版で廃止したキー（`native/core/src/config/mod.rs`の`RETIRED_KEYS`。#288でローカルのWhisperとともに削除した5つ）だけは捨てる。キーを廃止するときは、このリストにも加える。検証に通らないキーは既定値のままにしてerror.logに残す。ただしマイクとスピーカーの選択（`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`）は、読み込む時点でデバイスの一覧がまだ取れていないため、保存値をそのまま受け取る。一覧が取れたあと、サイドカーがデバイスの有無を確かめ、無ければ既定のデバイスに戻す。JSONとして読めない、またはオブジェクトでないときは、そのファイルを名前の重複しない`config.json.unreadable-<日時>-<乱数>`に移して残し、既定値で起動する。UIは`/run/config_file_unreadable`を受けて、既定値で起動したことと残したファイルの場所を知らせる。
@@ -295,6 +295,25 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 - 保存済みの言語・翻訳エンジンの辞書が壊れているときは、不足・不正なタブや枠を既定値で補い、正常な部分は読み込む。余分なキーは捨てる。実行中の更新に対する構造の検証とは区別し、壊れた辞書で起動を妨げない。
 - 書き込みは[横断的な振る舞い](cross-cutting.md#サイドカーでの保存)のとおり、2秒の遅延、0600の一時ファイル、`fsync`、置き換えの順に行う。
 - 起動のたびに直す値がある: `SELECTED_RELEASE_CHANNEL`は版から決め直す。インストーラーが置いた`installer_language.txt`があればUIの言語にして消す。WebSocketのトークンは初回と不正な保存値の修復時に作って保存する（[ネットワーク設定](#ネットワーク設定)）。
+
+### Linuxの保存先の移動
+
+0.6.0から、Linuxの配布版は設定のフォルダーとデータのフォルダーを`vrct-vox`から`astarot`へ移す（ADR-014の2.4）。アプリは起動の最初、フォルダーの中を読む前に、2つのフォルダーをそれぞれ1回だけ決める（`native/core/src/storage/linux.rs`の`settle`。呼ぶのは`src-tauri/src/backend_host.rs`の`settle_folders`）。その起動のあいだ、どこから読んでも同じフォルダーになる。
+
+- 環境変数（`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`と旧名）で指定したフォルダーは、そのまま使う。移さない。
+- 旧のフォルダーだけがあるとき: 新しい名前に名前を変えて移す。親のフォルダーが同じなので、大きなモデルもコピーせずにすぐ移る。旧の名前には新しいフォルダーを指すシンボリックリンク（中身は`astarot`）を置く。0.5.xに戻しても、旧のパスを書いたスクリプトからも、同じファイルを読める。続けて、保存したファイルの中の旧のフォルダーの下を指す絶対パスを付け替える（`native/core/src/storage/mod.rs`の`relocate_saved_paths`）。
+- どちらもないとき: 新しいフォルダーを作る。
+- 新しいフォルダーにアプリの記録があるとき: 新しいフォルダーを使い、旧の名前のものには触れない。0.5.xが作り直した旧のフォルダーがあっても使わない。リンクを消されていて旧の名前に何もなければ、リンクを置き直す。
+- 記録のない新しいフォルダーと旧のフォルダーが両方あるとき: 新しいフォルダーはアプリが作ったものと確かめられないので使わず、何も書かない。旧のフォルダーを使う。新しいフォルダーだけがあるときは、それを使って記録を置く。
+- 移せないとき（ほかのASTAROTかVRCT-VOXが動いている、セッションバスに問い合わせられない、別のファイルシステム、権限がない、など）: 旧のフォルダーをそのまま使い、次の起動でまた試す。動いているかどうかは、旧のアプリIDと新しいアプリIDの単一起動の名前（`<アプリID>.SingleInstance`）がセッションバスで使われているかで判定する。自分の単一起動の名前を取る前に問い合わせる。
+
+付け替えの対象は、設定のフォルダーの`config.json`、`user_models.json`、`translation_catalog.json`である。JSONの値の文字列のうち、移したフォルダーそのものか、区切り文字に続けてその下を指すものだけを変える（`/a/vrct-vox-old`は`/a/vrct-vox`の下ではない）。保存先の外のパス（利用者が別の場所に置いたモデルなど）とキーの名前は変えない。親のフォルダーをたどった形（`/home`が`/var/home`へのリンクのときなど）も同じに扱う。旧のフォルダーそのものがリンクだったときは、リンクだけが移り、リンクの先のパスは変えない。`config.json`は書き換える前の内容を`config.json.before-migration-storage`に残す（APIキーは除く。すでにあれば残す）。写しを書けなければ`config.json`を書き換えない。付け替えなかったパスも、旧の名前のリンクを通して読める。
+
+新しい名前のフォルダーには、それぞれ`storage_migration.json`（`{"version": 1, "state": 状態, "from": 旧のフォルダー}`）を置く。状態は`created`（新しく作った）、`moving`（移している途中）、`done`（移し終えた）。移すときは、名前を変える前に旧のフォルダーへ`moving`の記録を書き、ファイルと一緒に移す。途中で止まった起動のあとは、次の起動が`moving`の記録を見つけて、リンクと付け替えを済ませて`done`にする。付け替えに失敗したときは`moving`のまま残し、次の起動でやり直す。名前の変更に失敗したときは、旧のフォルダーに書いた記録を消す。
+
+結果は`startup.log`に1行だけ書く。`Storage folders: settings=<結果> data=<結果>`で、結果は`given`、`created`、`moved`、`finished`、`in_place`、`kept_old:<理由>`のどれか。理由は`app_running`、`instance_check_unavailable`、`new_folder_not_ours`、`cross_device`、`permission_denied`、`busy`、`new_folder_appeared`、`rename_failed`、`record_failed`、`path_not_utf8`。付け替えた起動では` paths=rewritten`（変えるものがなければ`unchanged`、失敗は`failed`）、リンクを置けなければ` settings_link=failed`か` data_link=failed`を足す。パス、設定の値、APIキーは書かない。
+
+WindowsとLinuxの開発ビルドは、これまでどおり実行ファイルのフォルダーを使い、移さない。
 
 ### APIキーの保存先
 
@@ -331,6 +350,8 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | weights/ctranslate2/… | PATH_DATA | 0.4までのPythonバックエンドが取得したCTranslate2の翻訳モデルと検証記録。0.5.0の中核は読まず、起動の後でPythonが作った名前のフォルダだけを消す（リンクやジャンクションはたどらない。`native/core/src/controller/legacy_weights.rs`、[中核の統合](../voice-stack/core-integration.md)の「旧 CTranslate2 の重み」） |
 | `translation-models/<フォルダー>/` | PATH_DATA | 以前の中核が読んだ、利用者が置いた翻訳のモデル（重みの名前は`custom:<フォルダー>`）。#597からは一覧に出さず、読み込まない。フォルダーとファイルは消さず動かさない。中核はこのフォルダーにフォルダーがあるかどうかだけを`/get/data/translation_catalog`の`retired_folder_used`で伝え、翻訳のページはそのあいだ翻訳のカタログの「自分のモデルを追加」への案内を出す。名前やパスは伝えない |
 | `secrets.json` | `config.json`と同じフォルダ | APIキー（[APIキーの保存先](#apiキーの保存先)）。Windowsでは暗号化、Linuxでは権限0600 |
+| `storage_migration.json` | Linux配布版の設定のフォルダーとデータのフォルダー（0.6.0から） | そのフォルダーを新しく作ったか、`vrct-vox`から移したかの記録（[Linuxの保存先の移動](#linuxの保存先の移動)） |
+| `config.json.before-migration-storage` | `config.json`と同じフォルダ | Linuxの保存先を移したときに、パスを付け替える前の`config.json`（APIキーを除く。権限0600）。アプリは読まない |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
 | `telemetry_state.json` | `PATH_DATA` | 利用状況の通知をその日（UTC）に送ったかどうかの記録（起動の通知を送った日付と、その日に送ったエラーコード）と、送った内容そのものの直近20件（`sent`: このPCの時刻、本文、受け付けられたか） |
 | `io.github.kein5.vrct-vox.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル |
@@ -366,9 +387,9 @@ ASR/翻訳5,000ms、従来のtotal 10,000ms。
 
 | 変数 | 働き |
 |---|---|
-| `VRCT_CONFIG_DIR` | `config.json`、ログ、取得したモデル、声質変換の実行環境、ミュート状態の置き場所 |
-| `VRCT_DATA_DIR` | Linux配布版のデータの置き場所（`src-tauri/src/backend_host.rs`） |
-| `XDG_CONFIG_HOME`、`XDG_DATA_HOME` | Linux配布版の既定の置き場所の元 |
+| `ASTAROT_CONFIG_DIR`（0.6.xの間は`VRCT_CONFIG_DIR`も） | `config.json`、ログ、取得したモデル、声質変換の実行環境、ミュート状態の置き場所。指定したフォルダーは移さない |
+| `ASTAROT_DATA_DIR`（0.6.xの間は`VRCT_DATA_DIR`も） | Linux配布版のデータの置き場所（`src-tauri/src/backend_host.rs`）。指定したフォルダーは移さない |
+| `XDG_CONFIG_HOME`、`XDG_DATA_HOME` | Linux配布版の既定の置き場所の元（その下の`astarot`。0.5.xまでは`vrct-vox`） |
 | `VRCT_CACHE_DIR`、`XDG_CACHE_HOME`、`HF_HOME` | 0.4までのPythonバックエンドがLinux配布版のキャッシュの置き場所に使った（`HF_HOME`は未設定なら`<キャッシュ>/huggingface`）。0.5.0のアプリと中核のコードは置き場所に使わない |
 | `VRCT_VOICE_TRACE`、`VRCT_VOICE_GC_DIAGNOSTICS` | 読み上げの時間計測とGCの記録（診断用） |
 | `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE`、`GDK_BACKEND` | Quick Chatとホットキーの登録方法の判定 |
