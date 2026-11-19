@@ -257,9 +257,9 @@ test("a guide link reads as a link wherever it sits", () => {
     assert.match(css, /a\s*{[^}]*color: var\(--primary_300_color\)[^}]*text-decoration: underline/);
 });
 test("the saved chat reading language is named like the list's entries, so auto never shows raw", () => {
-    const source = read(box + "ocr/Ocr.jsx");
+    const source = read(box + "ocr/Ocr.tsx");
     assert.match(source, /list\[currentOcrSourceLanguage\.data\] = label\(currentOcrSourceLanguage\.data\)/);
-    assert.match(source, /const label = id => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
+    assert.match(source, /const label = \(id: string\) => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
 });
 test("#436: the legacy dropdown is the same field as the forms' select, so an empty one still shows", () => {
     const legacy = read(box + "_components/_atoms/_dropdown_menu/_DropdownMenu.module.scss");
@@ -343,7 +343,7 @@ test("the forms' select draws the kit select's chevron, at its size and place", 
     assert.match(select, /background-position: right 1\.4rem center; background-size: 1\.6rem;/);
 });
 test("download dialogs write byte counts in the display language", () => {
-    for (const page of ["advanced_settings/ModelDownloads.tsx", "ocr/OcrModels.jsx"]) {
+    for (const page of ["advanced_settings/ModelDownloads.tsx", "ocr/OcrModels.tsx"]) {
         const source = read(box + page);
         assert.doesNotMatch(source, /\} bytes/, page);
         assert.match(source, /t\("model_downloads\.exact_bytes"/, page);

@@ -22,6 +22,10 @@ import { OcrStatus } from "./OcrStatus";
 import { OcrSharedWindow } from "./OcrSharedWindow";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { HintDescriptions } from "../_components/hint/Hint";
+import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+
+// The field's draft as the entry shows it: what was typed, or the value the backend answered.
+const entryValue = (value: unknown) => typeof value === "string" || typeof value === "number" ? value : null;
 
 // What chat reading needs to start is in sight: its state, the language, the models, and on
 // Wayland the window to share. Where on the screen it reads and how often are set once, in
@@ -60,6 +64,8 @@ const Main_Container = () => {
     // The models a language needs and whether VRChat is open change with these settings.
     useEffect(() => { refresh(); }, [refresh, language, title]);
     const readiness = currentOcrReadiness.data;
+    // The core sends both lists with every reply (an empty list when nothing is needed).
+    const required = readiness?.required_models ?? [];
     return (
         <div>
             <SectionLabelComponent label={t("config_page.ocr.section_title")} desc={t("config_page.ocr.section_desc")} />
@@ -67,8 +73,8 @@ const Main_Container = () => {
             <OcrSourceLanguage_Box />
             {/* Wayland only: without a shared window there is nothing to read. */}
             <OcrSharedWindow />
-            {readiness && readiness.required_models.length > 0 &&
-                <OcrModels ids={readiness.required_models} missing={readiness.missing_models} onChanged={refresh}
+            {readiness && required.length > 0 &&
+                <OcrModels ids={required} missing={readiness.missing_models ?? []} onChanged={refresh}
                     settingId={OCR_MODELS_SETTING_ID}
                     title={t("config_page.ocr.models.title")} desc={t("config_page.ocr.models.desc")}
                     note={t("config_page.ocr.models.required")} />}
@@ -136,14 +142,14 @@ const OcrSourceLanguage_Box = () => {
     const { currentSelectableOcrSourceLanguageList, currentOcrSourceLanguage, setOcrSourceLanguage } = useOcr();
 
     const names = createLanguageNames(i18n.language);
-    const label = id => id === "auto" ? t("config_page.ocr.source_language.auto") : names.language(id);
+    const label = (id: string) => id === "auto" ? t("config_page.ocr.source_language.auto") : names.language(id);
     const list = Object.fromEntries(Object.keys(currentSelectableOcrSourceLanguageList.data ?? {}).map(id => [id, label(id)]));
     // Old configs can retain a language now covered by the automatic model, and the saved
     // choice shows before the list arrives: name it the same way ("auto" is never shown raw).
     if (currentOcrSourceLanguage.data && !list[currentOcrSourceLanguage.data]) {
         list[currentOcrSourceLanguage.data] = label(currentOcrSourceLanguage.data);
     }
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setOcrSourceLanguage(selected_data.selected_id);
     };
 
@@ -200,7 +206,7 @@ const OcrWindowTitle_Box = () => {
         <EntryWithSaveButtonContainer
             label={t("config_page.ocr.window_title.label")}
             desc={t("config_page.ocr.window_title.desc")}
-            variable={variable}
+            variable={entryValue(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentOcrWindowTitle.state}

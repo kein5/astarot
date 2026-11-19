@@ -215,7 +215,7 @@ test("the Device page chooses the microphone and the speaker first; their sensit
 });
 
 test("chat reading keeps what it needs to start in sight; where and how often it reads are in 「詳細設定」", () => {
-    const source = read("ocr/Ocr.jsx");
+    const source = read("ocr/Ocr.tsx");
     const { outside, fold } = pageParts(source, "Ocr");
     assert.deepEqual(outside, ["Main_Container"]);
     assert.deepEqual(fold, ["Detection_Container", "CaptureTarget_Container", "Performance_Container"]);

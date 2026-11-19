@@ -449,7 +449,7 @@ UIは言語の待機を解除してその値へ戻し、稼働スイッチと既
 ## UI
 
 - サイドバー: `config_page/sidebar_section/SidebarSection.jsx` に "OCR" タブ追加
-- 設定画面: `config_page/setting_section/setting_box/ocr/Ocr.jsx`
+- 設定画面: `config_page/setting_section/setting_box/ocr/Ocr.tsx`
   - 有効化トグル、ソース言語入力、GPU トグル、poll interval / min confidence / min text length / dedup cooldown スライダー
 
 ## 動作確認手順

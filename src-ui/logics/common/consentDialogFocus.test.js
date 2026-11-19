@@ -70,7 +70,7 @@ async function fixture(context, kind, openerState) {
         "@ui_configs": {}, "@logics_common": {}, "@store": {},
     };
     const paths = { catalog: ["advanced_settings/ModelDownloads.tsx", "ModelDownloads"],
-        ocr: ["ocr/OcrModels.jsx", "OcrModels"], nllb: ["translation/Translation.tsx", "CTranslate2LicenseDialog"],
+        ocr: ["ocr/OcrModels.tsx", "OcrModels"], nllb: ["translation/Translation.tsx", "CTranslate2LicenseDialog"],
         legacy: ["_components/download_models/LegacyModelDownloadDialog.tsx", "LegacyModelDownloadDialog"] };
     const [path, name] = paths[kind];
     const Component = (await loadModule(new URL(path, boxes), runtime, imports))[name];
