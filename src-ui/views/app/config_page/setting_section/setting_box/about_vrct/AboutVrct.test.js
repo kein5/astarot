@@ -103,7 +103,7 @@ for (const language of ["en", "ja"]) {
         assert.equal(durationSliders.length, 2);
         for (const duration of durationSliders) {
             const sliderRuntime = hooks();
-            const { Slider } = await loadModule(new URL("../_components/slider/Slider.jsx", import.meta.url), sliderRuntime, {
+            const { Slider } = await loadModule(new URL("../_components/slider/Slider.tsx", import.meta.url), sliderRuntime, {
                 "@logics_configs": { useSliderLogic: () => ({ ui_value: duration.props.variable }) },
             });
             const slider = sliderRuntime.render(Slider, duration.props);

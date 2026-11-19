@@ -1,9 +1,47 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import styles from "./Slider.module.scss";
 import clsx from "clsx";
 import { useSliderLogic } from "@logics_configs";
+import type { SliderSetterTiming } from "../../../../../../../logics/configs/config_page_setter/useSettingsLogics";
 
-export const Slider = (props) => {
+export interface SliderProps {
+    variable: number;
+    state?: string;
+    // false, or a promise of false, when the value was not sent: the slider goes back.
+    setterFunction: (value: number) => unknown;
+    setter_timing?: SliderSetterTiming;
+    debounce_ms?: number;
+    postUpdateAction?: () => void;
+    min: number;
+    max: number;
+    step?: number;
+    show_label_values?: readonly number[] | null;
+    marks_step?: number;
+    // Where the value's bubble sits: "top" and so on (Slider.module.scss).
+    valueLabelDisplayLocation?: string;
+    // "on" always shows it; "auto" while the pointer is on the slider, it is dragged or focused.
+    valueLabelDisplay?: string;
+    // The value as shown, before valueLabelFormat.
+    valueLabelFunction?: (value: number) => number | string;
+    // A function of the shown value, or a text whose "value" is replaced by it.
+    valueLabelFormat?: string | ((value: number | string) => string);
+    orientation?: "horizontal" | "vertical";
+    // false leaves out the filled part of the track.
+    track?: boolean;
+    className?: string;
+    no_padding?: boolean;
+    is_break_point?: boolean;
+    // Names the slider when it is text and no aria-label is given.
+    label?: ReactNode;
+    "aria-label"?: string;
+    "aria-describedby"?: string;
+    // A slider that cannot be used: half as strong, out of the tab order, and moved by neither
+    // the pointer nor the keys (shadcn/ui's disabled).
+    disabled?: boolean;
+}
+
+export const Slider = (props: SliderProps) => {
     const location = props.valueLabelDisplayLocation || "top";
     const {
         ui_value,
@@ -32,7 +70,7 @@ export const Slider = (props) => {
     const max = props.max !== undefined ? Number(props.max) : 100;
     const step = props.step == null ? null : Number(props.step);
 
-    const trackRef = useRef(null);
+    const trackRef = useRef<HTMLDivElement>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
@@ -50,7 +88,7 @@ export const Slider = (props) => {
         }
     }, [ui_value, isDragging]);
 
-    const calculateValue = useCallback((clientX, clientY) => {
+    const calculateValue = useCallback((clientX: number, clientY: number) => {
         if (!trackRef.current) return localValue;
         const rect = trackRef.current.getBoundingClientRect();
         let percentage;
@@ -74,35 +112,35 @@ export const Slider = (props) => {
         return Math.max(min, Math.min(rawValue, max));
     }, [isVertical, max, min, step, localValue, decimalPlaces]);
 
-    const handlePointerDown = (e) => {
+    const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
         if (disabled || e.button !== 0) return; // Only left click
         setIsDragging(true);
         const newValue = calculateValue(e.clientX, e.clientY);
         setLocalValue(newValue);
         if (newValue !== ui_value) {
-            onChangeFunction(newValue);
+            onChangeFunction?.(newValue);
         }
         e.preventDefault();
 
         // Ensure thumb gets focus-like behavior manually, though we rely on drag state
     };
 
-    const dragRef = useRef(null);
+    const dragRef = useRef({ calculateValue, ui_value, onChangeFunction, onChangeCommittedFunction });
     dragRef.current = { calculateValue, ui_value, onChangeFunction, onChangeCommittedFunction };
 
     useEffect(() => {
         if (!isDragging) return;
 
-        const handlePointerMove = (e) => {
+        const handlePointerMove = (e: PointerEvent) => {
             const { calculateValue, ui_value, onChangeFunction } = dragRef.current;
             const newValue = calculateValue(e.clientX, e.clientY);
             setLocalValue(newValue);
             if (newValue !== ui_value) {
-                onChangeFunction(newValue);
+                onChangeFunction?.(newValue);
             }
         };
 
-        const handlePointerUp = (e) => {
+        const handlePointerUp = (e: PointerEvent) => {
             const { calculateValue, onChangeCommittedFunction } = dragRef.current;
             setIsDragging(false);
             const newValue = calculateValue(e.clientX, e.clientY);
@@ -123,14 +161,14 @@ export const Slider = (props) => {
 
     // Keyboard: arrows move one step, PageUp/PageDown ten, Home/End to the
     // ends. Each key is a finished change, like releasing the pointer.
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
         if (disabled) return;
         const unit = step || (max - min) / 100;
-        const moves = {
+        const moves: Record<string, number> = {
             ArrowRight: unit, ArrowUp: unit, ArrowLeft: -unit, ArrowDown: -unit,
             PageUp: unit * 10, PageDown: -unit * 10,
         };
-        let next;
+        let next: number;
         if (e.key in moves) next = localValue + moves[e.key];
         else if (e.key === "Home") next = min;
         else if (e.key === "End") next = max;
@@ -139,7 +177,7 @@ export const Slider = (props) => {
         next = Math.max(min, Math.min(parseFloat(next.toFixed(decimalPlaces)), max));
         if (next === localValue) return;
         setLocalValue(next);
-        onChangeFunction(next);
+        onChangeFunction?.(next);
         if (onChangeCommittedFunction) onChangeCommittedFunction(next);
     };
 
@@ -154,7 +192,7 @@ export const Slider = (props) => {
     const percentage = Math.max(0, Math.min((localValue - min) / (max - min), 1)) * 100;
 
     const valueLabelStr = (() => {
-        let displayValue = localValue;
+        let displayValue: number | string = localValue;
         if (typeof props.valueLabelFunction === "function") {
             displayValue = props.valueLabelFunction(localValue);
         }
@@ -162,7 +200,7 @@ export const Slider = (props) => {
         if (typeof props.valueLabelFormat === "function") {
             return props.valueLabelFormat(displayValue);
         } else if (typeof props.valueLabelFormat === "string") {
-            return props.valueLabelFormat.replace("value", displayValue);
+            return props.valueLabelFormat.replace("value", String(displayValue));
         }
 
         return displayValue;

@@ -4,7 +4,7 @@ import { hooks, loadModule, find } from "../../../../../../../../logics/test/hoo
 
 test("holding Enter or Space toggles the volume check once, and a pending check ignores presses", async () => {
     const runtime = hooks(), calls = [];
-    const { VolumeCheckButton } = await loadModule(new URL("./VolumeCheckButton.jsx", import.meta.url), runtime);
+    const { VolumeCheckButton } = await loadModule(new URL("./VolumeCheckButton.tsx", import.meta.url), runtime);
     const props = { isChecking: { state: "ok", data: false }, SvgComponent: () => null,
         startFunction: () => calls.push("start"), stopFunction: () => calls.push("stop") };
     const button = () => find(runtime.render(VolumeCheckButton.type, props), node => node.props?.role === "button");

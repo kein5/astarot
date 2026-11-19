@@ -10,7 +10,7 @@ async function slider(t, props) {
     const runtime = hooks(), window = eventTarget(), changed = [];
     globalThis.window = window;
     t.onTestFinished(() => { runtime.unmount(); delete globalThis.window; });
-    const { Slider } = await loadModule(new URL("./Slider.jsx", import.meta.url), runtime, {
+    const { Slider } = await loadModule(new URL("./Slider.tsx", import.meta.url), runtime, {
         "@logics_configs": { useSliderLogic: () => ({ ui_value: 50,
             onChangeFunction: next => changed.push(next), onChangeCommittedFunction: () => {} }) },
     });

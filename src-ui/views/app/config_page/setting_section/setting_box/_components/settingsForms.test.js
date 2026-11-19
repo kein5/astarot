@@ -164,7 +164,7 @@ test("threshold Enter commits without blur or a duplicate blur-triggered save", 
     const runtime = hooks(), saves = [], document = { body: {} };
     stubGlobals(t, { document });
     const Entry = () => null;
-    const { ThresholdEntry } = await loadModule(new URL("./threshold_component/threshold_entry/ThresholdEntry.jsx", import.meta.url), runtime, {
+    const { ThresholdEntry } = await loadModule(new URL("./threshold_component/threshold_entry/ThresholdEntry.tsx", import.meta.url), runtime, {
         "../../_atoms/_entry/_Entry": { _Entry: Entry },
     });
     const wrapper = ThresholdEntry({ ui_threshold: 120, setThresholdFunction: value => saves.push(value) });
