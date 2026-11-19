@@ -393,7 +393,7 @@ fn main() {
         "session" => {
             let vocabulary = vrct_transcription::speechcpp::merged_terms(&json!({ "builtin": true, "terms": [] }));
             // The silence that ends an utterance is the core's default, as with unchanged settings.
-            let options = realtime::Options { base_url, model, language, vocabulary, silence_duration_ms: None };
+            let options = realtime::Options { base_url, model, language, vocabulary, silence_duration_ms: None, limits: Default::default() };
             let session = realtime::Session::new(Source::Mic, options, endpoint(), Arc::new(player.clone()), vrct_translation::http::direct());
             let started = Instant::now();
             session.start().expect("the session starts");

@@ -30,6 +30,27 @@ const ASR_SERVER_WAIT: Duration = Duration::from_secs(120 + 5);
 const ASR_START_FAILURES: [&str; 4] =
     ["speech_server_out_of_memory", "speech_server_start_timeout", "speech_server_vulkan_missing", "speech_server_device_failed"];
 
+/// How long realtime recognition waits ([`super::Services::realtime_limits`]). The app keeps
+/// [`RealtimeLimits::default`], Python's values; tests shorten them (decision 81 in
+/// `docs/voice-stack/core-integration.md`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RealtimeLimits {
+    /// Each step of the model list request (`GET /v1/models`): connecting, writing and each
+    /// read (5 s).
+    pub models: Duration,
+    /// How long a start waits for the previous session of its source to end, before it fails
+    /// with `realtime_previous_owner_busy` (3 s).
+    pub drain: Duration,
+    /// The session's own ([`vrct_transcription::realtime::Limits`]).
+    pub session: vrct_transcription::realtime::Limits,
+}
+
+impl Default for RealtimeLimits {
+    fn default() -> RealtimeLimits {
+        RealtimeLimits { models: Duration::from_secs(5), drain: Duration::from_secs(3), session: Default::default() }
+    }
+}
+
 #[derive(Clone)]
 struct Owner {
     id: u64,
@@ -140,7 +161,7 @@ fn pinned_endpoint(settings: &Value, source: Source) -> Result<Option<Endpoint>,
 }
 
 /// `session_options` without the endpoint: a session needs a saved model id.
-fn session_options(settings: &Value, source: Source) -> Result<Options, &'static str> {
+fn session_options(settings: &Value, source: Source, limits: vrct_transcription::realtime::Limits) -> Result<Options, &'static str> {
     let model = settings["model"].as_str().unwrap_or("");
     if model.trim().is_empty() {
         return Err("realtime_model_invalid");
@@ -151,6 +172,7 @@ fn session_options(settings: &Value, source: Source) -> Result<Options, &'static
         language: settings[source.as_str()]["language"].as_str().unwrap_or("auto").to_string(),
         vocabulary: speechcpp::merged_terms(&settings["vocabulary"]),
         silence_duration_ms: silence_duration(settings),
+        limits,
     })
 }
 
@@ -428,9 +450,8 @@ impl Core {
             }
         }
         let base = result["base_url"].as_str().and_then(speechcpp::local_url);
-        let models = base.and_then(|base| {
-            speechcpp::survey(&self.services().translation_transport, &base, Duration::from_secs(5)).ok()
-        });
+        let wait = self.services().realtime_limits.models;
+        let models = base.and_then(|base| speechcpp::survey(&self.services().translation_transport, &base, wait).ok());
         match models {
             Some((models, _)) => result["models"] = Value::Array(models.iter().map(speechcpp::Model::to_json).collect()),
             None => result["error_code"] = json!("realtime_models_unavailable"),
@@ -456,8 +477,9 @@ impl Core {
     pub(crate) fn drain_realtime(&self, source: Source) -> bool {
         let owner = self.realtime().state().owners[index(source)].clone();
         let Some(owner) = owner else { return true };
-        let deadline = Instant::now() + Duration::from_secs(3);
-        let session_done = owner.session.close(Duration::from_secs(3));
+        let wait = self.services().realtime_limits.drain;
+        let deadline = Instant::now() + wait;
+        let session_done = owner.session.close(wait);
         let delivery_done = owner.delivery.close(deadline.saturating_duration_since(Instant::now()));
         if session_done && delivery_done {
             let mut state = self.realtime().state();
@@ -666,8 +688,9 @@ impl Core {
         if !self.realtime_start_current(source, expected) {
             return Err("realtime_stale_start".into());
         }
+        let limits = self.services().realtime_limits;
         let models = speechcpp::local_url(&base_url)
-            .and_then(|base| speechcpp::survey(&self.services().translation_transport, &base, Duration::from_secs(5)).ok())
+            .and_then(|base| speechcpp::survey(&self.services().translation_transport, &base, limits.models).ok())
             .map(|(models, _)| models)
             .ok_or("realtime_models_unavailable")?;
         if !self.realtime_start_current(source, expected) {
@@ -692,6 +715,7 @@ impl Core {
             language,
             vocabulary: speechcpp::merged_terms(&settings["vocabulary"]),
             silence_duration_ms: silence_duration(&settings),
+            limits: limits.session,
         })
     }
 
@@ -805,7 +829,7 @@ impl Core {
             }
             let mut options = match prepared {
                 Some(options) => options,
-                None => session_options(&state.settings, source)?,
+                None => session_options(&state.settings, source, self.services().realtime_limits.session)?,
             };
             let mut server_run = None;
             if state.settings["server"] == "bundled" {

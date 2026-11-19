@@ -27,8 +27,6 @@ use vrct_translation::http::Transport;
 
 pub const RATE: u32 = 24000;
 const MAX_AGE: Duration = Duration::from_millis(250);
-const PENDING_TIMEOUT: Duration = Duration::from_secs(15);
-const FIRST_RESULT_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_EVENT: usize = 1024 * 1024;
 const MAILBOX: usize = 32;
 /// Windows can hold a microphone's open until the user answers its question.
@@ -51,6 +49,26 @@ pub struct Options {
     /// The silence that ends an utterance (`server_vad`'s `silence_duration_ms`); `None` is
     /// [`DEFAULT_SILENCE_MS`].
     pub silence_duration_ms: Option<u32>,
+    pub limits: Limits,
+}
+
+/// How long a session waits for the server. The app keeps [`Limits::default`], Python's values;
+/// tests shorten them (decision 81 in `docs/voice-stack/core-integration.md`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limits {
+    /// Connecting to `/v1/realtime`, each read while the session is set up, and the setup as a
+    /// whole from before the connection to `session.updated` (2 s).
+    pub setup: Duration,
+    /// The first utterance's result, while a GPU builds its kernels (120 s).
+    pub first_result: Duration,
+    /// The result of each utterance after the first (15 s).
+    pub pending: Duration,
+}
+
+impl Default for Limits {
+    fn default() -> Limits {
+        Limits { setup: Duration::from_secs(2), first_result: Duration::from_secs(120), pending: Duration::from_secs(15) }
+    }
 }
 
 /// The silence that ends an utterance unless the settings choose another (#556). It is shorter
@@ -164,14 +182,15 @@ fn percent(text: &str) -> String {
 pub(crate) type Socket = WebSocket<TcpStream>;
 
 /// Opens `/v1/realtime` of a speech.cpp server on this computer, with `model` as the query when
-/// one is named (the server's recognition model otherwise). Reads wait at most 2 s.
-pub(crate) fn open_socket(base_url: &str, model: Option<&str>) -> Option<Socket> {
+/// one is named (the server's recognition model otherwise). Connecting and each read wait at
+/// most `wait`.
+pub(crate) fn open_socket(base_url: &str, model: Option<&str>, wait: Duration) -> Option<Socket> {
     let base = base_url.trim_end_matches('/');
     let url = vrct_translation::http::Url::parse(base).ok()?;
     let address = (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()?.next()?;
-    let stream = TcpStream::connect_timeout(&address, Duration::from_secs(2)).ok()?;
+    let stream = TcpStream::connect_timeout(&address, wait).ok()?;
     let _ = stream.set_nodelay(true);
-    stream.set_read_timeout(Some(Duration::from_secs(2))).ok()?;
+    stream.set_read_timeout(Some(wait)).ok()?;
     stream.set_write_timeout(Some(Duration::from_secs(1))).ok()?;
     let mut target = format!("{}/v1/realtime", base.replacen("http://", "ws://", 1));
     if let Some(model) = model {
@@ -462,7 +481,8 @@ impl Session {
     }
 
     fn connect(&self) -> Result<Socket, Failure> {
-        open_socket(&self.inner.options.base_url, Some(&self.inner.options.model)).ok_or(Failure::Realtime("connection_failed"))
+        let options = &self.inner.options;
+        open_socket(&options.base_url, Some(&options.model), options.limits.setup).ok_or(Failure::Realtime("connection_failed"))
     }
 
     fn recv_setup(socket: &mut Socket, deadline: Instant) -> Result<Value, Failure> {
@@ -484,7 +504,7 @@ impl Session {
         let namespace = namespace();
         let mut events = Events::new(self.inner.source.as_str(), namespace.clone());
         self.status().namespace = Some(namespace);
-        let deadline = Instant::now() + Duration::from_secs(2);
+        let deadline = Instant::now() + self.inner.options.limits.setup;
         let mut socket = self.connect()?;
         let created = Self::recv_setup(&mut socket, deadline)?;
         if created["type"] != "session.created" {
@@ -593,7 +613,8 @@ impl Session {
                         socket.send(Message::text(message.to_string())).map_err(|_| Failure::Realtime("send_failed"))?;
                     }
                 }
-                let limit = if first_result_seen { PENDING_TIMEOUT } else { FIRST_RESULT_TIMEOUT };
+                let limits = self.inner.options.limits;
+                let limit = if first_result_seen { limits.pending } else { limits.first_result };
                 if pending_since.values().any(|since| since.elapsed() > limit) {
                     return Err(Failure::Realtime("utterance_timeout"));
                 }
@@ -678,6 +699,7 @@ mod tests {
             language: "ja".into(),
             vocabulary: Vec::new(),
             silence_duration_ms: None,
+            limits: Limits::default(),
         };
         let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
         Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice), vrct_translation::http::direct())
