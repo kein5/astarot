@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の `app/main_page` の 1 回目を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の `app/main_page`を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、633KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 101 本、647KB | 116 本、410KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、635KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 88 本、595KB | 129 本、468KB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本、`app/io_flow`、`app/main_page` のサイドバーと上のバーは済み。`app` の残りの区画が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本、`app/io_flow`、`app/main_page` は済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -126,10 +126,9 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - VR の設定の窓は AI の翻訳のモデルのフィールドを、名前の文字列で引く代わりに小さな関数で読みます。VR パネルが送る操作を確かめる試験がソースの名前を拾うので、名前は組み立てずに書いたままにしています。
 - 型がなかったころに `views` の TypeScript（`CompanionController.tsx`、`ExperimentalFeatures.tsx`、`UsagePresetSelector.tsx`）が書いていた `as { ... }` は外しました。
 
-`vr` の次の 2 本は JavaScript のままです。
+`vr` の次の 1 本は JavaScript のままです（`VrLogWindow` は `main_page` と一緒に移しました）。
 
 - `VrApp.jsx`: メインウィンドウから届く状態をそのまま atom に書き込む受け取り口（`VrStateReceiver`）を含みます。`useReceiveRoutes` と同じく、受け取る値をどこまで実行時に確かめるかが決まってから移します。
-- `VrLogWindow.jsx`: `LogBox`（`app/main_page`、JavaScript）に `savedView` を渡します。`LogBox` の推論された型では渡せないので、`main_page` と一緒に移します。
 
 `app` は次の順に区画ごとの PR で移します。
 
@@ -169,6 +168,14 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - メニューや一覧の外を押したかどうかの判定は、共有の型 `TargetHolder`（`logics/common/targetHolder.ts`）で尋ねます（下の「型の厳しさ」）。
 - 言語の欄がどちら側かは、ユニオン型（`LanguageSelectorKey`）で受け取ります。
 - `useVoice.ts` の型を中核が送る形に直しました。直接音声の入力の一覧の行は識別子とラベルの組（`VoiceSourceRow`）で、直接音声の状態には `output_route` と、保存した設定の RVC のフィールド（`DirectVoiceSettings`）を宣言しています。宣言だけで、実行時には確かめません。
+
+2 回目で、会話の列（ログ、入力欄、文字数の警告、ログの大きさ）、`MainSection`、`MainPage`、`startupContext` と `VrLogWindow` を移しました。
+
+- ログの行が表示する文の型を宣言しました（`docs/spec` の「メッセージ」に合わせた形）。`realtimeCaptionState.ts` の `MessageLogText`、`MessageLogContent`、`TransliterationToken` と `MessageLogRow` のフィールド、`useMessage.ts` の新しいメッセージの型（`NewBackendMessage`）です。宣言だけで、実行時には確かめません。
+- 消えた行の空行（`GoneRow<Id>`、`messageLogView.ts`）は元の行の `id` の型を引き継ぎ、ログはそのまま key に使います。
+- VR のログの窓が閉じている間に保っておく表示の状態は `SavedLogView` です。
+- 入力欄は、メッセージの操作の提供元（`MessageActionsProvider`）の外で描かれたときに名前の付いた `TypeError` で止まります。前も同じ所で止まっていました。
+- React 18 の型にない `inert` 属性は、`src-ui/inertAttribute.d.ts` で `inert?: "" | undefined` として宣言しています。ページは隠すときに `inert=""` を書き、それ以外は書きません。
 
 ### 第 7 段：試験とハーネス
 
