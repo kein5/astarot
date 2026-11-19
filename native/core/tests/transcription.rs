@@ -151,6 +151,9 @@ fn a_recognised_utterance_reaches_the_ui_the_chatbox_and_the_log_but_not_the_dia
     let fields = run.asr.fields.lock().unwrap().clone();
     assert!(fields.iter().any(|f| f == "model=distil-whisper&language=ja&response_format=verbose_json"), "{fields:?}");
     assert!(run.asr.requested("POST /openai/v1/audio/transcriptions") >= 1);
+    // The message has gone everywhere once the flow panel has its trace; turned off before that,
+    // what was still being delivered is revoked and never counted.
+    run.ui.wait_from(mark, "the flow panel's trace", |l| l["endpoint"] == "/run/io_trace" && l["result"]["input"] == "voice");
 
     // Off: the capture stops and nothing more is delivered.
     assert_eq!(run.ui.ok("/set/disable/transcription_send", None), false);
@@ -158,8 +161,8 @@ fn a_recognised_utterance_reaches_the_ui_the_chatbox_and_the_log_but_not_the_dia
     assert_eq!(run.ui.ok("/get/data/mic_word_filter", None), json!([]));
     // Decision 15 (`utterance_diagnostics`): a quick utterance writes no line of its own; its
     // timings are counted and written, without the text, when recognition stops. A message
-    // still being delivered then is counted once its outputs are done, and written when the
-    // transcriber ends: the parts may be in two summaries.
+    // whose count comes just after the stop is written when the transcriber ends: the parts may
+    // be in two summaries.
     let summaries = || -> String {
         run.process_log().lines().filter(|line| line.contains("[utterance-summary][mic] reason=stop")).collect::<Vec<_>>().join("\n")
     };
