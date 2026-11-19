@@ -95,6 +95,8 @@ def ui(tmp_path):
                                selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[],
                                runtimes=["onnx"], vc_runtimes=[], server_ready=False, retired_folder_used=False)
         page.on("pageerror", lambda error: peer.errors.append(str(error)))
+        # The translation's saved device, and the hardware probe's answer (None: unanswered).
+        peer.device, peer.hardware = dict(device="cpu", device_index=0, device_name="CPU"), None
 
         def engine_item(e):
             item = dict(e, origin="user", weight=f"user:{e['id']}", available=True, in_use=e.get("in_use", False))
@@ -157,6 +159,12 @@ def ui(tmp_path):
             elif ep == "/get/data/vc_runtime_state":
                 peer.sequence += 1
                 reply(ep, dict(observation_id=str(peer.sequence), jobs={}, installed={}))
+            elif ep == "/get/data/selected_translation_compute_device":
+                reply(ep, peer.device)
+            # The hardware probe (speech.cpp devices --json); unanswered unless a test sets it.
+            elif ep in ("/run/refresh_model_download_hardware", "/get/data/model_download_hardware") and peer.hardware:
+                peer.sequence += 1
+                reply(ep, dict(peer.hardware, observation_id=str(peer.sequence)))
             elif ep == "/run/start_model_download":
                 peer.sequence += 1
                 job = dict(job_id="job-1", phase="queued", received_bytes=0, total_bytes=1, paths={}, error_code=None)
@@ -455,6 +463,115 @@ def test_a_published_model_gets_its_row_and_its_review_opens_the_shared_download
     assert sent(peer, "/run/start_model_download") == [
         dict(id="m2m100-418m-onnx-int8", consent=True, catalog_version="test-catalog")]
 
+
+GIB = 1024 ** 3
+# NLLB-200 distilled 600M int8's guidance as native/ops/src/downloads/guidance.rs gives it.
+NLLB_GUIDANCE = dict(tier="translation", reference_memory_bytes=1_490_300_928, validation=dict(
+    state="passed", scope="translation_onnx_cpu", device="Intel Core i7-1255U", sampled_peak_bytes=1_490_300_928))
+UNMEASURED = dict(tier="unknown", reference_memory_bytes=None, validation=dict(state="pending", scope=None, device=None))
+
+
+def probe(ram, gpus=()):
+    """What /get/data/model_download_hardware answers: speech.cpp's devices, the CPU's RAM last."""
+    devices = [dict(name=f"Vulkan{i}", description=description, kind="gpu", memory_total=total, memory_free=total)
+               for i, (description, total) in enumerate(gpus)]
+    devices.append(dict(name="CPU", description="Test CPU", kind="cpu", memory_total=ram, memory_free=ram // 2))
+    return dict(phase="ready", devices=devices, measured_at_ms=int(time.time() * 1000), error_code=None)
+
+
+def review_translation_models(page, peer, hardware, device=None):
+    """The translation page with the published NLLB and M2M100 entries; the NLLB row's review open."""
+    peer.models = [dict(translation_entry("m2m100-418m-onnx-int8", "M2M100 418M · int8"), guidance=UNMEASURED),
+                   dict(translation_entry("nllb-200-distilled-600m-onnx-int8", "NLLB-200 distilled 600M · int8", "CC-BY-NC-4.0"),
+                        guidance=NLLB_GUIDANCE)]
+    peer.hardware = hardware
+    if device:
+        peer.device = device
+    setup = open_translation_page(page)
+    reviews = setup.get_by_role("radiogroup", name="Translation model").get_by_role("button", name="Review download")
+    reviews.last.click()
+    review = page.get_by_role("dialog", name="Model download and terms").first
+    card = review.get_by_role("group", name="NLLB-200 distilled 600M")
+    return review, card
+
+
+def test_a_translation_model_shows_the_memory_it_needs_and_fits_a_large_ram(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    review, card = review_translation_models(page, peer, probe(32 * GIB, [("NVIDIA GeForce GT 1030", 2 * GIB)]))
+    expect(card.get_by_text("about 1.39 GiB while translating (measured on a CPU)")).to_be_visible()
+    # The translation runs on the CPU: the small GPU does not matter, and no GPU advice is given.
+    expect(card.get_by_text("May be too heavy")).to_have_count(0)
+    expect(card.get_by_text("Fits the free memory")).to_have_count(0)
+    card.get_by_text("Memory needs and testing").click()
+    expect(card.get_by_text("Local translation: runs on the CPU unless you choose a GPU")).to_be_visible()
+    expect(card.get_by_text("Peak memory while translating 60 short sentences on a CPU (not a minimum): 1.39 GiB")).to_be_visible()
+    expect(card.get_by_text("Checked on Windows 11 (ONNX Runtime 1.32, 4 CPU threads)", exact=False)).to_be_visible()
+    expect(card.get_by_text("This GPU differs from the tested GPU", exact=False)).to_have_count(0)
+    assert ("/run/refresh_model_download_hardware", {}) in peer.sent
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-fits.png"))
+
+    # M2M100 has not been measured: it says so and is never warned about.
+    review.get_by_role("button", name="Close").click()
+    setup = page.locator("details[data-setup]").first
+    setup.get_by_role("radiogroup", name="Translation model").get_by_role("button", name="Review download").first.click()
+    m2m100 = page.get_by_role("dialog", name="Model download and terms").first.get_by_role("group", name="M2M100 418M")
+    expect(m2m100.get_by_text("Not measured yet")).to_be_visible()
+    expect(m2m100.get_by_text("May be too heavy")).to_have_count(0)
+
+
+def test_a_small_ram_is_warned_about_before_the_download_by_keyboard(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    review, card = review_translation_models(page, peer, probe(GIB))
+    note = "It uses about 1.39 GiB of memory, which leaves little room in the 1.00 GiB found in total."
+    expect(card.get_by_text("May be too heavy")).to_be_visible()
+    expect(card.get_by_text(note, exact=False)).to_be_visible()
+    # The keyboard reaches the review; the consent repeats the warning and holds the focus.
+    card.get_by_role("button", name="Review download").focus()
+    page.keyboard.press("Enter")
+    consent = page.get_by_role("dialog", name="Model download and terms").last
+    expect(consent.get_by_text(note, exact=False)).to_be_visible()
+    inside = """() => document.activeElement?.closest('dialog')?.textContent.includes('I have reviewed the source')"""
+    assert page.evaluate(inside)
+    page.keyboard.press("Tab")
+    assert page.evaluate(inside)
+    expect(consent.get_by_role("button", name="Agree and download")).to_be_disabled()
+    page.keyboard.press("Escape")
+    expect(page.locator("dialog[open]").filter(has_text="I have reviewed the source")).to_have_count(0)
+    # Only a guide: nothing was downloaded.
+    assert sent(peer, "/run/start_model_download") == []
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-warning.png"))
+
+
+def test_a_translation_on_a_gpu_is_compared_with_that_gpu(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    hardware = probe(32 * GIB, [("NVIDIA GeForce GT 1030", GIB)])
+    _review, card = review_translation_models(page, peer, hardware, dict(device="cuda", device_index=0, device_name="CUDA"))
+    expect(card.get_by_text("on a GPU with 1.00 GiB in total", exact=False)).to_be_visible()
+
+
+def test_the_translation_warning_fits_a_narrow_window(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    page.set_viewport_size({"width": 480, "height": 1600})
+    _review, card = review_translation_models(page, peer, probe(GIB))
+    expect(card.get_by_text("May be too heavy")).to_be_visible()
+    card.get_by_role("button", name="Review download").click()
+    consent = page.get_by_role("dialog", name="Model download and terms").last
+    expect(consent.get_by_text("It uses about 1.39 GiB", exact=False)).to_be_visible()
+    overflow = page.evaluate("""() => [document.documentElement, ...document.querySelectorAll('dialog[open]')]
+        .map(el => el.scrollWidth - el.clientWidth)""")
+    assert max(overflow) <= 0, overflow
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-narrow.png"))
 
 def test_the_catalog_fits_a_narrow_window(ui, tmp_path):
     from playwright.sync_api import expect
