@@ -64,6 +64,8 @@
                 { "url": "https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.Gpu.Windows/**" },
                 { "url": "https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.Gpu.Linux/**" },
                 { "url": "https://docs.nvidia.com/deeplearning/cudnn/**" },
+                { "url": "https://github.com/ggml-org/llama.cpp/**" },
+                { "url": "https://github.com/llvm/llvm-project/blob/llvmorg-20.1.8/openmp/LICENSE.TXT" },
                 { "url": "https://voicevox.hiroshiba.jp/" },
                 { "url": "https://voicevox.hiroshiba.jp/term/" },
                 { "url": "https://coeiroink.com/" },

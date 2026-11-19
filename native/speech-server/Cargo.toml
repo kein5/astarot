@@ -27,3 +27,10 @@ name = "fake-speech"
 path = "tests/fixture/fake_speech.rs"
 test = false
 doc = false
+
+# A stand-in for llama.cpp's llama-server, for the same reason.
+[[bin]]
+name = "fake-llama"
+path = "tests/fixture/fake_llama.rs"
+test = false
+doc = false
