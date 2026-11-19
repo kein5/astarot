@@ -437,7 +437,7 @@ def test_the_retired_folder_note_leads_to_the_add_form_by_keyboard_in_a_narrow_j
     models = setup.get_by_role("radiogroup", name="翻訳モデル")
     note_box, models_box = note.bounding_box(), models.bounding_box()
     assert note_box["y"] + note_box["height"] <= models_box["y"] + 1, (note_box, models_box)
-    # The add form sits folded inside 「詳細設定」, out of sight.
+    # The add form sits folded at the catalog's end, out of sight.
     form = page.locator("[data-catalog-add=engine]")
     name = form.get_by_label("表示する名前")
     expect(name).not_to_be_visible()
@@ -456,9 +456,9 @@ def test_the_retired_folder_note_leads_to_the_add_form_by_keyboard_in_a_narrow_j
     else:
         raise AssertionError("the note's button is not reachable with Tab")
     page.keyboard.press("Enter")
-    # The folds open, the form is in view and its first field has the focus.
-    expect(page.locator("details[data-advanced]")).to_have_attribute("open", "")
+    # Every fold around the form opens, the form is in view and its first field has the focus.
     expect(form).to_have_attribute("open", "")
+    assert form.evaluate("el => { for (let d = el; d; d = d.parentElement) if (d.tagName === 'DETAILS' && !d.open) return false; return true; }")
     expect(name).to_be_focused()
     expect(name).to_be_in_viewport()
     if os.environ.get("VRCT_TEST_SCREENSHOTS"):
