@@ -57,5 +57,5 @@ test("the tooltip's parts carry shadcn/ui's data-slot", async () => {
     assert.equal(content.props.children, "words");
     runtime.unmount();
     // The settings' Hint: its bubble is the content.
-    assert.match(read("../../app/config_page/setting_section/setting_box/_components/hint/Hint.jsx"), /role="tooltip" aria-hidden="true" data-slot="tooltip-content"/);
+    assert.match(read("../../app/config_page/setting_section/setting_box/_components/hint/Hint.tsx"), /role="tooltip" aria-hidden="true" data-slot="tooltip-content"/);
 });
