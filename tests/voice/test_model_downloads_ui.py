@@ -448,7 +448,7 @@ def test_more_speechcpp_models_are_choices_and_large_shows_gemma_terms(ui):
     for name in ("GEMMA_TERMS_OF_USE.md", "GEMMA_PROHIBITED_USE_POLICY.md", "LICENSE-MIT", "LICENSE-APACHE-2.0"):
         expect(dialog.get_by_role("link", name=name, exact=True)).to_have_count(1)
     # The Gemma terms bind the user too: a checkbox of their own, apart from the consent.
-    expect(dialog).to_contain_text("The Gemma Terms of Use apply.")
+    expect(dialog).to_contain_text("Gemma's terms of use apply.")
     acknowledgement = dialog.get_by_role(
         "checkbox", name="I have read the Gemma Terms of Use and the Prohibited Use Policy and will use this model under them.",
         exact=True)
