@@ -1,10 +1,25 @@
+import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
+import type { TranslationComputeDevice } from "../../../../../../../logics/configs/config_page_setter/settingTypes";
+import type { DropdownSelection } from "../_atoms/_dropdown_menu/_DropdownMenu";
 
 import {
     MultiDropdownMenuContainer,
 } from "../../_templates/Templates";
 
 import { buildComputeDeviceOptions } from "./computeDeviceOptions";
+import type { ComputeDeviceChoice, ComputeDeviceList } from "./computeDeviceOptions";
+
+export interface ComputeDeviceProps {
+    label: ReactNode;
+    // The dropdowns' ids: <prefix>_compute_device and <prefix>_compute_type.
+    dropdownIdPrefix: string;
+    currentDeviceList: { state?: string; data: ComputeDeviceList };
+    currentSelectedDevice: { state?: string; data: ComputeDeviceChoice };
+    setSelectedDevice: (device: TranslationComputeDevice) => unknown;
+    currentSelectedComputeType: { state?: string; data: string };
+    setSelectedComputeType: (compute_type: string) => unknown;
+}
 
 export const ComputeDevice = ({
     label,
@@ -14,21 +29,23 @@ export const ComputeDevice = ({
     setSelectedDevice,
     currentSelectedComputeType,
     setSelectedComputeType,
-}) => {
+}: ComputeDeviceProps) => {
     const { t } = useI18n();
 
     const { device_labels, selected_device_id, compute_type_labels } = buildComputeDeviceOptions(
         currentDeviceList.data, currentSelectedDevice.data, t
     );
 
-    const selectFunction_ComputeDevice = (selected_data) => {
-        const target_obj = currentDeviceList.data?.[selected_data.selected_id];
+    const selectFunction_ComputeDevice = (selected_data: DropdownSelection) => {
+        // [] has no devices to pick.
+        const list = currentDeviceList.data;
+        const target_obj = list && !Array.isArray(list) ? list[selected_data.selected_id] : undefined;
         if (target_obj) {
             setSelectedDevice(target_obj);
         }
     };
 
-    const selectFunction_ComputeType = (selected_data) => {
+    const selectFunction_ComputeType = (selected_data: DropdownSelection) => {
         setSelectedComputeType(selected_data.selected_id);
     };
 

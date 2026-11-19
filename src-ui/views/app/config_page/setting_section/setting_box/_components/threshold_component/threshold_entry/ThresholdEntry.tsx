@@ -1,15 +1,32 @@
 import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { _Entry } from "../../_atoms/_entry/_Entry";
+import type { UiThreshold } from "../slider_and_meter/SliderAndMeter";
 
 const INPUT_DEBOUNCE_DELAY = 1000; // ms
 
-export const ThresholdEntry = (props) => {
+export interface ThresholdEntryProps {
+    min?: number;
+    max?: number;
+    ui_threshold?: UiThreshold | null;
+    // The saved threshold: the field follows it while the automatic threshold is off.
+    confirmedThreshold?: { state?: string; data: UiThreshold };
+    setUiThresholdFunction?: (value: UiThreshold) => void;
+    setThresholdFunction: (value: string) => void;
+    // The threshold is set automatically (or a voice activity filter cuts instead).
+    is_disable?: boolean;
+    is_disabled?: boolean;
+    "aria-label"?: string;
+    "aria-describedby"?: string;
+}
+
+export const ThresholdEntry = (props: ThresholdEntryProps) => {
     return <ThresholdEntryInput {...props} />;
 };
 
-const ThresholdEntryInput = (props) => {
-    const [inputValue, setInputValue] = useState(props.ui_threshold ?? "");
-    const debounceTimerRef = useRef(null);
+const ThresholdEntryInput = (props: ThresholdEntryProps) => {
+    const [inputValue, setInputValue] = useState<UiThreshold>(props.ui_threshold ?? "");
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastSavedValueRef = useRef(props.ui_threshold);
     const isFocusedRef = useRef(false);
 
@@ -37,7 +54,7 @@ const ThresholdEntryInput = (props) => {
         };
     }, []);
 
-    const commitValue = (val) => {
+    const commitValue = (val: UiThreshold | null | undefined) => {
         if (debounceTimerRef.current) {
             clearTimeout(debounceTimerRef.current);
             debounceTimerRef.current = null;
@@ -50,7 +67,7 @@ const ThresholdEntryInput = (props) => {
             return;
         }
 
-        let num = parseInt(val, 10);
+        let num = parseInt(String(val), 10);
         if (isNaN(num)) {
             const restored = lastSavedValueRef.current ?? "";
             setInputValue(restored);
@@ -68,7 +85,7 @@ const ThresholdEntryInput = (props) => {
         lastSavedValueRef.current = normalized;
     };
 
-    const onChangeFunction = (e) => {
+    const onChangeFunction = (e: ChangeEvent<HTMLInputElement>) => {
         const val = e.currentTarget.value;
         if (!/^\d*$/.test(val)) {
             return;

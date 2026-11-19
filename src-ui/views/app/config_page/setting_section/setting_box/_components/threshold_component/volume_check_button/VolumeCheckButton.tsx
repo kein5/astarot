@@ -1,11 +1,20 @@
 import React from "react";
+import type { ComponentType, SVGProps } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
 import styles from "./VolumeCheckButton.module.scss";
 
-export const VolumeCheckButton = React.memo((props) => {
+export interface VolumeCheckButtonProps {
+    // Whether the check runs, as the store holds it: "pending" while the engine answers.
+    isChecking: { state?: string; data?: unknown };
+    startFunction: () => void;
+    stopFunction: () => void;
+    SvgComponent: ComponentType<SVGProps<SVGSVGElement>>;
+}
+
+export const VolumeCheckButton = React.memo((props: VolumeCheckButtonProps) => {
     const { t } = useI18n();
-    const getClassNames = (baseClass) => clsx(baseClass, {
+    const getClassNames = (baseClass: string | undefined) => clsx(baseClass, {
         [styles.is_active]: (props.isChecking?.data === true),
         [styles.is_pending]: (props.isChecking.state === "pending"),
     });

@@ -44,7 +44,7 @@ test("the microphone's 自動選択 is the first part of the column of lists, ov
 
     // The shared lists draw an insert without a side in the column of lists, in its order.
     const runtime = hooks();
-    const { MultiDropdownMenu } = await loadModule(new URL("../_components/dropdown_menu/DropdownMenu.jsx", import.meta.url), runtime, {
+    const { MultiDropdownMenu } = await loadModule(new URL("../_components/dropdown_menu/DropdownMenu.tsx", import.meta.url), runtime, {
         "../_atoms/_dropdown_menu/_DropdownMenu": { _DropdownMenu: () => null },
     });
     const drawn = runtime.render(MultiDropdownMenu, { dropdown_settings: settings });

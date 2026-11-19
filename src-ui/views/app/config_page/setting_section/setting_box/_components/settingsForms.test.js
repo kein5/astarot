@@ -27,7 +27,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     // The production hook's functions are destructured, so the fake uses closures too.
     state.updateMicWordFilterList = fn => { state.currentMicWordFilterList.data = fn(state.currentMicWordFilterList); };
     const Entry = () => null;
-    const { WordFilter } = await loadModule(new URL("./word_filter/WordFilter.jsx", import.meta.url), runtime, {
+    const { WordFilter } = await loadModule(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
         "../../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true } }) },
@@ -164,7 +164,7 @@ test("threshold Enter commits without blur or a duplicate blur-triggered save", 
     const runtime = hooks(), saves = [], document = { body: {} };
     stubGlobals(t, { document });
     const Entry = () => null;
-    const { ThresholdEntry } = await loadModule(new URL("./threshold_component/threshold_entry/ThresholdEntry.jsx", import.meta.url), runtime, {
+    const { ThresholdEntry } = await loadModule(new URL("./threshold_component/threshold_entry/ThresholdEntry.tsx", import.meta.url), runtime, {
         "../../_atoms/_entry/_Entry": { _Entry: Entry },
     });
     const wrapper = ThresholdEntry({ ui_threshold: 120, setThresholdFunction: value => saves.push(value) });

@@ -304,7 +304,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 ### Field と Label
 
-アプリ: kit の `SettingGroup` と `SettingRow`、`FormRow`、`_templates/Templates.jsx` の約20種類の `*Container`、`LabelComponent`、`SectionLabelComponent`、`Description`、`Hint`。#676 と #677 で、説明を吹き出し（`Hint`）に入れるページが増えました。
+アプリ: kit の `SettingGroup` と `SettingRow`、`FormRow`、`_templates/Templates.tsx` の約20種類の `*Container`、`LabelComponent`、`SectionLabelComponent`、`Description`、`Hint`。#676 と #677 で、説明を吹き出し（`Hint`）に入れるページが増えました。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|

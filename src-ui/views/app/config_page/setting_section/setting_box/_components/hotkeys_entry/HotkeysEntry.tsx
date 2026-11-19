@@ -1,24 +1,42 @@
 import styles from "./HotkeysEntry.module.scss";
 import { _Entry } from "../_atoms/_entry/_Entry";
+import type { EntryHandle } from "../_atoms/_entry/_Entry";
 import { useState, useRef, useEffect } from "react";
+import type { KeyboardEvent } from "react";
+import type { Hotkeys } from "@store";
 import DeleteSvg from "@images/cancel.svg?react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 
 // The symbol keys by their code, as the global shortcut parser names them without Shift.
-const SYMBOL_KEYS = { Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]",
+const SYMBOL_KEYS: Readonly<Record<string, string>> = { Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]",
     Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/" };
 
-export const HotkeysEntry = (props) => {
+// The flag of a held modifier on a key event.
+const MODIFIER_FLAGS = { Ctrl: "ctrlKey", Shift: "shiftKey", Alt: "altKey", Meta: "metaKey" } as const;
+
+export interface HotkeysEntryProps {
+    // The saved shortcuts, by action.
+    value: Hotkeys;
+    hotkey_id: string;
+    // Saves the action's keys (null clears them); false when the shortcut was not taken.
+    setHotkeys: (hotkeys: Hotkeys) => unknown;
+    // "pending" while a save waits for the backend.
+    state?: string;
+    label?: string;
+    "aria-describedby"?: string;
+}
+
+export const HotkeysEntry = (props: HotkeysEntryProps) => {
     const { t } = useI18n();
     const [isAcceptingInput, setIsAcceptingInput] = useState(false);
     const [displayValue, setDisplayValue] = useState("");
     const committedDisplayValueRef = useRef("");
-    const lastKeyRef = useRef(null);
+    const lastKeyRef = useRef<string | null>(null);
     const isModifierOnlyRef = useRef(false);
-    const entryRef = useRef(null);
-    const pressedKeys = useRef(new Set());
-    const keysRef = useRef([]);
+    const entryRef = useRef<EntryHandle>(null);
+    const pressedKeys = useRef(new Set<string>());
+    const keysRef = useRef<string[]>([]);
     const editVersion = useRef(0);
 
     useEffect(() => {
@@ -29,9 +47,9 @@ export const HotkeysEntry = (props) => {
     }, [props.value, props.hotkey_id, isAcceptingInput]);
 
 
-    const updateHotkeys = async (keys) => {
+    const updateHotkeys = async (keys: string[] | null) => {
         const version = ++editVersion.current;
-        entryRef.current.blur();
+        entryRef.current?.blur();
         const result = await props.setHotkeys({ [props.hotkey_id]: keys });
         if (result === false && editVersion.current === version) setDisplayValue(committedDisplayValueRef.current);
     };
@@ -42,7 +60,7 @@ export const HotkeysEntry = (props) => {
     // but not on a keyup after Shift was released. A symbol typed with Shift is
     // taken from its key too ("Ctrl+Shift+/", not "?"): the registrar reads only
     // the unshifted symbols, and refused "?" as a key already in use (#563).
-    const processKey = ({ key, code, shiftKey }) => {
+    const processKey = ({ key, code, shiftKey }: KeyboardEvent<HTMLInputElement>) => {
         if (key === " " || code === "Space") return "Space";
         if (/^[a-zA-Z]$/.test(key)) return key.toUpperCase();
         if (/^Digit[0-9]$/.test(code ?? "")) return code.slice(-1);
@@ -52,14 +70,14 @@ export const HotkeysEntry = (props) => {
     };
     // Which physical key is held. A symbol changes with Shift ("?" down, "/" up once Shift
     // is released first), so the key's code tells the press and its release apart.
-    const heldKey = event => event.code || processKey(event);
+    const heldKey = (event: KeyboardEvent<HTMLInputElement>) => event.code || processKey(event);
 
-    const handleKeyInput = (event) => {
-        const keys = [];
-        const nonModifierKeys = [];
+    const handleKeyInput = (event: KeyboardEvent<HTMLInputElement>) => {
+        const keys: string[] = [];
+        const nonModifierKeys: string[] = [];
 
-        ["Ctrl", "Shift", "Alt", "Meta"].forEach((modKey) => {
-            if (event[`${modKey.toLowerCase()}Key`] && !keys.includes(modKey)) {
+        (["Ctrl", "Shift", "Alt", "Meta"] as const).forEach((modKey) => {
+            if (event[MODIFIER_FLAGS[modKey]] && !keys.includes(modKey)) {
                 let register_mod_key =  (modKey === "Meta") ? "Super" : modKey;
                 keys.push(register_mod_key);
             }
@@ -78,7 +96,7 @@ export const HotkeysEntry = (props) => {
         isModifierOnlyRef.current = nonModifierKeys.length === 0;
     };
 
-    const handleKeyDown = (event) => {
+    const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === "Tab" || event.key === "Escape") {
             if (event.key === "Escape") {
                 event.preventDefault();
@@ -94,7 +112,7 @@ export const HotkeysEntry = (props) => {
         handleKeyInput(event);
     };
 
-    const handleKeyUp = (event) => {
+    const handleKeyUp = (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === "Tab" || event.key === "Escape") return;
         lastKeyRef.current = null;
 
@@ -113,7 +131,8 @@ export const HotkeysEntry = (props) => {
             if (hasNonModifierKeys) {
                 updateHotkeys(keysRef.current);
             } else {
-                const display_value = props.value[props.hotkey_id] ? props.value[props.hotkey_id].join(" + ") : "";
+                const saved = props.value[props.hotkey_id];
+                const display_value = saved ? saved.join(" + ") : "";
                 setDisplayValue(display_value);
             }
         }

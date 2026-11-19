@@ -73,7 +73,7 @@ async function fixture(context, kind, openerState) {
     };
     const paths = { catalog: ["advanced_settings/ModelDownloads.jsx", "ModelDownloads"],
         ocr: ["ocr/OcrModels.jsx", "OcrModels"], nllb: ["translation/Translation.jsx", "CTranslate2LicenseDialog"],
-        legacy: ["_components/download_models/LegacyModelDownloadDialog.jsx", "LegacyModelDownloadDialog"] };
+        legacy: ["_components/download_models/LegacyModelDownloadDialog.tsx", "LegacyModelDownloadDialog"] };
     const [path, name] = paths[kind];
     const Component = (await loadModule(new URL(path, boxes), runtime, imports))[name];
     const props = kind === "catalog" ? { targets: ["rvc"] } : kind === "ocr"

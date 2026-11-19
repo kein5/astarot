@@ -1,6 +1,21 @@
 // The reviewed manifest of a legacy model (weight_type), as the review dialog shows it.
 export type LegacyModelEntry = { weight_type?: string; manifest_version?: string | number; total_bytes: number };
 
+// The review of a built-in model, as the download catalog lists it under legacy_models
+// (legacy_model_consent.py): the model, its source and license, and its tokenizer.
+export type LegacyModelReview = LegacyModelEntry & {
+    kind: string;
+    weight_type: string;
+    name: string;
+    provider: string;
+    repo: string;
+    revision: string;
+    license: string;
+    non_commercial?: boolean;
+    tokenizer?: { repo: string; revision: string; bundled?: boolean } | null;
+    tokenizer_size_unknown?: boolean;
+};
+
 // The consented request for a legacy model download.
 export type LegacyDownloadRequest = { weight_type: string; consent: true; manifest_version: string | number };
 

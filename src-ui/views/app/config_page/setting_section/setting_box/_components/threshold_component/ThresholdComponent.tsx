@@ -3,6 +3,7 @@ import styles from "./ThresholdComponent.module.scss";
 import { SliderAndMeter } from "./slider_and_meter/SliderAndMeter";
 import { ThresholdEntry } from "./threshold_entry/ThresholdEntry";
 import { VolumeCheckButton } from "./volume_check_button/VolumeCheckButton";
+import type { UiThreshold } from "./slider_and_meter/SliderAndMeter";
 import { useVolume } from "@logics_common";
 import MicSvg from "@images/mic.svg?react";
 import HeadphonesSvg from "@images/headphones.svg?react";
@@ -11,7 +12,16 @@ import {
 } from "@logics_configs";
 import { useI18n } from "@useI18n";
 
-export const ThresholdComponent = (props) => {
+export interface ThresholdComponentProps {
+    // Which threshold: "mic_threshold", or the speaker's otherwise.
+    id: string;
+    min: number;
+    max: number;
+    // A voice activity filter cuts instead of the threshold.
+    is_vad_active?: boolean;
+}
+
+export const ThresholdComponent = (props: ThresholdComponentProps) => {
     return (
         <div className={styles.container}>
             {props.id === "mic_threshold"
@@ -22,14 +32,14 @@ export const ThresholdComponent = (props) => {
     );
 };
 
-const MicComponent = (props) => {
+const MicComponent = (props: ThresholdComponentProps) => {
     const { t } = useI18n();
     const {
         currentMicThreshold,
         setMicThreshold,
         currentEnableAutomaticMicThreshold,
     } = useDevice();
-    const [ui_threshold, setUiThreshold] = useState(currentMicThreshold.data);
+    const [ui_threshold, setUiThreshold] = useState<UiThreshold>(currentMicThreshold.data);
     const {
         volumeCheckStart_Mic,
         volumeCheckStop_Mic,
@@ -46,10 +56,10 @@ const MicComponent = (props) => {
         }
     }, [currentMicThreshold, currentEnableAutomaticMicThreshold, props.is_vad_active]);
 
-    const setUiThresholdFunction = (payload_ui_threshold) => {
+    const setUiThresholdFunction = (payload_ui_threshold: UiThreshold) => {
         setUiThreshold(payload_ui_threshold);
     };
-    const setThresholdFunction = (payload_threshold) => {
+    const setThresholdFunction = (payload_threshold: UiThreshold) => {
         setMicThreshold(payload_threshold);
     };
 
@@ -83,14 +93,14 @@ const MicComponent = (props) => {
     );
 };
 
-const SpeakerComponent = (props) => {
+const SpeakerComponent = (props: ThresholdComponentProps) => {
     const { t } = useI18n();
     const {
         currentSpeakerThreshold,
         setSpeakerThreshold,
         currentEnableAutomaticSpeakerThreshold,
     } = useDevice();
-    const [ui_threshold, setUiThreshold] = useState(currentSpeakerThreshold.data);
+    const [ui_threshold, setUiThreshold] = useState<UiThreshold>(currentSpeakerThreshold.data);
     const {
         volumeCheckStart_Speaker,
         volumeCheckStop_Speaker,
@@ -106,10 +116,10 @@ const SpeakerComponent = (props) => {
         }
     }, [currentSpeakerThreshold, currentEnableAutomaticSpeakerThreshold, props.is_vad_active]);
 
-    const setUiThresholdFunction = (payload_ui_threshold) => {
+    const setUiThresholdFunction = (payload_ui_threshold: UiThreshold) => {
         setUiThreshold(payload_ui_threshold);
     };
-    const setThresholdFunction = (payload_threshold) => {
+    const setThresholdFunction = (payload_threshold: UiThreshold) => {
         setSpeakerThreshold(payload_threshold);
     };
 

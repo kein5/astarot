@@ -12,21 +12,38 @@ import { useAppearance } from "@logics_configs";
 import { ui_configs } from "@ui_configs";
 import { ResetButton } from "@common_components";
 import { useState } from "react";
+import type { ChangeEvent } from "react";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
+import type { DraftWrite } from "../../../../../../../logics/voice/useSettingsDraft";
+import type { MessageFormatParts } from "../../../../../../../logics/configs/config_page_setter/settingTypes";
+
+// The chatbox message format of the messages sent, or of the messages received.
+export type MessageFormatId = "send" | "received";
+
+export interface MessageFormatProps {
+    // The saved format, as the store holds it.
+    variable: { state?: string; data: MessageFormatParts };
+    setFunction: DraftWrite<MessageFormatParts>;
+    format_id: MessageFormatId;
+    // Names the format in the save bar's list of changes.
+    label?: string;
+    "aria-labelledby"?: string;
+    "aria-describedby"?: string;
+}
 
 const ENTRY_WIDTH = "8rem";
 
-const EXAMPLE_TEXTS = {
+const EXAMPLE_TEXTS: Readonly<Record<string, string>> = {
     en: "Hello",
     ja: "こんにちは",
     ko: "안녕하세요",
     fr: "Bonjour",
 };
 
-export const MessageFormat = (props) => {
+export const MessageFormat = (props: MessageFormatProps) => {
     const { currentIsBreakPoint } = useStore_IsBreakPoint();
     const { t } = useTranslation();
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
     const form = useSettingsDraft(props.variable.data, error, setError, {
         write: props.setFunction,
         label: () => props.label ?? t(`config_page.others.${props.format_id}_message_format.label`),
@@ -54,7 +71,7 @@ export const MessageFormat = (props) => {
     );
 };
 
-const ExampleComponent = ({ format, format_id }) => {
+const ExampleComponent = ({ format, format_id }: { format: MessageFormatParts; format_id: MessageFormatId }) => {
     const { currentUiLanguage } = useAppearance();
     const { t } = useTranslation();
     const {
@@ -72,9 +89,9 @@ const ExampleComponent = ({ format, format_id }) => {
     const label_translated_only = t(locale_base_path + "translated_only");
     const label_original_only = t(locale_base_path + "original_only");
 
-    const createExampleMessage = (id) => {
+    const createExampleMessage = (id: string) => {
         // 言語順序を決定
-        let example_text_order = [];
+        let example_text_order: string[] = [];
         switch (currentUiLanguage.data) {
             case "ja":
                 example_text_order = ["ja", "en", "ko", "fr"];
@@ -118,7 +135,7 @@ const ExampleComponent = ({ format, format_id }) => {
 
     // Plain render functions, not components: a component defined in here is a
     // new type on every render, so React would remount it (and drop its focus).
-    const renderExampleBox = (label, example_text_id) => {
+    const renderExampleBox = (label: string, example_text_id: string) => {
         return (
             <div key={example_text_id} className={styles.example_wrapper}>
                 <p className={styles.example_label}>{label}</p>
@@ -136,7 +153,7 @@ const ExampleComponent = ({ format, format_id }) => {
     });
 
 
-    const renderFilteredExampleBox = (format_id, id) => {
+    const renderFilteredExampleBox = (format_id: MessageFormatId, id: string) => {
         if (format_id === "send" && id === "Simplified") {
             return (
                 <>
@@ -166,7 +183,7 @@ const ExampleComponent = ({ format, format_id }) => {
         }
     };
 
-    const exampleViewFilterToggleFunction = (format_id) => {
+    const exampleViewFilterToggleFunction = (format_id: MessageFormatId) => {
         if (["send", "received"].includes(format_id) === false) return console.error(`format_id should be small case 'send' or 'received'. got format_id: ${format_id}`);
 
         updateMessageFormat_ExampleViewFilter({
@@ -199,7 +216,14 @@ const ExampleComponent = ({ format, format_id }) => {
 };
 
 
-const InputComponent = ({ variable: local_var, setFunction, saveFunction, format_id }) => {
+interface InputComponentProps {
+    variable: MessageFormatParts;
+    setFunction: (value: MessageFormatParts) => void;
+    saveFunction: () => void;
+    format_id: MessageFormatId;
+}
+
+const InputComponent = ({ variable: local_var, setFunction, saveFunction, format_id }: InputComponentProps) => {
     const { t } = useTranslation();
 
     const locale_base_path = "config_page.others.message_format_common.settings.";
@@ -209,18 +233,18 @@ const InputComponent = ({ variable: local_var, setFunction, saveFunction, format
     const LABEL_TRANSLATED = t(locale_base_path + "translated");
     const LABEL_FOR_MULTI_TRANSLATION = t(locale_base_path + "for_multi_translation");
 
-    const replaceValue = (value) => {
+    const replaceValue = (value: string) => {
         if (value === "") return "";
 
         const replaced = value.replace(/\\n/g, "\n");
         return replaced;
     };
 
-    const handleChange = (parent_key, child_key) => (e) => {
+    const handleChange = (parent_key: "message" | "translation" | "separator", child_key?: "prefix" | "suffix" | "separator") => (e: ChangeEvent<HTMLInputElement>) => {
         const raw_value = e.target.value;
         const parsed_value = replaceValue(raw_value);
 
-        if (child_key !== undefined) {
+        if (child_key !== undefined && parent_key !== "separator") {
             const new_var = {
                 ...local_var,
                 [parent_key]: {
@@ -238,7 +262,7 @@ const InputComponent = ({ variable: local_var, setFunction, saveFunction, format
         }
     };
 
-    const toUiValue = (v) => {
+    const toUiValue = (v: string | undefined) => {
         if (typeof v === "string") {
             return v.replace(/\n/g, "\\n");
         }
@@ -251,7 +275,7 @@ const InputComponent = ({ variable: local_var, setFunction, saveFunction, format
     };
 
     // Rendered by a call, not as <SwapButton />, so pressing it keeps the keyboard focus.
-    const renderSwapButton = (variable) => {
+    const renderSwapButton = (variable: MessageFormatParts) => {
         const swapMessageAndTranslate = () => {
             const new_var = { ...variable, translation_first: !variable.translation_first };
             setFunction(new_var);

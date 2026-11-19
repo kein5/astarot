@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の設定画面の小さな部品を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の設定画面の部品とテンプレートを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、635KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 67 本、543KB | 150 本、532KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、636KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 51 本、456KB | 166 本、639KB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本、`app/io_flow`、`app/main_page`、設定画面の小さな部品は済み。`app` の残りの区画が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本、`app/io_flow`、`app/main_page`、設定画面の部品とテンプレートは済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -182,6 +182,13 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 部品ごとに props の型を輸出しています（`LabelComponentProps` など）。ページから渡される props を漏らさないように、呼ぶ側をすべて見て決めました。
 - 行（`FormRow`）は子の要素から `id` と `aria-describedby` だけを読みます（`RowControlProps`）。
 - 入力欄の `focus` と `blur` は、要素がないときは何もしません。描く前には呼ばれないので、前と同じに動きます。
+
+2 回目で、残りの部品（スライダー、しきい値の行、ショートカットの欄、プルダウン、選択肢、言葉のフィルター、書式、組み込みモデルの取得の確認、計算機器、認証情報の組）と、行のテンプレート（`_templates/Templates`）、`_components/index` を移しました。
+
+- 行のテンプレートの props は、行の props（`TemplateRowProps`）と描く部品の props の組み合わせです（`SliderContainerProps` など）。共通の行（`CommonContainer`）は渡された props 全体の型を引数に取り、描く部品をその props から行自身の props を除いたものと照らし合わせます。部品の取り違えは型の誤りになります。
+- プルダウンの一覧は `DropdownList`（届くまでは `[]`）、選択肢は `RadioOption` です。選択肢の型を引数に取るので、モデルの選択では各モデルの下の部品がそのモデルの選択肢を受け取ります。
+- 組み込みモデルの取得の確認（`LegacyModelDownloadDialog`）は、カタログをこの窓が読むフィールドだけの型（`ReviewCatalog`）として読みます。フックのカタログと同じく、宣言だけで実行時には確かめません。
+- 認証情報の組（`CredentialPair`）は、提供元の名前から `current${B}URL` と `current${B}AuthKey` のキーを組み立てて型にしています。
 
 ### 第 7 段：試験とハーネス
 

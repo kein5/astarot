@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../../logics/voice/useModelDownloads";
 import { legacyDownloadRequest, legacyReviewSize } from "../../../../../../../logics/configs/legacyModelConsent";
+import type { LegacyDownloadRequest, LegacyModelReview } from "../../../../../../../logics/configs/legacyModelConsent";
 import styles from "../../advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "./LegacyModelDownloadDialog.module.scss";
 import { useConsentDialog } from "../../../../../../../logics/common/useConsentDialog";
 import { translationCatalogIds } from "../../../../../../../logics/main/setupNeeds";
 import { ModelDownloads } from "../../advanced_settings/ModelDownloads";
+import type { TranslationDevice } from "../../../../../../../logics/voice/modelHardwareWarning";
 import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 
 // Native modal scope, initial focus on Back and the shared catalog form styles.
@@ -21,13 +24,34 @@ import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 // review that never comes.
 // It shows the variants of the model it was opened for, or every translation model when the
 // catalog has none of that one.
-// computeDevice: the saved device of the local translation (SELECTED_TRANSLATION_COMPUTE_DEVICE);
-// the models' memory is compared with it, the CPU's by default.
-export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null, computeDevice }) => {
+// The download catalog, as far as the review reads it (docs/voice-stack/model-downloads.md):
+// the reviews of the built-in downloads, the models, and the folder for one's own translation
+// models. Like the hook's catalog, it is declared, not checked.
+interface ReviewCatalog {
+    legacy_models?: readonly LegacyModelReview[] | null;
+    models?: readonly { id: string; target?: string }[] | null;
+    translation_models_folder?: string | null;
+}
+
+export interface LegacyModelDownloadDialogProps {
+    // "ctranslate2": the built-in translation models.
+    kind: string;
+    weightType: string;
+    onCancel: () => void;
+    onDownload: (request: LegacyDownloadRequest) => void;
+    extraAction?: { label: ReactNode; onClick: () => void } | null;
+    note?: ReactNode;
+    // The saved device of the local translation (SELECTED_TRANSLATION_COMPUTE_DEVICE); the
+    // models' memory is compared with it, the CPU's by default.
+    computeDevice?: TranslationDevice;
+}
+
+export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null, computeDevice }: LegacyModelDownloadDialogProps) => {
     const { t } = useI18n();
-    const { catalog, error, send } = useModelDownloads();
-    const [entry, setEntry] = useState(null), [consent, setConsent] = useState(false);
-    const [linkError, setLinkError] = useState(null);
+    const { catalog: downloadCatalog, error, send } = useModelDownloads();
+    const catalog: ReviewCatalog | null = downloadCatalog;
+    const [entry, setEntry] = useState<LegacyModelReview | null>(null), [consent, setConsent] = useState(false);
+    const [linkError, setLinkError] = useState<string | null>(null);
     const { dialog, close } = useConsentDialog(true);
     const submitted = useRef(false);
     const cancel = () => { close(); onCancel(); };
@@ -38,15 +62,17 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
         const reviewed = catalog?.legacy_models?.find(item => item.kind === kind && item.weight_type === weightType);
         if (reviewed) setEntry(previous => previous ?? reviewed);
     }, [catalog, kind, weightType]);
-    const openLink = async (event, url) => {
+    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(url); setLinkError(null); }
         catch { setLinkError(url); }
     };
-    const modelCard = model => `https://huggingface.co/${model.repo}/blob/${model.revision}/README.md`;
-    const revision = value => <code title={value} aria-description={value}>{value.slice(0, 12)}</code>;
+    const modelCard = (model: { repo: string; revision: string }) => `https://huggingface.co/${model.repo}/blob/${model.revision}/README.md`;
+    const revision = (value: string) => <code title={value} aria-description={value}>{value.slice(0, 12)}</code>;
     const request = legacyDownloadRequest(entry, consent);
+    // The reviewed tokenizer, read by the link's handler as well.
+    const tokenizer = entry?.tokenizer;
     const translation = kind === "ctranslate2" && !!catalog && !entry;
     const translationRows = translation ? (catalog.models ?? []).filter(model => model.target === "translation") : [];
     const variants = translationCatalogIds(weightType);
@@ -71,12 +97,12 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
                     <div className={dialogStyles.fact}>
                         <dt>{t("legacy_model_downloads.size")}</dt><dd>{legacyReviewSize(entry, t)}</dd>
                     </div>
-                    {entry.tokenizer && <div className={dialogStyles.fact}>
+                    {tokenizer && <div className={dialogStyles.fact}>
                         <dt>{t("legacy_model_downloads.additional_files")}</dt>
-                        <dd>{t("legacy_model_downloads.tokenizer_label")}: <a href={modelCard(entry.tokenizer)}
-                            onClick={event => openLink(event, modelCard(entry.tokenizer))} target="_blank" rel="noreferrer">{entry.tokenizer.repo}</a>
-                            {" ("}{t("legacy_model_downloads.revision_label")} {revision(entry.tokenizer.revision)}{")"}
-                            {entry.tokenizer.bundled && <p>{t("legacy_model_downloads.included_tokenizer")}</p>}
+                        <dd>{t("legacy_model_downloads.tokenizer_label")}: <a href={modelCard(tokenizer)}
+                            onClick={event => openLink(event, modelCard(tokenizer))} target="_blank" rel="noreferrer">{tokenizer.repo}</a>
+                            {" ("}{t("legacy_model_downloads.revision_label")} {revision(tokenizer.revision)}{")"}
+                            {tokenizer.bundled && <p>{t("legacy_model_downloads.included_tokenizer")}</p>}
                             {entry.tokenizer_size_unknown && <p>{t("legacy_model_downloads.plus_tokenizer")}</p>}
                         </dd>
                     </div>}
@@ -96,7 +122,7 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
                         ? "legacy_model_downloads.consent" : "legacy_model_downloads.consent_without_extra_files")}</label>
             </> : translation ? <>
                 {translationRows.length > 0
-                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }}
+                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} reserve={undefined}
                         only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} translationDevice={computeDevice} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 {/* A model of one's own is added in the translation catalog, from any folder (#597). */}
