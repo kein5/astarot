@@ -12,7 +12,7 @@ from threading import Event, RLock, Thread
 import time
 from uuid import uuid4
 
-from .catalog import CATALOG, CATALOG_VERSION, RESTRICTIONS, artifact_url, license_restrictions, validate_catalog
+from .catalog import CATALOG, CATALOG_VERSION, RESTRICTIONS, artifact_url, restrictions_for, validate_catalog
 from .guidance import model_guidance
 from .speechcpp_asr import model_profile, speech_model
 from .transport import open_public
@@ -63,7 +63,7 @@ class Downloads:
                 source=f'https://huggingface.co/{m.repo}/tree/{m.revision}', guidance=model_guidance(m.id),
                 speech=speech_model(m.id), profile=model_profile(m.id), sources=sorted({f'https://huggingface.co/{r}/tree/{v}' for r, v, _ in
                                 (a.remote or (m.repo, m.revision, a.filename) for a in m.artifacts)}),
-                restrictions=license_restrictions(m.license)) for m in self.entries.values()]}
+                restrictions=restrictions_for(m.target, m.license)) for m in self.entries.values()]}
 
     def _present(self, entry):
         """The paths of an entry published in an earlier run, or None.
@@ -118,7 +118,8 @@ class Downloads:
         if (not isinstance(request['id'], str) or request['catalog_version'] != self.catalog_version
                 or request['id'] not in self.entries):
             raise ValueError('catalog_changed')
-        restrictions = license_restrictions(self.entries[request['id']].license)
+        entry = self.entries[request['id']]
+        restrictions = restrictions_for(entry.target, entry.license)
         if set(acknowledged) - set(restrictions):
             raise ValueError('download_request_invalid')
         if set(restrictions) - set(acknowledged):
