@@ -2,7 +2,7 @@
 
 アプリの部品を shadcn/ui の部品と照らし合わせ、差分を一覧にした文書です。DESIGN.md の「Components」の節にある、部品を shadcn/ui に寄せる方針（#680）を進めるための下調べです。棚卸しの時点では、部品のコードを変えていませんでした。その後に寄せた差は、表の「扱い」の列に PR の番号を添えて「寄せた」と書いています。
 
-- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694、検索欄は #695、チェックボックスとスライダーは #697 で寄せました。
+- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694、検索欄は #695、チェックボックスとスライダーは #697、ツールチップは #721 で寄せました。
 - 照合した shadcn/ui: [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`、2026-11-17）。MIT ライセンスです。どのスタイルに寄せるかは D-01 で決めます。
 - 照合したアプリ: develop（#676 と #677 のマージ後）
 - 関係する文書: [設定画面の部品の実験](README.md)（#452、`src-ui/views/kit/`）、[ADR-010](../../adr/adr-010-frontend-stack.md)
@@ -62,7 +62,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 |---|---|---|---|
 | ファイル | kit は部品ごとに `Name.tsx` と `Name.css.ts`。ほかは `Name.jsx` と `Name.module.scss` | 1つの部品を1つの `.tsx` に書く | 残す（vanilla-extract のスタイルは `.css.ts` に置く）。`.tsx` と `.css.ts` の組にそろえる |
 | パーツ | ダイアログやカードはパーツに分けず、使う側がマークアップを書く | `DialogHeader`、`DialogTitle` のように、パーツを名前付きで export する | 寄せる。新しく作るときと置き換えるときにパーツに分ける |
-| `data-slot` | kit の部品（#684、#691）、`_Entry` の入力欄（#691）、設定の検索の InputGroup のパーツと言語の一覧の検索欄、Empty（#695）。ほかはなし | すべてのパーツに付ける | 寄せる |
+| `data-slot` | kit の部品（#684、#691）、`_Entry` の入力欄（#691）、設定の検索の InputGroup のパーツと言語の一覧の検索欄、Empty（#695）、ツールチップの `tooltip-trigger` と `tooltip-content`（#721）。ほかはなし | すべてのパーツに付ける | 寄せる |
 | variant | kit は `recipe()`（`button` の `tone` と `size`、`field` の `kind` と `mono`、`row` の `layout`） | `cva()`。`buttonVariants` のように部品の隣で export する | recipe は既にある。export の名前と variant の名前は、部品ごとの判断（ボタンは D-10）で決める |
 | ref | kit は `forwardRef` | React 19 の `ref` の props | 残す（React 18） |
 | Radix | `@radix-ui/react-switch` と `@radix-ui/react-visually-hidden` だけ | 多くの部品が Radix（統合パッケージの `radix-ui`） | パッケージは個別のまま（DESIGN.md）。どの部品を Radix にするかは、下の部品ごとの判断で決める |
@@ -198,7 +198,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 |---|---|---|---|
 | 土台 | CSS の hover と focus で開く。`Hint` は `:has(:focus-visible)` で開き、`aria-describedby` で読まれる | Radix Tooltip（Provider、Trigger、Content、Arrow。ポータルに描く） | 判断（D-21）。ADR-010 が Radix に置き換える候補に挙げている部品 |
 | 開くまで | `Tooltip` は .1 秒待って .15 秒で現れる。`Hint` は 120ms で現れる | `delayDuration` は 0 | D-21 に含める |
-| 見た目 | `dark_700` の塗りに明るい文字、1.2rem/500。`Tooltip` は余白 `.4rem .8rem` と 4px、`Hint` は `.8rem 1.2rem` と 8px で幅は最大 36rem。矢印なし | `foreground` の塗りに `background` の文字（色が反転）、`text-xs`（1.2rem）、`px-3 py-1.5`（1.2rem、.6rem）、8px。矢印あり | 余白と角丸を寄せ、`Tooltip` と `Hint` の見た目を1つにするのは寄せる。色の反転と矢印は判断（D-22） |
+| 見た目 | `Tooltip` と `Hint` は1つの見た目（`common_css/mixins.scss` の `tooltip_content`。#721）。`dark_700` の塗りに明るい文字、1.2rem/500、行の高さ 1.6、余白 `.6rem 1.2rem`、8px、言葉の幅で最大 36rem、文の改行を保つ。前は `Tooltip` が余白 `.4rem .8rem` と 4px の1行（中の段落は `root.css` で折り返すので、ボタンの幅の中で数文字ずつに折れていた）、`Hint` が `.8rem 1.2rem`。矢印なし | `foreground` の塗りに `background` の文字（色が反転）、`text-xs`（1.2rem、行の高さ 1.33）、太さの指定なし、`px-3 py-1.5`（1.2rem、.6rem）、8px、`text-balance`。矢印あり | 余白と角丸は寄せ、`Tooltip` と `Hint` の見た目を1つにした（#721）。色の反転と矢印は判断（D-22）。文字の太さ、行の高さ、`text-balance` は D-42 |
 
 ### Dialog と AlertDialog
 
@@ -374,6 +374,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | D-39 | Empty の広い画面での余白（`md:p-12`、4.8rem）を取り入れるか。shadcn/ui はウィンドウの幅 768px 以上で 2.4rem から 4.8rem に広げる。アプリの Empty は検索の結果の一覧や言語の一覧の中に開くので、2.4rem のままにした | Empty |
 | D-40 | 設定の検索欄の中身を InputGroup に寄せるか。虫眼鏡のアイコンは 1.5rem で `size-4`（1.6rem）より小さく、左の余白は .8rem で `pl-3`（1.2rem）より狭く、文字は 1.3rem で入力欄の 1.4rem より小さい。広いウィンドウの検索欄は設定のレールの幅（20.8rem）から左右の余白を引いた 17.6rem で、文字を大きくすると入る文字が減る | Combobox、InputGroup |
 | D-41 | しきい値の部品（音量のメーターに重ねた細いつまみ）を Slider に寄せるか、メーターと一体のアプリだけの部品として照合の外にするか。寄せるなら、つまみの形（幅 .4rem、高さ 4rem）とメーターの色をどう扱うかも決める | Slider |
+| D-42 | ツールチップの文字の細部を寄せるか。アプリは 500 の太さで行の高さ 1.6、shadcn/ui は太さの指定がなく（400）、`text-xs` の行の高さは 1.33 で、`text-balance` で行の長さを釣り合わせる。`Hint` は複数行の説明を出すので、行の高さは DESIGN.md の説明の 1.6 にそろえた | Tooltip |
 
 ほかに、#680 の判断項目（寄せる先を本家の shadcn/ui にすること、ADR-010 の7章への注記、ライセンスの記録の範囲）と、設定画面の部品の実験の残課題 K-01（kit を本採用するか）が、この棚卸しに関係します。
 
@@ -395,7 +396,7 @@ kit（画面ではまだ使っていない部品）:
 7. `_Entry` の塗り、枠、角丸、高さを kit の入力欄にそろえる（#691。左右の余白と使えない状態は D-37）。
 8. 色のポップオーバーと、設定の検索の結果の一覧の地を `--vox_surface` にする（設定の検索の結果の一覧は #695。色のポップオーバーは残っている）。
 9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。
-10. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする。
+10. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする（#721。文字の細部は D-42）。
 11. プリセットの切り替えの `div role="button"` を `button` にする。
 12. `Separator`、`Badge`、`Spinner` をそれぞれ1つの部品にまとめる（見た目は今のまま）。
 13. 検索の「結果なし」を Empty の形にそろえる（設定の検索と言語の一覧は #695。`Empty` の部品を `common_components` に作った）。
