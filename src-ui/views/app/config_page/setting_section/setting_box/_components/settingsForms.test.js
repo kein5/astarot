@@ -27,7 +27,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     // The production hook's functions are destructured, so the fake uses closures too.
     state.updateMicWordFilterList = fn => { state.currentMicWordFilterList.data = fn(state.currentMicWordFilterList); };
     const Entry = () => null;
-    const { WordFilter } = await loadModule(new URL("./word_filter/WordFilter.jsx", import.meta.url), runtime, {
+    const { WordFilter } = await loadModule(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
         "../../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true } }) },

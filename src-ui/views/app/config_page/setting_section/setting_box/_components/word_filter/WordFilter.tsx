@@ -2,29 +2,32 @@ import { useI18n } from "@useI18n";
 import styles from "./WordFilter.module.scss";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import { useState, useRef, useEffect, useCallback } from "react";
+import type { ChangeEvent } from "react";
+import type { EntryHandle } from "../_atoms/_entry/_Entry";
 import { useStore_IsOpenedMicWordFilterList } from "@store";
 import { useTranscription } from "@logics_configs";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
 
-export const WordFilter = (props) => {
+export const WordFilter = (props: { "aria-describedby"?: string }) => {
     const { t } = useI18n();
 
     const [input_value, setInputValue] = useState("");
     const { currentMicWordFilterList, setMicWordFilterList } = useTranscription();
     const { currentIsOpenedMicWordFilterList, updateIsOpenedMicWordFilterList } = useStore_IsOpenedMicWordFilterList();
 
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
     const form = useSettingsDraft(currentMicWordFilterList.data, error, setError, {
         write: setMicWordFilterList,
         label: () => t("config_page.transcription.mic_word_filter.label"),
     });
     const words = form.draft ?? currentMicWordFilterList.data;
 
-    const listSectionRef = useRef(null);
+    const listSectionRef = useRef<HTMLDivElement | null>(null);
     const shouldScrollToBottomRef = useRef(false);
-    const entryRef = useRef(null);
-    const deleteRefs = useRef(new Map());
-    const pendingFocusRef = useRef(null);
+    const entryRef = useRef<EntryHandle>(null);
+    const deleteRefs = useRef(new Map<string, HTMLButtonElement>());
+    // The word just removed and its button: focus goes to the next word's button once it is gone.
+    const pendingFocusRef = useRef<{ word: string; button: HTMLButtonElement; index: number } | null>(null);
 
     useEffect(() => {
         const pending = pendingFocusRef.current;
@@ -36,7 +39,7 @@ export const WordFilter = (props) => {
         (deleteRefs.current.get(word) ?? entryRef.current)?.focus();
     }, [words]);
 
-    const setListSectionRef = useCallback((node) => {
+    const setListSectionRef = useCallback((node: HTMLDivElement | null) => {
         listSectionRef.current = node;
         if (node) {
             node.scrollTop = node.scrollHeight;
@@ -59,7 +62,7 @@ export const WordFilter = (props) => {
         }
     }, [words, currentIsOpenedMicWordFilterList.data]);
 
-    const onChangeEntry = (e) => {
+    const onChangeEntry = (e: ChangeEvent<HTMLInputElement>) => {
         setInputValue(e.target.value);
     };
 
@@ -82,7 +85,7 @@ export const WordFilter = (props) => {
         setInputValue("");
     };
 
-    const deleteAction = (target_item_value, button) => {
+    const deleteAction = (target_item_value: string, button: HTMLButtonElement) => {
         pendingFocusRef.current = { word: target_item_value, button,
             index: words.indexOf(target_item_value) };
         form.setDraft(words.filter(item => item !== target_item_value));
@@ -115,7 +118,13 @@ export const WordFilter = (props) => {
 
 import DeleteSvg from "@images/cancel.svg?react";
 import clsx from "clsx";
-const WordFilterItem = (props) => {
+interface WordFilterItemProps {
+    value: string;
+    deleteAction: (value: string, button: HTMLButtonElement) => void;
+    buttonRef: (node: HTMLButtonElement | null) => void;
+}
+
+const WordFilterItem = (props: WordFilterItemProps) => {
     const { t } = useI18n();
     const item_wrapper_class_names = clsx(styles["item_wrapper"]);
     const item_text_class_names = clsx(styles["item_text"]);
@@ -133,7 +142,7 @@ const WordFilterItem = (props) => {
 };
 
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
-export const WordFilterListToggleComponent = (props) => {
+export const WordFilterListToggleComponent = (props: { "aria-describedby"?: string }) => {
     const { t } = useI18n();
     const { currentIsOpenedMicWordFilterList, updateIsOpenedMicWordFilterList } = useStore_IsOpenedMicWordFilterList();
     const { currentMicWordFilterList } = useTranscription();

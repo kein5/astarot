@@ -221,7 +221,7 @@ test("settings keep the selected engine inside the radio row's accessible help",
         "../description/Description": { Description: "description" },
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
     });
-    const { RadioButton } = await loadModule(new URL("_components/radio_button/RadioButton.jsx", root), rowRuntime, {
+    const { RadioButton } = await loadModule(new URL("_components/radio_button/RadioButton.tsx", root), rowRuntime, {
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
     });
     const { RadioButtonContainer } = await loadModule(new URL("_templates/Templates.jsx", root), rowRuntime, {

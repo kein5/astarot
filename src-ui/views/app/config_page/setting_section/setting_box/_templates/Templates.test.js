@@ -16,11 +16,11 @@ async function setup(hints = false) {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
         "../description/Description": { Description: "description" }, ...hintModule(hints),
     });
-    const { RadioButton } = await loadModule(new URL(base + "radio_button/RadioButton.jsx", import.meta.url), hooks(), hintModule(hints));
-    const { DownloadModels } = await loadModule(new URL(base + "download_models/DownloadModels.jsx", import.meta.url), hooks(), {
+    const { RadioButton } = await loadModule(new URL(base + "radio_button/RadioButton.tsx", import.meta.url), hooks(), hintModule(hints));
+    const { DownloadModels } = await loadModule(new URL(base + "download_models/DownloadModels.tsx", import.meta.url), hooks(), {
         "../index": { RadioButton }, "../_atoms/_download_button/_DownloadButton": { _DownloadButton: "download" },
     });
-    const { DropdownMenu, MultiDropdownMenu } = await loadModule(new URL(base + "dropdown_menu/DropdownMenu.jsx", import.meta.url), hooks(), {
+    const { DropdownMenu, MultiDropdownMenu } = await loadModule(new URL(base + "dropdown_menu/DropdownMenu.tsx", import.meta.url), hooks(), {
         "../_atoms/_dropdown_menu/_DropdownMenu": { _DropdownMenu: "dropdown" },
     });
     const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu,
