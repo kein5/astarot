@@ -13,14 +13,17 @@ import { acceptObservation, resetObservations } from "../common/polledState.ts";
 // The voice replies of the core (native/core/src/controller/voice), as far as this hook reads
 // them. They are not checked here; the settings pages read the other fields.
 
-// /get/data/voice_settings.
+// /get/data/voice_settings. The core keeps every field as a string (native/tts/src/settings.rs);
+// a field saved before it existed is missing.
 export interface VoiceSettings {
-    readonly [key: string]: unknown;
+    readonly [key: string]: string | undefined;
 }
 
-// /get/data/voice_status, polled. tts_generation counts the changes of the TTS switch.
+// /get/data/voice_status, polled. tts_generation counts the changes of the TTS switch; queued is
+// the number of sentences waiting to be read.
 export interface VoiceStatus extends RouteSnapshot {
     tts_generation?: number;
+    queued?: number;
     tts_enabled?: unknown;
     tts_server_starting?: unknown;
 }
@@ -28,8 +31,8 @@ export interface VoiceStatus extends RouteSnapshot {
 // The saved direct voice settings in its state. The RVC fields are what the main switch
 // starts RVC with (rvcStartOptions).
 export interface DirectVoiceSettings extends RvcSettings {
-    readonly mode?: unknown;
-    readonly engine?: unknown;
+    readonly mode?: string;
+    readonly engine?: string;
     readonly [key: string]: unknown;
 }
 
@@ -43,12 +46,24 @@ export interface DirectVoiceState extends RouteSnapshot {
     stopping?: unknown;
     error?: unknown;
     output_route?: unknown;
+    // The conversion while it runs: where it converts and its delays in ms, null until measured (conversionLatency.ts).
+    active?: unknown;
+    conversion_device?: unknown;
+    conversion_latency_ms?: number | null;
+    conversion_block_ms?: number | null;
+    round_trip_ms?: number | null;
     settings?: DirectVoiceSettings | null;
+}
+
+// One output device: its id and the name it is shown with.
+export interface VoiceOutputDevice {
+    readonly id: string;
+    readonly label: string;
 }
 
 // /get/data/voice_output_devices.
 export interface VoiceOutputDevices {
-    readonly devices: readonly unknown[];
+    readonly devices: readonly VoiceOutputDevice[];
     readonly error: unknown;
     readonly [key: string]: unknown;
 }
@@ -65,7 +80,7 @@ export interface VoiceSource {
 // One input in the list: its identity and the name it is shown with.
 export interface VoiceSourceRow {
     readonly id: VoiceSource;
-    readonly label?: unknown;
+    readonly label?: string;
     readonly [key: string]: unknown;
 }
 
@@ -79,12 +94,32 @@ export interface DirectVoiceSources {
 
 export type VoiceModelRole = "japanese" | "multilingual";
 
+// What the model of a speech server takes (native/tts/src/model_options.rs): its name, the range of
+// a fixed seed when it takes one, and whether it takes instructions.
+export interface TtsModelCapabilities {
+    readonly model?: string | null;
+    readonly seed?: { readonly minimum: number | string; readonly maximum: number | string } | null;
+    readonly instructions?: boolean;
+}
+
 // /get/data/tts_model_options for one role, or the request still waiting for it (options null).
+// The server and URL it was asked of say whether it still answers for the saved settings.
 export interface ModelOptions {
     readonly request_id?: string;
     readonly role?: unknown;
-    readonly options?: unknown;
+    readonly options?: TtsModelCapabilities | null;
+    readonly server?: unknown;
+    readonly configured_url?: unknown;
+    readonly server_generation?: unknown;
+    readonly base_url?: unknown;
     readonly [key: string]: unknown;
+}
+
+// One voice of an installed speech engine: a style of one of its speakers.
+export interface EngineVoice {
+    readonly id: string;
+    readonly speaker: string;
+    readonly style: string;
 }
 
 // /get/data/tts_engine_voices: the check of an installed speech engine (ADR-008).
@@ -92,7 +127,7 @@ export interface EngineVoices {
     readonly request_id?: string;
     readonly engine?: string;
     readonly pending?: boolean;
-    readonly voices?: unknown;
+    readonly voices?: readonly EngineVoice[];
     readonly connected?: unknown;
     readonly version?: unknown;
     readonly error_code?: unknown;
@@ -115,7 +150,8 @@ export interface VoiceRequestData {
     readonly url?: unknown;
     readonly catalog?: unknown;
     readonly mode?: unknown;
-    readonly options?: { readonly engine?: unknown } | null;
+    // A start's options: RVC's name their engine, Seed-VC's are its runtime and reference voice.
+    readonly options?: object | null;
     readonly request_id?: string;
     readonly [key: string]: unknown;
 }
@@ -142,6 +178,8 @@ const ttsPendingAtom = atom<VoiceRequest | null>(null), directPendingAtom = atom
 const directOwnerAtom = atom<unknown>(null);
 const directDraftBlockedAtom = atom(false);
 const inputOwner = (mode: unknown, engine: unknown): unknown => mode === "converted" ? engine || "rvc" : "passthrough";
+// The engine a start names in its options, as reading options.engine gave it.
+const engineOf = (options: object | null | undefined): unknown => options && "engine" in options ? options.engine : undefined;
 const isModelRole = (role: unknown): role is VoiceModelRole => role === "japanese" || role === "multilingual";
 // Keep the complete backend identity. Refresh never rebinds a selected name.
 export const sourceKey = (id: VoiceSource) => JSON.stringify([id.cookie, id.serial, id.name, id.media_class]);
@@ -237,7 +275,8 @@ export const useVoice = () => {
         }
     }, [atoms]);
     const { asyncStdoutToPython } = useStdoutToPython();
-    const send = useCallback(async (endpoint: string, data?: VoiceRequestData): Promise<StdoutResult> => {
+    // data: what the page sends; a settings form sends its draft as it is.
+    const send = useCallback(async (endpoint: string, data?: VoiceRequestData | null): Promise<StdoutResult> => {
         if (endpoint === "/get/data/tts_model_options") {
             const request_id = `ui-${Date.now()}-${++optionsSequence}`;
             data = { ...data, request_id };
@@ -263,7 +302,7 @@ export const useVoice = () => {
             const request: VoiceRequest = { intent: endpoint === "/run/enable_tts" || endpoint === "/run/start_direct_voice",
                 generation: (ttsCommand ? atoms.get(statusAtom).tts_generation : atoms.get(directStateAtom).generation) ?? -1 };
             if (directCommand) {
-                request.owner = request.intent ? inputOwner(data?.mode, data?.options?.engine) : atoms.get(directOwnerAtom);
+                request.owner = request.intent ? inputOwner(data?.mode, engineOf(data?.options)) : atoms.get(directOwnerAtom);
                 atoms.set(directOwnerAtom, request.owner);
             }
             pendingTarget = target;

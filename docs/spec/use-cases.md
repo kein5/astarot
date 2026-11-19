@@ -206,4 +206,4 @@
 - 守ること: 押したときだけ鳴らす。ミュート中は断り（`voice_audition_muted`）、読み上げ停止、ミュート、試聴の停止（`/run/stop_voice_audition`。キューを通らない）、アプリの終了で止める。一度に1つだけ鳴らす。鳴っている間にもう一度押すと、同じカードでもほかのカードでも、前のものを止めて新しく鳴らす。30秒で終わらなければ止める（`voice_audition_timeout`）。文と音声は、ログ、ファイル、テレメトリーに出さない。要求と答えには文がなく、状態の問い合わせは診断ログに書かない。同梱サーバーが止まっていれば断り（`voice_audition_server_not_ready`）、自分では起動しない。
 - 使えないとき: 未取得のカードには何も足さない（先に取得する）。使用中でないカード、サーバーが止まっているとき、モニターがオフのとき、ミュート中は、ボタンの代わりに理由を1行で出す。中核が断ったときと再生に失敗したときは、そのカードに理由を出す。
 - まだないこと: RVCのカードの試聴（変換するサンプルの声と一時的なworkerが要る）、使用中でないモデルの試聴（そのモデルでサーバーを起動し直すことになる）。
-- 関係: `/run/start_voice_audition`、`/run/stop_voice_audition`、`/get/data/voice_audition_state`、`native/core/src/controller/voice/audition.rs`、`src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceAudition.jsx`、`src-ui/logics/voice/voiceAudition.ts`。
+- 関係: `/run/start_voice_audition`、`/run/stop_voice_audition`、`/get/data/voice_audition_state`、`native/core/src/controller/voice/audition.rs`、`src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceAudition.tsx`、`src-ui/logics/voice/voiceAudition.ts`。

@@ -248,7 +248,7 @@ test("the forms' primary action is Lilac: the plain class name primary is matche
     // CSS Modules renames .primary, and the forms write className="primary", so only :global matches.
     assert.doesNotMatch(css, /button\.primary/);
     assert.match(css, /button:global\(\.primary\)\s*{[^}]*background: var\(--primary_600_color/);
-    const downloads = read(box + "advanced_settings/ModelDownloads.jsx");
+    const downloads = read(box + "advanced_settings/ModelDownloads.tsx");
     assert.match(downloads, /className="primary" disabled=\{!agreed \|\| busy\}/, "agreeing to a download is the primary action");
 });
 
@@ -331,7 +331,7 @@ test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider 
     assert.match(form, /input\[type="range"\]::-webkit-slider-runnable-track \{ height: \.6rem;[^}]*linear-gradient\(to right, var\(--primary_600_color\) var\(--range-fill, 0%\), var\(--dark_825_color\) var\(--range-fill, 0%\)\)/);
     assert.match(form, /input\[type="range"\]::-webkit-slider-thumb \{[^}]*height: 1\.8rem; margin-top: -\.6rem;/);
     assert.match(form, /input\[type="range"\]::-moz-range-progress \{ height: \.6rem;[^}]*background: var\(--primary_600_color\)/);
-    assert.match(read(box + "advanced_settings/VoiceSettings.jsx"), /<input type="range" min="0" max="100"[^>]*style=\{\{ "--range-fill": `\$\{draft\.monitor_volume \?\? "100"\}%` \}\}/);
+    assert.match(read(box + "advanced_settings/VoiceSettings.tsx"), /<input type="range" min="0" max="100"[^>]*style=\{\{ "--range-fill": `\$\{draft\.monitor_volume \?\? "100"\}%` \}\}/);
 });
 test("the forms' select draws the kit select's chevron, at its size and place", () => {
     // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
@@ -343,7 +343,7 @@ test("the forms' select draws the kit select's chevron, at its size and place", 
     assert.match(select, /background-position: right 1\.4rem center; background-size: 1\.6rem;/);
 });
 test("download dialogs write byte counts in the display language", () => {
-    for (const page of ["advanced_settings/ModelDownloads.jsx", "ocr/OcrModels.jsx"]) {
+    for (const page of ["advanced_settings/ModelDownloads.tsx", "ocr/OcrModels.jsx"]) {
         const source = read(box + page);
         assert.doesNotMatch(source, /\} bytes/, page);
         assert.match(source, /t\("model_downloads\.exact_bytes"/, page);

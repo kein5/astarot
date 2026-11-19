@@ -122,7 +122,7 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
                         ? "legacy_model_downloads.consent" : "legacy_model_downloads.consent_without_extra_files")}</label>
             </> : translation ? <>
                 {translationRows.length > 0
-                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} reserve={undefined}
+                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }}
                         only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} translationDevice={computeDevice} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 {/* A model of one's own is added in the translation catalog, from any folder (#597). */}

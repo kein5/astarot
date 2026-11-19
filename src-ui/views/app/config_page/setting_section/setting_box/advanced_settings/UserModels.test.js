@@ -9,7 +9,7 @@ async function form(context, models) {
     const runtime = hooks(), sent = [];
     const state = { models };
     context.onTestFinished(() => runtime.unmount());
-    const { UserModelRegistration } = await loadModule(new URL("./UserModels.jsx", import.meta.url), runtime, {
+    const { UserModelRegistration } = await loadModule(new URL("./UserModels.tsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({
             userModels: { models: state.models }, send: (path, data) => sent.push([path, data]) }) },
         "../../../../../../logics/voice/modelCatalog": modelCatalog,

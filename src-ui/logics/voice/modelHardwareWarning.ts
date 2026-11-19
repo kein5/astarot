@@ -38,7 +38,7 @@ export const GPU_RESERVE = { vrchat: 4 * GiB };
 const RESERVED_GPU = GPU_RESERVE.vrchat;
 // The CPU marks of a model that a CPU does not run at a usable speed (native/ops/data/speechcpp_asr.json).
 const SLOW_ON_CPU = ["impractical", "slow"];
-// The engine's device choices (SpeechServers.jsx); anything else names one device.
+// The engine's device choices (SpeechServers.tsx); anything else names one device.
 const DEVICE_CHOICES = ["auto", "cpu", "gpu"];
 
 const positive = (value: unknown): value is number => Number.isSafeInteger(value) && (value as number) > 0;

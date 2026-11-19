@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -7,14 +8,22 @@ import { useConsentDialog } from "../../../../../../logics/common/useConsentDial
 import styles from "./VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 
-const gb = value => `${(value / 1e9).toFixed(1)} GB`;
+const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;
 
 // Offers to prepare an engine's runtime where the backend can; elsewhere it renders nothing.
-export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
+// current: the runtime folder in the form; onUse writes an installed folder into it.
+export interface VcRuntimeSetupProps {
+    engine: string;
+    current?: string;
+    disabled?: boolean;
+    onUse?: (path: string) => void;
+}
+
+export const VcRuntimeSetup = ({ engine, current, disabled, onUse }: VcRuntimeSetupProps) => {
     const { t } = useI18n();
     const { catalog, state, error, pending, send } = useVcRuntimes();
-    const [open, setOpen] = useState(false), [consent, setConsent] = useState(false), [linkError, setLinkError] = useState(null);
-    const section = useRef(null);
+    const [open, setOpen] = useState(false), [consent, setConsent] = useState(false), [linkError, setLinkError] = useState<string | null>(null);
+    const section = useRef<HTMLElement>(null);
     const { dialog, close: closeDialog } = useConsentDialog(open, section);
     useEffect(() => {
         send("/get/data/vc_runtime_catalog"); send("/get/data/vc_runtime_state");
@@ -25,10 +34,10 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }) => {
     const active = activeSetupPhases.includes(job?.phase);
     const busy = !!pending || Object.values(state.jobs).some(item => activeSetupPhases.includes(item.phase));
     // A runtime may word a step or a failure its own way (DirectML is not CUDA): `<key>_<notice>`.
-    const own = (key, fallback) => t(`${key}_${entry.notice}`, { defaultValue: fallback });
-    const failure = code => own(`vc_runtime.errors.${code}`, t(`vc_runtime.errors.${code}`, { defaultValue: t("vc_runtime.errors.vc_runtime_failed") }));
+    const own = (key: string, fallback: string) => t(`${key}_${entry.notice}`, { defaultValue: fallback });
+    const failure = (code: string) => own(`vc_runtime.errors.${code}`, t(`vc_runtime.errors.${code}`, { defaultValue: t("vc_runtime.errors.vc_runtime_failed") }));
     const close = () => { closeDialog(); setOpen(false); setConsent(false); setLinkError(null); };
-    const openLink = async (event, url) => {
+    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(url); setLinkError(null); }

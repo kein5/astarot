@@ -5,7 +5,7 @@ import yaml from "js-yaml";
 
 // #391: Seed-VC ran on the Python backend and ended with it. The settings no longer offer it,
 // RVC is the default engine, and a conversion moved from Seed-VC to RVC is explained once.
-const source = readFileSync(new URL("./DirectVoiceSettings.jsx", import.meta.url), "utf8");
+const source = readFileSync(new URL("./DirectVoiceSettings.tsx", import.meta.url), "utf8");
 const strings = language => yaml.load(readFileSync(new URL(`../../../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
 
 test("the direct voice settings offer no Seed-VC and default to RVC", () => {

@@ -298,7 +298,7 @@ overlay relayは新しいcatalog/state/start/cancel/applyとhardware取得/更�
 ## 実装と試験
 
 - `src-python/models/model_downloads/{catalog,transport,staging,manager,hardware,guidance}.py` とController/stdioの7ルート。
-- `ModelDownloads.jsx` / `useModelDownloads.ts`、SpeechServers/DirectVoiceSettingsへの小さな挿入。en/jaの独立namespace。
+- `ModelDownloads.tsx` / `useModelDownloads.ts`、SpeechServers/DirectVoiceSettingsへの小さな挿入。en/jaの独立namespace。
 - `modelHardwareAdvice.js`で取得値と候補から案内を算出。CPU・共有メモリ・容量不明/ゼロ・複数GPU・測定期限を区別する。
 - IPC送信関数を安定させ、再描画に伴うcatalog/state再取得ループを修正。idle時の取得回数不変をブラウザで確認。
 - Apply後の確認済み保存値がcleanフォームへ反映されない問題は、`useSettingsDraft.tsx`で直前の保存値とdraftを比較する形に修正。未保存の編集は保持する。

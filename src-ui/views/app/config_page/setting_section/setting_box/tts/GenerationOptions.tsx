@@ -2,17 +2,27 @@ import { useEffect, useId } from "react";
 import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
+import type { VoiceModelRole, VoiceSettings } from "../../../../../../logics/voice/useVoice";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 
-export const validGenerationOptions = draft => ["japanese", "multilingual"].every(role => {
+export const validGenerationOptions = (draft: VoiceSettings) => ["japanese", "multilingual"].every(role => {
     const seed = draft[`${role}_seed`] || "", instruction = draft[`${role}_instructions`] || "";
     return (!seed || (/^[0-9]{1,16}$/.test(seed) && BigInt(seed) <= 9007199254740991n)) &&
         Array.from(instruction).length <= 4000 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(instruction);
 });
 
-export const GenerationOptions = ({ role, draft, field, errorId }) => {
+// One role's generation fields (seed and instructions) in the TTS draft; `field` writes one field
+// of the draft and `errorId` names the page's message about invalid options.
+export interface GenerationOptionsProps {
+    role: VoiceModelRole;
+    draft: VoiceSettings;
+    field: (key: string, value: string) => void;
+    errorId: string;
+}
+
+export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOptionsProps) => {
     const { t } = useI18n();
     const { settings, modelOptions, send } = useVoice();
     const { state } = useSpeechServers();
@@ -30,7 +40,7 @@ export const GenerationOptions = ({ role, draft, field, errorId }) => {
         return () => clearInterval(timer);
     }, [role, server, url, generation, phase, canQuery, send]);
     const row = modelOptions[role];
-    const matches = canQuery && row?.server === server && row.configured_url === url &&
+    const matches = canQuery && row !== undefined && row.server === server && row.configured_url === url &&
         (server !== "bundled" || (row.server_generation === generation && row.base_url === owner?.base_url)) &&
         draft[`${role}_server`] === server && draft[`${role}_url`] === url;
     const options = matches ? row.options : null;
@@ -41,7 +51,7 @@ export const GenerationOptions = ({ role, draft, field, errorId }) => {
     const invalidInstructions = Array.from(instructions).length > 4000 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(instructions);
     const outsideSeedRange = options?.seed && fixed && /^[0-9]{1,16}$/.test(seed) &&
         (BigInt(seed) < BigInt(options.seed.minimum) || BigInt(seed) > BigInt(options.seed.maximum));
-    const support = value => t(`voice_ui.${!options ? "not_confirmed" : value ? "supported" : "not_supported"}`);
+    const support = (value: unknown) => t(`voice_ui.${!options ? "not_confirmed" : value ? "supported" : "not_supported"}`);
     return <>
         <label>{t("voice_ui.seed_mode")}<select aria-label={t("voice_ui.seed_mode")} value={fixed ? "fixed" : "random"}
             onChange={e => field(seedKey, e.target.value === "fixed" ? "0" : "")}>
@@ -59,7 +69,7 @@ export const GenerationOptions = ({ role, draft, field, errorId }) => {
         <EnvReadout><p>{t("voice_ui.option_support", { seed: support(options?.seed), instruction: support(options?.instructions) })}{options?.model ? ` · ${options.model}` : ""}</p></EnvReadout>
         {(fixed || instructions.trim()) && (!options || (fixed && !options.seed) || (instructions.trim() && !options.instructions)) &&
             <p>{t("voice_ui.options_warning")}</p>}
-        {outsideSeedRange && <p id={seedRangeId} role="alert">{t("voice_ui.seed_range", options.seed)}</p>}
+        {outsideSeedRange && <p id={seedRangeId} role="alert">{t("voice_ui.seed_range", options?.seed ?? undefined)}</p>}
         {/* In the control column, under the fields it checks (#473). */}
         <div className={`${styles.actions} ${styles.control_column}`}>
             <button type="button" disabled={!canQuery} aria-describedby={canQuery ? undefined : reasonId}

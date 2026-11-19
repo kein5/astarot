@@ -6,23 +6,33 @@ import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import styles from "./VoiceSettings.module.scss";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
+import type { DownloadBlock, ExpectedPaths } from "./ModelDownloads";
+import type { UserModel, UserModelStatus } from "../../../../../../logics/voice/modelCatalog";
 
-const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
+const gib = (value: number) => `${(value / 1073741824).toFixed(2)} GiB`;
 // A registered model's files are there, as a downloaded one's; a missing or changed one cannot play.
-const auditionStatus = status => status === "registered" ? "downloaded" : status === "in_use" ? "in_use" : "not_downloaded";
+const auditionStatus = (status: UserModelStatus) => status === "registered" ? "downloaded" : status === "in_use" ? "in_use" : "not_downloaded";
 
 // The cards of the models the user registered for one target (#403), in the same list as the
 // catalog's cards. "Use" writes the model's paths into the settings through the same checks as
 // applying a download (the saved value shown, the target stopped). Removing forgets the
 // registration only; the files and the settings that name them stay.
-export const UserModelCards = ({ target, expected, blocked, busy }) => {
+export interface UserModelCardsProps {
+    target: string;
+    expected?: ExpectedPaths;
+    blocked?: DownloadBlock;
+    busy: boolean;
+}
+
+export const UserModelCards = ({ target, expected, blocked, busy }: UserModelCardsProps) => {
     const { t } = useI18n();
     const { userModels, send } = useModelDownloads();
-    const [removing, setRemoving] = useState(null);
+    const [removing, setRemoving] = useState<string | null>(null);
     const rows = userModels?.models?.filter(model => model.target === target) ?? [];
     return rows.map(model => {
         const status = userModelStatus(model, expected?.[target]);
         const roles = USER_MODEL_FILES[target] ?? [];
+        const savedPaths = expected?.[target];
         return <li key={model.id} data-user-model tabIndex={-1} role="group" aria-label={model.name} className={styles.card}>
             <div className={styles.card_head}>
                 <strong>{model.name}</strong>
@@ -46,8 +56,8 @@ export const UserModelCards = ({ target, expected, blocked, busy }) => {
                 }}>{t("user_models.remove_do")}</button>
             </div> : <div className={styles.actions}>
                 {status !== "in_use" && <button type="button" className="primary"
-                    disabled={busy || !!blocked || status !== "registered" || !expected?.[target]}
-                    onClick={() => send("/run/apply_user_model", { id: model.id, expected: expected[target] })}>{t("user_models.use")}</button>}
+                    disabled={busy || !!blocked || status !== "registered" || !savedPaths}
+                    onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
                 {/* A TTS model in use can be heard on the monitor output (#415). */}
                 <AuditionButton target={target} status={auditionStatus(status)} />
                 <button type="button" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</button>
@@ -59,17 +69,31 @@ export const UserModelCards = ({ target, expected, blocked, busy }) => {
 
 // The form that registers a model file of one's own for a target. It only records where the
 // file is: nothing is copied, downloaded or switched by registering.
-export const UserModelRegistration = ({ target, busy }) => {
+export interface UserModelRegistrationProps {
+    target: string;
+    busy: boolean;
+}
+
+// The name sent, and the registrations that already had it.
+interface SentRegistration {
+    name: string;
+    before: string[];
+}
+
+// The tag of the element a key went to ("" for a target that is not an element).
+const tagOf = (target: EventTarget): string => "tagName" in target && typeof target.tagName === "string" ? target.tagName : "";
+
+export const UserModelRegistration = ({ target, busy }: UserModelRegistrationProps) => {
     const { t } = useI18n();
     const { send, userModels } = useModelDownloads();
     const id = useId();
     const kinds = USER_MODEL_FILES[target] ?? [];
-    const [name, setName] = useState(""), [paths, setPaths] = useState({});
-    const [problem, setProblem] = useState(null);
+    const [name, setName] = useState(""), [paths, setPaths] = useState<Readonly<Record<string, string>>>({});
+    const [problem, setProblem] = useState<string | null>(null);
     // The name sent, and the registrations that already had it: a refused duplicate
     // (user_model_exists) must not read as the model just registered.
-    const [sentFor, setSentFor] = useState(null);
-    const sameName = (model, sent) => model.target === target && model.name === sent;
+    const [sentFor, setSentFor] = useState<SentRegistration | null>(null);
+    const sameName = (model: UserModel, sent: string) => model.target === target && model.name === sent;
     // Clear the form once the list holds a new model with the name just sent.
     const registered = !!sentFor && !!userModels?.models?.some(model => sameName(model, sentFor.name) && !sentFor.before.includes(model.id));
     useEffect(() => {
@@ -90,7 +114,7 @@ export const UserModelRegistration = ({ target, busy }) => {
             form would submit (save) that one too. Enter in a field registers, as a form would. */}
         <div role="group" aria-label={t("user_models.register_label", { group: t(`model_catalog.group.${target}`) })}
             onKeyDown={event => {
-                if (event.key === "Enter" && event.target.tagName === "INPUT") { event.preventDefault(); if (!busy) submit(); }
+                if (event.key === "Enter" && tagOf(event.target) === "INPUT") { event.preventDefault(); if (!busy) submit(); }
             }}>
             <p>{t("user_models.register_help")}</p>
             <p>{t("user_models.terms_help")}</p>

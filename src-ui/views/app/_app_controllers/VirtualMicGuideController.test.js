@@ -136,7 +136,7 @@ test("while a check runs the meter follows it and the dialog cannot be put away"
 test("every text the guide shows exists in English and Japanese", () => {
     const keys = new Set();
     const source = readFileSync(new URL("./VirtualMicGuideController.tsx", import.meta.url), "utf8")
-        + readFileSync(new URL("../config_page/setting_section/setting_box/tts/VirtualMicEntry.jsx", import.meta.url), "utf8");
+        + readFileSync(new URL("../config_page/setting_section/setting_box/tts/VirtualMicEntry.tsx", import.meta.url), "utf8");
     for (const [, key] of source.matchAll(/"(virtual_mic\.[a-z_.]+)"/g)) keys.add(key);
     for (const code of [...source.matchAll(/"(virtual_mic_[a-z_]+|audio_devices_unavailable)"/g)].map(match => match[1]).concat("other"))
         keys.add(`virtual_mic.test.error.${code}`);

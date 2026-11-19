@@ -1,9 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
 import { modelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice";
+import type { ModelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice";
 import { hardwareWarning, translationDeviceMode } from "../../../../../../logics/voice/modelHardwareWarning";
 import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
 import { catalogFamilies, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
@@ -15,18 +17,32 @@ import { EngineCatalog } from "./EngineCatalog";
 import { UserModelCards, UserModelRegistration } from "./UserModels";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
 import { USER_MODEL_FILES } from "../../../../../../logics/voice/modelCatalog";
+import type { CatalogFamily, DownloadStatus } from "../../../../../../logics/voice/modelCatalog";
+import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics/voice/useModelDownloads";
+import type { HardwareWarning, TranslationDevice } from "../../../../../../logics/voice/modelHardwareWarning";
+import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
+
+// Why the Apply of a ready download waits: the page is busy, or the field it writes was edited.
+export type DownloadBlock = false | "busy" | "edited";
+// The saved paths each target's Apply replaces, as the page passes them (an RVC model has an index too).
+export type ExpectedPaths = Readonly<Partial<Record<string, { readonly model?: string; readonly index?: string }>>>;
+// A file under review: its catalog row, the catalog version the user saw and whether it is on disk already.
+type SelectedModel = ModelCatalogRow & { catalog_version: string; downloaded: boolean };
+// The restrictions the dialog has words for, as names to compare with any kind.
+const RESTRICTION_KINDS: readonly string[] = RESTRICTIONS;
+const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
 const activePhases = ["queued", "downloading", "verifying", "cancelling"];
 // The time of a reading in the display language, not the system's (\4:19:57 AM\ in a Japanese UI).
-export const measuredTime = (ms, language) => new Date(ms).toLocaleTimeString(language);
-const bytes = (value, t) => `${t("model_downloads.exact_bytes", { bytes: Number(value).toLocaleString("en-US") })} (${(value / 1073741824).toFixed(2)} GiB)`;
+export const measuredTime = (ms: number, language?: string) => new Date(ms).toLocaleTimeString(language);
+const bytes = (value: number, t: Translate) => `${t("model_downloads.exact_bytes", { bytes: Number(value).toLocaleString("en-US") })} (${(value / 1073741824).toFixed(2)} GiB)`;
 // The page lists sizes in GiB; the consent dialog keeps the exact byte counts.
-const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
+const gib = (value: number) => `${(value / 1073741824).toFixed(2)} GiB`;
 
-const reserveBytes = reserve => (reserve === 'vr' ? 2 : .5) * 1024 ** 3;
+const reserveBytes = (reserve: string) => (reserve === 'vr' ? 2 : .5) * 1024 ** 3;
 // The local translation runs on its own device (translationDeviceMode), mostly the CPU: the
 // advice on free GPU memory for the speech models says nothing of it.
-const NO_ADVICE = { recommended: null, reason: "unknown", device: null, multiple: false };
+const NO_ADVICE: ModelAdvice = { recommended: null, reason: "unknown", device: null, multiple: false };
 
 // Language codes as names in the UI language, joined the way that language lists things.
 // A long list shows its first few and how many more there are.
@@ -34,11 +50,12 @@ const useLanguageList = () => {
     const { t, i18n } = useI18n();
     const language = i18n?.language || "en";
     const names = createLanguageNames(language);
-    let list;
+    let list: Intl.ListFormat | null;
     try { list = new Intl.ListFormat(language, { type: "conjunction" }); }
     catch { list = null; }
-    return (codes, limit = Infinity) => {
-        const labels = codes.slice(0, limit).map(code => names.fromCode(code, code));
+    return (codes: readonly string[], limit = Infinity) => {
+        // A code is its own fallback, so every label is a string.
+        const labels = codes.slice(0, limit).map(code => names.fromCode(code, code) ?? code);
         const more = codes.length - labels.length;
         const text = list ? list.format(labels) : labels.join(", ");
         return more > 0 ? t("model_catalog.languages_more", { languages: text, count: more }) : text;
@@ -48,7 +65,13 @@ const useLanguageList = () => {
 // One GPU/memory reading for a page with several TTS engines: the headroom
 // choice, the refresh action and the measured device. Each engine's
 // ModelDownloads takes the same reserve and reads the same shared hardware.
-export const HardwareReadout = ({ reserve, setReserve }) => {
+// reserve: "vr" keeps memory for VR beside the engines, "alone" less.
+export interface HardwareReadoutProps {
+    reserve: string;
+    setReserve: (reserve: string) => void;
+}
+
+export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) => {
     const { t, i18n } = useI18n();
     const { hardware, send, ensureHardware } = useModelDownloads();
     const [, setNow] = useState(Date.now());
@@ -59,7 +82,7 @@ export const HardwareReadout = ({ reserve, setReserve }) => {
     }, []);
     // The device line uses the same pick as the per-engine advice (first GPU).
     const reading = modelAdvice([], hardware, { now: Date.now(), reserveBytes: reserveBytes(reserve) });
-    const memory = value => Number.isFinite(value) ? gib(value) : t('model_downloads.hardware_unknown');
+    const memory = (value: number | null) => isNumber(value) ? gib(value) : t('model_downloads.hardware_unknown');
     return <div className={styles.hardware} aria-label={t('model_downloads.hardware_title')} role="group">
         <h3>{t('model_downloads.hardware_title')}</h3>
         <label>{t('model_downloads.headroom')}<select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
@@ -85,21 +108,22 @@ export const HardwareReadout = ({ reserve, setReserve }) => {
 // What a user compares before choosing (the catalog row's `profile`, docs/voice-stack/model-downloads.md):
 // languages, download size, hardware and whom it is suggested for. Rows outside speech.cpp
 // (RVC) have no profile and show their size and terms only.
-const ModelFacts = ({ entry }) => {
+const ModelFacts = ({ entry }: { entry: ModelCatalogRow }) => {
     const { t } = useI18n();
     const languages = useLanguageList();
     const profile = entry.profile;
     const supported = profile?.languages ?? entry.speech?.languages ?? [];
     const hardware = profile && [
         profile.tier && t(`model_catalog.tier.${profile.tier}`),
-        Number.isFinite(profile.memory_bytes) && t("model_catalog.memory", { memory: gib(profile.memory_bytes), device: profile.memory_measured_on }),
+        isNumber(profile.memory_bytes) && t("model_catalog.memory", { memory: gib(profile.memory_bytes), device: profile.memory_measured_on }),
         t(`model_catalog.cpu.${profile.cpu}`, { defaultValue: "" }),
         t(`model_catalog.gpu.${profile.gpu}`, { defaultValue: "" }),
     ].filter(Boolean).join(" · ");
     // A translation model says the memory it needs while translating (guidance.rs), or that it
     // has not been measured: never a figure made up for it.
-    const translationMemory = entry.target === "translation" && (Number.isFinite(entry.guidance?.reference_memory_bytes)
-        ? t("model_catalog.translation_memory", { memory: gib(entry.guidance.reference_memory_bytes) })
+    const referenceMemory = entry.guidance?.reference_memory_bytes;
+    const translationMemory = entry.target === "translation" && (isNumber(referenceMemory)
+        ? t("model_catalog.translation_memory", { memory: gib(referenceMemory) })
         : t("model_catalog.translation_memory_unknown"));
     return <dl className={styles.facts}>
         {supported.length > 0 && <div><dt>{t("model_catalog.languages")}</dt><dd>{languages(supported, 12)}</dd></div>}
@@ -111,7 +135,7 @@ const ModelFacts = ({ entry }) => {
 };
 
 // A short word on the card's head for the state of the shown file; the readout below says more.
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status }: { status: DownloadStatus }) => {
     const { t } = useI18n();
     return <span className={styles.badge} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>;
 };
@@ -123,7 +147,7 @@ const WarningBadge = () => {
     return <span className={styles.badge} data-tone="hardware_warning">
         <span className={styles.warning_mark} aria-hidden="true" />{t("model_catalog.hardware_warning.badge")}</span>;
 };
-const WarningNote = ({ warning }) => {
+const WarningNote = ({ warning }: { warning: HardwareWarning }) => {
     const { t } = useI18n();
     const key = warning.reason === "low_memory" ? `low_memory_${warning.device?.kind === "cpu" ? "cpu" : "gpu"}` : warning.reason;
     // The note's own pattern joins the sentences: with spaces in English, without in Japanese.
@@ -137,9 +161,9 @@ const WarningNote = ({ warning }) => {
 
 // What a model's license restricts (modelRestrictions.ts), said before the consent: marked
 // like a warning, and naming the license. The checkbox under the consent acknowledges it.
-const RestrictionNote = ({ kind, license, id }) => {
+const RestrictionNote = ({ kind, license, id }: { kind: string; license: string; id: string }) => {
     const { t } = useI18n();
-    const key = RESTRICTIONS.includes(kind) ? kind : "other";
+    const key = RESTRICTION_KINDS.includes(kind) ? kind : "other";
     // The title on its own line, so the two sentences need no joining rule per language; the
     // space between them is kept for the text a screen reader reads.
     return <p id={id} className={styles.restriction}>
@@ -155,23 +179,36 @@ const RestrictionNote = ({ kind, license, id }) => {
 // The download, verification and apply steps are the same as before; only the choice is laid out
 // as a catalog. Nothing here starts a download or changes a setting by itself.
 // only: the catalog ids to show, when the caller asks about one model (a translation weight's row).
+// reserve: the headroom a page with a shared HardwareReadout chose; without it the catalog asks itself.
+// engines: also list the speech engines a user installs (the Japanese TTS catalog).
 // translationDevice: the saved device of the local translation, which the translation models'
 // warnings compare with (deviceMode is the speech engine's).
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice }) => {
+export interface ModelDownloadsProps {
+    targets: readonly string[];
+    expected?: ExpectedPaths;
+    blocked?: DownloadBlock;
+    deviceMode?: string;
+    reserve?: string;
+    engines?: boolean;
+    only?: readonly string[];
+    translationDevice?: TranslationDevice;
+}
+
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
     const languages = useLanguageList();
     const { catalog, state, hardware, error, pending, send, ensureHardware } = useModelDownloads();
-    const [selected, setSelected] = useState(null), [consent, setConsent] = useState(false);
+    const [selected, setSelected] = useState<SelectedModel | null>(null), [consent, setConsent] = useState(false);
     // The restrictions of the selected model the user ticked, apart from the consent.
-    const [acknowledged, setAcknowledged] = useState([]);
+    const [acknowledged, setAcknowledged] = useState<string[]>([]);
     const restrictionId = useId();
-    const [linkError, setLinkError] = useState(null);
-    const [choices, setChoices] = useState({}), [ownReserve, setReserve] = useState('vr');
+    const [linkError, setLinkError] = useState<string | null>(null);
+    const [choices, setChoices] = useState<Readonly<Record<string, string>>>({}), [ownReserve, setReserve] = useState('vr');
     const shared = sharedReserve !== undefined, reserve = shared ? sharedReserve : ownReserve;
     const [, setNow] = useState(Date.now());
     const ttsTargets = targets.filter(target => ['japanese', 'multilingual'].includes(target));
     const hasTTS = ttsTargets.length > 0;
-    const section = useRef(null);
+    const section = useRef<HTMLElement>(null);
     const { dialog, close: closeDialog } = useConsentDialog(!!selected, section);
     useEffect(() => {
         send("/get/data/model_download_catalog"); send("/get/data/model_download_state"); send("/get/data/user_models");
@@ -185,7 +222,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     }, [hasTTS]);
     const busy = !!pending || Object.values(state.jobs).some(job => activePhases.includes(job.phase));
     const close = () => { closeDialog(); setSelected(null); setConsent(false); setAcknowledged([]); setLinkError(null); };
-    const openLink = async (event, url) => {
+    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(url); setLinkError(null); }
@@ -193,26 +230,26 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     };
     // A file in the model's repository is named by its file name (GEMMA_TERMS_OF_USE.md,
     // LICENSE-MIT…), so several terms of one model can be told apart.
-    const linkLabel = (url, i) => i === 0 ? t("model_downloads.model_card")
-        : url.startsWith("https://huggingface.co/") ? url.split("/").pop() : `${selected.license} (${i})`;
-    const request = (endpoint, entry, job) => send(endpoint, { id: entry.id, job_id: job.job_id });
-    const failure = code => t(`model_downloads.errors.${code}`, { defaultValue: t("model_downloads.errors.download_failed") });
+    const linkLabel = (model: SelectedModel, url: string, i: number) => i === 0 ? t("model_downloads.model_card")
+        : url.startsWith("https://huggingface.co/") ? url.split("/").pop() : `${model.license} (${i})`;
+    const request = (endpoint: string, entry: ModelCatalogRow, job: ModelDownloadJob) => send(endpoint, { id: entry.id, job_id: job.job_id });
+    const failure = (code: string) => t(`model_downloads.errors.${code}`, { defaultValue: t("model_downloads.errors.download_failed") });
     const matching = catalog?.models.filter(entry => targets.includes(entry.target) && (!only || only.includes(entry.id))) ?? [];
     const advice = Object.fromEntries(targets.map(target => [target, target === "translation" ? NO_ADVICE
         : modelAdvice(matching.filter(entry => entry.target === target), hardware, { now: Date.now(), deviceMode, reserveBytes: reserveBytes(reserve) })]));
-    const memory = value => Number.isFinite(value) ? `${(value / 1024 ** 3).toFixed(2)} GiB` : t('model_downloads.hardware_unknown');
-    const status = entry => downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
+    const memory = (value: number | null) => isNumber(value) ? `${(value / 1024 ** 3).toFixed(2)} GiB` : t('model_downloads.hardware_unknown');
+    const status = (entry: ModelCatalogRow) => downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
     const translationMode = translationDeviceMode(translationDevice, hardware);
-    const warningOf = entry => entry.target !== "translation" ? hardwareWarning(entry, hardware, { deviceMode })
+    const warningOf = (entry: ModelCatalogRow) => entry.target !== "translation" ? hardwareWarning(entry, hardware, { deviceMode })
         : translationMode === null ? null : hardwareWarning(entry, hardware, { deviceMode: translationMode });
     const selectedWarning = selected && warningOf(selected);
     const selectedRestrictions = restrictionsOf(selected);
     // The consent and every restriction ticked: only then may the review start.
     const agreed = !!selected && canStart(selected, consent, acknowledged);
-    const acknowledge = (kind, checked) => setAcknowledged(previous => checked ? [...previous.filter(k => k !== kind), kind] : previous.filter(k => k !== kind));
+    const acknowledge = (kind: string, checked: boolean) => setAcknowledged(previous => checked ? [...previous.filter(k => k !== kind), kind] : previous.filter(k => k !== kind));
 
-    // One card: the chosen file of a model, its facts and its download.
-    const card = (target, family) => {
+    // One card: the chosen file of a model, its facts and its download. `version` is the catalog's.
+    const card = (target: string, family: CatalogFamily<ModelCatalogRow>, version: string) => {
         const hint = advice[target];
         const current = family.rows.find(entry => entry.id === choices[family.key])
             ?? firstVariant(family.rows, hint.recommended, entry => status(entry) === "in_use");
@@ -225,9 +262,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         const suggested = family.rows.flatMap(entry => entry.profile?.recommended_for ?? []);
         const label = familyLabel(current);
         const warning = warningOf(current);
-        const jobView = (entry, own) => {
+        const jobView = (entry: ModelCatalogRow, own: boolean) => {
             const job = state.jobs[entry.id], active = activePhases.includes(job?.phase);
             if (!job) return null;
+            const savedPaths = expected?.[entry.target];
             return <div key={entry.id} className={styles.download_entry}>
                 <EnvReadout tone={job.phase === "ready" ? "active" : job.phase === "failed" ? "failed" : "neutral"}
                     progress={active && job.phase !== "cancelling" ? "working" : ["ready", "applied"].includes(job.phase) ? "done" : undefined}>
@@ -241,8 +279,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     {active && <button type="button" disabled={job.phase === "cancelling" || !!pending?.some(request =>
                         request.endpoint !== "/run/apply_model_download" || request.id !== entry.id || request.job_id !== job.job_id)}
                         onClick={() => request("/run/cancel_model_download", entry, job)}>{t("model_downloads.cancel")}</button>}
-                    {job.phase === "ready" && <button type="button" className="primary" disabled={busy || blocked || !expected?.[entry.target]}
-                        onClick={() => send("/run/apply_model_download", { id: entry.id, job_id: job.job_id, expected: expected[entry.target] })}>{t("model_downloads.apply")}</button>}
+                    {job.phase === "ready" && <button type="button" className="primary" disabled={busy || !!blocked || !savedPaths}
+                        onClick={() => send("/run/apply_model_download", { id: entry.id, job_id: job.job_id, expected: savedPaths })}>{t("model_downloads.apply")}</button>}
                 </div>}
                 {job.phase === "ready" && blocked && <p>{t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked")}</p>}
             </div>;
@@ -285,7 +323,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <button type="button" disabled={busy} onClick={() => {
                     setConsent(false);
                     setAcknowledged([]);
-                    setSelected({ ...current, catalog_version: catalog.catalog_version, downloaded });
+                    setSelected({ ...current, catalog_version: version, downloaded });
                 }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
                 {/* The TTS models: a short sentence on the monitor output only (#415). */}
                 <AuditionButton target={target} status={shownStatus} />
@@ -331,7 +369,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {["rvc", "asr", "vad", "diarization"].includes(target) && <p>{t(`model_downloads.${target}_requirements`)}</p>}
                 {/* The models of one's own sit in the same list, after the reviewed ones (#403). */}
                 <ul className={styles.catalog} role="list">
-                    {families.map(family => card(target, family))}
+                    {families.map(family => card(target, family, catalog.catalog_version))}
                     {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} />}
                 </ul>
                 {own && <UserModelRegistration target={target} busy={busy} />}
@@ -356,13 +394,13 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             {!selected.downloaded && <p>{t("model_downloads.connection_notice")}</p>}
             <p>{t("model_downloads.no_start")}</p>
             <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
-            <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(url, i)}</a> </span>)}</p>
+            <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
             {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
             <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
             <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             {/* One more checkbox per restriction, each ticked on its own (#411). */}
-            {selectedRestrictions.filter(kind => RESTRICTIONS.includes(kind)).map(kind => <label key={kind} className={styles.checkLabel}>
+            {selectedRestrictions.filter(kind => RESTRICTION_KINDS.includes(kind)).map(kind => <label key={kind} className={styles.checkLabel}>
                 <input type="checkbox" checked={acknowledged.includes(kind)} aria-describedby={`${restrictionId}-${kind}`}
                     onChange={event => acknowledge(kind, event.target.checked)} />
                 {t(`model_downloads.restriction.${kind}.acknowledge`, { license: selected.license })}</label>)}
