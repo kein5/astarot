@@ -25,7 +25,7 @@ const load = (runtime, language, opened = []) => loadModule(new URL("./PagePoint
     "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
     "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
     "../../../../../../../logics/configs/revealSetting.ts": { revealSetting() {} },
-    "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: props => ({ type: "tab-icon", props }) },
+    "../../../../sidebar_section/SidebarSection.tsx": { TabIcon: props => ({ type: "tab-icon", props }) },
 });
 
 test("every button that opens another settings page names that page, with what is done there", async () => {

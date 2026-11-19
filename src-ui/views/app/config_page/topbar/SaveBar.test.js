@@ -9,7 +9,7 @@ async function render(context, entries, tab = "tts") {
     const runtime = hooks();
     // The leave guard listens on the window while there are edits.
     stubGlobals(context, { window: eventTarget() });
-    const { SaveBar } = await loadModule(new URL("./Topbar.jsx", import.meta.url), runtime, {
+    const { SaveBar } = await loadModule(new URL("./Topbar.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "@logics_common": {},
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: tab } }) },
         "../../../../logics/voice/saveBar": { useSaveBarEntries: () => entries }, "../../others/stop_actions/StopActions": {},

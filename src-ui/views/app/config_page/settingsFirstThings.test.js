@@ -20,7 +20,7 @@ test("chat reading has a page of its own, and search lists it there", async () =
     let tab = "ocr";
     const pages = Object.fromEntries(["Device", "Tts", "Rvc", "Appearance", "Translation", "Transcription", "Vrchat", "Ocr",
         "AdvancedSettings", "Vr", "Hotkeys", "AboutVrct", "Updater"].map(name => [name, name]));
-    const { SettingBox } = await loadModule(new URL("./setting_section/setting_box/SettingBox.jsx", import.meta.url), runtime, {
+    const { SettingBox } = await loadModule(new URL("./setting_section/setting_box/SettingBox.tsx", import.meta.url), runtime, {
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: tab } }) }, "@setting_box": pages,
     });
     assert.equal(runtime.render(SettingBox).type, "Ocr");
@@ -43,11 +43,11 @@ test("the side menu groups its pages in the order a conversation uses them, each
     const svg = name => (name.endsWith(".svg?react") ? icon(name) : name);
     const images = ["mic", "tts_speaker", "voice_conversion", "mui_palette", "translation", "mui_graphic_eq", "mui_head_mounted_device",
         "mui_keyboard_alt", "mui_code_blocks", "refresh", "chat_transcribe", "mui_document_scanner"];
-    const sidebar = await loadModule(new URL("./sidebar_section/SidebarSection.jsx", import.meta.url), runtime, {
+    const sidebar = await loadModule(new URL("./sidebar_section/SidebarSection.tsx", import.meta.url), runtime, {
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "device" }, updateSelectedConfigTabId() {} }),
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
-        "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
+        "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.tsx": { VersionLabel: "version" },
         "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
         "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
@@ -85,12 +85,12 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
     const svg = name => icon(name);
     const images = ["mic", "tts_speaker", "voice_conversion", "mui_palette", "translation", "mui_graphic_eq", "mui_head_mounted_device",
         "mui_keyboard_alt", "mui_code_blocks", "refresh", "chat_transcribe", "mui_document_scanner"];
-    const sidebar = await loadModule(new URL("./sidebar_section/SidebarSection.jsx", import.meta.url), runtime, {
+    const sidebar = await loadModule(new URL("./sidebar_section/SidebarSection.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => names[key] ?? key }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "device" }, updateSelectedConfigTabId() {} }),
             useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         ...Object.fromEntries(images.map(name => [`@images/${name}.svg?react`, svg(`${name}.svg?react`)])),
-        "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.jsx": { VersionLabel: "version" },
+        "@images/brand/icon-small.svg": "brand", "../version_label/VersionLabel.tsx": { VersionLabel: "version" },
         "../../../../logics/common/featureLabel.ts": featureLabel, "../../../../logics/configs/settingsMenu.ts": settingsMenu,
         "../../../../logics/configs/usagePresets.ts": usagePresets, "./usage_presets/UsagePresetSelector.tsx": { UsagePresetSelector: "presets" },
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
@@ -198,7 +198,7 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
     const pagePointer = await loadModule(new URL("./setting_section/setting_box/_components/page_pointer/PagePointer.tsx", import.meta.url), runtime, {
         ...store, "@useI18n": { useI18n: () => ({ t }) }, "../form_row/FormRow": { FormRow: () => null },
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting() {} },
-        "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
+        "../../../../sidebar_section/SidebarSection.tsx": { TabIcon: () => null },
     });
     const vrchat = await loadModule(new URL("./setting_section/setting_box/vrchat/Vrchat.tsx", import.meta.url), runtime, {
         ...dependencies, ...store, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },

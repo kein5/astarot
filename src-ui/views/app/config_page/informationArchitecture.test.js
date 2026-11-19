@@ -33,7 +33,7 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
         "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
         "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting: target => revealed.push(target) },
-        "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
+        "../../../../sidebar_section/SidebarSection.tsx": { TabIcon: () => null },
     });
     const press = row => {
         const link = find(row, node => node.type === pointer.PageLinkButton);
@@ -100,7 +100,7 @@ test("a fold marks its line while a row inside it has unsaved edits", async () =
     const open = element({}, [changed]), closed = element({}, [untouched]);
     const root = { querySelectorAll: selector => ({ "[data-setting-label]": [changed, untouched], label: [], details: [open, closed] })[selector] };
     const runtime = hooks();
-    const section = await loadModule(new URL("./setting_section/SettingSection.jsx", import.meta.url), runtime, {
+    const section = await loadModule(new URL("./setting_section/SettingSection.tsx", import.meta.url), runtime, {
         "./setting_box/SettingBox": {}, "@store": {}, "@logics_configs": {}, "../../../../logics/voice/saveBar": {},
     });
     section.markUnsavedRows(root, new Set(["Pitch"]));

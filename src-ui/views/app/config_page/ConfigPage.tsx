@@ -4,14 +4,18 @@ import styles from "./ConfigPage.module.scss";
 
 import { useIsOpenedConfigPage } from "@logics_common";
 
-import { Topbar } from "./topbar/Topbar.jsx";
-import { SidebarSection } from "./sidebar_section/SidebarSection.jsx";
-import { SettingSection } from "./setting_section/SettingSection.jsx";
-import { SearchBar } from "./search_bar/SearchBar.jsx";
+import { Topbar } from "./topbar/Topbar";
+import { SidebarSection } from "./sidebar_section/SidebarSection";
+import { SettingSection } from "./setting_section/SettingSection";
+import { SearchBar } from "./search_bar/SearchBar";
+
+// Element has no focus(); the tab and the button that opened the settings have it.
+const focusable = (element: Element | null | undefined): element is Element & HTMLOrSVGElement =>
+    !!element && "focus" in element && typeof element.focus === "function";
 
 export const ConfigPage = () => {
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
-    const root = useRef(null);
+    const root = useRef<HTMLDivElement>(null);
     const wasOpen = useRef(false);
     const isClosed = currentIsOpenedConfigPage.data === false;
 
@@ -19,7 +23,7 @@ export const ConfigPage = () => {
     // WebKit can draw that focus ring after a mouse click too, so the sidebar
     // hides it while the last input was a pointer.
     useEffect(() => {
-        const set = input => () => { document.documentElement.dataset.lastInput = input; };
+        const set = (input: string) => () => { document.documentElement.dataset.lastInput = input; };
         const pointer = set("pointer"), keyboard = set("keyboard");
         window.addEventListener("pointerdown", pointer, true);
         window.addEventListener("keydown", keyboard, true);
@@ -30,8 +34,9 @@ export const ConfigPage = () => {
     }, []);
 
     useLayoutEffect(() => {
-        if (!isClosed) root.current?.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
-        else if (wasOpen.current) document.querySelector('[data-open-settings]')?.focus({ preventScroll: true });
+        const target = !isClosed ? root.current?.querySelector('[aria-current="page"]')
+            : wasOpen.current ? document.querySelector('[data-open-settings]') : null;
+        if (focusable(target)) target.focus({ preventScroll: true });
         wasOpen.current = !isClosed;
     }, [isClosed]);
 

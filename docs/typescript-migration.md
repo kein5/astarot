@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の設定のページを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の設定画面を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
 | `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、647KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 10 本、46KB | 208 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/views`（試験を除く） | 2 本、12KB | 216 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 208 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers`（`StartPythonController` を除く）、`app/io_flow`、`app/main_page`、設定画面の部品とテンプレート、設定のページは済み。設定画面の枠が残り |
+| 6 | `views` | `VrApp` と `StartPythonController` を除いて済み。この 2 本は第 4 段の `useReceiveRoutes` と一緒に移す |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -226,6 +226,12 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 選択肢（`RadioButton`）の `id` は `string | number` を受け付けます。フローの帯の件数（1〜3）が数値の id のまま比べられ、そのまま返されるためです。`selectFunction` の引数は、渡した選択肢の id の型です。
 - チャット読み取りのモデルの取得は、カタログをこのページが表示するフィールドだけの型（`OcrCatalogModel`）として読みます。宣言だけで、実行時には確かめません。
 - 試験がページのファイルを読む条件は `/\.(jsx|tsx)$/` に広げました。
+
+6 回目で、設定画面の枠（`ConfigPage`、`SettingSection`、`SettingBox`、`setting_box/index`、設定のメニュー、検索、上のバーと保存バー、版の表示）を移し、`app/config_page` が済みました。
+
+- `setting_box/index.ts` は拡張子なしで再輸出します（`app/others/index.ts` と同じ）。
+- 開いたタブと設定を開いたボタンへフォーカスを戻すのは、要素が `focus()` を持つときだけです（型ガード `focusable`）。
+- 離れるときの確認（`vrct:settings-leave`）の `detail.proceed` は、関数のときだけ受け取ります。設定のフォーム（`useSettingsDraft` の `leaveAction`）と同じ読み方です。
 
 ### 第 7 段：試験とハーネス
 

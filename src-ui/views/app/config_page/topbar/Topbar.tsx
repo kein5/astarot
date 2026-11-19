@@ -8,6 +8,16 @@ import { useSaveBarEntries } from "../../../../logics/voice/saveBar";
 import { StopActions } from "../../others/stop_actions/StopActions";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
+const isAction = (value: unknown): value is () => void => typeof value === "function";
+
+// The page change a "vrct:settings-leave" event waits with (requestSettingsNavigation), read as
+// the settings forms read it (useSettingsDraft.tsx).
+const leaveProceed = (event: Event): (() => void) | undefined => {
+    const detail = "detail" in event ? event.detail : undefined;
+    return isRecord(detail) && isAction(detail.proceed) ? detail.proceed : undefined;
+};
+
 // Save and discard for every settings form on the open page, so the save
 // button is always in the same place. The bar counts the changes; the page
 // marks the changed rows, and the names are in the tooltip and for screen readers.
@@ -19,17 +29,17 @@ export const SaveBar = () => {
     const saving = entries.some(entry => entry.saving);
     // Only edits ask before leaving; a pending selection alone is dropped quietly.
     const guarded = entries.some(entry => entry.edited ?? entry.dirty) || saving;
-    const [leaving, setLeaving] = useState(null);
-    const dialog = useRef(null);
+    const [leaving, setLeaving] = useState<(() => void) | null | undefined>(null);
+    const dialog = useRef<HTMLDialogElement>(null);
     // Leaving the page or settings with unsaved changes asks first, for every
     // form on the page. Capture runs before the voice forms' own guards, so
     // one dialog covers them all.
     useEffect(() => {
         if (!guarded) return;
-        const guard = event => {
+        const guard = (event: Event) => {
             if (event.defaultPrevented) return;
             event.preventDefault();
-            setLeaving(() => event.detail.proceed);
+            setLeaving(() => leaveProceed(event));
         };
         window.addEventListener("vrct:settings-leave", guard, { capture: true });
         return () => window.removeEventListener("vrct:settings-leave", guard, { capture: true });

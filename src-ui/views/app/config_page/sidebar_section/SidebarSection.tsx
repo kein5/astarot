@@ -24,11 +24,12 @@ import DocumentScannerSvg from "@images/mui_document_scanner.svg?react";
 
 import vrct_vox_icon from "@images/brand/icon-small.svg";
 
-import { VersionLabel } from "../version_label/VersionLabel.jsx";
+import { VersionLabel } from "../version_label/VersionLabel";
 import { splitFeatureLabel } from "../../../../logics/common/featureLabel.ts";
 import { visibleMenuGroups } from "../../../../logics/configs/settingsMenu.ts";
 import { isTabShown, pickedPresets } from "../../../../logics/configs/usagePresets.ts";
 import { UsagePresetSelector } from "./usage_presets/UsagePresetSelector.tsx";
+import type { SettingsMenuGroup } from "../../../../logics/configs/settingsMenu.ts";
 
 // Keyboard focus expands the rail; focus from a click or from opening the page does
 // not, or the rail would stay over the page after the pointer left. A focus counts as
@@ -38,7 +39,7 @@ let lastKeyDownAt = -Infinity;
 if (typeof window !== "undefined") {
     window.addEventListener("keydown", () => { lastKeyDownAt = performance.now(); }, true);
 }
-const isKeyboardFocus = (element) =>
+const isKeyboardFocus = (element: Element) =>
     element.matches?.("input:not([type=checkbox]):not([type=radio]), textarea") === true
     || performance.now() - lastKeyDownAt < 1000;
 
@@ -87,7 +88,12 @@ export const SidebarSection = () => {
     );
 };
 
-export const TabIcon = ({ tab_id, className }) => {
+type TabIconProps = {
+    tab_id: string;
+    className?: string;
+};
+
+export const TabIcon = ({ tab_id, className }: TabIconProps) => {
     switch (tab_id) {
         case "tts": return <TtsSpeakerSvg className={className} />;
         case "rvc": return <VoiceConversionSvg className={className} />;
@@ -110,7 +116,13 @@ export const TabIcon = ({ tab_id, className }) => {
 // One group of the menu: its heading, then its pages. The icon rail has no room for the
 // heading's words; a thin rule stands for it there, and the group keeps its name for
 // screen readers.
-const TabGroup = ({ group, isSmall, isHovered }) => {
+type TabGroupProps = {
+    group: SettingsMenuGroup;
+    isSmall: boolean;
+    isHovered: boolean;
+};
+
+const TabGroup = ({ group, isSmall, isHovered }: TabGroupProps) => {
     const { t } = useI18n();
     const headingId = `settings_menu_group_${group.id}`;
     const isCompact = isSmall && !isHovered;
@@ -124,7 +136,13 @@ const TabGroup = ({ group, isSmall, isHovered }) => {
     );
 };
 
-const Tab = (props) => {
+type TabProps = {
+    tab_id: string;
+    isSmall: boolean;
+    isHovered: boolean;
+};
+
+const Tab = (props: TabProps) => {
     const { t } = useI18n();
     const { updateSelectedConfigTabId, currentSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const onclickFunction = () => {

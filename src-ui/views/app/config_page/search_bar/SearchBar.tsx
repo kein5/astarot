@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useId } from "react";
+import type { KeyboardEvent } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { useStore_IsBreakPoint } from "@store";
@@ -8,10 +9,17 @@ import styles from "./SearchBar.module.scss";
 
 import SearchSvg from "@images/search.svg?react";
 import CancelSvg from "@images/cancel.svg?react";
-import { TabIcon } from "../sidebar_section/SidebarSection.jsx";
+import { TabIcon } from "../sidebar_section/SidebarSection";
+import type { ConfigSearchEntry } from "../../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts";
+import type { TargetHolder } from "../../../../logics/common/targetHolder.ts";
 
 // 検索文字列と一致する部分をハイライト表示するコンポーネント
-const HighlightText = ({ text, query }) => {
+type HighlightTextProps = {
+    text: string;
+    query: string;
+};
+
+const HighlightText = ({ text, query }: HighlightTextProps) => {
     if (!text || !query) return text || null;
     const q = query.trim();
     if (!q) return text;
@@ -47,9 +55,9 @@ export const SearchBar = () => {
     const [selectedIndex, setSelectedIndex] = useState(-1);
     const listId = useId();
 
-    const containerRef = useRef(null);
-    const inputRef = useRef(null);
-    const listRef = useRef(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const listRef = useRef<HTMLDivElement>(null);
 
     const isOpen = isFocused && query.trim().length > 0;
     const isSmall = currentIsBreakPoint.data;
@@ -61,8 +69,9 @@ export const SearchBar = () => {
 
     // コンテナ外クリックで閉じる
     useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
+        const handleClickOutside = (e: MouseEvent) => {
+            const container: TargetHolder | null = containerRef.current;
+            if (container && !container.contains(e.target)) {
                 setIsFocused(false);
             }
         };
@@ -83,12 +92,12 @@ export const SearchBar = () => {
         }
     }, [selectedIndex]);
 
-    const handleSelect = useCallback((item) => {
+    const handleSelect = useCallback((item: ConfigSearchEntry) => {
         setIsFocused(false);
         navigateToSetting(item);
     }, [navigateToSetting]);
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.nativeEvent?.isComposing || e.keyCode === 229) return;
         if (!isOpen) return;
 
