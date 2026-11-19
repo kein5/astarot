@@ -2,7 +2,7 @@
 
 アプリの部品を shadcn/ui の部品と照らし合わせ、差分を一覧にした文書です。DESIGN.md の「Components」の節にある、部品を shadcn/ui に寄せる方針（#680）を進めるための下調べです。棚卸しの時点では、部品のコードを変えていませんでした。その後に寄せた差は、表の「扱い」の列に PR の番号を添えて「寄せた」と書いています。
 
-- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694、検索欄は #695 で寄せました。
+- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694、検索欄は #695、チェックボックスとスライダーは #697 で寄せました。
 - 照合した shadcn/ui: [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`、2026-11-17）。MIT ライセンスです。どのスタイルに寄せるかは D-01 で決めます。
 - 照合したアプリ: develop（#676 と #677 のマージ後）
 - 関係する文書: [設定画面の部品の実験](README.md)（#452、`src-ui/views/kit/`）、[ADR-010](../../adr/adr-010-frontend-stack.md)
@@ -52,7 +52,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 |---|---|---|---|
 | フォーカス | `--vox_focus` の `.2rem` の outline。kit は外に `.2rem` 離す。部品によって `.1rem`〜`.3rem` 離すもの、内側に引くもの（レール）がある | 枠が `ring` になり、外に 3px の `ring` の 50% の影が付く（離さない） | 判断（D-06）。50% の輪が地に対して 3:1 に届くか（`brandPalette.test.js` の基準）を確かめてから決める。離す量の不ぞろいは D-06 のあとでそろえる |
 | 値が正しくない | kit の `TextField` と `Select` は `invalid` で `aria-invalid` を付け、`[aria-invalid='true']` で枠を `--vox_state_failed` にする | `aria-invalid` で枠が `destructive` になる。フォーカス中は輪も赤みを帯びる | 枠は一致。フォーカス中の輪は D-06 |
-| 使えない | kit、フォーム（`VoiceSettings.module.scss`。入力欄、選択欄、ボタンに共通の規則）、画面の操作のボタンは不透明度 .5（#684、#694。前は kit が .55、フォームと多くのボタンが .6、設定の上のバーの保存と取り消しが .45）。`_Entry` は文字の色だけを変える。チェックボックスは灰色にする filter。トグル、開閉のボタン、待ちの表示は .55〜.6 のまま | 不透明度 .5。ボタンは `pointer-events: none` | 不透明度は .5 に寄せる（操作のボタンとフォームは寄せた）。トグルは D-27、開閉のボタンは D-26 と一緒に扱う。`_Entry` は D-37。`pointer-events: none` は判断（D-07）。使えないスイッチや機能のボタンがツールチップで理由を示す規則（DESIGN.md「Layout」）とぶつかる |
+| 使えない | kit、フォーム（`VoiceSettings.module.scss`。入力欄、選択欄、ボタンに共通の規則）、画面の操作のボタンは不透明度 .5（#684、#694。前は kit が .55、フォームと多くのボタンが .6、設定の上のバーの保存と取り消しが .45）。`_Entry` は文字の色だけを変える。チェックボックスは灰色にする filter。設定の Slider は `disabled` で .5（#697）。トグル、開閉のボタン、待ちの表示は .55〜.6 のまま | 不透明度 .5。ボタンは `pointer-events: none` | 不透明度は .5 に寄せる（操作のボタンとフォームは寄せた）。トグルは D-27、開閉のボタンは D-26 と一緒に扱う。`_Entry` は D-37。`pointer-events: none` は判断（D-07）。使えないスイッチや機能のボタンがツールチップで理由を示す規則（DESIGN.md「Layout」）とぶつかる |
 | ホバーと押下 | 部品ごとに `dark_*` と `primary_*` の段を選ぶ | `accent` の塗り、または `primary/90` のように同じ色を薄める | 判断（D-08）。不透明度で薄める作り方は、明度だけを変えるアプリの色の作り方（DESIGN.md「Colors」）と違う |
 | 開閉の動き | `--vox_motion`（220ms）と `--vox_ease_settle`。一覧は欄から落ちて落ち着き、行が続いて現れる | `fade-in`、`zoom-in-95`、出る向きからの slide-in | 判断（D-09）。DESIGN.md の「Motion」が一覧の開き方を決めている |
 
@@ -149,7 +149,7 @@ shadcn/ui には、Radix の Select と、ネイティブの `<select>` を包�
 | 土台 | ネイティブの input | Radix Checkbox（`button role="checkbox"`、`data-state`） | 判断（D-16）。Radix にすると input がなくなり、フォームと試験の書き方が変わる |
 | props | `label`、`variable`（`state`、`data`）、`is_available`、`toggleFunction`、`show_label`、`size`、`borderWidth`、`padding` | `checked`、`onCheckedChange`、`disabled` | D-16 に含める |
 | 大きさ | 2.8rem の箱、`.2rem` の枠、まわりの余白 1.8rem | `size-4`（1.6rem）、1px の枠、4px の角丸 | 判断（D-17） |
-| オンの塗り | `primary_600` の塗りに、`--dark_basic_text_color`（白に近い）のチェック | `primary` の塗りに `primary-foreground` のチェック | チェックを `--vox_on_primary`（Dark Plum）にするのは寄せる。Lilac の塗りの上は Dark Plum という DESIGN.md の規則とも合う |
+| オンの塗り | `primary_600` の塗りに、`--vox_on_primary`（Dark Plum）のチェック（#697。前は `--dark_basic_text_color` で、塗りに対して 3.1:1） | `primary` の塗りに `primary-foreground` のチェック | 寄せた（#697）。Lilac の塗りの上は Dark Plum という DESIGN.md の規則とも合う |
 | 枠 | オフは `dark_700`、ホバーで `primary_600` | `input` の枠。ホバーなし | D-02、D-08 |
 | 待ち | 枠を `primary_800` にし、スピナーと `aria-busy` を出す | なし | 残す（エンジンを待つ操作は、押した直後に待ちの状態を示す。DESIGN.md） |
 
@@ -180,15 +180,15 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 ### Slider
 
-アプリ: `slider` の `Slider`（自作の `role="slider"`、MUI に似た API）、しきい値の部品、フォームの `input[type=range]`。VR パネルはステッパーです。
+アプリ: `slider` の `Slider`（自作の `role="slider"`、MUI に似た API）、しきい値の部品、フォームの `input[type=range]`。VR パネルはステッパーです。しきい値の部品は、音量のメーターに幅 .4rem、高さ 4rem のつまみだけを重ねたもので、溝と満ちた部分の代わりにメーターがあります。下の表には入れていません（D-41）。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | 土台 | 自作 | Radix Slider（Root、Track、Range、Thumb） | 判断（D-20） |
 | props | `variable`、`setterFunction`、`setter_timing`、`debounce_ms`、`min`、`max`、`step`、`marks_step`、`show_label_values`、`orientation`、`valueLabelDisplay`、`valueLabelDisplayLocation`、`valueLabelFormat`、`valueLabelFunction`、`track`、`no_padding` | `value`、`onValueChange`、`min`、`max`、`step`、`orientation` | D-20 に含める。値の吹き出しと目盛りは shadcn/ui にない |
-| 溝 | `.4rem`、`dark_825`。満ちた部分の色はコメントアウトされていて見えない | `h-1.5`（.6rem）、`muted`。満ちた部分（Range）は `primary` | 満ちた部分を描くのと、溝を .6rem にするのは寄せる |
+| 溝 | `.6rem`、`dark_825`。満ちた部分は `primary_600`（#697。前は `.4rem` で、満ちた部分の色はコメントアウトされていて見えなかった）。フォームの `input[type=range]` も同じ形で、値の割合を `--range-fill` で渡して溝に塗る（#697） | `h-1.5`（.6rem）、`muted`。満ちた部分（Range）は `primary` | 満ちた部分と溝の .6rem は寄せた（#697）。溝の色は D-02 |
 | つまみ | 1.8rem、`primary_600`。ホバーとドラッグで `.8rem` の薄い輪 | 1.6rem、白の塗り（`bg-white` で固定）に `primary` の枠。ホバーとフォーカスで 4px の `ring/50` | 大きさは D-17、輪は D-06。白の塗りは D-02 |
-| 使えない | なし | 不透明度 .5 | 寄せる |
+| 使えない | `disabled` で不透明度 .5。つまみはタブの順から外れて `aria-disabled` になり、ポインタとキーで動かない（#697。まだ渡している箇所はない）。フォームの `input[type=range]` はフォーム共通の .5（#694） | 不透明度 .5 | 寄せた（#697） |
 
 ### Tooltip
 
@@ -373,6 +373,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | D-38 | ボタンの文字を 500 のままにするか。既定の UI フォントの Yu Gothic UI と、選べる Meiryo UI には 500 の字面がなく、CSS の字面の選び方では 400 で描かれる見込み（Windows では確かめていない）。フォームのボタンは 600 から 500 にしたので、それらのフォントでは太字が標準の太さに変わる | Button |
 | D-39 | Empty の広い画面での余白（`md:p-12`、4.8rem）を取り入れるか。shadcn/ui はウィンドウの幅 768px 以上で 2.4rem から 4.8rem に広げる。アプリの Empty は検索の結果の一覧や言語の一覧の中に開くので、2.4rem のままにした | Empty |
 | D-40 | 設定の検索欄の中身を InputGroup に寄せるか。虫眼鏡のアイコンは 1.5rem で `size-4`（1.6rem）より小さく、左の余白は .8rem で `pl-3`（1.2rem）より狭く、文字は 1.3rem で入力欄の 1.4rem より小さい。広いウィンドウの検索欄は設定のレールの幅（20.8rem）から左右の余白を引いた 17.6rem で、文字を大きくすると入る文字が減る | Combobox、InputGroup |
+| D-41 | しきい値の部品（音量のメーターに重ねた細いつまみ）を Slider に寄せるか、メーターと一体のアプリだけの部品として照合の外にするか。寄せるなら、つまみの形（幅 .4rem、高さ 4rem）とメーターの色をどう扱うかも決める | Slider |
 
 ほかに、#680 の判断項目（寄せる先を本家の shadcn/ui にすること、ADR-010 の7章への注記、ライセンスの記録の範囲）と、設定画面の部品の実験の残課題 K-01（kit を本採用するか）が、この棚卸しに関係します。
 
@@ -389,8 +390,8 @@ kit（画面ではまだ使っていない部品）:
 画面で使っている部品:
 
 4. ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にそろえる。フォーム（`VoiceSettings.module.scss`）の `:disabled` は入力欄と選択欄にも共通の規則なので、一緒に .5 になる（#694。対象は、言葉があり塗りか枠のある操作のボタン。トグル、開閉のボタン、ナビゲーション、一覧の行、待ちの表示、照合の外の画面は含めていない）。
-5. チェックボックスのチェックの線を `--vox_on_primary` にする。
-6. スライダーの満ちた部分を描き、溝を .6rem にし、使えない状態を足す。
+5. チェックボックスのチェックの線を `--vox_on_primary` にする（#697）。
+6. スライダーの満ちた部分を描き、溝を .6rem にし、使えない状態を足す（#697。共通の `Slider` とフォームの `input[type=range]`。しきい値の部品は D-41）。
 7. `_Entry` の塗り、枠、角丸、高さを kit の入力欄にそろえる（#691。左右の余白と使えない状態は D-37）。
 8. 色のポップオーバーと、設定の検索の結果の一覧の地を `--vox_surface` にする（設定の検索の結果の一覧は #695。色のポップオーバーは残っている）。
 9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。
