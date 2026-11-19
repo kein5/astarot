@@ -3,29 +3,84 @@
 // the VR window and the tests share it. The view places the boxes on a grid and draws the
 // arrows between them; this decides only what exists, what is in use and what lights up.
 import { latestTraces, outputArrivals } from "./ioFlow.ts";
-import type { FlowInput, FlowLane, FlowOutputRow, FlowTranslation, IoFlow, OutputArrival, Trace } from "./ioFlow.ts";
+import type { FlowInput, FlowLane, FlowOutputRow, FlowRecognition, FlowTranslation, IoFlow, OutputArrival, Trace } from "./ioFlow.ts";
 
 // A row of the route map, or what stands in for one the lane does not have.
 export type FlowRouteRow = Partial<FlowOutputRow>;
 
 export type FlowArrivals = Partial<Record<OutputArrival["kind"], OutputArrival>>;
 
-export interface FlowNode {
-    id: string;
-    kind: "input" | "stage" | "speech" | "conversion" | "output";
-    lane?: FlowInput;
+// The outputs on the right, top to bottom. "live_voice" is what VRChat hears as the user's mic.
+export type GraphOutput = "chatbox" | "live_voice" | "desktop_caption" | "vr_log" | "clipboard" | "websocket";
+
+// The boxes, one type for each kind. A box of a lane names it; the others leave lane out, and
+// their type says so, so that every box can be asked for its lane.
+export interface InputNode {
+    id: "in_voice" | "in_chat";
+    kind: "input";
+    lane: FlowInput;
     on: boolean;
-    // From the voice lane's recognition (the recognition stage only).
-    realtime?: boolean;
-    engine?: string | null;
-    ms?: unknown;
-    msKind?: "recognition" | "wait";
-    translation?: FlowTranslation;
-    language?: string | null;
-    rows?: { voice: FlowOutputRow | undefined; chat: FlowOutputRow | undefined };
-    live?: FlowRouteRow | null;
-    times?: { voice: number | null; chat: number | null };
 }
+
+// The voice lane's recognition, with what the route map says of it (FlowRecognition) and the
+// latest message's time: the recognition, or the wait when the message has no recognition time.
+export interface RecognitionNode extends FlowRecognition {
+    id: "recognition";
+    kind: "stage";
+    lane: "voice";
+    on: boolean;
+    ms: unknown;
+    msKind: "recognition" | "wait";
+}
+
+export interface TranslateNode {
+    id: "translate_voice" | "translate_chat";
+    kind: "stage";
+    lane: FlowInput;
+    on: boolean;
+    translation: FlowTranslation;
+    ms: unknown;
+}
+
+export interface SpeechNode {
+    id: "speech";
+    kind: "speech";
+    lane?: undefined;
+    on: boolean;
+    language: string | null;
+}
+
+// Only there while something goes through the voice conversion. ms: its round trip.
+export interface ConversionNode {
+    id: "conversion";
+    kind: "conversion";
+    lane?: undefined;
+    on: boolean;
+    engine: string | null;
+    ms: unknown;
+}
+
+// An output: each lane's row of the route map, and when the latest message of each lane reached it.
+interface OutputNodeBase {
+    kind: "output";
+    lane?: undefined;
+    on: boolean;
+    rows: { voice: FlowOutputRow | undefined; chat: FlowOutputRow | undefined };
+    times: { voice: number | null; chat: number | null };
+}
+
+// The live voice also carries the voice lane's own row, or what stands in for it.
+export interface LiveVoiceNode extends OutputNodeBase {
+    id: "live_voice";
+    live: FlowRouteRow;
+}
+
+export interface OutputNode extends OutputNodeBase {
+    id: Exclude<GraphOutput, "live_voice">;
+    live: null;
+}
+
+export type FlowNode = InputNode | RecognitionNode | TranslateNode | SpeechNode | ConversionNode | LiveVoiceNode | OutputNode;
 
 export interface FlowEdge {
     id: string;
@@ -45,8 +100,7 @@ export interface FlowGraph {
     newest: Trace | null;
 }
 
-// The outputs on the right, top to bottom. "live_voice" is what VRChat hears as the user's mic.
-export const GRAPH_OUTPUTS: readonly string[] = ["chatbox", "live_voice", "desktop_caption", "vr_log", "clipboard", "websocket"];
+export const GRAPH_OUTPUTS: readonly GraphOutput[] = ["chatbox", "live_voice", "desktop_caption", "vr_log", "clipboard", "websocket"];
 
 const byId = (lane: FlowLane | null | undefined): Partial<Record<string, FlowOutputRow>> =>
     Object.fromEntries((lane?.outputs ?? []).map(row => [row.id, row]));
@@ -85,8 +139,9 @@ export const buildFlowGraph = (flow: IoFlow | null | undefined, traces: Trace[] 
         // Reached by speech: the time it began; by text: the time it was sent.
         const time = (lane: FlowInput) => id === "live_voice" ? (arrivals[lane].speech?.end ?? null)
             : id === "chatbox" ? (arrivals[lane].chatbox?.at ?? null) : null;
-        nodes.push({ id, kind: "output", on, rows, live: id === "live_voice" ? live : null,
-            times: { voice: time("voice"), chat: time("chat") } });
+        const times = { voice: time("voice"), chat: time("chat") };
+        nodes.push(id === "live_voice" ? { id, kind: "output", on, rows, live, times }
+            : { id, kind: "output", on, rows, live: null, times });
     }
 
     const edges: FlowEdge[] = [];
