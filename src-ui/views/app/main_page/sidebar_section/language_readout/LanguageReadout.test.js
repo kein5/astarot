@@ -59,6 +59,6 @@ test("long names end in an ellipsis; on is tinted and named in the rail", () => 
     const switches = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.module.scss", import.meta.url), "utf8");
     assert.match(switches, /&\.is_active \{\s*background-color: var\(--vox_highlight_tint\);/);
     assert.match(switches, /&\.is_active:not\(\.is_pending\) \{\s*color: var\(--vox_state_active\);/);
-    const jsx = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.jsx", import.meta.url), "utf8");
+    const jsx = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.tsx", import.meta.url), "utf8");
     assert.match(jsx, /title=\{blockedTitle \?\? statusText \?\? \(currentIsMainPageCompactMode\.data \? switchLabel : undefined\)\}/);
 });

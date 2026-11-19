@@ -10,7 +10,7 @@ export const voiceActions: VoiceActions = { toggleTts: null, toggleRvc: null, st
 
 // The TTS and voice changer switches as the main window shows them, for other views of the same
 // switches (the tray companion's handle). Their state is worked out by the main page's switches
-// (MainFunctionSwitch.jsx), which publish it here on every render; nothing else decides it.
+// (MainFunctionSwitch.tsx), which publish it here on every render; nothing else decides it.
 export type VoiceSwitchState = { readonly on: boolean; readonly pending: boolean };
 export type VoiceSwitchStates = { readonly tts: VoiceSwitchState; readonly rvc: VoiceSwitchState };
 

@@ -24,7 +24,7 @@ const loadSwitches = async (b, voice = {}, setup = { blocks: {}, compact: false 
         "@store": b.stores,
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: endpoint => requests.push(endpoint) }) },
     });
-    const switches = await loadModule(new URL("./sidebar_section/main_function_switch/MainFunctionSwitch.jsx", import.meta.url), b.runtime, {
+    const switches = await loadModule(new URL("./sidebar_section/main_function_switch/MainFunctionSwitch.tsx", import.meta.url), b.runtime, {
         "@store": b.stores,
         "@logics_common": { useIsBackendReady: b.stores.useStore_IsBackendReady },
         "../../../../../logics/common/useNotificationStatus": { useNotificationStatus: () => ({ showNotification_Error() {} }) },

@@ -243,7 +243,7 @@ test("settings checkboxes reject pointer and keyboard repeats while retaining th
 
 test("main switches block pending repeats but TTS/RVC cancellation remains available", async () => {
     const runtime = hooks();
-    const { SwitchContainer } = await load("app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.jsx", runtime, {
+    const { SwitchContainer } = await load("app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.tsx", runtime, {
         "@store": { store: {} },
         "@logics_common": {},
         "../../../../../logics/common/useNotificationStatus": {},
