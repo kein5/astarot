@@ -13,12 +13,13 @@ mod common;
 
 use common::fake_audio::FakeAudio;
 use common::fake_tts::FakeTts;
-use common::fake_voice::{source, wasapi, FakeVoice, MANAGED_VC};
+use common::fake_voice::{source, wasapi, FakeVoice, MonitorFault, MANAGED_VC};
 use common::net::eventually;
 use common::{error_code, Setup, Ui};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use vrct_core::config::Platform;
 use vrct_speech_server::server::Launch;
@@ -731,10 +732,11 @@ fn a_conversion_runs_through_the_worker_and_never_passes_the_microphone_through(
 fn a_linux_conversion_goes_into_the_managed_vc_input_and_leaves_mute_to_its_gate() {
     // Decision 11: on Linux the converted voice goes into the managed route's VC input, captured
     // from PipeWire (`_PipeWireRoute`). The route's OS gate mutes it; nothing is silenced here.
+    // With the monitor off nothing is opened for it (`test_disabled_monitor_opens_nothing`).
     let voice = FakeVoice::new();
     let gate = voice.gate();
     let run = start_with(json!({}), Platform::Linux, voice, FakeAudio::new(), false);
-    assert_eq!(run.settings(json!({ "routing": "managed" }))["status"], 200);
+    assert_eq!(run.settings(json!({ "routing": "managed", "monitor": "off" }))["status"], 200);
     eventually("the managed route is ready", || run.ui.ok("/get/data/voice_route", None)["ready"] == true);
     let mic = source("Mic").id.to_json();
     let (_files, options) = rvc_files("convert");
@@ -748,6 +750,7 @@ fn a_linux_conversion_goes_into_the_managed_vc_input_and_leaves_mute_to_its_gate
     eventually("converted audio reaches the VC input", || converted(&run).as_chunks::<2>().0.iter().any(|s| *s != [0, 0]));
     let played = run.voice.played().into_iter().find(|p| p.device == MANAGED_VC).unwrap();
     assert_eq!((played.rate, played.channels), (48000, 1));
+    assert!(!run.voice.played().iter().any(|p| p.device.starts_with("monitor:")), "a monitor was opened while it was off");
     // The fake worker turns each sample's sign and adds one: never the microphone itself.
     let samples: Vec<i16> = played.bytes.as_chunks::<2>().0.iter().map(|s| i16::from_le_bytes(*s)).filter(|s| *s != 0).collect();
     assert!(samples.iter().all(|s| (s - 1) % 100 == 0), "a block that was not the worker's answer reached the VC input");
@@ -842,24 +845,106 @@ fn a_linux_conversion_is_monitored_and_its_gate_holds_the_monitor_but_not_the_co
 }
 
 #[test]
-fn a_monitor_that_does_not_open_never_stops_a_linux_conversion() {
-    // `test_monitor_failure_never_affects_converted_output` (missing): the VC input gets every
-    // converted block, and the monitor's code is told on its own.
+fn a_monitor_that_fails_or_stalls_never_stops_a_linux_conversion() {
+    // `test_monitor_failure_never_affects_converted_output` (missing, unplugged, stalled): the VC
+    // input gets every converted block, and a monitor that fails tells its own code. One that
+    // stalls only holds itself up.
+    for (fault, told) in [
+        (MonitorFault::Missing, Some("monitor_output_missing")),
+        (MonitorFault::Unplugged, Some("monitor_output_disconnected")),
+        (MonitorFault::Stalled(Arc::new(AtomicBool::new(false))), None),
+    ] {
+        let voice = FakeVoice::new();
+        voice.set_monitor_fault(fault.clone());
+        let run = start_with(json!({}), Platform::Linux, voice, FakeAudio::new(), false);
+        assert_eq!(run.settings(json!({ "routing": "managed", "monitor": "on", "monitor_device": "alsa_output.headphones" }))["status"], 200);
+        route_settled(&run);
+        run.ui.ok("/run/resume_voice", None);
+        let mic = source("Mic").id.to_json();
+        let (_files, options) = rvc_files("convert");
+        assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
+        if let Some(code) = told {
+            eventually("the monitor's failure is told", || run.ui.ok("/get/data/direct_voice_state", None)["monitor_error"] == code);
+        }
+        let converted = || run.voice.played().iter().filter(|p| p.device == MANAGED_VC).map(|p| p.bytes.len()).sum::<usize>();
+        eventually("the conversion is verified", || run.ui.ok("/get/data/direct_voice_state", None)["conversion_verified"] == true);
+        let written = converted();
+        // Four blocks more, as Python waited for.
+        eventually("the conversion goes on", || converted() >= written + 4 * 3840);
+        let state = run.ui.ok("/get/data/direct_voice_state", None);
+        assert_eq!((state["active"].clone(), state["error"].clone()), (json!(true), Value::Null), "{state}");
+        if told.is_none() {
+            assert_eq!(state["monitor_error"], Value::Null, "a monitor that only waits is not a failure");
+        }
+        run.ui.ok("/run/stop_direct_voice", None);
+        if let MonitorFault::Stalled(release) = fault {
+            release.store(true, Ordering::SeqCst);
+        }
+        run.ui.stop();
+    }
+}
+
+#[test]
+fn a_resume_waits_for_the_gate_and_keeps_tts_and_the_conversion_on() {
+    // `test_controller_waits_for_resume_confirmation_and_keeps_both_switches`: a conversion on
+    // the managed route starts muted with its monitor; a resume opens the monitor only once the
+    // gate has confirmed it; a mute closes it again and leaves TTS and the conversion on, and a
+    // stop of the speech touches neither.
     let voice = FakeVoice::new();
-    voice.fail_monitor(true);
+    let gate = voice.gate();
     let run = start_with(json!({}), Platform::Linux, voice, FakeAudio::new(), false);
-    assert_eq!(run.settings(json!({ "routing": "managed", "monitor": "on", "monitor_device": "alsa_output.headphones" }))["status"], 200);
+    const HEADPHONES: &str = "alsa_output.headphones";
+    assert_eq!(run.settings(json!({ "routing": "managed", "monitor": "on", "monitor_device": HEADPHONES }))["status"], 200);
     route_settled(&run);
-    run.ui.ok("/run/resume_voice", None);
     let mic = source("Mic").id.to_json();
     let (_files, options) = rvc_files("convert");
+    let monitor = format!("monitor:{HEADPHONES}");
+    let monitor_bytes = || run.voice.played().iter().filter(|p| p.device == monitor).map(|p| p.bytes.len()).sum::<usize>();
     assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
-    eventually("the monitor's failure is told", || run.ui.ok("/get/data/direct_voice_state", None)["monitor_error"] == "monitor_output_missing");
-    let converted = || run.voice.played().iter().filter(|p| p.device == MANAGED_VC).map(|p| p.bytes.len()).sum::<usize>();
-    let written = converted();
-    eventually("the conversion goes on", || converted() > written + 7680);
+    eventually("the conversion is verified", || run.ui.ok("/get/data/direct_voice_state", None)["conversion_verified"] == true);
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(monitor_bytes(), 0, "the monitor was heard while the route was muted");
+    assert!(*gate.source_muted.lock().unwrap());
+    let generation = run.ui.ok("/get/data/direct_voice_state", None)["generation"].clone();
+    run.ui.ok("/run/resume_voice", None);
+    route_settled(&run);
+    eventually("the monitor hears the conversion", || monitor_bytes() > 0);
+
+    // TTS on; a mute closes the gate and the monitor, and leaves both switches on.
+    let server = FakeTts::speechcpp(0.1);
+    assert_eq!(run.settings(json!({ "mode": "original", "japanese_url": server.url }))["status"], 200);
+    assert_eq!(run.enable()["result"]["tts_enabled"], true);
+    run.ui.ok("/run/mute_voice", None);
+    route_settled(&run);
+    assert!(*gate.source_muted.lock().unwrap());
+    std::thread::sleep(Duration::from_millis(700));
+    let heard = monitor_bytes();
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(monitor_bytes(), heard, "the monitor went on while muted");
+    assert_eq!(run.status()["tts_enabled"], true, "a mute is not OFF");
     let state = run.ui.ok("/get/data/direct_voice_state", None);
-    assert_eq!((state["active"].clone(), state["conversion_verified"].clone(), state["error"].clone()), (json!(true), json!(true), Value::Null), "{state}");
+    assert_eq!((state["generation"].clone(), state["requested"].clone(), state["active"].clone()), (generation.clone(), json!(true), json!(true)));
+
+    // A resume the gate has not confirmed yet keeps everything muted.
+    gate.hold_resume.store(true, Ordering::SeqCst);
+    gate.resuming.store(false, Ordering::SeqCst);
+    run.ui.ok("/run/resume_voice", None);
+    eventually("the resume reaches the gate", || gate.resuming.load(Ordering::SeqCst));
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(monitor_bytes(), heard, "the monitor opened before the gate confirmed");
+    assert_eq!(run.status()["muted"], true);
+    gate.hold_resume.store(false, Ordering::SeqCst);
+    route_settled(&run);
+    eventually("the monitor hears it again", || monitor_bytes() > heard);
+    assert_eq!(run.status()["muted"], false);
+    assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["generation"], generation, "the conversion was restarted");
+
+    // Stopping the speech leaves the monitor and the conversion as they are.
+    run.ui.ok("/run/stop_voice", None);
+    let heard = monitor_bytes();
+    eventually("the monitor goes on", || monitor_bytes() > heard);
+    let state = run.ui.ok("/get/data/direct_voice_state", None);
+    assert_eq!((state["requested"].clone(), state["active"].clone()), (json!(true), json!(true)));
     run.ui.ok("/run/stop_direct_voice", None);
     run.ui.stop();
 }
@@ -883,6 +968,11 @@ fn a_capture_that_fails_ends_the_conversion_with_its_own_code() {
         eventually("the conversion fails", || run.ui.ok("/get/data/direct_voice_state", None)["error"] == shown);
         let state = run.ui.ok("/get/data/direct_voice_state", None);
         assert_eq!((state["requested"].clone(), state["active"].clone()), (json!(false), json!(false)), "{code}: {state}");
+        // The next start is refused while this one still cleans up.
+        eventually("the conversion has stopped", || {
+            let state = run.ui.ok("/get/data/direct_voice_state", None);
+            state["pending"] == false && state["stopping"] == false
+        });
     }
     run.ui.stop();
 }
