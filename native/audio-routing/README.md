@@ -111,8 +111,9 @@ on every OS.
 
 On a Linux desktop, `cargo test --test pipewire_live -- --ignored --test-threads=1`
 compares the native graph with `pw-dump`, plays silence to a temporary null sink and
-checks that its removal is reported, and compares the device manager's list with the
-graph.
+checks that its removal is reported, compares the device manager's list with the
+graph, and keeps the observation fresh while short-lived streams come and go, as the
+gate helper's own do.
 
 The Windows code type-checks with `cargo check --target x86_64-pc-windows-msvc`; it
 has not been run on Windows yet.

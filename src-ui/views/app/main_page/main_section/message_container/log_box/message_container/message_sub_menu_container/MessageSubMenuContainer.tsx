@@ -164,5 +164,6 @@ export const MessageSubMenuContainer = (props: MessageSubMenuContainerProps) => 
 
 const Title_p = () => {
     const { t } = useI18n();
-    return <p className={styles.tooltip_title}>{t("main_page.message_log.resend_button_on_hover_desc")}</p>;
+    // The words take the tooltip's own size and colour (the tooltip_content mixin).
+    return <p>{t("main_page.message_log.resend_button_on_hover_desc")}</p>;
 };

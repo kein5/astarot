@@ -43,7 +43,7 @@ build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_4
 
 ### 手元のモデルのフォルダから作る
 
-学習し直した M2M100 や NLLB など、transformers の形のフォルダ（`config.json`、重み、トークナイザのファイル）からも作れます。名前は書き出すフォルダの名前になり、ライセンスはそのまま `manifest.json` に書きます。できたフォルダは、利用者が `<データ>/translation-models/` に置くモデルとして使えます。
+学習し直した M2M100 や NLLB など、transformers の形のフォルダ（`config.json`、重み、トークナイザのファイル）からも作れます。名前は書き出すフォルダの名前になり、ライセンスはそのまま `manifest.json` に書きます。できたフォルダは、翻訳のカタログの「自分のモデルを追加」で足せます。
 
 ```sh
 build/translation-onnx/venv/bin/python tools/translation_onnx/export.py my-m2m100 \
