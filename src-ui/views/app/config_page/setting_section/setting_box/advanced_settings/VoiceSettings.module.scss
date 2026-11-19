@@ -57,7 +57,7 @@
     }
     input::placeholder, textarea::placeholder { color: var(--vox_description_text); opacity: 1; }
     textarea { resize: vertical; min-height: 8rem; }
-    button { width: fit-content; max-width: 100%; white-space: normal; cursor: pointer; background: var(--dark_850_color, #25364f); border: .1rem solid transparent; font-weight: 600; }
+    button { width: fit-content; max-width: 100%; white-space: normal; cursor: pointer; background: var(--dark_850_color, #25364f); border: .1rem solid transparent; font-weight: 500; }
     button:hover:enabled { background: var(--vox_secondary_hover); }
     // The forms mark their primary action with the plain class name "primary" (className="primary"),
     // so it is matched globally; a module class would be renamed and never match.
