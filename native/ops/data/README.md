@@ -32,9 +32,9 @@ Python のバックエンド（`src-python/models/model_downloads/speechcpp_asr.
 
 ## `translation_models.json`
 
-ローカル翻訳のモデル（`native/translate-onnx` のフォルダ）を取得する項目です。`src/downloads/catalog.rs` の `translation_models` が読み、カタログの末尾に足します。対象は `translation`、`notice` も `translation` で、どちらもファイルには書きません。モデルを公開するまでは空です。
+ローカル翻訳のモデル（`native/translate-onnx` のフォルダ）を取得する項目です。`src/downloads/catalog.rs` の `translation_models` が読み、カタログの末尾に足します。対象は `translation` で、ファイルには書きません。`notice` も既定は `translation` で書きませんが、モデルごとの確認の文面を使う項目だけは `notice` を書きます（`catalog.rs` の `TRANSLATION_NOTICES` にある名前だけ。NLLB の `translation_nllb_600m`）。2026-11-19 に M2M100 418M と NLLB-200 distilled 600M の int8 を載せました。
 
-項目は手で書かず、公開したリポジトリの固定した版から `tools/translation_onnx/publish.py catalog --write` で作ります。道具は、公開されたファイルの大きさと SHA-256 をフォルダの `manifest.json` と照らし合わせてから書きます。
+項目は手で書かず、公開したリポジトリの固定した版から `tools/translation_onnx/publish.py catalog --write` で作ります（文面を変えるときは `--notice <名前>`）。道具は、公開されたファイルの大きさと SHA-256 をフォルダの `manifest.json` と照らし合わせてから書きます。
 
 - `id`: `<モデル>-onnx-<形>` を小文字にし、`_` と `.` を `-` にしたものです（`m2m100-418m-onnx-int8`）。中核はこの id から組み込みのモデルと形を決めます（`controller/translation_onnx.rs` の `catalog_id`）。
 - `artifacts`: `manifest.json` と、マニフェストにあるすべてのファイルです。役割は `manifest`、`encoder`、`decoder`、`tokenizer`、`vocabulary`、`weights`（`vocabulary.data`）、`data`（2 GB を超えるグラフの `.onnx_data`。グラフごとに 1 つ）です。
