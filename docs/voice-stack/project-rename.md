@@ -29,7 +29,7 @@ Windowsの実行ファイルには`.exe`が付きます。
 
 ## 識別子と保存先
 
-次の値は設定・データの保存先やOSとの連携に使います。変更すると既存の設定や連携を引き継げなくなるため、変える場合は移行処理を伴わせてください。
+次の値は設定・データの保存先やOSとの連携に使います。変更すると既存の設定や連携を引き継げなくなるため、変える場合は移行処理を伴わせてください。Rustのコードが使う値は`native/app-identity`に、旧名とASTAROTの名前の組で定義してあります。名前を移すPRは、そこで書く名前を切り替えます。
 
 | 対象 | 値 |
 |---|---|
@@ -37,10 +37,10 @@ Windowsの実行ファイルには`.exe`が付きます。
 | Linuxの設定保存先 | `$XDG_CONFIG_HOME/vrct-vox`、既定は`~/.config/vrct-vox` |
 | Linuxのデータ保存先 | `$XDG_DATA_HOME/vrct-vox`、既定は`~/.local/share/vrct-vox` |
 | Linuxのキャッシュ保存先 | `$XDG_CACHE_HOME/vrct-vox`、既定は`~/.cache/vrct-vox` |
-| 環境変数 | `VRCT_CONFIG_DIR`、`VRCT_DATA_DIR`、`VRCT_CACHE_DIR`などの`VRCT_*` |
+| 環境変数 | `VRCT_CONFIG_DIR`、`VRCT_DATA_DIR`、`VRCT_CACHE_DIR`などの`VRCT_*`。利用者とパッケージ作成者向けの4つは、0.6.0から`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`、`ASTAROT_TELEMETRY`、`ASTAROT_OPENVR_API`を先に読み、なければ`VRCT_*`を読む。旧名は0.6.xの間読む。`ASTAROT_TELEMETRY`と`VRCT_TELEMETRY`は、どちらかが`off`なら送信を止める |
 | Windowsのインストール先を記録するキー | `VRCT-VOX` |
 | 音声経路と仮想マイク | `vrct.managed.*`ノード、`vrct-managed-*.service`、所有者識別子`vrct-vox-service-v1` |
-| モデル取得の所有マーカー | `VRCT-VOX-model-download-v1` |
+| モデル取得の所有マーカー | `VRCT-VOX-model-download-v1`。0.6.0から`ASTAROT-model-download-v1`も受け付ける（書くのは`VRCT-VOX-model-download-v1`のまま） |
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.vrct-vox`、`~/.local/share/applications/io.github.kein5.vrct-vox.desktop` |
 
