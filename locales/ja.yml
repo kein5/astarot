@@ -1941,6 +1941,8 @@ model_downloads:
     notice_ppocr: "チャット読み取り用の文字検出・認識モデルです。PaddleOCR（PaddlePaddle）提供、Apache-2.0です。お使いのPCのCPUで動き、画面の内容を送信することはありません。"
     notice_chatbox: "チャット読み取り用の、ASTAROT独自の吹き出し検出モデル（YOLOX-Tiny）です。ASTAROT自身のスクリーンショットで学習し、MITで公開しています。お使いのPCのCPUで動き、画面の内容を送信することはありません。"
     notice_translation: "ONNX Runtime用のローカル翻訳モデルです。上に書いた元のモデルから変換しました。お使いのPCで動き、翻訳する文章を送信することはありません。元のモデルのライセンスを確認してください。"
+    # NLLB-200 distilled 600M（translation_models.json の notice）。容量とメモリはその版で測った値。
+    notice_translation_nllb_600m: "NLLB-200 distilled 600MをONNX Runtime用に変換したローカル翻訳モデルです。お使いのPCで動き、翻訳する文章を送信することはありません。ライセンスはCC-BY-NC-4.0で、非商用の利用に限ります。取得には約643 MBの空き容量が要り、翻訳の間は約1.4 GiBのメモリを使います。既定のM2M100は変わらず、このモデルは選んだときだけ使います。"
     notice_haas: "speech.cpp 0.9.4以降用の、句読点付きで書き起こす日本語音声認識モデルです。Third Intelligence提供、sakasegawa変換、Apache-2.0です。利用前にモデルカードを確認してください。"
     rvc_requirements: "取得するのはRVC音声モデルと検索インデックス（.index）だけです。変換にはRVCの実行環境（Python環境・HuBERT・RMVPE）も必要です。取得完了だけでは変換の準備完了になりません。"
     notice_qwen_asr: "30言語を認識し、話している言語も自動で判定する音声認識モデルです。Qwenチーム提供、sakasegawa変換、Apache-2.0です。1.7Bは0.6Bより誤りが少ない一方で容量とメモリを多く使います（speech.cppによるCommon Voice日本語での測定ではCER 9.49%と11.89%）。利用前にモデルカードを確認してください。"

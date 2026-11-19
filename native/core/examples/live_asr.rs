@@ -172,7 +172,7 @@ impl CapturePlatform for Player {
                     }
                 }
                 let stereo: Vec<i16> = mono.iter().flat_map(|s| [*s, *s]).collect();
-                if !on_audio(&stereo, RATE, 2) {
+                if !on_audio(&stereo, RATE, 2, None) {
                     break;
                 }
             }

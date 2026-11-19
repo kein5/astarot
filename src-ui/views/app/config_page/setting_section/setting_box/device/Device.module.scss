@@ -71,14 +71,20 @@
     font-size: 1.8rem;
 }
 
-// 自動選択 beside the list, which takes the rest of the field column.
+// 自動選択 over the list, which fills the field column, as the microphone's lists stack.
 .device_contents {
     display: flex;
+    flex-direction: column;
     width: 100%;
     min-width: 0;
-    justify-content: start;
-    gap: 2rem;
-    > :last-child { flex: 1 1 auto; }
+    gap: 1.2rem;
+}
+
+// 自動選択 at the start of the field column, its box where the lists start: the checkbox's own
+// padding, its target, reaches into the gap between the columns instead.
+.auto_select {
+    display: flex;
+    margin-inline-start: -0.8rem;
 }
 
 .device_auto_select_wrapper {
