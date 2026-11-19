@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getDefaultStore } from "jotai";
+import type { Atom } from "jotai";
 
 import { dynamicStoreRegistry } from "@store";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -10,8 +11,11 @@ import { useI18n } from "@useI18n";
 import { useVr } from "@logics_configs";
 import { SETTINGS_ARRAY } from "../../../logics/configs/config_page_setter/ui_config_setter";
 import { encodeLogUpdate, encodeOrdered, isRelayAllowed, vrPanelStateNames } from "../../../logics/common/vrPanelWire";
+import type { LogUpdateValue, SentLog } from "../../../logics/common/vrPanelWire";
 import { isLanguageMutation, rejectLanguageMutation } from "../../../logics/main/languageMutations";
 import { failureRun, windowFailureKey } from "../../../logics/common/windowFailures.ts";
+import type { FailureRun } from "../../../logics/common/windowFailures.ts";
+import type { LanguageMutationRequest } from "../../../logics/main/languageMutationCoordinator.ts";
 
 // VRパネル (vr_panel ウィンドウ) にこのウィンドウの状態を写す。
 // - VRパネルが読むatomの値だけを一方向に同期する (vrPanelWire.vrPanelStateNames。SEC-03)。
@@ -35,24 +39,41 @@ const WINDOW_REQUEST_PATHS = [
     "/run/vr_panel_tooltip",
 ];
 
-let allowedNames = null;
-const atomEntries = () => {
-    allowedNames ??= vrPanelStateNames(SETTINGS_ARRAY);
+// A backend request that the VR panel asks this window to send (useStdoutToPython in the VR
+// panel's window). The path is checked against the relay list before anything is sent; the
+// value and the language request are declared as the panel sends them.
+interface VrPanelStdoutRequest {
+    path: unknown;
+    value?: unknown;
+    languageRequest?: LanguageMutationRequest;
+}
+
+// An atom of the registry with its name without "Atom_".
+type NamedAtom = readonly [string, Atom<unknown>];
+
+let allowedNames: Set<string> | null = null;
+// The registry also holds the store hooks, which are functions; its "Atom_" entries are atoms.
+const atomEntries = (): NamedAtom[] => {
+    const allowed = allowedNames ??= vrPanelStateNames(SETTINGS_ARRAY);
     return Object.entries(dynamicStoreRegistry)
-        .filter(([key]) => key.startsWith("Atom_"))
-        .map(([key, atom]) => [key.slice("Atom_".length), atom])
-        .filter(([name]) => allowedNames.has(name));
+        .flatMap(([key, atom]): NamedAtom[] => key.startsWith("Atom_") && typeof atom !== "function"
+            ? [[key.slice("Atom_".length), atom]] : [])
+        .filter(([name]) => allowed.has(name));
 };
 
+// The conversation log's atom holds { state, data: rows }.
+const isLogState = (value: unknown): value is LogUpdateValue<unknown> =>
+    typeof value === "object" && value !== null && "data" in value && Array.isArray(value.data);
+
 // VRパネルへ最後に送った会話ログ。会話ログだけは、これとの差分を送る (vrPanelWire.encodeLogUpdate)
-let sentLog = null;
+let sentLog: SentLog<unknown> | null = null;
 
 // 変化したatomは値を丸ごと送る。full は会話ログも全件を送る (VRパネルが起動したときなど)
-const emitState = (entries, full = false) => {
-    const payload = {};
+const emitState = (entries: readonly NamedAtom[], full = false) => {
+    const payload: Record<string, unknown> = {};
     for (const [name, atom] of entries) {
         const value = jotai.get(atom);
-        if (name === "MessageLogs") {
+        if (name === "MessageLogs" && isLogState(value)) {
             const update = encodeLogUpdate(sentLog, value, full);
             sentLog = update.sent;
             payload[name] = update.message;
@@ -77,17 +98,18 @@ export const VrPanelSyncController = () => {
     const { currentIsEnabledOverlayVrPanel } = useVr();
     const { t } = useI18n();
     const { showNotification_Error } = useNotificationStatus();
-    const openFailures = useRef(null);
-    openFailures.current ??= failureRun();
+    const openFailures = useRef<FailureRun | null>(null);
+    // Made once; every render reads the same run of failures.
+    const openFailure = openFailures.current ??= failureRun();
 
     // VR画面のウィンドウは VR UI が ON の間だけ作る (OFF の間も動かしておくと、使わない人にも負荷がかかる)。
     // 作られた VR画面は vr-panel-ready を送ってくるので、状態はそのときに送る
     const is_vr_panel_enabled = currentIsEnabledOverlayVrPanel.data === true;
     useEffect(() => {
-        invoke("set_vr_panel_window", { open: is_vr_panel_enabled }).then(() => openFailures.current.succeeded(), error => {
+        invoke("set_vr_panel_window", { open: is_vr_panel_enabled }).then(() => openFailure.succeeded(), error => {
             console.error("VR panel window could not be changed", error);
             // Turning the panel off needs no notice; a panel that cannot be opened does (#397).
-            if (is_vr_panel_enabled) openFailures.current.failed(() => showNotification_Error(
+            if (is_vr_panel_enabled) openFailure.failed(() => showNotification_Error(
                 t(windowFailureKey("vr_panel", "open", error)), { category_id: "vr_panel_open_failed" }));
         });
     }, [is_vr_panel_enabled]);
@@ -118,25 +140,26 @@ export const VrPanelSyncController = () => {
         const unlistenReady = listen("vr-panel-ready", () => {
             if (!disposed) emitState(atomEntries(), true);
         });
-        const unlistenStdout = listen("vr-panel-stdout", ({ payload }) => {
+        const unlistenStdout = listen<VrPanelStdoutRequest>("vr-panel-stdout", ({ payload }) => {
             if (disposed) return;
-            if (!isRelayAllowed(payload.path)) {
-                console.warn("[vr-panel] blocked request from the VR panel:", payload.path);
-                rejectLanguageMutation(payload.languageRequest, "blocked");
+            const { path, value, languageRequest } = payload;
+            if (!isRelayAllowed(path)) {
+                console.warn("[vr-panel] blocked request from the VR panel:", path);
+                rejectLanguageMutation(languageRequest, "blocked");
                 return;
             }
             // ウィンドウの開閉・呼び戻しと、ログの操作バー (固定先・ロック・不透明度) はメイン機能と関係ないので、
             // 設定画面を開いている間も通す
-            const is_window_request = WINDOW_REQUEST_PATHS.includes(payload.path);
+            const is_window_request = WINDOW_REQUEST_PATHS.includes(path);
             const is_allowed = is_window_request || isVrSettingsOpenRef.current === true;
             if (isOpenedConfigPageRef.current === true && !is_allowed) {
-                rejectLanguageMutation(payload.languageRequest, "config-open");
+                rejectLanguageMutation(languageRequest, "config-open");
                 // VRパネル側で pending にした表示を元に戻すため、状態を送り直す
                 emitState(atomEntries());
                 return;
             }
-            asyncStdoutToPython(payload.path, payload.value, payload.languageRequest, "vr_panel").then(sent => {
-                if (sent === false && isLanguageMutation(payload.path)) emitState(atomEntries());
+            asyncStdoutToPython(path, value, languageRequest, "vr_panel").then(sent => {
+                if (sent === false && isLanguageMutation(path)) emitState(atomEntries());
             }).catch(console.error);
         });
         const unlistenConfigPage = listen("vr-panel-config-page", ({ payload: is_opened }) => {
