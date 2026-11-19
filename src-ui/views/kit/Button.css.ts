@@ -20,7 +20,8 @@ export const button = recipe({
         borderRadius: vars.vox_radius,
         font: "inherit",
         fontSize: "1.4rem",
-        fontWeight: 600,
+        // shadcn/ui's Button: text-sm, font-medium.
+        fontWeight: 500,
         lineHeight: 1.3,
         textAlign: "center",
         // Long Japanese labels wrap inside the button instead of pushing the row wider.

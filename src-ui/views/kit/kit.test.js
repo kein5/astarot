@@ -22,6 +22,11 @@ test("a primary button is Lilac with Dark Plum words, and buttons do not submit 
     assert.match(read("Button.tsx"), /type = "button"/);
 });
 
+test("buttons are medium weight and a disabled control is half as strong, as in shadcn/ui", () => {
+    assert.match(read("Button.css.ts"), /fontWeight: 500,/);
+    assert.match(read("shared.css.ts"), /opacity: \.5,/);
+});
+
 test("the switch is Radix's, the select is the system's", () => {
     assert.match(read("Switch.tsx"), /from "@radix-ui\/react-switch"/);
     assert.match(read("Switch.css.ts"), /"&\[data-state='checked'\]": \{ transform: "translateX\(2\.2rem\)", background: vars\.vox_on_primary \}/);
