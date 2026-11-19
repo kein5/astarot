@@ -1,4 +1,5 @@
-//! Owns the bundled speech.cpp server processes: start, stop, restart and liveness.
+//! Owns the bundled speech.cpp server processes: start, stop, restart and liveness; and
+//! llama.cpp's server for a translation LLM, which the app fetches after consent ([`llama`]).
 //!
 //! The behaviour follows `src-python/models/speech_server/`, which this crate is to
 //! replace (issue #276): the same settings file, the same states and the same fixed
@@ -17,6 +18,7 @@ pub mod builds;
 pub mod bundle;
 pub mod check;
 pub mod devices;
+pub mod llama;
 pub mod server;
 pub mod servers;
 pub mod settings;
