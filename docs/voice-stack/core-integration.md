@@ -438,12 +438,14 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
   | `test_rvc_integration.py` | `process.rs`、`worker.rs` の単体の試験、`voice.rs` | 不正な値、起動前の確認、止まる worker、無音、CPU を再カバーした。以前の版が保存した Seed-VC を RVC へ移す形は 10 で判断を待っている |
   | `test_vc_settings.py` | `config_reference.rs`、`voice_settings.rs`、`voice.rs` | 再カバー済み |
   | `test_vc_router_protocol.py`、`test_vc_router_worker.py` | なし | router のプロセスは中核にない（12） |
-  | `test_spoken_route_native.py` | `pipewire/gate.rs` の単体の試験（偽の補助） | 本物の補助（C の `vrct-voice-gate`）が自分で断ることは確かめていない（89） |
+  | `test_spoken_route_native.py` | `pipewire/gate.rs` の単体の試験（偽の補助）、`native/audio-routing/tests/voice_gate_private.rs`（私用の PipeWire と本物の補助、89） | 補助が自分で断る 2 本は再カバーした（2026-11-19）。音を流す 3 本目（直接の声を抑えている間も読み上げが聞こえ、再開が要ること）は移していない |
   | `test_native_vc_collection.py`、`test_voice_route_watch.py`、`test_voice_route_cli.py` | なし | Python の試験の集め方と `tools/voice_route.py` の道具。道具と一緒に引退させる |
   | `test_seedvc_*.py` | なし | 区分 D。`test_seedvc_live.py` の汎用の部分（止めること、片付けの失敗、無音、捕捉の失敗のコード）は上の試験が持つ |
 - **Seed-VC の引退**: `integrations/seed_vc/` は Python の実行環境の準備（`src-python/models/voice_conversion/runtime_setup.py`）と Python の試験、`tests/devtools/test_toolchain_pins.py` が読んでいます。いま消すと `check --scope voice` が壊れるので、`src-python` と一緒に消します（「Python の削除に伴うもの」）。中核は Seed-VC を選ばせず、保存値を RVC に移します（10）。
-- **決まったこと（2026-11-19）**: Seed-VC の保存値の移し方は今の形（10 の (1)）、router のプロセスは分け直さない（12）、Linux の管理された経路の変換をつなぐ（11 の (a)）、C の補助の試験を私用の PipeWire の Rust の試験に移す（89 の (b)）。11 と 89 の実装は残っています。90 は報告です。`vrct-vc-worker` を配布物から外すことは 5 にあります。
-- **残っていること**: `native/audio-routing` の試験はどの CI でも動いていません（`check --scope rust` だけ）。README のとおり、Windows ではまだ動かしたことがありません。
+- **決まったこと（2026-11-19）**: Seed-VC の保存値の移し方は今の形（10 の (1)）、router のプロセスは分け直さない（12）、Linux の管理された経路の変換をつなぐ（11 の (a)）、C の補助の試験を私用の PipeWire の Rust の試験に移す（89 の (b)）。11 の実装は残っています。90 は報告です。`vrct-vc-worker` を配布物から外すことは 5 にあります。
+- **決定の実装（2026-11-19）**:
+  - **89**: `native/audio-routing/tests/voice_gate_private.rs` に、私用の PipeWire（管理された経路の設定を入れた `pipewire` と、WirePlumber の `policy` のプロファイル）を一時フォルダに立てて、本物の `vrct-voice-gate` を使う試験を足しました。補助は試験の中で `cc` と libpipewire でビルドします（`tools/build_voice_gate.py` と同じ引数）。Python の `test_spoken_route_native.py` の 2 本にあたります。VC の入力は、自分のクッキーとシリアルと `vc` の指定のときだけミュートを変え、違うクッキー、違うシリアル、読み上げの入力を指したときは補助が断ること。再開（`guard-direct`）は、VC の入力が期待したノードで期待した状態のときだけ本線を開くことです。私用の PipeWire の立て方は `tests/private_graph/mod.rs` にまとめ、`native/core/examples/live_speech.rs --private-pipewire` と同じ形です。PipeWire に接続する前に環境変数で私用の PipeWire を指すので、試験は 1 本にまとめています。既定では動かさず（`#[ignore]`）、Linux の CI の `headless` のジョブが `cargo test --test voice_gate_private -- --ignored` で動かします。このジョブは、Python の試験のために固定した版の PipeWire と WirePlumber をすでに用意しています。音を流す 3 本目は移していません。
+- **残っていること**: `native/audio-routing` の試験は、89 の 1 本（Linux の `headless` のジョブ）のほかは、どの CI でも動いていません（`check --scope rust` だけ）。README のとおり、Windows ではまだ動かしたことがありません。
 
 ## 翻訳の棚卸し
 
