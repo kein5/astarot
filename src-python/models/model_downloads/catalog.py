@@ -134,18 +134,20 @@ CATALOG = (*CATALOG, *TTS_CATALOG)
 TARGETS = ('japanese', 'multilingual', 'asr', 'vad', 'diarization', 'rvc', 'ocr')
 # What a user acknowledges one by one, apart from the general consent, before a download
 # starts (the start request's `acknowledged`), in this order. `non_commercial`: a Creative
-# Commons NonCommercial license (CC-BY-NC-4.0 and its -SA and -ND variants). Kept the same as
+# Commons NonCommercial license (CC-BY-NC-4.0 and its -SA and -ND variants). `gemma_terms`: the
+# Gemma Terms of Use, whose Prohibited Use Policy binds the user too. Kept the same as
 # native/ops/src/downloads/catalog.rs.
-RESTRICTIONS = ('non_commercial',)
+RESTRICTIONS = ('non_commercial', 'gemma_terms')
 
 
 def license_restrictions(license):
     """The restrictions a license string carries; a license of several parts carries every part's."""
-    for part in re.split(r'[+,]', license):
-        words = [word.upper() for word in re.split(r'[^0-9A-Za-z]+', part) if word]
-        if (words[:1] == ['CC'] and 'NC' in words) or 'NONCOMMERCIAL' in ''.join(words):
-            return ['non_commercial']
-    return []
+    parts = [[word.upper() for word in re.split(r'[^0-9A-Za-z]+', part) if word] for part in re.split(r'[+,]', license)]
+    found = {
+        'non_commercial': any((words[:1] == ['CC'] and 'NC' in words) or 'NONCOMMERCIAL' in ''.join(words) for words in parts),
+        'gemma_terms': any('GEMMATERMS' in ''.join(words) or words == ['GEMMA'] for words in parts),
+    }
+    return [kind for kind in RESTRICTIONS if found[kind]]
 
 
 # Where an applied file goes: (speech server profile, settings field). RVC is separate.

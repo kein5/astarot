@@ -1911,6 +1911,10 @@ model_downloads:
             title: "Non-commercial use only."
             note: "This model's license, {{license}}, allows only non-commercial use. You cannot use it for commercial purposes. Read the license before downloading."
             acknowledge: "I will use this model only for non-commercial purposes, as {{license}} requires."
+        gemma_terms:
+            title: "The Gemma Terms of Use apply."
+            note: "This model's license, {{license}}, includes the Gemma Terms of Use and the Gemma Prohibited Use Policy. These terms also apply to you when you use the model. Read both through the links below before downloading."
+            acknowledge: "I have read the Gemma Terms of Use and the Prohibited Use Policy and will use this model under them."
         other:
             title: "Its license restricts its use."
             note: "This model's license, {{license}}, has conditions that this version of the app cannot show or ask you to accept. It cannot be downloaded here."

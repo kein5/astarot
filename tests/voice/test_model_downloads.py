@@ -103,13 +103,24 @@ def test_only_fixed_catalog_requests_are_accepted(setup, overrides):
         ("MIT + Apache-2.0", []),
         ("CC BY 4.0", []),
         ("CC0-1.0", []),
-        ("Gemma Terms of Use + MIT + Apache-2.0", []),
+        ("Gemmatic-1.0", []),
+        ("Gemma Terms of Use + MIT + Apache-2.0", ["gemma_terms"]),
+        ("gemma", ["gemma_terms"]),
+        ("Gemma Terms of Use + CC-BY-NC-4.0", ["non_commercial", "gemma_terms"]),
     ],
 )
 def test_restrictions_come_from_the_license(license, restrictions):
     from models.model_downloads.catalog import license_restrictions
 
     assert license_restrictions(license) == restrictions
+
+
+def test_only_irodori_large_of_the_shipped_entries_carries_the_gemma_terms():
+    """The same answer as native/ops catalog.rs (decision 4 of the LLM runtime plan)."""
+    from models.model_downloads.catalog import CATALOG, license_restrictions
+
+    restricted = {m.id: license_restrictions(m.license) for m in CATALOG if license_restrictions(m.license)}
+    assert restricted == {"irodori-v4-large-q8": ["gemma_terms"]}
 
 
 def test_a_non_commercial_entry_starts_only_with_its_acknowledgement(setup, tmp_path):

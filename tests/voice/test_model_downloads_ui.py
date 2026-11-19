@@ -6,6 +6,7 @@ import copy
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import subprocess
 import time
@@ -446,7 +447,19 @@ def test_more_speechcpp_models_are_choices_and_large_shows_gemma_terms(ui):
     # Each of its terms is a link of its own, named by the file.
     for name in ("GEMMA_TERMS_OF_USE.md", "GEMMA_PROHIBITED_USE_POLICY.md", "LICENSE-MIT", "LICENSE-APACHE-2.0"):
         expect(dialog.get_by_role("link", name=name, exact=True)).to_have_count(1)
-    # Nothing starts until the user agrees.
+    # The Gemma terms bind the user too: a checkbox of their own, apart from the consent.
+    expect(dialog).to_contain_text("The Gemma Terms of Use apply.")
+    acknowledgement = dialog.get_by_role(
+        "checkbox", name="I have read the Gemma Terms of Use and the Prohibited Use Policy and will use this model under them.",
+        exact=True)
+    expect(acknowledgement).to_have_accessible_description(re.compile("These terms also apply to you when you use the model"))
+    start = dialog.get_by_role("button", name="Agree and download", exact=True)
+    dialog.get_by_role("checkbox", name="I have reviewed the source, usage terms, size and save location and agree to download.",
+                       exact=True).check()
+    expect(start).to_be_disabled()
+    acknowledgement.check()
+    expect(start).to_be_enabled()
+    # Nothing starts until the user presses Start.
     assert not any(ep == "/run/start_model_download" for ep, _ in peer.sent)
     page.get_by_role("button", name="Back", exact=True).click()
     assert not peer.errors

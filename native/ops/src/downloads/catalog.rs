@@ -68,24 +68,29 @@ impl Model {
 /// The kinds of restriction a user acknowledges one by one, apart from the general consent,
 /// before a download starts (`acknowledged` of `/run/start_model_download`), in the order they
 /// are listed. `non_commercial`: a Creative Commons NonCommercial license (CC-BY-NC-4.0 and its
-/// -SA and -ND variants). A new kind (terms such as Gemma's) is added here, in `catalog.py`'s
-/// `RESTRICTIONS` and in the UI's texts.
-pub const RESTRICTIONS: [&str; 1] = ["non_commercial"];
+/// -SA and -ND variants). `gemma_terms`: the Gemma Terms of Use, whose Prohibited Use Policy
+/// binds whoever uses the model, not only who distributes it (ADR-015). A new kind is added
+/// here, in `catalog.py`'s `RESTRICTIONS` and in the UI's texts.
+pub const RESTRICTIONS: [&str; 2] = ["non_commercial", "gemma_terms"];
+
+/// The words of one part of a license string, in upper case.
+fn license_words(part: &str) -> Vec<String> {
+    part.split(|c: char| !c.is_ascii_alphanumeric()).filter(|w| !w.is_empty()).map(str::to_ascii_uppercase).collect()
+}
 
 /// The restrictions a catalog license string carries, in [`RESTRICTIONS`] order. A license of
 /// several parts (`MIT + Apache-2.0`) carries those of every part. Derived from the reviewed
 /// string, so no field is added to [`Model`] or to `receipt.json`.
 pub fn license_restrictions(license: &str) -> Vec<&'static str> {
-    let non_commercial = license.split(['+', ',']).any(|part| {
-        let words: Vec<String> = part.split(|c: char| !c.is_ascii_alphanumeric()).filter(|w| !w.is_empty()).map(str::to_ascii_uppercase).collect();
-        // "CC-BY-NC-SA-4.0", "CC BY-NC 4.0"; "Attribution-NonCommercial" spelled out.
-        (words.first().is_some_and(|w| w == "CC") && words.iter().any(|w| w == "NC")) || words.concat().contains("NONCOMMERCIAL")
-    });
-    if non_commercial {
-        vec!["non_commercial"]
-    } else {
-        Vec::new()
-    }
+    let parts: Vec<Vec<String>> = license.split(['+', ',']).map(license_words).collect();
+    // "CC-BY-NC-SA-4.0", "CC BY-NC 4.0"; "Attribution-NonCommercial" spelled out.
+    let non_commercial = parts.iter().any(|words| (words.first().is_some_and(|w| w == "CC") && words.iter().any(|w| w == "NC")) || words.concat().contains("NONCOMMERCIAL"));
+    // "Gemma Terms of Use", and Hugging Face's license id "gemma" on its own.
+    let gemma = parts.iter().any(|words| words.concat().contains("GEMMATERMS") || words.as_slice() == ["GEMMA"]);
+    RESTRICTIONS.into_iter().filter(|kind| match *kind {
+        "non_commercial" => non_commercial,
+        _ => gemma,
+    }).collect()
 }
 
 pub const IRODORI_REV: &str = "9db7da1bec3d1069ef8e29732e0497be60c7b047";
@@ -723,13 +728,24 @@ mod translation_tests {
         for license in non_commercial.into_iter().chain(["Creative Commons Attribution-NonCommercial 4.0"]) {
             assert_eq!(license_restrictions(license), ["non_commercial"], "{license}");
         }
-        for license in ["MIT + Apache-2.0", "CC BY 4.0", "CC-BY-SA-4.0", "CC0-1.0", "Gemma Terms of Use + MIT + Apache-2.0", "OpenMDW-1.1", "MIT", "Apache-2.0", ""] {
+        for license in ["MIT + Apache-2.0", "CC BY 4.0", "CC-BY-SA-4.0", "CC0-1.0", "OpenMDW-1.1", "MIT", "Apache-2.0", "Gemmatic-1.0", ""] {
             assert!(license_restrictions(license).is_empty(), "{license}");
         }
         assert_eq!(entry(Vec::new()).restrictions(), Vec::<&str>::new());
         assert_eq!(Model { license: "CC-BY-NC-4.0".into(), ..entry(Vec::new()) }.restrictions(), ["non_commercial"]);
-        // Only a translation model (NLLB-200, translation_models.json) may carry one; the speech,
-        // voice and chat-reading models the catalog offers carry none.
-        assert!(catalog().iter().filter(|m| m.target != TRANSLATION_TARGET).all(|m| m.restrictions().is_empty()));
+    }
+
+    #[test]
+    fn the_gemma_terms_are_a_restriction_of_their_own() {
+        for license in ["Gemma Terms of Use", "Gemma Terms of Use + MIT + Apache-2.0", "gemma-terms-of-use", "gemma", "MIT, Gemma"] {
+            assert_eq!(license_restrictions(license), ["gemma_terms"], "{license}");
+        }
+        // Both kinds, in RESTRICTIONS order whatever the order of the parts.
+        assert_eq!(license_restrictions("Gemma Terms of Use + CC-BY-NC-4.0"), ["non_commercial", "gemma_terms"]);
+        // Of the speech, voice and chat-reading models the catalog offers, only Irodori-TTS v4
+        // Large carries one: its weights come from Gemma (decision 4 of the LLM runtime plan).
+        let restricted: Vec<(String, Vec<&str>)> =
+            catalog().into_iter().filter(|m| m.target != TRANSLATION_TARGET && !m.restrictions().is_empty()).map(|m| (m.id.clone(), m.restrictions())).collect();
+        assert_eq!(restricted, [("irodori-v4-large-q8".to_string(), vec!["gemma_terms"])]);
     }
 }

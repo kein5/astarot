@@ -3582,7 +3582,9 @@
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/tree/79cae5947a97e941c62912749e1387c8b35ec16b"
     ],
-    "restrictions": []
+    "restrictions": [
+     "gemma_terms"
+    ]
    },
    {
     "id": "qwen3-17b-q8",
