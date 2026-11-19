@@ -51,7 +51,8 @@ export const GenerationOptions = ({ role, draft, field, errorId }) => {
             aria-invalid={invalidSeed || !!outsideSeedRange}
             aria-describedby={[invalidSeed ? errorId : null, outsideSeedRange ? seedRangeId : null].filter(Boolean).join(" ") || undefined}
             onChange={e => field(seedKey, e.target.value)} /></label>}
-        <FormRow label={t("voice_ui.instruction")} description={t("voice_ui.instruction_hint", { count: Array.from(instructions).length })} fold={false}>
+        {/* The line counts the characters as they are typed, so it stays in sight (#614). */}
+        <FormRow label={t("voice_ui.instruction")} description={t("voice_ui.instruction_hint", { count: Array.from(instructions).length })} fold={false} keepDescription>
             <textarea aria-invalid={invalidInstructions} aria-describedby={invalidInstructions ? errorId : undefined} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
                 placeholder={t("voice_ui.example", { value: t("voice_ui.instruction_example") })}
                 onChange={e => field(instructionKey, e.target.value)} />

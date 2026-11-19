@@ -86,6 +86,22 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     assert.match(read("advanced_settings/DirectVoiceSettings.jsx"), /data-setting-id=\{variant === "rvc" \? "rvc_settings" : "direct_voice_settings"\}/);
 });
 
+// #614: the TTS page keeps its descriptions out of sight, as hints, its servers' part included.
+test("the TTS page wraps its form and its servers in the hints", async () => {
+    const runtime = hooks();
+    const VoiceSettings = () => null, SpeechServers = () => null;
+    const tts = await loadModule(box("tts/Tts.jsx"), runtime, {
+        "../advanced_settings/VoiceSettings": { VoiceSettings }, "../advanced_settings/SpeechServers": { SpeechServers },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
+    });
+    const page = runtime.render(tts.Tts);
+    assert.equal(page.type, "hints");
+    const [form, servers] = page.props.children;
+    assert.equal(form.type, VoiceSettings);
+    assert.equal(servers.type, SpeechServers);
+    assert.deepEqual(servers.props.profiles, ["japanese", "multilingual"]);
+});
+
 test("a fold marks its line while a row inside it has unsaved edits", async () => {
     const element = (attributes = {}, children = []) => ({
         attributes: new Set(), dataset: attributes, children,

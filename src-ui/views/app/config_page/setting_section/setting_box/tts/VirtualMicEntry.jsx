@@ -9,7 +9,8 @@ export const VirtualMicEntry = () => {
     const { status, openGuide } = useVirtualMic();
     if (status?.supported !== true) return null;
     const found = status.cables.length > 0;
-    return <FormRow label={t("virtual_mic.entry.label")}
+    // What the guide checks is a description; that no cable was found is a state, kept in sight (#614).
+    return <FormRow label={t("virtual_mic.entry.label")} keepDescription={!found}
         description={t(found ? "virtual_mic.entry.found" : "virtual_mic.entry.missing")}>
         <button type="button" onClick={openGuide}>{t("virtual_mic.entry.open")}</button>
     </FormRow>;

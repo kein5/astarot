@@ -165,3 +165,14 @@ test("an engine that does not answer keeps the saved voice visible and says it i
     assert.equal(readout.props.progress, undefined);
     s.runtime.unmount();
 });
+
+// #614: what an engine's reading values are is the fold's description (its title's hint on a
+// reviewed page); the voices' credit terms stay in sight under the engine's fields.
+test("the reading folds carry their description; the credit stays a paragraph", async () => {
+    const s = await setup({ draft: voicevox, engineVoices: connected });
+    assert.equal(s.renderScales("voicevox").props.desc, "voice_ui.engine.audio_query.description");
+    assert.equal(s.renderCoeiroink().props.desc, "voice_ui.engine.coeiroink.description");
+    for (const tree of [s.renderScales("voicevox"), s.renderCoeiroink()]) assert.ok(!find(tree, node => node.type === "description"));
+    assert.ok(find(s.render(), node => node.type === "description" && node.props.text === "voice_ui.engine.credit.voicevox"));
+    s.runtime.unmount();
+});

@@ -81,8 +81,8 @@ export const AudioQueryOptions = ({ engine, draft, setDraft }) => {
     const changed = numbers.some(item => value(item.key) !== item.fallback);
     const name = TTS_ENGINES[engine].name;
     return <SetupSection title={t("voice_ui.engine.audio_query.title", { engine: name })}
+        desc={t("voice_ui.engine.audio_query.description", { engine: name })}
         status={t("voice_ui.engine.audio_query.status", { speed: value(`${engine}_speed`) })}>
-        <Description text={t("voice_ui.engine.audio_query.description", { engine: name })} />
         {numberFields({ t, numbers, label: item => t(`voice_ui.engine.audio_query.${item.name}`), value, set, errorId })}
         {!validAudioQueryOptions({ ...defaults, ...draft }) && <p id={errorId} role="alert">{t("voice_ui.engine.audio_query.invalid")}</p>}
         {/* Back to the engine's own values; saved from the save bar. */}
@@ -97,9 +97,8 @@ export const CoeiroinkOptions = ({ draft, setDraft }) => {
     const value = key => draft[key] ?? COEIROINK_DEFAULTS[key];
     const set = (key, text) => setDraft(current => ({ ...current, [key]: text }));
     const changed = Object.keys(COEIROINK_DEFAULTS).some(key => value(key) !== COEIROINK_DEFAULTS[key]);
-    return <SetupSection title={t("voice_ui.engine.coeiroink.title")}
+    return <SetupSection title={t("voice_ui.engine.coeiroink.title")} desc={t("voice_ui.engine.coeiroink.description")}
         status={t("voice_ui.engine.coeiroink.status", { speed: value("coeiroink_speed"), rate: value("coeiroink_sampling_rate") })}>
-        <Description text={t("voice_ui.engine.coeiroink.description")} />
         {numberFields({ t, numbers: COEIROINK_NUMBERS, label: item => t(`voice_ui.engine.coeiroink.${item.key}`), value, set, errorId })}
         <label>{t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")}
             <select aria-label={t("voice_ui.engine.coeiroink.coeiroink_sampling_rate")} value={value("coeiroink_sampling_rate")}
@@ -193,6 +192,7 @@ export const TtsEngine = ({ draft, setDraft, saved }) => {
             {state === "connected" && !voices.length && <p>{t("voice_ui.engine.no_voices")}</p>}
             {engine === "coeiroink" && <CoeiroinkOptions draft={draft} setDraft={setDraft} />}
             {AUDIO_QUERY_ENGINES.includes(engine) && <AudioQueryOptions key={engine} engine={engine} draft={draft} setDraft={setDraft} />}
+            {/* The voices' credit and terms: what their licenses ask, kept in sight (#614). */}
             <Description text={t(`voice_ui.engine.credit.${engine}`)} />
         </>}
     </>;
