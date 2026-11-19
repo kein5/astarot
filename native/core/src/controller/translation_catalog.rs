@@ -1,10 +1,11 @@
 //! The translation catalog (#413): what translates, in two groups, with the entries the app
 //! ships and the ones the user adds side by side.
 //!
-//! - **engine**: models that run on an inference engine on this PC. The built-in weights, the
-//!   folders in `<data>/translation-models/`, and the engine entries the user added
-//!   (`vrct_ops::downloads::translation_catalog`). An engine entry is a local translation weight
-//!   named `user:<id>`, chosen like any other weight.
+//! - **engine**: models that run on an inference engine on this PC. The built-in weights and
+//!   the engine entries the user added (`vrct_ops::downloads::translation_catalog`). An engine
+//!   entry is a local translation weight named `user:<id>`, chosen like any other weight. The
+//!   folders in `<data>/translation-models/` that earlier versions listed are not (#597); the
+//!   view says only whether that folder holds one (`retired_folder_used`).
 //! - **api**: the providers the core calls (DeepL, Google Cloud, Papago, the LLM APIs, LM
 //!   Studio, Ollama and the OpenAI-compatible endpoint), and the API entries the user added. An
 //!   API entry is a named OpenAI-compatible endpoint (this PC, the LAN or the internet); using it
@@ -101,9 +102,11 @@ impl Core {
         &self.ops().translation_catalog
     }
 
-    /// `{engine: [...], api: [...], runtimes, protocols}` and `error_code` when the user's file
-    /// cannot be read. Every item has `origin`: `builtin` (shipped), `folder` (a folder in
-    /// `<data>/translation-models/`) or `user` (an entry the user added).
+    /// `{engine: [...], api: [...], runtimes, protocols, retired_folder_used}` and `error_code`
+    /// when the user's file cannot be read. Every item has `origin`: `builtin` (shipped) or
+    /// `user` (an entry the user added). `retired_folder_used` says whether
+    /// `<data>/translation-models/` holds a folder, so that the page can point earlier users
+    /// to the add form; never which.
     pub(crate) fn translation_catalog_view(&self) -> Value {
         let config = self.config();
         let state = self.translation_catalog().state();
@@ -119,10 +122,9 @@ impl Core {
             .filter_map(Value::as_str)
             .filter(|weight| !weight.starts_with("user:"))
             .map(|weight| {
-                let folder = weight.strip_prefix("custom:");
                 json!({
-                    "id": weight, "weight": weight, "origin": if folder.is_some() { "folder" } else { "builtin" },
-                    "name": folder.unwrap_or(weight), "runtime": "onnx",
+                    "id": weight, "weight": weight, "origin": "builtin",
+                    "name": weight, "runtime": "onnx",
                     "non_commercial": super::lifecycle::non_commercial(weight),
                     "available": present[weight] == true, "in_use": weight == selected,
                 })
@@ -179,6 +181,7 @@ impl Core {
         view.insert("api".into(), json!(api));
         view.insert("runtimes".into(), json!(runtimes()));
         view.insert("protocols".into(), json!(catalog::PROTOCOLS));
+        view.insert("retired_folder_used".into(), json!(super::translation::retired_folder_used(&config.environment().data_dir)));
         if let Some(code) = state.get("error_code") {
             view.insert("error_code".into(), code.clone());
         }
@@ -197,7 +200,7 @@ impl Core {
             .iter()
             .map(|id| {
                 // A built-in weight keeps what start-up and the downloads found.
-                let present = if id.starts_with("user:") || id.starts_with("custom:") || before.get(id).is_none() {
+                let present = if id.starts_with("user:") || before.get(id).is_none() {
                     (self.services().translation_weight_available)(id) || super::translation::default_weight_available(env, id)
                 } else {
                     before[id] == true

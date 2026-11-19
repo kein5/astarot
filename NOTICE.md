@@ -252,9 +252,9 @@ Microsoft). The app loads one of them instead of the shipped CPU build at start
 when the user chose its device for translation; chat reading then uses it too.
 No translation model is bundled: the M2M100
 (MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
-consented model catalog once published, and a model the user places in the
-`translation-models` folder is under its own license, which the user is
-responsible for. A model under a non-commercial license, such as NLLB-200, is
+consented model catalog once published, and a model the user adds to the
+translation catalog from a folder of their own is under its own license, which
+the user is responsible for. A model under a non-commercial license, such as NLLB-200, is
 never the default and downloads only after the user has also ticked a separate
 acknowledgement that names its license and allows only non-commercial use; the
 backend refuses the download without it. Selecting an NLLB-200 model keeps its

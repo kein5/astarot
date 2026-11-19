@@ -329,6 +329,7 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | `vc_runtimes/llamacpp-vulkan/`と`receipt.json` | `config.json`と同じフォルダ | 翻訳のLLMを動かすllama.cppの`llama-server`（ADR-015。利用者が同意して取得したときだけ）。llama.cppのGitHubのリリース（b12125）のVulkan版のアーカイブから、サーバーが読むファイルだけを`lib/`に取り出す。CPUだけで動かすときも同じ版を使う。取得と確認はRVCの実行環境と同じで、確認では`llama-server --list-devices`を一度動かす。モデルは含まない。サーバーは、そのモデルを選んだ翻訳を始めたときだけ起動する |
 | weights/whisper/… | PATH_DATA | 以前の版が取得した Whisper の重み。いまの版は読まず、取得もしない。利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](#古い-whisper-の重み)） |
 | weights/ctranslate2/… | PATH_DATA | 0.4までのPythonバックエンドが取得したCTranslate2の翻訳モデルと検証記録。0.5.0の中核は読まず、起動の後でPythonが作った名前のフォルダだけを消す（リンクやジャンクションはたどらない。`native/core/src/controller/legacy_weights.rs`、[中核の統合](../voice-stack/core-integration.md)の「旧 CTranslate2 の重み」） |
+| `translation-models/<フォルダー>/` | PATH_DATA | 以前の中核が読んだ、利用者が置いた翻訳のモデル（重みの名前は`custom:<フォルダー>`）。#597からは一覧に出さず、読み込まない。フォルダーとファイルは消さず動かさない。中核はこのフォルダーにフォルダーがあるかどうかだけを`/get/data/translation_catalog`の`retired_folder_used`で伝え、翻訳のページはそのあいだ翻訳のカタログの「自分のモデルを追加」への案内を出す。名前やパスは伝えない |
 | `secrets.json` | `config.json`と同じフォルダ | APIキー（[APIキーの保存先](#apiキーの保存先)）。Windowsでは暗号化、Linuxでは権限0600 |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
 | `telemetry_state.json` | `PATH_DATA` | 利用状況の通知をその日（UTC）に送ったかどうかの記録（起動の通知を送った日付と、その日に送ったエラーコード）と、送った内容そのものの直近20件（`sent`: このPCの時刻、本文、受け付けられたか） |

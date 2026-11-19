@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
-import { ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
+import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
 import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
 import { SectionLabelComponent } from "../_components";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
@@ -86,18 +86,17 @@ const stateHelp = (item, state) => state === "unavailable" && item.runtime === L
 const keyText = item => item.key_in_memory ? "translation_catalog.key_memory"
     : item.has_key ? "translation_catalog.key_kept" : "translation_catalog.key_none";
 
-// An entry the user added (or a model folder): what it points at, and Use and Remove.
+// An entry the user added: what it points at, and Use and Remove.
 const EntryCard = ({ group, item }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const [removing, setRemoving] = useState(false);
     const state = entryState(item);
-    const folderModel = item.origin === "folder";
     const busy = !!pending;
     return <li className={styles.card} data-catalog-item={item.id} tabIndex={-1} role="group" aria-label={item.name}>
         <div className={styles.card_head}>
             <strong>{item.name}</strong>
-            <span className={styles.badge} data-tone="own">{t(`translation_catalog.badge.${folderModel ? "folder" : "user"}`)}</span>
+            <span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span>
             <span className={styles.badge} data-tone={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
         </div>
         <dl className={styles.facts}>
@@ -107,8 +106,8 @@ const EntryCard = ({ group, item }) => {
                 {item.folder && <div><dt>{t("translation_catalog.fact.folder")}</dt><dd><code>{item.folder}</code></dd></div>}
                 {item.runtime === LLAMACPP && item.device && <div><dt>{t("translation_catalog.fact.device")}</dt>
                     <dd>{t(`translation_catalog.device.${item.device}`, { defaultValue: item.device })}</dd></div>}
-                {!folderModel && <div><dt>{t("translation_catalog.fact.languages")}</dt>
-                    <dd>{item.languages?.length ? item.languages.join(", ") : t("translation_catalog.languages_all")}</dd></div>}
+                <div><dt>{t("translation_catalog.fact.languages")}</dt>
+                    <dd>{item.languages?.length ? item.languages.join(", ") : t("translation_catalog.languages_all")}</dd></div>
             </> : <>
                 <div><dt>{t("translation_catalog.fact.url")}</dt><dd><code>{item.url}</code></dd></div>
                 <div><dt>{t("translation_catalog.fact.model")}</dt><dd>{item.model || t("translation_catalog.model_first")}</dd></div>
@@ -117,8 +116,7 @@ const EntryCard = ({ group, item }) => {
         </dl>
         {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
         {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
-        {folderModel ? <p>{t("translation_catalog.folder_help")}</p>
-            : removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
+        {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
                 <p>{t(`translation_catalog.remove_confirm.${group}`)}</p>
                 <button type="button" autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</button>
                 <button type="button" disabled={busy} onClick={() => {
@@ -175,7 +173,8 @@ const EngineForm = ({ runtimes }) => {
     };
     return <details className={styles.more} data-catalog-add="engine">
         <summary>{t("translation_catalog.add.engine")}</summary>
-        <div role="group" aria-label={t("translation_catalog.add.engine")} onKeyDown={onEnter(submit, busy)}>
+        {/* The note about the translation-models folder leads here (revealSetting). */}
+        <div role="group" aria-label={t("translation_catalog.add.engine")} onKeyDown={onEnter(submit, busy)} data-setting-id={ENGINE_FORM_SETTING_ID}>
             <p>{t(llamacpp ? "translation_catalog.add_help.engine_llamacpp" : "translation_catalog.add_help.engine")}</p>
             <p>{t("translation_catalog.terms_help")}</p>
             {runtimes.length === 0 && <p role="alert">{t("translation_catalog.no_runtime")}</p>}

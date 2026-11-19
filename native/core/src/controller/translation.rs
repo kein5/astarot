@@ -145,8 +145,27 @@ pub fn default_weight_available(env: &crate::config::Environment, weight: &str) 
     }
 }
 
+/// Where earlier versions found the user's own translation models, under the data folder
+/// (`custom:<folder>`). Since #597 nothing in it is listed or loaded; the folder and its files
+/// are left as they are.
+pub const RETIRED_MODELS_DIR: &str = "translation-models";
+/// The weight name earlier versions gave a model of [`RETIRED_MODELS_DIR`].
+pub const RETIRED_WEIGHT_PREFIX: &str = "custom:";
+/// Logged (a fixed code, never the folder's name) when the saved selection named such a model
+/// and went back to the default model.
+pub const RETIRED_SELECTION_RESET: &str = "translation_models_folder_retired";
+
+/// Whether [`RETIRED_MODELS_DIR`] holds at least one folder (not one whose name starts with a
+/// dot, which earlier versions never listed): the translation page then points to the
+/// catalog's add form. Only this is told; folder names are the user's data.
+pub fn retired_folder_used(data_dir: &std::path::Path) -> bool {
+    std::fs::read_dir(data_dir.join(RETIRED_MODELS_DIR)).into_iter().flatten().filter_map(Result::ok).any(|entry| {
+        entry.file_type().is_ok_and(|t| t.is_dir()) && !entry.file_name().to_string_lossy().starts_with('.')
+    })
+}
+
 /// The weights the settings may name (`SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST`): the built-in
-/// ones, then the models the user added (`custom:<folder>`, `user:<id>`).
+/// ones, then the engine entries the user added (`user:<id>`: ONNX folders and translation LLMs).
 pub fn weight_ids(env: &crate::config::Environment) -> Vec<String> {
     #[cfg(feature = "onnx-translation")]
     let mut ids = super::translation_onnx::weight_ids(env);
@@ -190,15 +209,11 @@ pub fn with_gpu_builds(devices: Vec<Value>, state_dir: &std::path::Path) -> Vec<
     }
 }
 
-/// The user's model folders that were refused, with the fixed reason, for the log, then the
-/// engine entries of the translation catalog that were refused (by id).
+/// The engine entries of the translation catalog that were refused (by id, never their name or
+/// folder), with the fixed reason, for the log.
 pub fn refused_models(env: &crate::config::Environment) -> Vec<(String, &'static str)> {
     #[cfg(feature = "onnx-translation")]
-    let mut refused = {
-        let mut refused = super::translation_onnx::discover(&env.data_dir).1;
-        refused.extend(super::translation_onnx::registered(env).1);
-        refused
-    };
+    let mut refused = super::translation_onnx::registered(env).1;
     #[cfg(not(feature = "onnx-translation"))]
     let mut refused = Vec::new();
     refused.extend(super::translation_llama::registered(env).1);

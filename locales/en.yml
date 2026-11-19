@@ -672,6 +672,11 @@ config_page:
         section_label_external_api: "External translation API"
         section_label_local_llm: "Local LLM and compatible server"
         llm_privacy_desc: "LLM engines receive the text to translate and the prompt, plus up to five recent messages of the conversation: what you said in chat or into the microphone, and what the speaker transcription heard from others, each with the time it was said (hours and minutes). The conversation is kept in memory only and cleared when you change the engine, server or model, or turn translation off."
+        # Shown while the translation-models folder of earlier versions holds a folder (#597).
+        retired_models_folder:
+            label: "Models in the translation-models folder"
+            desc: "Models placed in the translation-models folder are no longer listed. Add them again with \"Add a model of your own\" in the translation catalog. The model's folder can be anywhere."
+            open_add_form: "Open \"Add a model of your own\""
 
         ctranslate2_weight_type:
             label: "Translation model"
@@ -680,7 +685,7 @@ config_page:
             large: "High accuracy model ({{capacity}})"
             license_commercial: "License: {{license}} (commercial use allowed)"
             license_non_commercial: "Non-commercial license ({{license}})"
-            custom_model: "Your own model (translation-models folder). Check its license yourself."
+            custom_model: "A model you added in the translation catalog. Check its license yourself."
             confirm_title: "Non-commercial license"
             confirm_body: "{{weight_type}} is licensed under {{license}}. It may not be used for commercial purposes. The M2M100 models (MIT license) have no such restriction."
             confirm_check: "I have read the license and will use this model only for non-commercial purposes."
@@ -2228,7 +2233,6 @@ translation_catalog:
     badge:
         builtin: "Included"
         user: "Added by you"
-        folder: "From the folder"
         non_commercial: "Non-commercial license"
     kind:
         cloud: "Online service"
@@ -2273,7 +2277,6 @@ translation_catalog:
     key_memory: "Only until you close the app (not saved)"
     key_memory_help: "The API key could not be saved in the app's key store, so the app holds it only until you close it. Once the key store works again, the app saves the key there by itself."
     key_none: "None"
-    folder_help: "This model is in the translation-models folder. To remove it, move its folder out of that folder."
     use:
         engine: "Use for translation on your PC"
         api: "Use as the OpenAI-compatible connection"
@@ -2410,7 +2413,7 @@ legacy_model_downloads:
     revision: "Model revision"
     review_unavailable: "Model details could not be loaded. Close this dialog and try again."
     translation_not_published: "No translation model can be downloaded yet. The models for the new translation engine have not been published."
-    translation_own_model: "The user guide explains how to use a model of your own. Such a model goes into the folder below. You are responsible for that model's license."
+    translation_own_model: "To use a model of your own, add it with \"Add a model of your own\" in the translation catalog under Settings > Translation. The model's folder can be anywhere. You are responsible for that model's license."
     close: "Close"
     startup_skipped: "{{model}} was not downloaded at startup because consent for this model version is missing. Review its license and size in Settings > Translation or Speech recognition (ASR) to download it."
     consent: "I have reviewed the provider, license and size information and agree to download, including the additional files shown."

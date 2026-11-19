@@ -1,11 +1,11 @@
 // The translation catalog (#413): what translates, in two groups. "engine" holds the models
 // that run on an inference engine on this PC, "api" the APIs the app calls. Each group lists
-// the entries the app ships ("builtin"), model folders put in translation-models ("folder")
-// and the entries the user added ("user"). The backend checks everything; this module only
-// shapes the requests and refuses what cannot pass before it is sent.
+// the entries the app ships ("builtin") and the entries the user added ("user"). Models placed
+// in the translation-models folder are no longer listed (#597). The backend checks everything;
+// this module only shapes the requests and refuses what cannot pass before it is sent.
 import { cleanPath } from "../voice/modelCatalog.ts";
 
-export type CatalogOrigin = "builtin" | "folder" | "user";
+export type CatalogOrigin = "builtin" | "user";
 export type EntryStatus = "ok" | "missing" | "unsupported";
 
 export type EngineItem = {
@@ -50,6 +50,9 @@ export type TranslationCatalog = {
     api: ApiItem[];
     runtimes: string[];
     protocols: string[];
+    // The translation-models folder of earlier versions holds a folder: the translation page
+    // points to the add form. Only whether; never which.
+    retired_folder_used?: boolean;
     error_code?: string;
     warning?: string;
 };
@@ -118,16 +121,19 @@ export function apiRequest(form: ApiForm): Checked<{ group: "api"; name: string;
     return { request: { group: "api", name, protocol: form.protocol || "openai_compatible", url, model, auth_key } };
 }
 
-// A user's local weight (`custom:<folder>` or `user:<id>`), as the settings name it.
-export const isUsersWeight = (weight: string): boolean => weight.startsWith("custom:") || weight.startsWith("user:");
+// A user's local weight (`user:<id>`), as the settings name it.
+export const isUsersWeight = (weight: string): boolean => weight.startsWith("user:");
 
-// The name to show for a local weight: an entry's own name, a folder's name, else the weight.
+// The name to show for a local weight: an entry's own name, else the weight.
 export function weightLabel(weight: string, catalog: TranslationCatalog | null | undefined): string {
     const item = catalog?.engine?.find(entry => entry.weight === weight);
     if (item && item.origin !== "builtin") return item.name;
-    if (weight.startsWith("custom:")) return weight.slice("custom:".length);
     return weight;
 }
+
+// Where the button of the note about the translation-models folder leads: the catalog's form
+// that adds a model of one's own (revealSetting opens the folds around it and focuses it).
+export const ENGINE_FORM_SETTING_ID = "translation_catalog_add_engine";
 
 // What an entry's card says, in order: a problem first, then whether it is in use. An API
 // entry whose key the store never took has no key once the app was closed ("no_key").

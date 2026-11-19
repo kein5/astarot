@@ -303,14 +303,15 @@ fn an_engine_entry_is_a_local_weight_with_the_languages_it_offers() {
     write_model(&model, "m2m100", &["en", "ja", "ko"]);
     let marian = outside.path().join("marian");
     write_model(&marian, "marian", &["en"]);
-    // A folder model of the old kind is listed in the same group.
-    write_model(&temp.path().join("data").join("translation-models").join("dropped"), "m2m100", &["en", "ja"]);
+    // A model placed in the folder earlier versions read is not listed (#597).
+    write_model(&temp.path().join("data").join("translation-models").join("old-folder-model"), "m2m100", &["en", "ja"]);
     let services = Services { telemetry_forced_off: Arc::new(|| true), ..Setup::default().services };
     let ui = start_in(temp.path(), services);
 
     let catalog = ui.ok("/get/data/translation_catalog", None);
-    let folder = catalog["engine"].as_array().unwrap().iter().find(|e| e["id"] == "custom:dropped").cloned().unwrap();
-    assert_eq!((folder["origin"].clone(), folder["available"].clone()), (json!("folder"), json!(true)));
+    let engine = catalog["engine"].as_array().unwrap();
+    assert!(engine.iter().all(|e| e["origin"] == "builtin" && e["id"] != "custom:old-folder-model"), "{catalog}");
+    assert_eq!(catalog["retired_folder_used"], true);
     // llama.cpp's server can be set up on Windows and Linux on x86-64 (ADR-015).
     assert_eq!(catalog["runtimes"], json!(["onnx", "llamacpp"]));
 
@@ -344,7 +345,7 @@ fn an_engine_entry_is_a_local_weight_with_the_languages_it_offers() {
 
     // The selected model cannot be removed; another one first.
     assert_eq!(refused(&ui, "/run/remove_translation_catalog_entry", json!({ "id": id })), (409, "translation_catalog_in_use".into()));
-    ui.ok("/set/data/selected_ctranslate2_weight_type", Some(json!("custom:dropped")));
+    ui.ok("/set/data/selected_ctranslate2_weight_type", Some(json!("m2m100_418M-ct2-int8")));
     let catalog = ui.ok("/run/remove_translation_catalog_entry", Some(json!({ "id": id })));
     assert!(user_entries(&catalog, "engine").is_empty());
     assert!(ui.ok("/get/data/selectable_ctranslate2_weight_type_dict", None).get(&weight).is_none());
@@ -352,6 +353,7 @@ fn an_engine_entry_is_a_local_weight_with_the_languages_it_offers() {
 
     let log = process_log(&ui);
     assert!(!log.contains("My NLLB") && !log.contains("my nllb"), "a name or folder reached the log");
+    assert!(!log.contains("old-folder-model"), "the retired folder's model is not read: {log}");
     ui.stop();
 }
 
