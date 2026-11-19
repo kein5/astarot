@@ -8,6 +8,8 @@
 //! - [`transliteration`]: kana and Hepburn readings over a morphological analyzer given from
 //!   outside (the dictionary is not chosen yet).
 //! - [`http`]: the small HTTP/1.1 client the providers use.
+//! - [`translategemma`]: TranslateGemma's prompt and one request to the llama.cpp server the
+//!   app owns (ADR-015); not a provider of the engine list.
 //!
 //! Nothing here logs. Errors are fixed codes: no key, URL or text is in them.
 
@@ -16,4 +18,5 @@ pub mod fake;
 pub mod http;
 pub mod prompt;
 pub mod providers;
+pub mod translategemma;
 pub mod transliteration;
