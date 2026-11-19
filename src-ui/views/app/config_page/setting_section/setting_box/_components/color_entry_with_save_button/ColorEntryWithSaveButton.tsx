@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { HexColorPicker } from "react-colorful";
 
 import styles from "./ColorEntryWithSaveButton.module.scss";
@@ -10,30 +11,48 @@ const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const PICKER_GAP_REM = 0.4;
 const VIEWPORT_PADDING_REM = 0.8;
 
-const remToPx = (rem) => {
+// The picker and the swatch as the check for a press outside them uses them: Node.contains,
+// asked with the press's target as it comes (a node of the page).
+interface PressArea {
+    contains(target: EventTarget | null): boolean;
+}
+
+const remToPx = (rem: number) => {
     const root_font_size = parseFloat(getComputedStyle(document.documentElement).fontSize);
     return rem * root_font_size;
 };
 
-export const ColorEntryWithSaveButton = (props) => {
+export interface ColorEntryWithSaveButtonProps {
+    label?: ReactNode;
+    width?: string;
+    // The color as #RRGGBB; anything else shows an empty swatch.
+    variable?: string | null;
+    // "pending" while a save waits for the backend.
+    state?: string;
+    onChangeFunction?: (value: string) => void;
+    saveFunction: () => unknown;
+    "aria-describedby"?: string;
+}
+
+export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) => {
     const { t } = useI18n();
     const is_disabled = props.state === "pending";
     const [is_open, setIsOpen] = useState(false);
     const [placement, setPlacement] = useState({ open_above: true, align_end: true });
-    const popover_ref = useRef(null);
-    const swatch_ref = useRef(null);
+    const popover_ref = useRef<HTMLDivElement>(null);
+    const swatch_ref = useRef<HTMLButtonElement>(null);
 
     const current_color = typeof props.variable === "string" ? props.variable.trim() : "";
     const is_valid_color = HEX_COLOR_RE.test(current_color);
     const swatch_color = is_valid_color ? current_color : "transparent";
     const picker_color = is_valid_color ? current_color : "#FFFFFF";
 
-    const onChangeFunction = (e) => {
+    const onChangeFunction = (e: ChangeEvent<HTMLInputElement>) => {
         if (props.state === "pending") return;
         props.onChangeFunction?.(e.target.value);
     };
 
-    const onPickerChange = (color) => {
+    const onPickerChange = (color: string) => {
         if (props.state === "pending") return;
         props.onChangeFunction?.(color);
     };
@@ -85,12 +104,13 @@ export const ColorEntryWithSaveButton = (props) => {
 
     useEffect(() => {
         if (!is_open) return;
-        const onDocumentMouseDown = (event) => {
-            if (popover_ref.current?.contains(event.target)) return;
-            if (swatch_ref.current?.contains(event.target)) return;
+        const onDocumentMouseDown = (event: MouseEvent) => {
+            const popover: PressArea | null = popover_ref.current, swatch: PressArea | null = swatch_ref.current;
+            if (popover?.contains(event.target)) return;
+            if (swatch?.contains(event.target)) return;
             closePicker();
         };
-        const onKeyDown = (event) => {
+        const onKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") closePicker();
         };
         document.addEventListener("mousedown", onDocumentMouseDown);

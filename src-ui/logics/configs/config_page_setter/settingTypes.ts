@@ -9,6 +9,7 @@ import type { StdoutResult } from "@useStdoutToPython";
 import type { DeviceOption } from "@utils";
 import type vr_layout from "../../../views/vr/vr_layout.json";
 import type { SettingLogicsTemplateId } from "../../common/initializationFields.ts";
+import type { TelemetryPreview } from "../../common/telemetryRows.ts";
 import type { ExperimentalFeatureValues } from "../experimentalFeatures.ts";
 import type { OcrReadiness, OcrRegion, OcrRuntime } from "../ocrReadiness.ts";
 import type { SETTINGS_ARRAY } from "./ui_config_setter";
@@ -34,6 +35,8 @@ export interface TranslationComputeDevice {
     device_index: number;
     device_name: string;
     compute_types?: string[];
+    // A GPU whose ONNX Runtime was set up during this run: used from the next start.
+    restart_required?: boolean;
 }
 
 // A model the user added to the local translation, known only to the backend: a folder
@@ -234,7 +237,7 @@ export interface SettingValues {
     Telemetry: boolean;
     TelemetryNotice: { pending: boolean; enabled: boolean };
     // { endpoint, app_started, sent }; null until asked.
-    TelemetryPreview: Readonly<Record<string, unknown>> | null;
+    TelemetryPreview: TelemetryPreview | null;
 
     // AdvancedSettings
     OscIpAddress: string;

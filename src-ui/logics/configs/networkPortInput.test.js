@@ -126,7 +126,7 @@ test("native number input receives min, max and step through the shared componen
     const runtime = hooks();
     runtime.api.useImperativeHandle = () => {};
     const { _Entry } = await loadModule(new URL(box + "_components/_atoms/_entry/_Entry.tsx", import.meta.url), runtime);
-    const { EntryWithSaveButton } = await loadModule(new URL(box + "_components/entry_with_save_button/EntryWithSaveButton.jsx", import.meta.url), runtime,
+    const { EntryWithSaveButton } = await loadModule(new URL(box + "_components/entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime,
         { "../_atoms/_entry/_Entry": { _Entry } });
     const wrapper = runtime.render(EntryWithSaveButton, { type: "number", variable: 2231, ...PORT_INPUT_LIMITS });
     const entry = find(wrapper, node => node.type === _Entry);

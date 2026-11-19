@@ -84,7 +84,7 @@ function find(tree, predicate) {
 }
 const button = tree => find(tree, node => node.type === "button");
 const switchNode = tree => find(tree, node => node.props?.role === "switch");
-const actionPath = "app/config_page/setting_section/setting_box/_components/action_button/ActionButton.jsx";
+const actionPath = "app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx";
 
 test("Settings pauses transcription with intent and restores it; user OFF has no pause intent", async () => {
     const runtime = hooks(), requests = [];

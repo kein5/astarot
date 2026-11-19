@@ -23,6 +23,7 @@ import { VrWindow } from "./VrWindow";
 import { Disclosure, Picker, SectionLabel, SegmentRow, SelectRow, StepperRow, ThresholdRow, ToggleRow } from "./VrSettingsRows";
 import type { PickerOption, RowValue } from "./VrSettingsRows";
 import { buildComputeDeviceOptions } from "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions";
+import type { ComputeDeviceChoice, ComputeDeviceList } from "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "../../logics/configs/cloudTranscription";
 import { isNonCommercialWeight } from "../../logics/configs/ctranslate2License";
 import styles from "./VrSettingsWindow.module.scss";
@@ -265,8 +266,8 @@ const AppearanceSettings = ({ t, openPicker }: CategoryProps) => {
 };
 
 interface ComputeSettingsProps extends CategoryProps {
-    device_list: RowValue;
-    device: RowValue;
+    device_list: { state?: string; data?: ComputeDeviceList };
+    device: { state?: string; data?: ComputeDeviceChoice };
     setDevice: (device: unknown) => unknown;
     compute_type: { state?: string; data?: string };
     setComputeType: (id: string) => unknown;

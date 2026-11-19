@@ -6,11 +6,12 @@ import styles from "./TelemetryContents.module.scss";
 // "See what is sent": the usage event this PC would send now, field by field and as the
 // data itself, and (with_sent) what was sent before. The backend builds it with the call
 // that builds what it sends. It is asked for when the user opens it, not before.
-export const TelemetryContents = ({ with_sent = false }) => {
+export const TelemetryContents = ({ with_sent = false }: { with_sent?: boolean }) => {
     const { t } = useI18n();
     const { currentTelemetryPreview, getTelemetryPreview } = useOthers();
     const preview = currentTelemetryPreview.data;
     const event = preview?.app_started;
+    const sent = preview?.sent ?? [];
 
     return <details className={styles.contents} onToggle={toggled => { if (toggled.currentTarget.open) getTelemetryPreview(); }}>
         <summary>{t("telemetry_contents.show")}</summary>
@@ -25,7 +26,7 @@ export const TelemetryContents = ({ with_sent = false }) => {
                     </div>)}
                 </dl>
                 <p>{t("telemetry_contents.error_note")}</p>
-                {preview.endpoint && <p>{t("telemetry_contents.destination", { endpoint: preview.endpoint })}</p>}
+                {preview?.endpoint && <p>{t("telemetry_contents.destination", { endpoint: preview.endpoint })}</p>}
                 {/* Not in the event: what the receiver notes on its own when one arrives. */}
                 <p>{t("telemetry_contents.receiver_note")}</p>
                 <details className={styles.raw}>
@@ -34,10 +35,10 @@ export const TelemetryContents = ({ with_sent = false }) => {
                 </details>
                 {with_sent && <section className={styles.sent} aria-label={t("telemetry_contents.sent_title")}>
                     <h4>{t("telemetry_contents.sent_title")}</h4>
-                    {(preview.sent ?? []).length === 0
+                    {sent.length === 0
                         ? <p>{t("telemetry_contents.sent_none")}</p>
                         : <ul>
-                            {[...preview.sent].reverse().map((row, index) => <li key={`${row.at}-${index}`}>
+                            {[...sent].reverse().map((row, index) => <li key={`${row.at}-${index}`}>
                                 <details className={styles.raw}>
                                     <summary>{row.at} — {sentSummary(row.body, t)} — {t(row.accepted ? "telemetry_contents.sent_accepted" : "telemetry_contents.sent_failed")}</summary>
                                     <pre tabIndex={0}>{JSON.stringify(row.body, null, 2)}</pre>

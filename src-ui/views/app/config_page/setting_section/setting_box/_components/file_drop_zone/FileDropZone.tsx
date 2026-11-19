@@ -1,25 +1,42 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { addDropZone, nameOf, sortFiles, watchDrag } from "../../../../../../../logics/common/fileDrop";
+import type { DragState, DropZone } from "../../../../../../../logics/common/fileDrop";
 import styles from "./FileDropZone.module.scss";
 
 // A place on a settings page to drop files from the desktop, for path fields that would
 // otherwise be typed. It wakes up while files are dragged over the window, lifts when they are
 // over it, and passes the paths of the accepted kinds to onFiles (it never opens the files). The
 // fields stay the way to type or paste a path, and saving stays with the save bar.
-export const FileDropZone = ({ accept, onFiles, hint, disabled = false }) => {
+export interface FileDropZoneProps {
+    // The extensions taken, such as ".pth".
+    accept: readonly string[];
+    onFiles: (paths: string[]) => void;
+    hint?: ReactNode;
+    disabled?: boolean;
+}
+
+// The last drop: the names taken, or none of the right kind; it shows for a few seconds.
+interface DropResult {
+    kind: "done" | "rejected";
+    names: (string | undefined)[];
+    skipped: number;
+}
+
+export const FileDropZone = ({ accept, onFiles, hint, disabled = false }: FileDropZoneProps) => {
     const { t } = useI18n();
-    const element = useRef(null);
+    const element = useRef<HTMLDivElement>(null);
     const latest = useRef({ accept, onFiles, disabled });
     latest.current = { accept, onFiles, disabled };
-    const zone = useRef(null);
-    const [drag, setDrag] = useState({ active: false, paths: [], over: null });
-    const [result, setResult] = useState(null);
+    const zone = useRef<DropZone | null>(null);
+    const [drag, setDrag] = useState<Readonly<DragState>>({ active: false, paths: [], over: null });
+    const [result, setResult] = useState<DropResult | null>(null);
     const kinds = accept.join(" / ");
 
     useEffect(() => {
-        let timer;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         zone.current = {
             element: element.current,
             disabled: () => latest.current.disabled,
@@ -48,7 +65,7 @@ export const FileDropZone = ({ accept, onFiles, hint, disabled = false }) => {
         done: t("file_drop.done", { names: result?.names.join(", ") }),
         rejected: t("file_drop.wrong_kind", { kinds }),
     }[state];
-    const note = state === "done" ? t(result.skipped ? "file_drop.done_skipped" : "file_drop.save_hint", { kinds }) : hint;
+    const note = state === "done" ? t(result?.skipped ? "file_drop.done_skipped" : "file_drop.save_hint", { kinds }) : hint;
 
     return <div ref={element} className={clsx(styles.zone, styles[state])} data-file-drop={state}>
         <span className={styles.icon} aria-hidden="true">

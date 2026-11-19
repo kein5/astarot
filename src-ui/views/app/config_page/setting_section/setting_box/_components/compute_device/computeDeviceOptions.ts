@@ -1,20 +1,32 @@
+import type { TranslationComputeDevice } from "../../../../../../../logics/configs/config_page_setter/settingTypes";
+
 // PC と VR で同じデバイスの識別・表示名・対応精度を使う。
 
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+// The devices by index, as the backend lists them (transformToIndexedArray); [] until they arrive.
+export type ComputeDeviceList = Readonly<Record<string, TranslationComputeDevice>> | [];
+// The chosen device; "" before one is saved.
+export type ComputeDeviceChoice = TranslationComputeDevice | "" | null | undefined;
+
+// A label for each device, and for each precision of the chosen one: { id: label }.
+export type ComputeLabels = Record<string, string>;
+
 // The engine names the processor "cpu"; the screen says CPU, as a GPU keeps its own name.
-export const computeDeviceName = (name) => (typeof name === "string" && name.toLowerCase() === "cpu" ? "CPU" : name);
+export const computeDeviceName = <N extends string | undefined>(name: N): N | "CPU" => (typeof name === "string" && name.toLowerCase() === "cpu" ? "CPU" : name);
 
 // A GPU whose ONNX Runtime was set up during this run: chosen now, it is used from the next start.
-export const needsRestart = (device) => device?.restart_required === true;
+export const needsRestart = (device: ComputeDeviceChoice) => device !== "" && device?.restart_required === true;
 
 // The name of a device, saying when it needs the app started again.
-export const computeDeviceLabel = (device, t) => {
-    const name = computeDeviceName(device?.device_name);
+export const computeDeviceLabel = (device: ComputeDeviceChoice, t?: Translate) => {
+    const name = computeDeviceName(device ? device.device_name : undefined);
     return name && needsRestart(device) && t ? t("config_page.common.compute_device.after_restart", { device: name }) : name;
 };
 
-const transformDeviceArray = (devices = {}, t) => {
+const transformDeviceArray = (devices: ComputeDeviceList | null | undefined = {}, t?: Translate): ComputeLabels => {
     if (!devices) return {};
-    const name_counts = Object.values(devices).reduce((counts, device) => {
+    const name_counts = Object.values(devices).reduce<Record<string, number>>((counts, device) => {
         const name = device?.device_name;
         if (name) {
             counts[name] = (counts[name] || 0) + 1;
@@ -22,8 +34,8 @@ const transformDeviceArray = (devices = {}, t) => {
         return counts;
     }, {});
 
-    const name_indices = {};
-    const result = {};
+    const name_indices: Record<string, number> = {};
+    const result: ComputeLabels = {};
 
     Object.entries(devices).forEach(([key, device]) => {
         const name = device?.device_name;
@@ -41,7 +53,7 @@ const transformDeviceArray = (devices = {}, t) => {
     return result;
 };
 
-const findKeyByDeviceValue = (devices, target_value) => {
+const findKeyByDeviceValue = (devices: ComputeDeviceList | null | undefined, target_value: ComputeDeviceChoice) => {
     if (!devices || !target_value) return null;
     for (const [key, value] of Object.entries(devices)) {
         if (
@@ -70,7 +82,7 @@ const DEFAULT_ORDER = [
     "float32"
 ];
 
-const sortComputeTypesArray = (compute_types_array = []) => {
+const sortComputeTypesArray = (compute_types_array: readonly string[] | null = []) => {
     const src_set = new Set(compute_types_array || []);
     const from_order = DEFAULT_ORDER.filter((id) => src_set.has(id));
 
@@ -82,11 +94,11 @@ const sortComputeTypesArray = (compute_types_array = []) => {
     return from_order;
 };
 
-const buildSimpleLabels = (ordered_array = [], t) => {
+const buildSimpleLabels = (ordered_array: readonly string[] = [], t: Translate) => {
     const n = ordered_array.length;
     if (n === 0) return {};
 
-    const labels = {};
+    const labels: ComputeLabels = {};
 
     ordered_array.forEach((id, idx) => {
         if (idx === 0 && id === "auto") {
@@ -116,10 +128,12 @@ const buildSimpleLabels = (ordered_array = [], t) => {
     return labels;
 };
 
-export const buildComputeDeviceOptions = (devices, selected_device, t) => {
+export const buildComputeDeviceOptions = (devices: ComputeDeviceList | null | undefined, selected_device: ComputeDeviceChoice, t: Translate) => {
     const selected_device_id = findKeyByDeviceValue(devices, selected_device);
+    // A key was found, so the list holds devices.
+    const listed = selected_device_id !== null && devices && !Array.isArray(devices) ? devices[selected_device_id] : undefined;
     const compute_types = selected_device_id !== null
-        ? devices[selected_device_id]?.compute_types ?? []
+        ? listed?.compute_types ?? []
         : [];
 
     return {

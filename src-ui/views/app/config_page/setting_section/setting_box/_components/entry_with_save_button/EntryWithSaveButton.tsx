@@ -1,9 +1,26 @@
+import type { ChangeEvent, ReactNode } from "react";
 import styles from "./EntryWithSaveButton.module.scss";
 import { _Entry } from "../_atoms/_entry/_Entry";
 
+export interface EntryWithSaveButtonProps {
+    label?: ReactNode;
+    width?: string;
+    type?: string;
+    min?: number | string;
+    max?: number | string;
+    step?: number | string;
+    // The value shown in the field.
+    variable?: string | number | null;
+    // "pending" while a save waits for the backend: the field cannot be edited then.
+    state?: string;
+    onChangeFunction?: (value: string) => void;
+    saveFunction: () => unknown;
+    "aria-describedby"?: string;
+}
+
 // Saved from the config page top bar; Enter saves this one field.
-export const EntryWithSaveButton = (props) => {
-    const onChangeFunction = (e) => {
+export const EntryWithSaveButton = (props: EntryWithSaveButtonProps) => {
+    const onChangeFunction = (e: ChangeEvent<HTMLInputElement>) => {
         if (props.state === "pending") return;
         props.onChangeFunction?.(e.target.value);
     };

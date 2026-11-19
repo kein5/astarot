@@ -127,7 +127,7 @@ for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], [
         stubGlobals(t, { document, window: eventTarget() });
         inputRuntime.api.useImperativeHandle = () => {};
         const { _Entry } = await loadModule(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
-        const { [name]: Component } = await loadModule(new URL(`./${path}/${name}.jsx`, import.meta.url), runtime, {
+        const { [name]: Component } = await loadModule(new URL(`./${path}/${name}.tsx`, import.meta.url), runtime, {
             clsx: { clsx }, "../_atoms/_entry/_Entry": { _Entry }, "react-colorful": { HexColorPicker: () => null },
         });
         let saves = 0, edits = 0;
