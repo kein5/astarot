@@ -1,6 +1,7 @@
 import { CredentialPair } from "../_components/credential_pair/CredentialPair";
 import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
 import { useRef, useState } from "react";
+import type { MouseEvent, ReactNode, RefObject } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -14,6 +15,9 @@ import { isUsersWeight, weightLabel } from "../../../../../../logics/translation
 import { localModelList } from "../../../../../../logics/translation/localModelList";
 import { TranslationCatalogSection } from "./TranslationCatalog";
 import { TranslationGpuRuntimes } from "./TranslationGpuRuntimes";
+import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
+import type { WeightTypeStatus } from "../../../../../../logics/configs/config_page_setter/settingTypes";
+import type { LegacyDownloadRequest } from "../../../../../../logics/configs/legacyModelConsent";
 
 import {
     useTranslation,
@@ -70,7 +74,7 @@ export const Translation = () => {
     const { currentTranslationEngines } = useStore_TranslationEngines();
     const { currentSelectedTranslationEngines } = useStore_SelectedTranslationEngines();
     const engines = currentTranslationEngines.data ?? [];
-    const ready = ids => engines.filter(engine => ids.includes(engine.id) && engine.is_available === true).length;
+    const ready = (ids: string[]) => engines.filter(engine => ids.includes(engine.id) && engine.is_available === true).length;
     const inUse = Object.values(currentSelectedTranslationEngines.data ?? {})
         .some(id => EXTERNAL_API_PROVIDERS.includes(id) || LOCAL_LLM_PROVIDERS.includes(id));
     return (
@@ -127,7 +131,7 @@ const AITranslation_Container = () => {
 // none, and nine open forms made this page nine screens long. The line says
 // whether the provider can be used. A provider that a language preset uses
 // stays open, so its key and model are in sight.
-const Provider = ({ id, children }) => {
+const Provider = ({ id, children }: { id: string; children?: ReactNode }) => {
     const { t } = useI18n();
     const { currentTranslationEngines } = useStore_TranslationEngines();
     const { currentSelectedTranslationEngines } = useStore_SelectedTranslationEngines();
@@ -206,7 +210,13 @@ const LocalLLM_Container = () => {
 };
 
 // Selection consent lasts for this session. Download consent is always reviewed.
-const license_confirmed_weights = new Set();
+const license_confirmed_weights = new Set<string | undefined>();
+
+// A model the user added has no license field: it is never a non-commercial built-in one.
+const isNonCommercialRow = (weight: WeightTypeStatus | undefined) => !!weight && "non_commercial" in weight && isNonCommercialWeight(weight);
+
+// The license dialog's model: a built-in one, whose license and pages it links to.
+type LicenseWeight = { id: string; license?: string; license_url?: string; model_card_url?: string };
 
 const CTranslate2WeightType_Box = () => {
     const { t } = useI18n();
@@ -220,30 +230,34 @@ const CTranslate2WeightType_Box = () => {
     } = useTranslation();
     const { catalog } = useModelDownloads();
     const { catalog: translationCatalog } = useTranslationCatalog();
-    const [confirming, setConfirming] = useState(null);
-    const [downloadReview, setDownloadReview] = useState(null);
-    const selection = useRef(null);
+    const [confirming, setConfirming] = useState<{ weight: WeightTypeStatus; action: "select" } | null>(null);
+    const [downloadReview, setDownloadReview] = useState<string | null>(null);
+    const selection = useRef<HTMLDivElement>(null);
 
-    const findWeight = (id) => currentCTranslate2WeightTypeStatus.data.find(item => item.id === id);
-    const isConfirmed = (weight) => license_confirmed_weights.has(weight?.id);
-    const askFirst = (weight) => needsLicenseConfirmation(weight, currentSelectedCTranslate2WeightType.data) && !isConfirmed(weight);
+    const findWeight = (id: string) => currentCTranslate2WeightTypeStatus.data.find(item => item.id === id);
+    const isConfirmed = (weight: WeightTypeStatus | undefined) => license_confirmed_weights.has(weight?.id);
+    // Only a weight that is there can need the confirmation.
+    const askFirst = (weight: WeightTypeStatus | undefined): weight is WeightTypeStatus =>
+        needsLicenseConfirmation(weight, currentSelectedCTranslate2WeightType.data) && !isConfirmed(weight);
 
-    const select = (id) => setSelectedCTranslate2WeightType(weightRequest(id, isConfirmed(findWeight(id))));
-    const download = (request) => {
-        if (isNonCommercialWeight(findWeight(request.weight_type))) license_confirmed_weights.add(request.weight_type);
+    const select = (id: string) => setSelectedCTranslate2WeightType(weightRequest(id, isConfirmed(findWeight(id))));
+    const download = (request: LegacyDownloadRequest) => {
+        if (isNonCommercialRow(findWeight(request.weight_type))) license_confirmed_weights.add(request.weight_type);
         pendingCTranslate2WeightTypeStatus(request.weight_type);
         downloadCTranslate2WeightTypeStatus(request);
     };
 
-    const selectFunction = (id) => {
+    const selectFunction = (id: string) => {
         const weight = findWeight(id);
         if (askFirst(weight)) return setConfirming({ weight, action: "select" });
         select(id);
     };
 
-    const downloadStartFunction = (id) => setDownloadReview(id);
+    const downloadStartFunction = (id: string) => setDownloadReview(id);
 
     const confirmLicense = () => {
+        // Called from the dialog, which is drawn only while a confirmation waits.
+        if (!confirming) return;
         const { weight } = confirming;
         license_confirmed_weights.add(weight.id);
         setConfirming(null);
@@ -256,10 +270,10 @@ const CTranslate2WeightType_Box = () => {
     // download_unavailable when it cannot be had: no download button that would only open a dead end.
     const listed = localModelList(currentCTranslate2WeightTypeStatus.data, currentSelectedCTranslate2WeightType.data, catalog).rows;
     const c_translate2_weight_types_object = listed.map(item => {
-        const non_commercial = isNonCommercialWeight(item);
+        const non_commercial = isNonCommercialRow(item);
         // A model the user added: its name is its folder's or its catalog entry's, and its
         // licence is theirs to check.
-        if (item.is_custom) {
+        if ("is_custom" in item && item.is_custom) {
             return {
                 ...item,
                 label: weightLabel(item.id, translationCatalog),
@@ -273,7 +287,7 @@ const CTranslate2WeightType_Box = () => {
                 non_commercial
                     ? "config_page.translation.ctranslate2_weight_type.license_non_commercial"
                     : "config_page.translation.ctranslate2_weight_type.license_commercial",
-                { license: item.license }
+                { license: "license" in item ? item.license : undefined }
             ),
             desc_tone: non_commercial ? "warning" : undefined,
         };
@@ -306,20 +320,29 @@ const CTranslate2WeightType_Box = () => {
     );
 };
 
-export const CTranslate2LicenseDialog = ({ weight, action, onCancel, onConfirm, fallback }) => {
+type CTranslate2LicenseDialogProps = {
+    weight: LicenseWeight;
+    action: "select" | "download";
+    onCancel: () => void;
+    onConfirm: () => void;
+    fallback?: RefObject<HTMLElement> | null;
+};
+
+export const CTranslate2LicenseDialog = ({ weight, action, onCancel, onConfirm, fallback }: CTranslate2LicenseDialogProps) => {
     const { t } = useI18n();
     const { dialog, close } = useConsentDialog(true, fallback);
     const [checked, setChecked] = useState(false);
     const cancel = () => { close(); onCancel(); };
     const confirm = () => { if (!checked) return; close(); onConfirm(); };
 
-    const openLink = async (event, url) => {
-        if (!isTauri()) return;
+    // Without a URL the link has no href, so a click does nothing either way.
+    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string | undefined) => {
+        if (!isTauri() || url === undefined) return;
         event.preventDefault();
         try { await openUrl(url); }
         catch (error) { console.error("Failed to open", url, error); }
     };
-    const key = (name) => `config_page.translation.ctranslate2_weight_type.${name}`;
+    const key = (name: string) => `config_page.translation.ctranslate2_weight_type.${name}`;
 
     return (
         <dialog ref={dialog} className={styles.license_dialog} aria-label={t(key("confirm_title"))} onCancel={event => { event.preventDefault(); cancel(); }}>
@@ -372,6 +395,11 @@ const TranslationComputeDevice_Box = () => {
     );
 };
 
+// A saved field as the entry shows it. The save logic keeps whatever the backend answered with;
+// React shows any value other than text, null and undefined as its text, so it is turned into that.
+const entryText = (value: unknown): string | null | undefined =>
+    value === null || value === undefined || typeof value === "string" ? value : String(value);
+
 const DeepLAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentDeepLAuthKey, setDeepLAuthKey, deleteDeepLAuthKey } = useTranslation();
@@ -393,7 +421,7 @@ const DeepLAuthKey_Box = () => {
                     {translator: t("main_page.translator")}
                 )}
                 webpage_url={deepl_auth_key_url}
-                variable={variable}
+                variable={entryText(variable)}
                 state={currentDeepLAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
@@ -420,7 +448,7 @@ const GoogleCloudAuthKey_Box = () => {
             label={t("config_page.translation.google_cloud_auth_key.label")}
             desc={t("config_page.translation.google_cloud_auth_key.desc")}
             webpage_url={google_cloud_auth_key_url}
-            variable={variable}
+            variable={entryText(variable)}
             state={currentGoogleCloudAuthKey.state}
             onChangeFunction={onChangeFunction}
             saveFunction={saveFunction}
@@ -444,7 +472,7 @@ const PapagoClientID_Box = () => {
         <EntryWithSaveButtonContainer
             label={t("config_page.translation.papago_client_id.label")}
             desc={t("config_page.translation.papago_client_id.desc")}
-            variable={variable}
+            variable={entryText(variable)}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
             state={currentPapagoClientID.state}
@@ -468,7 +496,7 @@ const PapagoAuthKey_Box = () => {
         <AuthKeyContainer
             label={t("config_page.translation.papago_auth_key.label")}
             webpage_url={papago_auth_key_url}
-            variable={variable}
+            variable={entryText(variable)}
             state={currentPapagoAuthKey.state}
             onChangeFunction={onChangeFunction}
             saveFunction={saveFunction}
@@ -494,7 +522,7 @@ const PlamoAuthKey_Box = () => {
                 label={t("config_page.translation.plamo_auth_key.label")}
                 // desc="Plamo Auth Desc"
                 webpage_url={plamo_auth_key_url}
-                variable={variable}
+                variable={entryText(variable)}
                 state={currentPlamoAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
@@ -515,7 +543,7 @@ const PlamoModelContainer = () => {
     } = useTranslation();
 
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedPlamoModel(selected_data.selected_id);
     };
 
@@ -556,7 +584,7 @@ const GeminiAuthKey_Box = () => {
                 label={t("config_page.translation.gemini_auth_key.label")}
                 // desc="Gemini Auth Desc"
                 webpage_url={gemini_auth_key_url}
-                variable={variable}
+                variable={entryText(variable)}
                 state={currentGeminiAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
@@ -577,7 +605,7 @@ const GeminiModelContainer = () => {
     } = useTranslation();
 
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedGeminiModel(selected_data.selected_id);
     };
 
@@ -617,7 +645,7 @@ const OpenAIAuthKey_Box = () => {
                 label={t("config_page.translation.openai_auth_key.label")}
                 // desc="OpenAI Auth Desc"
                 webpage_url={openai_auth_key_url}
-                variable={variable}
+                variable={entryText(variable)}
                 state={currentOpenAIAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
@@ -638,7 +666,7 @@ const OpenAIModelContainer = () => {
     } = useTranslation();
 
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedOpenAIModel(selected_data.selected_id);
     };
 
@@ -678,7 +706,7 @@ const GroqAuthKey_Box = () => {
                 label={t("config_page.translation.groq_auth_key.label")}
                 // desc="Groq Auth Desc"
                 webpage_url={groq_auth_key_url}
-                variable={variable}
+                variable={entryText(variable)}
                 state={currentGroqAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
@@ -699,7 +727,7 @@ const GroqModelContainer = () => {
     } = useTranslation();
 
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedGroqModel(selected_data.selected_id);
     };
 
@@ -739,7 +767,7 @@ const OpenRouterAuthKey_Box = () => {
                 label={t("config_page.translation.openrouter_auth_key.label")}
                 // desc="OpenRouter Auth Desc"
                 webpage_url={openrouter_auth_key_url}
-                variable={variable}
+                variable={entryText(variable)}
                 state={currentOpenRouterAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
@@ -760,7 +788,7 @@ const OpenRouterModelContainer = () => {
     } = useTranslation();
 
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedOpenRouterModel(selected_data.selected_id);
     };
 
@@ -800,15 +828,17 @@ const LMStudioConnectionCheck_Box = () => {
 };
 const LMStudioURL_Box = () => {
     const { t } = useI18n();
-    const { currentLMStudioURL, setLMStudioURL, deleteLMStudioURL } = useTranslation();
+    // The URL has no delete: an empty field is saved as it is.
+    const { currentLMStudioURL, setLMStudioURL } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable: entered, onChangeFunction, saveFunction } = useSaveButtonLogic({
         variable: currentLMStudioURL.data,
         state: currentLMStudioURL.state,
         setFunction: setLMStudioURL,
-        deleteFunction: deleteLMStudioURL,
         label: "LM Studio URL",
     });
+    // The URL as the entry shows it: an empty field for none.
+    const variable = entryText(entered) ?? "";
 
     return (
         <>
@@ -836,7 +866,7 @@ const LMStudioModelContainer = () => {
 
     const { currentIsLMStudioConnected } = useLLMConnection();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedLMStudioModel(selected_data.selected_id);
     };
 
@@ -879,12 +909,14 @@ const OllamaURL_Box = () => {
     const { t } = useI18n();
     const { currentOllamaURL, setOllamaURL } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable: entered, onChangeFunction, saveFunction } = useSaveButtonLogic({
         variable: currentOllamaURL.data,
         state: currentOllamaURL.state,
         setFunction: setOllamaURL,
         label: t("config_page.translation.ollama_url.label"),
     });
+    // The URL as the entry shows it: an empty field for none.
+    const variable = entryText(entered) ?? "";
 
     return (
         <EntryWithSaveButtonContainer
@@ -909,7 +941,7 @@ const OllamaModelContainer = () => {
 
     const { currentIsOllamaConnected } = useLLMConnection();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedOllamaModel(selected_data.selected_id);
     };
 
@@ -945,7 +977,7 @@ const OpenAICompatibleModelContainer = () => {
         currentOpenAICompatibleAuthKey,
     } = useTranslation();
 
-    const selectFunction = (selected_data) => {
+    const selectFunction = (selected_data: DropdownSelection) => {
         setSelectedOpenAICompatibleModel(selected_data.selected_id);
     };
 

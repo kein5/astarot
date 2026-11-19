@@ -259,7 +259,7 @@ test("「詳細設定」 starts closed, opens by itself for something in use, an
 });
 
 test("translation keeps its local model and its catalog in sight; the APIs and local LLMs it counts on the fold's line are the ones drawn in it", () => {
-    const source = read("translation/Translation.jsx");
+    const source = read("translation/Translation.tsx");
     const { outside, fold } = pageParts(source, "Translation");
     // The translation catalog (#413) is a section of its own after the fold (#597), not inside it.
     assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalogSection"]);

@@ -33,7 +33,7 @@ test("unknown connectivity does not incorrectly show the offline error", () => {
 
 test("all three URL settings use the draft warning and save bar", () => {
     const root = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
-    for (const file of ["translation/Translation.jsx"]) {
+    for (const file of ["translation/Translation.tsx"]) {
         const source = readFileSync(new URL(file, root), "utf8");
         assert.match(source, /desc=\{endpointDescription\(variable,/);
         assert.match(source, /saveFunction=\{saveFunction\}/);
@@ -42,7 +42,7 @@ test("all three URL settings use the draft warning and save bar", () => {
     const pair = readFileSync(new URL("_components/credential_pair/CredentialPair.tsx", root), "utf8");
     assert.match(pair, /desc=\{endpointDescription\(form.draft.url,/);
     assert.match(pair, /useSettingsDraft\(saved,/);
-    for (const file of ["translation/Translation.jsx", "transcription/Transcription.tsx"]) {
+    for (const file of ["translation/Translation.tsx", "transcription/Transcription.tsx"]) {
         assert.match(readFileSync(new URL(file, root), "utf8"), /<CredentialPair /);
     }
 });
