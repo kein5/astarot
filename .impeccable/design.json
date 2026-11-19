@@ -45,7 +45,7 @@
       "refersTo": "button-primary",
       "description": "Primary action used by the studio forms.",
       "html": "<button class=\"ds-primary\">Save settings</button>",
-      "css": ".ds-primary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#261633;background:#a47af5;border:0}.ds-primary:hover{background:#b897f7}.ds-primary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
+      "css": ".ds-primary{font:600 14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#261633;background:#a47af5;border:0}.ds-primary:hover{background:#b897f7}.ds-primary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Secondary action",
