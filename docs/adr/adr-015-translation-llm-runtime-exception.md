@@ -19,6 +19,8 @@ Related: Issue #412、PR #643、[ADR-012](adr-012-audio-ai-runtime-consolidation
 
 この ADR の「アプリ」は本リポジトリのアプリを指す。表示名は ASTAROT（ADR-011）で、識別子は VRCT-VOX のままである。
 
+> **段階 2 の注記**（2026-11-19）：実行基盤の選定と導入の計画（提案）を[翻訳の LLM の実行基盤の選定と導入の計画](../voice-stack/translation-llm-runtime-plan.md)に書いた。推奨は llama.cpp の `llama-server` を別のプロセスで動かし、同梱せずに選んだときに取得する形である。決まったら、この注記の下に決定を足す。本文は書き換えていない。
+
 ## 1. Context（背景）
 
 ### 1.1 ADR-012 の分担
