@@ -319,7 +319,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 | 部品 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
-| Empty | 会話の空の画面（`EmptyState.jsx`）、試験的な機能の点線の枠、検索の「結果なし」。設定の検索と言語の一覧の「結果なし」は、`common_components` の `Empty` と `EmptyDescription`（中央寄せ、余白 2.4rem、1.4rem の説明の色の文、#695） | Empty（中央寄せ、`p-6`、幅 768px 以上で `md:p-12`、Header、Media、Title、Description、Content） | 会話の空の画面は残す（DESIGN.md「Layout」が位置と出し方を決めている）。ほかの「結果なし」を Empty の形にそろえるのは寄せる（検索の2か所は #695 で寄せた。`md:p-12` は D-39） |
+| Empty | 会話の空の画面（`EmptyState.tsx`）、試験的な機能の点線の枠、検索の「結果なし」。設定の検索と言語の一覧の「結果なし」は、`common_components` の `Empty` と `EmptyDescription`（中央寄せ、余白 2.4rem、1.4rem の説明の色の文、#695） | Empty（中央寄せ、`p-6`、幅 768px 以上で `md:p-12`、Header、Media、Title、Description、Content） | 会話の空の画面は残す（DESIGN.md「Layout」が位置と出し方を決めている）。ほかの「結果なし」を Empty の形にそろえるのは寄せる（検索の2か所は #695 で寄せた。`md:p-12` は D-39） |
 | Sidebar | メインのレール（24rem。狭いと 7.2rem のアイコンのレール、さらに狭いと会話に重なる）と設定のレール（5.6rem。ホバーとフォーカスで広がる） | Sidebar（25.6rem、アイコンだけで 4.8rem。`collapsible`: offcanvas、icon、none。Ctrl/Cmd+B で開閉し、状態を Cookie に保存） | 幅と振る舞いは残す（DESIGN.md「Layout」が決めている。小さいレールの好みは設定に保存する）。狭いウィンドウで会話に重なるレールは Sheet（Radix Dialog）に近いが、これも残す。メニューの行の高さと選んだ行の表し方は判断（D-35） |
 
 ### そのほか

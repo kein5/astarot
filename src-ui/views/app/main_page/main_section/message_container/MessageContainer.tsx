@@ -1,4 +1,5 @@
 import { useResizable } from "react-resizable-layout";
+import type { SeparatorProps } from "react-resizable-layout";
 import { memo, useRef, useEffect, useState, forwardRef } from "react";
 import styles from "./MessageContainer.module.scss";
 import { LogBox } from "./log_box/LogBox";
@@ -10,15 +11,16 @@ import { MessageActionsProvider } from "@logics_common";
 
 export const MessageContainer = memo(function MessageContainer() {
     const { currentMessageInputBoxRatio, asyncSetMessageInputBoxRatio } = useMessageInputBoxRatio();
-    const [ui_message_box_ratio, setUiMessageBoxRatio] = useState(false);
+    // The input box's height in percent of the column; false until the first ratio arrives.
+    const [ui_message_box_ratio, setUiMessageBoxRatio] = useState<number | false>(false);
     const [is_hovered, setIsHovered] = useState(false);
 
-    const container_ref = useRef(null);
-    const separator_ref = useRef(null);
-    const log_box_ref = useRef(null);
-    const message_input_box_wrapper_ref = useRef(null);
+    const container_ref = useRef<HTMLDivElement>(null);
+    const separator_ref = useRef<HTMLDivElement>(null);
+    const log_box_ref = useRef<HTMLDivElement>(null);
+    const message_input_box_wrapper_ref = useRef<HTMLDivElement>(null);
 
-    const calculateMessageInputBoxRatio = (position) => {
+    const calculateMessageInputBoxRatio = (position: number) => {
         if (log_box_ref.current && message_input_box_wrapper_ref.current && separator_ref.current && container_ref.current) {
             const container_padding_bottom = parseFloat(
                 window.getComputedStyle(container_ref.current).paddingBottom
@@ -35,7 +37,7 @@ export const MessageContainer = memo(function MessageContainer() {
         return 10; // Default initial height percentage
     };
 
-    const asyncSaveRatio = (position) => {
+    const asyncSaveRatio = (position: number) => {
         if (position > 0) {
             asyncSetMessageInputBoxRatio(calculateMessageInputBoxRatio(position));
         }
@@ -86,7 +88,7 @@ export const MessageContainer = memo(function MessageContainer() {
     );
 });
 
-const Separator = forwardRef((props, ref) => (
+const Separator = forwardRef<HTMLDivElement, SeparatorProps>((props, ref) => (
     <div tabIndex={0} className={styles.separator} ref={ref} {...props}>
         <span className={styles.separator_line}></span>
     </div>

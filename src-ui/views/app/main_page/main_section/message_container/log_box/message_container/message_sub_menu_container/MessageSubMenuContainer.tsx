@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import type { KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { Tooltip } from "@common_components";
@@ -6,17 +7,30 @@ import styles from "./MessageSubMenuContainer.module.scss";
 import SendMessageSvg from "@images/send_message.svg?react";
 import RefreshSvg from "@images/refresh_2.svg?react";
 
-export const MessageSubMenuContainer = (props) => {
+type MessageSubMenuContainerProps = {
+    is_shown: boolean;
+    resendFunction: () => void;
+    editFunction: () => void;
+    setIsHovered: (hovered: boolean) => void;
+};
+
+// A press held on the resend button: by a pointer (captured on the button) or by a key.
+type Timer = ReturnType<typeof setTimeout> | undefined;
+type Hold =
+    | { pointerId: number; target: HTMLButtonElement; key?: undefined; timer: Timer }
+    | { key: string; pointerId?: undefined; target?: undefined; timer: Timer };
+
+export const MessageSubMenuContainer = (props: MessageSubMenuContainerProps) => {
     const { t } = useI18n();
-    const progressRef = useRef(null);
-    const currentHold = useRef(null);
+    const progressRef = useRef<HTMLDivElement>(null);
+    const currentHold = useRef<Hold | null>(null);
     // Releasing a completed hold over the button still fires its click; that
     // click must not also run edit, which replaces the draft being typed.
     const resentByHold = useRef(false);
     // A key press handled here (Enter or Space): the browser's own click for it is not an edit.
     const keyHandled = useRef(false);
 
-    const beginHold = hold => {
+    const beginHold = (hold: Hold) => {
         resentByHold.current = false;
         currentHold.current = hold;
         if (progressRef.current) {
@@ -32,24 +46,24 @@ export const MessageSubMenuContainer = (props) => {
         }, 500);
     };
 
-    const startHold = event => {
+    const startHold = (event: PointerEvent<HTMLButtonElement>) => {
         keyHandled.current = false;
         if (event.button !== 0 || !event.isPrimary || currentHold.current) return;
-        const hold = { pointerId: event.pointerId, target: event.currentTarget, timer: null };
+        const hold: Hold = { pointerId: event.pointerId, target: event.currentTarget, timer: undefined };
         hold.target.setPointerCapture(hold.pointerId);
         beginHold(hold);
     };
 
     // The keyboard follows the same rule: holding Enter or Space resends, a short press edits.
-    const isActivationKey = event => event.key === "Enter" || event.key === " ";
-    const startKeyHold = event => {
+    const isActivationKey = (event: KeyboardEvent) => event.key === "Enter" || event.key === " ";
+    const startKeyHold = (event: KeyboardEvent<HTMLButtonElement>) => {
         if (!isActivationKey(event)) return;
         event.preventDefault();
         if (event.repeat || currentHold.current) return;
         keyHandled.current = false;
-        beginHold({ key: event.key, timer: null });
+        beginHold({ key: event.key, timer: undefined });
     };
-    const endKeyHold = event => {
+    const endKeyHold = (event: KeyboardEvent<HTMLButtonElement>) => {
         if (!isActivationKey(event)) return;
         event.preventDefault();
         const hold = currentHold.current;
@@ -78,9 +92,10 @@ export const MessageSubMenuContainer = (props) => {
         }
     };
 
-    const moveHold = event => {
+    // A key hold has no pointer and no target: pointer moves leave it alone.
+    const moveHold = (event: PointerEvent<HTMLButtonElement>) => {
         const hold = currentHold.current;
-        if (!hold || event.pointerId !== hold.pointerId) return;
+        if (!hold?.target || event.pointerId !== hold.pointerId) return;
         const rect = hold.target.getBoundingClientRect();
         if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) cancelHold();
     };
@@ -93,7 +108,7 @@ export const MessageSubMenuContainer = (props) => {
         };
     }, []);
 
-    const onClickFunction = event => {
+    const onClickFunction = (event: MouseEvent<HTMLButtonElement>) => {
         // Enter and Space were handled on their key events; a click the browser still
         // makes from them is not a second edit.
         if (keyHandled.current && event?.detail === 0) {

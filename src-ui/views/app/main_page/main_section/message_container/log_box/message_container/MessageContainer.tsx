@@ -6,23 +6,41 @@ import * as speakerStyles from "./SpeakerNames.css.ts";
 import { SpeakerNamesEditor, speakersText } from "./SpeakerNames.tsx";
 import { MessageSubMenuContainer } from "./message_sub_menu_container/MessageSubMenuContainer";
 import { store } from "@store";
+import type { MessageActions } from "../../../../../../../logics/common/MessageActions";
+import type { SessionSpeakerNames } from "../../../../../../../logics/common/speakerNames.ts";
+import type { MessageLogContent, MessageLogRow, MessageLogText, TransliterationToken } from "../../../../../../../logics/transcription/realtimeCaptionState";
+
+// The row's own fields (MessageLogRow), with what the log adds.
+type MessageContainerProps = MessageLogRow & {
+    speaker_names: SessionSpeakerNames | undefined;
+    continues: boolean;
+    nameSpeakers: ((namespace: string, names: SessionSpeakerNames) => void) | undefined;
+    sendMessage: MessageActions["sendMessage"] | undefined;
+    updateMessageInputValue: MessageActions["updateMessageInputValue"] | undefined;
+    showResendButton: boolean;
+};
+
+// The realtime outcomes whose row says why the message was not sent.
+const NOT_SENT_REASONS: readonly unknown[] = ["expired", "revoked", "superseded", "filtered"];
 
 // `speaker_names`: the names given to the voices of this row's session (#447). `continues`: the
 // row goes on with the voices of the row above, so who spoke is shown there only (read aloud
 // here). `nameSpeakers`: names this row's voices; absent where nothing can be typed (VR panel).
 export const MessageContainer = memo(function MessageContainer({ id, messages, status, category, created_at, source, realtime, delivery_reason,
-    speakers, speaker_names, continues, nameSpeakers, sendMessage, updateMessageInputValue, showResendButton }) {
+    speakers, speaker_names, continues, nameSpeakers, sendMessage, updateMessageInputValue, showResendButton }: MessageContainerProps) {
     const { t } = useI18n();
     const [is_hovered, setIsHovered] = useState(false);
     const [is_locked, setIsLocked] = useState(false);
     const [is_naming, setIsNaming] = useState(false);
-    const who_button = useRef(null);
+    const who_button = useRef<HTMLButtonElement>(null);
 
+    // The resend button is there only with the actions (showResendButton), and only on a row of
+    // the user's own, whose text is always there.
     const resendFunction = () => {
-        sendMessage(messages.original.message);
+        sendMessage?.(messages.original.message);
     };
     const editFunction = () => {
-        updateMessageInputValue(messages.original.message);
+        updateMessageInputValue?.(messages.original.message ?? "");
     };
 
     const handleMouseEnter = () => {
@@ -51,8 +69,8 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
     const is_realtime = source === "realtime_mic" || source === "realtime_speaker";
     // The message reached the log and the other outputs, but the chatbox is switched off.
     const is_vrchat_off = is_sent_message && status === "ok" && (realtime?.reason ?? delivery_reason) === "vrchat_off";
-    const not_sent_key = ["expired", "revoked", "superseded", "filtered"].includes(realtime?.reason)
-        ? `not_sent_${realtime.reason}` : "not_sent";
+    const not_sent_key = NOT_SENT_REASONS.includes(realtime?.reason)
+        ? `not_sent_${realtime?.reason}` : "not_sent";
     const category_text = is_realtime && is_not_sent
         ? t(`main_page.message_log.${is_sent_message ? not_sent_key : "processing_stopped"}`)
         : is_realtime && is_failed
@@ -106,7 +124,7 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
                     {/* The VR atlas needs static pixels while a send is pending. Its label above shows the state. */}
                     {(is_sent_message || is_realtime) && is_pending && !store.is_vr_panel && <span className={styles.loader} aria-hidden="true"></span>}
                 </div>
-                {can_name && is_naming && !continues && <SpeakerNamesEditor labels={speakers} names={speaker_names}
+                {can_name && is_naming && !continues && speakers && <SpeakerNamesEditor labels={speakers} names={speaker_names}
                     onSave={names => nameSpeakers(realtime.namespace, names)} onClose={closeNaming} />}
                 <div className={clsx(styles.message_box, message_type_class_name)}>
                     {is_system_message ? (
@@ -132,8 +150,8 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
     );
 });
 
-const MessageWithTransliteration = ({ item }) => {
-    const renderTokenNode = (token, key) => {
+const MessageWithTransliteration = ({ item }: { item: MessageLogText }) => {
+    const renderTokenNode = (token: TransliterationToken, key: number) => {
         const orig = token.orig ?? "";
         const hira = token.hira ?? "";
         const hepburn = token.hepburn ?? "";
@@ -189,7 +207,7 @@ const MessageWithTransliteration = ({ item }) => {
     );
 };
 
-const OriginalMessage = ({ messages }) => {
+const OriginalMessage = ({ messages }: { messages: MessageLogContent }) => {
     return (
         <>
             <MessageWithTransliteration item={messages.original} />
@@ -197,7 +215,7 @@ const OriginalMessage = ({ messages }) => {
     );
 };
 
-const WithTranslatedMessages = ({ messages }) => {
+const WithTranslatedMessages = ({ messages }: { messages: MessageLogContent }) => {
     return (
         <>
             <p className={styles.message_second}>{messages.original.message}</p>

@@ -11,7 +11,7 @@ const setup = async context => {
         timers.set(++timerId, fn);
         return timerId;
     }, clearTimeout: id => timers.delete(id) });
-    const { MessageSubMenuContainer } = await loadModule(new URL("./MessageSubMenuContainer.jsx", import.meta.url), runtime, {
+    const { MessageSubMenuContainer } = await loadModule(new URL("./MessageSubMenuContainer.tsx", import.meta.url), runtime, {
         "@common_components": { Tooltip: () => null },
     });
     const props = { is_shown: true, resendFunction: () => sent.push("resend"), editFunction: () => edited.push("edit"),

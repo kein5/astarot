@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
 import { store } from "@store";
+import type { AtomState } from "@store";
 import { useSettingValue } from "@logics_configs";
 import { useSetupNeeds } from "../../../../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../../../../logics/main/setupNeeds";
@@ -46,10 +47,21 @@ export const EmptyState = () => {
 // fits the UI size. The narrow layout is decided as useWindow decides it (a window at most 800
 // CSS px wide at 100%, scaled with the UI size) and marked on the root as data-narrow. Within a
 // pixel of that width either layout counts.
-export const greetingWaits = ({ scaling, language, shownLanguage, width, narrow }) => {
+export type GreetingWait = "settings" | "language" | "layout" | null;
+
+type GreetingInput = {
+    scaling: AtomState<number> | undefined;
+    language: AtomState<string> | undefined;
+    shownLanguage: string | undefined;
+    width: number;
+    narrow: boolean;
+};
+
+export const greetingWaits = ({ scaling, language, shownLanguage, width, narrow }: GreetingInput): GreetingWait => {
     if (scaling?.state === "pending" || language?.state === "pending") return "settings";
     if (language?.data && shownLanguage !== undefined && shownLanguage !== language.data) return "language";
-    const breakPoint = 8 * scaling?.data;
+    // Without the UI size there is no break point.
+    const breakPoint = scaling ? 8 * scaling.data : NaN;
     if (!Number.isFinite(width) || !Number.isFinite(breakPoint) || Math.abs(width - breakPoint) <= 1) return null;
     return narrow !== (width <= breakPoint) ? "layout" : null;
 };
@@ -60,7 +72,7 @@ export const GREETING_FOLLOW_MS = 1000;
 
 // True from the first render that waits for nothing, or GREETING_FOLLOW_MS after the settings
 // arrived. Missing settings are waited for without a limit: the startup list says why.
-const useShownOnce = (reason) => {
+const useShownOnce = (reason: GreetingWait) => {
     const [shown, setShown] = useState(false);
     useEffect(() => {
         if (shown || reason === "settings") return;

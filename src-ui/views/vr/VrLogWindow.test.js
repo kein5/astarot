@@ -6,7 +6,7 @@ test("closed VR log renders no body or subscribers and retains its saved view ac
     const runtime = hooks();
     let reads = 0;
     const LogBox = () => null;
-    const { VrLogWindow } = await loadModule(new URL("./VrLogWindow.jsx", import.meta.url), runtime, {
+    const { VrLogWindow } = await loadModule(new URL("./VrLogWindow.tsx", import.meta.url), runtime, {
         "@logics_configs": { useVr: () => {
             reads++;
             return { currentOverlayVrPanelLocked: { data: false }, currentOverlayVrPanelFontSize: { data: 24 } };

@@ -13,7 +13,7 @@ const load = async (runtime, store, t = key => key) => {
     const speakerNames = await loadModule(new URL("./SpeakerNames.tsx", import.meta.url), runtime, {
         "../../../../../../../logics/common/speakerNames.ts": speakerNamesLogic, ...i18n,
     });
-    const row = await loadModule(new URL("./MessageContainer.jsx", import.meta.url), runtime, {
+    const row = await loadModule(new URL("./MessageContainer.tsx", import.meta.url), runtime, {
         "@store": { store }, "./message_sub_menu_container/MessageSubMenuContainer": {}, "./SpeakerNames.tsx": speakerNames, ...i18n,
     });
     return { ...row, speakerNames };
