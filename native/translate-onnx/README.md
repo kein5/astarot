@@ -87,7 +87,7 @@ DirectML の int8 と int4 は 2026-11-19 から一覧に出します（`core-in
 
 ## 自分で用意したモデル
 
-利用者は、データのフォルダの `translation-models/<フォルダ名>/` にモデルを置けます。起動の時に探し、翻訳のモデルの一覧に `custom:<フォルダ名>` として出ます。新しく置いたモデルは、アプリを起動し直すと出ます。
+利用者は、翻訳のカタログの「自分のモデルを追加」でモデルのフォルダを指定して足せます（#413）。フォルダはどこにあってもかまいません。足したモデルは翻訳のモデルの一覧に `user:<ID>` として出ます。以前の版はデータのフォルダの `translation-models/<フォルダ名>/` に置いたモデルも `custom:<フォルダ名>` として出しましたが、#597 で外しました。そのフォルダは読みません。
 
 要件:
 
@@ -95,14 +95,12 @@ DirectML の int8 と int4 は 2026-11-19 から一覧に出します（`core-in
 - ファイルは `export.py` が書くものと同じ形です。エンコーダの ONNX（入力 `input_ids`、`attention_mask`）、過去のキー・値を受け取るデコーダの ONNX（`use_cache_branch` で初回とキャッシュ付きを切り替える1つのグラフ。`past_key_values.<層>.decoder|encoder.key|value` を受け取り `present.*` と `logits` を返す）、`tokenizer.json`、`vocab.json`、`manifest.json`。入出力は float32 です（float16 の形も入出力は float32 のまま）。
 - `manifest.json`（schema 2）には、`name`、`family`、`variant`、`license`、グラフのファイル名、層の数、注意の頭の数、隠れ層の大きさ、開始と終了と未知のトークン、言語のトークンの形（`{}` が言語の符号になる）、言語の符号の一覧 `languages`、ビーム数、入力と出力の上限、各ファイルの大きさと SHA-256（小文字の16進）を書きます。
 - 任意で `language_names`（アプリの言語の名前と符号の対応。`{"Japanese": "jpn_Jpan"}`）を書けます。ないときは、同じアーキテクチャの組み込みの表（M2M100 418M か NLLB 600M）から、`languages` にある符号だけを使います。
-- フォルダの名前は英数字と `.`、`_`、`-` で 64 文字まで（`.` で始まらない）。
 - ライセンスは利用者が確かめます。アプリは `license` を表示しません。非商用のモデルでも、組み込みの NLLB のような確認は出しません。
 
-確かめること（起動の時と読み込む時）と、断ったときの理由（`process.log` に「Translation model folder refused: <フォルダ名> (<理由>)」と1行書きます）:
+確かめること（足す時、起動の時、読み込む時）と、断ったときの理由（足す時は要求への答え、起動の時は `process.log` に「Translation model folder refused: <項目の ID> (<理由>)」と1行書きます。名前やフォルダは書きません）:
 
 | 理由 | 意味 |
 |---|---|
-| `translation_model_name_invalid` | フォルダの名前が上の規則に合わない |
 | `translation_manifest_missing` | `manifest.json` がない |
 | `translation_bundle_invalid` | JSON として読めない、欄が欠けている、値が合わない、フォルダの外を指すファイル名がある |
 | `translation_architecture_unsupported` | `family` が `m2m100` と `nllb` のどちらでもない |
