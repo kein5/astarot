@@ -300,7 +300,7 @@ test("the settings search is the same field as the other inputs, with InputGroup
     assert.match(field, /border-radius: var\(--vox_radius\)/);
     // Hover makes the edge lighter, never darker than the field border.
     assert.match(field, /&:hover\s*{\s*border-color: var\(--dark_550_color\)/);
-    const jsx = read("search_bar/SearchBar.jsx");
+    const jsx = read("search_bar/SearchBar.tsx");
     assert.match(jsx, /className=\{styles\.search_input_container\} data-slot="input-group"/);
     assert.match(jsx, /data-slot="input-group-control"/);
     assert.equal((jsx.match(/data-slot="input-group-addon"/g) ?? []).length, 2, "the icon and the clear button");

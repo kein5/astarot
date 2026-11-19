@@ -202,7 +202,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 ### Dialog と AlertDialog
 
-アプリ: ネイティブの `<dialog>` を `showModal()` で開きます（`useConsentDialog.ts`）。見た目は `VoiceSettings.module.scss` と `LegacyModelDownloadDialog.module.scss` の `dialog` の規則で決まり、`Topbar.jsx`、`Translation.tsx`、`useSettingsDraft.tsx` が同じ見た目を写しています。クイック設定のモーダル（`ModalController.tsx`）は別です。起動の失敗は、モーダルでない `<dialog open role="alertdialog">`（`StartupFailedDialog.tsx`）です。
+アプリ: ネイティブの `<dialog>` を `showModal()` で開きます（`useConsentDialog.ts`）。見た目は `VoiceSettings.module.scss` と `LegacyModelDownloadDialog.module.scss` の `dialog` の規則で決まり、`Topbar.tsx`、`Translation.tsx`、`useSettingsDraft.tsx` が同じ見た目を写しています。クイック設定のモーダル（`ModalController.tsx`）は別です。起動の失敗は、モーダルでない `<dialog open role="alertdialog">`（`StartupFailedDialog.tsx`）です。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|

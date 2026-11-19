@@ -33,7 +33,7 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
         "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
         "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting: target => revealed.push(target) },
-        "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
+        "../../../../sidebar_section/SidebarSection.tsx": { TabIcon: () => null },
     });
     const press = row => {
         const link = find(row, node => node.type === pointer.PageLinkButton);

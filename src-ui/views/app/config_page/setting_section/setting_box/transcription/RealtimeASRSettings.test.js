@@ -44,7 +44,7 @@ async function fixture(context) {
         "./VocabularyBulk.tsx": { VocabularyBulk: "vocabulary-bulk" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
-    const { SaveBar } = await loadModule(new URL("../../../topbar/Topbar.jsx", import.meta.url), barRuntime, {
+    const { SaveBar } = await loadModule(new URL("../../../topbar/Topbar.tsx", import.meta.url), barRuntime, {
         "@logics_common": {}, "../../../../logics/voice/saveBar": saveBar, "../../others/stop_actions/StopActions": {},
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "transcription" } }) },
     });
