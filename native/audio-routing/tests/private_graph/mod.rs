@@ -186,17 +186,27 @@ pub fn microphone(name: &str) -> Child {
 
 /// Plays a 440 Hz tone into `sink` until the returned flag is set.
 pub fn tone(sink: &str) -> Arc<AtomicBool> {
+    play(sink.to_owned(), None, 440.0, 8000.0, "vrct.test.tone")
+}
+
+/// Plays a tone of `frequency` at amplitude 2048 into `sink`, held to its identity, until the
+/// returned flag is set (`Producer` of `tools/voice_b_poc.py`).
+pub fn tone_to(sink: &vrct_audio_routing::graph::Endpoint, frequency: f64) -> Arc<AtomicBool> {
+    play(sink.name.clone(), Some((sink.cookie, sink.serial)), frequency, 2048.0, &format!("vrct.test.tone.{frequency}"))
+}
+
+fn play(sink: String, identity: Option<(u32, u64)>, frequency: f64, amplitude: f64, name: &str) -> Arc<AtomicBool> {
     let stop = Arc::new(AtomicBool::new(false));
-    let (stopping, sink) = (stop.clone(), sink.to_owned());
+    let (stopping, name) = (stop.clone(), name.to_owned());
     std::thread::spawn(move || {
-        let mut output = PipeWireOutput::open(&sink, 48000, 1, None, "vrct.test.tone").expect("the tone plays");
+        let mut output = PipeWireOutput::open(&sink, 48000, 1, identity, &name).expect("the tone plays");
         let token = CancelToken::new(None);
         let mut phase = 0usize;
         while !stopping.load(Ordering::SeqCst) {
             let block: Vec<u8> = (0..960)
                 .map(|i| {
                     let t = (phase + i) as f64 / 48000.0;
-                    ((t * 440.0 * std::f64::consts::TAU).sin() * 8000.0) as i16
+                    ((t * frequency * std::f64::consts::TAU).sin() * amplitude) as i16
                 })
                 .flat_map(i16::to_le_bytes)
                 .collect();
