@@ -17,6 +17,21 @@ export interface SentTelemetryEvent {
     error_code?: unknown;
 }
 
+// One event sent before (telemetry_state.json): when, the event, and whether it arrived.
+export interface SentTelemetryRow {
+    at: string;
+    body: SentTelemetryEvent;
+    accepted: boolean;
+}
+
+// /get/data/telemetry_preview: the event that would be sent now, where it would go (null when
+// nothing can be sent) and the events sent before, oldest first.
+export interface TelemetryPreview {
+    endpoint?: string | null;
+    app_started?: unknown;
+    sent?: SentTelemetryRow[];
+}
+
 const PLAIN: readonly string[] = ["timestamp", "app_version", "os", "os_version", "locale", "error_code", "v"];
 const GPU_KNOWN: readonly string[] = ["name", "kind", "vram_gb", "driver"];
 

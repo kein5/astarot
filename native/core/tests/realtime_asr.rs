@@ -76,6 +76,19 @@ fn start_with(
     providers: Option<&FakeProviders>,
     limits: RealtimeLimits,
 ) -> Run {
+    start_changed(platform, saved, configure, vr, providers, limits, |_| {})
+}
+
+/// [`start_with`], with `change` made to the services.
+fn start_changed(
+    platform: Platform,
+    saved: Value,
+    configure: bool,
+    vr: Option<FakeVr>,
+    providers: Option<&FakeProviders>,
+    limits: RealtimeLimits,
+    change: impl FnOnce(&mut Services),
+) -> Run {
     let asr = FakeAsr::start();
     let capture = FakeCapture::new();
     capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
@@ -96,6 +109,7 @@ fn start_with(
     if let Some(providers) = providers {
         services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&providers.url());
     }
+    change(&mut services);
     let ui = Ui::with(Setup { saved: Some(saved), services, platform, ..Setup::default() });
     ui.ready();
     Run { ui, capture, asr, chatbox }
@@ -241,6 +255,36 @@ fn the_main_switch_streams_the_microphone_and_its_final_goes_out() {
     assert!(run.ui.on(mark, "/set/enable/transcription_send").is_empty(), "no failure was told");
     assert!(!run.process_log().contains("こんにちは"), "recognised text reached process.log");
     assert!(!run.process_log().contains("realtime_caption"), "captions are not logged");
+    // Decision 15 (`utterance_diagnostics`): the finals' waits are summed up when the session
+    // stops, without the text or the item's id.
+    eventually("the summary", || run.process_log().contains("[utterance-summary][mic] reason=stop"));
+    let log = run.process_log();
+    let summary = log.lines().find(|line| line.contains("[utterance-summary][mic] reason=stop")).unwrap();
+    for part in ["realtime_final=", "realtime_delivery=", "realtime_processed=", "message=", "realtime_pending_ms(n=", "realtime_queue_ms(n=", "realtime_total_ms(n=", "realtime_translate_ms(n="] {
+        assert!(summary.contains(part), "{part} in {summary}");
+    }
+    // Realtime recognition's own time is not known, so a final has no total of the message.
+    assert!(!summary.contains(" total_ms(n="), "{summary}");
+    run.ui.stop();
+}
+
+#[test]
+fn a_final_that_reached_the_chatbox_is_delivered_though_it_expires_after() {
+    // Decision 15 (`output_progress`): once the chatbox has it, a final is delivered, even when
+    // its 2 seconds run out while the outputs after the chatbox (here the clipboard) still run.
+    let run = start_changed(Platform::Linux, json!({ "ENABLE_CLIPBOARD": true }), true, None, None, RealtimeLimits::default(), |services| {
+        services.clipboard = Arc::new(|_: &str| {
+            std::thread::sleep(Duration::from_millis(2300));
+            true
+        });
+    });
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    run.capture.hear(Source::Mic, &[speech(2000)]);
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは"));
+    let outcome = run.caption(mark, "outcome");
+    assert_eq!((outcome["outcome"].clone(), outcome["reason"].clone()), (json!("delivered"), Value::Null), "{outcome}");
     run.ui.stop();
 }
 

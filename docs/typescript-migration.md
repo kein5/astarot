@@ -12,13 +12,13 @@
 
 ## 現状の量
 
-第 4 段の `useHotkeys`を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 2 本、87KB | 152 本、630KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 122 本、724KB | 95 本、326KB（うち vanilla-extract の `.css.ts` が 19 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
+| `src-ui/logics`（試験を除く） | 0 本 | 155 本、743KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 0 本 | 218 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
+| 試験（`*.test.js` と `src-ui/logics/test/`） | 208 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
@@ -33,9 +33,9 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 1 | 未移行の JavaScript を import しない `logics` の葉のモジュール | 済み |
 | 2 | データ層の根（ストアと IPC） | 済み |
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
-| 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
+| 4 | `logics` の大きなモジュール（1 本ずつ） | 済み。受け取る値は実行時に新しく確かめず、宣言で渡す（下の第 4 段） |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本は済み。`app` の残りの区画が残り |
+| 6 | `views` | 済み |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -71,7 +71,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 - `main/`（`languageMutations`、`useLanguageSettings`、`useMainFunction`、`useIsMainPageCompactMode`、`useMessageInputBoxRatio`、`useMessageLogScroll`）、`setup/useFirstRunSetup`
 - `common/` のフック 19 本（`useMessage`、`useNotificationStatus`、`useVolume`、`useHandleOscQuery` など）。`useNotificationStatus` と `useHandleOscQuery` が使う `TranslatedNotice`、`useMessage` を包む `MessageActions`、JSX を含まない `useIsVrctAvailable` も、第 5 段から前倒しして移しました。
 
-バックエンドの応答を受け取るフックは、フックが読むフィールドを並べた型を持ちます。読まないフィールドは開いたままにし（`[key: string]: unknown`）、設定画面などのビューが読みます。型は中核（`native/core`）が送る形と `docs/spec/` に合わせた宣言で、実行時には確かめません。前からフックが値を確かめていた所（流れの図、音声サーバーの状態の行、モデルの取得のハードウェアの一覧、登録したモデル、翻訳のカタログ）は、その確認を型ガードにしています。受け取る値を実行時に確かめるのは、受け取る側（第 4 段の `useReceiveRoutes`）を移すときに扱います。
+バックエンドの応答を受け取るフックは、フックが読むフィールドを並べた型を持ちます。読まないフィールドは開いたままにし（`[key: string]: unknown`）、設定画面などのビューが読みます。型は中核（`native/core`）が送る形と `docs/spec/` に合わせた宣言で、実行時には確かめません。前からフックが値を確かめていた所（流れの図、音声サーバーの状態の行、モデルの取得のハードウェアの一覧、登録したモデル、翻訳のカタログ）は、その確認を型ガードにしています。受け取る側（第 4 段の `useReceiveRoutes`）も、実行時に新しく確かめずに渡します。
 
 次の 5 本は設定のフック（`useTranslation`、`useTranscription`、`useOcr`、`useAppearance`）のフィールドを読みます。設定のフックは `ui_config_setter` が実行時に作るので、移す前は型が `{}` と推論され、キャストなしではフィールドを読めませんでした。そのため、第 4 段で `ui_config_setter` を移してから、この 5 本を移しました。
 
@@ -84,8 +84,8 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | ファイル | 行数 | 状態 |
 |---|---|---|
 | `configs/config_page_setter/ui_config_setter` | 約 1,470 | 済み |
-| `useReceiveRoutes.js` | 約 750 | 残り |
-| `_useBackendErrorHandling.js` | 約 690 | 残り |
+| `useReceiveRoutes` | 約 750 | 済み |
+| `_useBackendErrorHandling` | 約 690 | 済み |
 | `configs/config_page_setter/useSettingsLogics` | 約 470 | 済み |
 | `configs/config_page_setter/hotkeys/useHotkeys` | 約 470 | 済み |
 | `configs/config_page_setter/_aux/useConfigSearch` | 約 280 | 済み |
@@ -97,7 +97,12 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 - 設定のフック（`createCategoryHook`）が返すフィールドの型（`CategoryApi`）は、`SETTINGS_ARRAY` の `Category`、`Base_Name`、`logics_template_id`、`response_transform` から組み立てます。
 - 試験と `tools/spec_catalog.py` は `SETTINGS_ARRAY` の項目を文字列として読みます。型の定義を `settingTypes.ts` に分けたのはそのためです。項目のキーの並びも変えないでください。
 
-`useReceiveRoutes.js` と `_useBackendErrorHandling.js` は、バックエンドからの応答とエラーの形を扱います。どちらも受け取った値をそのまま設定の atom などに書き込みます。そのため型を付けるには、受け取る値を実行時にどこまで確かめるかを先に決める必要があります。IPC の契約を型にする作業なので、`docs/spec/` と食い違いがあれば、型で隠さずに報告します。第 3 段で移したフックと設定のフックは、受け取る値の型を引数に宣言しています。`useReceiveRoutes` を移すときは、その型に合うことを確かめてから渡します。
+`useReceiveRoutes` と `_useBackendErrorHandling` は、バックエンドからの応答とエラーの形を扱います。どちらも受け取った値をそのまま設定の atom などに書き込みます。振る舞いを変えないように、受け取る値を実行時に新しく確かめることはせず、すでにあった確認（初期化の値の確認、フックの中の型ガード）だけを残しました。どこまで確かめるかは、あとで決め直せるように宣言を 1 か所ずつに閉じ込めています（下の「型の厳しさ」）。`StartPythonController` も同じ PR で移しました。
+
+- 応答の枠は `readBackendResponse` で `BackendResponse`（`endpoint`、`status`、`result`）として読みます。ログ（348）には `endpoint` がないので、前と同じく `""` として読みます。数値の `status` がないものと、文字列でない `endpoint` を持つものは、入口で名前の付いた `TypeError` で止まり、セッションが記録します。
+- 応答の中の値をこのファイル自身が読む所（エラーコード、`data?.x` など）は、`fieldOf` で `?.` と同じように読み、型を確かめてから使います。仕様どおりの値では前と同じです。
+- cloud の音声認識の認証キーを書き戻す先は、`CloudTranscriptionBase` から名前を組み立てるので、宣言を足さずに型が付きます。
+- `tools/spec_catalog.py` は 2 本のソースを文字列として読み、経路の表とエラーコードを拾います。表の書き方は変えていません。
 
 `useHotkeys` は設定の一覧に依存しないので、ほかとは別に移しました。
 
@@ -126,11 +131,11 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - VR の設定の窓は AI の翻訳のモデルのフィールドを、名前の文字列で引く代わりに小さな関数で読みます。VR パネルが送る操作を確かめる試験がソースの名前を拾うので、名前は組み立てずに書いたままにしています。
 - 型がなかったころに `views` の TypeScript（`CompanionController.tsx`、`ExperimentalFeatures.tsx`、`UsagePresetSelector.tsx`）が書いていた `as { ... }` は外しました。
 
-`vr` の次の 3 本は JavaScript のままです。
+`vr` のうち次の 3 本は、ほかの区画と一緒に移しました。
 
-- `VrApp.jsx`: メインウィンドウから届く状態をそのまま atom に書き込む受け取り口（`VrStateReceiver`）を含みます。`useReceiveRoutes` と同じく、受け取る値をどこまで実行時に確かめるかが決まってから移します。
-- `VrLogWindow.jsx`: `LogBox`（`app/main_page`、JavaScript）に `savedView` を渡します。`LogBox` の推論された型では渡せないので、`main_page` と一緒に移します。
-- `VrIoFlowWindow.jsx`: `IoFlowView`（`app/io_flow`、JavaScript）を使います。`io_flow` のビューに型を付けるには、フローの図の節点（`FlowNode`、`flow/flowGraph.ts`）を種類ごとに分けた型にする作業が要ります。そのため `io_flow` と一緒に移します。
+- `VrLogWindow`: `LogBox`（`app/main_page`）に `savedView` を渡すので、`main_page` と一緒に移しました。
+- `VrIoFlowWindow`: `IoFlowView` を使うので、`io_flow` と一緒に移しました。
+- `VrApp`: メインウィンドウから届く状態をそのまま atom に書き込む受け取り口（`VrStateReceiver`）を含みます。`useReceiveRoutes` の後に、同じ方針（実行時に新しく確かめない）で移しました。同じ名前の atom にメインの値をそのまま書き込むことは、型ガード `isMirroredAtom` の 1 か所で宣言しています（下の「型の厳しさ」）。
 
 `app` は次の順に区画ごとの PR で移します。
 
@@ -153,12 +158,87 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 角の丸みは、Windows のバージョンを User-Agent Client Hints（`navigator.userAgentData`）から読みます。TypeScript の DOM の型にはまだないので、`src-ui/navigatorUAData.d.ts` で読む所だけを宣言しています。WebKitGTK にはないプロパティなので、省略できるものとして宣言しています。
 - Quick Chat から受け取るメッセージは、ネイティブのコマンドが返す型（`QuickChatRequest`）として受け取ります。`quickChat/bridge.ts` と同じく宣言だけで、実行時には確かめません。
 
-次の 6 本は、型を付ける作業が大きいので 2 回目に移します。
+次の 6 本は、型を付ける作業が大きいので 2 回目に回しました。2 回目で、`StartPythonController` を除く 5 本を、設定画面の部品の後に移しました。`StartPythonController` は `useReceiveRoutes` と一緒に移します。
 
 - `FirstRunSetupController`、`VirtualMicGuideController`、`TranslationSetupController`: 設定画面の部品（`LegacyModelDownloadDialog` など、JavaScript）に props を渡します。部品の推論された型では渡せないものがあるので、部品にも型を付けます。
-- `StartPythonController`: 受け取った応答を `useReceiveRoutes`（JavaScript）に渡します。
+- `StartPythonController`: 受け取った応答を `useReceiveRoutes` に渡します（`useReceiveRoutes` と一緒に移しました）。
 - `VrPanelSyncController`: VR パネルから届く送信の要求を、確かめてからバックエンドへ渡します。届く値を確かめる型ガードが要ります。
 - `CaptionOverlayController`: 設定の値から、字幕の窓に渡す値（`CaptionSnapshot`）を組み立てます。
+
+2 回目で書き方を変えた所は次のとおりです。
+
+- VR パネルから届く送信の要求は `VrPanelStdoutRequest` として受け取ります。パスは前と同じく中継の一覧（`isRelayAllowed`、型ガード）で確かめてから送ります。値と言語の要求は、パネルが送るとおりに宣言だけで渡します。
+- 会話ログの差分は、値が `{ data: 行の配列 }` の形のときに送ります（型ガード `isLogState`）。
+- 字幕の窓へ送る値は、窓が確かめる型（`CaptionSnapshot`）として組み立てます。
+- 取得のフック（`useModelDownloads.ts`）の `ModelDownloadJob` に、初回セットアップが読むフィールド（`job_id`、`phase`、`error_code`、`received_bytes`、`total_bytes`）を宣言しました。宣言だけで、実行時には確かめません。
+
+4（`app/io_flow`）は 3 より先に移しました。`VrIoFlowWindow` と、メイン画面の `IoFlowPanel` も同じ PR で移しています。
+
+- フローの図の節点（`FlowNode`、`flow/flowGraph.ts`）を、種類ごとの型（`InputNode`、`RecognitionNode`、`TranslateNode`、`SpeechNode`、`ConversionNode`、`LiveVoiceNode`、`OutputNode`）のユニオンに分けました。作る節点のフィールドと並びは前と同じです。
+- 流れの図の型（`ioFlow.ts`）は、中核が必ず送る形に合わせ、レーンの `translation` と `targets` を省略できないものにしました。宣言だけで、実行時に確かめるのは前と同じく `useIoFlow` の型ガード（2 つのレーンがあること）だけです。
+
+3（`app/main_page`）は 2 回に分けます。1 回目で、サイドバー（言語の設定、メインのスイッチ）、上のバー（クイック設定のメニュー）、言語の一覧、`RealtimeControls` を移しました。
+
+- メニューや一覧の外を押したかどうかの判定は、共有の型 `TargetHolder`（`logics/common/targetHolder.ts`）で尋ねます（下の「型の厳しさ」）。
+- 言語の欄がどちら側かは、ユニオン型（`LanguageSelectorKey`）で受け取ります。
+- `useVoice.ts` の型を中核が送る形に直しました。直接音声の入力の一覧の行は識別子とラベルの組（`VoiceSourceRow`）で、直接音声の状態には `output_route` と、保存した設定の RVC のフィールド（`DirectVoiceSettings`）を宣言しています。宣言だけで、実行時には確かめません。
+
+2 回目で、会話の列（ログ、入力欄、文字数の警告、ログの大きさ）、`MainSection`、`MainPage`、`startupContext` と `VrLogWindow` を移しました。
+
+- ログの行が表示する文の型を宣言しました（`docs/spec` の「メッセージ」に合わせた形）。`realtimeCaptionState.ts` の `MessageLogText`、`MessageLogContent`、`TransliterationToken` と `MessageLogRow` のフィールド、`useMessage.ts` の新しいメッセージの型（`NewBackendMessage`）です。宣言だけで、実行時には確かめません。
+- 消えた行の空行（`GoneRow<Id>`、`messageLogView.ts`）は元の行の `id` の型を引き継ぎ、ログはそのまま key に使います。
+- VR のログの窓が閉じている間に保っておく表示の状態は `SavedLogView` です。
+- 入力欄は、メッセージの操作の提供元（`MessageActionsProvider`）の外で描かれたときに名前の付いた `TypeError` で止まります。前も同じ所で止まっていました。
+- React 18 の型にない `inert` 属性は、`src-ui/inertAttribute.d.ts` で `inert?: "" | undefined` として宣言しています。ページは隠すときに `inert=""` を書き、それ以外は書きません。
+
+5（`app/config_page`）は、ページが使う部品（`setting_box/_components`）とテンプレート（`_templates`）から移します。ページはその props の型の上に移します。1 回目で、`_atoms`（入力欄、プルダウン、ダウンロードのボタン、ページを開くボタン）と、ほかの部品に依存しない小さな部品（ラベル、見出し、説明、ヒント、行、折りたたみ、ページへの案内、保存ボタン付きの入力欄、認証キー、色、操作のボタン、接続の確認、ファイルの置き場、テレメトリーの中身、計算機器の名前）を移しました。
+
+- 部品ごとに props の型を輸出しています（`LabelComponentProps` など）。ページから渡される props を漏らさないように、呼ぶ側をすべて見て決めました。
+- 行（`FormRow`）は子の要素から `id` と `aria-describedby` だけを読みます（`RowControlProps`）。
+- 入力欄の `focus` と `blur` は、要素がないときは何もしません。描く前には呼ばれないので、前と同じに動きます。
+
+2 回目で、残りの部品（スライダー、しきい値の行、ショートカットの欄、プルダウン、選択肢、言葉のフィルター、書式、組み込みモデルの取得の確認、計算機器、認証情報の組）と、行のテンプレート（`_templates/Templates`）、`_components/index` を移しました。
+
+- 行のテンプレートの props は、行の props（`TemplateRowProps`）と描く部品の props の組み合わせです（`SliderContainerProps` など）。共通の行（`CommonContainer`）は渡された props 全体の型を引数に取り、描く部品をその props から行自身の props を除いたものと照らし合わせます。部品の取り違えは型の誤りになります。
+- プルダウンの一覧は `DropdownList`（届くまでは `[]`）、選択肢は `RadioOption` です。選択肢の型を引数に取るので、モデルの選択では各モデルの下の部品がそのモデルの選択肢を受け取ります。
+- 組み込みモデルの取得の確認（`LegacyModelDownloadDialog`）は、カタログをこの窓が読むフィールドだけの型（`ReviewCatalog`）として読みます。フックのカタログと同じく、宣言だけで実行時には確かめません。
+- 認証情報の組（`CredentialPair`）は、提供元の名前から `current${B}URL` と `current${B}AuthKey` のキーを組み立てて型にしています。
+
+設定のページは区画ごとに移します。1 回目で「機器」（`device/`）と「音声認識」（`transcription/`）を移しました。
+
+- `useRealtimeASR.ts` の型を、フックが読むフィールドだけを並べた形から、中核が送る形の宣言に変えました（`RealtimeAsrSettings` など）。宣言だけで、実行時には確かめません。
+- cloud の音声認識のエンジンの `base` は、4 つの値のユニオン型 `CloudTranscriptionBase`（`configs/cloudTranscription.ts`）です。
+- 保存のロジック（`useSaveButtonLogic`）が返す欄の値は `unknown` です。ページは、欄が表示するのと同じ文字列にしてから入力欄に渡します（`entryText`）。
+
+2 回目で、音声のページ（「読み上げ」の `tts/`、`rvc/`）と、詳細設定のうち音声とモデルのもの（`VoiceSettings`、`DirectVoiceSettings`、`VoiceAudition`、`SpeechServers`、`StatusLine`、`EngineCatalog`、`VcRuntimeSetup`、`ModelDownloads`、`UserModels`）を移しました。
+
+- フックが中核から受け取る値に宣言の型を付けました。`useModelDownloads` のカタログの行（`ModelCatalogRow`）とジョブ、`useVoice` の音声の設定（値はすべて文字列）、出力機器、モデルが受け付けるシード値の範囲と指示、エンジンの声、`useSpeechServers` のプロファイルと機器、`useVcRuntimes` のカタログとジョブです。宣言だけで、実行時には確かめません。
+- `ModelDownloads` の `reserve` と `only` は省略できる props です。組み込みモデルの取得の確認が渡していた `reserve={undefined}` は外しました。
+- 設定がないときは、名前の付いた `TypeError` で止まる関数を通して読みます（`SpeechServers` と `DirectVoiceSettings`）。前も同じ所で止まっていました。
+
+3 回目で、「詳細設定」のページ（`AdvancedSettings`、約 690 行）を移しました。
+
+- 保存のロジックが持つ `unknown` の欄の値は、`fieldValue` と `fieldText` で、React が欄に書くのと同じ文字列にしてから渡します。
+- 書き込みへの応答は、バックエンドが応答を返したときだけ読みます（`answerOf`）。TLS の組のエラーコードは文字列のときだけ使い、それ以外は前と同じく `save_unconfirmed` です。
+
+4 回目で、「翻訳」のページ（`Translation`、約 970 行）と、翻訳のカタログ、ローカルの翻訳の GPU 版の取得（`TranslationGpuRuntimes`）を移しました。`TranslationGpuRuntimes` は、取得の部品（`VcRuntimeSetup`）とカタログに型が付いたので、書き換えずに移せました。develop の #703 で足された llama.cpp のサーバーの取得（`TranslationLlamaRuntimes`）も、develop を取り込んだときに同じ PR で移しました。カタログが `onInstalled` を渡すので、その props に型を付けています。
+
+- カタログの項目は、属するグループと組にしてカードに渡します（`CatalogEntry`）。
+- ユーザーが足したモデルの行には `non_commercial` や `license` がないので、ライセンスの判定と文は、そのフィールドがあるときだけ読みます。
+- 試験が正規表現で読む定義（`EXTERNAL_API_PROVIDERS`、`LOCAL_LLM_PROVIDERS`、`ENGINE_GROUPS`）の書き方は変えていません。
+
+5 回目で、残りのページ（VR の字幕の `vr/`、チャット読み取りの `ocr/`、見た目、共有の行、VRChat、ホットキー、このアプリについて、更新）を移しました。
+
+- VR の字幕のページは、書き込みにバックエンドが答えたオーバーレイのログの設定を、1 か所の宣言（`answeredSettings` のオーバーロード）で受け取ります（下の「型の厳しさ」）。
+- 選択肢（`RadioButton`）の `id` は `string | number` を受け付けます。フローの帯の件数（1〜3）が数値の id のまま比べられ、そのまま返されるためです。`selectFunction` の引数は、渡した選択肢の id の型です。
+- チャット読み取りのモデルの取得は、カタログをこのページが表示するフィールドだけの型（`OcrCatalogModel`）として読みます。宣言だけで、実行時には確かめません。
+- 試験がページのファイルを読む条件は `/\.(jsx|tsx)$/` に広げました。
+
+6 回目で、設定画面の枠（`ConfigPage`、`SettingSection`、`SettingBox`、`setting_box/index`、設定のメニュー、検索、上のバーと保存バー、版の表示）を移し、`app/config_page` が済みました。
+
+- `setting_box/index.ts` は拡張子なしで再輸出します（`app/others/index.ts` と同じ）。
+- 開いたタブと設定を開いたボタンへフォーカスを戻すのは、要素が `focus()` を持つときだけです（型ガード `focusable`）。
+- 離れるときの確認（`vrct:settings-leave`）の `detail.proceed` は、関数のときだけ受け取ります。設定のフォーム（`useSettingsDraft` の `leaveAction`）と同じ読み方です。
 
 ### 第 7 段：試験とハーネス
 
@@ -170,7 +250,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 
 ### 第 8 段：仕上げ
 
-- `tsconfig.json` から `allowJs` を外します。
+- `tsconfig.json` から `allowJs` を外します。第 6 段までで `src-ui` のソースから JavaScript はなくなりましたが、試験（第 7 段）と、`@useI18n` が指す `locales/useI18n.js` が JavaScript のうちは外せません。
 - 型の検査を段階的に強めます。候補は `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitReturns`、`noUnusedLocals`、`noUnusedParameters` です。1 つずつ有効にし、出たエラーを直してから次に進みます。
 - `.eslintrc.json` を TypeScript の構文に対応させるかどうかを決めます。
 
@@ -184,9 +264,11 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
   - `buildCategoryApiFromSettings` のオーバーロードは、設定のフックが返すフィールドが `CategoryApi` のとおりであることを宣言します。フィールドを作る `useSettingsLogics` と、型を組み立てる `CategoryApi` は同じ項目から名前を作ります。
   - `useSettingValue` のオーバーロードは、設定の atom の値が `SettingValues` の型であることを宣言します。atom は `satisfies` で確かめた既定値から始まり、その設定のフックだけが書き込みます。
 - 計算したキーについては、これ以外の場所で宣言を増やしません。同じ形が要るときは `field()` か、この 2 つの型（`CategoryApi` と `SettingValues`）を使います。
+- メニューや一覧の外を押したかどうかの判定は、`logics/common/targetHolder.ts` の `TargetHolder`（`contains(target: EventTarget | null)`）で尋ねます。DOM の型ではイベントの対象が `EventTarget` で、`Element.contains` は `Node` しか受け取りません。メソッドの引数は両方向で照らし合わされるので、要素はそのまま `TargetHolder` に代入でき、対象を絞らずに尋ねられます。押されるのはページの要素なので成り立ちます。同じ判定にはこの型を使い、同じ形の宣言を増やしません。
 - 下書きのフック（`useSettingsDraft.tsx`）の `answeredValue` も確かめられない宣言です。書き込みにバックエンドが答えた値を、保存した値と同じ型（`T`）として受け取ります（`savedFromResponse` があればその戻り値）。atom の値と同じく、宣言だけで確かめません。
+- VR の字幕のページ（`Vr.tsx`）の `answeredSettings` も同じ宣言です。書き込みにバックエンドが答えた設定を、オーバーレイのログの設定（`OverlayLogSettings`）として受け取ります。
 - `src-ui/cssProperties.d.ts` は、React の `CSSProperties` に `--` で始まる名前を足しています。インラインの style で CSS のカスタムプロパティ（`--checkbox-size` など）を渡すときに、`as CSSProperties` は要りません。
-- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。値を確かめるのは、応答を受け取ってフックに渡す側（`useReceiveRoutes`）です。そこが JavaScript のうちは、確かめずに渡ります。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
+- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。応答を受け取ってフックに渡す側（`useReceiveRoutes`）は、確かめずに渡します。経路の表が文字列で名指すフックと関数に `result` を届いたまま渡すことは、`useReceiveRoutes.ts` の型ガード `isCallable`（`(...args: unknown[]) => unknown`）の 1 か所で宣言しています。確かめるのは関数であることだけで、前と同じです。400 応答の `data` を設定に書き戻すときは、`_useBackendErrorHandling.ts` の `keptValue` のオーバーロードで、渡す先の `update…` の型として宣言します。VR パネルの入口（`VrApp.tsx`）がメインウィンドウから届いた値を同じ名前の atom に書き込むことは、型ガード `isMirroredAtom` で宣言します。確かめるのは atom があることだけで、前と同じです。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
 - 設定のフックは型の付いたフィールドを返します。`views` の TypeScript が型のなかったころに書いた `as { ... }` は、第 6 段で外しました。
 
 ## 移すときの手順

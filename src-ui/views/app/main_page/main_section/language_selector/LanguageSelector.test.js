@@ -4,7 +4,7 @@ import { hooks, loadModule, find } from "../../../../../logics/test/hookHarness.
 
 async function selector(props) {
     const runtime = hooks();
-    const { LanguageSelector } = await loadModule(new URL("./LanguageSelector.jsx", import.meta.url), runtime, {
+    const { LanguageSelector } = await loadModule(new URL("./LanguageSelector.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
         "@logics_main": { useLanguageSettings: () => ({ currentSelectableLanguageList: { data: [] } }) },
         "../../../../../logics/common/languageNames.ts": {

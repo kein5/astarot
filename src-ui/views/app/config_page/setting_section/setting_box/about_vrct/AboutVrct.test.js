@@ -23,9 +23,9 @@ const translate = async language => {
 for (const language of ["en", "ja"]) {
     test(`${language}: every About image link names its destination/person and credit images have text equivalents`, async () => {
         const translation = await translate(language), runtime = hooks();
-        const source = await readFile(new URL("./AboutVrct.jsx", import.meta.url), "utf8");
+        const source = await readFile(new URL("./AboutVrct.tsx", import.meta.url), "utf8");
         const images = Object.fromEntries([...source.matchAll(/from "(@images\/[^"]+)"/g)].map(match => [match[1], match[1]]));
-        const { AboutVrct } = await loadModule(new URL("./AboutVrct.jsx", import.meta.url), runtime, {
+        const { AboutVrct } = await loadModule(new URL("./AboutVrct.tsx", import.meta.url), runtime, {
             ...images, "@useI18n": { useI18n: () => translation },
             "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: language } }) },
             "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }) },
@@ -58,7 +58,7 @@ for (const language of ["en", "ja"]) {
     test(`${language}: color swatches identify the field and expose expansion`, async t => {
         const translation = await translate(language), runtime = hooks();
         stubGlobals(t, { document: eventTarget(), window: eventTarget() });
-        const { ColorEntryWithSaveButton } = await loadModule(new URL("../_components/color_entry_with_save_button/ColorEntryWithSaveButton.jsx", import.meta.url), runtime, {
+        const { ColorEntryWithSaveButton } = await loadModule(new URL("../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx", import.meta.url), runtime, {
             clsx: { clsx }, "@useI18n": { useI18n: () => translation },
             "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" },
         });
@@ -82,7 +82,7 @@ for (const language of ["en", "ja"]) {
         const translation = await translate(language), runtime = hooks();
         const settings = { opacity: 1, ui_scaling: 1, display_duration: 1, fadeout_duration: 2 };
         const controls = { ui_scaling: {}, display_duration: {}, fadeout_duration: {} };
-        const { Vr } = await loadModule(new URL("../vr/Vr.jsx", import.meta.url), runtime, {
+        const { Vr } = await loadModule(new URL("../vr/Vr.tsx", import.meta.url), runtime, {
             "@useI18n": { useI18n: () => translation },
             "@ui_configs": { ui_configs: { overlay_small_log: controls } },
             "../_components": { Slider: "slider", SectionLabelComponent: "heading" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
@@ -103,7 +103,7 @@ for (const language of ["en", "ja"]) {
         assert.equal(durationSliders.length, 2);
         for (const duration of durationSliders) {
             const sliderRuntime = hooks();
-            const { Slider } = await loadModule(new URL("../_components/slider/Slider.jsx", import.meta.url), sliderRuntime, {
+            const { Slider } = await loadModule(new URL("../_components/slider/Slider.tsx", import.meta.url), sliderRuntime, {
                 "@logics_configs": { useSliderLogic: () => ({ ui_value: duration.props.variable }) },
             });
             const slider = sliderRuntime.render(Slider, duration.props);

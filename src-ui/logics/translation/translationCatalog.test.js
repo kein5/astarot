@@ -97,8 +97,8 @@ test("the catalog routes stay out of the VR panel relay and resync after a failu
 // while the core says that folder holds something, and its button leads to the add form.
 test("the note about the translation-models folder follows the core's flag and leads to the add form", () => {
     const box = new URL("../../views/app/config_page/setting_section/setting_box/translation/", import.meta.url);
-    const page = readFileSync(new URL("Translation.jsx", box), "utf8");
-    const catalog = readFileSync(new URL("TranslationCatalog.jsx", box), "utf8");
+    const page = readFileSync(new URL("Translation.tsx", box), "utf8");
+    const catalog = readFileSync(new URL("TranslationCatalog.tsx", box), "utf8");
     assert.match(page, /translationCatalog\?\.retired_folder_used === true && <RetiredModelsFolderNote \/>/);
     assert.match(page, /revealSetting\(\{ setting_id: ENGINE_FORM_SETTING_ID \}\)/);
     assert.match(catalog, /data-setting-id=\{ENGINE_FORM_SETTING_ID\}/);

@@ -12,22 +12,22 @@ const all = (tree, predicate) => {
 const hintModule = on => ({ "../hint/Hint": { Hint: "hint", useHintDescriptions: () => on } });
 async function setup(hints = false) {
     const runtime = hooks();
-    const { LabelComponent } = await loadModule(new URL(base + "label_component/LabelComponent.jsx", import.meta.url), hooks(), {
+    const { LabelComponent } = await loadModule(new URL(base + "label_component/LabelComponent.tsx", import.meta.url), hooks(), {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
         "../description/Description": { Description: "description" }, ...hintModule(hints),
     });
-    const { RadioButton } = await loadModule(new URL(base + "radio_button/RadioButton.jsx", import.meta.url), hooks(), hintModule(hints));
-    const { DownloadModels } = await loadModule(new URL(base + "download_models/DownloadModels.jsx", import.meta.url), hooks(), {
+    const { RadioButton } = await loadModule(new URL(base + "radio_button/RadioButton.tsx", import.meta.url), hooks(), hintModule(hints));
+    const { DownloadModels } = await loadModule(new URL(base + "download_models/DownloadModels.tsx", import.meta.url), hooks(), {
         "../index": { RadioButton }, "../_atoms/_download_button/_DownloadButton": { _DownloadButton: "download" },
     });
-    const { DropdownMenu, MultiDropdownMenu } = await loadModule(new URL(base + "dropdown_menu/DropdownMenu.jsx", import.meta.url), hooks(), {
+    const { DropdownMenu, MultiDropdownMenu } = await loadModule(new URL(base + "dropdown_menu/DropdownMenu.tsx", import.meta.url), hooks(), {
         "../_atoms/_dropdown_menu/_DropdownMenu": { _DropdownMenu: "dropdown" },
     });
     const components = { LabelComponent, RadioButton, DownloadModels, DropdownMenu, MultiDropdownMenu,
         EntryWithSaveButton: "save-entry", AuthKey: "auth", ColorEntryWithSaveButton: "color",
         Slider: "slider", WordFilter: "word-filter", WordFilterListToggleComponent: "word-toggle",
         HotkeysEntry: "hotkey", ActionButton: "action", MessageFormat: "message", ConnectionCheckButton: "check" };
-    const templates = await loadModule(new URL("./Templates.jsx", import.meta.url), runtime, {
+    const templates = await loadModule(new URL("./Templates.tsx", import.meta.url), runtime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "../_components": components, "@common_components": { Checkbox: "checkbox" },
     });
@@ -139,7 +139,7 @@ for (const name of ["WordFilter", "MessageFormat"]) test(`${name} shares one lab
 
 test("FormRow preserves a field's error relation while adding its description", async () => {
     const runtime = hooks();
-    const { FormRow } = await loadModule(new URL(base + "form_row/FormRow.jsx", import.meta.url), runtime, {
+    const { FormRow } = await loadModule(new URL(base + "form_row/FormRow.tsx", import.meta.url), runtime, {
         "../description/Description": { Description: "description" }, ...hintModule(false),
     });
     const child = runtime.api.createElement("textarea", { "aria-describedby": "error", "aria-invalid": true });
@@ -201,7 +201,7 @@ test("with hints on, an option's description is its hint and its radio's descrip
 
 test("with hints on, a FormRow's description is its label's hint unless the row keeps it (a value in use)", async () => {
     const runtime = hooks();
-    const { FormRow } = await loadModule(new URL(base + "form_row/FormRow.jsx", import.meta.url), runtime, {
+    const { FormRow } = await loadModule(new URL(base + "form_row/FormRow.tsx", import.meta.url), runtime, {
         "../description/Description": { Description: "description" }, ...hintModule(true),
     });
     const child = runtime.api.createElement("input", {});

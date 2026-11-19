@@ -64,7 +64,7 @@ test("nothing is saved before the settings arrive", () => {
 });
 
 test("the direct voice settings read the saved value and selection through these helpers", () => {
-    const view = readFileSync(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.jsx", import.meta.url), "utf8");
+    const view = readFileSync(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx", import.meta.url), "utf8");
     assert.match(view, /directSavedDraft\(defaults, directState\.settings, variant\)/);
     assert.match(view, /directSelectionPending\(draft, directState\.settings, variant\)/);
     assert.match(view, /const converted = directShowsConversion\(draft, variant\)/);

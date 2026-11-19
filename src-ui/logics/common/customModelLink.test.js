@@ -14,7 +14,7 @@ test("the guide to your own models opens in the display language", () => {
 });
 
 const loadLink = async (runtime, language, openUrl) => (await loadModule(
-    new URL("../../views/app/config_page/setting_section/setting_box/_components/custom_model_link/CustomModelLink.jsx", import.meta.url),
+    new URL("../../views/app/config_page/setting_section/setting_box/_components/custom_model_link/CustomModelLink.tsx", import.meta.url),
     runtime, {
         "@useI18n": translations(language), "@ui_configs": uiConfigs,
         "@tauri-apps/api/core": { isTauri: () => true }, "@tauri-apps/plugin-opener": { openUrl },

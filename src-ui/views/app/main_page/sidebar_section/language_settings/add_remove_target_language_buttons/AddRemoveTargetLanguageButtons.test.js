@@ -6,7 +6,7 @@ const slots = (second, third) => ({ 1: { enable: true }, 2: { enable: second }, 
 
 async function render(targets, busy = false) {
     const runtime = hooks(), calls = [];
-    const { AddRemoveTargetLanguageButtons } = await loadModule(new URL("./AddRemoveTargetLanguageButtons.jsx", import.meta.url), runtime, {
+    const { AddRemoveTargetLanguageButtons } = await loadModule(new URL("./AddRemoveTargetLanguageButtons.tsx", import.meta.url), runtime, {
         "@logics_main": { useLanguageSettings: () => ({
             currentSelectedPresetTabNumber: { data: "1" }, currentSelectedTargetLanguages: { data: { 1: targets } },
             canChangeLanguageSettings: () => !busy, isLanguageSettingsBusy: busy,

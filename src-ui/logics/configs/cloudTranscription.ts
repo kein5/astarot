@@ -1,8 +1,11 @@
 import { openai_auth_key_url, groq_auth_key_url, deepgram_auth_key_url } from "../ui_configs.ts";
 
+// The part of the generated settings' names that names the engine (GroqWhisperAuthKey, ...).
+export type CloudTranscriptionBase = "GroqWhisper" | "OpenAIWhisper" | "Deepgram" | "CustomWhisper";
+
 export type CloudTranscriptionEngine = {
     id: string;
-    base: string;
+    base: CloudTranscriptionBase;
     key: string;
     webpage_url?: string;
     has_url?: boolean;

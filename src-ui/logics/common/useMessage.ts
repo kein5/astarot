@@ -9,7 +9,7 @@ import type { AtomState } from "@store";
 import { useStore } from "jotai";
 import { realtimeStateAtom, realtimeRetiredAtom } from "../transcription/useRealtimeASR";
 import { applyRealtimeCaption } from "../transcription/realtimeCaptionState";
-import type { MessageLogContent, MessageLogRow, RealtimeCaptionPayload } from "../transcription/realtimeCaptionState";
+import type { CaptionMessage, MessageLogContent, MessageLogRow, RealtimeCaptionPayload } from "../transcription/realtimeCaptionState";
 import { keepRecentLogs } from "./messageLogLimit";
 
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -17,16 +17,20 @@ import type { StdoutResult } from "@useStdoutToPython";
 import { useI18n } from "@useI18n";
 
 // A message of the backend for the log: the user's own (sent) or someone else's (received).
-// The fields are shown as they come; the log rows read them with fallbacks.
+// The texts are declared as the core sends them (docs/spec/data-and-persistence.md,
+// 「メッセージ」) and shown as they come; nothing here checks them.
 export interface BackendMessage {
     id?: string;
     source?: unknown;
-    original?: unknown;
-    translations?: unknown;
+    original?: CaptionMessage;
+    translations?: CaptionMessage[];
     delivery_reason?: unknown;
     // A whole row's text at once, which replaces the row's own.
     messages?: MessageLogContent;
 }
+
+// A new message carries its original text; an answer to a send can leave it out.
+export type NewBackendMessage = BackendMessage & { original: CaptionMessage };
 
 // A notice for the log: a recognition failure or a filtered word. `error_code` and `cause`
 // name a locale text; `message` is the sidecar's English text.
@@ -34,7 +38,7 @@ export interface BackendNotice {
     cause?: unknown;
     error_code?: unknown;
     source?: unknown;
-    message?: unknown;
+    message?: string;
 }
 
 const COOLDOWN = 2000; // 2 seconds
@@ -87,7 +91,7 @@ export const useMessage = () => {
         }
     };
 
-    const addSystemMessageLog = (message: unknown) => {
+    const addSystemMessageLog = (message: string | undefined) => {
         const uuid = crypto.randomUUID();
         const date = generateTimeData();
 
@@ -119,12 +123,12 @@ export const useMessage = () => {
         updateMessageLogs(updateItemById(payload.id, payload));
     };
 
-    const addSentMessageLog = (payload: BackendMessage) => {
+    const addSentMessageLog = (payload: NewBackendMessage) => {
         const message_object = generateMessageObject(payload, "sent");
         addMessageLog(message_object);
     };
 
-    const addReceivedMessageLog = (payload: BackendMessage) => {
+    const addReceivedMessageLog = (payload: NewBackendMessage) => {
         const message_object = generateMessageObject(payload, "received");
         addMessageLog(message_object);
     };
@@ -193,7 +197,7 @@ const generateTimeData = () => {
 const deliveryReason = (data: { delivery_reason?: unknown } | null | undefined) =>
     typeof data?.delivery_reason === "string" ? { delivery_reason: data.delivery_reason } : {};
 
-const generateMessageObject = (data: BackendMessage, category: "sent" | "received", status = "ok"): MessageLogRow => {
+const generateMessageObject = (data: NewBackendMessage, category: "sent" | "received", status = "ok"): MessageLogRow => {
     return {
         id: data.id ?? crypto.randomUUID(),
         created_at: generateTimeData(),

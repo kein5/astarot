@@ -80,7 +80,7 @@ class PolledResponseLogTests(unittest.TestCase):
 
     def test_every_quiet_endpoint_is_one_the_ui_polls(self):
         logics = Path(__file__).resolve().parents[2] / "src-ui/logics"
-        source = (logics / "useReceiveRoutes.js").read_text(encoding="utf-8").replace("'", '"')
+        source = (logics / "useReceiveRoutes.ts").read_text(encoding="utf-8").replace("'", '"')
         # Settings routes are generated from base_endpoint_name entries.
         generated = (logics / "configs/config_page_setter/ui_config_setter.ts").read_text(encoding="utf-8").replace("'", '"')
         for endpoint in utils.POLLED_ENDPOINTS:

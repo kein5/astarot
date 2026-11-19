@@ -1,0 +1,902 @@
+import { store } from "@store";
+import { useEffect } from "react";
+import { useI18n } from "@useI18n";
+import * as realtime from "./transcription/useRealtimeASR";
+import * as virtualMic from "./voice/useVirtualMic";
+import * as voiceAudition from "./voice/useVoiceAudition";
+import * as gpuCheck from "./support/useGpuCheck";
+import * as firstRunSetup from "./setup/useFirstRunSetup";
+import * as common from "@logics_common";
+import * as main from "@logics_main";
+import * as configs from "@logics_configs";
+import * as voice from "./voice/useVoice";
+import * as speech from "./voice/useSpeechServers";
+import * as downloads from "./voice/useModelDownloads";
+import * as translationCatalog from "./translation/useTranslationCatalog";
+import * as vcRuntimes from "./voice/useVcRuntimes";
+import * as flow from "./flow/useIoFlow";
+import * as gpuMemory from "./flow/useGpuMemory";
+import { _useBackendErrorHandling } from "./_useBackendErrorHandling";
+import { SETTINGS_ARRAY } from "./configs/config_page_setter/ui_config_setter";
+import { useStdoutToPython } from "@useStdoutToPython";
+import { pendingRequestRecovery, featureResyncReads } from "./common/pendingRequestRecovery.ts";
+import { receiveLanguageMutation, resetLanguageMutations, isLanguageMutation } from "./main/languageMutations";
+import { applyInitializationFields, createInitializationValidators } from "./common/initializationFields.ts";
+import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.ts";
+import { settingsWriteResponses } from "./common/settingsWriteResponses.ts";
+import { voiceErrorText } from "./voice/voiceErrorText.ts";
+import type { BackendResponse } from "./common/pendingRequestRecovery.ts";
+import type { InitializationRoutes } from "./common/initializationFields.ts";
+
+const INIT_FIELD_VALIDATORS = createInitializationValidators(SETTINGS_ARRAY);
+
+// A module whose hooks the routes call by name (@logics_common, a feature's hooks).
+type RouteNamespace = Readonly<Record<string, unknown>>;
+
+// Where the answers to an endpoint go: the hook (`hook_name`, from `ns`) and its function
+// (`method_name`). Endpoints the UI only receives name none.
+interface RouteMeta {
+    endpoint: string;
+    ns: RouteNamespace | null;
+    hook_name: string | null;
+    method_name: string | null;
+    // An answer that carries an auth key and its URL: the URL goes to this function.
+    url_method_name?: string;
+}
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
+// A field of a value the backend sent, read as `value?.[name]` reads it.
+const fieldOf = (value: unknown, name: string): unknown => isRecord(value) ? value[name] : undefined;
+// The code of a failed answer (docs/spec/cross-cutting.md), when it has one.
+const errorCodeOf = (result: unknown): string | undefined => {
+    const code = fieldOf(result, "error_code");
+    return typeof code === "string" ? code : undefined;
+};
+
+// A hook, or one of the functions a hook returns, that the route table names.
+type Callable = (...args: unknown[]) => unknown;
+
+// The route table names the hook and its function as strings, and the routes made from the
+// settings build those names (buildRouteMetaList), so TypeScript can follow neither. The result
+// goes to the named function as the backend sent it, unchecked (docs/spec/ipc-protocol.md):
+// the function's own parameter type is the declaration of the shape the core sends. This guard
+// is the one place that says so. It checks only that the field is a function, as the routes
+// always did.
+const isCallable = (value: unknown): value is Callable => typeof value === "function";
+
+// A function the routes cannot do without: a missing one stops the route with a TypeError, as
+// calling it did.
+const callable = (value: unknown, name: string): Callable => {
+    if (isCallable(value)) return value;
+    throw new TypeError(`${name} is not a function`);
+};
+
+// A reply or a notice from the backend (docs/spec/ipc-protocol.md). A log (status 348) names no
+// endpoint and is read with the endpoint "", as before. A message without a numeric status, or
+// with an endpoint that is not a string, stops here with a TypeError; the session logs it.
+const isBackendResponse = (message: unknown): message is BackendResponse =>
+    isRecord(message) && typeof message.endpoint === "string" && typeof message.status === "number";
+const readBackendResponse = (message: unknown): BackendResponse => {
+    if (isBackendResponse(message)) return message;
+    const status = fieldOf(message, "status");
+    if (isRecord(message) && message.endpoint === undefined && typeof status === "number") return { ...message, endpoint: "", status };
+    throw new TypeError("A backend message has a status and, unless it is a log, an endpoint");
+};
+
+// The notice that an audio device the user chose went away and another took its place.
+interface SwitchedDevice {
+    name: string;
+    id?: unknown;
+}
+interface AudioDeviceSwitch {
+    source: "mic" | "speaker";
+    old_device: SwitchedDevice;
+    new_device: SwitchedDevice;
+}
+const isAudioDeviceSwitch = (result: unknown): result is AudioDeviceSwitch => {
+    const source = fieldOf(result, "source");
+    return (source === "mic" || source === "speaker")
+        && typeof fieldOf(fieldOf(result, "old_device"), "name") === "string"
+        && typeof fieldOf(fieldOf(result, "new_device"), "name") === "string";
+};
+
+// The fields of a SETTINGS_ARRAY entry that its routes are made from.
+interface RoutedSetting {
+    Category: string;
+    Base_Name: string;
+    base_endpoint_name: string;
+    logics_template_id: string;
+    ui_template_id: string;
+    add_endpoint_run_array?: readonly string[];
+}
+
+const CONFIG_SAVE_FAILURES = ["disk_full", "permission_denied", "read_only", "load_failed"];
+
+export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
+    { endpoint: "/set/data/openai_compatible_auth_key_and_url", ns: configs, hook_name: "useTranslation", method_name: "setSuccessOpenAICompatibleAuthKey", url_method_name: "updateOpenAICompatibleURL" },
+    { endpoint: "/set/data/custom_whisper_auth_key_and_url", ns: configs, hook_name: "useTranscription", method_name: "setSuccessCustomWhisperAuthKey", url_method_name: "updateCustomWhisperURL" },
+    { endpoint: "/get/data/model_download_catalog", ns: downloads, hook_name: "useModelDownloads", method_name: "updateCatalog" },
+    { endpoint: "/get/data/model_download_hardware", ns: downloads, hook_name: "useModelDownloads", method_name: "updateHardware" },
+    { endpoint: "/run/refresh_model_download_hardware", ns: downloads, hook_name: "useModelDownloads", method_name: "updateHardware" },
+    { endpoint: "/get/data/model_download_state", ns: downloads, hook_name: "useModelDownloads", method_name: "updateState" },
+    { endpoint: "/run/start_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
+    { endpoint: "/run/cancel_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
+    { endpoint: "/run/apply_model_download", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledge" },
+    // Models the user registers under a name (#403).
+    { endpoint: "/get/data/user_models", ns: downloads, hook_name: "useModelDownloads", method_name: "updateUserModels" },
+    { endpoint: "/run/register_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    { endpoint: "/run/remove_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    { endpoint: "/run/apply_user_model", ns: downloads, hook_name: "useModelDownloads", method_name: "acknowledgeUserModels" },
+    // The translation catalog's two groups and the entries the user adds (#413).
+    { endpoint: "/get/data/translation_catalog", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "updateCatalog" },
+    { endpoint: "/run/register_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
+    { endpoint: "/run/remove_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
+    { endpoint: "/run/use_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
+    { endpoint: "/get/data/vc_runtime_catalog", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateCatalog" },
+    { endpoint: "/get/data/vc_runtime_state", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateState" },
+    { endpoint: "/run/start_vc_runtime_setup", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "acknowledge" },
+    { endpoint: "/run/cancel_vc_runtime_setup", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "acknowledge" },
+    { endpoint: "/get/data/speech_server_settings", ns: speech, hook_name: "useSpeechServers", method_name: "updateSettings" },
+    { endpoint: "/set/data/speech_server_settings", ns: speech, hook_name: "useSpeechServers", method_name: "updateSettings" },
+    { endpoint: "/get/data/speech_server_devices", ns: speech, hook_name: "useSpeechServers", method_name: "updateDevices" },
+    { endpoint: "/get/data/speech_server_state", ns: speech, hook_name: "useSpeechServers", method_name: "updateState" },
+    { endpoint: "/run/start_speech_server", ns: speech, hook_name: "useSpeechServers", method_name: "updateState" },
+    { endpoint: "/run/stop_speech_server", ns: speech, hook_name: "useSpeechServers", method_name: "updateState" },
+    { endpoint: "/get/data/realtime_asr_settings", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateSettings" },
+    { endpoint: "/set/data/realtime_asr_settings", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateSettings" },
+    { endpoint: "/get/data/realtime_asr_endpoints", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateEndpoints" },
+    { endpoint: "/get/data/realtime_asr_models", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateModels" },
+    { endpoint: "/get/data/realtime_asr_state", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
+    { endpoint: "/run/start_realtime_asr", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
+    { endpoint: "/run/stop_realtime_asr", ns: realtime, hook_name: "useRealtimeASR", method_name: "updateState" },
+    { endpoint: "/run/realtime_caption", ns: common, hook_name: "useMessage", method_name: "updateRealtimeCaption" },
+    // Names for the voices speaker diarization tells apart (#447).
+    { endpoint: "/set/data/speaker_names", ns: common, hook_name: "useSpeakerNames", method_name: "updateNames" },
+    // The move from the removed Whisper engine to speech.cpp (#288).
+    // The virtual microphone guide and its check on Windows (#321).
+    { endpoint: "/get/data/virtual_mic_notice", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateNotice" },
+    { endpoint: "/set/disable/virtual_mic_notice", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateNotice" },
+    { endpoint: "/get/data/virtual_mic_status", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateStatus" },
+    { endpoint: "/get/data/first_run_setup", ns: firstRunSetup, hook_name: "useFirstRunSetup", method_name: "updateNotice" },
+    { endpoint: "/set/disable/first_run_setup", ns: firstRunSetup, hook_name: "useFirstRunSetup", method_name: "updateNotice" },
+    { endpoint: "/run/virtual_mic_test", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateResult" },
+    { endpoint: "/run/virtual_mic_level", ns: virtualMic, hook_name: "useVirtualMic", method_name: "updateLevel" },
+    { endpoint: "/get/data/io_flow", ns: flow, hook_name: "useIoFlow", method_name: "updateIoFlow" },
+    { endpoint: "/run/io_trace", ns: flow, hook_name: "useIoFlow", method_name: "addIoTrace" },
+    { endpoint: "/get/data/gpu_memory", ns: gpuMemory, hook_name: "useGpuMemory", method_name: "updateGpuMemory" },
+    { endpoint: "/get/data/tts_model_options", ns: voice, hook_name: "useVoice", method_name: "updateModelOptions" },
+    { endpoint: "/get/data/tts_engine_voices", ns: voice, hook_name: "useVoice", method_name: "updateEngineVoices" },
+    { endpoint: "/get/data/voice_settings", ns: voice, hook_name: "useVoice", method_name: "updateSettings" },
+    { endpoint: "/set/data/voice_settings", ns: voice, hook_name: "useVoice", method_name: "updateSettings" },
+    { endpoint: "/get/data/voice_status", ns: voice, hook_name: "useVoice", method_name: "updateStatus" },
+    { endpoint: "/get/data/voice_output_devices", ns: voice, hook_name: "useVoice", method_name: "updateDevices" },
+    { endpoint: "/run/enable_tts", ns: voice, hook_name: "useVoice", method_name: "updateStatus" },
+    { endpoint: "/run/disable_tts", ns: voice, hook_name: "useVoice", method_name: "updateStatus" },
+    { endpoint: "/run/stop_voice", ns: voice, hook_name: "useVoice", method_name: "updateStatus" },
+    { endpoint: "/get/data/voice_route", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
+    { endpoint: "/run/mute_voice", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
+    { endpoint: "/run/resume_voice", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
+    { endpoint: "/get/data/direct_voice_sources", ns: voice, hook_name: "useVoice", method_name: "updateDirectSources" },
+    { endpoint: "/set/data/direct_voice_settings", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
+    { endpoint: "/get/data/direct_voice_state", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
+    { endpoint: "/run/start_direct_voice", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
+    { endpoint: "/run/stop_direct_voice", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
+    // The voice audition of the TTS catalog (#415).
+    { endpoint: "/get/data/voice_audition_state", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
+    { endpoint: "/run/start_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
+    { endpoint: "/run/stop_voice_audition", ns: voiceAudition, hook_name: "useVoiceAudition", method_name: "updateState" },
+    { endpoint: "/get/data/gpu_check_state", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateState" },
+    { endpoint: "/run/start_gpu_check", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateAnswer" },
+    { endpoint: "/run/stop_gpu_check", ns: gpuCheck, hook_name: "useGpuCheck", method_name: "updateAnswer" },
+    // Common
+    { endpoint: "/run/feed_watchdog", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/initialization_progress", ns: common, hook_name: "useInitProgress", method_name: "updateInitProgress" },
+    { endpoint: "/run/enable_ai_models", ns: common, hook_name: "useIsVrctAvailable", method_name: "handleAiModelsAvailability" },
+    { endpoint: "/get/data/compute_mode", ns: common, hook_name: "useComputeMode", method_name: "updateComputeMode" },
+
+    { endpoint: "/run/update_software", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/audio_device_switched", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/config_file_unreadable", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/config_save_failed", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/secret_store_failed", ns: null, hook_name: null, method_name: null }, // A 400: shown by the error handling.
+    // Fire-and-forget actions from the VR settings (sample text, sent repeatedly while
+    // started, and launcher reset): the answer needs no handling, but without a route
+    // each one was logged as an invalid endpoint.
+    { endpoint: "/run/send_text_overlay", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/vr_launcher_reset", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/config_save_recovered", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    { endpoint: "/run/translation_compute_device_fallback", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+
+    // VR UI のポインタ位置 (ホバー表示用)。VR ウィンドウへ転送する
+    { endpoint: "/run/vr_panel_pointer", ns: common, hook_name: "useVrPanelPointer", method_name: "forwardVrPanelPointer" },
+    // VR UI のウィンドウ開閉の応答 (VR画面が状態を持つので受け取るだけ)
+    { endpoint: "/run/vr_panel_windows", ns: null, hook_name: null, method_name: null },
+    // ログウィンドウが視線から外れた・戻った / 呼び戻しの応答
+    { endpoint: "/run/vr_panel_log_out_of_view", ns: common, hook_name: "useVrPanelLogOutOfView", method_name: "updateVrPanelLogOutOfView" },
+    { endpoint: "/run/vr_panel_launcher_intro", ns: common, hook_name: "useVrPanelLauncherIntro", method_name: "updateVrPanelLauncherIntro" },
+    { endpoint: "/run/vr_panel_recall_log", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/vr_panel_layout_rendered", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/vr_panel_tooltip", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/update_cuda_software", ns: null, hook_name: null, method_name: null },
+
+    // The app places the window before it shows it (src-tauri/src/window_placement.rs); moving it
+    // again here, once the engine was ready, made it jump.
+    { endpoint: "/get/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/set/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
+
+    { endpoint: "/run/open_filepath_logs", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_MessageLogs" },
+    { endpoint: "/run/open_filepath_config_file", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_ConfigFile" },
+
+    { endpoint: "/get/data/connected_lmstudio", ns: common, hook_name: "useLLMConnection", method_name: "setConnectionStatus_LMStudio" },
+    { endpoint: "/run/lmstudio_connection", ns: common, hook_name: "useLLMConnection", method_name: "setConnectionStatus_LMStudio" },
+
+    { endpoint: "/get/data/connected_ollama", ns: common, hook_name: "useLLMConnection", method_name: "setConnectionStatus_Ollama" },
+    { endpoint: "/run/ollama_connection", ns: common, hook_name: "useLLMConnection", method_name: "setConnectionStatus_Ollama" },
+
+    // Software Version
+    { endpoint: "/get/data/version", ns: common, hook_name: "useSoftwareVersion", method_name: "updateSoftwareVersion" },
+    // Latest Software Version Info
+    { endpoint: "/run/software_update_info", ns: common, hook_name: "useSoftwareVersion", method_name: "updateSoftwareVersionInfo" },
+
+    { endpoint: "/run/connected_network", ns: common, hook_name: "useHandleNetworkConnection", method_name: "handleNetworkConnection" },
+    { endpoint: "/run/enable_osc_query", ns: common, hook_name: "useHandleOscQuery", method_name: "handleOscQuery" },
+
+    // Message (By typing)
+    { endpoint: "/run/send_message_box", ns: common, hook_name: "useMessage", method_name: "updateSentMessageLogById" },
+    { endpoint: "/run/typing_message_box", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/run/stop_typing_message_box", ns: null, hook_name: null, method_name: null },
+    // Message Transcription
+    { endpoint: "/run/transcription_send_mic_message", ns: common, hook_name: "useMessage", method_name: "addSentMessageLog" },
+    { endpoint: "/run/transcription_receive_speaker_message", ns: common, hook_name: "useMessage", method_name: "addReceivedMessageLog" },
+    { endpoint: "/run/transcription_ocr_message", ns: common, hook_name: "useMessage", method_name: "addReceivedMessageLog" },
+
+    // System Messages
+    { endpoint: "/run/word_filter", ns: common, hook_name: "useMessage", method_name: "addSystemMessageLog_FromBackend" },
+    { endpoint: "/run/transcription_recognition_error", ns: common, hook_name: "useMessage", method_name: "addSystemMessageLog_FromBackend" },
+
+
+    // Volume
+    { endpoint: "/run/check_mic_volume", ns: common, hook_name: "useVolume", method_name: "updateVolumeVariable_Mic" },
+    { endpoint: "/run/check_speaker_volume", ns: common, hook_name: "useVolume", method_name: "updateVolumeVariable_Speaker" },
+    { endpoint: "/set/enable/check_mic_threshold", ns: common, hook_name: "useVolume", method_name: "updateMicThresholdCheckStatus" },
+    { endpoint: "/set/disable/check_mic_threshold", ns: common, hook_name: "useVolume", method_name: "updateMicThresholdCheckStatus" },
+    { endpoint: "/set/enable/check_speaker_threshold", ns: common, hook_name: "useVolume", method_name: "updateSpeakerThresholdCheckStatus" },
+    { endpoint: "/set/disable/check_speaker_threshold", ns: common, hook_name: "useVolume", method_name: "updateSpeakerThresholdCheckStatus" },
+
+
+
+
+    // Main Page
+    // Page Controls
+    { endpoint: "/get/data/main_window_sidebar_compact_mode", ns: main, hook_name: "useIsMainPageCompactMode", method_name: "updateIsMainPageCompactMode" },
+    { endpoint: "/get/data/foreground", ns: main, hook_name: "useMainFunction", method_name: "restoreForeground" },
+    { endpoint: "/set/enable/foreground", ns: main, hook_name: "useMainFunction", method_name: "updateForegroundStatus" },
+    { endpoint: "/set/disable/foreground", ns: main, hook_name: "useMainFunction", method_name: "updateForegroundStatus" },
+    { endpoint: "/set/enable/main_window_sidebar_compact_mode", ns: main, hook_name: "useIsMainPageCompactMode", method_name: "updateIsMainPageCompactMode" },
+    { endpoint: "/set/disable/main_window_sidebar_compact_mode", ns: main, hook_name: "useIsMainPageCompactMode", method_name: "updateIsMainPageCompactMode" },
+
+    // Main Functions
+    { endpoint: "/set/enable/translation", ns: main, hook_name: "useMainFunction", method_name: "updateTranslationStatus" },
+    { endpoint: "/set/disable/translation", ns: main, hook_name: "useMainFunction", method_name: "updateTranslationStatus" },
+    { endpoint: "/set/enable/transcription_send", ns: main, hook_name: "useMainFunction", method_name: "updateTranscriptionSendStatus" },
+    { endpoint: "/set/disable/transcription_send", ns: main, hook_name: "useMainFunction", method_name: "updateTranscriptionSendStatus" },
+    { endpoint: "/set/enable/transcription_receive", ns: main, hook_name: "useMainFunction", method_name: "updateTranscriptionReceiveStatus" },
+    { endpoint: "/set/disable/transcription_receive", ns: main, hook_name: "useMainFunction", method_name: "updateTranscriptionReceiveStatus" },
+    { endpoint: "/set/enable/ocr_capture", ns: main, hook_name: "useMainFunction", method_name: "updateOcrCaptureStatus" },
+    { endpoint: "/set/disable/ocr_capture", ns: main, hook_name: "useMainFunction", method_name: "updateOcrCaptureStatus" },
+
+    // Language Settings
+    { endpoint: "/get/data/selected_tab_no", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedPresetTabNumber" },
+    { endpoint: "/set/data/selected_tab_no", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedPresetTabNumber" },
+
+    { endpoint: "/get/data/selected_your_languages", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedYourLanguages" },
+    { endpoint: "/set/data/selected_your_languages", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedYourLanguages" },
+    { endpoint: "/run/selected_your_languages", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedYourLanguages" },
+    { endpoint: "/get/data/selected_target_languages", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedTargetLanguages" },
+    { endpoint: "/set/data/selected_target_languages", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedTargetLanguages" },
+    { endpoint: "/run/selected_target_languages", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedTargetLanguages" },
+
+    { endpoint: "/get/data/selectable_translation_engines", ns: main, hook_name: "useLanguageSettings", method_name: "updateTranslatorAvailability" },
+    { endpoint: "/run/translation_engines", ns: main, hook_name: "useLanguageSettings", method_name: "updateTranslatorAvailability" },
+
+    { endpoint: "/get/data/selected_translation_engines", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedTranslationEngines" },
+    { endpoint: "/set/data/selected_translation_engines", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedTranslationEngines" },
+    { endpoint: "/run/selected_translation_engines", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectedTranslationEngines" },
+
+    { endpoint: "/run/swap_your_language_and_target_language", ns: main, hook_name: "useLanguageSettings", method_name: "updateBothSelectedLanguages" },
+
+    // Language Selector
+    { endpoint: "/get/data/selectable_language_list", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectableLanguageList" },
+    { endpoint: "/run/selectable_language_list", ns: main, hook_name: "useLanguageSettings", method_name: "updateSelectableLanguageList" },
+
+
+    // Message Input Box
+    { endpoint: "/get/data/message_box_ratio", ns: main, hook_name: "useMessageInputBoxRatio", method_name: "updateMessageInputBoxRatio" },
+    { endpoint: "/set/data/message_box_ratio", ns: main, hook_name: "useMessageInputBoxRatio", method_name: "updateMessageInputBoxRatio" },
+
+
+    // // Config Page
+    // Hotkeys
+    // Saved after sharing a window, not from a settings control: no "saved" notice.
+    { endpoint: "/set/data/ocr_portal_restore_token", ns: configs, hook_name: "useOcr", method_name: "updateFromBackendOcrPortalRestoreToken" },
+    { endpoint: "/get/data/hotkeys", ns: configs, hook_name: "useHotkeys", method_name: "updateHotkeys" },
+    // A new WebSocket and OBS token; the settings page says so where the button is.
+    { endpoint: "/run/regenerate_websocket_auth_token", ns: configs, hook_name: "useAdvancedSettings", method_name: "updateFromBackendWebsocketAuthToken" },
+    { endpoint: "/set/data/hotkeys", ns: configs, hook_name: "useHotkeys", method_name: "setSuccessHotkeys" },
+
+    // // Not Implemented.
+    { endpoint: "/run/shutdown", ns: null, hook_name: null, method_name: null }, // Not implemented on UI.
+    // The release channel follows the installed build (the core decides it at start from the
+    // version), so there is nothing to choose; the app updater reads it from the install.
+    { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/get/data/release_channel", ns: null, hook_name: null, method_name: null },
+    { endpoint: "/set/data/release_channel", ns: null, hook_name: null, method_name: null },
+    // The app updater (src-tauri/src/app_update.rs) lists releases itself; nothing asks the backend.
+    { endpoint: "/get/data/available_releases", ns: null, hook_name: null, method_name: null },
+];
+
+// The top bar's stop and mute (StopActions.tsx), which hotkeys press as well.
+const STOP_ACTIONS = ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"];
+const TRANSCRIPTION_TOGGLES = ["/set/enable/transcription_send", "/set/disable/transcription_send",
+    "/set/enable/transcription_receive", "/set/disable/transcription_receive"];
+const TRANSLATION_CATALOG_CHANGES = ["/run/register_translation_catalog_entry", "/run/remove_translation_catalog_entry",
+    "/run/use_translation_catalog_entry"];
+const TRANSLATION_CATALOG_READS = ["/get/data/selectable_ctranslate2_weight_type_dict", "/get/data/selected_ctranslate2_weight_type",
+    "/get/data/openai_compatible_url", "/get/data/openai_compatible_auth_key",
+    "/get/data/selectable_openai_compatible_model_list", "/get/data/selected_openai_compatible_model"];
+
+export const useReceiveRoutes = () => {
+    const { showNotification_Error, showNotification_Warning, showNotification_Success, dismissNotification } = common.useNotificationStatus();
+    const { t, i18n } = useI18n();
+    const { errorHandling_Backend } = _useBackendErrorHandling();
+    const { settings: voiceSettings, status: voiceStatus, send: sendVoice, reset: resetVoice, backendStopped: stopVoicePending, updateTtsError, updateError: updateVoiceError, updateDirectError } = voice.useVoice();
+    const voiceConnected = voiceSettings !== null;
+    useEffect(() => {
+        if (!voiceConnected) return;
+        const poll = () => {
+            if (store.backend_stopped) return;
+            sendVoice("/get/data/voice_status");
+            sendVoice("/get/data/voice_route");
+            sendVoice("/get/data/direct_voice_state");
+        };
+        poll();
+        const timer = setInterval(poll, 1000);
+        return () => clearInterval(timer);
+    }, [voiceConnected, sendVoice]);
+    const { state: speechState, pending: speechPending, send: sendSpeech, updateError: updateSpeechError, reset: resetSpeech, backendStopped: stopSpeechPending } = speech.useSpeechServers();
+    const speechActive = Object.values(speechState).some(row => ["preparing", "ready", "stopping"].includes(row.state)) || Object.keys(speechPending).length > 0
+        || voiceStatus.tts_server_starting === true;
+    useEffect(() => {
+        if (!speechActive) return;
+        const timer = setInterval(() => !store.backend_stopped && sendSpeech("/get/data/speech_server_state"), 500);
+        return () => clearInterval(timer);
+    }, [speechActive, sendSpeech]);
+    const { state: downloadState, hardware: modelHardware, pending: downloadPending, send: sendDownload, updateError: updateDownloadError, expireUnconfirmed: expireDownloadRequests, reset: resetDownloads, backendStopped: stopDownloadPending } = downloads.useModelDownloads();
+    useEffect(() => {
+        if (modelHardware.phase !== 'probing') return;
+        const timer = setInterval(() => !store.backend_stopped && sendDownload('/get/data/model_download_hardware'), 500);
+        return () => clearInterval(timer);
+    }, [modelHardware.phase, sendDownload]);
+    const downloadActive = !!downloadPending || Object.values(downloadState.jobs).some(job => ["queued", "downloading", "verifying", "cancelling"].some(phase => phase === job.phase));
+    useEffect(() => {
+        if (!downloadActive) return;
+        const timer = setInterval(() => !store.backend_stopped && sendDownload("/get/data/model_download_state"), 750);
+        return () => clearInterval(timer);
+    }, [downloadActive, sendDownload]);
+    useEffect(() => {
+        if (!downloadPending) return;
+        const timer = setTimeout(expireDownloadRequests, 10000);
+        return () => clearTimeout(timer);
+    }, [downloadPending, expireDownloadRequests]);
+    const { send: sendTranslationCatalog, fail: failTranslationCatalog, reset: resetTranslationCatalog } = translationCatalog.useTranslationCatalog();
+    const { state: runtimeState, pending: runtimePending, send: sendRuntime, updateError: updateRuntimeError, reset: resetRuntimes, backendStopped: stopRuntimePending } = vcRuntimes.useVcRuntimes();
+    const runtimeActive = runtimePending || Object.values(runtimeState.jobs).some(job => vcRuntimes.activeSetupPhases.some(phase => phase === job.phase));
+    useEffect(() => {
+        if (!runtimeActive) return;
+        const timer = setInterval(() => !store.backend_stopped && sendRuntime("/get/data/vc_runtime_state"), 750);
+        return () => clearInterval(timer);
+    }, [runtimeActive, sendRuntime]);
+    const { state: realtimeState, send: sendRealtime, updateError: updateRealtimeError, reset: resetRealtime, backendStopped: stopRealtimePending } = realtime.useRealtimeASR();
+    const { failCheck: failVirtualMicCheck, reset: resetVirtualMic, backendStopped: stopVirtualMicCheck } = virtualMic.useVirtualMic();
+    const { audition, poll: pollAudition, fail: failAudition, reset: resetAudition, backendStopped: stopAudition } = voiceAudition.useVoiceAudition();
+    // Asked only while an audition plays, to show when it has ended.
+    const auditionPlaying = audition.phase === "playing";
+    useEffect(() => {
+        if (!auditionPlaying) return;
+        const timer = setInterval(() => !store.backend_stopped && pollAudition(), 300);
+        return () => clearInterval(timer);
+    }, [auditionPlaying, pollAudition]);
+    const { check: gpuCheckState, poll: pollGpuCheck, fail: failGpuCheck, reset: resetGpuCheck, backendStopped: stopGpuCheck } = gpuCheck.useGpuCheck();
+    // Asked only while a GPU check runs (#288), to show its step and, at the end, its report.
+    const gpuCheckRunning = gpuCheckState.phase !== "idle";
+    useEffect(() => {
+        if (!gpuCheckRunning) return;
+        const timer = setInterval(() => !store.backend_stopped && pollGpuCheck(), 1000);
+        return () => clearInterval(timer);
+    }, [gpuCheckRunning, pollGpuCheck]);
+    const { reset: resetFirstRunSetup } = firstRunSetup.useFirstRunSetup();
+    const realtimeActive = Object.values(realtimeState).some(value => value.requested);
+    useEffect(() => {
+        if (!realtimeActive) return;
+        const timer = setInterval(() => !store.backend_stopped && sendRealtime("/get/data/realtime_asr_state"), 500);
+        return () => clearInterval(timer);
+    }, [realtimeActive, sendRealtime]);
+    const { updateIsBackendReady } = common.useIsBackendReady();
+    const { updateIsSoftwareUpdating } = common.useIsSoftwareUpdating();
+    const { asyncStdoutToPython } = useStdoutToPython();
+
+    const handleInvalidEndpoint = (parsed_data: { endpoint: string; result?: unknown }) => {
+        console.error(`Invalid endpoint: ${parsed_data.endpoint}\nresult: ${JSON.stringify(parsed_data.result)}`);
+    };
+
+    const hook_results: Record<string, unknown> = {};
+    ROUTE_META_LIST.forEach(({ ns, hook_name }) => {
+        if (ns && hook_name && !(hook_name in hook_results)) {
+            const hookFn = ns[hook_name];
+            if (isCallable(hookFn)) {
+                hook_results[hook_name] = hookFn();
+            } else {
+                console.warn(`Hook not found on namespace: ${hook_name}`);
+                hook_results[hook_name] = {};
+            }
+        }
+    });
+
+    const noop = () => {};
+
+    const routes: InitializationRoutes = Object.fromEntries(
+        ROUTE_META_LIST.map(({ endpoint, hook_name, method_name, url_method_name }): [string, (value: unknown) => void] => {
+            const result_obj = (hook_name === null ? undefined : hook_results[hook_name]) || {};
+            const fn = method_name === null ? undefined : fieldOf(result_obj, method_name);
+            if (url_method_name) return [endpoint, value => {
+                callable(fieldOf(result_obj, url_method_name), `${hook_name}.${url_method_name}`)(fieldOf(value, "url"));
+                callable(fn, `${hook_name}.${method_name}`)(fieldOf(value, "auth_key"));
+            }];
+            if (fn === undefined && method_name !== null) {
+                console.error("Method not found.", { endpoint, hook_name, method_name, result_obj, fn });
+            }
+            return [endpoint, isCallable(fn)
+                ? (hook_name === "useModelDownloads" && method_name !== null && method_name.startsWith("acknowledge") ? value => fn(value, endpoint) : fn)
+                : noop];
+        })
+    );
+    // The sent message rows (useMessage), which a failed send or a stopped backend settles.
+    const failSentMessageLog = (payload?: unknown) =>
+        callable(fieldOf(hook_results.useMessage, "failSentMessageLog"), "useMessage.failSentMessageLog")(payload);
+
+
+    // Speech that waited too long is skipped without any other sign, so warn when
+    // the backend's count rises. The first reading and a restarted backend do not.
+    const noticeExpiredSpeech = (expired: unknown) => {
+        if (typeof expired !== "number" || !Number.isSafeInteger(expired)) return;
+        if (store.expired_speech !== null && expired > store.expired_speech)
+            showNotification_Warning(t("voice_ui.speech_expired"), { category_id: "speech_expired" });
+        store.expired_speech = expired;
+    };
+
+    const receiveRoutes = (message: unknown) => {
+        const parsed_data = readBackendResponse(message);
+        const { endpoint, status, result } = parsed_data;
+        if (endpoint === "/get/data/voice_status" && status === 200) noticeExpiredSpeech(fieldOf(result, "expired"));
+        if (status !== 200 && (isBackendUpdate(endpoint) || endpoint === "/run/shutdown")) {
+            rejectExpectedExit(store.backend_session, endpoint);
+            if (isBackendUpdate(endpoint)) updateIsSoftwareUpdating(false);
+        }
+        if (!pendingRequestRecovery.acceptResponse(endpoint)) return;
+        pendingRequestRecovery.receive(parsed_data, asyncStdoutToPython);
+        settingsWriteResponses.receive(parsed_data);
+        if (endpoint === "/run/send_message_box" && [400, 404, 423, 500].includes(status)) {
+            failSentMessageLog(fieldOf(result, "data") ?? result);
+        }
+        if (status === 500 && featureResyncReads[endpoint]) asyncStdoutToPython(featureResyncReads[endpoint]);
+        if (status !== 200 && endpoint.includes("vc_runtime")) {
+            updateRuntimeError(errorCodeOf(result) || "vc_runtime_failed");
+            return;
+        }
+        if (status !== 200 && endpoint.includes("translation_catalog")) {
+            failTranslationCatalog(errorCodeOf(result));
+            return;
+        }
+        // A name the core refused: the names stay as they were, and the editor is closed.
+        if (status !== 200 && endpoint === "/set/data/speaker_names") {
+            showNotification_Error(t("main_page.message_log.speaker_names_failed"), { category_id: "speaker_names" });
+            return;
+        }
+        // An entry came, went or was used: the local models and the OpenAI-compatible engine
+        // the settings show may have changed with it.
+        if (status === 200 && TRANSLATION_CATALOG_CHANGES.includes(endpoint)) {
+            for (const read of TRANSLATION_CATALOG_READS) asyncStdoutToPython(read);
+        }
+        if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
+            updateDownloadError(errorCodeOf(result) || "download_failed", endpoint);
+            return;
+        }
+        // Enabling OBS also starts the WebSocket server it depends on.
+        if (status === 200 && endpoint === "/set/enable/obs_browser_source") asyncStdoutToPython("/get/data/websocket_server");
+        // On Linux the Device page Mic choice is the default RVC input (`preferred`).
+        if (status === 200 && ["/set/data/selected_mic_host", "/set/data/selected_mic_device",
+            "/run/selected_mic_host", "/run/selected_mic_device"].includes(endpoint)) {
+            sendVoice("/get/data/direct_voice_sources");
+        }
+        if (status === 200 && ["/run/apply_model_download", "/run/apply_user_model"].includes(endpoint)) {
+            sendSpeech("/get/data/speech_server_settings");
+            sendVoice("/get/data/direct_voice_state");
+        }
+        // The main TTS toggle can start or stop a bundled server; keep Settings in step.
+        if (["/run/enable_tts", "/run/disable_tts"].includes(endpoint)) sendSpeech("/get/data/speech_server_state");
+        if (status !== 200 && ["/run/enable_tts", "/run/disable_tts"].includes(endpoint)) {
+            updateTtsError(errorCodeOf(result) || "voice_request_failed", endpoint, status);
+            sendVoice("/get/data/voice_status");
+            return;
+        }
+        if (status !== 200 && endpoint.includes("speech_server")) {
+            updateSpeechError(errorCodeOf(result) || "speech_server_request_failed");
+            if (endpoint !== "/get/data/speech_server_state") sendSpeech("/get/data/speech_server_state");
+            return;
+        }
+        // On Linux these switches drive realtime ASR and may start or stop the
+        // bundled ASR server; keep Settings in step with them.
+        if (TRANSCRIPTION_TOGGLES.includes(endpoint)) {
+            sendSpeech("/get/data/speech_server_state");
+            sendRealtime("/get/data/realtime_asr_state");
+        }
+        if (status !== 200 && endpoint === "/run/virtual_mic_test") {
+            failVirtualMicCheck(fieldOf(result, "error_code"));
+            return;
+        }
+        // A refused audition says why on its card; a failed stop or poll leaves it as it is.
+        if (status !== 200 && endpoint.includes("gpu_check")) {
+            if (endpoint === "/run/start_gpu_check") failGpuCheck(fieldOf(result, "error_code"));
+            return;
+        }
+        if (status !== 200 && endpoint.includes("voice_audition")) {
+            if (endpoint === "/run/start_voice_audition") failAudition(fieldOf(result, "error_code"));
+            return;
+        }
+        if (status !== 200 && endpoint.includes("realtime_asr")) {
+            updateRealtimeError(errorCodeOf(result) || "realtime_request_failed");
+            return;
+        }
+        if (status !== 200 && endpoint.includes("direct_voice")) {
+            updateDirectError(errorCodeOf(result) || "source_bridge_request_failed", endpoint, status);
+            if ([404, 423, 500].includes(status) && endpoint !== "/get/data/direct_voice_state") sendVoice("/get/data/direct_voice_state");
+            return;
+        }
+        if (status !== 200 && (endpoint.includes("/voice_") || STOP_ACTIONS.includes(endpoint))) {
+            const code = errorCodeOf(result) || "voice_request_failed";
+            updateVoiceError(code);
+            // Stop and mute are pressed from the top bar or a hotkey, away from the settings
+            // page that shows the error above: say it where the user is. After the engine
+            // stops, its own notice already says so.
+            if (STOP_ACTIONS.includes(endpoint) && !(code === "backend_unavailable" && !store.backend_subprocess)) {
+                const page = t(endpoint === "/run/stop_voice" ? "main_page.tts" : "voice_ui.mute_row");
+                showNotification_Error(voiceErrorText(code, page, t, key => i18n.exists(key)), { category_id: `voice_action:${endpoint}` });
+            }
+            return;
+        }
+
+        if (endpoint === "/run/initialization_complete") {
+            resetDownloads();
+            sendDownload("/get/data/model_download_catalog");
+            sendDownload("/get/data/model_download_state");
+            sendDownload("/get/data/user_models");
+            resetTranslationCatalog();
+            sendTranslationCatalog("/get/data/translation_catalog");
+            resetRuntimes();
+            resetVoice();
+            sendVoice("/get/data/voice_settings");
+            sendVoice("/get/data/direct_voice_sources");
+            resetSpeech();
+            sendSpeech("/get/data/speech_server_settings");
+            sendSpeech("/get/data/speech_server_state");
+            resetRealtime();
+            resetVirtualMic();
+            resetAudition();
+            resetGpuCheck();
+            resetFirstRunSetup();
+            sendRealtime("/get/data/realtime_asr_settings");
+            sendRealtime("/get/data/realtime_asr_state");
+            sendRealtime("/get/data/realtime_asr_models");
+            for (const source of ["mic", "speaker"]) sendRealtime("/get/data/realtime_asr_endpoints", { source });
+            const failedFields = applyInitializationFields(result, routes, INIT_FIELD_VALIDATORS, handleInvalidEndpoint);
+            updateIsBackendReady(true);
+            resetLanguageMutations();
+            if (failedFields.length > 0) {
+                // The UI language from this same result is applied later by an effect.
+                const language = fieldOf(result, "/get/data/ui_language");
+                const translate = typeof language === "string" && i18n?.getFixedT ? i18n.getFixedT(language) : t;
+                showNotification_Warning(translate("common_warning.startup_degraded"),
+                    { hide_duration: null, category_id: "startup_degraded" });
+            }
+            return;
+        }
+
+        // config.json could not be read: the app runs on defaults and the old
+        // file was kept beside it.
+        if (status === 200 && endpoint === "/run/audio_device_switched") {
+            if (isAudioDeviceSwitch(result)) {
+                const sameName = result.old_device.name === result.new_device.name;
+                const label = (device: SwitchedDevice) => sameName && device.id ? `${device.name} (${device.id})` : device.name;
+                showNotification_Warning(t(`common_warning.audio_device_switched.${result.source}`, {
+                    old: label(result.old_device), new: label(result.new_device),
+                }), { category_id: `audio_device_switched.${result.source}` });
+            }
+            return;
+        }
+        if (status === 200 && endpoint === "/run/translation_compute_device_fallback") {
+            // Translation is on, on the CPU: the chosen device could not start the model.
+            showNotification_Warning(t("common_warning.translation_device_fallback", { device: String(fieldOf(result, "requested") ?? "") }),
+                { category_id: "translation_device_fallback" });
+            return;
+        }
+        if (endpoint === "/run/config_save_failed") {
+            // Failed writes retry; failed loads preserve the original until restart.
+            const failure = fieldOf(result, "reason");
+            const reason = typeof failure === "string" && CONFIG_SAVE_FAILURES.includes(failure) ? failure : "write_failed";
+            showNotification_Error(t(`common_error.config_save_failed.${reason}`, { file: fieldOf(result, "path") ?? "" }),
+                { hide_duration: null, category_id: "config_save_failed" });
+            return;
+        }
+        if (endpoint === "/run/config_save_recovered") {
+            dismissNotification("config_save_failed");
+            showNotification_Success(t("common_error.config_save_failed.recovered"), { category_id: "config_save_recovered" });
+            return;
+        }
+        if (endpoint === "/run/config_file_unreadable") {
+            showNotification_Warning(t("common_warning.config_file_unreadable", { file: fieldOf(result, "backup") ?? "" }),
+                { hide_duration: null, category_id: "config_file_unreadable" });
+            return;
+        }
+
+        if (status !== 200) receiveLanguageMutation(parsed_data, asyncStdoutToPython);
+
+        switch (status) {
+            case 200:
+                if (endpoint in routes) {
+                    routes[endpoint](result);
+                } else {
+                    handleInvalidEndpoint(parsed_data);
+                }
+                receiveLanguageMutation(parsed_data, asyncStdoutToPython);
+                break;
+
+            case 400: {
+                // The error is in result (docs/spec/cross-cutting.md); a 400 without one stops here, as reading it did.
+                if (result === null || result === undefined) throw new TypeError("A 400 answer carries its error in result");
+                const code = fieldOf(result, "error_code"), text = fieldOf(result, "message");
+                errorHandling_Backend({
+                    error_code: typeof code === "string" ? code : undefined,
+                    message: typeof text === "string" ? text : undefined,
+                    data: fieldOf(result, "data"),
+                    endpoint: parsed_data.endpoint,
+                    result: parsed_data.result,
+                });
+                break;
+            }
+
+            case 348:
+                // console.log(`from backend: %c ${JSON.stringify(parsed_data)}`, style_348);
+                break;
+
+            case 403:
+                // The backend refused a request relayed for the VR panel (vrPanelWire.ts lists what
+                // is relayed; the backend keeps the same list). The pending value was restored above.
+                console.warn("The backend refused a request relayed for the VR panel", endpoint);
+                break;
+
+            case 404:
+            case 423:
+                // Language mutations already publish their own failure notice.
+                if (!isLanguageMutation(endpoint)) showNotification_Error(t(`common_error.request_${status}`),
+                    { category_id: `request_${status}` });
+                console.error("Sidecar request rejected", parsed_data);
+                break;
+
+            case 500:
+                console.error("Unexpected sidecar error", parsed_data);
+                showNotification_Error(t("common_error.unexpected_error", { code: parsed_data.endpoint ?? "500" }), { hide_duration: null });
+                break;
+
+            default:
+                console.log("Received data status does not match.", parsed_data);
+        }
+    };
+
+    const backendStopped = () => {
+        pendingRequestRecovery.stop();
+        failSentMessageLog();
+        resetLanguageMutations();
+        stopVoicePending();
+        stopSpeechPending();
+        stopDownloadPending();
+        stopRuntimePending();
+        stopRealtimePending();
+        stopVirtualMicCheck();
+        stopAudition();
+        stopGpuCheck();
+    };
+    return { receiveRoutes, backendStopped };
+};
+
+const style_348 = [
+    "color: gray",
+].join(";");
+
+
+
+// Automatically set 'configs' for now.(This is only used in config)
+const buildRouteMetaList = () => {
+    const namespace_module = configs;
+    const generated: RouteMeta[] = [];
+    const settings: readonly RoutedSetting[] = SETTINGS_ARRAY;
+
+    for (const s of settings) {
+        const category = s.Category;
+        const base = s.Base_Name;
+        const ep = s.base_endpoint_name;
+        const hookName = `use${category}`;
+        const setSuccessMethodName = `setSuccess${base}`;
+        const deleteSuccessMethodName = `deleteSuccess${base}`;
+        const updateFromBackendMethodName = `updateFromBackend${base}`;
+
+
+        if (s.add_endpoint_run_array?.includes("from_backend")) {
+            generated.push({
+                endpoint: `/run/${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: updateFromBackendMethodName,
+            });
+        }
+
+
+
+        generated.push({
+            endpoint: `/get/data/${ep}`,
+            ns: namespace_module,
+            hook_name: hookName,
+            method_name: updateFromBackendMethodName,
+        });
+
+        if (s.logics_template_id === "get_set_delete") {
+            generated.push({
+                endpoint: `/delete/data/${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: deleteSuccessMethodName,
+            });
+        }
+
+        if (s.logics_template_id !== "get_list" && s.logics_template_id !== "get_only") {
+            generated.push({
+                endpoint: `/set/data/${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: setSuccessMethodName,
+            });
+        }
+
+        if (s.logics_template_id === "toggle_enable_disable" || s.ui_template_id === "toggle") {
+            generated.push({
+                endpoint: `/set/enable/${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: setSuccessMethodName,
+            });
+            generated.push({
+                endpoint: `/set/disable/${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: setSuccessMethodName,
+            });
+        }
+
+        if (s.logics_template_id === "weight_download_status") {
+            generated.push({
+                endpoint: `/get/data/selectable_${ep}_type_dict`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: `updateDownloaded${base}`,
+            });
+
+            generated.push({
+                endpoint: `/set/data/${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: setSuccessMethodName,
+            });
+
+            generated.push({
+                endpoint: `/run/download_progress_${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: `updateDownloadProgress${base}`,
+            });
+
+            generated.push({
+                endpoint: `/run/downloaded_${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: `downloaded${base}`,
+            });
+            generated.push({
+                endpoint: `/run/pending_${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: `pending${base}`,
+            });
+            generated.push({
+                endpoint: `/run/download_${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: `downloaded${base}`,
+            });
+            generated.push({
+                endpoint: `/get/data/${ep}`,
+                ns: namespace_module,
+                hook_name: hookName,
+                method_name: updateFromBackendMethodName,
+            });
+            continue;
+        }
+    }
+
+    const mergedMap = new Map<string, RouteMeta>();
+
+    for (const item of STATIC_ROUTE_META_LIST) {
+        if (!item || !item.endpoint) continue;
+        mergedMap.set(item.endpoint, {
+            endpoint: item.endpoint,
+            ns: item.ns ?? null,
+            hook_name: item.hook_name ?? null,
+            method_name: item.method_name ?? null,
+            url_method_name: item.url_method_name,
+        });
+    }
+
+    for (const gen of generated) {
+        const ep = gen.endpoint;
+        const existing = mergedMap.get(ep);
+        if (!existing) {
+            mergedMap.set(ep, { ...gen });
+            continue;
+        }
+
+        const merged = {
+            endpoint: ep,
+            ns: existing.ns ?? gen.ns ?? null,
+            hook_name: existing.hook_name ?? gen.hook_name ?? null,
+            method_name: existing.method_name ?? gen.method_name ?? null,
+        };
+        mergedMap.set(ep, merged);
+    }
+
+    const mergedList: RouteMeta[] = [];
+
+
+    for (const item of STATIC_ROUTE_META_LIST) {
+        if (!item || !item.endpoint) continue;
+        const merged = mergedMap.get(item.endpoint);
+        if (merged) {
+            mergedList.push(merged);
+            mergedMap.delete(item.endpoint);
+        }
+    }
+
+    for (const gen of generated) {
+        const ep = gen.endpoint;
+        const merged = mergedMap.get(ep);
+        if (merged) {
+            mergedList.push(merged);
+            mergedMap.delete(ep);
+        }
+    }
+
+    for (const remaining of mergedMap.values()) {
+        mergedList.push(remaining);
+    }
+
+    return mergedList;
+};
+
+const ROUTE_META_LIST = buildRouteMetaList();

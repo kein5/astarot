@@ -526,9 +526,9 @@ def test_a_small_ram_is_warned_about_before_the_download_by_keyboard(ui):
     from playwright.sync_api import expect
 
     page, peer = ui
-    # An 8 GiB PC: 1.39 GiB fits, but not with the 8 GiB kept for the OS and VRChat.
+    # An 8 GiB PC: 1.39 GiB fits, but not with the 13 GiB kept for the OS and VRChat.
     review, card = review_translation_models(page, peer, probe(8 * GIB))
-    note = ("It uses about 1.39 GiB of memory. With about 8.00 GiB kept for the OS and VRChat, "
+    note = ("It uses about 1.39 GiB of memory. With about 13.00 GiB kept for the OS and VRChat, "
             "the 8.00 GiB found in total leaves little room.")
     expect(card.get_by_text("May be too heavy")).to_be_visible()
     expect(card.get_by_text(note, exact=False)).to_be_visible()

@@ -35,6 +35,29 @@ pub struct Clip {
     pub cut: Cut,
 }
 
+/// What the VAD path did with a segment (`[VAD-merge]`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Merge {
+    /// A natural end: the utterance is final.
+    Finalize,
+    /// 15 seconds without a pause: the utterance is final anyway.
+    SafetyFinalize,
+    /// Cut at the VAD's limit with nothing after it yet: what there is goes out to be
+    /// recognised, and is kept.
+    Interim,
+    /// Cut at the limit with more waiting: kept to gather.
+    Accumulate,
+}
+
+/// What the builder did, for the diagnostics ([`crate::diagnostics`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Note {
+    /// A clip left the queue after waiting this long.
+    Waited(Duration),
+    /// The VAD path's choice for a segment, with what it had gathered then.
+    Merged { merge: Merge, cut: Cut, gathered: Duration, bytes: usize },
+}
+
 /// The utterance being built.
 pub struct Phrases {
     rate: u32,
@@ -47,6 +70,7 @@ pub struct Phrases {
     last_spoken: Option<Instant>,
     unsent: bool,
     results: VecDeque<crate::Transcript>,
+    notes: Vec<Note>,
 }
 
 impl Phrases {
@@ -61,6 +85,7 @@ impl Phrases {
             last_spoken: None,
             unsent: false,
             results: VecDeque::new(),
+            notes: Vec::new(),
         }
     }
 
@@ -133,6 +158,7 @@ impl Phrases {
         }
         let mut transcribed = false;
         while let Some(clip) = queue.pop_front() {
+            self.notes.push(Note::Waited(clip.ended.elapsed()));
             let started = clip.ended.checked_sub(Duration::from_secs_f64(self.seconds(clip.samples.len()))).unwrap_or(clip.ended);
             if let Some(spoken) = self.last_spoken
                 && started.saturating_duration_since(spoken) > self.phrase_timeout
@@ -171,18 +197,39 @@ impl Phrases {
     fn drain_segments<E>(&mut self, queue: &mut VecDeque<Clip>, recognize: &mut Recognize<'_, E>) -> Result<bool, E> {
         let mut transcribed = false;
         while let Some(clip) = queue.pop_front() {
+            self.notes.push(Note::Waited(clip.ended.elapsed()));
             self.unsent |= !clip.samples.is_empty();
             self.last_sample.extend_from_slice(&clip.samples);
             self.last_spoken = Some(clip.ended);
-            if clip.cut == Cut::Silence || self.seconds(self.last_sample.len()) >= MAX_PHRASE_SECONDS {
-                // A natural end, or the safety net: the utterance is final.
-                transcribed |= self.send(recognize)?;
-                self.reset();
+            let gathered = self.seconds(self.last_sample.len());
+            let merge = if clip.cut == Cut::Silence {
+                Merge::Finalize
+            } else if gathered >= MAX_PHRASE_SECONDS {
+                Merge::SafetyFinalize
             } else if queue.is_empty() {
-                transcribed |= self.send(recognize)?;
-                self.unsent = false;
+                Merge::Interim
+            } else {
+                Merge::Accumulate
+            };
+            self.notes.push(Note::Merged {
+                merge,
+                cut: clip.cut,
+                gathered: Duration::from_secs_f64(gathered),
+                bytes: self.last_sample.len() * 2,
+            });
+            match merge {
+                // A natural end, or the safety net: the utterance is final.
+                Merge::Finalize | Merge::SafetyFinalize => {
+                    transcribed |= self.send(recognize)?;
+                    self.reset();
+                }
+                Merge::Interim => {
+                    transcribed |= self.send(recognize)?;
+                    self.unsent = false;
+                }
+                // Cut at the limit with more waiting: keep gathering.
+                Merge::Accumulate => {}
             }
-            // Cut at the limit with more waiting: keep gathering.
             if transcribed {
                 return Ok(true);
             }
@@ -193,6 +240,11 @@ impl Phrases {
     /// The results waiting for delivery, oldest first.
     pub fn take_results(&mut self) -> Vec<crate::Transcript> {
         self.results.drain(..).collect()
+    }
+
+    /// What the builder did since this was last asked.
+    pub fn take_notes(&mut self) -> Vec<Note> {
+        std::mem::take(&mut self.notes)
     }
 }
 
@@ -288,6 +340,44 @@ mod tests {
     }
 
     // The phrase deadline, after `src-python/test/test_model_transcription_wait.py`.
+
+    #[test]
+    fn the_vad_paths_choices_and_the_queue_waits_are_noted_for_the_diagnostics() {
+        // `[VAD-merge]`: kept while more waits, sent when nothing does, final at a natural end
+        // or at 15 s. 1000 frames a second, one channel.
+        let mut phrases = Phrases::new(1000, 1, 3.0, 10).segmented();
+        let mut recognize = |_: &[i16]| -> Result<Option<Transcript>, ()> { Ok(None) };
+        let earlier = Instant::now().checked_sub(Duration::from_millis(400)).unwrap();
+        let clip = |ms: usize, cut: Cut| Clip { samples: vec![1; ms], ended: earlier, cut };
+        for clips in [vec![clip(1000, Cut::Limit), clip(1000, Cut::Limit)], vec![clip(500, Cut::Silence)], vec![clip(16000, Cut::Limit)]] {
+            let mut queue = VecDeque::from(clips);
+            while !queue.is_empty() {
+                phrases.drain(&mut queue, &mut recognize).unwrap();
+            }
+        }
+        let notes = phrases.take_notes();
+        let merged: Vec<(Merge, Cut, Duration, usize)> = notes
+            .iter()
+            .filter_map(|note| match *note {
+                Note::Merged { merge, cut, gathered, bytes } => Some((merge, cut, gathered, bytes)),
+                Note::Waited(_) => None,
+            })
+            .collect();
+        let seconds = Duration::from_millis;
+        assert_eq!(
+            merged,
+            [
+                (Merge::Accumulate, Cut::Limit, seconds(1000), 2000),
+                (Merge::Interim, Cut::Limit, seconds(2000), 4000),
+                (Merge::Finalize, Cut::Silence, seconds(2500), 5000),
+                (Merge::SafetyFinalize, Cut::Limit, seconds(16000), 32000),
+            ]
+        );
+        let waits: Vec<Duration> = notes.iter().filter_map(|note| if let Note::Waited(w) = note { Some(*w) } else { None }).collect();
+        assert_eq!(waits.len(), 4, "each clip once");
+        assert!(waits.iter().all(|wait| *wait >= Duration::from_millis(400)), "{waits:?}");
+        assert!(phrases.take_notes().is_empty());
+    }
 
     #[test]
     fn the_phrase_deadline_ends_the_utterance_without_sending_it_again() {

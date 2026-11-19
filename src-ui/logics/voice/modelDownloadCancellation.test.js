@@ -133,7 +133,7 @@ test("the receive router correlates Apply and Cancel acknowledgements", async t 
     assert.equal(s.render().pending, null);
 });
 
-const loadCatalog = (s, ui) => loadModule(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.jsx", import.meta.url), ui, {
+const loadCatalog = (s, ui) => loadModule(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
     "@tauri-apps/api/core": { isTauri: () => false },
     "@tauri-apps/plugin-opener": {},
     "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: s.render },

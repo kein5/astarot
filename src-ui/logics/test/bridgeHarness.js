@@ -85,7 +85,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
     const transcriptionConsent = await loadModule(new URL("../transcription/useTranscriptionConsent.ts", import.meta.url), runtime);
     const translationSetup = await loadModule(new URL("../translation/useTranslationSetup.ts", import.meta.url), runtime);
     const ocrSetup = await loadModule(new URL("../ocr/useOcrSetup.ts", import.meta.url), runtime);
-    const errors = await loadModule(new URL("../_useBackendErrorHandling.js", import.meta.url), runtime, {
+    const errors = await loadModule(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
         "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key, i18n: { exists: () => false } } },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
@@ -123,7 +123,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./gpuCheck.ts": gpuCheckShapes,
     });
-    const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {
+    const routes = await loadModule(new URL("../useReceiveRoutes.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key, i18n: { exists: () => false } } },
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,

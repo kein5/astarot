@@ -8,7 +8,7 @@ import * as shapes from "../../../../../../logics/voice/voiceAudition.ts";
 async function card(context, { monitor = "on", server = "ready", muted = false, audition = shapes.IDLE_AUDITION } = {}) {
     const runtime = hooks(), pressed = [];
     context.onTestFinished(() => runtime.unmount());
-    const module = await loadModule(new URL("./VoiceAudition.jsx", import.meta.url), runtime, {
+    const module = await loadModule(new URL("./VoiceAudition.tsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: { monitor }, route: { requested_muted: muted }, status: {} }) },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: { japanese: { state: server } } }) },
         "../../../../../../logics/voice/useVoiceAudition": { useVoiceAudition: () => ({ audition,

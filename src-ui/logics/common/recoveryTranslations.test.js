@@ -62,7 +62,7 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     const b = await loadBridgeStore(), notices = [];
     let handlers;
     b.stores.store.backend_session_owner = { attach: get => { handlers = get(); return () => {}; } };
-    const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
+    const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.tsx", import.meta.url), b.runtime, {
         "@useI18n": translations, "@store": b.stores, "@utils": {},
         "@tauri-apps/api/core": {}, "@useReceiveRoutes": { useReceiveRoutes: () => ({}) },
         "../../../logics/common/sidecarSession.ts": {},

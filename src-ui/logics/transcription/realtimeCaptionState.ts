@@ -15,8 +15,12 @@ export type RealtimeSession = {
 };
 export type RealtimeSessions = Partial<Record<CaptionSource, RealtimeSession>>;
 
-// The original text with its readings, as the message log shows it.
-export type CaptionMessage = { message: string; transliteration: unknown[] };
+// The readings of one word of a text: the word, its hiragana and its romaji, as the core sends
+// them (docs/spec/data-and-persistence.md, 「メッセージ」). Either reading can be missing.
+export type TransliterationToken = { orig?: string; hira?: string; hepburn?: string };
+
+// The original text or a translation with its readings, as the message log shows it.
+export type CaptionMessage = { message: string; transliteration: TransliterationToken[] };
 
 // The `result` of /run/realtime_caption (docs/spec/data-and-persistence.md). Checked
 // field by field before use.
@@ -35,7 +39,7 @@ export type RealtimeCaptionPayload = (CaptionPayloadBase & {
     state: Exclude<RealtimeCaptionStage, "outcome">;
     text?: unknown;
     original?: CaptionMessage;
-    translations?: unknown[];
+    translations?: CaptionMessage[];
     speakers?: unknown;
 });
 
@@ -51,11 +55,24 @@ export type RealtimeRowState = {
     reason?: unknown;
 };
 
-// What a message log row shows: the original text and its translations.
-export type MessageLogContent = { original?: unknown; translations?: unknown; [key: string]: unknown };
+// A text of a log row. A system row's text is a notice: the UI's words, or the backend's
+// English message, which can be missing.
+export type MessageLogText = { message?: string; transliteration: TransliterationToken[] };
 
-// A row of the message log. Only realtime rows carry `realtime`.
-export type MessageLogRow = { id: string; realtime?: RealtimeRowState; messages?: MessageLogContent; [key: string]: unknown };
+// What a message log row shows: the original text and its translations.
+export type MessageLogContent = { original: MessageLogText; translations: MessageLogText[]; [key: string]: unknown };
+
+// A row of the message log. Its texts come from the backend as they are (useMessage) or from a
+// realtime caption. Only realtime rows carry `realtime`, and `speakers` only where the game
+// audio's voices were told apart.
+export type MessageLogRow = {
+    id: string;
+    created_at?: string;
+    speakers?: string[];
+    realtime?: RealtimeRowState;
+    messages: MessageLogContent;
+    [key: string]: unknown;
+};
 
 export type RealtimeCaptionRow = {
     id: string;
@@ -64,7 +81,7 @@ export type RealtimeCaptionRow = {
     status: string;
     source: string;
     realtime: RealtimeRowState;
-    messages: { original: CaptionMessage; translations: unknown[] };
+    messages: { original: CaptionMessage; translations: CaptionMessage[] };
     speakers?: string[];
     [key: string]: unknown;
 };

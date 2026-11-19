@@ -4,7 +4,7 @@ import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarne
 
 const render = async ({ step = 0, downloads = [] } = {}) => {
     const runtime = hooks();
-    const { StartupProgress } = await loadModule(new URL("./StartupProgress.jsx", import.meta.url), runtime, {
+    const { StartupProgress } = await loadModule(new URL("./StartupProgress.tsx", import.meta.url), runtime, {
         "../../../../../../logics/common/useStartupProgress": { useStartupProgress: () => ({ step, downloads }), STARTUP_STEPS: 4 },
     });
     const tree = runtime.render(StartupProgress);

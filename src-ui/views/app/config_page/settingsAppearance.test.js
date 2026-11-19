@@ -248,7 +248,7 @@ test("the forms' primary action is Lilac: the plain class name primary is matche
     // CSS Modules renames .primary, and the forms write className="primary", so only :global matches.
     assert.doesNotMatch(css, /button\.primary/);
     assert.match(css, /button:global\(\.primary\)\s*{[^}]*background: var\(--primary_600_color/);
-    const downloads = read(box + "advanced_settings/ModelDownloads.jsx");
+    const downloads = read(box + "advanced_settings/ModelDownloads.tsx");
     assert.match(downloads, /className="primary" disabled=\{!agreed \|\| busy\}/, "agreeing to a download is the primary action");
 });
 
@@ -257,9 +257,9 @@ test("a guide link reads as a link wherever it sits", () => {
     assert.match(css, /a\s*{[^}]*color: var\(--primary_300_color\)[^}]*text-decoration: underline/);
 });
 test("the saved chat reading language is named like the list's entries, so auto never shows raw", () => {
-    const source = read(box + "ocr/Ocr.jsx");
+    const source = read(box + "ocr/Ocr.tsx");
     assert.match(source, /list\[currentOcrSourceLanguage\.data\] = label\(currentOcrSourceLanguage\.data\)/);
-    assert.match(source, /const label = id => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
+    assert.match(source, /const label = \(id: string\) => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
 });
 test("#436: the legacy dropdown is the same field as the forms' select, so an empty one still shows", () => {
     const legacy = read(box + "_components/_atoms/_dropdown_menu/_DropdownMenu.module.scss");
@@ -287,7 +287,7 @@ test("the settings text entry is the same field as the kit's text field and the 
     assert.ok(contrast("--vox_field_border", "--vox_surface") >= 3.5, "the field's edge is visible on its fill");
     // The input fills the box, so a click anywhere in it reaches the input.
     assert.match(entry, /\.entry_input_area\s*{[^}]*flex: 1 1 auto/);
-    assert.match(read(box + "_components/_atoms/_entry/_Entry.jsx"), /<input\s+data-slot="input"/);
+    assert.match(read(box + "_components/_atoms/_entry/_Entry.tsx"), /<input\s+data-slot="input"/);
     // The API key's edit cover lies over the field, so it has the field's corners.
     assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_edit_cover\s*{[^}]*border-radius: var\(--vox_radius\)/);
 });
@@ -300,7 +300,7 @@ test("the settings search is the same field as the other inputs, with InputGroup
     assert.match(field, /border-radius: var\(--vox_radius\)/);
     // Hover makes the edge lighter, never darker than the field border.
     assert.match(field, /&:hover\s*{\s*border-color: var\(--dark_550_color\)/);
-    const jsx = read("search_bar/SearchBar.jsx");
+    const jsx = read("search_bar/SearchBar.tsx");
     assert.match(jsx, /className=\{styles\.search_input_container\} data-slot="input-group"/);
     assert.match(jsx, /data-slot="input-group-control"/);
     assert.equal((jsx.match(/data-slot="input-group-addon"/g) ?? []).length, 2, "the icon and the clear button");
@@ -331,7 +331,7 @@ test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider 
     assert.match(form, /input\[type="range"\]::-webkit-slider-runnable-track \{ height: \.6rem;[^}]*linear-gradient\(to right, var\(--primary_600_color\) var\(--range-fill, 0%\), var\(--dark_825_color\) var\(--range-fill, 0%\)\)/);
     assert.match(form, /input\[type="range"\]::-webkit-slider-thumb \{[^}]*height: 1\.8rem; margin-top: -\.6rem;/);
     assert.match(form, /input\[type="range"\]::-moz-range-progress \{ height: \.6rem;[^}]*background: var\(--primary_600_color\)/);
-    assert.match(read(box + "advanced_settings/VoiceSettings.jsx"), /<input type="range" min="0" max="100"[^>]*style=\{\{ "--range-fill": `\$\{draft\.monitor_volume \?\? "100"\}%` \}\}/);
+    assert.match(read(box + "advanced_settings/VoiceSettings.tsx"), /<input type="range" min="0" max="100"[^>]*style=\{\{ "--range-fill": `\$\{draft\.monitor_volume \?\? "100"\}%` \}\}/);
 });
 test("the forms' select draws the kit select's chevron, at its size and place", () => {
     // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
@@ -343,7 +343,7 @@ test("the forms' select draws the kit select's chevron, at its size and place", 
     assert.match(select, /background-position: right 1\.4rem center; background-size: 1\.6rem;/);
 });
 test("download dialogs write byte counts in the display language", () => {
-    for (const page of ["advanced_settings/ModelDownloads.jsx", "ocr/OcrModels.jsx"]) {
+    for (const page of ["advanced_settings/ModelDownloads.tsx", "ocr/OcrModels.tsx"]) {
         const source = read(box + page);
         assert.doesNotMatch(source, /\} bytes/, page);
         assert.match(source, /t\("model_downloads\.exact_bytes"/, page);

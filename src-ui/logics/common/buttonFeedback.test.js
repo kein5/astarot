@@ -84,7 +84,7 @@ function find(tree, predicate) {
 }
 const button = tree => find(tree, node => node.type === "button");
 const switchNode = tree => find(tree, node => node.props?.role === "switch");
-const actionPath = "app/config_page/setting_section/setting_box/_components/action_button/ActionButton.jsx";
+const actionPath = "app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx";
 
 test("Settings pauses transcription with intent and restores it; user OFF has no pause intent", async () => {
     const runtime = hooks(), requests = [];
@@ -243,7 +243,7 @@ test("settings checkboxes reject pointer and keyboard repeats while retaining th
 
 test("main switches block pending repeats but TTS/RVC cancellation remains available", async () => {
     const runtime = hooks();
-    const { SwitchContainer } = await load("app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.jsx", runtime, {
+    const { SwitchContainer } = await load("app/main_page/sidebar_section/main_function_switch/MainFunctionSwitch.tsx", runtime, {
         "@store": { store: {} },
         "@logics_common": {},
         "../../../../../logics/common/useNotificationStatus": {},
@@ -317,7 +317,7 @@ test("LogBox subscribes only to its log and resend setting; unchanged row props 
     // The speakers' names (#447): one stable function, so the rows' props stay the same.
     const naming = { speakerNames: {}, nameSpeakers() {} };
     const Virtualizer = () => null;
-    const { LogBox } = await load("app/main_page/main_section/message_container/log_box/LogBox.jsx", runtime, {
+    const { LogBox } = await load("app/main_page/main_section/message_container/log_box/LogBox.tsx", runtime, {
         "virtua": { Virtualizer },
         "./message_container/MessageContainer": { MessageContainer: React.memo(icon) }, "./EmptyState": { EmptyState: () => null },
         "jotai": { useAtomValue: atom => { assert.equal(atom, "logs"); subscriptions.push(atom); return { data: logs }; } },
@@ -367,7 +367,7 @@ test("composer reads history only on explicit recall and sees the latest retaine
         { id: "newest", category: "sent", messages: { original: { message: "newest" } } }];
     const actions = { sendMessage: text => sent.push(text),
         startTyping: () => typing.push("start"), stopTyping: () => typing.push("stop") };
-    const { MessageInputBox } = await load("app/main_page/main_section/message_container/message_input_box/MessageInputBox.jsx", runtime, {
+    const { MessageInputBox } = await load("app/main_page/main_section/message_container/message_input_box/MessageInputBox.tsx", runtime, {
         "@store": { store: {}, Atom_MessageLogs: "logs", useStore_MessageInputValue: () => ({
             currentMessageInputValue: { data: input }, updateMessageInputValue: text => { input = text; edited.push(text); },
         }) },
@@ -483,7 +483,7 @@ test("opening and closing settings keeps the same MainSection type and key mount
     const runtime = hooks();
     let open = false;
     const MainSection = () => null;
-    const { MainPage } = await load("app/main_page/MainPage.jsx", runtime, {
+    const { MainPage } = await load("app/main_page/MainPage.tsx", runtime, {
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
         "./sidebar_section/SidebarSection": { SidebarSection: icon },
         "./main_section/MainSection": { MainSection },
@@ -510,7 +510,7 @@ test("opening and closing settings keeps the same MainSection type and key mount
 test("memoized log rows expose pending status and keep edit/resend explicit", async () => {
     const runtime = hooks(), sent = [], edited = [];
     const menu = () => null;
-    const { MessageContainer } = await load("app/main_page/main_section/message_container/log_box/message_container/MessageContainer.jsx", runtime, {
+    const { MessageContainer } = await load("app/main_page/main_section/message_container/log_box/message_container/MessageContainer.tsx", runtime, {
         "@store": { store: {} },
         "./message_sub_menu_container/MessageSubMenuContainer": { MessageSubMenuContainer: menu },
         "./SpeakerNames": { speakersText: () => "", SpeakerNamesEditor: () => null },

@@ -32,7 +32,7 @@ async function setup(context, { supported = true, fail = () => null } = {}) {
         listeners.set(name, callback);
         return () => listeners.delete(name);
     };
-    const { CaptionOverlayController } = await loadModule(new URL("./CaptionOverlayController.jsx", import.meta.url), runtime, {
+    const { CaptionOverlayController } = await loadModule(new URL("./CaptionOverlayController.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke },
         "@tauri-apps/api/event": { listen },
         "../../../logics/captionOverlay/adjust": adjust,

@@ -27,7 +27,7 @@ def test_fork_identity_and_backend_contract():
     # The backend runs inside the app: no program ships beside it and the UI starts none.
     assert "externalBin" not in conf["bundle"]
     assert conf["bundle"]["resources"] == {"bin/_internal": "_internal"}
-    controller = (ROOT / "src-ui/views/app/_app_controllers/StartPythonController.jsx").read_text(encoding="utf-8")
+    controller = (ROOT / "src-ui/views/app/_app_controllers/StartPythonController.tsx").read_text(encoding="utf-8")
     assert "Command.sidecar" not in controller and "plugin-shell" not in controller
     assert "createCoreBackendCommand" in controller
 

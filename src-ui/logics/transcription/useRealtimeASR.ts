@@ -6,28 +6,77 @@ import type { StdoutResult } from "@useStdoutToPython";
 import { mergeRealtimeState, pruneRealtimeCaptions } from "./realtimeCaptionState";
 import type { CaptionSource, RealtimeSession, RealtimeSessions } from "./realtimeCaptionState";
 
-// /get/data/realtime_asr_settings (native/core/src/controller/realtime_asr.rs). The hook
-// compares the fields below; the settings page reads the rest.
-export interface RealtimeAsrSettings {
-    readonly server?: unknown;
-    readonly base_url?: unknown;
-    readonly model?: unknown;
-    readonly mic?: unknown;
-    readonly speaker?: unknown;
+// A capture endpoint as the core names it: the four fields together say which one.
+export interface RealtimeAsrEndpointId {
+    readonly cookie?: unknown;
+    readonly serial?: unknown;
+    readonly name?: unknown;
+    readonly media_class?: unknown;
     readonly [key: string]: unknown;
+}
+
+// One source's settings. No endpoint and follow_default on follow the system's default device.
+export interface RealtimeAsrSourceSettings {
+    readonly language: string;
+    readonly endpoint: RealtimeAsrEndpointId | null;
+    readonly follow_default?: boolean;
+}
+
+// The built-in keywords on or off, and the user's own, "written=reading,reading".
+export interface RealtimeAsrVocabulary {
+    readonly builtin?: boolean;
+    readonly terms: readonly string[];
+}
+
+// /get/data/realtime_asr_settings (native/core/src/controller/realtime_asr.rs), in the shape the
+// core saves it (voice_settings.rs normalize_realtime). The hook compares server, base_url, model,
+// mic and speaker; the settings page edits the rest. Declared, not checked. silence_duration_ms is
+// left out until one is chosen.
+export interface RealtimeAsrSettings {
+    readonly version?: number;
+    readonly server?: string;
+    readonly start_server?: boolean;
+    readonly base_url?: string;
+    readonly model?: string;
+    readonly mic: RealtimeAsrSourceSettings;
+    readonly speaker: RealtimeAsrSourceSettings;
+    readonly vocabulary?: RealtimeAsrVocabulary;
+    readonly silence_duration_ms?: number;
+}
+
+// One input the server can record from, with the name it is shown with.
+export interface RealtimeAsrEndpointRow {
+    readonly endpoint: RealtimeAsrEndpointId;
+    readonly label?: string;
 }
 
 // /get/data/realtime_asr_endpoints, asked once for each source.
 export interface RealtimeAsrEndpoint {
     readonly source?: unknown;
+    readonly endpoints?: readonly RealtimeAsrEndpointRow[];
+    readonly error_code?: string | null;
+    readonly [key: string]: unknown;
+}
+
+// A model the server offers (speechcpp::Model): "auto" is a language only where it detects one.
+export interface RealtimeAsrModel {
+    readonly id: string;
+    readonly languages?: readonly string[];
+    readonly detects_language?: boolean;
     readonly [key: string]: unknown;
 }
 
 export type RealtimeAsrEndpoints = Partial<Record<CaptionSource, RealtimeAsrEndpoint>>;
 
-// /get/data/realtime_asr_models: the models the server offers.
+// /get/data/realtime_asr_models: the models the server offers, with the server and the URL they
+// were read from (base_url is the bundled server's address when it runs one).
 export interface RealtimeAsrModels {
-    readonly models: readonly unknown[];
+    readonly models: readonly RealtimeAsrModel[];
+    readonly server?: string;
+    readonly configured_url?: string;
+    readonly base_url?: string | null;
+    readonly server_generation?: number | null;
+    readonly error_code?: string | null;
     readonly [key: string]: unknown;
 }
 

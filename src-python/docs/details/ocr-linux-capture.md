@@ -123,7 +123,7 @@ RapidOCR の `DownloadFile.run` は例外を投げるものに差し替えてあ
 
 | 部品 | 役割 | 持たないもの |
 |---|---|---|
-| UI (`OcrSharedWindow.jsx`、`useOcrSharedWindow.ts`、`OcrSharedWindowController.tsx`) | ボタン、状態の表示、復元トークンの保存、チャット読み取りをオフにしたときの共有の終了、オンにしたときの共有のやり直し、共有が終わったときのお知らせ | 利用者の操作によらずに頼む処理 (起動時、ページを開いたとき、動作中の失敗時のどれでも頼まない) |
+| UI (`OcrSharedWindow.tsx`、`useOcrSharedWindow.ts`、`OcrSharedWindowController.tsx`) | ボタン、状態の表示、復元トークンの保存、チャット読み取りをオフにしたときの共有の終了、オンにしたときの共有のやり直し、共有が終わったときのお知らせ | 利用者の操作によらずに頼む処理 (起動時、ページを開いたとき、動作中の失敗時のどれでも頼まない) |
 | Tauri (`portal_screencast.rs`) | ポータルとのやりとり、ヘルパーの起動と停止、セッションが閉じたことの検出 | 画素 |
 | ヘルパー (`native/screen-capture/main.c`) | PipeWire の映像を受け取り、フレームファイルへ書く | ポータル、D-Bus |
 | バックエンド (`ocr_capture_portal.py`、`ocr_capture.py`) | フレームファイルを読む。共有が終わったことを状態に出す | 共有を始める・終える処理 |
@@ -143,7 +143,7 @@ Request の Response 待ち、期限、取り消し、ポータルの再起動�
 - 共有中の「別のウィンドウを選ぶ…」はトークンを送らない。送ると同じウィンドウが黙って復元され、
   選び直せないため
 - アプリ ID の登録に失敗するポータル (古い版) でも共有はできるので、登録の失敗では止めない
-- オンにしたときの共有のやり直し (`_useBackendErrorHandling.js`、`ocrSharedWindow.ts` の `shouldRestoreSharing` と
+- オンにしたときの共有のやり直し (`_useBackendErrorHandling.ts`、`ocrSharedWindow.ts` の `shouldRestoreSharing` と
   `restore`): チャット読み取りをオフにすると共有は終わる。利用者がオンにし直して、開始が
   `OCR_DISABLED_WINDOW_NOT_FOUND` か `OCR_DISABLED_CAPTURE_UNAVAILABLE` で断られたとき、保存したトークンがあり、
   共有中でも要求中でもなければ、そのトークンで `screencast_start` を呼び、成功したら `/set/enable/ocr_capture` を

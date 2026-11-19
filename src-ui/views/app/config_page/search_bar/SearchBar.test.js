@@ -43,10 +43,10 @@ async function setup(t, { reducedMotion = false, control = true, delayed = false
     const runtime = hooks();
     let hook = hookRuntime.render(useConfigSearch);
     hook.setQuery("OSC"); hook = hookRuntime.render(useConfigSearch);
-    const { SearchBar } = await loadModule(new URL("./SearchBar.jsx", import.meta.url), runtime, {
+    const { SearchBar } = await loadModule(new URL("./SearchBar.tsx", import.meta.url), runtime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "@logics_configs": { useConfigSearch: () => hook },
-        "../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
+        "../sidebar_section/SidebarSection.tsx": { TabIcon: () => null },
         "@common_components": { Empty: "empty", EmptyDescription: "empty-description" },
     });
     const search = { focus: () => { document.activeElement = search; }, blur: () => { document.activeElement = document.body; } };

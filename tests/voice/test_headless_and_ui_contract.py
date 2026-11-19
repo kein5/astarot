@@ -28,7 +28,7 @@ def test_voice_endpoints_exist_on_both_sides():
     tree = ast.parse((ROOT / "src-python/mainloop.py").read_text(encoding="utf-8"))
     backend = {n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)
                and ("/voice_" in n.value or n.value in {"/run/stop_voice", "/run/mute_voice", "/run/resume_voice"})}
-    routes = (ROOT / "src-ui/logics/useReceiveRoutes.js").read_text(encoding="utf-8")
+    routes = (ROOT / "src-ui/logics/useReceiveRoutes.ts").read_text(encoding="utf-8")
     # Endpoints only the Rust core has (the voice audition of #415) are listed in
     # tools/spec_core_additions.json and have no counterpart in the Python backend.
     additions = json.loads((ROOT / "tools/spec_core_additions.json").read_text(encoding="utf-8"))

@@ -7,7 +7,7 @@ import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 const box = "../../../../views/app/config_page/setting_section/setting_box/";
 const pageSource = dir => readdirSync(new URL(box + dir, import.meta.url))
-    .filter(name => name.endsWith(".jsx") && !name.includes(".test.")).map(name => read(`${box}${dir}/${name}`)).join("\n");
+    .filter(name => /\.(jsx|tsx)$/.test(name) && !name.includes(".test.")).map(name => read(`${box}${dir}/${name}`)).join("\n");
 const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // The search lists every labelled text under config_page.<page> (useConfigSearch.ts) and leads

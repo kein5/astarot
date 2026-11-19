@@ -8,7 +8,7 @@ join() タイムアウトに関するテスト (ロードマップ項目 9、残
   まだ起動しておらず、自動復旧が一切効かなかった。
 
   フロントエンドは Python プロセスを spawn した直後から 20s 間隔で
-  /run/feed_watchdog を送り続けており (StartPythonController.jsx)、この
+  /run/feed_watchdog を送り続けており (StartPythonController.tsx)、この
   エンドポイントは初期化中でも処理可能 (mainloop.py の "status": True) で
   init() 自体はメインスレッドで同期実行されるため、init() の先頭で
   watchdog を起動しても安全 (ハンドラワーカーがフィードを処理できる)。
