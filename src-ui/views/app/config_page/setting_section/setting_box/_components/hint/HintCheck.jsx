@@ -14,7 +14,8 @@ export const HintCheck = ({ label, description, className, boxClassName, ...inpu
     return <>
         <label className={className} data-hint-host={hint || undefined}>
             <input type="checkbox" className={boxClassName} aria-describedby={descriptionId} {...input} />
-            <span>{label}{hint && <Hint text={description} id={descriptionId} />}</span>
+            {/* The name's element holds the name only, as a label's does: the mark is beside it. */}
+            <span><span>{label}</span>{hint && <Hint text={description} id={descriptionId} />}</span>
         </label>
         {description && !hint && <Description id={descriptionId} text={description} />}
     </>;

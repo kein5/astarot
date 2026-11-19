@@ -109,7 +109,7 @@ export const VoiceSettings = () => {
                     mic: t(draft.mic_mode === "translated" ? "config_page.advanced_status.on" : "config_page.advanced_status.off") })}>
                 <fieldset className={styles.group} aria-label={t("voice_ui.monitor_heading")}>
                     {/* What the monitor plays: the legend's hint, whose mark takes focus as a heading's does (#614). */}
-                    <legend><span className={styles.hinted} data-hint-host={hints || undefined}>{t("voice_ui.monitor_heading")}
+                    <legend><span className={styles.hinted} data-hint-host={hints || undefined}><span>{t("voice_ui.monitor_heading")}</span>
                         {hints && <Hint text={t("voice.monitor_hint")} focusable />}</span></legend>
                     {!hints && <Description text={t("voice.monitor_hint")} />}
                     <label>{t("voice.monitor")}<select aria-label={t("voice.monitor")} value={draft.monitor || "off"} onChange={e => field("monitor", e.target.value)}>

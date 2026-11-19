@@ -144,7 +144,7 @@ export const RealtimeASRSettings = () => {
             })}
             <fieldset>
                 {/* How the dictionary is used and written: the legend's hint, whose mark takes focus as a heading's does. */}
-                <legend><span className={styles.hinted} data-hint-host={hints || undefined}>{t("realtime.vocabulary")}
+                <legend><span className={styles.hinted} data-hint-host={hints || undefined}><span>{t("realtime.vocabulary")}</span>
                     {hints && <Hint text={t("realtime.vocabulary_help")} focusable />}</span></legend>
                 {!hints && <Description text={t("realtime.vocabulary_help")} />}
                 <label className={styles.checkLabel}><input type="checkbox" disabled={saving} checked={vocabulary.builtin !== false}

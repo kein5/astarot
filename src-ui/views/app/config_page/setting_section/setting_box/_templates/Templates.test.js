@@ -228,7 +228,9 @@ test("with hints on, a setup fold's description is its title's hint and its summ
     // The pointer on the title opens it; the summary opens it when it has the keyboard focus.
     assert.equal(hint.props.row, true);
     assert.equal(summary.props["data-hint-row"], true);
-    assert.equal(find(summary, node => node.props?.["data-hint-host"]).props.children[0], "Models and servers");
+    // The title's element holds the title only, as a label's does: the mark is beside it.
+    const host = find(summary, node => node.props?.["data-hint-host"]);
+    assert.deepEqual([host.props.children[0].props.className, host.props.children[0].props.children], ["title", "Models and servers"]);
     assert.ok(!find(tree, node => node.type === "description"), "no paragraph opens the fold");
     // On a page not yet reviewed the description is the fold's first paragraph, as before.
     const { SetupSection: Plain } = await load(false);
@@ -247,6 +249,8 @@ test("a checkbox beside its name carries its description as the hint after the n
     const { HintCheck } = await load(true);
     const [label, below] = runtime.render(HintCheck, { label: "Low latency", description: "Uses more power.", checked: true, onChange: () => {} }).props.children;
     const box = find(label, node => node.type === "input"), hint = find(label, node => node.type === "hint");
+    // The name's element holds the name only: the mark is beside it.
+    assert.ok(find(label, node => node.type === "span" && node.props.children === "Low latency"));
     assert.equal(box.props.type, "checkbox");
     assert.equal(box.props.checked, true);
     assert.equal(box.props["aria-describedby"], hint.props.id);

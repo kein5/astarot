@@ -45,7 +45,7 @@ export const VocabularyBulk = ({ terms, disabled, onTerms }: Props) => {
             {/* How to write the lines: the hint after the field's name on a page that keeps descriptions
                 out of sight (#614), opened by the pointer on the name or focus in the field. */}
             <label data-hint-row={hints || undefined}>
-                <span className={styles.name} data-hint-host={hints || undefined}>{t("realtime.vocabulary_bulk")}
+                <span className={styles.name} data-hint-host={hints || undefined}><span>{t("realtime.vocabulary_bulk")}</span>
                     {hints && <Hint text={t("realtime.vocabulary_bulk_help")} id={`${id}-help`} row />}</span>
                 <textarea readOnly={disabled} value={text} rows={4} spellCheck={false}
                     aria-describedby={`${id}-help`} placeholder={t("realtime.vocabulary_bulk_placeholder")}

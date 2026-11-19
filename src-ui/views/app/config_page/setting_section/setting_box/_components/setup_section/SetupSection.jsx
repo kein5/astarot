@@ -8,16 +8,18 @@ import styles from "./SetupSection.module.scss";
 // can stay closed. `attention` opens it while something in it needs the user.
 // desc: what the fold is for. On a page that keeps descriptions out of sight (#614) it is the
 // title's hint, opened by the pointer on the title or keyboard focus on the summary, and the
-// summary's accessible description; elsewhere the first paragraph inside the fold.
+// summary's accessible description; elsewhere the first paragraph inside the fold. The title's
+// element holds the title only, as a label's does: the mark is beside it.
 export const SetupSection = ({ title, status, desc, attention = false, children }) => {
     const [opened, setOpened] = useState(false);
     const id = useId();
     const hint = useHintDescriptions() && typeof desc === "string";
     const descriptionId = hint ? `${id}-description` : undefined;
+    const titleElement = <span className={styles.title}>{title}</span>;
     return <details data-setup className={styles.setup} open={opened || attention}
         onToggle={event => setOpened(event.currentTarget.open)}>
         <summary data-hint-row={hint || undefined} aria-describedby={descriptionId}>
-            <span className={styles.title} data-hint-host={hint || undefined}>{title}{hint && <Hint text={desc} id={descriptionId} row />}</span>
+            {hint ? <span data-hint-host>{titleElement}<Hint text={desc} id={descriptionId} row /></span> : titleElement}
             {status && <span className={styles.status}>{status}</span>}
         </summary>
         <div className={styles.body}>
