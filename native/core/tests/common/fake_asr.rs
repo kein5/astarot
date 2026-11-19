@@ -23,12 +23,17 @@ pub struct Behaviour {
     pub text: Mutex<String>,
     /// The speech.cpp model list (`/v1/models`).
     pub models: Mutex<Value>,
+    /// `/v1/models` is held without an answer until the client goes or 10 s pass.
+    pub models_silent: AtomicBool,
     /// Deepgram's speech models (`/deepgram/v1/models`, the `stt` rows).
     pub deepgram_models: Mutex<Value>,
     /// Realtime: audio blocks to receive before an utterance is announced (0: never).
     pub realtime_after: AtomicUsize,
     /// The status of the Realtime handshake; 0 accepts.
     pub realtime_refuse: AtomicU16,
+    /// Realtime: the connection is held without an answer to its handshake, as a server that
+    /// is going away may do, until the client goes or 10 s pass.
+    pub realtime_silent: AtomicBool,
     /// Realtime: who spoke each utterance, as a diarizing server says it
     /// (`[{"speaker": "A", "start_ms": 0, "end_ms": 900}, ...]`); null sends none.
     pub speakers: Mutex<Value>,
@@ -165,6 +170,11 @@ impl FakeAsr {
         let bearer = authorization == format!("Bearer {KEY}");
         match (method, path.as_str()) {
             ("GET", "/v1/models") => {
+                if self.behaviour.models_silent.load(Ordering::SeqCst) {
+                    let mut sink = [0u8; 64];
+                    while matches!(stream.read(&mut sink), Ok(size) if size > 0) {}
+                    return;
+                }
                 let models = self.behaviour.models.lock().unwrap().clone();
                 Self::json(&mut stream, 200, models)
             }
@@ -235,6 +245,11 @@ impl FakeAsr {
     fn realtime(&self, stream: TcpStream) {
         let refuse = self.behaviour.realtime_refuse.load(Ordering::SeqCst);
         let mut stream = stream;
+        if self.behaviour.realtime_silent.load(Ordering::SeqCst) {
+            let mut sink = [0u8; 4096];
+            while matches!(stream.read(&mut sink), Ok(size) if size > 0) {}
+            return;
+        }
         if refuse != 0 {
             let mut head = [0u8; 4096];
             let _ = stream.read(&mut head);

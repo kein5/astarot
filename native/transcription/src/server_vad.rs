@@ -92,7 +92,7 @@ enum Link {
 fn open(resolve: &Resolve, options: Options) -> Result<Socket, String> {
     let base = resolve()?;
     let setup = Duration::from_secs(2);
-    let mut socket = open_socket(&base, None, setup).ok_or_else(|| "speech_server_not_ready".to_string())?;
+    let mut socket = open_socket(&base, None, setup, None).ok_or_else(|| "speech_server_not_ready".to_string())?;
     let deadline = Instant::now() + setup;
     let created = read_setup(&mut socket, deadline)?;
     if created["type"] != "session.created" {

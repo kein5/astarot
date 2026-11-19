@@ -19,10 +19,10 @@ use std::net::UdpSocket;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use vrct_adapters::osc::{OscArg, decode_packet};
 use vrct_core::config::Platform;
-use vrct_core::controller::Services;
+use vrct_core::controller::{RealtimeLimits, Services};
 use vrct_core::vr_overlay::runtime::fake::FakeVr;
 use vrct_translation::fake::FakeProviders;
 use vrct_transcription::capture::Source;
@@ -51,7 +51,7 @@ fn start(platform: Platform, saved: Value, configure: bool) -> Run {
 
 /// [`start`] with a SteamVR that runs (`FakeVr::running`), for the VR logs.
 fn start_with_vr(platform: Platform, saved: Value, configure: bool, vr: Option<FakeVr>) -> Run {
-    start_with(platform, saved, configure, vr, None)
+    start_with(platform, saved, configure, vr, None, RealtimeLimits::default())
 }
 
 /// Linux, where the main switch runs realtime recognition, with translation on through DeepL on
@@ -59,7 +59,8 @@ fn start_with_vr(platform: Platform, saved: Value, configure: bool, vr: Option<F
 fn start_translating(providers: &FakeProviders) -> Run {
     let key = format!("{}:fx", "d".repeat(36));
     providers.key("/deepl-free", &key);
-    let run = start_with(Platform::Linux, json!({ "AUTH_KEYS": { "DeepL_API": key } }), true, None, Some(providers));
+    let run =
+        start_with(Platform::Linux, json!({ "AUTH_KEYS": { "DeepL_API": key } }), true, None, Some(providers), RealtimeLimits::default());
     let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
     engines["1"] = json!("DeepL_API");
     run.ui.ok("/set/data/selected_translation_engines", Some(engines));
@@ -67,7 +68,14 @@ fn start_translating(providers: &FakeProviders) -> Run {
     run
 }
 
-fn start_with(platform: Platform, saved: Value, configure: bool, vr: Option<FakeVr>, providers: Option<&FakeProviders>) -> Run {
+fn start_with(
+    platform: Platform,
+    saved: Value,
+    configure: bool,
+    vr: Option<FakeVr>,
+    providers: Option<&FakeProviders>,
+    limits: RealtimeLimits,
+) -> Run {
     let asr = FakeAsr::start();
     let capture = FakeCapture::new();
     capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
@@ -81,7 +89,7 @@ fn start_with(platform: Platform, saved: Value, configure: bool, vr: Option<Fake
     if configure {
         saved["REALTIME_ASR_SETTINGS"] = settings(&asr);
     }
-    let mut services = Services { transcription_capture: capture.factory(), ..Setup::default().services };
+    let mut services = Services { transcription_capture: capture.factory(), realtime_limits: limits, ..Setup::default().services };
     if let Some(vr) = vr {
         services.vr = Arc::new(vr);
     }
@@ -556,6 +564,54 @@ fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() 
     assert_eq!(run.ui.ok("/set/enable/transcription_receive", None), true);
     std::thread::sleep(Duration::from_secs(3));
     assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["speaker"]["requested"], true);
+    run.ui.stop();
+}
+
+#[test]
+fn a_switch_turned_off_and_on_while_the_server_does_not_answer_starts_again() {
+    // Decision 81 (speech.cpp#224): the session's thread waited for the server's answer to the
+    // WebSocket without looking at the stop, so turning the switch on again right after turning
+    // it off waited for that thread and failed with `realtime_previous_owner_busy`. The setup
+    // may wait 10 s here and the next start waits 0.5 s for the previous session, so only a stop
+    // that ends the wait lets the switch turn on again (the answer is 200, not that failure).
+    let limits = RealtimeLimits {
+        drain: Duration::from_millis(500),
+        session: vrct_transcription::realtime::Limits { setup: Duration::from_secs(10), ..Default::default() },
+        ..RealtimeLimits::default()
+    };
+    let run = start_with(Platform::Linux, json!({}), true, None, None, limits);
+    run.asr.behaviour.realtime_silent.store(true, Ordering::SeqCst);
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the session waits for the server", || run.asr.requested("GET /v1/realtime") == 1);
+    assert_eq!(run.ui.ok("/set/disable/transcription_send", None), false);
+
+    run.asr.behaviour.realtime_silent.store(false, Ordering::SeqCst);
+    let mark = run.ui.lines().len();
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    eventually("the new session opened the capture", || run.capture.running(Source::Mic) == 1);
+    assert_eq!(run.capture.opened().len(), 1, "the first session never reached the device");
+    let state = run.ui.ok("/get/data/realtime_asr_state", None);
+    assert_eq!((state["mic"]["state"].clone(), state["mic"]["error_code"].clone()), (json!("ready"), Value::Null));
+    assert!(run.ui.on(mark, "/set/enable/transcription_send").iter().all(|l| l["status"] == 200), "no failure was told");
+    run.ui.stop();
+}
+
+#[test]
+fn a_stop_ends_a_start_that_waits_for_the_model_list() {
+    // Decision 81: a switch's start asked for the model list with nothing that could end it. A
+    // stop, a settings change or shutdown moves the source's generation on, which now ends that
+    // request, and the start answers that it is stale. The list may wait 10 s here.
+    let limits = RealtimeLimits { models: Duration::from_secs(10), ..RealtimeLimits::default() };
+    let run = start_with(Platform::Linux, json!({}), true, None, None, limits);
+    run.asr.behaviour.models_silent.store(true, Ordering::SeqCst);
+    let mark = run.ui.send("/set/enable/transcription_send", None);
+    eventually("the start asks for the models", || run.asr.requested("GET /v1/models") == 1);
+    let stopped = Instant::now();
+    run.ui.ok("/run/stop_realtime_asr", Some(json!({ "source": "mic" })));
+    let answer = run.ui.wait_from(mark, "the start's answer", |l| l["endpoint"] == "/set/enable/transcription_send");
+    assert!(stopped.elapsed() < Duration::from_secs(1), "the start answered {:?} after the stop", stopped.elapsed());
+    assert_eq!(answer["result"]["details"]["reason"], "realtime_stale_start", "{answer}");
+    assert!(run.capture.opened().is_empty(), "a stopped start opened the device");
     run.ui.stop();
 }
 

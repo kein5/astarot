@@ -23,6 +23,7 @@ use vrct_transcription::realtime::{Admission, Delivery, Options, Session, Update
 use vrct_transcription::server_vad::{self, ServerVad};
 use vrct_transcription::speechcpp;
 use vrct_transcription::vad::Vad;
+use vrct_translation::http::Cancel;
 
 const SETTINGS_KEY: &str = "REALTIME_ASR_SETTINGS";
 /// A started server enforces its own start timeout; this only bounds a switch's wait.
@@ -61,6 +62,9 @@ struct Owner {
 struct State {
     settings: Value,
     generation: [u64; 2],
+    /// Ends the model list request of a start when its source's generation moves on
+    /// ([`advance`]), so that a stop does not wait behind it (decision 81).
+    cancels: [Cancel; 2],
     requested: [bool; 2],
     owners: [Option<Owner>; 2],
     server_runs: [Option<(u64, u64)>; 2],
@@ -95,6 +99,7 @@ impl Realtime {
             state: Mutex::new(State {
                 settings,
                 generation: [0; 2],
+                cancels: Default::default(),
                 requested: [false; 2],
                 owners: [None, None],
                 server_runs: [None; 2],
@@ -116,6 +121,14 @@ impl Realtime {
     fn toggle(&self) -> std::sync::MutexGuard<'_, Toggle> {
         self.toggle.lock().unwrap_or_else(|e| e.into_inner())
     }
+}
+
+/// Moves a source's generation on: a start of an older one is stale, and its model list
+/// request ends.
+fn advance(state: &mut State, i: usize) -> u64 {
+    state.generation[i] += 1;
+    std::mem::take(&mut state.cancels[i]).cancel();
+    state.generation[i]
 }
 
 fn source_of(data: &Value) -> Result<Source, ()> {
@@ -320,7 +333,7 @@ impl Core {
     /// `_invalidateRealtimeLocked`.
     fn invalidate_locked(&self, state: &mut State, source: Source) {
         let i = index(source);
-        state.generation[i] += 1;
+        advance(state, i);
         state.requested[i] = false;
         state.server_runs[i] = None;
         if source == Source::Mic {
@@ -451,7 +464,7 @@ impl Core {
         }
         let base = result["base_url"].as_str().and_then(speechcpp::local_url);
         let wait = self.services().realtime_limits.models;
-        let models = base.and_then(|base| speechcpp::survey(&self.services().translation_transport, &base, wait).ok());
+        let models = base.and_then(|base| speechcpp::survey(&self.services().translation_transport, &base, wait, None).ok());
         match models {
             Some((models, _)) => result["models"] = Value::Array(models.iter().map(speechcpp::Model::to_json).collect()),
             None => result["error_code"] = json!("realtime_models_unavailable"),
@@ -685,17 +698,22 @@ impl Core {
         } else {
             settings["base_url"].as_str().unwrap_or("").to_string()
         };
-        if !self.realtime_start_current(source, expected) {
-            return Err("realtime_stale_start".into());
-        }
+        // A stop, a settings change or another start moves the generation on and ends the
+        // request (decision 81).
+        let cancel = {
+            let state = self.realtime().state();
+            if state.closed || state.generation[index(source)] != expected {
+                return Err("realtime_stale_start".into());
+            }
+            state.cancels[index(source)].clone()
+        };
         let limits = self.services().realtime_limits;
-        let models = speechcpp::local_url(&base_url)
-            .and_then(|base| speechcpp::survey(&self.services().translation_transport, &base, limits.models).ok())
-            .map(|(models, _)| models)
-            .ok_or("realtime_models_unavailable")?;
+        let listed = speechcpp::local_url(&base_url)
+            .map(|base| speechcpp::survey(&self.services().translation_transport, &base, limits.models, Some(&cancel)));
         if !self.realtime_start_current(source, expected) {
             return Err("realtime_stale_start".into());
         }
+        let models = listed.and_then(Result::ok).map(|(models, _)| models).ok_or("realtime_models_unavailable")?;
         let wanted = settings["model"].as_str().unwrap_or("");
         let mut chosen = models.iter().find(|m| m.id == wanted).cloned();
         if chosen.is_none() && settings["server"] == "bundled" && models.len() == 1 {
@@ -854,8 +872,7 @@ impl Core {
                 // goes before it turns stale.
                 self.cancel_mic_voice();
             }
-            state.generation[i] += 1;
-            let generation = state.generation[i];
+            let generation = advance(&mut state, i);
             state.requested[i] = true;
             state.server_runs[i] = server_run.map(|run| (generation, run));
             state.errors[i] = None;
