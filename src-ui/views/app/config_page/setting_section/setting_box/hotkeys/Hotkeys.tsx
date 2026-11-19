@@ -11,6 +11,12 @@ import { AdvancedSection } from "../_components/advanced_section/AdvancedSection
 import { HintDescriptions } from "../_components/hint/Hint";
 // The hotkeys a conversation cannot wait for, stop and mute, are in sight; the others are set
 // once, in 「詳細設定」, whose line says how many of them have a key (#554).
+// The platforms whose quick chat key gets a note under it: quick_chat_shortcut_platform answers
+// "wayland", "xwayland" or "native", and the page takes "unknown" when it could not ask.
+type PlatformNote = "wayland" | "xwayland" | "unknown";
+const isPlatformNote = (platform: string | null): platform is PlatformNote =>
+    platform === "wayland" || platform === "xwayland" || platform === "unknown";
+
 const ADVANCED_HOTKEYS = ["open_quick_chat", "toggle_vrct_visibility", "toggle_translation",
     "toggle_transcription_send", "toggle_transcription_receive", "toggle_tts", "toggle_rvc"];
 
@@ -55,9 +61,9 @@ const QuickChatHotkeyContainer = () => {
     const { t } = useI18n();
     const { currentHotkeys, setHotkeys, openQuickChat } = useHotkeys();
     const { setIsOpenedConfigPage } = useIsOpenedConfigPage();
-    const [platform, setPlatform] = useState(null);
+    const [platform, setPlatform] = useState<string | null>(null);
     useEffect(() => {
-        invoke("quick_chat_shortcut_platform").then(setPlatform).catch(() => setPlatform("unknown"));
+        invoke<string>("quick_chat_shortcut_platform").then(setPlatform).catch(() => setPlatform("unknown"));
     }, []);
 
     return (
@@ -71,7 +77,7 @@ const QuickChatHotkeyContainer = () => {
                 state={currentHotkeys.state}
                 setHotkeys={setHotkeys}
             />
-            {["wayland", "xwayland", "unknown"].includes(platform) && <EnvReadout className={styles.platform_readout}>
+            {isPlatformNote(platform) && <EnvReadout className={styles.platform_readout}>
                 <p>{t({ wayland: "quick_chat.wayland_portal", xwayland: "quick_chat.xwayland_hint", unknown: "quick_chat.platform_unknown" }[platform])}</p>
             </EnvReadout>}
             <button type="button" className={styles.open_quick_chat} onClick={() => { setIsOpenedConfigPage(false); openQuickChat(); }}>

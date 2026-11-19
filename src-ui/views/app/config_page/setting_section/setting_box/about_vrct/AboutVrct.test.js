@@ -23,9 +23,9 @@ const translate = async language => {
 for (const language of ["en", "ja"]) {
     test(`${language}: every About image link names its destination/person and credit images have text equivalents`, async () => {
         const translation = await translate(language), runtime = hooks();
-        const source = await readFile(new URL("./AboutVrct.jsx", import.meta.url), "utf8");
+        const source = await readFile(new URL("./AboutVrct.tsx", import.meta.url), "utf8");
         const images = Object.fromEntries([...source.matchAll(/from "(@images\/[^"]+)"/g)].map(match => [match[1], match[1]]));
-        const { AboutVrct } = await loadModule(new URL("./AboutVrct.jsx", import.meta.url), runtime, {
+        const { AboutVrct } = await loadModule(new URL("./AboutVrct.tsx", import.meta.url), runtime, {
             ...images, "@useI18n": { useI18n: () => translation },
             "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: language } }) },
             "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "test" } }) },

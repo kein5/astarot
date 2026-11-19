@@ -169,7 +169,12 @@ const about_vrct_links = {
     contributors_riku_x: { img: contributors_x_icon, href: "https://twitter.com/Riku7302" },
 };
 
-const OpenLinkContainer = ({className, href_id}) => {
+type OpenLinkContainerProps = {
+    className?: string;
+    href_id: keyof typeof about_vrct_links;
+};
+
+const OpenLinkContainer = ({className, href_id}: OpenLinkContainerProps) => {
     const { t } = useI18n();
     const { currentUiLanguage } = useAppearance();
     const link = about_vrct_links[href_id];

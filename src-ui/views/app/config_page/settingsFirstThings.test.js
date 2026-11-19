@@ -189,7 +189,7 @@ test("each API speech recognition provider is one fold; the selected one stays o
 
 test("the VRChat page no longer carries chat reading; it ends with the way to that page", async () => {
     const runtime = hooks(), opened = [];
-    const source = readFileSync(new URL("./setting_section/setting_box/vrchat/Vrchat.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./setting_section/setting_box/vrchat/Vrchat.tsx", import.meta.url), "utf8");
     assert.doesNotMatch(source, /ocr\/Ocr/);
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
     const ja = yaml.load(readFileSync(new URL("../../../../locales/ja.yml", import.meta.url), "utf8"));
@@ -200,7 +200,7 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting() {} },
         "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
     });
-    const vrchat = await loadModule(new URL("./setting_section/setting_box/vrchat/Vrchat.jsx", import.meta.url), runtime, {
+    const vrchat = await loadModule(new URL("./setting_section/setting_box/vrchat/Vrchat.tsx", import.meta.url), runtime, {
         ...dependencies, ...store, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@logics_configs": { useOthers: () => ({ currentEnableNotificationVrcSfx: { data: true }, currentEnableVrcMicMuteSync: { data: false } }) },
         "../_components/page_pointer/PagePointer": pagePointer,

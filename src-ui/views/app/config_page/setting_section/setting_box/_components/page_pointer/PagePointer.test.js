@@ -37,7 +37,7 @@ test("every button that opens another settings page names that page, with what i
     // and VR, and the OSC destination, the speech output and chat reading on VRChat.
     assert.deepEqual(links.map(link => `${link.path.split("/").at(-1)}:${link.tab}`).sort(), [
         "Device.tsx:vrchat", "VoiceRouteSettings.tsx:device", "Vr.jsx:experimental_features",
-        "Vrchat.jsx:advanced_settings", "Vrchat.jsx:ocr", "Vrchat.jsx:tts"]);
+        "Vrchat.tsx:advanced_settings", "Vrchat.tsx:ocr", "Vrchat.tsx:tts"]);
     for (const language of ["ja", "en"]) {
         const t = translator(language);
         const { pageLinkLabel } = await load(hooks(), language);

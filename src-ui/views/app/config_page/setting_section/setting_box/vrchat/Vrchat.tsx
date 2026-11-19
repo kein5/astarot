@@ -14,6 +14,7 @@ import {
 import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { useOthers } from "@logics_configs";
+import type { AtomState } from "@store";
 import { VrchatPresence } from "../../../../others/vrchat_presence/VrchatPresence";
 import { PagePointer, PageLinkButton } from "../_components/page_pointer/PagePointer";
 import { HintDescriptions } from "../_components/hint/Hint";
@@ -27,7 +28,7 @@ import { HintDescriptions } from "../_components/hint/Hint";
 export const Vrchat = () => {
     const { t } = useI18n();
     const { currentEnableNotificationVrcSfx, currentEnableVrcMicMuteSync } = useOthers();
-    const onOff = current => t(current.data === true ? "config_page.advanced_status.on" : "config_page.advanced_status.off");
+    const onOff = (current: AtomState<boolean>) => t(current.data === true ? "config_page.advanced_status.on" : "config_page.advanced_status.off");
     // Reviewed against #614: the rows' descriptions are their labels' hints.
     return (
         <HintDescriptions>
