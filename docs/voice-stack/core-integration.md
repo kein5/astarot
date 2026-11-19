@@ -112,7 +112,9 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 | `src-python/test/test_clipboard_focus_and_paste.py`（コントローラから見た貼り付け）、`test_openvr_session.py`（オーバーレイとクリップボードの部分。OCR の部分は「判断が要ること」の 9） | `clipboard.rs`、`native/vr-overlay` の `shared` の試験、`native/adapters` の `tests/clipboard.rs` |
 | `tests/voice/test_tts_toggle.py`、`test_tts_toggle_server.py`、`test_speech_server_end_owner.py`（TTS の部分）、`test_tts_model_options.py`（コントローラの部分） | `voice.rs` |
 | `tests/voice/test_spoken_controls.py`、`test_io_flow_controller.py`、`src-python/test/test_voice_settings_patches.py` | `voice.rs` |
-| `tests/voice/test_direct_voice_controller.py`、`test_managed_controller.py`、`src-python/test/test_voice_route_monitor_mute.py` | `voice.rs`。経路のゲートと保存は `native/audio-routing` の試験も持つ |
+| `tests/voice/test_direct_voice_controller.py`、`test_managed_controller.py` | `voice.rs`。経路のゲートと保存は `native/audio-routing` の試験も持つ |
+| `src-python/test/test_voice_route_monitor_mute.py` | `native/audio-routing` の `voice_route/tests.rs`。保存したミュートが始める前にモニターへ届くこと、再開はミュートの状態を保存し終えるまでモニターを開かないこと、保存できなければ開かないこと、保存したミュートの解除を補助なしで伝え、閉じるときにミュートすること |
+| 声質変換とモニターの Python の試験（「0.6.0 の残りの移行」の 4 の表） | `native/voice-conversion` の単体の試験、`native/audio-routing` の試験、`voice.rs` |
 | `tests/voice/test_external_speech_engines.py` | `voice.rs`（エンドポイントと TTS のスイッチ）、`native/tts/tests/engines.rs`（クライアント） |
 | `tests/voice/test_vc_runtime_setup.py`（RVC の部分） | `voice.rs`、`native/voice-conversion` の単体の試験（版、アーカイブ、以前の実行環境の削除）。uv、Python、Seed-VC の部分は区分 D |
 | `src-python/test/test_controller_typing.py`、`test_mainloop_typing_order.py` | `adapters_osc.rs`（アプリが付けた入力中の表示だけを消すこと）、`dispatch.rs`（止める要求が始める要求を追い越さないこと）。表示を消すのに失敗したときの答えは「判断が要ること」の 57 |
@@ -282,7 +284,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 | 1 | メッセージ送信 | #285 | 下の 1 | ほかの 3 領域は、認識した文や読み上げの口をこの流れに渡す。ここを先に固めると、後の領域の試験がこの流れを前提にできる |
 | 2 | 読み上げ（TTS） | #279 | 下の 2 | サーバの管理は済んでいて、残りは合成の要求と順番の振る舞いだけ。メッセージ送信の音声の口に依る |
 | 3 | 音声認識（リアルタイムと録音） | #278 | 下の 3 | 確定した文をメッセージ送信と読み上げへ渡すので、その 2 つの後にする |
-| 4 | 声質変換 | #275（完了）の続き | Linux の管理された経路（11。`vrct-audio-routing` に PipeWire の録音を足す）、router を分けるか（12）、`test_vc_*.py` と `test_monitor_*.py` の再カバー、Seed-VC の引退（区分 D、`integrations/seed_vc/`） | 残りが一番大きく、Linux の音声の経路の作業を含む。RVC は ADR-012 で管理された例外（ONNX Runtime）なので、speech.cpp へ移す作業は含めない |
+| 4 | 声質変換 | #275（完了）の続き | 下の 4 | 残りが一番大きく、Linux の音声の経路の作業を含む。RVC は ADR-012 で管理された例外（ONNX Runtime）なので、speech.cpp へ移す作業は含めない |
 | 最後 | `src-python` の削除 | #285 | 「Python の削除に伴うもの」 | 4 領域が終わってから |
 
 ### 1. メッセージ送信
@@ -373,6 +375,34 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
   - 止めたときの区間（68）は、15 の (1) で中核が止めたあとの認識を捨てるので、入れていません。新しい判断は 83〜88 です。
 - **判断を待つこと**: 66〜74、79、82〜88（75〜78 は翻訳の項目）。
 - **残っていること**: フローパネルのマイクの時刻（24）。Linux の実機での確認（PipeWire の録音と `vrct-asr-capture`）。
+
+### 4. 声質変換
+
+対象は、声質変換、モニター、管理された経路の Python の試験 18 ファイルです（`tests/voice/test_vc_*.py`、`test_monitor_vc.py`、`test_monitor_output.py`、`test_audio_router.py`、`test_managed_route.py`、`test_rvc_integration.py`、`test_spoken_route_native.py`、`test_native_vc_collection.py`、`test_voice_route_watch.py`、`test_voice_route_cli.py`、`src-python/test/test_voice_route_monitor_mute.py`）。関数ごとに、引数と確かめる値を `native/voice-conversion`、`native/audio-routing`、`native/tts`、中核の試験と照らし合わせました（2026-11-19）。RVC は ADR-012 の管理された例外（ONNX Runtime）なので、speech.cpp へ移す作業は含めません。
+
+- **済んだこと**:
+  - 中核を通した試験を `voice.rs` に足しました。変換した声がモニターにも同じブロックで届き、モニターがオフなら何も開かないこと。ミュートでモニターが止まり、変換は続くこと。再開でモニターに戻ること。答えない worker は `vc_block_expired` か `vc_worker_stalled` で止まり、マイクの音を出さないこと。無音だけを答える worker は変換を確かめたことにならないこと。CPU で変換するときに状態がそれを示すこと。読み上げのモニターがオフなら何も開かないこと。
+  - `native/voice-conversion` の単体の試験を足しました。プロトコルでは、worker が始められない理由の 7 つのコードだけを信じること、`ready` の固定の形（セッション、エンジン、版、標本化周波数、チャンネル、プロファイル、遅れの範囲、ブロック、余分な項目）、ブロックに答えない出力を断ること、無音は 0 であること、未来と古すぎるブロック、途中で切れた枠と形の誤りです。変換の過程（`process.rs`）では、発話がマイクを部分ごとに置き換え、発話の中の隙間は無音でマイクにならないこと、待てる発話は 2 秒までであること、マイクをセッションのブロックに切ること、セッションは 1 回だけで失敗はそのコードで終わること、`rvc_options` の不正な値 22 通り、起動の前に worker、モデル、インデックス、実行環境を確かめることです。子プロセス（`child.rs`）では、起動したスレッドが終わると worker が終わること（Linux）、止めるときは先に SIGTERM、聞かなければ SIGKILL で終わらせることです。
+  - `native/audio-routing` の経路の試験に、`test_voice_route_monitor_mute.py` の 3 本を移しました（上の棚卸しの表）。
+- **照らし合わせた結果**:
+
+  | Python の試験 | 中核とクレートの試験 | 扱い |
+  |---|---|---|
+  | `test_vc_protocol.py` | `protocol.rs` の単体の試験 | 再カバーした。worker の標準入力の扱いは Python の worker のもの |
+  | `test_vc_isolated.py`、`test_vc_worker_native.py` | `process.rs`、`child.rs` の単体の試験 | 再カバーした。制御の相手を断る 9 通りと router の入口は Python の router のもの（12） |
+  | `test_vc_speech_through.py` | `process.rs` の単体の試験、`voice.rs`（変換を通した読み上げ） | 再カバーした。不正なチャンクの扱いは違う（90）。管理された経路での動きは 11 |
+  | `test_vc_monitor_mute.py`、`test_monitor_vc.py` | `voice.rs`、`process.rs` | 変換したブロック、オフ、ミュートと再開は再カバーした。コントローラの 3 本と Linux の 4 本は管理された経路の変換（11）にしかない。制御パイプの失敗は 12 |
+  | `test_monitor_output.py`、`test_audio_router.py` | `native/audio-routing` の `router/tests.rs`、`native/tts/tests/monitors.rs`、`voice.rs` | 再カバー済み（オフのときは今回足した）。Windows と PipeWire の本物の出力は区分 E（`wasapi_live.rs`、`pipewire_live.rs`） |
+  | `test_managed_route.py`、`test_voice_route_monitor_mute.py` | `voice_route/tests.rs` | 再カバー済み（モニターのミュートは今回足した） |
+  | `test_rvc_integration.py` | `process.rs`、`worker.rs` の単体の試験、`voice.rs` | 不正な値、起動前の確認、止まる worker、無音、CPU を再カバーした。以前の版が保存した Seed-VC を RVC へ移す形は 10 で判断を待っている |
+  | `test_vc_settings.py` | `config_reference.rs`、`voice_settings.rs`、`voice.rs` | 再カバー済み |
+  | `test_vc_router_protocol.py`、`test_vc_router_worker.py` | なし | router のプロセスは中核にない（12） |
+  | `test_spoken_route_native.py` | `pipewire/gate.rs` の単体の試験（偽の補助） | 本物の補助（C の `vrct-voice-gate`）が自分で断ることは確かめていない（89） |
+  | `test_native_vc_collection.py`、`test_voice_route_watch.py`、`test_voice_route_cli.py` | なし | Python の試験の集め方と `tools/voice_route.py` の道具。道具と一緒に引退させる |
+  | `test_seedvc_*.py` | なし | 区分 D。`test_seedvc_live.py` の汎用の部分（止めること、片付けの失敗、無音、捕捉の失敗のコード）は上の試験が持つ |
+- **Seed-VC の引退**: `integrations/seed_vc/` は Python の実行環境の準備（`src-python/models/voice_conversion/runtime_setup.py`）と Python の試験、`tests/devtools/test_toolchain_pins.py` が読んでいます。いま消すと `check --scope voice` が壊れるので、`src-python` と一緒に消します（「Python の削除に伴うもの」）。中核は Seed-VC を選ばせず、保存値を RVC に移します（10）。
+- **判断を待つこと**: Seed-VC の保存値の移し方（10）、Linux の管理された経路の変換（11）、router のプロセス（12）、C の補助の試験（89）、発話のチャンクの扱い（90、報告）。`vrct-vc-worker` を配布物から外すことは 5 にあります。
+- **残っていること**: `native/audio-routing` の試験はどの CI でも動いていません（`check --scope rust` だけ）。README のとおり、Windows ではまだ動かしたことがありません。
 
 ## 翻訳の棚卸し
 
@@ -721,3 +751,5 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 86. **VAD のエンジンの試験の置き場所（報告）**（#278）。区間を決める状態機械は speech.cpp にあるので、Python の `test_audio_vad.py` の状態機械の試験（しきい値、短い区間、余白、2 つのしきい値の間）に当たる試験はアプリにありません。中核の試験は偽のサーバー（`tests/common/fake_asr.rs`。音量で区間を返す）で、アプリの側の扱い（切る時刻、最長、知らせ、音量への切り替え）を確かめます。本物のサーバーでは、上の比較のように手で確かめました。案は (a) このままにする、(b) 本物のサーバーで区間を比べる試験を、区分 E（`tests/voice/test_speechcpp_realtime_vad_live.py` と同じく、モデルがあるときだけ動く）として足す、です。
 87. **サーバーを使えないときの音量の区切りのまとめ方**（#278）。設定がそろわないうちは VAD を使わず、スイッチがオフのときと同じに音量で区切ってまとめます。設定がそろっていて録音を始めたあとにサーバーを使えないと分かったとき（動いていない、セッションが切れた）は、音量で区切りますが、まとめ方は VAD の経路のままです。`PHRASE_TIMEOUT` でフレーズをつながず、音量で切れた区間ごとに 1 つの発話として認識します（区切りの秒数は録音の区切りとフレーズの区切りの短いほう）。Python は VAD のモデルが動かないと認識を止めたので（`VAD_INFERENCE_ERROR`）、同じ場面がありません。案は (a) このままにする、(b) 音量に切り替えたら、まとめ方もスイッチがオフのときと同じにする、です。
 88. **外部のサーバーの既定の URL で VAD を選べること**（#278）。新しい設定のリアルタイム字幕は外部のサーバー（`http://127.0.0.1:8080`）なので、何も動いていなくても `/get/data/vad_available` は `true` で、VAD を選べます。録音を始めると、Windows では接続が断られるまで約 2 秒かかり、その間は音量で区切った区間を持っておき、`speech_server_not_ready` を知らせてから認識に回します。スイッチを入れるときにサーバーへつながるかは確かめていません（UI を待たせないため）。案は (a) このままにする、(b) スイッチを入れるときに外部のサーバーへつながるかを確かめ、つながらなければ断る、です。
+89. **C のゲートの補助が自分で断ることの試験**（#275 の続き）。中核は Linux の管理された経路のミュートと再開に、C の補助（`vrct-voice-gate`）を使い続けます。補助が識別子の誤りや読めないノードを自分で断ることは、Python の `test_spoken_route_native.py`（私用の PipeWire と本物の補助）だけが確かめていました。中核の試験（`pipewire/gate.rs`）は偽の補助で引数と確認を確かめます。案は (a) Python と一緒に引退させ、`native/core/examples/live_speech.rs --private-pipewire` で手で確かめる、(b) 私用の PipeWire を立てる Rust の試験（既定では動かさないか、Linux の CI だけ）に移す、です。
+90. **変換を通す発話のチャンク（報告）**（#275 の続き）。Python は 80 ms に揃わないチャンクを `ValueError` で断りました。中核は 80 ms ずつに詰め直し、最後の奇数の 1 バイトを捨てます（`process.rs` の `speak`）。発話は合成した音声で、利用者から見える違いはない想定です。
