@@ -246,7 +246,7 @@ pub fn new_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-fn random_suffix() -> String {
+pub(crate) fn random_suffix() -> String {
     let mut bytes = [0u8; 6];
     let _ = getrandom::fill(&mut bytes);
     bytes.iter().map(|b| format!("{b:02x}")).collect()
@@ -1135,7 +1135,7 @@ fn owner_only(path: &Path) -> bool {
 }
 
 /// Writes the file under the shared lock, through a fresh temporary file and a rename.
-fn write_config(path: &Path, value: &Value) -> io::Result<()> {
+pub(crate) fn write_config(path: &Path, value: &Value) -> io::Result<()> {
     let directory = path.parent().unwrap_or(Path::new("."));
     let _lock = lock::FileLock::acquire(&path.with_file_name("config.json.lock"))?;
     let text = to_python_json(value);
