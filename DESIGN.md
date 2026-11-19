@@ -222,12 +222,28 @@ There is no splash screen. While the engine starts, the main page is drawn at it
 
 Quick Chat and the VR panel inherit shared colors without changing input/audio contracts. TTS/RVC/download forms share field, action and status styling. A persistent saved compact-mode preference remains separate from the temporary narrow-window layout.
 
-Two references come first when a component is designed (#614), each for its own part. Neither is taken in as a dependency.
+Components are aligned with the components of [shadcn/ui](https://ui.shadcn.com/) as far as the rules in this file allow (2026-11-19). From its shadcn counterpart a component takes:
 
-- [shadcn.io](https://www.shadcn.io/) for how a component is put together and how it looks. Its parts built on Radix translate as they are, with the same Radix primitives in the same arrangement (a Radix part that adds a `<style>` at run time needs the CSP step in `docs/development.md`). Its Tailwind styling is rewritten in vanilla-extract, and its colors are replaced with the ASTAROT palette above. Where it offers a component on more than one base (its React default is Base UI), read the Radix one.
-- [OptiAxiom](https://github.com/optimizely-axiom/optiaxiom) for how a component is written in vanilla-extract: how the tokens are cut, sprinkles, recipes and how the files are split.
+- its design: the parts it is made of, their props, and how its variants and sizes are cut and named;
+- its look: spacing, sizes, borders, and how hover, focus, invalid, disabled and open states are drawn;
+- its structure: one file per component with its parts as named exports, a `data-slot` attribute naming each part, and its variants in one recipe.
 
-Code from either is copied in only after its license is checked and recorded (`docs/voice-stack/licensing.md`); shadcn.io names no license for its free components.
+Where shadcn/ui offers a component on more than one base, the Radix one is read. [shadcn.io](https://www.shadcn.io/), the reference named before (#614), is a separate site built on shadcn/ui with the same tokens; its components can be read as examples, but shadcn/ui is the one aligned with.
+
+What does not change: the styles are written in vanilla-extract, and Tailwind is not added. The colors are the ASTAROT palette above. Radix parts are used as they are, with the same primitives in the same arrangement. Nothing from shadcn is taken in as a dependency (no CLI, no `components.json`); its code is translated by these rules:
+
+- Tailwind classes become `style()` in the component's `.css.ts`. A `cva()` becomes a `recipe()` from `@vanilla-extract/recipes` with the same variant names and defaults, and `cn()` becomes `clsx`.
+- shadcn/ui's color tokens (`primary`, `muted`, `accent`, `border`, `input`, `ring` and the rest) stand for ASTAROT tokens; no shadcn color value is used. The app has only the dark scheme, so where shadcn/ui gives a `dark:` value, that value is the one read.
+- A length is taken at its pixel size. Tailwind's rem is 16px and the app's is 10px, so `h-9` (36px) is `3.6rem` and `px-3` (12px) is `1.2rem`. A radius or a text size then moves to the nearest step of this file (`rounded`, `typography`).
+- A part that passes a ref uses `forwardRef`, since the app is on React 18; shadcn/ui writes for React 19, which takes `ref` as a prop. Radix comes from its own `@radix-ui/react-*` package, as the app already has it.
+- shadcn/ui's enter and exit animations (`animate-in`, `fade-in`, `zoom-in`) become keyframes on the motion tokens (`--vox_motion` and the rest), off under reduced motion.
+- A Radix part that adds a `<style>` at run time needs the CSP step in `docs/development.md`.
+
+Where a shadcn component and a rule in this file differ, such as the button looks (#474), a checkbox for a setting (#436), the 40px field or the focus ring, the rule here stays until it is changed on purpose. Components are compared with shadcn/ui one by one before any of them is changed, and a difference that needs a decision is decided there, not by the translation.
+
+[OptiAxiom](https://github.com/optimizely-axiom/optiaxiom) stays the reference for what shadcn/ui, written in Tailwind, has no counterpart for: how the tokens are cut in vanilla-extract and how recipes and sprinkles are written.
+
+Code is copied in only after its license is checked and recorded (`docs/voice-stack/licensing.md`). shadcn/ui is under the MIT license, so the first component aligned with it records shadcn/ui there and in `NOTICE.md`. shadcn.io names no license for its free components.
 
 ## The user guide (site/)
 
