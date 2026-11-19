@@ -1,14 +1,16 @@
 //! A small blocking HTTP/1.1 client for the provider APIs.
 //!
-//! One request per connection (`Connection: close`), no redirects, no proxy, no cookies. Plain
-//! HTTP is allowed only to a local address (as `models/network_policy.py` allows it); everything
-//! else goes over TLS with the Mozilla roots. Errors carry a fixed kind, never the URL, a header
+//! One request per connection (`Connection: close`), no redirects, no cookies. Plain HTTP is
+//! allowed only to a local address (as `models/network_policy.py` allows it); everything else
+//! goes over TLS with the Mozilla roots. No proxy is used, except by [`system_proxy`], which
+//! speech recognition uses ([`crate::proxy`]). Errors carry a fixed kind, never the URL, a header
 //! or a body: the URL of a provider may carry a key in Python's SDKs, and the bodies carry the
 //! user's text.
 //!
 //! A request given a [`Cancel`] ends within about 20 ms of its cancel, whether it is connecting
 //! or waiting for the answer (decision 81 in `docs/voice-stack/core-integration.md`).
 
+use crate::proxy::Proxy;
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, StreamOwned};
 use std::io::{self, Read, Write};
@@ -471,23 +473,74 @@ fn open(url: &Url, wait: Duration) -> Result<TcpStream, HttpError> {
         .ok_or(HttpError::Unreachable)
 }
 
-fn connect(url: &Url, timeouts: Timeouts, cancel: Option<&Cancel>) -> Result<Stream, HttpError> {
-    let tcp = match cancel {
-        None => open(url, timeouts.connect)?,
-        // The look-up and the connection both block: both run where a cancel can leave them.
-        Some(cancel) => {
-            let target = url.clone();
-            match cancel.run(move || open(&target, timeouts.connect)) {
-                Some(result) => result?,
-                None if cancel.is_cancelled() => return Err(HttpError::Cancelled),
-                None => return Err(HttpError::Io),
-            }
+/// Looks a proxy up and connects to the first of its addresses that answers within `wait`. A
+/// proxy may be anywhere: only the `CONNECT` line goes to it in the clear.
+fn open_proxy(host: &str, port: u16, wait: Duration) -> Result<TcpStream, HttpError> {
+    let addresses = (host, port).to_socket_addrs().map_err(|_| HttpError::Unreachable)?;
+    addresses.into_iter().find_map(|address| TcpStream::connect_timeout(&address, wait).ok()).ok_or(HttpError::Unreachable)
+}
+
+/// Asks the proxy for a tunnel to the URL's host (`CONNECT`); anything but a 2xx answer (a 407
+/// for a refused authorization) fails the request.
+fn tunnel(stream: &mut Watched, url: &Url, authorization: Option<&str>) -> Result<(), HttpError> {
+    let target = if url.host.contains(':') { format!("[{}]:{}", url.host, url.port) } else { format!("{}:{}", url.host, url.port) };
+    let mut head = format!("CONNECT {target} HTTP/1.1\r\nHost: {target}\r\nUser-Agent: VRCT-VOX\r\n");
+    if let Some(authorization) = authorization {
+        if authorization.contains(['\r', '\n']) {
+            return Err(HttpError::Url);
         }
+        head.push_str(&format!("Proxy-Authorization: {authorization}\r\n"));
+    }
+    head.push_str("\r\n");
+    stream.write_all(head.as_bytes()).map_err(|e| from_io(&e))?;
+    stream.flush().map_err(|e| from_io(&e))?;
+    // Byte by byte, so that nothing of the tunnel is read as the answer's.
+    let mut answer = Vec::new();
+    let mut byte = [0u8; 1];
+    while !answer.ends_with(b"\r\n\r\n") {
+        if answer.len() > 16 * 1024 || stream.read(&mut byte).map_err(|e| from_io(&e))? == 0 {
+            return Err(HttpError::Protocol);
+        }
+        answer.push(byte[0]);
+    }
+    let mut headers = [httparse::EMPTY_HEADER; 64];
+    let mut response = httparse::Response::new(&mut headers);
+    match response.parse(&answer) {
+        Ok(httparse::Status::Complete(_)) if response.code.is_some_and(|code| (200..300).contains(&code)) => Ok(()),
+        Ok(httparse::Status::Complete(_)) => Err(HttpError::Io),
+        _ => Err(HttpError::Protocol),
+    }
+}
+
+fn connect(url: &Url, timeouts: Timeouts, cancel: Option<&Cancel>, proxy: Option<&Proxy>) -> Result<Stream, HttpError> {
+    let (open, authorization): (Box<dyn FnOnce() -> Result<TcpStream, HttpError> + Send>, _) = match proxy {
+        None => {
+            let target = url.clone();
+            (Box::new(move || open(&target, timeouts.connect)), None)
+        }
+        // Only HTTPS goes through a proxy: plain HTTP stays on this PC and the LAN.
+        Some(Proxy::Http { host, port, authorization }) if url.tls => {
+            let (host, port) = (host.clone(), *port);
+            (Box::new(move || open_proxy(&host, port, timeouts.connect)), authorization.as_deref())
+        }
+        Some(_) => return Err(HttpError::Io),
+    };
+    let tcp = match cancel {
+        None => open()?,
+        // The look-up and the connection both block: both run where a cancel can leave them.
+        Some(cancel) => match cancel.run(open) {
+            Some(result) => result?,
+            None if cancel.is_cancelled() => return Err(HttpError::Cancelled),
+            None => return Err(HttpError::Io),
+        },
     };
     tcp.set_read_timeout(Some(timeouts.read)).map_err(|e| from_io(&e))?;
     tcp.set_write_timeout(Some(timeouts.write)).map_err(|e| from_io(&e))?;
     let _ = tcp.set_nodelay(true);
-    let tcp = Watched::new(tcp, cancel.cloned(), Some(timeouts.read));
+    let mut tcp = Watched::new(tcp, cancel.cloned(), Some(timeouts.read));
+    if proxy.is_some() {
+        tunnel(&mut tcp, url, authorization)?;
+    }
     if !url.tls {
         return Ok(Stream::Plain(tcp));
     }
@@ -499,19 +552,25 @@ fn connect(url: &Url, timeouts: Timeouts, cancel: Option<&Cancel>) -> Result<Str
 /// Sends one request and reads the whole answer. A request whose [`Cancel`] is cancelled fails
 /// with [`HttpError::Cancelled`], unless its whole answer was already read.
 pub fn send(request: &Request<'_>, timeouts: Timeouts) -> Result<Response, HttpError> {
+    send_through(request, timeouts, None)
+}
+
+/// [`send`] through `proxy` (an HTTPS request only; a plain one with a proxy fails, as does an
+/// [`Proxy::Unsupported`] one).
+pub fn send_through(request: &Request<'_>, timeouts: Timeouts, proxy: Option<&Proxy>) -> Result<Response, HttpError> {
     let cancelled = || request.cancel.as_ref().is_some_and(Cancel::is_cancelled);
     if cancelled() {
         return Err(HttpError::Cancelled);
     }
-    match exchange(request, timeouts) {
+    match exchange(request, timeouts, proxy) {
         Err(_) if cancelled() => Err(HttpError::Cancelled),
         other => other,
     }
 }
 
-fn exchange(request: &Request<'_>, timeouts: Timeouts) -> Result<Response, HttpError> {
+fn exchange(request: &Request<'_>, timeouts: Timeouts, proxy: Option<&Proxy>) -> Result<Response, HttpError> {
     let url = Url::parse(request.url)?;
-    let mut stream = connect(&url, timeouts, request.cancel.as_ref())?;
+    let mut stream = connect(&url, timeouts, request.cancel.as_ref(), proxy)?;
     let mut head = format!("{} {} HTTP/1.1\r\nHost: {}\r\n", request.method, url.target, url.host_header());
     head.push_str("User-Agent: VRCT-VOX\r\nAccept: application/json\r\nConnection: close\r\n");
     for (name, value) in &request.headers {
@@ -673,6 +732,16 @@ pub type Transport = Arc<dyn Fn(&Request<'_>, Timeouts) -> Result<Response, Http
 /// The network as it is.
 pub fn direct() -> Transport {
     Arc::new(send)
+}
+
+/// The network through the proxy the environment or Windows' Internet Settings name, read for
+/// each request; this PC, the LAN and the hosts the settings leave out go straight
+/// ([`crate::proxy`], decision 15 (4)). Speech recognition's engines use it.
+pub fn system_proxy() -> Transport {
+    Arc::new(|request, timeouts| {
+        let proxy = Url::parse(request.url).ok().filter(|url| url.tls).and_then(|url| crate::proxy::Settings::current().proxy_for(&url.host, url.port));
+        send_through(request, timeouts, proxy.as_ref())
+    })
 }
 
 /// Only loopback addresses; anything else fails as if nothing answered, without a lookup. For
@@ -908,6 +977,55 @@ mod tests {
         assert_eq!(send(&Request::get(&silent()).cancellable(&cancel), timeouts).unwrap_err(), HttpError::Timeout);
         let waited = started.elapsed();
         assert!(waited >= Duration::from_millis(190) && waited < Duration::from_secs(1), "{waited:?}");
+    }
+
+    /// A proxy on this PC that answers a `CONNECT` with `status`, then keeps what came through
+    /// the tunnel: the head it got and the first bytes after it.
+    fn proxy_answering(status: &'static str) -> (u16, std::sync::mpsc::Receiver<(String, Vec<u8>)>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut head = Vec::new();
+            let mut byte = [0u8; 1];
+            while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).unwrap_or(0) == 1 {
+                head.push(byte[0]);
+            }
+            stream.write_all(format!("HTTP/1.1 {status}\r\nContent-Length: 0\r\n\r\n").as_bytes()).unwrap();
+            let mut after = [0u8; 5];
+            let read = stream.read(&mut after).unwrap_or(0);
+            let _ = sender.send((String::from_utf8_lossy(&head).into_owned(), after[..read].to_vec()));
+        });
+        (port, receiver)
+    }
+
+    #[test]
+    fn https_goes_through_a_proxy_tunnel_with_its_authorization() {
+        let timeouts = Timeouts::all(5.0);
+        let request = Request::get("https://api.example.com/v1/models");
+        let proxy = |port, authorization: Option<&str>| Proxy::Http {
+            host: "127.0.0.1".into(),
+            port,
+            authorization: authorization.map(str::to_string),
+        };
+        // A refused authorization fails the request.
+        let (port, seen) = proxy_answering("407 Proxy Authentication Required");
+        let failed = send_through(&request, timeouts, Some(&proxy(port, Some("Basic dXNlcjpwdw=="))));
+        assert_eq!(failed.unwrap_err(), HttpError::Io);
+        let (head, _) = seen.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(head.starts_with("CONNECT api.example.com:443 HTTP/1.1\r\nHost: api.example.com:443\r\n"), "{head}");
+        assert!(head.contains("\r\nProxy-Authorization: Basic dXNlcjpwdw==\r\n"), "{head}");
+        // An open tunnel carries the TLS handshake with the host itself (a record of type 22).
+        let (port, seen) = proxy_answering("200 Connection established");
+        assert_eq!(send_through(&request, timeouts, Some(&proxy(port, None))).unwrap_err(), HttpError::Io);
+        let (head, after) = seen.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(!head.contains("Proxy-Authorization"), "{head}");
+        assert_eq!(after.first(), Some(&22), "{after:?}");
+        // A proxy it cannot use fails the request; plain HTTP never goes through one.
+        assert_eq!(send_through(&request, timeouts, Some(&Proxy::Unsupported)).unwrap_err(), HttpError::Io);
+        assert_eq!(send_through(&Request::get("http://127.0.0.1:9/"), timeouts, Some(&proxy(9, None))).unwrap_err(), HttpError::Io);
     }
 
     #[test]

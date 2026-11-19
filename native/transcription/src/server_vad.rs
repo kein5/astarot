@@ -19,7 +19,7 @@
 
 use crate::pcm::{self, Resampler};
 use crate::realtime::session::{RATE, Socket, base64, open_socket};
-use crate::vad::{Cut, Segment, Segmenter, Segments, VadEngine};
+use crate::vad::{Cut, Noted, Segment, Segmenter, Segments, VadEngine};
 use serde_json::{Value, json};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -165,6 +165,8 @@ pub struct ServerSegmenter {
     speaking: Option<u64>,
     /// The end of the last segment given: no segment starts before it.
     given_to: u64,
+    /// What was noticed since the last feed, for the diagnostics.
+    noted: Vec<Noted>,
 }
 
 impl ServerSegmenter {
@@ -200,6 +202,7 @@ impl ServerSegmenter {
             kept_from: 0,
             speaking: None,
             given_to: 0,
+            noted: Vec::new(),
         };
         if matches!(segmenter.link, Link::Failed) {
             segmenter.fail("realtime_session_failed");
@@ -223,6 +226,11 @@ impl ServerSegmenter {
         (ms.max(0.0) * f64::from(self.rate) / 1000.0).round() as u64
     }
 
+    /// The time of a number of device frames.
+    fn duration(&self, frames: u64) -> Duration {
+        Duration::from_secs_f64(frames as f64 / f64::from(self.rate))
+    }
+
     fn give(&mut self, start: u64, end: u64, cut: Cut, segments: &mut Vec<Segment>) {
         let start = start.max(self.kept_from).max(self.given_to);
         let end = end.min(self.heard);
@@ -234,6 +242,10 @@ impl ServerSegmenter {
         let samples: Vec<i16> = self.kept.range(from..to).copied().collect();
         self.given_to = end;
         if !samples.is_empty() {
+            let length = self.duration((samples.len() / self.channels) as u64);
+            // A natural end is known once the silence after it has lasted: what was heard since.
+            let waited = if cut == Cut::Silence { self.duration(self.heard - end) } else { Duration::ZERO };
+            self.noted.push(Noted::End { cut, length, waited });
             segments.push(Segment { samples, cut });
         }
     }
@@ -245,6 +257,7 @@ impl ServerSegmenter {
                 // A region the server cut at 10 s goes on as the segment under way.
                 if self.speaking.is_none() {
                     self.speaking = Some(start.max(self.given_to));
+                    self.noted.push(Noted::Start);
                 }
             }
             Some("input_audio_buffer.speech_stopped") => {
@@ -357,7 +370,7 @@ impl Segmenter for ServerSegmenter {
             self.speaking = Some(start + self.max_frames);
         }
         self.trim();
-        Segments { energies: heard.energies, segments }
+        Segments { energies: heard.energies, segments, noted: std::mem::take(&mut self.noted) }
     }
 
     fn reset(&mut self) {
@@ -506,6 +519,7 @@ mod tests {
         fed: u64,
         segments: Vec<Segment>,
         energies: usize,
+        noted: Vec<Noted>,
     }
 
     impl Feeding {
@@ -518,7 +532,14 @@ mod tests {
                 PYTHON,
             );
             let fallback = Box::new(EnergyListener::new(DEVICE_RATE, CHANNELS, 300.0, false, 0.0));
-            Feeding { segmenter: engine.segmenter(DEVICE_RATE, CHANNELS, max_seconds, fallback), reports, fed: 0, segments: Vec::new(), energies: 0 }
+            Feeding {
+                segmenter: engine.segmenter(DEVICE_RATE, CHANNELS, max_seconds, fallback),
+                reports,
+                fed: 0,
+                segments: Vec::new(),
+                energies: 0,
+                noted: Vec::new(),
+            }
         }
 
         /// Feeds `ms` of audio in pieces of 10 ms, a little behind the device's pace so the
@@ -530,6 +551,7 @@ mod tests {
                 self.fed += count;
                 self.energies += found.energies.len();
                 self.segments.extend(found.segments);
+                self.noted.extend(found.noted);
                 std::thread::sleep(Duration::from_micros(300));
             }
         }
@@ -590,6 +612,18 @@ mod tests {
         // The pieces follow each other without a gap or an overlap.
         let first = &feeding.segments[1];
         assert_eq!(first.samples[0], ((frame(340.0) + frame(1000.0)) % 30000) as i16 + 1000);
+        // For the diagnostics: one start, and each piece's length; a cut at the limit waited for
+        // nothing, the natural end for the silence after it (768 ms after the speech, 608 ms after
+        // the padding) and for the event to arrive.
+        let length = |frames: usize| Duration::from_secs_f64(frames as f64 / f64::from(DEVICE_RATE));
+        assert_eq!(feeding.noted.len(), 4, "{:?}", feeding.noted);
+        assert_eq!(feeding.noted[0], Noted::Start);
+        for (noted, cut, frames) in [(feeding.noted[1], Cut::Limit, second), (feeding.noted[2], Cut::Limit, second)] {
+            assert_eq!(noted, Noted::End { cut, length: length(frames), waited: Duration::ZERO });
+        }
+        let Noted::End { cut, length: last, waited } = feeding.noted[3] else { panic!("{:?}", feeding.noted) };
+        assert_eq!((cut, last), (Cut::Silence, length(rest)));
+        assert!(waited >= Duration::from_millis(600) && waited < Duration::from_secs(2), "{waited:?}");
     }
 
     #[test]
@@ -618,7 +652,7 @@ mod tests {
             PYTHON,
         );
         let fallback = Box::new(EnergyListener::new(DEVICE_RATE, CHANNELS, 300.0, false, 0.0));
-        let mut feeding = Feeding { segmenter: engine.segmenter(DEVICE_RATE, CHANNELS, MAX, fallback), reports, fed: 0, segments: Vec::new(), energies: 0 };
+        let mut feeding = Feeding { segmenter: engine.segmenter(DEVICE_RATE, CHANNELS, MAX, fallback), reports, fed: 0, segments: Vec::new(), energies: 0, noted: Vec::new() };
         // Fed at once, well before the refusal comes.
         for (ms, loud) in [(200, false), (500, true), (1200, false)] {
             let count = u64::from(DEVICE_RATE) * ms / 1000;

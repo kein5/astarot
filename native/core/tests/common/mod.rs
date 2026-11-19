@@ -61,6 +61,7 @@ impl Default for Setup {
             services: Services {
                 osc: fake_osc::factory(false).0,
                 translation_transport: vrct_translation::http::loopback_only(),
+                transcription_transport: vrct_translation::http::loopback_only(),
                 translation_endpoints: vrct_translation::providers::Endpoints::all_at("http://provider.invalid"),
                 audio: fake_audio::FakeAudio::new().platform(),
                 vr: Arc::new(vrct_core::vr_overlay::runtime::fake::FakeVr::default()),
