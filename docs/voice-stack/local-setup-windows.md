@@ -107,4 +107,4 @@ mise run setup:headless
 mise run check:voice
 ```
 
-Windowsの実デバイスへ接続する場合はPyAudioWPatchが必要です。`mise run setup:app`（`npm run setup-python`と同じ`uv sync`）で作る`.venv`には入りますが、`headless`のvenvには入りません。
+このテストは実デバイスに接続しません。0.5まではPythonのバックエンドで実デバイスに接続するためのPyAudioWPatchを`mise run setup:app`の`.venv`に入れていましたが、バックエンドと一緒に0.6.0で消しました（#285）。

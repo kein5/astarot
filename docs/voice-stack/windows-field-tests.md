@@ -1,6 +1,6 @@
 # Windowsの実機試験
 
-`tools/windows_field/`には、通常の`check`に含めない実機の試験があります。結果の記録は[Windows音声の検証記録](windows-voice-report.md)にあります。ここには手順だけを書きます。
+`tools/windows_field/`の実機の試験は、Pythonのバックエンドを`.venv`のPythonで起動して動かすものでした。0.6.0でバックエンドと一緒に消しました（#285）。この文書は0.5までの手順の記録です。中核で同じことを確かめる道具は、読み上げは`native/core/examples/live_speech.rs`、音声パイプライン全体の遅延は`native/core/examples/pipeline_latency.rs`です。結果の記録は[Windows音声の検証記録](windows-voice-report.md)にあります。
 
 どの試験も音声を保存しません。出力の確認は、音量の数値だけを残します。
 

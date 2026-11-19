@@ -1,6 +1,7 @@
-//! The Rust catalog answers what the Python module answers, byte for byte where bytes are
-//! written: tests/data/python_reference.json comes from reference/dump_reference.py, and
-//! tests/voice/test_native_ops_reference.py fails when it no longer matches catalog.py.
+//! The Rust catalog answers what the Python module answered, byte for byte where bytes are
+//! written: tests/data/python_reference.json was written by reference/dump_reference.py from
+//! the Python backend's catalog.py. Both went with the backend in 0.6.0 (#285), so a change to
+//! the catalog now goes into the reference by hand too.
 //!
 //! The local translation's entries (`data/translation_models.json`) exist only here: Python
 //! never had them, so they are left out of the comparison and checked in `catalog.rs`.

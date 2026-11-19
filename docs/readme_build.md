@@ -16,7 +16,7 @@ mise exec -- npm ci
 
 `npm`のスクリプトでビルドや起動をするときは、miseを有効にしたシェル（`mise activate`）から呼ぶか、`mise exec -- npm run build`のように呼びます。そうしないと、PATHにある別の版のツールで動きます。
 
-0.5.0からバックエンドはアプリ（`vrct-vox.exe`）の中で動くRustの中核です（[中核の統合](voice-stack/core-integration.md)）。配布物にPythonは入りません。Pythonはビルドの道具と試験を動かすためだけに使います。`src-python/`のPythonバックエンドとその試験を動かすときだけ、`mise run setup:app`（`npm run setup-python`と同じbat）でアプリの依存を`.venv`に入れます。
+0.5.0からバックエンドはアプリ（`vrct-vox.exe`）の中で動くRustの中核です（[中核の統合](voice-stack/core-integration.md)）。配布物にPythonは入りません。Pythonはビルドの道具と試験を動かすためだけに使います。Pythonのバックエンド（`src-python/`）とアプリの依存の環境（`mise run setup:app`、`npm run setup-python`）は0.6.0で消しました。
 
 Windowsのビルドは、固定版のspeech.cpp（Vulkan版、約29 MB）を公式リリースから取得し、ハッシュを確かめてから同梱します。`build/speechcpp`に同じ版があれば取り直さず、別の版が残っていれば置き換えます（`speechcpp_bundle.py --replace`）。`build/`のほかのものには触れません。モデルの取得と本体のビルドは別の操作です。
 
@@ -124,7 +124,7 @@ window.addEventListener("securitypolicyviolation", event => {
 
 ## バージョン管理
 
-バージョンは`package.json`で管理し、次のコマンドで`src-tauri/tauri.conf.json`、`src-python/config.py`、`pyproject.toml`へ同期します。`src-python/`を削除するまでは、Pythonの側も同じ版にそろえます。`pyproject.toml`の版が変わったときは、このコマンドが`uv lock`も実行して`uv.lock`を更新します。設定キーの一覧（`docs/spec/reference/config-keys.md`）に版が載るので、最後に`tools/spec_catalog.py --write`も実行します。通常のビルドコマンドでも同期処理を実行します。
+バージョンは`package.json`で管理し、次のコマンドで`src-tauri/tauri.conf.json`と`pyproject.toml`へ同期します。`pyproject.toml`の版が変わったときは、このコマンドが`uv lock`も実行して`uv.lock`を更新します。設定キーの一覧（`docs/spec/reference/config-keys.md`）に版が載るので、最後に`tools/spec_catalog.py --write`も実行します。通常のビルドコマンドでも同期処理を実行します。
 
 ```sh
 npm run update-version

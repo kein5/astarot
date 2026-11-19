@@ -443,7 +443,7 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 |---|---|
 | モデル | [Silero VAD](https://github.com/snakers4/silero-vad) v5。MIT、Copyright (c) 2020-present Silero Team。ライセンス文はタグv5.1.2のもの |
 | 2グラフへの分割 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper)。MIT、Copyright (c) 2023 SYSTRAN。v1.1.1（commit `9e657b47cb71ed7aa32ce115ef0dca953ca39ae5`）のファイルを無加工で使う。PyPIのwheel（SHA-256 `5808dc33…`）と照合した |
-| ファイル | `silero_encoder_v5.onnx` 713,415 bytes、`silero_decoder_v5.onnx` 532,505 bytes。SHA-256は[通知](../../licenses/silero-vad/NOTICE.md)にあり、読み込むたびに照合する |
+| ファイル | `silero_encoder_v5.onnx` 713,415 bytes、`silero_decoder_v5.onnx` 532,505 bytes。SHA-256は[通知](https://github.com/kein5/astarot/blob/v0.5.2/licenses/silero-vad/NOTICE.md)にあり、読み込むたびに照合する |
 | 置き場所 | リポジトリは`src-python/models/transcription/silero_vad/`、配布物は`_internal/models/transcription/silero_vad/`。ライセンス文と通知は`licenses/silero-vad/` |
 
 ## Outfit（ASTAROTのブランド書体、2026-11-16）
@@ -634,6 +634,16 @@ Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe
 - RVCの参照環境（`native/rvc-runtime/reference/`）: 以前の`integrations/rvc/requirements.in`と同じ依存を`native/rvc-runtime/reference/requirements.in`に移した。numpy、scipy、praat-parselmouth（0.4.6から0.4.7、GPL-3.0-or-later）を上げた。適合の試験の参照を作るためだけの環境で、配布物とアプリの実行には使わない。
 - 翻訳モデルを書き出す環境（`tools/translation_onnx/`）: 固定した版のままで、どの依存にも3.14のwheelがある。
 - チャットボックスの学習環境（`tools/chatbox_lab/`）: PyTorch 2.9（CUDA 12.6）とtorchvision 0.24（どちらもBSD-3-Clause）にした。どちらも3.14のwheelがある最初の版。
+
+## Pythonのバックエンドを消した（2026-11-20、#285）
+
+Pythonのバックエンド（`src-python/`）と、それだけが使っていたものを消した。配布物には0.5.0からPythonが入っていないので、配布物とNOTICEの部品の表は変わらない。
+
+- `uv.lock`から、アプリの依存とその間接の依存の102のパッケージが外れた（ctranslate2、transformers、rapidocr、SpeechRecognitionのフォーク、PyAudioWPatch、pyinstallerなど）。残ったのは開発の道具と試験の依存で、版は変わっていない。`pyproject.toml`の`cuda`のextraと`linux-build`のグループもなくした。
+- `voice-test`のグループに2つ足した。`python-osc` 1.10.2（Unlicense。実機の試験のチャットボックスの補助の試験が使う）と、pyopenvr（`openvr` 2.12.1401、BSD-3-Clause。中核のOpenVRの関数表の写しを照らす試験が使う。配布物の`libopenvr_api_64`はこのwheelから取り出す）。どちらも前はアプリの依存として`uv.lock`にあった。
+- Silero VADのONNXのモデル（`src-python/models/transcription/silero_vad/`）とライセンス文（`licenses/silero-vad/`）を消した。0.4.xの配布物の分は、そのタグに残る。
+- Seed-VCの統合（`integrations/seed_vc/`、GPL-3.0-onlyの表示のあるファイルを含む）を消した。0.4.xまでの配布物に入っていた分のソースの提供の約束は、上の節のとおり続く。
+- 翻訳の比較の道具（`tools/translation_onnx/compare.py`）が照らすCTranslate2のモデルの固定値は、`tools/translation_onnx/ctranslate2_pins.py`に移した。
 
 ## 読みの解析器と辞書（2026-11-16）
 

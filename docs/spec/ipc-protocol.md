@@ -37,7 +37,7 @@ flowchart LR
 | `data` | 文字列（省略可） | 値を`JSON.stringify`したものをBase64にした文字列。値がない要求では省略する |
 
 - 1行に1つのJSONを書き、改行で終える（`src-ui/logics/common/useStdoutToPython.ts`）。
-- サイドカーは`data`をBase64から戻してJSONとして読む（`encodeBase64`、`src-python/utils.py`）。読めないときは空の辞書になる。
+- サイドカーは`data`をBase64から戻してJSONとして読む（`native/core/src/protocol.rs`。Pythonの`encodeBase64`と同じ）。読めないときは空の辞書になる。
 - 要求に通し番号はない。応答は`endpoint`で対応づける。言語の変更は後述の所有者で管理する。音声・RVC・音声サーバー・リアルタイム音声認識の設定とホットキーの保存は、同じエンドポイント内で送信順に応答を対応づける。状態の取得応答では保存を確定しない。書き込み中の輸送エラーで到達したか分からなくなった場合は、その応答が届くかセッションが終わるまで、同じ保存先への追加送信を止める。
 
 ### 応答と通知（サイドカー → UI、stdout）
@@ -112,7 +112,7 @@ OpenAI互換とCustom WhisperのURL単独の設定要求（`/set/data/openai_com
 }}
 ```
 
-- `VRCTError.create_error_response`（`src-python/errors.py`）が作る。`message`は英語の既定文で、UIは多くの場合`locales/`の文言に置き換える。
+- 中核の`native/core/src/errors/mod.rs`が作る（Pythonの`VRCTError.create_error_response`と同じ形）。`message`は英語の既定文で、UIは多くの場合`locales/`の文言に置き換える。
 - `data`は「元に戻すべき値」である。設定の検証エラーでは保存前の値が入り、UIはその値で画面を巻き戻す。
 - 音声系の409は`{"error_code": "..."}`だけを返すことがある。
 - 例外から作ったエラーは`details.exception_type`を持つ。
@@ -128,7 +128,7 @@ OpenAI互換とCustom WhisperのURL単独の設定要求（`/set/data/openai_com
 | `/run/<名前>` | 操作、または通知 | `/run/send_message_box`、`/run/initialization_complete` |
 
 - `/run/…`は要求にも通知にも使う。どちらであるかは[一覧](reference/ipc-endpoints.md)で区別している。
-- 通知の名前は`run_mapping`（`src-python/mainloop.py`）にあり、サイドカーは`controller.run(status, run_mapping[名前], result)`で送る。`run_mapping`にない名前を使うと送る時点で例外になるため、`src-python/test/test_controller_run_mapping_contract.py`が名前の存在を確かめる。
+- 通知の名前は中核の`RUN_MAPPING`（`native/core/src/controller/mod.rs`。Pythonの`run_mapping`と同じ名前）にあり、表にない名前は送る時点で止まる。名前の一覧は[IPCエンドポイント一覧](reference/ipc-endpoints.md)の「通知」にある。
 
 ## 起動と初期化
 
