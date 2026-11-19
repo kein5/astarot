@@ -6,9 +6,13 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
+use vrct_audio_routing::pipewire::output::PipeWireOutput;
+use vrct_audio_routing::router::{CancelToken, Output};
 
 const DAEMON: &str = r#"
 context.properties = {
@@ -158,4 +162,50 @@ pub fn build_helper(name: &str, dir: &Path) -> PathBuf {
         .expect("cc");
     assert!(built.success(), "vrct-{name} does not build");
     binary
+}
+
+/// A virtual microphone: what is played into `<name>.sink` comes out of `<name>.source`
+/// (`loopback` of `tools/voice_acceptance.py`).
+pub fn microphone(name: &str) -> Child {
+    let child = Command::new("pw-loopback")
+        .args(["--name", name, "--channels", "1", "--channel-map", "MONO"])
+        .arg("--capture-props")
+        .arg(format!("media.class=Audio/Sink node.name={name}.sink node.virtual=true"))
+        .arg("--playback-props")
+        .arg(format!("media.class=Audio/Source node.name={name}.source node.virtual=true node.passive=true"))
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("pw-loopback starts");
+    let source = format!("{name}.source");
+    wait("the virtual microphone", || {
+        dump().iter().any(|o| o["info"]["props"]["node.name"] == source.as_str() && o["info"]["props"]["media.class"] == "Audio/Source")
+    });
+    child
+}
+
+/// Plays a 440 Hz tone into `sink` until the returned flag is set.
+pub fn tone(sink: &str) -> Arc<AtomicBool> {
+    let stop = Arc::new(AtomicBool::new(false));
+    let (stopping, sink) = (stop.clone(), sink.to_owned());
+    std::thread::spawn(move || {
+        let mut output = PipeWireOutput::open(&sink, 48000, 1, None, "vrct.test.tone").expect("the tone plays");
+        let token = CancelToken::new(None);
+        let mut phase = 0usize;
+        while !stopping.load(Ordering::SeqCst) {
+            let block: Vec<u8> = (0..960)
+                .map(|i| {
+                    let t = (phase + i) as f64 / 48000.0;
+                    ((t * 440.0 * std::f64::consts::TAU).sin() * 8000.0) as i16
+                })
+                .flat_map(i16::to_le_bytes)
+                .collect();
+            phase += 960;
+            if output.write(&block, &token).is_err() {
+                break;
+            }
+        }
+        let _ = output.close(false, &token);
+    });
+    stop
 }
