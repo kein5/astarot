@@ -291,6 +291,15 @@ test("the settings text entry is the same field as the kit's text field and the 
     // The API key's edit cover lies over the field, so it has the field's corners.
     assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_edit_cover\s*{[^}]*border-radius: var\(--vox_radius\)/);
 });
+test("the forms' select draws the kit select's chevron, at its size and place", () => {
+    // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
+    const form = read(box + "advanced_settings/VoiceSettings.module.scss");
+    const kit = /<path d="([^"]+)"/.exec(read("../../kit/Select.tsx"))[1];
+    const select = /\n {4}select \{[^}]*\}/.exec(form)[0];
+    assert.ok(select.includes(`viewBox='0 0 12 12'%3E%3Cpath d='${kit}'`), "the same chevron as the kit's");
+    assert.match(select, /padding-right: 3\.6rem;/);
+    assert.match(select, /background-position: right 1\.4rem center; background-size: 1\.6rem;/);
+});
 test("download dialogs write byte counts in the display language", () => {
     for (const page of ["advanced_settings/ModelDownloads.jsx", "ocr/OcrModels.jsx"]) {
         const source = read(box + page);
