@@ -56,6 +56,8 @@ pub struct Options {
     /// speaks.
     pub diarizes: bool,
     pub limits: Limits,
+    /// Where the finals' waits are counted (`utterance_diagnostics`); `None` counts nothing.
+    pub diagnostics: Option<crate::diagnostics::Diagnostics>,
 }
 
 /// How long a session waits for the server. The app keeps [`Limits::default`], Python's values;
@@ -237,6 +239,11 @@ impl Session {
                 finished: AtomicBool::new(false),
             }),
         }
+    }
+
+    /// Where its finals are counted.
+    pub fn diagnostics(&self) -> Option<&crate::diagnostics::Diagnostics> {
+        self.inner.options.diagnostics.as_ref()
     }
 
     pub fn source(&self) -> Source {
@@ -658,6 +665,9 @@ impl Session {
                 for mut update in updates {
                     if update.is_final {
                         first_result |= !first_result_seen;
+                        if let Some(diagnostics) = &self.inner.options.diagnostics {
+                            final_waited(diagnostics, &update, pending_since.get(&update.item_id));
+                        }
                     }
                     update.text = terms.corrected(&update.text);
                     update.received = Some(Instant::now());
@@ -692,6 +702,23 @@ impl Session {
         }
         result
     }
+}
+
+/// How long a final waited from the start of its utterance (`[ASR-realtime]`); unknown for an
+/// item never seen pending.
+fn final_waited(diagnostics: &crate::diagnostics::Diagnostics, update: &Update, since: Option<&Instant>) {
+    use crate::diagnostics::{Event, Stage};
+    let event = if update.text.trim().is_empty() { Event::RealtimeEmptyFinal } else { Event::RealtimeFinal };
+    let pending = since.map(|since| since.elapsed().as_secs_f64() * 1000.0);
+    let stages: Vec<(Stage, f64)> = pending.map(|ms| (Stage::RealtimePending, ms)).into_iter().collect();
+    let shown = pending.map_or_else(|| "unknown".to_string(), |ms| format!("{ms:.1}ms"));
+    diagnostics.record(
+        update.source,
+        event,
+        &stages,
+        Some(format!("[ASR-realtime][{}] state={} pending={shown}", update.source, update.state)),
+        false,
+    );
 }
 
 #[cfg(test)]
@@ -835,6 +862,7 @@ mod tests {
             silence_duration_ms: None,
             diarizes: false,
             limits,
+            diagnostics: None,
         };
         let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
         Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice))

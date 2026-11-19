@@ -112,9 +112,14 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 利用者のPCで動きそうにないモデルには、カードの見出しに「!」の印と「性能不足の可能性」を付け、カードの中に理由を書いた注記を出す（`src-ui/logics/voice/modelHardwareWarning.ts`）。目安なので、選ぶこと、取得、適用は止めない。取得の確認画面にも同じ注記を出す。ファイルの種類の選択肢にも「性能不足の可能性」を添え、軽い種類を見分けられるようにする。
 
 - 比べるのは、ハードウェアの検出（`hardware.py`）が返すメモリーの総量である。空き容量は時々で変わり、空き容量に合う種類は上の「空きメモリーに合う」が示すためである。
-- モデルのメモリーは、`profile.memory_bytes`、`guidance.reference_memory_bytes`、検証済みの`sampled_peak_bytes`のうち最も大きい値である。案内と同じく25%を足し、GPUのメモリーの総量を超えれば警告する（`low_memory`）。GPUが複数あれば最も大きいものと比べ、メモリーを足し合わせない。エンジンの設定でGPUを名前で選んでいれば、そのGPUと比べる。
+- モデルのメモリーは、`profile.memory_bytes`、`guidance.reference_memory_bytes`、検証済みの`sampled_peak_bytes`のうち最も大きい値である。案内と同じく25%を足し、さらにVRChatの分として4 GiBを足した値が、GPUのメモリーの総量を超えれば警告する（`low_memory`、`GPU_RESERVE`。2026-11-20の決定）。GPUが複数あれば最も大きいものと比べ、メモリーを足し合わせない。エンジンの設定でGPUを名前で選んでいれば、そのGPUと比べる。
 - GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリー（RAM）の総量が分かれば、それとも比べる。
-- RAMと比べるときは、モデルのメモリーに25%を足した値に、OSとVRChatの分として8 GiBを足す（`RAM_RESERVE`。2026-11-19の決定）。OSの4 GiBはWindows 11の最小要件のメモリー（4 GB）、VRChatの4 GiBはSteamのVRChatのページの最小要件のメモリー（4 GB）による。どちらも作り手が示す最小の値なので、実際に使う量より少なめで、警告が出すぎない側に寄せている。注記にはこの分も書く。GPUのメモリーには足さない（VRChatもGPUのメモリーを使うが、今回の決定はRAMの警告の範囲である）。この余裕を足すと、NLLB-200 distilled 600M（約1.39 GiB）には約9.7 GiB、M2M100 418M（約0.97 GiB）には約9.2 GiBのRAMが要る。8 GBのPCでは警告が出て、16 GBのPCでは出ない。
+- RAMと比べるときは、モデルのメモリーに25%を足した値に、OSの5 GiBとVRChatの8 GiB、合わせて13 GiBを足す（`RAM_RESERVE`）。余裕を足すことは2026-11-19に決まり、すべてのモデルに効かせることと、値を最小要件から見直すことが2026-11-20に決まった。注記には残す分も書く。
+  - OSの5 GiB：8 GBのノートPCで起動した直後のWindows 11は5.3 GB（25H2）、26H2では4.1 GBを使った（[Windows Central](https://www.windowscentral.com/microsoft/windows-11/windows-11-25h2-26h2-tested-8gb-pc)）。メモリーの多いPCほど使う量は増えるが、そのPCには余裕もあるので、8 GBのPCの値に合わせた。
+  - VRChatの8 GiB：VRChatの使う量はワールドと周りのアバターで大きく変わる。メモリーが16 GB、32 GB、64 GBのPCでVRChatをVRで試した例（2025年12月の記事。ブラウザー、Discord、Unityも開いたまま）では、PC全体の使用量が16 GBで12.6〜14.3 GB、32 GBと64 GBで17.9〜21.1 GBだった（[VRChatに必要なメモリ容量の実測](https://note.com/jackvrclove/n/n473be2e7d494)）。32 GB以上のPCの値からOSとほかのアプリの分を除くと、VRChatは8 GB以上を使っていると見られる（推定）。16 GBのPCでは使える量に抑えられ、余裕がなかった。この下のほうの値として8 GiBにした。
+  - それまでの値（OSとVRChatそれぞれ4 GiB）は、Windows 11とSteamのVRChatのページの最小要件のメモリー（どちらも4 GB）だった。最小要件は実際に使う量よりかなり少ないので見直した。
+  - この余裕を足すと、NLLB-200 distilled 600M（約1.39 GiB）には約14.7 GiB、M2M100 418M（約0.97 GiB）には約14.2 GiBのRAMが要る。8 GBのPCでは警告が出る。16 GBのPC（Windowsで約15.8 GiBと出る）では出ないが、内蔵GPUにメモリーを分けて15 GiBを下回るPCでは出る。
+- GPUのVRChatの4 GiBは決定の値である。このリポジトリの計測では、RTX 3060 Ti（8 GB）で読み上げ、字幕、RVCを動かした約4.8 GBが、デスクトップ表示のVRChatを足すと約6.1 GB、いちばん多いときで約7.2 GBになった（[動作環境](../../site/ja/guide/requirements.md)）。VRChatが増やした量は約1.3〜2.4 GBなので、デスクトップ表示には足りる。VRのヘッドセットで動かしたときの量は測っていない。
 - 検出していない、失敗した、メモリーが分からないときと、数値のないモデル（RVCなど）には警告しない。分からないことを性能不足とは書かない。
 - このため、音声認識やボイスチェンジャーのページでも、開いたときにハードウェアの検出（`/run/refresh_model_download_hardware`）を1回走らせる。検出はspeech.cppの`devices --json`を動かすだけで、モデルの取得や設定の変更はしない。
 ##### ローカル翻訳のモデル（#597）
@@ -129,7 +134,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 比べる相手は翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）で決める（`translationDeviceMode`）。既定のCPUならハードウェアの検出のCPUの行（RAMの総量）と比べる。GPUを選んでいればそのGPUのメモリの総量と比べる。CUDAとTensorRTはNVIDIAのGPUを、MIGraphXはAMDのGPUを、DirectMLとWebGPUはすべてのGPUを、検出の順に`device_index`番目として数える。そのGPUが検出の行にないときと、CPUでもGPUでも動くOpenVINOのときは比べない。
 - 読み上げのモデル向けの「空きメモリーに合う」の案内（`modelHardwareAdvice.ts`）は、空いているGPUのメモリを見るので翻訳には出さない。
 - RAMは検出（speech.cppの`devices --json`）のCPUの行で分かる。翻訳そのものはspeech.cppを使わない。同梱のspeech.cppが見つからず検出が失敗したときは、ほかのモデルと同じく警告しない。
-- 警告の基準はほかのモデルと同じく、RAMと比べるときはモデルのメモリに25%を足し、OSとVRChatの分の8 GiBも足す（上の`RAM_RESERVE`）。GPUと比べるときは25%だけを足す。
+- 警告の基準はほかのモデルと同じく、モデルのメモリに25%を足し、RAMと比べるときはOSとVRChatの分の13 GiB（上の`RAM_RESERVE`）、GPUと比べるときはVRChatの分の4 GiB（`GPU_RESERVE`）も足す。
 - 翻訳の項目は、PR #687（2026-11-19）が`translation_models.json`にM2M100とNLLBを書いたときにカタログに入った。それより前は目安を返すIDがカタログになく、画面に出なかった。
 
 #### 再起動後の取得済み

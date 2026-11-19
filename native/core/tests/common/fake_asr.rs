@@ -36,6 +36,8 @@ pub enum RealtimeFault {
 pub struct Behaviour {
     /// Recognition answers 500 (the APIs, Deepgram).
     pub fail: AtomicBool,
+    /// How long the transcription APIs hold their answer, as a slow engine does.
+    pub transcription_hold: Mutex<Duration>,
     /// The text every engine recognises.
     pub text: Mutex<String>,
     /// The speech.cpp model list (`/v1/models`).
@@ -224,6 +226,7 @@ impl FakeAsr {
                 if failing {
                     return Self::json(&mut stream, 500, json!({ "error": "down" }));
                 }
+                std::thread::sleep(*self.behaviour.transcription_hold.lock().unwrap());
                 Self::json(
                     &mut stream,
                     200,

@@ -257,6 +257,8 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 中核が`native/transcription`（音声認識）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`tungstenite`、`serde_json`、`libc`）と`native/translation`のHTTPクライアントは、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。音量による発話の切り出しはSpeechRecognition 3.10.4（BSD-3-Clause）の処理を、`rms`と`ratecv`はCPythonの`audioop`（PSF-2.0）を、結果が同じになるように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。Googleの音声認識（SpeechRecognitionの既定のキーで送るもの）は移していない（[core-integration.md](core-integration.md)の「決まったこと」の「Google の Web 音声認識」）。Silero VADのモデルは中核では使わない（同じ節の20）。
 
+音声認識のクラウドの通信がプロキシを使うようになった（2026-11-19、core-integration.md の 15 の (4)）。Windows のインターネットの設定を読むため、`native/translation`が Windows でだけ`windows-sys` 0.61.2（MIT OR Apache-2.0）の`Win32_System_Registry`を使う。この版はすでに`src-tauri/Cargo.lock`にあり、アプリのロックファイルに新しい外部のクレートは増えていない。プロキシの認証の Base64 は自前で書いた。
+
 ## rmvpe.onnxの承認（2026-11-16、#322）
 
 #322の残課題へのオーナーの決定で、`rmvpe.onnx`は使い続けることになった。承認記録の[rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json)では、`status`を`approved_for_app_fetch_after_user_consent`に変え、`consent`にこの決定を足した。取得の形は変わらない。固定revisionから利用者の同意を得てから取得し、配布物には含めない。再配布の承認ではない。

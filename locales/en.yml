@@ -2106,7 +2106,7 @@ model_catalog:
         badge: "May be too heavy"
         option: "may be too heavy"
         note: "Your PC may not be powerful enough for this model. {{reason}} This is only a guide. You can still choose and try it."
-        low_memory_gpu: "It uses about {{required}} of memory, which leaves little room on a GPU with {{available}} in total."
+        low_memory_gpu: "It uses about {{required}} of memory. With about {{reserve}} kept for VRChat, that leaves little room on a GPU with {{available}} in total."
         low_memory_cpu: "It uses about {{required}} of memory. With about {{reserve}} kept for the OS and VRChat, the {{available}} found in total leaves little room."
         no_gpu: "No GPU was found. On a CPU alone, this model may lag or break up."
         cpu_setting: "The engine is set to run on the CPU. On a CPU alone, this model may lag or break up."
