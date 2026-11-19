@@ -341,3 +341,72 @@ fn monitor_settings_validate() {
         assert_eq!(parse_monitor(&bad).unwrap_err(), Error::value("vc_monitor_invalid"), "{bad}");
     }
 }
+
+#[test]
+fn a_stop_while_the_monitor_opens_its_device_plays_nothing_there() {
+    // `test_tts_playback_ownership.py` (`stop_cancels_all_monitors`, with the real tee): speech is
+    // stopped while the monitor is still opening its device. Once the device opens, nothing
+    // queued before the stop plays, and the device closes without draining.
+    let (opening, entered) = (Arc::new(Event::new()), Arc::new(Event::new()));
+    let heard = Arc::new(Mutex::new(Log::default()));
+    let (sink_log, held, seen) = (heard.clone(), opening.clone(), entered.clone());
+    let monitor = MonitorTee::new(
+        "speakers",
+        100,
+        MonitorOptions {
+            factory: Arc::new(move |_, _, _, _| {
+                seen.set();
+                held.wait(Duration::from_secs(2));
+                Ok(Box::new(Sink::new(&sink_log)) as Box<dyn Output>)
+            }),
+            max_buffer_ms: 500,
+            ..MonitorOptions::default()
+        },
+    );
+    monitor.offer(&pcm(0.1, 24000), 24000, 1);
+    assert!(entered.wait(Duration::from_secs(1)), "the monitor never opened its device");
+    monitor.close(false);
+    assert_eq!(monitor.queued(), 0);
+    opening.set();
+    assert!(monitor.join(Duration::from_secs(2)));
+    let heard = lock(&heard);
+    assert!(heard.data.is_empty(), "audio from before the stop played");
+    assert!(heard.closed.is_empty() || heard.closed == [false], "{:?}", heard.closed);
+    assert!(monitor.error().is_none());
+}
+
+#[test]
+fn a_stop_after_the_monitor_played_a_block_plays_no_more() {
+    // `stop_prevents_more_pcm` with the real tee: one block has played, the next waits for the
+    // device; the stop ends it there, without draining.
+    let gate = Arc::new(Event::new());
+    gate.set();
+    let wrote = Arc::new(Event::new());
+    let heard = Arc::new(Mutex::new(Log::default()));
+    let (sink_log, held, written) = (heard.clone(), gate.clone(), wrote.clone());
+    let monitor = monitor_with(
+        move || {
+            let (closing, written) = (held.clone(), written.clone());
+            Sink {
+                gate: Some(held.clone()),
+                on_write: Some(Box::new(move |_| {
+                    closing.clear();
+                    written.set();
+                })),
+                ..Sink::new(&sink_log)
+            }
+        },
+        100,
+        500,
+    );
+    monitor.offer(&pcm(0.05, 24000), 24000, 1);
+    assert!(wrote.wait(Duration::from_secs(1)), "the first block never played");
+    monitor.offer(&pcm(0.05, 24000), 24000, 1);
+    std::thread::sleep(Duration::from_millis(50));
+    monitor.close(false);
+    assert!(monitor.join(Duration::from_secs(2)));
+    let heard = lock(&heard);
+    assert_eq!(heard.data.len(), 1, "a block played after the stop");
+    assert_eq!(heard.closed, [false]);
+    assert!(monitor.error().is_none());
+}
