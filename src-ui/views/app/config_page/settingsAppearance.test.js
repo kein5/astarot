@@ -310,6 +310,20 @@ test("the settings search is the same field as the other inputs, with InputGroup
     assert.match(jsx, /<Empty>\s*<EmptyDescription>\{t\("config_page\.search\.no_results"\)\}<\/EmptyDescription>\s*<\/Empty>/);
     assert.doesNotMatch(css, /\.no_results/);
 });
+test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider does", () => {
+    const css = read(box + "_components/slider/Slider.module.scss");
+    const rule = name => css.split(`\n${name} {`)[1].split("\n}")[0];
+    // The filled part (shadcn/ui's Range) is drawn in the primary colour.
+    assert.match(rule(".track"), /\n {4}background-color: var\(--primary_600_color\);/);
+    // The groove and its filled part are .6rem (h-1.5), across or along.
+    for (const name of [".rail", ".track"]) {
+        assert.match(rule(name), /height: 0\.6rem;/, name);
+        assert.match(rule(name), /width: 0\.6rem;/, name);
+    }
+    // The pointer still reaches 3rem around the groove.
+    assert.match(rule(".sliderRoot"), /height: 0\.6rem;\s*padding: 1\.2rem 0;/);
+    assert.match(rule(".sliderRoot"), /width: 0\.6rem;\s*padding: 0 1\.2rem;/);
+});
 test("the forms' select draws the kit select's chevron, at its size and place", () => {
     // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
     const form = read(box + "advanced_settings/VoiceSettings.module.scss");
