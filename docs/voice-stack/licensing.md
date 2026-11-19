@@ -406,6 +406,22 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 | 再配布の条件 | 3.1節。利用の制限を強制できる条項として課すこと、規約の写しを渡すこと、変更したファイルにその旨を示すこと、決まった一文の`Notice`ファイルを添えること |
 | 扱い | 候補。カタログには載せていない。載せるなら既定にはしない。アプリの中で動かすには`native/translate-onnx`にdecoder-onlyの生成を足す必要があり、重みはプロジェクトが変換して規約を添えて公開する形を推奨した（公開は保守担当者が決める）。規約の写しを添えていない第三者の変換からは取得しない |
 
+2026-11-19の追記：保守担当者はLLM用の実行基盤で動かすと決めた（ADR-015）。段階3では、利用者が自分のGGUFのファイルを翻訳のカタログに追加し、llama.cppのサーバー（下の節）で動かせるようにした。組み込みの項目はまだ載せていない。カタログの取得でGemmaの利用規約に従うモデルは、同意とは別に規約の確認（`gemma_terms`）を求める。Irodori-TTS v4 Largeにもこの確認が付く。
+
+### llama.cppのサーバー（2026-11-19、ADR-015の段階3）
+
+翻訳のLLMを動かす`llama-server`。同梱しない。利用者が同意したときだけ、固定のリリースのアーカイブを取得して`vc_runtimes/llamacpp-vulkan/`か`vc_runtimes/llamacpp-cpu/`の`lib/`に必要なファイルだけを取り出す。版、大きさ、SHA-256は[モデルの取得](model-downloads.md#llamacppのサーバーの取得)の表にある。
+
+| 項目 | 内容 |
+|---|---|
+| 取得元 | GitHubの`ggml-org/llama.cpp`のリリース b12125（2026-11-04）。`github.com`から`release-assets.githubusercontent.com`へ転送される |
+| llama.cppとggml | MIT（Copyright (c) 2023-2026 The ggml authors）。Linuxのアーカイブは`LICENSE`として持つ。Windowsのアーカイブにはこの文がないので、確認の画面はタグの`LICENSE`へリンクする |
+| `libomp.dll`（Windowsだけ） | LLVMのOpenMPのランタイム。Apache-2.0 WITH LLVM-exception（古いコードはNCSAとMITの二重）。アーカイブの`LICENSE-LLVM-OpenMP`を`lib/`に取り出す |
+| サーバーのライブラリに含まれるもの | 2026-11-19にバイナリの文字列で確かめた。cpp-httplib（MIT）、nlohmann/json（MIT）、WindowsではBoringSSL（Apache-2.0と、OpenSSLとISCのライセンス）。これらのライセンスの文はアーカイブにない |
+| Linuxで使うシステムのライブラリ | `libssl.so.3`と`libcrypto.so.3`（OpenSSL 3、Apache-2.0）、`libgomp.so.1`（GCCの実行時ライブラリの例外付きGPL-3.0）、Vulkan版は`libvulkan.so.1`。アプリは取得も同梱もしない |
+| 取り出さないもの | CLI、量子化やベンチマークの道具、RPCのサーバー（`ggml-rpc`）、マルチモーダルの道具 |
+| 扱い | アプリの配布物には入らない。利用者が提供元から直接取得する。確認の画面にライセンスと「ASTAROTの配布物ではない」ことを書いた |
+
 ## Silero VADの同梱（2026-11-15）
 
 マイクとスピーカーの文字起こしで発話区間を見つけるSilero VADのモデルは、これまでfaster-whisper 1.1.1のパッケージに入っていたものを読み込んでいた。faster-whisperをやめる前提作業として（#288）、同じ2ファイルをアプリの一部として同梱する。確率の計算は変わらない。

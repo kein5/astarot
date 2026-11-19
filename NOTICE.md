@@ -227,6 +227,25 @@ backend refuses the download without it. Selecting an NLLB-200 model keeps its
 own license confirmation. The planned entries are recorded in
 `docs/voice-stack/licensing.md`.
 
+A decoder-only translation LLM such as TranslateGemma runs on llama.cpp's
+`llama-server` (ADR-015), which is not bundled either. The app offers its
+release b12125 from llama.cpp's GitHub releases (`ggml-org/llama.cpp`), a
+Vulkan build and a CPU build for Windows and Linux on x86-64, fetched only
+after the user's consent and pinned by size and SHA-256, and keeps the server
+and the libraries it loads in the settings folder (`vc_runtimes/llamacpp-*`).
+llama.cpp and ggml are under the MIT license (Copyright (c) 2023-2026 The ggml
+authors; the Linux archives carry it as `LICENSE`). The Windows archives also
+carry LLVM's OpenMP runtime (`libomp.dll`, Apache-2.0 WITH LLVM-exception, with
+its license as `LICENSE-LLVM-OpenMP`). The server's libraries also contain
+cpp-httplib (MIT) and nlohmann/json (MIT), and on Windows BoringSSL (Apache-2.0
+and the OpenSSL and ISC licenses); their license texts are not in the archives.
+On Linux the server uses the distribution's OpenSSL 3, `libgomp` and Vulkan
+loader, which the app does not fetch. No model comes with it: the user adds a
+GGUF file of their own and answers for its source and license. TranslateGemma
+is under the Gemma Terms of Use and the Gemma Prohibited Use Policy, which
+also bind the person who uses it; a catalog model under those terms downloads
+only after a separate acknowledgement of them.
+
 `native/transcription` (speech recognition) reimplements, so that phrases are
 cut as before, the energy-based listening of SpeechRecognition 3.10.4
 (BSD-3-Clause, Anthony Zhang) as the fork used by the earlier Python

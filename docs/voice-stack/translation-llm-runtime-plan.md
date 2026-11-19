@@ -1,6 +1,6 @@
 # 翻訳の LLM の実行基盤の選定と導入の計画（2026-11-19）
 
-調べた日: 2026-11-19。状態: **提案**。[ADR-015](../adr/adr-015-translation-llm-runtime-exception.md) の段階 2 で、Issue #412 の材料である。決めるのは保守担当者で、コード、カタログ、表示する文言は変えていない。
+調べた日: 2026-11-19。状態: **提案**。[ADR-015](../adr/adr-015-translation-llm-runtime-exception.md) の段階 2 で、Issue #412 の材料である。決めるのは保守担当者で、この計画そのものはコード、カタログ、表示する文言を変えていない。推奨の案での段階 3 の実装の進み具合は、6 の末尾の表にある。
 
 TranslateGemma をアプリの中で動かす LLM 用の実行基盤を選び、配布の大きさへの影響、同梱するか後から取得するか、ライセンスをまとめた。数値は 2026-11-19 に公開されていたリリースの情報（GitHub、NuGet、PyPI、Hugging Face の API が返すメタデータ）で、ファイルは取得していない。速さとメモリーは計っていない（6）。
 
@@ -79,6 +79,20 @@ TranslateGemma をアプリの中で動かす LLM 用の実行基盤を選び、
 | 3-7 | 記録。`NOTICE.md`、ライセンス台帳、モデルの取得の文書、マニュアル | 文書 |
 
 3-6 の結果が ADR-015 の 5 の条件に届かないときは、製品に入れずに ADR-015 を見直す。
+
+### 段階 3 の進み具合（2026-11-19）
+
+推奨の案（llama.cpp、(a) GitHub の Release、Vulkan 版と CPU 版）で実装した。判断項目はどれも保守担当者の確認を待っている。
+
+| 段 | 状態 | 中身 |
+|---|---|---|
+| 3-1 | 実装した | `gemma_terms` の確認。Irodori-TTS v4 Large にも付く（判断項目 4） |
+| 3-2 | 実装した | llama.cpp b12125 の `llama-server`（Windows と Linux x64 の Vulkan 版と CPU 版）を、同意のあとで GitHub の Release から取得する。取得元のホストに `github.com` と `release-assets.githubusercontent.com` を足した（判断項目 2） |
+| 3-3 | 実装した | `native/speech-server` の `llama` がプロセスを所有する。偽のサーバーで試験した |
+| 3-4 | 実装した | `native/translation` の `translategemma` がテンプレートの文を組み立てて `/completion` に送る |
+| 3-5 | 一部 | 翻訳のカタログの推論エンジン系に `llamacpp` を足し、利用者が自分の GGUF のファイルを追加できる。組み込みの TranslateGemma の項目は、(A) の変換を公開するまで載せない（判断項目 3） |
+| 3-6 | 未実施 | 計測には数 GB のモデルの取得が要る。取得の承認がないので実施していない（判断項目 7） |
+| 3-7 | 一部 | `NOTICE.md`、ライセンス台帳、[モデルの取得](model-downloads.md#翻訳のカタログ413)、仕様に書いた。マニュアルはまだである |
 
 ## 7. ライセンス
 

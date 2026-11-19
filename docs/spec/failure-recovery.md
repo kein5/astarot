@@ -38,7 +38,7 @@
 
 | 操作 | 成功したとき | 失敗したとき | 確かめている試験（`native/ops/src/downloads/manager_tests.rs`、Python は `tests/voice/test_model_downloads.py`） |
 |---|---|---|---|
-| 開始の要求 | — | 同意、カタログの版、非商用などの制限の確認（`acknowledged`）のどれかが欠けていれば、フォルダーを作らず通信もせずに断る | `explicit_consent_before_any_files_or_network`、`only_fixed_catalog_requests_are_accepted`、`a_non_commercial_entry_starts_only_with_its_acknowledgement` |
+| 開始の要求 | — | 同意、カタログの版、非商用やGemmaの利用規約などの制限の確認（`acknowledged`）のどれかが欠けていれば、フォルダーを作らず通信もせずに断る | `explicit_consent_before_any_files_or_network`、`only_fixed_catalog_requests_are_accepted`、`a_non_commercial_entry_starts_only_with_its_acknowledgement`、`an_entry_under_the_gemma_terms_starts_only_with_that_acknowledgement` |
 | 取得 | 作業用の `.partial-<16進>/` で全ファイルの大きさと SHA-256 を確かめてから、`<id>/<版>/` に名前を変えて公開する | 何も公開しない。作業用のフォルダーは消してから `failed` か `cancelled` を返す | `incomplete_oversized_or_corrupt_download_never_publishes`、`multi_file_bundle_failure_never_publishes_first_file` |
 | 通信の切断、途中の読み込みの失敗 | — | `download_failed`。作業用のフォルダーを消す。ほかのファイルには触れない | `network_failure_removes_staging_and_preserves_unrelated_files`、`unexpected_stream_error_is_a_failure_not_a_stuck_job` |
 | 容量不足 | — | 取得の前に足りなければ通信せずに `insufficient_space`。書いている途中でいっぱいになっても `insufficient_space` | `disk_preflight_fails_without_network`、`disk_full_during_write_leaves_no_selectable_file` |
@@ -52,6 +52,8 @@
 利用者が登録したモデル（`user_models.json`）は、一時ファイルに書いて置き換える。読めない、または版が違うときは書き換えずに残す（`native/ops/src/downloads/user_models.rs` の試験）。登録したファイルの大きさか更新時刻が変わったら、使えるものとして扱わない。
 
 翻訳のカタログに利用者が足した項目（`translation_catalog.json`、#413）も同じく、一時ファイルに書いて置き換え、読めないときは書き換えずに残す（`native/ops/src/downloads/translation_catalog.rs` の試験）。API の項目はキーを保管場所に書いて読み戻せなくても足し、キーは設定のキーと同じくその起動のあいだだけメモリーに持つ（ADR-013）。保管場所が使えるようになればキーを書き、項目の `key` を `true` にする。置けないままアプリを閉じた項目はキーのない項目として残り、キーを平文で残すことはない。保管場所が一時的に読めないときは、キーがないとは扱わずに何も変えない。推論エンジン系の項目のフォルダーが読めなくなったら、項目は残したまま重みを一覧から外し、選んでいた設定は既定のモデルに戻る。理由は項目の ID と固定のコードだけで `process.log` に書く（`native/core/tests/translation_catalog.rs`）。
+
+翻訳の LLM（`llamacpp` の項目、ADR-015）は llama.cpp のサーバーで動く。サーバーが起動できない（モデルを読めない、メモリー不足、時間切れ）ときは翻訳を有効にできず、メモリー不足は GPU のメモリー不足と同じ知らせになる。使っているあいだにサーバーが終わったら、次の翻訳で一度だけ起動し直し、それでも動かなければその翻訳を失敗として知らせる。サーバーはアプリと一緒に止まり、アプリが異常終了しても残らない（Windows はジョブ、Linux は親の終了で届くシグナル）。音声の経路とほかの翻訳エンジンには触れない（`native/core/tests/translation_llama.rs`、`native/speech-server/tests/llama.rs`）。
 
 ## アプリの更新
 
