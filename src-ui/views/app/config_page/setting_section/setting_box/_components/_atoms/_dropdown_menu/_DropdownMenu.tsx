@@ -1,11 +1,48 @@
 import { useRef, useEffect, useLayoutEffect, useState, useId } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import styles from "./_DropdownMenu.module.scss";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
 import { useStore_IsOpenedDropdownMenu } from "@store";
 
-export const _DropdownMenu = (props) => {
+// The choices of a dropdown, { id: label }. [] until a list the backend sends arrives
+// (SettingOptions).
+export type DropdownList = Readonly<Record<string, ReactNode>> | [];
+
+// What a dropdown reports when one of its choices is picked.
+export interface DropdownSelection {
+    dropdown_id: string;
+    selected_id: string;
+}
+
+export interface DropdownMenuBaseProps {
+    // Which dropdown is open is kept by this id in the store, so only one is open at a time.
+    dropdown_id: string;
+    list?: DropdownList;
+    selected_id?: string | number | null;
+    state?: string;
+    is_disabled?: boolean;
+    selectFunction: (selection: DropdownSelection) => void;
+    openListFunction?: () => void;
+    style?: CSSProperties;
+    // Both name the field when they are text.
+    label?: ReactNode;
+    secondary_label?: ReactNode;
+    "aria-describedby"?: string;
+}
+
+// The dropdown as the check for a press outside it uses it: Node.contains, asked with the
+// press's target as it comes (a node of the page).
+interface PressArea {
+    contains(target: EventTarget | null): boolean;
+}
+
+// The list as a record; an empty list arrives as [].
+const choicesOf = (list: DropdownList | undefined): Readonly<Record<string, ReactNode>> =>
+    list === undefined || Array.isArray(list) ? {} : list;
+
+export const _DropdownMenu = (props: DropdownMenuBaseProps) => {
     const { t } = useI18n();
     const { updateIsOpenedDropdownMenu, currentIsOpenedDropdownMenu } = useStore_IsOpenedDropdownMenu();
     const updateOpenedRef = useRef(updateIsOpenedDropdownMenu);
@@ -13,12 +50,13 @@ export const _DropdownMenu = (props) => {
     const is_opened = currentIsOpenedDropdownMenu.data === props.dropdown_id;
     const [openAbove, setOpenAbove] = useState(false);
 
-    const containerRef = useRef(null);
-    const contentRef = useRef(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
     const listId = useId();
     // The keyboard-highlighted option while open (select-only combobox).
     const [activeIndex, setActiveIndex] = useState(-1);
-    const keys = Object.keys(props.list ?? {});
+    const list = choicesOf(props.list);
+    const keys = Object.keys(list);
     const unavailable = props.is_disabled || props.state === "pending";
 
     const toggleDropdownMenu = () => {
@@ -44,7 +82,7 @@ export const _DropdownMenu = (props) => {
 
     // Enter, Space or the arrows open it; the arrows, Home and End move;
     // Enter or Space chooses; Tab closes (Escape is handled below).
-    const handleToggleKeyDown = (event) => {
+    const handleToggleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
         if (unavailable) return;
         if (!is_opened) {
             if (["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)) {
@@ -54,7 +92,7 @@ export const _DropdownMenu = (props) => {
             return;
         }
         const last = keys.length - 1;
-        const moves = { ArrowDown: Math.min(activeIndex + 1, last), ArrowUp: Math.max(activeIndex - 1, 0), Home: 0, End: last };
+        const moves: Record<string, number> = { ArrowDown: Math.min(activeIndex + 1, last), ArrowUp: Math.max(activeIndex - 1, 0), Home: 0, End: last };
         if (event.key in moves) {
             event.preventDefault();
             setActiveIndex(moves[event.key]);
@@ -66,7 +104,7 @@ export const _DropdownMenu = (props) => {
         }
     };
 
-    const selectValue = (key) => {
+    const selectValue = (key: string) => {
         updateIsOpenedDropdownMenu("");
         props.selectFunction({
             dropdown_id: props.dropdown_id,
@@ -99,13 +137,14 @@ export const _DropdownMenu = (props) => {
     useEffect(() => {
         if (!is_opened) return;
 
-        const handlePointerDown = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+        const handlePointerDown = (event: PointerEvent) => {
+            const area: PressArea | null = containerRef.current;
+            if (area && !area.contains(event.target)) {
                 updateOpenedRef.current("");
             }
         };
 
-        const handleKeyDown = (event) => {
+        const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === "Escape") {
                 updateOpenedRef.current("");
             }
@@ -137,11 +176,12 @@ export const _DropdownMenu = (props) => {
 
     const getSelectedText = () => {
         if (props.state !== "ok") return;
-        if (props.list[props.selected_id] === undefined) return props.selected_id; // [Fix me]
+        // A property key is the id as a string, as the object's own lookup made it.
+        const selected = list[String(props.selected_id)];
+        if (selected === undefined) return props.selected_id; // [Fix me]
 
-        return props.list[props.selected_id];
+        return selected;
     };
-    const list = (props.list === undefined) ? {} : props.list;
 
     return (
         <div ref={containerRef} className={styles.container}>

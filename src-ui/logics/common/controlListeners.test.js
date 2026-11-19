@@ -91,7 +91,7 @@ test("dropdown keeps open listeners through renders, uses the latest updater and
     globalThis.document = document; globalThis.window = window;
     t.onTestFinished(() => { runtime.unmount(); delete globalThis.document; delete globalThis.window; });
     let opened = "", version = 0;
-    const { _DropdownMenu } = await loadModule(new URL(`${componentRoot}_atoms/_dropdown_menu/_DropdownMenu.jsx`, import.meta.url), runtime, {
+    const { _DropdownMenu } = await loadModule(new URL(`${componentRoot}_atoms/_dropdown_menu/_DropdownMenu.tsx`, import.meta.url), runtime, {
         "@store": { useStore_IsOpenedDropdownMenu: () => {
             const current = version++;
             return { currentIsOpenedDropdownMenu: { data: opened },

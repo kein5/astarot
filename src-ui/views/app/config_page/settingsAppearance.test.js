@@ -287,7 +287,7 @@ test("the settings text entry is the same field as the kit's text field and the 
     assert.ok(contrast("--vox_field_border", "--vox_surface") >= 3.5, "the field's edge is visible on its fill");
     // The input fills the box, so a click anywhere in it reaches the input.
     assert.match(entry, /\.entry_input_area\s*{[^}]*flex: 1 1 auto/);
-    assert.match(read(box + "_components/_atoms/_entry/_Entry.jsx"), /<input\s+data-slot="input"/);
+    assert.match(read(box + "_components/_atoms/_entry/_Entry.tsx"), /<input\s+data-slot="input"/);
     // The API key's edit cover lies over the field, so it has the field's corners.
     assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_edit_cover\s*{[^}]*border-radius: var\(--vox_radius\)/);
 });
