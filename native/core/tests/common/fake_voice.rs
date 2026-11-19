@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use vrct_audio_routing::graph::{Endpoint, GateState, Source, SourceId};
+use vrct_audio_routing::managed_vc::ManagedVcDevices;
 use vrct_audio_routing::monitor::MonitorFactory;
 use vrct_audio_routing::router::{Output, PlaybackToken};
 use vrct_audio_routing::voice_route::{Gate, GatePair};
@@ -46,6 +47,10 @@ struct Inner {
     passthrough: Mutex<Vec<Option<String>>>,
     captures: Mutex<usize>,
     entries: Mutex<Option<Vec<Runtime>>>,
+    /// No capture for a conversion on the managed route (a Linux build without PipeWire).
+    no_managed_vc: AtomicBool,
+    /// The monitor's device does not open.
+    monitor_fails: AtomicBool,
 }
 
 /// The fake; clone it to keep a handle after giving it to [`super::Setup`].
@@ -109,6 +114,14 @@ impl FakeVoice {
 
     pub fn passthrough_starts(&self) -> Vec<Option<String>> {
         self.0.passthrough.lock().unwrap().clone()
+    }
+
+    pub fn fail_monitor(&self, fail: bool) {
+        self.0.monitor_fails.store(fail, Ordering::SeqCst);
+    }
+
+    pub fn set_managed_vc(&self, available: bool) {
+        self.0.no_managed_vc.store(!available, Ordering::SeqCst);
     }
 
     pub fn captures(&self) -> usize {
@@ -246,6 +259,21 @@ impl RouteDevices for FakeVoice {
     }
 }
 
+/// The managed VC input a Linux conversion plays into.
+pub const MANAGED_VC: &str = "vrct.managed.vc";
+
+impl ManagedVcDevices for FakeVoice {
+    fn bind(&self, _: &Endpoint, _: bool) -> Result<Endpoint> {
+        Ok(Endpoint { cookie: 1, serial: 2, name: MANAGED_VC.into(), media_class: "Audio/Sink".into() })
+    }
+    fn open_output(&self, sink: &Endpoint) -> Result<Box<dyn Output>> {
+        self.open(&sink.name, 48000, 1)
+    }
+    fn capture(&self, source: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture> {
+        RouteDevices::capture(self, source, callbacks)
+    }
+}
+
 /// The Linux passthrough as a record of its starts.
 struct FakeBridge {
     requested: AtomicBool,
@@ -303,7 +331,12 @@ impl VoicePlatform for FakeVoice {
     }
     fn monitor_output(&self) -> MonitorFactory {
         let fake = self.clone();
-        Arc::new(move |device: &str, rate: u32, channels: u16, _: &[String]| fake.open(&format!("monitor:{device}"), rate, channels))
+        Arc::new(move |device: &str, rate: u32, channels: u16, _: &[String]| {
+            if fake.0.monitor_fails.load(Ordering::SeqCst) {
+                return Err(Error::speech("output_missing"));
+            }
+            fake.open(&format!("monitor:{device}"), rate, channels)
+        })
     }
     fn gate(&self, _: &Path) -> Arc<dyn Gate> {
         self.0.gate.clone()
@@ -317,6 +350,9 @@ impl VoicePlatform for FakeVoice {
     }
     fn route_devices(&self) -> Option<Arc<dyn RouteDevices>> {
         Some(Arc::new(self.clone()))
+    }
+    fn managed_vc_devices(&self) -> Option<Arc<dyn ManagedVcDevices>> {
+        (!self.0.no_managed_vc.load(Ordering::SeqCst)).then(|| Arc::new(self.clone()) as Arc<dyn ManagedVcDevices>)
     }
     fn rvc_worker(&self, _: &Path) -> PathBuf {
         self.0.worker.lock().unwrap().clone()

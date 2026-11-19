@@ -12,13 +12,13 @@
 
 ## 現状の量
 
-第 6 段の 3 回目（`app/_app_controllers` の 16 本）を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 4 段の `useHotkeys`を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 3 本、106KB | 149 本、601KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 120 本、711KB | 91 本、314KB（うち vanilla-extract の `.css.ts` が 17 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 198 本、1.2MB | 0 本 |
+| `src-ui/logics`（試験を除く） | 2 本、87KB | 152 本、630KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 122 本、724KB | 95 本、326KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
@@ -33,7 +33,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 1 | 未移行の JavaScript を import しない `logics` の葉のモジュール | 済み |
 | 2 | データ層の根（ストアと IPC） | 済み |
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
-| 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch` は済み。`useReceiveRoutes`、`_useBackendErrorHandling`、`useHotkeys` が残り |
+| 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
 | 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（3 本を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本は済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
@@ -87,7 +87,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | `useReceiveRoutes.js` | 約 750 | 残り |
 | `_useBackendErrorHandling.js` | 約 690 | 残り |
 | `configs/config_page_setter/useSettingsLogics` | 約 470 | 済み |
-| `configs/config_page_setter/hotkeys/useHotkeys.js` | 約 470 | 残り |
+| `configs/config_page_setter/hotkeys/useHotkeys` | 約 470 | 済み |
 | `configs/config_page_setter/_aux/useConfigSearch` | 約 280 | 済み |
 
 `ui_config_setter` は `useSettingsLogics` が作るフィールドに型を付けるので、2 本を 1 回の PR で移しました。設定のフックを読む `useConfigSearch` と、第 3 段で後に回した 5 本も同じ PR で移しています。
@@ -99,7 +99,10 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 
 `useReceiveRoutes.js` と `_useBackendErrorHandling.js` は、バックエンドからの応答とエラーの形を扱います。どちらも受け取った値をそのまま設定の atom などに書き込みます。そのため型を付けるには、受け取る値を実行時にどこまで確かめるかを先に決める必要があります。IPC の契約を型にする作業なので、`docs/spec/` と食い違いがあれば、型で隠さずに報告します。第 3 段で移したフックと設定のフックは、受け取る値の型を引数に宣言しています。`useReceiveRoutes` を移すときは、その型に合うことを確かめてから渡します。
 
-`useHotkeys.js` は設定の一覧に依存しないので、ほかとは別に移せます。
+`useHotkeys` は設定の一覧に依存しないので、ほかとは別に移しました。
+
+- ネイティブのコマンドとイベントが返す値に、Rust と同じ形の型を宣言しました。`quick_chat_shortcut_platform` の答え（`ShortcutPlatform`）、ポータルから届くキーの押下（`PortalActivation`）、デスクトップが割り当てたキー（`PortalAssigned`）です。宣言だけで、実行時には確かめません。
+- メインウィンドウ（`store.appWindow`）は小さな関数を通して読みます。設定されていないときは名前の付いた `TypeError` で止まります（`CornerRadiusController` と同じ扱い）。
 
 ### 第 5 段：`logics` の中の JSX
 

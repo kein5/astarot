@@ -26,6 +26,7 @@ mod telemetry;
 mod terms;
 pub mod translation;
 mod translation_catalog;
+pub mod translation_llama;
 mod transcription;
 mod realtime_asr;
 #[cfg(feature = "onnx-translation")]
@@ -415,6 +416,12 @@ impl Core {
 
     pub fn step(&self, text: &str) {
         self.log.step(text, None);
+    }
+
+    /// [`Core::step`] with data on the line (masked as every logged value is). Never text or
+    /// keys of the user.
+    pub(crate) fn step_with(&self, text: &str, data: &Value) {
+        self.log.step(text, Some(data));
     }
 
     /// Stamps a request before it waits in the queue (generations of the voice features).

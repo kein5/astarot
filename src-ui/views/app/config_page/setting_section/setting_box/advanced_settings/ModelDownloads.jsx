@@ -4,7 +4,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
 import { modelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice";
-import { hardwareWarning } from "../../../../../../logics/voice/modelHardwareWarning";
+import { hardwareWarning, translationDeviceMode } from "../../../../../../logics/voice/modelHardwareWarning";
 import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
 import { catalogFamilies, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
 import styles from "./VoiceSettings.module.scss";
@@ -24,6 +24,9 @@ const bytes = (value, t) => `${t("model_downloads.exact_bytes", { bytes: Number(
 const gib = value => `${(value / 1073741824).toFixed(2)} GiB`;
 
 const reserveBytes = reserve => (reserve === 'vr' ? 2 : .5) * 1024 ** 3;
+// The local translation runs on its own device (translationDeviceMode), mostly the CPU: the
+// advice on free GPU memory for the speech models says nothing of it.
+const NO_ADVICE = { recommended: null, reason: "unknown", device: null, multiple: false };
 
 // Language codes as names in the UI language, joined the way that language lists things.
 // A long list shows its first few and how many more there are.
@@ -93,10 +96,16 @@ const ModelFacts = ({ entry }) => {
         t(`model_catalog.cpu.${profile.cpu}`, { defaultValue: "" }),
         t(`model_catalog.gpu.${profile.gpu}`, { defaultValue: "" }),
     ].filter(Boolean).join(" · ");
+    // A translation model says the memory it needs while translating (guidance.rs), or that it
+    // has not been measured: never a figure made up for it.
+    const translationMemory = entry.target === "translation" && (Number.isFinite(entry.guidance?.reference_memory_bytes)
+        ? t("model_catalog.translation_memory", { memory: gib(entry.guidance.reference_memory_bytes) })
+        : t("model_catalog.translation_memory_unknown"));
     return <dl className={styles.facts}>
         {supported.length > 0 && <div><dt>{t("model_catalog.languages")}</dt><dd>{languages(supported, 12)}</dd></div>}
         <div><dt>{t("model_catalog.size")}</dt><dd>{gib(entry.total_bytes)}</dd></div>
         {hardware && <div><dt>{t("model_catalog.hardware")}</dt><dd>{hardware}</dd></div>}
+        {translationMemory && <div><dt>{t("model_catalog.memory_needed")}</dt><dd>{translationMemory}</dd></div>}
         <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>
     </dl>;
 };
@@ -121,7 +130,8 @@ const WarningNote = ({ warning }) => {
     return <p className={styles.hardware_warning}>
         <span className={styles.warning_mark} aria-hidden="true" />
         <span>{t("model_catalog.hardware_warning.note", {
-            reason: t(`model_catalog.hardware_warning.${key}`, { required: gib(warning.required ?? 0), available: gib(warning.available ?? 0) }) })}</span>
+            reason: t(`model_catalog.hardware_warning.${key}`, { required: gib(warning.required ?? 0),
+                available: gib(warning.available ?? 0), reserve: gib(warning.reserve ?? 0) }) })}</span>
     </p>;
 };
 
@@ -145,7 +155,9 @@ const RestrictionNote = ({ kind, license, id }) => {
 // The download, verification and apply steps are the same as before; only the choice is laid out
 // as a catalog. Nothing here starts a download or changes a setting by itself.
 // only: the catalog ids to show, when the caller asks about one model (a translation weight's row).
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only }) => {
+// translationDevice: the saved device of the local translation, which the translation models'
+// warnings compare with (deviceMode is the speech engine's).
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice }) => {
     const { t, i18n } = useI18n();
     const languages = useLanguageList();
     const { catalog, state, hardware, error, pending, send, ensureHardware } = useModelDownloads();
@@ -186,11 +198,13 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const request = (endpoint, entry, job) => send(endpoint, { id: entry.id, job_id: job.job_id });
     const failure = code => t(`model_downloads.errors.${code}`, { defaultValue: t("model_downloads.errors.download_failed") });
     const matching = catalog?.models.filter(entry => targets.includes(entry.target) && (!only || only.includes(entry.id))) ?? [];
-    const advice = Object.fromEntries(targets.map(target => [target, modelAdvice(matching.filter(entry => entry.target === target),
-        hardware, { now: Date.now(), deviceMode, reserveBytes: reserveBytes(reserve) })]));
+    const advice = Object.fromEntries(targets.map(target => [target, target === "translation" ? NO_ADVICE
+        : modelAdvice(matching.filter(entry => entry.target === target), hardware, { now: Date.now(), deviceMode, reserveBytes: reserveBytes(reserve) })]));
     const memory = value => Number.isFinite(value) ? `${(value / 1024 ** 3).toFixed(2)} GiB` : t('model_downloads.hardware_unknown');
     const status = entry => downloadStatus(entry, state.jobs[entry.id], state.downloaded, expected?.[entry.target]);
-    const warningOf = entry => hardwareWarning(entry, hardware, { deviceMode });
+    const translationMode = translationDeviceMode(translationDevice, hardware);
+    const warningOf = entry => entry.target !== "translation" ? hardwareWarning(entry, hardware, { deviceMode })
+        : translationMode === null ? null : hardwareWarning(entry, hardware, { deviceMode: translationMode });
     const selectedWarning = selected && warningOf(selected);
     const selectedRestrictions = restrictionsOf(selected);
     // The consent and every restriction ticked: only then may the review start.
@@ -256,8 +270,9 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             {family.rows.length === 1 && variantLabel(current) !== current.name && <p className={styles.variant}>{t("model_catalog.variant")}: {variantLabel(current)}</p>}
             <ModelFacts entry={current} />
             {current.guidance?.reference_memory_bytes && <details className={styles.more}><summary>{t('model_downloads.guidance_summary')}</summary>
-                <p>{t(`model_downloads.tier_${current.guidance.tier}`)} · {t('model_downloads.memory_reference')}: {memory(current.guidance.reference_memory_bytes)}</p>
-                <p>{t(`model_downloads.validation_${current.guidance.validation.state}`)} {current.guidance.validation.device ?? ''}</p>
+                {/* A tier's own wording where the speech models' (a GPU, a provider's figure) does not fit. */}
+                <p>{t(`model_downloads.tier_${current.guidance.tier}`)} · {t([`model_downloads.memory_reference_${current.guidance.tier}`, 'model_downloads.memory_reference'])}: {memory(current.guidance.reference_memory_bytes)}</p>
+                <p>{t([`model_downloads.validation_${current.guidance.validation.state}_${current.guidance.tier}`, `model_downloads.validation_${current.guidance.validation.state}`])} {current.guidance.validation.device ?? ''}</p>
                 {current.guidance.validation.scope && <p>{t(`model_downloads.scope_${current.guidance.validation.scope}`)}</p>}
                 {hint.device && hint.device.description !== current.guidance.validation.device && <p>{t('model_downloads.gpu_unverified')}</p>}
             </details>}

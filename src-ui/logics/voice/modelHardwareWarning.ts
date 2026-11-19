@@ -16,12 +16,21 @@ export type WarnedModel = {
 };
 
 // low_memory: the model's memory (plus the same 25% allowance as modelHardwareAdvice.ts) is more
-// than the device has in total. no_gpu / cpu_setting: the model is too slow on a CPU and no GPU
-// was found, or the engine is set to run on the CPU.
+// than the device has in total; on the RAM, after RAM_RESERVE is kept for what runs next to it.
+// no_gpu / cpu_setting: the model is too slow on a CPU and no GPU was found, or the engine is set
+// to run on the CPU. `reserve` is the RAM kept back (null for a GPU).
 export type HardwareWarningReason = "low_memory" | "no_gpu" | "cpu_setting";
-export type HardwareWarning = { reason: HardwareWarningReason; required: number | null; available: number | null; device: HardwareDevice | null };
+export type HardwareWarning = { reason: HardwareWarningReason; required: number | null; available: number | null;
+    device: HardwareDevice | null; reserve: number | null };
 
 const ALLOWANCE = 1.25;
+const GiB = 1024 ** 3;
+// The RAM the OS and VRChat need while a model runs on the CPU (decided 2026-11-19, #597). Each
+// is the minimum its maker publishes: Windows 11 asks for 4 GB, and VRChat's Steam page lists
+// 4 GB as its minimum memory. Minimums, so the sum errs low rather than warning every PC; a GPU's
+// memory is compared without them.
+export const RAM_RESERVE = { os: 4 * GiB, vrchat: 4 * GiB };
+const RESERVED_RAM = RAM_RESERVE.os + RAM_RESERVE.vrchat;
 // The CPU marks of a model that a CPU does not run at a usable speed (native/ops/data/speechcpp_asr.json).
 const SLOW_ON_CPU = ["impractical", "slow"];
 // The engine's device choices (SpeechServers.jsx); anything else names one device.
@@ -37,6 +46,32 @@ export function requiredMemory(model: WarnedModel): number | null {
     return figures.length ? Math.max(...figures) : null;
 }
 
+// The saved device of the local translation (SELECTED_TRANSLATION_COMPUTE_DEVICE): `device` is
+// the ONNX Runtime provider (cpu, directml, cuda...), `device_index` its own count of devices.
+export type TranslationDevice = { device?: string | null; device_index?: number | null } | "" | null | undefined;
+
+// The GPUs a provider counts, by the probe's description; the others count every GPU.
+const PROVIDER_VENDORS: Record<string, RegExp> = { cuda: /nvidia/i, tensorrt: /nvidia/i, migraphx: /amd|radeon/i };
+// Providers that may run on the CPU or on a GPU: the probe cannot tell which.
+const UNPLACED_PROVIDERS = ["openvino"];
+
+// The deviceMode of hardwareWarning for the local translation, which runs where its own setting
+// says, not where the speech engine does: "cpu" for the CPU (the default, also while the setting
+// has not arrived), else the probe's name of the GPU the provider uses. The provider numbers the
+// GPUs it sees in the system's order, which the probe's order follows on the PCs checked so far.
+// null when that GPU is not among the probe's rows: then nothing is compared.
+export function translationDeviceMode(device: TranslationDevice, hardware: HardwareState | null | undefined): string | null {
+    const provider = device && typeof device === "object" ? device.device : null;
+    if (!provider || provider === "cpu") return "cpu";
+    if (hardware?.phase !== "ready" || UNPLACED_PROVIDERS.includes(provider)) return null;
+    const index = Number.isSafeInteger(device && typeof device === "object" ? device.device_index : null)
+        ? (device as { device_index: number }).device_index : 0;
+    const vendor = PROVIDER_VENDORS[provider];
+    const gpus = hardware.devices.filter(row => (row.kind === "gpu" || row.kind === "igpu")
+        && (!vendor || vendor.test(row.description ?? "")));
+    return (index >= 0 ? gpus[index]?.name : null) ?? null;
+}
+
 export function hardwareWarning(model: WarnedModel, hardware: HardwareState | null | undefined,
     { deviceMode = "auto" }: { deviceMode?: string } = {}): HardwareWarning | null {
     // Nothing measured, nothing to say: an unknown PC is never shown as too weak.
@@ -49,14 +84,14 @@ export function hardwareWarning(model: WarnedModel, hardware: HardwareState | nu
     const required = requiredMemory(model);
     if (!gpu) {
         if (model.profile?.gpu === "recommended" && SLOW_ON_CPU.includes(model.profile?.cpu ?? ""))
-            return { reason: deviceMode === "cpu" || named?.kind === "cpu" ? "cpu_setting" : "no_gpu", required, available: null, device: null };
+            return { reason: deviceMode === "cpu" || named?.kind === "cpu" ? "cpu_setting" : "no_gpu", required, available: null, device: null, reserve: null };
         const cpu = devices.find(row => row.kind === "cpu" && positive(row.memory_total));
-        if (cpu && required !== null && required * ALLOWANCE > cpu.memory_total!)
-            return { reason: "low_memory", required, available: cpu.memory_total, device: cpu };
+        if (cpu && required !== null && required * ALLOWANCE + RESERVED_RAM > cpu.memory_total!)
+            return { reason: "low_memory", required, available: cpu.memory_total, device: cpu, reserve: RESERVED_RAM };
         return null;
     }
     // GPU memories are never added together.
     if (required === null || !positive(gpu.memory_total)) return null;
     return required * ALLOWANCE > gpu.memory_total
-        ? { reason: "low_memory", required, available: gpu.memory_total, device: gpu } : null;
+        ? { reason: "low_memory", required, available: gpu.memory_total, device: gpu, reserve: null } : null;
 }

@@ -43,7 +43,7 @@ use vrct_tts::settings::{self as tts_settings, VoiceSettings};
 use vrct_tts::{CancelToken, SpeechCppTts, SpeechError, TtsError, VoiceEventBus};
 use vrct_voice_conversion::direct::{ConvertedFactory, PassthroughFactory};
 use vrct_voice_conversion::runtime::{RuntimeSetup, SetupOptions};
-use vrct_voice_conversion::{DeviceRoute, DirectVoice, SpeakFailure, VcProcess};
+use vrct_voice_conversion::{DeviceRoute, DirectVoice, ManagedRoute, SpeakFailure, VcProcess, VcRoute};
 
 const SETTINGS_KEY: &str = "VOICE_SETTINGS";
 const DIRECT_KEY: &str = "DIRECT_VOICE_SETTINGS";
@@ -249,11 +249,18 @@ impl Voice {
                 if options.get("engine").and_then(Value::as_str) != Some("rvc") {
                     return Err("vc_engine_unavailable".into());
                 }
-                // The managed route of a conversion needs a PipeWire capture the core does not
-                // have yet: only the device route runs (decision in core-integration.md).
-                let output = output.ok_or("vc_engine_unavailable")?;
-                let devices = platform.route_devices().ok_or("vc_engine_unavailable")?;
-                let route = Arc::new(DeviceRoute::new(output, devices, platform.monitor_output()));
+                let route: Arc<dyn VcRoute> = match output {
+                    // Windows: the chosen output device.
+                    Some(output) => {
+                        let devices = platform.route_devices().ok_or("vc_engine_unavailable")?;
+                        Arc::new(DeviceRoute::new(output, devices, platform.monitor_output()))
+                    }
+                    // Linux: the managed VC input, captured from PipeWire (decision 11).
+                    None => {
+                        let devices = platform.managed_vc_devices().ok_or("vc_engine_unavailable")?;
+                        Arc::new(ManagedRoute::new(devices, platform.monitor_output()))
+                    }
+                };
                 let options = with_block(options, settings.upgrade().map(|core| core.config().get("RVC_BLOCK_MS")));
                 Ok(Box::new(VcProcess::rvc(&options, &worker, route, monitor)?) as Box<dyn vrct_voice_conversion::DirectBackend>)
             })

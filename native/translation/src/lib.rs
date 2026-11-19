@@ -9,6 +9,8 @@
 //!   outside (the dictionary is not chosen yet).
 //! - [`http`]: the small HTTP/1.1 client the providers use.
 //! - [`proxy`]: the proxy speech recognition's requests go through (not translation's).
+//! - [`translategemma`]: TranslateGemma's prompt and one request to the llama.cpp server the
+//!   app owns (ADR-015); not a provider of the engine list.
 //!
 //! Nothing here logs. Errors are fixed codes: no key, URL or text is in them.
 
@@ -18,4 +20,5 @@ pub mod http;
 pub mod prompt;
 pub mod providers;
 pub mod proxy;
+pub mod translategemma;
 pub mod transliteration;

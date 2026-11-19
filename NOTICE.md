@@ -149,8 +149,9 @@ selected one from Hugging Face into `weights/ctranslate2/`. Since 0.5.0 the
 builds contain no CTranslate2: the app neither downloads nor reads these
 weights, and removes those earlier versions downloaded after start-up. Local
 translation now runs on ONNX Runtime (`native/translate-onnx`, see "Rust crates
-in VRCT-VOX builds" below); the models for it are not published yet
-(`docs/voice-stack/core-integration.md`, item 1). The setting keeps the values
+in VRCT-VOX builds" below); its ONNX conversions of M2M100 418M and NLLB-200
+distilled 600M are offered through the consented model catalog (see that
+section). The setting keeps the values
 in the table, which now select the ONNX conversion of the same model, and
 Settings → Translation shows the license next to each model.
 
@@ -250,16 +251,39 @@ package `Microsoft.AI.DirectML`, under the Microsoft Software License Terms for
 DirectML, which allow its use on Windows only and say it may send usage data to
 Microsoft). The app loads one of them instead of the shipped CPU build at start
 when the user chose its device for translation; chat reading then uses it too.
-No translation model is bundled: the M2M100
-(MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
-consented model catalog once published, and a model the user adds to the
-translation catalog from a folder of their own is under its own license, which
-the user is responsible for. A model under a non-commercial license, such as NLLB-200, is
+No translation model is bundled: the int8 ONNX conversions of M2M100 418M
+(MIT, the default; `kein5/m2m100_418M-onnx-int8`, with the MIT licence text in
+`LICENSE`) and NLLB-200 distilled 600M (CC-BY-NC-4.0;
+`kein5/nllb-200-distilled-600M-onnx-int8`) are offered only through the
+consented model catalog, pinned by revision, size and SHA-256 in
+`native/ops/data/translation_models.json`, each with a model card that names
+the source model, its authors (Meta AI) and the changes made. A model the user
+adds to the translation catalog from a folder of their own is under its own
+license, which the user is responsible for. A model under a non-commercial license, such as NLLB-200, is
 never the default and downloads only after the user has also ticked a separate
 acknowledgement that names its license and allows only non-commercial use; the
 backend refuses the download without it. Selecting an NLLB-200 model keeps its
 own license confirmation. The planned entries are recorded in
 `docs/voice-stack/licensing.md`.
+
+A decoder-only translation LLM such as TranslateGemma runs on llama.cpp's
+`llama-server` (ADR-015), which is not bundled either. The app offers its
+release b12125 from llama.cpp's GitHub releases (`ggml-org/llama.cpp`), a
+Vulkan build and a CPU build for Windows and Linux on x86-64, fetched only
+after the user's consent and pinned by size and SHA-256, and keeps the server
+and the libraries it loads in the settings folder (`vc_runtimes/llamacpp-*`).
+llama.cpp and ggml are under the MIT license (Copyright (c) 2023-2026 The ggml
+authors; the Linux archives carry it as `LICENSE`). The Windows archives also
+carry LLVM's OpenMP runtime (`libomp.dll`, Apache-2.0 WITH LLVM-exception, with
+its license as `LICENSE-LLVM-OpenMP`). The server's libraries also contain
+cpp-httplib (MIT) and nlohmann/json (MIT), and on Windows BoringSSL (Apache-2.0
+and the OpenSSL and ISC licenses); their license texts are not in the archives.
+On Linux the server uses the distribution's OpenSSL 3, `libgomp` and Vulkan
+loader, which the app does not fetch. No model comes with it: the user adds a
+GGUF file of their own and answers for its source and license. TranslateGemma
+is under the Gemma Terms of Use and the Gemma Prohibited Use Policy, which
+also bind the person who uses it; a catalog model under those terms downloads
+only after a separate acknowledgement of them.
 
 `native/transcription` (speech recognition) reimplements, so that phrases are
 cut as before, the energy-based listening of SpeechRecognition 3.10.4

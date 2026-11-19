@@ -13,7 +13,7 @@ export const useExperimentalFeatures = createCategoryHook("ExperimentalFeatures"
 export const useUsagePresets = createCategoryHook("UsagePresets");
 
 // Exceptional exports that are not part of SETTINGS_ARRAY or have custom logic.
-export { useHotkeys } from "./config_page_setter/hotkeys/useHotkeys.js";
+export { useHotkeys } from "./config_page_setter/hotkeys/useHotkeys";
 export { useOcrSharedWindow, ocrStartErrorKey, ocrShouldRestoreSharedWindow } from "./useOcrSharedWindow";
 export { useExperimentalFeature } from "./useExperimentalFeature.ts";
 

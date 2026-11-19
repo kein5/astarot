@@ -1842,6 +1842,7 @@ vc_runtime:
     help_seed: "変換に使うPython環境とエンジン本体です。NVIDIAのGPUが必要です。内容を確認してから取得します。"
     help_onnx_cuda: "AI翻訳をNVIDIAのGPUで動かすためのONNX Runtime（CUDA 13版）と、NVIDIAのCUDAとcuDNNのライブラリです。NVIDIAのドライバー580以降が必要です。内容を確認してから取得します。"
     help_onnx_directml: "DirectMLを通してAI翻訳をGPUで動かすためのONNX Runtime（DirectML版）とDirectMLです。AMDやIntelのGPUでも使えます。内容を確認してから取得します。"
+    help_llamacpp_vulkan: "Vulkanの処理部を含むllama.cppのサーバーです。TranslateGemmaのような翻訳のLLMをGPU（NVIDIA、AMD、Intel）かCPUで動かします。内容を確認してから取得します。"
     outdated: "このフォルダの実行環境は以前の形式のため、もう使えません。内容を確認して取得し直してください。"
     size: "通信量 約{{download}} · 必要な空き容量 約{{disk}}"
     gpu_missing: "NVIDIAのドライバーが見つかりません。この実行環境はNVIDIAのGPUでだけ動きます。"
@@ -1862,9 +1863,12 @@ vc_runtime:
     notice_onnx_directml: "ONNX Runtime（DirectML版 1.24.4）とDirectML 1.15.4を取得します。ONNX RuntimeはMITです。DirectMLはMicrosoftのライセンスに従い、Windowsでだけ使えます。このライセンスには、DirectMLが利用者と使い方の情報を集めてMicrosoftに送ることがあると書かれています。これらはASTAROTの配布物ではなく、提供元から直接取得します。処理デバイスで選ぶと、チャット読み取りも同じONNX Runtimeで動きます。"
     connection_notice_onnx_cuda: "NuGetとPyPIの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
     connection_notice_onnx_directml: "NuGetの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
+    notice_llamacpp_vulkan: "llama.cppのサーバーのVulkan版（リリースb12125）を、llama.cppのGitHubのリリースから取得します。llama.cppはMITです。Windows版にはLLVMのOpenMPのライブラリも含まれ、LLVMの例外付きのApache-2.0に従います。これはASTAROTの配布物ではなく、提供元から直接取得します。モデルは含まれません。モデルのファイルは自分で翻訳のカタログに追加します。"
+    connection_notice_llamacpp_vulkan: "GitHubの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
     no_start: "取得だけでは変換の開始やマイクの使用は行いません。"
     no_start_onnx_cuda: "取得だけでは、翻訳に使う処理デバイスは変わりません。"
     no_start_onnx_directml: "取得だけでは、翻訳に使う処理デバイスは変わりません。"
+    no_start_llamacpp_vulkan: "取得だけではサーバーの起動も翻訳エンジンの切り替えもしません。"
     consent: "提供元・利用条件・容量・保存先を確認し、取得に同意します。"
     start: "同意して取得"
     phase_queued: "開始しています"
@@ -1877,6 +1881,8 @@ vc_runtime:
     phase_verifying: "GPUで動くか確認しています"
     phase_libraries_onnx_directml: "ONNX RuntimeとDirectMLを取得しています"
     phase_verifying_onnx_directml: "読み込めるか確認しています"
+    phase_libraries_llamacpp_vulkan: "llama.cppのサーバーを取得しています"
+    phase_verifying_llamacpp_vulkan: "動くかと使える機器を確認しています"
     phase_cancelling: "中止しています"
     phase_cancelled: "中止しました。再開すると終わった手順は飛ばします"
     phase_failed: "準備できませんでした。再開すると終わった手順は飛ばします"
@@ -1892,6 +1898,8 @@ vc_runtime:
         vc_runtime_source_failed: "エンジン本体を取得できないか、内容が固定の版と一致しません。"
         vc_runtime_libraries_failed: "ONNX RuntimeかCUDAのライブラリを取得できないか、内容が固定の版と一致しません。ネットワークと空き容量を確認してください。"
         vc_runtime_libraries_failed_onnx_directml: "ONNX RuntimeかDirectMLを取得できないか、内容が固定の版と一致しません。ネットワークと空き容量を確認してください。"
+        vc_runtime_libraries_failed_llamacpp_vulkan: "llama.cppのサーバーを取得できないか、内容が固定のリリースと一致しません。ネットワークと空き容量を確認してください。"
+        vc_runtime_check_failed_llamacpp_vulkan: "取得したllama.cppのサーバーが動きませんでした。LinuxではディストリビューションのOpenSSL 3とlibgompが必要です。もう一度取得してください。"
         vc_runtime_assets_failed: "基礎モデルを取得できないか、内容が固定の版と一致しません。"
         vc_runtime_gpu_unusable: "実行環境からGPUを使えません。NVIDIAのドライバーを580以降に更新してください。"
         vc_runtime_check_failed: "取得した実行環境を読み込めませんでした。もう一度取得してください。繰り返すときは、保存先のsetup.logに詳細があります。"
@@ -1899,6 +1907,7 @@ vc_runtime:
     warnings:
         vc_runtime_gpu_unusable_cpu: "GPUを使えなかったため、CPUで変換します。声の遅れは約1.3秒です。GPUで変換するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。ドライバーを更新したら、開始し直すとGPUで変換します。"
         onnx_runtime_gpu_unusable: "準備はできましたが、GPUを使えませんでした。処理デバイスで選んでも、翻訳はCPUで動きます。GPUで翻訳するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。"
+        llamacpp_no_gpu: "準備はできましたが、VulkanでGPUが見つかりませんでした。これを使う翻訳はCPUで動きます。GPUのドライバーを更新するとGPUを使えることがあります。"
 
 model_downloads:
     hardware_title: "GPUとメモリ"
@@ -1923,6 +1932,10 @@ model_downloads:
             title: "非商用の利用に限ります。"
             note: "このモデルのライセンス（{{license}}）は非商用の利用だけを認めています。商用の目的には使えません。取得する前にライセンスを確認してください。"
             acknowledge: "{{license}}に従い、このモデルを非商用の目的にだけ使います。"
+        gemma_terms:
+            title: "Gemmaの利用規約が適用されます。"
+            note: "このモデルのライセンス（{{license}}）にはGemmaの利用規約と禁止用途のポリシーが含まれます。この条件はモデルを使う人にも及びます。取得する前に下のリンクから両方を読んでください。"
+            acknowledge: "Gemmaの利用規約と禁止用途のポリシーを読み、その条件に従ってこのモデルを使います。"
         other:
             title: "ライセンスに利用の制限があります。"
             note: "このバージョンのアプリはこのモデルのライセンス（{{license}}）の条件を示せず、同意も確かめられません。ここでは取得できません。"
@@ -1941,6 +1954,8 @@ model_downloads:
     notice_ppocr: "チャット読み取り用の文字検出・認識モデルです。PaddleOCR（PaddlePaddle）提供、Apache-2.0です。お使いのPCのCPUで動き、画面の内容を送信することはありません。"
     notice_chatbox: "チャット読み取り用の、ASTAROT独自の吹き出し検出モデル（YOLOX-Tiny）です。ASTAROT自身のスクリーンショットで学習し、MITで公開しています。お使いのPCのCPUで動き、画面の内容を送信することはありません。"
     notice_translation: "ONNX Runtime用のローカル翻訳モデルです。上に書いた元のモデルから変換しました。お使いのPCで動き、翻訳する文章を送信することはありません。元のモデルのライセンスを確認してください。"
+    # NLLB-200 distilled 600M（translation_models.json の notice）。容量とメモリはその版で測った値。
+    notice_translation_nllb_600m: "NLLB-200 distilled 600MをONNX Runtime用に変換したローカル翻訳モデルです。お使いのPCで動き、翻訳する文章を送信することはありません。ライセンスはCC-BY-NC-4.0で、非商用の利用に限ります。取得には約643 MBの空き容量が要り、翻訳の間は約1.4 GiBのメモリを使います。既定のM2M100は変わらず、このモデルは選んだときだけ使います。"
     notice_haas: "speech.cpp 0.9.4以降用の、句読点付きで書き起こす日本語音声認識モデルです。Third Intelligence提供、sakasegawa変換、Apache-2.0です。利用前にモデルカードを確認してください。"
     rvc_requirements: "取得するのはRVC音声モデルと検索インデックス（.index）だけです。変換にはRVCの実行環境（Python環境・HuBERT・RMVPE）も必要です。取得完了だけでは変換の準備完了になりません。"
     notice_qwen_asr: "30言語を認識し、話している言語も自動で判定する音声認識モデルです。Qwenチーム提供、sakasegawa変換、Apache-2.0です。1.7Bは0.6Bより誤りが少ない一方で容量とメモリを多く使います（speech.cppによるCommon Voice日本語での測定ではCER 9.49%と11.89%）。利用前にモデルカードを確認してください。"
@@ -2039,6 +2054,10 @@ model_downloads:
     scope_tts_native_vulkan: "Linux（speech.cpp 0.9.0、Vulkan）で短い文を読み上げられることを確かめました。ほかのGPU、長い文、音質はまだ確かめていません。"
     scope_tts_http_vulkan: "Linux（speech.cpp 0.9.0、Vulkan）で、短い文の読み上げ、途中で止めること、サーバーの再起動を確かめました。音を出す先までの流れと、ほかのGPUはまだ確かめていません。"
     gpu_unverified: "現在のGPUは検証したGPUと異なります。この推奨はメモリ容量に基づくものです。"
+    tier_translation: "ローカル翻訳：GPUを選ばなければCPUで動きます"
+    memory_reference_translation: "CPUで短い文を60件訳したときの最大のメモリ（最低限の量ではありません）"
+    validation_passed_translation: "動作を確かめたCPU："
+    scope_translation_onnx_cpu: "Windows 11（ONNX Runtime 1.32、CPUの4スレッド）で英語と日本語の短い文を訳せることを確かめました。GPU、ほかの言語、長い文はまだ確かめていません。"
 
 # モデルカタログ（モデルを選ぶ画面）。用途ごとのまとまりと、モデルごとのカード。
 model_catalog:
@@ -2066,6 +2085,9 @@ model_catalog:
     hardware: "ハードウェアの目安"
     terms: "提供元とライセンス"
     memory: "メモリ約{{memory}}（{{device}}で測定）"
+    memory_needed: "使うメモリ"
+    translation_memory: "翻訳の間に約{{memory}}（CPUで測定）"
+    translation_memory_unknown: "まだ測っていません"
     tier:
         light: "軽い"
         medium: "中くらい"
@@ -2085,7 +2107,7 @@ model_catalog:
         option: "性能不足の可能性"
         note: "お使いのPCでは性能が足りない可能性があります。{{reason}}あくまで目安なので、選んで試すこともできます。"
         low_memory_gpu: "このモデルはメモリを約{{required}}使います。GPUのメモリは全部で{{available}}なので余裕がありません。"
-        low_memory_cpu: "このモデルはメモリを約{{required}}使います。見つかったメモリは全部で{{available}}なので余裕がありません。"
+        low_memory_cpu: "このモデルはメモリを約{{required}}使います。OSとVRChatの分として約{{reserve}}を残すと、見つかったメモリ（全部で{{available}}）では余裕がありません。"
         no_gpu: "GPUが見つかりませんでした。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
         cpu_setting: "エンジンがCPUで動かす設定になっています。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
     variant: "ファイルの種類"
@@ -2213,6 +2235,10 @@ translation_catalog:
         api: "アプリがネットワーク越しに呼び出す翻訳のサービスです。お使いのPCやLANの中のサーバーも含みます。アドレスとモデルとキーを指定して追加します。"
     none_added: "まだ追加していません。"
     shipped_title: "アプリに含まれる項目（{{count}}件）"
+    # TranslateGemmaのような翻訳のLLMを動かすllama.cppのサーバー（ADR-015）。
+    llamacpp:
+        label: "翻訳のLLMを動かすllama.cppのサーバー"
+        desc: "TranslateGemmaのような翻訳のLLMは、llama.cppのサーバーで動きます。サーバーはアプリに含まれていません。ここでサーバーを取得してから、下でモデルのファイルを追加してください。サーバーが起動するのは、そのモデルで翻訳をオンにしたときだけです。"
     badge:
         builtin: "標準"
         user: "自分で追加"
@@ -2226,6 +2252,7 @@ translation_catalog:
         missing: "フォルダーがありません"
         unsupported: "この版では使えません"
         unavailable: "読み込めません"
+        no_server: "llama.cppのサーバーが必要です"
         no_key: "APIキーがありません"
         not_downloaded: "未ダウンロード"
         not_set: "未設定"
@@ -2233,16 +2260,24 @@ translation_catalog:
         missing: "フォルダーが見つかりません。移動したときは項目を削除してから追加し直してください。"
         unsupported: "新しい版のアプリで追加した項目です。この版では使えません。"
         unavailable: "フォルダーのモデルを読み込めないか、示す言語がモデルにありません。理由はログに出ています。"
+        unavailable_llamacpp: "モデルのファイルをGemma 3のGGUFとして読めないか、示す言語がありません。理由はログに出ています。"
+        no_server: "このモデルはllama.cppのサーバーで動きます。先に上でサーバーを取得してください。"
         no_key: "APIキーをアプリのキーの保管場所に保存できなかったので、アプリを閉じたときにキーがなくなりました。項目を削除して追加し直してください。"
     fact:
         runtime: "推論エンジン"
         folder: "フォルダー"
+        file: "モデルのファイル"
+        device: "機器"
         languages: "言語"
         url: "アドレス"
         model: "モデル"
         key: "APIキー"
     runtime:
         onnx: "ONNX Runtime（M2M100とNLLB-200の形式）"
+        llamacpp: "llama.cpp（TranslateGemmaのGGUFのファイル）"
+    device:
+        auto: "自動（音声認識が使うGPU。なければCPU）"
+        cpu: "CPUだけ"
     protocol:
         openai_compatible: "OpenAI互換のAPI"
     languages_all: "モデルにあるすべての言語"
@@ -2267,6 +2302,7 @@ translation_catalog:
         api: "APIを追加"
     add_help:
         engine: "モデルのあるフォルダーを入れてください。manifest.jsonとONNXのファイルとトークナイザーがあるフォルダーです。フォルダーはコピーも移動もしません。言語を空にするとモデルにあるすべての言語を使えます。"
+        engine_llamacpp: "TranslateGemmaのモデルのGGUFのファイルを入れてください。ファイルはコピーも移動もしません。TranslateGemmaはGemmaの利用規約と禁止用途のポリシーに従い、この条件は使う人にも及びます。会話の流れは送らず、メッセージを1つずつ訳します。言語を空にすると、アプリが名前を付けられるすべての言語を使えます。"
         api: "OpenAI互換のAPIを入れてください。インターネットのサービスでも、お使いのPCやLANの中のサーバーでもかまいません。キーは設定のファイルではなくアプリのキーの保管場所に置きます。使うときは先にアドレスとキーを確かめます。"
     terms_help: "追加したモデルの出どころとライセンスは、このアプリでは確かめていません。利用条件はご自身で確認してください。"
     no_runtime: "このビルドではお使いのPCでモデルを動かせないので、ここにはモデルを追加できません。"
@@ -2274,6 +2310,8 @@ translation_catalog:
     field:
         name: "表示する名前"
         folder: "モデルのフォルダー"
+        file: "モデルのGGUFのファイル"
+        device: "機器"
         runtime: "推論エンジン"
         languages: "言語のコード（省略可）"
         protocol: "APIの種類"
@@ -2290,6 +2328,7 @@ translation_catalog:
         name_missing: "名前を入れてください。"
         name_long: "名前は80文字までです。"
         folder_missing: "モデルのフォルダーを入れてください。"
+        file_missing: "モデルの.ggufのファイルの場所を入れてください。"
         languages_invalid: "jaやeng_Latnのような言語のコードを、コンマか空白で区切って入れてください。"
         url_missing: "アドレスを入れてください。"
         url_invalid: "http://かhttps://で始まるアドレスを入れてください。"
@@ -2327,6 +2366,9 @@ translation_catalog:
         translation_file_missing: "manifest.jsonにあるファイルがフォルダーにありません。"
         translation_bundle_modified: "フォルダーのファイルがmanifest.jsonの記録と違います。"
         translation_languages_unknown: "モデルの言語の名前が分からないか、入れた言語のコードがモデルにありません。"
+        translation_catalog_file_missing: "モデルのファイルが見つからないか、.ggufのファイルではありません。場所を確認してください。"
+        translation_catalog_device_invalid: "機器を選び直してください。"
+        translation_catalog_gguf_invalid: "このファイルは、TranslateGemmaのようなGemma 3のモデルのGGUFではありません。"
 studio:
     toggle_sidebar: "サイドバーを切り替える"
     close_sidebar: "サイドバーを閉じる"

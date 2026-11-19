@@ -9,7 +9,7 @@ use serde::{Serialize, Serializer};
 use super::speechcpp;
 use crate::net::quote;
 
-pub const CATALOG_VERSION: &str = "2026-11-16.3";
+pub const CATALOG_VERSION: &str = "2026-11-19.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Artifact {
@@ -59,33 +59,47 @@ impl Model {
     }
 
     /// What the user acknowledges for this entry apart from the general consent
-    /// ([`license_restrictions`] of its license).
+    /// ([`restrictions_for`] its target and license).
     pub fn restrictions(&self) -> Vec<&'static str> {
-        license_restrictions(&self.license)
+        restrictions_for(&self.target, &self.license)
     }
+}
+
+/// The restrictions an entry of `target` under `license` carries: those of
+/// [`license_restrictions`], except that the Gemma terms are asked for only by a translation
+/// entry (decided 2026-11-19 for the LLM runtime plan, decision 4). A speech model whose weights
+/// come from Gemma, such as Irodori-TTS v4 Large, shows its license and links as before but has
+/// no checkbox of its own.
+pub fn restrictions_for(target: &str, license: &str) -> Vec<&'static str> {
+    license_restrictions(license).into_iter().filter(|kind| *kind != "gemma_terms" || target == TRANSLATION_TARGET).collect()
 }
 
 /// The kinds of restriction a user acknowledges one by one, apart from the general consent,
 /// before a download starts (`acknowledged` of `/run/start_model_download`), in the order they
 /// are listed. `non_commercial`: a Creative Commons NonCommercial license (CC-BY-NC-4.0 and its
-/// -SA and -ND variants). A new kind (terms such as Gemma's) is added here, in `catalog.py`'s
-/// `RESTRICTIONS` and in the UI's texts.
-pub const RESTRICTIONS: [&str; 1] = ["non_commercial"];
+/// -SA and -ND variants). `gemma_terms`: the Gemma Terms of Use, whose Prohibited Use Policy
+/// binds whoever uses the model, not only who distributes it (ADR-015). A new kind is added
+/// here, in `catalog.py`'s `RESTRICTIONS` and in the UI's texts.
+pub const RESTRICTIONS: [&str; 2] = ["non_commercial", "gemma_terms"];
+
+/// The words of one part of a license string, in upper case.
+fn license_words(part: &str) -> Vec<String> {
+    part.split(|c: char| !c.is_ascii_alphanumeric()).filter(|w| !w.is_empty()).map(str::to_ascii_uppercase).collect()
+}
 
 /// The restrictions a catalog license string carries, in [`RESTRICTIONS`] order. A license of
 /// several parts (`MIT + Apache-2.0`) carries those of every part. Derived from the reviewed
 /// string, so no field is added to [`Model`] or to `receipt.json`.
 pub fn license_restrictions(license: &str) -> Vec<&'static str> {
-    let non_commercial = license.split(['+', ',']).any(|part| {
-        let words: Vec<String> = part.split(|c: char| !c.is_ascii_alphanumeric()).filter(|w| !w.is_empty()).map(str::to_ascii_uppercase).collect();
-        // "CC-BY-NC-SA-4.0", "CC BY-NC 4.0"; "Attribution-NonCommercial" spelled out.
-        (words.first().is_some_and(|w| w == "CC") && words.iter().any(|w| w == "NC")) || words.concat().contains("NONCOMMERCIAL")
-    });
-    if non_commercial {
-        vec!["non_commercial"]
-    } else {
-        Vec::new()
-    }
+    let parts: Vec<Vec<String>> = license.split(['+', ',']).map(license_words).collect();
+    // "CC-BY-NC-SA-4.0", "CC BY-NC 4.0"; "Attribution-NonCommercial" spelled out.
+    let non_commercial = parts.iter().any(|words| (words.first().is_some_and(|w| w == "CC") && words.iter().any(|w| w == "NC")) || words.concat().contains("NONCOMMERCIAL"));
+    // "Gemma Terms of Use", and Hugging Face's license id "gemma" on its own.
+    let gemma = parts.iter().any(|words| words.concat().contains("GEMMATERMS") || words.as_slice() == ["GEMMA"]);
+    RESTRICTIONS.into_iter().filter(|kind| match *kind {
+        "non_commercial" => non_commercial,
+        _ => gemma,
+    }).collect()
 }
 
 pub const IRODORI_REV: &str = "9db7da1bec3d1069ef8e29732e0497be60c7b047";
@@ -128,10 +142,14 @@ pub const TARGETS: [&str; 7] = ["japanese", "multilingual", "asr", "vad", "diari
 /// `data/translation_models.json` ([`translation_models`]), which is empty until the models are
 /// published; an entry is one folder of `tools/translation_onnx/export.py`, its id
 /// `<model>-onnx-<variant>` in lower case with `_` and `.` as `-` (`m2m100-418m-onnx-int8`),
-/// its `notice` `translation` (the UI's `model_downloads.notice_translation`), and nothing goes
-/// into the settings when it is applied: the local translation finds verified downloads by
-/// catalog id, as chat reading does.
+/// its `notice` `translation` (the UI's `model_downloads.notice_translation`) unless the entry
+/// names one of [`TRANSLATION_NOTICES`], and nothing goes into the settings when it is applied:
+/// the local translation finds verified downloads by catalog id, as chat reading does.
 pub const TRANSLATION_TARGET: &str = "translation";
+/// The notices a translation entry may name (`model_downloads.notice_<notice>` in locales/):
+/// the general one, and one per model whose download review says more, such as the size and
+/// memory of an NLLB-200 model next to its non-commercial licence.
+pub const TRANSLATION_NOTICES: [&str; 2] = [TRANSLATION_TARGET, "translation_nllb_600m"];
 /// The roles of a translation entry's files. `manifest` is required: it names the rest. `data`
 /// (the weights of a graph over 2 GB, `<graph>.onnx_data`) may come once per graph.
 pub const TRANSLATION_ROLES: [&str; 7] = ["manifest", "encoder", "decoder", "tokenizer", "vocabulary", "weights", "data"];
@@ -155,6 +173,9 @@ struct TranslationModel {
     revision: String,
     license: String,
     licenses: Vec<String>,
+    /// One of [`TRANSLATION_NOTICES`]; left out, the general `translation`.
+    #[serde(default)]
+    notice: Option<String>,
     artifacts: Vec<TranslationFile>,
 }
 
@@ -167,25 +188,31 @@ struct TranslationFile {
     role: String,
 }
 
-/// The entries of a `translation_models.json` text, in its order.
+/// The entries of a `translation_models.json` text, in its order. A notice that is not one of
+/// [`TRANSLATION_NOTICES`] is refused: the review would show a text the UI does not have.
 fn parse_translation_models(text: &str) -> Result<Vec<Model>, String> {
     let data: TranslationModels = serde_json::from_str(text).map_err(|error| error.to_string())?;
-    Ok(data
-        .models
+    data.models
         .into_iter()
-        .map(|entry| Model {
-            id: entry.id,
-            target: TRANSLATION_TARGET.into(),
-            name: entry.name,
-            provider: entry.provider,
-            repo: entry.repo,
-            revision: entry.revision,
-            license: entry.license,
-            licenses: entry.licenses,
-            notice: TRANSLATION_TARGET.into(),
-            artifacts: entry.artifacts.into_iter().map(|file| artifact(&file.filename, file.size, &file.sha256, &file.role)).collect(),
+        .map(|entry| {
+            let notice = entry.notice.unwrap_or_else(|| TRANSLATION_TARGET.into());
+            if !TRANSLATION_NOTICES.contains(&notice.as_str()) {
+                return Err(format!("{}: unknown notice {notice}", entry.id));
+            }
+            Ok(Model {
+                id: entry.id,
+                target: TRANSLATION_TARGET.into(),
+                name: entry.name,
+                provider: entry.provider,
+                repo: entry.repo,
+                revision: entry.revision,
+                license: entry.license,
+                licenses: entry.licenses,
+                notice,
+                artifacts: entry.artifacts.into_iter().map(|file| artifact(&file.filename, file.size, &file.sha256, &file.role)).collect(),
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// The published local translation models, from `data/translation_models.json` (written by
@@ -690,7 +717,7 @@ mod translation_tests {
         assert_eq!(shipped, translation_models());
         assert_eq!(validate_catalog(&shipped), Ok(()));
         for model in &shipped {
-            assert_eq!(model.notice, TRANSLATION_TARGET);
+            assert!(TRANSLATION_NOTICES.contains(&model.notice.as_str()), "{}", model.id);
             let variant = model.id.rsplit_once("-onnx-").map(|(_, variant)| variant);
             assert!(matches!(variant, Some("float32" | "float16" | "int8" | "int4")), "{}", model.id);
             assert!(!model.licenses.is_empty(), "{}", model.id);
@@ -715,6 +742,11 @@ mod translation_tests {
         assert_eq!(validate_catalog(&models), Ok(()));
         // A field the data file does not know is refused, not dropped.
         assert!(parse_translation_models(r#"{"models": [], "extra": 1}"#).is_err());
+        // An entry may name a notice of its own, but only one the UI has words for.
+        let named = text.replace(r#""license": "MIT","#, r#""license": "MIT", "notice": "translation_nllb_600m","#);
+        assert_eq!(parse_translation_models(&named).unwrap()[0].notice, "translation_nllb_600m");
+        let unknown = text.replace(r#""license": "MIT","#, r#""license": "MIT", "notice": "something_else","#);
+        assert!(parse_translation_models(&unknown).unwrap_err().contains("unknown notice"));
     }
 
     #[test]
@@ -723,13 +755,34 @@ mod translation_tests {
         for license in non_commercial.into_iter().chain(["Creative Commons Attribution-NonCommercial 4.0"]) {
             assert_eq!(license_restrictions(license), ["non_commercial"], "{license}");
         }
-        for license in ["MIT + Apache-2.0", "CC BY 4.0", "CC-BY-SA-4.0", "CC0-1.0", "Gemma Terms of Use + MIT + Apache-2.0", "OpenMDW-1.1", "MIT", "Apache-2.0", ""] {
+        for license in ["MIT + Apache-2.0", "CC BY 4.0", "CC-BY-SA-4.0", "CC0-1.0", "OpenMDW-1.1", "MIT", "Apache-2.0", "Gemmatic-1.0", ""] {
             assert!(license_restrictions(license).is_empty(), "{license}");
         }
         assert_eq!(entry(Vec::new()).restrictions(), Vec::<&str>::new());
         assert_eq!(Model { license: "CC-BY-NC-4.0".into(), ..entry(Vec::new()) }.restrictions(), ["non_commercial"]);
-        // Only a translation model (NLLB-200, translation_models.json) may carry one; the speech,
-        // voice and chat-reading models the catalog offers carry none.
-        assert!(catalog().iter().filter(|m| m.target != TRANSLATION_TARGET).all(|m| m.restrictions().is_empty()));
+    }
+
+    #[test]
+    fn the_gemma_terms_are_a_restriction_of_their_own() {
+        for license in ["Gemma Terms of Use", "Gemma Terms of Use + MIT + Apache-2.0", "gemma-terms-of-use", "gemma", "MIT, Gemma"] {
+            assert_eq!(license_restrictions(license), ["gemma_terms"], "{license}");
+        }
+        // Both kinds, in RESTRICTIONS order whatever the order of the parts.
+        assert_eq!(license_restrictions("Gemma Terms of Use + CC-BY-NC-4.0"), ["non_commercial", "gemma_terms"]);
+        // Only a translation entry asks for the Gemma terms (decision 4 of the LLM runtime plan).
+        let gemma = "Gemma Terms of Use + CC-BY-NC-4.0";
+        assert_eq!(restrictions_for(TRANSLATION_TARGET, gemma), ["non_commercial", "gemma_terms"]);
+        for target in TARGETS {
+            assert_eq!(restrictions_for(target, gemma), ["non_commercial"], "{target}");
+            assert!(restrictions_for(target, "Gemma Terms of Use + MIT").is_empty(), "{target}");
+        }
+        // So none of the speech, voice and chat-reading models the catalog offers carries one,
+        // Irodori-TTS v4 Large included, though its license still names the Gemma terms.
+        let restricted: Vec<(String, Vec<&str>)> =
+            catalog().into_iter().filter(|m| m.target != TRANSLATION_TARGET && !m.restrictions().is_empty()).map(|m| (m.id.clone(), m.restrictions())).collect();
+        assert_eq!(restricted, []);
+        let irodori = catalog().into_iter().find(|m| m.id == "irodori-v4-large-q8").unwrap();
+        assert_eq!(license_restrictions(&irodori.license), ["gemma_terms"]);
+        assert_eq!(irodori.restrictions(), Vec::<&str>::new());
     }
 }

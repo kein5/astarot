@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 use vrct_audio_routing::graph::Endpoint;
+use vrct_audio_routing::managed_vc::{self, ManagedVcDevices};
 use vrct_audio_routing::monitor::{MonitorFactory, MonitorOptions, MonitorSpec, MonitorTee};
 use vrct_audio_routing::router::{CancelToken, Output, PlaybackToken};
 use vrct_audio_routing::sync::monotonic_ns;
@@ -103,6 +104,47 @@ impl VcRoute for DeviceRoute {
     }
     fn max_age_ns(&self) -> i64 {
         p::DEVICE_MAX_AGE_NS
+    }
+}
+
+/// The managed VC input on Linux (`_PipeWireRoute`, decision 11): the microphone is captured
+/// from PipeWire and the converted voice goes into `vrct.managed.vc`, whose OS gate mutes it, so
+/// nothing is silenced here. One block waits for the worker; a second is an overrun.
+pub struct ManagedRoute {
+    devices: Arc<dyn ManagedVcDevices>,
+    monitor: MonitorFactory,
+}
+
+impl ManagedRoute {
+    pub fn new(devices: Arc<dyn ManagedVcDevices>, monitor: MonitorFactory) -> Self {
+        Self { devices, monitor }
+    }
+}
+
+impl VcRoute for ManagedRoute {
+    fn gates_output(&self) -> bool {
+        managed_vc::GATES_OUTPUT
+    }
+    fn drops_late_blocks(&self) -> bool {
+        managed_vc::DROPS_LATE_BLOCKS
+    }
+    fn ready_timeout(&self) -> Duration {
+        Duration::from_secs(managed_vc::READY_TIMEOUT_S)
+    }
+    fn input_blocks(&self) -> usize {
+        managed_vc::INPUT_BLOCKS
+    }
+    fn bind(&self, source: &Endpoint, wait: bool) -> Result<Endpoint, String> {
+        self.devices.bind(source, wait).map_err(|e| e.code)
+    }
+    fn output(&self, sink: &Endpoint) -> Result<Box<dyn Output>, String> {
+        self.devices.open_output(sink).map_err(|e| e.code)
+    }
+    fn capture(&self, source: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture> {
+        self.devices.capture(source, callbacks)
+    }
+    fn monitor_factory(&self) -> MonitorFactory {
+        self.monitor.clone()
     }
 }
 
@@ -567,10 +609,15 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
             return false;
         }
         state.remainder.extend_from_slice(pcm);
+        // The last sample arrived now. A capture can hand over several parts at once (PipeWire
+        // in quanta of its own), so each part is stamped back from now by what came after it:
+        // a block that ended as it arrived is never stamped as ending in the future.
+        let arrived = monotonic_ns() as i64;
         while state.remainder.len() >= PART {
             let part: Vec<u8> = state.remainder.drain(..PART).collect();
-            // A part is stamped with when it began: it ended as it arrived.
-            let stamp = (monotonic_ns() as i64 - PART_NS).max(state.last + 1);
+            // A part is stamped with when it began.
+            let after = state.remainder.len() as i64 * 1_000_000_000 / (2 * i64::from(p::RATE));
+            let stamp = (arrived - after - PART_NS).max(state.last + 1);
             state.last = stamp;
             if state.partial.is_empty() {
                 state.first = stamp;
@@ -1035,6 +1082,25 @@ mod tests {
         let starts: Vec<i64> = state.queue.iter().map(|b| b.info["start_ns"].as_i64().unwrap()).collect();
         assert!(starts[1] > starts[0]);
         assert_eq!(state.queue.iter().map(|b| b.info["sequence"].as_u64().unwrap()).collect::<Vec<_>>(), [0, 1]);
+    }
+
+    #[test]
+    fn parts_handed_over_together_are_stamped_back_from_their_arrival() {
+        // PipeWire hands the microphone over in quanta of its own (decision 11): a whole block
+        // can come in one go. It ended as it arrived, so its end is now, never in the future.
+        vrct_audio_routing::sync::monotonic_ns();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let process = requested(40);
+        assert!(process.offer_audio(&vec![0u8; PART * 2 + 100]));
+        let arrived = vrct_audio_routing::sync::monotonic_ns() as i64;
+        let state = process.shared.state.lock().unwrap();
+        let block = &state.queue[0];
+        let (start, end) = (block.info["start_ns"].as_i64().unwrap(), block.info["end_ns"].as_i64().unwrap());
+        assert!(end <= arrived, "the block ends {} ns in the future", end - arrived);
+        // 100 bytes (about 1 ms) came after the block.
+        assert!(arrived - end >= 1_000_000 && arrived - end < 20_000_000, "{}", arrived - end);
+        assert_eq!(end - start, 40_000_000);
+        crate::protocol::require_fresh(end, arrived, crate::protocol::MANAGED_MAX_AGE_NS).expect("a block handed over whole is fresh");
     }
 
     #[test]
