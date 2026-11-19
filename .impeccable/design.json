@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-18T00:00:00+00:00",
+  "generatedAt": "2026-11-19T00:00:00+00:00",
   "title": "Design System: ASTAROT Dark Studio",
   "extensions": {
     "colorMeta": {
@@ -93,6 +93,11 @@
         "name": "The layout explains, not the text (#614)",
         "body": "What a part of the screen is, what it belongs to and what state it is in are shown by where it sits and by its shape, size, color and motion. A secondary label or a line of explanation is added only where the layout cannot carry the meaning. A longer explanation is not kept on screen: it goes in a tooltip that opens on mouse-over (and on keyboard focus), and its words stay in the control's accessible name or description. This takes away no word that carries a meaning: a control keeps its name, a readout still states its condition in words, consent stays visible, and color never says something alone. New screens, the information architecture (#554) and the components (#452) start from this principle. Rules below that predate it, such as the visible first sentence of a general description, stay until the screens are reviewed against it.",
         "section": "principles"
+      },
+      {
+        "name": "Components follow shadcn/ui",
+        "body": "Each component takes the parts, variants, look and structure of its shadcn/ui counterpart (the Radix base), written in vanilla-extract with the ASTAROT palette; where the two differ, such as the button looks (#474), a checkbox for a setting (#436), the 40px field or the focus ring, the rule in DESIGN.md stays.",
+        "section": "components"
       }
     ],
     "dos": [
