@@ -170,8 +170,8 @@ impl HelperCapture {
         helper: &Path,
         endpoint: &Endpoint,
         source: Source,
-        mut on_audio: OnAudio,
-        mut on_error: OnError,
+        on_audio: OnAudio,
+        on_error: OnError,
     ) -> Result<HelperCapture, String> {
         if endpoint.media_class != media_class(source) || endpoint_choice::refused_name(&endpoint.name) {
             return Err("asr_capture_endpoint_invalid".into());
@@ -180,6 +180,18 @@ impl HelperCapture {
         if endpoint_choice::select(&graph, &endpoint.name, source).ok().as_ref() != Some(endpoint) {
             return Err("asr_capture_endpoint_changed".into());
         }
+        Self::spawn(helper, endpoint, source, on_audio, on_error)
+    }
+
+    /// [`HelperCapture::open`] after its checks of the endpoint against the graph: starts
+    /// `helper` for `endpoint` and reads it. Public for the tests with a stand-in helper.
+    pub fn spawn(
+        helper: &Path,
+        endpoint: &Endpoint,
+        source: Source,
+        mut on_audio: OnAudio,
+        mut on_error: OnError,
+    ) -> Result<HelperCapture, String> {
         let stop = Arc::new(AtomicBool::new(false));
         let child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
         let (ready_tx, ready_rx) = std::sync::mpsc::channel::<Result<(), String>>();
@@ -271,14 +283,15 @@ impl HelperCapture {
                         Err(_) => break Some("asr_capture_failed".into()),
                     };
                     let mut closed = false;
-                    // The frames are stamped again where they are received; they are fresh
-                    // (the decoder refused anything older than 250 ms).
-                    for (frame, _stamp) in frames {
+                    // Each frame goes with how long ago its first sample was captured (decision
+                    // 70): the receiver judges its age from the helper's stamp, as Python did.
+                    for (frame, stamp) in frames {
                         if flag.load(Ordering::SeqCst) {
                             break;
                         }
                         last_frame = Some(Instant::now());
-                        if !on_audio(&crate::pcm::samples(&frame), 48000, 1) {
+                        let captured_ago = Duration::from_nanos(monotonic_ns().saturating_sub(stamp));
+                        if !on_audio(&crate::pcm::samples(&frame), 48000, 1, Some(captured_ago)) {
                             closed = true;
                             break;
                         }
