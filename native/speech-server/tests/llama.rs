@@ -94,7 +94,7 @@ fn a_server_starts_on_a_port_of_its_own_and_takes_only_its_key() {
     assert_eq!(status, 200);
     let arguments: Vec<&str> = props["arguments"].as_array().unwrap().iter().map(|a| a.as_str().unwrap()).collect();
     let model = folder.0.join("ok.gguf");
-    let expected = ["-m", model.to_str().unwrap(), "--host", "127.0.0.1", "--port", "0", "--no-webui", "--parallel", "1", "--ctx-size", "2048", "--device", "none", "--n-gpu-layers", "0"];
+    let expected = ["-m", model.to_str().unwrap(), "--host", "127.0.0.1", "--port", "0", "--no-webui", "--parallel", "1", "--ctx-size", "2048", "--cache-ram", "0", "--device", "none", "--n-gpu-layers", "0"];
     assert_eq!(arguments, expected);
     assert!(!arguments.iter().any(|a| a.contains("key-for-this-start")));
     // Stopped by its owner: told once, with no code, and the port is closed.

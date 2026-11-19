@@ -361,6 +361,9 @@ impl Inner {
         let mut args: Vec<String> = vec!["-m".into(), options.model.to_string_lossy().into_owned()];
         args.extend(["--host", "127.0.0.1", "--port", "0", "--no-webui", "--parallel", "1"].map(str::to_owned));
         args.extend(["--ctx-size".to_owned(), CONTEXT.to_string()]);
+        // Each translation is a prompt of its own: no prompt cache in RAM (llama.cpp keeps up to
+        // 8 GiB by default, measured growing to 11 GB on 800 sentences).
+        args.extend(["--cache-ram", "0"].map(str::to_owned));
         match &options.device {
             Device::Cpu => args.extend(["--device", "none", "--n-gpu-layers", "0"].map(str::to_owned)),
             Device::Gpu(name) => args.extend(["--device".to_owned(), name.clone(), "--n-gpu-layers".to_owned(), "999".to_owned()]),
