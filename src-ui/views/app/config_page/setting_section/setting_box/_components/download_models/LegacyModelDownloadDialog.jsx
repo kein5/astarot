@@ -17,7 +17,8 @@ import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 // note: what the download changes, when the caller continues something afterwards.
 // The translation models of the ONNX engine come through the shared consent catalog
 // (target "translation"): this review lists them there, or says that none is published yet
-// and where a model of one's own goes, instead of waiting for a review that never comes.
+// and that a model of one's own is added in the translation catalog, instead of waiting for a
+// review that never comes.
 // It shows the variants of the model it was opened for, or every translation model when the
 // catalog has none of that one.
 export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null }) => {
@@ -96,9 +97,9 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
                     ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }}
                         only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
+                {/* A model of one's own is added in the translation catalog, from any folder (#597). */}
                 <p>{t("legacy_model_downloads.translation_own_model")}</p>
                 <CustomModelLink section="translation" />
-                {catalog.translation_models_folder && <p><code className={dialogStyles.path}>{catalog.translation_models_folder}</code></p>}
             </> : <p role="status">{t(error ? "legacy_model_downloads.review_unavailable" : "model_downloads.loading")}</p>}
             <div className={styles.actions}>
                 <button type="button" autoFocus onClick={cancel}>{t(translation ? "legacy_model_downloads.close" : "model_downloads.back")}</button>
