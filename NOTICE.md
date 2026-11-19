@@ -115,8 +115,9 @@ selected one from Hugging Face into `weights/ctranslate2/`. Since 0.5.0 the
 builds contain no CTranslate2: the app neither downloads nor reads these
 weights, and removes those earlier versions downloaded after start-up. Local
 translation now runs on ONNX Runtime (`native/translate-onnx`, see "Rust crates
-in VRCT-VOX builds" below); the models for it are not published yet
-(`docs/voice-stack/core-integration.md`, item 1). The setting keeps the values
+in VRCT-VOX builds" below); its ONNX conversions of M2M100 418M and NLLB-200
+distilled 600M are offered through the consented model catalog (see that
+section). The setting keeps the values
 in the table, which now select the ONNX conversion of the same model, and
 Settings → Translation shows the license next to each model.
 
@@ -216,9 +217,13 @@ package `Microsoft.AI.DirectML`, under the Microsoft Software License Terms for
 DirectML, which allow its use on Windows only and say it may send usage data to
 Microsoft). The app loads one of them instead of the shipped CPU build at start
 when the user chose its device for translation; chat reading then uses it too.
-No translation model is bundled: the M2M100
-(MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
-consented model catalog once published, and a model the user places in the
+No translation model is bundled: the int8 ONNX conversions of M2M100 418M
+(MIT, the default; `kein5/m2m100_418M-onnx-int8`, with the MIT licence text in
+`LICENSE`) and NLLB-200 distilled 600M (CC-BY-NC-4.0;
+`kein5/nllb-200-distilled-600M-onnx-int8`) are offered only through the
+consented model catalog, pinned by revision, size and SHA-256 in
+`native/ops/data/translation_models.json`, each with a model card that names
+the source model, its authors (Meta AI) and the changes made. A model the user places in the
 `translation-models` folder is under its own license, which the user is
 responsible for. A model under a non-commercial license, such as NLLB-200, is
 never the default and downloads only after the user has also ticked a separate

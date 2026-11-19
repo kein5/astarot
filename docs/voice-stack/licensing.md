@@ -342,7 +342,7 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 
 | 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
 |---|---|---|---|
-| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは未公開。利用者が自分で置くモデルのライセンスは利用者が確かめる |
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19に公開した（下の「公開したモデル（2026-11-19、#687）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
 | `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
 | `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
 | `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
@@ -357,8 +357,8 @@ NLLBを差し替えるかの検討（#288の未決事項）のために、ロー
 
 | モデル | リポジトリと版 | ライセンス | 商用の利用 | 今の`native/translate-onnx`で動くか | 扱い |
 |---|---|---|---|---|---|
-| M2M100 418M、1.2B | `facebook/m2m100_418M`@`55c2e61b`、`facebook/m2m100_1.2B`@`7b361841` | MIT | できる | 動く | 採用済み。既定は418M。モデルは未公開 |
-| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。公開するかは未決（core-integration.mdの判断78） |
+| M2M100 418M、1.2B | `facebook/m2m100_418M`@`55c2e61b`、`facebook/m2m100_1.2B`@`7b361841` | MIT | できる | 動く | 採用済み。既定は418M。418Mのint8を2026-11-19に公開した |
+| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。distilled 600Mのint8を2026-11-19に公開した（判断78）。1.3Bは後から足し、3.3Bは今は公開しない |
 | MADLAD-400 3B MT、7B MT | `google/madlad400-3b-mt`@`fa184c67`、`google/madlad400-7b-mt`@`1ff63ce7` | Apache-2.0 | できる | 動かない（T5の形） | 候補。T5の形とSentencePieceのunigramを足す必要がある。3Bは約29億のパラメータ |
 | SMaLL-100 | `alirezamsh/small100`@`8ab680e2` | MIT | できる | 一部だけ（訳先の言語のトークンを原文の側に付ける） | 候補。約3.3億のパラメータ |
 | mBART-50 many-to-many | `facebook/mbart-large-50-many-to-many-mmt`@`e30b6cb8` | モデルカードにライセンスの記載がない | 確かめられない | 動かない（MBartの形） | 対象外。ライセンスを確かめられないため |
@@ -392,6 +392,17 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 上の表のMADLAD-400 3B MTの元の重み（`model.safetensors`）は11,761,587,872 bytesである。ライセンスはApache-2.0なので、載せるときに追加の確認は要らない。
 
 公開するモデルの記録は、公開した版とファイルのSHA-256を`native/ops/data/translation_models.json`に固定したときに、この節に足す。
+
+#### 公開したモデル（2026-11-19、#687）
+
+判断78の決定（2026-11-19）で、NLLB-200 distilled 600Mと既定のM2M100 418Mのint8を公開し、カタログに載せた。どちらも`tools/translation_onnx/export.py`で書き出し、`publish.py stage`のモデルカード（元のモデルと版、作者、ライセンス、変えたこと、各ファイルのSHA-256）を添えた。ファイルごとの大きさとSHA-256は`native/ops/data/translation_models.json`に固定した。
+
+| カタログのid | 公開先と版 | 元のモデル | ライセンス | 大きさ（全ファイル） | 扱い |
+|---|---|---|---|---|---|
+| `m2m100-418m-onnx-int8` | `kein5/m2m100_418M-onnx-int8`@`edfdb3e670e257cee60858861031fe40e2e17934` | `facebook/m2m100_418M`@`55c2e61b` | MIT（`LICENSE`にfairseqのMITの文を添えた） | 505,722,914 bytes | 既定のモデル |
+| `nllb-200-distilled-600m-onnx-int8` | `kein5/nllb-200-distilled-600M-onnx-int8`@`3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170` | `facebook/nllb-200-distilled-600M`@`f8d333a0` | CC-BY-NC-4.0（非商用） | 642,621,286 bytes | 既定にしない。取得の前に非商用の確認を求める。取得の画面の注記（`translation_nllb_600m`）で、容量と翻訳の間のメモリー（約1.4 GB）を示す |
+
+1.3Bは別の作業で後から足す。3.3Bは今は公開しない。
 
 ### TranslateGemma（2026-11-18、#412）
 
