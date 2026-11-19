@@ -57,8 +57,10 @@
     &:hover { background: var(--primary_550_color); }
 }
 
+// An outline beside Retry: with no fill, its border is its only edge, so it is the field
+// border (DESIGN.md "Colors"), not the hairline between regions.
 .quit {
-    border: .1rem solid var(--vox_border);
+    border: .1rem solid var(--vox_field_border);
     background: transparent;
     color: var(--dark_200_color);
     &:hover { background: var(--vox_secondary_hover); }
