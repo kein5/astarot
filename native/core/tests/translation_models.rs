@@ -1,7 +1,7 @@
 //! The local translation on ONNX Runtime through the IPC surface, with model folders made of
 //! tiny fake files (no real model, no ONNX Runtime needed): which folder a weight and a compute
-//! type choose, the user's own models in `<data>/translation-models`, the reasons a folder is
-//! refused, the compute device list, and a translation model that comes through the consent
+//! type choose, the retired `<data>/translation-models` folder (#597: not listed, a saved
+//! selection of it goes back to the default), the compute device list, and a translation model that comes through the consent
 //! catalog. Loading a fake graph fails by design: reaching that failure shows the folder was
 //! found and verified.
 
@@ -144,77 +144,66 @@ fn a_built_in_weight_finds_its_hand_placed_folder_by_compute_type() {
 }
 
 #[test]
-fn the_users_models_are_listed_validated_and_selectable() {
+fn models_in_the_retired_folder_are_not_listed_and_a_saved_selection_goes_back_to_the_default() {
+    // A user of an earlier version: a valid model in `<data>/translation-models/`, selected.
     let temp = tempfile::tempdir().unwrap();
     let models = temp.path().join("data").join("translation-models");
-    let mut named = manifest("nllb", Some("float16"), &["eng_Latn", "jpn_Jpan"]);
-    named["language_names"] = json!({"English": "eng_Latn", "Japanese": "jpn_Jpan"});
-    write_folder(&models.join("mine"), &named);
-    // No names: the codes are looked up in the table of its architecture.
-    write_folder(&models.join("derived"), &manifest("m2m100", Some("int8"), &["en", "ja", "ko"]));
-    // Refused, each with its reason in the log.
-    std::fs::create_dir_all(models.join("empty")).unwrap();
-    write_folder(&models.join("marian"), &manifest("marian", Some("int8"), &["en"]));
-    write_folder(&models.join("unknown"), &manifest("m2m100", Some("int8"), &["xx"]));
-    let mut gone = manifest("m2m100", Some("int8"), &["en"]);
-    gone["files"]["extra.bin"] = json!({"size": 1, "sha256": sha(b"e")});
-    write_folder(&models.join("gone"), &gone);
-    write_folder(&models.join("bad name"), &manifest("m2m100", Some("int8"), &["en"]));
+    write_folder(&models.join("my-secret-model"), &manifest("m2m100", Some("int8"), &["en", "ja"]));
+    let saved = json!({ "CTRANSLATE2_WEIGHT_TYPE": "custom:my-secret-model" });
+    let ui = start_in(temp.path(), Some(saved), services());
 
-    let ui = start_in(temp.path(), None, services());
+    // Not listed, not selectable; the selection is the default model, and start-up went on.
     let weights = ui.ok("/get/data/selectable_ctranslate2_weight_type_dict", None);
-    let custom: Vec<&String> = weights.as_object().unwrap().keys().filter(|k| k.starts_with("custom:")).collect();
-    assert_eq!(custom, ["custom:derived", "custom:mine"]);
-    assert_eq!((weights["custom:mine"].clone(), weights["custom:derived"].clone()), (json!(true), json!(true)));
+    assert!(weights.as_object().unwrap().keys().all(|k| !k.starts_with("custom:")), "{weights}");
+    assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), "m2m100_418M-ct2-int8");
+    // Translation still answers as for a missing default model, without a panic.
+    assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_MISSING");
+
+    // The catalog has no item for it and says only that the folder holds something.
+    let catalog = ui.ok("/get/data/translation_catalog", None);
+    let engine = catalog["engine"].as_array().unwrap();
+    assert!(engine.iter().all(|e| e["origin"] == "builtin" || e["origin"] == "user"), "{catalog}");
+    assert!(engine.iter().all(|e| !e["id"].as_str().unwrap().starts_with("custom:")), "{catalog}");
+    assert_eq!(catalog["retired_folder_used"], true);
+    assert!(!catalog.to_string().contains("my-secret-model"), "{catalog}");
+
+    // The reason is in the log as a fixed code; the folder's name is not.
     let log = process_log(&ui);
-    for (folder, reason) in [
-        ("empty", "translation_manifest_missing"),
-        ("marian", "translation_architecture_unsupported"),
-        ("unknown", "translation_languages_unknown"),
-        ("gone", "translation_file_missing"),
-        ("bad name", "translation_model_name_invalid"),
-    ] {
-        assert!(log.contains(&format!("Translation model folder refused: {folder} ({reason})")), "{folder}: {log}");
-    }
-
-    // A user's model is not gated by the non-commercial confirmation, and its language table
-    // is its own: Korean is reset when the model lacks it.
-    let tab_target = |language: &str| json!({ "1": { "1": { "language": language, "country": "South Korea", "enable": true },
-        "2": { "language": "English", "country": "United States", "enable": false },
-        "3": { "language": "English", "country": "United States", "enable": false } } });
-    let mut target = ui.ok("/get/data/selected_target_languages", None);
-    target["1"] = tab_target("Korean")["1"].clone();
-    ui.ok("/set/data/selected_target_languages", Some(target));
-    let mark = ui.send("/set/data/selected_ctranslate2_weight_type", Some(json!("custom:mine")));
-    let answer = ui.wait_endpoint(mark, "/set/data/selected_ctranslate2_weight_type");
-    assert_eq!(answer["result"], "custom:mine", "{answer}");
-    let reset = ui.wait_endpoint(mark, "/run/translation_language_unsupported");
-    assert_eq!(reset["result"]["data"]["weight_type"], "custom:mine");
-    assert_eq!(reset["result"]["data"]["languages"], json!(["Korean"]));
-    assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), "custom:mine");
-
-    // The derived table keeps Korean (`ko` is among its codes).
-    ui.ok("/set/data/selected_ctranslate2_weight_type", Some(json!("custom:derived")));
-    let mut target = ui.ok("/get/data/selected_target_languages", None);
-    target["1"] = tab_target("Korean")["1"].clone();
-    let mark = ui.send("/set/data/selected_target_languages", Some(target));
-    ui.wait_endpoint(mark, "/set/data/selected_target_languages");
-    assert!(ui.on(mark, "/run/translation_language_unsupported").is_empty());
-    assert_eq!(ui.ok("/get/data/selected_target_languages", None)["1"]["1"]["language"], "Korean");
-
-    // Its files verify; the fake graph does not load. A user's model has one variant and
-    // runs it whatever the compute type says.
-    assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_LOAD_FAILED");
+    assert!(log.contains("Translation model selection reset to the default (translation_models_folder_retired)"), "{log}");
+    assert!(!log.contains("my-secret-model"), "{log}");
+    assert!(!process_log(&ui).contains("panicked"));
+    // Asked for by name, it is refused and the selection stays.
+    let refused = ui.request("/set/data/selected_ctranslate2_weight_type", Some(json!("custom:my-secret-model")));
+    assert_ne!(refused["status"], 200, "{refused}");
+    assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), "m2m100_418M-ct2-int8");
     ui.stop();
+    // The user's folder and files are left as they are.
+    assert!(models.join("my-secret-model").join("manifest.json").is_file());
+    assert!(models.join("my-secret-model").join("encoder.onnx").is_file());
 
-    // Saved and listed again on the next start; once the folder is gone, the setting falls
-    // back to the default weight.
-    let ui = start_in(temp.path(), None, services());
-    assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), "custom:derived");
-    ui.stop();
-    std::fs::remove_dir_all(models.join("derived")).unwrap();
+    // The next start no longer names the old selection.
     let ui = start_in(temp.path(), None, services());
     assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), "m2m100_418M-ct2-int8");
+    assert!(!process_log(&ui).contains("translation_models_folder_retired"));
+    ui.stop();
+}
+
+#[test]
+fn the_catalog_says_whether_the_retired_folder_holds_a_folder() {
+    let temp = tempfile::tempdir().unwrap();
+    let models = temp.path().join("data").join("translation-models");
+    let ui = start_in(temp.path(), None, services());
+    // No folder at all.
+    assert_eq!(ui.ok("/get/data/translation_catalog", None)["retired_folder_used"], false);
+    // Only files and a hidden folder: earlier versions listed nothing from these either.
+    std::fs::create_dir_all(models.join(".cache")).unwrap();
+    std::fs::write(models.join("readme.txt"), "x").unwrap();
+    assert_eq!(ui.ok("/get/data/translation_catalog", None)["retired_folder_used"], false);
+    // Any folder, even one that is not a model; asked again, so moving it out is seen.
+    std::fs::create_dir_all(models.join("anything")).unwrap();
+    assert_eq!(ui.ok("/get/data/translation_catalog", None)["retired_folder_used"], true);
+    std::fs::remove_dir_all(models.join("anything")).unwrap();
+    assert_eq!(ui.ok("/get/data/translation_catalog", None)["retired_folder_used"], false);
     ui.stop();
 }
 
@@ -271,7 +260,8 @@ fn a_translation_model_comes_only_through_the_consent_catalog_and_is_then_found(
     assert_eq!(enable(&ui).0, "TRANSLATION_MODEL_MISSING");
     let catalog = ui.ok("/get/data/model_download_catalog", None);
     assert_eq!(catalog["models"][0]["target"], "translation");
-    assert!(catalog["translation_models_folder"].as_str().unwrap().ends_with("translation-models"));
+    // No folder to place models in is named any more (#597): the translation catalog adds them.
+    assert!(catalog.get("translation_models_folder").is_none(), "{catalog}");
 
     // Nothing starts without consent to this catalog.
     let refused = ui.request("/run/start_model_download", Some(json!({ "id": entry.id, "consent": false, "catalog_version": CATALOG_VERSION })));
