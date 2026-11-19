@@ -13,9 +13,13 @@ export interface ModelDownloadCatalog {
 }
 
 // One download: phase is "queued", "downloading", "verifying", "cancelling", "ready", "failed" and so on.
+// The fields the first-run setup reads too (DownloadJob in setup/firstRunSetup.ts).
 export interface ModelDownloadJob {
-    readonly phase?: unknown;
-    readonly error_code?: unknown;
+    readonly job_id?: string;
+    readonly phase?: string;
+    readonly error_code?: string | null;
+    readonly received_bytes?: number;
+    readonly total_bytes?: number;
     readonly [key: string]: unknown;
 }
 

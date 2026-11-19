@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import type { Dispatch, MouseEvent, SetStateAction } from "react";
+import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -14,6 +16,7 @@ import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
 import { setupPlan, planModels, planBytes, nextAction, stepState, setupOpensByItself }
     from "../../../logics/setup/firstRunSetup.ts";
+import type { RecognitionState, RunView, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
 import { VrchatPresence } from "../others/vrchat_presence/VrchatPresence";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
@@ -21,9 +24,10 @@ import noticeStyles from "./TelemetryNoticeController.module.scss";
 import guideStyles from "./VirtualMicGuideController.module.scss";
 import setupStyles from "./FirstRunSetupController.module.scss";
 
-const ACTIVE = ["queued", "downloading", "verifying", "cancelling"];
+const ACTIVE: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
+const finiteNumber = (value: unknown): value is number => Number.isFinite(value);
 // GiB with two decimals; a file under 0.1 GiB (the VAD model) in MiB, so it never reads "0.00 GiB".
-const gib = value => value < 0.1 * 1073741824 ? `${(value / 1048576).toFixed(1)} MiB` : `${(value / 1073741824).toFixed(2)} GiB`;
+const gib = (value: number) => value < 0.1 * 1073741824 ? `${(value / 1048576).toFixed(1)} MiB` : `${(value / 1073741824).toFixed(2)} GiB`;
 
 // The first-run setup (#557). It opens by itself once the start-up notices are closed, when the
 // local speech recognition is not ready yet, and from the first screen at any time.
@@ -40,6 +44,23 @@ const gib = value => value < 0.1 * 1073741824 ? `${(value / 1048576).toFixed(1)}
 //
 // "Later" and Escape put it away for this run; downloads already started go on. "Done" and
 // "Don't show again" stop it from opening by itself.
+
+// A model step of the plan.
+type ModelStep = Extract<SetupStep, { kind: "model" }>;
+
+// One run: the plan fixed at the consent with the catalog version it was shown for, what it has
+// asked for so far, and how it ended. A new id for each run, "Try again" included.
+interface SetupRun {
+    id: number;
+    phase: "running" | "done" | "failed";
+    plan: SetupStep[];
+    version: unknown;
+    started: Readonly<Record<string, string | null>>;
+    applied: readonly string[];
+    sentServer: boolean;
+    failure: { step: number; code: string } | null;
+}
+
 export const FirstRunSetupController = () => {
     const { t, i18n } = useI18n();
     const setup = useFirstRunSetup();
@@ -68,10 +89,10 @@ export const FirstRunSetupController = () => {
 
     // The plan is fixed when the consent is shown, with the catalog version it was shown for.
     const [consent, setConsent] = useState(false);
-    const [run, setRun] = useState(null);
+    const [run, setRun] = useState<SetupRun | null>(null);
     const draftPlan = setupPlan({ catalog: downloads.catalog, language: i18n?.language, engine, server, paths });
     const plan = run?.plan ?? draftPlan;
-    const view = { engine, server, paths, jobs: downloads.state.jobs, started: run?.started ?? {}, applied: run?.applied ?? [] };
+    const view: RunView = { engine, server, paths, jobs: downloads.state.jobs, started: run?.started ?? {}, applied: run?.applied ?? [] };
 
     // Ask for the catalog when the dialog opens without it (it normally comes after the start).
     useEffect(() => { if (open && !downloads.catalog) downloads.send("/get/data/model_download_catalog"); }, [open, !!downloads.catalog]);
@@ -82,7 +103,7 @@ export const FirstRunSetupController = () => {
     const running = run?.phase === "running";
     const finished = run?.phase === "done" || (!running && recognition === "ready");
     const needsConsent = planModels(draftPlan).length > 0;
-    const finish = forGood => {
+    const finish = (forGood: boolean) => {
         close();
         if (forGood) setup.dismissNotice();
         setShown(false);
@@ -97,9 +118,11 @@ export const FirstRunSetupController = () => {
     const retry = () => setRun(previous => previous && { ...previous, id: newRunId(), phase: "running",
         started: {}, applied: [], sentServer: false, failure: null });
     const stop = () => {
-        const step = plan.find(item => item.kind === "model" && ACTIVE.includes(downloads.state.jobs[item.entry.id]?.phase));
+        // Stop shows only while a run goes, and a run has its plan.
+        if (!plan) return;
+        const step = plan.find((item): item is ModelStep => item.kind === "model" && ACTIVE.includes(downloads.state.jobs[item.entry.id]?.phase));
         const job = step && downloads.state.jobs[step.entry.id];
-        if (job && job.phase !== "cancelling") downloads.send("/run/cancel_model_download", { id: step.entry.id, job_id: job.job_id });
+        if (step && job && job.phase !== "cancelling") downloads.send("/run/cancel_model_download", { id: step.entry.id, job_id: job.job_id });
         else setRun(previous => previous && { ...previous, phase: "failed", failure: { step: plan.findIndex((_, i) => stepState(plan, i, view, null) !== "done"), code: "stopped" } });
     };
 
@@ -142,25 +165,33 @@ const newRunId = () => ++runCount;
 // An error counts for a run only once it was clear during that run: every request clears the
 // error before it is sent, so an error left from before the run is not this run's, while the
 // same code coming back after a retry is.
-const useRunError = (runId, active, error) => {
-    const watch = useRef({ runId: null, clear: false });
+const useRunError = (runId: number | undefined, active: boolean, error: string | null): string | null => {
+    const watch = useRef<{ runId: number | null | undefined; clear: boolean }>({ runId: null, clear: false });
     if (watch.current.runId !== runId) watch.current = { runId, clear: false };
     if (active && !error) watch.current.clear = true;
     return active && watch.current.clear && error ? error : null;
 };
 
 // Sends the next request of a run, once each, and records how the run ends.
-const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscriptionEngine }) => {
-    const sent = useRef(new Set());
+interface RunnerProps {
+    run: SetupRun | null;
+    setRun: Dispatch<SetStateAction<SetupRun | null>>;
+    view: RunView;
+    downloads: ReturnType<typeof useModelDownloads>;
+    realtime: ReturnType<typeof useRealtimeASR>;
+    setSelectedTranscriptionEngine: ReturnType<typeof useTranscription>["setSelectedTranscriptionEngine"];
+}
+const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscriptionEngine }: RunnerProps) => {
+    const sent = useRef(new Set<string | null>());
     const running = run?.phase === "running";
     const action = running ? nextAction(run.plan, view) : null;
-    const key = action && JSON.stringify([run.id, action.kind, action.entry?.id ?? null, action.jobId ?? null]);
+    const key = action && run && JSON.stringify([run.id, action.kind, "entry" in action ? action.entry.id : null, "jobId" in action ? action.jobId : null]);
     // A refused request (consent, catalog changed, busy, a server running) stops the run with its reason.
     const downloadError = useRunError(run?.id, running, downloads.error);
     const realtimeError = useRunError(run?.id, running && run.sentServer, realtime.error);
     useEffect(() => {
         if (!running) { sent.current.clear(); return; }
-        const failAt = code => setRun(previous => previous && {
+        const failAt = (code: string) => setRun(previous => previous && {
             ...previous, phase: "failed",
             failure: { step: previous.plan.findIndex((_, i) => stepState(previous.plan, i, view, null) !== "done"), code } });
         if (downloadError) return failAt(downloadError);
@@ -190,7 +221,7 @@ const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscri
 };
 
 // What was found. Each line only reads; the buttons lead to the place where it is set.
-const Findings = ({ recognition, onLeave }) => {
+const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onLeave: () => void }) => {
     const { t } = useI18n();
     const mic = useSettingValue("SelectedMicDevice");
     const { status: virtualMic, openGuide } = useVirtualMic();
@@ -234,12 +265,20 @@ const Findings = ({ recognition, onLeave }) => {
 };
 
 // The consent for the recognition models, then each step's progress.
-const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }) => {
+interface RecognitionSetupProps {
+    plan: SetupStep[] | null;
+    view: RunView;
+    run: SetupRun | null;
+    consent: boolean;
+    setConsent: (consent: boolean) => void;
+    catalogReady: boolean;
+}
+const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }: RecognitionSetupProps) => {
     const { t } = useI18n();
-    const [linkFailed, setLinkFailed] = useState(null);
+    const [linkFailed, setLinkFailed] = useState<string | null>(null);
     if (!catalogReady || !plan) return <p role="status">{t("first_run_setup.recognition.loading")}</p>;
     const models = planModels(plan);
-    const openLink = async (event, url) => {
+    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(url); setLinkFailed(null); } catch { setLinkFailed(url); }
@@ -256,7 +295,7 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
                     <span>{t("first_run_setup.recognition.model_license", { license: entry.license ?? "" })}</span>
                     <span>{t("first_run_setup.recognition.model_size", { size: gib(entry.total_bytes) })}</span>
                     {entry.licenses?.[0] && <a href={entry.licenses[0]} target="_blank" rel="noreferrer"
-                        onClick={event => openLink(event, entry.licenses[0])}>{t("first_run_setup.recognition.model_card")}</a>}
+                        onClick={event => { const url = entry.licenses?.[0]; if (url) openLink(event, url); }}>{t("first_run_setup.recognition.model_card")}</a>}
                 </span>
             </li>)}
         </ul>}
@@ -278,13 +317,13 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
                 return <li key={index} data-state={state}>
                     <span>{label}</span>{" "}
                     <span className={setupStyles.state} role={state === "failed" ? "alert" : undefined}>
-                        {state === "working" && active && job.phase === "downloading" && Number.isFinite(job.total_bytes) && job.total_bytes > 0
+                        {state === "working" && active && job.phase === "downloading" && finiteNumber(job.total_bytes) && job.total_bytes > 0
                             ? t("first_run_setup.recognition.state_downloading", { done: gib(job.received_bytes ?? 0), total: gib(job.total_bytes) })
                             : state === "working" && active ? t(`model_downloads.phase_${job.phase}`)
                             : state === "failed" ? failureText(t, run.failure?.code)
                             : t(`first_run_setup.recognition.state_${state}`)}
                     </span>
-                    {state === "working" && active && job.phase === "downloading" && job.total_bytes > 0 &&
+                    {state === "working" && active && job.phase === "downloading" && (job.total_bytes ?? 0) > 0 &&
                         <progress value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={label} />}
                 </li>;
             })}
@@ -294,12 +333,12 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
 };
 
 // A failure in words: the download's own message when it has one, else a general one.
-const failureText = (t, code) => {
+const failureText = (t: TFunction, code: string | undefined) => {
     if (code === "stopped" || code === "cancelled") return t("first_run_setup.recognition.state_stopped");
     return t([`model_downloads.errors.${code}`, "first_run_setup.recognition.state_failed"]);
 };
 
-const OpenSettings = ({ tab, label, onLeave }) => {
+const OpenSettings = ({ tab, label, onLeave }: { tab: string; label: string; onLeave: () => void }) => {
     const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
     const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     return <button type="button" onClick={() => { onLeave(); updateSelectedConfigTabId(tab); updateIsOpenedConfigPage(true); }}>{label}</button>;
