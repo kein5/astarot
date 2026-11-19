@@ -2,14 +2,28 @@ import { useI18n } from "@useI18n";
 import clsx from "clsx";
 import styles from "./OpenQuickSettingButton.module.scss";
 import WarningSvg from "@images/warning.svg?react";
+import type { AtomStatus } from "@store";
 
-export const OpenQuickSettingButton = (props) => {
+type OpenQuickSettingButtonProps = {
+    label: string;
+    // On or off; another value shows no state.
+    variable?: boolean;
+    state?: AtomStatus;
+    is_pending?: boolean;
+    is_available?: boolean;
+    row?: boolean;
+    opens_dialog?: boolean;
+    note?: string | null;
+    onClickFunction?: () => void;
+};
+
+export const OpenQuickSettingButton = (props: OpenQuickSettingButtonProps) => {
     const { t } = useI18n();
     const variable = (typeof props.variable === "boolean") ? props.variable : null;
     const is_available = (typeof props.is_available === "boolean") ? props.is_available : true;
     const is_pending = props.is_pending === true || props.state === "pending";
 
-    const getIndicatorLabelClassName = (base_classnames = []) => {
+    const getIndicatorLabelClassName = (base_classnames: (string | undefined)[] = []) => {
         return clsx(
             ...base_classnames,
             is_available && styles.is_available,

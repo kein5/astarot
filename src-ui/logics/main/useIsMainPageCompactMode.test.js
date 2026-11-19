@@ -28,7 +28,7 @@ async function fixture(saved, context) {
         "./language_readout/LanguageReadout": { LanguageReadout: "readout" },
         "./open_settings/OpenSettings": { OpenSettings: "settings" },
     });
-    const { SidebarCompactModeButton } = await loadModule(new URL("../../views/app/main_page/main_section/top_bar/sidebar_compact_mode_button/SidebarCompactModeButton.jsx", import.meta.url), runtime, {
+    const { SidebarCompactModeButton } = await loadModule(new URL("../../views/app/main_page/main_section/top_bar/sidebar_compact_mode_button/SidebarCompactModeButton.tsx", import.meta.url), runtime, {
         "@logics_main": logic,
     });
     const english = { language: "English", country: "United States", enable: true };
