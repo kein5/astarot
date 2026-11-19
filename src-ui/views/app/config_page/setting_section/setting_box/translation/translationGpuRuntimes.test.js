@@ -5,7 +5,7 @@ import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarne
 // The GPU builds of ONNX Runtime for translation (decision 2 (c)): offered only where the
 // backend offers them, set up through the runtime setup, and the device list asked for again
 // once one is set up.
-const load = async (runtime, vc, refreshed) => (await loadModule(new URL("./TranslationGpuRuntimes.jsx", import.meta.url), runtime, {
+const load = async (runtime, vc, refreshed) => (await loadModule(new URL("./TranslationGpuRuntimes.tsx", import.meta.url), runtime, {
     "@logics_configs": { useTranslation: () => ({ getSelectableTranslationComputeDeviceList: () => refreshed.push("list") }) },
     "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => vc },
     "../advanced_settings/VcRuntimeSetup": { VcRuntimeSetup: "runtime-setup" },

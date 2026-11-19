@@ -11,7 +11,11 @@ import { VcRuntimeSetup } from "../advanced_settings/VcRuntimeSetup";
 export const LLAMACPP_RUNTIMES = ["llamacpp-vulkan"];
 
 // onInstalled: called when a build comes or goes, so the catalog asks again which entries can run.
-export const TranslationLlamaRuntimes = ({ onInstalled } = {}) => {
+export interface TranslationLlamaRuntimesProps {
+    onInstalled?: () => void;
+}
+
+export const TranslationLlamaRuntimes = ({ onInstalled }: TranslationLlamaRuntimesProps = {}) => {
     const { t } = useI18n();
     const { catalog, state, send } = useVcRuntimes();
     useEffect(() => {

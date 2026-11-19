@@ -233,9 +233,9 @@ test("each translation provider is one fold that says whether it can be used; th
         { id: "Ollama", label: "Ollama", is_available: true }];
     let selected = { 1: "CTranslate2", 2: "Ollama", 3: "CTranslate2" };
     const SetupSection = () => null;
-    const source = readFileSync(new URL("./setting_section/setting_box/translation/Translation.jsx", import.meta.url), "utf8");
+    const source = readFileSync(new URL("./setting_section/setting_box/translation/Translation.tsx", import.meta.url), "utf8");
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
-    const translation = await loadModule(new URL("./setting_section/setting_box/translation/Translation.jsx", import.meta.url), runtime, {
+    const translation = await loadModule(new URL("./setting_section/setting_box/translation/Translation.tsx", import.meta.url), runtime, {
         ...dependencies, react: runtime.api,
         "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@store": { useStore_TranslationEngines: () => ({ currentTranslationEngines: { data: engines } }),

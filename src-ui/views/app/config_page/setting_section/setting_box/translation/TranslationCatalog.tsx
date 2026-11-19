@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { ChangeEvent, KeyboardEvent } from "react";
+import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
 import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
@@ -6,6 +8,17 @@ import { endpointDescription } from "../../../../../../logics/common/endpointPri
 import { SectionLabelComponent } from "../_components";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
+import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
+    from "../../../../../../logics/translation/translationCatalog";
+
+// The two groups of the catalog, and an entry with the group it is in.
+type CatalogGroupId = "engine" | "api";
+type CatalogEntry = { group: "engine"; item: EngineItem } | { group: "api"; item: ApiItem };
+
+// The entries of one group, each with its group, so the cards know which fields it has.
+const entriesOf = (catalog: TranslationCatalog, group: CatalogGroupId): CatalogEntry[] => group === "engine"
+    ? (catalog.engine ?? []).map(item => ({ group, item }))
+    : (catalog.api ?? []).map(item => ({ group, item }));
 
 // The translation catalog (#413): what translates, in two groups. The entries the app ships
 // are folded away under each group; the entries the user added are cards with their actions.
@@ -31,26 +44,26 @@ export const TranslationCatalogSection = () => {
 };
 
 // i18next takes the first key it has: a code without its own text gets the general one.
-const errorText = (t, code) => t([`translation_catalog.errors.${code}`, "translation_catalog.errors.other"], { code });
+const errorText = (t: TFunction, code: string) => t([`translation_catalog.errors.${code}`, "translation_catalog.errors.other"], { code });
 
-const CatalogGroup = ({ group, catalog }) => {
+const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: TranslationCatalog }) => {
     const { t } = useI18n();
     const { send } = useTranslationCatalog();
     // Which llama.cpp entries can run follows the server builds set up below.
     const askAgain = useCallback(() => send("/get/data/translation_catalog"), [send]);
-    const items = catalog[group] ?? [];
-    const shipped = items.filter(item => item.origin === "builtin");
-    const own = items.filter(item => item.origin !== "builtin");
+    const entries = entriesOf(catalog, group);
+    const shipped = entries.filter(entry => entry.item.origin === "builtin");
+    const own = entries.filter(entry => entry.item.origin !== "builtin");
     return (
         <div className={styles.catalog_group} data-catalog-group={group}>
             <h3>{t(`translation_catalog.group.${group}`)}</h3>
             <p>{t(`translation_catalog.group_help.${group}`)}</p>
             {own.length > 0
-                ? <ul className={styles.catalog}>{own.map(item => <EntryCard key={item.id} group={group} item={item} />)}</ul>
+                ? <ul className={styles.catalog}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} />)}</ul>
                 : <p>{t("translation_catalog.none_added")}</p>}
             <details className={styles.more}>
                 <summary>{t("translation_catalog.shipped_title", { count: shipped.length })}</summary>
-                <ul className={styles.catalog}>{shipped.map(item => <ShippedCard key={item.id} group={group} item={item} />)}</ul>
+                <ul className={styles.catalog}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} />)}</ul>
             </details>
             {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
@@ -60,7 +73,7 @@ const CatalogGroup = ({ group, catalog }) => {
 
 // An entry the app ships: its name and whether it can be used now. Its settings stay in the
 // sections above.
-const ShippedCard = ({ group, item }) => {
+const ShippedCard = ({ group, item }: CatalogEntry) => {
     const { t } = useI18n();
     const state = item.in_use ? "in_use" : item.available ? "ready" : group === "engine" ? "not_downloaded" : "not_set";
     return <li className={styles.card} data-catalog-item={item.id}>
@@ -68,7 +81,7 @@ const ShippedCard = ({ group, item }) => {
             <strong>{item.name}</strong>
             <span className={styles.badge}>{t("translation_catalog.badge.builtin")}</span>
             {group === "api" && item.kind && <span className={styles.badge}>{t(`translation_catalog.kind.${item.kind}`)}</span>}
-            {item.non_commercial && <span className={styles.badge} data-tone="changed">{t("translation_catalog.badge.non_commercial")}</span>}
+            {"non_commercial" in item && item.non_commercial && <span className={styles.badge} data-tone="changed">{t("translation_catalog.badge.non_commercial")}</span>}
             <span className={styles.badge} data-tone={state === "in_use" || state === "ready" ? state : undefined}>{t(`translation_catalog.state.${state}`)}</span>
         </div>
     </li>;
@@ -78,16 +91,16 @@ const ShippedCard = ({ group, item }) => {
 const PROBLEMS = ["unavailable", "no_server", "no_key"];
 
 // A state's help, worded for a translation LLM's file where that differs from a folder's.
-const stateHelp = (item, state) => state === "unavailable" && item.runtime === LLAMACPP
+const stateHelp = (item: EngineItem | ApiItem, state: string) => state === "unavailable" && "runtime" in item && item.runtime === LLAMACPP
     ? "translation_catalog.state_help.unavailable_llamacpp" : `translation_catalog.state_help.${state}`;
 
 // Where an API entry's key is: in the key store, held only until the app closes (the store did
 // not take it, ADR-013), or nowhere.
-const keyText = item => item.key_in_memory ? "translation_catalog.key_memory"
+const keyText = (item: ApiItem) => item.key_in_memory ? "translation_catalog.key_memory"
     : item.has_key ? "translation_catalog.key_kept" : "translation_catalog.key_none";
 
 // An entry the user added: what it points at, and Use and Remove.
-const EntryCard = ({ group, item }) => {
+const EntryCard = ({ group, item }: CatalogEntry) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const [removing, setRemoving] = useState(false);
@@ -136,7 +149,7 @@ const EntryCard = ({ group, item }) => {
 const REGISTER = "/run/register_translation_catalog_entry";
 
 // Clears a form once the answer to its own request came back without a refusal.
-const useClearOnSuccess = (group, clear) => {
+const useClearOnSuccess = (group: CatalogGroupId, clear: () => void) => {
     const { pending, error } = useTranslationCatalog();
     const sent = useRef(false);
     useEffect(() => {
@@ -149,22 +162,23 @@ const useClearOnSuccess = (group, clear) => {
 };
 
 // Not <form>s: Enter in a field adds, as a form would, without nesting forms in the page.
-const onEnter = (submit, busy) => event => {
-    if (event.key === "Enter" && event.target.tagName === "INPUT") { event.preventDefault(); if (!busy) submit(); }
+const onEnter = (submit: () => void, busy: boolean) => (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" && "tagName" in event.target && event.target.tagName === "INPUT") { event.preventDefault(); if (!busy) submit(); }
 };
 
-const EngineForm = ({ runtimes }) => {
+const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const id = useId();
-    const empty = { name: "", folder: "", runtime: runtimes[0] ?? "onnx", languages: "", device: "auto" };
+    const empty: EngineFields = { name: "", folder: "", runtime: runtimes[0] ?? "onnx", languages: "", device: "auto" };
     const [form, setForm] = useState(empty);
-    const [problem, setProblem] = useState(null);
+    const [problem, setProblem] = useState<string | null>(null);
     const busy = !!pending;
     // A translation LLM is one GGUF file and names its device (ADR-015).
     const llamacpp = form.runtime === LLAMACPP;
     useClearOnSuccess("engine", () => { setForm(empty); setProblem(null); });
-    const set = key => event => setForm(current => ({ ...current, [key]: event.target.value }));
+    const set = (key: keyof EngineFields) => (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+        setForm(current => ({ ...current, [key]: event.target.value }));
     const submit = () => {
         const checked = engineRequest(form);
         if ("problem" in checked) { setProblem(checked.problem); return; }
@@ -210,16 +224,17 @@ const EngineForm = ({ runtimes }) => {
     </details>;
 };
 
-const ApiForm = ({ protocols }) => {
+const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const id = useId();
-    const empty = { name: "", url: "", model: "", auth_key: "", protocol: protocols[0] ?? "openai_compatible" };
+    const empty: ApiFields = { name: "", url: "", model: "", auth_key: "", protocol: protocols[0] ?? "openai_compatible" };
     const [form, setForm] = useState(empty);
-    const [problem, setProblem] = useState(null);
+    const [problem, setProblem] = useState<string | null>(null);
     const busy = !!pending;
     useClearOnSuccess("api", () => { setForm(empty); setProblem(null); });
-    const set = key => event => setForm(current => ({ ...current, [key]: event.target.value }));
+    const set = (key: keyof ApiFields) => (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+        setForm(current => ({ ...current, [key]: event.target.value }));
     const submit = () => {
         const checked = apiRequest(form);
         if ("problem" in checked) { setProblem(checked.problem); return; }

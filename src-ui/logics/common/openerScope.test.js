@@ -25,7 +25,7 @@ const opens = url => !deny.some(pattern => pattern.test(url)) && allow.some(patt
 const NOT_LINKS = new Set(["https://api.openai.com/v1", "http://127.0.0.1:8080",
     // The installed speech engines' own addresses (TtsEngine.tsx).
     "http://127.0.0.1:50021", "http://127.0.0.1:50032", "http://127.0.0.1:10101", "http://127.0.0.1:50025",
-    // The example address of an API entry of the translation catalog (TranslationCatalog.jsx).
+    // The example address of an API entry of the translation catalog (TranslationCatalog.tsx).
     "http://192.168.1.10:8000/v1"]);
 
 const sources = (folder, found = []) => {
