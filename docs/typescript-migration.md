@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の設定の「詳細設定」のページを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の設定の「翻訳」のページを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
 | `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、643KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 27 本、211KB | 190 本、906KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/views`（試験を除く） | 24 本、157KB | 193 本、963KB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -213,6 +213,12 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 
 - 保存のロジックが持つ `unknown` の欄の値は、`fieldValue` と `fieldText` で、React が欄に書くのと同じ文字列にしてから渡します。
 - 書き込みへの応答は、バックエンドが応答を返したときだけ読みます（`answerOf`）。TLS の組のエラーコードは文字列のときだけ使い、それ以外は前と同じく `save_unconfirmed` です。
+
+4 回目で、「翻訳」のページ（`Translation`、約 970 行）と、翻訳のカタログ、ローカルの翻訳の GPU 版の取得（`TranslationGpuRuntimes`）を移しました。`TranslationGpuRuntimes` は、取得の部品（`VcRuntimeSetup`）とカタログに型が付いたので、書き換えずに移せました。
+
+- カタログの項目は、属するグループと組にしてカードに渡します（`CatalogEntry`）。
+- ユーザーが足したモデルの行には `non_commercial` や `license` がないので、ライセンスの判定と文は、そのフィールドがあるときだけ読みます。
+- 試験が正規表現で読む定義（`EXTERNAL_API_PROVIDERS`、`LOCAL_LLM_PROVIDERS`、`ENGINE_GROUPS`）の書き方は変えていません。
 
 ### 第 7 段：試験とハーネス
 
