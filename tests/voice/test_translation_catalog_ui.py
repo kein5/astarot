@@ -92,7 +92,8 @@ def ui(tmp_path):
         page.set_default_timeout(5000)
         page.set_default_navigation_timeout(60000)
         peer = SimpleNamespace(sent=[], replies=[], errors=[], entries=[], refuse=None, sequence=0, key_store_works=True,
-                               selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[])
+                               selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[],
+                               retired_folder_used=False)
         page.on("pageerror", lambda error: peer.errors.append(str(error)))
 
         def catalog():
@@ -100,7 +101,8 @@ def ui(tmp_path):
                 dict(e, origin="user", weight=f"user:{e['id']}", available=True,
                      in_use=e.get("in_use", False)) for e in peer.entries if e["group"] == "engine"]
             api = copy.deepcopy(BUILTIN_API) + [dict(e, origin="user") for e in peer.entries if e["group"] == "api"]
-            return dict(engine=engine, api=api, runtimes=["onnx"], protocols=["openai_compatible"])
+            return dict(engine=engine, api=api, runtimes=["onnx"], protocols=["openai_compatible"],
+                        retired_folder_used=peer.retired_folder_used)
 
         def reply(endpoint, result, status=200):
             peer.replies.append(dict(endpoint=endpoint, result=result, status=status))
@@ -138,8 +140,7 @@ def ui(tmp_path):
             elif ep == "/get/data/selectable_ctranslate2_weight_type_dict":
                 reply(ep, peer.weights)
             elif ep == "/get/data/model_download_catalog":
-                reply(ep, dict(catalog_version="test-catalog", models=peer.models, legacy_models=[],
-                               translation_models_folder="C:\\Data\\translation-models"))
+                reply(ep, dict(catalog_version="test-catalog", models=peer.models, legacy_models=[]))
             elif ep == "/get/data/model_download_state":
                 peer.sequence += 1
                 reply(ep, dict(observation_id=str(peer.sequence), jobs={}, downloaded={}))
@@ -278,9 +279,9 @@ def test_an_api_entry_whose_key_the_store_refused_says_how_long_its_key_lasts(ui
     expect(card.get_by_role("button", name="Remove")).to_be_enabled()
 
 
-def open_translation_page(page):
+def open_translation_page(page, query=""):
     """The whole translation page; its 「モデルと処理デバイス」 opened as a user would."""
-    page.goto(page.url.replace("/translation-catalog-ui-entry/", "/translation-page-ui-entry/"))
+    page.goto(page.url.split("?")[0].replace("/translation-catalog-ui-entry/", "/translation-page-ui-entry/") + query)
     # A cold Vite may optimize the page's dependencies and load it again; wait until that is over.
     page.wait_for_load_state("networkidle")
     setup = page.locator("details[data-setup]").first
@@ -315,7 +316,10 @@ def test_without_a_published_model_only_the_selected_one_and_yours_are_listed(ui
     from playwright.sync_api import expect
 
     page, peer = ui
-    peer.weights["custom:my-model"] = True
+    # A model added in the translation catalog is listed under its own name.
+    peer.entries.append(dict(id="tr-5", group="engine", name="my-model", runtime="onnx", folder="C:\\Models\\mine",
+                             languages=[], status="ok", registered_at=None))
+    peer.weights["user:tr-5"] = True
     # Another target's entry offers no translation model.
     peer.models = [dict(translation_entry("rvc-example", "Example voice"), target="rvc")]
     setup = open_translation_page(page)
@@ -404,3 +408,60 @@ def test_the_catalog_fits_a_narrow_window(ui, tmp_path):
     assert overflow <= 0, overflow
     if os.environ.get("VRCT_TEST_SCREENSHOTS"):
         page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-catalog-narrow.png"), full_page=True)
+
+
+def test_the_retired_folder_note_shows_only_while_the_folder_holds_something(ui):
+    """#597: models placed in translation-models are no longer listed. The core says only
+    whether that folder holds a folder; the page then says so above the model list."""
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    setup = open_translation_page(page)
+    expect(setup.get_by_role("radiogroup", name="Translation model")).to_be_visible()
+    assert ("/get/data/translation_catalog", None) in peer.sent
+    expect(page.locator("[data-retired-models-folder]")).to_have_count(0)
+
+
+def test_the_retired_folder_note_leads_to_the_add_form_by_keyboard_in_a_narrow_japanese_window(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    peer.retired_folder_used = True
+    page.set_viewport_size({"width": 480, "height": 900})
+    setup = open_translation_page(page, "?lang=ja")
+    note = setup.locator("[data-retired-models-folder]")
+    expect(note).to_be_visible()
+    expect(note).to_contain_text("translation-modelsフォルダーに置いたモデルは一覧に出なくなりました。")
+    expect(note).to_contain_text("「自分のモデルを追加」で追加し直してください。")
+    # Above the model list, which no longer has the folder's models.
+    models = setup.get_by_role("radiogroup", name="翻訳モデル")
+    note_box, models_box = note.bounding_box(), models.bounding_box()
+    assert note_box["y"] + note_box["height"] <= models_box["y"] + 1, (note_box, models_box)
+    # The add form sits folded at the catalog's end, out of sight.
+    form = page.locator("[data-catalog-add=engine]")
+    name = form.get_by_label("表示する名前")
+    expect(name).not_to_be_visible()
+    overflow = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+    assert overflow <= 0, overflow
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-retired-folder-note.png"))
+
+    # Reached with Tab and pressed with Enter, as a keyboard user would.
+    button = note.get_by_role("button", name="「自分のモデルを追加」を開く")
+    page.locator("body").focus()
+    for _ in range(80):
+        page.keyboard.press("Tab")
+        if button.evaluate("el => el === document.activeElement"):
+            break
+    else:
+        raise AssertionError("the note's button is not reachable with Tab")
+    page.keyboard.press("Enter")
+    # Every fold around the form opens, the form is in view and its first field has the focus.
+    expect(form).to_have_attribute("open", "")
+    assert form.evaluate("el => { for (let d = el; d; d = d.parentElement) if (d.tagName === 'DETAILS' && !d.open) return false; return true; }")
+    expect(name).to_be_focused()
+    expect(name).to_be_in_viewport()
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-retired-folder-add-form.png"))
+    # Nothing was sent by going there.
+    assert sent(peer, "/run/register_translation_catalog_entry") == []
