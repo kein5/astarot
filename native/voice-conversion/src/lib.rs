@@ -22,4 +22,4 @@ pub mod runtime;
 pub mod worker;
 
 pub use direct::{DirectBackend, DirectHealth, DirectVoice};
-pub use process::{DeviceRoute, Health, SpeakFailure, VcProcess, VcRoute};
+pub use process::{DeviceRoute, Health, ManagedRoute, SpeakFailure, VcProcess, VcRoute};

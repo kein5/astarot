@@ -16,6 +16,7 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 use vrct_audio_routing::graph::Endpoint;
+use vrct_audio_routing::managed_vc::{self, ManagedVcDevices};
 use vrct_audio_routing::monitor::{MonitorFactory, MonitorOptions, MonitorSpec, MonitorTee};
 use vrct_audio_routing::router::{CancelToken, Output, PlaybackToken};
 use vrct_audio_routing::sync::monotonic_ns;
@@ -103,6 +104,47 @@ impl VcRoute for DeviceRoute {
     }
     fn max_age_ns(&self) -> i64 {
         p::DEVICE_MAX_AGE_NS
+    }
+}
+
+/// The managed VC input on Linux (`_PipeWireRoute`, decision 11): the microphone is captured
+/// from PipeWire and the converted voice goes into `vrct.managed.vc`, whose OS gate mutes it, so
+/// nothing is silenced here. One block waits for the worker; a second is an overrun.
+pub struct ManagedRoute {
+    devices: Arc<dyn ManagedVcDevices>,
+    monitor: MonitorFactory,
+}
+
+impl ManagedRoute {
+    pub fn new(devices: Arc<dyn ManagedVcDevices>, monitor: MonitorFactory) -> Self {
+        Self { devices, monitor }
+    }
+}
+
+impl VcRoute for ManagedRoute {
+    fn gates_output(&self) -> bool {
+        managed_vc::GATES_OUTPUT
+    }
+    fn drops_late_blocks(&self) -> bool {
+        managed_vc::DROPS_LATE_BLOCKS
+    }
+    fn ready_timeout(&self) -> Duration {
+        Duration::from_secs(managed_vc::READY_TIMEOUT_S)
+    }
+    fn input_blocks(&self) -> usize {
+        managed_vc::INPUT_BLOCKS
+    }
+    fn bind(&self, source: &Endpoint, wait: bool) -> Result<Endpoint, String> {
+        self.devices.bind(source, wait).map_err(|e| e.code)
+    }
+    fn output(&self, sink: &Endpoint) -> Result<Box<dyn Output>, String> {
+        self.devices.open_output(sink).map_err(|e| e.code)
+    }
+    fn capture(&self, source: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture> {
+        self.devices.capture(source, callbacks)
+    }
+    fn monitor_factory(&self) -> MonitorFactory {
+        self.monitor.clone()
     }
 }
 
