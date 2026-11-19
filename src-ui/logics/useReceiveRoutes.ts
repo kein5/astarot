@@ -25,10 +25,94 @@ import { applyInitializationFields, createInitializationValidators } from "./com
 import { isBackendUpdate, rejectExpectedExit } from "./common/sidecarExitExpectation.ts";
 import { settingsWriteResponses } from "./common/settingsWriteResponses.ts";
 import { voiceErrorText } from "./voice/voiceErrorText.ts";
+import type { BackendResponse } from "./common/pendingRequestRecovery.ts";
+import type { InitializationRoutes } from "./common/initializationFields.ts";
 
 const INIT_FIELD_VALIDATORS = createInitializationValidators(SETTINGS_ARRAY);
 
-export const STATIC_ROUTE_META_LIST = [
+// A module whose hooks the routes call by name (@logics_common, a feature's hooks).
+type RouteNamespace = Readonly<Record<string, unknown>>;
+
+// Where the answers to an endpoint go: the hook (`hook_name`, from `ns`) and its function
+// (`method_name`). Endpoints the UI only receives name none.
+interface RouteMeta {
+    endpoint: string;
+    ns: RouteNamespace | null;
+    hook_name: string | null;
+    method_name: string | null;
+    // An answer that carries an auth key and its URL: the URL goes to this function.
+    url_method_name?: string;
+}
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
+// A field of a value the backend sent, read as `value?.[name]` reads it.
+const fieldOf = (value: unknown, name: string): unknown => isRecord(value) ? value[name] : undefined;
+// The code of a failed answer (docs/spec/cross-cutting.md), when it has one.
+const errorCodeOf = (result: unknown): string | undefined => {
+    const code = fieldOf(result, "error_code");
+    return typeof code === "string" ? code : undefined;
+};
+
+// A hook, or one of the functions a hook returns, that the route table names.
+type Callable = (...args: unknown[]) => unknown;
+
+// The route table names the hook and its function as strings, and the routes made from the
+// settings build those names (buildRouteMetaList), so TypeScript can follow neither. The result
+// goes to the named function as the backend sent it, unchecked (docs/spec/ipc-protocol.md):
+// the function's own parameter type is the declaration of the shape the core sends. This guard
+// is the one place that says so. It checks only that the field is a function, as the routes
+// always did.
+const isCallable = (value: unknown): value is Callable => typeof value === "function";
+
+// A function the routes cannot do without: a missing one stops the route with a TypeError, as
+// calling it did.
+const callable = (value: unknown, name: string): Callable => {
+    if (isCallable(value)) return value;
+    throw new TypeError(`${name} is not a function`);
+};
+
+// A reply or a notice from the backend (docs/spec/ipc-protocol.md). A log (status 348) names no
+// endpoint and is read with the endpoint "", as before. A message without a numeric status, or
+// with an endpoint that is not a string, stops here with a TypeError; the session logs it.
+const isBackendResponse = (message: unknown): message is BackendResponse =>
+    isRecord(message) && typeof message.endpoint === "string" && typeof message.status === "number";
+const readBackendResponse = (message: unknown): BackendResponse => {
+    if (isBackendResponse(message)) return message;
+    const status = fieldOf(message, "status");
+    if (isRecord(message) && message.endpoint === undefined && typeof status === "number") return { ...message, endpoint: "", status };
+    throw new TypeError("A backend message has a status and, unless it is a log, an endpoint");
+};
+
+// The notice that an audio device the user chose went away and another took its place.
+interface SwitchedDevice {
+    name: string;
+    id?: unknown;
+}
+interface AudioDeviceSwitch {
+    source: "mic" | "speaker";
+    old_device: SwitchedDevice;
+    new_device: SwitchedDevice;
+}
+const isAudioDeviceSwitch = (result: unknown): result is AudioDeviceSwitch => {
+    const source = fieldOf(result, "source");
+    return (source === "mic" || source === "speaker")
+        && typeof fieldOf(fieldOf(result, "old_device"), "name") === "string"
+        && typeof fieldOf(fieldOf(result, "new_device"), "name") === "string";
+};
+
+// The fields of a SETTINGS_ARRAY entry that its routes are made from.
+interface RoutedSetting {
+    Category: string;
+    Base_Name: string;
+    base_endpoint_name: string;
+    logics_template_id: string;
+    ui_template_id: string;
+    add_endpoint_run_array?: readonly string[];
+}
+
+const CONFIG_SAVE_FAILURES = ["disk_full", "permission_denied", "read_only", "load_failed"];
+
+export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/set/data/openai_compatible_auth_key_and_url", ns: configs, hook_name: "useTranslation", method_name: "setSuccessOpenAICompatibleAuthKey", url_method_name: "updateOpenAICompatibleURL" },
     { endpoint: "/set/data/custom_whisper_auth_key_and_url", ns: configs, hook_name: "useTranscription", method_name: "setSuccessCustomWhisperAuthKey", url_method_name: "updateCustomWhisperURL" },
     { endpoint: "/get/data/model_download_catalog", ns: downloads, hook_name: "useModelDownloads", method_name: "updateCatalog" },
@@ -251,7 +335,7 @@ export const STATIC_ROUTE_META_LIST = [
     { endpoint: "/get/data/available_releases", ns: null, hook_name: null, method_name: null },
 ];
 
-// The top bar's stop and mute (StopActions.jsx), which hotkeys press as well.
+// The top bar's stop and mute (StopActions.tsx), which hotkeys press as well.
 const STOP_ACTIONS = ["/run/stop_voice", "/run/mute_voice", "/run/resume_voice"];
 const TRANSCRIPTION_TOGGLES = ["/set/enable/transcription_send", "/set/disable/transcription_send",
     "/set/enable/transcription_receive", "/set/disable/transcription_receive"];
@@ -293,7 +377,7 @@ export const useReceiveRoutes = () => {
         const timer = setInterval(() => !store.backend_stopped && sendDownload('/get/data/model_download_hardware'), 500);
         return () => clearInterval(timer);
     }, [modelHardware.phase, sendDownload]);
-    const downloadActive = !!downloadPending || Object.values(downloadState.jobs).some(job => ["queued", "downloading", "verifying", "cancelling"].includes(job.phase));
+    const downloadActive = !!downloadPending || Object.values(downloadState.jobs).some(job => ["queued", "downloading", "verifying", "cancelling"].some(phase => phase === job.phase));
     useEffect(() => {
         if (!downloadActive) return;
         const timer = setInterval(() => !store.backend_stopped && sendDownload("/get/data/model_download_state"), 750);
@@ -306,7 +390,7 @@ export const useReceiveRoutes = () => {
     }, [downloadPending, expireDownloadRequests]);
     const { send: sendTranslationCatalog, fail: failTranslationCatalog, reset: resetTranslationCatalog } = translationCatalog.useTranslationCatalog();
     const { state: runtimeState, pending: runtimePending, send: sendRuntime, updateError: updateRuntimeError, reset: resetRuntimes, backendStopped: stopRuntimePending } = vcRuntimes.useVcRuntimes();
-    const runtimeActive = runtimePending || Object.values(runtimeState.jobs).some(job => vcRuntimes.activeSetupPhases.includes(job.phase));
+    const runtimeActive = runtimePending || Object.values(runtimeState.jobs).some(job => vcRuntimes.activeSetupPhases.some(phase => phase === job.phase));
     useEffect(() => {
         if (!runtimeActive) return;
         const timer = setInterval(() => !store.backend_stopped && sendRuntime("/get/data/vc_runtime_state"), 750);
@@ -341,15 +425,15 @@ export const useReceiveRoutes = () => {
     const { updateIsSoftwareUpdating } = common.useIsSoftwareUpdating();
     const { asyncStdoutToPython } = useStdoutToPython();
 
-    const handleInvalidEndpoint = (parsed_data) => {
+    const handleInvalidEndpoint = (parsed_data: { endpoint: string; result?: unknown }) => {
         console.error(`Invalid endpoint: ${parsed_data.endpoint}\nresult: ${JSON.stringify(parsed_data.result)}`);
     };
 
-    const hook_results = {};
+    const hook_results: Record<string, unknown> = {};
     ROUTE_META_LIST.forEach(({ ns, hook_name }) => {
         if (ns && hook_name && !(hook_name in hook_results)) {
             const hookFn = ns[hook_name];
-            if (typeof hookFn === "function") {
+            if (isCallable(hookFn)) {
                 hook_results[hook_name] = hookFn();
             } else {
                 console.warn(`Hook not found on namespace: ${hook_name}`);
@@ -360,36 +444,40 @@ export const useReceiveRoutes = () => {
 
     const noop = () => {};
 
-    const routes = Object.fromEntries(
-        ROUTE_META_LIST.map(({ endpoint, hook_name, method_name, url_method_name }) => {
-            const result_obj = hook_results[hook_name] || {};
-            const fn = result_obj[method_name];
+    const routes: InitializationRoutes = Object.fromEntries(
+        ROUTE_META_LIST.map(({ endpoint, hook_name, method_name, url_method_name }): [string, (value: unknown) => void] => {
+            const result_obj = (hook_name === null ? undefined : hook_results[hook_name]) || {};
+            const fn = method_name === null ? undefined : fieldOf(result_obj, method_name);
             if (url_method_name) return [endpoint, value => {
-                result_obj[url_method_name](value.url);
-                fn(value.auth_key);
+                callable(fieldOf(result_obj, url_method_name), `${hook_name}.${url_method_name}`)(fieldOf(value, "url"));
+                callable(fn, `${hook_name}.${method_name}`)(fieldOf(value, "auth_key"));
             }];
             if (fn === undefined && method_name !== null) {
                 console.error("Method not found.", { endpoint, hook_name, method_name, result_obj, fn });
             }
-            return [endpoint, typeof fn === "function"
-                ? (hook_name === "useModelDownloads" && method_name.startsWith("acknowledge") ? value => fn(value, endpoint) : fn)
+            return [endpoint, isCallable(fn)
+                ? (hook_name === "useModelDownloads" && method_name !== null && method_name.startsWith("acknowledge") ? value => fn(value, endpoint) : fn)
                 : noop];
         })
     );
+    // The sent message rows (useMessage), which a failed send or a stopped backend settles.
+    const failSentMessageLog = (payload?: unknown) =>
+        callable(fieldOf(hook_results.useMessage, "failSentMessageLog"), "useMessage.failSentMessageLog")(payload);
 
 
     // Speech that waited too long is skipped without any other sign, so warn when
     // the backend's count rises. The first reading and a restarted backend do not.
-    const noticeExpiredSpeech = expired => {
-        if (!Number.isSafeInteger(expired)) return;
+    const noticeExpiredSpeech = (expired: unknown) => {
+        if (typeof expired !== "number" || !Number.isSafeInteger(expired)) return;
         if (store.expired_speech !== null && expired > store.expired_speech)
             showNotification_Warning(t("voice_ui.speech_expired"), { category_id: "speech_expired" });
         store.expired_speech = expired;
     };
 
-    const receiveRoutes = (parsed_data) => {
-        const { endpoint = "", status, result } = parsed_data;
-        if (endpoint === "/get/data/voice_status" && status === 200) noticeExpiredSpeech(result?.expired);
+    const receiveRoutes = (message: unknown) => {
+        const parsed_data = readBackendResponse(message);
+        const { endpoint, status, result } = parsed_data;
+        if (endpoint === "/get/data/voice_status" && status === 200) noticeExpiredSpeech(fieldOf(result, "expired"));
         if (status !== 200 && (isBackendUpdate(endpoint) || endpoint === "/run/shutdown")) {
             rejectExpectedExit(store.backend_session, endpoint);
             if (isBackendUpdate(endpoint)) updateIsSoftwareUpdating(false);
@@ -398,15 +486,15 @@ export const useReceiveRoutes = () => {
         pendingRequestRecovery.receive(parsed_data, asyncStdoutToPython);
         settingsWriteResponses.receive(parsed_data);
         if (endpoint === "/run/send_message_box" && [400, 404, 423, 500].includes(status)) {
-            hook_results.useMessage.failSentMessageLog(result?.data ?? result);
+            failSentMessageLog(fieldOf(result, "data") ?? result);
         }
         if (status === 500 && featureResyncReads[endpoint]) asyncStdoutToPython(featureResyncReads[endpoint]);
         if (status !== 200 && endpoint.includes("vc_runtime")) {
-            updateRuntimeError(result?.error_code || "vc_runtime_failed");
+            updateRuntimeError(errorCodeOf(result) || "vc_runtime_failed");
             return;
         }
         if (status !== 200 && endpoint.includes("translation_catalog")) {
-            failTranslationCatalog(result?.error_code);
+            failTranslationCatalog(errorCodeOf(result));
             return;
         }
         // A name the core refused: the names stay as they were, and the editor is closed.
@@ -420,7 +508,7 @@ export const useReceiveRoutes = () => {
             for (const read of TRANSLATION_CATALOG_READS) asyncStdoutToPython(read);
         }
         if (status !== 200 && (endpoint.includes("model_download") || endpoint.includes("user_model"))) {
-            updateDownloadError(result?.error_code || "download_failed", endpoint);
+            updateDownloadError(errorCodeOf(result) || "download_failed", endpoint);
             return;
         }
         // Enabling OBS also starts the WebSocket server it depends on.
@@ -437,12 +525,12 @@ export const useReceiveRoutes = () => {
         // The main TTS toggle can start or stop a bundled server; keep Settings in step.
         if (["/run/enable_tts", "/run/disable_tts"].includes(endpoint)) sendSpeech("/get/data/speech_server_state");
         if (status !== 200 && ["/run/enable_tts", "/run/disable_tts"].includes(endpoint)) {
-            updateTtsError(result?.error_code || "voice_request_failed", endpoint, status);
+            updateTtsError(errorCodeOf(result) || "voice_request_failed", endpoint, status);
             sendVoice("/get/data/voice_status");
             return;
         }
         if (status !== 200 && endpoint.includes("speech_server")) {
-            updateSpeechError(result?.error_code || "speech_server_request_failed");
+            updateSpeechError(errorCodeOf(result) || "speech_server_request_failed");
             if (endpoint !== "/get/data/speech_server_state") sendSpeech("/get/data/speech_server_state");
             return;
         }
@@ -453,29 +541,29 @@ export const useReceiveRoutes = () => {
             sendRealtime("/get/data/realtime_asr_state");
         }
         if (status !== 200 && endpoint === "/run/virtual_mic_test") {
-            failVirtualMicCheck(result?.error_code);
+            failVirtualMicCheck(fieldOf(result, "error_code"));
             return;
         }
         // A refused audition says why on its card; a failed stop or poll leaves it as it is.
         if (status !== 200 && endpoint.includes("gpu_check")) {
-            if (endpoint === "/run/start_gpu_check") failGpuCheck(result?.error_code);
+            if (endpoint === "/run/start_gpu_check") failGpuCheck(fieldOf(result, "error_code"));
             return;
         }
         if (status !== 200 && endpoint.includes("voice_audition")) {
-            if (endpoint === "/run/start_voice_audition") failAudition(result?.error_code);
+            if (endpoint === "/run/start_voice_audition") failAudition(fieldOf(result, "error_code"));
             return;
         }
         if (status !== 200 && endpoint.includes("realtime_asr")) {
-            updateRealtimeError(result?.error_code || "realtime_request_failed");
+            updateRealtimeError(errorCodeOf(result) || "realtime_request_failed");
             return;
         }
         if (status !== 200 && endpoint.includes("direct_voice")) {
-            updateDirectError(result?.error_code || "source_bridge_request_failed", endpoint, status);
+            updateDirectError(errorCodeOf(result) || "source_bridge_request_failed", endpoint, status);
             if ([404, 423, 500].includes(status) && endpoint !== "/get/data/direct_voice_state") sendVoice("/get/data/direct_voice_state");
             return;
         }
         if (status !== 200 && (endpoint.includes("/voice_") || STOP_ACTIONS.includes(endpoint))) {
-            const code = result?.error_code || "voice_request_failed";
+            const code = errorCodeOf(result) || "voice_request_failed";
             updateVoiceError(code);
             // Stop and mute are pressed from the top bar or a hotkey, away from the settings
             // page that shows the error above: say it where the user is. After the engine
@@ -515,7 +603,7 @@ export const useReceiveRoutes = () => {
             resetLanguageMutations();
             if (failedFields.length > 0) {
                 // The UI language from this same result is applied later by an effect.
-                const language = result?.["/get/data/ui_language"];
+                const language = fieldOf(result, "/get/data/ui_language");
                 const translate = typeof language === "string" && i18n?.getFixedT ? i18n.getFixedT(language) : t;
                 showNotification_Warning(translate("common_warning.startup_degraded"),
                     { hide_duration: null, category_id: "startup_degraded" });
@@ -526,10 +614,9 @@ export const useReceiveRoutes = () => {
         // config.json could not be read: the app runs on defaults and the old
         // file was kept beside it.
         if (status === 200 && endpoint === "/run/audio_device_switched") {
-            if (["mic", "speaker"].includes(result?.source)
-                && typeof result?.old_device?.name === "string" && typeof result?.new_device?.name === "string") {
+            if (isAudioDeviceSwitch(result)) {
                 const sameName = result.old_device.name === result.new_device.name;
-                const label = device => sameName && device.id ? `${device.name} (${device.id})` : device.name;
+                const label = (device: SwitchedDevice) => sameName && device.id ? `${device.name} (${device.id})` : device.name;
                 showNotification_Warning(t(`common_warning.audio_device_switched.${result.source}`, {
                     old: label(result.old_device), new: label(result.new_device),
                 }), { category_id: `audio_device_switched.${result.source}` });
@@ -538,14 +625,15 @@ export const useReceiveRoutes = () => {
         }
         if (status === 200 && endpoint === "/run/translation_compute_device_fallback") {
             // Translation is on, on the CPU: the chosen device could not start the model.
-            showNotification_Warning(t("common_warning.translation_device_fallback", { device: String(result?.requested ?? "") }),
+            showNotification_Warning(t("common_warning.translation_device_fallback", { device: String(fieldOf(result, "requested") ?? "") }),
                 { category_id: "translation_device_fallback" });
             return;
         }
         if (endpoint === "/run/config_save_failed") {
             // Failed writes retry; failed loads preserve the original until restart.
-            const reason = ["disk_full", "permission_denied", "read_only", "load_failed"].includes(result?.reason) ? result.reason : "write_failed";
-            showNotification_Error(t(`common_error.config_save_failed.${reason}`, { file: result?.path ?? "" }),
+            const failure = fieldOf(result, "reason");
+            const reason = typeof failure === "string" && CONFIG_SAVE_FAILURES.includes(failure) ? failure : "write_failed";
+            showNotification_Error(t(`common_error.config_save_failed.${reason}`, { file: fieldOf(result, "path") ?? "" }),
                 { hide_duration: null, category_id: "config_save_failed" });
             return;
         }
@@ -555,7 +643,7 @@ export const useReceiveRoutes = () => {
             return;
         }
         if (endpoint === "/run/config_file_unreadable") {
-            showNotification_Warning(t("common_warning.config_file_unreadable", { file: result?.backup ?? "" }),
+            showNotification_Warning(t("common_warning.config_file_unreadable", { file: fieldOf(result, "backup") ?? "" }),
                 { hide_duration: null, category_id: "config_file_unreadable" });
             return;
         }
@@ -572,22 +660,26 @@ export const useReceiveRoutes = () => {
                 receiveLanguageMutation(parsed_data, asyncStdoutToPython);
                 break;
 
-            case 400:
+            case 400: {
+                // The error is in result (docs/spec/cross-cutting.md); a 400 without one stops here, as reading it did.
+                if (result === null || result === undefined) throw new TypeError("A 400 answer carries its error in result");
+                const code = fieldOf(result, "error_code"), text = fieldOf(result, "message");
                 errorHandling_Backend({
-                    error_code: parsed_data.result.error_code,
-                    message: parsed_data.result.message,
-                    data: parsed_data.result.data,
+                    error_code: typeof code === "string" ? code : undefined,
+                    message: typeof text === "string" ? text : undefined,
+                    data: fieldOf(result, "data"),
                     endpoint: parsed_data.endpoint,
                     result: parsed_data.result,
                 });
                 break;
+            }
 
             case 348:
                 // console.log(`from backend: %c ${JSON.stringify(parsed_data)}`, style_348);
                 break;
 
             case 403:
-                // The backend refused a request relayed for the VR panel (vrPanelWire.js lists what
+                // The backend refused a request relayed for the VR panel (vrPanelWire.ts lists what
                 // is relayed; the backend keeps the same list). The pending value was restored above.
                 console.warn("The backend refused a request relayed for the VR panel", endpoint);
                 break;
@@ -612,7 +704,7 @@ export const useReceiveRoutes = () => {
 
     const backendStopped = () => {
         pendingRequestRecovery.stop();
-        hook_results.useMessage.failSentMessageLog();
+        failSentMessageLog();
         resetLanguageMutations();
         stopVoicePending();
         stopSpeechPending();
@@ -635,9 +727,10 @@ const style_348 = [
 // Automatically set 'configs' for now.(This is only used in config)
 const buildRouteMetaList = () => {
     const namespace_module = configs;
-    const generated = [];
+    const generated: RouteMeta[] = [];
+    const settings: readonly RoutedSetting[] = SETTINGS_ARRAY;
 
-    for (const s of SETTINGS_ARRAY) {
+    for (const s of settings) {
         const category = s.Category;
         const base = s.Base_Name;
         const ep = s.base_endpoint_name;
@@ -748,7 +841,7 @@ const buildRouteMetaList = () => {
         }
     }
 
-    const mergedMap = new Map();
+    const mergedMap = new Map<string, RouteMeta>();
 
     for (const item of STATIC_ROUTE_META_LIST) {
         if (!item || !item.endpoint) continue;
@@ -778,7 +871,7 @@ const buildRouteMetaList = () => {
         mergedMap.set(ep, merged);
     }
 
-    const mergedList = [];
+    const mergedList: RouteMeta[] = [];
 
 
     for (const item of STATIC_ROUTE_META_LIST) {
@@ -792,8 +885,9 @@ const buildRouteMetaList = () => {
 
     for (const gen of generated) {
         const ep = gen.endpoint;
-        if (mergedMap.has(ep)) {
-            mergedList.push(mergedMap.get(ep));
+        const merged = mergedMap.get(ep);
+        if (merged) {
+            mergedList.push(merged);
             mergedMap.delete(ep);
         }
     }

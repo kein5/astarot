@@ -66,8 +66,8 @@ def module_dict(tree: ast.Module, name: str) -> ast.Dict:
 # --- IPC endpoints -------------------------------------------------------------
 
 def ui_routes() -> dict[str, str]:
-    """Endpoint -> UI handler, mirroring buildRouteMetaList() in useReceiveRoutes.js."""
-    routes_js = (UI / "useReceiveRoutes.js").read_text(encoding="utf-8")
+    """Endpoint -> UI handler, mirroring buildRouteMetaList() in useReceiveRoutes.ts."""
+    routes_js = (UI / "useReceiveRoutes.ts").read_text(encoding="utf-8")
     setter_js = (UI / "configs" / "config_page_setter" / "ui_config_setter.ts").read_text(encoding="utf-8")
     routes: dict[str, str] = {}
     static = re.findall(r'\{\s*endpoint:\s*"([^"]+)",\s*ns:\s*\w+,\s*hook_name:\s*(?:"(\w+)"|null),\s*method_name:\s*(?:"(\w+)"|null)', routes_js)
@@ -186,7 +186,7 @@ def render_endpoints() -> str:
            "メッセージの形、状態コード、ロックと再試行の規則は[IPCプロトコル](../ipc-protocol.md)にある。\n",
            "列の意味:\n",
            "- 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。",
-           "- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。",
+           "- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。",
            "- ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。",
            "- 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。\n",
            f"## 要求（{len(requests)}件: {summary}）\n",

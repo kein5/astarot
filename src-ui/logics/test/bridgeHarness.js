@@ -123,7 +123,7 @@ export const loadBridgeRoutes = async (loadCommon = async () => ({}), i18n = nul
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./gpuCheck.ts": gpuCheckShapes,
     });
-    const routes = await loadModule(new URL("../useReceiveRoutes.js", import.meta.url), runtime, {
+    const routes = await loadModule(new URL("../useReceiveRoutes.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: key => key, i18n: { exists: () => false } } },
         "./voice/voiceErrorText.ts": voiceErrorTextModule,
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,

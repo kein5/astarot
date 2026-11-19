@@ -74,7 +74,7 @@ flowchart LR
 
 ### 状態コード
 
-| `status` | 意味 | UIの扱い（`useReceiveRoutes.js`） |
+| `status` | 意味 | UIの扱い（`useReceiveRoutes.ts`） |
 |---|---|---|
 | 200 | 成功 | エンドポイントに登録された受信先へ`result`を渡す。受信先がなければ`Invalid endpoint`としてコンソールに出す |
 | 400 | 想定されたエラー | `result.error_code`で振り分ける（[横断的な振る舞い](cross-cutting.md#エラーの扱い)） |
