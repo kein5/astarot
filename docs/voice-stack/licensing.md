@@ -400,7 +400,7 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 | カタログのid | 公開先と版 | 元のモデル | ライセンス | 大きさ（全ファイル） | 扱い |
 |---|---|---|---|---|---|
 | `m2m100-418m-onnx-int8` | `kein5/m2m100_418M-onnx-int8`@`edfdb3e670e257cee60858861031fe40e2e17934` | `facebook/m2m100_418M`@`55c2e61b` | MIT（`LICENSE`にfairseqのMITの文を添えた） | 505,722,914 bytes | 既定のモデル |
-| `nllb-200-distilled-600m-onnx-int8` | `kein5/nllb-200-distilled-600M-onnx-int8`@`3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170` | `facebook/nllb-200-distilled-600M`@`f8d333a0` | CC-BY-NC-4.0（非商用） | 642,621,286 bytes | 既定にしない。取得の前に非商用の確認を求める。取得の画面の注記（`translation_nllb_600m`）で、容量と翻訳の間のメモリー（約1.4 GB）を示す |
+| `nllb-200-distilled-600m-onnx-int8` | `kein5/nllb-200-distilled-600M-onnx-int8`@`3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170` | `facebook/nllb-200-distilled-600M`@`f8d333a0` | CC-BY-NC-4.0（非商用） | 642,621,286 bytes | 既定にしない。取得の前に非商用の確認を求める。取得の画面の注記（`translation_nllb_600m`）で、容量と翻訳の間のメモリー（約1.4 GiB）を示す |
 
 1.3Bは別の作業で後から足す。3.3Bは今は公開しない。
 
