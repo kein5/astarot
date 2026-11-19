@@ -150,7 +150,7 @@ impl Recorder {
         for candidate in candidates {
             let (sender, receiver): (SyncSender<Chunk>, Receiver<Chunk>) = sync_channel(256);
             let feeding = Arc::clone(&shared);
-            let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16| {
+            let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16, _captured_ago: Option<Duration>| {
                 if !feeding.running() {
                     return false;
                 }

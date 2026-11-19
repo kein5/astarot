@@ -1,3 +1,105 @@
 {
-  "models": []
+  "models": [
+    {
+      "id": "m2m100-418m-onnx-int8",
+      "name": "M2M100 418M · int8",
+      "provider": "Meta / VRCT-VOX",
+      "repo": "kein5/m2m100_418M-onnx-int8",
+      "revision": "edfdb3e670e257cee60858861031fe40e2e17934",
+      "license": "MIT",
+      "licenses": [
+        "https://huggingface.co/kein5/m2m100_418M-onnx-int8/blob/edfdb3e670e257cee60858861031fe40e2e17934/README.md",
+        "https://huggingface.co/kein5/m2m100_418M-onnx-int8/blob/edfdb3e670e257cee60858861031fe40e2e17934/LICENSE"
+      ],
+      "artifacts": [
+        {
+          "filename": "manifest.json",
+          "size": 6408,
+          "sha256": "01943bdfaedaa6d092b107d8617a877631c84dc8fffd076f28b279ab36a6c6db",
+          "role": "manifest"
+        },
+        {
+          "filename": "decoder_model_merged_quantized.onnx",
+          "size": 204415021,
+          "sha256": "6b2dedcb10e06a2d5217ab42f521e751ded0a25dab3dcea8c469712409e629ce",
+          "role": "decoder"
+        },
+        {
+          "filename": "encoder_model_quantized.onnx",
+          "size": 152962633,
+          "sha256": "10682bd44f3f3712e07d132d8f419812da9d71dfed1983db1144300b3e8ac7be",
+          "role": "encoder"
+        },
+        {
+          "filename": "tokenizer.json",
+          "size": 14694138,
+          "sha256": "8829d6a6593a07e732769df78393f8724edbcd401a091afa8ae58944fffc91f6",
+          "role": "tokenizer"
+        },
+        {
+          "filename": "vocab.json",
+          "size": 2458026,
+          "sha256": "732227c79c616054e3111ac02aeac8fd134502c0a83a26f84c95ccd9bfc1f68a",
+          "role": "vocabulary"
+        },
+        {
+          "filename": "vocabulary.data",
+          "size": 131186688,
+          "sha256": "9b005d492b924caa229f01b946a396453da0c18a3a0177957d781a49077ba5a1",
+          "role": "weights"
+        }
+      ]
+    },
+    {
+      "id": "nllb-200-distilled-600m-onnx-int8",
+      "name": "NLLB-200 distilled 600M · int8",
+      "provider": "Meta / VRCT-VOX",
+      "repo": "kein5/nllb-200-distilled-600M-onnx-int8",
+      "revision": "3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170",
+      "license": "CC-BY-NC-4.0",
+      "licenses": [
+        "https://huggingface.co/kein5/nllb-200-distilled-600M-onnx-int8/blob/3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170/README.md",
+        "https://creativecommons.org/licenses/by-nc/4.0/"
+      ],
+      "notice": "translation_nllb_600m",
+      "artifacts": [
+        {
+          "filename": "manifest.json",
+          "size": 8765,
+          "sha256": "37c2510e08d9687c7822be9a9dafb51ad6dcb288b00e2f33630585f0d8dbde6e",
+          "role": "manifest"
+        },
+        {
+          "filename": "decoder_model_merged_quantized.onnx",
+          "size": 204582973,
+          "sha256": "737cdb919ca1334846bffbd9ef15ea275823d98c74dd75c98dbe522fa880be8a",
+          "role": "decoder"
+        },
+        {
+          "filename": "encoder_model_quantized.onnx",
+          "size": 153068067,
+          "sha256": "b71b2f4bb77cc2e10be582f6d2230629fd4c93cac5d8afc1e3bc39db9910fcf9",
+          "role": "encoder"
+        },
+        {
+          "filename": "tokenizer.json",
+          "size": 17331176,
+          "sha256": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+          "role": "tokenizer"
+        },
+        {
+          "filename": "vocab.json",
+          "size": 5275361,
+          "sha256": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+          "role": "vocabulary"
+        },
+        {
+          "filename": "vocabulary.data",
+          "size": 262354944,
+          "sha256": "ab479b689766b640fe611565be288f15163ae7543c8bd5f279ed4bd68e3a3724",
+          "role": "weights"
+        }
+      ]
+    }
+  ]
 }
