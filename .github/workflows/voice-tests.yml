@@ -93,6 +93,23 @@ jobs:
       # The names the app goes by outside its code, and the VRCT-VOX ones they replace (ADR-014).
       - run: cargo test --locked --manifest-path native/app-identity/Cargo.toml
       - run: cargo test --locked --manifest-path native/core/Cargo.toml
+      # The time the voice pipeline adds of its own, on stand-ins for the engines (#738;
+      # docs/voice-stack/pipeline-latency-tracking.md). A measurement: its result never fails the
+      # job. pipeline-latency.yml sends it to Bencher once this workflow has finished.
+      - name: Measure the pipeline's own time
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          VRCT_PIPELINE_BMF: ${{ runner.temp }}/pipeline-latency.json
+        run: cargo test --locked --manifest-path native/core/Cargo.toml --test pipeline_overhead -- --ignored --nocapture
+      - if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pipeline-latency-${{ matrix.os }}
+          path: ${{ runner.temp }}/pipeline-latency.json
+          if-no-files-found: ignore
+          retention-days: 14
       # The OS stores the API keys go to (ADR-013). Linux: GNOME Keyring with an unlocked login
       # keyring on a private session bus. Windows: the runner user's Credential Manager. Each test
       # writes one item under a scope of its own and removes it.

@@ -18,13 +18,15 @@
 //!     --clips <folder of clip*.wav and texts.txt> \
 //!     --asr-model <recognition .gguf> --vad-model <silero-vad .gguf> \
 //!     --tts-model <Qwen3-TTS .gguf> --translation <m2m100_418M-onnx-int8 folder> \
-//!     --runs 3 --out <file.jsonl>
+//!     --runs 3 --out <file.jsonl> [--bmf <file.json>]
 //! ```
 //!
 //! `ORT_DYLIB_PATH` names the ONNX Runtime library of the translation, as for the application.
 //! `texts.txt` holds the expected text of each clip, one line each, in file name order; it is
 //! read only to give the recognition's character error rate. No recognised, translated or
 //! expected text and no audio is printed or written: only times, counts and error rates.
+//! `--bmf` also writes the summary's percentiles in Bencher Metric Format, the format CI sends to
+//! Bencher (`tests/bmf`, `docs/voice-stack/pipeline-latency-tracking.md`).
 //!
 //! Times are the monotonic clock's (`vrct_tts::clock::monotonic_ns`), the clock of the flow
 //! panel's trace. "End of speech" is when the block holding the clip's last voiced sample
@@ -46,6 +48,9 @@ use vrct_core::{Backend, Options, Sink};
 use vrct_transcription::capture::{Capture, CapturePlatform, OnAudio, OnError, Source, Target};
 use vrct_tts::clock::monotonic_ns;
 
+#[path = "../tests/bmf/mod.rs"]
+mod bmf;
+
 const RATE: u32 = 48_000;
 const BLOCK: usize = (RATE / 100) as usize;
 const OUTPUT_DEVICE: &str = "pipeline-latency";
@@ -65,6 +70,8 @@ struct Args {
     runs: usize,
     gap: Duration,
     out: Option<PathBuf>,
+    /// The summary's percentiles in Bencher Metric Format.
+    bmf: Option<PathBuf>,
     device: String,
     label: String,
     /// Realtime recognition's `silence_duration_ms`; the server's own when absent.
@@ -91,6 +98,7 @@ fn args() -> Args {
         runs: found.get("runs").map_or(3, |v| v.parse().expect("--runs takes a number")),
         gap: Duration::from_millis(found.get("gap-ms").map_or(8000, |v| v.parse().expect("--gap-ms takes a number"))),
         out: found.get("out").map(PathBuf::from),
+        bmf: found.get("bmf").map(PathBuf::from),
         device: found.get("device").cloned().unwrap_or_else(|| "auto".into()),
         label: found.get("label").cloned().unwrap_or_default(),
         silence_ms: found.get("silence-ms").map(|v| v.parse().expect("--silence-ms takes a number")),
@@ -475,13 +483,6 @@ fn ms(ns: i64) -> f64 {
     (ns as f64 / 1e5).round() / 10.0
 }
 
-fn percentile(values: &[f64], p: f64) -> f64 {
-    let mut sorted = values.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    let rank = ((p / 100.0) * sorted.len() as f64).ceil().max(1.0) as usize;
-    sorted[rank.min(sorted.len()) - 1]
-}
-
 /// Puts the translation model where the core looks for it, without copying it where that can
 /// be helped: a symbolic link on Unix; on Windows, where a symbolic link needs Developer Mode or
 /// administrator rights, a hard link to each file, or a copy when the model is on another drive.
@@ -715,7 +716,7 @@ fn main() {
         if values.is_empty() {
             return Value::Null;
         }
-        json!({ "n": values.len(), "p50": percentile(&values, 50.0), "p95": percentile(&values, 95.0), "max": percentile(&values, 100.0) })
+        json!({ "n": values.len(), "p50": bmf::percentile(&values, 50.0), "p95": bmf::percentile(&values, 95.0), "max": bmf::percentile(&values, 100.0) })
     };
     let summary = json!({
         "label": args.label,
@@ -735,6 +736,24 @@ fn main() {
     });
     writeln!(out, "{summary}").unwrap();
     eprintln!("[pipeline] {summary}");
+    if let Some(path) = &args.bmf {
+        let times = |pick: &dyn Fn(&Value) -> Option<f64>| -> Vec<f64> { rows.iter().filter_map(pick).collect() };
+        let (voice, chatbox, final_, translate) = (
+            times(&|r| r["speech_after_end_ms"].as_f64()),
+            times(&|r| r["chatbox_after_end_ms"].as_f64()),
+            times(&|r| r["final_after_end_ms"].as_f64()),
+            times(&|r| r["trace"]["translate_ms"].as_f64()),
+        );
+        bmf::write(
+            path,
+            &[
+                ("pipeline: end of speech to audible speech", &voice),
+                ("pipeline: end of speech to chatbox", &chatbox),
+                ("pipeline: end of speech to final", &final_),
+                ("pipeline: translation", &translate),
+            ],
+        );
+    }
     ui.send("/run/shutdown", None);
     let _ = ui.backend.wait(Duration::from_secs(30));
 }
