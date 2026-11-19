@@ -37,7 +37,7 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 
 ## 更新の決まり
 
-- `reference/`の3つの一覧はコードから生成する。手で編集せず、`python tools/spec_catalog.py --write`で作り直す。
+- `reference/`の3つの一覧は`tools/spec_catalog.py`が生成する。手で編集せず、`python tools/spec_catalog.py --write`で作り直す。入力は2つのJSONとUIのコードである。Pythonのバックエンドにあった行は、0.6.0でPythonを消す前に`src-python`から写した`tools/spec_python_baseline.json`にある。中核だけにある行は`tools/spec_core_additions.json`にある。中核で変えたエンドポイント、エラーコード、設定キーは、このどちらかのJSONを直してから作り直す。
 - `python tools/dev.py check`は`tests/devtools/test_spec_catalog.py`で一覧が最新かを確かめる。エンドポイント、エラーコード、設定キーを変えたら、同じ変更で一覧も作り直す。
 - 手書きの文書は、振る舞いを変えた変更と同じプルリクエストで直す。文書は機能ごとに小さく保ち、同じことを2か所に書かず、リンクでつなぐ。
 - 実装と食い違う記述を見つけたら、どちらが正しいかを確かめる。決められなければ[未決事項](open-issues.md)に書く。
