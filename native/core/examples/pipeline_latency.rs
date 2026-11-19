@@ -256,7 +256,7 @@ impl CapturePlatform for Mic {
                     }
                 };
                 let delivered = monotonic_ns();
-                if !on_audio(&block, RATE, 1) {
+                if !on_audio(&block, RATE, 1, None) {
                     break;
                 }
                 if let Some((after, mark)) = mark {
