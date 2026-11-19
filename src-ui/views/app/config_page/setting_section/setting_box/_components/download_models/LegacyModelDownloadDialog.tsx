@@ -11,6 +11,7 @@ import dialogStyles from "./LegacyModelDownloadDialog.module.scss";
 import { useConsentDialog } from "../../../../../../../logics/common/useConsentDialog";
 import { translationCatalogIds } from "../../../../../../../logics/main/setupNeeds";
 import { ModelDownloads } from "../../advanced_settings/ModelDownloads";
+import type { TranslationDevice } from "../../../../../../../logics/voice/modelHardwareWarning";
 import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 
 // Native modal scope, initial focus on Back and the shared catalog form styles.
@@ -40,9 +41,12 @@ export interface LegacyModelDownloadDialogProps {
     onDownload: (request: LegacyDownloadRequest) => void;
     extraAction?: { label: ReactNode; onClick: () => void } | null;
     note?: ReactNode;
+    // The saved device of the local translation (SELECTED_TRANSLATION_COMPUTE_DEVICE); the
+    // models' memory is compared with it, the CPU's by default.
+    computeDevice?: TranslationDevice;
 }
 
-export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null }: LegacyModelDownloadDialogProps) => {
+export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null, computeDevice }: LegacyModelDownloadDialogProps) => {
     const { t } = useI18n();
     const { catalog: downloadCatalog, error, send } = useModelDownloads();
     const catalog: ReviewCatalog | null = downloadCatalog;
@@ -119,7 +123,7 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
             </> : translation ? <>
                 {translationRows.length > 0
                     ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} reserve={undefined}
-                        only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} />
+                        only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} translationDevice={computeDevice} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 {/* A model of one's own is added in the translation catalog, from any folder (#597). */}
                 <p>{t("legacy_model_downloads.translation_own_model")}</p>
