@@ -7,7 +7,10 @@ import { store } from "@store";
 import { useReceiveRoutes } from "@useReceiveRoutes";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { Translation } from "../../../src-ui/views/app/config_page/setting_section/setting_box/translation/Translation";
-import "../../../locales/config";
+import i18n from "../../../locales/config";
+// ?lang=ja draws the page in Japanese; without it the browser's language decides, as before.
+const lang = new URLSearchParams(location.search).get("lang");
+if (lang) i18n.changeLanguage(lang);
 store.backend_subprocess = { write: line => window.sidecarWrite(line) };
 const STARTUP_READS = ["/get/data/selected_ctranslate2_weight_type",
     "/get/data/selectable_ctranslate2_weight_type_dict", "/get/data/model_download_catalog"];

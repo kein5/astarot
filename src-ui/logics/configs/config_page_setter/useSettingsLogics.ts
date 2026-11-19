@@ -223,10 +223,10 @@ export const useSettingsLogics = (settingsArray: readonly SettingLogicsEntry[], 
             };
             result[`updateDownloaded${base}`] = (downloaded_weight_type_status: DownloadedWeights) => {
                 updateList((old_status) => {
-                    // Models the user added to the local translation (a folder, "custom:<folder>",
-                    // or a translation catalog entry, "user:<id>") are known only to the backend:
-                    // they are listed after the built-in ones, and leave when the backend drops them.
-                    const users = (id: string) => id.startsWith("custom:") || id.startsWith("user:");
+                    // Models the user added to the local translation (a translation catalog
+                    // entry, "user:<id>") are known only to the backend: they are listed after
+                    // the built-in ones, and leave when the backend drops them.
+                    const users = (id: string) => id.startsWith("user:");
                     const known = old_status.data
                         .filter((item) => !users(item.id) || item.id in (downloaded_weight_type_status ?? {}))
                         .map((item) => ({
