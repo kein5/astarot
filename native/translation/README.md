@@ -10,6 +10,7 @@
 | `prompt` | チャット型のプロバイダに渡すシステムプロンプトと会話の履歴 | `translation_settings/prompt/*.yml` |
 | `transliteration` | 読みの分け方、何（なに・なん）の規則、カタカナからひらがなとヘボン式 | `transliteration_*.py` |
 | `http` | プロバイダとの通信に使う小さな HTTP/1.1 クライアント | `models/network_policy.py` の一部 |
+| `translategemma` | TranslateGemma の公式のテンプレートの文を組み立て、アプリが起動した llama.cpp のサーバーの `/completion` に送る（ADR-015）。system を送らず、会話の文脈も送らず、温度 0 で生成する。エンジンの一覧のプロバイダではない。契約は `tests/translategemma.rs` と `tests/contract/translategemma.json` | （なし） |
 
 ## プロバイダの形
 
