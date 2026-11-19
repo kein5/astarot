@@ -71,6 +71,6 @@ export const chevron = style({
     pointerEvents: "none",
 });
 
-// The open list of a native select is drawn by the system; give its rows the field's colours
-// where the engine lets us (WebView2 does, WebKitGTK partly).
-globalStyle(`${selectWrap} option`, { background: vars.vox_surface, color: vars.dark_basic_text_color });
+// The open list of a native select is drawn by the system; give its rows and group labels the
+// field's colours where the engine lets us (WebView2 does, WebKitGTK partly).
+globalStyle(`${selectWrap} option, ${selectWrap} optgroup`, { background: vars.vox_surface, color: vars.dark_basic_text_color });
