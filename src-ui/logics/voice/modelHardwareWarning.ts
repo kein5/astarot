@@ -16,12 +16,21 @@ export type WarnedModel = {
 };
 
 // low_memory: the model's memory (plus the same 25% allowance as modelHardwareAdvice.ts) is more
-// than the device has in total. no_gpu / cpu_setting: the model is too slow on a CPU and no GPU
-// was found, or the engine is set to run on the CPU.
+// than the device has in total; on the RAM, after RAM_RESERVE is kept for what runs next to it.
+// no_gpu / cpu_setting: the model is too slow on a CPU and no GPU was found, or the engine is set
+// to run on the CPU. `reserve` is the RAM kept back (null for a GPU).
 export type HardwareWarningReason = "low_memory" | "no_gpu" | "cpu_setting";
-export type HardwareWarning = { reason: HardwareWarningReason; required: number | null; available: number | null; device: HardwareDevice | null };
+export type HardwareWarning = { reason: HardwareWarningReason; required: number | null; available: number | null;
+    device: HardwareDevice | null; reserve: number | null };
 
 const ALLOWANCE = 1.25;
+const GiB = 1024 ** 3;
+// The RAM the OS and VRChat need while a model runs on the CPU (decided 2026-11-19, #597). Each
+// is the minimum its maker publishes: Windows 11 asks for 4 GB, and VRChat's Steam page lists
+// 4 GB as its minimum memory. Minimums, so the sum errs low rather than warning every PC; a GPU's
+// memory is compared without them.
+export const RAM_RESERVE = { os: 4 * GiB, vrchat: 4 * GiB };
+const RESERVED_RAM = RAM_RESERVE.os + RAM_RESERVE.vrchat;
 // The CPU marks of a model that a CPU does not run at a usable speed (native/ops/data/speechcpp_asr.json).
 const SLOW_ON_CPU = ["impractical", "slow"];
 // The engine's device choices (SpeechServers.jsx); anything else names one device.
@@ -75,14 +84,14 @@ export function hardwareWarning(model: WarnedModel, hardware: HardwareState | nu
     const required = requiredMemory(model);
     if (!gpu) {
         if (model.profile?.gpu === "recommended" && SLOW_ON_CPU.includes(model.profile?.cpu ?? ""))
-            return { reason: deviceMode === "cpu" || named?.kind === "cpu" ? "cpu_setting" : "no_gpu", required, available: null, device: null };
+            return { reason: deviceMode === "cpu" || named?.kind === "cpu" ? "cpu_setting" : "no_gpu", required, available: null, device: null, reserve: null };
         const cpu = devices.find(row => row.kind === "cpu" && positive(row.memory_total));
-        if (cpu && required !== null && required * ALLOWANCE > cpu.memory_total!)
-            return { reason: "low_memory", required, available: cpu.memory_total, device: cpu };
+        if (cpu && required !== null && required * ALLOWANCE + RESERVED_RAM > cpu.memory_total!)
+            return { reason: "low_memory", required, available: cpu.memory_total, device: cpu, reserve: RESERVED_RAM };
         return null;
     }
     // GPU memories are never added together.
     if (required === null || !positive(gpu.memory_total)) return null;
     return required * ALLOWANCE > gpu.memory_total
-        ? { reason: "low_memory", required, available: gpu.memory_total, device: gpu } : null;
+        ? { reason: "low_memory", required, available: gpu.memory_total, device: gpu, reserve: null } : null;
 }
