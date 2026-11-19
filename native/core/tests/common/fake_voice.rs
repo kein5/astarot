@@ -50,7 +50,20 @@ struct Inner {
     /// No capture for a conversion on the managed route (a Linux build without PipeWire).
     no_managed_vc: AtomicBool,
     /// The monitor's device does not open.
-    monitor_fails: AtomicBool,
+    monitor_fault: Mutex<MonitorFault>,
+}
+
+/// How the monitor's device fails (`test_monitor_vc.py`'s faults).
+#[derive(Clone, Default)]
+pub enum MonitorFault {
+    #[default]
+    None,
+    /// It does not open (`output_missing`).
+    Missing,
+    /// It opens, then every write fails (`output_disconnected`).
+    Unplugged,
+    /// It opens, then a write waits until the flag is set.
+    Stalled(Arc<AtomicBool>),
 }
 
 /// The fake; clone it to keep a handle after giving it to [`super::Setup`].
@@ -117,7 +130,11 @@ impl FakeVoice {
     }
 
     pub fn fail_monitor(&self, fail: bool) {
-        self.0.monitor_fails.store(fail, Ordering::SeqCst);
+        self.set_monitor_fault(if fail { MonitorFault::Missing } else { MonitorFault::None });
+    }
+
+    pub fn set_monitor_fault(&self, fault: MonitorFault) {
+        *self.0.monitor_fault.lock().unwrap() = fault;
     }
 
     pub fn set_managed_vc(&self, available: bool) {
@@ -170,12 +187,41 @@ impl FakeVoice {
     }
 }
 
+/// A monitor's device that breaks as its fault says.
+struct FaultyOutput {
+    output: Box<dyn Output>,
+    fault: MonitorFault,
+}
+
+impl Output for FaultyOutput {
+    fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> Result<()> {
+        match &self.fault {
+            MonitorFault::Unplugged => return Err(Error::speech("output_disconnected")),
+            MonitorFault::Stalled(release) => {
+                while !release.load(Ordering::SeqCst) {
+                    token.check()?;
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
+            MonitorFault::None | MonitorFault::Missing => {}
+        }
+        self.output.write(pcm, token)
+    }
+    fn close(&mut self, drain: bool, token: &dyn PlaybackToken) -> Result<()> {
+        self.output.close(drain, token)
+    }
+}
+
 /// The managed route's OS gate in memory.
 #[derive(Default)]
 pub struct FakeGate {
     pub source_muted: Mutex<bool>,
     pub direct_muted: Mutex<bool>,
     pub fail: AtomicBool,
+    /// A resume waits while this is set (for up to 5 s), as a slow OS gate would.
+    pub hold_resume: AtomicBool,
+    /// A resume has reached the gate.
+    pub resuming: AtomicBool,
 }
 
 impl FakeGate {
@@ -206,6 +252,11 @@ impl Gate for FakeGate {
         Ok(self.pair().direct)
     }
     fn resume(&self, _: (u64, u64), _: (u64, u64), suppress_direct: bool) -> Result<GatePair> {
+        self.resuming.store(true, Ordering::SeqCst);
+        let held = std::time::Instant::now();
+        while self.hold_resume.load(Ordering::SeqCst) && held.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
         self.check()?;
         *self.source_muted.lock().unwrap() = false;
         *self.direct_muted.lock().unwrap() = suppress_direct;
@@ -332,10 +383,12 @@ impl VoicePlatform for FakeVoice {
     fn monitor_output(&self) -> MonitorFactory {
         let fake = self.clone();
         Arc::new(move |device: &str, rate: u32, channels: u16, _: &[String]| {
-            if fake.0.monitor_fails.load(Ordering::SeqCst) {
+            let fault = fake.0.monitor_fault.lock().unwrap().clone();
+            if let MonitorFault::Missing = fault {
                 return Err(Error::speech("output_missing"));
             }
-            fake.open(&format!("monitor:{device}"), rate, channels)
+            let output = fake.open(&format!("monitor:{device}"), rate, channels)?;
+            Ok(Box::new(FaultyOutput { output, fault }) as Box<dyn Output>)
         })
     }
     fn gate(&self, _: &Path) -> Arc<dyn Gate> {
