@@ -7,48 +7,80 @@ import { useMainFunction } from "@logics_main";
 import { register, unregister, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import type { Window as AppWindow } from "@tauri-apps/api/window";
+import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { voiceActions } from "../../../voice/voiceActions.ts";
+import type { Hotkeys } from "@store";
+
+// What quick_chat_shortcut_platform answers (quick_chat.rs).
+type ShortcutPlatform = "wayland" | "xwayland" | "native";
+// A key press that the GlobalShortcuts portal forwards ("portal-shortcut", portal_shortcuts.rs).
+interface PortalActivation {
+    id: string;
+    activation_token: string | null;
+}
+// The key the desktop uses for one action (Assigned in portal_shortcuts.rs). applied is false
+// when the desktop kept another key, null when the desktop cannot say.
+interface PortalAssigned {
+    shown: string;
+    applied: boolean | null;
+}
+type ActionRunner = (actionKey: string, activationToken?: string | null) => Promise<void>;
+// The hook instance that registered the keys last; it stops counting once it unmounts.
+interface HookOwner {
+    mounted: boolean;
+}
+interface PortalListener {
+    unlisten: (() => void) | null;
+    ready: Promise<void> | null;
+}
+// A key change on its way to the backend. sent: the write has gone out.
+interface PendingEdit {
+    keys: string[] | null;
+    sent?: boolean;
+}
 
 // Native Wayland grants no global key grab: the desktop binds the keys
 // through the GlobalShortcuts portal and Rust forwards each press here.
-let platformRequest = null;
+let platformRequest: Promise<ShortcutPlatform> | null = null;
 const shortcutPlatform = () => {
-    platformRequest ??= invoke("quick_chat_shortcut_platform").catch(error => {
+    platformRequest ??= invoke<ShortcutPlatform>("quick_chat_shortcut_platform").catch((error: unknown) => {
         platformRequest = null;
         throw error;
     });
     return platformRequest;
 };
-let portalHandler = null;
+let portalHandler: ActionRunner | null = null;
 // Rust says "portal-shortcuts-lost" when the desktop ended the session or its portal went away
 // (a crash or an update): the keys stop working without a word otherwise (#397).
-let portalLostHandler = null;
+let portalLostHandler: (() => void) | null = null;
 // One automatic bind per this long; a portal that keeps going away is left to the user.
 const PORTAL_RECONNECT_DELAY_MS = 3000;
 const PORTAL_RECONNECT_GAP_MS = 60000;
 let lastPortalReconnect = -Infinity;
-let portalReconnectTimer = null;
+let portalReconnectTimer: ReturnType<typeof setTimeout> | undefined = undefined;
 let portalPaused = true; // Like the plugin's unregisterAll while settings are open.
 // A Wayland client is never told that it is minimized, so isMinimized() stays false there.
 // Remember that the hotkey minimized the window; getting the focus back means it is up again.
 let minimizedByHotkey = false;
-let focusWatch = null;
+let focusWatch: Promise<UnlistenFn> | null = null;
 let registrationGeneration = 0;
-let registrationOwner = null;
+let registrationOwner: HookOwner | null = null;
 let disposed = false;
 // Keep native mutations ordered too: a register already in flight may finish
 // after an acknowledgement starts the next reconciliation.
-let nativeRegistration = Promise.resolve();
-const pendingEdits = new Map();
-const reconcileNative = operation => {
+let nativeRegistration: Promise<unknown> = Promise.resolve();
+const pendingEdits = new Map<string, PendingEdit>();
+const reconcileNative = <T>(operation: () => T | PromiseLike<T>): Promise<T> => {
     const result = nativeRegistration.then(operation);
     nativeRegistration = result.catch(() => {});
     return result;
 };
 // Remember that a bind may have reached Rust, even if its UI owner was disposed.
-let portalBound = import.meta.hot?.data.portalBound ?? false;
-let portalListener = null;
+let portalBound: boolean = import.meta.hot?.data.portalBound ?? false;
+let portalListener: PortalListener | null = null;
 const shortcutsEnabled = () => {
     const atoms = getDefaultStore();
     return atoms.get(Atom_IsBackendReady).data === true &&
@@ -62,7 +94,7 @@ const pauseShortcuts = () => {
     // A loss while paused needs nothing: the next bind (closing settings) opens a new session.
     portalLostHandler = null;
     clearTimeout(portalReconnectTimer);
-    portalReconnectTimer = null;
+    portalReconnectTimer = undefined;
 };
 const disposePortalListener = () => {
     pauseShortcuts();
@@ -73,10 +105,10 @@ const disposePortalListener = () => {
 };
 const ensurePortalListener = () => {
     if (!portalListener) {
-        const listener = { unlisten: null, ready: null };
+        const listener: PortalListener = { unlisten: null, ready: null };
         portalListener = listener;
         listener.ready = Promise.allSettled([
-            listen("portal-shortcut", ({ payload }) => {
+            listen<PortalActivation>("portal-shortcut", ({ payload }) => {
                 if (portalListener === listener && !portalPaused && shortcutsEnabled() && portalHandler) {
                     portalHandler(payload.id, payload.activation_token ?? null);
                 }
@@ -106,7 +138,7 @@ if (import.meta.hot) import.meta.hot.dispose(data => {
 });
 
 export const useHotkeys = () => {
-    const owner = useRef({ mounted: true }).current;
+    const owner = useRef<HookOwner>({ mounted: true }).current;
     useEffect(() => {
         owner.mounted = true;
         return () => {
@@ -115,6 +147,12 @@ export const useHotkeys = () => {
         };
     }, [owner]);
     const appWindow = store.appWindow;
+    // Each window's entry point sets it before anything draws; reading it without one stops
+    // with a TypeError where the window is used, as calling a method of undefined did.
+    const mainWindow = (): AppWindow => {
+        if (!appWindow) throw new TypeError("store.appWindow is not set");
+        return appWindow;
+    };
     const { t, i18n } = useI18n();
 
     const { asyncStdoutToPython } = useStdoutToPython();
@@ -145,12 +183,12 @@ export const useHotkeys = () => {
         showNotification_Warning(t("quick_chat.portal_lost_reconnecting"), { hide_duration: 8000 });
         clearTimeout(portalReconnectTimer);
         portalReconnectTimer = setTimeout(() => {
-            portalReconnectTimer = null;
+            portalReconnectTimer = undefined;
             void registerShortcuts();
         }, PORTAL_RECONNECT_DELAY_MS);
     };
 
-    const openQuickChat = async (activationToken = null) => {
+    const openQuickChat = async (activationToken: string | null = null) => {
         try { await invoke("quick_chat_show", { activationToken }); }
         catch (error) {
             console.warn("Quick chat window could not be focused", error);
@@ -166,7 +204,7 @@ export const useHotkeys = () => {
         }
     };
 
-    const runAction = async (actionKey, activationToken = null) => {
+    const runAction: ActionRunner = async (actionKey, activationToken = null) => {
         switch (actionKey) {
             case "open_quick_chat": {
                 await openQuickChat(activationToken);
@@ -174,10 +212,10 @@ export const useHotkeys = () => {
             }
             case "toggle_vrct_visibility": {
                 const wayland = await currentPlatform() === "wayland";
-                if (wayland) focusWatch ??= appWindow.onFocusChanged?.(({ payload: focused }) => { if (focused) minimizedByHotkey = false; });
+                if (wayland) focusWatch ??= mainWindow().onFocusChanged?.(({ payload: focused }) => { if (focused) minimizedByHotkey = false; });
                 let minimized = minimizedByHotkey;
                 // A window whose state cannot be read is taken as shown: the press minimizes it.
-                if (!wayland) try { minimized = await appWindow.isMinimized(); } catch { minimized = false; }
+                if (!wayland) try { minimized = await mainWindow().isMinimized(); } catch { minimized = false; }
                 // Nothing above catches a failure here (the shortcut callbacks, the portal handler),
                 // so it is told here (#465).
                 if (minimized) {
@@ -186,8 +224,8 @@ export const useHotkeys = () => {
                         // The desktop gives a portal shortcut no right to raise a window; Rust asks KWin.
                         if (wayland) await invoke("main_window_restore");
                         else {
-                            await appWindow.unminimize();
-                            await appWindow.setFocus();
+                            await mainWindow().unminimize();
+                            await mainWindow().setFocus();
                         }
                     } catch (error) {
                         console.warn("Main window could not be restored", error);
@@ -196,9 +234,9 @@ export const useHotkeys = () => {
                         showNotification_Error(t("config_page.hotkeys.error_window_restore_failed"));
                         break;
                     }
-                    store.text_area_ref.current?.focus();
+                    store.text_area_ref?.current?.focus();
                 } else {
-                    try { await appWindow.minimize(); }
+                    try { await mainWindow().minimize(); }
                     catch (error) {
                         console.warn("Main window could not be minimized", error);
                         showNotification_Error(t("config_page.hotkeys.error_window_minimize_failed"));
@@ -244,11 +282,12 @@ export const useHotkeys = () => {
         }
     };
 
-    const registerPortalShortcuts = async (isCurrent) => {
+    const registerPortalShortcuts = async (isCurrent: () => boolean) => {
         await reconcileNative(() => unregisterAll());
         if (!isCurrent()) return;
         portalHandler = runAction;
-        const shortcuts = Object.fromEntries(Object.entries(currentHotkeys.data ?? {}).filter(([, keys]) => keys));
+        const shortcuts: Record<string, string[]> = {};
+        for (const [actionKey, keys] of Object.entries(currentHotkeys.data ?? {})) if (keys) shortcuts[actionKey] = keys;
         if (!Object.keys(shortcuts).length && !portalBound) {
             portalPaused = false;
             return;
@@ -258,7 +297,7 @@ export const useHotkeys = () => {
             if (!isCurrent()) return;
             portalBound = true;
             // The desktop may show its confirmation dialog the first time.
-            const assigned = await invoke("portal_shortcuts_bind", { shortcuts });
+            const assigned = await invoke<Record<string, PortalAssigned> | null>("portal_shortcuts_bind", { shortcuts });
             if (!isCurrent()) return;
             portalPaused = false;
             if (Object.keys(shortcuts).length) portalLostHandler = portalLost;
@@ -279,23 +318,23 @@ export const useHotkeys = () => {
         }
     };
 
-    const setHotkeys = async (hotkeys) => {
+    const setHotkeys = async (hotkeys: Hotkeys) => {
         const [targetActionKey, targetHotkey] = Object.entries(hotkeys)[0];
         if (pendingEdits.get(targetActionKey)?.sent) return false;
         const acknowledged = () => getDefaultStore().get(Atom_Hotkeys).data;
         const initial = JSON.stringify(acknowledged()[targetActionKey]);
         const session = store.backend_session;
-        const edit = { keys: targetHotkey };
+        const edit: PendingEdit = { keys: targetHotkey };
         const isCurrent = () => !disposed && owner.mounted && pendingEdits.get(targetActionKey) === edit &&
             store.backend_session === session && JSON.stringify(acknowledged()[targetActionKey]) === initial;
         const conflict = () => {
             if (!targetHotkey) return false;
-            const latest = [...Object.entries(acknowledged()), ...[...pendingEdits].map(([key, value]) => [key, value.keys])];
+            const latest = [...Object.entries(acknowledged()), ...[...pendingEdits].map(([key, value]): [string, string[] | null] => [key, value.keys])];
             return latest.some(([key, keys]) => key !== targetActionKey && keys && parseHotkey(keys) === parseHotkey(targetHotkey));
         };
         const reportConflict = () => {
             showNotification_Error(t("config_page.hotkeys.error_in_use", {
-                action_name: getHotkeyActionLabel(targetActionKey, t), hotkey: targetHotkey.join(" + "),
+                action_name: getHotkeyActionLabel(targetActionKey, t), hotkey: (targetHotkey ?? []).join(" + "),
             }));
             return false;
         };
@@ -328,7 +367,7 @@ export const useHotkeys = () => {
             closeNotification();
             edit.sent = true;
             const response = await asyncStdoutToPython("/set/data/hotkeys", { [targetActionKey]: targetHotkey });
-            return response !== false && (!response?.status || response.status === 200);
+            return response !== false && (response === true || !response?.status || response.status === 200);
         } finally {
             if (pendingEdits.get(targetActionKey) === edit) pendingEdits.delete(targetActionKey);
         }
@@ -351,7 +390,7 @@ export const useHotkeys = () => {
                 if (!isCurrent()) return;
 
                 const hotkeyEntries = Object.entries(currentHotkeys.data);
-                const failedHotkeys = [];
+                const failedHotkeys: { actionKey: string; hotkey: string }[] = [];
 
                 for (const [actionKey, hotkeyRaw] of hotkeyEntries) {
                     if (!hotkeyRaw) continue;
@@ -398,7 +437,7 @@ export const useHotkeys = () => {
         });
     };
 
-    const setSuccessHotkeys = (hotkeys) => {
+    const setSuccessHotkeys = (hotkeys: Hotkeys) => {
         updateHotkeys(hotkeys);
         showNotification_SaveSuccess();
     };
@@ -419,8 +458,8 @@ export const useHotkeys = () => {
 };
 
 // 修飾キーのパースを行う関数
-const parseHotkey = (hotkeyString) => {
-    const keyMap = {
+const parseHotkey = (hotkeyString: string[]) => {
+    const keyMap: Readonly<Record<string, string>> = {
         Ctrl: "Control",
         Alt: "Alt",
         Shift: "Shift",
@@ -436,7 +475,7 @@ const parseHotkey = (hotkeyString) => {
 };
 
 // アクション名（多言語対応）を取得する関数
-const getHotkeyActionLabel = (actionKey, t) => {
+const getHotkeyActionLabel = (actionKey: string, t: TFunction) => {
     switch (actionKey) {
         case "open_quick_chat":
             return t("quick_chat.label");
