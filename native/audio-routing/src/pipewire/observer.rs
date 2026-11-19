@@ -7,7 +7,7 @@
 //! the previous trip. Only the fields the readers in `graph.rs` use are reproduced.
 
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -80,9 +80,46 @@ struct Objects {
     params: BTreeMap<u32, BTreeMap<u32, Value>>,
     /// Nodes that announced readable `Props` without any arriving yet.
     awaiting_params: BTreeMap<u32, bool>,
+    /// Nodes whose params changed: the next `Props` they send replace those kept.
+    params_changed: BTreeSet<u32>,
     /// Metadata entries: (subject, key) to (type, value).
     metadata: BTreeMap<u32, BTreeMap<(u32, String), (Option<String>, String)>>,
     bound_this_trip: bool,
+}
+
+impl Objects {
+    /// A node's info said its params changed (`PW_NODE_CHANGE_MASK_PARAMS`).
+    fn node_params_changed(&mut self, id: u32) {
+        self.params_changed.insert(id);
+    }
+
+    /// A `Props` entry of a node, or its removal (`None`). After a change the subscription
+    /// sends the node's `Props` again under indexes of its own (31 for a loopback's after a
+    /// mute, where it first sent 0): the first entry after a change replaces those kept, as
+    /// `pw-dump` replaces its list, so that an old mute does not stay beside the new one.
+    fn props_param(&mut self, id: u32, index: u32, value: Option<Value>) {
+        self.awaiting_params.remove(&id);
+        if self.params_changed.remove(&id) {
+            self.params.remove(&id);
+        }
+        let entries = self.params.entry(id).or_default();
+        match value {
+            Some(value) => {
+                entries.insert(index, value);
+            }
+            None => {
+                entries.remove(&index);
+            }
+        }
+    }
+
+    fn removed(&mut self, id: u32) {
+        self.items.remove(&id);
+        self.params.remove(&id);
+        self.awaiting_params.remove(&id);
+        self.params_changed.remove(&id);
+        self.metadata.remove(&id);
+    }
 }
 
 struct Bound {
@@ -127,7 +164,7 @@ impl NativeSnapshotter {
                 })
                 .error(move |id, _seq, res, _message| {
                     // The server's message may name objects; only the failure counts.
-                    if id == pw::core::PW_ID_CORE || res == -libc::EPIPE {
+                    if connection_failed(id, res) {
                         failed.set(true);
                     }
                 })
@@ -147,11 +184,7 @@ impl NativeSnapshotter {
                 })
                 .global_remove(move |id| {
                     removed_bound.borrow_mut().remove(&id);
-                    let mut objects = removed_objects.borrow_mut();
-                    objects.items.remove(&id);
-                    objects.params.remove(&id);
-                    objects.awaiting_params.remove(&id);
-                    objects.metadata.remove(&id);
+                    removed_objects.borrow_mut().removed(id);
                 })
                 .register()
         };
@@ -207,6 +240,15 @@ impl NativeSnapshotter {
     }
 }
 
+/// Whether a core error ends the connection. An object that goes away while it is bound is
+/// not one: the server answers the bind with "no global" on the proxy's id and the request
+/// sent right after it (`subscribe_params`) with "unknown resource" on the core, both
+/// `-ENOENT`. Short-lived clients and streams do this, such as the gate helper's own while it
+/// mutes or resumes the managed source, as `pw-dump` would not have noticed.
+fn connection_failed(id: u32, res: i32) -> bool {
+    res == -libc::EPIPE || (id == pw::core::PW_ID_CORE && res != -libc::ENOENT)
+}
+
 fn bind(registry: &pw::registry::RegistryRc, global: &pw::registry::GlobalObject<&spa::utils::dict::DictRef>, objects: &Rc<RefCell<Objects>>, bound: &Rc<RefCell<BTreeMap<u32, Bound>>>) {
     let id = global.id;
     let global_props = dict(global.props);
@@ -222,24 +264,21 @@ fn bind(registry: &pw::registry::RegistryRc, global: &pw::registry::GlobalObject
                     if readable && !objects.params.contains_key(&id) {
                         objects.awaiting_params.insert(id, true);
                     }
+                    if info.change_mask().contains(pw::node::NodeChangeMask::PARAMS) {
+                        objects.node_params_changed(id);
+                    }
                     let item = objects.items.entry(id).or_insert_with(|| json!({"id": id, "type": NODE, "info": {}}));
-                    item["info"]["props"] = Value::Object(dict(info.props()));
+                    // The server sends the properties only with a change to them: an event for
+                    // the params alone (a mute) keeps them, as pw-dump does.
+                    if info.change_mask().contains(pw::node::NodeChangeMask::PROPS) || item["info"].get("props").is_none() {
+                        item["info"]["props"] = Value::Object(dict(info.props()));
+                    }
                 })
                 .param(move |_seq, kind, index, _next, pod| {
                     if kind != spa::param::ParamType::Props {
                         return;
                     }
-                    let mut objects = param_objects.borrow_mut();
-                    objects.awaiting_params.remove(&id);
-                    let entries = objects.params.entry(id).or_default();
-                    match pod {
-                        Some(pod) => {
-                            entries.insert(index, props_param(pod));
-                        }
-                        None => {
-                            entries.remove(&index);
-                        }
-                    }
+                    param_objects.borrow_mut().props_param(id, index, pod.map(props_param));
                 })
                 .register();
             node.subscribe_params(&[spa::param::ParamType::Props]);
@@ -260,8 +299,14 @@ fn bind(registry: &pw::registry::RegistryRc, global: &pw::registry::GlobalObject
                         pw::link::LinkState::Paused => "paused",
                         pw::link::LinkState::Active => "active",
                     };
-                    let item = json!({"id": id, "type": LINK, "info": {"output-node-id": info.output_node_id(), "input-node-id": info.input_node_id(), "state": state, "props": dict(info.props())}});
-                    objects.borrow_mut().items.insert(id, item);
+                    let mut objects = objects.borrow_mut();
+                    // The properties come only with a change to them (a state change alone keeps them).
+                    let props = match objects.items.get(&id).and_then(|item| item["info"].get("props")) {
+                        Some(props) if !info.change_mask().contains(pw::link::LinkChangeMask::PROPS) => props.clone(),
+                        _ => Value::Object(dict(info.props())),
+                    };
+                    let item = json!({"id": id, "type": LINK, "info": {"output-node-id": info.output_node_id(), "input-node-id": info.input_node_id(), "state": state, "props": props}});
+                    objects.items.insert(id, item);
                 })
                 .register();
             Bound { _proxy: Box::new(link), _listener: Box::new(listener) }
@@ -272,8 +317,11 @@ fn bind(registry: &pw::registry::RegistryRc, global: &pw::registry::GlobalObject
             let listener = client
                 .add_listener_local()
                 .info(move |info| {
-                    let item = json!({"id": id, "type": CLIENT, "info": {"props": dict(info.props())}});
-                    objects.borrow_mut().items.insert(id, item);
+                    let mut objects = objects.borrow_mut();
+                    if info.change_mask().contains(pw::client::ClientChangeMask::PROPS) || !objects.items.contains_key(&id) {
+                        let item = json!({"id": id, "type": CLIENT, "info": {"props": dict(info.props())}});
+                        objects.items.insert(id, item);
+                    }
                 })
                 .register();
             Bound { _proxy: Box::new(client), _listener: Box::new(listener) }
@@ -338,6 +386,44 @@ impl Drop for NativeSnapshotter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn props_sent_again_after_a_change_replace_the_ones_kept() {
+        let mut objects = Objects::default();
+        let muted = |m: bool| Some(json!({ "mute": m }));
+        // The first info carries every change, then the subscription sends Props at 0.
+        objects.node_params_changed(23);
+        objects.props_param(23, 0, muted(true));
+        assert_eq!(objects.params[&23].values().cloned().collect::<Vec<_>>(), vec![json!({ "mute": true })]);
+        // A mute changes the params; the subscription sends Props again at 31.
+        objects.node_params_changed(23);
+        objects.props_param(23, 31, muted(false));
+        assert_eq!(objects.params[&23].values().cloned().collect::<Vec<_>>(), vec![json!({ "mute": false })]);
+        // Several Props in one batch all stay.
+        objects.node_params_changed(23);
+        objects.props_param(23, 4, muted(true));
+        objects.props_param(23, 5, Some(json!({ "volume": 1.0 })));
+        assert_eq!(objects.params[&23].len(), 2);
+        // A change of other params, with no Props after it, keeps the Props.
+        objects.node_params_changed(23);
+        assert_eq!(objects.params[&23].len(), 2);
+        // A node that goes keeps nothing.
+        objects.removed(23);
+        assert!(!objects.params.contains_key(&23) && !objects.params_changed.contains(&23));
+    }
+
+    #[test]
+    fn an_object_gone_while_it_is_bound_does_not_end_the_connection() {
+        let core = pw::core::PW_ID_CORE;
+        // "unknown resource 43 op:…" after "no global 90" for proxy 43.
+        assert!(!connection_failed(core, -libc::ENOENT));
+        assert!(!connection_failed(43, -libc::ENOENT));
+        // A broken connection, or another error of the core, still does.
+        assert!(connection_failed(core, -libc::EPIPE));
+        assert!(connection_failed(43, -libc::EPIPE));
+        assert!(connection_failed(core, -libc::EINVAL));
+        assert!(!connection_failed(43, -libc::EINVAL));
+    }
 
     #[test]
     fn props_are_typed_like_pw_dump() {
