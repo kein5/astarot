@@ -195,7 +195,14 @@ impl Recorder {
             let transcriber = Arc::clone(&shared);
             std::thread::Builder::new()
                 .name(format!("{}-transcription", source.as_str()))
-                .spawn(move || transcribe(transcriber, settings, recognize))
+                .spawn(move || {
+                    let (source, diagnostics) = (transcriber.source, transcriber.diagnostics.clone());
+                    transcribe(transcriber, settings, recognize);
+                    // A request that ran past the stop's wait is written when it ends (`endTranscript`).
+                    if let Some(diagnostics) = diagnostics {
+                        diagnostics.flush(Some(source.as_str()), "stop");
+                    }
+                })
                 .map_err(|_| Failure::OPEN)?;
         }
         Ok(Recorder { shared, capture: Some(capture), device })

@@ -232,8 +232,12 @@ fn a_request_that_outlasts_the_wait_keeps_realtime_off_that_source_until_it_ends
     assert!(asked.elapsed() < hold, "the start waited for the request: {:?}", asked.elapsed());
     assert!(run.process_log().contains("mic: an engine request did not end within the stop's wait"));
 
-    // Once the request ends, the source can be handed over; its answer is dropped.
+    // Once the request ends, the source can be handed over; its answer is dropped, and its
+    // time is written then.
     std::thread::sleep(hold.saturating_sub(asked.elapsed()) + Duration::from_millis(300));
+    eventually("the late summary", || {
+        run.process_log().lines().filter(|line| line.contains("[utterance-summary][mic] reason=stop") && line.contains("asr_success=1")).count() == 1
+    });
     let state = run.ui.ok("/run/start_realtime_asr", Some(json!({ "source": "mic" })));
     assert_eq!(state["mic"]["requested"], true, "{state}");
     assert!(run.ui.on(mark, "/run/transcription_send_mic_message").is_empty(), "the late answer was shown");
