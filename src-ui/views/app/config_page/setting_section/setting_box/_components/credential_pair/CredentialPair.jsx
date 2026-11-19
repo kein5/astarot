@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
-import { endpointDescription } from "../../../../../../../logics/common/endpointPrivacy";
+import { endpointDescription, endpointNotices } from "../../../../../../../logics/common/endpointPrivacy";
 import { AuthKeyContainer, EntryWithSaveButtonContainer } from "../../_templates/Templates";
+import { useHintDescriptions } from "../hint/Hint";
 
 export const CredentialPair = ({ settings, base, provider, section }) => {
     const { t } = useI18n();
+    const hints = useHintDescriptions();
     const { asyncStdoutToPython } = useStdoutToPython();
     const [error, updateError] = useState(null);
     // Explicit input may equal the saved key; equality alone cannot prove reentry.
@@ -63,9 +65,14 @@ export const CredentialPair = ({ settings, base, provider, section }) => {
         saveFunction: () => { if (canSave(form.draft) && form.dirty) return form.submit(write); },
         remove_border_bottom: true,
     });
+    // On a page that keeps descriptions out of sight (#614) the URL's description is its hint,
+    // and the warning about plain HTTP on the LAN stays under the label as a warning.
+    const urlDescription = t(`config_page.${section}.${provider}_url.desc`);
+    const notices = endpointNotices(form.draft.url, urlDescription, t);
     return <>
         <EntryWithSaveButtonContainer {...field("url")}
-            desc={endpointDescription(form.draft.url, t(`config_page.${section}.${provider}_url.desc`), t)} />
+            desc={hints ? notices.description : endpointDescription(form.draft.url, urlDescription, t)}
+            add_warnings={hints && notices.warning ? [{ label: notices.warning }] : undefined} />
         <AuthKeyContainer {...field("auth_key")}
             add_warnings={requiresKey(form.draft) ? [{ label: t("config_page.common.credential_reentry_required") }] : []}
             desc={section === "transcription" ? t(`config_page.${section}.${provider}_auth_key.desc`) : undefined} />
