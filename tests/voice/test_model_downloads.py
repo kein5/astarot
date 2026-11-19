@@ -115,12 +115,19 @@ def test_restrictions_come_from_the_license(license, restrictions):
     assert license_restrictions(license) == restrictions
 
 
-def test_only_irodori_large_of_the_shipped_entries_carries_the_gemma_terms():
+def test_only_translation_entries_ask_for_the_gemma_terms():
     """The same answer as native/ops catalog.rs (decision 4 of the LLM runtime plan)."""
-    from models.model_downloads.catalog import CATALOG, license_restrictions
+    from models.model_downloads.catalog import CATALOG, TARGETS, license_restrictions, restrictions_for
 
-    restricted = {m.id: license_restrictions(m.license) for m in CATALOG if license_restrictions(m.license)}
-    assert restricted == {"irodori-v4-large-q8": ["gemma_terms"]}
+    gemma = "Gemma Terms of Use + CC-BY-NC-4.0"
+    assert restrictions_for("translation", gemma) == ["non_commercial", "gemma_terms"]
+    for target in TARGETS:
+        assert restrictions_for(target, gemma) == ["non_commercial"]
+        assert restrictions_for(target, "Gemma Terms of Use + MIT") == []
+    # Irodori-TTS v4 Large's license names the Gemma terms, but no shipped entry asks for them.
+    licensed = {m.id for m in CATALOG if "gemma_terms" in license_restrictions(m.license)}
+    assert licensed == {"irodori-v4-large-q8"}
+    assert {m.id: restrictions_for(m.target, m.license) for m in CATALOG if restrictions_for(m.target, m.license)} == {}
 
 
 def test_a_non_commercial_entry_starts_only_with_its_acknowledgement(setup, tmp_path):

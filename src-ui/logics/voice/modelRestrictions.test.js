@@ -115,10 +115,11 @@ test("the review of a non-commercial model asks for a second checkbox and sends 
         { id: nllb.id, consent: true, catalog_version: "reviewed-catalog", acknowledged: ["non_commercial"] }]]);
 });
 
-// A model under the Gemma Terms of Use (Irodori-TTS v4 Large, TranslateGemma), and one that
-// carries both kinds.
-const gemma = { ...m2m, id: "irodori-v4-large-q8", name: "Irodori-TTS v4 Large · Q8_0", target: "translation",
-    license: "Gemma Terms of Use + MIT + Apache-2.0", restrictions: ["gemma_terms"] };
+// A translation model under the Gemma Terms of Use (TranslateGemma), and one that carries both
+// kinds. Only translation entries carry `gemma_terms`; the backend leaves it out of a speech
+// model such as Irodori-TTS v4 Large.
+const gemma = { ...m2m, id: "translategemma-4b-q4km", name: "TranslateGemma 4B · Q4_K_M", target: "translation",
+    license: "Gemma Terms of Use", restrictions: ["gemma_terms"] };
 
 test("the Gemma terms are a checkbox of their own, apart from the consent", async context => {
     assert.equal(canStart(gemma, true, []), false);

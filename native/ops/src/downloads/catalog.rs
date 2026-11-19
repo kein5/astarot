@@ -59,10 +59,19 @@ impl Model {
     }
 
     /// What the user acknowledges for this entry apart from the general consent
-    /// ([`license_restrictions`] of its license).
+    /// ([`restrictions_for`] its target and license).
     pub fn restrictions(&self) -> Vec<&'static str> {
-        license_restrictions(&self.license)
+        restrictions_for(&self.target, &self.license)
     }
+}
+
+/// The restrictions an entry of `target` under `license` carries: those of
+/// [`license_restrictions`], except that the Gemma terms are asked for only by a translation
+/// entry (decided 2026-11-19 for the LLM runtime plan, decision 4). A speech model whose weights
+/// come from Gemma, such as Irodori-TTS v4 Large, shows its license and links as before but has
+/// no checkbox of its own.
+pub fn restrictions_for(target: &str, license: &str) -> Vec<&'static str> {
+    license_restrictions(license).into_iter().filter(|kind| *kind != "gemma_terms" || target == TRANSLATION_TARGET).collect()
 }
 
 /// The kinds of restriction a user acknowledges one by one, apart from the general consent,
@@ -742,10 +751,20 @@ mod translation_tests {
         }
         // Both kinds, in RESTRICTIONS order whatever the order of the parts.
         assert_eq!(license_restrictions("Gemma Terms of Use + CC-BY-NC-4.0"), ["non_commercial", "gemma_terms"]);
-        // Of the speech, voice and chat-reading models the catalog offers, only Irodori-TTS v4
-        // Large carries one: its weights come from Gemma (decision 4 of the LLM runtime plan).
+        // Only a translation entry asks for the Gemma terms (decision 4 of the LLM runtime plan).
+        let gemma = "Gemma Terms of Use + CC-BY-NC-4.0";
+        assert_eq!(restrictions_for(TRANSLATION_TARGET, gemma), ["non_commercial", "gemma_terms"]);
+        for target in TARGETS {
+            assert_eq!(restrictions_for(target, gemma), ["non_commercial"], "{target}");
+            assert!(restrictions_for(target, "Gemma Terms of Use + MIT").is_empty(), "{target}");
+        }
+        // So none of the speech, voice and chat-reading models the catalog offers carries one,
+        // Irodori-TTS v4 Large included, though its license still names the Gemma terms.
         let restricted: Vec<(String, Vec<&str>)> =
             catalog().into_iter().filter(|m| m.target != TRANSLATION_TARGET && !m.restrictions().is_empty()).map(|m| (m.id.clone(), m.restrictions())).collect();
-        assert_eq!(restricted, [("irodori-v4-large-q8".to_string(), vec!["gemma_terms"])]);
+        assert_eq!(restricted, []);
+        let irodori = catalog().into_iter().find(|m| m.id == "irodori-v4-large-q8").unwrap();
+        assert_eq!(license_restrictions(&irodori.license), ["gemma_terms"]);
+        assert_eq!(irodori.restrictions(), Vec::<&str>::new());
     }
 }

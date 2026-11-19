@@ -150,6 +150,15 @@ def license_restrictions(license):
     return [kind for kind in RESTRICTIONS if found[kind]]
 
 
+def restrictions_for(target, license):
+    """What an entry of `target` under `license` asks for: the Gemma terms only for a translation entry.
+
+    No entry of this catalog is a translation entry, so Irodori-TTS v4 Large shows its license and links
+    but has no checkbox of its own. Kept the same as native/ops/src/downloads/catalog.rs `restrictions_for`.
+    """
+    return [kind for kind in license_restrictions(license) if kind != 'gemma_terms' or target == 'translation']
+
+
 # Where an applied file goes: (speech server profile, settings field). RVC is separate.
 SPEECH_FIELDS = {'japanese': ('japanese', 'model'), 'multilingual': ('multilingual', 'model'),
                  'asr': ('asr', 'model'), 'vad': ('asr', 'vad_model'),

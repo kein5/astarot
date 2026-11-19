@@ -447,17 +447,14 @@ def test_more_speechcpp_models_are_choices_and_large_shows_gemma_terms(ui):
     # Each of its terms is a link of its own, named by the file.
     for name in ("GEMMA_TERMS_OF_USE.md", "GEMMA_PROHIBITED_USE_POLICY.md", "LICENSE-MIT", "LICENSE-APACHE-2.0"):
         expect(dialog.get_by_role("link", name=name, exact=True)).to_have_count(1)
-    # The Gemma terms bind the user too: a checkbox of their own, apart from the consent.
-    expect(dialog).to_contain_text("Gemma's terms of use apply.")
-    acknowledgement = dialog.get_by_role(
-        "checkbox", name="I have read the Gemma Terms of Use and the Prohibited Use Policy and will use this model under them.",
-        exact=True)
-    expect(acknowledgement).to_have_accessible_description(re.compile("These terms also apply to you when you use the model"))
+    # Only translation models ask for the Gemma terms apart from the consent (decision 4 of the
+    # LLM runtime plan): this speech model shows them as its license, with no checkbox of its own.
+    expect(dialog).not_to_contain_text("Gemma's terms of use apply.")
+    expect(dialog.get_by_role("checkbox")).to_have_count(1)
     start = dialog.get_by_role("button", name="Agree and download", exact=True)
+    expect(start).to_be_disabled()
     dialog.get_by_role("checkbox", name="I have reviewed the source, usage terms, size and save location and agree to download.",
                        exact=True).check()
-    expect(start).to_be_disabled()
-    acknowledgement.check()
     expect(start).to_be_enabled()
     # Nothing starts until the user presses Start.
     assert not any(ep == "/run/start_model_download" for ep, _ in peer.sent)
@@ -699,6 +696,37 @@ def _non_commercial_translation_row(catalog):
     )
     assert row["restrictions"] == ["non_commercial"]
     return row
+
+
+def test_a_translation_model_under_the_gemma_terms_needs_its_own_checkbox(ui):
+    """Only translation entries ask for the Gemma terms apart from the consent (decision 4 of the LLM runtime plan)."""
+    from playwright.sync_api import expect
+    from models.model_downloads.catalog import restrictions_for
+
+    page, peer, _, _ = ui
+    row = _non_commercial_translation_row(peer.catalog)
+    row.update(license="Gemma Terms of Use", restrictions=restrictions_for("translation", "Gemma Terms of Use"))
+    assert row["restrictions"] == ["gemma_terms"]
+    peer.catalog["models"].append(row)
+    page.goto(page.url + "?view=translation")
+    page.get_by_role("group", name="NLLB-200 distilled 600M", exact=True).get_by_role(
+        "button", name="Review download", exact=True).click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("Gemma's terms of use apply.")
+    acknowledgement = dialog.get_by_role(
+        "checkbox", name="I have read the Gemma Terms of Use and the Prohibited Use Policy and will use this model under them.",
+        exact=True)
+    expect(acknowledgement).to_have_accessible_description(re.compile("These terms also apply to you when you use the model"))
+    start = dialog.get_by_role("button", name="Agree and download", exact=True)
+    dialog.get_by_role("checkbox", name="I have reviewed the source, usage terms, size and save location and agree to download.",
+                       exact=True).check()
+    expect(start).to_be_disabled()
+    acknowledgement.check()
+    expect(start).to_be_enabled()
+    start.click()
+    sent = [data for ep, data in peer.sent if ep == "/run/start_model_download"]
+    assert sent == [{"id": row["id"], "consent": True, "catalog_version": peer.catalog["catalog_version"],
+                     "acknowledged": ["gemma_terms"]}]
 
 
 def test_a_non_commercial_model_needs_its_own_checkbox_by_keyboard(ui):

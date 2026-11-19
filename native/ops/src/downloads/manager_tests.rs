@@ -198,9 +198,26 @@ fn a_non_commercial_entry_starts_only_with_its_acknowledgement() {
     assert_eq!(receipt, Json::from_serialize(&non_commercial()).to_python_indented());
 }
 
+/// The test entry as a local translation model, the only kind that asks for the Gemma terms.
+fn translation_entry() -> Model {
+    Model { target: catalog::TRANSLATION_TARGET.into(), notice: "translation".into(), ..entry() }
+}
+
+#[test]
+fn a_speech_entry_under_the_gemma_terms_needs_no_acknowledgement() {
+    // As Irodori-TTS v4 Large: the license names the Gemma terms, but only translation
+    // entries ask for them (decision 4 of the LLM runtime plan).
+    let s = setup_with(Model { license: "Gemma Terms of Use + MIT".into(), ..entry() }, None);
+    assert_eq!(restrictions(&s.manager), Json::from(Vec::<Json>::new()));
+    let request = with_acknowledged(Some(json!(["gemma_terms"])), true);
+    assert_eq!(code(s.manager.start(&request).unwrap_err()), "download_request_invalid");
+    start(&s.manager).unwrap();
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+}
+
 #[test]
 fn an_entry_under_the_gemma_terms_starts_only_with_that_acknowledgement() {
-    let s = setup_with(Model { license: "Gemma Terms of Use + MIT".into(), ..entry() }, None);
+    let s = setup_with(Model { license: "Gemma Terms of Use + MIT".into(), ..translation_entry() }, None);
     assert_eq!(restrictions(&s.manager), Json::from(vec![Json::from("gemma_terms")]));
     for (acknowledged, expected) in [
         (None, "model_download_restriction_unacknowledged"),
@@ -219,7 +236,7 @@ fn an_entry_under_the_gemma_terms_starts_only_with_that_acknowledgement() {
 
 #[test]
 fn an_entry_with_both_restrictions_needs_both() {
-    let s = setup_with(Model { license: "Gemma Terms of Use + CC-BY-NC-4.0".into(), ..entry() }, None);
+    let s = setup_with(Model { license: "Gemma Terms of Use + CC-BY-NC-4.0".into(), ..translation_entry() }, None);
     assert_eq!(restrictions(&s.manager), Json::from(vec![Json::from("non_commercial"), Json::from("gemma_terms")]));
     for acknowledged in [json!(["gemma_terms"]), json!(["non_commercial"])] {
         let request = with_acknowledged(Some(acknowledged), true);

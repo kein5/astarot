@@ -38,7 +38,7 @@
 
 | 操作 | 成功したとき | 失敗したとき | 確かめている試験（`native/ops/src/downloads/manager_tests.rs`、Python は `tests/voice/test_model_downloads.py`） |
 |---|---|---|---|
-| 開始の要求 | — | 同意、カタログの版、非商用やGemmaの利用規約などの制限の確認（`acknowledged`）のどれかが欠けていれば、フォルダーを作らず通信もせずに断る | `explicit_consent_before_any_files_or_network`、`only_fixed_catalog_requests_are_accepted`、`a_non_commercial_entry_starts_only_with_its_acknowledgement`、`an_entry_under_the_gemma_terms_starts_only_with_that_acknowledgement` |
+| 開始の要求 | — | 同意、カタログの版、非商用や翻訳のモデルのGemmaの利用規約などの制限の確認（`acknowledged`）のどれかが欠けていれば、フォルダーを作らず通信もせずに断る | `explicit_consent_before_any_files_or_network`、`only_fixed_catalog_requests_are_accepted`、`a_non_commercial_entry_starts_only_with_its_acknowledgement`、`an_entry_under_the_gemma_terms_starts_only_with_that_acknowledgement`、`a_speech_entry_under_the_gemma_terms_needs_no_acknowledgement` |
 | 取得 | 作業用の `.partial-<16進>/` で全ファイルの大きさと SHA-256 を確かめてから、`<id>/<版>/` に名前を変えて公開する | 何も公開しない。作業用のフォルダーは消してから `failed` か `cancelled` を返す | `incomplete_oversized_or_corrupt_download_never_publishes`、`multi_file_bundle_failure_never_publishes_first_file` |
 | 通信の切断、途中の読み込みの失敗 | — | `download_failed`。作業用のフォルダーを消す。ほかのファイルには触れない | `network_failure_removes_staging_and_preserves_unrelated_files`、`unexpected_stream_error_is_a_failure_not_a_stuck_job` |
 | 容量不足 | — | 取得の前に足りなければ通信せずに `insufficient_space`。書いている途中でいっぱいになっても `insufficient_space` | `disk_preflight_fails_without_network`、`disk_full_during_write_leaves_no_selectable_file` |
