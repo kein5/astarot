@@ -19,10 +19,9 @@ mise run check               # 軽量チェック
 | --- | --- |
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
-| `check:voice`、`check:ui`、`check:backend`、`check:rust` | `python tools/dev.py check --scope <名前>` |
+| `check:voice`、`check:ui`、`check:rust` | `python tools/dev.py check --scope <名前>` |
 | `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
-| `setup:headless`、`setup:ui`、`setup:browser`、`setup:backend`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
-| `setup:app` | Pythonバックエンド（`src-python/`）の環境を `uv.lock` に合わせる。Windowsは `bat\install.bat`（`.venv` と `.venv_cuda`）、Linuxは `.venv_linux`。配布物には使わない |
+| `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
 | `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
@@ -53,7 +52,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 
 uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。uvのコマンドにはPythonの版を書きません（`--python 3.14` などを付けない）。uvは `pyproject.toml` の `requires-python` に合うPythonをPATHから選び、`tools/dev.py` は `mise.toml` の版を読みます。Pythonの版を上げるときに書き換えるのは、`mise.toml`、`mise.lock`、`pyproject.toml` の `requires-python`、`uv.lock` です。`tests/devtools/test_toolchain_pins.py` は、CI、タスク、bat、`tools/dev.py` がuvに版を渡していないことも確かめます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
 
-`[env]` に置いているのは `ORT_DISABLE_TELEMETRY=1` だけです。`uv.lock` のONNX Runtime（Python版の1.32）は、何も設定しないとセッションを作った時点で `~/.cache/Microsoft/DeveloperTools/.onnxruntime/` に `deviceid` とイベントのデータベースを作り、Microsoftへ利用状況を送ろうとします。この値はすべてのプログラムに引き継がれてかまわないため、`[env]` に置きます。`tools/dev.py` の子プロセス、`src-python/conftest.py`、翻訳モデルの書き出し（`tools/translation_onnx/`）とHuBERTの書き出し（`native/rvc-runtime/reference/export_hubert_onnx.py`）も、自分で同じ値を設定します。miseを通さずにほかのスクリプトでONNX Runtimeを使うときは、先に `ORT_DISABLE_TELEMETRY=1` を設定してください。アプリに同梱するONNX Runtimeは、アプリが起動時に自分で止めます（`docs/spec/external-interfaces.md`）。
+`[env]` に置いているのは `ORT_DISABLE_TELEMETRY=1` だけです。ONNX Runtimeは、何も設定しないとセッションを作った時点で `~/.cache/Microsoft/DeveloperTools/.onnxruntime/` に `deviceid` とイベントのデータベースを作り、Microsoftへ利用状況を送ろうとします。この値はすべてのプログラムに引き継がれてかまわないため、`[env]` に置きます。`tools/dev.py` の子プロセス、翻訳モデルの書き出し（`tools/translation_onnx/`）とHuBERTの書き出し（`native/rvc-runtime/reference/export_hubert_onnx.py`）も、自分で同じ値を設定します。miseを通さずにほかのスクリプトでONNX Runtimeを使うときは、先に `ORT_DISABLE_TELEMETRY=1` を設定してください。アプリに同梱するONNX Runtimeは、アプリが起動時に自分で止めます（`docs/spec/external-interfaces.md`）。
 
 `setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、miseを使わない場合は、`mise.toml` と同じマイナー版のPython（3.14）を先に用意します。miseを使わない場合の各ツールの公式手順は次のとおりです。
 
@@ -78,7 +77,6 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `headless` | `uv.lock` の `voice-test` グループだけを `build/dev/headless-venv` に同期 |
 | `ui` | `npm ci --ignore-scripts` でルートの `node_modules` を準備 |
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
-| `backend` | `uv.lock` の本体・`dev`・`linux-build` を `build/dev/backend-venv` に同期（Linux） |
 | `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と、`tools/dev.py` の `NATIVE_CRATES` にある `native/` のクレート。下の `check --scope rust` と同じ一覧） |
 | `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 
@@ -86,7 +84,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 
 `setup --scope ui` は既存の `node_modules` をnpmの仕様どおり作り直します。package.jsonとpackage-lock.jsonに不一致があれば失敗し、lockを更新しません。[npm ciの仕様](https://docs.npmjs.com/cli/v11/commands/npm-ci)を参照してください。
 
-Windowsでも `headless`、`ui`、`browser`、`rust`、`resources` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。WindowsでPythonバックエンド（`src-python/`）とその試験の依存を入れるのは `mise run setup:app`（`npm run setup-python` と同じbat）です。アプリの起動とビルドには使いません。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。別の版のPythonで作った環境は、uvが作り直します。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
+Windowsでも `headless`、`ui`、`browser`、`rust`、`resources` は同じ入口です。Pythonのバックエンドと、その環境を作る手順（`.venv`、`.venv_cuda`、`.venv_linux` を作っていた `mise run setup:app` と `bat\install.bat`）は0.6.0で消しました（#285）。`uv.lock` には道具と試験の依存だけが残っています。
 
 ### Tauriが読む資源を用意する
 
@@ -101,14 +99,14 @@ python tools/dev.py check --scope rust
 
 `setup --scope resources` はフォルダを作り直し、`build/` にあるspeech.cpp、RVCのworker、Rustのライセンス文と、リポジトリの `LICENSE`、`NOTICE.md` を写します。足りないものは表示しますが、失敗にはしません。開発用のビルド（debug）は、speech.cppなどをチェックアウトの `build/` から直接読みます（`native/core/src/resources.rs`）。配布物の中身をそろえるときは `npm run build-resources`（Windows）を使います。
 
-0.4までの開発用sidecar（`utils/dev_sidecar`、`setup --scope sidecar`、`npm run dev-fast` のPython起動）は、Pythonの同梱をやめたときに削除しました。Pythonバックエンドを動かして比べたいときは、0.4.xの配布物か、そのタグのcheckoutを使います。
+0.4までの開発用sidecar（`utils/dev_sidecar`、`setup --scope sidecar`、`npm run dev-fast` のPython起動）は、Pythonの同梱をやめたときに削除しました。Pythonのバックエンド（`src-python/`）は0.6.0で消しました。その振る舞いを確かめたいときは、0.5.xのタグのcheckoutか、0.4.xの配布物を使います。
 
 ### 既存Linux環境へUI試験の依存を追加する
 
 ```sh
-python tools/dev.py setup --scope browser --python .venv_linux/bin/python --dry-run
-python tools/dev.py setup --scope browser --python .venv_linux/bin/python
-python tools/dev.py doctor --scope browser --python .venv_linux/bin/python
+python tools/dev.py setup --scope browser --python path/to/venv/bin/python --dry-run
+python tools/dev.py setup --scope browser --python path/to/venv/bin/python
+python tools/dev.py doctor --scope browser --python path/to/venv/bin/python
 ```
 
 この操作は選んだvenv（`mise.toml` と同じPython 3.14）に必要なパッケージを追加・更新します。無関係なパッケージをsyncで削除しません。システムPythonは拒否します。Windowsのvenvなら `.venv\Scripts\python.exe` のように実行ファイルを指定します。
@@ -122,7 +120,6 @@ python tools/dev.py check --scope tooling
 python tools/dev.py check --scope node
 python tools/dev.py check --scope voice
 python tools/dev.py check --scope ui
-python tools/dev.py check --scope backend --python .venv_linux/bin/python
 python tools/dev.py check --scope rust --dry-run
 ```
 
@@ -130,16 +127,15 @@ python tools/dev.py check --scope rust --dry-run
 | --- | --- |
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
 | `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）を実行する |
-| `lint` | `tools/dev.py` の `LINT_PATHS`（`src-python/` の音声まわり、`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
-| `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験4件 |
+| `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
+| `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
 | `ui` | UIの試験（Vitest）、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
-| `backend` | 既存 `pytest.ini` による `src-python/test` と、`tests/platform`の単体の試験1件。runtime依存が必要 |
 | `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
-| `all` | 上記7対象。時間がかかるため統合時に明示実行 |
+| `all` | 上記6対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
 
-Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探します。`--python` があればその実行ファイルを使います。backend専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
+Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
 
 `doctor` と `check` は依存パッケージ・モデルを取得せず、アプリ、マイク、発声、GPU推論を起動しません。子プロセスでは `VRCT_` で始まる環境変数、pytest追加引数・外部pluginの自動読込みを除外し、Hugging Faceをofflineにします。これは試験の誤起動を防ぐ設定であり、任意のテストコードを封じるネットワークsandboxではありません。HTTP/UDP契約試験はローカルの一時ポートを使います。通信を禁止するsandboxではその試験が失敗します。
 
@@ -254,15 +250,7 @@ node tools/i18n_gate/check.mjs --update-baseline  # 直書きを減らしたあ�
 
 0.5.0からVRのオーバーレイはRustの中核（`native/vr-overlay`、`native/openvr-client`）が扱います。中核の試験は偽のSteamVR（`native/vr-overlay` の `runtime::fake::FakeVr`）を使います。コントローラの姿勢とボタンを持ち、置いたオーバーレイの位置からレーザーの当たりを答えます。試験は `native/vr-overlay/tests/interaction.rs` と `native/core/tests/vr_overlay.rs` で、`check --scope rust` に含まれます。詳しくは[クレートのREADME](../native/vr-overlay/README.md)にあります。
 
-以下のPythonの偽物は、`src-python/` のPythonバックエンドとその試験のためのものです。
-
-`src-python/test/fake_openvr.py` は、SteamVRの代わりになる偽のOpenVRです。pyopenvrの定数と構造体は本物を使い、`openvr.init`、`IVRSystem`、`IVROverlay` など、SteamVRにつながる入口だけを差し替えます。製品のコードと設定は変えません。頭と両手の姿勢、ボタン、オーバーレイの表示・位置・画像、SteamVRの終了（`VREvent_Quit`）を扱えます。
-
-試験では `with FakeOpenVR() as vr:` の中でオーバーレイを動かし、`vr.overlay_by_key("VRCT0")` などで結果を確かめます。本物にはない検査として、`shutdown` の後に古いインターフェースを使うと `vr.misuse` に、消さずに残したオーバーレイを `vr.leaked` に記録します。呼び出しの形が本物とずれていないかは `test_fake_openvr.py` が確かめます。使用例は `test_overlay_fake_vr.py` にあります。
-
-`tools/run_with_fake_vr.py` は、`tools/fake_vr_site` を `PYTHONPATH` に入れ、Pythonの `sitecustomize` でこの偽物を差し込んでからコマンドを実行します。差し込まれるのはPythonのバックエンド（`src-python/mainloop.py`）だけです。0.5.0のアプリはPythonのバックエンドを起動しないので、`python tools/run_with_fake_vr.py --out build/fake-vr -- npx tauri dev` のようにアプリを起動しても、アプリのVRは偽物につながりません。アプリ全体を偽のSteamVRで動かす手順は、今のところありません。
-
-`--out` には、ヘッドセットに出るはずの画像（オーバーレイごとのPNGと、VR画面のテクスチャ全体）と、オーバーレイの状態の `state.json` を1秒ごとに書き出します。`control.json` を書き換えると、コントローラの向きやボタンを操作できます。書き方は `tools/fake_vr_site/fake_vr_recorder.py` の先頭にあります。ミラー画面（OCRのVRの撮影）は扱いません。実機のSteamVRでの見え方や性能の確認の代わりにはなりません。
+Pythonのバックエンドの偽のSteamVR（`src-python/test/fake_openvr.py`）と、それをバックエンドに差し込む `tools/run_with_fake_vr.py` と `tools/fake_vr_site` は、0.6.0でバックエンドと一緒に消しました（#285）。0.5.0のアプリはPythonのバックエンドを起動しないので、これらはアプリのVRにはつながっていませんでした。アプリ全体を偽のSteamVRで動かす手順は、今のところありません。
 
 ## EditorConfigとコミット形式
 

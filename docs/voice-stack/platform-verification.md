@@ -25,7 +25,6 @@
 |---|---|---|---|
 | `voice-tests.yml` の `headless` | `ubuntu-latest`、`windows-latest` | モデルなしの契約試験、UI の単体試験と型チェックとビルド（`check --scope voice`、`ui`）。Linux では固定した版の PipeWire を隔離した場所に作って、音声の補助プログラムを試す | 画面、実際の音声機器、モデル |
 | `voice-tests.yml` の `core-integration` | `ubuntu-latest`、`windows-latest` | 中核（`native/core`）、OpenVR、VR オーバーレイ、音声認識、声質変換のクレートの試験。VR は偽の SteamVR（`FakeVr`）を使う | モデル、機器、ネットワーク、実際の SteamVR |
-| `voice-tests.yml` の `backend-windows`、`backend-linux` | `windows-latest`、`ubuntu-latest` | Python のバックエンド（`src-python/`）の試験 | 0.5.0 から配布物に Python は入っていないので、配布物の動作の根拠にはならない |
 | `build-linux.yml` | `ubuntu-24.04` | tar.gz、AppImage、deb、rpm を作る。tar.gz を読み取り専用の場所に置いて起動する試験と、AppImage を展開方式で起動する試験を Xvfb（X11）で行う。起動、描画、設定画面の操作、終了まで。deb と rpm は Ubuntu 24.04、Debian 13、Fedora 44 のコンテナに入れて、ライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で残らないことを確かめる | FUSE での起動、Wayland、実際の音声、モデル、VRChat。deb と rpm の画面 |
 | `release.yml` | `windows-latest` | ZIP（`VRCT-VOX.zip`）と NSIS のインストーラーを作り、配布してはいけないファイル、容量、SHA-256、組み込んだハッシュを確かめる | アプリの起動、画面、音声 |
 | `windows-package.yml` | `windows-latest` | `_internal` に入るファイルがそろっていること | アプリの起動 |

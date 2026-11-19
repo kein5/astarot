@@ -4,7 +4,6 @@
   "version": "0.5.2",
   "type": "module",
   "scripts": {
-    "setup-python": "bat\\install.bat",
     "build-resources": "bat\\build.bat",
     "stage-resources": "python tools/app_resources.py stage --allow-missing",
     "vite": "vite",

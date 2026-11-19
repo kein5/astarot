@@ -94,7 +94,7 @@ ADRは公開物です。人の名前、担当者、開発環境の情報を書�
 - 振る舞いを変える前に、索引の一覧で関係するADRを探します。読むときは先に「時代」（`era`）と「有効性」（`validity`）を見ます。
 - `validity`が`replaced`なら、`superseded_by`のADRを読みます。
 - `status: proposed`のADRは採用した判断ではありません。
-- `era: python-sidecar`のADRは実装をPythonのモジュール名や`src-python/`のパスで書いていることがあります。いまの実装は`native/`の各クレートのREADMEにある対応表で引きます。
+- `era: python-sidecar`のADRは実装をPythonのモジュール名や`src-python/`のパスで書いていることがあります。`src-python/`は0.6.0で消したので、そのパスは0.5.xのタグで読みます。いまの実装は`native/`の各クレートのREADMEにある対応表で引きます。
 - 変更が、`status: accepted`で`validity`が`current`か`implementation_changed`のADRと食い違うときは、進める前に、どのADRのどの判断と食い違うかを保守担当者に伝えます。PRで進めるときは、本文の「判断が要ること」に書きます。
 
 ## 7. 判断を変えない修正

@@ -49,7 +49,7 @@ flowchart TD
 
 ## 候補を作る
 
-1. `package.json`の版をリリースするブランチの形式にし、`npm run update-version`で`src-tauri/tauri.conf.json`、`src-python/config.py`、`pyproject.toml`、`uv.lock`へ反映します。版が載る仕様の一覧（`docs/spec/reference/config-keys.md`）も同じコマンドで作り直します。
+1. `package.json`の版をリリースするブランチの形式にし、`npm run update-version`で`src-tauri/tauri.conf.json`、`pyproject.toml`、`uv.lock`へ反映します。版が載る仕様の一覧（`docs/spec/reference/config-keys.md`）も同じコマンドで作り直します。
    正式版のときだけ、続けて`npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。版の変更と一緒に`chore(release): version X.Y.Z`でコミットします。分類と手順は[CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases)にあります。
    正式版では`release/X.Y.Z`のPRを`main`へマージすると、次の2〜4と[下書きを作る](#下書きを作る)が自動で進みます。ベータ版のときと、自動の実行が止まって手で続けるときは、2から進めます。
 2. GitHub Actionsの「VRCT-VOX Linux candidate (no publication)」を`main`（正式版）または`develop`（ベータ版）で手動実行します。0.5.0からはspeech.cppのCPU版とVulkan版を両方入れた候補を1つ作るので、選ぶものはありません。ファイル名は`VRCT-VOX-<version>-linux-x64-release`に`.tar.gz`、`.AppImage`、`.deb`、`.rpm`を付けたものです（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`）。
@@ -163,7 +163,7 @@ $env:WEBVIEW2_USER_DATA_FOLDER = (Resolve-Path "$d\webview").Path
 
 ## 公開前にLinuxのデスクトップで確かめる
 
-候補のビルドは、AppImageの起動、描画、設定画面の操作までを自動で確かめます。音声経路、音声認識、VRChatを使う試験は、PipeWireとWirePlumber 0.5、モデル、GPU、VRChatが要るので、CIでは実行しません。CIに含まれない試験は、画面を変えたあとに気づかないまま古くなります。0.1.0-beta.6では、公開の直前に補助コードが今の画面と合っていないことが分かり、一部を確かめないまま公開しました。その後に流し直すと、設定画面で音声認識サーバーを止めても、閉じると再開する不具合が見つかっています。公開の前に、下書きのAppImageをLinuxのデスクトップで実行してください。
+候補のビルドは、AppImageの起動、描画、設定画面の操作までを自動で確かめます。VRChatを使う試験はVRChatとOCRのモデルが要るので、CIでは実行しません。CIに含まれない試験は、画面を変えたあとに気づかないまま古くなります。0.1.0-beta.6では、公開の直前に補助コードが今の画面と合っていないことが分かり、一部を確かめないまま公開しました。その後に流し直すと、設定画面で音声認識サーバーを止めても、閉じると再開する不具合が見つかっています。公開の前に、下書きのAppImageをLinuxのデスクトップで実行してください。
 
 ```bash
 # 下書きのAppImageを取得し、SHA-256を確かめる
@@ -172,51 +172,24 @@ gh release download v<version> -R kein5/VRCT-VOX -p '*.AppImage' -p 'SHA256SUMS-
 sha256sum -c --ignore-missing SHA256SUMS-linux
 cd <リポジトリ>
 
-# モデルの要らない試験だけ
+# アプリだけで動く試験
 python tools/native_acceptance.py --appimage <AppImageの絶対パス>
 
-# 音声認識、読み上げ、VRChatの往復、モデルの取得も含める
-python tools/native_acceptance.py --appimage <AppImageの絶対パス> --fetch-models --vrchat --downloads
-
-# RVCとSeed-VCの実行環境、実際の音声経路でのVRChatも含める
-python tools/native_acceptance.py --appimage <AppImageの絶対パス> --fetch-models --fetch-runtimes \
-  --vrchat --vrchat-voice --downloads
-
-# VR UI（開発ビルドだけ）
-python tools/native_acceptance.py --app src-tauri/target/debug/vrct-vox --only vr-ui
+# VRChatの往復も含める
+python tools/native_acceptance.py --appimage <AppImageの絶対パス> --vrchat
 ```
 
-`tools/native_acceptance.py`は、試験のグループごとにpytestを起動し、成功、失敗、スキップの件数を表示します。結果は`build/native-acceptance/summary.json`、各グループのログは同じフォルダーの`<グループ>/pytest.log`です。試験は実際のアプリを画面に開きます。音声は試験専用のPipeWireグラフを通すため、実際のマイクやスピーカーには触れません。`tauri-driver` 2.1.0の場所は`--driver`か`VRCT_TEST_DRIVER`で指定します。
+`tools/native_acceptance.py`は、試験のグループごとにpytestを起動し、成功、失敗、スキップの件数を表示します。結果は`build/native-acceptance/summary.json`、各グループのログは同じフォルダーの`<グループ>/pytest.log`です。試験は実際のアプリを画面に開きます。`tauri-driver` 2.1.0の場所は`--driver`か`VRCT_TEST_DRIVER`で指定します。
 
 | グループ | 確かめること | 要るもの |
 |---|---|---|
 | `appimage` | FUSEと展開の両方式での起動、描画、終了、設定画面の操作、再起動後のミュート | AppImage |
 | `ui` | 基本画面と設定画面（表示倍率100%と150%） | なし |
-| `voice` | 読み上げが仮想マイクへちょうど1回届くこと、停止とミュート、直接入力、TTSの独立動作、バックエンドの起動 | なし（固定の音声） |
-| `tts-model` | 低遅延の待機、遅延の計測 | Irodori、GPU |
-| `asr` | リアルタイム字幕、内蔵の音声サーバー、音声翻訳 | Qwen3-ASR、Silero VAD、Qwen3-TTS、GPU |
-| `downloads` | 同意の画面、実際の取得（約336 MB）、SHA-256、適用、再起動後の保持 | `--downloads` |
-| `rvc` | アプリから起動した実際のRVCの変換、ミュート中の無音、停止 | RVCの実行環境とモデル、GPU |
-| `seed-vc` | アプリから起動した実際のSeed-VCの変換、停止、入力の消失。0.5.0のアプリはSeed-VCを使えない（中核が`vc_engine_unavailable`で断る。[中核の統合](core-integration.md)の「判断が要ること」の10） | Seed-VCの実行環境、GPU |
 | `vrchat` | アプリで入力した文が実際のVRChatの吹き出しに出て、チャット読み取りで読み戻せること | `--vrchat`、OCRのモデル |
-| `vrchat-voice` | 同じ送信で吹き出しと読み上げが1回ずつ届くこと、読み上げがVRChatのマイクに届いてVRChatの再生で1回だけ確認できること | `--vrchat-voice`、Irodori、GPU |
-| `vr-ui` | VR UIの表示と操作（偽のSteamVR）。偽のSteamVRはPythonバックエンドにだけ差し込まれるので、0.5.0のアプリのVRにはつながらない（[開発ガイド](../development.md#vrの機器なしでvrの処理を試す)） | 開発ビルド |
-
-モデルは、製品のカタログ（`src-python/models/model_downloads/catalog.py`）に載っているものだけです。`--fetch-models`を付けたときだけ、足りないモデルを製品と同じダウンローダーで`~/.cache/vrct-vox-acceptance`へ取得し、容量とSHA-256を照合します。取得する量は、全部で約3.6 GBです。付けなければ何も取得せず、モデルが足りないグループは、足りないものの名前を示してスキップします。音声認識の試験が聞く音声は、製品のTTSで合成するので、人の録音は要りません。
-
-`--fetch-runtimes`は、RVCとSeed-VCの実行環境を、Pythonバックエンドの準備の仕組み（`src-python/models/voice_conversion/runtime_setup.py`）で用意します。0.5.0のアプリの設定画面はRVCだけを、中核（`native/voice-conversion/src/runtime.rs`）で用意します。取得は約11 GB、ディスクは約17 GBです。uv、Pythonのパッケージ、ソース、モデルは、固定した版とハッシュで照合します。モデルの読み込みは、任意のコードを実行しない方式（`weights_only=True`）です。
 
 `--vrchat`は、チャットボックスのラボのVRChatを2つ、このPCの中だけの非公開のインスタンスで起動し、往復の試験を流してから終了します。VRChatのアカウントは、このPCでサインイン済みのものです。
 
-`--vrchat-voice`だけは、試験専用のPipeWireグラフではなく、このPCの実際の音声経路を使います。`tools/vrchat_voice_host.py`が次の準備をして、終わったら元へ戻します。
-
-- VRChatの再生だけが入る出力先（`vrct.native.replay`）を作り、VRChatの再生をそこへ移す。VRChatのマイクは、管理対象の仮想マイクのまま
-- 管理対象の経路をミュートにする
-- VRChatのメニューを専用のydotooldで操作し、「オーディオと声」のマイクテストを開く。試験の間だけ「ノイズを抑制」をオフにする（合成音声の一部を削るため）
-
-メニューの操作は位置で行い、手順ごとに画面を見本画像と照合する方式です。合わないときは、見えた画面を保存して止まります。VRChatの版や表示言語が変わったら、`python tools/vrchat_voice_host.py calibrate`で見本を撮り直してください。
-
-ストリームを移すと、WirePlumberはVRChatの出力先を覚えます。復元ではそれを消し、VRChatが既定の出力に従う状態へ戻します。試験が途中で止まったときは、`python tools/vrchat_voice_host.py restore`を実行してください。
+0.5までは、ほかに`voice`、`tts-model`、`asr`、`downloads`、`rvc`、`seed-vc`、`vrchat-voice`、`vr-ui`のグループと、モデルと実行環境を取得する`--fetch-models`、`--fetch-runtimes`がありました。これらは試験専用のPipeWireグラフでアプリの音声を流したり聞いたりするのに、Pythonのバックエンドの部品（PipeWireのゲート、読み上げの呼び出し、録音、取得と準備の仕組み）を使っていたので、0.6.0でバックエンドと一緒に消しました（#285）。音声経路、読み上げ、音声認識、RVCを実機で確かめる試験は、今はありません。読み上げと遅延は、中核の例（`native/core/examples/live_speech.rs`、`pipeline_latency.rs`）で測れます。
 
 実行した試験と実行しなかった試験を、リリースノートの「既知の制限」に書いてください。
 

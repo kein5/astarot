@@ -48,7 +48,7 @@ flowchart TB
     VIRTUAL --> VRCHAT["VRChat input"]
 ```
 
-主な証拠は [UI sidecar起動](../../src-ui/views/app/_app_controllers/StartPythonController.jsx)、[UI IPC](../../src-ui/logics/common/useStdoutToPython.ts)、[Main](../../src-python/mainloop.py#L688)、[Controller](../../src-python/controller.py#L976)、[scheduler](../../src-python/models/tts/tts_scheduler.py)、[AudioRouter](../../src-python/models/audio_routing/audio_router.py)。
+主な証拠は [UI sidecar起動](../../src-ui/views/app/_app_controllers/StartPythonController.jsx)、[UI IPC](../../src-ui/logics/common/useStdoutToPython.ts)、[Main](https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py#L688)、[Controller](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py#L976)、[scheduler](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/tts_scheduler.py)、[AudioRouter](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/audio_router.py)。
 
 | 責務・境界 | 確認できた実装 | 評価 |
 |---|---|---|
@@ -63,7 +63,7 @@ flowchart TB
 | Windows出力 | host API名＋device名で一致を確認し、blocking `stream.write` | index再利用の誤接続対策はあるがendpoint GUIDではない。driverがwriteで止まる場合、tokenだけで割り込める保証はない |
 | 既存ASRとLinux | 既存の確定フレーズ型ASRを保持。Windows固有依存は残存 | Linux CLI成功をLinux GUI全体の対応完了とみなせない。新Realtime adapterは未実装 |
 
-Linuxのpipe容量4096 bytesは、mono s16leなら48kHzで約42.7ms、24kHzで約85.3ms分に相当する。これは容量からの**算術値**であって実際の占有量やE2E遅延ではない。HTTP、エンジン、OS、VRChatのbufferも別に存在する。[Linux実装](../../src-python/models/audio_routing/devices_pipewire.py)
+Linuxのpipe容量4096 bytesは、mono s16leなら48kHzで約42.7ms、24kHzで約85.3ms分に相当する。これは容量からの**算術値**であって実際の占有量やE2E遅延ではない。HTTP、エンジン、OS、VRChatのbufferも別に存在する。[Linux実装](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_pipewire.py)
 
 依存の見方を分けると、静的依存はControllerとmodel/config、時間依存は翻訳後のTTS、実行時依存はGPUとOS音声、配布依存はPython側のWindowsモジュール・モデル・driverに集中している。組織上の担当分担や保守工数は資料がなく未確認。フォルダが分かれていることだけで疎結合と評価しない。
 

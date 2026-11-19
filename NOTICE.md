@@ -17,9 +17,9 @@ builds" below). The ONNX Runtime the worker runs on (Microsoft's NuGet
 packages), the NVIDIA CUDA and cuDNN libraries (NVIDIA's PyPI wheels) and the
 HuBERT and RMVPE weights it uses are not bundled: the app fetches them from
 their providers after the user's consent (see "RVC base models" below). Voice recordings and additional TTS/ASR/VC model weights are not
-bundled. Mia2026 is validation-only. The Seed-VC integration kept in the
-repository (`integrations/seed_vc/`) contains files marked GPL-3.0-only; builds
-up to 0.4.x carried it, and 0.5.0 and later builds do not. Engine dependencies
+bundled. Mia2026 is validation-only. The Seed-VC integration
+(`integrations/seed_vc/`, files marked GPL-3.0-only) was carried by builds up
+to 0.4.x and left the repository with the Python backend in 0.6.0. Engine dependencies
 and weights have their own licenses. See [voice licensing](docs/voice-stack/licensing.md) for component
 boundaries, original sources, and unresolved binary distribution obligations.
 Do not infer the complete stack's license from the main MIT license alone.
@@ -70,10 +70,11 @@ The microphone and speaker transcription finds speech with the Silero VAD v5
 model (MIT, Silero Team), as split into two ONNX graphs by faster-whisper (MIT,
 SYSTRAN). Builds up to 0.4.x ship those two files (about 1.2 MB in all) and
 their license texts in `licenses/silero-vad/`, which also lists their sizes,
-SHA-256 and sources. From 0.5.0 the speech recognition runs in Rust, which cuts
-phrases by energy and does not use this model, so the builds carry neither the
-files nor their texts; both remain in the repository
-(`src-python/models/transcription/silero_vad/`, `licenses/silero-vad/`).
+SHA-256 and sources. From 0.5.0 the speech recognition runs in Rust, which does
+not use these files, so the builds carry neither the files nor their texts. The
+repository kept both until 0.6.0 removed them with the Python backend; the
+0.4.x tags hold them. Voice activity detection on speech.cpp uses the Silero
+VAD GGUF of the model download catalog, downloaded after consent.
 
 ## Outfit typeface (ASTAROT brand)
 
@@ -193,8 +194,8 @@ notice about its license.
 
 This table and the OCR table above cover **model weights** only. Since 0.5.0
 the builds contain no Python: the Python packages in `pyproject.toml` (resolved
-in `uv.lock`) are used only by the development tools, the tests and the Python
-backend source kept in the repository, and carry their own licenses.
+in `uv.lock`) are used only by the development tools and the tests, and carry
+their own licenses.
 JavaScript dependencies are listed in `package.json`. Rust dependencies are
 covered in the next section.
 

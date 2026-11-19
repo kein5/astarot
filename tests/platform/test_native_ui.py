@@ -94,7 +94,7 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
 def test_native_settings_navigation_observes_open_and_close(tmp_path):
     from test_native_realtime import open_captions
     from test_native_spoken_translation import open_voice
-    from tools.voice_acceptance import private_graph
+    from tools.private_pipewire import private_graph
     from native_webdriver import ROOT
 
     state = initial_state(tmp_path)
@@ -108,49 +108,4 @@ def test_native_settings_navigation_observes_open_and_close(tmp_path):
                 open_captions(ui)
                 ui.close_settings()
                 ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
-            ui.close_app()
-
-
-def test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path):
-    from tools.voice_acceptance import private_graph, wait_for
-    from models.audio_routing.pipewire_gate import PipeWireGate
-    from native_webdriver import ROOT
-
-    state = initial_state(tmp_path)
-    with private_graph(config_fragment=ROOT / "config/pipewire/90-vrct-managed.conf"):
-        gate = PipeWireGate()
-        with NativeWebDriver(tmp_path / "first", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-            ui.wait_main_ready()
-            ui.open_route_settings()
-            ui.select("Audio route", "managed")
-            ui.click_text("button", "Save changes")
-            wait_for(lambda: json.loads((state / "config.json").read_text()).get("VOICE_SETTINGS", {}).get("routing") == "managed")
-            ui.open_voice_settings()
-            ui.select("Chat voice", "translated")
-            ui.select("Translation slot", "2")
-            ui.select("Chat voice", "original")
-            ui.select("Seed mode", "fixed")
-            ui.fill("Instruction", "設定復元の試験")
-            ui.fill("Japanese voice name", "保存テスト")
-            ui.click_text("button", "Save changes")
-            wait_for(lambda: json.loads((state / "config.json").read_text()).get("VOICE_SETTINGS", {}).get("japanese_voice") == "保存テスト")
-            ui.open_route_settings()
-            ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Muted (confirmed)')")
-            assert gate.inspect()["muted"] is True
-            ui.click_text("button", "Unmute")
-            wait_for(lambda: gate.inspect()["muted"] is False)
-            ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Voice enabled (confirmed)')")
-            ui.assert_rendered()
-            ui.close_app()
-        assert gate.inspect()["muted"] is True
-        with NativeWebDriver(tmp_path / "second", {"VRCT_CONFIG_DIR": str(state)}) as ui:
-            ui.wait_main_ready()
-            ui.open_voice_settings()
-            for label, value in [("Chat voice", "original"), ("Translation slot", "2"), ("Japanese voice name", "保存テスト"),
-                                 ("Seed value", "0"), ("Instruction", "設定復元の試験")]:
-                assert ui.evaluate("return arguments[0].value", ui.control(label)) == value
-            ui.open_route_settings()
-            ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent === 'Muted (confirmed)')")
-            assert gate.inspect()["muted"] is True
-            ui.assert_rendered()
             ui.close_app()

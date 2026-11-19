@@ -1,47 +1,8 @@
-import json
-from pathlib import Path
 import zipfile
 
 import pytest
 
 from tools.check_voice_distribution import check
-
-
-def test_old_config_migrates_silently_and_settings_roundtrip(tmp_path):
-    from config import Config, ConfigValidationError
-    cfg = object.__new__(Config)
-    cfg.init_config()
-    cfg._PATH_CONFIG = str(tmp_path / "config.json")
-    Path(cfg._PATH_CONFIG).write_text('{"UI_LANGUAGE":"en"}', encoding="utf-8")
-    try:
-        cfg.load_config()
-        assert cfg.VOICE_SETTINGS["mode"] == "off"
-        # A saved config that never chose a TTS server keeps the external one it used (#566).
-        assert cfg.VOICE_SETTINGS["japanese_server"] == "external"
-        assert cfg.VOICE_SETTINGS["multilingual_server"] == "external"
-        assert cfg.REALTIME_ASR_SETTINGS["server"] == "external"
-        assert cfg.SPEECH_SERVER_SETTINGS["profiles"]["asr"]["model"] == ""
-        cfg.SPEECH_SERVER_SETTINGS = {"profiles": {"asr": {"model": "/missing/model.gguf"}}}
-        cfg.VOICE_SETTINGS = {"mode": "original", "output_device": "explicit-cable"}
-        cfg.saveConfigToFile()
-        persisted = json.loads(Path(cfg._PATH_CONFIG).read_text(encoding="utf-8"))
-        assert persisted["VOICE_SETTINGS"]["output_device"] == "explicit-cable"
-        assert persisted["VOICE_SETTINGS"]["japanese_voice"] == "none"
-        assert persisted["SPEECH_SERVER_SETTINGS"]["profiles"]["asr"]["model"] == "/missing/model.gguf"
-        with pytest.raises(ConfigValidationError):
-            cfg.SPEECH_SERVER_SETTINGS = {"active": True}
-        with pytest.raises(ConfigValidationError):
-            cfg.VOICE_SETTINGS = {"mode": "original", "japanese_url": "http://outside"}
-        assert cfg.VOICE_SETTINGS["output_device"] == "explicit-cable"
-        cfg.init_config()
-        cfg._PATH_CONFIG = str(tmp_path / "config.json")
-        cfg.load_config()
-        assert cfg.VOICE_SETTINGS["mode"] == "original"
-        assert cfg.SPEECH_SERVER_SETTINGS == persisted["SPEECH_SERVER_SETTINGS"]
-    finally:
-        timer = getattr(cfg, "_timer", None)
-        if timer:
-            timer.cancel()
 
 
 def _fake_build(root, platform):

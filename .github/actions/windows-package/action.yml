@@ -42,15 +42,6 @@ runs:
           $failed = $true
         }
 
-        $configContent = Get-Content src-python/config.py -Raw
-        if ($configContent -notmatch 'self\._VERSION\s*=\s*"([^"]+)"') {
-          Write-Host "::error::could not find self._VERSION in src-python/config.py"
-          $failed = $true
-        } elseif ($Matches[1] -ne $expected) {
-          Write-Host "::error::src-python/config.py VERSION ($($Matches[1])) does not match candidate version ($expected)"
-          $failed = $true
-        }
-
         if ($failed) {
           Write-Host "::error::Version mismatch detected. Set every version field to $expected before building."
           exit 1

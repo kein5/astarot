@@ -59,8 +59,8 @@ chosen by default.
 # speech.cpp speech synthesis models (downloadable, not shipped)
 
 The same terms apply: VRCT-VOX does not ship, redistribute, modify or host
-these files. They are pinned by hand in
-`src-python/models/model_downloads/catalog.py`, to the file speech.cpp
+these files. They are pinned by hand in the model download catalog
+(`native/ops/src/downloads/catalog.rs`), to the file speech.cpp
 0.10.0 and 0.11.0 fetch for each name (the revisions, sizes and SHA-256 are the
 same in both). The review was made on 2026-11-16 against the pinned revisions;
 the details are in `docs/voice-stack/licensing.md`

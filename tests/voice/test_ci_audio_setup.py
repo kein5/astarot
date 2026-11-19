@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from tools import voice_acceptance
+from tools import private_pipewire
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools/ci/setup_pipewire.sh"
@@ -38,7 +38,7 @@ def test_policy_paths_follow_selected_daemon_prefix(policy_prefix, monkeypatch, 
     module = add_modules(policy_prefix, layout)
     for variable in ("WIREPLUMBER_CONFIG_DIR", "WIREPLUMBER_DATA_DIR", "WIREPLUMBER_MODULE_DIR"):
         monkeypatch.setenv(variable, "/unrelated/host")
-    binary, environment = voice_acceptance.policy_installation()
+    binary, environment = private_pipewire.policy_installation()
     assert binary == str(policy_prefix / "bin/wireplumber")
     assert environment == {
         "WIREPLUMBER_CONFIG_DIR": str(policy_prefix / "share/wireplumber"),
@@ -57,14 +57,14 @@ def test_missing_policy_paths_fail_before_start_without_host_fallback(policy_pre
     add_modules(policy_prefix, "lib")
     path = policy_prefix / missing
     shutil.rmtree(path) if path.is_dir() else path.unlink()
-    monkeypatch.setattr(voice_acceptance.subprocess, "Popen",
+    monkeypatch.setattr(private_pipewire.subprocess, "Popen",
                         lambda *a, **kw: pytest.fail("must reject missing policy paths before spawning"))
     if not sys.platform.startswith("linux"):
         with pytest.raises(RuntimeError, match=error):
-            voice_acceptance.policy_installation()
+            private_pipewire.policy_installation()
     else:
         with pytest.raises(RuntimeError, match=error):
-            with voice_acceptance.private_graph():
+            with private_pipewire.private_graph():
                 pytest.fail("missing installation must not be accepted")
 
 
@@ -72,7 +72,7 @@ def test_multiple_module_directories_are_rejected(policy_prefix):
     add_modules(policy_prefix, "lib")
     add_modules(policy_prefix, "lib/x86_64-linux-gnu")
     with pytest.raises(RuntimeError, match="ambiguous_wireplumber_policy_modules"):
-        voice_acceptance.policy_installation()
+        private_pipewire.policy_installation()
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux installation symlinks")
@@ -88,7 +88,7 @@ def test_policy_directory_symlink_cannot_escape_prefix(policy_prefix, tmp_path, 
     original.rename(outside)
     original.symlink_to(outside, target_is_directory=True)
     with pytest.raises(RuntimeError, match=error):
-        voice_acceptance.policy_installation()
+        private_pipewire.policy_installation()
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="Linux installation symlinks")
@@ -97,7 +97,7 @@ def test_daemon_symlink_uses_real_installation(policy_prefix, tmp_path, monkeypa
     alias = tmp_path / "wireplumber"
     alias.symlink_to(policy_prefix / "bin/wireplumber")
     monkeypatch.setattr(shutil, "which", lambda name: str(alias))
-    binary, environment = voice_acceptance.policy_installation()
+    binary, environment = private_pipewire.policy_installation()
     assert binary == str(policy_prefix / "bin/wireplumber")
     assert environment["WIREPLUMBER_MODULE_DIR"] == str(module)
 

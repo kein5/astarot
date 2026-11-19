@@ -81,7 +81,7 @@
 
 ## 同意と外部への送信
 
-- モデルの取得は、名前、提供元、正確な容量、ライセンスを画面に示し、利用者がチェックして開始したときだけ行う。カタログは版、サイズ、SHA-256、ライセンスを固定する（`src-python/models/model_downloads/catalog.py`）。ローカル翻訳（ONNX Runtime）のモデルも、公開したあとはカタログの対象`translation`から同じ確認を経て取得する（0.4までのCTranslate2の固定の重みの取得は0.5.0で引退した）。別リポジトリやHubキャッシュからの暗黙の取得は行わない。
+- モデルの取得は、名前、提供元、正確な容量、ライセンスを画面に示し、利用者がチェックして開始したときだけ行う。カタログは版、サイズ、SHA-256、ライセンスを固定する（`native/ops/src/downloads/catalog.rs`）。ローカル翻訳（ONNX Runtime）のモデルも、公開したあとはカタログの対象`translation`から同じ確認を経て取得する（0.4までのCTranslate2の固定の重みの取得は0.5.0で引退した）。別リポジトリやHubキャッシュからの暗黙の取得は行わない。
 - 非商用のライセンスのモデル（NLLB-200など）は、同意とは別に非商用に限ることの確認を求める（#411）。カタログの行の`restrictions`はライセンスの文字列から決まり、Creative CommonsのNonCommercialなら`["non_commercial"]`になる。Gemma Terms of Useを含むライセンスの翻訳のモデル（TranslateGemma）は`gemma_terms`を持つ（ADR-015）。読み上げのIrodori-TTS v4 LargeもGemma Terms of Useに従うが、この確認は付かない（翻訳のモデルだけに限ると2026-11-19に決めた）。確認の画面はライセンスの名前と制限の中身を示し、同意の下に種類ごとのチェックを出す。`gemma_terms`では、Gemmaの利用規約と禁止用途のポリシーがモデルを使う人にも及ぶことを示す。`/run/start_model_download`の要求は`{id, consent, catalog_version}`に、確かめた種類の`acknowledged`を足す。欠けていれば400の`model_download_restriction_unacknowledged`、知らない種類や重複やそのモデルにない種類があれば400の`download_request_invalid`で断り、ファイルを書かず通信もしない。制限のないモデルの要求は変わらない。確認は`receipt.json`にも設定にも記録しない（[モデル取得](../voice-stack/model-downloads.md#非商用のライセンスの確認)）。
 - ローカル翻訳のモデルのカードには、翻訳の間に使うメモリを示す（`guidance.reference_memory_bytes`）。測っていないモデルは「まだ測っていません」と示し、数値を作らない。翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）がCPUならRAMの総量と、GPUならそのGPUのメモリの総量と比べる。RAMと比べるときはOSとVRChatの分（13 GiB）を、GPUと比べるときはVRChatの分（4 GiB）を残した量と比べる（読み上げや音声認識のモデルも同じ）。足りなければカードと取得の確認画面に性能不足の可能性を出す。目安なので選ぶことも取得も止めない（#405、#597、[モデル取得](../voice-stack/model-downloads.md#性能不足の可能性の警告405)）。
 - 取得済みモデルのパスを適用する際の再検証は、Applyの応答待ちでも同じモデル・ジョブのキャンセルを受け付ける。Applyとキャンセルの応答は別々に待ち、片方の応答で他方の待機を解除しない。待機中は別の適用や取得を開始できない。10秒間応答がなくても警告だけを表示し、処理が終わったとは扱わない。その後の状態の問い合わせで、そのジョブが検証中（`verifying`、`cancelling`）でなくなったと分かったときだけ、Applyの待機を解除する（#563）。応答が失われても、ほかの操作がアプリを起動し直すまで止まったままにはならない。
@@ -117,7 +117,7 @@
 - 画面の文言はすべて`locales/`に置く。`en.yml`と`ja.yml`は必ず更新する。画面の言語は英語と日本語だけである。韓国語と中国語は0.1.0まで画面の言語として選べたが、0.2.0で外した。訳されていない文言が多く、英語で出る箇所が増えていたためである。保存済みの設定でどちらかを選んでいた場合は、英語で起動する。翻訳する言語としての韓国語と中国語はそのまま使える。
 - ページの言語（`<html lang>`）はUIの言語に合わせる。
 - サイドカーの`message`は英語の既定文である。画面ではエラーコードから引いた文言を出す。
-- 言語や国の組は`transcription_lang`（`src-python/models/transcription/transcription_languages.py`）にあるものだけを受け付ける。
+- 言語や国の組は中核の言語の表（`native/core/data/transcription_languages.json`）にあるものだけを受け付ける。
 
 言語名と国・地域名の表示・検索:
 

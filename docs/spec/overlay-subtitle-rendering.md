@@ -100,8 +100,11 @@ fonts are read from the user's installation, not copied into distributions.
 
 ## Verification
 
-`src-python/test/test_overlay_image_rendering.py` uses real bundled fonts and
-patches `Image.new` to verify allocation requests. It covers multiline Japanese,
+The core's rendering is checked by the unit tests of `native/vr-overlay`
+(`src/subtitle.rs`, `src/layout.rs`, `src/fonts.rs`). The rest of this section
+records the Python tests, which left the repository with the backend in 0.6.0
+(#285). `src-python/test/test_overlay_image_rendering.py` used real bundled fonts and
+patched `Image.new` to verify allocation requests. It covered multiline Japanese,
 mixed-width text, huge input, composition, empty/invisible input, graphemes,
 ruby, missing fallback and optional installed emoji fonts. These tests do not
 establish headset readability or Windows runtime rendering.

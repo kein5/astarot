@@ -21,32 +21,26 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "backend", "rust", "commits", "all")
+SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "commits", "all")
 GROUPS = {"quick": ("tooling", "node", "lint"),
-          "all": ("tooling", "node", "ui", "voice", "lint", "backend", "rust")}
+          "all": ("tooling", "node", "ui", "voice", "lint", "rust")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
                  "native/translate-onnx", "native/tts", "native/core")
-SETUP_SCOPES = ("headless", "ui", "browser", "backend", "rust", "resources")
+SETUP_SCOPES = ("headless", "ui", "browser", "rust", "resources")
 OWNER_FILE = ".vrct-vox-dev-env"
 OWNER = "VRCT-VOX developer environment v1\n"
 # Plain unit tests that live in tests/platform next to the helpers they test; the rest of
 # that folder needs a desktop, a driver or real devices and runs only when asked.
 PLATFORM_UNIT_TESTS = (
     "tests/platform/test_display_power_guard.py",
-    "tests/platform/test_runtime_settings.py",
-    "tests/platform/test_sidecar_warnings.py",
+    "tests/platform/test_native_chatbox_helpers.py",
     "tests/platform/test_voice_measurement_math.py",
 )
-# The same, needing the app's dependencies (python-osc).
-PLATFORM_BACKEND_TESTS = ("tests/platform/test_native_chatbox_helpers.py",)
 LINT_PATHS = [
-    "src-python/models/tts", "src-python/models/audio_routing",
-    "src-python/models/voice_events.py", "src-python/models/http_stream.py", "tests/voice", "tools/voice_cli.py",
-    "tools/voice_latency.py", "tools/voice_acceptance.py", "tools/voice_b_poc.py",
-    "tools/voice_route.py", "tools/voice_route_acceptance.py", "tools/build_voice_gate.py",
-    "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py", "tools/vrchat_voice_host.py",
+    "tests/voice", "tools/voice_latency.py", "tools/private_pipewire.py", "tools/build_voice_gate.py",
+    "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py",
     "tools/prepare_release.py", "tools/release_automation.py", "tools/changelog.py", "tools/dev.py", "tools/build_linux.py",
     "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/app_resources.py",
     "tools/measure_backend_startup.py", "tools/adr_catalog.py", "tests/devtools",
@@ -129,8 +123,7 @@ def choose_python(root, explicit=None, *, profile="headless"):
         if not candidate.is_absolute():
             candidate = root / candidate
         return str(candidate.absolute())
-    candidates = [env_python(root / f"build/dev/{profile}-venv"),
-                  env_python(root / ".venv_linux"), env_python(root / ".venv")]
+    candidates = [env_python(root / f"build/dev/{profile}-venv"), env_python(root / ".venv")]
     return str(next((p for p in candidates if p.is_file()), candidates[0]))
 
 
@@ -158,7 +151,7 @@ def checks_plan(args, root):
     steps = []
     selected = scopes(args)
     for scope in selected:
-        python = choose_python(root, args.python, profile="backend" if scope == "backend" else "headless")
+        python = choose_python(root, args.python)
         if scope == "tooling":
             steps.append(Step("developer CLI tests", [sys.executable, "-m", "unittest",
                 "discover", "-s", "tests/devtools", "-v"]))
@@ -184,10 +177,9 @@ def checks_plan(args, root):
             if scope == "ui":
                 steps.append(Step("TypeScript", ["npm", "--ignore-scripts", "run", "typecheck"]))
                 steps.append(Step("Vite build", ["npm", "--ignore-scripts", "run", "vite-build"]))
-        elif scope in ("voice", "backend"):
-            args_pytest = (["-c", "tests/voice/pytest.ini", "tests/voice", *PLATFORM_UNIT_TESTS] if scope == "voice"
-                           else ["-c", "pytest.ini", "src-python/test", *PLATFORM_BACKEND_TESTS])
-            steps.append(Step(f"{scope} pytest", [python, "-m", "pytest", *args_pytest, "-q"]))
+        elif scope == "voice":
+            steps.append(Step("voice pytest", [python, "-m", "pytest", "-c", "tests/voice/pytest.ini", "tests/voice",
+                *PLATFORM_UNIT_TESTS, "-q"]))
         elif scope == "lint":
             steps.append(Step("Ruff", [python, "-m", "ruff", "check", *LINT_PATHS]))
         elif scope == "rust":
@@ -299,17 +291,17 @@ def doctor(args, root, *, preflight=False):
     pinned = pinned_versions(root)
     for tool_name in sorted(needed_tools):
         tool(tool_name, pinned.get(tool_name))
-    python_scopes = set(selected) & {"voice", "lint", "backend", "browser"}
+    python_scopes = set(selected) & {"voice", "lint", "browser"}
     series = python_series(root)
     for scope in sorted(python_scopes):
-        python = choose_python(root, args.python, profile=scope if scope in ("backend", "browser") else "headless")
-        remedy_scope = "backend" if scope == "backend" else "browser" if scope == "browser" else "headless"
+        python = choose_python(root, args.python, profile="browser" if scope == "browser" else "headless")
+        remedy_scope = "browser" if scope == "browser" else "headless"
         remedy = f"python tools/dev.py setup --scope {remedy_scope} (or pass --python /path/to/python)"
         if not Path(python).is_file():
             row(scope, "missing", f"Python environment missing: {python}", remedy)
             continue
-        packages = {"voice": ["pytest", "requests", "PyYAML", "numpy", "soxr", "psutil", "pillow", "websockets", "tqdm"], "lint": ["ruff"],
-            "backend": ["pytest", "numpy", "ctranslate2", "openvr", "psutil"],
+        packages = {"voice": ["pytest", "requests", "PyYAML", "numpy", "soxr", "psutil", "pillow", "websockets", "tqdm", "python-osc", "openvr"],
+            "lint": ["ruff"],
             "browser": ["pytest", "playwright", "python-osc", "requests"]}[scope]
         script = "import sys, importlib.metadata as m; print(sys.version); " + "; ".join(
             f"print({p!r}, m.version({p!r}))" for p in packages)
@@ -364,12 +356,9 @@ def setup(args, root):
             f"net.offline={'true' if args.offline else 'false'}", "fetch", "--locked",
             "--manifest-path", f"{manifest}/Cargo.toml"])
             for manifest in ("src-tauri", *NATIVE_CRATES)], root, dry_run=args.dry_run)
-    if args.scope == "backend" and sys.platform != "linux":
-        raise DevError("Automated backend setup currently builds the Linux packaging environment. Windows: run bat\\install.bat (uv sync); headless/ui/browser setup works on both platforms.")
     uv = ["uv", *(["--offline"] if args.offline else [])]
     # Every scope installs an exact subset of uv.lock (pyproject.toml groups).
-    groups = {"headless": ["--only-group", "voice-test"], "browser": ["--only-group", "voice-ui-test"],
-              "backend": ["--group", "dev", "--group", "linux-build"]}[args.scope]
+    groups = {"headless": ["--only-group", "voice-test"], "browser": ["--only-group", "voice-ui-test"]}[args.scope]
     requirement = f"build/dev/{args.scope}-requirements.txt"
     target = root / f"build/dev/{args.scope}-venv"
     python = choose_python(root, args.python) if args.python else str(env_python(target))
@@ -420,7 +409,7 @@ def parser():
     for command in ("doctor", "check"):
         sub = commands.add_parser(command, help="Inspect local prerequisites" if command == "doctor" else "Run selected model-free checks")
         sub.add_argument("--scope", choices=(*SCOPES, "browser") if command == "doctor" else SCOPES,
-                         default="quick", help="quick = tooling + node + lint; all also runs voice/backend/Rust (default: quick)")
+                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice and Rust (default: quick)")
         sub.add_argument("--python", help="Existing environment's Python executable; never installs packages")
         if command == "doctor":
             sub.add_argument("--json", action="store_true", help="Machine-readable diagnostics; missing prerequisites exit 2")

@@ -1,6 +1,6 @@
 # 失敗したときに保つもの
 
-設定、モデル、アプリの更新で、操作が途中で失敗しても何を保つかを書く（#517）。対象は 0.5.0 からの Rust の中核（`native/core`、`native/ops`）と Tauri（`src-tauri`）である。0.4 までの Python バックエンド（`src-python/`）はアプリから起動しない。ただしモデルの取得は Python の実装も同じ規則で保ち、voice の試験が確かめている。
+設定、モデル、アプリの更新で、操作が途中で失敗しても何を保つかを書く（#517）。対象は 0.5.0 からの Rust の中核（`native/core`、`native/ops`）と Tauri（`src-tauri`）である。0.4 までの Python バックエンド（`src-python/`）は、0.5.0 からアプリが起動せず、0.6.0 でリポジトリからも消した。
 
 ファイルの形と置き場所は[データ形式と保存](data-and-persistence.md)に、保存の失敗の知らせ方は[横断的な振る舞い](cross-cutting.md#サイドカーでの保存)に、更新の宛先と署名は[アプリの更新](external-interfaces.md#アプリの更新)にある。ここでは同じことを繰り返さず、失敗したときの約束だけを書く。
 
@@ -36,7 +36,7 @@
 
 カタログのモデルは、同意と固定の版、大きさと SHA-256 の確かめ方を変えずに、次を守る（`native/ops/src/downloads/`、[モデルの取得](../voice-stack/model-downloads.md)）。
 
-| 操作 | 成功したとき | 失敗したとき | 確かめている試験（`native/ops/src/downloads/manager_tests.rs`、Python は `tests/voice/test_model_downloads.py`） |
+| 操作 | 成功したとき | 失敗したとき | 確かめている試験（`native/ops/src/downloads/manager_tests.rs`） |
 |---|---|---|---|
 | 開始の要求 | — | 同意、カタログの版、非商用や翻訳のモデルのGemmaの利用規約などの制限の確認（`acknowledged`）のどれかが欠けていれば、フォルダーを作らず通信もせずに断る | `explicit_consent_before_any_files_or_network`、`only_fixed_catalog_requests_are_accepted`、`a_non_commercial_entry_starts_only_with_its_acknowledgement`、`an_entry_under_the_gemma_terms_starts_only_with_that_acknowledgement`、`a_speech_entry_under_the_gemma_terms_needs_no_acknowledgement` |
 | 取得 | 作業用の `.partial-<16進>/` で全ファイルの大きさと SHA-256 を確かめてから、`<id>/<版>/` に名前を変えて公開する | 何も公開しない。作業用のフォルダーは消してから `failed` か `cancelled` を返す | `incomplete_oversized_or_corrupt_download_never_publishes`、`multi_file_bundle_failure_never_publishes_first_file` |

@@ -88,8 +88,8 @@ diagnostic; normal output is release.
 The builder installs no Python packages. It uses `npm ci --ignore-scripts` and builds
 Cargo with `--locked` in a copied workspace (`build/linux/workspace`), whose
 `src-tauri/bin/_internal` is the staged folder; it does not replace the checkout's
-`src-tauri/bin`. Two backend files under `src-python/models/model_downloads/` are copied
-too, because `native/ops` reads them at compile time. This is **not** a claim of
+`src-tauri/bin`. The one file outside the crates that a crate reads at compile time
+(`CRATE_INPUTS` of `tools/build_linux.py`) is copied too. This is **not** a claim of
 bit-for-bit reproducible builds.
 The Rust, Node, Python and uv versions are pinned in `mise.toml`; system libraries and
 actual ELF version requirements remain host dependent.

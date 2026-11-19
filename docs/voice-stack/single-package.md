@@ -68,7 +68,7 @@ speech.cpp にだけある機能は語彙の指定と話者の区別です。
 ### いまの状態
 
 - `backend_cuda.spec` は、0.5.0 で Python を配布物から外したとき（`8f186f6c`）に `spec/backend.spec` と一緒に消えました。
-- `cuda` extra（`nvidia-cublas-cu12`、`nvidia-cudnn-cu12`）は `pyproject.toml` と `uv.lock` に残っています。使うのは開発用の `.venv_cuda`（`bat/install.bat`、`mise run setup:app`）だけで、配布物には入りません。`src-python/` の Python のバックエンドを、比べる相手として動かすためのものです。
+- `cuda` extra（`nvidia-cublas-cu12`、`nvidia-cudnn-cu12`）は、開発用の `.venv_cuda`（`bat/install.bat`、`mise run setup:app`）で `src-python/` の Python のバックエンドを動かすためのもので、配布物には入っていませんでした。2026-11-20 に、バックエンドと一緒に消しました（#285）。
 - 0.5.1 の Windows の ZIP は約 36 MB、展開して約 0.1 GB です。0.4 の CPU 版は約 0.4 GB、CUDA 版は約 1.7 GB でした。音声認識の GPU 対応（speech.cpp の Vulkan 版）は入っています。ローカル翻訳の GPU 対応は、判断 5 の決定（#630 の判断 2 (c)）に沿って #277 で入れます。
 
 ### CUDA 版をやめた（判断 3、2026-11-19）
@@ -86,7 +86,7 @@ CUDA 版の ZIP には、0.5.0 から標準版にないものが何もありま�
 
 ### `cuda` extra を消す時期
 
-`src-python/` を消すとき（core-integration の 27。0.6.0 で中核への移行が終わったとき）に、`pyproject.toml` の `cuda`、`uv.lock`、`.venv_cuda`（`bat/install.bat`、`mise.toml`、`.gitignore`、`pytest.ini`、`vite.config.js`、`docs/development.md`）を一緒に消します。core-integration の「Python の削除に伴うもの」に入っています。配布物に関係しないので、先に消す理由はありません。
+`src-python/` を消したとき（2026-11-20、core-integration の 27、#285）に、`pyproject.toml` の `cuda`、`uv.lock`、`bat/install.bat`、`mise.toml` のタスク、`pytest.ini`、`docs/development.md` の記述を一緒に消しました。`.gitignore` と `vite.config.js` は、手元に残った古い `.venv_cuda` と `.venv_linux` を追跡と監視から外すために、名前を残しています。
 
 ## GPU ベンダーの実測の計画
 

@@ -124,11 +124,8 @@ test("language, voice and download generations are not registered as generic set
 });
 
 test("all configured recovery reads exist in the backend mapping and have UI routes", () => {
-    const mapping = readFileSync(new URL("../../../src-python/mainloop.py", import.meta.url), "utf8");
-    // The core's own endpoints (Python never had them) are listed for the specification.
-    const core = JSON.parse(readFileSync(new URL("../../../tools/spec_core_additions.json", import.meta.url), "utf8"));
-    const mappedEndpoints = new Set([...mapping.matchAll(/^\s*"([^"]+)"\s*:/gm)].map(match => match[1])
-        .concat(core.endpoints.map(entry => entry.endpoint)));
+    // The specification's endpoints: the Python backend's and the core's own.
+    const mappedEndpoints = backendEndpoints();
     const settings = readFileSync(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), "utf8").split("for (const setting_data")[0];
     const routes = readFileSync(new URL("../useReceiveRoutes.ts", import.meta.url), "utf8");
     for (const read of [...Object.values(staticPendingControls).map(control => control.read), ...Object.values(featureResyncReads)]) if (read) {
@@ -225,12 +222,12 @@ test("exit cancels queued recovery reads, including late send rejections", async
     assert.deepEqual(subject.reads, []);
 });
 
-const backendEndpoints = () => {
-    const mapping = readFileSync(new URL("../../../src-python/mainloop.py", import.meta.url), "utf8");
+function backendEndpoints() {
+    // The Python backend's endpoints as the specification keeps them, and the core's own.
+    const python = JSON.parse(readFileSync(new URL("../../../tools/spec_python_baseline.json", import.meta.url), "utf8"));
     const core = JSON.parse(readFileSync(new URL("../../../tools/spec_core_additions.json", import.meta.url), "utf8"));
-    return new Set([...mapping.matchAll(/^\s*"([^"]+)"\s*:/gm)].map(match => match[1])
-        .concat(core.endpoints.map(entry => entry.endpoint)));
-};
+    return new Set([...python.endpoints, ...core.endpoints].map(entry => entry.endpoint));
+}
 
 test("each kind of setting is released by its own writes and read back with its getter", () => {
     const control = template => settingPendingControl({ base_endpoint_name: "osc_port", logics_template_id: template });

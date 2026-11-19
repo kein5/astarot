@@ -34,8 +34,7 @@ Common Voiceの日本語データセットは、Mozillaのデータカタログ�
 リポジトリルートから実行します。
 
 ```powershell
-$env:PYTHONPATH = (Join-Path (Get-Location) 'src-python')
-.\.venv\Scripts\python.exe -m tools.whisper_eval.prepare_common_voice `
+python -m tools.whisper_eval.prepare_common_voice `
   --input-dir .\tmp\commonvoice-ja `
   --tsv validated.tsv `
   --output-dir .\tmp\whisper_eval\dataset `
@@ -65,22 +64,7 @@ tmp/whisper_eval/dataset/
 
 ## VRCT文字起こし機能の統合確認
 
-VRCTとしての確認では、準備済み音声をVRCTの `VadRecognizerAdapter` で区切り、実際の
-`AudioTranscriber.transcribeAudioQueue()` のキューへ投入し、認識結果がVRCTの
-`transcript_data` に格納されるところまで確認します。エンジンはGoogleです。実際に音声を
-Googleへ送信するため、ネットワークやサービス状態に依存します。
-
-```powershell
-$env:PYTHONPATH = (Join-Path (Get-Location) 'src-python')
-.\.venv\Scripts\python.exe -m tools.whisper_eval.run_vrct_transcription_test `
-  --dataset-dir .\tmp\whisper_eval\dataset_cv26 `
-  --output .\tmp\whisper_eval\vrct_google_transcription_test.json `
-  --engine Google `
-  --condition clean
-```
-
-このテストは実機のマイクデバイスオープンやUI通知までは行わず、VAD出力からVRCTの
-文字起こし結果格納までを対象にします。実機マイク・UI・Controllerを含む確認は別途行います。
+0.5までは、準備した音声をPythonのバックエンドの `VadRecognizerAdapter` で区切り、`AudioTranscriber` のキューへ入れて認識結果が格納されるまでを確かめる `run_vrct_transcription_test.py` がありました。エンジンはGoogleの音声認識でした。Googleの音声認識は #288 で外し、この道具は0.6.0でバックエンドと一緒に消しました（#285）。中核の文字起こしの経路は `native/core/tests/transcription.rs` などが確かめます。
 
 ## 実機VAD評価との分離
 

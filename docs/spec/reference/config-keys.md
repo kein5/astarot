@@ -2,7 +2,7 @@
 
 # 設定キー一覧
 
-`src-python/config.py`の`Config`クラス（`ManagedProperty`と`ValidatedProperty`）と`init_config()`の既定値から生成した。中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。
+Pythonのバックエンドのキー（0.6.0で消した`src-python/config.py`の`Config`クラスと`init_config()`の既定値を写した`tools/spec_python_baseline.json`）から生成した。中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 

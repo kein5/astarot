@@ -109,9 +109,9 @@ cargo test --locked --manifest-path native/translation/Cargo.toml
 
 ### 契約テスト（Python との同等性）
 
-Python の実装と同じに動くことは、`tests/contract/` の 2 つのファイルで確かめます。どちらも Python の実装から記録したもので、Python を消したあとはこのファイルが仕様になります。
+Python の実装と同じに動くことは、`tests/contract/` の 2 つのファイルで確かめます。どちらも Python の実装から記録したもので、0.6.0 で Python を消したので、このファイルが仕様です。場面を足すときは、記録を手で書きます。
 
-| ファイル | 中身 | Rust の試験 | 記録する Python の試験 |
+| ファイル | 中身 | Rust の試験 | 記録した Python の試験（0.6.0 で消した） |
 |---|---|---|---|
 | `providers.json` | プロバイダごとの場面（頼む操作と、プロバイダが返す応答）と、そのとき Python のクライアントが送った要求（メソッド、URL、ヘッダー、本文、待ち時間）と返した結果 | `tests/contract.rs` | `src-python/test/test_translation_contract.py` |
 | `transliteration.json` | 文ごとの Sudachi の形態素と読み（マクロンありとなし）、かなごとのヘボン式 | `tests/transliteration_contract.rs` | `src-python/test/test_transliteration_contract.py` |
