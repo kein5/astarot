@@ -312,7 +312,8 @@ fn an_engine_entry_is_a_local_weight_with_the_languages_it_offers() {
     let engine = catalog["engine"].as_array().unwrap();
     assert!(engine.iter().all(|e| e["origin"] == "builtin" && e["id"] != "custom:old-folder-model"), "{catalog}");
     assert_eq!(catalog["retired_folder_used"], true);
-    assert_eq!(catalog["runtimes"], json!(["onnx"]));
+    // llama.cpp's server can be set up on Windows and Linux on x86-64 (ADR-015).
+    assert_eq!(catalog["runtimes"], json!(["onnx", "llamacpp"]));
 
     let register = "/run/register_translation_catalog_entry";
     let request = |name: &str, folder: &Path, languages: Value| json!({ "group": "engine", "name": name, "runtime": "onnx", "folder": folder.to_string_lossy(), "languages": languages });
@@ -353,6 +354,67 @@ fn an_engine_entry_is_a_local_weight_with_the_languages_it_offers() {
     let log = process_log(&ui);
     assert!(!log.contains("My NLLB") && !log.contains("my nllb"), "a name or folder reached the log");
     assert!(!log.contains("old-folder-model"), "the retired folder's model is not read: {log}");
+    ui.stop();
+}
+
+/// A GGUF header that names `architecture`.
+fn gguf(path: &Path, architecture: &str) {
+    let mut data = b"GGUF".to_vec();
+    data.extend(3u32.to_le_bytes());
+    data.extend(0u64.to_le_bytes());
+    data.extend(1u64.to_le_bytes());
+    let key = "general.architecture";
+    data.extend((key.len() as u64).to_le_bytes());
+    data.extend(key.as_bytes());
+    data.extend(8u32.to_le_bytes());
+    data.extend((architecture.len() as u64).to_le_bytes());
+    data.extend(architecture.as_bytes());
+    std::fs::write(path, data).unwrap();
+}
+
+#[test]
+fn a_translation_llm_entry_waits_for_llama_cpps_server() {
+    use vrct_voice_conversion::runtime::{llama_server_name, llamacpp_runtime, version_of, Target};
+    let temp = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let services = Services { telemetry_forced_off: Arc::new(|| true), ..Setup::default().services };
+    let ui = start_in(temp.path(), services);
+    let register = "/run/register_translation_catalog_entry";
+    let request = |name: &str, file: &Path, device: &str| json!({ "group": "engine", "name": name, "runtime": "llamacpp", "file": file.to_string_lossy(), "languages": ["ja", "en"], "device": device });
+    let qwen = outside.path().join("qwen3.gguf");
+    gguf(&qwen, "qwen3");
+    assert_eq!(refused(&ui, register, request("Qwen", &qwen, "auto")), (400, "translation_catalog_gguf_invalid".into()));
+    let gemma = outside.path().join("translategemma-4b-it-Q4_K_M.gguf");
+    gguf(&gemma, "gemma3");
+    assert_eq!(refused(&ui, register, request("TG", &gemma, "cuda")), (400, "translation_catalog_device_invalid".into()));
+    assert_eq!(refused(&ui, register, request("TG", &outside.path().join("gone.gguf"), "auto")), (400, "translation_catalog_file_missing".into()));
+
+    // Added, but not usable until the server is set up: nothing is fetched or started.
+    let catalog = ui.ok(register, Some(request("TranslateGemma 4B", &gemma, "auto")));
+    let entry = user_entries(&catalog, "engine")[0].clone();
+    let id = entry["id"].as_str().unwrap().to_string();
+    assert_eq!((entry["runtime"].clone(), entry["device"].clone(), entry["status"].clone()), (json!("llamacpp"), json!("auto"), json!("ok")));
+    assert_eq!((entry["available"].clone(), entry["server_ready"].clone()), (json!(false), json!(false)));
+    assert_eq!(refused(&ui, "/run/use_translation_catalog_entry", json!({ "id": id })), (409, "translation_catalog_unusable".into()));
+    assert!(!ui.dir.join("vc_runtimes").exists());
+
+    // Once the runtime setup leaves a server, asking for the catalog again finds the entry usable.
+    let target = Target::current().unwrap();
+    let runtime = llamacpp_runtime(target);
+    let folder = ui.dir.join("vc_runtimes").join(runtime.id);
+    std::fs::create_dir_all(folder.join("lib")).unwrap();
+    for (_, name) in runtime.libraries.iter().flat_map(|l| &l.members) {
+        std::fs::write(folder.join("lib").join(name), "library").unwrap();
+    }
+    std::fs::write(folder.join("lib").join(llama_server_name(target)), "server").unwrap();
+    std::fs::write(folder.join("receipt.json"), json!({ "version": version_of(&runtime), "id": runtime.id }).to_string()).unwrap();
+    let entry = user_entries(&ui.ok("/get/data/translation_catalog", None), "engine")[0].clone();
+    assert_eq!((entry["available"].clone(), entry["server_ready"].clone()), (json!(true), json!(true)));
+    // Using it selects the weight; the server starts only when translation needs it.
+    ui.ok("/run/use_translation_catalog_entry", Some(json!({ "id": id })));
+    assert_eq!(ui.ok("/get/data/selected_ctranslate2_weight_type", None), json!(format!("user:{id}")));
+    let log = process_log(&ui);
+    assert!(!log.contains("TranslateGemma 4B") && !log.contains("translategemma-4b-it"), "a name or file reached the log");
     ui.stop();
 }
 
