@@ -107,6 +107,19 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリーの総量が分かれば、それとも比べる。
 - 検出していない、失敗した、メモリーが分からないときと、数値のないモデル（RVCなど）には警告しない。分からないことを性能不足とは書かない。
 - このため、音声認識やボイスチェンジャーのページでも、開いたときにハードウェアの検出（`/run/refresh_model_download_hardware`）を1回走らせる。検出はspeech.cppの`devices --json`を動かすだけで、モデルの取得や設定の変更はしない。
+##### ローカル翻訳のモデル（#597）
+
+翻訳の取得の確認画面（`LegacyModelDownloadDialog`から開くカタログの`translation`）でも同じ警告を出す。2026-11-19の決定による。
+
+- 目安の値は中核の`native/ops/src/downloads/guidance.rs`がカタログのIDごとに返す。Pythonのバックエンドには翻訳の項目がないので足していない。
+- NLLB-200 distilled 600M int8（`nllb-200-distilled-600m-onnx-int8`）は1,490,300,928バイト（約1.39 GiB）。アプリと同じ実行部`vrct-translate`で英日と日英を各30文訳したときの作業集合の最大で、Windows 11、Intel Core i7-1255U、CPUの4スレッド、ONNX Runtime 1.32.0で測った。PR #687の取得の注記（約1.4 GB）と同じ値である。
+- ほかの翻訳のモデル（既定のM2M100 418Mなど）は測っていないので`unknown`のままにする。カードには「まだ測っていません」と出し、警告もしない。測ったら`guidance.rs`に足す。
+- カードの「使うメモリ」の行に、翻訳の間に使うメモリを出す。「必要メモリと動作確認」の中は、読み上げのモデル向けの文（GPU、提供元の測定）ではなく、翻訳用の文を出す（`tier`が`translation`）。
+- 比べる相手は翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）で決める（`translationDeviceMode`）。既定のCPUならハードウェアの検出のCPUの行（RAMの総量）と比べる。GPUを選んでいればそのGPUのメモリの総量と比べる。CUDAとTensorRTはNVIDIAのGPUを、MIGraphXはAMDのGPUを、DirectMLとWebGPUはすべてのGPUを、検出の順に`device_index`番目として数える。そのGPUが検出の行にないときと、CPUでもGPUでも動くOpenVINOのときは比べない。
+- 読み上げのモデル向けの「空きメモリーに合う」の案内（`modelHardwareAdvice.ts`）は、空いているGPUのメモリを見るので翻訳には出さない。
+- RAMは検出（speech.cppの`devices --json`）のCPUの行で分かる。翻訳そのものはspeech.cppを使わない。同梱のspeech.cppが見つからず検出が失敗したときは、ほかのモデルと同じく警告しない。
+- 警告の基準はほかのモデルと同じく、モデルのメモリに25%を足した値が総量を超えるかである。OSやVRChatが使う分の余裕は足していない（PRの残課題）。
+- カタログに翻訳の項目が入るのはPR #687が`translation_models.json`にNLLBの項目を書いたときである。それまでは目安を返すIDがカタログになく、画面には出ない。
 
 #### 再起動後の取得済み
 
