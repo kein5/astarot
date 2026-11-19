@@ -323,6 +323,8 @@ test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider 
     // The pointer still reaches 3rem around the groove.
     assert.match(rule(".sliderRoot"), /height: 0\.6rem;\s*padding: 1\.2rem 0;/);
     assert.match(rule(".sliderRoot"), /width: 0\.6rem;\s*padding: 0 1\.2rem;/);
+    // A disabled slider is half as strong (data-[disabled]:opacity-50), as the other controls are.
+    assert.match(rule(".sliderRoot"), /&\[data-disabled\] \{\s*opacity: 0\.5;/);
 });
 test("the forms' select draws the kit select's chevron, at its size and place", () => {
     // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.

@@ -29,6 +29,12 @@
         padding: 0 1.2rem;
         margin: 0 0.8rem;
     }
+    // shadcn/ui's data-[disabled]:opacity-50; its thumb takes no hover ring then.
+    &[data-disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+        .thumb:hover { box-shadow: none; }
+    }
 }
 
 .rail {
