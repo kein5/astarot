@@ -15,7 +15,7 @@ async function setup(context, { registry = {}, values = {}, settings = [], openF
         useNotificationStatus: () => ({ showNotification_Error: (message, options) => notices.push([message, options]) }),
         useVolume: () => ({ currentMicThresholdCheckStatus: { data: false }, currentSpeakerThresholdCheckStatus: { data: false } }),
     };
-    const { VrPanelSyncController } = await loadModule(new URL("./VrPanelSyncController.jsx", import.meta.url), runtime, {
+    const { VrPanelSyncController } = await loadModule(new URL("./VrPanelSyncController.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke: async (name, args) => {
             if (name === "set_vr_panel_window") {
                 windows.push(args.open);

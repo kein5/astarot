@@ -187,7 +187,7 @@
 - 見つけ方: WASAPIの出力と入力のうち、同じ仮想ドライバーの両端を組にする（`models/audio_routing/virtual_mic.py`、Rustの中核では `native/audio-routing/src/virtual_mic.rs`）。Steam Streaming Microphone は帰還の判定では仮想ケーブルとして扱うが、Remote Play のものなので案内には出さない。Linuxでは案内を出さない（アプリが仮想マイクを作る）。
 - 守ること: テスト音は押したときだけ流す。ミュート中は流さず（`virtual_mic_voice_muted`）、読み上げ停止とミュートで止める。録音側の音はその場で音量にするだけで、保存、ログ、テレメトリーに出さない。デバイスの選択と設定は変えない。VRChatで同じマイクをすでに使っていれば、テスト音はほかの人にも聞こえることを案内に書く。
 - 閉じ方: 「後で」とEscapeは、この起動の間だけ閉じる。「完了」と「今後は自動で表示しない」は`/set/disable/virtual_mic_notice`を送り、以後は自分では開かない。テストの間は閉じられない。
-- 関係: `/get/data/virtual_mic_notice`、`/set/disable/virtual_mic_notice`、`/get/data/virtual_mic_status`、`/run/virtual_mic_test`、`/run/virtual_mic_level`、`src-ui/views/app/_app_controllers/VirtualMicGuideController.jsx`。Rustの中核は一覧とテストも持つ（`native/core/src/controller/audio_devices.rs`）。録音側の読み方の違いは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の12にある。
+- 関係: `/get/data/virtual_mic_notice`、`/set/disable/virtual_mic_notice`、`/get/data/virtual_mic_status`、`/run/virtual_mic_test`、`/run/virtual_mic_level`、`src-ui/views/app/_app_controllers/VirtualMicGuideController.tsx`。Rustの中核は一覧とテストも持つ（`native/core/src/controller/audio_devices.rs`）。録音側の読み方の違いは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の12にある。
 
 ## UC-18 初期設定で基本機能を準備する
 
@@ -196,7 +196,7 @@
 - まとめて準備する: 表示言語に合わせ、speech.cpp が最初に勧める認識モデル（日本語なら ReazonSpeech v2 の Q8_0、言語に勧めがなければ英語のもの）と VAD（Silero VAD）を選ぶ。パスがすでに入っているものは選ばない。それぞれの名前、提供元、ライセンスとその原文へのリンク、容量と、合計の容量を示し、チェックボックスで同意してから「準備を始める」を押す。同意は開いたときのカタログの版に結び付く（`catalog_version`）。始めると、モデルごとに取得、照合、設定への適用を順に行い、続いてリアルタイム音声認識のサーバーを同梱のものに、音声認識エンジンを speech.cpp にする。取得と適用は設定画面のカタログと同じエンドポイントを使う。マイクや音声認識はオンにしない。ほかのモデルを選ぶときは「音声認識（ASR）」の設定を開く。
 - 失敗とやり直し: 途中の段で失敗したら（通信、容量、照合、取消、適用の拒否、設定の保存の失敗）、その段で止め、理由を示す。「やり直す」は保存済みの設定と取得の状態から次にすることを決め直すので、済んだ段は飛ばす。取得は専用の一時フォルダーへ書き、容量と SHA-256 が合ってから公開し、適用はその後なので、失敗しても前の設定とモデルは変わらない（#517）。閉じても取得は続き、開き直すと進み具合を示す。
 - 閉じ方: 「後で」と Escape は、この起動の間だけ閉じる。準備が終わったあとの「完了」と「今後は自動で表示しない」は`/set/disable/first_run_setup`を送り、以後は自分では開かない。
-- 関係: `/get/data/first_run_setup`、`/set/disable/first_run_setup`、`/run/start_model_download`、`/run/apply_model_download`、`/run/cancel_model_download`、`/set/data/realtime_asr_settings`、`/set/data/selected_transcription_engine`、`src-ui/views/app/_app_controllers/FirstRunSetupController.jsx`、`src-ui/logics/setup/firstRunSetup.ts`。
+- 関係: `/get/data/first_run_setup`、`/set/disable/first_run_setup`、`/run/start_model_download`、`/run/apply_model_download`、`/run/cancel_model_download`、`/set/data/realtime_asr_settings`、`/set/data/selected_transcription_engine`、`src-ui/views/app/_app_controllers/FirstRunSetupController.tsx`、`src-ui/logics/setup/firstRunSetup.ts`。
 
 ## UC-19 読み上げの声を試聴する
 

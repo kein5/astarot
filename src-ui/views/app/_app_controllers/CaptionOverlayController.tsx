@@ -6,11 +6,24 @@ import { useI18n } from "@useI18n";
 import { useIsBackendReady, useNotificationStatus } from "@logics_common";
 import { useAppearance, useVr, useExperimentalFeature } from "@logics_configs";
 import { captionLines, stampLines } from "../../../logics/captionOverlay/lines";
+import type { CaptionSnapshot, CaptionStamp } from "../../../logics/captionOverlay/lines";
 import { placementOf, steppedFontSize } from "../../../logics/captionOverlay/adjust";
 import { useIoFlow } from "../../../logics/flow/useIoFlow";
 import { overlayCount } from "../../../logics/flow/ioFlow.ts";
 import { flowNote, stripItems } from "../../../logics/flow/flowText.ts";
 import { failureRun, windowFailureKey } from "../../../logics/common/windowFailures.ts";
+import type { FailureRun, WindowStep } from "../../../logics/common/windowFailures.ts";
+
+// Where the native side says the window was dropped; placementOf checks it.
+type DroppedPlacement = { x?: unknown; y?: unknown } | null;
+
+// stampLines gives every line it was given a stamp; one missing stops here, as reading the
+// time of a missing stamp did.
+const stampOf = (stamps: ReadonlyMap<string, CaptionStamp>, id: string): CaptionStamp => {
+    const stamp = stamps.get(id);
+    if (!stamp) throw new TypeError("a caption line has no stamp");
+    return stamp;
+};
 
 // Captions over the desktop: opens the overlay window while the setting is on
 // and hands it the last rows of the message log. The window only draws; what
@@ -32,11 +45,12 @@ export const CaptionOverlayController = () => {
     const { currentIoFlow, currentIoTraces } = useIoFlow();
     const { showNotification_Error } = useNotificationStatus();
     const [supported, setSupported] = useState(false);
-    const stamps = useRef(null);
+    const stamps = useRef<ReadonlyMap<string, CaptionStamp> | null>(null);
     // A window that cannot be opened or updated is said once, until it works again (#397).
-    const failures = useRef(null);
-    failures.current ??= { open: failureRun(), update: failureRun() };
-    const notifyFailure = (step, error) => failures.current[step].failed(() => showNotification_Error(
+    const failures = useRef<Record<WindowStep, FailureRun> | null>(null);
+    // Made once; every render reads the same runs of failures.
+    const failure = failures.current ??= { open: failureRun(), update: failureRun() };
+    const notifyFailure = (step: WindowStep, error: unknown) => failure[step].failed(() => showNotification_Error(
         t(windowFailureKey("caption_overlay", step, error)), { category_id: `caption_overlay_${step}_failed` }));
 
     useEffect(() => {
@@ -57,7 +71,7 @@ export const CaptionOverlayController = () => {
     useEffect(() => {
         if (!supported) return;
         invoke("caption_overlay_set", { open: enabled, position: settings.position, placement })
-            .then(() => failures.current.open.succeeded(), error => {
+            .then(() => failure.open.succeeded(), error => {
                 console.error("Caption overlay window could not be changed", error);
                 // Closing a window that is gone needs no notice; opening one that fails does.
                 if (enabled) notifyFailure("open", error);
@@ -67,17 +81,18 @@ export const CaptionOverlayController = () => {
     // A step starts from the last size asked for while the backend has not confirmed it, so
     // quick presses each count. A confirmed size drops the requests up to it; a size changed
     // some other way (the slider, a reset) drops them all.
-    const latest = useRef(null);
-    const asked = useRef({ seen: settings.font_size, sizes: [] });
+    const newest = { settings, setOverlayDesktopSettings, setOverlayDesktopPlacement };
+    const latest = useRef(newest);
+    const asked = useRef<{ seen: number; sizes: number[] }>({ seen: settings.font_size, sizes: [] });
     if (asked.current.seen !== settings.font_size) {
         const confirmed = asked.current.sizes.indexOf(settings.font_size);
         asked.current = { seen: settings.font_size, sizes: confirmed < 0 ? [] : asked.current.sizes.slice(confirmed + 1) };
     }
-    latest.current = { settings, setOverlayDesktopSettings, setOverlayDesktopPlacement };
+    latest.current = newest;
     useEffect(() => {
         if (!supported) return undefined;
         const offs = [
-            listen("caption-overlay-moved", ({ payload }) => {
+            listen<DroppedPlacement>("caption-overlay-moved", ({ payload }) => {
                 const dropped = placementOf(payload);
                 if (dropped) latest.current.setOverlayDesktopPlacement(dropped);
             }),
@@ -103,13 +118,15 @@ export const CaptionOverlayController = () => {
                 onlyTranslated: currentOverlayShowOnlyTranslatedMessages.data === true, speakerNames: currentSpeakerNames.data,
             })
             : [];
-        stamps.current = stampLines(stamps.current, lines, Date.now(), settings.display_duration * 1000);
-        invoke("caption_overlay_update", { snapshot: {
-            lines: lines.map(line => ({ ...line, until: stamps.current.get(line.id).until })),
+        const stamped = stampLines(stamps.current, lines, Date.now(), settings.display_duration * 1000);
+        stamps.current = stamped;
+        const snapshot: CaptionSnapshot = {
+            lines: lines.map(line => ({ ...line, until: stampOf(stamped, line.id).until })),
             position: settings.position, font_size: settings.font_size, opacity: settings.opacity,
             font_family: currentSelectedFontFamily.data,
             ...(flowShown ? { flow: stripItems(currentIoTraces.data, count, t), flow_note: flowNote(currentIoFlow.data, t) } : {}),
-        } }).then(() => failures.current.update.succeeded(), error => {
+        };
+        invoke("caption_overlay_update", { snapshot }).then(() => failure.update.succeeded(), error => {
             // The error is a code or a system message, never the captions themselves.
             console.error("Caption overlay could not be updated", error);
             notifyFailure("update", error);

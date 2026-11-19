@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の設定画面の部品とテンプレートを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の `app/_app_controllers` の 2 回目を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
 | `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、636KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 51 本、456KB | 166 本、639KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/views`（試験を除く） | 46 本、406KB | 171 本、694KB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本、`app/io_flow`、`app/main_page`、設定画面の部品とテンプレートは済み。`app` の残りの区画が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers`（`StartPythonController` を除く）、`app/io_flow`、`app/main_page`、設定画面の部品とテンプレートは済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -151,12 +151,19 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 角の丸みは、Windows のバージョンを User-Agent Client Hints（`navigator.userAgentData`）から読みます。TypeScript の DOM の型にはまだないので、`src-ui/navigatorUAData.d.ts` で読む所だけを宣言しています。WebKitGTK にはないプロパティなので、省略できるものとして宣言しています。
 - Quick Chat から受け取るメッセージは、ネイティブのコマンドが返す型（`QuickChatRequest`）として受け取ります。`quickChat/bridge.ts` と同じく宣言だけで、実行時には確かめません。
 
-次の 6 本は、型を付ける作業が大きいので 2 回目に移します。
+次の 6 本は、型を付ける作業が大きいので 2 回目に回しました。2 回目で、`StartPythonController` を除く 5 本を、設定画面の部品の後に移しました。`StartPythonController` は `useReceiveRoutes` と一緒に移します。
 
 - `FirstRunSetupController`、`VirtualMicGuideController`、`TranslationSetupController`: 設定画面の部品（`LegacyModelDownloadDialog` など、JavaScript）に props を渡します。部品の推論された型では渡せないものがあるので、部品にも型を付けます。
 - `StartPythonController`: 受け取った応答を `useReceiveRoutes`（JavaScript）に渡します。
 - `VrPanelSyncController`: VR パネルから届く送信の要求を、確かめてからバックエンドへ渡します。届く値を確かめる型ガードが要ります。
 - `CaptionOverlayController`: 設定の値から、字幕の窓に渡す値（`CaptionSnapshot`）を組み立てます。
+
+2 回目で書き方を変えた所は次のとおりです。
+
+- VR パネルから届く送信の要求は `VrPanelStdoutRequest` として受け取ります。パスは前と同じく中継の一覧（`isRelayAllowed`、型ガード）で確かめてから送ります。値と言語の要求は、パネルが送るとおりに宣言だけで渡します。
+- 会話ログの差分は、値が `{ data: 行の配列 }` の形のときに送ります（型ガード `isLogState`）。
+- 字幕の窓へ送る値は、窓が確かめる型（`CaptionSnapshot`）として組み立てます。
+- 取得のフック（`useModelDownloads.ts`）の `ModelDownloadJob` に、初回セットアップが読むフィールド（`job_id`、`phase`、`error_code`、`received_bytes`、`total_bytes`）を宣言しました。宣言だけで、実行時には確かめません。
 
 4（`app/io_flow`）は 3 より先に移しました。`VrIoFlowWindow` と、メイン画面の `IoFlowPanel` も同じ PR で移しています。
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { MouseEvent } from "react";
 import { atom, useAtom } from "jotai";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
@@ -7,6 +8,7 @@ import { useOthers } from "@logics_configs";
 import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
+import type { VirtualMicCheck } from "../../../logics/voice/useVirtualMic";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { setupComesFirst } from "../../../logics/setup/firstRunSetup.ts";
 import { guideOpensByItself, preferredCable } from "../../../logics/voice/virtualMic.ts";
@@ -20,6 +22,8 @@ export const VB_CABLE_URL = "https://vb-audio.com/Cable/";
 const REDETECT_MS = 3000;
 const CHECK_ERRORS = ["virtual_mic_voice_muted", "virtual_mic_recording_unavailable", "virtual_mic_playback_unavailable",
     "virtual_mic_missing", "virtual_mic_check_busy", "audio_devices_unavailable"];
+// The cable's two device names for the sentences that name them; none before a cable is found.
+type CableLabels = { playback?: string; recording?: string };
 
 // The virtual microphone guide on Windows (#321). VRChat hears TTS and converted voice only
 // through a virtual cable, which the app cannot install. At start-up the guide opens by
@@ -48,7 +52,7 @@ export const VirtualMicGuideController = () => {
     const [later, setLater] = useAtom(laterAtom);
     // Once open by itself it stays open while a cable is installed, until the user closes it.
     const [shown, setShown] = useState(false);
-    const [chosen, setChosen] = useState(null);
+    const [chosen, setChosen] = useState<string | null>(null);
     const [linkFailed, setLinkFailed] = useState(false);
 
     // Other first-run notices and the first-run setup come first; one dialog at a time.
@@ -74,7 +78,7 @@ export const VirtualMicGuideController = () => {
     if (!open) return null;
     const cable = cables.find(item => item.playback === chosen) ?? preferredCable(status);
     const running = check.phase === "running";
-    const finish = (forGood) => {
+    const finish = (forGood: boolean) => {
         close();
         if (forGood) dismissNotice();
         setShown(false);
@@ -89,13 +93,13 @@ export const VirtualMicGuideController = () => {
         updateIsOpenedConfigPage(true);
     };
     // Opens the cable's own page in the browser; nothing is downloaded by the app.
-    const openDownloadPage = async event => {
+    const openDownloadPage = async (event: MouseEvent<HTMLElement>) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(VB_CABLE_URL); setLinkFailed(false); }
         catch { setLinkFailed(true); }
     };
-    const labels = cable ? { playback: cable.playback_label, recording: cable.recording_label } : {};
+    const labels: CableLabels = cable ? { playback: cable.playback_label, recording: cable.recording_label } : {};
     const outputOnCable = cable && status?.tts_output_is_cable && status.tts_output !== null;
 
     return <div className={`${styles.container} ${dialogStyles.host}`}>
@@ -124,7 +128,7 @@ export const VirtualMicGuideController = () => {
                 </p>
             </section>}
 
-            {found && <>
+            {found && cable && <>
                 <section className={guideStyles.step} aria-labelledby="virtual-mic-found">
                     <h4 id="virtual-mic-found">{t("virtual_mic.found.heading")}</h4>
                     {cables.length > 1 && <label className={guideStyles.choice}>
@@ -183,15 +187,17 @@ export const VirtualMicGuideController = () => {
     </div>;
 };
 
-const CheckOutcome = ({ check, labels }) => {
+const CheckOutcome = ({ check, labels }: { check: VirtualMicCheck; labels: CableLabels }) => {
     const { t } = useI18n();
     if (check.phase === "failed") {
-        const code = CHECK_ERRORS.includes(check.error) ? check.error : "other";
+        const code = check.error !== null && CHECK_ERRORS.includes(check.error) ? check.error : "other";
         return <p role="alert" className={guideStyles.failed}>{t(`virtual_mic.test.error.${code}`, labels)}</p>;
     }
-    if (check.phase !== "done") return null;
-    if (check.result.stopped) return <p role="status">{t("virtual_mic.test.stopped")}</p>;
-    if (check.result.heard) return <p role="status" className={guideStyles.heard}>{t("virtual_mic.test.heard", labels)}</p>;
+    // A finished check always carries its result (useVirtualMic).
+    const result = check.result;
+    if (check.phase !== "done" || !result) return null;
+    if (result.stopped) return <p role="status">{t("virtual_mic.test.stopped")}</p>;
+    if (result.heard) return <p role="status" className={guideStyles.heard}>{t("virtual_mic.test.heard", labels)}</p>;
     return <div role="alert" className={guideStyles.failed}>
         <p>{t("virtual_mic.test.not_heard", labels)}</p>
         <ul>

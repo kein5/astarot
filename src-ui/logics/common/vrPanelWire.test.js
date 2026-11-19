@@ -161,7 +161,7 @@ test("the VR panel is not sent credentials, advanced settings, updates or hotkey
 // SEC-03: the state goes through the VR panel's own channel, never an event other windows hear.
 test("the state is pushed to the VR panel's channel, not emitted as an event", () => {
     const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
-    const sender = read("../../views/app/_app_controllers/VrPanelSyncController.jsx");
+    const sender = read("../../views/app/_app_controllers/VrPanelSyncController.tsx");
     const receiver = read("../../views/vr/VrApp.jsx");
     assert.match(sender, /invoke\("vr_panel_state_push"/);
     assert.match(receiver, /invoke\("vr_panel_state_subscribe"/);
