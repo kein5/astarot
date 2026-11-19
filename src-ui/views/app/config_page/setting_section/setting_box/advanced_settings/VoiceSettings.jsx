@@ -119,6 +119,7 @@ export const VoiceSettings = () => {
                         {monitorList.map(device => <option key={device.id} value={device.id}>{device.label}</option>)}
                     </select></label>
                     <label>{t("voice.monitor_volume")}: {draft.monitor_volume ?? "100"}%<input type="range" min="0" max="100" step="5" aria-label={t("voice.monitor_volume")}
+                        style={{ "--range-fill": `${draft.monitor_volume ?? "100"}%` }}
                         disabled={draft.monitor !== "on"} value={draft.monitor_volume ?? "100"} onChange={e => field("monitor_volume", String(e.target.value))} /></label>
                     {status.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${status.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
                 </fieldset>

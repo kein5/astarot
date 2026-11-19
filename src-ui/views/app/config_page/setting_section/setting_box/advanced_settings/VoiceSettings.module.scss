@@ -96,12 +96,16 @@
     dialog > label.checkLabel { margin-top: .8rem; padding: 0; font-size: 1.4rem; line-height: 1.5; }
     dialog > .actions { margin-top: .4rem; }
     dialog > .actions button { margin: 0; }
-    // A range control looks like the shared Slider (4px track, 18px blue thumb), not a text field.
+    // A range control looks like the shared Slider (6px groove filled up to the value, 18px Lilac
+    // thumb), not a text field. Chromium and WebKit have no part for the filled length, so the
+    // form sets --range-fill to the value's share and the groove paints it; the thumb, centred
+    // within its own width of the value's place, always covers where the paint ends.
     input[type="range"] { appearance: none; -webkit-appearance: none; height: 2.4rem; min-height: 2.4rem; padding: 0; background: transparent; border: 0; cursor: pointer; }
-    input[type="range"]::-webkit-slider-runnable-track { height: .4rem; border-radius: .2rem; background: var(--dark_825_color); }
-    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 1.8rem; height: 1.8rem; margin-top: -.7rem; border-radius: 50%; background: var(--primary_600_color); }
-    input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 .8rem var(--primary_600_color_44); }
-    input[type="range"]::-moz-range-track { height: .4rem; border-radius: .2rem; background: var(--dark_825_color); }
+    input[type="range"]::-webkit-slider-runnable-track { height: .6rem; border-radius: .3rem; background: linear-gradient(to right, var(--primary_600_color) var(--range-fill, 0%), var(--dark_825_color) var(--range-fill, 0%)); }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 1.8rem; height: 1.8rem; margin-top: -.6rem; border-radius: 50%; background: var(--primary_600_color); }
+    input[type="range"]:hover:enabled::-webkit-slider-thumb { box-shadow: 0 0 0 .8rem var(--primary_600_color_44); }
+    input[type="range"]::-moz-range-track { height: .6rem; border-radius: .3rem; background: var(--dark_825_color); }
+    input[type="range"]::-moz-range-progress { height: .6rem; border-radius: .3rem; background: var(--primary_600_color); }
     input[type="range"]::-moz-range-thumb { width: 1.8rem; height: 1.8rem; border: 0; border-radius: 50%; background: var(--primary_600_color); }
     // 16rem label + 18rem control + 1.6rem gap, measured inside each form/fieldset.
     @container (max-width: 35.6rem) { label { grid-template-columns: minmax(0, 1fr); gap: .8rem; } }
