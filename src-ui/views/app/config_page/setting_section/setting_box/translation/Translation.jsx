@@ -10,7 +10,9 @@ import { useModelDownloads } from "../../../../../../logics/voice/useModelDownlo
 import { translationDownloadable } from "../../../../../../logics/main/setupNeeds";
 import { computeDeviceLabel, needsRestart } from "../_components/compute_device/computeDeviceOptions";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
-import { isUsersWeight, weightLabel } from "../../../../../../logics/translation/translationCatalog";
+import { ENGINE_FORM_SETTING_ID, isUsersWeight, weightLabel } from "../../../../../../logics/translation/translationCatalog";
+import { revealSetting } from "../../../../../../logics/configs/revealSetting.ts";
+import { FormRow } from "../_components/form_row/FormRow";
 import { localModelList } from "../../../../../../logics/translation/localModelList";
 import { TranslationCatalogSection } from "./TranslationCatalog";
 import { TranslationGpuRuntimes } from "./TranslationGpuRuntimes";
@@ -113,6 +115,7 @@ const AITranslation_Container = () => {
             <SetupSection title={t("config_page.translation.setup_title")} status={status} attention={!!weight && !weight.is_downloaded && !(unavailable && nothingToGet)}>
                 {/* Unfolded: the way forward is its second sentence. */}
                 {nothingToGet && <Description text={t("config_page.translation.models_unavailable")} fold={false} />}
+                {translationCatalog?.retired_folder_used === true && <RetiredModelsFolderNote />}
                 <CTranslate2WeightType_Box />
                 <TranslationComputeDevice_Box />
                 {/* The GPU builds of ONNX Runtime, fetched only when asked for (decision 2 (c)). */}
@@ -120,6 +123,20 @@ const AITranslation_Container = () => {
             </SetupSection>
         </div>
     );
+};
+
+// Earlier versions listed the models placed in the translation-models folder; they are no
+// longer listed (#597). While that folder holds something, a row above the model list says so
+// and its button leads to the translation catalog's form that adds a model from any folder:
+// the folds around it open, it scrolls into view and its first field takes focus.
+export const RetiredModelsFolderNote = () => {
+    const { t } = useI18n();
+    const key = name => `config_page.translation.retired_models_folder.${name}`;
+    return <div data-retired-models-folder>
+        <FormRow group label={t(key("label"))} description={t(key("desc"))} fold={false}>
+            <button type="button" onClick={() => revealSetting({ setting_id: ENGINE_FORM_SETTING_ID })}>{t(key("open_add_form"))}</button>
+        </FormRow>
+    </div>;
 };
 
 // One provider is one line until it is opened: most people use one of them or
@@ -256,8 +273,8 @@ const CTranslate2WeightType_Box = () => {
     const listed = localModelList(currentCTranslate2WeightTypeStatus.data, currentSelectedCTranslate2WeightType.data, catalog).rows;
     const c_translate2_weight_types_object = listed.map(item => {
         const non_commercial = isNonCommercialWeight(item);
-        // A model the user added: its name is its folder's or its catalog entry's, and its
-        // licence is theirs to check.
+        // A model the user added: its name is its catalog entry's, and its licence is theirs
+        // to check.
         if (item.is_custom) {
             return {
                 ...item,

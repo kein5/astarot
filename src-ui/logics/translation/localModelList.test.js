@@ -8,7 +8,7 @@ const DEFAULT = "m2m100_418M-ct2-int8";
 const NLLB = "nllb-200-distilled-600M-ct2-int8";
 const weights = (downloaded = []) => [
     ...ctranslate2_weight_type_status.map(weight => ({ ...weight, is_downloaded: downloaded.includes(weight.id) })),
-    { id: "custom:my-model", is_custom: true, is_downloaded: true },
+    { id: "user:tr-0", is_custom: true, is_downloaded: true },
     { id: "user:tr-1", is_custom: true, is_downloaded: false },
 ];
 const published = (...ids) => ({ legacy_models: [], models: ids.map(id => ({ id, target: "translation" })) });
@@ -16,7 +16,7 @@ const ids = list => list.rows.map(row => row.id);
 
 test("with nothing published only the selected built-in model and the user's models are listed", () => {
     const list = localModelList(weights(), DEFAULT, published());
-    assert.deepEqual(ids(list), [DEFAULT, "custom:my-model", "user:tr-1"]);
+    assert.deepEqual(ids(list), [DEFAULT, "user:tr-0", "user:tr-1"]);
     // The selected row stays for the line above the list, marked: it has no download button.
     assert.equal(list.rows[0].download_unavailable, true);
     assert.equal(list.rows[1].download_unavailable, undefined);
@@ -25,7 +25,7 @@ test("with nothing published only the selected built-in model and the user's mod
 
 test("a published weight is listed with its download, the others are not", () => {
     const list = localModelList(weights(), NLLB, published("m2m100-418m-onnx-int8"));
-    assert.deepEqual(ids(list), [DEFAULT, NLLB, "custom:my-model", "user:tr-1"]);
+    assert.deepEqual(ids(list), [DEFAULT, NLLB, "user:tr-0", "user:tr-1"]);
     assert.equal(list.rows.find(row => row.id === DEFAULT).download_unavailable, undefined);
     assert.equal(list.rows.find(row => row.id === NLLB).download_unavailable, true);
     // A model can be had: the note that points to other engines is not needed.
@@ -42,17 +42,17 @@ test("a listed NLLB row keeps what its license confirmation reads", () => {
 
 test("downloaded built-in models stay listed, and a usable selection needs no note", () => {
     const list = localModelList(weights(["m2m100_1.2B-ct2-int8"]), "m2m100_1.2B-ct2-int8", published());
-    assert.deepEqual(ids(list), ["m2m100_1.2B-ct2-int8", "custom:my-model", "user:tr-1"]);
+    assert.deepEqual(ids(list), ["m2m100_1.2B-ct2-int8", "user:tr-0", "user:tr-1"]);
     assert.equal(list.unavailable, false);
     // The user's own model in use: the local translation works.
-    assert.equal(localModelList(weights(), "custom:my-model", published()).unavailable, false);
+    assert.equal(localModelList(weights(), "user:tr-0", published()).unavailable, false);
     // Their model is gone, and nothing can be downloaded: other engines are the way.
     assert.equal(localModelList(weights(), "user:tr-1", published()).unavailable, true);
 });
 
 test("before the catalog arrives nothing is marked, and nothing that may not be offered is listed", () => {
     const list = localModelList(weights(), DEFAULT, null);
-    assert.deepEqual(ids(list), [DEFAULT, "custom:my-model", "user:tr-1"]);
+    assert.deepEqual(ids(list), [DEFAULT, "user:tr-0", "user:tr-1"]);
     assert.equal(list.rows[0].download_unavailable, undefined);
     assert.equal(list.unavailable, false);
 });
