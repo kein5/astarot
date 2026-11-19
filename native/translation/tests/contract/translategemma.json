@@ -1,0 +1,70 @@
+{
+  "about": "TranslateGemma on llama.cpp's server (ADR-015). What the client must send to /completion and return. Python never had this client, so every case has `expect`. The prompt is the sentence of TranslateGemma's chat_template.jinja; `prompt` names the case's expected prompt by its source, target and text.",
+  "base": "http://127.0.0.1:41000",
+  "key": "test-key",
+  "cases": [
+    {
+      "id": "translategemma_ja_en",
+      "translation": { "text": " こんにちは。\n", "source": "ja", "target": "en" },
+      "answers": [{ "method": "POST", "url": "http://127.0.0.1:41000/completion", "replies": [{ "status": 200, "body": { "content": " Hello.\n", "stop": true, "stop_type": "eos", "tokens_predicted": 3 } }] }],
+      "expect": {
+        "requests": [{
+          "method": "POST",
+          "url": "http://127.0.0.1:41000/completion",
+          "headers": { "authorization": "Bearer test-key", "content-type": "application/json" },
+          "body": { "prompt": { "source": "Japanese", "source_code": "ja", "target": "English", "target_code": "en", "text": "こんにちは。" }, "n_predict": 512, "temperature": 0.0, "top_k": 1, "stream": false },
+          "timeout": { "connect": 5.0, "read": 120.0, "write": 10.0 }
+        }],
+        "outcome": { "text": "Hello." }
+      }
+    },
+    {
+      "id": "translategemma_zh_hans_ko",
+      "translation": { "text": "你好", "source": "zh-Hans", "target": "ko" },
+      "answers": [{ "method": "POST", "url": "http://127.0.0.1:41000/completion", "replies": [{ "status": 200, "body": { "content": "안녕하세요<end_of_turn>", "stop": true, "stop_type": "word" } }] }],
+      "expect": {
+        "requests": [{
+          "method": "POST",
+          "url": "http://127.0.0.1:41000/completion",
+          "headers": { "authorization": "Bearer test-key", "content-type": "application/json" },
+          "body": { "prompt": { "source": "Chinese", "source_code": "zh-Hans", "target": "Korean", "target_code": "ko", "text": "你好" }, "n_predict": 512, "temperature": 0.0, "top_k": 1, "stream": false },
+          "timeout": { "connect": 5.0, "read": 120.0, "write": 10.0 }
+        }],
+        "outcome": { "text": "안녕하세요" }
+      }
+    },
+    {
+      "id": "translategemma_cut_at_the_limit",
+      "note": "A translation cut at n_predict is not half returned.",
+      "translation": { "text": "長い文", "source": "ja", "target": "en" },
+      "answers": [{ "method": "POST", "url": "http://127.0.0.1:41000/completion", "replies": [{ "status": 200, "body": { "content": "A long sent", "stop": true, "stop_type": "limit" } }] }],
+      "expect": { "request_count": 1, "outcome": { "failed": "unexpected_answer" } }
+    },
+    {
+      "id": "translategemma_wrong_key",
+      "translation": { "text": "はい", "source": "ja", "target": "en" },
+      "answers": [{ "method": "POST", "url": "http://127.0.0.1:41000/completion", "replies": [{ "status": 401, "body": { "error": { "code": 401, "message": "Invalid API Key", "type": "authentication_error" } } }] }],
+      "expect": { "request_count": 1, "outcome": { "failed": "status_401" } }
+    },
+    {
+      "id": "translategemma_server_gone",
+      "note": "No retry: the owner of the server finds out it ended and says so.",
+      "translation": { "text": "はい", "source": "ja", "target": "en" },
+      "answers": [{ "method": "POST", "url": "http://127.0.0.1:41000/completion", "replies": [{}] }],
+      "expect": { "request_count": 1, "outcome": { "failed": "unreachable" } }
+    },
+    {
+      "id": "translategemma_unknown_answer",
+      "translation": { "text": "はい", "source": "ja", "target": "en" },
+      "answers": [{ "method": "POST", "url": "http://127.0.0.1:41000/completion", "replies": [{ "status": 200, "body": { "choices": [] } }] }],
+      "expect": { "request_count": 1, "outcome": { "failed": "unexpected_answer" } }
+    },
+    {
+      "id": "translategemma_language_without_a_code",
+      "note": "A code the template does not have is refused before anything is sent.",
+      "translation": { "text": "はい", "source": "jpn_Jpan", "target": "en" },
+      "answers": [],
+      "expect": { "request_count": 0, "outcome": { "failed": "unsupported_pair" } }
+    }
+  ]
+}
